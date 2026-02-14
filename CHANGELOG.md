@@ -1,5 +1,59 @@
 # Changelog
 
+## [2.0.0] - 2024-02-14 - SECURITY HARDENING RELEASE
+
+### 🔒 CRITICAL SECURITY FIXES
+- **Fixed wildcard imports from Scapy** - Replaced with specific imports to prevent namespace pollution
+- **Enforced Redis authentication** - Password now required via environment variable, fails in production without auth
+- **Added comprehensive configuration validation** - Schema validation prevents configuration injection attacks
+- **Secured secrets directories** - Set proper permissions (700) on secrets/ and ssl/private/ directories
+
+### 🛡️ HIGH PRIORITY SECURITY FIXES
+- **Changed default bind address** - Now binds to 127.0.0.1 by default instead of 0.0.0.0
+- **Implemented fail-closed rate limiting** - Blocks requests on Redis errors instead of allowing
+- **Added structured logging with sensitive data filtering** - Automatically redacts passwords, tokens, and PII
+- **Enhanced Docker security** - Added seccomp, dropped capabilities, read-only filesystems where possible
+- **Improved health checks** - Health check now validates actual service functionality via HTTP
+
+### 🔧 MEDIUM PRIORITY SECURITY FIXES
+- **Fixed exception handling** - JA4 generation now raises exceptions instead of returning empty strings
+- **Added metrics endpoint security** - Configuration for authentication and network restrictions
+- **Made timeouts configurable** - All timeout values now configurable to prevent resource exhaustion
+- **Enhanced error handling** - Comprehensive error handling with security event metrics
+
+### ✨ SECURITY FEATURES ADDED
+- Environment variable support for secrets (${VAR_NAME} syntax)
+- SensitiveDataFilter class for log sanitization
+- SecureFormatter for production-safe exception logging
+- Enhanced security metrics (SECURITY_EVENTS, TLS_HANDSHAKE_ERRORS, CERTIFICATE_EVENTS)
+- Comprehensive .gitignore for sensitive files
+- Security documentation and checklists
+
+### 📚 DOCUMENTATION ADDED
+- SECURITY_FIXES.md - Detailed security fix documentation
+- SECURITY_CHECKLIST.md - Pre-deployment security checklist
+- .env.example - Environment variable template with security guidelines
+- Enhanced README in secrets/ and ssl/private/ directories
+
+### 🔄 BREAKING CHANGES
+- Redis password now REQUIRED in production (set REDIS_PASSWORD environment variable)
+- Default bind address changed from 0.0.0.0 to 127.0.0.1
+- JA4 generation now raises ValidationError on failure instead of returning empty string
+- Configuration validation now enforces strict typing and ranges
+
+### 🐛 BUG FIXES
+- Fixed Redis initialization without proper connection testing
+- Fixed timeout handling with proper exception types
+- Fixed empty fingerprint validation bypass
+- Fixed log message format consistency
+
+### ⚠️ DEPRECATED
+- Wildcard imports (removed)
+- Null Redis passwords in production (blocked)
+- Empty string returns on errors (now raises exceptions)
+
+---
+
 ## [1.0.0] - 2024-02-14
 
 ### Added

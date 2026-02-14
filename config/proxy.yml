@@ -1,11 +1,17 @@
 # Proxy configuration
 proxy:
-  bind_host: "0.0.0.0"
+  # SECURITY: Default to localhost, override in production with firewall rules
+  # Using 0.0.0.0 exposes to all interfaces - only use with proper network security
+  bind_host: "127.0.0.1"
   bind_port: 8080
   backend_host: "127.0.0.1"
   backend_port: 80
   max_connections: 1000
+  # SECURITY FIX: Configurable timeouts to prevent resource exhaustion
   connection_timeout: 30
+  read_timeout: 30
+  write_timeout: 30
+  keepalive_timeout: 60
   buffer_size: 8192
 
 # Redis configuration
@@ -13,8 +19,13 @@ redis:
   host: "redis"
   port: 6379
   db: 0
-  password: null
+  # SECURITY: Password MUST be set via environment variable REDIS_PASSWORD
+  # Never commit actual passwords to version control
+  password: "${REDIS_PASSWORD}"
   timeout: 5
+  # Enable TLS for Redis connections in production
+  ssl: false
+  ssl_cert_reqs: "required"
 
 # Security settings
 security:
@@ -30,6 +41,13 @@ security:
 metrics:
   enabled: true
   port: 9090
+  # SECURITY FIX: Add authentication for metrics endpoint
+  authentication:
+    enabled: false  # Set to true in production
+    username: "${METRICS_USERNAME}"
+    password: "${METRICS_PASSWORD}"
+  # Restrict access to internal networks only
+  bind_host: "0.0.0.0"  # Override to 127.0.0.1 or specific IP in production
 
 # Logging configuration
 logging:

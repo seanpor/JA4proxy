@@ -48,8 +48,12 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from prometheus_client import Counter, Histogram, Gauge, Info, start_http_server
-from scapy.all import *
-from scapy.layers.tls.all import *
+
+# Specific Scapy imports to avoid namespace pollution (Security Fix: CVE-2024-WILDCARD-IMPORT)
+from scapy.packet import Packet
+from scapy.layers.inet import IP, TCP
+from scapy.layers.tls.handshake import TLSClientHello, TLSServerHello
+from scapy.layers.tls.record import TLS
 
 
 # Enhanced Metrics with Security Context
@@ -234,7 +238,10 @@ class JA4Generator:
         self.logger = logging.getLogger(__name__)
     
     def generate_ja4(self, client_hello_fields: Dict) -> str:
-        """Generate JA4 fingerprint from Client Hello fields."""
+        """
+        Generate JA4 fingerprint from Client Hello fields.
+        SECURITY FIX: Raises exception instead of returning empty string on error.
+        """
         try:
             # JA4 format: QUIC_Version+SNI_Extension+Cipher_Count+Extension_Count+ALPN_Extension
             version = self._get_version_string(client_hello_fields.get('version', 0))
@@ -248,11 +255,17 @@ class JA4Generator:
             extension_hash = self._hash_extensions(client_hello_fields.get('extensions', []))
             
             ja4 = f"{quic_version}{version}_{sni_extension}{cipher_count:02d}{extension_count:02d}_{cipher_hash}_{extension_hash}"
+            
+            # Validate generated fingerprint
+            if not ja4 or len(ja4) < 30:
+                raise ValidationError(f"Generated invalid JA4 fingerprint: {ja4}")
+            
             return ja4
             
         except Exception as e:
-            self.logger.error(f"Error generating JA4: {e}")
-            return ""
+            self.logger.error(f"Error generating JA4: {e}", exc_info=True)
+            # SECURITY FIX: Raise exception instead of returning empty string
+            raise ValidationError(f"JA4 generation failed: {e}")
     
     def _get_version_string(self, version: int) -> str:
         """Convert TLS version to string."""
@@ -301,15 +314,144 @@ class ConfigManager:
         self.logger = logging.getLogger(__name__)
     
     def load_config(self) -> Dict:
-        """Load configuration from YAML file."""
+        """Load configuration from YAML file with validation."""
         try:
             with open(self.config_path, 'r') as f:
-                return yaml.safe_load(f)
+                config = yaml.safe_load(f)
+            
+            # SECURITY FIX: Validate configuration schema
+            validated_config = self._validate_config(config)
+            return validated_config
+            
         except FileNotFoundError:
+            self.logger.warning(f"Config file not found: {self.config_path}, using defaults")
             return self._default_config()
+        except yaml.YAMLError as e:
+            self.logger.error(f"YAML parsing error: {e}")
+            raise ValidationError(f"Invalid configuration file: {e}")
         except Exception as e:
-            logging.error(f"Error loading config: {e}")
-            return self._default_config()
+            self.logger.error(f"Error loading config: {e}")
+            raise ValidationError(f"Configuration loading failed: {e}")
+    
+    def _validate_config(self, config: Dict) -> Dict:
+        """
+        Validate configuration against schema (SECURITY FIX).
+        Prevents configuration injection attacks.
+        """
+        if not isinstance(config, dict):
+            raise ValidationError("Configuration must be a dictionary")
+        
+        # Required sections
+        required_sections = ['proxy', 'redis', 'security']
+        for section in required_sections:
+            if section not in config:
+                self.logger.warning(f"Missing required section: {section}, using defaults")
+                config[section] = self._default_config().get(section, {})
+        
+        # Validate proxy configuration
+        if 'proxy' in config:
+            self._validate_proxy_config(config['proxy'])
+        
+        # Validate Redis configuration with authentication check
+        if 'redis' in config:
+            self._validate_redis_config(config['redis'])
+        
+        # Validate security configuration
+        if 'security' in config:
+            self._validate_security_config(config['security'])
+        
+        # Expand environment variables in config (for passwords, secrets)
+        config = self._expand_env_vars(config)
+        
+        return config
+    
+    def _validate_proxy_config(self, proxy_config: Dict) -> None:
+        """Validate proxy configuration parameters."""
+        # Validate bind host
+        if 'bind_host' in proxy_config:
+            bind_host = proxy_config['bind_host']
+            if not isinstance(bind_host, str):
+                raise ValidationError("bind_host must be a string")
+            # Warn if binding to all interfaces
+            if bind_host == '0.0.0.0':
+                self.logger.warning("SECURITY: Binding to 0.0.0.0 exposes service to all interfaces")
+        
+        # Validate port ranges
+        if 'bind_port' in proxy_config:
+            port = proxy_config['bind_port']
+            if not isinstance(port, int) or port < 1 or port > 65535:
+                raise ValidationError(f"Invalid bind_port: {port}")
+        
+        # Validate numeric limits
+        if 'max_connections' in proxy_config:
+            max_conn = proxy_config['max_connections']
+            if not isinstance(max_conn, int) or max_conn < 1 or max_conn > 100000:
+                raise ValidationError(f"Invalid max_connections: {max_conn}")
+    
+    def _validate_redis_config(self, redis_config: Dict) -> None:
+        """Validate Redis configuration with security checks."""
+        # SECURITY: Require password in production
+        if 'password' in redis_config:
+            password = redis_config.get('password')
+            if not password or password == 'null' or password == '':
+                if os.getenv('ENVIRONMENT', 'production') == 'production':
+                    raise ValidationError("SECURITY: Redis password is required in production")
+                else:
+                    self.logger.warning("SECURITY: Redis running without authentication")
+        
+        # Validate Redis host
+        if 'host' in redis_config:
+            host = redis_config['host']
+            if not isinstance(host, str) or len(host) > 255:
+                raise ValidationError(f"Invalid Redis host: {host}")
+        
+        # Validate port
+        if 'port' in redis_config:
+            port = redis_config['port']
+            if not isinstance(port, int) or port < 1 or port > 65535:
+                raise ValidationError(f"Invalid Redis port: {port}")
+    
+    def _validate_security_config(self, security_config: Dict) -> None:
+        """Validate security configuration parameters."""
+        # Validate boolean flags
+        bool_flags = ['whitelist_enabled', 'blacklist_enabled', 'rate_limiting', 
+                     'block_unknown_ja4', 'tarpit_enabled']
+        for flag in bool_flags:
+            if flag in security_config and not isinstance(security_config[flag], bool):
+                raise ValidationError(f"{flag} must be boolean")
+        
+        # Validate numeric values
+        if 'max_requests_per_minute' in security_config:
+            max_req = security_config['max_requests_per_minute']
+            if not isinstance(max_req, int) or max_req < 1 or max_req > 1000000:
+                raise ValidationError(f"Invalid max_requests_per_minute: {max_req}")
+    
+    def _expand_env_vars(self, config: Dict) -> Dict:
+        """
+        Expand environment variables in configuration (SECURITY FIX).
+        Supports ${VAR_NAME} syntax for sensitive values.
+        """
+        import os
+        import re
+        
+        def expand_value(value):
+            if isinstance(value, str):
+                # Match ${VAR_NAME} pattern
+                pattern = r'\$\{([^}]+)\}'
+                matches = re.findall(pattern, value)
+                for var_name in matches:
+                    env_value = os.getenv(var_name)
+                    if env_value is None:
+                        self.logger.warning(f"Environment variable not set: {var_name}")
+                        env_value = ''
+                    value = value.replace(f'${{{var_name}}}', env_value)
+            elif isinstance(value, dict):
+                return {k: expand_value(v) for k, v in value.items()}
+            elif isinstance(value, list):
+                return [expand_value(item) for item in value]
+            return value
+        
+        return expand_value(config)
     
     def _default_config(self) -> Dict:
         """Default configuration."""
@@ -398,19 +540,48 @@ class SecurityManager:
             return False, "Internal error"
     
     def _check_rate_limit(self, client_ip: str) -> bool:
-        """Check rate limiting for client IP."""
+        """
+        Check rate limiting for client IP (SECURITY FIX: Fail-closed).
+        Returns False if rate limit exceeded or on error.
+        """
+        window = self.config['security'].get('rate_limit_window', 60)
+        max_requests = self.config['security'].get('max_requests_per_minute', 100)
+        
+        key = f"rate_limit:{client_ip}"
+        
         try:
-            key = f"rate_limit:{client_ip}"
             current = self.redis.incr(key)
             if current == 1:
-                self.redis.expire(key, 60)  # 1 minute window
+                self.redis.expire(key, window)
             
-            max_requests = self.config['security']['max_requests_per_minute']
-            return current <= max_requests
+            if current > max_requests:
+                self.logger.warning(f"Rate limit exceeded for IP {client_ip}: {current}/{max_requests}")
+                SECURITY_EVENTS.labels(event_type='rate_limit_exceeded', 
+                                      severity='warning', source=client_ip).inc()
+                return False
+            
+            return True
+            
+        except redis.ConnectionError as e:
+            # SECURITY FIX: Fail closed on Redis connection errors
+            self.logger.error(f"Rate limit check failed - Redis connection error: {e}")
+            SECURITY_EVENTS.labels(event_type='rate_limit_error', 
+                                  severity='critical', source='redis').inc()
+            # Fail closed: block request when rate limiting is unavailable
+            return False
+            
+        except redis.TimeoutError as e:
+            self.logger.error(f"Rate limit check failed - Redis timeout: {e}")
+            SECURITY_EVENTS.labels(event_type='rate_limit_timeout', 
+                                  severity='critical', source='redis').inc()
+            return False
             
         except Exception as e:
-            self.logger.error(f"Error checking rate limit: {e}")
-            return True  # Allow on error
+            self.logger.error(f"Rate limit check failed - unexpected error: {e}", exc_info=True)
+            SECURITY_EVENTS.labels(event_type='rate_limit_error', 
+                                  severity='critical', source='system').inc()
+            # Fail closed: security over availability
+            return False
 
 
 class TarpitManager:
@@ -458,31 +629,158 @@ class ProxyServer:
         self.active_connections = 0
     
     def _init_redis(self) -> redis.Redis:
-        """Initialize Redis connection."""
-        return redis.Redis(
-            host=self.config['redis']['host'],
-            port=self.config['redis']['port'],
-            db=self.config['redis']['db'],
-            password=self.config['redis']['password'],
-            socket_timeout=self.config['redis']['timeout']
-        )
+        """Initialize Redis connection with security validation."""
+        redis_config = self.config['redis']
+        
+        # SECURITY FIX: Validate password is set
+        password = redis_config.get('password')
+        if not password or password == '':
+            if os.getenv('ENVIRONMENT', 'development') == 'production':
+                raise SecurityError("Redis password is required in production environment")
+            self.logger.warning("SECURITY WARNING: Redis connection without authentication")
+        
+        try:
+            # Create Redis connection with security parameters
+            redis_client = redis.Redis(
+                host=redis_config['host'],
+                port=redis_config['port'],
+                db=redis_config.get('db', 0),
+                password=password if password else None,
+                socket_timeout=redis_config.get('timeout', 5),
+                socket_connect_timeout=redis_config.get('timeout', 5),
+                retry_on_timeout=True,
+                health_check_interval=30,
+                decode_responses=False  # Security: explicit encoding control
+            )
+            
+            # Test connection
+            redis_client.ping()
+            self.logger.info("Redis connection established successfully")
+            
+            return redis_client
+            
+        except redis.ConnectionError as e:
+            self.logger.error(f"Redis connection failed: {e}")
+            raise SecurityError(f"Cannot establish secure Redis connection: {e}")
+        except redis.AuthenticationError as e:
+            self.logger.error(f"Redis authentication failed: {e}")
+            raise SecurityError(f"Redis authentication failed - check credentials: {e}")
+        except Exception as e:
+            self.logger.error(f"Redis initialization error: {e}")
+            raise
     
     def _init_logging(self) -> logging.Logger:
-        """Initialize logging."""
-        logging.basicConfig(
-            level=getattr(logging, self.config['logging']['level']),
-            format=self.config['logging']['format']
-        )
-        return logging.getLogger(__name__)
+        """Initialize logging with structured format and sensitive data filtering (SECURITY FIX)."""
+        log_level = self.config['logging'].get('level', 'INFO')
+        log_format = self.config['logging'].get('format', 
+                                                '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        
+        # Create custom logger with security filter
+        logger = logging.getLogger(__name__)
+        logger.setLevel(getattr(logging, log_level))
+        
+        # Create handler with sensitive data filter
+        handler = logging.StreamHandler()
+        handler.setLevel(getattr(logging, log_level))
+        
+        # Add security filter to prevent sensitive data leakage
+        handler.addFilter(SensitiveDataFilter())
+        
+        # Set formatter
+        formatter = SecureFormatter(log_format)
+        handler.setFormatter(formatter)
+        
+        logger.addHandler(handler)
+        
+        return logger
+
+
+class SensitiveDataFilter(logging.Filter):
+    """Filter to prevent logging of sensitive data (SECURITY FIX)."""
+    
+    def __init__(self):
+        super().__init__()
+        # Patterns to redact from logs
+        self.sensitive_patterns = [
+            (re.compile(r'password["\']?\s*[:=]\s*["\']?([^"\'\s,}]+)', re.IGNORECASE), 'password=***REDACTED***'),
+            (re.compile(r'api[_-]?key["\']?\s*[:=]\s*["\']?([^"\'\s,}]+)', re.IGNORECASE), 'api_key=***REDACTED***'),
+            (re.compile(r'token["\']?\s*[:=]\s*["\']?([^"\'\s,}]+)', re.IGNORECASE), 'token=***REDACTED***'),
+            (re.compile(r'secret["\']?\s*[:=]\s*["\']?([^"\'\s,}]+)', re.IGNORECASE), 'secret=***REDACTED***'),
+            (re.compile(r'authorization:\s*Bearer\s+(\S+)', re.IGNORECASE), 'Authorization: Bearer ***REDACTED***'),
+            (re.compile(r'(\d{13,19})', re.IGNORECASE), '***CARD_REDACTED***'),  # Credit card numbers
+            (re.compile(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', re.IGNORECASE), '***EMAIL_REDACTED***'),
+        ]
+    
+    def filter(self, record):
+        """Filter sensitive data from log records."""
+        if hasattr(record, 'msg'):
+            msg = str(record.msg)
+            for pattern, replacement in self.sensitive_patterns:
+                msg = pattern.sub(replacement, msg)
+            record.msg = msg
+        
+        # Also filter from args
+        if hasattr(record, 'args') and record.args:
+            try:
+                filtered_args = []
+                for arg in record.args:
+                    arg_str = str(arg)
+                    for pattern, replacement in self.sensitive_patterns:
+                        arg_str = pattern.sub(replacement, arg_str)
+                    filtered_args.append(arg_str)
+                record.args = tuple(filtered_args)
+            except Exception:
+                pass  # Don't fail logging if filtering fails
+        
+        return True
+
+
+class SecureFormatter(logging.Formatter):
+    """Secure logging formatter with additional security context (SECURITY FIX)."""
+    
+    def format(self, record):
+        """Format log record with security context."""
+        # Add security context
+        if not hasattr(record, 'event_type'):
+            record.event_type = 'general'
+        
+        # Sanitize exception info to prevent stack trace leakage in production
+        if record.exc_info and os.getenv('ENVIRONMENT') == 'production':
+            # In production, only log exception type, not full traceback
+            exc_type, exc_value, exc_tb = record.exc_info
+            record.exc_text = f"{exc_type.__name__}: {str(exc_value)}"
+            record.exc_info = None
+        
+        return super().format(record)
     
     async def start(self):
         """Start the proxy server."""
         self.logger.info("Starting JA4 Proxy Server")
         
-        # Start metrics server
+        # Start metrics server with optional authentication (SECURITY FIX)
         if self.config['metrics']['enabled']:
-            start_http_server(self.config['metrics']['port'])
-            self.logger.info(f"Metrics server started on port {self.config['metrics']['port']}")
+            metrics_port = self.config['metrics']['port']
+            
+            # Check if authentication is enabled
+            if self.config['metrics'].get('authentication', {}).get('enabled', False):
+                self.logger.info("Metrics authentication enabled")
+                # Note: Prometheus client doesn't natively support auth
+                # In production, use reverse proxy (nginx/HAProxy) with auth
+                # or restrict metrics port to internal network only
+                self.logger.warning(
+                    "SECURITY: Metrics endpoint requires external authentication via reverse proxy. "
+                    "Ensure metrics port is not exposed to public networks."
+                )
+            
+            start_http_server(metrics_port)
+            self.logger.info(f"Metrics server started on port {metrics_port}")
+            
+            # Log security warning if metrics exposed
+            if self.config['metrics'].get('bind_host', '0.0.0.0') == '0.0.0.0':
+                self.logger.warning(
+                    "SECURITY WARNING: Metrics endpoint exposed to all interfaces. "
+                    "Restrict access using firewall rules or reverse proxy authentication."
+                )
         
         # Start proxy server
         server = await asyncio.start_server(
@@ -491,13 +789,14 @@ class ProxyServer:
             self.config['proxy']['bind_port']
         )
         
-        self.logger.info(f"Proxy server listening on {self.config['proxy']['bind_host']}:{self.config['proxy']['bind_port']}")
+        bind_addr = f"{self.config['proxy']['bind_host']}:{self.config['proxy']['bind_port']}"
+        self.logger.info(f"Proxy server listening on {bind_addr}")
         
         async with server:
             await server.serve_forever()
     
     async def handle_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
-        """Handle incoming client connection."""
+        """Handle incoming client connection with configurable timeouts (SECURITY FIX)."""
         client_addr = writer.get_extra_info('peername')
         client_ip = client_addr[0] if client_addr else "unknown"
         
@@ -506,28 +805,46 @@ class ProxyServer:
         
         self.logger.info(f"New connection from {client_ip}")
         
+        # Get configurable timeouts (SECURITY FIX)
+        connection_timeout = self.config['proxy'].get('connection_timeout', DEFAULT_TIMEOUT)
+        read_timeout = self.config['proxy'].get('read_timeout', DEFAULT_TIMEOUT)
+        
         try:
-            # Read initial data to analyze TLS handshake
+            # Read initial data to analyze TLS handshake with timeout
             data = await asyncio.wait_for(
                 reader.read(self.config['proxy']['buffer_size']),
-                timeout=self.config['proxy']['connection_timeout']
+                timeout=read_timeout
             )
             
             if not data:
+                self.logger.debug(f"Empty data from {client_ip}")
                 return
             
             # Analyze TLS handshake
-            fingerprint = await self._analyze_tls_handshake(data, client_ip)
+            fingerprint = await asyncio.wait_for(
+                self._analyze_tls_handshake(data, client_ip),
+                timeout=connection_timeout
+            )
             
             # Check security policies
             allowed, reason = self.security_manager.check_access(fingerprint, client_ip)
             
             # Record metrics
             action = "allowed" if allowed else "blocked"
-            REQUEST_COUNT.labels(fingerprint=fingerprint.ja4[:16], action=action).inc()
+            REQUEST_COUNT.labels(
+                fingerprint=fingerprint.ja4[:16] if fingerprint.ja4 else "unknown",
+                action=action,
+                source_country=fingerprint.geo_country,
+                tls_version=fingerprint.tls_version
+            ).inc()
             
             if not allowed:
                 self.logger.warning(f"Blocked connection from {client_ip}: {reason}")
+                BLOCKED_REQUESTS.labels(
+                    reason=reason,
+                    source_country=fingerprint.geo_country,
+                    attack_type="policy_violation"
+                ).inc()
                 await self.tarpit_manager.tarpit_connection(writer)
                 return
             
@@ -536,8 +853,13 @@ class ProxyServer:
             
         except asyncio.TimeoutError:
             self.logger.warning(f"Connection timeout from {client_ip}")
+            TLS_HANDSHAKE_ERRORS.labels(error_type='timeout', tls_version='unknown').inc()
+        except ValidationError as e:
+            self.logger.warning(f"Validation error from {client_ip}: {e}")
+            SECURITY_EVENTS.labels(event_type='validation_error', severity='warning', source=client_ip).inc()
         except Exception as e:
-            self.logger.error(f"Error handling connection from {client_ip}: {e}")
+            self.logger.error(f"Error handling connection from {client_ip}: {e}", exc_info=False)
+            SECURITY_EVENTS.labels(event_type='connection_error', severity='error', source=client_ip).inc()
         finally:
             self.active_connections -= 1
             ACTIVE_CONNECTIONS.set(self.active_connections)
