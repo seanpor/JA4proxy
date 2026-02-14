@@ -29,7 +29,24 @@ if ! command -v docker-compose &> /dev/null; then
 fi
 
 echo -e "${BLUE}Starting services...${NC}"
-docker-compose -f docker-compose.poc.yml up -d redis backend proxy monitoring
+
+# Workaround for Docker iptables issue - try to clean up first
+docker network prune -f > /dev/null 2>&1 || true
+
+# Try to start services, if network fails, provide helpful error
+if ! docker-compose -f docker-compose.poc.yml up -d redis backend proxy monitoring 2>&1; then
+    echo ""
+    echo -e "${RED}Failed to start services. This may be a Docker networking issue.${NC}"
+    echo ""
+    echo "Try these fixes:"
+    echo "  1. Restart Docker daemon: sudo systemctl restart docker"
+    echo "  2. Or: sudo service docker restart"
+    echo "  3. Then run this script again"
+    echo ""
+    echo "If the problem persists, check Docker logs:"
+    echo "  sudo journalctl -u docker -n 50"
+    exit 1
+fi
 
 echo ""
 echo "Waiting for services to be ready..."
