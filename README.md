@@ -1,3 +1,5 @@
+*heads up* this repo is ai generated... take with a grain of salt until tested properly.
+
 # JA4 Proxy - TLS Fingerprinting Proxy Server
 
 JA4 Proxy is a high-performance, security-focused proxy server that implements JA4/JA4+ TLS fingerprinting for advanced traffic analysis, filtering, and security enforcement.
