@@ -25,6 +25,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY proxy.py .
 COPY config/ config/
 COPY security/ security/
+COPY src/ src/
 
 # Create necessary directories
 RUN mkdir -p logs && \
