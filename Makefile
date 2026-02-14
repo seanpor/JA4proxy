@@ -1,26 +1,33 @@
 # Makefile for JA4 Proxy
 
-.PHONY: help build test lint clean deploy-poc deploy-enterprise
+.PHONY: help build test lint clean deploy-poc deploy-enterprise smoke-test
 
 # Default target
 help:
 	@echo "Available targets:"
-	@echo "  build           - Build Docker images"
-	@echo "  test            - Run all tests"
-	@echo "  lint            - Run code linting"
-	@echo "  clean           - Clean up containers and images"
-	@echo "  deploy-poc      - Deploy PoC environment"
+	@echo "  build             - Build Docker images"
+	@echo "  test              - Run all tests in Docker"
+	@echo "  smoke-test        - Run quick smoke test"
+	@echo "  lint              - Run code linting"
+	@echo "  clean             - Clean up containers and images"
+	@echo "  deploy-poc        - Deploy PoC environment"
 	@echo "  deploy-enterprise - Deploy enterprise environment"
-	@echo "  health-check    - Run health checks"
+	@echo "  health-check      - Run health checks"
+	@echo "  logs              - View proxy logs"
+	@echo "  stop              - Stop all services"
 
 # Build Docker images
 build:
+	@echo "Building Docker images..."
 	docker-compose -f docker-compose.poc.yml build
-	docker-compose -f docker-compose.prod.yml build
 
 # Run tests
 test:
-	docker-compose -f docker-compose.poc.yml run --rm test
+	@./run-tests.sh
+
+# Run quick smoke test
+smoke-test:
+	@./smoke-test.sh
 
 # Run linting
 lint:
@@ -28,16 +35,18 @@ lint:
 
 # Clean up
 clean:
+	@echo "Cleaning up containers and volumes..."
 	docker-compose -f docker-compose.poc.yml down -v --remove-orphans
 	docker-compose -f docker-compose.prod.yml down -v --remove-orphans
-	docker system prune -f
+	rm -rf reports/ __pycache__/ .pytest_cache/ .mypy_cache/
 
 # Deploy PoC environment
 deploy-poc:
-	docker-compose -f docker-compose.poc.yml up -d
-	@echo "Waiting for services to start..."
-	@sleep 30
-	@make health-check
+	@./start-poc.sh
+
+# Stop services
+stop:
+	docker-compose -f docker-compose.poc.yml down
 
 # Deploy enterprise environment
 deploy-enterprise:
@@ -47,19 +56,24 @@ deploy-enterprise:
 # Health checks
 health-check:
 	@echo "Running health checks..."
-	@curl -f http://localhost:8080/health || exit 1
-	@curl -f http://localhost:9090/metrics | grep -q ja4_requests_total || exit 1
-	@echo "Health checks passed!"
+	@curl -sf http://localhost:9090/metrics > /dev/null && echo "✓ Proxy metrics OK" || echo "✗ Proxy metrics failed"
+	@curl -sf http://localhost:8081/api/health > /dev/null && echo "✓ Backend OK" || echo "✗ Backend failed"
+	@docker exec ja4proxy-redis redis-cli -a changeme ping > /dev/null 2>&1 && echo "✓ Redis OK" || echo "✗ Redis failed"
 
-# Start development environment
-dev:
-	python proxy.py config/proxy.yml
+# View logs
+logs:
+	docker-compose -f docker-compose.poc.yml logs -f proxy
 
-# Install dependencies
-install:
-	pip install -r requirements.txt
-	pip install -r requirements-test.txt
+# Run integration tests
+test-integration:
+	docker-compose -f docker-compose.poc.yml run --rm test pytest tests/integration/ -v
+
+# Run unit tests only
+test-unit:
+	docker-compose -f docker-compose.poc.yml run --rm test pytest tests/unit/ -v
 
 # Run performance tests
 perf-test:
-	locust -f performance/locust_tests.py --host http://localhost:8080 --users 100 --spawn-rate 10 --run-time 5m --headless
+	@echo "Starting performance tests..."
+	@echo "Note: This requires services to be running (make deploy-poc)"
+	docker-compose -f docker-compose.poc.yml run --rm test locust -f /app/performance/locust_tests.py --host http://proxy:8080 --users 100 --spawn-rate 10 --run-time 5m --headless

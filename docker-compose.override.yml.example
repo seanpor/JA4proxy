@@ -1,0 +1,34 @@
+# docker-compose.override.yml
+# 
+# This file is automatically loaded by docker-compose and merges with docker-compose.poc.yml
+# Use this for local development overrides
+# 
+# Example: Enable live code reloading for development
+# 
+# Uncomment the sections below to enable development features:
+
+version: '3.8'
+
+services:
+  # proxy:
+  #   # Mount source code for live development
+  #   volumes:
+  #     - ./proxy.py:/app/proxy.py
+  #     - ./config:/app/config
+  #     - ./security:/app/security
+  #   # Override command for development mode
+  #   command: ["python", "-u", "proxy.py"]
+  #   environment:
+  #     - DEBUG=true
+  #     - LOG_LEVEL=DEBUG
+
+  # backend:
+  #   # Mount mock backend for live changes
+  #   volumes:
+  #     - ./mock-backend.py:/app/mock-backend.py
+
+  # test:
+  #   # Mount tests for live changes
+  #   volumes:
+  #     - ./tests:/app/tests
+  #     - ./proxy.py:/app/proxy.py
