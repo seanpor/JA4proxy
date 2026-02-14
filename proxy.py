@@ -697,64 +697,6 @@ class ProxyServer:
         return logger
 
 
-class SensitiveDataFilter(logging.Filter):
-    """Filter to prevent logging of sensitive data (SECURITY FIX)."""
-    
-    def __init__(self):
-        super().__init__()
-        # Patterns to redact from logs
-        self.sensitive_patterns = [
-            (re.compile(r'password["\']?\s*[:=]\s*["\']?([^"\'\s,}]+)', re.IGNORECASE), 'password=***REDACTED***'),
-            (re.compile(r'api[_-]?key["\']?\s*[:=]\s*["\']?([^"\'\s,}]+)', re.IGNORECASE), 'api_key=***REDACTED***'),
-            (re.compile(r'token["\']?\s*[:=]\s*["\']?([^"\'\s,}]+)', re.IGNORECASE), 'token=***REDACTED***'),
-            (re.compile(r'secret["\']?\s*[:=]\s*["\']?([^"\'\s,}]+)', re.IGNORECASE), 'secret=***REDACTED***'),
-            (re.compile(r'authorization:\s*Bearer\s+(\S+)', re.IGNORECASE), 'Authorization: Bearer ***REDACTED***'),
-            (re.compile(r'(\d{13,19})', re.IGNORECASE), '***CARD_REDACTED***'),  # Credit card numbers
-            (re.compile(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', re.IGNORECASE), '***EMAIL_REDACTED***'),
-        ]
-    
-    def filter(self, record):
-        """Filter sensitive data from log records."""
-        if hasattr(record, 'msg'):
-            msg = str(record.msg)
-            for pattern, replacement in self.sensitive_patterns:
-                msg = pattern.sub(replacement, msg)
-            record.msg = msg
-        
-        # Also filter from args
-        if hasattr(record, 'args') and record.args:
-            try:
-                filtered_args = []
-                for arg in record.args:
-                    arg_str = str(arg)
-                    for pattern, replacement in self.sensitive_patterns:
-                        arg_str = pattern.sub(replacement, arg_str)
-                    filtered_args.append(arg_str)
-                record.args = tuple(filtered_args)
-            except Exception:
-                pass  # Don't fail logging if filtering fails
-        
-        return True
-
-
-class SecureFormatter(logging.Formatter):
-    """Secure logging formatter with additional security context (SECURITY FIX)."""
-    
-    def format(self, record):
-        """Format log record with security context."""
-        # Add security context
-        if not hasattr(record, 'event_type'):
-            record.event_type = 'general'
-        
-        # Sanitize exception info to prevent stack trace leakage in production
-        if record.exc_info and os.getenv('ENVIRONMENT') == 'production':
-            # In production, only log exception type, not full traceback
-            exc_type, exc_value, exc_tb = record.exc_info
-            record.exc_text = f"{exc_type.__name__}: {str(exc_value)}"
-            record.exc_info = None
-        
-        return super().format(record)
-    
     async def start(self):
         """Start the proxy server."""
         self.logger.info("Starting JA4 Proxy Server")
@@ -964,6 +906,65 @@ class SecureFormatter(logging.Formatter):
             self.logger.debug(f"Connection closed ({direction}): {e}")
 
 
+
+class SensitiveDataFilter(logging.Filter):
+    """Filter to prevent logging of sensitive data (SECURITY FIX)."""
+    
+    def __init__(self):
+        super().__init__()
+        # Patterns to redact from logs
+        self.sensitive_patterns = [
+            (re.compile(r'password["\']?\s*[:=]\s*["\']?([^"\'\s,}]+)', re.IGNORECASE), 'password=***REDACTED***'),
+            (re.compile(r'api[_-]?key["\']?\s*[:=]\s*["\']?([^"\'\s,}]+)', re.IGNORECASE), 'api_key=***REDACTED***'),
+            (re.compile(r'token["\']?\s*[:=]\s*["\']?([^"\'\s,}]+)', re.IGNORECASE), 'token=***REDACTED***'),
+            (re.compile(r'secret["\']?\s*[:=]\s*["\']?([^"\'\s,}]+)', re.IGNORECASE), 'secret=***REDACTED***'),
+            (re.compile(r'authorization:\s*Bearer\s+(\S+)', re.IGNORECASE), 'Authorization: Bearer ***REDACTED***'),
+            (re.compile(r'(\d{13,19})', re.IGNORECASE), '***CARD_REDACTED***'),  # Credit card numbers
+            (re.compile(r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})', re.IGNORECASE), '***EMAIL_REDACTED***'),
+        ]
+    
+    def filter(self, record):
+        """Filter sensitive data from log records."""
+        if hasattr(record, 'msg'):
+            msg = str(record.msg)
+            for pattern, replacement in self.sensitive_patterns:
+                msg = pattern.sub(replacement, msg)
+            record.msg = msg
+        
+        # Also filter from args
+        if hasattr(record, 'args') and record.args:
+            try:
+                filtered_args = []
+                for arg in record.args:
+                    arg_str = str(arg)
+                    for pattern, replacement in self.sensitive_patterns:
+                        arg_str = pattern.sub(replacement, arg_str)
+                    filtered_args.append(arg_str)
+                record.args = tuple(filtered_args)
+            except Exception:
+                pass  # Don't fail logging if filtering fails
+        
+        return True
+
+
+class SecureFormatter(logging.Formatter):
+    """Secure logging formatter with additional security context (SECURITY FIX)."""
+    
+    def format(self, record):
+        """Format log record with security context."""
+        # Add security context
+        if not hasattr(record, 'event_type'):
+            record.event_type = 'general'
+        
+        # Sanitize exception info to prevent stack trace leakage in production
+        if record.exc_info and os.getenv('ENVIRONMENT') == 'production':
+            # In production, only log exception type, not full traceback
+            exc_type, exc_value, exc_tb = record.exc_info
+            record.exc_text = f"{exc_type.__name__}: {str(exc_value)}"
+            record.exc_info = None
+        
+        return super().format(record)
+    
 def main():
     """Main entry point."""
     import sys
