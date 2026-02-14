@@ -1,10 +1,10 @@
 # Proxy configuration
 proxy:
-  # SECURITY: Default to localhost, override in production with firewall rules
-  # Using 0.0.0.0 exposes to all interfaces - only use with proper network security
-  bind_host: "127.0.0.1"
+  # POC: Bind to all interfaces for Docker networking
+  bind_host: "0.0.0.0"
   bind_port: 8080
-  backend_host: "127.0.0.1"
+  # POC: Connect to backend container by name
+  backend_host: "backend"
   backend_port: 80
   max_connections: 1000
   # SECURITY FIX: Configurable timeouts to prevent resource exhaustion
