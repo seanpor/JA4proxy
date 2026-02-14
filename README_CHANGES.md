@@ -197,6 +197,25 @@ docker-compose -f docker-compose.poc.yml down
 
 ## Troubleshooting
 
+### Docker Network Issues (iptables errors)
+
+If you see errors like `Chain 'DOCKER-ISOLATION-STAGE-2' does not exist`:
+
+```bash
+# Run the fix script
+./fix-docker.sh
+
+# Or manually restart Docker
+sudo systemctl restart docker
+# or
+sudo service docker restart
+
+# Then try again
+./start-poc.sh
+```
+
+This is a known Docker networking issue that occurs when Docker's iptables rules become corrupted.
+
 ### Services won't start
 ```bash
 docker-compose -f docker-compose.poc.yml down -v
