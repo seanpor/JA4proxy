@@ -33,30 +33,98 @@ JA4 Proxy is a high-performance, security-focused proxy server that implements J
 ## Quick Start
 
 ### Prerequisites
-- Python 3.11+
-- Docker and Docker Compose
-- Redis (or use Docker container)
+- Docker 20.10+
+- Docker Compose 2.0+
 - 4GB RAM minimum, 8GB recommended
+- 2GB free disk space
 
-### PoC Installation
+**No local Python installation required** - everything runs in Docker containers.
 
-1. **Clone and setup:**
+### PoC Installation (Docker Only)
+
+1. **Clone the repository:**
 ```bash
 git clone https://github.com/yourusername/JA4proxy.git
 cd JA4proxy
-pip install -r requirements.txt
 ```
 
-2. **Start PoC environment:**
+2. **Start the PoC environment:**
 ```bash
-docker-compose -f docker-compose.poc.yml up -d
+./start-poc.sh
 ```
+
+This will start:
+- JA4 Proxy server (port 8080, metrics on 9090)
+- Redis cache (port 6379)
+- Mock backend server (port 8081)
+- Prometheus monitoring (port 9091)
 
 3. **Verify installation:**
 ```bash
-curl http://localhost:8080/health
-curl http://localhost:9090/metrics
+# Run quick smoke test
+./smoke-test.sh
+
+# Or check individual services
+curl http://localhost:9090/metrics        # Proxy metrics
+curl http://localhost:8081/api/health     # Backend health
+docker exec ja4proxy-redis redis-cli -a changeme ping  # Redis
 ```
+
+### Running Tests
+
+All tests run in Docker containers:
+
+```bash
+# Run full test suite
+./run-tests.sh
+
+# Or manually with docker-compose
+docker-compose -f docker-compose.poc.yml run --rm test
+
+# View test reports
+open reports/coverage/index.html
+```
+
+### Development Workflow
+
+```bash
+# Start services
+./start-poc.sh
+
+# View logs
+docker-compose -f docker-compose.poc.yml logs -f proxy
+
+# Run tests after changes
+./run-tests.sh
+
+# Run quick smoke test
+./smoke-test.sh
+
+# Stop services
+docker-compose -f docker-compose.poc.yml down
+
+# Clean up everything (including volumes)
+docker-compose -f docker-compose.poc.yml down -v
+```
+
+### Using Make
+
+The Makefile provides convenient shortcuts:
+
+```bash
+make help              # Show all commands
+make deploy-poc        # Start POC environment
+make test              # Run tests
+make test-unit         # Run unit tests only
+make test-integration  # Run integration tests
+make smoke-test        # Run quick smoke test
+make logs              # View proxy logs
+make health-check      # Check service health
+make stop              # Stop services
+make clean             # Clean up containers and volumes
+```
+
+For detailed POC documentation, see [POC_GUIDE.md](POC_GUIDE.md).
 
 ### Enterprise Installation
 
@@ -171,18 +239,36 @@ curl http://localhost:8080/health
 
 **Run unit tests:**
 ```bash
-pytest tests/ -v --cov=proxy
+./run-tests.sh
+```
+
+**Run specific test suite:**
+```bash
+docker-compose -f docker-compose.poc.yml run --rm test pytest tests/unit/ -v
 ```
 
 **Performance testing:**
 ```bash
-locust -f performance/locust_tests.py --host http://localhost:8080
+# Start services first
+./start-poc.sh
+
+# Run performance tests (requires locust installed locally or in container)
+docker-compose -f docker-compose.poc.yml run --rm test locust -f /app/performance/locust_tests.py --host http://proxy:8080
 ```
 
-**Load testing:**
+**Integration testing:**
 ```bash
-python performance/locust_tests.py
+docker-compose -f docker-compose.poc.yml run --rm test pytest tests/integration/ -v
 ```
+
+## Documentation
+
+- **[Quick Reference](QUICK_REFERENCE.md)** - Command cheat sheet
+- **[POC Guide](POC_GUIDE.md)** - Detailed POC setup and usage
+- **[Testing Guide](TESTING.md)** - Complete testing documentation
+- **[Architecture](docs/architecture/)** - System architecture details
+- **[Security](docs/security/)** - Security documentation
+- **[Enterprise Deployment](docs/enterprise/)** - Production deployment
 
 ## Architecture
 

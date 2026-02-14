@@ -1,0 +1,22 @@
+FROM python:3.11-slim
+
+# Security: Create non-root user
+RUN groupadd -r backend && useradd -r -g backend backend
+
+WORKDIR /app
+
+# Copy mock backend server
+COPY mock-backend.py .
+
+# Switch to non-root user
+USER backend
+
+# Expose port
+EXPOSE 80
+
+# Health check
+HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:80/api/health')" || exit 1
+
+# Run the mock server
+CMD ["python", "mock-backend.py"]
