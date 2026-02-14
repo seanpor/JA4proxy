@@ -1,0 +1,83 @@
+# Enterprise proxy configuration
+proxy:
+  bind_host: "0.0.0.0"
+  bind_port: 8080
+  backend_host: "backend"
+  backend_port: 80
+  max_connections: 10000
+  connection_timeout: 60
+  buffer_size: 16384
+  read_only_filesystem: true
+  security_context:
+    user: "proxy"
+    group: "proxy"
+    capabilities: []
+
+# Redis HA configuration
+redis:
+  mode: "cluster"
+  nodes:
+    - host: "redis-1"
+      port: 6379
+    - host: "redis-2"
+      port: 6379
+    - host: "redis-3"
+      port: 6379
+  password: "${REDIS_PASSWORD}"
+  timeout: 10
+  ssl_enabled: true
+  ssl_cert_path: "/etc/ssl/certs/redis.crt"
+  ssl_key_path: "/etc/ssl/private/redis.key"
+
+# Enhanced security settings
+security:
+  whitelist_enabled: true
+  blacklist_enabled: true
+  rate_limiting: true
+  max_requests_per_minute: 1000
+  block_unknown_ja4: true
+  tarpit_enabled: true
+  tarpit_duration: 30
+  audit_logging: true
+  audit_log_path: "/var/log/ja4proxy/audit.log"
+  threat_intelligence: true
+  geo_blocking: true
+  allowed_countries: ["US", "CA", "GB", "DE"]
+
+# Monitoring configuration
+metrics:
+  enabled: true
+  port: 9090
+  authentication: true
+  tls_enabled: true
+  cert_path: "/etc/ssl/certs/metrics.crt"
+  key_path: "/etc/ssl/private/metrics.key"
+
+# Enhanced logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s"
+  handlers:
+    - type: "file"
+      path: "/var/log/ja4proxy/proxy.log"
+      max_size: "100MB"
+      backup_count: 10
+    - type: "syslog"
+      facility: "local0"
+    - type: "json"
+      path: "/var/log/ja4proxy/proxy.json"
+
+# Performance tuning
+performance:
+  worker_processes: 4
+  async_timeout: 30
+  keepalive_timeout: 60
+  max_concurrent_connections: 1000
+  memory_limit: "2GB"
+
+# Compliance settings
+compliance:
+  data_retention_days: 90
+  pii_anonymization: true
+  encryption_at_rest: true
+  encryption_in_transit: true
