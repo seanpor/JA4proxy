@@ -15,7 +15,9 @@ echo "=========================================="
 echo ""
 
 echo "This script will fix Docker networking issues."
-echo "It requires sudo access to restart Docker."
+echo "It requires sudo access to:"
+echo "  1. Switch to iptables-legacy (if using nftables)"
+echo "  2. Restart Docker daemon"
 echo ""
 read -p "Continue? (y/n) " -n 1 -r
 echo
@@ -24,11 +26,38 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
 fi
 
 echo ""
+
+# Check if using nftables backend
+CURRENT_IPTABLES=$(update-alternatives --query iptables 2>/dev/null | grep Value | awk '{print $2}')
+if [[ "$CURRENT_IPTABLES" == *"nft"* ]]; then
+    echo -e "${YELLOW}System is using iptables-nft, switching to iptables-legacy...${NC}"
+    sudo update-alternatives --set iptables /usr/sbin/iptables-legacy
+    sudo update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy
+    echo -e "${GREEN}Switched to iptables-legacy${NC}"
+else
+    echo "Already using iptables-legacy"
+fi
+
+echo ""
 echo "Stopping all containers..."
 docker stop $(docker ps -aq) 2>/dev/null || true
 
 echo "Cleaning up networks..."
 docker network prune -f
+
+echo ""
+echo "Configuring Docker daemon to use iptables legacy..."
+# Backup existing config
+sudo cp /etc/docker/daemon.json /etc/docker/daemon.json.backup 2>/dev/null || true
+
+# Add iptables configuration
+DAEMON_JSON=$(cat /etc/docker/daemon.json 2>/dev/null || echo "{}")
+if ! echo "$DAEMON_JSON" | grep -q "iptables"; then
+    echo "$DAEMON_JSON" | jq '. + {"iptables": true}' | sudo tee /etc/docker/daemon.json > /dev/null
+    echo -e "${GREEN}Docker daemon configured${NC}"
+else
+    echo "Docker daemon already configured"
+fi
 
 echo "Restarting Docker daemon..."
 if command -v systemctl &> /dev/null; then
