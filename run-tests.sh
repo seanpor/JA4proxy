@@ -19,7 +19,7 @@ NC='\033[0m' # No Color
 echo "Checking if services are running..."
 if ! docker ps | grep -q ja4proxy-redis; then
     echo -e "${YELLOW}Services not running. Starting services...${NC}"
-    docker-compose -f docker-compose.poc.yml up -d redis backend proxy
+    docker compose -f docker-compose.poc.yml up -d redis backend proxy
     echo "Waiting for services to be ready..."
     sleep 10
 fi
@@ -40,7 +40,7 @@ done
 
 if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
     echo -e "${RED}Proxy failed to become healthy${NC}"
-    docker-compose -f docker-compose.poc.yml logs proxy
+    docker compose -f docker-compose.poc.yml logs proxy
     exit 1
 fi
 
@@ -52,7 +52,7 @@ echo "=========================================="
 mkdir -p reports
 
 # Run tests
-docker-compose -f docker-compose.poc.yml run --rm test
+docker compose -f docker-compose.poc.yml run --rm test
 
 TEST_EXIT_CODE=$?
 
