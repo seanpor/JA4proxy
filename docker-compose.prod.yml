@@ -1,0 +1,331 @@
+version: '3.8'
+
+services:
+  # Load Balancer
+  haproxy:
+    image: haproxy:2.8-alpine
+    container_name: ja4proxy-lb
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8404:8404"  # Stats
+    volumes:
+      - ./ha-config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ./ssl:/etc/ssl:ro
+    depends_on:
+      - proxy-1
+      - proxy-2
+    networks:
+      - ja4proxy-frontend
+      - ja4proxy-backend
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+
+  # Proxy instances
+  proxy-1:
+    build:
+      context: .
+      dockerfile: Dockerfile.enterprise
+    container_name: ja4proxy-1
+    expose:
+      - "8080"
+      - "9090"
+    depends_on:
+      - redis-1
+      - redis-2
+      - redis-3
+    volumes:
+      - ./config/enterprise.yml:/app/config/proxy.yml:ro
+      - ./logs:/var/log/ja4proxy
+      - ./ssl:/etc/ssl:ro
+    environment:
+      - CONFIG_PATH=/app/config/proxy.yml
+      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
+      - NODE_ID=1
+    secrets:
+      - redis_password
+      - tls_cert
+      - tls_key
+    networks:
+      - ja4proxy-backend
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+  proxy-2:
+    build:
+      context: .
+      dockerfile: Dockerfile.enterprise
+    container_name: ja4proxy-2
+    expose:
+      - "8080"
+      - "9090"
+    depends_on:
+      - redis-1
+      - redis-2
+      - redis-3
+    volumes:
+      - ./config/enterprise.yml:/app/config/proxy.yml:ro
+      - ./logs:/var/log/ja4proxy
+      - ./ssl:/etc/ssl:ro
+    environment:
+      - CONFIG_PATH=/app/config/proxy.yml
+      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
+      - NODE_ID=2
+    secrets:
+      - redis_password
+      - tls_cert
+      - tls_key
+    networks:
+      - ja4proxy-backend
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+  # Redis Cluster
+  redis-1:
+    image: redis:7-alpine
+    container_name: ja4proxy-redis-1
+    command: >
+      redis-server
+      --requirepass "${REDIS_PASSWORD}"
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+      --tls-port 6380
+      --port 0
+      --tls-cert-file /etc/ssl/certs/redis.crt
+      --tls-key-file /etc/ssl/private/redis.key
+      --tls-ca-cert-file /etc/ssl/certs/ca.crt
+    volumes:
+      - redis1_data:/data
+      - ./ssl:/etc/ssl:ro
+    networks:
+      - ja4proxy-backend
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  redis-2:
+    image: redis:7-alpine
+    container_name: ja4proxy-redis-2
+    command: >
+      redis-server
+      --requirepass "${REDIS_PASSWORD}"
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+      --tls-port 6380
+      --port 0
+      --tls-cert-file /etc/ssl/certs/redis.crt
+      --tls-key-file /etc/ssl/private/redis.key
+      --tls-ca-cert-file /etc/ssl/certs/ca.crt
+    volumes:
+      - redis2_data:/data
+      - ./ssl:/etc/ssl:ro
+    networks:
+      - ja4proxy-backend
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  redis-3:
+    image: redis:7-alpine
+    container_name: ja4proxy-redis-3
+    command: >
+      redis-server
+      --requirepass "${REDIS_PASSWORD}"
+      --cluster-enabled yes
+      --cluster-config-file nodes.conf
+      --cluster-node-timeout 5000
+      --appendonly yes
+      --tls-port 6380
+      --port 0
+      --tls-cert-file /etc/ssl/certs/redis.crt
+      --tls-key-file /etc/ssl/private/redis.key
+      --tls-ca-cert-file /etc/ssl/certs/ca.crt
+    volumes:
+      - redis3_data:/data
+      - ./ssl:/etc/ssl:ro
+    networks:
+      - ja4proxy-backend
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  # Backend Services
+  backend-1:
+    image: nginx:alpine
+    container_name: ja4proxy-backend-1
+    volumes:
+      - ./backend-content:/usr/share/nginx/html:ro
+      - ./backend-config/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - ja4proxy-backend
+
+  backend-2:
+    image: nginx:alpine
+    container_name: ja4proxy-backend-2
+    volumes:
+      - ./backend-content:/usr/share/nginx/html:ro
+      - ./backend-config/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - ja4proxy-backend
+
+  # Monitoring Stack
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ja4proxy-prometheus
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./monitoring/prometheus-prod.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - ja4proxy-monitoring
+      - ja4proxy-backend
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ja4proxy-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_SECURITY_SECRET_KEY=${GRAFANA_SECRET_KEY}
+    networks:
+      - ja4proxy-monitoring
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.0
+    container_name: ja4proxy-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - ja4proxy-logging
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.10.0
+    container_name: ja4proxy-logstash
+    volumes:
+      - ./logging/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+      - ./logs:/var/log/ja4proxy:ro
+    depends_on:
+      - elasticsearch
+    networks:
+      - ja4proxy-logging
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.10.0
+    container_name: ja4proxy-kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
+    depends_on:
+      - elasticsearch
+    networks:
+      - ja4proxy-logging
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  # Security Scanner
+  security-scanner:
+    build:
+      context: ./security
+      dockerfile: Dockerfile
+    container_name: ja4proxy-security
+    volumes:
+      - ./security/config:/app/config:ro
+      - ./logs:/var/log/ja4proxy:ro
+    depends_on:
+      - redis-1
+      - elasticsearch
+    networks:
+      - ja4proxy-backend
+      - ja4proxy-logging
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+volumes:
+  redis1_data:
+  redis2_data:
+  redis3_data:
+  prometheus_data:
+  grafana_data:
+  elasticsearch_data:
+
+networks:
+  ja4proxy-frontend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+  ja4proxy-backend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.0.0/24
+  ja4proxy-monitoring:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.22.0.0/24
+  ja4proxy-logging:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.23.0.0/24
+
+secrets:
+  redis_password:
+    file: ./secrets/redis_password.txt
+  tls_cert:
+    file: ./ssl/certs/proxy.crt
+  tls_key:
+    file: ./ssl/private/proxy.key

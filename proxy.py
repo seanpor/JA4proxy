@@ -1,0 +1,533 @@
+#!/usr/bin/env python3
+"""
+JA4 Proxy - TLS Fingerprinting Proxy Server
+Implements JA4/JA4+ TLS fingerprinting for traffic analysis and filtering.
+"""
+
+import asyncio
+import hashlib
+import json
+import logging
+import socket
+import ssl
+import struct
+import time
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Tuple, Union
+import yaml
+import redis
+from prometheus_client import Counter, Histogram, Gauge, start_http_server
+from scapy.all import *
+from scapy.layers.tls.all import *
+
+
+# Metrics
+REQUEST_COUNT = Counter('ja4_requests_total', 'Total requests processed', ['fingerprint', 'action'])
+REQUEST_DURATION = Histogram('ja4_request_duration_seconds', 'Request duration')
+ACTIVE_CONNECTIONS = Gauge('ja4_active_connections', 'Active connections')
+BLOCKED_REQUESTS = Counter('ja4_blocked_requests_total', 'Blocked requests', ['reason'])
+
+
+@dataclass
+class JA4Fingerprint:
+    """JA4 TLS fingerprint data structure."""
+    ja4: str
+    ja4s: Optional[str] = None
+    client_hello_hash: str = ""
+    server_hello_hash: str = ""
+    timestamp: float = 0.0
+    source_ip: str = ""
+    destination_ip: str = ""
+
+
+class TLSParser:
+    """TLS packet parser for extracting fingerprint components."""
+    
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+    
+    def parse_client_hello(self, packet) -> Optional[Dict]:
+        """Parse TLS Client Hello packet."""
+        try:
+            if not packet.haslayer(TLS):
+                return None
+            
+            tls_layer = packet[TLS]
+            if not hasattr(tls_layer, 'msg') or not tls_layer.msg:
+                return None
+            
+            for msg in tls_layer.msg:
+                if msg.msgtype == 1:  # Client Hello
+                    return self._extract_client_hello_fields(msg)
+            
+            return None
+        except Exception as e:
+            self.logger.error(f"Error parsing Client Hello: {e}")
+            return None
+    
+    def _extract_client_hello_fields(self, client_hello) -> Dict:
+        """Extract fields from Client Hello message."""
+        fields = {
+            'version': getattr(client_hello, 'version', 0),
+            'cipher_suites': [],
+            'extensions': [],
+            'supported_groups': [],
+            'signature_algorithms': [],
+            'supported_versions': []
+        }
+        
+        # Extract cipher suites
+        if hasattr(client_hello, 'cipher_suites'):
+            fields['cipher_suites'] = [cs for cs in client_hello.cipher_suites]
+        
+        # Extract extensions
+        if hasattr(client_hello, 'ext'):
+            for ext in client_hello.ext:
+                fields['extensions'].append(ext.type)
+                
+                # Parse specific extensions
+                if ext.type == 10:  # supported_groups
+                    if hasattr(ext, 'elliptic_curves'):
+                        fields['supported_groups'] = ext.elliptic_curves
+                elif ext.type == 13:  # signature_algorithms
+                    if hasattr(ext, 'sig_algs'):
+                        fields['signature_algorithms'] = ext.sig_algs
+                elif ext.type == 43:  # supported_versions
+                    if hasattr(ext, 'versions'):
+                        fields['supported_versions'] = ext.versions
+        
+        return fields
+
+
+class JA4Generator:
+    """JA4 fingerprint generator."""
+    
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+    
+    def generate_ja4(self, client_hello_fields: Dict) -> str:
+        """Generate JA4 fingerprint from Client Hello fields."""
+        try:
+            # JA4 format: QUIC_Version+SNI_Extension+Cipher_Count+Extension_Count+ALPN_Extension
+            version = self._get_version_string(client_hello_fields.get('version', 0))
+            cipher_count = len(client_hello_fields.get('cipher_suites', []))
+            extension_count = len(client_hello_fields.get('extensions', []))
+            
+            # Build JA4 components
+            quic_version = "q" if version.startswith("QUIC") else "t"
+            sni_extension = "d" if 0 in client_hello_fields.get('extensions', []) else "i"
+            cipher_hash = self._hash_cipher_suites(client_hello_fields.get('cipher_suites', []))
+            extension_hash = self._hash_extensions(client_hello_fields.get('extensions', []))
+            
+            ja4 = f"{quic_version}{version}_{sni_extension}{cipher_count:02d}{extension_count:02d}_{cipher_hash}_{extension_hash}"
+            return ja4
+            
+        except Exception as e:
+            self.logger.error(f"Error generating JA4: {e}")
+            return ""
+    
+    def _get_version_string(self, version: int) -> str:
+        """Convert TLS version to string."""
+        version_map = {
+            0x0301: "10",
+            0x0302: "11", 
+            0x0303: "12",
+            0x0304: "13"
+        }
+        return version_map.get(version, "00")
+    
+    def _hash_cipher_suites(self, cipher_suites: List[int]) -> str:
+        """Hash cipher suites for JA4."""
+        if not cipher_suites:
+            return "000000000000"
+        
+        # Remove GREASE values
+        filtered_suites = [cs for cs in cipher_suites if not self._is_grease(cs)]
+        suite_string = ",".join(f"{cs:04x}" for cs in sorted(filtered_suites))
+        return hashlib.sha256(suite_string.encode()).hexdigest()[:12]
+    
+    def _hash_extensions(self, extensions: List[int]) -> str:
+        """Hash extensions for JA4."""
+        if not extensions:
+            return "000000000000"
+        
+        # Remove GREASE values and SNI
+        filtered_extensions = [ext for ext in extensions if not self._is_grease(ext) and ext != 0]
+        ext_string = ",".join(f"{ext:04x}" for ext in sorted(filtered_extensions))
+        return hashlib.sha256(ext_string.encode()).hexdigest()[:12]
+    
+    def _is_grease(self, value: int) -> bool:
+        """Check if value is a GREASE value."""
+        grease_values = [0x0a0a, 0x1a1a, 0x2a2a, 0x3a3a, 0x4a4a, 0x5a5a, 
+                        0x6a6a, 0x7a7a, 0x8a8a, 0x9a9a, 0xaaaa, 0xbaba,
+                        0xcaca, 0xdada, 0xeaea, 0xfafa]
+        return value in grease_values
+
+
+class ConfigManager:
+    """Configuration management."""
+    
+    def __init__(self, config_path: str = "config/proxy.yml"):
+        self.config_path = config_path
+        self.config = self.load_config()
+        self.logger = logging.getLogger(__name__)
+    
+    def load_config(self) -> Dict:
+        """Load configuration from YAML file."""
+        try:
+            with open(self.config_path, 'r') as f:
+                return yaml.safe_load(f)
+        except FileNotFoundError:
+            return self._default_config()
+        except Exception as e:
+            logging.error(f"Error loading config: {e}")
+            return self._default_config()
+    
+    def _default_config(self) -> Dict:
+        """Default configuration."""
+        return {
+            'proxy': {
+                'bind_host': '0.0.0.0',
+                'bind_port': 8080,
+                'backend_host': '127.0.0.1',
+                'backend_port': 80,
+                'max_connections': 1000,
+                'connection_timeout': 30,
+                'buffer_size': 8192
+            },
+            'redis': {
+                'host': 'localhost',
+                'port': 6379,
+                'db': 0,
+                'password': None,
+                'timeout': 5
+            },
+            'security': {
+                'whitelist_enabled': True,
+                'blacklist_enabled': True,
+                'rate_limiting': True,
+                'max_requests_per_minute': 100,
+                'block_unknown_ja4': False,
+                'tarpit_enabled': False,
+                'tarpit_duration': 10
+            },
+            'metrics': {
+                'enabled': True,
+                'port': 9090
+            },
+            'logging': {
+                'level': 'INFO',
+                'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            }
+        }
+
+
+class SecurityManager:
+    """Security policy enforcement."""
+    
+    def __init__(self, config: Dict, redis_client: redis.Redis):
+        self.config = config
+        self.redis = redis_client
+        self.logger = logging.getLogger(__name__)
+        self._load_security_lists()
+    
+    def _load_security_lists(self):
+        """Load whitelist and blacklist from Redis."""
+        try:
+            self.whitelist = set(self.redis.smembers('ja4:whitelist') or [])
+            self.blacklist = set(self.redis.smembers('ja4:blacklist') or [])
+        except Exception as e:
+            self.logger.error(f"Error loading security lists: {e}")
+            self.whitelist = set()
+            self.blacklist = set()
+    
+    def check_access(self, fingerprint: JA4Fingerprint, client_ip: str) -> Tuple[bool, str]:
+        """Check if request should be allowed."""
+        try:
+            # Check rate limiting
+            if self.config['security']['rate_limiting']:
+                if not self._check_rate_limit(client_ip):
+                    BLOCKED_REQUESTS.labels(reason='rate_limit').inc()
+                    return False, "Rate limit exceeded"
+            
+            # Check blacklist
+            if self.config['security']['blacklist_enabled']:
+                if fingerprint.ja4.encode() in self.blacklist:
+                    BLOCKED_REQUESTS.labels(reason='blacklist').inc()
+                    return False, "JA4 blacklisted"
+            
+            # Check whitelist
+            if self.config['security']['whitelist_enabled']:
+                if fingerprint.ja4.encode() not in self.whitelist:
+                    if self.config['security']['block_unknown_ja4']:
+                        BLOCKED_REQUESTS.labels(reason='not_whitelisted').inc()
+                        return False, "JA4 not whitelisted"
+            
+            return True, "Allowed"
+            
+        except Exception as e:
+            self.logger.error(f"Error checking access: {e}")
+            return False, "Internal error"
+    
+    def _check_rate_limit(self, client_ip: str) -> bool:
+        """Check rate limiting for client IP."""
+        try:
+            key = f"rate_limit:{client_ip}"
+            current = self.redis.incr(key)
+            if current == 1:
+                self.redis.expire(key, 60)  # 1 minute window
+            
+            max_requests = self.config['security']['max_requests_per_minute']
+            return current <= max_requests
+            
+        except Exception as e:
+            self.logger.error(f"Error checking rate limit: {e}")
+            return True  # Allow on error
+
+
+class TarpitManager:
+    """TARPIT functionality for slowing down malicious clients."""
+    
+    def __init__(self, config: Dict):
+        self.config = config
+        self.logger = logging.getLogger(__name__)
+    
+    async def tarpit_connection(self, writer, duration: Optional[int] = None):
+        """Apply TARPIT delay to connection."""
+        if not self.config['security']['tarpit_enabled']:
+            return
+        
+        delay = duration or self.config['security']['tarpit_duration']
+        self.logger.info(f"Applying TARPIT delay of {delay}s")
+        
+        try:
+            await asyncio.sleep(delay)
+        except asyncio.CancelledError:
+            pass
+        finally:
+            try:
+                writer.close()
+                await writer.wait_closed()
+            except Exception:
+                pass
+
+
+class ProxyServer:
+    """Main proxy server implementation."""
+    
+    def __init__(self, config_path: str = "config/proxy.yml"):
+        self.config_manager = ConfigManager(config_path)
+        self.config = self.config_manager.config
+        
+        # Initialize components
+        self.redis_client = self._init_redis()
+        self.tls_parser = TLSParser()
+        self.ja4_generator = JA4Generator()
+        self.security_manager = SecurityManager(self.config, self.redis_client)
+        self.tarpit_manager = TarpitManager(self.config)
+        
+        self.logger = self._init_logging()
+        self.active_connections = 0
+    
+    def _init_redis(self) -> redis.Redis:
+        """Initialize Redis connection."""
+        return redis.Redis(
+            host=self.config['redis']['host'],
+            port=self.config['redis']['port'],
+            db=self.config['redis']['db'],
+            password=self.config['redis']['password'],
+            socket_timeout=self.config['redis']['timeout']
+        )
+    
+    def _init_logging(self) -> logging.Logger:
+        """Initialize logging."""
+        logging.basicConfig(
+            level=getattr(logging, self.config['logging']['level']),
+            format=self.config['logging']['format']
+        )
+        return logging.getLogger(__name__)
+    
+    async def start(self):
+        """Start the proxy server."""
+        self.logger.info("Starting JA4 Proxy Server")
+        
+        # Start metrics server
+        if self.config['metrics']['enabled']:
+            start_http_server(self.config['metrics']['port'])
+            self.logger.info(f"Metrics server started on port {self.config['metrics']['port']}")
+        
+        # Start proxy server
+        server = await asyncio.start_server(
+            self.handle_connection,
+            self.config['proxy']['bind_host'],
+            self.config['proxy']['bind_port']
+        )
+        
+        self.logger.info(f"Proxy server listening on {self.config['proxy']['bind_host']}:{self.config['proxy']['bind_port']}")
+        
+        async with server:
+            await server.serve_forever()
+    
+    async def handle_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
+        """Handle incoming client connection."""
+        client_addr = writer.get_extra_info('peername')
+        client_ip = client_addr[0] if client_addr else "unknown"
+        
+        self.active_connections += 1
+        ACTIVE_CONNECTIONS.set(self.active_connections)
+        
+        self.logger.info(f"New connection from {client_ip}")
+        
+        try:
+            # Read initial data to analyze TLS handshake
+            data = await asyncio.wait_for(
+                reader.read(self.config['proxy']['buffer_size']),
+                timeout=self.config['proxy']['connection_timeout']
+            )
+            
+            if not data:
+                return
+            
+            # Analyze TLS handshake
+            fingerprint = await self._analyze_tls_handshake(data, client_ip)
+            
+            # Check security policies
+            allowed, reason = self.security_manager.check_access(fingerprint, client_ip)
+            
+            # Record metrics
+            action = "allowed" if allowed else "blocked"
+            REQUEST_COUNT.labels(fingerprint=fingerprint.ja4[:16], action=action).inc()
+            
+            if not allowed:
+                self.logger.warning(f"Blocked connection from {client_ip}: {reason}")
+                await self.tarpit_manager.tarpit_connection(writer)
+                return
+            
+            # Forward to backend
+            await self._forward_to_backend(data, reader, writer, fingerprint)
+            
+        except asyncio.TimeoutError:
+            self.logger.warning(f"Connection timeout from {client_ip}")
+        except Exception as e:
+            self.logger.error(f"Error handling connection from {client_ip}: {e}")
+        finally:
+            self.active_connections -= 1
+            ACTIVE_CONNECTIONS.set(self.active_connections)
+            try:
+                writer.close()
+                await writer.wait_closed()
+            except Exception:
+                pass
+    
+    async def _analyze_tls_handshake(self, data: bytes, client_ip: str) -> JA4Fingerprint:
+        """Analyze TLS handshake and generate fingerprint."""
+        try:
+            # Parse packet data
+            packet = IP(data) if data else None
+            client_hello_fields = self.tls_parser.parse_client_hello(packet)
+            
+            if client_hello_fields:
+                ja4 = self.ja4_generator.generate_ja4(client_hello_fields)
+            else:
+                ja4 = "unknown"
+            
+            fingerprint = JA4Fingerprint(
+                ja4=ja4,
+                client_hello_hash=hashlib.sha256(data).hexdigest()[:16],
+                timestamp=time.time(),
+                source_ip=client_ip
+            )
+            
+            # Store fingerprint in Redis
+            await self._store_fingerprint(fingerprint)
+            
+            return fingerprint
+            
+        except Exception as e:
+            self.logger.error(f"Error analyzing TLS handshake: {e}")
+            return JA4Fingerprint(ja4="error", source_ip=client_ip, timestamp=time.time())
+    
+    async def _store_fingerprint(self, fingerprint: JA4Fingerprint):
+        """Store fingerprint data in Redis."""
+        try:
+            key = f"ja4:fingerprint:{fingerprint.source_ip}:{int(fingerprint.timestamp)}"
+            data = {
+                'ja4': fingerprint.ja4,
+                'client_hello_hash': fingerprint.client_hello_hash,
+                'timestamp': fingerprint.timestamp,
+                'source_ip': fingerprint.source_ip
+            }
+            
+            self.redis_client.hset(key, mapping=data)
+            self.redis_client.expire(key, 3600)  # 1 hour TTL
+            
+        except Exception as e:
+            self.logger.error(f"Error storing fingerprint: {e}")
+    
+    async def _forward_to_backend(self, initial_data: bytes, client_reader: asyncio.StreamReader, 
+                                 client_writer: asyncio.StreamWriter, fingerprint: JA4Fingerprint):
+        """Forward connection to backend server."""
+        try:
+            # Connect to backend
+            backend_reader, backend_writer = await asyncio.open_connection(
+                self.config['proxy']['backend_host'],
+                self.config['proxy']['backend_port']
+            )
+            
+            self.logger.info(f"Forwarding connection with JA4: {fingerprint.ja4[:16]}")
+            
+            # Send initial data to backend
+            backend_writer.write(initial_data)
+            await backend_writer.drain()
+            
+            # Start bidirectional forwarding
+            await asyncio.gather(
+                self._forward_data(client_reader, backend_writer, "client->backend"),
+                self._forward_data(backend_reader, client_writer, "backend->client"),
+                return_exceptions=True
+            )
+            
+        except Exception as e:
+            self.logger.error(f"Error forwarding to backend: {e}")
+        finally:
+            for writer in [backend_writer]:
+                try:
+                    writer.close()
+                    await writer.wait_closed()
+                except Exception:
+                    pass
+    
+    async def _forward_data(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, direction: str):
+        """Forward data between client and backend."""
+        try:
+            while True:
+                data = await reader.read(self.config['proxy']['buffer_size'])
+                if not data:
+                    break
+                
+                writer.write(data)
+                await writer.drain()
+                
+        except Exception as e:
+            self.logger.debug(f"Connection closed ({direction}): {e}")
+
+
+def main():
+    """Main entry point."""
+    import sys
+    
+    config_path = sys.argv[1] if len(sys.argv) > 1 else "config/proxy.yml"
+    
+    proxy = ProxyServer(config_path)
+    
+    try:
+        asyncio.run(proxy.start())
+    except KeyboardInterrupt:
+        print("\nShutting down proxy server...")
+    except Exception as e:
+        logging.error(f"Fatal error: {e}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

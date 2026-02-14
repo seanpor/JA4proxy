@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  proxy:
+    build: .
+    container_name: ja4proxy
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    depends_on:
+      - redis
+    volumes:
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+    environment:
+      - CONFIG_PATH=/app/config/proxy.yml
+    networks:
+      - ja4proxy
+
+  redis:
+    image: redis:7-alpine
+    container_name: ja4proxy-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ja4proxy
+
+  backend:
+    image: nginx:alpine
+    container_name: ja4proxy-backend
+    ports:
+      - "8081:80"
+    volumes:
+      - ./test-content:/usr/share/nginx/html:ro
+    networks:
+      - ja4proxy
+
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: ja4proxy-test
+    depends_on:
+      - proxy
+      - redis
+    volumes:
+      - ./tests:/app/tests:ro
+      - ./reports:/app/reports
+    networks:
+      - ja4proxy
+    command: ["pytest", "/app/tests", "-v", "--cov=proxy", "--cov-report=html:/app/reports/coverage"]
+
+  monitoring:
+    image: prom/prometheus:latest
+    container_name: ja4proxy-prometheus
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - ja4proxy
+
+volumes:
+  redis_data:
+
+networks:
+  ja4proxy:
+    driver: bridge
