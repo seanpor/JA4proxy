@@ -263,12 +263,19 @@ docker-compose -f docker-compose.poc.yml run --rm test pytest tests/integration/
 
 ## Documentation
 
-- **[Quick Reference](QUICK_REFERENCE.md)** - Command cheat sheet
-- **[POC Guide](POC_GUIDE.md)** - Detailed POC setup and usage
-- **[Testing Guide](TESTING.md)** - Complete testing documentation
-- **[Architecture](docs/architecture/)** - System architecture details
-- **[Security](docs/security/)** - Security documentation
-- **[Enterprise Deployment](docs/enterprise/)** - Production deployment
+### Getting Started
+- **[Quick Reference](docs/QUICK_REFERENCE.md)** - Command cheat sheet
+- **[POC Guide](docs/POC_GUIDE.md)** - Detailed POC setup and usage
+- **[Testing Guide](docs/TESTING.md)** - Complete testing documentation
+- **[Executive Summary](docs/EXEC_SUMMARY.md)** - High-level overview
+
+### Security Documentation
+- **[Security Checklist](docs/security/SECURITY_CHECKLIST.md)** - Security audit checklist
+- **[Security Analysis](docs/security/SECURITY_ANALYSIS_REPORT.md)** - Detailed security analysis
+- **[Security Fixes](docs/security/SECURITY_FIXES.md)** - Implemented security fixes
+
+### Archive
+- **[Change History](docs/archive/)** - Historical change logs and migration notes
 
 ## Architecture
 
