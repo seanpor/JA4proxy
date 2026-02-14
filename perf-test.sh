@@ -56,7 +56,7 @@ else
     echo ""
     
     TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-    REPORT_FILE="performance/reports/perf_${TIMESTAMP}.html"
+    REPORT_FILE="reports/perf_${TIMESTAMP}.html"
     
     docker compose -f docker-compose.poc.yml run --rm \
         test \
@@ -68,7 +68,7 @@ else
         --run-time=${DURATION}s \
         --headless \
         --html=/app/$REPORT_FILE \
-        --csv=/app/performance/reports/perf_${TIMESTAMP}
+        --csv=/app/reports/perf_${TIMESTAMP}
     
     echo ""
     echo "=========================================="
@@ -76,6 +76,6 @@ else
     echo ""
     echo "Reports generated:"
     echo "  - HTML: ./$REPORT_FILE"
-    echo "  - CSV: ./performance/reports/perf_${TIMESTAMP}_stats.csv"
+    echo "  - CSV: ./reports/perf_${TIMESTAMP}_stats.csv"
     echo "=========================================="
 fi

@@ -49,7 +49,7 @@ Simulates real-world mixed workload:
 
 ## Reports
 
-Performance test reports are saved in `performance/reports/`:
+Performance test reports are saved in `reports/`:
 - HTML report: `perf_TIMESTAMP.html`
 - CSV stats: `perf_TIMESTAMP_stats.csv`
 - CSV failures: `perf_TIMESTAMP_failures.csv`
