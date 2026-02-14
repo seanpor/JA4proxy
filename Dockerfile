@@ -1,7 +1,8 @@
 FROM python:3.11-slim
 
-# Security hardening
-RUN groupadd -r proxy || true && useradd -r -g proxy proxy 2>/dev/null || useradd -r -G proxy proxy
+# Security hardening - user/group may already exist in base image
+RUN groupadd -r proxy 2>/dev/null || true
+RUN useradd -r -g proxy proxy 2>/dev/null || true
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
