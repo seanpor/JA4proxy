@@ -24,6 +24,8 @@ redis:
     - host: "redis-3"
       port: 6379
   password: "${REDIS_PASSWORD}"
+  # SECURITY: Enforce strong authentication in production
+  require_password: true
   timeout: 10
   ssl_enabled: true
   ssl_cert_path: "/etc/ssl/certs/redis.crt"

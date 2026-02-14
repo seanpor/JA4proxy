@@ -1,0 +1,92 @@
+# Security: Never commit secrets, keys, or credentials
+secrets/*
+!secrets/.gitkeep
+!secrets/README.md
+
+ssl/private/*
+!ssl/private/.gitkeep
+!ssl/private/README.md
+
+ssl/certs/*.key
+ssl/certs/*.pem
+
+# Environment files with secrets
+.env
+.env.local
+.env.production
+
+# Redis password files
+*_password.txt
+*_password
+
+# Private keys
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Certificates (except CA certs for validation)
+*.crt
+*.cer
+!ca.crt
+!ca.cer
+
+# Backup files that might contain secrets
+*.bak
+*.backup
+*.old
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs that might contain sensitive data
+logs/*
+*.log
+!logs/.gitkeep
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+reports/
+
+# Docker
+*.tar
+*.gz
+
+# OS
+.DS_Store
+Thumbs.db
