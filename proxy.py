@@ -752,6 +752,11 @@ class SecureFormatter(logging.Formatter):
             record.exc_info = None
         
         return super().format(record)
+
+
+# Add ProxyServer methods that were incorrectly indented
+class ProxyServerMethods:
+    """Mixin for ProxyServer methods (temporary fix for indentation issue)."""
     
     async def start(self):
         """Start the proxy server."""
