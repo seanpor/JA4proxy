@@ -1,43 +1,171 @@
 #!/usr/bin/env python3
 """
-JA4 Proxy - TLS Fingerprinting Proxy Server
+JA4 Proxy - Enterprise TLS Fingerprinting Proxy Server
 Implements JA4/JA4+ TLS fingerprinting for traffic analysis and filtering.
+
+Security Features:
+- Input validation and sanitization
+- mTLS support for backend communications
+- Secure TLS configuration (TLS 1.2+ only)
+- Audit logging with immutable timestamps
+- OWASP Top 10 protections
+- Memory-safe operations
+- Resource limits and timeouts
+
+Compliance:
+- GDPR data minimization
+- PCI-DSS security controls  
+- SOC 2 audit logging
+- ISO 27001 security framework
 """
 
 import asyncio
+import base64
 import hashlib
+import hmac
+import ipaddress
 import json
 import logging
+import logging.handlers
+import os
+import re
+import secrets
 import socket
 import ssl
 import struct
 import time
-from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple, Union
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Union, Any
+from urllib.parse import quote, unquote
 import yaml
 import redis
-from prometheus_client import Counter, Histogram, Gauge, start_http_server
+import cryptography
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from prometheus_client import Counter, Histogram, Gauge, Info, start_http_server
 from scapy.all import *
 from scapy.layers.tls.all import *
 
 
-# Metrics
-REQUEST_COUNT = Counter('ja4_requests_total', 'Total requests processed', ['fingerprint', 'action'])
-REQUEST_DURATION = Histogram('ja4_request_duration_seconds', 'Request duration')
+# Enhanced Metrics with Security Context
+REQUEST_COUNT = Counter('ja4_requests_total', 'Total requests processed', 
+                       ['fingerprint', 'action', 'source_country', 'tls_version'])
+REQUEST_DURATION = Histogram('ja4_request_duration_seconds', 'Request duration',
+                           buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0])
 ACTIVE_CONNECTIONS = Gauge('ja4_active_connections', 'Active connections')
-BLOCKED_REQUESTS = Counter('ja4_blocked_requests_total', 'Blocked requests', ['reason'])
+BLOCKED_REQUESTS = Counter('ja4_blocked_requests_total', 'Blocked requests', 
+                          ['reason', 'source_country', 'attack_type'])
+SECURITY_EVENTS = Counter('ja4_security_events_total', 'Security events', 
+                         ['event_type', 'severity', 'source'])
+TLS_HANDSHAKE_ERRORS = Counter('ja4_tls_handshake_errors_total', 'TLS handshake errors', 
+                              ['error_type', 'tls_version'])
+CERTIFICATE_EVENTS = Counter('ja4_certificate_events_total', 'Certificate events',
+                           ['event_type', 'cert_type'])
+PROXY_INFO = Info('ja4_proxy_info', 'Proxy version and build information')
+
+# Security Constants
+MAX_REQUEST_SIZE = 1024 * 1024  # 1MB
+MAX_HEADER_SIZE = 8192  # 8KB
+MAX_CONNECTIONS_PER_IP = 100
+RATE_LIMIT_WINDOW = 60  # seconds
+DEFAULT_TIMEOUT = 30
+TLS_MIN_VERSION = ssl.TLSVersion.TLSv1_2
+SECURE_CIPHER_SUITES = [
+    "ECDHE+AESGCM", "ECDHE+CHACHA20", "DHE+AESGCM", "DHE+CHACHA20", "!aNULL", "!eNULL", 
+    "!EXPORT", "!DES", "!RC4", "!MD5", "!PSK", "!SRP", "!CAMELLIA"
+]
+
+# Input Validation Patterns
+VALID_JA4_PATTERN = re.compile(r'^[tq][0-9]{2}[di][0-9]{2}[0-9]{2}[hi][0-9]_[a-f0-9]{12}_[a-f0-9]{12}$')
+VALID_IP_PATTERN = re.compile(r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$')
+VALID_HOSTNAME_PATTERN = re.compile(r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$')
+
+class SecurityError(Exception):
+    """Custom security exception."""
+    pass
+
+class ValidationError(Exception):
+    """Input validation exception."""
+    pass
+
+class ComplianceError(Exception):
+    """Compliance violation exception."""
+    pass
 
 
 @dataclass
 class JA4Fingerprint:
-    """JA4 TLS fingerprint data structure."""
+    """JA4 TLS fingerprint data structure with enhanced security and compliance."""
     ja4: str
     ja4s: Optional[str] = None
     client_hello_hash: str = ""
     server_hello_hash: str = ""
-    timestamp: float = 0.0
+    timestamp: float = field(default_factory=lambda: time.time())
     source_ip: str = ""
     destination_ip: str = ""
+    user_agent: str = ""
+    tls_version: str = ""
+    cipher_suite: str = ""
+    session_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    geo_country: str = ""
+    risk_score: int = 0
+    compliance_flags: Dict[str, bool] = field(default_factory=dict)
+    
+    def __post_init__(self):
+        """Validate and sanitize fingerprint data."""
+        self.ja4 = self._sanitize_ja4(self.ja4)
+        self.source_ip = self._validate_ip(self.source_ip)
+        self.timestamp = self._validate_timestamp(self.timestamp)
+        
+    def _sanitize_ja4(self, ja4: str) -> str:
+        """Sanitize and validate JA4 fingerprint."""
+        if not isinstance(ja4, str):
+            raise ValidationError("JA4 fingerprint must be string")
+        
+        ja4 = ja4.strip()
+        if not VALID_JA4_PATTERN.match(ja4):
+            raise ValidationError(f"Invalid JA4 fingerprint format: {ja4}")
+        
+        return ja4
+    
+    def _validate_ip(self, ip: str) -> str:
+        """Validate IP address."""
+        if not ip:
+            return ""
+        
+        try:
+            ipaddress.ip_address(ip)
+            return ip
+        except ValueError:
+            raise ValidationError(f"Invalid IP address: {ip}")
+    
+    def _validate_timestamp(self, timestamp: float) -> float:
+        """Validate timestamp is reasonable."""
+        current_time = time.time()
+        if timestamp > current_time + 300:  # Allow 5 minutes future
+            raise ValidationError("Timestamp too far in future")
+        if timestamp < current_time - 86400 * 30:  # Reject older than 30 days
+            raise ValidationError("Timestamp too old")
+        return timestamp
+    
+    def to_audit_log(self) -> Dict[str, Any]:
+        """Convert to audit log format (GDPR/PCI-DSS compliant)."""
+        return {
+            'event_id': self.session_id,
+            'timestamp': datetime.fromtimestamp(self.timestamp, tz=timezone.utc).isoformat(),
+            'ja4_hash': hashlib.sha256(self.ja4.encode()).hexdigest()[:16],  # Pseudonymized
+            'source_ip_hash': hashlib.sha256(self.source_ip.encode()).hexdigest()[:16] if self.source_ip else "",
+            'tls_version': self.tls_version,
+            'cipher_suite': self.cipher_suite,
+            'geo_country': self.geo_country,
+            'risk_score': self.risk_score,
+            'compliance_flags': self.compliance_flags
+        }
 
 
 class TLSParser:

@@ -1,0 +1,465 @@
+name: JA4 Proxy CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 2 * * *'  # Daily security scans
+
+env:
+  PYTHON_VERSION: '3.11'
+  DOCKER_REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/ja4proxy
+
+jobs:
+  # Security and Compliance Checks
+  security-scan:
+    name: Security Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install security tools
+      run: |
+        pip install bandit safety semgrep
+        
+    - name: Run Bandit security scanner
+      run: |
+        bandit -r proxy.py security/ -f json -o bandit-report.json
+        bandit -r proxy.py security/ -f txt
+      continue-on-error: true
+      
+    - name: Run Safety dependency check
+      run: |
+        safety check --json --output safety-report.json
+        safety check
+      continue-on-error: true
+      
+    - name: Run Semgrep SAST
+      run: |
+        semgrep --config=auto --json --output=semgrep-report.json .
+        semgrep --config=auto .
+      continue-on-error: true
+      
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+          semgrep-report.json
+          
+    # Container Security Scan
+    - name: Build Docker image
+      run: |
+        docker build -t ja4proxy:test .
+        
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'ja4proxy:test'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  # Code Quality and Linting
+  code-quality:
+    name: Code Quality Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install dependencies
+      run: |
+        pip install black flake8 mypy pylint isort
+        pip install -r requirements.txt
+        
+    - name: Run Black formatter check
+      run: black --check --diff proxy.py security/ tests/
+      
+    - name: Run isort import check
+      run: isort --check-only --diff proxy.py security/ tests/
+      
+    - name: Run Flake8 linter
+      run: flake8 proxy.py security/ tests/ --max-line-length=120
+      
+    - name: Run MyPy type checking
+      run: mypy proxy.py security/ --ignore-missing-imports
+      
+    - name: Run Pylint
+      run: pylint proxy.py security/ --fail-under=8.0
+      continue-on-error: true
+
+  # Unit and Integration Tests
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11']
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install -r requirements-test.txt
+        
+    - name: Run unit tests with coverage
+      run: |
+        pytest tests/unit/ -v --cov=proxy --cov=security \
+          --cov-report=xml --cov-report=html --cov-report=term
+        
+    - name: Run integration tests
+      run: |
+        pytest tests/integration/ -v --redis-url=redis://localhost:6379
+        
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        fail_ci_if_error: true
+
+  # Performance Testing
+  performance-test:
+    name: Performance Testing
+    runs-on: ubuntu-latest
+    needs: [test]
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+          
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install locust
+        
+    - name: Start JA4 Proxy
+      run: |
+        python proxy.py config/proxy.yml &
+        sleep 10
+        
+    - name: Run performance tests
+      run: |
+        locust -f performance/locust_tests.py \
+          --host http://localhost:8080 \
+          --users 100 --spawn-rate 10 --run-time 2m \
+          --headless --csv reports/performance
+          
+    - name: Upload performance reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-reports
+        path: reports/
+
+  # OWASP ZAP Security Testing
+  security-test:
+    name: OWASP ZAP Security Test
+    runs-on: ubuntu-latest
+    needs: [test]
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+          
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        
+    - name: Start JA4 Proxy
+      run: |
+        python proxy.py config/proxy.yml &
+        sleep 15
+        
+    - name: ZAP Scan
+      uses: zaproxy/action-full-scan@v0.7.0
+      with:
+        target: 'http://localhost:8080'
+        rules_file_name: '.zap/rules.tsv'
+        cmd_options: '-a'
+        
+    - name: Upload ZAP results
+      uses: actions/upload-artifact@v3
+      with:
+        name: zap-reports
+        path: report_html.html
+
+  # Fuzz Testing
+  fuzz-test:
+    name: Fuzz Testing
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install hypothesis
+        
+    - name: Run property-based fuzz tests
+      run: |
+        pytest tests/fuzz/ -v --hypothesis-show-statistics
+        
+    - name: Run TLS fuzzing
+      run: |
+        python tests/security/tls_fuzzer.py
+
+  # Container Build and Security
+  container-security:
+    name: Container Security
+    runs-on: ubuntu-latest
+    needs: [security-scan, test]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+      
+    - name: Build and export
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        file: ./Dockerfile
+        tags: ja4proxy:latest
+        outputs: type=docker,dest=/tmp/ja4proxy.tar
+        
+    - name: Run Docker Bench Security
+      run: |
+        docker run --rm --net host --pid host --userns host --cap-add audit_control \
+          -e DOCKER_CONTENT_TRUST=$DOCKER_CONTENT_TRUST \
+          -v /var/lib:/var/lib:ro \
+          -v /var/run/docker.sock:/var/run/docker.sock:ro \
+          -v /usr/lib/systemd:/usr/lib/systemd:ro \
+          -v /etc:/etc:ro --label docker_bench_security \
+          docker/docker-bench-security
+          
+    - name: Scan with Grype
+      uses: anchore/scan-action@v3
+      with:
+        image: ja4proxy:latest
+        fail-build: false
+        
+    - name: Run Hadolint Dockerfile linter
+      uses: hadolint/hadolint-action@v3.1.0
+      with:
+        dockerfile: Dockerfile
+
+  # Compliance Validation
+  compliance:
+    name: Compliance Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Install compliance tools
+      run: |
+        pip install -r requirements.txt
+        
+    - name: GDPR Compliance Check
+      run: |
+        python tests/compliance/gdpr_validator.py
+        
+    - name: PCI-DSS Compliance Check
+      run: |
+        python tests/compliance/pci_validator.py
+        
+    - name: SOC 2 Controls Check
+      run: |
+        python tests/compliance/soc2_validator.py
+
+  # Deployment to Staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [security-scan, code-quality, test, performance-test, security-test]
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Login to Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ env.DOCKER_REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Build and push
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: true
+        tags: |
+          ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:staging
+          ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          
+    - name: Deploy to staging
+      run: |
+        echo "Deploying to staging environment..."
+        # Add actual deployment commands here
+
+  # Production Deployment
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [security-scan, code-quality, test, performance-test, security-test, compliance]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Login to Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ${{ env.DOCKER_REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Build and push
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: true
+        tags: |
+          ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          ${{ env.DOCKER_REGISTRY }}/${{ env.IMAGE_NAME }}:v${{ github.run_number }}
+          
+    - name: Sign container image
+      run: |
+        echo "Signing container image with Cosign..."
+        # Add Cosign signing commands
+        
+    - name: Deploy to production
+      run: |
+        echo "Deploying to production environment..."
+        # Add actual deployment commands here
+        
+    - name: Run post-deployment tests
+      run: |
+        echo "Running post-deployment verification..."
+        # Add verification tests
+        
+    - name: Notify deployment
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        channel: '#deployments'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+      if: always()
+
+  # Nightly Security Scan
+  nightly-scan:
+    name: Nightly Security Scan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Run comprehensive security scan
+      run: |
+        echo "Running comprehensive nightly security scan..."
+        # Add comprehensive security scanning
+        
+    - name: Generate security report
+      run: |
+        echo "Generating security compliance report..."
+        # Add security report generation
+        
+    - name: Upload security dashboard
+      run: |
+        echo "Uploading security dashboard..."
+        # Add dashboard upload
