@@ -1,7 +1,7 @@
 FROM python:3.11-slim
 
 # Security hardening
-RUN addgroup --system proxy && adduser --system --group proxy
+RUN groupadd -r proxy || true && useradd -r -g proxy proxy 2>/dev/null || useradd -r -G proxy proxy
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
