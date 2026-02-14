@@ -310,8 +310,8 @@ class ConfigManager:
     
     def __init__(self, config_path: str = "config/proxy.yml"):
         self.config_path = config_path
-        self.config = self.load_config()
         self.logger = logging.getLogger(__name__)
+        self.config = self.load_config()
     
     def load_config(self) -> Dict:
         """Load configuration from YAML file with validation."""
@@ -618,6 +618,9 @@ class ProxyServer:
         self.config_manager = ConfigManager(config_path)
         self.config = self.config_manager.config
         
+        # Initialize logger first
+        self.logger = self._init_logging()
+        
         # Initialize components
         self.redis_client = self._init_redis()
         self.tls_parser = TLSParser()
@@ -625,7 +628,6 @@ class ProxyServer:
         self.security_manager = SecurityManager(self.config, self.redis_client)
         self.tarpit_manager = TarpitManager(self.config)
         
-        self.logger = self._init_logging()
         self.active_connections = 0
     
     def _init_redis(self) -> redis.Redis:
