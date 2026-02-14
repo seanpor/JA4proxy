@@ -68,6 +68,7 @@ services:
       - backend
     volumes:
       - ./tests:/app/tests:ro
+      - ./performance:/app/performance:ro
       - ./reports:/app/reports
       - ./proxy.py:/app/proxy.py:ro
       - ./security:/app/security:ro
