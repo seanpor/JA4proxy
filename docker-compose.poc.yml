@@ -71,7 +71,7 @@ services:
       - ./performance:/app/performance:ro
       - ./reports:/app/reports
       - ./proxy.py:/app/proxy.py:ro
-      - ./security:/app/security:ro
+      - ./src:/app/src:ro
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
       - PROXY_HOST=proxy
