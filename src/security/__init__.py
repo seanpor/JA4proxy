@@ -10,6 +10,7 @@ from .threat_evaluator import (
 )
 from .action_types import ActionType, ActionResult, ActionConfig
 from .action_enforcer import ActionEnforcer
+from .gdpr_storage import GDPRStorage, DataCategory
 
 __all__ = [
     'RateLimitStrategy',
@@ -25,4 +26,6 @@ __all__ = [
     'ActionResult',
     'ActionConfig',
     'ActionEnforcer',
+    'GDPRStorage',
+    'DataCategory',
 ]
