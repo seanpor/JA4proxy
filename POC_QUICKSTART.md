@@ -69,7 +69,8 @@ Once started, you'll have:
 | **Proxy** | http://localhost:8080 | Main proxy server |
 | **Metrics** | http://localhost:9090/metrics | Prometheus metrics |
 | **Backend** | http://localhost:8081 | Mock backend server |
-| **Prometheus** | http://localhost:9091 | Monitoring dashboard |
+| **Prometheus** | http://localhost:9091 | Metrics collection |
+| **Grafana** | http://localhost:3001 | Security Dashboard (admin/admin) |
 
 ---
 

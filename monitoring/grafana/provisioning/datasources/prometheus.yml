@@ -5,7 +5,7 @@ datasources:
   - name: JA4proxy Prometheus
     type: prometheus
     access: proxy
-    url: http://prometheus:9090
+    url: http://ja4proxy-prometheus:9090
     isDefault: true
     editable: true
     jsonData:

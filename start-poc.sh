@@ -34,7 +34,7 @@ echo -e "${BLUE}Starting services...${NC}"
 docker network prune -f > /dev/null 2>&1 || true
 
 # Try to start services, if network fails, provide helpful error
-if ! docker compose -f docker-compose.poc.yml up -d redis backend proxy monitoring 2>&1; then
+if ! docker compose -f docker-compose.poc.yml up -d redis backend proxy monitoring grafana 2>&1; then
     echo ""
     echo -e "${RED}Failed to start services. This may be a Docker networking issue.${NC}"
     echo ""
@@ -117,6 +117,21 @@ if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
     echo -e "${YELLOW}⚠ Prometheus not responding (non-critical)${NC}"
 fi
 
+# Check Grafana
+echo -n "Checking Grafana... "
+RETRY_COUNT=0
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    if curl -sf http://localhost:3001/api/health > /dev/null 2>&1; then
+        echo -e "${GREEN}✓${NC}"
+        break
+    fi
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    sleep 1
+done
+if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+    echo -e "${YELLOW}⚠ Grafana not responding (non-critical)${NC}"
+fi
+
 echo ""
 echo "=========================================="
 echo -e "${GREEN}✓ All services are running!${NC}"
@@ -127,6 +142,10 @@ echo "  Proxy:       http://localhost:8080"
 echo "  Metrics:     http://localhost:9090/metrics"
 echo "  Backend:     http://localhost:8081"
 echo "  Prometheus:  http://localhost:9091"
+echo "  Grafana:     http://localhost:3001 (admin/admin)"
+echo ""
+echo "View Security Dashboard:"
+echo "  open http://localhost:3001"
 echo ""
 echo "Test the proxy:"
 echo "  curl -x http://localhost:8080 http://backend/api/health"

@@ -101,8 +101,34 @@ services:
       - no-new-privileges:true
       - apparmor:unconfined
 
+  grafana:
+    image: grafana/grafana:10.2.2
+    container_name: ja4proxy-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/ja4proxy-overview.json
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - monitoring
+    networks:
+      - ja4proxy
+    # POC: Relaxed security for snap Docker compatibility
+    security_opt:
+      - no-new-privileges:true
+      - apparmor:unconfined
+
 volumes:
   redis_data:
+  grafana_data:
 
 networks:
   ja4proxy:
