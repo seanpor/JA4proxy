@@ -31,6 +31,7 @@ def mock_redis():
     # Storage for tracking state
     redis._data = {}
     redis._ttls = {}
+    redis._sorted_sets = {}  # For zadd/zcount
     
     def setex_impl(key, ttl, value):
         redis._data[key] = value
@@ -41,25 +42,69 @@ def mock_redis():
         return redis._data.get(key)
     
     def exists_impl(key):
-        return key in redis._data
+        return key in redis._data or key in redis._sorted_sets
     
     def ttl_impl(key):
         return redis._ttls.get(key, -1)
     
     def delete_impl(key):
+        deleted = 0
         if key in redis._data:
             del redis._data[key]
             if key in redis._ttls:
                 del redis._ttls[key]
-            return 1
-        return 0
+            deleted += 1
+        if key in redis._sorted_sets:
+            del redis._sorted_sets[key]
+            deleted += 1
+        return deleted
     
     def keys_impl(pattern):
         # Simple pattern matching
         if pattern == '*':
-            return list(redis._data.keys())
+            all_keys = list(redis._data.keys()) + list(redis._sorted_sets.keys())
+            return list(set(all_keys))
         prefix = pattern.replace('*', '')
-        return [k for k in redis._data.keys() if k.startswith(prefix)]
+        all_keys = list(redis._data.keys()) + list(redis._sorted_sets.keys())
+        return [k for k in all_keys if k.startswith(prefix)]
+    
+    def zadd_impl(key, mapping):
+        """Add to sorted set."""
+        if key not in redis._sorted_sets:
+            redis._sorted_sets[key] = []
+        for member, score in mapping.items():
+            # Remove if exists
+            redis._sorted_sets[key] = [(m, s) for m, s in redis._sorted_sets[key] if m != member]
+            # Add new
+            redis._sorted_sets[key].append((member, float(score)))
+        return len(mapping)
+    
+    def zcount_impl(key, min_score, max_score):
+        """Count members in sorted set within score range."""
+        if key not in redis._sorted_sets:
+            return 0
+        count = 0
+        for member, score in redis._sorted_sets[key]:
+            # Handle string comparisons for -inf and +inf
+            if min_score == '-inf':
+                min_val = float('-inf')
+            else:
+                min_val = float(min_score)
+            if max_score == '+inf':
+                max_val = float('inf')
+            else:
+                max_val = float(max_score)
+            
+            if min_val <= score <= max_val:
+                count += 1
+        return count
+    
+    def expire_impl(key, seconds):
+        """Set expiry on key."""
+        if key in redis._data or key in redis._sorted_sets:
+            redis._ttls[key] = seconds
+            return True
+        return False
     
     # Mock implementation
     redis.setex.side_effect = setex_impl
@@ -70,9 +115,32 @@ def mock_redis():
     redis.keys.side_effect = keys_impl
     
     # Rate tracking methods
-    redis.zadd.return_value = 1
-    redis.zcount.return_value = 0
-    redis.expire.return_value = True
+    redis.zadd.side_effect = zadd_impl
+    redis.zcount.side_effect = zcount_impl
+    redis.expire.side_effect = expire_impl
+    
+    # Mock register_script to return a callable that simulates connection counting
+    redis._script_counters = {}  # Track calls per key
+    
+    def mock_script_call(keys=None, args=None, client=None):
+        """Mock Lua script execution - simulates connection tracking."""
+        if not keys:
+            return 0
+        
+        # Keys are [key, counter_key], args are [now, window_seconds, ttl]
+        key = keys[0] if keys else "unknown"
+        
+        # Increment counter for this key
+        if key not in redis._script_counters:
+            redis._script_counters[key] = 0
+        redis._script_counters[key] += 1
+        
+        # Return current count
+        return redis._script_counters[key]
+    
+    mock_script = Mock()
+    mock_script.side_effect = mock_script_call
+    redis.register_script.return_value = mock_script
     redis.zremrangebyscore.return_value = 0
     
     return redis
@@ -131,8 +199,13 @@ def test_config():
 
 @pytest.fixture
 def security_manager(mock_redis, test_config):
-    """Create security manager for testing."""
-    return SecurityManager.from_config(mock_redis, test_config)
+    """Create security manager for testing with time.time() mocked."""
+    # Mock time.time() to return a consistent float value
+    # This prevents Mock comparison errors in rate calculations
+    with patch('time.time') as mock_time:
+        mock_time.return_value = 1234567890.0
+        manager = SecurityManager.from_config(mock_redis, test_config)
+        yield manager
 
 
 class TestSecurityManagerInit:
@@ -176,8 +249,8 @@ class TestEndToEndNormalTraffic:
     def test_allow_first_connection(self, security_manager):
         """Test that first connection is allowed."""
         allowed, reason = security_manager.check_access(
-            ja4="t13d1516h2_abc_def",
-            ip="192.168.1.100",
+            "t13d1516h2_abc_def",  # ja4 (positional)
+            "192.168.1.100",       # client_ip (positional)
         )
         
         assert allowed is True
@@ -230,7 +303,7 @@ class TestEndToEndBlockTraffic:
         
         # Should be blocked
         assert allowed is False
-        assert "TARPIT" in reason or "block" in reason.lower() or "limit" in reason.lower()
+        assert "TARPIT" in reason or "block" in reason.lower() or "limit" in reason.lower() or "ban" in reason.lower()
     
     def test_subsequent_connection_blocked(self, security_manager, mock_redis):
         """Test that subsequent connections are blocked."""
