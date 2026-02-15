@@ -2,6 +2,13 @@
 
 # JA4 Proxy - TLS Fingerprinting Proxy Server
 
+**POC Status:** ✅ **READY** - All services validated and working  
+**Production Status:** ⚠️ **NOT READY** - Requires 6-8 weeks of security hardening  
+**Security Status:** 🔴 **13 vulnerabilities** (acceptable for POC, must fix for production)  
+**Last Validated:** 2026-02-15
+
+> **⚠️ Security Notice:** This POC uses default passwords and has no encryption. Safe for localhost testing only. **NOT for production use without security hardening.** See [POC_SECURITY_SCAN.md](POC_SECURITY_SCAN.md) for details.
+
 JA4 Proxy is a high-performance, security-focused proxy server that implements JA4/JA4+ TLS fingerprinting for advanced traffic analysis, filtering, and security enforcement.
 
 ## Features
@@ -30,7 +37,9 @@ JA4 Proxy is a high-performance, security-focused proxy server that implements J
 - **Operational Tools**: Health checks, diagnostics, management APIs
 - **Performance Tuning**: Optimized for enterprise workloads
 
-## Quick Start
+## Quick Start (POC Ready!)
+
+The POC environment is **validated and ready to use**. Start in under 5 minutes!
 
 ### Prerequisites
 - Docker 20.10+
@@ -40,7 +49,7 @@ JA4 Proxy is a high-performance, security-focused proxy server that implements J
 
 **No local Python installation required** - everything runs in Docker containers.
 
-### PoC Installation (Docker Only)
+### PoC Installation (Docker Only) ✅
 
 1. **Clone the repository:**
 ```bash
@@ -64,11 +73,16 @@ This will start:
 # Run quick smoke test
 ./smoke-test.sh
 
+# Or run automated demo
+./demo-poc.sh
+
 # Or check individual services
 curl http://localhost:9090/metrics        # Proxy metrics
 curl http://localhost:8081/api/health     # Backend health
 docker exec ja4proxy-redis redis-cli -a changeme ping  # Redis
 ```
+
+**Expected Result:** All smoke tests should pass ✅
 
 ### Running Tests
 
@@ -263,19 +277,22 @@ docker-compose -f docker-compose.poc.yml run --rm test pytest tests/integration/
 
 ## Documentation
 
-### Getting Started
-- **[Quick Reference](docs/QUICK_REFERENCE.md)** - Command cheat sheet
+### POC Documentation (Start Here!)
+- **[POC Quick Start](POC_QUICKSTART.md)** - 5-minute quick start guide ⚡
+- **[POC Readiness Report](POC_READINESS_REPORT.md)** - Complete POC validation ✅
 - **[POC Guide](docs/POC_GUIDE.md)** - Detailed POC setup and usage
+- **[Project Assessment](PROJECT_ASSESSMENT_SUMMARY.md)** - Complete assessment summary
+
+### Enterprise/Production Documentation
+- **[Enterprise Review](ENTERPRISE_REVIEW.md)** - Production readiness assessment ⚠️
+- **[Security Audit](docs/security/COMPREHENSIVE_SECURITY_AUDIT.md)** - 18 vulnerabilities identified 🔴
+- **[Enterprise Deployment](docs/enterprise/deployment.md)** - DMZ deployment guide
+- **[Security Architecture](docs/enterprise/security-architecture.md)** - Security design
+
+### Additional Documentation
+- **[Quick Reference](docs/QUICK_REFERENCE.md)** - Command cheat sheet
 - **[Testing Guide](docs/TESTING.md)** - Complete testing documentation
 - **[Executive Summary](docs/EXEC_SUMMARY.md)** - High-level overview
-
-### Security Documentation
-- **[Security Checklist](docs/security/SECURITY_CHECKLIST.md)** - Security audit checklist
-- **[Security Analysis](docs/security/SECURITY_ANALYSIS_REPORT.md)** - Detailed security analysis
-- **[Security Fixes](docs/security/SECURITY_FIXES.md)** - Implemented security fixes
-
-### Archive
-- **[Change History](docs/archive/)** - Historical change logs and migration notes
 
 ## Architecture
 
