@@ -1,0 +1,729 @@
+# Redis Security Review & Recommendations for JA4proxy
+
+**Date:** 2026-02-15  
+**Status:** 🔴 **CRITICAL** - Multiple security issues found  
+**Priority:** HIGH - Must fix before production deployment
+
+---
+
+## Executive Summary
+
+The current Redis configuration in JA4proxy has **7 critical security issues** that must be addressed before production use:
+
+1. ❌ **Hardcoded password** "changeme" in multiple files
+2. ❌ **No TLS/SSL encryption** for Redis connections
+3. ❌ **Password in plaintext** in Docker Compose files
+4. ❌ **Redis exposed** on host network (0.0.0.0:6379)
+5. ❌ **No Redis ACL** (Access Control Lists) configured
+6. ❌ **No password rotation** mechanism
+7. ❌ **Weak password** storage in environment variables
+
+**Risk Level:** HIGH - Data can be intercepted, Redis can be compromised
+
+---
+
+## Current Configuration Issues
+
+### Issue 1: Hardcoded Password ❌
+
+**Location:** Multiple files
+```yaml
+# docker-compose.poc.yml
+command: ["--requirepass", "changeme"]
+
+# Environment variables
+REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}  # Falls back to "changeme"
+```
+
+**Risk:**
+- Password visible in Docker inspect
+- Password in process list (`ps aux`)
+- Password committed to version control
+- Known weak password
+
+**Severity:** CRITICAL
+
+---
+
+### Issue 2: No TLS Encryption ❌
+
+**Location:** `config/proxy.yml`
+```yaml
+redis:
+  ssl: false
+  ssl_cert_reqs: "required"
+```
+
+**Risk:**
+- All Redis traffic sent in **plaintext**
+- Password transmitted unencrypted
+- Data can be intercepted (MITM attack)
+- Session tokens/fingerprints exposed
+
+**Severity:** CRITICAL
+
+---
+
+### Issue 3: Exposed Redis Port ❌
+
+**Location:** `docker-compose.poc.yml`
+```yaml
+redis:
+  ports:
+    - "6379:6379"  # Exposed to host!
+```
+
+**Risk:**
+- Redis accessible from host network
+- Potential access from other containers
+- Exposed to port scanners
+- No network isolation
+
+**Severity:** HIGH
+
+---
+
+### Issue 4: No Redis ACL ❌
+
+**Current:** Single password for all operations
+
+**Risk:**
+- Proxy has full Redis access (FLUSHALL, CONFIG, etc.)
+- No separation of permissions
+- Cannot restrict dangerous commands
+- Cannot audit who did what
+
+**Severity:** HIGH
+
+---
+
+### Issue 5: Password in Environment Variables ❌
+
+**Location:** Multiple files
+```bash
+environment:
+  - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
+```
+
+**Risk:**
+- Visible in `docker inspect`
+- Logged in various places
+- Accessible to anyone with container access
+- Process environment exposed via /proc
+
+**Severity:** MEDIUM
+
+---
+
+### Issue 6: No Password Rotation ❌
+
+**Current:** No mechanism to change password
+
+**Risk:**
+- Same password forever
+- Difficult to revoke access
+- No audit trail of password changes
+- Cannot comply with security policies
+
+**Severity:** MEDIUM
+
+---
+
+### Issue 7: Weak Default Password ❌
+
+**Current:** "changeme"
+
+**Risk:**
+- Common in breaches
+- Likely in wordlists
+- Same password in all environments
+- Easy to guess
+
+**Severity:** HIGH
+
+---
+
+## Production Security Requirements
+
+### ✅ Must Have (Before Production)
+
+1. **Strong random password** (32+ characters)
+2. **TLS encryption** for all Redis connections
+3. **Docker secrets** for password management
+4. **Redis ACL** with least-privilege access
+5. **Network isolation** (no exposed ports)
+6. **Certificate validation**
+7. **Password rotation** mechanism
+
+### 🎯 Should Have (Best Practice)
+
+8. **Redis Sentinel** for high availability
+9. **Redis persistence** with encryption at rest
+10. **Audit logging** for all Redis operations
+11. **Connection pooling** with timeout
+12. **Health checks** with authentication
+13. **Backup encryption**
+14. **Monitoring** for security events
+
+### 💡 Nice to Have (Advanced)
+
+15. **Redis Cluster** for scalability
+16. **mTLS** (mutual TLS) authentication
+17. **Hardware Security Module** (HSM) for keys
+18. **Secrets management** service (Vault, AWS Secrets Manager)
+
+---
+
+## Recommended Solutions
+
+### Solution 1: Strong Password with Docker Secrets
+
+**Create secrets directory structure:**
+```bash
+secrets/
+├── redis_password.txt      # Strong password (32+ chars)
+├── redis_ca.crt           # Certificate Authority
+├── redis_client.crt       # Client certificate
+└── redis_client.key       # Client private key
+```
+
+**Generate strong password:**
+```bash
+# Generate 32-character random password
+openssl rand -base64 32 > secrets/redis_password.txt
+chmod 600 secrets/redis_password.txt
+
+# Example: "K7mN9pQ2rT5vW8xZ0bC3dF6gH9jL2mP5"
+```
+
+**Update Docker Compose:**
+```yaml
+services:
+  redis:
+    secrets:
+      - redis_password
+    command:
+      - sh
+      - -c
+      - |
+        redis-server \
+          --requirepass "$$(cat /run/secrets/redis_password)" \
+          --maxmemory 512mb \
+          --maxmemory-policy allkeys-lru
+
+  proxy:
+    secrets:
+      - redis_password
+    environment:
+      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
+
+secrets:
+  redis_password:
+    file: ./secrets/redis_password.txt
+```
+
+---
+
+### Solution 2: Enable TLS/SSL
+
+**Generate certificates:**
+```bash
+#!/bin/bash
+# Generate Redis TLS certificates
+
+CERT_DIR="./ssl/redis"
+mkdir -p "$CERT_DIR"
+
+# 1. Generate CA key and certificate
+openssl genrsa -out "$CERT_DIR/ca.key" 4096
+openssl req -new -x509 -days 3650 -key "$CERT_DIR/ca.key" \
+  -out "$CERT_DIR/ca.crt" \
+  -subj "/C=US/ST=CA/L=SF/O=JA4proxy/CN=Redis CA"
+
+# 2. Generate Redis server key and certificate
+openssl genrsa -out "$CERT_DIR/redis.key" 4096
+openssl req -new -key "$CERT_DIR/redis.key" \
+  -out "$CERT_DIR/redis.csr" \
+  -subj "/C=US/ST=CA/L=SF/O=JA4proxy/CN=redis"
+openssl x509 -req -days 365 -in "$CERT_DIR/redis.csr" \
+  -CA "$CERT_DIR/ca.crt" -CAkey "$CERT_DIR/ca.key" \
+  -CAcreateserial -out "$CERT_DIR/redis.crt"
+
+# 3. Generate client key and certificate
+openssl genrsa -out "$CERT_DIR/client.key" 4096
+openssl req -new -key "$CERT_DIR/client.key" \
+  -out "$CERT_DIR/client.csr" \
+  -subj "/C=US/ST=CA/L=SF/O=JA4proxy/CN=proxy"
+openssl x509 -req -days 365 -in "$CERT_DIR/client.csr" \
+  -CA "$CERT_DIR/ca.crt" -CAkey "$CERT_DIR/ca.key" \
+  -CAcreateserial -out "$CERT_DIR/client.crt"
+
+# Set permissions
+chmod 600 "$CERT_DIR"/*.key
+chmod 644 "$CERT_DIR"/*.crt
+
+echo "Certificates generated in $CERT_DIR"
+```
+
+**Update redis.conf:**
+```conf
+# Enable TLS
+port 0
+tls-port 6379
+tls-cert-file /etc/redis/ssl/redis.crt
+tls-key-file /etc/redis/ssl/redis.key
+tls-ca-cert-file /etc/redis/ssl/ca.crt
+tls-auth-clients yes
+tls-replication yes
+tls-cluster yes
+
+# Security settings
+requirepass <password-from-secret>
+maxclients 10000
+timeout 300
+
+# Disable dangerous commands
+rename-command FLUSHDB ""
+rename-command FLUSHALL ""
+rename-command KEYS ""
+rename-command CONFIG ""
+rename-command SHUTDOWN ""
+rename-command BGREWRITEAOF ""
+rename-command BGSAVE ""
+rename-command SAVE ""
+rename-command DEBUG ""
+
+# Persistence with encryption (if needed)
+save 900 1
+save 300 10
+save 60 10000
+rdbcompression yes
+rdbchecksum yes
+```
+
+**Update Docker Compose with TLS:**
+```yaml
+services:
+  redis:
+    image: redis:7-alpine
+    command:
+      - sh
+      - -c
+      - |
+        redis-server \
+          --tls-port 6379 \
+          --port 0 \
+          --tls-cert-file /etc/redis/ssl/redis.crt \
+          --tls-key-file /etc/redis/ssl/redis.key \
+          --tls-ca-cert-file /etc/redis/ssl/ca.crt \
+          --tls-auth-clients yes \
+          --requirepass "$$(cat /run/secrets/redis_password)" \
+          --maxmemory 512mb
+    volumes:
+      - ./ssl/redis:/etc/redis/ssl:ro
+      - redis_data:/data
+    secrets:
+      - redis_password
+    # DO NOT expose port in production
+    networks:
+      - ja4proxy-internal
+```
+
+**Update Python code:**
+```python
+import redis
+import ssl
+
+def connect_redis(config):
+    """Connect to Redis with TLS."""
+    
+    # Read password from file (Docker secret)
+    password_file = os.getenv('REDIS_PASSWORD_FILE', '/run/secrets/redis_password')
+    with open(password_file, 'r') as f:
+        password = f.read().strip()
+    
+    # Configure TLS
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_REQUIRED
+    ssl_context.load_verify_locations('/etc/redis/ssl/ca.crt')
+    ssl_context.load_cert_chain(
+        certfile='/etc/redis/ssl/client.crt',
+        keyfile='/etc/redis/ssl/client.key'
+    )
+    
+    # Create connection pool
+    pool = redis.ConnectionPool(
+        host=config['host'],
+        port=config['port'],
+        db=config['db'],
+        password=password,
+        ssl=True,
+        ssl_context=ssl_context,
+        connection_class=redis.SSLConnection,
+        socket_timeout=5,
+        socket_connect_timeout=5,
+        socket_keepalive=True,
+        socket_keepalive_options={
+            socket.TCP_KEEPIDLE: 60,
+            socket.TCP_KEEPINTVL: 10,
+            socket.TCP_KEEPCNT: 3
+        },
+        max_connections=50,
+        retry_on_timeout=True,
+        health_check_interval=30
+    )
+    
+    return redis.Redis(connection_pool=pool)
+```
+
+---
+
+### Solution 3: Redis ACL (Access Control Lists)
+
+**Create ACL configuration:**
+```conf
+# /etc/redis/users.acl
+
+# Admin user (for ops)
+user admin on >$(cat /run/secrets/redis_admin_password) ~* &* +@all
+
+# Application user (proxy) - restricted permissions
+user ja4proxy on >$(cat /run/secrets/redis_password) ~ja4:* ~rate:* ~enforcement:* &* +@read +@write +@set +@sortedset +@string +@hash -@dangerous
+
+# Read-only monitoring user
+user monitor on >$(cat /run/secrets/redis_monitor_password) ~* &* +@read +ping +info +cluster
+
+# Default user disabled
+user default off nopass nocommands
+```
+
+**Load ACL in Redis:**
+```yaml
+services:
+  redis:
+    command:
+      - sh
+      - -c
+      - |
+        redis-server \
+          --aclfile /etc/redis/users.acl \
+          --requirepass "$$(cat /run/secrets/redis_password)"
+    volumes:
+      - ./config/redis/users.acl:/etc/redis/users.acl:ro
+```
+
+---
+
+### Solution 4: Network Isolation
+
+**Remove exposed ports:**
+```yaml
+services:
+  redis:
+    # DO NOT EXPOSE PORTS IN PRODUCTION
+    # ports:
+    #   - "6379:6379"  # REMOVE THIS
+    networks:
+      - ja4proxy-internal  # Internal network only
+
+networks:
+  ja4proxy-internal:
+    driver: bridge
+    internal: true  # No external access
+```
+
+**Use internal DNS:**
+```python
+# Connect using service name (Docker DNS)
+redis_client = redis.Redis(
+    host='redis',  # Docker service name
+    port=6379,
+    ssl=True,
+    # ... TLS config
+)
+```
+
+---
+
+### Solution 5: Password Rotation Script
+
+**Create rotation script:**
+```bash
+#!/bin/bash
+# redis-rotate-password.sh
+
+set -e
+
+NEW_PASSWORD=$(openssl rand -base64 32)
+OLD_PASSWORD=$(cat secrets/redis_password.txt)
+
+echo "Rotating Redis password..."
+
+# 1. Add new password alongside old (Redis supports multiple passwords)
+docker exec ja4proxy-redis redis-cli -a "$OLD_PASSWORD" \
+  CONFIG SET requirepass "$NEW_PASSWORD"
+
+# 2. Update secret file
+echo "$NEW_PASSWORD" > secrets/redis_password.txt
+chmod 600 secrets/redis_password.txt
+
+# 3. Restart services to pick up new password
+docker compose restart proxy
+
+# 4. Wait for services to be healthy
+sleep 10
+
+# 5. Verify new password works
+if docker exec ja4proxy-redis redis-cli -a "$NEW_PASSWORD" PING | grep -q "PONG"; then
+    echo "✓ Password rotation successful"
+    echo "✓ New password: $NEW_PASSWORD"
+    echo "✓ Please update monitoring and backup systems"
+else
+    echo "✗ Password rotation failed"
+    echo "$OLD_PASSWORD" > secrets/redis_password.txt
+    exit 1
+fi
+```
+
+---
+
+### Solution 6: Monitoring Redis Security
+
+**Add security metrics:**
+```python
+from prometheus_client import Counter, Gauge
+
+# Security metrics
+redis_auth_failures = Counter(
+    'redis_auth_failures_total',
+    'Total Redis authentication failures'
+)
+
+redis_tls_errors = Counter(
+    'redis_tls_errors_total',
+    'Total Redis TLS errors'
+)
+
+redis_connection_refused = Counter(
+    'redis_connection_refused_total',
+    'Total Redis connection refused events'
+)
+
+# Monitor for security events
+def connect_with_monitoring(config):
+    try:
+        client = connect_redis(config)
+        client.ping()
+        return client
+    except redis.AuthenticationError:
+        redis_auth_failures.inc()
+        raise
+    except ssl.SSLError:
+        redis_tls_errors.inc()
+        raise
+    except redis.ConnectionError:
+        redis_connection_refused.inc()
+        raise
+```
+
+**Alert on security events:**
+```yaml
+# prometheus/alerts.yml
+- alert: RedisAuthenticationFailures
+  expr: rate(redis_auth_failures_total[5m]) > 0
+  for: 1m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Redis authentication failures detected"
+    description: "{{ $value }} auth failures per second"
+
+- alert: RedisTLSErrors
+  expr: rate(redis_tls_errors_total[5m]) > 0
+  for: 1m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Redis TLS errors detected"
+```
+
+---
+
+## Implementation Checklist
+
+### Phase 1: Immediate (Week 1)
+
+- [ ] Generate strong random password
+- [ ] Move password to Docker secrets
+- [ ] Remove exposed Redis port
+- [ ] Update all code to read from secrets
+- [ ] Test connections still work
+
+### Phase 2: TLS Setup (Week 2)
+
+- [ ] Generate TLS certificates
+- [ ] Configure Redis with TLS
+- [ ] Update proxy to use TLS
+- [ ] Test encrypted connections
+- [ ] Verify certificate validation
+
+### Phase 3: Access Control (Week 2)
+
+- [ ] Create Redis ACL configuration
+- [ ] Define user roles (admin, app, monitor)
+- [ ] Test restricted permissions
+- [ ] Document ACL rules
+
+### Phase 4: Monitoring (Week 3)
+
+- [ ] Add security metrics
+- [ ] Create security alerts
+- [ ] Set up log monitoring
+- [ ] Test alert delivery
+
+### Phase 5: Operations (Week 3-4)
+
+- [ ] Create password rotation script
+- [ ] Document operational procedures
+- [ ] Set up backup encryption
+- [ ] Create runbooks
+
+---
+
+## Testing Procedures
+
+### Test 1: Verify TLS Encryption
+
+```bash
+# Should fail (no encryption)
+redis-cli -h localhost -p 6379 PING
+# Expected: Error
+
+# Should succeed (with TLS)
+redis-cli -h localhost -p 6379 --tls \
+  --cert ./ssl/redis/client.crt \
+  --key ./ssl/redis/client.key \
+  --cacert ./ssl/redis/ca.crt \
+  -a "$(cat secrets/redis_password.txt)" \
+  PING
+# Expected: PONG
+```
+
+### Test 2: Verify ACL Restrictions
+
+```bash
+# Test dangerous command is blocked
+redis-cli --tls -a "..." FLUSHALL
+# Expected: Error (command renamed or disabled)
+
+# Test allowed operations work
+redis-cli --tls -a "..." SET test value
+# Expected: OK
+```
+
+### Test 3: Verify Network Isolation
+
+```bash
+# From host (should fail)
+telnet localhost 6379
+# Expected: Connection refused
+
+# From proxy container (should succeed)
+docker exec ja4proxy sh -c "redis-cli -h redis -p 6379 --tls -a ... PING"
+# Expected: PONG
+```
+
+---
+
+## Migration Plan
+
+### Step 1: Create New Environment
+
+```bash
+# 1. Generate all certificates and secrets
+./scripts/setup-redis-security.sh
+
+# 2. Deploy to staging environment
+docker compose -f docker-compose.prod.yml up -d
+
+# 3. Verify all services connect
+./smoke-test.sh
+```
+
+### Step 2: Migrate Data
+
+```bash
+# 1. Backup existing Redis data
+docker exec ja4proxy-redis redis-cli -a changeme SAVE
+docker cp ja4proxy-redis:/data/dump.rdb ./backup/
+
+# 2. Import to new secure Redis
+docker cp ./backup/dump.rdb ja4proxy-redis-secure:/data/
+docker exec ja4proxy-redis-secure redis-cli -a "$(cat secrets/redis_password.txt)" \
+  --tls --cert ... --key ... \
+  BGREWRITEAOF
+```
+
+### Step 3: Cut Over
+
+```bash
+# 1. Stop old stack
+docker compose -f docker-compose.poc.yml down
+
+# 2. Start new secure stack
+docker compose -f docker-compose.prod.yml up -d
+
+# 3. Verify
+./run-tests.sh
+```
+
+---
+
+## Cost & Timeline
+
+**Implementation Effort:**
+- Certificate generation: 2 hours
+- Docker Compose updates: 4 hours
+- Python code updates: 6 hours
+- Testing: 8 hours
+- Documentation: 4 hours
+- **Total: 3-4 days**
+
+**Ongoing Maintenance:**
+- Password rotation: Quarterly (15 min each)
+- Certificate renewal: Annually (1 hour)
+- Security reviews: Quarterly (2 hours)
+
+---
+
+## Compliance Benefits
+
+✅ **PCI DSS:** Encryption in transit, access control  
+✅ **SOC 2:** Data protection, audit logging  
+✅ **HIPAA:** Encryption, access controls  
+✅ **GDPR:** Data security measures  
+✅ **ISO 27001:** Information security controls  
+
+---
+
+## References
+
+- [Redis Security Documentation](https://redis.io/docs/management/security/)
+- [Redis TLS/SSL Configuration](https://redis.io/docs/management/security/encryption/)
+- [Redis ACL Guide](https://redis.io/docs/management/security/acl/)
+- [Docker Secrets](https://docs.docker.com/engine/swarm/secrets/)
+- [OWASP Redis Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Redis_Security_Cheat_Sheet.html)
+
+---
+
+**Next Steps:**
+1. Review recommendations with security team
+2. Create implementation tickets
+3. Schedule for next sprint
+4. Test in staging environment
+5. Deploy to production
+
+**Status:** 🔴 **ACTION REQUIRED**  
+**Owner:** Security Team  
+**Due Date:** Before production deployment
