@@ -1,0 +1,226 @@
+# Prometheus Alert Rules for JA4proxy
+# Place in /etc/prometheus/alerts.yml or prometheus config directory
+
+groups:
+  - name: ja4proxy_security_alerts
+    interval: 30s
+    rules:
+      # Critical: High rate of blocked requests
+      - alert: JA4ProxyHighBlockRate
+        expr: rate(ja4_blocked_requests_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+          component: ja4proxy
+          alert_type: security
+        annotations:
+          summary: "High rate of blocked requests detected"
+          description: "JA4proxy is blocking {{ $value | humanize }} requests per second (threshold: 10/sec). Possible attack in progress."
+          dashboard: "http://localhost:3000/d/ja4proxy/ja4-proxy-security"
+          runbook: "https://docs.ja4proxy.local/runbooks/high-block-rate"
+
+      # Critical: New malicious JA4 fingerprint detected
+      - alert: JA4ProxyMaliciousFingerprint
+        expr: increase(ja4_security_events_total{tier="banned"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          component: ja4proxy
+          alert_type: security_event
+        annotations:
+          summary: "New malicious JA4 fingerprint banned"
+          description: "A new JA4 fingerprint has been automatically banned due to exceeding rate limits. {{ $value }} ban events in last 5 minutes."
+          dashboard: "http://localhost:3000/d/ja4proxy/ja4-proxy-security"
+          action_required: "Review Redis blacklist: redis-cli SMEMBERS ja4:blacklist"
+
+      # Warning: Suspicious activity detected
+      - alert: JA4ProxySuspiciousActivity
+        expr: rate(ja4_security_events_total{tier="suspicious"}[5m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: ja4proxy
+          alert_type: monitoring
+        annotations:
+          summary: "Elevated suspicious activity"
+          description: "{{ $value | humanize }} suspicious connections per second detected (threshold: 5/sec). Monitoring for potential threats."
+          dashboard: "http://localhost:3000/d/ja4proxy/ja4-proxy-security"
+
+      # Critical: Rate limit violations
+      - alert: JA4ProxyRateLimitViolations
+        expr: rate(ja4_rate_limit_exceeded_total[5m]) > 1
+        for: 3m
+        labels:
+          severity: critical
+          component: ja4proxy
+          alert_type: rate_limit
+        annotations:
+          summary: "Multiple rate limit violations"
+          description: "{{ $value | humanize }} rate limit violations per second. Clients exceeding configured thresholds."
+          dashboard: "http://localhost:3000/d/ja4proxy/ja4-proxy-security"
+
+      # Warning: High number of unique fingerprints
+      - alert: JA4ProxyHighFingerprintDiversity
+        expr: count(count by (ja4_fingerprint) (ja4_requests_total)) > 100
+        for: 10m
+        labels:
+          severity: warning
+          component: ja4proxy
+          alert_type: anomaly
+        annotations:
+          summary: "Unusual number of unique JA4 fingerprints"
+          description: "{{ $value }} unique JA4 fingerprints seen in last 10 minutes (threshold: 100). Possible scanning or botnet activity."
+          dashboard: "http://localhost:3000/d/ja4proxy/ja4-proxy-security"
+
+      # Critical: Blacklist size growing rapidly
+      - alert: JA4ProxyBlacklistGrowth
+        expr: increase(ja4_blacklist_size[1h]) > 50
+        for: 5m
+        labels:
+          severity: warning
+          component: ja4proxy
+          alert_type: operational
+        annotations:
+          summary: "Rapid blacklist growth"
+          description: "Blacklist grew by {{ $value }} entries in the last hour. Review automatic banning thresholds."
+          action_required: "Check: redis-cli SCARD ja4:blacklist"
+
+      # Critical: DDoS attack pattern
+      - alert: JA4ProxyDDoSPattern
+        expr: |
+          (
+            rate(ja4_requests_total[1m]) > 1000
+            and
+            rate(ja4_blocked_requests_total[1m]) > 500
+          )
+        for: 2m
+        labels:
+          severity: critical
+          component: ja4proxy
+          alert_type: ddos
+        annotations:
+          summary: "Possible DDoS attack detected"
+          description: "High request rate ({{ $value }}req/s) with high block rate. DDoS attack pattern detected."
+          dashboard: "http://localhost:3000/d/ja4proxy/ja4-proxy-security"
+          runbook: "https://docs.ja4proxy.local/runbooks/ddos-response"
+
+  - name: ja4proxy_operational_alerts
+    interval: 60s
+    rules:
+      # Critical: Redis connection failure
+      - alert: JA4ProxyRedisDown
+        expr: up{job="ja4proxy-redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: redis
+          alert_type: infrastructure
+        annotations:
+          summary: "Redis is down"
+          description: "JA4proxy Redis instance is unreachable. All security features will fail."
+          action_required: "Restart Redis: docker compose restart redis"
+
+      # Critical: Proxy service down
+      - alert: JA4ProxyServiceDown
+        expr: up{job="ja4proxy"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: ja4proxy
+          alert_type: infrastructure
+        annotations:
+          summary: "JA4 Proxy service is down"
+          description: "JA4proxy service is not responding to health checks."
+          action_required: "Restart proxy: docker compose restart proxy"
+
+      # Warning: High memory usage
+      - alert: JA4ProxyHighMemory
+        expr: |
+          (
+            container_memory_usage_bytes{name="ja4proxy"} 
+            / 
+            container_spec_memory_limit_bytes{name="ja4proxy"}
+          ) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          component: ja4proxy
+          alert_type: resource
+        annotations:
+          summary: "High memory usage"
+          description: "JA4proxy memory usage is {{ $value | humanizePercentage }}. Consider increasing memory limits."
+
+      # Warning: High error rate
+      - alert: JA4ProxyHighErrorRate
+        expr: rate(ja4_errors_total[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: warning
+          component: ja4proxy
+          alert_type: operational
+        annotations:
+          summary: "Elevated error rate"
+          description: "{{ $value | humanize }} errors per second. Check logs for details."
+          action_required: "View logs: docker compose logs -f proxy"
+
+      # Warning: Redis memory high
+      - alert: JA4ProxyRedisMemoryHigh
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          component: redis
+          alert_type: resource
+        annotations:
+          summary: "Redis memory usage high"
+          description: "Redis memory usage at {{ $value | humanizePercentage }}. Data may be evicted."
+          action_required: "Review TTLs and cleanup old keys"
+
+  - name: ja4proxy_business_alerts
+    interval: 60s
+    rules:
+      # Info: Whitelist addition
+      - alert: JA4ProxyWhitelistAddition
+        expr: increase(ja4_whitelist_size[5m]) > 0
+        for: 0m
+        labels:
+          severity: info
+          component: ja4proxy
+          alert_type: audit
+        annotations:
+          summary: "Fingerprint added to whitelist"
+          description: "{{ $value }} fingerprint(s) added to whitelist in last 5 minutes."
+          action_required: "Review: redis-cli SMEMBERS ja4:whitelist"
+
+      # Warning: Multiple failed connections from same source
+      - alert: JA4ProxyPersistentAttacker
+        expr: |
+          count by (client_ip) (
+            increase(ja4_blocked_requests_total{reason="rate_limit"}[10m]) > 10
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: ja4proxy
+          alert_type: security
+        annotations:
+          summary: "Persistent attacker detected"
+          description: "{{ $value }} IP(s) repeatedly blocked for rate limit violations."
+          action_required: "Consider permanent ban or firewall block"
+
+      # Info: Security statistics
+      - alert: JA4ProxyDailySummary
+        expr: |
+          (
+            hour() == 0 
+            and 
+            minute() < 5
+          )
+        labels:
+          severity: info
+          component: ja4proxy
+          alert_type: report
+        annotations:
+          summary: "Daily security summary"
+          description: "Daily summary available. Review security events from past 24 hours."
+          dashboard: "http://localhost:3000/d/ja4proxy-daily/ja4-proxy-daily-report"

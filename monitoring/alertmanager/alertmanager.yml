@@ -1,0 +1,136 @@
+# Alertmanager Configuration for JA4proxy
+
+global:
+  resolve_timeout: 5m
+  # SMTP settings for email alerts
+  smtp_smarthost: 'smtp.example.com:587'
+  smtp_from: 'alerts@ja4proxy.local'
+  smtp_auth_username: 'alerts@ja4proxy.local'
+  smtp_auth_password: 'your-password-here'
+  smtp_require_tls: true
+
+# Templates for alert formatting
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Alert routing
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+  receiver: 'default-receiver'
+  
+  routes:
+    # Critical security alerts - immediate notification
+    - match:
+        severity: critical
+        alert_type: security
+      receiver: 'security-team'
+      group_wait: 0s
+      group_interval: 5m
+      repeat_interval: 4h
+      continue: true
+    
+    # DDoS alerts - page on-call
+    - match:
+        severity: critical
+        alert_type: ddos
+      receiver: 'oncall-pager'
+      group_wait: 0s
+      repeat_interval: 1h
+      continue: true
+    
+    # Infrastructure alerts
+    - match:
+        severity: critical
+        alert_type: infrastructure
+      receiver: 'ops-team'
+      group_wait: 30s
+      repeat_interval: 1h
+    
+    # Warning-level alerts
+    - match:
+        severity: warning
+      receiver: 'ops-team'
+      group_interval: 5m
+      repeat_interval: 3h
+    
+    # Info-level alerts - audit trail
+    - match:
+        severity: info
+      receiver: 'audit-log'
+      group_interval: 1h
+      repeat_interval: 24h
+
+# Inhibition rules (suppress certain alerts when others are firing)
+inhibit_rules:
+  # Don't alert on high block rate if we know we're under DDoS
+  - source_match:
+      alertname: 'JA4ProxyDDoSPattern'
+    target_match:
+      alertname: 'JA4ProxyHighBlockRate'
+    equal: ['cluster']
+  
+  # Don't alert on rate limits if service is down
+  - source_match:
+      alertname: 'JA4ProxyServiceDown'
+    target_match_re:
+      alertname: 'JA4Proxy.*'
+    equal: ['cluster']
+
+# Notification receivers
+receivers:
+  # Default receiver - logs only
+  - name: 'default-receiver'
+    webhook_configs:
+      - url: 'http://logger:8080/webhook'
+        send_resolved: true
+
+  # Security team - email + Slack
+  - name: 'security-team'
+    email_configs:
+      - to: 'security@example.com'
+        headers:
+          Subject: '[CRITICAL] JA4proxy Security Alert: {{ .GroupLabels.alertname }}'
+        html: '{{ template "email.default.html" . }}'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#security-alerts'
+        title: 'JA4proxy Security Alert'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.description }}{{ end }}'
+        color: 'danger'
+        send_resolved: true
+
+  # On-call pager - PagerDuty
+  - name: 'oncall-pager'
+    pagerduty_configs:
+      - service_key: 'YOUR-PAGERDUTY-SERVICE-KEY'
+        description: '{{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}'
+        details:
+          firing: '{{ .Alerts.Firing | len }}'
+          resolved: '{{ .Alerts.Resolved | len }}'
+          description: '{{ .CommonAnnotations.description }}'
+
+  # Ops team - email + Slack
+  - name: 'ops-team'
+    email_configs:
+      - to: 'ops@example.com'
+        headers:
+          Subject: 'JA4proxy Alert: {{ .GroupLabels.alertname }}'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+        channel: '#ops-alerts'
+        title: 'JA4proxy Operational Alert'
+        text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
+        send_resolved: true
+
+  # Audit log - webhook to SIEM
+  - name: 'audit-log'
+    webhook_configs:
+      - url: 'http://siem:8080/api/ingest'
+        send_resolved: true
+        http_config:
+          basic_auth:
+            username: 'ja4proxy'
+            password: 'your-siem-password'
