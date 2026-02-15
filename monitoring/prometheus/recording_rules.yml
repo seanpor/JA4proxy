@@ -1,0 +1,109 @@
+# Prometheus Recording Rules for JA4proxy
+# Pre-compute expensive queries for dashboard performance
+
+groups:
+  - name: ja4proxy_aggregations
+    interval: 30s
+    rules:
+      # Request rate per minute
+      - record: ja4:requests:rate1m
+        expr: rate(ja4_requests_total[1m])
+
+      # Request rate per 5 minutes
+      - record: ja4:requests:rate5m
+        expr: rate(ja4_requests_total[5m])
+
+      # Block rate per minute
+      - record: ja4:blocked:rate1m
+        expr: rate(ja4_blocked_requests_total[1m])
+
+      # Block percentage
+      - record: ja4:blocked:percentage
+        expr: |
+          (
+            rate(ja4_blocked_requests_total[5m])
+            /
+            rate(ja4_requests_total[5m])
+          ) * 100
+
+      # Security events by tier
+      - record: ja4:security_events:by_tier
+        expr: sum by (tier) (rate(ja4_security_events_total[5m]))
+
+      # Top blocked fingerprints
+      - record: ja4:blocked:by_fingerprint
+        expr: |
+          topk(10, 
+            sum by (ja4_fingerprint) (
+              increase(ja4_blocked_requests_total[1h])
+            )
+          )
+
+      # Unique fingerprints seen
+      - record: ja4:fingerprints:unique_count
+        expr: count(count by (ja4_fingerprint) (ja4_requests_total))
+
+      # Active connections
+      - record: ja4:connections:active
+        expr: ja4_active_connections
+
+  - name: ja4proxy_security_metrics
+    interval: 60s
+    rules:
+      # Rate limit violations per IP
+      - record: ja4:rate_limit:by_ip
+        expr: |
+          topk(20,
+            sum by (client_ip) (
+              increase(ja4_rate_limit_exceeded_total[1h])
+            )
+          )
+
+      # Banned fingerprints count
+      - record: ja4:banned:count
+        expr: sum(increase(ja4_security_events_total{tier="banned"}[1h]))
+
+      # Suspicious activity rate
+      - record: ja4:suspicious:rate
+        expr: rate(ja4_security_events_total{tier="suspicious"}[5m])
+
+      # Whitelist hit rate
+      - record: ja4:whitelist:hit_rate
+        expr: rate(ja4_whitelist_hits_total[5m])
+
+      # Blacklist hit rate
+      - record: ja4:blacklist:hit_rate
+        expr: rate(ja4_blacklist_hits_total[5m])
+
+  - name: ja4proxy_performance
+    interval: 30s
+    rules:
+      # Average request latency
+      - record: ja4:latency:avg
+        expr: |
+          rate(ja4_request_duration_seconds_sum[5m])
+          /
+          rate(ja4_request_duration_seconds_count[5m])
+
+      # 95th percentile latency
+      - record: ja4:latency:p95
+        expr: histogram_quantile(0.95, rate(ja4_request_duration_seconds_bucket[5m]))
+
+      # 99th percentile latency
+      - record: ja4:latency:p99
+        expr: histogram_quantile(0.99, rate(ja4_request_duration_seconds_bucket[5m]))
+
+      # Error rate
+      - record: ja4:errors:rate
+        expr: rate(ja4_errors_total[5m])
+
+      # Success rate percentage
+      - record: ja4:success:percentage
+        expr: |
+          (
+            1 - (
+              rate(ja4_errors_total[5m])
+              /
+              rate(ja4_requests_total[5m])
+            )
+          ) * 100

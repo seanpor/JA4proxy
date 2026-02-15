@@ -1,0 +1,89 @@
+# Prometheus Configuration for JA4proxy Monitoring
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'ja4proxy-poc'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+      timeout: 10s
+
+# Load alert rules
+rule_files:
+  - '/etc/prometheus/alerts.yml'
+  - '/etc/prometheus/recording_rules.yml'
+
+# Scrape configurations
+scrape_configs:
+  # JA4 Proxy metrics
+  - job_name: 'ja4proxy'
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    static_configs:
+      - targets:
+          - 'proxy:9090'
+        labels:
+          service: 'ja4proxy'
+          role: 'proxy'
+    metric_relabel_configs:
+      # Keep only JA4-related metrics
+      - source_labels: [__name__]
+        regex: 'ja4_.*'
+        action: keep
+
+  # Redis metrics (if redis_exporter is used)
+  - job_name: 'ja4proxy-redis'
+    scrape_interval: 15s
+    static_configs:
+      - targets:
+          - 'redis-exporter:9121'
+        labels:
+          service: 'redis'
+          role: 'database'
+
+  # Backend service metrics
+  - job_name: 'ja4proxy-backend'
+    scrape_interval: 15s
+    static_configs:
+      - targets:
+          - 'backend:8081'
+        labels:
+          service: 'backend'
+          role: 'application'
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+          - 'localhost:9090'
+
+  # Node exporter (if available)
+  - job_name: 'node'
+    scrape_interval: 30s
+    static_configs:
+      - targets:
+          - 'node-exporter:9100'
+        labels:
+          role: 'infrastructure'
+
+# Storage configuration
+storage:
+  tsdb:
+    path: /prometheus
+    retention.time: 30d
+    retention.size: 10GB
+
+# Remote write (optional - for long-term storage)
+# remote_write:
+#   - url: 'http://remote-storage:9201/write'
+#     queue_config:
+#       capacity: 10000
+#       max_shards: 5
