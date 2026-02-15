@@ -287,11 +287,11 @@ def security_manager(mock_redis, test_config, mock_time):
     # This allows controlled time advancement for testing rate limits
     # We don't patch 'time.time' globally to avoid affecting other tests
     patchers = [
-        patch('src.security.rate_tracker.time.time', side_effect=mock_time),
-        patch('src.security.action_enforcer.time.time', side_effect=mock_time),
-        patch('src.security.gdpr_storage.time.time', side_effect=mock_time),
-        patch('src.security.rate_strategy.time.time', side_effect=mock_time),
-        patch('src.security.security_manager.time.time', side_effect=mock_time),
+        patch('src.security.rate_tracker.time.time', new=mock_time),
+        patch('src.security.action_enforcer.time.time', new=mock_time),
+        patch('src.security.gdpr_storage.time.time', new=mock_time),
+        patch('src.security.rate_strategy.time.time', new=mock_time),
+        patch('src.security.security_manager.time.time', new=mock_time),
     ]
     
     for patcher in patchers:
@@ -299,6 +299,7 @@ def security_manager(mock_redis, test_config, mock_time):
     
     try:
         manager = SecurityManager.from_config(mock_redis, test_config)
+        manager._mock_time = mock_time  # Store reference for tests to access
         yield manager
     finally:
         # Stop all patchers
@@ -350,17 +351,18 @@ class TestEndToEndNormalTraffic:
     def test_allow_first_connection(self, security_manager):
         """Test that first connection is allowed."""
         allowed, reason = security_manager.check_access(
-            ja4="t13d1516h2_abc_def",
-            client_ip="192.168.1.100",
+            "t13d1516h2_abc_def",
+            "192.168.1.100",
         )
         
         assert allowed is True
         assert "Allowed" in reason
     
-    def test_allow_low_rate_connections(self, security_manager, mock_redis, mock_time):
+    def test_allow_low_rate_connections(self, security_manager):
         """Test that connections below threshold are allowed."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
+        mock_time = security_manager._mock_time
         
         # Make a few connections with time delays to stay under rate limits
         # Thresholds: suspicious=1, block=5, ban=10 for by_ip_ja4_pair (per second)
@@ -375,10 +377,11 @@ class TestEndToEndNormalTraffic:
 class TestEndToEndSuspiciousTraffic:
     """Test end-to-end flow for suspicious traffic."""
     
-    def test_log_suspicious_traffic(self, security_manager, mock_redis, mock_time):
+    def test_log_suspicious_traffic(self, security_manager):
         """Test that suspicious traffic is logged but allowed."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
+        mock_time = security_manager._mock_time
         
         # Reset time to have more control
         mock_time.reset()
@@ -406,10 +409,11 @@ class TestEndToEndSuspiciousTraffic:
 class TestEndToEndBlockTraffic:
     """Test end-to-end flow for block-level traffic."""
     
-    def test_block_high_rate_traffic(self, security_manager, mock_redis, mock_time):
+    def test_block_high_rate_traffic(self, security_manager):
         """Test that high rate traffic is blocked."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
+        mock_time = security_manager._mock_time
         
         mock_time.reset()
         
@@ -430,7 +434,7 @@ class TestEndToEndBlockTraffic:
         assert any(word in last_reason.lower() for word in ["tarpit", "block", "limit", "ban"]), \
             f"Reason should indicate blocking: {last_reason}"
     
-    def test_subsequent_connection_blocked(self, security_manager, mock_redis):
+    def test_subsequent_connection_blocked(self, security_manager):
         """Test that once blocked, subsequent connections are also blocked."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
@@ -450,7 +454,7 @@ class TestEndToEndBlockTraffic:
 class TestEndToEndBanTraffic:
     """Test end-to-end flow for ban-level traffic."""
     
-    def test_ban_extreme_rate_traffic(self, security_manager, mock_redis):
+    def test_ban_extreme_rate_traffic(self, security_manager):
         """Test that extreme rate traffic is banned."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
@@ -588,10 +592,11 @@ class TestGDPRIntegration:
 class TestRealWorldScenarios:
     """Test realistic attack scenarios."""
     
-    def test_gradual_rate_increase(self, security_manager, mock_redis, mock_time):
+    def test_gradual_rate_increase(self, security_manager):
         """Test gradual increase in connection rate."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
+        mock_time = security_manager._mock_time
         
         mock_time.reset()
         
@@ -618,7 +623,7 @@ class TestRealWorldScenarios:
         # Should now be blocked/banned
         assert allowed is False, f"Should be blocked after burst: {reason}"
     
-    def test_burst_attack(self, security_manager, mock_redis):
+    def test_burst_attack(self, security_manager):
         """Test sudden burst of connections."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
@@ -632,14 +637,12 @@ class TestRealWorldScenarios:
         assert allowed is False
         assert "ban" in reason.lower() or "blocked" in reason.lower()
     
-    def test_distributed_attack(self, security_manager, mock_redis):
+    def test_distributed_attack(self, security_manager):
         """Test distributed attack from multiple IPs."""
         ja4 = "t13d1516h2_abc_def"  # Same JA4 (botnet)
         
         # Different IPs, each with moderate rate
         ips = [f"192.168.1.{i}" for i in range(10)]
-        
-        mock_redis.zcount.return_value = 3  # Each IP: 3/sec
         
         results = []
         for ip in ips:
@@ -654,10 +657,11 @@ class TestRealWorldScenarios:
 class TestIntegrationEdgeCases:
     """Test edge cases in integration."""
     
-    def test_exactly_at_threshold(self, security_manager, mock_redis, mock_time):
+    def test_exactly_at_threshold(self, security_manager):
         """Test behavior exactly at threshold."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
+        mock_time = security_manager._mock_time
         
         mock_time.reset()
         
@@ -669,10 +673,11 @@ class TestIntegrationEdgeCases:
             if i < 5:
                 assert allowed is True, f"Connection {i+1} at threshold should be allowed: {reason}"
     
-    def test_rapid_succession_same_client(self, security_manager, mock_redis, mock_time):
+    def test_rapid_succession_same_client(self, security_manager):
         """Test rapid successive calls for same client."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
+        mock_time = security_manager._mock_time
         
         mock_time.reset()
         
