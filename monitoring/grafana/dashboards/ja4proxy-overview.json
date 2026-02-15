@@ -1,7 +1,7 @@
 {
   "id": null,
-  "uid": "ja4proxy",
-  "title": "JA4 Proxy Security Dashboard",
+  "uid": "ja4proxy-overview",
+  "title": "JA4 Proxy - Security Overview",
   "tags": [
     "ja4",
     "security",

@@ -67,6 +67,7 @@ This will start:
 - Redis cache (port 6379)
 - Mock backend server (port 8081)
 - Prometheus monitoring (port 9091)
+- Grafana dashboard (port 3001, login: admin/admin)
 
 3. **Verify installation:**
 ```bash
