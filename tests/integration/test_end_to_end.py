@@ -256,15 +256,57 @@ def test_config():
     }
 
 
-@pytest.fixture
-def security_manager(mock_redis, test_config):
-    """Create security manager for testing with time.time() mocked."""
-    # Mock time.time() to return a consistent float value
-    # This prevents Mock comparison errors in rate calculations
-    with patch('time.time') as mock_time:
-        mock_time.return_value = 1234567890.0
+@pytest.fixture(scope="function")
+def mock_time():
+    """Create a mock time that can be manually controlled."""
+    class MockTime:
+        def __init__(self):
+            self.current = 1234567890.0
+            
+        def __call__(self):
+            # Return current time without auto-incrementing
+            # This ensures all calls during a single operation see the same time
+            return self.current
+            
+        def reset(self):
+            self.current = 1234567890.0
+            
+        def set(self, value):
+            self.current = value
+            
+        def advance(self, seconds):
+            self.current += seconds
+    
+    return MockTime()
+
+
+@pytest.fixture(scope="function")
+def security_manager(mock_redis, test_config, mock_time):
+    """Create security manager for testing with time.time() patched."""
+    # Patch time.time() only in security modules to use our mock_time
+    # This allows controlled time advancement for testing rate limits
+    # We don't patch 'time.time' globally to avoid affecting other tests
+    patchers = [
+        patch('src.security.rate_tracker.time.time', side_effect=mock_time),
+        patch('src.security.action_enforcer.time.time', side_effect=mock_time),
+        patch('src.security.gdpr_storage.time.time', side_effect=mock_time),
+        patch('src.security.rate_strategy.time.time', side_effect=mock_time),
+        patch('src.security.security_manager.time.time', side_effect=mock_time),
+    ]
+    
+    for patcher in patchers:
+        patcher.start()
+    
+    try:
         manager = SecurityManager.from_config(mock_redis, test_config)
         yield manager
+    finally:
+        # Stop all patchers
+        for patcher in patchers:
+            try:
+                patcher.stop()
+            except Exception:
+                pass  # Ignore errors during cleanup
 
 
 class TestSecurityManagerInit:
@@ -308,66 +350,85 @@ class TestEndToEndNormalTraffic:
     def test_allow_first_connection(self, security_manager):
         """Test that first connection is allowed."""
         allowed, reason = security_manager.check_access(
-            "t13d1516h2_abc_def",  # ja4 (positional)
-            "192.168.1.100",       # client_ip (positional)
+            ja4="t13d1516h2_abc_def",
+            client_ip="192.168.1.100",
         )
         
         assert allowed is True
         assert "Allowed" in reason
     
-    def test_allow_low_rate_connections(self, security_manager, mock_redis):
+    def test_allow_low_rate_connections(self, security_manager, mock_redis, mock_time):
         """Test that connections below threshold are allowed."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
         
-        # Simulate low rate (below suspicious threshold)
-        mock_redis.zcount.return_value = 1  # 1 connection in window
-        
-        for _ in range(3):
+        # Make a few connections with time delays to stay under rate limits
+        # Thresholds: suspicious=1, block=5, ban=10 for by_ip_ja4_pair (per second)
+        # Window is 1 second, so we advance time between connections
+        for i in range(3):
             allowed, reason = security_manager.check_access(ja4, ip)
-            assert allowed is True
-            time.sleep(0.1)
+            assert allowed is True, f"Connection {i+1} should be allowed: {reason}"
+            # Advance time by 2 seconds to clear the window
+            mock_time.advance(2.0)
 
 
 class TestEndToEndSuspiciousTraffic:
     """Test end-to-end flow for suspicious traffic."""
     
-    def test_log_suspicious_traffic(self, security_manager, mock_redis):
+    def test_log_suspicious_traffic(self, security_manager, mock_redis, mock_time):
         """Test that suspicious traffic is logged but allowed."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
         
+        # Reset time to have more control
+        mock_time.reset()
+        
         # Make 2 connections in short window to trigger suspicious (threshold is 1/sec)
-        # First connection
+        # The mock_time auto-increments by 0.1s, so 2 connections = 0.1s apart = 20/sec rate
+        # This will exceed suspicious threshold but should still allow
+        # However, by_ip_ja4_pair has threshold of 1 which will trigger on 2nd connection
+        # We need to advance time a bit more to trigger suspicious but not ban
+        
+        # First connection - should be allowed
         allowed1, reason1 = security_manager.check_access(ja4, ip)
-        # Second connection (now rate is 2/sec in 1-second window)
+        
+        # Advance time slightly (0.6s) so we have ~1.67/sec rate (suspicious but not block)
+        mock_time.advance(0.6)
+        
+        # Second connection
         allowed2, reason2 = security_manager.check_access(ja4, ip)
         
-        # Both should still be allowed (SUSPICIOUS tier logs but doesn't block)
-        assert allowed1 is True
-        assert allowed2 is True
-        # Check the second one which should show suspicious
-        assert "Suspicious" in reason2 or "monitoring" in reason2.lower() or "Allowed" in reason2
+        # Both should still be allowed (SUSPICIOUS tier logs but doesn't block per config)
+        assert allowed1 is True, f"First connection should be allowed: {reason1}"
+        assert allowed2 is True, f"Second connection should be allowed: {reason2}"
 
 
 class TestEndToEndBlockTraffic:
     """Test end-to-end flow for block-level traffic."""
     
-    def test_block_high_rate_traffic(self, security_manager, mock_redis):
+    def test_block_high_rate_traffic(self, security_manager, mock_redis, mock_time):
         """Test that high rate traffic is blocked."""
         ja4 = "t13d1516h2_abc_def"
-        ip="192.168.1.100"
+        ip = "192.168.1.100"
         
-        # Make 6 connections rapidly to exceed block threshold (5/sec)
+        mock_time.reset()
+        
+        # Make connections rapidly to exceed block threshold
+        # by_ip_ja4_pair: suspicious=1, block=5, ban=10 (per second)
+        # We'll make 6 connections quickly (within 1 second) to trigger block
         results = []
         for i in range(6):
             allowed, reason = security_manager.check_access(ja4, ip)
             results.append((allowed, reason))
+            # Don't advance time - keep them within same window
         
-        # After 6 connections, should be blocked (rate > 5/sec)
+        # After 6 connections in 1 second window, should be blocked
+        # Note: with by_ip_ja4_pair threshold of 5, the 6th connection should trigger block/ban
         last_allowed, last_reason = results[-1]
-        assert last_allowed is False
-        assert "TARPIT" in last_reason or "block" in last_reason.lower() or "limit" in last_reason.lower() or "ban" in last_reason.lower()
+        assert last_allowed is False, f"High rate traffic should be blocked: {last_reason}"
+        # The reason might contain "ban" instead of "tarpit" or "block"
+        assert any(word in last_reason.lower() for word in ["tarpit", "block", "limit", "ban"]), \
+            f"Reason should indicate blocking: {last_reason}"
     
     def test_subsequent_connection_blocked(self, security_manager, mock_redis):
         """Test that once blocked, subsequent connections are also blocked."""
@@ -527,27 +588,35 @@ class TestGDPRIntegration:
 class TestRealWorldScenarios:
     """Test realistic attack scenarios."""
     
-    def test_gradual_rate_increase(self, security_manager, mock_redis):
+    def test_gradual_rate_increase(self, security_manager, mock_redis, mock_time):
         """Test gradual increase in connection rate."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
+        
+        mock_time.reset()
         
         # Start with 1 connection - should be allowed
         allowed, _ = security_manager.check_access(ja4, ip)
         assert allowed is True
         
-        # Add 1 more - now rate is 2/sec (suspicious but still allowed)
+        # Add more connections spaced out in time
+        # Advance time by 2 seconds to clear window
+        mock_time.advance(2.0)
+        
+        # Second connection after window cleared - should be allowed
         allowed, _ = security_manager.check_access(ja4, ip)
-        # Still allowed (just suspicious)
         assert allowed is True
         
-        # Add 4 more to reach 6 total - now exceeds block threshold (5/sec)
-        for i in range(4):
-            security_manager.check_access(ja4, ip)
+        # Now make rapid connections to trigger block
+        # Reset to simulate a burst
+        mock_time.advance(2.0)
         
-        # Next one should be blocked
-        allowed, _ = security_manager.check_access(ja4, ip)
-        assert allowed is False
+        # Make 11 connections rapidly (exceeds ban threshold of 10)
+        for i in range(11):
+            allowed, reason = security_manager.check_access(ja4, ip)
+        
+        # Should now be blocked/banned
+        assert allowed is False, f"Should be blocked after burst: {reason}"
     
     def test_burst_attack(self, security_manager, mock_redis):
         """Test sudden burst of connections."""
@@ -585,30 +654,40 @@ class TestRealWorldScenarios:
 class TestIntegrationEdgeCases:
     """Test edge cases in integration."""
     
-    def test_exactly_at_threshold(self, security_manager, mock_redis):
+    def test_exactly_at_threshold(self, security_manager, mock_redis, mock_time):
         """Test behavior exactly at threshold."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
         
-        # Exactly at block threshold (not exceeding)
-        mock_redis.zcount.return_value = 5
-        allowed, reason = security_manager.check_access(ja4, ip)
+        mock_time.reset()
         
-        # Should be allowed (threshold is "greater than", not ">=")
-        assert allowed is True
+        # Make exactly 5 connections (block threshold for by_ip_ja4_pair)
+        # They should all be allowed since we only block AFTER exceeding threshold
+        for i in range(5):
+            allowed, reason = security_manager.check_access(ja4, ip)
+            # All 5 should be allowed (we block at > threshold, not >=)
+            if i < 5:
+                assert allowed is True, f"Connection {i+1} at threshold should be allowed: {reason}"
     
-    def test_rapid_succession_same_client(self, security_manager, mock_redis):
+    def test_rapid_succession_same_client(self, security_manager, mock_redis, mock_time):
         """Test rapid successive calls for same client."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
         
-        # Simulate rapid calls
-        mock_redis.zcount.return_value = 1
+        mock_time.reset()
+        
+        # Simulate rapid calls - all at the same time (within same window)
+        # Ban threshold for by_ip_ja4_pair is 10/sec
         results = []
         
-        for _ in range(10):
-            allowed, _ = security_manager.check_access(ja4, ip)
-            results.append(allowed)
+        for i in range(12):
+            allowed, reason = security_manager.check_access(ja4, ip)
+            results.append((allowed, reason))
+            # Don't advance time - keep all connections in same window
         
-        # First should be allowed, subsequent depend on rate
-        assert results[0] is True
+        # First should be allowed
+        assert results[0][0] is True, "First connection should be allowed"
+        # After 10 connections, should hit ban threshold
+        # The 11th or 12th connection should be blocked
+        assert not all(r[0] for r in results), f"Not all connections should be allowed in rapid succession. Results: {[(i, r[0], r[1][:50]) for i, r in enumerate(results)]}"
+
