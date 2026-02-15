@@ -74,12 +74,8 @@ scrape_configs:
         labels:
           role: 'infrastructure'
 
-# Storage configuration
-storage:
-  tsdb:
-    path: /prometheus
-    retention.time: 30d
-    retention.size: 10GB
+# Storage configuration is set via command-line flags in docker-compose.yml
+# retention.time and retention.size are passed as startup arguments
 
 # Remote write (optional - for long-term storage)
 # remote_write:
