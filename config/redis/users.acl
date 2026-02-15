@@ -1,0 +1,11 @@
+# Redis ACL Configuration for JA4proxy
+
+user default off nopass nocommands
+
+user admin on >PLACEHOLDER_ADMIN_PASSWORD ~* &* +@all
+
+user ja4proxy on >PLACEHOLDER_APP_PASSWORD ~ja4:* ~rate:* ~enforcement:* ~stats:* ~gdpr:* &* +@read +@write +@set +@sortedset +@string +@hash +ping +select +info -@dangerous
+
+user monitor on >PLACEHOLDER_MONITOR_PASSWORD ~* &* +@read +ping +info
+
+user backup on >PLACEHOLDER_BACKUP_PASSWORD ~* &* +bgsave +lastsave +info
