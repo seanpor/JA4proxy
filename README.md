@@ -262,14 +262,22 @@ curl http://localhost:8080/health
 docker-compose -f docker-compose.poc.yml run --rm test pytest tests/unit/ -v
 ```
 
-**Performance testing:**
+**Performance testing with realistic traffic:**
 ```bash
 # Start services first
 ./start-poc.sh
 
-# Run performance tests (requires locust installed locally or in container)
-docker-compose -f docker-compose.poc.yml run --rm test locust -f /app/performance/locust_tests.py --host http://proxy:8080
+# Generate realistic TLS traffic (60s, 15% good, 50 workers)
+./generate-tls-traffic.sh
+
+# Custom test (5 minutes, 10% legitimate traffic, 100 workers)
+./generate-tls-traffic.sh 300 10 100
+
+# Stress test (10 minutes, 95% attack traffic, 200 workers)
+./generate-tls-traffic.sh 600 5 200
 ```
+
+See [TLS Traffic Generator Guide](docs/TLS_TRAFFIC_GENERATOR.md) for detailed usage.
 
 **Integration testing:**
 ```bash
@@ -293,6 +301,7 @@ docker-compose -f docker-compose.poc.yml run --rm test pytest tests/integration/
 ### Additional Documentation
 - **[Quick Reference](docs/QUICK_REFERENCE.md)** - Command cheat sheet
 - **[Testing Guide](docs/TESTING.md)** - Complete testing documentation
+- **[TLS Traffic Generator](docs/TLS_TRAFFIC_GENERATOR.md)** - Performance testing with realistic traffic
 - **[Executive Summary](docs/EXEC_SUMMARY.md)** - High-level overview
 
 ## Architecture
