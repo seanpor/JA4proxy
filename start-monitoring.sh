@@ -22,7 +22,7 @@ fi
 
 # Start monitoring stack
 echo -e "${GREEN}▶ Starting monitoring stack...${NC}"
-docker compose -f docker-compose.monitoring.yml up -d
+docker compose -f docker-compose.monitoring.yml up -d --remove-orphans
 
 # Wait for services
 echo -e "${GREEN}▶ Waiting for services to be ready...${NC}"
@@ -43,7 +43,7 @@ else
 fi
 
 # Check Grafana
-if curl -sf http://localhost:3000/api/health > /dev/null; then
+if curl -sf http://localhost:3001/api/health > /dev/null; then
     echo -e "${GREEN}✓ Grafana is healthy${NC}"
 else
     echo -e "${YELLOW}⚠ Grafana not responding yet...${NC}"
@@ -58,12 +58,12 @@ echo "Access the services:"
 echo ""
 echo "  Prometheus:    http://localhost:9091"
 echo "  Alertmanager:  http://localhost:9093"
-echo "  Grafana:       http://localhost:3000"
+echo "  Grafana:       http://localhost:3001"
 echo "                 (admin/admin)"
 echo ""
 echo "Next steps:"
 echo ""
-echo "  1. Open Grafana: open http://localhost:3000"
+echo "  1. Open Grafana: open http://localhost:3001"
 echo "  2. Dashboard is auto-imported: 'JA4 Proxy Security Dashboard'"
 echo "  3. Test alerts: ./test-ja4-blocking.sh"
 echo "  4. View alerts: open http://localhost:9093"
