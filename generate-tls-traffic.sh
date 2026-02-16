@@ -18,8 +18,8 @@ NC='\033[0m'
 DURATION=${1:-60}
 GOOD_PERCENT=${2:-15}
 WORKERS=${3:-50}
-BACKEND_HOST="localhost"
-BACKEND_PORT="8081"
+PROXY_HOST="localhost"
+PROXY_PORT="8080"
 
 echo -e "${CYAN}╔════════════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${CYAN}║          JA4proxy Performance Test - Traffic Generator            ║${NC}"
@@ -35,10 +35,10 @@ if ! docker compose -f docker-compose.poc.yml ps 2>/dev/null | grep -q "ja4proxy
     exit 1
 fi
 
-# Check backend is accessible
-if ! curl -s -f "http://${BACKEND_HOST}:${BACKEND_PORT}/api/health" > /dev/null 2>&1; then
-    echo -e "${RED}✗ Backend not accessible at ${BACKEND_HOST}:${BACKEND_PORT}${NC}"
-    echo -e "${YELLOW}  Make sure the POC stack is running${NC}"
+# Check proxy is accessible
+if ! curl -s -f "http://${PROXY_HOST}:${PROXY_PORT}/api/health" > /dev/null 2>&1; then
+    echo -e "${RED}✗ Proxy not accessible at ${PROXY_HOST}:${PROXY_PORT}${NC}"
+    echo -e "${YELLOW}  Make sure the POC stack is running: ./start-poc.sh${NC}"
     exit 1
 fi
 
@@ -61,7 +61,7 @@ echo -e "  Duration:        ${DURATION}s"
 echo -e "  Good Traffic:    ${GOOD_PERCENT}%"
 echo -e "  Bad Traffic:     $((100 - GOOD_PERCENT))%"
 echo -e "  Workers:         ${WORKERS}"
-echo -e "  Backend:         ${BACKEND_HOST}:${BACKEND_PORT}"
+echo -e "  Proxy:           ${PROXY_HOST}:${PROXY_PORT}"
 echo ""
 
 echo -e "${YELLOW}Tip: Monitor in real-time:${NC}"
@@ -76,8 +76,8 @@ echo ""
 
 # Run the traffic generator
 python3 scripts/tls-traffic-generator.py \
-    --backend-host "${BACKEND_HOST}" \
-    --backend-port "${BACKEND_PORT}" \
+    --proxy-host "${PROXY_HOST}" \
+    --proxy-port "${PROXY_PORT}" \
     --duration "${DURATION}" \
     --good-percent "${GOOD_PERCENT}" \
     --workers "${WORKERS}"

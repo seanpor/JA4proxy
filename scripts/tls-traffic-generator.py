@@ -142,16 +142,12 @@ class TrafficGenerator:
     
     def __init__(self, 
                  proxy_host: str = "localhost",
-                 proxy_port: int = 8443,
-                 backend_host: str = "localhost", 
-                 backend_port: int = 8081,
+                 proxy_port: int = 8080,
                  duration: int = 60,
                  good_traffic_percent: int = 15,
                  workers: int = 50):
         self.proxy_host = proxy_host
         self.proxy_port = proxy_port
-        self.backend_host = backend_host
-        self.backend_port = backend_port
         self.duration = duration
         self.good_traffic_percent = good_traffic_percent
         self.workers = workers
@@ -194,9 +190,8 @@ class TrafficGenerator:
         
         endpoint = random.choice(endpoints)
         
-        # Build URL - in production this would go through the proxy
-        # For now, we'll hit the backend directly with custom headers to simulate
-        url = f"http://{self.backend_host}:{self.backend_port}{endpoint}"
+        # Route traffic through the proxy so metrics are recorded
+        url = f"http://{self.proxy_host}:{self.proxy_port}{endpoint}"
         
         headers = {
             "User-Agent": profile.user_agent,
@@ -298,7 +293,7 @@ class TrafficGenerator:
         print(f"{Colors.ENDC}\n")
         
         print(f"Configuration:")
-        print(f"  Backend:           {self.backend_host}:{self.backend_port}")
+        print(f"  Proxy:             {self.proxy_host}:{self.proxy_port}")
         print(f"  Duration:          {self.duration}s")
         print(f"  Good Traffic:      {self.good_traffic_percent}%")
         print(f"  Bad Traffic:       {100 - self.good_traffic_percent}%")
@@ -371,8 +366,8 @@ Examples:
   # Run for 60 seconds with 15%% good traffic
   python3 tls-traffic-generator.py --duration 60 --good-percent 15
   
-  # Run for 5 minutes with 100 workers
-  python3 tls-traffic-generator.py --duration 300 --workers 100
+  # Run for 5 minutes with 100 workers through a custom proxy
+  python3 tls-traffic-generator.py --duration 300 --workers 100 --proxy-host myhost --proxy-port 8080
   
   # Run with 90%% good traffic (mostly legitimate)
   python3 tls-traffic-generator.py --duration 120 --good-percent 90
@@ -380,15 +375,15 @@ Examples:
     )
     
     parser.add_argument(
-        "--backend-host",
+        "--proxy-host",
         default="localhost",
-        help="Backend host (default: localhost)"
+        help="Proxy host (default: localhost)"
     )
     parser.add_argument(
-        "--backend-port",
+        "--proxy-port",
         type=int,
-        default=8081,
-        help="Backend port (default: 8081)"
+        default=8080,
+        help="Proxy port (default: 8080)"
     )
     parser.add_argument(
         "--duration",
@@ -422,8 +417,8 @@ Examples:
     
     # Create and run generator
     generator = TrafficGenerator(
-        backend_host=args.backend_host,
-        backend_port=args.backend_port,
+        proxy_host=args.proxy_host,
+        proxy_port=args.proxy_port,
         duration=args.duration,
         good_traffic_percent=args.good_percent,
         workers=args.workers
