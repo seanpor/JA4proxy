@@ -33,8 +33,8 @@ echo -e "${BLUE}Starting services...${NC}"
 # Workaround for Docker iptables issue - try to clean up first
 docker network prune -f > /dev/null 2>&1 || true
 
-# Try to start services, if network fails, provide helpful error
-if ! docker compose -f docker-compose.poc.yml up -d redis backend proxy monitoring grafana 2>&1; then
+# Try to start services with --remove-orphans to avoid warnings
+if ! docker compose -f docker-compose.poc.yml up -d --remove-orphans redis backend proxy 2>&1; then
     echo ""
     echo -e "${RED}Failed to start services. This may be a Docker networking issue.${NC}"
     echo ""
@@ -102,50 +102,17 @@ if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
     exit 1
 fi
 
-# Check Prometheus
-echo -n "Checking Prometheus... "
-RETRY_COUNT=0
-while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if curl -sf http://localhost:9091/-/healthy > /dev/null 2>&1; then
-        echo -e "${GREEN}✓${NC}"
-        break
-    fi
-    RETRY_COUNT=$((RETRY_COUNT + 1))
-    sleep 1
-done
-if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-    echo -e "${YELLOW}⚠ Prometheus not responding (non-critical)${NC}"
-fi
 
-# Check Grafana
-echo -n "Checking Grafana... "
-RETRY_COUNT=0
-while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if curl -sf http://localhost:3001/api/health > /dev/null 2>&1; then
-        echo -e "${GREEN}✓${NC}"
-        break
-    fi
-    RETRY_COUNT=$((RETRY_COUNT + 1))
-    sleep 1
-done
-if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-    echo -e "${YELLOW}⚠ Grafana not responding (non-critical)${NC}"
-fi
 
 echo ""
 echo "=========================================="
-echo -e "${GREEN}✓ All services are running!${NC}"
+echo -e "${GREEN}✓ POC services are running!${NC}"
 echo "=========================================="
 echo ""
 echo "Service URLs:"
 echo "  Proxy:       http://localhost:8080"
 echo "  Metrics:     http://localhost:9090/metrics"
 echo "  Backend:     http://localhost:8081"
-echo "  Prometheus:  http://localhost:9091"
-echo "  Grafana:     http://localhost:3001 (admin/admin)"
-echo ""
-echo "View Security Dashboard:"
-echo "  open http://localhost:3001"
 echo ""
 echo "Test the proxy:"
 echo "  curl -x http://localhost:8080 http://backend/api/health"
@@ -156,6 +123,11 @@ echo "  ./run-tests.sh"
 echo ""
 echo "View logs:"
 echo "  docker compose -f docker-compose.poc.yml logs -f"
+echo ""
+echo "Start monitoring (Prometheus/Grafana):"
+echo "  ./start-monitoring.sh"
+echo "  or"
+echo "  ./start-all.sh  # Starts both POC and monitoring"
 echo ""
 echo "Stop services:"
 echo "  docker compose -f docker-compose.poc.yml down"

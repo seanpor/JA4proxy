@@ -743,11 +743,12 @@ class ProxyServer:
         """Handle incoming client connection with configurable timeouts (SECURITY FIX)."""
         client_addr = writer.get_extra_info('peername')
         client_ip = client_addr[0] if client_addr else "unknown"
+        client_port = client_addr[1] if client_addr and len(client_addr) > 1 else 0
         
         self.active_connections += 1
         ACTIVE_CONNECTIONS.set(self.active_connections)
         
-        self.logger.info(f"New connection from {client_ip}")
+        self.logger.info(f"New connection from {client_ip}:{client_port} (Active: {self.active_connections})")
         
         # Get configurable timeouts (SECURITY FIX)
         connection_timeout = self.config['proxy'].get('connection_timeout', DEFAULT_TIMEOUT)
@@ -783,7 +784,10 @@ class ProxyServer:
             ).inc()
             
             if not allowed:
-                self.logger.warning(f"Blocked connection from {client_ip}: {reason}")
+                self.logger.warning(
+                    f"BLOCKED: {client_ip} | JA4: {fingerprint.ja4} | Reason: {reason} | "
+                    f"Country: {fingerprint.geo_country} | TLS: {fingerprint.tls_version}"
+                )
                 BLOCKED_REQUESTS.labels(
                     reason=reason,
                     source_country=fingerprint.geo_country,
@@ -792,17 +796,23 @@ class ProxyServer:
                 await self.tarpit_manager.tarpit_connection(writer)
                 return
             
+            # Log allowed connection with JA4 fingerprint
+            self.logger.info(
+                f"ALLOWED: {client_ip} | JA4: {fingerprint.ja4} | "
+                f"Country: {fingerprint.geo_country} | TLS: {fingerprint.tls_version}"
+            )
+            
             # Forward to backend
             await self._forward_to_backend(data, reader, writer, fingerprint)
             
         except asyncio.TimeoutError:
-            self.logger.warning(f"Connection timeout from {client_ip}")
+            self.logger.warning(f"TIMEOUT: {client_ip} | Connection timed out")
             TLS_HANDSHAKE_ERRORS.labels(error_type='timeout', tls_version='unknown').inc()
         except ValidationError as e:
-            self.logger.warning(f"Validation error from {client_ip}: {e}")
+            self.logger.warning(f"VALIDATION_ERROR: {client_ip} | {e}")
             SECURITY_EVENTS.labels(event_type='validation_error', severity='warning', source=client_ip).inc()
         except Exception as e:
-            self.logger.error(f"Error handling connection from {client_ip}: {e}", exc_info=False)
+            self.logger.error(f"ERROR: {client_ip} | {e}", exc_info=False)
             SECURITY_EVENTS.labels(event_type='connection_error', severity='error', source=client_ip).inc()
         finally:
             self.active_connections -= 1
