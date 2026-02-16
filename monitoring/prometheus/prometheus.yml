@@ -28,35 +28,20 @@ scrape_configs:
     scrape_timeout: 5s
     static_configs:
       - targets:
-          - 'proxy:9090'
+          - 'ja4proxy:9090'
         labels:
           service: 'ja4proxy'
           role: 'proxy'
-    metric_relabel_configs:
-      # Keep only JA4-related metrics
-      - source_labels: [__name__]
-        regex: 'ja4_.*'
-        action: keep
 
   # Redis metrics (if redis_exporter is used)
   - job_name: 'ja4proxy-redis'
     scrape_interval: 15s
     static_configs:
       - targets:
-          - 'redis-exporter:9121'
+          - 'ja4proxy-redis-exporter:9121'
         labels:
           service: 'redis'
           role: 'database'
-
-  # Backend service metrics
-  - job_name: 'ja4proxy-backend'
-    scrape_interval: 15s
-    static_configs:
-      - targets:
-          - 'backend:8081'
-        labels:
-          service: 'backend'
-          role: 'application'
 
   # Prometheus self-monitoring
   - job_name: 'prometheus'

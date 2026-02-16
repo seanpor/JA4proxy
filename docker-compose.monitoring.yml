@@ -54,15 +54,15 @@ services:
     image: grafana/grafana:10.2.2
     container_name: ja4proxy-grafana
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=http://localhost:3000
-      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource,grafana-piechart-panel
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+      - GF_INSTALL_PLUGINS=
       - GF_AUTH_ANONYMOUS_ENABLED=false
-      - GF_ALERTING_ENABLED=true
       - GF_UNIFIED_ALERTING_ENABLED=true
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/ja4proxy-overview.json
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -70,6 +70,7 @@ services:
     restart: unless-stopped
     networks:
       - ja4proxy-network
+      - ja4proxy_ja4proxy  # Also connect to POC network for Prometheus access
     depends_on:
       - prometheus
     healthcheck:
