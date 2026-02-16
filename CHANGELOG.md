@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.1] - 2026-02-16 - TRAFFIC GENERATOR FIX
+
+### 🐛 BUG FIXES
+- **Fixed traffic generator bypassing proxy** - `generate-tls-traffic.sh` and `scripts/tls-traffic-generator.py` were sending requests directly to the backend (port 8081), completely bypassing the proxy. Prometheus metrics were never incremented, so Grafana dashboards showed no activity. Traffic is now routed through the proxy (port 8080) so that JA4 fingerprinting, security policies, and metrics collection all function correctly.
+- **Fixed proxy rejecting non-TLS connections before recording metrics** - `JA4Fingerprint._sanitize_ja4()` raised `ValidationError` on sentinel values `"unknown"` and `"error"`, causing connections to be dropped before `REQUEST_COUNT` was incremented. These sentinel values are now allowed through validation so that all connections — including plain HTTP — are counted in Prometheus metrics and visible in Grafana.
+
 ## [2.0.0] - 2024-02-14 - SECURITY HARDENING RELEASE
 
 ### 🔒 CRITICAL SECURITY FIXES

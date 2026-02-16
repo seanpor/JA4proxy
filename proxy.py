@@ -132,6 +132,9 @@ class JA4Fingerprint:
             raise ValidationError("JA4 fingerprint must be string")
         
         ja4 = ja4.strip()
+        # Allow sentinel values for non-TLS or unparseable connections
+        if ja4 in ("unknown", "error"):
+            return ja4
         if not VALID_JA4_PATTERN.match(ja4):
             raise ValidationError(f"Invalid JA4 fingerprint format: {ja4}")
         
