@@ -22,6 +22,7 @@ services:
     restart: unless-stopped
     networks:
       - ja4proxy-network
+      - ja4proxy_ja4proxy  # Also connect to POC network
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
       interval: 30s
@@ -96,7 +97,7 @@ services:
     networks:
       - ja4proxy-network
 
-  # Optional: Redis Exporter for Redis metrics
+  # Optional: Redis Exporter for Redis metrics (connects to POC Redis)
   redis-exporter:
     image: oliver006/redis_exporter:v1.55.0
     container_name: ja4proxy-redis-exporter
@@ -107,27 +108,7 @@ services:
       - "9121:9121"
     restart: unless-stopped
     networks:
-      - ja4proxy-network
-    depends_on:
-      - redis
-
-  # Connect to existing Redis
-  redis:
-    image: redis:7-alpine
-    container_name: ja4proxy-redis-monitoring
-    command: redis-server --requirepass changeme
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis-data:/data
-    restart: unless-stopped
-    networks:
-      - ja4proxy-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "changeme", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
+      - ja4proxy_ja4proxy  # Use POC network to connect to existing Redis
 
 volumes:
   prometheus-data:
@@ -136,8 +117,6 @@ volumes:
     driver: local
   grafana-data:
     driver: local
-  redis-data:
-    driver: local
 
 networks:
   ja4proxy-network:
@@ -145,3 +124,6 @@ networks:
     ipam:
       config:
         - subnet: 172.20.0.0/16
+  # Connect to existing POC network
+  ja4proxy_ja4proxy:
+    external: true
