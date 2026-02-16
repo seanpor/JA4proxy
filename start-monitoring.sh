@@ -22,7 +22,7 @@ fi
 
 # Start monitoring stack
 echo -e "${GREEN}▶ Starting monitoring stack...${NC}"
-docker compose -f docker-compose.monitoring.yml up -d --remove-orphans
+docker compose -f docker-compose.monitoring.yml up -d
 
 # Wait for services
 echo -e "${GREEN}▶ Waiting for services to be ready...${NC}"
