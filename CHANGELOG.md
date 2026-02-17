@@ -1,5 +1,43 @@
 # Changelog
 
+## [3.1.0] - 2026-02-17 - GEOIP, FINGERPRINT NAMES, BAN ESCALATION
+
+### 🌍 GEOIP COUNTRY FILTERING
+- **IP2Location LITE** database bundled in container (CC BY-SA 4.0, no registration needed)
+- **Country whitelist** — only allow traffic from listed countries (IE, GB, IM, JE, GG, US, CA, AU, NZ, DE, FR, NL)
+- **Country blacklist** — block traffic from listed countries (KP, RU, CN, IR)
+- Both disabled by default — enable in `config/proxy.yml` → `geoip` section
+- Country check runs as Security Layer 0 (before JA4 fingerprint checks)
+- Private IPs (Docker NAT) return empty country, bypassing geo filters
+- Country shown in logs, Prometheus `source_country` label, and two new Grafana panels
+
+### 🏷️ JA4 FINGERPRINT NAMES
+- **`classify_ja4()` function** decodes JA4 structure into human-readable names:
+  - `h2` ALPN → "Browser (TLS 1.3)"
+  - `00` ALPN → "Tool/Bot (TLS 1.2)"
+- **`fingerprint_labels`** config section maps known fingerprints to specific names (Chrome, Sliver C2, CobaltStrike, etc.)
+- **`fingerprint_name` label** added to `ja4_requests_total` Prometheus metric
+- Names appear in all proxy log messages and Grafana dashboard panels
+
+### 🔧 BAN ESCALATION FIX
+- Lowered `by_ip_ja4_pair` ban threshold from 10→8 (tarpit backpressure capped rate at ~8, preventing ban escalation)
+- Lowered `by_ja4` ban threshold from 30→20
+- **Pattern-based whitelist**: `whitelist_patterns: ["h2"]` — any JA4 with HTTP/2 ALPN bypasses rate limiting
+  - Fixes false positive blocking of browsers when all Docker traffic shares one gateway IP
+- **Results**: 100% legitimate allowed, 99.6% malicious blocked, Grafana shows Allowed/Tarpitted/Banned
+
+### 📊 DASHBOARD
+- Dashboard panels group by `fingerprint_name` instead of raw fingerprint hash
+- Added "Traffic by Country" donut chart
+- Added "Blocked Requests by Country" table
+- Total: 20 panels
+
+### 📄 DOCUMENTATION
+- Cleaned up 24 planning/session artifacts from `docs/`
+- Removed root-level `GRAFANA_SETUP.md`, `TRAFFIC_GENERATOR_SUMMARY.txt`
+- Rewrote `README.md` — focused POC demo guide with accurate architecture, ports, and commands
+- Moved `POC_QUICKSTART.md` to `docs/`
+
 ## [3.0.0] - 2026-02-17 - ENTERPRISE SECURITY ARCHITECTURE
 
 ### 🏗️ ARCHITECTURE

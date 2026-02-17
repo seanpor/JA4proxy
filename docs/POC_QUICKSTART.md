@@ -14,7 +14,7 @@ This is a **working proof-of-concept** of a JA4/JA4+ TLS fingerprinting proxy se
 - ✅ Mock backend for testing
 - ✅ Security feature framework
 
-**Note:** This is a POC for testing and demonstration. See `ENTERPRISE_REVIEW.md` for production deployment requirements.
+**Note:** This is a POC for testing and demonstration. See `docs/reports/ENTERPRISE_REVIEW.md` for production deployment requirements.
 
 ---
 
@@ -121,7 +121,7 @@ docker compose -f docker-compose.poc.yml logs -f
 - Simplified security
 - Local development only
 
-For production deployment, see `ENTERPRISE_REVIEW.md` which documents:
+For production deployment, see `docs/reports/ENTERPRISE_REVIEW.md` which documents:
 - 18 security vulnerabilities to fix
 - DMZ deployment architecture
 - SecOps interface requirements
@@ -184,9 +184,9 @@ sudo systemctl restart docker  # Linux
 ## Documentation
 
 - **POC Guide:** `docs/POC_GUIDE.md` - Detailed POC documentation
-- **POC Readiness:** `POC_READINESS_REPORT.md` - Complete POC validation
+- **POC Readiness:** `docs/reports/POC_READINESS_REPORT.md` - Complete POC validation
 - **Testing:** `docs/TESTING.md` - Testing guide
-- **Enterprise:** `ENTERPRISE_REVIEW.md` - Production requirements
+- **Enterprise:** `docs/reports/ENTERPRISE_REVIEW.md` - Production requirements
 
 ---
 
@@ -217,7 +217,7 @@ sudo systemctl restart docker  # Linux
 4. Provide feedback
 
 **Going to Production:**
-1. Review `ENTERPRISE_REVIEW.md`
+1. Review `docs/reports/ENTERPRISE_REVIEW.md`
 2. Fix 18 security vulnerabilities
 3. Build SecOps interface
 4. Deploy in DMZ architecture
@@ -251,12 +251,12 @@ ja4proxy-redis        Up                    6379
 ## Support
 
 **For POC Questions:**
-- Check `POC_READINESS_REPORT.md`
+- Check `docs/reports/POC_READINESS_REPORT.md`
 - Review `docs/POC_GUIDE.md`
 - See troubleshooting section above
 
 **For Production Planning:**
-- Review `ENTERPRISE_REVIEW.md`
+- Review `docs/reports/ENTERPRISE_REVIEW.md`
 - Check `docs/enterprise/`
 - Contact development team
 

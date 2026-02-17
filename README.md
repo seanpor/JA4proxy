@@ -1,335 +1,180 @@
-*heads up* this repo is ai generated... take with a grain of salt until tested properly.
+# JA4proxy — TLS Fingerprinting Security Proxy
 
-# JA4 Proxy - TLS Fingerprinting Proxy Server
+A security proxy that extracts [JA4 TLS fingerprints](https://github.com/FoxIO-LLC/ja4) from the plaintext ClientHello and blocks malicious traffic before it reaches your backend — without decrypting TLS.
 
-**POC Status:** ✅ **READY** - All services validated and working  
-**Production Status:** ⚠️ **NOT READY** - Requires 6-8 weeks of security hardening  
-**Security Status:** 🔴 **13 vulnerabilities** (acceptable for POC, must fix for production)  
-**Last Validated:** 2026-02-15
+> **Status:** POC ✅ Ready for demo &nbsp;|&nbsp; Production ⚠️ Requires hardening  
+> **Security:** Default passwords, localhost only. See [Security Audit](docs/security/COMPREHENSIVE_SECURITY_AUDIT.md).
 
-> **⚠️ Security Notice:** This POC uses default passwords and has no encryption. Safe for localhost testing only. **NOT for production use without security hardening.** See [POC_SECURITY_SCAN.md](POC_SECURITY_SCAN.md) for details.
+## How It Works
 
-JA4 Proxy is a high-performance, security-focused proxy server that implements JA4/JA4+ TLS fingerprinting for advanced traffic analysis, filtering, and security enforcement.
-
-## Features
-
-### Core Functionality
-- **JA4 TLS Fingerprinting**: Complete implementation of JA4 and JA4+ fingerprinting
-- **High-Performance Proxy**: Asynchronous proxy server with connection pooling
-- **Security Filtering**: Whitelist/blacklist enforcement with rate limiting
-- **TARPIT Integration**: Slow down malicious clients
-- **Redis Backend**: Distributed caching and storage
-- **Prometheus Metrics**: Comprehensive observability
-- **Docker Support**: Container-ready with orchestration
-
-### Security Features
-- **TLS Fingerprint Analysis**: Real-time JA4 generation and matching
-- **Rate Limiting**: Per-IP and global rate limiting
-- **Geo-blocking**: Country-based access control
-- **Audit Logging**: Complete security audit trails
-- **Threat Intelligence**: Integration with threat feeds
-- **Security Hardening**: Non-root execution, read-only filesystem
-
-### Enterprise Features
-- **High Availability**: Multi-node deployment with load balancing
-- **Monitoring Stack**: Prometheus, Grafana, ELK integration
-- **Compliance**: GDPR, PCI-DSS ready configurations
-- **Operational Tools**: Health checks, diagnostics, management APIs
-- **Performance Tuning**: Optimized for enterprise workloads
-
-## Quick Start (POC Ready!)
-
-The POC environment is **validated and ready to use**. Start in under 5 minutes!
-
-### Prerequisites
-- Docker 20.10+
-- Docker Compose 2.0+
-- 4GB RAM minimum, 8GB recommended
-- 2GB free disk space
-
-**No local Python installation required** - everything runs in Docker containers.
-
-### PoC Installation (Docker Only) ✅
-
-1. **Clone the repository:**
-```bash
-git clone https://github.com/yourusername/JA4proxy.git
-cd JA4proxy
+```
+Client ──TLS──▶ HAProxy (LB) ──TCP──▶ JA4proxy ──TLS──▶ Backend (HTTPS)
+                   :443                  :8080              :443
+                                           │
+                                   ┌───────┼───────┐
+                                   ▼       ▼       ▼
+                                 Redis   Tarpit  Prometheus
+                                         :8888   Grafana/Loki
 ```
 
-2. **Start the PoC environment:**
-```bash
-./start-poc.sh
-```
+1. Client sends a TLS ClientHello (plaintext, before encryption)
+2. JA4proxy reads the ClientHello, extracts the JA4 fingerprint
+3. **Security pipeline** decides: allow, tarpit, block, or ban
+4. Allowed traffic is forwarded unchanged — TLS handshake completes client↔backend
+5. The proxy never decrypts, never holds keys
 
-This will start:
-- JA4 Proxy server (port 8080, metrics on 9090)
-- Redis cache (port 6379)
-- Mock backend server (port 8081)
-- Prometheus monitoring (port 9091)
-- Grafana dashboard (port 3001, login: admin/admin)
-
-3. **Verify installation:**
-```bash
-# Run quick smoke test
-./smoke-test.sh
-
-# Or run automated demo
-./demo-poc.sh
-
-# Or check individual services
-curl http://localhost:9090/metrics        # Proxy metrics
-curl http://localhost:8081/api/health     # Backend health
-docker exec ja4proxy-redis redis-cli -a changeme ping  # Redis
-```
-
-**Expected Result:** All smoke tests should pass ✅
-
-### Running Tests
-
-All tests run in Docker containers:
+## Quick Start
 
 ```bash
-# Run full test suite
-./run-tests.sh
+# Start everything (proxy + monitoring + Grafana)
+./start-all.sh
 
-# Or manually with docker-compose
-docker-compose -f docker-compose.poc.yml run --rm test
+# Generate test traffic (30s, 10% legitimate, 20 workers)
+./generate-tls-traffic.sh 30 10 20
 
-# View test reports
-open reports/coverage/index.html
+# Open Grafana dashboard
+open http://localhost:3001    # admin / admin
 ```
 
-### Development Workflow
+**That's it.** The dashboard shows allowed vs blocked traffic, JA4 fingerprint names, action distribution, and logs.
 
-```bash
-# Start services
-./start-poc.sh
+## Security Pipeline
 
-# View logs
-docker-compose -f docker-compose.poc.yml logs -f proxy
+Connections pass through 5 layers, in order:
 
-# Run tests after changes
-./run-tests.sh
+| Layer | Check | Action |
+|-------|-------|--------|
+| 0 | **GeoIP country** | Block/allow by country (IP2Location) |
+| 1 | **JA4 blacklist** | Instant TCP RST for known-bad fingerprints |
+| 2 | **JA4 whitelist** | Skip rate limiting for known-good fingerprints |
+| 2b | **Pattern whitelist** | `h2` ALPN = browser → skip rate limiting |
+| 3 | **Rate limiting** | Per-IP, per-JA4, per-IP+JA4 pair thresholds |
 
-# Run quick smoke test
-./smoke-test.sh
+Rate limiting escalates: **suspicious → tarpit → block → ban**.
 
-# Stop services
-docker-compose -f docker-compose.poc.yml down
+## Services
 
-# Clean up everything (including volumes)
-docker-compose -f docker-compose.poc.yml down -v
-```
-
-### Using Make
-
-The Makefile provides convenient shortcuts:
-
-```bash
-make help              # Show all commands
-make deploy-poc        # Start POC environment
-make test              # Run tests
-make test-unit         # Run unit tests only
-make test-integration  # Run integration tests
-make smoke-test        # Run quick smoke test
-make logs              # View proxy logs
-make health-check      # Check service health
-make stop              # Stop services
-make clean             # Clean up containers and volumes
-```
-
-For detailed POC documentation, see [POC_GUIDE.md](POC_GUIDE.md).
-
-### Enterprise Installation
-
-1. **Prepare environment:**
-```bash
-# Create secrets
-mkdir -p secrets ssl
-echo "your-redis-password" > secrets/redis_password.txt
-
-# Generate SSL certificates
-openssl req -x509 -newkey rsa:4096 -keyout ssl/private/proxy.key \
-  -out ssl/certs/proxy.crt -days 365 -nodes
-```
-
-2. **Deploy enterprise stack:**
-```bash
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-3. **Configure load balancer:**
-```bash
-# Access HAProxy stats
-curl http://localhost:8404/stats
-```
+| Service | URL | Notes |
+|---------|-----|-------|
+| HAProxy (LB) | `https://localhost:443` | TLS passthrough, PROXY protocol v2 |
+| HAProxy stats | `http://localhost:8404/stats` | |
+| JA4proxy | `http://localhost:8080` | Proxy + metrics on :9090 |
+| Backend | `https://localhost:8443` | Protected HTTPS server |
+| Tarpit | `http://localhost:8888` | 1 byte/sec slow drain |
+| Prometheus | `http://localhost:9091` | |
+| Grafana | `http://localhost:3001` | admin/admin |
+| Loki | `http://localhost:3100` | Centralized container logs |
+| Alertmanager | `http://localhost:9093` | |
 
 ## Configuration
 
-### Basic Configuration (`config/proxy.yml`)
+All config is in [`config/proxy.yml`](config/proxy.yml). Key sections:
+
+### Country Filtering (GeoIP)
 
 ```yaml
-proxy:
-  bind_host: "0.0.0.0"
-  bind_port: 8080
-  backend_host: "backend"
-  backend_port: 80
-  max_connections: 1000
+geoip:
+  country_whitelist_enabled: true     # Only allow listed countries
+  country_whitelist:
+    - "IE"  # Ireland
+    - "GB"  # United Kingdom
+    - "IM"  # Isle of Man
+    - "US"  # United States
 
-redis:
-  host: "redis"
-  port: 6379
-  password: null
-
-security:
-  whitelist_enabled: true
-  blacklist_enabled: true
-  rate_limiting: true
-  max_requests_per_minute: 100
+  country_blacklist_enabled: true     # Block listed countries
+  country_blacklist:
+    - "KP"  # North Korea
+    - "RU"  # Russia
 ```
 
-### Enterprise Configuration (`config/enterprise.yml`)
+### JA4 Fingerprint Lists
 
 ```yaml
-proxy:
-  bind_host: "0.0.0.0"
-  bind_port: 8080
-  max_connections: 10000
-  security_context:
-    user: "proxy"
-    group: "proxy"
-
-redis:
-  mode: "cluster"
-  nodes:
-    - host: "redis-1"
-      port: 6379
-  ssl_enabled: true
-
 security:
-  audit_logging: true
-  threat_intelligence: true
-  geo_blocking: true
-  allowed_countries: ["US", "CA", "GB"]
+  whitelist:
+    - "t13d1516h2_8daaf6152771_02713d6af862"  # Chrome
+
+  whitelist_patterns:
+    - "h2"  # Any browser with HTTP/2 ALPN
+
+  blacklist:
+    - "t13d190900_9dc949149365_97f8aa674fd9"  # Sliver C2
 ```
 
-## Usage
+### Rate Limiting
 
-### Managing Security Lists
+```yaml
+security:
+  rate_limit_strategies:
+    by_ip_ja4_pair:
+      thresholds:
+        suspicious: 2    # connections/sec
+        block: 5
+        ban: 8
+      action: "tarpit"
+```
 
-**Add to whitelist:**
+## JA4 Fingerprint Names
+
+The proxy decodes JA4 fingerprints into human-readable names automatically:
+
+| JA4 Prefix | Classification | Example |
+|------------|---------------|---------|
+| `*h2*` | Browser (TLS 1.3) | Chrome, Firefox, Safari |
+| `t13d*00*` | Tool/Bot (TLS 1.3) | Sliver C2, Evilginx |
+| `t12d*00*` | Tool/Bot (TLS 1.2) | CobaltStrike, Python bot |
+
+Names appear in logs, Prometheus metrics (`fingerprint_name` label), and Grafana panels.
+
+Known fingerprints can be mapped to specific names in `config/proxy.yml` → `fingerprint_labels`.
+
+## Logs
+
+All container logs flow to **Loki** and are visible in Grafana. Proxy log format:
+
+```
+ALLOWED:  172.19.0.10 | Country: IE | JA4: t13d1113h2_... | Name: Browser (TLS 1.3) | TLS: TLS 1.3
+BLOCKED:  185.220.0.1 | Country: RU | JA4: t13d0912...   | Name: Tool/Bot (TLS 1.3) | Reason: Banned for 604800s
+```
+
+View logs:
 ```bash
-redis-cli SADD ja4:whitelist "t13d1516h2_8daaf6152771_02713d6af862"
+docker compose -f docker-compose.poc.yml logs -f proxy    # Proxy decisions
+docker compose -f docker-compose.poc.yml logs -f backend   # Backend requests
+docker compose -f docker-compose.monitoring.yml logs -f    # Monitoring stack
 ```
 
-**Add to blacklist:**
+## Traffic Generator
+
+Generates realistic TLS traffic with distinct fingerprints per client profile:
+
 ```bash
-redis-cli SADD ja4:blacklist "t12d090909_ba640532068b_b186095e22b6"
+./generate-tls-traffic.sh <duration_secs> <legit_percent> <workers>
+
+# Examples
+./generate-tls-traffic.sh 60 10 20    # 60s, 10% good, 20 workers
+./generate-tls-traffic.sh 300 5 50    # 5min stress test
 ```
 
-**View current fingerprints:**
-```bash
-redis-cli KEYS "ja4:fingerprint:*"
-```
-
-### Monitoring
-
-**Check metrics:**
-```bash
-curl http://localhost:9090/metrics
-```
-
-**View logs:**
-```bash
-docker-compose logs -f proxy
-```
-
-**Health check:**
-```bash
-curl http://localhost:8080/health
-```
-
-### Testing
-
-**Run unit tests:**
-```bash
-./run-tests.sh
-```
-
-**Run specific test suite:**
-```bash
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/unit/ -v
-```
-
-**Performance testing with realistic traffic:**
-```bash
-# Start services first
-./start-poc.sh
-
-# Generate realistic TLS traffic (60s, 15% good, 50 workers)
-./generate-tls-traffic.sh
-
-# Custom test (5 minutes, 10% legitimate traffic, 100 workers)
-./generate-tls-traffic.sh 300 10 100
-
-# Stress test (10 minutes, 95% attack traffic, 200 workers)
-./generate-tls-traffic.sh 600 5 200
-```
-
-See [TLS Traffic Generator Guide](docs/TLS_TRAFFIC_GENERATOR.md) for detailed usage.
-
-**Integration testing:**
-```bash
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/integration/ -v
-```
+Profiles: Chrome, Firefox, Safari (legitimate) + Sliver C2, CobaltStrike, Evilginx, Python bot, Credential stuffer (malicious).
 
 ## Documentation
 
-### POC Documentation (Start Here!)
-- **[POC Quick Start](POC_QUICKSTART.md)** - 5-minute quick start guide ⚡
-- **[POC Readiness Report](POC_READINESS_REPORT.md)** - Complete POC validation ✅
-- **[POC Guide](docs/POC_GUIDE.md)** - Detailed POC setup and usage
-- **[Project Assessment](PROJECT_ASSESSMENT_SUMMARY.md)** - Complete assessment summary
+- **[POC Quick Start](docs/POC_QUICKSTART.md)** — 5-minute setup guide
+- **[POC Guide](docs/POC_GUIDE.md)** — Detailed usage
+- **[Monitoring Setup](docs/MONITORING_SETUP.md)** — Prometheus + Grafana + Loki
+- **[TLS Traffic Generator](docs/TLS_TRAFFIC_GENERATOR.md)** — Test traffic profiles
+- **[Architecture](docs/architecture/system-architecture.md)** — System design
+- **[Security Audit](docs/security/COMPREHENSIVE_SECURITY_AUDIT.md)** — Vulnerability assessment
+- **[Threat Model](docs/security/threat-model.md)** — Attack surface analysis
+- **[Enterprise Deployment](docs/enterprise/deployment.md)** — Production guide
+- **[GDPR Compliance](docs/compliance/GDPR_COMPLIANCE.md)** — Data handling
+- **[Changelog](CHANGELOG.md)** — Version history
 
-### Enterprise/Production Documentation
-- **[Enterprise Review](ENTERPRISE_REVIEW.md)** - Production readiness assessment ⚠️
-- **[Security Audit](docs/security/COMPREHENSIVE_SECURITY_AUDIT.md)** - 18 vulnerabilities identified 🔴
-- **[Enterprise Deployment](docs/enterprise/deployment.md)** - DMZ deployment guide
-- **[Security Architecture](docs/enterprise/security-architecture.md)** - Security design
+## Stopping Services
 
-### Additional Documentation
-- **[Quick Reference](docs/QUICK_REFERENCE.md)** - Command cheat sheet
-- **[Testing Guide](docs/TESTING.md)** - Complete testing documentation
-- **[TLS Traffic Generator](docs/TLS_TRAFFIC_GENERATOR.md)** - Performance testing with realistic traffic
-- **[Executive Summary](docs/EXEC_SUMMARY.md)** - High-level overview
-
-## Architecture
-
-### System Architecture
-
-```
-┌─────────────────────┐    ┌─────────────────────┐    ┌─────────────────────┐
-│                     │    │                     │    │                     │
-│     Client          │◄──►│   JA4 Proxy        │◄──►│   Backend Server    │
-│                     │    │                     │    │                     │
-└─────────────────────┘    └─────────────────────┘    └─────────────────────┘
-                                       │
-                                       ▼
-                           ┌─────────────────────┐
-                           │                     │
-                           │   Redis Cache       │
-                           │   Security Lists    │
-                           │                     │
-                           └─────────────────────┘
-                                       │
-                                       ▼
-                           ┌─────────────────────┐
-                           │                     │
-                           │   Monitoring        │
-                           │   Prometheus        │
-                           │                     │
-                           └─────────────────────┘
+```bash
+docker compose -f docker-compose.poc.yml down
+docker compose -f docker-compose.monitoring.yml down
 ```
 
-For detailed documentation, see [docs/](docs/)

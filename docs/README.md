@@ -42,7 +42,7 @@ Security policies, threat models, and security documentation.
 
 ### Getting Started
 - [README.md](../README.md) - Project overview and quick start
-- [POC_QUICKSTART.md](../POC_QUICKSTART.md) - POC deployment guide
+- [POC_QUICKSTART.md](POC_QUICKSTART.md) - POC deployment guide
 - [POC_GUIDE.md](./POC_GUIDE.md) - Detailed POC documentation
 
 ### Operations

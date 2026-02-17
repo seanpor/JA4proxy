@@ -357,7 +357,7 @@ After running traffic tests:
 
 ## See Also
 
-- [POC Quickstart](../POC_QUICKSTART.md)
+- [POC Quickstart](POC_QUICKSTART.md)
 - [Security Configuration](../docs/SECURITY_CONFIG.md)
 - [Monitoring Setup](../docs/monitoring/SETUP.md)
 - [Test JA4 Blocking](../test-ja4-blocking.sh)
