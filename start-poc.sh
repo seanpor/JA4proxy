@@ -34,7 +34,7 @@ echo -e "${BLUE}Starting services...${NC}"
 docker network prune -f > /dev/null 2>&1 || true
 
 # Try to start services with --remove-orphans to avoid warnings
-if ! docker compose -f docker-compose.poc.yml up -d --remove-orphans redis backend proxy 2>&1; then
+if ! docker compose -f docker-compose.poc.yml up -d --remove-orphans redis backend proxy haproxy tarpit 2>&1; then
     echo ""
     echo -e "${RED}Failed to start services. This may be a Docker networking issue.${NC}"
     echo ""
@@ -73,7 +73,7 @@ fi
 echo -n "Checking Backend... "
 RETRY_COUNT=0
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if curl -sf http://localhost:8081/api/health > /dev/null 2>&1; then
+    if curl -skf https://localhost:8443/api/health > /dev/null 2>&1; then
         echo -e "${GREEN}✓${NC}"
         break
     fi
@@ -112,7 +112,7 @@ echo ""
 echo "Service URLs:"
 echo "  Proxy:       http://localhost:8080"
 echo "  Metrics:     http://localhost:9090/metrics"
-echo "  Backend:     http://localhost:8081"
+echo "  Backend:     https://localhost:8443"
 echo ""
 echo "Test the proxy:"
 echo "  curl -x http://localhost:8080 http://backend/api/health"

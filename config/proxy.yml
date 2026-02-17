@@ -3,9 +3,12 @@ proxy:
   # POC: Bind to all interfaces for Docker networking
   bind_host: "0.0.0.0"
   bind_port: 8080
-  # POC: Connect to backend container by name
+  # POC: Connect to backend container by name (now HTTPS)
   backend_host: "backend"
-  backend_port: 80
+  backend_port: 443
+  # Tarpit container for redirecting blocked connections
+  tarpit_host: "tarpit"
+  tarpit_port: 8888
   max_connections: 1000
   # SECURITY FIX: Configurable timeouts to prevent resource exhaustion
   connection_timeout: 30
@@ -13,6 +16,8 @@ proxy:
   write_timeout: 30
   keepalive_timeout: 60
   buffer_size: 8192
+  # Enable PROXY protocol v2 support (for HAProxy)
+  proxy_protocol: true
 
 # Redis configuration
 redis:
@@ -34,8 +39,67 @@ security:
   rate_limiting: true
   max_requests_per_minute: 100
   block_unknown_ja4: false
-  tarpit_enabled: false
+  tarpit_enabled: true
   tarpit_duration: 10
+  block_action: "tarpit"
+  ban_duration: 604800
+  permanent_ban: false
+  max_ban_duration: 2592000
+
+  # Multi-strategy policy: any, all, majority
+  multi_strategy_policy: "any"
+
+  # Threat thresholds (connections per 1-second window)
+  thresholds:
+    suspicious: 2
+    block: 5
+    ban: 10
+
+  # Rate limit strategies
+  rate_limit_strategies:
+    by_ip:
+      enabled: true
+      thresholds:
+        suspicious: 10
+        block: 50
+        ban: 100
+      action: "tarpit"
+      ban_duration: 3600
+    by_ja4:
+      enabled: true
+      thresholds:
+        suspicious: 5
+        block: 15
+        ban: 30
+      action: "block"
+      ban_duration: 3600
+    by_ip_ja4_pair:
+      enabled: true
+      thresholds:
+        suspicious: 2
+        block: 5
+        ban: 10
+      action: "tarpit"
+      ban_duration: 3600
+
+  # Known good JA4 fingerprints (whitelisted)
+  whitelist:
+    - "t13d1516h2_8daaf6152771_02713d6af862"  # Chrome/Chromium
+    - "t13d1517h2_8daaf6152771_b0da82dd1658"  # Chrome (pre-shared key)
+    - "t13d1517h2_8daaf6152771_b1ff8ab2d16f"  # Chrome (no key)
+    - "t13d1715h2_5b57614c22b0_7121afd63204"  # Firefox
+    - "t13d2014h2_a09f3c656075_14788d8d241b"  # Safari
+    - "t13i1515h2_8daaf6152771_02713d6af862"  # Chrome (IP destination)
+
+  # Known bad JA4 fingerprints (blacklisted)
+  blacklist:
+    - "t13d190900_9dc949149365_97f8aa674fd9"  # Sliver C2 Agent
+    - "t13d201100_2b729b4bf6f3_9e7b989ebec8"  # IcedID Banking Trojan
+    - "t12d190800_d83cc789557e_16bbda4055b2"  # Cobalt Strike Beacon (wininet)
+    - "t12d210800_76e208dd3e22_16bbda4055b2"  # Cobalt Strike Beacon (winhttp)
+    - "t12i190700_d83cc789557e_16bbda4055b2"  # Cobalt Strike Beacon (wininet, IP)
+    - "t13d191000_9dc949149365_e7c285222651"  # Evilginx Phishing / GoLang net
+    - "t13d880900_fcb5b95cb75a_b0d3b4ac2a14"  # SoftEther VPN Client
 
 # Metrics configuration
 metrics:

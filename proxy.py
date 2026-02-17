@@ -55,6 +55,10 @@ from scapy.layers.inet import IP, TCP
 from scapy.layers.tls.handshake import TLSClientHello, TLSServerHello
 from scapy.layers.tls.record import TLS
 
+# Import the multi-strategy security framework
+from src.security import SecurityManager as AdvancedSecurityManager
+from src.security import ActionType
+
 
 # Enhanced Metrics with Security Context
 REQUEST_COUNT = Counter('ja4_requests_total', 'Total requests processed', 
@@ -85,7 +89,7 @@ SECURE_CIPHER_SUITES = [
 ]
 
 # Input Validation Patterns
-VALID_JA4_PATTERN = re.compile(r'^[tq][0-9]{2}[di][0-9]{2}[0-9]{2}[hi][0-9]_[a-f0-9]{12}_[a-f0-9]{12}$')
+VALID_JA4_PATTERN = re.compile(r'^[tq][0-9]{2}[di][0-9]{2,4}[0-9]{2}[a-z0-9]{2}_[a-f0-9]{12}_[a-f0-9]{12}$')
 VALID_IP_PATTERN = re.compile(r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$')
 VALID_HOSTNAME_PATTERN = re.compile(r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$')
 
@@ -182,17 +186,24 @@ class TLSParser:
         self.logger = logging.getLogger(__name__)
     
     def parse_client_hello(self, packet) -> Optional[Dict]:
-        """Parse TLS Client Hello packet."""
+        """Parse TLS Client Hello from a packet or TLS record."""
         try:
-            if not packet.haslayer(TLS):
+            if packet is None:
                 return None
             
-            tls_layer = packet[TLS]
+            # Handle both IP-wrapped and raw TLS objects
+            if hasattr(packet, 'haslayer') and packet.haslayer(TLS):
+                tls_layer = packet[TLS]
+            elif isinstance(packet, TLS):
+                tls_layer = packet
+            else:
+                return None
+            
             if not hasattr(tls_layer, 'msg') or not tls_layer.msg:
                 return None
             
             for msg in tls_layer.msg:
-                if msg.msgtype == 1:  # Client Hello
+                if hasattr(msg, 'msgtype') and msg.msgtype == 1:  # Client Hello
                     return self._extract_client_hello_fields(msg)
             
             return None
@@ -208,11 +219,14 @@ class TLSParser:
             'extensions': [],
             'supported_groups': [],
             'signature_algorithms': [],
-            'supported_versions': []
+            'supported_versions': [],
+            'alpn': []
         }
         
-        # Extract cipher suites
-        if hasattr(client_hello, 'cipher_suites'):
+        # Extract cipher suites (Scapy uses 'ciphers' field name)
+        if hasattr(client_hello, 'ciphers'):
+            fields['cipher_suites'] = [cs for cs in client_hello.ciphers]
+        elif hasattr(client_hello, 'cipher_suites'):
             fields['cipher_suites'] = [cs for cs in client_hello.cipher_suites]
         
         # Extract extensions
@@ -222,11 +236,24 @@ class TLSParser:
                 
                 # Parse specific extensions
                 if ext.type == 10:  # supported_groups
-                    if hasattr(ext, 'elliptic_curves'):
+                    if hasattr(ext, 'groups'):
+                        fields['supported_groups'] = ext.groups
+                    elif hasattr(ext, 'elliptic_curves'):
                         fields['supported_groups'] = ext.elliptic_curves
                 elif ext.type == 13:  # signature_algorithms
                     if hasattr(ext, 'sig_algs'):
                         fields['signature_algorithms'] = ext.sig_algs
+                elif ext.type == 16:  # ALPN
+                    if hasattr(ext, 'protocols') and ext.protocols:
+                        alpn = []
+                        for p in ext.protocols:
+                            if hasattr(p, 'protocol'):
+                                val = p.protocol
+                                if isinstance(val, bytes):
+                                    alpn.append(val.decode('ascii', errors='ignore'))
+                                else:
+                                    alpn.append(str(val))
+                        fields['alpn'] = alpn
                 elif ext.type == 43:  # supported_versions
                     if hasattr(ext, 'versions'):
                         fields['supported_versions'] = ext.versions
@@ -243,32 +270,54 @@ class JA4Generator:
     def generate_ja4(self, client_hello_fields: Dict) -> str:
         """
         Generate JA4 fingerprint from Client Hello fields.
-        SECURITY FIX: Raises exception instead of returning empty string on error.
+        Format: {q/t}{version}{d/i}{cipher_count}{ext_count}{alpn}_{cipher_hash}_{ext_hash}
+        Example: t13d1516h2_8daaf6152771_02713d6af862
         """
         try:
-            # JA4 format: QUIC_Version+SNI_Extension+Cipher_Count+Extension_Count+ALPN_Extension
             version = self._get_version_string(client_hello_fields.get('version', 0))
-            cipher_count = len(client_hello_fields.get('cipher_suites', []))
-            extension_count = len(client_hello_fields.get('extensions', []))
             
-            # Build JA4 components
-            quic_version = "q" if version.startswith("QUIC") else "t"
-            sni_extension = "d" if 0 in client_hello_fields.get('extensions', []) else "i"
-            cipher_hash = self._hash_cipher_suites(client_hello_fields.get('cipher_suites', []))
-            extension_hash = self._hash_extensions(client_hello_fields.get('extensions', []))
+            # Use supported_versions extension if present (for TLS 1.3)
+            supported_versions = client_hello_fields.get('supported_versions', [])
+            if 0x0304 in supported_versions:
+                version = "13"
             
-            ja4 = f"{quic_version}{version}_{sni_extension}{cipher_count:02d}{extension_count:02d}_{cipher_hash}_{extension_hash}"
+            # Filter GREASE from cipher suites and extensions for counting
+            raw_ciphers = client_hello_fields.get('cipher_suites', [])
+            ciphers = [cs for cs in raw_ciphers if not self._is_grease(cs)]
+            raw_exts = client_hello_fields.get('extensions', [])
+            exts = [ext for ext in raw_exts if not self._is_grease(ext)]
             
-            # Validate generated fingerprint
-            if not ja4 or len(ja4) < 30:
-                raise ValidationError(f"Generated invalid JA4 fingerprint: {ja4}")
+            cipher_count = len(ciphers)
+            extension_count = len(exts)
+            
+            # Protocol: q for QUIC, t for TCP/TLS
+            proto = "q" if version.startswith("QUIC") else "t"
+            # SNI: d if SNI extension (type 0) present, i otherwise
+            sni = "d" if 0 in raw_exts else "i"
+            # ALPN: first character of first ALPN value, or "00" if not present
+            alpn = self._get_alpn_string(client_hello_fields)
+            
+            cipher_hash = self._hash_cipher_suites(ciphers)
+            extension_hash = self._hash_extensions(exts)
+            
+            ja4 = f"{proto}{version}{sni}{cipher_count:02d}{extension_count:02d}{alpn}_{cipher_hash}_{extension_hash}"
             
             return ja4
             
         except Exception as e:
             self.logger.error(f"Error generating JA4: {e}", exc_info=True)
-            # SECURITY FIX: Raise exception instead of returning empty string
             raise ValidationError(f"JA4 generation failed: {e}")
+    
+    def _get_alpn_string(self, fields: Dict) -> str:
+        """Get ALPN string for JA4. Returns first+last char of first ALPN, or '00'."""
+        alpn_values = fields.get('alpn', [])
+        if alpn_values and len(alpn_values) > 0:
+            first_alpn = str(alpn_values[0])
+            if len(first_alpn) >= 2:
+                return first_alpn[0] + first_alpn[-1]
+            elif len(first_alpn) == 1:
+                return first_alpn[0] + "0"
+        return "00"
     
     def _get_version_string(self, version: int) -> str:
         """Convert TLS version to string."""
@@ -628,10 +677,40 @@ class ProxyServer:
         self.redis_client = self._init_redis()
         self.tls_parser = TLSParser()
         self.ja4_generator = JA4Generator()
-        self.security_manager = SecurityManager(self.config, self.redis_client)
         self.tarpit_manager = TarpitManager(self.config)
         
+        # Initialize advanced multi-strategy security manager
+        self.advanced_security = AdvancedSecurityManager.from_config(
+            self.redis_client, self.config
+        )
+        # Keep legacy SecurityManager for blacklist/whitelist checks
+        self.security_manager = SecurityManager(self.config, self.redis_client)
+        
+        # Pre-populate Redis whitelist/blacklist from config
+        self._populate_security_lists()
+        
         self.active_connections = 0
+    
+    def _populate_security_lists(self):
+        """Pre-populate Redis whitelist and blacklist from config."""
+        security_config = self.config.get('security', {})
+        
+        # Populate whitelist
+        whitelist = security_config.get('whitelist', [])
+        if whitelist:
+            for fp in whitelist:
+                self.redis_client.sadd('ja4:whitelist', fp.encode())
+            self.logger.info(f"Loaded {len(whitelist)} whitelist entries")
+        
+        # Populate blacklist
+        blacklist = security_config.get('blacklist', [])
+        if blacklist:
+            for fp in blacklist:
+                self.redis_client.sadd('ja4:blacklist', fp.encode())
+            self.logger.info(f"Loaded {len(blacklist)} blacklist entries")
+        
+        # Reload security lists
+        self.security_manager._load_security_lists()
     
     def _init_redis(self) -> redis.Redis:
         """Initialize Redis connection with security validation."""
@@ -743,22 +822,20 @@ class ProxyServer:
             await server.serve_forever()
     
     async def handle_connection(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
-        """Handle incoming client connection with configurable timeouts (SECURITY FIX)."""
+        """Handle incoming client connection with PROXY protocol and JA4 security."""
         client_addr = writer.get_extra_info('peername')
-        client_ip = client_addr[0] if client_addr else "unknown"
-        client_port = client_addr[1] if client_addr and len(client_addr) > 1 else 0
+        socket_ip = client_addr[0] if client_addr else "unknown"
+        client_ip = socket_ip  # May be overridden by PROXY protocol
         
         self.active_connections += 1
         ACTIVE_CONNECTIONS.set(self.active_connections)
         
-        self.logger.info(f"New connection from {client_ip}:{client_port} (Active: {self.active_connections})")
-        
-        # Get configurable timeouts (SECURITY FIX)
+        # Get configurable timeouts
         connection_timeout = self.config['proxy'].get('connection_timeout', DEFAULT_TIMEOUT)
         read_timeout = self.config['proxy'].get('read_timeout', DEFAULT_TIMEOUT)
         
         try:
-            # Read initial data to analyze TLS handshake with timeout
+            # Read initial data with timeout
             request_start = time.time()
             data = await asyncio.wait_for(
                 reader.read(self.config['proxy']['buffer_size']),
@@ -769,43 +846,111 @@ class ProxyServer:
                 self.logger.debug(f"Empty data from {client_ip}")
                 return
             
-            # Analyze TLS handshake
+            # Parse PROXY protocol v2 header if enabled
+            if self.config['proxy'].get('proxy_protocol', False):
+                client_ip, data = self._parse_proxy_protocol(data, socket_ip)
+            
+            # Also check for X-Forwarded-For in HTTP requests as fallback
+            if client_ip == socket_ip:
+                extracted_ip = self._extract_client_ip_from_http(data)
+                if extracted_ip:
+                    client_ip = extracted_ip
+            
+            self.logger.info(f"Connection from {client_ip} (socket: {socket_ip})")
+            
+            # Analyze TLS handshake — extract JA4 fingerprint
             fingerprint = await asyncio.wait_for(
                 self._analyze_tls_handshake(data, client_ip),
                 timeout=connection_timeout
             )
+            ja4 = fingerprint.ja4
             
-            # Check security policies
-            allowed, reason = self.security_manager.check_access(fingerprint, client_ip)
+            # --- SECURITY LAYER 1: Blacklist check (instant block) ---
+            if self.config['security'].get('blacklist_enabled', True):
+                if ja4.encode() in self.security_manager.blacklist:
+                    self.logger.warning(
+                        f"BLACKLISTED: {client_ip} | JA4: {ja4} | Instant block"
+                    )
+                    REQUEST_COUNT.labels(
+                        fingerprint=ja4[:16], action="blocked",
+                        source_country='', tls_version=fingerprint.tls_version
+                    ).inc()
+                    BLOCKED_REQUESTS.labels(
+                        reason='blacklist', source_country='', attack_type='blacklist'
+                    ).inc()
+                    SECURITY_EVENTS.labels(
+                        event_type='blacklist_hit', severity='critical', source=client_ip
+                    ).inc()
+                    return  # Drop connection immediately
+            
+            # --- SECURITY LAYER 2: Whitelist fast-pass ---
+            is_whitelisted = False
+            if self.config['security'].get('whitelist_enabled', True):
+                is_whitelisted = ja4.encode() in self.security_manager.whitelist
+            
+            # --- SECURITY LAYER 3: Advanced rate-based threat detection ---
+            # Only apply rate limiting to non-whitelisted connections
+            allowed = True
+            reason = "Allowed"
+            action_type = ActionType.LOG
+            
+            if not is_whitelisted:
+                try:
+                    adv_allowed, adv_reason = self.advanced_security.check_access(ja4, client_ip)
+                    if not adv_allowed:
+                        allowed = False
+                        reason = adv_reason
+                        # Determine action type from reason
+                        if 'TARPIT' in adv_reason.upper():
+                            action_type = ActionType.TARPIT
+                        elif 'ban' in adv_reason.lower():
+                            action_type = ActionType.BAN
+                        else:
+                            action_type = ActionType.BLOCK
+                except Exception as e:
+                    self.logger.error(f"Advanced security check failed: {e}")
+                    # Fail open for rate limiting (blacklist already checked above)
+                    allowed = True
+                    reason = "Allowed (security check error)"
             
             # Record metrics
             request_duration = time.time() - request_start
             REQUEST_DURATION.observe(request_duration)
-            action = "allowed" if allowed else "blocked"
+            action_label = "allowed" if allowed else "blocked"
             REQUEST_COUNT.labels(
-                fingerprint=fingerprint.ja4[:16] if fingerprint.ja4 else "unknown",
-                action=action,
+                fingerprint=ja4[:16] if ja4 else "unknown",
+                action=action_label,
                 source_country=fingerprint.geo_country,
                 tls_version=fingerprint.tls_version
             ).inc()
             
             if not allowed:
                 self.logger.warning(
-                    f"BLOCKED: {client_ip} | JA4: {fingerprint.ja4} | Reason: {reason} | "
-                    f"Country: {fingerprint.geo_country} | TLS: {fingerprint.tls_version}"
+                    f"BLOCKED: {client_ip} | JA4: {ja4} | Reason: {reason} | "
+                    f"Action: {action_type.value}"
                 )
                 BLOCKED_REQUESTS.labels(
-                    reason=reason,
+                    reason=reason[:50],
                     source_country=fingerprint.geo_country,
-                    attack_type="policy_violation"
+                    attack_type=action_type.value
                 ).inc()
-                await self.tarpit_manager.tarpit_connection(writer)
+                SECURITY_EVENTS.labels(
+                    event_type='rate_limit_exceeded',
+                    severity='high',
+                    source=client_ip
+                ).inc()
+                
+                # TARPIT: redirect to tarpit container
+                if action_type == ActionType.TARPIT:
+                    await self._redirect_to_tarpit(data, reader, writer)
+                # BLOCK/BAN: just drop the connection
                 return
             
-            # Log allowed connection with JA4 fingerprint
+            # Log allowed connection
+            log_prefix = "WHITELISTED" if is_whitelisted else "ALLOWED"
             self.logger.info(
-                f"ALLOWED: {client_ip} | JA4: {fingerprint.ja4} | "
-                f"Country: {fingerprint.geo_country} | TLS: {fingerprint.tls_version}"
+                f"{log_prefix}: {client_ip} | JA4: {ja4} | "
+                f"TLS: {fingerprint.tls_version}"
             )
             
             # Forward to backend
@@ -829,23 +974,158 @@ class ProxyServer:
             except Exception:
                 pass
     
-    async def _analyze_tls_handshake(self, data: bytes, client_ip: str) -> JA4Fingerprint:
-        """Analyze TLS handshake and generate fingerprint."""
-        try:
-            # Parse packet data
-            packet = IP(data) if data else None
-            client_hello_fields = self.tls_parser.parse_client_hello(packet)
+    def _parse_proxy_protocol(self, data: bytes, fallback_ip: str) -> tuple:
+        """Parse PROXY protocol v2 header to extract real client IP."""
+        # PROXY protocol v2 signature: 12 bytes
+        PP2_SIGNATURE = b'\x0d\x0a\x0d\x0a\x00\x0d\x0a\x51\x55\x49\x54\x0a'
+        
+        if data[:12] == PP2_SIGNATURE and len(data) >= 16:
+            # Version and command byte
+            ver_cmd = data[12]
+            family = data[13]
+            addr_len = struct.unpack('!H', data[14:16])[0]
+            header_len = 16 + addr_len
             
-            if client_hello_fields:
-                ja4 = self.ja4_generator.generate_ja4(client_hello_fields)
+            if len(data) >= header_len:
+                # Extract addresses based on address family
+                if family == 0x11:  # AF_INET, STREAM
+                    if addr_len >= 12:
+                        src_ip = socket.inet_ntoa(data[16:20])
+                        remaining_data = data[header_len:]
+                        self.logger.debug(f"PROXY protocol v2: client IP = {src_ip}")
+                        return src_ip, remaining_data
+                elif family == 0x21:  # AF_INET6, STREAM
+                    if addr_len >= 36:
+                        src_ip = socket.inet_ntop(socket.AF_INET6, data[16:32])
+                        remaining_data = data[header_len:]
+                        self.logger.debug(f"PROXY protocol v2: client IPv6 = {src_ip}")
+                        return src_ip, remaining_data
+                
+                # Unknown family, strip header but use fallback IP
+                return fallback_ip, data[header_len:]
+        
+        # PROXY protocol v1 (text): "PROXY TCP4 src_ip dst_ip src_port dst_port\r\n"
+        if data[:6] == b'PROXY ':
+            try:
+                newline = data.index(b'\r\n')
+                header_line = data[:newline].decode('ascii')
+                parts = header_line.split(' ')
+                if len(parts) >= 3:
+                    src_ip = parts[2]
+                    remaining_data = data[newline + 2:]
+                    self.logger.debug(f"PROXY protocol v1: client IP = {src_ip}")
+                    return src_ip, remaining_data
+            except (ValueError, UnicodeDecodeError):
+                pass
+        
+        # No PROXY protocol header found
+        return fallback_ip, data
+    
+    def _extract_client_ip_from_http(self, data: bytes) -> str:
+        """Extract client IP from HTTP X-Forwarded-For header (fallback for non-PP traffic)."""
+        try:
+            # Only parse if this looks like HTTP
+            if not (data[:3] in (b'GET', b'POS', b'PUT', b'DEL', b'HEA', b'PAT', b'OPT')):
+                return ""
+            header_block = data[:2048].decode('ascii', errors='ignore')
+            for line in header_block.split('\r\n'):
+                lower = line.lower()
+                if lower.startswith('x-forwarded-for:'):
+                    ip = line.split(':', 1)[1].strip().split(',')[0].strip()
+                    try:
+                        ipaddress.ip_address(ip)
+                        return ip
+                    except ValueError:
+                        return ""
+                elif lower.startswith('x-real-ip:'):
+                    ip = line.split(':', 1)[1].strip()
+                    try:
+                        ipaddress.ip_address(ip)
+                        return ip
+                    except ValueError:
+                        return ""
+        except Exception:
+            pass
+        return ""
+    
+    async def _redirect_to_tarpit(self, data: bytes, client_reader: asyncio.StreamReader,
+                                  client_writer: asyncio.StreamWriter):
+        """Redirect a blocked connection to the tarpit container."""
+        try:
+            tarpit_host = self.config['proxy'].get('tarpit_host', 'tarpit')
+            tarpit_port = self.config['proxy'].get('tarpit_port', 8888)
+            
+            tarpit_reader, tarpit_writer = await asyncio.wait_for(
+                asyncio.open_connection(tarpit_host, tarpit_port),
+                timeout=5
+            )
+            
+            self.logger.info(f"Redirecting to tarpit at {tarpit_host}:{tarpit_port}")
+            
+            # Forward initial data to tarpit
+            tarpit_writer.write(data)
+            await tarpit_writer.drain()
+            
+            # Bidirectional forwarding (tarpit will trickle bytes back)
+            await asyncio.gather(
+                self._forward_data(client_reader, tarpit_writer, "client->tarpit"),
+                self._forward_data(tarpit_reader, client_writer, "tarpit->client"),
+                return_exceptions=True
+            )
+            
+        except Exception as e:
+            self.logger.debug(f"Tarpit redirect ended: {e}")
+        finally:
+            try:
+                tarpit_writer.close()
+                await tarpit_writer.wait_closed()
+            except Exception:
+                pass
+    
+    async def _analyze_tls_handshake(self, data: bytes, client_ip: str) -> JA4Fingerprint:
+        """Analyze TLS handshake and generate fingerprint from raw TCP data."""
+        try:
+            ja4 = "unknown"
+            tls_version = "unknown"
+            
+            # The data is raw TCP stream, not IP-wrapped — check for TLS record header
+            # TLS record: byte 0 = content type (0x16 = handshake), bytes 1-2 = version, bytes 3-4 = length
+            if len(data) >= 5 and data[0] == 0x16:
+                # This is a TLS handshake record — parse with Scapy's TLS layer directly
+                try:
+                    tls_packet = TLS(data)
+                    client_hello_fields = self.tls_parser.parse_client_hello(tls_packet)
+                    
+                    if client_hello_fields:
+                        ja4 = self.ja4_generator.generate_ja4(client_hello_fields)
+                        # Extract TLS version string
+                        ver = client_hello_fields.get('version', 0)
+                        supported = client_hello_fields.get('supported_versions', [])
+                        if 0x0304 in supported:
+                            tls_version = "TLS 1.3"
+                        elif ver == 0x0303:
+                            tls_version = "TLS 1.2"
+                        elif ver == 0x0302:
+                            tls_version = "TLS 1.1"
+                        elif ver == 0x0301:
+                            tls_version = "TLS 1.0"
+                        else:
+                            tls_version = f"TLS 0x{ver:04x}" if ver else "unknown"
+                except Exception as e:
+                    self.logger.debug(f"TLS parsing with Scapy failed: {e}")
             else:
-                ja4 = "unknown"
+                # Not a TLS record — might be HTTP or other protocol
+                self.logger.debug(f"Non-TLS data from {client_ip} (first byte: 0x{data[0]:02x})")
+                
+                # Check for X-JA4-Fingerprint header in HTTP traffic (for testing)
+                ja4 = self._extract_ja4_from_http(data)
             
             fingerprint = JA4Fingerprint(
                 ja4=ja4,
                 client_hello_hash=hashlib.sha256(data).hexdigest()[:16],
                 timestamp=time.time(),
-                source_ip=client_ip
+                source_ip=client_ip,
+                tls_version=tls_version
             )
             
             # Store fingerprint in Redis
@@ -856,6 +1136,19 @@ class ProxyServer:
         except Exception as e:
             self.logger.error(f"Error analyzing TLS handshake: {e}")
             return JA4Fingerprint(ja4="error", source_ip=client_ip, timestamp=time.time())
+    
+    def _extract_ja4_from_http(self, data: bytes) -> str:
+        """Extract JA4 fingerprint from HTTP X-JA4-Fingerprint header (testing/fallback)."""
+        try:
+            if data[:3] in (b'GET', b'POS', b'PUT', b'DEL', b'HEA', b'PAT', b'OPT'):
+                header_block = data[:2048].decode('ascii', errors='ignore')
+                for line in header_block.split('\r\n'):
+                    if line.lower().startswith('x-ja4-fingerprint:'):
+                        ja4 = line.split(':', 1)[1].strip()
+                        return ja4
+        except Exception:
+            pass
+        return "unknown"
     
     async def _store_fingerprint(self, fingerprint: JA4Fingerprint):
         """Store fingerprint data in Redis."""

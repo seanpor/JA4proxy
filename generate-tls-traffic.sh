@@ -1,8 +1,9 @@
 #!/bin/bash
 # TLS Traffic Generator - Performance Testing Script for JA4proxy
 #
-# This script generates realistic mixed traffic with good and bad actors
-# to stress test the JA4proxy system
+# Generates real TLS connections through the proxy to test JA4 fingerprinting
+# and security blocking. Good clients use browser-like TLS, bad clients use
+# tool/malware-like TLS configurations.
 
 set -e
 
@@ -18,11 +19,11 @@ NC='\033[0m'
 DURATION=${1:-60}
 GOOD_PERCENT=${2:-15}
 WORKERS=${3:-50}
-PROXY_HOST="localhost"
-PROXY_PORT="8080"
+TARGET_HOST="localhost"
+TARGET_PORT="8080"  # Direct to proxy (use 443 if HAProxy is running)
 
 echo -e "${CYAN}╔════════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║          JA4proxy Performance Test - Traffic Generator            ║${NC}"
+echo -e "${CYAN}║          JA4proxy TLS Traffic Generator                           ║${NC}"
 echo -e "${CYAN}╚════════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -31,27 +32,33 @@ echo -e "${BLUE}▶ Checking services...${NC}"
 
 if ! docker compose -f docker-compose.poc.yml ps 2>/dev/null | grep -q "ja4proxy.*Up"; then
     echo -e "${RED}✗ JA4proxy services are not running${NC}"
-    echo -e "${YELLOW}  Start with: ./start-poc.sh${NC}"
+    echo -e "${YELLOW}  Start with: ./start-poc.sh or ./start-all.sh${NC}"
     exit 1
 fi
 
-# Check proxy is accessible
-if ! curl -s -f "http://${PROXY_HOST}:${PROXY_PORT}/api/health" > /dev/null 2>&1; then
-    echo -e "${RED}✗ Proxy not accessible at ${PROXY_HOST}:${PROXY_PORT}${NC}"
-    echo -e "${YELLOW}  Make sure the POC stack is running: ./start-poc.sh${NC}"
-    exit 1
+# Check if HAProxy is running — if so, target port 443
+if docker compose -f docker-compose.poc.yml ps 2>/dev/null | grep -q "haproxy.*Up"; then
+    # Check if port 443 is reachable
+    if timeout 2 bash -c "echo | openssl s_client -connect ${TARGET_HOST}:443 2>/dev/null" | grep -q "CONNECTED"; then
+        TARGET_PORT="443"
+        echo -e "${GREEN}✓ HAProxy detected — targeting TLS port ${TARGET_PORT}${NC}"
+    fi
+fi
+
+# For non-TLS fallback, check proxy directly
+if [ "$TARGET_PORT" = "8080" ]; then
+    # Try a raw TCP connection to the proxy
+    if timeout 2 bash -c "</dev/tcp/${TARGET_HOST}/${TARGET_PORT}" 2>/dev/null; then
+        echo -e "${GREEN}✓ Proxy accessible at ${TARGET_HOST}:${TARGET_PORT}${NC}"
+    else
+        echo -e "${RED}✗ Proxy not accessible at ${TARGET_HOST}:${TARGET_PORT}${NC}"
+        echo -e "${YELLOW}  Make sure the POC stack is running: ./start-poc.sh${NC}"
+        exit 1
+    fi
 fi
 
 echo -e "${GREEN}✓ Services are running${NC}"
 echo ""
-
-# Install Python dependencies if needed
-if ! python3 -c "import requests" 2>/dev/null; then
-    echo -e "${YELLOW}▶ Installing Python dependencies...${NC}"
-    pip3 install requests 2>&1 | grep -v "already satisfied" || true
-    echo -e "${GREEN}✓ Dependencies installed${NC}"
-    echo ""
-fi
 
 # Make the Python script executable
 chmod +x scripts/tls-traffic-generator.py
@@ -61,23 +68,23 @@ echo -e "  Duration:        ${DURATION}s"
 echo -e "  Good Traffic:    ${GOOD_PERCENT}%"
 echo -e "  Bad Traffic:     $((100 - GOOD_PERCENT))%"
 echo -e "  Workers:         ${WORKERS}"
-echo -e "  Proxy:           ${PROXY_HOST}:${PROXY_PORT}"
+echo -e "  Target:          ${TARGET_HOST}:${TARGET_PORT}"
 echo ""
 
-echo -e "${YELLOW}Tip: Monitor in real-time:${NC}"
+echo -e "${YELLOW}Monitor in real-time:${NC}"
 echo -e "  Metrics:     curl http://localhost:9090/metrics | grep ja4_"
 echo -e "  Grafana:     http://localhost:3001 (admin/admin)"
 echo -e "  Prometheus:  http://localhost:9091"
 echo -e "  Logs:        docker compose -f docker-compose.poc.yml logs -f proxy"
 echo ""
 
-echo -e "${GREEN}▶ Starting traffic generation...${NC}"
+echo -e "${GREEN}▶ Starting TLS traffic generation...${NC}"
 echo ""
 
 # Run the traffic generator
 python3 scripts/tls-traffic-generator.py \
-    --proxy-host "${PROXY_HOST}" \
-    --proxy-port "${PROXY_PORT}" \
+    --target-host "${TARGET_HOST}" \
+    --target-port "${TARGET_PORT}" \
     --duration "${DURATION}" \
     --good-percent "${GOOD_PERCENT}" \
     --workers "${WORKERS}"
@@ -98,11 +105,7 @@ if curl -s http://localhost:9090/metrics > /tmp/ja4_metrics.txt 2>/dev/null; the
     
     echo ""
     echo -e "${CYAN}Blocked Requests:${NC}"
-    grep "^ja4_blocks_total" /tmp/ja4_metrics.txt | grep -v "#" || echo "  No data yet"
-    
-    echo ""
-    echo -e "${CYAN}Active Bans:${NC}"
-    grep "^ja4_bans_active" /tmp/ja4_metrics.txt | grep -v "#" || echo "  No data yet"
+    grep "^ja4_blocked_requests_total" /tmp/ja4_metrics.txt | grep -v "#" || echo "  No data yet"
     
     rm -f /tmp/ja4_metrics.txt
 else
@@ -111,10 +114,7 @@ fi
 
 echo ""
 echo -e "${YELLOW}Next Steps:${NC}"
-echo -e "  1. View detailed metrics: ${CYAN}curl http://localhost:9090/metrics | grep ja4_${NC}"
-echo -e "  2. Check Grafana dashboards: ${CYAN}http://localhost:3001${NC}"
-echo -e "  3. Query Prometheus: ${CYAN}http://localhost:9091${NC}"
-echo -e "  4. Run again with different settings:"
-echo -e "     ${CYAN}./generate-tls-traffic.sh <duration> <good_percent> <workers>${NC}"
-echo -e "     Example: ${CYAN}./generate-tls-traffic.sh 300 10 100${NC} (5min, 10% good, 100 workers)"
+echo -e "  1. View metrics: ${CYAN}curl http://localhost:9090/metrics | grep ja4_${NC}"
+echo -e "  2. Grafana:      ${CYAN}http://localhost:3001${NC}"
+echo -e "  3. Run again:    ${CYAN}./generate-tls-traffic.sh <duration> <good%> <workers>${NC}"
 echo ""
