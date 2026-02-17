@@ -8,7 +8,7 @@ A security proxy that extracts [JA4 TLS fingerprints](https://github.com/FoxIO-L
 ## How It Works
 
 ```
-Client ──TLS──▶ HAProxy (LB) ──TCP──▶ JA4proxy ──TLS──▶ Backend (HTTPS)
+Client ──TLS──▶ HAProxy (LB) ──TCP──▶ JA4proxy ×N ──TLS──▶ Backend (HTTPS)
                    :443                  :8080              :443
                                            │
                                    ┌───────┼───────┐
@@ -167,9 +167,21 @@ Profiles: Chrome, Firefox, Safari (legitimate) + Sliver C2, CobaltStrike, Evilgi
 - **[Architecture](docs/architecture/system-architecture.md)** — System design
 - **[Security Audit](docs/security/COMPREHENSIVE_SECURITY_AUDIT.md)** — Vulnerability assessment
 - **[Threat Model](docs/security/threat-model.md)** — Attack surface analysis
+- **[Performance Benchmark](docs/reports/PERFORMANCE_BENCHMARK.md)** — Throughput & scaling
 - **[Enterprise Deployment](docs/enterprise/deployment.md)** — Production guide
 - **[GDPR Compliance](docs/compliance/GDPR_COMPLIANCE.md)** — Data handling
 - **[Changelog](CHANGELOG.md)** — Version history
+
+## Scaling
+
+The POC runs a single proxy instance (~210 conn/s). To scale up:
+
+```bash
+./scale-proxies.sh 4    # Scale to 4 proxy instances (~840 conn/s)
+./scale-proxies.sh 1    # Reset to single instance
+```
+
+This automatically scales containers and reconfigures HAProxy for round-robin. All instances share Redis, so bans are enforced cluster-wide. See [Performance Benchmark](docs/reports/PERFORMANCE_BENCHMARK.md) for throughput data.
 
 ## Stopping Services
 
