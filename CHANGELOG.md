@@ -5,6 +5,19 @@
 ### 🐛 BUG FIXES
 - **Fixed traffic generator bypassing proxy** - `generate-tls-traffic.sh` and `scripts/tls-traffic-generator.py` were sending requests directly to the backend (port 8081), completely bypassing the proxy. Prometheus metrics were never incremented, so Grafana dashboards showed no activity. Traffic is now routed through the proxy (port 8080) so that JA4 fingerprinting, security policies, and metrics collection all function correctly.
 - **Fixed proxy rejecting non-TLS connections before recording metrics** - `JA4Fingerprint._sanitize_ja4()` raised `ValidationError` on sentinel values `"unknown"` and `"error"`, causing connections to be dropped before `REQUEST_COUNT` was incremented. These sentinel values are now allowed through validation so that all connections — including plain HTTP — are counted in Prometheus metrics and visible in Grafana.
+- **Fixed request duration histogram never recording** - `REQUEST_DURATION.observe()` was never called in `handle_connection`, so latency panels always showed empty. Now records duration from data read through security check.
+- **Fixed BLOCKED_REQUESTS label mismatches** - `check_access()` called `BLOCKED_REQUESTS.labels()` with only `reason` but the counter requires `reason`, `source_country`, and `attack_type`. Now passes all three labels.
+
+### 📊 DASHBOARD FIXES
+- **Fixed Block Rate (%) panel** — was dividing two counters with different label sets yielding NaN; now uses `sum()` on both sides and derives block % from `ja4_requests_total{action="blocked"}`.
+- **Fixed Security Events pie chart** — was grouping by nonexistent `tier` label; now groups by `event_type` matching actual `ja4_security_events_total` labels.
+- **Fixed Top Blocked table** — was grouping by nonexistent `ja4_fingerprint` label; now shows `reason` and `attack_type` from `ja4_blocked_requests_total`.
+- **Fixed Rate Limit panel** — referenced nonexistent `ja4_rate_limit_exceeded_total`; now queries `ja4_security_events_total{event_type="rate_limit_exceeded"}`.
+- **Fixed Whitelist/Blacklist panel** — referenced nonexistent `ja4_whitelist_hits_total` / `ja4_blacklist_hits_total`; replaced with "Blocked by Reason" showing `ja4_blocked_requests_total` broken down by `reason`.
+- **Fixed Security Overview stat row** — removed nonexistent `ja4_whitelist_size` / `ja4_blacklist_size`; replaced with Block % and Active Connections.
+- **Fixed Request Latency panel** — added `sum() by (le)` to histogram_quantile for correct aggregation.
+- **Replaced Loki logs panel** — was using LogQL against Prometheus datasource; replaced with TLS Handshake Errors timeseries using `ja4_tls_handshake_errors_total`.
+- **Upgraded deprecated `graph` panels to `timeseries`** for Grafana 10.x compatibility.
 
 ## [2.0.0] - 2024-02-14 - SECURITY HARDENING RELEASE
 

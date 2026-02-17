@@ -9,7 +9,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 38,
-  "version": 1,
+  "version": 2,
   "refresh": "10s",
   "time": {
     "from": "now-1h",
@@ -47,13 +47,13 @@
           "refId": "B"
         },
         {
-          "expr": "ja4_whitelist_size",
-          "legendFormat": "Whitelist",
+          "expr": "sum(rate(ja4_requests_total{action=\"blocked\"}[5m])) / sum(rate(ja4_requests_total[5m])) * 100",
+          "legendFormat": "Block %",
           "refId": "C"
         },
         {
-          "expr": "ja4_blacklist_size",
-          "legendFormat": "Blacklist",
+          "expr": "ja4_active_connections",
+          "legendFormat": "Active Conns",
           "refId": "D"
         }
       ],
@@ -65,7 +65,7 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "decimals": 0
+          "decimals": 1
         },
         "overrides": [
           {
@@ -82,6 +82,25 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Block %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
           }
         ]
       }
@@ -89,7 +108,7 @@
     {
       "id": 2,
       "title": "Request Rate (req/sec)",
-      "type": "graph",
+      "type": "timeseries",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -98,42 +117,56 @@
       },
       "targets": [
         {
-          "expr": "rate(ja4_requests_total[1m])",
+          "expr": "sum(rate(ja4_requests_total[1m]))",
           "legendFormat": "Total Requests",
           "refId": "A"
         },
         {
-          "expr": "rate(ja4_blocked_requests_total[1m])",
-          "legendFormat": "Blocked Requests",
+          "expr": "sum(rate(ja4_requests_total{action=\"allowed\"}[1m]))",
+          "legendFormat": "Allowed",
           "refId": "B"
-        }
-      ],
-      "yaxes": [
-        {
-          "format": "reqps",
-          "label": "Requests/sec"
         },
         {
-          "format": "short"
+          "expr": "sum(rate(ja4_requests_total{action=\"blocked\"}[1m]))",
+          "legendFormat": "Blocked",
+          "refId": "C"
         }
       ],
-      "lines": true,
-      "fill": 1,
-      "linewidth": 2,
-      "points": false,
-      "bars": false,
-      "stack": false,
-      "legend": {
-        "show": true,
-        "alignAsTable": true,
-        "avg": true,
-        "max": true
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Blocked" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Allowed" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "calcs": ["mean", "max"]
+        }
       }
     },
     {
       "id": 3,
       "title": "Block Rate (%)",
-      "type": "graph",
+      "type": "timeseries",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -142,70 +175,41 @@
       },
       "targets": [
         {
-          "expr": "(rate(ja4_blocked_requests_total[5m]) / rate(ja4_requests_total[5m])) * 100",
+          "expr": "sum(rate(ja4_requests_total{action=\"blocked\"}[5m])) / sum(rate(ja4_requests_total[5m])) * 100",
           "legendFormat": "Block Percentage",
           "refId": "A"
         }
       ],
-      "yaxes": [
-        {
-          "format": "percent",
-          "label": "Block Rate",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
           "min": 0,
-          "max": 100
-        },
-        {
-          "format": "short"
-        }
-      ],
-      "lines": true,
-      "fill": 3,
-      "linewidth": 2,
-      "points": false,
-      "bars": false,
-      "stack": false,
-      "thresholds": [
-        {
-          "value": 10,
-          "colorMode": "critical",
-          "op": "gt",
-          "fill": true,
-          "line": true
-        }
-      ],
-      "alert": {
-        "name": "High Block Rate",
-        "message": "Block rate exceeds 10%",
-        "conditions": [
-          {
-            "evaluator": {
-              "params": [
-                10
-              ],
-              "type": "gt"
-            },
-            "operator": {
-              "type": "and"
-            },
-            "query": {
-              "params": [
-                "A",
-                "5m",
-                "now"
-              ]
-            },
-            "reducer": {
-              "params": [],
-              "type": "avg"
-            },
-            "type": "query"
+          "max": 100,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "showPoints": "never"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 50 }
+            ]
           }
-        ]
+        }
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "calcs": ["mean", "max"]
+        }
       }
     },
     {
       "id": 4,
-      "title": "Security Events by Tier",
+      "title": "Security Events by Type",
       "type": "piechart",
       "gridPos": {
         "h": 8,
@@ -215,8 +219,8 @@
       },
       "targets": [
         {
-          "expr": "sum by (tier) (increase(ja4_security_events_total[1h]))",
-          "legendFormat": "{{tier}}",
+          "expr": "sum by (event_type) (increase(ja4_security_events_total[1h]))",
+          "legendFormat": "{{event_type}}",
           "refId": "A"
         }
       ],
@@ -233,52 +237,28 @@
           "percent"
         ],
         "legend": {
-          "show": true,
+          "showLegend": true,
           "placement": "right"
         }
       },
       "fieldConfig": {
         "overrides": [
           {
-            "matcher": {
-              "id": "byName",
-              "options": "banned"
-            },
+            "matcher": { "id": "byName", "options": "rate_limit_exceeded" },
             "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "red"
-                }
-              }
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
             ]
           },
           {
-            "matcher": {
-              "id": "byName",
-              "options": "block"
-            },
+            "matcher": { "id": "byName", "options": "validation_error" },
             "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "orange"
-                }
-              }
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }
             ]
           },
           {
-            "matcher": {
-              "id": "byName",
-              "options": "suspicious"
-            },
+            "matcher": { "id": "byName", "options": "connection_error" },
             "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "yellow"
-                }
-              }
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "yellow" } }
             ]
           }
         ]
@@ -286,7 +266,7 @@
     },
     {
       "id": 5,
-      "title": "Top 10 Blocked Fingerprints",
+      "title": "Top Blocked Reasons",
       "type": "table",
       "gridPos": {
         "h": 8,
@@ -296,7 +276,7 @@
       },
       "targets": [
         {
-          "expr": "topk(10, sum by (ja4_fingerprint) (increase(ja4_blocked_requests_total[1h])))",
+          "expr": "topk(10, sum by (reason, attack_type) (increase(ja4_blocked_requests_total[1h])))",
           "legendFormat": "",
           "refId": "A",
           "instant": true,
@@ -310,10 +290,10 @@
             "excludeByName": {
               "Time": true
             },
-            "indexByName": {},
             "renameByName": {
-              "ja4_fingerprint": "JA4 Fingerprint",
-              "Value": "Block Count"
+              "reason": "Block Reason",
+              "attack_type": "Attack Type",
+              "Value": "Count"
             }
           }
         }
@@ -322,7 +302,7 @@
         "showHeader": true,
         "sortBy": [
           {
-            "displayName": "Block Count",
+            "displayName": "Count",
             "desc": true
           }
         ]
@@ -330,21 +310,10 @@
       "fieldConfig": {
         "overrides": [
           {
-            "matcher": {
-              "id": "byName",
-              "options": "Block Count"
-            },
+            "matcher": { "id": "byName", "options": "Count" },
             "properties": [
-              {
-                "id": "custom.displayMode",
-                "value": "gradient-gauge"
-              },
-              {
-                "id": "color",
-                "value": {
-                  "mode": "continuous-RdYlGr"
-                }
-              }
+              { "id": "custom.displayMode", "value": "gradient-gauge" },
+              { "id": "color", "value": { "mode": "continuous-RdYlGr" } }
             ]
           }
         ]
@@ -352,8 +321,8 @@
     },
     {
       "id": 6,
-      "title": "Rate Limit Violations",
-      "type": "graph",
+      "title": "Rate Limit Events",
+      "type": "timeseries",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -362,36 +331,51 @@
       },
       "targets": [
         {
-          "expr": "sum by (strategy) (rate(ja4_rate_limit_exceeded_total[5m]))",
-          "legendFormat": "{{strategy}}",
+          "expr": "sum(rate(ja4_security_events_total{event_type=\"rate_limit_exceeded\"}[5m]))",
+          "legendFormat": "Rate Limit Exceeded",
           "refId": "A"
-        }
-      ],
-      "yaxes": [
-        {
-          "format": "ops",
-          "label": "Violations/sec"
         },
         {
-          "format": "short"
+          "expr": "sum(rate(ja4_security_events_total{event_type=\"rate_limit_error\"}[5m]))",
+          "legendFormat": "Rate Limit Errors",
+          "refId": "B"
         }
       ],
-      "lines": true,
-      "fill": 2,
-      "linewidth": 2,
-      "bars": false,
-      "stack": true,
-      "legend": {
-        "show": true,
-        "alignAsTable": true,
-        "current": true,
-        "max": true
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "never"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Rate Limit Exceeded" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Rate Limit Errors" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "calcs": ["mean", "max"]
+        }
       }
     },
     {
       "id": 7,
-      "title": "Whitelist/Blacklist Hits",
-      "type": "graph",
+      "title": "Blocked by Reason",
+      "type": "timeseries",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -400,73 +384,53 @@
       },
       "targets": [
         {
-          "expr": "rate(ja4_whitelist_hits_total[5m])",
-          "legendFormat": "Whitelist Hits",
+          "expr": "sum by (reason) (rate(ja4_blocked_requests_total[5m]))",
+          "legendFormat": "{{reason}}",
           "refId": "A"
-        },
-        {
-          "expr": "rate(ja4_blacklist_hits_total[5m])",
-          "legendFormat": "Blacklist Hits",
-          "refId": "B"
         }
       ],
-      "yaxes": [
-        {
-          "format": "ops",
-          "label": "Hits/sec"
-        },
-        {
-          "format": "short"
-        }
-      ],
-      "lines": true,
-      "fill": 2,
-      "linewidth": 2,
-      "bars": false,
-      "stack": false,
-      "legend": {
-        "show": true,
-        "alignAsTable": true,
-        "current": true,
-        "avg": true
-      },
       "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "stacking": { "mode": "normal" }
+          }
+        },
         "overrides": [
           {
-            "matcher": {
-              "id": "byName",
-              "options": "Whitelist Hits"
-            },
+            "matcher": { "id": "byName", "options": "rate_limit" },
             "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "green"
-                }
-              }
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }
             ]
           },
           {
-            "matcher": {
-              "id": "byName",
-              "options": "Blacklist Hits"
-            },
+            "matcher": { "id": "byName", "options": "blacklist" },
             "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "red"
-                }
-              }
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Internal error" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "purple" } }
             ]
           }
         ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "calcs": ["mean", "max"]
+        }
       }
     },
     {
       "id": 8,
       "title": "Active Connections",
-      "type": "graph",
+      "type": "timeseries",
       "gridPos": {
         "h": 6,
         "w": 12,
@@ -480,26 +444,25 @@
           "refId": "A"
         }
       ],
-      "yaxes": [
-        {
-          "format": "short",
-          "label": "Connections"
-        },
-        {
-          "format": "short"
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
         }
-      ],
-      "lines": true,
-      "fill": 2,
-      "linewidth": 2,
-      "points": false,
-      "bars": false,
-      "stack": false
+      }
     },
     {
       "id": 9,
       "title": "Request Latency (p95, p99)",
-      "type": "graph",
+      "type": "timeseries",
       "gridPos": {
         "h": 6,
         "w": 12,
@@ -508,59 +471,65 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, rate(ja4_request_duration_seconds_bucket[5m]))",
+          "expr": "histogram_quantile(0.95, sum(rate(ja4_request_duration_seconds_bucket[5m])) by (le))",
           "legendFormat": "p95",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.99, rate(ja4_request_duration_seconds_bucket[5m]))",
+          "expr": "histogram_quantile(0.99, sum(rate(ja4_request_duration_seconds_bucket[5m])) by (le))",
           "legendFormat": "p99",
           "refId": "B"
         }
       ],
-      "yaxes": [
-        {
-          "format": "s",
-          "label": "Latency"
-        },
-        {
-          "format": "short"
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
         }
-      ],
-      "lines": true,
-      "fill": 1,
-      "linewidth": 2,
-      "points": false,
-      "bars": false,
-      "stack": false,
-      "legend": {
-        "show": true,
-        "alignAsTable": true,
-        "avg": true,
-        "max": true
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "calcs": ["mean", "max"]
+        }
       }
     },
     {
       "id": 10,
-      "title": "Recent Security Events",
-      "type": "logs",
+      "title": "TLS Handshake Errors",
+      "type": "timeseries",
       "gridPos": {
-        "h": 8,
+        "h": 6,
         "w": 24,
         "x": 0,
         "y": 34
       },
       "targets": [
         {
-          "expr": "{job=\"ja4proxy\"} |= \"SECURITY\" or \"BLOCK\" or \"BAN\"",
+          "expr": "sum by (error_type) (rate(ja4_tls_handshake_errors_total[5m]))",
+          "legendFormat": "{{error_type}}",
           "refId": "A"
         }
       ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        }
+      },
       "options": {
-        "showTime": true,
-        "showLabels": true,
-        "wrapLogMessage": true,
-        "dedupStrategy": "none"
+        "legend": {
+          "displayMode": "table",
+          "calcs": ["mean", "max"]
+        }
       }
     }
   ],
@@ -569,10 +538,10 @@
       {
         "datasource": "Prometheus",
         "enable": true,
-        "expr": "ALERTS{alertname=\"JA4ProxyMaliciousFingerprint\"}",
+        "expr": "ALERTS{alertname=~\"JA4Proxy.*\"}",
         "iconColor": "red",
         "name": "Security Alerts",
-        "tagKeys": "severity,alert_type"
+        "tagKeys": "severity"
       }
     ]
   },
@@ -582,15 +551,6 @@
         "name": "datasource",
         "type": "datasource",
         "query": "prometheus"
-      },
-      {
-        "name": "interval",
-        "type": "interval",
-        "query": "5m,10m,30m,1h,6h,12h,1d",
-        "current": {
-          "text": "5m",
-          "value": "5m"
-        }
       }
     ]
   }
