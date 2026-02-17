@@ -47,7 +47,7 @@
           "refId": "B"
         },
         {
-          "expr": "sum(rate(ja4_requests_total{action=\"blocked\"}[5m])) / sum(rate(ja4_requests_total[5m])) * 100",
+          "expr": "sum(rate(ja4_requests_total{action=\"blocked\"}[5m])) / clamp_min(sum(rate(ja4_requests_total[5m])), 1e-10) * 100",
           "legendFormat": "Block %",
           "refId": "C"
         },
@@ -175,7 +175,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(ja4_requests_total{action=\"blocked\"}[5m])) / sum(rate(ja4_requests_total[5m])) * 100",
+          "expr": "sum(rate(ja4_requests_total{action=\"blocked\"}[5m])) / clamp_min(sum(rate(ja4_requests_total[5m])), 1e-10) * 100",
           "legendFormat": "Block Percentage",
           "refId": "A"
         }
