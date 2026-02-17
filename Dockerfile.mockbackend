@@ -5,18 +5,27 @@ RUN groupadd -r backend && useradd -r -g backend backend
 
 WORKDIR /app
 
-# Copy mock backend server
+# Copy mock backend server and TLS certs
 COPY mock-backend.py .
+COPY ssl/certs/backend.crt /app/ssl/certs/backend.crt
+COPY ssl/private/backend.key /app/ssl/private/backend.key
+
+# Fix permissions so non-root user can read the cert and key
+RUN chmod 644 /app/ssl/certs/backend.crt && chmod 644 /app/ssl/private/backend.key
 
 # Switch to non-root user
 USER backend
 
-# Expose port
-EXPOSE 80
+# Expose ports (443 for HTTPS, 80 for HTTP fallback)
+EXPOSE 443 80
 
-# Health check
+ENV TLS_CERT=/app/ssl/certs/backend.crt
+ENV TLS_KEY=/app/ssl/private/backend.key
+ENV PORT=443
+
+# Health check via HTTPS (skip cert verification)
 HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:80/api/health')" || exit 1
+    CMD python -c "import urllib.request,ssl; urllib.request.urlopen('https://localhost:443/api/health',context=ssl._create_unverified_context())" || exit 1
 
 # Run the mock server
 CMD ["python", "mock-backend.py"]

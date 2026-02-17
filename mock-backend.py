@@ -6,6 +6,8 @@ Provides various endpoints for testing proxy functionality
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import json
+import os
+import ssl
 import time
 from datetime import datetime
 
@@ -117,11 +119,25 @@ class MockBackendHandler(BaseHTTPRequestHandler):
         self._send_response(200, "application/json", response)
 
 
-def run_server(port=80):
-    """Run the mock backend server."""
-    server_address = ('', port)
-    httpd = HTTPServer(server_address, MockBackendHandler)
-    print(f"Mock backend server started on port {port}")
+def run_server(port=None, tls=None):
+    """Run the mock backend server, optionally with TLS."""
+    tls_cert = tls or os.environ.get('TLS_CERT')
+    tls_key = os.environ.get('TLS_KEY')
+
+    if tls_cert and os.path.exists(tls_cert):
+        port = port or int(os.environ.get('PORT', 443))
+        server_address = ('', port)
+        httpd = HTTPServer(server_address, MockBackendHandler)
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(tls_cert, tls_key)
+        httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
+        print(f"Mock backend server started on HTTPS port {port}")
+    else:
+        port = port or int(os.environ.get('PORT', 80))
+        server_address = ('', port)
+        httpd = HTTPServer(server_address, MockBackendHandler)
+        print(f"Mock backend server started on HTTP port {port}")
+
     print(f"Available endpoints:")
     print(f"  GET  / - HTML homepage")
     print(f"  GET  /api/health - Health check")
