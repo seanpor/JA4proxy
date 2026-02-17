@@ -6,6 +6,7 @@ WORKDIR /app
 # No pip install required
 
 COPY scripts/tls-traffic-generator.py /app/tls-traffic-generator.py
+COPY scripts/benchmark.py /app/scripts/benchmark.py
 
 ENV PYTHONUNBUFFERED=1
 
