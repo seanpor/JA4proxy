@@ -1014,8 +1014,8 @@ class ProxyServer:
             if self.config['security'].get('blacklist_enabled', True):
                 if ja4.encode() in self.security_manager.blacklist:
                     self.logger.warning(
-                        f"BLACKLISTED: {client_ip} | JA4: {ja4} | "
-                        f"Name: {classify_ja4(ja4, self.config)} | Instant block"
+                        f"BLACKLISTED: {client_ip} | Country: {country or 'N/A'} | "
+                        f"JA4: {ja4} | Name: {classify_ja4(ja4, self.config)} | Instant block"
                     )
                     REQUEST_COUNT.labels(
                         fingerprint=ja4[:16],
@@ -1083,8 +1083,8 @@ class ProxyServer:
             if not allowed:
                 ja4_name = classify_ja4(ja4, self.config)
                 self.logger.warning(
-                    f"BLOCKED: {client_ip} | JA4: {ja4} | "
-                    f"Name: {ja4_name} | Reason: {reason} | "
+                    f"BLOCKED: {client_ip} | Country: {country or 'N/A'} | "
+                    f"JA4: {ja4} | Name: {ja4_name} | Reason: {reason} | "
                     f"Action: {action_type.value}"
                 )
                 BLOCKED_REQUESTS.labels(
@@ -1108,8 +1108,8 @@ class ProxyServer:
             log_prefix = "WHITELISTED" if is_whitelisted else "ALLOWED"
             ja4_name = classify_ja4(ja4, self.config)
             self.logger.info(
-                f"{log_prefix}: {client_ip} | JA4: {ja4} | "
-                f"Name: {ja4_name} | TLS: {fingerprint.tls_version}"
+                f"{log_prefix}: {client_ip} | Country: {country or 'N/A'} | "
+                f"JA4: {ja4} | Name: {ja4_name} | TLS: {fingerprint.tls_version}"
             )
             
             # Forward to backend
