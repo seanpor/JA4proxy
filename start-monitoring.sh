@@ -49,6 +49,13 @@ else
     echo -e "${YELLOW}⚠ Grafana not responding yet...${NC}"
 fi
 
+# Check Loki
+if curl -sf http://localhost:3100/ready > /dev/null; then
+    echo -e "${GREEN}✓ Loki is healthy${NC}"
+else
+    echo -e "${YELLOW}⚠ Loki not responding yet...${NC}"
+fi
+
 echo ""
 echo -e "${BLUE}========================================${NC}"
 echo -e "${GREEN}✓ Monitoring stack is running!${NC}"
@@ -58,6 +65,7 @@ echo "Access the services:"
 echo ""
 echo "  Prometheus:    http://localhost:9091"
 echo "  Alertmanager:  http://localhost:9093"
+echo "  Loki:          http://localhost:3100 (log aggregation)"
 echo "  Grafana:       http://localhost:3001"
 echo "                 (admin/admin)"
 echo ""

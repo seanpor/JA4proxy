@@ -1,0 +1,55 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /positions/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: name
+            values:
+              - ja4proxy
+              - ja4proxy-backend
+              - ja4proxy-redis
+              - ja4proxy-haproxy
+              - ja4proxy-tarpit
+              - ja4proxy-trafficgen
+              - ja4proxy-prometheus-monitoring
+              - ja4proxy-grafana
+              - ja4proxy-alertmanager
+    relabel_configs:
+      # Use container name as the primary label
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: 'container'
+      # Extract service role from container name
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/ja4proxy-(.*)'
+        target_label: 'service'
+      # The main proxy container is just "ja4proxy"
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/ja4proxy$'
+        target_label: 'service'
+        replacement: 'proxy'
+    pipeline_stages:
+      # Parse proxy structured log lines
+      - regex:
+          expression: '(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) - (?P<logger>\S+) - (?P<level>\w+) - (?P<message>.*)'
+      - labels:
+          level:
+      # Tag security events
+      - match:
+          selector: '{service="proxy"}'
+          stages:
+            - regex:
+                expression: '(?P<action>ALLOWED|BLOCKED|WHITELISTED|BLACKLISTED|TIMEOUT):'
+            - labels:
+                action:

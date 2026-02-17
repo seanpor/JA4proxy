@@ -34,6 +34,8 @@ RUN mkdir -p logs && \
 # Switch to non-root user
 USER proxy
 
+ENV PYTHONUNBUFFERED=1
+
 # SECURITY FIX: Enhanced health check with actual HTTP request
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:9090/metrics || exit 1

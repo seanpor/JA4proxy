@@ -22,6 +22,7 @@ EXPOSE 443 80
 ENV TLS_CERT=/app/ssl/certs/backend.crt
 ENV TLS_KEY=/app/ssl/private/backend.key
 ENV PORT=443
+ENV PYTHONUNBUFFERED=1
 
 # Health check via HTTPS (skip cert verification)
 HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \

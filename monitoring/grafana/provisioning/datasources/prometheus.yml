@@ -13,3 +13,12 @@ datasources:
       timeInterval: 10s
       httpMethod: POST
       exemplarTraceIdDestinations: []
+
+  - name: Loki
+    uid: ja4proxy-loki
+    type: loki
+    access: proxy
+    url: http://ja4proxy-loki:3100
+    editable: false
+    jsonData:
+      maxLines: 1000
