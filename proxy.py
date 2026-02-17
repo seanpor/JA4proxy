@@ -520,20 +520,20 @@ class SecurityManager:
             # Check rate limiting
             if self.config['security']['rate_limiting']:
                 if not self._check_rate_limit(client_ip):
-                    BLOCKED_REQUESTS.labels(reason='rate_limit').inc()
+                    BLOCKED_REQUESTS.labels(reason='rate_limit', source_country='', attack_type='rate_limit').inc()
                     return False, "Rate limit exceeded"
             
             # Check blacklist
             if self.config['security']['blacklist_enabled']:
                 if fingerprint.ja4.encode() in self.blacklist:
-                    BLOCKED_REQUESTS.labels(reason='blacklist').inc()
+                    BLOCKED_REQUESTS.labels(reason='blacklist', source_country='', attack_type='blacklist').inc()
                     return False, "JA4 blacklisted"
             
             # Check whitelist
             if self.config['security']['whitelist_enabled']:
                 if fingerprint.ja4.encode() not in self.whitelist:
                     if self.config['security']['block_unknown_ja4']:
-                        BLOCKED_REQUESTS.labels(reason='not_whitelisted').inc()
+                        BLOCKED_REQUESTS.labels(reason='not_whitelisted', source_country='', attack_type='policy').inc()
                         return False, "JA4 not whitelisted"
             
             return True, "Allowed"
@@ -759,6 +759,7 @@ class ProxyServer:
         
         try:
             # Read initial data to analyze TLS handshake with timeout
+            request_start = time.time()
             data = await asyncio.wait_for(
                 reader.read(self.config['proxy']['buffer_size']),
                 timeout=read_timeout
@@ -778,6 +779,8 @@ class ProxyServer:
             allowed, reason = self.security_manager.check_access(fingerprint, client_ip)
             
             # Record metrics
+            request_duration = time.time() - request_start
+            REQUEST_DURATION.observe(request_duration)
             action = "allowed" if allowed else "blocked"
             REQUEST_COUNT.labels(
                 fingerprint=fingerprint.ja4[:16] if fingerprint.ja4 else "unknown",
