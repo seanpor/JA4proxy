@@ -101,6 +101,26 @@ security:
     - "t13d191000_9dc949149365_e7c285222651"  # Evilginx Phishing / GoLang net
     - "t13d880900_fcb5b95cb75a_b0d3b4ac2a14"  # SoftEther VPN Client
 
+  # Human-readable names for known JA4 fingerprints (used in metrics labels)
+  fingerprint_labels:
+    # Known good (browsers)
+    "t13d1516h2_8daaf6152771_02713d6af862": "Chrome"
+    "t13d1517h2_8daaf6152771_b0da82dd1658": "Chrome (PSK)"
+    "t13d1517h2_8daaf6152771_b1ff8ab2d16f": "Chrome (alt)"
+    "t13d1715h2_5b57614c22b0_7121afd63204": "Firefox"
+    "t13d2014h2_a09f3c656075_14788d8d241b": "Safari"
+    "t13i1515h2_8daaf6152771_02713d6af862": "Chrome (IP)"
+    # Known bad (malware/tools)
+    "t13d190900_9dc949149365_97f8aa674fd9": "Sliver C2"
+    "t13d201100_2b729b4bf6f3_9e7b989ebec8": "IcedID Trojan"
+    "t12d190800_d83cc789557e_16bbda4055b2": "CobaltStrike (wininet)"
+    "t12d210800_76e208dd3e22_16bbda4055b2": "CobaltStrike (winhttp)"
+    "t12i190700_d83cc789557e_16bbda4055b2": "CobaltStrike (IP)"
+    "t13d191000_9dc949149365_e7c285222651": "Evilginx/GoLang"
+    "t13d880900_fcb5b95cb75a_b0d3b4ac2a14": "SoftEther VPN"
+    # Suspicious (libraries)
+    "t13d181000_85036bcba153_d41ae481755e": "Python stdlib"
+
 # Metrics configuration
 metrics:
   enabled: true
