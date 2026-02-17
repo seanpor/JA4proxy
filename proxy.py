@@ -921,7 +921,14 @@ class ProxyServer:
             # --- SECURITY LAYER 2: Whitelist fast-pass ---
             is_whitelisted = False
             if self.config['security'].get('whitelist_enabled', True):
+                # Check exact match in Redis set
                 is_whitelisted = ja4.encode() in self.security_manager.whitelist
+                # Check pattern-based whitelist (e.g., all h2 ALPN = browsers)
+                if not is_whitelisted:
+                    for pattern in self.config['security'].get('whitelist_patterns', []):
+                        if ja4.startswith(pattern) or pattern in ja4.split('_')[0]:
+                            is_whitelisted = True
+                            break
             
             # --- SECURITY LAYER 3: Advanced rate-based threat detection ---
             # Only apply rate limiting to non-whitelisted connections
