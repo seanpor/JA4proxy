@@ -126,6 +126,37 @@ security:
     # Suspicious (libraries)
     "t13d181000_85036bcba153_d41ae481755e": "Python stdlib"
 
+# GeoIP country filtering
+geoip:
+  # Path to IP2Location LITE database (bundled in container)
+  database_path: "/app/geoip/IP2LOCATION-LITE-DB1.BIN"
+
+  # Country whitelist: only allow traffic from these countries
+  # When enabled, ALL traffic from countries NOT in this list is blocked
+  country_whitelist_enabled: false
+  country_whitelist:
+    - "IE"  # Ireland
+    - "GB"  # United Kingdom
+    - "IM"  # Isle of Man
+    - "JE"  # Jersey
+    - "GG"  # Guernsey
+    - "US"  # United States
+    - "CA"  # Canada
+    - "AU"  # Australia
+    - "NZ"  # New Zealand
+    - "DE"  # Germany
+    - "FR"  # France
+    - "NL"  # Netherlands
+
+  # Country blacklist: block traffic from these countries
+  # Applied before all other checks
+  country_blacklist_enabled: false
+  country_blacklist:
+    - "KP"  # North Korea
+    - "RU"  # Russia
+    - "CN"  # China
+    - "IR"  # Iran
+
 # Metrics configuration
 metrics:
   enabled: true

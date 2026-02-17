@@ -49,6 +49,13 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from prometheus_client import Counter, Histogram, Gauge, Info, start_http_server
 
+# GeoIP country lookup
+try:
+    import IP2Location
+    GEOIP_AVAILABLE = True
+except ImportError:
+    GEOIP_AVAILABLE = False
+
 # Specific Scapy imports to avoid namespace pollution (Security Fix: CVE-2024-WILDCARD-IMPORT)
 from scapy.packet import Packet
 from scapy.layers.inet import IP, TCP
@@ -136,6 +143,48 @@ def classify_ja4(ja4: str, config: dict = None) -> str:
             return f'Client ({proto} {tls_ver})'
     except (IndexError, ValueError):
         return 'Unknown'
+
+
+class GeoIPLookup:
+    """IP-to-country lookup using IP2Location LITE database."""
+
+    # Common GeoIP database paths
+    DB_PATHS = [
+        '/app/geoip/IP2LOCATION-LITE-DB1.BIN',  # Docker container
+        'geoip/IP2LOCATION-LITE-DB1.BIN',         # Local dev
+    ]
+
+    def __init__(self, db_path: str = None):
+        self.db = None
+        self.logger = logging.getLogger(__name__)
+        if not GEOIP_AVAILABLE:
+            self.logger.warning("IP2Location not installed - country lookup disabled")
+            return
+        paths = [db_path] if db_path else self.DB_PATHS
+        for p in paths:
+            if os.path.exists(p):
+                try:
+                    self.db = IP2Location.IP2Location(p)
+                    self.logger.info(f"GeoIP database loaded: {p}")
+                    return
+                except Exception as e:
+                    self.logger.error(f"Failed to load GeoIP database {p}: {e}")
+        self.logger.warning("No GeoIP database found - country lookup disabled")
+
+    def lookup(self, ip: str) -> str:
+        """Return ISO 3166-1 alpha-2 country code for an IP, or '' if unknown."""
+        if not self.db:
+            return ''
+        try:
+            # Skip private/reserved IPs
+            addr = ipaddress.ip_address(ip)
+            if addr.is_private or addr.is_loopback or addr.is_reserved:
+                return ''
+            rec = self.db.get_all(ip)
+            code = rec.country_short
+            return code if code and code != '-' else ''
+        except Exception:
+            return ''
 
 
 @dataclass
@@ -718,6 +767,29 @@ class ProxyServer:
         # Keep legacy SecurityManager for blacklist/whitelist checks
         self.security_manager = SecurityManager(self.config, self.redis_client)
         
+        # Initialize GeoIP lookup
+        geoip_path = self.config.get('geoip', {}).get('database_path')
+        self.geoip = GeoIPLookup(geoip_path)
+        
+        # Load country whitelist/blacklist from config
+        geo_config = self.config.get('geoip', {})
+        self.country_whitelist = set(
+            c.upper() for c in geo_config.get('country_whitelist', [])
+        )
+        self.country_blacklist = set(
+            c.upper() for c in geo_config.get('country_blacklist', [])
+        )
+        self.country_whitelist_enabled = geo_config.get('country_whitelist_enabled', False)
+        self.country_blacklist_enabled = geo_config.get('country_blacklist_enabled', False)
+        if self.country_whitelist_enabled:
+            self.logger.info(
+                f"Country whitelist enabled: {sorted(self.country_whitelist)}"
+            )
+        if self.country_blacklist_enabled:
+            self.logger.info(
+                f"Country blacklist enabled: {sorted(self.country_blacklist)}"
+            )
+        
         # Pre-populate Redis whitelist/blacklist from config
         self._populate_security_lists()
         
@@ -897,6 +969,47 @@ class ProxyServer:
             )
             ja4 = fingerprint.ja4
             
+            # --- GeoIP lookup ---
+            country = self.geoip.lookup(client_ip)
+            fingerprint.geo_country = country
+            
+            # --- SECURITY LAYER 0: Country-based filtering ---
+            if country:
+                # Country blacklist: block traffic from banned countries
+                if self.country_blacklist_enabled and country in self.country_blacklist:
+                    self.logger.warning(
+                        f"COUNTRY_BLOCKED: {client_ip} | Country: {country} | "
+                        f"JA4: {ja4} | Name: {classify_ja4(ja4, self.config)}"
+                    )
+                    REQUEST_COUNT.labels(
+                        fingerprint=ja4[:16],
+                        fingerprint_name=classify_ja4(ja4, self.config),
+                        action="blocked",
+                        source_country=country, tls_version=fingerprint.tls_version
+                    ).inc()
+                    BLOCKED_REQUESTS.labels(
+                        reason='country_blacklist', source_country=country,
+                        attack_type='geo_block'
+                    ).inc()
+                    return
+                # Country whitelist: if enabled, block anything NOT in the list
+                if self.country_whitelist_enabled and country not in self.country_whitelist:
+                    self.logger.warning(
+                        f"COUNTRY_NOT_WHITELISTED: {client_ip} | Country: {country} | "
+                        f"JA4: {ja4} | Name: {classify_ja4(ja4, self.config)}"
+                    )
+                    REQUEST_COUNT.labels(
+                        fingerprint=ja4[:16],
+                        fingerprint_name=classify_ja4(ja4, self.config),
+                        action="blocked",
+                        source_country=country, tls_version=fingerprint.tls_version
+                    ).inc()
+                    BLOCKED_REQUESTS.labels(
+                        reason='country_not_whitelisted', source_country=country,
+                        attack_type='geo_block'
+                    ).inc()
+                    return
+            
             # --- SECURITY LAYER 1: Blacklist check (instant block) ---
             if self.config['security'].get('blacklist_enabled', True):
                 if ja4.encode() in self.security_manager.blacklist:
@@ -908,10 +1021,10 @@ class ProxyServer:
                         fingerprint=ja4[:16],
                         fingerprint_name=classify_ja4(ja4, self.config),
                         action="blocked",
-                        source_country='', tls_version=fingerprint.tls_version
+                        source_country=country, tls_version=fingerprint.tls_version
                     ).inc()
                     BLOCKED_REQUESTS.labels(
-                        reason='blacklist', source_country='', attack_type='blacklist'
+                        reason='blacklist', source_country=country, attack_type='blacklist'
                     ).inc()
                     SECURITY_EVENTS.labels(
                         event_type='blacklist_hit', severity='critical', source=client_ip
