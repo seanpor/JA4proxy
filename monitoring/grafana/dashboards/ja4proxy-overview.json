@@ -482,8 +482,8 @@
       },
       "targets": [
         {
-          "expr": "sum by (fingerprint) (rate(ja4_requests_total{action=\"allowed\"}[30s]))",
-          "legendFormat": "{{fingerprint}}"
+          "expr": "sum by (fingerprint_name) (rate(ja4_requests_total{action=\"allowed\"}[30s]))",
+          "legendFormat": "{{fingerprint_name}}"
         }
       ]
     },
@@ -527,8 +527,8 @@
       },
       "targets": [
         {
-          "expr": "sum by (fingerprint) (rate(ja4_requests_total{action=\"blocked\"}[30s]))",
-          "legendFormat": "{{fingerprint}}"
+          "expr": "sum by (fingerprint_name) (rate(ja4_requests_total{action=\"blocked\"}[30s]))",
+          "legendFormat": "{{fingerprint_name}}"
         }
       ]
     },
@@ -675,8 +675,8 @@
       ],
       "targets": [
         {
-          "expr": "topk(10, sum by (fingerprint) (increase(ja4_requests_total{action=\"blocked\"}[15m])))",
-          "legendFormat": "{{fingerprint}}",
+          "expr": "topk(10, sum by (fingerprint_name) (increase(ja4_requests_total{action=\"blocked\"}[15m])))",
+          "legendFormat": "{{fingerprint_name}}",
           "format": "table",
           "instant": true
         }

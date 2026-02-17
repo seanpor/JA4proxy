@@ -62,7 +62,7 @@ from src.security import ActionType
 
 # Enhanced Metrics with Security Context
 REQUEST_COUNT = Counter('ja4_requests_total', 'Total requests processed', 
-                       ['fingerprint', 'action', 'source_country', 'tls_version'])
+                       ['fingerprint', 'fingerprint_name', 'action', 'source_country', 'tls_version'])
 REQUEST_DURATION = Histogram('ja4_request_duration_seconds', 'Request duration',
                            buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0])
 ACTIVE_CONNECTIONS = Gauge('ja4_active_connections', 'Active connections')
@@ -104,6 +104,38 @@ class ValidationError(Exception):
 class ComplianceError(Exception):
     """Compliance violation exception."""
     pass
+
+def classify_ja4(ja4: str, config: dict = None) -> str:
+    """Decode a JA4 fingerprint into a human-readable classification.
+    
+    JA4 format: {q/t}{version}{d/i}{cipher_count}{ext_count}{alpn}_{hash}_{hash}
+    Checks config fingerprint_labels first, then decodes the JA4 structure.
+    """
+    if config and 'fingerprint_labels' in config.get('security', {}):
+        labels = config['security']['fingerprint_labels']
+        if ja4 in labels:
+            return labels[ja4]
+        for key, name in labels.items():
+            if ja4.startswith(key) or key.startswith(ja4[:16]):
+                return name
+
+    if not ja4 or len(ja4) < 10 or ja4 in ('unknown', 'error'):
+        return 'Unknown'
+
+    try:
+        proto = 'QUIC' if ja4[0] == 'q' else 'TLS'
+        ver_map = {'13': '1.3', '12': '1.2', '11': '1.1', '10': '1.0'}
+        tls_ver = ver_map.get(ja4[1:3], ja4[1:3])
+        prefix = ja4.split('_')[0]
+        alpn_field = prefix[-2:] if len(prefix) >= 2 else '00'
+        if alpn_field == 'h2':
+            return f'Browser ({proto} {tls_ver})'
+        elif alpn_field == '00':
+            return f'Tool/Bot ({proto} {tls_ver})'
+        else:
+            return f'Client ({proto} {tls_ver})'
+    except (IndexError, ValueError):
+        return 'Unknown'
 
 
 @dataclass
@@ -869,10 +901,13 @@ class ProxyServer:
             if self.config['security'].get('blacklist_enabled', True):
                 if ja4.encode() in self.security_manager.blacklist:
                     self.logger.warning(
-                        f"BLACKLISTED: {client_ip} | JA4: {ja4} | Instant block"
+                        f"BLACKLISTED: {client_ip} | JA4: {ja4} | "
+                        f"Name: {classify_ja4(ja4, self.config)} | Instant block"
                     )
                     REQUEST_COUNT.labels(
-                        fingerprint=ja4[:16], action="blocked",
+                        fingerprint=ja4[:16],
+                        fingerprint_name=classify_ja4(ja4, self.config),
+                        action="blocked",
                         source_country='', tls_version=fingerprint.tls_version
                     ).inc()
                     BLOCKED_REQUESTS.labels(
@@ -919,14 +954,17 @@ class ProxyServer:
             action_label = "allowed" if allowed else "blocked"
             REQUEST_COUNT.labels(
                 fingerprint=ja4[:16] if ja4 else "unknown",
+                fingerprint_name=classify_ja4(ja4, self.config) if ja4 else "Unknown",
                 action=action_label,
                 source_country=fingerprint.geo_country,
                 tls_version=fingerprint.tls_version
             ).inc()
             
             if not allowed:
+                ja4_name = classify_ja4(ja4, self.config)
                 self.logger.warning(
-                    f"BLOCKED: {client_ip} | JA4: {ja4} | Reason: {reason} | "
+                    f"BLOCKED: {client_ip} | JA4: {ja4} | "
+                    f"Name: {ja4_name} | Reason: {reason} | "
                     f"Action: {action_type.value}"
                 )
                 BLOCKED_REQUESTS.labels(
@@ -948,9 +986,10 @@ class ProxyServer:
             
             # Log allowed connection
             log_prefix = "WHITELISTED" if is_whitelisted else "ALLOWED"
+            ja4_name = classify_ja4(ja4, self.config)
             self.logger.info(
                 f"{log_prefix}: {client_ip} | JA4: {ja4} | "
-                f"TLS: {fingerprint.tls_version}"
+                f"Name: {ja4_name} | TLS: {fingerprint.tls_version}"
             )
             
             # Forward to backend
