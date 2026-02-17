@@ -70,7 +70,7 @@ security:
       thresholds:
         suspicious: 5
         block: 15
-        ban: 30
+        ban: 20
       action: "block"
       ban_duration: 3600
     by_ip_ja4_pair:
@@ -78,7 +78,7 @@ security:
       thresholds:
         suspicious: 2
         block: 5
-        ban: 10
+        ban: 8
       action: "tarpit"
       ban_duration: 3600
 
@@ -90,6 +90,11 @@ security:
     - "t13d1715h2_5b57614c22b0_7121afd63204"  # Firefox
     - "t13d2014h2_a09f3c656075_14788d8d241b"  # Safari
     - "t13i1515h2_8daaf6152771_02713d6af862"  # Chrome (IP destination)
+
+  # Pattern-based whitelist: match JA4 prefix patterns (survives OpenSSL version changes)
+  # Any JA4 with h2 ALPN = legitimate browser (Chrome, Firefox, Safari, Edge)
+  whitelist_patterns:
+    - "h2"  # Any fingerprint with HTTP/2 ALPN = browser
 
   # Known bad JA4 fingerprints (blacklisted)
   blacklist:
