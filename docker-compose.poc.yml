@@ -29,6 +29,7 @@ services:
       - CONFIG_PATH=/app/config/proxy.yml
       - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
       - ENVIRONMENT=development
+      - PYTHONUNBUFFERED=1
     networks:
       - ja4proxy
     # POC: Relaxed security for snap Docker compatibility
@@ -82,11 +83,26 @@ services:
       - TARPIT_PORT=8888
       - TARPIT_DURATION=60
       - TARPIT_METRICS_PORT=9099
+      - PYTHONUNBUFFERED=1
     networks:
       - ja4proxy
     security_opt:
       - no-new-privileges:true
       - apparmor:unconfined
+
+  trafficgen:
+    build:
+      context: .
+      dockerfile: Dockerfile.trafficgen
+    container_name: ja4proxy-trafficgen
+    depends_on:
+      - proxy
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - ja4proxy
+    profiles:
+      - traffic
 
   test:
     build:

@@ -901,6 +901,70 @@
           "legendFormat": "TLS Error: {{error_type}}"
         }
       ]
+    },
+    {
+      "id": 50,
+      "title": "Security Event Log (Proxy)",
+      "type": "logs",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "ja4proxy-loki"
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none"
+      },
+      "targets": [
+        {
+          "expr": "{service=\"proxy\"} |~ \"BLOCKED|ALLOWED|WHITELISTED|BLACKLISTED|TARPIT\"",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 51,
+      "title": "All Service Logs",
+      "type": "logs",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "ja4proxy-loki"
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none"
+      },
+      "targets": [
+        {
+          "expr": "{container=~\"ja4proxy.*\"}",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ]
     }
   ],
   "annotations": {

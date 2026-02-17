@@ -1,0 +1,13 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Only need the standard library (ssl, socket, argparse, etc.)
+# No pip install required
+
+COPY scripts/tls-traffic-generator.py /app/tls-traffic-generator.py
+
+ENV PYTHONUNBUFFERED=1
+
+ENTRYPOINT ["python", "/app/tls-traffic-generator.py"]
+CMD ["--target-host", "proxy", "--target-port", "8080", "--duration", "60", "--good-percent", "15", "--workers", "15"]

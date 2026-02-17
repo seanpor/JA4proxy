@@ -71,6 +71,7 @@ services:
       - ja4proxy_ja4proxy  # Also connect to POC network for Prometheus access
     depends_on:
       - prometheus
+      - loki
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
       interval: 30s
@@ -109,12 +110,51 @@ services:
     networks:
       - ja4proxy_ja4proxy  # Use POC network to connect to existing Redis
 
+  # Loki: centralized log aggregation
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: ja4proxy-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+    networks:
+      - ja4proxy-network
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3100/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # Promtail: ships Docker container logs to Loki
+  promtail:
+    image: grafana/promtail:3.3.2
+    container_name: ja4proxy-promtail
+    volumes:
+      - ./monitoring/loki/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - promtail-positions:/positions
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    restart: unless-stopped
+    networks:
+      - ja4proxy-network
+
 volumes:
   prometheus-data:
     driver: local
   alertmanager-data:
     driver: local
   grafana-data:
+    driver: local
+  loki-data:
+    driver: local
+  promtail-positions:
     driver: local
 
 networks:
