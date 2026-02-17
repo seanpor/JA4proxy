@@ -51,55 +51,55 @@ Quick connectivity test without running full test suite:
 ### Full Test Suite
 
 ```bash
-docker-compose -f docker-compose.poc.yml run --rm test
+docker compose -f docker-compose.poc.yml run --rm test
 ```
 
 ### Specific Test Files
 
 ```bash
 # Run single test file
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/test_proxy.py -v
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/test_proxy.py -v
 
 # Run specific test class
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/test_proxy.py::TestJA4Fingerprint -v
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/test_proxy.py::TestJA4Fingerprint -v
 
 # Run specific test method
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/test_proxy.py::TestJA4Fingerprint::test_fingerprint_creation -v
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/test_proxy.py::TestJA4Fingerprint::test_fingerprint_creation -v
 ```
 
 ### Test Categories
 
 ```bash
 # Unit tests only
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/unit/ -v
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/unit/ -v
 
 # Integration tests only
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/integration/ -v
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/integration/ -v
 
 # Security tests
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/security/ -v
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/security/ -v
 
 # Performance tests
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/performance/ -v
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/performance/ -v
 ```
 
 ### Test Output Options
 
 ```bash
 # Verbose output
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/ -v
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/ -v
 
 # Very verbose (show print statements)
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/ -vv -s
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/ -vv -s
 
 # Quiet mode (minimal output)
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/ -q
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/ -q
 
 # Stop on first failure
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/ -x
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/ -x
 
 # Show local variables on failure
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/ -l
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/ -l
 ```
 
 ## Test Reports
@@ -121,7 +121,7 @@ cat reports/junit.xml
 ### Viewing Coverage in Terminal
 
 ```bash
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/ -v --cov=proxy --cov-report=term
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/ -v --cov=proxy --cov-report=term
 ```
 
 ## Using Makefile
@@ -155,7 +155,7 @@ Tests use these environment variables (automatically set by docker-compose):
 Override environment variables:
 
 ```bash
-docker-compose -f docker-compose.poc.yml run --rm \
+docker compose -f docker-compose.poc.yml run --rm \
   -e PROXY_PORT=9999 \
   test pytest tests/ -v
 ```
@@ -170,25 +170,25 @@ Run tests with pdb debugger:
 # Add breakpoint in test code:
 # import pdb; pdb.set_trace()
 
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/test_proxy.py -s
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/test_proxy.py -s
 ```
 
 ### View Service Logs While Testing
 
 In one terminal:
 ```bash
-docker-compose -f docker-compose.poc.yml logs -f proxy
+docker compose -f docker-compose.poc.yml logs -f proxy
 ```
 
 In another terminal:
 ```bash
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/ -v
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/ -v
 ```
 
 ### Shell Access to Test Container
 
 ```bash
-docker-compose -f docker-compose.poc.yml run --rm test bash
+docker compose -f docker-compose.poc.yml run --rm test bash
 
 # Inside container:
 pytest tests/ -v
@@ -225,7 +225,7 @@ import requests
 
 def test_backend_health():
     """Test backend is accessible."""
-    response = requests.get('http://backend:80/api/health')
+    response = requests.get('https://backend:443/api/health')
     assert response.status_code == 200
     assert response.json()['status'] == 'ok'
 
@@ -256,8 +256,8 @@ jobs:
       - uses: actions/checkout@v2
       - name: Run tests
         run: |
-          docker-compose -f docker-compose.poc.yml up -d redis backend proxy
-          docker-compose -f docker-compose.poc.yml run --rm test
+          docker compose -f docker-compose.poc.yml up -d redis backend proxy
+          docker compose -f docker-compose.poc.yml run --rm test
       - name: Upload coverage
         uses: codecov/codecov-action@v2
         with:
@@ -273,7 +273,7 @@ jobs:
 ./start-poc.sh
 
 # Run load test
-docker-compose -f docker-compose.poc.yml run --rm test \
+docker compose -f docker-compose.poc.yml run --rm test \
   locust -f /app/performance/locust_tests.py \
   --host http://proxy:8080 \
   --users 100 \
@@ -285,7 +285,7 @@ docker-compose -f docker-compose.poc.yml run --rm test \
 ### Benchmark Tests
 
 ```bash
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/performance/ -v --benchmark-only
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/performance/ -v --benchmark-only
 ```
 
 ## Troubleshooting
@@ -304,8 +304,8 @@ docker-compose -f docker-compose.poc.yml run --rm test pytest tests/performance/
 
 3. View logs:
 ```bash
-docker-compose -f docker-compose.poc.yml logs proxy
-docker-compose -f docker-compose.poc.yml logs backend
+docker compose -f docker-compose.poc.yml logs proxy
+docker compose -f docker-compose.poc.yml logs backend
 ```
 
 ### Tests Hang or Timeout
@@ -325,7 +325,7 @@ sudo chown -R $USER:$USER reports/
 
 ```bash
 # Stop all services and remove volumes
-docker-compose -f docker-compose.poc.yml down -v
+docker compose -f docker-compose.poc.yml down -v
 
 # Restart
 ./start-poc.sh

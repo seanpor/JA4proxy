@@ -132,7 +132,7 @@ ja4_bans_active
 ╚════════════════════════════════════════════════════════════════════╝
 
 Configuration:
-  Backend:           localhost:8081
+  Backend:           localhost:8443
   Duration:          60s
   Good Traffic:      15%
   Bad Traffic:       85%
@@ -258,7 +258,7 @@ Options:
 ### No Traffic Being Generated
 ```bash
 # Check if backend is accessible
-curl http://localhost:8081/api/health
+curl http://localhost:8443/api/health
 
 # Check if POC stack is running
 docker compose -f docker-compose.poc.yml ps
@@ -282,7 +282,7 @@ docker compose -f docker-compose.poc.yml exec proxy \
 # Should print: true
 
 # Check rate limit configuration
-cat config/security-config.yaml
+cat config/proxy.yml
 ```
 
 ### High Error Rate
@@ -322,7 +322,7 @@ After running traffic tests:
    ```
 
 3. **Tune Rate Limits** (if needed)
-   - Edit `config/security-config.yaml`
+   - Edit `config/proxy.yml`
    - Restart services
    - Re-run tests
 
@@ -358,6 +358,6 @@ After running traffic tests:
 ## See Also
 
 - [POC Quickstart](POC_QUICKSTART.md)
-- [Security Configuration](../docs/SECURITY_CONFIG.md)
-- [Monitoring Setup](../docs/monitoring/SETUP.md)
+- [Security Configuration](../README.md)
+- [Monitoring Setup](MONITORING_SETUP.md)
 - [Test JA4 Blocking](../test-ja4-blocking.sh)

@@ -1,67 +1,32 @@
 # JA4Proxy Documentation
 
-Complete documentation for the JA4Proxy project.
+## Getting Started
 
-## Documentation Structure
+- [README](../README.md) — Project overview and quick start
+- [POC Quick Start](POC_QUICKSTART.md) — 5-minute setup guide
+- [POC Guide](POC_GUIDE.md) — Detailed walkthrough
 
-### `/api`
-API reference and endpoint documentation.
+## Operations
 
-### `/architecture`
-System architecture, design decisions, and technical specifications.
+- [Quick Reference](QUICK_REFERENCE.md) — Command cheat sheet
+- [Monitoring Setup](MONITORING_SETUP.md) — Prometheus, Grafana & Loki
+- [Testing](TESTING.md) — Test procedures
 
-### `/compliance`
-GDPR compliance, privacy policies, and regulatory documentation.
+## Security
 
-### `/development`
-Development progress, phase completions, and implementation status:
-- Phase completion summaries (PHASE_1-5_COMPLETE.md)
-- Implementation analysis and progress tracking
-- Commit summaries and change logs
+- [Security Testing](SECURITY_TESTING.md) — JA4 blocking tests
+- [Redis Security](REDIS_SECURITY_REVIEW.md) — Redis hardening guide
+- [Security Audit](security/COMPREHENSIVE_SECURITY_AUDIT.md) — Vulnerability assessment
+- [Threat Model](security/threat-model.md) — Attack surface analysis
 
-### `/enterprise`
-Enterprise deployment guides and best practices.
+## Reports
 
-### `/operations`
-Operational guides, runbooks, and quick references:
-- Deployment procedures
-- Configuration management
-- Troubleshooting guides
+- [Performance Benchmark](reports/PERFORMANCE_BENCHMARK.md) — Throughput & scaling data
+- [Enterprise Review](reports/ENTERPRISE_REVIEW.md) — Production readiness assessment
 
-### `/reports`
-Status reports, assessments, and test results:
-- Test reports and results
-- Security assessments and scans
-- POC and demo readiness reports
-- Project reviews and assessments
+## Reference
 
-### `/security`
-Security policies, threat models, and security documentation.
-
-## Key Documents
-
-### Getting Started
-- [README.md](../README.md) - Project overview and quick start
-- [POC_QUICKSTART.md](POC_QUICKSTART.md) - POC deployment guide
-- [POC_GUIDE.md](./POC_GUIDE.md) - Detailed POC documentation
-
-### Operations
-- [QUICK_REFERENCE.md](./QUICK_REFERENCE.md) - Quick command reference
-- [MONITORING_SETUP.md](./MONITORING_SETUP.md) - Monitoring and alerting setup
-- [TESTING.md](./TESTING.md) - Testing procedures
-
-### Security
-- [SECURITY_TESTING.md](./SECURITY_TESTING.md) - Security testing guide
-- [REDIS_SECURITY_REVIEW.md](./REDIS_SECURITY_REVIEW.md) - Redis security review
-- [REDIS_SECURITY_QUICK.md](./REDIS_SECURITY_QUICK.md) - Quick Redis security guide
-
-### Development
-- [CHANGELOG.md](../CHANGELOG.md) - Project changelog
-- [Development Status](./development/) - Phase completions and progress
-
-### Reports
-- [Reports](./reports/) - All assessment, test, and status reports
-
-## Contributing
-
-See the main [README.md](../README.md) for contribution guidelines.
+- [Architecture](architecture/system-architecture.md) — System design (aspirational)
+- [Enterprise Deployment](enterprise/deployment.md) — Production guide
+- [GDPR Compliance](compliance/GDPR_COMPLIANCE.md) — Data handling
+- [Changelog](../CHANGELOG.md) — Version history

@@ -1,5 +1,7 @@
 # JA4 Proxy Threat Model
 
+> **Note:** This threat model covers the full target architecture including enterprise components (PostgreSQL, Elasticsearch, Kubernetes) not yet implemented in the POC. See [README](../../README.md) for current POC capabilities.
+
 ## Executive Summary
 
 This document provides a comprehensive threat model for the JA4 Proxy system using the STRIDE methodology (Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege). The analysis covers threat identification, risk assessment, and mitigation strategies to ensure robust security posture.
