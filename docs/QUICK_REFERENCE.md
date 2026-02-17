@@ -1,26 +1,30 @@
-# JA4 Proxy - Quick Reference
-
-All commands run in Docker - no local Python installation needed!
+# JA4proxy — Quick Reference
 
 ## Essential Commands
 
 | Action | Command |
 |--------|---------|
-| **Start POC** | `./start-poc.sh` |
-| **Run Tests** | `./run-tests.sh` |
-| **Quick Test** | `./smoke-test.sh` |
-| **Stop POC** | `docker-compose -f docker-compose.poc.yml down` |
-| **View Logs** | `docker-compose -f docker-compose.poc.yml logs -f proxy` |
+| **Start all** | `./start-all.sh` |
+| **Generate traffic** | `./generate-tls-traffic.sh 60 10 20` |
+| **Scale proxies** | `./scale-proxies.sh 4` |
+| **Run tests** | `./run-tests.sh` |
+| **Stop** | `docker compose -f docker-compose.poc.yml down && docker compose -f docker-compose.monitoring.yml down` |
+| **View logs** | `docker compose -f docker-compose.poc.yml logs -f proxy` |
 
 ## Service URLs
 
-| Service | URL | Purpose |
-|---------|-----|---------|
-| Proxy Metrics | http://localhost:9090/metrics | Prometheus metrics |
-| Backend | http://localhost:8081 | Mock backend server |
-| Backend Health | http://localhost:8081/api/health | Health check |
-| Prometheus | http://localhost:9091 | Metrics dashboard |
-| Redis | localhost:6379 | Cache (password: changeme) |
+| Service | URL |
+|---------|-----|
+| HAProxy (LB) | `https://localhost:443` |
+| HAProxy Stats | `http://localhost:8404/stats` |
+| Proxy Metrics | `http://localhost:9090/metrics` |
+| Backend (HTTPS) | `https://localhost:8443` |
+| Tarpit | `http://localhost:8888` |
+| Prometheus | `http://localhost:9091` |
+| Grafana | `http://localhost:3001` (admin/admin) |
+| Loki | `http://localhost:3100` |
+| Alertmanager | `http://localhost:9093` |
+| Redis | `localhost:6379` (password: changeme) |
 
 ## Testing Commands
 
@@ -29,14 +33,14 @@ All commands run in Docker - no local Python installation needed!
 ./run-tests.sh
 
 # Run specific test category
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/unit/ -v
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/integration/ -v
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/unit/ -v
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/integration/ -v
 
 # Run single test file
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/test_proxy.py -v
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/test_proxy.py -v
 
 # Run with coverage report
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/ --cov=proxy --cov-report=term
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/ --cov=proxy --cov-report=term
 ```
 
 ## Makefile Shortcuts
@@ -56,50 +60,50 @@ make clean             # Clean everything
 
 ```bash
 # Health check
-curl http://localhost:8081/api/health
+curl https://localhost:8443/api/health
 
 # Echo request
-curl http://localhost:8081/api/echo
+curl https://localhost:8443/api/echo
 
 # Delayed response (3 seconds)
-curl http://localhost:8081/delay/3
+curl https://localhost:8443/delay/3
 
 # Specific status code
-curl http://localhost:8081/status/404
+curl https://localhost:8443/status/404
 
 # POST request
-curl -X POST -d '{"test":"data"}' http://localhost:8081/api/echo
+curl -X POST -d '{"test":"data"}' https://localhost:8443/api/echo
 ```
 
 ## Docker Operations
 
 ```bash
 # Start all services
-docker-compose -f docker-compose.poc.yml up -d
+docker compose -f docker-compose.poc.yml up -d
 
 # Stop all services
-docker-compose -f docker-compose.poc.yml down
+docker compose -f docker-compose.poc.yml down
 
 # Stop and remove volumes
-docker-compose -f docker-compose.poc.yml down -v
+docker compose -f docker-compose.poc.yml down -v
 
 # View service status
-docker-compose -f docker-compose.poc.yml ps
+docker compose -f docker-compose.poc.yml ps
 
 # View logs (all services)
-docker-compose -f docker-compose.poc.yml logs -f
+docker compose -f docker-compose.poc.yml logs -f
 
 # View logs (specific service)
-docker-compose -f docker-compose.poc.yml logs -f proxy
-docker-compose -f docker-compose.poc.yml logs -f backend
-docker-compose -f docker-compose.poc.yml logs -f redis
+docker compose -f docker-compose.poc.yml logs -f proxy
+docker compose -f docker-compose.poc.yml logs -f backend
+docker compose -f docker-compose.poc.yml logs -f redis
 
 # Restart service
-docker-compose -f docker-compose.poc.yml restart proxy
+docker compose -f docker-compose.poc.yml restart proxy
 
 # Rebuild images
-docker-compose -f docker-compose.poc.yml build
-docker-compose -f docker-compose.poc.yml build --no-cache
+docker compose -f docker-compose.poc.yml build
+docker compose -f docker-compose.poc.yml build --no-cache
 ```
 
 ## Redis Operations
@@ -125,7 +129,7 @@ docker exec ja4proxy-redis redis-cli -a changeme SET "key" "value"
 
 ```bash
 # Shell access to test container
-docker-compose -f docker-compose.poc.yml run --rm test bash
+docker compose -f docker-compose.poc.yml run --rm test bash
 
 # Shell access to proxy container
 docker exec -it ja4proxy bash
@@ -143,7 +147,7 @@ docker network inspect ja4proxy_ja4proxy
 
 ```bash
 # Stop and clean POC
-docker-compose -f docker-compose.poc.yml down -v
+docker compose -f docker-compose.poc.yml down -v
 rm -rf reports/
 
 # Full cleanup (including images)
@@ -163,23 +167,23 @@ docker volume prune -f
 
 | Problem | Solution |
 |---------|----------|
-| Services won't start | Run `docker-compose -f docker-compose.poc.yml down -v` then `./start-poc.sh` |
+| Services won't start | Run `docker compose -f docker-compose.poc.yml down -v` then `./start-poc.sh` |
 | Port conflicts | Edit ports in `docker-compose.poc.yml` |
 | Tests failing | Run `./start-poc.sh` then `./smoke-test.sh` |
 | Permission errors | Run `sudo chown -R $USER:$USER reports/` |
-| Redis connection fails | Run `docker-compose -f docker-compose.poc.yml restart redis` |
+| Redis connection fails | Run `docker compose -f docker-compose.poc.yml restart redis` |
 
 ## File Locations
 
 | What | Where |
 |------|-------|
 | Main proxy code | `proxy.py` |
+| Configuration | `config/proxy.yml` |
 | Tests | `tests/` |
-| Configuration | `config/` |
 | Test reports | `reports/` |
-| Docker compose | `docker-compose.poc.yml` |
-| POC guide | `POC_GUIDE.md` |
-| Testing guide | `TESTING.md` |
+| Docker compose (POC) | `docker-compose.poc.yml` |
+| Docker compose (monitoring) | `docker-compose.monitoring.yml` |
+| Documentation | `docs/` |
 
 ## First Time Setup
 
@@ -213,10 +217,10 @@ open reports/coverage/index.html
 ./run-tests.sh
 
 # View logs if needed
-docker-compose -f docker-compose.poc.yml logs -f proxy
+docker compose -f docker-compose.poc.yml logs -f proxy
 
 # Stop when done
-docker-compose -f docker-compose.poc.yml down
+docker compose -f docker-compose.poc.yml down
 ```
 
 ---

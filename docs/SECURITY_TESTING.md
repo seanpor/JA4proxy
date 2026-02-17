@@ -497,7 +497,7 @@ pip install locust
 
 ## See Also
 
-- [POC_SECURITY_SCAN.md](../POC_SECURITY_SCAN.md) - Security vulnerability analysis
-- [ENTERPRISE_REVIEW.md](../ENTERPRISE_REVIEW.md) - Production security requirements
+- [POC_SECURITY_SCAN.md](reports/POC_SECURITY_SCAN.md) - Security vulnerability analysis
+- [ENTERPRISE_REVIEW.md](reports/ENTERPRISE_REVIEW.md) - Production security requirements
 - [config/proxy.yml](../config/proxy.yml) - Configuration reference
 - [Prometheus Dashboard](http://localhost:9091) - Live metrics

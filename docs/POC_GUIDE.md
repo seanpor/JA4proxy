@@ -79,7 +79,7 @@ Checking Prometheus... ✓
 Service URLs:
   Proxy:       http://localhost:8080
   Metrics:     http://localhost:9090/metrics
-  Backend:     http://localhost:8081
+  Backend:     https://localhost:8443
   Prometheus:  http://localhost:9091
 ```
 
@@ -90,7 +90,7 @@ Service URLs:
 curl http://localhost:9090/metrics
 
 # Check backend health
-curl http://localhost:8081/api/health
+curl https://localhost:8443/api/health
 
 # Check Redis
 docker exec ja4proxy-redis redis-cli -a changeme ping
@@ -148,16 +148,16 @@ The mock backend provides various test endpoints:
 
 ```bash
 # Health check
-curl http://localhost:8081/api/health
+curl https://localhost:8443/api/health
 
 # Echo endpoint
-curl http://localhost:8081/api/echo
+curl https://localhost:8443/api/echo
 
 # Delayed response (3 seconds)
-curl http://localhost:8081/delay/3
+curl https://localhost:8443/delay/3
 
 # Specific status code
-curl http://localhost:8081/status/404
+curl https://localhost:8443/status/404
 ```
 
 ## Running Tests
@@ -174,19 +174,19 @@ This runs all tests and generates reports in `./reports/`.
 
 ```bash
 # Run all tests
-docker-compose -f docker-compose.poc.yml run --rm test
+docker compose -f docker-compose.poc.yml run --rm test
 
 # Run specific test file
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/test_proxy.py -v
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/test_proxy.py -v
 
 # Run unit tests only
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/unit/ -v
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/unit/ -v
 
 # Run integration tests
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/integration/ -v
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/integration/ -v
 
 # Run with coverage
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/ -v --cov=proxy --cov-report=html:/app/reports/coverage
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/ -v --cov=proxy --cov-report=html:/app/reports/coverage
 ```
 
 ### Test Reports
@@ -213,32 +213,32 @@ start reports/coverage/index.html
 
 ```bash
 # All services
-docker-compose -f docker-compose.poc.yml logs -f
+docker compose -f docker-compose.poc.yml logs -f
 
 # Specific service
-docker-compose -f docker-compose.poc.yml logs -f proxy
-docker-compose -f docker-compose.poc.yml logs -f backend
-docker-compose -f docker-compose.poc.yml logs -f redis
+docker compose -f docker-compose.poc.yml logs -f proxy
+docker compose -f docker-compose.poc.yml logs -f backend
+docker compose -f docker-compose.poc.yml logs -f redis
 ```
 
 ### Restart Services
 
 ```bash
 # Restart all
-docker-compose -f docker-compose.poc.yml restart
+docker compose -f docker-compose.poc.yml restart
 
 # Restart specific service
-docker-compose -f docker-compose.poc.yml restart proxy
+docker compose -f docker-compose.poc.yml restart proxy
 ```
 
 ### Stop Services
 
 ```bash
 # Stop all services
-docker-compose -f docker-compose.poc.yml down
+docker compose -f docker-compose.poc.yml down
 
 # Stop and remove volumes
-docker-compose -f docker-compose.poc.yml down -v
+docker compose -f docker-compose.poc.yml down -v
 ```
 
 ### Access Redis CLI
@@ -256,13 +256,13 @@ docker exec -it ja4proxy-redis redis-cli -a changeme
 
 ```bash
 # Rebuild all images
-docker-compose -f docker-compose.poc.yml build
+docker compose -f docker-compose.poc.yml build
 
 # Rebuild specific service
-docker-compose -f docker-compose.poc.yml build proxy
+docker compose -f docker-compose.poc.yml build proxy
 
 # Rebuild without cache
-docker-compose -f docker-compose.poc.yml build --no-cache
+docker compose -f docker-compose.poc.yml build --no-cache
 ```
 
 ## Makefile Targets
@@ -291,10 +291,10 @@ make clean             # Clean up containers, volumes, and reports
 docker info
 
 # Check logs
-docker-compose -f docker-compose.poc.yml logs
+docker compose -f docker-compose.poc.yml logs
 
 # Clean up and restart
-docker-compose -f docker-compose.poc.yml down -v
+docker compose -f docker-compose.poc.yml down -v
 ./start-poc.sh
 ```
 
@@ -319,10 +319,10 @@ services:
 make health-check
 
 # View test output
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/ -v -s
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/ -v -s
 
 # Run single test for debugging
-docker-compose -f docker-compose.poc.yml run --rm test pytest tests/test_proxy.py::TestJA4Fingerprint::test_fingerprint_creation -v -s
+docker compose -f docker-compose.poc.yml run --rm test pytest tests/test_proxy.py::TestJA4Fingerprint::test_fingerprint_creation -v -s
 ```
 
 ### Redis Connection Issues
@@ -335,7 +335,7 @@ docker ps | grep redis
 docker exec ja4proxy-redis redis-cli -a changeme ping
 
 # Check Redis logs
-docker-compose -f docker-compose.poc.yml logs redis
+docker compose -f docker-compose.poc.yml logs redis
 ```
 
 ### Permission Issues
@@ -386,7 +386,7 @@ To completely remove the POC environment:
 
 ```bash
 # Stop and remove containers and volumes
-docker-compose -f docker-compose.poc.yml down -v
+docker compose -f docker-compose.poc.yml down -v
 
 # Remove images
 docker rmi ja4proxy:latest ja4proxy-test:latest
@@ -397,7 +397,7 @@ rm -rf reports/
 
 ## Getting Help
 
-- Check logs: `docker-compose -f docker-compose.poc.yml logs`
+- Check logs: `docker compose -f docker-compose.poc.yml logs`
 - Run health checks: `make health-check`
 - View metrics: `curl http://localhost:9090/metrics`
 - Open an issue: https://github.com/yourusername/JA4proxy/issues

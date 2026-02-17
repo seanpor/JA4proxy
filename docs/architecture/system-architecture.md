@@ -1,5 +1,7 @@
 # JA4 Proxy System Architecture
 
+> **Note:** This document describes the **target enterprise architecture**. The current POC implements the core proxy, HAProxy, Redis, tarpit, Prometheus, Grafana, and Loki. Components like PostgreSQL, Elasticsearch, Kubernetes, and WAF are aspirational for production deployment.
+
 ## Overview
 
 JA4 Proxy is an enterprise-grade TLS fingerprinting proxy that provides real-time traffic analysis, security filtering, and compliance monitoring. The system is designed with security-first principles, implementing defense-in-depth strategies and maintaining full compliance with GDPR, PCI-DSS, and SOC 2 requirements.

@@ -27,11 +27,11 @@ docker compose -f docker-compose.monitoring.yml up -d
 # 2. Access services
 # Prometheus: http://localhost:9091
 # Alertmanager: http://localhost:9093
-# Grafana: http://localhost:3000 (admin/admin)
+# Grafana: http://localhost:3001 (admin/admin)
 
 # 3. Import dashboard
 # Navigate to Grafana → Dashboards → Import
-# Upload: monitoring/grafana/dashboards/ja4proxy-security.json
+# Upload: monitoring/grafana/dashboards/ja4proxy-overview.json
 
 # 4. Test alerts
 ./test-ja4-blocking.sh
@@ -57,7 +57,7 @@ monitoring/
 │   └── alertmanager.yml       # Alert routing
 └── grafana/
     └── dashboards/
-        └── ja4proxy-security.json  # Dashboard
+        └── ja4proxy-overview.json  # Dashboard
 ```
 
 ---
@@ -124,7 +124,7 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=http://localhost:3000
+      - GF_SERVER_ROOT_URL=http://localhost:3001
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
@@ -265,7 +265,7 @@ open http://localhost:9093
 
 ```bash
 # Open Grafana
-open http://localhost:3000
+open http://localhost:3001
 
 # Default credentials:
 # Username: admin
@@ -289,7 +289,7 @@ open http://localhost:3000
 **Method 1: Via UI**
 1. Navigate to **Dashboards** → **Import**
 2. Click **Upload JSON file**
-3. Select `monitoring/grafana/dashboards/ja4proxy-security.json`
+3. Select `monitoring/grafana/dashboards/ja4proxy-overview.json`
 4. Select **JA4proxy Prometheus** as data source
 5. Click **Import**
 
@@ -299,10 +299,10 @@ open http://localhost:3000
 API_KEY="your-api-key"
 
 # Import dashboard
-curl -X POST http://localhost:3000/api/dashboards/db \
+curl -X POST http://localhost:3001/api/dashboards/db \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
-  -d @monitoring/grafana/dashboards/ja4proxy-security.json
+  -d @monitoring/grafana/dashboards/ja4proxy-overview.json
 ```
 
 **Method 3: Auto-provisioning**
@@ -480,7 +480,7 @@ receivers:
       - service_key: 'YOUR-INTEGRATION-KEY'
         description: '{{ .CommonAnnotations.summary }}'
         client: 'JA4proxy Alertmanager'
-        client_url: 'http://localhost:3000'
+        client_url: 'http://localhost:3001'
         details:
           alert_count: '{{ .Alerts | len }}'
           firing: '{{ .Alerts.Firing | len }}'
@@ -719,7 +719,7 @@ Use recording rules for expensive queries:
 
 **Prometheus:** http://localhost:9091  
 **Alertmanager:** http://localhost:9093  
-**Grafana:** http://localhost:3000
+**Grafana:** http://localhost:3001
 
 **Start Stack:**
 ```bash
