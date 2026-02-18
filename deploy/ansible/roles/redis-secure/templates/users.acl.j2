@@ -1,0 +1,22 @@
+# {{ ansible_managed }}
+# Redis ACL — Users and Permissions for JA4proxy
+#
+# Three users:
+#   admin    — full access (deployment/maintenance only)
+#   proxy    — ja4:* keys only, limited commands (application user)
+#   exporter — read-only info/metrics (Prometheus scraping)
+
+# ── Admin user (full access, use only for maintenance) ─────
+user admin on >{{ redis_admin_password }} ~* &* +@all
+
+# ── Proxy application user (restricted to ja4:* keys) ─────
+# Can only: read, write, delete keys matching ja4:*
+# Cannot: FLUSHALL, CONFIG, DEBUG, SHUTDOWN, SCRIPT, KEYS on non-ja4 patterns
+user proxy on >{{ redis_proxy_password }} {{ redis_proxy_acl_keys }} &* {{ redis_proxy_acl_commands }}
+
+# ── Prometheus exporter user (read-only metrics) ───────────
+# Can only: INFO, PING, DBSIZE, SLOWLOG, LATENCY, CONFIG GET (read-only)
+user exporter on >{{ redis_exporter_password }} ~* &* +info +ping +dbsize +slowlog|get +latency|latest +config|get +client|getname +command|count
+
+# ── Disable default user (no passwordless access) ─────────
+user default off

@@ -1,0 +1,7 @@
+# Inventory example — adjust to your environment
+[redis_servers]
+redis01.dmz.corp.local ansible_host=10.0.1.50
+
+[redis_servers:vars]
+ansible_user=deploy
+ansible_become=true
