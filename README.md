@@ -183,6 +183,19 @@ The POC runs a single proxy instance (~210 conn/s). To scale up:
 
 This automatically scales containers and reconfigures HAProxy for round-robin. All instances share Redis, so bans are enforced cluster-wide. See [Performance Benchmark](docs/reports/PERFORMANCE_BENCHMARK.md) for throughput data.
 
+## Codebase
+
+| Category | Lines | % | What |
+|---|---:|---:|---|
+| **Core Proxy** | 4,563 | 36% | `proxy.py` + `src/security/` — TLS parsing, JA4 fingerprinting, rate limiting, threat detection |
+| **Tests** | 6,027 | 48% | Unit, integration, security, and fuzz tests (1.3× test-to-code ratio) |
+| **Traffic Generator** | 851 | 7% | TLS traffic simulator + benchmark tool with browser/bot profiles |
+| **Supporting Services** | 282 | 2% | Tarpit server (126 lines) + mock backend (156 lines) |
+| **Infrastructure** | 931 | 7% | Dockerfiles + Compose definitions (POC, monitoring, prod) |
+| **Total code** | **12,654** | | |
+
+Plus configuration (1,038 lines), Grafana dashboard (1,087 lines), shell scripts (3,009 lines), and documentation (12,383 lines across 30 files).
+
 ## Stopping Services
 
 ```bash
