@@ -168,7 +168,6 @@ metrics:
     password: "${METRICS_PASSWORD}"
   # Restrict access to internal networks only
   bind_host: "0.0.0.0"  # Override to 127.0.0.1 or specific IP in production
-
 # Logging configuration
 logging:
   level: "INFO"

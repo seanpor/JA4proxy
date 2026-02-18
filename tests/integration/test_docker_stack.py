@@ -81,7 +81,7 @@ class TestProxyIntegration:
         assert response.status_code == 200
         data = response.json()
         assert data['method'] == 'POST'
-        assert 'test' in data['body'] or payload == eval(data['body'])
+        assert 'test' in data['body'] or data['body'] == str(payload)
     
     def test_proxy_metrics_endpoint(self):
         """Test that proxy metrics endpoint is accessible."""

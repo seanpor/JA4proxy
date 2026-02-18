@@ -16,6 +16,7 @@ import argparse
 import sys
 import ssl
 import socket
+import os
 from dataclasses import dataclass
 from typing import List, Dict, Optional
 from collections import defaultdict
@@ -407,8 +408,8 @@ def main():
     parser = argparse.ArgumentParser(
         description="Generate realistic TLS traffic for JA4proxy testing",
     )
-    parser.add_argument("--target-host", default="localhost", help="Target host (default: localhost)")
-    parser.add_argument("--target-port", type=int, default=443, help="Target port (default: 443)")
+    parser.add_argument("--target-host", default=os.environ.get("TARGET_HOST", "proxy"), help="Target host (default: proxy)")
+    parser.add_argument("--target-port", type=int, default=int(os.environ.get("TARGET_PORT", "8080")), help="Target port (default: 8080)")
     parser.add_argument("--duration", type=int, default=60, help="Duration in seconds (default: 60)")
     parser.add_argument("--good-percent", type=int, default=15, help="Percent legitimate traffic (default: 15)")
     parser.add_argument("--workers", type=int, default=50, help="Worker threads (default: 50)")

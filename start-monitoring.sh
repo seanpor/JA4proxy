@@ -20,6 +20,9 @@ if ! docker ps | grep -q "ja4proxy"; then
     sleep 10
 fi
 
+# Source .env if it exists (for password display)
+[ -f .env ] && { set -a; source .env; set +a; }
+
 # Start monitoring stack
 echo -e "${GREEN}▶ Starting monitoring stack...${NC}"
 docker compose -f docker-compose.monitoring.yml up -d
@@ -27,6 +30,11 @@ docker compose -f docker-compose.monitoring.yml up -d
 # Wait for services
 echo -e "${GREEN}▶ Waiting for services to be ready...${NC}"
 sleep 15
+
+# Ensure Grafana admin password matches .env (handles pre-existing volume)
+if [ -n "${GRAFANA_PASSWORD}" ] && [ "${GRAFANA_PASSWORD}" != "admin" ]; then
+    docker exec ja4proxy-grafana grafana-cli admin reset-admin-password "${GRAFANA_PASSWORD}" > /dev/null 2>&1 || true
+fi
 
 # Check Prometheus
 if curl -sf http://localhost:9091/-/healthy > /dev/null; then
@@ -49,8 +57,8 @@ else
     echo -e "${YELLOW}⚠ Grafana not responding yet...${NC}"
 fi
 
-# Check Loki
-if curl -sf http://localhost:3100/ready > /dev/null; then
+# Check Loki (via docker exec since it has no host port)
+if docker exec ja4proxy-loki wget -q --spider http://localhost:3100/ready 2>/dev/null; then
     echo -e "${GREEN}✓ Loki is healthy${NC}"
 else
     echo -e "${YELLOW}⚠ Loki not responding yet...${NC}"
@@ -65,9 +73,8 @@ echo "Access the services:"
 echo ""
 echo "  Prometheus:    http://localhost:9091"
 echo "  Alertmanager:  http://localhost:9093"
-echo "  Loki:          http://localhost:3100 (log aggregation)"
 echo "  Grafana:       http://localhost:3001"
-echo "                 (admin/admin)"
+echo "                 (admin / ${GRAFANA_PASSWORD:-admin})"
 echo ""
 echo "Next steps:"
 echo ""

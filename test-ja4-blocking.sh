@@ -340,8 +340,8 @@ cleanup() {
     else
         info "Keeping test data for inspection"
         info "To clean up manually:"
-        echo "  redis-cli -a changeme DEL ja4:whitelist ja4:blacklist"
-        echo "  redis-cli -a changeme KEYS 'ja4:*' | xargs redis-cli -a changeme DEL"
+        echo "  redis-cli -a $$REDIS_PASSWORD DEL ja4:whitelist ja4:blacklist"
+        echo "  redis-cli -a $$REDIS_PASSWORD KEYS 'ja4:*' | xargs redis-cli -a $$REDIS_PASSWORD DEL"
     fi
 }
 

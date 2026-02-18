@@ -3,6 +3,10 @@
 
 set -e
 
+# Load .env if available
+[ -f .env ] && set -a && source .env && set +a
+REDIS_PW="${REDIS_PASSWORD:-changeme}"
+
 # Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -39,12 +43,12 @@ echo ""
 # Check Redis
 echo -e "${CYAN}Redis Data:${NC}"
 echo "------------"
-if docker exec ja4proxy-redis redis-cli -a changeme ping 2>/dev/null | grep -q PONG; then
+if docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" ping 2>/dev/null | grep -q PONG; then
     echo -e "  ✓ Redis is running"
-    WHITELIST=$(docker exec ja4proxy-redis redis-cli -a changeme SCARD ja4:whitelist 2>/dev/null)
-    BLACKLIST=$(docker exec ja4proxy-redis redis-cli -a changeme SCARD ja4:blacklist 2>/dev/null)
-    BLOCKS=$(docker exec ja4proxy-redis redis-cli -a changeme KEYS 'ja4:block:*' 2>/dev/null | wc -l)
-    BANS=$(docker exec ja4proxy-redis redis-cli -a changeme KEYS 'ja4:ban:*' 2>/dev/null | wc -l)
+    WHITELIST=$(docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" SCARD ja4:whitelist 2>/dev/null)
+    BLACKLIST=$(docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" SCARD ja4:blacklist 2>/dev/null)
+    BLOCKS=$(docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" KEYS 'ja4:block:*' 2>/dev/null | wc -l)
+    BANS=$(docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" KEYS 'ja4:ban:*' 2>/dev/null | wc -l)
     
     echo "  - Whitelist entries: $WHITELIST"
     echo "  - Blacklist entries: $BLACKLIST"

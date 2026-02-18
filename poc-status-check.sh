@@ -3,6 +3,10 @@
 
 set -e
 
+# Load .env if available
+[ -f .env ] && set -a && source .env && set +a
+REDIS_PW="${REDIS_PASSWORD:-changeme}"
+
 echo "╔════════════════════════════════════════════════════╗"
 echo "║   JA4proxy POC Status Check                       ║"
 echo "║   Verifying all components for demo               ║"
@@ -47,7 +51,7 @@ check "Proxy metrics endpoint (localhost:9090/metrics)"
 curl -sf http://localhost:8081/health > /dev/null 2>&1
 check "Backend health endpoint (localhost:8081/health)"
 
-redis-cli -h localhost -p 6379 -a changeme ping > /dev/null 2>&1
+redis-cli -h localhost -p 6379 -a "${REDIS_PW}" ping > /dev/null 2>&1
 check "Redis connection (localhost:6379)"
 
 curl -sf http://localhost:9091/-/ready > /dev/null 2>&1
@@ -133,15 +137,15 @@ echo "========================================
 ========================================"
 
 # Add a test fingerprint to blacklist
-redis-cli -h localhost -p 6379 -a changeme SADD ja4:blacklist "test_fingerprint_demo" > /dev/null 2>&1
+redis-cli -h localhost -p 6379 -a "${REDIS_PW}" SADD ja4:blacklist "test_fingerprint_demo" > /dev/null 2>&1
 check "Can add fingerprints to blacklist"
 
 # Check if it's there
-redis-cli -h localhost -p 6379 -a changeme SISMEMBER ja4:blacklist "test_fingerprint_demo" > /dev/null 2>&1
+redis-cli -h localhost -p 6379 -a "${REDIS_PW}" SISMEMBER ja4:blacklist "test_fingerprint_demo" > /dev/null 2>&1
 check "Can query blacklist"
 
 # Clean up
-redis-cli -h localhost -p 6379 -a changeme SREM ja4:blacklist "test_fingerprint_demo" > /dev/null 2>&1
+redis-cli -h localhost -p 6379 -a "${REDIS_PW}" SREM ja4:blacklist "test_fingerprint_demo" > /dev/null 2>&1
 
 echo ""
 

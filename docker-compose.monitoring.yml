@@ -11,7 +11,7 @@ services:
       - '--storage.tsdb.retention.time=30d'
       - '--storage.tsdb.retention.size=10GB'
     ports:
-      - "9091:9090"
+      - "127.0.0.1:9091:9090"
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
@@ -19,8 +19,20 @@ services:
       - prometheus-data:/prometheus
     restart: unless-stopped
     networks:
-      - ja4proxy-network
-      - ja4proxy_ja4proxy  # Also connect to POC network
+      - ja4proxy-monitoring
+      - ja4proxy_ja4proxy-backend
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev,size=50m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
       interval: 30s
@@ -35,13 +47,25 @@ services:
       - '--storage.path=/alertmanager'
       - '--web.external-url=http://localhost:9093'
     ports:
-      - "9093:9093"
+      - "127.0.0.1:9093:9093"
     volumes:
       - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - alertmanager-data:/alertmanager
     restart: unless-stopped
     networks:
-      - ja4proxy-network
+      - ja4proxy-monitoring
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,nodev,size=50m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:9093/-/healthy"]
       interval: 30s
@@ -52,33 +76,45 @@ services:
     image: grafana/grafana:10.2.2
     container_name: ja4proxy-grafana
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=http://localhost:3001
       - GF_INSTALL_PLUGINS=
       - GF_AUTH_ANONYMOUS_ENABLED=false
       - GF_UNIFIED_ALERTING_ENABLED=true
       - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/ja4proxy-overview.json
+      - GF_SECURITY_COOKIE_SECURE=true
+      - GF_SECURITY_COOKIE_SAMESITE=strict
+      - GF_SECURITY_DISABLE_GRAVATAR=true
+      - GF_SECURITY_STRICT_TRANSPORT_SECURITY=true
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     restart: unless-stopped
     networks:
-      - ja4proxy-network
-      - ja4proxy_ja4proxy  # Also connect to POC network for Prometheus access
+      - ja4proxy-monitoring
+      - ja4proxy_ja4proxy-backend
     depends_on:
       - prometheus
       - loki
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # Optional: Node Exporter for system metrics
   node-exporter:
     image: prom/node-exporter:v1.7.0
     container_name: ja4proxy-node-exporter
@@ -87,49 +123,73 @@ services:
       - '--path.sysfs=/host/sys'
       - '--path.rootfs=/host'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
-    ports:
-      - "9100:9100"
+    # Not exposed to host — only accessible from monitoring network
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /:/host:ro
     restart: unless-stopped
     networks:
-      - ja4proxy-network
+      - ja4proxy-monitoring
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
 
-  # Optional: Redis Exporter for Redis metrics (connects to POC Redis)
   redis-exporter:
     image: oliver006/redis_exporter:v1.55.0
     container_name: ja4proxy-redis-exporter
     environment:
       - REDIS_ADDR=redis:6379
-      - REDIS_PASSWORD=changeme
-    ports:
-      - "9121:9121"
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
+    # Not exposed to host — only accessible from monitoring network
     restart: unless-stopped
     networks:
-      - ja4proxy_ja4proxy  # Use POC network to connect to existing Redis
+      - ja4proxy_ja4proxy-backend
+      - ja4proxy-monitoring
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
 
-  # Loki: centralized log aggregation
   loki:
     image: grafana/loki:3.3.2
     container_name: ja4proxy-loki
-    ports:
-      - "3100:3100"
+    # Not exposed to host — only accessible from monitoring network
     volumes:
       - ./monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
       - loki-data:/loki
     command: -config.file=/etc/loki/local-config.yaml
     restart: unless-stopped
     networks:
-      - ja4proxy-network
+      - ja4proxy-monitoring
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3100/ready"]
       interval: 15s
       timeout: 5s
       retries: 5
 
-  # Promtail: ships Docker container logs to Loki
   promtail:
     image: grafana/promtail:3.3.2
     container_name: ja4proxy-promtail
@@ -143,7 +203,18 @@ services:
       - loki
     restart: unless-stopped
     networks:
-      - ja4proxy-network
+      - ja4proxy-monitoring
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - DAC_READ_SEARCH
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
 
 volumes:
   prometheus-data:
@@ -158,11 +229,8 @@ volumes:
     driver: local
 
 networks:
-  ja4proxy-network:
+  ja4proxy-monitoring:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
-  # Connect to existing POC network
-  ja4proxy_ja4proxy:
+  # Connect to POC backend network for metrics scraping
+  ja4proxy_ja4proxy-backend:
     external: true
