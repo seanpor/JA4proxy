@@ -76,7 +76,7 @@ services:
     image: grafana/grafana:10.2.2
     container_name: ja4proxy-grafana
     ports:
-      - "127.0.0.1:3001:3000"
+      - "3001:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
