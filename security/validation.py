@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import ipaddress
 import logging
+import os
 import re
 import secrets
 import time
@@ -206,15 +207,22 @@ class SecurityValidator:
         
         return False
     
+    def _get_csrf_secret(self) -> str:
+        """Get CSRF secret, rejecting weak defaults."""
+        secret = self.config.get('security', {}).get('csrf_secret', '')
+        if not secret or secret in ('default-secret', 'changeme'):
+            secret = os.urandom(32).hex()
+        return secret
+
     def generate_csrf_token(self, session_id: str) -> str:
         """Generate CSRF token for API protection."""
-        secret = self.config.get('security', {}).get('csrf_secret', 'default-secret')
+        secret = self._get_csrf_secret()
         message = f"{session_id}:{int(time.time())}"
         return hmac.new(secret.encode(), message.encode(), hashlib.sha256).hexdigest()
     
     def validate_csrf_token(self, token: str, session_id: str) -> bool:
         """Validate CSRF token."""
-        secret = self.config.get('security', {}).get('csrf_secret', 'default-secret')
+        secret = self._get_csrf_secret()
         
         try:
             # Extract timestamp from token (implementation specific)

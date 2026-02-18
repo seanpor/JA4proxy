@@ -1,5 +1,38 @@
 # Changelog
 
+## [3.2.0] - 2026-02-18 - SECURITY HARDENING
+
+### 🔒 CONTAINER SECURITY
+- **`read_only: true`** on all containers — filesystem immutable at runtime
+- **`cap_drop: ALL`** on all containers — only `NET_BIND_SERVICE` added where needed (HAProxy, proxy)
+- **`no-new-privileges: true`** on all containers — prevents privilege escalation
+- **`PYTHONDONTWRITEBYTECODE=1`** on Python containers — prevents `__pycache__` writes on read-only filesystems
+- **Resource limits** on every container (CPU + memory limits and reservations)
+- **tmpfs** mounts for `/tmp` on all containers (noexec, nosuid, nodev)
+
+### 🔑 SECRETS MANAGEMENT
+- **Auto-generated `.env`** — `start-poc.sh` creates `.env` with `openssl rand` secrets on first run (chmod 600)
+- **All passwords from env vars** — Redis, Grafana, and other credentials sourced from `${REDIS_PASSWORD}`, `${GRAFANA_PASSWORD}` 
+- **No hardcoded passwords** — All shell scripts use env vars instead of `changeme`
+- **Grafana password sync** — `start-monitoring.sh` resets admin password to match `.env` on every start
+
+### 🌐 NETWORK SECURITY
+- **127.0.0.1 port bindings** — Internal services (proxy:8080, metrics:9090, backend:8443, tarpit:8888) only accessible from localhost
+- **Redis not exposed to host** — Only accessible within Docker backend network
+- **HAProxy only public-facing port** — Port 443 (TLS) and 8880 (HTTP redirect) are the only ports on all interfaces
+
+### 🛡️ APPLICATION SECURITY
+- **Fixed eval() RCE** in `tests/integration/test_docker_stack.py` — replaced with safe string comparison
+- **Fixed CSRF default-secret** in `security/validation.py` — generates `os.urandom(32)` when no secret configured
+- **Sensitive data filter** — Log filter redacts passwords, API keys, tokens, credit card numbers, emails
+- **Redis RDB disabled** — `--save ""` prevents disk write errors on read-only filesystem
+
+### 🔧 FIXES
+- **Traffic generator defaults** — Python script now defaults to `proxy:8080` via env vars (was `localhost:443`)
+- **Health checks** — Backend check uses `docker exec` (works with internal-only ports)
+- **Loki health check** — Uses `docker exec` since Loki has no host port
+- **Grafana security headers** — `cookie_secure`, `samesite=strict`, `disable_gravatar`, `strict_transport_security`
+
 ## [3.1.0] - 2026-02-17 - GEOIP, FINGERPRINT NAMES, BAN ESCALATION
 
 ### 🌍 GEOIP COUNTRY FILTERING

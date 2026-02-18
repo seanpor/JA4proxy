@@ -1,6 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
+# Load .env if available
+[ -f .env ] && set -a && source .env && set +a
+REDIS_PW="${REDIS_PASSWORD:-changeme}"
+
 # JA4proxy Performance Benchmark Runner
 # Tests throughput with 1, 2, and 4 proxy instances
 
@@ -30,7 +34,7 @@ fi
 echo "✓ Services are running"
 
 # Flush Redis rate counters for clean test
-docker exec ja4proxy-redis redis-cli -a changeme FLUSHALL > /dev/null 2>&1 || true
+docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" FLUSHALL > /dev/null 2>&1 || true
 echo "✓ Redis flushed"
 
 # ─────────────────────────────────────────────────────────────────────
@@ -41,7 +45,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "  Phase 1: Single Proxy Instance"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-docker exec ja4proxy-redis redis-cli -a changeme FLUSHALL > /dev/null 2>&1 || true
+docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" FLUSHALL > /dev/null 2>&1 || true
 docker compose -f docker-compose.poc.yml run --rm \
     -e PYTHONUNBUFFERED=1 \
     trafficgen python3 /app/scripts/benchmark.py \
@@ -117,7 +121,7 @@ docker cp /tmp/haproxy-bench.cfg ja4proxy-haproxy:/usr/local/etc/haproxy/haproxy
 docker kill -s HUP ja4proxy-haproxy 2>/dev/null || docker restart ja4proxy-haproxy
 sleep 2
 
-docker exec ja4proxy-redis redis-cli -a changeme FLUSHALL > /dev/null 2>&1 || true
+docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" FLUSHALL > /dev/null 2>&1 || true
 
 docker compose -f docker-compose.poc.yml run --rm \
     -e PYTHONUNBUFFERED=1 \
@@ -184,7 +188,7 @@ docker cp /tmp/haproxy-bench.cfg ja4proxy-haproxy:/usr/local/etc/haproxy/haproxy
 docker kill -s HUP ja4proxy-haproxy 2>/dev/null || docker restart ja4proxy-haproxy
 sleep 2
 
-docker exec ja4proxy-redis redis-cli -a changeme FLUSHALL > /dev/null 2>&1 || true
+docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" FLUSHALL > /dev/null 2>&1 || true
 
 docker compose -f docker-compose.poc.yml run --rm \
     -e PYTHONUNBUFFERED=1 \

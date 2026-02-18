@@ -3,7 +3,7 @@
 A security proxy that extracts [JA4 TLS fingerprints](https://github.com/FoxIO-LLC/ja4) from the plaintext ClientHello and blocks malicious traffic before it reaches your backend — without decrypting TLS.
 
 > **Status:** POC ✅ Ready for demo &nbsp;|&nbsp; Production ⚠️ Requires hardening  
-> **Security:** Default passwords, localhost only. See [Security Audit](docs/security/COMPREHENSIVE_SECURITY_AUDIT.md).
+> **Security:** Auto-generated secrets, localhost-only ports, read-only containers. See [Security Checklist](docs/security/SECURITY_CHECKLIST.md).
 
 ## How It Works
 

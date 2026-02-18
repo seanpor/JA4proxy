@@ -4,6 +4,10 @@
 
 set -e
 
+# Load .env if available
+[ -f .env ] && set -a && source .env && set +a
+REDIS_PW="${REDIS_PASSWORD:-changeme}"
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -167,29 +171,29 @@ demo_redis() {
     header "4. Redis Data Storage"
     
     step "Testing Redis connectivity..."
-    command_demo "docker exec ja4proxy-redis redis-cli -a changeme PING"
-    RESULT=$(docker exec ja4proxy-redis redis-cli -a changeme PING 2>/dev/null)
+    command_demo "docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" PING"
+    RESULT=$(docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" PING 2>/dev/null)
     result "$RESULT"
     echo ""
     success "Redis is connected!"
     pause
     
     step "Adding sample JA4 fingerprint to whitelist..."
-    command_demo "docker exec ja4proxy-redis redis-cli -a changeme SADD ja4:whitelist 't13d1516h2_8daaf6152771_02713d6af862'"
-    docker exec ja4proxy-redis redis-cli -a changeme SADD ja4:whitelist "t13d1516h2_8daaf6152771_02713d6af862" 2>/dev/null
+    command_demo "docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" SADD ja4:whitelist 't13d1516h2_8daaf6152771_02713d6af862'"
+    docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" SADD ja4:whitelist "t13d1516h2_8daaf6152771_02713d6af862" 2>/dev/null
     success "Fingerprint added to whitelist!"
     pause
     
     step "Checking whitelist contents..."
-    command_demo "docker exec ja4proxy-redis redis-cli -a changeme SMEMBERS ja4:whitelist"
-    docker exec ja4proxy-redis redis-cli -a changeme SMEMBERS ja4:whitelist 2>/dev/null
+    command_demo "docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" SMEMBERS ja4:whitelist"
+    docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" SMEMBERS ja4:whitelist 2>/dev/null
     echo ""
     success "Whitelist is functional!"
     pause
     
     step "Adding sample to blacklist for demo..."
-    command_demo "docker exec ja4proxy-redis redis-cli -a changeme SADD ja4:blacklist 't12d090909_ba640532068b_b186095e22b6'"
-    docker exec ja4proxy-redis redis-cli -a changeme SADD ja4:blacklist "t12d090909_ba640532068b_b186095e22b6" 2>/dev/null
+    command_demo "docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" SADD ja4:blacklist 't12d090909_ba640532068b_b186095e22b6'"
+    docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" SADD ja4:blacklist "t12d090909_ba640532068b_b186095e22b6" 2>/dev/null
     success "Fingerprint added to blacklist!"
     pause
 }
