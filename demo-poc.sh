@@ -20,7 +20,7 @@ BOLD='\033[1m'
 
 # Configuration
 PROXY_URL="http://localhost:8080"
-BACKEND_URL="http://localhost:8081"
+BACKEND_URL="https://localhost:8443"
 METRICS_URL="http://localhost:9090/metrics"
 PROMETHEUS_URL="http://localhost:9091"
 
@@ -108,8 +108,8 @@ demo_architecture() {
     
     success "All 4 services are running:"
     echo "  • JA4 Proxy Server (port 8080, 9090)"
-    echo "  • Redis Cache (port 6379)"
-    echo "  • Mock Backend (port 8081)"
+    echo "  • Redis Cache (Docker network only)"
+    echo "  • Mock Backend (port 8443)"
     echo "  • Prometheus Monitoring (port 9091)"
     pause
 }
@@ -119,7 +119,7 @@ demo_backend() {
     header "2. Mock Backend Server"
     
     step "Testing backend health endpoint..."
-    command_demo "curl http://localhost:8081/api/health"
+    command_demo "curl -sk https://localhost:8443/api/health"
     RESPONSE=$(curl -s "$BACKEND_URL/api/health")
     echo "$RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$RESPONSE"
     echo ""
@@ -127,7 +127,7 @@ demo_backend() {
     pause
     
     step "Testing backend echo endpoint..."
-    command_demo "curl http://localhost:8081/api/echo"
+    command_demo "curl -sk https://localhost:8443/api/echo"
     RESPONSE=$(curl -s "$BACKEND_URL/api/echo")
     echo "$RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$RESPONSE"
     echo ""
@@ -135,7 +135,7 @@ demo_backend() {
     pause
     
     step "Testing different HTTP methods..."
-    command_demo "curl -X POST http://localhost:8081/api/echo -d 'test=data'"
+    command_demo "curl -sk -X POST https://localhost:8443/api/echo -d 'test=data'"
     RESPONSE=$(curl -s -X POST "$BACKEND_URL/api/echo" -d "test=data")
     echo "$RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$RESPONSE"
     echo ""
@@ -308,7 +308,7 @@ conclusion() {
     echo ""
     echo "1. Explore the services:"
     echo "   • Proxy metrics:  http://localhost:9090/metrics"
-    echo "   • Backend API:    http://localhost:8081/api/health"
+    echo "   • Backend API:    https://localhost:8443/api/health"
     echo "   • Prometheus:     http://localhost:9091"
     echo ""
     

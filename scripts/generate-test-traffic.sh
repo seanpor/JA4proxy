@@ -5,7 +5,7 @@
 set -e
 
 PROXY_URL="http://localhost:8080"
-BACKEND_URL="http://localhost:8081"
+BACKEND_URL="https://localhost:8443"
 
 echo "========================================="
 echo "Generating Test Traffic for JA4proxy"
@@ -76,6 +76,6 @@ echo "========================================="
 echo "Traffic generation complete!"
 echo "========================================="
 echo ""
-echo "Check Grafana at: http://localhost:3001 (admin/admin)"
+echo "Check Grafana at: http://localhost:3001 (admin / see .env)"
 echo "Check Prometheus at: http://localhost:9091"
 echo "Check metrics at: http://localhost:9090/metrics"

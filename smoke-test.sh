@@ -23,7 +23,7 @@ FAILED=0
 
 # Test Backend
 echo -n "Testing Backend... "
-if curl -sf http://localhost:8081/api/health > /dev/null 2>&1; then
+if curl -sk https://localhost:8443/api/health > /dev/null 2>&1; then
     echo -e "${GREEN}✓${NC}"
 else
     echo -e "${RED}✗${NC}"
@@ -32,7 +32,7 @@ fi
 
 # Test Backend endpoints
 echo -n "Testing Backend Echo... "
-RESPONSE=$(curl -sf http://localhost:8081/api/echo)
+RESPONSE=$(curl -sk https://localhost:8443/api/echo)
 if echo "$RESPONSE" | grep -q "method"; then
     echo -e "${GREEN}✓${NC}"
 else

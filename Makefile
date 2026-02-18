@@ -57,7 +57,7 @@ deploy-enterprise:
 health-check:
 	@echo "Running health checks..."
 	@curl -sf http://localhost:9090/metrics > /dev/null && echo "✓ Proxy metrics OK" || echo "✗ Proxy metrics failed"
-	@curl -sf http://localhost:8081/api/health > /dev/null && echo "✓ Backend OK" || echo "✗ Backend failed"
+	@curl -sk https://localhost:8443/api/health > /dev/null && echo "✓ Backend OK" || echo "✗ Backend failed"
 	@docker exec ja4proxy-redis redis-cli -a $${REDIS_PASSWORD:-changeme} ping > /dev/null 2>&1 && echo "✓ Redis OK" || echo "✗ Redis failed"
 
 # View logs

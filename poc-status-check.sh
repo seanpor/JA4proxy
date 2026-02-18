@@ -48,11 +48,11 @@ check "Proxy health endpoint (localhost:8080/health)"
 curl -sf http://localhost:9090/metrics > /dev/null 2>&1
 check "Proxy metrics endpoint (localhost:9090/metrics)"
 
-curl -sf http://localhost:8081/health > /dev/null 2>&1
-check "Backend health endpoint (localhost:8081/health)"
+curl -sk https://localhost:8443/api/health > /dev/null 2>&1
+check "Backend health endpoint (localhost:8443/api/health)"
 
-redis-cli -h localhost -p 6379 -a "${REDIS_PW}" ping > /dev/null 2>&1
-check "Redis connection (localhost:6379)"
+docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" ping > /dev/null 2>&1
+check "Redis connection (via docker exec)"
 
 curl -sf http://localhost:9091/-/ready > /dev/null 2>&1
 check "Prometheus endpoint (localhost:9091)"
