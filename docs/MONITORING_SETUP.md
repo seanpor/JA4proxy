@@ -27,7 +27,7 @@ docker compose -f docker-compose.monitoring.yml up -d
 # 2. Access services
 # Prometheus: http://localhost:9091
 # Alertmanager: http://localhost:9093
-# Grafana: http://localhost:3001 (admin/admin)
+# Grafana: http://localhost:3001 (admin / password from .env)
 
 # 3. Import dashboard
 # Navigate to Grafana → Dashboards → Import
@@ -108,7 +108,7 @@ services:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
       - '--storage.path=/alertmanager'
     ports:
-      - "9093:9093"
+      - "127.0.0.1:9093:9093"
     volumes:
       - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - alertmanager-data:/alertmanager
@@ -120,9 +120,9 @@ services:
     image: grafana/grafana:latest
     container_name: ja4proxy-grafana
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3001:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=http://localhost:3001
     volumes:
@@ -373,7 +373,7 @@ curl http://localhost:9093/api/v1/alerts | jq '.data[] | select(.status.state=="
 ```bash
 # Simulate high traffic with blocks
 for i in {1..100}; do
-  docker exec ja4proxy-redis redis-cli -a changeme \
+  docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
     INCR "ja4:blocked_requests_total"
   sleep 0.1
 done
@@ -387,7 +387,7 @@ done
 # Add many rate limit violations
 IP="192.168.1.250"
 for i in {1..20}; do
-  docker exec ja4proxy-redis redis-cli -a changeme \
+  docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
     ZADD "rate:by_ip:$IP:1s" "$(date +%s).$i" "conn_$i"
 done
 

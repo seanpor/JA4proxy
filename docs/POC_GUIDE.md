@@ -93,7 +93,7 @@ curl http://localhost:9090/metrics
 curl https://localhost:8443/api/health
 
 # Check Redis
-docker exec ja4proxy-redis redis-cli -a changeme ping
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" ping
 ```
 
 ### 4. Run Tests
@@ -114,14 +114,14 @@ This runs the complete test suite in a Docker container and generates coverage r
            ▼
 ┌─────────────────────┐    ┌─────────────────────┐
 │   JA4 Proxy         │◄──►│   Mock Backend      │
-│   :8080 (proxy)     │    │   :8081 (http)      │
+│   :8080 (proxy)     │    │   :8443 (https)     │
 │   :9090 (metrics)   │    └─────────────────────┘
 └──────────┬──────────┘
            │
            ▼
 ┌─────────────────────┐
 │   Redis Cache       │
-│   :6379             │
+│   :6379 (internal)  │
 └─────────────────────┘
            │
            ▼
@@ -244,7 +244,7 @@ docker compose -f docker-compose.poc.yml down -v
 ### Access Redis CLI
 
 ```bash
-docker exec -it ja4proxy-redis redis-cli -a changeme
+docker exec -it ja4proxy-redis redis-cli -a "$REDIS_PASSWORD"
 
 # Example commands:
 # KEYS *
@@ -332,7 +332,7 @@ docker compose -f docker-compose.poc.yml run --rm test pytest tests/test_proxy.p
 docker ps | grep redis
 
 # Test Redis connection
-docker exec ja4proxy-redis redis-cli -a changeme ping
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" ping
 
 # Check Redis logs
 docker compose -f docker-compose.poc.yml logs redis
@@ -364,7 +364,7 @@ EOF
 ## Security Notes
 
 The POC environment uses default passwords and is **not suitable for production**:
-- Redis password: `changeme`
+- Redis password: auto-generated (see .env)
 - No TLS/SSL encryption
 - Services exposed on localhost
 

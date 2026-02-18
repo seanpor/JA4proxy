@@ -31,7 +31,7 @@ Use this checklist before deploying JA4 Proxy to any environment.
 ## 🟠 HIGH PRIORITY - Should Complete Before Production
 
 ### Container Security
-- [ ] Reviewed Docker security settings in docker-compose files
+- [ ] Reviewed Docker security settings in docker compose files
 - [ ] Verified all containers run as non-root users
 - [ ] Confirmed security_opt settings are appropriate
 - [ ] Checked that unnecessary capabilities are dropped
@@ -152,7 +152,7 @@ python -c "from proxy import ConfigManager; cm = ConfigManager(); print('✅ Con
 
 # 2. Test Redis connection
 export REDIS_PASSWORD="your_password"
-docker-compose up -d redis
+docker compose up -d redis
 redis-cli -h localhost -a $REDIS_PASSWORD ping
 # Should return: PONG
 
@@ -166,11 +166,11 @@ bandit -r proxy.py security/ -f screen
 safety check
 
 # 6. Test Docker build
-docker-compose -f docker-compose.poc.yml build
+docker compose -f docker-compose.poc.yml build
 
 # 7. Test deployment
-docker-compose -f docker-compose.poc.yml up -d
-docker-compose -f docker-compose.poc.yml ps
+docker compose -f docker-compose.poc.yml up -d
+docker compose -f docker-compose.poc.yml ps
 # All services should be "Up"
 
 # 8. Test health endpoint
@@ -178,10 +178,10 @@ curl http://localhost:9090/metrics
 # Should return metrics
 
 # 9. Check logs for errors
-docker-compose -f docker-compose.poc.yml logs | grep -i error
+docker compose -f docker-compose.poc.yml logs | grep -i error
 
 # 10. Clean up test deployment
-docker-compose -f docker-compose.poc.yml down -v
+docker compose -f docker-compose.poc.yml down -v
 ```
 
 ---
@@ -192,22 +192,22 @@ After deployment, verify:
 
 ```bash
 # 1. All services running
-docker-compose ps
+docker compose ps
 
 # 2. No critical errors in logs
-docker-compose logs --tail=100 | grep -i critical
+docker compose logs --tail=100 | grep -i critical
 
 # 3. Metrics endpoint accessible
 curl http://localhost:9090/metrics | grep ja4_requests_total
 
 # 4. Health checks passing
-docker-compose ps | grep -i healthy
+docker compose ps | grep -i healthy
 
 # 5. Redis authentication working
 redis-cli -h localhost -a $REDIS_PASSWORD ping
 
 # 6. Security events being logged
-docker-compose logs proxy | grep -i security
+docker compose logs proxy | grep -i security
 
 # 7. Rate limiting working
 # Run multiple requests and verify blocking occurs

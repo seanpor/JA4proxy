@@ -28,7 +28,7 @@ REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}  # Line 17
 command: redis-server --requirepass ${REDIS_PASSWORD:-changeme}  # Line 36
 ```
 
-The default password "changeme" is used when REDIS_PASSWORD is not set, creating a known, weak credential that can be easily exploited.
+The default password "changeme" is used when REDIS_PASSWORD is not set, creating a known, weak credential that can be easily exploited. **Note:** `start-poc.sh` now auto-generates a strong random password and stores it in `.env`, so the default is no longer used in practice.
 
 **Impact:**
 - Unauthorized Redis access

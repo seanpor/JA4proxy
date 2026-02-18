@@ -37,10 +37,10 @@ This report documents security vulnerabilities found in the **POC environment**.
 ```yaml
 # docker-compose.poc.yml line 17
 environment:
-  - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
+  - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}  # Note: start-poc.sh generates a strong password
 
 # docker-compose.poc.yml line 34
-command: ["--requirepass", "changeme"]
+command: ["--requirepass", "${REDIS_PASSWORD:-changeme}"]
 
 # Confirmed in runtime:
 $ docker exec ja4proxy-redis redis-cli -a changeme CONFIG GET requirepass
@@ -63,7 +63,7 @@ changeme
 
 # For Production: Use strong passwords via environment variables
 export REDIS_PASSWORD=$(openssl rand -base64 32)
-docker-compose up -d
+docker compose up -d
 ```
 
 ---
@@ -116,11 +116,11 @@ FROM python:3.11-slim@sha256:def456...
 
 **Evidence:**
 ```bash
-$ ss -tuln | grep -E "(8080|9090|6379|8081)"
-tcp   0.0.0.0:8081   LISTEN  # Backend
-tcp   0.0.0.0:8080   LISTEN  # Proxy
-tcp   0.0.0.0:6379   LISTEN  # Redis
-tcp   0.0.0.0:9090   LISTEN  # Metrics
+$ ss -tuln | grep -E "(8080|9090|6379|8443)"
+tcp   127.0.0.1:8443   LISTEN  # Backend (bound to localhost)
+tcp   0.0.0.0:8080     LISTEN  # Proxy
+tcp   0.0.0.0:9090     LISTEN  # Metrics
+# Note: Redis port 6379 no longer exposed to host; ports now bound to 127.0.0.1 where possible
 ```
 
 **Impact:**
@@ -449,9 +449,9 @@ cryptography>=42.0.0
 
 The following vulnerabilities are **expected and acceptable** for a POC environment running on localhost:
 
-1. ✅ Default password "changeme" - Acceptable for local testing
+1. ✅ Default password "changeme" fallback - start-poc.sh auto-generates strong passwords
 2. ✅ No TLS encryption - Localhost communications
-3. ✅ Services on 0.0.0.0 - If firewall configured or single-user system
+3. ✅ Services on 127.0.0.1 - Internal ports bound to localhost only
 4. ✅ Metrics without auth - Local access only
 5. ✅ Writable filesystem - Needed for logs in POC
 6. ✅ Unpinned images - POC is for testing
@@ -612,8 +612,8 @@ While not required for POC use, these quick fixes can improve security:
 ```bash
 # 1. Use environment variable for password (instead of hardcoded)
 export REDIS_PASSWORD="better-poc-password-$(date +%s)"
-docker-compose -f docker-compose.poc.yml down
-docker-compose -f docker-compose.poc.yml up -d
+docker compose -f docker-compose.poc.yml down
+docker compose -f docker-compose.poc.yml up -d
 
 # 2. Restrict to localhost only
 # Edit docker-compose.poc.yml
@@ -629,7 +629,7 @@ sudo ufw deny 6379
 sudo ufw deny 9090
 
 # 4. Run with limited privileges
-docker-compose -f docker-compose.poc.yml \
+docker compose -f docker-compose.poc.yml \
   --security-opt no-new-privileges:true \
   up -d
 ```

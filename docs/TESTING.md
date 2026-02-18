@@ -18,9 +18,9 @@ All tests run in isolated Docker containers. No local Python installation is req
               │
               ├──► Proxy Container (port 8080, 9090)
               │
-              ├──► Backend Container (port 8081)
+              ├──► Backend Container (port 8443)
               │
-              └──► Redis Container (port 6379)
+              └──► Redis Container (internal only)
 ```
 
 ## Quick Start
@@ -148,7 +148,7 @@ Tests use these environment variables (automatically set by docker-compose):
 - `BACKEND_PORT`: Backend port (default: `80`)
 - `REDIS_HOST`: Redis hostname (default: `redis`)
 - `REDIS_PORT`: Redis port (default: `6379`)
-- `REDIS_PASSWORD`: Redis password (default: `changeme`)
+- `REDIS_PASSWORD`: Redis password (auto-generated from .env)
 
 ### Custom Environment
 
@@ -342,7 +342,7 @@ docker network inspect ja4proxy_ja4proxy
 
 Test Redis manually:
 ```bash
-docker exec -it ja4proxy-redis redis-cli -a changeme ping
+docker exec -it ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" ping
 ```
 
 ## Test Coverage Goals

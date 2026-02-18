@@ -23,7 +23,7 @@ This starts 12 containers: HAProxy, JA4proxy, Redis, backend, tarpit, Prometheus
 
 ## Watch the Dashboard
 
-Open **http://localhost:3001** (admin / admin) → JA4proxy Security Overview.
+Open **http://localhost:3001** (admin / password shown by start-monitoring.sh) → JA4proxy Security Overview.
 
 You'll see:
 - Allowed vs blocked connections in real time
@@ -44,7 +44,7 @@ You'll see:
 | Tarpit | `http://localhost:8888` |
 | Prometheus | `http://localhost:9091` |
 | Grafana | `http://localhost:3001` |
-| Loki (logs) | `http://localhost:3100` |
+| Loki (logs) | `http://localhost:3100` (Docker network only) |
 | Alertmanager | `http://localhost:9093` |
 
 ## Verify Legitimate Traffic Passes
@@ -80,4 +80,4 @@ All config is in `config/proxy.yml` — see the main [README](../README.md) for 
 - [Enterprise Deployment](enterprise/deployment.md) — Production guide
 - [Security Audit](security/COMPREHENSIVE_SECURITY_AUDIT.md) — Vulnerability assessment
 
-⚠️ **This is a POC with default passwords. Not for production use.**
+⚠️ **This is a POC. Not for production use.**
