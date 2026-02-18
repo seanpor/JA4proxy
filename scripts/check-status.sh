@@ -90,7 +90,7 @@ echo -e "${GREEN}Proxy Metrics:${NC}"
 echo "  URL: http://localhost:9090/metrics"
 echo ""
 echo -e "${GREEN}Backend (for testing):${NC}"
-echo "  URL: http://localhost:8081"
+echo "  URL: https://localhost:8443"
 echo ""
 
 # Helpful hints

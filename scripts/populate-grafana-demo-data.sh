@@ -12,7 +12,7 @@ NC='\033[0m'
 
 REDIS_HOST="localhost"
 REDIS_PORT="6379"
-REDIS_PASS="changeme"
+REDIS_PASS="${REDIS_PASSWORD:-changeme}"
 
 echo "========================================="
 echo "Populating Grafana with Demo Data"

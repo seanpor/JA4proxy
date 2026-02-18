@@ -10,6 +10,7 @@ This script demonstrates:
 
 import sys
 import time
+import os
 import redis
 
 # Add src to path
@@ -42,7 +43,7 @@ def demo_rate_tracking():
     redis_client = redis.Redis(
         host='redis',
         port=6379,
-        password='changeme',
+        password=os.environ.get('REDIS_PASSWORD', 'changeme'),
         db=0,
         decode_responses=False,
     )

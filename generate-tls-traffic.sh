@@ -47,7 +47,7 @@ echo -e "  Target:          proxy:8080 (Docker network)"
 echo ""
 
 echo -e "${YELLOW}Monitor in real-time:${NC}"
-echo -e "  Grafana:     http://localhost:3001 (admin/admin)"
+echo -e "  Grafana:     http://localhost:3001 (admin / see .env)"
 echo -e "  Prometheus:  http://localhost:9091"
 echo -e "  Logs:        docker compose -f docker-compose.poc.yml logs -f proxy"
 echo ""
