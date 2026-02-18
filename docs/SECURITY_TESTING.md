@@ -25,16 +25,16 @@ This script tests:
 
 ```bash
 # Add a bad fingerprint
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   SADD ja4:blacklist "t12d090909_ba640532068b_b186095e22b6"
 
 # Verify it was added
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   SISMEMBER ja4:blacklist "t12d090909_ba640532068b_b186095e22b6"
 # Returns: 1 (true)
 
 # List all blacklisted fingerprints
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   SMEMBERS ja4:blacklist
 ```
 
@@ -42,11 +42,11 @@ docker exec ja4proxy-redis redis-cli -a changeme \
 
 ```bash
 # Add a trusted fingerprint
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   SADD ja4:whitelist "t13d1516h2_8daaf6152771_02713d6af862"
 
 # Verify
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   SMEMBERS ja4:whitelist
 ```
 
@@ -54,15 +54,15 @@ docker exec ja4proxy-redis redis-cli -a changeme \
 
 ```bash
 # Block for 1 hour (3600 seconds)
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   SETEX "ja4:block:FINGERPRINT:IP_ADDRESS" 3600 "Suspicious activity"
 
 # Example:
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   SETEX "ja4:block:t12d090909_ba640532068b_b186095e22b6:192.168.1.100" 3600 "Blacklisted"
 
 # Check if blocked
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   EXISTS "ja4:block:t12d090909_ba640532068b_b186095e22b6:192.168.1.100"
 # Returns: 1 if blocked
 ```
@@ -71,15 +71,15 @@ docker exec ja4proxy-redis redis-cli -a changeme \
 
 ```bash
 # Ban for 7 days (604800 seconds)
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   SETEX "ja4:ban:FINGERPRINT:IP_ADDRESS" 604800 "Rate limit exceeded"
 
 # Example:
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   SETEX "ja4:ban:t10d151415_deadbeef1337_attackertools:192.168.1.250" 604800 "Attack detected"
 
 # Check ban status
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   GET "ja4:ban:t10d151415_deadbeef1337_attackertools:192.168.1.250"
 ```
 
@@ -87,15 +87,15 @@ docker exec ja4proxy-redis redis-cli -a changeme \
 
 ```bash
 # List all blocks
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   KEYS "ja4:block:*"
 
 # List all bans
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   KEYS "ja4:ban:*"
 
 # Check TTL (time remaining)
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   TTL "ja4:block:FINGERPRINT:IP"
 ```
 
@@ -103,15 +103,15 @@ docker exec ja4proxy-redis redis-cli -a changeme \
 
 ```bash
 # Remove a ban
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   DEL "ja4:ban:FINGERPRINT:IP"
 
 # Remove a block
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   DEL "ja4:block:FINGERPRINT:IP"
 
 # Optionally add to whitelist to prevent future blocks
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   SADD ja4:whitelist "FINGERPRINT"
 ```
 
@@ -139,11 +139,11 @@ FINGERPRINT="t13d1516h2_8daaf6152771_02713d6af862"
 IP="192.168.1.100"
 
 # Add to whitelist
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   SADD ja4:whitelist "$FINGERPRINT"
 
 # Verify whitelisted
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   SISMEMBER ja4:whitelist "$FINGERPRINT"
 
 # Expected: Connection allowed, bypasses rate limits
@@ -157,11 +157,11 @@ FINGERPRINT="t12d090909_ba640532068b_b186095e22b6"
 IP="192.168.1.200"
 
 # Add to blacklist
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   SADD ja4:blacklist "$FINGERPRINT"
 
 # Create block
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   SETEX "ja4:block:$FINGERPRINT:$IP" 3600 "Blacklisted fingerprint"
 
 # Expected: Connection immediately blocked
@@ -178,18 +178,18 @@ WINDOW_START=$(date +%s)
 # Add connections to rate tracking
 for i in {1..15}; do
   TIMESTAMP=$(echo "$WINDOW_START + 0.$i" | bc)
-  docker exec ja4proxy-redis redis-cli -a changeme \
+  docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
     ZADD "rate:by_ip:$IP:1s" "$TIMESTAMP" "conn_$i"
 done
 
 # Count connections in window
 CURRENT=$(date +%s)
 CUTOFF=$(echo "$CURRENT - 1" | bc)
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   ZCOUNT "rate:by_ip:$IP:1s" "$CUTOFF" "+inf"
 
 # If > 10/sec, should trigger BAN
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   SETEX "ja4:ban:$FINGERPRINT:$IP" 604800 "Rate limit: 15/sec"
 
 # Expected: IP banned for 7 days
@@ -204,11 +204,11 @@ FINGERPRINT="t13d1516h2_good_user_fingerprint"
 IP="192.168.1.150"
 
 # Remove ban
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   DEL "ja4:ban:$FINGERPRINT:$IP"
 
 # Add to whitelist to prevent future false positives
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   SADD ja4:whitelist "$FINGERPRINT"
 
 # Log the unban action
@@ -310,10 +310,10 @@ done
 watch -n 1 'curl -s http://localhost:9090/metrics | grep ja4_security'
 
 # Monitor blocks
-watch -n 1 'docker exec ja4proxy-redis redis-cli -a changeme KEYS "ja4:block:*" | wc -l'
+watch -n 1 'docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" KEYS "ja4:block:*" | wc -l'
 
 # Monitor bans
-watch -n 1 'docker exec ja4proxy-redis redis-cli -a changeme KEYS "ja4:ban:*" | wc -l'
+watch -n 1 'docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" KEYS "ja4:ban:*" | wc -l'
 ```
 
 ### Security Dashboard Commands
@@ -321,10 +321,10 @@ watch -n 1 'docker exec ja4proxy-redis redis-cli -a changeme KEYS "ja4:ban:*" | 
 ```bash
 # Get statistics
 echo "=== Security Statistics ==="
-echo "Whitelist: $(docker exec ja4proxy-redis redis-cli -a changeme SCARD ja4:whitelist)"
-echo "Blacklist: $(docker exec ja4proxy-redis redis-cli -a changeme SCARD ja4:blacklist)"
-echo "Active Blocks: $(docker exec ja4proxy-redis redis-cli -a changeme KEYS 'ja4:block:*' | wc -l)"
-echo "Active Bans: $(docker exec ja4proxy-redis redis-cli -a changeme KEYS 'ja4:ban:*' | wc -l)"
+echo "Whitelist: $(docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" SCARD ja4:whitelist)"
+echo "Blacklist: $(docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" SCARD ja4:blacklist)"
+echo "Active Blocks: $(docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" KEYS 'ja4:block:*' | wc -l)"
+echo "Active Bans: $(docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" KEYS 'ja4:ban:*' | wc -l)"
 ```
 
 ---
@@ -335,27 +335,27 @@ echo "Active Bans: $(docker exec ja4proxy-redis redis-cli -a changeme KEYS 'ja4:
 
 ```bash
 # Clear whitelist/blacklist
-docker exec ja4proxy-redis redis-cli -a changeme DEL ja4:whitelist
-docker exec ja4proxy-redis redis-cli -a changeme DEL ja4:blacklist
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" DEL ja4:whitelist
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" DEL ja4:blacklist
 
 # Clear all blocks
-docker exec ja4proxy-redis redis-cli -a changeme KEYS "ja4:block:*" | \
-  xargs -r docker exec ja4proxy-redis redis-cli -a changeme DEL
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" KEYS "ja4:block:*" | \
+  xargs -r docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" DEL
 
 # Clear all bans
-docker exec ja4proxy-redis redis-cli -a changeme KEYS "ja4:ban:*" | \
-  xargs -r docker exec ja4proxy-redis redis-cli -a changeme DEL
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" KEYS "ja4:ban:*" | \
+  xargs -r docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" DEL
 
 # Clear rate tracking
-docker exec ja4proxy-redis redis-cli -a changeme KEYS "rate:*" | \
-  xargs -r docker exec ja4proxy-redis redis-cli -a changeme DEL
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" KEYS "rate:*" | \
+  xargs -r docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" DEL
 ```
 
 ### Reset Everything
 
 ```bash
 # Nuclear option: flush all Redis data
-docker exec ja4proxy-redis redis-cli -a changeme FLUSHALL
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" FLUSHALL
 
 # Restart services
 docker compose -f docker-compose.poc.yml restart
@@ -369,11 +369,11 @@ docker compose -f docker-compose.poc.yml restart
 
 ```bash
 # Export current blocks to JSON
-docker exec ja4proxy-redis redis-cli -a changeme KEYS "ja4:block:*" | \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" KEYS "ja4:block:*" | \
 while read key; do
   if [ -n "$key" ]; then
-    TTL=$(docker exec ja4proxy-redis redis-cli -a changeme TTL "$key")
-    REASON=$(docker exec ja4proxy-redis redis-cli -a changeme GET "$key")
+    TTL=$(docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" TTL "$key")
+    REASON=$(docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" GET "$key")
     echo "{\"key\":\"$key\",\"ttl\":$TTL,\"reason\":\"$REASON\"}"
   fi
 done > blocks_export.json
@@ -396,11 +396,11 @@ docker compose -f docker-compose.poc.yml logs -f proxy | \
 
 ```bash
 # Check if fingerprint is in blacklist
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   SISMEMBER ja4:blacklist "YOUR_FINGERPRINT"
 
 # Check if block key exists
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   EXISTS "ja4:block:FINGERPRINT:IP"
 
 # Check Redis logs
@@ -411,7 +411,7 @@ docker logs ja4proxy-redis --tail 50
 
 ```bash
 # Check TTL
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   TTL "ja4:ban:FINGERPRINT:IP"
 
 # If TTL is -1, key has no expiry
@@ -423,7 +423,7 @@ docker exec ja4proxy-redis redis-cli -a changeme \
 
 ```bash
 # Check rate tracking keys
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   KEYS "rate:*"
 
 # Check configuration
@@ -473,13 +473,13 @@ for ip in {100..110}; do
   IP="192.168.1.$ip"
   for conn in {1..5}; do
     TIMESTAMP=$(date +%s).$conn
-    docker exec ja4proxy-redis redis-cli -a changeme \
+    docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
       ZADD "rate:by_ja4:$FINGERPRINT:1s" "$TIMESTAMP" "$IP:$conn"
   done
 done
 
 # Check total rate for this JA4
-docker exec ja4proxy-redis redis-cli -a changeme \
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
   ZCARD "rate:by_ja4:$FINGERPRINT:1s"
 ```
 

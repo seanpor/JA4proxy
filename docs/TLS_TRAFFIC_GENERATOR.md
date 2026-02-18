@@ -106,7 +106,7 @@ docker compose -f docker-compose.poc.yml logs -f proxy
 
 ### Grafana Dashboard
 ```bash
-# Open Grafana (admin/admin)
+# Open Grafana (admin / password from .env)
 open http://localhost:3001
 
 # Navigate to: JA4proxy Security Overview
@@ -192,7 +192,7 @@ from tls_traffic_generator import TrafficGenerator
 # Create generator
 generator = TrafficGenerator(
     backend_host="localhost",
-    backend_port=8081,
+    backend_port=8443,
     duration=60,
     good_traffic_percent=15,
     workers=50
@@ -212,7 +212,7 @@ python3 scripts/tls-traffic-generator.py --help
 
 Options:
   --backend-host BACKEND_HOST   Backend hostname (default: localhost)
-  --backend-port BACKEND_PORT   Backend port (default: 8081)
+  --backend-port BACKEND_PORT   Backend port (default: 8443)
   --duration DURATION           Test duration in seconds (default: 60)
   --good-percent GOOD_PERCENT   % of legitimate traffic (default: 15)
   --workers WORKERS             Concurrent workers (default: 50)
@@ -258,7 +258,7 @@ Options:
 ### No Traffic Being Generated
 ```bash
 # Check if backend is accessible
-curl http://localhost:8443/api/health
+curl -sk https://localhost:8443/api/health
 
 # Check if POC stack is running
 docker compose -f docker-compose.poc.yml ps
@@ -270,7 +270,7 @@ docker compose -f docker-compose.poc.yml ps
 docker compose -f docker-compose.poc.yml logs proxy
 
 # Verify Redis is working
-redis-cli -h localhost -p 6379 -a changeme PING
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" PING
 ```
 
 ### No Blocks Happening

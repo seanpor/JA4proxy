@@ -170,7 +170,7 @@ HEALTHCHECK --interval=30s --timeout=10s CMD python -c "import socket; s=socket.
 
 **2. Runtime Security:**
 ```yaml
-# docker-compose security settings
+# docker compose security settings
 services:
   proxy:
     security_opt:
@@ -533,8 +533,8 @@ cp ssl/* /opt/ja4proxy/ssl/
 cp secrets/* /opt/ja4proxy/secrets/
 
 # Deploy stack
-docker-compose -f docker-compose.${ENVIRONMENT}.yml pull
-docker-compose -f docker-compose.${ENVIRONMENT}.yml up -d
+docker compose -f docker-compose.${ENVIRONMENT}.yml pull
+docker compose -f docker-compose.${ENVIRONMENT}.yml up -d
 
 # Health checks
 sleep 30
@@ -603,10 +603,10 @@ for instance in "${INSTANCES[@]}"; do
     docker stop "ja4proxy-${instance}"
     
     # Update image
-    docker-compose pull proxy
+    docker compose pull proxy
     
     # Start instance
-    docker-compose up -d "proxy-${instance}"
+    docker compose up -d "proxy-${instance}"
     
     # Wait for health check
     sleep 30

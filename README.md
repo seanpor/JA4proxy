@@ -33,7 +33,7 @@ Client ──TLS──▶ HAProxy (LB) ──TCP──▶ JA4proxy ×N ──TLS
 ./generate-tls-traffic.sh 30 10 20
 
 # Open Grafana dashboard
-open http://localhost:3001    # admin / admin
+open http://localhost:3001    # admin / password from .env
 ```
 
 **That's it.** The dashboard shows allowed vs blocked traffic, JA4 fingerprint names, action distribution, and logs.
@@ -62,8 +62,8 @@ Rate limiting escalates: **suspicious → tarpit → block → ban**.
 | Backend | `https://localhost:8443` | Protected HTTPS server |
 | Tarpit | `http://localhost:8888` | 1 byte/sec slow drain |
 | Prometheus | `http://localhost:9091` | |
-| Grafana | `http://localhost:3001` | admin/admin |
-| Loki | `http://localhost:3100` | Centralized container logs |
+| Grafana | `http://localhost:3001` | admin / see .env |
+| Loki | `http://localhost:3100` | Centralized container logs (internal only) |
 | Alertmanager | `http://localhost:9093` | |
 
 ## Configuration

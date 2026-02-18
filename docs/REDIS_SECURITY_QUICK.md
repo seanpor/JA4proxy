@@ -2,9 +2,9 @@
 
 ## 🔴 Current Issues (POC)
 
-1. **Password:** `changeme` (hardcoded)
+1. **Password:** Auto-generated via start-poc.sh (stored in .env)
 2. **Encryption:** None (plaintext)
-3. **Port:** Exposed 0.0.0.0:6379
+3. **Port:** No host port (Docker network only)
 4. **Access Control:** None
 5. **Authentication:** Single password
 

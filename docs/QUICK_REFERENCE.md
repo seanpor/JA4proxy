@@ -21,10 +21,10 @@
 | Backend (HTTPS) | `https://localhost:8443` |
 | Tarpit | `http://localhost:8888` |
 | Prometheus | `http://localhost:9091` |
-| Grafana | `http://localhost:3001` (admin/admin) |
-| Loki | `http://localhost:3100` |
+| Grafana | `http://localhost:3001` (admin / see .env) |
+| Loki | `http://localhost:3100` (Docker network only) |
 | Alertmanager | `http://localhost:9093` |
-| Redis | `localhost:6379` (password: changeme) |
+| Redis | Docker network only, password from .env |
 
 ## Testing Commands
 
@@ -110,19 +110,19 @@ docker compose -f docker-compose.poc.yml build --no-cache
 
 ```bash
 # Access Redis CLI
-docker exec -it ja4proxy-redis redis-cli -a changeme
+docker exec -it ja4proxy-redis redis-cli -a "$REDIS_PASSWORD"
 
 # Test Redis
-docker exec ja4proxy-redis redis-cli -a changeme ping
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" ping
 
 # View all keys
-docker exec ja4proxy-redis redis-cli -a changeme KEYS "*"
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" KEYS "*"
 
 # Get value
-docker exec ja4proxy-redis redis-cli -a changeme GET "key"
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" GET "key"
 
 # Set value
-docker exec ja4proxy-redis redis-cli -a changeme SET "key" "value"
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" SET "key" "value"
 ```
 
 ## Debugging
