@@ -168,6 +168,7 @@ Profiles: Chrome, Firefox, Safari (legitimate) + Sliver C2, CobaltStrike, Evilgi
 - **[Security Audit](docs/security/COMPREHENSIVE_SECURITY_AUDIT.md)** — Vulnerability assessment
 - **[Threat Model](docs/security/threat-model.md)** — Attack surface analysis
 - **[Performance Benchmark](docs/reports/PERFORMANCE_BENCHMARK.md)** — Throughput & scaling
+- **[DMZ Deployment Readiness](docs/DMZ_DEPLOYMENT_READINESS.md)** — Security gap analysis for corporate DMZ
 - **[Enterprise Deployment](docs/enterprise/deployment.md)** — Production guide
 - **[GDPR Compliance](docs/compliance/GDPR_COMPLIANCE.md)** — Data handling
 - **[Changelog](CHANGELOG.md)** — Version history
