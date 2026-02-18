@@ -27,7 +27,7 @@
   "panels": [
     {
       "id": 1,
-      "title": "Total Requests/min",
+      "title": "Requests/sec",
       "type": "stat",
       "gridPos": {
         "h": 4,
@@ -66,14 +66,14 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(ja4_requests_total[1m])) * 60",
+          "expr": "sum(rate(ja4_requests_total[1m]))",
           "legendFormat": ""
         }
       ]
     },
     {
       "id": 2,
-      "title": "Allowed/min",
+      "title": "Allowed/sec",
       "type": "stat",
       "gridPos": {
         "h": 4,
@@ -112,14 +112,14 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(ja4_requests_total{action=\"allowed\"}[1m])) * 60",
+          "expr": "sum(rate(ja4_requests_total{action=\"allowed\"}[1m]))",
           "legendFormat": ""
         }
       ]
     },
     {
       "id": 3,
-      "title": "Blocked/min",
+      "title": "Blocked/sec",
       "type": "stat",
       "gridPos": {
         "h": 4,
@@ -158,7 +158,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(ja4_requests_total{action=\"blocked\"}[1m])) * 60",
+          "expr": "sum(rate(ja4_requests_total{action=\"blocked\"}[1m]))",
           "legendFormat": ""
         }
       ]
