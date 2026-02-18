@@ -1,0 +1,65 @@
+#!/bin/bash
+# {{ ansible_managed }}
+# Monitors Redis logs for authentication failures and sends alerts
+# Runs via cron every 5 minutes
+
+set -euo pipefail
+
+CONTAINER="{{ redis_container_name }}"
+THRESHOLD="{{ redis_auth_failure_alert_threshold }}"
+LOG_FILE="{{ redis_log_dir }}/auth-failures.log"
+ALERT_FILE="{{ redis_log_dir }}/last-alert-sent"
+COOLDOWN=3600  # Don't re-alert for 1 hour
+
+# Count auth failures in the last 5 minutes of container logs
+FAILURES=$(docker logs --since 5m "$CONTAINER" 2>&1 | grep -ci "auth\|wrong password\|WRONGPASS\|NOAUTH\|invalid username" || true)
+
+TIMESTAMP=$(date -Iseconds)
+
+if [ "$FAILURES" -gt 0 ]; then
+    echo "$TIMESTAMP AUTH_FAILURES=$FAILURES" >> "$LOG_FILE"
+fi
+
+if [ "$FAILURES" -ge "$THRESHOLD" ]; then
+    # Check cooldown — don't spam alerts
+    if [ -f "$ALERT_FILE" ]; then
+        LAST_ALERT=$(cat "$ALERT_FILE")
+        NOW=$(date +%s)
+        if [ $((NOW - LAST_ALERT)) -lt $COOLDOWN ]; then
+            exit 0
+        fi
+    fi
+
+    # Log critical alert
+    echo "$TIMESTAMP ALERT: $FAILURES auth failures in 5 min (threshold: $THRESHOLD)" >> "$LOG_FILE"
+
+    # Write to syslog for SIEM pickup
+    logger -p auth.crit -t ja4proxy-redis "SECURITY ALERT: $FAILURES Redis authentication failures in 5 minutes from container $CONTAINER"
+
+    # Push metric for Prometheus (textfile collector)
+    METRICS_DIR="{{ redis_base_dir }}/metrics"
+    mkdir -p "$METRICS_DIR"
+    cat > "$METRICS_DIR/redis_auth_failures.prom" << EOF
+# HELP redis_auth_failures_total Redis authentication failures detected
+# TYPE redis_auth_failures_total counter
+redis_auth_failures_total{container="$CONTAINER"} $FAILURES
+# HELP redis_auth_failure_alert Whether auth failure alert is active
+# TYPE redis_auth_failure_alert gauge
+redis_auth_failure_alert{container="$CONTAINER"} 1
+EOF
+
+    date +%s > "$ALERT_FILE"
+else
+    # Clear alert metric if below threshold
+    METRICS_DIR="{{ redis_base_dir }}/metrics"
+    if [ -f "$METRICS_DIR/redis_auth_failures.prom" ]; then
+        cat > "$METRICS_DIR/redis_auth_failures.prom" << EOF
+# HELP redis_auth_failures_total Redis authentication failures detected
+# TYPE redis_auth_failures_total counter
+redis_auth_failures_total{container="$CONTAINER"} 0
+# HELP redis_auth_failure_alert Whether auth failure alert is active
+# TYPE redis_auth_failure_alert gauge
+redis_auth_failure_alert{container="$CONTAINER"} 0
+EOF
+    fi
+fi

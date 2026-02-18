@@ -1,0 +1,56 @@
+---
+# Defaults for redis-secure role
+# Override in host_vars, group_vars, or vault.yml
+
+# Redis version
+redis_version: "7-alpine"
+redis_exporter_version: "v1.55.0"
+
+# Network
+redis_bind_address: "0.0.0.0"
+redis_port: 6379         # TLS port (plaintext disabled)
+redis_container_name: "ja4proxy-redis-secure"
+redis_exporter_container_name: "ja4proxy-redis-exporter"
+
+# Paths on host
+redis_base_dir: "/opt/ja4proxy/redis"
+redis_data_dir: "{{ redis_base_dir }}/data"
+redis_tls_dir: "{{ redis_base_dir }}/tls"
+redis_config_dir: "{{ redis_base_dir }}/config"
+redis_log_dir: "{{ redis_base_dir }}/logs"
+redis_luks_device: "/dev/sdb"              # raw block device for LUKS
+redis_luks_mount: "{{ redis_data_dir }}"
+
+# TLS — set to true to generate a self-signed CA + certs
+redis_tls_enabled: true
+redis_tls_generate_certs: true
+redis_tls_ca_cn: "JA4proxy Redis CA"
+redis_tls_server_cn: "redis.ja4proxy.local"
+redis_tls_cert_days: 365
+redis_mtls_enabled: true   # require client certificates
+
+# Memory
+redis_maxmemory: "512mb"
+redis_maxmemory_policy: "volatile-lru"
+
+# Persistence (AOF preferred for security — append-only audit trail)
+redis_aof_enabled: true
+redis_rdb_enabled: false
+
+# Encryption at rest
+redis_luks_enabled: true
+
+# Prometheus
+redis_exporter_enabled: true
+redis_exporter_port: 9121
+
+# Allowed client IPs (for firewall rules)
+redis_allowed_clients:
+  - "10.0.1.0/24"   # ja4proxy containers
+
+# ACL — proxy user restricted to ja4:* key namespace
+redis_proxy_acl_keys: "~ja4:*"
+redis_proxy_acl_commands: "+get +set +del +exists +expire +ttl +incr +incrby +scan +keys +ping +info"
+
+# Monitoring
+redis_auth_failure_alert_threshold: 5   # alert after N failures in 5 min

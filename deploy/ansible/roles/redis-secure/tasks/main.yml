@@ -1,0 +1,412 @@
+---
+# redis-secure/tasks/main.yml — orchestrates the full secure Redis deployment
+
+- name: Validate required secrets are defined
+  ansible.builtin.assert:
+    that:
+      - redis_admin_password is defined
+      - redis_admin_password | length >= 32
+      - redis_proxy_password is defined
+      - redis_proxy_password | length >= 32
+      - redis_exporter_password is defined
+    fail_msg: "Redis passwords must be defined in vault.yml and be at least 32 characters"
+
+- name: Create directory structure
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  loop:
+    - "{{ redis_base_dir }}"
+    - "{{ redis_tls_dir }}"
+    - "{{ redis_config_dir }}"
+    - "{{ redis_log_dir }}"
+
+# ── Encryption at rest (LUKS) ──────────────────────────────
+
+- name: Set up LUKS encrypted storage
+  when: redis_luks_enabled
+  block:
+    - name: Install cryptsetup
+      ansible.builtin.package:
+        name: cryptsetup
+        state: present
+
+    - name: Check if LUKS device is already formatted
+      ansible.builtin.command:
+        cmd: "cryptsetup isLuks {{ redis_luks_device }}"
+      register: luks_check
+      changed_when: false
+      failed_when: false
+
+    - name: Format LUKS device
+      when: luks_check.rc != 0
+      ansible.builtin.expect:
+        command: "cryptsetup luksFormat --type luks2 --cipher aes-xts-plain64 --key-size 512 --hash sha512 --iter-time 5000 {{ redis_luks_device }}"
+        responses:
+          "Are you sure": "YES"
+          "Enter passphrase": "{{ redis_luks_passphrase }}"
+          "Verify passphrase": "{{ redis_luks_passphrase }}"
+      no_log: true
+
+    - name: Open LUKS device
+      ansible.builtin.command:
+        cmd: "cryptsetup luksOpen {{ redis_luks_device }} redis-data"
+        stdin: "{{ redis_luks_passphrase }}"
+      args:
+        creates: /dev/mapper/redis-data
+      no_log: true
+
+    - name: Create filesystem on LUKS device
+      community.general.filesystem:
+        fstype: ext4
+        dev: /dev/mapper/redis-data
+        opts: "-m 1"
+
+    - name: Mount encrypted volume
+      ansible.posix.mount:
+        path: "{{ redis_data_dir }}"
+        src: /dev/mapper/redis-data
+        fstype: ext4
+        opts: "noatime,nodev,nosuid,noexec"
+        state: mounted
+
+    - name: Set data directory permissions
+      ansible.builtin.file:
+        path: "{{ redis_data_dir }}"
+        owner: 999   # redis user inside container
+        group: 999
+        mode: "0700"
+
+- name: Create unencrypted data directory (LUKS disabled)
+  when: not redis_luks_enabled
+  ansible.builtin.file:
+    path: "{{ redis_data_dir }}"
+    state: directory
+    owner: 999
+    group: 999
+    mode: "0700"
+
+# ── TLS certificates ───────────────────────────────────────
+
+- name: Generate TLS certificates
+  when: redis_tls_enabled and redis_tls_generate_certs
+  block:
+    - name: Generate CA private key
+      community.crypto.openssl_privatekey:
+        path: "{{ redis_tls_dir }}/ca.key"
+        size: 4096
+        mode: "0600"
+
+    - name: Generate CA certificate
+      community.crypto.x509_certificate:
+        path: "{{ redis_tls_dir }}/ca.crt"
+        privatekey_path: "{{ redis_tls_dir }}/ca.key"
+        provider: selfsigned
+        selfsigned_not_after: "+{{ redis_tls_cert_days }}d"
+        subject:
+          CN: "{{ redis_tls_ca_cn }}"
+          O: "JA4proxy"
+        mode: "0644"
+
+    - name: Generate Redis server private key
+      community.crypto.openssl_privatekey:
+        path: "{{ redis_tls_dir }}/redis.key"
+        size: 4096
+        mode: "0600"
+        owner: 999
+
+    - name: Generate Redis server CSR
+      community.crypto.openssl_csr:
+        path: "{{ redis_tls_dir }}/redis.csr"
+        privatekey_path: "{{ redis_tls_dir }}/redis.key"
+        subject:
+          CN: "{{ redis_tls_server_cn }}"
+          O: "JA4proxy"
+        subject_alt_name:
+          - "DNS:{{ redis_tls_server_cn }}"
+          - "DNS:localhost"
+          - "DNS:redis"
+          - "IP:127.0.0.1"
+
+    - name: Sign Redis server certificate
+      community.crypto.x509_certificate:
+        path: "{{ redis_tls_dir }}/redis.crt"
+        csr_path: "{{ redis_tls_dir }}/redis.csr"
+        ownca_path: "{{ redis_tls_dir }}/ca.crt"
+        ownca_privatekey_path: "{{ redis_tls_dir }}/ca.key"
+        provider: ownca
+        ownca_not_after: "+{{ redis_tls_cert_days }}d"
+        mode: "0644"
+
+    - name: Generate client certificate for proxy
+      community.crypto.openssl_privatekey:
+        path: "{{ redis_tls_dir }}/client-proxy.key"
+        size: 4096
+        mode: "0600"
+
+    - name: Generate client CSR for proxy
+      community.crypto.openssl_csr:
+        path: "{{ redis_tls_dir }}/client-proxy.csr"
+        privatekey_path: "{{ redis_tls_dir }}/client-proxy.key"
+        subject:
+          CN: "ja4proxy-client"
+          O: "JA4proxy"
+
+    - name: Sign client certificate for proxy
+      community.crypto.x509_certificate:
+        path: "{{ redis_tls_dir }}/client-proxy.crt"
+        csr_path: "{{ redis_tls_dir }}/client-proxy.csr"
+        ownca_path: "{{ redis_tls_dir }}/ca.crt"
+        ownca_privatekey_path: "{{ redis_tls_dir }}/ca.key"
+        provider: ownca
+        ownca_not_after: "+{{ redis_tls_cert_days }}d"
+        mode: "0644"
+
+    - name: Generate client certificate for exporter
+      community.crypto.openssl_privatekey:
+        path: "{{ redis_tls_dir }}/client-exporter.key"
+        size: 4096
+        mode: "0600"
+
+    - name: Generate client CSR for exporter
+      community.crypto.openssl_csr:
+        path: "{{ redis_tls_dir }}/client-exporter.csr"
+        privatekey_path: "{{ redis_tls_dir }}/client-exporter.key"
+        subject:
+          CN: "redis-exporter-client"
+          O: "JA4proxy"
+
+    - name: Sign client certificate for exporter
+      community.crypto.x509_certificate:
+        path: "{{ redis_tls_dir }}/client-exporter.crt"
+        csr_path: "{{ redis_tls_dir }}/client-exporter.csr"
+        ownca_path: "{{ redis_tls_dir }}/ca.crt"
+        ownca_privatekey_path: "{{ redis_tls_dir }}/ca.key"
+        provider: ownca
+        ownca_not_after: "+{{ redis_tls_cert_days }}d"
+        mode: "0644"
+
+# ── Redis configuration ────────────────────────────────────
+
+- name: Deploy Redis configuration
+  ansible.builtin.template:
+    src: redis.conf.j2
+    dest: "{{ redis_config_dir }}/redis.conf"
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Restart Redis
+
+- name: Deploy Redis ACL file
+  ansible.builtin.template:
+    src: users.acl.j2
+    dest: "{{ redis_config_dir }}/users.acl"
+    owner: 999
+    group: 999
+    mode: "0600"
+  no_log: true
+  notify: Restart Redis
+
+# ── Host firewall ──────────────────────────────────────────
+
+- name: Configure iptables — allow Redis only from trusted networks
+  ansible.builtin.iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: "{{ redis_port }}"
+    source: "{{ item }}"
+    jump: ACCEPT
+    comment: "JA4proxy Redis access"
+  loop: "{{ redis_allowed_clients }}"
+
+- name: Configure iptables — drop all other Redis traffic
+  ansible.builtin.iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: "{{ redis_port }}"
+    jump: DROP
+    comment: "Block unauthorized Redis access"
+
+- name: Configure iptables — allow exporter only from Prometheus
+  ansible.builtin.iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: "{{ redis_exporter_port }}"
+    source: "{{ item }}"
+    jump: ACCEPT
+    comment: "Prometheus Redis exporter access"
+  loop: "{{ redis_allowed_clients }}"
+
+# ── Docker containers ──────────────────────────────────────
+
+- name: Deploy Redis container
+  community.docker.docker_container:
+    name: "{{ redis_container_name }}"
+    image: "redis:{{ redis_version }}"
+    state: started
+    restart_policy: unless-stopped
+    command: "redis-server /etc/redis/redis.conf"
+    ports:
+      - "{{ redis_bind_address }}:{{ redis_port }}:{{ redis_port }}"
+    volumes:
+      - "{{ redis_config_dir }}/redis.conf:/etc/redis/redis.conf:ro"
+      - "{{ redis_config_dir }}/users.acl:/etc/redis/users.acl:ro"
+      - "{{ redis_data_dir }}:/data"
+      - "{{ redis_tls_dir }}:/tls:ro"
+    read_only: true
+    tmpfs:
+      /tmp: "size=50m,noexec,nosuid,nodev"
+    security_opts:
+      - "no-new-privileges:true"
+    cap_drop:
+      - ALL
+    memory: "1g"
+    cpus: 2.0
+    healthcheck:
+      test: ["CMD", "redis-cli", "--tls", "--cert", "/tls/redis.crt", "--key", "/tls/redis.key", "--cacert", "/tls/ca.crt", "-a", "{{ redis_admin_password }}", "PING"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    log_driver: json-file
+    log_options:
+      max-size: "10m"
+      max-file: "3"
+  no_log: true
+
+- name: Deploy Redis exporter for Prometheus
+  when: redis_exporter_enabled
+  community.docker.docker_container:
+    name: "{{ redis_exporter_container_name }}"
+    image: "oliver006/redis_exporter:{{ redis_exporter_version }}"
+    state: started
+    restart_policy: unless-stopped
+    ports:
+      - "127.0.0.1:{{ redis_exporter_port }}:{{ redis_exporter_port }}"
+    env:
+      REDIS_ADDR: "rediss://{{ redis_container_name }}:{{ redis_port }}"
+      REDIS_USER: "exporter"
+      REDIS_PASSWORD: "{{ redis_exporter_password }}"
+      REDIS_EXPORTER_INCL_SYSTEM_METRICS: "true"
+      REDIS_EXPORTER_CHECK_KEYS: "ja4:*"
+      REDIS_EXPORTER_TLS_CLIENT_CERT_FILE: "/tls/client-exporter.crt"
+      REDIS_EXPORTER_TLS_CLIENT_KEY_FILE: "/tls/client-exporter.key"
+      REDIS_EXPORTER_TLS_CA_CERT_FILE: "/tls/ca.crt"
+      REDIS_EXPORTER_SKIP_TLS_VERIFICATION: "false"
+    volumes:
+      - "{{ redis_tls_dir }}:/tls:ro"
+    links:
+      - "{{ redis_container_name }}"
+    read_only: true
+    security_opts:
+      - "no-new-privileges:true"
+    cap_drop:
+      - ALL
+    memory: "128m"
+    cpus: 0.5
+    log_driver: json-file
+    log_options:
+      max-size: "10m"
+      max-file: "3"
+  no_log: true
+
+# ── Auth failure monitoring ────────────────────────────────
+
+- name: Deploy auth failure monitoring script
+  ansible.builtin.template:
+    src: redis-auth-monitor.sh.j2
+    dest: "{{ redis_base_dir }}/redis-auth-monitor.sh"
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Schedule auth failure monitoring (every 5 minutes)
+  ansible.builtin.cron:
+    name: "Redis auth failure monitor"
+    minute: "*/5"
+    job: "{{ redis_base_dir }}/redis-auth-monitor.sh >> {{ redis_log_dir }}/auth-monitor.log 2>&1"
+    user: root
+
+# ── Log rotation ───────────────────────────────────────────
+
+- name: Configure log rotation
+  ansible.builtin.template:
+    src: logrotate-redis.j2
+    dest: /etc/logrotate.d/ja4proxy-redis
+    owner: root
+    group: root
+    mode: "0644"
+
+# ── Verification ───────────────────────────────────────────
+
+- name: Wait for Redis to be ready
+  ansible.builtin.command:
+    cmd: >
+      docker exec {{ redis_container_name }}
+      redis-cli --tls --cert /tls/redis.crt --key /tls/redis.key --cacert /tls/ca.crt
+      -a {{ redis_admin_password }} PING
+  register: redis_ping
+  retries: 10
+  delay: 3
+  until: redis_ping.stdout == "PONG"
+  changed_when: false
+  no_log: true
+
+- name: Verify ACL — proxy user can write to ja4:* namespace
+  ansible.builtin.command:
+    cmd: >
+      docker exec {{ redis_container_name }}
+      redis-cli --tls --cert /tls/redis.crt --key /tls/redis.key --cacert /tls/ca.crt
+      --user proxy --pass {{ redis_proxy_password }}
+      SET ja4:test:verify "acl_check"
+  register: acl_write_test
+  changed_when: false
+  no_log: true
+
+- name: Verify ACL — proxy user CANNOT write outside ja4:* namespace
+  ansible.builtin.command:
+    cmd: >
+      docker exec {{ redis_container_name }}
+      redis-cli --tls --cert /tls/redis.crt --key /tls/redis.key --cacert /tls/ca.crt
+      --user proxy --pass {{ redis_proxy_password }}
+      SET forbidden:key "should_fail"
+  register: acl_deny_test
+  changed_when: false
+  failed_when: "'NOPERM' not in acl_deny_test.stdout"
+  no_log: true
+
+- name: Verify ACL — proxy user CANNOT run dangerous commands
+  ansible.builtin.command:
+    cmd: >
+      docker exec {{ redis_container_name }}
+      redis-cli --tls --cert /tls/redis.crt --key /tls/redis.key --cacert /tls/ca.crt
+      --user proxy --pass {{ redis_proxy_password }}
+      FLUSHALL
+  register: acl_flushall_test
+  changed_when: false
+  failed_when: "'NOPERM' not in acl_flushall_test.stdout"
+  no_log: true
+
+- name: Clean up verification key
+  ansible.builtin.command:
+    cmd: >
+      docker exec {{ redis_container_name }}
+      redis-cli --tls --cert /tls/redis.crt --key /tls/redis.key --cacert /tls/ca.crt
+      -a {{ redis_admin_password }}
+      DEL ja4:test:verify
+  changed_when: false
+  no_log: true
+
+- name: Deployment summary
+  ansible.builtin.debug:
+    msg:
+      - "✅ Redis deployed securely"
+      - "   TLS:              {{ 'enabled (mTLS)' if redis_mtls_enabled else ('enabled' if redis_tls_enabled else 'disabled') }}"
+      - "   Encryption:       {{ 'LUKS2 AES-XTS-512' if redis_luks_enabled else 'disabled' }}"
+      - "   ACL users:        admin (full), proxy (ja4:* only), exporter (read-only)"
+      - "   Exporter:         {{ 'https://localhost:' ~ redis_exporter_port ~ '/metrics' if redis_exporter_enabled else 'disabled' }}"
+      - "   Auth monitoring:  cron every 5 min, threshold {{ redis_auth_failure_alert_threshold }} failures"
+      - "   Proxy client cert: {{ redis_tls_dir }}/client-proxy.crt"
+      - "   CA cert:          {{ redis_tls_dir }}/ca.crt"

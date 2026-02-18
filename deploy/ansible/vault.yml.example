@@ -1,0 +1,9 @@
+# Example vault file — encrypt with: ansible-vault encrypt vault.yml
+#
+# Generate passwords:
+#   openssl rand -base64 32 | tr -d '/+=' | head -c 40
+
+redis_admin_password: "CHANGE_ME_admin_password_min_32_chars_long"
+redis_proxy_password: "CHANGE_ME_proxy_password_min_32_chars_long"
+redis_exporter_password: "CHANGE_ME_exporter_password_min_32_chars"
+redis_luks_passphrase: "CHANGE_ME_luks_passphrase_min_32_chars_long"

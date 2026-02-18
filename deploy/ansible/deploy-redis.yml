@@ -1,0 +1,26 @@
+# JA4proxy — Secure Redis Deployment
+#
+# Deploys Redis 7 with:
+#   - TLS on all connections (mutual TLS optional)
+#   - ACL-based access control (proxy limited to ja4:* keys)
+#   - LUKS-encrypted persistent storage
+#   - Prometheus metrics via redis-exporter
+#   - Unauthorized access monitoring + alerting
+#
+# Usage:
+#   ansible-playbook -i inventory.ini deploy-redis.yml --ask-vault-pass
+#
+# Prerequisites:
+#   - Target host with Docker installed
+#   - Ansible Vault file with secrets (see defaults/main.yml)
+
+---
+- name: Deploy Secure Redis for JA4proxy
+  hosts: redis_servers
+  become: true
+
+  vars_files:
+    - vault.yml  # encrypted with ansible-vault
+
+  roles:
+    - redis-secure
