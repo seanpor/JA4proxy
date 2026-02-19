@@ -1076,8 +1076,10 @@ class ProxyServer:
                     if not adv_allowed:
                         allowed = False
                         reason = adv_reason
-                        # Determine action type from reason
-                        if 'TARPIT' in adv_reason.upper():
+                        # Pre-blocked/banned connections → instant drop (no tarpit)
+                        if 'expires in' in adv_reason or 'Permanently banned' in adv_reason:
+                            action_type = ActionType.BAN
+                        elif 'TARPIT' in adv_reason.upper():
                             action_type = ActionType.TARPIT
                         elif 'ban' in adv_reason.lower():
                             action_type = ActionType.BAN
