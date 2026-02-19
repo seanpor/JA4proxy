@@ -1111,10 +1111,11 @@ class ProxyServer:
                     source=client_ip
                 ).inc()
                 
-                # TARPIT: redirect to tarpit container
-                if action_type == ActionType.TARPIT:
+                # TARPIT: only tarpit if not yet banned (first few offenses)
+                # Banned connections are dropped instantly to free proxy capacity
+                if action_type == ActionType.TARPIT and 'ban' not in reason.lower():
                     await self._redirect_to_tarpit(data, reader, writer)
-                # BLOCK/BAN: just drop the connection
+                # BLOCK/BAN: drop the connection immediately
                 return
             
             # Log allowed connection
