@@ -130,7 +130,7 @@ rm -f "$OVERRIDE_FILE" "$HAPROXY_CFG"
 
 echo ""
 echo -e "${GREEN}✓ Running ${N} proxy instances behind HAProxy${NC}"
-echo "  HAProxy stats: https://localhost:8404/stats"
+echo "  HAProxy stats: http://localhost:8404/stats"
 echo "  Est. throughput: ~$((N * 210)) conn/s"
 echo ""
 echo "To reset to single proxy:  ./scale-proxies.sh 1"

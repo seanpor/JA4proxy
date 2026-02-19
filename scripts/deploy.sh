@@ -384,7 +384,7 @@ print_summary() {
     echo "- Metrics: http://localhost:9090"
     echo "- Grafana: http://localhost:3000 (admin/$(cat ${CONFIG_DIR}/secrets/grafana_password.txt))"
     echo "- Kibana: http://localhost:5601"
-    echo "- HAProxy Stats: https://localhost:8404/stats (TLS)"
+    echo "- HAProxy Stats: http://localhost:8404/stats"
     echo ""
     echo "Management Commands:"
     echo "- View logs: docker-compose -f docker-compose.${ENVIRONMENT}.yml logs -f"

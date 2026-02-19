@@ -16,7 +16,7 @@
 | Service | URL |
 |---------|-----|
 | HAProxy (LB) | `https://localhost:443` |
-| HAProxy Stats | `https://localhost:8404/stats` (TLS) |
+| HAProxy Stats | `http://localhost:8404/stats` |
 | Proxy Metrics | `http://localhost:9090/metrics` |
 | Backend (HTTPS) | `https://localhost:8443` |
 | Tarpit | `http://localhost:8888` |
