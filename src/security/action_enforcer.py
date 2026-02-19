@@ -161,20 +161,22 @@ class ActionEnforcer:
         for strategy in strategies:
             entity_id = self._get_entity_id(ja4, ip, strategy)
             
-            # Check blocks
-            block_key = f"blocked:{strategy.value}:{entity_id}"
-            if self.redis.exists(block_key):
-                ttl = self.redis.ttl(block_key)
-                return True, f"Blocked by {strategy.value} (expires in {ttl}s)"
+            # Check blocks (tarpit and hard block)
+            for block_type in ('tarpit', 'block'):
+                block_key = f"blocked:{block_type}:{entity_id}"
+                if self.redis.exists(block_key):
+                    ttl = self.redis.ttl(block_key)
+                    return True, f"Blocked ({block_type}) by {strategy.value} (expires in {ttl}s)"
             
-            # Check bans
-            ban_key = f"banned:{strategy.value}:{entity_id}"
-            if self.redis.exists(ban_key):
-                ttl = self.redis.ttl(ban_key)
-                if ttl == -1:
-                    return True, f"Permanently banned by {strategy.value}"
-                else:
-                    return True, f"Banned by {strategy.value} (expires in {ttl}s)"
+            # Check bans (temporary and permanent)
+            for ban_type in ('temporary', 'permanent'):
+                ban_key = f"banned:{ban_type}:{entity_id}"
+                if self.redis.exists(ban_key):
+                    ttl = self.redis.ttl(ban_key)
+                    if ttl == -1:
+                        return True, f"Permanently banned by {strategy.value}"
+                    else:
+                        return True, f"Banned for {ttl}s by {strategy.value}"
         
         return False, None
     
@@ -212,20 +214,22 @@ class ActionEnforcer:
             entity_id = self._get_entity_id(ja4, ip, strat)
             
             # Remove blocks
-            block_key = f"blocked:{strat.value}:{entity_id}"
-            if self.redis.delete(block_key):
-                self.logger.warning(
-                    f"MANUAL UNBAN: Removed block for {strat.value}:{entity_id[:32]}"
-                )
-                unbanned = True
+            for block_type in ('tarpit', 'block'):
+                block_key = f"blocked:{block_type}:{entity_id}"
+                if self.redis.delete(block_key):
+                    self.logger.warning(
+                        f"MANUAL UNBAN: Removed {block_type} block for {strat.value}:{entity_id[:32]}"
+                    )
+                    unbanned = True
             
             # Remove bans
-            ban_key = f"banned:{strat.value}:{entity_id}"
-            if self.redis.delete(ban_key):
-                self.logger.warning(
-                    f"MANUAL UNBAN: Removed ban for {strat.value}:{entity_id[:32]}"
-                )
-                unbanned = True
+            for ban_type in ('temporary', 'permanent'):
+                ban_key = f"banned:{ban_type}:{entity_id}"
+                if self.redis.delete(ban_key):
+                    self.logger.warning(
+                        f"MANUAL UNBAN: Removed {ban_type} ban for {strat.value}:{entity_id[:32]}"
+                    )
+                    unbanned = True
         
         return unbanned
     
