@@ -973,7 +973,34 @@ class ProxyServer:
             country = self.geoip.lookup(client_ip)
             fingerprint.geo_country = country
             
-            # --- SECURITY LAYER 0: Country-based filtering ---
+            # --- SECURITY LAYER 0: Whitelist fast-pass (never block legit) ---
+            is_whitelisted = False
+            if self.config['security'].get('whitelist_enabled', True):
+                # Check exact match in Redis set
+                is_whitelisted = ja4.encode() in self.security_manager.whitelist
+                # Check pattern-based whitelist (e.g., all h2 ALPN = browsers)
+                if not is_whitelisted:
+                    for pattern in self.config['security'].get('whitelist_patterns', []):
+                        if ja4.startswith(pattern) or pattern in ja4.split('_')[0]:
+                            is_whitelisted = True
+                            break
+
+            # Whitelisted traffic skips ALL security checks
+            if is_whitelisted:
+                self.logger.info(
+                    f"WHITELISTED: {client_ip} | Country: {country or 'N/A'} | "
+                    f"JA4: {ja4} | Name: {classify_ja4(ja4, self.config)} | TLS: {fingerprint.tls_version}"
+                )
+                REQUEST_COUNT.labels(
+                    fingerprint=ja4[:16],
+                    fingerprint_name=classify_ja4(ja4, self.config),
+                    action="allowed",
+                    source_country=country, tls_version=fingerprint.tls_version
+                ).inc()
+                await self._forward_to_backend(data, reader, writer, fingerprint)
+                return
+
+            # --- SECURITY LAYER 1: Country-based filtering ---
             if country:
                 # Country blacklist: block traffic from banned countries
                 if self.country_blacklist_enabled and country in self.country_blacklist:
@@ -1031,42 +1058,28 @@ class ProxyServer:
                     ).inc()
                     return  # Drop connection immediately
             
-            # --- SECURITY LAYER 2: Whitelist fast-pass ---
-            is_whitelisted = False
-            if self.config['security'].get('whitelist_enabled', True):
-                # Check exact match in Redis set
-                is_whitelisted = ja4.encode() in self.security_manager.whitelist
-                # Check pattern-based whitelist (e.g., all h2 ALPN = browsers)
-                if not is_whitelisted:
-                    for pattern in self.config['security'].get('whitelist_patterns', []):
-                        if ja4.startswith(pattern) or pattern in ja4.split('_')[0]:
-                            is_whitelisted = True
-                            break
-            
             # --- SECURITY LAYER 3: Advanced rate-based threat detection ---
-            # Only apply rate limiting to non-whitelisted connections
             allowed = True
             reason = "Allowed"
             action_type = ActionType.LOG
             
-            if not is_whitelisted:
-                try:
-                    adv_allowed, adv_reason = self.advanced_security.check_access(ja4, client_ip)
-                    if not adv_allowed:
-                        allowed = False
-                        reason = adv_reason
-                        # Determine action type from reason
-                        if 'TARPIT' in adv_reason.upper():
-                            action_type = ActionType.TARPIT
-                        elif 'ban' in adv_reason.lower():
-                            action_type = ActionType.BAN
-                        else:
-                            action_type = ActionType.BLOCK
-                except Exception as e:
-                    self.logger.error(f"Advanced security check failed: {e}")
-                    # Fail open for rate limiting (blacklist already checked above)
-                    allowed = True
-                    reason = "Allowed (security check error)"
+            try:
+                adv_allowed, adv_reason = self.advanced_security.check_access(ja4, client_ip)
+                if not adv_allowed:
+                    allowed = False
+                    reason = adv_reason
+                    # Determine action type from reason
+                    if 'TARPIT' in adv_reason.upper():
+                        action_type = ActionType.TARPIT
+                    elif 'ban' in adv_reason.lower():
+                        action_type = ActionType.BAN
+                    else:
+                        action_type = ActionType.BLOCK
+            except Exception as e:
+                self.logger.error(f"Advanced security check failed: {e}")
+                # Fail open for rate limiting (blacklist already checked above)
+                allowed = True
+                reason = "Allowed (security check error)"
             
             # Record metrics
             request_duration = time.time() - request_start
@@ -1105,10 +1118,9 @@ class ProxyServer:
                 return
             
             # Log allowed connection
-            log_prefix = "WHITELISTED" if is_whitelisted else "ALLOWED"
             ja4_name = classify_ja4(ja4, self.config)
             self.logger.info(
-                f"{log_prefix}: {client_ip} | Country: {country or 'N/A'} | "
+                f"ALLOWED: {client_ip} | Country: {country or 'N/A'} | "
                 f"JA4: {ja4} | Name: {ja4_name} | TLS: {fingerprint.tls_version}"
             )
             
