@@ -89,6 +89,8 @@ MAX_HEADER_SIZE = 8192  # 8KB
 MAX_CONNECTIONS_PER_IP = 100
 RATE_LIMIT_WINDOW = 60  # seconds
 DEFAULT_TIMEOUT = 30
+SERVER_BACKLOG = 4096  # TCP accept queue depth — high value to survive traffic bursts
+MAX_CONCURRENT_CONNECTIONS = 2000  # asyncio semaphore limit
 TLS_MIN_VERSION = ssl.TLSVersion.TLSv1_2
 SECURE_CIPHER_SUITES = [
     "ECDHE+AESGCM", "ECDHE+CHACHA20", "DHE+AESGCM", "DHE+CHACHA20", "!aNULL", "!eNULL", 
@@ -767,6 +769,9 @@ class ProxyServer:
         # Keep legacy SecurityManager for blacklist/whitelist checks
         self.security_manager = SecurityManager(self.config, self.redis_client)
         
+        # Connection concurrency semaphore — prevents TCP exhaustion under DDoS
+        self._conn_semaphore = asyncio.Semaphore(MAX_CONCURRENT_CONNECTIONS)
+        
         # Initialize GeoIP lookup
         geoip_path = self.config.get('geoip', {}).get('database_path')
         self.geoip = GeoIPLookup(geoip_path)
@@ -916,7 +921,8 @@ class ProxyServer:
         server = await asyncio.start_server(
             self.handle_connection,
             self.config['proxy']['bind_host'],
-            self.config['proxy']['bind_port']
+            self.config['proxy']['bind_port'],
+            backlog=SERVER_BACKLOG
         )
         
         bind_addr = f"{self.config['proxy']['bind_host']}:{self.config['proxy']['bind_port']}"
@@ -938,213 +944,215 @@ class ProxyServer:
         connection_timeout = self.config['proxy'].get('connection_timeout', DEFAULT_TIMEOUT)
         read_timeout = self.config['proxy'].get('read_timeout', DEFAULT_TIMEOUT)
         
-        try:
-            # Read initial data with timeout
-            request_start = time.time()
-            data = await asyncio.wait_for(
-                reader.read(self.config['proxy']['buffer_size']),
-                timeout=read_timeout
-            )
-            
-            if not data:
-                self.logger.debug(f"Empty data from {client_ip}")
-                return
-            
-            # Parse PROXY protocol v2 header if enabled
-            if self.config['proxy'].get('proxy_protocol', False):
-                client_ip, data = self._parse_proxy_protocol(data, socket_ip)
-            
-            # Also check for X-Forwarded-For in HTTP requests as fallback
-            if client_ip == socket_ip:
-                extracted_ip = self._extract_client_ip_from_http(data)
-                if extracted_ip:
-                    client_ip = extracted_ip
-            
-            self.logger.info(f"Connection from {client_ip} (socket: {socket_ip})")
-            
-            # Analyze TLS handshake — extract JA4 fingerprint
-            fingerprint = await asyncio.wait_for(
-                self._analyze_tls_handshake(data, client_ip),
-                timeout=connection_timeout
-            )
-            ja4 = fingerprint.ja4
-            
-            # --- GeoIP lookup ---
-            country = self.geoip.lookup(client_ip)
-            fingerprint.geo_country = country
-            
-            # --- SECURITY LAYER 0: Whitelist fast-pass (never block legit) ---
-            is_whitelisted = False
-            if self.config['security'].get('whitelist_enabled', True):
-                # Check exact match in Redis set
-                is_whitelisted = ja4.encode() in self.security_manager.whitelist
-                # Check pattern-based whitelist (e.g., all h2 ALPN = browsers)
-                if not is_whitelisted:
-                    for pattern in self.config['security'].get('whitelist_patterns', []):
-                        if ja4.startswith(pattern) or pattern in ja4.split('_')[0]:
-                            is_whitelisted = True
-                            break
-
-            # Whitelisted traffic skips ALL security checks
-            if is_whitelisted:
-                self.logger.info(
-                    f"WHITELISTED: {client_ip} | Country: {country or 'N/A'} | "
-                    f"JA4: {ja4} | Name: {classify_ja4(ja4, self.config)} | TLS: {fingerprint.tls_version}"
-                )
-                REQUEST_COUNT.labels(
-                    fingerprint=ja4[:16],
-                    fingerprint_name=classify_ja4(ja4, self.config),
-                    action="allowed",
-                    source_country=country, tls_version=fingerprint.tls_version
-                ).inc()
-                await self._forward_to_backend(data, reader, writer, fingerprint)
-                return
-
-            # --- SECURITY LAYER 1: Country-based filtering ---
-            if country:
-                # Country blacklist: block traffic from banned countries
-                if self.country_blacklist_enabled and country in self.country_blacklist:
-                    self.logger.warning(
-                        f"COUNTRY_BLOCKED: {client_ip} | Country: {country} | "
-                        f"JA4: {ja4} | Name: {classify_ja4(ja4, self.config)}"
-                    )
-                    REQUEST_COUNT.labels(
-                        fingerprint=ja4[:16],
-                        fingerprint_name=classify_ja4(ja4, self.config),
-                        action="blocked",
-                        source_country=country, tls_version=fingerprint.tls_version
-                    ).inc()
-                    BLOCKED_REQUESTS.labels(
-                        reason='country_blacklist', source_country=country,
-                        attack_type='geo_block'
-                    ).inc()
-                    return
-                # Country whitelist: if enabled, block anything NOT in the list
-                if self.country_whitelist_enabled and country not in self.country_whitelist:
-                    self.logger.warning(
-                        f"COUNTRY_NOT_WHITELISTED: {client_ip} | Country: {country} | "
-                        f"JA4: {ja4} | Name: {classify_ja4(ja4, self.config)}"
-                    )
-                    REQUEST_COUNT.labels(
-                        fingerprint=ja4[:16],
-                        fingerprint_name=classify_ja4(ja4, self.config),
-                        action="blocked",
-                        source_country=country, tls_version=fingerprint.tls_version
-                    ).inc()
-                    BLOCKED_REQUESTS.labels(
-                        reason='country_not_whitelisted', source_country=country,
-                        attack_type='geo_block'
-                    ).inc()
-                    return
-            
-            # --- SECURITY LAYER 1: Blacklist check (instant block) ---
-            if self.config['security'].get('blacklist_enabled', True):
-                if ja4.encode() in self.security_manager.blacklist:
-                    self.logger.warning(
-                        f"BLACKLISTED: {client_ip} | Country: {country or 'N/A'} | "
-                        f"JA4: {ja4} | Name: {classify_ja4(ja4, self.config)} | Instant block"
-                    )
-                    REQUEST_COUNT.labels(
-                        fingerprint=ja4[:16],
-                        fingerprint_name=classify_ja4(ja4, self.config),
-                        action="blocked",
-                        source_country=country, tls_version=fingerprint.tls_version
-                    ).inc()
-                    BLOCKED_REQUESTS.labels(
-                        reason='blacklist', source_country=country, attack_type='blacklist'
-                    ).inc()
-                    SECURITY_EVENTS.labels(
-                        event_type='blacklist_hit', severity='critical', source=client_ip
-                    ).inc()
-                    return  # Drop connection immediately
-            
-            # --- SECURITY LAYER 3: Advanced rate-based threat detection ---
-            allowed = True
-            reason = "Allowed"
-            action_type = ActionType.LOG
-            
+        # Semaphore: cap concurrent handlers to prevent resource exhaustion
+        async with self._conn_semaphore:
             try:
-                adv_allowed, adv_reason = self.advanced_security.check_access(ja4, client_ip)
-                if not adv_allowed:
-                    allowed = False
-                    reason = adv_reason
-                    # Determine action type from reason
-                    if 'TARPIT' in adv_reason.upper():
-                        action_type = ActionType.TARPIT
-                    elif 'ban' in adv_reason.lower():
-                        action_type = ActionType.BAN
-                    else:
-                        action_type = ActionType.BLOCK
-            except Exception as e:
-                self.logger.error(f"Advanced security check failed: {e}")
-                # Fail open for rate limiting (blacklist already checked above)
-                allowed = True
-                reason = "Allowed (security check error)"
-            
-            # Record metrics
-            request_duration = time.time() - request_start
-            REQUEST_DURATION.observe(request_duration)
-            action_label = "allowed" if allowed else "blocked"
-            REQUEST_COUNT.labels(
-                fingerprint=ja4[:16] if ja4 else "unknown",
-                fingerprint_name=classify_ja4(ja4, self.config) if ja4 else "Unknown",
-                action=action_label,
-                source_country=fingerprint.geo_country,
-                tls_version=fingerprint.tls_version
-            ).inc()
-            
-            if not allowed:
-                ja4_name = classify_ja4(ja4, self.config)
-                self.logger.warning(
-                    f"BLOCKED: {client_ip} | Country: {country or 'N/A'} | "
-                    f"JA4: {ja4} | Name: {ja4_name} | Reason: {reason} | "
-                    f"Action: {action_type.value}"
+                # Read initial data with timeout
+                request_start = time.time()
+                data = await asyncio.wait_for(
+                    reader.read(self.config['proxy']['buffer_size']),
+                    timeout=read_timeout
                 )
-                BLOCKED_REQUESTS.labels(
-                    reason=reason[:50],
+                
+                if not data:
+                    self.logger.debug(f"Empty data from {client_ip}")
+                    return
+                
+                # Parse PROXY protocol v2 header if enabled
+                if self.config['proxy'].get('proxy_protocol', False):
+                    client_ip, data = self._parse_proxy_protocol(data, socket_ip)
+                
+                # Also check for X-Forwarded-For in HTTP requests as fallback
+                if client_ip == socket_ip:
+                    extracted_ip = self._extract_client_ip_from_http(data)
+                    if extracted_ip:
+                        client_ip = extracted_ip
+                
+                self.logger.info(f"Connection from {client_ip} (socket: {socket_ip})")
+                
+                # Analyze TLS handshake — extract JA4 fingerprint
+                fingerprint = await asyncio.wait_for(
+                    self._analyze_tls_handshake(data, client_ip),
+                    timeout=connection_timeout
+                )
+                ja4 = fingerprint.ja4
+                
+                # --- GeoIP lookup ---
+                country = self.geoip.lookup(client_ip)
+                fingerprint.geo_country = country
+                
+                # --- SECURITY LAYER 0: Whitelist fast-pass (never block legit) ---
+                is_whitelisted = False
+                if self.config['security'].get('whitelist_enabled', True):
+                    # Check exact match in Redis set
+                    is_whitelisted = ja4.encode() in self.security_manager.whitelist
+                    # Check pattern-based whitelist (e.g., all h2 ALPN = browsers)
+                    if not is_whitelisted:
+                        for pattern in self.config['security'].get('whitelist_patterns', []):
+                            if ja4.startswith(pattern) or pattern in ja4.split('_')[0]:
+                                is_whitelisted = True
+                                break
+
+                # Whitelisted traffic skips ALL security checks
+                if is_whitelisted:
+                    self.logger.info(
+                        f"WHITELISTED: {client_ip} | Country: {country or 'N/A'} | "
+                        f"JA4: {ja4} | Name: {classify_ja4(ja4, self.config)} | TLS: {fingerprint.tls_version}"
+                    )
+                    REQUEST_COUNT.labels(
+                        fingerprint=ja4[:16],
+                        fingerprint_name=classify_ja4(ja4, self.config),
+                        action="allowed",
+                        source_country=country, tls_version=fingerprint.tls_version
+                    ).inc()
+                    await self._forward_to_backend(data, reader, writer, fingerprint)
+                    return
+
+                # --- SECURITY LAYER 1: Country-based filtering ---
+                if country:
+                    # Country blacklist: block traffic from banned countries
+                    if self.country_blacklist_enabled and country in self.country_blacklist:
+                        self.logger.warning(
+                            f"COUNTRY_BLOCKED: {client_ip} | Country: {country} | "
+                            f"JA4: {ja4} | Name: {classify_ja4(ja4, self.config)}"
+                        )
+                        REQUEST_COUNT.labels(
+                            fingerprint=ja4[:16],
+                            fingerprint_name=classify_ja4(ja4, self.config),
+                            action="blocked",
+                            source_country=country, tls_version=fingerprint.tls_version
+                        ).inc()
+                        BLOCKED_REQUESTS.labels(
+                            reason='country_blacklist', source_country=country,
+                            attack_type='geo_block'
+                        ).inc()
+                        return
+                    # Country whitelist: if enabled, block anything NOT in the list
+                    if self.country_whitelist_enabled and country not in self.country_whitelist:
+                        self.logger.warning(
+                            f"COUNTRY_NOT_WHITELISTED: {client_ip} | Country: {country} | "
+                            f"JA4: {ja4} | Name: {classify_ja4(ja4, self.config)}"
+                        )
+                        REQUEST_COUNT.labels(
+                            fingerprint=ja4[:16],
+                            fingerprint_name=classify_ja4(ja4, self.config),
+                            action="blocked",
+                            source_country=country, tls_version=fingerprint.tls_version
+                        ).inc()
+                        BLOCKED_REQUESTS.labels(
+                            reason='country_not_whitelisted', source_country=country,
+                            attack_type='geo_block'
+                        ).inc()
+                        return
+                
+                # --- SECURITY LAYER 2: Blacklist check (instant block) ---
+                if self.config['security'].get('blacklist_enabled', True):
+                    if ja4.encode() in self.security_manager.blacklist:
+                        self.logger.warning(
+                            f"BLACKLISTED: {client_ip} | Country: {country or 'N/A'} | "
+                            f"JA4: {ja4} | Name: {classify_ja4(ja4, self.config)} | Instant block"
+                        )
+                        REQUEST_COUNT.labels(
+                            fingerprint=ja4[:16],
+                            fingerprint_name=classify_ja4(ja4, self.config),
+                            action="blocked",
+                            source_country=country, tls_version=fingerprint.tls_version
+                        ).inc()
+                        BLOCKED_REQUESTS.labels(
+                            reason='blacklist', source_country=country, attack_type='blacklist'
+                        ).inc()
+                        SECURITY_EVENTS.labels(
+                            event_type='blacklist_hit', severity='critical', source=client_ip
+                        ).inc()
+                        return  # Drop connection immediately
+                
+                # --- SECURITY LAYER 3: Advanced rate-based threat detection ---
+                allowed = True
+                reason = "Allowed"
+                action_type = ActionType.LOG
+                
+                try:
+                    adv_allowed, adv_reason = self.advanced_security.check_access(ja4, client_ip)
+                    if not adv_allowed:
+                        allowed = False
+                        reason = adv_reason
+                        # Determine action type from reason
+                        if 'TARPIT' in adv_reason.upper():
+                            action_type = ActionType.TARPIT
+                        elif 'ban' in adv_reason.lower():
+                            action_type = ActionType.BAN
+                        else:
+                            action_type = ActionType.BLOCK
+                except Exception as e:
+                    self.logger.error(f"Advanced security check failed: {e}")
+                    # Fail open for rate limiting (blacklist already checked above)
+                    allowed = True
+                    reason = "Allowed (security check error)"
+                
+                # Record metrics
+                request_duration = time.time() - request_start
+                REQUEST_DURATION.observe(request_duration)
+                action_label = "allowed" if allowed else "blocked"
+                REQUEST_COUNT.labels(
+                    fingerprint=ja4[:16] if ja4 else "unknown",
+                    fingerprint_name=classify_ja4(ja4, self.config) if ja4 else "Unknown",
+                    action=action_label,
                     source_country=fingerprint.geo_country,
-                    attack_type=action_type.value
-                ).inc()
-                SECURITY_EVENTS.labels(
-                    event_type='rate_limit_exceeded',
-                    severity='high',
-                    source=client_ip
+                    tls_version=fingerprint.tls_version
                 ).inc()
                 
-                # TARPIT: only tarpit if not yet banned (first few offenses)
-                # Banned connections are dropped instantly to free proxy capacity
-                if action_type == ActionType.TARPIT and 'ban' not in reason.lower():
-                    await self._redirect_to_tarpit(data, reader, writer)
-                # BLOCK/BAN: drop the connection immediately
-                return
-            
-            # Log allowed connection
-            ja4_name = classify_ja4(ja4, self.config)
-            self.logger.info(
-                f"ALLOWED: {client_ip} | Country: {country or 'N/A'} | "
-                f"JA4: {ja4} | Name: {ja4_name} | TLS: {fingerprint.tls_version}"
-            )
-            
-            # Forward to backend
-            await self._forward_to_backend(data, reader, writer, fingerprint)
-            
-        except asyncio.TimeoutError:
-            self.logger.warning(f"TIMEOUT: {client_ip} | Connection timed out")
-            TLS_HANDSHAKE_ERRORS.labels(error_type='timeout', tls_version='unknown').inc()
-        except ValidationError as e:
-            self.logger.warning(f"VALIDATION_ERROR: {client_ip} | {e}")
-            SECURITY_EVENTS.labels(event_type='validation_error', severity='warning', source=client_ip).inc()
-        except Exception as e:
-            self.logger.error(f"ERROR: {client_ip} | {e}", exc_info=False)
-            SECURITY_EVENTS.labels(event_type='connection_error', severity='error', source=client_ip).inc()
-        finally:
-            self.active_connections -= 1
-            ACTIVE_CONNECTIONS.set(self.active_connections)
-            try:
-                writer.close()
-                await writer.wait_closed()
-            except Exception:
-                pass
+                if not allowed:
+                    ja4_name = classify_ja4(ja4, self.config)
+                    self.logger.warning(
+                        f"BLOCKED: {client_ip} | Country: {country or 'N/A'} | "
+                        f"JA4: {ja4} | Name: {ja4_name} | Reason: {reason} | "
+                        f"Action: {action_type.value}"
+                    )
+                    BLOCKED_REQUESTS.labels(
+                        reason=reason[:50],
+                        source_country=fingerprint.geo_country,
+                        attack_type=action_type.value
+                    ).inc()
+                    SECURITY_EVENTS.labels(
+                        event_type='rate_limit_exceeded',
+                        severity='high',
+                        source=client_ip
+                    ).inc()
+                    
+                    # TARPIT: only tarpit if not yet banned (first few offenses)
+                    # Banned connections are dropped instantly to free proxy capacity
+                    if action_type == ActionType.TARPIT and 'ban' not in reason.lower():
+                        await self._redirect_to_tarpit(data, reader, writer)
+                    # BLOCK/BAN: drop the connection immediately
+                    return
+                
+                # Log allowed connection
+                ja4_name = classify_ja4(ja4, self.config)
+                self.logger.info(
+                    f"ALLOWED: {client_ip} | Country: {country or 'N/A'} | "
+                    f"JA4: {ja4} | Name: {ja4_name} | TLS: {fingerprint.tls_version}"
+                )
+                
+                # Forward to backend
+                await self._forward_to_backend(data, reader, writer, fingerprint)
+                
+            except asyncio.TimeoutError:
+                self.logger.warning(f"TIMEOUT: {client_ip} | Connection timed out")
+                TLS_HANDSHAKE_ERRORS.labels(error_type='timeout', tls_version='unknown').inc()
+            except ValidationError as e:
+                self.logger.warning(f"VALIDATION_ERROR: {client_ip} | {e}")
+                SECURITY_EVENTS.labels(event_type='validation_error', severity='warning', source=client_ip).inc()
+            except Exception as e:
+                self.logger.error(f"ERROR: {client_ip} | {e}", exc_info=False)
+                SECURITY_EVENTS.labels(event_type='connection_error', severity='error', source=client_ip).inc()
+            finally:
+                self.active_connections -= 1
+                ACTIVE_CONNECTIONS.set(self.active_connections)
+                try:
+                    writer.close()
+                    await writer.wait_closed()
+                except Exception:
+                    pass
     
     def _parse_proxy_protocol(self, data: bytes, fallback_ip: str) -> tuple:
         """Parse PROXY protocol v2 header to extract real client IP."""
