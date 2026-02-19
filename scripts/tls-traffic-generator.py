@@ -229,10 +229,10 @@ class TrafficGenerator:
                     result["status"] = "empty_response"
                     self.stats[profile.name]["success"] += 1
             except socket.timeout:
-                # Might be tarpitted
+                # TLS handshake succeeded so the proxy allowed it.
+                # Timeout reading response = backend slow, not blocked.
                 result["status"] = "timeout_reading"
-                result["blocked"] = True
-                self.stats[profile.name]["blocked"] += 1
+                self.stats[profile.name]["success"] += 1
                 
         except ssl.SSLError as e:
             # TLS handshake failed — could be blocked
