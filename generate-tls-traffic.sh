@@ -38,6 +38,20 @@ fi
 echo -e "${GREEN}✓ Services are running${NC}"
 echo ""
 
+# Clear stale rate-tracking, bans, and audit keys from previous runs
+# (preserves whitelist/blacklist configuration)
+echo -e "${BLUE}▶ Clearing stale security state from previous runs...${NC}"
+REDIS_PASS=$(grep '^REDIS_PASSWORD=' .env 2>/dev/null | cut -d= -f2)
+if [ -n "$REDIS_PASS" ]; then
+    # Delete enforcement, audit, rate, banned, and blocked keys (keep ja4:whitelist/blacklist)
+    docker exec ja4proxy-redis redis-cli -a "$REDIS_PASS" --no-auth-warning \
+        EVAL "local count=0; for _,k in ipairs(redis.call('keys','enforcement:*')) do redis.call('del',k); count=count+1 end; for _,k in ipairs(redis.call('keys','audit:*')) do redis.call('del',k); count=count+1 end; for _,k in ipairs(redis.call('keys','rate:*')) do redis.call('del',k); count=count+1 end; for _,k in ipairs(redis.call('keys','banned:*')) do redis.call('del',k); count=count+1 end; for _,k in ipairs(redis.call('keys','blocked:*')) do redis.call('del',k); count=count+1 end; return count" 0 \
+        2>/dev/null && echo -e "${GREEN}✓ Cleared stale keys${NC}" || echo -e "${YELLOW}⚠ Could not clear Redis (non-fatal)${NC}"
+else
+    echo -e "${YELLOW}⚠ No REDIS_PASSWORD in .env, skipping Redis cleanup${NC}"
+fi
+echo ""
+
 echo -e "${BLUE}Configuration:${NC}"
 echo -e "  Duration:        ${DURATION}s"
 echo -e "  Good Traffic:    ${GOOD_PERCENT}%"
