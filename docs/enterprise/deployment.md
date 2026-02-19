@@ -247,47 +247,73 @@ global
     user haproxy
     group haproxy
     
-    # TLS
-    ssl-default-bind-ciphers ECDHE+aes128gcm:ECDHE+aes256gcm:ECDHE+aes128sha256:ECDHE+aes256sha384
-    ssl-default-bind-options no-sslv3 no-tlsv10 no-tlsv11
+    # TLS 1.2+ only — strong ciphers, no RC4/DES/3DES/CBC
+    ssl-default-bind-options ssl-min-ver TLSv1.2 no-tls-tickets
+    ssl-default-bind-ciphersuites TLS_AES_256_GCM_SHA384:TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256
+    ssl-default-bind-ciphers ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305
+    ssl-default-server-options ssl-min-ver TLSv1.2 no-tls-tickets
+    ssl-default-server-ciphers ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256
+    tune.ssl.default-dh-param 2048
 
 defaults
-    mode http
+    mode tcp
     timeout connect 10s
     timeout client 30s
     timeout server 30s
-    option httplog
+    option tcplog
     option dontlognull
-    option redispatch
     retries 3
 
-frontend ja4proxy_frontend
-    bind *:80
-    bind *:443 ssl crt /etc/ssl/certs/proxy.pem
-    redirect scheme https if !{ ssl_fc }
-    
-    # Security headers
+# TLS passthrough — preserves ClientHello for JA4 fingerprinting
+frontend tls_in
+    bind *:443
+    default_backend ja4proxy_backend
+    option tcplog
+
+# TLS-terminated management endpoint
+frontend tls_managed
+    bind *:8443 ssl crt /etc/ssl/certs/haproxy.pem alpn h2,http/1.1
+    mode http
     http-response set-header Strict-Transport-Security max-age=31536000
     http-response set-header X-Content-Type-Options nosniff
     http-response set-header X-Frame-Options DENY
-    
-    default_backend ja4proxy_backend
+    default_backend ja4proxy_backend_http
+
+frontend http_in
+    bind *:80
+    mode http
+    acl is_health path /haproxy-health
+    http-request return status 200 content-type text/plain string "OK" if is_health
+    default_backend ja4proxy_backend_http
 
 backend ja4proxy_backend
     balance roundrobin
-    option httpchk GET /health
-    http-check expect status 200
-    
+    server proxy1 proxy-1:8080 send-proxy-v2 check inter 5s fall 3 rise 2
+    server proxy2 proxy-2:8080 send-proxy-v2 check inter 5s fall 3 rise 2
+    server proxy3 proxy-3:8080 send-proxy-v2 check inter 5s fall 3 rise 2
+
+backend ja4proxy_backend_http
+    mode http
+    balance roundrobin
     server proxy1 proxy-1:8080 check inter 5s fall 3 rise 2
     server proxy2 proxy-2:8080 check inter 5s fall 3 rise 2
     server proxy3 proxy-3:8080 check inter 5s fall 3 rise 2
 
+# mTLS to backend with certificate pinning
+backend ja4proxy_backend_mtls
+    mode http
+    server proxy1 proxy-1:8443 ssl verify required ca-file /etc/ssl/certs/ca.crt crt /etc/ssl/certs/haproxy-client.pem
+
 listen stats
-    bind *:8404
+    bind *:8404 ssl crt /etc/ssl/certs/haproxy.pem
+    mode http
     stats enable
     stats uri /stats
     stats refresh 10s
     stats admin if TRUE
+    # Log TLS handshake failures
+    option httplog
+    log-format "%ci:%cp [%t] %ft %ST %B %ts sslv:%sslv sslc:%sslc %{+Q}r"
 ```
 
 ### Redis Cluster Setup

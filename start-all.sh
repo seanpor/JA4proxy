@@ -49,7 +49,7 @@ echo "========================================"
 echo
 echo "Services:"
 echo "  HAProxy (LB):  https://localhost:443 (TLS passthrough)"
-echo "  HAProxy Stats: http://localhost:8404/stats"
+echo "  HAProxy Stats: https://localhost:8404/stats (TLS)"
 echo "  Proxy:         http://localhost:8080"
 echo "  Backend:       https://localhost:8443"
 echo "  Tarpit:        http://localhost:8888"

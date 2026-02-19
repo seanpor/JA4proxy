@@ -37,7 +37,7 @@ You'll see:
 | Service | URL |
 |---------|-----|
 | HAProxy (LB) | `https://localhost:443` |
-| HAProxy Stats | `http://localhost:8404/stats` |
+| HAProxy Stats | `https://localhost:8404/stats` (TLS) |
 | JA4proxy | `http://localhost:8080` |
 | Proxy Metrics | `http://localhost:9090/metrics` |
 | Backend (HTTPS) | `https://localhost:8443` |

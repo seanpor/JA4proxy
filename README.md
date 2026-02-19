@@ -57,7 +57,7 @@ Rate limiting escalates: **suspicious → tarpit → block → ban**.
 | Service | URL | Notes |
 |---------|-----|-------|
 | HAProxy (LB) | `https://localhost:443` | TLS passthrough, PROXY protocol v2 |
-| HAProxy stats | `http://localhost:8404/stats` | |
+| HAProxy stats | `https://localhost:8404/stats` | TLS required |
 | JA4proxy | `http://localhost:8080` | Proxy + metrics on :9090 |
 | Backend | `https://localhost:8443` | Protected HTTPS server |
 | Tarpit | `http://localhost:8888` | 1 byte/sec slow drain |
