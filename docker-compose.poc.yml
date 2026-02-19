@@ -6,8 +6,10 @@ services:
       - "443:443"
       - "8880:80"
       - "127.0.0.1:8404:8404"
+      - "127.0.0.1:8443:8443"
     volumes:
       - ./ha-config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ./ssl:/etc/ssl:ro
     depends_on:
       - proxy
     networks:

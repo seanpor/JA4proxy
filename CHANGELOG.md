@@ -20,6 +20,11 @@
 - **127.0.0.1 port bindings** — Internal services (proxy:8080, metrics:9090, backend:8443, tarpit:8888) only accessible from localhost
 - **Redis not exposed to host** — Only accessible within Docker backend network
 - **HAProxy only public-facing port** — Port 443 (TLS) and 8880 (HTTP redirect) are the only ports on all interfaces
+- **HAProxy TLS hardened** — TLS 1.2+ enforced globally, only ECDHE+AES-GCM/CHACHA20 ciphers, no RC4/DES/3DES/CBC
+- **HAProxy stats TLS-secured** — Stats endpoint on :8404 now requires TLS
+- **HAProxy management frontend** — New TLS-terminated endpoint on :8443 with mTLS support
+- **Backend certificate pinning** — mTLS backend verifies server cert against internal CA
+- **TLS handshake failure logging** — All frontends log TLS version, cipher, and termination state to syslog
 
 ### 🛡️ APPLICATION SECURITY
 - **Fixed eval() RCE** in `tests/integration/test_docker_stack.py` — replaced with safe string comparison

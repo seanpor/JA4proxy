@@ -83,6 +83,9 @@ cat > /tmp/haproxy-bench.cfg << 'HAEOF'
 global
     log stdout format raw local0
     maxconn 4096
+    ssl-default-bind-options ssl-min-ver TLSv1.2 no-tls-tickets
+    ssl-default-bind-ciphers ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305
+    ssl-default-server-options ssl-min-ver TLSv1.2 no-tls-tickets
 
 defaults
     log     global
@@ -152,6 +155,9 @@ cat > /tmp/haproxy-bench.cfg << 'HAEOF'
 global
     log stdout format raw local0
     maxconn 4096
+    ssl-default-bind-options ssl-min-ver TLSv1.2 no-tls-tickets
+    ssl-default-bind-ciphers ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305
+    ssl-default-server-options ssl-min-ver TLSv1.2 no-tls-tickets
 
 defaults
     log     global

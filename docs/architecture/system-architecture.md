@@ -278,7 +278,7 @@ graph TB
 | Zone | Component | Inbound Ports | Outbound | Access Control |
 |------|-----------|---------------|-----------|----------------|
 | DMZ | WAF | 80,443 | App Zone:8080 | Public + DDoS Protection |
-| DMZ | Load Balancer | 8404 (stats) | App Zone:8080 | Internal + Admin |
+| DMZ | Load Balancer | 443,8443,8404 (TLS) | App Zone:8080 | Internal + Admin |
 | App | JA4 Proxy | 8080,9090 | Data Zone:6379,9200 | Internal Only |
 | Data | Redis | 6379,6380 | None | Cluster + mTLS |
 | Data | Elasticsearch | 9200,9300 | None | Internal + Auth |

@@ -8,7 +8,8 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "8404:8404"  # Stats
+      - "8404:8404"  # Stats (TLS)
+      - "8443:8443"  # Management (TLS)
     volumes:
       - ./ha-config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
       - ./ssl:/etc/ssl:ro
