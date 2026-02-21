@@ -1065,7 +1065,26 @@ class ProxyServer:
                             event_type='blacklist_hit', severity='critical', source=client_ip
                         ).inc()
                         return  # Drop connection immediately
-                
+
+                # --- FAIL OPEN for unparseable TLS ---
+                # If we couldn't extract a JA4 fingerprint (Scapy parse failure, non-TLS
+                # protocol, or unusual TLS extension), rate-limiting on "unknown"/"error"
+                # would pool all such connections together and cause false positives.
+                # The blacklist has already been checked above; forward and let the backend decide.
+                if ja4 in ("unknown", "error"):
+                    self.logger.info(
+                        f"UNKNOWN_JA4: {client_ip} | Country: {country or 'N/A'} | "
+                        f"Forwarding (TLS parse failed — fail open)"
+                    )
+                    REQUEST_COUNT.labels(
+                        fingerprint="unknown",
+                        fingerprint_name="Unknown",
+                        action="allowed",
+                        source_country=country, tls_version=fingerprint.tls_version
+                    ).inc()
+                    await self._forward_to_backend(data, reader, writer, fingerprint)
+                    return
+
                 # --- SECURITY LAYER 3: Advanced rate-based threat detection ---
                 allowed = True
                 reason = "Allowed"
