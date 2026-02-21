@@ -117,7 +117,7 @@ class ActionEnforcer:
         
         elif tier == ThreatTier.BLOCK:
             action_type = self._get_action_type_for_block(strategy, action_override)
-            return self._apply_block(ja4, ip, entity_id, action_type)
+            return self._apply_block(ja4, ip, entity_id, action_type, strategy)
         
         elif tier == ThreatTier.BANNED:
             return self._apply_ban(ja4, ip, entity_id, strategy)
@@ -309,10 +309,13 @@ class ActionEnforcer:
         ip: str,
         entity_id: str,
         action_type: ActionType,
+        strategy: Optional[RateLimitStrategy] = None,
     ) -> ActionResult:
         """Apply block or TARPIT."""
-        # Get duration from config
-        duration = 3600  # Default 1 hour
+        # Get duration from per-strategy config, fall back to 3600s default
+        duration = 3600
+        if strategy and strategy in self.strategy_configs:
+            duration = int(self.strategy_configs[strategy].get('ban_duration', 3600))
         
         # Store block in Redis
         if action_type == ActionType.TARPIT:
