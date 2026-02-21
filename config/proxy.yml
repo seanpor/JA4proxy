@@ -47,40 +47,42 @@ security:
   max_ban_duration: 2592000
 
   # Multi-strategy policy: any, all, majority
-  multi_strategy_policy: "any"
+  # "majority" requires 2 of 3 strategies to agree before blocking — eliminates
+  # single-strategy false positives (e.g. BY_IP_JA4_PAIR alone triggering on burst).
+  multi_strategy_policy: "majority"
 
   # Threat thresholds (connections per 1-second window)
   thresholds:
-    suspicious: 2
-    block: 5
-    ban: 10
+    suspicious: 20
+    block: 50
+    ban: 100
 
   # Rate limit strategies
   rate_limit_strategies:
     by_ip:
       enabled: true
       thresholds:
-        suspicious: 10
-        block: 50
-        ban: 100
+        suspicious: 50
+        block: 200
+        ban: 500
       action: "tarpit"
-      ban_duration: 3600
+      ban_duration: 300
     by_ja4:
       enabled: true
       thresholds:
-        suspicious: 5
-        block: 15
-        ban: 20
+        suspicious: 20
+        block: 100
+        ban: 200
       action: "block"
-      ban_duration: 3600
+      ban_duration: 300
     by_ip_ja4_pair:
       enabled: true
       thresholds:
-        suspicious: 2
-        block: 5
-        ban: 8
+        suspicious: 20
+        block: 50
+        ban: 100
       action: "tarpit"
-      ban_duration: 3600
+      ban_duration: 300
 
   # Known good JA4 fingerprints (whitelisted)
   whitelist:
@@ -92,9 +94,10 @@ security:
     - "t13i1515h2_8daaf6152771_02713d6af862"  # Chrome (IP destination)
 
   # Pattern-based whitelist: match JA4 prefix patterns (survives OpenSSL version changes)
-  # Any JA4 with h2 ALPN = legitimate browser (Chrome, Firefox, Safari, Edge)
+  # Whitelisted connections skip ALL rate limiting — they are never blocked.
   whitelist_patterns:
-    - "h2"  # Any fingerprint with HTTP/2 ALPN = browser
+    - "h2"   # HTTP/2 ALPN = modern browser (Chrome, Firefox, Safari, Edge)
+    - "h1"   # HTTP/1.1 ALPN = older browser or browser in fallback mode
 
   # Known bad JA4 fingerprints (blacklisted)
   blacklist:
