@@ -1,6 +1,6 @@
 # Makefile for JA4 Proxy
 
-.PHONY: help build test lint clean deploy-poc deploy-enterprise smoke-test
+.PHONY: help build test lint clean deploy-poc deploy-enterprise smoke-test flush-redis
 
 # Default target
 help:
@@ -15,6 +15,7 @@ help:
 	@echo "  health-check      - Run health checks"
 	@echo "  logs              - View proxy logs"
 	@echo "  stop              - Stop all services"
+	@echo "  flush-redis       - Clear all security state (bans/blocks/rates) — keep whitelist/blacklist"
 
 # Build Docker images
 build:
@@ -71,6 +72,19 @@ test-integration:
 # Run unit tests only
 test-unit:
 	docker-compose -f docker-compose.poc.yml run --rm test pytest tests/unit/ -v
+
+# Flush all transient security state from Redis (bans, blocks, rate windows, audit logs)
+# Preserves ja4:whitelist and ja4:blacklist so config survives the flush.
+flush-redis:
+	@echo "Flushing Redis security state..."
+	@REDIS_PASS=$$(grep '^REDIS_PASSWORD=' .env 2>/dev/null | cut -d= -f2); \
+	if [ -z "$$REDIS_PASS" ]; then echo "✗ No REDIS_PASSWORD in .env"; exit 1; fi; \
+	COUNT=$$(docker exec ja4proxy-redis redis-cli -a "$$REDIS_PASS" --no-auth-warning \
+		EVAL "local n=0; \
+		      for _,p in ipairs({'rate:*','banned:*','blocked:*','suspicious:*','enforcement:*','audit:*'}) do \
+		        for _,k in ipairs(redis.call('keys',p)) do redis.call('del',k); n=n+1 end \
+		      end; return n" 0 2>/dev/null); \
+	echo "✓ Cleared $$COUNT keys (whitelist/blacklist preserved)"
 
 # Run performance tests
 perf-test:
