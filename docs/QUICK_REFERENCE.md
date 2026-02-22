@@ -12,6 +12,31 @@
 | **Stop** | `docker compose -f docker-compose.poc.yml down && docker compose -f docker-compose.monitoring.yml down` |
 | **View logs** | `docker compose -f docker-compose.poc.yml logs -f proxy` |
 
+## Incident Response (no restart needed)
+
+```bash
+./scripts/ja4-admin.sh status                           # Attack snapshot
+./scripts/ja4-admin.sh top 10                           # Top fingerprints by volume
+./scripts/ja4-admin.sh blocked                          # Active bans/blocks with TTL
+./scripts/ja4-admin.sh block-ja4 <fingerprint>          # Blacklist FP → instant TCP RST
+./scripts/ja4-admin.sh block-ip  <ip> [secs]            # Hard-block an IP (default 3600s)
+./scripts/ja4-admin.sh unblock-ip <ip>                  # Remove IP block
+./scripts/ja4-admin.sh list-ja4                         # Current blacklist + whitelist
+./scripts/ja4-admin.sh flush                            # Clear all transient state
+./scripts/ja4-admin.sh help                             # Full command reference
+
+# Makefile shortcuts (same commands)
+make attack-status
+make top-attackers
+make block-ja4 FP=t13d190900_9dc949149365_97f8aa674fd9
+make block-ip   IP=203.0.113.42
+make unblock-ip IP=203.0.113.42
+```
+
+Look up any fingerprint at **https://ja4db.com/** to identify the tool/malware.
+
+See [INCIDENT_RESPONSE.md](INCIDENT_RESPONSE.md) for step-by-step attack playbooks.
+
 ## Service URLs
 
 | Service | URL |

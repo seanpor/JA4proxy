@@ -1,6 +1,6 @@
 # Makefile for JA4 Proxy
 
-.PHONY: help build test lint clean deploy-poc deploy-enterprise smoke-test flush-redis
+.PHONY: help build test lint clean deploy-poc deploy-enterprise smoke-test flush-redis attack-status top-attackers block-ja4 block-ip unblock-ip
 
 # Default target
 help:
@@ -16,6 +16,13 @@ help:
 	@echo "  logs              - View proxy logs"
 	@echo "  stop              - Stop all services"
 	@echo "  flush-redis       - Clear all security state (bans/blocks/rates) — keep whitelist/blacklist"
+	@echo ""
+	@echo "Incident response (no restart needed):"
+	@echo "  attack-status     - Quick security snapshot (active bans, block rate)"
+	@echo "  top-attackers     - Top 10 fingerprints by traffic right now"
+	@echo "  block-ja4 FP=...  - Blacklist a JA4 fingerprint (instant TCP RST)"
+	@echo "  block-ip  IP=...  - Hard-block an IP for 1 hour"
+	@echo "  unblock-ip IP=... - Remove all blocks for an IP"
 
 # Build Docker images
 build:
@@ -81,10 +88,38 @@ flush-redis:
 	if [ -z "$$REDIS_PASS" ]; then echo "✗ No REDIS_PASSWORD in .env"; exit 1; fi; \
 	COUNT=$$(docker exec ja4proxy-redis redis-cli -a "$$REDIS_PASS" --no-auth-warning \
 		EVAL "local n=0; \
-		      for _,p in ipairs({'rate:*','banned:*','blocked:*','suspicious:*','enforcement:*','audit:*'}) do \
+		      for _,p in ipairs({'rate:*','banned:*','blocked:*','suspicious:*','enforcement:*','audit:*','repeat_block:*'}) do \
 		        for _,k in ipairs(redis.call('keys',p)) do redis.call('del',k); n=n+1 end \
 		      end; return n" 0 2>/dev/null); \
 	echo "✓ Cleared $$COUNT keys (whitelist/blacklist preserved)"
+
+# ── Incident response shortcuts (wrappers for scripts/ja4-admin.sh) ──────────
+
+# Quick security snapshot: active bans, block totals, top threats
+attack-status:
+	@./scripts/ja4-admin.sh status
+
+# Top 10 fingerprints by traffic (red = blocked, green = allowed)
+top-attackers:
+	@./scripts/ja4-admin.sh top 10
+
+# Blacklist a JA4 fingerprint (instant TCP RST, permanent)
+# Usage: make block-ja4 FP=t13d190900_9dc949149365_97f8aa674fd9
+block-ja4:
+	@[ -n "$(FP)" ] || (echo "Usage: make block-ja4 FP=<fingerprint>"; exit 1)
+	@./scripts/ja4-admin.sh block-ja4 $(FP)
+
+# Hard-block an IP for 1 hour
+# Usage: make block-ip IP=203.0.113.42
+block-ip:
+	@[ -n "$(IP)" ] || (echo "Usage: make block-ip IP=<address>"; exit 1)
+	@./scripts/ja4-admin.sh block-ip $(IP) 3600
+
+# Remove all blocks/bans for an IP
+# Usage: make unblock-ip IP=203.0.113.42
+unblock-ip:
+	@[ -n "$(IP)" ] || (echo "Usage: make unblock-ip IP=<address>"; exit 1)
+	@./scripts/ja4-admin.sh unblock-ip $(IP)
 
 # Run performance tests
 perf-test:
