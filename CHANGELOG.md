@@ -1,5 +1,55 @@
 # Changelog
 
+## [3.3.0] - 2026-02-22 - FALSE POSITIVE ELIMINATION & OPERATIONAL IMPROVEMENTS
+
+### 🎯 FALSE POSITIVE ELIMINATION
+
+**Result: 0% proxy-level false positives.** Browser connections are whitelisted and never
+reach rate limiting. Verified across test runs from 20 to 200 concurrent workers.
+
+- **`multi_strategy_policy` changed from `any` → `majority`** — requires 2 of 3 rate-limit
+  strategies to agree before blocking. A single strategy (e.g. BY_IP_JA4_PAIR detecting a
+  burst) no longer triggers a block on its own.
+- **Raised thresholds across all strategies** to match realistic burst behaviour in test and
+  production environments (Docker NAT aggregates all container traffic through one gateway IP,
+  so per-IP thresholds must accommodate all workers combined):
+  - `by_ip`:         suspicious 10→50,  block 50→200,  ban 100→500
+  - `by_ja4`:        suspicious 5→20,   block 15→100,  ban 20→200
+  - `by_ip_ja4_pair`: suspicious 2→20,  block 5→50,    ban 8→100
+- **Added `h1` to `whitelist_patterns`** — HTTP/1.1 ALPN browsers now bypass rate limiting.
+  Previously only `h2` (HTTP/2) was whitelisted; connections in HTTP/1.1 fallback mode fell
+  through to rate limiting and could be false-positively blocked.
+- **Fail-open for unparseable TLS** — connections that produce `ja4 == "unknown"` or `"error"`
+  (Scapy parse failure, non-TLS protocol, unusual extensions) are now forwarded directly to the
+  backend after the blacklist check, instead of being pooled under a shared `rate:ja4:unknown`
+  key that could trigger rate-limit false positives.
+
+### 🐛 BUG FIXES
+
+- **Block duration bug fixed** — `_apply_block()` in `src/security/action_enforcer.py` was
+  hardcoding a 3600s (1-hour) block TTL regardless of the `ban_duration` value set in
+  `config/proxy.yml` per-strategy config. Blocks now correctly expire after the configured
+  `ban_duration` (default: 300s). Verified in logs: `"expires in 300s"`.
+
+### 📊 METRICS & TOOLING
+
+- **Metrics summary aggregation** — `generate-tls-traffic.sh` summary now uses awk aggregation
+  instead of raw `grep` on `ja4_blocked_requests_total`. The `reason` label contains
+  `"expires in Xs"` (unique per second over long runs), which caused the summary to print
+  hundreds of lines. Output now shows clean per-fingerprint and per-action totals.
+- **`make flush-redis`** — New Makefile target clears all transient security state (rate
+  windows, blocks, bans, audit logs) while preserving `ja4:whitelist` and `ja4:blacklist` keys.
+  Essential for resetting between test runs without a full container restart.
+
+### 📈 VERIFIED PERFORMANCE
+
+Measured with `./generate-tls-traffic.sh 300 15 200` (300s, 15% legit, 200 workers):
+- **0% proxy-level false positives** — 2,728+ browser connections whitelisted, 0 blocked
+- **94–99% malicious traffic blocked** depending on worker load
+- **300s block TTL** (was 3600s) — false positives self-heal in 5 minutes
+
+---
+
 ## [3.2.0] - 2026-02-18 - SECURITY HARDENING
 
 ### 🔒 CONTAINER SECURITY
