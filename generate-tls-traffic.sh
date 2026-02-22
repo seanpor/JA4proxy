@@ -84,17 +84,48 @@ echo -e "${GREEN}Traffic generation complete!${NC}"
 echo -e "${GREEN}════════════════════════════════════════════════════════════════════${NC}"
 echo ""
 
-# Show quick metrics summary
+# Show quick metrics summary (aggregated — avoids per-TTL label explosion)
 echo -e "${BLUE}Quick Metrics Summary:${NC}"
 echo ""
 
 if curl -s http://localhost:9090/metrics > /tmp/ja4_metrics.txt 2>/dev/null; then
-    echo -e "${CYAN}Total Requests:${NC}"
-    grep "^ja4_requests_total" /tmp/ja4_metrics.txt | grep -v "#" || echo "  No data yet"
+    echo -e "${CYAN}Requests by fingerprint + action:${NC}"
+    grep "^ja4_requests_total" /tmp/ja4_metrics.txt | grep -v "#" \
+        | awk -F'"' '
+            {
+                name=""; action=""
+                for(i=2;i<=NF;i+=2){
+                    if($(i-1)~"fingerprint_name=") name=$i
+                    if($(i-1)~"action=") action=$i
+                }
+                val=$NF; gsub(/^[^0-9.]+/,"",val)
+                key=sprintf("  %-30s %-10s", name, action)
+                total[key]+=val
+            }
+            END{ for(k in total) printf "%s %g\n", k, total[k] }
+        ' | sort || echo "  No data yet"
 
     echo ""
-    echo -e "${CYAN}Blocked Requests:${NC}"
-    grep "^ja4_blocked_requests_total" /tmp/ja4_metrics.txt | grep -v "#" || echo "  No data yet"
+
+    # Sum all blocked counts into a single total (reason label varies per TTL)
+    total_blocked=$(grep "^ja4_blocked_requests_total" /tmp/ja4_metrics.txt | grep -v "#" \
+        | awk '{val=$NF; gsub(/^[^0-9.]+/,"",val); sum+=val} END{printf "%.0f", sum}')
+    # Break down by attack_type label only
+    echo -e "${CYAN}Blocked requests by action type:${NC}"
+    grep "^ja4_blocked_requests_total" /tmp/ja4_metrics.txt | grep -v "#" \
+        | awk -F'"' '
+            {
+                atype=""
+                for(i=1;i<=NF;i++){
+                    if($(i-1)~"attack_type=") atype=$i
+                }
+                val=$NF; gsub(/^[^0-9.]+/,"",val)
+                total[atype]+=val
+            }
+            END{ for(k in total) printf "  %-12s %s\n", k, total[k] }
+        ' | sort || echo "  No data yet"
+    echo "  ─────────────────────"
+    echo "  Total blocked  ${total_blocked}"
 
     rm -f /tmp/ja4_metrics.txt
 else
