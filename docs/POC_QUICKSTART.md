@@ -1,36 +1,83 @@
 # JA4proxy POC — Quick Start
 
-Get the demo running in under 5 minutes.
+Get the demo running in under 5 minutes. Designed for assessors evaluating the proxy for deployment.
 
 ## Prerequisites
 
 - Docker 20.10+ and Docker Compose 2.0+
-- 4GB RAM, 2GB disk space
+- 4 GB RAM, 2 GB disk space
+- Ports 443, 3001, 8080, 8404, 8443, 8888, 9090, 9091, 9093 available
 
-## Start Everything
+## 1. Start Everything
 
 ```bash
 ./start-all.sh
 ```
 
-This starts 12 containers: HAProxy, JA4proxy, Redis, backend, tarpit, Prometheus, Grafana, Loki, Promtail, Alertmanager, Redis Exporter, and Node Exporter.
+This starts 12 containers: HAProxy (load balancer), JA4proxy (×1), Redis (shared state),
+backend (mock HTTPS server), tarpit (slow-drain for blocked connections), Prometheus, Grafana,
+Loki, Promtail, Alertmanager, Redis Exporter, Node Exporter.
 
-## Generate Traffic
+First run auto-generates `.env` with random secrets (Redis password, Grafana password).
+
+## 2. Generate Traffic
 
 ```bash
-./generate-tls-traffic.sh 60 10 20    # 60s, 10% legitimate, 20 workers
+# Quick demo: 60s, 10% legitimate, 20 workers
+./generate-tls-traffic.sh 60 10 20
+
+# Assessment run: 5 min, 15% legitimate, 50 workers
+./generate-tls-traffic.sh 300 15 50
 ```
 
-## Watch the Dashboard
+Traffic profiles:
+- **Legitimate**: Chrome, Firefox, Safari (TLS fingerprints with `h2`/`h1` ALPN — whitelisted)
+- **Malicious**: Sliver C2, CobaltStrike Beacon, Evilginx, Python bot, Credential stuffer
 
-Open **http://localhost:3001** (admin / password shown by start-monitoring.sh) → JA4proxy Security Overview.
+After the run, a summary is printed automatically:
 
-You'll see:
-- Allowed vs blocked connections in real time
-- JA4 fingerprint names (Chrome, Sliver C2, CobaltStrike, etc.)
-- Action distribution (allowed / tarpitted / banned)
-- Traffic by country (when GeoIP is enabled)
-- Security event logs from Loki
+```
+Requests by fingerprint + action:
+  Browser (TLS 1.3)              allowed    2728
+  Tool/Bot (TLS 1.2)             blocked    40018
+
+Blocked requests by action type:
+  ban          90654
+  tarpit       14
+  ─────────────────────
+  Total blocked  90668
+```
+
+## 3. Watch the Dashboard
+
+Open **http://localhost:3001** (admin / password printed by `./start-all.sh` or in `.env`).
+
+Navigate to **JA4proxy Security Overview**. Key panels:
+
+| Panel | What to look for |
+|-------|-----------------|
+| Allowed vs Blocked | All browser traffic in "allowed"; malicious tools in "blocked"/"banned" |
+| Fingerprint names | Human-readable: Chrome, Sliver C2, CobaltStrike — not raw hashes |
+| Action distribution | Tarpitted (slow drain) + banned (persistent) + blacklisted (instant RST) |
+| Security events | Real-time log of decisions |
+
+## 4. What to Expect
+
+| Metric | Expected result |
+|--------|----------------|
+| Browser false positives | **0%** — whitelisted at Layer 2b, never reach rate limiting |
+| Malicious traffic blocked | **94–99%** depending on load |
+| Block self-healing | **300 seconds** — blocks auto-expire; no manual intervention needed |
+| Known bad fingerprints | Instant TCP RST (Sliver C2, CobaltStrike, IcedID, Evilginx, SoftEther) |
+
+## 5. Reset Between Runs
+
+```bash
+# Clear rate windows, bans, blocks (keeps whitelist/blacklist config)
+make flush-redis
+```
+
+This resets all transient security state so consecutive test runs start clean without restarting containers.
 
 ## Services
 
@@ -44,20 +91,22 @@ You'll see:
 | Tarpit | `http://localhost:8888` |
 | Prometheus | `http://localhost:9091` |
 | Grafana | `http://localhost:3001` |
-| Loki (logs) | `http://localhost:3100` (Docker network only) |
 | Alertmanager | `http://localhost:9093` |
 
 ## Verify Legitimate Traffic Passes
 
 ```bash
-# Good traffic uses h2 ALPN → whitelisted → forwarded to backend
-curl -sk https://localhost:8443/ | head -5
+# Direct backend connection (bypasses proxy)
+curl -sk https://localhost:8443/api/health
+
+# Check proxy logs for ALLOWED decisions
+docker compose -f docker-compose.poc.yml logs proxy | grep ALLOWED | tail -5
 ```
 
 ## Scale Up (Optional)
 
 ```bash
-./scale-proxies.sh 4    # 4 proxy instances (~840 conn/s)
+./scale-proxies.sh 4    # 4 proxy instances (~840 conn/s total)
 ./scale-proxies.sh 1    # Reset to single instance
 ```
 
@@ -66,18 +115,35 @@ curl -sk https://localhost:8443/ | head -5
 ```bash
 docker compose -f docker-compose.poc.yml down
 docker compose -f docker-compose.monitoring.yml down
+# Or: make stop && make clean   (removes volumes too)
 ```
 
-## Configuration
+## Key Configuration File
 
-All config is in `config/proxy.yml` — see the main [README](../README.md) for details on GeoIP, whitelists, blacklists, rate limiting, and fingerprint names.
+`config/proxy.yml` controls everything:
+
+```yaml
+security:
+  multi_strategy_policy: "majority"   # 2 of 3 strategies must agree before blocking
+  whitelist_patterns:
+    - "h2"   # HTTP/2 ALPN browsers — whitelisted, bypass rate limiting
+    - "h1"   # HTTP/1.1 ALPN browsers — whitelisted, bypass rate limiting
+  blacklist:
+    - "t13d190900_9dc949149365_97f8aa674fd9"  # Sliver C2 Agent (instant RST)
+    - "t12d190800_d83cc789557e_16bbda4055b2"  # CobaltStrike Beacon (instant RST)
+    # ... 5 more known-bad fingerprints
+```
+
+See the main [README](../README.md) for full configuration reference.
 
 ## Further Reading
 
-- [README](../README.md) — Full feature overview
-- [POC Guide](POC_GUIDE.md) — Detailed walkthrough
+- [README](../README.md) — Full feature overview and configuration reference
+- [Quick Reference](QUICK_REFERENCE.md) — Command cheat sheet
 - [Performance Benchmark](reports/PERFORMANCE_BENCHMARK.md) — Throughput data
-- [Enterprise Deployment](enterprise/deployment.md) — Production guide
 - [Security Audit](security/COMPREHENSIVE_SECURITY_AUDIT.md) — Vulnerability assessment
+- [Threat Model](security/threat-model.md) — Attack surface analysis
+- [Enterprise Deployment](enterprise/deployment.md) — Production hardening guide
+- [GDPR Compliance](compliance/GDPR_COMPLIANCE.md) — Data handling
 
-⚠️ **This is a POC. Not for production use.**
+> ⚠️ **This is a POC environment.** See [DMZ Deployment Readiness](DMZ_DEPLOYMENT_READINESS.md) for outstanding items before production use.

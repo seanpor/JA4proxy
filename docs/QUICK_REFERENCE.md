@@ -6,6 +6,7 @@
 |--------|---------|
 | **Start all** | `./start-all.sh` |
 | **Generate traffic** | `./generate-tls-traffic.sh 60 10 20` |
+| **Reset between runs** | `make flush-redis` |
 | **Scale proxies** | `./scale-proxies.sh 4` |
 | **Run tests** | `./run-tests.sh` |
 | **Stop** | `docker compose -f docker-compose.poc.yml down && docker compose -f docker-compose.monitoring.yml down` |
@@ -52,8 +53,9 @@ make test              # Run tests
 make smoke-test        # Quick smoke test
 make logs              # View proxy logs
 make health-check      # Check service health
+make flush-redis       # Clear rate windows/bans/blocks — keep whitelist/blacklist
 make stop              # Stop services
-make clean             # Clean everything
+make clean             # Clean everything (containers + volumes)
 ```
 
 ## Backend Test Endpoints
@@ -123,6 +125,10 @@ docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" GET "key"
 
 # Set value
 docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" SET "key" "value"
+
+# Flush all transient security state (rate windows, blocks, bans, audit logs)
+# Preserves ja4:whitelist and ja4:blacklist keys
+make flush-redis
 ```
 
 ## Debugging
@@ -172,6 +178,7 @@ docker volume prune -f
 | Tests failing | Run `./start-poc.sh` then `./smoke-test.sh` |
 | Permission errors | Run `sudo chown -R $USER:$USER reports/` |
 | Redis connection fails | Run `docker compose -f docker-compose.poc.yml restart redis` |
+| Good traffic blocked from previous run | Run `make flush-redis` to clear stale bans (auto-expires in 300s anyway) |
 
 ## File Locations
 
