@@ -311,11 +311,28 @@ class ActionEnforcer:
         action_type: ActionType,
         strategy: Optional[RateLimitStrategy] = None,
     ) -> ActionResult:
-        """Apply block or TARPIT."""
-        # Get duration from per-strategy config, fall back to 3600s default
+        """Apply block or TARPIT, escalating duration for repeat offenders."""
+        # Get base duration from per-strategy config, fall back to 3600s default
         duration = 3600
         if strategy and strategy in self.strategy_configs:
             duration = int(self.strategy_configs[strategy].get('ban_duration', 3600))
+
+        # Repeat-offender escalation: each consecutive block doubles the duration
+        # (counter expires after 24h of good behaviour so duration resets eventually)
+        # Result: 300s → 600s → 1200s → 2400s → 4800s → … capped at 86400s (24h)
+        try:
+            repeat_key = f"repeat_block:{entity_id}"
+            offense_count = int(self.redis.incr(repeat_key))
+            self.redis.expire(repeat_key, 86400)  # reset counter after 24h of no blocks
+            if offense_count > 1:
+                multiplier = min(2 ** (offense_count - 1), 86400 // max(duration, 1))
+                duration = min(duration * multiplier, 86400)
+                self.logger.info(
+                    f"REPEAT_OFFENDER: {entity_id[:32]} offense #{offense_count} → "
+                    f"block duration escalated to {duration}s"
+                )
+        except Exception as e:
+            self.logger.warning(f"Repeat-offender escalation failed (non-fatal): {e}")
         
         # Store block in Redis
         if action_type == ActionType.TARPIT:
