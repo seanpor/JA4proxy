@@ -1,36 +1,75 @@
 # Makefile for JA4 Proxy
 
-.PHONY: help build test lint clean deploy-poc deploy-enterprise smoke-test flush-redis attack-status top-attackers block-ja4 block-ip unblock-ip fetch-db list-pending approve-all geoip-report geoip-monitor
+.PHONY: help build test lint clean deploy-poc deploy-enterprise smoke-test flush-redis attack-status top-attackers block-ja4 block-ip unblock-ip fetch-db list-pending approve-all geoip-report geoip-monitor geoip-watch start start-monitoring stop stop-clean status
 
 # Default target
 help:
-	@echo "Available targets:"
-	@echo "  build             - Build Docker images"
-	@echo "  test              - Run all tests in Docker"
-	@echo "  smoke-test        - Run quick smoke test"
-	@echo "  lint              - Run code linting"
-	@echo "  clean             - Clean up containers and images"
-	@echo "  deploy-poc        - Deploy PoC environment"
-	@echo "  deploy-enterprise - Deploy enterprise environment"
-	@echo "  health-check      - Run health checks"
-	@echo "  logs              - View proxy logs"
-	@echo "  stop              - Stop all services"
-	@echo "  flush-redis       - Clear all security state (bans/blocks/rates) — keep whitelist/blacklist"
 	@echo ""
-	@echo "Threat intelligence:"
-	@echo "  fetch-db          - Fetch new malicious fingerprints from ja4db / FoxIO GitHub"
+	@echo "JA4proxy — Available make targets"
+	@echo ""
+	@echo "── Startup / Shutdown ──────────────────────────────────────"
+	@echo "  start             - Start full stack (POC + Prometheus/Grafana)"
+	@echo "  start-monitoring  - Start monitoring stack only"
+	@echo "  stop              - Stop all services (keep Redis data)"
+	@echo "  stop-clean        - Stop all services AND wipe volumes (fresh slate)"
+	@echo "  status            - Show health of all services + security state"
+	@echo "  logs              - Stream proxy container logs"
+	@echo ""
+	@echo "── Configuration ───────────────────────────────────────────"
+	@echo "  Edit .env to set:"
+	@echo "    BACKEND_HOST    - IP/hostname of your real backend server"
+	@echo "    BACKEND_PORT    - Backend port (default 443)"
+	@echo "    REDIS_PASSWORD  - Auto-generated on first start"
+	@echo "    GRAFANA_PASSWORD- Auto-generated on first start"
+	@echo "    JA4DB_API_KEY   - Optional ja4db.com API key"
+	@echo ""
+	@echo "── Incident Response (no restart needed) ───────────────────"
+	@echo "  attack-status     - Quick security snapshot (active bans, block rate)"
+	@echo "  top-attackers     - Top 10 fingerprints by traffic right now"
+	@echo "  block-ja4 FP=...  - Blacklist a JA4 fingerprint (instant TCP RST)"
+	@echo "  block-ip  IP=...  - Hard-block an IP for 1 hour"
+	@echo "  unblock-ip IP=... - Remove all blocks for an IP"
+	@echo "  flush-redis       - Reset bans/blocks/rates (keeps blacklist/whitelist)"
+	@echo ""
+	@echo "── Threat Intelligence ─────────────────────────────────────"
+	@echo "  fetch-db          - Fetch new malicious fingerprints from ja4db / FoxIO"
 	@echo "  list-pending      - Show fingerprints awaiting admin approval"
 	@echo "  approve-all       - Approve all pending fingerprints"
 	@echo "  geoip-report      - Full blocking report (countries, CIDRs, fingerprints)"
 	@echo "  geoip-monitor     - Auto-block attacking countries (run once)"
 	@echo "  geoip-watch       - Auto-block attacking countries (continuous loop)"
 	@echo ""
-	@echo "Incident response (no restart needed):"
-	@echo "  attack-status     - Quick security snapshot (active bans, block rate)"
-	@echo "  top-attackers     - Top 10 fingerprints by traffic right now"
-	@echo "  block-ja4 FP=...  - Blacklist a JA4 fingerprint (instant TCP RST)"
-	@echo "  block-ip  IP=...  - Hard-block an IP for 1 hour"
-	@echo "  unblock-ip IP=... - Remove all blocks for an IP"
+	@echo "── Development / Testing ───────────────────────────────────"
+	@echo "  build             - Build Docker images"
+	@echo "  test              - Run all tests in Docker"
+	@echo "  smoke-test        - Quick sanity check"
+	@echo "  lint              - black + flake8 + mypy"
+	@echo "  clean             - Stop + remove all containers and volumes"
+	@echo ""
+
+# ── Startup / Shutdown ────────────────────────────────────────────────────────
+
+# Start full stack (POC + monitoring)
+start:
+	@./start-all.sh
+
+# Start monitoring stack only (Prometheus / Grafana / Loki)
+start-monitoring:
+	@./start-monitoring.sh
+
+# Stop all services (keep Redis data)
+stop:
+	@./stop-all.sh
+
+# Stop all services AND remove all volumes (fresh slate)
+stop-clean:
+	@./stop-all.sh --clean
+
+# Show health of all services + security state
+status:
+	@./status.sh
+
+# ── Build ──────────────────────────────────────────────────────────────────────
 
 # Build Docker images
 build:
@@ -59,10 +98,6 @@ clean:
 # Deploy PoC environment
 deploy-poc:
 	@./start-poc.sh
-
-# Stop services
-stop:
-	docker-compose -f docker-compose.poc.yml down
 
 # Deploy enterprise environment
 deploy-enterprise:
