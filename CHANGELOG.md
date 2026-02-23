@@ -1,5 +1,58 @@
 # Changelog
 
+## [3.4.0] - 2026-02-23 - THREAT INTEL FEED, DYNAMIC GEOIP, CIDR BLOCKING
+
+### 🌐 DYNAMIC GEOIP & CIDR BLOCKING (proxy.py — no restart needed)
+
+- **Layer 1b: dynamic country blacklist** — Redis set `geoip:dynamic_blacklist` checked on
+  every connection after the static country lists. Added via `ja4-admin block-country` or
+  auto-populated by `geoip-monitor.sh`. Fails open on Redis error.
+- **Layer 1c: CIDR block check** — Redis set `geoip:blocked_cidrs` holds CIDRs (e.g.
+  `203.0.113.0/24`, `185.220.0.0/16`). Proxy reloads from Redis every 30s; add/remove takes
+  effect within 30s without restart.
+- **`geoip:safe_countries`** — Redis set of country codes that can never be auto-blocked by
+  `geoip-monitor`. Loaded from `config/proxy.yml → geoip.safe_countries` on startup. Defaults:
+  IE, GB, US, CA, AU, NZ, DE, FR, NL, IM, JE, GG.
+- New Prometheus `reason` labels: `country_dynamic_block`, `cidr_block` on
+  `ja4_blocked_requests_total` for granular reporting.
+
+### 📡 JA4DB THREAT FEED INTEGRATION
+
+- **`scripts/fetch-ja4db.sh`** — fetches known-malicious fingerprints from:
+  1. FoxIO GitHub (`raw.githubusercontent.com/FoxIO-LLC/ja4`) — no auth required
+  2. ja4db.com API — if `JA4DB_API_KEY` is set in `.env`
+  Filters by malicious category keywords (malware, c2, trojan, rat, ransomware, etc.)
+  and queues new fingerprints in Redis `ja4:pending` hash for admin review.
+- **Approval workflow** in `ja4-admin.sh`:
+  - `fetch-db` → `list-pending` → `approve <FP>` / `reject <FP>` / `approve-all`
+  - Approved fingerprints go into `ja4:blacklist` (instant effect) and should also be
+    added to `config/proxy.yml` to survive container restart.
+
+### 🛡️ GEOIP AUTO-BLOCK MONITOR
+
+- **`scripts/geoip-monitor.sh`** — queries Prometheus, auto-blocks countries exceeding
+  configurable thresholds (default: >50 blocked connections in 5 min AND >70% block rate).
+  Never blocks countries in `geoip:safe_countries`.
+  - `--dry-run` mode: shows what would be blocked without acting
+  - `--watch` mode: loops every 60s (suitable for long-running monitor)
+  - Cron-friendly: `*/5 * * * * /path/to/geoip-monitor.sh >> /var/log/geoip-monitor.log`
+  - Reasons stored in `geoip:block_reasons` HASH for the report
+
+### 🔧 JA4-ADMIN NEW COMMANDS
+
+- `fetch-db`, `list-pending`, `approve`, `reject`, `approve-all` — feed workflow
+- `list-countries`, `block-country`, `unblock-country`, `safe-country`, `unsafe-country`
+- `list-cidrs`, `block-cidr`, `unblock-cidr`
+- `report` — comprehensive blocking summary (fingerprints, countries with reasons, CIDRs,
+  enforcement stats, Prometheus traffic breakdown by mechanism and country)
+
+### 📋 CONFIGURATION
+
+- `config/proxy.yml`: new `geoip.safe_countries` list (default: 12 trusted countries)
+- `.env` supports optional `JA4DB_API_KEY` for ja4db.com API access
+
+---
+
 ## [3.3.0] - 2026-02-22 - FALSE POSITIVE ELIMINATION & OPERATIONAL IMPROVEMENTS
 
 ### 🎯 FALSE POSITIVE ELIMINATION

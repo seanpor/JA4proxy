@@ -786,6 +786,13 @@ class ProxyServer:
         )
         self.country_whitelist_enabled = geo_config.get('country_whitelist_enabled', False)
         self.country_blacklist_enabled = geo_config.get('country_blacklist_enabled', False)
+        # Dynamic country/CIDR blocking — Redis-backed, no restart needed.
+        # geoip:dynamic_blacklist  — SET of country codes (auto-blocked or admin-added)
+        # geoip:safe_countries     — SET of country codes never auto-blocked
+        # geoip:blocked_cidrs      — SET of CIDR strings (e.g. "203.0.113.0/24")
+        self._cidr_blocks: List[ipaddress.IPv4Network] = []
+        self._cidr_blocks_loaded_at: float = 0.0
+        self._cidr_cache_ttl: int = 30  # seconds between Redis reloads
         if self.country_whitelist_enabled:
             self.logger.info(
                 f"Country whitelist enabled: {sorted(self.country_whitelist)}"
@@ -820,7 +827,45 @@ class ProxyServer:
         
         # Reload security lists
         self.security_manager._load_security_lists()
-    
+
+        # Populate geoip:safe_countries from config (never auto-blocked by geoip-monitor)
+        safe_countries = geo_config = self.config.get('geoip', {}).get('safe_countries', [])
+        if safe_countries:
+            for cc in safe_countries:
+                self.redis_client.sadd('geoip:safe_countries', cc.upper())
+            self.logger.info(f"Loaded {len(safe_countries)} safe countries")
+
+    def _refresh_cidr_blocks(self) -> None:
+        """Reload CIDR block list from Redis if cache is stale (every 30s)."""
+        if time.monotonic() - self._cidr_blocks_loaded_at < self._cidr_cache_ttl:
+            return
+        try:
+            raw = self.redis_client.smembers('geoip:blocked_cidrs')
+            nets = []
+            for m in raw:
+                cidr = m.decode() if isinstance(m, bytes) else m
+                try:
+                    nets.append(ipaddress.ip_network(cidr, strict=False))
+                except ValueError:
+                    self.logger.warning(f"Invalid CIDR in geoip:blocked_cidrs: {cidr!r}")
+            self._cidr_blocks = nets
+            self._cidr_blocks_loaded_at = time.monotonic()
+        except Exception as e:
+            self.logger.debug(f"CIDR block refresh skipped: {e}")
+
+    def _is_cidr_blocked(self, ip: str) -> Optional[str]:
+        """Return the matching CIDR string if this IP is blocked, else None."""
+        if not self._cidr_blocks:
+            return None
+        try:
+            addr = ipaddress.ip_address(ip)
+            for net in self._cidr_blocks:
+                if addr in net:
+                    return str(net)
+        except ValueError:
+            pass
+        return None
+
     def _init_redis(self) -> redis.Redis:
         """Initialize Redis connection with security validation."""
         redis_config = self.config['redis']
@@ -1044,7 +1089,51 @@ class ProxyServer:
                             attack_type='geo_block'
                         ).inc()
                         return
-                
+
+                    # --- SECURITY LAYER 1b: Dynamic country blacklist (Redis) ---
+                    # Added by ja4-admin block-country or auto-blocked by geoip-monitor.
+                    # Respects geoip:safe_countries — those can never enter the dynamic list.
+                    try:
+                        if self.redis_client.sismember('geoip:dynamic_blacklist', country):
+                            self.logger.warning(
+                                f"COUNTRY_DYNAMIC_BLOCKED: {client_ip} | Country: {country} | "
+                                f"JA4: {ja4} | Name: {classify_ja4(ja4, self.config)}"
+                            )
+                            REQUEST_COUNT.labels(
+                                fingerprint=ja4[:16],
+                                fingerprint_name=classify_ja4(ja4, self.config),
+                                action="blocked",
+                                source_country=country, tls_version=fingerprint.tls_version
+                            ).inc()
+                            BLOCKED_REQUESTS.labels(
+                                reason='country_dynamic_block', source_country=country,
+                                attack_type='geo_block'
+                            ).inc()
+                            return
+                    except Exception:
+                        pass  # fail open on Redis error
+
+                # --- SECURITY LAYER 1c: CIDR block check (Redis-backed, 30s cache) ---
+                self._refresh_cidr_blocks()
+                matched_cidr = self._is_cidr_blocked(client_ip)
+                if matched_cidr:
+                    self.logger.warning(
+                        f"CIDR_BLOCKED: {client_ip} | CIDR: {matched_cidr} | "
+                        f"Country: {country or 'N/A'} | JA4: {ja4} | "
+                        f"Name: {classify_ja4(ja4, self.config)}"
+                    )
+                    REQUEST_COUNT.labels(
+                        fingerprint=ja4[:16],
+                        fingerprint_name=classify_ja4(ja4, self.config),
+                        action="blocked",
+                        source_country=country or '', tls_version=fingerprint.tls_version
+                    ).inc()
+                    BLOCKED_REQUESTS.labels(
+                        reason='cidr_block', source_country=country or '',
+                        attack_type='geo_block'
+                    ).inc()
+                    return
+
                 # --- SECURITY LAYER 2: Blacklist check (instant block) ---
                 if self.config['security'].get('blacklist_enabled', True):
                     if ja4.encode() in self.security_manager.blacklist:

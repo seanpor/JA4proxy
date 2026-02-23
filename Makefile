@@ -1,6 +1,6 @@
 # Makefile for JA4 Proxy
 
-.PHONY: help build test lint clean deploy-poc deploy-enterprise smoke-test flush-redis attack-status top-attackers block-ja4 block-ip unblock-ip
+.PHONY: help build test lint clean deploy-poc deploy-enterprise smoke-test flush-redis attack-status top-attackers block-ja4 block-ip unblock-ip fetch-db list-pending approve-all geoip-report geoip-monitor
 
 # Default target
 help:
@@ -16,6 +16,14 @@ help:
 	@echo "  logs              - View proxy logs"
 	@echo "  stop              - Stop all services"
 	@echo "  flush-redis       - Clear all security state (bans/blocks/rates) — keep whitelist/blacklist"
+	@echo ""
+	@echo "Threat intelligence:"
+	@echo "  fetch-db          - Fetch new malicious fingerprints from ja4db / FoxIO GitHub"
+	@echo "  list-pending      - Show fingerprints awaiting admin approval"
+	@echo "  approve-all       - Approve all pending fingerprints"
+	@echo "  geoip-report      - Full blocking report (countries, CIDRs, fingerprints)"
+	@echo "  geoip-monitor     - Auto-block attacking countries (run once)"
+	@echo "  geoip-watch       - Auto-block attacking countries (continuous loop)"
 	@echo ""
 	@echo "Incident response (no restart needed):"
 	@echo "  attack-status     - Quick security snapshot (active bans, block rate)"
@@ -92,6 +100,34 @@ flush-redis:
 		        for _,k in ipairs(redis.call('keys',p)) do redis.call('del',k); n=n+1 end \
 		      end; return n" 0 2>/dev/null); \
 	echo "✓ Cleared $$COUNT keys (whitelist/blacklist preserved)"
+
+# ── ja4db feed management ─────────────────────────────────────────────────────
+
+# Fetch new malicious fingerprints from FoxIO GitHub / ja4db.com, queue for review
+fetch-db:
+	@./scripts/fetch-ja4db.sh
+
+# Show fingerprints awaiting approval
+list-pending:
+	@./scripts/ja4-admin.sh list-pending
+
+# Approve all pending fingerprints (prompts for confirmation)
+approve-all:
+	@./scripts/ja4-admin.sh approve-all
+
+# ── GeoIP monitoring ───────────────────────────────────────────────────────────
+
+# Full blocking report (countries, CIDRs, fingerprints, Prometheus summary)
+geoip-report:
+	@./scripts/ja4-admin.sh report
+
+# Run the GeoIP monitor once — auto-blocks attacking countries, respects safe list
+geoip-monitor:
+	@./scripts/geoip-monitor.sh
+
+# Run geoip-monitor in watch mode (loops every 60s, Ctrl-C to stop)
+geoip-watch:
+	@./scripts/geoip-monitor.sh --watch
 
 # ── Incident response shortcuts (wrappers for scripts/ja4-admin.sh) ──────────
 

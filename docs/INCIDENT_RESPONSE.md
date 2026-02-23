@@ -66,6 +66,85 @@ Then commit and push so the fix survives container rebuilds.
 
 ---
 
+## Country and CIDR Blocking
+
+### Block a country
+
+```bash
+./scripts/ja4-admin.sh block-country RU    # instant effect, no restart
+./scripts/ja4-admin.sh list-countries      # verify + see Prometheus stats per country
+./scripts/ja4-admin.sh unblock-country RU  # reverse it
+```
+
+Protected countries (IE, GB, US, CA, etc.) are in `geoip:safe_countries` and will be **refused** by `block-country`. To see the full safe list: `./scripts/ja4-admin.sh list-countries`.
+
+### Block a subnet
+
+```bash
+./scripts/ja4-admin.sh block-cidr 203.0.113.0/24     # /24 subnet
+./scripts/ja4-admin.sh block-cidr 185.220.0.0/16     # /16 block (e.g. Tor exit range)
+./scripts/ja4-admin.sh list-cidrs                    # show all active CIDR blocks
+./scripts/ja4-admin.sh unblock-cidr 203.0.113.0/24   # remove
+```
+
+The proxy picks up CIDR changes within 30 seconds (Redis cache TTL).
+
+### Auto-block countries under attack
+
+```bash
+# Run once — auto-blocks any country with >50 blocked connections in 5 min
+./scripts/geoip-monitor.sh
+
+# Run in watch mode (loops every 60s)
+./scripts/geoip-monitor.sh --watch
+
+# Preview what would be blocked without actually blocking
+./scripts/geoip-monitor.sh --dry-run
+
+# Via Makefile
+make geoip-monitor
+make geoip-watch
+```
+
+Tune thresholds: `BLOCK_THRESHOLD=100 BLOCK_PCT_THRESHOLD=90 ./scripts/geoip-monitor.sh`
+
+---
+
+## Keeping Fingerprints Up to Date (ja4db)
+
+New malware families appear regularly. Pull the latest known-bad fingerprints:
+
+```bash
+make fetch-db              # or: ./scripts/fetch-ja4db.sh
+make list-pending          # review what was found
+./scripts/ja4-admin.sh approve t13d190900_9dc949149365_97f8aa674fd9
+make approve-all           # bulk approve (asks for confirmation)
+```
+
+For ja4db.com API access (broader database), add to `.env`:
+```
+JA4DB_API_KEY=your_key_here
+```
+
+After approving, persist to `config/proxy.yml` so they survive container restarts:
+```yaml
+security:
+  blacklist:
+    - "t13d190900_9dc949149365_97f8aa674fd9"  # approved from ja4db 2026-02-23
+```
+
+---
+
+## Comprehensive Report
+
+```bash
+./scripts/ja4-admin.sh report    # or: make geoip-report
+```
+
+Shows: fingerprint counts, dynamic country blocks with reasons, CIDR blocks, rate-limit enforcement, traffic breakdown by mechanism, top blocked countries.
+
+---
+
 ## Common Attack Patterns
 
 ### Pattern 1: Known C2 Tool (Sliver, CobaltStrike, etc.)

@@ -160,6 +160,24 @@ geoip:
     - "CN"  # China
     - "IR"  # Iran
 
+  # Safe countries: NEVER auto-blocked by geoip-monitor even under heavy attack.
+  # These are loaded into Redis geoip:safe_countries on startup.
+  # Note: this protects against AUTOMATIC blocking only.
+  # A manual 'ja4-admin block-country' will be refused for countries in this list.
+  safe_countries:
+    - "IE"  # Ireland
+    - "GB"  # United Kingdom
+    - "IM"  # Isle of Man
+    - "JE"  # Jersey
+    - "GG"  # Guernsey
+    - "US"  # United States
+    - "CA"  # Canada
+    - "AU"  # Australia
+    - "NZ"  # New Zealand
+    - "DE"  # Germany
+    - "FR"  # France
+    - "NL"  # Netherlands
+
 # Metrics configuration
 metrics:
   enabled: true
