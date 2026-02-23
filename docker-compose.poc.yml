@@ -44,6 +44,9 @@ services:
       - CONFIG_PATH=/app/config/proxy.yml
       - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
       - ENVIRONMENT=${ENVIRONMENT:-development}
+      # Backend destination — override in .env for production (BACKEND_HOST=your.server.ip)
+      - BACKEND_HOST=${BACKEND_HOST:-backend}
+      - BACKEND_PORT=${BACKEND_PORT:-443}
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
     networks:

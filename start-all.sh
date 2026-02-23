@@ -70,6 +70,7 @@ echo "  docker compose -f docker-compose.poc.yml logs -f proxy"
 echo "  docker compose -f docker-compose.monitoring.yml logs -f"
 echo
 echo "Stop all services:"
-echo "  docker compose -f docker-compose.poc.yml down"
-echo "  docker compose -f docker-compose.monitoring.yml down"
+echo "  ./stop-all.sh          # graceful stop (keep Redis data)"
+echo "  ./stop-all.sh --clean  # wipe everything (fresh slate)"
+echo "  make stop              # same as ./stop-all.sh"
 echo

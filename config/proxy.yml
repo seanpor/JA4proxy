@@ -3,9 +3,10 @@ proxy:
   # POC: Bind to all interfaces for Docker networking
   bind_host: "0.0.0.0"
   bind_port: 8080
-  # POC: Connect to backend container by name (now HTTPS)
-  backend_host: "backend"
-  backend_port: 443
+  # Backend server — set BACKEND_HOST / BACKEND_PORT in .env to point to your real server.
+  # POC default: "backend" (Docker container name). Production: your server IP or hostname.
+  backend_host: "${BACKEND_HOST}"
+  backend_port: "${BACKEND_PORT}"
   # Tarpit container for redirecting blocked connections
   tarpit_host: "tarpit"
   tarpit_port: 8888
