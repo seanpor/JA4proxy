@@ -1,32 +1,41 @@
-# JA4Proxy Documentation
+# JA4proxy Documentation
 
 ## Getting Started
 
 - [README](../README.md) — Project overview and quick start
 - [POC Quick Start](POC_QUICKSTART.md) — 5-minute setup guide
-- [POC Guide](POC_GUIDE.md) — Detailed walkthrough
 
 ## Operations
 
-- [Quick Reference](QUICK_REFERENCE.md) — Command cheat sheet
-- [Monitoring Setup](MONITORING_SETUP.md) — Prometheus, Grafana & Loki
-- [Testing](TESTING.md) — Test procedures
+- [SecOps Operations Guide](SECOPS_OPERATIONS.md) — Backend config, passwords, start/stop, ports, troubleshooting
+- [Incident Response Runbook](INCIDENT_RESPONSE.md) — Commands for responding to active attacks
+- [Quick Reference](QUICK_REFERENCE.md) — Command cheat sheet for daily operations
+- [Monitoring Setup](MONITORING_SETUP.md) — Prometheus, Grafana, Loki, and alerting
+
+## Testing
+
+- [Testing](TESTING.md) — Test suite execution and procedures
+- [Security Testing](SECURITY_TESTING.md) — JA4 fingerprint blocking and rate limit validation
+- [TLS Traffic Generator](TLS_TRAFFIC_GENERATOR.md) — Simulating legitimate and malicious TLS clients
 
 ## Security
 
-- [Security Testing](SECURITY_TESTING.md) — JA4 blocking tests
-- [Redis Security](REDIS_SECURITY_REVIEW.md) — Redis hardening guide
-- [Security Audit](security/COMPREHENSIVE_SECURITY_AUDIT.md) — Vulnerability assessment
-- [Threat Model](security/threat-model.md) — Attack surface analysis
+- [Redis Security](REDIS_SECURITY_REVIEW.md) — Current POC status and production hardening steps
+- [Security Audit](security/COMPREHENSIVE_SECURITY_AUDIT.md) — Vulnerability assessment (snapshot: 2026-02-14)
+- [Security Checklist](security/SECURITY_CHECKLIST.md) — Pre-deployment validation
+- [Threat Model](security/threat-model.md) — STRIDE analysis (covers target enterprise architecture)
+- [DMZ Deployment Readiness](DMZ_DEPLOYMENT_READINESS.md) — Controls in place and gaps
 
 ## Reports
 
-- [Performance Benchmark](reports/PERFORMANCE_BENCHMARK.md) — Throughput & scaling data
+- [Performance Benchmark](reports/PERFORMANCE_BENCHMARK.md) — Measured throughput and blocking accuracy
 - [Enterprise Review](reports/ENTERPRISE_REVIEW.md) — Production readiness assessment
+- [Enterprise Readiness](reports/ENTERPRISE_READINESS_REPORT.md) — Strengths and open gaps
+- [POC Security Scan](reports/POC_SECURITY_SCAN.md) — Vulnerability scan with POC vs production context
 
 ## Reference
 
-- [Architecture](architecture/system-architecture.md) — System design (aspirational)
-- [Enterprise Deployment](enterprise/deployment.md) — Production guide
-- [GDPR Compliance](compliance/GDPR_COMPLIANCE.md) — Data handling
+- [Architecture](architecture/system-architecture.md) — Target enterprise architecture (aspirational)
+- [Enterprise Deployment](enterprise/deployment.md) — Future production deployment guide
+- [GDPR Compliance](compliance/GDPR_COMPLIANCE.md) — Data handling and retention
 - [Changelog](../CHANGELOG.md) — Version history
