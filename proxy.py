@@ -1464,7 +1464,7 @@ class ProxyServer:
             # Connect to backend
             backend_reader, backend_writer = await asyncio.open_connection(
                 self.config['proxy']['backend_host'],
-                self.config['proxy']['backend_port']
+                int(self.config['proxy']['backend_port'])
             )
             
             self.logger.info(f"Forwarding connection with JA4: {fingerprint.ja4[:16]}")
