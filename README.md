@@ -43,15 +43,17 @@ make flush-redis
 
 ## Security Pipeline
 
-Connections pass through 5 layers, in order:
+Connections pass through layers in order:
 
 | Layer | Check | Action |
 |-------|-------|--------|
-| 0 | **GeoIP country** | Block/allow by country (IP2Location) |
+| 0 | **GeoIP static** | Block/allow by country (IP2Location LITE, off by default) |
+| 0b | **GeoIP dynamic** | Redis-backed country blacklist — takes effect immediately, no restart |
+| 0c | **CIDR block** | Redis-backed subnet blocks (e.g. `/16`, `/24`) — refreshed every 30s |
 | 1 | **JA4 blacklist** | Instant TCP RST for known-bad fingerprints |
 | 2 | **JA4 whitelist** | Skip rate limiting for known-good fingerprints |
-| 2b | **Pattern whitelist** | `h2`/`h1` ALPN = modern or legacy browser → skip rate limiting |
-| 3 | **Rate limiting** | Per-IP, per-JA4, per-IP+JA4-pair — requires majority (2 of 3) to block |
+| 2b | **Pattern whitelist** | `h2`/`h1` ALPN = browser → skip rate limiting entirely |
+| 3 | **Rate limiting** | Per-IP, per-JA4, per-IP+JA4-pair — majority (2 of 3) required to block |
 
 Rate limiting escalates: **suspicious → tarpit → block → ban** (default 5-min TTL; self-healing).
 
@@ -213,17 +215,25 @@ Blocked requests by action type:
 
 ## Documentation
 
+**Getting started and operations:**
 - **[POC Quick Start](docs/POC_QUICKSTART.md)** — 5-minute setup guide
-- **[POC Guide](docs/POC_GUIDE.md)** — Detailed usage
-- **[Monitoring Setup](docs/MONITORING_SETUP.md)** — Prometheus + Grafana + Loki
-- **[TLS Traffic Generator](docs/TLS_TRAFFIC_GENERATOR.md)** — Test traffic profiles
-- **[Architecture](docs/architecture/system-architecture.md)** — System design
+- **[SecOps Operations Guide](docs/SECOPS_OPERATIONS.md)** — Backend config, passwords, start/stop, maintenance
+- **[Incident Response Runbook](docs/INCIDENT_RESPONSE.md)** — Step-by-step attack response
+- **[Quick Reference](docs/QUICK_REFERENCE.md)** — Command cheat sheet
+- **[FAQ](docs/FAQ.md)** — Common operational questions
+
+**Security and compliance:**
 - **[Security Audit](docs/security/COMPREHENSIVE_SECURITY_AUDIT.md)** — Vulnerability assessment
-- **[Threat Model](docs/security/threat-model.md)** — Attack surface analysis
-- **[Performance Benchmark](docs/reports/PERFORMANCE_BENCHMARK.md)** — Throughput & scaling
-- **[DMZ Deployment Readiness](docs/DMZ_DEPLOYMENT_READINESS.md)** — Security gap analysis for corporate DMZ
-- **[Enterprise Deployment](docs/enterprise/deployment.md)** — Production guide
-- **[GDPR Compliance](docs/compliance/GDPR_COMPLIANCE.md)** — Data handling
+- **[Security Checklist](docs/security/SECURITY_CHECKLIST.md)** — Pre-deployment validation
+- **[Redis Security](docs/REDIS_SECURITY_REVIEW.md)** — POC status and production hardening
+- **[GDPR Compliance](docs/compliance/GDPR_COMPLIANCE.md)** — Data handling and retention
+- **[DMZ Deployment Readiness](docs/DMZ_DEPLOYMENT_READINESS.md)** — Security gap analysis
+
+**Reference:**
+- **[Monitoring Setup](docs/MONITORING_SETUP.md)** — Prometheus, Grafana, Loki, Alertmanager
+- **[TLS Traffic Generator](docs/TLS_TRAFFIC_GENERATOR.md)** — Test traffic profiles
+- **[Performance Benchmark](docs/reports/PERFORMANCE_BENCHMARK.md)** — Throughput and scaling data
+- **[Architecture](docs/architecture/system-architecture.md)** — Target enterprise architecture
 - **[Changelog](CHANGELOG.md)** — Version history
 
 ## Scaling
@@ -253,7 +263,8 @@ Plus configuration (1,038 lines), Grafana dashboard (1,087 lines), shell scripts
 ## Stopping Services
 
 ```bash
-docker compose -f docker-compose.poc.yml down
-docker compose -f docker-compose.monitoring.yml down
+./stop-all.sh          # Stop everything (keep Redis data)
+./stop-all.sh --clean  # Stop and wipe all volumes (fresh slate)
+make stop              # Same as ./stop-all.sh
 ```
 

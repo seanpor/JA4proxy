@@ -4,13 +4,16 @@
 
 | Action | Command |
 |--------|---------|
-| **Start all** | `./start-all.sh` |
+| **Start all** | `./start-all.sh`  or  `make start` |
+| **Stop all** | `./stop-all.sh`   or  `make stop` |
+| **Stop + wipe** | `./stop-all.sh --clean`  or  `make stop-clean` |
+| **Status** | `./status.sh`     or  `make status` |
 | **Generate traffic** | `./generate-tls-traffic.sh 60 10 20` |
 | **Reset between runs** | `make flush-redis` |
 | **Scale proxies** | `./scale-proxies.sh 4` |
+| **Update GeoIP DB** | `make update-geoip` (monthly) |
 | **Run tests** | `./run-tests.sh` |
-| **Stop** | `docker compose -f docker-compose.poc.yml down && docker compose -f docker-compose.monitoring.yml down` |
-| **View logs** | `docker compose -f docker-compose.poc.yml logs -f proxy` |
+| **View logs** | `make logs` |
 
 ## Incident Response (no restart needed)
 
@@ -73,14 +76,20 @@ docker compose -f docker-compose.poc.yml run --rm test pytest tests/ --cov=proxy
 
 ```bash
 make help              # Show all commands
-make deploy-poc        # Start POC environment
-make test              # Run tests
-make smoke-test        # Quick smoke test
+make start             # Start full stack (POC + monitoring)
+make stop              # Stop all services
+make stop-clean        # Stop and wipe all volumes
+make status            # Health dashboard + security state
 make logs              # View proxy logs
-make health-check      # Check service health
 make flush-redis       # Clear rate windows/bans/blocks — keep whitelist/blacklist
-make stop              # Stop services
-make clean             # Clean everything (containers + volumes)
+make update-geoip      # Download latest IP2Location LITE database (run monthly)
+make check-geoip       # Check age of current GeoIP database
+make fetch-db          # Pull latest malicious fingerprints (ja4db/FoxIO)
+make list-pending      # Review fingerprints before approving
+make approve-all       # Approve pending fingerprints
+make test              # Run all tests
+make smoke-test        # Quick smoke test
+make clean             # Stop + remove all containers and volumes
 ```
 
 ## Backend Test Endpoints
@@ -177,20 +186,18 @@ docker network inspect ja4proxy_ja4proxy
 ## Cleanup
 
 ```bash
-# Stop and clean POC
-docker compose -f docker-compose.poc.yml down -v
-rm -rf reports/
+# Stop all services (keep Redis data)
+make stop
 
-# Full cleanup (including images)
+# Stop and wipe all volumes (fresh slate)
+make stop-clean
+
+# Full cleanup (containers + volumes + images)
 make clean
 
-# Remove all stopped containers
+# Remove unused Docker resources
 docker container prune -f
-
-# Remove unused images
 docker image prune -f
-
-# Remove unused volumes
 docker volume prune -f
 ```
 
@@ -220,44 +227,36 @@ docker volume prune -f
 ## First Time Setup
 
 ```bash
-# 1. Clone repo
-git clone https://github.com/yourusername/JA4proxy.git
-cd JA4proxy
+# 1. Configure your backend (edit BACKEND_HOST / BACKEND_PORT)
+cp .env.example .env && nano .env
 
-# 2. Start POC
-./start-poc.sh
+# 2. Start everything
+./start-all.sh
 
 # 3. Verify
-./smoke-test.sh
+./status.sh
 
-# 4. Run tests
-./run-tests.sh
+# 4. Generate test traffic
+./generate-tls-traffic.sh 60 15 20
 
-# 5. View reports
-open reports/coverage/index.html
+# 5. Open Grafana
+open http://localhost:3001    # password in .env
 ```
 
 ## Daily Development
 
 ```bash
-# Start services
-./start-poc.sh
-
-# Make code changes...
-
-# Run tests
-./run-tests.sh
-
-# View logs if needed
-docker compose -f docker-compose.poc.yml logs -f proxy
-
-# Stop when done
-docker compose -f docker-compose.poc.yml down
+make start                   # Start all services
+# Make changes...
+make logs                    # View proxy output
+make flush-redis             # Reset state between test runs
+make stop                    # Stop when done
 ```
 
 ---
 
-**Need Help?**
-- Read: [POC_GUIDE.md](POC_GUIDE.md)
-- Read: [TESTING.md](TESTING.md)
-- Run: `make help`
+**Need help?**
+- [FAQ](FAQ.md) — Common operational questions
+- [INCIDENT_RESPONSE.md](INCIDENT_RESPONSE.md) — Active attack playbooks
+- [SECOPS_OPERATIONS.md](SECOPS_OPERATIONS.md) — Full admin guide
+- `make help` — All available commands

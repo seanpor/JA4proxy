@@ -1,5 +1,55 @@
 # Changelog
 
+## [3.5.0] - 2026-02-24 - SECOPS USABILITY, GEOIP MAINTENANCE, BUG FIXES
+
+### OPERATIONAL IMPROVEMENTS
+
+- **`stop-all.sh`** — unified stop for POC and monitoring stacks in one command.
+  `--clean` flag removes all Docker volumes for a fresh restart.
+- **`status.sh`** — health dashboard showing container states, service HTTP checks,
+  Redis connectivity, live security state (blacklist size, active bans, blocked countries,
+  pending fingerprints), and access URLs with current Grafana password.
+- **`scripts/update-geoip.sh`** — downloads the latest IP2Location LITE DB1 from the
+  public CDN (no account needed), validates the file, keeps a `.prev` backup.
+  `--check` flag shows database age without downloading. `make update-geoip` / `make check-geoip`.
+- **`poc-status-check.sh`** — rewritten from scratch. Was using wrong backend port (8081),
+  hardcoded Redis password as "admin", and checked for files that don't exist.
+  Now reads `.env` for credentials and checks all correct endpoints.
+- **Makefile** — added `start`, `stop`, `stop-clean`, `status`, `start-monitoring`,
+  `update-geoip`, `check-geoip` targets. Help output reorganised by category.
+
+### CONFIGURATION
+
+- **`BACKEND_HOST` / `BACKEND_PORT`** — backend destination is now configurable via `.env`.
+  Set to your real server IP/hostname; defaults to `backend:443` for POC Docker networking.
+  Passed to the proxy container via `docker-compose.poc.yml` and supported natively in
+  `config/proxy.yml` via env var substitution.
+- **`_expand_env_vars` fix** — now supports `${VAR:-default}` fallback syntax (previously
+  only `${VAR}` was supported; missing vars silently became empty strings). Config now uses
+  `${BACKEND_HOST:-backend}` and `${BACKEND_PORT:-443}` so the proxy always has valid defaults.
+- **`backend_port` type fix** — cast to `int()` at `asyncio.open_connection()` call site;
+  prevents type error when `BACKEND_PORT` comes from env var string expansion.
+
+### DOCUMENTATION
+
+- **`docs/FAQ.md`** (new) — 25 common operational questions: setup, passwords, GeoIP,
+  fingerprint blocking, false positives, alerts, scaling, backups, log rotation, upgrades.
+- **`docs/SECOPS_OPERATIONS.md`** — added Routine Maintenance section covering GeoIP DB
+  update cadence (monthly, with cron example), JA4 fingerprint feed workflow, Alertmanager
+  notification target configuration, log rotation, and credential rotation.
+- **`docs/REDIS_SECURITY_REVIEW.md`** — rewritten to reflect current state (auto-generated
+  password and Docker-internal networking already implemented); stripped sprint-planning
+  language, time estimates, and unverified compliance checkmarks.
+- **`.env.example`** — rewritten as a comprehensive reference covering `BACKEND_HOST`,
+  `BACKEND_PORT`, `JA4DB_API_KEY`, port overrides, and a production checklist.
+- **`docs/README.md`** — updated index, added FAQ and new operational docs, removed deleted files.
+- Removed four stale/misleading docs: `docs/POC_GUIDE.md` (superseded),
+  `docs/security/SECURITY_ANALYSIS_REPORT.md` (2024-dated, contradicted newer audit),
+  `docs/SECURITY_VULNERABILITIES_DIAGRAM.md` (showed proxy→backend as HTTP, incorrect),
+  `docs/REDIS_SECURITY_QUICK.md` (referenced non-existent setup script).
+
+---
+
 ## [3.4.0] - 2026-02-23 - THREAT INTEL FEED, DYNAMIC GEOIP, CIDR BLOCKING
 
 ### 🌐 DYNAMIC GEOIP & CIDR BLOCKING (proxy.py — no restart needed)
