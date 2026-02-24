@@ -4,6 +4,7 @@
 
 - [README](../README.md) — Project overview and quick start
 - [POC Quick Start](POC_QUICKSTART.md) — 5-minute setup guide
+- [FAQ](FAQ.md) — Common operational questions with direct answers
 
 ## Operations
 
