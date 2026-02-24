@@ -245,6 +245,92 @@ docker exec ja4proxy-redis redis-cli -a "${REDIS_PASSWORD}" --no-auth-warning SM
 
 ---
 
+## Routine Maintenance
+
+### GeoIP database — update monthly
+
+JA4proxy uses the IP2Location LITE database (DB1 — country-level) to map IPs to countries. IP2Location publishes updated databases monthly. The database is loaded at proxy startup, so a restart is required after updating.
+
+```bash
+make check-geoip          # See how old the current database is
+make update-geoip         # Download latest version (no account needed)
+make stop && make start   # Restart to load the new database
+```
+
+GeoIP is **disabled by default**. To enable it, set `geoip: enabled: true` in `config/proxy.yml` and add countries to `country_blacklist`. The `safe_countries` list protects named countries from auto-blocking even when GeoIP is active.
+
+Suggested cron (1st of each month, 3am):
+```bash
+0 3 1 * * /path/to/scripts/update-geoip.sh >> /var/log/ja4proxy.log 2>&1
+5 3 1 * * cd /path/to/JA4proxy && make stop && make start
+```
+
+### JA4 fingerprint feed — update as needed
+
+Pull new known-malicious fingerprints from FoxIO and optionally ja4db.com:
+
+```bash
+make fetch-db        # Download and queue for review
+make list-pending    # Review before approving
+make approve-all     # Approve (prompts for confirmation)
+```
+
+After approving, persist to `config/proxy.yml` so they survive restarts.
+
+### Alertmanager — configure notification targets
+
+By default, Alertmanager is running but all external notification channels (email, Slack, PagerDuty) are placeholders. Edit `monitoring/alertmanager/alertmanager.yml` to configure real targets:
+
+```yaml
+global:
+  smtp_smarthost: 'your-smtp:587'
+  smtp_auth_username: 'alerts@yourcompany.com'
+  smtp_auth_password: 'your-password'
+
+receivers:
+  - name: 'security-team'
+    slack_configs:
+      - api_url: 'https://hooks.slack.com/services/YOUR/REAL/WEBHOOK'
+        channel: '#security-alerts'
+```
+
+Reload after editing:
+```bash
+docker compose -f docker-compose.monitoring.yml restart alertmanager
+```
+
+### Log rotation
+
+The `./logs/` directory is mounted read-write into the proxy container. Add a logrotate config to prevent disk fill:
+
+```bash
+sudo tee /etc/logrotate.d/ja4proxy << 'EOF'
+/path/to/JA4proxy/logs/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+}
+EOF
+```
+
+Loki (if running) has its own retention — see `docker-compose.monitoring.yml`.
+
+### Credential rotation
+
+To rotate the Redis password:
+```bash
+NEW_PW=$(openssl rand -base64 32 | tr -d '/+=')
+sed -i "s/^REDIS_PASSWORD=.*/REDIS_PASSWORD=${NEW_PW}/" .env
+make stop && make start
+```
+
+Both the Redis server and proxy container must restart together so they use the same password.
+
+---
+
 ## Upgrading
 
 ```bash
@@ -252,7 +338,10 @@ git pull
 ./stop-all.sh
 docker compose -f docker-compose.poc.yml build
 ./start-all.sh
+./poc-status-check.sh    # Verify everything is healthy
 ```
+
+Check [CHANGELOG.md](../CHANGELOG.md) before upgrading for any config changes needed.
 
 ---
 

@@ -5,8 +5,9 @@ proxy:
   bind_port: 8080
   # Backend server — set BACKEND_HOST / BACKEND_PORT in .env to point to your real server.
   # POC default: "backend" (Docker container name). Production: your server IP or hostname.
-  backend_host: "${BACKEND_HOST}"
-  backend_port: "${BACKEND_PORT}"
+  # Supports ${VAR:-default} syntax: falls back to "backend":443 if env vars are not set.
+  backend_host: "${BACKEND_HOST:-backend}"
+  backend_port: "${BACKEND_PORT:-443}"
   # Tarpit container for redirecting blocked connections
   tarpit_host: "tarpit"
   tarpit_port: 8888

@@ -1,6 +1,6 @@
 # Makefile for JA4 Proxy
 
-.PHONY: help build test lint clean deploy-poc deploy-enterprise smoke-test flush-redis attack-status top-attackers block-ja4 block-ip unblock-ip fetch-db list-pending approve-all geoip-report geoip-monitor geoip-watch start start-monitoring stop stop-clean status
+.PHONY: help build test lint clean deploy-poc deploy-enterprise smoke-test flush-redis attack-status top-attackers block-ja4 block-ip unblock-ip fetch-db list-pending approve-all geoip-report geoip-monitor geoip-watch update-geoip check-geoip start start-monitoring stop stop-clean status
 
 # Default target
 help:
@@ -35,6 +35,8 @@ help:
 	@echo "  fetch-db          - Fetch new malicious fingerprints from ja4db / FoxIO"
 	@echo "  list-pending      - Show fingerprints awaiting admin approval"
 	@echo "  approve-all       - Approve all pending fingerprints"
+	@echo "  update-geoip      - Download latest IP2Location LITE database (monthly)"
+	@echo "  check-geoip       - Check age of current GeoIP database"
 	@echo "  geoip-report      - Full blocking report (countries, CIDRs, fingerprints)"
 	@echo "  geoip-monitor     - Auto-block attacking countries (run once)"
 	@echo "  geoip-watch       - Auto-block attacking countries (continuous loop)"
@@ -163,6 +165,15 @@ geoip-monitor:
 # Run geoip-monitor in watch mode (loops every 60s, Ctrl-C to stop)
 geoip-watch:
 	@./scripts/geoip-monitor.sh --watch
+
+# Download the latest IP2Location LITE country database (run monthly)
+# Requires proxy restart after update: make stop && make start
+update-geoip:
+	@./scripts/update-geoip.sh
+
+# Check how old the current GeoIP database is (no download)
+check-geoip:
+	@./scripts/update-geoip.sh --check
 
 # ── Incident response shortcuts (wrappers for scripts/ja4-admin.sh) ──────────
 

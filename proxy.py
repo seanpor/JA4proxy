@@ -563,29 +563,33 @@ class ConfigManager:
     
     def _expand_env_vars(self, config: Dict) -> Dict:
         """
-        Expand environment variables in configuration (SECURITY FIX).
-        Supports ${VAR_NAME} syntax for sensitive values.
+        Expand environment variables in configuration.
+        Supports ${VAR_NAME} and ${VAR_NAME:-default_value} syntax.
         """
         import os
         import re
-        
+
+        # Matches ${VAR} and ${VAR:-default}
+        pattern = re.compile(r'\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-(.*?))?\}')
+
         def expand_value(value):
             if isinstance(value, str):
-                # Match ${VAR_NAME} pattern
-                pattern = r'\$\{([^}]+)\}'
-                matches = re.findall(pattern, value)
-                for var_name in matches:
+                def replace_match(m):
+                    var_name, default = m.group(1), m.group(2)
                     env_value = os.getenv(var_name)
-                    if env_value is None:
-                        self.logger.warning(f"Environment variable not set: {var_name}")
-                        env_value = ''
-                    value = value.replace(f'${{{var_name}}}', env_value)
+                    if env_value is not None:
+                        return env_value
+                    if default is not None:
+                        return default
+                    self.logger.warning(f"Environment variable not set and no default: {var_name}")
+                    return ''
+                return pattern.sub(replace_match, value)
             elif isinstance(value, dict):
                 return {k: expand_value(v) for k, v in value.items()}
             elif isinstance(value, list):
                 return [expand_value(item) for item in value]
             return value
-        
+
         return expand_value(config)
     
     def _default_config(self) -> Dict:
