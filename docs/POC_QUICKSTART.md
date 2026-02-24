@@ -113,9 +113,8 @@ docker compose -f docker-compose.poc.yml logs proxy | grep ALLOWED | tail -5
 ## Stop
 
 ```bash
-docker compose -f docker-compose.poc.yml down
-docker compose -f docker-compose.monitoring.yml down
-# Or: make stop && make clean   (removes volumes too)
+./stop-all.sh          # Stop everything, keep Redis data
+./stop-all.sh --clean  # Stop and wipe all volumes
 ```
 
 ## Key Configuration File

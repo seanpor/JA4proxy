@@ -64,16 +64,16 @@ Three possible reasons:
 **Q: How do I update the GeoIP database?**
 
 ```bash
-make update-geoip        # Download latest IP2Location LITE DB (no account needed)
+make update-geoip        # Download latest IP2Location LITE DB
 make stop && make start  # Restart required — database is loaded at startup
 ```
-IP2Location publish monthly updates. Check your current database age anytime: `make check-geoip`.
+IP2Location publishes monthly updates. If the automated download fails, the script prints a manual download URL. Check database age anytime: `make check-geoip`.
 
 ---
 
 **Q: How often should I update the GeoIP database?**
 
-Monthly. IP2Location LITE updates once a month. Run `make update-geoip` on a schedule:
+Monthly. Run `make update-geoip` on a schedule:
 
 ```bash
 # Cron: update at 3am on the 1st of each month, restart at 3:05am
@@ -89,7 +89,7 @@ Add the country to the safe list so it can never be auto-blocked:
 ```bash
 ./scripts/ja4-admin.sh safe-country IE
 ```
-Or edit `config/proxy.yml` under `geoip.safe_countries`. Countries in this list are refused by `block-country` commands and ignored by the auto-block monitor.
+Or add directly to `config/proxy.yml` under `geoip.safe_countries`. Countries in this list cannot be added to the block list, either manually or by the auto-block monitor.
 
 ---
 
