@@ -1,9 +1,5 @@
 # JA4proxy — SecOps Operations Guide
 
-This document covers everything a SecOps admin needs to configure, start, stop, and operate JA4proxy.
-
----
-
 ## Quick Start (3 steps)
 
 ```bash
@@ -21,8 +17,6 @@ nano .env           # Set BACKEND_HOST and BACKEND_PORT
 ---
 
 ## Step 1 — Configure the Backend Destination
-
-JA4proxy sits in front of your real server. You must tell it where to forward clean traffic.
 
 Edit `.env`:
 
@@ -53,14 +47,7 @@ Changes to `BACKEND_HOST`/`BACKEND_PORT` require a restart:
 
 ### First startup (auto-generated)
 
-If `.env` doesn't exist, `start-poc.sh` creates it automatically with cryptographically random passwords:
-
-```
-Redis password:   <32 random chars>
-Grafana password: <16 random chars>
-```
-
-The generated passwords are shown once in the console and stored in `.env`. To see them again:
+If `.env` doesn't exist, `start-poc.sh` creates it with random passwords and prints them once. To retrieve them later:
 
 ```bash
 cat .env
@@ -194,8 +181,8 @@ security:
 
 ```yaml
 proxy:
-  backend_host: "${BACKEND_HOST}"   # Set BACKEND_HOST in .env
-  backend_port: "${BACKEND_PORT}"   # Set BACKEND_PORT in .env
+  backend_host: "${BACKEND_HOST:-backend}"  # override in .env → BACKEND_HOST=192.168.1.100
+  backend_port: "${BACKEND_PORT:-443}"      # override in .env → BACKEND_PORT=443
 
 security:
   multi_strategy_policy: "majority" # any | all | majority
@@ -216,7 +203,7 @@ geoip:
     - CA
 ```
 
-Config changes (except `backend_host`/`backend_port`) take effect on the next connection — **no restart needed**.
+Changes to `config/proxy.yml` require a proxy restart. Security state changes made via `ja4-admin.sh` (blacklist, country blocks, CIDR blocks, IP blocks) take effect immediately — no restart needed.
 
 ---
 
