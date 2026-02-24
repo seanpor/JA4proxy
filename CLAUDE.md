@@ -9,17 +9,20 @@ JA4proxy is a TLS fingerprinting security proxy that inspects TLS ClientHello pa
 ## Common Commands
 
 ```bash
-# Start POC environment (proxy + HAProxy + Redis + backend + tarpit)
-./start-all.sh                              # Start proxy + monitoring
+# Start / stop
+./start-all.sh                              # Start proxy + monitoring (or: make start)
 ./start-poc.sh                              # Start proxy stack only
 ./start-monitoring.sh                       # Start Prometheus/Grafana/Loki
+./stop-all.sh                               # Stop everything (or: make stop)
+./stop-all.sh --clean                       # Stop + wipe volumes (or: make stop-clean)
+./status.sh                                 # Health dashboard (or: make status)
 
 # Testing
 make test                                   # All tests
 make test-unit                              # Unit tests only
 make test-integration                       # Integration tests (requires Docker)
 make smoke-test                             # Quick sanity check
-make perf-test                              # Locust load tests
+./poc-status-check.sh                       # Quick POC readiness check
 
 # Linting
 make lint                                   # black + flake8 + mypy
@@ -28,6 +31,11 @@ make lint                                   # black + flake8 + mypy
 ./scale-proxies.sh 4                        # Scale to N proxy instances (~210 conn/s each)
 ./generate-tls-traffic.sh 30 10 20         # Duration(s), legit%, workers
 
+# Threat intel / GeoIP
+make fetch-db                               # Pull latest malicious JA4 fingerprints
+make update-geoip                           # Update IP2Location LITE DB (monthly)
+make check-geoip                            # Check GeoIP database age
+
 # View logs and metrics
 make logs                                   # Proxy container logs
 # Grafana dashboard: http://localhost:3001  (admin/password from .env)
@@ -35,6 +43,7 @@ make logs                                   # Proxy container logs
 # HAProxy stats:     http://localhost:8404/stats
 
 # Cleanup
+make flush-redis                            # Clear bans/blocks/rates (keep blacklist/whitelist)
 make stop                                   # Stop all services
 make clean                                  # Stop + remove all containers and volumes
 ```
@@ -55,16 +64,21 @@ HAProxy does TLS passthrough (no termination), forwarding raw TLS via PROXY prot
 
 ### Security Pipeline (layers applied in order)
 
-1. **GeoIP filter** — Block/allow by country (IP2Location LITE DB, disabled by default)
-2. **JA4 blacklist** — Instant TCP RST for known-bad fingerprints (Sliver C2, CobaltStrike, etc.)
-3. **JA4 whitelist** — Skip rate limiting for known-good fingerprints (Chrome, Firefox, Safari)
-4. **Multi-strategy rate limiting** — Three independent strategies tracked via Redis:
+1. **GeoIP static** — Block/allow by country from `config/proxy.yml` (IP2Location LITE, off by default)
+2. **GeoIP dynamic** — Redis set `geoip:dynamic_blacklist` — takes effect immediately, no restart
+3. **CIDR block** — Redis set `geoip:blocked_cidrs` — reloaded every 30s, no restart needed
+4. **JA4 blacklist** — Instant TCP RST for known-bad fingerprints (Sliver C2, CobaltStrike, etc.)
+5. **JA4 whitelist** — Skip rate limiting for known-good fingerprints (Chrome, Firefox, Safari)
+6. **Pattern whitelist** — `h2`/`h1` ALPN patterns = browser → skip rate limiting entirely
+7. **Multi-strategy rate limiting** — Three independent strategies tracked via Redis:
    - `BY_IP` — catch single-source DDoS
    - `BY_JA4` — catch botnet campaigns sharing a fingerprint
    - `BY_IP_JA4_PAIR` — catch targeted attacks (most granular)
-5. **Action escalation** — `NORMAL → SUSPICIOUS → BLOCK → BANNED`, enforced as `LOG → TARPIT → BAN`
+8. **Action escalation** — `NORMAL → SUSPICIOUS → BLOCK → BANNED`, enforced as `LOG → TARPIT → BAN`
 
 Multi-strategy policy (configurable): `ANY` (most strict), `ALL` (most permissive), `MAJORITY` (balanced).
+
+Backend destination is configured via `BACKEND_HOST` / `BACKEND_PORT` in `.env` (defaults to `backend:443` for POC Docker networking). Config supports `${VAR:-default}` syntax for all env var substitutions.
 
 ### Key Source Files
 
@@ -84,6 +98,13 @@ Multi-strategy policy (configurable): `ANY` (most strict), `ALL` (most permissiv
 | `ha-config/haproxy.cfg` | HAProxy: TLS passthrough, PROXY v2, round-robin, TLS 1.2+, ECDHE ciphers only |
 | `security/validation.py` | Input validation/sanitization utilities |
 | `scripts/tls-traffic-generator.py` | TLS profile simulator (Chrome, Firefox, Sliver C2, bots, etc.) |
+| `scripts/ja4-admin.sh` | Incident response CLI: block/unblock fingerprints, IPs, countries, CIDRs, report |
+| `scripts/fetch-ja4db.sh` | Pull known-malicious fingerprints from FoxIO GitHub / ja4db.com, queue for approval |
+| `scripts/update-geoip.sh` | Download latest IP2Location LITE DB1 (run monthly; restart needed after update) |
+| `scripts/geoip-monitor.sh` | Auto-block countries exceeding blocked-traffic thresholds; respects safe list |
+| `start-all.sh` | Start full stack (POC + monitoring) |
+| `stop-all.sh` | Stop all stacks (`--clean` also wipes volumes) |
+| `status.sh` | Health dashboard: containers, services, security state, access URLs |
 
 ### Configuration
 

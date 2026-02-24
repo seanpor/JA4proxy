@@ -91,3 +91,6 @@ reports/
 .DS_Store
 Thumbs.db
 !docs/reports/
+node_modules/
+package-lock.json
+package.json
