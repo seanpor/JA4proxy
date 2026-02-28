@@ -654,28 +654,29 @@ class ConfigManager:
 class SecurityManager:
     """Security policy enforcement."""
     
-    def __init__(self, config: Dict, redis_client: redis.Redis):
+    def __init__(self, config: Dict, redis_client: redis.asyncio.Redis):
         self.config = config
         self.redis = redis_client
         self.logger = logging.getLogger(__name__)
-        self._load_security_lists()
+        self.whitelist = set()
+        self.blacklist = set()
     
-    def _load_security_lists(self):
+    async def _load_security_lists(self):
         """Load whitelist and blacklist from Redis."""
         try:
-            self.whitelist = set(self.redis.smembers('ja4:whitelist') or [])
-            self.blacklist = set(self.redis.smembers('ja4:blacklist') or [])
+            self.whitelist = set(await self.redis.smembers('ja4:whitelist') or [])
+            self.blacklist = set(await self.redis.smembers('ja4:blacklist') or [])
         except Exception as e:
             self.logger.error(f"Error loading security lists: {e}")
             self.whitelist = set()
             self.blacklist = set()
     
-    def check_access(self, fingerprint: JA4Fingerprint, client_ip: str) -> Tuple[bool, str]:
+    async def check_access(self, fingerprint: JA4Fingerprint, client_ip: str) -> Tuple[bool, str]:
         """Check if request should be allowed."""
         try:
             # Check rate limiting
             if self.config['security']['rate_limiting']:
-                if not self._check_rate_limit(client_ip):
+                if not await self._check_rate_limit(client_ip):
                     BLOCKED_REQUESTS.labels(reason='rate_limit', source_country='', attack_type='rate_limit').inc()
                     return False, "Rate limit exceeded"
             
@@ -698,7 +699,7 @@ class SecurityManager:
             self.logger.error(f"Error checking access: {e}")
             return False, "Internal error"
     
-    def _check_rate_limit(self, client_ip: str) -> bool:
+    async def _check_rate_limit(self, client_ip: str) -> bool:
         """
         Check rate limiting for client IP (SECURITY FIX: Fail-closed).
         Returns False if rate limit exceeded or on error.
@@ -709,9 +710,9 @@ class SecurityManager:
         key = f"rate_limit:{client_ip}"
         
         try:
-            current = self.redis.incr(key)
+            current = await self.redis.incr(key)
             if current == 1:
-                self.redis.expire(key, window)
+                await self.redis.expire(key, window)
             
             if current > max_requests:
                 self.logger.warning(f"Rate limit exceeded for IP {client_ip}: {current}/{max_requests}")
@@ -773,7 +774,32 @@ class TarpitManager:
 class ProxyServer:
     """Main proxy server implementation."""
     
-    def __init__(self, config_path: str = "config/proxy.yml"):
+    def __init__(self):
+        self.config_manager = None
+        self.config = None
+        self.logger = None
+        self.redis_client = None
+        self.tls_parser = None
+        self.ja4_generator = None
+        self.tarpit_manager = None
+        self.security_manager = None
+        self._conn_semaphore = None
+        self.geoip = None
+        self.country_whitelist = set()
+        self.country_blacklist = set()
+        self.country_whitelist_enabled = False
+        self.country_blacklist_enabled = False
+        self._cidr_blocks = []
+        self._cidr_blocks_loaded_at = 0.0
+        self._cidr_cache_ttl = 30
+        self._local_cache = None
+        self.pipeline = None
+        self._dial_manager = None
+        self.active_connections = 0
+
+    @classmethod
+    async def create(cls, config_path: str = "config/proxy.yml"):
+        self = cls()
         self.config_manager = ConfigManager(config_path)
         self.config = self.config_manager.config
         
@@ -781,7 +807,7 @@ class ProxyServer:
         self.logger = self._init_logging()
         
         # Initialize components
-        self.redis_client = self._init_redis()
+        self.redis_client = await self._init_redis()
         self.tls_parser = TLSParser()
         self.ja4_generator = JA4Generator()
         self.tarpit_manager = TarpitManager(self.config)
@@ -823,7 +849,7 @@ class ProxyServer:
             )
         
         # Pre-populate Redis whitelist/blacklist from config
-        self._populate_security_lists()
+        await self._populate_security_lists()
 
         # Phase 0+: Local cache (dial updated by pub/sub; used by pipeline hot path)
         self._local_cache = LocalCache(self.config)
@@ -835,8 +861,8 @@ class ProxyServer:
         self.pipeline.update_scorer(_scorer, _decider)
 
         # Load JA4 whitelist/blacklist into pipeline's in-process sets
-        wl_raw = self.redis_client.smembers("ja4:whitelist")
-        bl_raw = self.redis_client.smembers("ja4:blacklist")
+        wl_raw = await self.redis_client.smembers("ja4:whitelist")
+        bl_raw = await self.redis_client.smembers("ja4:blacklist")
         self.pipeline.update_sets(
             whitelist={k.decode("utf-8", errors="ignore") for k in wl_raw},
             blacklist={k.decode("utf-8", errors="ignore") for k in bl_raw},
@@ -846,8 +872,9 @@ class ProxyServer:
         self._dial_manager = DialManager(self.config)
 
         self.active_connections = 0
+        return self
     
-    def _populate_security_lists(self):
+    async def _populate_security_lists(self):
         """Pre-populate Redis whitelist and blacklist from config."""
         security_config = self.config.get('security', {})
         
@@ -855,32 +882,32 @@ class ProxyServer:
         whitelist = security_config.get('whitelist', [])
         if whitelist:
             for fp in whitelist:
-                self.redis_client.sadd('ja4:whitelist', fp.encode())
+                await self.redis_client.sadd('ja4:whitelist', fp.encode())
             self.logger.info(f"Loaded {len(whitelist)} whitelist entries")
         
         # Populate blacklist
         blacklist = security_config.get('blacklist', [])
         if blacklist:
             for fp in blacklist:
-                self.redis_client.sadd('ja4:blacklist', fp.encode())
+                await self.redis_client.sadd('ja4:blacklist', fp.encode())
             self.logger.info(f"Loaded {len(blacklist)} blacklist entries")
         
         # Reload security lists
-        self.security_manager._load_security_lists()
+        await self.security_manager._load_security_lists()
 
         # Populate geoip:safe_countries from config (never auto-blocked by geoip-monitor)
         safe_countries = geo_config = self.config.get('geoip', {}).get('safe_countries', [])
         if safe_countries:
             for cc in safe_countries:
-                self.redis_client.sadd('geoip:safe_countries', cc.upper())
+                await self.redis_client.sadd('geoip:safe_countries', cc.upper())
             self.logger.info(f"Loaded {len(safe_countries)} safe countries")
 
-    def _refresh_cidr_blocks(self) -> None:
+    async def _refresh_cidr_blocks(self) -> None:
         """Reload CIDR block list from Redis if cache is stale (every 30s)."""
         if time.monotonic() - self._cidr_blocks_loaded_at < self._cidr_cache_ttl:
             return
         try:
-            raw = self.redis_client.smembers('geoip:blocked_cidrs')
+            raw = await self.redis_client.smembers('geoip:blocked_cidrs')
             nets = []
             for m in raw:
                 cidr = m.decode() if isinstance(m, bytes) else m
@@ -906,7 +933,7 @@ class ProxyServer:
             pass
         return None
 
-    def _init_redis(self) -> redis.Redis:
+    async def _init_redis(self) -> redis.asyncio.Redis:
         """Initialize Redis connection with security validation."""
         redis_config = self.config['redis']
         
@@ -919,7 +946,7 @@ class ProxyServer:
         
         try:
             # Create Redis connection with security parameters
-            redis_client = redis.Redis(
+            redis_client = redis.asyncio.Redis(
                 host=redis_config['host'],
                 port=redis_config['port'],
                 db=redis_config.get('db', 0),
@@ -932,7 +959,7 @@ class ProxyServer:
             )
             
             # Test connection
-            redis_client.ping()
+            await redis_client.ping()
             self.logger.info("Redis connection established successfully")
             
             return redis_client
@@ -1054,8 +1081,10 @@ class ProxyServer:
                     return
                 
                 # Parse PROXY protocol v2 header if enabled
+                proxy_info = {}
                 if self.config['proxy'].get('proxy_protocol', False):
-                    client_ip, data = self._parse_proxy_protocol(data, socket_ip)
+                    proxy_info, data = self._parse_proxy_protocol(data, socket_ip)
+                    client_ip = proxy_info.get("client_ip", socket_ip)
                 
                 # Also check for X-Forwarded-For in HTTP requests as fallback
                 if client_ip == socket_ip:
@@ -1081,7 +1110,7 @@ class ProxyServer:
                 # Respects geoip:safe_countries — those can never enter the dynamic list.
                 if country:
                     try:
-                        if self.redis_client.sismember('geoip:dynamic_blacklist', country):
+                        if await self.redis_client.sismember('geoip:dynamic_blacklist', country):
                             self.logger.warning(
                                 f"COUNTRY_DYNAMIC_BLOCKED: {client_ip} | Country: {country} | "
                                 f"JA4: {ja4} | Name: {classify_ja4(ja4, self.config)}"
@@ -1101,7 +1130,7 @@ class ProxyServer:
                         pass  # fail open on Redis error
 
                 # --- CIDR block check (Redis-backed, 30s cache) — Phase 6 TODO: move into Pipeline ---
-                self._refresh_cidr_blocks()
+                await self._refresh_cidr_blocks()
                 matched_cidr = self._is_cidr_blocked(client_ip)
                 if matched_cidr:
                     self.logger.warning(
@@ -1146,6 +1175,10 @@ class ProxyServer:
                     country=country or None,
                     tls_version=fingerprint.tls_version_int or None,
                     cipher_list=fingerprint.raw_cipher_suites,
+                    tcp_ja4t=proxy_info.get("ja4t", ""),
+                    tcp_window_size=proxy_info.get("window_size", 0),
+                    tcp_ttl=proxy_info.get("ttl", 0),
+                    tcp_options=proxy_info.get("tcp_options", ""),
                     # alpn / sni: added in Phase 4
                 )
                 result = await self.pipeline.process(ctx)
@@ -1194,17 +1227,21 @@ class ProxyServer:
             finally:
                 self.active_connections -= 1
                 ACTIVE_CONNECTIONS.set(self.active_connections)
+                if 'client_ip' in locals():
+                    self.pipeline._tcp_analyzer.decrement_concurrent_connections(client_ip)
                 try:
                     writer.close()
                     await writer.wait_closed()
                 except Exception:
                     pass
     
-    def _parse_proxy_protocol(self, data: bytes, fallback_ip: str) -> tuple:
-        """Parse PROXY protocol v2 header to extract real client IP."""
+    def _parse_proxy_protocol(self, data: bytes, fallback_ip: str) -> tuple[dict, bytes]:
+        """Parse PROXY protocol header to extract real client IP and TCP info."""
         # PROXY protocol v2 signature: 12 bytes
         PP2_SIGNATURE = b'\x0d\x0a\x0d\x0a\x00\x0d\x0a\x51\x55\x49\x54\x0a'
         
+        info = {"client_ip": fallback_ip}
+
         if data[:12] == PP2_SIGNATURE and len(data) >= 16:
             # Version and command byte
             ver_cmd = data[12]
@@ -1216,19 +1253,38 @@ class ProxyServer:
                 # Extract addresses based on address family
                 if family == 0x11:  # AF_INET, STREAM
                     if addr_len >= 12:
-                        src_ip = socket.inet_ntoa(data[16:20])
-                        remaining_data = data[header_len:]
-                        self.logger.debug(f"PROXY protocol v2: client IP = {src_ip}")
-                        return src_ip, remaining_data
+                        info["client_ip"] = socket.inet_ntoa(data[16:20])
                 elif family == 0x21:  # AF_INET6, STREAM
                     if addr_len >= 36:
-                        src_ip = socket.inet_ntop(socket.AF_INET6, data[16:32])
-                        remaining_data = data[header_len:]
-                        self.logger.debug(f"PROXY protocol v2: client IPv6 = {src_ip}")
-                        return src_ip, remaining_data
+                        info["client_ip"] = socket.inet_ntop(socket.AF_INET6, data[16:32])
                 
-                # Unknown family, strip header but use fallback IP
-                return fallback_ip, data[header_len:]
+                remaining_data = data[header_len:]
+                
+                # Parse TLV fields for JA4T data
+                tlv_data = data[16+addr_len:header_len]
+                idx = 0
+                while idx < len(tlv_data):
+                    tlv_type = tlv_data[idx]
+                    idx += 1
+                    if idx + 2 > len(tlv_data): break
+                    tlv_len = struct.unpack('!H', tlv_data[idx:idx+2])[0]
+                    idx += 2
+                    if idx + tlv_len > len(tlv_data): break
+                    
+                    # For now, we only care about a few types for JA4T
+                    if tlv_type == 0x04: # PP2_TYPE_TCP_INFO
+                        # This is a custom type we can use for JA4T components
+                        # In a real scenario, you'd coordinate with your LB config
+                        try:
+                            # Example: pack ttl, window_size, and options
+                            info["ttl"], info["window_size"] = struct.unpack('!BH', tlv_data[idx:idx+3])
+                            info["tcp_options"] = tlv_data[idx+3:idx+tlv_len].hex()
+                        except struct.error:
+                            pass # Ignore malformed TLV
+                    
+                    idx += tlv_len
+
+                return info, remaining_data
         
         # PROXY protocol v1 (text): "PROXY TCP4 src_ip dst_ip src_port dst_port\r\n"
         if data[:6] == b'PROXY ':
@@ -1237,15 +1293,14 @@ class ProxyServer:
                 header_line = data[:newline].decode('ascii')
                 parts = header_line.split(' ')
                 if len(parts) >= 3:
-                    src_ip = parts[2]
+                    info["client_ip"] = parts[2]
                     remaining_data = data[newline + 2:]
-                    self.logger.debug(f"PROXY protocol v1: client IP = {src_ip}")
-                    return src_ip, remaining_data
+                    return info, remaining_data
             except (ValueError, UnicodeDecodeError):
                 pass
         
         # No PROXY protocol header found
-        return fallback_ip, data
+        return info, data
     
     def _extract_client_ip_from_http(self, data: bytes) -> str:
         """Extract client IP from HTTP X-Forwarded-For header (fallback for non-PP traffic)."""
@@ -1390,8 +1445,8 @@ class ProxyServer:
                 'source_ip': fingerprint.source_ip
             }
             
-            self.redis_client.hset(key, mapping=data)
-            self.redis_client.expire(key, 3600)  # 1 hour TTL
+            await self.redis_client.hset(key, mapping=data)
+            await self.redis_client.expire(key, 3600)  # 1 hour TTL
             
         except Exception as e:
             self.logger.error(f"Error storing fingerprint: {e}")
@@ -1504,22 +1559,41 @@ class SecureFormatter(logging.Formatter):
         
         return super().format(record)
     
-def main():
+async def main():
+    
     """Main entry point."""
+    
     import sys
+    
+    
     
     config_path = sys.argv[1] if len(sys.argv) > 1 else "config/proxy.yml"
     
-    proxy = ProxyServer(config_path)
+    
+    
+    proxy = await ProxyServer.create(config_path)
+    
+    
     
     try:
-        asyncio.run(proxy.start())
+    
+        await proxy.start()
+    
     except KeyboardInterrupt:
+    
         print("\nShutting down proxy server...")
+    
     except Exception as e:
+    
         logging.error(f"Fatal error: {e}")
+    
         sys.exit(1)
+    
 
+    
 
+    
 if __name__ == "__main__":  # pragma: no cover
-    main()
+    
+    asyncio.run(main())
+    

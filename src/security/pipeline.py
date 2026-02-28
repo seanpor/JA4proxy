@@ -57,6 +57,8 @@ from prometheus_client import Counter, Gauge
 
 from .tls_enforcer import TLSEnforcer
 from .sni_analyzer import SNIAnalyzer
+from .tcp_analyzer import TCPAnalyzer
+from .mtls import MTLSHandler
 
 if TYPE_CHECKING:
     from ..cache.local_cache import LocalCache
@@ -110,55 +112,7 @@ _VERBS: dict[str, str] = {
 }
 
 
-@dataclass
-class ConnectionContext:
-    """Immutable snapshot of a connection's observable metadata.
-
-    All signal modules receive this context. Fields are populated by the
-    proxy as the TLS handshake progresses. Fields unavailable before a
-    particular phase are left at their defaults.
-
-    Attributes:
-        client_ip: Canonical client IP (already normalised via canonical_ip).
-        ja4: JA4 fingerprint string, or empty string if not yet computed.
-        alpn: ALPN negotiated protocol ("h2", "h1", or None).
-        has_valid_client_cert: True if a verified mTLS client cert was presented.
-        sni: SNI hostname from the ClientHello, or None if absent.
-        tls_version: TLS version integer (e.g. 0x0303 for TLS 1.2), or None.
-        country: ISO-3166-1 alpha-2 country code from GeoIP, or None.
-    """
-
-    client_ip: str
-    ja4: str = ""
-    alpn: str | None = None
-    has_valid_client_cert: bool = False
-    sni: str | None = None
-    tls_version: int | None = None
-    country: str | None = None
-    cipher_list: list[int] = field(default_factory=list)
-
-
-@dataclass
-class PipelineResult:
-    """Result of processing one connection through the pipeline.
-
-    Attributes:
-        action: Final action string (allow|flag|rate_limit|tarpit|block|ban).
-        bypassed: True if a bypass rule short-circuited the scorer.
-        bypass_reason: Bypass label used in logs (e.g. "alpn_browser").
-        score: Composite score 0–100, or None for bypassed connections.
-        signals: List of RiskSignal dicts (name, score) for logging.
-        dial: Dial value at decision time; None for bypassed connections.
-        counterfactuals: Dict of {dial_value: action} for monitor-mode logging.
-    """
-
-    action: str
-    bypassed: bool = False
-    bypass_reason: str | None = None
-    score: int | None = None
-    signals: list[Any] = field(default_factory=list)
-    dial: int | None = None
-    counterfactuals: dict = field(default_factory=dict)
+from .models import ConnectionContext, PipelineResult
 
 
 # ---------------------------------------------------------------------------
@@ -179,7 +133,9 @@ class StaticAllowlist:
     """
 
     def __init__(self, config: dict) -> None:
-        self._entries: list[tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, dict]] = []
+        self._entries: list[
+            tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, dict]
+        ] = []
         self.reload(config)
 
     def reload(self, config: dict) -> None:
@@ -292,6 +248,9 @@ class Pipeline:
         self._tls_enforcer = TLSEnforcer(config)
         # Phase 4: SNI analysis
         self._sni_analyzer = SNIAnalyzer(config)
+        # Phase 5a: TCP & mTLS
+        self._tcp_analyzer = TCPAnalyzer(config, redis_client)
+        self._mtls_handler = MTLSHandler(config)
 
     def update_scorer(self, scorer: Any, decider: Any) -> None:
         """Wire in Phase 1 scorer and decider. Called after Phase 1 init."""
@@ -327,7 +286,9 @@ class Pipeline:
                 exc_info=True,
             )
             # Fail open: an error in the pipeline must not block real users
-            result = PipelineResult(action="allow", score=0, signals=[], dial=self._cache.dial)
+            result = PipelineResult(
+                action="allow", score=0, signals=[], dial=self._cache.dial
+            )
             self._emit_log(ctx, result)
             return result
 
@@ -385,7 +346,10 @@ class Pipeline:
                     _COUNTERFACTUAL.labels(action=act, dial=str(d)).inc()
         else:
             result = PipelineResult(
-                action=action, score=score, signals=scored_signals, dial=dial,
+                action=action,
+                score=score,
+                signals=scored_signals,
+                dial=dial,
                 counterfactuals=cf,
             )
             self._emit_log(ctx, result)
@@ -428,13 +392,12 @@ class Pipeline:
 
         # 4. mTLS bypass
         if self._policy.get("mtls_bypass", {}).get("enabled", True):
-            if ctx.has_valid_client_cert:
+            if self._mtls_handler.verify_client_cert(ctx):
                 return PipelineResult(
                     action="allow",
                     bypassed=True,
                     bypass_reason="mtls",
                 )
-
         return None
 
     def _check_block_bypasses(self, ctx: ConnectionContext) -> PipelineResult | None:
@@ -451,8 +414,8 @@ class Pipeline:
         # 6. Country blacklist bypass (stub — GeoIP added in Phase 6)
         if self._policy.get("country_blacklist_bypass", {}).get("enabled", True):
             if ctx.country is not None:
-                blocked_countries: list[str] = (
-                    self._config.get("geoip", {}).get("country_blacklist", [])
+                blocked_countries: list[str] = self._config.get("geoip", {}).get(
+                    "country_blacklist", []
                 )
                 if ctx.country in blocked_countries:
                     return PipelineResult(
@@ -475,7 +438,7 @@ class Pipeline:
         collected before the error.
         """
         signals = []
-        
+
         # Phase 4: SNI analysis
         try:
             sni_signals = self._sni_analyzer.analyze(ctx.sni)
@@ -484,12 +447,24 @@ class Pipeline:
             logger.error(
                 "sni_analyzer | event=analysis_error | ip=%s | sni=%s | error=%s",
                 ctx.client_ip,
-                getattr(ctx, 'sni', 'unknown'),
+                getattr(ctx, "sni", "unknown"),
                 exc,
                 exc_info=True,
             )
-        
-        # Phases 5–12 will add signal collection here:
+
+        # Phase 5a: TCP analysis
+        try:
+            tcp_signals = await self._tcp_analyzer.analyze(ctx)
+            signals.extend(tcp_signals)
+        except Exception as exc:
+            logger.error(
+                "tcp_analyzer | event=analysis_error | ip=%s | error=%s",
+                ctx.client_ip,
+                exc,
+                exc_info=True,
+            )
+
+        # Phases 6–12 will add signal collection here:
         #   signals.extend(await self._asn_classifier.signals(ctx))
         #   ...
         return signals
@@ -546,9 +521,7 @@ class Pipeline:
             cf = result.counterfactuals
             if cf and isinstance(cf, dict):
                 would_parts = [
-                    f"{act}@{d}"
-                    for d, act in sorted(cf.items())
-                    if act != "allow"
+                    f"{act}@{d}" for d, act in sorted(cf.items()) if act != "allow"
                 ]
                 would_str = ",".join(would_parts) if would_parts else "allow@all"
             else:
@@ -584,7 +557,11 @@ class Pipeline:
         }
         if result.bypassed:
             json_doc["bypass"] = result.bypass_reason
-        if result.dial == 0 and not result.bypassed and isinstance(result.counterfactuals, dict):
+        if (
+            result.dial == 0
+            and not result.bypassed
+            and isinstance(result.counterfactuals, dict)
+        ):
             json_doc["counterfactual"] = {
                 f"action_at_{d}": act
                 for d, act in sorted(result.counterfactuals.items())
@@ -596,7 +573,9 @@ class Pipeline:
     # Stream events (Phase 2 — consumed by Phase 12 Analytics)
     # ------------------------------------------------------------------
 
-    async def _emit_stream_event(self, ctx: ConnectionContext, result: PipelineResult) -> None:
+    async def _emit_stream_event(
+        self, ctx: ConnectionContext, result: PipelineResult
+    ) -> None:
         """XADD one event to ``ja4proxy:events``. Swallows all errors.
 
         Uses the synchronous Redis client passed at init time (Phase 12 will
@@ -604,7 +583,11 @@ class Pipeline:
         acceptable at Phase 2 scale as a fire-and-forget write.
         """
         try:
-            cf = result.counterfactuals if isinstance(result.counterfactuals, dict) else {}
+            cf = (
+                result.counterfactuals
+                if isinstance(result.counterfactuals, dict)
+                else {}
+            )
             fields: dict[str, str] = {
                 "ip": ctx.client_ip,
                 "ja4": ctx.ja4 or "",
@@ -616,7 +599,9 @@ class Pipeline:
                 fields[f"action_at_{d}"] = act
 
             if hasattr(self._redis, "xadd"):
-                self._redis.xadd("ja4proxy:events", fields, maxlen=100_000, approximate=True)
+                self._redis.xadd(
+                    "ja4proxy:events", fields, maxlen=100_000, approximate=True
+                )
         except Exception as exc:
             logger.debug("stream | event=xadd_failed | error=%s", exc)
 

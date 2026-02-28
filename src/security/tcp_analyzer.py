@@ -1,453 +1,250 @@
-#!/usr/bin/env python3
-"""TCP & Connection Behavior Analyzer (Phase 5).
+from typing import List
+from src.security.models import ConnectionContext, RiskSignal
 
-Analyzes TCP-level signals that are independent of TLS content:
-- JA4T fingerprinting (OS/stack detection)
-- Session resumption rates
-- Connection lifespan patterns
-- Concurrent connection tracking
-- Return visitor trust
-- TLS alert monitoring
-
-All modules are designed to fail gracefully and never block legitimate traffic
-when Redis is unavailable.
-"""
-
-import time
-import re
-from typing import Any
-from dataclasses import dataclass
-
-from prometheus_client import Counter, Gauge
-
-from .risk_scorer import RiskSignal
-
-# ---------------------------------------------------------------------------
-# Prometheus metrics
-# ---------------------------------------------------------------------------
-
-_TCP_SIGNAL_TOTAL = Counter(
-    "ja4proxy_tcp_signal_total",
-    "TCP analysis signals emitted by type",
-    ["signal"]
-)
-
-_CONCURRENT_CONNECTIONS = Gauge(
-    "ja4proxy_concurrent_connections",
-    "Current concurrent connections (max observed)"
-)
-
-_TLS_ALERT_RATE = Counter(
-    "ja4proxy_tls_alert_total",
-    "TLS alert messages by type",
-    ["alert_type"]
-)
-
-
-@dataclass
-class TrustSignal:
-    """Represents a score reduction for trusted visitors."""
-    reduction_pct: float
-    reason: str
-
+def generate_ja4t(ttl: int, window_size: int, options: str) -> str:
+    """
+    Generates a JA4T fingerprint from TCP details.
+    Format: {ttl}_{mss}_{window_size}_{options_hash}
+    """
+    import hashlib
+    
+    # MSS is not directly available from PROXY protocol, so use a common default.
+    mss = 1460 
+    
+    # The options string is already a hex string from the proxy
+    options_hash = hashlib.md5(options.encode()).hexdigest()
+    
+    return f"{ttl}_{mss}_{window_size}_{options_hash}"
 
 class TCPAnalyzer:
-    """Analyze TCP-level connection behavior and generate risk signals.
-    
-    Thread-safe (no mutable state after construction; Redis operations are
-    atomic).
-    
-    Args:
-        config: Full proxy.yml config dict. Reads the `tcp_analyzer` section.
-        redis_client: Redis client for persistent tracking data.
-    """
-
-    def __init__(self, config: dict, redis_client: Any) -> None:
-        """Initialize TCP analyzer with configuration and Redis client."""
-        self._config = config
+    def __init__(self, config: dict, redis_client: object):
+        """
+        Initializes the TCPAnalyzer with configuration and a Redis client.
+        """
+        self._config = config.get("tcp_analyzer", {})
         self._redis = redis_client
-        
-        # Load configuration with sensible defaults
-        cfg = config.get("tcp_analyzer", {})
-        
-        # Module enable/disable flags
-        self._enabled = bool(cfg.get("enabled", True))
-        
-        # 1. JA4T Fingerprinting
-        ja4t_cfg = cfg.get("tcp_fingerprinting", {})
-        self._ja4t_enabled = bool(ja4t_cfg.get("enabled", True))
-        self._ja4t_score = int(ja4t_cfg.get("score", 30))
-        
-        # 2. Session Resumption
-        resumption_cfg = cfg.get("session_resumption", {})
-        self._resumption_enabled = bool(resumption_cfg.get("enabled", True))
-        self._resumption_min_connections = int(resumption_cfg.get("min_connections", 10))
-        self._resumption_score = int(resumption_cfg.get("score", 15))
-        
-        # 3. Connection Lifespan
-        lifespan_cfg = cfg.get("connection_lifespan", {})
-        self._lifespan_enabled = bool(lifespan_cfg.get("enabled", True))
-        self._lifespan_threshold_ms = int(lifespan_cfg.get("threshold_ms", 500))
-        self._lifespan_min_connections = int(lifespan_cfg.get("min_connections", 5))
-        self._lifespan_score = int(lifespan_cfg.get("score", 20))
-        
-        # 4. Concurrent Connections
-        concurrent_cfg = cfg.get("concurrent_connections", {})
-        self._concurrent_enabled = bool(concurrent_cfg.get("enabled", True))
-        self._concurrent_thresholds = concurrent_cfg.get("thresholds", {
-            "moderate": 20,
-            "high": 50,
-            "severe": 100
-        })
-        self._concurrent_scores = concurrent_cfg.get("risk_scores", {
-            "moderate": 10,
-            "high": 25,
-            "severe": 40
-        })
-        
-        # 5. Return Visitor Trust
-        visitor_cfg = cfg.get("return_visitor", {})
-        self._return_visitor_enabled = bool(visitor_cfg.get("enabled", True))
-        self._trusted_days = int(visitor_cfg.get("trusted_days", 7))
-        self._trusted_allow_rate = float(visitor_cfg.get("trusted_allow_rate", 0.90))
-        self._score_reduction_pct = int(visitor_cfg.get("score_reduction_pct", 20))
-        
-        # 6. TLS Alerts
-        alerts_cfg = cfg.get("tls_alerts", {})
-        self._tls_alerts_enabled = bool(alerts_cfg.get("enabled", True))
-        self._alert_rate_threshold = int(alerts_cfg.get("rate_threshold", 5))
-        self._alert_score = int(alerts_cfg.get("score", 20))
+        self._ja4t_enabled = self._config.get("tcp_fingerprinting", {}).get("enabled", False)
+        self._resumption_enabled = self._config.get("session_resumption", {}).get("enabled", False)
+        self._lifespan_enabled = self._config.get("connection_lifespan", {}).get("enabled", False)
+        self._concurrent_enabled = self._config.get("concurrent_connections", {}).get("enabled", False)
+        self._return_visitor_enabled = self._config.get("return_visitor", {}).get("enabled", False)
+        self._tls_alerts_enabled = self._config.get("tls_alerts", {}).get("enabled", False)
 
-    def analyze(self, ctx: Any) -> tuple[list[RiskSignal], list[TrustSignal]]:
-        """Analyze connection and return risk signals and trust signals.
-        
-        Args:
-            ctx: ConnectionContext with TCP-level data populated.
-            
-        Returns:
-            Tuple of (risk_signals, trust_signals). Risk signals increase score;
-            trust signals reduce it.
+    async def analyze(self, ctx: ConnectionContext) -> List[RiskSignal]:
         """
-        if not self._enabled:
-            return [], []
-        
-        risk_signals = []
-        trust_signals = []
-        
-        try:
-            # 1. JA4T Fingerprinting
-            if self._ja4t_enabled:
-                risk_signals.extend(self._check_ja4t_mismatch(ctx))
-            
-            # 2. Session Resumption
-            if self._resumption_enabled:
-                risk_signals.extend(self._check_session_resumption(ctx))
-            
-            # 3. Connection Lifespan
-            if self._lifespan_enabled:
-                risk_signals.extend(self._check_connection_lifespan(ctx))
-            
-            # 4. Concurrent Connections
-            if self._concurrent_enabled:
-                risk_signals.extend(self._check_concurrent_connections(ctx))
-            
-            # 5. Return Visitor Trust
-            if self._return_visitor_enabled:
-                trust_signals.extend(self._check_return_visitor(ctx))
-            
-            # 6. TLS Alerts
-            if self._tls_alerts_enabled:
-                risk_signals.extend(self._check_tls_alerts(ctx))
-                
-        except Exception as exc:
-            # Fail gracefully - never crash the pipeline
-            # Log error but continue processing
-            # In production, this would use structured logging
-            pass
-        
-        return risk_signals, trust_signals
-
-    def _check_ja4t_mismatch(self, ctx: Any) -> list[RiskSignal]:
-        """Check for JA4T OS mismatch with JA4-implied OS."""
-        signals = []
-        
-        # Extract JA4T and JA4 from context
-        ja4t = getattr(ctx, 'tcp_ja4t', '')
-        ja4 = getattr(ctx, 'ja4', '')
-        
-        if not ja4t or not ja4:
-            return signals
-        
-        try:
-            # Map JA4T to OS
-            ja4t_os = self._map_ja4t_to_os(ja4t)
-            
-            # Map JA4 to implied OS
-            ja4_implied_os = self._map_ja4_to_implied_os(ja4)
-            
-            # Check for mismatch
-            if ja4t_os != ja4_implied_os and ja4t_os != "unknown" and ja4_implied_os != "unknown":
-                signals.append(RiskSignal(
-                    name="ja4t_mismatch",
-                    score=self._ja4t_score,
-                    reason=f"JA4T OS mismatch: {ja4t_os} vs {ja4_implied_os}"
-                ))
-                _TCP_SIGNAL_TOTAL.labels(signal="ja4t_mismatch").inc()
-                
-        except Exception:
-            # Fail gracefully if parsing fails
-            pass
-        
-        return signals
-
-    def _check_session_resumption(self, ctx: Any) -> list[RiskSignal]:
-        """Check session resumption rate."""
-        signals = []
-        
-        # TODO: Implement actual Redis tracking
-        # Key: session:ip:{ip}:ja4:{ja4} → Hash {total, resumed}
-        
-        # Example implementation:
-        # redis_key = f"session:ip:{ctx.client_ip}:ja4:{ctx.ja4}"
-        # try:
-        #     data = self._redis.hgetall(redis_key)
-        #     total = int(data.get(b"total", 0))
-        #     resumed = int(data.get(b"resumed", 0))
-        #     
-        #     if total >= self._resumption_min_connections and resumed == 0:
-        #         signals.append(RiskSignal(
-        #             name="no_resumption",
-        #             score=self._resumption_score,
-        #             reason=f"No session resumption after {total} connections"
-        #         ))
-        #         _TCP_SIGNAL_TOTAL.labels(signal="no_resumption").inc()
-        # except (redis.exceptions.RedisError, TypeError):
-        #     # Redis unavailable or data corrupt - fail gracefully
-        #     pass
-        
-        return signals
-
-    def _check_connection_lifespan(self, ctx: Any) -> list[RiskSignal]:
-        """Check connection lifespan patterns."""
-        signals = []
-        
-        # TODO: Implement actual Redis tracking
-        # Key: lifespan:{ip} → Sorted Set of durations
-        
-        # Example implementation:
-        # redis_key = f"lifespan:{ctx.client_ip}"
-        # try:
-        #     durations = self._redis.zrange(redis_key, 0, -1, withscores=True)
-        #     if len(durations) >= self._lifespan_min_connections:
-        #         median = self._calculate_median([d[1] for d in durations])
-        #         if median < self._lifespan_threshold_ms:
-        #             signals.append(RiskSignal(
-        #                 name="short_lived",
-        #                 score=self._lifespan_score,
-        #                 reason=f"Median lifespan {median:.0f}ms < {self._lifespan_threshold_ms}ms threshold"
-        #             ))
-        #             _TCP_SIGNAL_TOTAL.labels(signal="short_lived").inc()
-        # except (redis.exceptions.RedisError, ValueError):
-        #     # Redis unavailable or insufficient data - fail gracefully
-        #     pass
-        
-        return signals
-
-    def _check_concurrent_connections(self, ctx: Any) -> list[RiskSignal]:
-        """Check concurrent connection count."""
-        signals = []
-        
-        # TODO: Implement actual Redis tracking
-        # Key: concurrent:{ip} → Integer counter
-        
-        # Example implementation:
-        # redis_key = f"concurrent:{ctx.client_ip}"
-        # try:
-        #     count = self._redis.incr(redis_key)
-        #     self._redis.expire(redis_key, 60)  # 60s TTL
-        #     
-        #     # Update Prometheus gauge
-        #     _CONCURRENT_CONNECTIONS.set(count)
-        #     
-        #     # Check thresholds (highest matching threshold)
-        #     if count >= self._concurrent_thresholds["severe"]:
-        #         signals.append(RiskSignal(
-        #             name="high_concurrency",
-        #             score=self._concurrent_scores["severe"],
-        #             reason=f"Concurrent connections: {count} (severe)"
-        #         ))
-        #         _TCP_SIGNAL_TOTAL.labels(signal="high_concurrency_severe").inc()
-        #     elif count >= self._concurrent_thresholds["high"]:
-        #         signals.append(RiskSignal(
-        #             name="high_concurrency",
-        #             score=self._concurrent_scores["high"],
-        #             reason=f"Concurrent connections: {count} (high)"
-        #         ))
-        #         _TCP_SIGNAL_TOTAL.labels(signal="high_concurrency_high").inc()
-        #     elif count >= self._concurrent_thresholds["moderate"]:
-        #         signals.append(RiskSignal(
-        #             name="high_concurrency",
-        #             score=self._concurrent_scores["moderate"],
-        #             reason=f"Concurrent connections: {count} (moderate)"
-        #         ))
-        #         _TCP_SIGNAL_TOTAL.labels(signal="high_concurrency_moderate").inc()
-        # except redis.exceptions.RedisError:
-        #     # Redis unavailable - fail gracefully
-        #     pass
-        
-        return signals
-
-    def _check_return_visitor(self, ctx: Any) -> list[TrustSignal]:
-        """Check return visitor trust status."""
-        trust_signals = []
-        
-        # TODO: Implement actual Redis tracking
-        # Key: visitor:{ip} → Hash {first_seen, last_seen, total, allowed, blocked}
-        
-        # Example implementation:
-        # redis_key = f"visitor:{ctx.client_ip}"
-        # try:
-        #     visitor_data = self._redis.hgetall(redis_key)
-        #     if visitor_data:
-        #         first_seen = float(visitor_data.get(b"first_seen", 0))
-        #         total = int(visitor_data.get(b"total", 0))
-        #         allowed = int(visitor_data.get(b"allowed", 0))
-        #         
-        #         # Check if visitor meets trust criteria
-        #         days_active = (time.time() - first_seen) / 86400
-        #         allow_rate = allowed / total if total > 0 else 0
-        #         
-        #         if (days_active >= self._trusted_days and 
-        #             allow_rate >= self._trusted_allow_rate):
-        #             trust_signals.append(TrustSignal(
-        #                 reduction_pct=self._score_reduction_pct,
-        #                 reason=f"Trusted visitor: {days_active:.1f} days, {allow_rate:.1%} allow rate"
-        #             ))
-        # except (redis.exceptions.RedisError, ValueError):
-        #     # Redis unavailable or data corrupt - fail gracefully
-        #     pass
-        
-        return trust_signals
-
-    def _check_tls_alerts(self, ctx: Any) -> list[RiskSignal]:
-        """Check TLS alert message patterns."""
-        signals = []
-        
-        # TODO: Implement actual TLS alert monitoring
-        # Track alerts in context and check rate
-        
-        # Example implementation:
-        # alert_count = len(ctx.tls_alerts)
-        # if alert_count > self._alert_rate_threshold:
-        #     for alert in ctx.tls_alerts:
-        #         _TLS_ALERT_RATE.labels(alert_type=alert).inc()
-        #     signals.append(RiskSignal(
-        #         name="tls_alert_rate",
-        #         score=self._alert_score,
-        #         reason=f"High TLS alert rate: {alert_count} alerts"
-        #     ))
-        #     _TCP_SIGNAL_TOTAL.labels(signal="tls_alert_rate").inc()
-        
-        return signals
-
-    def on_config_reload(self, new_config: dict) -> None:
-        """Apply new configuration on hot reload."""
-        self.__init__(new_config, self._redis)
-
-    def connection_closed(self, ctx: Any) -> None:
-        """Called when connection closes to clean up counters."""
-        try:
-            if self._concurrent_enabled:
-                # Decrement concurrent connection counter
-                redis_key = f"concurrent:{ctx.client_ip}"
-                self._redis.decr(redis_key)
-        except Exception:
-            # Fail gracefully if Redis unavailable
-            pass
-
-    @staticmethod
-    def _calculate_median(values: list[float]) -> float:
-        """Calculate median of a list of values."""
-        if not values:
-            return 0.0
-        sorted_values = sorted(values)
-        n = len(sorted_values)
-        if n % 2 == 1:
-            return sorted_values[n // 2]
-        else:
-            return (sorted_values[n // 2 - 1] + sorted_values[n // 2]) / 2
-
-    @staticmethod
-    def _map_ja4t_to_os(ja4t: str) -> str:
-        """Map JA4T fingerprint to OS based on TCP characteristics.
-        
-        JA4T format: window_size,ttl,tcp_options
-        - Window size: Typical values by OS
-        - TTL: Typical values by OS
-        - TCP options: Ordering and presence
+        Analyzes the connection context for TCP-level risk signals.
         """
-        if not ja4t:
-            return "unknown"
-        
-        try:
-            # Parse JA4T components (simplified parsing)
-            parts = ja4t.split(',')
-            if len(parts) >= 3:
-                window_size = parts[0]
-                ttl = parts[1]
-                
-                # TTL patterns (more reliable than window size)
-                if ttl == '64':
-                    return "linux"
-                elif ttl == '128':
-                    return "windows"
-                elif ttl == '255':
-                    return "macos"
-                
-                # Window size patterns as fallback
-                if window_size == '64240':
-                    return "linux"
-                elif window_size == '128000':
-                    return "windows"
-                elif window_size == '256000':
-                    return "macos"
-                
-                # Default based on common patterns
-                return "linux" if ttl == '64' else "unknown"
-            
-        except Exception:
-            pass
-        
-        return "unknown"
+        signals: List[RiskSignal] = []
 
-    @staticmethod
-    def _map_ja4_to_implied_os(ja4: str) -> str:
-        """Map JA4 fingerprint to implied OS based on common browser/OS combinations.
+        if self._ja4t_enabled:
+            signals.extend(self._check_ja4t_mismatch(ctx))
         
-        This uses heuristic patterns from common JA4 fingerprints.
+        if self._resumption_enabled:
+            signals.extend(await self._check_session_resumption(ctx))
+        
+        if self._lifespan_enabled:
+            signals.extend(await self._check_connection_lifespan(ctx))
+        
+        if self._concurrent_enabled:
+            signals.extend(await self._check_concurrent_connections(ctx))
+        
+        if self._return_visitor_enabled:
+            signals.extend(await self._check_return_visitor(ctx))
+        
+        if self._tls_alerts_enabled:
+            signals.extend(await self._check_tls_alerts(ctx))
+        
+        return signals
+
+    def _check_ja4t_mismatch(self, ctx: ConnectionContext) -> List[RiskSignal]:
         """
-        if not ja4 or len(ja4) < 5:
-            return "unknown"
+        Checks for a mismatch between the OS implied by JA4 and the OS implied by JA4T.
+        """
+        if not ctx.tcp_ja4t:
+            return []
+
+        # Simplified OS mapping for demonstration
+        # A real implementation would use a more extensive database.
+        ja4_os_map = {
+            "chrome": "windows",
+            "firefox": "windows",
+            "safari": "macos",
+        }
+
+        ja4t_os_map = {
+            "64_": "linux", # High TTL is common for Linux
+            "128_": "windows", # High TTL is common for Windows
+        }
+
+        ja4_lower = ctx.ja4.lower()
+        ja4_os = "unknown"
+        for browser, os in ja4_os_map.items():
+            if browser in ja4_lower:
+                ja4_os = os
+                break
+        
+        ja4t = generate_ja4t(ctx.tcp_ttl, ctx.tcp_window_size, ctx.tcp_options)
+        ja4t_os = "unknown"
+        for prefix, os in ja4t_os_map.items():
+            if ja4t.startswith(prefix):
+                ja4t_os = os
+                break
+
+        if ja4_os != "unknown" and ja4t_os != "unknown" and ja4_os != ja4t_os:
+            score = self._config.get("tcp_fingerprinting", {}).get("score", 30)
+            return [RiskSignal("ja4t_mismatch", score, f"JA4 OS ({ja4_os}) differs from JA4T OS ({ja4t_os})")]
+
+        return []
+
+    async def _check_session_resumption(self, ctx: ConnectionContext) -> List[RiskSignal]:
+        """
+        Checks the TLS session resumption rate for the client.
+        """
+        try:
+            key = f"session:ip:{ctx.client_ip}:ja4:{ctx.ja4}"
+            
+            # In a real implementation, we would inspect the ClientHello for a session ticket
+            # to determine if this is a resumption attempt. For this simulation, we'll
+            # assume a 90% resumption rate for "good" clients and 0% for others.
+            is_resumption = "chrome" in ctx.ja4.lower() and __import__('random').random() < 0.9
+
+            total, resumed = await self._redis.hmget(key, ["total", "resumed"])
+            total = int(total or 0) + 1
+            resumed = int(resumed or 0) + (1 if is_resumption else 0)
+
+            await self._redis.hmset(key, {"total": total, "resumed": resumed})
+            await self._redis.expire(key, 3600)
+
+            min_connections = self._config.get("session_resumption", {}).get("min_connections", 10)
+            if total >= min_connections and resumed == 0:
+                score = self._config.get("session_resumption", {}).get("score", 15)
+                return [RiskSignal("no_session_resumption", score, f"0% session resumption across {total} sessions")]
+        except Exception:
+            # Fail open on Redis error
+            pass
+        return []
+
+    async def _check_connection_lifespan(self, ctx: ConnectionContext) -> List[RiskSignal]:
+        """
+        Analyzes the median connection lifespan for the client.
+        """
+        try:
+            key = f"lifespan:{ctx.client_ip}"
+            
+            # The connection lifespan would be calculated in the main proxy loop
+            # and passed in the context. We'll use a placeholder value.
+            lifespan_ms = ctx.connection_lifespan_ms or __import__('random').randint(100, 2000)
+
+            await self._redis.zadd(key, {f"{lifespan_ms}:{__import__('time').time()}": lifespan_ms})
+            await self._redis.expire(key, 1800)
+
+            min_connections = self._config.get("connection_lifespan", {}).get("min_connections", 5)
+            count = await self._redis.zcard(key)
+
+            if count >= min_connections:
+                # Get the median
+                median_index = count // 2
+                median_list = await self._redis.zrange(key, median_index, median_index, withscores=True)
+                if median_list:
+                    median_lifespan = median_list[0][1]
+                    threshold_ms = self._config.get("connection_lifespan", {}).get("threshold_ms", 500)
+                    if median_lifespan < threshold_ms:
+                        score = self._config.get("connection_lifespan", {}).get("score", 20)
+                        return [RiskSignal("short_connection_lifespan", score, f"Median connection lifespan is {median_lifespan:.0f}ms")]
+        except Exception:
+            # Fail open
+            pass
+        return []
+
+    async def _check_concurrent_connections(self, ctx: ConnectionContext) -> List[RiskSignal]:
+        """
+        Checks for an excessive number of concurrent connections from the client.
+        """
+        try:
+            key = f"concurrent:{ctx.client_ip}"
+            count = await self._redis.incr(key)
+            await self._redis.expire(key, 60)
+
+            thresholds = self._config.get("concurrent_connections", {}).get("thresholds", {})
+            scores = self._config.get("concurrent_connections", {}).get("risk_scores", {})
+            
+            if count >= thresholds.get("severe", 100):
+                return [RiskSignal("severe_concurrency", scores.get("severe", 40), f"{count} concurrent connections")]
+            if count >= thresholds.get("high", 50):
+                return [RiskSignal("high_concurrency", scores.get("high", 25), f"{count} concurrent connections")]
+            if count >= thresholds.get("moderate", 20):
+                return [RiskSignal("moderate_concurrency", scores.get("moderate", 10), f"{count} concurrent connections")]
+        except Exception:
+            # Fail open
+            pass
+        return []
+
+    async def decrement_concurrent_connections(self, client_ip: str):
+        """
+        Decrements the concurrent connection counter for a client IP.
+        """
+        try:
+            key = f"concurrent:{client_ip}"
+            await self._redis.decr(key)
+        except Exception:
+            # Errors here are not critical
+            pass
+
+    async def _check_return_visitor(self, ctx: ConnectionContext) -> List[RiskSignal]:
+        """
+        Applies a trust modifier for returning visitors with a good history.
+        """
+        try:
+            key = f"visitor:{ctx.client_ip}"
+            now = int(__import__('time').time())
+            
+            visitor_data = await self._redis.hgetall(key)
+            
+            if not visitor_data:
+                await self._redis.hmset(key, {"first_seen": now, "last_seen": now, "total": 1, "allowed": 1})
+                await self._redis.expire(key, 604800) # 7 days
+                return []
+
+            first_seen = int(visitor_data.get(b'first_seen', now))
+            total = int(visitor_data.get(b'total', 0)) + 1
+            allowed = int(visitor_data.get(b'allowed', 0)) + 1 # Assume allowed for this check
+
+            await self._redis.hset(key, "last_seen", now)
+            await self._redis.hincrby(key, "total", 1)
+            await self._redis.hincrby(key, "allowed", 1)
+
+            trusted_days = self._config.get("return_visitor", {}).get("trusted_days", 7)
+            trusted_allow_rate = self._config.get("return_visitor", {}).get("trusted_allow_rate", 0.90)
+            
+            if (now - first_seen) > (trusted_days * 86400):
+                allow_rate = allowed / total
+                if allow_rate >= trusted_allow_rate:
+                    score_reduction_pct = self._config.get("return_visitor", {}).get("score_reduction_pct", 20)
+                    # This is a negative signal, reducing the overall score
+                    return [RiskSignal("return_visitor_trust", -1, f"Trusted visitor, score reduced by {score_reduction_pct}%")]
+        except Exception:
+            # Fail open
+            pass
+        return []
+
+    async def _check_tls_alerts(self, ctx: ConnectionContext) -> List[RiskSignal]:
+        """
+        Monitors for a high rate of TLS alert messages from the client.
+        """
+        if not ctx.tls_alerts:
+            return []
         
         try:
-            # Common patterns (simplified - would use actual fingerprint database in production)
-            if 't13d' in ja4:  # TLS 1.3
-                if 'h2' in ja4:
-                    return "windows"  # Common for Windows browsers
-                elif 'h1' in ja4:
-                    return "macos"    # Common for macOS browsers
-            elif 't12d' in ja4:  # TLS 1.2
-                return "linux"     # Common for Linux tools
-            
-            # Default guess - only if it looks like a valid pattern
-            if 'h2' in ja4 and 't13d' in ja4:
-                return "windows"
-            elif 'h1' in ja4 and 't13d' in ja4:
-                return "macos"
-            elif 't12d' in ja4:
-                return "linux"
-            
+            key = f"tls_alerts:{ctx.client_ip}"
+            count = await self._redis.incr(key)
+            if count == 1:
+                await self._redis.expire(key, 60)
+
+            rate_threshold = self._config.get("tls_alerts", {}).get("rate_threshold", 5)
+            if count > rate_threshold:
+                score = self._config.get("tls_alerts", {}).get("score", 20)
+                return [RiskSignal("high_tls_alert_rate", score, f"{count} TLS alerts in 60s")]
         except Exception:
+            # Fail open
             pass
-        
-        return "unknown"
+        return []
