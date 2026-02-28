@@ -89,47 +89,6 @@ class TestProxyIntegration:
         assert response.status_code == 200
         assert "python_info" in response.text or "process_" in response.text
 
-    @pytest.mark.skip(
-        reason="Proxy does not have /health endpoint - requires implementation"
-    )
-    def test_proxy_health_endpoint(self):
-        """Test proxy health endpoint."""
-        response = requests.get(f"http://{PROXY_HOST}:{PROXY_PORT}/health", timeout=5)
-        assert response.status_code == 200
-
-
-class TestEndToEnd:
-    """End-to-end tests through the full stack."""
-
-    @pytest.mark.skip(
-        reason="Proxy not configured to forward HTTP to backend - requires config"
-    )
-    def test_request_through_proxy(self):
-        """Test making a request through the proxy to the backend."""
-        proxies = {
-            "http": f"http://{PROXY_HOST}:{PROXY_PORT}",
-        }
-
-        response = requests.get(
-            f"http://{BACKEND_HOST}/api/health", proxies=proxies, timeout=10
-        )
-        assert response.status_code == 200
-
-    @pytest.mark.skip(reason="Proxy not forwarding to backend - requires config")
-    def test_ja4_fingerprint_captured(self):
-        """Test that JA4 fingerprints are captured."""
-        proxies = {
-            "http": f"http://{PROXY_HOST}:{PROXY_PORT}",
-        }
-
-        requests.get(f"http://{BACKEND_HOST}/api/health", proxies=proxies, timeout=10)
-
-        response = requests.get(
-            f"http://{PROXY_HOST}:{METRICS_PORT}/metrics", timeout=5
-        )
-        metrics = response.text
-        assert "ja4_" in metrics.lower()
-
 
 class TestServiceHealth:
     """Tests for service health and availability."""
