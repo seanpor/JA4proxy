@@ -204,7 +204,7 @@ class TestGeoIPLookupInit:
         db_file.write_bytes(b"fake")
         mock_db = MagicMock()
         with patch("proxy.GEOIP_AVAILABLE", True), \
-             patch("proxy.IP2Location") as mock_ip2loc:
+             patch("proxy.IP2Location", create=True) as mock_ip2loc:
             mock_ip2loc.IP2Location = MagicMock(return_value=mock_db)
             geo = GeoIPLookup(db_path=str(db_file))
         assert geo.db is mock_db
@@ -214,7 +214,7 @@ class TestGeoIPLookupInit:
         db_file = tmp_path / "bad.bin"
         db_file.write_bytes(b"garbage")
         with patch("proxy.GEOIP_AVAILABLE", True), \
-             patch("proxy.IP2Location") as mock_ip2loc, \
+             patch("proxy.IP2Location", create=True) as mock_ip2loc, \
              caplog.at_level(logging.ERROR, logger="proxy"):
             mock_ip2loc.IP2Location = MagicMock(side_effect=Exception("corrupt"))
             geo = GeoIPLookup(db_path=str(db_file))
@@ -916,8 +916,8 @@ class TestParseProxyProtocolMalformed:
         """PPv1 header without \\r\\n → parse error → fallback IP used."""
         server = _make_server_stub()
         data = b"PROXY TCP4 203.0.113.99 10.0.0.1 12345 443"  # no \r\n
-        ip, remaining = server._parse_proxy_protocol(data, "9.9.9.9")
-        assert ip == "9.9.9.9"
+        info, remaining = server._parse_proxy_protocol(data, "9.9.9.9")
+        assert info["client_ip"] == "9.9.9.9"
         assert remaining == data
 
 

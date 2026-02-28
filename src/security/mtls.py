@@ -24,11 +24,27 @@ class MTLSHandler:
         Verifies the client certificate. Returns True if the client cert is valid
         and should bypass scoring.
         """
-        if (
-            not self._enabled
-            or not hasattr(ctx, "client_certificate")
-            or not ctx.client_certificate
-        ):
+        if not self._enabled:
+            return False
+
+        # If has_valid_client_cert is set (TLS layer validated it), trust it
+        if ctx.has_valid_client_cert:
+            return True
+
+        # Otherwise check for actual client certificate
+        if not hasattr(ctx, "client_certificate") or not ctx.client_certificate:
+            return False
+
+        if not self._ca_cert:
+            self.logger.error("mTLS is enabled, but CA certificate is not loaded.")
+            return False
+
+        # Check if we have either a client certificate or the flag set
+        has_cert = (
+            hasattr(ctx, "client_certificate") and ctx.client_certificate
+        ) or ctx.has_valid_client_cert
+
+        if not has_cert:
             return False
 
         if not self._ca_cert:

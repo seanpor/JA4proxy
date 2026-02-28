@@ -40,7 +40,11 @@ def _make_pipeline(policy_overrides: dict | None = None, dial: int = 0) -> Pipel
         for key, val in policy_overrides.items():
             policy[key] = val
 
-    config = {"security_policy": policy, "geoip": {"country_blacklist": []}}
+    config = {
+        "security_policy": policy,
+        "geoip": {"country_blacklist": []},
+        "mtls": {"enabled": True, "ca_cert_path": None},
+    }
     cache = _make_cache(dial=dial)
     mock_redis = MagicMock()
     pipeline = Pipeline(config=config, local_cache=cache, redis_client=mock_redis)
@@ -146,9 +150,7 @@ class TestMTLSBypass:
         assert result.bypassed is False
 
     def test_mtls_bypass_disabled_falls_through(self):
-        pipeline = _make_pipeline(
-            policy_overrides={"mtls_bypass": {"enabled": False}}
-        )
+        pipeline = _make_pipeline(policy_overrides={"mtls_bypass": {"enabled": False}})
         result = _run(pipeline.process(_ctx(has_valid_client_cert=True)))
         assert result.bypassed is False
 
@@ -266,11 +268,7 @@ class TestAllBypassesDisabled:
             }
         )
         # h2 ALPN, valid cert — none of these trigger bypasses
-        result = _run(
-            pipeline.process(
-                _ctx(alpn="h2", has_valid_client_cert=True)
-            )
-        )
+        result = _run(pipeline.process(_ctx(alpn="h2", has_valid_client_cert=True)))
         assert result.bypassed is False
         assert result.action == "allow"
         assert result.score == 0
