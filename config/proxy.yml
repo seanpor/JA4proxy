@@ -348,3 +348,21 @@ tls_enforcer:
     require_client_cert: false
     cert_cn_allowlist: []
   
+  # ── Phase 6: ASN & Datacenter Classification ─────────────────────────────
+  
+  asn_classifier:
+    enabled: true
+    datacenter_list_path: "config/asn_datacenter_list.yml"
+    maxmind_db_path: "config/GeoLite2-ASN.mmdb"
+    tor_exit_list:
+      enabled: true
+      refresh_interval_seconds: 3600
+      download_url: "https://check.torproject.org/tor-exit-consensus"
+    risk_contributions:
+      tor: 40
+      datacenter: 20
+      vpn: 10
+      unknown: 5
+      residential: 0
+      mobile: 0
+  

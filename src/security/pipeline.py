@@ -59,6 +59,7 @@ from .tls_enforcer import TLSEnforcer
 from .sni_analyzer import SNIAnalyzer
 from .tcp_analyzer import TCPAnalyzer
 from .mtls import MTLSHandler
+from .asn_classifier import ASNClassifier
 
 if TYPE_CHECKING:
     from ..cache.local_cache import LocalCache
@@ -251,6 +252,8 @@ class Pipeline:
         # Phase 5a: TCP & mTLS
         self._tcp_analyzer = TCPAnalyzer(config, redis_client)
         self._mtls_handler = MTLSHandler(config)
+        # Phase 6: ASN & Datacenter Classification
+        self._asn_classifier = ASNClassifier(config, redis_client)
 
     def update_scorer(self, scorer: Any, decider: Any) -> None:
         """Wire in Phase 1 scorer and decider. Called after Phase 1 init."""
@@ -464,7 +467,19 @@ class Pipeline:
                 exc_info=True,
             )
 
-        # Phases 6–12 will add signal collection here:
+        # Phase 6: ASN classification
+        try:
+            asn_signals = await self._asn_classifier.signals(ctx)
+            signals.extend(asn_signals)
+        except Exception as exc:
+            logger.error(
+                "asn_classifier | event=analysis_error | ip=%s | error=%s",
+                ctx.client_ip,
+                exc,
+                exc_info=True,
+            )
+
+        # Phases 7–12 will add signal collection here:
         #   signals.extend(await self._asn_classifier.signals(ctx))
         #   ...
         return signals

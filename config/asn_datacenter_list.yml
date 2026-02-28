@@ -1,0 +1,237 @@
+# ASN Datacenter List
+# Classification: datacenter | vpn | residential
+# Research sources: BGP.tools, ipinfo.io/ASN, Spamhaus ASN-DROP
+# Updated: 2024
+
+asns:
+  # === Major Cloud Providers - Amazon AWS ===
+  16509: "Amazon AWS"
+  14618: "Amazon AWS"
+  10010: "Amazon AWS"
+  17402: "Amazon AWS"
+  19151: "Amazon AWS"
+  20940: "Amazon AWS"
+  36459: "Amazon AWS"
+  41041: "Amazon AWS"
+  43698: "Amazon AWS"
+  50618: "Amazon AWS"
+  51305: "Amazon AWS"
+  59355: "Amazon AWS"
+  
+  # Google Cloud
+  15169: "Google Cloud"
+  19527: "Google Cloud"
+  36034: "Google Cloud"
+  36040: "Google Cloud"
+  36384: "Google Cloud"
+  36492: "Google Cloud"
+  41231: "Google Cloud"
+  
+  # Microsoft Azure
+  8075: "Microsoft Azure"
+  8068: "Microsoft Azure"
+  8069: "Microsoft Azure"
+  12076: "Microsoft Azure"
+  19740: "Microsoft Azure"
+  22822: "Microsoft Azure"
+  36833: "Microsoft Azure"
+  39607: "Microsoft Azure"
+  39737: "Microsoft Azure"
+  47078: "Microsoft Azure"
+  57360: "Microsoft Azure"
+  
+  # Oracle Cloud
+  31898: "Oracle Cloud"
+  38345: "Oracle Cloud"
+  41331: "Oracle Cloud"
+  45571: "Oracle Cloud"
+  
+  # IBM Cloud
+  24115: "IBM Cloud"
+  24902: "IBM Cloud"
+  26063: "IBM Cloud"
+  36351: "IBM Cloud"
+  38372: "IBM Cloud"
+  394424: "IBM Cloud"
+  
+  # === Major Hosting Providers ===
+  # DigitalOcean
+  14061: "DigitalOcean"
+  317412: "DigitalOcean"
+  
+  # Hetzner
+  24940: "Hetzner"
+  34037: "Hetzner"
+  48691: "Hetzner"
+  51167: "Hetzner"
+  
+  # OVH
+  16276: "OVH"
+  201814: "OVH"
+  
+  # Vultr
+  20473: "Vultr"
+  47425: "Vultr"
+  55286: "Vultr"
+  63018: "Vultr"
+  
+  # Linode (now Akamai)
+  63949: "Linode/Akamai"
+  
+  # === Hosting/Traffic Exchange Providers ===
+  # M247
+  9009: "M247"
+  49487: "M247"
+  57344: "M247"
+  206176: "M247"
+  
+  # Serverius
+  50673: "Serverius"
+  62857: "Serverius"
+  
+  # Leaseweb
+  60781: "Leaseweb"
+  24594: "Leaseweb"
+  35103: "Leaseweb"
+  39617: "Leaseweb"
+  
+  # Choopa/CloudsVm
+  54825: "Choopa"
+  59711: "Choopa"
+  
+  # Psychz
+  40676: "Psychz"
+  32181: "Psychz"
+  
+  # QuadraNet
+  8100: "QuadraNet"
+  11718: "QuadraNet"
+  19455: "QuadraNet"
+  40907: "QuadraNet"
+  
+  # Sharktech
+  23473: "Sharktech"
+  46844: "Sharktech"
+  65003: "Sharktech"
+  
+  # Frantech/BuyVM
+  53667: "Frantech/BuyVM"
+  204322: "Frantech/BuyVM"
+  210558: "Frantech/BuyVM"
+  
+  # Hostinger
+  47583: "Hostinger"
+  208311: "Hostinger"
+  216529: "Hostinger"
+  
+  # Time4VPS
+  39068: "Time4VPS"
+  207783: "Time4VPS"
+  
+  # Cloudie/Websupport
+  51070: "Cloudie"
+  203821: "Cloudie"
+  
+  # Scaleway
+  12876: "Scaleway"
+  203069: "Scaleway"
+  
+  # UpCloud
+  60032: "UpCloud"
+  203105: "UpCloud"
+  
+  # Aliyun
+  45102: "Aliyun"
+  37963: "Aliyun"
+  
+  # Tencent Cloud
+  132203: "Tencent Cloud"
+  45057: "Tencent Cloud"
+  
+  # Baidu Cloud
+  38365: "Baidu Cloud"
+  
+  # === Major Transit Providers ===
+  # KDDI
+  2516: "KDDI"
+  9597: "KDDI"
+  
+  # NTT
+  2914: "NTT"
+  7684: "NTT"
+  11274: "NTT"
+  133380: "NTT"
+  
+  # Cogent
+  174: "Cogent"
+  10796: "Cogent"
+  17488: "Cogent"
+  199524: "Cogent"
+  
+  # Telia
+  1299: "Telia"
+  3301: "Telia"
+  8935: "Telia"
+  
+  # CenturyLink/Lumen
+  3356: "CenturyLink"
+  6121: "CenturyLink"
+  8561: "CenturyLink"
+  10176: "CenturyLink"
+  
+  # Zayo
+  6461: "Zayo"
+  11547: "Zayo"
+  26073: "Zayo"
+  
+  # Comcast Business
+  
+  # Charter/Spectrum
+  11351: "Charter"
+  20115: "Charter"
+  
+  # AT&T
+  7018: "AT&T"
+  7799: "AT&T"
+  23842: "AT&T"
+  
+  # Verizon
+  701: "Verizon"
+  7020: "Verizon"
+  19108: "Verizon"
+  20446: "Verizon"
+  
+  # T-Mobile
+  21928: "T-Mobile"
+  36533: "T-Mobile"
+  
+  # Orange
+  5511: "Orange"
+  12479: "Orange"
+  16265: "Orange"
+  
+  # Deutsche Telekom
+  3320: "Deutsche Telekom"
+  6805: "Deutsche Telekom"
+  8881: "Deutsche Telekom"
+  
+  # British Telecom
+  2856: "BT"
+  35402: "BT"
+  
+  # Telefonica
+  12956: "Telefonica"
+  34177: "Telefonica"
+  45143: "Telefonica"
+  
+  # === CDN / Edge ===
+  54113: "Fastly"
+  13335: "Cloudflare"
+  209242: "Cloudflare"
+  
+  # === VPN Providers ===
+  49228: "VPN"
+  208398: "VPN"
+  
+  # === Tor Exit Node Relays (hosting providers commonly used) ===
+  # These are ASN-based patterns, individual IPs handled separately
