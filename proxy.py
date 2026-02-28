@@ -203,6 +203,8 @@ class JA4Fingerprint:
     session_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     tls_version_int: int = 0                          # Phase 3: raw integer version
     raw_cipher_suites: list = field(default_factory=list)  # Phase 3: ClientHello ciphers
+    raw_sni: str = ""                                 # Phase 4: SNI hostname (empty = absent)
+    alpn_code: str = ""                               # Phase 4: JA4-style 2-char ALPN code
     geo_country: str = ""
     risk_score: int = 0
     compliance_flags: Dict[str, bool] = field(default_factory=dict)
@@ -303,7 +305,8 @@ class TLSParser:
             'supported_groups': [],
             'signature_algorithms': [],
             'supported_versions': [],
-            'alpn': []
+            'alpn': [],
+            'sni': None,   # Phase 4: SNI hostname string or None
         }
         
         # Extract cipher suites (Scapy uses 'ciphers' field name)
@@ -340,7 +343,24 @@ class TLSParser:
                 elif ext.type == 43:  # supported_versions
                     if hasattr(ext, 'versions'):
                         fields['supported_versions'] = ext.versions
-        
+                elif ext.type == 0:  # SNI (server_name)  — Phase 4
+                    # Scapy represents SNI as TLSExtServerName with servernames list
+                    if hasattr(ext, 'servernames') and ext.servernames:
+                        sn = ext.servernames[0]
+                        val = getattr(sn, 'servername', None)
+                        if val:
+                            fields['sni'] = (
+                                val.decode('ascii', errors='ignore')
+                                if isinstance(val, bytes) else str(val)
+                            )
+                    elif hasattr(ext, 'server_name'):
+                        val = ext.server_name
+                        if val:
+                            fields['sni'] = (
+                                val.decode('ascii', errors='ignore')
+                                if isinstance(val, bytes) else str(val)
+                            )
+
         return fields
 
 

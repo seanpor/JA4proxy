@@ -495,6 +495,59 @@ pip install locust
 
 ---
 
+## SNI Analysis Testing (Phase 4)
+
+### Testing SNI Detection
+
+```bash
+# Test missing SNI detection
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
+  SET "test:sni:missing" "1"
+
+# Test IP literal SNI detection  
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
+  SET "test:sni:ip_literal" "192.168.1.1"
+
+# Test DGA detection
+docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" \
+  SET "test:sni:dga" "xkcd93j4fk92jf94jf92jf94jf.com"
+
+# Test expected hostname matching
+curl -s http://localhost:9090/metrics | grep ja4proxy_sni_signal_total
+```
+
+### SNI Analysis Metrics
+
+```bash
+# View SNI signal counts
+curl -s http://localhost:9090/metrics | grep ja4proxy_sni_signal_total
+
+# View DGA score distribution
+curl -s http://localhost:9090/metrics | grep ja4proxy_sni_dga_score
+```
+
+### Testing Configuration Reload
+
+```bash
+# Update SNI analyzer configuration
+cat > /tmp/new_sni_config.yaml << 'EOF'
+sni_analyzer:
+  enabled: true
+  missing_sni:
+    enabled: true
+    score: 25  # Changed from default 30
+  ip_literal_sni:
+    enabled: true
+    score: 20  # Changed from default 25
+EOF
+
+# Reload configuration
+kill -HUP $(cat /var/run/ja4proxy.pid)
+
+# Verify new scores are applied
+# (Make a test connection and check the signals)
+```
+
 ## See Also
 
 - [POC_SECURITY_SCAN.md](reports/POC_SECURITY_SCAN.md) - Security vulnerability analysis
