@@ -54,24 +54,7 @@ _DEFAULT_THRESHOLDS: dict[str, int] = {
 }
 
 
-@dataclass
-class RiskSignal:
-    """A single risk contribution from a signal module.
-
-    Attributes:
-        name: Signal identifier from the registry in STYLE_GUIDE §1f
-              (e.g. ``"missing_sni"``, ``"asn_tor"``).
-        score: Integer contribution to the composite score. May be
-               negative (e.g. ``return_visitor`` = −20). Range: unrestricted
-               per signal, but clamped at the composite level.
-        reason: Human-readable explanation shown in logs and the UI.
-        weight: Multiplier applied before summing (default 1.0).
-    """
-
-    name: str
-    score: int
-    reason: str
-    weight: float = 1.0
+from .models import RiskSignal
 
 
 @dataclass

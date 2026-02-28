@@ -367,14 +367,14 @@ class TestParseProxyProtocol:
     def test_ppv2_ipv4_extracts_src_ip(self, server):
         header = _make_pp2_header("203.0.113.42", family=0x11, addr_len=12)
         payload = b"TLS data follows"
-        ip, remaining = server._parse_proxy_protocol(header + payload, "0.0.0.0")
-        assert ip == "203.0.113.42"
+        info, remaining = server._parse_proxy_protocol(header + payload, "0.0.0.0")
+        assert info["client_ip"] == "203.0.113.42"
         assert remaining == payload
 
     def test_ppv2_strips_header_from_remaining(self, server):
         header = _make_pp2_header("10.1.2.3", family=0x11, addr_len=12)
         trailer = b"\x16\x03\x01"  # TLS record start
-        ip, remaining = server._parse_proxy_protocol(header + trailer, "9.9.9.9")
+        info, remaining = server._parse_proxy_protocol(header + trailer, "9.9.9.9")
         assert remaining == trailer
 
     # ── PPv2 IPv6 ──────────────────────────────────────────────────────────
@@ -382,8 +382,8 @@ class TestParseProxyProtocol:
     def test_ppv2_ipv6_extracts_src_ip(self, server):
         header = _make_pp2_header("2001:db8::1", family=0x21, addr_len=36)
         payload = b"data"
-        ip, remaining = server._parse_proxy_protocol(header + payload, "::1")
-        assert ip == "2001:db8::1"
+        info, remaining = server._parse_proxy_protocol(header + payload, "::1")
+        assert info["client_ip"] == "2001:db8::1"
         assert remaining == payload
 
     # ── PPv2 unknown family ────────────────────────────────────────────────
@@ -393,8 +393,8 @@ class TestParseProxyProtocol:
         # family=0x00 (UNSPEC) — unknown to our parser
         header = PP2_SIG + bytes([0x21, 0x00]) + struct.pack("!H", 4) + b"\x00" * 4
         payload = b"rest"
-        ip, remaining = server._parse_proxy_protocol(header + payload, "1.2.3.4")
-        assert ip == "1.2.3.4"  # fallback
+        info, remaining = server._parse_proxy_protocol(header + payload, "1.2.3.4")
+        assert info["client_ip"] == "1.2.3.4"  # fallback
         assert remaining == payload
 
     # ── PPv1 ───────────────────────────────────────────────────────────────
@@ -402,28 +402,28 @@ class TestParseProxyProtocol:
     def test_ppv1_tcp4_extracts_src_ip(self, server):
         header = b"PROXY TCP4 192.168.1.100 10.0.0.1 56789 443\r\n"
         payload = b"TLS bytes"
-        ip, remaining = server._parse_proxy_protocol(header + payload, "0.0.0.0")
-        assert ip == "192.168.1.100"
+        info, remaining = server._parse_proxy_protocol(header + payload, "0.0.0.0")
+        assert info["client_ip"] == "192.168.1.100"
         assert remaining == payload
 
     def test_ppv1_tcp6_extracts_src_ip(self, server):
         header = b"PROXY TCP6 2001:db8::cafe ::1 12345 443\r\n"
         payload = b"more bytes"
-        ip, remaining = server._parse_proxy_protocol(header + payload, "0.0.0.0")
-        assert ip == "2001:db8::cafe"
+        info, remaining = server._parse_proxy_protocol(header + payload, "0.0.0.0")
+        assert info["client_ip"] == "2001:db8::cafe"
         assert remaining == payload
 
     # ── No PROXY header ────────────────────────────────────────────────────
 
     def test_no_proxy_header_returns_fallback(self, server):
         data = b"\x16\x03\x01\x00\x80"  # TLS record — no PROXY header
-        ip, remaining = server._parse_proxy_protocol(data, "5.6.7.8")
-        assert ip == "5.6.7.8"
+        info, remaining = server._parse_proxy_protocol(data, "5.6.7.8")
+        assert info["client_ip"] == "5.6.7.8"
         assert remaining == data
 
     def test_empty_data_returns_fallback(self, server):
-        ip, remaining = server._parse_proxy_protocol(b"", "9.9.9.9")
-        assert ip == "9.9.9.9"
+        info, remaining = server._parse_proxy_protocol(b"", "9.9.9.9")
+        assert info["client_ip"] == "9.9.9.9"
         assert remaining == b""
 
 
