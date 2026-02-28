@@ -214,3 +214,49 @@ class TestRedisDialFailure:
         # Don't wire scorer — stub returns 0; but even with scorer:
         result = _run(pipeline.process(_ctx()))
         assert result.action == "allow"
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 chaos: TLS enforcement is in-process (no Redis dependency)
+# ---------------------------------------------------------------------------
+
+
+class TestTLSEnforcerRedisDown:
+    """TLS enforcement must work entirely in-process — Redis down is irrelevant."""
+
+    def test_tls11_hard_blocked_when_redis_down(self):
+        """TLS 1.1 connection hard-blocked in-process even when Redis is unreachable."""
+        from src.security.tls_enforcer import TLS11
+        pipeline = _make_pipeline()
+        # Sabotage the Redis client — every call raises
+        pipeline._redis.xadd = MagicMock(side_effect=ConnectionError("Redis is down"))
+        pipeline._redis.smembers = MagicMock(side_effect=ConnectionError("Redis is down"))
+
+        ctx = _ctx(tls_version=TLS11)
+        # Must not raise — TLS enforcement is in-process
+        result = _run(pipeline.process(ctx))
+        assert result.action == "block"
+        assert result.bypass_reason == "tls_version"
+
+    def test_tls13_allowed_when_redis_down(self):
+        """TLS 1.3 connection processed normally even when Redis is unreachable."""
+        from src.security.tls_enforcer import TLS13
+        pipeline = _make_pipeline()
+        pipeline._redis.xadd = MagicMock(side_effect=ConnectionError("Redis is down"))
+
+        ctx = _ctx(tls_version=TLS13, cipher_list=[0xC02B])
+        result = _run(pipeline.process(ctx))
+        # No TLS signals → score 0 → allow
+        assert result.action == "allow"
+
+    def test_tls_check_never_raises(self):
+        """TLS enforcer wrapped in pipeline's fail-open guard — never raises."""
+        pipeline = _make_pipeline()
+        # Force the enforcer to throw
+        from unittest.mock import patch
+        with patch.object(pipeline._tls_enforcer, "check", side_effect=RuntimeError("boom")):
+            from src.security.tls_enforcer import TLS11
+            ctx = _ctx(tls_version=TLS11)
+            result = _run(pipeline.process(ctx))
+        # Fail open — unexpected exception → allow
+        assert result.action == "allow"

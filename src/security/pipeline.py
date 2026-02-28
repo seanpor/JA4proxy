@@ -55,6 +55,8 @@ from typing import TYPE_CHECKING, Any
 
 from prometheus_client import Counter, Gauge
 
+from .tls_enforcer import TLSEnforcer
+
 if TYPE_CHECKING:
     from ..cache.local_cache import LocalCache
 
@@ -132,6 +134,7 @@ class ConnectionContext:
     sni: str | None = None
     tls_version: int | None = None
     country: str | None = None
+    cipher_list: list[int] = field(default_factory=list)
 
 
 @dataclass
@@ -284,6 +287,8 @@ class Pipeline:
             "counterfactual_thresholds", [25, 50, 75, 100]
         )
         self._log_counterfactuals: bool = monitor_cfg.get("log_counterfactuals", True)
+        # Phase 3: TLS version and cipher suite enforcement
+        self._tls_enforcer = TLSEnforcer(config)
 
     def update_scorer(self, scorer: Any, decider: Any) -> None:
         """Wire in Phase 1 scorer and decider. Called after Phase 1 init."""
@@ -300,6 +305,7 @@ class Pipeline:
         self._config = new_config
         self._policy = new_config.get("security_policy", {})
         self._allowlist.reload(new_config)
+        self._tls_enforcer.on_config_reload(new_config)
 
     async def process(self, ctx: ConnectionContext) -> PipelineResult:
         """Process one connection through the full pipeline.
@@ -340,10 +346,22 @@ class Pipeline:
             self._emit_log(ctx, block)
             return block
 
-        # ── 3. Signal collection (stub — phases 3–12 add real signals) ─
-        signals = await self._collect_signals(ctx)
+        # ── 3. TLS enforcement (Phase 3) ───────────────────────────────
+        # check() returns None → hard block; list → signals (may be empty)
+        tls_signals = self._tls_enforcer.check(ctx.tls_version, ctx.cipher_list)
+        if tls_signals is None:
+            block = PipelineResult(
+                action="block", bypassed=True, bypass_reason="tls_version"
+            )
+            _CONNECTIONS.labels(action="bypass_block").inc()
+            self._emit_log(ctx, block)
+            return block
 
-        # ── 4. Score + decide ──────────────────────────────────────────
+        # ── 4. Signal collection (Phases 4–12 add signals here) ────────
+        signals: list = list(tls_signals)  # start with Phase 3 TLS signals
+        signals.extend(await self._collect_signals(ctx))
+
+        # ── 5. Score + decide ──────────────────────────────────────────
         score, action, scored_signals, cf = self._score_connection(signals)
         dial = self._cache.dial
 
@@ -442,18 +460,19 @@ class Pipeline:
         return None
 
     async def _collect_signals(self, ctx: ConnectionContext) -> list:
-        """Collect risk signals from all enabled signal modules.
+        """Collect risk signals from enabled signal modules (Phases 4–12).
 
-        Returns an empty list in Phase 0. Each subsequent phase adds its
-        module's call here. Modules run concurrently where possible.
+        Phase 3 (TLS enforcement) is handled before this method is called.
+        Each subsequent phase adds its module call here. Modules run
+        concurrently where possible.
 
         The method must never raise. Individual module errors are caught
         and logged; the pipeline continues with whatever signals were
         collected before the error.
         """
-        # Phases 3–12 will add signal collection here:
-        #   signals.extend(await self._tls_enforcer.signals(ctx))
+        # Phases 4–12 will add signal collection here:
         #   signals.extend(await self._sni_analyzer.signals(ctx))
+        #   signals.extend(await self._asn_classifier.signals(ctx))
         #   ...
         return []
 

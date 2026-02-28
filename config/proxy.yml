@@ -293,3 +293,22 @@ monitor_mode:
   max_dial_change_per_hour: 25
   # Emit structured log on every dial change.
   alert_on_dial_change: true
+
+# ── Phase 3: TLS Version & Cipher Enforcement ─────────────────────────────
+
+tls_enforcer:
+  enabled: true             # Default: true. Set false to disable all TLS enforcement.
+  block_ssl3:       true    # Default: true. Block SSLv3 — protocol is broken by design; no bypass option.
+  block_tls_10:     true    # Default: true. Block TLS 1.0 connections (hard block via tls_version_bypass).
+  block_tls_11:     true    # Default: true. Block TLS 1.1 connections (hard block via tls_version_bypass).
+  flag_tls_12:      false   # Default: false. Set true to add a scored signal for TLS 1.2 connections.
+  score:            10      # Score contribution when flag_tls_12 is true. Default: 10.
+  block_weak_ciphers: false # Default: false. Hard-block connections offering weak cipher suites.
+  weak_cipher_score:  20    # Score contribution when block_weak_ciphers is false. Default: 20.
+  # Cipher suite IDs considered weak (extends built-in WEAK_CIPHERS set). Extend as needed.
+  weak_ciphers:
+    - 0x0004  # TLS_RSA_WITH_RC4_128_MD5
+    - 0x0005  # TLS_RSA_WITH_RC4_128_SHA
+    - 0x000A  # TLS_RSA_WITH_3DES_EDE_CBC_SHA
+    - 0x0035  # TLS_RSA_WITH_AES_256_CBC_SHA (no PFS)
+    - 0x002F  # TLS_RSA_WITH_AES_128_CBC_SHA (no PFS)
