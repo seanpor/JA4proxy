@@ -18,7 +18,7 @@ from typing import Dict, Optional, Tuple
 
 try:
     import redis
-except ImportError:
+except ImportError:  # pragma: no cover
     redis = None
 
 from .action_types import ActionType, ActionResult, ActionConfig

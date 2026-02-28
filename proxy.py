@@ -53,7 +53,7 @@ from prometheus_client import Counter, Histogram, Gauge, Info, start_http_server
 try:
     import IP2Location
     GEOIP_AVAILABLE = True
-except ImportError:
+except ImportError:  # pragma: no cover — only reachable when IP2Location is not installed
     GEOIP_AVAILABLE = False
 
 # Specific Scapy imports to avoid namespace pollution (Security Fix: CVE-2024-WILDCARD-IMPORT)
@@ -131,20 +131,16 @@ def classify_ja4(ja4: str, config: dict = None) -> str:
     if not ja4 or len(ja4) < 10 or ja4 in ('unknown', 'error'):
         return 'Unknown'
 
-    try:
-        proto = 'QUIC' if ja4[0] == 'q' else 'TLS'
-        ver_map = {'13': '1.3', '12': '1.2', '11': '1.1', '10': '1.0'}
-        tls_ver = ver_map.get(ja4[1:3], ja4[1:3])
-        prefix = ja4.split('_')[0]
-        alpn_field = prefix[-2:] if len(prefix) >= 2 else '00'
-        if alpn_field == 'h2':
-            return f'Browser ({proto} {tls_ver})'
-        elif alpn_field == '00':
-            return f'Tool/Bot ({proto} {tls_ver})'
-        else:
-            return f'Client ({proto} {tls_ver})'
-    except (IndexError, ValueError):
-        return 'Unknown'
+    proto = 'QUIC' if ja4[0] == 'q' else 'TLS'
+    ver_map = {'13': '1.3', '12': '1.2', '11': '1.1', '10': '1.0'}
+    tls_ver = ver_map.get(ja4[1:3], ja4[1:3])
+    prefix = ja4.split('_')[0]
+    alpn_field = prefix[-2:] if len(prefix) >= 2 else '00'
+    if alpn_field == 'h2':
+        return f'Browser ({proto} {tls_ver})'
+    elif alpn_field == '00':
+        return f'Tool/Bot ({proto} {tls_ver})'
+    return f'Client ({proto} {tls_ver})'
 
 
 class GeoIPLookup:
@@ -901,12 +897,13 @@ class ProxyServer:
             
             return redis_client
             
+        except redis.AuthenticationError as e:
+            # Must precede ConnectionError: AuthenticationError is a subclass of it.
+            self.logger.error(f"Redis authentication failed: {e}")
+            raise SecurityError(f"Redis authentication failed - check credentials: {e}")
         except redis.ConnectionError as e:
             self.logger.error(f"Redis connection failed: {e}")
             raise SecurityError(f"Cannot establish secure Redis connection: {e}")
-        except redis.AuthenticationError as e:
-            self.logger.error(f"Redis authentication failed: {e}")
-            raise SecurityError(f"Redis authentication failed - check credentials: {e}")
         except Exception as e:
             self.logger.error(f"Redis initialization error: {e}")
             raise
@@ -1433,15 +1430,11 @@ class ProxyServer:
     
     def _extract_ja4_from_http(self, data: bytes) -> str:
         """Extract JA4 fingerprint from HTTP X-JA4-Fingerprint header (testing/fallback)."""
-        try:
-            if data[:3] in (b'GET', b'POS', b'PUT', b'DEL', b'HEA', b'PAT', b'OPT'):
-                header_block = data[:2048].decode('ascii', errors='ignore')
-                for line in header_block.split('\r\n'):
-                    if line.lower().startswith('x-ja4-fingerprint:'):
-                        ja4 = line.split(':', 1)[1].strip()
-                        return ja4
-        except Exception:
-            pass
+        if data[:3] in (b'GET', b'POS', b'PUT', b'DEL', b'HEA', b'PAT', b'OPT'):
+            header_block = data[:2048].decode('ascii', errors='ignore')
+            for line in header_block.split('\r\n'):
+                if line.lower().startswith('x-ja4-fingerprint:'):
+                    return line.split(':', 1)[1].strip()
         return "unknown"
     
     async def _store_fingerprint(self, fingerprint: JA4Fingerprint):
@@ -1461,36 +1454,37 @@ class ProxyServer:
         except Exception as e:
             self.logger.error(f"Error storing fingerprint: {e}")
     
-    async def _forward_to_backend(self, initial_data: bytes, client_reader: asyncio.StreamReader, 
+    async def _forward_to_backend(self, initial_data: bytes, client_reader: asyncio.StreamReader,
                                  client_writer: asyncio.StreamWriter, fingerprint: JA4Fingerprint):
         """Forward connection to backend server."""
+        backend_writer = None
         try:
             # Connect to backend
             backend_reader, backend_writer = await asyncio.open_connection(
                 self.config['proxy']['backend_host'],
                 int(self.config['proxy']['backend_port'])
             )
-            
+
             self.logger.info(f"Forwarding connection with JA4: {fingerprint.ja4[:16]}")
-            
+
             # Send initial data to backend
             backend_writer.write(initial_data)
             await backend_writer.drain()
-            
+
             # Start bidirectional forwarding
             await asyncio.gather(
                 self._forward_data(client_reader, backend_writer, "client->backend"),
                 self._forward_data(backend_reader, client_writer, "backend->client"),
                 return_exceptions=True
             )
-            
+
         except Exception as e:
             self.logger.error(f"Error forwarding to backend: {e}")
         finally:
-            for writer in [backend_writer]:
+            if backend_writer is not None:
                 try:
-                    writer.close()
-                    await writer.wait_closed()
+                    backend_writer.close()
+                    await backend_writer.wait_closed()
                 except Exception:
                     pass
     
@@ -1585,5 +1579,5 @@ def main():
         sys.exit(1)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

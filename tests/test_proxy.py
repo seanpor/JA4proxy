@@ -236,29 +236,27 @@ class TestTarpitManager:
 
     @pytest.mark.asyncio
     async def test_tarpit_connection_enabled(self):
-        """Test TARPIT delay when enabled."""
+        """Test TARPIT delay is applied with the configured duration."""
         mock_writer = AsyncMock()
 
-        start_time = time.time()
-        await self.tarpit_manager.tarpit_connection(mock_writer)
-        duration = time.time() - start_time
+        with patch("proxy.asyncio.sleep", AsyncMock()) as mock_sleep:
+            await self.tarpit_manager.tarpit_connection(mock_writer)
 
-        assert duration >= 3.0  # Allow for timing variation in CI/containers
+        mock_sleep.assert_called_once_with(5)
         mock_writer.close.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_tarpit_connection_disabled(self):
-        """Test TARPIT when disabled."""
+        """Test TARPIT when disabled returns immediately without sleeping."""
         self.config['security']['tarpit_enabled'] = False
         tarpit_manager = TarpitManager(self.config)
 
         mock_writer = AsyncMock()
 
-        start_time = time.time()
-        await tarpit_manager.tarpit_connection(mock_writer)
-        duration = time.time() - start_time
+        with patch("proxy.asyncio.sleep", AsyncMock()) as mock_sleep:
+            await tarpit_manager.tarpit_connection(mock_writer)
 
-        assert duration < 1.0  # Should return quickly
+        mock_sleep.assert_not_called()  # sleep must not be called when disabled
 
 
 @pytest.mark.asyncio
