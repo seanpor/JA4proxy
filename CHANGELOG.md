@@ -1,5 +1,50 @@
 # Changelog
 
+## [5.1.0] - 2026-02-28 - PHASE 3: TLS VERSION & CIPHER ENFORCEMENT
+
+### Added
+- **`src/security/tls_enforcer.py`** — New `TLSEnforcer` class with:
+  - `WEAK_CIPHERS` frozenset of 40+ known-broken cipher suite IDs (NULL, RC4, EXPORT,
+    ANON, DES, 3DES suites per NIST SP 800-52r2 and RFC 9325).
+  - `check(tls_version, cipher_list) -> list[RiskSignal] | None` — returns `None` for
+    hard-block, empty list for clean connections, or signal list for scored violations.
+  - SSLv3: always hard-blocked regardless of bypass setting.
+  - TLS 1.0/1.1: hard-block when `security_policy.tls_version_bypass.enabled: true`
+    (default); scored `RiskSignal(name="tls_version", score=40)` when bypass disabled.
+  - TLS 1.2: optional `RiskSignal(name="tls_version", score=N)` when `flag_tls_12: true`.
+  - Weak cipher: `RiskSignal(name="weak_cipher", score=N)` or hard-block when
+    `block_weak_ciphers: true`.
+  - `from_config(config)` classmethod; `on_config_reload(new_config)` hot-reload support.
+  - Prometheus counters: `ja4proxy_tls_version_total{tls_version,action}`,
+    `ja4proxy_weak_cipher_total{cipher_strength,action}`.
+- **`src/security/pipeline.py`** — `ConnectionContext.cipher_list: list[int]` field
+  (default empty list) carrying raw cipher suite IDs from ClientHello.
+- **`src/security/pipeline.py`** — `Pipeline._tls_enforcer` wired in `__init__`;
+  `on_config_reload()` propagates to `TLSEnforcer.on_config_reload()`.
+- **`src/security/pipeline.py`** — `_process_inner()` step 3: TLS enforcement between
+  BLOCK bypasses and signal collection. Hard-block returns `PipelineResult(bypassed=True,
+  bypass_reason="tls_version")`; signals are prepended to Phase 4+ collection.
+- **`proxy.py`** — `JA4Fingerprint.tls_version_int: int` and
+  `JA4Fingerprint.raw_cipher_suites: list` fields populated in `_analyze_tls_handshake`.
+- **`proxy.py`** — `handle_connection()` passes `tls_version` and `cipher_list` to
+  `ConnectionContext`, activating Phase 3 enforcement on live traffic.
+- **`config/proxy.yml`** — `tls_enforcer:` section with all flags, scores, and
+  configurable weak cipher list.
+- **`tests/unit/test_tls_enforcer.py`** — 33 unit tests covering all `check()` branches,
+  `from_config()`, `on_config_reload()`, default config safety, and `WEAK_CIPHERS` constant.
+- **`tests/integration/test_pipeline.py`** — 6 new `TestTLSEnforcerIntegration` tests:
+  TLS 1.1 hard-block with scorer not called, bypass-disabled scored path, weak cipher
+  scoring, TLS 1.3 allow, hot reload, and `tls_version=None` no-crash.
+- **`tests/chaos/test_redis_failure.py`** — 3 new `TestTLSEnforcerRedisDown` tests:
+  in-process TLS block works with Redis down, TLS 1.3 allowed with Redis down, and
+  enforcer exception swallowed by pipeline fail-open guard.
+
+### Coverage
+- **943 tests passed, 0 failed** (16 skipped: Docker-dependent).
+- **100% statement coverage** across all source modules (2485 statements).
+
+---
+
 ## [5.0.0] - 2026-02-28 - PHASE 2: MONITOR MODE & PROGRESSIVE BLOCKING DIAL
 
 ### Added

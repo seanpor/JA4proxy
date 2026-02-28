@@ -1,7 +1,8 @@
-"""Integration tests for the full pipeline with Phase 1 scorer + decider.
+"""Integration tests for the full pipeline (Phases 1–3).
 
-Tests that the pipeline wires scorer and decider correctly and that
-bypass, scoring, and monitor-mode paths all produce correct results.
+Tests that the pipeline wires scorer, decider, and TLS enforcer correctly
+and that bypass, scoring, monitor-mode, and TLS enforcement paths all
+produce correct results.
 """
 
 import asyncio
@@ -13,6 +14,7 @@ from src.cache.local_cache import LocalCache
 from src.security.action_decider import ActionDecider
 from src.security.pipeline import ConnectionContext, Pipeline
 from src.security.risk_scorer import RiskScorer, RiskSignal
+from src.security.tls_enforcer import TLS11, TLS12, TLS13
 
 THRESHOLDS = {
     "flag": 20,
@@ -162,3 +164,171 @@ class TestPipelineMonitorMode:
         assert result.action == "allow"
         assert result.score == 61
         assert result.dial == 0
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: TLS enforcement integration
+# ---------------------------------------------------------------------------
+
+
+def _make_tls_pipeline(dial: int = 100, tls_enforcer_cfg: dict | None = None) -> Pipeline:
+    """Pipeline with TLS enforcer config and real scorer/decider."""
+    te_cfg = {
+        "enabled": True,
+        "block_ssl3": True,
+        "block_tls_10": True,
+        "block_tls_11": True,
+        "flag_tls_12": False,
+        "score": 10,
+        "block_weak_ciphers": False,
+        "weak_cipher_score": 20,
+        "weak_ciphers": [],
+    }
+    if tls_enforcer_cfg:
+        te_cfg.update(tls_enforcer_cfg)
+
+    config = {
+        "security_policy": {
+            "alpn_browser_bypass": {"enabled": True},
+            "ja4_whitelist_bypass": {"enabled": True},
+            "mtls_bypass": {"enabled": True},
+            "static_ip_allowlist": {"enabled": True},
+            "ja4_blacklist_bypass": {"enabled": True},
+            "country_blacklist_bypass": {"enabled": True},
+            "tls_version_bypass": {"enabled": True},
+        },
+        "tls_enforcer": te_cfg,
+    }
+    cache = LocalCache({})
+    cache.dial = dial
+    pipeline = Pipeline(config=config, local_cache=cache, redis_client=MagicMock())
+    scorer = RiskScorer(THRESHOLDS)
+    decider = ActionDecider(THRESHOLDS, ban_duration_seconds=300)
+    pipeline.update_scorer(scorer, decider)
+    return pipeline
+
+
+def _tls_ctx(**kwargs) -> ConnectionContext:
+    defaults = {"client_ip": "1.2.3.4", "ja4": "t13d_test_fp_aabbccddee11"}
+    defaults.update(kwargs)
+    return ConnectionContext(**defaults)
+
+
+class TestTLSEnforcerIntegration:
+    """TLS enforcement wired into the pipeline."""
+
+    def test_tls11_bypass_enabled_hard_block(self):
+        """TLS 1.1 + tls_version_bypass enabled → block at pipeline entry, scorer not called."""
+        pipeline = _make_tls_pipeline()
+        mock_scorer = MagicMock()
+        pipeline._scorer = mock_scorer
+
+        ctx = _tls_ctx(tls_version=TLS11)
+        result = _run(pipeline.process(ctx))
+
+        assert result.action == "block"
+        assert result.bypassed is True
+        assert result.bypass_reason == "tls_version"
+        mock_scorer.score.assert_not_called()  # scorer never reached
+
+    def test_tls11_bypass_disabled_scored(self):
+        """TLS 1.1 + bypass disabled → tls_version signal reaches scorer."""
+        config = {
+            "security_policy": {
+                "alpn_browser_bypass": {"enabled": True},
+                "ja4_whitelist_bypass": {"enabled": True},
+                "mtls_bypass": {"enabled": True},
+                "static_ip_allowlist": {"enabled": True},
+                "ja4_blacklist_bypass": {"enabled": True},
+                "country_blacklist_bypass": {"enabled": True},
+                "tls_version_bypass": {"enabled": False},  # bypass disabled
+            },
+            "tls_enforcer": {
+                "enabled": True,
+                "block_tls_11": True,
+                "block_ssl3": True,
+            },
+        }
+        cache = LocalCache({})
+        cache.dial = 100
+        pipeline = Pipeline(config=config, local_cache=cache, redis_client=MagicMock())
+        pipeline.update_scorer(RiskScorer(THRESHOLDS), ActionDecider(THRESHOLDS))
+
+        ctx = _tls_ctx(tls_version=TLS11)
+        result = _run(pipeline.process(ctx))
+
+        # Signal emitted — connection scored; not bypassed
+        assert result.bypassed is False
+        assert result.score is not None
+        assert result.score > 0  # tls_version signal (score=40) was included
+        assert any(
+            getattr(s, "name", None) == "tls_version" for s in result.signals
+        )
+
+    def test_weak_cipher_scored_when_not_blocking(self):
+        """Weak cipher + block_weak_ciphers=false → scored signal in result."""
+        pipeline = _make_tls_pipeline(
+            tls_enforcer_cfg={"block_weak_ciphers": False, "weak_cipher_score": 20}
+        )
+        ctx = _tls_ctx(tls_version=TLS13, cipher_list=[0x0004])  # RC4
+        result = _run(pipeline.process(ctx))
+
+        assert result.bypassed is False
+        assert result.score == 20
+        assert any(getattr(s, "name", None) == "weak_cipher" for s in result.signals)
+
+    def test_tls13_strong_ciphers_allow(self):
+        """TLS 1.3 with strong ciphers → allow, no TLS signals."""
+        pipeline = _make_tls_pipeline()
+        ctx = _tls_ctx(tls_version=TLS13, cipher_list=[0xC02B, 0x1301])
+        result = _run(pipeline.process(ctx))
+
+        assert result.action == "allow"
+        assert not any(
+            getattr(s, "name", "") in ("tls_version", "weak_cipher")
+            for s in result.signals
+        )
+
+    def test_hot_reload_flag_tls12_true_emits_signal(self):
+        """Hot reload changes flag_tls_12=true → next connection gets signal."""
+        pipeline = _make_tls_pipeline(tls_enforcer_cfg={"flag_tls_12": False})
+
+        ctx = _tls_ctx(tls_version=TLS12)
+        result_before = _run(pipeline.process(ctx))
+        assert not any(
+            getattr(s, "name", "") == "tls_version" for s in result_before.signals
+        )
+
+        # Hot reload with flag_tls_12=True
+        new_config = {
+            "security_policy": {
+                "alpn_browser_bypass": {"enabled": True},
+                "ja4_whitelist_bypass": {"enabled": True},
+                "mtls_bypass": {"enabled": True},
+                "static_ip_allowlist": {"enabled": True},
+                "ja4_blacklist_bypass": {"enabled": True},
+                "country_blacklist_bypass": {"enabled": True},
+                "tls_version_bypass": {"enabled": True},
+            },
+            "tls_enforcer": {
+                "enabled": True,
+                "flag_tls_12": True,
+                "score": 10,
+                "block_ssl3": True,
+                "block_tls_10": True,
+                "block_tls_11": True,
+            },
+        }
+        pipeline.on_config_reload(new_config)
+
+        result_after = _run(pipeline.process(ctx))
+        assert any(
+            getattr(s, "name", "") == "tls_version" for s in result_after.signals
+        )
+
+    def test_no_tls_version_in_context_no_crash(self):
+        """ctx.tls_version=None → no crash; TLS enforcer skips version check."""
+        pipeline = _make_tls_pipeline()
+        ctx = _tls_ctx(tls_version=None, cipher_list=[])
+        result = _run(pipeline.process(ctx))
+        assert result.action == "allow"

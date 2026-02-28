@@ -201,6 +201,8 @@ class JA4Fingerprint:
     tls_version: str = ""
     cipher_suite: str = ""
     session_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    tls_version_int: int = 0                          # Phase 3: raw integer version
+    raw_cipher_suites: list = field(default_factory=list)  # Phase 3: ClientHello ciphers
     geo_country: str = ""
     risk_score: int = 0
     compliance_flags: Dict[str, bool] = field(default_factory=dict)
@@ -1122,7 +1124,9 @@ class ProxyServer:
                     client_ip=client_ip,
                     ja4=ja4,
                     country=country or None,
-                    # alpn / sni / tls_version: added in Phases 3–4
+                    tls_version=fingerprint.tls_version_int or None,
+                    cipher_list=fingerprint.raw_cipher_suites,
+                    # alpn / sni: added in Phase 4
                 )
                 result = await self.pipeline.process(ctx)
 
@@ -1289,6 +1293,8 @@ class ProxyServer:
         try:
             ja4 = "unknown"
             tls_version = "unknown"
+            tls_version_int = 0         # Phase 3: integer version for TLSEnforcer
+            raw_cipher_suites: list = []  # Phase 3: raw cipher list for TLSEnforcer
             
             # The data is raw TCP stream, not IP-wrapped — check for TLS record header
             # TLS record: byte 0 = content type (0x16 = handshake), bytes 1-2 = version, bytes 3-4 = length
@@ -1313,6 +1319,9 @@ class ProxyServer:
                             tls_version = "TLS 1.0"
                         else:
                             tls_version = f"TLS 0x{ver:04x}" if ver else "unknown"
+                        # Phase 3: raw integer version and cipher list for TLSEnforcer
+                        tls_version_int = 0x0304 if 0x0304 in supported else ver
+                        raw_cipher_suites = client_hello_fields.get('cipher_suites', [])
                 except Exception as e:
                     self.logger.debug(f"TLS parsing with Scapy failed: {e}")
             else:
@@ -1327,7 +1336,9 @@ class ProxyServer:
                 client_hello_hash=hashlib.sha256(data).hexdigest()[:16],
                 timestamp=time.time(),
                 source_ip=client_ip,
-                tls_version=tls_version
+                tls_version=tls_version,
+                tls_version_int=tls_version_int,
+                raw_cipher_suites=raw_cipher_suites,
             )
             
             # Store fingerprint in Redis
