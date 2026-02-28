@@ -305,13 +305,12 @@ tls_enforcer:
   score:            10      # Score contribution when flag_tls_12 is true. Default: 10.
   block_weak_ciphers: false # Default: false. Hard-block connections offering weak cipher suites.
   weak_cipher_score:  20    # Score contribution when block_weak_ciphers is false. Default: 20.
-  # Cipher suite IDs considered weak (extends built-in WEAK_CIPHERS set). Extend as needed.
-    weak_ciphers:
-      - 0x0004  # TLS_RSA_WITH_RC4_128_MD5
-      - 0x0005  # TLS_RSA_WITH_RC4_128_SHA
-      - 0x000A  # TLS_RSA_WITH_3DES_EDE_CBC_SHA
-      - 0x0035  # TLS_RSA_WITH_AES_256_CBC_SHA (no PFS)
-      - 0x002F  # TLS_RSA_WITH_AES_128_CBC_SHA (no PFS)
+  weak_ciphers:
+    - 0x0004  # TLS_RSA_WITH_RC4_128_MD5
+    - 0x0005  # TLS_RSA_WITH_RC4_128_SHA
+    - 0x000A  # TLS_RSA_WITH_3DES_EDE_CBC_SHA
+    - 0x0035  # TLS_RSA_WITH_AES_256_CBC_SHA (no PFS)
+    - 0x002F  # TLS_RSA_WITH_AES_128_CBC_SHA (no PFS)
   
   # ── Phase 5: TCP & Connection Behaviour + mTLS ────────────────────────────
   
