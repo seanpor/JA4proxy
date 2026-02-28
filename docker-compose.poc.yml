@@ -69,10 +69,11 @@ services:
           memory: 128M
 
   redis:
-    image: redis:7-alpine
+    image: redis/redis-stack:latest
     container_name: ja4proxy-redis
-    entrypoint: ["/usr/local/bin/redis-server"]
-    command: ["--requirepass", "${REDIS_PASSWORD:-changeme}", "--maxmemory", "256mb", "--maxmemory-policy", "volatile-lru", "--save", ""]
+    environment:
+      # redis/redis-stack passes extra flags via REDIS_ARGS (see /entrypoint.sh)
+      - REDIS_ARGS=--requirepass ${REDIS_PASSWORD:-changeme} --maxmemory 256mb --maxmemory-policy allkeys-lru --hz 20 --tcp-keepalive 60 --save ""
     # Redis not exposed to host — only accessible from backend network
     networks:
       - ja4proxy-backend

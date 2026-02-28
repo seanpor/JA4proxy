@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Optional
 
 try:
     import redis
-except ImportError:
+except ImportError:  # pragma: no cover
     redis = None
 
 

@@ -195,3 +195,83 @@ metrics:
 logging:
   level: "INFO"
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+# ── Phase 0: Infrastructure ───────────────────────────────────────────────
+
+# Upstream proxy / CDN trust for PROXY protocol v2 client IP extraction.
+# Enable only when the proxy sits behind a CDN or load balancer.
+upstream_trust:
+  enabled: false            # Default: false. Enable only when behind a trusted upstream.
+                            # CAUTION: enabling without setting trusted_cidrs accepts
+                            # spoofed client IPs from any source.
+  trusted_cidrs:
+    - "10.0.0.0/8"          # Internal HAProxy instances — adjust to your network.
+
+# In-process LRU cache sizes and per-type TTLs.
+# TTLs are tuned for the false-positive asymmetry: allow decisions are
+# cached longer than block decisions (a stale allow is less harmful than
+# a stale block on a real user).
+local_cache:
+  whitelist_decisions:
+    max_size: 50000          # Default: 50000.
+    ttl_seconds: 1800        # Default: 1800s (30 min). Long — stale allow lets traffic through.
+  block_decisions:
+    max_size: 100000         # Default: 100000.
+    ttl_seconds: 30          # Default: 30s. Short — stale block hurts real users.
+  abuseipdb_scores:
+    max_size: 50000          # Default: 50000.
+    ttl_seconds: 14400       # Default: 14400s (4 h). Scores change slowly.
+  asn_class:
+    max_size: 100000         # Default: 100000.
+    ttl_seconds: 3600        # Default: 3600s (1 h).
+
+# Per-bypass security policy. Each bypass is independently toggleable.
+# Disabling an ALLOW bypass routes those connections through the scorer.
+# Disabling a BLOCK bypass routes matches through the scorer instead.
+# The proxy emits a startup WARN for every high-risk bypass that is disabled.
+security_policy:
+  # ── ALLOW BYPASSES ────────────────────────────────────────────────────
+  alpn_browser_bypass:
+    enabled: true           # Default: true. h2/h1 ALPN → ALLOW without scoring.
+                            # CAUTION: disabling scores all browser traffic; false positive risk elevated.
+  ja4_whitelist_bypass:
+    enabled: true           # Default: true. JA4 in whitelist → ALLOW without scoring.
+  mtls_bypass:
+    enabled: true           # Default: true. Valid mTLS client cert → ALLOW without scoring.
+  static_ip_allowlist:
+    enabled: true           # Default: true. IP in static allowlist → ALLOW without scoring.
+
+  # ── BLOCK BYPASSES ────────────────────────────────────────────────────
+  ja4_blacklist_bypass:
+    enabled: true           # Default: true. JA4 in blacklist → immediate RST.
+  country_blacklist_bypass:
+    enabled: true           # Default: true. Country in GeoIP blocklist → immediate block.
+  spamhaus_bypass:
+    enabled: true           # Default: true. Spamhaus DROP/EDROP match → immediate block.
+  tls_version_bypass:
+    enabled: true           # Default: true. TLS 1.0/1.1 → immediate RST (Phase 3+).
+
+# Static IP allowlist. IPs and CIDRs listed here bypass the entire pipeline.
+# Both IPv4 and IPv6 supported. CIDR ranges supported.
+# UI-added entries are stored in Redis (static:allowlist SET) and propagated
+# via pub/sub. Config-file entries are authoritative.
+static_allowlist:
+  enabled: true             # Default: true. Set to false to disable all static allowlist checks.
+  ips: []                   # Add entries as: {ip: "x.x.x.x", comment: "...", added_by: "..."}
+
+# Config reload behaviour.
+config:
+  hot_reload_enabled: true  # Default: true. SIGHUP and pub/sub config_reload both trigger reload.
+
+# ── Phase 1: Risk Scorer ──────────────────────────────────────────────────
+
+# Composite risk scorer thresholds and action durations.
+risk_scorer:
+  enabled: true             # Default: true. Set to false to disable scoring (monitor mode forced).
+  thresholds:
+    flag:       20          # Default: 20. Connection allowed; elevated logging.
+    rate_limit: 35          # Default: 35. Connection rate-limited.
+    tarpit:     55          # Default: 55. Connection slow-drained.
+    block:      70          # Default: 70. Connection rejected with RST.
+    ban:        85          # Default: 85. Rejected; IP banned for ban_duration_seconds.
+  ban_duration_seconds: 300 # Default: 300 (5 min). Duration of IP bans triggered by scorer.
