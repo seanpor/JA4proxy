@@ -56,6 +56,7 @@ from typing import TYPE_CHECKING, Any
 from prometheus_client import Counter, Gauge
 
 from .tls_enforcer import TLSEnforcer
+from .sni_analyzer import SNIAnalyzer
 
 if TYPE_CHECKING:
     from ..cache.local_cache import LocalCache
@@ -289,6 +290,8 @@ class Pipeline:
         self._log_counterfactuals: bool = monitor_cfg.get("log_counterfactuals", True)
         # Phase 3: TLS version and cipher suite enforcement
         self._tls_enforcer = TLSEnforcer(config)
+        # Phase 4: SNI analysis
+        self._sni_analyzer = SNIAnalyzer(config)
 
     def update_scorer(self, scorer: Any, decider: Any) -> None:
         """Wire in Phase 1 scorer and decider. Called after Phase 1 init."""
@@ -306,6 +309,7 @@ class Pipeline:
         self._policy = new_config.get("security_policy", {})
         self._allowlist.reload(new_config)
         self._tls_enforcer.on_config_reload(new_config)
+        self._sni_analyzer.on_config_reload(new_config)
 
     async def process(self, ctx: ConnectionContext) -> PipelineResult:
         """Process one connection through the full pipeline.
@@ -470,11 +474,25 @@ class Pipeline:
         and logged; the pipeline continues with whatever signals were
         collected before the error.
         """
-        # Phases 4–12 will add signal collection here:
-        #   signals.extend(await self._sni_analyzer.signals(ctx))
+        signals = []
+        
+        # Phase 4: SNI analysis
+        try:
+            sni_signals = self._sni_analyzer.analyze(ctx.sni)
+            signals.extend(sni_signals)
+        except Exception as exc:
+            logger.error(
+                "sni_analyzer | event=analysis_error | ip=%s | sni=%s | error=%s",
+                ctx.client_ip,
+                getattr(ctx, 'sni', 'unknown'),
+                exc,
+                exc_info=True,
+            )
+        
+        # Phases 5–12 will add signal collection here:
         #   signals.extend(await self._asn_classifier.signals(ctx))
         #   ...
-        return []
+        return signals
 
     def _score_connection(self, signals: list) -> tuple[int, str, list, dict]:
         """Map signals → (score, action, scored_signals, counterfactuals).
