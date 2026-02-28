@@ -31,6 +31,8 @@
 | `concurrent:{ip}` | Integer (INCR/DECR) | 60s | Proxy (Phase 5) | Live concurrent connection count per IP |
 | `visitor:{ip}` | Hash `{first_seen, last_seen, total, allowed, blocked}` | 604800s (7d) | Proxy (Phase 5) | Return visitor tracking |
 | `static:allowlist` | SET of IP/CIDR strings | none | Management UI (Phase 13) | UI-added static allowlist entries; config-file entries are authoritative |
+| `tor:exit:ips` | SET of IP strings | 3900s (1h + 5m buffer) | Leader instance (Phase 6) | Tor exit node IP addresses; refreshed hourly |
+| `leader:tor_exit_download` | String (instance_id) | 3600s (1h) | Leader instance (Phase 6) | Leader election lock for Tor consensus download |
 | `management:audit_log` | List (last 1000 entries) | none | Management UI | All secops admin actions |
 | `management:policy_audit` | List (last 1000 entries) | none | Management UI, config reload | Security policy bypass changes |
 
