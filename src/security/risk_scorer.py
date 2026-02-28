@@ -116,6 +116,19 @@ class RiskScorer:
             t.update(thresholds)
         self._thresholds = t
 
+    @classmethod
+    def from_config(cls, config: dict) -> "RiskScorer":
+        """Create a RiskScorer from the ``risk_scorer`` config section.
+
+        Args:
+            config: Full proxy.yml config dict.
+
+        Returns:
+            Configured :class:`RiskScorer` instance.
+        """
+        thresholds = config.get("risk_scorer", {}).get("thresholds", {})
+        return cls(thresholds=thresholds)
+
     def score(self, signals: list[RiskSignal]) -> RiskAssessment:
         """Compute the composite score and recommended action.
 

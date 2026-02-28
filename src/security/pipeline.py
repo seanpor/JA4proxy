@@ -34,7 +34,7 @@ Every connection produces exactly one decision line::
 
     ALLOW    | 142.250.80.1  | score=12  | dial=75 | signals=[dga(+7)]
     BYPASS   | 142.250.80.1  | score=N/A | dial=75 | bypass=alpn_browser
-    MONITOR  | 91.108.4.1    | score=61  | dial=0  | signals=[...] | would=block@70
+    MONITOR  | 91.108.4.1    | score=61  | dial=0  | signals=[...] | would=flag@25,tarpit@50
 
 JSON machine-readable log (one per connection)::
 
@@ -42,15 +42,18 @@ JSON machine-readable log (one per connection)::
      "action":"allow","signals":[{"name":"dga","score":7}]}
     {"type":"connection","verb":"BYPASS","ip":"...","score":null,
      "bypass":"alpn_browser","signals":[]}
+    {"type":"connection","verb":"MONITOR","ip":"...","score":61,"dial":0,
+     "counterfactual":{"action_at_25":"flag","action_at_50":"tarpit",...}}
 """
 
+import asyncio
 import ipaddress
 import json
 import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from prometheus_client import Counter
+from prometheus_client import Counter, Gauge
 
 if TYPE_CHECKING:
     from ..cache.local_cache import LocalCache
@@ -71,6 +74,21 @@ _CONNECTIONS = Counter(
     "Connections by final action",
     ["action"],
 )
+
+_DIAL_CURRENT = Gauge("ja4proxy_dial_current", "Current dial value 0–100")
+
+_COUNTERFACTUAL = Counter(
+    "ja4proxy_monitor_counterfactual_total",
+    "Would-have-taken actions per counterfactual dial value",
+    ["action", "dial"],
+)
+
+_DIAL_CHANGE_REJECTED = Counter(
+    "ja4proxy_dial_change_rejected_total",
+    "Dial changes rejected by the increment limit",
+)
+
+_DIAL_CHANGES = Counter("ja4proxy_dial_changes_total", "Successful dial value changes")
 
 # ---------------------------------------------------------------------------
 # Data classes
@@ -127,6 +145,7 @@ class PipelineResult:
         score: Composite score 0–100, or None for bypassed connections.
         signals: List of RiskSignal dicts (name, score) for logging.
         dial: Dial value at decision time; None for bypassed connections.
+        counterfactuals: Dict of {dial_value: action} for monitor-mode logging.
     """
 
     action: str
@@ -135,6 +154,7 @@ class PipelineResult:
     score: int | None = None
     signals: list[Any] = field(default_factory=list)
     dial: int | None = None
+    counterfactuals: dict = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -233,7 +253,7 @@ class Pipeline:
         config: Full proxy.yml config dict (the ``security_policy`` section
                 is read here; other sections are read by individual modules).
         local_cache: The process-local :class:`~src.cache.local_cache.LocalCache`.
-        redis_client: Async Redis client for hot-path pipeline lookups.
+        redis_client: Sync Redis client for stream events (Phase 12 upgrades to async).
 
     The pipeline is intentionally additive: new phases plug in by adding
     signal modules to ``_collect_signals()`` and the scorer/decider are
@@ -258,6 +278,12 @@ class Pipeline:
         # Phase 1 components — set by update_scorer() after Phase 1 init
         self._scorer: Any = None
         self._decider: Any = None
+        # Phase 2: counterfactual reporting config
+        monitor_cfg = config.get("monitor_mode", {})
+        self._cf_dials: list[int] = monitor_cfg.get(
+            "counterfactual_thresholds", [25, 50, 75, 100]
+        )
+        self._log_counterfactuals: bool = monitor_cfg.get("log_counterfactuals", True)
 
     def update_scorer(self, scorer: Any, decider: Any) -> None:
         """Wire in Phase 1 scorer and decider. Called after Phase 1 init."""
@@ -318,23 +344,33 @@ class Pipeline:
         signals = await self._collect_signals(ctx)
 
         # ── 4. Score + decide ──────────────────────────────────────────
-        score, action, scored_signals = self._score_connection(signals)
+        score, action, scored_signals, cf = self._score_connection(signals)
         dial = self._cache.dial
 
-        # dial=0 → monitor mode: log the would-have action but allow
-        if dial == 0 and action != "allow":
+        if dial == 0:
+            # Monitor mode: always allow, log what would happen at higher dials
             result = PipelineResult(
                 action="allow",
                 score=score,
                 signals=scored_signals,
                 dial=dial,
+                counterfactuals=cf,
             )
-            self._emit_log(ctx, result, monitor_would=action)
+            self._emit_log(ctx, result)
+            # Increment counterfactual Prometheus counters
+            if self._log_counterfactuals and isinstance(cf, dict):
+                for d, act in cf.items():
+                    _COUNTERFACTUAL.labels(action=act, dial=str(d)).inc()
         else:
-            result = PipelineResult(action=action, score=score, signals=scored_signals, dial=dial)
+            result = PipelineResult(
+                action=action, score=score, signals=scored_signals, dial=dial,
+                counterfactuals=cf,
+            )
             self._emit_log(ctx, result)
 
         _CONNECTIONS.labels(action=result.action).inc()
+        # Fire-and-forget stream event (Phase 12 analytics consumes this)
+        asyncio.create_task(self._emit_stream_event(ctx, result))
         return result
 
     def _check_allow_bypasses(self, ctx: ConnectionContext) -> PipelineResult | None:
@@ -421,20 +457,26 @@ class Pipeline:
         #   ...
         return []
 
-    def _score_connection(self, signals: list) -> tuple[int, str, list]:
-        """Map signals → (score, action, scored_signals).
+    def _score_connection(self, signals: list) -> tuple[int, str, list, dict]:
+        """Map signals → (score, action, scored_signals, counterfactuals).
 
-        Phase 0: no scorer wired in — returns (0, "allow", []).
-        Phase 1: scorer + decider are wired in via update_scorer().
+        Phase 0: no scorer wired in — returns (0, "allow", [], {}).
+        Phase 1+: scorer + decider are wired in via update_scorer().
 
         Returns the scorer's processed signals (clamped, weighted) rather than
         the raw input so callers can populate PipelineResult with the final list.
+        The 4th element is the counterfactuals dict from ActionDecider.counterfactuals().
         """
         if self._scorer is not None and self._decider is not None:
             assessment = self._scorer.score(signals)
-            action = self._decider.decide(assessment.total_score, self._cache.dial)
-            return assessment.total_score, action, assessment.signals
-        return 0, "allow", []
+            dial = self._cache.dial
+            action = self._decider.decide(assessment.total_score, dial)
+            cf = self._decider.counterfactuals(assessment.total_score, self._cf_dials)
+            # Normalise cf to a plain dict (handles MagicMock in tests gracefully)
+            if not isinstance(cf, dict):
+                cf = {}
+            return assessment.total_score, action, assessment.signals, cf
+        return 0, "allow", [], {}
 
     # ------------------------------------------------------------------
     # Logging (§2a of STYLE_GUIDE)
@@ -444,12 +486,14 @@ class Pipeline:
         self,
         ctx: ConnectionContext,
         result: PipelineResult,
-        monitor_would: str | None = None,
     ) -> None:
         """Emit the structured connection log line.
 
         Produces both a human-readable line and a JSON line on the same
         logger. The human-readable line matches §2a exactly.
+
+        Monitor mode is detected when ``result.dial == 0`` and the connection
+        was not bypassed.
         """
         dial_val = result.dial if result.dial is not None else self._cache.dial
 
@@ -457,11 +501,22 @@ class Pipeline:
             verb = "bypass"
             score_str = "N/A"
             detail = f"bypass={result.bypass_reason}"
-        elif monitor_would is not None:
+        elif result.dial == 0 and not result.bypassed:
+            # Monitor mode: log what would happen at counterfactual dial values
             verb = "monitor"
             score_str = str(result.score)
             signals_str = _format_signals(result.signals)
-            detail = f"signals={signals_str} | would={monitor_would}@{dial_val}"
+            cf = result.counterfactuals
+            if cf and isinstance(cf, dict):
+                would_parts = [
+                    f"{act}@{d}"
+                    for d, act in sorted(cf.items())
+                    if act != "allow"
+                ]
+                would_str = ",".join(would_parts) if would_parts else "allow@all"
+            else:
+                would_str = "allow@all"
+            detail = f"signals={signals_str} | would={would_str}"
         else:
             verb = result.action
             score_str = str(result.score) if result.score is not None else "0"
@@ -492,10 +547,41 @@ class Pipeline:
         }
         if result.bypassed:
             json_doc["bypass"] = result.bypass_reason
-        if monitor_would is not None:
-            json_doc["would"] = monitor_would
+        if result.dial == 0 and not result.bypassed and isinstance(result.counterfactuals, dict):
+            json_doc["counterfactual"] = {
+                f"action_at_{d}": act
+                for d, act in sorted(result.counterfactuals.items())
+            }
 
         logger.debug(json.dumps(json_doc))
+
+    # ------------------------------------------------------------------
+    # Stream events (Phase 2 — consumed by Phase 12 Analytics)
+    # ------------------------------------------------------------------
+
+    async def _emit_stream_event(self, ctx: ConnectionContext, result: PipelineResult) -> None:
+        """XADD one event to ``ja4proxy:events``. Swallows all errors.
+
+        Uses the synchronous Redis client passed at init time (Phase 12 will
+        upgrade to async). The sync call runs in the event loop thread;
+        acceptable at Phase 2 scale as a fire-and-forget write.
+        """
+        try:
+            cf = result.counterfactuals if isinstance(result.counterfactuals, dict) else {}
+            fields: dict[str, str] = {
+                "ip": ctx.client_ip,
+                "ja4": ctx.ja4 or "",
+                "risk_score": str(result.score) if result.score is not None else "",
+                "action_taken": result.action,
+                "dial_setting": str(result.dial or 0),
+            }
+            for d, act in cf.items():
+                fields[f"action_at_{d}"] = act
+
+            if hasattr(self._redis, "xadd"):
+                self._redis.xadd("ja4proxy:events", fields, maxlen=100_000, approximate=True)
+        except Exception as exc:
+            logger.debug("stream | event=xadd_failed | error=%s", exc)
 
 
 def _format_signals(signals: list) -> str:
