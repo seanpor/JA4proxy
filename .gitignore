@@ -83,6 +83,9 @@ htmlcov/
 .hypothesis/
 reports/
 
+# Planning artifacts
+*.zip
+
 # Docker
 *.tar
 *.gz
