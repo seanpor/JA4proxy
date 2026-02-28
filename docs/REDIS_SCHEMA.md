@@ -66,11 +66,14 @@ All proxy instances subscribe on startup. Message format: `{"type": "...", "valu
 
 ---
 
-## Phase 5 — TCP & Connection Behaviour (planned)
+## Phase 5 — TCP & Connection Behaviour
 
 | Key pattern | Type | TTL | Written by | Notes |
 |-------------|------|-----|------------|-------|
-| `beacon:{ip}:{ja4}` | Sorted Set (score=timestamp) | 3600s | Proxy | Beaconing timestamps; use ZRANGEBYSCORE for window queries |
+| `session:ip:{ip}:ja4:{ja4}` | Hash `{total, resumed}` | 3600s | Proxy | TLS session resumption counters |
+| `lifespan:{ip}` | Sorted Set of floats (ms) | 1800s | Proxy | Connection lifespan samples for median calculation |
+| `concurrent:{ip}` | Integer (INCR/DECR) | 60s | Proxy | Live concurrent connection count per IP |
+| `visitor:{ip}` | Hash `{first_seen, last_seen, total, allowed, blocked}` | 604800s (7d) | Proxy | Return visitor tracking |
 
 ---
 
