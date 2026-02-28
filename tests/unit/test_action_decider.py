@@ -1,8 +1,11 @@
 """Unit tests for src/security/action_decider.py — ActionDecider with dial."""
 
 import pytest
+from unittest.mock import MagicMock
 
-from src.security.action_decider import ActionDecider
+import redis
+
+from src.security.action_decider import ActionDecider, DialManager, effective_threshold
 
 THRESHOLDS = {
     "flag": 20,
@@ -16,6 +19,28 @@ THRESHOLDS = {
 @pytest.fixture
 def decider():
     return ActionDecider(thresholds=THRESHOLDS, ban_duration_seconds=300)
+
+
+# ---------------------------------------------------------------------------
+# effective_threshold — Phase 2 formula
+# ---------------------------------------------------------------------------
+
+
+class TestEffectiveThreshold:
+    @pytest.mark.parametrize(
+        "configured,dial,expected",
+        [
+            (70, 0, 101),   # dial=0 → always 101 (unreachable)
+            (70, 100, 70),  # dial=100 → exact configured
+            (70, 50, 86),   # round(101 - 0.5*31) = round(85.5) = 86
+            (70, 25, 93),   # round(101 - 0.25*31) = round(93.25) = 93
+            (70, 75, 78),   # round(101 - 0.75*31) = round(77.75) = 78
+            (85, 10, 99),   # round(101 - 0.1*16) = round(99.4) = 99
+            (20, 50, 60),   # round(101 - 0.5*81) = round(60.5) = 60 (banker's rounding)
+        ],
+    )
+    def test_effective_threshold(self, configured, dial, expected):
+        assert effective_threshold(configured, dial) == expected
 
 
 # ---------------------------------------------------------------------------
@@ -91,28 +116,59 @@ class TestOneBelowThreshold:
 
 
 # ---------------------------------------------------------------------------
-# Intermediate dial values — scaled thresholds
+# Intermediate dial values — interpolated thresholds
 # ---------------------------------------------------------------------------
 
 
 class TestIntermediateDial:
     def test_low_dial_allows_moderate_score(self):
-        """At dial=10, thresholds are 10× higher — score=70 should allow."""
+        """At dial=10, effective thresholds are very high — score=70 should allow."""
         decider = ActionDecider(thresholds=THRESHOLDS)
-        # effective_ban = 85 × 100/10 = 850 → never triggered at score 70
+        # effective_flag@10 = round(101 - 0.1*81) = round(92.9) = 93
         result = decider.decide(score=70, dial=10)
         assert result == "allow"
 
     def test_dial_50_mid_threshold(self):
-        """At dial=50, effective thresholds are doubled."""
+        """At dial=50, effective_flag = round(101 - 0.5*81) = 60."""
         decider = ActionDecider(thresholds=THRESHOLDS)
-        # effective_flag = 20 × 100/50 = 40 → need score ≥ 40 for flag
-        assert decider.decide(score=39, dial=50) == "allow"
-        assert decider.decide(score=40, dial=50) == "flag"
+        # score=59 → below effective_flag(20,50)=60 → allow
+        assert decider.decide(score=59, dial=50) == "allow"
+        # score=60 → meets effective_flag → flag
+        assert decider.decide(score=60, dial=50) == "flag"
 
     def test_score_zero_always_allows_at_any_dial(self, decider):
         for dial in [0, 10, 50, 75, 100]:
             assert decider.decide(score=0, dial=dial) == "allow"
+
+
+# ---------------------------------------------------------------------------
+# counterfactuals() — Phase 2 method
+# ---------------------------------------------------------------------------
+
+
+class TestCounterfactuals:
+    def test_empty_dial_list_returns_empty_dict(self, decider):
+        result = decider.counterfactuals(score=50, dial_values=[])
+        assert result == {}
+
+    def test_score_zero_all_dials_return_allow(self, decider):
+        result = decider.counterfactuals(score=0, dial_values=[0, 25, 50, 75, 100])
+        assert all(v == "allow" for v in result.values())
+        assert set(result.keys()) == {0, 25, 50, 75, 100}
+
+    def test_high_score_shows_actions_at_higher_dials(self, decider):
+        """score=75 → allow at dial=0, flag at dial=50, block at dial=100."""
+        result = decider.counterfactuals(score=75, dial_values=[0, 50, 100])
+        assert result[0] == "allow"   # dial=0 → always allow
+        # effective_block@50 = round(101 - 0.5*(101-70)) = round(101-15.5) = 86
+        # score=75 < 86 → not block; effective_tarpit@50 = round(101-0.5*46)=78; 75<78
+        # effective_rate_limit@50 = round(101-0.5*66)=68; 75>=68 → rate_limit
+        assert result[50] == "rate_limit"
+        assert result[100] == "block"   # score=75 >= block threshold=70
+
+    def test_dial_values_preserved_as_keys(self, decider):
+        result = decider.counterfactuals(score=0, dial_values=[25, 50, 75, 100])
+        assert list(result.keys()) == [25, 50, 75, 100]
 
 
 # ---------------------------------------------------------------------------
@@ -170,3 +226,85 @@ class TestBanDuration:
     def test_custom_ban_duration(self):
         d = ActionDecider(ban_duration_seconds=900)
         assert d.ban_duration_seconds == 900
+
+
+# ---------------------------------------------------------------------------
+# DialManager — Phase 2
+# ---------------------------------------------------------------------------
+
+
+class TestDialManager:
+    def _make_redis_mock(self, get_return=None):
+        m = MagicMock()
+        m.get.return_value = get_return
+        m.set.return_value = True
+        m.incr.return_value = 1
+        m.expire.return_value = True
+        return m
+
+    def test_initialize_reads_existing_dial(self):
+        """Redis returns b'30' → dial=30."""
+        redis_mock = self._make_redis_mock(get_return=b"30")
+        dm = DialManager({"monitor_mode": {"blocking_acknowledged": True}})
+        result = dm.initialize(redis_mock)
+        assert result == 30
+
+    def test_initialize_redis_error_uses_default(self):
+        """Redis raises → returns config default (0)."""
+        m = MagicMock()
+        m.get.side_effect = redis.ConnectionError("down")
+        m.set.side_effect = redis.ConnectionError("down")
+        dm = DialManager({"monitor_mode": {"dial": 0}})
+        result = dm.initialize(m)
+        assert result == 0
+
+    def test_initialize_unacknowledged_nonzero_resets_to_zero(self):
+        """blocking_acknowledged=False with stored dial=75 → resets to 0."""
+        redis_mock = self._make_redis_mock(get_return=b"75")
+        dm = DialManager({"monitor_mode": {"blocking_acknowledged": False}})
+        result = dm.initialize(redis_mock)
+        assert result == 0
+
+    def test_initialize_acknowledged_preserves_nonzero(self):
+        """blocking_acknowledged=True with stored dial=50 → keeps 50."""
+        redis_mock = self._make_redis_mock(get_return=b"50")
+        dm = DialManager({"monitor_mode": {"blocking_acknowledged": True}})
+        result = dm.initialize(redis_mock)
+        assert result == 50
+
+    def test_validate_change_within_limit_succeeds(self):
+        """count=0, max=25 → no exception, counter incremented."""
+        redis_mock = self._make_redis_mock(get_return=b"0")
+        dm = DialManager({"monitor_mode": {"max_dial_change_per_hour": 25}})
+        dm.validate_change(0, 10, redis_mock)  # must not raise
+        redis_mock.incr.assert_called_once()
+
+    def test_validate_change_at_limit_raises(self):
+        """count=25, max=25 → ValueError raised."""
+        redis_mock = self._make_redis_mock(get_return=b"25")
+        dm = DialManager({"monitor_mode": {"max_dial_change_per_hour": 25}})
+        with pytest.raises(ValueError, match="Dial change rejected"):
+            dm.validate_change(0, 10, redis_mock)
+
+    def test_validate_change_force_bypasses_limit(self):
+        """count=25, force=True → no exception."""
+        redis_mock = self._make_redis_mock(get_return=b"25")
+        dm = DialManager({"monitor_mode": {"max_dial_change_per_hour": 25}})
+        dm.validate_change(0, 10, redis_mock, force=True)  # must not raise
+
+    def test_validate_change_same_value_noop(self):
+        """old_val == new_val → no Redis calls."""
+        redis_mock = self._make_redis_mock()
+        dm = DialManager({"monitor_mode": {}})
+        dm.validate_change(50, 50, redis_mock)
+        redis_mock.get.assert_not_called()
+
+    def test_validate_change_redis_error_counts_as_zero(self):
+        """Redis error reading count → treated as 0, change allowed."""
+        m = MagicMock()
+        m.get.side_effect = redis.ConnectionError("down")
+        m.incr.return_value = 1
+        m.expire.return_value = True
+        dm = DialManager({"monitor_mode": {"max_dial_change_per_hour": 25}})
+        # Should not raise — Redis error means count=0
+        dm.validate_change(0, 10, m)

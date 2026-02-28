@@ -62,9 +62,11 @@ from scapy.layers.inet import IP, TCP
 from scapy.layers.tls.handshake import TLSClientHello, TLSServerHello
 from scapy.layers.tls.record import TLS
 
-# Import the multi-strategy security framework
-from src.security import SecurityManager as AdvancedSecurityManager
-from src.security import ActionType
+# Phase 0+: Local cache and pipeline infrastructure
+from src.cache.local_cache import LocalCache
+from src.security.pipeline import Pipeline, ConnectionContext
+from src.security.risk_scorer import RiskScorer
+from src.security.action_decider import ActionDecider, DialManager
 
 
 # Enhanced Metrics with Security Context
@@ -762,11 +764,7 @@ class ProxyServer:
         self.ja4_generator = JA4Generator()
         self.tarpit_manager = TarpitManager(self.config)
         
-        # Initialize advanced multi-strategy security manager
-        self.advanced_security = AdvancedSecurityManager.from_config(
-            self.redis_client, self.config
-        )
-        # Keep legacy SecurityManager for blacklist/whitelist checks
+        # Keep legacy SecurityManager for _populate_security_lists (seeds Redis sets)
         self.security_manager = SecurityManager(self.config, self.redis_client)
         
         # Connection concurrency semaphore — prevents TCP exhaustion under DDoS
@@ -804,7 +802,27 @@ class ProxyServer:
         
         # Pre-populate Redis whitelist/blacklist from config
         self._populate_security_lists()
-        
+
+        # Phase 0+: Local cache (dial updated by pub/sub; used by pipeline hot path)
+        self._local_cache = LocalCache(self.config)
+
+        # Phase 1+: Pipeline replaces legacy security layers
+        _scorer = RiskScorer.from_config(self.config)
+        _decider = ActionDecider.from_config(self.config)
+        self.pipeline = Pipeline(self.config, self._local_cache, self.redis_client)
+        self.pipeline.update_scorer(_scorer, _decider)
+
+        # Load JA4 whitelist/blacklist into pipeline's in-process sets
+        wl_raw = self.redis_client.smembers("ja4:whitelist")
+        bl_raw = self.redis_client.smembers("ja4:blacklist")
+        self.pipeline.update_sets(
+            whitelist={k.decode("utf-8", errors="ignore") for k in wl_raw},
+            blacklist={k.decode("utf-8", errors="ignore") for k in bl_raw},
+        )
+
+        # Phase 2: Dial manager (safety: reset to 0 + hourly rate-limit)
+        self._dial_manager = DialManager(self.config)
+
         self.active_connections = 0
     
     def _populate_security_lists(self):
@@ -963,6 +981,15 @@ class ProxyServer:
                     "Restrict access using firewall rules or reverse proxy authentication."
                 )
         
+        # Phase 2: Initialize dial from Redis; reset to 0 if blocking_acknowledged=false
+        initial_dial = self._dial_manager.initialize(self.redis_client)
+        self._local_cache.dial = initial_dial
+        self.logger.info(
+            '{"type":"system","level":"INFO","subsystem":"dial",'
+            '"event":"dial_initialized","value":%d}',
+            initial_dial,
+        )
+
         # Start proxy server
         server = await asyncio.start_server(
             self.handle_connection,
@@ -1027,73 +1054,10 @@ class ProxyServer:
                 country = self.geoip.lookup(client_ip)
                 fingerprint.geo_country = country
                 
-                # --- SECURITY LAYER 0: Whitelist fast-pass (never block legit) ---
-                is_whitelisted = False
-                if self.config['security'].get('whitelist_enabled', True):
-                    # Check exact match in Redis set
-                    is_whitelisted = ja4.encode() in self.security_manager.whitelist
-                    # Check pattern-based whitelist (e.g., all h2 ALPN = browsers)
-                    if not is_whitelisted:
-                        for pattern in self.config['security'].get('whitelist_patterns', []):
-                            if ja4.startswith(pattern) or pattern in ja4.split('_')[0]:
-                                is_whitelisted = True
-                                break
-
-                # Whitelisted traffic skips ALL security checks
-                if is_whitelisted:
-                    self.logger.info(
-                        f"WHITELISTED: {client_ip} | Country: {country or 'N/A'} | "
-                        f"JA4: {ja4} | Name: {classify_ja4(ja4, self.config)} | TLS: {fingerprint.tls_version}"
-                    )
-                    REQUEST_COUNT.labels(
-                        fingerprint=ja4[:16],
-                        fingerprint_name=classify_ja4(ja4, self.config),
-                        action="allowed",
-                        source_country=country, tls_version=fingerprint.tls_version
-                    ).inc()
-                    await self._forward_to_backend(data, reader, writer, fingerprint)
-                    return
-
-                # --- SECURITY LAYER 1: Country-based filtering ---
+                # --- Dynamic country blacklist (Redis) — Phase 6 TODO: move into Pipeline ---
+                # Added by ja4-admin block-country or auto-blocked by geoip-monitor.
+                # Respects geoip:safe_countries — those can never enter the dynamic list.
                 if country:
-                    # Country blacklist: block traffic from banned countries
-                    if self.country_blacklist_enabled and country in self.country_blacklist:
-                        self.logger.warning(
-                            f"COUNTRY_BLOCKED: {client_ip} | Country: {country} | "
-                            f"JA4: {ja4} | Name: {classify_ja4(ja4, self.config)}"
-                        )
-                        REQUEST_COUNT.labels(
-                            fingerprint=ja4[:16],
-                            fingerprint_name=classify_ja4(ja4, self.config),
-                            action="blocked",
-                            source_country=country, tls_version=fingerprint.tls_version
-                        ).inc()
-                        BLOCKED_REQUESTS.labels(
-                            reason='country_blacklist', source_country=country,
-                            attack_type='geo_block'
-                        ).inc()
-                        return
-                    # Country whitelist: if enabled, block anything NOT in the list
-                    if self.country_whitelist_enabled and country not in self.country_whitelist:
-                        self.logger.warning(
-                            f"COUNTRY_NOT_WHITELISTED: {client_ip} | Country: {country} | "
-                            f"JA4: {ja4} | Name: {classify_ja4(ja4, self.config)}"
-                        )
-                        REQUEST_COUNT.labels(
-                            fingerprint=ja4[:16],
-                            fingerprint_name=classify_ja4(ja4, self.config),
-                            action="blocked",
-                            source_country=country, tls_version=fingerprint.tls_version
-                        ).inc()
-                        BLOCKED_REQUESTS.labels(
-                            reason='country_not_whitelisted', source_country=country,
-                            attack_type='geo_block'
-                        ).inc()
-                        return
-
-                    # --- SECURITY LAYER 1b: Dynamic country blacklist (Redis) ---
-                    # Added by ja4-admin block-country or auto-blocked by geoip-monitor.
-                    # Respects geoip:safe_countries — those can never enter the dynamic list.
                     try:
                         if self.redis_client.sismember('geoip:dynamic_blacklist', country):
                             self.logger.warning(
@@ -1114,7 +1078,7 @@ class ProxyServer:
                     except Exception:
                         pass  # fail open on Redis error
 
-                # --- SECURITY LAYER 1c: CIDR block check (Redis-backed, 30s cache) ---
+                # --- CIDR block check (Redis-backed, 30s cache) — Phase 6 TODO: move into Pipeline ---
                 self._refresh_cidr_blocks()
                 matched_cidr = self._is_cidr_blocked(client_ip)
                 if matched_cidr:
@@ -1135,32 +1099,10 @@ class ProxyServer:
                     ).inc()
                     return
 
-                # --- SECURITY LAYER 2: Blacklist check (instant block) ---
-                if self.config['security'].get('blacklist_enabled', True):
-                    if ja4.encode() in self.security_manager.blacklist:
-                        self.logger.warning(
-                            f"BLACKLISTED: {client_ip} | Country: {country or 'N/A'} | "
-                            f"JA4: {ja4} | Name: {classify_ja4(ja4, self.config)} | Instant block"
-                        )
-                        REQUEST_COUNT.labels(
-                            fingerprint=ja4[:16],
-                            fingerprint_name=classify_ja4(ja4, self.config),
-                            action="blocked",
-                            source_country=country, tls_version=fingerprint.tls_version
-                        ).inc()
-                        BLOCKED_REQUESTS.labels(
-                            reason='blacklist', source_country=country, attack_type='blacklist'
-                        ).inc()
-                        SECURITY_EVENTS.labels(
-                            event_type='blacklist_hit', severity='critical', source=client_ip
-                        ).inc()
-                        return  # Drop connection immediately
-
                 # --- FAIL OPEN for unparseable TLS ---
                 # If we couldn't extract a JA4 fingerprint (Scapy parse failure, non-TLS
-                # protocol, or unusual TLS extension), rate-limiting on "unknown"/"error"
-                # would pool all such connections together and cause false positives.
-                # The blacklist has already been checked above; forward and let the backend decide.
+                # protocol, or unusual TLS extension), pipeline scoring on "unknown"/"error"
+                # adds no value. Forward and let the backend decide.
                 if ja4 in ("unknown", "error"):
                     self.logger.info(
                         f"UNKNOWN_JA4: {client_ip} | Country: {country or 'N/A'} | "
@@ -1175,77 +1117,46 @@ class ProxyServer:
                     await self._forward_to_backend(data, reader, writer, fingerprint)
                     return
 
-                # --- SECURITY LAYER 3: Advanced rate-based threat detection ---
-                allowed = True
-                reason = "Allowed"
-                action_type = ActionType.LOG
-                
-                try:
-                    adv_allowed, adv_reason = self.advanced_security.check_access(ja4, client_ip)
-                    if not adv_allowed:
-                        allowed = False
-                        reason = adv_reason
-                        # Pre-blocked/banned connections → instant drop (no tarpit)
-                        if 'expires in' in adv_reason or 'Permanently banned' in adv_reason:
-                            action_type = ActionType.BAN
-                        elif 'TARPIT' in adv_reason.upper():
-                            action_type = ActionType.TARPIT
-                        elif 'ban' in adv_reason.lower():
-                            action_type = ActionType.BAN
-                        else:
-                            action_type = ActionType.BLOCK
-                except Exception as e:
-                    self.logger.error(f"Advanced security check failed: {e}")
-                    # Fail open for rate limiting (blacklist already checked above)
-                    allowed = True
-                    reason = "Allowed (security check error)"
-                
+                # --- Pipeline: bypass checks + signal collection + scoring + action ---
+                ctx = ConnectionContext(
+                    client_ip=client_ip,
+                    ja4=ja4,
+                    country=country or None,
+                    # alpn / sni / tls_version: added in Phases 3–4
+                )
+                result = await self.pipeline.process(ctx)
+
                 # Record metrics
                 request_duration = time.time() - request_start
                 REQUEST_DURATION.observe(request_duration)
-                action_label = "allowed" if allowed else "blocked"
+                action_label = (
+                    "allowed" if result.action in ("allow", "flag", "rate_limit") else "blocked"
+                )
                 REQUEST_COUNT.labels(
-                    fingerprint=ja4[:16] if ja4 else "unknown",
-                    fingerprint_name=classify_ja4(ja4, self.config) if ja4 else "Unknown",
+                    fingerprint=ja4[:16],
+                    fingerprint_name=classify_ja4(ja4, self.config),
                     action=action_label,
                     source_country=fingerprint.geo_country,
-                    tls_version=fingerprint.tls_version
+                    tls_version=fingerprint.tls_version,
                 ).inc()
-                
-                if not allowed:
-                    ja4_name = classify_ja4(ja4, self.config)
-                    self.logger.warning(
-                        f"BLOCKED: {client_ip} | Country: {country or 'N/A'} | "
-                        f"JA4: {ja4} | Name: {ja4_name} | Reason: {reason} | "
-                        f"Action: {action_type.value}"
-                    )
+
+                if result.action in ("allow", "flag", "rate_limit"):
+                    await self._forward_to_backend(data, reader, writer, fingerprint)
+                elif result.action == "tarpit":
                     BLOCKED_REQUESTS.labels(
-                        reason=reason[:50],
+                        reason="tarpit",
                         source_country=fingerprint.geo_country,
-                        attack_type=action_type.value
+                        attack_type="tarpit",
                     ).inc()
-                    SECURITY_EVENTS.labels(
-                        event_type='rate_limit_exceeded',
-                        severity='high',
-                        source=client_ip
+                    await self._redirect_to_tarpit(data, reader, writer)
+                else:
+                    # block | ban — drop connection
+                    BLOCKED_REQUESTS.labels(
+                        reason=result.action,
+                        source_country=fingerprint.geo_country,
+                        attack_type=result.action,
                     ).inc()
-                    
-                    # TARPIT: only tarpit if not yet banned (first few offenses)
-                    # Banned connections are dropped instantly to free proxy capacity
-                    if action_type == ActionType.TARPIT and 'ban' not in reason.lower():
-                        await self._redirect_to_tarpit(data, reader, writer)
-                    # BLOCK/BAN: drop the connection immediately
                     return
-                
-                # Log allowed connection
-                ja4_name = classify_ja4(ja4, self.config)
-                self.logger.info(
-                    f"ALLOWED: {client_ip} | Country: {country or 'N/A'} | "
-                    f"JA4: {ja4} | Name: {ja4_name} | TLS: {fingerprint.tls_version}"
-                )
-                
-                # Forward to backend
-                await self._forward_to_backend(data, reader, writer, fingerprint)
                 
             except asyncio.TimeoutError:
                 self.logger.warning(f"TIMEOUT: {client_ip} | Connection timed out")

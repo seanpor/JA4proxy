@@ -57,6 +57,15 @@ All proxy instances subscribe on startup. Message format: `{"type": "...", "valu
 
 ---
 
+## Phase 2 — Monitor Mode & Dial
+
+| Key pattern | Type | TTL | Written by | Notes |
+|-------------|------|-----|------------|-------|
+| `config:dial:change_count:{YYYY-MM-DD-HH}` | String (INCR) | 3600s | Proxy, Management UI | Hourly dial change counter; rate-limiting guard |
+| `ja4proxy:events` | Stream (XADD) | maxlen=100,000 | Pipeline | Per-connection events with counterfactuals; consumed by Analytics (Phase 12) |
+
+---
+
 ## Phase 5 — TCP & Connection Behaviour (planned)
 
 | Key pattern | Type | TTL | Written by | Notes |
@@ -124,4 +133,4 @@ These keys are written by the existing `MultiStrategyRateTracker` (see `src/secu
 
 ---
 
-*Last updated: Phase 1*
+*Last updated: Phase 2*

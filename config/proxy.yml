@@ -275,3 +275,21 @@ risk_scorer:
     block:      70          # Default: 70. Connection rejected with RST.
     ban:        85          # Default: 85. Rejected; IP banned for ban_duration_seconds.
   ban_duration_seconds: 300 # Default: 300 (5 min). Duration of IP bans triggered by scorer.
+
+# ── Phase 2: Monitor Mode & Progressive Blocking Dial ─────────────────────
+
+monitor_mode:
+  # 0 = monitor only (log scores, never block). 100 = full blocking.
+  # Deploy at 0. Observe risk score distribution. Raise gradually.
+  dial: 0
+  # Safety gate: proxy resets dial to 0 at startup until explicitly set to true.
+  # Set to true only after reviewing score distribution at dial=0.
+  blocking_acknowledged: false
+  # Include "would=action@dial" in MONITOR log lines and counterfactuals in JSON.
+  log_counterfactuals: true
+  # Which dial values to include in counterfactual reporting.
+  counterfactual_thresholds: [25, 50, 75, 100]
+  # Max dial value changes allowed per hour (prevents accidental 0→100 jump).
+  max_dial_change_per_hour: 25
+  # Emit structured log on every dial change.
+  alert_on_dial_change: true

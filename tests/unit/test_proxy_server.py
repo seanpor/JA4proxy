@@ -40,6 +40,7 @@ from proxy import (
     TarpitManager,
     ValidationError,
 )
+from src.security.pipeline import PipelineResult
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -121,8 +122,9 @@ def _make_server(config_overrides: dict | None = None) -> ProxyServer:
     server.tarpit_manager = MagicMock()
     server.tarpit_manager.tarpit_connection = AsyncMock()
 
-    server.advanced_security = MagicMock()
-    server.advanced_security.check_access = MagicMock(return_value=(True, "Allowed"))
+    # Phase 2: Pipeline replaces advanced_security layers
+    server.pipeline = MagicMock()
+    server.pipeline.process = AsyncMock(return_value=PipelineResult(action="allow"))
 
     server.security_manager = MagicMock()
     server.security_manager.whitelist = set()
@@ -743,54 +745,39 @@ class TestHandleConnection:
         call_data = server._analyze_tls_handshake.call_args[0][0]
         assert call_data == raw_tls
 
-    # ── Whitelisted JA4 ─────────────────────────────────────────────────────
+    # ── Pipeline: whitelist bypass → forward ────────────────────────────────
 
-    def test_whitelisted_ja4_forwarded(self):
+    def test_pipeline_whitelist_bypass_forwarded(self):
+        """Pipeline returning whitelist-bypass allow → connection forwarded."""
         server = _make_server()
-        ja4 = "t13d1516h2_8daaf6152771_02713d6af862"
-        server.security_manager.whitelist = {ja4.encode()}
-        reader, writer = _mock_stream_pair(b"data")
-        self._patch_analyze(server, ja4=ja4)
-        self._patch_forward(server)
-        _run(server.handle_connection(reader, writer))
-        server._forward_to_backend.assert_called_once()
-
-    # ── JA4 whitelist pattern ───────────────────────────────────────────────
-
-    def test_whitelist_pattern_match_forwarded(self):
-        server = _make_server({"security": {"whitelist_patterns": ["h2"]}})
-        ja4 = "t13d1516h2_8daaf6152771_02713d6af862"
-        reader, writer = _mock_stream_pair(b"data")
-        self._patch_analyze(server, ja4=ja4)
-        self._patch_forward(server)
-        _run(server.handle_connection(reader, writer))
-        server._forward_to_backend.assert_called_once()
-
-    # ── Country blacklist ───────────────────────────────────────────────────
-
-    def test_country_blacklisted_connection_dropped(self):
-        server = _make_server()
-        server.country_blacklist_enabled = True
-        server.country_blacklist = {"CN"}
-        server.geoip.lookup = MagicMock(return_value="CN")
+        server.pipeline.process = AsyncMock(
+            return_value=PipelineResult(action="allow", bypassed=True, bypass_reason="ja4_whitelist")
+        )
         reader, writer = _mock_stream_pair(b"data")
         self._patch_analyze(server)
         self._patch_forward(server)
         _run(server.handle_connection(reader, writer))
-        server._forward_to_backend.assert_not_called()
+        server._forward_to_backend.assert_called_once()
 
-    # ── Country whitelist (not in list) ─────────────────────────────────────
+    # ── Pipeline: alpn bypass → forward ─────────────────────────────────────
 
-    def test_country_not_in_whitelist_dropped(self):
+    def test_pipeline_alpn_bypass_forwarded(self):
+        """Pipeline returning alpn-bypass allow → connection forwarded."""
         server = _make_server()
-        server.country_whitelist_enabled = True
-        server.country_whitelist = {"IE", "GB"}
-        server.geoip.lookup = MagicMock(return_value="RU")
+        server.pipeline.process = AsyncMock(
+            return_value=PipelineResult(action="allow", bypassed=True, bypass_reason="alpn_browser")
+        )
         reader, writer = _mock_stream_pair(b"data")
         self._patch_analyze(server)
         self._patch_forward(server)
         _run(server.handle_connection(reader, writer))
-        server._forward_to_backend.assert_not_called()
+        server._forward_to_backend.assert_called_once()
+
+    # ── Dynamic country block via Redis (LAYER 1b — pre-pipeline) ───────────
+
+    # Note: static country blacklist/whitelist checks (old LAYER 1) have moved
+    # into Pipeline's country_blacklist_bypass (Phase 6 completion). The remaining
+    # pre-pipeline check is the dynamic Redis blacklist (LAYER 1b below).
 
     # ── Dynamic country block via Redis ─────────────────────────────────────
 
@@ -829,14 +816,16 @@ class TestHandleConnection:
         _run(server.handle_connection(reader, writer))
         server._forward_to_backend.assert_not_called()
 
-    # ── JA4 blacklist ───────────────────────────────────────────────────────
+    # ── Pipeline: blacklist bypass → drop ───────────────────────────────────
 
-    def test_blacklisted_ja4_dropped(self):
+    def test_pipeline_blacklist_bypass_dropped(self):
+        """Pipeline returning blacklist-bypass block → connection dropped."""
         server = _make_server()
-        ja4 = "t13d190900_9dc949149365_97f8aa674fd9"
-        server.security_manager.blacklist = {ja4.encode()}
+        server.pipeline.process = AsyncMock(
+            return_value=PipelineResult(action="block", bypassed=True, bypass_reason="ja4_blacklist")
+        )
         reader, writer = _mock_stream_pair(b"data")
-        self._patch_analyze(server, ja4=ja4)
+        self._patch_analyze(server)
         self._patch_forward(server)
         _run(server.handle_connection(reader, writer))
         server._forward_to_backend.assert_not_called()
@@ -859,52 +848,75 @@ class TestHandleConnection:
         _run(server.handle_connection(reader, writer))
         server._forward_to_backend.assert_called_once()
 
-    # ── Advanced security: allow ────────────────────────────────────────────
+    # ── Pipeline: scored allow → forward ────────────────────────────────────
 
-    def test_advanced_security_allow_forwards_connection(self):
+    def test_pipeline_allow_forwards_connection(self):
+        """Pipeline returning allow → connection forwarded."""
         server = _make_server()
-        server.advanced_security.check_access = MagicMock(return_value=(True, "Allowed"))
+        server.pipeline.process = AsyncMock(return_value=PipelineResult(action="allow", score=5))
         reader, writer = _mock_stream_pair(b"data")
         self._patch_analyze(server)
         self._patch_forward(server)
         _run(server.handle_connection(reader, writer))
         server._forward_to_backend.assert_called_once()
 
-    # ── Advanced security: block ────────────────────────────────────────────
-
-    def test_advanced_security_block_drops_connection(self):
+    def test_pipeline_flag_forwards_connection(self):
+        """Pipeline returning flag → connection forwarded (flag=monitor only)."""
         server = _make_server()
-        server.advanced_security.check_access = MagicMock(return_value=(False, "Rate limit"))
+        server.pipeline.process = AsyncMock(return_value=PipelineResult(action="flag", score=25))
+        reader, writer = _mock_stream_pair(b"data")
+        self._patch_analyze(server)
+        self._patch_forward(server)
+        _run(server.handle_connection(reader, writer))
+        server._forward_to_backend.assert_called_once()
+
+    def test_pipeline_rate_limit_forwards_connection(self):
+        """Pipeline returning rate_limit → connection forwarded."""
+        server = _make_server()
+        server.pipeline.process = AsyncMock(
+            return_value=PipelineResult(action="rate_limit", score=40)
+        )
+        reader, writer = _mock_stream_pair(b"data")
+        self._patch_analyze(server)
+        self._patch_forward(server)
+        _run(server.handle_connection(reader, writer))
+        server._forward_to_backend.assert_called_once()
+
+    # ── Pipeline: block → drop ───────────────────────────────────────────────
+
+    def test_pipeline_block_drops_connection(self):
+        """Pipeline returning block → connection dropped."""
+        server = _make_server()
+        server.pipeline.process = AsyncMock(return_value=PipelineResult(action="block", score=75))
         reader, writer = _mock_stream_pair(b"data")
         self._patch_analyze(server)
         self._patch_forward(server)
         _run(server.handle_connection(reader, writer))
         server._forward_to_backend.assert_not_called()
 
-    # ── Advanced security: tarpit ────────────────────────────────────────────
-
-    def test_advanced_security_tarpit_redirects(self):
+    def test_pipeline_ban_drops_connection(self):
+        """Pipeline returning ban → connection dropped."""
         server = _make_server()
-        server.advanced_security.check_access = MagicMock(return_value=(False, "TARPIT"))
+        server.pipeline.process = AsyncMock(return_value=PipelineResult(action="ban", score=90))
+        reader, writer = _mock_stream_pair(b"data")
+        self._patch_analyze(server)
+        self._patch_forward(server)
+        _run(server.handle_connection(reader, writer))
+        server._forward_to_backend.assert_not_called()
+
+    # ── Pipeline: tarpit → redirect ──────────────────────────────────────────
+
+    def test_pipeline_tarpit_redirects(self):
+        """Pipeline returning tarpit → connection redirected to tarpit."""
+        server = _make_server()
+        server.pipeline.process = AsyncMock(
+            return_value=PipelineResult(action="tarpit", score=60)
+        )
         server._redirect_to_tarpit = AsyncMock()
         reader, writer = _mock_stream_pair(b"data")
         self._patch_analyze(server)
         _run(server.handle_connection(reader, writer))
         server._redirect_to_tarpit.assert_called_once()
-
-    # ── Advanced security: exception → fail open ────────────────────────────
-
-    def test_advanced_security_exception_fails_open(self):
-        server = _make_server()
-        server.advanced_security.check_access = MagicMock(
-            side_effect=RuntimeError("scorer crashed")
-        )
-        reader, writer = _mock_stream_pair(b"data")
-        self._patch_analyze(server)
-        self._patch_forward(server)
-        _run(server.handle_connection(reader, writer))
-        # Fail open: exception does not propagate; connection is forwarded
-        server._forward_to_backend.assert_called_once()
 
     # ── Timeout ─────────────────────────────────────────────────────────────
 

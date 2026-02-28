@@ -370,3 +370,24 @@ class TestPipelineFailOpen:
             result = _run(p.process(_ctx()))
         assert result.action == "allow"
         assert result.score == 0
+
+
+# ---------------------------------------------------------------------------
+# _emit_stream_event — exception swallowed, never propagates
+# ---------------------------------------------------------------------------
+
+
+class TestEmitStreamEventException:
+    def test_xadd_exception_is_swallowed(self):
+        """_emit_stream_event must never raise even when Redis.xadd fails."""
+        p = _make_pipeline()
+        # Give the redis mock an xadd attribute that raises
+        p._redis.xadd = MagicMock(side_effect=ConnectionError("Redis down"))
+
+        from src.security.pipeline import PipelineResult
+        result = PipelineResult(action="allow", score=0, dial=0, counterfactuals={})
+        ctx = _ctx()
+
+        # Must not raise
+        asyncio.get_event_loop().run_until_complete(p._emit_stream_event(ctx, result))
+        p._redis.xadd.assert_called_once()

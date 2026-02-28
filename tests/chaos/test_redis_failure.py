@@ -128,13 +128,14 @@ class TestLocalCacheWithRedisDown:
         # (but with dial<100 scores effectively need to be higher to trigger actions)
         # At dial=75: score=80 → falls between adjusted tarpit(73) and block(93) → tarpit
         signals = [RiskSignal(name="test_signal", score=80, reason="dial test")]
-        score, action, _ = pipeline._score_connection(signals)
+        score, action, _, _cf = pipeline._score_connection(signals)
 
         assert score == 80
         # Verify the dial value in the cache is 75, not 0
         assert pipeline._cache.dial == 75
-        # The action is determined by dial-adjusted thresholds — at dial=75 with score=80
-        # effective_block = 93 (not reached), effective_tarpit = 73 (reached) → tarpit
+        # Phase 2 formula: effective_block@75 = round(101-0.75*31) = round(77.75) = 78
+        # effective_tarpit@75 = round(101-0.75*46) = round(66.5) = 66
+        # score=80 >= 78 → block
         assert action in ("tarpit", "block"), f"Unexpected action {action!r} at dial=75, score=80"
 
     def test_block_bypass_fires_without_any_redis_interaction(self):
@@ -202,8 +203,8 @@ class TestRedisDialFailure:
         # At dial=75 effective_ban = 85×100/75 = 113 > max score 100, so ban unreachable
         signals = [RiskSignal(name="rdap_known_bad_org", score=90, reason="test")]
 
-        # Simulate _score_connection directly
-        score, action, _ = pipeline._score_connection(signals)
+        # Simulate _score_connection directly (returns 4-tuple since Phase 2)
+        score, action, _, _cf = pipeline._score_connection(signals)
         assert score == 90
         assert action == "ban"
 

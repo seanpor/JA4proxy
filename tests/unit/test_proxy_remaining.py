@@ -54,6 +54,7 @@ from proxy import (
     ValidationError,
     main,
 )
+from src.security.pipeline import PipelineResult
 
 # ---------------------------------------------------------------------------
 # Helpers shared across tests
@@ -89,8 +90,9 @@ def _make_server_stub():
     s.ja4_generator = JA4Generator()
     s.tarpit_manager = MagicMock()
     s.tarpit_manager.tarpit_connection = AsyncMock()
-    s.advanced_security = MagicMock()
-    s.advanced_security.check_access = MagicMock(return_value=(True, "Allowed"))
+    # Phase 2: Pipeline replaces advanced_security layers
+    s.pipeline = MagicMock()
+    s.pipeline.process = AsyncMock(return_value=PipelineResult(action="allow"))
     s.security_manager = MagicMock()
     s.security_manager.whitelist = set()
     s.security_manager.blacklist = set()
@@ -105,6 +107,11 @@ def _make_server_stub():
     s._cidr_cache_ttl = 30
     s.active_connections = 0
     s._conn_semaphore = asyncio.Semaphore(MAX_CONCURRENT_CONNECTIONS)
+    # Phase 2: dial manager and local cache for start()
+    s._dial_manager = MagicMock()
+    s._dial_manager.initialize = MagicMock(return_value=0)
+    s._local_cache = MagicMock()
+    s._local_cache.dial = 0
     return s
 
 
@@ -719,11 +726,14 @@ class TestProxyServerInitLogging:
 
         with patch("proxy.ConfigManager", return_value=mock_cm), \
              patch("proxy.redis.Redis", return_value=mock_redis), \
-             patch("proxy.AdvancedSecurityManager") as mock_adv, \
              patch("proxy.SecurityManager") as mock_sec, \
+             patch("proxy.Pipeline"), \
+             patch("proxy.RiskScorer"), \
+             patch("proxy.ActionDecider"), \
+             patch("proxy.DialManager"), \
+             patch("proxy.LocalCache"), \
              patch("proxy.GeoIPLookup"), \
              caplog.at_level(logging.INFO, logger="proxy"):
-            mock_adv.from_config = MagicMock(return_value=MagicMock())
             mock_sec.return_value = MagicMock(_load_security_lists=MagicMock())
             server = ProxyServer("config/proxy.yml")
 
@@ -756,11 +766,14 @@ class TestProxyServerInitLogging:
 
         with patch("proxy.ConfigManager", return_value=mock_cm), \
              patch("proxy.redis.Redis", return_value=mock_redis), \
-             patch("proxy.AdvancedSecurityManager") as mock_adv, \
              patch("proxy.SecurityManager") as mock_sec, \
+             patch("proxy.Pipeline"), \
+             patch("proxy.RiskScorer"), \
+             patch("proxy.ActionDecider"), \
+             patch("proxy.DialManager"), \
+             patch("proxy.LocalCache"), \
              patch("proxy.GeoIPLookup"), \
              caplog.at_level(logging.INFO, logger="proxy"):
-            mock_adv.from_config = MagicMock(return_value=MagicMock())
             mock_sec.return_value = MagicMock(_load_security_lists=MagicMock())
             server = ProxyServer("config/proxy.yml")
 
@@ -856,12 +869,11 @@ class TestHandleConnectionRemaining:
         server._analyze_tls_handshake = AsyncMock(return_value=fp)
         return fp
 
-    def test_ban_action_type_from_pre_blocked_reason(self):
-        """'expires in' in reason → ActionType.BAN → connection dropped."""
-        from src.security import ActionType
+    def test_pipeline_block_drops_connection(self):
+        """Pipeline returning block → connection dropped (no forward)."""
         server = _make_server_stub()
-        server.advanced_security.check_access = MagicMock(
-            return_value=(False, "Banned: expires in 300s")
+        server.pipeline.process = AsyncMock(
+            return_value=PipelineResult(action="block", score=75)
         )
         server._forward_to_backend = AsyncMock()
         reader, writer = _mock_stream_pair(b"data")
@@ -869,11 +881,11 @@ class TestHandleConnectionRemaining:
         _run(server.handle_connection(reader, writer))
         server._forward_to_backend.assert_not_called()
 
-    def test_ban_action_type_from_ban_in_reason(self):
-        """'ban' in reason (not 'expires in') → ActionType.BAN."""
+    def test_pipeline_ban_drops_connection(self):
+        """Pipeline returning ban → connection dropped (no forward)."""
         server = _make_server_stub()
-        server.advanced_security.check_access = MagicMock(
-            return_value=(False, "IP banned for abuse")
+        server.pipeline.process = AsyncMock(
+            return_value=PipelineResult(action="ban", score=90)
         )
         server._forward_to_backend = AsyncMock()
         reader, writer = _mock_stream_pair(b"data")

@@ -1,5 +1,70 @@
 # Changelog
 
+## [5.0.0] - 2026-02-28 - PHASE 2: MONITOR MODE & PROGRESSIVE BLOCKING DIAL
+
+### Added
+- **`src/security/action_decider.py`** — `effective_threshold(configured, dial)` module-level
+  function implementing the interpolation formula `round(101 − (dial/100) × (101 − configured))`.
+  At `dial=0` returns 101 (unreachable); at `dial=100` returns `configured` exactly.
+- **`src/security/action_decider.py`** — `ActionDecider.counterfactuals(score, dial_values)`
+  method returning `{dial_value: action}` for monitor-mode logging.
+- **`src/security/action_decider.py`** — `DialManager` class with `initialize()` (startup reset
+  when `blocking_acknowledged=false`) and `validate_change()` (hourly rate-limit guard, fail open
+  on Redis errors).
+- **`src/security/pipeline.py`** — Four new Prometheus metrics: `ja4proxy_dial_current` (Gauge),
+  `ja4proxy_monitor_counterfactual_total` (Counter, labels: `action`, `dial`),
+  `ja4proxy_dial_change_rejected_total` (Counter), `ja4proxy_dial_changes_total` (Counter).
+- **`src/security/pipeline.py`** — `PipelineResult.counterfactuals` field (default empty dict)
+  carrying `{dial_value: action}` for all scored connections.
+- **`src/security/pipeline.py`** — `_emit_stream_event()` async fire-and-forget method that
+  XADDs one event per connection to `ja4proxy:events` (maxlen=100,000); all errors swallowed.
+- **`src/security/pipeline.py`** — Counterfactual Prometheus counter increments in monitor mode
+  (dial=0); `would=` key in MONITOR log lines; `"counterfactual"` object in JSON log.
+- **`src/security/risk_scorer.py`** — `RiskScorer.from_config(config)` classmethod.
+- **`proxy.py`** — `LocalCache`, `Pipeline`, `ConnectionContext`, `RiskScorer`, `ActionDecider`,
+  `DialManager` wired in; `Pipeline.process()` replaces legacy Security Layers 0, 1 (static
+  country), 2, and 3 (AdvancedSecurityManager) in `handle_connection()`.
+- **`proxy.py`** — `ProxyServer.start()` initializes dial from Redis via `DialManager.initialize()`
+  and stores it in `_local_cache.dial` before accepting connections.
+- **`config/proxy.yml`** — `monitor_mode:` section with `dial`, `blocking_acknowledged`,
+  `log_counterfactuals`, `counterfactual_thresholds`, `max_dial_change_per_hour`,
+  `alert_on_dial_change`.
+- **`docs/REDIS_SCHEMA.md`** — Phase 2 keys: `config:dial:change_count:{YYYY-MM-DD-HH}` (INCR,
+  TTL 3600s) and `ja4proxy:events` (Stream, maxlen=100,000).
+- **`tests/unit/test_action_decider.py`** — `TestEffectiveThreshold` (7 parametrized cases),
+  `TestCounterfactuals` (4 tests), `TestDialManager` (9 tests).
+- **`tests/integration/test_dial_propagation.py`** — New file: 10 integration tests covering
+  dial change propagation, counterfactual content, interpolated thresholds, and monitor mode.
+- **`tests/chaos/test_dial_change_chaos.py`** — New file: 11 chaos tests covering Redis failures
+  in `DialManager.initialize()` and `validate_change()`, and mid-traffic dial resilience.
+- **`tests/unit/test_pipeline_extra.py`** — `TestEmitStreamEventException`: verifies
+  `_emit_stream_event` swallows `xadd` exceptions without propagating.
+
+### Changed
+- **`src/security/action_decider.py`** — `ActionDecider.decide()` now uses
+  `effective_threshold()` formula (was `int(configured × 100 / max(dial, 1))`).
+- **`src/security/pipeline.py`** — `_score_connection()` returns 4-tuple
+  `(score, action, signals, counterfactuals)` (was 3-tuple).
+- **`src/security/pipeline.py`** — `_process_inner()` checks `dial == 0` directly for monitor
+  mode (previously relied on `action == "allow"` which was always true at dial=0, dead code).
+- **`tests/unit/test_action_decider.py`** — Fixed `TestIntermediateDial.test_dial_50_mid_threshold`:
+  updated assertion from `decide(score=40, dial=50) == "flag"` to `decide(score=60, dial=50) == "flag"`
+  to match the new formula (`effective_flag@dial=50 = round(101 − 0.5×81) = 60`).
+
+### Removed
+- **`proxy.py`** — `AdvancedSecurityManager` import and instantiation removed; replaced by Pipeline.
+- **`proxy.py`** — Static JA4 whitelist check (LAYER 0), static country blacklist/whitelist (LAYER 1),
+  JA4 blacklist check (LAYER 2), and `AdvancedSecurityManager` call (LAYER 3) removed from
+  `handle_connection()`. All now handled by `Pipeline.process()` via bypass checks.
+- **`tests/unit/test_proxy_server.py`** — Removed `test_country_blacklisted_connection_dropped`
+  and `test_country_not_in_whitelist_dropped` (static country checks moved to Pipeline).
+
+### Coverage
+- **901 tests passed, 0 failed** (16 skipped: Docker-dependent).
+- **100% statement coverage** across all source modules (2395 statements).
+
+---
+
 ## [4.0.2] - 2026-02-28 - 100% TEST COVERAGE ACROSS ALL SOURCE MODULES
 
 ### Added
