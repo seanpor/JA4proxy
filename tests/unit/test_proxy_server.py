@@ -48,7 +48,11 @@ from src.security.pipeline import PipelineResult
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    try:
+        loop = asyncio.get_running_loop()
+        raise RuntimeError("_run() should not be called from within an async context")
+    except RuntimeError:
+        return asyncio.new_event_loop().run_until_complete(coro)
 
 
 _BASE_CONFIG = {
@@ -95,9 +99,7 @@ _BASE_CONFIG = {
 
 def _make_server(config_overrides: dict | None = None) -> ProxyServer:
     """Create a ProxyServer without running __init__."""
-    config = {
-        section: dict(values) for section, values in _BASE_CONFIG.items()
-    }
+    config = {section: dict(values) for section, values in _BASE_CONFIG.items()}
     if config_overrides:
         for k, v in config_overrides.items():
             if isinstance(v, dict) and k in config:
@@ -110,11 +112,11 @@ def _make_server(config_overrides: dict | None = None) -> ProxyServer:
     server.logger = logging.getLogger("proxy")
 
     redis_mock = MagicMock()
-    redis_mock.sismember = MagicMock(return_value=False)
-    redis_mock.smembers = MagicMock(return_value=set())
-    redis_mock.sadd = MagicMock(return_value=1)
-    redis_mock.hset = MagicMock(return_value=1)
-    redis_mock.expire = MagicMock(return_value=1)
+    redis_mock.sismember = AsyncMock(return_value=False)
+    redis_mock.smembers = AsyncMock(return_value=set())
+    redis_mock.sadd = AsyncMock(return_value=1)
+    redis_mock.hset = AsyncMock(return_value=1)
+    redis_mock.expire = AsyncMock(return_value=1)
     server.redis_client = redis_mock
 
     server.tls_parser = MagicMock()
@@ -129,6 +131,7 @@ def _make_server(config_overrides: dict | None = None) -> ProxyServer:
     server.security_manager = MagicMock()
     server.security_manager.whitelist = set()
     server.security_manager.blacklist = set()
+    server.security_manager._load_security_lists = AsyncMock()
 
     server.geoip = MagicMock()
     server.geoip.lookup = MagicMock(return_value="")
@@ -266,7 +269,9 @@ class TestTarpitManagerUnit:
         mgr = TarpitManager(config)
         writer = MagicMock()
         writer.wait_closed = AsyncMock()
-        with patch("proxy.asyncio.sleep", AsyncMock(side_effect=asyncio.CancelledError())):
+        with patch(
+            "proxy.asyncio.sleep", AsyncMock(side_effect=asyncio.CancelledError())
+        ):
             _run(mgr.tarpit_connection(writer))
         writer.close.assert_called_once()
 
@@ -280,16 +285,18 @@ class TestInitRedis:
     def test_success_returns_redis_client(self):
         server = _make_server()
         mock_client = MagicMock()
-        mock_client.ping = MagicMock(return_value=True)
-        with patch("proxy.redis.Redis", return_value=mock_client):
-            result = server._init_redis()
+        mock_client.ping = AsyncMock(return_value=True)
+        with patch("redis.asyncio.Redis", return_value=mock_client):
+            result = _run(server._init_redis())
         assert result is mock_client
 
     def test_connection_error_raises_security_error(self):
         server = _make_server()
-        with patch("proxy.redis.Redis", side_effect=redis_lib.ConnectionError("refused")):
+        with patch(
+            "redis.asyncio.Redis", side_effect=redis_lib.ConnectionError("refused")
+        ):
             with pytest.raises(SecurityError, match="Cannot establish"):
-                server._init_redis()
+                _run(server._init_redis())
 
     def test_auth_error_raises_security_error(self):
         # AuthenticationError is caught by the AuthenticationError clause (which
@@ -297,37 +304,137 @@ class TestInitRedis:
         # The message must identify the failure as an *authentication* problem so
         # operators know to fix credentials, not network routing.
         server = _make_server()
-        with patch("proxy.redis.Redis", side_effect=redis_lib.AuthenticationError("bad pw")):
+        with patch(
+            "redis.asyncio.Redis", side_effect=redis_lib.AuthenticationError("bad pw")
+        ):
             with pytest.raises(SecurityError, match="Redis authentication failed"):
-                server._init_redis()
+                _run(server._init_redis())
 
     def test_no_password_in_production_raises(self):
-        server = _make_server({"redis": {"host": "r", "port": 6379, "password": "", "timeout": 5}})
+        server = _make_server(
+            {"redis": {"host": "r", "port": 6379, "password": "", "timeout": 5}}
+        )
         env = dict(os.environ)
         env["ENVIRONMENT"] = "production"
         with patch.dict(os.environ, env):
             with pytest.raises(SecurityError, match="password is required"):
-                server._init_redis()
+                _run(server._init_redis())
 
     def test_no_password_in_development_warns(self, caplog):
-        server = _make_server({"redis": {"host": "r", "port": 6379, "password": "", "timeout": 5}})
+        server = _make_server(
+            {"redis": {"host": "r", "port": 6379, "password": "", "timeout": 5}}
+        )
+        mock_client = MagicMock()
+        mock_client.ping = AsyncMock(return_value=True)
+        env = {k: v for k, v in os.environ.items() if k != "ENVIRONMENT"}
+        env["ENVIRONMENT"] = "development"
+        with (
+            patch("redis.asyncio.Redis", return_value=mock_client),
+            patch.dict(os.environ, env),
+            caplog.at_level(logging.WARNING, logger="proxy"),
+        ):
+            _run(server._init_redis())
+        assert any("without authentication" in r.message for r in caplog.records)
+
+    def test_ping_connection_error_raises(self):
+        server = _make_server()
+        mock_client = MagicMock()
+        mock_client.ping = AsyncMock(side_effect=redis_lib.ConnectionError("no route"))
+        with patch("redis.asyncio.Redis", return_value=mock_client):
+            with pytest.raises(SecurityError):
+                _run(server._init_redis())
+
+    def test_auth_error_raises_security_error(self):
+        # AuthenticationError is caught by the AuthenticationError clause (which
+        # appears first — before ConnectionError — because it is a subclass of it).
+        # The message must identify the failure as an *authentication* problem so
+        # operators know to fix credentials, not network routing.
+        server = _make_server()
+        with patch(
+            "redis.asyncio.Redis", side_effect=redis_lib.AuthenticationError("bad pw")
+        ):
+            with pytest.raises(SecurityError, match="Redis authentication failed"):
+                _run(server._init_redis())
+
+    def test_no_password_in_production_raises(self):
+        server = _make_server(
+            {"redis": {"host": "r", "port": 6379, "password": "", "timeout": 5}}
+        )
+        env = dict(os.environ)
+        env["ENVIRONMENT"] = "production"
+        with patch.dict(os.environ, env):
+            with pytest.raises(SecurityError, match="password is required"):
+                _run(server._init_redis())
+
+    def test_no_password_in_development_warns(self, caplog):
+        server = _make_server(
+            {"redis": {"host": "r", "port": 6379, "password": "", "timeout": 5}}
+        )
         mock_client = MagicMock()
         mock_client.ping = MagicMock(return_value=True)
         env = {k: v for k, v in os.environ.items() if k != "ENVIRONMENT"}
         env["ENVIRONMENT"] = "development"
-        with patch("proxy.redis.Redis", return_value=mock_client), \
-             patch.dict(os.environ, env), \
-             caplog.at_level(logging.WARNING, logger="proxy"):
-            server._init_redis()
+        with (
+            patch("redis.asyncio.Redis", return_value=mock_client),
+            patch.dict(os.environ, env),
+            caplog.at_level(logging.WARNING, logger="proxy"),
+        ):
+            _run(server._init_redis())
         assert any("without authentication" in r.message for r in caplog.records)
 
     def test_ping_connection_error_raises(self):
         server = _make_server()
         mock_client = MagicMock()
         mock_client.ping = MagicMock(side_effect=redis_lib.ConnectionError("no route"))
-        with patch("proxy.redis.Redis", return_value=mock_client):
+        with patch("redis.asyncio.Redis", return_value=mock_client):
             with pytest.raises(SecurityError):
-                server._init_redis()
+                _run(server._init_redis())
+
+    def test_auth_error_raises_security_error(self):
+        # AuthenticationError is caught by the AuthenticationError clause (which
+        # appears first — before ConnectionError — because it is a subclass of it).
+        # The message must identify the failure as an *authentication* problem so
+        # operators know to fix credentials, not network routing.
+        server = _make_server()
+        with patch(
+            "redis.asyncio.Redis", side_effect=redis_lib.AuthenticationError("bad pw")
+        ):
+            with pytest.raises(SecurityError, match="Redis authentication failed"):
+                _run(server._init_redis())
+
+    def test_no_password_in_production_raises(self):
+        server = _make_server(
+            {"redis": {"host": "r", "port": 6379, "password": "", "timeout": 5}}
+        )
+        env = dict(os.environ)
+        env["ENVIRONMENT"] = "production"
+        with patch.dict(os.environ, env):
+            with pytest.raises(SecurityError, match="password is required"):
+                _run(server._init_redis())
+
+    def test_no_password_in_development_warns(self, caplog):
+        server = _make_server(
+            {"redis": {"host": "r", "port": 6379, "password": "", "timeout": 5}}
+        )
+        mock_client = MagicMock()
+        mock_client.ping = AsyncMock(return_value=True)
+        env = {k: v for k, v in os.environ.items() if k != "ENVIRONMENT"}
+        env["ENVIRONMENT"] = "development"
+        with (
+            patch("redis.asyncio.Redis", return_value=mock_client),
+            patch.dict(os.environ, env),
+            caplog.at_level(logging.WARNING, logger="proxy"),
+        ):
+            _run(server._init_redis())
+        assert any("without authentication" in r.message for r in caplog.records)
+
+    def test_ping_connection_error_raises(self):
+        server = _make_server()
+        mock_client = MagicMock()
+        mock_client.ping = AsyncMock(side_effect=redis_lib.ConnectionError("no route"))
+        with patch("redis.asyncio.Redis", return_value=mock_client):
+            with pytest.raises(SecurityError):
+                _run(server._init_redis())
 
 
 # ---------------------------------------------------------------------------
@@ -339,35 +446,35 @@ class TestRefreshCidrBlocks:
     def test_fresh_cache_skips_redis(self):
         server = _make_server()
         server._cidr_blocks_loaded_at = time.monotonic()  # just loaded
-        server._refresh_cidr_blocks()
+        _run(server._refresh_cidr_blocks())
         server.redis_client.smembers.assert_not_called()
 
     def test_stale_cache_loads_from_redis(self):
         server = _make_server()
         server._cidr_blocks_loaded_at = 0.0  # force stale
-        server.redis_client.smembers = MagicMock(
+        server.redis_client.smembers = AsyncMock(
             return_value={b"203.0.113.0/24", b"198.51.100.0/24"}
         )
-        server._refresh_cidr_blocks()
+        _run(server._refresh_cidr_blocks())
         assert len(server._cidr_blocks) == 2
 
     def test_invalid_cidr_skipped_with_warning(self, caplog):
         server = _make_server()
         server._cidr_blocks_loaded_at = 0.0
-        server.redis_client.smembers = MagicMock(
+        server.redis_client.smembers = AsyncMock(
             return_value={b"not-a-cidr", b"203.0.113.0/24"}
         )
         with caplog.at_level(logging.WARNING, logger="proxy"):
-            server._refresh_cidr_blocks()
+            _run(server._refresh_cidr_blocks())
         assert len(server._cidr_blocks) == 1
         assert any("Invalid CIDR" in r.message for r in caplog.records)
 
     def test_redis_error_does_not_crash(self):
         server = _make_server()
         server._cidr_blocks_loaded_at = 0.0
-        server.redis_client.smembers = MagicMock(side_effect=Exception("Redis down"))
-        # Must not raise
-        server._refresh_cidr_blocks()
+        server.redis_client.smembers = AsyncMock(side_effect=Exception("Redis down"))
+        # Must not raise - test that async method handles error gracefully
+        _run(server._refresh_cidr_blocks())
 
 
 # ---------------------------------------------------------------------------
@@ -378,6 +485,7 @@ class TestRefreshCidrBlocks:
 class TestIsCidrBlocked:
     def _server_with_cidrs(self, cidr_strings: list[str]) -> ProxyServer:
         import ipaddress
+
         server = _make_server()
         server._cidr_blocks = [
             ipaddress.ip_network(c, strict=False) for c in cidr_strings
@@ -416,7 +524,7 @@ class TestPopulateSecurityLists:
     def test_whitelist_entries_added_to_redis(self):
         server = _make_server()
         server.config["security"]["whitelist"] = ["fp_aaa", "fp_bbb"]
-        server._populate_security_lists()
+        _run(server._populate_security_lists())
         # sadd called at least once for each fp
         calls = [str(c) for c in server.redis_client.sadd.call_args_list]
         assert any("fp_aaa" in c for c in calls)
@@ -425,14 +533,14 @@ class TestPopulateSecurityLists:
     def test_blacklist_entries_added_to_redis(self):
         server = _make_server()
         server.config["security"]["blacklist"] = ["bad_fp_1"]
-        server._populate_security_lists()
+        _run(server._populate_security_lists())
         calls = [str(c) for c in server.redis_client.sadd.call_args_list]
         assert any("bad_fp_1" in c for c in calls)
 
     def test_safe_countries_added_to_redis(self):
         server = _make_server()
         server.config["geoip"] = {"safe_countries": ["IE", "GB"]}
-        server._populate_security_lists()
+        _run(server._populate_security_lists())
         calls = [str(c) for c in server.redis_client.sadd.call_args_list]
         assert any("IE" in c or "GB" in c for c in calls)
 
@@ -442,7 +550,9 @@ class TestPopulateSecurityLists:
         server.config["security"]["blacklist"] = []
         server.config["geoip"] = {"safe_countries": []}
         server.redis_client.sadd.reset_mock()
-        server._populate_security_lists()
+        # Must properly await async method - security_manager._load_security_lists is still called
+        _run(server._populate_security_lists())
+        # sadd should not be called for empty lists (but _load_security_lists is still called)
         server.redis_client.sadd.assert_not_called()
 
 
@@ -538,7 +648,9 @@ class TestForwardToBackend:
             "proxy.asyncio.open_connection",
             AsyncMock(return_value=(backend_reader, backend_writer)),
         ):
-            _run(server._forward_to_backend(b"initial", client_reader, client_writer, fp))
+            _run(
+                server._forward_to_backend(b"initial", client_reader, client_writer, fp)
+            )
 
         backend_writer.write.assert_called_with(b"initial")
 
@@ -548,10 +660,13 @@ class TestForwardToBackend:
         client_reader = AsyncMock()
         client_writer = MagicMock()
 
-        with patch(
-            "proxy.asyncio.open_connection",
-            AsyncMock(side_effect=ConnectionRefusedError("no backend")),
-        ), caplog.at_level(logging.ERROR, logger="proxy"):
+        with (
+            patch(
+                "proxy.asyncio.open_connection",
+                AsyncMock(side_effect=ConnectionRefusedError("no backend")),
+            ),
+            caplog.at_level(logging.ERROR, logger="proxy"),
+        ):
             _run(server._forward_to_backend(b"data", client_reader, client_writer, fp))
 
         assert any("Error forwarding" in r.message for r in caplog.records)
@@ -690,7 +805,9 @@ class TestAnalyzeTlsHandshake:
         server.redis_client.hset = MagicMock(side_effect=Exception("outer"))
         data = b"bad"
         # _store_fingerprint will raise, caught by outer try/except
-        with patch.object(server, "_store_fingerprint", AsyncMock(side_effect=Exception("store fail"))):
+        with patch.object(
+            server, "_store_fingerprint", AsyncMock(side_effect=Exception("store fail"))
+        ):
             fp = _run(server._analyze_tls_handshake(data, "3.4.5.6"))
         assert fp.ja4 == "error"
 
@@ -751,7 +868,9 @@ class TestHandleConnection:
         """Pipeline returning whitelist-bypass allow → connection forwarded."""
         server = _make_server()
         server.pipeline.process = AsyncMock(
-            return_value=PipelineResult(action="allow", bypassed=True, bypass_reason="ja4_whitelist")
+            return_value=PipelineResult(
+                action="allow", bypassed=True, bypass_reason="ja4_whitelist"
+            )
         )
         reader, writer = _mock_stream_pair(b"data")
         self._patch_analyze(server)
@@ -765,7 +884,9 @@ class TestHandleConnection:
         """Pipeline returning alpn-bypass allow → connection forwarded."""
         server = _make_server()
         server.pipeline.process = AsyncMock(
-            return_value=PipelineResult(action="allow", bypassed=True, bypass_reason="alpn_browser")
+            return_value=PipelineResult(
+                action="allow", bypassed=True, bypass_reason="alpn_browser"
+            )
         )
         reader, writer = _mock_stream_pair(b"data")
         self._patch_analyze(server)
@@ -784,7 +905,7 @@ class TestHandleConnection:
     def test_dynamic_country_block_drops_connection(self):
         server = _make_server()
         server.geoip.lookup = MagicMock(return_value="KP")
-        server.redis_client.sismember = MagicMock(return_value=True)
+        server.redis_client.sismember = AsyncMock(return_value=True)
         reader, writer = _mock_stream_pair(b"data")
         self._patch_analyze(server)
         self._patch_forward(server)
@@ -795,7 +916,7 @@ class TestHandleConnection:
         """Redis failure on dynamic blacklist check → fail open, connection forwarded."""
         server = _make_server()
         server.geoip.lookup = MagicMock(return_value="KP")
-        server.redis_client.sismember = MagicMock(side_effect=Exception("Redis down"))
+        server.redis_client.sismember = AsyncMock(side_effect=Exception("Redis down"))
         reader, writer = _mock_stream_pair(b"data")
         self._patch_analyze(server)
         self._patch_forward(server)
@@ -806,6 +927,7 @@ class TestHandleConnection:
 
     def test_cidr_blocked_connection_dropped(self):
         import ipaddress
+
         server = _make_server()
         server._cidr_blocks = [ipaddress.ip_network("1.2.3.0/24")]
         server._cidr_blocks_loaded_at = time.monotonic()
@@ -822,7 +944,9 @@ class TestHandleConnection:
         """Pipeline returning blacklist-bypass block → connection dropped."""
         server = _make_server()
         server.pipeline.process = AsyncMock(
-            return_value=PipelineResult(action="block", bypassed=True, bypass_reason="ja4_blacklist")
+            return_value=PipelineResult(
+                action="block", bypassed=True, bypass_reason="ja4_blacklist"
+            )
         )
         reader, writer = _mock_stream_pair(b"data")
         self._patch_analyze(server)
@@ -853,7 +977,9 @@ class TestHandleConnection:
     def test_pipeline_allow_forwards_connection(self):
         """Pipeline returning allow → connection forwarded."""
         server = _make_server()
-        server.pipeline.process = AsyncMock(return_value=PipelineResult(action="allow", score=5))
+        server.pipeline.process = AsyncMock(
+            return_value=PipelineResult(action="allow", score=5)
+        )
         reader, writer = _mock_stream_pair(b"data")
         self._patch_analyze(server)
         self._patch_forward(server)
@@ -863,7 +989,9 @@ class TestHandleConnection:
     def test_pipeline_flag_forwards_connection(self):
         """Pipeline returning flag → connection forwarded (flag=monitor only)."""
         server = _make_server()
-        server.pipeline.process = AsyncMock(return_value=PipelineResult(action="flag", score=25))
+        server.pipeline.process = AsyncMock(
+            return_value=PipelineResult(action="flag", score=25)
+        )
         reader, writer = _mock_stream_pair(b"data")
         self._patch_analyze(server)
         self._patch_forward(server)
@@ -887,7 +1015,9 @@ class TestHandleConnection:
     def test_pipeline_block_drops_connection(self):
         """Pipeline returning block → connection dropped."""
         server = _make_server()
-        server.pipeline.process = AsyncMock(return_value=PipelineResult(action="block", score=75))
+        server.pipeline.process = AsyncMock(
+            return_value=PipelineResult(action="block", score=75)
+        )
         reader, writer = _mock_stream_pair(b"data")
         self._patch_analyze(server)
         self._patch_forward(server)
@@ -897,7 +1027,9 @@ class TestHandleConnection:
     def test_pipeline_ban_drops_connection(self):
         """Pipeline returning ban → connection dropped."""
         server = _make_server()
-        server.pipeline.process = AsyncMock(return_value=PipelineResult(action="ban", score=90))
+        server.pipeline.process = AsyncMock(
+            return_value=PipelineResult(action="ban", score=90)
+        )
         reader, writer = _mock_stream_pair(b"data")
         self._patch_analyze(server)
         self._patch_forward(server)

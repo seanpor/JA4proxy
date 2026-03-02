@@ -20,7 +20,11 @@ THRESHOLDS = {
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    try:
+        loop = asyncio.get_running_loop()
+        raise RuntimeError("_run() should not be called from within an async context")
+    except RuntimeError:
+        return asyncio.new_event_loop().run_until_complete(coro)
 
 
 def _make_pipeline(dial: int = 0) -> tuple[Pipeline, LocalCache]:
@@ -112,6 +116,7 @@ class TestDialChangePropagation:
         pipeline, cache = _make_pipeline(dial=0)
         mock_scorer = MagicMock()
         from src.security.risk_scorer import RiskSignal
+
         mock_scorer.score.return_value = MagicMock(
             total_score=90,
             signals=[RiskSignal("asn_tor", 90, "tor")],

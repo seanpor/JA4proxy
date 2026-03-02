@@ -6,12 +6,18 @@ Comprehensive test suite for JA4 Proxy
 import pytest
 import asyncio
 import hashlib
+import os
 import time
 from unittest.mock import Mock, patch, AsyncMock
 import redis
 from proxy import (
-    JA4Fingerprint, TLSParser, JA4Generator, ConfigManager,
-    SecurityManager, TarpitManager, ProxyServer
+    JA4Fingerprint,
+    TLSParser,
+    JA4Generator,
+    ConfigManager,
+    SecurityManager,
+    TarpitManager,
+    ProxyServer,
 )
 
 # Valid JA4 fingerprint strings for test use
@@ -28,7 +34,7 @@ class TestJA4Fingerprint:
             ja4=VALID_FP_A,
             ja4s="t130200_1302_a56c586dc9d7",
             source_ip="192.168.1.100",
-            timestamp=time.time()
+            timestamp=time.time(),
         )
 
         assert fp.ja4 == VALID_FP_A
@@ -51,12 +57,10 @@ class TestTLSParser:
     def setup_method(self):
         self.parser = TLSParser()
 
-    @patch('proxy.IP')
-    def test_parse_client_hello_no_tls(self, mock_ip):
+    def test_parse_client_hello_no_tls(self):
         """Test parsing packet without TLS layer."""
         mock_packet = Mock()
         mock_packet.haslayer.return_value = False
-        mock_ip.return_value = mock_packet
 
         result = self.parser.parse_client_hello(mock_packet)
         assert result is None
@@ -70,17 +74,17 @@ class TestTLSParser:
 
         # spec limits attributes so hasattr(ext, 'groups') returns False,
         # causing the proxy to use elliptic_curves (the correct Scapy fallback)
-        mock_ext = Mock(spec=['type', 'elliptic_curves'])
+        mock_ext = Mock(spec=["type", "elliptic_curves"])
         mock_ext.type = 10
         mock_ext.elliptic_curves = [23, 24, 25]
         mock_client_hello.ext = [mock_ext]
 
         fields = self.parser._extract_client_hello_fields(mock_client_hello)
 
-        assert fields['version'] == 0x0303
-        assert fields['cipher_suites'] == [0x1301, 0x1302, 0x1303]
-        assert fields['extensions'] == [10]
-        assert fields['supported_groups'] == [23, 24, 25]
+        assert fields["version"] == 0x0303
+        assert fields["cipher_suites"] == [0x1301, 0x1302, 0x1303]
+        assert fields["extensions"] == [10]
+        assert fields["supported_groups"] == [23, 24, 25]
 
 
 class TestJA4Generator:
@@ -92,19 +96,19 @@ class TestJA4Generator:
     def test_generate_ja4_basic(self):
         """Test basic JA4 generation."""
         client_hello_fields = {
-            'version': 0x0303,
-            'cipher_suites': [0x1301, 0x1302],
-            'extensions': [0, 10, 13, 43],
-            'supported_groups': [23, 24, 25],
-            'signature_algorithms': [0x0401, 0x0501],
-            'supported_versions': [0x0304]
+            "version": 0x0303,
+            "cipher_suites": [0x1301, 0x1302],
+            "extensions": [0, 10, 13, 43],
+            "supported_groups": [23, 24, 25],
+            "signature_algorithms": [0x0401, 0x0501],
+            "supported_versions": [0x0304],
         }
 
         ja4 = self.generator.generate_ja4(client_hello_fields)
 
         # supported_versions includes 0x0304 (TLS 1.3), so JA4 uses t13d prefix
-        assert ja4.startswith('t13d')
-        assert len(ja4.split('_')) == 3
+        assert ja4.startswith("t13d")
+        assert len(ja4.split("_")) == 3
 
     def test_get_version_string(self):
         """Test TLS version string conversion."""
@@ -132,92 +136,102 @@ class TestJA4Generator:
 
     def test_is_grease(self):
         """Test GREASE value detection."""
-        assert self.generator._is_grease(0x0a0a)
-        assert self.generator._is_grease(0x1a1a)
+        assert self.generator._is_grease(0x0A0A)
+        assert self.generator._is_grease(0x1A1A)
         assert not self.generator._is_grease(0x1301)
 
 
 class TestConfigManager:
     """Test configuration management."""
 
-    @patch('builtins.open')
-    @patch('yaml.safe_load')
+    @patch("builtins.open")
+    @patch("yaml.safe_load")
     def test_load_config_success(self, mock_yaml_load, mock_open):
         """Test successful config loading."""
         mock_config = {
-            'proxy': {'bind_port': 8080},
-            'redis': {'host': 'localhost', 'port': 6379, 'password': 'testpassword'},
+            "proxy": {"bind_port": 8080},
+            "redis": {"host": "localhost", "port": 6379, "password": "testpassword"},
         }
         mock_yaml_load.return_value = mock_config
 
         manager = ConfigManager("test.yml")
 
-        assert manager.config['proxy']['bind_port'] == 8080
-        mock_open.assert_called_once_with("test.yml", 'r')
+        assert manager.config["proxy"]["bind_port"] == 8080
+        mock_open.assert_called_once_with("test.yml", "r")
 
-    @patch('builtins.open', side_effect=FileNotFoundError())
+    @patch("builtins.open", side_effect=FileNotFoundError())
     def test_load_config_file_not_found(self, mock_open):
         """Test config loading with missing file."""
         manager = ConfigManager("missing.yml")
 
-        assert 'proxy' in manager.config
-        assert manager.config['proxy']['bind_port'] == 8080
+        assert "proxy" in manager.config
+        assert manager.config["proxy"]["bind_port"] == 8080
 
     def test_default_config(self):
         """Test default configuration values."""
         manager = ConfigManager("nonexistent.yml")
         config = manager.config
 
-        assert config['proxy']['bind_host'] == '0.0.0.0'
-        assert config['proxy']['bind_port'] == 8080
-        assert config['redis']['host'] == 'localhost'
-        assert config['security']['whitelist_enabled'] is True
+        assert config["proxy"]["bind_host"] == "0.0.0.0"
+        assert config["proxy"]["bind_port"] == 8080
+        assert config["redis"]["host"] == "localhost"
+        assert config["security"]["whitelist_enabled"] is True
 
 
 class TestSecurityManager:
     """Test security policy enforcement."""
 
     def setup_method(self):
-        self.mock_redis = Mock()
+        self.mock_redis = AsyncMock()
         self.mock_redis.smembers.return_value = set()
-        self.mock_redis.incr.return_value = 1  # Rate limit: 1 request, well under threshold
+        self.mock_redis.incr.return_value = (
+            1  # Rate limit: 1 request, well under threshold
+        )
         self.config = {
-            'security': {
-                'whitelist_enabled': True,
-                'blacklist_enabled': True,
-                'rate_limiting': True,
-                'max_requests_per_minute': 100,
-                'block_unknown_ja4': False
+            "security": {
+                "whitelist_enabled": True,
+                "blacklist_enabled": True,
+                "rate_limiting": True,
+                "max_requests_per_minute": 100,
+                "block_unknown_ja4": False,
             }
         }
         self.security_manager = SecurityManager(self.config, self.mock_redis)
 
-    def test_check_access_allowed(self):
+    @pytest.mark.asyncio
+    async def test_check_access_allowed(self):
         """Test access check for allowed fingerprint."""
         self.mock_redis.smembers.return_value = {VALID_FP_A.encode()}
         self.mock_redis.incr.return_value = 1
+        self.security_manager.whitelist = {VALID_FP_A.encode()}
 
         fingerprint = JA4Fingerprint(ja4=VALID_FP_A)
-        allowed, reason = self.security_manager.check_access(fingerprint, "192.168.1.1")
+        allowed, reason = await self.security_manager.check_access(
+            fingerprint, "192.168.1.1"
+        )
 
         assert allowed is True
         assert reason == "Allowed"
 
-    def test_check_access_blacklisted(self):
+    @pytest.mark.asyncio
+    async def test_check_access_blacklisted(self):
         """Test access check for blacklisted fingerprint."""
         self.security_manager.blacklist = {VALID_FP_B.encode()}
 
         fingerprint = JA4Fingerprint(ja4=VALID_FP_B)
-        allowed, reason = self.security_manager.check_access(fingerprint, "192.168.1.1")
+        allowed, reason = await self.security_manager.check_access(
+            fingerprint, "192.168.1.1"
+        )
 
         assert allowed is False
         assert reason == "JA4 blacklisted"
 
-    def test_rate_limiting(self):
+    @pytest.mark.asyncio
+    async def test_rate_limiting(self):
         """Test rate limiting functionality."""
         self.mock_redis.incr.return_value = 101  # Over limit
 
-        result = self.security_manager._check_rate_limit("192.168.1.1")
+        result = await self.security_manager._check_rate_limit("192.168.1.1")
 
         assert result is False
 
@@ -226,12 +240,7 @@ class TestTarpitManager:
     """Test TARPIT functionality."""
 
     def setup_method(self):
-        self.config = {
-            'security': {
-                'tarpit_enabled': True,
-                'tarpit_duration': 5
-            }
-        }
+        self.config = {"security": {"tarpit_enabled": True, "tarpit_duration": 5}}
         self.tarpit_manager = TarpitManager(self.config)
 
     @pytest.mark.asyncio
@@ -248,7 +257,7 @@ class TestTarpitManager:
     @pytest.mark.asyncio
     async def test_tarpit_connection_disabled(self):
         """Test TARPIT when disabled returns immediately without sleeping."""
-        self.config['security']['tarpit_enabled'] = False
+        self.config["security"]["tarpit_enabled"] = False
         tarpit_manager = TarpitManager(self.config)
 
         mock_writer = AsyncMock()
@@ -264,51 +273,53 @@ class TestProxyServer:
     """Test main proxy server functionality."""
 
     def setup_method(self):
-        with patch('proxy.ConfigManager') as mock_config_manager:
+        with patch("proxy.ConfigManager") as mock_config_manager:
             mock_config_manager.return_value.config = {
-                'proxy': {
-                    'bind_host': '127.0.0.1',
-                    'bind_port': 8080,
-                    'backend_host': '127.0.0.1',
-                    'backend_port': 80,
-                    'buffer_size': 8192,
-                    'connection_timeout': 30
+                "proxy": {
+                    "bind_host": "127.0.0.1",
+                    "bind_port": 8080,
+                    "backend_host": "127.0.0.1",
+                    "backend_port": 80,
+                    "buffer_size": 8192,
+                    "connection_timeout": 30,
                 },
-                'redis': {
-                    'host': 'localhost',
-                    'port': 6379,
-                    'db': 0,
-                    'password': None,
-                    'timeout': 5
+                "redis": {
+                    "host": "localhost",
+                    "port": 6379,
+                    "db": 0,
+                    "password": None,
+                    "timeout": 5,
                 },
-                'security': {
-                    'rate_limiting': True,
-                    'max_requests_per_minute': 100
-                },
-                'metrics': {'enabled': True, 'port': 9090},
-                'logging': {'level': 'INFO', 'format': '%(message)s'}
+                "security": {"rate_limiting": True, "max_requests_per_minute": 100},
+                "metrics": {"enabled": True, "port": 9090},
+                "logging": {"level": "INFO", "format": "%(message)s"},
             }
 
-            with patch('proxy.redis.Redis'), \
-                 patch('proxy.logging.getLogger'):
+            with patch("proxy.redis.Redis"), patch("proxy.logging.getLogger"):
                 self.proxy_server = ProxyServer()
+                self.proxy_server.tls_parser = TLSParser()
+                self.proxy_server.ja4_generator = JA4Generator()
 
     async def test_analyze_tls_handshake(self):
         """Test TLS handshake analysis."""
-        # Data must start with 0x16 (TLS handshake record type) to trigger TLS path
         test_data = b"\x16\x03\x01" + b"\x00" * 20
         client_ip = "192.168.1.100"
 
-        # Patch TLS() constructor so Scapy doesn't try to parse the fake data
-        with patch('proxy.TLS') as mock_tls_cls, \
-             patch.object(self.proxy_server.tls_parser, 'parse_client_hello') as mock_parse, \
-             patch.object(self.proxy_server.ja4_generator, 'generate_ja4') as mock_generate, \
-             patch.object(self.proxy_server, '_store_fingerprint') as mock_store:
-
-            mock_parse.return_value = {'version': 0x0303, 'supported_versions': []}
+        with (
+            patch.object(
+                self.proxy_server.tls_parser, "parse_client_hello"
+            ) as mock_parse,
+            patch.object(
+                self.proxy_server.ja4_generator, "generate_ja4"
+            ) as mock_generate,
+            patch.object(self.proxy_server, "_store_fingerprint") as mock_store,
+        ):
+            mock_parse.return_value = {"version": 0x0303, "supported_versions": []}
             mock_generate.return_value = VALID_FP_A
 
-            fingerprint = await self.proxy_server._analyze_tls_handshake(test_data, client_ip)
+            fingerprint = await self.proxy_server._analyze_tls_handshake(
+                test_data, client_ip
+            )
 
             assert fingerprint.ja4 == VALID_FP_A
             assert fingerprint.source_ip == client_ip
@@ -316,16 +327,18 @@ class TestProxyServer:
 
     async def test_store_fingerprint(self):
         """Test fingerprint storage in Redis."""
+        self.proxy_server.redis_client = AsyncMock()
+        self.proxy_server.logger = Mock()
+
         fingerprint = JA4Fingerprint(
             ja4="error",
             source_ip="192.168.1.100",
             timestamp=time.time(),
-            client_hello_hash="abcd1234"
+            client_hello_hash="abcd1234",
         )
 
         await self.proxy_server._store_fingerprint(fingerprint)
 
-        # Verify Redis calls were made
         self.proxy_server.redis_client.hset.assert_called()
         self.proxy_server.redis_client.expire.assert_called()
 
@@ -342,17 +355,16 @@ class TestIntegration:
 
     def test_redis_integration(self):
         """Test Redis integration."""
-        # Test with actual Redis instance if available
         try:
-            r = redis.Redis(host='localhost', port=6379, db=15)  # Use test DB
+            r = redis.Redis(
+                host="localhost", port=6379, password=os.getenv("REDIS_PASSWORD"), db=15
+            )
             r.ping()
 
-            # Test whitelist/blacklist operations
-            r.sadd('ja4:whitelist', 'test_fingerprint')
-            assert b'test_fingerprint' in r.smembers('ja4:whitelist')
+            r.sadd("ja4:whitelist", "test_fingerprint")
+            assert b"test_fingerprint" in r.smembers("ja4:whitelist")
 
-            # Cleanup
-            r.delete('ja4:whitelist')
+            r.delete("ja4:whitelist")
 
         except redis.ConnectionError:
             pytest.skip("Redis not available for integration testing")

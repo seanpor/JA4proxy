@@ -35,10 +35,20 @@ class TestHotReload:
         return f
 
     def _load(self, loader):
-        return asyncio.get_event_loop().run_until_complete(loader.load())
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(loader.load())
+        finally:
+            loop.close()
 
     def _reload(self, loader):
-        return asyncio.get_event_loop().run_until_complete(loader.reload())
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(loader.reload())
+        finally:
+            loop.close()
 
     def test_changed_value_active_after_reload(self, cfg_file):
         loader = ConfigLoader(str(cfg_file))
@@ -88,8 +98,7 @@ class TestHotReload:
         updated["security"] = {"max_requests_per_minute": 42}
         _write(cfg_file, updated)
 
-        # Simulate what PubSubHandler does on config_reload message
-        asyncio.get_event_loop().run_until_complete(loader.reload())
+        self._reload(loader)
         assert loader.get()["security"]["max_requests_per_minute"] == 42
 
     def test_on_reload_callback_receives_new_config(self, cfg_file):
@@ -97,7 +106,11 @@ class TestHotReload:
         self._load(loader)
 
         received = []
-        loader.on_reload(lambda cfg: received.append(cfg.get("security", {}).get("max_requests_per_minute")))
+        loader.on_reload(
+            lambda cfg: received.append(
+                cfg.get("security", {}).get("max_requests_per_minute")
+            )
+        )
 
         updated = dict(BASE_CONFIG)
         updated["security"] = {"max_requests_per_minute": 77}
@@ -110,9 +123,12 @@ class TestHotReload:
         """setup_sighup() should register without error on Unix."""
         loader = ConfigLoader(str(cfg_file))
         self._load(loader)
-        loop = asyncio.get_event_loop()
-        # Should not raise — if SIGHUP unavailable it logs a warning
-        loader.setup_sighup(loop)
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loader.setup_sighup(loop)
+        finally:
+            loop.close()
 
     def test_reload_count_increments_on_success(self, cfg_file):
         loader = ConfigLoader(str(cfg_file))
