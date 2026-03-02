@@ -21,7 +21,11 @@ from src.security.pipeline import ConnectionContext, Pipeline
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    try:
+        loop = asyncio.get_running_loop()
+        raise RuntimeError("_run() should not be called from within an async context")
+    except RuntimeError:
+        return asyncio.new_event_loop().run_until_complete(coro)
 
 
 def _ctx(**kwargs):
@@ -87,8 +91,10 @@ class TestRedisFailurePipelineFailsOpen:
             result = _run(pipeline.process(_ctx()))
 
         assert result.action == "allow"  # Still fails open
-        assert any("unexpected_error" in r.message or "error" in r.message.lower()
-                   for r in caplog.records)
+        assert any(
+            "unexpected_error" in r.message or "error" in r.message.lower()
+            for r in caplog.records
+        )
 
 
 class TestLocalCacheWithRedisDown:
@@ -120,7 +126,13 @@ class TestLocalCacheWithRedisDown:
         from src.security.risk_scorer import RiskScorer, RiskSignal
         from src.security.action_decider import ActionDecider
 
-        thresholds = {"flag": 20, "rate_limit": 35, "tarpit": 55, "block": 70, "ban": 85}
+        thresholds = {
+            "flag": 20,
+            "rate_limit": 35,
+            "tarpit": 55,
+            "block": 70,
+            "ban": 85,
+        }
         pipeline.update_scorer(RiskScorer(thresholds), ActionDecider(thresholds, 300))
 
         # dial=75 → effective_block threshold = 70 × 100/75 ≈ 93 (unreachable at score ≤ 100)
@@ -136,7 +148,9 @@ class TestLocalCacheWithRedisDown:
         # Phase 2 formula: effective_block@75 = round(101-0.75*31) = round(77.75) = 78
         # effective_tarpit@75 = round(101-0.75*46) = round(66.5) = 66
         # score=80 >= 78 → block
-        assert action in ("tarpit", "block"), f"Unexpected action {action!r} at dial=75, score=80"
+        assert action in ("tarpit", "block"), (
+            f"Unexpected action {action!r} at dial=75, score=80"
+        )
 
     def test_block_bypass_fires_without_any_redis_interaction(self):
         """JA4 blacklist bypass must work entirely from in-process memory —
@@ -188,7 +202,11 @@ class TestRedisDialFailure:
         from src.security.action_decider import ActionDecider
 
         thresholds = {
-            "flag": 20, "rate_limit": 35, "tarpit": 55, "block": 70, "ban": 85
+            "flag": 20,
+            "rate_limit": 35,
+            "tarpit": 55,
+            "block": 70,
+            "ban": 85,
         }
         scorer = RiskScorer(thresholds)
         decider = ActionDecider(thresholds, ban_duration_seconds=300)
@@ -227,10 +245,13 @@ class TestTLSEnforcerRedisDown:
     def test_tls11_hard_blocked_when_redis_down(self):
         """TLS 1.1 connection hard-blocked in-process even when Redis is unreachable."""
         from src.security.tls_enforcer import TLS11
+
         pipeline = _make_pipeline()
         # Sabotage the Redis client — every call raises
         pipeline._redis.xadd = MagicMock(side_effect=ConnectionError("Redis is down"))
-        pipeline._redis.smembers = MagicMock(side_effect=ConnectionError("Redis is down"))
+        pipeline._redis.smembers = MagicMock(
+            side_effect=ConnectionError("Redis is down")
+        )
 
         ctx = _ctx(tls_version=TLS11)
         # Must not raise — TLS enforcement is in-process
@@ -241,6 +262,7 @@ class TestTLSEnforcerRedisDown:
     def test_tls13_allowed_when_redis_down(self):
         """TLS 1.3 connection processed normally even when Redis is unreachable."""
         from src.security.tls_enforcer import TLS13
+
         pipeline = _make_pipeline()
         pipeline._redis.xadd = MagicMock(side_effect=ConnectionError("Redis is down"))
 
@@ -254,8 +276,12 @@ class TestTLSEnforcerRedisDown:
         pipeline = _make_pipeline()
         # Force the enforcer to throw
         from unittest.mock import patch
-        with patch.object(pipeline._tls_enforcer, "check", side_effect=RuntimeError("boom")):
+
+        with patch.object(
+            pipeline._tls_enforcer, "check", side_effect=RuntimeError("boom")
+        ):
             from src.security.tls_enforcer import TLS11
+
             ctx = _ctx(tls_version=TLS11)
             result = _run(pipeline.process(ctx))
         # Fail open — unexpected exception → allow

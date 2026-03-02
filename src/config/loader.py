@@ -179,7 +179,10 @@ class ConfigLoader:
         """
 
         def _handle_sighup() -> None:
-            asyncio.ensure_future(self._reload_and_log_error(), loop=loop)
+            try:
+                asyncio.create_task(self._reload_and_log_error())
+            except RuntimeError:
+                pass  # No event loop available
 
         try:
             loop.add_signal_handler(signal.SIGHUP, _handle_sighup)

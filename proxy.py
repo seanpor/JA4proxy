@@ -862,7 +862,7 @@ class TarpitManager:
 class ProxyServer:
     """Main proxy server implementation."""
 
-    def __init__(self):
+    def __init__(self, config_path: str = None):
         self.config_manager = None
         self.config = None
         self.logger = None
@@ -884,6 +884,38 @@ class ProxyServer:
         self.pipeline = None
         self._dial_manager = None
         self.active_connections = 0
+
+        if config_path:
+            self.config_path = config_path
+            self.config_manager = ConfigManager(config_path)
+            self.config = self.config_manager.config
+            self._init_from_config()
+
+    def _init_from_config(self):
+        """Initialize from config (sync part). For testing compatibility."""
+        self.logger = self._init_logging()
+
+        geo_config = self.config.get("geoip", {})
+        self.country_whitelist = set(
+            c.upper() for c in geo_config.get("country_whitelist", [])
+        )
+        self.country_blacklist = set(
+            c.upper() for c in geo_config.get("country_blacklist", [])
+        )
+        self.country_whitelist_enabled = geo_config.get(
+            "country_whitelist_enabled", False
+        )
+        self.country_blacklist_enabled = geo_config.get(
+            "country_blacklist_enabled", False
+        )
+        if self.country_whitelist_enabled:
+            self.logger.info(
+                f"Country whitelist enabled: {sorted(self.country_whitelist)}"
+            )
+        if self.country_blacklist_enabled:
+            self.logger.info(
+                f"Country blacklist enabled: {sorted(self.country_blacklist)}"
+            )
 
     @classmethod
     async def create(cls, config_path: str = "config/proxy.yml"):
@@ -1288,11 +1320,12 @@ class ProxyServer:
                     country=country or None,
                     tls_version=fingerprint.tls_version_int or None,
                     cipher_list=fingerprint.raw_cipher_suites,
+                    alpn=fingerprint.alpn_code or None,
+                    sni=fingerprint.raw_sni or None,
                     tcp_ja4t=proxy_info.get("ja4t", ""),
                     tcp_window_size=proxy_info.get("window_size", 0),
                     tcp_ttl=proxy_info.get("ttl", 0),
                     tcp_options=proxy_info.get("tcp_options", ""),
-                    # alpn / sni: added in Phase 4
                 )
                 result = await self.pipeline.process(ctx)
 

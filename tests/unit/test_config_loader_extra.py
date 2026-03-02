@@ -34,7 +34,11 @@ def _write_config(path: Path, data: dict) -> None:
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    try:
+        loop = asyncio.get_running_loop()
+        raise RuntimeError("_run() should not be called from within an async context")
+    except RuntimeError:
+        return asyncio.new_event_loop().run_until_complete(coro)
 
 
 # ---------------------------------------------------------------------------
@@ -77,6 +81,7 @@ class TestSetupSighup:
     def test_sighup_unavailable_logs_warning(self, tmp_path, caplog):
         """Lines 186-188: add_signal_handler raises OSError → warning logged."""
         import logging
+
         cfg_file = tmp_path / "proxy.yml"
         _write_config(cfg_file, {"key": "val"})
         loader = ConfigLoader(str(cfg_file))
@@ -93,6 +98,7 @@ class TestSetupSighup:
     def test_not_implemented_logs_warning(self, tmp_path, caplog):
         """NotImplementedError from add_signal_handler also logs warning."""
         import logging
+
         cfg_file = tmp_path / "proxy.yml"
         _write_config(cfg_file, {"key": "val"})
         loader = ConfigLoader(str(cfg_file))
@@ -106,11 +112,11 @@ class TestSetupSighup:
 
         assert any("sighup_unavailable" in r.message for r in caplog.records)
 
-    def test_handle_sighup_closure_calls_ensure_future(self, tmp_path):
+    def test_handle_sighup_closure_calls_create_task(self, tmp_path):
         """Line 182: add_signal_handler is given a callable _handle_sighup.
 
         We capture the handler and call it directly to verify it calls
-        asyncio.ensure_future (lines 181-182).
+        asyncio.create_task (lines 181-182).
         """
         cfg_file = tmp_path / "proxy.yml"
         _write_config(cfg_file, {"key": "val"})
@@ -120,17 +126,17 @@ class TestSetupSighup:
         captured_handler = {}
 
         loop = MagicMock()
-        loop.add_signal_handler.side_effect = (
-            lambda sig, handler: captured_handler.update({"h": handler})
+        loop.add_signal_handler.side_effect = lambda sig, handler: (
+            captured_handler.update({"h": handler})
         )
         loader.setup_sighup(loop)
 
         assert "h" in captured_handler, "add_signal_handler was not called"
 
-        # Call the SIGHUP handler and verify asyncio.ensure_future is called
-        with patch("asyncio.ensure_future") as mock_ensure_future:
+        # Call the SIGHUP handler and verify asyncio.create_task is called
+        with patch("asyncio.create_task") as mock_create_task:
             captured_handler["h"]()
-            mock_ensure_future.assert_called_once()
+            mock_create_task.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

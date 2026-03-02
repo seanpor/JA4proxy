@@ -103,7 +103,18 @@ class ASNClassifier:
         self._maxmind_reader = None
         self._load_datacenter_list()
         self._init_maxmind()
-        self._init_tor_list()
+        self._tor_list_initialized = False
+        self._schedule_tor_list_init()
+
+    def _schedule_tor_list_init(self) -> None:
+        """Schedule async Tor list initialization without blocking __init__."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return  # No event loop - will be initialized later
+        if loop.is_running():
+            asyncio.create_task(self._init_tor_list())
+            self._tor_list_initialized = True
 
     def _load_datacenter_list(self) -> None:
         """Load datacenter ASN list from config file."""

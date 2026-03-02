@@ -26,7 +26,11 @@ THRESHOLDS = {
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    try:
+        loop = asyncio.get_running_loop()
+        raise RuntimeError("_run() should not be called from within an async context")
+    except RuntimeError:
+        return asyncio.new_event_loop().run_until_complete(coro)
 
 
 def _make_pipeline(dial: int = 75) -> Pipeline:

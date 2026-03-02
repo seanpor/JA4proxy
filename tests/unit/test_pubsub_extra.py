@@ -71,7 +71,11 @@ def _make_handler(listen_messages):
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    try:
+        loop = asyncio.get_running_loop()
+        raise RuntimeError("_run() should not be called from within an async context")
+    except RuntimeError:
+        return asyncio.new_event_loop().run_until_complete(coro)
 
 
 # ---------------------------------------------------------------------------
@@ -104,6 +108,7 @@ class TestRunLoop:
     def test_run_dispatches_real_message(self):
         """Line 113: events with type 'message' are dispatched."""
         import json
+
         dial_msg = {
             "type": "message",
             "data": json.dumps({"type": "dial_change", "value": "75"}).encode(),
@@ -118,12 +123,15 @@ class TestRunLoop:
     def test_run_processes_subscribe_then_message(self):
         """Non-message followed by real message: only real message dispatched."""
         import json
+
         subscribe_event = {"type": "subscribe", "data": 1}
         dial_msg = {
             "type": "message",
             "data": json.dumps({"type": "dial_change", "value": "50"}).encode(),
         }
-        handler, cache = _make_handler([subscribe_event, dial_msg, asyncio.CancelledError])
+        handler, cache = _make_handler(
+            [subscribe_event, dial_msg, asyncio.CancelledError]
+        )
 
         with pytest.raises(asyncio.CancelledError):
             _run(handler.run())
@@ -133,6 +141,7 @@ class TestRunLoop:
     def test_run_reconnects_on_generic_exception(self):
         """Outer except: non-Cancel exception → backoff then retry → cancel stops it."""
         import json
+
         # First iteration raises generic exception → reconnects
         # Second iteration processes a message then cancels
         dial_msg = {

@@ -62,23 +62,41 @@ from src.security.pipeline import PipelineResult
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    try:
+        loop = asyncio.get_running_loop()
+        raise RuntimeError("_run() should not be called from within an async context")
+    except RuntimeError:
+        return asyncio.new_event_loop().run_until_complete(coro)
 
 
 def _make_server_stub():
     """Minimal ProxyServer without __init__."""
     s = object.__new__(ProxyServer)
     s.config = {
-        "proxy": {"bind_host": "0.0.0.0", "bind_port": 8080,
-                  "backend_host": "127.0.0.1", "backend_port": 443,
-                  "connection_timeout": 30, "read_timeout": 30,
-                  "buffer_size": 8192, "proxy_protocol": False,
-                  "tarpit_host": "tarpit", "tarpit_port": 8888},
+        "proxy": {
+            "bind_host": "0.0.0.0",
+            "bind_port": 8080,
+            "backend_host": "127.0.0.1",
+            "backend_port": 443,
+            "connection_timeout": 30,
+            "read_timeout": 30,
+            "buffer_size": 8192,
+            "proxy_protocol": False,
+            "tarpit_host": "tarpit",
+            "tarpit_port": 8888,
+        },
         "redis": {"host": "r", "port": 6379, "db": 0, "password": "pw", "timeout": 5},
-        "security": {"whitelist_enabled": True, "blacklist_enabled": True,
-                     "rate_limiting": False, "block_unknown_ja4": False,
-                     "tarpit_enabled": False, "tarpit_duration": 10,
-                     "whitelist": [], "blacklist": [], "whitelist_patterns": []},
+        "security": {
+            "whitelist_enabled": True,
+            "blacklist_enabled": True,
+            "rate_limiting": False,
+            "block_unknown_ja4": False,
+            "tarpit_enabled": False,
+            "tarpit_duration": 10,
+            "whitelist": [],
+            "blacklist": [],
+            "whitelist_patterns": [],
+        },
         "metrics": {"enabled": False, "port": 9090},
         "logging": {"level": "INFO", "format": "%(message)s"},
         "geoip": {},
@@ -151,12 +169,14 @@ def _make_mock_tls_layer(
             # hasattr(...) check needs the attribute to truly be absent
             msg.configure_mock(**{"ciphers": MagicMock()})
             # Override hasattr by making .ciphers raise AttributeError
-            type(msg).__getattr__ = lambda self, name: (_ for _ in ()).throw(AttributeError(name))
+            type(msg).__getattr__ = lambda self, name: (_ for _ in ()).throw(
+                AttributeError(name)
+            )
         else:
             msg.ciphers = ciphers
 
     ext_list = []
-    for ext_spec in (extensions or []):
+    for ext_spec in extensions or []:
         ext = MagicMock()
         ext.type = ext_spec["type"]
         if ext_spec["type"] == 10:  # supported_groups
@@ -192,8 +212,10 @@ def _make_mock_tls_layer(
 
 class TestGeoIPLookupInit:
     def test_geoip_unavailable_logs_warning(self, caplog):
-        with patch("proxy.GEOIP_AVAILABLE", False), \
-             caplog.at_level(logging.WARNING, logger="proxy"):
+        with (
+            patch("proxy.GEOIP_AVAILABLE", False),
+            caplog.at_level(logging.WARNING, logger="proxy"),
+        ):
             geo = GeoIPLookup()
         assert any("IP2Location not installed" in r.message for r in caplog.records)
         assert geo.db is None
@@ -203,8 +225,10 @@ class TestGeoIPLookupInit:
         db_file = tmp_path / "test.bin"
         db_file.write_bytes(b"fake")
         mock_db = MagicMock()
-        with patch("proxy.GEOIP_AVAILABLE", True), \
-             patch("proxy.IP2Location", create=True) as mock_ip2loc:
+        with (
+            patch("proxy.GEOIP_AVAILABLE", True),
+            patch("proxy.IP2Location", create=True) as mock_ip2loc,
+        ):
             mock_ip2loc.IP2Location = MagicMock(return_value=mock_db)
             geo = GeoIPLookup(db_path=str(db_file))
         assert geo.db is mock_db
@@ -213,9 +237,11 @@ class TestGeoIPLookupInit:
         """IP2Location raises when opening → log error, keep looking."""
         db_file = tmp_path / "bad.bin"
         db_file.write_bytes(b"garbage")
-        with patch("proxy.GEOIP_AVAILABLE", True), \
-             patch("proxy.IP2Location", create=True) as mock_ip2loc, \
-             caplog.at_level(logging.ERROR, logger="proxy"):
+        with (
+            patch("proxy.GEOIP_AVAILABLE", True),
+            patch("proxy.IP2Location", create=True) as mock_ip2loc,
+            caplog.at_level(logging.ERROR, logger="proxy"),
+        ):
             mock_ip2loc.IP2Location = MagicMock(side_effect=Exception("corrupt"))
             geo = GeoIPLookup(db_path=str(db_file))
         assert geo.db is None
@@ -231,11 +257,7 @@ class TestClassifyJa4Remaining:
     def test_prefix_match_in_labels(self):
         """key.startswith(ja4[:16]) path — partial key matches full fingerprint."""
         config = {
-            "security": {
-                "fingerprint_labels": {
-                    "t13d1516h2_8daaf61": "PartialMatch"
-                }
-            }
+            "security": {"fingerprint_labels": {"t13d1516h2_8daaf61": "PartialMatch"}}
         }
         ja4 = "t13d1516h2_8daaf6152771_02713d6af862"
         # key "t13d1516h2_8daaf61" starts with ja4[:16] = "t13d1516h2_8daaf"
@@ -279,7 +301,7 @@ class TestJA4FingerprintValidation:
         log = fp.to_audit_log()
         assert "event_id" in log
         assert "timestamp" in log
-        assert "ja4_hash" in log       # pseudonymized, not the raw fingerprint
+        assert "ja4_hash" in log  # pseudonymized, not the raw fingerprint
         assert "tls_version" in log
         assert log["geo_country"] == "IE"
 
@@ -351,7 +373,7 @@ class TestTLSParserRemaining:
         msg = MagicMock(spec=["msgtype", "version", "cipher_suites", "ext"])
         msg.msgtype = 1
         msg.version = 0x0303
-        msg.cipher_suites = [0x1301, 0x002f]
+        msg.cipher_suites = [0x1301, 0x002F]
         msg.ext = []
 
         pkt = MagicMock()
@@ -363,7 +385,7 @@ class TestTLSParserRemaining:
         with patch("proxy.TLS"):
             result = parser.parse_client_hello(pkt)
         assert result is not None
-        assert result["cipher_suites"] == [0x1301, 0x002f]
+        assert result["cipher_suites"] == [0x1301, 0x002F]
 
     def test_supported_groups_via_groups_attr(self):
         parser = TLSParser()
@@ -373,7 +395,7 @@ class TestTLSParserRemaining:
         msg.ciphers = []
         ext = MagicMock()
         ext.type = 10  # supported_groups
-        ext.groups = [0x001d, 0x0017]
+        ext.groups = [0x001D, 0x0017]
         msg.ext = [ext]
 
         pkt = MagicMock()
@@ -384,7 +406,7 @@ class TestTLSParserRemaining:
 
         with patch("proxy.TLS"):
             result = parser.parse_client_hello(pkt)
-        assert result["supported_groups"] == [0x001d, 0x0017]
+        assert result["supported_groups"] == [0x001D, 0x0017]
 
     def test_signature_algorithms_extracted(self):
         parser = TLSParser()
@@ -561,8 +583,10 @@ class TestConfigManagerRemaining:
         mgr = ConfigManager("config/proxy.yml")
         env = dict(os.environ)
         env["ENVIRONMENT"] = "development"
-        with patch.dict(os.environ, env), \
-             caplog.at_level(logging.WARNING, logger="proxy"):
+        with (
+            patch.dict(os.environ, env),
+            caplog.at_level(logging.WARNING, logger="proxy"),
+        ):
             mgr._validate_redis_config({"host": "r", "port": 6379, "password": ""})
         assert any("without authentication" in r.message for r in caplog.records)
 
@@ -615,63 +639,66 @@ class TestSecurityManagerRemaining:
         config = {"security": {}}
         redis_mock = MagicMock()
         redis_mock.smembers = MagicMock(side_effect=Exception("Redis down"))
-        with caplog.at_level(logging.ERROR, logger="proxy"):
-            sm = SecurityManager(config, redis_mock)
+        sm = SecurityManager(config, redis_mock)
+        # _load_security_lists is async - need to run it to trigger the error
+        _run(sm._load_security_lists())
         assert sm.whitelist == set()
         assert sm.blacklist == set()
         assert any("Error loading security lists" in r.message for r in caplog.records)
 
     def test_check_access_rate_limit_blocks(self):
         sm = self._make_sm({"rate_limiting": True})
-        sm._check_rate_limit = MagicMock(return_value=False)
-        allowed, reason = sm.check_access(self._make_fp(), "1.2.3.4")
+        sm._check_rate_limit = AsyncMock(return_value=False)
+        allowed, reason = _run(sm.check_access(self._make_fp(), "1.2.3.4"))
         assert not allowed
         assert "Rate limit" in reason
 
     def test_check_access_block_unknown_ja4(self):
         sm = self._make_sm({"block_unknown_ja4": True})
         # JA4 not in whitelist and block_unknown_ja4=True → blocked
-        allowed, reason = sm.check_access(self._make_fp(), "1.2.3.4")
+        allowed, reason = _run(sm.check_access(self._make_fp(), "1.2.3.4"))
         assert not allowed
         assert "not whitelisted" in reason
 
     def test_check_access_exception_returns_false(self, caplog):
         sm = self._make_sm()
-        sm._check_rate_limit = MagicMock(side_effect=RuntimeError("boom"))
+        sm._check_rate_limit = AsyncMock(side_effect=RuntimeError("boom"))
         sm.config["security"]["rate_limiting"] = True
         with caplog.at_level(logging.ERROR, logger="proxy"):
-            allowed, reason = sm.check_access(self._make_fp(), "1.2.3.4")
+            allowed, reason = _run(sm.check_access(self._make_fp(), "1.2.3.4"))
         assert not allowed
         assert "Internal error" in reason
 
     def test_check_rate_limit_connection_error_returns_false(self, caplog):
         import redis as redis_lib
+
         sm = self._make_sm()
         sm.redis = MagicMock()
-        sm.redis.incr = MagicMock(side_effect=redis_lib.ConnectionError("down"))
+        sm.redis.incr = AsyncMock(side_effect=redis_lib.ConnectionError("down"))
         sm.config["security"]["rate_limit_window"] = 60
         with caplog.at_level(logging.ERROR, logger="proxy"):
-            result = sm._check_rate_limit("1.2.3.4")
+            result = _run(sm._check_rate_limit("1.2.3.4"))
         assert result is False
         assert any("connection error" in r.message.lower() for r in caplog.records)
 
     def test_check_rate_limit_timeout_returns_false(self, caplog):
         import redis as redis_lib
+
         sm = self._make_sm()
         sm.redis = MagicMock()
-        sm.redis.incr = MagicMock(side_effect=redis_lib.TimeoutError("slow"))
+        sm.redis.incr = AsyncMock(side_effect=redis_lib.TimeoutError("slow"))
         sm.config["security"]["rate_limit_window"] = 60
         with caplog.at_level(logging.ERROR, logger="proxy"):
-            result = sm._check_rate_limit("1.2.3.4")
+            result = _run(sm._check_rate_limit("1.2.3.4"))
         assert result is False
 
     def test_check_rate_limit_unexpected_exception_returns_false(self, caplog):
         sm = self._make_sm()
         sm.redis = MagicMock()
-        sm.redis.incr = MagicMock(side_effect=RuntimeError("unexpected"))
+        sm.redis.incr = AsyncMock(side_effect=RuntimeError("unexpected"))
         sm.config["security"]["rate_limit_window"] = 60
         with caplog.at_level(logging.ERROR, logger="proxy"):
-            result = sm._check_rate_limit("1.2.3.4")
+            result = _run(sm._check_rate_limit("1.2.3.4"))
         assert result is False
 
 
@@ -683,9 +710,7 @@ class TestSecurityManagerRemaining:
 class TestTarpitManagerCleanup:
     def test_writer_close_exception_silenced(self):
         """Exception in finally writer.close() must not propagate."""
-        config = {
-            "security": {"tarpit_enabled": True, "tarpit_duration": 0}
-        }
+        config = {"security": {"tarpit_enabled": True, "tarpit_duration": 0}}
         mgr = TarpitManager(config)
         writer = MagicMock()
         writer.close = MagicMock(side_effect=Exception("close failed"))
@@ -702,20 +727,42 @@ class TestTarpitManagerCleanup:
 class TestProxyServerInitLogging:
     def test_country_whitelist_logged_on_init(self, caplog):
         config = {
-            "proxy": {"bind_host": "0.0.0.0", "bind_port": 8080,
-                      "backend_host": "127.0.0.1", "backend_port": 443,
-                      "max_connections": 1000, "connection_timeout": 30,
-                      "buffer_size": 8192},
-            "redis": {"host": "r", "port": 6379, "db": 0, "password": "pw", "timeout": 5},
-            "security": {"whitelist_enabled": True, "blacklist_enabled": True,
-                         "rate_limiting": False, "max_requests_per_minute": 100,
-                         "block_unknown_ja4": False, "tarpit_enabled": False,
-                         "tarpit_duration": 10, "whitelist": [], "blacklist": []},
+            "proxy": {
+                "bind_host": "0.0.0.0",
+                "bind_port": 8080,
+                "backend_host": "127.0.0.1",
+                "backend_port": 443,
+                "max_connections": 1000,
+                "connection_timeout": 30,
+                "buffer_size": 8192,
+            },
+            "redis": {
+                "host": "r",
+                "port": 6379,
+                "db": 0,
+                "password": "pw",
+                "timeout": 5,
+            },
+            "security": {
+                "whitelist_enabled": True,
+                "blacklist_enabled": True,
+                "rate_limiting": False,
+                "max_requests_per_minute": 100,
+                "block_unknown_ja4": False,
+                "tarpit_enabled": False,
+                "tarpit_duration": 10,
+                "whitelist": [],
+                "blacklist": [],
+            },
             "metrics": {"enabled": False, "port": 9090},
             "logging": {"level": "INFO", "format": "%(message)s"},
-            "geoip": {"country_whitelist_enabled": True, "country_whitelist": ["IE", "GB"],
-                      "country_blacklist_enabled": False, "country_blacklist": [],
-                      "safe_countries": []},
+            "geoip": {
+                "country_whitelist_enabled": True,
+                "country_whitelist": ["IE", "GB"],
+                "country_blacklist_enabled": False,
+                "country_blacklist": [],
+                "safe_countries": [],
+            },
         }
         mock_cm = MagicMock()
         mock_cm.config = config
@@ -724,16 +771,18 @@ class TestProxyServerInitLogging:
         mock_redis.smembers = MagicMock(return_value=set())
         mock_redis.sadd = MagicMock(return_value=1)
 
-        with patch("proxy.ConfigManager", return_value=mock_cm), \
-             patch("proxy.redis.Redis", return_value=mock_redis), \
-             patch("proxy.SecurityManager") as mock_sec, \
-             patch("proxy.Pipeline"), \
-             patch("proxy.RiskScorer"), \
-             patch("proxy.ActionDecider"), \
-             patch("proxy.DialManager"), \
-             patch("proxy.LocalCache"), \
-             patch("proxy.GeoIPLookup"), \
-             caplog.at_level(logging.INFO, logger="proxy"):
+        with (
+            patch("proxy.ConfigManager", return_value=mock_cm),
+            patch("proxy.redis.Redis", return_value=mock_redis),
+            patch("proxy.SecurityManager") as mock_sec,
+            patch("proxy.Pipeline"),
+            patch("proxy.RiskScorer"),
+            patch("proxy.ActionDecider"),
+            patch("proxy.DialManager"),
+            patch("proxy.LocalCache"),
+            patch("proxy.GeoIPLookup"),
+            caplog.at_level(logging.INFO, logger="proxy"),
+        ):
             mock_sec.return_value = MagicMock(_load_security_lists=MagicMock())
             server = ProxyServer("config/proxy.yml")
 
@@ -742,20 +791,42 @@ class TestProxyServerInitLogging:
 
     def test_country_blacklist_logged_on_init(self, caplog):
         config = {
-            "proxy": {"bind_host": "0.0.0.0", "bind_port": 8080,
-                      "backend_host": "127.0.0.1", "backend_port": 443,
-                      "max_connections": 1000, "connection_timeout": 30,
-                      "buffer_size": 8192},
-            "redis": {"host": "r", "port": 6379, "db": 0, "password": "pw", "timeout": 5},
-            "security": {"whitelist_enabled": True, "blacklist_enabled": True,
-                         "rate_limiting": False, "max_requests_per_minute": 100,
-                         "block_unknown_ja4": False, "tarpit_enabled": False,
-                         "tarpit_duration": 10, "whitelist": [], "blacklist": []},
+            "proxy": {
+                "bind_host": "0.0.0.0",
+                "bind_port": 8080,
+                "backend_host": "127.0.0.1",
+                "backend_port": 443,
+                "max_connections": 1000,
+                "connection_timeout": 30,
+                "buffer_size": 8192,
+            },
+            "redis": {
+                "host": "r",
+                "port": 6379,
+                "db": 0,
+                "password": "pw",
+                "timeout": 5,
+            },
+            "security": {
+                "whitelist_enabled": True,
+                "blacklist_enabled": True,
+                "rate_limiting": False,
+                "max_requests_per_minute": 100,
+                "block_unknown_ja4": False,
+                "tarpit_enabled": False,
+                "tarpit_duration": 10,
+                "whitelist": [],
+                "blacklist": [],
+            },
             "metrics": {"enabled": False, "port": 9090},
             "logging": {"level": "INFO", "format": "%(message)s"},
-            "geoip": {"country_whitelist_enabled": False, "country_whitelist": [],
-                      "country_blacklist_enabled": True, "country_blacklist": ["KP"],
-                      "safe_countries": []},
+            "geoip": {
+                "country_whitelist_enabled": False,
+                "country_whitelist": [],
+                "country_blacklist_enabled": True,
+                "country_blacklist": ["KP"],
+                "safe_countries": [],
+            },
         }
         mock_cm = MagicMock()
         mock_cm.config = config
@@ -764,16 +835,18 @@ class TestProxyServerInitLogging:
         mock_redis.smembers = MagicMock(return_value=set())
         mock_redis.sadd = MagicMock(return_value=1)
 
-        with patch("proxy.ConfigManager", return_value=mock_cm), \
-             patch("proxy.redis.Redis", return_value=mock_redis), \
-             patch("proxy.SecurityManager") as mock_sec, \
-             patch("proxy.Pipeline"), \
-             patch("proxy.RiskScorer"), \
-             patch("proxy.ActionDecider"), \
-             patch("proxy.DialManager"), \
-             patch("proxy.LocalCache"), \
-             patch("proxy.GeoIPLookup"), \
-             caplog.at_level(logging.INFO, logger="proxy"):
+        with (
+            patch("proxy.ConfigManager", return_value=mock_cm),
+            patch("proxy.redis.Redis", return_value=mock_redis),
+            patch("proxy.SecurityManager") as mock_sec,
+            patch("proxy.Pipeline"),
+            patch("proxy.RiskScorer"),
+            patch("proxy.ActionDecider"),
+            patch("proxy.DialManager"),
+            patch("proxy.LocalCache"),
+            patch("proxy.GeoIPLookup"),
+            caplog.at_level(logging.INFO, logger="proxy"),
+        ):
             mock_sec.return_value = MagicMock(_load_security_lists=MagicMock())
             server = ProxyServer("config/proxy.yml")
 
@@ -789,9 +862,9 @@ class TestProxyServerInitLogging:
 class TestInitRedisGenericException:
     def test_generic_exception_reraises(self):
         server = _make_server_stub()
-        with patch("proxy.redis.Redis", side_effect=ValueError("unexpected")):
+        with patch("redis.asyncio.Redis", side_effect=ValueError("unexpected")):
             with pytest.raises(ValueError, match="unexpected"):
-                server._init_redis()
+                _run(server._init_redis())
 
     def test_auth_error_caught_before_connection_error(self):
         """AuthenticationError is now caught first (more specific before general).
@@ -804,10 +877,13 @@ class TestInitRedisGenericException:
         network routing.
         """
         import redis as redis_lib
+
         server = _make_server_stub()
-        with patch("proxy.redis.Redis", side_effect=redis_lib.AuthenticationError("wrong pw")):
+        with patch(
+            "redis.asyncio.Redis", side_effect=redis_lib.AuthenticationError("wrong pw")
+        ):
             with pytest.raises(SecurityError, match="Redis authentication failed"):
-                server._init_redis()
+                _run(server._init_redis())
 
 
 # ---------------------------------------------------------------------------
@@ -842,8 +918,10 @@ class TestProxyServerStart:
         server = _make_server_stub()
         server.config["metrics"]["enabled"] = True
         server.config["metrics"]["authentication"] = {"enabled": True}
-        with patch("proxy.start_http_server"), \
-             caplog.at_level(logging.WARNING, logger="proxy"):
+        with (
+            patch("proxy.start_http_server"),
+            caplog.at_level(logging.WARNING, logger="proxy"),
+        ):
             self._run_start(server)
         assert any("authentication" in r.message.lower() for r in caplog.records)
 
@@ -851,11 +929,15 @@ class TestProxyServerStart:
         server = _make_server_stub()
         server.config["metrics"]["enabled"] = True
         server.config["metrics"]["bind_host"] = "0.0.0.0"
-        with patch("proxy.start_http_server"), \
-             caplog.at_level(logging.WARNING, logger="proxy"):
+        with (
+            patch("proxy.start_http_server"),
+            caplog.at_level(logging.WARNING, logger="proxy"),
+        ):
             self._run_start(server)
-        assert any("all interfaces" in r.message.lower() or "0.0.0.0" in r.message
-                   for r in caplog.records)
+        assert any(
+            "all interfaces" in r.message.lower() or "0.0.0.0" in r.message
+            for r in caplog.records
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -938,7 +1020,9 @@ class TestExtractClientIpInvalidRealIP:
         the outer except Exception (lines 1341-1342) catches it and returns ''."""
         server = _make_server_stub()
         data = b"GET / HTTP/1.1\r\nX-Real-IP: 1.2.3.4\r\n\r\n"
-        with patch("proxy.ipaddress.ip_address", side_effect=RuntimeError("unexpected")):
+        with patch(
+            "proxy.ipaddress.ip_address", side_effect=RuntimeError("unexpected")
+        ):
             result = server._extract_client_ip_from_http(data)
         assert result == ""
 
@@ -967,7 +1051,9 @@ class TestAnalyzeTlsHandshakeVersions:
         server.tls_parser = MagicMock()
         server.tls_parser.parse_client_hello = MagicMock(return_value=fields)
         server.ja4_generator = MagicMock()
-        server.ja4_generator.generate_ja4 = MagicMock(return_value="t13d1516h2_aabbccddeeff_aabbccddeeff")
+        server.ja4_generator.generate_ja4 = MagicMock(
+            return_value="t13d1516h2_aabbccddeeff_aabbccddeeff"
+        )
         mock_tls = MagicMock()
         with patch("proxy.TLS", return_value=mock_tls):
             return _run(server._analyze_tls_handshake(data, "1.2.3.4"))
@@ -1048,8 +1134,13 @@ class TestSensitiveDataFilterException:
         """If args is a non-iterable truthy value, the filter must not fail the log call."""
         f = SensitiveDataFilter()
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="test %s", args=None, exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="test %s",
+            args=None,
+            exc_info=None,
         )
         # Set args to a truthy non-iterable so `for arg in record.args` raises TypeError
         record.args = 42
@@ -1065,31 +1156,50 @@ class TestSensitiveDataFilterException:
 
 class TestMain:
     def test_main_uses_default_config_path(self):
-        with patch("sys.argv", ["proxy.py"]), \
-             patch("proxy.ProxyServer") as mock_cls, \
-             patch("proxy.asyncio.run", side_effect=KeyboardInterrupt()):
-            mock_cls.return_value = MagicMock()
-            main()  # KeyboardInterrupt caught → no exception propagates
-        mock_cls.assert_called_once_with("config/proxy.yml")
+        with (
+            patch("sys.argv", ["proxy.py"]),
+            patch("proxy.ProxyServer.create", new_callable=AsyncMock) as mock_create,
+            patch("proxy.asyncio.run", side_effect=KeyboardInterrupt()),
+        ):
+            mock_proxy = MagicMock()
+            mock_proxy.start = AsyncMock()
+            mock_create.return_value = mock_proxy
+            _run(main())
+        mock_create.assert_called_once_with("config/proxy.yml")
 
     def test_main_uses_argv_config_path(self):
-        with patch("sys.argv", ["proxy.py", "/custom/path.yml"]), \
-             patch("proxy.ProxyServer") as mock_cls, \
-             patch("proxy.asyncio.run", side_effect=KeyboardInterrupt()):
-            mock_cls.return_value = MagicMock()
-            main()
-        mock_cls.assert_called_once_with("/custom/path.yml")
+        with (
+            patch("sys.argv", ["proxy.py", "/custom/path.yml"]),
+            patch("proxy.ProxyServer.create", new_callable=AsyncMock) as mock_create,
+            patch("proxy.asyncio.run", side_effect=KeyboardInterrupt()),
+        ):
+            mock_proxy = MagicMock()
+            mock_proxy.start = AsyncMock()
+            mock_create.return_value = mock_proxy
+            _run(main())
+        mock_create.assert_called_once_with("/custom/path.yml")
 
     def test_main_keyboard_interrupt_handled(self):
-        with patch("sys.argv", ["proxy.py"]), \
-             patch("proxy.ProxyServer", MagicMock()), \
-             patch("proxy.asyncio.run", side_effect=KeyboardInterrupt()):
-            main()  # Must not raise
+        with (
+            patch("sys.argv", ["proxy.py"]),
+            patch("proxy.ProxyServer.create", new_callable=AsyncMock) as mock_create,
+            patch("proxy.asyncio.run", side_effect=KeyboardInterrupt()),
+        ):
+            mock_proxy = MagicMock()
+            mock_proxy.start = AsyncMock()
+            mock_create.return_value = mock_proxy
+            _run(main())
 
     def test_main_fatal_exception_calls_sys_exit(self):
-        with patch("sys.argv", ["proxy.py"]), \
-             patch("proxy.ProxyServer", MagicMock()), \
-             patch("proxy.asyncio.run", side_effect=RuntimeError("fatal")), \
-             patch("sys.exit") as mock_exit:
-            main()
+        with (
+            patch("sys.argv", ["proxy.py"]),
+            patch("proxy.ProxyServer.create", new_callable=AsyncMock) as mock_create,
+            patch("proxy.asyncio.run") as mock_run,
+            patch("sys.exit") as mock_exit,
+        ):
+            mock_proxy = MagicMock()
+            mock_proxy.start = AsyncMock(side_effect=RuntimeError("fatal"))
+            mock_create.return_value = mock_proxy
+            mock_run.side_effect = lambda coro: _run(coro)
+            _run(main())
         mock_exit.assert_called_once_with(1)

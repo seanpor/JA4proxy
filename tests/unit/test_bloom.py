@@ -17,12 +17,23 @@ from src.cache.bloom import BloomFilter, _FALLBACK_TTL_SECONDS
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    try:
+        loop = asyncio.get_running_loop()
+        raise RuntimeError("_run() should not be called from within an async context")
+    except RuntimeError:
+        return asyncio.new_event_loop().run_until_complete(coro)
 
 
-def _make_bloom_redis(*, bf_reserve_ok=True, bf_add_result=1, bf_exists_result=0,
-                      reserve_error=None, already_exists=False):
+def _make_bloom_redis(
+    *,
+    bf_reserve_ok=True,
+    bf_add_result=1,
+    bf_exists_result=0,
+    reserve_error=None,
+    already_exists=False,
+):
     """Build a mock async Redis client with a .bf() sub-client."""
     bf_mock = MagicMock()
 
@@ -59,7 +70,9 @@ class TestInitializeBloomAvailable:
 
     def test_calls_bf_reserve_with_correct_args(self):
         redis_mock, bf_mock = _make_bloom_redis()
-        bf = BloomFilter(redis_mock, "bloom:rdap_enriched", error_rate=0.005, capacity=500_000)
+        bf = BloomFilter(
+            redis_mock, "bloom:rdap_enriched", error_rate=0.005, capacity=500_000
+        )
         _run(bf.initialize())
         bf_mock.reserve.assert_called_once_with("bloom:rdap_enriched", 0.005, 500_000)
 
@@ -100,8 +113,10 @@ class TestInitializeFallback:
         bf = BloomFilter(redis_mock, "test:filter")
         with caplog.at_level(logging.WARNING, logger="src.cache.bloom"):
             _run(bf.initialize())
-        assert any("fallback" in r.message.lower() or "unavailable" in r.message.lower()
-                   for r in caplog.records)
+        assert any(
+            "fallback" in r.message.lower() or "unavailable" in r.message.lower()
+            for r in caplog.records
+        )
 
 
 # ---------------------------------------------------------------------------

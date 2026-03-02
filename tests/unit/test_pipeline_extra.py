@@ -31,6 +31,7 @@ from src.security.pipeline import (
 # Helpers (mirrors test_pipeline.py helpers to keep tests self-contained)
 # ---------------------------------------------------------------------------
 
+
 def _make_cache(dial: int = 0) -> LocalCache:
     cache = LocalCache({})
     cache.dial = dial
@@ -66,12 +67,17 @@ def _ctx(**kwargs):
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    try:
+        loop = asyncio.get_running_loop()
+        raise RuntimeError("_run() should not be called from within an async context")
+    except RuntimeError:
+        return asyncio.new_event_loop().run_until_complete(coro)
 
 
 # ---------------------------------------------------------------------------
 # StaticAllowlist — empty raw_ip skipped (line 172)
 # ---------------------------------------------------------------------------
+
 
 class TestStaticAllowlistReloadEmptyIp:
     def test_empty_ip_entry_skipped(self):
@@ -105,6 +111,7 @@ class TestStaticAllowlistReloadEmptyIp:
 # ---------------------------------------------------------------------------
 # StaticAllowlist.match — invalid IP (lines 197-198)
 # ---------------------------------------------------------------------------
+
 
 class TestStaticAllowlistMatchInvalidIp:
     def test_invalid_ip_string_returns_none(self):
@@ -141,6 +148,7 @@ class TestStaticAllowlistMatchInvalidIp:
 # ---------------------------------------------------------------------------
 # StaticAllowlist.add_from_redis (lines 207-217)
 # ---------------------------------------------------------------------------
+
 
 class TestStaticAllowlistAddFromRedis:
     def test_valid_ip_added(self):
@@ -179,6 +187,7 @@ class TestStaticAllowlistAddFromRedis:
 # Pipeline.update_sets (lines 269-270)
 # ---------------------------------------------------------------------------
 
+
 class TestPipelineUpdateSets:
     def test_update_sets_replaces_whitelist_and_blacklist(self):
         """Lines 269-270: update_sets() atomically replaces in-process sets."""
@@ -201,6 +210,7 @@ class TestPipelineUpdateSets:
 # ---------------------------------------------------------------------------
 # Pipeline.on_config_reload (lines 274-276)
 # ---------------------------------------------------------------------------
+
 
 class TestPipelineOnConfigReload:
     def test_reload_updates_policy(self):
@@ -247,6 +257,7 @@ class TestPipelineOnConfigReload:
 # Country blacklist bypass — match path (lines 396-400)
 # ---------------------------------------------------------------------------
 
+
 class TestCountryBlacklistBypassHit:
     def test_blocked_country_returns_block(self):
         """Lines 396-400: country in geoip.country_blacklist → BLOCK bypass."""
@@ -261,9 +272,7 @@ class TestCountryBlacklistBypassHit:
 
     def test_non_blocked_country_falls_through(self):
         """Country not in blacklist → falls through to scorer."""
-        p = _make_pipeline(
-            config_overrides={"geoip": {"country_blacklist": ["CN"]}}
-        )
+        p = _make_pipeline(config_overrides={"geoip": {"country_blacklist": ["CN"]}})
         ctx = _ctx(client_ip="1.2.3.4", country="US")
         result = _run(p.process(ctx))
         # Scorer is a stub → score=0, action=allow
@@ -272,9 +281,7 @@ class TestCountryBlacklistBypassHit:
 
     def test_country_none_does_not_trigger_bypass(self):
         """country=None never triggers the country blacklist check."""
-        p = _make_pipeline(
-            config_overrides={"geoip": {"country_blacklist": ["CN"]}}
-        )
+        p = _make_pipeline(config_overrides={"geoip": {"country_blacklist": ["CN"]}})
         ctx = _ctx(client_ip="1.2.3.4", country=None)
         result = _run(p.process(ctx))
         assert result.action == "allow"
@@ -284,6 +291,7 @@ class TestCountryBlacklistBypassHit:
 # _format_signals — dict signal path and unknown-type fallback
 # (lines 514-516, 521-523, 528-530)
 # ---------------------------------------------------------------------------
+
 
 class TestFormatSignalsDictAndFallback:
     def test_dict_signal_score_of(self):
@@ -362,6 +370,7 @@ class TestFormatSignalsDictAndFallback:
 # Pipeline.process — unexpected exception → fail-open
 # ---------------------------------------------------------------------------
 
+
 class TestPipelineFailOpen:
     def test_unexpected_exception_in_inner_allows(self):
         """process() catches any exception and returns allow (fail open)."""
@@ -385,9 +394,10 @@ class TestEmitStreamEventException:
         p._redis.xadd = MagicMock(side_effect=ConnectionError("Redis down"))
 
         from src.security.pipeline import PipelineResult
+
         result = PipelineResult(action="allow", score=0, dial=0, counterfactuals={})
         ctx = _ctx()
 
         # Must not raise
-        asyncio.get_event_loop().run_until_complete(p._emit_stream_event(ctx, result))
+        _run(p._emit_stream_event(ctx, result))
         p._redis.xadd.assert_called_once()

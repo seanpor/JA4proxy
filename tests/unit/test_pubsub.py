@@ -45,7 +45,11 @@ def _msg(msg_type: str, value=None) -> bytes:
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    try:
+        loop = asyncio.get_running_loop()
+        raise RuntimeError("_run() should not be called from within an async context")
+    except RuntimeError:
+        return asyncio.new_event_loop().run_until_complete(coro)
 
 
 # ---------------------------------------------------------------------------
@@ -160,8 +164,10 @@ class TestDispatchDialChange:
         with caplog.at_level(logging.WARNING, logger="src.pubsub"):
             _run(handler._dispatch(_msg("dial_change", "not_a_number")))
         assert cache.dial == 42  # unchanged
-        assert any("dial_change" in r.message and "invalid" in r.message
-                   for r in caplog.records)
+        assert any(
+            "dial_change" in r.message and "invalid" in r.message
+            for r in caplog.records
+        )
 
     def test_none_value_does_not_crash(self, caplog):
         handler, cache, _, _, _ = _make_handler(dial=30)
@@ -187,8 +193,10 @@ class TestDispatchConfigReload:
         config_loader.reload = AsyncMock(side_effect=Exception("bad yaml"))
         with caplog.at_level(logging.ERROR, logger="src.pubsub"):
             _run(handler._dispatch(_msg("config_reload")))
-        assert any("reload_failed" in r.message or "config_reload_failed" in r.message
-                   for r in caplog.records)
+        assert any(
+            "reload_failed" in r.message or "config_reload_failed" in r.message
+            for r in caplog.records
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -201,8 +209,10 @@ class TestDispatchUnknownType:
         handler, _, _, _, _ = _make_handler()
         with caplog.at_level(logging.WARNING, logger="src.pubsub"):
             _run(handler._dispatch(_msg("totally_made_up_type", "value")))
-        assert any("unknown_message_type" in r.message or "unknown" in r.message.lower()
-                   for r in caplog.records)
+        assert any(
+            "unknown_message_type" in r.message or "unknown" in r.message.lower()
+            for r in caplog.records
+        )
 
     def test_unknown_type_does_not_crash(self):
         handler, _, _, _, _ = _make_handler()
@@ -228,7 +238,9 @@ class TestDispatchMalformedInput:
     def test_bytes_decoded_correctly(self):
         """Valid UTF-8 bytes must be handled the same as a string."""
         handler, _, blacklist, _, _ = _make_handler()
-        data = json.dumps({"type": "ja4_blacklist_add", "value": "fp_bytes"}).encode("utf-8")
+        data = json.dumps({"type": "ja4_blacklist_add", "value": "fp_bytes"}).encode(
+            "utf-8"
+        )
         _run(handler._dispatch(data))
         assert "fp_bytes" in blacklist
 

@@ -15,9 +15,30 @@ a previous in-process test run (e.g. when running tests interactively or via
 pytest-xdist with forks).
 """
 
+import asyncio
 import sys
 
 import pytest
+
+
+def _run(coro):
+    """Run an async coroutine from a sync test function.
+
+    This helper works with pytest-asyncio's auto mode by creating a fresh
+    event loop instead of relying on get_event_loop(), which fails when
+    pytest-asyncio manages the event loop.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+        raise RuntimeError("_run() should not be called from within an async context")
+    except RuntimeError:
+        return asyncio.new_event_loop().run_until_complete(coro)
+
+
+@pytest.fixture
+def run_async():
+    """Fixture that provides the _run helper to tests."""
+    return _run
 
 
 @pytest.fixture(autouse=True, scope="session")

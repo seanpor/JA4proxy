@@ -21,7 +21,11 @@ THRESHOLDS = {
 
 
 def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    try:
+        loop = asyncio.get_running_loop()
+        raise RuntimeError("_run() should not be called from within an async context")
+    except RuntimeError:
+        return asyncio.new_event_loop().run_until_complete(coro)
 
 
 # ---------------------------------------------------------------------------
@@ -160,7 +164,9 @@ class TestDialMidTrafficChaos:
         broken_scorer = MagicMock()
         broken_scorer.score.side_effect = RuntimeError("scorer crashed")
         pipeline.update_scorer(broken_scorer, ActionDecider(THRESHOLDS))
-        ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d1516h2_aabbccddee11_112233445566")
+        ctx = ConnectionContext(
+            client_ip="1.2.3.4", ja4="t13d1516h2_aabbccddee11_112233445566"
+        )
         # Must not raise — fail open
         result = _run(pipeline.process(ctx))
         assert result.action == "allow"
@@ -192,7 +198,9 @@ class TestDialMidTrafficChaos:
             total_score=100, signals=[], recommended_action="ban", explanation=""
         )
         pipeline.update_scorer(mock_scorer, ActionDecider(THRESHOLDS))
-        ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d1516h2_aabbccddee11_112233445566")
+        ctx = ConnectionContext(
+            client_ip="1.2.3.4", ja4="t13d1516h2_aabbccddee11_112233445566"
+        )
         result = _run(pipeline.process(ctx))
         assert result.action == "allow"
         assert result.score == 100
