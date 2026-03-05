@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, mock_open
 from src.security.asn_classifier import ASNClassifier, ASNClassification, RISK_SCORES
 from src.security.models import ConnectionContext
 
@@ -23,9 +23,19 @@ class TestASNClassifier(unittest.TestCase):
         self.mock_redis = MagicMock()
 
     @patch("src.security.asn_classifier.asyncio")
+    @patch(
+        "builtins.open", new_callable=mock_open, read_data="asns:\n  15169: Google\n"
+    )
+    @patch("os.path.exists")
     def _create_classifier(
-        self, mock_asyncio, datacenter_asns=None, maxmind_result=None
+        self,
+        mock_exists,
+        mock_file,
+        mock_asyncio,
+        datacenter_asns=None,
+        maxmind_result=None,
     ):
+        mock_exists.return_value = True
         classifier = ASNClassifier(self.config, self.mock_redis)
         if datacenter_asns is not None:
             classifier._datacenter_asns = datacenter_asns

@@ -190,6 +190,7 @@ services:
       - ./reports:/app/reports
       - ./proxy.py:/app/proxy.py:ro
       - ./src:/app/src:ro
+      - ./config:/app/config:ro
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
       - PROXY_HOST=proxy
