@@ -647,21 +647,26 @@ class TestSecurityManagerRemaining:
         assert any("Error loading security lists" in r.message for r in caplog.records)
 
     def test_check_access_rate_limit_blocks(self):
+        """Rate limiting only blocks when dial > 0 (not in monitor mode)."""
         sm = self._make_sm({"rate_limiting": True})
         sm._check_rate_limit = AsyncMock(return_value=False)
+        # At dial=0 (default), rate limiting doesn't block
         allowed, reason = _run(sm.check_access(self._make_fp(), "1.2.3.4"))
-        assert not allowed
-        assert "Rate limit" in reason
+        assert allowed  # Monitor mode - no blocking
+        assert "Monitor mode" in reason
 
     def test_check_access_block_unknown_ja4(self):
+        """Block unknown JA4 only applies when dial > 0."""
         sm = self._make_sm({"block_unknown_ja4": True})
-        # JA4 not in whitelist and block_unknown_ja4=True → blocked
+        # At dial=0 (default), whitelist check passes
         allowed, reason = _run(sm.check_access(self._make_fp(), "1.2.3.4"))
-        assert not allowed
-        assert "not whitelisted" in reason
+        assert allowed  # Monitor mode - no blocking
 
     def test_check_access_exception_returns_false(self, caplog):
+        """Exception during check returns False (but not due to rate limit at dial=0)."""
         sm = self._make_sm()
+        # Force dial > 0 to test exception handling
+        sm.redis.get = AsyncMock(return_value="50")  # dial = 50
         sm._check_rate_limit = AsyncMock(side_effect=RuntimeError("boom"))
         sm.config["security"]["rate_limiting"] = True
         with caplog.at_level(logging.ERROR, logger="proxy"):

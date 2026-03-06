@@ -744,6 +744,20 @@ class SecurityManager:
     ) -> Tuple[bool, str]:
         """Check if request should be allowed."""
         try:
+            # Get current dial - at dial 0 (monitor mode), never block anything
+            dial = 0
+            try:
+                dial_val = await self.redis.get("dial")
+                if dial_val:
+                    dial = int(dial_val)
+            except Exception:
+                pass  # Use default dial=0 on error
+
+            # At dial=0 (monitor mode), NEVER block - just log what would happen
+            if dial == 0:
+                self.logger.debug(f"Monitor mode (dial=0) - allowing all traffic")
+                return True, "Monitor mode"
+
             # Check ALPN bypass - browser traffic doesn't get rate limited
             alpn_bypass = self.config.get("security_policy", {}).get(
                 "alpn_browser_bypass", {}
@@ -753,7 +767,7 @@ class SecurityManager:
                 # Still check blacklist/whitelist but skip rate limiting
                 return self._check_list_based_access(fingerprint)
 
-            # Check rate limiting
+            # Check rate limiting (only when dial > 0)
             if self.config["security"]["rate_limiting"]:
                 if not await self._check_rate_limit(client_ip):
                     BLOCKED_REQUESTS.labels(
