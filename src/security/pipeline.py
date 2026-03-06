@@ -332,6 +332,7 @@ class Pipeline:
         # ── 5. Score + decide ──────────────────────────────────────────
         score, action, scored_signals, cf = self._score_connection(signals)
         dial = self._cache.dial
+        _DIAL_CURRENT.set(dial)
 
         if dial == 0:
             # Monitor mode: always allow, log what would happen at higher dials
