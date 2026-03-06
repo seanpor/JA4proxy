@@ -11,6 +11,12 @@ import ssl
 import time
 from datetime import datetime
 
+
+class HighCapacityHTTPServer(ThreadingHTTPServer):
+    """ThreadingHTTPServer with a large socket backlog and daemon threads."""
+    request_queue_size = 256  # OS-level socket accept queue (default is 5)
+    daemon_threads = True      # Don't block shutdown waiting for in-flight threads
+
 class MockBackendHandler(BaseHTTPRequestHandler):
     """Simple mock backend for testing."""
     
@@ -127,7 +133,7 @@ def run_server(port=None, tls=None):
     if tls_cert and os.path.exists(tls_cert):
         port = port or int(os.environ.get('PORT', 443))
         server_address = ('', port)
-        httpd = ThreadingHTTPServer(server_address, MockBackendHandler)
+        httpd = HighCapacityHTTPServer(server_address, MockBackendHandler)
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.load_cert_chain(tls_cert, tls_key)
         httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
@@ -135,7 +141,7 @@ def run_server(port=None, tls=None):
     else:
         port = port or int(os.environ.get('PORT', 80))
         server_address = ('', port)
-        httpd = ThreadingHTTPServer(server_address, MockBackendHandler)
+        httpd = HighCapacityHTTPServer(server_address, MockBackendHandler)
         print(f"Mock backend server started on HTTP port {port}")
 
     print(f"Available endpoints:")
