@@ -2,204 +2,97 @@
   "id": null,
   "uid": "ja4proxy-overview",
   "title": "JA4 Proxy - Security Dashboard",
-  "tags": [
-    "ja4",
-    "security",
-    "proxy",
-    "tls"
-  ],
+  "tags": ["ja4", "security", "proxy", "tls"],
   "timezone": "browser",
   "schemaVersion": 38,
-  "version": 3,
+  "version": 4,
   "refresh": "5s",
-  "time": {
-    "from": "now-15m",
-    "to": "now"
-  },
+  "time": {"from": "now-15m", "to": "now"},
   "timepicker": {
-    "refresh_intervals": [
-      "5s",
-      "10s",
-      "30s",
-      "1m"
-    ]
+    "refresh_intervals": ["5s", "10s", "30s", "1m"]
   },
   "panels": [
     {
       "id": 1,
-      "title": "Requests/sec",
+      "title": "Connections/sec",
       "type": "stat",
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 0,
-        "y": 0
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              }
-            ]
-          },
+          "color": {"mode": "thresholds"},
+          "thresholds": {"steps": [{"color": "blue", "value": null}]},
           "unit": "reqps"
         }
       },
       "options": {
         "colorMode": "value",
         "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        }
+        "reduceOptions": {"calcs": ["lastNotNull"]}
       },
       "targets": [
-        {
-          "expr": "sum(rate(ja4_requests_total[30s]))",
-          "legendFormat": ""
-        }
+        {"expr": "sum(rate(ja4proxy_connections_total[30s]))", "legendFormat": ""}
       ]
     },
     {
       "id": 2,
       "title": "Allowed/sec",
       "type": "stat",
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 4,
-        "y": 0
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
+          "color": {"mode": "thresholds"},
+          "thresholds": {"steps": [{"color": "green", "value": null}]},
           "unit": "reqps"
         }
       },
       "options": {
         "colorMode": "value",
         "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        }
+        "reduceOptions": {"calcs": ["lastNotNull"]}
       },
       "targets": [
-        {
-          "expr": "sum(rate(ja4_requests_total{action=\"allowed\"}[30s]))",
-          "legendFormat": ""
-        }
+        {"expr": "sum(rate(ja4proxy_connections_total{action=\"allow\"}[30s]))", "legendFormat": ""}
       ]
     },
     {
       "id": 3,
       "title": "Blocked/sec",
       "type": "stat",
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 8,
-        "y": 0
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              }
-            ]
-          },
+          "color": {"mode": "thresholds"},
+          "thresholds": {"steps": [{"color": "red", "value": null}]},
           "unit": "reqps"
         }
       },
       "options": {
         "colorMode": "value",
         "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        }
+        "reduceOptions": {"calcs": ["lastNotNull"]}
       },
       "targets": [
-        {
-          "expr": "sum(rate(ja4_requests_total{action=\"blocked\"}[30s]))",
-          "legendFormat": ""
-        }
+        {"expr": "sum(rate(ja4proxy_connections_total{action=~\"block|ban|tarpit|rate_limit\"}[30s]))", "legendFormat": ""}
       ]
     },
     {
       "id": 4,
       "title": "Block Rate %",
       "type": "stat",
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 12,
-        "y": 0
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
+          "color": {"mode": "thresholds"},
           "thresholds": {
             "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 30
-              },
-              {
-                "color": "orange",
-                "value": 50
-              },
-              {
-                "color": "red",
-                "value": 70
-              }
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 30},
+              {"color": "orange", "value": 50},
+              {"color": "red", "value": 70}
             ]
           },
           "unit": "percent",
@@ -210,52 +103,26 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        }
+        "reduceOptions": {"calcs": ["lastNotNull"]}
       },
       "targets": [
-        {
-          "expr": "sum(rate(ja4_requests_total{action=\"blocked\"}[30s])) / clamp_min(sum(rate(ja4_requests_total[30s])), 1e-10) * 100",
-          "legendFormat": ""
-        }
+        {"expr": "sum(rate(ja4proxy_connections_total{action=~\"block|ban|tarpit|rate_limit\"}[30s])) / clamp_min(sum(rate(ja4proxy_connections_total[30s])), 1e-10) * 100", "legendFormat": ""}
       ]
     },
     {
       "id": 5,
       "title": "Active Connections",
       "type": "stat",
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 16,
-        "y": 0
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
+          "color": {"mode": "thresholds"},
           "thresholds": {
             "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 50
-              },
-              {
-                "color": "red",
-                "value": 100
-              }
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 50},
+              {"color": "red", "value": 100}
             ]
           }
         }
@@ -263,659 +130,280 @@
       "options": {
         "colorMode": "value",
         "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        }
+        "reduceOptions": {"calcs": ["lastNotNull"]}
       },
       "targets": [
-        {
-          "expr": "ja4_active_connections",
-          "legendFormat": ""
-        }
+        {"expr": "ja4_active_connections", "legendFormat": ""}
       ]
     },
     {
       "id": 6,
-      "title": "Tarpitted",
+      "title": "Dial Setting",
       "type": "stat",
-      "gridPos": {
-        "h": 4,
-        "w": 4,
-        "x": 20,
-        "y": 0
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
+          "color": {"mode": "thresholds"},
           "thresholds": {
             "steps": [
-              {
-                "color": "purple",
-                "value": null
-              }
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 25},
+              {"color": "orange", "value": 50},
+              {"color": "red", "value": 75}
             ]
           },
-          "unit": "short"
+          "unit": "short",
+          "min": 0,
+          "max": 100
         }
       },
       "options": {
         "colorMode": "value",
-        "graphMode": "area",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        }
+        "graphMode": "none",
+        "reduceOptions": {"calcs": ["lastNotNull"]}
       },
       "targets": [
-        {
-          "expr": "sum(ja4_blocked_requests_total{attack_type=\"tarpit\"}) or vector(0)",
-          "legendFormat": ""
-        }
+        {"expr": "ja4proxy_dial_current", "legendFormat": "0=monitor 100=enforce"}
       ]
     },
     {
       "id": 10,
       "title": "Traffic Flow: Allowed vs Blocked",
       "type": "timeseries",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 4
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
       "fieldConfig": {
         "defaults": {
           "custom": {
             "fillOpacity": 30,
             "lineWidth": 2,
-            "stacking": {
-              "mode": "normal"
-            }
+            "stacking": {"mode": "normal"}
           },
           "unit": "reqps"
         },
         "overrides": [
           {
-            "matcher": {
-              "id": "byName",
-              "options": "Allowed"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "green",
-                  "mode": "fixed"
-                }
-              }
-            ]
+            "matcher": {"id": "byName", "options": "Allowed"},
+            "properties": [{"id": "color", "value": {"fixedColor": "green", "mode": "fixed"}}]
           },
           {
-            "matcher": {
-              "id": "byName",
-              "options": "Blocked"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "red",
-                  "mode": "fixed"
-                }
-              }
-            ]
+            "matcher": {"id": "byName", "options": "Blocked"},
+            "properties": [{"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}]
           }
         ]
       },
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
+        "legend": {"displayMode": "list", "placement": "bottom"},
+        "tooltip": {"mode": "multi"}
       },
       "targets": [
-        {
-          "expr": "sum(rate(ja4_requests_total{action=\"allowed\"}[30s]))",
-          "legendFormat": "Allowed"
-        },
-        {
-          "expr": "sum(rate(ja4_requests_total{action=\"blocked\"}[30s]))",
-          "legendFormat": "Blocked"
-        }
+        {"expr": "sum(rate(ja4proxy_connections_total{action=\"allow\"}[30s]))", "legendFormat": "Allowed"},
+        {"expr": "sum(rate(ja4proxy_connections_total{action=~\"block|ban|tarpit|rate_limit\"}[30s]))", "legendFormat": "Blocked"}
       ]
     },
     {
       "id": 11,
-      "title": "Block Rate Over Time (%)",
+      "title": "Action Breakdown Over Time",
       "type": "timeseries",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 4
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "fixedColor": "orange",
-            "mode": "fixed"
-          },
-          "custom": {
-            "fillOpacity": 20,
-            "lineWidth": 2
-          },
-          "unit": "percent",
+          "custom": {"fillOpacity": 10, "lineWidth": 2},
+          "unit": "reqps"
+        }
+      },
+      "options": {
+        "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean", "max"]},
+        "tooltip": {"mode": "multi"}
+      },
+      "targets": [
+        {"expr": "sum by (action) (rate(ja4proxy_connections_total[30s]))", "legendFormat": "{{action}}"}
+      ]
+    },
+    {
+      "id": 20,
+      "title": "Risk Score Percentiles",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {
+          "custom": {"fillOpacity": 0, "lineWidth": 2},
+          "unit": "short",
           "min": 0,
           "max": 100
         }
       },
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
+        "legend": {"displayMode": "list", "placement": "bottom"},
+        "tooltip": {"mode": "multi"}
       },
       "targets": [
-        {
-          "expr": "sum(rate(ja4_requests_total{action=\"blocked\"}[30s])) / clamp_min(sum(rate(ja4_requests_total[30s])), 1e-10) * 100",
-          "legendFormat": "Block Rate %"
-        }
-      ]
-    },
-    {
-      "id": 20,
-      "title": "Traffic by JA4 Fingerprint (Allowed)",
-      "type": "timeseries",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 12
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "fillOpacity": 10,
-            "lineWidth": 2
-          },
-          "unit": "reqps"
-        }
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "calcs": [
-            "sum"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "targets": [
-        {
-          "expr": "sum by (fingerprint_name) (rate(ja4_requests_total{action=\"allowed\"}[30s]))",
-          "legendFormat": "{{fingerprint_name}}"
-        }
+        {"expr": "histogram_quantile(0.50, sum(rate(ja4proxy_risk_score_bucket[30s])) by (le))", "legendFormat": "p50"},
+        {"expr": "histogram_quantile(0.95, sum(rate(ja4proxy_risk_score_bucket[30s])) by (le))", "legendFormat": "p95"},
+        {"expr": "histogram_quantile(0.99, sum(rate(ja4proxy_risk_score_bucket[30s])) by (le))", "legendFormat": "p99"}
       ]
     },
     {
       "id": 21,
-      "title": "Traffic by JA4 Fingerprint (Blocked)",
+      "title": "Monitor Mode Counterfactuals",
       "type": "timeseries",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 12
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
       "fieldConfig": {
         "defaults": {
-          "custom": {
-            "fillOpacity": 10,
-            "lineWidth": 2
-          },
-          "unit": "reqps",
-          "color": {
-            "mode": "palette-classic"
-          }
+          "custom": {"fillOpacity": 10, "lineWidth": 2},
+          "unit": "reqps"
         }
       },
       "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "calcs": [
-            "sum"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
+        "legend": {"displayMode": "table", "placement": "bottom", "calcs": ["mean"]},
+        "tooltip": {"mode": "multi"}
       },
       "targets": [
-        {
-          "expr": "sum by (fingerprint_name) (rate(ja4_requests_total{action=\"blocked\"}[30s]))",
-          "legendFormat": "{{fingerprint_name}}"
-        }
+        {"expr": "sum by (dial, action) (rate(ja4proxy_monitor_counterfactual_total[30s]))", "legendFormat": "dial={{dial}} → {{action}}"}
       ]
     },
     {
       "id": 30,
-      "title": "Security Action Distribution",
+      "title": "Security Action Distribution (15m)",
       "type": "piechart",
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 20
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 20},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
       "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          }
-        }
+        "defaults": {"color": {"mode": "palette-classic"}}
       },
       "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "values": [
-            "value",
-            "percent"
-          ]
-        },
+        "legend": {"displayMode": "table", "placement": "right", "values": ["value", "percent"]},
         "pieType": "donut",
-        "tooltip": {
-          "mode": "single"
-        }
+        "tooltip": {"mode": "single"}
       },
       "targets": [
-        {
-          "expr": "sum(increase(ja4_requests_total{action=\"allowed\"}[15m]))",
-          "legendFormat": "Allowed"
-        },
-        {
-          "expr": "sum(increase(ja4_blocked_requests_total{attack_type=\"tarpit\"}[15m]))",
-          "legendFormat": "Tarpitted"
-        },
-        {
-          "expr": "sum(increase(ja4_blocked_requests_total{attack_type=\"block\"}[15m]))",
-          "legendFormat": "Blocked"
-        },
-        {
-          "expr": "sum(increase(ja4_blocked_requests_total{attack_type=\"ban\"}[15m]))",
-          "legendFormat": "Banned"
-        },
-        {
-          "expr": "sum(increase(ja4_blocked_requests_total{attack_type=\"blacklist\"}[15m]))",
-          "legendFormat": "Blacklisted"
-        }
+        {"expr": "sum by (action) (increase(ja4proxy_connections_total[15m]))", "legendFormat": "{{action}}"}
       ]
     },
     {
       "id": 31,
-      "title": "Top Blocked JA4 Fingerprints",
-      "type": "table",
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 20
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "title": "TLS Version Distribution (15m)",
+      "type": "piechart",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 20},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
       "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Value"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Blocked Count"
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "steps": [
-                    {
-                      "color": "yellow",
-                      "value": null
-                    },
-                    {
-                      "color": "red",
-                      "value": 10
-                    }
-                  ]
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "fingerprint"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "JA4 Fingerprint"
-              }
-            ]
-          }
-        ]
+        "defaults": {"color": {"mode": "palette-classic"}}
       },
       "options": {
-        "sortBy": [
-          {
-            "displayName": "Blocked Count",
-            "desc": true
-          }
-        ]
+        "legend": {"displayMode": "table", "placement": "right", "values": ["value", "percent"]},
+        "pieType": "donut",
+        "tooltip": {"mode": "single"}
       },
-      "transformations": [
-        {
-          "id": "sortBy",
-          "options": {
-            "sort": [
-              {
-                "field": "Value",
-                "desc": true
-              }
-            ]
-          }
-        }
-      ],
       "targets": [
-        {
-          "expr": "topk(10, sum by (fingerprint_name) (increase(ja4_requests_total{action=\"blocked\"}[15m])))",
-          "legendFormat": "{{fingerprint_name}}",
-          "format": "table",
-          "instant": true
-        }
+        {"expr": "sum by (tls_version) (increase(ja4proxy_tls_version_total[15m]))", "legendFormat": "{{tls_version}}"}
       ]
     },
     {
       "id": 32,
-      "title": "Blocked Reasons",
+      "title": "SNI Signals (15m)",
       "type": "table",
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 20
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 20},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
       "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          }
-        },
+        "defaults": {"color": {"mode": "thresholds"}},
         "overrides": [
           {
-            "matcher": {
-              "id": "byName",
-              "options": "Value"
-            },
+            "matcher": {"id": "byName", "options": "Value"},
             "properties": [
-              {
-                "id": "displayName",
-                "value": "Count"
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "steps": [
-                    {
-                      "color": "yellow",
-                      "value": null
-                    },
-                    {
-                      "color": "red",
-                      "value": 5
-                    }
-                  ]
-                }
-              }
+              {"id": "displayName", "value": "Count (15m)"},
+              {"id": "thresholds", "value": {"steps": [{"color": "yellow", "value": null}, {"color": "red", "value": 100}]}}
             ]
           },
           {
-            "matcher": {
-              "id": "byName",
-              "options": "reason"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Reason"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "attack_type"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Action"
-              }
-            ]
+            "matcher": {"id": "byName", "options": "signal"},
+            "properties": [{"id": "displayName", "value": "Signal Type"}]
           }
         ]
       },
       "options": {
-        "sortBy": [
-          {
-            "displayName": "Count",
-            "desc": true
-          }
-        ]
+        "sortBy": [{"displayName": "Count (15m)", "desc": true}]
       },
+      "transformations": [
+        {"id": "sortBy", "options": {"sort": [{"field": "Value", "desc": true}]}}
+      ],
       "targets": [
-        {
-          "expr": "topk(10, sum by (reason, attack_type) (increase(ja4_blocked_requests_total[15m])))",
-          "legendFormat": "",
-          "format": "table",
-          "instant": true
-        }
+        {"expr": "sum by (signal) (increase(ja4proxy_sni_signal_total[15m]))", "legendFormat": "{{signal}}", "format": "table", "instant": true}
       ]
     },
     {
       "id": 40,
-      "title": "TLS Version Distribution",
-      "type": "piechart",
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 0,
-        "y": 28
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "title": "TLS Versions Over Time",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 28},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          }
+          "custom": {"fillOpacity": 10, "lineWidth": 2},
+          "unit": "reqps"
         }
       },
       "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "values": [
-            "value",
-            "percent"
-          ]
-        },
-        "pieType": "donut"
+        "legend": {"displayMode": "list", "placement": "bottom"},
+        "tooltip": {"mode": "multi"}
       },
       "targets": [
-        {
-          "expr": "sum by (tls_version) (increase(ja4_requests_total[15m]))",
-          "legendFormat": "{{tls_version}}"
-        }
+        {"expr": "sum by (tls_version) (rate(ja4proxy_tls_version_total[30s]))", "legendFormat": "{{tls_version}}"}
       ]
     },
     {
       "id": 41,
-      "title": "Request Latency (p50 / p95 / p99)",
+      "title": "Weak Cipher Signals",
       "type": "timeseries",
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 8,
-        "y": 28
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 28},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
       "fieldConfig": {
         "defaults": {
-          "custom": {
-            "fillOpacity": 0,
-            "lineWidth": 2
-          },
-          "unit": "s"
+          "custom": {"fillOpacity": 10, "lineWidth": 2},
+          "unit": "reqps"
         }
       },
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
+        "legend": {"displayMode": "list", "placement": "bottom"},
+        "tooltip": {"mode": "multi"}
       },
       "targets": [
-        {
-          "expr": "histogram_quantile(0.50, sum(rate(ja4_request_duration_seconds_bucket[30s])) by (le))",
-          "legendFormat": "p50"
-        },
-        {
-          "expr": "histogram_quantile(0.95, sum(rate(ja4_request_duration_seconds_bucket[30s])) by (le))",
-          "legendFormat": "p95"
-        },
-        {
-          "expr": "histogram_quantile(0.99, sum(rate(ja4_request_duration_seconds_bucket[30s])) by (le))",
-          "legendFormat": "p99"
-        }
+        {"expr": "sum by (cipher_strength) (rate(ja4proxy_weak_cipher_total[30s]))", "legendFormat": "{{cipher_strength}}"}
       ]
     },
     {
       "id": 42,
-      "title": "Security Events",
+      "title": "Risk Score Distribution",
       "type": "timeseries",
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 28
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 28},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
       "fieldConfig": {
         "defaults": {
-          "custom": {
-            "fillOpacity": 20,
-            "lineWidth": 2
-          },
-          "unit": "short"
+          "custom": {"fillOpacity": 20, "lineWidth": 2},
+          "unit": "short",
+          "min": 0,
+          "max": 100
         }
       },
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
+        "legend": {"displayMode": "list", "placement": "bottom"},
+        "tooltip": {"mode": "multi"}
       },
       "targets": [
-        {
-          "expr": "sum by (event_type) (rate(ja4_security_events_total[30s]))",
-          "legendFormat": "{{event_type}}"
-        },
-        {
-          "expr": "sum by (error_type) (rate(ja4_tls_handshake_errors_total[30s]))",
-          "legendFormat": "TLS Error: {{error_type}}"
-        }
+        {"expr": "histogram_quantile(0.50, sum(rate(ja4proxy_risk_score_bucket[30s])) by (le))", "legendFormat": "p50"},
+        {"expr": "histogram_quantile(0.95, sum(rate(ja4proxy_risk_score_bucket[30s])) by (le))", "legendFormat": "p95"},
+        {"expr": "rate(ja4proxy_static_allowlist_hits_total[30s])", "legendFormat": "allowlist hits/s"}
       ]
     },
     {
       "id": 50,
       "title": "Security Event Log (Proxy)",
       "type": "logs",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 36
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "ja4proxy-loki"
-      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 36},
+      "datasource": {"type": "loki", "uid": "ja4proxy-loki"},
       "options": {
         "showTime": true,
         "showLabels": true,
@@ -927,27 +415,15 @@
         "dedupStrategy": "none"
       },
       "targets": [
-        {
-          "expr": "{service=\"proxy\"} |~ \"BLOCKED|ALLOWED|WHITELISTED|BLACKLISTED|TARPIT\"",
-          "legendFormat": "",
-          "refId": "A"
-        }
+        {"expr": "{service=\"proxy\"} |~ \"BLOCKED|ALLOWED|WHITELISTED|BLACKLISTED|TARPIT\"", "legendFormat": "", "refId": "A"}
       ]
     },
     {
       "id": 51,
       "title": "All Service Logs",
       "type": "logs",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 36
-      },
-      "datasource": {
-        "type": "loki",
-        "uid": "ja4proxy-loki"
-      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 36},
+      "datasource": {"type": "loki", "uid": "ja4proxy-loki"},
       "options": {
         "showTime": true,
         "showLabels": true,
@@ -959,126 +435,61 @@
         "dedupStrategy": "none"
       },
       "targets": [
-        {
-          "expr": "{container=~\"ja4proxy.*\"}",
-          "legendFormat": "",
-          "refId": "A"
-        }
+        {"expr": "{container=~\"ja4proxy.*\"}", "legendFormat": "", "refId": "A"}
       ]
     },
     {
-      "type": "piechart",
-      "title": "Traffic by Country",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 44
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "values": [
-            "value",
-            "percent"
-          ]
-        },
-        "pieType": "donut",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ]
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "targets": [
-        {
-          "expr": "sum by (source_country) (increase(ja4_requests_total{source_country!=\"\"}[5m]))",
-          "legendFormat": "{{source_country}}",
-          "refId": "A"
-        }
-      ]
-    },
-    {
+      "id": 60,
+      "title": "Counterfactuals by Dial Level (15m)",
       "type": "table",
-      "title": "Blocked Requests by Country",
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 44
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 44},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {"color": {"mode": "thresholds"}},
         "overrides": [
           {
-            "matcher": {
-              "id": "byName",
-              "options": "Value"
-            },
+            "matcher": {"id": "byName", "options": "Value"},
             "properties": [
-              {
-                "id": "displayName",
-                "value": "Blocked"
-              }
+              {"id": "displayName", "value": "Connections"},
+              {"id": "thresholds", "value": {"steps": [{"color": "yellow", "value": null}, {"color": "red", "value": 1000}]}}
             ]
           }
         ]
       },
       "options": {
-        "sortBy": [
-          {
-            "displayName": "Blocked",
-            "desc": true
-          }
-        ]
+        "sortBy": [{"displayName": "Connections", "desc": true}]
+      },
+      "transformations": [
+        {"id": "sortBy", "options": {"sort": [{"field": "Value", "desc": true}]}}
+      ],
+      "targets": [
+        {"expr": "sum by (dial, action) (increase(ja4proxy_monitor_counterfactual_total[15m]))", "legendFormat": "dial={{dial}} → {{action}}", "format": "table", "instant": true}
+      ]
+    },
+    {
+      "id": 61,
+      "title": "Static Allowlist Hits Over Time",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 44},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {
+          "custom": {"fillOpacity": 20, "lineWidth": 2},
+          "unit": "reqps",
+          "color": {"fixedColor": "green", "mode": "fixed"}
+        }
+      },
+      "options": {
+        "legend": {"displayMode": "list", "placement": "bottom"},
+        "tooltip": {"mode": "multi"}
       },
       "targets": [
-        {
-          "expr": "topk(10, sum by (source_country) (increase(ja4_blocked_requests_total{source_country!=\"\"}[5m])))",
-          "legendFormat": "{{source_country}}",
-          "refId": "A",
-          "format": "table",
-          "instant": true
-        }
-      ],
-      "transformations": [
-        {
-          "id": "organize",
-          "options": {
-            "excludeByName": {
-              "Time": true
-            }
-          }
-        }
+        {"expr": "rate(ja4proxy_static_allowlist_hits_total[30s])", "legendFormat": "static allowlist hits/s"}
       ]
     }
   ],
-  "annotations": {
-    "list": []
-  },
-  "templating": {
-    "list": []
-  },
+  "annotations": {"list": []},
+  "templating": {"list": []},
   "links": [],
   "editable": true,
   "fiscalYearStartMonth": 0,

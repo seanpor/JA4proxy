@@ -7,14 +7,22 @@ A security proxy that extracts [JA4 TLS fingerprints](https://github.com/FoxIO-L
 
 ## How It Works
 
+Everything runs in Docker. Two Compose files manage the stack:
+
 ```
-Client ──TLS──▶ HAProxy (LB) ──TCP──▶ JA4proxy ×N ──TLS──▶ Backend (HTTPS)
-                   :443                  :8080              :443
-                                           │
-                                   ┌───────┼───────┐
-                                   ▼       ▼       ▼
-                                 Redis   Tarpit  Prometheus
-                                         :8888   Grafana/Loki
+┌──── docker-compose.poc.yml ─────────────────────────────────────────┐
+│                                                                      │
+│  Client ──TLS──▶ [haproxy] ──TCP──▶ [proxy] ──TLS──▶ [backend]    │
+│                   :443               :8080            :443           │
+│                   :8404 (stats)      :9090 (metrics)                 │
+│                                          │                           │
+│                                     [redis:6379]  [tarpit:8888]     │
+└──────────────────────────────────────────────────────────────────────┘
+         scrapes :9090 ▲                              logs ▲
+┌──── docker-compose.monitoring.yml ──────────────────────────────────┐
+│  [prometheus]:9091  [grafana]:3001  [loki]:3100  [alertmgr]:9093   │
+│  [node-exporter]    [redis-exporter]              [promtail]        │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 1. Client sends a TLS ClientHello (plaintext, before encryption)
@@ -27,10 +35,10 @@ Client ──TLS──▶ HAProxy (LB) ──TCP──▶ JA4proxy ×N ──TLS
 
 ```bash
 # Start everything (proxy + monitoring + Grafana)
-./start-all.sh
+make start
 
 # Generate test traffic (60s, 10% legitimate, 20 workers)
-./generate-tls-traffic.sh 60 10 20
+./scripts/generate-tls-traffic.sh 60 10 20
 
 # Open Grafana dashboard
 open http://localhost:3001    # admin / password from .env
@@ -165,7 +173,7 @@ View logs:
 ```bash
 docker compose -f docker-compose.poc.yml logs -f proxy    # Proxy decisions
 docker compose -f docker-compose.poc.yml logs -f backend   # Backend requests
-docker compose -f docker-compose.monitoring.yml logs -f    # Monitoring stack
+docker compose -f docker/docker-compose.monitoring.yml logs -f  # Monitoring stack
 ```
 
 ## Performance
@@ -187,11 +195,11 @@ Browser connections (Chrome, Firefox, Safari) are matched by `h1`/`h2` ALPN patt
 Generates realistic TLS traffic with distinct fingerprints per client profile:
 
 ```bash
-./generate-tls-traffic.sh <duration_secs> <legit_percent> <workers>
+./scripts/generate-tls-traffic.sh <duration_secs> <legit_percent> <workers>
 
 # Examples
-./generate-tls-traffic.sh 60 10 20    # 60s, 10% good, 20 workers (quick demo)
-./generate-tls-traffic.sh 300 15 50   # 5-min assessment run
+./scripts/generate-tls-traffic.sh 60 10 20    # 60s, 10% good, 20 workers (quick demo)
+./scripts/generate-tls-traffic.sh 300 15 50   # 5-min assessment run
 
 # Reset Redis state between runs (preserves whitelist/blacklist config)
 make flush-redis
@@ -241,8 +249,8 @@ Blocked requests by action type:
 The POC runs a single proxy instance (~210 conn/s). To scale up:
 
 ```bash
-./scale-proxies.sh 4    # Scale to 4 proxy instances (~840 conn/s)
-./scale-proxies.sh 1    # Reset to single instance
+./scripts/scale-proxies.sh 4    # Scale to 4 proxy instances (~840 conn/s)
+./scripts/scale-proxies.sh 1    # Reset to single instance
 ```
 
 This automatically scales containers and reconfigures HAProxy for round-robin. All instances share Redis, so bans are enforced cluster-wide. See [Performance Benchmark](docs/reports/PERFORMANCE_BENCHMARK.md) for throughput data.
@@ -263,8 +271,9 @@ Plus configuration (1,038 lines), Grafana dashboard (1,087 lines), shell scripts
 ## Stopping Services
 
 ```bash
-./stop-all.sh          # Stop everything (keep Redis data)
-./stop-all.sh --clean  # Stop and wipe all volumes (fresh slate)
-make stop              # Same as ./stop-all.sh
+make stop              # Stop everything (keep Redis data)
+make clean             # Stop and wipe all volumes (fresh slate)
+./scripts/stop-all.sh          # same as make stop
+./scripts/stop-all.sh --clean  # same as make clean
 ```
 
