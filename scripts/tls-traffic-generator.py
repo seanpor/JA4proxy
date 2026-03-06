@@ -235,22 +235,23 @@ class TrafficGenerator:
                 self.stats[profile.name]["success"] += 1
                 
         except ssl.SSLError as e:
-            # TLS handshake failed — could be blocked
+            # TLS handshake failed — could be blocked OR backend issue
+            # In monitor mode (dial=0), proxy should never block, so this is likely a backend issue
             result["error"] = f"TLS: {e}"
-            result["blocked"] = True
-            self.stats[profile.name]["blocked"] += 1
+            result["blocked"] = False  # Not a proxy block in monitor mode
+            self.stats[profile.name]["errors"] += 1
         except ConnectionRefusedError:
             result["error"] = "Connection refused"
-            result["blocked"] = True
-            self.stats[profile.name]["blocked"] += 1
+            result["blocked"] = False  # Proxy not listening or network issue
+            self.stats[profile.name]["errors"] += 1
         except ConnectionResetError:
             result["error"] = "Connection reset"
-            result["blocked"] = True
-            self.stats[profile.name]["blocked"] += 1
+            result["blocked"] = False  # Network-level reset, not proxy block
+            self.stats[profile.name]["errors"] += 1
         except socket.timeout:
             result["error"] = "Connection timeout"
-            result["blocked"] = True
-            self.stats[profile.name]["blocked"] += 1
+            result["blocked"] = False  # Backend slow or not responding
+            self.stats[profile.name]["errors"] += 1
         except Exception as e:
             result["error"] = str(e)
             self.stats[profile.name]["errors"] += 1
@@ -312,6 +313,10 @@ class TrafficGenerator:
             print(f"  Blocked:           {total_blocked:,} ({total_blocked/total*100:.1f}%)")
             print(f"  Errors:            {total_errors:,} ({total_errors/total*100:.1f}%)")
             print(f"  Connections/sec:   {total/elapsed:.2f}")
+            
+            # Note about monitor mode
+            if total_blocked == 0 and total_errors > 0:
+                print(f"{Colors.WARNING}  Note: In monitor mode, 'Errors' are connection failures, not security blocks{Colors.ENDC}")
         
         # Separate legitimate vs malicious
         legit_ok = sum(self.stats[p.name]["success"] for p in LEGITIMATE_CLIENTS if p.name in self.stats)
