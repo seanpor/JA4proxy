@@ -13,9 +13,9 @@ services:
     ports:
       - "127.0.0.1:9091:9090"
     volumes:
-      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
-      - ./monitoring/prometheus/recording_rules.yml:/etc/prometheus/recording_rules.yml:ro
+      - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ../monitoring/prometheus/recording_rules.yml:/etc/prometheus/recording_rules.yml:ro
       - prometheus-data:/prometheus
     restart: unless-stopped
     networks:
@@ -49,7 +49,7 @@ services:
     ports:
       - "127.0.0.1:9093:9093"
     volumes:
-      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ../monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - alertmanager-data:/alertmanager
     restart: unless-stopped
     networks:
@@ -91,8 +91,8 @@ services:
       - GF_SECURITY_STRICT_TRANSPORT_SECURITY=false
     volumes:
       - grafana-data:/var/lib/grafana
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     restart: unless-stopped
     networks:
       - ja4proxy-monitoring
@@ -169,7 +169,7 @@ services:
     container_name: ja4proxy-loki
     # Not exposed to host — only accessible from monitoring network
     volumes:
-      - ./monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - ../monitoring/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
       - loki-data:/loki
     command: -config.file=/etc/loki/local-config.yaml
     restart: unless-stopped
@@ -194,7 +194,7 @@ services:
     image: grafana/promtail:3.3.2
     container_name: ja4proxy-promtail
     volumes:
-      - ./monitoring/loki/promtail-config.yml:/etc/promtail/config.yml:ro
+      - ../monitoring/loki/promtail-config.yml:/etc/promtail/config.yml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - promtail-positions:/positions
