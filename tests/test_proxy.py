@@ -357,7 +357,10 @@ class TestIntegration:
         """Test Redis integration."""
         try:
             r = redis.Redis(
-                host="localhost", port=6379, password=os.getenv("REDIS_PASSWORD"), db=15
+                host=os.getenv("REDIS_HOST", "redis"),
+                port=int(os.getenv("REDIS_PORT", "6379")),
+                password=os.getenv("REDIS_PASSWORD"),
+                db=15,
             )
             r.ping()
 
