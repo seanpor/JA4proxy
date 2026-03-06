@@ -740,10 +740,19 @@ class SecurityManager:
             self.blacklist = set()
 
     async def check_access(
-        self, fingerprint: JA4Fingerprint, client_ip: str
+        self, fingerprint: JA4Fingerprint, client_ip: str, alpn: str = None
     ) -> Tuple[bool, str]:
         """Check if request should be allowed."""
         try:
+            # Check ALPN bypass - browser traffic doesn't get rate limited
+            alpn_bypass = self.config.get("security_policy", {}).get(
+                "alpn_browser_bypass", {}
+            )
+            if alpn_bypass.get("enabled", True) and alpn in ("h2", "http/1.1", "h1"):
+                self.logger.debug(f"ALPN bypass: {alpn} - skipping rate limit")
+                # Still check blacklist/whitelist but skip rate limiting
+                return self._check_list_based_access(fingerprint)
+
             # Check rate limiting
             if self.config["security"]["rate_limiting"]:
                 if not await self._check_rate_limit(client_ip):
@@ -752,30 +761,34 @@ class SecurityManager:
                     ).inc()
                     return False, "Rate limit exceeded"
 
-            # Check blacklist
-            if self.config["security"]["blacklist_enabled"]:
-                if fingerprint.ja4.encode() in self.blacklist:
-                    BLOCKED_REQUESTS.labels(
-                        reason="blacklist", source_country="", attack_type="blacklist"
-                    ).inc()
-                    return False, "JA4 blacklisted"
-
-            # Check whitelist
-            if self.config["security"]["whitelist_enabled"]:
-                if fingerprint.ja4.encode() not in self.whitelist:
-                    if self.config["security"]["block_unknown_ja4"]:
-                        BLOCKED_REQUESTS.labels(
-                            reason="not_whitelisted",
-                            source_country="",
-                            attack_type="policy",
-                        ).inc()
-                        return False, "JA4 not whitelisted"
-
-            return True, "Allowed"
+            return self._check_list_based_access(fingerprint)
 
         except Exception as e:
             self.logger.error(f"Error checking access: {e}")
             return False, "Internal error"
+
+    def _check_list_based_access(self, fingerprint: JA4Fingerprint) -> Tuple[bool, str]:
+        """Check blacklist and whitelist (called after rate limit check)."""
+        # Check blacklist
+        if self.config["security"]["blacklist_enabled"]:
+            if fingerprint.ja4.encode() in self.blacklist:
+                BLOCKED_REQUESTS.labels(
+                    reason="blacklist", source_country="", attack_type="blacklist"
+                ).inc()
+                return False, "JA4 blacklisted"
+
+        # Check whitelist
+        if self.config["security"]["whitelist_enabled"]:
+            if fingerprint.ja4.encode() not in self.whitelist:
+                if self.config["security"]["block_unknown_ja4"]:
+                    BLOCKED_REQUESTS.labels(
+                        reason="not_whitelisted",
+                        source_country="",
+                        attack_type="policy",
+                    ).inc()
+                    return False, "JA4 not whitelisted"
+
+        return True, "Allowed"
 
     async def _check_rate_limit(self, client_ip: str) -> bool:
         """
