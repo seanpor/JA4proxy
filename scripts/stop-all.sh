@@ -21,12 +21,12 @@ echo "========================================"
 echo
 
 # Stop monitoring stack
-if docker compose -f docker-compose.monitoring.yml ps -q 2>/dev/null | grep -q .; then
+if docker compose -f docker/docker-compose.monitoring.yml ps -q 2>/dev/null | grep -q .; then
     echo -e "${BLUE}▶ Stopping monitoring stack (Prometheus/Grafana/Loki)...${NC}"
     if [ "$CLEAN" = true ]; then
-        docker compose -f docker-compose.monitoring.yml down -v --remove-orphans
+        docker compose -f docker/docker-compose.monitoring.yml down -v --remove-orphans
     else
-        docker compose -f docker-compose.monitoring.yml down --remove-orphans
+        docker compose -f docker/docker-compose.monitoring.yml down --remove-orphans
     fi
     echo -e "${GREEN}  ✓ Monitoring stopped${NC}"
 else
@@ -56,6 +56,6 @@ else
 fi
 echo
 echo "To start again:"
-echo "  ./start-all.sh          # POC + monitoring"
-echo "  ./start-poc.sh          # POC only"
+echo "  ./scripts/start-all.sh          # POC + monitoring"
+echo "  ./scripts/start-poc.sh          # POC only"
 echo "========================================"

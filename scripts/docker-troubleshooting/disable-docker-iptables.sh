@@ -23,4 +23,4 @@ sudo systemctl restart docker
 sleep 5
 
 echo ""
-echo "Done! Now run: ./start-poc.sh"
+echo "Done! Now run: ./scripts/start-poc.sh"

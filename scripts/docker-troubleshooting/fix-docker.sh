@@ -75,4 +75,4 @@ sleep 5
 echo ""
 echo -e "${GREEN}Docker networking has been fixed!${NC}"
 echo ""
-echo "Now run: ./start-poc.sh"
+echo "Now run: ./scripts/start-poc.sh"

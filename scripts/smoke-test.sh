@@ -77,8 +77,8 @@ else
     echo "=========================================="
     echo ""
     echo "Troubleshooting:"
-    echo "  1. Ensure services are running: ./start-poc.sh"
-    echo "  2. Check logs: docker-compose -f docker-compose.poc.yml logs"
-    echo "  3. Check service status: docker-compose -f docker-compose.poc.yml ps"
+    echo "  1. Ensure services are running: ./scripts/start-poc.sh"
+    echo "  2. Check logs: docker compose -f docker-compose.poc.yml logs"
+    echo "  3. Check service status: docker compose -f docker-compose.poc.yml ps"
     exit 1
 fi

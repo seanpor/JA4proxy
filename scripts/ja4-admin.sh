@@ -20,7 +20,7 @@ ENV_FILE="${ENV_FILE:-.env}"
 die() { echo -e "${RED}✗ $*${NC}" >&2; exit 1; }
 
 load_redis_pass() {
-    [ -f "$ENV_FILE" ] || die ".env not found — run ./start-poc.sh first."
+    [ -f "$ENV_FILE" ] || die ".env not found — run ./scripts/start-poc.sh first."
     REDIS_PASS=$(grep '^REDIS_PASSWORD=' "$ENV_FILE" 2>/dev/null | cut -d= -f2)
     [ -n "$REDIS_PASS" ] || die "No REDIS_PASSWORD in .env"
 }

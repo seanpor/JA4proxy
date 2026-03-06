@@ -74,7 +74,7 @@ METRICS=$(curl -s --max-time 3 http://localhost:9090/metrics 2>/dev/null | grep 
 if [ "${METRICS:-0}" -gt 0 ]; then
     pass "JA4 metrics:    $METRICS metric series active"
 else
-    warn "No JA4 metrics yet — send some traffic first: ./generate-tls-traffic.sh 10 15 5"
+    warn "No JA4 metrics yet — send some traffic first: ./scripts/generate-tls-traffic.sh 10 15 5"
 fi
 
 # ── Config files ────────────────────────────────────────────────────────────────
@@ -82,7 +82,7 @@ echo ""
 echo "Configuration:"
 [ -f config/proxy.yml ]        && pass "config/proxy.yml" || fail "config/proxy.yml — missing"
 [ -f docker-compose.poc.yml ]  && pass "docker-compose.poc.yml" || fail "docker-compose.poc.yml — missing"
-[ -f .env ]                    && pass ".env (credentials file)" || warn ".env missing — run ./start-poc.sh to auto-generate"
+[ -f .env ]                    && pass ".env (credentials file)" || warn ".env missing — run ./scripts/start-poc.sh to auto-generate"
 
 # ── Summary ─────────────────────────────────────────────────────────────────────
 echo ""
@@ -91,14 +91,14 @@ if [ "$ERRORS" -eq 0 ]; then
     echo -e "  ${GREEN}POC stack is ready.${NC}"
     echo ""
     echo "  Next steps:"
-    echo "    Generate traffic:  ./generate-tls-traffic.sh 60 15 20"
+    echo "    Generate traffic:  ./scripts/generate-tls-traffic.sh 60 15 20"
     echo "    Watch the proxy:   make logs"
     echo "    Security status:   ./scripts/ja4-admin.sh status"
-    echo "    Full dashboard:    ./status.sh"
+    echo "    Full dashboard:    ./scripts/status.sh"
 else
     echo -e "  ${RED}${ERRORS} issue(s) found.${NC}"
     echo ""
-    echo "  If services are not running:  ./start-poc.sh"
+    echo "  If services are not running:  ./scripts/start-poc.sh"
     echo "  View startup logs:            make logs"
 fi
 echo ""

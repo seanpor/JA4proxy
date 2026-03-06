@@ -21,5 +21,5 @@ Only use these if you encounter Docker networking errors like:
 
 For normal operations, just use:
 ```bash
-./start-poc.sh
+./scripts/start-poc.sh
 ```

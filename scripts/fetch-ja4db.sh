@@ -32,7 +32,7 @@ ok()   { echo -e "${GREEN}✓ $*${NC}"; }
 warn() { echo -e "${YELLOW}⚠ $*${NC}"; }
 
 load_env() {
-    [ -f "$ENV_FILE" ] || die ".env not found — run ./start-poc.sh first."
+    [ -f "$ENV_FILE" ] || die ".env not found — run ./scripts/start-poc.sh first."
     REDIS_PASS=$(grep '^REDIS_PASSWORD=' "$ENV_FILE" 2>/dev/null | cut -d= -f2 || true)
     [ -n "$REDIS_PASS" ] || die "No REDIS_PASSWORD in .env"
     JA4DB_API_KEY=$(grep '^JA4DB_API_KEY=' "$ENV_FILE" 2>/dev/null | cut -d= -f2 || true)

@@ -6,7 +6,7 @@ RUN groupadd -r backend && useradd -r -g backend backend
 WORKDIR /app
 
 # Copy mock backend server and TLS certs
-COPY mock-backend.py .
+COPY scripts/mock-backend.py .
 COPY ssl/certs/backend.crt /app/ssl/certs/backend.crt
 COPY ssl/private/backend.key /app/ssl/private/backend.key
 

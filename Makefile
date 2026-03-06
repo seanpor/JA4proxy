@@ -1,6 +1,6 @@
 # Makefile for JA4 Proxy
 
-.PHONY: help build test lint clean deploy-poc deploy-enterprise smoke-test flush-redis attack-status top-attackers block-ja4 block-ip unblock-ip fetch-db list-pending approve-all geoip-report geoip-monitor geoip-watch update-geoip check-geoip start start-monitoring stop stop-clean status
+.PHONY: help build test lint clean deploy-poc deploy-enterprise smoke-test flush-redis attack-status top-attackers block-ja4 block-ip unblock-ip fetch-db list-pending approve-all geoip-report geoip-monitor geoip-watch update-geoip check-geoip start start-monitoring stop stop-clean status dial ssh-tunnels
 
 # Default target
 help:
@@ -22,6 +22,10 @@ help:
 	@echo "    REDIS_PASSWORD  - Auto-generated on first start"
 	@echo "    GRAFANA_PASSWORD- Auto-generated on first start"
 	@echo "    JA4DB_API_KEY   - Optional ja4db.com API key"
+	@echo "  dial LEVEL=<0-100> - Set the blocking dial via pubsub"
+	@echo ""
+	@echo "── Operations ──────────────────────────────────────────────"
+	@echo "  ssh-tunnels       - Print SSH tunnel command for remote UI access"
 	@echo ""
 	@echo "── Incident Response (no restart needed) ───────────────────"
 	@echo "  attack-status     - Quick security snapshot (active bans, block rate)"
@@ -53,38 +57,38 @@ help:
 
 # Start full stack (POC + monitoring)
 start:
-	@./start-all.sh
+	@./scripts/start-all.sh
 
 # Start monitoring stack only (Prometheus / Grafana / Loki)
 start-monitoring:
-	@./start-monitoring.sh
+	@./scripts/start-monitoring.sh
 
 # Stop all services (keep Redis data)
 stop:
-	@./stop-all.sh
+	@./scripts/stop-all.sh
 
 # Stop all services AND remove all volumes (fresh slate)
 stop-clean:
-	@./stop-all.sh --clean
+	@./scripts/stop-all.sh --clean
 
 # Show health of all services + security state
 status:
-	@./status.sh
+	@./scripts/status.sh
 
 # ── Build ──────────────────────────────────────────────────────────────────────
 
 # Build Docker images
 build:
 	@echo "Building Docker images..."
-	docker-compose -f docker-compose.poc.yml build
+	docker compose -f docker-compose.poc.yml build
 
 # Run tests
 test:
-	@./run-tests.sh
+	@./scripts/run-tests.sh
 
 # Run quick smoke test
 smoke-test:
-	@./smoke-test.sh
+	@./scripts/smoke-test.sh
 
 # Run linting
 lint:
@@ -93,13 +97,13 @@ lint:
 # Clean up
 clean:
 	@echo "Cleaning up containers and volumes..."
-	docker-compose -f docker-compose.poc.yml down -v --remove-orphans
-	docker-compose -f docker-compose.prod.yml down -v --remove-orphans
+	docker compose -f docker-compose.poc.yml down -v --remove-orphans
+	docker compose -f docker/docker-compose.prod.yml down -v --remove-orphans
 	rm -rf reports/ __pycache__/ .pytest_cache/ .mypy_cache/
 
 # Deploy PoC environment
 deploy-poc:
-	@./start-poc.sh
+	@./scripts/start-poc.sh
 
 # Deploy enterprise environment
 deploy-enterprise:
@@ -115,15 +119,15 @@ health-check:
 
 # View logs
 logs:
-	docker-compose -f docker-compose.poc.yml logs -f proxy
+	docker compose -f docker-compose.poc.yml logs -f proxy
 
 # Run integration tests
 test-integration:
-	docker-compose -f docker-compose.poc.yml run --rm test pytest tests/integration/ -v
+	docker compose -f docker-compose.poc.yml run --rm test pytest tests/integration/ -v
 
 # Run unit tests only
 test-unit:
-	docker-compose -f docker-compose.poc.yml run --rm test pytest tests/unit/ -v
+	docker compose -f docker-compose.poc.yml run --rm test pytest tests/unit/ -v
 
 # Flush all transient security state from Redis (bans, blocks, rate windows, audit logs)
 # Preserves ja4:whitelist and ja4:blacklist so config survives the flush.
@@ -207,4 +211,28 @@ unblock-ip:
 perf-test:
 	@echo "Starting performance tests..."
 	@echo "Note: This requires services to be running (make deploy-poc)"
-	docker-compose -f docker-compose.poc.yml run --rm test locust -f /app/performance/locust_tests.py --host http://proxy:8080 --users 100 --spawn-rate 10 --run-time 5m --headless
+	docker compose -f docker-compose.poc.yml run --rm test locust -f /app/performance/locust_tests.py --host http://proxy:8080 --users 100 --spawn-rate 10 --run-time 5m --headless
+
+# ── Configuration ─────────────────────────────────────────────────────────────
+
+# Set the blocking dial (0 = monitor only, 100 = full blocking)
+# Usage: make dial LEVEL=50
+dial:
+	@[ -n "$(LEVEL)" ] || (echo "Usage: make dial LEVEL=<0-100>"; exit 1)
+	@python3 scripts/set_dial.py $(LEVEL)
+
+# ── Operations ────────────────────────────────────────────────────────────────
+
+# Print SSH tunnel command for accessing localhost-only UIs from a remote machine
+ssh-tunnels:
+	@echo ""
+	@echo "To access localhost-only UIs from a remote machine, run this on your laptop:"
+	@echo ""
+	@echo "  ssh -L 9091:localhost:9091 -L 9093:localhost:9093 -L 8404:localhost:8404 USER@HOST"
+	@echo ""
+	@echo "Then browse to:"
+	@echo "  http://localhost:9091  — Prometheus"
+	@echo "  http://localhost:9093  — Alertmanager"
+	@echo "  http://localhost:8404/stats  — HAProxy stats"
+	@echo "  http://localhost:3001  — Grafana (no tunnel needed, already public)"
+	@echo ""

@@ -16,7 +16,7 @@ echo ""
 # Check if POC is running
 if ! docker ps | grep -q "ja4proxy"; then
     echo -e "${YELLOW}⚠ JA4proxy POC not running. Starting...${NC}"
-    ./start-poc.sh
+    ./scripts/start-poc.sh
     sleep 10
 fi
 
@@ -25,7 +25,7 @@ fi
 
 # Start monitoring stack
 echo -e "${GREEN}▶ Starting monitoring stack...${NC}"
-docker compose -f docker-compose.monitoring.yml up -d
+docker compose -f docker/docker-compose.monitoring.yml up -d
 
 # Wait for services
 echo -e "${GREEN}▶ Waiting for services to be ready...${NC}"
@@ -80,7 +80,7 @@ echo "Next steps:"
 echo ""
 echo "  1. Open Grafana: open http://localhost:3001"
 echo "  2. Dashboard is auto-imported: 'JA4 Proxy Security Dashboard'"
-echo "  3. Test alerts: ./test-ja4-blocking.sh"
+echo "  3. Test alerts: ./scripts/test-ja4-blocking.sh"
 echo "  4. View alerts: open http://localhost:9093"
 echo ""
 echo "Documentation: docs/MONITORING_SETUP.md"
