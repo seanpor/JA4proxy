@@ -1,8 +1,22 @@
 # Security Architecture Document
 
+> **⚠️ TARGET ARCHITECTURE — NOT CURRENT STATE**
+>
+> This document describes the **intended production security architecture** for a
+> fully hardened enterprise deployment of JA4proxy. Controls marked with
+> infrastructure components (HashiCorp Vault, WAF, Elasticsearch, SIEM) are
+> **aspirational** and are not present in the current POC build.
+>
+> For the security posture of the current implementation, see:
+> - [Comprehensive Security Audit](../security/COMPREHENSIVE_SECURITY_AUDIT.md) — what is actually implemented today
+> - [DMZ Deployment Readiness](../DMZ_DEPLOYMENT_READINESS.md) — gap analysis between current and production-ready state
+> - [Redis Security Review](../REDIS_SECURITY_REVIEW.md) — current Redis hardening status
+
 ## Executive Summary
 
-This document outlines the comprehensive security architecture for the JA4 Proxy system, including threat modeling, security controls, compliance requirements, and incident response procedures. The security architecture is designed to provide defense-in-depth protection while maintaining high performance and availability.
+This document outlines the target security architecture for a production enterprise
+deployment of JA4proxy, including threat modelling, security controls, compliance
+requirements, and incident response procedures.
 
 ## Security Objectives
 
