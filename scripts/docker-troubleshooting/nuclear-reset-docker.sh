@@ -59,4 +59,4 @@ sleep 5
 echo ""
 echo -e "${GREEN}Docker has been reset!${NC}"
 echo ""
-echo "Now run: ./start-poc.sh"
+echo "Now run: ./scripts/start-poc.sh"

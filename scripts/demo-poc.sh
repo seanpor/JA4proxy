@@ -73,7 +73,7 @@ check_services() {
         error "Services are not running!"
         echo ""
         echo "Please start the POC first:"
-        echo "  ./start-poc.sh"
+        echo "  ./scripts/start-poc.sh"
         echo ""
         exit 1
     fi
@@ -313,11 +313,11 @@ conclusion() {
     echo ""
     
     echo "2. Try manual testing:"
-    echo "   ./smoke-test.sh"
+    echo "   ./scripts/smoke-test.sh"
     echo ""
-    
+
     echo "3. Run full test suite:"
-    echo "   ./run-tests.sh"
+    echo "   ./scripts/run-tests.sh"
     echo ""
     
     echo "4. View live logs:"

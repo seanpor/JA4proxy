@@ -31,7 +31,7 @@ if [[ $REPLY == "1" ]]; then
     sleep 10
     
     echo ""
-    echo -e "${GREEN}Done! Now run: ./start-poc.sh${NC}"
+    echo -e "${GREEN}Done! Now run: ./scripts/start-poc.sh${NC}"
     
 elif [[ $REPLY == "2" ]]; then
     echo ""
@@ -59,7 +59,7 @@ elif [[ $REPLY == "2" ]]; then
         echo -e "${GREEN}Docker installed!${NC}"
         echo ""
         echo "You need to log out and back in for group membership to take effect."
-        echo "Then run: ./start-poc.sh"
+        echo "Then run: ./scripts/start-poc.sh"
     fi
 else
     echo "Cancelled"

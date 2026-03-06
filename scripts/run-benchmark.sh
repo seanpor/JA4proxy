@@ -28,7 +28,7 @@ mkdir -p "$REPORT_DIR"
 
 # Ensure services are running
 if ! curl -sf http://localhost:9090/metrics > /dev/null 2>&1; then
-    echo "✗ Proxy not running. Start with ./start-all.sh first."
+    echo "✗ Proxy not running. Start with ./scripts/start-all.sh first."
     exit 1
 fi
 echo "✓ Services are running"

@@ -30,7 +30,9 @@ services:
           memory: 64M
 
   proxy:
-    build: .
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
     container_name: ja4proxy
     ports:
       - "127.0.0.1:8080:8080"
@@ -97,7 +99,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: Dockerfile.mockbackend
+      dockerfile: docker/Dockerfile.mockbackend
     container_name: ja4proxy-backend
     ports:
       - "127.0.0.1:8443:443"
@@ -154,7 +156,7 @@ services:
   trafficgen:
     build:
       context: .
-      dockerfile: Dockerfile.trafficgen
+      dockerfile: docker/Dockerfile.trafficgen
     container_name: ja4proxy-trafficgen
     depends_on:
       - proxy
@@ -178,7 +180,7 @@ services:
   test:
     build:
       context: .
-      dockerfile: Dockerfile.test
+      dockerfile: docker/Dockerfile.test
     container_name: ja4proxy-test
     depends_on:
       - proxy

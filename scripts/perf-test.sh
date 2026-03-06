@@ -17,7 +17,7 @@ echo ""
 # Check if services are running
 if ! docker compose -f docker-compose.poc.yml ps | grep -q "Up"; then
     echo -e "${RED}Error: Services are not running${NC}"
-    echo "Start services first with: ./start-poc.sh"
+    echo "Start services first with: ./scripts/start-poc.sh"
     exit 1
 fi
 

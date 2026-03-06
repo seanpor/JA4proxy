@@ -31,7 +31,7 @@ echo -e "${BLUE}▶ Checking services...${NC}"
 
 if ! docker compose -f docker-compose.poc.yml ps 2>/dev/null | grep -q "ja4proxy.*Up"; then
     echo -e "${RED}✗ JA4proxy services are not running${NC}"
-    echo -e "${YELLOW}  Start with: ./start-poc.sh or ./start-all.sh${NC}"
+    echo -e "${YELLOW}  Start with: ./scripts/start-poc.sh or ./scripts/start-all.sh${NC}"
     exit 1
 fi
 
@@ -136,5 +136,5 @@ echo ""
 echo -e "${YELLOW}Next Steps:${NC}"
 echo -e "  1. View metrics: ${CYAN}curl http://localhost:9090/metrics | grep ja4_${NC}"
 echo -e "  2. Grafana:      ${CYAN}http://localhost:3001${NC} (metrics + logs)"
-echo -e "  3. Run again:    ${CYAN}./generate-tls-traffic.sh <duration> <good%> <workers>${NC}"
+echo -e "  3. Run again:    ${CYAN}./scripts/generate-tls-traffic.sh <duration> <good%> <workers>${NC}"
 echo ""

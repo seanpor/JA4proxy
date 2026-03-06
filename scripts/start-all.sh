@@ -23,7 +23,7 @@ if docker ps --format '{{.Names}}' | grep -q "ja4proxy$"; then
 else
     # Start POC environment first
     echo "▶ Starting POC environment..."
-    ./start-poc.sh
+    ./scripts/start-poc.sh
     
     echo
     echo "▶ Waiting for POC services to stabilize..."
@@ -39,7 +39,7 @@ else
     # Start monitoring stack
     echo
     echo "▶ Starting monitoring stack..."
-    ./start-monitoring.sh
+    ./scripts/start-monitoring.sh
 fi
 
 echo
@@ -62,15 +62,15 @@ echo "                 (admin / see .env)"
 echo
 echo "Next steps:"
 echo "  1. Open Grafana: http://localhost:3001"
-echo "  2. Generate traffic: ./generate-tls-traffic.sh 60 15 20"
+echo "  2. Generate traffic: ./scripts/generate-tls-traffic.sh 60 15 20"
 echo "  3. Watch the dashboard show blocked vs allowed traffic"
 echo
 echo "View logs:"
 echo "  docker compose -f docker-compose.poc.yml logs -f proxy"
-echo "  docker compose -f docker-compose.monitoring.yml logs -f"
+echo "  docker compose -f docker/docker-compose.monitoring.yml logs -f"
 echo
 echo "Stop all services:"
-echo "  ./stop-all.sh          # graceful stop (keep Redis data)"
-echo "  ./stop-all.sh --clean  # wipe everything (fresh slate)"
-echo "  make stop              # same as ./stop-all.sh"
+echo "  ./scripts/stop-all.sh          # graceful stop (keep Redis data)"
+echo "  ./scripts/stop-all.sh --clean  # wipe everything (fresh slate)"
+echo "  make stop                       # same as ./scripts/stop-all.sh"
 echo

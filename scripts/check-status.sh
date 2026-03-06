@@ -108,7 +108,7 @@ echo "3. View logs:"
 echo "   docker compose -f docker-compose.poc.yml logs -f proxy"
 echo ""
 echo "4. Run tests:"
-echo "   ./run-tests.sh"
+echo "   ./scripts/run-tests.sh"
 echo ""
 
 # Current limitations

@@ -43,12 +43,12 @@ echo
 echo -e "${BOLD}▸ Configuration${NC}"
 info "Backend:  ${BACKEND_HOST}:${BACKEND_PORT}"
 if [ "${REDIS_PASSWORD:-changeme}" = "changeme" ]; then
-    warn "Redis password is default 'changeme' — run ./start-poc.sh to auto-generate"
+    warn "Redis password is default 'changeme' — run ./scripts/start-poc.sh to auto-generate"
 else
     info "Redis:    password set ($(echo "${REDIS_PASSWORD}" | wc -c | tr -d ' ')+ chars)"
 fi
 if [ "${GRAFANA_PASSWORD:-admin}" = "admin" ]; then
-    warn "Grafana password is default 'admin' — run ./start-poc.sh to auto-generate"
+    warn "Grafana password is default 'admin' — run ./scripts/start-poc.sh to auto-generate"
 else
     info "Grafana:  password set"
 fi
