@@ -167,12 +167,29 @@ def redis_client():
     # Mock script registration and execution
     # Simulate real Redis behavior with per-key counters
     from collections import defaultdict
+    import asyncio
     
     # Track counters per Redis key (simulating real Redis)
     redis_counters = defaultdict(int)
     
     # Track keys with TTL for TTL tests
     redis_keys_with_ttl = set()
+    
+    # Ensure proper cleanup of any async resources
+    def cleanup_mock():
+        # Clear all tracked state
+        redis_counters.clear()
+        redis_keys_with_ttl.clear()
+        redis_sets.clear()
+        
+        # Ensure any pending async tasks are cleaned up
+        try:
+            pending = asyncio.all_tasks()
+            for task in pending:
+                task.close()
+        except RuntimeError:
+            # No event loop running - that's fine
+            pass
     
     def mock_script(keys=None, args=None, client=None):
         if keys and len(keys) > 0:
@@ -213,6 +230,9 @@ def redis_client():
     mock.bf.return_value = bloom_mock
     
     yield mock
+    
+    # Clean up mock state after tests complete
+    cleanup_mock()
 
 
 # Hook to prevent skipping Redis-dependent tests
