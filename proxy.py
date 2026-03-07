@@ -1283,7 +1283,7 @@ class ProxyServer:
                                 f"JA4: {ja4} | Name: {classify_ja4(ja4, self.config)}"
                             )
                             REQUEST_COUNT.labels(
-                                fingerprint=ja4[:16],
+                                fingerprint=ja4,
                                 fingerprint_name=classify_ja4(ja4, self.config),
                                 action="blocked",
                                 source_country=country,
@@ -1308,7 +1308,7 @@ class ProxyServer:
                         f"Name: {classify_ja4(ja4, self.config)}"
                     )
                     REQUEST_COUNT.labels(
-                        fingerprint=ja4[:16],
+                        fingerprint=ja4,
                         fingerprint_name=classify_ja4(ja4, self.config),
                         action="blocked",
                         source_country=country or "",
@@ -1365,7 +1365,7 @@ class ProxyServer:
                     else "blocked"
                 )
                 REQUEST_COUNT.labels(
-                    fingerprint=ja4[:16],
+                    fingerprint=ja4,
                     fingerprint_name=classify_ja4(ja4, self.config),
                     action=action_label,
                     source_country=fingerprint.geo_country,
@@ -1673,7 +1673,7 @@ class ProxyServer:
                 int(self.config["proxy"]["backend_port"]),
             )
 
-            self.logger.info(f"Forwarding connection with JA4: {fingerprint.ja4[:16]}")
+            self.logger.info(f"Forwarding connection with JA4: {fingerprint.ja4}")
 
             # Send initial data to backend
             backend_writer.write(initial_data)
