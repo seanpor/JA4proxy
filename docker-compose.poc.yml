@@ -33,6 +33,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
+      network: host
     container_name: ja4proxy
     ports:
       - "127.0.0.1:8080:8080"
@@ -100,6 +101,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.mockbackend
+      network: host
     container_name: ja4proxy-backend
     ports:
       - "127.0.0.1:8443:443"
@@ -126,6 +128,7 @@ services:
     build:
       context: ./tarpit
       dockerfile: Dockerfile
+      network: host
     container_name: ja4proxy-tarpit
     ports:
       - "127.0.0.1:8888:8888"
@@ -157,6 +160,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.trafficgen
+      network: host
     container_name: ja4proxy-trafficgen
     depends_on:
       - proxy
@@ -181,6 +185,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.test
+      network: host
     container_name: ja4proxy-test
     depends_on:
       - proxy
