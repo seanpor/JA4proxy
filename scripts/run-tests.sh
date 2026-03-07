@@ -68,7 +68,12 @@ echo "Checking for parallel test support..."
 # Note: Disabling parallel execution due to resource contention issues
 # pytest-xdist can cause timeouts and excessive memory usage in Docker
 echo "ℹ Using sequential execution for stability (parallelism disabled)"
+
+# Use timeout to prevent hanging (reduced from 600s since we're running sequentially)
+=======
 PARALLEL_FLAG=""
+
+# Use timeout to prevent hanging (reduced from 600s since we're running sequentially)
 =======
 
 # Use timeout to prevent hanging (reduced from 600s since we're running sequentially)
