@@ -108,13 +108,10 @@ class ASNClassifier:
 
     def _schedule_tor_list_init(self) -> None:
         """Schedule async Tor list initialization without blocking __init__."""
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            return  # No event loop - will be initialized later
-        if loop.is_running():
-            asyncio.create_task(self._init_tor_list())
-            self._tor_list_initialized = True
+        # Defer all Tor list initialization to lazy loading in signals() method
+        # This prevents unawaited coroutine warnings during module import
+        # and ensures proper async context is available
+        self._tor_list_initialized = False
 
     def _load_datacenter_list(self) -> None:
         """Load datacenter ASN list from config file."""
@@ -396,5 +393,10 @@ class ASNClassifier:
 
     async def signals(self, ctx) -> list[RiskSignal]:
         """Async method to get risk signals for a connection context."""
+        # Lazy initialization of Tor list if not already initialized
+        if not self._tor_list_initialized:
+            await self._init_tor_list()
+            self._tor_list_initialized = True
+        
         signal = self.get_signal(ctx.client_ip)
         return [signal] if signal else []

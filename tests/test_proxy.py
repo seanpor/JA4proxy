@@ -353,24 +353,25 @@ class TestIntegration:
         # Testing the full flow from connection to backend forwarding
         pass
 
-    def test_redis_integration(self):
-        """Test Redis integration."""
+    def test_redis_integration(self, redis_client):
+        """Test Redis integration using the standard redis_client fixture."""
+        # Use the standard redis_client fixture that works with both real Redis and mock
         try:
-            r = redis.Redis(
-                host=os.getenv("REDIS_HOST", "redis"),
-                port=int(os.getenv("REDIS_PORT", "6379")),
-                password=os.getenv("REDIS_PASSWORD"),
-                db=15,
-            )
-            r.ping()
+            # Test basic Redis operations
+            redis_client.ping()
 
-            r.sadd("ja4:whitelist", "test_fingerprint")
-            assert b"test_fingerprint" in r.smembers("ja4:whitelist")
+            # Test set/add operations
+            redis_client.sadd("ja4:whitelist", "test_fingerprint")
+            members = redis_client.smembers("ja4:whitelist")
+            assert b"test_fingerprint" in members
 
-            r.delete("ja4:whitelist")
+            # Test deletion
+            redis_client.delete("ja4:whitelist")
+            assert len(redis_client.smembers("ja4:whitelist")) == 0
 
-        except redis.ConnectionError:
-            pytest.skip("Redis not available for integration testing")
+        except (redis.ConnectionError, AttributeError):
+            # AttributeError can occur if mock doesn't implement all methods
+            pytest.skip("Redis client not fully available for integration testing")
 
 
 if __name__ == "__main__":

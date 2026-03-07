@@ -97,3 +97,6 @@ Thumbs.db
 node_modules/
 package-lock.json
 package.json
+
+# Test result files
+test_results_*.txt
