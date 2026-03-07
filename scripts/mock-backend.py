@@ -136,7 +136,11 @@ def run_server(port=None, tls=None):
         httpd = HighCapacityHTTPServer(server_address, MockBackendHandler)
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.load_cert_chain(tls_cert, tls_key)
+        # Timeout prevents hung TLS handshakes from blocking the thread pool.
+        # Without this, high-load tests cause threads to pile up waiting for
+        # a handshake that never completes, starving legitimate connections.
         httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
+        httpd.socket.settimeout(10)
         print(f"Mock backend server started on HTTPS port {port}")
     else:
         port = port or int(os.environ.get('PORT', 80))
