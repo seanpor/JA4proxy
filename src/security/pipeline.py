@@ -62,6 +62,8 @@ from .mtls import MTLSHandler
 from .asn_classifier import ASNClassifier
 from .dns_enrichment import DNSEnrichment
 from .blocklists import BlocklistManager, FeedConfig
+from .rate_tracker import MultiStrategyRateTracker
+from .rate_strategy import RateLimitStrategy, StrategyConfig
 
 if TYPE_CHECKING:
     from ..cache.local_cache import LocalCache
@@ -97,6 +99,18 @@ _DIAL_CHANGE_REJECTED = Counter(
 )
 
 _DIAL_CHANGES = Counter("ja4proxy_dial_changes_total", "Successful dial value changes")
+
+_RATE_LIMIT_SIGNALS = Counter(
+    "ja4proxy_rate_limit_signals_total",
+    "Rate limit threshold crossings by strategy and level",
+    ["strategy", "level"],
+)
+
+_RATE_LIMIT_BANS = Counter(
+    "ja4proxy_rate_limit_bans_total",
+    "Connections immediately blocked due to active rate-limit ban",
+    ["strategy"],
+)
 
 # ---------------------------------------------------------------------------
 # Data classes
@@ -261,6 +275,15 @@ class Pipeline:
         # Phase 8: Spamhaus DROP/EDROP blocklist trie
         self._blocklist_manager = BlocklistManager()
         self._load_blocklist_feeds(config)
+        # Rate limiting: multi-strategy sliding window tracker (by_ip, by_ja4, by_ip+ja4)
+        # Runs in _collect_signals(); results feed into the risk scorer.
+        try:
+            self._rate_tracker: MultiStrategyRateTracker | None = MultiStrategyRateTracker(
+                redis_client, config
+            )
+        except Exception as exc:
+            logger.warning("rate_tracker | event=init_failed | error=%s — rate limiting disabled", exc)
+            self._rate_tracker = None
 
     def _load_blocklist_feeds(self, config: dict) -> None:
         """Load any static/pre-populated blocklist feeds from config."""
@@ -545,6 +568,68 @@ class Pipeline:
                 exc,
                 exc_info=True,
             )
+
+        # Rate limiting: multi-strategy sliding window (by_ip, by_ja4, by_ip+ja4 pair)
+        # Uses majority policy: 2 of 3 strategies must agree to produce a signal.
+        # Bypass (browser ALPN) connections already returned early — never reach here.
+        if self._rate_tracker is not None:
+            try:
+                metrics = self._rate_tracker.track_connection(
+                    ja4=ctx.ja4 or "unknown",
+                    ip=ctx.client_ip,
+                    window="short",
+                )
+                _level_scores = {
+                    "suspicious": 20,
+                    "block": 60,
+                    "ban": 90,
+                }
+                # Determine per-strategy threshold crossings
+                strategy_levels: dict[str, str] = {}
+                for strategy, m in metrics.items():
+                    cfg = self._rate_tracker.get_strategy_config(strategy)
+                    cps = m.connections_per_second
+                    if cps >= cfg.ban_threshold:
+                        strategy_levels[strategy.value] = "ban"
+                    elif cps >= cfg.block_threshold:
+                        strategy_levels[strategy.value] = "block"
+                    elif cps >= cfg.suspicious_threshold:
+                        strategy_levels[strategy.value] = "suspicious"
+
+                if strategy_levels:
+                    # Majority policy: pick the level that ≥2 strategies agree on
+                    from collections import Counter as _Counter
+                    level_counts = _Counter(strategy_levels.values())
+                    # Order: ban > block > suspicious
+                    majority_level = None
+                    for lvl in ("ban", "block", "suspicious"):
+                        if level_counts.get(lvl, 0) >= 2:
+                            majority_level = lvl
+                            break
+                    # Single strategy crossing ban overrides majority for ban tier
+                    if majority_level is None and "ban" in strategy_levels.values():
+                        majority_level = "ban"
+
+                    if majority_level:
+                        score = _level_scores[majority_level]
+                        from .models import RiskSignal
+                        signals.append(RiskSignal(
+                            name=f"rate_limit_{majority_level}",
+                            score=score,
+                            reason=f"Rate limit: {majority_level} — {len(strategy_levels)} strategies",
+                        ))
+                        _RATE_LIMIT_SIGNALS.labels(
+                            strategy="majority", level=majority_level
+                        ).inc()
+                        for strat, lvl in strategy_levels.items():
+                            _RATE_LIMIT_SIGNALS.labels(strategy=strat, level=lvl).inc()
+            except Exception as exc:
+                logger.error(
+                    "rate_limiter | event=signal_error | ip=%s | error=%s",
+                    ctx.client_ip,
+                    exc,
+                    exc_info=True,
+                )
 
         # Phases 9–12 will add signal collection here
         return signals
