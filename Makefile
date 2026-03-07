@@ -1,6 +1,6 @@
 # Makefile for JA4 Proxy
 
-.PHONY: help build test lint clean deploy-poc deploy-enterprise smoke-test flush-redis attack-status top-attackers block-ja4 block-ip unblock-ip fetch-db list-pending approve-all geoip-report geoip-monitor geoip-watch update-geoip check-geoip start start-monitoring stop stop-clean status dial ssh-tunnels
+.PHONY: help build rebuild test lint clean deploy-poc deploy-enterprise smoke-test flush-redis attack-status top-attackers block-ja4 block-ip unblock-ip fetch-db list-pending approve-all geoip-report geoip-monitor geoip-watch update-geoip check-geoip start start-monitoring stop stop-clean status dial ssh-tunnels
 
 # Default target
 help:
@@ -46,7 +46,8 @@ help:
 	@echo "  geoip-watch       - Auto-block attacking countries (continuous loop)"
 	@echo ""
 	@echo "── Development / Testing ───────────────────────────────────"
-	@echo "  build             - Build Docker images"
+	@echo "  rebuild           - Full clean rebuild from scratch (wipe volumes + images, rebuild, start)"
+	@echo "  build             - Build Docker images (incremental)"
 	@echo "  test              - Run all tests in Docker"
 	@echo "  smoke-test        - Quick sanity check"
 	@echo "  lint              - black + flake8 + mypy"
@@ -100,6 +101,16 @@ clean:
 	docker compose -f docker-compose.poc.yml down -v --remove-orphans
 	docker compose -f docker/docker-compose.prod.yml down -v --remove-orphans
 	rm -rf reports/ __pycache__/ .pytest_cache/ .mypy_cache/
+
+# Full clean rebuild from scratch — wipes volumes, removes built images, rebuilds, starts
+rebuild:
+	@echo "Stopping all services and wiping volumes..."
+	docker compose -f docker-compose.poc.yml down -v --remove-orphans --rmi local
+	docker compose -f docker/docker-compose.monitoring.yml down -v --remove-orphans --rmi local 2>/dev/null || true
+	@echo "Rebuilding all images (no cache)..."
+	docker compose -f docker-compose.poc.yml build --no-cache
+	@echo "Starting full stack..."
+	@./scripts/start-all.sh
 
 # Deploy PoC environment
 deploy-poc:
