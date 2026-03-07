@@ -12,7 +12,12 @@ import socket
 from dataclasses import dataclass
 from typing import Optional
 
-import aiodns
+try:
+    import aiodns
+    AIODNS_AVAILABLE = True
+except ImportError:
+    AIODNS_AVAILABLE = False
+    aiodns = None  # type: ignore
 
 from src.security.models import RiskSignal
 
@@ -66,6 +71,11 @@ class DNSEnrichment:
 
     def _init_resolver(self):
         """Initialize aiodns resolver."""
+        if not AIODNS_AVAILABLE:
+            logger.warning("dns_enrichment | event=aiodns_not_available | message='aiodns not installed, DNS enrichment disabled'")
+            self._enabled = False
+            return
+        
         try:
             self._resolver = aiodns.DNSResolver(
                 timeout=self._config.get("resolver_timeout_seconds", 5)
