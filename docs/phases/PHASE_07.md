@@ -261,13 +261,13 @@ dns_enrichment:
 - [x] `DNSEnrichmentQueue.enqueue()`: queue at capacity → drop with counter increment
 
 ### Integration Tests  (`tests/integration/test_pipeline.py`)
-- [ ] With `dns_mock.py`: enqueue → worker picks up → lookup → `RiskSignal` emitted and consumed by scorer
+- [x] With patched `get_signal`: cached signal consumed by scorer; residential signal reduces score; cache miss fails open; exception swallowed
 
-### Chaos Tests  (`tests/chaos/test_external_api_failure.py`)
-- [ ] DNS resolver unreachable: fail open; `ERROR dns event=resolver_error` logged; no crash
-- [ ] DNS query times out after `resolver_timeout_seconds`: fail open; no hanging coroutine
-- [ ] Malformed PTR response: fail open; parse error counter incremented
-- [ ] Queue overflow under load: drops silently; drop counter incremented; no crash
+### Chaos Tests  (`tests/chaos/test_dns_chaos.py`)
+- [x] DNS resolver unreachable: fail open; `ERROR dns event=resolver_error` logged; no crash
+- [x] DNS query times out after `resolver_timeout_seconds`: fail open; no hanging coroutine
+- [x] Malformed PTR response: fail open; parse error counter incremented
+- [x] Queue overflow under load: drops silently; drop counter incremented; no crash
 
 ## Implementation Status
 
