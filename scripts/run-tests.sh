@@ -51,9 +51,9 @@ echo "=========================================="
 # Create reports directory if it doesn't exist
 mkdir -p reports
 
-# Run integration tests (unit tests have module import issues to fix later)
-echo "Running integration tests..."
-docker compose -f docker-compose.poc.yml run --rm test pytest /app/tests/integration/ -v --tb=short
+# Run all tests
+echo "Running all tests..."
+docker compose -f docker-compose.poc.yml run --rm test pytest /app/tests/ -v --tb=short -W ignore::pytest.PytestUnraisableExceptionWarning
 
 TEST_EXIT_CODE=$?
 
