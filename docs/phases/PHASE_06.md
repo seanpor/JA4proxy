@@ -137,14 +137,14 @@ asn_classifier:
 - [x] `tor_exit_list.refresh_interval_seconds` configurable
 
 ### Observability
-- [ ] Prometheus counter: `ja4proxy_asn_classification_total{asn_type}` — connections by classification
-- [ ] Prometheus gauge:   `ja4proxy_tor_exit_list_entries` — current Tor exit address count
-- [ ] Prometheus gauge:   `ja4proxy_tor_list_last_refresh_success_seconds` — Unix timestamp of last successful refresh
-- [ ] Prometheus counter: `ja4proxy_tor_list_download_errors_total` — failed Tor consensus download attempts
-- [ ] `docs/REDIS_SCHEMA.md` updated with `tor:exit:ips` and `leader:tor_exit_download` keys
+- [x] Prometheus counter: `ja4proxy_asn_classification_total{asn_type}` — connections by classification
+- [x] Prometheus gauge:   `ja4proxy_tor_exit_list_entries` — current Tor exit address count
+- [x] Prometheus gauge:   `ja4proxy_tor_list_last_refresh_success_seconds` — Unix timestamp of last successful refresh
+- [x] Prometheus counter: `ja4proxy_tor_list_download_errors_total` — failed Tor consensus download attempts
+- [x] `docs/REDIS_SCHEMA.md` updated with `tor:exit:ips` and `leader:tor_exit_download` keys
 
-- [ ] JSON log: `{"type":"system","level":"INFO","subsystem":"asn","event":"tor_list_refreshed"}` emitted with `entries` and `elapsed_ms` fields
-- [ ] JSON log: `{"type":"system","level":"ERROR","subsystem":"asn","event":"tor_list_download_failed"}` emitted with `error` and `entries_retained` fields
+- [x] JSON log: `{"type":"system","level":"INFO","subsystem":"asn","event":"tor_list_refreshed"}` emitted with `entries` and `elapsed_ms` fields
+- [x] JSON log: `{"type":"system","level":"ERROR","subsystem":"asn","event":"tor_list_download_failed"}` emitted with `error` and `entries_retained` fields
 
 ### Unit Tests  (`tests/unit/test_asn_classifier.py`)
 - [x] `ASNClassifier.classify()`: known Tor exit IPv4 → category=tor, correct score
@@ -156,12 +156,12 @@ asn_classifier:
 - [x] `ASNClassifier.classify()`: priority order — Tor exit overrides datacenter classification
 
 ### Integration Tests  (`tests/integration/test_pipeline.py`)
-- [ ] Tor exit IP: correct `RiskSignal(name="asn_tor")` flows through to Phase 1 scorer
+- [x] Tor exit IP: correct `RiskSignal(name="asn_tor")` flows through to Phase 1 scorer
 
-### Chaos Tests  (`tests/chaos/test_feed_staleness.py`)
-- [ ] Tor consensus URL returns HTTP 503: last known list retained; `ERROR asn event=tor_list_download_failed` logged
-- [ ] Redis unreachable during Tor list write: in-memory list used; no crash; WARN logged
-- [ ] Leader election race (two instances start simultaneously): single download occurs; no duplicate writes
+### Chaos Tests  (`tests/chaos/test_asn_chaos.py`)
+- [x] Tor consensus URL returns HTTP 503: last known list retained; `ERROR asn event=tor_list_download_failed` logged
+- [x] Redis unreachable during Tor list write: in-memory list used; no crash; WARN logged
+- [x] Leader election race (two instances start simultaneously): single download occurs; no duplicate writes
 
 ## Implementation Status
 
