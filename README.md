@@ -272,8 +272,9 @@ Plus configuration (1,038 lines), Grafana dashboard (1,087 lines), shell scripts
 
 ```bash
 make stop              # Stop everything (keep Redis data)
-make clean             # Stop and wipe all volumes (fresh slate)
+make stop-clean        # Stop and wipe all volumes (fresh slate)
+make rebuild           # Full clean rebuild from scratch — wipe volumes + images, rebuild, start
 ./scripts/stop-all.sh          # same as make stop
-./scripts/stop-all.sh --clean  # same as make clean
+./scripts/stop-all.sh --clean  # same as make stop-clean
 ```
 
