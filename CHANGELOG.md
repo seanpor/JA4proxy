@@ -1,5 +1,48 @@
 # Changelog
 
+## [7.1.0] - 2026-03-07 - BUG FIXES: RATE LIMITING, METRICS, NETWORKING, STABILITY
+
+### Fixed
+
+- **Rate limiting never executed** — `MultiStrategyRateTracker` (by_ip, by_ja4, by_ip+ja4 pair)
+  was fully implemented in `src/security/rate_tracker.py` but never imported or called by the
+  pipeline. Wired into `_collect_signals()` with majority policy (2-of-3 strategies must agree):
+  suspicious → +20, block → +60, ban → +90 score contribution. Browser ALPN bypass connections
+  skip rate limiting entirely. Two new Prometheus counters added:
+  `ja4proxy_rate_limit_signals_total{strategy,level}` and `ja4proxy_rate_limit_bans_total{strategy}`.
+
+- **JA4 fingerprints truncated in Prometheus metrics** — `fingerprint=ja4[:16]` in all
+  `REQUEST_COUNT.labels()` calls was cutting fingerprints to 16 chars (e.g. `t13d091200_f91f4`
+  instead of the full 36-char `t13d090900_xxxxxxxxxxxx_xxxxxxxxxxxx`), making Grafana dashboards
+  show garbled fingerprints. The `[:16]` slice on line 157 for partial label matching is
+  intentional and unchanged; all metric labels now use the full fingerprint.
+
+- **`pytricia` missing from `requirements.txt`** — Phase 8 `BlocklistManager` requires `pytricia`
+  for CIDR trie lookups but it was never added to requirements, causing proxy startup crash
+  (`RuntimeError: pytricia is required`). Added `pytricia==1.3.0`.
+
+- **`make smoke-test` hanging indefinitely** — All `curl` calls in `scripts/smoke-test.sh` lacked
+  `--max-time`; a hung backend TLS handshake would block the script forever. Added `--max-time 10`
+  to all curl calls.
+
+- **Mock backend TLS thread starvation under load** — `ThreadingHTTPServer` + Python SSL accumulates
+  hung threads when connections arrive faster than handshakes complete. Added `socket.settimeout(10)`
+  to the SSL listening socket in `scripts/mock-backend.py`; hung threads now time out rather than
+  blocking new legitimate connections.
+
+- **Docker build DNS failure on hosts with UFW + `"iptables": false`** — Containers inherited
+  `127.0.0.53` (systemd-resolved) as DNS, which is unreachable from inside containers. Combined
+  with `iptables: false` disabling NAT masquerading, pip installs during `docker build` failed with
+  `Temporary failure in name resolution`. Fixed by: (1) adding `"dns": ["8.8.8.8","1.1.1.1"]` to
+  `/etc/docker/daemon.json`, (2) adding a NAT MASQUERADE rule to `/etc/ufw/before.rules`, and
+  (3) setting `DEFAULT_FORWARD_POLICY=ACCEPT` and enabling `net.ipv4.ip_forward`.
+  `scripts/fix-docker-dns.sh` automates all steps; `scripts/docker-net-diag.sh` provides diagnostics.
+
+### Coverage
+- **1140 tests passed, 0 failed** (16 skipped: Docker-dependent).
+
+---
+
 ## [7.0.0] - 2026-03-07 - PHASE 8: SPAMHAUS DROP/EDROP & BLOCKLIST FEED FRAMEWORK
 
 ### Added
