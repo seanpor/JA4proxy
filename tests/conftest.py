@@ -135,10 +135,76 @@ def redis_client():
     mock.ping.return_value = True
     mock.get.return_value = None
     mock.setex.return_value = True
-    mock.sadd.return_value = True
-    mock.smembers.return_value = set()
-    mock.delete.return_value = True
+    
+    # Track set members for smembers/sadd/delete operations
+    redis_sets = {}
+    
+    def mock_sadd(key, *values):
+        key_str = key.decode('utf-8') if isinstance(key, bytes) else str(key)
+        if key_str not in redis_sets:
+            redis_sets[key_str] = set()
+        for value in values:
+            value_str = value.decode('utf-8') if isinstance(value, bytes) else str(value)
+            redis_sets[key_str].add(value_str.encode('utf-8'))
+        return len(redis_sets[key_str])
+    
+    def mock_smembers(key):
+        key_str = key.decode('utf-8') if isinstance(key, bytes) else str(key)
+        return redis_sets.get(key_str, set())
+    
+    def mock_delete(*keys):
+        for key in keys:
+            key_str = key.decode('utf-8') if isinstance(key, bytes) else str(key)
+            redis_sets.pop(key_str, None)
+        return 1
+    
+    mock.sadd.side_effect = mock_sadd
+    mock.smembers.side_effect = mock_smembers
+    mock.delete.side_effect = mock_delete
+    
     mock.keys.return_value = []
+    
+    # Mock script registration and execution
+    # Simulate real Redis behavior with per-key counters
+    from collections import defaultdict
+    
+    # Track counters per Redis key (simulating real Redis)
+    redis_counters = defaultdict(int)
+    
+    # Track keys with TTL for TTL tests
+    redis_keys_with_ttl = set()
+    
+    def mock_script(keys=None, args=None, client=None):
+        if keys and len(keys) > 0:
+            # Get the main key (first key is the rate tracking key)
+            key = keys[0].decode('utf-8') if isinstance(keys[0], bytes) else str(keys[0])
+            # Increment and return the counter for this specific key
+            redis_counters[key] += 1
+            # Track this key as having been created (for TTL tests)
+            redis_keys_with_ttl.add(key)
+            return redis_counters[key]
+        return 1
+    
+    script_mock = MagicMock()
+    script_mock.side_effect = mock_script
+    mock.register_script.return_value = script_mock
+    
+    # Mock keys() method to return rate tracking keys
+    def mock_keys(pattern):
+        # Simple pattern matching: 'rate:*' should match any key starting with 'rate:'
+        if pattern == 'rate:*':
+            matching_keys = [key.encode('utf-8') for key in redis_keys_with_ttl if key.startswith('rate:')]
+        else:
+            matching_keys = [key.encode('utf-8') for key in redis_keys_with_ttl if pattern in key]
+        return matching_keys
+    
+    mock.keys.side_effect = mock_keys
+    
+    # Mock ttl() method to return reasonable TTL values
+    def mock_ttl(key):
+        return 30  # Return 30 seconds TTL (within GDPR limits)
+    
+    mock.ttl.side_effect = mock_ttl
     
     # Mock Bloom filter
     bloom_mock = MagicMock()
