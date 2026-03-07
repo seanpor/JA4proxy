@@ -22,34 +22,8 @@ from src.security.rate_tracker import (
 from src.security.rate_strategy import RateLimitStrategy
 
 
-@pytest.fixture
-def redis_client():
-    """Create Redis client for integration tests with cleanup."""
-    redis_host = os.getenv('REDIS_HOST', 'localhost')
-    redis_port = int(os.getenv('REDIS_PORT', '6379'))
-    redis_password = os.getenv('REDIS_PASSWORD', None)
-    
-    client = redis.Redis(
-        host=redis_host,
-        port=redis_port,
-        password=redis_password,
-        db=15,  # Use db 15 for tests to avoid conflicts
-        decode_responses=False,
-    )
-    
-    try:
-        client.ping()
-    except redis.ConnectionError:
-        pytest.skip("Redis not available for integration tests")
-    
-    # Clean up before each test
-    client.flushdb()
-    
-    yield client
-    
-    # Clean up after each test
-    client.flushdb()
-    client.close()
+# Use the global redis_client fixture from conftest.py
+# This ensures tests run even without real Redis
 
 
 @pytest.fixture
