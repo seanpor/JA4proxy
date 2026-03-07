@@ -85,6 +85,7 @@ chmod 600 .env    # Ensure .env is not world-readable
 | Start monitoring only | `./start-monitoring.sh` | `make start-monitoring` |
 | Stop everything | `./stop-all.sh` | `make stop` |
 | Stop + wipe data | `./stop-all.sh --clean` | `make stop-clean` |
+| Full clean rebuild | — | `make rebuild` |
 | View status | `./status.sh` | `make status` |
 | View logs | `make logs` | `docker compose -f docker-compose.poc.yml logs -f proxy` |
 

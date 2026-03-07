@@ -7,6 +7,7 @@
 | **Start all** | `./start-all.sh`  or  `make start` |
 | **Stop all** | `./stop-all.sh`   or  `make stop` |
 | **Stop + wipe** | `./stop-all.sh --clean`  or  `make stop-clean` |
+| **Full clean rebuild** | `make rebuild` |
 | **Status** | `./status.sh`     or  `make status` |
 | **Generate traffic** | `./generate-tls-traffic.sh 60 10 20` |
 | **Reset between runs** | `make flush-redis` |
@@ -90,6 +91,7 @@ make approve-all       # Approve pending fingerprints
 make test              # Run all tests
 make smoke-test        # Quick smoke test
 make clean             # Stop + remove all containers and volumes
+make rebuild           # Full clean rebuild from scratch (wipe volumes + images, rebuild, start)
 ```
 
 ## Backend Test Endpoints
