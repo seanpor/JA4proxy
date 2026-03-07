@@ -65,17 +65,15 @@ echo "Starting test execution..."
 
 # Check if pytest-xdist is available for parallel execution
 echo "Checking for parallel test support..."
-if docker compose -f docker-compose.poc.yml run --rm test pytest --version 2>/dev/null | grep -q xdist; then
-    echo "✓ pytest-xdist available, using parallel execution (-n 4)"
-    PARALLEL_FLAG="-n 4"
-else
-    echo "⚠ pytest-xdist not available, running tests sequentially"
-    PARALLEL_FLAG=""
-fi
+# Note: Disabling parallel execution due to resource contention issues
+# pytest-xdist can cause timeouts and excessive memory usage in Docker
+echo "ℹ Using sequential execution for stability (parallelism disabled)"
+PARALLEL_FLAG=""
+=======
 
-# Use timeout to prevent hanging
-echo "Running tests with timeout (600 seconds)..."
-timeout 600 docker compose -f docker-compose.poc.yml run --rm test pytest /app/tests/ \
+# Use timeout to prevent hanging (reduced from 600s since we're running sequentially)
+echo "Running tests with timeout (1800 seconds = 30 minutes)..."
+timeout 1800 docker compose -f docker-compose.poc.yml run --rm test pytest /app/tests/ \
     -v --tb=short \
     $PARALLEL_FLAG \
     --junitxml="${JUNIT_FILE}" \
@@ -128,8 +126,10 @@ if [ $TEST_EXIT_CODE -eq 0 ]; then
     
     if [ "$SKIPPED_COUNT" -eq "0" ]; then
         echo -e "${GREEN}✓ OVERALL RESULT: ALL TESTS PASSED WITH ZERO SKIPPED${NC}"
+        echo -e "${GREEN}   (Sequential execution for stability - ~30 minutes expected)${NC}"
     else
         echo -e "${YELLOW}⚠ OVERALL RESULT: ALL TESTS PASSED BUT $SKIPPED_COUNT TESTS WERE SKIPPED${NC}"
+        echo -e "${YELLOW}   (Sequential execution for stability - ~30 minutes expected)${NC}"
         echo ""
         echo "Skipped tests (check ${RESULTS_FILE} for details):"
         grep -A 1 -B 1 "SKIPPED" "${RESULTS_FILE}"
