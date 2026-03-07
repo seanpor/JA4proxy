@@ -377,3 +377,29 @@ See [INCIDENT_RESPONSE.md — Pattern 5: False positive](INCIDENT_RESPONSE.md).
 cat .env                           # Passwords are stored here
 ./status.sh                        # Shows Grafana password in access summary
 ```
+
+### Docker build fails — "Temporary failure in name resolution"
+
+This occurs on hosts where Docker is configured with `"iptables": false` (common when UFW is
+managing the firewall) and the system DNS is `127.0.0.53` (systemd-resolved), which containers
+cannot reach.
+
+**Fix (run once, persists across reboots):**
+
+```bash
+sudo bash scripts/fix-docker-dns.sh
+```
+
+This script:
+- Adds `"dns": ["8.8.8.8", "1.1.1.1"]` to `/etc/docker/daemon.json`
+- Adds a NAT MASQUERADE rule to `/etc/ufw/before.rules` (keeps UFW in control)
+- Sets `DEFAULT_FORWARD_POLICY=ACCEPT` in `/etc/default/ufw`
+- Enables `net.ipv4.ip_forward`
+- Reloads UFW and restarts Docker
+- Verifies DNS and pip work inside containers
+
+**Diagnostics:**
+
+```bash
+sudo bash scripts/docker-net-diag.sh    # Shows iptables rules, container DNS, connectivity
+```
