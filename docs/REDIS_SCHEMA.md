@@ -55,6 +55,15 @@ All proxy instances subscribe on startup. Message format: `{"type": "...", "valu
 
 ---
 
+## Phase 7 — FCrDNS & Passive DNS Enrichment
+
+| Key pattern | Type | TTL | Written by | Notes |
+|-------------|------|-----|------------|-------|
+| `dns:ptr:{ip}` | JSON (ptr_hostname, classification, fcrdns_pass, fetched_at) | 21600s (6h) | DNS enrichment worker | PTR lookup result and FCrDNS status per IP |
+| `bloom:dns_enriched` | Bloom filter | none (no expiry) | DNS enrichment worker | Dedup filter; prevents re-queuing already-enriched IPs |
+
+---
+
 ## Phase 1 — Risk Scorer
 
 | Key pattern | Type | TTL | Written by | Notes |
@@ -143,4 +152,4 @@ These keys are written by the existing `MultiStrategyRateTracker` (see `src/secu
 
 ---
 
-*Last updated: Phase 6*
+*Last updated: Phase 7*

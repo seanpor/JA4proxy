@@ -240,25 +240,25 @@ dns_enrichment:
 - [ ] All config values in this phase are hot-reloadable; changes apply to the next connection without restart
 
 ### Observability
-- [ ] Prometheus counter: `ja4proxy_dns_enrichment_total{result}` — enrichment outcomes (hit, miss, error, timeout)
-- [ ] Prometheus counter: `ja4proxy_dns_ptr_classification_total{ptr_class}` — PTR outcomes by classification
-- [ ] Prometheus gauge:   `ja4proxy_dns_enrichment_queue_depth` — current queue depth
-- [ ] Prometheus counter: `ja4proxy_dns_enrichment_queue_drops_total` — items dropped from full queue
-- [ ] Prometheus counter: `ja4proxy_dns_resolver_errors_total` — DNS resolver errors
-- [ ] `docs/REDIS_SCHEMA.md` updated with `dns:ptr:{ip}` key
+- [x] Prometheus counter: `ja4proxy_dns_enrichment_total{result}` — enrichment outcomes (hit, miss, error, timeout)
+- [x] Prometheus counter: `ja4proxy_dns_ptr_classification_total{ptr_class}` — PTR outcomes by classification
+- [x] Prometheus gauge:   `ja4proxy_dns_enrichment_queue_depth` — current queue depth
+- [x] Prometheus counter: `ja4proxy_dns_enrichment_queue_drops_total` — items dropped from full queue
+- [x] Prometheus counter: `ja4proxy_dns_resolver_errors_total` — DNS resolver errors
+- [x] `docs/REDIS_SCHEMA.md` updated with `dns:ptr:{ip}` key
 
-- [ ] JSON log: `{"type":"system","level":"ERROR","subsystem":"dns","event":"resolver_error"}` emitted with `ip` and `error` fields on DNS lookup failure
-- [ ] JSON log: `{"type":"system","level":"WARN","subsystem":"dns","event":"queue_full"}` emitted with `dropped_ip` when enrichment queue is at capacity
+- [x] JSON log: `{"type":"system","level":"ERROR","subsystem":"dns","event":"resolver_error"}` emitted with `ip` and `error` fields on DNS lookup failure
+- [x] JSON log: `{"type":"system","level":"WARN","subsystem":"dns","event":"queue_full"}` emitted with `dropped_ip` when enrichment queue is at capacity
 
 ### Unit Tests  (`tests/unit/test_dns_enrichment.py`)
-- [ ] `fcrdns_check()`: PTR resolves and forward-confirms → `RiskSignal(name="fcrdns_failed", score=0)`
-- [ ] `fcrdns_check()`: PTR resolves but forward-confirm fails → `RiskSignal(name="fcrdns_failed", score=20)`
-- [ ] `fcrdns_check()`: no PTR record → `RiskSignal(name="no_ptr", score=15)`
-- [ ] `fcrdns_check()`: PTR matches residential pattern (e.g. `.dsl.`) → `RiskSignal(name="residential_ptr", score=-10)`
-- [ ] `fcrdns_check()`: IPv6 address → correct `ip6.arpa` PTR query formed
-- [ ] `DNSEnrichmentQueue.enqueue()`: h2/h1 ALPN IP → not enqueued
-- [ ] `DNSEnrichmentQueue.enqueue()`: Bloom filter hit → not re-enqueued
-- [ ] `DNSEnrichmentQueue.enqueue()`: queue at capacity → drop with counter increment
+- [x] `fcrdns_check()`: PTR resolves and forward-confirms → `RiskSignal(name="fcrdns_failed", score=0)`
+- [x] `fcrdns_check()`: PTR resolves but forward-confirm fails → `RiskSignal(name="fcrdns_failed", score=20)`
+- [x] `fcrdns_check()`: no PTR record → `RiskSignal(name="no_ptr", score=15)`
+- [x] `fcrdns_check()`: PTR matches residential pattern (e.g. `.dsl.`) → `RiskSignal(name="residential_ptr", score=-10)`
+- [x] `fcrdns_check()`: IPv6 address → correct `ip6.arpa` PTR query formed
+- [x] `DNSEnrichmentQueue.enqueue()`: h2/h1 ALPN IP → not enqueued
+- [x] `DNSEnrichmentQueue.enqueue()`: Bloom filter hit → not re-enqueued
+- [x] `DNSEnrichmentQueue.enqueue()`: queue at capacity → drop with counter increment
 
 ### Integration Tests  (`tests/integration/test_pipeline.py`)
 - [ ] With `dns_mock.py`: enqueue → worker picks up → lookup → `RiskSignal` emitted and consumed by scorer
