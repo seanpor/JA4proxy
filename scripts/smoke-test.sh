@@ -23,7 +23,7 @@ FAILED=0
 
 # Test Backend
 echo -n "Testing Backend... "
-if curl -sk https://localhost:8443/api/health > /dev/null 2>&1; then
+if curl -sk --max-time 10 https://localhost:8443/api/health > /dev/null 2>&1; then
     echo -e "${GREEN}✓${NC}"
 else
     echo -e "${RED}✗${NC}"
@@ -32,7 +32,7 @@ fi
 
 # Test Backend endpoints
 echo -n "Testing Backend Echo... "
-RESPONSE=$(curl -sk https://localhost:8443/api/echo)
+RESPONSE=$(curl -sk --max-time 10 https://localhost:8443/api/echo)
 if echo "$RESPONSE" | grep -q "method"; then
     echo -e "${GREEN}✓${NC}"
 else
@@ -42,7 +42,7 @@ fi
 
 # Test Proxy Metrics
 echo -n "Testing Proxy Metrics... "
-if curl -sf http://localhost:9090/metrics > /dev/null 2>&1; then
+if curl -sf --max-time 10 http://localhost:9090/metrics > /dev/null 2>&1; then
     echo -e "${GREEN}✓${NC}"
 else
     echo -e "${RED}✗${NC}"
@@ -60,7 +60,7 @@ fi
 
 # Test Prometheus
 echo -n "Testing Prometheus... "
-if curl -sf http://localhost:9091/-/healthy > /dev/null 2>&1; then
+if curl -sf --max-time 10 http://localhost:9091/-/healthy > /dev/null 2>&1; then
     echo -e "${GREEN}✓${NC}"
 else
     echo -e "${YELLOW}⚠${NC} (optional)"
