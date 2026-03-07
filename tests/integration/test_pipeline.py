@@ -338,3 +338,90 @@ class TestTLSEnforcerIntegration:
         ctx = _tls_ctx(tls_version=None, cipher_list=[])
         result = _run(pipeline.process(ctx))
         assert result.action in ["allow", "flag"]
+
+
+# ---------------------------------------------------------------------------
+# Phase 7: DNS enrichment integration
+# ---------------------------------------------------------------------------
+
+
+class TestDNSEnrichmentIntegration:
+    """DNS enrichment wired into the pipeline signal collection."""
+
+    def test_cached_no_ptr_signal_reaches_scorer(self):
+        """A cached no_ptr result produces a RiskSignal in the pipeline output."""
+        from unittest.mock import AsyncMock, patch
+
+        pipeline = _make_pipeline(dial=0)
+
+        # Patch get_signal to return a known signal without touching DNS
+        from src.security.models import RiskSignal
+        no_ptr_signal = RiskSignal(name="no_ptr", score=15, reason="No PTR record")
+
+        with patch.object(
+            pipeline._dns_enrichment, "get_signal",
+            new=AsyncMock(return_value=no_ptr_signal),
+        ):
+            result = _run(pipeline.process(_ctx()))
+
+        signal_names = [s.name for s in result.signals]
+        assert "no_ptr" in signal_names
+
+    def test_cached_residential_signal_reduces_score(self):
+        """A cached residential_ptr signal (score=-10) lowers total score."""
+        from unittest.mock import AsyncMock, patch
+
+        pipeline = _make_pipeline(dial=0)
+        from src.security.models import RiskSignal
+        res_signal = RiskSignal(name="residential_ptr", score=-10,
+                                reason="Residential PTR")
+
+        # Baseline: no DNS signal
+        with patch.object(
+            pipeline._dns_enrichment, "get_signal",
+            new=AsyncMock(return_value=None),
+        ):
+            baseline = _run(pipeline.process(_ctx()))
+
+        # With residential signal
+        with patch.object(
+            pipeline._dns_enrichment, "get_signal",
+            new=AsyncMock(return_value=res_signal),
+        ):
+            result = _run(pipeline.process(_ctx()))
+
+        # Residential signal must have reduced the score
+        assert result.score < baseline.score
+
+    def test_dns_cache_miss_fails_open(self):
+        """DNS cache miss returns None → pipeline allows normally, no crash."""
+        from unittest.mock import AsyncMock, patch
+
+        pipeline = _make_pipeline(dial=0)
+
+        with patch.object(
+            pipeline._dns_enrichment, "get_signal",
+            new=AsyncMock(return_value=None),
+        ):
+            result = _run(pipeline.process(_ctx()))
+
+        # No DNS signal → clean connection allowed
+        assert result.action == "allow"
+        signal_names = [s.name for s in result.signals]
+        assert "no_ptr" not in signal_names
+        assert "fcrdns_failed" not in signal_names
+
+    def test_dns_enrichment_exception_swallowed(self):
+        """Exception in get_signal is caught; pipeline continues (fail open)."""
+        from unittest.mock import AsyncMock, patch
+
+        pipeline = _make_pipeline(dial=0)
+
+        with patch.object(
+            pipeline._dns_enrichment, "get_signal",
+            new=AsyncMock(side_effect=Exception("DNS internal error")),
+        ):
+            result = _run(pipeline.process(_ctx()))
+
+        # Pipeline must not propagate the exception
+        assert result.action == "allow"

@@ -365,4 +365,58 @@ tls_enforcer:
       unknown: 5
       residential: 0
       mobile: 0
-  
+
+# ── Phase 7: FCrDNS & Passive DNS Enrichment ─────────────────────────────
+
+dns_enrichment:
+  enabled: true
+  queue_size: 1000          # Max IPs queued for background enrichment.
+  worker_count: 5           # Concurrent DNS lookup workers. DNS is fast — more workers than RDAP.
+  resolver_timeout_seconds: 5
+  resolver_nameservers: []  # Empty = system default. Set to override (e.g. ["8.8.8.8"]).
+  fcrdns:
+    enabled: true
+    cache_ttl_seconds: 21600   # Default: 21600s (6h). DNS can change but usually doesn't.
+    no_ptr_score: 15            # Score added when IP has no PTR record.
+    fcrdns_failed_score: 20     # Score added when PTR exists but forward-confirm fails.
+    residential_score_reduction: 10  # Score removed for confirmed residential PTRs.
+  passive_dns:
+    enabled: false          # Default: false. Requires external feed API key.
+    feed: ""                # Options: circl | dnsdb | custom
+    api_key: ""
+    cache_ttl_seconds: 3600
+    new_domain_days: 7
+    score: 20
+
+# ── Phase 8: Spamhaus DROP/EDROP & Blocklist Feed Framework ──────────────
+
+blocklists:
+  feeds:
+    - name: spamhaus_drop
+      url: "https://www.spamhaus.org/drop/drop.txt"
+      format: spamhaus         # Options: spamhaus | cidr | ipset
+      is_bypass: true          # Default: true. Hard-block matches before scorer.
+                               # Set false to route through scorer as RiskSignal instead.
+      action: block            # Options: block | tarpit | flag. Default: block.
+      score: 80                # Score contribution when is_bypass: false. Default: 80.
+      refresh_interval_seconds: 43200   # Default: 43200 (12h).
+      enabled: true
+
+    - name: spamhaus_edrop
+      url: "https://www.spamhaus.org/drop/edrop.txt"
+      format: spamhaus
+      is_bypass: true
+      action: block
+      score: 80
+      refresh_interval_seconds: 43200
+      enabled: true
+
+    # Example custom scored feed (disabled by default)
+    # - name: custom_blocklist
+    #   url: "https://example.com/threats.txt"
+    #   format: cidr             # Options: cidr | ipset | spamhaus
+    #   is_bypass: false         # Produces RiskSignal instead of hard block.
+    #   action: block
+    #   score: 60                # Risk score contribution when is_bypass: false.
+    #   refresh_interval_seconds: 3600
+    #   enabled: false

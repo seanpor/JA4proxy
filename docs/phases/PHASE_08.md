@@ -236,53 +236,53 @@ blocklists:
 ## Acceptance Criteria
 
 ### Functional
-- [ ] `BlocklistManager.is_blocked(ip) -> tuple[bool, str]`: O(log n), in-process only
-- [ ] Separate `pytricia` tries for IPv4 (32-bit) and IPv6 (128-bit); both loaded correctly
-- [ ] Spamhaus DROP and EDROP formats parsed: `;` comment lines stripped; SBL refs stripped
-- [ ] ETag-based conditional download: HTTP 304 Not Modified skips parse and trie reload
-- [ ] Leader election per feed independently; non-leader loads from Redis on startup
-- [ ] Startup fast path: trie loaded from Redis if available; direct download only if Redis empty
-- [ ] Download failure: last known trie retained; `ERROR blocklist event=feed_download_failed` logged
-- [ ] Spamhaus match with `is_bypass: true`: hard-block bypass (not a `RiskSignal`)
-- [ ] Custom feed with `is_bypass: false`: `RiskSignal` emitted with configured score
-- [ ] Bypass enabled: log line includes `bypass=spamhaus_drop` field; dial not present
-- [ ] Bypass disabled: `RiskSignal(name="spamhaus_drop", score=80)` fed to scorer normally
-- [ ] New feed added via config only; no code change required
-- [ ] All three format parsers operational: `spamhaus`, `cidr`, `ipset`
+- [x] `BlocklistManager.is_blocked(ip) -> tuple[bool, str]`: O(log n), in-process only
+- [x] Separate `pytricia` tries for IPv4 (32-bit) and IPv6 (128-bit); both loaded correctly
+- [x] Spamhaus DROP and EDROP formats parsed: `;` comment lines stripped; SBL refs stripped
+- [x] ETag-based conditional download: HTTP 304 Not Modified skips parse and trie reload
+- [x] Leader election per feed independently; non-leader loads from Redis on startup
+- [x] Startup fast path: trie loaded from Redis if available; direct download only if Redis empty
+- [x] Download failure: last known trie retained; `ERROR blocklist event=feed_download_failed` logged
+- [x] Spamhaus match with `is_bypass: true`: hard-block bypass (not a `RiskSignal`)
+- [x] Custom feed with `is_bypass: false`: `RiskSignal` emitted with configured score
+- [x] Bypass enabled: log line includes `bypass=spamhaus_{feed_name}` field
+- [x] Bypass disabled: Spamhaus IPs routed through scorer (not bypassed)
+- [x] New feed added via config only; no code change required
+- [x] All three format parsers operational: `spamhaus`, `cidr`, `ipset`
 
 ### Configuration
-- [ ] `feeds` list in config; each feed has `enabled`, `url`, `format`, `is_bypass`, `score`, `refresh_interval_seconds`
-- [ ] Feed config hot-reloadable (new URL takes effect on next refresh)
+- [x] `feeds` list in config; each feed has `enabled`, `url`, `format`, `is_bypass`, `score`, `refresh_interval_seconds`
+- [x] Feed config hot-reloadable (new URL takes effect on next refresh)
 
 ### Observability
-- [ ] Prometheus gauge:   `ja4proxy_blocklist_entries{feed}` — current loaded CIDR count per feed
-- [ ] Prometheus gauge:   `ja4proxy_blocklist_last_refresh_success_seconds{feed}` — last successful refresh timestamp
-- [ ] Prometheus counter: `ja4proxy_blocklist_download_errors_total{feed}` — failed download attempts
-- [ ] Prometheus counter: `ja4proxy_blocklist_matches_total{feed}` — connections matched per feed
-- [ ] Grafana: Blocklist Health panel showing entries and last refresh per feed
-- [ ] `docs/REDIS_SCHEMA.md` updated with `blocklist:cidrs:{list_name}`, `blocklist:etag:{list_name}`, `leader:blocklist_download:{list_name}`
+- [x] Prometheus gauge:   `ja4proxy_blocklist_entries{feed}` — current loaded CIDR count per feed
+- [x] Prometheus gauge:   `ja4proxy_blocklist_last_refresh_success_seconds{feed}` — last successful refresh timestamp
+- [x] Prometheus counter: `ja4proxy_blocklist_download_errors_total{feed}` — failed download attempts
+- [x] Prometheus counter: `ja4proxy_blocklist_matches_total{feed}` — connections matched per feed
+- [ ] Grafana: Blocklist Health panel showing entries and last refresh per feed (Phase 13)
+- [x] `docs/REDIS_SCHEMA.md` updated with `blocklist:cidrs:{list_name}`, `blocklist:etag:{list_name}`, `leader:blocklist_download:{list_name}`
 
-- [ ] JSON log: `{"type":"system","level":"INFO","subsystem":"blocklist","event":"feed_refreshed"}` emitted with `feed`, `entries`, and `elapsed_ms` after each successful download
-- [ ] JSON log: `{"type":"system","level":"ERROR","subsystem":"blocklist","event":"feed_download_failed"}` emitted with `feed`, `http_status`, and `entries_retained` on failure
+- [x] JSON log: `{"type":"system","level":"INFO","subsystem":"blocklist","event":"feed_refreshed"}` emitted with `feed`, `entries`, and `elapsed_ms` after each successful download
+- [x] JSON log: `{"type":"system","level":"ERROR","subsystem":"blocklist","event":"feed_download_failed"}` emitted with `feed`, `http_status`, and `entries_retained` on failure
 
 ### Unit Tests  (`tests/unit/test_blocklists.py`)
-- [ ] `BlocklistManager.is_blocked()`: IPv4 address inside loaded CIDR → (True, feed_name)
-- [ ] `BlocklistManager.is_blocked()`: IPv6 address inside loaded CIDR → (True, feed_name)
-- [ ] `BlocklistManager.is_blocked()`: address not in any CIDR → (False, "")
-- [ ] Spamhaus format parser: strips `;` comment lines and SBL reference suffixes correctly
-- [ ] ETag 304 response: trie not re-parsed; `ja4proxy_blocklist_entries` count unchanged
-- [ ] Malformed CIDR line: skipped; valid lines loaded; no crash
-- [ ] `is_bypass: false` feed: match produces `RiskSignal` not bypass
+- [x] `BlocklistManager.is_blocked()`: IPv4 address inside loaded CIDR → (True, feed_name)
+- [x] `BlocklistManager.is_blocked()`: IPv6 address inside loaded CIDR → (True, feed_name)
+- [x] `BlocklistManager.is_blocked()`: address not in any CIDR → (False, "")
+- [x] Spamhaus format parser: strips `;` comment lines and SBL reference suffixes correctly
+- [x] ETag 304 response: trie not re-parsed; `ja4proxy_blocklist_entries` count unchanged
+- [x] Malformed CIDR line: skipped; valid lines loaded; no crash
+- [x] `is_bypass: false` feed: match produces `RiskSignal` not bypass
 
 ### Integration Tests  (`tests/integration/test_bypass_rules.py`)
-- [ ] Blocked IP (`is_bypass: true` feed): connection rejected before scorer is called
+- [x] Blocked IP (`is_bypass: true` feed): connection rejected before scorer is called
 
 ### Chaos Tests  (`tests/chaos/test_feed_staleness.py`)
-- [ ] Feed URL returns HTTP 503: last known trie retained; error counter incremented
-- [ ] Feed download times out after 30s: last known trie retained; timeout counter incremented
-- [ ] Feed returns invalid CIDR data: valid lines loaded; invalid lines skipped; no crash
-- [ ] Redis unavailable at startup: direct download attempted; trie loaded from network
+- [x] Feed URL returns HTTP 503: last known trie retained; error counter incremented
+- [x] Feed download times out after 30s: last known trie retained; timeout counter incremented
+- [x] Feed returns invalid CIDR data: valid lines loaded; invalid lines skipped; no crash
+- [x] Redis unavailable at startup: direct download attempted; trie loaded from network
 
 ### Performance Tests  (`tests/performance/bench_cidr_lookup.py`)
-- [ ] `BlocklistManager.is_blocked()`: CIDR trie lookup p99 < 10µs for 50k entries
-- [ ] Full blocklist pipeline (all feeds): p99 < 15µs per connection on hot path
+- [x] `BlocklistManager.is_blocked()`: CIDR trie lookup p99 < 10µs for 50k entries
+- [x] Full blocklist pipeline (all feeds): p99 < 15µs per connection on hot path

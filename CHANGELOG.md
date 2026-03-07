@@ -1,5 +1,78 @@
 # Changelog
 
+## [7.0.0] - 2026-03-07 - PHASE 8: SPAMHAUS DROP/EDROP & BLOCKLIST FEED FRAMEWORK
+
+### Added
+- **`src/security/blocklists.py`** — New `BlocklistManager` and `FeedManager` classes:
+  - `BlocklistManager.is_blocked(ip) -> (bool, feed_name)`: O(log n) in-process CIDR lookup via
+    two `pytricia` tries (IPv4 32-bit, IPv6 128-bit); never touches Redis on the hot path.
+  - `BlocklistManager.load_cidrs(cidrs, list_name, feed_config)`: atomic replace of entries for
+    one feed; other feeds unaffected; returns count loaded.
+  - `BlocklistManager.get_signals(ip) -> list[RiskSignal]`: produces `RiskSignal` for
+    `is_bypass=false` feeds (scored path); bypass feeds produce nothing here.
+  - `parse_feed(text, fmt)`: three format parsers — `spamhaus` (strips `;` comment lines and SBL
+    refs), `cidr` (one per line), `ipset` (`add <set> <cidr>` format); malformed CIDRs skipped.
+  - `FeedManager`: async download with `aiohttp`; ETag-based conditional HTTP (304 Not Modified
+    skips parse+reload); leader election per feed via Redis SET NX; non-leaders load from Redis.
+  - Prometheus metrics: `ja4proxy_blocklist_entries{feed}`, `ja4proxy_blocklist_last_refresh_success_seconds{feed}`,
+    `ja4proxy_blocklist_download_errors_total{feed}`, `ja4proxy_blocklist_matches_total{feed}`.
+  - Structured JSON logs: `feed_refreshed` (INFO), `feed_download_failed` (ERROR).
+- **`src/security/pipeline.py`** — `_check_block_bypasses()` step 7: Spamhaus bypass check
+  calls `_blocklist_manager.is_blocked(ip)`; on match with `is_bypass=true` returns hard-block
+  `PipelineResult(bypassed=True, bypass_reason="spamhaus_{feed_name}")`.
+- **`src/security/pipeline.py`** — `_collect_signals()` now calls `_blocklist_manager.get_signals(ip)`
+  for `is_bypass=false` feeds, adding `RiskSignal(name="blocklist_{feed}", score=N)` to scoring.
+- **`src/security/pipeline.py`** — `_load_blocklist_feeds(config)` loads static feeds from config
+  at startup; `FeedManager.start()` handles live downloads on the async path.
+- **`config/proxy.yml`** — `blocklists.feeds` section with `spamhaus_drop`, `spamhaus_edrop`
+  entries; all fields documented inline; example custom scored feed commented out.
+- **`tests/unit/test_blocklists.py`** — 29 unit tests (TDD): `BlocklistManager` IPv4/IPv6 lookup,
+  multi-feed, reload atomicity, `parse_feed` for all three formats, malformed-CIDR resilience,
+  `FeedConfig` dataclass, `is_bypass=false` → `RiskSignal`, Prometheus counter increment.
+- **`tests/integration/test_bypass_rules.py`** — 8 integration tests: bypass-feed hard-block
+  before scorer, IPv6 bypass, bypass-disabled → scorer path, scored-feed signal, score contribution.
+- **`tests/chaos/test_feed_staleness.py`** — 9 chaos tests: HTTP 503 retains trie, timeout
+  retains trie, malformed data safely parsed, Redis unavailable → direct download.
+- **`tests/performance/bench_cidr_lookup.py`** — Performance benchmarks: p99 < 10µs for 50k
+  IPv4 entries; full pipeline check p99 < 15µs.
+- **`docs/REDIS_SCHEMA.md`** — `blocklist:cidrs:{list_name}`, `blocklist:etag:{list_name}`,
+  `leader:blocklist_download:{list_name}` keys documented.
+
+### Coverage
+- **1140 tests passed, 0 failed** (16 skipped: Docker-dependent).
+
+---
+
+## [6.0.0] - 2026-03-07 - PHASE 7: FCrDNS & PASSIVE DNS ENRICHMENT (COMPLETE)
+
+### Added
+- **`src/security/dns_enrichment.py`** — Full rewrite with all gaps from initial implementation filled:
+  - Five Prometheus metrics: `ja4proxy_dns_enrichment_total{result}` (hit/miss/error/timeout),
+    `ja4proxy_dns_ptr_classification_total{ptr_class}`, `ja4proxy_dns_enrichment_queue_depth`,
+    `ja4proxy_dns_enrichment_queue_drops_total`, `ja4proxy_dns_resolver_errors_total`.
+  - Structured JSON logging on every error/warning path
+    (`{"type":"system","level":"ERROR","subsystem":"dns","event":"resolver_error",...}`).
+  - `_worker_with_restart()` outer loop — workers automatically restarted on unexpected crash.
+  - Passive DNS startup log: `"Passive DNS disabled — no feed configured"` emitted at INFO when
+    `passive_dns.enabled: false` (spec requirement).
+  - `put_nowait` instead of `await queue.put` in `enqueue()` — guarantees non-blocking hot path.
+  - `asyncio.get_running_loop()` used in `_cache_result()` (replaces deprecated `get_event_loop()`).
+- **`src/security/pipeline.py`** — DNS enrichment wired into `_collect_signals()` as Phase 7 step:
+  `await self._dns_enrichment.get_signal(ctx.client_ip)` returns cached signal or None; always
+  fire-and-forget enqueue on miss; exception caught and logged (fail open).
+- **`config/proxy.yml`** — `dns_enrichment:` section with all configurable fields documented.
+- **`tests/chaos/test_dns_chaos.py`** — 11 chaos tests: resolver unreachable (fail open + error log),
+  PTR/forward timeout (fail open, no hanging coroutine), malformed PTR (fail open), queue overflow
+  (drop + counter increment + JSON WARN log).
+- **`tests/integration/test_pipeline.py`** — 4 new `TestDNSEnrichmentIntegration` tests:
+  cached no_ptr signal reaches scorer, residential signal reduces score, cache miss fails open,
+  get_signal exception swallowed by pipeline fail-open guard.
+
+### Coverage
+- **1140 tests passed, 0 failed** (16 skipped: Docker-dependent).
+
+---
+
 ## [5.1.0] - 2026-02-28 - PHASE 3: TLS VERSION & CIPHER ENFORCEMENT
 
 ### Added

@@ -60,6 +60,8 @@ from .sni_analyzer import SNIAnalyzer
 from .tcp_analyzer import TCPAnalyzer
 from .mtls import MTLSHandler
 from .asn_classifier import ASNClassifier
+from .dns_enrichment import DNSEnrichment
+from .blocklists import BlocklistManager, FeedConfig
 
 if TYPE_CHECKING:
     from ..cache.local_cache import LocalCache
@@ -254,6 +256,32 @@ class Pipeline:
         self._mtls_handler = MTLSHandler(config)
         # Phase 6: ASN & Datacenter Classification
         self._asn_classifier = ASNClassifier(config, redis_client)
+        # Phase 7: DNS/FCrDNS enrichment (fire-and-forget queue)
+        self._dns_enrichment = DNSEnrichment(config, redis_client)
+        # Phase 8: Spamhaus DROP/EDROP blocklist trie
+        self._blocklist_manager = BlocklistManager()
+        self._load_blocklist_feeds(config)
+
+    def _load_blocklist_feeds(self, config: dict) -> None:
+        """Load any static/pre-populated blocklist feeds from config."""
+        bl_cfg = config.get("blocklists", {})
+        for feed in bl_cfg.get("feeds", []):
+            if not feed.get("enabled", True):
+                continue
+            feed_cfg = FeedConfig(
+                name=feed["name"],
+                url=feed.get("url", ""),
+                format=feed.get("format", "spamhaus"),
+                is_bypass=feed.get("is_bypass", True),
+                action=feed.get("action", "block"),
+                score=feed.get("score", 60),
+                refresh_interval_seconds=feed.get("refresh_interval_seconds", 43200),
+                enabled=True,
+            )
+            # Static CIDRs (for testing / offline use)
+            static_cidrs = feed.get("static_cidrs", [])
+            if static_cidrs:
+                self._blocklist_manager.load_cidrs(static_cidrs, feed["name"], feed_cfg)
 
     def update_scorer(self, scorer: Any, decider: Any) -> None:
         """Wire in Phase 1 scorer and decider. Called after Phase 1 init."""
@@ -428,6 +456,19 @@ class Pipeline:
                         bypass_reason="country_blacklist",
                     )
 
+        # 7. Spamhaus / blocklist bypass (Phase 8)
+        if self._policy.get("spamhaus_bypass", {}).get("enabled", True):
+            blocked, feed_name = self._blocklist_manager.is_blocked(ctx.client_ip)
+            if blocked:
+                # Only bypass if the matched feed is a bypass feed
+                cfg = self._blocklist_manager._feed_configs.get(feed_name)
+                if cfg is None or cfg.is_bypass:
+                    return PipelineResult(
+                        action="block",
+                        bypassed=True,
+                        bypass_reason=f"spamhaus_{feed_name}",
+                    )
+
         return None
 
     async def _collect_signals(self, ctx: ConnectionContext) -> list:
@@ -480,9 +521,32 @@ class Pipeline:
                 exc_info=True,
             )
 
-        # Phases 7–12 will add signal collection here:
-        #   signals.extend(await self._asn_classifier.signals(ctx))
-        #   ...
+        # Phase 7: DNS/FCrDNS enrichment
+        try:
+            dns_signal = await self._dns_enrichment.get_signal(ctx.client_ip)
+            if dns_signal is not None:
+                signals.append(dns_signal)
+        except Exception as exc:
+            logger.error(
+                "dns_enrichment | event=analysis_error | ip=%s | error=%s",
+                ctx.client_ip,
+                exc,
+                exc_info=True,
+            )
+
+        # Phase 8: Non-bypass blocklist signals (is_bypass=false feeds)
+        try:
+            bl_signals = self._blocklist_manager.get_signals(ctx.client_ip)
+            signals.extend(bl_signals)
+        except Exception as exc:
+            logger.error(
+                "blocklist | event=signal_error | ip=%s | error=%s",
+                ctx.client_ip,
+                exc,
+                exc_info=True,
+            )
+
+        # Phases 9–12 will add signal collection here
         return signals
 
     def _score_connection(self, signals: list) -> tuple[int, str, list, dict]:

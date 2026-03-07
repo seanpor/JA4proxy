@@ -139,6 +139,16 @@ All proxy instances subscribe on startup. Message format: `{"type": "...", "valu
 
 ---
 
+## Phase 8 — Spamhaus DROP/EDROP & Blocklist Feed Framework
+
+| Key pattern | Type | TTL | Written by | Notes |
+|-------------|------|-----|------------|-------|
+| `blocklist:cidrs:{list_name}` | JSON list of CIDR strings | `refresh_interval_seconds` + 1800s | Leader instance | Parsed CIDR list for one feed; distributed to all instances |
+| `blocklist:etag:{list_name}` | String (HTTP ETag) | `refresh_interval_seconds` + 1800s | Leader instance | Last ETag for conditional HTTP download; avoids redundant processing on 304 |
+| `leader:blocklist_download:{list_name}` | String (instance_id) | `refresh_interval_seconds` / 2 | Leader instance | Leader election lock; only one instance downloads per feed per interval |
+
+---
+
 ## Cross-Cutting Rate Limiting Keys (Phase 0 — existing)
 
 These keys are written by the existing `MultiStrategyRateTracker` (see `src/security/rate_tracker.py`):
@@ -152,4 +162,4 @@ These keys are written by the existing `MultiStrategyRateTracker` (see `src/secu
 
 ---
 
-*Last updated: Phase 7*
+*Last updated: Phase 8*
