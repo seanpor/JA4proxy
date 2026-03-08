@@ -263,79 +263,19 @@ def redis_client():
 
 @pytest.hookimpl(trylast=True)
 def pytest_sessionfinish(session, exitstatus):
-    """Clean up resources and force-exit to prevent asyncio GC from hanging.
+    """Force-exit immediately to prevent container hangs.
 
-    This hook cleans up pending asyncio tasks, DNS resources, and force-exits.
+    This simple hook force-exits without any cleanup attempts,
+    which is the most reliable approach for Docker containers.
     """
     import os
     import sys
-    import asyncio
-    import gc
-    import threading
-    import time
     
-    # Clean up asyncio tasks
-    try:
-        cancelled = 0
-        for obj in gc.get_objects():
-            if isinstance(obj, asyncio.Task):
-                try:
-                    obj.cancel()
-                    cancelled += 1
-                except Exception:
-                    pass
-        
-        if cancelled > 0:
-            sys.stderr.write(f"\nCancelled {cancelled} pending asyncio tasks\n")
-    except Exception as e:
-        sys.stderr.write(f"\nError cleaning asyncio tasks: {e}\n")
-    
-    # Clean up DNS resources (pycares)
-    try:
-        import pycares
-        # Try to shutdown pycares channels
-        for obj in gc.get_objects():
-            if isinstance(obj, pycares.Channel):
-                try:
-                    obj._queue.put((None, None))  # Signal shutdown
-                except Exception:
-                    pass
-    except ImportError:
-        pass
-    except Exception as e:
-        sys.stderr.write(f"Error cleaning DNS resources: {e}\n")
-    
-    # Clean up Redis connections
-    try:
-        import redis
-        for obj in gc.get_objects():
-            if isinstance(obj, (redis.Redis, redis.ConnectionPool)):
-                try:
-                    if hasattr(obj, 'connection_pool'):
-                        obj.connection_pool.disconnect()
-                    elif hasattr(obj, 'disconnect'):
-                        obj.disconnect()
-                except Exception:
-                    pass
-    except ImportError:
-        pass
-    except Exception as e:
-        sys.stderr.write(f"Error cleaning Redis resources: {e}\n")
-    
-    # Wait briefly for threads to clean up
-    try:
-        for thread in threading.enumerate():
-            if thread.name != threading.current_thread().name:
-                # Don't join current thread
-                thread.join(timeout=0.1)
-    except Exception:
-        pass
-    
-    # Flush all output
+    # Flush all output to ensure results are written
     sys.stdout.flush()
     sys.stderr.flush()
     
-    # Force exit
+    # Force exit immediately - let the OS clean up resources
     os._exit(int(exitstatus))
 
 
