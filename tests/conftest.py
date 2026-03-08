@@ -261,7 +261,7 @@ def redis_client():
     cleanup_mock()
 
 
-@pytest.hookimpl(tryfirst=True)
+@pytest.hookimpl(trylast=True)
 def pytest_sessionfinish(session, exitstatus):
     """Debug and force-exit to prevent asyncio GC from hanging the container.
 
