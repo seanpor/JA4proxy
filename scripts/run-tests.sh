@@ -86,13 +86,13 @@ timeout 300 docker compose -f docker-compose.poc.yml run --rm test pytest /app/t
     -p no:warnings \
     2>&1 | tee "${RESULTS_FILE}"
 
-TIMEOUT_EXIT_CODE=$?
-if [ $TIMEOUT_EXIT_CODE -eq 124 ]; then
-    echo -e "${RED}✗ Tests timed out after 300 seconds${NC}"
-    TEST_EXIT_CODE=124
-fi
+# ${PIPESTATUS[0]} is the exit code of the 'timeout docker compose ...' command.
+# $? would give tee's exit code (always 0), not pytest's.
+TEST_EXIT_CODE=${PIPESTATUS[0]}
 
-TEST_EXIT_CODE=$?
+if [ $TEST_EXIT_CODE -eq 124 ]; then
+    echo -e "${RED}✗ Tests timed out after 300 seconds${NC}"
+fi
 
 echo ""
 echo "=========================================="
@@ -104,11 +104,11 @@ if [ -f "${RESULTS_FILE}" ]; then
     echo "Detailed results saved to: ${RESULTS_FILE}"
     echo "JUnit XML report saved to: ${JUNIT_FILE}"
     
-    # Extract test statistics
-    PASSED=$(grep -oP '\d+ passed' "${RESULTS_FILE}" | grep -oP '\d+')
-    FAILED=$(grep -oP '\d+ failed' "${RESULTS_FILE}" | grep -oP '\d+')
-    SKIPPED=$(grep -oP '\d+ skipped' "${RESULTS_FILE}" | grep -oP '\d+')
-    WARNINGS=$(grep -oP '\d+ warnings' "${RESULTS_FILE}" | grep -oP '\d+')
+    # Extract test statistics (|| true prevents set -e from firing on no-match)
+    PASSED=$(grep -oP '\d+ passed'  "${RESULTS_FILE}" | grep -oP '\d+' || true)
+    FAILED=$(grep -oP '\d+ failed'  "${RESULTS_FILE}" | grep -oP '\d+' || true)
+    SKIPPED=$(grep -oP '\d+ skipped' "${RESULTS_FILE}" | grep -oP '\d+' || true)
+    WARNINGS=$(grep -oP '\d+ warnings' "${RESULTS_FILE}" | grep -oP '\d+' || true)
     DURATION=$(grep -oP '\d+m\d+\.\d+s' "${RESULTS_FILE}" | tail -1)
     
     echo ""
