@@ -19,7 +19,7 @@ from src.security.dns_enrichment import DNSEnrichment
 # ---------------------------------------------------------------------------
 
 def _run(coro):
-    return asyncio.new_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 def _make_enrichment(enabled: bool = True, queue_size: int = 1000) -> DNSEnrichment:

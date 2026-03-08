@@ -62,11 +62,7 @@ from src.security.pipeline import PipelineResult
 
 
 def _run(coro):
-    try:
-        loop = asyncio.get_running_loop()
-        raise RuntimeError("_run() should not be called from within an async context")
-    except RuntimeError:
-        return asyncio.new_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 def _make_server_stub():
@@ -1164,7 +1160,6 @@ class TestMain:
         with (
             patch("sys.argv", ["proxy.py"]),
             patch("proxy.ProxyServer.create", new_callable=AsyncMock) as mock_create,
-            patch("proxy.asyncio.run", side_effect=KeyboardInterrupt()),
         ):
             mock_proxy = MagicMock()
             mock_proxy.start = AsyncMock()
@@ -1176,7 +1171,6 @@ class TestMain:
         with (
             patch("sys.argv", ["proxy.py", "/custom/path.yml"]),
             patch("proxy.ProxyServer.create", new_callable=AsyncMock) as mock_create,
-            patch("proxy.asyncio.run", side_effect=KeyboardInterrupt()),
         ):
             mock_proxy = MagicMock()
             mock_proxy.start = AsyncMock()
@@ -1185,26 +1179,24 @@ class TestMain:
         mock_create.assert_called_once_with("/custom/path.yml")
 
     def test_main_keyboard_interrupt_handled(self):
+        """KeyboardInterrupt raised by proxy.start() is caught gracefully."""
         with (
             patch("sys.argv", ["proxy.py"]),
             patch("proxy.ProxyServer.create", new_callable=AsyncMock) as mock_create,
-            patch("proxy.asyncio.run", side_effect=KeyboardInterrupt()),
         ):
             mock_proxy = MagicMock()
-            mock_proxy.start = AsyncMock()
+            mock_proxy.start = AsyncMock(side_effect=KeyboardInterrupt())
             mock_create.return_value = mock_proxy
-            _run(main())
+            _run(main())  # Must not raise
 
     def test_main_fatal_exception_calls_sys_exit(self):
         with (
             patch("sys.argv", ["proxy.py"]),
             patch("proxy.ProxyServer.create", new_callable=AsyncMock) as mock_create,
-            patch("proxy.asyncio.run") as mock_run,
             patch("sys.exit") as mock_exit,
         ):
             mock_proxy = MagicMock()
             mock_proxy.start = AsyncMock(side_effect=RuntimeError("fatal"))
             mock_create.return_value = mock_proxy
-            mock_run.side_effect = lambda coro: _run(coro)
             _run(main())
         mock_exit.assert_called_once_with(1)
