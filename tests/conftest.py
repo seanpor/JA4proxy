@@ -271,6 +271,15 @@ def pytest_sessionfinish(session, exitstatus):
     import os
     import sys
     
+    # Write test summary before exiting
+    if exitstatus == 0:
+        sys.stderr.write(f"\n=== TEST SUMMARY ===\n")
+        sys.stderr.write(f"All tests completed successfully!\n")
+        sys.stderr.write(f"Exit code: {exitstatus}\n")
+    else:
+        sys.stderr.write(f"\n=== TEST SUMMARY ===\n")
+        sys.stderr.write(f"Tests completed with exit code: {exitstatus}\n")
+    
     # Flush all output to ensure results are written
     sys.stdout.flush()
     sys.stderr.flush()
