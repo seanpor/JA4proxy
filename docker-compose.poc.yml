@@ -211,7 +211,7 @@ services:
       - ja4proxy-backend
     profiles:
       - test
-    command: ["sh", "-c", "timeout 240 pytest /app/tests -v --cov=proxy --cov-report=html:/app/reports/coverage --cov-report=term --junitxml=/app/reports/junit.xml || true"]
+    command: ["pytest", "/app/tests", "-v", "--cov=proxy", "--cov-report=html:/app/reports/coverage", "--cov-report=term", "--junitxml=/app/reports/junit.xml"]
     security_opt:
       - no-new-privileges:true
     cap_drop:
