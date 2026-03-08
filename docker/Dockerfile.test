@@ -33,6 +33,7 @@ COPY tests/ tests/
 COPY config/ config/
 COPY security/ security/
 COPY src/ src/
+COPY scripts/ scripts/
 
 # Add /app to PYTHONPATH so src module can be imported
 ENV PYTHONPATH=/app:$PYTHONPATH

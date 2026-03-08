@@ -261,7 +261,7 @@ def redis_client():
     cleanup_mock()
 
 
-@pytest.hookimpl(trylast=True)
+@pytest.hookimpl(tryfirst=True)
 def pytest_sessionfinish(session, exitstatus):
     """Force-exit to prevent asyncio GC from hanging the container.
 
@@ -278,29 +278,49 @@ def pytest_sessionfinish(session, exitstatus):
     import sys
     import asyncio
     import gc
+    import signal
     
-    # Ensure all output is flushed before exiting
-    sys.stdout.flush()
-    sys.stderr.flush()
+    # Set a timeout for this cleanup to prevent infinite hanging
+    def timeout_handler(signum, frame):
+        sys.stderr.write("ERROR: Cleanup timeout reached, force exiting\n")
+        sys.stderr.flush()
+        os._exit(1)
     
-    # Attempt to clean up any remaining async tasks
+    # Set a 10-second timeout for cleanup
+    signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(10)
+    
     try:
-        # Get all tasks from all event loops
-        for obj in gc.get_objects():
-            if isinstance(obj, asyncio.Task):
-                try:
-                    obj.cancel()
-                except Exception:
-                    pass  # Ignore errors during cleanup
+        # Ensure all output is flushed before exiting
+        sys.stdout.flush()
+        sys.stderr.flush()
         
-        # Run garbage collection to clean up
-        gc.collect()
-    except Exception:
-        # If cleanup fails, that's okay - we'll force exit anyway
-        pass
-    
-    # Force exit with the pytest exit status
-    os._exit(int(exitstatus))
+        # Attempt to clean up any remaining async tasks
+        try:
+            # Get all tasks from all event loops
+            for obj in gc.get_objects():
+                if isinstance(obj, asyncio.Task):
+                    try:
+                        obj.cancel()
+                    except Exception:
+                        pass  # Ignore errors during cleanup
+            
+            # Run garbage collection to clean up
+            gc.collect()
+        except Exception:
+            # If cleanup fails, that's okay - we'll force exit anyway
+            pass
+        
+        # Cancel the timeout since we're done
+        signal.alarm(0)
+        
+        # Force exit with the pytest exit status
+        os._exit(int(exitstatus))
+    except Exception as e:
+        sys.stderr.write(f"ERROR: Exception in cleanup hook: {e}\n")
+        sys.stderr.flush()
+        signal.alarm(0)
+        os._exit(1)
 
 
 # Hook to prevent skipping Redis-dependent tests
