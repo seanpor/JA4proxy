@@ -170,10 +170,10 @@ tcp_analyzer:
 - [x] `mtls.enabled: false` → mTLS handler inactive; no cert verification attempted
 
 ### Observability
-- [ ] Prometheus gauge:   `ja4proxy_concurrent_connections` — current concurrent connections (max observed)
-- [ ] Prometheus counter: `ja4proxy_mtls_verified_total` — connections with verified mTLS client certificate
-- [ ] Prometheus counter: `ja4proxy_tcp_signal_total{signal}` — TCP signal fires by signal name
-- [ ] `docs/REDIS_SCHEMA.md` updated with all Phase 5 key patterns
+- [x] Prometheus gauge:   `ja4proxy_concurrent_connections` — current concurrent connections (max observed)
+- [x] Prometheus counter: `ja4proxy_mtls_verified_total` — connections with verified mTLS client certificate
+- [x] Prometheus counter: `ja4proxy_tcp_signal_total{signal}` — TCP signal fires by signal name
+- [ ] `docs/REDIS_SCHEMA.md` updated with all Phase 5 key patterns — **deferred; Phase 5 keys follow same pattern as Phase 0 schema**
 
 ### Unit Tests  (`tests/unit/test_tcp_analyzer.py`, `tests/unit/test_mtls.py`)
 - [x] `TCPAnalyzer`: JA4T OS mismatch → ja4t_mismatch signal

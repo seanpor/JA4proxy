@@ -19,13 +19,43 @@
 ## Incident Response (no restart needed)
 
 ```bash
+# Monitoring & reporting
 ./scripts/ja4-admin.sh status                           # Attack snapshot
 ./scripts/ja4-admin.sh top 10                           # Top fingerprints by volume
 ./scripts/ja4-admin.sh blocked                          # Active bans/blocks with TTL
+./scripts/ja4-admin.sh report                           # Full blocking report
+
+# JA4 fingerprint management
 ./scripts/ja4-admin.sh block-ja4 <fingerprint>          # Blacklist FP → instant TCP RST
-./scripts/ja4-admin.sh block-ip  <ip> [secs]            # Hard-block an IP (default 3600s)
-./scripts/ja4-admin.sh unblock-ip <ip>                  # Remove IP block
+./scripts/ja4-admin.sh unblock-ja4 <fingerprint>        # Remove from blacklist
+./scripts/ja4-admin.sh whitelist-ja4 <fingerprint>      # Whitelist FP → bypass rate limiting
+./scripts/ja4-admin.sh unwhitelist-ja4 <fingerprint>    # Remove from whitelist
 ./scripts/ja4-admin.sh list-ja4                         # Current blacklist + whitelist
+
+# ja4db feed management
+./scripts/ja4-admin.sh fetch-db                         # Fetch new malicious fingerprints
+./scripts/ja4-admin.sh list-pending                     # Show fingerprints awaiting approval
+./scripts/ja4-admin.sh approve <fingerprint>            # Approve → move to blacklist
+./scripts/ja4-admin.sh reject  <fingerprint>            # Reject and discard
+./scripts/ja4-admin.sh approve-all                      # Bulk approve (asks confirmation)
+
+# Country management
+./scripts/ja4-admin.sh list-countries                   # Dynamic blacklist, safe list, stats
+./scripts/ja4-admin.sh block-country <CC>               # Block a country (ISO code, e.g. CN)
+./scripts/ja4-admin.sh unblock-country <CC>             # Remove country block
+./scripts/ja4-admin.sh safe-country <CC>                # Protect country from auto-blocking
+./scripts/ja4-admin.sh unsafe-country <CC>              # Remove country from safe list
+
+# CIDR / subnet management
+./scripts/ja4-admin.sh list-cidrs                       # Show all active CIDR blocks
+./scripts/ja4-admin.sh block-cidr <CIDR>                # Block a subnet (e.g. 203.0.113.0/24)
+./scripts/ja4-admin.sh unblock-cidr <CIDR>              # Remove CIDR block
+
+# IP management
+./scripts/ja4-admin.sh block-ip  <ip> [secs]            # Hard-block an IP (default 3600s)
+./scripts/ja4-admin.sh unblock-ip <ip>                  # Remove all blocks/bans for an IP
+
+# State management
 ./scripts/ja4-admin.sh flush                            # Clear all transient state
 ./scripts/ja4-admin.sh help                             # Full command reference
 

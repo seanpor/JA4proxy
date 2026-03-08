@@ -31,8 +31,14 @@ from pathlib import Path
 from typing import Any, Callable
 
 import yaml
+from prometheus_client import Counter
 
 logger = logging.getLogger(__name__)
+
+_CONFIG_RELOADS = Counter(
+    "ja4proxy_config_reloads_total",
+    "Successful hot config reloads",
+)
 
 # ---------------------------------------------------------------------------
 # Keys that require a process restart — cannot be hot-reloaded.
@@ -144,6 +150,7 @@ class ConfigLoader:
 
         self._config = new_config
         self._reload_count += 1
+        _CONFIG_RELOADS.inc()
 
         logger.info(
             json.dumps(

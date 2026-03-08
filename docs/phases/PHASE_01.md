@@ -132,44 +132,44 @@ risk_scorer:
 ## Acceptance Criteria
 
 ### Functional
-- [ ] `RiskScorer.score(signals) -> RiskAssessment` with composite score clamped 0–100
-- [ ] Negative signal contributions supported; composite score never falls below 0
-- [ ] `RiskAssessment.recommended_action` matches the highest-triggered threshold
-- [ ] All bypass conditions exercised with bypass enabled AND disabled
-- [ ] Bypass disabled: connection reaches scorer, does not crash, produces a score
-- [ ] Log output format matches spec in `docs/STYLE_GUIDE.md §2a` exactly
+- [x] `RiskScorer.score(signals) -> RiskAssessment` with composite score clamped 0–100
+- [x] Negative signal contributions supported; composite score never falls below 0
+- [x] `RiskAssessment.recommended_action` matches the highest-triggered threshold
+- [x] All bypass conditions exercised with bypass enabled AND disabled
+- [x] Bypass disabled: connection reaches scorer, does not crash, produces a score
+- [x] Log output format matches spec in `docs/STYLE_GUIDE.md §2a` exactly
 
 ### Configuration
-- [ ] Thresholds loaded from `config/proxy.yml`; documented defaults applied when absent
-- [ ] `ban_duration_seconds` loaded and passed to action decider
-- [ ] All config values in this phase are hot-reloadable; changes apply to the next connection without restart
+- [x] Thresholds loaded from `config/proxy.yml`; documented defaults applied when absent
+- [x] `ban_duration_seconds` loaded and passed to action decider
+- [x] All config values in this phase are hot-reloadable; changes apply to the next connection without restart
 
 ### Observability
-- [ ] Prometheus histogram: `ja4proxy_risk_score` — score distribution; buckets [0,10,20,35,55,70,85,100]
-- [ ] Prometheus counter:   `ja4proxy_connections_total{action}` — connections by final action
+- [x] Prometheus histogram: `ja4proxy_risk_score` — score distribution; buckets [0,10,20,35,55,70,85,100]
+- [x] Prometheus counter:   `ja4proxy_connections_total{action}` — connections by final action
 
-- [ ] JSON log: every connection produces one `{"type":"connection"}` line with `verb`, `ip`, `score`, `dial`, `action`, and `signals` fields
-- [ ] JSON log: bypass connections have `score: null` and `bypass` field set; `signals` array is empty
+- [x] JSON log: every connection produces one `{"type":"connection"}` line with `verb`, `ip`, `score`, `dial`, `action`, and `signals` fields
+- [x] JSON log: bypass connections have `score: null` and `bypass` field set; `signals` array is empty
 
 ### Unit Tests  (`tests/unit/test_risk_scorer.py`, `tests/unit/test_action_decider.py`)
-- [ ] `RiskScorer.score()`: empty signal list → score=0, action=allow
-- [ ] `RiskScorer.score()`: single signal → correct score, correct action
-- [ ] `RiskScorer.score()`: score clamped at 100 when signals sum exceeds 100
-- [ ] `RiskScorer.score()`: negative signal reduces score; result never below 0
-- [ ] `ActionDecider.decide()`: at each threshold boundary (flag, rate_limit, tarpit, block, ban)
-- [ ] `ActionDecider.decide()`: one below each threshold → previous action returned
-- [ ] `ActionDecider.decide()`: dial=0 always returns allow regardless of score
-- [ ] All bypass conditions: bypass enabled → scorer not called; bypass disabled → scorer called
+- [x] `RiskScorer.score()`: empty signal list → score=0, action=allow
+- [x] `RiskScorer.score()`: single signal → correct score, correct action
+- [x] `RiskScorer.score()`: score clamped at 100 when signals sum exceeds 100
+- [x] `RiskScorer.score()`: negative signal reduces score; result never below 0
+- [x] `ActionDecider.decide()`: at each threshold boundary (flag, rate_limit, tarpit, block, ban)
+- [x] `ActionDecider.decide()`: one below each threshold → previous action returned
+- [x] `ActionDecider.decide()`: dial=0 always returns allow regardless of score
+- [x] All bypass conditions: bypass enabled → scorer not called; bypass disabled → scorer called
 
 ### Integration Tests  (`tests/integration/test_pipeline.py`)
-- [ ] Full pipeline: known-good JA4 fingerprint (h2 ALPN) → action=allow; bypass logged correctly
-- [ ] Full pipeline: known-bad JA4 fingerprint → action=block; signals list populated
-- [ ] All bypass conditions round-trip through Redis; pub/sub update propagates within 100ms
+- [x] Full pipeline: known-good JA4 fingerprint (h2 ALPN) → action=allow; bypass logged correctly
+- [x] Full pipeline: known-bad JA4 fingerprint → action=block; signals list populated
+- [x] All bypass conditions round-trip through Redis; pub/sub update propagates within 100ms
 
 ### Chaos Tests  (`tests/chaos/test_redis_failure.py`)
-- [ ] Redis unreachable: dial defaults to last known value; scoring continues; no crash
-- [ ] All signal modules return empty: score=0; action=allow; `ALLOW` log line emitted
+- [x] Redis unreachable: dial defaults to last known value; scoring continues; no crash
+- [x] All signal modules return empty: score=0; action=allow; `ALLOW` log line emitted
 
 ### Performance Tests  (`tests/performance/bench_pipeline.py`)
-- [ ] `RiskScorer.score()`: p99 < 100µs with 10 signals
-- [ ] `ActionDecider.decide()`: p99 < 10µs; allocates no heap objects on hot path
+- [x] `RiskScorer.score()`: p99 < 100µs with 10 signals
+- [x] `ActionDecider.decide()`: p99 < 10µs; allocates no heap objects on hot path

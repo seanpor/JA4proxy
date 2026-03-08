@@ -98,47 +98,47 @@ tls_enforcer:
 ## Acceptance Criteria
 
 ### Functional
-- [ ] `TLSEnforcer.check(tls_version, cipher_list) -> list[RiskSignal] | None`
-- [ ] Returns `None` for hard-block cases (signals pipeline not called); list otherwise
-- [ ] TLS 1.0 and 1.1: immediate RST when `security_policy.tls_version_bypass.enabled: true` (default)
-- [ ] TLS 1.0 and 1.1: `RiskSignal(name="tls_version", score=40)` emitted when bypass disabled
-- [ ] TLS 1.2: optional `RiskSignal` emitted when `flag_tls_12: true`
-- [ ] SSLv3: always hard-blocked (no bypass option — protocol is broken by design)
-- [ ] Weak cipher suite: `RiskSignal(name="weak_cipher")` with configured score
-- [ ] `block_weak_ciphers: true`: weak cipher → hard block instead of scored signal
-- [ ] Both checks independently config-toggleable; disabling one does not affect the other
+- [x] `TLSEnforcer.check(tls_version, cipher_list) -> list[RiskSignal] | None`
+- [x] Returns `None` for hard-block cases (signals pipeline not called); list otherwise
+- [x] TLS 1.0 and 1.1: immediate RST when `security_policy.tls_version_bypass.enabled: true` (default)
+- [x] TLS 1.0 and 1.1: `RiskSignal(name="tls_version", score=40)` emitted when bypass disabled
+- [x] TLS 1.2: optional `RiskSignal` emitted when `flag_tls_12: true`
+- [x] SSLv3: always hard-blocked (no bypass option — protocol is broken by design)
+- [x] Weak cipher suite: `RiskSignal(name="weak_cipher")` with configured score
+- [x] `block_weak_ciphers: true`: weak cipher → hard block instead of scored signal
+- [x] Both checks independently config-toggleable; disabling one does not affect the other
 
 ### Configuration
-- [ ] All score values and block flags loaded from `config/proxy.yml`; hot reload applies
-- [ ] `block_ssl3`, `block_tls_10`, `block_tls_11`, `flag_tls_12`, `block_weak_ciphers` all tested on reload
+- [x] All score values and block flags loaded from `config/proxy.yml`; hot reload applies
+- [x] `block_ssl3`, `block_tls_10`, `block_tls_11`, `flag_tls_12`, `block_weak_ciphers` all tested on reload
 
 ### Observability
-- [ ] Prometheus counter: `ja4proxy_tls_version_total{tls_version,action}` — connections by TLS version and action
-- [ ] Prometheus counter: `ja4proxy_weak_cipher_total{cipher_strength,action}` — connections with weak cipher suites
-- [ ] Log format: hard-block → `BYPASS  | {ip} | score=N/A | bypass=tls_version`
-- [ ] Log format: scored → `BLOCK   | {ip} | score=N | dial=N | signals=[tls_version(+40)]`
+- [x] Prometheus counter: `ja4proxy_tls_version_total{tls_version,action}` — connections by TLS version and action
+- [x] Prometheus counter: `ja4proxy_weak_cipher_total{cipher_strength,action}` — connections with weak cipher suites
+- [x] Log format: hard-block → `BYPASS  | {ip} | score=N/A | bypass=tls_version`
+- [x] Log format: scored → `BLOCK   | {ip} | score=N | dial=N | signals=[tls_version(+40)]`
 
-- [ ] JSON log: hard-block connections (TLS 1.0/1.1, SSLv3) use verb `BYPASS  ` with `bypass=tls_version`; not scored
-- [ ] JSON log: scored TLS violations appear in `signals` array with name `tls_version` or `weak_cipher`
+- [x] JSON log: hard-block connections (TLS 1.0/1.1, SSLv3) use verb `BYPASS  ` with `bypass=tls_version`; not scored
+- [x] JSON log: scored TLS violations appear in `signals` array with name `tls_version` or `weak_cipher`
 
 ### Unit Tests  (`tests/unit/test_tls_enforcer.py`)
-- [ ] `TLSEnforcer.check()`: TLS 1.3 → no signal
-- [ ] `TLSEnforcer.check()`: TLS 1.2, `flag_tls_12: false` → no signal
-- [ ] `TLSEnforcer.check()`: TLS 1.2, `flag_tls_12: true` → signal emitted
-- [ ] `TLSEnforcer.check()`: TLS 1.1, bypass enabled → returns None (hard block)
-- [ ] `TLSEnforcer.check()`: TLS 1.1, bypass disabled → RiskSignal emitted
-- [ ] `TLSEnforcer.check()`: TLS 1.0, bypass enabled → returns None
-- [ ] `TLSEnforcer.check()`: SSLv3 → returns None regardless of bypass setting
-- [ ] `TLSEnforcer.check()`: weak cipher, `block_weak_ciphers: false` → RiskSignal
-- [ ] `TLSEnforcer.check()`: weak cipher, `block_weak_ciphers: true` → returns None
-- [ ] `TLSEnforcer.check()`: mixed cipher list (one weak) → signal emitted
-- [ ] `TLSEnforcer.check()`: all strong ciphers → no signal
+- [x] `TLSEnforcer.check()`: TLS 1.3 → no signal
+- [x] `TLSEnforcer.check()`: TLS 1.2, `flag_tls_12: false` → no signal
+- [x] `TLSEnforcer.check()`: TLS 1.2, `flag_tls_12: true` → signal emitted
+- [x] `TLSEnforcer.check()`: TLS 1.1, bypass enabled → returns None (hard block)
+- [x] `TLSEnforcer.check()`: TLS 1.1, bypass disabled → RiskSignal emitted
+- [x] `TLSEnforcer.check()`: TLS 1.0, bypass enabled → returns None
+- [x] `TLSEnforcer.check()`: SSLv3 → returns None regardless of bypass setting
+- [x] `TLSEnforcer.check()`: weak cipher, `block_weak_ciphers: false` → RiskSignal
+- [x] `TLSEnforcer.check()`: weak cipher, `block_weak_ciphers: true` → returns None
+- [x] `TLSEnforcer.check()`: mixed cipher list (one weak) → signal emitted
+- [x] `TLSEnforcer.check()`: all strong ciphers → no signal
 
 ### Integration Tests  (`tests/integration/test_pipeline.py`)
-- [ ] TLS 1.1 connection, bypass enabled → hard block at pipeline entry; scorer not called
-- [ ] TLS 1.1 connection, bypass disabled → reaches scorer; `tls_version` signal in score
-- [ ] Weak cipher connection, `block_weak_ciphers: false` → scored and actioned by dial
-- [ ] Hot reload changes `flag_tls_12: true` → next connection emits signal; no restart
+- [x] TLS 1.1 connection, bypass enabled → hard block at pipeline entry; scorer not called
+- [x] TLS 1.1 connection, bypass disabled → reaches scorer; `tls_version` signal in score
+- [x] Weak cipher connection, `block_weak_ciphers: false` → scored and actioned by dial
+- [x] Hot reload changes `flag_tls_12: true` → next connection emits signal; no restart
 
 ### Chaos Tests  (`tests/chaos/test_redis_failure.py`)
-- [ ] Redis unavailable during TLS check: in-process bypass list used; no crash; connection processed
+- [x] Redis unavailable during TLS check: in-process bypass list used; no crash; connection processed

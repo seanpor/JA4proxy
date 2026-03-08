@@ -15,7 +15,7 @@ import os
 PROXY_HOST = os.getenv("PROXY_HOST", "localhost")
 PROXY_PORT = int(os.getenv("PROXY_PORT", "8080"))
 BACKEND_HOST = os.getenv("BACKEND_HOST", "localhost")
-BACKEND_PORT = int(os.getenv("BACKEND_PORT", "443"))
+BACKEND_PORT = int(os.getenv("BACKEND_PORT", "8443"))  # host-mapped port for direct backend access
 METRICS_PORT = 9090
 
 BACKEND_URL = f"https://{BACKEND_HOST}:{BACKEND_PORT}"
