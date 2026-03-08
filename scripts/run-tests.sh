@@ -83,7 +83,17 @@ else
     TIMEOUT=600
 fi
 
-timeout $TIMEOUT docker compose -f docker-compose.poc.yml run --rm test pytest /app/tests/ \
+# Try parallel execution first, fall back to sequential if it fails
+if timeout $TIMEOUT docker compose -f docker-compose.poc.yml run --rm test pytest /app/tests/ \
+    --ignore=/app/tests/integration/test_docker_stack.py \
+    -v --tb=short -n auto 2>/dev/null; then
+    echo "Parallel execution succeeded!"
+else
+    echo "Parallel execution failed, falling back to sequential..."
+    timeout $TIMEOUT docker compose -f docker-compose.poc.yml run --rm test pytest /app/tests/ \
+        --ignore=/app/tests/integration/test_docker_stack.py \
+        -v --tb=short
+fi
     --ignore=/app/tests/integration/test_docker_stack.py \
     -v --tb=short \
     $PARALLEL_FLAG \
