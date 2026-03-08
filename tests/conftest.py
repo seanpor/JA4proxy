@@ -268,22 +268,46 @@ def redis_client():
     cleanup_mock()
 
 
-@pytest.hookimpl(tryfirst=True)
-def pytest_sessionfinish(session, exitstatus):
-    """Force-exit to prevent Python 3.11 asyncio GC from hanging the container.
+@pytest.fixture(scope="session", autouse=True)
+def _cleanup_async_tasks():
+    """Clean up any remaining asyncio tasks at the end of the test session."""
+    yield
+    # Session teardown - try to clean up any remaining async tasks
+    import asyncio
+    import gc
+    
+    # Try to cancel any pending tasks
+    try:
+        # Get all tasks from all event loops
+        for obj in gc.get_objects():
+            if isinstance(obj, asyncio.Task):
+                obj.cancel()
+        
+        # Run garbage collection to clean up
+        gc.collect()
+    except Exception:
+        # If cleanup fails, that's okay - we'll force exit anyway
+        pass
 
-    asyncio.create_task() in production code (asn_classifier._init_tor_list,
-    pipeline._emit_stream_event, pipeline._beaconing_detector.maybe_record) creates
-    Task objects that are cancelled when each test's asyncio.run() exits. However,
-    after 1174 tests, many Task objects remain referenced through live ASNClassifier
-    instances. Python 3.11's interpreter shutdown tries to finalise these Task objects
-    against already-closed event loops, blocking exit for ~265s.
+
+@pytest.hookimpl(trylast=True)
+def pytest_sessionfinish(session, exitstatus):
+    """Force-exit to prevent asyncio GC from hanging the container.
+
+    asyncio.create_task() in production code creates Task objects that may not
+    be properly cleaned up during pytest teardown, causing the container to hang.
 
     os._exit() terminates immediately without running atexit handlers or __del__
     methods. This is safe in a Docker test container — the OS cleans all resources.
     All pytest reports (JUnit XML, coverage) are written before sessionfinish runs.
     """
     import os
+    import sys
+    
+    # Ensure all output is flushed before exiting
+    sys.stdout.flush()
+    sys.stderr.flush()
+    
     os._exit(int(exitstatus))
 
 
