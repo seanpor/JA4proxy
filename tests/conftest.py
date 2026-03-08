@@ -13,12 +13,24 @@ The session-scoped fixture below clears the default Prometheus registry once
 before the whole test session. This prevents any leftover registrations from
 a previous in-process test run (e.g. when running tests interactively or via
 pytest-xdist with forks).
+
+Network isolation
+-----------------
+ASNClassifier._refresh_tor_list makes a real HTTP request to torproject.org on
+every signal() call (the first time, to initialise the Tor exit node list). In
+tests, the Pipeline is created with a MagicMock Redis whose set() returns a
+truthy value, so the classifier always thinks it is the leader and tries to
+download. Each download adds ~4 seconds per test — 1174 tests × 4s ≈ 86 min.
+
+The _no_real_network fixture patches both _refresh_tor_list and _tor_refresh_loop
+to async no-ops for the entire test session, keeping the full suite under 60s.
+Tests that specifically need Tor exit IPs pre-populate _tor_exit_ips directly.
 """
 
 import asyncio
 import sys
 import redis
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -78,6 +90,33 @@ def _clean_prometheus_registry():
         del sys.modules[key]
 
     yield
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _no_real_network():
+    """Prevent real HTTP/network calls during the test session.
+
+    ASNClassifier._refresh_tor_list downloads from torproject.org each time a
+    Pipeline is instantiated and process() is called.  With a MagicMock Redis
+    the classifier always believes it is the download leader, resulting in a
+    ~4 s HTTP round-trip per test.  Patching both _refresh_tor_list and
+    _tor_refresh_loop to async no-ops eliminates all real network traffic and
+    keeps the test suite runtime under 60 s.
+    """
+
+    async def _noop(*args, **kwargs):
+        pass
+
+    # Patch only _refresh_tor_list (the HTTP download).  _tor_refresh_loop is
+    # intentionally left unpatched so chaos tests can exercise it directly
+    # using patch.object on the instance.  The loop itself does nothing harmful
+    # because on its first iteration it sleeps for refresh_interval seconds and
+    # the test event loop closes before that sleep completes.
+    with patch(
+        "src.security.asn_classifier.ASNClassifier._refresh_tor_list",
+        new=_noop,
+    ):
+        yield
 
 
 @pytest.fixture

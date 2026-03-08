@@ -11,6 +11,11 @@ from src.security.asn_classifier import ASNClassifier
 from src.security.pipeline import ConnectionContext, Pipeline
 from src.security.risk_scorer import RiskScorer
 
+# Capture the real _refresh_tor_list at collection time (before the session-level
+# conftest fixture patches it to a no-op).  Tests that exercise the real download
+# logic use patch.object with this reference to bypass the session-level patch.
+_REAL_REFRESH_TOR_LIST = ASNClassifier._refresh_tor_list
+
 THRESHOLDS = {
     "flag": 20,
     "rate_limit": 35,
@@ -128,9 +133,13 @@ class TestASNClassifierChaos:
         }
 
         classifier = ASNClassifier(config, mock_redis)
-        asyncio.run(classifier._init_tor_list())
 
-        # Should have loaded from Redis
+        # Bypass the session-level noop patch for this specific test by patching
+        # the instance with the real implementation captured at import time.
+        with patch.object(classifier, "_refresh_tor_list", _REAL_REFRESH_TOR_LIST.__get__(classifier)):
+            asyncio.run(classifier._refresh_tor_list())
+
+        # Should have loaded from Redis (leader election failed → fallback to smembers)
         assert len(classifier._tor_exit_ips) == 2
 
     def test_asn_classifier_error_in_pipeline_fails_open(self):
