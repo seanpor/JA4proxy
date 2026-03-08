@@ -112,12 +112,15 @@ All proxy instances subscribe on startup. Message format: `{"type": "...", "valu
 
 ---
 
-## Phase 10 — AbuseIPDB (planned)
+## Phase 10 — AbuseIPDB Integration
 
 | Key pattern | Type | TTL | Written by | Notes |
 |-------------|------|-----|------------|-------|
-| `abuseipdb:score:{ip}` | String (integer 0–100) | 14400s (4 h) | Proxy enrichment | Cached AbuseIPDB confidence score |
-| `bloom:abuseipdb_enriched` | Bloom filter | none | Proxy enrichment | Dedup filter; fallback: `bloom_fallback:abuseipdb_enriched` SET |
+| `abuseipdb:score:{ip}` | String (integer 0–100) | 14400s (4 h) | `AbuseIPDBChecker._process_lookup()` | Cached AbuseIPDB confidence score; 0 on API error (fail open). Shared across all proxy instances. |
+| `abuseipdb:quota:{YYYY-MM-DD}` | String (integer count) | 90000s (25 h) | `AbuseIPDBChecker._check_quota()` | Daily API request count; atomically incremented with INCR; rolled back on over-limit; auto-expires next day. |
+| `bloom:abuseipdb_enriched` | Bloom filter | 86400s (24 h) | `AbuseIPDBChecker._enqueue_lookup()` | Dedup filter; 24h TTL ensures IPs are re-enriched daily (not permanently suppressed). BF.ADD returns 1=new, 0=already present. |
+| `bloom_fallback:abuseipdb_enriched:{ip}` | String ("1") | 86400s (24 h) | `AbuseIPDBChecker._enqueue_lookup()` | Fallback when RedisBloom is unavailable; per-IP SET+TTL dedup. Used when BF.ADD raises an exception. |
+| `analytics:enrich:abuseipdb` | Set of IP strings | none (managed) | `AbuseIPDBChecker._enqueue_lookup()` | AbuseIPDB enrichment queue when `delegate_to_analytics: true`; drained by Analytics node (Phase 12); results written to `abuseipdb:score:{ip}`. |
 
 ---
 
@@ -165,4 +168,4 @@ These keys are written by the existing `MultiStrategyRateTracker` (see `src/secu
 
 ---
 
-*Last updated: Phase 8*
+*Last updated: Phase 10*

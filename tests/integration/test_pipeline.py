@@ -421,3 +421,112 @@ class TestDNSEnrichmentIntegration:
 
         # Pipeline must not propagate the exception
         assert result.action == "allow"
+
+
+# ---------------------------------------------------------------------------
+# Phase 10: AbuseIPDB integration
+# ---------------------------------------------------------------------------
+
+
+class TestAbuseIPDBIntegration:
+    """AbuseIPDB mock → Redis cache write → signal consumed by scorer."""
+
+    def test_abuseipdb_cached_score_produces_signal(self):
+        """With a pre-cached AbuseIPDB score, get_signal() returns a signal
+        that is consumed by the scorer and reflected in the composite score."""
+        from unittest.mock import MagicMock
+        from src.security.abuseipdb import AbuseIPDBChecker, AbuseIPDBConfig
+        from src.cache.local_cache import LocalCache
+        from tests.mocks.abuseipdb_mock import AbuseIPDBMock
+
+        # Build pipeline with a real scorer
+        pipeline = _make_pipeline(dial=100)
+
+        # Pre-populate in-process cache with a high confidence score
+        local_cache = pipeline._cache
+        local_cache.abuseipdb_scores.set("185.220.101.5", 90)
+
+        # Build checker with pre-populated cache
+        cfg = AbuseIPDBConfig(
+            enabled=True,
+            api_key="test",
+            score_cap=40,
+            shared_ip_threshold=50,
+            max_requests_per_day=100,
+            cache_ttl_seconds=14400,
+            lookup_timeout_seconds=10,
+            queue_size=10,
+            worker_count=1,
+            delegate_to_analytics=False,
+        )
+        mock_obj = AbuseIPDBMock()
+        mock_obj.set_score("185.220.101.5", 90)
+
+        redis_mock = MagicMock()
+        checker = AbuseIPDBChecker(cfg, redis_mock, local_cache, mock_obj.make_session())
+        pipeline.set_abuseipdb_checker(checker)
+
+        result = _run(pipeline.process(_ctx(sni="example.com")))
+
+        # Signal should appear in result
+        signal_names = [s.name for s in result.signals]
+        assert "abuseipdb" in signal_names
+
+        # Score contribution should be score_cap (confidence=90 >= threshold=50)
+        abuseipdb_signal = next(s for s in result.signals if s.name == "abuseipdb")
+        expected_contribution = round((90 / 100) * 40)  # = 36
+        assert abuseipdb_signal.score == expected_contribution
+
+        # Composite score should include the contribution
+        assert result.score >= expected_contribution
+
+    def test_abuseipdb_cache_miss_no_signal(self):
+        """Cache miss on get_signal() returns None (in-process cache empty)."""
+        from unittest.mock import MagicMock, AsyncMock
+        from src.security.abuseipdb import AbuseIPDBChecker, AbuseIPDBConfig
+        from src.cache.local_cache import LocalCache
+
+        # In-process LRU is empty — get_signal returns None immediately
+        local_cache = LocalCache({})
+        cfg = AbuseIPDBConfig(
+            enabled=True,
+            api_key="test",
+            score_cap=40,
+            shared_ip_threshold=50,
+            max_requests_per_day=100,
+            cache_ttl_seconds=14400,
+            lookup_timeout_seconds=10,
+            queue_size=10,
+            worker_count=1,
+            delegate_to_analytics=False,
+        )
+        redis_mock = MagicMock()
+        redis_mock.get = AsyncMock(return_value=None)
+
+        checker = AbuseIPDBChecker(cfg, redis_mock, local_cache, MagicMock())
+
+        # get_signal is synchronous and checks only Tier 1 (in-process LRU) synchronously.
+        # With empty cache, it schedules an async task (create_task) and returns None.
+        # We need a running event loop for create_task, so wrap in asyncio.run:
+        async def _check():
+            return checker.get_signal("185.220.101.5")
+
+        signal = _run(_check())
+        assert signal is None
+
+    def test_abuseipdb_disabled_no_signal(self):
+        """Disabled checker produces no signal."""
+        from unittest.mock import MagicMock
+        from src.security.abuseipdb import AbuseIPDBChecker, AbuseIPDBConfig
+        from src.cache.local_cache import LocalCache
+
+        pipeline = _make_pipeline(dial=100)
+        local_cache = pipeline._cache
+
+        cfg = AbuseIPDBConfig(enabled=False)
+        checker = AbuseIPDBChecker(cfg, MagicMock(), local_cache, MagicMock())
+        pipeline.set_abuseipdb_checker(checker)
+
+        result = _run(pipeline.process(_ctx(sni="example.com")))
+        signal_names = [s.name for s in result.signals]
+        assert "abuseipdb" not in signal_names

@@ -65,6 +65,7 @@ from .blocklists import BlocklistManager, FeedConfig
 from .rate_tracker import MultiStrategyRateTracker
 from .rate_strategy import RateLimitStrategy, StrategyConfig
 from .beaconing_detector import BeaconingDetector
+from .abuseipdb import AbuseIPDBChecker, AbuseIPDBConfig
 
 if TYPE_CHECKING:
     from ..cache.local_cache import LocalCache
@@ -287,6 +288,10 @@ class Pipeline:
             self._rate_tracker = None
         # Phase 9: Beaconing detector (IAT coefficient of variation)
         self._beaconing_detector = BeaconingDetector(config, redis_client, local_cache)
+        # Phase 10: AbuseIPDB checker (three-tier cache; fire-and-forget background workers)
+        # The aiohttp session and full startup are handled by ProxyServer.
+        # Pipeline holds a reference; start()/stop() called by ProxyServer.
+        self._abuseipdb_checker: AbuseIPDBChecker | None = None
 
     def _load_blocklist_feeds(self, config: dict) -> None:
         """Load any static/pre-populated blocklist feeds from config."""
@@ -313,6 +318,10 @@ class Pipeline:
         """Wire in Phase 1 scorer and decider. Called after Phase 1 init."""
         self._scorer = scorer
         self._decider = decider
+
+    def set_abuseipdb_checker(self, checker: AbuseIPDBChecker | None) -> None:
+        """Wire in the Phase 10 AbuseIPDB checker. Called after start()."""
+        self._abuseipdb_checker = checker
 
     def update_sets(self, whitelist: set[str], blacklist: set[str]) -> None:
         """Replace in-process JA4 sets. Called on startup and pub/sub update."""
@@ -652,6 +661,20 @@ class Pipeline:
                 exc,
                 exc_info=True,
             )
+
+        # Phase 10: AbuseIPDB reputation (three-tier cache; hot path never blocks)
+        if self._abuseipdb_checker is not None:
+            try:
+                abuseipdb_signal = self._abuseipdb_checker.get_signal(ctx.client_ip)
+                if abuseipdb_signal is not None:
+                    signals.append(abuseipdb_signal)
+            except Exception as exc:
+                logger.error(
+                    "abuseipdb | event=get_signal_error | ip=%s | error=%s",
+                    ctx.client_ip,
+                    exc,
+                    exc_info=True,
+                )
 
         return signals
 
