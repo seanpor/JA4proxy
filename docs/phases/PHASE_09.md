@@ -214,49 +214,49 @@ beaconing_detector:
 ## Acceptance Criteria
 
 ### Functional
-- [ ] `beacon_score(iats: list[float]) -> float`: returns correct value for all CV ranges
-- [ ] `coefficient_of_variation(values)`: handles empty list, single value, all-equal values without error
-- [ ] Sorted Set per `{ip}:{ja4}` stores timestamps with UUID suffix as member; `window_size` trimming applied
-- [ ] Minimum observations guard: no signal emitted when fewer than `min_observations` timestamps present
-- [ ] Guard: h2/h1 ALPN connections never recorded in beaconing Sorted Set
-- [ ] Guard: IPs in Phase 0 whitelist LRU never recorded
-- [ ] Guard: blocked and banned connections excluded from timing records
-- [ ] Long-window secondary detection (24h) operates independently of short-window
-- [ ] `beacon:suspects` Sorted Set updated on every scored connection
-- [ ] Redis unavailable during record: fails silently; no crash; no signal emitted
-- [ ] Output: `RiskSignal(name="beaconing", score=N, reason="CV=X strength=Y")`
+- [x] `beacon_score(iats: list[float]) -> float`: returns correct value for all CV ranges
+- [x] `coefficient_of_variation(values)`: handles empty list, single value, all-equal values without error
+- [x] Sorted Set per `{ip}:{ja4}` stores timestamps with UUID suffix as member; `window_size` trimming applied
+- [x] Minimum observations guard: no signal emitted when fewer than `min_observations` timestamps present
+- [x] Guard: h2/h1 ALPN connections never recorded in beaconing Sorted Set
+- [x] Guard: IPs in Phase 0 whitelist LRU never recorded
+- [x] Guard: blocked and banned connections excluded from timing records
+- [x] Long-window secondary detection (24h) operates independently of short-window
+- [x] `beacon:suspects` Sorted Set updated on every scored connection
+- [x] Redis unavailable during record: fails silently; no crash; no signal emitted
+- [x] Output: `RiskSignal(name="beaconing", score=N, reason="CV=X strength=Y")`
 
 ### Configuration
-- [ ] `cv_thresholds`, `score_cap`, `observation_window_seconds`, `min_observations` all configurable and hot-reloadable
-- [ ] Long window enabled/disabled independently via `long_window.enabled`
+- [x] `cv_thresholds`, `score_cap`, `observation_window_seconds`, `min_observations` all configurable and hot-reloadable
+- [x] Long window enabled/disabled independently via `long_window.enabled`
 
 ### Observability
-- [ ] Prometheus histogram: `ja4proxy_beaconing_score` — beacon score distribution; buckets [0,.1,.2,.3,.5,.7,.9,1]
-- [ ] Prometheus gauge:     `ja4proxy_beaconing_suspects` — current number of suspected beaconers
-- [ ] Prometheus counter:   `ja4proxy_beaconing_records_total` — connection timestamps recorded
-- [ ] `docs/REDIS_SCHEMA.md` updated with `beacon:{ip}:{ja4}`, `beacon:long:{ip}:{ja4}`, `beacon:suspects`
+- [x] Prometheus histogram: `ja4proxy_beaconing_score` — beacon score distribution; buckets [0,.1,.2,.3,.5,.7,.9,1]
+- [x] Prometheus gauge:     `ja4proxy_beaconing_suspects` — current number of suspected beaconers
+- [x] Prometheus counter:   `ja4proxy_beaconing_records_total` — connection timestamps recorded
+- [x] `docs/REDIS_SCHEMA.md` updated with `beacon:{ip}:{ja4}`, `beacon:long:{ip}:{ja4}`, `beacon:suspects`
 
-- [ ] JSON log: beaconing signal appears in connection `signals` array as `{"name":"beaconing","score":N,"reason":"cv=0.12 over 47 observations"}` when emitted
+- [x] JSON log: beaconing signal appears in connection `signals` array as `{"name":"beaconing","score":N,"reason":"cv=0.12 over 47 observations"}` when emitted
 
 ### Unit Tests  (`tests/unit/test_beaconing_detector.py`)
-- [ ] `beacon_score()`: CV=0 (perfect beacon) → score=0.9
-- [ ] `beacon_score()`: CV=0.12 (jittered beacon) → score=0.9
-- [ ] `beacon_score()`: CV=0.25 (moderate) → score=0.5
-- [ ] `beacon_score()`: CV=0.55 (weak) → score=0.2
-- [ ] `beacon_score()`: CV=0.8 (human-like) → score=0.0
-- [ ] `beacon_score()`: empty IAT list → score=0.0 (not error)
-- [ ] `coefficient_of_variation()`: empty list → 0.0
-- [ ] `coefficient_of_variation()`: single value → 0.0
-- [ ] `coefficient_of_variation()`: all-equal values → 0.0
-- [ ] `maybe_record()`: h2 ALPN connection → not recorded
-- [ ] `maybe_record()`: whitelisted IP → not recorded
-- [ ] `maybe_record()`: blocked action → not recorded
-- [ ] `maybe_record()`: duplicate timestamp → UUID suffix prevents Sorted Set member collision
-- [ ] Signal not emitted when observations below `min_observations`
+- [x] `beacon_score()`: CV=0 (perfect beacon) → score=0.9
+- [x] `beacon_score()`: CV=0.12 (jittered beacon) → score=0.9
+- [x] `beacon_score()`: CV=0.25 (moderate) → score=0.5
+- [x] `beacon_score()`: CV=0.55 (weak) → score=0.2
+- [x] `beacon_score()`: CV=0.8 (human-like) → score=0.0
+- [x] `beacon_score()`: empty IAT list → score=0.0 (not error)
+- [x] `coefficient_of_variation()`: empty list → 0.0
+- [x] `coefficient_of_variation()`: single value → 0.0
+- [x] `coefficient_of_variation()`: all-equal values → 0.0
+- [x] `maybe_record()`: h2 ALPN connection → not recorded
+- [x] `maybe_record()`: whitelisted IP → not recorded
+- [x] `maybe_record()`: blocked action → not recorded
+- [x] `maybe_record()`: duplicate timestamp → UUID suffix prevents Sorted Set member collision
+- [x] Signal not emitted when observations below `min_observations`
 
 ### Integration Tests  (`tests/integration/test_beaconing_pipeline.py`)
-- [ ] Simulated beaconing client (10 connections at 30s interval): `beacon_score` escalates to ≥ 0.9
+- [x] Simulated beaconing client (10 connections at 30s interval): `beacon_score` escalates to ≥ 0.9
 
 ### Chaos Tests  (`tests/chaos/test_redis_failure.py`)
-- [ ] Redis unavailable during `maybe_record()`: fails silently; no crash; no signal emitted
-- [ ] Sorted Set key evicted by `allkeys-lru`: next connection starts fresh; no error
+- [x] Redis unavailable during `maybe_record()`: fails silently; no crash; no signal emitted
+- [x] Sorted Set key evicted by `allkeys-lru`: next connection starts fresh; no error

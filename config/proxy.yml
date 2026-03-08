@@ -420,3 +420,24 @@ blocklists:
     #   score: 60                # Risk score contribution when is_bypass: false.
     #   refresh_interval_seconds: 3600
     #   enabled: false
+
+# ── Phase 9: Beaconing Detection ─────────────────────────────────────────────
+
+beaconing_detector:
+  enabled: true
+  min_observations: 8              # Timestamps required before scoring (prevents FP from coincidental timing)
+  window_size: 20                  # Max timestamps to keep per key (memory cap)
+  observation_window_seconds: 3600 # Short-window duration (1 hour)
+  score: 35                        # Max risk score contribution (multiplied by beacon_score 0–1)
+
+  cv_thresholds:
+    strong_beacon: 0.15    # CV < 0.15 → 0.9 confidence (very regular — strong beacon)
+    moderate_beacon: 0.40  # CV < 0.40 → 0.5 confidence (moderately regular)
+    weak_signal: 0.70      # CV < 0.70 → 0.2 confidence (somewhat regular)
+                           # CV ≥ 0.70 → no signal (human-like irregularity)
+
+  long_window:
+    enabled: true
+    window_seconds: 86400    # 24-hour window for slow-burn APT beacons
+    min_observations: 5      # Lower threshold (daily beacons are sparse)
+    score: 20                # Lower score cap (less certainty for slow beacons)

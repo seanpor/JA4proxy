@@ -1,5 +1,40 @@
 # Changelog
 
+## [8.0.0] - 2026-03-08 - PHASE 9: BEACONING DETECTION
+
+### Added
+
+- **`src/security/beaconing_detector.py`** — Phase 9 beaconing detector:
+  - `coefficient_of_variation(values)` — pure function; CV = stdev/mean; 0.0 for degenerate inputs
+  - `beacon_score(iats, ...)` — converts IAT list to beacon confidence (0.0, 0.2, 0.5, 0.9); configurable CV thresholds
+  - `compute_iats(timestamps)` — converts sorted timestamp list to inter-arrival times
+  - `BeaconingDetector` class with dual detection windows (short: 1 h, long: 24 h)
+  - Three guards: browser ALPN (h2/h1) never recorded; whitelisted IPs skipped; blocked/banned actions excluded
+  - UUID suffix on Sorted Set members prevents collision on same-millisecond arrivals
+  - Fire-and-forget `maybe_record()` via `asyncio.create_task()` — never blocks hot path
+  - `beacon:suspects` Sorted Set updated on every scored signal (score = confidence 0–0.9)
+  - Prometheus: `ja4proxy_beaconing_score` (Histogram), `ja4proxy_beaconing_suspects` (Gauge), `ja4proxy_beaconing_records_total` (Counter)
+
+- **Pipeline integration** (`src/security/pipeline.py`):
+  - `BeaconingDetector.get_signal(ctx)` called in `_collect_signals()` — signal slotted into scorer
+  - `BeaconingDetector.maybe_record()` fired as `asyncio.create_task()` after action decision
+
+- **`config/proxy.yml`** — `beaconing_detector` config section:
+  - `enabled`, `min_observations: 8`, `window_size: 20`, `observation_window_seconds: 3600`, `score: 35`
+  - `cv_thresholds.{strong_beacon: 0.15, moderate_beacon: 0.40, weak_signal: 0.70}`
+  - `long_window.{enabled, window_seconds: 86400, min_observations: 5, score: 20}`
+
+- **Tests** — 35 new tests across 3 files:
+  - `tests/unit/security/test_beaconing_detector.py` — 27 unit tests covering all pure functions, guards, UUID suffix, and signal format
+  - `tests/integration/test_beaconing_pipeline.py` — 4 integration tests: regular 30s beacon escalates to strong, irregular traffic produces no signal, long window independent of short window
+  - `tests/chaos/test_redis_failure.py` — 3 new chaos tests: Redis down during `maybe_record` (silent), Redis down during `get_signal` (returns None), evicted Sorted Set key starts fresh
+
+- **`docs/REDIS_SCHEMA.md`** — Phase 9 section expanded with full schema for all 3 keys (`beacon:{ip}:{ja4}`, `beacon:long:{ip}:{ja4}`, `beacon:suspects`) including member format, TTL, writer, and trimming behaviour
+
+- **`docs/phases/PHASE_09.md`** — all 35 acceptance criteria marked complete
+
+---
+
 ## [7.2.0] - 2026-03-07 - PHASE GATE: MISSING METRICS, DOCS, BENCHMARK HISTORY
 
 ### Added

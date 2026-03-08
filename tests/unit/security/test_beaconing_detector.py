@@ -1,0 +1,344 @@
+"""Unit tests for Phase 9 — Beaconing Detection."""
+
+import asyncio
+import time
+import unittest
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from src.security.beaconing_detector import (
+    BeaconingDetector,
+    beacon_score,
+    coefficient_of_variation,
+    compute_iats,
+)
+from src.security.models import ConnectionContext, RiskSignal
+
+
+# ---------------------------------------------------------------------------
+# Statistical function tests
+# ---------------------------------------------------------------------------
+
+
+class TestCoefficientOfVariation(unittest.TestCase):
+    """Tests for coefficient_of_variation()."""
+
+    def test_empty_list_returns_zero(self):
+        """Empty list → 0.0 (not an error)."""
+        self.assertEqual(coefficient_of_variation([]), 0.0)
+
+    def test_single_value_returns_zero(self):
+        """Single value → 0.0 (can't compute variation)."""
+        self.assertEqual(coefficient_of_variation([60.0]), 0.0)
+
+    def test_all_equal_values_returns_zero(self):
+        """All-equal values → stdev=0 → CV=0.0."""
+        self.assertEqual(coefficient_of_variation([60.0, 60.0, 60.0, 60.0]), 0.0)
+
+    def test_typical_values(self):
+        """Returns correct CV for typical IAT sequence."""
+        # mean=60, stdev≈7, CV≈0.11
+        iats = [53.0, 67.0, 60.0, 53.0, 67.0, 60.0, 53.0]
+        cv = coefficient_of_variation(iats)
+        self.assertGreater(cv, 0.0)
+        self.assertLess(cv, 0.15)  # Stays in strong-beacon range
+
+
+class TestBeaconScore(unittest.TestCase):
+    """Tests for beacon_score()."""
+
+    def test_empty_iat_list_returns_zero(self):
+        """Empty IAT list → 0.0 (not enough data)."""
+        self.assertEqual(beacon_score([]), 0.0)
+
+    def test_single_iat_returns_zero(self):
+        """Single IAT → 0.0 (can't compute CV)."""
+        self.assertEqual(beacon_score([60.0]), 0.0)
+
+    def test_perfect_beacon_cv_zero_returns_09(self):
+        """CV=0 (all equal) → 0.9 (strong beacon)."""
+        iats = [60.0, 60.0, 60.0, 60.0, 60.0, 60.0, 60.0]
+        self.assertEqual(beacon_score(iats), 0.9)
+
+    def test_jittered_beacon_cv_012_returns_09(self):
+        """CV≈0.10 (±7s jitter around 60s) → 0.9 (still strong beacon)."""
+        # mean≈60, stdev≈6, CV≈0.10 < 0.15
+        iats = [53.0, 67.0, 60.0, 53.0, 67.0, 60.0, 53.0]
+        self.assertEqual(beacon_score(iats), 0.9)
+
+    def test_moderate_cv_025_returns_05(self):
+        """CV≈0.22 (±15s around 60s) → 0.5 (moderate)."""
+        # mean=60, stdev≈13, CV≈0.22
+        iats = [45.0, 75.0, 60.0, 45.0, 75.0, 60.0, 45.0]
+        score = beacon_score(iats)
+        self.assertEqual(score, 0.5)
+
+    def test_weak_cv_055_returns_02(self):
+        """CV≈0.48 (large jitter) → 0.2 (weak signal)."""
+        # mean=60, stdev≈29, CV≈0.48
+        iats = [27.0, 93.0, 60.0, 27.0, 93.0, 60.0, 27.0]
+        score = beacon_score(iats)
+        self.assertEqual(score, 0.2)
+
+    def test_human_like_cv_08_returns_00(self):
+        """CV≈0.79 (highly irregular) → 0.0 (no signal)."""
+        # mean=60, stdev≈47, CV≈0.79 ≥ 0.70
+        iats = [5.0, 115.0, 60.0, 5.0, 115.0, 60.0, 5.0]
+        self.assertEqual(beacon_score(iats), 0.0)
+
+    def test_custom_thresholds_respected(self):
+        """Custom CV thresholds override defaults."""
+        # With strong_beacon=0.30, CV=0.22 should now be 0.9
+        iats = [45.0, 75.0, 60.0, 45.0, 75.0, 60.0, 45.0]
+        self.assertEqual(beacon_score(iats, strong_beacon=0.30), 0.9)
+
+
+class TestComputeIats(unittest.TestCase):
+    """Tests for compute_iats()."""
+
+    def test_empty_returns_empty(self):
+        self.assertEqual(compute_iats([]), [])
+
+    def test_single_returns_empty(self):
+        self.assertEqual(compute_iats([1000.0]), [])
+
+    def test_regular_spacing(self):
+        ts = [1000.0, 1060.0, 1120.0, 1180.0]
+        iats = compute_iats(ts)
+        self.assertEqual(iats, [60.0, 60.0, 60.0])
+
+
+# ---------------------------------------------------------------------------
+# BeaconingDetector guard tests
+# ---------------------------------------------------------------------------
+
+
+def _make_detector(config=None, redis=None, cache=None):
+    """Helper: build a BeaconingDetector with mocked dependencies."""
+    cfg = config or {
+        "beaconing_detector": {
+            "enabled": True,
+            "min_observations": 8,
+            "window_size": 20,
+            "observation_window_seconds": 3600,
+            "score": 35,
+            "long_window": {"enabled": True, "window_seconds": 86400,
+                            "min_observations": 5, "score": 20},
+        }
+    }
+    mock_redis = redis or MagicMock()
+    if cache is None:
+        mock_cache = MagicMock()
+        mock_cache.whitelist_decisions = MagicMock()
+        mock_cache.whitelist_decisions.get = MagicMock(return_value=None)
+    else:
+        mock_cache = cache
+    return BeaconingDetector(cfg, mock_redis, mock_cache)
+
+
+class TestMaybeRecordGuards(unittest.TestCase):
+    """Guards must prevent recording specific connection types."""
+
+    def _run(self, coro):
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+
+    def test_h2_alpn_not_recorded(self):
+        """h2 ALPN connections must never be recorded."""
+        mock_redis = MagicMock()
+        mock_redis.pipeline = MagicMock(return_value=AsyncMock())
+        detector = _make_detector(redis=mock_redis)
+
+        self._run(detector.maybe_record("1.2.3.4", "t13d...", "h2", "allow"))
+
+        mock_redis.pipeline.assert_not_called()
+
+    def test_h1_alpn_not_recorded(self):
+        """h1 ALPN connections must never be recorded."""
+        mock_redis = MagicMock()
+        mock_redis.pipeline = MagicMock(return_value=AsyncMock())
+        detector = _make_detector(redis=mock_redis)
+
+        self._run(detector.maybe_record("1.2.3.4", "t13d...", "h1", "allow"))
+
+        mock_redis.pipeline.assert_not_called()
+
+    def test_whitelisted_ip_not_recorded(self):
+        """IP present in whitelist_decisions cache must not be recorded."""
+        mock_redis = MagicMock()
+        mock_redis.pipeline = MagicMock(return_value=AsyncMock())
+        mock_cache = MagicMock()
+        mock_cache.whitelist_decisions = MagicMock()
+        mock_cache.whitelist_decisions.get = MagicMock(return_value=True)
+        detector = _make_detector(redis=mock_redis, cache=mock_cache)
+
+        self._run(detector.maybe_record("1.2.3.4", "t13d...", "", "allow"))
+
+        mock_redis.pipeline.assert_not_called()
+
+    def test_blocked_action_not_recorded(self):
+        """block action → not recorded (prevents CV distortion)."""
+        mock_redis = MagicMock()
+        mock_redis.pipeline = MagicMock(return_value=AsyncMock())
+        detector = _make_detector(redis=mock_redis)
+
+        self._run(detector.maybe_record("1.2.3.4", "t13d...", "", "block"))
+
+        mock_redis.pipeline.assert_not_called()
+
+    def test_banned_action_not_recorded(self):
+        """ban action → not recorded."""
+        mock_redis = MagicMock()
+        mock_redis.pipeline = MagicMock(return_value=AsyncMock())
+        detector = _make_detector(redis=mock_redis)
+
+        self._run(detector.maybe_record("1.2.3.4", "t13d...", "", "ban"))
+
+        mock_redis.pipeline.assert_not_called()
+
+    def test_allowed_connection_recorded(self):
+        """Normal allowed connection → pipeline called → timestamp recorded."""
+        pipe_mock = AsyncMock()
+        pipe_mock.execute = AsyncMock(return_value=[1, 0, 0, True])
+        # Support both context-manager and direct pipeline usage
+        pipe_mock.__aenter__ = AsyncMock(return_value=pipe_mock)
+        pipe_mock.__aexit__ = AsyncMock(return_value=False)
+
+        mock_redis = MagicMock()
+        mock_redis.pipeline = MagicMock(return_value=pipe_mock)
+
+        detector = _make_detector(redis=mock_redis)
+        self._run(detector.maybe_record("1.2.3.4", "t13d...", "", "allow"))
+
+        mock_redis.pipeline.assert_called()
+
+    def test_disabled_detector_skips_all(self):
+        """Disabled detector skips recording entirely."""
+        cfg = {"beaconing_detector": {"enabled": False}}
+        mock_redis = MagicMock()
+        detector = _make_detector(config=cfg, redis=mock_redis)
+
+        self._run(detector.maybe_record("1.2.3.4", "t13d...", "", "allow"))
+
+        mock_redis.pipeline.assert_not_called()
+
+
+class TestUUIDSuffixPreventsDuplication(unittest.TestCase):
+    """UUID suffix prevents Sorted Set member collision on same-millisecond arrivals."""
+
+    def _run(self, coro):
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+
+    def test_two_calls_produce_distinct_members(self):
+        """Two calls at the same time.time() produce different member strings."""
+        added_members = []
+
+        pipe_mock = AsyncMock()
+        pipe_mock.zadd = MagicMock(side_effect=lambda k, m: added_members.append(list(m.keys())[0]))
+        pipe_mock.execute = AsyncMock(return_value=[1, 0, 0, True])
+        pipe_mock.__aenter__ = AsyncMock(return_value=pipe_mock)
+        pipe_mock.__aexit__ = AsyncMock(return_value=False)
+
+        mock_redis = MagicMock()
+        mock_redis.pipeline = MagicMock(return_value=pipe_mock)
+
+        with patch("src.security.beaconing_detector.time.time", return_value=1700000000.0):
+            detector = _make_detector(redis=mock_redis)
+            self._run(detector.maybe_record("1.2.3.4", "t13d...", "", "allow"))
+            self._run(detector.maybe_record("1.2.3.4", "t13d...", "", "allow"))
+
+        # Both calls recorded at exact same timestamp — UUID suffix must differ.
+        # Each maybe_record adds to 2 keys (short + long), so 4 zadd calls total.
+        # The first call's uid is added twice (short+long); same for second call.
+        self.assertEqual(len(added_members), 4)
+        unique_members = list(dict.fromkeys(added_members))  # preserve order, deduplicate
+        self.assertEqual(len(unique_members), 2)
+        self.assertNotEqual(unique_members[0], unique_members[1])
+        # Both start with the same timestamp prefix
+        self.assertTrue(unique_members[0].startswith("1700000000.000000:"))
+        self.assertTrue(unique_members[1].startswith("1700000000.000000:"))
+
+
+class TestGetSignalMinObservations(unittest.TestCase):
+    """Signal must not be emitted before min_observations threshold."""
+
+    def _run(self, coro):
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+
+    def test_below_min_observations_returns_none(self):
+        """Fewer than min_observations timestamps → no signal."""
+        now = time.time()
+        # Only 4 timestamps — below short window min_observations=8 AND long window min_observations=5
+        timestamps = [(f"ts{i}", now - (8 - i) * 60) for i in range(4)]
+
+        mock_redis = MagicMock()
+        mock_redis.zrangebyscore = AsyncMock(return_value=timestamps)
+
+        detector = _make_detector(redis=mock_redis)
+        ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d...")
+
+        result = self._run(detector.get_signal(ctx))
+        self.assertIsNone(result)
+
+    def test_at_min_observations_returns_signal(self):
+        """Exactly min_observations regular timestamps → signal emitted."""
+        now = time.time()
+        # 8 timestamps at exactly 60s intervals → CV=0 → strong beacon
+        timestamps = [(f"ts{i}", now - (8 - i) * 60.0) for i in range(8)]
+
+        mock_redis = MagicMock()
+        mock_redis.zrangebyscore = AsyncMock(return_value=timestamps)
+        mock_redis.zadd = AsyncMock()
+        mock_redis.zcard = AsyncMock(return_value=1)
+
+        detector = _make_detector(redis=mock_redis)
+        ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d...")
+
+        result = self._run(detector.get_signal(ctx))
+        self.assertIsNotNone(result)
+        self.assertEqual(result.name, "beaconing")
+        self.assertGreater(result.score, 0)
+        self.assertIn("cv=0.000", result.reason)
+        self.assertIn("strength=strong", result.reason)
+
+    def test_redis_failure_returns_none(self):
+        """Redis unavailable during get_signal → returns None silently."""
+        mock_redis = MagicMock()
+        mock_redis.zrangebyscore = AsyncMock(side_effect=ConnectionError("Redis down"))
+
+        detector = _make_detector(redis=mock_redis)
+        ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d...")
+
+        result = self._run(detector.get_signal(ctx))
+        self.assertIsNone(result)
+
+    def test_signal_output_format(self):
+        """Signal has correct name and reason format."""
+        now = time.time()
+        timestamps = [(f"ts{i}", now - (10 - i) * 60.0) for i in range(10)]
+
+        mock_redis = MagicMock()
+        mock_redis.zrangebyscore = AsyncMock(return_value=timestamps)
+        mock_redis.zadd = AsyncMock()
+        mock_redis.zcard = AsyncMock(return_value=1)
+
+        detector = _make_detector(redis=mock_redis)
+        ctx = ConnectionContext(client_ip="5.6.7.8", ja4="t13d1234")
+
+        result = self._run(detector.get_signal(ctx))
+        self.assertIsNotNone(result)
+        self.assertEqual(result.name, "beaconing")
+        self.assertIsInstance(result.score, int)
+        self.assertIn("cv=", result.reason)
+        self.assertIn("strength=", result.reason)
+        self.assertIn("over 10 observations", result.reason)

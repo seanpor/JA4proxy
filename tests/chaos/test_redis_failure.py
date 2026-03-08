@@ -286,3 +286,112 @@ class TestTLSEnforcerRedisDown:
             result = _run(pipeline.process(ctx))
         # Fail open — unexpected exception → allow
         assert result.action == "allow"
+
+
+# ---------------------------------------------------------------------------
+# Phase 9: Beaconing detector Redis failures
+# ---------------------------------------------------------------------------
+
+
+class TestBeaconingDetectorRedisDown:
+    """Beaconing detector must fail open when Redis is unavailable."""
+
+    def test_maybe_record_redis_down_silent(self):
+        """Redis failure during maybe_record: no exception, no crash."""
+        from src.security.beaconing_detector import BeaconingDetector
+
+        mock_redis = MagicMock()
+        mock_redis.pipeline = MagicMock(side_effect=ConnectionError("Redis down"))
+
+        mock_cache = MagicMock()
+        mock_cache.whitelist_decisions = MagicMock()
+        mock_cache.whitelist_decisions.get = MagicMock(return_value=None)
+
+        config = {
+            "beaconing_detector": {
+                "enabled": True,
+                "min_observations": 8,
+                "window_size": 20,
+                "observation_window_seconds": 3600,
+                "score": 35,
+                "long_window": {"enabled": False},
+            }
+        }
+        detector = BeaconingDetector(config, mock_redis, mock_cache)
+
+        # Must complete without raising
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(
+            detector.maybe_record("1.2.3.4", "t13d...", "", "allow")
+        )
+        loop.close()
+        # No assertion needed — the test passes if no exception was raised
+
+    def test_get_signal_redis_down_returns_none(self):
+        """Redis failure during get_signal: returns None (fail open), no crash."""
+        from src.security.beaconing_detector import BeaconingDetector
+        from src.security.models import ConnectionContext
+
+        mock_redis = MagicMock()
+        mock_redis.zrangebyscore = AsyncMock(side_effect=ConnectionError("Redis down"))
+
+        mock_cache = MagicMock()
+        mock_cache.whitelist_decisions = MagicMock()
+        mock_cache.whitelist_decisions.get = MagicMock(return_value=None)
+
+        config = {
+            "beaconing_detector": {
+                "enabled": True,
+                "min_observations": 8,
+                "window_size": 20,
+                "observation_window_seconds": 3600,
+                "score": 35,
+                "long_window": {"enabled": False},
+            }
+        }
+        detector = BeaconingDetector(config, mock_redis, mock_cache)
+        ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d...")
+
+        loop = asyncio.new_event_loop()
+        result = loop.run_until_complete(detector.get_signal(ctx))
+        loop.close()
+
+        assert result is None  # Fail open — no signal emitted on Redis error
+
+    def test_sorted_set_evicted_starts_fresh(self):
+        """Sorted Set key evicted by allkeys-lru: next connection starts fresh.
+
+        When the key is gone, zrangebyscore returns empty list.  The detector
+        must accept this as 'not enough data' (below min_observations) and
+        return None without raising.
+        """
+        from src.security.beaconing_detector import BeaconingDetector
+        from src.security.models import ConnectionContext
+
+        mock_redis = MagicMock()
+        # Simulate evicted key: zrangebyscore returns empty (key doesn't exist)
+        mock_redis.zrangebyscore = AsyncMock(return_value=[])
+
+        mock_cache = MagicMock()
+        mock_cache.whitelist_decisions = MagicMock()
+        mock_cache.whitelist_decisions.get = MagicMock(return_value=None)
+
+        config = {
+            "beaconing_detector": {
+                "enabled": True,
+                "min_observations": 8,
+                "window_size": 20,
+                "observation_window_seconds": 3600,
+                "score": 35,
+                "long_window": {"enabled": False},
+            }
+        }
+        detector = BeaconingDetector(config, mock_redis, mock_cache)
+        ctx = ConnectionContext(client_ip="5.6.7.8", ja4="t13d_evicted")
+
+        loop = asyncio.new_event_loop()
+        result = loop.run_until_complete(detector.get_signal(ctx))
+        loop.close()
+
+        # No data → no signal; starts fresh accumulation
+        assert result is None
