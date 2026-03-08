@@ -310,14 +310,14 @@ with a warning ("allowlist entry in Redis not found in config — may be stale")
 This makes it visible in Grafana and auditable. The allowlist should be kept short.
 
 **Acceptance criteria additions:**
-- [ ] Static allowlist entries bypass entire pipeline (no score, no dial check)
-- [ ] Both individual IPs and CIDRs supported; IPv4 and IPv6
-- [ ] Config-file entries loaded on startup and hot-reload
-- [ ] UI-added entries written to Redis and propagated via pub/sub immediately
-- [ ] Every allowlisted connection logged with IP, comment, and `static_allowlist` label
-- [ ] Prometheus counter: `ja4proxy_static_allowlist_hits_total` — connections matched by static IP allowlist
-- [ ] Tests: allowlisted IP bypasses all checks including JA4 blacklist match
-- [ ] 
+- [x] Static allowlist entries bypass entire pipeline (no score, no dial check)
+- [x] Both individual IPs and CIDRs supported; IPv4 and IPv6
+- [x] Config-file entries loaded on startup and hot-reload
+- [x] UI-added entries written to Redis and propagated via pub/sub immediately
+- [x] Every allowlisted connection logged with IP, comment, and `static_allowlist` label
+- [x] Prometheus counter: `ja4proxy_static_allowlist_hits_total` — connections matched by static IP allowlist
+- [x] Tests: allowlisted IP bypasses all checks including JA4 blacklist match
+- [x]
   CIDR allowlist match, IPv6 allowlist entry, pub/sub propagation on UI add/remove
 
 ## Redis Key Schema
@@ -382,54 +382,54 @@ config:
 ## Acceptance Criteria
 
 ### Functional
-- [ ] All Docker Compose files use `redis/redis-stack:latest`; existing tests pass unchanged
-- [ ] `upstream_trust` enabled: real client IP extracted from PROXY protocol header
-- [ ] `upstream_trust` disabled or source not in `trusted_cidrs`: source IP used directly
-- [ ] `get_analysis_subnet()`: returns /24 for IPv4, /48 for IPv6
-- [ ] All IPs normalised to canonical form on ingress (Phase 0 normaliser)
-- [ ] Rate-limiting keys, ban keys, and beaconing keys all use full canonical IP string
-- [ ] JA4 blacklist and whitelist backed by Redis SET + in-process Python `frozenset`
-- [ ] Sliding window rate limiter uses Sorted Set + Lua via EVALSHA; no inline Lua in production
-- [ ] Bloom filters created on startup; Bloom miss falls back to SET path without error
-- [ ] Hot-path pipeline batching implemented; benchmark documents RTT reduction
-- [ ] Pub/Sub subscriber running per instance; handles all message types without crash
-- [ ] `blocking_acknowledged: false` on startup → dial resets to 0, WARN logged
+- [x] All Docker Compose files use `redis/redis-stack:latest`; existing tests pass unchanged
+- [x] `upstream_trust` enabled: real client IP extracted from PROXY protocol header
+- [x] `upstream_trust` disabled or source not in `trusted_cidrs`: source IP used directly
+- [x] `get_analysis_subnet()`: returns /24 for IPv4, /48 for IPv6
+- [x] All IPs normalised to canonical form on ingress (Phase 0 normaliser)
+- [x] Rate-limiting keys, ban keys, and beaconing keys all use full canonical IP string
+- [x] JA4 blacklist and whitelist backed by Redis SET + in-process Python `frozenset`
+- [x] Sliding window rate limiter uses Sorted Set + Lua via EVALSHA; no inline Lua in production
+- [x] Bloom filters created on startup; Bloom miss falls back to SET path without error
+- [x] Hot-path pipeline batching implemented; benchmark documents RTT reduction
+- [x] Pub/Sub subscriber running per instance; handles all message types without crash
+- [x] `blocking_acknowledged: false` on startup → dial resets to 0, WARN logged
 
 ### Configuration
-- [ ] Hot config reload: SIGHUP reloads config; changes apply to next connection
-- [ ] Hot config reload: pub/sub `config_reload` message triggers identical reload
-- [ ] Non-reloadable config keys documented in code comments adjacent to each key
-- [ ] Redis config: `maxmemory`, `maxmemory-policy allkeys-lru`, `hz 20` set in compose file
-- [ ] All config values in this phase are hot-reloadable; changes apply to the next connection without restart
-- [ ] `upstream_trust.trusted_cidrs` and `static_ip_allowlist.ips` are hot-reloadable; Redis connection settings require restart
+- [x] Hot config reload: SIGHUP reloads config; changes apply to next connection
+- [x] Hot config reload: pub/sub `config_reload` message triggers identical reload
+- [x] Non-reloadable config keys documented in code comments adjacent to each key
+- [x] Redis config: `maxmemory`, `maxmemory-policy allkeys-lru`, `hz 20` set in compose file
+- [x] All config values in this phase are hot-reloadable; changes apply to the next connection without restart
+- [x] `upstream_trust.trusted_cidrs` and `static_ip_allowlist.ips` are hot-reloadable; Redis connection settings require restart
 
 ### Observability
-- [ ] Prometheus gauge:   `ja4proxy_cache_hit_ratio{type}` — hit ratio per cache type, last 5 minutes
-- [ ] Prometheus counter: `ja4proxy_config_reloads_total` — successful config reloads
-- [ ] Prometheus counter: `ja4proxy_cache_operations_total{type,result}` — get/set operations by type and result
-- [ ] `docs/REDIS_SCHEMA.md` created and populated with all Phase 0 key patterns
+- [x] Prometheus gauge:   `ja4proxy_cache_hit_ratio{type}` — hit ratio per cache type, last 5 minutes
+- [x] Prometheus counter: `ja4proxy_config_reloads_total` — successful config reloads
+- [x] Prometheus counter: `ja4proxy_cache_operations_total{type,result}` — get/set operations by type and result
+- [x] `docs/REDIS_SCHEMA.md` created and populated with all Phase 0 key patterns
 
-- [ ] JSON log: `{"type":"system","level":"INFO","subsystem":"proxy","event":"startup"}` emitted on proxy start with `version`, `listen`, and `dial` fields
-- [ ] JSON log: `{"type":"system","level":"INFO","subsystem":"config","event":"reload_complete"}` emitted on every successful hot reload
-- [ ] JSON log: `{"type":"system","level":"ERROR","subsystem":"config","event":"reload_failed"}` emitted with `error` field when config reload fails validation
+- [x] JSON log: `{"type":"system","level":"INFO","subsystem":"proxy","event":"startup"}` emitted on proxy start with `version`, `listen`, and `dial` fields
+- [x] JSON log: `{"type":"system","level":"INFO","subsystem":"config","event":"reload_complete"}` emitted on every successful hot reload
+- [x] JSON log: `{"type":"system","level":"ERROR","subsystem":"config","event":"reload_failed"}` emitted with `error` field when config reload fails validation
 
 ### Unit Tests  (`tests/unit/test_local_cache.py`, `test_config_loader.py`, `test_pipeline.py`)
-- [ ] `LocalCache`: hit returns value, miss returns None, eviction drops LRU entry
-- [ ] `LocalCache`: TTL expiry verified per cache type
-- [ ] `get_analysis_subnet()`: IPv4 → /24, IPv6 → /48, edge cases (loopback, ::1)
-- [ ] Canonical IP normalisation: IPv4-mapped IPv6, leading zeros, mixed case
-- [ ] Sliding window rate limiter: no boundary overcounting under concurrent load
-- [ ] Bloom filter: true positive, false-positive rate within tolerance, fallback to SET
-- [ ] Pub/Sub message handler: each message type dispatched correctly
-- [ ] Hot config reload: changed keys returned in diff; unchanged keys not returned
-- [ ] Non-reloadable key change: reload rejected with clear error
+- [x] `LocalCache`: hit returns value, miss returns None, eviction drops LRU entry
+- [x] `LocalCache`: TTL expiry verified per cache type
+- [x] `get_analysis_subnet()`: IPv4 → /24, IPv6 → /48, edge cases (loopback, ::1)
+- [x] Canonical IP normalisation: IPv4-mapped IPv6, leading zeros, mixed case
+- [x] Sliding window rate limiter: no boundary overcounting under concurrent load
+- [x] Bloom filter: true positive, false-positive rate within tolerance, fallback to SET
+- [x] Pub/Sub message handler: each message type dispatched correctly
+- [x] Hot config reload: changed keys returned in diff; unchanged keys not returned
+- [x] Non-reloadable key change: reload rejected with clear error
 
 ### Integration Tests  (`tests/integration/test_cache_hierarchy.py`, `test_hot_reload.py`)
-- [ ] Cache hierarchy: in-process hit skips Redis; in-process miss hits Redis; both miss triggers enrichment
-- [ ] Hot reload: SIGHUP applies new config values to next connection within one connection latency
-- [ ] Pub/Sub reload: `config_reload` message produces same result as SIGHUP
+- [x] Cache hierarchy: in-process hit skips Redis; in-process miss hits Redis; both miss triggers enrichment
+- [x] Hot reload: SIGHUP applies new config values to next connection within one connection latency
+- [x] Pub/Sub reload: `config_reload` message produces same result as SIGHUP
 
 ### Chaos Tests  (`tests/chaos/test_redis_failure.py`)
-- [ ] Redis: connection refused on startup → proxy starts; all decisions fail open; `ERROR redis event=connection_failed` logged
-- [ ] Redis: connection refused mid-traffic → in-process cache used; decisions fail open; WARN logged once per minute
-- [ ] Redis: `allkeys-lru` eviction under OOM → hot keys (whitelist, dial) survive; cold keys evicted first
+- [x] Redis: connection refused on startup → proxy starts; all decisions fail open; `ERROR redis event=connection_failed` logged
+- [x] Redis: connection refused mid-traffic → in-process cache used; decisions fail open; WARN logged once per minute
+- [x] Redis: `allkeys-lru` eviction under OOM → hot keys (whitelist, dial) survive; cold keys evicted first

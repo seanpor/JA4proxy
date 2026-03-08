@@ -51,19 +51,26 @@ make flush-redis
 
 ## Security Pipeline
 
-Connections pass through layers in order:
+Connections pass through layers in order. Bypass checks short-circuit the pipeline — connection is allowed or blocked immediately without reaching the scorer.
 
 | Layer | Check | Action |
 |-------|-------|--------|
-| 0 | **GeoIP static** | Block/allow by country (IP2Location LITE, off by default) |
-| 0b | **GeoIP dynamic** | Redis-backed country blacklist — takes effect immediately, no restart |
-| 0c | **CIDR block** | Redis-backed subnet blocks (e.g. `/16`, `/24`) — refreshed every 30s |
-| 1 | **JA4 blacklist** | Instant TCP RST for known-bad fingerprints |
-| 2 | **JA4 whitelist** | Skip rate limiting for known-good fingerprints |
-| 2b | **Pattern whitelist** | `h2`/`h1` ALPN = browser → skip rate limiting entirely |
-| 3 | **Rate limiting** | Per-IP, per-JA4, per-IP+JA4-pair — majority (2 of 3) required to block |
+| 0 | **IP trust & normalisation** | Extract real client IP from PROXY protocol; normalise IPv4/IPv6 |
+| 0b | **Static IP allowlist** | IP in configured allowlist → ALLOW immediately (no scoring) |
+| 0c | **GeoIP country block** | Static (IP2Location LITE) + Redis-backed country blacklist → BLOCK |
+| 0d | **CIDR block** | Redis-backed subnet blocks (e.g. `/24`) — refreshed every 30s → BLOCK |
+| 0e | **Spamhaus DROP/EDROP** | Known-bad CIDR feed (in-process trie) → BLOCK immediately |
+| 1 | **ALPN browser bypass** | `h2`/`h1` ALPN = modern browser → ALLOW immediately (never scored) |
+| 1b | **JA4 whitelist bypass** | Known-good fingerprint → ALLOW immediately |
+| 1c | **mTLS client cert** | Valid client certificate → ALLOW immediately |
+| 2 | **JA4 blacklist** | Known-bad fingerprint → BLOCK immediately (TCP RST) |
+| 3 | **TLS enforcement** | TLS 1.0/1.1/SSLv3 → BLOCK; weak ciphers → scored signal |
+| 4–8 | **Signal collection** | TLS version, SNI, TCP behaviour, ASN/datacenter, FCrDNS, rate limiting → risk signals |
+| 9 | **Risk scorer** | Aggregates all signals → score 0–100 |
+| 10 | **Action decider (dial)** | Score × dial setting → allow / flag / rate_limit / tarpit / block / ban |
 
-Rate limiting escalates: **suspicious → tarpit → block → ban** (default 5-min TTL; self-healing).
+Blocking actions escalate with TTL: **suspicious → tarpit → block → ban** (default 5-min TTL; self-healing).
+At dial=0 (default): all traffic passes, everything scored and logged — monitor mode only.
 
 ## Services
 

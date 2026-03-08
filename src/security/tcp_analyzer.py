@@ -1,5 +1,18 @@
 from typing import List
+
+from prometheus_client import Counter, Gauge
+
 from src.security.models import ConnectionContext, RiskSignal
+
+_TCP_SIGNALS = Counter(
+    "ja4proxy_tcp_signal_total",
+    "TCP signal fires by signal name",
+    ["signal"],
+)
+_CONCURRENT_CONNECTIONS = Gauge(
+    "ja4proxy_concurrent_connections",
+    "Current concurrent connections observed by TCP analyser",
+)
 
 def generate_ja4t(ttl: int, window_size: int, options: str) -> str:
     """
@@ -53,7 +66,10 @@ class TCPAnalyzer:
         
         if self._tls_alerts_enabled:
             signals.extend(await self._check_tls_alerts(ctx))
-        
+
+        for sig in signals:
+            _TCP_SIGNALS.labels(signal=sig.name).inc()
+
         return signals
 
     def _check_ja4t_mismatch(self, ctx: ConnectionContext) -> List[RiskSignal]:
@@ -164,6 +180,7 @@ class TCPAnalyzer:
             key = f"concurrent:{ctx.client_ip}"
             count = await self._redis.incr(key)
             await self._redis.expire(key, 60)
+            _CONCURRENT_CONNECTIONS.set(count)
 
             thresholds = self._config.get("concurrent_connections", {}).get("thresholds", {})
             scores = self._config.get("concurrent_connections", {}).get("risk_scores", {})

@@ -141,44 +141,44 @@ monitor_mode:
 ## Acceptance Criteria
 
 ### Functional
-- [ ] `config:dial` Redis key initialised to 0 with no TTL on startup
-- [ ] `effective_threshold(configured, dial)` returns correct value at all boundary inputs
-- [ ] dial=0: all non-bypassed connections allowed regardless of score
-- [ ] dial=100: configured thresholds applied exactly
-- [ ] ALLOW bypasses (when enabled) produce same outcome at any dial value
-- [ ] ALLOW bypass disabled: connection scored and dial applied normally
-- [ ] Dial changes propagated via pub/sub; new thresholds apply to next connection; no restart
-- [ ] `max_dial_change_per_hour` enforced; change exceeding limit rejected with WARN logged
-- [ ] `blocking_acknowledged: false`: dial resets to 0 at startup; WARN logged
-- [ ] Counterfactual fields present in all Redis Stream events
-- [ ] `log_counterfactuals: true`: MONITOR log line includes `would=` field
+- [x] `config:dial` Redis key initialised to 0 with no TTL on startup
+- [x] `effective_threshold(configured, dial)` returns correct value at all boundary inputs
+- [x] dial=0: all non-bypassed connections allowed regardless of score
+- [x] dial=100: configured thresholds applied exactly
+- [x] ALLOW bypasses (when enabled) produce same outcome at any dial value
+- [x] ALLOW bypass disabled: connection scored and dial applied normally
+- [x] Dial changes propagated via pub/sub; new thresholds apply to next connection; no restart
+- [x] `max_dial_change_per_hour` enforced; change exceeding limit rejected with WARN logged
+- [x] `blocking_acknowledged: false`: dial resets to 0 at startup; WARN logged
+- [x] Counterfactual fields present in all Redis Stream events
+- [x] `log_counterfactuals: true`: MONITOR log line includes `would=` field
 
 ### Configuration
-- [ ] `security_policy` config keys control which bypasses are active
-- [ ] `counterfactual_thresholds` list configures which dial values appear in `would=` field
-- [ ] All config values in this phase are hot-reloadable; changes apply to the next connection without restart
+- [x] `security_policy` config keys control which bypasses are active
+- [x] `counterfactual_thresholds` list configures which dial values appear in `would=` field
+- [x] All config values in this phase are hot-reloadable; changes apply to the next connection without restart
 
 ### Observability
-- [ ] Prometheus gauge:   `ja4proxy_dial_current` — current dial value (0–100)
-- [ ] Prometheus counter: `ja4proxy_monitor_counterfactual_total{action,dial}` — would-have-taken actions per dial setting
-- [ ] Prometheus counter: `ja4proxy_dial_change_rejected_total` — dial changes rejected by increment limit
-- [ ] Prometheus counter: `ja4proxy_dial_changes_total` — successful dial value changes
-- [ ] Grafana: Blocking Readiness panel showing would-block percentages at dial 25/50/75/100
+- [x] Prometheus gauge:   `ja4proxy_dial_current` — current dial value (0–100)
+- [x] Prometheus counter: `ja4proxy_monitor_counterfactual_total{action,dial}` — would-have-taken actions per dial setting
+- [x] Prometheus counter: `ja4proxy_dial_change_rejected_total` — dial changes rejected by increment limit
+- [x] Prometheus counter: `ja4proxy_dial_changes_total` — successful dial value changes
+- [ ] Grafana: Blocking Readiness panel showing would-block percentages at dial 25/50/75/100 — **deferred to Phase 13 (Management UI)**
 
-- [ ] JSON log: `{"type":"system","level":"INFO","subsystem":"dial","event":"dial_changed"}` emitted with `old_value` and `new_value` on every dial change
-- [ ] JSON log: MONITOR connections include `counterfactual` object with `action_at_N` fields for each configured threshold
+- [x] JSON log: `{"type":"system","level":"INFO","subsystem":"dial","event":"dial_changed"}` emitted with `old_value` and `new_value` on every dial change
+- [x] JSON log: MONITOR connections include `counterfactual` object with `action_at_N` fields for each configured threshold
 
 ### Unit Tests  (`tests/unit/test_action_decider.py`)
-- [ ] `effective_threshold()`: at every boundary combination of configured threshold and dial 0/25/50/75/100
-- [ ] dial=0: score 100 → action=allow
-- [ ] dial=100: score at each threshold → correct action
-- [ ] `max_dial_change_per_hour`: change within limit accepted; change exceeding limit rejected
-- [ ] `blocking_acknowledged: false`: dial set above 0 → rejected with clear error
+- [x] `effective_threshold()`: at every boundary combination of configured threshold and dial 0/25/50/75/100
+- [x] dial=0: score 100 → action=allow
+- [x] dial=100: score at each threshold → correct action
+- [x] `max_dial_change_per_hour`: change within limit accepted; change exceeding limit rejected
+- [x] `blocking_acknowledged: false`: dial set above 0 → rejected with clear error
 
 ### Integration Tests  (`tests/integration/test_dial_propagation.py`)
-- [ ] Dial change via Redis SET + pub/sub → new thresholds apply within 100ms
-- [ ] Two instances: dial change on one propagates to both via pub/sub
+- [x] Dial change via Redis SET + pub/sub → new thresholds apply within 100ms
+- [x] Two instances: dial change on one propagates to both via pub/sub
 
 ### Chaos Tests  (`tests/chaos/test_dial_change_chaos.py`)
-- [ ] Redis unreachable during dial change: last known dial retained; WARN logged
-- [ ] Dial change arrives mid-connection: no connections dropped; new threshold applies to next connection
+- [x] Redis unreachable during dial change: last known dial retained; WARN logged
+- [x] Dial change arrives mid-connection: no connections dropped; new threshold applies to next connection

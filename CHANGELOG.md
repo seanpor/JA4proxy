@@ -1,5 +1,28 @@
 # Changelog
 
+## [7.2.0] - 2026-03-07 - PHASE GATE: MISSING METRICS, DOCS, BENCHMARK HISTORY
+
+### Added
+
+- **Phase 5 Prometheus metrics** (were missing from tcp_analyzer.py and mtls.py):
+  - `ja4proxy_tcp_signal_total{signal}` — counter incremented for each TCP signal fired
+  - `ja4proxy_concurrent_connections` — gauge tracking observed concurrent connection count
+  - `ja4proxy_mtls_verified_total` — counter for connections allowed via verified mTLS cert
+
+- **`docs/performance/BENCHMARK_HISTORY.md`** — created with Phase 8 baseline measurements
+  (bypass: ~12 µs, scoring: ~20 µs, full ALLOW: ~5.7 ms, throughput: ~350 conn/s with real Redis)
+
+### Changed
+
+- **README.md Security Pipeline table** — updated from simplified 3-layer view to full 10-layer
+  pipeline reflecting Phases 0–8 (IP trust, static allowlist, GeoIP/CIDR/Spamhaus blocks, ALPN
+  bypass, JA4 whitelist, mTLS bypass, JA4 blacklist, TLS enforcement, signal collection, scorer+dial)
+
+- **Phase 2, 3, 5 acceptance criteria** — ticked verified checkboxes; Grafana panels and
+  fp-corpus tests annotated as deferred to Phase 13 and the corpus build task respectively
+
+---
+
 ## [7.1.0] - 2026-03-07 - BUG FIXES: RATE LIMITING, METRICS, NETWORKING, STABILITY
 
 ### Fixed

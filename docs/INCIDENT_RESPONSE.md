@@ -216,6 +216,117 @@ This is the key advantage of JA4 fingerprinting over IP blocking — one command
 
 ---
 
+## TLS Version Enforcement — Legitimate Traffic Blocked (Phase 3)
+
+**Symptoms:** Users on older devices or enterprise software report connection failures. Logs show connections dropped with `tls_version_blocked` or `weak_cipher_blocked`. The `ja4proxy_tls_version_total` metric shows a spike for a version like `TLSv1` or `TLSv1.1`.
+
+**Check which versions are being blocked:**
+```bash
+# Look for tls_version_bypass disabled warning at startup
+docker compose -f docker-compose.poc.yml logs proxy | grep bypass_disabled
+
+# Check metrics for blocked TLS version breakdown
+curl -s http://localhost:9090/metrics | grep ja4proxy_tls_version_total
+curl -s http://localhost:9090/metrics | grep ja4proxy_weak_cipher_total
+```
+
+**If a legitimate client is being blocked:**
+```bash
+# Option 1: Disable TLS version bypass — sends those connections through the scorer instead of hard-blocking
+# In config/proxy.yml under security_policy:
+#   tls_version_bypass:
+#     enabled: false
+# Then send SIGHUP to hot-reload (no restart required)
+kill -HUP $(pgrep -f proxy.py)
+
+# Option 2: If a specific IP needs immediate relief
+./scripts/ja4-admin.sh whitelist-ja4 <fingerprint>    # if fingerprint is known-good
+./scripts/ja4-admin.sh block-ip <ip> 0                # unblock (set TTL to expire immediately — use unblock-ip instead)
+./scripts/ja4-admin.sh unblock-ip <ip>
+```
+
+**Prevention:** TLS 1.0/1.1 blocking has near-zero false positives on modern deployments. If a legitimate user is blocked, the long-term fix is to upgrade their TLS library. Short-term: disable the `tls_version_bypass` in config to route those connections through the scorer, where they can still pass at dial=0 (monitor mode).
+
+---
+
+## SNI Anomalies — DGA Scorer False Positive (Phase 4)
+
+**Symptoms:** A legitimate domain is flagged as DGA-generated. Users connecting to a specific hostname are being scored as suspicious or blocked. The SNI in logs looks like a real brand domain but has unusual character patterns that trigger the DGA heuristic (high entropy, digit-heavy, or long random-looking labels).
+
+**Check the SNI analysis:**
+```bash
+# Find the flagged SNI in logs
+docker compose -f docker-compose.poc.yml logs proxy | grep "sni_analysis" | grep -v '"score": 0' | tail -20
+
+# Identify the client's JA4 fingerprint
+docker compose -f docker-compose.poc.yml logs proxy | grep "<affected-ip>" | tail -10
+```
+
+**Immediate relief:**
+```bash
+# Whitelist the fingerprint if the client tool is known-good
+./scripts/ja4-admin.sh whitelist-ja4 <fingerprint>
+
+# Or unblock the specific IP
+./scripts/ja4-admin.sh unblock-ip <ip>
+```
+
+**Tune the DGA scorer (config/proxy.yml):**
+```yaml
+sni_analysis:
+  dga_scorer:
+    enabled: true
+    entropy_threshold: 4.0     # raise to reduce false positives (default: 3.5)
+    min_label_length: 8        # only score labels of this length or longer
+    score: 30                  # risk score contribution
+```
+
+Send SIGHUP after config change: `kill -HUP $(pgrep -f proxy.py)`
+
+**Root cause:** Some legitimate CDN hostnames (e.g. `a0b1c2d3.cdn.example.com`) or auto-generated subdomains have high entropy. If the domain is known-good, raise the threshold or add it to an SNI allowlist in config.
+
+---
+
+## Spamhaus DROP False Positive (Phase 8)
+
+**Symptoms:** A legitimate IP is being hard-blocked immediately. Logs show `spamhaus_drop_match` or `blocklist_match`. The IP belongs to a real business or residential ISP that has been reassigned from a formerly abusive range.
+
+**Verify the IP is actually in a Spamhaus DROP list:**
+```bash
+# Check if the IP is in an active blocklist CIDR
+docker compose -f docker-compose.poc.yml logs proxy | grep "<affected-ip>" | grep blocklist
+
+# Check blocklist feed freshness
+curl -s http://localhost:9090/metrics | grep ja4proxy_blocklist_entries
+```
+
+**Immediate relief:**
+
+Option 1 — Disable the Spamhaus hard-block bypass (routes through scorer instead):
+```yaml
+# In config/proxy.yml under security_policy:
+spamhaus_bypass:
+  enabled: false
+# Spamhaus matches now produce a RiskSignal (+80) instead of a hard block.
+# At dial=0 (monitor mode) the connection still passes.
+```
+Then `kill -HUP $(pgrep -f proxy.py)` to hot-reload.
+
+Option 2 — Add the specific IP to the static allowlist (overrides all block decisions):
+```yaml
+# In config/proxy.yml:
+security:
+  static_allowlist:
+    - "203.0.113.42"   # Legitimate IP wrongly in Spamhaus DROP — confirmed YYYY-MM-DD
+```
+Then hot-reload with SIGHUP. Static allowlist entries bypass all scoring and blocklist checks.
+
+**Report to Spamhaus:** If the IP is legitimately misclassified, submit a removal request at https://www.spamhaus.org/delist/. Spamhaus DROP lists are intended for hijacked/unused netblocks and they do accept removal requests for reassigned ranges.
+
+**After resolution:** Remove the allowlist entry once Spamhaus has updated the list (feeds refresh per `refresh_interval_seconds` in config, typically 3600s).
+
+---
+
 ## Reference
 
 ### The `ja4-admin` tool

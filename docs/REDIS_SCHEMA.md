@@ -90,6 +90,7 @@ All proxy instances subscribe on startup. Message format: `{"type": "...", "valu
 | `lifespan:{ip}` | Sorted Set of floats (ms) | 1800s | Proxy | Connection lifespan samples for median calculation |
 | `concurrent:{ip}` | Integer (INCR/DECR) | 60s | Proxy | Live concurrent connection count per IP |
 | `visitor:{ip}` | Hash `{first_seen, last_seen, total, allowed, blocked}` | 604800s (7d) | Proxy | Return visitor tracking |
+| `tls_alerts:{ip}` | Integer (INCR) | 60s | Proxy (tcp_analyzer) | TLS alert message rate per IP; triggers risk signal when count exceeds `tls_alerts.rate_threshold` |
 
 ---
 

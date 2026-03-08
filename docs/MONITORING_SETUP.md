@@ -192,6 +192,63 @@ sum by (tier) (rate(ja4_security_events_total[5m]))
 topk(10, sum by (ja4_fingerprint) (increase(ja4_blocked_requests_total[1h])))
 ```
 
+### Phase-Specific Metrics Reference
+
+The following metrics are emitted by the proxy pipeline. Use these in Prometheus queries and Grafana panels.
+
+**Phase 3 — TLS Enforcement**
+
+| Metric | Labels | Description |
+|--------|--------|-------------|
+| `ja4proxy_tls_version_total` | `version`, `action` | Connections by TLS version and action taken |
+| `ja4proxy_weak_cipher_total` | `cipher`, `action` | Connections blocked or flagged for weak ciphers |
+
+Example queries:
+```promql
+# TLS 1.0/1.1 blocks
+rate(ja4proxy_tls_version_total{action="blocked"}[5m])
+
+# Weak cipher detections
+rate(ja4proxy_weak_cipher_total{action="blocked"}[5m])
+```
+
+**Phase 5 — TCP & Connection Behaviour**
+
+| Metric | Labels | Description |
+|--------|--------|-------------|
+| `ja4proxy_tcp_signal_total` | `signal_type` | Risk signals emitted by TCP/connection analyser |
+| `ja4proxy_concurrent_connections` | *(gauge)* | Live concurrent connection count across tracked IPs |
+| `ja4proxy_mtls_verified_total` | `result` | mTLS client certificate verification results |
+
+Example queries:
+```promql
+# mTLS verifications
+rate(ja4proxy_mtls_verified_total[5m])
+
+# Current concurrent connections gauge
+ja4proxy_concurrent_connections
+```
+
+**Phase 8 — Blocklist (Spamhaus DROP/EDROP)**
+
+| Metric | Labels | Description |
+|--------|--------|-------------|
+| `ja4proxy_blocklist_entries` | `list_name` | Number of CIDR entries loaded per blocklist feed |
+| `ja4proxy_blocklist_download_errors_total` | `list_name` | Feed download failures (network errors, parse errors) |
+| `ja4proxy_blocklist_matches_total` | `list_name` | Connections matched against a blocklist CIDR |
+
+Example queries:
+```promql
+# Blocklist feed sizes (useful for verifying feeds loaded correctly)
+ja4proxy_blocklist_entries
+
+# Match rate by feed
+rate(ja4proxy_blocklist_matches_total[5m])
+
+# Feed download errors (alert if > 0 sustained)
+increase(ja4proxy_blocklist_download_errors_total[1h])
+```
+
 ---
 
 ## Alertmanager Setup

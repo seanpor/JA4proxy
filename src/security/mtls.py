@@ -1,9 +1,17 @@
 import logging
+
 from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.exceptions import InvalidSignature
+from prometheus_client import Counter
+
 from src.security.models import ConnectionContext
+
+_MTLS_VERIFIED = Counter(
+    "ja4proxy_mtls_verified_total",
+    "Connections allowed via verified mTLS client certificate",
+)
 
 
 class MTLSHandler:
@@ -29,6 +37,7 @@ class MTLSHandler:
 
         # If has_valid_client_cert is set (TLS layer validated it), trust it
         if ctx.has_valid_client_cert:
+            _MTLS_VERIFIED.inc()
             return True
 
         # Otherwise check for actual client certificate
@@ -73,6 +82,7 @@ class MTLSHandler:
                     )
                     return False
 
+            _MTLS_VERIFIED.inc()
             return True
         except InvalidSignature:
             self.logger.warning("mTLS verification failed: Invalid signature.")
