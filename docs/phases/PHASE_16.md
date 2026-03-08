@@ -152,3 +152,99 @@ Here are **actionable improvements** for the JA4proxy project, organized by prio
 - **Maintainability**: Modular code and tests lower long-term costs.
 - **Community Growth**: Better docs and contribution guides attract users/developers.
 
+---
+
+## 9. **Test Suite Gaps** (carried forward from Phase 9 review)
+
+The following test categories are designed in `docs/TEST_ORGANIZATION.md` but not yet
+implemented. They are prerequisites for the Phase 14 production hardening gate.
+
+### 9a. Adversarial input corpus (`tests/adversarial/`)
+
+**What's missing:** No tests exercise the TLS parser and JA4 generator against
+malformed, truncated, or garbage ClientHello bytes.
+
+**Why it matters:** A crafted ClientHello that causes an unhandled exception in the
+parser would let an attacker crash the proxy process (denial of service). The existing
+`tests/fuzz/test_properties.py` covers Hypothesis-generated edge cases but lacks a
+committed corpus of byte sequences that previously triggered bugs.
+
+**Acceptance criteria:**
+- [ ] `tests/adversarial/test_tls_parser_adversarial.py` — parametrized over
+  `tests/adversarial/corpus/*.bin`; each file must parse without raising an uncaught
+  exception
+- [ ] `tests/adversarial/test_ja4_adversarial.py` — JA4 computation on truncated
+  extensions, empty cipher lists, all-GREASE extensions, max-length SNI
+- [ ] `tests/adversarial/corpus/` — at least 10 committed `.bin` files with a
+  `README.md` describing the source and what edge case each exercises
+- [ ] CI gate: `pytest tests/adversarial/ --tb=short` passes in < 10s
+
+### 9b. False-positive rate corpus (`tests/fp_corpus/`)
+
+**What's missing:** No tests verify that the scoring pipeline does not flag legitimate
+traffic above configurable FP thresholds.
+
+**Why it matters:** The core asymmetry of this project is that false positives cost
+more than false negatives. Without FP rate tests against real-world traffic patterns,
+a misconfigured signal could silently block a significant fraction of legitimate users.
+
+**Acceptance criteria:**
+- [ ] `tests/fp_corpus/data/tranco_top_10k.txt` — committed, no network required
+- [ ] `tests/fp_corpus/data/residential_ips.txt` — sample of known residential IPs
+- [ ] `tests/fp_corpus/data/browser_keepalive_timestamps.csv` — real browser
+  keep-alive timing sequences (Chrome, Firefox, Safari on h1 keep-alive connections)
+- [ ] `tests/fp_corpus/test_dga_fp_rate.py` — SNI analyzer FP rate on Tranco top 10k
+  must be < 1% (no more than 100 of the top 10k domains flagged as DGA)
+- [ ] `tests/fp_corpus/test_beaconing_fp_rate.py` — beaconing detector FP rate on
+  real browser keep-alive timing must be 0% (browser ALPN guard ensures this, but
+  test verifies it explicitly)
+- [ ] `tests/fp_corpus/test_asn_fp_rate.py` — ASN classifier FP rate on residential
+  IPs must be < 2% (no more than 2% classified as datacenter/tor/vpn)
+
+### 9c. Missing chaos tests
+
+**What's missing:** Two chaos scenarios referenced in the module-to-test mapping have
+no implementation.
+
+**`tests/chaos/test_external_api_failure.py`** (needed when Phase 10/11 built):
+- [ ] AbuseIPDB API down → `get_signal()` returns None, increments error counter
+- [ ] AbuseIPDB API returns 429 (rate limit) → cached result used; no crash
+- [ ] RDAP API down → `get_signal()` returns None; pipeline allows connection
+- [ ] Spamhaus HTTP endpoint down → last known feed retained; no crash
+- [ ] All three external APIs simultaneously down → pipeline allows all connections;
+  Prometheus `ja4proxy_external_api_errors_total` incremented for each
+
+**`tests/chaos/test_analytics_down.py`** (needed when Phase 12 built):
+- [ ] Analytics Redis Stream consumer down → XADD still fires; proxy unaffected
+- [ ] Analytics Stream lag > 10k events → proxy does not slow down (fire-and-forget)
+- [ ] Analytics node crash mid-aggregation → no stale findings written to proxy Redis
+
+### 9d. Coverage gaps in implemented modules
+
+The following modules have coverage below 80% due to paths that require real external
+services. The goal for Phase 14 is ≥ 80% on every module.
+
+| Module | Current | Gap area | Approach |
+|--------|---------|----------|----------|
+| `asn_classifier.py` | 70% | MaxMind actual IP lookup, Tor leader election success | Add mock `.mmdb` fixture; test leader election with mock `set()` returning `True` |
+| `blocklists.py` | 69% | Feed download HTTP paths, ETag logic, leader election success | Mock `aiohttp.ClientSession` for download paths; test ETag 304 response |
+| `dns_enrichment.py` | 70% | Async PTR lookup, worker restart loop, passive DNS log | Mock `asyncio.get_event_loop().run_in_executor` for PTR; test worker loop with controlled exceptions |
+| `tcp_analyzer.py` | 82% | Connection timing edge cases | Add parametrized tests for near-threshold timing values |
+
+**Acceptance criteria for Phase 14 gate:**
+- [ ] All `src/security/*.py` modules ≥ 80% line coverage
+- [ ] `proxy.py` ≥ 95% line coverage
+- [ ] `pytest --cov=src --cov-report=term-missing` shows no module below threshold
+
+### 9e. Performance benchmark integration
+
+**What's missing:** `tests/performance/bench_*.py` files are not collected by pytest
+(named `bench_*` not `test_*`) and have no CI gate.
+
+**Acceptance criteria:**
+- [ ] `tests/performance/test_bench_pipeline.py` — rename or add wrapper; assert
+  median pipeline latency < 1ms at dial=100, < 500µs at dial=0 (bypass path)
+- [ ] `tests/performance/test_bench_cidr_lookup.py` — assert pytricia trie lookup
+  < 10µs per call for a 100k-entry trie
+- [ ] CI gate (Phase 14): benchmarks run on merge to main; results committed to
+  `reports/benchmark_latest.txt`; regression > 20% fails the build
