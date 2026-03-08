@@ -263,21 +263,56 @@ def redis_client():
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_sessionfinish(session, exitstatus):
-    """Early force-exit to prevent asyncio GC from hanging the container.
+    """Debug and force-exit to prevent asyncio GC from hanging the container.
 
-    This hook force-exits immediately to prevent the container from hanging
-    during asyncio task cleanup. os._exit() terminates immediately without
-    running atexit handlers or __del__ methods. This is safe in a Docker test
-    container — the OS cleans all resources.
+    This hook adds comprehensive debugging and then force-exits to prevent
+    the container from hanging during asyncio task cleanup.
     """
     import os
     import sys
+    import traceback
+    import threading
+    import asyncio
+    import gc
+    import time
     
-    # Ensure all output is flushed before exiting
+    # Write debug info to stderr
+    sys.stderr.write("\n=== PYTEST SESSION FINISH HOOK CALLED ===\n")
+    sys.stderr.write(f"Exit status: {exitstatus}\n")
+    sys.stderr.write(f"Current time: {time.time()}\n")
+    
+    # Debug thread information
+    sys.stderr.write(f"Active threads: {threading.active_count()}\n")
+    for thread in threading.enumerate():
+        sys.stderr.write(f"  Thread: {thread.name} ({thread.ident})\n")
+    
+    # Debug asyncio tasks
+    try:
+        pending_tasks = []
+        for obj in gc.get_objects():
+            if isinstance(obj, asyncio.Task):
+                pending_tasks.append(obj)
+        sys.stderr.write(f"Pending asyncio tasks: {len(pending_tasks)}\n")
+        for i, task in enumerate(pending_tasks[:5]):  # Show first 5
+            sys.stderr.write(f"  Task {i}: {task.get_name() if hasattr(task, 'get_name') else 'unnamed'}\n")
+    except Exception as e:
+        sys.stderr.write(f"Error checking asyncio tasks: {e}\n")
+    
+    # Debug current stack traces
+    sys.stderr.write("\n=== CURRENT STACK TRACES ===\n")
+    for thread_id, frame in sys._current_frames().items():
+        thread = threading._active.get(thread_id)
+        sys.stderr.write(f"Thread: {thread.name} ({thread_id})\n")
+        traceback.print_stack(frame, file=sys.stderr)
+        sys.stderr.write("\n")
+    
+    # Flush all output
     sys.stdout.flush()
     sys.stderr.flush()
     
-    # Force exit immediately with the pytest exit status
+    # Force exit immediately
+    sys.stderr.write("\n=== FORCE EXITING ===\n")
+    sys.stderr.flush()
     os._exit(int(exitstatus))
 
 
