@@ -1000,7 +1000,7 @@ class TestBackupFalsePositives:
 ## 19h. Files to Modify
 
 | File | Change |
-|-- ----|--------|
+|------|--------|
 | `src/backup/worker.py` | New file — Backup worker class with schedule-based execution  |
 | `src/backup/restorer.py` | New file — Restore class with validation and non-destructive operations |
 | `src/cli/main.py` or new `src/cmds/backup.py` | Wire CLI subcommands (`backup`, `restore`, `list`) |
