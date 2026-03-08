@@ -58,11 +58,7 @@ def _ctx(**kwargs) -> ConnectionContext:
 
 
 def _run(coro):
-    try:
-        loop = asyncio.get_running_loop()
-        raise RuntimeError("_run() should not be called from within an async context")
-    except RuntimeError:
-        return asyncio.new_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 # ---------------------------------------------------------------------------

@@ -139,11 +139,7 @@ class TestMaybeRecordGuards(unittest.TestCase):
     """Guards must prevent recording specific connection types."""
 
     def _run(self, coro):
-        loop = asyncio.new_event_loop()
-        try:
-            return loop.run_until_complete(coro)
-        finally:
-            loop.close()
+        return asyncio.run(coro)
 
     def test_h2_alpn_not_recorded(self):
         """h2 ALPN connections must never be recorded."""
@@ -229,11 +225,7 @@ class TestUUIDSuffixPreventsDuplication(unittest.TestCase):
     """UUID suffix prevents Sorted Set member collision on same-millisecond arrivals."""
 
     def _run(self, coro):
-        loop = asyncio.new_event_loop()
-        try:
-            return loop.run_until_complete(coro)
-        finally:
-            loop.close()
+        return asyncio.run(coro)
 
     def test_two_calls_produce_distinct_members(self):
         """Two calls at the same time.time() produce different member strings."""
@@ -269,11 +261,7 @@ class TestGetSignalMinObservations(unittest.TestCase):
     """Signal must not be emitted before min_observations threshold."""
 
     def _run(self, coro):
-        loop = asyncio.new_event_loop()
-        try:
-            return loop.run_until_complete(coro)
-        finally:
-            loop.close()
+        return asyncio.run(coro)
 
     def test_below_min_observations_returns_none(self):
         """Fewer than min_observations timestamps → no signal."""
