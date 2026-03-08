@@ -71,9 +71,16 @@ echo "ℹ Using sequential execution for stability (parallelism disabled)"
 
 PARALLEL_FLAG=""
 
-# Use timeout to prevent hanging
-echo "Running tests with timeout (300 seconds = 5 minutes)..."
-timeout 300 docker compose -f docker-compose.poc.yml run --rm test pytest /app/tests/ \
+# Use timeout to prevent hanging (increased for slower machines)
+echo "Running tests with timeout (600 seconds = 10 minutes)..."
+
+# Check if we're on a slow machine (HDD vs SSD)
+if [ -b "/dev/sda" ] && grep -q "rotational" /sys/block/sda/queue/rotational; then
+    echo "Detected HDD - using extended timeout (900 seconds = 15 minutes)..."
+    timeout 900 docker compose -f docker-compose.poc.yml run --rm test pytest /app/tests/ \
+else
+    timeout 600 docker compose -f docker-compose.poc.yml run --rm test pytest /app/tests/ \
+fi
     --ignore=/app/tests/integration/test_docker_stack.py \
     -v --tb=short \
     $PARALLEL_FLAG \
@@ -118,6 +125,14 @@ if [ -f "${RESULTS_FILE}" ]; then
     echo "  ⊘ Skipped: ${SKIPPED:-0}"
     echo "  ⚠ Warnings: ${WARNINGS:-0}"
     echo "  ⏱ Duration: ${DURATION:-unknown}"
+    
+    # Performance warning for slow test runs
+    if [ -n "${DURATION}" ]; then
+        minutes=$(echo "${DURATION}" | grep -oP '\d+' | head -1)
+        if [ "${minutes}" -gt 5 ]; then
+            echo "  ⚠️  Performance warning: Test suite took ${minutes} minutes (consider optimizing slow tests)"
+        fi
+    fi
     echo ""
 fi
 
