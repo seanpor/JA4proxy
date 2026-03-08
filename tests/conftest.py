@@ -279,48 +279,25 @@ def pytest_sessionfinish(session, exitstatus):
     import asyncio
     import gc
     
-    print("DEBUG: pytest_sessionfinish hook called with exitstatus:", exitstatus, file=sys.stderr)
-    sys.stderr.flush()
-    
     # Ensure all output is flushed before exiting
     sys.stdout.flush()
     sys.stderr.flush()
     
     # Attempt to clean up any remaining async tasks
     try:
-        pending_tasks = 0
-        cancelled_tasks = 0
-        
-        # First, try to clean up known components that have cleanup methods
-        try:
-            from src.security.asn_classifier import ASNClassifier
-            # This is a best-effort cleanup - may not have access to all instances
-            pass
-        except Exception:
-            pass
-        
         # Get all tasks from all event loops
         for obj in gc.get_objects():
             if isinstance(obj, asyncio.Task):
-                pending_tasks += 1
                 try:
                     obj.cancel()
-                    cancelled_tasks += 1
-                except Exception as e:
-                    print(f"DEBUG: Failed to cancel task: {e}", file=sys.stderr)
+                except Exception:
                     pass  # Ignore errors during cleanup
-        
-        print(f"DEBUG: Found {pending_tasks} pending async tasks, cancelled {cancelled_tasks}", file=sys.stderr)
         
         # Run garbage collection to clean up
         gc.collect()
-    except Exception as e:
-        print(f"DEBUG: Cleanup failed: {e}", file=sys.stderr)
+    except Exception:
         # If cleanup fails, that's okay - we'll force exit anyway
         pass
-    
-    print("DEBUG: Force exiting with status:", exitstatus, file=sys.stderr)
-    sys.stderr.flush()
     
     # Force exit with the pytest exit status
     os._exit(int(exitstatus))
