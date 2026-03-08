@@ -441,3 +441,18 @@ beaconing_detector:
     window_seconds: 86400    # 24-hour window for slow-burn APT beacons
     min_observations: 5      # Lower threshold (daily beacons are sparse)
     score: 20                # Lower score cap (less certainty for slow beacons)
+
+# ── Phase 10: AbuseIPDB Integration ──────────────────────────────────────────
+
+abuseipdb:
+  enabled: false                    # Default: false. Set api_key before enabling.
+                                    # Toggle false→true via hot reload logs WARN; restart required to start workers.
+  api_key: ""                       # Set via ABUSEIPDB_API_KEY env var. Never commit a real key.
+  max_requests_per_day: 1000        # Free tier limit; shared across all proxy instances via Redis INCR.
+  cache_ttl_seconds: 14400          # 4 hours; controls abuseipdb:score:{ip} Redis key TTL.
+  lookup_timeout_seconds: 10        # aiohttp request timeout per API call (seconds).
+  shared_ip_threshold: 50           # Confidence below this → contribution capped at 15 (shared IP protection).
+  queue_size: 500                   # Max pending IPs; new items dropped silently if queue is full. Requires restart to change.
+  worker_count: 3                   # Background worker coroutines draining the lookup queue. Requires restart to change.
+  score_cap: 40                     # Maximum contribution to composite score (confidence 100 → 40 pts; never a hard block).
+  delegate_to_analytics: false      # Set true when Phase 12 analytics node is deployed; local workers idle.

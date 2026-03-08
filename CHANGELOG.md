@@ -1,5 +1,61 @@
 # Changelog
 
+## [10.0.0] - 2026-03-08 - PHASE 10: ABUSEIPDB INTEGRATION
+
+### Added
+
+- **`src/security/abuseipdb.py`** — Phase 10 AbuseIPDB reputation checker:
+  - `AbuseIPDBConfig` dataclass — all fields from config section; `from_config()` loads `ABUSEIPDB_API_KEY` env var when config value is empty
+  - `AbuseIPDBChecker` class with three-tier cache hierarchy: in-process LRU → Redis `abuseipdb:score:{ip}` → API queue
+  - `get_signal(ip)` — synchronous hot-path entry point; returns immediately from Tier 1 or None; never blocks
+  - `get_score(ip)` — async; checks Tier 1 + Tier 2 (Redis); enqueues on miss; never blocks
+  - Background worker pool (`worker_count` coroutines draining `asyncio.Queue`)
+  - `asyncio.CancelledError` handled cleanly in workers; `stop()` completes within 5 seconds
+  - Bloom filter dedup (`bloom:abuseipdb_enriched`, 24h TTL); fallback to `bloom_fallback:abuseipdb_enriched:{ip}` SET+TTL when RedisBloom unavailable
+  - Daily quota tracking: atomic `INCR` on `abuseipdb:quota:{YYYY-MM-DD}`; rolls back on over-limit; uses `datetime.now(timezone.utc)` (not deprecated `utcnow()`)
+  - Quota exhausted: WARN logged once, `ja4proxy_abuseipdb_quota_exhausted` gauge=1, enqueueing stopped; resets next UTC day
+  - API error / timeout: fail open (score=0), error counter incremented, no hanging coroutine
+  - Write-through caching: API result written to both Redis (`setex`) and in-process LRU
+  - `abuseipdb_to_risk_signal()` — pure function; `confidence < shared_ip_threshold` → contribution capped at 15 (shared IP protection); `confidence >= threshold` → scaled to `score_cap` (default 40); `score_cap` never exceeded
+  - `delegate_to_analytics` mode: `SADD` to `analytics:enrich:abuseipdb`; local workers idle
+  - `on_config_reload()` — hot-reloads all fields except `worker_count` and `queue_size` (WARN logged if those change)
+  - Prometheus: `ja4proxy_abuseipdb_lookup_total{result}`, `ja4proxy_abuseipdb_enrichment_queue_depth`, `ja4proxy_abuseipdb_quota_exhausted`, `ja4proxy_abuseipdb_quota_used_today`, `ja4proxy_abuseipdb_cache_hit_ratio`, `ja4proxy_abuseipdb_queue_dropped_total`
+  - Structured JSON logging following project conventions
+
+- **Pipeline integration** (`src/security/pipeline.py`):
+  - `AbuseIPDBChecker` imported and held as `_abuseipdb_checker` (None by default)
+  - `set_abuseipdb_checker()` setter called by `ProxyServer` after startup
+  - `get_signal(ip)` called in `_collect_signals()` after Phase 9 beaconing
+
+- **`proxy.py`** — startup/shutdown wiring:
+  - `aiohttp.ClientSession` created at startup (shared; never per-request)
+  - `AbuseIPDBChecker` instantiated and `await checker.start()` called
+  - On shutdown: `await checker.stop()` then `await session.close()`
+
+- **`config/proxy.yml`** — `abuseipdb:` section:
+  - `enabled: false`, `api_key: ""`, `max_requests_per_day: 1000`, `cache_ttl_seconds: 14400`
+  - `lookup_timeout_seconds: 10`, `shared_ip_threshold: 50`, `queue_size: 500`
+  - `worker_count: 3`, `score_cap: 40`, `delegate_to_analytics: false`
+  - All keys with inline comments per project style
+
+- **`requirements.txt`** — `aiohttp>=3.9,<4`
+
+- **`.env.example`** — `ABUSEIPDB_API_KEY` documented with instructions
+
+- **`tests/mocks/abuseipdb_mock.py`** — `AbuseIPDBMock` test double:
+  - `set_score(ip, score)`, `set_error(ip, status)`, `set_quota_exhausted()`, `set_timeout(ip)`
+  - `requested_ips` list for assertion; `make_session()` returns aiohttp-compatible mock
+
+- **Tests** — new tests across 4 files:
+  - `tests/unit/test_abuseipdb.py` — unit tests covering cache tiers, score calc, quota, API errors, CancelledError, queue overflow, IPv6, bloom filter, config hot reload
+  - `tests/adversarial/test_abuseipdb_fp.py` — FP bounds: confidence=100 < block threshold; CGN confidence=49 ≤ 15; exhaustive 0–100 confidence check
+  - `tests/integration/test_pipeline.py` — new `TestAbuseIPDBIntegration` class: cached score → signal in scorer → composite score
+  - `tests/chaos/test_external_api_failure.py` — chaos: API unreachable, quota 429, Redis write failure, stop() within 5s
+
+- **`docs/REDIS_SCHEMA.md`** — Phase 10 section updated with all 5 key patterns and full documentation
+
+---
+
 ## [8.0.0] - 2026-03-08 - PHASE 9: BEACONING DETECTION
 
 ### Added

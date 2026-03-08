@@ -910,6 +910,8 @@ class ProxyServer:
         self._local_cache = None
         self.pipeline = None
         self._dial_manager = None
+        self._abuseipdb_checker = None
+        self._aiohttp_session = None
         self.active_connections = 0
 
         if config_path:
@@ -1021,6 +1023,27 @@ class ProxyServer:
 
         # Phase 2: Dial manager (safety: reset to 0 + hourly rate-limit)
         self._dial_manager = DialManager(self.config)
+
+        # Phase 10: AbuseIPDB checker — shared aiohttp session, background workers
+        try:
+            import aiohttp as _aiohttp
+            from src.security.abuseipdb import AbuseIPDBChecker, AbuseIPDBConfig
+            self._aiohttp_session = _aiohttp.ClientSession()
+            _abuseipdb_cfg = AbuseIPDBConfig.from_config(self.config)
+            self._abuseipdb_checker = AbuseIPDBChecker(
+                _abuseipdb_cfg,
+                self.redis_client,
+                self._local_cache,
+                self._aiohttp_session,
+            )
+            await self._abuseipdb_checker.start()
+            self.pipeline.set_abuseipdb_checker(self._abuseipdb_checker)
+        except Exception as exc:
+            self.logger.warning(
+                f"abuseipdb | event=init_failed | error={exc} — AbuseIPDB disabled"
+            )
+            self._aiohttp_session = None
+            self._abuseipdb_checker = None
 
         self.active_connections = 0
         return self
@@ -1211,8 +1234,21 @@ class ProxyServer:
         )
         self.logger.info(f"Proxy server listening on {bind_addr}")
 
-        async with server:
-            await server.serve_forever()
+        try:
+            async with server:
+                await server.serve_forever()
+        finally:
+            # Phase 10: Graceful shutdown of AbuseIPDB workers and aiohttp session
+            if getattr(self, "_abuseipdb_checker", None) is not None:
+                try:
+                    await self._abuseipdb_checker.stop()
+                except Exception as exc:
+                    self.logger.warning(f"abuseipdb | event=stop_error | error={exc}")
+            if getattr(self, "_aiohttp_session", None) is not None:
+                try:
+                    await self._aiohttp_session.close()
+                except Exception as exc:
+                    self.logger.warning(f"aiohttp | event=close_error | error={exc}")
 
     async def handle_connection(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
