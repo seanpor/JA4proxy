@@ -305,6 +305,23 @@ def pytest_sessionfinish(session, exitstatus):
     except Exception as e:
         sys.stderr.write(f"Error cleaning DNS resources: {e}\n")
     
+    # Clean up Redis connections
+    try:
+        import redis
+        for obj in gc.get_objects():
+            if isinstance(obj, (redis.Redis, redis.ConnectionPool)):
+                try:
+                    if hasattr(obj, 'connection_pool'):
+                        obj.connection_pool.disconnect()
+                    elif hasattr(obj, 'disconnect'):
+                        obj.disconnect()
+                except Exception:
+                    pass
+    except ImportError:
+        pass
+    except Exception as e:
+        sys.stderr.write(f"Error cleaning Redis resources: {e}\n")
+    
     # Wait briefly for threads to clean up
     try:
         for thread in threading.enumerate():
