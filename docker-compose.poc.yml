@@ -211,7 +211,7 @@ services:
       - ja4proxy-backend
     profiles:
       - test
-    command: ["/app/scripts/test-wrapper.sh", "/app/tests", "-v", "--cov=proxy", "--cov-report=html:/app/reports/coverage", "--cov-report=term", "--junitxml=/app/reports/junit.xml"]
+    command: ["pytest", "/app/tests", "-v", "--cov=proxy", "--cov-report=html:/app/reports/coverage", "--cov-report=term", "--junitxml=/app/reports/junit.xml"]
     security_opt:
       - no-new-privileges:true
     cap_drop:
