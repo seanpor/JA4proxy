@@ -9,246 +9,218 @@
 
 ---
 
+## Current Implementation Status (as of Phase 9)
+
+**1174 tests pass / 0 fail / 0 skip** via `make test` (Docker, Python 3.11, 34s).
+
+Phases completed through 9. The sections below are a mix of **implemented** (what
+exists today) and **planned** (design for future phases). Each section is labelled.
+
+| Category | Count | Status |
+|----------|-------|--------|
+| `tests/unit/` | 907 | **Implemented** |
+| `tests/unit/security/` | 299 | **Implemented** (subset of above) |
+| `tests/integration/` | 126 | **Implemented** (−11 Docker-live excluded) |
+| `tests/chaos/` | 71 | **Implemented** |
+| `tests/fuzz/` | 13 | **Implemented** |
+| `tests/security/` | 23 | **Implemented** |
+| `tests/compliance/` | 24 | **Implemented** |
+| `tests/test_proxy.py` | 21 | **Implemented** (legacy root-level) |
+| `tests/adversarial/` | — | **Planned** (Phase 15+) |
+| `tests/fp_corpus/` | — | **Planned** (Phase 15+) |
+
+---
+
 ## §1. Repository Test Layout
+
+### Implemented
 
 ```
 tests/
-├── conftest.py                    # Root: shared fixtures, pytest configuration
+├── conftest.py                    # Root: shared fixtures, network isolation, Prometheus cleanup
 │
-├── unit/                          # Fast, isolated, no I/O. Run on every commit.
-│   ├── conftest.py                # Unit-specific fixtures (fakeredis, mock config)
-│   ├── test_risk_scorer.py
+├── unit/                          # Fast, isolated, no network. 907 tests total.
+│   ├── security/                  # Security module unit tests (299 tests)
+│   │   ├── test_action_enforcer.py
+│   │   ├── test_action_types.py
+│   │   ├── test_asn_classifier.py
+│   │   ├── test_beaconing_detector.py
+│   │   ├── test_coverage_extras.py
+│   │   ├── test_dns_enrichment.py
+│   │   ├── test_mtls.py
+│   │   ├── test_rate_strategy.py
+│   │   ├── test_rate_tracker.py
+│   │   ├── test_rate_tracker_extra.py
+│   │   ├── test_sni_analyzer.py
+│   │   ├── test_tcp_analyzer.py
+│   │   ├── test_threat_evaluator.py
+│   │   └── test_threat_tier.py
 │   ├── test_action_decider.py
-│   ├── test_tls_enforcer.py
-│   ├── test_sni_analyzer.py
-│   ├── test_tcp_analyzer.py
-│   ├── test_mtls.py
-│   ├── test_asn_classifier.py
-│   ├── test_dns_enrichment.py
 │   ├── test_blocklists.py
-│   ├── test_beaconing_detector.py
-│   ├── test_abuseipdb.py
-│   ├── test_rdap_enrichment.py
+│   ├── test_bloom.py
+│   ├── test_config_loader.py
+│   ├── test_config_loader_extra.py
+│   ├── test_gdpr_storage.py
+│   ├── test_ip_utils.py
 │   ├── test_local_cache.py
-│   └── test_config_loader.py
+│   ├── test_pipeline.py
+│   ├── test_pipeline_extra.py
+│   ├── test_proxy_remaining.py    # proxy.py: ProxyServer, DialManager, main()
+│   ├── test_proxy_server.py
+│   ├── test_proxy_utils.py
+│   ├── test_pubsub.py
+│   ├── test_pubsub_extra.py
+│   ├── test_risk_scorer.py
+│   ├── test_security_manager.py
+│   └── test_tls_enforcer.py
 │
-├── integration/                   # Real Redis (test instance), no external network.
-│   ├── conftest.py                # Integration fixtures (Redis container, full config)
-│   ├── test_pipeline.py           # Full pipeline: ClientHello → action
-│   ├── test_cache_hierarchy.py    # In-process → Redis → API fallback chain
-│   ├── test_dial_propagation.py   # Dial change via pub/sub across instances
-│   ├── test_hot_reload.py         # SIGHUP / pub/sub config reload
+├── integration/                   # Mocked Redis (MagicMock), no external network. 126 tests.
+│   ├── test_asn_pipeline.py       # ASN classification in pipeline
+│   ├── test_beaconing_pipeline.py # Beaconing signal accumulates across connections
 │   ├── test_bypass_rules.py       # Each bypass condition, enabled and disabled
-│   ├── test_rate_limiting.py      # Sliding window accuracy under concurrent load
-│   └── test_beaconing_pipeline.py # Beaconing signal accumulates across connections
+│   ├── test_cache_hierarchy.py    # In-process cache behaviour
+│   ├── test_dial_propagation.py   # Dial change via pub/sub across instances
+│   ├── test_docker_stack.py       # Real HTTP to running containers (excluded from CI)
+│   ├── test_end_to_end.py         # End-to-end pipeline scenarios
+│   ├── test_hot_reload.py         # SIGHUP / pub/sub config reload
+│   ├── test_pipeline.py           # Full pipeline: ConnectionContext → action
+│   ├── test_rate_tracker_integration.py
+│   ├── test_sni_pipeline.py
+│   └── test_tcp_pipeline.py
 │
-├── chaos/                         # Dependency failures. Run on merge to main.
-│   ├── conftest.py                # Chaos fixtures (Redis kill/restart, mock failures)
-│   ├── test_redis_failure.py      # Redis unreachable, slow, OOM
-│   ├── test_external_api_failure.py # AbuseIPDB, RDAP, Spamhaus all down
+├── chaos/                         # Dependency failures and resilience. 71 tests.
+│   ├── test_asn_chaos.py          # ASN classifier chaos (bad DB, Redis down, invalid IP)
+│   ├── test_dial_change_chaos.py  # Dial changes under concurrent traffic
+│   ├── test_dns_chaos.py          # DNS enrichment chaos (lookup failure, timeout)
 │   ├── test_feed_staleness.py     # Spamhaus, Tor list download failures
-│   ├── test_analytics_down.py     # Analytics node crash, stream lag
-│   └── test_dial_change_chaos.py  # Dial changes under traffic
+│   ├── test_redis_failure.py      # Redis unreachable, slow, evicted keys; Phase 0–9
+│   ├── test_sni_chaos.py          # SNI analyzer chaos
+│   └── test_tcp_chaos.py          # TCP analyzer chaos
 │
-├── adversarial/                   # Malformed inputs. Run on every PR.
-│   ├── conftest.py
+├── fuzz/
+│   └── test_properties.py         # Hypothesis property-based tests (13 tests)
+│
+├── security/
+│   └── test_owasp_top10.py        # OWASP Top 10 security posture (23 tests)
+│
+├── compliance/
+│   ├── gdpr_validator.py          # GDPR validation helpers
+│   └── test_gdpr_retention.py     # GDPR data retention policies (24 tests)
+│
+├── performance/
+│   ├── bench_pipeline.py          # Pipeline latency benchmarks (run manually)
+│   └── bench_cidr_lookup.py       # CIDR trie lookup benchmarks (run manually)
+│
+└── test_proxy.py                  # Legacy root-level proxy tests (21 tests)
+```
+
+> **Note:** `tests/integration/test_docker_stack.py` is excluded from `make test`
+> because it makes real HTTP calls to running containers. Run it manually with a live
+> stack: `docker compose -f docker-compose.poc.yml up -d && pytest tests/integration/test_docker_stack.py`.
+
+> **Note:** `tests/performance/bench_*.py` files are not named `test_*.py` so pytest
+> does not collect them automatically. Run manually: `python3 tests/performance/bench_pipeline.py`.
+
+### Planned (not yet implemented)
+
+```
+tests/
+├── adversarial/                   # Malformed inputs. Target: Phase 15+.
 │   ├── test_tls_parser_adversarial.py  # Malformed ClientHello corpus
 │   ├── test_ja4_adversarial.py         # JA4 computation on edge-case inputs
 │   └── corpus/                         # Byte sequences that triggered issues
-│       ├── README.md                   # What each file is and what it triggered
-│       └── *.bin
 │
-├── fp_corpus/                     # False positive rates. Run on every PR.
-│   ├── conftest.py
-│   ├── test_dga_fp_rate.py
-│   ├── test_beaconing_fp_rate.py
-│   ├── test_asn_fp_rate.py
+├── fp_corpus/                     # False positive rates. Target: Phase 15+.
+│   ├── test_dga_fp_rate.py        # DGA FP rate < 1% against Tranco top 10k
+│   ├── test_beaconing_fp_rate.py  # Beaconing FP rate against real browser timing
+│   ├── test_asn_fp_rate.py        # ASN FP rate against known residential IPs
 │   └── data/                      # Static fixture data (committed, no network)
-│       ├── tranco_top_10k.txt     # Top 10k domains — DGA FP baseline
-│       ├── residential_ips.txt    # Known residential IPs — ASN classifier baseline
-│       ├── browser_ja4t_pairs.csv # Known-good browser JA4/JA4T pairs
-│       └── browser_keepalive_timestamps.csv  # Real browser keep-alive timing
 │
-├── performance/                   # Benchmarks. Run on every PR.
-│   ├── conftest.py
-│   ├── bench_pipeline.py
-│   ├── bench_cache.py
-│   ├── bench_tls_parser.py
-│   └── bench_cidr_lookup.py
-│
-├── e2e/                           # Full stack. Run on merge to main.
-│   ├── conftest.py                # Spins up docker-compose.test.yml
-│   ├── test_browser_always_passes.py
-│   ├── test_known_bad_ja4_blocked.py
-│   ├── test_dial_escalation.py
-│   ├── test_mtls_bypass.py
-│   └── test_redis_failure_e2e.py
-│
-├── mocks/                         # Mock external services (used across categories)
-│   ├── abuseipdb_mock.py
-│   ├── spamhaus_mock.py
-│   ├── rdap_mock.py
-│   └── dns_mock.py
-│
-└── fixtures/                      # Static binary/text fixtures (committed)
-    └── clienthello/
-        ├── README.md              # Source and JA4 fingerprint for each file
-        ├── chrome_121_windows.bin
-        ├── firefox_121_linux.bin
-        ├── safari_17_macos.bin
-        ├── curl_8_ubuntu.bin
-        ├── python_requests_2_31.bin
-        ├── sliver_c2.bin
-        ├── cobalt_strike.bin
-        ├── scanner_masscan.bin
-        ├── adversarial_truncated.bin
-        └── adversarial_garbage.bin
+└── mocks/                         # Shared mock HTTP servers for integration tests.
+    ├── abuseipdb_mock.py           # Needed for Phase 10 integration tests
+    ├── rdap_mock.py                # Needed for Phase 11 integration tests
+    └── spamhaus_mock.py
 ```
 
 ---
 
-## §2. Root `conftest.py`
+## §2. Root `conftest.py` — As Implemented
 
-The root conftest provides fixtures used across all test categories.
+The root `tests/conftest.py` provides three categories of infrastructure:
+
+### 2a. Async helper
+
+All non-async test functions that need to drive async code use `asyncio.run()`:
 
 ```python
-# tests/conftest.py
-import pytest
-import fakeredis.aioredis
-from unittest.mock import AsyncMock, MagicMock
-from pathlib import Path
-
-# ── Paths ──────────────────────────────────────────────────────────────────
-
-FIXTURES_DIR = Path(__file__).parent / "fixtures"
-CLIENTHELLO_DIR = FIXTURES_DIR / "clienthello"
-FP_DATA_DIR = Path(__file__).parent / "fp_corpus" / "data"
-
-
-# ── Config ─────────────────────────────────────────────────────────────────
-
-@pytest.fixture
-def base_config() -> dict:
-    """Minimal valid proxy configuration with safe defaults."""
-    return {
-        "risk_scorer": {
-            "enabled": True,
-            "thresholds": {
-                "flag": 20, "rate_limit": 35, "tarpit": 55,
-                "block": 70, "ban": 85,
-            },
-            "ban_duration_seconds": 300,
-        },
-        "monitor_mode": {
-            "dial": 0,
-            "blocking_acknowledged": False,
-            "log_counterfactuals": True,
-        },
-        "security_policy": {
-            "alpn_browser_bypass":    {"enabled": True},
-            "ja4_whitelist_bypass":   {"enabled": True},
-            "mtls_bypass":            {"enabled": True},
-            "static_ip_allowlist":    {"enabled": True},
-            "ja4_blacklist_bypass":   {"enabled": True},
-            "country_blacklist_bypass": {"enabled": True},
-            "spamhaus_bypass":        {"enabled": True},
-            "tls_version_bypass":     {"enabled": True},
-        },
-    }
-
-
-@pytest.fixture
-def config_with_dial_100(base_config) -> dict:
-    """Config with dial at 100 — full blocking enabled."""
-    cfg = base_config.copy()
-    cfg["monitor_mode"]["dial"] = 100
-    cfg["monitor_mode"]["blocking_acknowledged"] = True
-    return cfg
-
-
-# ── Redis ──────────────────────────────────────────────────────────────────
-
-@pytest.fixture
-async def fake_redis():
-    """In-process fake Redis for unit tests. No Docker required."""
-    r = fakeredis.aioredis.FakeRedis()
-    yield r
-    await r.flushall()
-    await r.aclose()
-
-
-# ── ClientHello fixtures ───────────────────────────────────────────────────
-
-@pytest.fixture(params=[
-    "chrome_121_windows",
-    "firefox_121_linux",
-    "safari_17_macos",
-])
-def browser_clienthello(request) -> bytes:
-    """Parametrized: yields each known-good browser ClientHello in turn."""
-    return (CLIENTHELLO_DIR / f"{request.param}.bin").read_bytes()
-
-
-@pytest.fixture(params=[
-    "sliver_c2",
-    "cobalt_strike",
-    "scanner_masscan",
-])
-def malicious_clienthello(request) -> bytes:
-    """Parametrized: yields each known-malicious ClientHello in turn."""
-    return (CLIENTHELLO_DIR / f"{request.param}.bin").read_bytes()
-
-
-@pytest.fixture(params=[
-    "adversarial_truncated",
-    "adversarial_garbage",
-])
-def adversarial_clienthello(request) -> bytes:
-    """Parametrized: yields each adversarial ClientHello in turn."""
-    return (CLIENTHELLO_DIR / f"{request.param}.bin").read_bytes()
-
-
-# ── Connection objects ─────────────────────────────────────────────────────
-
-def make_connection(
-    ip="142.250.80.1",
-    ja4="t13d1516h2_8daaf6752bf6_02713d6af862",
-    alpn="h2",
-    sni="www.example.com",
-    tls_version=0x0304,
-    country="US",
-    has_valid_client_cert=False,
-):
-    """Factory for mock Connection objects used in pipeline tests."""
-    conn = MagicMock()
-    conn.ip = ip
-    conn.ja4 = ja4
-    conn.alpn = alpn
-    conn.sni = sni
-    conn.tls_version = tls_version
-    conn.country = country
-    conn.has_valid_client_cert = has_valid_client_cert
-    return conn
-
-
-@pytest.fixture
-def browser_connection():
-    """A connection that looks like Chrome on h2 — should always be allowed."""
-    return make_connection(
-        ip="142.250.80.1", ja4="t13d1516h2_8daaf6752bf6_02713d6af862",
-        alpn="h2", sni="www.google.com", country="US",
-    )
-
-
-@pytest.fixture
-def scanner_connection():
-    """A connection with missing SNI and datacenter IP — should score high."""
-    return make_connection(
-        ip="185.220.101.5", ja4="t13d190900_9dc949161b7c_000000000000",
-        alpn="", sni=None, country="RU",
-    )
+def _run(coro):
+    """Run a coroutine from a sync test. asyncio.run() cancels pending tasks
+    on exit, preventing orphaned background tasks from hanging the container."""
+    return asyncio.run(coro)
 ```
 
+**Why `asyncio.run()` and not `asyncio.new_event_loop().run_until_complete()`:**
+The old pattern left background tasks (e.g. `_tor_refresh_loop` sleeping 3600s)
+orphaned in unclosed event loops. In Python 3.11, GC cleanup of these loops hangs
+~264s per loop, causing the Docker 300s timeout to fire even after pytest finishes.
+`asyncio.run()` cancels all pending tasks before closing, keeping container
+shutdown under 1s.
+
+### 2b. Session-scoped network isolation
+
+```python
+@pytest.fixture(autouse=True, scope="session")
+def _no_real_network():
+    """Prevent real HTTP downloads during the test session.
+
+    ASNClassifier._refresh_tor_list downloads from torproject.org (~4s) on every
+    test that creates a Pipeline with a MagicMock Redis (because set() returns a
+    truthy MagicMock, so the classifier always thinks it is the download leader).
+    Patching to an async no-op at session scope eliminates all real network traffic
+    and keeps the full 1174-test suite under 60s.
+
+    Tests that specifically need real Tor exit IPs pre-populate _tor_exit_ips
+    directly. Tests that need the real download logic capture the method reference
+    at module import time (before the session fixture patches it) and restore it
+    via patch.object on the instance.
+    """
+    async def _noop(*args, **kwargs):
+        pass
+
+    with patch(
+        "src.security.asn_classifier.ASNClassifier._refresh_tor_list",
+        new=_noop,
+    ):
+        yield
+```
+
+**Pattern for chaos tests that need the real download logic:**
+
+```python
+# Capture real method at module import time (before session fixture patches it)
+_REAL_REFRESH_TOR_LIST = ASNClassifier._refresh_tor_list
+
+def test_redis_leader_election_failure_uses_cached():
+    classifier = ASNClassifier(config, mock_redis)
+    with patch.object(classifier, "_refresh_tor_list",
+                      _REAL_REFRESH_TOR_LIST.__get__(classifier)):
+        asyncio.run(classifier._refresh_tor_list())
+```
+
+### 2c. Redis fixtures
+
+```python
+@pytest.fixture
+def mock_redis():
+    """MagicMock Redis for unit tests with basic method stubs."""
+    ...
+
+@pytest.fixture
+def redis_client():
+    """Real Redis if available on localhost:6379, else a stateful mock.
+    Integration tests use this; mocked version tracks sadd/smembers/delete."""
+    ...
+```
 ---
 
 ## §3. Unit Test `conftest.py`
@@ -674,24 +646,38 @@ async def test_redis_failure(): ...
 ## §10. Module-to-Test-File Mapping
 
 Every source module has a corresponding unit test file. Additional test files
-cover cross-module scenarios.
+cover cross-module scenarios. ✓ = implemented, — = planned/not yet needed.
 
-| Source module | Unit test file | Integration test | Chaos test |
-|--------------|---------------|-----------------|-----------|
-| `risk_scorer.py` | `test_risk_scorer.py` | `test_pipeline.py` | — |
-| `action_decider.py` | `test_action_decider.py` | `test_dial_propagation.py` | `test_dial_change_chaos.py` |
-| `tls_enforcer.py` | `test_tls_enforcer.py` | `test_pipeline.py` | — |
-| `sni_analyzer.py` | `test_sni_analyzer.py` | `test_pipeline.py` | — |
-| `tcp_analyzer.py` | `test_tcp_analyzer.py` | `test_pipeline.py` | `test_redis_failure.py` |
-| `mtls.py` | `test_mtls.py` | `test_bypass_rules.py` | — |
-| `asn_classifier.py` | `test_asn_classifier.py` | `test_pipeline.py` | `test_feed_staleness.py` |
-| `dns_enrichment.py` | `test_dns_enrichment.py` | `test_pipeline.py` | `test_external_api_failure.py` |
-| `blocklists.py` | `test_blocklists.py` | `test_bypass_rules.py` | `test_feed_staleness.py` |
-| `beaconing_detector.py` | `test_beaconing_detector.py` | `test_beaconing_pipeline.py` | `test_redis_failure.py` |
-| `abuseipdb.py` | `test_abuseipdb.py` | `test_pipeline.py` | `test_external_api_failure.py` |
-| `rdap_enrichment.py` | `test_rdap_enrichment.py` | `test_pipeline.py` | `test_external_api_failure.py` |
-| `local_cache.py` | `test_local_cache.py` | `test_cache_hierarchy.py` | `test_redis_failure.py` |
-| `config_loader.py` | `test_config_loader.py` | `test_hot_reload.py` | — |
+| Source module | Unit test file | Integration test | Chaos test | Coverage |
+|--------------|---------------|-----------------|-----------|----------|
+| `risk_scorer.py` | `test_risk_scorer.py` ✓ | `test_pipeline.py` ✓ | — | 96% |
+| `action_decider.py` | `test_action_decider.py` ✓ | `test_dial_propagation.py` ✓ | `test_dial_change_chaos.py` ✓ | ~95% |
+| `tls_enforcer.py` | `test_tls_enforcer.py` ✓ | `test_pipeline.py` ✓ | `test_redis_failure.py` ✓ | ~95% |
+| `sni_analyzer.py` | `test_sni_analyzer.py` ✓ | `test_sni_pipeline.py` ✓ | `test_sni_chaos.py` ✓ | 92% |
+| `tcp_analyzer.py` | `test_tcp_analyzer.py` ✓ | `test_tcp_pipeline.py` ✓ | `test_tcp_chaos.py` ✓ | 82% |
+| `mtls.py` | `test_mtls.py` ✓ | `test_bypass_rules.py` ✓ | — | 80% |
+| `asn_classifier.py` | `test_asn_classifier.py` ✓ | `test_asn_pipeline.py` ✓ | `test_asn_chaos.py` ✓ | 70% |
+| `dns_enrichment.py` | `test_dns_enrichment.py` ✓ | `test_pipeline.py` ✓ | `test_dns_chaos.py` ✓ | 70% |
+| `blocklists.py` | `test_blocklists.py` ✓ | `test_bypass_rules.py` ✓ | `test_feed_staleness.py` ✓ | 69% |
+| `beaconing_detector.py` | `test_beaconing_detector.py` ✓ | `test_beaconing_pipeline.py` ✓ | `test_redis_failure.py` ✓ | 94% |
+| `abuseipdb.py` | — (Phase 10 not built) | — | — | — |
+| `rdap_enrichment.py` | — (Phase 11 not built) | — | — | — |
+| `local_cache.py` | `test_local_cache.py` ✓ | `test_cache_hierarchy.py` ✓ | `test_redis_failure.py` ✓ | ~95% |
+| `config_loader.py` | `test_config_loader.py` ✓ | `test_hot_reload.py` ✓ | — | 98% |
+
+### Coverage gaps (as of Phase 9)
+
+| Module | Coverage | Uncovered area |
+|--------|----------|---------------|
+| `asn_classifier.py` | 70% | MaxMind actual IP lookup (requires real .mmdb + real IPs), Tor list leader election when Redis is available |
+| `blocklists.py` | 69% | Live feed download HTTP paths, FeedManager ETag logic, leader election success path |
+| `dns_enrichment.py` | 70% | Real async PTR lookup (requires live DNS), worker restart loop, passive DNS log |
+| `tcp_analyzer.py` | 82% | Some edge cases in connection timing analysis |
+| `proxy.py` | 92% | Error paths in `_forward_to_backend`, `handle_connection` edge cases |
+
+The 69–70% modules are intentionally low: the uncovered lines require real external
+services (MaxMind DB, live DNS, live HTTP servers) that we don't spin up in unit or
+chaos tests. The important failure modes are covered via mock-based chaos tests.
 
 ---
 
