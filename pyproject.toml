@@ -5,10 +5,15 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short"
+addopts = "-v --tb=short -n auto"
 filterwarnings = [
     "ignore::RuntimeWarning",
     "ignore::ResourceWarning",
     "ignore::DeprecationWarning",
     "ignore::urllib3.exceptions.SecurityWarning",
 ]
+
+# Parallel test execution using pytest-xdist
+# -n auto: Uses all available CPU cores
+# -n 4: Uses 4 workers
+# Remove -n auto for sequential execution
