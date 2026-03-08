@@ -86,6 +86,7 @@ class ASNClassifier:
 
         self._datacenter_asns: Dict[int, str] = {}
         self._tor_exit_ips: Set[str] = set()
+        self._tor_refresh_task = None
         self._instance_id = f"asn-{os.getpid()}-{time.time()}"
 
         self._risk_scores = self._config.get(
@@ -168,7 +169,18 @@ class ASNClassifier:
 
         await self._refresh_tor_list()
 
-        asyncio.create_task(self._tor_refresh_loop(refresh_interval))
+        # Store the background task so it can be cancelled later
+        self._tor_refresh_task = asyncio.create_task(self._tor_refresh_loop(refresh_interval))
+
+    async def cleanup(self) -> None:
+        """Cancel any background tasks."""
+        if self._tor_refresh_task is not None:
+            self._tor_refresh_task.cancel()
+            try:
+                await self._tor_refresh_task
+            except asyncio.CancelledError:
+                pass
+            self._tor_refresh_task = None
 
     async def _tor_refresh_loop(self, interval: int) -> None:
         """Background task to refresh Tor exit list periodically."""
