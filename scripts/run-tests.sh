@@ -78,10 +78,12 @@ echo "Running tests with timeout (600 seconds = 10 minutes)..."
 # Check if we're on a slow machine (HDD vs SSD)
 if [ -b "/dev/sda" ] && grep -q "rotational" /sys/block/sda/queue/rotational; then
     echo "Detected HDD - using extended timeout (900 seconds = 15 minutes)..."
-    timeout 900 docker compose -f docker-compose.poc.yml run --rm test pytest /app/tests/ \
+    TIMEOUT=900
 else
-    timeout 600 docker compose -f docker-compose.poc.yml run --rm test pytest /app/tests/ \
+    TIMEOUT=600
 fi
+
+timeout $TIMEOUT docker compose -f docker-compose.poc.yml run --rm test pytest /app/tests/ \
     --ignore=/app/tests/integration/test_docker_stack.py \
     -v --tb=short \
     $PARALLEL_FLAG \
