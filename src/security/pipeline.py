@@ -64,6 +64,7 @@ from .dns_enrichment import DNSEnrichment
 from .blocklists import BlocklistManager, FeedConfig
 from .rate_tracker import MultiStrategyRateTracker
 from .rate_strategy import RateLimitStrategy, StrategyConfig
+from .beaconing_detector import BeaconingDetector
 
 if TYPE_CHECKING:
     from ..cache.local_cache import LocalCache
@@ -284,6 +285,8 @@ class Pipeline:
         except Exception as exc:
             logger.warning("rate_tracker | event=init_failed | error=%s — rate limiting disabled", exc)
             self._rate_tracker = None
+        # Phase 9: Beaconing detector (IAT coefficient of variation)
+        self._beaconing_detector = BeaconingDetector(config, redis_client, local_cache)
 
     def _load_blocklist_feeds(self, config: dict) -> None:
         """Load any static/pre-populated blocklist feeds from config."""
@@ -412,6 +415,12 @@ class Pipeline:
         _CONNECTIONS.labels(action=result.action).inc()
         # Fire-and-forget stream event (Phase 12 analytics consumes this)
         asyncio.create_task(self._emit_stream_event(ctx, result))
+        # Phase 9: Record connection timing for beaconing analysis (after action decided)
+        asyncio.create_task(
+            self._beaconing_detector.maybe_record(
+                ctx.client_ip, ctx.ja4 or "", ctx.alpn or "", result.action
+            )
+        )
         return result
 
     def _check_allow_bypasses(self, ctx: ConnectionContext) -> PipelineResult | None:
@@ -631,7 +640,19 @@ class Pipeline:
                     exc_info=True,
                 )
 
-        # Phases 9–12 will add signal collection here
+        # Phase 9: Beaconing detection (IAT coefficient of variation)
+        try:
+            beacon_signal = await self._beaconing_detector.get_signal(ctx)
+            if beacon_signal is not None:
+                signals.append(beacon_signal)
+        except Exception as exc:
+            logger.error(
+                "beaconing_detector | event=analysis_error | ip=%s | error=%s",
+                ctx.client_ip,
+                exc,
+                exc_info=True,
+            )
+
         return signals
 
     def _score_connection(self, signals: list) -> tuple[int, str, list, dict]:

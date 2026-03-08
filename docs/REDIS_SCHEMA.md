@@ -102,11 +102,13 @@ All proxy instances subscribe on startup. Message format: `{"type": "...", "valu
 
 ---
 
-## Phase 9 — Beaconing Detector (planned)
+## Phase 9 — Beaconing Detector
 
 | Key pattern | Type | TTL | Written by | Notes |
 |-------------|------|-----|------------|-------|
-| `beacon:{ip}:{ja4}` | Sorted Set (score=unix_timestamp_float) | 3600s | Proxy | Connection timestamps for IAT calculation |
+| `beacon:{ip}:{ja4}` | Sorted Set — member=`{ts:.6f}:{uuid4hex[:8]}`, score=unix_timestamp_float | `observation_window_seconds` + 60 s (default 3660 s) | `BeaconingDetector.maybe_record()` | Short-window connection timestamps for IAT analysis. UUID suffix prevents member collision on same-millisecond arrivals. Trimmed to newest `window_size` entries (default 20). |
+| `beacon:long:{ip}:{ja4}` | Sorted Set — member=`{ts:.6f}:{uuid4hex[:8]}`, score=unix_timestamp_float | `long_window.window_seconds` + 60 s (default 86460 s) | `BeaconingDetector.maybe_record()` | 24-hour window for slow-burn APT beacon detection. Independent of short window. Only written when `long_window.enabled: true`. |
+| `beacon:suspects` | Sorted Set — member=`{ip}:{ja4}`, score=beacon_confidence (0.0–0.9) | None (managed by Phase 13 UI) | `BeaconingDetector._check_window()` | Running leaderboard of suspected beaconers. Score updated on every confirmed signal. ZCARD used to drive `ja4proxy_beaconing_suspects` gauge. |
 
 ---
 
