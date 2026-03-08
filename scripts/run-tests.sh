@@ -72,6 +72,7 @@ echo "ℹ Using sequential execution for stability (parallelism disabled)"
 PARALLEL_FLAG=""
 
 # Use timeout to prevent hanging (increased for slower machines)
+# Note: Parallel execution with pytest-xdist may require more time initially
 echo "Running tests with timeout (600 seconds = 10 minutes)..."
 
 # Check if we're on a slow machine (HDD vs SSD)
