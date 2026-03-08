@@ -279,23 +279,37 @@ def pytest_sessionfinish(session, exitstatus):
     import asyncio
     import gc
     
+    # Write to a file to debug if this hook is being called
+    with open("/app/hook_called.txt", "w") as f:
+        f.write(f"pytest_sessionfinish called with exitstatus: {exitstatus}\n")
+    
     # Ensure all output is flushed before exiting
     sys.stdout.flush()
     sys.stderr.flush()
     
     # Attempt to clean up any remaining async tasks
     try:
+        pending_tasks = 0
+        cancelled_tasks = 0
+        
         # Get all tasks from all event loops
         for obj in gc.get_objects():
             if isinstance(obj, asyncio.Task):
+                pending_tasks += 1
                 try:
                     obj.cancel()
+                    cancelled_tasks += 1
                 except Exception:
                     pass  # Ignore errors during cleanup
         
+        with open("/app/hook_called.txt", "a") as f:
+            f.write(f"Found {pending_tasks} pending tasks, cancelled {cancelled_tasks}\n")
+        
         # Run garbage collection to clean up
         gc.collect()
-    except Exception:
+    except Exception as e:
+        with open("/app/hook_called.txt", "a") as f:
+            f.write(f"Cleanup failed: {e}\n")
         # If cleanup fails, that's okay - we'll force exit anyway
         pass
     
