@@ -262,14 +262,33 @@ def redis_client():
 
 
 @pytest.hookimpl(tryfirst=True)
-def pytest_sessionfinish(session, exitstatus):
-    """Force-exit to prevent asyncio GC from hanging the container.
+def pytest_sessionfinish_early(session, exitstatus):
+    """Early force-exit to prevent asyncio GC from hanging the container.
 
     This hook force-exits immediately to prevent the container from hanging
     during asyncio task cleanup. os._exit() terminates immediately without
     running atexit handlers or __del__ methods. This is safe in a Docker test
-    container — the OS cleans all resources. All pytest reports (JUnit XML,
-    coverage) are written before sessionfinish runs.
+    container — the OS cleans all resources.
+    """
+    import os
+    import sys
+    
+    # Ensure all output is flushed before exiting
+    sys.stdout.flush()
+    sys.stderr.flush()
+    
+    # Force exit immediately with the pytest exit status
+    os._exit(int(exitstatus))
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_sessionfinish_late(session, exitstatus):
+    """Late force-exit to prevent asyncio GC from hanging the container.
+
+    This hook force-exits immediately to prevent the container from hanging
+    during asyncio task cleanup. os._exit() terminates immediately without
+    running atexit handlers or __del__ methods. This is safe in a Docker test
+    container — the OS cleans all resources.
     """
     import os
     import sys
