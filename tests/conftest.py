@@ -271,10 +271,6 @@ def pytest_sessionfinish(session, exitstatus):
     import os
     import sys
     
-    # Write a marker to indicate hook was called
-    sys.stderr.write("\n[HOOK_CALLED]\n")
-    sys.stderr.flush()
-    
     # Flush all output to ensure results are written
     sys.stdout.flush()
     sys.stderr.flush()
