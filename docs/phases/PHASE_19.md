@@ -37,14 +37,14 @@ New keys for backup management (documented here):
 
 ### Backup Control Keys
 
-| Key pattern | Type | TTL | Written by | Notes |
-|-------------|-- -----|------|-------||----|
-| `backup:latest` | JSON | none | Backup worker | Points to latest successful backup artifact `{filename, keys_count, checksum, created_at, type}` |
-| `backup:schedule` | Hash | 604800s (7d) | Config reload | Cron schedule `{minutes:[HH:MM], daily:[HH:MM], weekly:[DOW HH:MM]}` |
-| `backup:last_success` | String (ISO timestamp) | 86400s (24h) | Backup worker | Last successful backup time; used for incremental decisions |
-| `backup:last_failure` | String (ISO timestamp + error) | 3600s (1h) | Backup worker | Track last failure; alert if repeated |
-| `backup:retention_count` | Integer | 43200s (12h) | Config reload | Number of backups to retain (default 14) |
-| `backup:retention_days` | Integer | none | Config reload | Max days to retain; overrides retention_count for time-based expiry |
+| Key pattern | Type | TTL                    | Written by   | Notes                                                                    |
+|-- -----------|-- ---------------------|---------------|-- -------||------ ||---- ||--------------------------------------||
+| `backup:latest`          | JSON              | none         | Backup worker                              | Points to latest successful backup artifact (`{filename, keys_count, checksum, created_at, type}`) |
+| `backup:schedule`        | Hash               | 604800s (7d) | Config reload                              | Cron schedule: `{minutes:[HH:MM], daily:[HH:MM]}`                      |
+| `backup:last_success`    | String (ISO)       | 86400s (24h) | Backup worker                              | Timestamp of last successful backup; used for incremental decisions     |
+| `backup:last_failure`    | String             | 3600s (1h)   | Backup worker                              | Error message + timestamp; alert if repeated                            |
+| `backup:retention_count` | Integer            | 43200s (12h) | Config reload                              | Number of most-recent backups to retain (default: 14)                  |
+| `backup:retention_days`  | Integer            | none         | Config reload                              | Max age in days; newer backups take precedence                          |
 
 ### Backup Artifact Manifest
 
