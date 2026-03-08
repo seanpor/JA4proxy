@@ -37,6 +37,9 @@ COPY src/ src/
 # Add /app to PYTHONPATH so src module can be imported
 ENV PYTHONPATH=/app:$PYTHONPATH
 
+# Prevent Python output buffering in Docker
+ENV PYTHONUNBUFFERED=1
+
 # Create test reports directory
 RUN mkdir -p reports && chown -R proxy:proxy /app
 

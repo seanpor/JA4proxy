@@ -22,8 +22,8 @@ tests, the Pipeline is created with a MagicMock Redis whose set() returns a
 truthy value, so the classifier always thinks it is the leader and tries to
 download. Each download adds ~4 seconds per test — 1174 tests × 4s ≈ 86 min.
 
-The _no_real_network fixture patches both _refresh_tor_list and _tor_refresh_loop
-to async no-ops for the entire test session, keeping the full suite under 60s.
+The _no_real_network fixture patches _refresh_tor_list to an async no-op for
+the entire test session, keeping the full suite under 60s.
 Tests that specifically need Tor exit IPs pre-populate _tor_exit_ips directly.
 """
 
@@ -98,13 +98,16 @@ def _no_real_network():
     async def _noop(*args, **kwargs):
         pass
 
-    # Patch only _refresh_tor_list (the HTTP download).  _tor_refresh_loop is
-    # intentionally left unpatched so chaos tests can exercise it directly
-    # using patch.object on the instance.  The loop itself does nothing harmful
-    # because on its first iteration it sleeps for refresh_interval seconds and
-    # the test event loop closes before that sleep completes.
+    # Patch both _refresh_tor_list (the HTTP download) and _tor_refresh_loop
+    # (the background refresh loop) to prevent orphaned asyncio tasks that
+    # block pytest teardown in Python 3.11. Chaos tests that need to exercise
+    # _tor_refresh_loop use patch.object on the instance, which overrides this
+    # session-level patch.
     with patch(
         "src.security.asn_classifier.ASNClassifier._refresh_tor_list",
+        new=_noop,
+    ), patch(
+        "src.security.asn_classifier.ASNClassifier._tor_refresh_loop",
         new=_noop,
     ):
         yield
@@ -263,6 +266,25 @@ def redis_client():
     
     # Clean up mock state after tests complete
     cleanup_mock()
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_sessionfinish(session, exitstatus):
+    """Force-exit to prevent Python 3.11 asyncio GC from hanging the container.
+
+    asyncio.create_task() in production code (asn_classifier._init_tor_list,
+    pipeline._emit_stream_event, pipeline._beaconing_detector.maybe_record) creates
+    Task objects that are cancelled when each test's asyncio.run() exits. However,
+    after 1174 tests, many Task objects remain referenced through live ASNClassifier
+    instances. Python 3.11's interpreter shutdown tries to finalise these Task objects
+    against already-closed event loops, blocking exit for ~265s.
+
+    os._exit() terminates immediately without running atexit handlers or __del__
+    methods. This is safe in a Docker test container — the OS cleans all resources.
+    All pytest reports (JUnit XML, coverage) are written before sessionfinish runs.
+    """
+    import os
+    os._exit(int(exitstatus))
 
 
 # Hook to prevent skipping Redis-dependent tests

@@ -206,6 +206,7 @@ services:
       - BACKEND_PORT=443
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - PYTHONUNBUFFERED=1
     networks:
       - ja4proxy-backend
     profiles:
