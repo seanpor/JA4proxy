@@ -51,5 +51,6 @@ USER proxy
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import sys; sys.exit(0)"
 
-# Run tests by default
+# Use custom entrypoint
+ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
 CMD ["pytest", "tests/", "-v", "--cov=proxy", "--cov-report=html:reports/coverage", "--cov-report=term", "--junitxml=reports/junit.xml"]
