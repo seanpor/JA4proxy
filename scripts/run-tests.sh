@@ -83,6 +83,9 @@ else
     TIMEOUT=600
 fi
 
+# Show progress indicator
+echo "[1/4] Starting test execution..."
+
 # Try parallel execution first, fall back to sequential if it fails
 if timeout $TIMEOUT docker compose -f docker-compose.poc.yml run --rm test pytest /app/tests/ \
     --ignore=/app/tests/integration/test_docker_stack.py \
