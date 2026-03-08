@@ -263,56 +263,62 @@ def redis_client():
 
 @pytest.hookimpl(trylast=True)
 def pytest_sessionfinish(session, exitstatus):
-    """Debug and force-exit to prevent asyncio GC from hanging the container.
+    """Clean up resources and force-exit to prevent asyncio GC from hanging.
 
-    This hook adds comprehensive debugging and then force-exits to prevent
-    the container from hanging during asyncio task cleanup.
+    This hook cleans up pending asyncio tasks, DNS resources, and force-exits.
     """
     import os
     import sys
-    import traceback
-    import threading
     import asyncio
     import gc
+    import threading
     import time
     
-    # Write debug info to stderr
-    sys.stderr.write("\n=== PYTEST SESSION FINISH HOOK CALLED ===\n")
-    sys.stderr.write(f"Exit status: {exitstatus}\n")
-    sys.stderr.write(f"Current time: {time.time()}\n")
-    
-    # Debug thread information
-    sys.stderr.write(f"Active threads: {threading.active_count()}\n")
-    for thread in threading.enumerate():
-        sys.stderr.write(f"  Thread: {thread.name} ({thread.ident})\n")
-    
-    # Debug asyncio tasks
+    # Clean up asyncio tasks
     try:
-        pending_tasks = []
+        cancelled = 0
         for obj in gc.get_objects():
             if isinstance(obj, asyncio.Task):
-                pending_tasks.append(obj)
-        sys.stderr.write(f"Pending asyncio tasks: {len(pending_tasks)}\n")
-        for i, task in enumerate(pending_tasks[:5]):  # Show first 5
-            sys.stderr.write(f"  Task {i}: {task.get_name() if hasattr(task, 'get_name') else 'unnamed'}\n")
+                try:
+                    obj.cancel()
+                    cancelled += 1
+                except Exception:
+                    pass
+        
+        if cancelled > 0:
+            sys.stderr.write(f"\nCancelled {cancelled} pending asyncio tasks\n")
     except Exception as e:
-        sys.stderr.write(f"Error checking asyncio tasks: {e}\n")
+        sys.stderr.write(f"\nError cleaning asyncio tasks: {e}\n")
     
-    # Debug current stack traces
-    sys.stderr.write("\n=== CURRENT STACK TRACES ===\n")
-    for thread_id, frame in sys._current_frames().items():
-        thread = threading._active.get(thread_id)
-        sys.stderr.write(f"Thread: {thread.name} ({thread_id})\n")
-        traceback.print_stack(frame, file=sys.stderr)
-        sys.stderr.write("\n")
+    # Clean up DNS resources (pycares)
+    try:
+        import pycares
+        # Try to shutdown pycares channels
+        for obj in gc.get_objects():
+            if isinstance(obj, pycares.Channel):
+                try:
+                    obj._queue.put((None, None))  # Signal shutdown
+                except Exception:
+                    pass
+    except ImportError:
+        pass
+    except Exception as e:
+        sys.stderr.write(f"Error cleaning DNS resources: {e}\n")
+    
+    # Wait briefly for threads to clean up
+    try:
+        for thread in threading.enumerate():
+            if thread.name != threading.current_thread().name:
+                # Don't join current thread
+                thread.join(timeout=0.1)
+    except Exception:
+        pass
     
     # Flush all output
     sys.stdout.flush()
     sys.stderr.flush()
     
-    # Force exit immediately
-    sys.stderr.write("\n=== FORCE EXITING ===\n")
-    sys.stderr.flush()
+    # Force exit
     os._exit(int(exitstatus))
 
 
