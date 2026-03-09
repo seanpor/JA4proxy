@@ -1,0 +1,25 @@
+# Analytics Node Configuration
+# Phase 12a: Foundation
+
+# Redis configuration
+redis:
+  host: localhost
+  port: 6379
+  # password: your-redis-password  # Uncomment and set if Redis requires authentication
+
+# Stream configuration
+stream:
+  key: ja4proxy:events
+  consumer_group: analytics
+  consumer_name: analytics-1
+  batch_size: 100
+  timeout_ms: 5000
+
+# Security configuration
+security:
+  hmac_secret: default-secret-change-me-in-production
+  hmac_required: true
+
+# Aggregation configuration
+aggregation:
+  window_seconds: 300  # 5 minutes
