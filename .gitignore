@@ -100,3 +100,9 @@ package.json
 
 # Test result files
 test_results_*.txt
+
+# Local test results (timestamped logs + JUnit XML)
+test-results/
+
+# Machine-specific calibration (worker count, benchmark data)
+.local/

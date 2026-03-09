@@ -348,10 +348,10 @@ class TestIntegration:
 
     @pytest.mark.asyncio
     async def test_full_request_flow(self):
-        """Test complete request processing flow."""
-        # This would be a more complex integration test
-        # Testing the full flow from connection to backend forwarding
-        pass
+        """Verify proxy module imports and exposes expected public names."""
+        import proxy as proxy_module
+        assert hasattr(proxy_module, "ProxyServer"), "ProxyServer class must exist"
+        assert hasattr(proxy_module, "main"), "main() entry point must exist"
 
     def test_redis_integration(self, redis_client):
         """Test Redis integration using the standard redis_client fixture."""
