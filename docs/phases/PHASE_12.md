@@ -1,16 +1,122 @@
-# Phase 12 — Analytics Node
+# Phase 12 — Analytics Node (Overview)
 
 ## Goal
-Separate Docker container. Consumes events from all proxy instances via Redis Streams.
-Performs cross-instance statistical analysis invisible per-node.
-Publishes enriched findings back for all proxy instances to use.
+Separate Docker container that consumes events from all proxy instances via Redis Streams, performs cross-instance statistical analysis, and publishes enriched findings back for all proxy instances to use.
 
-The key insight: 200 req/s distributed across 8 proxy nodes = 25 req/s per node
-(below every rate limit). The analytics node sees 200 req/s.
+**This phase has been broken down into 4 sub-phases:**
+- **Phase 12a**: Analytics Node Foundation (container, ingestion, basic aggregation)
+- **Phase 12b**: Advanced Detection Modules (campaign, slow scan, JA4 intelligence)
+- **Phase 12c**: Score Drift Monitoring & Observability (monitoring, alerting, dashboards)
+- **Phase 12d**: Security Hardening (validation, authentication, rate limiting, forensics)
 
-## 12a. Container: `analytics/`
+## Rationale for Breakdown
 
-Stays Python. Uses numpy, pandas, scipy — must NOT share layers with proxy container.
+The original Phase 12 was too large and complex, covering:
+1. Core infrastructure (container, ingestion)
+2. Advanced detection algorithms
+3. Comprehensive monitoring
+4. Security hardening
+
+Breaking it into sub-phases provides:
+- **Clearer scope** for each implementation step
+- **Better testing isolation**
+- **Incremental value delivery**
+- **Easier troubleshooting**
+- **More manageable reviews**
+
+## Implementation Order
+
+```
+Phase 12a → Phase 12b → Phase 12c → Phase 12d
+```
+
+Each sub-phase builds on the previous one and can be tested independently.
+
+## Key Improvements Over Original Plan
+
+### Enhanced Security
+- **Event validation** with JSON Schema
+- **HMAC authentication** for all events
+- **Rate limiting** per proxy and globally
+- **Comprehensive audit logging**
+- **Forensic data retention**
+
+### Better Observability
+- **Score drift detection** with statistical analysis
+- **Distribution monitoring** with KS tests
+- **Shadow scoring** for calibration
+- **Enhanced Grafana dashboards**
+- **Comprehensive Prometheus metrics**
+
+### Robust Architecture
+- **Circuit breakers** for resource protection
+- **Algorithm complexity limits**
+- **Memory and timeout constraints**
+- **Network isolation**
+- **TLS for all communications**
+
+## Migration Path
+
+### From Current State to Phase 12a
+1. Implement analytics container with basic ingestion
+2. Add event validation and authentication
+3. Implement basic cross-instance aggregation
+4. Set up health monitoring
+
+### From Phase 12a to 12b
+1. Add campaign detection module
+2. Implement slow scan detection
+3. Add JA4 fingerprint intelligence
+4. Integrate with proxy scoring
+
+### From Phase 12b to 12c
+1. Implement baseline tracking
+2. Add drift detection algorithms
+3. Create monitoring dashboards
+4. Set up alerting integration
+
+### From Phase 12c to 12d
+1. Harden event validation
+2. Add comprehensive rate limiting
+3. Implement forensic logging
+4. Set up incident response
+
+## Testing Strategy
+
+Each sub-phase includes:
+- **Unit tests** for core functionality
+- **Integration tests** for component interactions
+- **Security tests** for validation and authentication
+- **Performance tests** for scalability
+- **Chaos tests** for resilience
+
+## Security Considerations
+
+**Threat Model Addressed:**
+- Event poisoning (validation, HMAC)
+- Data tampering (TLS, RBAC)
+- Denial of Service (rate limiting, circuit breakers)
+- Privilege escalation (network isolation, least privilege)
+
+## Observability Enhancements
+
+**Beyond Original Plan:**
+- Statistical drift detection with z-scores
+- Distribution analysis with KS tests
+- Shadow scoring for calibration
+- Comprehensive security event logging
+- Forensic data retention
+
+## Next Steps
+
+Proceed with implementing the sub-phases in order:
+
+1. **Phase 12a**: Build foundation (container, ingestion, basic aggregation)
+2. **Phase 12b**: Add detection modules (campaign, slow scan, JA4)
+3. **Phase 12c**: Implement monitoring (drift detection, dashboards)
+4. **Phase 12d**: Security hardening (validation, rate limiting, forensics)
+
+Each phase should be fully tested and documented before proceeding to the next.
 
 ## 12b. Event Ingestion
 
