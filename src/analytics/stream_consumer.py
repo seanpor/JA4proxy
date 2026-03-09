@@ -13,6 +13,7 @@ from .event_schemas import EVENT_SCHEMA
 from .validation import validate_event_comprehensive
 from .authentication import HMACAuthenticator
 from .aggregation import AggregationManager, HyperLogLogManager
+from .detection import CampaignDetector, SlowScanDetector, JA4FingerprintIntelligence
 
 
 class StreamConsumer:
@@ -21,7 +22,9 @@ class StreamConsumer:
     def __init__(self, redis_url: str, stream_key: str = "ja4proxy:events", 
                  consumer_group: str = "analytics", consumer_name: str = "analytics-1",
                  hmac_secret: Optional[str] = None, hmac_required: bool = True,
-                 aggregation_window: int = 300):
+                 aggregation_window: int = 300, 
+                 campaign_detection: bool = True, slow_scan_detection: bool = True,
+                 ja4_intelligence: bool = True):
         self.redis_url = redis_url
         self.stream_key = stream_key
         self.consumer_group = consumer_group
@@ -31,6 +34,11 @@ class StreamConsumer:
         self.hmac_auth = HMACAuthenticator(hmac_secret or "", hmac_required)
         self.aggregation_manager = AggregationManager(aggregation_window)
         self.hll_manager = HyperLogLogManager()
+        
+        # Initialize detection modules
+        self.campaign_detector = CampaignDetector() if campaign_detection else None
+        self.slow_scan_detector = SlowScanDetector() if slow_scan_detection else None
+        self.ja4_intelligence = JA4FingerprintIntelligence() if ja4_intelligence else None
     
     async def connect(self):
         """Establish connection to Redis."""
@@ -77,6 +85,16 @@ class StreamConsumer:
             subnet = self.aggregation_manager.get_subnet(event_data["src_ip"])
             self.hll_manager.add_ip(subnet, event_data["src_ip"])
             
+            # Update detection modules
+            if self.campaign_detector:
+                self.campaign_detector.update_with_event(event_data)
+            
+            if self.slow_scan_detector:
+                self.slow_scan_detector.update_with_event(event_data)
+            
+            if self.ja4_intelligence:
+                self.ja4_intelligence.update_with_event(event_data)
+            
             # Store results in Redis (will be implemented in Phase 12b)
             # For Phase 12a, we just log the aggregation periodically
             results = self.aggregation_manager.get_aggregation_results()
@@ -89,13 +107,24 @@ class StreamConsumer:
             print(f"Error processing event {event_id}: {e}")
             return False
     
-    async def consume_events(self, batch_size: int = 100, timeout_ms: int = 5000):
+    async def consume_events(self, batch_size: int = 100, timeout_ms: int = 5000, 
+                           detection_interval: int = 60):
         """Consume events from the stream in batches."""
         if not self.redis:
             await self.connect()
         
+        # Track detection cycle timing
+        last_detection_time = time.time()
+        
         while True:
             try:
+                # Run detection cycle periodically
+                current_time = time.time()
+                if (current_time - last_detection_time >= detection_interval and 
+                    (self.campaign_detector or self.slow_scan_detector or self.ja4_intelligence)):
+                    await self.run_detection_cycle()
+                    last_detection_time = current_time
+                
                 # Read events from the stream
                 events = await self.redis.xreadgroup(
                     self.consumer_group,
@@ -141,6 +170,74 @@ class StreamConsumer:
             except Exception as e:
                 print(f"Stream consumer error: {e}")
                 await asyncio.sleep(1)
+    
+    async def get_detection_results(self) -> Dict[str, Any]:
+        """Get current detection results."""
+        results = {}
+        
+        # Campaign detection results
+        if self.campaign_detector:
+            campaigns = self.campaign_detector.detect_campaigns()
+            results['campaigns'] = campaigns
+            results['campaign_count'] = len(campaigns)
+        else:
+            results['campaigns'] = []
+            results['campaign_count'] = 0
+        
+        # Slow scan detection results
+        if self.slow_scan_detector:
+            slow_scans = self.slow_scan_detector.detect_slow_scans()
+            results['slow_scans'] = slow_scans
+            results['slow_scan_count'] = len(slow_scans)
+        else:
+            results['slow_scans'] = []
+            results['slow_scan_count'] = 0
+        
+        # JA4 intelligence results
+        if self.ja4_intelligence:
+            ja4_candidates = self.ja4_intelligence.identify_candidates()
+            results['ja4_candidates'] = ja4_candidates
+            results['ja4_candidate_count'] = len(ja4_candidates)
+        else:
+            results['ja4_candidates'] = []
+            results['ja4_candidate_count'] = 0
+        
+        return results
+    
+    async def run_detection_cycle(self):
+        """Run a complete detection cycle and store results in Redis."""
+        try:
+            if not self.redis:
+                await self.connect()
+            
+            # Get detection results
+            detection_results = await self.get_detection_results()
+            
+            # Store results in Redis
+            if self.redis:
+                # Store campaigns
+                for campaign in detection_results['campaigns']:
+                    key = f"analytics:campaign:{campaign['subnet']}"
+                    await self.redis.set(key, json.dumps(campaign), ex=3600)  # 1 hour TTL
+                
+                # Store slow scans
+                for slow_scan in detection_results['slow_scans']:
+                    key = f"analytics:slowscan:{slow_scan['subnet']}"
+                    await self.redis.set(key, json.dumps(slow_scan), ex=1800)  # 30 min TTL
+                
+                # Store JA4 candidates (sorted set by block rate)
+                if detection_results['ja4_candidates']:
+                    ja4_members = {}
+                    for candidate in detection_results['ja4_candidates']:
+                        ja4_members[candidate['ja4']] = candidate['block_rate']
+                    
+                    await self.redis.zadd("analytics:ja4:candidates", ja4_members)
+                    await self.redis.expire("analytics:ja4:candidates", 86400)  # 24 hour TTL
+            
+            return detection_results
+        except Exception as e:
+            print(f"Error running detection cycle: {e}")
+            return {'error': str(e)}
     
     async def close(self):
         """Close the Redis connection."""
