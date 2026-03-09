@@ -124,13 +124,28 @@ All proxy instances subscribe on startup. Message format: `{"type": "...", "valu
 
 ---
 
-## Phase 11 — RDAP Enrichment (planned)
+## Phase 11 — RDAP Enrichment
 
 | Key pattern | Type | TTL | Written by | Notes |
 |-------------|------|-----|------------|-------|
-| `rdap:org:{org_handle}` | Hash `{name, country, reputation, fetched_at}` | 3600s | Proxy enrichment | Cached RDAP org data |
-| `rdap:netblock:{cidr}` | Hash `{org_handle, registered_at, fetched_at}` | 3600s | Proxy enrichment | Cached RDAP netblock data |
-| `bloom:rdap_enriched` | Bloom filter | none | Proxy enrichment | Dedup filter; fallback: `bloom_fallback:rdap_enriched` SET |
+| `rdap:ip:{ip}` | JSON (RDAPResult: netblock, org_name, org_handle, asn, country, registration_date, fetched_at, is_unknown) | 86400s (24h) | `RDAPEnricher._cache_result()` | Full RDAP enrichment result for one IP address. |
+| `rdap:org:{org_handle}` | JSON (org_name, known_bad, reason, score, netblocks[]) | 604800s (7d) | `RDAPEnricher._cache_result()` | Org reputation cache; keyed by registry org handle. |
+| `rdap:expansions` | List of JSON audit entries (LPUSH+LTRIM to 1000) | none | `RDAPEnricher._log_expansion_audit()` | Immutable audit trail of all automatic block expansions. Each entry includes trigger IP, score, CIDR, org, guards checked, instance ID. |
+| `rdap:expansions:count:{YYYY-MM-DDTHH}` | String (integer count) | 3600s | `RDAPEnricher._check_expansion_rate_limit()` | Per-hour cross-instance expansion counter; atomically INCRed; DECRed on cap rejection; expires after 1h. |
+| `rdap:bootstrap:v4` | JSON (IANA IPv4 bootstrap services array) | 86400s (24h) | `RDAPEnricher._download_bootstrap()` (leader only) | Maps IP prefixes to RIR RDAP base URLs; loaded from Redis on startup by non-leader instances. |
+| `rdap:bootstrap:v6` | JSON (IANA IPv6 bootstrap services array) | 86400s (24h) | `RDAPEnricher._download_bootstrap()` (leader only) | Maps IPv6 prefixes to RIR RDAP base URLs; sibling of v4 bootstrap. |
+| `browser:seen:subnet:{subnet}` | String ("1") | 86400s (24h) | `RDAPEnricher.record_browser_subnet()` | Written for every h2/h1 ALPN connection (browser traffic). Presence blocks CIDR expansion for that subnet (guard 3). Subnet is /24 for IPv4, /48 for IPv6. |
+| `bloom:rdap_enriched` | Bloom filter | 86400s (24h) | `RDAPEnricher._enqueue_lookup()` | Dedup filter; 24h TTL ensures IPs are re-enriched daily. BF.ADD returns 1=new, 0=already present. Fallback: `bloom_fallback:rdap_enriched:{ip}` SET+TTL when RedisBloom unavailable. |
+| `ban_cidr:{cidr}` | String ("1") | `expansion_ban_duration`s (default 3600) | `RDAPEnricher._apply_expansion()` | CIDR-level ban from automatic block expansion. Prefix `ban_cidr:` distinguishes from per-IP `ban:{ip}` keys. Checked at startup via SCAN and loaded into pytricia trie; updated via `cidr_ban_add` pub/sub. |
+| `analytics:enrich:rdap` | Set of IP strings | none (managed) | `RDAPEnricher._enqueue_lookup()` | RDAP enrichment queue when `delegate_to_analytics: true`; drained by Analytics node (Phase 12); results written to `rdap:ip:{ip}`. |
+
+### Pub/Sub channel update: `ja4proxy:invalidate`
+
+Phase 11 adds a new message type:
+
+| `type` field | `value` | Effect |
+|---|---|---|
+| `cidr_ban_add` | CIDR string (e.g. "1.2.3.0/24") | Call `BlocklistManager.load_cidrs([cidr], "rdap_expansion", ...)` on all instances; updates pytricia trie immediately |
 
 ---
 

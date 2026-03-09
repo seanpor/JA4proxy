@@ -66,6 +66,7 @@ from .rate_tracker import MultiStrategyRateTracker
 from .rate_strategy import RateLimitStrategy, StrategyConfig
 from .beaconing_detector import BeaconingDetector
 from .abuseipdb import AbuseIPDBChecker, AbuseIPDBConfig
+from .rdap_enrichment import RDAPEnricher
 
 if TYPE_CHECKING:
     from ..cache.local_cache import LocalCache
@@ -292,6 +293,9 @@ class Pipeline:
         # The aiohttp session and full startup are handled by ProxyServer.
         # Pipeline holds a reference; start()/stop() called by ProxyServer.
         self._abuseipdb_checker: AbuseIPDBChecker | None = None
+        # Phase 11: RDAP enrichment (offline enrichment; background workers).
+        # start()/stop() called by ProxyServer.
+        self._rdap_enricher: RDAPEnricher | None = None
 
     def _load_blocklist_feeds(self, config: dict) -> None:
         """Load any static/pre-populated blocklist feeds from config."""
@@ -322,6 +326,10 @@ class Pipeline:
     def set_abuseipdb_checker(self, checker: AbuseIPDBChecker | None) -> None:
         """Wire in the Phase 10 AbuseIPDB checker. Called after start()."""
         self._abuseipdb_checker = checker
+
+    def set_rdap_enricher(self, enricher: RDAPEnricher | None) -> None:
+        """Wire in the Phase 11 RDAP enricher. Called after start()."""
+        self._rdap_enricher = enricher
 
     def update_sets(self, whitelist: set[str], blacklist: set[str]) -> None:
         """Replace in-process JA4 sets. Called on startup and pub/sub update."""
@@ -525,6 +533,13 @@ class Pipeline:
         """
         signals = []
 
+        # Phase 11: Record browser subnet for block expansion guard 3.
+        # Fire-and-forget: never awaited on the hot path.
+        if ctx.alpn in ("h2", "h1") and self._rdap_enricher is not None:
+            asyncio.create_task(
+                self._rdap_enricher.record_browser_subnet(ctx.client_ip)
+            )
+
         # Phase 4: SNI analysis
         try:
             sni_signals = self._sni_analyzer.analyze(ctx.sni)
@@ -671,6 +686,24 @@ class Pipeline:
             except Exception as exc:
                 logger.error(
                     "abuseipdb | event=get_signal_error | ip=%s | error=%s",
+                    ctx.client_ip,
+                    exc,
+                    exc_info=True,
+                )
+
+        # Phase 11: RDAP enrichment (called LAST; trigger_score is running subtotal)
+        if self._rdap_enricher is not None:
+            try:
+                running_score = sum(
+                    s.score for s in signals if hasattr(s, "score")
+                )
+                rdap_signals = self._rdap_enricher.get_signal(
+                    ctx.client_ip, running_score
+                )
+                signals.extend(rdap_signals)
+            except Exception as exc:
+                logger.error(
+                    "rdap_enricher | event=get_signal_error | ip=%s | error=%s",
                     ctx.client_ip,
                     exc,
                     exc_info=True,

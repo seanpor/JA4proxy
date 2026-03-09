@@ -9,6 +9,7 @@ false-positive asymmetry described in CLAUDE.md:
     asn_class            TTL 3600s  — ASN classification changes rarely
     geoip_country        TTL 3600s  — country data is stable
     rdap_data            TTL 3600s  — RDAP changes rarely
+    rdap_results         TTL 86400s — RDAP enrichment results; 20k cap (Phase 11)
 
 Critical rule: Redis says block + local cache says allow → local cache wins.
 This is enforced by the pipeline: it checks local cache before any Redis read.
@@ -161,6 +162,14 @@ class LocalCache:
             max_size=50_000,
             ttl_seconds=3600,
             name="rdap_data",
+        )
+        # Phase 11: RDAP enrichment results (RDAPResult objects).
+        # TTL 24h — RDAP data changes rarely. 20k cap to bound memory.
+        # get_signal() reads this synchronously on the hot path (no await).
+        self.rdap_results = LRUCache(
+            max_size=_get("rdap_results", "max_size", 20_000),
+            ttl_seconds=_get("rdap_results", "ttl_seconds", 86_400),
+            name="rdap_results",
         )
         # Dial has no TTL — updated only by pub/sub or config reload.
         # Default 0 = monitor mode; proxy never blocks on first deploy.

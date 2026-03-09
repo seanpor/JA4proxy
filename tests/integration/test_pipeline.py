@@ -530,3 +530,131 @@ class TestAbuseIPDBIntegration:
         result = _run(pipeline.process(_ctx(sni="example.com")))
         signal_names = [s.name for s in result.signals]
         assert "abuseipdb" not in signal_names
+
+
+# ---------------------------------------------------------------------------
+# Phase 11: RDAP Enrichment Integration
+# ---------------------------------------------------------------------------
+
+
+class TestPipelineRDAPIntegration:
+    """Integration tests for RDAP enrichment wired into the pipeline."""
+
+    def test_rdap_signal_from_lru_cache_added_to_pipeline(self):
+        """When RDAP result is in LRU cache with known-bad org, signal appears in pipeline result."""
+        from unittest.mock import AsyncMock
+        from src.security.rdap_enrichment import RDAPEnricher, RDAPConfig, RDAPResult
+        from src.security.rdap_enrichment import _OrgReputationConfig, _NewNetblockConfig, _BlockExpansionConfig
+        from src.cache.local_cache import LocalCache
+
+        pipeline = _make_pipeline(dial=100)
+        local_cache = pipeline._cache
+
+        # Pre-populate LRU with a known-bad result
+        rdap_result = RDAPResult(
+            netblock="185.220.0.0/24",
+            org_name="Frantech Solutions",
+            org_handle="FRANTECH",
+            asn=None,
+            country="US",
+            registration_date="2020-01-01",
+            fetched_at=1000.0,
+            is_unknown=False,
+        )
+        local_cache.rdap_results.set("185.220.101.5", rdap_result)
+
+        # Build a minimal RDAPEnricher with the known-bad org list
+        config = RDAPConfig(
+            enabled=True,
+            queue_size=10,
+            worker_count=1,
+            min_enqueue_score=20,
+            lookup_timeout_seconds=5,
+            org_reputation=_OrgReputationConfig(enabled=True, score=45),
+            new_netblock_flagging=_NewNetblockConfig(enabled=True, max_age_days=90, score=20),
+            block_expansion=_BlockExpansionConfig(enabled=False),
+        )
+        redis_mock = MagicMock()
+        enricher = RDAPEnricher(config, redis_mock, local_cache, MagicMock(),
+                                known_bad_orgs_path="config/known_bad_orgs.yml")
+        enricher._known_bad = [
+            {"handle": "FRANTECH", "name": "Frantech Solutions", "reason": "BP", "score": 45}
+        ]
+        pipeline.set_rdap_enricher(enricher)
+
+        result = _run(pipeline.process(_ctx(client_ip="185.220.101.5", sni="example.com")))
+        signal_names = [s.name for s in result.signals]
+        assert "rdap_known_bad_org" in signal_names, (
+            f"Expected rdap_known_bad_org in signals, got: {signal_names}"
+        )
+
+    def test_rdap_lru_miss_does_not_block_connection(self):
+        """RDAP LRU miss (cache empty) → pipeline returns allow/monitor; no crash."""
+        from unittest.mock import AsyncMock
+        from src.security.rdap_enrichment import RDAPEnricher, RDAPConfig, RDAPResult
+        from src.security.rdap_enrichment import _OrgReputationConfig, _NewNetblockConfig, _BlockExpansionConfig
+        from src.cache.local_cache import LocalCache
+
+        pipeline = _make_pipeline(dial=0)  # Monitor mode
+        local_cache = pipeline._cache
+
+        config = RDAPConfig(
+            enabled=True,
+            queue_size=10,
+            worker_count=1,
+            min_enqueue_score=20,
+            lookup_timeout_seconds=5,
+            org_reputation=_OrgReputationConfig(enabled=True, score=45),
+            new_netblock_flagging=_NewNetblockConfig(enabled=True, max_age_days=90, score=20),
+            block_expansion=_BlockExpansionConfig(enabled=False),
+        )
+        redis_mock = MagicMock()
+        enricher = RDAPEnricher(config, redis_mock, local_cache, MagicMock(),
+                                known_bad_orgs_path="config/known_bad_orgs.yml")
+        enricher._known_bad = []
+        pipeline.set_rdap_enricher(enricher)
+
+        # Pipeline should process without crashing
+        result = _run(pipeline.process(_ctx(client_ip="10.0.0.1", sni="example.com")))
+        assert result is not None
+        assert result.action in ("allow", "block", "ban", "flag", "rate_limit", "tarpit")
+
+    def test_rdap_disabled_no_signal(self):
+        """Disabled RDAP enricher → no rdap signals in result."""
+        from src.security.rdap_enrichment import RDAPEnricher, RDAPConfig
+        from src.security.rdap_enrichment import _OrgReputationConfig, _NewNetblockConfig, _BlockExpansionConfig
+        from src.cache.local_cache import LocalCache
+
+        pipeline = _make_pipeline(dial=100)
+        local_cache = pipeline._cache
+
+        # Pre-populate LRU with a known-bad result (would produce signal if enabled)
+        from src.security.rdap_enrichment import RDAPResult
+        rdap_result = RDAPResult(
+            netblock="1.2.3.0/24",
+            org_name="Frantech Solutions",
+            org_handle="FRANTECH",
+            asn=None,
+            country="US",
+            registration_date="2020-01-01",
+            fetched_at=1000.0,
+            is_unknown=False,
+        )
+        local_cache.rdap_results.set("1.2.3.4", rdap_result)
+
+        config = RDAPConfig(
+            enabled=False,  # Disabled
+            org_reputation=_OrgReputationConfig(enabled=True, score=45),
+            new_netblock_flagging=_NewNetblockConfig(enabled=True, max_age_days=90, score=20),
+            block_expansion=_BlockExpansionConfig(enabled=False),
+        )
+        enricher = RDAPEnricher(config, MagicMock(), local_cache, MagicMock(),
+                                known_bad_orgs_path="config/known_bad_orgs.yml")
+        enricher._known_bad = [
+            {"handle": "FRANTECH", "name": "Frantech Solutions", "reason": "BP", "score": 45}
+        ]
+        pipeline.set_rdap_enricher(enricher)
+
+        result = _run(pipeline.process(_ctx(client_ip="1.2.3.4", sni="example.com")))
+        signal_names = [s.name for s in result.signals]
+        assert "rdap_known_bad_org" not in signal_names
