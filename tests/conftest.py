@@ -1,58 +1,129 @@
-"""Root pytest conftest — shared fixtures and collection guards.
+"""Root pytest conftest — shared fixtures, collection guards, and reporting.
 
 Prometheus metric deduplication
 --------------------------------
-All new src/ modules register Prometheus metrics at import time. When pytest
-collects multiple test modules that import the same src/ module, Python's module
-cache means the code runs only once per process — but if a collection error
-causes a partial import that leaves the module in sys.modules in a broken state,
-a subsequent re-import re-executes the module code and hits a
-"Duplicated timeseries in CollectorRegistry" ValueError.
+All src/ modules register Prometheus metrics at import time. When pytest
+collects multiple test modules that import the same src/ module, a partial
+import failure can leave the module in sys.modules in a broken state; on
+re-import the registration code runs again and raises
+"Duplicated timeseries in CollectorRegistry".
 
-The session-scoped fixture below clears the default Prometheus registry once
-before the whole test session. This prevents any leftover registrations from
-a previous in-process test run (e.g. when running tests interactively or via
-pytest-xdist with forks).
+The _clean_prometheus_registry session fixture clears all ja4proxy metrics
+before the session starts, preventing this on repeated or parallel runs.
 
 Network isolation
 -----------------
-ASNClassifier._refresh_tor_list makes a real HTTP request to torproject.org on
-every signal() call (the first time, to initialise the Tor exit node list). In
-tests, the Pipeline is created with a MagicMock Redis whose set() returns a
-truthy value, so the classifier always thinks it is the leader and tries to
-download. Each download adds ~4 seconds per test — 1174 tests × 4s ≈ 86 min.
+ASNClassifier._refresh_tor_list makes a real HTTP request to torproject.org
+on first use. With a MagicMock Redis the classifier always believes it is the
+download leader, adding ~4 s per test. The _no_real_network session fixture
+patches this to a no-op for the entire session, keeping the suite under 2
+minutes even on a slow machine.
 
-The _no_real_network fixture patches _refresh_tor_list to an async no-op for
-the entire test session, keeping the full suite under 60s.
-Tests that specifically need Tor exit IPs pre-populate _tor_exit_ips directly.
+Tests that need real Tor exit IPs populate _tor_exit_ips directly.
+
+Empty-test guard
+----------------
+Any test whose body is nothing but `pass` (or only a docstring) is detected
+at collection time and causes an immediate failure. Every test must contain
+real assertions or test logic.
+
+Docker vs local
+---------------
+pytest_sessionfinish uses os._exit() only inside Docker containers (where
+normal asyncio teardown can hang the process indefinitely). On a local
+development machine pytest exits normally, which lets asyncio clean up
+pending tasks cleanly and produces no spurious warnings.
 """
 
+import ast
 import asyncio
+import inspect
 import sys
+import textwrap
+import time
 import redis
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+_SESSION_START: list[float] = []  # populated by pytest_sessionstart
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _run(coro):
-    """Run an async coroutine from a sync test function."""
+    """Run an async coroutine from a sync context."""
     return asyncio.run(coro)
 
 
+def pytest_sessionstart(session) -> None:  # noqa: ARG001
+    """Record monotonic start time for our custom terminal summary."""
+    _SESSION_START.append(time.monotonic())
+
+
+# ── Empty-test guard ──────────────────────────────────────────────────────────
+
+def _test_body_is_empty(func) -> bool:
+    """Return True if the test function body is only ``pass`` or a docstring.
+
+    Uses AST analysis. Returns False (not empty) if the source cannot be
+    parsed — we err on the side of allowing the test to run.
+    """
+    try:
+        raw = inspect.getsource(func)
+        tree = ast.parse(textwrap.dedent(raw))
+    except Exception:
+        return False  # Can't parse — assume OK
+
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        body = node.body
+        # Strip a leading docstring
+        if (body
+                and isinstance(body[0], ast.Expr)
+                and isinstance(body[0].value, ast.Constant)
+                and isinstance(body[0].value.value, str)):
+            body = body[1:]
+        # Empty or pass-only
+        if not body or all(isinstance(s, ast.Pass) for s in body):
+            return True
+        return False  # Has real content
+    return False
+
+
+def pytest_collection_finish(session) -> None:
+    """Abort if any collected test has an empty body (pass / docstring only)."""
+    empty = [
+        item.nodeid
+        for item in session.items
+        if hasattr(item, "function") and _test_body_is_empty(item.function)
+    ]
+    if empty:
+        lines = "\n".join(f"  {t}" for t in empty)
+        pytest.exit(
+            f"\n\nERROR: {len(empty)} empty test(s) detected "
+            f"(body is only 'pass' or a docstring):\n{lines}\n\n"
+            "All tests must contain real assertions or test logic.\n",
+            returncode=3,
+        )
+
+
+# ── Session fixtures ───────────────────────────────────────────────────────────
+
 @pytest.fixture
 def run_async():
-    """Fixture that provides the _run helper to tests."""
+    """Provide the _run() helper to sync tests that exercise async code."""
     return _run
 
 
 @pytest.fixture(autouse=True, scope="session")
 def _clean_prometheus_registry():
-    """Unregister all ja4proxy metrics before the test session starts.
+    """Unregister all ja4proxy Prometheus metrics before the session starts.
 
-    This is a no-op on first run but prevents "Duplicated timeseries" errors
-    when the test runner re-uses the same process (e.g. pytest-watch, coverage
-    re-runs, or partial import failures that leave modules half-cached).
+    No-op on the first run; prevents "Duplicated timeseries" errors on
+    subsequent runs (pytest-watch, parallel workers, partial import failures).
     """
     from prometheus_client import REGISTRY
 
@@ -61,7 +132,7 @@ def _clean_prometheus_registry():
         for c in list(REGISTRY._names_to_collectors.values())
         if hasattr(c, "_name") and c._name.startswith("ja4proxy_")
     ]
-    seen = set()
+    seen: set = set()
     for collector in to_remove:
         if id(collector) not in seen:
             seen.add(id(collector))
@@ -70,13 +141,9 @@ def _clean_prometheus_registry():
             except Exception:
                 pass
 
-    # Also evict any partially-initialised src/ modules so they re-register
-    # cleanly in this session.
-    broken = [
-        key
-        for key, mod in list(sys.modules.items())
-        if key.startswith("src.") and mod is None
-    ]
+    # Evict partially-initialised src/ modules so they re-register cleanly.
+    broken = [k for k, v in list(sys.modules.items())
+              if k.startswith("src.") and v is None]
     for key in broken:
         del sys.modules[key]
 
@@ -85,20 +152,16 @@ def _clean_prometheus_registry():
 
 @pytest.fixture(autouse=True, scope="session")
 def _no_real_network():
-    """Prevent real HTTP/network calls during the test session.
+    """Prevent real HTTP calls to torproject.org during the test session.
 
-    ASNClassifier._refresh_tor_list downloads from torproject.org each time a
-    Pipeline is instantiated and process() is called.  With a MagicMock Redis
-    the classifier always believes it is the download leader, resulting in a
-    ~4 s HTTP round-trip per test.  Patching _refresh_tor_list to an async no-op
-    eliminates real network traffic and keeps the test suite runtime under 60 s.
+    ASNClassifier._refresh_tor_list downloads the Tor exit node list on first
+    use. Patching it to an async no-op keeps the suite fast and deterministic.
+    Chaos tests that need to exercise real refresh logic use patch.object on
+    the specific instance.
     """
-
     async def _noop(*args, **kwargs):
         pass
 
-    # Patch only _refresh_tor_list (the HTTP download).  Chaos tests that need
-    # to exercise the real refresh behavior use patch.object on the instance.
     with patch(
         "src.security.asn_classifier.ASNClassifier._refresh_tor_list",
         new=_noop,
@@ -106,9 +169,11 @@ def _no_real_network():
         yield
 
 
+# ── Redis fixtures ─────────────────────────────────────────────────────────────
+
 @pytest.fixture
 def mock_redis():
-    """Mock Redis client for unit tests that don't need real Redis."""
+    """Minimal MagicMock Redis for unit tests that don't need real Redis."""
     mock = MagicMock()
     mock.ping.return_value = True
     mock.get.return_value = None
@@ -117,184 +182,161 @@ def mock_redis():
     mock.smembers.return_value = set()
     mock.delete.return_value = True
     mock.keys.return_value = []
-    
-    # Mock Bloom filter
+
     bloom_mock = MagicMock()
     bloom_mock.exists.return_value = False
     bloom_mock.add.return_value = True
     mock.bf.return_value = bloom_mock
-    
+
     return mock
 
 
 @pytest.fixture
 def redis_client():
-    """Real Redis client fixture for integration tests.
-    
-    This fixture attempts to connect to a real Redis instance.
-    If Redis is not available, it provides a mock instead.
+    """Real Redis client for integration tests; falls back to a mock.
+
+    Falls back silently — integration tests are written to work with either.
     """
     try:
-        # Try to connect to Redis
         client = redis.Redis(
-            host='localhost',
-            port=6379,
-            password='changeme',  # Default password
-            db=0,
+            host="localhost", port=6379, password="changeme", db=0,
             decode_responses=False,
         )
-        
-        # Test the connection
         if client.ping():
-            # Clean up before yielding
             client.flushdb()
             yield client
-            # Clean up after
             client.flushdb()
             return
     except (redis.ConnectionError, ConnectionRefusedError):
         pass
-    
-    # Fall back to mock if Redis is not available
-    print("\n⚠️  Redis not available - using mock for tests")
+
+    # ── Mock fallback ──────────────────────────────────────────────────────────
+    from collections import defaultdict
+
     mock = MagicMock()
     mock.ping.return_value = True
     mock.get.return_value = None
     mock.setex.return_value = True
-    
-    # Track set members for smembers/sadd/delete operations
-    redis_sets = {}
-    
-    def mock_sadd(key, *values):
-        key_str = key.decode('utf-8') if isinstance(key, bytes) else str(key)
-        if key_str not in redis_sets:
-            redis_sets[key_str] = set()
-        for value in values:
-            value_str = value.decode('utf-8') if isinstance(value, bytes) else str(value)
-            redis_sets[key_str].add(value_str.encode('utf-8'))
-        return len(redis_sets[key_str])
-    
-    def mock_smembers(key):
-        key_str = key.decode('utf-8') if isinstance(key, bytes) else str(key)
-        return redis_sets.get(key_str, set())
-    
-    def mock_delete(*keys):
+
+    redis_sets: dict = {}
+    redis_counters: dict = defaultdict(int)
+    redis_keys_with_ttl: set = set()
+
+    def _sadd(key, *values):
+        k = key.decode() if isinstance(key, bytes) else str(key)
+        redis_sets.setdefault(k, set())
+        for v in values:
+            redis_sets[k].add(v if isinstance(v, bytes) else str(v).encode())
+        return len(redis_sets[k])
+
+    def _smembers(key):
+        k = key.decode() if isinstance(key, bytes) else str(key)
+        return redis_sets.get(k, set())
+
+    def _delete(*keys):
         for key in keys:
-            key_str = key.decode('utf-8') if isinstance(key, bytes) else str(key)
-            redis_sets.pop(key_str, None)
+            k = key.decode() if isinstance(key, bytes) else str(key)
+            redis_sets.pop(k, None)
         return 1
-    
-    mock.sadd.side_effect = mock_sadd
-    mock.smembers.side_effect = mock_smembers
-    mock.delete.side_effect = mock_delete
-    
-    mock.keys.return_value = []
-    
-    # Mock script registration and execution
-    # Simulate real Redis behavior with per-key counters
-    from collections import defaultdict
-    import asyncio
-    
-    # Track counters per Redis key (simulating real Redis)
-    redis_counters = defaultdict(int)
-    
-    # Track keys with TTL for TTL tests
-    redis_keys_with_ttl = set()
-    
-    # Ensure proper cleanup of any async resources
-    def cleanup_mock():
-        # Clear all tracked state
-        redis_counters.clear()
-        redis_keys_with_ttl.clear()
-        redis_sets.clear()
-        
-        # Ensure any pending async tasks are cleaned up
-        try:
-            pending = asyncio.all_tasks()
-            for task in pending:
-                task.close()
-        except RuntimeError:
-            # No event loop running - that's fine
-            pass
-    
-    def mock_script(keys=None, args=None, client=None):
-        if keys and len(keys) > 0:
-            # Get the main key (first key is the rate tracking key)
-            key = keys[0].decode('utf-8') if isinstance(keys[0], bytes) else str(keys[0])
-            # Increment and return the counter for this specific key
-            redis_counters[key] += 1
-            # Track this key as having been created (for TTL tests)
-            redis_keys_with_ttl.add(key)
-            return redis_counters[key]
+
+    def _script(keys=None, args=None, client=None):
+        if keys:
+            k = keys[0].decode() if isinstance(keys[0], bytes) else str(keys[0])
+            redis_counters[k] += 1
+            redis_keys_with_ttl.add(k)
+            return redis_counters[k]
         return 1
-    
+
+    def _keys(pattern):
+        prefix = pattern.rstrip("*")
+        return [k.encode() for k in redis_keys_with_ttl if k.startswith(prefix)]
+
     script_mock = MagicMock()
-    script_mock.side_effect = mock_script
+    script_mock.side_effect = _script
     mock.register_script.return_value = script_mock
-    
-    # Mock keys() method to return rate tracking keys
-    def mock_keys(pattern):
-        # Simple pattern matching: 'rate:*' should match any key starting with 'rate:'
-        if pattern == 'rate:*':
-            matching_keys = [key.encode('utf-8') for key in redis_keys_with_ttl if key.startswith('rate:')]
-        else:
-            matching_keys = [key.encode('utf-8') for key in redis_keys_with_ttl if pattern in key]
-        return matching_keys
-    
-    mock.keys.side_effect = mock_keys
-    
-    # Mock ttl() method to return reasonable TTL values
-    def mock_ttl(key):
-        return 30  # Return 30 seconds TTL (within GDPR limits)
-    
-    mock.ttl.side_effect = mock_ttl
-    
-    # Mock Bloom filter
+    mock.sadd.side_effect = _sadd
+    mock.smembers.side_effect = _smembers
+    mock.delete.side_effect = _delete
+    mock.keys.side_effect = _keys
+    mock.ttl.return_value = 30
+
     bloom_mock = MagicMock()
     bloom_mock.exists.return_value = False
     bloom_mock.add.return_value = True
     mock.bf.return_value = bloom_mock
-    
+
     yield mock
-    
-    # Clean up mock state after tests complete
-    cleanup_mock()
+
+    redis_counters.clear()
+    redis_keys_with_ttl.clear()
+    redis_sets.clear()
+
+
+# ── Collection helpers ────────────────────────────────────────────────────────
+
+def pytest_collection_modifyitems(items) -> None:
+    """Remove any stray skip markers from integration/redis tests.
+
+    These tests are designed to fall back to mocks, not to be skipped.
+    """
+    for item in items:
+        fspath = str(getattr(item, "fspath", ""))
+        if "redis" in fspath.lower() or "integration" in fspath.lower():
+            if hasattr(item, "own_markers"):
+                item.own_markers = [m for m in item.own_markers if m.name != "skip"]
+
+
+# ── Shutdown ──────────────────────────────────────────────────────────────────
 
 
 @pytest.hookimpl(trylast=True)
-def pytest_sessionfinish(session, exitstatus):
-    """Force-exit immediately to prevent container hangs.
+def pytest_sessionfinish(session, exitstatus) -> None:  # noqa: ARG001
+    """Use os._exit() only inside Docker to prevent container hangs.
 
-    This simple hook force-exits without any cleanup attempts,
-    which is the most reliable approach for Docker containers.
+    On a local development machine, let pytest exit normally so that asyncio
+    can cancel pending tasks cleanly — this avoids the spurious
+    "Cancelled N pending asyncio tasks" messages that os._exit() causes.
     """
     import os
-    import sys
-    
-    # Write test summary before exiting
-    if exitstatus == 0:
-        sys.stderr.write(f"\n=== TEST SUMMARY ===\n")
-        sys.stderr.write(f"All tests completed successfully!\n")
-        sys.stderr.write(f"Exit code: {exitstatus}\n")
-    else:
-        sys.stderr.write(f"\n=== TEST SUMMARY ===\n")
-        sys.stderr.write(f"Tests completed with exit code: {exitstatus}\n")
-    
-    # Flush all output to ensure results are written
-    sys.stdout.flush()
-    sys.stderr.flush()
-    
-    # Force exit immediately - let the OS clean up resources
-    os._exit(int(exitstatus))
+    if os.path.exists("/.dockerenv"):
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(int(exitstatus))
+    # Local: normal exit — asyncio teardown runs cleanly
 
 
-# Hook to prevent skipping Redis-dependent tests
-# This ensures tests run with mock Redis instead of being skipped
-def pytest_collection_modifyitems(items):
-    """Modify collected tests to ensure Redis-dependent tests run with mock."""
-    for item in items:
-        # Remove skip markers from Redis-dependent tests
-        if "redis" in str(item.fspath).lower() or "integration" in str(item.fspath).lower():
-            if hasattr(item, 'own_markers'):
-                # Remove pytest.mark.skip markers
-                item.own_markers = [m for m in item.own_markers if m.name != 'skip']
+# ── Terminal summary ──────────────────────────────────────────────────────────
+
+def pytest_terminal_summary(terminalreporter, exitstatus, config) -> None:
+    """Print a clean results block at the very end of the run."""
+    tr = terminalreporter
+    stats = tr.stats
+
+    passed   = len(stats.get("passed",   []))
+    failed   = len(stats.get("failed",   []))
+    errored  = len(stats.get("error",    []))
+    skipped  = len(stats.get("skipped",  []))
+    warnings = len(stats.get("warnings", []))
+
+    elapsed = time.monotonic() - (_SESSION_START[0] if _SESSION_START else time.monotonic())
+
+    tr.write_sep("━", "SUMMARY")
+    tr.write_line(f"  Passed:   {passed}")
+    if failed:
+        tr.write_line(f"  Failed:   {failed}  ◀ FAILURES")
+    if errored:
+        tr.write_line(f"  Errors:   {errored}  ◀ ERRORS")
+    if skipped:
+        tr.write_line(f"  Skipped:  {skipped}  ◀ UNEXPECTED")
+    if warnings:
+        tr.write_line(f"  Warnings: {warnings}")
+    tr.write_line(f"  Duration: {elapsed:.1f}s  ({elapsed/60:.1f} min)")
+
+    results = Path("test-results")
+    if results.exists():
+        for name, sym in [("Log", "latest.log"), ("JUnit", "latest-junit.xml")]:
+            p = results / sym
+            if p.exists():
+                tr.write_line(f"  {name+':':8s} {p}")
+
+    tr.write_sep("━", "")

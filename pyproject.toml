@@ -5,15 +5,36 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short"
-filterwarnings = [
-    "ignore::RuntimeWarning",
-    "ignore::ResourceWarning",
-    "ignore::DeprecationWarning",
-    "ignore::urllib3.exceptions.SecurityWarning",
-]
 
-# Parallel test execution using pytest-xdist
-# -n auto: Uses all available CPU cores
-# -n 4: Uses 4 workers
-# Remove -n auto for sequential execution
+# --tb=short: concise tracebacks
+# --timeout=60: per-test hard limit (requires pytest-timeout)
+# -q: quiet mode by default; run-local-tests.sh adds -v when writing to log
+addopts = "--tb=short --timeout=60"
+
+# Warning policy:
+#   - Third-party library internals: ignore (too noisy, nothing we can fix)
+#   - asyncio cleanup noise from mocks: ignore specific patterns
+#   - Everything else: default behaviour (shown but not fatal)
+#   - Our own code: any unexpected RuntimeWarning will surface naturally
+filterwarnings = [
+    # pytest-asyncio internal deprecation notices
+    "ignore::DeprecationWarning:pytest_asyncio",
+    "ignore::DeprecationWarning:_pytest",
+    # Third-party library internals — nothing actionable for us
+    "ignore::DeprecationWarning:pkg_resources",
+    "ignore::DeprecationWarning:google",
+    "ignore::DeprecationWarning:aiohttp",
+    "ignore::DeprecationWarning:redis",
+    # urllib3 / requests noise in test environments
+    "ignore::urllib3.exceptions.InsecureRequestWarning",
+    "ignore::urllib3.exceptions.SecurityWarning",
+    # asyncio teardown with mocked tasks — not a real resource leak
+    "ignore:.*Enable tracemalloc.*:pytest.PytestUnraisableExceptionWarning",
+    "ignore:coroutine .* was never awaited:RuntimeWarning",
+    # aiohttp connector cleanup in unit tests (no real connections, just mocks)
+    "ignore:.*Unclosed client session.*:ResourceWarning",
+    "ignore:.*Unclosed connector.*:ResourceWarning",
+    # ssl.OP_NO_TLS* deprecated in Python 3.10+ (security/validation.py — third-party pattern)
+    "ignore:ssl.OP_NO_SSL.*:DeprecationWarning",
+    "ignore:ssl.OP_NO_TLS.*:DeprecationWarning",
+]
