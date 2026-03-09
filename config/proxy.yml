@@ -456,3 +456,37 @@ abuseipdb:
   worker_count: 3                   # Background worker coroutines draining the lookup queue. Requires restart to change.
   score_cap: 40                     # Maximum contribution to composite score (confidence 100 → 40 pts; never a hard block).
   delegate_to_analytics: false      # Set true when Phase 12 analytics node is deployed; local workers idle.
+
+# ── Phase 11: RDAP Enrichment & Block Expansion ──────────────────────────────
+
+rdap_enrichment:
+  enabled: true                     # Master switch. Disable to skip all RDAP lookups.
+  queue_size: 500                   # Max pending IPs; new items dropped silently if queue is full. Requires restart to change.
+  worker_count: 3                   # Background worker coroutines. Requires restart to change.
+  min_enqueue_score: 20             # Only enqueue IPs whose current composite score >= this value.
+                                    # Conserves RDAP quota; low-score IPs are not worth enriching.
+  lookup_timeout_seconds: 15        # aiohttp request timeout per RDAP API call (seconds).
+  delegate_to_analytics: false      # Set true when Phase 12 analytics node is deployed; local workers idle.
+
+  org_reputation:
+    enabled: true
+    score: 45                       # Risk contribution for known-bad org match.
+                                    # 45 + new_netblock(20) = 65 < block_threshold(70) — no false hard-blocks.
+
+  new_netblock_flagging:
+    enabled: true
+    max_age_days: 90                # Netblocks registered within this many days are flagged.
+                                    # Attack infrastructure is often registered shortly before use.
+    score: 20                       # Risk contribution for new netblock signal.
+
+  block_expansion:
+    enabled: false                  # Default: false. Read docs/phases/PHASE_11.md before enabling.
+                                    # Automatically blocks /24 (IPv4) or /48 (IPv6) containing attacker IP.
+    min_trigger_score: 75           # Composite score the trigger IP must have reached for expansion.
+    max_prefix_length_v4: 24        # Only expand if discovered netblock is /24 or smaller (prefixlen >= 24).
+                                    # A /16 (prefixlen=16 < 24) is too broad — skipped.
+    max_prefix_length_v6: 48        # Only expand if discovered netblock is /48 or smaller.
+    require_no_browser_traffic: true  # Guard 3: abort expansion if browser h2/h1 traffic seen in subnet.
+    require_known_bad_org: true       # Guard 4: abort expansion if org not in known_bad_orgs.yml.
+    expansion_ban_duration: 3600      # TTL (seconds) for ban_cidr:{cidr} key written on expansion (default 1h).
+    max_expansions_per_hour: 10       # Cross-instance safety cap; enforced via Redis atomic counter.

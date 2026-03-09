@@ -23,6 +23,12 @@ Message types handled:
   config_reload       Trigger a hot reload of proxy.yml on all instances.
                       Same effect as SIGHUP.
 
+  cidr_ban_add        Add a CIDR to the in-process BlocklistManager pytricia
+                      trie immediately (Phase 11 — RDAP block expansion).
+                      Published by RDAPEnricher._apply_expansion() when a
+                      CIDR is auto-expanded. All other instances call
+                      BlocklistManager.load_cidrs() to update their tries.
+
 Design notes:
 - Only removals, releases, and secops admin actions use pub/sub for
   immediate propagation. New blocks propagate via TTL + next lookup.
@@ -82,12 +88,14 @@ class PubSubHandler:
         config_loader: "ConfigLoader",
         blacklist_set: set,
         whitelist_set: set,
+        blocklist_manager: object = None,
     ) -> None:
         self._redis = redis_client
         self._cache = local_cache
         self._config_loader = config_loader
         self._blacklist = blacklist_set
         self._whitelist = whitelist_set
+        self._blocklist_manager = blocklist_manager
 
     async def run(self) -> None:
         """Subscribe and process messages forever, reconnecting on error.
@@ -183,6 +191,25 @@ class PubSubHandler:
                     logger.error(
                         "pubsub | event=config_reload_failed | error=%s", exc
                     )
+
+            case "cidr_ban_add":
+                # Phase 11: RDAP block expansion — add CIDR to in-process trie
+                if value and self._blocklist_manager is not None:
+                    try:
+                        self._blocklist_manager.load_cidrs(
+                            [str(value)],
+                            "rdap_expansion",
+                            {"name": "rdap_expansion", "enabled": True},
+                        )
+                        logger.debug(
+                            "pubsub | event=cidr_ban_add | cidr=%s", value
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning(
+                            "pubsub | event=cidr_ban_add_error | cidr=%s | error=%s",
+                            value,
+                            exc,
+                        )
 
             case _:
                 logger.warning(

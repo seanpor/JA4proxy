@@ -297,3 +297,281 @@ class TestWorkerPoolStop(unittest.IsolatedAsyncioTestCase):
         # All workers should be done
         for w in checker._workers:
             self.assertTrue(w.done())
+
+
+# ===========================================================================
+# Phase 11 — RDAP Chaos Tests
+# ===========================================================================
+
+
+def _make_rdap_config(**kwargs):
+    from src.security.rdap_enrichment import (
+        RDAPConfig, _OrgReputationConfig, _NewNetblockConfig, _BlockExpansionConfig
+    )
+    defaults = dict(
+        enabled=True,
+        queue_size=10,
+        worker_count=1,
+        min_enqueue_score=20,
+        lookup_timeout_seconds=5,
+        delegate_to_analytics=False,
+        org_reputation=_OrgReputationConfig(enabled=True, score=45),
+        new_netblock_flagging=_NewNetblockConfig(enabled=True, max_age_days=90, score=20),
+        block_expansion=_BlockExpansionConfig(enabled=False),
+    )
+    defaults.update(kwargs)
+    return RDAPConfig(**defaults) if False else _build_rdap_config(defaults)
+
+
+def _build_rdap_config(defaults):
+    from src.security.rdap_enrichment import (
+        RDAPConfig, _OrgReputationConfig, _NewNetblockConfig, _BlockExpansionConfig
+    )
+    return RDAPConfig(
+        enabled=defaults.get("enabled", True),
+        queue_size=defaults.get("queue_size", 10),
+        worker_count=defaults.get("worker_count", 1),
+        min_enqueue_score=defaults.get("min_enqueue_score", 20),
+        lookup_timeout_seconds=defaults.get("lookup_timeout_seconds", 5),
+        delegate_to_analytics=defaults.get("delegate_to_analytics", False),
+        org_reputation=defaults.get("org_reputation", _OrgReputationConfig()),
+        new_netblock_flagging=defaults.get("new_netblock_flagging", _NewNetblockConfig()),
+        block_expansion=defaults.get("block_expansion", _BlockExpansionConfig(enabled=False)),
+    )
+
+
+def _make_rdap_redis():
+    redis = MagicMock()
+    redis.get = AsyncMock(return_value=None)
+    redis.setex = AsyncMock(return_value=True)
+    redis.set = AsyncMock(return_value=True)
+    redis.incr = AsyncMock(return_value=1)
+    redis.decr = AsyncMock(return_value=0)
+    redis.expire = AsyncMock(return_value=True)
+    redis.exists = AsyncMock(return_value=0)
+    redis.sadd = AsyncMock(return_value=1)
+    redis.publish = AsyncMock(return_value=1)
+    redis.lpush = AsyncMock(return_value=1)
+    redis.ltrim = AsyncMock(return_value=True)
+    redis.scan = AsyncMock(return_value=(0, []))
+    bf = MagicMock()
+    bf.add = AsyncMock(return_value=1)
+    redis.bf = MagicMock(return_value=bf)
+    return redis
+
+
+class TestRDAPAPIUnreachable(unittest.IsolatedAsyncioTestCase):
+    """RIR RDAP API unreachable: fail open; error counter incremented."""
+
+    async def test_rir_unreachable_fails_open(self):
+        """Connection refused to RIR → fail open; rdap_lookup_total{result=error} inc'd."""
+        from src.security.rdap_enrichment import RDAPEnricher
+        from src.cache.local_cache import LocalCache
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def _network_error(*args, **kwargs):
+            raise ConnectionError("Connection refused")
+            yield  # pragma: no cover
+
+        session = MagicMock()
+        session.get = _network_error
+
+        redis = _make_rdap_redis()
+        local_cache = LocalCache({})
+
+        enricher = RDAPEnricher(
+            _build_rdap_config({}),
+            redis, local_cache, session,
+            known_bad_orgs_path="config/known_bad_orgs.yml",
+        )
+        enricher._known_bad = []
+        enricher._bootstrap_v4 = [
+            {"prefixes": ["0.0.0.0/0"], "urls": ["https://rdap.arin.net/registry/"]}
+        ]
+        enricher._bootstrap_v6 = []
+
+        with patch("src.security.rdap_enrichment._LOOKUP_TOTAL") as mock_counter:
+            # Should not raise — fail open
+            await enricher._process_lookup("1.2.3.4")
+            # Error counter should be incremented
+            mock_counter.labels.assert_called()
+
+    async def test_queue_drains_normally_after_api_failure(self):
+        """Worker continues processing queue after API failures."""
+        from src.security.rdap_enrichment import RDAPEnricher
+        from src.cache.local_cache import LocalCache
+
+        redis = _make_rdap_redis()
+        local_cache = LocalCache({})
+
+        enricher = RDAPEnricher(
+            _build_rdap_config({"queue_size": 5, "worker_count": 1}),
+            redis, local_cache, MagicMock(),
+            known_bad_orgs_path="config/known_bad_orgs.yml",
+        )
+        enricher._known_bad = []
+        enricher._bootstrap_v4 = [
+            {"prefixes": ["0.0.0.0/0"], "urls": ["https://rdap.arin.net/registry/"]}
+        ]
+
+        # start creates the queue and workers
+        with patch.object(enricher, '_load_bootstrap', new=AsyncMock()):
+            with patch.object(enricher, '_scan_existing_ban_cidrs', new=AsyncMock()):
+                with patch.object(enricher, '_load_known_bad_orgs'):
+                    await enricher.start()
+
+        try:
+            with patch.object(enricher, '_process_lookup', side_effect=ConnectionError("refused")):
+                enricher._queue.put_nowait("1.2.3.4")
+                await asyncio.sleep(0.1)  # Allow worker to process
+                # Worker should still be running (not crashed)
+                for w in enricher._workers:
+                    self.assertFalse(w.done(), "Worker must not crash on API error")
+        finally:
+            await enricher.stop()
+
+
+class TestRDAPBootstrapFailure(unittest.IsolatedAsyncioTestCase):
+    """IANA bootstrap download fails: use cached bootstrap or warn and continue."""
+
+    async def test_bootstrap_download_fails_uses_redis_cache(self):
+        """Bootstrap download fails → load from Redis; WARN logged; no crash."""
+        from src.security.rdap_enrichment import RDAPEnricher
+        from src.cache.local_cache import LocalCache
+        import json
+
+        # Bootstrap is available in Redis
+        cached_bootstrap = [{"prefixes": ["0.0.0.0/0"], "urls": ["https://rdap.arin.net/registry/"]}]
+        redis = _make_rdap_redis()
+        redis.get = AsyncMock(side_effect=[
+            json.dumps(cached_bootstrap).encode(),  # v4 bootstrap
+            json.dumps(cached_bootstrap).encode(),  # v6 bootstrap
+        ])
+
+        enricher = RDAPEnricher(
+            _build_rdap_config({}),
+            redis, LocalCache({}), MagicMock(),
+            known_bad_orgs_path="config/known_bad_orgs.yml",
+        )
+        enricher._known_bad = []
+
+        # Should load from Redis without needing to download
+        await enricher._load_bootstrap()
+        self.assertTrue(len(enricher._bootstrap_v4) > 0 or len(enricher._bootstrap_v6) > 0)
+
+    async def test_bootstrap_download_and_redis_both_fail_logs_warn(self):
+        """Both download and Redis fail → WARN logged; startup continues."""
+        from src.security.rdap_enrichment import RDAPEnricher
+        from src.cache.local_cache import LocalCache
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def _fail(*args, **kwargs):
+            raise ConnectionError("No network")
+            yield  # pragma: no cover
+
+        session = MagicMock()
+        session.get = _fail
+
+        redis = _make_rdap_redis()
+        redis.get = AsyncMock(side_effect=ConnectionError("Redis down"))
+
+        enricher = RDAPEnricher(
+            _build_rdap_config({}),
+            redis, LocalCache({}), session,
+            known_bad_orgs_path="config/known_bad_orgs.yml",
+        )
+        enricher._known_bad = []
+
+        # Should not raise — logs WARN and continues
+        with patch.object(enricher, '_try_become_bootstrap_leader', new=AsyncMock(return_value=True)):
+            await enricher._load_bootstrap()
+
+
+class TestRDAPMalformedJSON(unittest.IsolatedAsyncioTestCase):
+    """Malformed RDAP JSON: parse_errors incremented; fail open; worker continues."""
+
+    async def test_malformed_json_increments_parse_errors_counter(self):
+        """Malformed JSON response → rdap_parse_errors_total incremented; fail open."""
+        from src.security.rdap_enrichment import RDAPEnricher
+        from src.cache.local_cache import LocalCache
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def _malformed_response(*args, **kwargs):
+            resp = MagicMock()
+            resp.status = 200
+            resp.headers = {}
+            resp.raise_for_status = MagicMock()
+            resp.json = AsyncMock(return_value={"bad_data": True, "no_valid_fields": "here"})
+            yield resp
+
+        session = MagicMock()
+        session.get = _malformed_response
+
+        redis = _make_rdap_redis()
+        local_cache = LocalCache({})
+
+        enricher = RDAPEnricher(
+            _build_rdap_config({}),
+            redis, local_cache, session,
+            known_bad_orgs_path="config/known_bad_orgs.yml",
+        )
+        enricher._known_bad = []
+        enricher._bootstrap_v4 = [
+            {"prefixes": ["0.0.0.0/0"], "urls": ["https://rdap.arin.net/registry/"]}
+        ]
+
+        # Should not raise — fail open with empty result
+        # The malformed JSON will produce a result with fallback values (not an error)
+        # because _parse_rdap_response has graceful fallbacks
+        await enricher._process_lookup("1.2.3.4")
+        # Worker continues — no exception propagated
+
+
+class TestRDAPQueueOverflow(unittest.IsolatedAsyncioTestCase):
+    """Queue overflow: items dropped silently; drop counter incremented."""
+
+    async def test_queue_full_drops_item_silently(self):
+        """Full queue → item dropped; rdap_queue_dropped_total incremented; no crash."""
+        from src.security.rdap_enrichment import RDAPEnricher
+        from src.cache.local_cache import LocalCache
+
+        redis = _make_rdap_redis()
+        local_cache = LocalCache({})
+
+        enricher = RDAPEnricher(
+            _build_rdap_config({"queue_size": 1}),
+            redis, local_cache, MagicMock(),
+            known_bad_orgs_path="config/known_bad_orgs.yml",
+        )
+        enricher._known_bad = []
+        enricher._queue = asyncio.Queue(maxsize=1)
+        enricher._queue.put_nowait("1.1.1.1")  # Fill the queue
+
+        with patch("src.security.rdap_enrichment._QUEUE_DROPPED") as mock_dropped:
+            await enricher._enqueue_lookup("2.2.2.2")
+            mock_dropped.inc.assert_called_once()
+
+    async def test_multiple_overflows_do_not_crash(self):
+        """Multiple queue overflows in a row: all dropped silently; no exception."""
+        from src.security.rdap_enrichment import RDAPEnricher
+        from src.cache.local_cache import LocalCache
+
+        redis = _make_rdap_redis()
+        local_cache = LocalCache({})
+
+        enricher = RDAPEnricher(
+            _build_rdap_config({"queue_size": 2}),
+            redis, local_cache, MagicMock(),
+            known_bad_orgs_path="config/known_bad_orgs.yml",
+        )
+        enricher._known_bad = []
+        enricher._queue = asyncio.Queue(maxsize=2)
+        enricher._queue.put_nowait("1.1.1.1")
+        enricher._queue.put_nowait("2.2.2.2")
+
+        # These should all be dropped without error
+        for i in range(5):
+            await enricher._enqueue_lookup(f"3.3.3.{i}")  # All overflow

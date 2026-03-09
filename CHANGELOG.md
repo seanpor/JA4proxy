@@ -1,5 +1,124 @@
 # Changelog
 
+## [11.0.0] - 2026-03-09 - PHASE 11: RDAP ENRICHMENT & BLOCK EXPANSION
+
+### Added
+
+- **`src/security/rdap_enrichment.py`** — Phase 11 RDAP enrichment module:
+  - `RDAPConfig` dataclass — all fields from `rdap_enrichment:` config section; `from_config()` loads from proxy.yml
+  - `RDAPResult` dataclass — netblock, org_name, org_handle, asn, country, registration_date, fetched_at, is_unknown
+  - `RegistryRateLimiter` — in-process asyncio token bucket per RIR (ARIN/RIPE/APNIC/LACNIC/AFRINIC); configured rates
+  - `RDAPEnricher` class with async background worker pool (`worker_count` coroutines draining `asyncio.Queue`)
+  - `get_signal(ip, trigger_score)` — synchronous hot-path entry point; reads `LocalCache.rdap_results` (no Redis on hot path); enqueues background lookup on cache miss when `trigger_score >= min_enqueue_score`
+  - `record_browser_subnet(ip)` — async; sets `browser:seen:subnet:{subnet}` with 24h TTL; called fire-and-forget for h2/h1 ALPN connections; prevents block expansion for subnets with browser traffic
+  - IANA bootstrap loading: leader election (`leader:rdap_bootstrap_download` lock); downloads `ipv4.json` + `ipv6.json`; caches in Redis (`rdap:bootstrap:v4`, `rdap:bootstrap:v6`, 24h TTL); non-leader instances load from Redis
+  - `get_rdap_base_url(ip)` — longest-prefix-match bootstrap routing to correct RIR
+  - `_api_lookup(ip, base_url)` — aiohttp GET; follows up to 3 redirects manually; HTTP 404 → `_NotFoundError` (not error); timeout + 5xx → raise
+  - `_parse_rdap_response(data, ip)` — parses vCard format; handles ARIN (`handle`) vs RIPE (`nic-hdl`) org handles; extracts registration date from `events` array; graceful fallback for all fields
+  - `_check_known_bad(org_handle, org_name) -> tuple[bool, dict|None]` — exact handle match first; then case-insensitive substring match on org_name
+  - `_rdap_to_signals(rdap) -> list[RiskSignal]` — emits `rdap_known_bad_org` and/or `rdap_new_netblock` signals from cached results
+  - `maybe_expand_block(ip, rdap, trigger_score, is_known_bad)` — 4 independent safety guards + hourly rate limit cap; only runs when `block_expansion.enabled: true`
+  - Guard 1: `trigger_score >= min_trigger_score` (default 75)
+  - Guard 2: RDAP netblock prefix ≥ max configured (IPv4: /24, IPv6: /48); broader blocks skipped
+  - Guard 3: `browser:seen:subnet:{subnet}` key absent (atomic Redis GET; no race)
+  - Guard 4: org confirmed known-bad (high score alone insufficient)
+  - `_check_expansion_rate_limit()` — atomic Redis INCR/DECR on `rdap:expansions:count:{YYYY-MM-DDTHH}` with 3600s TTL; cross-instance cap
+  - `_apply_expansion(cidr, rdap, trigger_score)` — writes `ban_cidr:{cidr}` to Redis with TTL; calls `BlocklistManager.load_cidrs()` for local trie; publishes `{"type":"cidr_ban_add","value":cidr}` to `ja4proxy:invalidate`
+  - `_log_expansion_audit(ip, cidr, rdap, trigger_score)` — LPUSH JSON + LTRIM 1000 on `rdap:expansions`
+  - `_compute_expansion_cidr(ip, config)` — always expands to configured prefix (/24 IPv4, /48 IPv6) around trigger IP
+  - `_scan_existing_ban_cidrs()` — on startup, SCANs `ban_cidr:*` from Redis and loads into `BlocklistManager` trie
+  - Bloom filter dedup (`bloom:rdap_enriched`, 24h TTL); fallback to SET+TTL when RedisBloom unavailable
+  - `on_config_reload(new_config)` — hot-reloads all fields except `worker_count` and `queue_size` (WARN logged if those change)
+  - Startup: fatal error with clear message when `config/known_bad_orgs.yml` is missing
+  - `delegate_to_analytics: true` mode: IPs published to `analytics:enrich:rdap` Set; local workers idle
+  - Prometheus: `ja4proxy_rdap_enrichment_queue_depth`, `ja4proxy_rdap_lookup_total{registry,result}`, `ja4proxy_rdap_block_expansions_total`, `ja4proxy_rdap_parse_errors_total`, `ja4proxy_rdap_queue_dropped_total`, `ja4proxy_rdap_expansions_this_hour`
+  - Structured JSON logging: `block_expansion_applied`, `registry_error`, `bootstrap_download_failed`, `worker_unhandled_error`, `shutdown_queue_not_empty`
+  - `datetime.now(timezone.utc)` used throughout; never `datetime.utcnow()` (deprecated)
+  - `# pragma: no cover` on ImportError blocks
+
+- **`config/known_bad_orgs.yml`** — ≥ 30 entries of known bulletproof hosting providers:
+  - Frantech/BuyVM, Ponynet, Quasi Networks, Psychz Networks, combahton, HostSailor, Alexhost, Zare Ltd, Reprise Hosting, Staminus
+  - M247, Leaseweb, Serverius, DataCamp Limited, Hostwinds, Voxility, Sharktech, QuadraNet, ColoCrossing, Limestone Networks, Nocix, Nexeon
+  - Tor Project, Torservers.net, Quintex Alliance Consulting
+  - Afrihost, BlazingFast, ServerChef, Aeza International
+
+- **`src/pubsub.py`** — `PubSubHandler` extended:
+  - Optional `blocklist_manager=None` parameter added to `__init__`
+  - New `case "cidr_ban_add"` in `_dispatch()` calls `blocklist_manager.load_cidrs([value], "rdap_expansion", ...)`
+  - Module docstring updated to list `cidr_ban_add` message type
+
+- **Pipeline integration** (`src/security/pipeline.py`):
+  - `RDAPEnricher` imported and held as `_rdap_enricher` (None by default)
+  - `set_rdap_enricher()` setter called by `ProxyServer` after startup
+  - `record_browser_subnet(ip)` called fire-and-forget at top of `_collect_signals()` for h2/h1 ALPN connections
+  - `get_signal(ip, running_score)` called **last** in `_collect_signals()` after all other signal modules; `running_score` is sum of all preceding signal scores
+
+- **`proxy.py`** — startup/shutdown wiring:
+  - `RDAPEnricher` instantiated after AbuseIPDB; reuses shared `aiohttp.ClientSession`
+  - `await rdap_enricher.start()` called at startup
+  - `pipeline.set_rdap_enricher(rdap_enricher)` wires enricher into pipeline
+  - `pipeline._blocklist_manager` passed to `RDAPEnricher` for local trie updates
+  - On shutdown: `await rdap_enricher.stop()` called before `aiohttp_session.close()`
+
+- **`config/proxy.yml`** — `rdap_enrichment:` section:
+  - `enabled: true`, `queue_size: 500`, `worker_count: 3`, `min_enqueue_score: 20`
+  - `lookup_timeout_seconds: 15`, `delegate_to_analytics: false`
+  - `org_reputation:` subsection (`enabled: true`, `score: 45`)
+  - `new_netblock_flagging:` subsection (`enabled: true`, `max_age_days: 90`, `score: 20`)
+  - `block_expansion:` subsection (`enabled: false` by default; all guard thresholds configurable)
+  - All keys with inline comments per project style
+
+- **`src/cache/local_cache.py`** — `rdap_results` LRU cache entry (already existed from prior phase stub):
+  - TTL 86400s (24h), max 20,000 entries
+  - Background RDAP workers write here; `get_signal()` reads synchronously (no await)
+
+- **`tests/mocks/rdap_mock.py`** — RDAP test double:
+  - `RDAPMock` class with `set_result()`, `set_not_found()`, `set_error()`, `set_timeout()`, `set_redirect()` per-IP configuration
+  - `make_session()` returns AsyncMock-based aiohttp session; intercepts IANA bootstrap + RDAP IP lookup URLs
+  - `requested_ips` list for assertion in tests
+  - `make_rdap_result()` convenience factory
+
+- **`tests/unit/test_rdap_enrichment.py`** — unit tests covering all AC items:
+  - Known-bad org: exact handle, substring name, no match
+  - New netblock: young/old/missing date
+  - `get_signal()`: LRU hit, miss below threshold, miss above threshold (enqueues)
+  - Block expansion: all 4 guards individually + all passing + rate limit exceeded
+  - `_compute_expansion_cidr()`: IPv4 /24, IPv6 /48
+  - RDAP 404 → `is_unknown=True`; no error counter
+  - Bootstrap routing: IPv4 and IPv6
+  - Worker `CancelledError` exits cleanly
+  - Queue full → drop; `rdap_queue_dropped_total` incremented
+  - `PubSubHandler` `cidr_ban_add` → calls `blocklist_manager.load_cidrs()`
+  - `on_config_reload()` WARN for non-hot-reloadable keys
+
+- **`tests/adversarial/test_rdap_fp.py`** — false positive tests:
+  - RDAP signals alone (45+20=65) < block threshold (70); verified via scorer
+  - Legitimate org names with common words don't match known-bad list
+  - Browser traffic in subnet → guard 3 blocks expansion even for confirmed bad org
+  - One attacker in shared /24 → guard 3 protects legit users
+
+- **`tests/integration/test_pipeline.py`** — RDAP integration test class:
+  - RDAP signal from LRU cache appears in pipeline result
+  - LRU miss → pipeline returns allow/monitor without crash
+  - Disabled enricher → no RDAP signals
+
+- **`tests/chaos/test_external_api_failure.py`** — RDAP chaos tests:
+  - RIR API unreachable → fail open; error counter incremented; queue drains normally
+  - Bootstrap download fails → Redis cache used; WARN logged
+  - Malformed JSON → fail open; worker continues
+  - Queue overflow → dropped silently; drop counter incremented
+
+- **`docs/REDIS_SCHEMA.md`** — Phase 11 section with all 10 key patterns
+
+### Design decisions
+
+- `block_expansion.enabled: false` default prevents automated expansion on first deploy
+- `org_reputation.score=45 + new_netblock.score=20 = 65 < block_threshold=70` — RDAP signals alone never trigger hard block
+- `ban_cidr:{cidr}` prefix (not `ban:{cidr}`) avoids collision with per-IP ban handler
+- Reuses `BlocklistManager.load_cidrs()` from Phase 8 — no new trie needed
+- Shared `aiohttp.ClientSession` injected; never created per-request
+- `get_signal()` is `def` (synchronous) — hot path never awaits
+
 ## [10.0.0] - 2026-03-08 - PHASE 10: ABUSEIPDB INTEGRATION
 
 ### Added

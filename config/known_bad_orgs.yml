@@ -1,0 +1,180 @@
+# Known bad / bulletproof hosting organizations for RDAP enrichment (Phase 11).
+#
+# Each entry is matched against RDAP org data:
+#   1. Exact `handle` match (registry-stable; most reliable)
+#   2. Case-insensitive substring match on `name`
+#
+# Sources: Spamhaus ASN-DROP, abuse.ch, public incident reports, RIPE/ARIN abuse data.
+#
+# score: Risk contribution when an IP belongs to this org (added to composite score).
+#        Default: 45. Range: 1–100. Keep ≤ 65 so org reputation alone never crosses
+#        the block threshold (70) — needs corroboration from other signals.
+
+orgs:
+  # ── Bulletproof hosting providers ─────────────────────────────────────────
+
+  - handle: "FRANTECH"
+    name: "Frantech Solutions"
+    reason: "Bulletproof hosting provider; routinely ignores abuse reports"
+    score: 55
+
+  - handle: "BUYVM"
+    name: "BuyVM"
+    reason: "Subsidiary of Frantech; bulletproof VPS hosting"
+    score: 55
+
+  - handle: "PONYNET"
+    name: "ponyNet"
+    reason: "Bulletproof/abuse-tolerant hosting; Frantech-affiliated"
+    score: 50
+
+  - handle: "QUASI-1"
+    name: "Quasi Networks"
+    reason: "Bulletproof hosting; known C2 and spam infrastructure host"
+    score: 55
+
+  - handle: "PSYCHZ"
+    name: "Psychz Networks"
+    reason: "Abuse-tolerant hosting; frequently listed in DROP/ASN-DROP"
+    score: 45
+
+  - handle: "COMBAHTON"
+    name: "combahton"
+    reason: "German bulletproof hosting provider; known DDoS-for-hire host"
+    score: 50
+
+  - handle: "HOSTSAILOR"
+    name: "HostSailor"
+    reason: "Bulletproof VPS; refuses abuse reports; frequent C2 host"
+    score: 55
+
+  - handle: "ALEXHOST"
+    name: "Alexhost SRL"
+    reason: "Moldovan bulletproof hosting; ignores DMCA and abuse reports"
+    score: 50
+
+  - handle: "ZARE-1"
+    name: "Zare Ltd"
+    reason: "UK-registered bulletproof hosting; abuse-tolerant operations"
+    score: 45
+
+  - handle: "REPRISE-1"
+    name: "Reprise Hosting"
+    reason: "Known abuse-tolerant hosting provider"
+    score: 45
+
+  - handle: "STAMINUS"
+    name: "Staminus Communications"
+    reason: "Historically associated with DDoS infrastructure; abuse-tolerant"
+    score: 45
+
+  # ── Abuse-tolerant VPS / datacenter hosting ────────────────────────────────
+
+  - handle: "M247-MNT"
+    name: "M247"
+    reason: "Abuse-tolerant hosting; frequently seen in attack traffic"
+    score: 35
+
+  - handle: "LEASEWEB"
+    name: "Leaseweb"
+    reason: "Abuse-tolerant hosting; large presence in scanning/scraping traffic"
+    score: 30
+
+  - handle: "SERVERIUS"
+    name: "Serverius"
+    reason: "Netherlands hosting; high volume of abuse complaints"
+    score: 35
+
+  - handle: "DATACAMP-MNT"
+    name: "DataCamp Limited"
+    reason: "Frequent source of scanning and exploitation attempts"
+    score: 40
+
+  - handle: "HOSTWINDS"
+    name: "Hostwinds"
+    reason: "US VPS provider with known abuse issues"
+    score: 35
+
+  - handle: "VOXILITY"
+    name: "Voxility"
+    reason: "DDoS mitigation / IP transit frequently abused"
+    score: 35
+
+  - handle: "SHARKTECH"
+    name: "Sharktech"
+    reason: "DDoS-resistant hosting frequently used for attack infrastructure"
+    score: 40
+
+  - handle: "QUADRANET"
+    name: "QuadraNet"
+    reason: "US datacenter with elevated abuse volumes"
+    score: 35
+
+  - handle: "COLOCROSSING"
+    name: "ColoCrossing"
+    reason: "US colocation provider with high abuse complaint rate"
+    score: 35
+
+  - handle: "LIMESTONE"
+    name: "Limestone Networks"
+    reason: "Abuse-tolerant US hosting"
+    score: 35
+
+  - handle: "NOCIX"
+    name: "Nocix"
+    reason: "US colocation; abuse-tolerant; formerly Nocser Technology"
+    score: 40
+
+  - handle: "NEXEON"
+    name: "Nexeon Technologies"
+    reason: "Abuse-tolerant VPS; associated with spam and scanning campaigns"
+    score: 40
+
+  - handle: "VIRTELA"
+    name: "Virtela"
+    reason: "Hosting provider with elevated abuse reports"
+    score: 30
+
+  - handle: "INCAPSULA-MNT"
+    name: "Imperva Incapsula"
+    reason: "Scraper and bot-proxy infrastructure; often seen in credential stuffing"
+    score: 30
+
+  # ── Known Tor exit node operators ─────────────────────────────────────────
+
+  - handle: "TORPROJECT"
+    name: "Tor Project"
+    reason: "Tor exit node operator; high anonymity, elevated risk for automated abuse"
+    score: 35
+
+  - handle: "TORSERVERS"
+    name: "Torservers.net"
+    reason: "Tor exit relay operator; legitimate Tor infrastructure"
+    score: 35
+
+  - handle: "QUINTEX"
+    name: "Quintex Alliance Consulting"
+    reason: "Tor exit node operator (ARIN-registered)"
+    score: 40
+
+  # ── Additional high-risk infrastructure ───────────────────────────────────
+
+  - handle: "AFRIHOST"
+    name: "Afrihost"
+    reason: "South African ISP with elevated scanning traffic volumes"
+    score: 25
+
+  - handle: "BLAZINGFAST"
+    name: "BlazingFast"
+    reason: "Ukrainian bulletproof hosting; frequently cited in abuse reports"
+    score: 50
+
+  - handle: "SERVERCHEF"
+    name: "ServerChef"
+    reason: "Abuse-tolerant UK hosting provider"
+    score: 40
+
+  - handle: "AEZA-MNT"
+    name: "Aeza International"
+    reason: "Russian bulletproof hosting; known C2 and ransomware infrastructure host"
+    score: 55

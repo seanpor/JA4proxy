@@ -467,96 +467,96 @@ and keeps the running values. All other keys are hot-reloadable.
 ## Acceptance Criteria
 
 ### Functional
-- [ ] Async queue with configurable workers; queue overflow drops silently with `rdap_queue_dropped_total` increment
-- [ ] `min_enqueue_score`: IPs whose current composite score is below threshold are not enqueued for RDAP
-- [ ] IANA bootstrap downloaded via leader election (same pattern as Phase 6/8); one instance downloads, writes to Redis; others load from Redis
-- [ ] Bootstrap cached in Redis (`rdap:bootstrap:v4`, `rdap:bootstrap:v6`) with 24h TTL; loaded from Redis on restart (avoids re-download)
-- [ ] Per-registry rate limiting: independent in-process token buckets per RIR with configured rates
-- [ ] RDAP 404: stored as `is_unknown=True`; not retried; not counted as error
-- [ ] RDAP response parsed: vCard format, ARIN/RIPE handle variations, event registration dates
-- [ ] Up to 3 redirect hops followed; fourth hop raises error and fails open
-- [ ] Bloom filter dedup (`bloom:rdap_enriched`, 24h TTL) before enqueue; fallback to SET+TTL when RedisBloom unavailable
-- [ ] Known-bad org detection: exact `org_handle` match OR case-insensitive `org_name` substring match
-- [ ] `config/known_bad_orgs.yml` populated with ≥ 30 researched bulletproof hosting entries
-- [ ] New netblock signal: registration age < `max_age_days` → `RiskSignal(name="rdap_new_netblock")`
-- [ ] New netblock signal: no registration date → no signal (not an error)
-- [ ] `record_browser_subnet(ip)`: sets `browser:seen:subnet:{subnet}` with 24h TTL on h2/h1 ALPN connections; called fire-and-forget from pipeline
-- [ ] Block expansion guard 1: trigger IP composite score < `min_trigger_score` → no expansion
-- [ ] Block expansion guard 2 (IPv4): discovered netblock prefixlen < `max_prefix_length_v4` (i.e. broader than /24) → no expansion
-- [ ] Block expansion guard 2 (IPv6): discovered netblock prefixlen < `max_prefix_length_v6` (i.e. broader than /48) → no expansion
-- [ ] Block expansion guard 3: `browser:seen:subnet:{subnet}` key present → no expansion
-- [ ] Block expansion guard 4: org not confirmed known-bad → no expansion (high score alone insufficient)
-- [ ] `max_expansions_per_hour` enforced cross-instance via Redis hourly counter; rollback on rejection
-- [ ] Block expansion audit: JSON entry written to `rdap:expansions` LIST (LPUSH+LTRIM to 1000) on every expansion
-- [ ] `expansion_ban_duration`: expanded CIDR written as `ban_cidr:{cidr}` (not `ban:{cidr}`) with this TTL; `ban_cidr:` prefix avoids collision with existing per-IP ban handler
-- [ ] Block expansion propagation: CIDR loaded into local `BlocklistManager` pytricia trie AND `{"type":"cidr_ban_add","value":cidr}` published to `ja4proxy:invalidate` channel; `PubSubHandler` extended with `cidr_ban_add` case that calls `BlocklistManager.load_cidrs()`
-- [ ] `PubSubHandler` receives injected `BlocklistManager` reference for the new `cidr_ban_add` handler
-- [ ] On startup, proxy SCANs `ban_cidr:*` keys from Redis and loads unexpired CIDRs into `BlocklistManager` trie
-- [ ] `LocalCache.rdap_results` LRU added (TTL 24h, max 20,000 entries); background workers write results to it; `get_signal()` reads from it synchronously
-- [ ] `get_signal()` called last in `_collect_signals()`, after all other signal collectors, so `trigger_score` reflects preceding signals
-- [ ] `_compute_expansion_cidr()`: always expands to the configured prefix length (/24 IPv4, /48 IPv6) containing the trigger IP — not necessarily the full RDAP netblock
-- [ ] `delegate_to_analytics: true`: IPs published to `analytics:enrich:rdap` Set; local workers idle
-- [ ] `config/known_bad_orgs.yml` missing at startup: fatal error with clear message
-- [ ] Output: `list[RiskSignal]` from `get_signal()`; consumed by Phase 1 scorer
+- [x] Async queue with configurable workers; queue overflow drops silently with `rdap_queue_dropped_total` increment
+- [x] `min_enqueue_score`: IPs whose current composite score is below threshold are not enqueued for RDAP
+- [x] IANA bootstrap downloaded via leader election (same pattern as Phase 6/8); one instance downloads, writes to Redis; others load from Redis
+- [x] Bootstrap cached in Redis (`rdap:bootstrap:v4`, `rdap:bootstrap:v6`) with 24h TTL; loaded from Redis on restart (avoids re-download)
+- [x] Per-registry rate limiting: independent in-process token buckets per RIR with configured rates
+- [x] RDAP 404: stored as `is_unknown=True`; not retried; not counted as error
+- [x] RDAP response parsed: vCard format, ARIN/RIPE handle variations, event registration dates
+- [x] Up to 3 redirect hops followed; fourth hop raises error and fails open
+- [x] Bloom filter dedup (`bloom:rdap_enriched`, 24h TTL) before enqueue; fallback to SET+TTL when RedisBloom unavailable
+- [x] Known-bad org detection: exact `org_handle` match OR case-insensitive `org_name` substring match
+- [x] `config/known_bad_orgs.yml` populated with ≥ 30 researched bulletproof hosting entries
+- [x] New netblock signal: registration age < `max_age_days` → `RiskSignal(name="rdap_new_netblock")`
+- [x] New netblock signal: no registration date → no signal (not an error)
+- [x] `record_browser_subnet(ip)`: sets `browser:seen:subnet:{subnet}` with 24h TTL on h2/h1 ALPN connections; called fire-and-forget from pipeline
+- [x] Block expansion guard 1: trigger IP composite score < `min_trigger_score` → no expansion
+- [x] Block expansion guard 2 (IPv4): discovered netblock prefixlen < `max_prefix_length_v4` (i.e. broader than /24) → no expansion
+- [x] Block expansion guard 2 (IPv6): discovered netblock prefixlen < `max_prefix_length_v6` (i.e. broader than /48) → no expansion
+- [x] Block expansion guard 3: `browser:seen:subnet:{subnet}` key present → no expansion
+- [x] Block expansion guard 4: org not confirmed known-bad → no expansion (high score alone insufficient)
+- [x] `max_expansions_per_hour` enforced cross-instance via Redis hourly counter; rollback on rejection
+- [x] Block expansion audit: JSON entry written to `rdap:expansions` LIST (LPUSH+LTRIM to 1000) on every expansion
+- [x] `expansion_ban_duration`: expanded CIDR written as `ban_cidr:{cidr}` (not `ban:{cidr}`) with this TTL; `ban_cidr:` prefix avoids collision with existing per-IP ban handler
+- [x] Block expansion propagation: CIDR loaded into local `BlocklistManager` pytricia trie AND `{"type":"cidr_ban_add","value":cidr}` published to `ja4proxy:invalidate` channel; `PubSubHandler` extended with `cidr_ban_add` case that calls `BlocklistManager.load_cidrs()`
+- [x] `PubSubHandler` receives injected `BlocklistManager` reference for the new `cidr_ban_add` handler
+- [x] On startup, proxy SCANs `ban_cidr:*` keys from Redis and loads unexpired CIDRs into `BlocklistManager` trie
+- [x] `LocalCache.rdap_results` LRU added (TTL 24h, max 20,000 entries); background workers write results to it; `get_signal()` reads from it synchronously
+- [x] `get_signal()` called last in `_collect_signals()`, after all other signal collectors, so `trigger_score` reflects preceding signals
+- [x] `_compute_expansion_cidr()`: always expands to the configured prefix length (/24 IPv4, /48 IPv6) containing the trigger IP — not necessarily the full RDAP netblock
+- [x] `delegate_to_analytics: true`: IPs published to `analytics:enrich:rdap` Set; local workers idle
+- [x] `config/known_bad_orgs.yml` missing at startup: fatal error with clear message
+- [x] Output: `list[RiskSignal]` from `get_signal()`; consumed by Phase 1 scorer
 
 ### Configuration
-- [ ] `block_expansion.enabled: false` by default; must be explicitly set to enable
-- [ ] All score contributions, `max_age_days`, `min_trigger_score`, rate limits configurable
-- [ ] `worker_count` and `queue_size` changes during hot reload: WARN logged; old values kept until restart
-- [ ] All other config values hot-reloadable; changes apply to next connection without restart
+- [x] `block_expansion.enabled: false` by default; must be explicitly set to enable
+- [x] All score contributions, `max_age_days`, `min_trigger_score`, rate limits configurable
+- [x] `worker_count` and `queue_size` changes during hot reload: WARN logged; old values kept until restart
+- [x] All other config values hot-reloadable; changes apply to next connection without restart
 
 ### Observability
-- [ ] Prometheus gauge:   `ja4proxy_rdap_enrichment_queue_depth` — current queue depth
-- [ ] Prometheus counter: `ja4proxy_rdap_lookup_total{registry,result}` — lookups by registry and result (`ok`, `not_found`, `error`, `timeout`, `redirect_limit`)
-- [ ] Prometheus counter: `ja4proxy_rdap_block_expansions_total` — automatic block expansions applied
-- [ ] Prometheus counter: `ja4proxy_rdap_parse_errors_total` — response parse failures
-- [ ] Prometheus counter: `ja4proxy_rdap_queue_dropped_total` — items dropped due to full queue
-- [ ] Prometheus gauge:   `ja4proxy_rdap_expansions_this_hour` — current hourly expansion count vs cap
-- [ ] `docs/REDIS_SCHEMA.md` updated with all nine key patterns
-- [ ] `CHANGELOG.md` updated with Phase 11 entry
+- [x] Prometheus gauge:   `ja4proxy_rdap_enrichment_queue_depth` — current queue depth
+- [x] Prometheus counter: `ja4proxy_rdap_lookup_total{registry,result}` — lookups by registry and result (`ok`, `not_found`, `error`, `timeout`, `redirect_limit`)
+- [x] Prometheus counter: `ja4proxy_rdap_block_expansions_total` — automatic block expansions applied
+- [x] Prometheus counter: `ja4proxy_rdap_parse_errors_total` — response parse failures
+- [x] Prometheus counter: `ja4proxy_rdap_queue_dropped_total` — items dropped due to full queue
+- [x] Prometheus gauge:   `ja4proxy_rdap_expansions_this_hour` — current hourly expansion count vs cap
+- [x] `docs/REDIS_SCHEMA.md` updated with all nine key patterns
+- [x] `CHANGELOG.md` updated with Phase 11 entry
 
-- [ ] JSON log: `{"type":"system","level":"INFO","subsystem":"rdap","event":"block_expansion_applied","ip":"...","cidr":"...","org_handle":"..."}` on expansion
-- [ ] JSON log: `{"type":"system","level":"ERROR","subsystem":"rdap","event":"registry_error","registry":"...","error":"..."}` on RDAP lookup failure
+- [x] JSON log: `{"type":"system","level":"INFO","subsystem":"rdap","event":"block_expansion_applied","ip":"...","cidr":"...","org_handle":"..."}` on expansion
+- [x] JSON log: `{"type":"system","level":"ERROR","subsystem":"rdap","event":"registry_error","registry":"...","error":"..."}` on RDAP lookup failure
 
 ### Unit Tests  (`tests/unit/test_rdap_enrichment.py`)
-- [ ] Known-bad org: exact `org_handle` match → `RiskSignal(name="rdap_known_bad_org")`
-- [ ] Known-bad org: `org_name` substring match (case-insensitive) → signal emitted
-- [ ] Known-bad org: neither handle nor name matches → no signal
-- [ ] New netblock: age < `max_age_days` → `RiskSignal(name="rdap_new_netblock")`
-- [ ] New netblock: age ≥ `max_age_days` → no signal
-- [ ] New netblock: no registration date → no signal
-- [ ] `min_enqueue_score`: score below threshold → IP not enqueued
-- [ ] Block expansion guard 1: score below `min_trigger_score` → no expansion
-- [ ] Block expansion guard 2 (v4): netblock broader than /24 (e.g. /16, prefixlen=16 < 24) → no expansion
-- [ ] Block expansion guard 2 (v6): netblock broader than /48 → no expansion
-- [ ] Block expansion guard 2 (v4): netblock exactly /24 (prefixlen=24 ≥ 24) → passes guard
-- [ ] Block expansion guard 3: `browser:seen:subnet` key present → no expansion
-- [ ] Block expansion guard 4: org not known-bad → no expansion
-- [ ] All four guards pass + rate limit not exceeded → expansion occurs; `ban_cidr:{cidr}` written to Redis; audit entry written; `cidr_ban_add` published to `ja4proxy:invalidate`
-- [ ] `get_signal()`: in-process LRU hit → returns immediately, no Redis call, no enqueue
-- [ ] `get_signal()`: LRU miss, trigger_score < min_enqueue_score → returns []; not enqueued
-- [ ] `get_signal()`: LRU miss, trigger_score ≥ min_enqueue_score → returns []; enqueues background lookup
-- [ ] `PubSubHandler` `cidr_ban_add` message → calls `BlocklistManager.load_cidrs()` with the CIDR
-- [ ] `_compute_expansion_cidr()`: trigger IP 1.2.3.4 with max_prefix_length_v4=24 → "1.2.3.0/24"
-- [ ] `_compute_expansion_cidr()`: trigger IP 2001:db8::1 with max_prefix_length_v6=48 → correct /48
-- [ ] `max_expansions_per_hour` exceeded → expansion skipped; counter rolled back via DECR
-- [ ] RDAP 404 response → `is_unknown=True`; no error counter increment; not retried
-- [ ] IANA bootstrap routing: IPv4 address → correct RIR URL selected
-- [ ] IANA bootstrap routing: IPv6 address → correct RIR URL selected
-- [ ] Worker `CancelledError` → exits cleanly without re-raising
-- [ ] Queue full → item dropped; `rdap_queue_dropped_total` incremented
+- [x] Known-bad org: exact `org_handle` match → `RiskSignal(name="rdap_known_bad_org")`
+- [x] Known-bad org: `org_name` substring match (case-insensitive) → signal emitted
+- [x] Known-bad org: neither handle nor name matches → no signal
+- [x] New netblock: age < `max_age_days` → `RiskSignal(name="rdap_new_netblock")`
+- [x] New netblock: age ≥ `max_age_days` → no signal
+- [x] New netblock: no registration date → no signal
+- [x] `min_enqueue_score`: score below threshold → IP not enqueued
+- [x] Block expansion guard 1: score below `min_trigger_score` → no expansion
+- [x] Block expansion guard 2 (v4): netblock broader than /24 (e.g. /16, prefixlen=16 < 24) → no expansion
+- [x] Block expansion guard 2 (v6): netblock broader than /48 → no expansion
+- [x] Block expansion guard 2 (v4): netblock exactly /24 (prefixlen=24 ≥ 24) → passes guard
+- [x] Block expansion guard 3: `browser:seen:subnet` key present → no expansion
+- [x] Block expansion guard 4: org not known-bad → no expansion
+- [x] All four guards pass + rate limit not exceeded → expansion occurs; `ban_cidr:{cidr}` written to Redis; audit entry written; `cidr_ban_add` published to `ja4proxy:invalidate`
+- [x] `get_signal()`: in-process LRU hit → returns immediately, no Redis call, no enqueue
+- [x] `get_signal()`: LRU miss, trigger_score < min_enqueue_score → returns []; not enqueued
+- [x] `get_signal()`: LRU miss, trigger_score ≥ min_enqueue_score → returns []; enqueues background lookup
+- [x] `PubSubHandler` `cidr_ban_add` message → calls `BlocklistManager.load_cidrs()` with the CIDR
+- [x] `_compute_expansion_cidr()`: trigger IP 1.2.3.4 with max_prefix_length_v4=24 → "1.2.3.0/24"
+- [x] `_compute_expansion_cidr()`: trigger IP 2001:db8::1 with max_prefix_length_v6=48 → correct /48
+- [x] `max_expansions_per_hour` exceeded → expansion skipped; counter rolled back via DECR
+- [x] RDAP 404 response → `is_unknown=True`; no error counter increment; not retried
+- [x] IANA bootstrap routing: IPv4 address → correct RIR URL selected
+- [x] IANA bootstrap routing: IPv6 address → correct RIR URL selected
+- [x] Worker `CancelledError` → exits cleanly without re-raising
+- [x] Queue full → item dropped; `rdap_queue_dropped_total` incremented
 
 ### Adversarial / False Positive Tests  (`tests/adversarial/test_rdap_fp.py`)
-- [ ] Legitimate ISP org name substring match: test that a common word in a legitimate org's name (e.g. "Solutions") does not match unrelated bad org entries — substring match is against known-bad names only, never against a legit lookup
-- [ ] Browser IP from bad-org subnet: block expansion guard 3 fires; no expansion even when org is confirmed bad and score is high
-- [ ] Only one attacker in a /24 shared with legitimate IPs: guard 3 (`browser:seen:subnet`) prevents expansion
-- [ ] No combination of RDAP signals alone exceeds block threshold (70) at dial=100 — org reputation (45) + new netblock (20) = 65 < 70; verified by scorer
+- [x] Legitimate ISP org name substring match: test that a common word in a legitimate org's name (e.g. "Solutions") does not match unrelated bad org entries — substring match is against known-bad names only, never against a legit lookup
+- [x] Browser IP from bad-org subnet: block expansion guard 3 fires; no expansion even when org is confirmed bad and score is high
+- [x] Only one attacker in a /24 shared with legitimate IPs: guard 3 (`browser:seen:subnet`) prevents expansion
+- [x] No combination of RDAP signals alone exceeds block threshold (70) at dial=100 — org reputation (45) + new netblock (20) = 65 < 70; verified by scorer
 
 ### Integration Tests  (`tests/integration/test_pipeline.py`)
-- [ ] With `RDAPMock` from `tests/mocks/rdap_mock.py`: enqueue → lookup → signal emitted → consumed by scorer → block expansion audit written to Redis
+- [x] With `RDAPMock` from `tests/mocks/rdap_mock.py`: enqueue → lookup → signal emitted → consumed by scorer → block expansion audit written to Redis
 
 ### Chaos Tests  (`tests/chaos/test_external_api_failure.py`)
-- [ ] RIR RDAP API unreachable: fail open; `rdap_lookup_total{result="error"}` incremented; queue drains normally
-- [ ] IANA bootstrap download fails at startup: last known bootstrap used from Redis; WARN logged; no crash
-- [ ] RDAP response is malformed JSON: `rdap_parse_errors_total` incremented; fail open; worker continues
-- [ ] Queue overflow: items dropped silently; `rdap_queue_dropped_total` incremented; no crash
+- [x] RIR RDAP API unreachable: fail open; `rdap_lookup_total{result="error"}` incremented; queue drains normally
+- [x] IANA bootstrap download fails at startup: last known bootstrap used from Redis; WARN logged; no crash
+- [x] RDAP response is malformed JSON: `rdap_parse_errors_total` incremented; fail open; worker continues
+- [x] Queue overflow: items dropped silently; `rdap_queue_dropped_total` incremented; no crash

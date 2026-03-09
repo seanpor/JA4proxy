@@ -912,6 +912,7 @@ class ProxyServer:
         self._dial_manager = None
         self._abuseipdb_checker = None
         self._aiohttp_session = None
+        self._rdap_enricher = None
         self.active_connections = 0
 
         if config_path:
@@ -1044,6 +1045,30 @@ class ProxyServer:
             )
             self._aiohttp_session = None
             self._abuseipdb_checker = None
+
+        # Phase 11: RDAP enricher — reuses shared aiohttp session; background workers
+        try:
+            from src.security.rdap_enrichment import RDAPEnricher, RDAPConfig
+            _rdap_cfg = RDAPConfig.from_config(self.config)
+            # Reuse the existing aiohttp session if available; create one if not
+            if self._aiohttp_session is None:
+                import aiohttp as _aiohttp
+                self._aiohttp_session = _aiohttp.ClientSession()
+            self._rdap_enricher = RDAPEnricher(
+                _rdap_cfg,
+                self.redis_client,
+                self._local_cache,
+                self._aiohttp_session,
+                blocklist_manager=self.pipeline._blocklist_manager,
+                instance_id=str(id(self)),
+            )
+            await self._rdap_enricher.start()
+            self.pipeline.set_rdap_enricher(self._rdap_enricher)
+        except Exception as exc:
+            self.logger.warning(
+                f"rdap | event=init_failed | error={exc} — RDAP enrichment disabled"
+            )
+            self._rdap_enricher = None
 
         self.active_connections = 0
         return self
@@ -1244,6 +1269,12 @@ class ProxyServer:
                     await self._abuseipdb_checker.stop()
                 except Exception as exc:
                     self.logger.warning(f"abuseipdb | event=stop_error | error={exc}")
+            # Phase 11: Graceful shutdown of RDAP enricher workers
+            if getattr(self, "_rdap_enricher", None) is not None:
+                try:
+                    await self._rdap_enricher.stop()
+                except Exception as exc:
+                    self.logger.warning(f"rdap | event=stop_error | error={exc}")
             if getattr(self, "_aiohttp_session", None) is not None:
                 try:
                     await self._aiohttp_session.close()
