@@ -1,0 +1,25 @@
+# Go build configuration for JA4proxy recompilation
+go_proxy:
+  binary_name: ja4proxy           # Output binary name (must be jaxproxy, not ja4proxy)
+  min_go_version: "1.22"          # Minimum Go version required
+  target_platforms:               # Build targets for release
+    - linux/amd64
+    - linux/arm64
+
+build_opts:
+  ldflags:                       # Default linker flags (override with make if needed)
+    - "-s -w X-main=./cmd/proxy/main.go"  # Strip debug info, embed main path
+    - "-X github.com/anomalyco/ja4proxy/internal/config.BuildDate=$(date +%Y-%m-%dT%H:%M:%SZ)"
+
+# Binary size targets
+size_goals:
+  target_runtime_size_mb: 10     # Multi-stage build; base image + GeoLite2 DBs
+  analysis_db_path: "/app/geoip/GeoLite2-ASN.mmdb"   # Runtime path for MaxMind DB
+  datacenter_list_config: "config/asn_datacenter_list.yml"
+
+# Verification targets (ensure compatibility with existing Python proxy)
+compatibility:
+  config_schema_unchanged: true   # Must read same proxy.yml without modifications
+  redis_keys_identical: true      # Read/write same key names, no schema changes
+  prometheus_metrics_identical: true   # Same names/labels as Python implementation
+  
