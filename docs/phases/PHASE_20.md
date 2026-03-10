@@ -50,11 +50,11 @@ TAP mode is ideal for:
 - Analytics node (Phase 12)
 
 **New in this phase:**
-- Packet capture engine (raw socket / AF_PACKET / libpcap)
-- TCP stream reassembler (4-tuple state machine with out-of-order handling)
+- Packet capture engine (raw socket / AF_PACKET / libpcap) with VxLAN/GENEVE decapsulation
+- TCP stream reassembler (4-tuple state machine with out-of-order, retransmit, duplicate, fragment handling)
 - JA4S — TLS **server** fingerprint from ServerHello
 - JA4H — HTTP/1.1 header fingerprint from reassembled stream
-- JA4L — light-distance estimation from TCP timing (SYN→SYN-ACK→ACK)
+- JA4L — light-distance estimation from TCP timing (SYN→SYN-ACK→ACK); hardware-timestamp aware
 - JA4X — X.509 certificate fingerprint from TLS Certificate message
 - JA4SSH — SSH client/server fingerprint from SSH_MSG_KEXINIT
 - Enhanced JA4T parsing (full TCP options, not just handshake)
@@ -63,9 +63,11 @@ TAP mode is ideal for:
 - QUIC Initial-packet fingerprinting
 - TLS extension value fingerprinting (beyond JA4: key_share groups, PSK modes, GREASE)
 - Fingerprint correlation store (all variants linked by `conn_id`)
-- TAP-mode enforcement signalling (Redis → firewall API bridge)
+- TAP-mode enforcement signalling (Redis → iptables/BGP/webhook bridge)
+- Intelligence export layer — EDL server, F5 BIG-IP REST API, Palo Alto XML API, Kafka streaming, Syslog/CEF, STIX/TAXII 2.1, MISP push
 - Mode configuration and runtime mode query API
-- PCAP-replay test framework
+- PCAP-replay test framework with SyntheticPacketBuilder
+- Graceful shutdown, hot-reload boundaries, worker watchdog
 
 ---
 
@@ -77,9 +79,19 @@ Before starting this phase, the following must be complete:
   the packet capture layer in Go (see §14). If still Python, implement in Python first
   and note the Go port path.
 - The host OS must be Linux (AF_PACKET is Linux-specific; macOS uses BPF/libpcap).
-- Python packages: `scapy>=2.5`, `dpkt>=1.9.8`, `pypcap>=1.3` (or `libpcap` via cffi)
-- System capability: `CAP_NET_RAW` or run as root (or use `setcap` on the binary)
-- Network switch or TAP device must be configured to mirror the target port before testing
+- Python packages — add all of the following to `requirements.txt`:
+  ```
+  scapy>=2.5,<3
+  dpkt>=1.9.8
+  pypcap>=1.3
+  sortedcontainers>=2.4    # SortedList for per-stream reorder buffer
+  aiokafka>=0.10           # Kafka streaming export (optional feature)
+  stix2>=3.0               # STIX/TAXII export (optional feature)
+  ```
+- System capability: `CAP_NET_RAW` for packet capture; `CAP_NET_ADMIN` only if
+  iptables enforcement is enabled. Drop both after socket setup (see §18.1).
+- Network switch or TAP device must be configured to mirror the target port before
+  running live tests. PCAP-replay tests need no special hardware.
 
 ---
 
@@ -117,13 +129,19 @@ Before starting this phase, the following must be complete:
                         ┌───────────────────────────▼──────────────────┐
                         │              Redis (shared)                   │
                         │  ban:{ip}  fingerprints:{conn}  scores:{ip}  │
-                        └───┬──────────────┬───────────────────────────┘
-                            │              │
-               ┌────────────▼───┐   ┌──────▼─────────────┐
-               │ Inline         │   │ Firewall/Router     │
-               │ JA4proxy       │   │ API bridge          │
-               │ (passthrough)  │   │ (iptables/BGP/FW)   │
-               └────────────────┘   └─────────────────────┘
+                        └───┬──────────────┬────────────────┬────────────────────┘
+                            │              │                │
+               ┌────────────▼───┐   ┌──────▼──────────┐  ┌▼──────────────────────────┐
+               │ Inline         │   │ Enforcement     │  │ Intelligence Export        │
+               │ JA4proxy       │   │ Bridge          │  │                            │
+               │ (passthrough)  │   │ iptables/ipset  │  │ EDL HTTP server            │
+               └────────────────┘   │ BGP (ExaBGP)    │  │ F5 BIG-IP REST API         │
+                                    │ Webhook         │  │ Palo Alto XML API          │
+                                    └─────────────────┘  │ Kafka streaming            │
+                                                          │ Syslog / CEF              │
+                                                          │ STIX/TAXII 2.1            │
+                                                          │ MISP push                 │
+                                                          └────────────────────────────┘
 ```
 
 ### 3.1 Data Flow
@@ -227,6 +245,42 @@ tap:
   # Emit a Prometheus metric for every packet dropped due to ring buffer overflow.
   # Disable on very high-traffic links if the metric itself causes overhead.
   track_drops: true
+
+  # ── Duplicate packet deduplication ─────────────────────────────────────────
+  # SPAN ports on bonded/LAG uplinks often deliver each packet twice (once per
+  # member port). Dedup by (src_ip, src_port, dst_ip, dst_port, seq, data_len)
+  # within this window. Set to 0 to disable.
+  dedup_window_ms: 100
+
+  # ── Cloud mirror decapsulation ──────────────────────────────────────────────
+  # AWS VPC Traffic Mirroring and Azure vNET TAP deliver packets encapsulated
+  # in VxLAN (UDP 4789). GCP Packet Mirroring and physical TAPs deliver raw
+  # Ethernet. Set to the correct value for your environment.
+  # Options: "none" | "vxlan" | "geneve"
+  decapsulation: "none"
+
+  # ── Hardware timestamping ───────────────────────────────────────────────────
+  # Kernel software timestamps have ~1ms jitter — adequate for JA4L city-level
+  # estimates. Hardware timestamps (supported on Intel i210/i350/X550, Mellanox
+  # CX-4+) have <1µs jitter, making JA4L accurate to ~200km.
+  # Enable only if the NIC and driver support SO_TIMESTAMPING with hardware mode.
+  # When false (default), kernel receive timestamps are used.
+  hardware_timestamps: false
+
+  # ── Per-fingerprint-type enable/disable ────────────────────────────────────
+  # Disable types that are not relevant to your traffic profile to reduce CPU.
+  fingerprint_types:
+    ja4:    true    # TLS ClientHello — always recommended
+    ja4s:   true    # TLS ServerHello
+    ja4t:   true    # TCP SYN options
+    ja4h:   true    # HTTP/1.1 headers
+    ja4l:   true    # Light distance from TCP timing
+    ja4x:   true    # X.509 certificate
+    ja4ssh: true    # SSH KEXINIT — disable if no SSH services
+    os_fp:  true    # p0f-style OS detection
+    h2_fp:  true    # HTTP/2 SETTINGS
+    quic:   true    # QUIC Initial packet
+    tls_ext: true   # Extended TLS extension values
 ```
 
 ### 4.3 Enforcement Bridge Config (TAP Mode Only)
@@ -274,7 +328,196 @@ tap_enforcement:
     retry_count: 3
 ```
 
-### 4.4 Passthrough Mode Config (No Change to Existing)
+### 4.4 Intelligence Export Config
+
+```yaml
+intelligence_export:
+
+  # ── EDL (External Dynamic List) HTTP server ─────────────────────────────────
+  # Serves plain-text IP/CIDR/JA4 lists that firewalls poll periodically.
+  # Endpoints are added under the existing management HTTP server (port 8090).
+  # Compatible with: Palo Alto NGFW, Fortinet FortiGate, Check Point, F5 (external
+  # data-group URI), Cisco FTD, any device supporting HTTP threat-feed polling.
+  edl:
+    enabled: true
+
+    # How often (seconds) to rebuild the lists from Redis.
+    # Consuming devices should poll no more frequently than this value.
+    refresh_interval_s: 60
+
+    # Do not include entries older than this (seconds) in the EDL.
+    # Prevents stale bans from lingering in external devices after Redis TTL expires.
+    max_age_s: 3600
+
+    # Access control. If allowed_ips is non-empty, only those source IPs may fetch
+    # the EDL. This prevents intel leakage to unauthorised hosts.
+    # Combine with api_key for defence in depth.
+    allowed_ips: []              # e.g. ["10.0.0.1", "192.168.1.0/24"]
+
+    # If non-empty, require ?key=VALUE query parameter on all EDL requests.
+    # Store the key in an environment variable, not in this file.
+    api_key: "${EDL_API_KEY}"
+
+    # Include # comment lines with metadata (last-seen timestamp, score).
+    # Some devices reject files with comments — set false if needed.
+    include_comments: true
+
+    # Threshold: only include IPs whose risk score is >= this value.
+    # Keeps the list focused on high-confidence threats.
+    min_score: 70
+
+    # Endpoints served (each returns text/plain, one entry per line):
+    #   GET /export/edl/banned-ips       → ban:{ip} Redis keys
+    #   GET /export/edl/banned-cidrs     → ban_cidr:{cidr} Redis keys
+    #   GET /export/edl/flagged-ips      → IPs scored >= min_score but not yet banned
+    #   GET /export/edl/ja4-blacklist    → ja4:blacklist Redis set (fingerprint strings)
+    #   GET /export/edl/combined         → union of all IP/CIDR lists (convenience)
+    # All endpoints support If-None-Match / ETag for efficient polling.
+    # Format: one entry per line; comments start with #
+
+  # ── F5 BIG-IP REST API push ──────────────────────────────────────────────────
+  # Pushes IP lists to F5 internal data groups via the iControl REST API.
+  # The corresponding iRule checks [class match [IP::client_addr] equals {name}].
+  # Supports both full-sync (periodic rebuild) and delta-push (on Redis pub/sub).
+  f5:
+    enabled: false
+    host: "https://f5-mgmt.internal"     # F5 management IP/hostname
+    username: "admin"
+    password: "${F5_PASSWORD}"           # never hardcode; use env var
+    verify_tls: true                     # set false only in lab with self-signed cert
+    # Data groups to maintain on the F5:
+    data_groups:
+      banned_ips:
+        name: "ja4proxy_banned_ips"
+        type: "ip"                       # F5 type: ip (network) | string | integer
+      flagged_ips:
+        name: "ja4proxy_flagged_ips"
+        type: "ip"
+      ja4_blacklist:
+        name: "ja4proxy_ja4_blacklist"
+        type: "string"                   # JA4 fingerprint strings for iRule matching
+    # How often to do a full rebuild push (reconciles any drift).
+    sync_interval_s: 300
+    # Also push immediately when a new ban is published on Redis pub/sub.
+    push_on_change: true
+    # F5 REST API rate limit (requests per second). The iControl API is not fast.
+    max_rps: 5
+
+  # ── Palo Alto Networks XML API push ─────────────────────────────────────────
+  # Two integration patterns are supported:
+  # 1. Push (this section): JA4proxy calls PA XML API to register dynamic addresses.
+  # 2. Pull (EDL above): Configure PA to poll /export/edl/banned-ips.
+  # Pull is preferred (simpler, PA handles polling). Use push for sub-minute latency.
+  palo_alto:
+    enabled: false
+    host: "https://panos.internal"
+    api_key: "${PANOS_API_KEY}"
+    verify_tls: true
+    # Dynamic Address Group to add banned IPs to.
+    # Create this DAG in PAN-OS first: Objects → Address Groups → type=Dynamic.
+    address_group: "ja4proxy-blocked"
+    # Tag applied to registered IPs. The DAG filter should match this tag.
+    tag: "ja4proxy-ban"
+    # Virtual system (vsys). "vsys1" is the default for single-vsys devices.
+    vsys: "vsys1"
+    sync_interval_s: 60
+
+  # ── Kafka streaming export ───────────────────────────────────────────────────
+  # Publishes every fingerprint event, ban, and signal to Kafka topics.
+  # Downstream consumers: Splunk, Elastic SIEM, custom analytics, other sensors.
+  # Schema: JSON. Optional Avro schema registry support.
+  kafka:
+    enabled: false
+    brokers: ["kafka:9092"]
+    # TLS for broker connections.
+    tls:
+      enabled: false
+      ca_cert: "/etc/ja4proxy/kafka-ca.pem"
+      client_cert: null
+      client_key: null
+    # SASL authentication.
+    sasl:
+      enabled: false
+      mechanism: "PLAIN"           # PLAIN | SCRAM-SHA-256 | SCRAM-SHA-512
+      username: "${KAFKA_USER}"
+      password: "${KAFKA_PASSWORD}"
+    topics:
+      fingerprints: "ja4proxy.fingerprints"   # one message per closed stream
+      bans:         "ja4proxy.bans"            # ban/unban events
+      signals:      "ja4proxy.signals"         # every RiskSignal
+      raw_events:   "ja4proxy.raw"             # all events (high volume)
+    batch_size: 100          # flush when N messages accumulated
+    linger_ms: 50            # or after this many ms, whichever comes first
+    schema_registry_url: null  # e.g. "http://schema-registry:8081" for Avro
+
+  # ── Syslog / CEF export ──────────────────────────────────────────────────────
+  # Forwards events to a SIEM or syslog collector using CEF or RFC 5424 format.
+  # Compatible with: Splunk (HEC or syslog), IBM QRadar, Micro Focus ArcSight,
+  # LogRhythm, Microsoft Sentinel (via Syslog connector).
+  syslog:
+    enabled: false
+    host: "siem.internal"
+    port: 514
+    protocol: "udp"          # "udp" | "tcp" | "tcp+tls"
+    # TLS settings (only used when protocol: tcp+tls)
+    tls:
+      verify: true
+      ca_cert: null
+    format: "cef"            # "cef" (ArcSight CEF) | "rfc5424" | "leef" | "json"
+    facility: 16             # 16 = local0
+    # Map TAP actions to syslog severity levels.
+    severity_map:
+      observe:      6        # Informational
+      flag:         5        # Notice
+      signal_block: 4        # Warning
+      signal_ban:   3        # Error
+    # Which event types to forward (set false to reduce syslog volume).
+    events:
+      fingerprint_extracted: false  # very high volume; disable unless SIEM can handle it
+      flag:       true
+      signal_block: true
+      signal_ban: true
+      enforcement_error: true
+
+  # ── STIX/TAXII 2.1 server ────────────────────────────────────────────────────
+  # Serves a TAXII 2.1 API that other TAXII clients (MISP, OpenCTI, Elastic SIEM,
+  # Splunk SIEM, Cortex XSOAR) can subscribe to.
+  # Endpoints served under /taxii2/ alongside the management API.
+  taxii:
+    enabled: false
+    # Unique collection identifier (UUID recommended).
+    collection_id: "ja4proxy-ioc"
+    collection_title: "JA4proxy Threat Intelligence"
+    # API key required to access TAXII endpoints.
+    api_key: "${TAXII_API_KEY}"
+    # How far back to include indicators (seconds).
+    max_indicator_age_s: 86400   # 24 hours
+    # STIX object types to publish:
+    # - indicator: ban:{ip} → ipv4-addr/ipv6-addr Indicator
+    # - malware: known scanner JA4 fingerprints → Malware object
+    # - relationship: connect Indicator to Malware
+    publish_types: ["indicator", "malware", "relationship"]
+
+  # ── MISP push ────────────────────────────────────────────────────────────────
+  # Pushes new bans as MISP Events / Attributes to a MISP instance.
+  # Useful for sharing threat intel with partner organisations via MISP sync.
+  misp:
+    enabled: false
+    url: "https://misp.internal"
+    api_key: "${MISP_API_KEY}"
+    verify_tls: true
+    event_name: "JA4proxy Threat Intelligence"
+    distribution: 0          # 0=your org only; 1=community; 2=connected; 3=all
+    threat_level: 2          # 1=high; 2=medium; 3=low; 4=undefined
+    analysis: 2              # 0=initial; 1=ongoing; 2=completed
+    # Only push bans above this score threshold.
+    min_score: 80
+    publish_on_ban: true     # auto-publish event after adding attributes
+    # Tag applied to all JA4proxy-generated attributes.
+    tag: "ja4proxy"
+```
+
+### 4.5 Passthrough Mode Config (No Change to Existing)
 
 The existing passthrough config under `proxy:` is unchanged. When `mode: passthrough`,
 the `tap:` section is read but ignored (logged at startup as "tap config present but
@@ -339,21 +582,46 @@ go to the same worker, eliminating locking on the stream state table.
 
 ### 5.3 Packet Parsing
 
-The capture layer must handle:
+The capture layer must handle the full encapsulation stack before reaching IP:
 
 ```
 Ethernet frame
   ├── VLAN tag (802.1q) — strip before IP parsing
   ├── QinQ (802.1ad) — strip both tags
+  ├── VxLAN (UDP 4789) — decapsulate when decapsulation: "vxlan"
+  │     └── Inner Ethernet → IP → TCP (process as normal)
+  ├── GENEVE (UDP 6081) — decapsulate when decapsulation: "geneve"
+  │     └── Inner Ethernet → IP → TCP (process as normal)
   └── IP (v4 or v6)
         ├── TCP
         │     ├── Capture TCP options from SYN/SYN-ACK
         │     └── Pass segments to reassembler
         ├── UDP port 443/80 → QUIC initial packet parsing
         └── Fragment handling:
-              ├── IPv4 fragments → reassemble before passing up
-              └── IPv6 extension headers → handle appropriately
+              ├── IPv4: check MF flag + fragment offset; reassemble in fragment cache
+              │         (30s TTL per incomplete fragment set; discard on timeout)
+              └── IPv6: walk extension headers to find Fragment Header (type 44);
+                        reassemble using identification field
 ```
+
+**Duplicate packet detection** must run before the reassembler to prevent double-scoring.
+SPAN ports on bonded/LAG uplinks often deliver each packet twice (once per member port).
+Without dedup, JA4L RTT measurements are corrupted and fingerprints may be extracted
+twice for the same stream.
+
+```python
+# Per-worker dedup cache: key=(src_ip, src_port, dst_ip, dst_port, tcp_seq, data_len)
+# TTL: tap.dedup_window_ms (default 100ms). Use an LRU with time-based eviction.
+# Memory cost: ~100 bytes per entry × estimated_pps × dedup_window_ms / 1000.
+# At 100k pps and 100ms window: ~1MB. Acceptable.
+```
+
+**ECMP / asymmetric routing warning (document in runbook):** On multi-path networks
+the SYN may arrive via path A and the SYN-ACK via path B. If only one path is mirrored
+to the SPAN port, JA4L will be wrong (missing one RTT leg) and the reassembler will
+never see the full handshake. If this is observed (high rate of streams that never
+reach ESTABLISHED despite apparent traffic), check that the SPAN mirrors **both**
+directions and all ECMP paths. This is a network configuration issue, not a JA4proxy bug.
 
 **IP fragment reassembly** is required because some TLS ClientHellos exceed 1500 bytes
 (many extensions) and may arrive fragmented on low-MTU paths. Use a fragment cache with
@@ -784,6 +1052,16 @@ Example: `450_120` (client 450km from probe, server 120km from probe)
 - Useful for detecting impossible geography claims (VPN user claiming to be nearby
   but with 150ms RTT), not for precise location.
 - Compare with GeoIP-reported location: large disagreement = likely VPN.
+- **Clock accuracy matters.** Kernel software timestamps have ~1ms jitter → ±100km
+  error. Enable `hardware_timestamps: true` on supported NICs (Intel i210/X550,
+  Mellanox CX-4+) for <1µs jitter → ±0.2km error. Requires NTP or PPS with
+  chrony; set `makestep 1.0 3` and verify offset < 0.5ms before trusting JA4L.
+- **ECMP / asymmetric paths** — if SYN and SYN-ACK take different physical paths,
+  the timestamps are not a clean RTT measurement. See §5.3 for detection guidance.
+- **Duplicate SYN-ACKs** — if dedup is off, a duplicated SYN-ACK with a different
+  arrival timestamp will corrupt `synack_ts`. Always enable `dedup_window_ms`.
+- The function signature accepts `hardware_ts: bool` to select `SO_TIMESTAMPING`
+  hardware vs software timestamps from the packet metadata.
 
 ```python
 # src/tap/fingerprints/ja4l.py
