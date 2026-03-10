@@ -16,17 +16,27 @@ class TestDriftDetector:
         """Test basic drift detection."""
         mock_redis = AsyncMock()
         
-        # Mock baseline data
+        # Mock baseline data with all required fields
         current_baseline = {
             'median_score': 60.0,
             'stddev_score': 5.0,
-            'event_count': 100
+            'event_count': 100,
+            'mean_score': 60.0,
+            'min_score': 50.0,
+            'max_score': 70.0,
+            'score_distribution': {'55': 30, '60': 40, '65': 30},
+            'timestamp': time.time()
         }
         
         historical_baseline = {
             'median_score': 50.0,
             'stddev_score': 5.0,
-            'event_count': 120
+            'event_count': 120,
+            'mean_score': 50.0,
+            'min_score': 40.0,
+            'max_score': 60.0,
+            'score_distribution': {'45': 30, '50': 60, '55': 30},
+            'timestamp': time.time() - 3600
         }
         
         # Mock get responses
@@ -54,17 +64,27 @@ class TestDriftDetector:
         """Test when no drift is detected."""
         mock_redis = AsyncMock()
         
-        # Mock similar baselines
+        # Mock similar baselines with all required fields
         current_baseline = {
             'median_score': 52.0,
             'stddev_score': 5.0,
-            'event_count': 100
+            'event_count': 100,
+            'mean_score': 52.0,
+            'min_score': 40.0,
+            'max_score': 60.0,
+            'score_distribution': {'45': 20, '50': 40, '55': 40},
+            'timestamp': time.time()
         }
         
         historical_baseline = {
             'median_score': 50.0,
             'stddev_score': 5.0,
-            'event_count': 120
+            'event_count': 120,
+            'mean_score': 50.0,
+            'min_score': 40.0,
+            'max_score': 60.0,
+            'score_distribution': {'45': 30, '50': 60, '55': 30},
+            'timestamp': time.time() - 3600
         }
         
         mock_redis.get.side_effect = [
@@ -89,13 +109,23 @@ class TestDriftDetector:
         current_baseline = {
             'median_score': 80.0,
             'stddev_score': 5.0,
-            'event_count': 100
+            'event_count': 100,
+            'mean_score': 80.0,
+            'min_score': 70.0,
+            'max_score': 90.0,
+            'score_distribution': {'75': 20, '80': 60, '85': 20},
+            'timestamp': time.time()
         }
         
         historical_baseline = {
             'median_score': 50.0,
             'stddev_score': 5.0,
-            'event_count': 120
+            'event_count': 120,
+            'mean_score': 50.0,
+            'min_score': 40.0,
+            'max_score': 60.0,
+            'score_distribution': {'45': 30, '50': 60, '55': 30},
+            'timestamp': time.time() - 3600
         }
         
         mock_redis.get.side_effect = [
@@ -123,13 +153,23 @@ class TestDriftDetector:
         current_baseline = {
             'median_score': 60.0,
             'stddev_score': 5.0,
-            'event_count': 100
+            'event_count': 100,
+            'mean_score': 60.0,
+            'min_score': 50.0,
+            'max_score': 70.0,
+            'score_distribution': {'55': 30, '60': 40, '65': 30},
+            'timestamp': time.time()
         }
         
         historical_baseline = {
             'median_score': 50.0,
             'stddev_score': 5.0,
-            'event_count': 120
+            'event_count': 120,
+            'mean_score': 50.0,
+            'min_score': 40.0,
+            'max_score': 60.0,
+            'score_distribution': {'45': 30, '50': 60, '55': 30},
+            'timestamp': time.time() - 3600
         }
         
         mock_redis.get.side_effect = [
@@ -161,13 +201,23 @@ class TestDriftDetector:
         current_baseline = {
             'median_score': 60.0,
             'stddev_score': 5.0,
-            'event_count': 5  # Too low
+            'event_count': 5,  # Too low
+            'mean_score': 60.0,
+            'min_score': 50.0,
+            'max_score': 70.0,
+            'score_distribution': {'55': 2, '60': 2, '65': 1},
+            'timestamp': time.time()
         }
         
         historical_baseline = {
             'median_score': 50.0,
             'stddev_score': 5.0,
-            'event_count': 120
+            'event_count': 120,
+            'mean_score': 50.0,
+            'min_score': 40.0,
+            'max_score': 60.0,
+            'score_distribution': {'45': 30, '50': 60, '55': 30},
+            'timestamp': time.time() - 3600
         }
         
         mock_redis.get.side_effect = [
@@ -186,17 +236,27 @@ class TestDriftDetector:
         """Test rate limiting of drift checks."""
         mock_redis = AsyncMock()
         
-        # Mock baselines
+        # Mock baselines with all required fields
         current_baseline = {
             'median_score': 60.0,
             'stddev_score': 5.0,
-            'event_count': 100
+            'event_count': 100,
+            'mean_score': 60.0,
+            'min_score': 50.0,
+            'max_score': 70.0,
+            'score_distribution': {'55': 30, '60': 40, '65': 30},
+            'timestamp': time.time()
         }
         
         historical_baseline = {
             'median_score': 50.0,
             'stddev_score': 5.0,
-            'event_count': 120
+            'event_count': 120,
+            'mean_score': 50.0,
+            'min_score': 40.0,
+            'max_score': 60.0,
+            'score_distribution': {'45': 30, '50': 60, '55': 30},
+            'timestamp': time.time() - 3600
         }
         
         mock_redis.get.side_effect = [
@@ -214,7 +274,7 @@ class TestDriftDetector:
         result1 = await detector.check_for_drift()
         assert result1 is not None
         
-        # Second check should be rate limited
+        # Second check should be rate limited (same timestamp)
         result2 = await detector.check_for_drift()
         assert result2 is None
 

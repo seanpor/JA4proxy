@@ -11,6 +11,7 @@ from .baseline_monitor import BaselineMonitor
 from .drift_detector import DriftDetector
 from .distribution_analyzer import DistributionAnalyzer
 from .shadow_scoring import ShadowScoring
+from .security_hardening import SecurityHardening
 
 
 class MonitoringSystem:
@@ -26,6 +27,9 @@ class MonitoringSystem:
         self.drift_detector = DriftDetector(redis_conn, config.get('drift_detection', {}))
         self.distribution_analyzer = DistributionAnalyzer(redis_conn, config.get('distribution_analysis', {}))
         self.shadow_scoring = ShadowScoring(redis_conn, config.get('shadow_scoring', {}))
+        
+        # Initialize security hardening (Phase 12d)
+        self.security_hardening = SecurityHardening(redis_conn, config)
         
         # Initialize Prometheus metrics
         self._init_metrics()
@@ -212,3 +216,32 @@ class MonitoringSystem:
     async def get_calibration_history(self, hours: int = 24) -> List[Dict[str, Any]]:
         """Get calibration check history."""
         return await self.shadow_scoring.get_calibration_history(hours)
+    
+    # Phase 12d: Security Hardening Methods
+    async def check_api_authentication(self, api_key: str) -> bool:
+        """Check API key authentication."""
+        return await self.security_hardening.authenticate_api_key(api_key) is not None
+    
+    async def validate_jwt_token(self, token: str) -> Optional[Dict[str, Any]]:
+        """Validate JWT token."""
+        return await self.security_hardening.validate_jwt_token(token)
+    
+    async def check_rate_limit(self, limit_type: str, identifier: str) -> bool:
+        """Check if request should be rate limited."""
+        return await self.security_hardening.check_rate_limit(limit_type, identifier)
+    
+    async def validate_input_safety(self, data: Dict[str, Any]) -> bool:
+        """Validate input for security issues."""
+        return await self.security_hardening.validate_input_safety(data)
+    
+    async def check_suspicious_activity(self, request_data: Dict[str, Any]) -> bool:
+        """Check for suspicious activity patterns."""
+        return await self.security_hardening.check_suspicious_activity(request_data)
+    
+    async def get_security_audit_logs(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get recent security audit logs."""
+        return await self.security_hardening.get_security_audit_logs(limit)
+    
+    async def get_security_metrics(self) -> Dict[str, Any]:
+        """Get security metrics."""
+        return await self.security_hardening.get_security_metrics()

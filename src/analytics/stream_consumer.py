@@ -4,7 +4,7 @@
 import asyncio
 import json
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 import aioredis
 from jsonschema import validate, ValidationError
