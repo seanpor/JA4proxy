@@ -90,7 +90,7 @@ class DriftDetector:
         severity = self._determine_severity(abs(z_score))
         
         return {
-            'drift_detected': abs(z_score) > self.z_score_threshold,
+            'drift_detected': abs(z_score) >= self.z_score_threshold,
             'z_score': z_score,
             'current_median': current_median,
             'baseline_median': baseline_median,
