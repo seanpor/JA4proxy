@@ -24,7 +24,8 @@ class StreamConsumer:
                  hmac_secret: Optional[str] = None, hmac_required: bool = True,
                  aggregation_window: int = 300, 
                  campaign_detection: bool = True, slow_scan_detection: bool = True,
-                 ja4_intelligence: bool = True):
+                 ja4_intelligence: bool = True, monitoring_enabled: bool = True,
+                 monitoring_config: Optional[Dict[str, Any]] = None):
         self.redis_url = redis_url
         self.stream_key = stream_key
         self.consumer_group = consumer_group
@@ -39,6 +40,11 @@ class StreamConsumer:
         self.campaign_detector = CampaignDetector() if campaign_detection else None
         self.slow_scan_detector = SlowScanDetector() if slow_scan_detection else None
         self.ja4_intelligence = JA4FingerprintIntelligence() if ja4_intelligence else None
+        
+        # Initialize monitoring system (Phase 12c)
+        self.monitoring_enabled = monitoring_enabled
+        self.monitoring_system = None
+        self.monitoring_config = monitoring_config or {}
     
     async def connect(self):
         """Establish connection to Redis."""
@@ -56,6 +62,11 @@ class StreamConsumer:
             # Group already exists, which is fine
             if "BUSYGROUP" not in str(e):
                 raise
+        
+        # Initialize monitoring system (Phase 12c)
+        if self.monitoring_enabled:
+            from .monitoring import MonitoringSystem
+            self.monitoring_system = MonitoringSystem(self.redis, self.monitoring_config)
     
     async def validate_event(self, event_data: Dict[str, Any]) -> bool:
         """Validate event against schema and business rules."""
@@ -95,6 +106,10 @@ class StreamConsumer:
             if self.ja4_intelligence:
                 self.ja4_intelligence.update_with_event(event_data)
             
+            # Update monitoring system (Phase 12c)
+            if self.monitoring_enabled and self.monitoring_system:
+                await self.monitoring_system.update_with_event(event_data)
+            
             # Store results in Redis (will be implemented in Phase 12b)
             # For Phase 12a, we just log the aggregation periodically
             results = self.aggregation_manager.get_aggregation_results()
@@ -108,13 +123,14 @@ class StreamConsumer:
             return False
     
     async def consume_events(self, batch_size: int = 100, timeout_ms: int = 5000, 
-                           detection_interval: int = 60):
+                           detection_interval: int = 60, monitoring_interval: int = 60):
         """Consume events from the stream in batches."""
         if not self.redis:
             await self.connect()
         
-        # Track detection cycle timing
+        # Track timing for various cycles
         last_detection_time = time.time()
+        last_monitoring_time = time.time()
         
         while True:
             try:
@@ -124,6 +140,12 @@ class StreamConsumer:
                     (self.campaign_detector or self.slow_scan_detector or self.ja4_intelligence)):
                     await self.run_detection_cycle()
                     last_detection_time = current_time
+                
+                # Run monitoring cycle periodically (Phase 12c)
+                if (self.monitoring_enabled and self.monitoring_system and
+                    current_time - last_monitoring_time >= monitoring_interval):
+                    await self.monitoring_system.run_monitoring_cycle()
+                    last_monitoring_time = current_time
                 
                 # Read events from the stream
                 events = await self.redis.xreadgroup(
@@ -243,6 +265,50 @@ class StreamConsumer:
         """Close the Redis connection."""
         if self.redis:
             await self.redis.close()
+    
+    # Phase 12c: Monitoring methods
+    async def get_monitoring_status(self) -> Dict[str, Any]:
+        """Get current monitoring status."""
+        if not self.monitoring_enabled or not self.monitoring_system:
+            return {'enabled': False, 'message': 'Monitoring system disabled'}
+        
+        return await self.monitoring_system.get_monitoring_status()
+    
+    async def get_alerts(self) -> Dict[str, Any]:
+        """Get all active monitoring alerts."""
+        if not self.monitoring_enabled or not self.monitoring_system:
+            return {'enabled': False, 'alerts': {}}
+        
+        return await self.monitoring_system.get_alerts()
+    
+    async def clear_all_alerts(self):
+        """Clear all monitoring alerts."""
+        if self.monitoring_enabled and self.monitoring_system:
+            await self.monitoring_system.clear_all_alerts()
+            return {'success': True}
+        
+        return {'success': False, 'message': 'Monitoring system disabled'}
+    
+    async def get_drift_history(self, hours: int = 24) -> List[Dict[str, Any]]:
+        """Get score drift detection history."""
+        if not self.monitoring_enabled or not self.monitoring_system:
+            return []
+        
+        return await self.monitoring_system.get_drift_history(hours)
+    
+    async def get_shift_history(self, hours: int = 24) -> List[Dict[str, Any]]:
+        """Get distribution shift detection history."""
+        if not self.monitoring_enabled or not self.monitoring_system:
+            return []
+        
+        return await self.monitoring_system.get_shift_history(hours)
+    
+    async def get_calibration_history(self, hours: int = 24) -> List[Dict[str, Any]]:
+        """Get calibration check history."""
+        if not self.monitoring_enabled or not self.monitoring_system:
+            return []
+        
+        return await self.monitoring_system.get_calibration_history(hours)
 
 
 class InvalidEventError(Exception):
