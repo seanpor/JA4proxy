@@ -28,6 +28,10 @@ class AnalyticsNode:
         if self.config['redis'].get('password'):
             redis_url += f"?password={self.config['redis']['password']}"
         
+        # Get monitoring configuration
+        monitoring_config = self.config.get('monitoring', {})
+        monitoring_enabled = monitoring_config.get('enabled', True)
+        
         self.consumer = StreamConsumer(
             redis_url=redis_url,
             stream_key=self.config['stream']['key'],
@@ -35,7 +39,9 @@ class AnalyticsNode:
             consumer_name=self.config['stream']['consumer_name'],
             hmac_secret=self.config['security']['hmac_secret'],
             hmac_required=self.config['security']['hmac_required'],
-            aggregation_window=self.config['aggregation']['window_seconds']
+            aggregation_window=self.config['aggregation']['window_seconds'],
+            monitoring_enabled=monitoring_enabled,
+            monitoring_config=monitoring_config
         )
         
         # Set up signal handlers

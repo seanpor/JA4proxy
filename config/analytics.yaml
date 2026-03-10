@@ -23,3 +23,41 @@ security:
 # Aggregation configuration
 aggregation:
   window_seconds: 300  # 5 minutes
+
+# Monitoring configuration (Phase 12c)
+monitoring:
+  enabled: true
+  
+  baseline:
+    capture_interval_seconds: 3600  # Hourly
+    retention_days: 7
+    baseline_key_prefix: analytics:baseline:hourly
+    
+  drift_detection:
+    enabled: true
+    z_score_threshold: 2.0
+    check_interval_seconds: 60
+    alert_ttl_seconds: 3600
+    alert_key: analytics:alerts:score_drift
+    severity_levels:
+      low: 1.5
+      medium: 2.0
+      high: 3.0
+    
+  distribution_analysis:
+    enabled: true
+    ks_test_threshold: 0.05
+    check_interval_seconds: 300
+    alert_ttl_seconds: 3600
+    alert_key: analytics:alerts:distribution_shift
+    
+  shadow_scoring:
+    enabled: true
+    known_good_alpn: ['h2', 'h1']
+    calibration_threshold: 10.0
+    check_interval_seconds: 300
+    alert_ttl_seconds: 3600
+    shadow_key: analytics:shadow_scores:latest
+    calibration_alert_key: analytics:alerts:calibration_issue
+  
+  monitoring_cycle_seconds: 60
