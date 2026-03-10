@@ -1636,6 +1636,296 @@ Retry with exponential backoff; log persistent failures; emit Prometheus metric
 
 ---
 
+## 10.5 Intelligence Export Implementation
+
+### 10.5.1 EDL HTTP Server (`src/tap/export/edl_server.py`)
+
+The EDL server is a set of route handlers registered on the existing FastAPI management
+server (Phase 13). Lists are rebuilt from Redis on a background task every
+`refresh_interval_s` seconds and cached; individual requests are served from the cache.
+
+```python
+class EDLServer:
+    """Serves External Dynamic Lists (plain-text threat feeds) via HTTP.
+
+    Lists are rebuilt from Redis on a background schedule. Each rebuild
+    reads ban:{ip}* keys, ban_cidr:{cidr}* keys, and fp:ip:* scored sets,
+    filters by age and min_score, and caches the result with an ETag.
+
+    Endpoints:
+        GET /export/edl/banned-ips       → active ban:{ip} keys
+        GET /export/edl/banned-cidrs     → active ban_cidr:{cidr} keys
+        GET /export/edl/flagged-ips      → IPs scored >= min_score, not yet banned
+        GET /export/edl/ja4-blacklist    → ja4:blacklist set members
+        GET /export/edl/combined         → union of banned-ips + banned-cidrs
+    """
+
+    async def _rebuild_lists(self) -> None:
+        """Background task: scan Redis, build lists, update ETag cache."""
+        ...
+
+    async def handle_edl_request(
+        self, list_name: str, request: Request
+    ) -> Response:
+        """Serve an EDL list, honouring If-None-Match for efficient polling."""
+        cached = self._cache.get(list_name)
+        if not cached:
+            raise HTTPException(404)
+        if request.headers.get("If-None-Match") == cached.etag:
+            return Response(status_code=304)
+        return Response(
+            content=cached.body,
+            media_type="text/plain",
+            headers={"ETag": cached.etag, "Cache-Control": f"max-age={self.refresh_s}"},
+        )
+```
+
+**EDL output format example** (for `/export/edl/banned-ips`):
+```
+# JA4proxy External Dynamic List — banned-ips
+# Generated: 2026-03-10T14:23:00Z  Entries: 3  ETag: "a1b2c3d4"
+# Fields: ip | last-seen | score | reason
+#
+1.2.3.4          # 2026-03-10T14:20:00Z score=92 scanner_fingerprint
+5.6.7.8          # 2026-03-10T14:10:00Z score=87 tor_exit+datacenter
+203.0.113.99     # 2026-03-10T14:05:00Z score=85 abuseipdb_high
+```
+
+**Palo Alto NGFW polling setup (Operations → Device → Dynamic Address Groups):**
+```
+Type: External Dynamic List
+Source: http://ja4proxy:8090/export/edl/banned-ips?key=${EDL_API_KEY}
+Check for updates: every 1 hour (or 5 minutes for high-sensitivity)
+```
+
+**F5 external data group setup (tmsh):**
+```tcl
+tmsh create ltm data-group external ja4proxy_banned_ips {
+    external-file-name ja4proxy_banned_ips
+    type ip
+}
+tmsh create sys file data-group ja4proxy_banned_ips {
+    source-path "http://ja4proxy:8090/export/edl/banned-ips?key=SECRET"
+}
+```
+
+### 10.5.2 F5 BIG-IP Push Client (`src/tap/export/f5_client.py`)
+
+```python
+class F5Client:
+    """Pushes IP lists to F5 BIG-IP internal data groups via iControl REST.
+
+    Maintains an aiohttp.ClientSession (injected at startup — never per-request).
+    Performs a full rebuild sync every sync_interval_s and a delta push on
+    every ban pub/sub event.
+
+    F5 iControl REST endpoint for data groups:
+        PATCH /mgmt/tm/ltm/data-group/internal/{partition}~{name}
+    Body: {"records": [{"name": "1.2.3.4/32", "data": "banned"}, ...]}
+
+    Rate limited to max_rps (default 5) because the iControl API is not designed
+    for high-frequency updates.
+    """
+
+    async def full_sync(self) -> None:
+        """Rebuild all configured data groups from Redis and push to F5."""
+        ...
+
+    async def delta_push(self, ip: str, action: str) -> None:
+        """Add or remove a single IP. action: 'add' | 'remove'"""
+        ...
+
+    async def _patch_data_group(self, name: str, records: list[dict]) -> None:
+        """PATCH one data group; retry with backoff on 429/5xx."""
+        ...
+```
+
+**Required iRule on F5 (install once; data group updates automatically):**
+```tcl
+when CLIENT_ACCEPTED {
+    if { [class match [IP::client_addr] equals ja4proxy_banned_ips] } {
+        log local0. "JA4proxy: blocking [IP::client_addr]"
+        reject
+    }
+    if { [class match [IP::client_addr] equals ja4proxy_flagged_ips] } {
+        # Flagged but not yet banned — log and apply rate limit
+        log local0. "JA4proxy: flagging [IP::client_addr]"
+    }
+}
+```
+
+### 10.5.3 Palo Alto Push Client (`src/tap/export/palo_alto_client.py`)
+
+```python
+class PaloAltoClient:
+    """Registers dynamic addresses with Palo Alto NGFW via XML API.
+
+    Uses the PA 'Dynamic Address Group' feature (Objects → Address Groups →
+    Type: Dynamic). Tagged IPs are added/removed via the XML API:
+        POST /api/?type=user-id&action=set
+        Body: <uid-message><payload><register><entry ...><tag><member>
+    The DAG filter rule should be: 'tag eq ja4proxy-ban'.
+
+    This requires PAN-OS 8.0+ and a service account with 'User-ID Agent' role.
+    """
+
+    async def register_ip(self, ip: str, tags: list[str]) -> None: ...
+    async def unregister_ip(self, ip: str, tags: list[str]) -> None: ...
+    async def full_sync(self) -> None: ...
+```
+
+### 10.5.4 Kafka Producer (`src/tap/export/kafka_producer.py`)
+
+```python
+class KafkaExporter:
+    """Publishes fingerprint events to Kafka topics.
+
+    Uses aiokafka.AIOKafkaProducer. All messages are JSON-encoded. Supports
+    optional Avro serialisation via a Confluent Schema Registry.
+
+    Message schema for 'ja4proxy.fingerprints' topic:
+    {
+      "schema_version": 1,
+      "conn_id": "...",
+      "timestamp": "2026-03-10T14:23:00Z",
+      "client_ip": "1.2.3.4",
+      "server_ip": "5.6.7.8",
+      "server_port": 443,
+      "ja4":  "t13d1516h2_...",
+      "ja4s": "s13d01h2_...",
+      "ja4t": "65535_1460_MSTNW_8",
+      "ja4h": null,
+      "ja4l": "450_120",
+      "ja4x": "3ecf4e0f5e51_...",
+      "os_fingerprint": "linux_5x_default",
+      "risk_score": 67,
+      "action": "flag",
+      "signals": [{"source": "asn", "score": 30, "reason": "datacenter"}]
+    }
+
+    Message schema for 'ja4proxy.bans' topic:
+    {
+      "schema_version": 1,
+      "event": "ban" | "unban",
+      "ip": "1.2.3.4",
+      "score": 87,
+      "ttl_s": 3600,
+      "reason": "scanner_fingerprint",
+      "timestamp": "2026-03-10T14:23:00Z"
+    }
+    """
+```
+
+**Splunk integration** — use the Kafka Connect Splunk Sink or configure a Splunk
+Heavy Forwarder with the Kafka consumer app. Index `ja4proxy.bans` to the
+`security` index; index `ja4proxy.fingerprints` to `network_traffic`.
+
+**Elastic SIEM integration** — use Filebeat with the Kafka input plugin pointing at
+`ja4proxy.*` topics. The `ja4proxy.bans` messages map to the ECS `threat.indicator.*`
+field set.
+
+### 10.5.5 Syslog Exporter (`src/tap/export/syslog_exporter.py`)
+
+CEF (Common Event Format) is the most widely supported format for security devices.
+CEF messages have the structure:
+```
+CEF:0|JA4proxy|JA4proxy|1.0|{event_id}|{name}|{severity}|{extension}
+```
+
+Example ban event in CEF:
+```
+CEF:0|JA4proxy|JA4proxy|1.0|100|IP Banned|7|src=1.2.3.4 score=87 reason=scanner_fingerprint ja4=t13d1516h2_8daaf6152771_02713d6af862 rt=1741615380000
+```
+
+**Severity mapping** (CEF 0–10, higher = more severe):
+- `observe` → 3 (Low)
+- `flag` → 5 (Medium)
+- `signal_block` → 7 (High)
+- `signal_ban` → 9 (Very High)
+
+### 10.5.6 STIX/TAXII Server (`src/tap/export/taxii_server.py`)
+
+STIX 2.1 indicators are generated from ban events:
+
+```python
+# STIX 2.1 Indicator object for a banned IP
+indicator = stix2.Indicator(
+    name=f"Banned IP: {ip}",
+    pattern=f"[ipv4-addr:value = '{ip}']",
+    pattern_type="stix",
+    valid_from=datetime.now(timezone.utc),
+    labels=["malicious-activity"],
+    description=f"Risk score: {score}. Reason: {reason}.",
+    custom_properties={
+        "x_ja4proxy_score": score,
+        "x_ja4proxy_ja4": ja4,
+        "x_ja4proxy_os": os_fingerprint,
+    },
+)
+```
+
+TAXII 2.1 endpoints (served under `/taxii2/`):
+```
+GET  /taxii2/                              → TAXII discovery
+GET  /taxii2/collections/                  → list collections
+GET  /taxii2/collections/{id}/             → collection metadata
+GET  /taxii2/collections/{id}/objects/     → STIX bundle (paginated, supports added_after)
+POST /taxii2/collections/{id}/objects/     → not supported (read-only feed)
+```
+
+### 10.5.7 MISP Push Client (`src/tap/export/misp_client.py`)
+
+```python
+class MISPClient:
+    """Pushes threat indicators to a MISP instance via REST API.
+
+    Creates one MISP Event per day (keyed by date) and adds Attributes to it
+    as bans arrive. Publishes the event at EOD or when publish_on_ban is true.
+
+    Attribute types used:
+    - 'ip-dst'       for banned destination IPs
+    - 'ip-src'       for banned source IPs
+    - 'other'        for JA4 fingerprints (custom attribute with comment)
+
+    Avoids creating duplicate attributes by checking existing attributes before
+    adding new ones (PyMISP's add_attribute handles this with error check).
+    """
+```
+
+### 10.5.8 New File Locations for Export Layer
+
+```
+src/
+  tap/
+    export/
+      __init__.py
+      edl_server.py           # EDL HTTP endpoints (registered on management server)
+      f5_client.py            # F5 BIG-IP iControl REST push client
+      palo_alto_client.py     # Palo Alto XML API push client
+      kafka_producer.py       # Kafka streaming exporter
+      syslog_exporter.py      # Syslog / CEF exporter
+      taxii_server.py         # STIX/TAXII 2.1 server
+      misp_client.py          # MISP push client
+      export_manager.py       # Orchestrates all enabled exporters; handles Redis pub/sub
+
+tests/
+  tap/
+    unit/
+      test_edl_server.py      # EDL list building, ETag, age filtering, min_score filter
+      test_f5_client.py       # Mock F5 API, full sync, delta push, rate limiting
+      test_palo_alto_client.py
+      test_kafka_producer.py  # Mock Kafka broker, message schema validation
+      test_syslog_exporter.py # CEF format correctness, severity mapping
+      test_taxii_server.py    # STIX object structure, TAXII pagination
+      test_misp_client.py     # Mock MISP API, dedup logic
+    integration/
+      test_export_integration.py  # Full pipeline: ban → Redis → all exporters
+    chaos/
+      test_export_resilience.py   # Each exporter fails; others continue unaffected
+```
+
+---
+
 ## 11. New File Locations
 
 ```
@@ -1702,6 +1992,100 @@ tests/
     fp_corpus/
       test_fingerprint_accuracy.py  # Known-good fingerprints vs extracted values
 ```
+
+---
+
+## 11a. Lifecycle Management
+
+### 11a.1 Graceful Shutdown
+
+On `SIGTERM` or `SIGINT`, TAP mode must clean up in order. Unclean shutdown corrupts
+stream state, leaks iptables rules, and loses in-flight fingerprint extractions.
+
+```python
+async def shutdown(self) -> None:
+    """Ordered shutdown sequence for TAP mode.
+
+    1. Stop packet capture — no new packets enter the pipeline.
+    2. Signal all workers to finish their current stream buffer (drain mode).
+    3. Wait up to 10s for workers to finish. Force-close any remaining streams.
+    4. Emit final risk scores for all open streams.
+    5. Flush Kafka producer buffer (if enabled).
+    6. Flush syslog buffer.
+    7. Close enforcement bridge connections.
+    8. Close aiohttp ClientSessions (F5, Palo Alto, MISP, AbuseIPDB).
+    9. Close Redis connections.
+    10. Exit.
+    """
+    logger.info("tap | event=shutdown_start")
+    self._capture.stop()                             # step 1
+    await asyncio.wait_for(                          # steps 2–3
+        self._drain_workers(), timeout=10.0
+    )
+    await self._emit_final_scores()                  # step 4
+    if self._kafka:
+        await self._kafka.flush(timeout=5.0)         # step 5
+    self._syslog.close()                             # step 6
+    await self._enforcement.close()                  # step 7
+    await self._http_sessions.close_all()            # step 8
+    await self._redis.close()                        # step 9
+    logger.info("tap | event=shutdown_complete")
+```
+
+### 11a.2 Hot-Reload Boundaries
+
+On `SIGHUP` or Redis `config_reload` pub/sub, the config is reloaded. The following
+table documents exactly which TAP config keys can be hot-reloaded vs require restart:
+
+| Config key | Hot-reloadable? | Notes |
+|-----------|----------------|-------|
+| `tap.stream_timeout_s` | ✓ | Applied to new streams immediately |
+| `tap.tls_ports` / `http_ports` / `ssh_ports` | ✓ | Applied to new streams |
+| `tap.max_stream_buffer_bytes` | ✓ | New cap applied to new streams; existing streams use old cap |
+| `tap.fingerprint_types.*` | ✓ | New extractions use new config immediately |
+| `tap.dedup_window_ms` | ✓ | New window applied to new dedup entries |
+| `tap_enforcement.*` | ✓ | New enforcement config applied to next signal |
+| `intelligence_export.edl.*` | ✓ | Next rebuild cycle uses new config |
+| `intelligence_export.syslog.*` | ✓ | Applied to next event |
+| `intelligence_export.kafka.topics.*` | ✓ | New topic names used for new messages |
+| `tap.interface` | ✗ restart | AF_PACKET socket must be reopened |
+| `tap.ring_buffer_mb` | ✗ restart | Ring buffer mmap must be remapped |
+| `tap.capture_workers` | ✗ restart | Thread pool cannot be resized at runtime |
+| `tap.promisc` | ✗ restart | Socket option set at bind time |
+| `tap.decapsulation` | ✗ restart | Decoder chain set at startup |
+| `tap.hardware_timestamps` | ✗ restart | Socket timestamping mode set at open |
+| `tap.bpf_filter` | Partial | Can be updated via `SO_ATTACH_FILTER` without restart; emit WARN |
+| `intelligence_export.kafka.brokers` | ✗ restart | Producer connection pool must be rebuilt |
+| `intelligence_export.f5.host` | ✗ restart | aiohttp session must be rebuilt |
+| `mode` | ✗ restart | Changes the I/O architecture |
+
+On hot-reload, log every non-reloadable key change at WARN level:
+```
+WARN | config | event=reload_requires_restart | key=tap.interface | old=eth0 | new=eth1 | action=change_ignored
+```
+
+### 11a.3 Worker Watchdog
+
+Each capture worker runs as an asyncio Task. If a worker raises an unhandled exception,
+its shard's TCP streams are orphaned (never evicted, never scored) — a memory leak.
+
+```python
+class WorkerWatchdog:
+    """Monitors capture worker tasks and restarts crashed workers.
+
+    On worker crash:
+    1. Log ERROR with the exception and traceback.
+    2. Increment ja4proxy_tap_worker_restarts_total counter.
+    3. Evict all streams owned by the crashed shard (emit final scores).
+    4. Restart the worker with a fresh state table for that shard.
+    5. Emit WARN if the same worker crashes more than 3 times in 60s
+       (likely a corrupt packet causing a repeating crash).
+    """
+    async def _watch(self, worker_id: int, task: asyncio.Task) -> None: ...
+    async def _evict_shard(self, shard_id: int) -> None: ...
+```
+
+Add metric: `ja4proxy_tap_worker_restarts_total{shard}` — counter, incremented on restart.
 
 ---
 
@@ -1919,28 +2303,312 @@ test-tap-live:
 	@[ -n "$(INTERFACE)" ] || (echo "Usage: make test-tap-live INTERFACE=eth1"; exit 1)
 	@sudo python3 -m pytest tests/tap/integration/ --timeout=120 --tb=short \
 	    -k "requires_tap_interface" -v $(ARGS)
+
+test-tap-perf:
+	@python3 scripts/tap_benchmark.py --interface $(INTERFACE) --pcap $(PCAP)
 ```
+
+### 12.8 False-Positive Corpus Tests
+
+The FP corpus test is the most important correctness gate — it ensures new risk signals
+do not produce unacceptable false positive rates against known-good real-world traffic.
+
+**Setup (one-time, not in git):**
+```bash
+# Download the Tranco top-10k domain list
+curl -s https://tranco-list.eu/top-1m.csv.zip | \
+  python3 scripts/extract_tranco.py --top 10000 > tests/tap/fp_corpus/tranco_10k.txt
+
+# Collect PCAP samples for those domains (requires a real browser + tcpdump)
+# Or use the synthetic generator for a representative sample:
+python3 scripts/generate_fp_corpus_pcap.py \
+  --domains tests/tap/fp_corpus/tranco_10k.txt \
+  --output tests/tap/fp_corpus/tranco_sample.pcap \
+  --clients chrome_120,firefox_121,safari_17
+```
+
+**Test file** (`tests/tap/fp_corpus/test_fingerprint_fp_rate.py`):
+```python
+def test_fp_rate_tranco_top10k(pcap_replay, mock_redis, tap_pipeline):
+    """Risk signals for top-10k traffic should produce < 0.5% FP rate at score > 70.
+
+    FP = a known-good domain/connection scored > 70 and actioned as signal_block or
+    signal_ban. Flag (score 20–69) is acceptable for legitimate hosting providers.
+    """
+    replay = pcap_replay("tranco_sample.pcap")
+    results = run_replay_to_completion(replay, tap_pipeline)
+
+    high_score = [r for r in results if r.risk_score > 70]
+    fp_rate = len(high_score) / len(results)
+
+    assert fp_rate < 0.005, (
+        f"FP rate {fp_rate:.3%} exceeds 0.5% threshold. "
+        f"High-scored connections:\n"
+        + "\n".join(f"  {r.client_ip} score={r.risk_score} signals={r.signals}"
+                    for r in high_score[:20])
+    )
+```
+
+### 12.9 Performance Benchmark (`scripts/tap_benchmark.py`)
+
+```python
+"""Benchmark TAP pipeline throughput using tcpreplay.
+
+Usage:
+    # Replay a PCAP at 1Gbps and measure packets processed vs dropped:
+    sudo python3 scripts/tap_benchmark.py \\
+        --interface eth1 \\
+        --pcap tests/tap/pcap_corpus/mixed_clients.pcap \\
+        --rate-mbps 1000 \\
+        --duration 30
+
+Output:
+    Packets injected:   1,284,732
+    Packets captured:   1,284,730  (99.99%)
+    Packets dropped:            2  (0.00%)
+    Streams completed:     42,158
+    Fingerprints/s:       140,527  (JA4: 42158, JA4S: 42001, JA4T: 42158)
+    Throughput: 1,002 Mbps
+    Peak ring buffer fill: 18%
+    Workers: 6 — max queue depth: 142 (worker 3)
+"""
+```
+
+The benchmark must pass before accepting the 500k pps claim in acceptance criteria 17b.
 
 ---
 
-## 13. Prometheus Metrics
+## 13. Observability
+
+### 13.1 Prometheus Metrics
 
 All new metrics follow the `ja4proxy_tap_{subsystem}_{metric}_{unit}` naming convention.
+
+**Capture metrics:**
 
 | Metric name | Type | Labels | Description |
 |-------------|------|--------|-------------|
 | `ja4proxy_tap_packets_captured_total` | Counter | `proto` (tcp/udp) | Packets received from ring buffer |
 | `ja4proxy_tap_packets_dropped_total` | Counter | — | Ring buffer overflow drops |
+| `ja4proxy_tap_packets_duplicates_total` | Counter | — | Packets discarded by dedup filter |
+| `ja4proxy_tap_ring_buffer_fill_ratio` | Gauge | — | Ring buffer fill 0.0–1.0 (sample every 100ms) |
+| `ja4proxy_tap_capture_interface_up` | Gauge | `interface` | 1 if NIC link is up, 0 if down |
+| `ja4proxy_tap_pcap_kernel_drops_total` | Counter | — | Kernel-level drops before ring buffer |
+
+**Stream reassembly metrics:**
+
+| Metric name | Type | Labels | Description |
+|-------------|------|--------|-------------|
 | `ja4proxy_tap_streams_active` | Gauge | — | Currently tracked TCP streams |
-| `ja4proxy_tap_streams_total` | Counter | `close_reason` (fin/rst/timeout) | Streams completed |
-| `ja4proxy_tap_fingerprint_extracted_total` | Counter | `type` (ja4/ja4s/ja4h/...) | Successful extractions |
-| `ja4proxy_tap_fingerprint_failed_total` | Counter | `type`, `reason` | Failed extractions |
+| `ja4proxy_tap_streams_total` | Counter | `close_reason` (fin/rst/timeout/evicted) | Streams completed |
+| `ja4proxy_tap_streams_evicted_total` | Counter | `reason` (timeout/capacity) | Separate timeout vs OOM eviction |
+| `ja4proxy_tap_stream_buffer_bytes` | Histogram | — | Bytes buffered per stream at close |
+| `ja4proxy_tap_reassembly_lag_ms` | Histogram | — | Time from packet receipt to fingerprint |
+| `ja4proxy_tap_worker_restarts_total` | Counter | `shard` | Worker crash + restart events |
+
+**Fingerprint metrics:**
+
+| Metric name | Type | Labels | Description |
+|-------------|------|--------|-------------|
+| `ja4proxy_tap_fingerprint_extracted_total` | Counter | `type` (ja4/ja4s/ja4h/ja4l/ja4x/ja4ssh/os/h2/quic) | Successful extractions |
+| `ja4proxy_tap_fingerprint_failed_total` | Counter | `type`, `reason` | Failed/incomplete extractions |
+| `ja4proxy_tap_os_match_total` | Counter | `os_label`, `confidence_bucket` (high/medium/low) | OS fingerprint matches |
+| `ja4proxy_tap_ja4l_distance_km` | Histogram | `direction` (client/server) | Light distance distribution |
+| `ja4proxy_tap_ja4l_mismatch_total` | Counter | — | GeoIP vs RTT distance disagreements |
+
+**Enforcement metrics:**
+
+| Metric name | Type | Labels | Description |
+|-------------|------|--------|-------------|
 | `ja4proxy_tap_enforcement_signals_total` | Counter | `action`, `backend` | Enforcement signals sent |
 | `ja4proxy_tap_enforcement_errors_total` | Counter | `backend`, `error` | Backend errors |
-| `ja4proxy_tap_os_match_total` | Counter | `os_label`, `confidence_bucket` | OS fingerprint matches |
-| `ja4proxy_tap_ja4l_distance_km` | Histogram | `direction` (client/server) | Light distance distribution |
-| `ja4proxy_tap_stream_buffer_bytes` | Histogram | — | Bytes buffered per stream at close |
-| `ja4proxy_tap_reassembly_lag_ms` | Histogram | — | Time from packet receipt to fingerprint extraction |
+| `ja4proxy_tap_enforcement_latency_ms` | Histogram | `backend` | Per-backend enforcement latency |
+
+**Export metrics:**
+
+| Metric name | Type | Labels | Description |
+|-------------|------|--------|-------------|
+| `ja4proxy_tap_edl_requests_total` | Counter | `list`, `result` (hit/304) | EDL HTTP requests served |
+| `ja4proxy_tap_edl_list_size` | Gauge | `list` | Current entry count per EDL list |
+| `ja4proxy_tap_export_messages_total` | Counter | `exporter` (kafka/syslog/f5/pa/misp/taxii) | Messages sent per exporter |
+| `ja4proxy_tap_export_errors_total` | Counter | `exporter`, `error` | Per-exporter errors |
+| `ja4proxy_tap_export_latency_ms` | Histogram | `exporter` | Time to deliver one event |
+
+### 13.2 Alerting Rules (AlertManager)
+
+Add to `config/alertmanager_rules.yml` (or `monitoring/rules/tap.yml`):
+
+```yaml
+groups:
+  - name: ja4proxy_tap
+    rules:
+
+      - alert: TapPacketDropRateHigh
+        expr: rate(ja4proxy_tap_packets_dropped_total[1m]) > 100
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "TAP ring buffer dropping packets"
+          description: "{{ $value | humanize }} packets/s dropped. Increase ring_buffer_mb or reduce capture_workers load."
+
+      - alert: TapPacketDropRateCritical
+        expr: rate(ja4proxy_tap_packets_dropped_total[1m]) > 1000
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "TAP ring buffer dropping packets at critical rate"
+
+      - alert: TapCaptureInterfaceDown
+        expr: ja4proxy_tap_capture_interface_up == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "TAP capture interface {{ $labels.interface }} is down"
+          description: "No traffic is being observed. Check SPAN port configuration."
+
+      - alert: TapStreamTableNearCapacity
+        expr: ja4proxy_tap_streams_active / 100000 > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "TAP stream table at {{ $value | humanizePercentage }} capacity"
+          description: "Consider increasing max_streams or reducing stream_timeout_s."
+
+      - alert: TapWorkerCrashing
+        expr: rate(ja4proxy_tap_worker_restarts_total[5m]) > 0.1
+        labels:
+          severity: warning
+        annotations:
+          summary: "TAP worker shard {{ $labels.shard }} is crashing repeatedly"
+
+      - alert: TapEnforcementBackendFailing
+        expr: rate(ja4proxy_tap_enforcement_errors_total[5m]) > 10
+        labels:
+          severity: warning
+        annotations:
+          summary: "TAP enforcement backend {{ $labels.backend }} is failing"
+          description: "Bans are not being enforced by this backend."
+
+      - alert: TapExportBacklogBuilding
+        expr: ja4proxy_tap_export_latency_ms{quantile="0.99"} > 5000
+        labels:
+          severity: warning
+        annotations:
+          summary: "TAP export to {{ $labels.exporter }} is slow (p99={{ $value }}ms)"
+```
+
+### 13.3 Grafana Dashboard (TAP Sensor)
+
+Create `monitoring/grafana/dashboards/tap_sensor.json`. Panel layout:
+
+**Row 1 — Capture Health:**
+- `ja4proxy_tap_capture_interface_up` — stat panel (green/red)
+- `rate(ja4proxy_tap_packets_captured_total[1m])` — graph, pps
+- `rate(ja4proxy_tap_packets_dropped_total[1m])` — graph, red if > 0
+- `ja4proxy_tap_ring_buffer_fill_ratio` — gauge (0–100%)
+
+**Row 2 — Stream Reassembly:**
+- `ja4proxy_tap_streams_active` — stat
+- `rate(ja4proxy_tap_streams_total[1m])` by `close_reason` — stacked bar
+- `histogram_quantile(0.99, ja4proxy_tap_reassembly_lag_ms)` — p99 latency
+- `rate(ja4proxy_tap_worker_restarts_total[5m])` — alert row
+
+**Row 3 — Fingerprints:**
+- `rate(ja4proxy_tap_fingerprint_extracted_total[1m])` by `type` — stacked area
+- `ja4proxy_tap_os_match_total` by `os_label` — pie chart (top 10 OS types)
+- `histogram_quantile(0.5, ja4proxy_tap_ja4l_distance_km)` — median client distance
+
+**Row 4 — Enforcement & Export:**
+- `rate(ja4proxy_tap_enforcement_signals_total[5m])` by `action` — bar
+- `rate(ja4proxy_tap_enforcement_errors_total[5m])` by `backend` — alert line
+- `ja4proxy_tap_edl_list_size` by `list` — stat panels
+- `rate(ja4proxy_tap_export_messages_total[1m])` by `exporter` — stacked bar
+
+**Row 5 — Risk Score Distribution:**
+- Reuse `ja4proxy_risk_score_distribution` histogram from passthrough dashboard
+- `rate(ja4proxy_tap_ja4l_mismatch_total[5m])` — GeoIP/RTT mismatches
+
+### 13.4 Health Endpoint Extensions
+
+The existing `/health` endpoint (Phase 13) must be extended for TAP mode:
+
+```python
+# GET /health response in TAP mode:
+{
+  "status": "healthy",   # "healthy" | "degraded" | "unhealthy"
+  "mode": "tap",
+  "capture": {
+    "interface": "eth1",
+    "link_up": true,
+    "packets_captured": 1284732,
+    "packets_dropped": 0,
+    "ring_buffer_fill": 0.03,    # 0.0 – 1.0
+    "status": "healthy"
+  },
+  "reassembler": {
+    "streams_active": 4821,
+    "streams_capacity": 100000,
+    "fill_ratio": 0.048,
+    "status": "healthy"
+  },
+  "enforcement": {
+    "iptables": "healthy",
+    "bgp": "not_configured",
+    "webhook": "healthy"
+  },
+  "export": {
+    "edl": "healthy",
+    "kafka": "not_configured",
+    "f5": "healthy",
+    "syslog": "degraded",        # if last syslog send failed
+    "taxii": "not_configured",
+    "misp": "not_configured"
+  },
+  "redis": "healthy"
+}
+```
+
+Status rules:
+- `healthy` if all checks pass
+- `degraded` if non-critical subsystem failing (e.g., one export backend down)
+- `unhealthy` if capture interface down, ring buffer critically full, or Redis unreachable
+
+### 13.5 Structured Log Schema
+
+Every TAP-mode log event must follow the existing `key=value` format. New events:
+
+```
+# Packet capture
+INFO  | tap | event=capture_started    | interface=eth1 | bpf_filter="tcp or udp" | ring_buffer_mb=256 | workers=6
+WARN  | tap | event=ring_buffer_drop   | count=142 | interval_ms=1000 | fill_ratio=0.97
+WARN  | tap | event=interface_down     | interface=eth1
+INFO  | tap | event=interface_up       | interface=eth1
+
+# Stream lifecycle
+DEBUG | tap | event=stream_opened      | conn_id=abc | src=1.2.3.4:12345 | dst=5.6.7.8:443
+DEBUG | tap | event=stream_closed      | conn_id=abc | reason=fin | duration_ms=342 | bytes_client=1842 | bytes_server=4201
+WARN  | tap | event=stream_evicted     | conn_id=abc | reason=timeout | streams_active=98234
+WARN  | tap | event=stream_buffer_cap  | conn_id=abc | max_bytes=65536 | action=dropped
+
+# Fingerprint extraction
+DEBUG | tap | event=ja4_extracted      | conn_id=abc | fingerprint=t13d1516h2_8daaf6152771_02713d6af862
+DEBUG | tap | event=ja4l_calculated    | conn_id=abc | client_km=450 | server_km=120 | mismatch=false
+WARN  | tap | event=ja4l_geo_mismatch  | conn_id=abc | client_ip=1.2.3.4 | rtt_km=2100 | geoip_km=50 | delta_km=2050
+
+# Enforcement
+INFO  | tap | event=signal_ban         | ip=1.2.3.4 | score=87 | reason=scanner_fingerprint | backends=iptables,redis
+WARN  | tap | event=enforcement_fail   | backend=iptables | ip=1.2.3.4 | error=ipset_not_found | retries=3
+INFO  | tap | event=bgp_announce       | ip=1.2.3.4 | prefix=1.2.3.4/32 | community=65535:666
+
+# Export
+INFO  | tap | event=edl_rebuild        | list=banned-ips | entries=142 | duration_ms=23
+WARN  | tap | event=export_error       | exporter=kafka | error=broker_unavailable | message_count=17
+INFO  | tap | event=f5_sync            | data_group=ja4proxy_banned_ips | entries=142 | duration_ms=412
+```
 
 ---
 
@@ -2032,6 +2700,152 @@ tap:
 
 ---
 
+## 14a. Security Hardening
+
+### 14a.1 Privilege Minimisation
+
+TAP mode requires elevated capabilities only during socket setup. Drop them immediately
+after:
+
+```python
+def _setup_socket_and_drop_privileges(self) -> socket.socket:
+    """Open AF_PACKET socket then drop CAP_NET_RAW.
+
+    Requires: CAP_NET_RAW at process start (setcap or sudo).
+    After this function, the process has no elevated capabilities.
+    """
+    import ctypes, ctypes.util
+    sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, ...)
+    sock.bind((self.interface, 0))
+    if self.config.hardware_timestamps:
+        self._set_hardware_timestamps(sock)
+    self._set_bpf_filter(sock, self.config.bpf_filter)
+
+    # Drop CAP_NET_RAW via libcap
+    libcap = ctypes.CDLL(ctypes.util.find_library("cap"))
+    cap = libcap.cap_get_proc()
+    libcap.cap_clear(cap)
+    if libcap.cap_set_proc(cap) != 0:
+        logger.warning("tap | event=cap_drop_failed | msg=could not drop capabilities")
+    libcap.cap_free(cap)
+    logger.info("tap | event=cap_dropped | msg=CAP_NET_RAW dropped after socket open")
+    return sock
+```
+
+For iptables enforcement (`CAP_NET_ADMIN`): the enforcement bridge runs as a **separate
+subprocess** (`src/tap/enforcement_bridge_process.py`) that retains `CAP_NET_ADMIN` but
+communicates only via a Unix socket with the main process. This confines the elevated
+capability to the smallest possible scope.
+
+### 14a.2 seccomp Profile
+
+After socket setup, restrict the syscall surface of the capture process to the minimum
+needed. A permissive starting profile is provided in `config/seccomp_tap.json`.
+Key restrictions:
+- **Deny** `execve` / `execveat` — prevents shell injection from corrupt packet data
+- **Deny** `ptrace` — prevents process inspection
+- **Deny** `open` with `O_CREAT` outside of permitted paths — prevents PCAP exfiltration
+- **Allow** `recvfrom`, `sendto`, `mmap`, `munmap`, `read`, `write`, `epoll_wait` — needed for capture
+
+Apply at startup:
+```python
+import seccomp
+f = seccomp.SyscallFilter(defaction=seccomp.ALLOW)
+for syscall in ("execve", "execveat", "ptrace", "fork", "vfork"):
+    f.add_rule(seccomp.KILL, syscall)
+f.load()
+```
+
+### 14a.3 Webhook TLS Validation and Signing
+
+The webhook enforcement backend (`tap_enforcement.webhook`) must:
+
+1. **Verify TLS** — `verify_tls: true` is the default. When false, emit WARN at startup:
+   ```
+   WARN | tap | event=webhook_tls_disabled | effect=vulnerable to MITM enforcement manipulation
+   ```
+
+2. **Sign requests with HMAC-SHA256** — to prevent a MITM from spoofing 200 OK responses
+   and convincing JA4proxy that a ban was applied when it was not:
+   ```yaml
+   tap_enforcement:
+     webhook:
+       hmac_secret: "${WEBHOOK_HMAC_SECRET}"   # shared secret with the webhook receiver
+   ```
+   JA4proxy adds `X-JA4Proxy-Signature: sha256=<hmac>` to every request. The receiver
+   validates it. Requests without a valid signature are rejected (HTTP 401).
+
+### 14a.4 BGP Injection Protection
+
+The BGP blackhole backend can cause **serious network disruption** if Redis is
+compromised and an attacker writes arbitrary `ban:{ip}` keys:
+- An attacker could ban `0.0.0.0/0` → JA4proxy announces a null route for all traffic
+- An attacker could ban CDN prefixes → all CDN-served content becomes unreachable
+
+Mitigations:
+1. **Prefix length guard** — never announce a prefix broader than `/24` (IPv4) or `/48` (IPv6):
+   ```yaml
+   bgp_blackhole:
+     min_prefix_length_v4: 24    # refuse to announce /23 or broader
+     min_prefix_length_v6: 48
+   ```
+2. **Prefix allow-list** — only announce prefixes that fall within configured ranges:
+   ```yaml
+   bgp_blackhole:
+     allowed_prefix_ranges: ["1.2.3.0/24", "5.6.0.0/16"]  # empty = allow all /32s
+   ```
+3. **Rate limit** — max N BGP announcements per minute (default 60). Alerts if exceeded.
+4. **Redis AUTH + TLS** — already required by Phase 14. Ensure Redis is not exposed.
+5. The BGP bridge emits a WARN for every announcement and increments a Prometheus counter.
+
+### 14a.5 PCAP Replay Path Validation
+
+The `tap.pcap_file` config key must be validated to prevent path traversal:
+
+```python
+def _validate_pcap_path(path: str, allowed_dirs: list[str]) -> Path:
+    """Resolve path and ensure it is within an allowed directory.
+
+    Raises ConfigError for paths outside allowed_dirs or that don't exist.
+    Default allowed_dirs: ["tests/tap/pcap_corpus/", "pcap/"]
+    """
+    resolved = Path(path).resolve()
+    for allowed in allowed_dirs:
+        if str(resolved).startswith(str(Path(allowed).resolve())):
+            return resolved
+    raise ConfigError(f"pcap_file {path!r} is outside allowed directories: {allowed_dirs}")
+```
+
+### 14a.6 PII / GDPR for Fingerprint Store
+
+The `fp:*` Redis keys store IP addresses (PII in GDPR jurisdictions), SNI hostnames,
+User-Agents, and connection timing. Apply the same data-minimisation controls as
+passthrough mode (Phase 14):
+
+- All `fp:conn:{conn_id}` keys have a 7-day TTL maximum (reduce in high-privacy deployments).
+- Provide a `make gdpr-delete IP=1.2.3.4` target that deletes all `fp:ip:{ip}` and
+  associated `fp:conn:{conn_id}` entries for a given IP (data subject erasure request).
+- Document in the privacy notice that IP addresses and TLS metadata are processed
+  for security purposes under legitimate interest (Article 6(1)(f) GDPR).
+- The EDL server, F5, and Palo Alto integrations transmit IP addresses to external
+  devices — document data flows in the Record of Processing Activities (RoPA).
+
+### 14a.7 ARP / ND Spoofing — False Ban Risk
+
+In TAP mode, an attacker on the same Layer-2 segment as the probe can:
+1. Send ARP replies mapping a victim's IP to the attacker's MAC.
+2. Establish a malicious connection that scores poorly (scanner fingerprint, Tor exit, etc.).
+3. JA4proxy bans the victim's IP address (which the attacker has temporarily impersonated).
+
+Mitigation: **never ban an IP in TAP mode without corroboration from a second signal source.**
+Specifically:
+- Single-signal bans (e.g., just a bad JA4 fingerprint alone) require score ≥ 90.
+- Bans based on combined signals (JA4 + ASN + AbuseIPDB) can use the normal threshold (≥ 85).
+- Document this risk in the runbook. On networks where ARP spoofing is a concern, use
+  802.1X port authentication or dynamic ARP inspection (DAI) to prevent impersonation.
+
+---
+
 ## 15. Deployment Guide (Runbook)
 
 ### 15.1 Switch SPAN Port (Cisco IOS Example)
@@ -2074,9 +2888,152 @@ getcap $(which python3)
 # python3 = cap_net_raw+ep
 ```
 
-For iptables enforcement, `CAP_NET_ADMIN` is also required:
+For iptables enforcement, `CAP_NET_ADMIN` is only required by the enforcement bridge
+subprocess (see §14a.1). If running as a single process:
 ```bash
 sudo setcap 'cap_net_raw,cap_net_admin+ep' /usr/bin/python3.12
+```
+
+### 15.5 Diagnostics
+
+**Verify AF_PACKET socket is open and receiving:**
+```bash
+# See all open AF_PACKET sockets
+cat /proc/net/packet
+# Columns: sk RefCnt Type Proto Iface  R Rmem   User Inode
+# Look for Type=3 (SOCK_RAW), Proto=0x0800 (IP) on your interface
+
+# Check for kernel-level drops
+ip -s link show eth1
+# RX:  bytes   packets  errors  dropped  missed   mcast
+# Look at "dropped" and "missed" — these are before the ring buffer
+
+# AF_PACKET statistics (per socket)
+ss -0 --packet
+
+# Monitor ring buffer fill in real time
+watch -n1 'python3 -c "
+import socket, struct, ctypes
+# Read /proc/net/packet for drop stats
+with open(\"/proc/net/packet\") as f: print(f.read())
+"'
+```
+
+**Verify BPF filter is installed correctly:**
+```bash
+# Dump BPF bytecode for a filter expression
+tcpdump -d 'tcp or (udp and port 443)'
+# If JA4proxy BPF filter is wrong, it will silently capture nothing or everything
+```
+
+**Verify deduplication is working:**
+```bash
+# Check Prometheus metric: if ja4proxy_tap_packets_duplicates_total is zero on a
+# bonded interface, dedup may not be triggering. Capture with tcpdump to verify:
+sudo tcpdump -i eth1 -w /tmp/test.pcap -c 1000
+tcpdump -r /tmp/test.pcap | sort | uniq -d | head
+```
+
+**Verify fingerprint extraction:**
+```bash
+# Query the fingerprint API for a known test IP
+curl http://localhost:8090/api/v1/fingerprints/ip/1.2.3.4 | python3 -m json.tool
+
+# Replay a known PCAP and check extracted fingerprints match expected
+python3 -c "
+from src.tap.capture import PcapReplay
+# ... (see §12 test framework)
+"
+```
+
+**Diagnose enforcement not working:**
+```bash
+# Check iptables ipset
+sudo ipset list ja4proxy_ban
+
+# Check if JA4PROXY_BLOCK chain is in INPUT/FORWARD
+sudo iptables -L INPUT -n | grep JA4PROXY
+sudo iptables -L FORWARD -n | grep JA4PROXY
+
+# Check ExaBGP pipe
+ls -la /var/run/exabgp/exabgp.cmd
+echo "show neighbor summary" > /var/run/exabgp/exabgp.cmd
+
+# Check webhook connectivity
+curl -v -X POST "${WEBHOOK_URL}" \
+  -H "Authorization: Bearer ${FIREWALL_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"ip":"192.0.2.1","ttl":60,"reason":"test"}'
+```
+
+**Check EDL is serving correctly:**
+```bash
+curl -v "http://localhost:8090/export/edl/banned-ips?key=${EDL_API_KEY}"
+# Expect: 200 with text/plain body, ETag header
+# Re-request with ETag:
+curl -v -H 'If-None-Match: "the-etag-value"' \
+  "http://localhost:8090/export/edl/banned-ips?key=${EDL_API_KEY}"
+# Expect: 304 Not Modified
+```
+
+### 15.6 Rollback — Emergency IP Unban
+
+If the enforcement bridge bans a legitimate IP (false positive), roll back immediately:
+
+```bash
+# 1. Remove from Redis (stops future enforcement signals)
+redis-cli -a "${REDIS_PASSWORD}" DEL "ban:1.2.3.4"
+redis-cli -a "${REDIS_PASSWORD}" PUBLISH "ja4proxy:invalidate" '{"type":"ban_release","value":"1.2.3.4"}'
+
+# 2. Remove from iptables ipset
+sudo ipset del ja4proxy_ban 1.2.3.4
+
+# 3. Withdraw BGP route (if BGP is configured)
+echo "withdraw route 1.2.3.4/32 next-hop 192.0.2.1" > /var/run/exabgp/exabgp.cmd
+
+# 4. Or use the management API (preferred):
+curl -X DELETE "http://localhost:8090/api/v1/ban/1.2.3.4" \
+  -H "Authorization: Bearer ${MGMT_API_KEY}"
+# This triggers the pub/sub ban_release, iptables removal, and BGP withdraw in one call.
+
+# 5. Flush ALL bans (nuclear option — emergency only):
+make flush-redis
+sudo ipset flush ja4proxy_ban
+# BGP: check with your NOC; withdrawing all blackhole routes may need bgp clear
+```
+
+### 15.7 iptables / ipset Drift Reconciliation
+
+Over time, iptables/ipset rules may drift out of sync with Redis if JA4proxy restarts
+without clean shutdown. Run a periodic reconciliation:
+
+```bash
+# Add to crontab (run every 5 minutes):
+*/5 * * * * python3 /opt/ja4proxy/scripts/reconcile_ipset.py \
+  --redis-host localhost --redis-password "${REDIS_PASSWORD}" \
+  --ipset-name ja4proxy_ban >> /var/log/ja4proxy/reconcile.log 2>&1
+```
+
+`scripts/reconcile_ipset.py` does:
+1. Read all `ban:{ip}` keys from Redis (with TTLs)
+2. Read all entries from `ipset list ja4proxy_ban`
+3. Add missing entries (in Redis but not in ipset)
+4. Remove stale entries (in ipset but not in Redis, or Redis TTL expired)
+5. Log a summary; emit `ja4proxy_tap_ipset_reconcile_total` metric
+
+### 15.8 Offline PCAP Analysis
+
+Replay a historical PCAP file to retroactively score IPs from a past incident:
+
+```bash
+# Set pcap_file in config (or override via environment):
+JA4PROXY_TAP_PCAP_FILE=/path/to/incident.pcap \
+  python3 -m ja4proxy --config config/proxy.yml --mode tap --once
+
+# "once" flag: process pcap_file to completion then exit (don't loop).
+# Scores are written to Redis as normal; can be queried via management API.
+# Use a separate Redis DB (db=1) to avoid polluting production state:
+JA4PROXY_REDIS_DB=1 ... python3 -m ja4proxy ...
 ```
 
 ---
@@ -2084,16 +3041,20 @@ sudo setcap 'cap_net_raw,cap_net_admin+ep' /usr/bin/python3.12
 ## 16. CHANGELOG Entry
 
 ```markdown
-## [20.0.0] - TBD - TAP/SPAN Passive Fingerprinting Mode
+## [20.0.0] - TBD - TAP/SPAN Passive Fingerprinting Mode + Intelligence Export
 
 ### Added
 - Passive TAP/SPAN capture mode (`mode: tap` in proxy.yml)
 - AF_PACKET TPACKET_V3 ring-buffer capture engine (multi-Mpps throughput)
-- PCAP replay for testing and development (no live interface required)
-- TCP stream reassembler with out-of-order, retransmission, and fragment handling
+- VxLAN/GENEVE decapsulation for cloud mirror ports (AWS VPC, Azure vNET TAP)
+- Duplicate packet deduplication (bonded/LAG SPAN port dedup)
+- Hardware timestamp support (SO_TIMESTAMPING) for sub-µs JA4L accuracy
+- PCAP replay and SyntheticPacketBuilder for testing (no live interface required)
+- TCP stream reassembler with out-of-order, retransmission, fragment, and IPv6 handling
+- Worker watchdog with automatic shard crash recovery
 - JA4S: TLS server fingerprint from ServerHello
 - JA4H: HTTP/1.1 client header fingerprint
-- JA4L: Light-distance estimation from TCP handshake RTT
+- JA4L: Light-distance estimation from TCP handshake RTT (with GeoIP mismatch signal)
 - JA4X: X.509 certificate fingerprint from TLS Certificate message
 - JA4SSH: SSH client/server fingerprint from KEXINIT
 - OS fingerprinting (p0f-style, 90%+ accuracy from TCP SYN options)
@@ -2101,17 +3062,30 @@ sudo setcap 'cap_net_raw,cap_net_admin+ep' /usr/bin/python3.12
 - QUIC Initial-packet fingerprint
 - TLS extension value fingerprint (key_share groups, GREASE, PSK modes)
 - Fingerprint correlation store (all variants linked by connection ID in Redis)
-- Enforcement bridge: iptables/ipset, BGP blackhole via ExaBGP, generic webhook
-- Fingerprint lookup API at /api/v1/fingerprints/ip/{ip} and /fingerprints/ja4/{fp}
-- 12 new Prometheus metrics for TAP-mode observability
-- 13 new risk signals for TAP-specific fingerprint contradictions
-- PCAP corpus and SyntheticPacketBuilder for TAP-mode testing
-- Mode-switching documentation and runbook
+- Enforcement bridge: iptables/ipset, BGP blackhole via ExaBGP, webhook (with HMAC)
+- Intelligence export: EDL HTTP server, F5 BIG-IP REST API, Palo Alto XML API
+- Intelligence export: Kafka streaming, Syslog/CEF, STIX/TAXII 2.1, MISP push
+- Fingerprint lookup API: /api/v1/fingerprints/ip/{ip} and /fingerprints/ja4/{fp}
+- 30+ new Prometheus metrics (capture, reassembly, fingerprint, enforcement, export)
+- AlertManager rules for all critical TAP-mode failure modes
+- Grafana TAP sensor dashboard (tap_sensor.json)
+- Health endpoint extended with TAP capture, reassembler, enforcement, and export status
+- Structured log schema for all TAP-mode events
+- Graceful shutdown sequence (ordered 10-step drain)
+- Security hardening: privilege drop after socket open, seccomp profile, BGP injection guards
+- GDPR data erasure endpoint for fingerprint store
+- 13 new risk signals including JA4L geo-mismatch, OS/UA contradiction, GREASE absence
+- FP corpus test (Tranco top-10k, < 0.5% FP rate)
+- Performance benchmark script (scripts/tap_benchmark.py)
+- Offline PCAP analysis mode (--once flag)
+- ipset drift reconciliation script (scripts/reconcile_ipset.py)
+- Runbook: diagnostics, emergency rollback, reconciliation, offline analysis
 
 ### Changed
 - `proxy.py` / `main.go` now branches on `mode: passthrough|tap` at startup
-- `config/proxy.yml` extended with `tap:` and `tap_enforcement:` sections
-- `docs/REDIS_SCHEMA.md` extended with TAP-mode fingerprint keys
+- `config/proxy.yml` extended with `tap:`, `tap_enforcement:`, and `intelligence_export:` sections
+- `docs/REDIS_SCHEMA.md` extended with TAP-mode `fp:*` key patterns
+- `requirements.txt` extended with scapy, dpkt, pypcap, sortedcontainers, aiokafka, stix2
 ```
 
 ---
@@ -2130,11 +3104,17 @@ All criteria must pass before this phase is complete.
 
 ### 17b. Packet Capture
 
-- [ ] `PacketCapture` can sustain 500k pps on the test machine without drops (benchmarked with `tcpreplay`)
+- [ ] `PacketCapture` can sustain 500k pps on the test machine without drops (verified by `scripts/tap_benchmark.py`)
 - [ ] VLAN-tagged frames (802.1q) are correctly stripped before IP parsing
+- [ ] QinQ (802.1ad) double-tagged frames are correctly stripped
+- [ ] VxLAN-encapsulated frames are decapsulated when `decapsulation: vxlan`
 - [ ] IPv4 fragments are reassembled correctly (test: ClientHello split across two fragments)
+- [ ] IPv6 extension headers are walked correctly to find fragment header (type 44)
+- [ ] Duplicate packets from bonded SPAN are discarded and counted by `ja4proxy_tap_packets_duplicates_total`
 - [ ] `ja4proxy_tap_packets_dropped_total` increments when ring buffer overflows (chaos test)
+- [ ] `ja4proxy_tap_ring_buffer_fill_ratio` gauge reaches 1.0 during the overflow chaos test
 - [ ] BPF filter compilation failure emits a clear error and exits 1 (not a silent capture of all traffic)
+- [ ] `ja4proxy_tap_capture_interface_up` goes to 0 when the interface link drops (simulated with `ip link set eth1 down`)
 
 ### 17c. TCP Reassembler
 
@@ -2144,6 +3124,8 @@ All criteria must pass before this phase is complete.
 - [ ] Streams exceeding `max_stream_buffer_bytes` are dropped; a metric is emitted; other streams are unaffected
 - [ ] RST packet immediately closes stream and emits final score
 - [ ] Maximum stream table size (`max_streams`) is respected; oldest idle streams are evicted first
+- [ ] Worker crash (unhandled exception in worker Task) triggers watchdog restart within 1s; shard streams evicted; `ja4proxy_tap_worker_restarts_total` incremented
+- [ ] Graceful shutdown completes within 15s under normal load (drain + score + flush)
 
 ### 17d. Fingerprint Extractors
 
@@ -2179,22 +3161,56 @@ All criteria must pass before this phase is complete.
 
 - [ ] iptables backend: `ipset add ja4proxy_ban {ip} timeout {ttl}` is executed for each `signal_ban` (chaos test with mock subprocess)
 - [ ] BGP backend: correct ExaBGP announce command is written to pipe for each ban (mock pipe test)
+- [ ] BGP prefix length guard: prefixes broader than /24 (IPv4) or /48 (IPv6) are rejected and not announced
+- [ ] Webhook backend: HMAC-SHA256 signature header present on every request; request rejected on signature mismatch (mock receiver test)
 - [ ] Webhook backend: correct JSON body is sent; retries on 5xx; gives up after `retry_count`; emits metric
-- [ ] Failure of one backend does not prevent others from running (all backends called via `asyncio.gather(return_exceptions=True)`)
+- [ ] Failure of one backend does not prevent others from running (`asyncio.gather(return_exceptions=True)`)
 - [ ] `ban_ttl_s` is respected: iptables/ipset entry has correct timeout
 
-### 17h. Tests
+### 17h. Intelligence Export
+
+- [ ] EDL `/export/edl/banned-ips` returns only IPs currently in `ban:{ip}` Redis keys, within `max_age_s`
+- [ ] EDL returns 304 Not Modified when ETag matches (efficient polling)
+- [ ] EDL requires API key when `api_key` is configured; returns 403 without key
+- [ ] EDL IP access control: returns 403 for IPs not in `allowed_ips` when configured
+- [ ] F5 client: full sync pushes all banned IPs to the configured data group (mock F5 API test)
+- [ ] F5 client: delta push fires within 5s of Redis ban pub/sub event
+- [ ] F5 client: respects `max_rps` rate limit (mock F5 API, measure request timing)
+- [ ] Palo Alto client: `register_ip` calls XML API with correct tag (mock PA API test)
+- [ ] Kafka producer: ban events appear in `ja4proxy.bans` topic with correct JSON schema
+- [ ] Kafka producer: message key is the client IP (enables partition affinity for per-IP ordering)
+- [ ] Syslog exporter: CEF format is valid per ArcSight CEF specification (validate with test parser)
+- [ ] Syslog exporter: severity mapping matches `severity_map` config
+- [ ] TAXII server: `GET /taxii2/collections/{id}/objects/` returns valid STIX 2.1 bundle
+- [ ] TAXII server: `added_after` query parameter filters correctly
+- [ ] MISP client: ban creates an Attribute in the daily event with type `ip-dst`
+- [ ] Failure of any one export backend does not affect other exporters
+
+### 17i. Security
+
+- [ ] `CAP_NET_RAW` is dropped after socket `bind()` (verified by reading `/proc/{pid}/status` for `CapEff`)
+- [ ] PCAP replay path traversal: `pcap_file: "../../etc/passwd"` raises `ConfigError` and exits 1
+- [ ] Webhook TLS validation: `verify_tls: false` emits startup WARN (chaos test checks log)
+- [ ] BGP injection guard: attempting to announce a /16 prefix logs ERROR and increments error metric; no BGP command is written
+- [ ] GDPR erasure: `make gdpr-delete IP=1.2.3.4` deletes all `fp:ip:1.2.3.4` and linked `fp:conn:*` keys
+
+### 17j. Tests
 
 - [ ] Test-to-code ratio ≥ 1.3× for all new `src/tap/` code
 - [ ] All new extractors have at least one test per format field they populate
-- [ ] PCAP corpus covers: Chrome, Firefox, Safari, curl, Python requests, nmap, masscan, OpenSSH, PuTTY, HTTP/2, QUIC
-- [ ] `SyntheticPacketBuilder` is tested: builds valid TCP/TLS packet sequences that the reassembler processes correctly
-- [ ] Chaos tests cover: ring buffer drop, corrupt packet, truncated TLS record, stream table full, all enforcement backends failing
+- [ ] FP corpus test passes: Tranco top-10k PCAP sample scores < 0.5% FP rate at score threshold 70
+- [ ] Performance benchmark passes: `scripts/tap_benchmark.py` shows ≥ 500k pps without drops
+- [ ] PCAP corpus covers: Chrome, Firefox, Safari, curl, Python requests, nmap, masscan, OpenSSH, PuTTY, HTTP/2, QUIC, VxLAN-encapsulated
+- [ ] IPv6 corpus: at least one PCAP with IPv6 clients; JA4/JA4T/JA4L extracted correctly
+- [ ] `SyntheticPacketBuilder` is tested: builds valid TCP/TLS packet sequences the reassembler processes correctly
+- [ ] Chaos tests cover: ring buffer overflow, corrupt packet, truncated TLS record, stream table full, all enforcement backends failing, all export backends failing, worker crash
 
-### 17i. Documentation
+### 17k. Documentation
 
-- [ ] `docs/REDIS_SCHEMA.md` updated with all `fp:*` key patterns
-- [ ] Runbook in `docs/runbooks/tap_mode.md` covering: SPAN setup, capability setup, mode switching, enforcement bridge setup, monitoring
-- [ ] `config/proxy.yml` comments explain every new config key
+- [ ] `docs/REDIS_SCHEMA.md` updated with all `fp:*` key patterns and `intelligence_export` Redis usage
+- [ ] Runbook `docs/runbooks/tap_mode.md`: SPAN setup, capability setup, mode switching, enforcement, export, diagnostics, rollback, reconciliation, offline analysis
+- [ ] `config/proxy.yml` inline comments explain every new key in `tap:`, `tap_enforcement:`, and `intelligence_export:`
 - [ ] `CHANGELOG.md` updated per §16
-- [ ] ADR written: why AF_PACKET over pcap/Scapy, and under what conditions PF_RING/DPDK should be considered (`docs/decisions/ADR-020.md`)
+- [ ] ADR-020.md: AF_PACKET vs pcap/Scapy vs PF_RING/DPDK decision
+- [ ] ADR-021.md: EDL pull vs push for external firewall integration; why both are supported
+- [ ] Privacy notice / RoPA updated to document `fp:*` Redis data and EDL/F5/PA data flows
