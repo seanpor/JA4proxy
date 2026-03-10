@@ -84,8 +84,11 @@ class MLDetector:
         """Extract model version from config path."""
         path = config.get('ml_model_path', '')
         if 'v' in path:
-            return path.split('v')[-1]
-        return 'v1'
+            # Extract version number after 'v'
+            parts = path.split('v')
+            if len(parts) > 1 and parts[-1]:
+                return parts[-1]
+        return '1'  # Default version
         
     def update_model_version(self, version: str):
         """Update to new model version."""

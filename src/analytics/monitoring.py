@@ -12,6 +12,7 @@ from .drift_detector import DriftDetector
 from .distribution_analyzer import DistributionAnalyzer
 from .shadow_scoring import ShadowScoring
 from .security_hardening import SecurityHardening
+from .ml_detector import MLDetector, MLModelManager
 
 
 class MonitoringSystem:
@@ -30,6 +31,15 @@ class MonitoringSystem:
         
         # Initialize security hardening (Phase 12d)
         self.security_hardening = SecurityHardening(redis_conn, config)
+        
+        # Initialize ML detector (Phase 12e)
+        ml_config = config.get('ml', {})
+        if ml_config.get('enabled', True):
+            self.ml_detector = MLDetector(redis_conn, ml_config)
+            self.model_manager = MLModelManager(redis_conn)
+        else:
+            self.ml_detector = None
+            self.model_manager = None
         
         # Initialize Prometheus metrics
         self._init_metrics()
@@ -96,6 +106,26 @@ class MonitoringSystem:
             buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
             registry=self.registry
         )
+        
+        # ML metrics (Phase 12e)
+        self.ml_detection_duration = Histogram(
+            'ja4proxy_analytics_ml_detection_duration',
+            'Duration of ML anomaly detection',
+            buckets=[0.01, 0.05, 0.1, 0.5, 1.0],
+            registry=self.registry
+        )
+        
+        self.ml_anomalies_gauge = Gauge(
+            'ja4proxy_analytics_ml_anomalies_detected',
+            'Number of anomalies detected by ML model',
+            registry=self.registry
+        )
+        
+        self.ml_model_version_gauge = Gauge(
+            'ja4proxy_analytics_ml_model_version',
+            'Current ML model version',
+            registry=self.registry
+        )
 
     async def update_with_event(self, event: Dict[str, Any]):
         """Update monitoring system with a new event."""
@@ -157,6 +187,13 @@ class MonitoringSystem:
         # Check for calibration issues
         with self.calibration_check_duration.time():
             await self.shadow_scoring.check_calibration()
+        
+        # Run ML anomaly detection (Phase 12e)
+        if self.ml_detector:
+            with self.ml_detection_duration.time():
+                # This would be called from an external service in production
+                # For now, we just ensure the metric is initialized
+                pass
 
     async def get_alerts(self) -> Dict[str, Optional[Dict[str, Any]]]:
         """Get all active alerts."""
@@ -203,6 +240,14 @@ class MonitoringSystem:
         alerts = await self.get_alerts()
         status['metrics']['active_alerts'] = sum(1 for alert in alerts.values() if alert is not None)
         
+        # Add ML detector status
+        if self.ml_detector:
+            status['components']['ml_detector'] = 'healthy'
+            ml_info = await self.ml_detector.get_model_info()
+            status['ml_model'] = ml_info
+        else:
+            status['components']['ml_detector'] = 'disabled'
+        
         return status
 
     async def get_drift_history(self, hours: int = 24) -> List[Dict[str, Any]]:
@@ -245,3 +290,29 @@ class MonitoringSystem:
     async def get_security_metrics(self) -> Dict[str, Any]:
         """Get security metrics."""
         return await self.security_hardening.get_security_metrics()
+    
+    # Phase 12e: ML Anomaly Detection Methods
+    async def detect_anomalies(self, fingerprints: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Detect anomalies using ML model."""
+        if not self.ml_detector:
+            return []
+        return await self.ml_detector.detect(fingerprints)
+    
+    async def get_ml_model_info(self) -> Dict[str, Any]:
+        """Get ML model information."""
+        if not self.ml_detector:
+            return {'status': 'disabled'}
+        return await self.ml_detector.get_model_info()
+    
+    async def list_ml_models(self) -> List[Dict[str, Any]]:
+        """List available ML models."""
+        if not self.model_manager:
+            return []
+        return await self.model_manager.list_models()
+    
+    async def update_ml_model(self, version: str):
+        """Update to new ML model version."""
+        if self.ml_detector:
+            self.ml_detector.update_model_version(version)
+            return {'status': 'updated', 'version': version}
+        return {'status': 'unavailable'}
