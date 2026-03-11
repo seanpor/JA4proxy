@@ -107,7 +107,7 @@ class TestAggregationManager:
         assert manager.current_window == current_window
         
         # Wait for window rotation
-        time.sleep(1.1)
+        time.sleep(2.0)
         
         # Add another event (should trigger rotation)
         event2 = {

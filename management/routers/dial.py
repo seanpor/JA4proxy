@@ -53,10 +53,10 @@ async def get_dial(
     _key: str = Depends(require_api_key),
 ) -> DialResponse:
     """Return the current dial value and acknowledge state."""
-    redis = request.app.state.redis
+    r = request.app.state.redis
     try:
-        raw = await redis.get("dial:current")
-        ack_raw = await redis.get("dial:blocking_acknowledged")
+        raw = await r.get("dial:current")
+        ack_raw = await r.get("dial:blocking_acknowledged")
     except redis.exceptions.RedisError as exc:
         mgmt_redis_errors_total.labels(operation="get_dial").inc()
         logger.error("management | event=redis_error | op=get_dial | error=%s", exc)
@@ -84,11 +84,11 @@ async def update_dial(
     - Max 10 changes per UTC hour
     - dial = 0 is always allowed (emergency monitor mode)
     """
-    redis = request.app.state.redis
+    r = request.app.state.redis
     actor_ip = _get_client_ip(request)
 
     try:
-        ack_raw = await redis.get("dial:blocking_acknowledged")
+        ack_raw = await r.get("dial:blocking_acknowledged")
         acknowledged = ack_raw == "true" if ack_raw else False
 
         # Rule 1: dial > 0 requires acknowledgment
@@ -104,12 +104,12 @@ async def update_dial(
         # Rule 2: rate limit (skip for dial=0 emergency downgrade)
         if payload.dial > 0:
             hour_key = _hour_key()
-            count = await redis.incr(hour_key)
+            count = await r.incr(hour_key)
             if count == 1:
-                await redis.expire(hour_key, 3600)
+                await r.expire(hour_key, 3600)
             if count > _MAX_CHANGES_PER_HOUR:
                 # Undo the increment
-                await redis.incr(hour_key)  # actually decr
+                await r.incr(hour_key)  # actually decr
                 raise HTTPException(
                     status_code=429,
                     detail=(
@@ -119,17 +119,17 @@ async def update_dial(
                     headers={"Retry-After": "3600"},
                 )
 
-        old_raw = await redis.get("dial:current")
+        old_raw = await r.get("dial:current")
         old_value = int(old_raw) if old_raw is not None else 0
 
-        await redis.set("dial:current", str(payload.dial))
-        await publish_invalidation(redis, {
+        await r.set("dial:current", str(payload.dial))
+        await publish_invalidation(r,{
             "event": "dial_change",
             "value": payload.dial,
             "old": old_value,
         })
         await write_audit_log(
-            redis,
+            r,
             event_type="dial_changed",
             actor_ip=actor_ip,
             detail={
@@ -168,14 +168,14 @@ async def acknowledge_dial(
 
     Must be called before setting dial > 0.
     """
-    redis = request.app.state.redis
+    r = request.app.state.redis
     actor_ip = _get_client_ip(request)
 
     try:
         value = "true" if payload.acknowledged else "false"
-        await redis.set("dial:blocking_acknowledged", value)
+        await r.set("dial:blocking_acknowledged", value)
         await write_audit_log(
-            redis,
+            r,
             event_type="dial_acknowledged",
             actor_ip=actor_ip,
             detail={"acknowledged": payload.acknowledged},

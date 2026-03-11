@@ -119,7 +119,7 @@ class TestCampaignDetector:
         detector.update_with_event(event)
         
         # Wait for rotation
-        time.sleep(1.1)
+        time.sleep(2.0)
         
         # Add another event (should trigger rotation)
         event2 = {
@@ -227,7 +227,7 @@ class TestSlowScanDetector:
         detector.update_with_event(event)
         
         # Wait for rotation
-        time.sleep(1.1)
+        time.sleep(2.0)
         
         # Add another event (should trigger rotation)
         event2 = {
@@ -394,7 +394,7 @@ class TestJA4FingerprintIntelligence:
         intelligence.update_with_event(event)
         
         # Wait for rotation
-        time.sleep(1.1)
+        time.sleep(2.0)
         
         # Add another event (should trigger rotation)
         event2 = {

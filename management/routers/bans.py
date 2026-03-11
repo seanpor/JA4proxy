@@ -56,9 +56,9 @@ async def list_bans(
     _key: str = Depends(require_api_key),
 ) -> PaginatedResponse:
     """List all active IP bans with pagination."""
-    redis = request.app.state.redis
+    r = request.app.state.redis
     try:
-        items, total = await get_all_bans(redis, page=page, per_page=per_page)
+        items, total = await get_all_bans(r, page=page, per_page=per_page)
     except redis.exceptions.RedisError as exc:
         _handle_redis_error("list_bans", exc)
         raise HTTPException(status_code=503, detail="Redis unavailable")
@@ -76,7 +76,7 @@ async def add_ban(
     _key: str = Depends(require_api_key),
 ) -> dict:
     """Add an IP ban. Publishes to invalidate stream and writes audit log."""
-    redis = request.app.state.redis
+    r = request.app.state.redis
     actor_ip = _get_client_ip(request)
 
     ban_key = f"ban:{payload.ip}"
@@ -84,17 +84,17 @@ async def add_ban(
 
     try:
         if payload.ttl_s > 0:
-            await redis.set(ban_key, reason_value, ex=payload.ttl_s)
+            await r.set(ban_key, reason_value, ex=payload.ttl_s)
         else:
-            await redis.set(ban_key, reason_value)
+            await r.set(ban_key, reason_value)
 
-        await publish_invalidation(redis, {
+        await publish_invalidation(r, {
             "event": "ban_added",
             "ip": payload.ip,
             "ttl_s": payload.ttl_s,
         })
         await write_audit_log(
-            redis,
+            r,
             event_type="ban_added",
             actor_ip=actor_ip,
             detail={"ip": payload.ip, "reason": payload.reason, "ttl_s": payload.ttl_s},
@@ -126,19 +126,19 @@ async def release_ban(
     # Decode URL-encoded IP (IPv6 with colons may be encoded)
     ip = urllib.parse.unquote(ip)
 
-    redis = request.app.state.redis
+    r = request.app.state.redis
     actor_ip = _get_client_ip(request)
     ban_key = f"ban:{ip}"
 
     try:
-        existing = await redis.get(ban_key)
+        existing = await r.get(ban_key)
         if existing is None:
             raise HTTPException(status_code=404, detail=f"No ban found for IP {ip!r}")
 
-        await redis.delete(ban_key)
-        await publish_invalidation(redis, {"event": "ban_release", "ip": ip})
+        await r.delete(ban_key)
+        await publish_invalidation(r, {"event": "ban_release", "ip": ip})
         await write_audit_log(
-            redis,
+            r,
             event_type="ban_released",
             actor_ip=actor_ip,
             detail={"ip": ip},
@@ -169,9 +169,9 @@ async def list_cidrs(
     _key: str = Depends(require_api_key),
 ) -> PaginatedResponse:
     """List all active CIDR blocks with pagination."""
-    redis = request.app.state.redis
+    r = request.app.state.redis
     try:
-        items, total = await get_all_cidrs(redis, page=page, per_page=per_page)
+        items, total = await get_all_cidrs(r, page=page, per_page=per_page)
     except redis.exceptions.RedisError as exc:
         _handle_redis_error("list_cidrs", exc)
         raise HTTPException(status_code=503, detail="Redis unavailable")
@@ -189,19 +189,19 @@ async def add_cidr(
     _key: str = Depends(require_api_key),
 ) -> dict:
     """Add a CIDR block. Publishes to invalidate stream and writes audit log."""
-    redis = request.app.state.redis
+    r = request.app.state.redis
     actor_ip = _get_client_ip(request)
     cidr_key = f"ban_cidr:{payload.cidr}"
 
     try:
         if payload.ttl_s > 0:
-            await redis.set(cidr_key, f"manual:{payload.reason}", ex=payload.ttl_s)
+            await r.set(cidr_key, f"manual:{payload.reason}", ex=payload.ttl_s)
         else:
-            await redis.set(cidr_key, f"manual:{payload.reason}")
+            await r.set(cidr_key, f"manual:{payload.reason}")
 
-        await publish_invalidation(redis, {"event": "cidr_blocked", "cidr": payload.cidr})
+        await publish_invalidation(r, {"event": "cidr_blocked", "cidr": payload.cidr})
         await write_audit_log(
-            redis,
+            r,
             event_type="cidr_blocked",
             actor_ip=actor_ip,
             detail={"cidr": payload.cidr, "reason": payload.reason},
@@ -226,19 +226,19 @@ async def remove_cidr(
     """Remove a CIDR block."""
     cidr = urllib.parse.unquote(cidr)
 
-    redis = request.app.state.redis
+    r = request.app.state.redis
     actor_ip = _get_client_ip(request)
     cidr_key = f"ban_cidr:{cidr}"
 
     try:
-        existing = await redis.get(cidr_key)
+        existing = await r.get(cidr_key)
         if existing is None:
             raise HTTPException(status_code=404, detail=f"No CIDR block found for {cidr!r}")
 
-        await redis.delete(cidr_key)
-        await publish_invalidation(redis, {"event": "cidr_released", "cidr": cidr})
+        await r.delete(cidr_key)
+        await publish_invalidation(r, {"event": "cidr_released", "cidr": cidr})
         await write_audit_log(
-            redis,
+            r,
             event_type="cidr_released",
             actor_ip=actor_ip,
             detail={"cidr": cidr},

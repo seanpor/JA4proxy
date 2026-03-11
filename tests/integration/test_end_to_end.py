@@ -302,8 +302,10 @@ def security_manager(mock_redis, test_config, mock_time):
         manager._mock_time = mock_time  # Store reference for tests to access
         yield manager
     finally:
-        # Stop all patchers
-        for patcher in patchers:
+        # Stop patchers in reverse order so each one correctly restores
+        # the value that existed before it started (they all patch the same
+        # time.time attribute on the shared time module object).
+        for patcher in reversed(patchers):
             try:
                 patcher.stop()
             except Exception:
