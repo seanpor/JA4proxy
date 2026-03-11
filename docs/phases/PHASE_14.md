@@ -22,6 +22,13 @@ CPU and memory limits on all containers. Health checks for all services.
 Graceful shutdown: drain in-flight connections on SIGTERM before process exit.
 Set `ulimit -n` appropriately for expected concurrent connection count.
 
+**Default Values:**
+- CPU limit: 2 cores per container
+- Memory limit: 4GB per container
+- File descriptor limit: 65536
+- Connection queue size: 1000
+- Max connections: 10000
+
 ## 14d. Rate Limit Self-Protection
 
 Max-tracked-IPs cap on beaconing detector and sliding window rate limiter.
@@ -34,6 +41,11 @@ Structured JSON logging for SIEM integration. Alertmanager rules covering:
 high block rate, AbuseIPDB quota exhaustion, Spamhaus download failure, analytics
 stream lag above threshold, proxy instance crash, Redis memory above 80%, dial change.
 See `docs/OBSERVABILITY_STANDARDS.md §4` for the full rule set.
+
+**Alertmanager Rule Files:**
+- `monitoring/alertmanager/rules/proxy.rules.yml` - Proxy-specific alerts
+- `monitoring/alertmanager/rules/redis.rules.yml` - Redis monitoring alerts
+- `monitoring/alertmanager/rules/security.rules.yml` - Security event alerts
 
 ## 14f. Ansible Hardening
 
@@ -113,7 +125,28 @@ production:
     log_level: INFO             # Default: INFO. Options: DEBUG | INFO | WARN | ERROR.
     siem_forwarding: false      # Default: false. Enable to forward logs to external SIEM.
     siem_endpoint: ""           # Set via SIEM_ENDPOINT env var.
+
+  validation:
+    # Configuration validation settings
+    strict_mode: true           # Default: true. Fail on invalid configuration values.
+    warn_on_deprecated: true    # Default: true. Log warnings for deprecated config options.
+    auto_correct: false         # Default: false. Automatically correct common misconfigurations.
 ```
+
+## Configuration Validation
+
+**Validation Rules:**
+- All numeric values must be positive integers
+- File paths must be absolute or relative to config directory
+- TLS certificates must be valid PEM format
+- Redis connection strings must include authentication
+- Resource limits must not exceed system capabilities
+
+**Error Handling:**
+- Invalid configurations cause immediate startup failure
+- Deprecation warnings logged but don't prevent startup
+- Configuration errors include detailed error messages
+- Validation runs on config load and hot-reload
 
 ## Chaos Scenarios
 
