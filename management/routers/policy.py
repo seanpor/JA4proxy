@@ -50,12 +50,12 @@ async def list_bypasses(
     _key: str = Depends(require_api_key),
 ) -> list[dict]:
     """Return the current state of all 8 security policy bypasses."""
-    redis = request.app.state.redis
+    r = request.app.state.redis
     result = []
 
     try:
         for name in sorted(VALID_BYPASS_NAMES):
-            raw = await redis.get(f"policy:bypass:{name}")
+            raw = await r.get(f"policy:bypass:{name}")
             # Default: all bypasses are enabled unless explicitly set to "false"
             enabled = raw != "false" if raw is not None else True
             result.append({
@@ -92,16 +92,16 @@ async def update_bypass(
             detail=f"Unknown bypass: {bypass_name!r}. Valid names: {sorted(VALID_BYPASS_NAMES)}",
         )
 
-    redis = request.app.state.redis
+    r = request.app.state.redis
     actor_ip = _get_client_ip(request)
 
     try:
         # Read current state
-        raw = await redis.get(f"policy:bypass:{bypass_name}")
+        raw = await r.get(f"policy:bypass:{bypass_name}")
         old_enabled = raw != "false" if raw is not None else True
 
         # Write new state
-        await redis.set(f"policy:bypass:{bypass_name}", "true" if payload.enabled else "false")
+        await r.set(f"policy:bypass:{bypass_name}", "true" if payload.enabled else "false")
 
         # Emit WARN if disabling an ALLOW bypass
         if not payload.enabled and bypass_name in (
@@ -114,7 +114,7 @@ async def update_bypass(
             )
 
         # Publish config_reload so all proxy instances pick up the change
-        await publish_invalidation(redis, {"event": "config_reload"})
+        await publish_invalidation(r,{"event": "config_reload"})
 
         # Write to policy audit log
         import json
@@ -126,12 +126,12 @@ async def update_bypass(
             "changed_by": actor_ip,
             "timestamp": str(time.time()),
         }
-        await redis.lpush("management:policy_audit", json.dumps(audit_entry))
-        await redis.ltrim("management:policy_audit", 0, 999)
+        await r.lpush("management:policy_audit", json.dumps(audit_entry))
+        await r.ltrim("management:policy_audit", 0, 999)
 
         # Also write to general audit log
         await write_audit_log(
-            redis,
+            r,
             event_type="bypass_changed",
             actor_ip=actor_ip,
             detail={
@@ -174,10 +174,10 @@ async def get_policy_audit(
     _key: str = Depends(require_api_key),
 ) -> PaginatedResponse:
     """Return paginated policy audit log entries."""
-    redis = request.app.state.redis
+    r = request.app.state.redis
     try:
         items, total = await get_audit_log(
-            redis, page=page, per_page=per_page, key="management:policy_audit"
+            r, page=page, per_page=per_page, key="management:policy_audit"
         )
     except redis.exceptions.RedisError as exc:
         mgmt_redis_errors_total.labels(operation="get_policy_audit").inc()

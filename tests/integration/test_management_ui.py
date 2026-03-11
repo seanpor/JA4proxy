@@ -9,13 +9,13 @@ import os
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-os.environ.setdefault("UI_API_KEY", "integration-test-key")
+os.environ["UI_API_KEY"] = "test-key-12345"
 
 from httpx import AsyncClient, ASGITransport
 
 from management.server import create_app
 
-HEADERS = {"Authorization": f"Bearer {os.environ['UI_API_KEY']}"}
+HEADERS = {"Authorization": "Bearer test-key-12345"}
 
 
 def _make_async_iter(items):

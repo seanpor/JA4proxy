@@ -17,7 +17,7 @@ logger = logging.getLogger("management.redis_helpers")
 
 
 async def get_all_bans(
-    redis,
+    r,
     page: int = 1,
     per_page: int = 50,
 ) -> tuple[list[dict], int]:
@@ -27,10 +27,10 @@ async def get_all_bans(
     """
     items = []
     try:
-        async for key in redis.scan_iter("ban:*"):
+        async for key in r.scan_iter("ban:*"):
             ip = key[4:] if isinstance(key, str) else key.decode()[4:]
-            reason = await redis.get(key)
-            ttl = await redis.ttl(key)
+            reason = await r.get(key)
+            ttl = await r.ttl(key)
             items.append({
                 "ip": ip,
                 "reason": reason or "unknown",
@@ -48,7 +48,7 @@ async def get_all_bans(
 
 
 async def get_all_cidrs(
-    redis,
+    r,
     page: int = 1,
     per_page: int = 50,
 ) -> tuple[list[dict], int]:
@@ -58,10 +58,10 @@ async def get_all_cidrs(
     """
     items = []
     try:
-        async for key in redis.scan_iter("ban_cidr:*"):
+        async for key in r.scan_iter("ban_cidr:*"):
             cidr = key[9:] if isinstance(key, str) else key.decode()[9:]
-            reason = await redis.get(key)
-            ttl = await redis.ttl(key)
+            reason = await r.get(key)
+            ttl = await r.ttl(key)
             items.append({
                 "cidr": cidr,
                 "reason": reason or "unknown",
@@ -79,7 +79,7 @@ async def get_all_cidrs(
 
 
 async def write_audit_log(
-    redis,
+    r,
     event_type: str,
     actor_ip: str,
     detail: Optional[dict] = None,
@@ -96,8 +96,8 @@ async def write_audit_log(
         "detail": detail or {},
     }
     try:
-        await redis.lpush(key, json.dumps(entry))
-        await redis.ltrim(key, 0, 999)  # Keep last 1000 entries
+        await r.lpush(key, json.dumps(entry))
+        await r.ltrim(key, 0, 999)  # Keep last 1000 entries
     except redis.exceptions.RedisError as exc:
         mgmt_redis_errors_total.labels(operation="write_audit_log").inc()
         logger.error(
@@ -109,7 +109,7 @@ async def write_audit_log(
 
 
 async def get_audit_log(
-    redis,
+    r,
     page: int = 1,
     per_page: int = 50,
     event_type: Optional[str] = None,
@@ -120,8 +120,8 @@ async def get_audit_log(
     Filters by event_type if provided. Returns (items, total).
     """
     try:
-        raw_entries = await redis.lrange(key, 0, -1)
-        total_in_redis = await redis.llen(key)
+        raw_entries = await r.lrange(key, 0, -1)
+        total_in_redis = await r.llen(key)
     except redis.exceptions.RedisError as exc:
         mgmt_redis_errors_total.labels(operation="get_audit_log").inc()
         logger.error("management | event=redis_error | op=get_audit_log | error=%s", exc)
@@ -144,7 +144,7 @@ async def get_audit_log(
 
 
 async def get_fingerprint_candidates(
-    redis,
+    r,
     sort: str = "count",
     page: int = 1,
     per_page: int = 50,
@@ -155,9 +155,9 @@ async def get_fingerprint_candidates(
     Returns (items, total).
     """
     try:
-        total = await redis.zcard("ja4:candidates")
+        total = await r.zcard("ja4:candidates")
         # ZRANGE with REV and scores — fetch all and slice
-        raw = await redis.zrange("ja4:candidates", 0, -1, withscores=True)
+        raw = await r.zrange("ja4:candidates", 0, -1, withscores=True)
     except redis.exceptions.RedisError as exc:
         mgmt_redis_errors_total.labels(operation="get_candidates").inc()
         logger.error(
@@ -192,13 +192,13 @@ async def get_fingerprint_candidates(
     return items, total
 
 
-async def publish_invalidation(redis, message_dict: dict[str, Any]) -> None:
+async def publish_invalidation(r, message_dict: dict[str, Any]) -> None:
     """Publish a message to the ja4proxy:invalidate stream via XADD.
 
     The message_dict is serialised to JSON and stored under the "event" field.
     """
     try:
-        await redis.xadd(
+        await r.xadd(
             "ja4proxy:invalidate",
             {"event": json.dumps(message_dict)},
             maxlen=10000,

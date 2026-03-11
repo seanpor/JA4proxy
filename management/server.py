@@ -19,7 +19,9 @@ import time
 from typing import Optional, Dict, Any, List
 
 import redis.asyncio as aioredis
+import redis.exceptions as redis_exc
 from fastapi import FastAPI, Request, HTTPException, Depends, status, Header, Query
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -134,6 +136,11 @@ async def create_app() -> FastAPI:
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
     
+    # Global handler: any unhandled RedisError returns 503 instead of 500
+    @app.exception_handler(redis_exc.RedisError)
+    async def _redis_error_handler(request: Request, exc: redis_exc.RedisError):
+        return JSONResponse(status_code=503, content={"detail": "Redis unavailable"})
+
     # Add Prometheus instrumentation
     Instrumentator().instrument(app).expose(app)
     
@@ -180,10 +187,10 @@ async def create_app() -> FastAPI:
                 "redis": True,
                 "version": "13.0.0"
             }
-        except Exception as e:
+        except Exception:
             return {
                 "status": "degraded",
-                "redis": str(e),
+                "redis": "error",
                 "version": "13.0.0"
             }
     
