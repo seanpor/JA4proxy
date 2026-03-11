@@ -14,8 +14,11 @@ Enterprise-grade management interface for JA4Proxy with:
 
 import asyncio
 import json
+import logging
 import os
+import sys
 import time
+import ipaddress
 from typing import Optional, Dict, Any, List
 
 import redis.asyncio as aioredis
@@ -29,11 +32,26 @@ from prometheus_fastapi_instrumentator import Instrumentator
 
 from .models import BanAddRequest, BanEntry, FingerprintEntry, DialResponse, BypassEntry
 
+# Configure logger
+logger = logging.getLogger("management")
+
 # Security middleware
 security = HTTPBearer(auto_error=False)
 
 # Rate limiting state
 RATE_LIMIT_STATE: Dict[str, int] = {}
+
+# Configuration state
+app_config: Dict[str, Any] = {}
+
+def _get_client_ip(request: Request) -> str:
+    """Extract client IP from request."""
+    # Try X-Forwarded-For first (for proxy setups)
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        # Take the first IP in the list (original client)
+        return forwarded.split(",")[0].strip()
+    return request.client.host
 
 async def get_redis() -> aioredis.Redis:
     """Get Redis connection with caching."""
@@ -97,6 +115,14 @@ async def authenticate(
 
 async def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
+    # Startup guard: check UI_API_KEY before creating app
+    api_key = os.environ.get("UI_API_KEY", "")
+    if not api_key:
+        logger.critical(
+            "management | event=startup_abort | reason=UI_API_KEY_not_set"
+        )
+        sys.exit(1)
+    
     app = FastAPI(
         title="JA4Proxy Management UI",
         description="Enterprise management interface for JA4Proxy analytics and enforcement",
@@ -108,6 +134,40 @@ async def create_app() -> FastAPI:
     
     # Initialize Redis connection and attach to app state
     app.state.redis = await get_redis()
+    
+    # Load configuration
+    app.state.config = {
+        "management_ui": {
+            "allowed_cidr": os.environ.get("MANAGEMENT_ALLOWED_CIDR", ""),
+            "max_sse_subscribers": int(os.environ.get("MAX_SSE_SUBSCRIBERS", "50")),
+            "max_dial_changes_per_hour": int(os.environ.get("MAX_DIAL_CHANGES_PER_HOUR", "10")),
+            "max_auth_failures_per_minute": int(os.environ.get("MAX_AUTH_FAILURES_PER_MINUTE", "10"))
+        }
+    }
+    
+    # allowed_cidr middleware
+    @app.middleware("http")
+    async def enforce_allowed_cidr(request: Request, call_next):
+        """Block requests from outside the configured management CIDR."""
+        # Health and ready endpoints are exempt
+        if request.url.path in ["/health", "/ready"]:
+            return await call_next(request)
+        
+        allowed_cidr = app.state.config["management_ui"].get("allowed_cidr", "")
+        if allowed_cidr:
+            client_ip = _get_client_ip(request)
+            try:
+                network = ipaddress.ip_network(allowed_cidr, strict=False)
+                addr = ipaddress.ip_address(client_ip)
+                if addr not in network:
+                    return JSONResponse(
+                        status_code=403,
+                        content={"detail": "Access denied: IP not in allowed CIDR"}
+                    )
+            except ValueError:
+                # Malformed config — fail open, log at startup
+                pass
+        return await call_next(request)
     
     # Security middleware
     app.add_middleware(
@@ -145,223 +205,19 @@ async def create_app() -> FastAPI:
     Instrumentator().instrument(app).expose(app)
     
     # Include all routers
-    from management.routers import bans, dial, policy, fingerprints
+    from management.routers import bans, dial, policy, fingerprints, config, health, audit, integrations, events
     
     app.include_router(bans.router, prefix="/api/v1", tags=["bans"])
     app.include_router(dial.router, prefix="/api/v1", tags=["dial"])
     app.include_router(policy.router, prefix="/api/v1", tags=["policy"])
     app.include_router(fingerprints.router, prefix="/api/v1", tags=["fingerprints"])
+    app.include_router(config.router, prefix="/api/v1", tags=["config"])
+    app.include_router(integrations.router, prefix="/api/v1", tags=["integrations"])
+    app.include_router(audit.router, prefix="/api/v1", tags=["audit"])
+    app.include_router(events.router, prefix="/api/v1", tags=["events"])
+    app.include_router(health.router, tags=["health"])
     
-    # Health endpoints (unauthenticated)
-    @app.get("/health")
-    async def health() -> Dict[str, Any]:
-        """Unauthenticated health check."""
-        try:
-            redis = app.state.redis
-            await redis.ping()
-            return {
-                "status": "healthy",
-                "components": {
-                    "redis": "healthy"
-                }
-            }
-        except Exception as e:
-            return {
-                "status": "degraded",
-                "error": str(e)
-            }
-    
-    @app.get("/api/v1/health/detail")
-    async def health_detail(
-        request: Request,
-        authorization: Optional[str] = Header(None)
-    ) -> Dict[str, Any]:
-        """Authenticated detailed health check."""
-        await authenticate(request, authorization)
-        
-        try:
-            redis = app.state.redis
-            await redis.ping()
-            return {
-                "status": "healthy",
-                "redis": True,
-                "version": "13.0.0"
-            }
-        except Exception:
-            return {
-                "status": "degraded",
-                "redis": "error",
-                "version": "13.0.0"
-            }
-    
-    # Config endpoints
-    @app.get("/api/v1/config/thresholds")
-    async def get_thresholds(
-        request: Request,
-        authorization: Optional[str] = Header(None)
-    ) -> Dict[str, Any]:
-        """Get threshold configuration."""
-        await authenticate(request, authorization)
-        
-        redis = app.state.redis
-        thresholds = await redis.hgetall("config:thresholds")
-        
-        # Return defaults if not set
-        return {
-            "flag": int(thresholds.get(b"flag", b"20")),
-            "rate_limit": int(thresholds.get(b"rate_limit", b"35")),
-            "tarpit": int(thresholds.get(b"tarpit", b"55")),
-            "block": int(thresholds.get(b"block", b"70")),
-            "ban": int(thresholds.get(b"ban", b"85"))
-        }
-    
-    @app.put("/api/v1/config/thresholds")
-    async def update_thresholds(
-        request: Request,
-        thresholds: Dict[str, int],
-        authorization: Optional[str] = Header(None)
-    ) -> Dict[str, Any]:
-        """Update threshold configuration."""
-        await authenticate(request, authorization)
-        
-        # Validate ranges
-        for key, value in thresholds.items():
-            if value < 0 or value > 100:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                    detail=f"Threshold {key} must be between 0 and 100"
-                )
-        
-        redis = app.state.redis
-        await redis.hset("config:thresholds", mapping=thresholds)
-        
-        return {"status": "updated", **thresholds}
-    
-    @app.put("/api/v1/config/features/{feature}")
-    async def toggle_feature(
-        request: Request,
-        feature: str,
-        payload: Dict[str, bool],
-        authorization: Optional[str] = Header(None)
-    ) -> Dict[str, Any]:
-        """Enable/disable a feature."""
-        await authenticate(request, authorization)
-        
-        redis = app.state.redis
-        await redis.set(f"config:features:{feature}", str(payload["enabled"]).lower())
-        
-        return {"status": "updated", "feature": feature, "enabled": payload["enabled"]}
-    
-    @app.get("/api/v1/config/countries/blocklist")
-    async def get_country_blocklist(
-        request: Request,
-        authorization: Optional[str] = Header(None)
-    ) -> Dict[str, Any]:
-        """Get blocked countries."""
-        await authenticate(request, authorization)
-        
-        redis = app.state.redis
-        countries = await redis.smembers("config:countries:blocklist")
-        
-        return {"countries": list(countries)}
-    
-    @app.put("/api/v1/config/countries/blocklist")
-    async def update_country_blocklist(
-        request: Request,
-        payload: Dict[str, List[str]],
-        authorization: Optional[str] = Header(None)
-    ) -> Dict[str, Any]:
-        """Update country blocklist."""
-        await authenticate(request, authorization)
-        
-        redis = app.state.redis
-        if payload["countries"]:
-            await redis.sadd("config:countries:blocklist", *payload["countries"])
-        else:
-            await redis.delete("config:countries:blocklist")
-        
-        return {"status": "updated", "countries": payload["countries"]}
-    
-    # Audit log endpoints
-    @app.get("/api/v1/audit")
-    async def get_audit_log(
-        request: Request,
-        page: int = Query(1, ge=1),
-        per_page: int = Query(50, ge=1, le=500),
-        event_type: Optional[str] = Query(None),
-        authorization: Optional[str] = Header(None)
-    ) -> Dict[str, Any]:
-        """Get paginated audit log."""
-        await authenticate(request, authorization)
-        
-        redis = app.state.redis
-        start = (page - 1) * per_page
-        end = start + per_page - 1
-        
-        entries = await redis.lrange("management:audit_log", start, end)
-        total = await redis.llen("management:audit_log")
-        
-        # Filter by event type if specified
-        if event_type:
-            entries = [e for e in entries if event_type in e]
-        
-        return {
-            "items": [json.loads(e) for e in entries],
-            "total": total,
-            "page": page,
-            "per_page": per_page
-        }
-    
-    # Integrations endpoints
-    @app.get("/api/v1/integrations/abuseipdb")
-    async def get_abuseipdb_status(
-        request: Request,
-        authorization: Optional[str] = Header(None)
-    ) -> Dict[str, Any]:
-        """Get AbuseIPDB integration status."""
-        await authenticate(request, authorization)
-        
-        redis = app.state.redis
-        enabled = await redis.get("config:features:abuseipdb")
-        
-        return {
-            "status": "enabled" if enabled == "true" else "disabled",
-            "service": "abuseipdb"
-        }
-    
-    @app.get("/api/v1/integrations/spamhaus")
-    async def get_spamhaus_status(
-        request: Request,
-        authorization: Optional[str] = Header(None)
-    ) -> Dict[str, Any]:
-        """Get Spamhaus integration status."""
-        await authenticate(request, authorization)
-        
-        redis = app.state.redis
-        enabled = await redis.get("config:features:spamhaus")
-        
-        return {
-            "status": "enabled" if enabled == "true" else "disabled",
-            "service": "spamhaus"
-        }
-    
-    @app.get("/ready")
-    async def ready() -> Dict[str, Any]:
-        """Readiness check."""
-        try:
-            redis = app.state.redis
-            await redis.ping()
-            return {
-                "status": "ready",
-                "dependencies": {
-                    "redis": True
-                }
-            }
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Readiness check failed: {e}"
-            )
+
     
 
     

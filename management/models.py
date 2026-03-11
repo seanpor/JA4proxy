@@ -46,6 +46,28 @@ def _validate_ja4(v: str) -> str:
     return v
 
 
+# ── Threshold model ──────────────────────────────────────────────────────────
+
+class ThresholdConfig(BaseModel):
+    """Score thresholds for different actions."""
+    flag: int
+    rate_limit: int
+    tarpit: int
+    block: int
+    ban: int
+    
+    @model_validator(mode='after')
+    def validate_order(self) -> 'ThresholdConfig':
+        """Ensure thresholds are in ascending order."""
+        if not (self.flag <= self.rate_limit <= self.tarpit <= 
+                self.block <= self.ban):
+            raise ValueError(
+                "Thresholds must be in ascending order: "
+                "flag <= rate_limit <= tarpit <= block <= ban"
+            )
+        return self
+
+
 # ── Ban models ────────────────────────────────────────────────────────────────
 
 class BanAddRequest(BaseModel):
