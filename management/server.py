@@ -202,6 +202,7 @@ async def create_app() -> FastAPI:
     # would intercept every request if registered first.
     from management.routers import (  # noqa: PLC0415
         audit,
+        auth,
         bans,
         config,
         dial,
@@ -212,6 +213,7 @@ async def create_app() -> FastAPI:
         policy,
     )
 
+    app.include_router(auth.router, prefix="/api/v1", tags=["auth"])
     app.include_router(bans.router, prefix="/api/v1", tags=["bans"])
     app.include_router(dial.router, prefix="/api/v1", tags=["dial"])
     app.include_router(policy.router, prefix="/api/v1", tags=["policy"])

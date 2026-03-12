@@ -88,6 +88,15 @@ async def require_api_key(
 
     redis_client = getattr(request.app.state, "redis", None)
 
+    # Accept session tokens issued by POST /api/v1/auth/login
+    if redis_client is not None and token:
+        try:
+            session_user = await redis_client.get(f"mgmt:session:{token}")
+            if isinstance(session_user, str) and session_user:
+                return token  # valid session — skip API key check
+        except Exception:
+            pass  # Redis error — fall through to API key check
+
     # Check rate limit before auth to prevent timing attacks revealing key length
     if redis_client is not None and token != configured_key:
         count = await check_rate_limit(redis_client, client_ip)

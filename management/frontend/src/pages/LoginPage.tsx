@@ -4,7 +4,8 @@ import { useAuth } from '../hooks/useAuth';
 import { Button, Input, Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter, Alert, AlertDescription } from '../components/ui';
 
 export const LoginPage: React.FC = () => {
-  const [apiKey, setApiKey] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
@@ -16,11 +17,10 @@ export const LoginPage: React.FC = () => {
     setIsLoading(true);
 
     try {
-      await login(apiKey);
+      await login(username, password);
       navigate('/dashboard', { replace: true });
-    } catch (err) {
-      console.error('Login failed:', err);
-      setError('Invalid API key. Please try again.');
+    } catch {
+      setError('Invalid username or password. Please try again.');
       setIsLoading(false);
     }
   };
@@ -31,7 +31,7 @@ export const LoginPage: React.FC = () => {
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">JA4 Proxy Management</CardTitle>
           <CardDescription className="text-center">
-            Enter your API key to access the management interface
+            Sign in to access the management interface
           </CardDescription>
         </CardHeader>
 
@@ -44,28 +44,45 @@ export const LoginPage: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="apiKey" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                API Key
+              <label htmlFor="username" className="text-sm font-medium leading-none">
+                Username
               </label>
               <Input
-                id="apiKey"
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="admin"
+                autoComplete="username"
+                required
+                className="w-full"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="password" className="text-sm font-medium leading-none">
+                Password
+              </label>
+              <Input
+                id="password"
                 type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                placeholder="Enter your API key"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                autoComplete="current-password"
                 required
                 className="w-full"
               />
             </div>
 
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Authenticating...' : 'Sign In'}
+              {isLoading ? 'Signing in…' : 'Sign In'}
             </Button>
           </form>
         </CardContent>
 
         <CardFooter className="text-center text-sm text-gray-500">
-          <p>JA4 Proxy Management UI v1.0</p>
+          <p>JA4 Proxy Management UI</p>
         </CardFooter>
       </Card>
     </div>
