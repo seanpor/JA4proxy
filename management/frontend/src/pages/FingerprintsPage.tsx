@@ -1,12 +1,6 @@
 import React, { useState } from 'react';
 import { useFingerprints } from '../hooks/useApi';
-import { Button } from '../components/ui/Button';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../components/ui/Table';
-import { Input } from '../components/ui/Input';
-import { Label } from '../components/ui/Label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/Dialog';
-import { Alert, AlertDescription } from '../components/ui/Alert';
+import { Button, Card, CardHeader, CardTitle, CardContent, CardDescription, Input, Label, Alert, AlertDescription, AlertTitle, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Select, SelectTrigger, SelectContent, SelectItem, Textarea, Badge, Switch, Sheet, SheetContent, SheetTrigger } from "../components/ui";
 import { AlertCircle, Plus, Trash2, Fingerprint } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -44,7 +38,7 @@ export const FingerprintsPage: React.FC = () => {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Fingerprint Management</h1>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
+          <DialogTrigger>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
               Add Fingerprint

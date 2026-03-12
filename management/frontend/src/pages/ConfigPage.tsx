@@ -1,10 +1,5 @@
 import React, { useState } from 'react';
-import { Button } from '../components/ui/Button';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../components/ui/Card';
-import { Input } from '../components/ui/Input';
-import { Label } from '../components/ui/Label';
-import { Switch } from '../components/ui/Switch';
-import { Alert, AlertDescription } from '../components/ui/Alert';
+import { Button, Card, CardHeader, CardTitle, CardContent, CardDescription, Input, Label, Alert, AlertDescription, AlertTitle, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Select, SelectTrigger, SelectContent, SelectItem, Textarea, Badge, Switch, Sheet, SheetContent, SheetTrigger } from "../components/ui";
 import { AlertCircle, Save, Settings, Shield, Network, Fingerprint } from 'lucide-react';
 
 export const ConfigPage: React.FC = () => {
@@ -187,7 +182,7 @@ export const ConfigPage: React.FC = () => {
                 onChange={handleInputChange}
                 placeholder="Generate or paste API key"
               />
-              <Button variant="secondary" type="button">
+              <Button variant="outline" type="button">
                 Generate
               </Button>
             </div>
@@ -233,7 +228,7 @@ export const ConfigPage: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <Alert variant="warning">
+            <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 These settings should only be modified if you understand their impact on system performance and security.

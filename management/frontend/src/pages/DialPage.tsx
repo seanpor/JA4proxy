@@ -1,27 +1,18 @@
 import React, { useState } from 'react';
 import { useDial } from '../hooks/useApi';
-import { Button } from '../components/ui/Button';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../components/ui/Card';
-import { Input } from '../components/ui/Input';
-import { Label } from '../components/ui/Label';
-import { Textarea } from '../components/ui/Textarea';
-import { Alert, AlertDescription } from '../components/ui/Alert';
+import { Button, Card, CardHeader, CardTitle, CardContent, CardDescription, Input, Label, Textarea, Alert, AlertDescription } from '../components/ui';
 import { AlertCircle, Phone, Copy, Check } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 
 export const DialPage: React.FC = () => {
   const { mutate: dial, isPending, error, data: result } = useDial();
-  const [fingerprint, setFingerprint] = useState('');
-  const [copied, setCopied] = useState(false);
+  const [fingerprint, setFingerprint] = useState<string>('');
+  const [copied, setCopied] = useState<boolean>(false);
   const { toast } = useToast();
 
   const handleDial = () => {
     if (!fingerprint.trim()) {
-      toast({
-        title: 'Error',
-        description: 'Please enter a fingerprint',
-        variant: 'destructive',
-      });
+      toast('Error', 'Please enter a fingerprint', 'destructive');
       return;
     }
     dial(fingerprint);
@@ -32,10 +23,7 @@ export const DialPage: React.FC = () => {
       navigator.clipboard.writeText(JSON.stringify(result, null, 2));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-      toast({
-        title: 'Copied',
-        description: 'Result copied to clipboard',
-      });
+      toast('Copied', 'Result copied to clipboard');
     }
   };
 

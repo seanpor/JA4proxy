@@ -4,7 +4,7 @@ exports.AuthGuard = void 0;
 const jsx_runtime_1 = require("react/jsx-runtime");
 const react_1 = require("react");
 const react_router_dom_1 = require("react-router-dom");
-const useAuth_1 = require("../../../hooks/useAuth");
+const useAuth_1 = require("../../hooks/useAuth");
 const AuthGuard = ({ children }) => {
     const { isAuthenticated, validateToken } = (0, useAuth_1.useAuth)();
     const navigate = (0, react_router_dom_1.useNavigate)();

@@ -1,39 +1,23 @@
-// Simple toast hook implementation
+// Minimal toast notification hook without JSX
 import { useState } from 'react';
 
-interface ToastProps {
-  title: string;
-  description: string;
-  variant?: 'default' | 'destructive' | 'success';
-}
-
 export const useToast = () => {
-  const [toasts, setToasts] = useState<ToastProps[]>([]);
+  const [toasts, setToasts] = useState<Array<{
+    id: number;
+    title: string;
+    description: string;
+    variant: 'default' | 'destructive' | 'success';
+  }>>([]);
 
-  const toast = (props: ToastProps) => {
-    setToasts((prev) => [...prev, props]);
+  const toast = (title: string, description: string, variant: 'default' | 'destructive' | 'success' = 'default') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, title, description, variant }]);
+    
+    // Auto-dismiss after 5 seconds
     setTimeout(() => {
-      setToasts((prev) => prev.slice(1));
+      setToasts(prev => prev.filter(t => t.id !== id));
     }, 5000);
   };
 
-  const ToastComponent = () => (
-    <div className="fixed bottom-4 right-4 space-y-2">
-      {toasts.map((toast, index) => (
-        <div
-          key={index}
-          className={`p-4 rounded-md shadow-lg ${
-            toast.variant === 'destructive' ? 'bg-destructive text-destructive-foreground' :
-            toast.variant === 'success' ? 'bg-green-500 text-white' :
-            'bg-background border'
-          }`}
-        >
-          <h3 className="font-medium">{toast.title}</h3>
-          <p className="text-sm">{toast.description}</p>
-        </div>
-      ))}
-    </div>
-  );
-
-  return { toast, ToastComponent };
+  return { toast, toasts };
 };

@@ -83,7 +83,7 @@ export const DashboardPage: React.FC = () => {
           </CardHeader>
           <CardContent>
             {!isConnected && (
-              <Alert variant="warning" className="mb-4">
+              <Alert variant="destructive" className="mb-4">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Connection Issue</AlertTitle>
                 <AlertDescription>
@@ -113,7 +113,7 @@ export const DashboardPage: React.FC = () => {
                         {new Date(event.timestamp).toLocaleTimeString()}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary">{event.type}</Badge>
+                        <Badge variant="outline">{event.type}</Badge>
                       </TableCell>
                       <TableCell>{event.data?.message || 'N/A'}</TableCell>
                       <TableCell>

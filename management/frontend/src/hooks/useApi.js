@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.useSseEvents = exports.useDial = exports.useHealth = exports.useAuditLog = exports.useThresholdConfig = exports.useFingerprints = exports.useCIDRs = exports.useBans = void 0;
+const react_1 = require("react");
 const react_query_1 = require("@tanstack/react-query");
 const client_1 = require("../api/client");
 // Ban hooks
@@ -181,9 +182,9 @@ const useDial = () => {
 exports.useDial = useDial;
 // SSE Events hook
 const useSseEvents = () => {
-    const [events, setEvents] = useState([]);
-    const [isConnected, setIsConnected] = useState(false);
-    useEffect(() => {
+    const [events, setEvents] = (0, react_1.useState)([]);
+    const [isConnected, setIsConnected] = (0, react_1.useState)(false);
+    (0, react_1.useEffect)(() => {
         const eventSource = new EventSource('/events/sse');
         eventSource.onopen = () => {
             console.log('SSE connection opened');

@@ -1,11 +1,6 @@
 import React, { useState } from 'react';
 import { useAuditLog } from '../hooks/useApi';
-import { Button } from '../components/ui/Button';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../components/ui/Table';
-import { Input } from '../components/ui/Input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/Select';
-import { Alert, AlertDescription } from '../components/ui/Alert';
+import { Button, Card, CardHeader, CardTitle, CardContent, CardDescription, Input, Label, Alert, AlertDescription, AlertTitle, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Select, SelectTrigger, SelectContent, SelectItem, Textarea, Badge, Switch, Sheet, SheetContent, SheetTrigger } from "../components/ui";
 import { AlertCircle, Search, Filter, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -78,33 +73,21 @@ export const AuditPage: React.FC = () => {
             </div>
 
             <div className="flex gap-2">
-              <Select value={severityFilter} onValueChange={setSeverityFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Severity: {severityFilter === 'all' ? 'All' : severityFilter}
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Severities</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="info">Info</SelectItem>
-                </SelectContent>
+              <Select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)} className="w-[180px]">
+                  <option value="all">All Severities</option>
+                  <option value="high">High</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                  <option value="info">Info</option>
               </Select>
 
-              <Select value={eventTypeFilter} onValueChange={setEventTypeFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Event Type: {eventTypeFilter === 'all' ? 'All' : eventTypeFilter}
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Event Types</SelectItem>
-                  <SelectItem value="ban_created">Ban Created</SelectItem>
-                  <SelectItem value="ban_deleted">Ban Deleted</SelectItem>
-                  <SelectItem value="cidr_created">CIDR Created</SelectItem>
-                  <SelectItem value="fingerprint_detected">Fingerprint Detected</SelectItem>
-                  <SelectItem value="system_event">System Event</SelectItem>
-                </SelectContent>
+              <Select value={eventTypeFilter} onChange={(e) => setEventTypeFilter(e.target.value)} className="w-[180px]">
+                  <option value="all">All Event Types</option>
+                  <option value="ban_created">Ban Created</option>
+                  <option value="ban_deleted">Ban Deleted</option>
+                  <option value="cidr_created">CIDR Created</option>
+                  <option value="fingerprint_detected">Fingerprint Detected</option>
+                  <option value="system_event">System Event</option>
               </Select>
             </div>
           </div>

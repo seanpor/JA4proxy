@@ -1,15 +1,15 @@
 import React from 'react';
 import { useHealth } from '../hooks/useApi';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../components/ui/Card';
-import { Alert, AlertDescription } from '../components/ui/Alert';
+import { Button, Card, CardHeader, CardTitle, CardContent, CardDescription, Input, Label, Alert, AlertDescription, AlertTitle, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Select, SelectTrigger, SelectContent, SelectItem, Textarea, Badge, Switch, Sheet, SheetContent, SheetTrigger } from "../components/ui";
 import { AlertCircle, HeartPulse, Activity, Database, Shield, Clock, Server } from 'lucide-react';
-import { Badge } from '../components/ui/Badge';
 
 export const HealthPage: React.FC = () => {
   const { data: healthData, isLoading, error, isError } = useHealth();
 
-  const getStatusBadge = (status: string) => {
-    switch (status?.toLowerCase()) {
+  const getStatusBadge = (status: string | undefined) => {
+    if (!status) return <Badge variant="outline">Unknown</Badge>;
+    
+    switch (status.toLowerCase()) {
       case 'healthy':
         return <Badge variant="outline" className="bg-green-500 text-white">Healthy</Badge>;
       case 'degraded':
