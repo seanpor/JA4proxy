@@ -7,90 +7,62 @@ export const useAuth = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const navigate = useNavigate();
 
-  // Check authentication status on initial load
+  // Validate stored session token on initial load
   useEffect(() => {
     const checkAuth = async () => {
-      const token = sessionStorage.getItem('ja4proxy_api_key');
+      const token = sessionStorage.getItem('ja4proxy_token');
       if (token) {
         try {
-          await validateToken(token);
+          await apiClient.get('/auth/me', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
           setIsAuthenticated(true);
-        } catch (error) {
-          console.error('Token validation failed:', error);
-          sessionStorage.removeItem('ja4proxy_api_key');
+        } catch {
+          sessionStorage.removeItem('ja4proxy_token');
           setIsAuthenticated(false);
         }
       }
       setIsLoading(false);
     };
-
     checkAuth();
   }, []);
 
-  // Set up axios interceptors for 401 handling
+  // Redirect to login on any 401
   useEffect(() => {
     const interceptor = apiClient.interceptors.response.use(
       (response) => response,
       (error) => {
         if (error.response?.status === 401) {
-          console.error('Unauthorized access, logging out');
-          logout();
+          sessionStorage.removeItem('ja4proxy_token');
+          setIsAuthenticated(false);
           navigate('/login', { replace: true });
         }
         return Promise.reject(error);
       }
     );
-
-    return () => {
-      apiClient.interceptors.response.eject(interceptor);
-    };
+    return () => apiClient.interceptors.response.eject(interceptor);
   }, [navigate]);
 
-  const login = async (apiKey: string): Promise<void> => {
-    try {
-      // Test the API key by making a simple authenticated request
-      await apiClient.get('/health/ready', {
-        headers: {
-          Authorization: `Bearer ${apiKey}`
-        }
-      });
-
-      // If successful, store the token
-      sessionStorage.setItem('ja4proxy_api_key', apiKey);
-      setIsAuthenticated(true);
-    } catch (error) {
-      console.error('Login failed:', error);
-      throw new Error('Invalid API key');
-    }
+  const login = async (username: string, password: string): Promise<void> => {
+    const response = await apiClient.post('/auth/login', { username, password });
+    const { token } = response.data;
+    sessionStorage.setItem('ja4proxy_token', token);
+    apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    setIsAuthenticated(true);
   };
 
-  const validateToken = async (token?: string): Promise<boolean> => {
-    const apiKey = token || sessionStorage.getItem('ja4proxy_api_key');
-    if (!apiKey) return false;
-
-    try {
-      await apiClient.get('/health/ready', {
-        headers: {
-          Authorization: `Bearer ${apiKey}`
-        }
-      });
-      return true;
-    } catch (error) {
-      console.error('Token validation failed:', error);
-      return false;
+  const logout = async (): Promise<void> => {
+    const token = sessionStorage.getItem('ja4proxy_token');
+    if (token) {
+      try {
+        await apiClient.post('/auth/logout');
+      } catch { /* best effort */ }
+      sessionStorage.removeItem('ja4proxy_token');
     }
-  };
-
-  const logout = (): void => {
-    sessionStorage.removeItem('ja4proxy_api_key');
+    apiClient.defaults.headers.common['Authorization'] = '';
     setIsAuthenticated(false);
+    navigate('/login', { replace: true });
   };
 
-  return {
-    isAuthenticated,
-    isLoading,
-    login,
-    validateToken,
-    logout,
-  };
+  return { isAuthenticated, isLoading, login, logout };
 };

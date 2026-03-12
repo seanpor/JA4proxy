@@ -192,6 +192,8 @@ services:
       - redis
     environment:
       - UI_API_KEY=${UI_API_KEY:-changeme}
+      - UI_USERNAME=${UI_USERNAME:-admin}
+      - UI_PASSWORD=${UI_PASSWORD:-${UI_API_KEY:-changeme}}
       - REDIS_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379
       - MANAGEMENT_PORT=8001
       - PYTHONUNBUFFERED=1
