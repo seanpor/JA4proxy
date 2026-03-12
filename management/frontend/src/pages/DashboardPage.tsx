@@ -1,9 +1,6 @@
 import React from 'react';
 import { useSseEvents, useHealth, useBans, useCIDRs, useFingerprints } from '../hooks/useApi';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
-import { Badge } from '../components/ui/Badge';
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../components/ui/Table';
-import { Alert, AlertTitle, AlertDescription } from '../components/ui/Alert';
+import { Card, CardHeader, CardTitle, CardContent, Badge, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Alert, AlertTitle, AlertDescription } from '../components/ui';
 import { AlertCircle, Shield, Users, Fingerprint, HeartPulse, Activity } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
