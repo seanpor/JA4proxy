@@ -12,7 +12,6 @@ import { AuditPage } from './pages/AuditPage'
 import { HealthPage } from './pages/HealthPage'
 import { AuthGuard } from './components/layout/AuthGuard'
 
-// Create the router configuration
 export const router = createBrowserRouter([
   {
     path: '/login',
@@ -26,7 +25,8 @@ export const router = createBrowserRouter([
         path: '',
         element: <AppShell />,
         children: [
-          { index: true, element: <DashboardPage /> },
+          { index: true, element: <Navigate to="/dashboard" replace /> },
+          { path: 'dashboard', element: <DashboardPage /> },
           { path: 'bans', element: <BansPage /> },
           { path: 'cidrs', element: <CIDRsPage /> },
           { path: 'fingerprints', element: <FingerprintsPage /> },
