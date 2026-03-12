@@ -185,22 +185,19 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.management
-      network: host
     container_name: ja4proxy-management-ui
     ports:
-      - "127.0.0.1:8001:8001"
+      - "0.0.0.0:8001:8001"
     depends_on:
       - redis
     environment:
       - UI_API_KEY=${UI_API_KEY:-changeme}
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379
+      - MANAGEMENT_PORT=8001
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
     volumes:
       - ./management:/app/management:ro
-      - ./config/management:/app/config:ro
     networks:
       - ja4proxy-backend
     security_opt:

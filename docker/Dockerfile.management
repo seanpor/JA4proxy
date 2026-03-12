@@ -1,75 +1,32 @@
-# Management UI Dockerfile
-# Builds the FastAPI management backend server
-
-FROM python:3.11-slim as builder
-
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PYTHONFAULTHANDLER=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    POETRY_VERSION=1.7.1
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Poetry
-RUN curl -sSL https://install.python-poetry.org | python3 - --version $POETRY_VERSION
-
-# Set up working directory
-WORKDIR /app
-
-# Copy only requirements first for caching
-COPY management/requirements.txt ./
-RUN poetry export --without-hashes --format=requirements.txt --output=requirements.txt && \
-    pip install --no-cache-dir -r requirements.txt && \
-    rm requirements.txt
-
-# Copy application code
-COPY management/management ./management/
-COPY config/management /app/config/
-
-# Install application
-RUN pip install --no-cache-dir -e .
-
-# Final stage
 FROM python:3.11-slim
 
-# Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONFAULTHANDLER=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Set up working directory
 WORKDIR /app
 
-# Copy from builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /app/management ./management/
-COPY --from=builder /app/config ./config/
+# Install Python dependencies
+RUN pip install --no-cache-dir \
+    "fastapi==0.135.1" \
+    "uvicorn[standard]==0.41.0" \
+    "redis[asyncio]==5.0.1" \
+    "pydantic>=2.0" \
+    "prometheus-client==0.19.0" \
+    "prometheus-fastapi-instrumentator==7.1.0" \
+    "sse-starlette>=1.6.5" \
+    "httpx"
 
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    dumb-init \
-    && rm -rf /var/lib/apt/lists/*
+# Copy the management package (includes pre-built React SPA in management/static/)
+COPY management/ ./management/
 
-# Set up entrypoint
-COPY docker/entrypoint.management.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-# Expose port
-EXPOSE 8001
-
-# Run as non-root
-RUN useradd --create-home --shell /bin/bash appuser
+# Non-root user
+RUN useradd --no-create-home --shell /bin/false appuser \
+ && chown -R appuser:appuser /app
 USER appuser
 
-# Start server
-ENTRYPOINT ["/entrypoint.sh"]
-CMD ["python", "-m", "management.server"]
+EXPOSE 8001
+
+CMD ["python3", "-m", "management.server"]
