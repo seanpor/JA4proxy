@@ -1,5 +1,60 @@
 # Management UI Runbook
 
+## Quick Start
+
+### Run locally (development)
+
+```bash
+# 1. Set a key (required — server refuses to start without one)
+export UI_API_KEY="$(openssl rand -base64 32)"
+echo "Your API key: $UI_API_KEY"   # save this somewhere
+
+# 2. Point at your Redis instance
+export REDIS_URL="redis://localhost:6379"   # default; adjust if needed
+
+# 3. Start the server
+python3 -m management.server
+# or equivalently:
+# uvicorn management.server:create_app --factory --host 127.0.0.1 --port 8090
+```
+
+### Access
+
+| What | URL |
+|------|-----|
+| React SPA (management UI) | `http://localhost:8090/` |
+| Interactive API docs (Swagger) | `http://localhost:8090/api/docs` |
+| OpenAPI schema (JSON) | `http://localhost:8090/api/openapi.json` |
+| Health check (unauthenticated) | `http://localhost:8090/health` |
+| Prometheus metrics | `http://localhost:8090/metrics` |
+
+### Authenticate
+
+Every API endpoint (except `/health`, `/ready`, `/metrics`) requires a Bearer token:
+
+```bash
+# In the UI: enter the API key in the login screen
+
+# With curl:
+curl -H "Authorization: Bearer $UI_API_KEY" http://localhost:8090/api/v1/bans
+
+# Or via query parameter:
+curl "http://localhost:8090/api/v1/bans?key=$UI_API_KEY"
+```
+
+### Run with Docker Compose (POC stack)
+
+```bash
+# From the project root:
+export UI_API_KEY="$(openssl rand -base64 32)"
+docker compose -f docker-compose.poc.yml up -d
+
+# Management UI is bound to 127.0.0.1:8001 on the host
+# Access: http://localhost:8001/
+```
+
+---
+
 ## Access Setup
 
 ### Prerequisites
@@ -12,6 +67,7 @@
 1. **Set environment variables:**
    ```bash
    export UI_API_KEY="$(openssl rand -base64 32)"
+   export REDIS_URL="redis://localhost:6379"
    export MANAGEMENT_ALLOWED_CIDR="10.0.0.0/8"  # Optional: restrict access
    export MAX_SSE_SUBSCRIBERS=50
    export MAX_DIAL_CHANGES_PER_HOUR=10
@@ -19,11 +75,12 @@
 
 2. **Start management server:**
    ```bash
-   uvicorn management.server:app --host 127.0.0.1 --port 8090
+   python3 -m management.server
    ```
 
 3. **Access the UI:**
-   - Development: `http://localhost:8090/app`
+   - Development: `http://localhost:8090/`
+   - API docs: `http://localhost:8090/api/docs`
    - Production: `https://mgmt.ja4proxy.internal` (behind nginx reverse proxy)
 
 ## Key Rotation
