@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Button } from '../ui/Button';
-import { Sheet, SheetContent, SheetTrigger } from '../ui/Sheet';
+import { Link, useLocation, Outlet } from 'react-router-dom';
+import { Button, Sheet, SheetContent, SheetTrigger } from '../ui';
 import { Menu, Package2, PanelLeft, Search, Users, Settings, Shield, Fingerprint, Phone, FileText, HeartPulse, ListChecks } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -11,7 +10,7 @@ interface NavItem {
   icon: React.ReactNode;
 }
 
-export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const AppShell: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
   const { logout } = useAuth();
@@ -38,13 +37,13 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
       <div className="flex flex-col sm:gap-4 sm:py-4">
         <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
           <Sheet>
-            <SheetTrigger asChild>
+            <SheetTrigger>
               <Button size="icon" variant="outline" className="sm:hidden">
                 <PanelLeft className="h-5 w-5" />
                 <span className="sr-only">Toggle Menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="sm:max-w-xs">
+            <SheetContent className="sm:max-w-xs">
               <nav className="grid gap-6 text-lg font-medium">
                 <Link to="/dashboard" className="group flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:text-base">
                   <Package2 className="h-5 w-5 transition-all group-hover:scale-110" />
@@ -81,7 +80,7 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
         <main className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
           <div className="mx-auto grid w-full max-w-6xl flex-1 auto-rows-max gap-4">
-            {children}
+            {children || <Outlet />}
           </div>
         </main>
       </div>

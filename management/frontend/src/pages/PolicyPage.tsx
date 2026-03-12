@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import { useThresholdConfig } from '../hooks/useApi';
-import { Button } from '../components/ui/Button';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../components/ui/Card';
-import { Input } from '../components/ui/Input';
-import { Label } from '../components/ui/Label';
-import { Alert, AlertDescription } from '../components/ui/Alert';
+import { Button, Card, CardHeader, CardTitle, CardContent, CardDescription, Input, Label, Alert, AlertDescription } from '../components/ui';
 import { AlertCircle, Save, Shield, Fingerprint, Network } from 'lucide-react';
 
 export const PolicyPage: React.FC = () => {

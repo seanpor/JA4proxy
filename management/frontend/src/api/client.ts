@@ -14,7 +14,7 @@ const apiClient: AxiosInstance = axios.create({
 
 // Request interceptor - add auth token
 apiClient.interceptors.request.use(
-  (config: AxiosRequestConfig) => {
+  (config) => {
     const token = sessionStorage.getItem('ja4proxy_api_key')
     if (token) {
       config.headers = config.headers || {}
