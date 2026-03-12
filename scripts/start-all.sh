@@ -59,6 +59,8 @@ echo "  Loki:          (Docker network only — no host port)"
 echo "  Alertmanager:  http://localhost:9093"
 echo "  Grafana:       http://localhost:3001"
 echo "                 (admin / see .env)"
+echo "  Management UI: http://localhost:8001"
+echo "                 (admin / UI_PASSWORD in .env)"
 echo
 echo "Next steps:"
 echo "  1. Open Grafana: http://localhost:3001"
