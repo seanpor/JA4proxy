@@ -5,30 +5,19 @@ import json
 import time
 from typing import AsyncGenerator, Optional
 
-import redis.asyncio as aioredis
 import redis.exceptions as redis_exc
-from fastapi import APIRouter, Depends, HTTPException, Request, Header
-from prometheus_client import Counter, Gauge
+from fastapi import APIRouter, Header, HTTPException, Request
 from sse_starlette.sse import EventSourceResponse
 
-from ..server import authenticate, _get_client_ip
+from ..metrics import mgmt_redis_errors_total, mgmt_sse_subscribers_active
+from ..server import authenticate
 
 router = APIRouter()
-
-# Metrics
-mgmt_sse_subscribers_active = Gauge(
-    "ja4proxy_mgmt_sse_subscribers_active",
-    "Number of active SSE subscribers"
-)
-mgmt_redis_errors_total = Counter(
-    "ja4proxy_mgmt_redis_errors_total",
-    "Total Redis errors in management UI",
-    ["operation"]
-)
 
 _MAX_SSE_SUBSCRIBERS = 50
 _HEARTBEAT_INTERVAL = 15.0
 _STREAM_KEY = "ja4proxy:events"
+_active_subscribers = 0
 
 
 async def _event_generator(
@@ -43,6 +32,7 @@ async def _event_generator(
     last_id = "$"  # Only new events
     last_heartbeat = time.monotonic()
 
+    global _active_subscribers
     try:
         while True:
             if await request.is_disconnected():
@@ -90,6 +80,7 @@ async def _event_generator(
 
                     yield {"event": "message", "data": json.dumps(event)}
     finally:
+        _active_subscribers -= 1
         mgmt_sse_subscribers_active.dec()
 
 
@@ -104,12 +95,12 @@ async def live_feed(
 ) -> EventSourceResponse:
     """Stream live connection events via SSE."""
     await authenticate(request, authorization)
-    
-    # Subscriber cap
-    current = mgmt_sse_subscribers_active._value.get()
-    if current >= _MAX_SSE_SUBSCRIBERS:
+
+    global _active_subscribers
+    if _active_subscribers >= _MAX_SSE_SUBSCRIBERS:
         raise HTTPException(status_code=429, detail="Too many SSE subscribers")
 
+    _active_subscribers += 1
     mgmt_sse_subscribers_active.inc()
     
     return EventSourceResponse(

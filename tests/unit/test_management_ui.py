@@ -16,6 +16,7 @@ Covers:
 import asyncio
 import json
 import os
+import time
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -774,11 +775,13 @@ async def test_thresholds_validation_ascending_order(client, mock_redis):
 
 async def test_sse_events_endpoint_exists(client, mock_redis):
     """GET /api/v1/events should exist and return event-stream content type."""
-    # Mock xread to return empty (no events) so stream doesn't block
-    mock_redis.xread = AsyncMock(return_value=[])
-    async with client.stream("GET", "/api/v1/events", headers=HEADERS) as resp:
-        assert resp.status_code == 200
-        assert "text/event-stream" in resp.headers.get("content-type", "")
+    async def _one_heartbeat_then_stop(req, *args, **kwargs):
+        yield {"event": "heartbeat", "data": '{"type":"heartbeat"}'}
+
+    with patch("management.routers.events._event_generator", _one_heartbeat_then_stop):
+        async with client.stream("GET", "/api/v1/events", headers=HEADERS) as resp:
+            assert resp.status_code == 200
+            assert "text/event-stream" in resp.headers.get("content-type", "")
 
 
 async def test_sse_recent_events(client, mock_redis):
