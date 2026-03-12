@@ -34,6 +34,21 @@
 | `management:audit_log` | List (last 1000 entries) | none | Management UI | All secops admin actions |
 | `management:policy_audit` | List (last 1000 entries) | none | Management UI, config reload | Security policy bypass changes |
 
+## Phase 13 — Management UI
+
+| Key pattern | Type | TTL | Written by | Notes |
+|-------------|------|-----|------------|-------|
+| `mgmt:ratelimit:{ip}` | String (INCR) | 60s | Management auth | Auth failure counter per IP; rate-limit gate |
+| `mgmt:dial_changes:{YYYYMMDDHH}` | String (INCR) | 3600s | Dial router | Hourly dial change counter; max 10/hour safety gate |
+| `policy:bypass:{name}` | String "true"/"false" | none | Policy router, config reload | Enabled state of each of the 8 security bypasses |
+| `management:audit_log` | List (JSON entries) | none | All routers | Admin action audit trail; LPUSH+LTRIM 1000 |
+| `management:policy_audit` | List (JSON entries) | none | Policy router, config reload | Security policy change audit; LPUSH+LTRIM 1000 |
+| `dial:current` | String (integer 0–100) | none | Dial router, proxy | Current dial value |
+| `dial:blocking_acknowledged` | String "true"/"false" | none | Dial router | Blocking risk acknowledgment flag |
+| `config:thresholds` | Hash | none | Config router | flag/rate_limit/tarpit/block/ban score thresholds |
+| `config:features:{name}` | String "true"/"false" | none | Config router | Individual feature flags |
+| `config:countries:blocklist` | Set (ISO-2 codes) | none | Config router | GeoIP country blocklist |
+
 ### Phase 6 — ASN & Datacenter Classification
 
 | Key pattern | Type | TTL | Written by | Notes |

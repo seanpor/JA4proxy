@@ -184,3 +184,204 @@ async def test_multiple_operations_all_audited(client, mock_redis):
 
     # Should have at least 2 lpush calls for audit log
     assert mock_redis.lpush.call_count >= 2
+
+
+# ── Phase 13b integration tests ────────────────────────────────────────────────
+
+async def test_ban_add_publishes_invalidation(client, mock_redis):
+    """POST /bans publishes an event on ja4proxy:invalidate."""
+    # Add a ban
+    payload = {"ip": "1.2.3.4", "reason": "integration test", "ttl_s": 3600}
+    resp = await client.post("/api/v1/bans", json=payload, headers=HEADERS)
+    assert resp.status_code == 201
+    
+    # Check that event was published to stream
+    mock_redis.xadd.assert_called()
+    xadd_calls = [str(c) for c in mock_redis.xadd.call_args_list]
+    ban_added_calls = [c for c in xadd_calls if "ban_added" in c]
+    assert len(ban_added_calls) > 0
+
+
+async def test_ban_release_publishes_invalidation(client, mock_redis):
+    """DELETE /bans/{ip} publishes ban_release event."""
+    # Mock the ban existence
+    mock_redis.get.return_value = "test-reason"
+    
+    resp = await client.delete("/api/v1/bans/5.6.7.8", headers=HEADERS)
+    assert resp.status_code == 200
+    
+    # Check that release event was published
+    mock_redis.xadd.assert_called()
+    xadd_calls = [str(c) for c in mock_redis.xadd.call_args_list]
+    release_calls = [c for c in xadd_calls if "ban_release" in c]
+    assert len(release_calls) > 0
+
+
+async def test_fingerprint_blacklist_publishes_invalidation(client, mock_redis):
+    """POST /fingerprints/blacklist publishes ja4_blacklist_add."""
+    payload = {
+        "fingerprint": "t13d1516h2_8daaf6152771_02713d6af862",
+        "reason": "integration test"
+    }
+    resp = await client.post("/api/v1/fingerprints/blacklist", json=payload, headers=HEADERS)
+    assert resp.status_code == 201
+    
+    # Check event
+    mock_redis.xadd.assert_called()
+    xadd_calls = [str(c) for c in mock_redis.xadd.call_args_list]
+    blacklist_calls = [c for c in xadd_calls if "ja4_blacklist_add" in c]
+    assert len(blacklist_calls) > 0
+
+
+async def test_bypass_disable_publishes_invalidation(client, mock_redis):
+    """PUT /policy/bypasses/{name} publishes policy_change."""
+    resp = await client.put(
+        "/api/v1/policy/bypasses/spamhaus_bypass",
+        json={"enabled": False},
+        headers=HEADERS
+    )
+    assert resp.status_code == 200
+    
+    # Check event
+    mock_redis.xadd.assert_called()
+    xadd_calls = [str(c) for c in mock_redis.xadd.call_args_list]
+    policy_calls = [c for c in xadd_calls if "policy_change" in c]
+    assert len(policy_calls) > 0
+
+
+async def test_sse_events_endpoint_requires_auth(client, mock_redis):
+    """GET /api/v1/events should require authentication."""
+    # Without auth
+    resp = await client.get("/api/v1/events")
+    assert resp.status_code == 401
+    
+    # With auth
+    resp = await client.get("/api/v1/events", headers=HEADERS)
+    assert resp.status_code == 200
+
+
+async def test_sse_recent_events_returns_data(client, mock_redis):
+    """GET /api/v1/events/recent should return recent events."""
+    # Mock Redis stream response
+    mock_events = [
+        ("event1", {"data": json.dumps({
+            "type": "connection",
+            "ip": "1.2.3.4",
+            "country": "US",
+            "asn_type": "residential",
+            "ja4": "t13d1516h2_8daaf6152771_02713d6af862",
+            "score": 85,
+            "action": "ban",
+            "timestamp": "2026-01-01T00:00:00Z"
+        })})
+    ]
+    mock_redis.xrevrange.return_value = mock_events
+    
+    resp = await client.get("/api/v1/events/recent?limit=10", headers=HEADERS)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "events" in data
+    assert len(data["events"]) == 1
+    assert data["events"][0]["type"] == "connection"
+
+
+async def test_audit_log_writes_on_config_change(client, mock_redis):
+    """Config changes should write to audit log."""
+    # Update thresholds
+    payload = {
+        "flag": 15,
+        "rate_limit": 30,
+        "tarpit": 50,
+        "block": 65,
+        "ban": 80
+    }
+    resp = await client.put("/api/v1/config/thresholds", json=payload, headers=HEADERS)
+    assert resp.status_code == 200
+    
+    # Check audit log was written
+    mock_redis.lpush.assert_called()
+    lpush_calls = [str(c) for c in mock_redis.lpush.call_args_list]
+    threshold_calls = [c for c in lpush_calls if "thresholds_updated" in c]
+    assert len(threshold_calls) > 0
+
+
+async def test_audit_log_writes_on_country_update(client, mock_redis):
+    """Country blocklist updates should write to audit log."""
+    resp = await client.put("/api/v1/config/countries/blocklist", json={
+        "countries": ["US", "CN"]
+    }, headers=HEADERS)
+    assert resp.status_code == 200
+    
+    # Check audit log was written
+    mock_redis.lpush.assert_called()
+    lpush_calls = [str(c) for c in mock_redis.lpush.call_args_list]
+    country_calls = [c for c in lpush_calls if "country_blocklist_updated" in c]
+    assert len(country_calls) > 0
+
+
+async def test_policy_audit_log_on_bypass_change(client, mock_redis):
+    """Policy changes should write to policy audit log."""
+    resp = await client.put(
+        "/api/v1/policy/bypasses/country_blacklist_bypass",
+        json={"enabled": False},
+        headers=HEADERS
+    )
+    assert resp.status_code == 200
+    
+    # Check policy audit log was written
+    mock_redis.lpush.assert_called()
+    lpush_calls = [str(c) for c in mock_redis.lpush.call_args_list]
+    policy_calls = [c for c in lpush_calls if "management:policy_audit" in c]
+    assert len(policy_calls) > 0
+
+
+async def test_dial_counterfactual_endpoint(client, mock_redis):
+    """GET /api/v1/dial/counterfactual should calculate blocking impact."""
+    # Mock events with scores
+    mock_events = []
+    for i in range(100):
+        score = 80 if i < 60 else 30  # 60% would be blocked
+        mock_events.append((f"event{i}", {
+            "data": json.dumps({
+                "type": "connection",
+                "score": score,
+                "ip": f"1.2.3.{i}"
+            })
+        }))
+    
+    mock_redis.xrevrange.return_value = mock_events
+    mock_redis.hgetall.return_value = {"block": "70"}
+    
+    resp = await client.get("/api/v1/dial/counterfactual?dial=50", headers=HEADERS)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["estimated_block_pct"] == 60.0
+    assert data["sample_size"] == 100
+
+
+async def test_integrations_rdap_endpoint(client, mock_redis):
+    """GET /api/v1/integrations/rdap should return RDAP status."""
+    mock_redis.get.return_value = "true"
+    
+    resp = await client.get("/api/v1/integrations/rdap", headers=HEADERS)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "enabled"
+    assert data["service"] == "rdap"
+
+
+async def test_integrations_analytics_endpoint(client, mock_redis):
+    """GET /api/v1/integrations/analytics should return analytics status."""
+    # Mock recent event
+    import time
+    recent_time = int(time.time()) - 60
+    mock_redis.get.return_value = "true"
+    mock_redis.xrevrange.return_value = [
+        ("event1", {"data": json.dumps({"timestamp": recent_time})})
+    ]
+    
+    resp = await client.get("/api/v1/integrations/analytics", headers=HEADERS)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "enabled"
+    assert "last_event_age_s" in data

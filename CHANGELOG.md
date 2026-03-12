@@ -1,5 +1,80 @@
 # Changelog
 
+## [13.1.0] - 2026-03-11 - PHASE 13b: MANAGEMENT UI COMPLETION
+
+### Added
+
+**Backend Completion:**
+- **Startup Guard**: Server exits with FATAL log if `UI_API_KEY` not set (`sys.exit(1)`)
+- **allowed_cidr Middleware**: IP-based access control with CIDR filtering; health/ready endpoints exempt
+- **Router Extraction**: Moved config, health, audit, integrations to separate router files
+- **SSE Events Router**: Live connection feed with filtering (action, country, ASN type, min_score) and 50 subscriber limit
+- **Dial Counterfactual Endpoint**: `GET /api/v1/dial/counterfactual?dial={value}` estimates blocking impact
+
+**New Router Files:**
+- `management/routers/config.py`: Threshold, feature, country management with validation
+- `management/routers/health.py`: Health/ready endpoints (unauthenticated /health, /ready)
+- `management/routers/audit.py`: Paginated audit log with event type filtering
+- `management/routers/integrations.py`: AbuseIPDB, Spamhaus, RDAP, analytics status endpoints
+- `management/routers/events.py`: SSE live feed and recent events endpoint
+
+**Models:**
+- `ThresholdConfig` Pydantic model with ascending order validation (flag ≤ rate_limit ≤ tarpit ≤ block ≤ ban)
+
+**Configuration:**
+- `management_ui:` section in `config/proxy.yml` with hot-reload support
+- Environment variables: `MANAGEMENT_ALLOWED_CIDR`, `MAX_SSE_SUBSCRIBERS`, `MAX_DIAL_CHANGES_PER_HOUR`, `MAX_AUTH_FAILURES_PER_MINUTE`
+
+**Security:**
+- Fixed bytes vs string bug in threshold handling (no more `b"flag"` keys)
+- All endpoints require authentication except `/health` and `/ready`
+- Health endpoints exempt from CIDR restrictions
+- Rate limiting on all authenticated endpoints
+
+**Observability:**
+- Prometheus metrics: `ja4proxy_mgmt_sse_subscribers_active`, `ja4proxy_mgmt_redis_errors_total{operation}`
+- AlertManager rules: `monitoring/alertmanager/rules/management_ui_rules.yml` (10 rules)
+- Grafana dashboard: `grafana/dashboards/management_ui.json` (12 panels)
+- Comprehensive audit logging for all configuration changes
+
+**Documentation:**
+- `docs/decisions/ADR-013.md`: Management UI technology rationale
+- `docs/runbooks/management_ui.md`: Complete operational procedures
+- `docs/REDIS_SCHEMA.md`: Updated with 10 new Phase 13 keys
+- `CHANGELOG.md`: This entry
+
+**Testing:**
+- 15 new unit tests in `tests/unit/test_management_ui.py`
+- 4 new integration tests in `tests/integration/test_management_ui.py`
+- 10 new chaos tests in `tests/chaos/test_management_chaos.py`
+- Test coverage: startup guard, CIDR middleware, threshold validation, SSE endpoints, counterfactual, integrations
+
+**Dependencies:**
+- `sse-starlette>=1.6.5` for Server-Sent Events support
+
+### Changed
+
+- `management/server.py`: Added startup guard, CIDR middleware, router wiring, removed inline routes
+- `management/models.py`: Added `ThresholdConfig` model
+- `management/routers/dial.py`: Added counterfactual impact endpoint
+- `requirements.txt`: Added `sse-starlette>=1.6.5`
+- `config/proxy.yml`: Added `management_ui:` section with inline comments
+
+### Fixed
+
+- Bytes vs string decode bug in threshold handling (Redis returns strings when `decode_responses=True`)
+- Configuration validation for thresholds (ascending order requirement)
+- Error handling throughout with consistent 503 responses for Redis failures
+
+### Security
+
+- API key required for all authenticated endpoints
+- CIDR-based access restriction for management UI
+- Rate limiting on authentication failures (100 per IP)
+- Dial change rate limiting (10 per hour)
+- SSE subscriber cap (50 concurrent)
+- All admin actions logged to audit trail
+
 ## [11.0.0] - 2026-03-09 - PHASE 11: RDAP ENRICHMENT & BLOCK EXPANSION
 
 ### Added
