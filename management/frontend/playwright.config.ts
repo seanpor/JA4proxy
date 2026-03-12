@@ -1,10 +1,10 @@
 import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
-  testDir: './e2e',
+  testDir: './playwright/tests',
   use: {
     baseURL: 'http://localhost:8090',
-    storageState: 'e2e/.auth/state.json',
+    // storageState: 'e2e/.auth/state.json',
     trace: 'on-first-retry'
   },
   projects: [
