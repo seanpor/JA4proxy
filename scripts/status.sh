@@ -80,8 +80,9 @@ check_container ja4proxy-redis    "Redis           (internal)"
 check_container ja4proxy-backend  "Mock Backend    :8443"
 check_container ja4proxy-tarpit   "Tarpit          :8888"
 check_container ja4proxy-prometheus "Prometheus    :9091"
-check_container ja4proxy-grafana    "Grafana       :3001"
-check_container ja4proxy-loki       "Loki          (internal)"
+check_container ja4proxy-grafana       "Grafana          :3001"
+check_container ja4proxy-loki          "Loki             (internal)"
+check_container ja4proxy-management-ui "Management UI    :8001"
 
 # ── 3. Service health ──────────────────────────────────────────────────────────
 echo
@@ -101,6 +102,7 @@ http_check "Backend TLS"     "https://localhost:8443/api/health" "-k"
 http_check "HAProxy stats"   "http://localhost:8404/stats"
 http_check "Prometheus"      "http://localhost:9091/-/ready"
 http_check "Grafana"         "http://localhost:3001/api/health"
+http_check "Management UI"  "http://localhost:8001/health"
 
 # Redis
 if docker exec ja4proxy-redis redis-cli -a "$REDIS_PASS" --no-auth-warning ping > /dev/null 2>&1; then
@@ -143,6 +145,8 @@ echo -e "  HAProxy stats:        ${CYAN}http://localhost:8404/stats${NC}"
 echo -e "  Proxy metrics:        ${CYAN}http://localhost:9090/metrics${NC}"
 echo -e "  Prometheus:           ${CYAN}http://localhost:9091${NC}"
 echo -e "  Grafana:              ${CYAN}http://localhost:3001${NC}  (admin / ${GRAFANA_PASS})"
+UI_PASS=$(grep UI_PASSWORD .env 2>/dev/null | cut -d= -f2 || echo "see .env")
+echo -e "  Management UI:        ${CYAN}http://localhost:8001${NC}  (admin / ${UI_PASS})"
 echo
 
 # ── 6. Summary ─────────────────────────────────────────────────────────────────

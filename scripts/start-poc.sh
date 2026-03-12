@@ -49,7 +49,7 @@ echo -e "${BLUE}Starting services...${NC}"
 docker network prune -f > /dev/null 2>&1 || true
 
 # Try to start services with --remove-orphans to avoid warnings
-if ! docker compose -f docker-compose.poc.yml up -d --remove-orphans redis backend proxy haproxy tarpit 2>&1; then
+if ! docker compose -f docker-compose.poc.yml up -d --remove-orphans redis backend proxy haproxy tarpit management-ui 2>&1; then
     echo ""
     echo -e "${RED}Failed to start services. This may be a Docker networking issue.${NC}"
     echo ""
