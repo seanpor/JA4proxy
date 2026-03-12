@@ -58,7 +58,7 @@ async def get_redis() -> aioredis.Redis:
     if not hasattr(get_redis, "_redis"):
         # Create a new Redis connection
         get_redis._redis = await aioredis.from_url(
-            "redis://localhost:6379",
+            "redis://:xW5WgUHNCxPkGRg6AYCl1OhJ08tt0zobpkaDkMst1PYLr3sy@172.18.0.3:6379",
             decode_responses=True
         )
     return get_redis._redis
@@ -169,11 +169,11 @@ async def create_app() -> FastAPI:
                 pass
         return await call_next(request)
     
-    # Security middleware
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=["localhost", "127.0.0.1", "0.0.0.0"]
-    )
+    # Security middleware (disabled for development)
+    # app.add_middleware(
+    #     TrustedHostMiddleware,
+    #     allowed_hosts=["localhost", "127.0.0.1", "0.0.0.0", "192.168.1.107"]
+    # )
     
     app.add_middleware(
         CORSMiddleware,
@@ -203,10 +203,12 @@ async def create_app() -> FastAPI:
 
     # Add Prometheus instrumentation
     Instrumentator().instrument(app).expose(app)
-    
-    # Include all routers
+
+    # Include all routers BEFORE mounting static files — Starlette matches
+    # routes in insertion order, so the API routes must come first or the
+    # catch-all static mount will intercept every request.
     from management.routers import bans, dial, policy, fingerprints, config, health, audit, integrations, events
-    
+
     app.include_router(bans.router, prefix="/api/v1", tags=["bans"])
     app.include_router(dial.router, prefix="/api/v1", tags=["dial"])
     app.include_router(policy.router, prefix="/api/v1", tags=["policy"])
@@ -216,6 +218,11 @@ async def create_app() -> FastAPI:
     app.include_router(audit.router, prefix="/api/v1", tags=["audit"])
     app.include_router(events.router, prefix="/api/v1", tags=["events"])
     app.include_router(health.router, tags=["health"])
+
+    # Serve static files (frontend) — mounted last so it only catches
+    # requests that didn't match any API route above.
+    from fastapi.staticfiles import StaticFiles
+    app.mount("/", StaticFiles(directory="management/static", html=True), name="static")
     
 
     

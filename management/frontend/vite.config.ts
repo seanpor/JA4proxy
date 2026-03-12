@@ -33,7 +33,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')
-    }
+    },
+    extensions: ['.tsx', '.ts', '.jsx', '.js']
   },
   define: {
     'process.env': {}
