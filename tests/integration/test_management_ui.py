@@ -234,30 +234,35 @@ async def test_fingerprint_blacklist_publishes_invalidation(client, mock_redis):
 
 
 async def test_bypass_disable_publishes_invalidation(client, mock_redis):
-    """PUT /policy/bypasses/{name} publishes policy_change."""
+    """PUT /policy/bypasses/{name} publishes config_reload invalidation."""
     resp = await client.put(
         "/api/v1/policy/bypasses/spamhaus_bypass",
         json={"enabled": False},
-        headers=HEADERS
+        headers=HEADERS,
     )
     assert resp.status_code == 200
-    
-    # Check event
+
     mock_redis.xadd.assert_called()
     xadd_calls = [str(c) for c in mock_redis.xadd.call_args_list]
-    policy_calls = [c for c in xadd_calls if "policy_change" in c]
-    assert len(policy_calls) > 0
+    assert any("config_reload" in c for c in xadd_calls)
 
 
 async def test_sse_events_endpoint_requires_auth(client, mock_redis):
     """GET /api/v1/events should require authentication."""
-    # Without auth
+    from unittest.mock import patch
+
+    # Without auth — gets 401 immediately (no stream started)
     resp = await client.get("/api/v1/events")
     assert resp.status_code == 401
-    
-    # With auth
-    resp = await client.get("/api/v1/events", headers=HEADERS)
-    assert resp.status_code == 200
+
+    # With auth — SSE stream starts; just check the initial response headers
+    async def _single_heartbeat(req, *a, **kw):
+        yield {"event": "heartbeat", "data": '{"type":"heartbeat"}'}
+
+    with patch("management.routers.events._event_generator", _single_heartbeat):
+        async with client.stream("GET", "/api/v1/events", headers=HEADERS) as resp:
+            assert resp.status_code == 200
+            assert "text/event-stream" in resp.headers.get("content-type", "")
 
 
 async def test_sse_recent_events_returns_data(client, mock_redis):

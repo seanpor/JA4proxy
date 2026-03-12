@@ -16,6 +16,7 @@ Safety rules:
   3. Setting dial = 0 always allowed (emergency downgrade)
 """
 
+import json
 import logging
 import time
 from datetime import datetime, timezone
@@ -190,3 +191,75 @@ async def acknowledge_dial(
 
     mgmt_actions_total.labels(action="dial_acknowledge").inc()
     return {"acknowledged": payload.acknowledged}
+
+
+@router.get("/dial/counterfactual")
+async def get_counterfactual_impact(
+    request: Request,
+    dial: int,
+    _key: str = Depends(require_api_key),
+) -> dict:
+    """Estimate what percentage of recent traffic would be blocked at a given dial value."""
+    r = request.app.state.redis
+
+    # Validate dial range
+    if not 0 <= dial <= 100:
+        raise HTTPException(status_code=422, detail="Dial must be between 0 and 100")
+
+    # Get recent events from the stream
+    try:
+        events = await r.xrevrange("ja4proxy:events", count=1000)
+    except redis.exceptions.RedisError:
+        mgmt_redis_errors_total.labels(operation="dial_counterfactual").inc()
+        raise HTTPException(status_code=503, detail="Redis unavailable")
+
+    if not events:
+        return {
+            "dial": dial,
+            "estimated_block_pct": None,
+            "reason": "insufficient_data",
+            "sample_size": 0,
+            "window": "last_1000_events",
+        }
+
+    # Get current thresholds
+    thresholds = await r.hgetall("config:thresholds")
+    block_threshold = int(thresholds.get("block", "70"))
+    effective_threshold = block_threshold * (dial / 100.0)
+
+    # Count how many connection events would be blocked at this dial
+    blocked_count = 0
+    total_events = 0
+
+    for _event_id, fields in events:
+        try:
+            raw = fields.get("data") or fields.get(b"data", b"")
+            event_data = json.loads(raw)
+
+            if event_data.get("type") == "connection":
+                score = event_data.get("score", 0)
+                total_events += 1
+                if score >= effective_threshold:
+                    blocked_count += 1
+        except (json.JSONDecodeError, TypeError, AttributeError):
+            continue
+
+    if total_events < 50:
+        return {
+            "dial": dial,
+            "estimated_block_pct": None,
+            "reason": "insufficient_data",
+            "sample_size": total_events,
+            "window": "last_1000_events",
+        }
+
+    block_pct = (blocked_count / total_events) * 100
+
+    return {
+        "dial": dial,
+        "estimated_block_pct": round(block_pct, 2),
+        "sample_size": total_events,
+        "window": "last_1000_events",
+        "blocked_count": blocked_count,
+        "effective_threshold": effective_threshold,
+    }

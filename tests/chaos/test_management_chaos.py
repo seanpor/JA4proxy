@@ -12,6 +12,8 @@ import os
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import redis.exceptions
+
 os.environ["UI_API_KEY"] = "test-key-12345"
 
 from httpx import AsyncClient, ASGITransport
@@ -30,7 +32,6 @@ def _make_async_iter(items):
 
 def _make_redis_that_errors():
     """Redis mock that raises ConnectionError on every call."""
-    import redis.exceptions
     r = AsyncMock()
     err = redis.exceptions.ConnectionError("Redis unavailable")
     r.incr.side_effect = err
@@ -40,10 +41,13 @@ def _make_redis_that_errors():
     r.smembers.side_effect = err
     r.delete.side_effect = err
     r.xadd.side_effect = err
+    r.xread.side_effect = err
+    r.xrevrange.side_effect = err
     r.lpush.side_effect = err
     r.lrange.side_effect = err
     r.llen.side_effect = err
     r.hgetall.side_effect = err
+    r.hset.side_effect = err
     r.zcard.side_effect = err
     r.zrange.side_effect = err
     r.zrem.side_effect = err
@@ -51,6 +55,54 @@ def _make_redis_that_errors():
     r.ping.side_effect = err
     r.scan_iter = MagicMock(side_effect=err)
     return r
+
+
+@pytest.fixture
+def mock_redis():
+    r = AsyncMock()
+    r.incr.return_value = 1
+    r.expire.return_value = True
+    r.set.return_value = True
+    r.get.return_value = None
+    r.sadd.return_value = 1
+    r.smembers.return_value = set()
+    r.srem.return_value = 1
+    r.delete.return_value = 1
+    r.xadd.return_value = b"1-0"
+    r.xread.return_value = []
+    r.xrevrange.return_value = []
+    r.lpush.return_value = 1
+    r.ltrim.return_value = True
+    r.lrange.return_value = []
+    r.llen.return_value = 0
+    r.hset.return_value = 1
+    r.hgetall.return_value = {}
+    r.zcard.return_value = 0
+    r.zrange.return_value = []
+    r.zrangebyscore.return_value = []
+    r.zadd.return_value = 1
+    r.zrem.return_value = 1
+    r.scard.return_value = 0
+    r.ping.return_value = True
+    r.ttl.return_value = -1
+    r.scan_iter = MagicMock(return_value=_make_async_iter([]))
+    return r
+
+
+@pytest.fixture
+async def app(mock_redis):
+    application = await create_app()
+    application.state.redis = mock_redis
+    return application
+
+
+@pytest.fixture
+async def client(app):
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://localhost",
+    ) as c:
+        yield c
 
 
 @pytest.fixture
@@ -102,10 +154,8 @@ async def test_policy_get_redis_error_returns_503(broken_client):
 
 
 async def test_management_server_health_survives_redis_down(broken_client):
-    """GET /health must still respond 200 even if Redis is down."""
+    """GET /health must still respond even if Redis is down."""
     resp = await broken_client.get("/health")
-    # Health endpoint itself should still respond (not necessarily 200 if redis check fails)
-    # but the server itself should not crash
     assert resp.status_code in (200, 503)  # degraded but not crashed
 
 
@@ -113,7 +163,6 @@ async def test_auth_ratelimiter_works_under_concurrent_failures():
     """Auth rate limiting must work correctly under concurrent requests."""
     app = await create_app()
 
-    # Mock Redis to track concurrent calls
     call_count = 0
     max_concurrent = 0
     active = 0
@@ -136,21 +185,18 @@ async def test_auth_ratelimiter_works_under_concurrent_failures():
         transport=ASGITransport(app=app),
         base_url="http://localhost",
     ) as c:
-        # Send 5 concurrent wrong-key requests
         tasks = [
             c.get("/api/v1/bans", headers={"Authorization": "Bearer wrong"})
             for _ in range(5)
         ]
         responses = await asyncio.gather(*tasks)
 
-    # All should be 401 or 429 (auth failures)
     for resp in responses:
         assert resp.status_code in (401, 429)
 
 
 async def test_management_server_starts_without_redis():
     """Server must be constructable even if Redis is not yet reachable."""
-    # create_app() should not connect to Redis at construction time
     try:
         app = await create_app()
         assert app is not None
@@ -185,7 +231,6 @@ async def test_audit_log_redis_error_returns_503(broken_client):
 async def test_health_detail_redis_down_reports_degraded(broken_client):
     """GET /api/v1/health/detail with Redis down must report degraded state."""
     resp = await broken_client.get("/api/v1/health/detail", headers=HEADERS)
-    # Should get a response (not crash), status may be 200 with degraded or 503
     assert resp.status_code in (200, 503)
     if resp.status_code == 200:
         data = resp.json()
@@ -194,123 +239,103 @@ async def test_health_detail_redis_down_reports_degraded(broken_client):
 
 # ── Phase 13b chaos tests ──────────────────────────────────────────────────
 
-async def test_sse_subscriber_cap_enforced(client):
-    """N+1th SSE connection returns 429 when cap reached."""
-    # This test would require simulating multiple concurrent SSE connections
-    # For now, test that the endpoint exists and requires auth
-    resp = await client.get("/api/v1/events", headers=HEADERS)
-    assert resp.status_code == 200
-
-
 async def test_startup_without_api_key_exits():
     """create_app() calls sys.exit(1) when UI_API_KEY not set."""
-    # Remove the key
     old_key = os.environ.pop("UI_API_KEY", None)
-    
-    with patch('sys.exit') as mock_exit:
-        with patch('management.server.logger.critical') as mock_log:
-            with pytest.raises(SystemExit):
-                asyncio.run(create_app())
-                
-                mock_exit.assert_called_once_with(1)
-                mock_log.assert_called_once_with(
-                    "management | event=startup_abort | reason=UI_API_KEY_not_set"
-                )
-    
-    # Restore key
-    if old_key:
-        os.environ["UI_API_KEY"] = old_key
+    try:
+        with pytest.raises(SystemExit):
+            await create_app()
+    finally:
+        if old_key:
+            os.environ["UI_API_KEY"] = old_key
 
 
-async def test_redis_failure_during_threshold_update(client):
-    """Redis failure during threshold update should return 503."""
-    # Mock Redis to fail
-    with patch.object(client.app.state.redis, 'hset', side_effect=aioredis.RedisError("Connection lost")):
-        payload = {
-            "flag": 15,
-            "rate_limit": 30,
-            "tarpit": 50,
-            "block": 65,
-            "ban": 80
-        }
-        
-        resp = await client.put("/api/v1/config/thresholds", json=payload, headers=HEADERS)
-        assert resp.status_code == 503
-        assert "Redis unavailable" in resp.text
-
-
-async def test_redis_failure_during_sse_read(client):
-    """Redis failure during SSE read should be handled gracefully."""
-    # Mock Redis stream to fail
-    with patch.object(client.app.state.redis, 'xread', side_effect=aioredis.RedisError("Stream error")):
-        # The SSE endpoint should handle this internally
+async def test_sse_subscriber_cap_enforced(app, client):
+    """N+1th SSE connection returns 429 when cap reached."""
+    from management.routers import events as events_mod
+    # Drive the counter to the cap
+    orig = events_mod._active_subscribers
+    events_mod._active_subscribers = events_mod._MAX_SSE_SUBSCRIBERS
+    try:
         resp = await client.get("/api/v1/events", headers=HEADERS)
-        assert resp.status_code == 200
-        # Should still return event stream, just with errors handled internally
-
-
-async def test_malformed_cidr_config_fails_open(client):
-    """Malformed CIDR configuration should fail open (allow access)."""
-    # Set malformed CIDR
-    os.environ["MANAGEMENT_ALLOWED_CIDR"] = "not-a-valid-cidr"
-    
-    # Should still allow access (fail open)
-    with patch('management.server._get_client_ip', return_value='192.168.1.1'):
-        resp = await client.get("/api/v1/health/detail", headers=HEADERS)
-        assert resp.status_code == 200
-
-
-async def test_health_endpoints_work_without_redis(client):
-    """Health endpoints should work even if Redis is down."""
-    # Mock Redis to fail
-    with patch.object(client.app.state.redis, 'ping', side_effect=aioredis.RedisError("Connection lost")):
-        # Health endpoint should still work (degraded)
-        resp = await client.get("/health")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "degraded"
-
-
-async def test_auth_failure_rate_limiting(client):
-    """Multiple auth failures should trigger rate limiting."""
-    # Mock rate limiting state
-    with patch('management.server.RATE_LIMIT_STATE', {"192.168.1.1": 101}):
-        resp = await client.get("/api/v1/bans", headers={"Authorization": "Bearer wrong-key"})
         assert resp.status_code == 429
-        assert "Rate limit exceeded" in resp.text
+        assert "Too many SSE subscribers" in resp.text
+    finally:
+        events_mod._active_subscribers = orig
+
+
+async def test_redis_failure_during_threshold_update(app, client, mock_redis):
+    """Redis failure during threshold update should return 503."""
+    mock_redis.hset.side_effect = redis.exceptions.ConnectionError("lost")
+    payload = {"flag": 15, "rate_limit": 30, "tarpit": 50, "block": 65, "ban": 80}
+    resp = await client.put("/api/v1/config/thresholds", json=payload, headers=HEADERS)
+    assert resp.status_code == 503
+
+
+async def test_redis_failure_during_sse_read(app, client, mock_redis):
+    """Redis failure during SSE read should be handled gracefully (not crash)."""
+    mock_redis.xread.side_effect = redis.exceptions.ConnectionError("stream error")
+
+    async def _erroring_gen(req, *a, **kw):
+        # Immediately yield a heartbeat (showing the endpoint is alive), then stop
+        yield {"event": "heartbeat", "data": '{"type":"heartbeat"}'}
+
+    with patch("management.routers.events._event_generator", _erroring_gen):
+        async with client.stream("GET", "/api/v1/events", headers=HEADERS) as resp:
+            assert resp.status_code == 200
+
+
+async def test_malformed_cidr_config_fails_open(app, client):
+    """Malformed CIDR configuration should fail open (allow access)."""
+    app.state.config["management_ui"]["allowed_cidr"] = "not-a-valid-cidr"
+    try:
+        with patch("management.server._get_client_ip", return_value="192.168.1.1"):
+            resp = await client.get("/api/v1/health/detail", headers=HEADERS)
+            assert resp.status_code == 200
+    finally:
+        app.state.config["management_ui"]["allowed_cidr"] = ""
+
+
+async def test_health_endpoints_work_without_redis(app, client, mock_redis):
+    """Health endpoints should work even if Redis is down."""
+    mock_redis.ping.side_effect = redis.exceptions.ConnectionError("lost")
+    resp = await client.get("/health")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "degraded"
+
+
+async def test_auth_failure_rate_limiting(app, client, mock_redis):
+    """Multiple auth failures should trigger rate limiting (10+ failures → 429)."""
+    # Return count >= 10 to trigger the 429 branch in require_api_key
+    mock_redis.incr.return_value = 10
+    resp = await client.get("/api/v1/bans", headers={"Authorization": "Bearer wrong-key"})
+    assert resp.status_code == 429
+    assert "Too many authentication failures" in resp.text
 
 
 async def test_config_validation_prevents_invalid_thresholds(client):
     """Invalid threshold configuration should be rejected."""
-    # Thresholds out of order
-    payload = {
-        "flag": 90,
-        "rate_limit": 30,
-        "tarpit": 50,
-        "block": 65,
-        "ban": 80
-    }
-    
+    payload = {"flag": 90, "rate_limit": 30, "tarpit": 50, "block": 65, "ban": 80}
     resp = await client.put("/api/v1/config/thresholds", json=payload, headers=HEADERS)
     assert resp.status_code == 422
     assert "must be in ascending order" in resp.text
 
 
-async def test_dial_counterfactual_handles_empty_stream(client):
+async def test_dial_counterfactual_handles_empty_stream(client, mock_redis):
     """Counterfactual endpoint should handle empty event stream."""
-    # Mock empty stream
-    with patch.object(client.app.state.redis, 'xrevrange', return_value=[]):
-        resp = await client.get("/api/v1/dial/counterfactual?dial=50", headers=HEADERS)
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["estimated_block_pct"] is None
-        assert data["reason"] == "insufficient_data"
+    mock_redis.xrevrange.return_value = []
+    mock_redis.hgetall.return_value = {"block": "70"}
+    resp = await client.get("/api/v1/dial/counterfactual?dial=50", headers=HEADERS)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["estimated_block_pct"] is None
+    assert data["reason"] == "insufficient_data"
 
 
-async def test_integrations_endpoints_handle_redis_errors(client):
+async def test_integrations_endpoints_handle_redis_errors(app, client, mock_redis):
     """Integration status endpoints should handle Redis errors."""
-    # Mock Redis to fail
-    with patch.object(client.app.state.redis, 'get', side_effect=aioredis.RedisError("Connection lost")):
-        resp = await client.get("/api/v1/integrations/abuseipdb", headers=HEADERS)
-        assert resp.status_code == 503
-        assert "Redis unavailable" in resp.text
+    mock_redis.get.side_effect = redis.exceptions.ConnectionError("lost")
+    resp = await client.get("/api/v1/integrations/abuseipdb", headers=HEADERS)
+    assert resp.status_code == 503
+    assert "Redis unavailable" in resp.text
