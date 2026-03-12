@@ -1,0 +1,239 @@
+{
+  "dashboard": {
+    "id": null,
+    "uid": "management-ui-v1",
+    "title": "JA4Proxy Management UI",
+    "tags": ["ja4proxy", "management", "security"],
+    "style": "dark",
+    "timezone": "browser",
+    "editable": true,
+    "hideControls": false,
+    "graphTooltip": 1,
+    "panels": [
+      {
+        "id": 1,
+        "type": "stat",
+        "title": "Auth Failure Rate",
+        "datasource": "${datasource}",
+        "targets": [
+          {
+            "expr": "rate(ja4proxy_mgmt_auth_failures_total[5m])",
+            "legendFormat": "{{`{{`}} .Labels.operation {{`}}`}}",
+            "refId": "A"
+          }
+        ],
+        "thresholds": [
+          {
+            "value": 2,
+            "colorMode": "critical"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "type": "stat",
+        "title": "Active SSE Subscribers",
+        "datasource": "${datasource}",
+        "targets": [
+          {
+            "expr": "ja4proxy_mgmt_sse_subscribers_active",
+            "refId": "A"
+          }
+        ],
+        "thresholds": [
+          {
+            "value": 45,
+            "colorMode": "warning"
+          },
+          {
+            "value": 50,
+            "colorMode": "critical"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "type": "stat",
+        "title": "Current Dial Value",
+        "datasource": "${datasource}",
+        "targets": [
+          {
+            "expr": "ja4proxy_dial_setting",
+            "refId": "A"
+          }
+        ],
+        "thresholds": [
+          {
+            "value": 80,
+            "colorMode": "warning"
+          },
+          {
+            "value": 95,
+            "colorMode": "critical"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "type": "timeseries",
+        "title": "API Request Rate by Endpoint",
+        "datasource": "${datasource}",
+        "targets": [
+          {
+            "expr": "sum by (endpoint) (rate(ja4proxy_mgmt_requests_total[1m]))",
+            "legendFormat": "{{`{{`}} .Labels.endpoint {{`}}`}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "type": "timeseries",
+        "title": "API p99 Latency",
+        "datasource": "${datasource}",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.99, rate(ja4proxy_mgmt_request_duration_ms_bucket[5m]))",
+            "legendFormat": "p99 Latency",
+            "refId": "A"
+          }
+        ],
+        "thresholds": [
+          {
+            "value": 500,
+            "colorMode": "warning"
+          },
+          {
+            "value": 1000,
+            "colorMode": "critical"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "type": "timeseries",
+        "title": "Admin Actions per Minute",
+        "datasource": "${datasource}",
+        "targets": [
+          {
+            "expr": "sum by (action) (rate(ja4proxy_mgmt_actions_total[1m]))",
+            "legendFormat": "{{`{{`}} .Labels.action {{`}}`}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "type": "timeseries",
+        "title": "Redis Error Rate",
+        "datasource": "${datasource}",
+        "targets": [
+          {
+            "expr": "sum by (operation) (rate(ja4proxy_mgmt_redis_errors_total[5m]))",
+            "legendFormat": "{{`{{`}} .Labels.operation {{`}}`}}",
+            "refId": "A"
+          }
+        ],
+        "thresholds": [
+          {
+            "value": 0.1,
+            "colorMode": "critical"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "type": "stat",
+        "title": "Total Active Bans",
+        "datasource": "${datasource}",
+        "targets": [
+          {
+            "expr": "ja4proxy_bans_active",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "type": "stat",
+        "title": "Total CIDR Blocks",
+        "datasource": "${datasource}",
+        "targets": [
+          {
+            "expr": "ja4proxy_cidr_blocks_active",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "type": "stat",
+        "title": "Total Blacklisted JA4s",
+        "datasource": "${datasource}",
+        "targets": [
+          {
+            "expr": "ja4proxy_ja4_blacklist_count",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "type": "stat",
+        "title": "Total Whitelisted JA4s",
+        "datasource": "${datasource}",
+        "targets": [
+          {
+            "expr": "ja4proxy_ja4_whitelist_count",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "type": "timeseries",
+        "title": "Block Rate by Action",
+        "datasource": "${datasource}",
+        "targets": [
+          {
+            "expr": "sum by (action) (rate(ja4proxy_actions_total[1m]))",
+            "legendFormat": "{{`{{`}} .Labels.action {{`}}`}}",
+            "refId": "A"
+          }
+        ]
+      }
+    ],
+    "schemaVersion": 37,
+    "version": 1,
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "templating": {
+      "list": []
+    },
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": "-- Grafana --",
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "target": {
+            "limit": 100,
+            "matchAny": false,
+            "tags": [],
+            "type": "dashboard"
+          },
+          "type": "dashboard"
+        }
+      ]
+    }
+  },
+  "folderId": 0,
+  "folderUid": "",
+  "overwrite": false
+}

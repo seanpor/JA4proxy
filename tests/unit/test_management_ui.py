@@ -13,6 +13,7 @@ Covers:
 - Prometheus metrics middleware
 """
 
+import asyncio
 import json
 import os
 import pytest
@@ -691,3 +692,213 @@ async def test_metrics_endpoint_exists(client):
     resp = await client.get("/metrics")
     assert resp.status_code == 200
     assert "text/plain" in resp.headers.get("content-type", "")
+
+
+# ── Phase 13b tests ──────────────────────────────────────────────────────────
+
+async def test_startup_guard_missing_api_key():
+    """Server should exit if UI_API_KEY not set."""
+    old_key = os.environ.pop("UI_API_KEY", None)
+    try:
+        with pytest.raises(SystemExit):
+            await create_app()
+    finally:
+        if old_key:
+            os.environ["UI_API_KEY"] = old_key
+
+
+async def test_allowed_cidr_middleware_allow(app, client, mock_redis):
+    """IP within allowed CIDR should be permitted."""
+    app.state.config["management_ui"]["allowed_cidr"] = "10.0.0.0/8"
+    try:
+        with patch('management.server._get_client_ip', return_value='10.1.2.3'):
+            resp = await client.get("/api/v1/health/detail", headers=HEADERS)
+            assert resp.status_code == 200
+    finally:
+        app.state.config["management_ui"]["allowed_cidr"] = ""
+
+
+async def test_allowed_cidr_middleware_deny(app, client, mock_redis):
+    """IP outside allowed CIDR should be denied."""
+    app.state.config["management_ui"]["allowed_cidr"] = "10.0.0.0/8"
+    try:
+        with patch('management.server._get_client_ip', return_value='192.168.1.1'):
+            resp = await client.get("/api/v1/health/detail", headers=HEADERS)
+            assert resp.status_code == 403
+            data = resp.json()
+            assert "Access denied: IP not in allowed CIDR" in data["detail"]
+    finally:
+        app.state.config["management_ui"]["allowed_cidr"] = ""
+
+
+async def test_health_endpoints_exempt_from_cidr(app, client, mock_redis):
+    """Health endpoints should be exempt from CIDR restrictions."""
+    app.state.config["management_ui"]["allowed_cidr"] = "10.0.0.0/8"
+    try:
+        with patch('management.server._get_client_ip', return_value='192.168.1.1'):
+            resp = await client.get("/health")
+            assert resp.status_code == 200
+            resp = await client.get("/ready")
+            assert resp.status_code == 200
+    finally:
+        app.state.config["management_ui"]["allowed_cidr"] = ""
+
+
+async def test_thresholds_validation_ascending_order(client, mock_redis):
+    """PUT /api/v1/config/thresholds must validate ascending order."""
+    # Valid thresholds in ascending order
+    valid_data = {
+        "flag": 15,
+        "rate_limit": 30,
+        "tarpit": 50,
+        "block": 65,
+        "ban": 80
+    }
+    
+    resp = await client.put("/api/v1/config/thresholds", json=valid_data, headers=HEADERS)
+    assert resp.status_code == 200
+    
+    # Invalid thresholds (out of order)
+    invalid_data = {
+        "flag": 80,
+        "rate_limit": 30,
+        "tarpit": 50,
+        "block": 65,
+        "ban": 90
+    }
+    
+    resp = await client.put("/api/v1/config/thresholds", json=invalid_data, headers=HEADERS)
+    assert resp.status_code == 422
+    assert "must be in ascending order" in str(resp.json())
+
+
+async def test_sse_events_endpoint_exists(client, mock_redis):
+    """GET /api/v1/events should exist and return event-stream content type."""
+    # Mock xread to return empty (no events) so stream doesn't block
+    mock_redis.xread = AsyncMock(return_value=[])
+    async with client.stream("GET", "/api/v1/events", headers=HEADERS) as resp:
+        assert resp.status_code == 200
+        assert "text/event-stream" in resp.headers.get("content-type", "")
+
+
+async def test_sse_recent_events(client, mock_redis):
+    """GET /api/v1/events/recent should return recent events."""
+    # Mock Redis stream response
+    mock_events = [
+        ("event1", {"data": json.dumps({"type": "connection", "ip": "1.2.3.4", "score": 85})}),
+        ("event2", {"data": json.dumps({"type": "connection", "ip": "5.6.7.8", "score": 30})}),
+    ]
+    
+    mock_redis.xrevrange.return_value = mock_events
+    
+    resp = await client.get("/api/v1/events/recent?limit=10", headers=HEADERS)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "events" in data
+    assert len(data["events"]) == 2
+    assert data["events"][0]["type"] == "connection"
+
+
+async def test_dial_counterfactual_insufficient_data(client, mock_redis):
+    """GET /api/v1/dial/counterfactual should handle insufficient data."""
+    # Mock empty events
+    mock_redis.xrevrange.return_value = []
+    mock_redis.hgetall.return_value = {"block": "70"}
+    
+    resp = await client.get("/api/v1/dial/counterfactual?dial=50", headers=HEADERS)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["estimated_block_pct"] is None
+    assert data["reason"] == "insufficient_data"
+    assert data["sample_size"] == 0
+
+
+async def test_dial_counterfactual_with_data(client, mock_redis):
+    """GET /api/v1/dial/counterfactual should calculate blocking percentage."""
+    # Mock events with scores - 60 out of 100 would be blocked at dial=50
+    mock_events = []
+    for i in range(100):
+        score = 80 if i < 60 else 30  # 60% would be blocked
+        mock_events.append((f"event{i}", {
+            "data": json.dumps({
+                "type": "connection",
+                "score": score,
+                "ip": f"1.2.3.{i}",
+                "country": "US"
+            })
+        }))
+    
+    mock_redis.xrevrange.return_value = mock_events
+    mock_redis.hgetall.return_value = {"block": "70"}
+    
+    resp = await client.get("/api/v1/dial/counterfactual?dial=50", headers=HEADERS)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["estimated_block_pct"] == 60.0
+    assert data["sample_size"] == 100
+    assert data["blocked_count"] == 60
+
+
+async def test_integrations_rdap_status(client, mock_redis):
+    """GET /api/v1/integrations/rdap should return RDAP status."""
+    mock_redis.get.return_value = "true"
+    
+    resp = await client.get("/api/v1/integrations/rdap", headers=HEADERS)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "enabled"
+    assert data["service"] == "rdap"
+    assert data["block_expansion"] == True
+
+
+async def test_integrations_analytics_status(client, mock_redis):
+    """GET /api/v1/integrations/analytics should return analytics status."""
+    # Mock Redis responses
+    mock_redis.get.return_value = "true"
+    
+    # Mock recent event
+    recent_time = int(time.time()) - 60  # 60 seconds ago
+    mock_redis.xrevrange.return_value = [
+        ("event1", {"data": json.dumps({"timestamp": recent_time})})
+    ]
+    
+    resp = await client.get("/api/v1/integrations/analytics", headers=HEADERS)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "enabled"
+    assert data["service"] == "analytics"
+    assert "last_event_age_s" in data
+
+
+async def test_config_audit_log_on_threshold_update(client, mock_redis):
+    """PUT /api/v1/config/thresholds should write to audit log."""
+    valid_data = {
+        "flag": 15,
+        "rate_limit": 30,
+        "tarpit": 50,
+        "block": 65,
+        "ban": 80
+    }
+    
+    resp = await client.put("/api/v1/config/thresholds", json=valid_data, headers=HEADERS)
+    assert resp.status_code == 200
+    
+    # Check that audit log was written
+    mock_redis.lpush.assert_called()
+    lpush_calls = [str(c) for c in mock_redis.lpush.call_args_list]
+    assert any("management:audit_log" in c for c in lpush_calls)
+    assert any("thresholds_updated" in c for c in lpush_calls)
+
+
+async def test_config_audit_log_on_country_update(client, mock_redis):
+    """PUT /api/v1/config/countries/blocklist should write to audit log."""
+    resp = await client.put("/api/v1/config/countries/blocklist", json={
+        "countries": ["US", "CN"]
+    }, headers=HEADERS)
+    assert resp.status_code == 200
+    
+    # Check that audit log was written
+    mock_redis.lpush.assert_called()
+    lpush_calls = [str(c) for c in mock_redis.lpush.call_args_list]
+    assert any("management:audit_log" in c for c in lpush_calls)
+    assert any("country_blocklist_updated" in c for c in lpush_calls)
