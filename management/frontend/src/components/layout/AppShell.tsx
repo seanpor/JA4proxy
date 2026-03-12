@@ -27,9 +27,8 @@ export const AppShell: React.FC<{ children?: React.ReactNode }> = ({ children })
     { name: 'Health', path: '/health', icon: <HeartPulse className="h-4 w-4" /> },
   ];
 
-  const handleLogout = () => {
-    logout();
-    window.location.href = '/login';
+  const handleLogout = async () => {
+    await logout();
   };
 
   return (

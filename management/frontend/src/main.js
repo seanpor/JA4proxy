@@ -8,17 +8,16 @@ const react_1 = __importDefault(require("react"));
 const client_1 = __importDefault(require("react-dom/client"));
 const react_query_1 = require("@tanstack/react-query");
 const react_router_dom_1 = require("react-router-dom");
+const AuthContext_1 = require("./contexts/AuthContext");
 const router_1 = require("./router");
 require("./index.css");
-// Create QueryClient with default options
 const queryClient = new react_query_1.QueryClient({
     defaultOptions: {
         queries: {
             refetchOnWindowFocus: false,
             retry: 2,
-            staleTime: 5 * 60 * 1000 // 5 minutes
+            staleTime: 5 * 60 * 1000,
         }
     }
 });
-// Render the application
-client_1.default.createRoot(document.getElementById('root')).render((0, jsx_runtime_1.jsx)(react_1.default.StrictMode, { children: (0, jsx_runtime_1.jsx)(react_query_1.QueryClientProvider, { client: queryClient, children: (0, jsx_runtime_1.jsx)(react_router_dom_1.RouterProvider, { router: router_1.router }) }) }));
+client_1.default.createRoot(document.getElementById('root')).render((0, jsx_runtime_1.jsx)(react_1.default.StrictMode, { children: (0, jsx_runtime_1.jsx)(react_query_1.QueryClientProvider, { client: queryClient, children: (0, jsx_runtime_1.jsx)(AuthContext_1.AuthProvider, { children: (0, jsx_runtime_1.jsx)(react_router_dom_1.RouterProvider, { router: router_1.router }) }) }) }));

@@ -15,7 +15,6 @@ const ConfigPage_1 = require("./pages/ConfigPage");
 const AuditPage_1 = require("./pages/AuditPage");
 const HealthPage_1 = require("./pages/HealthPage");
 const AuthGuard_1 = require("./components/layout/AuthGuard");
-// Create the router configuration
 exports.router = (0, react_router_dom_1.createBrowserRouter)([
     {
         path: '/login',
@@ -29,7 +28,8 @@ exports.router = (0, react_router_dom_1.createBrowserRouter)([
                 path: '',
                 element: (0, jsx_runtime_1.jsx)(AppShell_1.AppShell, {}),
                 children: [
-                    { index: true, element: (0, jsx_runtime_1.jsx)(DashboardPage_1.DashboardPage, {}) },
+                    { index: true, element: (0, jsx_runtime_1.jsx)(react_router_dom_1.Navigate, { to: "/dashboard", replace: true }) },
+                    { path: 'dashboard', element: (0, jsx_runtime_1.jsx)(DashboardPage_1.DashboardPage, {}) },
                     { path: 'bans', element: (0, jsx_runtime_1.jsx)(BansPage_1.BansPage, {}) },
                     { path: 'cidrs', element: (0, jsx_runtime_1.jsx)(CIDRsPage_1.CIDRsPage, {}) },
                     { path: 'fingerprints', element: (0, jsx_runtime_1.jsx)(FingerprintsPage_1.FingerprintsPage, {}) },
