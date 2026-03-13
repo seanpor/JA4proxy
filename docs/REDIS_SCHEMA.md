@@ -38,6 +38,7 @@
 
 | Key pattern | Type | TTL | Written by | Notes |
 |-------------|------|-----|------------|-------|
+| `mgmt:session:{token}` | String (username) | 3600s | Auth router (POST /api/v1/auth/login) | Session token → username mapping; presence validates a login-issued token |
 | `mgmt:ratelimit:{ip}` | String (INCR) | 60s | Management auth | Auth failure counter per IP; rate-limit gate |
 | `mgmt:dial_changes:{YYYYMMDDHH}` | String (INCR) | 3600s | Dial router | Hourly dial change counter; max 10/hour safety gate |
 | `policy:bypass:{name}` | String "true"/"false" | none | Policy router, config reload | Enabled state of each of the 8 security bypasses |
