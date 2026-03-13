@@ -1,32 +1,37 @@
 import React, { useState } from 'react';
 import { useDial } from '../hooks/useApi';
 import { apiClient } from '../api/client';
-import { Button, Card, CardHeader, CardTitle, CardContent, CardDescription, Input, Label, Alert, AlertDescription } from '../components/ui';
-import { AlertCircle, Shield, CheckCircle } from 'lucide-react';
+import { Button, Input, Label, Alert, AlertDescription } from '../components/ui';
+import { AlertCircle, Shield, CheckCircle, Activity } from 'lucide-react';
+
+const dialLabel = (v: number) => {
+  if (v === 0) return { text: 'Monitor only', color: 'text-green-600', bg: 'bg-green-50' };
+  if (v <= 25) return { text: 'Low blocking', color: 'text-blue-600', bg: 'bg-blue-50' };
+  if (v <= 50) return { text: 'Medium blocking', color: 'text-yellow-600', bg: 'bg-yellow-50' };
+  if (v <= 75) return { text: 'High blocking', color: 'text-orange-600', bg: 'bg-orange-50' };
+  return { text: 'Maximum blocking', color: 'text-red-600', bg: 'bg-red-50' };
+};
 
 export const DialPage: React.FC = () => {
   const { data: dialData, isLoading, error, setDial } = useDial();
   const [dialValue, setDialValue] = useState<number>(0);
-  const [reason, setReason] = useState<string>('');
+  const [reason, setReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
   const [isAcknowledging, setIsAcknowledging] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   React.useEffect(() => {
-    if (dialData) {
-      setDialValue(dialData.dial);
-    }
+    if (dialData) setDialValue(dialData.dial);
   }, [dialData]);
 
   const handleAcknowledge = async () => {
     setIsAcknowledging(true);
-    setSubmitError(null);
+    setFeedback(null);
     try {
       await apiClient.post('/dial/acknowledge', { acknowledged: true });
       window.location.reload();
     } catch (err: any) {
-      setSubmitError(err?.response?.data?.detail ?? 'Failed to acknowledge');
+      setFeedback({ type: 'error', message: err?.response?.data?.detail ?? 'Failed to acknowledge' });
     } finally {
       setIsAcknowledging(false);
     }
@@ -35,144 +40,129 @@ export const DialPage: React.FC = () => {
   const handleSetDial = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setSubmitError(null);
-    setSubmitSuccess(false);
-
+    setFeedback(null);
     try {
       await apiClient.put('/dial', { dial: dialValue, reason });
-      setSubmitSuccess(true);
+      setFeedback({ type: 'success', message: `Dial set to ${dialValue}` });
       setReason('');
-      setTimeout(() => setSubmitSuccess(false), 3000);
     } catch (err: any) {
-      setSubmitError(err?.response?.data?.detail ?? 'Failed to update dial');
+      setFeedback({ type: 'error', message: err?.response?.data?.detail ?? 'Failed to update dial' });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const dialDescription = (v: number) => {
-    if (v === 0) return 'Monitor only — no connections blocked';
-    if (v <= 25) return 'Low — only very high-confidence threats blocked';
-    if (v <= 50) return 'Medium — moderate threat level required to block';
-    if (v <= 75) return 'High — aggressive blocking';
-    return 'Maximum — strictest blocking';
-  };
+  const current = dialData?.dial ?? 0;
+  const label = dialLabel(current);
+  const newLabel = dialLabel(dialValue);
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">Blocking Dial</h1>
+    <div className="flex flex-col h-full">
+      <div className="mb-4 flex-shrink-0">
+        <h1 className="text-lg font-semibold text-gray-900">Blocking Dial</h1>
+        <p className="text-xs text-gray-500 mt-0.5">0 = monitor only, 100 = maximum blocking</p>
       </div>
 
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>Failed to load dial: {error.message}</AlertDescription>
-        </Alert>
-      )}
-
-      {submitError && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{submitError}</AlertDescription>
-        </Alert>
-      )}
-
-      {submitSuccess && (
-        <Alert>
-          <CheckCircle className="h-4 w-4" />
-          <AlertDescription>Dial updated successfully.</AlertDescription>
-        </Alert>
-      )}
-
       {isLoading ? (
-        <div className="text-center py-8">Loading...</div>
+        <div className="flex items-center justify-center flex-1 text-gray-400 text-sm">Loading…</div>
       ) : (
-        <>
-          <Card>
-            <CardHeader>
-              <CardTitle>Current Dial Setting</CardTitle>
-              <CardDescription>
-                The dial controls how aggressively the proxy blocks traffic. 0 = monitor only, 100 = maximum blocking.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-5xl font-bold text-center py-4">
-                {dialData?.dial ?? 0}
-                <span className="text-lg text-muted-foreground"> / 100</span>
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 max-w-3xl">
+            {/* Current state */}
+            <div className="bg-white rounded-lg border border-gray-200 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Activity className="h-4 w-4 text-gray-400" />
+                <span className="text-sm font-medium text-gray-700">Current State</span>
               </div>
-              <p className="text-center text-muted-foreground">{dialDescription(dialData?.dial ?? 0)}</p>
-
-              {dialData?.blocking_acknowledged === false && dialData?.dial === 0 && (
-                <Alert className="mt-4">
-                  <Shield className="h-4 w-4" />
-                  <AlertDescription>
-                    Blocking is not acknowledged. Acknowledge below before raising the dial above 0.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
-
-          {!dialData?.blocking_acknowledged && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Acknowledge Blocking Risk</CardTitle>
-                <CardDescription>
-                  You must acknowledge that raising the dial above 0 will block real connections before proceeding.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button onClick={handleAcknowledge} disabled={isAcknowledging}>
-                  <Shield className="h-4 w-4 mr-2" />
-                  {isAcknowledging ? 'Acknowledging...' : 'I understand — enable blocking'}
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Update Dial</CardTitle>
-              <CardDescription>
-                Set the dial to 0 at any time to return to monitor-only mode immediately.
-                Changes above 0 require acknowledgment and are rate-limited (max 10/hour).
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSetDial} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="dial-value">Dial Value (0–100)</Label>
-                  <Input
-                    id="dial-value"
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={dialValue}
-                    onChange={(e) => setDialValue(parseInt(e.target.value) || 0)}
-                    className="w-32"
-                  />
-                  <p className="text-sm text-muted-foreground">{dialDescription(dialValue)}</p>
+              <div className="text-center py-4">
+                <div className={`inline-flex items-center justify-center w-24 h-24 rounded-full ${label.bg} mb-3`}>
+                  <span className={`text-4xl font-bold ${label.color}`}>{current}</span>
                 </div>
-                <div className="space-y-2">
+                <p className={`text-sm font-medium ${label.color}`}>{label.text}</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  {dialData?.blocking_acknowledged ? 'Blocking acknowledged' : 'Not acknowledged'}
+                </p>
+              </div>
+            </div>
+
+            {/* Controls */}
+            <div className="bg-white rounded-lg border border-gray-200 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Shield className="h-4 w-4 text-gray-400" />
+                <span className="text-sm font-medium text-gray-700">Set Dial</span>
+              </div>
+
+              {!dialData?.blocking_acknowledged && (
+                <div className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                  <p className="text-xs text-amber-700 mb-2">You must acknowledge blocking risk before raising the dial above 0.</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleAcknowledge}
+                    disabled={isAcknowledging}
+                  >
+                    {isAcknowledging ? 'Acknowledging…' : 'I understand — enable blocking'}
+                  </Button>
+                </div>
+              )}
+
+              <form onSubmit={handleSetDial} className="space-y-3">
+                <div>
+                  <Label htmlFor="dial-value">Dial value (0–100)</Label>
+                  <div className="flex items-center gap-3 mt-1">
+                    <Input
+                      id="dial-value"
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={dialValue}
+                      onChange={e => setDialValue(parseInt(e.target.value) || 0)}
+                      className="w-24"
+                    />
+                    <span className={`text-xs font-medium ${newLabel.color}`}>{newLabel.text}</span>
+                  </div>
+                </div>
+                <div>
                   <Label htmlFor="reason">Reason (optional)</Label>
                   <Input
                     id="reason"
+                    className="mt-1"
                     value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    placeholder="e.g., Responding to active attack campaign"
+                    onChange={e => setReason(e.target.value)}
+                    placeholder="e.g. Active attack campaign"
                   />
                 </div>
                 <Button
                   type="submit"
                   disabled={isSubmitting || (dialValue > 0 && !dialData?.blocking_acknowledged)}
                 >
-                  {isSubmitting ? 'Updating...' : 'Set Dial'}
+                  {isSubmitting ? 'Updating…' : 'Set Dial'}
                 </Button>
               </form>
-            </CardContent>
-          </Card>
-        </>
+            </div>
+          </div>
+
+          {/* Feedback */}
+          {(error || feedback) && (
+            <div className="mt-4 max-w-3xl">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" /><AlertDescription>{error.message}</AlertDescription>
+                </Alert>
+              )}
+              {feedback?.type === 'error' && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" /><AlertDescription>{feedback.message}</AlertDescription>
+                </Alert>
+              )}
+              {feedback?.type === 'success' && (
+                <Alert variant="success">
+                  <CheckCircle className="h-4 w-4" /><AlertDescription>{feedback.message}</AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

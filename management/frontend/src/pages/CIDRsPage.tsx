@@ -1,133 +1,103 @@
 import React, { useState } from 'react';
 import { useCIDRs } from '../hooks/useApi';
-import { Button, Card, CardHeader, CardTitle, CardContent, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Input, Label, Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Alert, AlertDescription } from '../components/ui';
+import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Input, Label, Alert, AlertDescription } from '../components/ui';
 import { AlertCircle, Plus, Trash2, Network } from 'lucide-react';
 import { format } from 'date-fns';
 
 export const CIDRsPage: React.FC = () => {
   const { data: cidrs, isLoading, error, createCIDR, deleteCIDR } = useCIDRs();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newCIDR, setNewCIDR] = useState({
-    cidr: '',
-    reason: '',
-  });
+  const [newCIDR, setNewCIDR] = useState({ cidr: '', reason: '' });
 
-  const handleCreateCIDR = async () => {
+  const handleCreate = async () => {
     try {
-      await createCIDR({
-        cidr: newCIDR.cidr,
-        reason: newCIDR.reason,
-      });
+      await createCIDR({ cidr: newCIDR.cidr, reason: newCIDR.reason });
       setIsDialogOpen(false);
       setNewCIDR({ cidr: '', reason: '' });
     } catch (err) {
-      console.error('Failed to create CIDR:', err);
-    }
-  };
-
-  const handleDeleteCIDR = async (cidr: string) => {
-    try {
-      await deleteCIDR(cidr);
-    } catch (err) {
-      console.error('Failed to delete CIDR:', err);
+      console.error('Failed to create CIDR block:', err);
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">CIDR Management</h1>
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
+        <div>
+          <h1 className="text-lg font-semibold text-gray-900">CIDR Blocks</h1>
+          <p className="text-xs text-gray-500 mt-0.5">{cidrs?.length ?? 0} network range{cidrs?.length !== 1 ? 's' : ''} blocked</p>
+        </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add CIDR
-            </Button>
+            <Button size="sm"><Plus className="h-3.5 w-3.5 mr-1.5" />Add CIDR</Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New CIDR Block</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
+            <DialogHeader><DialogTitle>Add CIDR Block</DialogTitle></DialogHeader>
+            <div className="space-y-3 mt-2">
+              <div>
                 <Label htmlFor="cidr">CIDR Notation</Label>
-                <Input
-                  id="cidr"
-                  value={newCIDR.cidr}
-                  onChange={(e) => setNewCIDR({ ...newCIDR, cidr: e.target.value })}
-                  placeholder="e.g., 192.168.1.0/24"
-                />
+                <Input id="cidr" className="mt-1" value={newCIDR.cidr} onChange={e => setNewCIDR({ ...newCIDR, cidr: e.target.value })} placeholder="192.168.1.0/24" />
               </div>
-              <div className="space-y-2">
+              <div>
                 <Label htmlFor="reason">Reason</Label>
-                <Input
-                  id="reason"
-                  value={newCIDR.reason}
-                  onChange={(e) => setNewCIDR({ ...newCIDR, reason: e.target.value })}
-                  placeholder="e.g., Known malicious network"
-                />
+                <Input id="reason" className="mt-1" value={newCIDR.reason} onChange={e => setNewCIDR({ ...newCIDR, reason: e.target.value })} placeholder="Known malicious network" />
               </div>
+              <Button onClick={handleCreate} className="w-full mt-2">Add CIDR Block</Button>
             </div>
-            <Button onClick={handleCreateCIDR} className="w-full">
-              Create CIDR Block
-            </Button>
           </DialogContent>
         </Dialog>
       </div>
 
       {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>Failed to load CIDR blocks: {error.message}</AlertDescription>
+        <Alert variant="destructive" className="mb-3 flex-shrink-0">
+          <AlertCircle className="h-4 w-4" /><AlertDescription>{error.message}</AlertDescription>
         </Alert>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>CIDR Blocks</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8">Loading CIDR blocks...</div>
-          ) : cidrs && cidrs.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>CIDR</TableHead>
-                  <TableHead>Reason</TableHead>
-                  <TableHead>Created At</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {cidrs.map((cidr) => (
-                  <TableRow key={cidr.cidr}>
-                    <TableCell className="font-medium">{cidr.cidr}</TableCell>
-                    <TableCell>{cidr.reason}</TableCell>
-                    <TableCell>{cidr.created_at ? format(new Date(cidr.created_at), 'PPpp') : '—'}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteCIDR(cidr.cidr)}
+      <div className="flex-1 min-h-0 rounded-lg border border-gray-200 bg-white overflow-hidden">
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full text-gray-400 text-sm">Loading…</div>
+        ) : (
+          <div className="h-full overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-gray-50 z-10">
+                <tr className="border-b border-gray-200">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">CIDR</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Reason</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Added</th>
+                  <th className="px-4 py-3 w-10"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {!cidrs || cidrs.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-16 text-center text-gray-400">
+                      <Network className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                      <p className="text-sm">No CIDR blocks</p>
+                    </td>
+                  </tr>
+                ) : cidrs.map(cidr => (
+                  <tr key={cidr.cidr} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 font-mono text-sm font-medium text-gray-900">{cidr.cidr}</td>
+                    <td className="px-4 py-3 text-gray-600 max-w-xs truncate">{cidr.reason || '—'}</td>
+                    <td className="px-4 py-3 text-gray-500 text-xs">
+                      {cidr.created_at ? format(new Date(cidr.created_at), 'dd MMM yyyy HH:mm') : '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => deleteCIDR(cidr.cidr)}
+                        className="text-gray-400 hover:text-red-600 transition-colors p-1 rounded hover:bg-red-50"
+                        title="Remove block"
                       >
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Delete</span>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </td>
+                  </tr>
                 ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              <Network className="mx-auto h-8 w-8 mb-2" />
-              <p>No CIDR blocks found</p>
-              <p className="text-sm">Add CIDR blocks to protect network ranges</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
