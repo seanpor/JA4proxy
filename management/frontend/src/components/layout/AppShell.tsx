@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { Button, Sheet, SheetContent, SheetTrigger } from '../ui';
-import { Menu, Package2, PanelLeft, Search, Users, Settings, Shield, Fingerprint, Phone, FileText, HeartPulse, ListChecks } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { Shield, Fingerprint, FileText, HeartPulse, ListChecks, Settings, Users, Phone, LayoutDashboard, Menu, X, LogOut } from 'lucide-react';
 
 interface NavItem {
   name: string;
@@ -10,77 +9,109 @@ interface NavItem {
   icon: React.ReactNode;
 }
 
+const navItems: NavItem[] = [
+  { name: 'Dashboard',    path: '/dashboard',    icon: <LayoutDashboard className="h-4 w-4" /> },
+  { name: 'Bans',         path: '/bans',         icon: <Shield className="h-4 w-4" /> },
+  { name: 'CIDRs',        path: '/cidrs',        icon: <Users className="h-4 w-4" /> },
+  { name: 'Fingerprints', path: '/fingerprints', icon: <Fingerprint className="h-4 w-4" /> },
+  { name: 'Dial',         path: '/dial',         icon: <Phone className="h-4 w-4" /> },
+  { name: 'Policy',       path: '/policy',       icon: <ListChecks className="h-4 w-4" /> },
+  { name: 'Config',       path: '/config',       icon: <Settings className="h-4 w-4" /> },
+  { name: 'Audit',        path: '/audit',        icon: <FileText className="h-4 w-4" /> },
+  { name: 'Health',       path: '/health',       icon: <HeartPulse className="h-4 w-4" /> },
+];
+
 export const AppShell: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
-  const { logout } = useAuth();
+  const { logout, username } = useAuth();
 
-  const navItems: NavItem[] = [
-    { name: 'Dashboard', path: '/dashboard', icon: <Package2 className="h-4 w-4" /> },
-    { name: 'Bans', path: '/bans', icon: <Shield className="h-4 w-4" /> },
-    { name: 'CIDRs', path: '/cidrs', icon: <Users className="h-4 w-4" /> },
-    { name: 'Fingerprints', path: '/fingerprints', icon: <Fingerprint className="h-4 w-4" /> },
-    { name: 'Dial', path: '/dial', icon: <Phone className="h-4 w-4" /> },
-    { name: 'Policy', path: '/policy', icon: <ListChecks className="h-4 w-4" /> },
-    { name: 'Config', path: '/config', icon: <Settings className="h-4 w-4" /> },
-    { name: 'Audit', path: '/audit', icon: <FileText className="h-4 w-4" /> },
-    { name: 'Health', path: '/health', icon: <HeartPulse className="h-4 w-4" /> },
-  ];
+  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/');
 
-  const handleLogout = async () => {
-    await logout();
-  };
+  const SidebarContent = () => (
+    <nav className="flex flex-col h-full">
+      {/* Logo */}
+      <div className="flex items-center gap-2 px-4 py-5 border-b border-gray-200">
+        <Shield className="h-6 w-6 text-blue-600 flex-shrink-0" />
+        <span className="font-bold text-gray-900 text-sm">JA4 Proxy</span>
+      </div>
+
+      {/* Nav links */}
+      <div className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
+        {navItems.map((item) => (
+          <Link
+            key={item.path}
+            to={item.path}
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              isActive(item.path)
+                ? 'bg-blue-50 text-blue-700'
+                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+            }`}
+          >
+            {item.icon}
+            {item.name}
+          </Link>
+        ))}
+      </div>
+
+      {/* User + logout */}
+      <div className="border-t border-gray-200 p-4">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-500 truncate">{username ?? 'admin'}</span>
+          <button
+            onClick={logout}
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-900 transition-colors"
+          >
+            <LogOut className="h-3 w-3" />
+            Logout
+          </button>
+        </div>
+      </div>
+    </nav>
+  );
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-muted/40">
-      <div className="flex flex-col sm:gap-4 sm:py-4">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
-          <Sheet>
-            <SheetTrigger>
-              <Button size="icon" variant="outline" className="sm:hidden">
-                <PanelLeft className="h-5 w-5" />
-                <span className="sr-only">Toggle Menu</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent className="sm:max-w-xs">
-              <nav className="grid gap-6 text-lg font-medium">
-                <Link to="/dashboard" className="group flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:text-base">
-                  <Package2 className="h-5 w-5 transition-all group-hover:scale-110" />
-                  <span className="sr-only">JA4 Proxy</span>
-                </Link>
-                {navItems.map((item) => (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`flex items-center gap-4 px-2.5 ${location.pathname === item.path ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                  >
-                    {item.icon}
-                    {item.name}
-                  </Link>
-                ))}
-              </nav>
-            </SheetContent>
-          </Sheet>
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex md:flex-shrink-0 md:w-56 bg-white border-r border-gray-200 flex-col">
+        <SidebarContent />
+      </aside>
 
-          <div className="relative ml-auto flex-1 md:grow-0">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <input
-              type="search"
-              placeholder="Search..."
-              className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[336px]"
-            />
-          </div>
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-40 flex md:hidden">
+          <div
+            className="fixed inset-0 bg-gray-600 bg-opacity-75"
+            onClick={() => setMobileOpen(false)}
+          />
+          <aside className="relative flex w-56 flex-col bg-white z-50">
+            <button
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
+              onClick={() => setMobileOpen(false)}
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <SidebarContent />
+          </aside>
+        </div>
+      )}
 
-          <Button variant="outline" size="icon" className="ml-2" onClick={handleLogout}>
+      {/* Main content */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+        {/* Top bar (mobile only hamburger + page title) */}
+        <header className="md:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200">
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="text-gray-500 hover:text-gray-700"
+          >
             <Menu className="h-5 w-5" />
-            <span className="sr-only">Logout</span>
-          </Button>
+          </button>
+          <span className="font-semibold text-gray-900 text-sm">JA4 Proxy</span>
         </header>
 
-        <main className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
-          <div className="mx-auto grid w-full max-w-6xl flex-1 auto-rows-max gap-4">
-            {children || <Outlet />}
-          </div>
+        <main className="flex-1 overflow-y-auto p-6">
+          {children || <Outlet />}
         </main>
       </div>
     </div>
