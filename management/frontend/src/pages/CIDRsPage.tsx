@@ -25,9 +25,9 @@ export const CIDRsPage: React.FC = () => {
     }
   };
 
-  const handleDeleteCIDR = async (id: string) => {
+  const handleDeleteCIDR = async (cidr: string) => {
     try {
-      await deleteCIDR(id);
+      await deleteCIDR(cidr);
     } catch (err) {
       console.error('Failed to delete CIDR:', err);
     }
@@ -101,15 +101,15 @@ export const CIDRsPage: React.FC = () => {
               </TableHeader>
               <TableBody>
                 {cidrs.map((cidr) => (
-                  <TableRow key={cidr.id}>
+                  <TableRow key={cidr.cidr}>
                     <TableCell className="font-medium">{cidr.cidr}</TableCell>
                     <TableCell>{cidr.reason}</TableCell>
-                    <TableCell>{format(new Date(cidr.created_at), 'PPpp')}</TableCell>
+                    <TableCell>{cidr.created_at ? format(new Date(cidr.created_at), 'PPpp') : '—'}</TableCell>
                     <TableCell>
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleDeleteCIDR(cidr.id)}
+                        onClick={() => handleDeleteCIDR(cidr.cidr)}
                       >
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Delete</span>

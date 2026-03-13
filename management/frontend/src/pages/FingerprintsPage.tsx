@@ -25,9 +25,9 @@ export const FingerprintsPage: React.FC = () => {
     }
   };
 
-  const handleDeleteFingerprint = async (id: string) => {
+  const handleDeleteFingerprint = async (fingerprint: string) => {
     try {
-      await deleteFingerprint(id);
+      await deleteFingerprint(fingerprint);
     } catch (err) {
       console.error('Failed to delete fingerprint:', err);
     }
@@ -101,17 +101,17 @@ export const FingerprintsPage: React.FC = () => {
               </TableHeader>
               <TableBody>
                 {fingerprints.map((fp) => (
-                  <TableRow key={fp.id}>
+                  <TableRow key={fp.fingerprint}>
                     <TableCell className="font-mono font-medium max-w-[200px] truncate">
                       {fp.fingerprint}
                     </TableCell>
-                    <TableCell>{fp.tag}</TableCell>
-                    <TableCell>{format(new Date(fp.created_at), 'PPpp')}</TableCell>
+                    <TableCell>{fp.tag ?? '—'}</TableCell>
+                    <TableCell>{fp.created_at ? format(new Date(fp.created_at), 'PPpp') : '—'}</TableCell>
                     <TableCell>
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleDeleteFingerprint(fp.id)}
+                        onClick={() => handleDeleteFingerprint(fp.fingerprint)}
                       >
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Delete</span>

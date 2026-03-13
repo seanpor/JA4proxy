@@ -1,5 +1,5 @@
 import React from 'react';
-import { useSseEvents, useHealth, useBans, useCIDRs, useFingerprints } from '../hooks/useApi';
+import { useSseEvents, useHealth, useBans, useCIDRs, useFingerprints, useDial } from '../hooks/useApi';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Table, TableHeader, TableRow, TableHead, TableBody, TableCell, Alert, AlertTitle, AlertDescription } from '../components/ui';
 import { AlertCircle, Shield, Users, Fingerprint, HeartPulse, Activity } from 'lucide-react';
 
@@ -139,7 +139,7 @@ export const DashboardPage: React.FC = () => {
                 <Activity className="h-4 w-4" />
                 <span>Uptime</span>
               </div>
-              <span>{healthData?.uptime ? `${Math.floor(healthData.uptime / 60)} minutes` : 'Loading...'}</span>
+              <span>{healthData?.status ?? 'Loading...'}</span>
             </div>
 
             <div className="flex items-center justify-between">
@@ -147,8 +147,8 @@ export const DashboardPage: React.FC = () => {
                 <HeartPulse className="h-4 w-4" />
                 <span>Redis Connection</span>
               </div>
-              <Badge variant={healthData?.redis_connected ? 'outline' : 'destructive'}>
-                {healthData?.redis_connected ? 'Connected' : 'Disconnected'}
+              <Badge variant={healthData?.redis !== false ? 'outline' : 'destructive'}>
+                {healthData?.redis !== false ? 'Connected' : 'Disconnected'}
               </Badge>
             </div>
 

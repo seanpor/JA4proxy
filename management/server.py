@@ -61,9 +61,11 @@ async def authenticate(
 ) -> bool:
     """Legacy Bearer-token authentication used by older router modules.
 
+    Accepts either:
+    - A session token issued by POST /api/v1/auth/login (checked against Redis)
+    - The raw UI_API_KEY from the environment
+
     Newer routers use ``management.auth.require_api_key`` via FastAPI Depends.
-    This function is kept for backwards compatibility with routers that call it
-    directly with an ``Authorization`` header string.
     """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
@@ -80,6 +82,16 @@ async def authenticate(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="API key not configured",
         )
+
+    # Accept session tokens issued by POST /api/v1/auth/login
+    redis_client = getattr(request.app.state, "redis", None)
+    if redis_client is not None and token:
+        try:
+            session_user = await redis_client.get(f"mgmt:session:{token}")
+            if isinstance(session_user, str) and session_user:
+                return True  # valid session token
+        except Exception:
+            pass  # Redis error — fall through to API key check
 
     if token != configured_key:
         raise HTTPException(

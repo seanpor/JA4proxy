@@ -13,7 +13,7 @@ export const AuditPage: React.FC = () => {
 
   const { data, isLoading, error } = useAuditLog(page, pageSize);
 
-  const filteredData = data?.data.filter((entry) => {
+  const filteredData = data?.items.filter((entry) => {
     // Filter by search term
     const matchesSearch = searchTerm === '' || 
       entry.details.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -73,7 +73,7 @@ export const AuditPage: React.FC = () => {
             </div>
 
             <div className="flex gap-2">
-              <Select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)} className="w-[180px]">
+              <Select value={severityFilter} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSeverityFilter(e.target.value)} className="w-[180px]">
                   <option value="all">All Severities</option>
                   <option value="high">High</option>
                   <option value="medium">Medium</option>
@@ -81,7 +81,7 @@ export const AuditPage: React.FC = () => {
                   <option value="info">Info</option>
               </Select>
 
-              <Select value={eventTypeFilter} onChange={(e) => setEventTypeFilter(e.target.value)} className="w-[180px]">
+              <Select value={eventTypeFilter} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEventTypeFilter(e.target.value)} className="w-[180px]">
                   <option value="all">All Event Types</option>
                   <option value="ban_created">Ban Created</option>
                   <option value="ban_deleted">Ban Deleted</option>
@@ -174,19 +174,19 @@ export const AuditPage: React.FC = () => {
             </div>
             <div className="text-center p-4 border rounded-lg">
               <div className="text-2xl font-bold">
-                {data?.data.filter(e => e.severity === 'high').length || 0}
+                {data?.items.filter(e => e.severity === 'high').length || 0}
               </div>
               <div className="text-sm text-muted-foreground">High Severity</div>
             </div>
             <div className="text-center p-4 border rounded-lg">
               <div className="text-2xl font-bold">
-                {data?.data.filter(e => e.severity === 'medium').length || 0}
+                {data?.items.filter(e => e.severity === 'medium').length || 0}
               </div>
               <div className="text-sm text-muted-foreground">Medium Severity</div>
             </div>
             <div className="text-center p-4 border rounded-lg">
               <div className="text-2xl font-bold">
-                {data?.data.filter(e => e.event_type === 'ban_created').length || 0}
+                {data?.items.filter(e => e.event_type === 'ban_created').length || 0}
               </div>
               <div className="text-sm text-muted-foreground">Bans Created</div>
             </div>

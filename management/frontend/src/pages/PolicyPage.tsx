@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { useThresholdConfig } from '../hooks/useApi';
 import { Button, Card, CardHeader, CardTitle, CardContent, CardDescription, Input, Label, Alert, AlertDescription } from '../components/ui';
-import { AlertCircle, Save, Shield, Fingerprint, Network } from 'lucide-react';
+import { AlertCircle, Save, Shield } from 'lucide-react';
 
 export const PolicyPage: React.FC = () => {
   const { data: config, isLoading, error, updateThresholdConfig } = useThresholdConfig();
   const [formData, setFormData] = useState({
-    ban_threshold: config?.ban_threshold || 10,
-    fingerprint_threshold: config?.fingerprint_threshold || 5,
-    cidr_threshold: config?.cidr_threshold || 3,
+    flag: config?.flag ?? 20,
+    rate_limit: config?.rate_limit ?? 35,
+    tarpit: config?.tarpit ?? 55,
+    block: config?.block ?? 70,
+    ban: config?.ban ?? 85,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -18,9 +20,11 @@ export const PolicyPage: React.FC = () => {
   React.useEffect(() => {
     if (config) {
       setFormData({
-        ban_threshold: config.ban_threshold,
-        fingerprint_threshold: config.fingerprint_threshold,
-        cidr_threshold: config.cidr_threshold,
+        flag: config.flag,
+        rate_limit: config.rate_limit,
+        tarpit: config.tarpit,
+        block: config.block,
+        ban: config.ban,
       });
     }
   }, [config]);
@@ -45,11 +49,19 @@ export const PolicyPage: React.FC = () => {
       setTimeout(() => setSubmitSuccess(false), 3000);
     } catch (err) {
       console.error('Failed to update config:', err);
-      setSubmitError('Failed to update configuration. Please try again.');
+      setSubmitError('Failed to update configuration. Thresholds must be in ascending order: flag ≤ rate_limit ≤ tarpit ≤ block ≤ ban.');
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const thresholdFields: { key: keyof typeof formData; label: string; description: string }[] = [
+    { key: 'flag', label: 'Flag (score ≥)', description: 'Score to flag a connection for review' },
+    { key: 'rate_limit', label: 'Rate Limit (score ≥)', description: 'Score to apply rate limiting' },
+    { key: 'tarpit', label: 'Tarpit (score ≥)', description: 'Score to tarpit the connection' },
+    { key: 'block', label: 'Block (score ≥)', description: 'Score to block the connection' },
+    { key: 'ban', label: 'Ban (score ≥)', description: 'Score to ban the IP address' },
+  ];
 
   return (
     <div className="space-y-6">
@@ -72,7 +84,7 @@ export const PolicyPage: React.FC = () => {
       )}
 
       {submitSuccess && (
-        <Alert variant="success">
+        <Alert>
           <Shield className="h-4 w-4" />
           <AlertDescription>Configuration updated successfully!</AlertDescription>
         </Alert>
@@ -80,9 +92,10 @@ export const PolicyPage: React.FC = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Threshold Configuration</CardTitle>
+          <CardTitle>Risk Score Thresholds</CardTitle>
           <CardDescription>
-            Configure the detection thresholds for automatic blocking
+            Connections are scored 0–100. Each threshold triggers an action when the score meets or exceeds it.
+            Thresholds must be in ascending order.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -90,75 +103,29 @@ export const PolicyPage: React.FC = () => {
             <div className="text-center py-8">Loading configuration...</div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="ban_threshold">
-                      <div className="flex items-center gap-2">
-                        <Shield className="h-4 w-4" />
-                        <span>Ban Threshold</span>
-                      </div>
-                    </Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {thresholdFields.map(({ key, label, description }) => (
+                  <div key={key} className="space-y-2">
+                    <Label htmlFor={key}>{label}</Label>
                     <Input
-                      id="ban_threshold"
-                      name="ban_threshold"
+                      id={key}
+                      name={key}
                       type="number"
-                      min="1"
-                      value={formData.ban_threshold}
+                      min="0"
+                      max="100"
+                      value={formData[key]}
                       onChange={handleInputChange}
                     />
-                    <p className="text-sm text-muted-foreground">
-                      Number of detections before automatic IP ban
-                    </p>
+                    <p className="text-xs text-muted-foreground">{description}</p>
                   </div>
+                ))}
+              </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="fingerprint_threshold">
-                      <div className="flex items-center gap-2">
-                        <Fingerprint className="h-4 w-4" />
-                        <span>Fingerprint Threshold</span>
-                      </div>
-                    </Label>
-                    <Input
-                      id="fingerprint_threshold"
-                      name="fingerprint_threshold"
-                      type="number"
-                      min="1"
-                      value={formData.fingerprint_threshold}
-                      onChange={handleInputChange}
-                    />
-                    <p className="text-sm text-muted-foreground">
-                      Number of fingerprint matches before action
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="cidr_threshold">
-                      <div className="flex items-center gap-2">
-                        <Network className="h-4 w-4" />
-                        <span>CIDR Threshold</span>
-                      </div>
-                    </Label>
-                    <Input
-                      id="cidr_threshold"
-                      name="cidr_threshold"
-                      type="number"
-                      min="1"
-                      value={formData.cidr_threshold}
-                      onChange={handleInputChange}
-                    />
-                    <p className="text-sm text-muted-foreground">
-                      Number of CIDR matches before blocking
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t">
-                  <Button type="submit" disabled={isSubmitting}>
-                    <Save className="h-4 w-4 mr-2" />
-                    {isSubmitting ? 'Saving...' : 'Save Configuration'}
-                  </Button>
-                </div>
+              <div className="pt-4 border-t">
+                <Button type="submit" disabled={isSubmitting}>
+                  <Save className="h-4 w-4 mr-2" />
+                  {isSubmitting ? 'Saving...' : 'Save Thresholds'}
+                </Button>
               </div>
             </form>
           )}
@@ -167,51 +134,16 @@ export const PolicyPage: React.FC = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>Current Policy Summary</CardTitle>
+          <CardTitle>Current Thresholds Summary</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center py-2 border-b">
-              <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4" />
-                <span>Automatic Bans</span>
+          <div className="space-y-2">
+            {thresholdFields.map(({ key, label }) => (
+              <div key={key} className="flex justify-between items-center py-2 border-b last:border-0">
+                <span className="text-sm">{label}</span>
+                <span className="font-mono font-semibold">{formData[key]}</span>
               </div>
-              <span className="font-mono">{formData.ban_threshold} detections</span>
-            </div>
-
-            <div className="flex justify-between items-center py-2 border-b">
-              <div className="flex items-center gap-2">
-                <Fingerprint className="h-4 w-4" />
-                <span>Fingerprint Detection</span>
-              </div>
-              <span className="font-mono">{formData.fingerprint_threshold} matches</span>
-            </div>
-
-            <div className="flex justify-between items-center py-2 border-b">
-              <div className="flex items-center gap-2">
-                <Network className="h-4 w-4" />
-                <span>CIDR Blocking</span>
-              </div>
-              <span className="font-mono">{formData.cidr_threshold} matches</span>
-            </div>
-          </div>
-
-          <div className="mt-6 p-4 bg-muted rounded-lg">
-            <h3 className="font-semibold mb-2">Policy Behavior</h3>
-            <ul className="space-y-2 text-sm">
-              <li className="flex items-start gap-2">
-                <span className="mt-1">•</span>
-                <span>IP addresses will be automatically banned after {formData.ban_threshold} malicious detections</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-1">•</span>
-                <span>TLS fingerprints will trigger actions after {formData.fingerprint_threshold} matches</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="mt-1">•</span>
-                <span>CIDR blocks will be applied after {formData.cidr_threshold} network matches</span>
-              </li>
-            </ul>
+            ))}
           </div>
         </CardContent>
       </Card>
