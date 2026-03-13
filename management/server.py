@@ -25,7 +25,7 @@ import redis.asyncio as aioredis
 import redis.exceptions as redis_exc
 from fastapi import FastAPI, Header, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPBearer
 from prometheus_fastapi_instrumentator import Instrumentator
 
@@ -241,11 +241,18 @@ async def create_app() -> FastAPI:
 
     static_dir = os.path.join(os.path.dirname(__file__), "static")
     if os.path.isdir(static_dir):
-        app.mount(
-            "/",
-            StaticFiles(directory=static_dir, html=True),
-            name="static",
-        )
+        # Mount assets/ directory for static asset files (JS, CSS, images)
+        assets_dir = os.path.join(static_dir, "assets")
+        if os.path.isdir(assets_dir):
+            app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+        # SPA catch-all: serve index.html for all non-API paths so that
+        # React Router handles client-side routing on hard refresh.
+        _index_path = os.path.join(static_dir, "index.html")
+
+        @app.get("/{full_path:path}", include_in_schema=False)
+        async def _spa_fallback(full_path: str) -> FileResponse:
+            return FileResponse(_index_path)
 
     return app
 

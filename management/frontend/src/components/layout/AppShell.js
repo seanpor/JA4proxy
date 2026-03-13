@@ -4,27 +4,27 @@ exports.AppShell = void 0;
 const jsx_runtime_1 = require("react/jsx-runtime");
 const react_1 = require("react");
 const react_router_dom_1 = require("react-router-dom");
-const ui_1 = require("../ui");
-const lucide_react_1 = require("lucide-react");
 const useAuth_1 = require("../../hooks/useAuth");
+const lucide_react_1 = require("lucide-react");
+const navItems = [
+    { name: 'Dashboard', path: '/dashboard', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.LayoutDashboard, { className: "h-4 w-4" }) },
+    { name: 'Bans', path: '/bans', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.Shield, { className: "h-4 w-4" }) },
+    { name: 'CIDRs', path: '/cidrs', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.Users, { className: "h-4 w-4" }) },
+    { name: 'Fingerprints', path: '/fingerprints', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.Fingerprint, { className: "h-4 w-4" }) },
+    { name: 'Dial', path: '/dial', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.Phone, { className: "h-4 w-4" }) },
+    { name: 'Policy', path: '/policy', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.ListChecks, { className: "h-4 w-4" }) },
+    { name: 'Config', path: '/config', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.Settings, { className: "h-4 w-4" }) },
+    { name: 'Audit', path: '/audit', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.FileText, { className: "h-4 w-4" }) },
+    { name: 'Health', path: '/health', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.HeartPulse, { className: "h-4 w-4" }) },
+];
 const AppShell = ({ children }) => {
-    const [isCollapsed, setIsCollapsed] = (0, react_1.useState)(false);
+    const [mobileOpen, setMobileOpen] = (0, react_1.useState)(false);
     const location = (0, react_router_dom_1.useLocation)();
-    const { logout } = (0, useAuth_1.useAuth)();
-    const navItems = [
-        { name: 'Dashboard', path: '/dashboard', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.Package2, { className: "h-4 w-4" }) },
-        { name: 'Bans', path: '/bans', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.Shield, { className: "h-4 w-4" }) },
-        { name: 'CIDRs', path: '/cidrs', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.Users, { className: "h-4 w-4" }) },
-        { name: 'Fingerprints', path: '/fingerprints', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.Fingerprint, { className: "h-4 w-4" }) },
-        { name: 'Dial', path: '/dial', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.Phone, { className: "h-4 w-4" }) },
-        { name: 'Policy', path: '/policy', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.ListChecks, { className: "h-4 w-4" }) },
-        { name: 'Config', path: '/config', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.Settings, { className: "h-4 w-4" }) },
-        { name: 'Audit', path: '/audit', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.FileText, { className: "h-4 w-4" }) },
-        { name: 'Health', path: '/health', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.HeartPulse, { className: "h-4 w-4" }) },
-    ];
-    const handleLogout = async () => {
-        await logout();
-    };
-    return ((0, jsx_runtime_1.jsx)("div", { className: "flex min-h-screen w-full flex-col bg-muted/40", children: (0, jsx_runtime_1.jsxs)("div", { className: "flex flex-col sm:gap-4 sm:py-4", children: [(0, jsx_runtime_1.jsxs)("header", { className: "sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6", children: [(0, jsx_runtime_1.jsxs)(ui_1.Sheet, { children: [(0, jsx_runtime_1.jsx)(ui_1.SheetTrigger, { children: (0, jsx_runtime_1.jsxs)(ui_1.Button, { size: "icon", variant: "outline", className: "sm:hidden", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.PanelLeft, { className: "h-5 w-5" }), (0, jsx_runtime_1.jsx)("span", { className: "sr-only", children: "Toggle Menu" })] }) }), (0, jsx_runtime_1.jsx)(ui_1.SheetContent, { className: "sm:max-w-xs", children: (0, jsx_runtime_1.jsxs)("nav", { className: "grid gap-6 text-lg font-medium", children: [(0, jsx_runtime_1.jsxs)(react_router_dom_1.Link, { to: "/dashboard", className: "group flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:text-base", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Package2, { className: "h-5 w-5 transition-all group-hover:scale-110" }), (0, jsx_runtime_1.jsx)("span", { className: "sr-only", children: "JA4 Proxy" })] }), navItems.map((item) => ((0, jsx_runtime_1.jsxs)(react_router_dom_1.Link, { to: item.path, className: `flex items-center gap-4 px-2.5 ${location.pathname === item.path ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`, children: [item.icon, item.name] }, item.path)))] }) })] }), (0, jsx_runtime_1.jsxs)("div", { className: "relative ml-auto flex-1 md:grow-0", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Search, { className: "absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" }), (0, jsx_runtime_1.jsx)("input", { type: "search", placeholder: "Search...", className: "w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[336px]" })] }), (0, jsx_runtime_1.jsxs)(ui_1.Button, { variant: "outline", size: "icon", className: "ml-2", onClick: handleLogout, children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Menu, { className: "h-5 w-5" }), (0, jsx_runtime_1.jsx)("span", { className: "sr-only", children: "Logout" })] })] }), (0, jsx_runtime_1.jsx)("main", { className: "grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8", children: (0, jsx_runtime_1.jsx)("div", { className: "mx-auto grid w-full max-w-6xl flex-1 auto-rows-max gap-4", children: children || (0, jsx_runtime_1.jsx)(react_router_dom_1.Outlet, {}) }) })] }) }));
+    const { logout, username } = (0, useAuth_1.useAuth)();
+    const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
+    const SidebarContent = () => ((0, jsx_runtime_1.jsxs)("nav", { className: "flex flex-col h-full", children: [(0, jsx_runtime_1.jsxs)("div", { className: "flex items-center gap-2 px-4 py-5 border-b border-gray-200", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.Shield, { className: "h-6 w-6 text-blue-600 flex-shrink-0" }), (0, jsx_runtime_1.jsx)("span", { className: "font-bold text-gray-900 text-sm", children: "JA4 Proxy" })] }), (0, jsx_runtime_1.jsx)("div", { className: "flex-1 overflow-y-auto py-4 px-2 space-y-1", children: navItems.map((item) => ((0, jsx_runtime_1.jsxs)(react_router_dom_1.Link, { to: item.path, onClick: () => setMobileOpen(false), className: `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${isActive(item.path)
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'}`, children: [item.icon, item.name] }, item.path))) }), (0, jsx_runtime_1.jsx)("div", { className: "border-t border-gray-200 p-4", children: (0, jsx_runtime_1.jsxs)("div", { className: "flex items-center justify-between", children: [(0, jsx_runtime_1.jsx)("span", { className: "text-xs text-gray-500 truncate", children: username ?? 'admin' }), (0, jsx_runtime_1.jsxs)("button", { onClick: logout, className: "flex items-center gap-1 text-xs text-gray-500 hover:text-gray-900 transition-colors", children: [(0, jsx_runtime_1.jsx)(lucide_react_1.LogOut, { className: "h-3 w-3" }), "Logout"] })] }) })] }));
+    return ((0, jsx_runtime_1.jsxs)("div", { className: "flex h-screen bg-gray-50 overflow-hidden", children: [(0, jsx_runtime_1.jsx)("aside", { className: "hidden md:flex md:flex-shrink-0 md:w-56 bg-white border-r border-gray-200 flex-col", children: (0, jsx_runtime_1.jsx)(SidebarContent, {}) }), mobileOpen && ((0, jsx_runtime_1.jsxs)("div", { className: "fixed inset-0 z-40 flex md:hidden", children: [(0, jsx_runtime_1.jsx)("div", { className: "fixed inset-0 bg-gray-600 bg-opacity-75", onClick: () => setMobileOpen(false) }), (0, jsx_runtime_1.jsxs)("aside", { className: "relative flex w-56 flex-col bg-white z-50", children: [(0, jsx_runtime_1.jsx)("button", { className: "absolute top-3 right-3 text-gray-400 hover:text-gray-600", onClick: () => setMobileOpen(false), children: (0, jsx_runtime_1.jsx)(lucide_react_1.X, { className: "h-5 w-5" }) }), (0, jsx_runtime_1.jsx)(SidebarContent, {})] })] })), (0, jsx_runtime_1.jsxs)("div", { className: "flex flex-col flex-1 min-w-0 overflow-hidden", children: [(0, jsx_runtime_1.jsxs)("header", { className: "md:hidden flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200", children: [(0, jsx_runtime_1.jsx)("button", { onClick: () => setMobileOpen(true), className: "text-gray-500 hover:text-gray-700", children: (0, jsx_runtime_1.jsx)(lucide_react_1.Menu, { className: "h-5 w-5" }) }), (0, jsx_runtime_1.jsx)("span", { className: "font-semibold text-gray-900 text-sm", children: "JA4 Proxy" })] }), (0, jsx_runtime_1.jsx)("main", { className: "flex-1 overflow-y-auto p-6", children: children || (0, jsx_runtime_1.jsx)(react_router_dom_1.Outlet, {}) })] })] }));
 };
 exports.AppShell = AppShell;
