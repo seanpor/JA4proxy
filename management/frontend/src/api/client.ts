@@ -15,7 +15,7 @@ const apiClient: AxiosInstance = axios.create({
 // Request interceptor - add auth token
 apiClient.interceptors.request.use(
   (config) => {
-    const token = sessionStorage.getItem('ja4proxy_api_key')
+    const token = sessionStorage.getItem('ja4proxy_token')
     if (token) {
       config.headers = config.headers || {}
       config.headers.Authorization = `Bearer ${token}`
@@ -33,7 +33,7 @@ apiClient.interceptors.response.use(
   (error: AxiosError) => {
     if (error.response?.status === 401) {
       // Clear token and redirect to login
-      sessionStorage.removeItem('ja4proxy_api_key')
+      sessionStorage.removeItem('ja4proxy_token')
       window.location.href = '/login'
     }
     return Promise.reject(error)

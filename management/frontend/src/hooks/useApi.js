@@ -9,14 +9,15 @@ const useBans = () => {
     const queryClient = (0, react_query_1.useQueryClient)();
     const getBans = async () => {
         const response = await client_1.apiClient.get('/bans');
-        return response.data;
+        // API returns paginated { items: [...], total, page, per_page }
+        return response.data.items ?? response.data;
     };
     const createBan = async (banData) => {
         const response = await client_1.apiClient.post('/bans', banData);
         return response.data;
     };
-    const deleteBan = async (id) => {
-        await client_1.apiClient.delete(`/bans/${id}`);
+    const deleteBan = async (ip) => {
+        await client_1.apiClient.delete(`/bans/${ip}`);
     };
     const bansQuery = (0, react_query_1.useQuery)({
         queryKey: ['bans'],
@@ -46,14 +47,14 @@ const useCIDRs = () => {
     const queryClient = (0, react_query_1.useQueryClient)();
     const getCIDRs = async () => {
         const response = await client_1.apiClient.get('/cidrs');
-        return response.data;
+        return response.data.items ?? response.data;
     };
     const createCIDR = async (cidrData) => {
         const response = await client_1.apiClient.post('/cidrs', cidrData);
         return response.data;
     };
-    const deleteCIDR = async (id) => {
-        await client_1.apiClient.delete(`/cidrs/${id}`);
+    const deleteCIDR = async (cidr) => {
+        await client_1.apiClient.delete(`/cidrs/${encodeURIComponent(cidr)}`);
     };
     const cidrsQuery = (0, react_query_1.useQuery)({
         queryKey: ['cidrs'],
@@ -82,15 +83,15 @@ exports.useCIDRs = useCIDRs;
 const useFingerprints = () => {
     const queryClient = (0, react_query_1.useQueryClient)();
     const getFingerprints = async () => {
-        const response = await client_1.apiClient.get('/fingerprints');
+        const response = await client_1.apiClient.get('/fingerprints/blacklist');
+        return response.data.items ?? response.data;
+    };
+    const createFingerprint = async (fp) => {
+        const response = await client_1.apiClient.post('/fingerprints/blacklist', fp);
         return response.data;
     };
-    const createFingerprint = async (fingerprintData) => {
-        const response = await client_1.apiClient.post('/fingerprints', fingerprintData);
-        return response.data;
-    };
-    const deleteFingerprint = async (id) => {
-        await client_1.apiClient.delete(`/fingerprints/${id}`);
+    const deleteFingerprint = async (fingerprint) => {
+        await client_1.apiClient.delete(`/fingerprints/blacklist/${encodeURIComponent(fingerprint)}`);
     };
     const fingerprintsQuery = (0, react_query_1.useQuery)({
         queryKey: ['fingerprints'],
@@ -156,10 +157,10 @@ const useAuditLog = (page = 1, pageSize = 50) => {
     });
 };
 exports.useAuditLog = useAuditLog;
-// Health hooks
+// Health hooks — /health is mounted without /api/v1 prefix
 const useHealth = () => {
     const getHealth = async () => {
-        const response = await client_1.apiClient.get('/health');
+        const response = await client_1.apiClient.get('/health/detail');
         return response.data;
     };
     return (0, react_query_1.useQuery)({
@@ -169,38 +170,56 @@ const useHealth = () => {
     });
 };
 exports.useHealth = useHealth;
-// Dial (counterfactual) hooks
+// Dial hooks
 const useDial = () => {
-    const dial = async (fingerprint) => {
-        const response = await client_1.apiClient.post('/dial', { fingerprint });
+    const queryClient = (0, react_query_1.useQueryClient)();
+    const getDial = async () => {
+        const response = await client_1.apiClient.get('/dial');
         return response.data;
     };
-    return (0, react_query_1.useMutation)({
-        mutationFn: dial,
+    const setDial = async (value) => {
+        const response = await client_1.apiClient.post('/dial', { value });
+        return response.data;
+    };
+    const dialQuery = (0, react_query_1.useQuery)({
+        queryKey: ['dial'],
+        queryFn: getDial,
     });
+    const setDialMutation = (0, react_query_1.useMutation)({
+        mutationFn: setDial,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['dial'] });
+        },
+    });
+    return {
+        ...dialQuery,
+        setDial: setDialMutation.mutateAsync,
+    };
 };
 exports.useDial = useDial;
-// SSE Events hook
+// SSE Events hook — connects to /api/v1/events with token as query param
 const useSseEvents = () => {
     const [events, setEvents] = (0, react_1.useState)([]);
     const [isConnected, setIsConnected] = (0, react_1.useState)(false);
     (0, react_1.useEffect)(() => {
-        const eventSource = new EventSource('/events/sse');
+        const token = sessionStorage.getItem('ja4proxy_token');
+        const url = token
+            ? `/api/v1/events?key=${encodeURIComponent(token)}`
+            : '/api/v1/events';
+        const eventSource = new EventSource(url);
         eventSource.onopen = () => {
-            console.log('SSE connection opened');
             setIsConnected(true);
         };
         eventSource.onmessage = (e) => {
             try {
                 const eventData = JSON.parse(e.data);
-                setEvents((prev) => [eventData, ...prev].slice(0, 100)); // Keep last 100 events
+                setEvents((prev) => [eventData, ...prev].slice(0, 100));
             }
-            catch (error) {
-                console.error('Error parsing SSE event:', error);
+            catch {
+                // ignore parse errors
             }
         };
-        eventSource.onerror = (e) => {
-            console.error('SSE error:', e);
+        eventSource.onerror = () => {
             setIsConnected(false);
         };
         return () => {

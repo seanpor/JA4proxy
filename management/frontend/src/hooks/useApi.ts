@@ -4,7 +4,6 @@ import { apiClient } from '../api/client';
 
 // Types for API responses
 interface Ban {
-  id: string;
   ip: string;
   reason: string;
   expires_at: string;
@@ -12,23 +11,23 @@ interface Ban {
 }
 
 interface CIDR {
-  id: string;
   cidr: string;
   reason: string;
   created_at: string;
 }
 
 interface Fingerprint {
-  id: string;
   fingerprint: string;
-  tag: string;
-  created_at: string;
+  tag?: string;
+  created_at?: string;
 }
 
 interface ThresholdConfig {
-  ban_threshold: number;
-  fingerprint_threshold: number;
-  cidr_threshold: number;
+  flag: number;
+  rate_limit: number;
+  tarpit: number;
+  block: number;
+  ban: number;
 }
 
 interface AuditLogEntry {
@@ -41,9 +40,11 @@ interface AuditLogEntry {
 
 interface HealthStatus {
   status: string;
-  version: string;
-  uptime: number;
-  redis_connected: boolean;
+  version?: string;
+  uptime?: number;
+  redis?: boolean | string;
+  redis_connected?: boolean;
+  components?: Record<string, string>;
 }
 
 interface Event {
@@ -59,16 +60,17 @@ export const useBans = () => {
 
   const getBans = async (): Promise<Ban[]> => {
     const response = await apiClient.get('/bans');
-    return response.data;
+    // API returns paginated { items: [...], total, page, per_page }
+    return response.data.items ?? response.data;
   };
 
-  const createBan = async (banData: Omit<Ban, 'id' | 'created_at'>): Promise<Ban> => {
+  const createBan = async (banData: Omit<Ban, 'created_at'>): Promise<Ban> => {
     const response = await apiClient.post('/bans', banData);
     return response.data;
   };
 
-  const deleteBan = async (id: string): Promise<void> => {
-    await apiClient.delete(`/bans/${id}`);
+  const deleteBan = async (ip: string): Promise<void> => {
+    await apiClient.delete(`/bans/${ip}`);
   };
 
   const bansQuery = useQuery<Ban[], Error>({
@@ -76,7 +78,7 @@ export const useBans = () => {
     queryFn: getBans,
   });
 
-  const createBanMutation = useMutation<Ban, Error, Omit<Ban, 'id' | 'created_at'>>({
+  const createBanMutation = useMutation<Ban, Error, Omit<Ban, 'created_at'>>({
     mutationFn: createBan,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bans'] });
@@ -103,16 +105,16 @@ export const useCIDRs = () => {
 
   const getCIDRs = async (): Promise<CIDR[]> => {
     const response = await apiClient.get('/cidrs');
-    return response.data;
+    return response.data.items ?? response.data;
   };
 
-  const createCIDR = async (cidrData: Omit<CIDR, 'id' | 'created_at'>): Promise<CIDR> => {
+  const createCIDR = async (cidrData: Omit<CIDR, 'created_at'>): Promise<CIDR> => {
     const response = await apiClient.post('/cidrs', cidrData);
     return response.data;
   };
 
-  const deleteCIDR = async (id: string): Promise<void> => {
-    await apiClient.delete(`/cidrs/${id}`);
+  const deleteCIDR = async (cidr: string): Promise<void> => {
+    await apiClient.delete(`/cidrs/${encodeURIComponent(cidr)}`);
   };
 
   const cidrsQuery = useQuery<CIDR[], Error>({
@@ -120,7 +122,7 @@ export const useCIDRs = () => {
     queryFn: getCIDRs,
   });
 
-  const createCIDRMutation = useMutation<CIDR, Error, Omit<CIDR, 'id' | 'created_at'>>({
+  const createCIDRMutation = useMutation<CIDR, Error, Omit<CIDR, 'created_at'>>({
     mutationFn: createCIDR,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cidrs'] });
@@ -146,17 +148,17 @@ export const useFingerprints = () => {
   const queryClient = useQueryClient();
 
   const getFingerprints = async (): Promise<Fingerprint[]> => {
-    const response = await apiClient.get('/fingerprints');
+    const response = await apiClient.get('/fingerprints/blacklist');
+    return response.data.items ?? response.data;
+  };
+
+  const createFingerprint = async (fp: { fingerprint: string; tag?: string }): Promise<Fingerprint> => {
+    const response = await apiClient.post('/fingerprints/blacklist', fp);
     return response.data;
   };
 
-  const createFingerprint = async (fingerprintData: Omit<Fingerprint, 'id' | 'created_at'>): Promise<Fingerprint> => {
-    const response = await apiClient.post('/fingerprints', fingerprintData);
-    return response.data;
-  };
-
-  const deleteFingerprint = async (id: string): Promise<void> => {
-    await apiClient.delete(`/fingerprints/${id}`);
+  const deleteFingerprint = async (fingerprint: string): Promise<void> => {
+    await apiClient.delete(`/fingerprints/blacklist/${encodeURIComponent(fingerprint)}`);
   };
 
   const fingerprintsQuery = useQuery<Fingerprint[], Error>({
@@ -164,7 +166,7 @@ export const useFingerprints = () => {
     queryFn: getFingerprints,
   });
 
-  const createFingerprintMutation = useMutation<Fingerprint, Error, Omit<Fingerprint, 'id' | 'created_at'>>({
+  const createFingerprintMutation = useMutation<Fingerprint, Error, { fingerprint: string; tag?: string }>({
     mutationFn: createFingerprint,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['fingerprints'] });
@@ -219,23 +221,23 @@ export const useThresholdConfig = () => {
 
 // Audit log hooks
 export const useAuditLog = (page: number = 1, pageSize: number = 50) => {
-  const getAuditLog = async (): Promise<{ data: AuditLogEntry[]; total: number }> => {
+  const getAuditLog = async (): Promise<{ items: AuditLogEntry[]; total: number }> => {
     const response = await apiClient.get('/audit', {
       params: { page, page_size: pageSize }
     });
     return response.data;
   };
 
-  return useQuery<{ data: AuditLogEntry[]; total: number }, Error>({
+  return useQuery<{ items: AuditLogEntry[]; total: number }, Error>({
     queryKey: ['auditLog', page, pageSize],
     queryFn: getAuditLog,
   });
 };
 
-// Health hooks
+// Health hooks — /health is mounted without /api/v1 prefix
 export const useHealth = () => {
   const getHealth = async (): Promise<HealthStatus> => {
-    const response = await apiClient.get('/health');
+    const response = await apiClient.get('/health/detail');
     return response.data;
   };
 
@@ -246,42 +248,64 @@ export const useHealth = () => {
   });
 };
 
-// Dial (counterfactual) hooks
+// Dial hooks
 export const useDial = () => {
-  const dial = async (fingerprint: string): Promise<any> => {
-    const response = await apiClient.post('/dial', { fingerprint });
+  const queryClient = useQueryClient();
+
+  const getDial = async (): Promise<{ dial: number; blocking_acknowledged: boolean }> => {
+    const response = await apiClient.get('/dial');
     return response.data;
   };
 
-  return useMutation<any, Error, string>({
-    mutationFn: dial,
+  const setDial = async (value: number): Promise<any> => {
+    const response = await apiClient.post('/dial', { value });
+    return response.data;
+  };
+
+  const dialQuery = useQuery({
+    queryKey: ['dial'],
+    queryFn: getDial,
   });
+
+  const setDialMutation = useMutation<any, Error, number>({
+    mutationFn: setDial,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['dial'] });
+    },
+  });
+
+  return {
+    ...dialQuery,
+    setDial: setDialMutation.mutateAsync,
+  };
 };
 
-// SSE Events hook
+// SSE Events hook — connects to /api/v1/events with token as query param
 export const useSseEvents = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
 
   useEffect(() => {
-    const eventSource = new EventSource('/events/sse');
+    const token = sessionStorage.getItem('ja4proxy_token');
+    const url = token
+      ? `/api/v1/events?key=${encodeURIComponent(token)}`
+      : '/api/v1/events';
+    const eventSource = new EventSource(url);
 
     eventSource.onopen = () => {
-      console.log('SSE connection opened');
       setIsConnected(true);
     };
 
     eventSource.onmessage = (e) => {
       try {
         const eventData = JSON.parse(e.data);
-        setEvents((prev) => [eventData, ...prev].slice(0, 100)); // Keep last 100 events
-      } catch (error) {
-        console.error('Error parsing SSE event:', error);
+        setEvents((prev) => [eventData, ...prev].slice(0, 100));
+      } catch {
+        // ignore parse errors
       }
     };
 
-    eventSource.onerror = (e) => {
-      console.error('SSE error:', e);
+    eventSource.onerror = () => {
       setIsConnected(false);
     };
 

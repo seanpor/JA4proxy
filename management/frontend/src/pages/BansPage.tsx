@@ -27,9 +27,9 @@ export const BansPage: React.FC = () => {
     }
   };
 
-  const handleDeleteBan = async (id: string) => {
+  const handleDeleteBan = async (ip: string) => {
     try {
-      await deleteBan(id);
+      await deleteBan(ip);
     } catch (err) {
       console.error('Failed to delete ban:', err);
     }
@@ -117,12 +117,12 @@ export const BansPage: React.FC = () => {
               </TableHeader>
               <TableBody>
                 {bans.map((ban) => (
-                  <TableRow key={ban.id}>
+                  <TableRow key={ban.ip}>
                     <TableCell className="font-medium">{ban.ip}</TableCell>
                     <TableCell>{ban.reason}</TableCell>
-                    <TableCell>{format(new Date(ban.expires_at), 'PPpp')}</TableCell>
+                    <TableCell>{ban.expires_at ? format(new Date(ban.expires_at), 'PPpp') : '—'}</TableCell>
                     <TableCell>
-                      {isBanExpired(ban.expires_at) ? (
+                      {ban.expires_at && isBanExpired(ban.expires_at) ? (
                         <span className="text-muted-foreground">Expired</span>
                       ) : (
                         <span className="text-green-600">Active</span>
@@ -132,8 +132,8 @@ export const BansPage: React.FC = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => handleDeleteBan(ban.id)}
-                        disabled={isBanExpired(ban.expires_at)}
+                        onClick={() => handleDeleteBan(ban.ip)}
+                        disabled={!!(ban.expires_at && isBanExpired(ban.expires_at))}
                       >
                         <Trash2 className="h-4 w-4" />
                         <span className="sr-only">Delete</span>
