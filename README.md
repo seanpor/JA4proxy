@@ -85,6 +85,7 @@ At dial=0 (default): all traffic passes, everything scored and logged — monito
 | Grafana | `http://localhost:3001` | admin / see .env |
 | Loki | `http://localhost:3100` | Centralized container logs (internal only) |
 | Alertmanager | `http://localhost:9093` | |
+| **Management UI** | `http://localhost:8001` | admin / UI_PASSWORD in .env — React SPA + FastAPI |
 
 ## Configuration
 

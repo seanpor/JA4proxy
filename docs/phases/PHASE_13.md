@@ -1,6 +1,6 @@
 # Phase 13 — Management UI
 
-## Status: OPEN
+## Status: COMPLETE — implemented 2026-03-11 (v13.1.0)
 
 ---
 
