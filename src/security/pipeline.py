@@ -607,7 +607,7 @@ class Pipeline:
         # Bypass (browser ALPN) connections already returned early — never reach here.
         if self._rate_tracker is not None:
             try:
-                metrics = self._rate_tracker.track_connection(
+                metrics = await self._rate_tracker.track_connection(
                     ja4=ctx.ja4 or "unknown",
                     ip=ctx.client_ip,
                     window="short",

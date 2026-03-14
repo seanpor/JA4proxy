@@ -99,7 +99,7 @@ class SecurityManager:
             self.logger.error(f"Redis connection failed: {e}")
             raise
 
-    def check_access(
+    async def check_access(
         self, ja4: str, client_ip: str, alpn: Optional[str] = None
     ) -> Tuple[bool, str]:
         """
@@ -156,7 +156,7 @@ class SecurityManager:
                 return False, block_reason
 
             # Step 2: Track connection rate across all enabled strategies
-            rate_results = self.rate_tracker.track_connection(ja4, client_ip)
+            rate_results = await self.rate_tracker.track_connection(ja4, client_ip)
 
             # Step 3: Evaluate threat tier for each strategy
             threat_evaluations = self.threat_evaluator.evaluate_multi_strategy(

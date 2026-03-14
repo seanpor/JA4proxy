@@ -7,7 +7,7 @@ __repr__, and the create_security_manager convenience function.
 """
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, AsyncMock, patch
 
 from src.security.security_manager import SecurityManager, create_security_manager
 from src.security.threat_tier import ThreatTier
@@ -32,8 +32,10 @@ def _make_manager(
     else:
         redis_mock.ping.return_value = True
 
-    # Default mock sub-components
+    # Default mock sub-components — track_connection must be async
     rt = rate_tracker or MagicMock()
+    if not isinstance(rt.track_connection, AsyncMock):
+        rt.track_connection = AsyncMock(return_value={})
     te = threat_evaluator or MagicMock()
     ae = action_enforcer or MagicMock()
     gs = gdpr_storage or MagicMock()
@@ -106,31 +108,31 @@ class TestSecurityManagerInit:
 # ---------------------------------------------------------------------------
 
 class TestCheckAccessNormal:
-    def test_invalid_ja4_blocked(self):
+    async def test_invalid_ja4_blocked(self):
         mgr, _, _, _, _, _ = _make_manager()
-        allowed, reason = mgr.check_access("", "1.2.3.4")
+        allowed, reason = await mgr.check_access("", "1.2.3.4")
         assert allowed is False
         assert reason == "Invalid request"
 
-    def test_invalid_ip_blocked(self):
+    async def test_invalid_ip_blocked(self):
         mgr, _, _, _, _, _ = _make_manager()
-        allowed, reason = mgr.check_access("t13d_abc_def", "")
+        allowed, reason = await mgr.check_access("t13d_abc_def", "")
         assert allowed is False
         assert reason == "Invalid request"
 
-    def test_pre_blocked_returns_immediately(self):
+    async def test_pre_blocked_returns_immediately(self):
         """Action enforcer says already blocked — no rate tracking."""
         ae = MagicMock()
         ae.is_blocked.return_value = (True, "Already banned")
         mgr, _, rt, _, _, _ = _make_manager(action_enforcer=ae)
 
-        allowed, reason = mgr.check_access("ja4fp", "1.2.3.4")
+        allowed, reason = await mgr.check_access("ja4fp", "1.2.3.4")
 
         assert allowed is False
         assert reason == "Already banned"
         rt.track_connection.assert_not_called()
 
-    def test_normal_traffic_allowed(self):
+    async def test_normal_traffic_allowed(self):
         """All strategies show normal behavior → Allowed."""
         ae = MagicMock()
         ae.is_blocked.return_value = (False, "")
@@ -140,12 +142,12 @@ class TestCheckAccessNormal:
         te.should_apply_action.return_value = False
 
         mgr, _, _, _, _, _ = _make_manager(action_enforcer=ae, threat_evaluator=te)
-        allowed, reason = mgr.check_access("ja4fp", "1.2.3.4")
+        allowed, reason = await mgr.check_access("ja4fp", "1.2.3.4")
 
         assert allowed is True
         assert reason == "Allowed"
 
-    def test_threat_triggers_action_enforcer(self):
+    async def test_threat_triggers_action_enforcer(self):
         """Threat detected → action enforced → result returned."""
         ae = MagicMock()
         ae.is_blocked.return_value = (False, "")
@@ -158,12 +160,12 @@ class TestCheckAccessNormal:
         te.get_triggering_strategy.return_value = MagicMock(value="per_ip")
 
         mgr, _, _, _, _, gs = _make_manager(action_enforcer=ae, threat_evaluator=te)
-        allowed, reason = mgr.check_access("ja4fp", "1.2.3.4")
+        allowed, reason = await mgr.check_access("ja4fp", "1.2.3.4")
 
         assert allowed is False
         assert reason == "Rate limited"
 
-    def test_not_allowed_triggers_gdpr_storage(self):
+    async def test_not_allowed_triggers_gdpr_storage(self):
         """When result.allowed is False, _store_enforcement_data is called."""
         ae = MagicMock()
         ae.is_blocked.return_value = (False, "")
@@ -177,11 +179,11 @@ class TestCheckAccessNormal:
 
         gs = MagicMock()
         mgr, _, _, _, _, _ = _make_manager(action_enforcer=ae, threat_evaluator=te, gdpr_storage=gs)
-        mgr.check_access("ja4fp", "1.2.3.4")
+        await mgr.check_access("ja4fp", "1.2.3.4")
 
         gs.store.assert_called()
 
-    def test_allowed_result_skips_gdpr_storage(self):
+    async def test_allowed_result_skips_gdpr_storage(self):
         """When result.allowed is True, _store_enforcement_data is NOT called."""
         ae = MagicMock()
         ae.is_blocked.return_value = (False, "")
@@ -195,7 +197,7 @@ class TestCheckAccessNormal:
 
         gs = MagicMock()
         mgr, _, _, _, _, _ = _make_manager(action_enforcer=ae, threat_evaluator=te, gdpr_storage=gs)
-        mgr.check_access("ja4fp", "1.2.3.4")
+        await mgr.check_access("ja4fp", "1.2.3.4")
 
         gs.store.assert_not_called()
 
@@ -205,21 +207,21 @@ class TestCheckAccessNormal:
 # ---------------------------------------------------------------------------
 
 class TestCheckAccessExceptionPath:
-    def test_exception_in_rate_tracker_returns_blocked(self):
+    async def test_exception_in_rate_tracker_returns_blocked(self):
         """Lines 188-193: unexpected exception → fail-secure block."""
         rt = MagicMock()
-        rt.track_connection.side_effect = RuntimeError("unexpected")
+        rt.track_connection = AsyncMock(side_effect=RuntimeError("unexpected"))
 
         ae = MagicMock()
         ae.is_blocked.return_value = (False, "")
 
         mgr, _, _, _, _, _ = _make_manager(rate_tracker=rt, action_enforcer=ae)
-        allowed, reason = mgr.check_access("ja4fp", "1.2.3.4")
+        allowed, reason = await mgr.check_access("ja4fp", "1.2.3.4")
 
         assert allowed is False
         assert reason == "Security check failed"
 
-    def test_exception_in_threat_evaluator_returns_blocked(self):
+    async def test_exception_in_threat_evaluator_returns_blocked(self):
         """Exception in evaluate_multi_strategy → fail-secure block."""
         te = MagicMock()
         te.evaluate_multi_strategy.side_effect = ValueError("bad")
@@ -228,7 +230,7 @@ class TestCheckAccessExceptionPath:
         ae.is_blocked.return_value = (False, "")
 
         mgr, _, _, _, _, _ = _make_manager(threat_evaluator=te, action_enforcer=ae)
-        allowed, reason = mgr.check_access("ja4fp", "1.2.3.4")
+        allowed, reason = await mgr.check_access("ja4fp", "1.2.3.4")
 
         assert allowed is False
         assert reason == "Security check failed"
@@ -239,7 +241,7 @@ class TestCheckAccessExceptionPath:
 # ---------------------------------------------------------------------------
 
 class TestStoreTierRouting:
-    def _check_access_with_tier(self, tier):
+    async def _check_access_with_tier(self, tier):
         ae = MagicMock()
         ae.is_blocked.return_value = (False, "")
         ae.enforce.return_value = _make_action_result(allowed=False, reason="Blocked")
@@ -252,32 +254,32 @@ class TestStoreTierRouting:
 
         gs = MagicMock()
         mgr, _, _, _, _, _ = _make_manager(action_enforcer=ae, threat_evaluator=te, gdpr_storage=gs)
-        mgr.check_access("ja4fp", "1.2.3.4")
+        await mgr.check_access("ja4fp", "1.2.3.4")
         return gs
 
-    def test_suspicious_tier_uses_suspicious_category(self):
+    async def test_suspicious_tier_uses_suspicious_category(self):
         """Line 275: ThreatTier.SUSPICIOUS → DataCategory.SUSPICIOUS."""
-        gs = self._check_access_with_tier(ThreatTier.SUSPICIOUS)
+        gs = await self._check_access_with_tier(ThreatTier.SUSPICIOUS)
         call_args = gs.store.call_args
         from src.security.gdpr_storage import DataCategory
         assert call_args.kwargs["category"] == DataCategory.SUSPICIOUS
 
-    def test_banned_tier_uses_bans_category(self):
+    async def test_banned_tier_uses_bans_category(self):
         """Lines 278-279: ThreatTier.BANNED → DataCategory.BANS."""
-        gs = self._check_access_with_tier(ThreatTier.BANNED)
+        gs = await self._check_access_with_tier(ThreatTier.BANNED)
         call_args = gs.store.call_args
         from src.security.gdpr_storage import DataCategory
         assert call_args.kwargs["category"] == DataCategory.BANS
 
-    def test_unknown_tier_uses_fingerprints_category(self):
+    async def test_unknown_tier_uses_fingerprints_category(self):
         """Lines 280-281: unknown tier → DataCategory.FINGERPRINTS (else branch)."""
         # Use a tier that is not SUSPICIOUS, BLOCK, or BANNED
-        gs = self._check_access_with_tier(ThreatTier.NORMAL)
+        gs = await self._check_access_with_tier(ThreatTier.NORMAL)
         call_args = gs.store.call_args
         from src.security.gdpr_storage import DataCategory
         assert call_args.kwargs["category"] == DataCategory.FINGERPRINTS
 
-    def test_store_enforcement_exception_is_silenced(self):
+    async def test_store_enforcement_exception_is_silenced(self):
         """Lines 290-291: exception in gdpr_storage.store is caught, not propagated."""
         ae = MagicMock()
         ae.is_blocked.return_value = (False, "")
@@ -294,7 +296,7 @@ class TestStoreTierRouting:
 
         mgr, _, _, _, _, _ = _make_manager(action_enforcer=ae, threat_evaluator=te, gdpr_storage=gs)
         # Must not raise
-        allowed, reason = mgr.check_access("ja4fp", "1.2.3.4")
+        allowed, reason = await mgr.check_access("ja4fp", "1.2.3.4")
         assert allowed is False
 
 

@@ -19,7 +19,26 @@ class HighCapacityHTTPServer(ThreadingHTTPServer):
 
 class MockBackendHandler(BaseHTTPRequestHandler):
     """Simple mock backend for testing."""
-    
+
+    def setup(self):
+        """Perform SSL handshake in the worker thread before any I/O.
+
+        When do_handshake_on_connect=False is set on the server socket, accept()
+        returns immediately with a pre-handshake SSL socket.  The main server
+        thread can then accept new connections without waiting.  We do the actual
+        TLS handshake here, in the per-connection worker thread, so concurrent
+        connections don't serialise on the accept loop.
+        """
+        if isinstance(self.request, ssl.SSLSocket):
+            try:
+                self.request.do_handshake()
+            except (ssl.SSLError, OSError):
+                # Handshake failed — close the socket and propagate so
+                # ThreadingHTTPServer logs the error and moves on.
+                self.request.close()
+                raise
+        super().setup()
+
     def log_message(self, format, *args):
         """Log with timestamp."""
         print(f"[{datetime.now().isoformat()}] {format % args}")
@@ -136,11 +155,12 @@ def run_server(port=None, tls=None):
         httpd = HighCapacityHTTPServer(server_address, MockBackendHandler)
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.load_cert_chain(tls_cert, tls_key)
-        # Timeout prevents hung TLS handshakes from blocking the thread pool.
-        # Without this, high-load tests cause threads to pile up waiting for
-        # a handshake that never completes, starving legitimate connections.
-        httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
-        httpd.socket.settimeout(10)
+        # do_handshake_on_connect=False: accept() returns immediately so the
+        # main server thread is never blocked by a slow TLS handshake.
+        # Each worker thread performs the handshake in MockBackendHandler.setup().
+        httpd.socket = ctx.wrap_socket(
+            httpd.socket, server_side=True, do_handshake_on_connect=False
+        )
         print(f"Mock backend server started on HTTPS port {port}")
     else:
         port = port or int(os.environ.get('PORT', 80))

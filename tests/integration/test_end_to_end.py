@@ -350,9 +350,9 @@ class TestSecurityManagerInit:
 class TestEndToEndNormalTraffic:
     """Test end-to-end flow for normal traffic."""
     
-    def test_allow_first_connection(self, security_manager):
+    async def test_allow_first_connection(self, security_manager):
         """Test that first connection is allowed."""
-        allowed, reason = security_manager.check_access(
+        allowed, reason = await security_manager.check_access(
             "t13d1516h2_abc_def",
             "192.168.1.100",
         )
@@ -360,7 +360,7 @@ class TestEndToEndNormalTraffic:
         assert allowed is True
         assert "Allowed" in reason
     
-    def test_allow_low_rate_connections(self, security_manager):
+    async def test_allow_low_rate_connections(self, security_manager):
         """Test that connections below threshold are allowed."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
@@ -370,7 +370,7 @@ class TestEndToEndNormalTraffic:
         # Thresholds: suspicious=1, block=5, ban=10 for by_ip_ja4_pair (per second)
         # Window is 1 second, so we advance time between connections
         for i in range(3):
-            allowed, reason = security_manager.check_access(ja4, ip)
+            allowed, reason = await security_manager.check_access(ja4, ip)
             assert allowed is True, f"Connection {i+1} should be allowed: {reason}"
             # Advance time by 2 seconds to clear the window
             mock_time.advance(2.0)
@@ -379,7 +379,7 @@ class TestEndToEndNormalTraffic:
 class TestEndToEndSuspiciousTraffic:
     """Test end-to-end flow for suspicious traffic."""
     
-    def test_log_suspicious_traffic(self, security_manager):
+    async def test_log_suspicious_traffic(self, security_manager):
         """Test that suspicious traffic is logged but allowed."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
@@ -395,13 +395,13 @@ class TestEndToEndSuspiciousTraffic:
         # We need to advance time a bit more to trigger suspicious but not ban
         
         # First connection - should be allowed
-        allowed1, reason1 = security_manager.check_access(ja4, ip)
+        allowed1, reason1 = await security_manager.check_access(ja4, ip)
         
         # Advance time slightly (0.6s) so we have ~1.67/sec rate (suspicious but not block)
         mock_time.advance(0.6)
         
         # Second connection
-        allowed2, reason2 = security_manager.check_access(ja4, ip)
+        allowed2, reason2 = await security_manager.check_access(ja4, ip)
         
         # Both should still be allowed (SUSPICIOUS tier logs but doesn't block per config)
         assert allowed1 is True, f"First connection should be allowed: {reason1}"
@@ -411,7 +411,7 @@ class TestEndToEndSuspiciousTraffic:
 class TestEndToEndBlockTraffic:
     """Test end-to-end flow for block-level traffic."""
     
-    def test_block_high_rate_traffic(self, security_manager):
+    async def test_block_high_rate_traffic(self, security_manager):
         """Test that high rate traffic is blocked."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
@@ -424,7 +424,7 @@ class TestEndToEndBlockTraffic:
         # We'll make 6 connections quickly (within 1 second) to trigger block
         results = []
         for i in range(6):
-            allowed, reason = security_manager.check_access(ja4, ip)
+            allowed, reason = await security_manager.check_access(ja4, ip)
             results.append((allowed, reason))
             # Don't advance time - keep them within same window
         
@@ -436,17 +436,17 @@ class TestEndToEndBlockTraffic:
         assert any(word in last_reason.lower() for word in ["tarpit", "block", "limit", "ban"]), \
             f"Reason should indicate blocking: {last_reason}"
     
-    def test_subsequent_connection_blocked(self, security_manager):
+    async def test_subsequent_connection_blocked(self, security_manager):
         """Test that once blocked, subsequent connections are also blocked."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
         
         # First, trigger a block by making many connections
         for i in range(6):
-            security_manager.check_access(ja4, ip)
+            await security_manager.check_access(ja4, ip)
         
         # Now the client should be blocked - try another connection
-        allowed, reason = security_manager.check_access(ja4, ip)
+        allowed, reason = await security_manager.check_access(ja4, ip)
         
         # Should be blocked (either by rate or by existing block)
         assert allowed is False
@@ -456,17 +456,17 @@ class TestEndToEndBlockTraffic:
 class TestEndToEndBanTraffic:
     """Test end-to-end flow for ban-level traffic."""
     
-    def test_ban_extreme_rate_traffic(self, security_manager):
+    async def test_ban_extreme_rate_traffic(self, security_manager):
         """Test that extreme rate traffic is banned."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
         
         # Make 11+ connections rapidly to exceed ban threshold (10/sec)
         for i in range(12):
-            security_manager.check_access(ja4, ip)
+            await security_manager.check_access(ja4, ip)
         
         # Next connection should be banned
-        allowed, reason = security_manager.check_access(ja4, ip)
+        allowed, reason = await security_manager.check_access(ja4, ip)
         
         # Should be banned
         assert allowed is False
@@ -476,17 +476,17 @@ class TestEndToEndBanTraffic:
 class TestManualUnban:
     """Test manual unban functionality."""
     
-    def test_unban_blocked_entity(self, security_manager, mock_redis):
+    async def test_unban_blocked_entity(self, security_manager, mock_redis):
         """Test unbanning a blocked entity."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
         
         # Block the entity first by making many connections
         for i in range(12):
-            security_manager.check_access(ja4, ip)
+            await security_manager.check_access(ja4, ip)
         
         # Verify it's blocked
-        allowed, _ = security_manager.check_access(ja4, ip)
+        allowed, _ = await security_manager.check_access(ja4, ip)
         assert allowed is False
         
         # Now unban
@@ -530,15 +530,15 @@ class TestStatistics:
 class TestErrorHandling:
     """Test error handling and fail-secure behavior."""
     
-    def test_invalid_inputs(self, security_manager):
+    async def test_invalid_inputs(self, security_manager):
         """Test handling of invalid inputs."""
         # Empty JA4
-        allowed, reason = security_manager.check_access("", "192.168.1.100")
+        allowed, reason = await security_manager.check_access("", "192.168.1.100")
         assert allowed is False
         assert "Invalid" in reason
         
         # Empty IP
-        allowed, reason = security_manager.check_access("t13d1516h2_abc_def", "")
+        allowed, reason = await security_manager.check_access("t13d1516h2_abc_def", "")
         assert allowed is False
         assert "Invalid" in reason
     
@@ -554,7 +554,7 @@ class TestErrorHandling:
 class TestMultiStrategyIntegration:
     """Test multi-strategy integration."""
     
-    def test_different_strategies_different_thresholds(self, security_manager, mock_redis):
+    async def test_different_strategies_different_thresholds(self, security_manager, mock_redis):
         """Test that different strategies have different thresholds."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
@@ -562,24 +562,24 @@ class TestMultiStrategyIntegration:
         # Make 6 connections to trigger blocking  
         # Different strategies track differently but all will see the connections
         for i in range(6):
-            allowed, reason = security_manager.check_access(ja4, ip)
+            allowed, reason = await security_manager.check_access(ja4, ip)
         
         # Last one should be blocked
-        allowed, reason = security_manager.check_access(ja4, ip)
+        allowed, reason = await security_manager.check_access(ja4, ip)
         assert allowed is False
 
 
 class TestGDPRIntegration:
     """Test GDPR compliance integration."""
     
-    def test_enforcement_data_stored_with_gdpr(self, security_manager, mock_redis):
+    async def test_enforcement_data_stored_with_gdpr(self, security_manager, mock_redis):
         """Test that enforcement data is stored with GDPR compliance."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
         
         # Trigger enforcement by making many connections
         for i in range(12):
-            security_manager.check_access(ja4, ip)
+            await security_manager.check_access(ja4, ip)
         
         # Check that data was stored
         total_keys = len(mock_redis._data) + len(mock_redis._sorted_sets)
@@ -594,7 +594,7 @@ class TestGDPRIntegration:
 class TestRealWorldScenarios:
     """Test realistic attack scenarios."""
     
-    def test_gradual_rate_increase(self, security_manager):
+    async def test_gradual_rate_increase(self, security_manager):
         """Test gradual increase in connection rate."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
@@ -603,7 +603,7 @@ class TestRealWorldScenarios:
         mock_time.reset()
         
         # Start with 1 connection - should be allowed
-        allowed, _ = security_manager.check_access(ja4, ip)
+        allowed, _ = await security_manager.check_access(ja4, ip)
         assert allowed is True
         
         # Add more connections spaced out in time
@@ -611,7 +611,7 @@ class TestRealWorldScenarios:
         mock_time.advance(2.0)
         
         # Second connection after window cleared - should be allowed
-        allowed, _ = security_manager.check_access(ja4, ip)
+        allowed, _ = await security_manager.check_access(ja4, ip)
         assert allowed is True
         
         # Now make rapid connections to trigger block
@@ -620,26 +620,26 @@ class TestRealWorldScenarios:
         
         # Make 11 connections rapidly (exceeds ban threshold of 10)
         for i in range(11):
-            allowed, reason = security_manager.check_access(ja4, ip)
+            allowed, reason = await security_manager.check_access(ja4, ip)
         
         # Should now be blocked/banned
         assert allowed is False, f"Should be blocked after burst: {reason}"
     
-    def test_burst_attack(self, security_manager):
+    async def test_burst_attack(self, security_manager):
         """Test sudden burst of connections."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
         
         # Sudden burst - make 20 connections rapidly
         for i in range(20):
-            allowed, reason = security_manager.check_access(ja4, ip)
+            allowed, reason = await security_manager.check_access(ja4, ip)
         
         # After burst, should be banned
-        allowed, reason = security_manager.check_access(ja4, ip)
+        allowed, reason = await security_manager.check_access(ja4, ip)
         assert allowed is False
         assert "ban" in reason.lower() or "blocked" in reason.lower()
     
-    def test_distributed_attack(self, security_manager):
+    async def test_distributed_attack(self, security_manager):
         """Test distributed attack from multiple IPs."""
         ja4 = "t13d1516h2_abc_def"  # Same JA4 (botnet)
         
@@ -648,7 +648,7 @@ class TestRealWorldScenarios:
         
         results = []
         for ip in ips:
-            allowed, reason = security_manager.check_access(ja4, ip)
+            allowed, reason = await security_manager.check_access(ja4, ip)
             results.append(allowed)
         
         # Individual IPs might be allowed, but BY_JA4 strategy would catch it
@@ -659,7 +659,7 @@ class TestRealWorldScenarios:
 class TestIntegrationEdgeCases:
     """Test edge cases in integration."""
     
-    def test_exactly_at_threshold(self, security_manager):
+    async def test_exactly_at_threshold(self, security_manager):
         """Test behavior exactly at threshold."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
@@ -670,12 +670,12 @@ class TestIntegrationEdgeCases:
         # Make exactly 5 connections (block threshold for by_ip_ja4_pair)
         # They should all be allowed since we only block AFTER exceeding threshold
         for i in range(5):
-            allowed, reason = security_manager.check_access(ja4, ip)
+            allowed, reason = await security_manager.check_access(ja4, ip)
             # All 5 should be allowed (we block at > threshold, not >=)
             if i < 5:
                 assert allowed is True, f"Connection {i+1} at threshold should be allowed: {reason}"
     
-    def test_rapid_succession_same_client(self, security_manager):
+    async def test_rapid_succession_same_client(self, security_manager):
         """Test rapid successive calls for same client."""
         ja4 = "t13d1516h2_abc_def"
         ip = "192.168.1.100"
@@ -688,7 +688,7 @@ class TestIntegrationEdgeCases:
         results = []
         
         for i in range(12):
-            allowed, reason = security_manager.check_access(ja4, ip)
+            allowed, reason = await security_manager.check_access(ja4, ip)
             results.append((allowed, reason))
             # Don't advance time - keep all connections in same window
         

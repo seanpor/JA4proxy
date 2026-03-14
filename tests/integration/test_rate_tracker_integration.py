@@ -75,11 +75,11 @@ def integration_config():
 class TestRealRedisOperations:
     """Test with real Redis operations."""
     
-    def test_single_connection_tracked(self, redis_client, integration_config):
+    async def test_single_connection_tracked(self, redis_client, integration_config):
         """Test that a single connection is tracked correctly."""
         tracker = MultiStrategyRateTracker(redis_client, integration_config)
         
-        results = tracker.track_connection(
+        results = await tracker.track_connection(
             "t13d1516h2_abc123_def456",
             "192.168.1.100"
         )
@@ -89,7 +89,7 @@ class TestRealRedisOperations:
         assert results[RateLimitStrategy.BY_JA4].connections_per_second == 1
         assert results[RateLimitStrategy.BY_IP_JA4_PAIR].connections_per_second == 1
     
-    def test_multiple_connections_same_ip(self, redis_client, integration_config):
+    async def test_multiple_connections_same_ip(self, redis_client, integration_config):
         """Test tracking multiple connections from same IP."""
         tracker = MultiStrategyRateTracker(redis_client, integration_config)
         
@@ -97,7 +97,7 @@ class TestRealRedisOperations:
         ja4s = [f"t13d1516h2_abc{i:03d}_def{i:03d}" for i in range(5)]
         
         for ja4 in ja4s:
-            results = tracker.track_connection(ja4, "192.168.1.100")
+            results = await tracker.track_connection(ja4, "192.168.1.100")
         
         last_results = results
         
@@ -110,7 +110,7 @@ class TestRealRedisOperations:
         # BY_IP_JA4_PAIR should only count the last unique pair
         assert last_results[RateLimitStrategy.BY_IP_JA4_PAIR].connections_per_second == 1
     
-    def test_multiple_connections_same_ja4(self, redis_client, integration_config):
+    async def test_multiple_connections_same_ja4(self, redis_client, integration_config):
         """Test tracking multiple connections with same JA4 from different IPs."""
         tracker = MultiStrategyRateTracker(redis_client, integration_config)
         
@@ -118,7 +118,7 @@ class TestRealRedisOperations:
         
         # Send from 5 different IPs with same JA4
         for i in range(5):
-            results = tracker.track_connection(ja4, f"192.168.1.{100+i}")
+            results = await tracker.track_connection(ja4, f"192.168.1.{100+i}")
         
         last_results = results
         
@@ -131,7 +131,7 @@ class TestRealRedisOperations:
         # BY_IP_JA4_PAIR should only count the last unique pair
         assert last_results[RateLimitStrategy.BY_IP_JA4_PAIR].connections_per_second == 1
     
-    def test_sliding_window_expiration(self, redis_client, integration_config):
+    async def test_sliding_window_expiration(self, redis_client, integration_config):
         """Test that connections expire from sliding window."""
         tracker = MultiStrategyRateTracker(redis_client, integration_config)
         
@@ -139,19 +139,19 @@ class TestRealRedisOperations:
         ip = "192.168.1.100"
         
         # First connection
-        results1 = tracker.track_connection(ja4, ip)
+        results1 = await tracker.track_connection(ja4, ip)
         assert results1[RateLimitStrategy.BY_IP].connections_per_second == 1
         
         # Wait for window to fully expire (3 seconds to ensure 1-second window is clear)
         time.sleep(3.0)
         
         # Second connection (first should definitely be expired)
-        results2 = tracker.track_connection(ja4, ip)
+        results2 = await tracker.track_connection(ja4, ip)
         # Should be 1 since the first connection is outside the 1-second window
         assert results2[RateLimitStrategy.BY_IP].connections_per_second <= 2, \
             f"Expected <=2 connections after window expiry, got {results2[RateLimitStrategy.BY_IP].connections_per_second}"
     
-    def test_rapid_connections_within_window(self, redis_client, integration_config):
+    async def test_rapid_connections_within_window(self, redis_client, integration_config):
         """Test rapid connections within the window are all counted."""
         tracker = MultiStrategyRateTracker(redis_client, integration_config)
         
@@ -160,16 +160,16 @@ class TestRealRedisOperations:
         
         # Send 10 connections rapidly
         for i in range(10):
-            results = tracker.track_connection(ja4, ip)
+            results = await tracker.track_connection(ja4, ip)
         
         # All 10 should be counted
         assert results[RateLimitStrategy.BY_IP_JA4_PAIR].connections_per_second == 10
     
-    def test_redis_keys_have_ttl(self, redis_client, integration_config):
+    async def test_redis_keys_have_ttl(self, redis_client, integration_config):
         """Test that Redis keys have TTL set for GDPR compliance."""
         tracker = MultiStrategyRateTracker(redis_client, integration_config)
         
-        results = tracker.track_connection(
+        results = await tracker.track_connection(
             "t13d1516h2_abc123_def456",
             "192.168.1.100"
         )
@@ -183,7 +183,7 @@ class TestRealRedisOperations:
             assert ttl > 0, f"Key {key} has no TTL (permanent storage)"
             assert ttl <= 60, f"Key {key} has TTL > 60 seconds (GDPR concern)"
     
-    def test_concurrent_connections(self, redis_client, integration_config):
+    async def test_concurrent_connections(self, redis_client, integration_config):
         """Test that concurrent connections are tracked correctly."""
         tracker = MultiStrategyRateTracker(redis_client, integration_config)
         
@@ -193,7 +193,7 @@ class TestRealRedisOperations:
         # Simulate near-concurrent connections
         results_list = []
         for i in range(5):
-            result = tracker.track_connection(ja4, ip)
+            result = await tracker.track_connection(ja4, ip)
             results_list.append(result)
             time.sleep(0.01)  # 10ms apart
         
@@ -204,7 +204,7 @@ class TestRealRedisOperations:
 class TestScenarios:
     """Test realistic attack/usage scenarios."""
     
-    def test_scenario_single_source_flood(self, redis_client, integration_config):
+    async def test_scenario_single_source_flood(self, redis_client, integration_config):
         """
         Scenario: Single IP flooding with various tools (different JA4s).
         Expected: BY_IP strategy catches it.
@@ -216,7 +216,7 @@ class TestScenarios:
         # Attacker sends 15 connections with different JA4s
         for i in range(15):
             ja4 = f"t13d1516h2_tool{i:02d}_sig{i:02d}"
-            results = tracker.track_connection(ja4, ip)
+            results = await tracker.track_connection(ja4, ip)
         
         final_results = results
         
@@ -232,7 +232,7 @@ class TestScenarios:
         by_ja4_rate = final_results[RateLimitStrategy.BY_JA4].connections_per_second
         assert by_ja4_rate == 1
     
-    def test_scenario_botnet_same_tool(self, redis_client, integration_config):
+    async def test_scenario_botnet_same_tool(self, redis_client, integration_config):
         """
         Scenario: Botnet with 30 IPs all using same tool (same JA4).
         Expected: BY_JA4 strategy catches it.
@@ -244,7 +244,7 @@ class TestScenarios:
         # 30 different IPs with same JA4
         for i in range(30):
             ip = f"192.168.1.{100+i}"
-            results = tracker.track_connection(ja4, ip)
+            results = await tracker.track_connection(ja4, ip)
         
         final_results = results
         
@@ -260,7 +260,7 @@ class TestScenarios:
         by_ip_rate = final_results[RateLimitStrategy.BY_IP].connections_per_second
         assert by_ip_rate == 1
     
-    def test_scenario_aggressive_client(self, redis_client, integration_config):
+    async def test_scenario_aggressive_client(self, redis_client, integration_config):
         """
         Scenario: One client (IP+JA4) making 8 rapid requests.
         Expected: BY_IP_JA4_PAIR strategy catches it.
@@ -272,7 +272,7 @@ class TestScenarios:
         
         # Same client makes 8 rapid requests
         for i in range(8):
-            results = tracker.track_connection(ja4, ip)
+            results = await tracker.track_connection(ja4, ip)
         
         final_results = results
         
@@ -284,7 +284,7 @@ class TestScenarios:
         config = tracker.get_strategy_config(RateLimitStrategy.BY_IP_JA4_PAIR)
         assert by_pair_rate > config.block_threshold
     
-    def test_scenario_legitimate_traffic(self, redis_client, integration_config):
+    async def test_scenario_legitimate_traffic(self, redis_client, integration_config):
         """
         Scenario: Normal traffic patterns (under thresholds).
         Expected: All strategies show normal.
@@ -299,7 +299,7 @@ class TestScenarios:
         ]
         
         for ja4, ip in users:
-            results = tracker.track_connection(ja4, ip)
+            results = await tracker.track_connection(ja4, ip)
             
             # All rates should be 1 (under all thresholds)
             assert results[RateLimitStrategy.BY_IP].connections_per_second == 1
@@ -310,7 +310,7 @@ class TestScenarios:
 class TestPerformance:
     """Test performance characteristics."""
     
-    def test_tracking_performance(self, redis_client, integration_config):
+    async def test_tracking_performance(self, redis_client, integration_config):
         """Test that tracking is fast enough for production."""
         tracker = MultiStrategyRateTracker(redis_client, integration_config)
         
@@ -320,7 +320,7 @@ class TestPerformance:
         # Time 100 operations
         start = time.time()
         for i in range(100):
-            tracker.track_connection(ja4, ip)
+            await tracker.track_connection(ja4, ip)
         elapsed = time.time() - start
         
         # Should complete in reasonable time (< 1 second for 100 ops)
@@ -331,13 +331,13 @@ class TestPerformance:
         print(f"\nAverage tracking time: {avg_ms:.2f}ms per operation")
         assert avg_ms < 10, f"Average {avg_ms}ms per operation (should be < 10ms)"
     
-    def test_redis_memory_cleanup(self, redis_client, integration_config):
+    async def test_redis_memory_cleanup(self, redis_client, integration_config):
         """Test that old data is cleaned up (GDPR compliance)."""
         tracker = MultiStrategyRateTracker(redis_client, integration_config)
         
         # Create some tracking data
         for i in range(10):
-            tracker.track_connection(
+            await tracker.track_connection(
                 f"t13d1516h2_test{i:02d}",
                 f"192.168.1.{100+i}"
             )
@@ -350,7 +350,7 @@ class TestPerformance:
         time.sleep(2)
         
         # Trigger cleanup by trying to access
-        tracker.track_connection("t13d1516h2_new", "192.168.1.200")
+        await tracker.track_connection("t13d1516h2_new", "192.168.1.200")
         
         # Old keys should be fewer (some expired)
         keys_after = redis_client.keys("rate:*")

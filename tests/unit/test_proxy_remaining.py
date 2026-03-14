@@ -107,6 +107,8 @@ def _make_server_stub():
     # Phase 2: Pipeline replaces advanced_security layers
     s.pipeline = MagicMock()
     s.pipeline.process = AsyncMock(return_value=PipelineResult(action="allow"))
+    s.pipeline._tcp_analyzer = MagicMock()
+    s.pipeline._tcp_analyzer.decrement_concurrent_connections = AsyncMock()
     s.security_manager = MagicMock()
     s.security_manager.whitelist = set()
     s.security_manager.blacklist = set()
