@@ -13,7 +13,7 @@ const navItems = [
     { name: 'Fingerprints', path: '/fingerprints', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.Fingerprint, { className: "h-4 w-4" }) },
     { name: 'Dial', path: '/dial', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.Phone, { className: "h-4 w-4" }) },
     { name: 'Policy', path: '/policy', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.ListChecks, { className: "h-4 w-4" }) },
-    { name: 'Config', path: '/config', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.Settings, { className: "h-4 w-4" }) },
+    { name: 'System', path: '/config', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.Settings, { className: "h-4 w-4" }) },
     { name: 'Audit', path: '/audit', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.FileText, { className: "h-4 w-4" }) },
     { name: 'Health', path: '/health', icon: (0, jsx_runtime_1.jsx)(lucide_react_1.HeartPulse, { className: "h-4 w-4" }) },
 ];

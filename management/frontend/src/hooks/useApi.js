@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.useSseEvents = exports.useDial = exports.useHealth = exports.useAuditLog = exports.useThresholdConfig = exports.useFingerprints = exports.useCIDRs = exports.useBans = void 0;
+exports.useSseEvents = exports.useCountryBlocklist = exports.useDial = exports.useHealth = exports.useAuditLog = exports.useThresholdConfig = exports.useFingerprints = exports.useCIDRs = exports.useBans = void 0;
 const react_1 = require("react");
 const react_query_1 = require("@tanstack/react-query");
 const client_1 = require("../api/client");
@@ -197,6 +197,44 @@ const useDial = () => {
     };
 };
 exports.useDial = useDial;
+// Country blocklist hooks
+const useCountryBlocklist = () => {
+    const queryClient = (0, react_query_1.useQueryClient)();
+    const getCountries = async () => {
+        const response = await client_1.apiClient.get('/config/countries/blocklist');
+        return response.data.countries ?? [];
+    };
+    const addCountry = async (country) => {
+        const current = await getCountries();
+        const updated = Array.from(new Set([...current, country.toUpperCase()]));
+        await client_1.apiClient.put('/config/countries/blocklist', { countries: updated });
+    };
+    const removeCountry = async (country) => {
+        const current = await getCountries();
+        const updated = current.filter(c => c !== country);
+        await client_1.apiClient.put('/config/countries/blocklist', { countries: updated });
+    };
+    const countriesQuery = (0, react_query_1.useQuery)({
+        queryKey: ['countryBlocklist'],
+        queryFn: getCountries,
+    });
+    const addMutation = (0, react_query_1.useMutation)({
+        mutationFn: addCountry,
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['countryBlocklist'] }),
+    });
+    const removeMutation = (0, react_query_1.useMutation)({
+        mutationFn: removeCountry,
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ['countryBlocklist'] }),
+    });
+    return {
+        ...countriesQuery,
+        addCountry: addMutation.mutateAsync,
+        removeCountry: removeMutation.mutateAsync,
+        isAdding: addMutation.isPending,
+        isRemoving: removeMutation.isPending,
+    };
+};
+exports.useCountryBlocklist = useCountryBlocklist;
 // SSE Events hook — connects to /api/v1/events with token as query param
 const useSseEvents = () => {
     const [events, setEvents] = (0, react_1.useState)([]);
