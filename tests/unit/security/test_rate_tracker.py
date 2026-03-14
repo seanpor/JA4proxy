@@ -163,7 +163,7 @@ class TestMultiStrategyRateTrackerInit:
 class TestTrackConnection:
     """Test connection tracking functionality."""
     
-    def test_track_connection_single_strategy(self, mock_redis, test_config):
+    async def test_track_connection_single_strategy(self, mock_redis, test_config):
         """Test tracking with single strategy enabled."""
         # Enable only one strategy
         test_config['security']['rate_limit_strategies']['by_ja4']['enabled'] = False
@@ -172,7 +172,7 @@ class TestTrackConnection:
         tracker = MultiStrategyRateTracker(mock_redis, test_config)
         tracker.rate_script.return_value = 5  # Mock: 5 connections
         
-        results = tracker.track_connection(
+        results = await tracker.track_connection(
             "t13d1516h2_abc123_def456",
             "192.168.1.100"
         )
@@ -185,12 +185,12 @@ class TestTrackConnection:
         assert metrics.strategy == RateLimitStrategy.BY_IP
         assert metrics.entity_id == "192.168.1.100"
     
-    def test_track_connection_all_strategies(self, mock_redis, test_config):
+    async def test_track_connection_all_strategies(self, mock_redis, test_config):
         """Test tracking with all strategies enabled."""
         tracker = MultiStrategyRateTracker(mock_redis, test_config)
         tracker.rate_script.return_value = 3  # Mock: 3 connections
         
-        results = tracker.track_connection(
+        results = await tracker.track_connection(
             "t13d1516h2_abc123_def456",
             "192.168.1.100"
         )
@@ -204,52 +204,52 @@ class TestTrackConnection:
         for metrics in results.values():
             assert metrics.connections_per_second == 3
     
-    def test_track_connection_validates_ja4_empty(self, mock_redis, test_config):
+    async def test_track_connection_validates_ja4_empty(self, mock_redis, test_config):
         """Test tracking validates JA4 is not empty."""
         tracker = MultiStrategyRateTracker(mock_redis, test_config)
         
         with pytest.raises(ValueError, match="non-empty string"):
-            tracker.track_connection("", "192.168.1.100")
+            await tracker.track_connection("", "192.168.1.100")
     
-    def test_track_connection_validates_ip_empty(self, mock_redis, test_config):
+    async def test_track_connection_validates_ip_empty(self, mock_redis, test_config):
         """Test tracking validates IP is not empty."""
         tracker = MultiStrategyRateTracker(mock_redis, test_config)
         
         with pytest.raises(ValueError, match="non-empty string"):
-            tracker.track_connection("t13d1516h2_abc123_def456", "")
+            await tracker.track_connection("t13d1516h2_abc123_def456", "")
     
-    def test_track_connection_validates_ja4_type(self, mock_redis, test_config):
+    async def test_track_connection_validates_ja4_type(self, mock_redis, test_config):
         """Test tracking validates JA4 type."""
         tracker = MultiStrategyRateTracker(mock_redis, test_config)
         
         with pytest.raises(ValueError):
-            tracker.track_connection(None, "192.168.1.100")
+            await tracker.track_connection(None, "192.168.1.100")
         
         with pytest.raises(ValueError):
-            tracker.track_connection(123, "192.168.1.100")
+            await tracker.track_connection(123, "192.168.1.100")
     
-    def test_track_connection_validates_ja4_length(self, mock_redis, test_config):
+    async def test_track_connection_validates_ja4_length(self, mock_redis, test_config):
         """Test tracking validates JA4 length."""
         tracker = MultiStrategyRateTracker(mock_redis, test_config)
         
         with pytest.raises(ValueError, match="too long"):
-            tracker.track_connection("x" * 300, "192.168.1.100")
+            await tracker.track_connection("x" * 300, "192.168.1.100")
     
-    def test_track_connection_validates_ip_length(self, mock_redis, test_config):
+    async def test_track_connection_validates_ip_length(self, mock_redis, test_config):
         """Test tracking validates IP length."""
         tracker = MultiStrategyRateTracker(mock_redis, test_config)
         
         with pytest.raises(ValueError, match="too long"):
-            tracker.track_connection("t13d1516h2_abc123_def456", "x" * 100)
+            await tracker.track_connection("t13d1516h2_abc123_def456", "x" * 100)
     
-    def test_track_connection_redis_error_fails_closed(self, mock_redis, test_config):
+    async def test_track_connection_redis_error_fails_closed(self, mock_redis, test_config):
         """Test Redis errors cause fail-closed behavior."""
         tracker = MultiStrategyRateTracker(mock_redis, test_config)
         
         # Simulate Redis error
         tracker.rate_script.side_effect = redis.ConnectionError("Connection lost")
         
-        results = tracker.track_connection(
+        results = await tracker.track_connection(
             "t13d1516h2_abc123_def456",
             "192.168.1.100"
         )
@@ -258,14 +258,14 @@ class TestTrackConnection:
         for metrics in results.values():
             assert metrics.connections_per_second == tracker.MAX_CONNECTIONS_PER_WINDOW
     
-    def test_track_connection_enforces_max_limit(self, mock_redis, test_config):
+    async def test_track_connection_enforces_max_limit(self, mock_redis, test_config):
         """Test maximum connection limit is enforced."""
         tracker = MultiStrategyRateTracker(mock_redis, test_config)
         
         # Simulate Redis returning very high count
         tracker.rate_script.return_value = 99999
         
-        results = tracker.track_connection(
+        results = await tracker.track_connection(
             "t13d1516h2_abc123_def456",
             "192.168.1.100"
         )
@@ -274,20 +274,20 @@ class TestTrackConnection:
         for metrics in results.values():
             assert metrics.connections_per_second == tracker.MAX_CONNECTIONS_PER_WINDOW
     
-    def test_track_connection_different_windows(self, mock_redis, test_config):
+    async def test_track_connection_different_windows(self, mock_redis, test_config):
         """Test tracking with different window sizes."""
         tracker = MultiStrategyRateTracker(mock_redis, test_config)
         tracker.rate_script.return_value = 5
         
         # Short window
-        results_short = tracker.track_connection(
+        results_short = await tracker.track_connection(
             "t13d1516h2_abc123_def456",
             "192.168.1.100",
             window='short'
         )
         
         # Medium window
-        results_medium = tracker.track_connection(
+        results_medium = await tracker.track_connection(
             "t13d1516h2_abc123_def456",
             "192.168.1.100",
             window='medium'
@@ -308,7 +308,7 @@ class TestTrackConnection:
 class TestStrategySpecificTracking:
     """Test strategy-specific tracking behavior."""
     
-    def test_by_ip_uses_ip_only(self, mock_redis, test_config):
+    async def test_by_ip_uses_ip_only(self, mock_redis, test_config):
         """Test BY_IP strategy uses only IP in key."""
         # Enable only BY_IP
         test_config['security']['rate_limit_strategies']['by_ja4']['enabled'] = False
@@ -317,7 +317,7 @@ class TestStrategySpecificTracking:
         tracker = MultiStrategyRateTracker(mock_redis, test_config)
         tracker.rate_script.return_value = 5
         
-        results = tracker.track_connection(
+        results = await tracker.track_connection(
             "t13d1516h2_abc123_def456",
             "192.168.1.100"
         )
@@ -325,7 +325,7 @@ class TestStrategySpecificTracking:
         metrics = results[RateLimitStrategy.BY_IP]
         assert metrics.entity_id == "192.168.1.100"
     
-    def test_by_ja4_uses_ja4_only(self, mock_redis, test_config):
+    async def test_by_ja4_uses_ja4_only(self, mock_redis, test_config):
         """Test BY_JA4 strategy uses only JA4 in key."""
         # Enable only BY_JA4
         test_config['security']['rate_limit_strategies']['by_ip']['enabled'] = False
@@ -334,7 +334,7 @@ class TestStrategySpecificTracking:
         tracker = MultiStrategyRateTracker(mock_redis, test_config)
         tracker.rate_script.return_value = 5
         
-        results = tracker.track_connection(
+        results = await tracker.track_connection(
             "t13d1516h2_abc123_def456",
             "192.168.1.100"
         )
@@ -342,7 +342,7 @@ class TestStrategySpecificTracking:
         metrics = results[RateLimitStrategy.BY_JA4]
         assert metrics.entity_id == "t13d1516h2_abc123_def456"
     
-    def test_by_pair_uses_both(self, mock_redis, test_config):
+    async def test_by_pair_uses_both(self, mock_redis, test_config):
         """Test BY_IP_JA4_PAIR strategy uses both IP and JA4."""
         # Enable only BY_IP_JA4_PAIR
         test_config['security']['rate_limit_strategies']['by_ip']['enabled'] = False
@@ -351,7 +351,7 @@ class TestStrategySpecificTracking:
         tracker = MultiStrategyRateTracker(mock_redis, test_config)
         tracker.rate_script.return_value = 5
         
-        results = tracker.track_connection(
+        results = await tracker.track_connection(
             "t13d1516h2_abc123_def456",
             "192.168.1.100"
         )
@@ -409,14 +409,14 @@ class TestHealthCheck:
 class TestGDPRCompliance:
     """Test GDPR compliance features."""
     
-    def test_ttl_set_on_tracking(self, mock_redis, test_config):
+    async def test_ttl_set_on_tracking(self, mock_redis, test_config):
         """Test that TTL is set for GDPR compliance."""
         tracker = MultiStrategyRateTracker(mock_redis, test_config)
         
         # The Lua script should set TTL - verify script is called
         tracker.rate_script.return_value = 1
         
-        tracker.track_connection(
+        await tracker.track_connection(
             "t13d1516h2_abc123_def456",
             "192.168.1.100"
         )

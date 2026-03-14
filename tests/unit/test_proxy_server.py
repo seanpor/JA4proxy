@@ -123,6 +123,8 @@ def _make_server(config_overrides: dict | None = None) -> ProxyServer:
     # Phase 2: Pipeline replaces advanced_security layers
     server.pipeline = MagicMock()
     server.pipeline.process = AsyncMock(return_value=PipelineResult(action="allow"))
+    server.pipeline._tcp_analyzer = MagicMock()
+    server.pipeline._tcp_analyzer.decrement_concurrent_connections = AsyncMock()
 
     server.security_manager = MagicMock()
     server.security_manager.whitelist = set()

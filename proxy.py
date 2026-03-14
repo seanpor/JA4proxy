@@ -1476,7 +1476,7 @@ class ProxyServer:
                 self.active_connections -= 1
                 ACTIVE_CONNECTIONS.set(self.active_connections)
                 if "client_ip" in locals():
-                    self.pipeline._tcp_analyzer.decrement_concurrent_connections(
+                    await self.pipeline._tcp_analyzer.decrement_concurrent_connections(
                         client_ip
                     )
                 try:

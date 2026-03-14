@@ -220,40 +220,40 @@ class TestTrackSingleStrategyExceptions:
         mock_redis = _make_redis()
         return MultiStrategyRateTracker(mock_redis, _minimal_config())
 
-    def test_timeout_error_raises_rate_tracker_error(self, tracker):
+    async def test_timeout_error_raises_rate_tracker_error(self, tracker):
         """Lines 367-368: redis.TimeoutError → RateTrackerError."""
         tracker.rate_script.side_effect = redis.TimeoutError("operation timed out")
 
-        results = tracker.track_connection("t13d1516h2_abc123_def456", "1.2.3.4")
+        results = await tracker.track_connection("t13d1516h2_abc123_def456", "1.2.3.4")
 
         # Fail-closed: returns MAX_CONNECTIONS for all strategies
         for metrics in results.values():
             assert metrics.connections_per_second == tracker.MAX_CONNECTIONS_PER_WINDOW
 
-    def test_generic_redis_error_raises_rate_tracker_error(self, tracker):
+    async def test_generic_redis_error_raises_rate_tracker_error(self, tracker):
         """Lines 369-370: redis.RedisError (not Connection/Timeout) → RateTrackerError."""
         # redis.DataError is-a RedisError but NOT ConnectionError or TimeoutError
         tracker.rate_script.side_effect = redis.DataError("type error in script")
 
-        results = tracker.track_connection("t13d1516h2_abc123_def456", "1.2.3.4")
+        results = await tracker.track_connection("t13d1516h2_abc123_def456", "1.2.3.4")
 
         for metrics in results.values():
             assert metrics.connections_per_second == tracker.MAX_CONNECTIONS_PER_WINDOW
 
-    def test_unexpected_exception_raises_rate_tracker_error(self, tracker):
+    async def test_unexpected_exception_raises_rate_tracker_error(self, tracker):
         """Lines 371-372: bare Exception → RateTrackerError."""
         tracker.rate_script.side_effect = RuntimeError("unexpected crash")
 
-        results = tracker.track_connection("t13d1516h2_abc123_def456", "1.2.3.4")
+        results = await tracker.track_connection("t13d1516h2_abc123_def456", "1.2.3.4")
 
         for metrics in results.values():
             assert metrics.connections_per_second == tracker.MAX_CONNECTIONS_PER_WINDOW
 
-    def test_overflow_error_raises_rate_tracker_error(self, tracker):
+    async def test_overflow_error_raises_rate_tracker_error(self, tracker):
         """OverflowError is-a Exception → hits lines 371-372."""
         tracker.rate_script.side_effect = OverflowError("int overflow")
 
-        results = tracker.track_connection("t13d1516h2_abc123_def456", "1.2.3.4")
+        results = await tracker.track_connection("t13d1516h2_abc123_def456", "1.2.3.4")
 
         for metrics in results.values():
             assert metrics.connections_per_second == tracker.MAX_CONNECTIONS_PER_WINDOW

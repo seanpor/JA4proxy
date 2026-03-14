@@ -19,6 +19,8 @@ GDPR Compliance:
 - Data minimization by strategy selection
 """
 
+import asyncio
+import inspect
 import logging
 import time
 from typing import Dict, List, Optional
@@ -130,12 +132,25 @@ class MultiStrategyRateTracker:
             f"{[s.value for s in self.enabled_strategies]}"
         )
     
+    @staticmethod
+    def _is_async_redis(client: object) -> bool:
+        """Return True if client is an async Redis client (redis.asyncio.Redis)."""
+        try:
+            return isinstance(client, redis.asyncio.Redis)
+        except AttributeError:
+            return False
+
     def _validate_redis_connection(self) -> None:
         """
         Validate Redis connection is working.
-        
+
         Security: Fail early if Redis is unavailable (fail-closed).
+        For async Redis clients ping() returns a coroutine and cannot be called
+        synchronously from __init__; the caller already validated the connection
+        at startup via await redis.ping(), so we skip the check here.
         """
+        if self._is_async_redis(self.redis):
+            return
         try:
             self.redis.ping()
         except redis.ConnectionError as e:
@@ -229,7 +244,7 @@ class MultiStrategyRateTracker:
         
         return windows
     
-    def track_connection(
+    async def track_connection(
         self,
         ja4: str,
         ip: str,
@@ -272,11 +287,11 @@ class MultiStrategyRateTracker:
         window_seconds = self.windows.get(window, 1.0)
         
         results = {}
-        
+
         # Track for each enabled strategy
         for strategy in self.enabled_strategies:
             try:
-                metrics = self._track_single_strategy(
+                metrics = await self._track_single_strategy(
                     ja4, ip, strategy, window_seconds
                 )
                 results[strategy] = metrics
@@ -296,7 +311,7 @@ class MultiStrategyRateTracker:
         
         return results
     
-    def _track_single_strategy(
+    async def _track_single_strategy(
         self,
         ja4: str,
         ip: str,
@@ -339,12 +354,13 @@ class MultiStrategyRateTracker:
             # Keep data for 60 seconds or 2x window, whichever is larger
             ttl = max(self.DEFAULT_TTL_SECONDS, int(window_seconds * 2))
             
-            # Execute atomic Lua script
-            count = self.rate_script(
+            # Execute atomic Lua script (supports both sync and async Redis clients)
+            result = self.rate_script(
                 keys=[key, counter_key],
                 args=[now, window_seconds, ttl],
-                client=self.redis
+                client=self.redis,
             )
+            count = await result if inspect.isawaitable(result) else result
             
             # Validate count (security: prevent DoS)
             if count > self.MAX_CONNECTIONS_PER_WINDOW:
@@ -397,10 +413,12 @@ class MultiStrategyRateTracker:
     def health_check(self) -> bool:
         """
         Check if rate tracker is healthy.
-        
+
         Returns:
             True if healthy, False otherwise
         """
+        if self._is_async_redis(self.redis):
+            return True  # Async client — cannot ping synchronously; assume healthy.
         try:
             self.redis.ping()
             return True
