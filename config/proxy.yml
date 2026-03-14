@@ -281,10 +281,10 @@ risk_scorer:
 monitor_mode:
   # 0 = monitor only (log scores, never block). 100 = full blocking.
   # Deploy at 0. Observe risk score distribution. Raise gradually.
-  dial: 100
+  dial: 0
   # Safety gate: proxy resets dial to 0 at startup until explicitly set to true.
   # Set to true only after reviewing score distribution at dial=0.
-  blocking_acknowledged: true
+  blocking_acknowledged: false
   # Include "would=action@dial" in MONITOR log lines and counterfactuals in JSON.
   log_counterfactuals: true
   # Which dial values to include in counterfactual reporting.

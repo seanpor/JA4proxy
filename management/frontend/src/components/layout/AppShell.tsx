@@ -16,7 +16,7 @@ const navItems: NavItem[] = [
   { name: 'Fingerprints', path: '/fingerprints', icon: <Fingerprint className="h-4 w-4" /> },
   { name: 'Dial',         path: '/dial',         icon: <Phone className="h-4 w-4" /> },
   { name: 'Policy',       path: '/policy',       icon: <ListChecks className="h-4 w-4" /> },
-  { name: 'Config',       path: '/config',       icon: <Settings className="h-4 w-4" /> },
+  { name: 'System',       path: '/config',       icon: <Settings className="h-4 w-4" /> },
   { name: 'Audit',        path: '/audit',        icon: <FileText className="h-4 w-4" /> },
   { name: 'Health',       path: '/health',       icon: <HeartPulse className="h-4 w-4" /> },
 ];

@@ -280,6 +280,51 @@ export const useDial = () => {
   };
 };
 
+// Country blocklist hooks
+export const useCountryBlocklist = () => {
+  const queryClient = useQueryClient();
+
+  const getCountries = async (): Promise<string[]> => {
+    const response = await apiClient.get('/config/countries/blocklist');
+    return response.data.countries ?? [];
+  };
+
+  const addCountry = async (country: string): Promise<void> => {
+    const current = await getCountries();
+    const updated = Array.from(new Set([...current, country.toUpperCase()]));
+    await apiClient.put('/config/countries/blocklist', { countries: updated });
+  };
+
+  const removeCountry = async (country: string): Promise<void> => {
+    const current = await getCountries();
+    const updated = current.filter(c => c !== country);
+    await apiClient.put('/config/countries/blocklist', { countries: updated });
+  };
+
+  const countriesQuery = useQuery<string[], Error>({
+    queryKey: ['countryBlocklist'],
+    queryFn: getCountries,
+  });
+
+  const addMutation = useMutation<void, Error, string>({
+    mutationFn: addCountry,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['countryBlocklist'] }),
+  });
+
+  const removeMutation = useMutation<void, Error, string>({
+    mutationFn: removeCountry,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['countryBlocklist'] }),
+  });
+
+  return {
+    ...countriesQuery,
+    addCountry: addMutation.mutateAsync,
+    removeCountry: removeMutation.mutateAsync,
+    isAdding: addMutation.isPending,
+    isRemoving: removeMutation.isPending,
+  };
+};
+
 // SSE Events hook — connects to /api/v1/events with token as query param
 export const useSseEvents = () => {
   const [events, setEvents] = useState<Event[]>([]);
