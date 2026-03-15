@@ -171,6 +171,15 @@ class LocalCache:
             ttl_seconds=_get("rdap_results", "ttl_seconds", 86_400),
             name="rdap_results",
         )
+        # Phase 12: Analytics cross-instance signals (campaign, slow-scan).
+        # TTL 60s — analytics findings update every 5 minutes but we want
+        # fresh-ish data without hammering Redis on every connection.
+        # Keyed by subnet (/24 IPv4 or /48 IPv6).
+        self.analytics_signals = LRUCache(
+            max_size=_get("analytics_signals", "max_size", 10_000),
+            ttl_seconds=_get("analytics_signals", "ttl_seconds", 60),
+            name="analytics_signals",
+        )
         # Dial has no TTL — updated only by pub/sub or config reload.
         # Default 0 = monitor mode; proxy never blocks on first deploy.
         self._dial: int = 0
