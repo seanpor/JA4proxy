@@ -1,5 +1,39 @@
 # Changelog
 
+## [12.1.0] - 2026-03-15 - PHASE 12b: PROXY READS ANALYTICS SIGNALS
+
+Completes Phase 12b acceptance criteria. The proxy scorer now reads campaign
+and slow-scan findings written by the Analytics Node and factors them into
+risk decisions.
+
+### Added
+
+**`src/security/pipeline.py`:**
+- `Pipeline._get_analytics_signals(ip)`: reads `analytics:campaign:{subnet}`
+  (+35) and `analytics:slowscan:{subnet}` (+30) from Redis for the /24 (IPv4)
+  or /48 (IPv6) subnet of each connection
+- Results cached in `LocalCache.analytics_signals` (60s TTL) — one Redis read
+  per subnet per minute, not per connection
+- Fails open on any Redis exception; partial results never cached on error
+- Called as Phase 12 block at end of `_collect_signals()`
+- Prometheus counter: `ja4proxy_analytics_signals_total{signal_type="campaign|slowscan"}`
+
+**`src/cache/local_cache.py`:**
+- `LocalCache.analytics_signals`: new `LRUCache` (10k entries, 60s TTL)
+  for analytics cross-instance signal results; TTL configurable via
+  `local_cache.analytics_signals.ttl_seconds`
+
+### Tests
+
+- `tests/unit/test_analytics_signals.py` — 14 tests: subnet computation,
+  campaign/slowscan signals, cache hit/miss, fail-open, IPv4/IPv6, invalid IP
+- `tests/chaos/test_analytics_down.py` — 11 tests: all Redis exception types
+  fail open, no caching of error results, pipeline scores correctly when
+  analytics Redis is down, recovery after Redis comes back
+- Total: 1407 tests passing, 0 failing
+
+---
+
 ## [12.0.0] - 2026-03-15 - PHASE 12: ANALYTICS NODE (IN PROGRESS)
 
 Implementation in `src/analytics/` — 2,962 lines, 89 tests passing. Audited

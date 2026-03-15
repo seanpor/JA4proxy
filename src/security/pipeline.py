@@ -115,6 +115,12 @@ _RATE_LIMIT_BANS = Counter(
     ["strategy"],
 )
 
+_ANALYTICS_SIGNALS = Counter(
+    "ja4proxy_analytics_signals_total",
+    "Analytics cross-instance signals by type",
+    ["signal_type"],
+)
+
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
@@ -330,6 +336,70 @@ class Pipeline:
     def set_rdap_enricher(self, enricher: RDAPEnricher | None) -> None:
         """Wire in the Phase 11 RDAP enricher. Called after start()."""
         self._rdap_enricher = enricher
+
+    def _get_analytics_signals(self, ip: str) -> list:
+        """Read analytics cross-instance signals from Redis (Phase 12).
+
+        Checks for campaign (+35) and slow-scan (+30) findings written by the
+        Analytics Node for the /24 (IPv4) or /48 (IPv6) subnet of *ip*.
+
+        Results are cached locally for 60 s to avoid Redis round-trips on every
+        connection.  Always fails open — any exception returns an empty list.
+        """
+        from .models import RiskSignal
+
+        try:
+            addr = ipaddress.ip_address(ip)
+            if addr.version == 4:
+                subnet = str(ipaddress.IPv4Network(f"{ip}/24", strict=False))
+            else:
+                subnet = str(ipaddress.IPv6Network(f"{ip}/48", strict=False))
+        except ValueError:
+            return []
+
+        cached = self._cache.analytics_signals.get(subnet)
+        if cached is not None:
+            return cached
+
+        signals: list = []
+        try:
+            if self._redis is None:
+                self._cache.analytics_signals.set(subnet, signals)
+                return signals
+
+            campaign_val = self._redis.get(f"analytics:campaign:{subnet}")
+            if campaign_val is not None and isinstance(campaign_val, (bytes, str)):
+                signals.append(
+                    RiskSignal(
+                        name="analytics_campaign",
+                        score=35,
+                        reason=f"Analytics: campaign activity from subnet {subnet}",
+                    )
+                )
+                _ANALYTICS_SIGNALS.labels(signal_type="campaign").inc()
+
+            slowscan_val = self._redis.get(f"analytics:slowscan:{subnet}")
+            if slowscan_val is not None and isinstance(slowscan_val, (bytes, str)):
+                signals.append(
+                    RiskSignal(
+                        name="analytics_slowscan",
+                        score=30,
+                        reason=f"Analytics: slow-scan activity from subnet {subnet}",
+                    )
+                )
+                _ANALYTICS_SIGNALS.labels(signal_type="slowscan").inc()
+        except Exception as exc:
+            logger.warning(
+                "analytics | event=redis_read_error | subnet=%s | error=%s",
+                subnet,
+                exc,
+            )
+            # Return whatever signals we collected before the error; do not cache
+            # a partial result so the next request retries Redis.
+            return signals
+
+        self._cache.analytics_signals.set(subnet, signals)
+        return signals
 
     def update_sets(self, whitelist: set[str], blacklist: set[str]) -> None:
         """Replace in-process JA4 sets. Called on startup and pub/sub update."""
@@ -708,6 +778,18 @@ class Pipeline:
                     exc,
                     exc_info=True,
                 )
+
+        # Phase 12: Analytics cross-instance signals (campaign detection, slow-scan)
+        try:
+            analytics_signals = self._get_analytics_signals(ctx.client_ip)
+            signals.extend(analytics_signals)
+        except Exception as exc:
+            logger.error(
+                "analytics | event=signal_error | ip=%s | error=%s",
+                ctx.client_ip,
+                exc,
+                exc_info=True,
+            )
 
         return signals
 
