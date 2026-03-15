@@ -180,6 +180,32 @@ def test_redis_error_does_not_cache_empty_result():
     assert cached is None
 
 
+def test_partial_result_returns_empty_not_partial():
+    """If first Redis call (campaign) succeeds but second (slowscan) raises,
+    the method must return [] not the partial [campaign_signal] list.
+    This prevents a one-signal result from being treated as authoritative
+    when the slowscan check never ran.
+    """
+    call_count = 0
+
+    def _get(key):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            # campaign key returns a hit
+            return b"1"
+        # slowscan key raises
+        raise ConnectionError("Redis flap")
+
+    pipeline = _make_pipeline(redis_get_side_effect=_get)
+    result = pipeline._get_analytics_signals("1.2.3.4")
+    # Must be empty — fail open, no partial data
+    assert result == []
+    # Must not be cached so the next call retries
+    cached = pipeline._cache.analytics_signals.get("1.2.3.0/24")
+    assert cached is None
+
+
 def test_none_redis_client_returns_empty():
     config = {
         "security_policy": {

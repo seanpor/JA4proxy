@@ -1,6 +1,6 @@
 # JA4 Proxy - Project Status
 
-## Current Status: Phases 0-11 COMPLETE — Phase 12 In Progress
+## Current Status: Phases 0-12 COMPLETE — Phase 13 Next
 
 **Last Updated:** 2026-03-15
 
@@ -22,12 +22,12 @@
 | 9 | Beaconing Detector | ✅ Complete | 100% | ✅ Complete |
 | 10 | AbuseIPDB Enrichment | ✅ Complete | 100% | ✅ Complete |
 | 11 | RDAP Enrichment | ✅ Complete | 100% | ✅ Complete |
+| 12 | Analytics Node | ✅ Complete | 100% | ✅ Complete |
 
 ### 🏗️ In Progress / Planned Phases
 
 | Phase | Name | Status | Dependencies |
 |-------|------|--------|--------------|
-| 12 | Analytics Node | 🔄 In Progress | Phases 0-11 |
 | 13 | Management UI | ⏳ Planned | Phases 0-12 |
 | 14 | Production Hardening | ⏳ Planned | Phases 0-13 |
 | 15 | Go Rewrite | ⏳ Planned | Phases 0-14 |
@@ -37,8 +37,8 @@
 ### Current Test Results
 
 ```
-Total Tests: 1382
-Passing: 1382 (100%)
+Total Tests: 1436
+Passing: 1436 (100%)
 Skipped: 0 (0%)
 Warnings: 0
 ```
@@ -58,7 +58,7 @@ Warnings: 0
 | Integration Tests | ~150 | 95% |
 | Chaos Tests | ~80 | 90% |
 | Adversarial/FP | ~52 | 90% |
-| **Total** | **1382** | **96%** |
+| **Total** | **1436** | **96%** |
 
 ## Phase Details
 
@@ -118,9 +118,9 @@ Warnings: 0
 
 ### ✅ Complete Documentation
 
-- **Phase Documents:** 0–11 complete; 12–15 planned
+- **Phase Documents:** 0–12 complete; 13–15 planned
 - **Architecture:** Complete
-- **Redis Schema:** Up to date (Phase 11)
+- **Redis Schema:** Up to date (Phase 12)
 - **API Documentation:** Complete
 - **Runbooks:** redis_operations, analytics_lag, external_api_failures, scaling, feed_management, security_policy
 - **ADRs:** ADR-001 (Redis Streams), ADR-002 (Go rewrite), ADR-003 (RDAP expansion default), ADR-013 (Management UI)
@@ -128,7 +128,6 @@ Warnings: 0
 
 ### In Progress
 
-- **Phase 12:** Analytics node implementation (~85% complete)
 - **Phase 13:** Management UI — plan complete, implementation not started
 
 ## Code Quality
@@ -164,11 +163,8 @@ Warnings: 0
 
 ## Next Steps
 
-### Current (Phase 12)
-1. **Analytics Node** — complete remaining gaps; see `docs/phases/PHASE_12.md`
-
-### Next (Phase 13)
-2. **Management UI** — FastAPI + React 18 + TypeScript + Vite; plan complete in `docs/phases/PHASE_13.md`
+### Current (Phase 13)
+1. **Management UI** — FastAPI + React 18 + TypeScript + Vite; plan complete in `docs/phases/PHASE_13.md`
 
 ### Long Term (Phases 14-15)
 3. **Production Hardening** (Phase 14) — secrets, Redis security, resource limits, tarpit self-protection

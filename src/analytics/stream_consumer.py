@@ -3,6 +3,7 @@
 
 import asyncio
 import json
+import logging
 import time
 from typing import Dict, Any, Optional, List
 
@@ -184,7 +185,6 @@ class StreamConsumer:
                             lag = max(0.0, time.time() - msg_ms / 1000.0)
                             _STREAM_LAG.set(lag)
                             if lag > 300:
-                                import logging
                                 logging.getLogger(__name__).warning(
                                     "analytics | event=stream_lag_high | lag_seconds=%.1f", lag
                                 )
