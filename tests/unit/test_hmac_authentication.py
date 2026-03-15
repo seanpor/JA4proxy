@@ -1,6 +1,7 @@
 # Unit Tests for HMAC Authentication
 # Phase 12a: Foundation
 
+import time
 import pytest
 from src.analytics.authentication import (
     sign_event,
@@ -112,16 +113,16 @@ class TestHMACAuthenticator:
     def test_verify_method(self):
         secret = "test_secret"
         authenticator = HMACAuthenticator(secret)
-        
+
         event_data = {
-            "timestamp": 1234567890.0,
+            "timestamp": time.time(),
             "src_ip": "192.168.1.1",
             "ja4": "t13d1520h3_abc123",
             "action": "block",
             "score": 85,
             "proxy_id": "proxy-1"
         }
-        
+
         # Sign and verify
         signed_event = authenticator.sign(event_data)
         assert authenticator.verify(signed_event) == True
@@ -177,16 +178,16 @@ class TestHMACAuthenticator:
     
     def test_empty_secret(self):
         authenticator = HMACAuthenticator("")
-        
+
         event_data = {
-            "timestamp": 1234567890.0,
+            "timestamp": time.time(),
             "src_ip": "192.168.1.1",
             "ja4": "t13d1520h3_abc123",
             "action": "block",
             "score": 85,
             "proxy_id": "proxy-1"
         }
-        
+
         signed_event = authenticator.sign(event_data)
         assert authenticator.verify(signed_event) == True
 

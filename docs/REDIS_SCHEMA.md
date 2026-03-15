@@ -180,6 +180,8 @@ Phase 11 adds a new message type:
 | `analytics:alerts:calibration_issue` | String (JSON) | 3600s (1 h) | Analytics node | Shadow score calibration alert; triggered when h2/h1 ALPN shadow median exceeds threshold |
 | `analytics:enrich:abuseipdb` | Set of IP strings | none (managed) | `AbuseIPDBChecker._enqueue_lookup()` | AbuseIPDB enrichment queue when `delegate_to_analytics: true`; drained by Analytics node; results written to `abuseipdb:score:{ip}` |
 | `analytics:enrich:rdap` | Set of IP strings | none (managed) | `RDAPEnricher._enqueue_lookup()` | RDAP enrichment queue when `delegate_to_analytics: true`; drained by Analytics node; results written to `rdap:ip:{ip}` |
+| `analytics:ratelimit:{type}:{proxy_id}` | Sorted Set (score=timestamp) | `window` seconds | `SecurityHardening.check_rate_limit()` | Per-proxy sliding window rate limiting; types: api_requests, auth_attempts, monitoring_access |
+| `analytics:security:audit` | Redis Stream | maxlen=10,000 | `SecurityHardening.log_security_event()` | Security audit log: auth failures, suspicious activity, input violations; retained for replay analysis |
 
 ---
 

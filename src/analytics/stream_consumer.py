@@ -8,12 +8,20 @@ from typing import Dict, Any, Optional, List
 
 import aioredis
 from jsonschema import validate, ValidationError
+from prometheus_client import Gauge
 
 from .event_schemas import EVENT_SCHEMA
 from .validation import validate_event_comprehensive
 from .authentication import HMACAuthenticator
 from .aggregation import AggregationManager, HyperLogLogManager
 from .detection import CampaignDetector, SlowScanDetector, JA4FingerprintIntelligence
+
+# Stream lag: seconds between the most recent event's Redis timestamp and now.
+# Exposed on the /metrics endpoint alongside the monitoring.py registry.
+_STREAM_LAG = Gauge(
+    "ja4proxy_analytics_stream_lag_seconds",
+    "Seconds between the latest processed stream event and now",
+)
 
 
 class StreamConsumer:
@@ -164,15 +172,31 @@ class StreamConsumer:
                 for event_id, event_data in messages:
                     try:
                         # Parse event data
-                        data = {k.decode(): v.decode() if isinstance(v, bytes) else v 
+                        data = {k.decode(): v.decode() if isinstance(v, bytes) else v
                                for k, v in event_data.items()}
-                        
+
+                        # Update stream lag from the Redis Stream message ID.
+                        # Message IDs have the form "<ms_timestamp>-<seq>"; the
+                        # ms part is the wall-clock time when the event was XADD'd.
+                        try:
+                            msg_id_str = event_id.decode() if isinstance(event_id, bytes) else event_id
+                            msg_ms = int(msg_id_str.split("-")[0])
+                            lag = max(0.0, time.time() - msg_ms / 1000.0)
+                            _STREAM_LAG.set(lag)
+                            if lag > 300:
+                                import logging
+                                logging.getLogger(__name__).warning(
+                                    "analytics | event=stream_lag_high | lag_seconds=%.1f", lag
+                                )
+                        except Exception:
+                            pass
+
                         # Validate event
                         await self.validate_event(data)
-                        
+
                         # Process event
                         success = await self.process_event(event_id.decode(), data)
-                        
+
                         if success:
                             # Acknowledge successful processing
                             await self.redis.xack(stream, self.consumer_group, event_id)

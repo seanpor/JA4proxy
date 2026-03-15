@@ -1,5 +1,43 @@
 # Changelog
 
+## [12.3.0] - 2026-03-15 - PHASE 12 COMPLETE: 12c + 12d GAPS CLOSED
+
+### Phase 12c gap fix
+- `monitoring/prometheus/prometheus.yml`: add `ja4proxy-analytics` scrape job
+  targeting `analytics:8080` — without this the Grafana dashboard showed no data
+
+### Phase 12d: Security Hardening (completion)
+- `src/analytics/authentication.py`: replay attack prevention — `validate_timestamp()`
+  enforces 5-minute event age window; stale events rejected even with valid HMAC;
+  10 s future-clock skew tolerance; only enforced when `hmac_required=True`
+- `src/analytics/stream_consumer.py`: `ja4proxy_analytics_stream_lag_seconds` Gauge
+  updated per message batch from Redis Stream message ID timestamp; logs WARN when
+  lag > 300 s
+- `docs/REDIS_SCHEMA.md`: added `analytics:ratelimit:{type}:{proxy_id}` and
+  `analytics:security:audit` keys; Phase 12 section now complete
+- `tests/chaos/test_stream_chaos.py` (17 tests): replay window boundaries, HMAC +
+  timestamp combined verification, malformed event rejection, stream lag metric
+- `tests/unit/test_hmac_authentication.py`: updated 2 tests to use `time.time()`
+  timestamps (were using 2009 epoch — now rejected by the new timestamp check)
+
+### Tests
+- 1435 passing, 0 failing
+
+---
+
+## [12.2.0] - 2026-03-15 - PHASE 12c: SCORE DRIFT OBSERVABILITY
+
+### Added
+- `monitoring/grafana/dashboards/analytics.json`: Score Health dashboard — drift
+  status, calibration issue, distribution shift, score median trend, analytics
+  signals rate, stream lag, drift/distribution check p99 latency
+- `monitoring/prometheus/alerts.yml`: `ScoreDriftDetected` and
+  `AnalyticsStreamLagHigh` rules (warning severity, 5m `for:`)
+- `tests/chaos/test_drift_baseline.py` (11 tests): drift detector with missing,
+  corrupted, and insufficient baseline data; Redis failure; correct firing
+
+---
+
 ## [12.1.0] - 2026-03-15 - PHASE 12b: PROXY READS ANALYTICS SIGNALS
 
 Completes Phase 12b acceptance criteria. The proxy scorer now reads campaign
