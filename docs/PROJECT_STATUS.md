@@ -226,8 +226,8 @@ Warnings: 0
 3. **AbuseIPDB Enrichment** (Phase 10)
 4. **RDAP Enrichment** (Phase 11)
 
-### Medium Term (Phase 12)
-5. **Analytics Node** (Phase 12)
+### In Progress (Phase 12)
+5. **Analytics Node** (Phase 12) — ~85% implemented; remaining gaps in PHASE_12A-D.md
 
 ### Long Term (Phases 14-15)
 6. **Production Hardening** (Phase 14)
