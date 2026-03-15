@@ -224,3 +224,30 @@ groups:
           summary: "Daily security summary"
           description: "Daily summary available. Review security events from past 24 hours."
           dashboard: "http://localhost:3000/d/ja4proxy-daily/ja4-proxy-daily-report"
+
+  - name: ja4proxy_analytics_alerts
+    interval: 60s
+    rules:
+      - alert: ScoreDriftDetected
+        expr: ja4proxy_analytics_score_drift_detected == 1
+        for: 5m
+        labels:
+          severity: warning
+          component: analytics
+        annotations:
+          summary: "Risk score median has drifted from 7-day baseline"
+          description: "The current 1-hour risk score median has deviated more than 2 standard deviations from the 7-day baseline. This may indicate a change in attack patterns or a misconfiguration. Review the Analytics dashboard."
+          dashboard: "http://localhost:3000/d/ja4proxy-analytics/ja4-proxy-analytics-score-health"
+          runbook: "docs/runbooks/analytics_lag.md"
+
+      - alert: AnalyticsStreamLagHigh
+        expr: ja4proxy_analytics_stream_lag_seconds > 60
+        for: 5m
+        labels:
+          severity: warning
+          component: analytics
+        annotations:
+          summary: "Analytics node is lagging behind the event stream"
+          description: "The analytics consumer is {{ $value | humanizeDuration }} behind the proxy event stream. Cross-instance signals (campaign, slow-scan) may be stale. Check the analytics container and Redis Stream consumer group."
+          dashboard: "http://localhost:3000/d/ja4proxy-analytics/ja4-proxy-analytics-score-health"
+          runbook: "docs/runbooks/analytics_lag.md"

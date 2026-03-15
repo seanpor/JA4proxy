@@ -1,6 +1,6 @@
 # Phase 12c — Score Drift Monitoring & Observability
 
-## Status: ~75% DONE — Grafana dashboard and chaos tests are the main gaps
+## Status: COMPLETE (2026-03-15)
 
 Core drift detection algorithms exist and pass 14 tests. The main missing
 deliverable is the Grafana dashboard that makes drift visible to operators.
@@ -100,18 +100,13 @@ The following items from the original 12c plan are **not required**:
 ### Observability
 - [x] Prometheus metrics for score health
 - [x] Structured JSON logging for drift events
-- [ ] Grafana "Score Health" dashboard provisioned
-- [ ] Alertmanager rules for drift and stream lag
+- [x] Grafana "Score Health" dashboard provisioned (`monitoring/grafana/dashboards/analytics.json`)
+- [x] Alertmanager rules for drift and stream lag (`monitoring/prometheus/alerts.yml`)
 
 ### Testing
 - [x] Unit tests: baseline capture (6 passing)
 - [x] Unit tests: drift detection algorithm (8 passing)
 - [x] Unit tests: distribution comparison
 - [x] Unit tests: shadow scoring
-- [ ] Chaos test: baseline data corrupted/missing — no crash, WARN logged
-
-## Next Steps
-- Create Grafana dashboard JSON
-- Add Alertmanager rules
-- Add chaos test for baseline data corruption
-- Then Phase 12d (security hardening — scope trimmed significantly)
+- [x] Chaos test: baseline data corrupted/missing — no crash, WARN logged
+  (`tests/chaos/test_drift_baseline.py` — 11 tests)
