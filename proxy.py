@@ -1467,6 +1467,22 @@ class ProxyServer:
                 SECURITY_EVENTS.labels(
                     event_type="validation_error", severity="warning", source=client_ip
                 ).inc()
+            except ssl.SSLError as e:
+                error_msg = str(e)
+                self.logger.warning(f"TLS_ERROR: {client_ip} | {error_msg}")
+                error_type = "generic_ssl_error"
+                if "SSLV3_ALERT_HANDSHAKE_FAILURE" in error_msg:
+                    error_type = "handshake_failure"
+                elif "CERTIFICATE_VERIFY_FAILED" in error_msg:
+                    error_type = "certificate_error"
+                elif "WRONG_VERSION_NUMBER" in error_msg:
+                    error_type = "protocol_version_error"
+                TLS_HANDSHAKE_ERRORS.labels(
+                    error_type=error_type, tls_version="unknown"
+                ).inc()
+                SECURITY_EVENTS.labels(
+                    event_type="tls_handshake_error", severity="warning", source=client_ip
+                ).inc()
             except Exception as e:
                 self.logger.error(f"ERROR: {client_ip} | {e}", exc_info=False)
                 SECURITY_EVENTS.labels(
