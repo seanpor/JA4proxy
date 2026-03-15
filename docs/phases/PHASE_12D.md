@@ -1,6 +1,6 @@
 # Phase 12d — Security Hardening
 
-## Status: ~60% DONE — real gaps are chaos tests and replay prevention
+## Status: COMPLETE (2026-03-15)
 
 The original 12d plan contained significant scope creep (JIRA integration, SOC
 alerting, automated quarantine, Redis RBAC, separate Redis users, forensic
@@ -95,24 +95,17 @@ The following items from the original plan are **not required** for Phase 12d:
 - [x] Event schema validation with JSON Schema
 - [x] HMAC authentication for all events (optional by config)
 - [x] Rate limiting per proxy
-- [ ] Replay attack prevention (timestamp window when HMAC enabled)
-- [ ] Per-proxy rate limit config actually connected
+- [x] Replay attack prevention (timestamp window when HMAC enabled)
+- [x] Per-proxy rate limit config: `check_rate_limit(type, proxy_id)` keys already per-proxy
 
 ### Testing
 - [x] Unit tests: event validation (7 passing)
 - [x] Unit tests: HMAC authentication (8 passing)
 - [x] Unit tests: rate limiting (in security_hardening tests)
-- [ ] Chaos test: analytics node down — proxy continues, no errors
-- [ ] Chaos test: stream lag > 300s — metric reflects lag, WARN logged
-- [ ] Chaos test: malformed events in stream — rejected, processing continues
+- [x] Chaos test: analytics node down — proxy continues, no errors (`tests/chaos/test_analytics_down.py`)
+- [x] Chaos test: stream lag > 300s — `ja4proxy_analytics_stream_lag_seconds` gauge set, WARN logged
+- [x] Chaos test: malformed events in stream — rejected by `validate_event()`, processing continues (`tests/chaos/test_stream_chaos.py`)
 
 ### Documentation
-- [ ] Update `docs/REDIS_SCHEMA.md` with all Phase 12 keys
-- [ ] Update `CHANGELOG.md` with Phase 12 entry
-
-## Next Steps
-- Add chaos tests (`tests/chaos/test_analytics_down.py`)
-- Add replay prevention to authentication.py
-- Connect per-proxy rate limit config
-- Update REDIS_SCHEMA.md and CHANGELOG
-- Phase 12 is then complete; proceed to Phase 14 (Phase 13 UI is deferred)
+- [x] `docs/REDIS_SCHEMA.md` updated with all Phase 12 keys
+- [x] `CHANGELOG.md` updated with Phase 12 entries

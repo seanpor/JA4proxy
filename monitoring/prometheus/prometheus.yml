@@ -22,6 +22,17 @@ rule_files:
 
 # Scrape configurations
 scrape_configs:
+  # Analytics node metrics
+  - job_name: 'ja4proxy-analytics'
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    static_configs:
+      - targets:
+          - 'analytics:8080'
+        labels:
+          service: 'analytics'
+          role: 'analytics'
+
   # JA4 Proxy metrics
   - job_name: 'ja4proxy'
     scrape_interval: 10s

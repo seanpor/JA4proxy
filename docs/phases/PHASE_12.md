@@ -1,16 +1,13 @@
 # Phase 12 — Analytics Node (Overview)
 
-## Status: IN PROGRESS (~85% implemented, gaps documented in sub-phase plans)
+## Status: COMPLETE (2026-03-15) — 1435 tests passing
 
-Implementation lives in `src/analytics/` (2,962 lines, 89 passing tests).
-See individual sub-phase plans for the remaining gaps.
-
-| Sub-phase | Status | Remaining work |
-|-----------|--------|---------------|
-| 12a | 95% done | HTTP server for /health+/metrics; requirements-analytics.txt; docker-compose entry |
-| 12b | 90% done | **Proxy scorer must read `analytics:campaign` and `analytics:slowscan` signals** |
-| 12c | 75% done | Grafana dashboard; two Alertmanager rules |
-| 12d | 60% done | Chaos tests; replay attack prevention; connect per-proxy rate limit config |
+| Sub-phase | Status | Completed |
+|-----------|--------|-----------|
+| 12a | ✅ Complete | HTTP server, requirements-analytics.txt, docker-compose, chaos tests |
+| 12b | ✅ Complete | Proxy reads campaign (+35) and slowscan (+30) signals; local cache 60s TTL |
+| 12c | ✅ Complete | Grafana dashboard, Alertmanager rules, drift chaos tests, Prometheus scrape |
+| 12d | ✅ Complete | Replay prevention, stream lag metric, stream chaos tests, REDIS_SCHEMA |
 
 ## Goal
 Separate Docker container that consumes events from all proxy instances via Redis Streams, performs cross-instance statistical analysis, and publishes enriched findings back for all proxy instances to use.
