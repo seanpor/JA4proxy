@@ -1,5 +1,27 @@
 # Changelog
 
+## [14.0.0-plan] - 2026-03-15 - PHASE 14 PLAN: Production Hardening
+
+### Planning
+- `docs/phases/PHASE_14.md`: complete rewrite of Phase 14 plan
+  - Dropped over-engineered items (Redis cluster, ELK stack, Falco, Cosign — all
+    either already done, out of scope, or deferred with documented rationale)
+  - Added 6 concrete sub-phases grounded in the actual codebase state:
+  - 14a: startup secrets hardening (remove `:-changeme`, FATAL on missing prod password,
+    JSON formatter for structured log output)
+  - 14b: graceful SIGTERM shutdown (drain in-flight connections, log shutdown events)
+  - 14c: tarpit self-protection (max_concurrent, max_per_ip, overflow_action,
+    `ja4proxy_tarpit_concurrent` + `ja4proxy_tarpit_overflow_total` metrics)
+  - 14d: rate limit memory self-protection (beaconing suspects cap, sliding window TTL)
+  - 14e: alert rules overhaul (fix all `ja4_*` → `ja4proxy_*` metric names;
+    add proxy/redis/security Alertmanager rule files)
+  - 14f: production Docker compose cleanup (replace non-functional
+    `docker/docker-compose.prod.yml`; no weak-password fallbacks anywhere)
+- `docs/DMZ_DEPLOYMENT_READINESS.md`: updated to reflect what has been
+  implemented since February 2026 assessment; deferred items documented with rationale
+
+---
+
 ## [12.3.0] - 2026-03-15 - PHASE 12 COMPLETE: 12c + 12d GAPS CLOSED
 
 ### Phase 12c gap fix
