@@ -394,9 +394,9 @@ class Pipeline:
                 subnet,
                 exc,
             )
-            # Return whatever signals we collected before the error; do not cache
-            # a partial result so the next request retries Redis.
-            return signals
+            # Fail open: return no signals so a partial result is never cached.
+            # The next request will retry Redis.
+            return []
 
         self._cache.analytics_signals.set(subnet, signals)
         return signals

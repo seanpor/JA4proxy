@@ -174,10 +174,17 @@ ja4proxy_rdap_block_expansions_total                 counter  Automatic block ex
 #### Analytics node (Phase 12)
 
 ```
-ja4proxy_analytics_events_processed_total            counter  Stream events consumed by analytics node
-ja4proxy_analytics_cycle_duration_seconds            histogram Analytics cycle duration
-ja4proxy_analytics_stream_lag_seconds                gauge    Current Redis Stream consumer lag
-ja4proxy_analytics_score_drift_detected              gauge    1 if score drift detected, else 0
+ja4proxy_analytics_events_processed_total            counter    Stream events consumed by analytics node
+ja4proxy_analytics_cycle_duration_seconds            histogram  Analytics cycle duration
+ja4proxy_analytics_stream_lag_seconds                gauge      Current Redis Stream consumer lag (seconds)
+ja4proxy_analytics_score_drift_detected              gauge      1 if score drift detected (|z| > 2.0), else 0
+ja4proxy_analytics_calibration_issue                 gauge      1 if shadow score (h2/h1 traffic) exceeds baseline, else 0
+ja4proxy_analytics_distribution_shift                gauge      1 if KS-test detects score distribution shift, else 0
+ja4proxy_analytics_score_median                      gauge      Rolling 1-hour median risk score
+ja4proxy_analytics_shadow_score_median               gauge      Rolling 1-hour median shadow score (browser ALPN traffic)
+ja4proxy_analytics_signals_total                     counter    Analytics cross-instance signals applied to proxy scorer {signal_type="campaign|slowscan"}
+ja4proxy_analytics_distribution_check_duration       histogram  Duration of KS-test distribution check
+ja4proxy_analytics_drift_check_duration              histogram  Duration of z-score drift check
 ```
 
 #### Local cache (Phase 0)
