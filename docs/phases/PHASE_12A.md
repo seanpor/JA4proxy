@@ -1,6 +1,6 @@
 # Phase 12a — Analytics Node Foundation
 
-## Status: MOSTLY DONE — 2 blocking gaps remain
+## Status: COMPLETE (2026-03-15)
 
 Implementation exists in `src/analytics/`. 89 tests pass.
 
@@ -102,8 +102,5 @@ structlog, cryptography, testing deps) from the previous broken version.
 - [x] Unit tests: aggregation logic (6 passing)
 - [x] Integration test: proxy → stream → analytics (5 passing)
 - [x] Unit tests: HMAC authentication (8 passing)
-- [ ] Chaos test: analytics container stopped — proxy continues on stale data, no errors
-
-## Next Steps
-- Fix the 3 blocking gaps above
-- Then proceed to Phase 12b (detection modules — also mostly done)
+- [x] Chaos test: analytics container stopped — proxy continues on stale data, no errors
+  (covered by `tests/chaos/test_analytics_down.py`)

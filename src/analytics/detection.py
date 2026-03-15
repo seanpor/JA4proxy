@@ -283,38 +283,18 @@ class JA4FingerprintIntelligence:
         # Remove fingerprints with no recent activity
         current_time = time.time()
         active_fingerprints = set()
-        
+
         for ja4, data in self.fingerprint_data.items():
             # Keep fingerprints with activity in the last window
             if current_time - data['last_seen'] <= self.window_seconds:
                 active_fingerprints.add(ja4)
-        
+
         # Remove inactive fingerprints
         inactive_fingerprints = set(self.fingerprint_data.keys()) - active_fingerprints
         for ja4 in inactive_fingerprints:
             del self.fingerprint_data[ja4]
-        
+
         self.current_window = new_window
-    
-    def get_subnet_stats(self, subnet: str) -> Optional[Dict[str, Any]]:
-        """Get statistics for a specific subnet."""
-        if subnet in self.subnet_data:
-            data = self.subnet_data[subnet]
-            subnet_size = self.get_subnet_size(subnet)
-            density = len(data['unique_ips']) / subnet_size
-            block_rate = data['blocked_connections'] / max(1, data['total_connections'])
-            
-            return {
-                'subnet': subnet,
-                'density': density,
-                'block_rate': block_rate,
-                'unique_ips': len(data['unique_ips']),
-                'total_connections': data['total_connections'],
-                'blocked_connections': data['blocked_connections'],
-                'first_seen': data['first_seen'],
-                'last_seen': data['last_seen']
-            }
-        return None
 
 
 class SlowScanDetector:
