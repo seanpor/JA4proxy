@@ -226,13 +226,15 @@ Warnings: 0
 3. **AbuseIPDB Enrichment** (Phase 10)
 4. **RDAP Enrichment** (Phase 11)
 
-### Medium Term (Phases 12-13)
+### Medium Term (Phase 12)
 5. **Analytics Node** (Phase 12)
-6. **Management UI** (Phase 13)
 
 ### Long Term (Phases 14-15)
-7. **Production Hardening** (Phase 14)
-8. **Enterprise Deployment** (Phase 15)
+6. **Production Hardening** (Phase 14)
+7. **Go Rewrite** (Phase 15)
+
+### Post-Phase 15
+8. **Management UI** (Phase 13 — deferred; re-implement after Go rewrite stabilises API surface)
 
 ## Test Execution
 
@@ -300,7 +302,7 @@ python3 -m pytest tests/ --tb=short -v
 ### Pending Audits
 - **Phase 8-15:** Will be audited as implemented
 - **Penetration Testing:** Scheduled for Phase 14
-- **Compliance:** GDPR/CCPA review (Phase 13)
+- **Compliance:** GDPR/CCPA review (deferred with Phase 13)
 
 ## Contributing
 

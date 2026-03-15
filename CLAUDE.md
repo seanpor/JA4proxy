@@ -110,7 +110,7 @@ Practical rules that flow from this:
 | 10 | AbuseIPDB integration | Scored reputation lookup with aggressive caching | [PHASE_10.md](docs/phases/PHASE_10.md) |
 | 11 | RDAP enrichment & block expansion | Org reputation; /24 block expansion; WHOIS pivot | [PHASE_11.md](docs/phases/PHASE_11.md) |
 | 12 | Analytics node | Cross-instance aggregation; campaign/slow-scan detection; **score drift alerting** | [PHASE_12.md](docs/phases/PHASE_12.md) |
-| 13 | Management UI | Live feed; JA4 candidates; IP management; dial control | [PHASE_13.md](docs/phases/PHASE_13.md) |
+| 13 | Management UI *(deferred — implement after Phase 15)* | Live feed; JA4 candidates; IP management; dial control | [PHASE_13.md](docs/phases/PHASE_13.md) |
 | 14 | Production hardening | Secrets, Redis security, resource limits, observability, **tarpit self-protection** | [PHASE_14.md](docs/phases/PHASE_14.md) |
 | 15 | Go rewrite | 10–50× throughput; GIL removed; multi-core TLS parsing | [PHASE_15.md](docs/phases/PHASE_15.md) |
 
@@ -384,7 +384,7 @@ src/
   config/
     loader.py                       # Phase 0: hot reload
 analytics/                          # Phase 12 (stays Python)
-management/                         # Phase 13 (stays Python)
+# management/                       # Phase 13 DEFERRED — removed; re-implement after Phase 15
 config/
   proxy.yml
   asn_datacenter_list.yml           # Phase 6

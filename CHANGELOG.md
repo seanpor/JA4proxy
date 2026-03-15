@@ -1,5 +1,27 @@
 # Changelog
 
+## [13.2.0] - 2026-03-15 - CHORE: REMOVE MANAGEMENT UI (DEFERRED TO POST-PHASE 15)
+
+### Removed
+
+- **management/** — entire FastAPI backend + React/TypeScript frontend removed from
+  the codebase. The implementation had grown to 245 MB (node_modules) and ~7k lines
+  without producing a working UI. No core proxy code imported from it.
+- **tests/unit/test_management_ui.py**, **tests/integration/test_management_ui.py**,
+  **tests/chaos/test_management_chaos.py** — UI-specific test files removed.
+- **docker/Dockerfile.management**, **docker/entrypoint.management.sh** — management
+  container build files removed.
+
+### Notes
+
+- The Phase 13 design plan (`docs/phases/PHASE_13.md`) is preserved for future
+  implementation.
+- Management UI is deferred until after Phase 15 (Go rewrite), when the API surface
+  is stable and the UI can be built correctly from scratch.
+- 1382 tests pass, 0 fail after removal.
+
+---
+
 ## [13.1.0] - 2026-03-11 - PHASE 13b: MANAGEMENT UI COMPLETION
 
 ### Added
