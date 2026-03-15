@@ -1,5 +1,17 @@
 # Phase 12 — Analytics Node (Overview)
 
+## Status: IN PROGRESS (~85% implemented, gaps documented in sub-phase plans)
+
+Implementation lives in `src/analytics/` (2,962 lines, 89 passing tests).
+See individual sub-phase plans for the remaining gaps.
+
+| Sub-phase | Status | Remaining work |
+|-----------|--------|---------------|
+| 12a | 95% done | HTTP server for /health+/metrics; requirements-analytics.txt; docker-compose entry |
+| 12b | 90% done | **Proxy scorer must read `analytics:campaign` and `analytics:slowscan` signals** |
+| 12c | 75% done | Grafana dashboard; two Alertmanager rules |
+| 12d | 60% done | Chaos tests; replay attack prevention; connect per-proxy rate limit config |
+
 ## Goal
 Separate Docker container that consumes events from all proxy instances via Redis Streams, performs cross-instance statistical analysis, and publishes enriched findings back for all proxy instances to use.
 
@@ -7,7 +19,7 @@ Separate Docker container that consumes events from all proxy instances via Redi
 - **Phase 12a**: Analytics Node Foundation (container, ingestion, basic aggregation)
 - **Phase 12b**: Advanced Detection Modules (campaign, slow scan, JA4 intelligence)
 - **Phase 12c**: Score Drift Monitoring & Observability (monitoring, alerting, dashboards)
-- **Phase 12d**: Security Hardening (validation, authentication, rate limiting, forensics)
+- **Phase 12d**: Security Hardening (validation, authentication, rate limiting)
 
 ## Rationale for Breakdown
 

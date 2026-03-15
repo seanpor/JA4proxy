@@ -165,14 +165,21 @@ Phase 11 adds a new message type:
 
 ---
 
-## Phase 12 — Analytics Node (planned)
+## Phase 12 — Analytics Node
 
 | Key pattern | Type | TTL | Written by | Notes |
 |-------------|------|-----|------------|-------|
-| `analytics:agg:ip:{ip}` | String (JSON score + signals) | 300s (5 min) | Analytics node | Cross-instance aggregated score for IP; read by proxy pipeline |
-| `hll:subnet:{cidr}` | HyperLogLog | 86400s (24 h) | Proxy | Unique IPs per /24 (IPv4) or /48 (IPv6); PFADD/PFCOUNT |
-| `analytics:events` | Redis Stream | 604800s (7d) | Proxy | Per-connection events; XADD from proxy, XREADGROUP from analytics |
-| `analytics:baseline:hourly:{YYYY-MM-DD-HH}` | Hash | 172800s (48 h) | Analytics node | Hourly traffic baseline for anomaly detection |
+| `ja4proxy:events` | Redis Stream | maxlen=100,000 (approximate trim) | `Pipeline._emit_stream_event()` | Per-connection events (ip, ja4, risk_score, action_taken, dial_setting, counterfactuals); consumed by Analytics via consumer group `analytics` |
+| `analytics:agg:{window}:{subnet}` | String (JSON) | 300s (5 min) | Analytics node | Cross-instance aggregated stats per 5-min window per IP, /24 (IPv4), or /48 (IPv6); fields: request_count, block_rate, score_stats |
+| `analytics:hll:{subnet}` | HyperLogLog | 86400s (24 h) | Analytics node | Unique IP count per /24 (IPv4) or /48 (IPv6); PFADD/PFCOUNT; ~0.81% error |
+| `analytics:campaign:{subnet}` | String (JSON) | 3600s (1 h) | Analytics node | Campaign detection result: density>0.15 AND block_rate>0.70; read by proxy scorer (+35 risk) |
+| `analytics:slowscan:{subnet}` | String (JSON) | 1800s (30 min) | Analytics node | Slow-scan detection result: avg_requests_per_ip<3 AND unique_ips>20; read by proxy scorer (+30 risk) |
+| `analytics:ja4:candidates` | Sorted Set (score=block_rate) | none | Analytics node | JA4 fingerprints with >95% block rate; secops admin review only; never auto-applied to blacklist |
+| `analytics:baseline:hourly:{YYYY-MM-DD-HH}` | String (JSON) | 604800s (7 days) | Analytics node | Hourly score distribution snapshot: median, mean, stddev, histogram, event_count |
+| `analytics:alerts:score_drift` | String (JSON) | 3600s (1 h) | Analytics node | Current drift alert; auto-clears when TTL expires; set when \|z-score\| > 2.0 from 7-day baseline |
+| `analytics:alerts:calibration_issue` | String (JSON) | 3600s (1 h) | Analytics node | Shadow score calibration alert; triggered when h2/h1 ALPN shadow median exceeds threshold |
+| `analytics:enrich:abuseipdb` | Set of IP strings | none (managed) | `AbuseIPDBChecker._enqueue_lookup()` | AbuseIPDB enrichment queue when `delegate_to_analytics: true`; drained by Analytics node; results written to `abuseipdb:score:{ip}` |
+| `analytics:enrich:rdap` | Set of IP strings | none (managed) | `RDAPEnricher._enqueue_lookup()` | RDAP enrichment queue when `delegate_to_analytics: true`; drained by Analytics node; results written to `rdap:ip:{ip}` |
 
 ---
 

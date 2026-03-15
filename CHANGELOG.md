@@ -1,5 +1,53 @@
 # Changelog
 
+## [12.0.0] - 2026-03-15 - PHASE 12: ANALYTICS NODE (IN PROGRESS)
+
+Implementation in `src/analytics/` — 2,962 lines, 89 tests passing. Audited
+against acceptance criteria 2026-03-15; sub-phase plans updated to reflect
+actual state. Remaining gaps tracked in PHASE_12A-D.md.
+
+### Added
+
+**Analytics Node (`src/analytics/`):**
+- `stream_consumer.py`: Redis Stream consumer with consumer group `analytics`,
+  replay on restart, HMAC validation, configurable batch processing
+- `aggregation.py`: 5-minute rolling window aggregation per IP, /24, /48;
+  HyperLogLog unique IP counting; writes `analytics:agg:{window}:{subnet}`
+- `detection.py`: Campaign detection (density+block_rate thresholds), slow-scan
+  detection (low-rate distributed), JA4 fingerprint intelligence (candidate list)
+- `baseline_monitor.py`: Hourly score snapshots to `analytics:baseline:hourly:*`
+  with 7-day TTL
+- `drift_detector.py`: Z-score drift detection vs 7-day baseline; alert to
+  `analytics:alerts:score_drift`; Prometheus gauge
+  `ja4proxy_analytics_score_drift_detected`
+- `shadow_scoring.py`: Known-good h2/h1 ALPN traffic tracked as calibration
+  signal; calibration alert when shadow median rises
+- `distribution_analyzer.py`: KS-statistic approximation for distribution shift
+- `authentication.py`: HMAC-SHA256 event signing with `compare_digest`
+- `validation.py`, `event_schemas.py`: JSON Schema event validation
+- `security_hardening.py`: Per-proxy rate limiting, audit event logging
+- `monitoring.py`: `MonitoringSystem` orchestrating all 12c components;
+  Prometheus metrics exposed
+- `main.py`: `AnalyticsNode` entry point with signal handling
+- `Dockerfile`, `entrypoint.sh`: Independent container (no proxy deps)
+- `config/analytics.yaml`: Full configuration
+
+**Proxy integration (`src/security/pipeline.py`):**
+- `_emit_stream_event()`: fire-and-forget XADD to `ja4proxy:events` stream;
+  hot path never awaits stream writes
+
+### Remaining Gaps (before phase marked complete)
+- HTTP server for `/health`, `/ready`, `/metrics` endpoints (12a)
+- `requirements-analytics.txt` (Docker build currently broken) (12a)
+- docker-compose service entry for analytics (12a)
+- Proxy scorer reading `analytics:campaign` and `analytics:slowscan` signals (12b)
+- Grafana analytics dashboard (12c)
+- Two Alertmanager rules: ScoreDriftDetected, AnalyticsStreamLagHigh (12c)
+- Chaos tests: analytics down, stream lag, malformed events (12d)
+- Replay attack prevention in HMAC validation (12d)
+
+---
+
 ## [13.2.0] - 2026-03-15 - CHORE: REMOVE MANAGEMENT UI (DEFERRED TO POST-PHASE 15)
 
 ### Removed
