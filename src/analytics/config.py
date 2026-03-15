@@ -1,12 +1,19 @@
 # Configuration for Analytics Node
 # Phase 12a: Foundation
 
+import os
 import yaml
 from typing import Dict, Any
 
 
 def load_config(config_file: str) -> Dict[str, Any]:
-    """Load configuration from YAML file."""
+    """Load configuration from YAML file, with environment variable overrides.
+
+    Environment variables take precedence over the YAML file:
+      REDIS_HOST     — Redis hostname (default: localhost)
+      REDIS_PORT     — Redis port (default: 6379)
+      REDIS_PASSWORD — Redis password (default: none)
+    """
     with open(config_file, 'r') as f:
         config = yaml.safe_load(f)
     
@@ -41,5 +48,13 @@ def load_config(config_file: str) -> Dict[str, Any]:
             for subkey, subvalue in value.items():
                 if subkey not in config[key]:
                     config[key][subkey] = subvalue
-    
+
+    # Environment variable overrides (docker-compose / container env)
+    if os.environ.get("REDIS_HOST"):
+        config["redis"]["host"] = os.environ["REDIS_HOST"]
+    if os.environ.get("REDIS_PORT"):
+        config["redis"]["port"] = int(os.environ["REDIS_PORT"])
+    if os.environ.get("REDIS_PASSWORD"):
+        config["redis"]["password"] = os.environ["REDIS_PASSWORD"]
+
     return config

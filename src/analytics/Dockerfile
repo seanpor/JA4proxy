@@ -29,7 +29,7 @@ COPY src/analytics /app/src/analytics
 COPY config /app/config
 
 # Set up entry point
-COPY entrypoint.sh /entrypoint.sh
+COPY src/analytics/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 EXPOSE 8080

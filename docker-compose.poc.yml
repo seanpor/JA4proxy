@@ -181,25 +181,30 @@ services:
           memory: 256M
           cpus: '1.0'
 
-  management-ui:
+  analytics:
     build:
       context: .
-      dockerfile: docker/Dockerfile.management
-    container_name: ja4proxy-management-ui
+      dockerfile: src/analytics/Dockerfile
+      network: host
+    container_name: ja4proxy-analytics
     ports:
-      - "0.0.0.0:8001:8001"
+      - "127.0.0.1:8082:8080"
     depends_on:
       - redis
     environment:
-      - UI_API_KEY=${UI_API_KEY:-changeme}
-      - UI_USERNAME=${UI_USERNAME:-admin}
-      - UI_PASSWORD=${UI_PASSWORD:-${UI_API_KEY:-changeme}}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-changeme}@redis:6379
-      - MANAGEMENT_PORT=8001
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
+      - WAIT_FOR_REDIS=true
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
     volumes:
-      - ./management:/app/management:ro
+      - ./config:/app/config:ro
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - ja4proxy-backend
     security_opt:
@@ -212,10 +217,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
-          cpus: '0.5'
+          memory: 512M
+          cpus: '1.0'
         reservations:
-          memory: 64M
+          memory: 128M
 
   test:
     build:

@@ -1,31 +1,20 @@
-# Analytics Node Requirements
-# Phase 12a: Foundation
+# Analytics Node dependencies
+# Separate from requirements.txt — analytics runs in its own container.
+# Keep in sync with versions used by the proxy where packages overlap.
 
-# Core dependencies
-redis==4.5.5
-numpy==1.24.3
-pandas==2.0.3
-scipy==1.10.1
-
-# Async/Redis
+# Redis (sync + async client; aioredis 2.x is a thin shim over redis.asyncio)
+redis==5.0.1
 aioredis==2.0.1
 
-# Validation
-jsonschema==4.17.3
+# HTTP server for /health, /ready, /metrics endpoints
+aiohttp>=3.9,<4
 
-# Monitoring
-prometheus-client==0.17.0
+# Metrics
+prometheus-client==0.19.0
 
-# Logging
-structlog==23.1.0
+# Config + validation
+pyyaml==6.0.1
+jsonschema==4.20.0
 
-# Configuration
-pyyaml==6.0
-
-# Testing
-pytest==7.4.0
-pytest-asyncio==0.21.0
-fakeredis==2.15.0
-
-# Security
-cryptography==41.0.2
+# Numerical analysis (baseline stats, distribution comparison)
+numpy>=1.24

@@ -54,21 +54,25 @@ Implementation exists in `src/analytics/`. 89 tests pass.
 
 ---
 
-## Blocking Gaps (must fix before 12a acceptance)
+## Blocking Gaps — RESOLVED (2026-03-15)
 
-### 1. HTTP server missing
-`/health`, `/ready`, and `/metrics` endpoints must be served over HTTP. Add a lightweight
-HTTP server (FastAPI or `prometheus_client.start_http_server`) to `main.py` running
-alongside the stream consumer. Port 8080 (already declared in Dockerfile).
+### 1. HTTP server — DONE
+`main.py` now runs an aiohttp server on port 8080 alongside the stream consumer.
+Routes: `GET /health`, `GET /ready`, `GET /metrics`.
+- `/health` — calls `health_check()`; 200 if Redis reachable, 503 otherwise
+- `/ready` — pings Redis; 200 if connected, 503 otherwise
+- `/metrics` — serves `generate_latest(monitoring_system.registry)`
 
-### 2. `requirements-analytics.txt` missing
-The Dockerfile copies `requirements-analytics.txt` which does not exist. Create it with
-the analytics-specific deps (aioredis, prometheus-client, jsonschema, numpy, scipy, etc.)
-that are not in the main `requirements.txt`.
+### 2. `requirements-analytics.txt` — DONE
+Rewritten at project root with correct pinned deps: redis, aioredis, aiohttp,
+prometheus-client, pyyaml, jsonschema, numpy. Removed bloat (pandas, scipy,
+structlog, cryptography, testing deps) from the previous broken version.
 
-### 3. Docker-compose entry missing
-The analytics service is not defined in any docker-compose file. Add it to
-`docker/docker-compose.yml` (dev) and note the service in `docker/docker-compose.monitoring.yml`.
+### 3. Docker-compose entry — DONE
+`analytics` service added to `docker-compose.poc.yml` (replaces deleted
+`management-ui`). Port `127.0.0.1:8082:8080`. Health check via wget.
+`scripts/start-poc.sh` updated. `config.py` now reads `REDIS_HOST`,
+`REDIS_PORT`, `REDIS_PASSWORD` from environment variables.
 
 ---
 
@@ -81,15 +85,15 @@ The analytics service is not defined in any docker-compose file. Add it to
 - [x] Event schema validation implemented
 - [x] Basic aggregation writes to Redis
 - [x] HyperLogLog counting operational
-- [ ] HTTP `/health` endpoint responds correctly
-- [ ] HTTP `/ready` endpoint responds correctly
-- [ ] HTTP `/metrics` endpoint serves Prometheus metrics
-- [ ] Docker image builds successfully (`requirements-analytics.txt` present)
-- [ ] Analytics service defined in docker-compose
+- [x] HTTP `/health` endpoint responds correctly
+- [x] HTTP `/ready` endpoint responds correctly
+- [x] HTTP `/metrics` endpoint serves Prometheus metrics
+- [x] Docker image builds successfully (`requirements-analytics.txt` present)
+- [x] Analytics service defined in docker-compose
 
 ### Observability
 - [x] Prometheus metrics defined
-- [ ] Prometheus metrics exposed on HTTP port
+- [x] Prometheus metrics exposed on HTTP port
 - [x] JSON logging for all major events
 - [x] Processing duration histograms
 
