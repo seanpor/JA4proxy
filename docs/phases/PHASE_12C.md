@@ -1,242 +1,60 @@
 # Phase 12c — Score Drift Monitoring & Observability
 
-## Goal
-Implement comprehensive monitoring of scoring system health, including drift detection, anomaly identification, and enhanced observability.
+## Status: ~75% DONE — Grafana dashboard and chaos tests are the main gaps
 
-## Score Drift Detection
+Core drift detection algorithms exist and pass 14 tests. The main missing
+deliverable is the Grafana dashboard that makes drift visible to operators.
 
-### 12c.1 Baseline Tracking
+---
 
-**Hourly Snapshots:**
-```python
-def capture_baseline_snapshot():
-    # Calculate current hour statistics
-    current_hour = datetime.now().strftime("%Y-%m-%d-%H")
-    
-    stats = {
-        "median_score": calculate_median_score(),
-        "mean_score": calculate_mean_score(),
-        "stddev_score": calculate_stddev(),
-        "score_distribution": calculate_histogram(),
-        "timestamp": time.time(),
-        "event_count": get_event_count()
-    }
-    
-    # Store in Redis with 7-day TTL
-    redis.set(
-        f"analytics:baseline:hourly:{current_hour}",
-        json.dumps(stats),
-        ex=604800  # 7 days
-    )
-```
+## What Is Already Implemented
 
-**Redis Storage:**
-- Key: `analytics:baseline:hourly:{YYYY-MM-DD-HH}`
-- TTL: 604800 seconds (7 days)
-- Retention: 168 hours (7 days)
+### Baseline Tracking (`src/analytics/baseline_monitor.py`)
+- Hourly snapshots written to `analytics:baseline:hourly:{YYYY-MM-DD-HH}` (TTL 7 days) ✓
+- Stores: median, mean, stddev, histogram, event count ✓
 
-### 12c.2 Drift Detection Algorithm
+### Drift Detection (`src/analytics/drift_detector.py`)
+- Z-score comparison: `|z| > 2.0` triggers alert ✓
+- Alert written to `analytics:alerts:score_drift` (TTL 3600s, auto-clears) ✓
+- Prometheus gauge `ja4proxy_analytics_score_drift_detected` ✓
+- JSON log emitted on drift: `event=score_drift_detected` with z_score and medians ✓
 
-**Statistical Analysis:**
-```python
-def check_score_drift(current_stats, baseline_stats):
-    # Calculate z-score for median comparison
-    if baseline_stats["stddev_score"] > 0:
-        z_score = (current_stats["median_score"] - baseline_stats["median_score"]) / baseline_stats["stddev_score"]
-    else:
-        z_score = 0
-    
-    # Check for significant drift
-    if abs(z_score) > 2.0:  # Configurable threshold
-        return {
-            "drift_detected": True,
-            "z_score": z_score,
-            "current_median": current_stats["median_score"],
-            "baseline_median": baseline_stats["median_score"],
-            "severity": "high" if abs(z_score) > 3.0 else "medium"
-        }
-    
-    return {"drift_detected": False}
-```
+### Distribution Analysis (`src/analytics/distribution_analyzer.py`)
+- Manual KS-statistic approximation (max CDF difference) ✓
+- **Note**: Does not use `scipy.stats.ks_2samp` — the approximation is acceptable
+  for this use case. Revisit only if false positives become a problem in production.
 
-**Alert Storage:**
-- Key: `analytics:alerts:score_drift`
-- Value: JSON alert details
-- TTL: 3600 seconds (1 hour, auto-clears)
+### Shadow Scoring (`src/analytics/shadow_scoring.py`)
+- Tracks h2/h1 ALPN (known-good) traffic separately as calibration signal ✓
+- Alert written to `analytics:alerts:calibration_issue` when shadow median > threshold ✓
 
-### 12c.3 Distribution Analysis
+### Monitoring Integration (`src/analytics/monitoring.py`)
+- `MonitoringSystem` orchestrates baseline capture, drift detection, shadow scoring ✓
+- Prometheus metrics:
+  - `ja4proxy_analytics_score_median` ✓
+  - `ja4proxy_analytics_score_drift_detected` ✓
+  - `ja4proxy_analytics_distribution_shift` ✓
+  - `ja4proxy_analytics_drift_check_duration` ✓
 
-**Histogram Comparison:**
-```python
-def compare_distributions(current_dist, baseline_dist):
-    # Kolmogorov-Smirnov test for distribution differences
-    ks_statistic, p_value = ks_2samp(current_dist, baseline_dist)
-    
-    if p_value < 0.05:  # Significant difference
-        return {
-            "distribution_shift": True,
-            "ks_statistic": ks_statistic,
-            "p_value": p_value
-        }
-    
-    return {"distribution_shift": False}
-```
+---
 
-**Anomaly Patterns:**
-- Bimodal distributions
-- Sudden spikes/drops
-- Unusual clustering
-- Outlier proliferation
+## Gaps
 
-## Enhanced Observability
+### 1. Grafana dashboard (missing)
+The "Score Health" panel described in PHASE_12.md does not exist. Required panels:
 
-### 12c.4 Prometheus Metrics
+- Rolling 7-day median ± 1 stddev band, current 1-hour median overlaid
+- `ja4proxy_analytics_score_drift_detected` gauge panel
+- Stream lag (`ja4proxy_analytics_stream_lag_seconds`) graph
+- Top attacking subnets table
+- JA4 candidate count
 
-**New Metrics:**
-```python
-# Score health metrics
-ja4proxy_analytics_score_median = Gauge(
-    "ja4proxy_analytics_score_median",
-    "Current median risk score"
-)
+Create `monitoring/grafana/dashboards/analytics.json` and add it to the
+Grafana provisioning config.
 
-ja4proxy_analytics_score_drift_detected = Gauge(
-    "ja4proxy_analytics_score_drift_detected",
-    "1 if score drift detected, 0 otherwise"
-)
+### 2. Alertmanager rules (missing)
+Add to `monitoring/alertmanager/alerts.yml`:
 
-ja4proxy_analytics_distribution_shift = Gauge(
-    "ja4proxy_analytics_distribution_shift",
-    "1 if score distribution shifted significantly"
-)
-
-# Performance metrics
-ja4proxy_analytics_drift_check_duration = Histogram(
-    "ja4proxy_analytics_drift_check_duration",
-    "Duration of drift detection checks"
-)
-```
-
-### 12c.5 Grafana Dashboards
-
-**Score Health Panel:**
-- Rolling 7-day median ± 1 stddev band
-- Current 1-hour median overlaid
-- Visual drift indicators
-- Historical trend analysis
-
-**Distribution Panel:**
-- Score histogram comparison
-- Current vs baseline overlay
-- KS test results
-- Anomaly flags
-
-**Alert Panel:**
-- Current active alerts
-- Alert history
-- Severity indicators
-- Resolution tracking
-
-### 12c.6 Enhanced Logging
-
-**Structured Logs:**
-```json
-{
-  "type": "monitoring",
-  "level": "WARN",
-  "subsystem": "analytics",
-  "event": "score_drift_detected",
-  "z_score": 2.45,
-  "current_median": 45.2,
-  "baseline_median": 38.7,
-  "severity": "medium",
-  "timestamp": "2024-03-15T14:30:45Z"
-}
-
-{
-  "type": "monitoring",
-  "level": "INFO",
-  "subsystem": "analytics",
-  "event": "baseline_captured",
-  "hour": "2024-03-15-14",
-  "median_score": 38.7,
-  "event_count": 14567
-}
-```
-
-## Shadow Scoring & Calibration
-
-### 12c.7 Known-Good Traffic Monitoring
-
-**Calibration Signal:**
-```python
-def track_shadow_scores():
-    # Identify known-good traffic (h2/h1 ALPN)
-    good_traffic = get_known_good_connections()
-    
-    # Calculate shadow scores
-    shadow_stats = {
-        "median": calculate_median(good_traffic),
-        "mean": calculate_mean(good_traffic),
-        "stddev": calculate_stddev(good_traffic),
-        "count": len(good_traffic)
-    }
-    
-    # Store for calibration
-    redis.set(
-        "analytics:shadow_scores:latest",
-        json.dumps(shadow_stats),
-        ex=3600  # 1 hour
-    )
-    
-    # Check for calibration issues
-    if shadow_stats["median"] > 10:  # Should be low
-        log_calibration_issue(shadow_stats)
-```
-
-**Calibration Alerts:**
-- Trigger when shadow scores rise unexpectedly
-- Indicate signal module miscalibration
-- Require manual review
-
-## Configuration
-
-```yaml
-analytics_node:
-  monitoring:
-    enabled: true
-    
-    baseline:
-      capture_interval_seconds: 3600  # Hourly
-      retention_days: 7
-      
-    drift_detection:
-      enabled: true
-      z_score_threshold: 2.0
-      check_interval_seconds: 60
-      
-    distribution_analysis:
-      enabled: true
-      ks_test_threshold: 0.05
-      
-    shadow_scoring:
-      enabled: true
-      known_good_alpn: ["h2", "h1"]
-      calibration_alert_threshold: 10.0
-      
-    alerting:
-      drift_alert_ttl_seconds: 3600
-      severity_levels:
-        low: 1.5
-        medium: 2.0
-        high: 3.0
-```
-
-## Integration with Monitoring Stack
-
-### 12c.8 Alertmanager Integration
-
-**Alert Rules:**
 ```yaml
 - alert: ScoreDriftDetected
   expr: ja4proxy_analytics_score_drift_detected == 1
@@ -244,79 +62,56 @@ analytics_node:
   labels:
     severity: warning
   annotations:
-    summary: "Score drift detected in analytics system"
-    description: "Risk score median has drifted significantly from baseline"
+    summary: "Risk score median has drifted from 7-day baseline"
 
-- alert: DistributionShiftDetected
-  expr: ja4proxy_analytics_distribution_shift == 1
+- alert: AnalyticsStreamLagHigh
+  expr: ja4proxy_analytics_stream_lag_seconds > 60
   for: 5m
   labels:
     severity: warning
   annotations:
-    summary: "Score distribution shift detected"
-    description: "Risk score distribution has changed significantly"
+    summary: "Analytics node is lagging behind the event stream"
 ```
 
-### 12c.9 Incident Response Integration
+### 3. Chaos test (missing)
+- Baseline data missing/corrupted: drift detector returns no alert, logs warning, does not crash
 
-**Automated Actions:**
-- Create JIRA ticket on severe drift
-- Page on-call for critical alerts
-- Automated slack notifications
-- Incident timeline creation
+---
+
+## Out of Scope
+
+The following items from the original 12c plan are **not required**:
+- Alertmanager integration beyond the two rules above
+- Slack/email/PagerDuty/JIRA notifications — that's an ops concern, not proxy code
+- Incident response automation — Phase 14 territory
+
+---
 
 ## Acceptance Criteria
 
 ### Functional
-- [ ] Hourly baseline snapshots captured and stored
-- [ ] Drift detection algorithm implemented
-- [ ] Distribution analysis with KS test
-- [ ] Shadow scoring for known-good traffic
-- [ ] Alerts written to Redis with TTL
-- [ ] Alert auto-clearance when resolved
+- [x] Hourly baseline snapshots captured and stored with 7-day TTL
+- [x] Z-score drift detection: |z| > 2.0 → alert written
+- [x] Alert auto-clears when drift resolves (TTL expires)
+- [x] Distribution shift detection (approximated KS test)
+- [x] Shadow scoring for known-good h2/h1 ALPN traffic
+- [x] Calibration alert when shadow median rises unexpectedly
 
 ### Observability
-- [ ] Prometheus metrics for score health
-- [ ] Grafana Score Health panel created
-- [ ] Distribution comparison panel created
-- [ ] Alert panel with history
-- [ ] Structured JSON logging
-- [ ] Health endpoints extended
-
-### Integration
-- [ ] Alertmanager rules configured
-- [ ] Incident response integration
-- [ ] Slack/email notifications working
-- [ ] JIRA ticket creation (if configured)
+- [x] Prometheus metrics for score health
+- [x] Structured JSON logging for drift events
+- [ ] Grafana "Score Health" dashboard provisioned
+- [ ] Alertmanager rules for drift and stream lag
 
 ### Testing
-- [ ] Unit tests: baseline capture
-- [ ] Unit tests: drift detection algorithm
-- [ ] Unit tests: distribution comparison
-- [ ] Unit tests: shadow scoring
-- [ ] Integration test: full monitoring pipeline
-- [ ] Chaos test: baseline data corruption
-- [ ] Performance test: 1M events with monitoring
-
-### Security
-- [ ] Monitoring data access controlled
-- [ ] Alert data sanitized
-- [ ] Metrics endpoint secured
-- [ ] Logging redaction for sensitive data
-
-## Performance Considerations
-
-**Optimizations:**
-- Incremental statistics calculation
-- Sliding window algorithms
-- Memory-efficient histograms
-- Batch processing of metrics
-
-**Resource Limits:**
-- Memory: < 200MB for monitoring data
-- CPU: < 10% for drift checks
-- Storage: < 50MB for 7-day baselines
+- [x] Unit tests: baseline capture (6 passing)
+- [x] Unit tests: drift detection algorithm (8 passing)
+- [x] Unit tests: distribution comparison
+- [x] Unit tests: shadow scoring
+- [ ] Chaos test: baseline data corrupted/missing — no crash, WARN logged
 
 ## Next Steps
-- Phase 12d: Security hardening
-- Phase 13: Deployment and scaling
+- Create Grafana dashboard JSON
+- Add Alertmanager rules
+- Add chaos test for baseline data corruption
+- Then Phase 12d (security hardening — scope trimmed significantly)
