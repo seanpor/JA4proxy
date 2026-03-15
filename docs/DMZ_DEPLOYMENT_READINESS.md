@@ -1,7 +1,7 @@
 # DMZ Deployment Readiness Assessment
 
 **JA4proxy — TLS Fingerprinting Security Proxy**
-**Assessment Date:** February 2026
+**Assessment Date:** February 2026 (updated 2026-03-15 — Phase 14 gap analysis)
 
 ---
 
@@ -11,7 +11,10 @@ JA4proxy is a TLS fingerprinting proxy that blocks malicious traffic based on JA
 
 This document assesses readiness for deployment in a corporate DMZ and identifies the gaps a security team will flag, along with remediation steps.
 
-**Overall readiness: POC ✅ — Production DMZ: 6 items to address**
+**Overall readiness: POC ✅ — Production DMZ: 4 items addressed in Phase 14; 2 deferred (Redis TLS, image signing)**
+
+*Note: Several items listed as gaps at assessment time have since been implemented (Phases 0–13).
+The Phase 14 plan in `docs/phases/PHASE_14.md` is the authoritative source of remaining work.*
 
 ---
 

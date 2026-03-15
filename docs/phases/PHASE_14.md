@@ -1,202 +1,623 @@
 # Phase 14 — Production Hardening
 
-## Goal
-Address all gaps identified in `docs/DMZ_DEPLOYMENT_READINESS.md` and
-`docs/security/COMPREHENSIVE_SECURITY_AUDIT.md`. Read both documents fully first.
+## Status: PLANNED
 
-## 14a. Secrets Management
+Read `docs/DMZ_DEPLOYMENT_READINESS.md` and `docs/security/COMPREHENSIVE_SECURITY_AUDIT.md`
+before starting. Many of the audit's findings are already resolved — this plan addresses
+the genuine remaining gaps.
 
-Docker secrets (minimum) or Vault stub. UI API key and AbuseIPDB key never logged.
-Auto-rotate Redis password on deployment. All secrets loaded from environment
-variables — never written to `docker-compose.prod.yml` in plaintext.
+---
 
-## 14b. Redis Security
+## What is Already in Place (Do Not Re-implement)
 
-AUTH in `docker-compose.prod.yml`. Bind Redis to internal Docker network — not
-`0.0.0.0`. TLS for cross-host replication if used. Verify `maxmemory` and
-`allkeys-lru` set. Confirm Redis not reachable from outside the compose network.
+The following items from the DMZ readiness doc and security audit are **already done**:
 
-## 14c. Resource Limits
+| Item | Where |
+|------|--------|
+| Non-root containers, read-only FS, cap_drop ALL, no-new-privileges | `docker-compose.poc.yml` |
+| CPU + memory limits on every container | `docker-compose.poc.yml` |
+| Redis AUTH (`--requirepass`), no host port | `docker-compose.poc.yml` redis service |
+| Redis `maxmemory` + `allkeys-lru` | `docker-compose.poc.yml` REDIS_ARGS |
+| `stream_max_length` cap on `ja4proxy:events` | `config/proxy.yml` analytics section |
+| Structured log filtering (SensitiveDataFilter) | `proxy.py` |
+| Network segmentation (separate Docker networks) | `docker-compose.poc.yml` |
+| Health check on analytics container | `docker-compose.poc.yml` analytics service |
+| Container security scanning (Bandit, Safety, Trivy) | CI pipeline |
 
-CPU and memory limits on all containers. Health checks for all services.
-Graceful shutdown: drain in-flight connections on SIGTERM before process exit.
-Set `ulimit -n` appropriately for expected concurrent connection count.
+---
 
-**Default Values:**
-- CPU limit: 2 cores per container
-- Memory limit: 4GB per container
-- File descriptor limit: 65536
-- Connection queue size: 1000
-- Max connections: 10000
+## Sub-phase Overview
 
-## 14d. Rate Limit Self-Protection
+| Sub-phase | Deliverable |
+|-----------|-------------|
+| 14a | Startup secrets hardening + JSON logging |
+| 14b | Graceful SIGTERM shutdown |
+| 14c | Tarpit self-protection (concurrent cap + per-IP cap) |
+| 14d | Rate limit memory self-protection |
+| 14e | Alert rules overhaul (fix metric names; add missing rules) |
+| 14f | Production Docker compose cleanup |
 
-Max-tracked-IPs cap on beaconing detector and sliding window rate limiter.
-Prevents unbounded Redis growth under sustained attack. Max stream length on
-`ja4proxy:events` stream (`stream_max_length` in analytics config).
+Implement in order. Each sub-phase has its own acceptance criteria below.
 
-## 14e. Observability
+---
 
-Structured JSON logging for SIEM integration. Alertmanager rules covering:
-high block rate, AbuseIPDB quota exhaustion, Spamhaus download failure, analytics
-stream lag above threshold, proxy instance crash, Redis memory above 80%, dial change.
-See `docs/OBSERVABILITY_STANDARDS.md §4` for the full rule set.
+## 14a — Startup Secrets Hardening + JSON Logging
 
-**Alertmanager Rule Files:**
-- `monitoring/alertmanager/rules/proxy.rules.yml` - Proxy-specific alerts
-- `monitoring/alertmanager/rules/redis.rules.yml` - Redis monitoring alerts
-- `monitoring/alertmanager/rules/security.rules.yml` - Security event alerts
+### Secrets hardening
 
-## 14f. Ansible Hardening
+**Gap 1:** `docker-compose.poc.yml` has `${REDIS_PASSWORD:-changeme}` fallback in four
+places. If an operator runs `docker compose up` without `start-poc.sh` they get the
+well-known default password.
 
-Firewall rules restricting proxy port to HAProxy only. TCP SYN cookie sysctl
-(`net.ipv4.tcp_syncookies=1`). fail2ban integration for SSH. Kernel parameter
-hardening (`net.ipv4.conf.all.rp_filter=1`, `net.ipv6.conf.all.disable_ipv6=0`).
+**Fix:** Replace all four occurrences with
+`${REDIS_PASSWORD:?REDIS_PASSWORD is required — run scripts/start-poc.sh}`.
+The `:?` syntax causes Docker Compose to fail immediately with an informative message
+if the variable is not set, rather than silently using a weak default.
 
-## 14g. Tarpit Self-Protection
+**Gap 2:** `proxy.py` line 1145 logs a WARNING when the Redis password is missing in
+production but does not abort. In `ENVIRONMENT=production`, a missing password should
+be a startup FATAL (exit 1).
 
-**Problem:** the tarpit is a finite resource. Each tarpitted connection holds a file
-descriptor and a small amount of memory for the 1-byte/sec drain loop. An attacker who
-learns they're being tarpitted (by noticing the slow response rather than an RST) can
-deliberately generate thousands of simultaneous tarpitted connections to exhaust the
-proxy's file descriptors or memory.
+**Fix:** In `proxy.py` `_init_redis()`, when `ENVIRONMENT` env var is `production` and
+password is empty/not set, log `{"type":"system","level":"FATAL","event":"missing_redis_password"}` and call `sys.exit(1)`.
 
-**Implementation:**
+### Structured JSON logging
 
-```yaml
-tarpit:
-  max_concurrent_connections: 500    # Hard cap on simultaneous tarpit slots
-  max_per_ip: 3                       # Max concurrent tarpit connections from one IP
-  overflow_action: "block"            # When cap reached: block instead of tarpit
-                                      # Options: block | rst | allow (fail open)
-  overflow_log: true                  # Log overflow events for analysis
+**Gap:** The proxy uses Python's text `logging` format. The acceptance criterion
+"all log lines valid JSON" is not met. Structured logs are required for SIEM
+integration and automated parsing.
+
+**Fix:** Add a `JSONFormatter` class to `proxy.py`. When `logging.json_enabled: true`
+in config (default: `false` for dev, `true` when `ENVIRONMENT=production`), swap
+`SecureFormatter` for `JSONFormatter`.
+
+JSON log line format:
+```json
+{"timestamp": "2026-03-15T14:30:01.234Z", "level": "INFO", "subsystem": "proxy",
+ "event": "connection_allowed", "src_ip": "1.2.3.4", "action": "allow",
+ "score": 12, "ja4": "t13d1516h2_...", "dial": 0}
 ```
 
-When `max_concurrent_connections` is reached, new connections that would be tarpitted
-are instead given the `overflow_action`. Default is `block` (clean RST) — this is
-slightly more informative to the attacker than tarpit but preserves proxy resources.
+The `SensitiveDataFilter` must run **before** the JSON formatter — it filters the
+LogRecord fields, not the final formatted string.
 
-Track concurrent tarpit count with a Redis counter (same INCR/DECR pattern as
-concurrent connections in Phase 5). Keep in-process for speed — Redis is the
-cross-instance view if needed but the per-instance cap applies per instance.
+### Config additions (`config/proxy.yml`)
 
-**Resource sizing guidance** (add to `docs/SECOPS_OPERATIONS.md`):
-- Each tarpitted connection uses ~8KB memory + 1 file descriptor
-- Default Linux `ulimit -n` is 1024; prod should be 65536+
-- At `max_concurrent: 500`, memory impact is ~4MB — negligible
-- File descriptors at 500 tarpit + N legitimate connections: size ulimit accordingly
+```yaml
+logging:
+  level: INFO                     # DEBUG | INFO | WARN | ERROR
+  json_enabled: false             # true in production (set via ENVIRONMENT=production)
+  # json_enabled is set automatically when ENVIRONMENT=production is detected at startup.
+  # Override here to force JSON logging in development.
+```
 
-**Acceptance criteria additions:**
-- [ ] `max_concurrent_connections` cap enforced; new tarpit connections → overflow_action when full
-- [ ] `max_per_ip` cap enforced per source IP
-- [ ] Overflow action configurable: block | rst | allow
-- [ ] Overflow events logged and counted in Prometheus
-- [ ] In-process counter (fast path) with Redis cross-instance gauge for monitoring
-- [ ] `SECOPS_OPERATIONS.md` updated with resource sizing guidance
-- [ ] Tests: cap reached → overflow action taken
-- [ ] per-IP cap
-- [ ] counter cleanup on connection close
-- [ ] Prometheus gauge:   `ja4proxy_tarpit_concurrent` — current concurrent tarpitted connections
-- [ ] Prometheus counter: `ja4proxy_tarpit_overflow_total{action}` — connections that hit tarpit capacity cap
+### Acceptance criteria
+
+- [ ] `docker-compose.poc.yml`: all four `:-changeme` fallbacks replaced with `:?` error syntax
+- [ ] `proxy.py` startup: `ENVIRONMENT=production` + no password → FATAL log + `sys.exit(1)`
+- [ ] `JSONFormatter` class implemented; outputs valid JSON for every log record
+- [ ] `SensitiveDataFilter` applied before JSONFormatter; passwords/tokens not in JSON output
+- [ ] When `ENVIRONMENT=production` (or `logging.json_enabled: true`): JSONFormatter active
+- [ ] Test: 100 connections → all log lines parse as valid JSON (`json.loads()` on each)
+- [ ] Test: startup with `ENVIRONMENT=production` + no password → process exits non-zero
+- [ ] JSON log: `{"type":"system","level":"INFO","event":"shutdown_initiated","active_connections":N}` emitted on shutdown
+
+---
+
+## 14b — Graceful SIGTERM Shutdown
+
+### Problem
+
+`proxy.py` `main()` handles only `KeyboardInterrupt` (SIGINT). When Docker stops the
+container (`docker stop` → SIGTERM), Python's default handler terminates the process
+immediately — in-flight connections are aborted. The acceptance criterion requires
+draining active connections before exit.
+
+### Implementation
+
+In `proxy.py` `main()`:
+
+```python
+import signal
+
+async def main():
+    proxy = await ProxyServer.create(config_path)
+    loop = asyncio.get_event_loop()
+    shutdown_event = asyncio.Event()
+
+    def _handle_shutdown():
+        if not shutdown_event.is_set():
+            proxy.logger.info(
+                '{"type":"system","level":"INFO","event":"shutdown_initiated",'
+                '"active_connections":%d}', proxy.active_connections
+            )
+            shutdown_event.set()
+
+    loop.add_signal_handler(signal.SIGTERM, _handle_shutdown)
+    loop.add_signal_handler(signal.SIGINT, _handle_shutdown)
+
+    await proxy.start(shutdown_event=shutdown_event)
+```
+
+`ProxyServer.start()` must accept an optional `shutdown_event: asyncio.Event`. When
+it fires:
+1. Stop the asyncio server (stop accepting new connections).
+2. Wait up to `drain_timeout_seconds` (default: 30) for `active_connections` to reach 0.
+3. Log completion and return.
+
+Config addition:
+```yaml
+proxy:
+  drain_timeout_seconds: 30  # Max seconds to wait for in-flight connections on SIGTERM
+```
+
+### Acceptance criteria
+
+- [ ] SIGTERM → proxy stops accepting new connections immediately
+- [ ] SIGTERM → in-flight connections allowed to complete up to `drain_timeout_seconds`
+- [ ] After drain timeout: process exits regardless of remaining connections; logs count
+- [ ] JSON log: `shutdown_initiated` with `active_connections` count emitted on SIGTERM
+- [ ] JSON log: `shutdown_complete` with `drained_connections` and `forced_close` count
+- [ ] `drain_timeout_seconds` hot-reloadable
+- [ ] Test: SIGTERM with 0 active connections → exits cleanly
+- [ ] Test: SIGTERM with N active connections → connections allowed to complete, then exits
+- [ ] Test: drain timeout exceeded → forced exit; count of forced-closed connections logged
+
+---
+
+## 14c — Tarpit Self-Protection
+
+### Problem
+
+See the existing plan section in this file (below). The tarpit container is a finite
+resource. Each proxied tarpit connection holds a file descriptor + a small buffer.
+An attacker who discovers they're being tarpitted can deliberately exhaust the proxy's
+file descriptor limit.
+
+### Implementation
+
+**In-process counters** (not Redis) for the hot path:
+
+```python
+# In ProxyServer.__init__:
+self._tarpit_concurrent: int = 0          # global in-process count
+self._tarpit_per_ip: dict[str, int] = {}  # {ip: count}
+self._tarpit_lock = asyncio.Lock()
+```
+
+**In `_redirect_to_tarpit()`** (called when action == "tarpit"):
+
+```python
+async def _redirect_to_tarpit(self, data, reader, writer, client_ip: str):
+    cfg = self.config.get("tarpit", {})
+    max_concurrent = cfg.get("max_concurrent_connections", 500)
+    max_per_ip = cfg.get("max_per_ip", 3)
+    overflow_action = cfg.get("overflow_action", "block")
+
+    async with self._tarpit_lock:
+        over_global = self._tarpit_concurrent >= max_concurrent
+        over_per_ip = self._tarpit_per_ip.get(client_ip, 0) >= max_per_ip
+        if not over_global and not over_per_ip:
+            self._tarpit_concurrent += 1
+            self._tarpit_per_ip[client_ip] = self._tarpit_per_ip.get(client_ip, 0) + 1
+            acquired = True
+        else:
+            acquired = False
+
+    if not acquired:
+        _TARPIT_OVERFLOW.labels(action=overflow_action).inc()
+        self.logger.info("tarpit | event=overflow | ip=%s | action=%s", client_ip, overflow_action)
+        if overflow_action == "allow":
+            await self._forward_to_backend(data, reader, writer)
+        else:
+            # block or rst: close connection
+            writer.close()
+        return
+
+    _TARPIT_CONCURRENT.set(self._tarpit_concurrent)
+    try:
+        await self._do_tarpit_redirect(data, reader, writer)
+    finally:
+        async with self._tarpit_lock:
+            self._tarpit_concurrent -= 1
+            self._tarpit_per_ip[client_ip] = max(0, self._tarpit_per_ip.get(client_ip, 0) - 1)
+            if self._tarpit_per_ip[client_ip] == 0:
+                del self._tarpit_per_ip[client_ip]
+        _TARPIT_CONCURRENT.set(self._tarpit_concurrent)
+```
+
+**Redis cross-instance view** (monitoring only, not the hot path): a background task
+updates a Redis gauge `tarpit:concurrent:{proxy_id}` every 5s so the analytics
+dashboard can show aggregate tarpit load across all instances.
+
+**New Prometheus metrics:**
+```python
+_TARPIT_CONCURRENT = Gauge("ja4proxy_tarpit_concurrent",
+                           "Current concurrent tarpitted connections")
+_TARPIT_OVERFLOW = Counter("ja4proxy_tarpit_overflow_total",
+                           "Connections that hit tarpit cap → overflow action",
+                           ["action"])
+```
+
+**Config additions (`config/proxy.yml`):**
+```yaml
+tarpit:
+  max_concurrent_connections: 500   # Hard cap on simultaneous tarpit slots (per instance)
+  max_per_ip: 3                     # Max concurrent tarpit connections from one IP
+  overflow_action: "block"          # When cap reached: block | rst | allow (fail open)
+  overflow_log: true                # Log overflow events
+```
+
+Note: `rst` and `block` are equivalent from the proxy side (close the TCP connection).
+The distinction matters for future logging detail — keep both for semantic clarity.
+
+### Acceptance criteria
+
+- [ ] `max_concurrent_connections` cap enforced; new tarpit arrivals → overflow_action when full
+- [ ] `max_per_ip` cap enforced independently of global cap
+- [ ] Per-IP counter incremented on tarpit start, decremented on close (clean or abrupt)
+- [ ] Abrupt disconnect: counter cleaned up; no counter leak
+- [ ] Overflow action configurable: `block` | `rst` | `allow`; `allow` fails open to backend
+- [ ] `ja4proxy_tarpit_concurrent` gauge reflects current in-process count
+- [ ] `ja4proxy_tarpit_overflow_total{action}` incremented on each overflow
+- [ ] `docs/SECOPS_OPERATIONS.md` updated with tarpit resource sizing guidance
+- [ ] `docs/OBSERVABILITY_STANDARDS.md` updated with both new metrics
+- [ ] Test: cap reached → overflow action taken; counter not incremented
+- [ ] Test: per-IP cap → IP at limit gets overflow; other IPs unaffected
+- [ ] Test: counter DECR on clean close → returns to correct value
+- [ ] Test: abrupt disconnect (exception in tarpit) → counter still decremented
+- [ ] Test (chaos): Redis unavailable during background tarpit gauge update → no crash; in-process counter correct
+- [ ] Performance: tarpit counter check p99 < 1ms under 500 concurrent tarpitted connections
+
+---
+
+## 14d — Rate Limit Memory Self-Protection
+
+### Problem
+
+The beaconing detector (`beacon:suspects` leaderboard) and sliding window rate limiter
+store per-IP data in Redis. Under a sustained attack with millions of unique source IPs,
+these structures can grow without bound. The rate limiter keys carry TTLs, but the
+beaconing suspects leaderboard does not cap its size.
+
+### Implementation
+
+**Beaconing detector:** Add `max_suspects` config option. When the leaderboard
+(`beacon:suspects`) exceeds `max_suspects`, the `ZREMRANGEBYRANK` is called to trim
+the lowest-scoring entries before adding a new one. This is already O(log N) in Redis.
+
+```yaml
+beaconing:
+  max_suspects: 10000   # Cap on beacon:suspects leaderboard size; oldest/lowest trimmed
+```
+
+**Sliding window rate limiter:** Verify (and add if missing) that all sorted set keys
+for rate limiting have a TTL. The `sliding_window.lua` script should be checked to
+confirm TTL is set on every key it touches. Add an explicit `EXPIRE` call on the key
+after each sliding window write if not already present.
+
+**Config addition:**
+```yaml
+beaconing:
+  max_suspects: 10000
+```
+
+### Acceptance criteria
+
+- [ ] `beaconing.max_suspects` config option honoured by `BeaconingDetector`
+- [ ] When suspects > `max_suspects`, lowest-scoring entries trimmed before insert
+- [ ] Sliding window rate limiter keys all have TTL; verified by inspecting a key after insert
+- [ ] Test: insert `max_suspects + 1` entries → leaderboard size stays ≤ `max_suspects`
+- [ ] Test: Redis MEMORY USAGE does not grow unboundedly when 10k unique IPs beacon
+
+---
+
+## 14e — Alert Rules Overhaul
+
+### Problem
+
+`monitoring/prometheus/alerts.yml` uses pre-Phase-1 metric names (`ja4_blocked_requests_total`,
+`ja4_security_events_total`, `ja4_rate_limit_exceeded_total`, etc.) — **none of these
+metrics exist** in the current codebase. All real metrics use the `ja4proxy_` prefix.
+
+The alertmanager rules directory (`monitoring/alertmanager/rules/`) contains only
+`management_ui_rules.yml`. The Phase 14 plan requires `proxy.rules.yml`,
+`redis.rules.yml`, and `security.rules.yml`.
+
+### Implementation
+
+**Step 1:** Rewrite `monitoring/prometheus/alerts.yml` using real metric names.
+
+Key metric names for alert expressions:
+- Connection actions: `ja4proxy_connections_total{action="block"}` / `{action="ban"}` / `{action="tarpit"}`
+- Active connections: `ja4proxy_concurrent_connections` + `ja4_active_connections` (proxy.py gauge — rename to `ja4proxy_active_connections` in Phase 14)
+- AbuseIPDB quota exhausted: `ja4proxy_abuseipdb_quota_exhausted == 1`
+- Spamhaus download error: `rate(ja4proxy_blocklist_download_errors_total[5m]) > 0`
+- Spamhaus stale: `time() - ja4proxy_blocklist_last_refresh_success_seconds > 7200`
+- Risk score: `ja4proxy_risk_score` (histogram)
+- Dial: `ja4proxy_dial_current`
+- Analytics stream lag: `ja4proxy_analytics_stream_lag_seconds`
+- Score drift: `ja4proxy_analytics_score_drift_detected`
+- Tarpit concurrent: `ja4proxy_tarpit_concurrent` (Phase 14c)
+- Redis memory: `redis_memory_used_bytes / redis_memory_max_bytes` (redis_exporter)
+
+**Also rename `ja4_active_connections` gauge** (proxy.py line 72) to
+`ja4proxy_active_connections` for consistency. Update any tests that reference the old name.
+
+**Step 2:** Create the three alertmanager rule files.
+
+`monitoring/alertmanager/rules/proxy.rules.yml`:
+```yaml
+groups:
+  - name: ja4proxy_proxy
+    rules:
+      - alert: ProxyHighBlockRate
+        expr: rate(ja4proxy_connections_total{action=~"block|ban"}[5m]) > 10
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: "High block rate ({{ $value | humanize }}/s)"
+          runbook: "docs/runbooks/high_block_rate.md"
+
+      - alert: ProxyDialChanged
+        expr: changes(ja4proxy_dial_current[5m]) > 0
+        for: 0m
+        labels: {severity: info}
+        annotations:
+          summary: "Dial changed to {{ $value }}"
+
+      - alert: ProxyTarpitConcurrentHigh
+        expr: ja4proxy_tarpit_concurrent > 400
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: "Tarpit concurrent connections near cap ({{ $value }}/500)"
+          runbook: "docs/runbooks/tarpit_capacity.md"
+
+      - alert: ProxyInstanceDown
+        expr: up{job="ja4proxy"} == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "JA4proxy instance is unreachable"
+```
+
+`monitoring/alertmanager/rules/redis.rules.yml`:
+```yaml
+groups:
+  - name: ja4proxy_redis
+    rules:
+      - alert: RedisDown
+        expr: up{job="ja4proxy-redis"} == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "Redis is unreachable; proxy scoring degraded"
+
+      - alert: RedisMemoryHigh
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.80
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "Redis memory at {{ $value | humanizePercentage }}"
+```
+
+`monitoring/alertmanager/rules/security.rules.yml`:
+```yaml
+groups:
+  - name: ja4proxy_security
+    rules:
+      - alert: AbuseIPDBQuotaExhausted
+        expr: ja4proxy_abuseipdb_quota_exhausted == 1
+        for: 0m
+        labels: {severity: warning}
+        annotations:
+          summary: "AbuseIPDB daily quota exhausted; enrichment paused until midnight UTC"
+          runbook: "docs/runbooks/external_api_failures.md"
+
+      - alert: SpamhausDownloadFailed
+        expr: rate(ja4proxy_blocklist_download_errors_total[5m]) > 0
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "Spamhaus DROP/EDROP download failing"
+          runbook: "docs/runbooks/feed_management.md"
+
+      - alert: SpamhausListStale
+        expr: time() - ja4proxy_blocklist_last_refresh_success_seconds > 7200
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "Spamhaus list not refreshed for >2 hours"
+```
+
+### Acceptance criteria
+
+- [ ] `monitoring/prometheus/alerts.yml` rewritten; all expressions reference real `ja4proxy_*` metric names
+- [ ] `ja4_active_connections` gauge in `proxy.py` renamed to `ja4proxy_active_connections`
+- [ ] `monitoring/alertmanager/rules/proxy.rules.yml` created
+- [ ] `monitoring/alertmanager/rules/redis.rules.yml` created
+- [ ] `monitoring/alertmanager/rules/security.rules.yml` created
+- [ ] All alert rules validated with `promtool check rules` (run as part of tests or CI)
+- [ ] Test: PromQL expressions in all rules are syntactically valid
+- [ ] `docs/security/COMPREHENSIVE_SECURITY_AUDIT.md` updated: mark resolved findings as ✅ with fix location; remove obsolete "do you approve" footer
+
+---
+
+## 14f — Production Docker Cleanup
+
+### Problem
+
+`docker/docker-compose.prod.yml` references non-existent files:
+- `Dockerfile.enterprise` (does not exist)
+- `config/enterprise.yml` (does not exist)
+- `security/Dockerfile` (does not exist)
+
+It also has a 3-node Redis cluster, ELK stack (Elasticsearch + Logstash + Kibana),
+and a separate security-scanner service. These are aspirational and not grounded in
+the actual system. Running `docker compose -f docker/docker-compose.prod.yml up` would
+fail immediately.
+
+### Implementation
+
+Replace `docker/docker-compose.prod.yml` with a realistic single-instance production
+compose file that:
+- Uses the real `docker/Dockerfile` (same as poc)
+- Uses a single Redis (not a cluster) — cluster is Phase 15+ territory
+- Uses Loki + Promtail for logging (already in monitoring setup) — **not** ELK
+- Uses Docker secrets for `REDIS_PASSWORD`, `GRAFANA_PASSWORD`, `ABUSEIPDB_API_KEY`
+- Keeps all the security hardening from `docker-compose.poc.yml` (read-only, cap_drop, etc.)
+- References only files that actually exist in the repo
+
+The management UI service should be included (Phase 13 will have built it by the time
+this is implemented).
+
+Also add a `docker/docker-compose.prod.yml.example` or update the existing `scripts/start-poc.sh`
+to support a `--prod` mode that generates `.env` with all required secrets and starts
+the production compose.
+
+### Out of scope for Phase 14
+
+These items from the DMZ readiness doc and security audit are deferred:
+
+| Item | Rationale | Deferred to |
+|------|-----------|-------------|
+| Redis TLS | Docker internal network provides adequate isolation (DMZ doc: P3) | Phase 15 or dedicated ops task |
+| Redis cluster (3 nodes) | No HA requirement stated; single Redis is sufficient | Phase 15+ |
+| Container image signing (Cosign/Syft) | CI/CD concern; no code changes needed | Ops runbook |
+| Falco runtime monitoring | Heavyweight; no code changes needed; ops concern | Ops runbook |
+| Backend connection TLS validation | Backend is internal Docker service; low risk | Phase 15 |
+| ELK stack | Already have Loki/Promtail/Grafana; ELK is duplication | N/A |
+| JIRA/Slack/SOC integration | Ops tooling, not proxy code | N/A |
+
+### Acceptance criteria
+
+- [ ] `docker/docker-compose.prod.yml` replaced; runs without error on `docker compose config`
+- [ ] All referenced `Dockerfile.*`, config files, and secret files exist or are documented as generated
+- [ ] Docker secrets used for `REDIS_PASSWORD`, `GRAFANA_PASSWORD`, `ABUSEIPDB_API_KEY`
+- [ ] No `:-changeme` fallback in any compose file
+- [ ] `docker compose -f docker/docker-compose.prod.yml config` exits 0
+- [ ] Deferred items documented in the table above with rationale
+
+---
 
 ## Redis Key Schema
 
-Phase 14 adds no new Redis keys. Production hardening configures existing infrastructure.
+Phase 14 adds no new Redis keys. The tarpit concurrent gauge (`tarpit:concurrent:{proxy_id}`)
+is a monitoring-only Redis key (updated every 5s by background task):
 
-## Config
+| Key | Type | TTL | Written by | Notes |
+|-----|------|-----|------------|-------|
+| `tarpit:concurrent:{proxy_id}` | String | 30s | Proxy background task | Cross-instance tarpit load gauge; auto-expires if proxy stops |
+
+---
+
+## Config Summary
 
 ```yaml
-production:
-  tls:
-    enabled: true               # Default: true in production. Terminate TLS on the proxy.
-    cert_path: ""               # Path to TLS certificate. Set via PROXY_TLS_CERT env var.
-    key_path: ""                # Path to TLS private key. Set via PROXY_TLS_KEY env var.
+# proxy.yml additions for Phase 14
 
-  secrets:
-    rotate_redis_password: true # Default: true. Auto-rotate Redis password on deployment.
-    log_api_keys: false         # Default: false. Never log API keys. Override for debugging only.
+proxy:
+  drain_timeout_seconds: 30       # Max seconds to drain active connections on SIGTERM
 
-  resource_limits:
-    max_connections: 10000      # Default: 10000. Hard cap on simultaneous connections.
-    connection_queue_size: 1000 # Default: 1000. Queue depth before refusing new connections.
+logging:
+  level: INFO
+  json_enabled: false             # Enabled automatically when ENVIRONMENT=production
 
-  observability:
-    json_logging: true          # Default: true in production. Structured JSON output for SIEM.
-    log_level: INFO             # Default: INFO. Options: DEBUG | INFO | WARN | ERROR.
-    siem_forwarding: false      # Default: false. Enable to forward logs to external SIEM.
-    siem_endpoint: ""           # Set via SIEM_ENDPOINT env var.
+tarpit:
+  max_concurrent_connections: 500  # Hard cap on simultaneous tarpit slots (per instance)
+  max_per_ip: 3                    # Max concurrent tarpit from one IP
+  overflow_action: "block"         # block | rst | allow (allow = fail open to backend)
+  overflow_log: true
 
-  validation:
-    # Configuration validation settings
-    strict_mode: true           # Default: true. Fail on invalid configuration values.
-    warn_on_deprecated: true    # Default: true. Log warnings for deprecated config options.
-    auto_correct: false         # Default: false. Automatically correct common misconfigurations.
+beaconing:
+  max_suspects: 10000             # Cap on beacon:suspects leaderboard; trims lowest-scoring
 ```
 
-## Configuration Validation
+All Phase 14 config values are hot-reloadable (apply to next connection).
 
-**Validation Rules:**
-- All numeric values must be positive integers
-- File paths must be absolute or relative to config directory
-- TLS certificates must be valid PEM format
-- Redis connection strings must include authentication
-- Resource limits must not exceed system capabilities
-
-**Error Handling:**
-- Invalid configurations cause immediate startup failure
-- Deprecation warnings logged but don't prevent startup
-- Configuration errors include detailed error messages
-- Validation runs on config load and hot-reload
+---
 
 ## Chaos Scenarios
 
 | Scenario | Expected behaviour |
 |----------|--------------------|
-| SIGTERM during active connections | Graceful drain: in-flight connections complete; new connections refused; process exits after drain timeout |
-| Memory limit reached | OOM kill by container runtime; process restarts via Docker restart policy; no data corruption |
-| Redis password rotated while proxy running | Hot reload with new `REDIS_URL` env var; existing connections re-authenticated |
-| Tarpit cap reached | Overflow action taken; `ja4proxy_tarpit_overflow_total` incremented; global cap does not affect non-tarpit connections |
+| SIGTERM during active connections | Drain: in-flight complete; new connections refused; process exits after `drain_timeout_seconds` |
+| SIGTERM with no active connections | Immediate clean exit; `shutdown_complete` logged |
+| Tarpit global cap reached | `overflow_action` taken; `ja4proxy_tarpit_overflow_total` incremented; non-tarpit connections unaffected |
+| Tarpit per-IP cap reached | That IP gets overflow action; other IPs at lower count unaffected |
+| Tarpit connection abruptly disconnects | `tarpit_concurrent` decremented correctly; no counter leak |
+| Redis unavailable for tarpit background gauge | Warning logged; in-process counters still correct; no crash |
+| `ENVIRONMENT=production` + no Redis password | FATAL log + `sys.exit(1)` before accepting any connections |
 
-## Acceptance Criteria
+---
 
-### Functional
-- [ ] All secrets (API keys, Redis password) loaded from environment variables; none in `docker-compose.prod.yml` plaintext
-- [ ] Redis AUTH configured in `docker-compose.prod.yml`; proxy connects with password
-- [ ] CPU and memory limits set on all containers in `docker-compose.prod.yml`
-- [ ] Graceful shutdown: in-flight connections drained before process exit; SIGTERM handled
-- [ ] Structured JSON logging enabled; all log lines valid JSON; verified by parsing test
-- [ ] Tarpit max concurrent cap enforced; overflow action (`block | rst | allow`) taken; counter incremented
-- [ ] Tarpit per-IP cap enforced independently of global cap
-- [ ] Tarpit connection counter DECR on connection close; no counter leak on abrupt disconnect
+## Acceptance Criteria (Complete Phase Gate)
 
-### Configuration
-- [ ] `tarpit.max_concurrent_connections`, `tarpit.max_per_ip`, `tarpit.overflow_action` configurable
-- [ ] `tls_termination.enabled`, `rotate_redis_password`, `max_connections` configurable
-- [ ] All config values in this phase are hot-reloadable; changes apply to the next connection without restart
-- [ ] `tls_termination` and Redis AUTH settings require restart; tarpit limits and resource caps are hot-reloadable
+### 14a — Startup hardening
+- [ ] `docker-compose.poc.yml`: no `:-changeme` fallbacks remain
+- [ ] Production startup without password: FATAL + exit 1
+- [ ] JSON logging: all log lines valid JSON when enabled
+- [ ] `SensitiveDataFilter` active before JSON formatter
+
+### 14b — Graceful shutdown
+- [ ] SIGTERM triggers drain; new connections refused
+- [ ] `shutdown_initiated` JSON log emitted with `active_connections` count
+- [ ] Process exits after drain timeout even if connections remain
+
+### 14c — Tarpit self-protection
+- [ ] `max_concurrent_connections` enforced
+- [ ] `max_per_ip` enforced per source IP
+- [ ] Overflow action taken (block / rst / allow)
+- [ ] `ja4proxy_tarpit_concurrent` and `ja4proxy_tarpit_overflow_total{action}` Prometheus metrics
+- [ ] Counter cleanup on clean and abrupt disconnect
+
+### 14d — Rate limit memory self-protection
+- [ ] `beaconing.max_suspects` cap enforced; leaderboard stays bounded
+- [ ] Sliding window rate limiter keys have TTL
+
+### 14e — Alert rules
+- [ ] `monitoring/prometheus/alerts.yml` uses only real `ja4proxy_*` metric names
+- [ ] `ja4_active_connections` renamed to `ja4proxy_active_connections`
+- [ ] Three alertmanager rule files created (proxy, redis, security)
+- [ ] `promtool check rules` passes on all rule files
+- [ ] `COMPREHENSIVE_SECURITY_AUDIT.md` updated to reflect current state
+
+### 14f — Production Docker
+- [ ] `docker/docker-compose.prod.yml` references only real files
+- [ ] `docker compose -f docker/docker-compose.prod.yml config` exits 0
+- [ ] No weak-password fallbacks in any compose file
+
+### Tests
+
+`tests/unit/test_tarpit_protection.py`:
+- [ ] Global cap reached → overflow action
+- [ ] Per-IP cap → overflow; other IPs unaffected
+- [ ] Counter DECR on clean close
+- [ ] Counter DECR on exception (abrupt disconnect)
+
+`tests/unit/test_json_logging.py`:
+- [ ] 100 log lines with JSON formatter → all parse as valid JSON
+- [ ] SensitiveDataFilter strips passwords before JSON output
+- [ ] Startup without password in production mode → exits non-zero
+
+`tests/integration/test_pipeline.py` (additions):
+- [ ] SIGTERM with active connections → connections drain; `shutdown_initiated` logged
+
+`tests/chaos/test_tarpit_cap.py`:
+- [ ] Redis unavailable for tarpit background update → no crash; in-process count correct
+
+`tests/performance/bench_pipeline.py` (addition):
+- [ ] Tarpit counter check overhead: p99 < 1ms under 500 concurrent
 
 ### Observability
-- [ ] Prometheus gauge:   `ja4proxy_tarpit_concurrent` — current concurrent tarpitted connections
-- [ ] Prometheus counter: `ja4proxy_tarpit_overflow_total{action}` — connections that hit tarpit capacity cap
-- [ ] Alertmanager rules file covers all failure modes documented in Phases 0–13
-- [ ] `docs/security/SECURITY_CHECKLIST.md` updated with all production hardening items
+- [ ] `ja4proxy_tarpit_concurrent` gauge
+- [ ] `ja4proxy_tarpit_overflow_total{action}` counter
+- [ ] `ja4proxy_active_connections` gauge (renamed from `ja4_active_connections`)
+- [ ] All added to `docs/OBSERVABILITY_STANDARDS.md`
 
-- [ ] JSON log: all proxy log output is valid JSON; parsing 1000 log lines produces zero parse errors (verified by test)
-- [ ] JSON log: `{"type":"system","level":"INFO","subsystem":"proxy","event":"shutdown_initiated"}` emitted on SIGTERM with `active_connections` count
-
-### Unit Tests  (`tests/unit/test_tarpit.py`)
-- [ ] Tarpit cap reached: next candidate receives `overflow_action` (block/rst/allow per config)
-- [ ] Per-IP cap: IP at `max_per_ip` receives overflow action; other IPs unaffected
-- [ ] Counter DECR on close: concurrent count returns to correct value after connection closes
-- [ ] Abrupt disconnect: counter cleaned up; no leak after disconnect without clean close
-
-### Integration Tests  (`tests/integration/test_pipeline.py`)
-- [ ] Graceful shutdown: SIGTERM during 50 active connections → all drain within timeout; no hung connections
-- [ ] Redis AUTH: proxy connects with password; wrong password → FATAL logged; process exits
-- [ ] Structured JSON logging: 100 connections processed → all log lines parse as valid JSON
-
-### Chaos Tests  (`tests/chaos/test_redis_failure.py`)
-- [ ] Redis unavailable during tarpit counter INCR: fail open; counter not leaked; connection tarpitted
-
-### Performance Tests  (`tests/performance/bench_pipeline.py`)
-- [ ] Tarpit counter operations: p99 < 1ms under 500 concurrent tarpitted connections
+### Documentation
+- [ ] `docs/SECOPS_OPERATIONS.md`: tarpit resource sizing guidance added
+- [ ] `docs/security/SECURITY_CHECKLIST.md`: Phase 14 production hardening items added
+- [ ] `docs/security/COMPREHENSIVE_SECURITY_AUDIT.md`: resolved findings marked ✅
+- [ ] `CHANGELOG.md` updated
