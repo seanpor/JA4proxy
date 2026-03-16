@@ -20,18 +20,57 @@ Rewrite `proxy.py` and `src/security/` in Go. Target: ≥5× throughput vs Pytho
 
 ---
 
+## Scaffolding State (as of 2026-03-16)
+
+The following files were committed as initial scaffolding. They are **not functional** —
+see the issues listed below before starting Phase 1.
+
+### Files that exist
+
+| File | State | Notes |
+|------|-------|-------|
+| `go.mod` | ⚠️ Wrong dependency | redis import path incorrect — see below |
+| `cmd/proxy/main.go` | ⚠️ Skeleton only | Calls `NewProxy` and `config.Load` which don't exist yet |
+| `internal/tls/hello_info.go` | 🟡 Struct definitions | `ClientHelloInfo` and `ClientHelloField` structs; field layout is preliminary |
+| `internal/tls/ja4.go` | ⚠️ Non-functional placeholder | `hashValue()` sums uint16s instead of SHA256; ALPN hardcoded to `"h2"`; format string has wrong arg count — will not produce correct JA4 |
+
+### Empty packages (contain no .go files)
+
+- `internal/cache/`
+- `internal/redis/`
+- `internal/security/`
+- `internal/config/`
+
+### Known issues to fix before Phase 1
+
+1. **`go.mod` wrong redis import path** — current: `github.com/go-redis/redis/v9`, correct: `github.com/redis/go-redis/v9`. Fix with:
+   ```
+   go get github.com/redis/go-redis/v9
+   go mod tidy
+   ```
+
+2. **`internal/tls/ja4.go` is non-functional** — `hashValue()` must use SHA256 (not integer sum); ALPN extraction must parse the ALPN extension data (not return a hardcoded string); the `fmt.Sprintf` format string has wrong argument count. Delete and rewrite from spec.
+
+3. **`cmd/proxy/main.go` references unimplemented types** — `NewProxy`, `config.Load`, `Proxy.Run()`, `Proxy.Close()` do not exist. This file will not compile until Phase 2/3 provide these.
+
+4. **`internal/tls/hello_info.go` field layout is preliminary** — `ClientHelloInfo` contains single `CipherSuite uint16` but the JA4 spec requires the full cipher suite list. The struct will need to be revised in Phase 1 when the parser is written.
+
+---
+
 ## Phase 0: Foundation (1 hour)
 
 **Tasks:**
-- [x] Create Go module at `cmd/proxy/`
-- [ ] Initialize `go.mod` with dependencies (github.com/sirupsen/logrus, github.com/golang/snappy, etc.)
-- [ ] Set up directory structure matching Phase 15d spec
+- [x] Create Go module (`go.mod` exists at repo root)
+- [ ] Fix `go.mod` redis import path: replace `github.com/go-redis/redis/v9` with `github.com/redis/go-redis/v9`; run `go mod tidy`
+- [ ] Add remaining dependencies: `github.com/sirupsen/logrus`, `gopkg.in/yaml.v3`
+- [ ] Set up directory structure matching Phase 15d spec (empty package dirs already present)
 - [ ] Create `config/build.yml` with Go build settings
 - [ ] Write design doc: error handling strategy, fail-open behaviour
 
 **Acceptance:**
-- ✅ Module initializes without errors
-- ✅ Directory tree matches spec
+- ✅ Module file exists
+- ⬜ `go mod tidy` succeeds with correct import paths
+- ⬜ Directory tree matches Phase 15d spec
 - ⬜ Design decisions documented
 
 ---
@@ -198,12 +237,12 @@ Rewrite `proxy.py` and `src/security/` in Go. Target: ≥5× throughput vs Pytho
 
 ## Dependencies Checklist
 
-- [ ] go-redis/v9 (Redis client with pipelining)
-- [ ] github.com/golang/snappy (snappy decompression if needed; Python uses this for Redis too)
-- [ ] github.com/oschwald/geoip2-golang (GeoIP lookup)
-- [ ] github.com/oschwald/maxminddb-golang (MaxMind DB reader)
-- [ ] go-yaml for config parsing
-- [ ] gorilla/websocket? No - not used by proxy
+- [ ] `github.com/redis/go-redis/v9` — Redis client with pipelining (**not** `github.com/go-redis/redis/v9` which is the old path)
+- [ ] `github.com/oschwald/geoip2-golang` — GeoIP lookup (wraps maxminddb)
+- [ ] `github.com/oschwald/maxminddb-golang` — MaxMind DB reader (already in go.mod)
+- [ ] `gopkg.in/yaml.v3` — config parsing
+- [ ] `github.com/sirupsen/logrus` — structured JSON logging (matches Python log schema)
+- [ ] `github.com/golang/snappy` — only if Redis compression enabled; defer until needed
 
 ---
 

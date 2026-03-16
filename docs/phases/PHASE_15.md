@@ -84,6 +84,19 @@ go_proxy:
 | Redis connection fails mid-traffic | Same fail-open behaviour as Python proxy; verified by identical chaos test suite |
 | Config file has unknown keys | Go proxy ignores unknown keys with DEBUG log; does not exit |
 
+## Current Implementation State (as of 2026-03-16)
+
+Initial scaffolding is committed. **Nothing is functional yet.** See `PHASE_15_subplan.md`
+for the full breakdown of what exists and what is broken. Summary:
+
+- `go.mod` exists but has the wrong redis import path (`go-redis/redis/v9` → fix to `redis/go-redis/v9`)
+- `cmd/proxy/main.go` is a skeleton; references `NewProxy` / `config.Load` which don't exist
+- `internal/tls/hello_info.go` has preliminary struct definitions
+- `internal/tls/ja4.go` is a non-functional placeholder (wrong hash, hardcoded ALPN)
+- All other `internal/` packages are empty
+
+Start at Phase 0 in `PHASE_15_subplan.md` to begin the actual implementation.
+
 ## Acceptance Criteria
 
 ### Functional
