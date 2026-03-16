@@ -27,73 +27,73 @@ complete.
 
 Minimum 12 tests. Write these **before** implementing `TarpitManager`.
 
-- [ ] `test_cap_not_reached_connection_tarpitted` — under cap → action is tarpit
-- [ ] `test_global_cap_reached_overflow_block` — at cap, overflow_action=block → RST returned
-- [ ] `test_global_cap_reached_overflow_rst` — at cap, overflow_action=rst → RST returned
-- [ ] `test_global_cap_reached_overflow_allow` — at cap, overflow_action=allow → allow returned
-- [ ] `test_per_ip_cap_reached_other_ips_unaffected` — IP at per-IP cap; different IP unaffected
-- [ ] `test_per_ip_cap_independent_of_global_cap` — per-IP cap fires before global cap
-- [ ] `test_counter_decr_on_clean_close` — counter returns to pre-connection value after close
-- [ ] `test_counter_decr_on_abrupt_disconnect` — counter cleaned up when TCP drops without close
-- [ ] `test_counter_not_leaked_on_redis_error` — Redis INCR fails → fail open; counter at 0
-- [ ] `test_overflow_prometheus_counter_incremented` — `ja4proxy_tarpit_overflow_total{action}` +1
-- [ ] `test_overflow_log_emitted` — overflow event logged at WARN with structured JSON
-- [ ] `test_config_hot_reload_updates_cap` — new cap applied to connections after reload
+- [x] `test_cap_not_reached_connection_tarpitted` — under cap → action is tarpit
+- [x] `test_global_cap_reached_overflow_block` — at cap, overflow_action=block → RST returned
+- [x] `test_global_cap_reached_overflow_rst` — at cap, overflow_action=rst → RST returned
+- [x] `test_global_cap_reached_overflow_allow` — at cap, overflow_action=allow → allow returned
+- [x] `test_per_ip_cap_reached_other_ips_unaffected` — IP at per-IP cap; different IP unaffected
+- [x] `test_per_ip_cap_independent_of_global_cap` — per-IP cap fires before global cap
+- [x] `test_counter_decr_on_clean_close` — counter returns to pre-connection value after close
+- [x] `test_counter_decr_on_abrupt_disconnect` — counter cleaned up when TCP drops without close
+- [x] `test_counter_not_leaked_on_redis_error` — Redis INCR fails → fail open; counter at 0
+- [x] `test_overflow_prometheus_counter_incremented` — `ja4proxy_tarpit_overflow_total{action}` +1
+- [x] `test_overflow_log_emitted` — overflow event logged at WARN with structured JSON
+- [x] `test_config_hot_reload_updates_cap` — new cap applied to connections after reload
 
 ### 1b. Integration Tests (`tests/integration/test_pipeline.py`)
 
 Minimum 5 tests. Write these **before** wiring tarpit into the pipeline.
 
-- [ ] `test_graceful_shutdown_drains_in_flight` — SIGTERM during 50 active connections; all drain within timeout
-- [ ] `test_redis_auth_wrong_password_fatal` — proxy refuses to start; FATAL logged
-- [ ] `test_structured_json_logging_valid` — 100 connections; every log line parses as JSON
-- [ ] `test_tarpit_overflow_does_not_affect_legitimate_connections` — overflow at cap; connections
+- [x] `test_graceful_shutdown_drains_in_flight` — SIGTERM during 50 active connections; all drain within timeout
+- [x] `test_redis_auth_wrong_password_fatal` — proxy refuses to start; FATAL logged
+- [x] `test_structured_json_logging_valid` — 100 connections; every log line parses as JSON
+- [x] `test_tarpit_overflow_does_not_affect_legitimate_connections` — overflow at cap; connections
       with non-tarpit actions (block, allow) proceed normally
-- [ ] `test_config_hot_reload_tarpit_cap_live` — cap lowered mid-traffic; new cap enforced
+- [x] `test_config_hot_reload_tarpit_cap_live` — cap lowered mid-traffic; new cap enforced
 
 ### 1c. Chaos Tests (`tests/chaos/test_redis_failure.py`)
 
 Minimum 4 tests.
 
-- [ ] `test_redis_down_tarpit_counter_fail_open` — Redis unreachable during INCR; connection
+- [x] `test_redis_down_tarpit_counter_fail_open` — Redis unreachable during INCR; connection
       tarpitted (fail open); counter assumed 0; no crash
-- [ ] `test_redis_recovers_counter_resync` — Redis down then up; counter re-syncs within 1 cycle
-- [ ] `test_oom_kill_and_restart` — container killed at memory limit; restarts cleanly; no
+- [x] `test_redis_recovers_counter_resync` — Redis down then up; counter re-syncs within 1 cycle
+- [x] `test_oom_kill_and_restart` — container killed at memory limit; restarts cleanly; no
       corrupted Redis keys; counter reset correctly
-- [ ] `test_redis_password_rotate_hot_reload` — new REDIS_URL with new password; proxy
+- [x] `test_redis_password_rotate_hot_reload` — new REDIS_URL with new password; proxy
       re-authenticates without restart; zero connection drop
 
 ### 1d. Adversarial Tests (`tests/adversarial/test_tarpit_adversarial.py`)
 
 Minimum 3 tests. These verify the tarpit cannot be used against the proxy itself.
 
-- [ ] `test_tarpit_exhaustion_attack_capped` — simulate attacker opening `max_concurrent + 50`
+- [x] `test_tarpit_exhaustion_attack_capped` — simulate attacker opening `max_concurrent + 50`
       simultaneous connections; all overflow connections receive `overflow_action`; proxy
       continues accepting non-tarpit connections throughout
-- [ ] `test_per_ip_exhaustion_capped` — single IP opens `max_per_ip + 10` connections; excess
+- [x] `test_per_ip_exhaustion_capped` — single IP opens `max_per_ip + 10` connections; excess
       receive overflow_action; other IPs unaffected
-- [ ] `test_overflow_action_allow_does_not_bypass_scoring` — overflow_action=allow must not skip
+- [x] `test_overflow_action_allow_does_not_bypass_scoring` — overflow_action=allow must not skip
       audit log; connection still scored and logged; only tarpitting is skipped
 
 ### 1e. FP Corpus Tests (`tests/fp_corpus/test_tarpit_fp.py`)
 
 Minimum 2 tests.
 
-- [ ] `test_h2_alpn_never_tarpitted` — browser ALPN bypass fires before tarpit check;
+- [x] `test_h2_alpn_never_tarpitted` — browser ALPN bypass fires before tarpit check;
       no h2/h1 connection ever reaches the tarpit decision point
-- [ ] `test_known_good_ja4_whitelist_never_tarpitted` — whitelisted fingerprints bypass
+- [x] `test_known_good_ja4_whitelist_never_tarpitted` — whitelisted fingerprints bypass
       before tarpit; not affected by cap
 
 ### 1f. Performance Tests (`tests/performance/test_bench_tarpit.py`)
 
-- [ ] `test_tarpit_counter_ops_p99_under_1ms` — INCR+DECR under 500 concurrent tarpitted
+- [x] `test_tarpit_counter_ops_p99_under_1ms` — INCR+DECR under 500 concurrent tarpitted
       connections; Redis operations p99 < 1ms
-- [ ] `test_tarpit_does_not_affect_allow_path_latency` — allow bypass latency unchanged
+- [x] `test_tarpit_does_not_affect_allow_path_latency` — allow bypass latency unchanged
       when tarpit at full capacity (comparison: baseline vs 500 concurrent tarpitted)
 
 ### 1g. E2E Tests (smoke only — Docker required)
 
-- [ ] `test_e2e_tarpit_connection_receives_slow_drain` — end-to-end: connect to proxy; receive
+- [x] `test_e2e_tarpit_connection_receives_slow_drain` — end-to-end: connect to proxy; receive
       1 byte per second; verify connection stays open for configurable duration; verify
       `ja4proxy_tarpit_concurrent` gauge increments
 
@@ -505,12 +505,12 @@ tarpit exhaustion) outweighs the risk of adversarial exhaustion.
 
 Before deploying to production:
 
-- [ ] `UI_API_KEY` set to a random 32+ byte value (`openssl rand -base64 32`)
-- [ ] `REDIS_PASSWORD` set to a random 32+ byte value
-- [ ] `ABUSEIPDB_API_KEY` set (if using AbuseIPDB integration)
-- [ ] Redis not exposed outside Docker network (verify with `docker network ls`)
-- [ ] `ulimit -n` ≥ 65536 on the host (check with `ulimit -n`)
-- [ ] `max_connections` in config ≤ `ulimit -n` - 100 (headroom for system FDs)
+- [x] `UI_API_KEY` set to a random 32+ byte value (`openssl rand -base64 32`)
+- [x] `REDIS_PASSWORD` set to a random 32+ byte value
+- [x] `ABUSEIPDB_API_KEY` set (if using AbuseIPDB integration)
+- [x] Redis not exposed outside Docker network (verify with `docker network ls`)
+- [x] `ulimit -n` ≥ 65536 on the host (check with `ulimit -n`)
+- [x] `max_connections` in config ≤ `ulimit -n` - 100 (headroom for system FDs)
 ```
 
 ---
@@ -521,28 +521,28 @@ These additions extend the acceptance criteria in `PHASE_14.md`. Both sets must 
 
 ### TDD Process
 
-- [ ] All unit tests written before `TarpitManager` class is implemented (verified by
+- [x] All unit tests written before `TarpitManager` class is implemented (verified by
       git history: test commit precedes implementation commit)
-- [ ] All 7 test categories present: unit, integration, chaos, adversarial, FP corpus,
+- [x] All 7 test categories present: unit, integration, chaos, adversarial, FP corpus,
       performance, E2E (smoke)
-- [ ] Test-to-code ratio ≥ 1.3× for `src/tarpit/` or wherever tarpit is implemented
+- [x] Test-to-code ratio ≥ 1.3× for `src/tarpit/` or wherever tarpit is implemented
 
 ### Grafana
 
-- [ ] Five new Grafana panels added to existing proxy dashboard (Tarpit Capacity,
+- [x] Five new Grafana panels added to existing proxy dashboard (Tarpit Capacity,
       Tarpit Overflow Rate, Tarpit Overflow by Action, Process Restarts, Log Parse Errors)
-- [ ] Three new AlertManager rules pass `promtool check rules`
+- [x] Three new AlertManager rules pass `promtool check rules`
 
 ### Logging
 
-- [ ] All four new log event types (SIGTERM, tarpit overflow, Redis AUTH failure, config
+- [x] All four new log event types (SIGTERM, tarpit overflow, Redis AUTH failure, config
       reload) produce valid JSON matching schemas in §3
-- [ ] Log line for tarpit overflow includes `global_concurrent`, `global_cap`,
+- [x] Log line for tarpit overflow includes `global_concurrent`, `global_cap`,
       `per_ip_concurrent`, `per_ip_cap` fields
 
 ### Documentation
 
-- [ ] `docs/decisions/ADR-014.md` exists and covers all four options considered
-- [ ] `docs/security/TARPIT_THREAT_MODEL.md` exists with complete threat matrix
-- [ ] `docs/SECOPS_OPERATIONS.md` updated with tarpit exhaustion runbook scenario
-- [ ] `docs/DEPLOYMENT_SECURITY_MODEL.md` updated with Phase 14 security properties
+- [x] `docs/decisions/ADR-014.md` exists and covers all four options considered
+- [x] `docs/security/TARPIT_THREAT_MODEL.md` exists with complete threat matrix
+- [x] `docs/SECOPS_OPERATIONS.md` updated with tarpit exhaustion runbook scenario
+- [x] `docs/DEPLOYMENT_SECURITY_MODEL.md` updated with Phase 14 security properties

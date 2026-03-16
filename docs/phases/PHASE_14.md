@@ -93,14 +93,14 @@ logging:
 
 ### Acceptance criteria
 
-- [ ] `docker-compose.poc.yml`: all four `:-changeme` fallbacks replaced with `:?` error syntax
-- [ ] `proxy.py` startup: `ENVIRONMENT=production` + no password → FATAL log + `sys.exit(1)`
-- [ ] `JSONFormatter` class implemented; outputs valid JSON for every log record
-- [ ] `SensitiveDataFilter` applied before JSONFormatter; passwords/tokens not in JSON output
-- [ ] When `ENVIRONMENT=production` (or `logging.json_enabled: true`): JSONFormatter active
-- [ ] Test: 100 connections → all log lines parse as valid JSON (`json.loads()` on each)
-- [ ] Test: startup with `ENVIRONMENT=production` + no password → process exits non-zero
-- [ ] JSON log: `{"type":"system","level":"INFO","event":"shutdown_initiated","active_connections":N}` emitted on shutdown
+- [x] `docker-compose.poc.yml`: all four `:-changeme` fallbacks replaced with `:?` error syntax
+- [x] `proxy.py` startup: `ENVIRONMENT=production` + no password → FATAL log + `sys.exit(1)`
+- [x] `JSONFormatter` class implemented; outputs valid JSON for every log record
+- [x] `SensitiveDataFilter` applied before JSONFormatter; passwords/tokens not in JSON output
+- [x] When `ENVIRONMENT=production` (or `logging.json_enabled: true`): JSONFormatter active
+- [x] Test: 100 connections → all log lines parse as valid JSON (`json.loads()` on each)
+- [x] Test: startup with `ENVIRONMENT=production` + no password → process exits non-zero
+- [x] JSON log: `{"type":"system","level":"INFO","event":"shutdown_initiated","active_connections":N}` emitted on shutdown
 
 ---
 
@@ -153,15 +153,15 @@ proxy:
 
 ### Acceptance criteria
 
-- [ ] SIGTERM → proxy stops accepting new connections immediately
-- [ ] SIGTERM → in-flight connections allowed to complete up to `drain_timeout_seconds`
-- [ ] After drain timeout: process exits regardless of remaining connections; logs count
-- [ ] JSON log: `shutdown_initiated` with `active_connections` count emitted on SIGTERM
-- [ ] JSON log: `shutdown_complete` with `drained_connections` and `forced_close` count
-- [ ] `drain_timeout_seconds` hot-reloadable
-- [ ] Test: SIGTERM with 0 active connections → exits cleanly
-- [ ] Test: SIGTERM with N active connections → connections allowed to complete, then exits
-- [ ] Test: drain timeout exceeded → forced exit; count of forced-closed connections logged
+- [x] SIGTERM → proxy stops accepting new connections immediately
+- [x] SIGTERM → in-flight connections allowed to complete up to `drain_timeout_seconds`
+- [x] After drain timeout: process exits regardless of remaining connections; logs count
+- [x] JSON log: `shutdown_initiated` with `active_connections` count emitted on SIGTERM
+- [x] JSON log: `shutdown_complete` with `drained_connections` and `forced_close` count
+- [x] `drain_timeout_seconds` hot-reloadable
+- [x] Test: SIGTERM with 0 active connections → exits cleanly
+- [x] Test: SIGTERM with N active connections → connections allowed to complete, then exits
+- [x] Test: drain timeout exceeded → forced exit; count of forced-closed connections logged
 
 ---
 
@@ -253,21 +253,21 @@ The distinction matters for future logging detail — keep both for semantic cla
 
 ### Acceptance criteria
 
-- [ ] `max_concurrent_connections` cap enforced; new tarpit arrivals → overflow_action when full
-- [ ] `max_per_ip` cap enforced independently of global cap
-- [ ] Per-IP counter incremented on tarpit start, decremented on close (clean or abrupt)
-- [ ] Abrupt disconnect: counter cleaned up; no counter leak
-- [ ] Overflow action configurable: `block` | `rst` | `allow`; `allow` fails open to backend
-- [ ] `ja4proxy_tarpit_concurrent` gauge reflects current in-process count
-- [ ] `ja4proxy_tarpit_overflow_total{action}` incremented on each overflow
-- [ ] `docs/SECOPS_OPERATIONS.md` updated with tarpit resource sizing guidance
-- [ ] `docs/OBSERVABILITY_STANDARDS.md` updated with both new metrics
-- [ ] Test: cap reached → overflow action taken; counter not incremented
-- [ ] Test: per-IP cap → IP at limit gets overflow; other IPs unaffected
-- [ ] Test: counter DECR on clean close → returns to correct value
-- [ ] Test: abrupt disconnect (exception in tarpit) → counter still decremented
-- [ ] Test (chaos): Redis unavailable during background tarpit gauge update → no crash; in-process counter correct
-- [ ] Performance: tarpit counter check p99 < 1ms under 500 concurrent tarpitted connections
+- [x] `max_concurrent_connections` cap enforced; new tarpit arrivals → overflow_action when full
+- [x] `max_per_ip` cap enforced independently of global cap
+- [x] Per-IP counter incremented on tarpit start, decremented on close (clean or abrupt)
+- [x] Abrupt disconnect: counter cleaned up; no counter leak
+- [x] Overflow action configurable: `block` | `rst` | `allow`; `allow` fails open to backend
+- [x] `ja4proxy_tarpit_concurrent` gauge reflects current in-process count
+- [x] `ja4proxy_tarpit_overflow_total{action}` incremented on each overflow
+- [x] `docs/SECOPS_OPERATIONS.md` updated with tarpit resource sizing guidance
+- [x] `docs/OBSERVABILITY_STANDARDS.md` updated with both new metrics
+- [x] Test: cap reached → overflow action taken; counter not incremented
+- [x] Test: per-IP cap → IP at limit gets overflow; other IPs unaffected
+- [x] Test: counter DECR on clean close → returns to correct value
+- [x] Test: abrupt disconnect (exception in tarpit) → counter still decremented
+- [x] Test (chaos): Redis unavailable during background tarpit gauge update → no crash; in-process counter correct
+- [x] Performance: tarpit counter check p99 < 1ms under 500 concurrent tarpitted connections
 
 ---
 
@@ -304,11 +304,11 @@ beaconing:
 
 ### Acceptance criteria
 
-- [ ] `beaconing.max_suspects` config option honoured by `BeaconingDetector`
-- [ ] When suspects > `max_suspects`, lowest-scoring entries trimmed before insert
-- [ ] Sliding window rate limiter keys all have TTL; verified by inspecting a key after insert
-- [ ] Test: insert `max_suspects + 1` entries → leaderboard size stays ≤ `max_suspects`
-- [ ] Test: Redis MEMORY USAGE does not grow unboundedly when 10k unique IPs beacon
+- [x] `beaconing.max_suspects` config option honoured by `BeaconingDetector`
+- [x] When suspects > `max_suspects`, lowest-scoring entries trimmed before insert
+- [x] Sliding window rate limiter keys all have TTL; verified by inspecting a key after insert
+- [x] Test: insert `max_suspects + 1` entries → leaderboard size stays ≤ `max_suspects`
+- [x] Test: Redis MEMORY USAGE does not grow unboundedly when 10k unique IPs beacon
 
 ---
 
@@ -433,14 +433,14 @@ groups:
 
 ### Acceptance criteria
 
-- [ ] `monitoring/prometheus/alerts.yml` rewritten; all expressions reference real `ja4proxy_*` metric names
-- [ ] `ja4_active_connections` gauge in `proxy.py` renamed to `ja4proxy_active_connections`
-- [ ] `monitoring/alertmanager/rules/proxy.rules.yml` created
-- [ ] `monitoring/alertmanager/rules/redis.rules.yml` created
-- [ ] `monitoring/alertmanager/rules/security.rules.yml` created
-- [ ] All alert rules validated with `promtool check rules` (run as part of tests or CI)
-- [ ] Test: PromQL expressions in all rules are syntactically valid
-- [ ] `docs/security/COMPREHENSIVE_SECURITY_AUDIT.md` updated: mark resolved findings as ✅ with fix location; remove obsolete "do you approve" footer
+- [x] `monitoring/prometheus/alerts.yml` rewritten; all expressions reference real `ja4proxy_*` metric names
+- [x] `ja4_active_connections` gauge in `proxy.py` renamed to `ja4proxy_active_connections`
+- [x] `monitoring/alertmanager/rules/proxy.rules.yml` created
+- [x] `monitoring/alertmanager/rules/redis.rules.yml` created
+- [x] `monitoring/alertmanager/rules/security.rules.yml` created
+- [x] All alert rules validated with `promtool check rules` (run as part of tests or CI)
+- [x] Test: PromQL expressions in all rules are syntactically valid
+- [x] `docs/security/COMPREHENSIVE_SECURITY_AUDIT.md` updated: mark resolved findings as ✅ with fix location; remove obsolete "do you approve" footer
 
 ---
 
@@ -492,12 +492,12 @@ These items from the DMZ readiness doc and security audit are deferred:
 
 ### Acceptance criteria
 
-- [ ] `docker/docker-compose.prod.yml` replaced; runs without error on `docker compose config`
-- [ ] All referenced `Dockerfile.*`, config files, and secret files exist or are documented as generated
-- [ ] Docker secrets used for `REDIS_PASSWORD`, `GRAFANA_PASSWORD`, `ABUSEIPDB_API_KEY`
-- [ ] No `:-changeme` fallback in any compose file
-- [ ] `docker compose -f docker/docker-compose.prod.yml config` exits 0
-- [ ] Deferred items documented in the table above with rationale
+- [x] `docker/docker-compose.prod.yml` replaced; runs without error on `docker compose config`
+- [x] All referenced `Dockerfile.*`, config files, and secret files exist or are documented as generated
+- [x] Docker secrets used for `REDIS_PASSWORD`, `GRAFANA_PASSWORD`, `ABUSEIPDB_API_KEY`
+- [x] No `:-changeme` fallback in any compose file
+- [x] `docker compose -f docker/docker-compose.prod.yml config` exits 0
+- [x] Deferred items documented in the table above with rationale
 
 ---
 
