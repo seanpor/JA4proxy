@@ -109,7 +109,7 @@ MALICIOUS_CLIENTS = [
         attack_type="C2 Communication",
         tls_min_version=ssl.TLSVersion.TLSv1_2,
         tls_max_version=ssl.TLSVersion.TLSv1_2,  # CS beacon often TLS 1.2 only
-        ciphers="AES256-SHA:AES128-SHA:AES256-GCM-SHA384:AES128-GCM-SHA256",
+        ciphers="ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256",
         alpn=None,
         sni="backend",
     ),
@@ -133,7 +133,7 @@ MALICIOUS_CLIENTS = [
         attack_type="Credential Stuffing",
         tls_min_version=ssl.TLSVersion.TLSv1_2,
         tls_max_version=ssl.TLSVersion.TLSv1_2,
-        ciphers="AES128-SHA:AES256-SHA:DES-CBC3-SHA",
+        ciphers="ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384",
         alpn=None,
         sni="backend",
     ),
