@@ -238,8 +238,8 @@ class TrafficGenerator:
             # TLS handshake failed — could be blocked OR backend issue
             # In monitor mode (dial=0), proxy should never block, so this is likely a backend issue
             result["error"] = f"TLS: {e}"
-            result["blocked"] = True  # Assume blocked by proxy (TLS-terminating mode)
-            self.stats[profile.name]["blocked"] += 1
+            result["blocked"] = False  # Not a proxy block in monitor mode
+            self.stats[profile.name]["errors"] += 1
         except ConnectionRefusedError:
             result["error"] = "Connection refused"
             result["blocked"] = False  # Proxy not listening or network issue
