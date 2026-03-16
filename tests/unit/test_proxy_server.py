@@ -315,8 +315,9 @@ class TestInitRedis:
         env = dict(os.environ)
         env["ENVIRONMENT"] = "production"
         with patch.dict(os.environ, env):
-            with pytest.raises(SecurityError, match="password is required"):
+            with pytest.raises(SystemExit) as exc_info:
                 _run(server._init_redis())
+            assert exc_info.value.code == 1
 
     def test_no_password_in_development_warns(self, caplog):
         server = _make_server(
@@ -361,8 +362,9 @@ class TestInitRedis:
         env = dict(os.environ)
         env["ENVIRONMENT"] = "production"
         with patch.dict(os.environ, env):
-            with pytest.raises(SecurityError, match="password is required"):
+            with pytest.raises(SystemExit) as exc_info:
                 _run(server._init_redis())
+            assert exc_info.value.code == 1
 
     def test_no_password_in_development_warns(self, caplog):
         server = _make_server(
@@ -407,8 +409,9 @@ class TestInitRedis:
         env = dict(os.environ)
         env["ENVIRONMENT"] = "production"
         with patch.dict(os.environ, env):
-            with pytest.raises(SecurityError, match="password is required"):
+            with pytest.raises(SystemExit) as exc_info:
                 _run(server._init_redis())
+            assert exc_info.value.code == 1
 
     def test_no_password_in_development_warns(self, caplog):
         server = _make_server(
