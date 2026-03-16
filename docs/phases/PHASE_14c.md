@@ -1208,46 +1208,46 @@ Tests must be written before implementation code.
 
 ### 14c-unit (`tests/unit/test_network_hardening.py`)
 
-- [ ] `test_backend_tls_disabled_emits_warning` — config `backend.tls.enabled=false` → WARN logged at startup
-- [ ] `test_backend_tls_enabled_creates_ssl_context` — `make_backend_ssl_context()` returns `ssl.SSLContext` with `CERT_REQUIRED`
-- [ ] `test_backend_tls_wrong_ca_raises_at_startup` — invalid CA path → `FileNotFoundError` at init
-- [ ] `test_backend_tls_hostname_verification_on_by_default` — `ctx.check_hostname = True`
-- [ ] `test_backend_tls_client_cert_loaded_when_configured` — `ctx.load_cert_chain()` called
-- [ ] `test_redis_tls_disabled_emits_warning` — same pattern as backend
-- [ ] `test_metrics_token_missing_allows_request` — fail-open when no `METRICS_TOKEN`
-- [ ] `test_metrics_token_present_rejects_wrong_token` — 401 on wrong token
-- [ ] `test_metrics_token_present_accepts_correct_token` — 200 on correct token
-- [ ] `test_metrics_token_timing_safe` — uses `hmac.compare_digest`, not `==`
-- [ ] `test_seccomp_profile_is_valid_json` — parses without error
-- [ ] `test_seccomp_profile_blocks_ptrace` — `ptrace` in blocked list
-- [ ] `test_seccomp_profile_blocks_mount` — `mount` in blocked list
-- [ ] `test_redis_acl_proxy_user_cannot_config` — ACL entry for proxy has no `+CONFIG`
-- [ ] `test_redis_acl_proxy_user_cannot_flushdb` — `+FLUSHDB` absent
-- [ ] `test_redis_acl_analytics_user_cannot_flushdb` — same
+- [x] `test_backend_tls_disabled_emits_warning` — config `backend.tls.enabled=false` → WARN logged at startup
+- [x] `test_backend_tls_enabled_creates_ssl_context` — `make_backend_ssl_context()` returns `ssl.SSLContext` with `CERT_REQUIRED`
+- [x] `test_backend_tls_wrong_ca_raises_at_startup` — invalid CA path → `FileNotFoundError` at init
+- [x] `test_backend_tls_hostname_verification_on_by_default` — `ctx.check_hostname = True`
+- [x] `test_backend_tls_client_cert_loaded_when_configured` — `ctx.load_cert_chain()` called
+- [x] `test_redis_tls_disabled_emits_warning` — same pattern as backend
+- [x] `test_metrics_token_missing_allows_request` — fail-open when no `METRICS_TOKEN`
+- [x] `test_metrics_token_present_rejects_wrong_token` — 401 on wrong token
+- [x] `test_metrics_token_present_accepts_correct_token` — 200 on correct token
+- [x] `test_metrics_token_timing_safe` — uses `hmac.compare_digest`, not `==`
+- [x] `test_seccomp_profile_is_valid_json` — parses without error
+- [x] `test_seccomp_profile_blocks_ptrace` — `ptrace` in blocked list
+- [x] `test_seccomp_profile_blocks_mount` — `mount` in blocked list
+- [x] `test_redis_acl_proxy_user_cannot_config` — ACL entry for proxy has no `+CONFIG`
+- [x] `test_redis_acl_proxy_user_cannot_flushdb` — `+FLUSHDB` absent
+- [x] `test_redis_acl_analytics_user_cannot_flushdb` — same
 
 ### 14c-integration (`tests/integration/test_tls_connections.py`)
 
-- [ ] `test_proxy_connects_to_redis_with_tls` — mock TLS Redis; proxy connects; handshake completes
-- [ ] `test_proxy_rejects_redis_with_wrong_cert` — bad server cert → connection fails, proxy continues without Redis (fail open)
-- [ ] `test_proxy_backend_tls_handshake` — mock TLS backend; proxy forwards connection; data passes through
-- [ ] `test_management_api_requires_https` — plain HTTP to port 8090 → redirect or reject
-- [ ] `test_redis_acl_rejects_config_command` — proxy Redis client cannot issue CONFIG; catches error, logs, continues
+- [x] `test_proxy_connects_to_redis_with_tls` — mock TLS Redis; proxy connects; handshake completes
+- [x] `test_proxy_rejects_redis_with_wrong_cert` — bad server cert → connection fails, proxy continues without Redis (fail open)
+- [x] `test_proxy_backend_tls_handshake` — mock TLS backend; proxy forwards connection; data passes through
+- [x] `test_management_api_requires_https` — plain HTTP to port 8090 → redirect or reject
+- [x] `test_redis_acl_rejects_config_command` — proxy Redis client cannot issue CONFIG; catches error, logs, continues
 
 ### 14c-chaos (`tests/chaos/test_network_failures.py`)
 
-- [ ] `test_redis_tls_cert_expires_mid_run` — swap Redis cert at runtime; proxy reconnects; fail open during gap
-- [ ] `test_backend_tls_cert_rejected` — mock backend returns wrong cert; proxy logs error, sends 502 to client, does not crash
-- [ ] `test_network_partition_between_proxy_and_redis` — drop net-proxy→redis; proxy fails open; connections continue
+- [x] `test_redis_tls_cert_expires_mid_run` — swap Redis cert at runtime; proxy reconnects; fail open during gap
+- [x] `test_backend_tls_cert_rejected` — mock backend returns wrong cert; proxy logs error, sends 502 to client, does not crash
+- [x] `test_network_partition_between_proxy_and_redis` — drop net-proxy→redis; proxy fails open; connections continue
 
 ### 14c-adversarial (`tests/adversarial/test_proxy_spoof.py`)
 
-- [ ] `test_proxy_header_from_untrusted_cidr_rejected` — PROXY protocol from non-HAProxy IP → client IP not trusted
-- [ ] `test_proxy_header_from_trusted_cidr_accepted` — PROXY protocol from HAProxy CIDR → real IP extracted
+- [x] `test_proxy_header_from_untrusted_cidr_rejected` — PROXY protocol from non-HAProxy IP → client IP not trusted
+- [x] `test_proxy_header_from_trusted_cidr_accepted` — PROXY protocol from HAProxy CIDR → real IP extracted
 
 ### 14c-performance (`tests/performance/bench_tls.py`)
 
-- [ ] `test_tls_backend_connection_overhead` — p99 latency overhead vs plaintext < 2ms for established connections
-- [ ] `test_tls_redis_connection_overhead` — per-command TLS overhead < 0.5ms p99
+- [x] `test_tls_backend_connection_overhead` — p99 latency overhead vs plaintext < 2ms for established connections
+- [x] `test_tls_redis_connection_overhead` — per-command TLS overhead < 0.5ms p99
 
 ---
 
@@ -1255,50 +1255,50 @@ Tests must be written before implementation code.
 
 ### 15a. Network topology
 
-- [ ] `docker network inspect br-ja4-proxy` shows no gateway (internal network)
-- [ ] `docker network inspect br-ja4-mgmt` shows no gateway (internal network)
-- [ ] Analytics container cannot ping 8.8.8.8 (egress blocked)
-- [ ] Management container cannot ping 8.8.8.8 (egress blocked)
-- [ ] Proxy container CAN reach AbuseIPDB API (selective egress allowed)
-- [ ] Redis has no published port on the host (`docker port redis` is empty)
+- [x] `docker network inspect br-ja4-proxy` shows no gateway (internal network)
+- [x] `docker network inspect br-ja4-mgmt` shows no gateway (internal network)
+- [x] Analytics container cannot ping 8.8.8.8 (egress blocked)
+- [x] Management container cannot ping 8.8.8.8 (egress blocked)
+- [x] Proxy container CAN reach AbuseIPDB API (selective egress allowed)
+- [x] Redis has no published port on the host (`docker port redis` is empty)
 
 ### 15b. TLS
 
-- [ ] `openssl s_client -connect redis:6380` with wrong client cert → `HANDSHAKE_FAILURE`
-- [ ] `openssl s_client -connect redis:6380` with valid proxy cert → `Verify return code: 0`
-- [ ] `openssl s_client -connect nginx:8090` shows TLS 1.3 negotiated
-- [ ] HTTP (plain) to port 8090 → rejected or redirected
-- [ ] Backend TLS disabled → WARN in startup log; metric `ja4proxy_config_info{backend_tls="false"}` == 1
-- [ ] Redis TLS disabled → WARN in startup log; metric `ja4proxy_config_info{redis_tls="false"}` == 1
+- [x] `openssl s_client -connect redis:6380` with wrong client cert → `HANDSHAKE_FAILURE`
+- [x] `openssl s_client -connect redis:6380` with valid proxy cert → `Verify return code: 0`
+- [x] `openssl s_client -connect nginx:8090` shows TLS 1.3 negotiated
+- [x] HTTP (plain) to port 8090 → rejected or redirected
+- [x] Backend TLS disabled → WARN in startup log; metric `ja4proxy_config_info{backend_tls="false"}` == 1
+- [x] Redis TLS disabled → WARN in startup log; metric `ja4proxy_config_info{redis_tls="false"}` == 1
 
 ### 15c. Redis ACLs
 
-- [ ] `redis-cli -u proxy CONFIG GET maxmemory` → `(error) NOPERM`
-- [ ] `redis-cli -u proxy FLUSHDB` → `(error) NOPERM`
-- [ ] `redis-cli -u proxy KEYS '*'` → `(error) NOPERM`
-- [ ] `redis-cli -u analytics XREAD COUNT 1 STREAMS ja4proxy:events 0` → succeeds
-- [ ] `redis-cli -u analytics FLUSHDB` → `(error) NOPERM`
+- [x] `redis-cli -u proxy CONFIG GET maxmemory` → `(error) NOPERM`
+- [x] `redis-cli -u proxy FLUSHDB` → `(error) NOPERM`
+- [x] `redis-cli -u proxy KEYS '*'` → `(error) NOPERM`
+- [x] `redis-cli -u analytics XREAD COUNT 1 STREAMS ja4proxy:events 0` → succeeds
+- [x] `redis-cli -u analytics FLUSHDB` → `(error) NOPERM`
 
 ### 15d. Container hardening
 
-- [ ] `docker inspect proxy | jq '.[].HostConfig.CapDrop'` → `["ALL"]`
-- [ ] `docker inspect proxy | jq '.[].HostConfig.ReadonlyRootfs'` → `true`
-- [ ] `docker inspect proxy | jq '.[].HostConfig.SecurityOpt'` → includes `no-new-privileges:true`
-- [ ] Process inside proxy container runs as UID 10001 (`docker exec proxy id`)
-- [ ] `docker exec proxy mount` → no writable mounts except declared tmpfs and volumes
+- [x] `docker inspect proxy | jq '.[].HostConfig.CapDrop'` → `["ALL"]`
+- [x] `docker inspect proxy | jq '.[].HostConfig.ReadonlyRootfs'` → `true`
+- [x] `docker inspect proxy | jq '.[].HostConfig.SecurityOpt'` → includes `no-new-privileges:true`
+- [x] Process inside proxy container runs as UID 10001 (`docker exec proxy id`)
+- [x] `docker exec proxy mount` → no writable mounts except declared tmpfs and volumes
 
 ### 15e. Anomaly alerting
 
-- [ ] Manually inject a LOG-triggering packet (via `iptables` TRACE) → AlertManager fires within 60s
-- [ ] Cert with 6 days remaining → `InternalCertExpiryCritical` fires within 15 minutes
-- [ ] Cert with 29 days remaining → `InternalCertExpiringSoon` fires within 1 hour
+- [x] Manually inject a LOG-triggering packet (via `iptables` TRACE) → AlertManager fires within 60s
+- [x] Cert with 6 days remaining → `InternalCertExpiryCritical` fires within 15 minutes
+- [x] Cert with 29 days remaining → `InternalCertExpiringSoon` fires within 1 hour
 
 ### 15f. Operational
 
-- [ ] `./scripts/gen-internal-certs.sh` completes without error; produces 7 cert/key pairs
-- [ ] `./scripts/rotate-certs.sh redis` replaces cert without restarting Redis container
-- [ ] `./scripts/rotate-certs.sh nginx` replaces cert without restarting Nginx container; connection drops < 1s
-- [ ] `promtool check rules monitoring/alertmanager/rules/network_security.rules.yml` → OK
+- [x] `./scripts/gen-internal-certs.sh` completes without error; produces 7 cert/key pairs
+- [x] `./scripts/rotate-certs.sh redis` replaces cert without restarting Redis container
+- [x] `./scripts/rotate-certs.sh nginx` replaces cert without restarting Nginx container; connection drops < 1s
+- [x] `promtool check rules monitoring/alertmanager/rules/network_security.rules.yml` → OK
 
 ---
 

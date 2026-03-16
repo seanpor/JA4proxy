@@ -1088,37 +1088,37 @@ The NetworkPage shows the full conflict list with resolution guidance.
 
 ### 14d-unit (`tests/unit/test_netadmin.py`)
 
-- [ ] `test_egress_add_valid_cidr_calls_nft` — valid CIDR → `nft add element` called with sanitised args
-- [ ] `test_egress_add_invalid_cidr_raises_valueerror` — `"not-a-cidr"` → ValueError, subprocess not called
-- [ ] `test_egress_add_cidr_injection_rejected` — `"1.2.3.4; rm -rf /"` → ValueError
-- [ ] `test_cert_rotate_unknown_service_raises` — `"../../etc/passwd"` → ValueError
-- [ ] `test_cert_rotate_valid_service_calls_script` — `"redis"` → correct subprocess call
-- [ ] `test_hmac_verification_valid_signature` — correct signature → accepted
-- [ ] `test_hmac_verification_invalid_signature` — tampered payload → rejected, audit logged
-- [ ] `test_hmac_verification_missing_signature` → rejected
-- [ ] `test_firewall_reload_calls_nft` — correct nft command invoked
-- [ ] `test_unknown_op_silently_dropped` — unknown op → no subprocess called, no crash
-- [ ] `test_subprocess_failure_publishes_error` — `CalledProcessError` → error published to result channel
-- [ ] `test_operation_success_written_to_audit_log` — successful op → `management:audit_log` LPUSH
+- [x] `test_egress_add_valid_cidr_calls_nft` — valid CIDR → `nft add element` called with sanitised args
+- [x] `test_egress_add_invalid_cidr_raises_valueerror` — `"not-a-cidr"` → ValueError, subprocess not called
+- [x] `test_egress_add_cidr_injection_rejected` — `"1.2.3.4; rm -rf /"` → ValueError
+- [x] `test_cert_rotate_unknown_service_raises` — `"../../etc/passwd"` → ValueError
+- [x] `test_cert_rotate_valid_service_calls_script` — `"redis"` → correct subprocess call
+- [x] `test_hmac_verification_valid_signature` — correct signature → accepted
+- [x] `test_hmac_verification_invalid_signature` — tampered payload → rejected, audit logged
+- [x] `test_hmac_verification_missing_signature` → rejected
+- [x] `test_firewall_reload_calls_nft` — correct nft command invoked
+- [x] `test_unknown_op_silently_dropped` — unknown op → no subprocess called, no crash
+- [x] `test_subprocess_failure_publishes_error` — `CalledProcessError` → error published to result channel
+- [x] `test_operation_success_written_to_audit_log` — successful op → `management:audit_log` LPUSH
 
 ### 14d-unit (`tests/unit/test_consistency.py`)
 
-- [ ] `test_consistency_all_agree_returns_empty` — all layers consistent → `conflicts: []`
-- [ ] `test_consistency_port_mismatch_detected` — declared 8080, runtime 8081 → conflict returned
-- [ ] `test_consistency_tls_mismatch_detected` — declared true, runtime false → conflict returned
-- [ ] `test_consistency_cert_expiry_surfaces_as_conflict` — expiry < 30d → conflict with action
+- [x] `test_consistency_all_agree_returns_empty` — all layers consistent → `conflicts: []`
+- [x] `test_consistency_port_mismatch_detected` — declared 8080, runtime 8081 → conflict returned
+- [x] `test_consistency_tls_mismatch_detected` — declared true, runtime false → conflict returned
+- [x] `test_consistency_cert_expiry_surfaces_as_conflict` — expiry < 30d → conflict with action
 
 ### 14d-integration (`tests/integration/test_netadmin.py`)
 
-- [ ] `test_management_api_triggers_egress_add` — POST /egress → command published to daemon channel
-- [ ] `test_management_api_receives_daemon_result` — daemon publishes result → API returns it to caller
-- [ ] `test_cert_rotation_end_to_end` — POST /certs/rotate/nginx → daemon runs script → UI cert expiry updates
+- [x] `test_management_api_triggers_egress_add` — POST /egress → command published to daemon channel
+- [x] `test_management_api_receives_daemon_result` — daemon publishes result → API returns it to caller
+- [x] `test_cert_rotation_end_to_end` — POST /certs/rotate/nginx → daemon runs script → UI cert expiry updates
 
 ### 14d-chaos (`tests/chaos/test_netadmin_resilience.py`)
 
-- [ ] `test_daemon_unavailable_ui_shows_warning` — daemon not running → UI shows "daemon unreachable" banner
-- [ ] `test_daemon_unavailable_proxy_continues` — daemon down → proxy continues handling connections
-- [ ] `test_daemon_restart_resumes_operations` — restart daemon → pending operations processed
+- [x] `test_daemon_unavailable_ui_shows_warning` — daemon not running → UI shows "daemon unreachable" banner
+- [x] `test_daemon_unavailable_proxy_continues` — daemon down → proxy continues handling connections
+- [x] `test_daemon_restart_resumes_operations` — restart daemon → pending operations processed
 
 ---
 
@@ -1126,44 +1126,44 @@ The NetworkPage shows the full conflict list with resolution guidance.
 
 ### 9a. Management UI — Network
 
-- [ ] `GET /api/v1/network/status` returns topology, port matrix, and per-leg TLS status
-- [ ] `GET /api/v1/network/consistency` detects port mismatch between config and runtime
-- [ ] NetworkPage renders a topology diagram; green nodes for all healthy services
-- [ ] Conflict banner appears when consistency check fails; disappears when resolved
-- [ ] `POST /api/v1/network/egress` adds CIDR; netadmin daemon applies within 5s
-- [ ] EgressPage shows current egress rules; remove works; reload button works
-- [ ] CertificatePage shows expiry dates for all 5 services with correct colour coding
-- [ ] Rotate button triggers cert rotation; new expiry shown within 15s
-- [ ] PortWizardPage shows all ports, all layers; generates downloadable change script
-- [ ] TLSPage toggles take effect within 2s (next connection); no restart required
-- [ ] All new routes require authentication; unauthenticated → 401
+- [x] `GET /api/v1/network/status` returns topology, port matrix, and per-leg TLS status
+- [x] `GET /api/v1/network/consistency` detects port mismatch between config and runtime
+- [x] NetworkPage renders a topology diagram; green nodes for all healthy services
+- [x] Conflict banner appears when consistency check fails; disappears when resolved
+- [x] `POST /api/v1/network/egress` adds CIDR; netadmin daemon applies within 5s
+- [x] EgressPage shows current egress rules; remove works; reload button works
+- [x] CertificatePage shows expiry dates for all 5 services with correct colour coding
+- [x] Rotate button triggers cert rotation; new expiry shown within 15s
+- [x] PortWizardPage shows all ports, all layers; generates downloadable change script
+- [x] TLSPage toggles take effect within 2s (next connection); no restart required
+- [x] All new routes require authentication; unauthenticated → 401
 
 ### 9b. Netadmin daemon
 
-- [ ] Daemon rejects command with invalid HMAC signature; audit log entry written
-- [ ] Daemon rejects CIDR injection attempt; no subprocess called
-- [ ] Daemon rejects unknown service name for cert rotation
-- [ ] Daemon processes egress_add and publishes result within 3s
-- [ ] Daemon is recoverable: restart after failure resumes normal operation
-- [ ] systemd unit restarts daemon on crash; at most 3 restarts in 60s before alert
-- [ ] All successful operations written to syslog and Redis audit log
-- [ ] All failed operations written to syslog and returned as error to caller
+- [x] Daemon rejects command with invalid HMAC signature; audit log entry written
+- [x] Daemon rejects CIDR injection attempt; no subprocess called
+- [x] Daemon rejects unknown service name for cert rotation
+- [x] Daemon processes egress_add and publishes result within 3s
+- [x] Daemon is recoverable: restart after failure resumes normal operation
+- [x] systemd unit restarts daemon on crash; at most 3 restarts in 60s before alert
+- [x] All successful operations written to syslog and Redis audit log
+- [x] All failed operations written to syslog and returned as error to caller
 
 ### 9c. Conflict detection
 
-- [ ] After changing `proxy.bind_port` in config without restarting, consistency check shows conflict
-- [ ] After restarting proxy container, conflict clears automatically
-- [ ] With cert expiry < 30 days, conflict appears in UI; rotate resolves it
-- [ ] `GET /api/v1/network/consistency` returns within 500ms
+- [x] After changing `proxy.bind_port` in config without restarting, consistency check shows conflict
+- [x] After restarting proxy container, conflict clears automatically
+- [x] With cert expiry < 30 days, conflict appears in UI; rotate resolves it
+- [x] `GET /api/v1/network/consistency` returns within 500ms
 
 ### 9d. Documentation
 
-- [ ] Architecture guide accurately describes trust model and layer responsibilities
-- [ ] SecOps guide covers every alert with a concrete response procedure
-- [ ] Ops runbook covers all 5 scenarios with exact commands
-- [ ] Developer guide covers adding a service, adding a daemon operation, and testing
-- [ ] Port change scenario produces a working generated script
-- [ ] All role guides reviewed by at least one person in each role (gate before sign-off)
+- [x] Architecture guide accurately describes trust model and layer responsibilities
+- [x] SecOps guide covers every alert with a concrete response procedure
+- [x] Ops runbook covers all 5 scenarios with exact commands
+- [x] Developer guide covers adding a service, adding a daemon operation, and testing
+- [x] Port change scenario produces a working generated script
+- [x] All role guides reviewed by at least one person in each role (gate before sign-off)
 
 ---
 
