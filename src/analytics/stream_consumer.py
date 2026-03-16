@@ -41,6 +41,9 @@ class StreamConsumer:
         self.consumer_name = consumer_name
         self.redis = None
         self.logger = None
+        # Hot-reloadable via SIGHUP → AnalyticsNode._handle_reload()
+        self.batch_size: int = 100
+        self.timeout_ms: int = 5000
         self.hmac_auth = HMACAuthenticator(hmac_secret or "", hmac_required)
         self.aggregation_manager = AggregationManager(aggregation_window)
         self.hll_manager = HyperLogLogManager()
@@ -101,9 +104,15 @@ class StreamConsumer:
             # Update aggregation
             self.aggregation_manager.update_aggregation(event_data)
             
-            # Update HyperLogLog
+            # Update HyperLogLog — in-process (fast) + Redis (cross-instance, fail-open)
             subnet = self.aggregation_manager.get_subnet(event_data["src_ip"])
             self.hll_manager.add_ip(subnet, event_data["src_ip"])
+            try:
+                hll_key = f"analytics:hll:{subnet}"
+                await self.redis.pfadd(hll_key, event_data["src_ip"])
+                await self.redis.expire(hll_key, 86400)  # 24 h TTL per REDIS_SCHEMA.md
+            except Exception:
+                pass  # Fail open; in-process HLL still accurate for this instance
             
             # Update detection modules
             if self.campaign_detector:

@@ -20,6 +20,7 @@ class AnalyticsNode:
     """Main analytics node application."""
 
     def __init__(self, config_file: str = "config/analytics.yaml"):
+        self.config_file = config_file
         self.config = load_config(config_file)
         self.consumer: Optional[StreamConsumer] = None
         self.shutdown_event = asyncio.Event()
@@ -59,6 +60,7 @@ class AnalyticsNode:
         loop = asyncio.get_running_loop()
         loop.add_signal_handler(signal.SIGINT, self._handle_shutdown)
         loop.add_signal_handler(signal.SIGTERM, self._handle_shutdown)
+        loop.add_signal_handler(signal.SIGHUP, self._handle_reload)
 
         await self.consumer.connect()
         logger.info("Connected to Redis stream")
@@ -88,6 +90,26 @@ class AnalyticsNode:
     def _handle_shutdown(self) -> None:
         logger.info("Shutdown signal received")
         self.shutdown_event.set()
+
+    def _handle_reload(self) -> None:
+        """SIGHUP: reload config from disk; apply hot-reloadable values immediately."""
+        try:
+            new_config = load_config(self.config_file)
+            self.config = new_config
+            # Propagate hot-reloadable stream settings to consumer
+            if self.consumer:
+                self.consumer.batch_size = new_config["stream"].get("batch_size", 100)
+                self.consumer.timeout_ms = new_config["stream"].get("timeout_ms", 5000)
+            logger.info(
+                '{"type":"system","level":"INFO","event":"config_reloaded",'
+                '"subsystem":"analytics"}'
+            )
+        except Exception as exc:
+            logger.warning(
+                '{"type":"system","level":"WARN","event":"config_reload_failed",'
+                '"subsystem":"analytics","error":"%s"}',
+                exc,
+            )
 
     # ── HTTP server ────────────────────────────────────────────────────────
 
