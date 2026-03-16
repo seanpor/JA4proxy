@@ -1,5 +1,26 @@
 # Changelog
 
+## [12.4.0] - 2026-03-16 - PHASE 12 gap-close: Redis HyperLogLog + analytics hot-reload
+
+### Fixed
+- `src/analytics/stream_consumer.py` `process_event()`: HyperLogLog was using an
+  in-memory Python set placeholder ("Phase 12b will implement actual HyperLogLog").
+  Now writes `redis.pfadd(analytics:hll:{subnet}, ip)` + `redis.expire(..., 86400)`
+  on every event (cross-instance aggregation as specified). Fails open if Redis is
+  unavailable; in-process HLL still updated for local accuracy.
+- `src/analytics/main.py` `AnalyticsNode`: added `SIGHUP` → `_handle_reload()`
+  handler; reloads `config/analytics.yaml` from disk and propagates
+  `batch_size`/`timeout_ms` to the running consumer without restart. Logs
+  `config_reloaded` on success, `config_reload_failed` on parse error (keeps old
+  config).
+
+### Added
+- `tests/integration/test_stream_processing.py`:
+  - `TestRedisHyperLogLog` (4 tests): pfadd called with correct key/IP, IPv6 uses
+    /48 subnet, Redis failure is fail-open, TTL is 86400 s
+  - `TestAnalyticsNodeHotReload` (3 tests): config updated on reload, consumer
+    attributes propagated, corrupt config file is safe
+
 ## [14.5.0] - 2026-03-16 - PHASE 14f: Production Docker Compose Cleanup
 
 ### Changed

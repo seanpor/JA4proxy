@@ -222,15 +222,15 @@ scored) should have a stable, low shadow score. Track this separately as a calib
 signal — if it rises, a signal module is firing on traffic it shouldn't.
 
 **Acceptance criteria additions:**
-- [ ] Hourly stats snapshots written to Redis with 7-day TTL
-- [ ] Z-score drift detection runs every analysis cycle
-- [ ] Alert written to `analytics:alerts:score_drift` when |z| > 2.0 (configurable)
-- [ ] Prometheus gauge: `ja4proxy_analytics_score_drift_detected` — 1 if score drift detected, else 0
-- [ ] Known-good shadow score tracked separately for h2/h1 ALPN traffic
-- [ ] Grafana "Score Health" panel added to analytics dashboard
-- [ ] Tests: drift detection algorithm
-- [ ] alert cleared when drift resolves
-- [ ] 
+- [x] Hourly stats snapshots written to Redis with 7-day TTL
+- [x] Z-score drift detection runs every analysis cycle
+- [x] Alert written to `analytics:alerts:score_drift` when |z| > 2.0 (configurable)
+- [x] Prometheus gauge: `ja4proxy_analytics_score_drift_detected` — 1 if score drift detected, else 0
+- [x] Known-good shadow score tracked separately for h2/h1 ALPN traffic
+- [x] Grafana "Score Health" panel added to analytics dashboard
+- [x] Tests: drift detection algorithm
+- [x] alert cleared when drift resolves
+- [x] 
   shadow score computation
 
 ## Redis Key Schema
@@ -279,44 +279,44 @@ analytics_node:
 ## Acceptance Criteria
 
 ### Functional
-- [ ] `Dockerfile.analytics` builds independently; no shared image layers with proxy container
-- [ ] Proxy `XADD` wrapped in `asyncio.create_task()`; hot path latency unaffected by stream writes
-- [ ] Consumer group replays unprocessed events on worker restart; no events lost
-- [ ] Cross-instance aggregation covers IPv4 /24 and IPv6 /48 subnets using HyperLogLog
-- [ ] Campaign and slow scan findings written to Redis; consumed by proxy scorer without restart
-- [ ] JA4 candidate list: secops admin review only; never auto-applied to blacklist
-- [ ] Analytics node crash: proxy continues on stale analytics data; no scoring errors
-- [ ] Hourly baseline snapshot written to `analytics:baseline:hourly:{YYYY-MM-DD-HH}`
-- [ ] Score drift detection: z-score > 2.0 from 7-day baseline → alert written and gauge set
+- [x] `Dockerfile.analytics` builds independently; no shared image layers with proxy container
+- [x] Proxy `XADD` wrapped in `asyncio.create_task()`; hot path latency unaffected by stream writes
+- [x] Consumer group replays unprocessed events on worker restart; no events lost
+- [x] Cross-instance aggregation covers IPv4 /24 and IPv6 /48 subnets using HyperLogLog
+- [x] Campaign and slow scan findings written to Redis; consumed by proxy scorer without restart
+- [x] JA4 candidate list: secops admin review only; never auto-applied to blacklist
+- [x] Analytics node crash: proxy continues on stale analytics data; no scoring errors
+- [x] Hourly baseline snapshot written to `analytics:baseline:hourly:{YYYY-MM-DD-HH}`
+- [x] Score drift detection: z-score > 2.0 from 7-day baseline → alert written and gauge set
 
 ### Configuration
-- [ ] `stream_max_length`, `batch_size`, `analysis_interval_seconds` configurable
-- [ ] Individual analytics modules toggled via `modules.*` config keys
-- [ ] All config values in this phase are hot-reloadable; changes apply to the next connection without restart
+- [x] `stream_max_length`, `batch_size`, `analysis_interval_seconds` configurable
+- [x] Individual analytics modules toggled via `modules.*` config keys
+- [x] All config values in this phase are hot-reloadable; changes apply to the next connection without restart
 
 ### Observability
-- [ ] Prometheus counter:   `ja4proxy_analytics_events_processed_total` — stream events consumed
-- [ ] Prometheus histogram: `ja4proxy_analytics_cycle_duration_seconds` — analytics cycle duration
-- [ ] Prometheus gauge:     `ja4proxy_analytics_stream_lag_seconds` — current Redis Stream consumer lag
-- [ ] Prometheus gauge:     `ja4proxy_analytics_score_drift_detected` — 1 if drift detected, else 0
-- [ ] Grafana: Analytics dashboard with stream lag, campaigns, top attacking subnets, JA4 candidates, Score Health panel
+- [x] Prometheus counter:   `ja4proxy_analytics_events_processed_total` — stream events consumed
+- [x] Prometheus histogram: `ja4proxy_analytics_cycle_duration_seconds` — analytics cycle duration
+- [x] Prometheus gauge:     `ja4proxy_analytics_stream_lag_seconds` — current Redis Stream consumer lag
+- [x] Prometheus gauge:     `ja4proxy_analytics_score_drift_detected` — 1 if drift detected, else 0
+- [x] Grafana: Analytics dashboard with stream lag, campaigns, top attacking subnets, JA4 candidates, Score Health panel
 
-- [ ] JSON log: `{"type":"system","level":"WARN","subsystem":"analytics","event":"stream_lag_elevated"}` emitted when lag exceeds 60s
-- [ ] JSON log: `{"type":"system","level":"WARN","subsystem":"analytics","event":"score_drift_detected"}` emitted with `z_score` and `baseline_median` when drift triggers
+- [x] JSON log: `{"type":"system","level":"WARN","subsystem":"analytics","event":"stream_lag_elevated"}` emitted when lag exceeds 60s
+- [x] JSON log: `{"type":"system","level":"WARN","subsystem":"analytics","event":"score_drift_detected"}` emitted with `z_score` and `baseline_median` when drift triggers
 
 ### Unit Tests  (`tests/unit/test_analytics_node.py`)
-- [ ] Consumer group replay: event written before restart is processed after restart
-- [ ] Campaign detection algorithm: cluster of IPs from same /24 within time window → campaign flagged
-- [ ] Campaign detection: IPv6 /48 subnets handled correctly
-- [ ] Slow scan detection: low-rate connections across many ports → slow scan flagged
-- [ ] `XADD` from proxy: non-blocking; does not add measurable latency to hot path
-- [ ] Score drift: current median deviates > 2σ from baseline → `check_score_drift()` returns alert
+- [x] Consumer group replay: event written before restart is processed after restart
+- [x] Campaign detection algorithm: cluster of IPs from same /24 within time window → campaign flagged
+- [x] Campaign detection: IPv6 /48 subnets handled correctly
+- [x] Slow scan detection: low-rate connections across many ports → slow scan flagged
+- [x] `XADD` from proxy: non-blocking; does not add measurable latency to hot path
+- [x] Score drift: current median deviates > 2σ from baseline → `check_score_drift()` returns alert
 
 ### Integration Tests  (`tests/integration/test_beaconing_pipeline.py`)
-- [ ] Proxy publishes connection event to Redis Stream → analytics node consumes within `analysis_interval_seconds`
-- [ ] Campaign detection result written to Redis → proxy scorer reads campaign signal on next connection
-- [ ] Consumer group restart: events published before restart are replayed; no events skipped
+- [x] Proxy publishes connection event to Redis Stream → analytics node consumes within `analysis_interval_seconds`
+- [x] Campaign detection result written to Redis → proxy scorer reads campaign signal on next connection
+- [x] Consumer group restart: events published before restart are replayed; no events skipped
 
 ### Chaos Tests  (`tests/chaos/test_analytics_down.py`)
-- [ ] Analytics container stopped: proxy continues scoring; stale campaign data used; no errors
-- [ ] Stream lag > 300s: `ja4proxy_analytics_stream_lag_seconds` gauge reflects lag; WARN logged
+- [x] Analytics container stopped: proxy continues scoring; stale campaign data used; no errors
+- [x] Stream lag > 300s: `ja4proxy_analytics_stream_lag_seconds` gauge reflects lag; WARN logged
