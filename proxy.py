@@ -22,6 +22,7 @@ Compliance:
 import asyncio
 import hashlib
 import ipaddress
+import json
 import logging
 import logging.handlers
 import os
@@ -603,11 +604,11 @@ class ConfigManager:
 
     def _validate_redis_config(self, redis_config: Dict) -> None:
         """Validate Redis configuration with security checks."""
-        # SECURITY: Require password in production
+        # SECURITY: Require password in production (config validation pass)
         if "password" in redis_config:
             password = redis_config.get("password")
             if not password or password == "null" or password == "":
-                if os.getenv("ENVIRONMENT", "production") == "production":
+                if os.getenv("ENVIRONMENT", "development") == "production":
                     raise ValidationError(
                         "SECURITY: Redis password is required in production"
                     )
@@ -1140,13 +1141,20 @@ class ProxyServer:
         """Initialize Redis connection with security validation."""
         redis_config = self.config["redis"]
 
-        # SECURITY FIX: Validate password is set
+        # SECURITY: Validate password is set.
+        # Missing password in production is a startup FATAL — fail before accepting
+        # any connections so the operator is forced to fix the configuration.
         password = redis_config.get("password")
         if not password or password == "":
             if os.getenv("ENVIRONMENT", "development") == "production":
-                raise SecurityError(
-                    "Redis password is required in production environment"
+                self.logger.critical(
+                    '{"type":"system","level":"FATAL","subsystem":"proxy",'
+                    '"event":"startup_failed",'
+                    '"reason":"Redis password is required in production — '
+                    'set REDIS_PASSWORD environment variable"}'
                 )
+                import sys
+                sys.exit(1)
             self.logger.warning(
                 "SECURITY WARNING: Redis connection without authentication"
             )
@@ -1183,26 +1191,45 @@ class ProxyServer:
             raise
 
     def _init_logging(self) -> logging.Logger:
-        """Initialize logging with structured format and sensitive data filtering (SECURITY FIX)."""
-        log_level = self.config["logging"].get("level", "INFO")
-        log_format = self.config["logging"].get(
+        """Initialize logging with structured format and sensitive data filtering.
+
+        JSON mode is enabled when ``logging.json_enabled: true`` in config OR
+        when the ``ENVIRONMENT`` environment variable is set to ``production``.
+        In JSON mode every log line is a valid JSON object suitable for SIEM ingest.
+        The SensitiveDataFilter runs before the formatter so passwords and tokens
+        are stripped from all output regardless of format.
+        """
+        log_cfg = self.config.get("logging", {})
+        log_level = log_cfg.get("level", "INFO")
+        log_format = log_cfg.get(
             "format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
 
-        # Create custom logger with security filter
+        # JSON logging: explicit config flag OR auto-detected production environment
+        json_enabled = log_cfg.get("json_enabled", False) or (
+            os.getenv("ENVIRONMENT", "development") == "production"
+        )
+
         logger = logging.getLogger(__name__)
         logger.setLevel(getattr(logging, log_level))
 
-        # Create handler with sensitive data filter
+        # Replace existing handlers added by this method (e.g. on hot-reload)
+        # without affecting handlers from other sources.  We identify ours by
+        # class: only remove StreamHandlers — not FileHandlers, NullHandlers, etc.
+        logger.handlers = [
+            h for h in logger.handlers if not isinstance(h, logging.StreamHandler)
+        ]
+
         handler = logging.StreamHandler()
         handler.setLevel(getattr(logging, log_level))
 
-        # Add security filter to prevent sensitive data leakage
+        # Sensitive data filter runs first — modifies LogRecord before formatting
         handler.addFilter(SensitiveDataFilter())
 
-        # Set formatter
-        formatter = SecureFormatter(log_format)
-        handler.setFormatter(formatter)
+        if json_enabled:
+            handler.setFormatter(JSONFormatter())
+        else:
+            handler.setFormatter(SecureFormatter(log_format))
 
         logger.addHandler(handler)
 
@@ -1880,6 +1907,45 @@ class SecureFormatter(logging.Formatter):
             record.exc_info = None
 
         return super().format(record)
+
+
+class JSONFormatter(logging.Formatter):
+    """JSON log formatter for SIEM integration (Phase 14a).
+
+    Emits one JSON object per log line. SensitiveDataFilter must run before
+    this formatter — it operates on the LogRecord fields so that getMessage()
+    already returns a filtered string.
+
+    Output shape::
+
+        {"timestamp":"2026-03-15T14:30:01.234Z","level":"INFO",
+         "subsystem":"proxy","message":"connection allowed | ip=1.2.3.4"}
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        # In production: replace full traceback with type:message only
+        if record.exc_info and os.getenv("ENVIRONMENT") == "production":
+            exc_type, exc_value, _ = record.exc_info
+            record.exc_text = f"{exc_type.__name__}: {str(exc_value)}"
+            record.exc_info = None
+        elif record.exc_info and not record.exc_text:
+            # In development: format full traceback into exc_text
+            record.exc_text = self.formatException(record.exc_info)
+
+        ts = datetime.fromtimestamp(record.created, tz=timezone.utc)
+        # ISO-8601 millisecond precision with Z suffix
+        timestamp = ts.strftime("%Y-%m-%dT%H:%M:%S.") + f"{ts.microsecond // 1000:03d}Z"
+
+        entry: dict = {
+            "timestamp": timestamp,
+            "level": record.levelname,
+            "subsystem": record.name,
+            "message": record.getMessage(),
+        }
+        if record.exc_text:
+            entry["exception"] = record.exc_text
+
+        return json.dumps(entry, separators=(",", ":"))
 
 
 async def main():

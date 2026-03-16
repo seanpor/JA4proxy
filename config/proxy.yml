@@ -195,6 +195,10 @@ metrics:
 logging:
   level: "INFO"
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  # json_enabled: emit all log lines as JSON objects (one per line).
+  # Enabled automatically when ENVIRONMENT=production; set true here to
+  # enable in development too.  Structured JSON is required for SIEM ingest.
+  json_enabled: false
 
 # ── Phase 0: Infrastructure ───────────────────────────────────────────────
 

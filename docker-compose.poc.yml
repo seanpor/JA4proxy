@@ -45,7 +45,7 @@ services:
       - ./logs:/app/logs
     environment:
       - CONFIG_PATH=/app/config/proxy.yml
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required — run: scripts/start-poc.sh}
       - ENVIRONMENT=${ENVIRONMENT:-development}
       # Backend destination — override in .env for production (BACKEND_HOST=your.server.ip)
       - BACKEND_HOST=${BACKEND_HOST:-backend}
@@ -76,7 +76,7 @@ services:
     container_name: ja4proxy-redis
     environment:
       # redis/redis-stack passes extra flags via REDIS_ARGS (see /entrypoint.sh)
-      - REDIS_ARGS=--requirepass ${REDIS_PASSWORD:-changeme} --maxmemory 256mb --maxmemory-policy allkeys-lru --hz 20 --tcp-keepalive 60 --save ""
+      - REDIS_ARGS=--requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required — run: scripts/start-poc.sh} --maxmemory 256mb --maxmemory-policy allkeys-lru --hz 20 --tcp-keepalive 60 --save ""
     # Redis not exposed to host — only accessible from backend network
     networks:
       - ja4proxy-backend
@@ -194,7 +194,7 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required — run: scripts/start-poc.sh}
       - WAIT_FOR_REDIS=true
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
@@ -240,7 +240,7 @@ services:
       - ./src:/app/src:ro
       - ./config:/app/config:ro
     environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required — run: scripts/start-poc.sh}
       - PROXY_HOST=proxy
       - PROXY_PORT=8080
       - BACKEND_HOST=backend
