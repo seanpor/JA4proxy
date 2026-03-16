@@ -12,6 +12,9 @@ proxy:
   tarpit_host: "tarpit"
   tarpit_port: 8888
   max_connections: 1000
+  # Graceful shutdown: max seconds to wait for in-flight connections to complete
+  # after SIGTERM before forcing close.  Hot-reloadable.
+  drain_timeout_seconds: 30
   # SECURITY FIX: Configurable timeouts to prevent resource exhaustion
   connection_timeout: 30
   read_timeout: 30
@@ -199,6 +202,15 @@ logging:
   # Enabled automatically when ENVIRONMENT=production; set true here to
   # enable in development too.  Structured JSON is required for SIEM ingest.
   json_enabled: false
+
+# Phase 14c: Tarpit self-protection.  Controls how many connections the proxy
+# will simultaneously hold in the tarpit container.  When either cap is hit the
+# overflow_action is taken instead of tarpitting.
+tarpit:
+  max_concurrent_connections: 500  # Hard global cap on simultaneous tarpit slots
+  max_per_ip: 3                    # Max concurrent tarpit connections from one source IP
+  overflow_action: "block"         # When cap reached: block | rst | allow (allow = fail open to backend)
+  overflow_log: true               # Log overflow events (always true; field reserved for future rate-limiting)
 
 # ── Phase 0: Infrastructure ───────────────────────────────────────────────
 
@@ -445,6 +457,12 @@ beaconing_detector:
     window_seconds: 86400    # 24-hour window for slow-burn APT beacons
     min_observations: 5      # Lower threshold (daily beacons are sparse)
     score: 20                # Lower score cap (less certainty for slow beacons)
+
+  # Phase 14d: cap on the beacon:suspects leaderboard.  When this is exceeded,
+  # the lowest-confidence entries are trimmed (ZREMRANGEBYRANK).  Prevents
+  # unbounded memory growth under a sustained attack with many unique source IPs.
+  # Hot-reloadable.
+  max_suspects: 10000
 
 # ── Phase 10: AbuseIPDB Integration ──────────────────────────────────────────
 

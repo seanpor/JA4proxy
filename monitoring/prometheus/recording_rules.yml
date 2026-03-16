@@ -45,7 +45,7 @@ groups:
 
       # Active connections
       - record: ja4:connections:active
-        expr: ja4_active_connections
+        expr: ja4proxy_active_connections
 
   - name: ja4proxy_security_metrics
     interval: 60s

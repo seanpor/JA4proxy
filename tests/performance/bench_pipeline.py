@@ -1,13 +1,15 @@
-"""Performance benchmarks for Phase 1 pipeline components.
+"""Performance benchmarks for Phase 1 and Phase 14c pipeline components.
 
-Acceptance criteria (from PHASE_01.md):
+Acceptance criteria:
   - RiskScorer.score() with 10 signals: p99 < 100µs
   - ActionDecider.decide(): p99 < 10µs
+  - Tarpit cap check (asyncio.Lock + int compare): p99 < 1ms under 500 concurrent
 
 Run with: python -m pytest tests/performance/ -v
 Or standalone: python tests/performance/bench_pipeline.py
 """
 
+import asyncio
 import statistics
 import time
 
@@ -140,6 +142,71 @@ class TestActionDeciderPerformance:
         print(f"\nActionDecider.decide() dial=0 (n={_ITERATIONS}): p99={p99:.2f}µs")
         assert p99 < 5, (
             f"ActionDecider.decide() dial=0 p99={p99:.2f}µs exceeded 5µs limit"
+        )
+
+
+class TestTarpitCapPerformance:
+    """Phase 14c: tarpit cap check overhead p99 < 1ms under 500 concurrent.
+
+    The cap check acquires asyncio.Lock, reads two integers, optionally
+    increments them, then releases.  This must not become a bottleneck.
+    """
+
+    def test_tarpit_cap_check_p99_under_1ms(self):
+        """500 concurrent tasks each doing a cap check: p99 < 1ms."""
+        _CONCURRENCY = 500
+        latencies: list[float] = []
+
+        async def run():
+            lock = asyncio.Lock()
+            concurrent = 0
+            per_ip: dict[str, int] = {}
+            max_concurrent = 600  # cap not reached
+            max_per_ip = 10
+
+            async def one_check(ip: str) -> None:
+                nonlocal concurrent
+                t0 = time.perf_counter()
+                async with lock:
+                    over_global = concurrent >= max_concurrent
+                    over_ip = per_ip.get(ip, 0) >= max_per_ip
+                    if not over_global and not over_ip:
+                        concurrent += 1
+                        per_ip[ip] = per_ip.get(ip, 0) + 1
+                        acquired = True
+                    else:
+                        acquired = False
+                elapsed_ms = (time.perf_counter() - t0) * 1000
+                latencies.append(elapsed_ms)
+
+                if acquired:
+                    # Simulate brief in-tarpit work then release
+                    await asyncio.sleep(0)
+                    async with lock:
+                        concurrent = max(0, concurrent - 1)
+                        c = per_ip.get(ip, 0)
+                        if c <= 1:
+                            per_ip.pop(ip, None)
+                        else:
+                            per_ip[ip] = c - 1
+
+            tasks = [
+                asyncio.create_task(one_check(f"10.0.{i // 256}.{i % 256}"))
+                for i in range(_CONCURRENCY)
+            ]
+            await asyncio.gather(*tasks)
+
+        asyncio.run(run())
+
+        latencies.sort()
+        p99 = _percentile(latencies, 99)
+        p50 = _percentile(latencies, 50)
+        print(
+            f"\nTarpit cap check ({_CONCURRENCY} concurrent): "
+            f"p50={p50:.3f}ms  p99={p99:.3f}ms"
+        )
+        assert p99 < 1.0, (
+            f"Tarpit cap check p99={p99:.3f}ms exceeded 1ms limit"
         )
 
 

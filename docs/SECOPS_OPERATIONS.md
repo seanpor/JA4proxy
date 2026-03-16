@@ -403,3 +403,53 @@ This script:
 ```bash
 sudo bash scripts/docker-net-diag.sh    # Shows iptables rules, container DNS, connectivity
 ```
+
+---
+
+## Tarpit Resource Sizing (Phase 14c)
+
+### Capacity planning
+
+The tarpit uses two in-process limits (no Redis):
+
+| Config key | Default | Notes |
+|---|---|---|
+| `tarpit.max_concurrent_connections` | 500 | Global cap across all IPs |
+| `tarpit.max_per_ip` | 3 | Per source-IP cap |
+| `tarpit.overflow_action` | `block` | What happens when cap is reached: `block` \| `rst` \| `allow` |
+
+**Rule of thumb:** set `max_concurrent_connections` ≤ 25% of the host's open-file-descriptor
+limit (`ulimit -n`).  Each tarpitted connection holds one socket for the duration of the
+tarpit delay (default 60 s).
+
+### Capacity formula
+
+```
+max_concurrent ≤ (ulimit_n - 100) * 0.25
+# Example: ulimit -n 65536 → max_concurrent ≤ ~16 000
+# Conservative default of 500 leaves headroom on modest hosts (ulimit 2048)
+```
+
+### Symptoms of tarpit exhaustion
+
+- `ja4proxy_tarpit_overflow_total` counter rising rapidly — attacker is flooding tarpit slots
+- `ja4proxy_tarpit_concurrent` gauge pegged at `max_concurrent_connections`
+- Legitimate scoring connections unaffected (tarpit overflow goes to `overflow_action`)
+
+### Runbook: tarpit exhaustion attack
+
+1. Check current gauge: `curl -s http://localhost:9090/metrics | grep tarpit`
+2. If `ja4proxy_tarpit_concurrent / max_concurrent_connections > 0.9`:
+   - Identify flooding IPs in logs: `grep "tarpit" /app/logs/*.log | grep "event=redirect" | awk '{print $3}' | sort | uniq -c | sort -rn | head -20`
+   - Consider lowering `tarpit.max_per_ip` to 1 (hot-reload with SIGHUP)
+   - If single ASN: add to `config/proxy.yml` `geoip.asn_blacklist`
+3. If `overflow_action=block` is dropping real users, switch to `overflow_action=allow` temporarily (fail open to backend)
+4. Set `tarpit.max_concurrent_connections` lower to shed load faster; reload with SIGHUP
+
+### Graceful shutdown interaction
+
+At shutdown (SIGTERM), the proxy stops accepting new connections immediately.
+In-flight tarpit connections count toward `active_connections` and are included
+in the drain window (`drain_timeout_seconds`).  If the tarpit delay is longer than
+`drain_timeout_seconds`, tarpitted connections will be force-closed; this is expected
+and logged in `shutdown_complete` as `forced_close`.

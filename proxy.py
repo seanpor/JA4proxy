@@ -70,7 +70,7 @@ REQUEST_DURATION = Histogram(
     "Request duration",
     buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0],
 )
-ACTIVE_CONNECTIONS = Gauge("ja4_active_connections", "Active connections")
+ACTIVE_CONNECTIONS = Gauge("ja4proxy_active_connections", "Active connections")
 BLOCKED_REQUESTS = Counter(
     "ja4_blocked_requests_total",
     "Blocked requests",
@@ -88,6 +88,17 @@ CERTIFICATE_EVENTS = Counter(
     "ja4_certificate_events_total", "Certificate events", ["event_type", "cert_type"]
 )
 PROXY_INFO = Info("ja4_proxy_info", "Proxy version and build information")
+
+# Phase 14c: Tarpit self-protection metrics
+_TARPIT_CONCURRENT = Gauge(
+    "ja4proxy_tarpit_concurrent",
+    "Current concurrent tarpitted connections",
+)
+_TARPIT_OVERFLOW = Counter(
+    "ja4proxy_tarpit_overflow_total",
+    "Connections that hit the tarpit cap and were given the overflow action",
+    ["action"],
+)
 
 # Security Constants
 MAX_REQUEST_SIZE = 1024 * 1024  # 1MB
@@ -915,6 +926,10 @@ class ProxyServer:
         self._aiohttp_session = None
         self._rdap_enricher = None
         self.active_connections = 0
+        # Phase 14c: tarpit self-protection counters
+        self._tarpit_concurrent: int = 0
+        self._tarpit_per_ip: dict = {}
+        self._tarpit_lock: asyncio.Lock = asyncio.Lock()
 
         if config_path:
             self.config_path = config_path
@@ -1072,6 +1087,9 @@ class ProxyServer:
             self._rdap_enricher = None
 
         self.active_connections = 0
+        self._tarpit_concurrent = 0
+        self._tarpit_per_ip = {}
+        self._tarpit_lock = asyncio.Lock()
         return self
 
     async def _populate_security_lists(self):
@@ -1235,8 +1253,15 @@ class ProxyServer:
 
         return logger
 
-    async def start(self):
-        """Start the proxy server."""
+    async def start(self, shutdown_event: Optional[asyncio.Event] = None):
+        """Start the proxy server.
+
+        Args:
+            shutdown_event: When set, the server stops accepting new connections
+                and drains in-flight connections up to ``drain_timeout_seconds``
+                before returning.  Used by the SIGTERM handler in ``main()``.
+                If ``None`` the server runs until cancelled.
+        """
         self.logger.info("Starting JA4 Proxy Server")
 
         # Start metrics server with optional authentication (SECURITY FIX)
@@ -1286,10 +1311,47 @@ class ProxyServer:
         )
         self.logger.info(f"Proxy server listening on {bind_addr}")
 
+        # Phase 14b: Shutdown watcher — stops the server when shutdown_event fires.
+        # Runs concurrently with serve_forever(); cancels itself if serve_forever()
+        # exits first (e.g. via CancelledError from a test).
+        async def _shutdown_watcher() -> None:
+            if shutdown_event is None:
+                return
+            await shutdown_event.wait()
+            server.close()
+
+        watcher_task: asyncio.Task = asyncio.create_task(_shutdown_watcher())
+
         try:
             async with server:
                 await server.serve_forever()
         finally:
+            watcher_task.cancel()
+            try:
+                await watcher_task
+            except asyncio.CancelledError:
+                pass
+
+            # Drain in-flight connections when a graceful shutdown was requested.
+            if shutdown_event is not None and shutdown_event.is_set():
+                drain_timeout = self.config.get("proxy", {}).get(
+                    "drain_timeout_seconds", 30
+                )
+                initial_count = self.active_connections
+                self.logger.info(
+                    "proxy | event=shutdown_initiated | active_connections=%d",
+                    initial_count,
+                )
+                deadline = time.monotonic() + drain_timeout
+                while self.active_connections > 0 and time.monotonic() < deadline:
+                    await asyncio.sleep(0.1)
+                forced = self.active_connections
+                self.logger.info(
+                    "proxy | event=shutdown_complete | drained=%d | forced_close=%d",
+                    initial_count - forced,
+                    forced,
+                )
+
             # Phase 10: Graceful shutdown of AbuseIPDB workers and aiohttp session
             if getattr(self, "_abuseipdb_checker", None) is not None:
                 try:
@@ -1474,7 +1536,7 @@ class ProxyServer:
                         source_country=fingerprint.geo_country,
                         attack_type="tarpit",
                     ).inc()
-                    await self._redirect_to_tarpit(data, reader, writer)
+                    await self._redirect_to_tarpit(data, reader, writer, client_ip)
                 else:
                     # block | ban — drop connection
                     BLOCKED_REQUESTS.labels(
@@ -1639,8 +1701,50 @@ class ProxyServer:
         data: bytes,
         client_reader: asyncio.StreamReader,
         client_writer: asyncio.StreamWriter,
+        client_ip: str = "unknown",
     ):
-        """Redirect a blocked connection to the tarpit container."""
+        """Redirect a blocked connection to the tarpit container.
+
+        Phase 14c: Enforces a global concurrent cap and a per-IP cap so that a
+        flood of tarpit-worthy connections cannot exhaust the tarpit container or
+        consume unbounded memory.  When either cap is reached the configured
+        overflow_action is taken (block | rst | allow).
+        """
+        # --- Phase 14c: cap enforcement -----------------------------------------
+        cfg = self.config.get("tarpit", {})
+        max_concurrent = cfg.get("max_concurrent_connections", 500)
+        max_per_ip = cfg.get("max_per_ip", 3)
+        overflow_action = cfg.get("overflow_action", "block")
+
+        acquired = False
+        async with self._tarpit_lock:
+            over_global = self._tarpit_concurrent >= max_concurrent
+            over_per_ip = self._tarpit_per_ip.get(client_ip, 0) >= max_per_ip
+            if not over_global and not over_per_ip:
+                self._tarpit_concurrent += 1
+                self._tarpit_per_ip[client_ip] = (
+                    self._tarpit_per_ip.get(client_ip, 0) + 1
+                )
+                _TARPIT_CONCURRENT.set(self._tarpit_concurrent)
+                acquired = True
+
+        if not acquired:
+            _TARPIT_OVERFLOW.labels(action=overflow_action).inc()
+            self.logger.info(
+                "tarpit | event=overflow | ip=%s | action=%s", client_ip, overflow_action
+            )
+            if overflow_action == "allow":
+                await self._forward_to_backend(data, client_reader, client_writer)
+            else:
+                # "block" or "rst": drop the connection
+                try:
+                    client_writer.close()
+                except Exception:
+                    pass
+            return
+        # -------------------------------------------------------------------------
+
+        tarpit_writer = None
         try:
             tarpit_host = self.config["proxy"].get("tarpit_host", "tarpit")
             tarpit_port = self.config["proxy"].get("tarpit_port", 8888)
@@ -1665,11 +1769,21 @@ class ProxyServer:
         except Exception as e:
             self.logger.debug(f"Tarpit redirect ended: {e}")
         finally:
-            try:
-                tarpit_writer.close()
-                await tarpit_writer.wait_closed()
-            except Exception:
-                pass
+            if tarpit_writer is not None:
+                try:
+                    tarpit_writer.close()
+                    await tarpit_writer.wait_closed()
+                except Exception:
+                    pass
+            # Phase 14c: always decrement counters, even on abrupt disconnect
+            async with self._tarpit_lock:
+                self._tarpit_concurrent = max(0, self._tarpit_concurrent - 1)
+                ip_count = self._tarpit_per_ip.get(client_ip, 0)
+                if ip_count <= 1:
+                    self._tarpit_per_ip.pop(client_ip, None)
+                else:
+                    self._tarpit_per_ip[client_ip] = ip_count - 1
+                _TARPIT_CONCURRENT.set(self._tarpit_concurrent)
 
     async def _analyze_tls_handshake(
         self, data: bytes, client_ip: str
@@ -1949,23 +2063,38 @@ class JSONFormatter(logging.Formatter):
 
 
 async def main():
-    """Main entry point."""
+    """Main entry point.
 
+    Registers SIGTERM and SIGINT handlers that trigger a graceful drain of
+    in-flight connections before process exit.  On SIGTERM Docker gives the
+    process ``drain_timeout_seconds`` to complete before sending SIGKILL.
+    """
+    import signal
     import sys
 
     config_path = sys.argv[1] if len(sys.argv) > 1 else "config/proxy.yml"
 
     proxy = await ProxyServer.create(config_path)
 
+    shutdown_event = asyncio.Event()
+    loop = asyncio.get_running_loop()
+
+    def _handle_shutdown() -> None:  # pragma: no cover — signal path not exercised in unit tests
+        if not shutdown_event.is_set():
+            shutdown_event.set()
+
     try:
-        await proxy.start()
+        loop.add_signal_handler(signal.SIGTERM, _handle_shutdown)
+        loop.add_signal_handler(signal.SIGINT, _handle_shutdown)
+    except (NotImplementedError, ValueError):  # pragma: no cover — Windows
+        pass
 
-    except KeyboardInterrupt:
-        print("\nShutting down proxy server...")
-
+    try:
+        await proxy.start(shutdown_event=shutdown_event)
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        pass  # Clean shutdown already handled via shutdown_event drain path
     except Exception as e:
         logging.error(f"Fatal error: {e}")
-
         sys.exit(1)
 
 

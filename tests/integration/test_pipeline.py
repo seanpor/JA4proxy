@@ -1,12 +1,16 @@
-"""Integration tests for the full pipeline (Phases 1–3).
+"""Integration tests for the full pipeline (Phases 1–3) and Phase 14b shutdown.
 
 Tests that the pipeline wires scorer, decider, and TLS enforcer correctly
 and that bypass, scoring, monitor-mode, and TLS enforcement paths all
 produce correct results.
+
+Phase 14b addition: SIGTERM drain integration test verifying that the
+shutdown event propagates through ProxyServer.start() correctly.
 """
 
 import asyncio
-from unittest.mock import MagicMock
+import logging
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -658,3 +662,103 @@ class TestPipelineRDAPIntegration:
         result = _run(pipeline.process(_ctx(client_ip="1.2.3.4", sni="example.com")))
         signal_names = [s.name for s in result.signals]
         assert "rdap_known_bad_org" not in signal_names
+
+
+# ---------------------------------------------------------------------------
+# Phase 14b — Graceful shutdown integration
+# ---------------------------------------------------------------------------
+
+
+def _make_shutdown_server_stub(drain_timeout: float = 0.5, active: int = 0):
+    """Minimal ProxyServer stub for shutdown integration tests."""
+    from proxy import ProxyServer
+    s = object.__new__(ProxyServer)
+    s.config = {
+        "proxy": {
+            "bind_host": "127.0.0.1",
+            "bind_port": 8080,
+            "drain_timeout_seconds": drain_timeout,
+        },
+        "metrics": {"enabled": False},
+        "logging": {"level": "INFO", "format": "%(message)s"},
+        "geoip": {"country_whitelist": [], "country_blacklist": []},
+    }
+    s.logger = MagicMock()
+    s.redis_client = MagicMock()
+    s.active_connections = active
+    s._dial_manager = MagicMock()
+    s._dial_manager.initialize = MagicMock(return_value=0)
+    s._local_cache = MagicMock()
+    s._local_cache.dial = 0
+    s._abuseipdb_checker = None
+    s._rdap_enricher = None
+    s._aiohttp_session = None
+    return s
+
+
+def _make_asyncio_srv_mock():
+    close_event = asyncio.Event()
+    mock_srv = MagicMock()
+
+    async def _serve_forever():
+        await close_event.wait()
+
+    mock_srv.serve_forever = _serve_forever
+    mock_srv.close = lambda: close_event.set()
+    mock_srv.__aenter__ = AsyncMock(return_value=mock_srv)
+    mock_srv.__aexit__ = AsyncMock(return_value=False)
+    return mock_srv
+
+
+class TestGracefulShutdownIntegration:
+    """Integration-level test: shutdown_event propagates through ProxyServer.start().
+
+    Phase gate criterion (PHASE_14.md §Tests):
+      SIGTERM with active connections → connections drain; shutdown_initiated logged.
+    """
+
+    def test_shutdown_event_stops_server_and_logs_shutdown_initiated(self):
+        """Setting shutdown_event causes start() to exit and logs shutdown_initiated."""
+        server = _make_shutdown_server_stub(drain_timeout=0.1, active=0)
+        shutdown_event = asyncio.Event()
+        mock_srv = _make_asyncio_srv_mock()
+
+        async def run():
+            with patch("proxy.asyncio.start_server", AsyncMock(return_value=mock_srv)):
+                async def trigger():
+                    await asyncio.sleep(0.02)
+                    shutdown_event.set()
+
+                asyncio.create_task(trigger())
+                await server.start(shutdown_event)
+
+        asyncio.run(run())
+
+        log_msgs = " ".join(str(c) for c in server.logger.info.call_args_list)
+        assert "shutdown_initiated" in log_msgs, (
+            f"shutdown_initiated not logged; got: {log_msgs!r}"
+        )
+
+    def test_shutdown_with_active_connections_drains_before_exit(self):
+        """Connections that finish during drain window are counted as drained."""
+        server = _make_shutdown_server_stub(drain_timeout=0.5, active=3)
+        shutdown_event = asyncio.Event()
+        mock_srv = _make_asyncio_srv_mock()
+
+        async def run():
+            with patch("proxy.asyncio.start_server", AsyncMock(return_value=mock_srv)):
+                async def trigger():
+                    await asyncio.sleep(0.02)
+                    shutdown_event.set()
+                    await asyncio.sleep(0.05)
+                    server.active_connections = 0
+
+                asyncio.create_task(trigger())
+                await server.start(shutdown_event)
+
+        asyncio.run(run())
+
+        log_msgs = " ".join(str(c) for c in server.logger.info.call_args_list)
+        assert "shutdown_complete" in log_msgs, (
+            f"shutdown_complete not logged; got: {log_msgs!r}"
+        )

@@ -1,5 +1,123 @@
 # Changelog
 
+## [14.5.0] - 2026-03-16 - PHASE 14f: Production Docker Compose Cleanup
+
+### Changed
+- `docker/docker-compose.prod.yml`: complete rewrite — replaced broken aspirational
+  compose that referenced `Dockerfile.enterprise`, 3-node Redis cluster, ELK stack,
+  and `security-scanner` (none of which exist) with a realistic single-instance
+  production compose
+  - Services: haproxy, proxy, redis, analytics, tarpit, prometheus, grafana, loki, promtail
+  - Docker Compose secrets for `redis_password`, `grafana_password`, `abuseipdb_api_key`
+    (files in `secrets/*.txt`, gitignored)
+  - `BACKEND_HOST` uses `:?` syntax — operator must set it; no silent `:-changeme` default
+  - Uses `docker/Dockerfile` (real file) and single Redis instance (no HA cluster needed)
+  - Logging via Loki/Promtail (already in stack); ELK omitted as duplication
+  - All containers: `read_only`, `no-new-privileges`, `cap_drop: ALL`, resource limits
+
+### Added
+- `secrets/` directory (gitignored): stub placeholder files for Docker secrets so
+  `docker compose config` can validate the compose file without real credentials
+
+## [14.4.0] - 2026-03-16 - PHASE 14e: Alert Rules Overhaul
+
+### Changed
+- `proxy.py`: renamed `ACTIVE_CONNECTIONS` Gauge from `ja4_active_connections` →
+  `ja4proxy_active_connections` for consistent `ja4proxy_` prefix
+- `monitoring/prometheus/alerts.yml`: complete rewrite — all 14 alert rules now
+  reference real `ja4proxy_*` metrics; removed 11 ghost rules that referenced
+  non-existent pre-Phase-1 metrics (`ja4_blocked_requests_total`, `ja4_rate_limit_exceeded_total`,
+  `ja4_whitelist_size`, etc.)
+- `monitoring/prometheus/recording_rules.yml`: updated `ja4:connections:active`
+  expr to use `ja4proxy_active_connections`
+- `monitoring/grafana/dashboards/ja4proxy-overview.json`: updated active connections
+  panel expr to `ja4proxy_active_connections`
+- `scripts/demo-poc.sh`, `scripts/view-metrics.sh`, `scripts/generate-test-traffic.sh`:
+  updated metric name references
+
+### Added
+- `monitoring/alertmanager/rules/proxy.rules.yml`: ProxyHighBlockRate, ProxyDialChanged,
+  ProxyTarpitConcurrentHigh, ProxyInstanceDown
+- `monitoring/alertmanager/rules/redis.rules.yml`: RedisDown, RedisMemoryHigh
+- `monitoring/alertmanager/rules/security.rules.yml`: AbuseIPDBQuotaExhausted,
+  SpamhausDownloadFailed, SpamhausListStale
+- `tests/unit/test_alert_rules.py`: 43 tests validating YAML structure, required
+  fields, severity labels, and absence of old `ja4_*` metric names in all four files
+
+## [14.3.0] - 2026-03-16 - PHASE 14d: Rate Limit Memory Self-Protection
+
+### Added
+- `src/security/beaconing_detector.py` `BeaconingDetector`: `max_suspects` config
+  option (default 10 000); when `beacon:suspects` leaderboard exceeds the cap,
+  `ZREMRANGEBYRANK` trims the lowest-confidence entries before updating the gauge
+- `config/proxy.yml`: `beaconing_detector.max_suspects: 10000` with doc comment
+- Sliding window rate limiter (`scripts/sliding_window.lua`): verified — already sets
+  `EXPIRE` on both keys on every call; TTL compliance confirmed
+
+### Tests added (`tests/unit/security/test_beaconing_detector.py`)
+- 7 new tests in `TestSuspectsLeaderboardCap`: under-cap no-trim, at-cap no-trim,
+  one-over trim, many-over trim, gauge capped at max_suspects, trim error silenced,
+  default value of 10 000
+
+## [14.2.0] - 2026-03-16 - PHASE 14c: Tarpit Self-Protection
+
+### Added
+- `proxy.py` `_redirect_to_tarpit()`: Phase 14c self-protection logic
+  - Global concurrent cap (`tarpit.max_concurrent_connections`, default 500)
+  - Per-IP cap (`tarpit.max_per_ip`, default 3) enforced independently
+  - `overflow_action` configurable: `block` | `rst` | `allow` (fail open to backend)
+  - Both caps checked atomically under `self._tarpit_lock`
+  - Counters always decremented in `finally` — no leaks on abrupt disconnect
+- `proxy.py` metrics: `ja4proxy_tarpit_concurrent` (Gauge) and
+  `ja4proxy_tarpit_overflow_total{action}` (Counter)
+- `proxy.py` `ProxyServer.__init__()` and `create()`: `_tarpit_concurrent`,
+  `_tarpit_per_ip`, `_tarpit_lock` instance variables
+- `config/proxy.yml`: `tarpit` section with `max_concurrent_connections`,
+  `max_per_ip`, `overflow_action`, `overflow_log`
+- `tests/unit/test_tarpit_protection.py`: 17 tests covering global cap, per-IP cap,
+  counter decrement (clean + abrupt), all three overflow actions, and Prometheus gauge
+
+## [14.1.0] - 2026-03-16 - PHASE 14b: Graceful SIGTERM Shutdown
+
+### Added
+- `proxy.py` `ProxyServer.start()`: accepts optional `shutdown_event: asyncio.Event`
+  parameter; when set, a watcher coroutine calls `server.close()` to stop accepting
+  new connections, then drains in-flight connections up to `drain_timeout_seconds`
+- `proxy.py` `main()`: registers SIGTERM and SIGINT handlers via
+  `loop.add_signal_handler()`; both signals set the shared `shutdown_event` and
+  trigger the graceful drain path
+- `proxy.py` `main()`: `KeyboardInterrupt` and `asyncio.CancelledError` from
+  `proxy.start()` are now caught and silenced (clean shutdown path)
+- `config/proxy.yml`: `proxy.drain_timeout_seconds: 30` — configurable drain window
+- `tests/unit/test_graceful_shutdown.py`: 8 tests covering drain-zero, drain-all,
+  timeout-forced, partial drain, log content, and no-shutdown-event propagation
+
+### Implementation Notes
+- `drain_timeout_seconds` is hot-reloadable (read at shutdown time from `self.config`)
+- When drain timeout is exceeded, `shutdown_complete` log records the forced_close count
+  so operators know how many connections were hard-terminated
+- The watcher task is always cancelled in the `finally` block to avoid task leaks when
+  `serve_forever()` exits via `CancelledError` (test teardown path)
+
+## [14.0.1] - 2026-03-16 - PHASE 14a: Startup Secrets Hardening + JSON Logging
+
+### Added
+- `proxy.py` `JSONFormatter`: new `logging.Formatter` subclass that emits one valid
+  JSON object per log line; fields: `timestamp` (ISO-8601 with ms, Z suffix), `level`,
+  `subsystem`, `message`, optional `exception`; traceback suppressed in production
+- `proxy.py` `_init_logging()`: selects `JSONFormatter` when `json_enabled: true` in
+  config or when `ENVIRONMENT=production`; `SensitiveDataFilter` always attached to
+  the handler
+- `proxy.py` `_init_redis()`: when `ENVIRONMENT=production` and no Redis password is
+  set, logs a FATAL structured message and calls `sys.exit(1)` instead of connecting
+  without authentication
+- `config/proxy.yml`: `logging.json_enabled: false` (auto-enabled in production)
+- `docker-compose.poc.yml`: all 4x `${REDIS_PASSWORD:-changeme}` replaced with
+  `${REDIS_PASSWORD:?REDIS_PASSWORD is required}` — Docker Compose aborts if unset
+- `tests/unit/test_json_logging.py`: 25 tests covering JSON validity, required fields,
+  exception handling, sensitive data redaction, formatter selection, and production
+  startup exit
+
 ## [14.0.0-plan] - 2026-03-15 - PHASE 14 PLAN: Production Hardening
 
 ### Planning
