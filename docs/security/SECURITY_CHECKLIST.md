@@ -250,10 +250,56 @@ docker compose logs proxy | grep -i security
 
 ---
 
-**Deployment Date**: _______________  
-**Deployed By**: _______________  
-**Reviewed By**: _______________  
-**Approval**: _______________  
+## Phase 14 — Production Hardening Checklist
+
+### 14a — Startup Secrets
+- [x] No `:-changeme` password fallbacks in any compose file (`docker-compose.poc.yml` uses `:?`)
+- [x] `ENVIRONMENT=production` + no Redis password → FATAL log + `sys.exit(1)` before any connections accepted
+- [x] JSON structured logging enabled in production (`logging.json_enabled: true`)
+- [x] `SensitiveDataFilter` applied before JSON formatter — passwords/tokens not in log output
+
+### 14b — Graceful Shutdown
+- [x] SIGTERM handler sets shutdown event; proxy stops accepting new connections immediately
+- [x] In-flight connections allowed to drain up to `drain_timeout_seconds` (default 30 s)
+- [x] `shutdown_initiated` JSON log emitted with `active_connections` count at shutdown moment
+- [x] `shutdown_complete` JSON log emitted with `drained_connections` and `forced_close` count
+- [x] `drain_timeout_seconds` is hot-reloadable (read from config at shutdown time)
+
+### 14c — Tarpit Self-Protection
+- [x] `tarpit.max_concurrent_connections` (default 500) enforced — overflow takes `overflow_action`
+- [x] `tarpit.max_per_ip` (default 3) enforced per source IP independently of global cap
+- [x] `overflow_action`: `block` | `rst` | `allow` (allow = fail open to backend)
+- [x] In-process counters always decremented in `finally` — no leak on abrupt disconnect
+- [x] `ja4proxy_tarpit_concurrent` Gauge reflects current in-process count
+- [x] `ja4proxy_tarpit_overflow_total{action}` Counter incremented on each overflow
+- [x] Tarpit resource sizing guidance in `docs/SECOPS_OPERATIONS.md`
+
+### 14d — Rate Limit Memory Self-Protection
+- [x] `beaconing.max_suspects` (default 10 000) caps the `beacon:suspects` leaderboard
+- [x] `ZREMRANGEBYRANK` trims lowest-confidence entries when leaderboard exceeds cap
+- [x] Sliding window Lua script sets `EXPIRE` on both keys on every call
+
+### 14e — Alert Rules Overhaul
+- [x] All alert expressions use real `ja4proxy_*` metric names (no phantom `ja4_*` references)
+- [x] `ja4_active_connections` → `ja4proxy_active_connections` (proxy.py, recording_rules.yml, dashboards)
+- [x] `monitoring/alertmanager/rules/proxy.rules.yml` created and validated
+- [x] `monitoring/alertmanager/rules/redis.rules.yml` created and validated
+- [x] `monitoring/alertmanager/rules/security.rules.yml` created and validated
+- [x] 43 structural tests in `tests/unit/test_alert_rules.py` validate all four rule files
+
+### 14f — Production Docker Compose
+- [x] `docker/docker-compose.prod.yml` references only real files (`docker/Dockerfile`, single Redis)
+- [x] Docker Compose secrets used for `redis_password`, `grafana_password`, `abuseipdb_api_key`
+- [x] No `:-changeme` or weak-password fallbacks; `BACKEND_HOST` uses `:?` (required, no default)
+- [x] `BACKEND_HOST=x docker compose -f docker/docker-compose.prod.yml config` exits 0
+- [x] All containers: `read_only`, `no-new-privileges`, `cap_drop: ALL`, memory/CPU limits
+
+---
+
+**Deployment Date**: _______________
+**Deployed By**: _______________
+**Reviewed By**: _______________
+**Approval**: _______________
 
 **Sign-off**: I confirm that all CRITICAL and HIGH PRIORITY items have been completed and verified.
 

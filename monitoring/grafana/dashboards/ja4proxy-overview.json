@@ -133,7 +133,7 @@
         "reduceOptions": {"calcs": ["lastNotNull"]}
       },
       "targets": [
-        {"expr": "ja4_active_connections", "legendFormat": ""}
+        {"expr": "ja4proxy_active_connections", "legendFormat": ""}
       ]
     },
     {

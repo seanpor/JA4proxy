@@ -1,17 +1,36 @@
 # Comprehensive Security Audit Report - JA4proxy
-**Date:** 2026-02-14  
-**Auditor:** Security Analysis System  
-**Repository:** https://github.com/seanpor/JA4proxy  
+**Audit Date:** 2026-02-14
+**Auditor:** Security Analysis System
+**Repository:** https://github.com/seanpor/JA4proxy
 **Scope:** Full codebase security review
+
+**Phase 14 Remediation Update:** 2026-03-16
+**Reviewer:** Phase 14 production hardening
+**Status:** All CRITICAL items remediated or formally deferred with documented rationale.
 
 ---
 
 ## Executive Summary
 
-This comprehensive security audit identifies **18 critical and high-severity vulnerabilities** across multiple security domains including authentication, input validation, dependency management, container security, TLS configuration, and operational security. The system shows good security awareness in some areas (input validation patterns, logging filters) but lacks implementation in critical areas.
+This audit originally identified **18 critical and high-severity vulnerabilities** across multiple security domains. Phase 14 (Production Hardening) addressed the highest-priority items. Remaining open items are either deferred to Phase 15 (Go rewrite) with documented rationale, or are mitigated by deployment architecture (Docker internal network isolation, reverse proxy auth).
 
-**Risk Level:** HIGH  
-**Recommended Action:** Immediate remediation required before production deployment
+**Original Risk Level:** HIGH
+**Post-Phase-14 Risk Level:** MEDIUM (deferred items are low-exploitability in the Docker-internal threat model)
+
+---
+
+## Remediation Summary (Phase 14)
+
+| # | Finding | Status | Fix Location |
+|---|---------|--------|-------------|
+| 1 | Default/Weak Secrets | ✅ RESOLVED | `docker-compose.poc.yml` `:?` syntax; `proxy.py` `_init_redis()` exits on missing prod password |
+| 2 | Unpinned Docker Images | ⚠️ DEFERRED | Phase 15 — image signing is a CI/CD concern; documented in `docker/docker-compose.prod.yml` header |
+| 3 | Unpinned Python Deps | ⚠️ DEFERRED | Phase 15 rewrite replaces Python dep tree; current `requirements.txt` uses pinned `==` versions |
+| 4 | Missing TLS to Backend | ℹ️ DESIGN | Proxy is TLS passthrough; backend TLS is backend's responsibility; not a proxy concern |
+| 5 | Redis Without TLS | ⚠️ DEFERRED | Docker-internal network; Phase 15 Go rewrite will add Redis TLS; ADR-014 §Redis-TLS |
+| 6 | Metrics Without Auth | ✅ MITIGATED | Metrics bound to `127.0.0.1:9090` (internal only); reverse proxy auth documented in SECOPS_OPERATIONS.md |
+| 7 | Excessive Capabilities | ✅ RESOLVED | `docker/docker-compose.prod.yml`: `cap_drop: ALL`, `read_only`, `no-new-privileges` on all containers |
+| 8 | Tarpit No Concurrency Limit | ✅ RESOLVED | Phase 14c: `max_concurrent_connections`, `max_per_ip`, `overflow_action` in `proxy.py` `_redirect_to_tarpit()` |
 
 ---
 
@@ -653,18 +672,13 @@ No automated scanning for:
 
 ---
 
-## Approval for Fixes
+## Phase 14 Remediation Notes
 
-**Do you approve proceeding with the Phase 1 critical fixes?**
+Phase 14 (Production Hardening, 2026-03-16) addressed the following from this audit:
 
-The fixes will include:
-1. Removing default passwords and adding validation
-2. Pinning all dependencies to secure versions
-3. Enabling TLS for Redis and backend connections
-4. Adding metrics authentication
-5. Complete testing of all changes
-6. Documentation updates
+- **Finding 1 (Weak secrets):** `docker-compose.poc.yml` replaced `:-changeme` with `:?`; proxy refuses to start in `ENVIRONMENT=production` without a Redis password (`proxy.py` `_init_redis()`).
+- **Finding 6 (Metrics auth):** Metrics endpoint bound to `127.0.0.1` only in all compose files. Auth via reverse proxy documented.
+- **Finding 7 (Container capabilities):** `docker/docker-compose.prod.yml` now enforces `cap_drop: ALL`, `read_only: true`, `security_opt: no-new-privileges` on every container.
+- **Finding 8 (Tarpit unlimited):** `proxy.py` `_redirect_to_tarpit()` enforces `max_concurrent_connections` and `max_per_ip` with `overflow_action` fallback (Phase 14c).
 
-This will address the 5 most critical vulnerabilities and reduce overall risk by approximately 60%.
-
-**Please respond "yes" to proceed with Phase 1 fixes.**
+Remaining deferred items (2, 3, 5) are tracked as Phase 15 work items. Redis TLS rationale: Docker bridge network provides network-layer isolation; the threat model for this deployment does not include lateral movement from a container on the same Docker bridge.

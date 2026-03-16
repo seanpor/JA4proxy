@@ -18,7 +18,7 @@ echo
 echo "2. PROMETHEUS QUERIES:"
 echo "--------------------------------------"
 echo "Active Connections:"
-curl -s 'http://localhost:9091/api/v1/query?query=ja4_active_connections' | python3 -c "import sys,json; d=json.load(sys.stdin); print('  Value:', d['data']['result'][0]['value'][1] if d['data']['result'] else 'No data')" 2>/dev/null || echo "  Error querying"
+curl -s 'http://localhost:9091/api/v1/query?query=ja4proxy_active_connections' | python3 -c "import sys,json; d=json.load(sys.stdin); print('  Value:', d['data']['result'][0]['value'][1] if d['data']['result'] else 'No data')" 2>/dev/null || echo "  Error querying"
 
 echo
 echo "Security Events:"

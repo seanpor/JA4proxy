@@ -1,0 +1,25 @@
+groups:
+  - name: ja4proxy_security
+    rules:
+      - alert: AbuseIPDBQuotaExhausted
+        expr: ja4proxy_abuseipdb_quota_exhausted == 1
+        for: 0m
+        labels: {severity: warning}
+        annotations:
+          summary: "AbuseIPDB daily quota exhausted; enrichment paused until midnight UTC"
+          runbook: "docs/runbooks/external_api_failures.md"
+
+      - alert: SpamhausDownloadFailed
+        expr: rate(ja4proxy_blocklist_download_errors_total[5m]) > 0
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "Spamhaus DROP/EDROP download failing"
+          runbook: "docs/runbooks/feed_management.md"
+
+      - alert: SpamhausListStale
+        expr: time() - ja4proxy_blocklist_last_refresh_success_seconds > 7200
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "Spamhaus list not refreshed for >2 hours"

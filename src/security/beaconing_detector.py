@@ -188,6 +188,9 @@ class BeaconingDetector:
         self._long_min_obs: int = long_cfg.get("min_observations", 5)
         self._long_score_cap: int = long_cfg.get("score", 20)
 
+        # Phase 14d: cap on beacon:suspects leaderboard size to prevent unbounded growth
+        self._max_suspects: int = cfg.get("max_suspects", 10000)
+
     async def maybe_record(
         self,
         ip: str,
@@ -342,10 +345,18 @@ class BeaconingDetector:
 
         _BEACONING_SCORE.observe(score_float)
 
-        # Update suspects sorted set (score = confidence; no TTL — managed by Phase 13 UI)
+        # Update suspects sorted set (score = confidence).
+        # Phase 14d: trim lowest-scoring entries when the cap is exceeded so
+        # sustained attacks with millions of unique IPs cannot grow this set
+        # without bound.
         try:
             await self._redis.zadd("beacon:suspects", {f"{ip}:{ja4}": score_float})
             count = await self._redis.zcard("beacon:suspects")
+            if count > self._max_suspects:
+                # Remove the (count - max_suspects) lowest-scoring entries
+                trim = count - self._max_suspects
+                await self._redis.zremrangebyrank("beacon:suspects", 0, trim - 1)
+                count = self._max_suspects
             _BEACONING_SUSPECTS.set(count)
         except Exception:
             pass  # Non-critical — suspects list is advisory only

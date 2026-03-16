@@ -1,0 +1,32 @@
+groups:
+  - name: ja4proxy_proxy
+    rules:
+      - alert: ProxyHighBlockRate
+        expr: rate(ja4proxy_connections_total{action=~"block|ban"}[5m]) > 10
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: "High block rate ({{ $value | humanize }}/s)"
+          runbook: "docs/runbooks/high_block_rate.md"
+
+      - alert: ProxyDialChanged
+        expr: changes(ja4proxy_dial_current[5m]) > 0
+        for: 0m
+        labels: {severity: info}
+        annotations:
+          summary: "Dial changed to {{ $value }}"
+
+      - alert: ProxyTarpitConcurrentHigh
+        expr: ja4proxy_tarpit_concurrent > 400
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: "Tarpit concurrent connections near cap ({{ $value }}/500)"
+          runbook: "docs/runbooks/tarpit_capacity.md"
+
+      - alert: ProxyInstanceDown
+        expr: up{job="ja4proxy"} == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "JA4proxy instance is unreachable"

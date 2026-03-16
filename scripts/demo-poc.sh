@@ -160,7 +160,7 @@ demo_metrics() {
     echo -e "${CYAN}Available metric types:${NC}"
     echo "  • ja4_requests_total - Request counter"
     echo "  • ja4_request_duration_seconds - Response time histogram"
-    echo "  • ja4_active_connections - Current connections"
+    echo "  • ja4proxy_active_connections - Current connections"
     echo "  • ja4_blocked_requests_total - Blocked request counter"
     echo "  • ja4_security_events_total - Security event counter"
     pause

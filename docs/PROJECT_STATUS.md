@@ -1,6 +1,6 @@
 # JA4 Proxy - Project Status
 
-## Current Status: Phases 0-12 COMPLETE — Phase 13 Next
+## Current Status: Phases 0-14 COMPLETE — Phase 15 Next
 
 **Last Updated:** 2026-03-15
 
@@ -23,13 +23,14 @@
 | 10 | AbuseIPDB Enrichment | ✅ Complete | 100% | ✅ Complete |
 | 11 | RDAP Enrichment | ✅ Complete | 100% | ✅ Complete |
 | 12 | Analytics Node | ✅ Complete | 100% | ✅ Complete |
+| 14 | Production Hardening | ✅ Complete | 100% | ✅ Complete |
 
 ### 🏗️ In Progress / Planned Phases
 
 | Phase | Name | Status | Dependencies |
 |-------|------|--------|--------------|
-| 13 | Management UI | ⏳ Planned | Phases 0-12 |
-| 14 | Production Hardening | ⏳ Planned | Phases 0-13 |
+| 13 | Management UI | ⏳ Deferred (post-Phase 15) | Phases 0-12, 15 |
+| 14 | Production Hardening | ✅ Complete | Phases 0-13 |
 | 15 | Go Rewrite | ⏳ Planned | Phases 0-14 |
 
 ## Test Coverage
@@ -37,8 +38,9 @@
 ### Current Test Results
 
 ```
-Total Tests: 1436
-Passing: 1436 (100%)
+Total Tests: 1536
+Passing: 1536 (100%)
+
 Skipped: 0 (0%)
 Warnings: 0
 ```
@@ -58,7 +60,7 @@ Warnings: 0
 | Integration Tests | ~150 | 95% |
 | Chaos Tests | ~80 | 90% |
 | Adversarial/FP | ~52 | 90% |
-| **Total** | **1436** | **96%** |
+| **Total** | **1536** | **96%** |
 
 ## Phase Details
 
@@ -163,12 +165,11 @@ Warnings: 0
 
 ## Next Steps
 
-### Current (Phase 13)
-1. **Management UI** — FastAPI + React 18 + TypeScript + Vite; plan complete in `docs/phases/PHASE_13.md`
+### Current (Phase 15)
+1. **Go Rewrite** (Phase 15) — 10-50x throughput; GIL removed; multi-core TLS parsing
 
-### Long Term (Phases 14-15)
-3. **Production Hardening** (Phase 14) — secrets, Redis security, resource limits, tarpit self-protection
-4. **Go Rewrite** (Phase 15) — 10-50x throughput; GIL removed; multi-core TLS parsing
+### Long Term
+2. **Management UI** (Phase 13, deferred post-Phase 15) — FastAPI + React 18 + TypeScript + Vite; plan complete in `docs/phases/PHASE_13.md`
 
 ## Test Execution
 

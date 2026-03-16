@@ -144,6 +144,10 @@ def _make_server(config_overrides: dict | None = None) -> ProxyServer:
     server._cidr_cache_ttl = 30
     server.active_connections = 0
     server._conn_semaphore = asyncio.Semaphore(MAX_CONCURRENT_CONNECTIONS)
+    # Phase 14c: tarpit self-protection counters
+    server._tarpit_concurrent = 0
+    server._tarpit_per_ip = {}
+    server._tarpit_lock = asyncio.Lock()
     return server
 
 

@@ -69,7 +69,7 @@ curl -s http://localhost:9090/metrics | grep "ja4_blocks_total" | grep -v "#"
 
 echo ""
 echo "Active connections:"
-curl -s http://localhost:9090/metrics | grep "ja4_active_connections" | grep -v "#"
+curl -s http://localhost:9090/metrics | grep "ja4proxy_active_connections" | grep -v "#"
 
 echo ""
 echo "========================================="

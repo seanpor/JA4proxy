@@ -330,3 +330,98 @@ class TestGetSignalMinObservations(unittest.TestCase):
         self.assertIn("cv=", result.reason)
         self.assertIn("strength=", result.reason)
         self.assertIn("over 10 observations", result.reason)
+
+
+# ---------------------------------------------------------------------------
+# Phase 14d — beacon:suspects leaderboard cap
+# ---------------------------------------------------------------------------
+
+
+def _make_detector_with_cap(max_suspects: int, zcard_return: int):
+    """Return a (detector, mock_redis) pair configured with the given cap.
+
+    The mock_redis is pre-wired so that zrangebyscore returns 10 evenly-spaced
+    timestamps (enough to produce a strong beacon signal), zcard returns
+    *zcard_return*, and zadd / zremrangebyrank are AsyncMocks we can inspect.
+    """
+    now = time.time()
+    timestamps = [(now - i * 60, now - i * 60) for i in range(10)]  # (member, score) pairs
+
+    mock_redis = MagicMock()
+    mock_redis.zrangebyscore = AsyncMock(return_value=timestamps)
+    mock_redis.zadd = AsyncMock()
+    mock_redis.zcard = AsyncMock(return_value=zcard_return)
+    mock_redis.zremrangebyrank = AsyncMock()
+
+    cfg = {
+        "beaconing_detector": {
+            "enabled": True,
+            "min_observations": 8,
+            "window_size": 20,
+            "observation_window_seconds": 3600,
+            "score": 35,
+            "max_suspects": max_suspects,
+            "long_window": {"enabled": False},
+        }
+    }
+    mock_cache = MagicMock()
+    mock_cache.whitelist_decisions.get = MagicMock(return_value=None)
+    detector = BeaconingDetector(cfg, mock_redis, mock_cache)
+    return detector, mock_redis
+
+
+class TestSuspectsLeaderboardCap(unittest.TestCase):
+    def _run(self, coro):
+        return asyncio.run(coro)
+
+    def test_no_trim_when_under_cap(self):
+        """When leaderboard count <= max_suspects, ZREMRANGEBYRANK is NOT called."""
+        detector, mock_redis = _make_detector_with_cap(max_suspects=100, zcard_return=50)
+        ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d1234")
+        self._run(detector.get_signal(ctx))
+        mock_redis.zremrangebyrank.assert_not_called()
+
+    def test_no_trim_when_exactly_at_cap(self):
+        """When leaderboard count == max_suspects, ZREMRANGEBYRANK is NOT called."""
+        detector, mock_redis = _make_detector_with_cap(max_suspects=100, zcard_return=100)
+        ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d1234")
+        self._run(detector.get_signal(ctx))
+        mock_redis.zremrangebyrank.assert_not_called()
+
+    def test_trim_when_one_over_cap(self):
+        """When leaderboard is exactly 1 over cap, trim removes 1 entry."""
+        detector, mock_redis = _make_detector_with_cap(max_suspects=100, zcard_return=101)
+        ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d1234")
+        self._run(detector.get_signal(ctx))
+        mock_redis.zremrangebyrank.assert_called_once_with("beacon:suspects", 0, 0)
+
+    def test_trim_when_many_over_cap(self):
+        """When leaderboard is N over cap, trim removes N lowest-scoring entries."""
+        detector, mock_redis = _make_detector_with_cap(max_suspects=100, zcard_return=150)
+        ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d1234")
+        self._run(detector.get_signal(ctx))
+        # Remove entries 0..49 (50 entries)
+        mock_redis.zremrangebyrank.assert_called_once_with("beacon:suspects", 0, 49)
+
+    def test_suspects_gauge_capped_at_max(self):
+        """After trimming, the Prometheus gauge must reflect max_suspects, not the raw count."""
+        detector, mock_redis = _make_detector_with_cap(max_suspects=100, zcard_return=200)
+        ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d1234")
+        with patch("src.security.beaconing_detector._BEACONING_SUSPECTS") as mock_gauge:
+            self._run(detector.get_signal(ctx))
+        mock_gauge.set.assert_called_once_with(100)
+
+    def test_trim_error_does_not_propagate(self):
+        """An exception from ZREMRANGEBYRANK must be silently swallowed."""
+        detector, mock_redis = _make_detector_with_cap(max_suspects=10, zcard_return=20)
+        mock_redis.zremrangebyrank = AsyncMock(side_effect=ConnectionError("redis down"))
+        ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d1234")
+        # Must not raise
+        result = self._run(detector.get_signal(ctx))
+        # Signal still returned (exception is in the non-critical suspects block)
+        self.assertIsNotNone(result)
+
+    def test_default_max_suspects_is_10000(self):
+        """Without config, max_suspects defaults to 10 000."""
+        detector = _make_detector()
+        self.assertEqual(detector._max_suspects, 10000)
