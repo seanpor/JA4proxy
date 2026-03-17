@@ -463,6 +463,33 @@ class JA4Generator:
             self.logger.error(f"Error generating JA4: {e}", exc_info=True)
             raise ValidationError(f"JA4 generation failed: {e}")
 
+    def generate_ja4x(self, issuer: str, subject: str, san: str) -> str:
+        """
+        Generate JA4X extended fingerprint from certificate fields.
+        Format: {issuer_hash}_{subject_hash}_{san_hash}
+        Each hash is SHA-256 truncated to 12 hex chars.
+        """
+        try:
+            import hashlib
+            
+            def _truncate_hash(data: str) -> str:
+                """Generate SHA-256 hash and truncate to 12 hex chars."""
+                if not data:
+                    return "000000000000"
+                return hashlib.sha256(data.encode('utf-8', errors='replace')).hexdigest()[:12]
+            
+            issuer_hash = _truncate_hash(issuer)
+            subject_hash = _truncate_hash(subject)
+            san_hash = _truncate_hash(san)
+            
+            ja4x = f"{issuer_hash}_{subject_hash}_{san_hash}"
+            return ja4x
+            
+        except Exception as e:
+            self.logger.error(f"Error generating JA4X: {e}", exc_info=True)
+            # Return sentinel value for missing/invalid certificates
+            return "000000000000_000000000000_000000000000"
+
     def _get_alpn_string(self, fields: Dict) -> str:
         """Get ALPN string for JA4. Returns first+last char of first ALPN, or '00'."""
         alpn_values = fields.get("alpn", [])
