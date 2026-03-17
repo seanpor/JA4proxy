@@ -1,0 +1,12 @@
+[flake8]
+exclude = .git,build,dist,venv,*.egg-info,.tox
+max-line-length = 120
+decorator-filter = @functools.lru_cache()
+ignore = E203,E266,E501,W503,E741,E741,C901,
+E265,E203
+
+per-file-ignores=
+    docs/*=F401,E402,F811
+    tests/*: F811,
+src/proxy.py: I001,
+    monitoring/*: E501,
