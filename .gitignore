@@ -112,6 +112,7 @@ test-results/
 .local/
 
 # Go build artifacts
+/bin/
 /proxy
 /ja4proxy
 /cmd/proxy/proxy
