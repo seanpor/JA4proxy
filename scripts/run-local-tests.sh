@@ -72,6 +72,11 @@ fi
 
 echo ""
 
+# ── Coverage (Phase 16) ──────────────────────────────────────────────────────
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Running tests with coverage (Phase 16)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
 # ── Run ───────────────────────────────────────────────────────────────────────
 set +e
 "$PYTHON" -m pytest tests/ \
@@ -79,6 +84,11 @@ set +e
     -n "$WORKERS" \
     --dist=loadfile \
     --timeout=60 \
+    --cov=src \
+    --cov=proxy \
+    --cov-fail-under=80 \
+    --cov-report=term-missing \
+    --cov-report=html:reports/coverage \
     --junitxml="$JUNIT" \
     "$@" \
     2>&1 | tee "$LOG"
