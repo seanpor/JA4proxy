@@ -122,11 +122,11 @@ smoke-test:
 
 # Run linting
 lint:
-	docker run --rm -v $(PWD):/app python:3.11-slim sh -c "cd /app && pip install black flake8 mypy bandit pytest-cov && black --check proxy.py security/ src/ && flake8 proxy.py security/ src/ 2>/dev/null && mypy proxy.py security/ src/ 2>/dev/null && bandit -r proxy.py security/ src/ --skip=B324,B103,B404,B608,B202,B603,B321,B311,B405,B410,B417,B506,B905,B906,B104,B105,B110 && echo \"✓ Linting passed\""
+	docker run --rm -v $(PWD):/app python:3.11-slim sh -c "cd /app && pip install black flake8 mypy bandit pytest-cov && black --check proxy.py security/ src/ && flake8 proxy.py security/ src/ 2>/dev/null && mypy proxy.py security/ src/ 2>/dev/null && bandit -r proxy.py security/ src/ && echo \"✓ Linting passed\""
 
-# Security scanning with bandit (suppress output to console, only report if issues remain)
+# Security scanning with bandit (report all issues)
 lint-security:
-	docker run --rm -v $(PWD):/app python:3.11-slim sh -c "cd /app && pip install bandit && bandit -r proxy.py security/ src/ --skip=B324,B103,B404,B608,B202,B603,B321,B311,B405,B410,B417,B506,B905,B906,B104,B105,B110 > /dev/null || (echo 'Bandit warnings above: check baseline docs/reports/BANDIT_BASELINE.md' && exit 1)"
+	docker run --rm -v $(PWD):/app python:3.11-slim sh -c "cd /app && pip install bandit && bandit -r proxy.py security/ src/ 2>/dev/null"
 
 # Type checking with mypy (supress output)
 lint-types:
