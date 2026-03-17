@@ -843,13 +843,55 @@ class SecurityManager:
 
         return True, "Allowed"
 
+    async def _get_adaptive_rate_threshold(self, client_ip: str) -> int:
+        """
+        Get adaptive rate threshold from Redis (Phase 16).
+        Falls back to static config if adaptive data not available.
+        """
+        # Extract /24 subnet for adaptive rate limiting
+        import ipaddress
+        try:
+            ip_obj = ipaddress.ip_address(client_ip)
+            if isinstance(ip_obj, ipaddress.IPv4Address):
+                # For IPv4, get the /24 network
+                subnet = str(ipaddress.IPv4Network(f"{ip_obj}/24", strict=False).network_address)
+            else:  # IPv6
+                # For IPv6, get the /64 network
+                subnet = str(ipaddress.IPv6Network(f"{ip_obj}/64", strict=False).network_address)
+        except Exception:
+            subnet = "unknown"
+
+        # Read adaptive threshold from Redis
+        adaptive_key = f"rate:adaptive:{subnet}"
+        try:
+            adaptive_data = await self.redis.hgetall(adaptive_key)
+            if adaptive_data and b"confidence" in adaptive_data:
+                confidence = float(adaptive_data[b"confidence"])
+                if confidence >= 0.7:  # Minimum confidence threshold
+                    threshold = int(adaptive_data[b"threshold_rps"])
+                    min_threshold = self.config.get("rate_limiter", {}).get("adaptive", {}).get("min_threshold_rps", 5)
+                    max_threshold = self.config.get("rate_limiter", {}).get("adaptive", {}).get("max_threshold_rps", 1000)
+                    # Clamp to configured bounds
+                    return max(min_threshold, min(threshold, max_threshold))
+        except Exception as e:
+            self.logger.debug(f"Adaptive rate data read failed: {e}")
+
+        # Fallback to static configuration
+        return self.config["security"].get("max_requests_per_minute", 100)
+
     async def _check_rate_limit(self, client_ip: str) -> bool:
         """
         Check rate limiting for client IP (SECURITY FIX: Fail-closed).
         Returns False if rate limit exceeded or on error.
         """
         window = self.config["security"].get("rate_limit_window", 60)
-        max_requests = self.config["security"].get("max_requests_per_minute", 100)
+        
+        # Get adaptive threshold if enabled (Phase 16)
+        adaptive_enabled = self.config.get("rate_limiter", {}).get("adaptive", {}).get("enabled", False)
+        if adaptive_enabled:
+            max_requests = await self._get_adaptive_rate_threshold(client_ip)
+        else:
+            max_requests = self.config["security"].get("max_requests_per_minute", 100)
 
         key = f"rate_limit:{client_ip}"
 
