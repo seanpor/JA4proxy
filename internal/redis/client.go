@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/redis/go-redis/v9"
+	goredis "github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 )
 
 // Client wraps go-redis and exposes the operations used by the pipeline.
 // All methods fail open: errors are logged and a safe zero value is returned.
 type Client struct {
-	rdb            *redis.Client
-	log            *logrus.Logger
-	slidingWinSHA  string // EVALSHA hash for sliding_window.lua
+	rdb           *goredis.Client
+	log           *logrus.Logger
+	slidingWinSHA string // EVALSHA hash for sliding_window.lua
 }
 
 // Config holds the Redis connection parameters.
@@ -33,7 +33,7 @@ func New(cfg Config, log *logrus.Logger) *Client {
 	if log == nil {
 		log = logrus.New()
 	}
-	opts := &redis.Options{
+	opts := &goredis.Options{
 		Addr:         fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
 		Password:     cfg.Password,
 		DB:           cfg.DB,
@@ -41,7 +41,7 @@ func New(cfg Config, log *logrus.Logger) *Client {
 		ReadTimeout:  cfg.Timeout,
 		WriteTimeout: cfg.Timeout,
 	}
-	rdb := redis.NewClient(opts)
+	rdb := goredis.NewClient(opts)
 	c := &Client{rdb: rdb, log: log}
 	c.loadScripts()
 	return c
@@ -64,7 +64,7 @@ func (c *Client) loadScripts() {
 // Get retrieves a string value. Returns ("", nil) if key absent. Fails open.
 func (c *Client) Get(ctx context.Context, key string) (string, error) {
 	val, err := c.rdb.Get(ctx, key).Result()
-	if err == redis.Nil {
+	if err == goredis.Nil {
 		return "", nil
 	}
 	if err != nil {
@@ -94,7 +94,7 @@ func (c *Client) SIsMember(ctx context.Context, key string, member interface{}) 
 // GetDial reads the config:dial key. Returns 0 on error (fail open — monitor mode).
 func (c *Client) GetDial(ctx context.Context) int {
 	val, err := c.rdb.Get(ctx, "config:dial").Result()
-	if err == redis.Nil {
+	if err == goredis.Nil {
 		return 0
 	}
 	if err != nil {
@@ -163,4 +163,71 @@ func (c *Client) HGetAll(ctx context.Context, key string) map[string]string {
 func (c *Client) GetString(ctx context.Context, key string) string {
 	v, _ := c.Get(ctx, key)
 	return v
+}
+
+// SetString stores a string value with TTL in seconds. Fails open.
+func (c *Client) SetString(ctx context.Context, key, value string, ttlSeconds int) {
+	c.Set(ctx, key, value, time.Duration(ttlSeconds)*time.Second)
+}
+
+// Exists returns true if the key exists. Returns false on error.
+func (c *Client) Exists(ctx context.Context, key string) bool {
+	n, err := c.rdb.Exists(ctx, key).Result()
+	if err != nil {
+		return false
+	}
+	return n > 0
+}
+
+// ZAdd adds a member to a sorted set. Fails open.
+func (c *Client) ZAdd(ctx context.Context, key string, score float64, member string) {
+	c.rdb.ZAdd(ctx, key, goredis.Z{Score: score, Member: member})
+}
+
+// ZRemRangeByScore removes members with scores between min and max. Fails open.
+func (c *Client) ZRemRangeByScore(ctx context.Context, key string, min, max float64) {
+	c.rdb.ZRemRangeByScore(ctx, key, fmt.Sprintf("%f", min), fmt.Sprintf("%f", max))
+}
+
+// ZRange returns members from start to stop index. Returns nil on error.
+func (c *Client) ZRange(ctx context.Context, key string, start, stop int64) []string {
+	result, err := c.rdb.ZRange(ctx, key, start, stop).Result()
+	if err != nil {
+		return nil
+	}
+	return result
+}
+
+// ZCard returns the cardinality of a sorted set. Returns 0 on error.
+func (c *Client) ZCard(ctx context.Context, key string) int64 {
+	n, err := c.rdb.ZCard(ctx, key).Result()
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
+// ZRangeScores returns the scores (as float64) of members from start to stop. Returns nil on error.
+func (c *Client) ZRangeScores(ctx context.Context, key string, start, stop int64) []float64 {
+	result, err := c.rdb.ZRangeWithScores(ctx, key, start, stop).Result()
+	if err != nil {
+		return nil
+	}
+	scores := make([]float64, len(result))
+	for i, z := range result {
+		scores[i] = z.Score
+	}
+	return scores
+}
+
+// SeedDialIfAbsent writes the dial value only if config:dial is not already set.
+func (c *Client) SeedDialIfAbsent(ctx context.Context, dial int) {
+	ok, err := c.rdb.SetNX(ctx, "config:dial", fmt.Sprintf("%d", dial), 0).Result()
+	if err != nil {
+		c.log.WithError(err).Warn("redis: failed to seed config:dial")
+		return
+	}
+	if ok {
+		c.log.WithField("dial", dial).Info("redis: seeded config:dial from config file")
+	}
 }

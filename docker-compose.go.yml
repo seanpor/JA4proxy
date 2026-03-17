@@ -1,0 +1,29 @@
+# docker-compose.go.yml — runs Go proxy on port 8082 for parallel validation.
+# Usage: docker compose -f docker-compose.poc.yml -f docker-compose.go.yml up
+#
+# Go proxy listens on :8082 (host) / :8080 (container)
+# Go metrics listen on :9092 (host) / :9090 (container)
+# Python proxy remains on :8080 (host)
+# Both proxies share the same Redis instance.
+
+services:
+  go-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile-go
+    ports:
+      - "8082:8080"
+      - "9092:9090"
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD:-}"
+      BACKEND_HOST: "${BACKEND_HOST:-backend}"
+      BACKEND_PORT: "${BACKEND_PORT:-443}"
+      ENVIRONMENT: "${ENVIRONMENT:-development}"
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
