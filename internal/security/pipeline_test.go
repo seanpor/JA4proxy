@@ -10,8 +10,13 @@ type mockRedis struct {
 	dial int
 }
 
-func (m *mockRedis) GetDial(_ context.Context) int { return m.dial }
-func (m *mockRedis) SIsMember(_ context.Context, _ string, _ interface{}) bool { return false }
+func (m *mockRedis) GetDial(_ context.Context) int                               { return m.dial }
+func (m *mockRedis) SIsMember(_ context.Context, _ string, _ interface{}) bool   { return false }
+func (m *mockRedis) SlidingWindowCount(_ context.Context, _ string, _ float64, _ int) int {
+	return 0
+}
+func (m *mockRedis) HGetAll(_ context.Context, _ string) map[string]string { return nil }
+func (m *mockRedis) GetString(_ context.Context, _ string) string          { return "" }
 
 func newTestPipeline(dial int) *Pipeline {
 	cfg := &PipelineConfig{

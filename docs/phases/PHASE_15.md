@@ -84,18 +84,98 @@ go_proxy:
 | Redis connection fails mid-traffic | Same fail-open behaviour as Python proxy; verified by identical chaos test suite |
 | Config file has unknown keys | Go proxy ignores unknown keys with DEBUG log; does not exit |
 
-## Current Implementation State (as of 2026-03-16)
+## Current Implementation State (as of 2026-03-17)
 
-Initial scaffolding is committed. **Nothing is functional yet.** See `PHASE_15_subplan.md`
-for the full breakdown of what exists and what is broken. Summary:
+**The subplan document was written before significant implementation work was done.
+Its "nothing is functional / all packages empty" description is wrong — see below.**
 
-- `go.mod` exists but has the wrong redis import path (`go-redis/redis/v9` → fix to `redis/go-redis/v9`)
-- `cmd/proxy/main.go` is a skeleton; references `NewProxy` / `config.Load` which don't exist
-- `internal/tls/hello_info.go` has preliminary struct definitions
-- `internal/tls/ja4.go` is a non-functional placeholder (wrong hash, hardcoded ALPN)
-- All other `internal/` packages are empty
+### What is implemented and working
 
-Start at Phase 0 in `PHASE_15_subplan.md` to begin the actual implementation.
+All packages compile. All Go unit tests pass (75+ tests):
+
+```
+ok  internal/cache     — LRU with TTL and eviction (9 tests)
+ok  internal/config    — proxy.yml loader with env-var expansion (11 tests)
+ok  internal/redis     — Redis client, Lua script load, pub/sub (11 tests)
+ok  internal/security  — RiskScorer, ActionDecider, Pipeline (14 tests)
+ok  internal/tls       — ClientHello parser, JA4 computation (22 tests)
+```
+
+Specific files that exist and are functional:
+
+| File | State |
+|------|-------|
+| `go.mod` | ✅ Correct — uses `github.com/redis/go-redis/v9` |
+| `cmd/proxy/main.go` | ✅ Full proxy — TCP listener, TLS parse, pipeline, forward/tarpit/block |
+| `internal/tls/hello_info.go` | ✅ `ClientHelloInfo` with all needed fields |
+| `internal/tls/parser.go` | ✅ Full ClientHello parser — never panics, handles all adversarial inputs |
+| `internal/tls/ja4.go` | ✅ Correct JA4 — SHA-256, GREASE filter, sorted ciphers/extensions |
+| `internal/security/models.go` | ✅ `ConnectionContext`, `PipelineResult`, `RiskSignal` |
+| `internal/security/risk_scorer.go` | ✅ Full scorer with clamping, weighting, thresholds |
+| `internal/security/action_decider.go` | ✅ Dial formula, banker's rounding, counterfactuals |
+| `internal/security/pipeline.go` | ✅ Bypass checks, hard blocks, scorer, dial — signal modules stubbed |
+| `internal/redis/client.go` | ✅ get/set/SISMEMBER/GetDial/Ping — fail-open |
+| `internal/redis/lua.go` | ✅ `SlidingWindowScript` embedded + reads from file |
+| `internal/redis/pubsub.go` | ⚠️ Works but no reconnect on channel close |
+| `internal/cache/local.go` | ✅ Thread-safe LRU with TTL |
+| `internal/config/loader.go` | ✅ Full proxy.yml schema, `${VAR:-default}` expansion, unknown keys ignored |
+| `Dockerfile-go` | ✅ Multi-stage alpine build |
+| `config/build.yml` | ✅ Go build settings |
+
+### Known environment issue: GOROOT
+
+The snap Go installation sets `GOROOT=/usr/share/go` which does not exist on this host.
+The stdlib is at `/snap/go/current`. Until fixed system-wide, all `go` commands need:
+
+```bash
+GOROOT=/snap/go/current go build ./...
+GOROOT=/snap/go/current go test ./...
+```
+
+This is a **host configuration issue**, not a code issue. Fix once:
+```bash
+# Add to ~/.bashrc or ~/.zshrc:
+export GOROOT=/snap/go/current
+```
+
+### What is NOT implemented (remaining work)
+
+These gaps must be closed before the acceptance criteria are met:
+
+**Missing signals (highest priority — this is the whole point of Phase 2 in the subplan):**
+- Signal modules from Python Phases 3–12 are not ported to Go. The pipeline has the
+  wiring in place (`var signals []RiskSignal` populated by future modules) but none of
+  them are implemented. The Go proxy currently only uses bypass checks and an empty
+  signal list → score=0 → action=allow (which is safe but not feature-equivalent).
+- Required: TLS enforcer, SNI analyzer, TCP analyzer, ASN classifier, DNS enrichment,
+  blocklists, beaconing detector, AbuseIPDB, RDAP, analytics signals.
+
+**Infrastructure gaps:**
+- No Prometheus metrics endpoint — acceptance criteria requires identical metric names/
+  labels to Python. The metrics config struct exists but no HTTP server or counters.
+- No `/health` HTTP endpoint.
+- PROXY protocol support: config field exists (`proxy_protocol: true`) but `main.go`
+  does not parse the PROXY protocol header to extract the real client IP.
+- PubSub does not reconnect after channel close (noted in code with a warning log).
+
+**Test gaps:**
+- No `tests/fixtures/clienthello/*.bin` binary fixtures exist. The JA4 parity test
+  (byte-for-byte match with Python) cannot be run without them. Existing Go TLS tests
+  use hand-built synthetic vectors, not real browser captures.
+- No `tests/integration/test_go_python_parity.py` (cross-language decision parity).
+- No chaos tests for Go proxy (`tests/chaos/test_go_proxy_chaos.py`).
+- No adversarial tests using real corpus files against the Go parser binary.
+- No performance benchmarks for Go vs Python.
+
+**Documentation gaps:**
+- `docs/decisions/ADR-015.md` not written (content is in `PHASE_15b.md` — needs moving).
+- `docs/runbooks/go_proxy_migration.md` not written (content is in `PHASE_15b.md`).
+- `docs/runbooks/go_proxy_operations.md` not written (GC tuning guidance in `PHASE_15b.md`).
+- `CHANGELOG.md` entry not written.
+- README does not document Go/Python switching procedure.
+- No `docker-compose.go.yml` or override mechanism for switching between implementations.
+
+See `PHASE_15_subplan.md` for a phase-by-phase breakdown and the remaining task list.
 
 ## Acceptance Criteria
 

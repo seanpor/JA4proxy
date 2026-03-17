@@ -329,15 +329,42 @@ func buildPipelineConfig(cfg *config.Config) *security.PipelineConfig {
 		"block":      cfg.RiskScorer.Thresholds.Block,
 		"ban":        cfg.RiskScorer.Thresholds.Ban,
 	}
+	expectedHostnames := stringSliceToSet(cfg.SNIAnalyzer.ExpectedHostnames)
 	return &security.PipelineConfig{
-		ALPNBrowserBypass:      cfg.SecurityPolicy.ALPNBrowserBypass.Enabled,
-		JA4WhitelistBypass:     cfg.SecurityPolicy.JA4WhitelistBypass.Enabled,
-		JA4BlacklistBypass:     cfg.SecurityPolicy.JA4BlacklistBypass.Enabled,
-		MTLSBypass:             cfg.SecurityPolicy.MTLSBypass.Enabled,
-		CountryBlacklistBypass: cfg.SecurityPolicy.CountryBlacklistBypass.Enabled,
-		Whitelist:              whitelist,
-		WhitelistSuffs:         cfg.Security.WhitelistPatterns,
-		Blacklist:              blacklist,
-		Thresholds:             thresholds,
+		ALPNBrowserBypass:       cfg.SecurityPolicy.ALPNBrowserBypass.Enabled,
+		JA4WhitelistBypass:      cfg.SecurityPolicy.JA4WhitelistBypass.Enabled,
+		JA4BlacklistBypass:      cfg.SecurityPolicy.JA4BlacklistBypass.Enabled,
+		MTLSBypass:              cfg.SecurityPolicy.MTLSBypass.Enabled,
+		CountryBlacklistBypass:  cfg.SecurityPolicy.CountryBlacklistBypass.Enabled,
+		Whitelist:               whitelist,
+		WhitelistSuffs:          cfg.Security.WhitelistPatterns,
+		Blacklist:               blacklist,
+		Thresholds:              thresholds,
+		TLSVersionBypassEnabled: cfg.SecurityPolicy.TLSVersionBypass.Enabled,
+		BlockTLS10:              cfg.TLSEnforcer.BlockTLS10,
+		BlockTLS11:              cfg.TLSEnforcer.BlockTLS11,
+		FlagTLS12:               cfg.TLSEnforcer.FlagTLS12,
+		BlockWeakCiphers:        cfg.TLSEnforcer.BlockWeakCiphers,
+		MissingSNIEnabled:       cfg.SNIAnalyzer.MissingSNI.Enabled,
+		MissingSNIScore:         cfg.SNIAnalyzer.MissingSNI.Score,
+		IPLiteralSNIEnabled:     cfg.SNIAnalyzer.IPLiteralSNI.Enabled,
+		IPLiteralSNIScore:       cfg.SNIAnalyzer.IPLiteralSNI.Score,
+		DGAEnabled:              cfg.SNIAnalyzer.DGADetection.Enabled,
+		DGAScoreCap:             cfg.SNIAnalyzer.DGADetection.ScoreCap,
+		UnexpectedSNIEnabled:    cfg.SNIAnalyzer.UnexpectedSNI.Enabled,
+		UnexpectedSNIScore:      cfg.SNIAnalyzer.UnexpectedSNI.Score,
+		ExpectedHostnames:       expectedHostnames,
 	}
+}
+
+// stringSliceToSet converts a string slice to a set map.
+func stringSliceToSet(ss []string) map[string]bool {
+	if len(ss) == 0 {
+		return nil
+	}
+	m := make(map[string]bool, len(ss))
+	for _, s := range ss {
+		m[s] = true
+	}
+	return m
 }
