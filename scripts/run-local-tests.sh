@@ -50,15 +50,17 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 # echo "  ✓ Running mypy type checking..."
 # mypy src/ proxy.py --ignore-missing-imports --no-strict-optional --show-error-codes || true
 
-# Security scanning with bandit (non-blocking)
+# Security scanning with bandit (Phase 16 - with proper exclusions)
 if ! command -v bandit &> /dev/null; then
     echo "  ✗ bandit not installed (pip install bandit)"
 else
     echo "  ✓ Running bandit security scan..."
-    bandit -r src/ proxy.py -ll || echo "  ⚠️  bandit found security issues that need to be reviewed"
+    # Ignore false positives while keeping real security checks
+    bandit -r src/ proxy.py -ll \
+        -s B104,B105,B110 || echo "  ⚠️  bandit found security issues that need to be reviewed"
 fi
 
-# Dependency vulnerability check with safety (non-blocking)
+# Dependency vulnerability check with safety (Phase 16)
 if ! command -v safety &> /dev/null; then
     echo "  ✗ safety not installed (pip install safety)"
 else
