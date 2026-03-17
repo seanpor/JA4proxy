@@ -129,3 +129,38 @@ func (c *Client) Close() error {
 func (c *Client) Ping(ctx context.Context) error {
 	return c.rdb.Ping(ctx).Err()
 }
+
+// SlidingWindowCount executes the sliding_window.lua EVALSHA.
+// KEYS[1]=key, KEYS[2]=key+":ctr", ARGV[1]=now, ARGV[2]=window, ARGV[3]=ttl
+// Returns 0 on error (fail open).
+func (c *Client) SlidingWindowCount(ctx context.Context, key string, window float64, ttl int) int {
+	if c.slidingWinSHA == "" {
+		return 0
+	}
+	now := float64(time.Now().UnixNano()) / 1e9
+	result, err := c.rdb.EvalSha(ctx, c.slidingWinSHA,
+		[]string{key, key + ":ctr"},
+		now, window, ttl,
+	).Int()
+	if err != nil {
+		c.log.WithError(err).WithField("key", key).Debug("redis: EVALSHA failed")
+		return 0
+	}
+	return result
+}
+
+// HGetAll retrieves all fields of a hash. Returns nil on error (fail open).
+func (c *Client) HGetAll(ctx context.Context, key string) map[string]string {
+	result, err := c.rdb.HGetAll(ctx, key).Result()
+	if err != nil {
+		c.log.WithError(err).WithField("key", key).Debug("redis: HGETALL failed")
+		return nil
+	}
+	return result
+}
+
+// GetString retrieves a string value. Returns "" if absent or on error.
+func (c *Client) GetString(ctx context.Context, key string) string {
+	v, _ := c.Get(ctx, key)
+	return v
+}

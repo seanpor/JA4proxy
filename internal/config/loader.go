@@ -180,6 +180,9 @@ type Config struct {
 	Logging        LoggingConfig        `yaml:"logging"`
 	Metrics        MetricsConfig        `yaml:"metrics"`
 	Tarpit         TarpitConfig         `yaml:"tarpit"`
+	TLSEnforcer    TLSEnforcerConfigYAML `yaml:"tls_enforcer"`
+	SNIAnalyzer    SNIAnalyzerConfigYAML `yaml:"sni_analyzer"`
+	GeoIP          GeoIPConfigYAML       `yaml:"geoip"`
 }
 
 // ProxyConfig holds network listener and connection settings.
@@ -278,4 +281,39 @@ type TarpitConfig struct {
 	MaxConcurrentConnections int    `yaml:"max_concurrent_connections"`
 	MaxPerIP                 int    `yaml:"max_per_ip"`
 	OverflowAction           string `yaml:"overflow_action"`
+}
+
+// TLSEnforcerConfigYAML holds TLS enforcement settings from proxy.yml.
+type TLSEnforcerConfigYAML struct {
+	BlockTLS10       bool `yaml:"block_tls_10"`
+	BlockTLS11       bool `yaml:"block_tls_11"`
+	FlagTLS12        bool `yaml:"flag_tls_12"`
+	BlockWeakCiphers bool `yaml:"block_weak_ciphers"`
+}
+
+// SNIAnalyzerConfigYAML holds SNI analysis settings from proxy.yml.
+type SNIAnalyzerConfigYAML struct {
+	MissingSNI struct {
+		Enabled bool `yaml:"enabled"`
+		Score   int  `yaml:"score"`
+	} `yaml:"missing_sni"`
+	IPLiteralSNI struct {
+		Enabled bool `yaml:"enabled"`
+		Score   int  `yaml:"score"`
+	} `yaml:"ip_literal_sni"`
+	DGADetection struct {
+		Enabled  bool `yaml:"enabled"`
+		ScoreCap int  `yaml:"score_cap"`
+	} `yaml:"dga_detection"`
+	UnexpectedSNI struct {
+		Enabled bool `yaml:"enabled"`
+		Score   int  `yaml:"score"`
+	} `yaml:"unexpected_sni"`
+	ExpectedHostnames []string `yaml:"expected_hostnames"`
+}
+
+// GeoIPConfigYAML holds GeoIP database settings from proxy.yml.
+type GeoIPConfigYAML struct {
+	DBPath    string `yaml:"db_path"`
+	ASNDBPath string `yaml:"asn_db_path"`
 }

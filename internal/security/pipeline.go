@@ -7,11 +7,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// RedisReader is the minimal Redis interface used by the pipeline.
+// RedisReader is the Redis interface used by the pipeline and signal modules.
 // Using an interface makes unit testing straightforward.
 type RedisReader interface {
 	GetDial(ctx context.Context) int
 	SIsMember(ctx context.Context, key string, member interface{}) bool
+	SlidingWindowCount(ctx context.Context, key string, window float64, ttl int) int
+	HGetAll(ctx context.Context, key string) map[string]string
+	GetString(ctx context.Context, key string) string
 }
 
 // Pipeline orchestrates the JA4proxy connection decision flow:
@@ -22,11 +25,13 @@ type RedisReader interface {
 //
 // Fail open: any module error is logged; a zero/neutral signal is used instead.
 type Pipeline struct {
-	cfg     *PipelineConfig
-	scorer  *RiskScorer
-	decider *ActionDecider
-	redis   RedisReader
-	log     *logrus.Logger
+	cfg         *PipelineConfig
+	scorer      *RiskScorer
+	decider     *ActionDecider
+	redis       RedisReader
+	log         *logrus.Logger
+	tlsEnforcer *TLSEnforcer
+	sniAnalyzer *SNIAnalyzer
 }
 
 // PipelineConfig holds the pipeline's toggleable bypass flags and list sets.
@@ -45,6 +50,24 @@ type PipelineConfig struct {
 
 	// Scoring thresholds (from risk_scorer.thresholds)
 	Thresholds map[string]int
+
+	// TLS enforcement (Group 2)
+	TLSVersionBypassEnabled bool
+	BlockTLS10              bool
+	BlockTLS11              bool
+	FlagTLS12               bool
+	BlockWeakCiphers        bool
+
+	// SNI analysis (Group 2)
+	MissingSNIEnabled    bool
+	MissingSNIScore      int
+	IPLiteralSNIEnabled  bool
+	IPLiteralSNIScore    int
+	DGAEnabled           bool
+	DGAScoreCap          int
+	UnexpectedSNIEnabled bool
+	UnexpectedSNIScore   int
+	ExpectedHostnames    map[string]bool
 }
 
 // NewPipeline creates a Pipeline ready to process connections.
@@ -55,13 +78,16 @@ func NewPipeline(cfg *PipelineConfig, redis RedisReader, log *logrus.Logger) *Pi
 	if cfg == nil {
 		cfg = &PipelineConfig{}
 	}
-	return &Pipeline{
+	p := &Pipeline{
 		cfg:     cfg,
 		scorer:  NewRiskScorer(cfg.Thresholds),
 		decider: NewActionDecider(cfg.Thresholds),
 		redis:   redis,
 		log:     log,
 	}
+	p.tlsEnforcer = NewTLSEnforcer(buildTLSEnforcerConfig(cfg), log)
+	p.sniAnalyzer = NewSNIAnalyzer(buildSNIAnalyzerConfig(cfg), log)
+	return p
 }
 
 // Process runs a connection through the full pipeline and returns the result.
@@ -103,9 +129,17 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	}
 
 	// ── 3. SIGNAL COLLECTION ─────────────────────────────────────────────
-	// Signal modules are stubs in Phase 15; the architecture is wired here
-	// so that future phases can add signals without touching the pipeline.
-	var signals []RiskSignal // populated by signal modules below (future phases)
+	var signals []RiskSignal
+
+	// TLS enforcement (hard block check first)
+	if tlsSigs, hardBlock := p.tlsEnforcer.Check(uint16(conn.TLSVersion), uint16s(conn.CipherList)); hardBlock {
+		return &PipelineResult{Action: "block", Score: 100, BypassReason: "tls_enforcement"}
+	} else {
+		signals = append(signals, tlsSigs...)
+	}
+
+	// SNI analysis
+	signals = append(signals, p.sniAnalyzer.Analyze(conn.SNI)...)
 
 	// ── 4. COMPOSITE SCORING ─────────────────────────────────────────────
 	assessment := p.scorer.Score(signals)
@@ -172,4 +206,47 @@ func (p *Pipeline) checkHardBlocks(conn *ConnectionContext) (bool, string) {
 	}
 
 	return false, ""
+}
+
+// buildTLSEnforcerConfig creates a TLSEnforcerConfig from the pipeline config.
+func buildTLSEnforcerConfig(cfg *PipelineConfig) *TLSEnforcerConfig {
+	return &TLSEnforcerConfig{
+		TLSVersionBypassEnabled: cfg.TLSVersionBypassEnabled,
+		BlockTLS10:              cfg.BlockTLS10,
+		BlockTLS11:              cfg.BlockTLS11,
+		FlagTLS12:               cfg.FlagTLS12,
+		BlockWeakCiphers:        cfg.BlockWeakCiphers,
+	}
+}
+
+// buildSNIAnalyzerConfig creates an SNIAnalyzerConfig from the pipeline config.
+func buildSNIAnalyzerConfig(cfg *PipelineConfig) *SNIAnalyzerConfig {
+	return &SNIAnalyzerConfig{
+		MissingSNIEnabled:    cfg.MissingSNIEnabled,
+		MissingSNIScore:      defaultInt(cfg.MissingSNIScore, 30),
+		IPLiteralSNIEnabled:  cfg.IPLiteralSNIEnabled,
+		IPLiteralSNIScore:    defaultInt(cfg.IPLiteralSNIScore, 25),
+		DGAEnabled:           cfg.DGAEnabled,
+		DGAScoreCap:          defaultInt(cfg.DGAScoreCap, 40),
+		UnexpectedSNIEnabled: cfg.UnexpectedSNIEnabled,
+		UnexpectedSNIScore:   defaultInt(cfg.UnexpectedSNIScore, 15),
+		ExpectedHostnames:    cfg.ExpectedHostnames,
+	}
+}
+
+// defaultInt returns v if non-zero, otherwise def.
+func defaultInt(v, def int) int {
+	if v == 0 {
+		return def
+	}
+	return v
+}
+
+// uint16s converts []int to []uint16. CipherList in ConnectionContext is []int.
+func uint16s(in []int) []uint16 {
+	out := make([]uint16, len(in))
+	for i, v := range in {
+		out[i] = uint16(v)
+	}
+	return out
 }
