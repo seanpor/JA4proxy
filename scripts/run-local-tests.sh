@@ -46,28 +46,28 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "  Static Analysis (Phase 16)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Type checking with mypy
+# Type checking with mypy (non-blocking)
 if ! command -v mypy &> /dev/null; then
     echo "  ✗ mypy not installed (pip install mypy)"
 else
     echo "  ✓ Running mypy type checking..."
-    mypy src/ proxy.py --ignore-missing-imports --no-strict-optional || true
+    mypy src/ proxy.py --ignore-missing-imports --no-strict-optional --show-error-codes || echo "  ⚠️  mypy found type issues that need to be addressed"
 fi
 
-# Security scanning with bandit
+# Security scanning with bandit (non-blocking)
 if ! command -v bandit &> /dev/null; then
     echo "  ✗ bandit not installed (pip install bandit)"
 else
     echo "  ✓ Running bandit security scan..."
-    bandit -r src/ proxy.py -ll || true
+    bandit -r src/ proxy.py -ll || echo "  ⚠️  bandit found security issues that need to be reviewed"
 fi
 
-# Dependency vulnerability check with safety
+# Dependency vulnerability check with safety (non-blocking)
 if ! command -v safety &> /dev/null; then
     echo "  ✗ safety not installed (pip install safety)"
 else
     echo "  ✓ Running safety dependency check..."
-    safety check --full-report || true
+    safety check --full-report || echo "  ⚠️  safety found vulnerability issues that need to be reviewed"
 fi
 
 echo ""
@@ -88,8 +88,10 @@ set +e
     --cov=proxy \
     --cov-fail-under=80 \
     --cov-report=term-missing \
-    --cov-report=html:reports/coverage \
+    --cov-report=html:.local/coverage \
     --junitxml="$JUNIT" \
+    -W ignore::RuntimeWarning \
+    -W ignore::DeprecationWarning \
     "$@" \
     2>&1 | tee "$LOG"
 EXIT=${PIPESTATUS[0]}
