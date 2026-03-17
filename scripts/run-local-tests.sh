@@ -46,12 +46,13 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "  Static Analysis (Phase 16)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Type checking with mypy (non-blocking)
+# Type checking with mypy (Phase 16 - informational only)
 if ! command -v mypy &> /dev/null; then
     echo "  ✗ mypy not installed (pip install mypy)"
 else
-    echo "  ✓ Running mypy type checking..."
-    mypy src/ proxy.py --ignore-missing-imports --no-strict-optional --show-error-codes || echo "  ⚠️  mypy found type issues that need to be addressed"
+    echo "  ✓ Running mypy type checking (informational)..."
+    # Run mypy but don't fail the build - shows issues that need addressing
+    mypy src/ proxy.py --ignore-missing-imports --no-strict-optional --show-error-codes || true
 fi
 
 # Security scanning with bandit (non-blocking)
