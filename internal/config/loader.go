@@ -180,9 +180,11 @@ type Config struct {
 	Logging        LoggingConfig        `yaml:"logging"`
 	Metrics        MetricsConfig        `yaml:"metrics"`
 	Tarpit         TarpitConfig         `yaml:"tarpit"`
-	TLSEnforcer    TLSEnforcerConfigYAML `yaml:"tls_enforcer"`
-	SNIAnalyzer    SNIAnalyzerConfigYAML `yaml:"sni_analyzer"`
-	GeoIP          GeoIPConfigYAML       `yaml:"geoip"`
+	TLSEnforcer    TLSEnforcerConfigYAML  `yaml:"tls_enforcer"`
+	SNIAnalyzer    SNIAnalyzerConfigYAML  `yaml:"sni_analyzer"`
+	GeoIP          GeoIPConfigYAML        `yaml:"geoip"`
+	TCPAnalyzer    TCPAnalyzerConfigYAML  `yaml:"tcp_analyzer"`
+	RateLimiter    RateLimiterConfigYAML  `yaml:"rate_limiter"`
 }
 
 // ProxyConfig holds network listener and connection settings.
@@ -316,4 +318,38 @@ type SNIAnalyzerConfigYAML struct {
 type GeoIPConfigYAML struct {
 	DBPath    string `yaml:"db_path"`
 	ASNDBPath string `yaml:"asn_db_path"`
+}
+
+// TCPAnalyzerConfigYAML holds TCP analyzer settings from proxy.yml.
+type TCPAnalyzerConfigYAML struct {
+	Enabled                       bool    `yaml:"enabled"`
+	SessionResumptionEnabled      bool    `yaml:"session_resumption_enabled"`
+	MinConnectionsForSessionCheck int     `yaml:"min_connections_for_session_check"`
+	ShortLifespanEnabled          bool    `yaml:"short_lifespan_enabled"`
+	ShortLifespanThresholdMS      int     `yaml:"short_lifespan_threshold_ms"`
+	ConcurrencyEnabled            bool    `yaml:"concurrency_enabled"`
+	ConcurrencyModerate           int     `yaml:"concurrency_moderate"`
+	ConcurrencyHigh               int     `yaml:"concurrency_high"`
+	ConcurrencySevere             int     `yaml:"concurrency_severe"`
+	ReturnVisitorEnabled          bool    `yaml:"return_visitor_enabled"`
+	ReturnVisitorMinDays          int     `yaml:"return_visitor_min_days"`
+	ReturnVisitorMinAllowRate     float64 `yaml:"return_visitor_min_allow_rate"`
+}
+
+// RateLimiterStrategyYAML holds a single rate limiter strategy from proxy.yml.
+type RateLimiterStrategyYAML struct {
+	Enabled    bool    `yaml:"enabled"`
+	Suspicious int     `yaml:"suspicious"`
+	Block      int     `yaml:"block"`
+	Ban        int     `yaml:"ban"`
+	Window     float64 `yaml:"window"`
+	TTL        int     `yaml:"ttl"`
+}
+
+// RateLimiterConfigYAML holds rate limiter settings from proxy.yml.
+type RateLimiterConfigYAML struct {
+	Enabled bool                    `yaml:"enabled"`
+	ByIP    RateLimiterStrategyYAML `yaml:"by_ip"`
+	ByJA4   RateLimiterStrategyYAML `yaml:"by_ja4"`
+	ByIPJA4 RateLimiterStrategyYAML `yaml:"by_ip_ja4"`
 }

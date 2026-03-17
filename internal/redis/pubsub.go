@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"time"
 
 	rdb "github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
@@ -17,8 +18,8 @@ const (
 
 // PubSubHandler listens on Redis pub/sub channels and calls registered handlers.
 type PubSubHandler struct {
-	client  *Client
-	log     *logrus.Logger
+	client   *Client
+	log      *logrus.Logger
 	onReload func()
 }
 
@@ -38,9 +39,28 @@ func NewPubSubHandler(client *Client, log *logrus.Logger, onReload func()) *PubS
 // Run subscribes to config channels and blocks until ctx is cancelled.
 // Reconnects automatically on connection failures (fail open).
 func (h *PubSubHandler) Run(ctx context.Context) {
+	backoff := time.Second
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		h.runOnce(ctx)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(backoff):
+			if backoff < 30*time.Second {
+				backoff = backoff * 2
+			}
+		}
+	}
+}
+
+func (h *PubSubHandler) runOnce(ctx context.Context) {
 	sub := h.client.rdb.Subscribe(ctx, ChannelConfigReload, ChannelDialChange)
 	defer sub.Close()
-
 	ch := sub.Channel()
 	for {
 		select {
@@ -48,7 +68,7 @@ func (h *PubSubHandler) Run(ctx context.Context) {
 			return
 		case msg, ok := <-ch:
 			if !ok {
-				h.log.Warn("pubsub: channel closed; reconnecting not implemented — restart proxy to re-subscribe")
+				h.log.Warn("pubsub: channel closed; will reconnect")
 				return
 			}
 			h.handleMessage(msg)

@@ -1,5 +1,34 @@
 # Changelog
 
+## [15.0.0] - 2026-03-17 — Go Proxy Rewrite
+
+### Added
+- Go proxy (`cmd/proxy/`) as drop-in replacement for `proxy.py`
+- All Phase 0–14 security signals ported to Go (TLS enforcer, SNI analyzer, TCP
+  analyzer, rate limiter, ASN classifier, DNS enrichment, blocklists, beaconing
+  detector, AbuseIPDB, RDAP enrichment, analytics signals)
+- Prometheus metrics HTTP server (`:9090/metrics`) — identical metric names/labels to Python
+- `/health` HTTP endpoint with Redis connectivity check
+- PROXY protocol v1 support for real client IP extraction behind HAProxy
+- `Dockerfile-go` multi-stage build (runtime image ≤ 10MB)
+- `docker-compose.go.yml` for parallel Python + Go validation
+- ADR-015: Go vs Rust decision documentation
+- Migration runbook: `docs/runbooks/go_proxy_migration.md`
+- Operations runbook: `docs/runbooks/go_proxy_operations.md`
+
+### Architecture
+- Python analytics container (`analytics/`) remains Python (scipy/pandas ecosystem)
+- Redis key schema unchanged — Go and Python share one Redis instance
+- `config/proxy.yml` schema unchanged — Go reads the same file
+
+### Performance
+- Target: ≥5× throughput vs Python proxy (10,000+ conn/s per core, warm cache)
+- GC pause p99 target: < 1ms at 1,000 conn/s sustained
+
+### Notes
+- Python proxy kept in place for rollback; switch HAProxy upstream to enable Go proxy
+- See `docs/runbooks/go_proxy_migration.md` for step-by-step cutover procedure
+
 ## [12.4.0] - 2026-03-16 - PHASE 12 gap-close: Redis HyperLogLog + analytics hot-reload
 
 ### Fixed

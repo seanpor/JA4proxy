@@ -6,9 +6,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -16,9 +19,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/oschwald/geoip2-golang"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 
 	"github.com/anomalyco/ja4proxy/internal/config"
+	"github.com/anomalyco/ja4proxy/internal/metrics"
+	proxypkg "github.com/anomalyco/ja4proxy/internal/proxy"
 	redisclient "github.com/anomalyco/ja4proxy/internal/redis"
 	"github.com/anomalyco/ja4proxy/internal/security"
 	tlsparse "github.com/anomalyco/ja4proxy/internal/tls"
@@ -33,6 +40,9 @@ func main() {
 
 	log := newLogger(cfg)
 
+	// Register Prometheus metrics (must be called once before any metric use)
+	metrics.Register()
+
 	proxy, err := newProxy(cfg, log)
 	if err != nil {
 		log.WithError(err).Fatal("failed to initialise proxy")
@@ -40,6 +50,16 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// Start background workers
+	proxy.pipeline.StartBackgroundWorkers(ctx)
+
+	// Start pub/sub for config hot-reload
+	go redisclient.NewPubSubHandler(proxy.redis, log, func() {
+		if err := proxy.reload(); err != nil {
+			log.WithError(err).Warn("config reload failed")
+		}
+	}).Run(ctx)
 
 	// Handle signals
 	sigCh := make(chan os.Signal, 1)
@@ -70,6 +90,7 @@ type proxy struct {
 	log      *logrus.Logger
 	pipeline *security.Pipeline
 	redis    *redisclient.Client
+	geoIP    *geoip2.Reader
 
 	activeConns int64 // atomic
 	mu          sync.RWMutex
@@ -85,18 +106,49 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 	}
 	rc := redisclient.New(redisCfg, log)
 
+	// Seed dial from config if not already set in Redis
+	ctx := context.Background()
+	rc.SeedDialIfAbsent(ctx, cfg.MonitorMode.Dial)
+
 	pipelineCfg := buildPipelineConfig(cfg)
 	p := security.NewPipeline(pipelineCfg, rc, log)
 
-	return &proxy{
+	prx := &proxy{
 		cfg:      cfg,
 		log:      log,
 		pipeline: p,
 		redis:    rc,
-	}, nil
+	}
+
+	// Open GeoIP DB if configured
+	if cfg.GeoIP.DBPath != "" {
+		if reader, err := geoip2.Open(cfg.GeoIP.DBPath); err == nil {
+			prx.geoIP = reader
+		} else {
+			log.WithError(err).Warn("proxy: failed to open GeoIP DB; country lookup disabled")
+		}
+	}
+
+	return prx, nil
 }
 
 func (p *proxy) serve(ctx context.Context) {
+	// Start metrics/health HTTP server
+	if p.cfg.Metrics.Enabled {
+		go func() {
+			mux := http.NewServeMux()
+			mux.Handle("/metrics", promhttp.Handler())
+			mux.HandleFunc("/health", p.handleHealth)
+			addr := fmt.Sprintf(":%d", p.cfg.Metrics.Port)
+			p.log.WithField("addr", addr).Info("proxy: metrics server listening")
+			srv := &http.Server{Addr: addr, Handler: mux, ReadTimeout: 10 * time.Second}
+			go func() { <-ctx.Done(); srv.Shutdown(context.Background()) }()
+			if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				p.log.WithError(err).Warn("metrics server error")
+			}
+		}()
+	}
+
 	addr := fmt.Sprintf("%s:%d", p.cfg.Proxy.BindHost, p.cfg.Proxy.BindPort.Int())
 	ln, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -126,7 +178,9 @@ func (p *proxy) serve(ctx context.Context) {
 }
 
 func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
+	metrics.ActiveConnections.Inc()
 	defer func() {
+		metrics.ActiveConnections.Dec()
 		atomic.AddInt64(&p.activeConns, -1)
 		clientConn.Close()
 	}()
@@ -146,6 +200,26 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		ClientIP: remoteIP(clientConn),
 	}
 
+	// PROXY protocol: extract real client IP if behind HAProxy
+	if p.cfg.Proxy.ProxyProtocol {
+		if realIP, ok := proxypkg.ReadProxyProtocol(data); ok {
+			connCtx.ClientIP = realIP
+			// Advance past the PROXY header
+			if idx := bytes.Index(data, []byte("\r\n")); idx >= 0 {
+				data = data[idx+2:]
+			}
+		}
+	}
+
+	// GeoIP country lookup
+	if p.geoIP != nil {
+		if ip := net.ParseIP(connCtx.ClientIP); ip != nil {
+			if record, err := p.geoIP.Country(ip); err == nil {
+				connCtx.Country = record.Country.IsoCode
+			}
+		}
+	}
+
 	if n >= 5 && data[0] == 0x16 {
 		if hello, err := tlsparse.ParseClientHello(data); err == nil {
 			ja4 := tlsparse.ComputeJA4(hello)
@@ -162,6 +236,13 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 
 	// Run pipeline
 	result := p.pipeline.Process(ctx, connCtx)
+
+	// Record metrics
+	metrics.ConnectionsTotal.WithLabelValues(result.Action).Inc()
+	metrics.RiskScoreHistogram.Observe(float64(result.Score))
+	if result.Bypassed {
+		metrics.BypassHitsTotal.WithLabelValues(result.BypassReason).Inc()
+	}
 
 	// Execute action
 	switch result.Action {
@@ -267,8 +348,26 @@ func (p *proxy) reload() error {
 	p.mu.Lock()
 	p.cfg = newCfg
 	p.mu.Unlock()
+	metrics.ConfigReloadsTotal.Inc()
 	p.log.Info("config reloaded")
 	return nil
+}
+
+// handleHealth responds to HTTP health check requests.
+func (p *proxy) handleHealth(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+	redisStatus := "ok"
+	if err := p.redis.Ping(ctx); err != nil {
+		redisStatus = "error"
+	}
+	status := "ok"
+	if redisStatus != "ok" {
+		status = "degraded"
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": status, "redis": redisStatus})
 }
 
 func (p *proxy) drain(timeoutSeconds int) {
@@ -354,6 +453,45 @@ func buildPipelineConfig(cfg *config.Config) *security.PipelineConfig {
 		UnexpectedSNIEnabled:    cfg.SNIAnalyzer.UnexpectedSNI.Enabled,
 		UnexpectedSNIScore:      cfg.SNIAnalyzer.UnexpectedSNI.Score,
 		ExpectedHostnames:       expectedHostnames,
+		// Rate limiter (Group 3)
+		RateLimiterEnabled: cfg.RateLimiter.Enabled,
+		RateLimiterByIP: security.StrategyConfig{
+			Enabled:    cfg.RateLimiter.ByIP.Enabled,
+			Suspicious: cfg.RateLimiter.ByIP.Suspicious,
+			Block:      cfg.RateLimiter.ByIP.Block,
+			Ban:        cfg.RateLimiter.ByIP.Ban,
+			Window:     cfg.RateLimiter.ByIP.Window,
+			TTL:        cfg.RateLimiter.ByIP.TTL,
+		},
+		RateLimiterByJA4: security.StrategyConfig{
+			Enabled:    cfg.RateLimiter.ByJA4.Enabled,
+			Suspicious: cfg.RateLimiter.ByJA4.Suspicious,
+			Block:      cfg.RateLimiter.ByJA4.Block,
+			Ban:        cfg.RateLimiter.ByJA4.Ban,
+			Window:     cfg.RateLimiter.ByJA4.Window,
+			TTL:        cfg.RateLimiter.ByJA4.TTL,
+		},
+		RateLimiterByIPJA4: security.StrategyConfig{
+			Enabled:    cfg.RateLimiter.ByIPJA4.Enabled,
+			Suspicious: cfg.RateLimiter.ByIPJA4.Suspicious,
+			Block:      cfg.RateLimiter.ByIPJA4.Block,
+			Ban:        cfg.RateLimiter.ByIPJA4.Ban,
+			Window:     cfg.RateLimiter.ByIPJA4.Window,
+			TTL:        cfg.RateLimiter.ByIPJA4.TTL,
+		},
+		// TCP analyzer (Group 3)
+		TCPAnalyzerEnabled:                   cfg.TCPAnalyzer.Enabled,
+		TCPAnalyzerSessionResumptionEnabled:  cfg.TCPAnalyzer.SessionResumptionEnabled,
+		TCPAnalyzerMinConnectionsForSession:  cfg.TCPAnalyzer.MinConnectionsForSessionCheck,
+		TCPAnalyzerShortLifespanEnabled:      cfg.TCPAnalyzer.ShortLifespanEnabled,
+		TCPAnalyzerShortLifespanThresholdMS:  cfg.TCPAnalyzer.ShortLifespanThresholdMS,
+		TCPAnalyzerConcurrencyEnabled:        cfg.TCPAnalyzer.ConcurrencyEnabled,
+		TCPAnalyzerConcurrencyModerate:       cfg.TCPAnalyzer.ConcurrencyModerate,
+		TCPAnalyzerConcurrencyHigh:           cfg.TCPAnalyzer.ConcurrencyHigh,
+		TCPAnalyzerConcurrencySevere:         cfg.TCPAnalyzer.ConcurrencySevere,
+		TCPAnalyzerReturnVisitorEnabled:      cfg.TCPAnalyzer.ReturnVisitorEnabled,
+		TCPAnalyzerReturnVisitorMinDays:      cfg.TCPAnalyzer.ReturnVisitorMinDays,
+		TCPAnalyzerReturnVisitorMinAllowRate: cfg.TCPAnalyzer.ReturnVisitorMinAllowRate,
 	}
 }
 

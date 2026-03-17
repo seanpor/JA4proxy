@@ -2,6 +2,7 @@ package tls
 
 import (
 	"encoding/binary"
+	"os"
 	"strings"
 	"testing"
 )
@@ -744,5 +745,40 @@ func TestComputeJA4FromFields(t *testing.T) {
 
 	if fromStruct != fromFields {
 		t.Errorf("ComputeJA4 and ComputeJA4FromFields differ: %q vs %q", fromStruct, fromFields)
+	}
+}
+
+// TestJA4_FixturesParity verifies Go JA4 output matches expected values.
+// Skips if the fixtures directory does not exist or no expectations are defined.
+func TestJA4_FixturesParity(t *testing.T) {
+	// expected is updated after running scripts/capture_clienthello.py
+	// and computing JA4 with the Python reference implementation.
+	expected := map[string]string{
+		// "curl_tls13": "t13d...",  // populated after capture
+	}
+	if len(expected) == 0 {
+		t.Skip("no fixture expectations defined; run scripts/capture_clienthello.py to capture fixtures")
+	}
+	dir := "../../tests/fixtures/clienthello"
+	for name, wantJA4 := range expected {
+		path := dir + "/" + name + ".bin"
+		data, err := os.ReadFile(path)
+		if os.IsNotExist(err) {
+			t.Skipf("fixture %s not found; run scripts/capture_clienthello.py", path)
+			continue
+		}
+		if err != nil {
+			t.Errorf("%s: read error: %v", name, err)
+			continue
+		}
+		info, err := ParseClientHello(data)
+		if err != nil {
+			t.Errorf("%s: parse error: %v", name, err)
+			continue
+		}
+		got := ComputeJA4(info)
+		if got != wantJA4 {
+			t.Errorf("%s: JA4 = %q; want %q", name, got, wantJA4)
+		}
 	}
 }

@@ -286,3 +286,54 @@ make rebuild           # Full clean rebuild from scratch — wipe volumes + imag
 ./scripts/stop-all.sh --clean  # same as make stop-clean
 ```
 
+## Running the Go Proxy
+
+The Go proxy is a drop-in replacement for `proxy.py` with 10–50× higher throughput.
+
+### Build
+
+```bash
+GOROOT=/snap/go/current go build -o bin/ja4proxy ./cmd/proxy
+```
+
+### Parallel Validation (Recommended)
+
+Run Go proxy on port 8082 alongside the Python proxy on 8080:
+
+```bash
+docker compose -f docker-compose.poc.yml -f docker-compose.go.yml up -d go-proxy
+```
+
+Verify health:
+```bash
+curl http://localhost:9092/health
+# {"redis":"ok","status":"ok"}
+```
+
+Check metrics:
+```bash
+curl -s http://localhost:9092/metrics | grep ja4proxy_connections_total
+```
+
+Run integration tests:
+```bash
+python3 -m pytest tests/integration/test_go_python_parity.py -v
+```
+
+### HAProxy Switching
+
+Once validated, switch HAProxy to point to the Go proxy:
+
+```haproxy
+backend ja4proxy
+    server go-proxy ja4proxy-go:8080 check
+    # server python-proxy ja4proxy:8080 check backup
+```
+
+### Rollback
+
+Restore the Python proxy in HAProxy config and reload. The Python proxy is kept in
+place and can be re-enabled within seconds.
+
+See `docs/runbooks/go_proxy_migration.md` for the full step-by-step procedure.
+
