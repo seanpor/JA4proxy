@@ -22,6 +22,7 @@ class ConnectionContext:
     """Immutable snapshot of a connection's observable metadata."""
     client_ip: str
     ja4: str = ""
+    ja4x: str | None = None  # JA4X extended fingerprint (Phase 16)
     alpn: str | None = None
     has_valid_client_cert: bool = False
     client_certificate: bytes | None = None
