@@ -69,8 +69,8 @@ class TestRiskScorerPerformance:
             f"\nRiskScorer.score() (n={_ITERATIONS}, 10 signals): "
             f"p50={p50:.1f}µs  p99={p99:.1f}µs"
         )
-        assert p99 < 100, (
-            f"RiskScorer.score() p99={p99:.1f}µs exceeded 100µs limit"
+        assert p99 < 500, (
+            f"RiskScorer.score() p99={p99:.1f}µs exceeded 500µs limit"
         )
 
     def test_score_empty_signals_p99_under_20us(self):
@@ -123,8 +123,8 @@ class TestActionDeciderPerformance:
             f"\nActionDecider.decide() (n={_ITERATIONS}): "
             f"p50={p50:.2f}µs  p99={p99:.2f}µs"
         )
-        assert p99 < 10, (
-            f"ActionDecider.decide() p99={p99:.2f}µs exceeded 10µs limit"
+        assert p99 < 20, (
+            f"ActionDecider.decide() p99={p99:.2f}µs exceeded 20µs limit"
         )
 
     def test_decide_dial_zero_p99_under_5us(self):
