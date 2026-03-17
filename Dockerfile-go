@@ -1,0 +1,56 @@
+# Dockerfile.go — multi-stage build for the JA4proxy Go binary.
+#
+# Build stage: full Go toolchain on Alpine.
+# Runtime stage: minimal Alpine with only the binary + config.
+# Target runtime image size: ≤ 10MB.
+#
+# Build:
+#   docker build -f Dockerfile.go -t ja4proxy-go .
+#
+# Run:
+#   docker run --rm -p 8080:8080 \
+#     -e REDIS_PASSWORD=secret \
+#     -e BACKEND_HOST=your-backend \
+#     ja4proxy-go
+
+# ── Build stage ───────────────────────────────────────────────────────────────
+FROM golang:1.22-alpine AS builder
+
+RUN apk add --no-cache ca-certificates git
+
+WORKDIR /build
+
+# Cache dependency downloads separately from source changes.
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source and build a statically-linked binary.
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags="-s -w -extldflags '-static'" \
+    -trimpath \
+    -o /ja4proxy \
+    ./cmd/proxy
+
+# ── Runtime stage ─────────────────────────────────────────────────────────────
+FROM alpine:3.19
+
+# Non-root user for least-privilege operation.
+RUN addgroup -S ja4proxy && adduser -S -G ja4proxy ja4proxy
+
+# CA certificates for TLS verification (backend connections).
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# Binary
+COPY --from=builder /ja4proxy /usr/local/bin/ja4proxy
+
+# Config and Lua scripts (read at runtime; hot-reloadable via SIGHUP).
+COPY config/proxy.yml /app/config/proxy.yml
+COPY scripts/sliding_window.lua /app/scripts/sliding_window.lua
+
+USER ja4proxy
+WORKDIR /app
+
+EXPOSE 8080 9090
+
+ENTRYPOINT ["/usr/local/bin/ja4proxy"]

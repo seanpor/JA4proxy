@@ -1,21 +1,39 @@
+// Package tls provides TLS ClientHello parsing and JA4 fingerprint computation.
 package tls
 
-import (
-	"encoding/binary"
-)
-
-// ClientHelloField holds a single extension field from ClientHello.
-type ClientHelloField struct {
-	Extension uint16      // Extension type (e.g., 0x0017 = SNI)
-	DataLen   uint16      // Length of data in bytes
-	Data      []byte      // Raw data for this extension
-}
-
-// ClientHelloInfo contains parsed ClientHello metadata before JA4 computation.
+// ClientHelloInfo contains all parsed fields from a TLS ClientHello message
+// needed to compute JA4 and other fingerprints.
 type ClientHelloInfo struct {
-	Plaintext     []byte      // Raw TCP payload (first clienthello message only)
-	CipherSuite   uint16      // TLS cipher suite from hello.message.cipher_suites
-	JA4Ver        byte        // MSB of version from handshake
-	JA4Cipher     byte        // LSB of cipher
-	RandLen       uint16      // Length of RAND (32-64 bytes typical)
-	 JA4Extensions ClientHelloField
+	// Raw ClientHello record bytes (TLS record layer + handshake header)
+	Raw []byte
+
+	// Version from ClientHello legacy_version field (e.g. 0x0303 for TLS 1.2)
+	LegacyVersion uint16
+
+	// CipherSuites lists all cipher suite values including GREASE
+	CipherSuites []uint16
+
+	// CompressionMethods lists the offered compression methods
+	CompressionMethods []byte
+
+	// Extensions lists all extension type codes in order of appearance
+	Extensions []uint16
+
+	// SNIPresent is true if extension type 0 (SNI) appears in the ClientHello
+	SNIPresent bool
+
+	// SNI is the server name from the SNI extension, if present
+	SNI string
+
+	// SupportedVersions lists TLS versions from the supported_versions extension (0x002b)
+	SupportedVersions []uint16
+
+	// ALPNProtocols lists the protocol names from the ALPN extension (0x0010)
+	ALPNProtocols []string
+
+	// SignatureAlgorithms from extension 0x000d
+	SignatureAlgorithms []uint16
+
+	// SupportedGroups from extension 0x000a
+	SupportedGroups []uint16
+}

@@ -1,8 +1,8 @@
-# Go build configuration for JA4proxy recompilation
+# Go build configuration for JA4proxy
 go_proxy:
-  binary_name: ja4proxy           # Output binary name (must be jaxproxy, not ja4proxy)
-  min_go_version: "1.22"          # Minimum Go version required
-  target_platforms:               # Build targets for release
+  binary_name: ja4proxy           # Output binary name.
+  min_go_version: "1.22"          # Minimum Go version required.
+  target_platforms:               # Build targets for release.
     - linux/amd64
     - linux/arm64
 
