@@ -1,0 +1,72 @@
+# Default values for ja4proxy
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Number of replicas for the deployment
+replicaCount: 2
+
+# Image configuration
+image:
+  repository: ja4proxy
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: "2"
+    memory: "512Mi"
+  requests:
+    cpu: "500m"
+    memory: "128Mi"
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+# Redis configuration (external Redis required)
+redis:
+  external: true
+  url: ""  # Set via REDIS_URL secret
+
+# Horizontal Pod Autoscaler configuration
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 20
+  targetConnectionCount: 500
+
+# Ingress configuration (disabled by default)
+ingress:
+  enabled: false
+  # className: ""
+  # hosts:
+  #   - host: ja4proxy.example.com
+  #     paths:
+  #       - path: /
+  #         pathType: ImplementationSpecific
+
+# Configuration file (mounted as ConfigMap)
+config:
+  # Mount the proxy.yml config file
+  enabled: true
+  mountPath: /app/config/proxy.yml
+  subPath: proxy.yml
+
+# Pod disruption budget for high availability
+pdb:
+  enabled: true
+  minAvailable: 1
+
+# Node affinity for spreading pods across nodes
+nodeAffinity:
+  enabled: true
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000

@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ja4proxy
+  labels:
+    app: ja4proxy
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: ja4proxy
+  template:
+    metadata:
+      labels:
+        app: ja4proxy
+    spec:
+      {{- if .Values.nodeAffinity.enabled }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - ja4proxy
+              topologyKey: "kubernetes.io/hostname"
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.securityContext | nindent 8 }}
+      containers:
+      - name: ja4proxy
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        env:
+        - name: REDIS_URL
+          value: {{ .Values.redis.url | quote }}
+        {{- if .Values.config.enabled }}
+        volumeMounts:
+        - name: config-volume
+          mountPath: {{ .Values.config.mountPath }}
+          subPath: {{ .Values.config.subPath }}
+        {{- end }}
+      {{- if .Values.config.enabled }}
+      volumes:
+      - name: config-volume
+        configMap:
+          name: ja4proxy-config
+      {{- end }}

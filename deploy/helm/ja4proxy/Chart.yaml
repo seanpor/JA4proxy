@@ -1,0 +1,14 @@
+apiVersion: v2
+name: ja4proxy
+description: JA4 proxy for TLS fingerprinting and security analysis
+type: application
+version: 0.1.0
+appVersion: "1.0"
+
+# Dependencies (none for now)
+dependencies: []
+
+# Maintainers
+maintainers:
+  - name: JA4Proxy Team
+    email: security@ja4proxy.org
