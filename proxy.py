@@ -1524,9 +1524,20 @@ class ProxyServer:
                     return
 
                 # --- Pipeline: bypass checks + signal collection + scoring + action ---
+                # Generate JA4X if certificate info is available (Phase 16)
+                ja4x = None
+                # TODO: Extract certificate info from TLS session and generate JA4X
+                # if certificate_info:
+                #     ja4x = self.ja4_generator.generate_ja4x(
+                #         certificate_info.get("issuer", ""),
+                #         certificate_info.get("subject", ""),
+                #         certificate_info.get("san", "")
+                #     )
+
                 ctx = ConnectionContext(
                     client_ip=client_ip,
                     ja4=ja4,
+                    ja4x=ja4x,  # JA4X extended fingerprint (Phase 16)
                     country=country or None,
                     tls_version=fingerprint.tls_version_int or None,
                     cipher_list=fingerprint.raw_cipher_suites,
