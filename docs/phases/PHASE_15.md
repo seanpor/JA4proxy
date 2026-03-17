@@ -138,44 +138,31 @@ This is a **host configuration issue**, not a code issue. Fix once:
 export GOROOT=/snap/go/current
 ```
 
-### What is NOT implemented (remaining work)
+### What is NOT implemented (remaining work — as of 2026-03-17)
 
-These gaps must be closed before the acceptance criteria are met:
+All signal modules, infrastructure, and documentation are now complete (see commits
+`e4fa506` and `484e2d0`). The outstanding items are primarily validation gates that
+require a running environment:
 
-**Missing signals (highest priority — this is the whole point of Phase 2 in the subplan):**
-- Signal modules from Python Phases 3–12 are not ported to Go. The pipeline has the
-  wiring in place (`var signals []RiskSignal` populated by future modules) but none of
-  them are implemented. The Go proxy currently only uses bypass checks and an empty
-  signal list → score=0 → action=allow (which is safe but not feature-equivalent).
-- Required: TLS enforcer, SNI analyzer, TCP analyzer, ASN classifier, DNS enrichment,
-  blocklists, beaconing detector, AbuseIPDB, RDAP, analytics signals.
+**Requires real browser capture to close:**
+- `tests/fixtures/clienthello/*.bin` binary fixtures do not exist yet.
+  Use `scripts/capture_clienthello.py` to capture real ClientHellos from Chrome/Firefox/Safari.
+  Once captured, the JA4 parity test (`tests/fixtures/clienthello/README.md`) can be run.
 
-**Infrastructure gaps:**
-- No Prometheus metrics endpoint — acceptance criteria requires identical metric names/
-  labels to Python. The metrics config struct exists but no HTTP server or counters.
-- No `/health` HTTP endpoint.
-- PROXY protocol support: config field exists (`proxy_protocol: true`) but `main.go`
-  does not parse the PROXY protocol header to extract the real client IP.
-- PubSub does not reconnect after channel close (noted in code with a warning log).
+**Requires running Docker stack to close:**
+- `tests/integration/test_go_python_parity.py` test bodies are stubs — they pass
+  structurally but do not send live traffic. Run `make go-start` then `make go-parity`
+  to exercise them.
+- `tests/chaos/test_go_proxy_chaos.py` — same; requires running stack.
+- `tests/performance/test_bench_go_proxy.py` — requires both proxies running.
 
-**Test gaps:**
-- No `tests/fixtures/clienthello/*.bin` binary fixtures exist. The JA4 parity test
-  (byte-for-byte match with Python) cannot be run without them. Existing Go TLS tests
-  use hand-built synthetic vectors, not real browser captures.
-- No `tests/integration/test_go_python_parity.py` (cross-language decision parity).
-- No chaos tests for Go proxy (`tests/chaos/test_go_proxy_chaos.py`).
-- No adversarial tests using real corpus files against the Go parser binary.
-- No performance benchmarks for Go vs Python.
+**Development tooling:**
+- `docs/TESTING_GO.md` — ✅ written (Go vs Python test comparison)
+- `docs/developer/go_proxy_guide.md` — ✅ written (architecture, patterns, adding modules)
+- `Makefile` go-* targets — ✅ added (`make go-build`, `make go-test`, `make go-switch`,
+  `make go-rollback`, `make go-parity`, etc.)
 
-**Documentation gaps:**
-- `docs/decisions/ADR-015.md` not written (content is in `PHASE_15b.md` — needs moving).
-- `docs/runbooks/go_proxy_migration.md` not written (content is in `PHASE_15b.md`).
-- `docs/runbooks/go_proxy_operations.md` not written (GC tuning guidance in `PHASE_15b.md`).
-- `CHANGELOG.md` entry not written.
-- README does not document Go/Python switching procedure.
-- No `docker-compose.go.yml` or override mechanism for switching between implementations.
-
-See `PHASE_15_subplan.md` for a phase-by-phase breakdown and the remaining task list.
+See `PHASE_15_subplan.md` for the complete group-by-group task list (all marked ✅).
 
 ## Acceptance Criteria
 
