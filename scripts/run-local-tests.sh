@@ -41,6 +41,37 @@ echo "  Workers: $WORKERS  │  Timeout: 60s/test  │  dist: loadfile"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
+# ── Static Analysis (Phase 16) ──────────────────────────────────────────────
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Static Analysis (Phase 16)"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Type checking with mypy
+if ! command -v mypy &> /dev/null; then
+    echo "  ✗ mypy not installed (pip install mypy)"
+else
+    echo "  ✓ Running mypy type checking..."
+    mypy src/ proxy.py --ignore-missing-imports --no-strict-optional || true
+fi
+
+# Security scanning with bandit
+if ! command -v bandit &> /dev/null; then
+    echo "  ✗ bandit not installed (pip install bandit)"
+else
+    echo "  ✓ Running bandit security scan..."
+    bandit -r src/ proxy.py -ll || true
+fi
+
+# Dependency vulnerability check with safety
+if ! command -v safety &> /dev/null; then
+    echo "  ✗ safety not installed (pip install safety)"
+else
+    echo "  ✓ Running safety dependency check..."
+    safety check --full-report || true
+fi
+
+echo ""
+
 # ── Run ───────────────────────────────────────────────────────────────────────
 set +e
 "$PYTHON" -m pytest tests/ \
