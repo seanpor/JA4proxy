@@ -178,9 +178,9 @@ func (p *proxy) serve(ctx context.Context) {
 }
 
 func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
-	metrics.ActiveConnections.Inc()
+	metrics.ConcurrentConnections.Inc()
 	defer func() {
-		metrics.ActiveConnections.Dec()
+		metrics.ConcurrentConnections.Dec()
 		atomic.AddInt64(&p.activeConns, -1)
 		clientConn.Close()
 	}()
@@ -239,9 +239,9 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 
 	// Record metrics
 	metrics.ConnectionsTotal.WithLabelValues(result.Action).Inc()
-	metrics.RiskScoreHistogram.Observe(float64(result.Score))
+	metrics.RiskScore.Observe(float64(result.Score))
 	if result.Bypassed {
-		metrics.BypassHitsTotal.WithLabelValues(result.BypassReason).Inc()
+		metrics.BypassTotal.WithLabelValues(result.BypassReason).Inc()
 	}
 
 	// Execute action
@@ -266,7 +266,7 @@ func (p *proxy) forward(clientConn net.Conn, initialData []byte) {
 	cfg := p.cfg
 	p.mu.RUnlock()
 
-	backendAddr := fmt.Sprintf("%s:%d", cfg.Proxy.BackendHost, cfg.Proxy.BackendPort.Int())
+	backendAddr := net.JoinHostPort(cfg.Proxy.BackendHost, fmt.Sprintf("%d", cfg.Proxy.BackendPort.Int()))
 	backendConn, err := net.DialTimeout("tcp", backendAddr,
 		time.Duration(cfg.Proxy.ConnectionTimeout)*time.Second)
 	if err != nil {
@@ -311,7 +311,7 @@ func (p *proxy) tarpit(clientConn net.Conn, _ []byte) {
 	cfg := p.cfg
 	p.mu.RUnlock()
 
-	tarpitAddr := fmt.Sprintf("%s:%d", cfg.Proxy.TarpitHost, cfg.Proxy.TarpitPort.Int())
+	tarpitAddr := net.JoinHostPort(cfg.Proxy.TarpitHost, fmt.Sprintf("%d", cfg.Proxy.TarpitPort.Int()))
 	tarpitConn, err := net.DialTimeout("tcp", tarpitAddr, 2*time.Second)
 	if err != nil {
 		// Tarpit unavailable → just close (fail open to block rather than forward)
