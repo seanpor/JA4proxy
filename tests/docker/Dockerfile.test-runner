@@ -1,0 +1,26 @@
+FROM golang:1.23-alpine AS go-builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN go build -o /ja4check ./cmd/ja4check
+RUN go build -o /ja4proxy ./cmd/proxy
+
+FROM python:3.11-slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl openssl redis-tools netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY requirements*.txt ./
+RUN pip install --no-cache-dir pytest pytest-asyncio requests redis 2>/dev/null || \
+    pip install --no-cache-dir pytest requests redis
+COPY . .
+COPY --from=go-builder /ja4check /usr/local/bin/ja4check
+COPY --from=go-builder /ja4proxy /usr/local/bin/ja4proxy
+RUN mkdir -p bin && ln -sf /usr/local/bin/ja4proxy bin/ja4proxy
+ENV PYTHONPATH=/app
+CMD ["python3", "-m", "pytest", \
+     "tests/integration/test_go_python_parity.py", \
+     "tests/chaos/test_go_proxy_chaos.py", \
+     "tests/performance/test_bench_go_proxy.py", \
+     "-v", "--tb=short"]

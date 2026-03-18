@@ -1,0 +1,6 @@
+FROM python:3.11-slim
+WORKDIR /app
+COPY scripts/capture_server.py scripts/
+COPY tests/fixtures/clienthello/ tests/fixtures/clienthello/
+EXPOSE 9443 9444 9445 9446
+CMD ["python3", "scripts/capture_server.py", "--names", "chrome_tls13,firefox_tls13,curl_tls13,curl_tls12", "--timeout", "120"]
