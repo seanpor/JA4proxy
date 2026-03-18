@@ -1,0 +1,159 @@
+---
+# Isolated test environment for Go proxy integration/chaos/performance tests.
+#
+# Usage:
+#   docker compose -f docker-compose.test.yml up --build \
+#     --abort-on-container-exit --exit-code-from test-runner
+#
+# All services communicate over the ja4proxy-test internal network.
+# Ports are also exposed on the host (with offsets) for local debugging.
+
+networks:
+  ja4proxy-test:
+    driver: bridge
+    name: ja4proxy-test
+
+services:
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    command: redis-server --save "" --appendonly no
+    networks:
+      - ja4proxy-test
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+      start_period: 3s
+
+  # ── TLS backend ─────────────────────────────────────────────────────────────
+  tls-backend:
+    build:
+      context: .
+      dockerfile: tests/docker/Dockerfile.tls-backend
+    networks:
+      - ja4proxy-test
+    ports:
+      - "8443:443"
+    healthcheck:
+      test: ["CMD", "python3", "-c",
+             "import ssl,socket; ctx=ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT); ctx.check_hostname=False; ctx.verify_mode=ssl.CERT_NONE; socket.create_connection(('localhost',443),timeout=2)"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # ── Go proxy ────────────────────────────────────────────────────────────────
+  go-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile-go
+    networks:
+      - ja4proxy-test
+    ports:
+      - "8082:8080"
+      - "9092:9090"
+    depends_on:
+      redis:
+        condition: service_healthy
+      tls-backend:
+        condition: service_healthy
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ""
+      BACKEND_HOST: tls-backend
+      BACKEND_PORT: "443"
+      PROXY_PORT: "8080"
+      METRICS_PORT: "9090"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/health"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  # ── Python proxy ────────────────────────────────────────────────────────────
+  python-proxy:
+    build:
+      context: .
+      dockerfile: tests/docker/Dockerfile.python-proxy
+    networks:
+      - ja4proxy-test
+    ports:
+      - "8081:8080"
+      - "9091:9090"
+    depends_on:
+      redis:
+        condition: service_healthy
+      tls-backend:
+        condition: service_healthy
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ""
+      BACKEND_HOST: tls-backend
+      BACKEND_PORT: "443"
+
+  # ── ClientHello recorder ────────────────────────────────────────────────────
+  recorder:
+    build:
+      context: .
+      dockerfile: tests/docker/Dockerfile.recorder
+    networks:
+      - ja4proxy-test
+    ports:
+      - "9443:9443"
+      - "9444:9444"
+      - "9445:9445"
+      - "9446:9446"
+
+  # ── Browser (optional — use with: docker compose ... --profile browser) ─────
+  browser:
+    image: mcr.microsoft.com/playwright:v1.40.0-jammy
+    profiles:
+      - browser
+    networks:
+      - ja4proxy-test
+    depends_on:
+      - recorder
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: >
+      bash -c "
+        pip install playwright --quiet &&
+        python3 scripts/generate_fixtures_browser.py --recorder-host recorder
+      "
+    environment:
+      RECORDER_HOST: recorder
+
+  # ── Test runner ─────────────────────────────────────────────────────────────
+  test-runner:
+    build:
+      context: .
+      dockerfile: tests/docker/Dockerfile.test-runner
+    networks:
+      - ja4proxy-test
+    depends_on:
+      redis:
+        condition: service_healthy
+      go-proxy:
+        condition: service_healthy
+    environment:
+      GO_PROXY_HOST: go-proxy
+      GO_PROXY_PORT: "8080"
+      GO_METRICS_PORT: "9090"
+      PYTHON_PROXY_HOST: python-proxy
+      PYTHON_PROXY_PORT: "8080"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      RECORDER_HOST: recorder
+      BACKEND_HOST: tls-backend
+      BACKEND_PORT: "443"
+      GO_BINARY: /usr/local/bin/ja4proxy
+      PYTHONPATH: /app

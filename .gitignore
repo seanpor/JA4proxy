@@ -113,6 +113,9 @@ test-results/
 
 # Go build artifacts
 /bin/
+/ja4check
+/ja4proxy
+/cmd/proxy/proxy
 /proxy
 /ja4proxy
 /cmd/proxy/proxy
