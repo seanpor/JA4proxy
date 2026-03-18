@@ -14,20 +14,20 @@ func TestMetricNames_ConnectionsTotal(t *testing.T) {
 	}
 }
 
-func TestMetricNames_ActiveConnections(t *testing.T) {
+func TestMetricNames_ConcurrentConnections(t *testing.T) {
 	ch := make(chan *prometheus.Desc, 1)
-	ActiveConnections.Describe(ch)
+	ConcurrentConnections.Describe(ch)
 	desc := <-ch
-	if !strings.Contains(desc.String(), "ja4proxy_active_connections") {
+	if !strings.Contains(desc.String(), "ja4proxy_concurrent_connections") {
 		t.Errorf("wrong metric name: %s", desc)
 	}
 }
 
-func TestMetricNames_RiskScoreHistogram(t *testing.T) {
+func TestMetricNames_RiskScore(t *testing.T) {
 	ch := make(chan *prometheus.Desc, 10)
-	RiskScoreHistogram.Describe(ch)
+	RiskScore.Describe(ch)
 	desc := <-ch
-	if !strings.Contains(desc.String(), "ja4proxy_risk_score_distribution") {
+	if !strings.Contains(desc.String(), "ja4proxy_risk_score") {
 		t.Errorf("wrong metric name: %s", desc)
 	}
 }

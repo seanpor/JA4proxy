@@ -8,21 +8,22 @@ var (
 		prometheus.CounterOpts{Name: "ja4proxy_connections_total", Help: "Total connections by action"},
 		[]string{"action"},
 	)
-	// ActiveConnections is the current number of active connections.
-	ActiveConnections = prometheus.NewGauge(
-		prometheus.GaugeOpts{Name: "ja4proxy_active_connections", Help: "Current active connections"},
+	// ConcurrentConnections is the current number of active connections.
+	ConcurrentConnections = prometheus.NewGauge(
+		prometheus.GaugeOpts{Name: "ja4proxy_concurrent_connections", Help: "Current concurrent connections"},
 	)
-	// RiskScoreHistogram tracks the distribution of risk scores.
-	RiskScoreHistogram = prometheus.NewHistogram(
+	// RiskScore tracks the distribution of risk scores.
+	// Name follows the standard: histograms end in the base unit, never embed _histogram.
+	RiskScore = prometheus.NewHistogram(
 		prometheus.HistogramOpts{
-			Name:    "ja4proxy_risk_score_distribution",
-			Help:    "Distribution of risk scores",
+			Name:    "ja4proxy_risk_score",
+			Help:    "Risk score distribution",
 			Buckets: []float64{0, 10, 20, 35, 55, 70, 85, 100},
 		},
 	)
-	// DialSetting tracks the current dial setting.
-	DialSetting = prometheus.NewGauge(
-		prometheus.GaugeOpts{Name: "ja4proxy_dial_setting", Help: "Current dial setting (0-100)"},
+	// DialCurrent tracks the current dial setting.
+	DialCurrent = prometheus.NewGauge(
+		prometheus.GaugeOpts{Name: "ja4proxy_dial_current", Help: "Current dial value (0-100)"},
 	)
 	// SecurityEventsTotal counts security events by type.
 	SecurityEventsTotal = prometheus.NewCounterVec(
@@ -42,10 +43,11 @@ var (
 	ConfigReloadsTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{Name: "ja4proxy_config_reloads_total", Help: "Total config reloads"},
 	)
-	// BypassHitsTotal counts bypass checks hit by reason.
-	BypassHitsTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{Name: "ja4proxy_bypass_hits_total", Help: "Bypass checks hit"},
-		[]string{"reason"},
+	// BypassTotal counts bypass checks hit by rule name.
+	// Name matches docs/OBSERVABILITY_STANDARDS.md: ja4proxy_bypass_total{bypass}
+	BypassTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "ja4proxy_bypass_total", Help: "Connections handled by each bypass rule"},
+		[]string{"bypass"},
 	)
 	// SignalTotal counts signal firings by name.
 	SignalTotal = prometheus.NewCounterVec(
@@ -58,8 +60,8 @@ var (
 // Safe to call from main() only — panics if called twice.
 func Register() {
 	prometheus.MustRegister(
-		ConnectionsTotal, ActiveConnections, RiskScoreHistogram,
-		DialSetting, SecurityEventsTotal, TarpitConcurrent,
-		TarpitOverflowTotal, ConfigReloadsTotal, BypassHitsTotal, SignalTotal,
+		ConnectionsTotal, ConcurrentConnections, RiskScore,
+		DialCurrent, SecurityEventsTotal, TarpitConcurrent,
+		TarpitOverflowTotal, ConfigReloadsTotal, BypassTotal, SignalTotal,
 	)
 }
