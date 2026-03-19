@@ -2,7 +2,7 @@
 # Test wrapper script that ensures proper exit with debugging
 echo "=== TEST WRAPPER STARTED ==="
 echo "Current time: $(date)"
-echo "Arguments: $@"
+echo "Arguments: $*"
 echo "Starting tests..."
 
 # Run pytest with timing

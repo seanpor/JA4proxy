@@ -18,7 +18,7 @@ if [ -f /run/secrets/abuseipdb_api_key ]; then
 fi
 
 # Run the command
-echo "Executing: $@"
+echo "Executing: $*"
 exec "$@"
 
 # This should never be reached
