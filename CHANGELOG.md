@@ -1,5 +1,21 @@
 # Changelog
 
+## [14.6.1] - 2026-03-19 - Production Docker fixes: secrets, Grafana password, redis-exporter
+
+### Fixed
+- `scripts/docker-entrypoint.sh`: inject Docker secrets as env vars before `exec`
+  so `REDIS_PASSWORD` and `ABUSEIPDB_API_KEY` reach the proxy process. Docker secrets
+  are mounted as files; the proxy reads env vars — the entrypoint was a stub that did
+  not read those files.
+- `docker/docker-compose.prod.yml`: move `GF_SECURITY_ADMIN_PASSWORD__FILE` from a
+  comment into the `grafana` service `environment:` block so Grafana actually reads the
+  secret file at startup (password was silently ignored before).
+- `docker/docker-compose.prod.yml`: add `redis-exporter` service
+  (`oliver006/redis_exporter:v1.55.0`) — Prometheus scrape target
+  `ja4proxy-redis-exporter:9121` in `monitoring/prometheus/prometheus.yml` had no
+  corresponding container, so Redis metrics were never collected in production.
+  Uses `REDIS_PASSWORD_FILE` (supported since v1.46) to avoid plaintext password in env.
+
 ## [15.0.0] - 2026-03-17 — Go Proxy Rewrite
 
 ### Added
