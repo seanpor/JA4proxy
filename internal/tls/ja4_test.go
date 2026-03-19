@@ -703,7 +703,7 @@ func TestHashCiphers_KnownValue(t *testing.T) {
 	}
 	// Should be lowercase hex
 	for _, c := range got {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			t.Errorf("hash should be lowercase hex, got char %q in %q", string(c), got)
 		}
 	}

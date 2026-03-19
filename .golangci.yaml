@@ -1,0 +1,47 @@
+# golangci-lint v2 configuration for JA4proxy
+# https://golangci-lint.run/usage/configuration/
+#
+# Run: make lint-go-full
+
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - ineffassign
+    - staticcheck
+    - govet
+    - unused
+
+  settings:
+    errcheck:
+      # Idiomatic Go: defer Close() errors are unactionable and conventionally ignored.
+      # SetReadDeadline/SetWriteDeadline errors surface as Read/Write errors on next op.
+      exclude-functions:
+        - (net.Conn).Close
+        - (net.Listener).Close
+        - (io.Closer).Close
+        - (*os.File).Close
+        - (*github.com/redis/go-redis/v9.PubSub).Close
+        - (net.Conn).SetReadDeadline
+        - (net.Conn).SetWriteDeadline
+        - (*net.TCPConn).SetReadDeadline
+        - (*net.TCPConn).SetWriteDeadline
+        - os.Unsetenv
+        - os.Remove
+
+issues:
+  exclude-rules:
+    # Test HTTP handlers: json.Encoder.Encode failure is not actionable in test context
+    - path: "_test\\.go"
+      linters: [errcheck]
+      text: "Encode"
+    # miniredis test setup: SAdd return value not needed
+    - path: "_test\\.go"
+      linters: [errcheck]
+      text: "SAdd"
+    # Test file operations in cleanup helpers
+    - path: "_test\\.go"
+      linters: [errcheck]
+      text: "Close|WriteString"

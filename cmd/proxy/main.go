@@ -142,7 +142,12 @@ func (p *proxy) serve(ctx context.Context) {
 			addr := fmt.Sprintf(":%d", p.cfg.Metrics.Port)
 			p.log.WithField("addr", addr).Info("proxy: metrics server listening")
 			srv := &http.Server{Addr: addr, Handler: mux, ReadTimeout: 10 * time.Second}
-			go func() { <-ctx.Done(); srv.Shutdown(context.Background()) }()
+			go func() {
+				<-ctx.Done()
+				if err := srv.Shutdown(context.Background()); err != nil {
+					p.log.WithError(err).Warn("metrics server shutdown error")
+				}
+			}()
 			if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 				p.log.WithError(err).Warn("metrics server error")
 			}
@@ -367,7 +372,9 @@ func (p *proxy) handleHealth(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": status, "redis": redisStatus})
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": status, "redis": redisStatus}); err != nil {
+		p.log.WithError(err).Warn("health: failed to encode response")
+	}
 }
 
 func (p *proxy) drain(timeoutSeconds int) {

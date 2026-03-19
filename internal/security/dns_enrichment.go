@@ -42,10 +42,6 @@ func NewDNSEnrichment(cfg *DNSEnrichmentConfig, redis RedisWriter, log *logrus.L
 	if cfg == nil {
 		cfg = &DNSEnrichmentConfig{}
 	}
-	workers := cfg.Workers
-	if workers == 0 {
-		workers = 4
-	}
 	return &DNSEnrichment{
 		cfg:   cfg,
 		redis: redis,

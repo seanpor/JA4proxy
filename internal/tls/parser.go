@@ -184,21 +184,18 @@ func parseSNI(info *ClientHelloInfo, data []byte) {
 	if listLen < 3 || 2+listLen > len(data) {
 		return
 	}
+	// Only the first server name entry is used (TLS SNI carries one name in practice).
 	p := 2
-	for p < 2+listLen {
-		if p+3 > len(data) {
-			return
-		}
-		// nameType := data[p] // 0 = host_name
-		nameLen := int(binary.BigEndian.Uint16(data[p+1 : p+3]))
-		p += 3
-		if p+nameLen > len(data) {
-			return
-		}
-		info.SNI = string(data[p : p+nameLen])
-		p += nameLen
-		break // only need first entry
+	if p+3 > len(data) {
+		return
 	}
+	// nameType := data[p] // 0 = host_name
+	nameLen := int(binary.BigEndian.Uint16(data[p+1 : p+3]))
+	p += 3
+	if p+nameLen > len(data) {
+		return
+	}
+	info.SNI = string(data[p : p+nameLen])
 }
 
 // parseALPN extracts protocol names from the ALPN extension body.

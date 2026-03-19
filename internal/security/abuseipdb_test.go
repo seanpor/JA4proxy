@@ -118,7 +118,7 @@ func TestAbuseIPDB_APIError_FailOpen(t *testing.T) {
 func TestAbuseIPDB_LookupStoresInRedis(t *testing.T) {
 	// Mock server returns confidence=60
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		json.NewEncoder(w).Encode(map[string]interface{}{ //nolint:errcheck // test HTTP handler
 			"data": map[string]interface{}{
 				"abuseConfidenceScore": 60,
 			},
