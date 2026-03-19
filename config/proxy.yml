@@ -327,9 +327,9 @@ tls_enforcer:
     - 0x000A  # TLS_RSA_WITH_3DES_EDE_CBC_SHA
     - 0x0035  # TLS_RSA_WITH_AES_256_CBC_SHA (no PFS)
     - 0x002F  # TLS_RSA_WITH_AES_128_CBC_SHA (no PFS)
-  
+
   # ── Phase 5: TCP & Connection Behaviour + mTLS ────────────────────────────
-  
+
   tcp_analyzer:
     enabled: true
     tcp_fingerprinting:
@@ -357,15 +357,15 @@ tls_enforcer:
       enabled: true
       rate_threshold: 5
       score: 20
-  
+
   mtls:
     enabled: false
     ca_cert_path: "config/trusted_cas.pem"
     require_client_cert: false
     cert_cn_allowlist: []
-  
+
   # ── Phase 6: ASN & Datacenter Classification ─────────────────────────────
-  
+
   asn_classifier:
     enabled: true
     datacenter_list_path: "config/asn_datacenter_list.yml"

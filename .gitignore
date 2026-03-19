@@ -15,6 +15,9 @@ ssl/certs/*.pem
 .env.local
 .env.production
 
+# Claude Code local settings (may contain API keys)
+.claude/settings.local.json
+
 # Redis password files
 *_password.txt
 *_password

@@ -33,7 +33,7 @@ groups:
       # Top blocked fingerprints
       - record: ja4:blocked:by_fingerprint
         expr: |
-          topk(10, 
+          topk(10,
             sum by (ja4_fingerprint) (
               increase(ja4_blocked_requests_total[1h])
             )
