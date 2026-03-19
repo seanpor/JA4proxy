@@ -52,6 +52,7 @@ _SESSION_START: list[float] = []  # populated by pytest_sessionstart
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _run(coro):
     """Run an async coroutine from a sync context."""
     return asyncio.run(coro)
@@ -63,6 +64,7 @@ def pytest_sessionstart(session) -> None:  # noqa: ARG001
 
 
 # ── Empty-test guard ──────────────────────────────────────────────────────────
+
 
 def _test_body_is_empty(func) -> bool:
     """Return True if the test function body is only ``pass`` or a docstring.
@@ -81,10 +83,12 @@ def _test_body_is_empty(func) -> bool:
             continue
         body = node.body
         # Strip a leading docstring
-        if (body
-                and isinstance(body[0], ast.Expr)
-                and isinstance(body[0].value, ast.Constant)
-                and isinstance(body[0].value.value, str)):
+        if (
+            body
+            and isinstance(body[0], ast.Expr)
+            and isinstance(body[0].value, ast.Constant)
+            and isinstance(body[0].value.value, str)
+        ):
             body = body[1:]
         # Empty or pass-only
         if not body or all(isinstance(s, ast.Pass) for s in body):
@@ -111,6 +115,7 @@ def pytest_collection_finish(session) -> None:
 
 
 # ── Session fixtures ───────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def run_async():
@@ -142,8 +147,9 @@ def _clean_prometheus_registry():
                 pass
 
     # Evict partially-initialised src/ modules so they re-register cleanly.
-    broken = [k for k, v in list(sys.modules.items())
-              if k.startswith("src.") and v is None]
+    broken = [
+        k for k, v in list(sys.modules.items()) if k.startswith("src.") and v is None
+    ]
     for key in broken:
         del sys.modules[key]
 
@@ -152,24 +158,34 @@ def _clean_prometheus_registry():
 
 @pytest.fixture(autouse=True, scope="session")
 def _no_real_network():
-    """Prevent real HTTP calls to torproject.org during the test session.
+    """Prevent real HTTP calls and long-running background loops during tests.
 
     ASNClassifier._refresh_tor_list downloads the Tor exit node list on first
-    use. Patching it to an async no-op keeps the suite fast and deterministic.
-    Chaos tests that need to exercise real refresh logic use patch.object on
-    the specific instance.
+    use. ASNClassifier._tor_refresh_loop sleeps 3600 s between refreshes and
+    creates an orphaned asyncio Task that blocks pytest teardown in Python 3.11.
+
+    Both are patched to async no-ops. Chaos tests that need to exercise real
+    refresh logic use patch.object on the specific instance instead.
     """
+
     async def _noop(*args, **kwargs):
         pass
 
-    with patch(
-        "src.security.asn_classifier.ASNClassifier._refresh_tor_list",
-        new=_noop,
+    with (
+        patch(
+            "src.security.asn_classifier.ASNClassifier._refresh_tor_list",
+            new=_noop,
+        ),
+        patch(
+            "src.security.asn_classifier.ASNClassifier._tor_refresh_loop",
+            new=_noop,
+        ),
     ):
         yield
 
 
 # ── Redis fixtures ─────────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def mock_redis():
@@ -199,7 +215,10 @@ def redis_client():
     """
     try:
         client = redis.Redis(
-            host="localhost", port=6379, password="changeme", db=0,
+            host="localhost",
+            port=6379,
+            password="changeme",
+            db=0,
             decode_responses=False,
         )
         if client.ping():
@@ -274,6 +293,7 @@ def redis_client():
 
 # ── Collection helpers ────────────────────────────────────────────────────────
 
+
 def pytest_collection_modifyitems(items) -> None:
     """Remove any stray skip markers from integration/redis tests.
 
@@ -289,7 +309,7 @@ def pytest_collection_modifyitems(items) -> None:
 # ── Shutdown ──────────────────────────────────────────────────────────────────
 
 
-@pytest.hookimpl(trylast=True)
+@pytest.hookimpl(tryfirst=True)
 def pytest_sessionfinish(session, exitstatus) -> None:  # noqa: ARG001
     """Use os._exit() only inside Docker to prevent container hangs.
 
@@ -298,6 +318,7 @@ def pytest_sessionfinish(session, exitstatus) -> None:  # noqa: ARG001
     "Cancelled N pending asyncio tasks" messages that os._exit() causes.
     """
     import os
+
     if os.path.exists("/.dockerenv"):
         sys.stdout.flush()
         sys.stderr.flush()
@@ -307,18 +328,21 @@ def pytest_sessionfinish(session, exitstatus) -> None:  # noqa: ARG001
 
 # ── Terminal summary ──────────────────────────────────────────────────────────
 
+
 def pytest_terminal_summary(terminalreporter, exitstatus, config) -> None:
     """Print a clean results block at the very end of the run."""
     tr = terminalreporter
     stats = tr.stats
 
-    passed   = len(stats.get("passed",   []))
-    failed   = len(stats.get("failed",   []))
-    errored  = len(stats.get("error",    []))
-    skipped  = len(stats.get("skipped",  []))
+    passed = len(stats.get("passed", []))
+    failed = len(stats.get("failed", []))
+    errored = len(stats.get("error", []))
+    skipped = len(stats.get("skipped", []))
     warnings = len(stats.get("warnings", []))
 
-    elapsed = time.monotonic() - (_SESSION_START[0] if _SESSION_START else time.monotonic())
+    elapsed = time.monotonic() - (
+        _SESSION_START[0] if _SESSION_START else time.monotonic()
+    )
 
     tr.write_sep("━", "SUMMARY")
     tr.write_line(f"  Passed:   {passed}")
@@ -330,13 +354,13 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config) -> None:
         tr.write_line(f"  Skipped:  {skipped}  ◀ UNEXPECTED")
     if warnings:
         tr.write_line(f"  Warnings: {warnings}")
-    tr.write_line(f"  Duration: {elapsed:.1f}s  ({elapsed/60:.1f} min)")
+    tr.write_line(f"  Duration: {elapsed:.1f}s  ({elapsed / 60:.1f} min)")
 
     results = Path("test-results")
     if results.exists():
         for name, sym in [("Log", "latest.log"), ("JUnit", "latest-junit.xml")]:
             p = results / sym
             if p.exists():
-                tr.write_line(f"  {name+':':8s} {p}")
+                tr.write_line(f"  {name + ':':8s} {p}")
 
     tr.write_sep("━", "")
