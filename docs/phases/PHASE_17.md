@@ -1,16 +1,25 @@
 # PHASE 17 — Fix Docker Test Container Hang
 
-## Status: OPEN
+## Status: IN PROGRESS
+
+### What Is Already Done
+
+| Fix | File(s) | Status |
+|-----|---------|--------|
+| Add `PYTHONUNBUFFERED=1` | `docker/Dockerfile.test`, `docker-compose.poc.yml` | ✅ Done |
+| Patch `_tor_refresh_loop` in `_no_real_network` | `tests/conftest.py` | ❌ Not done |
+| Change `pytest_sessionfinish` to `tryfirst=True` | `tests/conftest.py` | ❌ Not done |
+
+**Start here.** Read the root cause analysis below so you understand *why* each fix is
+needed, then implement the two remaining changes in `tests/conftest.py`.
 
 ---
 
 ## Problem Description
 
-`make test` shows all 1174 tests passing in ~35s, then the Docker container hangs
-for ~265s until `timeout 300` kills it. The run reports `Passed: 0` and
-`OVERALL RESULT: TESTS TIMED OUT`.
-
-### Observed symptoms
+`make test` (inside the Docker test container) shows all tests passing in ~35 s, then
+the container hangs for ~265 s until `timeout 300` kills it. The run reports
+`Passed: 0` and `OVERALL RESULT: TESTS TIMED OUT`.
 
 ```
 tests/unit/security/test_threat_tier.py::...::test_max_gdpr_durations_allowed PASSED [100%]
@@ -79,26 +88,29 @@ blocks indefinitely.
 asyncio.create_task(self._tor_refresh_loop(refresh_interval))
 ```
 
-`_tor_refresh_loop` sleeps for `refresh_interval` seconds (default 3600s) in a loop.
+`_tor_refresh_loop` sleeps for `refresh_interval` seconds (default 3600 s) in a loop.
 It does catch `asyncio.CancelledError` and breaks — so it *should* be fast to cancel.
-However, it appears that in Python 3.11 the combination of:
+However, in Python 3.11 the combination of:
 
-- many such tasks across 1174 tests
+- many such tasks across 1583+ tests
 - pytest-asyncio's `_function_scoped_runner` lifecycle
-- Python 3.11's stricter asyncio cleanup behavior
+- Python 3.11's stricter asyncio cleanup behaviour
 
-causes the runner teardown to block long enough to hit the 300s wall.
+causes the runner teardown to block long enough to hit the 300 s wall.
 
 Similar long-lived task creators also present:
 - `blocklists.py`: `asyncio.create_task(self._refresh_loop(feed_cfg))`
 - `dns_enrichment.py`: `asyncio.create_task(self._worker_with_restart(i))`
 
-### Secondary issue: missing PYTHONUNBUFFERED
+### Secondary issue: summary line never flushed (ALREADY FIXED)
 
-The Docker test container does not set `PYTHONUNBUFFERED=1`. Python inside Docker
-uses block-buffered stdout. The "1174 passed in Xs" summary line is buffered but
-never flushed to `tee` before the process is killed, causing `Passed: 0` in the
-summary even when all tests actually passed.
+The Docker test container previously did not set `PYTHONUNBUFFERED=1`. Python inside
+Docker uses block-buffered stdout. The "N passed in Xs" summary line was buffered but
+never flushed to `tee` before the process was killed, causing `Passed: 0` even when
+all tests actually passed.
+
+**This is fixed.** `docker/Dockerfile.test` and `docker-compose.poc.yml` both set
+`PYTHONUNBUFFERED=1`.
 
 ---
 
@@ -106,91 +118,103 @@ summary even when all tests actually passed.
 
 | File | Change |
 |------|--------|
-| `docker/Dockerfile.test` | Add `ENV PYTHONUNBUFFERED=1` |
-| `docker-compose.poc.yml` | Add `PYTHONUNBUFFERED: "1"` to test service environment |
 | `tests/conftest.py` | Patch `_tor_refresh_loop` → `_noop` in `_no_real_network` fixture |
 | `tests/conftest.py` | Change `pytest_sessionfinish` hook to `tryfirst=True` |
 
 ---
 
-## Acceptance Criteria
+## Implementation Guide
 
-- [ ] `time make test` completes in ≤ 60s (test run ~35s + overhead)
-- [ ] Results file contains "1174 passed" summary line
-- [ ] Exit code from `make test` is 0
-- [ ] No tests change from PASSED to FAILED as a result of these changes
+### Fix 2: Patch `_tor_refresh_loop` in `_no_real_network` (conftest.py)
+
+**File:** `tests/conftest.py`
+
+**Find** the `_no_real_network` session fixture (~line 153). It currently patches only
+`_refresh_tor_list` (the HTTP download function). It must **also** patch
+`_tor_refresh_loop` so that `asyncio.create_task(self._tor_refresh_loop(interval))`
+creates a task that returns immediately instead of sleeping for 3600 s.
+
+```python
+# BEFORE — only patches the download, not the loop
+@pytest.fixture(autouse=True, scope="session")
+def _no_real_network():
+    """Prevent real HTTP calls to torproject.org during the test session.
+    ...
+    """
+    async def _noop(*args, **kwargs):
+        pass
+
+    with patch(
+        "src.security.asn_classifier.ASNClassifier._refresh_tor_list",
+        new=_noop,
+    ):
+        yield
+
+
+# AFTER — patches both the download AND the long-running loop
+@pytest.fixture(autouse=True, scope="session")
+def _no_real_network():
+    """Prevent real HTTP calls and long-running background loops during tests.
+
+    ASNClassifier._refresh_tor_list downloads the Tor exit node list on first
+    use. ASNClassifier._tor_refresh_loop sleeps 3600 s between refreshes and
+    creates an orphaned asyncio Task that blocks pytest teardown in Python 3.11.
+
+    Both are patched to async no-ops. Chaos tests that need to exercise real
+    refresh logic use patch.object on the specific instance instead.
+    """
+    async def _noop(*args, **kwargs):
+        pass
+
+    with patch(
+        "src.security.asn_classifier.ASNClassifier._refresh_tor_list",
+        new=_noop,
+    ), patch(
+        "src.security.asn_classifier.ASNClassifier._tor_refresh_loop",
+        new=_noop,
+    ):
+        yield
+```
+
+### Fix 3: Change `pytest_sessionfinish` to `tryfirst=True` (conftest.py)
+
+**File:** `tests/conftest.py`
+
+**Find** the `pytest_sessionfinish` hook (~line 292). Change `trylast=True` to
+`tryfirst=True`.
+
+**Why:** The existing `trylast=True` hook never fires because the hang occurs *before*
+pytest reaches session-finish hooks. Changing to `tryfirst=True` ensures `os._exit()`
+fires as soon as pytest begins its session-finish phase — after all tests and their
+function-scope fixture teardowns complete, but before any session-scope fixture teardown
+or plugin cleanup that might hang.
+
+Note on JUnit XML: the `--junitxml` report is written by a built-in pytest plugin that
+also uses `pytest_sessionfinish`. With `tryfirst=True` our hook may run before the
+JUnit writer. This is acceptable — the per-test verbose output written to `RESULTS_FILE`
+via `tee` already contains full pass/fail detail; the JUnit XML is supplementary.
+
+```python
+# BEFORE
+@pytest.hookimpl(trylast=True)
+def pytest_sessionfinish(session, exitstatus) -> None:
+    ...
+
+# AFTER
+@pytest.hookimpl(tryfirst=True)
+def pytest_sessionfinish(session, exitstatus) -> None:
+    ...
+```
 
 ---
 
-## Fix Details
+## Acceptance Criteria
 
-### 1. Add PYTHONUNBUFFERED (Dockerfile.test and docker-compose.poc.yml)
-
-`Dockerfile.test`:
-```dockerfile
-ENV PYTHONUNBUFFERED=1
-```
-
-`docker-compose.poc.yml` test service environment:
-```yaml
-environment:
-  - PYTHONUNBUFFERED=1
-```
-
-### 2. Patch `_tor_refresh_loop` in `_no_real_network` (conftest.py)
-
-The `_no_real_network` session fixture currently only patches `_refresh_tor_list`
-(the HTTP download). It must also patch `_tor_refresh_loop` so that
-`asyncio.create_task(self._tor_refresh_loop(interval))` creates a task that
-completes immediately rather than sleeping for 3600s.
-
-```python
-# Before
-with patch(
-    "src.security.asn_classifier.ASNClassifier._refresh_tor_list",
-    new=_noop,
-):
-    yield
-
-# After
-with patch(
-    "src.security.asn_classifier.ASNClassifier._refresh_tor_list",
-    new=_noop,
-), patch(
-    "src.security.asn_classifier.ASNClassifier._tor_refresh_loop",
-    new=_noop,
-):
-    yield
-```
-
-Update the fixture docstring to accurately describe what is patched (it currently
-says it patches both, which was aspirational not actual).
-
-### 3. Change `pytest_sessionfinish` to `tryfirst=True` (conftest.py)
-
-The existing `trylast=True` hook never fires because the hang precedes it.
-Changing to `tryfirst=True` ensures `os._exit()` fires as soon as pytest begins
-its session-finish phase — after all tests and their function-scope fixture
-teardowns complete, but before any session-scope fixture teardown or plugin
-cleanup that might hang.
-
-The JUnit XML written by `--junitxml` is produced by pytest's built-in junitxml
-plugin, which also uses `pytest_sessionfinish`. With `tryfirst=True` our hook
-may run before the JUnit writer. This is acceptable: the per-test verbose output
-(in RESULTS_FILE via `tee`) already contains full pass/fail detail; the JUnit XML
-is supplementary.
-
-```python
-# Before
-@pytest.hookimpl(trylast=True)
-def pytest_sessionfinish(session, exitstatus):
-    ...
-
-# After
-@pytest.hookimpl(tryfirst=True)
-def pytest_sessionfinish(session, exitstatus):
-    ...
-```
+- [ ] `time make test` (inside Docker) completes in ≤ 60 s (test run ~35 s + overhead)
+- [ ] The results file contains the "N passed" summary line (not `Passed: 0`)
+- [ ] Exit code from `make test` is 0
+- [ ] No tests change from PASSED to FAILED as a result of these changes
+- [ ] All 1583+ local tests still pass: `python3 -m pytest tests/ --ignore=tests/integration/test_docker_stack.py`
 
 ---
 
@@ -215,3 +239,5 @@ def pytest_sessionfinish(session, exitstatus):
   The tests run correctly in STRICT asyncio mode (all async tests have explicit
   `@pytest.mark.asyncio` markers). Adding pyproject.toml would change asyncio
   mode to AUTO and potentially affect test behaviour.
+- Verify the fix by running `make test` (not just local pytest) since the hang
+  only manifests inside the Docker container.
