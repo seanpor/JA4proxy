@@ -20,7 +20,7 @@ route:
   group_interval: 10s
   repeat_interval: 12h
   receiver: 'default-receiver'
-  
+
   routes:
     # Critical security alerts - immediate notification
     - match:
@@ -31,7 +31,7 @@ route:
       group_interval: 5m
       repeat_interval: 4h
       continue: true
-    
+
     # DDoS alerts - page on-call
     - match:
         severity: critical
@@ -40,7 +40,7 @@ route:
       group_wait: 0s
       repeat_interval: 1h
       continue: true
-    
+
     # Infrastructure alerts
     - match:
         severity: critical
@@ -48,14 +48,14 @@ route:
       receiver: 'ops-team'
       group_wait: 30s
       repeat_interval: 1h
-    
+
     # Warning-level alerts
     - match:
         severity: warning
       receiver: 'ops-team'
       group_interval: 5m
       repeat_interval: 3h
-    
+
     # Info-level alerts - audit trail
     - match:
         severity: info
@@ -71,7 +71,7 @@ inhibit_rules:
     target_match:
       alertname: 'JA4ProxyHighBlockRate'
     equal: ['cluster']
-  
+
   # Don't alert on rate limits if service is down
   - source_match:
       alertname: 'JA4ProxyServiceDown'

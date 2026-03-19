@@ -1,0 +1,15 @@
+# yamllint configuration for JA4proxy
+# https://yamllint.readthedocs.io/
+#
+# Run: make lint-yaml
+# Checks config/ and monitoring/ YAML files for syntax errors and bad style.
+
+extends: relaxed
+
+rules:
+  # Long lines are common in YAML comments and Prometheus rule expressions.
+  line-length: disable
+
+  # Trailing spaces and missing EOF newlines are errors we enforce.
+  trailing-spaces: enable
+  new-line-at-end-of-file: enable

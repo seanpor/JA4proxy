@@ -22,4 +22,4 @@ compatibility:
   config_schema_unchanged: true   # Must read same proxy.yml without modifications
   redis_keys_identical: true      # Read/write same key names, no schema changes
   prometheus_metrics_identical: true   # Same names/labels as Python implementation
-  
+

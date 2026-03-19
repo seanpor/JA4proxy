@@ -1,0 +1,15 @@
+# gitleaks configuration for JA4proxy
+# https://github.com/zricethezav/gitleaks
+#
+# Run: make lint-secrets
+# Scans git history (committed files only) for accidentally committed secrets.
+# Working-tree secrets (.env, ssl/private/) are handled by .gitignore.
+
+[allowlist]
+  description = "Known false positives"
+  commits = []
+  paths = []
+
+  # SECURITY.md uses 0xA1B2C3D4E5F67890 as an example hex value in documentation.
+  # It is not a real key.
+  regexes = ["0xA1B2C3D4E5F67890"]
