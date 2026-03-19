@@ -8,6 +8,17 @@ Get the demo running in under 5 minutes. Designed for assessors evaluating the p
 - 4 GB RAM, 2 GB disk space
 - Ports 443, 3001, 8080, 8404, 8443, 8888, 9090, 9091, 9093 available
 
+## First-time setup (new machine only)
+
+`.env` must exist and contain `BACKEND_HOST`. Then:
+
+```bash
+make rebuild        # wipe + rebuild all Docker images from scratch + start stack
+make update-geoip   # download IP2Location LITE database (required for country blocking)
+```
+
+After that, use `make start` / `make stop` for day-to-day use. Only run `make rebuild` again after pulling changes that affect Docker images.
+
 ## 1. Start Everything
 
 ```bash

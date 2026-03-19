@@ -49,6 +49,18 @@ make flush-redis
 
 **That's it.** The dashboard shows allowed vs blocked traffic, JA4 fingerprint names, action distribution, and logs. See [Performance](#performance) for measured results.
 
+### First-time setup on a new machine
+
+`.env` must exist before any `make` target runs (copy from `.env.example` and set `BACKEND_HOST`). After that:
+
+```bash
+make rebuild          # wipe everything, rebuild all images from scratch, start stack
+make update-geoip     # download IP2Location LITE country database (required for GeoIP blocking)
+make go-build         # build Go proxy binary — only needed if using the Go proxy
+```
+
+`make rebuild` is also the right command after pulling major changes that affect Docker images.
+
 ## Security Pipeline
 
 Connections pass through layers in order. Bypass checks short-circuit the pipeline — connection is allowed or blocked immediately without reaching the scorer.
@@ -85,7 +97,7 @@ At dial=0 (default): all traffic passes, everything scored and logged — monito
 | Grafana | `http://localhost:3001` | admin / see .env |
 | Loki | `http://localhost:3100` | Centralized container logs (internal only) |
 | Alertmanager | `http://localhost:9093` | |
-| **Management UI** | `http://localhost:8001` | admin / UI_PASSWORD in .env — React SPA + FastAPI |
+| Management UI | *(Phase 13 — not yet implemented)* | Deferred until after Go rewrite |
 
 ## Configuration
 
@@ -193,8 +205,9 @@ Measured with 200 concurrent workers (300s run, 15% legitimate traffic):
 | **False positive rate** | **0%** — all browser connections whitelisted, none blocked |
 | **Malicious traffic blocked** | **94–99%** depending on load |
 | **Block TTL** | **300s** (5 min) — false positives self-heal automatically |
-| **Throughput (single instance)** | ~210 conn/s |
-| **Throughput (4 instances)** | ~840 conn/s (`./scale-proxies.sh 4`) |
+| **Throughput (single instance, Python)** | ~350 conn/s with Redis; ~550 conn/s in-process only |
+| **Throughput (4 instances, Python)** | ~1,400 conn/s (`./scale-proxies.sh 4`) |
+| **Throughput (Go proxy, target)** | 10–50× Python — see [Go Proxy](#running-the-go-proxy) |
 
 Browser connections (Chrome, Firefox, Safari) are matched by `h1`/`h2` ALPN pattern whitelist and bypass rate limiting entirely — they can never be blocked by rate rules regardless of volume.
 
@@ -265,16 +278,16 @@ This automatically scales containers and reconfigures HAProxy for round-robin. A
 
 ## Codebase
 
-| Category | Lines | % | What |
-|---|---:|---:|---|
-| **Core Proxy** | 4,563 | 36% | `proxy.py` + `src/security/` — TLS parsing, JA4 fingerprinting, rate limiting, threat detection |
-| **Tests** | 6,027 | 48% | Unit, integration, security, and fuzz tests (1.3× test-to-code ratio) |
-| **Traffic Generator** | 851 | 7% | TLS traffic simulator + benchmark tool with browser/bot profiles |
-| **Supporting Services** | 282 | 2% | Tarpit server (126 lines) + mock backend (156 lines) |
-| **Infrastructure** | 931 | 7% | Dockerfiles + Compose definitions (POC, monitoring, prod) |
-| **Total code** | **12,654** | | |
+| Category | Lines | What |
+|---|---:|---|
+| **Python proxy core** | ~15,500 | `proxy.py` + `src/security/` + `src/cache/` + `src/config/` — TLS parsing, JA4 fingerprinting, all signal modules, pipeline, rate limiting |
+| **Go proxy core** | ~8,300 | `cmd/proxy/` + `internal/` — high-throughput replacement; in active development (Phase 15) |
+| **Tests** | ~28,900 | 1,600 tests — unit, integration, chaos, adversarial, performance (1.2× test-to-code ratio) |
+| **Supporting services** | ~600 | Tarpit server, mock backend, performance tools |
+| **Infrastructure** | ~7,500 | Dockerfiles, Compose files, shell scripts |
+| **Total** | **~61,000** | |
 
-Plus configuration (1,038 lines), Grafana dashboard (1,087 lines), shell scripts (3,009 lines), and documentation (12,383 lines across 30 files).
+Plus: ~48,400 lines of documentation across 106 files (architecture, runbooks, phase plans, security audit, compliance).
 
 ## Stopping Services
 
@@ -288,7 +301,9 @@ make rebuild           # Full clean rebuild from scratch — wipe volumes + imag
 
 ## Running the Go Proxy
 
-The Go proxy is a drop-in replacement for `proxy.py` with 10–50× higher throughput.
+The Go proxy is a drop-in replacement for `proxy.py`, targeting 10–50× higher throughput by removing the Python GIL.
+
+> **Status (Phase 15 — in progress):** Core pipeline, JA4 fingerprinting, bypass checks, and Redis integration are complete. Signal modules (SNI, ASN, beaconing, AbuseIPDB, etc.) are being ported. Until Phase 15 is complete the Go proxy always scores 0 → allow, making it suitable for shadow/parallel validation but not standalone blocking.
 
 ### Build
 
