@@ -213,6 +213,28 @@ services:
 
   # ── Monitoring ────────────────────────────────────────────────────────────
 
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.55.0
+    container_name: ja4proxy-redis-exporter
+    environment:
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD_FILE=/run/secrets/redis_password
+    secrets:
+      - redis_password
+    networks:
+      - ja4proxy-backend
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
+
   prometheus:
     image: prom/prometheus:v2.48.0
     container_name: ja4proxy-prometheus
@@ -256,13 +278,12 @@ services:
       - ../monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
     environment:
       - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/grafana_password
       - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s/grafana/
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_AUTH_ANONYMOUS_ENABLED=false
     secrets:
       - grafana_password
-    # Grafana reads GF_SECURITY_ADMIN_PASSWORD from file via env:
-    # GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/grafana_password
     networks:
       - ja4proxy-monitoring
     restart: unless-stopped
