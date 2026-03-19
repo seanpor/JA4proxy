@@ -1,0 +1,29 @@
+# hadolint configuration for JA4proxy
+# https://github.com/hadolint/hadolint
+#
+# Rules ignored with rationale — these are consciously accepted trade-offs,
+# not oversights. Revisit if moving to a fully reproducible build pipeline.
+
+ignore:
+  # DL3008 / DL3018 — Pin apt-get / apk package versions
+  # These Dockerfiles use package managers for build-time tooling only.
+  # Application dependencies are pinned in requirements.txt (Python) or
+  # go.sum (Go). Pinning apt/apk versions is brittle across Ubuntu/Alpine
+  # release cycles and not worth the maintenance cost at this stage.
+  - DL3008
+  - DL3018
+
+  # DL3013 — Pin pip install versions
+  # All application packages are installed from requirements.txt which IS
+  # version-pinned. Only pip itself and build tools are installed inline.
+  - DL3013
+
+  # DL3015 — Use --no-install-recommends
+  # Info-level only; images are internal-use containers, not distributed.
+  - DL3015
+
+  # DL3059 — Multiple consecutive RUN instructions
+  # We prefer readability over micro-optimising layer count in dev/test images.
+  # Production images (docker/Dockerfile, Dockerfile-go) already consolidate
+  # RUN instructions where it matters for image size.
+  - DL3059
