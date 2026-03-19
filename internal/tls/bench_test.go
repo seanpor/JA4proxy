@@ -12,26 +12,18 @@ package tls
 
 import (
 	"bytes"
-	"crypto/ecdsa"
-	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/x509"
-	"fmt"
-	"math"
-	"math/big"
 	"testing"
 )
 
-// TestParserPerformance benchmarks TLS ClientHello parsing at scale.
+// BenchmarkClientHelloParse benchmarks TLS ClientHello parsing at scale.
 func BenchmarkClientHelloParse(b *testing.B) {
-	// Generate a realistic ClientHello buffer
 	hello, err := generateTestClientHello()
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	b.ResetTimer()
-	b.ResetMemallocs()
 
 	for i := 0; i < b.N; i++ {
 		_, err = ParseClientHello(hello)
@@ -48,11 +40,15 @@ func BenchmarkJA4Compute(b *testing.B) {
 		b.Fatal(err)
 	}
 
+	info, err := ParseClientHello(hello)
+	if err != nil {
+		b.Fatal(err)
+	}
+
 	b.ResetTimer()
-	b.ResetMemallocs()
 
 	for i := 0; i < b.N; i++ {
-		_ = ComputeJA4(hello)
+		_ = ComputeJA4(info)
 	}
 }
 
@@ -69,11 +65,10 @@ func BenchmarkClientHelloParseAdversarial(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	b.ResetMemallocs()
 
 	for i := 0; i < b.N; i++ {
 		for _, tc := range adversarialCases {
-			_, err = ParseClientHello(tc.data)
+			_, err := ParseClientHello(tc.data)
 			if err != nil && !bytes.Equal(tc.data, []byte{}) {
 				b.Fatalf("%s: %v\n", tc.name, err)
 			}
@@ -83,9 +78,6 @@ func BenchmarkClientHelloParseAdversarial(b *testing.B) {
 
 // generateTestClientHello constructs a minimal-but-realistic ClientHello buffer for benchmarking.
 func generateTestClientHello() (data []byte, _ error) {
-	// TLS 1.3 ClientHello: 5 bytes header + version + random(32) + session ticket len = ~46 bytes min
-	// Add extensions and certificate/compression lists for realistic size
-
 	// Version: TLS 1.3
 	data = append(data, 0x16, 0x03, 0x03)
 
@@ -100,25 +92,24 @@ func generateTestClientHello() (data []byte, _ error) {
 	data = append(data, 0x00)
 
 	// Cipher suites list (fake)
-	data = append(data, byte(1), 0xf8, 0xf7) // TLS_FALLBACK_SCSV + 2 fake suites (4 bytes total)
+	data = append(data, byte(1), 0xf8, 0xf7)
 
 	// Compression methods (1 byte: null)
 	data = append(data, byte(0))
 
 	// Extensions length (3 bytes)
-	extLen := []byte{0x00, 0x00, 0xdc}
-	data = append(data, extLen...)
+	data = append(data, 0x00, 0x00, 0xdc)
 
-	// Extension: Ellipse Curve Point Formats (10 bytes)
+	// Extension: Ellipse Curve Point Formats
 	data = append(data, 0x00, 0x13, byte(4), 0x01, 0x00, 0x23, 0x00, 0x05, 0x00, 0x05)
 
-	// Extension: Elliptic Curve Parameters (13 bytes)
+	// Extension: Elliptic Curve Parameters
 	data = append(data, 0x00, 0x17, byte(4), 0x02, 0x00, 0x1e, 0xc0, 0x2b, 0xcb, 0xb5, 0xa4, 0xf9, 0x8d)
 
-	// Extension: Named Groups (7 bytes)
+	// Extension: Named Groups
 	data = append(data, 0x00, 0x12, byte(3), 0x00, 0x1d, 0xe6, 0x50, 0xad)
 
-	// Extension: Signature Algorithms (48 bytes)
+	// Extension: Signature Algorithms
 	data = append(data, 0x00, 0x0d, byte(4), 0x00, 0x0d, 0x00, 0x04, 0x00, 0x17, 0x00, 0x0a, 0xf2, 0xff)
 
 	return data, nil
@@ -137,11 +128,10 @@ func ClientHelloWithTruncation(n int) []byte {
 func ClientHelloWithManyGreaseValues() []byte {
 	data, _ := generateTestClientHello()
 
-	// Add GREASE extensions until buffer is near 4KB
-	greaseExt := []byte{0x00, 0x01, byte(5) /* greasetag */, 0x17, 0x2b, 0x00, 0x1c, 0x98, 0x31, 0x2a, 0x85, 0x9f, 0xf3, 0x86, 0xe3}
+	greaseExt := []byte{0x00, 0x01, byte(5), 0x17, 0x2b, 0x00, 0x1c, 0x98, 0x31, 0x2a, 0x85, 0x9f, 0xf3, 0x86, 0xe3}
 
 	for len(data) < 4096 {
-		data = append(data, 0x00, 0xd7) // Extension type: Server Name List
+		data = append(data, 0x00, 0xd7)
 		data = append(data, byte(len(greaseExt)))
 		data = append(data, greaseExt...)
 	}

@@ -11,8 +11,12 @@ func writeTempBlocklist(t *testing.T, lines string) string {
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	f.WriteString(lines)
-	f.Close()
+	if _, err := f.WriteString(lines); err != nil {
+		t.Fatalf("failed to write temp file: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("failed to close temp file: %v", err)
+	}
 	t.Cleanup(func() { os.Remove(f.Name()) })
 	return f.Name()
 }

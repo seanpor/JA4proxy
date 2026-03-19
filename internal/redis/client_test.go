@@ -96,7 +96,7 @@ func TestClient_SIsMember(t *testing.T) {
 	defer mr.Close()
 
 	ctx := context.Background()
-	mr.SAdd("myset", "member1")
+	mr.SAdd("myset", "member1") //nolint:errcheck // miniredis test setup
 
 	if !c.SIsMember(ctx, "myset", "member1") {
 		t.Error("SIsMember: expected true for present member")

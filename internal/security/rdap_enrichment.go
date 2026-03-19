@@ -80,7 +80,7 @@ func (r *RDAPEnricher) GetSignals(ctx context.Context, conn *ConnectionContext, 
 	}
 	key := fmt.Sprintf("rdap:%s", conn.ClientIP)
 	data := r.redis.HGetAll(ctx, key)
-	if data == nil || len(data) == 0 {
+	if len(data) == 0 {
 		// Enqueue lookup if score is interesting
 		minScore := r.cfg.MinTriggerScore
 		if minScore == 0 {

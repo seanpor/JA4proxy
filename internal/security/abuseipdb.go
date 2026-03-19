@@ -47,10 +47,6 @@ func NewAbuseIPDB(cfg *AbuseIPDBConfig, redis RedisReader, log *logrus.Logger) *
 	if cacheSize == 0 {
 		cacheSize = 10000
 	}
-	workers := cfg.Workers
-	if workers == 0 {
-		workers = 2
-	}
 	return &AbuseIPDB{
 		cfg:        cfg,
 		localCache: cache.New(cacheSize),

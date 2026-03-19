@@ -78,10 +78,15 @@ func NewBlocklistManager(cfg *BlocklistConfig, log *logrus.Logger) *BlocklistMan
 				if err != nil {
 					continue
 				}
-				ranger.Insert(cidranger.NewBasicRangerEntry(*network))
+				if err := ranger.Insert(cidranger.NewBasicRangerEntry(*network)); err != nil {
+					log.WithError(err).Warn("blocklist: failed to insert CIDR")
+					continue
+				}
 				loaded++
 			}
-			f.Close()
+			if err := f.Close(); err != nil {
+				log.WithError(err).Warn("blocklist: error closing feed file")
+			}
 		}
 		log.WithFields(logrus.Fields{"feed": fc.Name, "cidrs": loaded}).Debug("blocklist: feed loaded")
 		m.feeds = append(m.feeds, blocklistFeed{

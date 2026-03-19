@@ -222,12 +222,12 @@ func (c *Client) ZRangeScores(ctx context.Context, key string, start, stop int64
 
 // SeedDialIfAbsent writes the dial value only if config:dial is not already set.
 func (c *Client) SeedDialIfAbsent(ctx context.Context, dial int) {
-	ok, err := c.rdb.SetNX(ctx, "config:dial", fmt.Sprintf("%d", dial), 0).Result()
+	result, err := c.rdb.SetArgs(ctx, "config:dial", fmt.Sprintf("%d", dial), goredis.SetArgs{Mode: "NX"}).Result()
 	if err != nil {
 		c.log.WithError(err).Warn("redis: failed to seed config:dial")
 		return
 	}
-	if ok {
+	if result == "OK" {
 		c.log.WithField("dial", dial).Info("redis: seeded config:dial from config file")
 	}
 }
