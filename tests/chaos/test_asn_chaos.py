@@ -11,10 +11,11 @@ from src.security.asn_classifier import ASNClassifier
 from src.security.pipeline import ConnectionContext, Pipeline
 from src.security.risk_scorer import RiskScorer
 
-# Capture the real _refresh_tor_list at collection time (before the session-level
-# conftest fixture patches it to a no-op).  Tests that exercise the real download
-# logic use patch.object with this reference to bypass the session-level patch.
+# Capture the real implementations at collection time (before the session-level
+# conftest fixture patches them to no-ops).  Tests that exercise the real loop/download
+# logic use these references to bypass the session-level patch.
 _REAL_REFRESH_TOR_LIST = ASNClassifier._refresh_tor_list
+_REAL_TOR_REFRESH_LOOP = ASNClassifier._tor_refresh_loop
 
 THRESHOLDS = {
     "flag": 20,
@@ -174,8 +175,8 @@ class TestASNClassifierChaos:
 
         async def run_test():
             with patch.object(classifier, "_refresh_tor_list", side_effect=mock_refresh):
-                # Run the refresh loop for 2 iterations with timeout
-                task = asyncio.create_task(classifier._tor_refresh_loop(1))
+                # Use the real loop implementation (bypasses session-level no-op patch)
+                task = asyncio.create_task(_REAL_TOR_REFRESH_LOOP(classifier, 1))
                 await asyncio.sleep(2.1)
                 task.cancel()
                 try:
