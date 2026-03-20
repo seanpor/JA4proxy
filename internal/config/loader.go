@@ -208,12 +208,12 @@ type ProxyConfig struct {
 
 // RedisConfig holds Redis connection settings.
 type RedisConfig struct {
-	Host     string `yaml:"host"`
-	Port     int    `yaml:"port"`
-	DB       int    `yaml:"db"`
-	Password string `yaml:"password"`
-	Timeout  int    `yaml:"timeout"`
-	SSL      bool   `yaml:"ssl"`
+	Host     string  `yaml:"host"`
+	Port     FlexInt `yaml:"port"`
+	DB       int     `yaml:"db"`
+	Password string  `yaml:"password"`
+	Timeout  FlexInt `yaml:"timeout"`
+	SSL      bool    `yaml:"ssl"`
 }
 
 // SecurityConfig holds security-related settings including JA4 lists.
@@ -274,8 +274,8 @@ type LoggingConfig struct {
 
 // MetricsConfig holds Prometheus metrics settings.
 type MetricsConfig struct {
-	Enabled bool `yaml:"enabled"`
-	Port    int  `yaml:"port"`
+	Enabled bool    `yaml:"enabled"`
+	Port    FlexInt `yaml:"port"`
 }
 
 // TarpitConfig holds tarpit self-protection settings.

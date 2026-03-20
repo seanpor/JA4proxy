@@ -32,7 +32,11 @@ import (
 )
 
 func main() {
-	cfg, err := config.Load("config/proxy.yml")
+	cfgPath := os.Getenv("CONFIG_PATH")
+	if cfgPath == "" {
+		cfgPath = "config/proxy.yml"
+	}
+	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to load config: %v\n", err)
 		os.Exit(1)
@@ -99,10 +103,10 @@ type proxy struct {
 func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 	redisCfg := redisclient.Config{
 		Host:     cfg.Redis.Host,
-		Port:     cfg.Redis.Port,
+		Port:     cfg.Redis.Port.Int(),
 		DB:       cfg.Redis.DB,
 		Password: cfg.Redis.Password,
-		Timeout:  time.Duration(cfg.Redis.Timeout) * time.Second,
+		Timeout:  time.Duration(cfg.Redis.Timeout.Int()) * time.Second,
 	}
 	rc := redisclient.New(redisCfg, log)
 
@@ -139,7 +143,7 @@ func (p *proxy) serve(ctx context.Context) {
 			mux := http.NewServeMux()
 			mux.Handle("/metrics", promhttp.Handler())
 			mux.HandleFunc("/health", p.handleHealth)
-			addr := fmt.Sprintf(":%d", p.cfg.Metrics.Port)
+			addr := fmt.Sprintf(":%d", p.cfg.Metrics.Port.Int())
 			p.log.WithField("addr", addr).Info("proxy: metrics server listening")
 			srv := &http.Server{Addr: addr, Handler: mux, ReadTimeout: 10 * time.Second}
 			go func() {

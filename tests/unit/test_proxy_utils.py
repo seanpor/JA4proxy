@@ -272,8 +272,10 @@ class TestConfigManagerValidation:
             mgr._validate_proxy_config({"bind_port": 0})
 
     def test_validate_proxy_config_non_int_port_raises(self, mgr):
+        # Non-numeric strings must raise; numeric strings are accepted because
+        # env var expansion (${PROXY_PORT:-8080}) produces strings before validation.
         with pytest.raises(ValidationError, match="bind_port"):
-            mgr._validate_proxy_config({"bind_port": "8080"})
+            mgr._validate_proxy_config({"bind_port": "not_a_port"})
 
     def test_validate_proxy_config_max_connections_too_large(self, mgr):
         with pytest.raises(ValidationError, match="max_connections"):

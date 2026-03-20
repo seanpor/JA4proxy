@@ -21,7 +21,7 @@ import pytest
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 GO_PROXY_HOST = os.environ.get("GO_PROXY_HOST", "127.0.0.1")
-GO_PROXY_PORT = int(os.environ.get("GO_PROXY_PORT", "8082"))
+GO_PROXY_PORT = int(os.environ.get("GO_PROXY_PORT", "18082"))
 PYTHON_PROXY_HOST = os.environ.get("PYTHON_PROXY_HOST", "127.0.0.1")
 PYTHON_PROXY_PORT = int(os.environ.get("PYTHON_PROXY_PORT", "8081"))
 GO_BINARY = os.environ.get("GO_BINARY", "bin/ja4proxy")

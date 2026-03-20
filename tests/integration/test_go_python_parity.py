@@ -22,8 +22,8 @@ import pytest
 # ── Environment / configuration ──────────────────────────────────────────────
 
 GO_PROXY_HOST = os.environ.get("GO_PROXY_HOST", "127.0.0.1")
-GO_PROXY_PORT = int(os.environ.get("GO_PROXY_PORT", "8082"))
-GO_METRICS_PORT = int(os.environ.get("GO_METRICS_PORT", "9092"))
+GO_PROXY_PORT = int(os.environ.get("GO_PROXY_PORT", "18082"))
+GO_METRICS_PORT = int(os.environ.get("GO_METRICS_PORT", "19092"))
 PYTHON_PROXY_HOST = os.environ.get("PYTHON_PROXY_HOST", "127.0.0.1")
 PYTHON_PROXY_PORT = int(os.environ.get("PYTHON_PROXY_PORT", "8081"))
 REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
@@ -125,14 +125,29 @@ def go_proxy():
             **os.environ,
             "PROXY_PORT": str(GO_PROXY_PORT),
             "METRICS_PORT": str(GO_METRICS_PORT),
+            "REDIS_HOST": os.environ.get("REDIS_HOST", "127.0.0.1"),
+            "REDIS_PORT": os.environ.get("REDIS_PORT", "6380"),
+            "REDIS_TIMEOUT": "1",  # fail-fast when Redis unavailable in local tests
         },
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    time.sleep(1.5)
+    # Wait up to 8s for the proxy to start listening (Redis retries delay startup)
+    import time as _time
+    deadline = _time.monotonic() + 8.0
+    started = False
+    while _time.monotonic() < deadline:
+        if _check_port(GO_PROXY_HOST, GO_PROXY_PORT, timeout=0.5):
+            started = True
+            break
+        _time.sleep(0.2)
     if proc.poll() is not None:
         out, err = proc.communicate()
         pytest.skip(f"Go proxy exited on startup: {err.decode()}")
+    if not started:
+        proc.terminate()
+        proc.wait(timeout=5)
+        pytest.skip("Go proxy did not start listening within 8s")
     yield proc
     proc.terminate()
     proc.wait(timeout=5)
@@ -207,8 +222,8 @@ def test_go_proxy_metrics_present(go_proxy):
     assert "ja4proxy_connections_total" in r.text, (
         "Expected 'ja4proxy_connections_total' in /metrics output"
     )
-    assert "ja4proxy_active_connections" in r.text, (
-        "Expected 'ja4proxy_active_connections' in /metrics output"
+    assert "ja4proxy_concurrent_connections" in r.text, (
+        "Expected 'ja4proxy_concurrent_connections' in /metrics output"
     )
 
 
@@ -439,24 +454,37 @@ def test_metrics_connections_increment(go_proxy):
 
     def _get_counter() -> float:
         r = requests.get(metrics_url, timeout=3)
+        total = 0.0
         for line in r.text.splitlines():
-            if line.startswith("ja4proxy_connections_total"):
+            if line.startswith("ja4proxy_connections_total{"):
                 try:
-                    return float(line.split()[-1])
+                    total += float(line.split()[-1])
                 except (ValueError, IndexError):
                     pass
-        return 0.0
+        return total
 
     before = _get_counter()
 
-    # Make a connection to trigger an increment
+    # Make a connection and send a ClientHello to trigger pipeline + counter
     try:
-        with socket.create_connection((GO_PROXY_HOST, GO_PROXY_PORT), timeout=2):
+        from tests.lib.tls_client import build_client_hello
+        hello = build_client_hello(tls13=True)
+    except ImportError:
+        pytest.skip("tests.lib.tls_client not available")
+
+    try:
+        sock = socket.create_connection((GO_PROXY_HOST, GO_PROXY_PORT), timeout=2)
+        sock.sendall(hello)
+        sock.settimeout(1.0)
+        try:
+            sock.recv(4096)
+        except (socket.timeout, ConnectionResetError):
             pass
+        sock.close()
     except OSError:
         pytest.skip("Could not make test connection to Go proxy")
 
-    time.sleep(0.3)
+    time.sleep(6.0)  # allow pipeline to complete (Redis timeout=1s × ~5 calls)
     after = _get_counter()
 
     assert after > before, (

@@ -589,6 +589,10 @@ class ConfigManager:
         if not isinstance(config, dict):
             raise ValidationError("Configuration must be a dictionary")
 
+        # Expand environment variables before validation so ${VAR:-default}
+        # placeholders are resolved to real values (int strings, host names, etc.)
+        config = self._expand_env_vars(config)
+
         # Required sections
         required_sections = ["proxy", "redis", "security"]
         for section in required_sections:
@@ -610,9 +614,6 @@ class ConfigManager:
         if "security" in config:
             self._validate_security_config(config["security"])
 
-        # Expand environment variables in config (for passwords, secrets)
-        config = self._expand_env_vars(config)
-
         return config
 
     def _validate_proxy_config(self, proxy_config: Dict) -> None:
@@ -631,6 +632,13 @@ class ConfigManager:
         # Validate port ranges
         if "bind_port" in proxy_config:
             port = proxy_config["bind_port"]
+            # Accept string integers (result of env var expansion)
+            if isinstance(port, str):
+                try:
+                    port = int(port)
+                    proxy_config["bind_port"] = port
+                except ValueError:
+                    raise ValidationError(f"Invalid bind_port: {port}")
             if not isinstance(port, int) or port < 1 or port > 65535:
                 raise ValidationError(f"Invalid bind_port: {port}")
 
@@ -664,6 +672,13 @@ class ConfigManager:
         # Validate port
         if "port" in redis_config:
             port = redis_config["port"]
+            # Accept string integers (result of env var expansion)
+            if isinstance(port, str):
+                try:
+                    port = int(port)
+                    redis_config["port"] = port
+                except ValueError:
+                    raise ValidationError(f"Invalid Redis port: {port}")
             if not isinstance(port, int) or port < 1 or port > 65535:
                 raise ValidationError(f"Invalid Redis port: {port}")
 
