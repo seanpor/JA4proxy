@@ -89,6 +89,20 @@ security:
       action: "tarpit"
       ban_duration: 300
 
+  # Adaptive rate limiting (Phase 16h)
+  # Requires the analytics node to be running (it computes per-subnet EWMA thresholds).
+  # When enabled, the proxy reads rate:adaptive:{subnet} from Redis and uses the
+  # analytics-computed threshold instead of the static values above — but only when
+  # confidence >= confidence_minimum. Falls back to static config otherwise.
+  # Default: disabled. Enable only once analytics node is deployed.
+  rate_limiter:
+    adaptive:
+      enabled: false              # Default: false. Enable only with analytics node running.
+      min_threshold_rps: 5        # Never adapt below 5 req/s regardless of EWMA
+      max_threshold_rps: 1000     # Never adapt above 1000 req/s
+      confidence_minimum: 0.7     # Use adaptive threshold only if analytics confidence >= 0.7
+      fallback_to_static: true    # Default: true. Fall back to static if no adaptive data.
+
   # Known good JA4 fingerprints (whitelisted)
   whitelist:
     - "t13d1516h2_8daaf6152771_02713d6af862"  # Chrome/Chromium
