@@ -248,3 +248,43 @@ if __name__ == "__main__":
         f"  max={decider_latencies[-1]:.2f}µs\n"
         f"  mean={statistics.mean(decider_latencies):.2f}µs"
     )
+
+
+# ── Phase 16e: Accept criteria tests ─────────────────────────────────────────
+
+class TestPhase16eAcceptanceCriteria:
+    """Phase 16e acceptance: allow bypass p99 < 500µs; scoring path p99 < 1ms."""
+
+    def test_allow_bypass_p99_under_500us(self):
+        """Allow bypass (empty signals → score 0 → allow at dial=0): p99 < 500µs."""
+        scorer = RiskScorer(THRESHOLDS)
+        decider = ActionDecider(THRESHOLDS)
+        latencies: list[float] = []
+
+        for _ in range(1_000):
+            t0 = time.perf_counter()
+            assessment = scorer.score([])
+            decider.decide(score=assessment.total_score, dial=0)
+            latencies.append((time.perf_counter() - t0) * 1_000_000)
+
+        latencies.sort()
+        p99 = _percentile(latencies, 99)
+        print(f"\nAllow bypass p99={p99:.1f}µs (limit: 500µs)")
+        assert p99 < 500, f"Allow bypass p99={p99:.1f}µs exceeded 500µs"
+
+    def test_scoring_path_p99_under_1ms(self):
+        """Full scoring path (10 signals → score → decide): p99 < 1ms = 1000µs."""
+        scorer = RiskScorer(THRESHOLDS)
+        decider = ActionDecider(THRESHOLDS)
+        latencies: list[float] = []
+
+        for _ in range(1_000):
+            t0 = time.perf_counter()
+            assessment = scorer.score(_TEN_SIGNALS)
+            decider.decide(score=assessment.total_score, dial=75)
+            latencies.append((time.perf_counter() - t0) * 1_000_000)
+
+        latencies.sort()
+        p99 = _percentile(latencies, 99)
+        print(f"\nFull scoring path p99={p99:.1f}µs (limit: 1000µs)")
+        assert p99 < 1_000, f"Scoring path p99={p99:.1f}µs exceeded 1ms"
