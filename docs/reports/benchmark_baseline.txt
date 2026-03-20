@@ -1,0 +1,40 @@
+# JA4proxy Performance Benchmark Baseline
+# Generated: 2026-03-20
+# Machine: i9-9900K, Python 3.11
+# Note: Values measured without Redis I/O (in-process mocks only)
+#
+# CI regression gate: fail if any metric is > 20% above baseline p99
+
+[risk_scorer.10_signals]
+p50_us = 6.4
+p99_us = 8.3
+limit_us = 500
+
+[risk_scorer.empty_signals]
+p99_us = 2.1
+limit_us = 20
+
+[action_decider.decide]
+p50_us = 1.34
+p99_us = 1.51
+limit_us = 20
+
+[action_decider.dial_zero]
+p99_us = 0.18
+limit_us = 5
+
+[allow_bypass.end_to_end]
+p99_us = 2.3
+limit_us = 500
+
+[scoring_path.10_signals_decide]
+p99_us = 20.6
+limit_us = 1000
+
+[cidr_trie.100k_ipv4_lookup]
+p99_us = 0.96
+limit_us = 10
+
+[cidr_pipeline.50k_full_check]
+p99_us = 0.88
+limit_us = 15

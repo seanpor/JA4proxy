@@ -97,8 +97,18 @@ def bench_full_pipeline(entry_count: int = 50_000, iterations: int = 10_000) -> 
     print("  ✓ p99 < 15µs")
 
 
+def test_cidr_trie_100k_entries_p99_under_10us():
+    """Phase 16e: pytricia 100k-entry trie lookup p99 < 10µs."""
+    bench_ipv4_lookup(entry_count=100_000, iterations=5_000)
+
+
+def test_cidr_full_pipeline_50k_entries_p99_under_15us():
+    """Phase 16e: full blocklist pipeline p99 < 15µs."""
+    bench_full_pipeline(entry_count=50_000, iterations=5_000)
+
+
 if __name__ == "__main__":
-    print("=== Phase 8 — Blocklist Performance Benchmarks ===")
+    print("=== Phase 8/16e — Blocklist Performance Benchmarks ===")
     bench_ipv4_lookup()
     bench_full_pipeline()
     print("\nAll benchmarks passed.")

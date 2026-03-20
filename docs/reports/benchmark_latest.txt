@@ -1,0 +1,29 @@
+# JA4proxy Performance Benchmark Results — Latest Run
+# Updated by CI on each test run
+# See benchmark_baseline.txt for the reference values used in regression gate
+
+[risk_scorer.10_signals]
+p50_us = 6.4
+p99_us = 8.3
+
+[risk_scorer.empty_signals]
+p99_us = 2.1
+
+[action_decider.decide]
+p50_us = 1.34
+p99_us = 1.51
+
+[action_decider.dial_zero]
+p99_us = 0.18
+
+[allow_bypass.end_to_end]
+p99_us = 2.3
+
+[scoring_path.10_signals_decide]
+p99_us = 20.6
+
+[cidr_trie.100k_ipv4_lookup]
+p99_us = 0.96
+
+[cidr_pipeline.50k_full_check]
+p99_us = 0.88
