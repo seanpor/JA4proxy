@@ -70,3 +70,40 @@ securityContext:
   runAsUser: 1000
   runAsGroup: 1000
   fsGroup: 1000
+
+# Backend target (what the proxy forwards to)
+backend:
+  host: "backend"
+  port: 443
+
+# Secrets — set at install time, never commit real values here.
+# Use: helm install ja4proxy ./ja4proxy --set secrets.redisPassword=<pw>
+# Or use Vault Agent / External Secrets Operator for production.
+secrets:
+  create: true           # Set false if managing secrets externally (Vault, ESO)
+  redisPassword: ""      # Redis requirepass value
+  abuseipdbApiKey: ""    # AbuseIPDB v2 API key
+  redisUrl: ""           # Full Redis URL (overrides redis.url if set)
+
+# Prometheus Operator monitoring
+monitoring:
+  enabled: false              # Set true if Prometheus Operator is installed
+  scrapeInterval: "15s"
+  scrapeTimeout: "10s"
+  prometheusSelector:         # Must match your Prometheus Operator's serviceMonitorSelector
+    release: kube-prometheus-stack
+
+# Analytics node deployment (optional — required for adaptive rate limiting)
+analytics:
+  enabled: false
+  image:
+    repository: ja4proxy-analytics
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: "2"
+      memory: "1Gi"
+    requests:
+      cpu: "500m"
+      memory: "256Mi"

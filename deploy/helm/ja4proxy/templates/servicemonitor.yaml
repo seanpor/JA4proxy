@@ -1,0 +1,36 @@
+# Prometheus Operator ServiceMonitor — scrapes /metrics from each proxy pod.
+# Requires the Prometheus Operator CRD to be installed (kube-prometheus-stack or standalone).
+# Set monitoring.enabled = true to create this resource.
+{{- if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ja4proxy
+  labels:
+    app: ja4proxy
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    release: {{ .Release.Name }}
+    # Label must match your Prometheus Operator's serviceMonitorSelector
+    {{- with .Values.monitoring.prometheusSelector }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app: ja4proxy
+      metrics: "true"
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: {{ .Values.monitoring.scrapeInterval | default "15s" }}
+    scrapeTimeout: {{ .Values.monitoring.scrapeTimeout | default "10s" }}
+    honorLabels: false
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_name]
+      targetLabel: pod
+    - sourceLabels: [__meta_kubernetes_namespace]
+      targetLabel: namespace
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+{{- end }}

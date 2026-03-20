@@ -1,0 +1,86 @@
+# Redis deployment — only used when redis.external = false (development/testing).
+# Production multi-pod deployments MUST use an external Redis (redis.external = true)
+# so that all proxy replicas share a single Redis instance.
+# When external Redis is used (the default), this file produces no resources.
+{{- if not .Values.redis.external }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ja4proxy-redis
+  labels:
+    app: ja4proxy-redis
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    release: {{ .Release.Name }}
+spec:
+  serviceName: ja4proxy-redis
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ja4proxy-redis
+  template:
+    metadata:
+      labels:
+        app: ja4proxy-redis
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999   # redis user in official image
+      containers:
+      - name: redis
+        image: "redis:{{ .Values.redis.imageTag | default "7-alpine" }}"
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 6379
+          name: redis
+        command:
+        - redis-server
+        - --requirepass
+        - $(REDIS_PASSWORD)
+        - --save
+        - ""            # Disable RDB persistence — state is transient; proxy is fail-open
+        - --appendonly
+        - "no"
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ja4proxy-secrets
+              key: REDIS_PASSWORD
+              optional: true
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "{{ .Values.redis.memory | default "512Mi" }}"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+        readinessProbe:
+          exec:
+            command: ["redis-cli", "ping"]
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        livenessProbe:
+          exec:
+            command: ["redis-cli", "ping"]
+          initialDelaySeconds: 15
+          periodSeconds: 10
+  volumeClaimTemplates: []  # No persistence — transient state only
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ja4proxy-redis
+  labels:
+    app: ja4proxy-redis
+    release: {{ .Release.Name }}
+spec:
+  type: ClusterIP
+  selector:
+    app: ja4proxy-redis
+  ports:
+  - name: redis
+    port: 6379
+    targetPort: 6379
+    protocol: TCP
+{{- end }}

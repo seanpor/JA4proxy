@@ -1,0 +1,47 @@
+{{- if .Values.config.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ja4proxy-config
+  labels:
+    app: ja4proxy
+    chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+    release: {{ .Release.Name }}
+data:
+  proxy.yml: |
+    # JA4proxy configuration — mounted from Helm values
+    # Override individual keys via values.yaml config.proxyYml
+    {{- if .Values.config.proxyYml }}
+    {{ .Values.config.proxyYml | nindent 4 }}
+    {{- else }}
+    # Default minimal configuration — replace with your site-specific proxy.yml
+    listen:
+      host: "0.0.0.0"
+      port: 8080
+
+    backend:
+      host: "{{ .Values.backend.host | default "backend" }}"
+      port: {{ .Values.backend.port | default 443 }}
+
+    redis:
+      url: ""  # Injected from REDIS_URL env var at runtime
+
+    dial:
+      value: 0           # Monitor mode — no blocking on first deploy
+      blocking_acknowledged: false
+
+    logging:
+      level: "INFO"
+      json_enabled: true
+
+    rate_limiter:
+      enabled: true
+      requests_per_second: 100
+      adaptive:
+        enabled: false
+        min_threshold_rps: 5
+        max_threshold_rps: 1000
+        confidence_minimum: 0.7
+        fallback_to_static: true
+    {{- end }}
+{{- end }}

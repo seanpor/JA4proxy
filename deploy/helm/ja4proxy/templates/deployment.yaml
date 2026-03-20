@@ -13,6 +13,7 @@ spec:
     metadata:
       labels:
         app: ja4proxy
+        metrics: "true"   # Selected by ServiceMonitor
     spec:
       {{- if .Values.nodeAffinity.enabled }}
       affinity:
@@ -38,11 +39,30 @@ spec:
         - containerPort: 8080
           name: http
           protocol: TCP
+        - containerPort: 9090
+          name: metrics
+          protocol: TCP
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
         env:
         - name: REDIS_URL
+          {{- if .Values.secrets.create }}
+          valueFrom:
+            secretKeyRef:
+              name: ja4proxy-secrets
+              key: REDIS_URL
+              optional: true   # Falls back to redis.url value if secret key absent
+          {{- else }}
           value: {{ .Values.redis.url | quote }}
+          {{- end }}
+        - name: ABUSEIPDB_API_KEY
+          {{- if .Values.secrets.create }}
+          valueFrom:
+            secretKeyRef:
+              name: ja4proxy-secrets
+              key: ABUSEIPDB_API_KEY
+              optional: true
+          {{- end }}
         {{- if .Values.config.enabled }}
         volumeMounts:
         - name: config-volume
