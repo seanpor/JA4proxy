@@ -70,4 +70,22 @@ Purpose: Reproducible byte sequences that previously caused parser crashes or in
 - **Source:** Hypothesis fuzzer
 - **Parser:** ValueError (invalid TLS format)
 - **JA4:** Not applicable
-- **Notes:** 512 bytes of random data
+- **Notes:** 512 bytes of random data (seeded at 42 for reproducibility)
+
+### empty_clienthello.bin
+- **Source:** Manual crafting
+- **Parser:** ValueError or None (no data)
+- **JA4:** Not applicable
+- **Notes:** Zero bytes — smallest possible degenerate input
+
+### zero_length_record.bin
+- **Source:** Manual crafting
+- **Parser:** ValueError (TLS record with length=0)
+- **JA4:** Not applicable
+- **Notes:** Valid TLS record header but empty payload
+
+### tls_10_old_version.bin
+- **Source:** Manual crafting
+- **Parser:** Valid ClientHello (TLS 1.0 record version, RC4 ciphers)
+- **JA4:** Valid string; TLS enforcer will reject separately
+- **Notes:** Tests parser accepts old versions; enforcement is separate layer

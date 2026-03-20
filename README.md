@@ -85,6 +85,39 @@ Connections pass through layers in order. Bypass checks short-circuit the pipeli
 Blocking actions escalate with TTL: **suspicious → tarpit → block → ban** (default 5-min TTL; self-healing).
 At dial=0 (default): all traffic passes, everything scored and logged — monitor mode only.
 
+## Kubernetes Deployment (Helm)
+
+```bash
+# Add the chart and install
+helm install ja4proxy ./deploy/helm/ja4proxy \
+  --set secrets.redisPassword="<password>" \
+  --set secrets.abuseipdbApiKey="<key>" \
+  --set proxy.backendHost="backend.internal" \
+  --namespace ja4proxy --create-namespace
+
+# Upgrade in-place
+helm upgrade ja4proxy ./deploy/helm/ja4proxy \
+  --reuse-values \
+  --set proxy.dialSetting=50
+
+# Validate the chart
+helm lint deploy/helm/ja4proxy/
+helm template ja4proxy deploy/helm/ja4proxy/ | kubectl apply --dry-run=client -f -
+```
+
+Key values (see `deploy/helm/ja4proxy/values.yaml`):
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `proxy.dialSetting` | `0` | Monitor mode (0) to full blocking (100) |
+| `proxy.replicas` | `2` | Pod count (HPA overrides when enabled) |
+| `hpa.enabled` | `true` | Horizontal pod autoscaler |
+| `hpa.minReplicas` | `2` | Minimum pods |
+| `hpa.maxReplicas` | `20` | Maximum pods |
+| `monitoring.enabled` | `false` | Create Prometheus ServiceMonitor |
+| `redis.external` | `true` | Use external Redis (false = bundle dev Redis) |
+| `secrets.create` | `true` | Create Secret resource; use Vault/ESO in prod |
+
 ## Services
 
 | Service | URL | Notes |
