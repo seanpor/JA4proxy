@@ -23,15 +23,15 @@ import pytest
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 GO_PROXY_HOST = os.environ.get("GO_PROXY_HOST", "127.0.0.1")
-GO_PROXY_PORT = int(os.environ.get("GO_PROXY_PORT", "8082"))
-GO_METRICS_PORT = int(os.environ.get("GO_METRICS_PORT", "9092"))
+GO_PROXY_PORT = int(os.environ.get("GO_PROXY_PORT", "18082"))
+GO_METRICS_PORT = int(os.environ.get("GO_METRICS_PORT", "19092"))
 REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", "6380"))
 GO_BINARY = os.environ.get("GO_BINARY", "bin/ja4proxy")
 
 # Use a different port range for locally-spawned proxies in chaos tests
-_CHAOS_PROXY_PORT = 18082
-_CHAOS_METRICS_PORT = 19092
+_CHAOS_PROXY_PORT = 18083
+_CHAOS_METRICS_PORT = 19093
 
 pytestmark = pytest.mark.skipif(
     not (
@@ -151,8 +151,8 @@ def test_go_proxy_starts_with_unknown_config_keys():
         )
         config_path = f.name
 
-    chaos_port = 18083
-    chaos_metrics = 19083
+    chaos_port = 18084
+    chaos_metrics = 19084
 
     try:
         proc = subprocess.Popen(
@@ -202,8 +202,8 @@ def test_go_proxy_redis_fail_open():
     Starts a Go proxy pointed at a non-existent Redis and verifies it accepts
     TCP connections instead of refusing or crashing.
     """
-    chaos_port = 18084
-    chaos_metrics = 19084
+    chaos_port = 18085
+    chaos_metrics = 19085
 
     proc = _start_proxy(
         chaos_port,
@@ -287,8 +287,8 @@ def test_go_proxy_malformed_proxy_protocol_header():
 
 def test_go_proxy_sigterm_drain():
     """SIGTERM must cause the Go proxy to drain and exit within 35 seconds."""
-    chaos_port = 18085
-    chaos_metrics = 19085
+    chaos_port = 18086
+    chaos_metrics = 19086
 
     proc = _start_proxy(chaos_port, chaos_metrics)
     started = _wait_for_port("127.0.0.1", chaos_port, timeout=5.0)

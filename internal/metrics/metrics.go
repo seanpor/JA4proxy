@@ -64,4 +64,9 @@ func Register() {
 		DialCurrent, SecurityEventsTotal, TarpitConcurrent,
 		TarpitOverflowTotal, ConfigReloadsTotal, BypassTotal, SignalTotal,
 	)
+	// Pre-initialise CounterVec label combinations so they appear in /metrics
+	// immediately (Prometheus omits label series that have never been observed).
+	for _, action := range []string{"allow", "flag", "rate_limit", "tarpit", "block", "ban"} {
+		ConnectionsTotal.WithLabelValues(action)
+	}
 }

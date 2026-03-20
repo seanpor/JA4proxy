@@ -20,7 +20,7 @@ func TestLoad_ActualProxyYML(t *testing.T) {
 	if cfg.Proxy.BindPort.Int() != 8080 {
 		t.Errorf("BindPort: got %d, want 8080", cfg.Proxy.BindPort)
 	}
-	if cfg.Redis.Port != 6379 {
+	if cfg.Redis.Port.Int() != 6379 {
 		t.Errorf("Redis.Port: got %d, want 6379", cfg.Redis.Port)
 	}
 	if cfg.RiskScorer.Thresholds.Block != 70 {
