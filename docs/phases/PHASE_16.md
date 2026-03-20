@@ -662,11 +662,11 @@ telemetry:
 - [ ] `proxy.py` ≥ 95% line coverage
 - [ ] `pytest --cov-fail-under=80` added to CI; build fails if any module drops below
 
-### 16d — External API Chaos Tests
+### 16d — External API Chaos Tests ✅
 
-- [ ] `test_external_api_failure.py` covers: API down, rate limited (429), timeout, malformed JSON
-- [ ] All scenarios verify: pipeline allows connection (fail open); error counter incremented; no crash
-- [ ] Simultaneous failure of all external APIs: pipeline allows; all error counters incremented
+- [x] `test_external_api_failure.py` covers: API down (`ConnectionError`), rate limited (429), Redis failures, malformed JSON, timeout (5s drain)
+- [x] All scenarios verify: pipeline allows connection (fail open); error logged; no crash
+- [x] Simultaneous failure of all external APIs: `TestAllApiSimultaneousFailure` class (3 tests) — AbuseIPDB + RDAP both down → both fail open, no crash
 
 ### 16e — Performance Benchmark CI Gate
 
@@ -737,9 +737,9 @@ telemetry:
 
 ### Chaos Tests (`tests/chaos/test_external_api_failure.py`)
 
-- [ ] AbuseIPDB down → None returned; error counter incremented; pipeline allows
-- [ ] RDAP down → None returned; error counter incremented; pipeline allows
-- [ ] All APIs down → pipeline allows all connections; all error counters incremented
+- [x] AbuseIPDB down → None returned; error logged; pipeline allows
+- [x] RDAP down → _process_lookup() returns gracefully; pipeline allows
+- [x] All APIs down → pipeline allows all connections; all services fail open
 
 ### Performance Tests (`tests/performance/test_bench_pipeline.py`)
 

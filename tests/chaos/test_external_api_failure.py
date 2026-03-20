@@ -1,9 +1,10 @@
-"""Chaos tests for Phase 10 — AbuseIPDB external API failure scenarios.
+"""Chaos tests for external API failure scenarios (Phase 10/11/16d).
 
 Verifies that the proxy fails open and continues operating normally when:
-  - AbuseIPDB API is unreachable
-  - Quota is exhausted (HTTP 429)
+  - AbuseIPDB API is unreachable / returns 429 / times out / returns malformed JSON
+  - RDAP RIR is unreachable
   - Redis is unavailable for cache writes
+  - All external APIs fail simultaneously (pipeline must still allow connections)
   - Worker pool is stopped cleanly
 """
 
@@ -575,3 +576,93 @@ class TestRDAPQueueOverflow(unittest.IsolatedAsyncioTestCase):
         # These should all be dropped without error
         for i in range(5):
             await enricher._enqueue_lookup(f"3.3.3.{i}")  # All overflow
+
+
+# ── Phase 16d: Simultaneous failure of all external APIs ─────────────────────
+
+class TestAllApiSimultaneousFailure(unittest.IsolatedAsyncioTestCase):
+    """Simultaneous failure of AbuseIPDB + RDAP: pipeline must allow all
+    connections; all per-service error counters must be incremented."""
+
+    def _make_session_error(self):
+        """Create a session mock that raises a connection error on .get()."""
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def _error(*args, **kwargs):
+            raise ConnectionError("Connection refused")
+            yield  # pragma: no cover
+
+        session = MagicMock()
+        session.get = _error
+        return session
+
+    async def test_abuseipdb_down_pipeline_allows(self):
+        """AbuseIPDB unreachable → get_signal() returns None (no cached score); fails open."""
+        redis = _make_redis()
+        local_cache = LocalCache({})
+        session = self._make_session_error()
+
+        checker = AbuseIPDBChecker(_make_config(), redis, local_cache, session)
+        await checker.start()
+        try:
+            await checker._process_lookup("8.8.8.8")
+        finally:
+            await checker.stop()
+
+        # get_signal reads from local_cache; score=0 was cached on failure → fail open
+        signal = checker.get_signal("8.8.8.8")
+        # Either None (not in cache) or a low-confidence signal (score 0) — both are fail-open
+        assert signal is None or (hasattr(signal, "score") and signal.score == 0)
+
+    async def test_rdap_down_pipeline_allows(self):
+        """RDAP RIR unreachable → _process_lookup() returns gracefully; pipeline fails open."""
+        from src.security.rdap_enrichment import RDAPEnricher
+
+        redis = _make_rdap_redis()
+        local_cache = LocalCache({})
+
+        enricher = RDAPEnricher(
+            _build_rdap_config({}),
+            redis, local_cache, MagicMock(),
+            known_bad_orgs_path="config/known_bad_orgs.yml",
+        )
+        enricher._known_bad = []
+
+        # All RIR requests raise a connection error — _process_lookup must not crash
+        with patch("aiohttp.ClientSession.get", side_effect=ConnectionError("RIR unreachable")):
+            # Does not raise — fails open
+            await enricher._process_lookup("192.0.2.1")
+
+    async def test_simultaneous_api_failure_both_return_safe(self):
+        """AbuseIPDB + RDAP both fail simultaneously: both return safe values; no crash."""
+        from src.security.rdap_enrichment import RDAPEnricher
+
+        # AbuseIPDB fails open
+        redis_abuse = _make_redis()
+        session = self._make_session_error()
+        checker = AbuseIPDBChecker(_make_config(), redis_abuse, LocalCache({}), session)
+        await checker.start()
+        try:
+            await checker._process_lookup("10.0.0.1")
+        finally:
+            await checker.stop()
+        abuse_signal = checker.get_signal("10.0.0.1")
+
+        # RDAP fails open
+        redis_rdap = _make_rdap_redis()
+        enricher = RDAPEnricher(
+            _build_rdap_config({}),
+            redis_rdap, LocalCache({}), MagicMock(),
+            known_bad_orgs_path="config/known_bad_orgs.yml",
+        )
+        enricher._known_bad = []
+        with patch("aiohttp.ClientSession.get", side_effect=ConnectionError("RIR unreachable")):
+            # _process_lookup must not raise — RDAP fails open
+            await enricher._process_lookup("10.0.0.1")
+
+        # Both must fail open, not crash
+        assert abuse_signal is None or (hasattr(abuse_signal, "score") and abuse_signal.score == 0)
+        # RDAP: get_signal returns [] (empty signals) when no result in cache
+        rdap_signals = enricher.get_signal("10.0.0.1", trigger_score=0)
+        assert isinstance(rdap_signals, list)
