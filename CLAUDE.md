@@ -113,6 +113,7 @@ Practical rules that flow from this:
 | 13 | Management UI *(deferred — implement after Phase 15)* | Live feed; JA4 candidates; IP management; dial control | [PHASE_13.md](docs/phases/PHASE_13.md) |
 | 14 | Production hardening | Secrets, Redis security, resource limits, observability, **tarpit self-protection** | [PHASE_14.md](docs/phases/PHASE_14.md) |
 | 15 | Go rewrite | 10–50× throughput; GIL removed; multi-core TLS parsing | [PHASE_15.md](docs/phases/PHASE_15.md) |
+| 21 | **Documentation excellence** | Audience-first navigation, missing ADRs, GDPR hardening, operator/developer packs, docs-as-code CI | [PHASE_21.md](docs/phases/PHASE_21.md) |
 
 **Do phases in order. Complete all acceptance criteria before starting the next phase.**
 
