@@ -1,10 +1,10 @@
 # Advanced Detection Modules for Analytics Node
 # Phase 12b: Detection Modules
 
-import time
-from typing import Dict, Any, List, Optional
-from collections import defaultdict
 import ipaddress
+import time
+from collections import defaultdict
+from typing import Any, Dict, List, Optional
 
 
 class CampaignDetector:

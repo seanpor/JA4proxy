@@ -1,9 +1,9 @@
 # Event Validation for Analytics Node
 # Phase 12a: Foundation
 
-import time
-from typing import Dict, Any
 import ipaddress
+import time
+from typing import Any, Dict
 
 
 async def validate_event_comprehensive(event_data: Dict[str, Any], timestamp_tolerance: int = 300) -> bool:

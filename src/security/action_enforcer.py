@@ -21,7 +21,7 @@ try:
 except ImportError:  # pragma: no cover
     redis = None
 
-from .action_types import ActionType, ActionResult, ActionConfig
+from .action_types import ActionConfig, ActionResult, ActionType
 from .rate_strategy import RateLimitStrategy
 from .threat_tier import ThreatTier
 

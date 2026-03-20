@@ -1,13 +1,14 @@
 # Score Distribution Analysis System
 # Phase 12c: Score Drift Monitoring & Observability
 
-import time
 import json
-import math
-from typing import Dict, Any, List, Optional
-import redis.asyncio as redis
-from datetime import datetime, timedelta
 import logging
+import math
+import time
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
+import redis.asyncio as redis
 
 
 class DistributionAnalyzer:
@@ -26,7 +27,7 @@ class DistributionAnalyzer:
         self.baseline_key_prefix = config.get('baseline_key_prefix', 'analytics:baseline:hourly')
         
         # Last check tracking
-        self.last_check_time = 0
+        self.last_check_time: float = 0
 
     async def check_distribution_shift(self) -> Optional[Dict[str, Any]]:
         """Check for significant distribution shifts."""
@@ -39,7 +40,6 @@ class DistributionAnalyzer:
         self.last_check_time = current_time
         
         # Get current and historical baselines
-        current_hour = datetime.now().strftime("%Y-%m-%d-%H")
         current_baseline = await self._get_current_baseline()
         
         if not current_baseline or current_baseline['event_count'] < 50:

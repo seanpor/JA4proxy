@@ -55,18 +55,18 @@ from typing import TYPE_CHECKING, Any
 
 from prometheus_client import Counter, Gauge
 
-from .tls_enforcer import TLSEnforcer
+from .abuseipdb import AbuseIPDBChecker, AbuseIPDBConfig
+from .asn_classifier import ASNClassifier
+from .beaconing_detector import BeaconingDetector
+from .blocklists import BlocklistManager, FeedConfig
+from .dns_enrichment import DNSEnrichment
+from .mtls import MTLSHandler
+from .rate_strategy import RateLimitStrategy, StrategyConfig
+from .rate_tracker import MultiStrategyRateTracker
+from .rdap_enrichment import RDAPEnricher
 from .sni_analyzer import SNIAnalyzer
 from .tcp_analyzer import TCPAnalyzer
-from .mtls import MTLSHandler
-from .asn_classifier import ASNClassifier
-from .dns_enrichment import DNSEnrichment
-from .blocklists import BlocklistManager, FeedConfig
-from .rate_tracker import MultiStrategyRateTracker
-from .rate_strategy import RateLimitStrategy, StrategyConfig
-from .beaconing_detector import BeaconingDetector
-from .abuseipdb import AbuseIPDBChecker, AbuseIPDBConfig
-from .rdap_enrichment import RDAPEnricher
+from .tls_enforcer import TLSEnforcer
 
 if TYPE_CHECKING:
     from ..cache.local_cache import LocalCache
@@ -139,7 +139,6 @@ _VERBS: dict[str, str] = {
 
 
 from .models import ConnectionContext, PipelineResult
-
 
 # ---------------------------------------------------------------------------
 # Static allowlist

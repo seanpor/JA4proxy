@@ -23,12 +23,12 @@ try:
 except ImportError:  # pragma: no cover
     redis = None
 
-from .rate_tracker import MultiStrategyRateTracker
-from .threat_evaluator import ThreatEvaluator, MultiStrategyPolicy
 from .action_enforcer import ActionEnforcer
-from .gdpr_storage import GDPRStorage, DataCategory
-from .threat_tier import ThreatTier
 from .action_types import ActionType
+from .gdpr_storage import DataCategory, GDPRStorage
+from .rate_tracker import MultiStrategyRateTracker
+from .threat_evaluator import MultiStrategyPolicy, ThreatEvaluator
+from .threat_tier import ThreatTier
 
 
 class SecurityManager:

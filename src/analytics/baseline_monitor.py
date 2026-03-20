@@ -1,14 +1,15 @@
 # Score Baseline Monitoring System
 # Phase 12c: Score Drift Monitoring & Observability
 
-import time
 import json
-import math
-from typing import Dict, Any, List, Optional
-from collections import defaultdict
-import redis.asyncio as redis
-from datetime import datetime
 import logging
+import math
+import time
+from collections import defaultdict
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import redis.asyncio as redis
 
 
 class BaselineMonitor:

@@ -1,10 +1,10 @@
 # Aggregation Functions for Analytics Node
 # Phase 12a: Foundation
 
-import time
-from typing import Dict, Any, List
-from collections import defaultdict
 import ipaddress
+import time
+from collections import defaultdict
+from typing import Any, Dict, List
 
 
 class AggregationManager:
@@ -12,8 +12,8 @@ class AggregationManager:
     
     def __init__(self, window_seconds: int = 300):
         self.window_seconds = window_seconds
-        self.current_window = None
-        self.aggregation_data = {}
+        self.current_window: int | None = None
+        self.aggregation_data: Dict[str, Any] = {}
     
     def get_subnet(self, ip_str: str, ipv4_mask: int = 24, ipv6_mask: int = 48) -> str:
         """Get subnet for an IP address."""

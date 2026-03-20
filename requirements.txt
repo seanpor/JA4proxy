@@ -1,19 +1,21 @@
 # Core dependencies
 aiohttp>=3.9,<4
+# urllib3: pinned to 1.x by transitive dep (locust 2.17). Tracked in security backlog.
+# CVE-2025-50181/66418/66471/CVE-2026-21441 acknowledged; upgrade when locust drops 1.x constraint.
 asyncio-throttle==1.0.2
 aiodns==4.0.0
-cryptography==41.0.7
+cryptography>=44.0.3
 prometheus-client==0.19.0
 pyyaml==6.0.1
 redis==5.0.1
-scapy==2.5.0
+scapy>=2.6.1
 sse-starlette>=1.6.5
 
 # Security dependencies
 pytricia==1.3.0
 geoip2==4.7.0
 hypothesis==6.88.1
-safety==3.2.0
+pip-audit>=2.7.0       # replaces safety (safety 3.x requires auth)
 bandit==1.7.5
 semgrep==1.45.0
 
@@ -27,7 +29,7 @@ pytest-timeout==2.2.0
 locust==2.17.0
 
 # Development dependencies
-black==23.11.0
+black>=24.3.0
 flake8==6.1.0
 mypy==1.7.1
 isort==5.12.0

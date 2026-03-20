@@ -34,10 +34,11 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple, Any
-import yaml
+from typing import Any, Dict, List, Optional, Tuple
+
 import redis
-from prometheus_client import Counter, Histogram, Gauge, Info, start_http_server
+import yaml
+from prometheus_client import Counter, Gauge, Histogram, Info, start_http_server
 
 # GeoIP country lookup
 try:
@@ -54,10 +55,9 @@ from scapy.layers.tls.record import TLS
 
 # Phase 0+: Local cache and pipeline infrastructure
 from src.cache.local_cache import LocalCache
-from src.security.pipeline import Pipeline, ConnectionContext
-from src.security.risk_scorer import RiskScorer
 from src.security.action_decider import ActionDecider, DialManager
-
+from src.security.pipeline import ConnectionContext, Pipeline
+from src.security.risk_scorer import RiskScorer
 
 # Enhanced Metrics with Security Context
 REQUEST_COUNT = Counter(
@@ -624,7 +624,7 @@ class ConfigManager:
             if not isinstance(bind_host, str):
                 raise ValidationError("bind_host must be a string")
             # Warn if binding to all interfaces
-            if bind_host == "0.0.0.0":
+            if bind_host == "0.0.0.0":  # nosec B104 — checked at startup; warns if all-interfaces
                 self.logger.warning(
                     "SECURITY: Binding to 0.0.0.0 exposes service to all interfaces"
                 )
@@ -741,7 +741,7 @@ class ConfigManager:
         """Default configuration."""
         return {
             "proxy": {
-                "bind_host": "0.0.0.0",
+                "bind_host": "0.0.0.0",  # nosec B104 — proxy must bind all interfaces
                 "bind_port": 8080,
                 "backend_host": "127.0.0.1",
                 "backend_port": 80,
@@ -809,7 +809,7 @@ class SecurityManager:
 
             # At dial=0 (monitor mode), NEVER block - just log what would happen
             if dial == 0:
-                self.logger.debug(f"Monitor mode (dial=0) - allowing all traffic")
+                self.logger.debug("Monitor mode (dial=0) - allowing all traffic")
                 return True, "Monitor mode"
 
             # Check ALPN bypass - browser traffic doesn't get rate limited
@@ -1128,6 +1128,7 @@ class ProxyServer:
         # Phase 10: AbuseIPDB checker — shared aiohttp session, background workers
         try:
             import aiohttp as _aiohttp
+
             from src.security.abuseipdb import AbuseIPDBChecker, AbuseIPDBConfig
             self._aiohttp_session = _aiohttp.ClientSession()
             _abuseipdb_cfg = AbuseIPDBConfig.from_config(self.config)
@@ -1148,7 +1149,7 @@ class ProxyServer:
 
         # Phase 11: RDAP enricher — reuses shared aiohttp session; background workers
         try:
-            from src.security.rdap_enrichment import RDAPEnricher, RDAPConfig
+            from src.security.rdap_enrichment import RDAPConfig, RDAPEnricher
             _rdap_cfg = RDAPConfig.from_config(self.config)
             # Reuse the existing aiohttp session if available; create one if not
             if self._aiohttp_session is None:
@@ -1198,7 +1199,7 @@ class ProxyServer:
         await self.security_manager._load_security_lists()
 
         # Populate geoip:safe_countries from config (never auto-blocked by geoip-monitor)
-        safe_countries = geo_config = self.config.get("geoip", {}).get(
+        safe_countries = self.config.get("geoip", {}).get(
             "safe_countries", []
         )
         if safe_countries:
@@ -1367,7 +1368,7 @@ class ProxyServer:
             self.logger.info(f"Metrics server started on port {metrics_port}")
 
             # Log security warning if metrics exposed
-            if self.config["metrics"].get("bind_host", "0.0.0.0") == "0.0.0.0":
+            if self.config["metrics"].get("bind_host", "0.0.0.0") == "0.0.0.0":  # nosec B104
                 self.logger.warning(
                     "SECURITY WARNING: Metrics endpoint exposed to all interfaces. "
                     "Restrict access using firewall rules or reverse proxy authentication."
@@ -1695,8 +1696,7 @@ class ProxyServer:
         info = {"client_ip": fallback_ip}
 
         if data[:12] == PP2_SIGNATURE and len(data) >= 16:
-            # Version and command byte
-            ver_cmd = data[12]
+            # Version and command byte (data[12]) parsed but only family byte used
             family = data[13]
             addr_len = struct.unpack("!H", data[14:16])[0]
             header_len = 16 + addr_len
@@ -1766,9 +1766,7 @@ class ProxyServer:
         """Extract client IP from HTTP X-Forwarded-For header (fallback for non-PP traffic)."""
         try:
             # Only parse if this looks like HTTP
-            if not (
-                data[:3] in (b"GET", b"POS", b"PUT", b"DEL", b"HEA", b"PAT", b"OPT")
-            ):
+            if data[:3] not in (b"GET", b"POS", b"PUT", b"DEL", b"HEA", b"PAT", b"OPT"):
                 return ""
             header_block = data[:2048].decode("ascii", errors="ignore")
             for line in header_block.split("\r\n"):

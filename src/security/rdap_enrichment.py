@@ -689,9 +689,8 @@ class RDAPEnricher:
 
         # Maybe trigger block expansion (if not unknown)
         if not rdap.is_unknown:
-            trigger_score = 0  # We don't have the original score here; expansion
-            # is only triggered by the background worker after explicit request.
-            # The block expansion check is triggered explicitly via maybe_expand_block.
+            # trigger_score=0: no original score at background enrichment time;
+            # expansion is only triggered via explicit maybe_expand_block calls.
             is_known_bad, _ = self._check_known_bad(rdap.org_handle, rdap.org_name)
             await self.maybe_expand_block(ip, rdap, trigger_score=0, is_known_bad=is_known_bad)
 

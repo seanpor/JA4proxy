@@ -2,8 +2,9 @@
 # Phase 12a: Foundation
 
 import os
+from typing import Any, Dict
+
 import yaml
-from typing import Dict, Any
 
 
 def load_config(config_file: str) -> Dict[str, Any]:
