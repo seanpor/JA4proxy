@@ -1,18 +1,19 @@
 # Monitoring System Integration
 # Phase 12c: Score Drift Monitoring & Observability
 
-import time
 import logging
-from typing import Dict, Any, Optional, List
+import time
+from typing import Any, Dict, List, Optional
+
 import redis.asyncio as redis
 from prometheus_client import Gauge, Histogram
 
 from .baseline_monitor import BaselineMonitor
-from .drift_detector import DriftDetector
 from .distribution_analyzer import DistributionAnalyzer
-from .shadow_scoring import ShadowScoring
-from .security_hardening import SecurityHardening
+from .drift_detector import DriftDetector
 from .ml_detector import MLDetector, MLModelManager
+from .security_hardening import SecurityHardening
+from .shadow_scoring import ShadowScoring
 
 
 class MonitoringSystem:

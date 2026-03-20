@@ -46,26 +46,42 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "  Static Analysis (Phase 16)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-# Type checking with mypy (Phase 16 - disabled for now)
-# echo "  ✓ Running mypy type checking..."
-# mypy src/ proxy.py --ignore-missing-imports --no-strict-optional --show-error-codes || true
+# Type checking with mypy (Phase 16f — enabled; uses mypy.ini baseline)
+if ! command -v mypy &> /dev/null; then
+    echo "  ✗ mypy not installed (pip install mypy)"
+else
+    echo "  ✓ Running mypy type checking..."
+    python3 -m mypy src/ proxy.py && echo "  ✓ mypy: OK" || echo "  ✗ mypy: type errors found (see above)"
+fi
 
-# Security scanning with bandit (Phase 16 - with proper exclusions)
+# Security scanning with bandit (Phase 16f — medium/high only; B104 suppressed in source)
 if ! command -v bandit &> /dev/null; then
     echo "  ✗ bandit not installed (pip install bandit)"
 else
     echo "  ✓ Running bandit security scan..."
-    # Ignore false positives and acknowledged issues
-    bandit -r src/ proxy.py -ll \
-        -s B104,B105,B110,B324 || echo "  ⚠️  bandit found security issues that need to be reviewed"
+    python3 -m bandit -r src/ proxy.py -ll -q && echo "  ✓ bandit: OK" || echo "  ✗ bandit: findings above"
 fi
 
-# Dependency vulnerability check with safety (Phase 16)
-if ! command -v safety &> /dev/null; then
-    echo "  ✗ safety not installed (pip install safety)"
+# Ruff linting (Phase 16f — replaces flake8/isort for new code)
+if command -v ruff &> /dev/null || python3 -m ruff --version &> /dev/null 2>&1; then
+    echo "  ✓ Running ruff linter..."
+    python3 -m ruff check src/ proxy.py tests/ && echo "  ✓ ruff: OK" || echo "  ⚠️  ruff: style issues found"
 else
-    echo "  ✓ Running safety dependency check..."
-    safety check --full-report || echo "  ⚠️  safety found vulnerability issues that need to be reviewed"
+    echo "  ✗ ruff not installed (pip install ruff)"
+fi
+
+# Dependency vulnerability check with pip-audit (Phase 16f — replaces safety 3.x which requires auth)
+if command -v pip-audit &> /dev/null; then
+    echo "  ✓ Running pip-audit CVE scan..."
+    pip-audit -r requirements.txt \
+      --ignore-vuln CVE-2025-50181 \
+      --ignore-vuln CVE-2025-66418 \
+      --ignore-vuln CVE-2025-66471 \
+      --ignore-vuln CVE-2026-21441 \
+      && echo "  ✓ pip-audit: OK (urllib3 CVEs acknowledged — transitive dep)" \
+      || echo "  ✗ pip-audit: new vulnerabilities found — update requirements.txt"
+else
+    echo "  ✗ pip-audit not installed (pip install pip-audit)"
 fi
 
 echo ""

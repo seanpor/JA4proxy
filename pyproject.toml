@@ -38,3 +38,24 @@ filterwarnings = [
     "ignore:ssl.OP_NO_SSL.*:DeprecationWarning",
     "ignore:ssl.OP_NO_TLS.*:DeprecationWarning",
 ]
+
+[tool.ruff]
+# Phase 16f baseline — check src/ and proxy.py; tests are advisory only.
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+# Enable: pyflakes (F), pycodestyle errors (E), isort (I)
+# Skip: W (warnings — cosmetic), C (complexity), ANN (annotations — covered by mypy)
+select = ["E", "F", "I"]
+ignore = [
+    "E501",   # line-too-long — handled by black
+    "E402",   # module-level import not at top — some files have conditional imports
+    "F401",   # unused import — too noisy in tests; addressed separately in src/
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests: allow unused imports (often imported for re-export or side effects)
+"tests/**" = ["F401", "F811", "F841", "E711", "E712", "E721"]
+# Admin CLI: allow broad exception handling
+"scripts/ja4proxy_admin.py" = ["E722"]

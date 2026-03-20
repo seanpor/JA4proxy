@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any, List
 
+
 @dataclass
 class RiskSignal:
     """A single scored signal from a security module.

@@ -1,10 +1,11 @@
 # ML Anomaly Detector
 # Phase 12e: Advanced Threat Intelligence & Automation
 
-import logging
 import json
-from typing import Dict, Any, List, Optional
+import logging
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
+
 import redis.asyncio as redis
 
 
@@ -73,7 +74,7 @@ class MLDetector:
         
         # Initialize components
         self.extractor = FeatureExtractor(config.get('feature_config', {}))
-        self.model = None
+        self.model: Any = None
         self.model_version = self._extract_model_version(config)
         self.model_key = config.get('ml_model_path', 'analytics:ml:model:v1')
         

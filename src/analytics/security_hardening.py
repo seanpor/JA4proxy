@@ -6,8 +6,9 @@ import hmac
 import json
 import logging
 import time
-from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
+
 import redis.asyncio as redis
 
 
@@ -141,8 +142,8 @@ class SecurityHardening:
                 return None
             
             # Decode payload (simplified)
-            import json
             import base64
+            import json
             try:
                 decoded_payload = json.loads(base64.urlsafe_b64decode(payload + '==').decode())
                 
@@ -161,7 +162,6 @@ class SecurityHardening:
     
     def _generate_hmac_signature(self, data: str) -> str:
         """Generate HMAC signature for JWT."""
-        import hashlib
         import hmac
         signature = hmac.new(
             self.jwt_secret.encode(),
@@ -174,7 +174,7 @@ class SecurityHardening:
         """Log security event for audit trail."""
         try:
             # Store in Redis stream for real-time monitoring
-            event_data = {
+            event_data: Dict[str, Any] = {
                 'type': event.event_type,
                 'severity': event.severity,
                 'timestamp': str(event.timestamp),
@@ -285,9 +285,6 @@ class SecurityHardening:
         try:
             # Get recent security events
             current_time = time.time()
-            
-            # Count events by severity in last 24 hours
-            one_day_ago = current_time - 86400
             
             metrics = {
                 'authentication_success': 0,

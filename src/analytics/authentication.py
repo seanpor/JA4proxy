@@ -1,11 +1,11 @@
 # HMAC Authentication for Analytics Node
 # Phase 12a: Foundation
 
-import hmac
 import hashlib
+import hmac
 import json
 import time
-from typing import Dict, Any
+from typing import Any, Dict
 
 # Maximum age of a signed event before it is rejected as a replay.
 # Only enforced when hmac_required=True.

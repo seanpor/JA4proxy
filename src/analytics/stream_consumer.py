@@ -5,17 +5,17 @@ import asyncio
 import json
 import logging
 import time
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
 
 import aioredis
-from jsonschema import validate, ValidationError
+from jsonschema import ValidationError, validate
 from prometheus_client import Gauge
 
+from .aggregation import AggregationManager, HyperLogLogManager
+from .authentication import HMACAuthenticator
+from .detection import CampaignDetector, JA4FingerprintIntelligence, SlowScanDetector
 from .event_schemas import EVENT_SCHEMA
 from .validation import validate_event_comprehensive
-from .authentication import HMACAuthenticator
-from .aggregation import AggregationManager, HyperLogLogManager
-from .detection import CampaignDetector, SlowScanDetector, JA4FingerprintIntelligence
 
 # Stream lag: seconds between the most recent event's Redis timestamp and now.
 # Exposed on the /metrics endpoint alongside the monitoring.py registry.

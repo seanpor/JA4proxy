@@ -120,7 +120,7 @@ class AnalyticsNode:
         app.router.add_get("/metrics", self._handle_metrics)
         runner = web.AppRunner(app)
         await runner.setup()
-        site = web.TCPSite(runner, "0.0.0.0", 8080)
+        site = web.TCPSite(runner, "0.0.0.0", 8080)  # nosec B104 — analytics binds all interfaces
         await site.start()
         return runner
 
