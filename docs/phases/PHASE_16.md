@@ -732,8 +732,8 @@ telemetry:
 
 ### Integration Tests
 
-- [ ] `tests/integration/test_fingerprinting.py` — JA4X populated in pipeline; emitted in log
-- [ ] `tests/integration/test_adaptive_rate.py` — adaptive threshold applied when available
+- [x] `tests/integration/test_fingerprinting.py` — JA4X populated in pipeline; emitted in log
+- [x] `tests/integration/test_adaptive_rate.py` — adaptive threshold applied when available
 
 ### Chaos Tests (`tests/chaos/test_external_api_failure.py`)
 
