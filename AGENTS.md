@@ -88,7 +88,23 @@ Every phase completion requires updating the following (per `docs/DOCUMENTATION_
 
 ---
 
-## 🗂️ Project Context Hierachy
+## 📈 Strategic Review Protocol
+
+To prevent technical myopia and ensure enterprise-readiness, the project maintains a **Multi-Role Critique** log.
+
+- **Source of Truth:** `docs/GEMINI_CRITIQUE.md`
+- **Execution:** At the end of every major **Epic** or **Phase**, the agent must perform a holistic review from these specific perspectives:
+  - **CEO:** Market fit, time-to-value, and strategic roadblocks.
+  - **CTO:** Scalability, tech debt, and long-term architecture (e.g., K8s operators).
+  - **QA:** Environmental stability, deterministic testing, and stateful regression.
+  - **Pentester:** Attack surface, bypass risks (e.g., Proxy-protocol spoofing), and forgery resilience.
+  - **Compliance:** Privacy by design (GDPR), DSAR capabilities, and audit integrity.
+- **Triage:** Actionable findings from the critique MUST be triaged into `docs/phases/manifest.yaml` as new **Gaps** or **Tasks** before the phase is considered complete.
+
+---
+
+## 🗂️ Project Context Hierarchy
+
 
 If instructions conflict, use this priority:
 1.  **User Hints** (Directives in the current session)
