@@ -38,7 +38,19 @@ def test_backup_metrics_success():
     ])
     mock_redis.dump = MagicMock(return_value=b"test_data")
     
+    # Mock filesystem validation
+    def mock_access(path, mode):
+        return True  # All permissions granted
+    
+    import os
+    mock_stat = MagicMock()
+    mock_stat.st_mode = 0o700  # Secure permissions (owner only)
+    mock_stat.st_uid = os.getuid()  # Current user
+    mock_stat.st_gid = os.getgid()  # Current group
+    
     with patch("src.backup.worker.redis.Redis", return_value=mock_redis), \
+         patch("os.access", side_effect=mock_access), \
+         patch("os.stat", return_value=mock_stat), \
          patch("pathlib.Path.mkdir"), \
          patch("pathlib.Path.exists"), \
          patch("pathlib.Path.write_bytes"), \
@@ -78,7 +90,19 @@ def test_backup_metrics_failure():
     mock_redis = MagicMock()
     mock_redis.scan.side_effect = Exception("Redis error")
     
+    # Mock filesystem validation
+    def mock_access(path, mode):
+        return True  # All permissions granted
+    
+    import os
+    mock_stat = MagicMock()
+    mock_stat.st_mode = 0o700  # Secure permissions (owner only)
+    mock_stat.st_uid = os.getuid()  # Current user
+    mock_stat.st_gid = os.getgid()  # Current group
+    
     with patch("src.backup.worker.redis.Redis", return_value=mock_redis), \
+         patch("os.access", side_effect=mock_access), \
+         patch("os.stat", return_value=mock_stat), \
          patch("pathlib.Path.mkdir"), \
          patch("pathlib.Path.exists"), \
          patch("pathlib.Path.write_bytes"), \

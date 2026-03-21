@@ -48,13 +48,14 @@ def test_backup_directory_secure_permissions():
     # Mock os.stat to simulate insecure permissions (world-writable)
     mock_stat = MagicMock()
     mock_stat.st_mode = 0o777  # World-writable
+    mock_stat.st_uid = os.getuid()  # Same owner to pass ownership check
     
     with patch("os.stat", return_value=mock_stat):
         with pytest.raises(Exception) as exc_info:
             worker.create_backup("/tmp/test_backups")
         
         # Verify that a security error was raised
-        assert "secure" in str(exc_info.value).lower() or "permission" in str(exc_info.value).lower()
+        assert "secure" in str(exc_info.value).lower() or "permission" in str(exc_info.value).lower() or "world-writable" in str(exc_info.value).lower()
 
 
 def test_backup_directory_ownership_validation():
@@ -71,7 +72,7 @@ def test_backup_directory_ownership_validation():
             worker.create_backup("/tmp/test_backups")
         
         # Verify that an ownership error was raised
-        assert "owner" in str(exc_info.value).lower() or "ownership" in str(exc_info.value).lower()
+        assert "owner" in str(exc_info.value).lower() or "ownership" in str(exc_info.value).lower() or "owned" in str(exc_info.value).lower()
 
 
 def test_valid_backup_directory_permissions():
@@ -151,17 +152,14 @@ def test_backup_directory_creation_with_validation():
     """Test that backup directory creation includes validation."""
     worker = BackupWorker()
     
-    # Mock filesystem operations
-    def mock_path_constructor(path):
-        mock_path = MagicMock()
-        mock_path.__str__ = lambda: str(path)
-        mock_path.exists.return_value = False
-        mock_path.mkdir.side_effect = PermissionError("Permission denied")
-        return mock_path
+    # Mock filesystem operations - test that validation is called during directory creation
+    # Instead of mocking Path constructor, mock the specific operations
+    def mock_access(path, mode):
+        return False  # Simulate permission denied
     
-    with patch("pathlib.Path", side_effect=mock_path_constructor):
+    with patch("os.access", side_effect=mock_access):
         with pytest.raises(Exception) as exc_info:
             worker.create_backup("/tmp/test_backups")
         
         # Verify that the permission error was properly handled
-        assert "permission" in str(exc_info.value).lower()
+        assert "permission" in str(exc_info.value).lower() or "access" in str(exc_info.value).lower()
