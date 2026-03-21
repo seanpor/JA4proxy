@@ -11,6 +11,10 @@ python_functions = ["test_*"]
 # -q: quiet mode by default; run-local-tests.sh adds -v when writing to log
 addopts = "--tb=short --timeout=60"
 
+markers = [
+    "live_services: requires live Go/Python proxy and Redis; excluded from make test (use make test-live)",
+]
+
 # Warning policy:
 #   - Third-party library internals: ignore (too noisy, nothing we can fix)
 #   - asyncio cleanup noise from mocks: ignore specific patterns
@@ -37,6 +41,10 @@ filterwarnings = [
     # ssl.OP_NO_TLS* deprecated in Python 3.10+ (security/validation.py — third-party pattern)
     "ignore:ssl.OP_NO_SSL.*:DeprecationWarning",
     "ignore:ssl.OP_NO_TLS.*:DeprecationWarning",
+    # pycares async DNS callbacks arrive after asyncio loop closes during test teardown.
+    # This is a known interaction between pycares, Python 3.10 asyncio, and pytest-asyncio.
+    # Nothing actionable in our code — pycares teardown is outside our control.
+    "ignore::pytest.PytestUnraisableExceptionWarning",
 ]
 
 [tool.ruff]

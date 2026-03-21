@@ -104,8 +104,7 @@ set +e
     --cov-report=term-missing \
     --cov-report=html:.local/coverage \
     --junitxml="$JUNIT" \
-    -W ignore::RuntimeWarning \
-    -W ignore::DeprecationWarning \
+    -m "${PYTEST_MARKS:-not live_services}" \
     "$@" \
     2>&1 | tee "$LOG"
 EXIT=${PIPESTATUS[0]}
