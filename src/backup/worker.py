@@ -1,13 +1,13 @@
 """
 Backup worker module.
-Implements deterministic key enumeration and backup artifact creation.
+Implements deterministic key enumeration, backup artifact creation, and retention.
 """
 import redis
 import json
 import hashlib
 from pathlib import Path
 from typing import List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 from src.backup.policy import KeyPolicy
 
 
@@ -136,3 +136,85 @@ class BackupWorker:
             if redis_client:
                 redis_client.set("backup:last_failure", datetime.utcnow().isoformat() + "Z")
             raise
+
+    def apply_retention(
+        self, backup_dir: str, retain_count: int = None, retention_days: int = None
+    ) -> None:
+        """Apply retention policy to backup directory.
+
+        Args:
+            backup_dir: Directory containing backup files.
+            retain_count: Maximum number of backups to keep (None to disable).
+            retention_days: Maximum age of backups to keep in days (None to disable).
+        """
+        backup_path = Path(backup_dir)
+        
+        if not backup_path.exists():
+            return
+        
+        # Get all backup files with their manifests
+        backup_files = list(backup_path.glob("backup_*.bin"))
+        
+        if not backup_files:
+            return
+        
+        # Parse backup information from manifests
+        backups = []
+        for backup_file in backup_files:
+            manifest_file = backup_file.with_suffix(backup_file.suffix + ".manifest.json")
+            
+            if manifest_file.exists():
+                try:
+                    with open(manifest_file, "r") as f:
+                        manifest = json.load(f)
+                    
+                    created_at = datetime.fromisoformat(manifest["created_at"].rstrip("Z"))
+                    
+                    backups.append({
+                        "file": backup_file,
+                        "manifest": manifest_file,
+                        "created_at": created_at,
+                        "filename": manifest["filename"]
+                    })
+                except (json.JSONDecodeError, KeyError):
+                    # Skip invalid manifests
+                    continue
+        
+        if not backups:
+            return
+        
+        # Sort by creation time (newest first)
+        backups.sort(key=lambda x: x["created_at"], reverse=True)
+        
+        # Apply age-based retention first
+        if retention_days is not None:
+            cutoff = datetime.utcnow() - timedelta(days=retention_days)
+            backups = [b for b in backups if b["created_at"] >= cutoff]
+        
+        # Apply count-based retention
+        if retain_count is not None and len(backups) > retain_count:
+            backups = backups[:retain_count]
+        
+        # Delete backups not in the retention list
+        all_backup_files = set(backup_path.glob("backup_*.bin"))
+        all_manifest_files = set(backup_path.glob("backup_*.bin.manifest.json"))
+        
+        to_keep_files = {b["file"] for b in backups}
+        to_keep_manifests = {b["manifest"] for b in backups}
+        
+        to_delete_files = all_backup_files - to_keep_files
+        to_delete_manifests = all_manifest_files - to_keep_manifests
+        
+        # Delete files
+        for f in to_delete_files:
+            try:
+                f.unlink()
+            except OSError:
+                pass
+        
+        # Delete manifests
+        for f in to_delete_manifests:
+            try:
+                f.unlink()
+            except OSError:
+                pass
