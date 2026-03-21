@@ -1,5 +1,69 @@
 # Changelog
 
+## [19.0.0] - 2026-03-21 — Phase 19: Backup & Restore Framework
+
+### Added
+
+**Backup System**
+- `src/backup/worker.py` — Backup worker with deterministic key enumeration
+- `src/backup/restorer.py` — Restore engine with checksum verification
+- `src/backup/policy.py` — Key inclusion/exclusion policy
+- `src/cli/backup_cli.py` — CLI interface for backup/restore operations
+- Backup artifact format: `.bin` (data) + `.manifest.json` (metadata)
+- SHA256 checksum verification for all backups
+- Never-backup guard for sensitive keys (API tokens, passwords)
+- Filesystem permission validation for backup directory
+- Retention policy: age-based and count-based cleanup
+
+**Restore System**
+- Non-destructive restore (default) — preserves existing keys
+- Destructive restore (explicit `--force` flag) — full wipe before restore
+- Manifest validation with required field checking
+- Checksum verification before restore operations
+- Audit logging for all restore operations
+
+**Observability**
+- Prometheus metrics: `ja4proxy_backup_*` and `ja4proxy_restore_*`
+- Structured JSON logs with `subsystem: "backup"` and `subsystem: "restore"`
+- Redis control keys: `backup:latest`, `backup:last_success`, `backup:last_failure`
+- Alert rules for stale backups and failure rates
+
+**Testing**
+- Unit tests: 85 tests covering all backup/restore functionality
+- Integration tests: 19 tests with real Redis scenarios
+- Performance tests: 23 tests for runtime benchmarks and hot-path non-regression
+- Chaos tests: 7 scenarios (Redis timeout, network interruption, etc.)
+- Adversarial tests: 9 security attack scenarios
+
+**Documentation**
+- `docs/REDIS_SCHEMA.md` — Backup-related Redis keys
+- `docs/OBSERVABILITY_STANDARDS.md` — Backup/restore metrics
+- `docs/SECOPS_OPERATIONS.md` — Backup/restore operations guide
+- `docs/QUICK_REFERENCE.md` — Backup/restore command reference
+- `docs/decisions/ADR-019.md` — Architecture decision record
+- `docs/security/BACKUP_THREAT_MODEL.md` — Comprehensive threat analysis
+
+**Configuration**
+- `config/proxy.yml` — New `backup:` configuration block
+- Configurable backup destination, retention policies, and key limits
+- Safe defaults for all backup operations
+
+### Security
+
+- Never-backup patterns for sensitive keys
+- Filesystem permission validation (no world/group writable directories)
+- Audit logging for all backup/restore operations
+- Checksum verification to detect tampering
+- Explicit destructive restore flag to prevent accidental data loss
+
+### Breaking Changes
+
+None — Phase 19 adds new functionality without modifying existing behavior
+
+### Migration
+
+No migration required — backup system is opt-in via configuration
+
 ## [16.0.0] - 2026-03-21 — Phase 16: Test Suite Hardening, JA4X Fingerprinting & OpenTelemetry
 
 ### Added
