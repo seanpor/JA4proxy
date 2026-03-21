@@ -20,6 +20,7 @@ from src.security.abuseipdb import (
     AbuseIPDBConfig,
     abuseipdb_to_risk_signal,
     QuotaExhaustedException,
+    _CacheHitTracker,
 )
 from src.security.models import RiskSignal
 from src.cache.local_cache import LocalCache
@@ -624,3 +625,31 @@ class TestAbuseIPDBConfigFromConfig(unittest.TestCase):
         self.assertFalse(cfg.enabled)
         self.assertEqual(cfg.score_cap, 40)
         self.assertEqual(cfg.max_requests_per_day, 1000)
+
+
+class TestCacheHitTracker(unittest.TestCase):
+    """Phase 16c — cover _CacheHitTracker edge cases (lines 241-242, 247, 251)."""
+
+    def test_ratio_empty_returns_zero(self):
+        """ratio() returns 0.0 when no observations recorded (line 251)."""
+        tracker = _CacheHitTracker()
+        self.assertEqual(tracker.ratio(), 0.0)
+
+    def test_record_hit_window_overflow(self):
+        """record_hit() trims when total exceeds window (lines 241-242)."""
+        tracker = _CacheHitTracker(window=2)
+        tracker.record_hit()
+        tracker.record_hit()
+        # Now at window limit; next hit overflows
+        tracker.record_hit()
+        # Should have trimmed: total stays at 2
+        self.assertLessEqual(tracker._total, 2)
+
+    def test_record_miss_window_overflow(self):
+        """record_miss() trims when total exceeds window (line 247)."""
+        tracker = _CacheHitTracker(window=2)
+        tracker.record_miss()
+        tracker.record_miss()
+        tracker.record_miss()  # Overflow
+        # total should be trimmed back to window
+        self.assertLessEqual(tracker._total, 2)
