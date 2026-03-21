@@ -3,6 +3,9 @@ secrets/*
 !secrets/.gitkeep
 !secrets/README.md
 
+# Debug/scratch files
+debug_asyncio_test.py
+
 ssl/private/*
 !ssl/private/.gitkeep
 !ssl/private/README.md
