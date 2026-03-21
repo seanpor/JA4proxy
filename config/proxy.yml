@@ -194,6 +194,17 @@ metrics:
     password: "${METRICS_PASSWORD}"
   # Restrict access to internal networks only
   bind_host: "0.0.0.0"  # Override to 127.0.0.1 or specific IP in production
+
+# Backup configuration
+backup:
+  enabled: false
+  destination: "/app/backups"
+  retention_days: 30
+  retain_count: 10
+  schedule: "0 2 * * *"
+  max_keys_per_run: 1000
+  max_size_bytes: 1073741824
+  include_audit_log: true
 # Logging configuration
 logging:
   level: "INFO"
