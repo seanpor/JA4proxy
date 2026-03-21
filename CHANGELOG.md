@@ -1,5 +1,64 @@
 # Changelog
 
+## [16.0.0] - 2026-03-21 — Phase 16: Test Suite Hardening, JA4X Fingerprinting & OpenTelemetry
+
+### Added
+
+**16a — Adversarial Input Corpus**
+- `tests/adversarial/corpus/` — 13 ClientHello `.bin` files covering truncation, GREASE,
+  max-length SNI, null bytes, duplicate extensions, overflow, and random garbage
+- `test_tls_parser_adversarial.py` — parametrized over all corpus files; parser must not
+  raise uncaught exceptions
+- `test_ja4_adversarial.py` — 10 degenerate inputs (empty, all-GREASE, max cipher list,
+  max SNI, 65 extension types)
+
+**16b — False-Positive Rate Corpus**
+- `tests/fp_corpus/data/tranco_top_10k.txt` — 10,000 domains; no network required
+- `tests/fp_corpus/data/residential_ips.txt` — 500 anonymised residential IPs
+- `tests/fp_corpus/data/browser_keepalive_timestamps.csv` — 450 rows, 30 sessions
+- `test_dga_fp_rate.py` — DGA FP rate < 1% on Tranco top 10k
+- `test_beaconing_fp_rate.py` — 0% FP on h2/h1 ALPN connections (ALPN guard verified)
+- `test_asn_fp_rate.py` — ASN FP rate < 2% on residential IP corpus
+
+**16c — Coverage Gates (all src/security/*.py ≥ 80%, proxy.py ≥ 95%)**
+- `make lint-coverage` runs `pytest --cov-fail-under=80 --cov=src --cov=proxy`
+- `tests/unit/test_rdap_enrichment_coverage.py` — 107 new tests; rdap_enrichment at 96%
+- `tests/unit/test_abuseipdb.py` — `_CacheHitTracker` edge cases added; at 85%
+- `tests/unit/security/test_asn_classifier.py` — extended to 100%
+
+**16d — External API Failure Chaos Tests**
+- `tests/chaos/test_external_api_failure.py` — AbuseIPDB, RDAP, all-APIs-down scenarios
+
+**16e — Performance Benchmark CI Gate**
+- `tests/performance/test_bench_pipeline.py` — bypass p99=2.3µs, scoring p99=20.6µs
+- `tests/performance/test_bench_cidr_lookup.py` — 100k-entry trie p99=0.96µs
+
+**16f — Static Analysis Gates** (`make lint-static`)
+
+**16g — JA4X Extended Fingerprinting**
+- `Pipeline._extract_ja4x_from_cert()` — DER X.509 cert → SHA-256 issuer/subject/SAN hashes
+- JA4X whitelist bypass (`bypass_reason="ja4x_whitelist"`) and blacklist RiskSignal (+80)
+- `Pipeline.update_ja4x_sets()` — in-process whitelist/blacklist sets (same structure as JA4)
+- JA4X emitted in structured JSON log (`fingerprinting.ja4x.emit_in_logs: true`)
+- `config/proxy.yml` — `fingerprinting.ja4x` block added
+- `tests/unit/security/test_ja4x.py` — 30 tests: hash computation, cert extraction, pipeline
+
+**16h — Adaptive Rate Limiting** (`rate_limiter.adaptive` config; disabled by default)
+
+**16i — Kubernetes / Helm** (`deploy/helm/ja4proxy/`; `helm lint` passes)
+
+**16j — OpenTelemetry Distributed Tracing**
+- `src/telemetry/tracing.py` — `Tracing`, `_NoopTracer`, `_NoopSpan`, `init_tracing_from_config()`
+- `Pipeline.__init__` accepts optional `tracing` parameter; `process()` emits top-level span
+- Zero overhead when disabled; `config/proxy.yml` — `telemetry.tracing` block added
+- `tests/unit/test_tracing.py` — 26 tests: noop path, OTEL mocked, pipeline integration
+
+**16k — Python Admin CLI** (`scripts/ja4proxy_admin.py`; 39 unit tests)
+
+### Fixed
+- `src/telemetry/tracing.py` — replaced `print()` with structured logging; module-level names
+  always bound (`trace = None` etc.) so tests can patch them when OTEL not installed
+
 ## [14.6.1] - 2026-03-19 - Production Docker fixes: secrets, Grafana password, redis-exporter
 
 ### Fixed

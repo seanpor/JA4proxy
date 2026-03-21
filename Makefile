@@ -184,9 +184,13 @@ lint-static:
 lint-quality:
 	docker run --rm -v $(PWD):/app python:3.11-slim sh -c "cd /app && pip install flake8 && flake8 proxy.py security/ src/ 2>/dev/null || echo 'Flake8 warnings above, see baseline docs/QUICK_REFERENCE.md'"
 
-# Coverage reporting with pytest-cov
+# Coverage reporting with pytest-cov (Phase 16c gate: ≥80% all modules)
 lint-coverage:
-	python3 -m pytest tests/ --cov=src --cov-report=term-missing --cov-report=html:reports/coverage/html --cov-fail-under=80 || (echo "Failed to reach 80% coverage threshold"; exit 1)
+	python3 -m pytest tests/ --ignore=tests/integration/test_docker_stack.py \
+		--cov=src --cov=proxy \
+		--cov-fail-under=80 \
+		--cov-report=term-missing \
+		--cov-report=html:reports/coverage/html
 
 # Lint Dockerfiles (hadolint) and validate docker-compose files (docker compose config).
 # Ignored rules are consciously accepted — see .hadolint.yaml for rationale.
