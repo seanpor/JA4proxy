@@ -5,11 +5,14 @@ Implements deterministic key enumeration, backup artifact creation, and retentio
 import redis
 import json
 import hashlib
+import logging
 from pathlib import Path
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 from prometheus_client import Counter, Gauge, Histogram
 from src.backup.policy import KeyPolicy
+
+logger = logging.getLogger(__name__)
 
 
 # Prometheus metrics for backup operations
@@ -129,8 +132,32 @@ class BackupWorker:
         BACKUP_OPERATIONS_TOTAL.labels(status="started").inc()
         
         try:
+            # Log backup start (before any operations that might fail)
+            logger.info(
+                json.dumps({
+                    "ts": datetime.utcnow().isoformat() + "Z",
+                    "type": "system",
+                    "level": "INFO",
+                    "subsystem": "backup",
+                    "event": "backup_started"
+                })
+            )
+            
             # Get keys to back up
             keys = self.enumerate_keys()
+            
+            # Log keys enumeration result
+            logger.info(
+                json.dumps({
+                    "ts": datetime.utcnow().isoformat() + "Z",
+                    "type": "system",
+                    "level": "INFO",
+                    "subsystem": "backup",
+                    "event": "keys_enumerated",
+                    "keys_expected": len(keys)
+                })
+            )
+            
             BACKUP_KEYS_PROCESSED_TOTAL.inc(len(keys))
 
             # Create backup artifact
@@ -185,6 +212,22 @@ class BackupWorker:
             BACKUP_LAST_SUCCESS_TIMESTAMP.set(datetime.utcnow().timestamp())
             BACKUP_CURRENTLY_RUNNING.set(0)
 
+            # Log backup success
+            logger.info(
+                json.dumps({
+                    "ts": datetime.utcnow().isoformat() + "Z",
+                    "type": "system",
+                    "level": "INFO",
+                    "subsystem": "backup",
+                    "event": "backup_succeeded",
+                    "keys_processed": len(keys),
+                    "size_bytes": len(backup_data),
+                    "duration_ms": int(duration * 1000),
+                    "artifact_path": str(backup_path),
+                    "checksum": checksum
+                })
+            )
+
             return backup_path
 
         except Exception as e:
@@ -198,6 +241,19 @@ class BackupWorker:
             BACKUP_OPERATIONS_TOTAL.labels(status="failure").inc()
             BACKUP_LAST_FAILURE_TIMESTAMP.set(datetime.utcnow().timestamp())
             BACKUP_CURRENTLY_RUNNING.set(0)
+            
+            # Log backup failure
+            logger.error(
+                json.dumps({
+                    "ts": datetime.utcnow().isoformat() + "Z",
+                    "type": "system",
+                    "level": "ERROR",
+                    "subsystem": "backup",
+                    "event": "backup_failed",
+                    "error": str(e),
+                    "duration_ms": int(duration * 1000)
+                })
+            )
             raise
 
     def apply_retention(
