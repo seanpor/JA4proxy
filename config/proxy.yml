@@ -537,3 +537,26 @@ rdap_enrichment:
     require_known_bad_org: true       # Guard 4: abort expansion if org not in known_bad_orgs.yml.
     expansion_ban_duration: 3600      # TTL (seconds) for ban_cidr:{cidr} key written on expansion (default 1h).
     max_expansions_per_hour: 10       # Cross-instance safety cap; enforced via Redis atomic counter.
+
+# ── Phase 16: Extended Fingerprinting (JA4X) ─────────────────────────────────
+
+fingerprinting:
+  ja4x:
+    enabled: true                 # Default: true. Populate ja4x from mTLS client cert chain.
+                                  # When disabled, ctx.ja4x is always None; no Redis lookups performed.
+    blacklist_score: 80           # Risk score contribution when ctx.ja4x matches the JA4X blacklist.
+                                  # 80 > block_threshold(70) at dial=100 → blocked if dial is high enough.
+                                  # Uses the same Redis SET structure as the JA4 blacklist.
+    emit_in_logs: true            # Include ja4x in structured JSON log output per connection.
+
+# ── Phase 16: OpenTelemetry Distributed Tracing ──────────────────────────────
+
+telemetry:
+  tracing:
+    enabled: false                # Default: false. Zero-cost noop when disabled.
+                                  # Set true only when an OTLP-compatible collector is running.
+    endpoint: ""                  # OTLP gRPC endpoint (e.g. http://jaeger:4317).
+                                  # Leave empty to keep tracing disabled even if enabled: true.
+    service_name: ja4proxy        # Service name recorded in all spans.
+    sample_rate: 0.01             # Fraction of connections traced (default 1%).
+                                  # At 1000 conn/s → ~10 traces/s sent to collector.

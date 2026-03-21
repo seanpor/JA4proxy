@@ -250,11 +250,14 @@ class Pipeline:
         config: dict,
         local_cache: "LocalCache",
         redis_client: object,
+        tracing: Any = None,
     ) -> None:
         self._config = config
         self._cache = local_cache
         self._redis = redis_client
         self._policy = config.get("security_policy", {})
+        # Phase 16j: optional OpenTelemetry tracer (noop when None / disabled)
+        self._tracer = tracing
         self._allowlist = StaticAllowlist(config)
         # In-process sets for O(1) JA4 lookup on hot path
         # Populated from Redis on startup and updated via pub/sub
@@ -301,6 +304,9 @@ class Pipeline:
         # Phase 11: RDAP enrichment (offline enrichment; background workers).
         # start()/stop() called by ProxyServer.
         self._rdap_enricher: RDAPEnricher | None = None
+        # Phase 16: JA4X fingerprint lists (parallel structure to JA4 lists)
+        self._ja4x_whitelist: set[str] = set()
+        self._ja4x_blacklist: set[str] = set()
 
     def _load_blocklist_feeds(self, config: dict) -> None:
         """Load any static/pre-populated blocklist feeds from config."""
@@ -405,6 +411,11 @@ class Pipeline:
         self._whitelist = whitelist
         self._blacklist = blacklist
 
+    def update_ja4x_sets(self, whitelist: set[str], blacklist: set[str]) -> None:
+        """Replace in-process JA4X sets. Called on startup and pub/sub update."""
+        self._ja4x_whitelist = whitelist
+        self._ja4x_blacklist = blacklist
+
     def on_config_reload(self, new_config: dict) -> None:
         """Apply new config on hot reload. Registered with ConfigLoader."""
         self._config = new_config
@@ -418,7 +429,31 @@ class Pipeline:
 
         Returns a :class:`PipelineResult` describing the action to take.
         Never raises — all errors result in an allow decision (fail open).
+        When tracing is enabled, emits a ``pipeline.process`` span with
+        connection attributes and the final action/score.
         """
+        if self._tracer is not None:
+            tracer = self._tracer.get_tracer("ja4proxy.pipeline")
+            with tracer.start_as_current_span("pipeline.process") as span:
+                span.set_attribute("client.ip", ctx.client_ip)
+                span.set_attribute("ja4", ctx.ja4 or "")
+                if ctx.ja4x:
+                    span.set_attribute("ja4x", ctx.ja4x)
+                if ctx.sni:
+                    span.set_attribute("sni", ctx.sni)
+                try:
+                    result = await self._process_inner(ctx)
+                except Exception as exc:  # noqa: BLE001
+                    span.record_exception(exc)
+                    result = PipelineResult(
+                        action="allow", score=0, signals=[], dial=self._cache.dial
+                    )
+                    self._emit_log(ctx, result)
+                span.set_attribute("action", result.action)
+                if result.score is not None:
+                    span.set_attribute("risk.score", result.score)
+                return result
+
         try:
             return await self._process_inner(ctx)
         except Exception as exc:  # noqa: BLE001
@@ -540,6 +575,16 @@ class Pipeline:
                     bypass_reason="ja4_whitelist",
                 )
 
+        # 3b. JA4X whitelist bypass (Phase 16)
+        ja4x_cfg = self._config.get("fingerprinting", {}).get("ja4x", {})
+        if ja4x_cfg.get("enabled", True):
+            if ctx.ja4x and ctx.ja4x in self._ja4x_whitelist:
+                return PipelineResult(
+                    action="allow",
+                    bypassed=True,
+                    bypass_reason="ja4x_whitelist",
+                )
+
         # 4. mTLS bypass
         if self._policy.get("mtls_bypass", {}).get("enabled", True):
             if self._mtls_handler.verify_client_cert(ctx):
@@ -601,6 +646,21 @@ class Pipeline:
         collected before the error.
         """
         signals = []
+
+        # Phase 16: JA4X cert extraction from mTLS client cert (if not already set)
+        if ctx.ja4x is None and ctx.client_certificate is not None:
+            ctx.ja4x = self._extract_ja4x_from_cert(ctx.client_certificate)
+
+        # Phase 16: JA4X blacklist signal (score contribution, not hard block)
+        ja4x_cfg = self._config.get("fingerprinting", {}).get("ja4x", {})
+        if ja4x_cfg.get("enabled", True) and ctx.ja4x and ctx.ja4x in self._ja4x_blacklist:
+            from .models import RiskSignal
+            blacklist_score = ja4x_cfg.get("blacklist_score", 80)
+            signals.append(RiskSignal(
+                name="ja4x_blacklist",
+                score=blacklist_score,
+                reason=f"JA4X {ctx.ja4x} in blacklist",
+            ))
 
         # Phase 11: Record browser subnet for block expansion guard 3.
         # Fire-and-forget: never awaited on the hot path.
@@ -792,6 +852,46 @@ class Pipeline:
 
         return signals
 
+    def _extract_ja4x_from_cert(self, cert_der: bytes) -> str | None:
+        """Extract JA4X fingerprint from DER-encoded X.509 certificate.
+
+        Format: {issuer_hash}_{subject_hash}_{san_hash} where each hash is
+        SHA-256 truncated to 12 hex chars of sorted, comma-joined field values.
+        Returns None on any parse error (fail open).
+        """
+        try:
+            import hashlib
+
+            from cryptography import x509
+
+            cert = x509.load_der_x509_certificate(cert_der)
+
+            def _sorted_attrs(name: object) -> str:
+                return ",".join(
+                    sorted(f"{attr.oid.dotted_string}={attr.value}" for attr in name)  # type: ignore[union-attr]
+                )
+
+            issuer = _sorted_attrs(cert.issuer)
+            subject = _sorted_attrs(cert.subject)
+
+            try:
+                san_ext = cert.extensions.get_extension_for_class(
+                    x509.SubjectAlternativeName
+                )
+                san = ",".join(sorted(str(n) for n in san_ext.value))
+            except x509.ExtensionNotFound:
+                san = ""
+
+            def _hash(s: str) -> str:
+                if not s:
+                    return "000000000000"
+                return hashlib.sha256(s.encode("utf-8", errors="replace")).hexdigest()[:12]
+
+            return f"{_hash(issuer)}_{_hash(subject)}_{_hash(san)}"
+        except Exception as exc:
+            logger.warning("pipeline | event=ja4x_extract_failed | error=%s", exc)
+            return None
+
     def _score_connection(self, signals: list) -> tuple[int, str, list, dict]:
         """Map signals → (score, action, scored_signals, counterfactuals).
 
@@ -889,6 +989,10 @@ class Pipeline:
                 f"action_at_{d}": act
                 for d, act in sorted(result.counterfactuals.items())
             }
+        # Phase 16: emit ja4x in log when config enables it and ja4x is available
+        ja4x_cfg = self._config.get("fingerprinting", {}).get("ja4x", {})
+        if ja4x_cfg.get("emit_in_logs", True) and ctx.ja4x is not None:
+            json_doc["ja4x"] = ctx.ja4x
 
         logger.debug(json.dumps(json_doc))
 
