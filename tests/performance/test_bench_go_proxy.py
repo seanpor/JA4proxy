@@ -33,13 +33,18 @@ LATENCY_SAMPLES = 100
 # Go must be at least this many times faster than Python when both are running
 GO_VS_PYTHON_MIN_RATIO = 2.0
 
-pytestmark = pytest.mark.skipif(
-    not (
-        os.path.exists(GO_BINARY)
-        or os.path.exists("/usr/local/bin/ja4proxy")
+# All tests in this file require a live Go proxy on GO_PROXY_PORT.
+# Excluded from `make test`; use `make test-live` when services are running.
+pytestmark = [
+    pytest.mark.live_services,
+    pytest.mark.skipif(
+        not (
+            os.path.exists(GO_BINARY)
+            or os.path.exists("/usr/local/bin/ja4proxy")
+        ),
+        reason="Go binary not built",
     ),
-    reason="Go binary not built",
-)
+]
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

@@ -91,48 +91,59 @@ def _start_proxy(port: int, metrics_port: int, extra_env: dict = None) -> subpro
 def test_go_proxy_adversarial_clienthello_no_panic():
     """Every adversarial corpus file must not cause a goroutine panic.
 
-    Sends each corpus file's raw bytes to a running Go proxy and verifies
-    that the proxy is still accepting connections afterward.
+    Sends each corpus file's raw bytes to a self-contained proxy instance and
+    verifies that the proxy is still accepting connections afterward.
     """
     corpus = glob.glob("tests/adversarial/corpus/*.bin")
     if not corpus:
         pytest.skip("no adversarial corpus files found in tests/adversarial/corpus/")
 
-    # Use an already-running proxy if available; otherwise skip
-    if not _check_port(GO_PROXY_HOST, GO_PROXY_PORT):
-        pytest.skip(
-            f"Go proxy not reachable at {GO_PROXY_HOST}:{GO_PROXY_PORT}; "
-            "start it before running chaos tests"
-        )
+    chaos_port = 18083
+    chaos_metrics = 19083
 
-    panics = []
-    for path in corpus:
-        try:
-            data = pathlib.Path(path).read_bytes()
-        except OSError:
-            continue
-        assert len(data) > 0, f"empty corpus file: {path}"
+    proc = _start_proxy(chaos_port, chaos_metrics)
+    started = _wait_for_port("127.0.0.1", chaos_port, timeout=15.0)
+    if not started and proc.poll() is not None:
+        out, err = proc.communicate()
+        pytest.skip(f"Go proxy could not start: {err.decode()[:200]}")
+    if not started:
+        proc.kill()
+        pytest.skip("Go proxy did not start listening within timeout")
 
-        # Send the raw bytes; the proxy should not crash regardless of content
-        try:
-            sock = socket.create_connection(
-                (GO_PROXY_HOST, GO_PROXY_PORT), timeout=2
-            )
-            sock.sendall(data)
-            sock.settimeout(1.0)
+    try:
+        panics = []
+        for path in corpus:
             try:
-                sock.recv(4096)
-            except (socket.timeout, ConnectionResetError):
-                pass
-            sock.close()
-        except OSError:
-            pass
+                data = pathlib.Path(path).read_bytes()
+            except OSError:
+                continue
+            if len(data) == 0:
+                continue  # empty corpus file is a valid test input but nothing to send
 
-    # After sending all corpus files, proxy must still be alive
-    assert _check_port(GO_PROXY_HOST, GO_PROXY_PORT, timeout=2.0), (
-        "Go proxy is no longer accepting connections after adversarial corpus replay"
-    )
-    assert not panics, f"Proxy panicked on corpus files: {panics}"
+            # Send the raw bytes; the proxy should not crash regardless of content
+            try:
+                sock = socket.create_connection(("127.0.0.1", chaos_port), timeout=2)
+                sock.sendall(data)
+                sock.settimeout(1.0)
+                try:
+                    sock.recv(4096)
+                except (socket.timeout, ConnectionResetError):
+                    pass
+                sock.close()
+            except OSError:
+                pass
+
+        # After sending all corpus files, proxy must still be alive
+        assert _check_port("127.0.0.1", chaos_port, timeout=2.0), (
+            "Go proxy is no longer accepting connections after adversarial corpus replay"
+        )
+        assert not panics, f"Proxy panicked on corpus files: {panics}"
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
 
 
 # ── Test: unknown config keys ─────────────────────────────────────────────────
@@ -214,7 +225,7 @@ def test_go_proxy_redis_fail_open():
             "REDIS_PASSWORD": "",
         },
     )
-    started = _wait_for_port("127.0.0.1", chaos_port, timeout=5.0)
+    started = _wait_for_port("127.0.0.1", chaos_port, timeout=15.0)
     if not started and proc.poll() is not None:
         out, err = proc.communicate()
         pytest.skip(f"Go proxy exited on startup (Redis config issue): {err.decode()[:200]}")
@@ -249,38 +260,50 @@ def test_go_proxy_malformed_proxy_protocol_header():
     Even if PROXY protocol parsing fails, the proxy should close the
     connection gracefully and continue serving other connections.
     """
-    if not _check_port(GO_PROXY_HOST, GO_PROXY_PORT):
-        pytest.skip(
-            f"Go proxy not reachable at {GO_PROXY_HOST}:{GO_PROXY_PORT}"
-        )
+    chaos_port = 18087
+    chaos_metrics = 19087
 
-    garbage_payloads = [
-        b"PROXY GARBAGE HEADER\r\n",
-        b"\xff\xfe\x00\x01" * 20,
-        b"GET / HTTP/1.1\r\nHost: evil\r\n\r\n",
-        b"\x00" * 256,
-        b"PROXY TCP4 999.999.999.999 256.0.0.1 99999 99999\r\n",
-    ]
+    proc = _start_proxy(chaos_port, chaos_metrics)
+    started = _wait_for_port("127.0.0.1", chaos_port, timeout=15.0)
+    if not started and proc.poll() is not None:
+        out, err = proc.communicate()
+        pytest.skip(f"Go proxy could not start: {err.decode()[:200]}")
+    if not started:
+        proc.kill()
+        pytest.skip("Go proxy did not start listening within timeout")
 
-    for payload in garbage_payloads:
-        try:
-            sock = socket.create_connection(
-                (GO_PROXY_HOST, GO_PROXY_PORT), timeout=2
-            )
-            sock.sendall(payload)
-            sock.settimeout(1.5)
+    try:
+        garbage_payloads = [
+            b"PROXY GARBAGE HEADER\r\n",
+            b"\xff\xfe\x00\x01" * 20,
+            b"GET / HTTP/1.1\r\nHost: evil\r\n\r\n",
+            b"\x00" * 256,
+            b"PROXY TCP4 999.999.999.999 256.0.0.1 99999 99999\r\n",
+        ]
+
+        for payload in garbage_payloads:
             try:
-                sock.recv(4096)
-            except (socket.timeout, ConnectionResetError):
+                sock = socket.create_connection(("127.0.0.1", chaos_port), timeout=2)
+                sock.sendall(payload)
+                sock.settimeout(1.5)
+                try:
+                    sock.recv(4096)
+                except (socket.timeout, ConnectionResetError):
+                    pass
+                sock.close()
+            except OSError:
                 pass
-            sock.close()
-        except OSError:
-            pass
 
-    # Proxy must still be accepting connections after the garbage
-    assert _check_port(GO_PROXY_HOST, GO_PROXY_PORT, timeout=2.0), (
-        "Go proxy is no longer accepting connections after malformed PROXY headers"
-    )
+        # Proxy must still be accepting connections after the garbage
+        assert _check_port("127.0.0.1", chaos_port, timeout=2.0), (
+            "Go proxy is no longer accepting connections after malformed PROXY headers"
+        )
+    finally:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
 
 
 # ── Test: SIGTERM drain ────────────────────────────────────────────────────────
@@ -291,7 +314,7 @@ def test_go_proxy_sigterm_drain():
     chaos_metrics = 19086
 
     proc = _start_proxy(chaos_port, chaos_metrics)
-    started = _wait_for_port("127.0.0.1", chaos_port, timeout=5.0)
+    started = _wait_for_port("127.0.0.1", chaos_port, timeout=15.0)
     if not started and proc.poll() is not None:
         out, err = proc.communicate()
         pytest.skip(f"Go proxy could not start: {err.decode()[:200]}")

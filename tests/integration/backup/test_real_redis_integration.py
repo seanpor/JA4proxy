@@ -1,9 +1,15 @@
 """
 Integration tests for real Redis backup/restore operations.
 Tests end-to-end happy-path for backup then restore with actual Redis instances.
+
+Requires a live Redis on localhost:6379 (no auth).
+Excluded from `make test`; use `make test-live` when Redis is running.
 """
 import pytest
 import redis
+
+# All tests require a live Redis instance — excluded from the fast local test run.
+pytestmark = pytest.mark.live_services
 import json
 import tempfile
 import shutil

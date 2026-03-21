@@ -115,8 +115,15 @@ build:
 	docker compose -f docker-compose.poc.yml build
 
 # Run all tests locally in parallel (fast — no Docker required)
+# Skips tests marked @pytest.mark.live_services (require Go/Python proxy + Redis stack)
 test:
 	@./scripts/run-local-tests.sh $(ARGS)
+
+# Run full suite including live-service tests
+# Requires: Go proxy + Python proxy + Redis running (see docs/phases/PHASE_15.md)
+# Usage: make test-live   or   make test-live ARGS="-k test_ja4_parity"
+test-live:
+	@PYTEST_MARKS="" ./scripts/run-local-tests.sh $(ARGS)
 
 # Run unit tests only
 test-unit:

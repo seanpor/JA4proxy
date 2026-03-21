@@ -42,6 +42,10 @@ COMPUTE_JA4_PY = str(
     pathlib.Path(__file__).parent.parent.parent / "scripts" / "compute_ja4.py"
 )
 
+# All tests in this file require live services (Go proxy + Redis + Python proxy).
+# Excluded from `make test`; use `make test-live` when services are running.
+pytestmark = pytest.mark.live_services
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

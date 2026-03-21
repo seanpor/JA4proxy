@@ -1271,7 +1271,6 @@ class ProxyServer:
                 password=password if password else None,
                 socket_timeout=redis_config.get("timeout", 5),
                 socket_connect_timeout=redis_config.get("timeout", 5),
-                retry_on_timeout=True,
                 health_check_interval=30,
                 decode_responses=False,  # Security: explicit encoding control
             )
