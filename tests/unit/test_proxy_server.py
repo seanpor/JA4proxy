@@ -25,6 +25,8 @@ Sections
 import asyncio
 import logging
 import os
+import ssl
+import struct
 import time
 from unittest.mock import AsyncMock, MagicMock, patch, call
 
@@ -737,6 +739,39 @@ class TestRedirectToTarpit:
             # Must not raise
             _run(server._redirect_to_tarpit(b"data", client_reader, client_writer))
 
+    def test_tarpit_overflow_close_exception_silenced(self):
+        """Overflow block: client_writer.close() exception is silenced (lines 1835-1836)."""
+        server = _make_server()
+        server._tarpit_concurrent = 999  # Over cap
+        client_reader = AsyncMock()
+        client_writer = MagicMock()
+        client_writer.close.side_effect = Exception("write failed")
+
+        # Must not raise — exception in writer.close() is silenced
+        _run(server._redirect_to_tarpit(b"data", client_reader, client_writer, "1.2.3.4"))
+
+    def test_tarpit_writer_close_exception_silenced(self):
+        """tarpit_writer.close() exception in finally is silenced (lines 1869-1870)."""
+        server = _make_server()
+        client_reader = AsyncMock()
+        client_reader.read = AsyncMock(return_value=b"")  # EOF immediately
+        client_writer = MagicMock()
+        client_writer.drain = AsyncMock()
+
+        tarpit_writer = MagicMock()
+        tarpit_writer.drain = AsyncMock()
+        tarpit_writer.close.side_effect = Exception("close failed")
+        tarpit_writer.wait_closed = AsyncMock(side_effect=Exception("wait_closed failed"))
+        tarpit_reader = AsyncMock()
+        tarpit_reader.read = AsyncMock(return_value=b"")  # EOF immediately
+
+        with patch(
+            "proxy.asyncio.open_connection",
+            AsyncMock(return_value=(tarpit_reader, tarpit_writer)),
+        ):
+            # Must not raise — exception in tarpit_writer cleanup is silenced
+            _run(server._redirect_to_tarpit(b"data", client_reader, client_writer, "1.2.3.4"))
+
 
 # ---------------------------------------------------------------------------
 # ProxyServer._extract_ja4_from_http
@@ -1126,3 +1161,131 @@ class TestHandleConnection:
         _run(server.handle_connection(reader, writer))
         # _analyze_tls_handshake should have been called
         assert server._analyze_tls_handshake.called
+
+    # ── ssl.SSLError ─────────────────────────────────────────────────────────
+
+    def test_ssl_error_generic_logged_not_raised(self, caplog):
+        """ssl.SSLError triggers the SSLError handler (lines 1655-1670)."""
+        server = _make_server()
+        reader, writer = _mock_stream_pair(b"data")
+        server._analyze_tls_handshake = AsyncMock(
+            side_effect=ssl.SSLError("generic ssl problem")
+        )
+        with caplog.at_level(logging.WARNING, logger="proxy"):
+            _run(server.handle_connection(reader, writer))
+        assert any("TLS_ERROR" in r.message for r in caplog.records)
+        assert server.active_connections == 0
+
+    def test_ssl_error_handshake_failure_classified(self, caplog):
+        """SSLError with SSLV3_ALERT_HANDSHAKE_FAILURE sets error_type correctly."""
+        server = _make_server()
+        reader, writer = _mock_stream_pair(b"data")
+        server._analyze_tls_handshake = AsyncMock(
+            side_effect=ssl.SSLError("SSLV3_ALERT_HANDSHAKE_FAILURE: alert handshake failure")
+        )
+        with caplog.at_level(logging.WARNING, logger="proxy"):
+            _run(server.handle_connection(reader, writer))
+        assert any("TLS_ERROR" in r.message for r in caplog.records)
+
+    def test_ssl_error_cert_verify_classified(self, caplog):
+        """SSLError with CERTIFICATE_VERIFY_FAILED sets error_type correctly."""
+        server = _make_server()
+        reader, writer = _mock_stream_pair(b"data")
+        server._analyze_tls_handshake = AsyncMock(
+            side_effect=ssl.SSLError("CERTIFICATE_VERIFY_FAILED: unable to get local issuer")
+        )
+        with caplog.at_level(logging.WARNING, logger="proxy"):
+            _run(server.handle_connection(reader, writer))
+        assert any("TLS_ERROR" in r.message for r in caplog.records)
+
+    def test_ssl_error_wrong_version_classified(self, caplog):
+        """SSLError with WRONG_VERSION_NUMBER sets error_type correctly."""
+        server = _make_server()
+        reader, writer = _mock_stream_pair(b"data")
+        server._analyze_tls_handshake = AsyncMock(
+            side_effect=ssl.SSLError("WRONG_VERSION_NUMBER: wrong version number")
+        )
+        with caplog.at_level(logging.WARNING, logger="proxy"):
+            _run(server.handle_connection(reader, writer))
+        assert any("TLS_ERROR" in r.message for r in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# ProxyServer._parse_proxy_protocol — TLV parsing paths
+# ---------------------------------------------------------------------------
+
+_PP2_SIG = b"\x0d\x0a\x0d\x0a\x00\x0d\x0a\x51\x55\x49\x54\x0a"
+
+
+def _make_pp2_ipv4(src_ip: str, extra: bytes = b"") -> bytes:
+    """Build a minimal PROXY v2 IPv4 header with optional TLV bytes appended."""
+    import socket as _socket
+    addr_block = (
+        _socket.inet_aton(src_ip)       # 4 bytes src
+        + _socket.inet_aton("10.0.0.1") # 4 bytes dst
+        + b"\x30\x39"                   # src port 12345
+        + b"\x01\xbb"                   # dst port 443
+    )  # 12 bytes
+    tlv_bytes = extra
+    addr_len = len(addr_block) + len(tlv_bytes)
+    header = (
+        _PP2_SIG
+        + b"\x21"                         # version=2, cmd=PROXY
+        + b"\x11"                         # AF_INET + STREAM
+        + struct.pack("!H", addr_len)
+        + addr_block
+        + tlv_bytes
+    )
+    return header + b"\x16\x03\x01\x00\x05" + b"\x00" * 5  # append dummy TLS data
+
+
+class TestParseProxyProtocolTLV:
+    """Tests for TLV parsing paths in _parse_proxy_protocol (lines 1720-1745)."""
+
+    def test_tlv_pp2_type_tcp_info_parsed(self):
+        """TLV type 0x04 with valid TTL+window_size updates info dict."""
+        server = _make_server()
+        # Build TLV: type=0x04, length=3, data=TTL(0x40)+window(0x1000)
+        tlv_payload = struct.pack("!BH", 0x40, 0x1000)  # ttl=64, window=4096
+        tlv = bytes([0x04]) + struct.pack("!H", len(tlv_payload)) + tlv_payload
+        data = _make_pp2_ipv4("203.0.113.1", extra=tlv)
+        info, remaining = server._parse_proxy_protocol(data, "0.0.0.0")
+        assert info["client_ip"] == "203.0.113.1"
+        assert info.get("ttl") == 0x40
+        assert info.get("window_size") == 0x1000
+
+    def test_tlv_unknown_type_skipped(self):
+        """Unknown TLV type is skipped without error."""
+        server = _make_server()
+        # TLV type=0xFF (unknown), length=2, data=0xBEEF
+        tlv = bytes([0xFF]) + struct.pack("!H", 2) + b"\xbe\xef"
+        data = _make_pp2_ipv4("203.0.113.2", extra=tlv)
+        info, _ = server._parse_proxy_protocol(data, "0.0.0.0")
+        assert info["client_ip"] == "203.0.113.2"
+
+    def test_tlv_truncated_type_breaks_loop(self):
+        """TLV with truncated length field causes early break."""
+        server = _make_server()
+        # Only type byte present, no length field — must break
+        tlv = bytes([0x04])  # type byte only
+        data = _make_pp2_ipv4("203.0.113.3", extra=tlv)
+        info, _ = server._parse_proxy_protocol(data, "0.0.0.0")
+        assert info["client_ip"] == "203.0.113.3"
+
+    def test_tlv_data_overflow_breaks_loop(self):
+        """TLV length field points beyond tlv_data — breaks loop."""
+        server = _make_server()
+        # type=0x04, claimed length=999 (way beyond actual data)
+        tlv = bytes([0x04]) + struct.pack("!H", 999) + b"\x00\x00\x00"
+        data = _make_pp2_ipv4("203.0.113.4", extra=tlv)
+        info, _ = server._parse_proxy_protocol(data, "0.0.0.0")
+        assert info["client_ip"] == "203.0.113.4"
+
+    def test_tlv_struct_error_ignored(self):
+        """Malformed TCP_INFO TLV (too short for struct.unpack) is silently ignored."""
+        server = _make_server()
+        # type=0x04, length=1, only 1 byte payload — too short for !BH (needs 3)
+        tlv = bytes([0x04]) + struct.pack("!H", 1) + b"\x40"
+        data = _make_pp2_ipv4("203.0.113.5", extra=tlv)
+        info, _ = server._parse_proxy_protocol(data, "0.0.0.0")
+        assert info["client_ip"] == "203.0.113.5"

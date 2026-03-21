@@ -1714,8 +1714,11 @@ class ProxyServer:
 
                 remaining_data = data[header_len:]
 
-                # Parse TLV fields for JA4T data
-                tlv_data = data[16 + addr_len : header_len]
+                # Parse TLV fields for JA4T data.
+                # TLVs live between end of fixed address block and header_len.
+                # Fixed address block sizes: AF_INET=12 bytes, AF_INET6=36 bytes.
+                _addr_block_len = 12 if family == 0x11 else (36 if family == 0x21 else addr_len)
+                tlv_data = data[16 + _addr_block_len : header_len]
                 idx = 0
                 while idx < len(tlv_data):
                     tlv_type = tlv_data[idx]
