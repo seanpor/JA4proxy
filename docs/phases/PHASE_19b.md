@@ -2,6 +2,10 @@
 
 ## Status: OPEN
 
+> Implementation note: this supplement defines security requirements for Phase 19.
+> Execute work using `docs/phases/PHASE_19_EXECUTION_PLAN.md`, which sequences
+> these requirements into atomic TDD tasks.
+
 ## Purpose
 
 This document supplements `PHASE_19.md`. Read that document first. This supplement adds:
