@@ -42,9 +42,16 @@ The project uses a **Manifest-Driven Roadmap** to prevent documentation drift.
 
 - **Test-First:** Always search for existing tests before modifying code. If a bug is reported, reproduce it with a new test case first.
 - **Zero-Tolerance Policy:**
-  - **No Skips:** No tests may be skipped (`@pytest.mark.skip`) without explicit, manual approval from the user.
-  - **No Warnings:** All tests must pass with **zero warnings, zero errors, and zero failures**. Pytest warnings are treated as failures.
-  - **Linting as Testing:** Linting (Flake8, Mypy, Golangci-lint) is considered a test. All linting must pass with zero warnings.
+  - **No Skips:** No tests may be skipped (`@pytest.mark.skip`) without explicit, manual approval.
+  - **No Warnings:** All tests and builds must pass with **zero warnings, zero errors, and zero failures**.
+  - **Linting as Testing:** All linting must pass with zero warnings.
+- **Approved Exception Workflow:**
+  1. **Identify:** Present a technical justification for any unavoidable skip or warning.
+  2. **Approve:** Obtain explicit user approval in the session history.
+  3. **Log:** Record the exception in `docs/security/EXCEPTIONS.md` with a unique ID (e.g., `#001`).
+  4. **Annotate:** Code-level suppressions MUST include a comment referencing the ID:
+     - Python: `# Approved Exception #001: see docs/security/EXCEPTIONS.md`
+     - Go: `// Approved Exception #001: see docs/security/EXCEPTIONS.md`
 - **Mandatory Coverage:** A change is incomplete without corresponding tests (Unit, Integration, and Chaos).
 - **Finality:** A task is only "Done" when the relevant test suite and linters pass 100% using the project `Makefile`.
 
