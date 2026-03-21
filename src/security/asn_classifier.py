@@ -22,7 +22,7 @@ try:
     import maxminddb
 
     MAXMIND_AVAILABLE = True
-except ImportError:
+except ImportError:  # pragma: no cover
     MAXMIND_AVAILABLE = False
 
 
