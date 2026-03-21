@@ -1,0 +1,138 @@
+"""
+Backup worker module.
+Implements deterministic key enumeration and backup artifact creation.
+"""
+import redis
+import json
+import hashlib
+from pathlib import Path
+from typing import List, Dict, Any
+from datetime import datetime
+from src.backup.policy import KeyPolicy
+
+
+class BackupWorker:
+    """Backup worker for Redis state."""
+
+    def __init__(
+        self,
+        redis_host: str = "localhost",
+        redis_port: int = 6379,
+        redis_db: int = 0,
+        max_keys_per_run: int = 1000,
+    ):
+        """Initialize backup worker.
+
+        Args:
+            redis_host: Redis host.
+            redis_port: Redis port.
+            redis_db: Redis database.
+            max_keys_per_run: Maximum keys to back up per run.
+        """
+        self.redis_host = redis_host
+        self.redis_port = redis_port
+        self.redis_db = redis_db
+        self.max_keys_per_run = max_keys_per_run
+        self.policy = KeyPolicy()
+
+    def enumerate_keys(self) -> List[str]:
+        """Enumerate keys to back up using SCAN.
+
+        Returns:
+            List of keys to back up, filtered and ordered.
+        """
+        redis_client = redis.Redis(
+            host=self.redis_host,
+            port=self.redis_port,
+            db=self.redis_db,
+        )
+
+        keys = []
+        cursor = 0
+        while True:
+            cursor, batch = redis_client.scan(cursor=cursor, count=100)
+            keys.extend(batch)
+            if cursor == 0:
+                break
+
+        # Filter and dedup
+        filtered_keys = []
+        seen = set()
+        for key in keys:
+            if key not in seen and self.policy.should_backup(key):
+                seen.add(key)
+                filtered_keys.append(key)
+
+        # Order deterministically
+        filtered_keys.sort()
+
+        # Apply max_keys_per_run cap
+        return filtered_keys[: self.max_keys_per_run]
+
+    def create_backup(self, destination_dir: str) -> Path:
+        """Create backup artifact and manifest.
+
+        Args:
+            destination_dir: Directory to save backup files.
+
+        Returns:
+            Path to backup artifact file.
+        """
+        # Ensure destination directory exists
+        dest_path = Path(destination_dir)
+        dest_path.mkdir(parents=True, exist_ok=True)
+
+        redis_client = None
+        try:
+            # Get keys to back up
+            keys = self.enumerate_keys()
+
+            # Create backup artifact
+            backup_data = b""
+            redis_client = redis.Redis(
+                host=self.redis_host,
+                port=self.redis_port,
+                db=self.redis_db,
+            )
+
+            for key in keys:
+                dumped = redis_client.dump(key)
+                if dumped:
+                    backup_data += dumped
+
+            # Generate checksum
+            checksum = hashlib.sha256(backup_data).hexdigest()
+
+            # Create artifact file
+            timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+            backup_filename = f"backup_{timestamp}.bin"
+            backup_path = dest_path / backup_filename
+
+            backup_path.write_bytes(backup_data)
+
+            # Create manifest
+            manifest = {
+                "filename": backup_filename,
+                "created_at": datetime.utcnow().isoformat() + "Z",
+                "backup_type": "full",
+                "keys_count": len(keys),
+                "checksum_sha256": checksum,
+                "size_bytes": len(backup_data),
+                "included_patterns": self.policy.include_patterns,
+                "excluded_patterns": self.policy.exclude_patterns,
+            }
+
+            manifest_path = dest_path / f"{backup_filename}.manifest.json"
+            manifest_path.write_text(json.dumps(manifest, indent=2))
+
+            # Update control keys on success
+            redis_client.set("backup:latest", backup_filename)
+            redis_client.set("backup:last_success", datetime.utcnow().isoformat() + "Z")
+
+            return backup_path
+
+        except Exception as e:
+            # Update control keys on failure
+            if redis_client:
+                redis_client.set("backup:last_failure", datetime.utcnow().isoformat() + "Z")
+            raise
