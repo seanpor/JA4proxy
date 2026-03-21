@@ -4,12 +4,12 @@
 
 | Action | Command |
 |--------|---------|
-| **Start all** | `./start-all.sh`  or  `make start` |
-| **Stop all** | `./stop-all.sh`   or  `make stop` |
-| **Stop + wipe** | `./stop-all.sh --clean`  or  `make stop-clean` |
+| **Start all** | `./scripts/start-all.sh`  or  `make start` |
+| **Stop all** | `./scripts/stop-all.sh`   or  `make stop` |
+| **Stop + wipe** | `./scripts/stop-all.sh --clean`  or  `make stop-clean` |
 | **Full clean rebuild** | `make rebuild` |
-| **Status** | `./status.sh`     or  `make status` |
-| **Generate traffic** | `./generate-tls-traffic.sh 60 10 20` |
+| **Status** | `./scripts/status.sh`     or  `make status` |
+| **Generate traffic** | `./scripts/generate-tls-traffic.sh 60 10 20` |
 | **Reset between runs** | `make flush-redis` |
 | **Scale proxies** | `./scale-proxies.sh 4` |
 | **Update GeoIP DB** | `make update-geoip` (monthly) |
@@ -237,9 +237,9 @@ docker volume prune -f
 
 | Problem | Solution |
 |---------|----------|
-| Services won't start | Run `docker compose -f docker-compose.poc.yml down -v` then `./start-poc.sh` |
+| Services won't start | Run `docker compose -f docker-compose.poc.yml down -v` then `./scripts/start-poc.sh` |
 | Port conflicts | Edit ports in `docker-compose.poc.yml` |
-| Tests failing | Run `./start-poc.sh` then `./smoke-test.sh` |
+| Tests failing | Run `./scripts/start-poc.sh` then `./scripts/smoke-test.sh` |
 | Permission errors | Run `sudo chown -R $USER:$USER reports/` |
 | Redis connection fails | Run `docker compose -f docker-compose.poc.yml restart redis` |
 | Good traffic blocked from previous run | Run `make flush-redis` to clear stale bans (auto-expires in 300s anyway) |
@@ -263,16 +263,17 @@ docker volume prune -f
 cp .env.example .env && nano .env
 
 # 2. Start everything
-./start-all.sh
+./scripts/start-all.sh
 
 # 3. Verify
-./status.sh
+./scripts/status.sh
 
 # 4. Generate test traffic
-./generate-tls-traffic.sh 60 15 20
+./scripts/generate-tls-traffic.sh 60 15 20
 
 # 5. Open Grafana
-open http://localhost:3001    # password in .env
+xdg-open http://localhost:3001  # Linux; password in .env
+# open http://localhost:3001    # macOS
 ```
 
 ## Daily Development

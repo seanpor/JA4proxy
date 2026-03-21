@@ -72,7 +72,7 @@ src/
   config/
     loader.py                   # Hot-reload config loader (Phase 0)
 analytics/                      # Phase 12: analytics node (separate container)
-management/                     # Phase 13: Management UI (FastAPI + React)
+# management/                   # Phase 13 deferred; re-implemented after Phase 15
 config/
   proxy.yml                     # Main configuration file
   asn_datacenter_list.yml       # Phase 6: datacenter ASN list
