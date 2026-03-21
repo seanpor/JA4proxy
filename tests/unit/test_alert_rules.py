@@ -33,6 +33,7 @@ RULE_FILES = [
     REPO_ROOT / "monitoring/alertmanager/rules/proxy.rules.yml",
     REPO_ROOT / "monitoring/alertmanager/rules/redis.rules.yml",
     REPO_ROOT / "monitoring/alertmanager/rules/security.rules.yml",
+    REPO_ROOT / "monitoring/alertmanager/rules/backup.rules.yml",
 ]
 
 # Regex: a bare ja4_ metric (old prefix) — must not appear in any expr field.
@@ -181,3 +182,18 @@ class TestAlertmanagerRuleFiles:
 
     def test_security_rules_has_spamhaus_stale(self):
         assert "SpamhausListStale" in self._alerts_in("security.rules.yml")
+
+    def test_backup_rules_has_backup_failure(self):
+        assert "BackupFailureDetected" in self._alerts_in("backup.rules.yml")
+
+    def test_backup_rules_has_backup_stale(self):
+        assert "BackupStale" in self._alerts_in("backup.rules.yml")
+
+    def test_backup_rules_has_restore_failure(self):
+        assert "RestoreFailureDetected" in self._alerts_in("backup.rules.yml")
+
+    def test_backup_rules_has_backup_duration_high(self):
+        assert "BackupDurationHigh" in self._alerts_in("backup.rules.yml")
+
+    def test_backup_rules_has_restore_duration_high(self):
+        assert "RestoreDurationHigh" in self._alerts_in("backup.rules.yml")
