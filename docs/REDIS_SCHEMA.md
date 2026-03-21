@@ -146,4 +146,16 @@
 
 ---
 
-*Last updated: 2026-03-17, Phase 12 complete*
+## Phase 19 — Backup & Restore
+
+| Key pattern | Type | TTL | Written by | Notes |
+|-------------|-|-|--------|-|
+| `backup:latest` | String (filename) | none | BackupWorker.create_backup() | Filename of most recent successful backup. Used for quick reference and validation. |
+| `backup:last_success` | String (ISO timestamp) | none | BackupWorker.create_backup() | Timestamp of last successful backup operation. Updated on every successful backup. |
+| `backup:last_failure` | String (ISO timestamp) | none | BackupWorker.create_backup() | Timestamp of last failed backup operation. Updated on every backup failure. |
+| `backup:last_restore` | String (ISO timestamp) | none | BackupRestorer.restore_backup() | Timestamp of last restore operation. Used for tracking restore history. |
+| `backup:restored_from` | String (filename) | none | BackupRestorer.restore_backup() | Filename of backup used for last restore. Used for audit trail and troubleshooting. |
+
+---
+
+*Last updated: 2026-03-21, Phase 19 complete*

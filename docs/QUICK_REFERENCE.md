@@ -286,6 +286,31 @@ make flush-redis             # Reset state between test runs
 make stop                    # Stop when done
 ```
 
+## Backup & Restore Commands
+
+```bash
+# Create backup
+python3 -m src.cli.backup_cli backup
+
+# List backups
+python3 -m src.cli.backup_cli list
+
+# Validate backup integrity
+python3 -m src.cli.backup_cli validate /app/backups/backup_20240321T143000Z.bin
+
+# Non-destructive restore (safe - preserves existing keys)
+python3 -m src.cli.backup_cli restore /app/backups/backup_20240321T143000Z.bin
+
+# Destructive restore (wipes all Redis data first)
+python3 -m src.cli.backup_cli restore /app/backups/backup_20240321T143000Z.bin --force
+
+# Check backup status metrics
+curl -s http://localhost:9090/metrics | grep ja4proxy_backup
+
+# Check restore status metrics
+curl -s http://localhost:9090/metrics | grep ja4proxy_restore
+```
+
 ---
 
 **Need help?**

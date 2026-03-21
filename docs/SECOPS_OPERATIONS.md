@@ -453,3 +453,124 @@ In-flight tarpit connections count toward `active_connections` and are included
 in the drain window (`drain_timeout_seconds`).  If the tarpit delay is longer than
 `drain_timeout_seconds`, tarpitted connections will be force-closed; this is expected
 and logged in `shutdown_complete` as `forced_close`.
+
+---
+
+## Backup & Restore Operations (Phase 19)
+
+### Configuration
+
+Backup settings are in `config/proxy.yml` under the `backup:` block:
+
+```yaml
+backup:
+  enabled: true
+  destination: "/app/backups"
+  retention_days: 30
+  retain_count: 10
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  max_keys_per_run: 1000
+  max_size_bytes: 104857600  # 100 MB
+  include_audit_log: true
+```
+
+**Key settings:**
+- `destination`: Directory where backups are stored (must be writable by proxy user)
+- `retention_days`: Delete backups older than this many days
+- `retain_count`: Keep at most this many backups (count-based retention)
+- `max_keys_per_run`: Maximum keys to back up in a single operation
+- `include_audit_log`: Include management audit log in backups
+
+### Manual Backup
+
+```bash
+# Create a backup
+python3 -m src.cli.backup_cli backup --destination /custom/path
+
+# List existing backups
+python3 -m src.cli.backup_cli list
+
+# Validate a backup
+python3 -m src.cli.backup_cli validate /app/backups/backup_20240321T143000Z.bin
+```
+
+### Manual Restore
+
+```bash
+# Non-destructive restore (safe default - preserves existing keys)
+python3 -m src.cli.backup_cli restore /app/backups/backup_20240321T143000Z.bin
+
+# Destructive restore (wipes all existing Redis data first)
+python3 -m src.cli.backup_cli restore /app/backups/backup_20240321T143000Z.bin --force
+```
+
+**Safety notes:**
+- Non-destructive restore preserves existing keys not in the backup
+- Destructive restore requires explicit `--force` flag
+- All restore operations are logged in `management:audit_log`
+
+### Backup File Structure
+
+Each backup consists of two files:
+- `backup_{timestamp}.bin`: Binary backup data (Redis dump format)
+- `backup_{timestamp}.bin.manifest.json`: JSON manifest with metadata
+
+**Manifest fields:**
+- `filename`: Backup filename
+- `created_at`: ISO timestamp of backup creation
+- `backup_type`: Always "full" for Phase 19
+- `keys_count`: Number of keys in backup
+- `checksum_sha256`: SHA256 checksum of backup data
+- `size_bytes`: Size of backup data in bytes
+- `included_patterns`: Key patterns included in backup
+- `excluded_patterns`: Key patterns excluded from backup
+
+### Monitoring and Alerts
+
+**Key metrics to monitor:**
+- `ja4proxy_backup_operations_total{status="success"}`: Successful backups
+- `ja4proxy_backup_last_success_timestamp`: Time of last successful backup
+- `ja4proxy_backup_operations_total{status="failure"}`: Failed backups
+- `ja4proxy_restore_operations_total{status="success"}`: Successful restores
+
+**Alert conditions:**
+- No successful backup in 24 hours
+- Backup failure rate > 10% over 1 hour
+- Restore operation taking > 30 seconds
+
+### Troubleshooting
+
+**Backup failures:**
+1. Check filesystem permissions: `ls -la /app/backups`
+2. Verify Redis connectivity: `redis-cli ping`
+3. Check logs: `grep "backup_failed" /app/logs/*.log`
+4. Validate directory permissions: `stat /app/backups`
+
+**Restore failures:**
+1. Verify checksum: `python3 -m src.cli.backup_cli validate /path/to/backup.bin`
+2. Check Redis connectivity and memory: `redis-cli info memory`
+3. Review manifest for key count: `cat /path/to/backup.bin.manifest.json`
+
+**Common issues:**
+- **World-writable backup directory**: Backup worker refuses to write to directories with `o+w` permissions
+- **Group-writable backup directory**: Backup worker refuses to write to directories with `g+w` permissions
+- **Checksum mismatch**: Indicates corrupted backup file or manifest tampering
+- **Redis connection errors**: Verify Redis is running and network connectivity
+
+### Security Considerations
+
+**Never-backup keys:**
+The following key patterns are never included in backups:
+- `abuseipdb:*` (API keys and sensitive data)
+- `config:redis_password` (passwords)
+- `*:auth_token` (authentication tokens)
+
+**Backup directory security:**
+- Must be owned by the proxy user
+- Must not be world-writable or group-writable
+- Should have permissions `700` (drwx------)
+
+**Audit logging:**
+All backup and restore operations are logged in:
+- `management:audit_log` Redis list
+- Structured JSON logs with `subsystem: "backup"` or `subsystem: "restore"`

@@ -210,6 +210,25 @@ ja4proxy_tarpit_concurrent                           gauge    Current concurrent
 ja4proxy_tarpit_overflow_total{action}               counter  Connections that hit tarpit capacity cap
 ```
 
+#### Backup & Restore (Phase 19)
+
+```
+ja4proxy_backup_operations_total{status}              counter  Total backup operations (success/failure)
+ja4proxy_backup_keys_processed_total                 counter  Total keys processed during backups
+ja4proxy_backup_duration_seconds                     histogram Backup operation duration distribution
+ja4proxy_backup_size_bytes                           histogram Backup artifact size distribution
+ja4proxy_backup_last_success_timestamp               gauge    Unix timestamp of last successful backup
+ja4proxy_backup_last_failure_timestamp               gauge    Unix timestamp of last failed backup
+ja4proxy_backup_currently_running                    gauge    1 if backup is running, 0 otherwise
+
+ja4proxy_restore_operations_total{status,type}      counter  Total restore operations (success/failure, destructive/non-destructive)
+ja4proxy_restore_duration_seconds                     histogram Restore operation duration distribution
+ja4proxy_restore_last_success_timestamp               gauge    Unix timestamp of last successful restore
+ja4proxy_restore_last_failure_timestamp               gauge    Unix timestamp of last failed restore
+ja4proxy_restore_currently_running                    gauge    1 if restore is running, 0 otherwise
+ja4proxy_restore_keys_restored_total                 counter  Total keys restored
+```
+
 ---
 
 ## §2. Structured Log Schema
