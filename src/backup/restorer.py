@@ -5,6 +5,8 @@ Implements manifest validation, checksum verification, and restore operations.
 import json
 import hashlib
 import logging
+import getpass
+import socket
 from pathlib import Path
 from typing import Dict, Any, Optional
 from datetime import datetime
@@ -169,6 +171,13 @@ class BackupRestorer:
             })
         )
 
+        # Connect to Redis first (before try block so it's available for audit logging)
+        redis_client = redis.Redis(
+            host=self.redis_host,
+            port=self.redis_port,
+            db=self.redis_db,
+        )
+        
         try:
             # Load and validate manifest
             manifest = self.load_manifest(manifest_path)
@@ -188,13 +197,6 @@ class BackupRestorer:
             # Verify checksum
             if not self.verify_checksum(backup_path, manifest["checksum_sha256"]):
                 raise RestoreError("Checksum verification failed")
-
-            # Connect to Redis
-            redis_client = redis.Redis(
-                host=self.redis_host,
-                port=self.redis_port,
-                db=self.redis_db,
-            )
 
             # Check if Redis is available
             if not redis_client.ping():
@@ -229,6 +231,22 @@ class BackupRestorer:
                     "artifact": backup_path
                 })
             )
+            
+            # Write audit log entry
+            audit_entry = {
+                "event": "restore_completed",
+                "actor_ip": f"{getpass.getuser()}@{socket.gethostname()}",
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "detail": {
+                    "backup_filename": manifest["filename"],
+                    "destructive": destructive,
+                    "keys_restored": keys_restored,
+                    "validation_passed": True,
+                    "triggered_by": "manual"
+                }
+            }
+            redis_client.lpush("management:audit_log", json.dumps(audit_entry))
+            redis_client.ltrim("management:audit_log", -1000, -1)
 
         except Exception as e:
             # Record failure metrics
@@ -252,6 +270,26 @@ class BackupRestorer:
                     "artifact": backup_path
                 })
             )
+            
+            # Write audit log entry for failure
+            audit_entry = {
+                "event": "restore_failed",
+                "actor_ip": f"{getpass.getuser()}@{socket.gethostname()}",
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "detail": {
+                    "error": str(e),
+                    "duration_seconds": duration,
+                    "triggered_by": "manual"
+                }
+            }
+            try:
+                if redis_client:
+                    redis_client.lpush("management:audit_log", json.dumps(audit_entry))
+                    redis_client.ltrim("management:audit_log", -1000, -1)
+            except Exception:
+                # If audit logging fails, don't let it prevent the main error from being raised
+                pass
+            
             raise RestoreError(f"Restore failed: {e}")
 
     def _wipe_redis_data(self, redis_client: redis.Redis) -> None:

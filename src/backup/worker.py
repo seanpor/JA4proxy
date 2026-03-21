@@ -6,6 +6,8 @@ import redis
 import json
 import hashlib
 import logging
+import getpass
+import socket
 from pathlib import Path
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
@@ -255,6 +257,23 @@ class BackupWorker:
                     "checksum": checksum
                 })
             )
+            
+            # Write audit log entry
+            audit_entry = {
+                "event": "backup_completed",
+                "actor_ip": f"{getpass.getuser()}@{socket.gethostname()}",
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "detail": {
+                    "type": "full",
+                    "keys_exported": len(safe_keys),
+                    "filename": backup_filename,
+                    "size_bytes": len(backup_data),
+                    "duration_seconds": duration,
+                    "triggered_by": "manual"
+                }
+            }
+            redis_client.lpush("management:audit_log", json.dumps(audit_entry))
+            redis_client.ltrim("management:audit_log", -1000, -1)
 
             return backup_path
 
@@ -282,6 +301,22 @@ class BackupWorker:
                     "duration_ms": int(duration * 1000)
                 })
             )
+            
+            # Write audit log entry for failure
+            if redis_client:
+                audit_entry = {
+                    "event": "backup_failed",
+                    "actor_ip": f"{getpass.getuser()}@{socket.gethostname()}",
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "detail": {
+                        "error": str(e),
+                        "duration_seconds": duration,
+                        "triggered_by": "manual"
+                    }
+                }
+                redis_client.lpush("management:audit_log", json.dumps(audit_entry))
+                redis_client.ltrim("management:audit_log", -1000, -1)
+            
             raise
 
     def _is_never_backup_key(self, key: str) -> bool:
