@@ -8,6 +8,7 @@ import hashlib
 import logging
 import getpass
 import socket
+import os
 from pathlib import Path
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
@@ -122,6 +123,31 @@ class BackupWorker:
         # Apply max_keys_per_run cap
         return filtered_keys[: self.max_keys_per_run]
 
+    def _validate_backup_directory(self, dest_path: Path) -> None:
+        """Validate backup directory permissions and security.
+
+        Args:
+            dest_path: Path to backup directory.
+
+        Raises:
+            Exception: If directory permissions are insecure or invalid.
+        """
+        # Check if directory exists and is accessible
+        if not os.access(str(dest_path), os.R_OK | os.W_OK | os.X_OK):
+            raise Exception(f"Backup directory {dest_path} is not accessible (read/write/execute)")
+        
+        # Check ownership first (should be owned by current user)
+        stat_info = os.stat(str(dest_path))
+        if stat_info.st_uid != os.getuid():
+            raise Exception(f"Backup directory {dest_path} is not owned by current user")
+        
+        # Check directory permissions (should not be world-writable)
+        mode = stat_info.st_mode
+        if mode & 0o002:  # World-writable bit
+            raise Exception(f"Backup directory {dest_path} has insecure permissions (world-writable)")
+        if mode & 0o020:  # Group-writable bit
+            raise Exception(f"Backup directory {dest_path} has insecure permissions (group-writable)")
+
     def create_backup(self, destination_dir: str) -> Path:
         """Create backup artifact and manifest.
 
@@ -134,6 +160,23 @@ class BackupWorker:
         # Ensure destination directory exists
         dest_path = Path(destination_dir)
         dest_path.mkdir(parents=True, exist_ok=True)
+        
+        # Validate directory permissions and security
+        try:
+            self._validate_backup_directory(dest_path)
+        except Exception as e:
+            logger.error(
+                json.dumps({
+                    "ts": datetime.utcnow().isoformat() + "Z",
+                    "type": "system",
+                    "level": "ERROR",
+                    "subsystem": "backup",
+                    "event": "filesystem_validation_failed",
+                    "error": str(e),
+                    "directory": str(dest_path)
+                })
+            )
+            raise
 
         redis_client = None
         start_time = datetime.utcnow()
