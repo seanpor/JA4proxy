@@ -38,14 +38,22 @@ The project uses a **Manifest-Driven Roadmap** to prevent documentation drift.
 
 ---
 
-## 🧪 Testing & Validation (TDD)
+## 🧪 Testing, Linting & Validation (TDD)
 
 - **Test-First:** Always search for existing tests before modifying code. If a bug is reported, reproduce it with a new test case first.
-- **Mandatory Coverage:** A change is incomplete without corresponding tests.
-  - **Unit:** Logical correctness of modules.
-  - **Integration:** Interaction with Redis/Network.
-  - **Chaos:** Resilience against dependency failure (Redis down, API timeout).
-- **Finality:** A task is only "Done" when the relevant test suite passes 100%. Use the project `Makefile` where possible (e.g., `make test`, `make lint`).
+- **Zero-Tolerance Policy:**
+  - **No Skips:** No tests may be skipped (`@pytest.mark.skip`) without explicit, manual approval from the user.
+  - **No Warnings:** All tests must pass with **zero warnings, zero errors, and zero failures**. Pytest warnings are treated as failures.
+  - **Linting as Testing:** Linting (Flake8, Mypy, Golangci-lint) is considered a test. All linting must pass with zero warnings.
+- **Mandatory Coverage:** A change is incomplete without corresponding tests (Unit, Integration, and Chaos).
+- **Finality:** A task is only "Done" when the relevant test suite and linters pass 100% using the project `Makefile`.
+
+---
+
+## 🏗️ Build & Compilation
+
+- **Strict Compilation:** All compiled code (Go, etc.) must compile with the equivalent of `-Wall` (all warnings enabled).
+- **Zero-Warning Build:** The build process must produce **zero warnings**. Any compiler warning is a blocking failure that must be resolved before the code is considered valid.
 
 ---
 
