@@ -158,6 +158,10 @@ phases:
     status: "OPEN"
     summary: "Fix broad exception handling and f-string logging."
     action_plan: "docs/phases/PHASE_18_WORK_PLAN.md"
+    gaps:
+      - "Proxy-Protocol trust risk (Direct access spoofing)"
+      - "Lack of automated DSAR/Right-to-Erasure utility"
+      - "Non-deterministic integration tests (Sleep-based sync)"
     
   19:
     name: "Backup & Restore"
