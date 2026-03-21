@@ -1,0 +1,178 @@
+epics:
+  - name: "Epic: Core Performance"
+    description: "Optimization for high-throughput and multi-core systems."
+    phases: [0, 15, 17]
+    
+  - name: "Epic: Security Hardening"
+    description: "Deep security analysis, compliance, and audit remediation."
+    phases: [1, 3, 4, 5, 8, 10, 11, 14, 16, 18]
+    
+  - name: "Epic: Analytics & Intelligence"
+    description: "Cross-instance behavior analysis and threat intelligence."
+    phases: [6, 7, 9, 12]
+    
+  - name: "Epic: Next-Gen Passive Capture"
+    description: "Out-of-band monitoring and enforcement."
+    phases: [20]
+    
+  - name: "Epic: User Interface & Experience"
+    description: "Management dashboards and documentation quality."
+    phases: [2, 13, 19, 21]
+
+phases:
+  0:
+    name: "Foundation"
+    status: "COMPLETE"
+    test_coverage: "100%"
+    doc_status: "COMPLETE"
+    summary: "Configuration loader, hot reload, local cache, Bloom filters."
+    
+  1:
+    name: "Risk Scorer"
+    status: "COMPLETE"
+    test_coverage: "100%"
+    doc_status: "COMPLETE"
+    summary: "Signal aggregation, weighted scoring, action decider."
+    
+  2:
+    name: "Monitor Mode & Dial"
+    status: "COMPLETE"
+    test_coverage: "100%"
+    doc_status: "COMPLETE"
+    summary: "Dial formula, Counterfactual logging, Redis Stream XADD."
+    
+  3:
+    name: "TLS Enforcement"
+    status: "COMPLETE"
+    test_coverage: "100%"
+    doc_status: "COMPLETE"
+    summary: "TLS 1.0/1.1/SSLv3 blocking, weak cipher detection."
+    
+  4:
+    name: "SNI Analysis"
+    status: "COMPLETE"
+    test_coverage: "100%"
+    doc_status: "COMPLETE"
+    summary: "Missing SNI, IP-literal, DGA scoring, unexpected hostname detection."
+    
+  5:
+    name: "TCP Analysis + mTLS"
+    status: "COMPLETE"
+    test_coverage: "100%"
+    doc_status: "COMPLETE"
+    summary: "JA4T, session resumption, connection lifespan, mTLS bypass."
+    
+  6:
+    name: "ASN Classification"
+    status: "COMPLETE"
+    test_coverage: "100%"
+    doc_status: "COMPLETE"
+    summary: "MaxMind GeoLite2-ASN, datacenter/Tor/VPN detection."
+    
+  7:
+    name: "FCrDNS Enrichment"
+    status: "COMPLETE"
+    test_coverage: "100%"
+    doc_status: "COMPLETE"
+    summary: "Async PTR lookup, residential pattern detection."
+    
+  8:
+    name: "Spamhaus DROP/EDROP"
+    status: "COMPLETE"
+    test_coverage: "100%"
+    doc_status: "COMPLETE"
+    summary: "BlocklistManager, FeedManager (ETag, leader election)."
+    
+  9:
+    name: "Beaconing Detector"
+    status: "COMPLETE"
+    test_coverage: "100%"
+    doc_status: "COMPLETE"
+    summary: "IAT coefficient of variation, dual window, suspects leaderboard."
+    
+  10:
+    name: "AbuseIPDB Enrichment"
+    status: "COMPLETE"
+    test_coverage: "100%"
+    doc_status: "COMPLETE"
+    summary: "Three-tier cache, daily quota management, fail-open."
+    
+  11:
+    name: "RDAP Enrichment"
+    status: "COMPLETE"
+    test_coverage: "100%"
+    doc_status: "COMPLETE"
+    summary: "IANA bootstrap, CIDR expansion, known-bad org detection."
+    
+  12:
+    name: "Analytics Node"
+    status: "PARTIAL"
+    test_coverage: "100%"
+    doc_status: "COMPLETE"
+    summary: "Cross-instance statistical analysis via Redis Streams."
+    gaps:
+      - "requirements-analytics.txt missing in Dockerfile"
+      - "Campaign/SlowScan signals not read by proxy scorer"
+      - "Grafana drift dashboard missing"
+    action_plan: "docs/phases/PHASE_12_WORK_PLAN.md"
+    
+  13:
+    name: "Management UI"
+    status: "DEFERRED"
+    summary: "FastAPI + React dashboard for real-time monitoring."
+    action_plan: "docs/phases/PHASE_13_WORK_PLAN.md"
+    dependencies: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15]
+    
+  14:
+    name: "Production Hardening"
+    status: "COMPLETE"
+    test_coverage: "100%"
+    doc_status: "COMPLETE"
+    summary: "Rate limiting, circuit breakers, container security."
+    
+  15:
+    name: "Go Rewrite"
+    status: "PARTIAL"
+    summary: "10-50x throughput improvement via CPython/Go transition."
+    gaps:
+      - "Lua scripts not using //go:embed"
+      - "JA4X missing in Go pipeline"
+    action_plan: "docs/phases/PHASE_15_WORK_PLAN.md"
+    
+  16:
+    name: "Extended Fingerprinting"
+    status: "COMPLETE"
+    summary: "JA4X fingerprinting, adaptive rate limiting."
+    
+  17:
+    name: "Docker Test Optimization"
+    status: "NEARLY DONE"
+    summary: "Fix Docker test container hang during teardown."
+    tasks_remaining:
+      - "Patch _tor_refresh_loop in tests/conftest.py"
+      - "Change pytest_sessionfinish to tryfirst=True"
+    action_plan: "docs/phases/PHASE_17_WORK_PLAN.md"
+    
+  18:
+    name: "Security Audit Remediation"
+    status: "OPEN"
+    summary: "Fix broad exception handling and f-string logging."
+    action_plan: "docs/phases/PHASE_18_WORK_PLAN.md"
+    
+  19:
+    name: "Backup & Restore"
+    status: "NEARLY DONE"
+    summary: "Automated Redis state migration and recovery."
+    action_plan: "docs/phases/PHASE_19_EXECUTION_PLAN.md"
+    
+  20:
+    name: "Passive TAP Mode"
+    status: "OPEN"
+    summary: "AF_PACKET capture and out-of-band enforcement."
+    action_plan: "docs/phases/PHASE_20_WORK_PLAN.md"
+    
+  21:
+    name: "Documentation Excellence"
+    status: "OPEN"
+    summary: "5/5 documentation quality and persona-based navigation."
+    action_plan: "docs/phases/PHASE_21_WORK_PLAN.md"
