@@ -2,6 +2,10 @@
 
 ## Status: OPEN
 
+> Implementation note: this document captures scope and background. Use
+> `docs/phases/PHASE_19_EXECUTION_PLAN.md` as the canonical task-by-task,
+> TDD-first implementation sequence.
+
 ---
 
 ## Goal
