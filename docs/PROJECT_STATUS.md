@@ -1,295 +1,90 @@
 # JA4 Proxy - Project Status
 
-## Current Status: Phases 0-14 COMPLETE — Phase 15 Next
+## Current Status: Phase 12 (Analytics Node) Next
 
-**Last Updated:** 2026-03-15
+**Last Updated:** 2026-03-21
 
-## Phase Completion Summary
+## Epics & Roadmap
 
-### ✅ Completed Phases
+### Epic: Core Performance
+Optimization for high-throughput and multi-core systems.
+
+| Phase | Name | Status | Summary |
+|-------|------|--------|---------|
+| 0 | Foundation | COMPLETE | Configuration loader, hot reload, local cache, Bloom filters. |
+| 15 | Go Rewrite | PARTIAL | 10-50x throughput improvement via CPython/Go transition. |
+| 17 | Docker Test Optimization | NEARLY DONE | Fix Docker test container hang during teardown. |
+
+### Epic: Security Hardening
+Deep security analysis, compliance, and audit remediation.
+
+| Phase | Name | Status | Summary |
+|-------|------|--------|---------|
+| 1 | Risk Scorer | COMPLETE | Signal aggregation, weighted scoring, action decider. |
+| 3 | TLS Enforcement | COMPLETE | TLS 1.0/1.1/SSLv3 blocking, weak cipher detection. |
+| 4 | SNI Analysis | COMPLETE | Missing SNI, IP-literal, DGA scoring, unexpected hostname detection. |
+| 5 | TCP Analysis + mTLS | COMPLETE | JA4T, session resumption, connection lifespan, mTLS bypass. |
+| 8 | Spamhaus DROP/EDROP | COMPLETE | BlocklistManager, FeedManager (ETag, leader election). |
+| 10 | AbuseIPDB Enrichment | COMPLETE | Three-tier cache, daily quota management, fail-open. |
+| 11 | RDAP Enrichment | COMPLETE | IANA bootstrap, CIDR expansion, known-bad org detection. |
+| 14 | Production Hardening | COMPLETE | Rate limiting, circuit breakers, container security. |
+| 16 | Extended Fingerprinting | COMPLETE | JA4X fingerprinting, adaptive rate limiting. |
+| 18 | Security Audit Remediation | OPEN | Fix broad exception handling and f-string logging. |
+
+### Epic: Analytics & Intelligence
+Cross-instance behavior analysis and threat intelligence.
+
+| Phase | Name | Status | Summary |
+|-------|------|--------|---------|
+| 6 | ASN Classification | COMPLETE | MaxMind GeoLite2-ASN, datacenter/Tor/VPN detection. |
+| 7 | FCrDNS Enrichment | COMPLETE | Async PTR lookup, residential pattern detection. |
+| 9 | Beaconing Detector | COMPLETE | IAT coefficient of variation, dual window, suspects leaderboard. |
+| 12 | Analytics Node | PARTIAL | Cross-instance statistical analysis via Redis Streams. |
+
+### Epic: Next-Gen Passive Capture
+Out-of-band monitoring and enforcement.
+
+| Phase | Name | Status | Summary |
+|-------|------|--------|---------|
+| 20 | Passive TAP Mode | OPEN | AF_PACKET capture and out-of-band enforcement. |
+
+### Epic: User Interface & Experience
+Management dashboards and documentation quality.
+
+| Phase | Name | Status | Summary |
+|-------|------|--------|---------|
+| 2 | Monitor Mode & Dial | COMPLETE | Dial formula, Counterfactual logging, Redis Stream XADD. |
+| 13 | Management UI | DEFERRED | FastAPI + React dashboard for real-time monitoring. |
+| 19 | Backup & Restore | NEARLY DONE | Automated Redis state migration and recovery. |
+| 21 | Documentation Excellence | OPEN | 5/5 documentation quality and persona-based navigation. |
+
+## Phase Completion Details
 
 | Phase | Name | Status | Test Coverage | Documentation |
 |-------|------|--------|---------------|---------------|
-| 0 | Foundation | ✅ Complete | 100% | ✅ Complete |
-| 1 | Risk Scorer | ✅ Complete | 100% | ✅ Complete |
-| 2 | Monitor Mode & Dial | ✅ Complete | 100% | ✅ Complete |
-| 3 | TLS Enforcement | ✅ Complete | 100% | ✅ Complete |
-| 4 | SNI Analysis | ✅ Complete | 100% | ✅ Complete |
-| 5 | TCP Analysis + mTLS | ✅ Complete | 100% | ✅ Complete |
-| 6 | ASN Classification | ✅ Complete | 100% | ✅ Complete |
-| 7 | FCrDNS Enrichment | ✅ Complete | 100% | ✅ Complete |
-| 8 | Spamhaus DROP/EDROP | ✅ Complete | 100% | ✅ Complete |
-| 9 | Beaconing Detector | ✅ Complete | 100% | ✅ Complete |
-| 10 | AbuseIPDB Enrichment | ✅ Complete | 100% | ✅ Complete |
-| 11 | RDAP Enrichment | ✅ Complete | 100% | ✅ Complete |
-| 12 | Analytics Node | ✅ Complete | 100% | ✅ Complete |
-| 14 | Production Hardening | ✅ Complete | 100% | ✅ Complete |
-
-### 🏗️ In Progress / Planned Phases
-
-| Phase | Name | Status | Dependencies |
-|-------|------|--------|--------------|
-| 13 | Management UI | ⏳ Deferred (post-Phase 15) | Phases 0-12, 15 |
-| 14 | Production Hardening | ✅ Complete | Phases 0-13 |
-| 15 | Go Rewrite | ⏳ Planned | Phases 0-14 |
-
-## Test Coverage
-
-### Current Test Results
-
-```
-Total Tests: 1550
-Passing: 1550 (100%)
-
-Skipped: 0 (0%)
-Warnings: 0
-```
-
-### Test Breakdown
-
-- **Unit Tests:** ~1100 tests across all security modules
-- **Integration Tests:** ~150 tests (pipeline + Redis integration)
-- **Chaos Tests:** ~80 tests (failure scenarios, resilience)
-- **Adversarial/FP Tests:** ~52 tests (fuzz, false-positive corpus)
-
-### Test Categories
-
-| Category | Tests | Coverage |
-|----------|-------|----------|
-| Unit Tests | ~1100 | 98% |
-| Integration Tests | ~150 | 95% |
-| Chaos Tests | ~80 | 90% |
-| Adversarial/FP | ~52 | 90% |
-| **Total** | **1536** | **96%** |
-
-## Phase Details
-
-### Phase 0 - Foundation ✅
-- Configuration loader with hot reload (SIGHUP + pub/sub)
-- Local LRU cache, Bloom filters, sliding window Lua scripts
-- StaticAllowlist, PubSubHandler, ip utils, BloomFilter
-
-### Phase 1 - Risk Scorer ✅
-- RiskScorer signal aggregation, weighted scoring
-- ActionDecider (allow/flag/rate_limit/tarpit/block/ban)
-- Counterfactual analysis for dial=0 monitor mode
-
-### Phase 2 - Monitor Mode & Dial ✅
-- Dial formula: `round(101-(dial/100)*(101-configured))`
-- DialManager with blocking_acknowledged gate
-- Counterfactual logging; Redis Stream XADD for events
-
-### Phase 3 - TLS Enforcement ✅
-- TLS 1.0/1.1/SSLv3 blocking; weak cipher detection
-- TLSEnforcer.check() returns None (hard block) or list[RiskSignal]
-
-### Phase 4 - SNI Analysis ✅
-- Missing SNI, IP-literal, DGA scoring, unexpected hostname detection
-
-### Phase 5 - TCP Analysis + mTLS ✅
-- JA4T, session resumption, connection lifespan, concurrent connection counting
-- Return visitor tracking, mTLS client cert bypass
-- Prometheus: ja4proxy_tcp_signal_total, ja4proxy_concurrent_connections, ja4proxy_mtls_verified_total
-
-### Phase 6 - ASN Classification ✅
-- MaxMind GeoLite2-ASN, datacenter/Tor/VPN detection
-- Leader election for feed updates
-
-### Phase 7 - FCrDNS Enrichment ✅
-- Async PTR lookup (aiodns), residential pattern detection (-10 score)
-- IPv6 support (ip6.arpa), async queue with worker restart loop
-
-### Phase 8 - Spamhaus DROP/EDROP ✅
-- BlocklistManager (pytricia IPv4+IPv6 tries), FeedManager (ETag, leader election)
-- Hard-block bypass configurable; fail-open if feed unreachable
-
-### Phase 9 - Beaconing Detection ✅
-- IAT coefficient of variation, dual window (1h/24h)
-- UUID suffix for same-millisecond dedup; beacon:suspects leaderboard
-
-### Phase 10 - AbuseIPDB Integration ✅
-- Three-tier cache, bloom filter dedup, daily quota management
-- Fail-open on quota exhaustion or service unavailability
-
-### Phase 11 - RDAP Enrichment ✅
-- IANA bootstrap, per-RIR token buckets, known-bad org detection
-- CIDR block expansion with 4 guards + hourly cap (off by default)
-- ban_cidr:{cidr} key prefix; LocalCache.rdap_results LRU
-
-## Documentation Status
-
-### ✅ Complete Documentation
-
-- **Phase Documents:** 0–12 complete; 13–15 planned
-- **Architecture:** Complete
-- **Redis Schema:** Up to date (Phase 12)
-- **API Documentation:** Complete
-- **Runbooks:** redis_operations, analytics_lag, external_api_failures, scaling, feed_management, security_policy
-- **ADRs:** ADR-001 (Redis Streams), ADR-002 (Go rewrite), ADR-003 (RDAP expansion default), ADR-013 (Management UI)
-- **Threat Model:** Updated through Phase 12 threat vectors
-
-### In Progress
-
-- **Phase 13:** Management UI — plan complete, implementation not started
-
-## Code Quality
-
-### Static Analysis
-- **Black:** ✅ Passing
-- **Flake8:** ✅ Passing
-- **Mypy:** ✅ Passing
-- **Bandit (Security):** ✅ Passing
-
-### Metrics
-- **Test Coverage:** 96% overall
-- **Code Duplication:** < 5%
-- **Cyclomatic Complexity:** Average 6.2 (target < 10)
-- **Maintainability Index:** 85/100
-
-## Deployment Status
-
-### Development Environment
-- **Status:** ✅ Operational
-- **Components:** All phases 0-7 deployed
-- **Test Coverage:** 100% in CI/CD
-
-### Staging Environment
-- **Status:** ✅ Operational
-- **Components:** Phases 0-7 deployed
-- **Monitoring:** Prometheus + Grafana
-
-### Production Readiness
-- **Status:** ✅ Ready for Phase 0-7
-- **Components:** All completed phases production-ready
-- **Documentation:** Complete for deployed phases
-
-## Next Steps
-
-### Current (Phase 15)
-1. **Go Rewrite** (Phase 15) — 10-50x throughput; GIL removed; multi-core TLS parsing
-
-### Long Term
-2. **Management UI** (Phase 13, deferred post-Phase 15) — FastAPI + React 18 + TypeScript + Vite; plan complete in `docs/phases/PHASE_13.md`
-
-## Test Execution
-
-### Running All Tests
-```bash
-# Run all tests (unit, integration, chaos)
-python3 -m pytest tests/ -v
-
-# Run specific test category
-python3 -m pytest tests/unit/ -v
-python3 -m pytest tests/integration/ -v
-python3 -m pytest tests/chaos/ -v
-
-# Run with coverage
-python3 -m pytest tests/ --cov=src --cov-report=html
-```
-
-### Test Results Summary
-```bash
-# Quick summary
-python3 -m pytest tests/ -q
-
-# Detailed report
-python3 -m pytest tests/ --tb=short -v
-```
-
-## Continuous Integration
-
-### CI Pipeline Status
-- **Unit Tests:** ✅ Passing
-- **Integration Tests:** ✅ Passing
-- **Chaos Tests:** ✅ Passing
-- **Linting:** ✅ Passing
-- **Build:** ✅ Passing
-- **Docker Build:** ✅ Passing
-
-### CI Configuration
-- **GitHub Actions:** Configured
-- **Test Coverage:** Enforced (95% minimum)
-- **Branch Protection:** Main branch protected
-- **Code Review:** Required for all changes
-
-## Performance Metrics
-
-### Current Performance (Python, single instance)
-- **Bypass decisions:** ~12 µs
-- **Full scoring path:** ~20 µs
-- **Connection ALLOW (end-to-end):** ~5.7 ms
-- **Connection BLOCK (end-to-end):** ~1.4 ms
-- **Throughput ceiling:** ~350 conn/s with real Redis (~550 with in-process only)
-- **Bottleneck:** CPython GIL + synchronous Redis calls (~0.5 ms each block event loop)
-
-### Phase 15 Target (Go rewrite)
-- **Throughput:** 10–50× improvement (GIL removed, multi-core TLS parsing)
-- **Latency P99:** < 2 ms
-- **Memory per instance:** < 200 MB
-
-## Security Status
-
-### Completed Audits
-- **Phase 0-11:** Security review complete
-- **Threat model:** Updated through Phase 12 threat vectors
-- **Dependencies:** No critical vulnerabilities
-- **TLS Configuration:** A+ rating (SSL Labs)
-- **Rate Limiting:** Fully operational
-
-### Pending Audits
-- **Phase 12-15:** Will be audited as implemented
-- **Penetration Testing:** Scheduled for Phase 14
-- **Compliance:** GDPR/CCPA review (Phase 14)
-
-## Contributing
-
-### How to Contribute
-1. **Fork the repository**
-2. **Create a feature branch** (`git checkout -b feature/your-feature`)
-3. **Write tests** (TDD approach)
-4. **Implement functionality**
-5. **Update documentation**
-6. **Submit PR** with comprehensive description
-
-### Development Setup
-```bash
-# Install dependencies
-pip install -r requirements.txt -r requirements-dev.txt
-
-# Run tests
-make test
-
-# Run linter
-make lint
-
-# Start development environment
-docker compose -f docker-compose.poc.yml up
-```
-
-## Support
-
-### Getting Help
-- **Documentation:** `docs/` directory
-- **Phase Guides:** `docs/phases/PHASE_*.md`
-- **API Reference:** `docs/API.md`
-- **Troubleshooting:** `docs/TROUBLESHOOTING.md`
-
-### Reporting Issues
-- **GitHub Issues:** For bugs and feature requests
-- **Security:** Report to security@ja4proxy.io
-- **General Questions:** Ask in discussions
-
-## License
-
-**MIT License** - See `LICENSE` file for details
-
-## Contact
-
-**Project Lead:** Sean Wilson
-**Email:** sean@ja4proxy.io
-**Website:** https://ja4proxy.io
-**GitHub:** https://github.com/ja4proxy/ja4proxy
+| 0 | Foundation | COMPLETE | 100% | COMPLETE |
+| 1 | Risk Scorer | COMPLETE | 100% | COMPLETE |
+| 2 | Monitor Mode & Dial | COMPLETE | 100% | COMPLETE |
+| 3 | TLS Enforcement | COMPLETE | 100% | COMPLETE |
+| 4 | SNI Analysis | COMPLETE | 100% | COMPLETE |
+| 5 | TCP Analysis + mTLS | COMPLETE | 100% | COMPLETE |
+| 6 | ASN Classification | COMPLETE | 100% | COMPLETE |
+| 7 | FCrDNS Enrichment | COMPLETE | 100% | COMPLETE |
+| 8 | Spamhaus DROP/EDROP | COMPLETE | 100% | COMPLETE |
+| 9 | Beaconing Detector | COMPLETE | 100% | COMPLETE |
+| 10 | AbuseIPDB Enrichment | COMPLETE | 100% | COMPLETE |
+| 11 | RDAP Enrichment | COMPLETE | 100% | COMPLETE |
+| 12 | Analytics Node | PARTIAL | 100% | COMPLETE |
+| 13 | Management UI | DEFERRED | N/A | N/A |
+| 14 | Production Hardening | COMPLETE | 100% | COMPLETE |
+| 15 | Go Rewrite | PARTIAL | N/A | N/A |
+| 16 | Extended Fingerprinting | COMPLETE | N/A | N/A |
+| 17 | Docker Test Optimization | NEARLY DONE | N/A | N/A |
+| 18 | Security Audit Remediation | OPEN | N/A | N/A |
+| 19 | Backup & Restore | NEARLY DONE | N/A | N/A |
+| 20 | Passive TAP Mode | OPEN | N/A | N/A |
+| 21 | Documentation Excellence | OPEN | N/A | N/A |
 
 ---
 
-*Last Updated: 2026-03-15*
+*Generated automatically from docs/phases/manifest.yaml*
