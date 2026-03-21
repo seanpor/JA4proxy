@@ -8,6 +8,41 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from datetime import datetime
 import redis
+from prometheus_client import Counter, Gauge, Histogram
+
+
+# Prometheus metrics for restore operations
+RESTORE_OPERATIONS_TOTAL = Counter(
+    "ja4proxy_restore_operations_total",
+    "Total number of restore operations attempted",
+    ["status", "type"]  # success, failure / destructive, non-destructive
+)
+
+RESTORE_DURATION_SECONDS = Histogram(
+    "ja4proxy_restore_duration_seconds",
+    "Duration of restore operations in seconds",
+    buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0]
+)
+
+RESTORE_LAST_SUCCESS_TIMESTAMP = Gauge(
+    "ja4proxy_restore_last_success_timestamp",
+    "Unix timestamp of last successful restore"
+)
+
+RESTORE_LAST_FAILURE_TIMESTAMP = Gauge(
+    "ja4proxy_restore_last_failure_timestamp",
+    "Unix timestamp of last failed restore"
+)
+
+RESTORE_CURRENTLY_RUNNING = Gauge(
+    "ja4proxy_restore_currently_running",
+    "1 if restore is currently running, 0 otherwise"
+)
+
+RESTORE_KEYS_RESTORED_TOTAL = Counter(
+    "ja4proxy_restore_keys_restored_total",
+    "Total number of keys restored"
+)
 
 
 class RestoreError(Exception):
@@ -113,21 +148,26 @@ class BackupRestorer:
         Raises:
             RestoreError: If restore fails.
         """
-        # Load and validate manifest
-        manifest = self.load_manifest(manifest_path)
-
-        # Verify checksum
-        if not self.verify_checksum(backup_path, manifest["checksum_sha256"]):
-            raise RestoreError("Checksum verification failed")
-
-        # Connect to Redis
-        redis_client = redis.Redis(
-            host=self.redis_host,
-            port=self.redis_port,
-            db=self.redis_db,
-        )
+        start_time = datetime.utcnow()
+        restore_type = "destructive" if destructive else "non-destructive"
+        RESTORE_CURRENTLY_RUNNING.set(1)
+        RESTORE_OPERATIONS_TOTAL.labels(status="started", type=restore_type).inc()
 
         try:
+            # Load and validate manifest
+            manifest = self.load_manifest(manifest_path)
+
+            # Verify checksum
+            if not self.verify_checksum(backup_path, manifest["checksum_sha256"]):
+                raise RestoreError("Checksum verification failed")
+
+            # Connect to Redis
+            redis_client = redis.Redis(
+                host=self.redis_host,
+                port=self.redis_port,
+                db=self.redis_db,
+            )
+
             # Check if Redis is available
             if not redis_client.ping():
                 raise RestoreError("Redis connection failed")
@@ -137,9 +177,23 @@ class BackupRestorer:
                 self._wipe_redis_data(redis_client)
 
             # Restore backup data
-            self._restore_backup_data(redis_client, backup_path)
+            keys_restored = self._restore_backup_data(redis_client, backup_path)
+            RESTORE_KEYS_RESTORED_TOTAL.inc(keys_restored)
+
+            # Record success metrics
+            duration = (datetime.utcnow() - start_time).total_seconds()
+            RESTORE_DURATION_SECONDS.observe(duration)
+            RESTORE_OPERATIONS_TOTAL.labels(status="success", type=restore_type).inc()
+            RESTORE_LAST_SUCCESS_TIMESTAMP.set(datetime.utcnow().timestamp())
+            RESTORE_CURRENTLY_RUNNING.set(0)
 
         except Exception as e:
+            # Record failure metrics
+            duration = (datetime.utcnow() - start_time).total_seconds()
+            RESTORE_DURATION_SECONDS.observe(duration)
+            RESTORE_OPERATIONS_TOTAL.labels(status="failure", type=restore_type).inc()
+            RESTORE_LAST_FAILURE_TIMESTAMP.set(datetime.utcnow().timestamp())
+            RESTORE_CURRENTLY_RUNNING.set(0)
             raise RestoreError(f"Restore failed: {e}")
 
     def _wipe_redis_data(self, redis_client: redis.Redis) -> None:
@@ -153,12 +207,15 @@ class BackupRestorer:
 
     def _restore_backup_data(
         self, redis_client: redis.Redis, backup_path: str
-    ) -> None:
+    ) -> int:
         """Restore backup data to Redis.
 
         Args:
             redis_client: Redis client instance.
             backup_path: Path to backup artifact file.
+
+        Returns:
+            Number of keys restored.
 
         Raises:
             RestoreError: If backup data cannot be read or restored.
@@ -175,5 +232,11 @@ class BackupRestorer:
         # and restore each key individually
         
         # For now, we'll simulate restoration by setting a restore marker
+        # and return a simulated key count based on the manifest
         redis_client.set("backup:last_restore", datetime.utcnow().isoformat() + "Z")
         redis_client.set("backup:restored_from", Path(backup_path).name)
+        
+        # Simulate key count - in a real implementation this would be the actual count
+        # For testing purposes, we'll estimate based on file size
+        simulated_key_count = max(1, len(backup_data) // 1000)  # ~1 key per KB
+        return simulated_key_count

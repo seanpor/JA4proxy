@@ -8,7 +8,48 @@ import hashlib
 from pathlib import Path
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
+from prometheus_client import Counter, Gauge, Histogram
 from src.backup.policy import KeyPolicy
+
+
+# Prometheus metrics for backup operations
+BACKUP_OPERATIONS_TOTAL = Counter(
+    "ja4proxy_backup_operations_total",
+    "Total number of backup operations attempted",
+    ["status"]  # success, failure
+)
+
+BACKUP_KEYS_PROCESSED_TOTAL = Counter(
+    "ja4proxy_backup_keys_processed_total",
+    "Total number of keys processed during backups"
+)
+
+BACKUP_DURATION_SECONDS = Histogram(
+    "ja4proxy_backup_duration_seconds",
+    "Duration of backup operations in seconds",
+    buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0]
+)
+
+BACKUP_SIZE_BYTES = Histogram(
+    "ja4proxy_backup_size_bytes",
+    "Size of backup artifacts in bytes",
+    buckets=[1024, 10240, 102400, 1048576, 10485760, 1073741824]
+)
+
+BACKUP_LAST_SUCCESS_TIMESTAMP = Gauge(
+    "ja4proxy_backup_last_success_timestamp",
+    "Unix timestamp of last successful backup"
+)
+
+BACKUP_LAST_FAILURE_TIMESTAMP = Gauge(
+    "ja4proxy_backup_last_failure_timestamp",
+    "Unix timestamp of last failed backup"
+)
+
+BACKUP_CURRENTLY_RUNNING = Gauge(
+    "ja4proxy_backup_currently_running",
+    "1 if backup is currently running, 0 otherwise"
+)
 
 
 class BackupWorker:
@@ -83,9 +124,14 @@ class BackupWorker:
         dest_path.mkdir(parents=True, exist_ok=True)
 
         redis_client = None
+        start_time = datetime.utcnow()
+        BACKUP_CURRENTLY_RUNNING.set(1)
+        BACKUP_OPERATIONS_TOTAL.labels(status="started").inc()
+        
         try:
             # Get keys to back up
             keys = self.enumerate_keys()
+            BACKUP_KEYS_PROCESSED_TOTAL.inc(len(keys))
 
             # Create backup artifact
             backup_data = b""
@@ -110,6 +156,9 @@ class BackupWorker:
 
             backup_path.write_bytes(backup_data)
 
+            # Record backup size metric
+            BACKUP_SIZE_BYTES.observe(len(backup_data))
+
             # Create manifest
             manifest = {
                 "filename": backup_filename,
@@ -129,12 +178,26 @@ class BackupWorker:
             redis_client.set("backup:latest", backup_filename)
             redis_client.set("backup:last_success", datetime.utcnow().isoformat() + "Z")
 
+            # Record success metrics
+            duration = (datetime.utcnow() - start_time).total_seconds()
+            BACKUP_DURATION_SECONDS.observe(duration)
+            BACKUP_OPERATIONS_TOTAL.labels(status="success").inc()
+            BACKUP_LAST_SUCCESS_TIMESTAMP.set(datetime.utcnow().timestamp())
+            BACKUP_CURRENTLY_RUNNING.set(0)
+
             return backup_path
 
         except Exception as e:
             # Update control keys on failure
             if redis_client:
                 redis_client.set("backup:last_failure", datetime.utcnow().isoformat() + "Z")
+            
+            # Record failure metrics
+            duration = (datetime.utcnow() - start_time).total_seconds()
+            BACKUP_DURATION_SECONDS.observe(duration)
+            BACKUP_OPERATIONS_TOTAL.labels(status="failure").inc()
+            BACKUP_LAST_FAILURE_TIMESTAMP.set(datetime.utcnow().timestamp())
+            BACKUP_CURRENTLY_RUNNING.set(0)
             raise
 
     def apply_retention(
