@@ -15,6 +15,13 @@ from src.backup.policy import KeyPolicy
 logger = logging.getLogger(__name__)
 
 
+# Never-backup key patterns: keys that must never appear in backups
+_KEY_PATTERNS_NEVER_BACKUP = [
+    "abuseipdb:*",            # Any abuseipdb key (API keys, etc.)
+    "config:redis_password",    # Passwords should never be in Redis
+    "*:auth_token",           # Any auth token pattern
+]
+
 # Prometheus metrics for backup operations
 BACKUP_OPERATIONS_TOTAL = Counter(
     "ja4proxy_backup_operations_total",
@@ -160,6 +167,27 @@ class BackupWorker:
             
             BACKUP_KEYS_PROCESSED_TOTAL.inc(len(keys))
 
+            # Filter out never-backup keys and log warnings
+            safe_keys = []
+            never_backup_keys_found = []
+            
+            for key in keys:
+                if self._is_never_backup_key(key):
+                    never_backup_keys_found.append(key)
+                    logger.warning(
+                        json.dumps({
+                            "ts": datetime.utcnow().isoformat() + "Z",
+                            "type": "system",
+                            "level": "WARN",
+                            "subsystem": "backup",
+                            "event": "sensitive_key_detected",
+                            "key": key,
+                            "message": f"Key {key} matches never-backup pattern and will be excluded"
+                        })
+                    )
+                else:
+                    safe_keys.append(key)
+            
             # Create backup artifact
             backup_data = b""
             redis_client = redis.Redis(
@@ -168,7 +196,7 @@ class BackupWorker:
                 db=self.redis_db,
             )
 
-            for key in keys:
+            for key in safe_keys:
                 dumped = redis_client.dump(key)
                 if dumped:
                     backup_data += dumped
@@ -255,6 +283,21 @@ class BackupWorker:
                 })
             )
             raise
+
+    def _is_never_backup_key(self, key: str) -> bool:
+        """Check if a key matches any never-backup pattern.
+
+        Args:
+            key: Redis key to check.
+
+        Returns:
+            True if the key should never be backed up, False otherwise.
+        """
+        import fnmatch
+        for pattern in _KEY_PATTERNS_NEVER_BACKUP:
+            if fnmatch.fnmatch(key, pattern):
+                return True
+        return False
 
     def apply_retention(
         self, backup_dir: str, retain_count: int = None, retention_days: int = None
