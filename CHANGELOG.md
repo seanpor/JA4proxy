@@ -16,6 +16,23 @@
   corresponding container, so Redis metrics were never collected in production.
   Uses `REDIS_PASSWORD_FILE` (supported since v1.46) to avoid plaintext password in env.
 
+## [15.0.1] - 2026-03-21 - Documentation accuracy and consistency fixes
+
+### Changed
+- `README.md`: replaced macOS-only `open` example with Linux-first `xdg-open` and
+  kept a macOS fallback comment.
+- `README.md`: updated Management UI service row to clearly show deferred status
+  (Phase 13 not yet implemented).
+- `docs/QUICK_REFERENCE.md`: corrected script paths to `./scripts/...` for start,
+  stop, status, traffic generation, smoke test, and troubleshooting commands.
+- `docs/QUICK_REFERENCE.md`: replaced macOS-only `open` example with Linux-first
+  `xdg-open` and macOS fallback comment.
+- `CONTRIBUTING.md`: updated project structure comment to reflect deferred
+  post-Phase-15 Management UI implementation.
+- `SECURITY.md`: resolved contradictory incident wording ("resolved" vs "required
+  action"), consolidated duplicate credential-exposure note, and standardised
+  `JA4proxy` naming.
+
 ## [15.0.0] - 2026-03-17 — Go Proxy Rewrite
 
 ### Added

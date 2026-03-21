@@ -41,7 +41,8 @@ make start
 ./scripts/generate-tls-traffic.sh 60 10 20
 
 # Open Grafana dashboard
-open http://localhost:3001    # admin / password from .env
+xdg-open http://localhost:3001  # Linux
+# open http://localhost:3001    # macOS
 
 # Reset security state between test runs (keeps whitelist/blacklist)
 make flush-redis

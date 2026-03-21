@@ -2,7 +2,7 @@
 
 ## Reporting Security Issues
 
-If you discover a security vulnerability in JA4Proxy, please report it responsibly:
+If you discover a security vulnerability in JA4proxy, please report it responsibly:
 
 ### Preferred Method: Private Issue
 1. Create a **private/confidential issue** in this repository
@@ -38,7 +38,7 @@ Download: https://ja4proxy.example.com/security/pgp-key.asc
 
 ## ⚠️ RESOLVED: Historical Credential Exposure
 
-**Status:** ✅ RESOLVED - No action required
+**Status:** ✅ RESOLVED
 
 **Incident Summary:**
 Commit `d67f4d6` (2026-03-06) inadvertently included a Redis password in `BLOCKING_TEST_ANALYSIS.md`.
@@ -46,7 +46,7 @@ Commit `d67f4d6` (2026-03-06) inadvertently included a Redis password in `BLOCKI
 **Resolution:**
 - ✅ Password rotated in all environments
 - ✅ Documentation cleaned of credential references
-- ✅ Current Redis password: Different from exposed password
+- ✅ Current Redis password is different from the exposed password
 - ✅ No impact on production systems (POC environment only)
 
 ### Verification
@@ -101,7 +101,7 @@ The exposed password remains in git history (commit `d67f4d6`) but poses no curr
 - **Security Team:** security@ja4proxy.example.com
 - **Emergency:** +1 (555) 123-4567 (24/7)
 - **Slack:** #security-alerts (internal)
-- **PagerDuty:** JA4Proxy Security (escalation policy)
+- **PagerDuty:** JA4proxy Security (escalation policy)
 
 ## Hall of Fame
 
@@ -114,40 +114,12 @@ We appreciate responsible disclosure from the security community:
 
 Report a vulnerability following our [Responsible Disclosure Policy](#reporting-security-issues) to be added!
 
-**Commit `d67f4d6`** (2026-03-06) inadvertently included the POC Redis password
-in `BLOCKING_TEST_ANALYSIS.md`. That commit is present in the public git history.
+### Historical note: credential still present in git history
 
-**The password has since been redacted in all documentation** (commit `e51767b`),
-but the value remains readable in the historical commit.
+Commit `d67f4d6` (2026-03-06) inadvertently included the POC Redis password in
+`BLOCKING_TEST_ANALYSIS.md`. The password was rotated and redacted in current docs,
+but remains visible in historical git history.
 
-### Required action
-
-If you have deployed this POC using the `.env` from this repository, rotate the
-Redis password before any further use:
-
-```bash
-# 1. Generate a new password
-NEW_PW=$(openssl rand -base64 32)
-
-# 2. Update .env
-sed -i "s/^REDIS_PASSWORD=.*/REDIS_PASSWORD=${NEW_PW}/" .env
-
-# 3. Apply to running Redis instance (no data loss)
-docker compose exec redis redis-cli -a "${OLD_REDIS_PASSWORD}" CONFIG SET requirepass "${NEW_PW}"
-
-# 4. Restart the proxy (picks up new password from .env)
-docker compose restart proxy
-```
-
-Then verify:
-
-```bash
-docker compose exec redis redis-cli -a "${NEW_PW}" PING
-# Expected: PONG
-```
-
-### Git history cleanup (optional)
-
-If you need to remove the credential from git history entirely (e.g. for compliance),
-use [BFG Repo Cleaner](https://rtyley.github.io/bfg-repo-cleaner/) targeting commit
-`d67f4d6`. This requires a force-push and all collaborators must re-clone afterwards.
+If you need to remove that value from history for compliance reasons, use
+[BFG Repo Cleaner](https://rtyley.github.io/bfg-repo-cleaner/) against commit
+`d67f4d6`. This requires a force-push and all collaborators must re-clone.
