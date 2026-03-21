@@ -4,11 +4,14 @@ Implements manifest validation, checksum verification, and restore operations.
 """
 import json
 import hashlib
+import logging
 from pathlib import Path
 from typing import Dict, Any, Optional
 from datetime import datetime
 import redis
 from prometheus_client import Counter, Gauge, Histogram
+
+logger = logging.getLogger(__name__)
 
 
 # Prometheus metrics for restore operations
@@ -152,10 +155,35 @@ class BackupRestorer:
         restore_type = "destructive" if destructive else "non-destructive"
         RESTORE_CURRENTLY_RUNNING.set(1)
         RESTORE_OPERATIONS_TOTAL.labels(status="started", type=restore_type).inc()
+        
+        # Log restore start (before loading manifest to avoid file access issues)
+        logger.info(
+            json.dumps({
+                "ts": datetime.utcnow().isoformat() + "Z",
+                "type": "system",
+                "level": "INFO",
+                "subsystem": "restore",
+                "event": "restore_started",
+                "restore_type": restore_type,
+                "artifact": backup_path
+            })
+        )
 
         try:
             # Load and validate manifest
             manifest = self.load_manifest(manifest_path)
+            
+            # Log manifest loaded with key count
+            logger.info(
+                json.dumps({
+                    "ts": datetime.utcnow().isoformat() + "Z",
+                    "type": "system",
+                    "level": "INFO",
+                    "subsystem": "restore",
+                    "event": "manifest_loaded",
+                    "keys_expected": manifest.get("keys_count", 0)
+                })
+            )
 
             # Verify checksum
             if not self.verify_checksum(backup_path, manifest["checksum_sha256"]):
@@ -186,6 +214,21 @@ class BackupRestorer:
             RESTORE_OPERATIONS_TOTAL.labels(status="success", type=restore_type).inc()
             RESTORE_LAST_SUCCESS_TIMESTAMP.set(datetime.utcnow().timestamp())
             RESTORE_CURRENTLY_RUNNING.set(0)
+            
+            # Log restore success
+            logger.info(
+                json.dumps({
+                    "ts": datetime.utcnow().isoformat() + "Z",
+                    "type": "system",
+                    "level": "INFO",
+                    "subsystem": "restore",
+                    "event": "restore_succeeded",
+                    "restore_type": restore_type,
+                    "keys_restored": keys_restored,
+                    "duration_ms": int(duration * 1000),
+                    "artifact": backup_path
+                })
+            )
 
         except Exception as e:
             # Record failure metrics
@@ -194,6 +237,21 @@ class BackupRestorer:
             RESTORE_OPERATIONS_TOTAL.labels(status="failure", type=restore_type).inc()
             RESTORE_LAST_FAILURE_TIMESTAMP.set(datetime.utcnow().timestamp())
             RESTORE_CURRENTLY_RUNNING.set(0)
+            
+            # Log restore failure
+            logger.error(
+                json.dumps({
+                    "ts": datetime.utcnow().isoformat() + "Z",
+                    "type": "system",
+                    "level": "ERROR",
+                    "subsystem": "restore",
+                    "event": "restore_failed",
+                    "restore_type": restore_type,
+                    "error": str(e),
+                    "duration_ms": int(duration * 1000),
+                    "artifact": backup_path
+                })
+            )
             raise RestoreError(f"Restore failed: {e}")
 
     def _wipe_redis_data(self, redis_client: redis.Redis) -> None:
