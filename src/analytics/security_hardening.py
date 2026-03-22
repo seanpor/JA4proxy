@@ -90,7 +90,7 @@ class SecurityHardening:
             return True
             
         except Exception as e:
-            self.logger.error(f"Rate limiting error: {e}")
+            self.logger.error("Rate limiting error: %s", e)
             return True  # Fail open for safety
     
     async def authenticate_api_key(self, api_key: str) -> Optional[Dict[str, Any]]:
@@ -157,7 +157,7 @@ class SecurityHardening:
                 return None
                 
         except Exception as e:
-            self.logger.error(f"JWT validation error: {e}")
+            self.logger.error("JWT validation error: %s", e)
             return None
     
     def _generate_hmac_signature(self, data: str) -> str:
@@ -193,7 +193,7 @@ class SecurityHardening:
             await self.redis.expire(self.security_events_key, 86400 * 30)  # 30 days
             
         except Exception as e:
-            self.logger.error(f"Failed to log security event: {e}")
+            self.logger.error("Failed to log security event: %s", e)
     
     async def check_suspicious_activity(self, request_data: Dict[str, Any]) -> bool:
         """Check for suspicious activity patterns."""
@@ -277,7 +277,7 @@ class SecurityHardening:
                 for log in logs
             ]
         except Exception as e:
-            self.logger.error(f"Failed to get audit logs: {e}")
+            self.logger.error("Failed to get audit logs: %s", e)
             return []
     
     async def get_security_metrics(self) -> Dict[str, Any]:
@@ -304,7 +304,7 @@ class SecurityHardening:
             }
             
         except Exception as e:
-            self.logger.error(f"Failed to get security metrics: {e}")
+            self.logger.error("Failed to get security metrics: %s", e)
             return {'status': 'error', 'error': str(e)}
 
 

@@ -1,5 +1,29 @@
 # Changelog
 
+## [19.1.0] - 2026-03-22 — Phase 18: Security Audit Remediation
+
+### Added
+
+**Exception Handling**
+- `src/security/pipeline.py` — Granular exception handling for all signal modules
+- `ja4proxy_signal_skipped_total` — Counter for expected dependency failures (timeout, connection loss)
+- `ja4proxy_signal_error_total` — Counter for unexpected internal errors (bugs, logic errors)
+- `tests/chaos/test_pipeline_remediation.py` — Chaos tests verifying metric accuracy for bugs and network failures
+
+### Changed
+
+**Logging Efficiency**
+- Replaced f-string logging with lazy formatting (`%s`, `%.2f`) across all core security and analytics modules:
+    - `src/security/pipeline.py`
+    - `src/security/security_manager.py`
+    - `src/security/action_enforcer.py`
+    - `src/security/mtls.py`
+    - `src/security/gdpr_storage.py`
+    - `src/security/threat_evaluator.py`
+    - `src/security/rate_tracker.py`
+    - `src/analytics/` (all modules)
+- Improved `_get_analytics_signals` to propagate dependency failures for proper metric tracking.
+
 ## [19.0.0] - 2026-03-21 — Phase 19: Backup & Restore Framework
 
 ### Added

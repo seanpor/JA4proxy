@@ -96,7 +96,7 @@ class SecurityManager:
             self.redis.ping()
             self.logger.info("SecurityManager initialized successfully")
         except Exception as e:
-            self.logger.error(f"Redis connection failed: {e}")
+            self.logger.error("Redis connection failed: %s", e)
             raise
 
     async def check_access(
@@ -129,7 +129,7 @@ class SecurityManager:
         """
         # Validate inputs
         if not ja4 or not client_ip:
-            self.logger.error(f"Invalid inputs: ja4={bool(ja4)}, ip={bool(client_ip)}")
+            self.logger.error("Invalid inputs: ja4=%s, ip=%s", bool(ja4), bool(client_ip))
             return False, "Invalid request"
 
         # Check ALPN bypass - browser traffic doesn't get rate limited
@@ -138,7 +138,8 @@ class SecurityManager:
         )
         if browser_alpn.get("enabled", True) and alpn in ("h2", "http/1.1", "h1"):
             self.logger.debug(
-                f"ALPN bypass: IP={client_ip[:32]} ALPN={alpn} - skipping rate limit"
+                "ALPN bypass: IP=%s ALPN=%s - skipping rate limit",
+                client_ip[:32], alpn
             )
             # Still check blocked/banned but skip rate limiting
             is_blocked, block_reason = self.action_enforcer.is_blocked(ja4, client_ip)
@@ -151,7 +152,8 @@ class SecurityManager:
             is_blocked, block_reason = self.action_enforcer.is_blocked(ja4, client_ip)
             if is_blocked:
                 self.logger.info(
-                    f"Pre-blocked: IP={client_ip[:32]} JA4={ja4[:16]} - {block_reason}"
+                    "Pre-blocked: IP=%s JA4=%s - %s",
+                    client_ip[:32], ja4[:16], block_reason
                 )
                 return False, block_reason
 
@@ -167,7 +169,8 @@ class SecurityManager:
             if not self.threat_evaluator.should_apply_action(threat_evaluations):
                 # All strategies show normal behavior
                 self.logger.debug(
-                    f"Allowed: IP={client_ip[:32]} JA4={ja4[:16]} - Normal traffic"
+                    "Allowed: IP=%s JA4=%s - Normal traffic",
+                    client_ip[:32], ja4[:16]
                 )
                 return True, "Allowed"
 
@@ -200,7 +203,7 @@ class SecurityManager:
 
         except Exception as e:
             # Fail secure: Block on error
-            self.logger.error(f"Error in check_access: {e}", exc_info=True)
+            self.logger.error("Error in check_access: %s", e, exc_info=True)
             return False, "Security check failed"
 
     def get_statistics(self) -> Dict:
@@ -218,7 +221,7 @@ class SecurityManager:
             }
             return stats
         except Exception as e:
-            self.logger.error(f"Error getting statistics: {e}")
+            self.logger.error("Error getting statistics: %s", e)
             return {"error": str(e)}
 
     def manual_unban(
@@ -243,8 +246,8 @@ class SecurityManager:
 
             if was_unbanned:
                 self.logger.warning(
-                    f"MANUAL UNBAN: IP={client_ip[:32]} JA4={ja4[:16]} "
-                    f"Reason: {reason or 'Not specified'}"
+                    "MANUAL UNBAN: IP=%s JA4=%s Reason: %s",
+                    client_ip[:32], ja4[:16], reason or 'Not specified'
                 )
 
                 # Store unban event in audit log
@@ -256,8 +259,9 @@ class SecurityManager:
 
             return was_unbanned
         except Exception as e:
-            self.logger.error(f"Error in manual_unban: {e}")
+            self.logger.error("Error in manual_unban: %s", e)
             return False
+
 
     def verify_gdpr_compliance(self) -> Dict:
         """
@@ -269,7 +273,7 @@ class SecurityManager:
         try:
             return self.gdpr_storage.verify_compliance()
         except Exception as e:
-            self.logger.error(f"Error verifying compliance: {e}")
+            self.logger.error("Error verifying compliance: %s", e)
             return {"error": str(e), "compliance_rate": 0.0}
 
     def _store_enforcement_data(
@@ -299,7 +303,7 @@ class SecurityManager:
                 category=category,
             )
         except Exception as e:
-            self.logger.error(f"Error storing enforcement data: {e}")
+            self.logger.error("Error storing enforcement data: %s", e)
 
     def _log_decision(
         self,
@@ -314,14 +318,14 @@ class SecurityManager:
 
         self.logger.log(
             log_level,
-            f"Security Decision: "
-            f"IP={client_ip[:32]} "
-            f"JA4={ja4[:16]} "
-            f"Tier={tier.name} "
-            f"Strategy={strategy.value if strategy else 'N/A'} "
-            f"Action={result.action_type.value} "
-            f"Allowed={result.allowed} "
-            f"Reason={result.reason}",
+            "Security Decision: IP=%s JA4=%s Tier=%s Strategy=%s Action=%s Allowed=%s Reason=%s",
+            client_ip[:32],
+            ja4[:16],
+            tier.name,
+            strategy.value if strategy else 'N/A',
+            result.action_type.value,
+            result.allowed,
+            result.reason,
         )
 
     @classmethod

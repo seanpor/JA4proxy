@@ -169,11 +169,10 @@ class ThreatEvaluator:
             # Log if threat detected
             if tier != ThreatTier.NORMAL:
                 self.logger.warning(
-                    f"Threat detected - Strategy: {strategy.value}, "
-                    f"Entity: {metrics.entity_id[:32]}..., "
-                    f"Rate: {metrics.connections_per_second}/sec, "
-                    f"Tier: {tier.name}, "
-                    f"Threshold: {threshold}/sec"
+                    "Threat detected - Strategy: %s, Entity: %s..., "
+                    "Rate: %s/sec, Tier: %s, Threshold: %s/sec",
+                    strategy.value, metrics.entity_id[:32],
+                    metrics.connections_per_second, tier.name, threshold
                 )
         
         return evaluations
@@ -206,8 +205,8 @@ class ThreatEvaluator:
         
         if not (0 <= suspicious <= block <= ban):
             self.logger.error(
-                f"Invalid thresholds for {strategy.value}: "
-                f"suspicious={suspicious}, block={block}, ban={ban}"
+                "Invalid thresholds for %s: suspicious=%s, block=%s, ban=%s",
+                strategy.value, suspicious, block, ban
             )
             # Use safe defaults
             return {'suspicious': 1, 'block': 5, 'ban': 10}
@@ -334,7 +333,7 @@ class ThreatEvaluator:
         
         else:
             # Unknown policy - fail secure (act on any threat)
-            self.logger.error(f"Unknown policy: {self.policy}, failing secure")
+            self.logger.error("Unknown policy: %s, failing secure", self.policy)
             return threat_count > 0
     
     def get_evaluation_summary(
@@ -402,7 +401,7 @@ class ThreatEvaluator:
             policy = MultiStrategyPolicy.from_string(policy_str)
             if policy is None:
                 logging.warning(
-                    f"Invalid policy '{policy_str}', using default 'any'"
+                    "Invalid policy '%s', using default 'any'", policy_str
                 )
                 policy = MultiStrategyPolicy.ANY
             

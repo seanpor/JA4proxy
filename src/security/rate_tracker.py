@@ -128,8 +128,8 @@ class MultiStrategyRateTracker:
             raise RedisConnectionError(f"Failed to register Lua script: {e}")
         
         self.logger.info(
-            f"Rate tracker initialized with strategies: "
-            f"{[s.value for s in self.enabled_strategies]}"
+            "Rate tracker initialized with strategies: %s",
+            [s.value for s in self.enabled_strategies]
         )
     
     @staticmethod
@@ -188,7 +188,7 @@ class MultiStrategyRateTracker:
         for strategy_name, settings in strategy_config.items():
             if not isinstance(settings, dict):
                 self.logger.warning(
-                    f"Invalid settings for strategy {strategy_name}, skipping"
+                    "Invalid settings for strategy %s, skipping", strategy_name
                 )
                 continue
             
@@ -197,10 +197,10 @@ class MultiStrategyRateTracker:
                 strategy = RateLimitStrategy.from_string(strategy_name)
                 if strategy:
                     strategies.append(strategy)
-                    self.logger.info(f"Enabled strategy: {strategy.value}")
+                    self.logger.info("Enabled strategy: %s", strategy.value)
                 else:
                     self.logger.warning(
-                        f"Unknown strategy '{strategy_name}', skipping"
+                        "Unknown strategy '%s', skipping", strategy_name
                     )
         
         return strategies
@@ -233,13 +233,13 @@ class MultiStrategyRateTracker:
                     windows[name] = value
                 else:
                     self.logger.warning(
-                        f"Window '{name}' value {value} out of range "
-                        f"[{self.MIN_WINDOW_SECONDS}, {self.MAX_WINDOW_SECONDS}], "
-                        f"using default"
+                        "Window '%s' value %s out of range [%s, %s], using default",
+                        name, value, self.MIN_WINDOW_SECONDS, self.MAX_WINDOW_SECONDS
                     )
             except (TypeError, ValueError):
                 self.logger.warning(
-                    f"Invalid window '{name}' value: {value}, using default"
+                    "Invalid window '%s' value: %s, using default",
+                    name, value
                 )
         
         return windows
@@ -298,7 +298,7 @@ class MultiStrategyRateTracker:
             except RateTrackerError as e:
                 # Log error but continue with other strategies
                 self.logger.error(
-                    f"Error tracking strategy {strategy.value}: {e}"
+                    "Error tracking strategy %s: %s", strategy.value, e
                 )
                 # Fail closed: return high rate to trigger block
                 results[strategy] = RateMetrics(
@@ -365,7 +365,8 @@ class MultiStrategyRateTracker:
             # Validate count (security: prevent DoS)
             if count > self.MAX_CONNECTIONS_PER_WINDOW:
                 self.logger.warning(
-                    f"Strategy {strategy.value} exceeded max connections: {count}"
+                    "Strategy %s exceeded max connections: %s",
+                    strategy.value, count
                 )
                 count = self.MAX_CONNECTIONS_PER_WINDOW
             

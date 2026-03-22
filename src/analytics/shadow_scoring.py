@@ -92,8 +92,8 @@ class ShadowScoring:
         # Store in Redis
         await self.redis.set(self.shadow_key, json.dumps(shadow_stats), ex=3600)  # 1 hour TTL
         
-        self.logger.info(f"Stored shadow scores: median={shadow_stats['median']:.2f}, "
-                        f"count={shadow_stats['count']}")
+        self.logger.info("Stored shadow scores: median=%.2f, count=%d",
+                        shadow_stats['median'], shadow_stats['count'])
 
     def _calculate_median(self, sorted_scores: List[float]) -> float:
         """Calculate median score."""
@@ -154,7 +154,7 @@ class ShadowScoring:
             # Store alert
             await self._store_alert(alert_data)
             
-            self.logger.warning(f"Calibration issue detected: {alert_data['message']}")
+            self.logger.warning("Calibration issue detected: %s", alert_data['message'])
             
             return alert_data
         

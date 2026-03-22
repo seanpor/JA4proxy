@@ -60,8 +60,8 @@ class DistributionAnalyzer:
             # Store alert
             await self._store_alert(shift_result)
             
-            self.logger.warning(f"Distribution shift detected: ks_statistic={shift_result['ks_statistic']:.3f}, "
-                               f"p_value={shift_result['p_value']:.4f}")
+            self.logger.warning("Distribution shift detected: ks_statistic=%.3f, p_value=%.4f",
+                               shift_result['ks_statistic'], shift_result['p_value'])
             
             return shift_result
         

@@ -107,7 +107,7 @@ class GDPRStorage:
         try:
             self.redis.ping()
         except Exception as e:
-            self.logger.error(f"Redis connection failed: {e}")
+            self.logger.error("Redis connection failed: %s", e)
             raise
     
     def _load_retention_periods(self) -> Dict[DataCategory, int]:
@@ -126,8 +126,10 @@ class GDPRStorage:
                 
                 if configured_ttl > max_ttl:
                     self.logger.warning(
-                        f"Configured TTL for {category.value} ({configured_ttl}s) "
-                        f"exceeds GDPR maximum ({max_ttl}s), using maximum"
+                        "Configured TTL for %s (%ss) exceeds GDPR maximum (%ss), using maximum",
+                        category.value,
+                        configured_ttl,
+                        max_ttl
                     )
                     configured_ttl = max_ttl
                 
@@ -173,12 +175,14 @@ class GDPRStorage:
             max_ttl = category.get_max_ttl()
             if custom_ttl > max_ttl:
                 self.logger.warning(
-                    f"Custom TTL ({custom_ttl}s) exceeds GDPR maximum "
-                    f"for {category.value} ({max_ttl}s), using maximum"
+                    "Custom TTL (%ss) exceeds GDPR maximum for %s (%ss), using maximum",
+                    custom_ttl,
+                    category.value,
+                    max_ttl
                 )
                 ttl = max_ttl
             elif custom_ttl <= 0:
-                self.logger.error(f"Invalid TTL: {custom_ttl}, using default")
+                self.logger.error("Invalid TTL: %s, using default", custom_ttl)
                 ttl = self.retention_periods[category]
             else:
                 ttl = custom_ttl
@@ -202,7 +206,7 @@ class GDPRStorage:
             
             return True
         except Exception as e:
-            self.logger.error(f"Failed to store key {self._hash_key(key)}: {e}")
+            self.logger.error("Failed to store key %s: %s", self._hash_key(key), e)
             return False
     
     def verify_compliance(self) -> Dict:
@@ -244,12 +248,12 @@ class GDPRStorage:
             # Log violations
             if violations:
                 self.logger.warning(
-                    f"GDPR Compliance Violations: {non_compliant} keys without TTLs"
+                    "GDPR Compliance Violations: %s keys without TTLs", non_compliant
                 )
             
             return result
         except Exception as e:
-            self.logger.error(f"Failed to verify compliance: {e}")
+            self.logger.error("Failed to verify compliance: %s", e)
             return {
                 'error': str(e),
                 'compliant_keys': 0,
@@ -282,11 +286,11 @@ class GDPRStorage:
                     cleaned += 1
             
             if cleaned > 0:
-                self.logger.info(f"Cleaned up {cleaned} expired keys")
+                self.logger.info("Cleaned up %s expired keys", cleaned)
             
             return cleaned
         except Exception as e:
-            self.logger.error(f"Failed to cleanup expired keys: {e}")
+            self.logger.error("Failed to cleanup expired keys: %s", e)
             return 0
     
     def get_retention_report(self) -> Dict:
@@ -325,7 +329,7 @@ class GDPRStorage:
                 keys = self.redis.keys(pattern)
                 report['key_counts'][category.value] = len(keys)
         except Exception as e:
-            self.logger.error(f"Failed to count keys: {e}")
+            self.logger.error("Failed to count keys: %s", e)
         
         return report
     
@@ -344,7 +348,7 @@ class GDPRStorage:
             import json
             self.redis.setex(audit_key, audit_ttl, json.dumps(entry))
         except Exception as e:
-            self.logger.error(f"Failed to write audit log: {e}")
+            self.logger.error("Failed to write audit log: %s", e)
     
     def get_audit_logs(self, limit: int = 100) -> List[Dict]:
         """
@@ -370,11 +374,11 @@ class GDPRStorage:
                     if data:
                         logs.append(json.loads(data))
                 except Exception as e:
-                    self.logger.error(f"Failed to parse audit log: {e}")
+                    self.logger.error("Failed to parse audit log: %s", e)
             
             return logs
         except Exception as e:
-            self.logger.error(f"Failed to retrieve audit logs: {e}")
+            self.logger.error("Failed to retrieve audit logs: %s", e)
             return []
     
     @classmethod
