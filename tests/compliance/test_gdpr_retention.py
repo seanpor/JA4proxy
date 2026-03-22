@@ -10,6 +10,7 @@ These tests verify that the system complies with GDPR requirements:
 """
 
 import pytest
+import redis
 import time
 from unittest.mock import Mock, MagicMock
 
@@ -199,7 +200,7 @@ class TestStore:
     
     def test_store_handles_redis_error(self, gdpr_storage, mock_redis):
         """Test graceful handling of Redis errors."""
-        mock_redis.setex.side_effect = Exception("Redis error")
+        mock_redis.setex.side_effect = redis.ResponseError("Redis error")
         
         result = gdpr_storage.store(
             key="test:key",
@@ -258,7 +259,7 @@ class TestComplianceVerification:
     
     def test_verify_handles_errors(self, gdpr_storage, mock_redis):
         """Test verification handles Redis errors gracefully."""
-        mock_redis.keys.side_effect = Exception("Redis error")
+        mock_redis.keys.side_effect = redis.ConnectionError("Redis error")
         
         result = gdpr_storage.verify_compliance()
         

@@ -95,7 +95,7 @@ class SecurityManager:
         try:
             self.redis.ping()
             self.logger.info("SecurityManager initialized successfully")
-        except Exception as e:
+        except redis.RedisError as e:
             self.logger.error("Redis connection failed: %s", e)
             raise
 
@@ -201,8 +201,7 @@ class SecurityManager:
 
             return result.allowed, result.reason
 
-        except Exception as e:
-            # Fail secure: Block on error
+        except Exception as e:  # top-level safety net: any component failure must fail secure
             self.logger.error("Error in check_access: %s", e, exc_info=True)
             return False, "Security check failed"
 
@@ -220,7 +219,7 @@ class SecurityManager:
                 "retention_report": self.gdpr_storage.get_retention_report(),
             }
             return stats
-        except Exception as e:
+        except redis.RedisError as e:
             self.logger.error("Error getting statistics: %s", e)
             return {"error": str(e)}
 
@@ -258,7 +257,7 @@ class SecurityManager:
                 )
 
             return was_unbanned
-        except Exception as e:
+        except redis.RedisError as e:
             self.logger.error("Error in manual_unban: %s", e)
             return False
 
@@ -272,7 +271,7 @@ class SecurityManager:
         """
         try:
             return self.gdpr_storage.verify_compliance()
-        except Exception as e:
+        except redis.RedisError as e:
             self.logger.error("Error verifying compliance: %s", e)
             return {"error": str(e), "compliance_rate": 0.0}
 
@@ -302,7 +301,7 @@ class SecurityManager:
                 value=str(result.to_dict()),
                 category=category,
             )
-        except Exception as e:
+        except redis.RedisError as e:
             self.logger.error("Error storing enforcement data: %s", e)
 
     def _log_decision(

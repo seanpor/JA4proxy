@@ -7,6 +7,7 @@ __repr__, and the create_security_manager convenience function.
 """
 
 import pytest
+import redis
 from unittest.mock import MagicMock, AsyncMock, patch
 
 from src.security.security_manager import SecurityManager, create_security_manager
@@ -28,7 +29,7 @@ def _make_manager(
     """Build a SecurityManager with fully mocked sub-components."""
     redis_mock = MagicMock()
     if not ping_ok:
-        redis_mock.ping.side_effect = Exception("Redis down")
+        redis_mock.ping.side_effect = redis.ConnectionError("Redis down")
     else:
         redis_mock.ping.return_value = True
 
@@ -292,7 +293,7 @@ class TestStoreTierRouting:
         te.get_triggering_strategy.return_value = MagicMock(value="per_ip")
 
         gs = MagicMock()
-        gs.store.side_effect = RuntimeError("Redis write failed")
+        gs.store.side_effect = redis.RedisError("Redis write failed")
 
         mgr, _, _, _, _, _ = _make_manager(action_enforcer=ae, threat_evaluator=te, gdpr_storage=gs)
         # Must not raise
@@ -317,7 +318,7 @@ class TestGetStatistics:
     def test_exception_returns_error_dict(self):
         """Lines 209-211: exception → {'error': str(e)}."""
         mgr, _, _, _, ae, _ = _make_manager()
-        ae.get_enforcement_stats.side_effect = RuntimeError("crash")
+        ae.get_enforcement_stats.side_effect = redis.RedisError("crash")
 
         stats = mgr.get_statistics()
         assert "error" in stats
@@ -354,7 +355,7 @@ class TestManualUnban:
         """Lines 247-249: exception → return False."""
         ae = MagicMock()
         ae.is_blocked.return_value = (False, "")
-        ae.unban.side_effect = RuntimeError("Redis crashed")
+        ae.unban.side_effect = redis.ConnectionError("Redis crashed")
         mgr, _, _, _, _, _ = _make_manager(action_enforcer=ae)
 
         result = mgr.manual_unban("ja4fp", "1.2.3.4")
@@ -377,7 +378,7 @@ class TestVerifyGdprCompliance:
     def test_exception_returns_error_dict(self):
         """Lines 260-262: exception → error dict with compliance_rate=0.0."""
         gs = MagicMock()
-        gs.verify_compliance.side_effect = RuntimeError("redis down")
+        gs.verify_compliance.side_effect = redis.ConnectionError("redis down")
         mgr, _, _, _, _, _ = _make_manager(gdpr_storage=gs)
 
         result = mgr.verify_gdpr_compliance()

@@ -8,6 +8,7 @@ in get_retention_report and _audit_log.
 
 import json
 import pytest
+import redis
 from unittest.mock import MagicMock, patch
 
 from src.security.gdpr_storage import GDPRStorage, DataCategory
@@ -23,7 +24,7 @@ def _make_storage(ping_ok=True, audit_enabled=True):
     if ping_ok:
         redis_mock.ping.return_value = True
     else:
-        redis_mock.ping.side_effect = Exception("down")
+        redis_mock.ping.side_effect = redis.ConnectionError("down")
     config = {"gdpr": {"audit_logging": audit_enabled}}
     return GDPRStorage(redis_client=redis_mock, config=config), redis_mock
 
@@ -67,7 +68,7 @@ class TestCleanupExpired:
     def test_exception_returns_zero(self):
         """Line 288-290: exception in cleanup → return 0."""
         storage, redis_mock = _make_storage()
-        redis_mock.keys.side_effect = RuntimeError("Redis unavailable")
+        redis_mock.keys.side_effect = redis.ConnectionError("Redis unavailable")
         assert storage.cleanup_expired() == 0
 
 
@@ -87,7 +88,7 @@ class TestGetRetentionReport:
         """Lines 327-328: redis.keys() raises during key count → exception caught."""
         storage, redis_mock = _make_storage()
         # First call succeeds (for any earlier checks), keys() call in loop raises
-        redis_mock.keys.side_effect = RuntimeError("Redis timeout")
+        redis_mock.keys.side_effect = redis.TimeoutError("Redis timeout")
         # Must not raise; report is still returned
         report = storage.get_retention_report()
         assert "retention_periods" in report
@@ -110,7 +111,7 @@ class TestAuditLog:
     def test_audit_log_exception_is_silenced(self):
         """Lines 346-347: setex raises → exception caught, no propagation."""
         storage, redis_mock = _make_storage(audit_enabled=True)
-        redis_mock.setex.side_effect = RuntimeError("write failed")
+        redis_mock.setex.side_effect = redis.ResponseError("write failed")
         # Must not raise
         storage._audit_log({"action": "test"})
 
@@ -167,7 +168,7 @@ class TestGetAuditLogs:
     def test_outer_exception_returns_empty_list(self):
         """Lines 376-378: redis.keys raises → outer except returns []."""
         storage, redis_mock = _make_storage()
-        redis_mock.keys.side_effect = RuntimeError("Redis down")
+        redis_mock.keys.side_effect = redis.ConnectionError("Redis down")
         logs = storage.get_audit_logs()
         assert logs == []
 
@@ -238,6 +239,6 @@ class TestStoreCustomTtl:
     def test_redis_setex_failure_returns_false(self):
         """Exception in setex → return False."""
         storage, redis_mock = _make_storage()
-        redis_mock.setex.side_effect = RuntimeError("write error")
+        redis_mock.setex.side_effect = redis.ResponseError("write error")
         result = storage.store("key", "value", DataCategory.FINGERPRINTS)
         assert result is False

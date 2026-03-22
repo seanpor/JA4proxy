@@ -64,7 +64,7 @@ class ActionEnforcer:
         # Verify Redis connection
         try:
             self.redis.ping()
-        except Exception as e:
+        except redis.RedisError as e:
             self.logger.error("Redis connection failed: %s", e)
             raise
     
@@ -333,7 +333,7 @@ class ActionEnforcer:
                     "REPEAT_OFFENDER: %s offense #%s → block duration escalated to %ss",
                     entity_id[:32], offense_count, duration
                 )
-        except Exception as e:
+        except (redis.RedisError, TypeError, ValueError) as e:
             self.logger.warning("Repeat-offender escalation failed (non-fatal): %s", e)
         
         # Store block in Redis
@@ -439,7 +439,7 @@ class ActionEnforcer:
                 'total_banned': banned_temporary + banned_permanent,
                 'suspicious': suspicious,
             }
-        except Exception as e:
+        except redis.RedisError as e:
             self.logger.error("Error getting enforcement stats: %s", e)
             return {}
     

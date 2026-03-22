@@ -105,7 +105,7 @@ class MLDetector:
             # For Phase 12e initial implementation, we use a simple threshold model
             self.model = self._create_default_model()
             self.logger.info("Loaded ML model version %s", self.model_version)
-        except Exception as e:
+        except (ValueError, AttributeError) as e:
             self.logger.error("Failed to load ML model: %s", e)
             self.model = self._create_default_model()
             
@@ -133,7 +133,7 @@ class MLDetector:
             await self.redis.set(self.model_key, model_data)
             await self.redis.expire(self.model_key, 86400)  # 24 hour TTL
             self.logger.info("Saved ML model to %s", self.model_key)
-        except Exception as e:
+        except redis.RedisError as e:
             self.logger.error("Failed to save model: %s", e)
             raise
             
@@ -197,7 +197,7 @@ class MLModelManager:
                 }
                 for key in keys
             ]
-        except Exception as e:
+        except redis.RedisError as e:
             self.logger.error("Failed to list models: %s", e)
             return []
             

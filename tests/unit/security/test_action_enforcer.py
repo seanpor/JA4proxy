@@ -6,6 +6,7 @@ Tests action application, Redis state management, and enforcement logic.
 """
 
 import pytest
+import redis
 from unittest.mock import Mock, MagicMock, patch
 
 from src.security.action_types import ActionType, ActionConfig
@@ -26,6 +27,8 @@ def mock_redis():
     redis.delete.return_value = 0
     redis.ttl.return_value = -1
     redis.keys.return_value = []
+    redis.incr.return_value = 1  # repeat-offender counter returns int
+    redis.expire.return_value = True
     return redis
 
 
@@ -392,7 +395,7 @@ class TestEnforcementStats:
     
     def test_get_enforcement_stats_error(self, enforcer, mock_redis):
         """Test getting stats when Redis error occurs."""
-        mock_redis.keys.side_effect = Exception("Redis error")
+        mock_redis.keys.side_effect = redis.RedisError("Redis error")
         
         stats = enforcer.get_enforcement_stats()
         

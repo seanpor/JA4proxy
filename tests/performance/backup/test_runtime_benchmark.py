@@ -188,14 +188,19 @@ class TestRuntimeBenchmark:
         assert str(backup_path).endswith(".bin")
         
         # Performance assertion: verify scaling is reasonable (not quadratic)
-        # The duration should not increase faster than linearly with dataset size
+        # The duration should not increase faster than linearly with dataset size.
+        # Skip comparisons where the baseline duration is sub-50ms — timing at that
+        # resolution is unreliable due to GC pauses and OS scheduling jitter.
         for i in range(1, len(durations)):
             prev_keys, prev_size, prev_duration = durations[i-1]
             curr_keys, curr_size, curr_duration = durations[i]
-            
+
+            if prev_duration < 0.05:
+                continue  # baseline too fast to measure reliably
+
             size_ratio = (curr_keys * curr_size) / (prev_keys * prev_size)
             duration_ratio = curr_duration / prev_duration if prev_duration > 0 else 1
-            
+
             # Duration should not increase faster than 2x the size increase
             # (allowing some overhead for larger datasets)
             assert duration_ratio < size_ratio * 2, \

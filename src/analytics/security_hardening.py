@@ -89,7 +89,7 @@ class SecurityHardening:
             
             return True
             
-        except Exception as e:
+        except (redis.RedisError, TypeError, ValueError) as e:
             self.logger.error("Rate limiting error: %s", e)
             return True  # Fail open for safety
     
@@ -156,7 +156,7 @@ class SecurityHardening:
             except (json.JSONDecodeError, UnicodeDecodeError):
                 return None
                 
-        except Exception as e:
+        except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as e:
             self.logger.error("JWT validation error: %s", e)
             return None
     
@@ -192,7 +192,7 @@ class SecurityHardening:
             )
             await self.redis.expire(self.security_events_key, 86400 * 30)  # 30 days
             
-        except Exception as e:
+        except redis.RedisError as e:
             self.logger.error("Failed to log security event: %s", e)
     
     async def check_suspicious_activity(self, request_data: Dict[str, Any]) -> bool:
@@ -276,7 +276,7 @@ class SecurityHardening:
                 }
                 for log in logs
             ]
-        except Exception as e:
+        except redis.RedisError as e:
             self.logger.error("Failed to get audit logs: %s", e)
             return []
     
@@ -303,7 +303,7 @@ class SecurityHardening:
                 'status': 'active'
             }
             
-        except Exception as e:
+        except redis.RedisError as e:
             self.logger.error("Failed to get security metrics: %s", e)
             return {'status': 'error', 'error': str(e)}
 
