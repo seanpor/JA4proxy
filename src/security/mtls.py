@@ -78,7 +78,8 @@ class MTLSHandler:
                 )[0].value
                 if common_name not in self._cert_cn_allowlist:
                     self.logger.warning(
-                        f"mTLS verification failed: CN '{common_name}' not in allowlist."
+                        "mTLS verification failed: CN '%s' not in allowlist.",
+                        common_name
                     )
                     return False
 
@@ -88,7 +89,7 @@ class MTLSHandler:
             self.logger.warning("mTLS verification failed: Invalid signature.")
             return False
         except Exception as e:
-            self.logger.error(f"Error during mTLS verification: {e}")
+            self.logger.error("Error during mTLS verification: %s", e)
             return False
 
     def _load_ca_cert(self):
@@ -102,8 +103,9 @@ class MTLSHandler:
                 return x509.load_pem_x509_certificate(ca_cert_data)
             except FileNotFoundError:
                 self.logger.error(
-                    f"mTLS CA certificate not found at: {self._ca_cert_path}"
+                    "mTLS CA certificate not found at: %s",
+                    self._ca_cert_path
                 )
             except Exception as e:
-                self.logger.error(f"Error loading mTLS CA certificate: {e}")
+                self.logger.error("Error loading mTLS CA certificate: %s", e)
         return None

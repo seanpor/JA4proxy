@@ -121,6 +121,18 @@ _ANALYTICS_SIGNALS = Counter(
     ["signal_type"],
 )
 
+_SIGNAL_SKIPPED = Counter(
+    "ja4proxy_signal_skipped_total",
+    "Signals skipped due to expected dependency failures",
+    ["module", "reason"],
+)
+
+_SIGNAL_ERROR = Counter(
+    "ja4proxy_signal_error_total",
+    "Signals failed due to unexpected internal errors",
+    ["module"],
+)
+
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
@@ -393,15 +405,18 @@ class Pipeline:
                     )
                 )
                 _ANALYTICS_SIGNALS.labels(signal_type="slowscan").inc()
+        except (asyncio.TimeoutError, ConnectionError):
+            # Let dependency failures bubble up to _collect_signals
+            raise
         except Exception as exc:
-            logger.warning(
-                "analytics | event=redis_read_error | subnet=%s | error=%s",
+            logger.error(
+                "analytics | event=internal_error | subnet=%s | error=%s",
                 subnet,
                 exc,
+                exc_info=True,
             )
-            # Fail open: return no signals so a partial result is never cached.
-            # The next request will retry Redis.
-            return []
+            # Re-raise as a generic Exception to be caught by the outer block's _SIGNAL_ERROR
+            raise
 
         self._cache.analytics_signals.set(subnet, signals)
         return signals
@@ -641,9 +656,10 @@ class Pipeline:
         Each subsequent phase adds its module call here. Modules run
         concurrently where possible.
 
-        The method must never raise. Individual module errors are caught
-        and logged; the pipeline continues with whatever signals were
-        collected before the error.
+        Expected dependency failures (Redis down, DNS timeout) result in a
+        fail-open (signal skipped) to prevent blocking legitimate users due
+        to infrastructure issues. Unexpected logic errors are logged as
+        errors and also result in a skip.
         """
         signals = []
 
@@ -681,11 +697,19 @@ class Pipeline:
                 exc,
                 exc_info=True,
             )
+            _SIGNAL_ERROR.labels(module="sni_analyzer").inc()
 
         # Phase 5a: TCP analysis
         try:
             tcp_signals = await self._tcp_analyzer.analyze(ctx)
             signals.extend(tcp_signals)
+        except (asyncio.TimeoutError, ConnectionError) as exc:
+            logger.warning(
+                "tcp_analyzer | event=dependency_failure | ip=%s | error=%s",
+                ctx.client_ip,
+                exc,
+            )
+            _SIGNAL_SKIPPED.labels(module="tcp_analyzer", reason="timeout_or_conn_error").inc()
         except Exception as exc:
             logger.error(
                 "tcp_analyzer | event=analysis_error | ip=%s | error=%s",
@@ -693,11 +717,19 @@ class Pipeline:
                 exc,
                 exc_info=True,
             )
+            _SIGNAL_ERROR.labels(module="tcp_analyzer").inc()
 
         # Phase 6: ASN classification
         try:
             asn_signals = await self._asn_classifier.signals(ctx)
             signals.extend(asn_signals)
+        except (asyncio.TimeoutError, ConnectionError) as exc:
+            logger.warning(
+                "asn_classifier | event=dependency_failure | ip=%s | error=%s",
+                ctx.client_ip,
+                exc,
+            )
+            _SIGNAL_SKIPPED.labels(module="asn_classifier", reason="timeout_or_conn_error").inc()
         except Exception as exc:
             logger.error(
                 "asn_classifier | event=analysis_error | ip=%s | error=%s",
@@ -705,12 +737,20 @@ class Pipeline:
                 exc,
                 exc_info=True,
             )
+            _SIGNAL_ERROR.labels(module="asn_classifier").inc()
 
         # Phase 7: DNS/FCrDNS enrichment
         try:
             dns_signal = await self._dns_enrichment.get_signal(ctx.client_ip)
             if dns_signal is not None:
                 signals.append(dns_signal)
+        except (asyncio.TimeoutError, ConnectionError) as exc:
+            logger.warning(
+                "dns_enrichment | event=dependency_failure | ip=%s | error=%s",
+                ctx.client_ip,
+                exc,
+            )
+            _SIGNAL_SKIPPED.labels(module="dns_enrichment", reason="timeout_or_conn_error").inc()
         except Exception as exc:
             logger.error(
                 "dns_enrichment | event=analysis_error | ip=%s | error=%s",
@@ -718,6 +758,7 @@ class Pipeline:
                 exc,
                 exc_info=True,
             )
+            _SIGNAL_ERROR.labels(module="dns_enrichment").inc()
 
         # Phase 8: Non-bypass blocklist signals (is_bypass=false feeds)
         try:
@@ -730,10 +771,9 @@ class Pipeline:
                 exc,
                 exc_info=True,
             )
+            _SIGNAL_ERROR.labels(module="blocklist").inc()
 
         # Rate limiting: multi-strategy sliding window (by_ip, by_ja4, by_ip+ja4 pair)
-        # Uses majority policy: 2 of 3 strategies must agree to produce a signal.
-        # Bypass (browser ALPN) connections already returned early — never reach here.
         if self._rate_tracker is not None:
             try:
                 metrics = await self._rate_tracker.track_connection(
@@ -762,13 +802,11 @@ class Pipeline:
                     # Majority policy: pick the level that ≥2 strategies agree on
                     from collections import Counter as _Counter
                     level_counts = _Counter(strategy_levels.values())
-                    # Order: ban > block > suspicious
                     majority_level = None
                     for lvl in ("ban", "block", "suspicious"):
                         if level_counts.get(lvl, 0) >= 2:
                             majority_level = lvl
                             break
-                    # Single strategy crossing ban overrides majority for ban tier
                     if majority_level is None and "ban" in strategy_levels.values():
                         majority_level = "ban"
 
@@ -785,6 +823,13 @@ class Pipeline:
                         ).inc()
                         for strat, lvl in strategy_levels.items():
                             _RATE_LIMIT_SIGNALS.labels(strategy=strat, level=lvl).inc()
+            except (asyncio.TimeoutError, ConnectionError) as exc:
+                logger.warning(
+                    "rate_limiter | event=dependency_failure | ip=%s | error=%s",
+                    ctx.client_ip,
+                    exc,
+                )
+                _SIGNAL_SKIPPED.labels(module="rate_limiter", reason="timeout_or_conn_error").inc()
             except Exception as exc:
                 logger.error(
                     "rate_limiter | event=signal_error | ip=%s | error=%s",
@@ -792,12 +837,20 @@ class Pipeline:
                     exc,
                     exc_info=True,
                 )
+                _SIGNAL_ERROR.labels(module="rate_limiter").inc()
 
         # Phase 9: Beaconing detection (IAT coefficient of variation)
         try:
             beacon_signal = await self._beaconing_detector.get_signal(ctx)
             if beacon_signal is not None:
                 signals.append(beacon_signal)
+        except (asyncio.TimeoutError, ConnectionError) as exc:
+            logger.warning(
+                "beaconing_detector | event=dependency_failure | ip=%s | error=%s",
+                ctx.client_ip,
+                exc,
+            )
+            _SIGNAL_SKIPPED.labels(module="beaconing_detector", reason="timeout_or_conn_error").inc()
         except Exception as exc:
             logger.error(
                 "beaconing_detector | event=analysis_error | ip=%s | error=%s",
@@ -805,6 +858,7 @@ class Pipeline:
                 exc,
                 exc_info=True,
             )
+            _SIGNAL_ERROR.labels(module="beaconing_detector").inc()
 
         # Phase 10: AbuseIPDB reputation (three-tier cache; hot path never blocks)
         if self._abuseipdb_checker is not None:
@@ -812,6 +866,13 @@ class Pipeline:
                 abuseipdb_signal = self._abuseipdb_checker.get_signal(ctx.client_ip)
                 if abuseipdb_signal is not None:
                     signals.append(abuseipdb_signal)
+            except (asyncio.TimeoutError, ConnectionError) as exc:
+                logger.warning(
+                    "abuseipdb | event=dependency_failure | ip=%s | error=%s",
+                    ctx.client_ip,
+                    exc,
+                )
+                _SIGNAL_SKIPPED.labels(module="abuseipdb", reason="timeout_or_conn_error").inc()
             except Exception as exc:
                 logger.error(
                     "abuseipdb | event=get_signal_error | ip=%s | error=%s",
@@ -819,6 +880,7 @@ class Pipeline:
                     exc,
                     exc_info=True,
                 )
+                _SIGNAL_ERROR.labels(module="abuseipdb").inc()
 
         # Phase 11: RDAP enrichment (called LAST; trigger_score is running subtotal)
         if self._rdap_enricher is not None:
@@ -830,6 +892,13 @@ class Pipeline:
                     ctx.client_ip, running_score
                 )
                 signals.extend(rdap_signals)
+            except (asyncio.TimeoutError, ConnectionError) as exc:
+                logger.warning(
+                    "rdap_enricher | event=dependency_failure | ip=%s | error=%s",
+                    ctx.client_ip,
+                    exc,
+                )
+                _SIGNAL_SKIPPED.labels(module="rdap_enricher", reason="timeout_or_conn_error").inc()
             except Exception as exc:
                 logger.error(
                     "rdap_enricher | event=get_signal_error | ip=%s | error=%s",
@@ -837,11 +906,19 @@ class Pipeline:
                     exc,
                     exc_info=True,
                 )
+                _SIGNAL_ERROR.labels(module="rdap_enricher").inc()
 
         # Phase 12: Analytics cross-instance signals (campaign detection, slow-scan)
         try:
             analytics_signals = self._get_analytics_signals(ctx.client_ip)
             signals.extend(analytics_signals)
+        except (asyncio.TimeoutError, ConnectionError) as exc:
+            logger.warning(
+                "analytics | event=dependency_failure | ip=%s | error=%s",
+                ctx.client_ip,
+                exc,
+            )
+            _SIGNAL_SKIPPED.labels(module="analytics", reason="timeout_or_conn_error").inc()
         except Exception as exc:
             logger.error(
                 "analytics | event=signal_error | ip=%s | error=%s",
@@ -849,6 +926,7 @@ class Pipeline:
                 exc,
                 exc_info=True,
             )
+            _SIGNAL_ERROR.labels(module="analytics").inc()
 
         return signals
 

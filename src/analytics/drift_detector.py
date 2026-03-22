@@ -67,8 +67,8 @@ class DriftDetector:
             # Store alert
             await self._store_alert(drift_result)
             
-            self.logger.warning(f"Score drift detected: z_score={drift_result['z_score']:.2f}, "
-                               f"severity={drift_result['severity']}")
+            self.logger.warning("Score drift detected: z_score=%.2f, severity=%s",
+                               drift_result['z_score'], drift_result['severity'])
             
             return drift_result
         

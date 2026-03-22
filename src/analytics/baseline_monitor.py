@@ -84,8 +84,8 @@ class BaselineMonitor:
         key = f"{self.baseline_key_prefix}:{self.current_hour}"
         await self.redis.set(key, json.dumps(baseline), ex=self.retention_days * 86400)
         
-        self.logger.info(f"Captured baseline for hour {self.current_hour}: median={baseline['median_score']:.2f}, "
-                        f"events={baseline['event_count']}")
+        self.logger.info("Captured baseline for hour %s: median=%.2f, events=%s",
+                        self.current_hour, baseline['median_score'], baseline['event_count'])
 
     def _calculate_median(self, sorted_scores: List[float]) -> float:
         """Calculate median score."""

@@ -65,7 +65,7 @@ class ActionEnforcer:
         try:
             self.redis.ping()
         except Exception as e:
-            self.logger.error(f"Redis connection failed: {e}")
+            self.logger.error("Redis connection failed: %s", e)
             raise
     
     def enforce(
@@ -124,7 +124,7 @@ class ActionEnforcer:
         
         else:
             # Unknown tier - fail secure
-            self.logger.error(f"Unknown threat tier: {tier}")
+            self.logger.error("Unknown threat tier: %s", tier)
             return ActionResult(
                 allowed=False,
                 action_type=ActionType.BLOCK,
@@ -218,7 +218,8 @@ class ActionEnforcer:
                 block_key = f"blocked:{block_type}:{entity_id}"
                 if self.redis.delete(block_key):
                     self.logger.warning(
-                        f"MANUAL UNBAN: Removed {block_type} block for {strat.value}:{entity_id[:32]}"
+                        "MANUAL UNBAN: Removed %s block for %s:%s",
+                        block_type, strat.value, entity_id[:32]
                     )
                     unbanned = True
             
@@ -227,7 +228,8 @@ class ActionEnforcer:
                 ban_key = f"banned:{ban_type}:{entity_id}"
                 if self.redis.delete(ban_key):
                     self.logger.warning(
-                        f"MANUAL UNBAN: Removed {ban_type} ban for {strat.value}:{entity_id[:32]}"
+                        "MANUAL UNBAN: Removed %s ban for %s:%s",
+                        ban_type, strat.value, entity_id[:32]
                     )
                     unbanned = True
         
@@ -287,8 +289,8 @@ class ActionEnforcer:
     ) -> ActionResult:
         """Log suspicious activity but allow connection."""
         self.logger.warning(
-            f"SUSPICIOUS: IP={ip[:32]} JA4={ja4[:16]} "
-            f"strategy={strategy.value if strategy else 'unknown'}"
+            "SUSPICIOUS: IP=%s JA4=%s strategy=%s",
+            ip[:32], ja4[:16], strategy.value if strategy else 'unknown'
         )
         
         # Store in Redis with short TTL for investigation
@@ -328,11 +330,11 @@ class ActionEnforcer:
                 multiplier = min(2 ** (offense_count - 1), 86400 // max(duration, 1))
                 duration = min(duration * multiplier, 86400)
                 self.logger.info(
-                    f"REPEAT_OFFENDER: {entity_id[:32]} offense #{offense_count} → "
-                    f"block duration escalated to {duration}s"
+                    "REPEAT_OFFENDER: %s offense #%s → block duration escalated to %ss",
+                    entity_id[:32], offense_count, duration
                 )
         except Exception as e:
-            self.logger.warning(f"Repeat-offender escalation failed (non-fatal): {e}")
+            self.logger.warning("Repeat-offender escalation failed (non-fatal): %s", e)
         
         # Store block in Redis
         if action_type == ActionType.TARPIT:
@@ -341,8 +343,8 @@ class ActionEnforcer:
             self.redis.setex(block_key, duration, str(self.action_config.tarpit_duration))
             
             self.logger.warning(
-                f"TARPIT: IP={ip[:32]} JA4={ja4[:16]} "
-                f"delay={self.action_config.tarpit_duration}s duration={duration}s"
+                "TARPIT: IP=%s JA4=%s delay=%ss duration=%ss",
+                ip[:32], ja4[:16], self.action_config.tarpit_duration, duration
             )
             
             reason = f"Rate limit exceeded - TARPIT {self.action_config.tarpit_duration}s"
@@ -352,7 +354,8 @@ class ActionEnforcer:
             self.redis.setex(block_key, duration, "1")
             
             self.logger.warning(
-                f"BLOCK: IP={ip[:32]} JA4={ja4[:16]} duration={duration}s"
+                "BLOCK: IP=%s JA4=%s duration=%ss",
+                ip[:32], ja4[:16], duration
             )
             
             reason = "Rate limit exceeded - blocked"
@@ -381,8 +384,8 @@ class ActionEnforcer:
             self.redis.set(ban_key, "1")
             
             self.logger.error(
-                f"PERMANENT BAN: IP={ip[:32]} JA4={ja4[:16]} "
-                f"strategy={strategy.value if strategy else 'unknown'}"
+                "PERMANENT BAN: IP=%s JA4=%s strategy=%s",
+                ip[:32], ja4[:16], strategy.value if strategy else 'unknown'
             )
             
             reason = "Permanently banned for excessive abuse"
@@ -393,8 +396,8 @@ class ActionEnforcer:
             self.redis.setex(ban_key, ban_duration, "1")
             
             self.logger.error(
-                f"BAN: IP={ip[:32]} JA4={ja4[:16]} "
-                f"duration={ban_duration}s strategy={strategy.value if strategy else 'unknown'}"
+                "BAN: IP=%s JA4=%s duration=%ss strategy=%s",
+                ip[:32], ja4[:16], ban_duration, strategy.value if strategy else 'unknown'
             )
             
             reason = f"Banned for {ban_duration}s"
@@ -437,7 +440,7 @@ class ActionEnforcer:
                 'suspicious': suspicious,
             }
         except Exception as e:
-            self.logger.error(f"Error getting enforcement stats: {e}")
+            self.logger.error("Error getting enforcement stats: %s", e)
             return {}
     
     @classmethod

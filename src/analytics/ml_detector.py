@@ -104,9 +104,9 @@ class MLDetector:
             # In production, this would load a real ML model
             # For Phase 12e initial implementation, we use a simple threshold model
             self.model = self._create_default_model()
-            self.logger.info(f"Loaded ML model version {self.model_version}")
+            self.logger.info("Loaded ML model version %s", self.model_version)
         except Exception as e:
-            self.logger.error(f"Failed to load ML model: {e}")
+            self.logger.error("Failed to load ML model: %s", e)
             self.model = self._create_default_model()
             
     def _create_default_model(self):
@@ -132,9 +132,9 @@ class MLDetector:
         try:
             await self.redis.set(self.model_key, model_data)
             await self.redis.expire(self.model_key, 86400)  # 24 hour TTL
-            self.logger.info(f"Saved ML model to {self.model_key}")
+            self.logger.info("Saved ML model to %s", self.model_key)
         except Exception as e:
-            self.logger.error(f"Failed to save model: {e}")
+            self.logger.error("Failed to save model: %s", e)
             raise
             
     async def detect(self, fingerprints: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -198,7 +198,7 @@ class MLModelManager:
                 for key in keys
             ]
         except Exception as e:
-            self.logger.error(f"Failed to list models: {e}")
+            self.logger.error("Failed to list models: %s", e)
             return []
             
     async def delete_model(self, version: str):
