@@ -405,18 +405,23 @@ class Pipeline:
                     )
                 )
                 _ANALYTICS_SIGNALS.labels(signal_type="slowscan").inc()
-        except (asyncio.TimeoutError, ConnectionError):
-            # Let dependency failures bubble up to _collect_signals
-            raise
-        except Exception as exc:
+        except (asyncio.TimeoutError, ConnectionError) as exc:
+            # Fail open — analytics signals are enrichment only; any failure returns []
             logger.error(
                 "analytics | event=internal_error | subnet=%s | error=%s",
                 subnet,
                 exc,
-                exc_info=True,
             )
-            # Re-raise as a generic Exception to be caught by the outer block's _SIGNAL_ERROR
-            raise
+            _SIGNAL_SKIPPED.labels(module="analytics", reason="timeout_or_conn_error").inc()
+            return []
+        except Exception as exc:
+            # Fail open — analytics signals are enrichment only; any failure returns []
+            logger.error(
+                "analytics | event=internal_error | subnet=%s | error=%s",
+                subnet,
+                exc,
+            )
+            return []
 
         self._cache.analytics_signals.set(subnet, signals)
         return signals
