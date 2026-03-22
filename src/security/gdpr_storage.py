@@ -106,7 +106,7 @@ class GDPRStorage:
         # Verify Redis connection
         try:
             self.redis.ping()
-        except Exception as e:
+        except redis.RedisError as e:
             self.logger.error("Redis connection failed: %s", e)
             raise
     
@@ -205,7 +205,7 @@ class GDPRStorage:
                 })
             
             return True
-        except Exception as e:
+        except redis.RedisError as e:
             self.logger.error("Failed to store key %s: %s", self._hash_key(key), e)
             return False
     
@@ -252,7 +252,7 @@ class GDPRStorage:
                 )
             
             return result
-        except Exception as e:
+        except redis.RedisError as e:
             self.logger.error("Failed to verify compliance: %s", e)
             return {
                 'error': str(e),
@@ -289,7 +289,7 @@ class GDPRStorage:
                 self.logger.info("Cleaned up %s expired keys", cleaned)
             
             return cleaned
-        except Exception as e:
+        except redis.RedisError as e:
             self.logger.error("Failed to cleanup expired keys: %s", e)
             return 0
     
@@ -328,7 +328,7 @@ class GDPRStorage:
             for category, pattern in patterns.items():
                 keys = self.redis.keys(pattern)
                 report['key_counts'][category.value] = len(keys)
-        except Exception as e:
+        except redis.RedisError as e:
             self.logger.error("Failed to count keys: %s", e)
         
         return report
@@ -347,7 +347,7 @@ class GDPRStorage:
             # Convert dict to string for storage
             import json
             self.redis.setex(audit_key, audit_ttl, json.dumps(entry))
-        except Exception as e:
+        except (redis.RedisError, json.JSONDecodeError, ValueError) as e:
             self.logger.error("Failed to write audit log: %s", e)
     
     def get_audit_logs(self, limit: int = 100) -> List[Dict]:
@@ -373,11 +373,11 @@ class GDPRStorage:
                     data = self.redis.get(key)
                     if data:
                         logs.append(json.loads(data))
-                except Exception as e:
+                except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as e:
                     self.logger.error("Failed to parse audit log: %s", e)
-            
+
             return logs
-        except Exception as e:
+        except redis.RedisError as e:
             self.logger.error("Failed to retrieve audit logs: %s", e)
             return []
     

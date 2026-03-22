@@ -88,7 +88,7 @@ class MTLSHandler:
         except InvalidSignature:
             self.logger.warning("mTLS verification failed: Invalid signature.")
             return False
-        except Exception as e:
+        except (ValueError, TypeError, OSError) as e:
             self.logger.error("Error during mTLS verification: %s", e)
             return False
 
@@ -106,6 +106,6 @@ class MTLSHandler:
                     "mTLS CA certificate not found at: %s",
                     self._ca_cert_path
                 )
-            except Exception as e:
+            except (OSError, ValueError) as e:
                 self.logger.error("Error loading mTLS CA certificate: %s", e)
         return None

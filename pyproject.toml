@@ -44,6 +44,7 @@ filterwarnings = [
     # pycares async DNS callbacks arrive after asyncio loop closes during test teardown.
     # This is a known interaction between pycares, Python 3.10 asyncio, and pytest-asyncio.
     # Nothing actionable in our code — pycares teardown is outside our control.
+    # Approved Exception #001: see docs/security/EXCEPTIONS.md
     "ignore::pytest.PytestUnraisableExceptionWarning",
 ]
 

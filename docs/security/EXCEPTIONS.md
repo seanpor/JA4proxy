@@ -18,7 +18,7 @@ This document tracks all manual approvals for deviations from the project's Zero
 
 | ID | Type | Target | Justification | Approved By | Expiry Date |
 |----|------|--------|---------------|-------------|-------------|
-| #... | [Skip/Warning] | [File/Test Name] | [Technical rationale] | [Conversation ID/TS] | [YYYY-MM-DD] |
+| #001 | Warning suppression | `pyproject.toml`: `ignore::pytest.PytestUnraisableExceptionWarning` | pycares async DNS callbacks arrive after the asyncio loop closes during test teardown. This is a known upstream bug in pycares's interaction with Python 3.10+ asyncio and pytest-asyncio. No actionable fix exists in our code — pycares teardown is entirely outside our control. | User approval 2026-03-21 | 2026-12-31 |
 
 ---
 
