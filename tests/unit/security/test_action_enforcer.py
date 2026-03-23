@@ -5,12 +5,13 @@ Unit tests for action enforcement.
 Tests action application, Redis state management, and enforcement logic.
 """
 
+from unittest.mock import MagicMock, Mock, patch
+
 import pytest
 import redis
-from unittest.mock import Mock, MagicMock, patch
 
-from src.security.action_types import ActionType, ActionConfig
 from src.security.action_enforcer import ActionEnforcer
+from src.security.action_types import ActionConfig, ActionType
 from src.security.rate_strategy import RateLimitStrategy
 from src.security.threat_tier import ThreatTier
 

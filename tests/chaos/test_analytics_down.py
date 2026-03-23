@@ -17,7 +17,6 @@ from src.cache.local_cache import LocalCache
 from src.security.models import ConnectionContext, RiskSignal
 from src.security.pipeline import Pipeline
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -110,8 +109,8 @@ def test_pipeline_scores_correctly_when_analytics_redis_down():
     redis_mock = MagicMock()
     redis_mock.get.side_effect = ConnectionError("Redis down")
 
-    from src.security.risk_scorer import RiskScorer
     from src.security.action_decider import ActionDecider
+    from src.security.risk_scorer import RiskScorer
 
     pipeline = _make_pipeline(redis_mock)
     pipeline.update_scorer(RiskScorer({}), ActionDecider({}))

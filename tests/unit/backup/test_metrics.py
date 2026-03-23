@@ -2,20 +2,31 @@
 Test suite for backup and restore metrics.
 Tests that Prometheus metrics are properly updated during operations.
 """
-import pytest
 import hashlib
 import json
 import os
 from unittest.mock import MagicMock, patch
-from src.backup.worker import (
-    BackupWorker, BACKUP_OPERATIONS_TOTAL, BACKUP_KEYS_PROCESSED_TOTAL,
-    BACKUP_DURATION_SECONDS, BACKUP_SIZE_BYTES, BACKUP_LAST_SUCCESS_TIMESTAMP,
-    BACKUP_LAST_FAILURE_TIMESTAMP, BACKUP_CURRENTLY_RUNNING
-)
+
+import pytest
+
 from src.backup.restorer import (
-    BackupRestorer, RESTORE_OPERATIONS_TOTAL, RESTORE_DURATION_SECONDS,
-    RESTORE_LAST_SUCCESS_TIMESTAMP, RESTORE_LAST_FAILURE_TIMESTAMP,
-    RESTORE_CURRENTLY_RUNNING, RESTORE_KEYS_RESTORED_TOTAL
+    RESTORE_CURRENTLY_RUNNING,
+    RESTORE_DURATION_SECONDS,
+    RESTORE_KEYS_RESTORED_TOTAL,
+    RESTORE_LAST_FAILURE_TIMESTAMP,
+    RESTORE_LAST_SUCCESS_TIMESTAMP,
+    RESTORE_OPERATIONS_TOTAL,
+    BackupRestorer,
+)
+from src.backup.worker import (
+    BACKUP_CURRENTLY_RUNNING,
+    BACKUP_DURATION_SECONDS,
+    BACKUP_KEYS_PROCESSED_TOTAL,
+    BACKUP_LAST_FAILURE_TIMESTAMP,
+    BACKUP_LAST_SUCCESS_TIMESTAMP,
+    BACKUP_OPERATIONS_TOTAL,
+    BACKUP_SIZE_BYTES,
+    BackupWorker,
 )
 
 

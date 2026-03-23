@@ -8,23 +8,23 @@ import asyncio
 import json
 import unittest
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch, mock_open, call
+from unittest.mock import AsyncMock, MagicMock, call, mock_open, patch
 
+from src.cache.local_cache import LocalCache
+from src.security.models import RiskSignal
 from src.security.rdap_enrichment import (
-    RDAPEnricher,
     RDAPConfig,
+    RDAPEnricher,
     RDAPResult,
     RegistryRateLimiter,
     _BlockExpansionConfig,
-    _OrgReputationConfig,
-    _NewNetblockConfig,
     _compute_expansion_cidr,
     _extract_netblock,
     _extract_org,
+    _NewNetblockConfig,
+    _OrgReputationConfig,
     new_netblock_signal,
 )
-from src.security.models import RiskSignal
-from src.cache.local_cache import LocalCache
 
 
 def _run(coro):

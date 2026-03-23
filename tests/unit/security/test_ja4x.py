@@ -20,7 +20,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from src.security.models import ConnectionContext, PipelineResult
 from src.security.pipeline import Pipeline
 
-
 # ---------------------------------------------------------------------------
 # JA4X hash computation helpers
 # ---------------------------------------------------------------------------
@@ -130,11 +129,12 @@ class TestExtractJA4XFromCert(unittest.TestCase):
         """Self-signed DER cert → three-part hash string."""
         # Generate a minimal self-signed cert using cryptography
         try:
+            import datetime
+
             from cryptography import x509
             from cryptography.hazmat.primitives import hashes, serialization
             from cryptography.hazmat.primitives.asymmetric import rsa
             from cryptography.x509.oid import NameOID
-            import datetime
 
             key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
             subject = issuer = x509.Name([
@@ -171,11 +171,12 @@ class TestExtractJA4XFromCert(unittest.TestCase):
     def test_cert_without_san_uses_empty_san(self):
         """Cert without SAN extension → san_hash is empty-string hash (000000000000)."""
         try:
+            import datetime
+
             from cryptography import x509
             from cryptography.hazmat.primitives import hashes, serialization
             from cryptography.hazmat.primitives.asymmetric import rsa
             from cryptography.x509.oid import NameOID
-            import datetime
 
             key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
             subject = issuer = x509.Name([
@@ -387,11 +388,12 @@ class TestJA4XCertExtraction(unittest.TestCase):
     def test_client_cert_populates_ja4x(self):
         """ctx.client_certificate (DER bytes) → ctx.ja4x populated during collect_signals."""
         try:
+            import datetime
+
             from cryptography import x509
             from cryptography.hazmat.primitives import hashes, serialization
             from cryptography.hazmat.primitives.asymmetric import rsa
             from cryptography.x509.oid import NameOID
-            import datetime
 
             key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
             subject = issuer = x509.Name([

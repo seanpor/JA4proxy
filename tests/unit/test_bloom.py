@@ -10,8 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.cache.bloom import BloomFilter, _FALLBACK_TTL_SECONDS
-
+from src.cache.bloom import _FALLBACK_TTL_SECONDS, BloomFilter
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -3,21 +3,23 @@
 Comprehensive test suite for JA4 Proxy
 """
 
-import pytest
 import asyncio
 import hashlib
 import os
 import time
-from unittest.mock import Mock, patch, AsyncMock
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
 import redis
+
 from proxy import (
-    JA4Fingerprint,
-    TLSParser,
-    JA4Generator,
     ConfigManager,
+    JA4Fingerprint,
+    JA4Generator,
+    ProxyServer,
     SecurityManager,
     TarpitManager,
-    ProxyServer,
+    TLSParser,
 )
 
 # Valid JA4 fingerprint strings for test use

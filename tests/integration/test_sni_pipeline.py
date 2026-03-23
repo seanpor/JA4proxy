@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Integration tests for SNI analysis in the security pipeline (Phase 4)."""
 
-import pytest
 import asyncio
-from unittest.mock import Mock, AsyncMock
-from src.security.pipeline import Pipeline, ConnectionContext
-from src.security.risk_scorer import RiskScorer
-from src.security.action_decider import ActionDecider
+from unittest.mock import AsyncMock, Mock
+
+import pytest
+
 from src.cache.local_cache import LocalCache
+from src.security.action_decider import ActionDecider
+from src.security.pipeline import ConnectionContext, Pipeline
+from src.security.risk_scorer import RiskScorer
 
 
 @pytest.mark.asyncio

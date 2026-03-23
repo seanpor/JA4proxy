@@ -13,8 +13,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.cache.local_cache import LocalCache
-from src.pubsub import PubSubHandler, CHANNEL
-
+from src.pubsub import CHANNEL, PubSubHandler
 
 # ---------------------------------------------------------------------------
 # Fixtures

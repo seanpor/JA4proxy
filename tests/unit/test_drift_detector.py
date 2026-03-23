@@ -1,10 +1,12 @@
 # Unit Tests for Drift Detector
 # Phase 12c: Score Drift Monitoring & Observability
 
-import pytest
-import time
 import json
+import time
 from unittest.mock import AsyncMock
+
+import pytest
+
 from src.analytics.drift_detector import DriftDetector
 
 

@@ -2,10 +2,12 @@
 Test suite for manifest loader and validator.
 Tests invalid JSON, missing fields, mismatched filename, corrupted schema.
 """
-import pytest
 import json
 import os
 from pathlib import Path
+
+import pytest
+
 from src.backup.restorer import BackupRestorer, RestoreError
 
 

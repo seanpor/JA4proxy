@@ -1,8 +1,10 @@
 # Unit Tests for Aggregation
 # Phase 12a: Foundation
 
-import pytest
 import time
+
+import pytest
+
 from src.analytics.aggregation import AggregationManager, HyperLogLogManager
 
 

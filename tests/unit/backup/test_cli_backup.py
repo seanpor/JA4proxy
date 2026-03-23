@@ -2,10 +2,12 @@
 Test suite for CLI backup command.
 Tests argument parsing failures and successful backup execution.
 """
-import pytest
 import os
 import sys
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from src.cli.backup_cli import BackupCLI
 
 

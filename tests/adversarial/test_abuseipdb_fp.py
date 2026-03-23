@@ -17,7 +17,6 @@ import unittest
 
 from src.security.abuseipdb import abuseipdb_to_risk_signal
 
-
 # Default thresholds from risk_scorer.py
 _THRESHOLDS = {
     "flag": 20,

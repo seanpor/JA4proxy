@@ -18,7 +18,6 @@ import pytest
 
 from src.analytics.aggregation import AdaptiveRateComputer
 
-
 # ---------------------------------------------------------------------------
 # AdaptiveRateComputer — unit tests
 # ---------------------------------------------------------------------------

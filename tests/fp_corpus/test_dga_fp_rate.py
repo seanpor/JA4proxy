@@ -5,6 +5,7 @@ Coverage: Tranco top 10,000 domains
 Owner: Phase 16
 """
 from pathlib import Path
+
 from src.security.sni_analyzer import SNIAnalyzer
 
 FP_DATA_DIR = Path(__file__).parent / "data"

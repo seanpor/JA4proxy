@@ -7,12 +7,12 @@ in get_retention_report and _audit_log.
 """
 
 import json
-import pytest
-import redis
 from unittest.mock import MagicMock, patch
 
-from src.security.gdpr_storage import GDPRStorage, DataCategory
+import pytest
+import redis
 
+from src.security.gdpr_storage import DataCategory, GDPRStorage
 
 # ---------------------------------------------------------------------------
 # Helpers

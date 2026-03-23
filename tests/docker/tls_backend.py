@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Minimal HTTPS backend for Go proxy integration tests."""
-import ssl
 import http.server
+import ssl
 
 
 class Handler(http.server.BaseHTTPRequestHandler):

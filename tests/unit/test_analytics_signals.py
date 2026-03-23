@@ -19,7 +19,6 @@ import pytest
 from src.cache.local_cache import LocalCache
 from src.security.pipeline import Pipeline
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

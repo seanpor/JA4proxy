@@ -6,14 +6,14 @@ Covers all uncovered lines including exception paths, tier routing,
 __repr__, and the create_security_manager convenience function.
 """
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 import redis
-from unittest.mock import MagicMock, AsyncMock, patch
 
+from src.security.action_types import ActionType
 from src.security.security_manager import SecurityManager, create_security_manager
 from src.security.threat_tier import ThreatTier
-from src.security.action_types import ActionType
-
 
 # ---------------------------------------------------------------------------
 # Helpers

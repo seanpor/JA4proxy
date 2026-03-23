@@ -2,9 +2,11 @@
 Test suite for filesystem permission validation.
 Tests that backup operations validate filesystem permissions and security.
 """
-import pytest
 import os
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from src.backup.worker import BackupWorker
 
 
@@ -114,7 +116,9 @@ def test_filesystem_validation_logging():
     """Test that filesystem validation failures are properly logged."""
     import logging
     from unittest.mock import MagicMock, patch
-    from src.backup.worker import BackupWorker, logger as worker_logger
+
+    from src.backup.worker import BackupWorker
+    from src.backup.worker import logger as worker_logger
     
     # Set up logging capture
     with patch('src.backup.worker.logger.error') as mock_error:

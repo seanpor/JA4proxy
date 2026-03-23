@@ -1,11 +1,19 @@
 # Security Hardening Tests
 # Phase 12d: Security Hardening
 
-import pytest
-import time
 import json
+import time
 from unittest.mock import AsyncMock
-from src.analytics.security_hardening import SecurityHardening, SecurityEvent, SecurityError, RateLimitExceededError, AuthenticationError
+
+import pytest
+
+from src.analytics.security_hardening import (
+    AuthenticationError,
+    RateLimitExceededError,
+    SecurityError,
+    SecurityEvent,
+    SecurityHardening,
+)
 
 
 @pytest.mark.asyncio

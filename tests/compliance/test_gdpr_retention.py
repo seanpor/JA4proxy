@@ -9,12 +9,13 @@ These tests verify that the system complies with GDPR requirements:
 - Integrity and confidentiality
 """
 
+import time
+from unittest.mock import MagicMock, Mock
+
 import pytest
 import redis
-import time
-from unittest.mock import Mock, MagicMock
 
-from src.security.gdpr_storage import GDPRStorage, DataCategory
+from src.security.gdpr_storage import DataCategory, GDPRStorage
 
 
 @pytest.fixture

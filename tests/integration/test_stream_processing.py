@@ -1,13 +1,14 @@
 # Integration Tests for Stream Processing
 # Phase 12a: Foundation  |  Phase 12 gap-close: Redis HLL + hot-reload
 
-import pytest
 import asyncio
 import time
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
-from src.analytics.stream_consumer import StreamConsumer
+import pytest
+
 from src.analytics.authentication import HMACAuthenticator
+from src.analytics.stream_consumer import StreamConsumer
 
 
 class TestStreamConsumerIntegration:
@@ -282,6 +283,7 @@ class TestAnalyticsNodeHotReload:
     def test_handle_reload_updates_config(self, tmp_path):
         """_handle_reload() reloads config from disk and updates self.config."""
         import yaml
+
         from src.analytics.main import AnalyticsNode
 
         config_data = {
@@ -314,6 +316,7 @@ class TestAnalyticsNodeHotReload:
     def test_handle_reload_propagates_to_consumer(self, tmp_path):
         """_handle_reload() updates consumer.batch_size and consumer.timeout_ms."""
         import yaml
+
         from src.analytics.main import AnalyticsNode
 
         config_data = {
@@ -348,6 +351,7 @@ class TestAnalyticsNodeHotReload:
     def test_handle_reload_bad_file_does_not_crash(self, tmp_path):
         """_handle_reload() with a corrupt config file logs a warning and keeps old config."""
         import yaml
+
         from src.analytics.main import AnalyticsNode
 
         config_data = {

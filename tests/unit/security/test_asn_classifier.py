@@ -1,7 +1,8 @@
 import asyncio
 import unittest
-from unittest.mock import AsyncMock, MagicMock, patch, mock_open
-from src.security.asn_classifier import ASNClassifier, ASNClassification, RISK_SCORES
+from unittest.mock import AsyncMock, MagicMock, mock_open, patch
+
+from src.security.asn_classifier import RISK_SCORES, ASNClassification, ASNClassifier
 from src.security.models import ConnectionContext
 
 # Capture real implementation at import time — before the session-level

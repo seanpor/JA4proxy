@@ -12,8 +12,8 @@ from src.security.tls_enforcer import (
     TLS11,
     TLS12,
     TLS13,
-    TLSEnforcer,
     WEAK_CIPHERS,
+    TLSEnforcer,
 )
 
 # ---------------------------------------------------------------------------

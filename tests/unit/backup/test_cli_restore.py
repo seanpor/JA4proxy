@@ -2,12 +2,14 @@
 Test suite for CLI restore command.
 Tests argument-parsing failures, validation failures, and force path.
 """
-import pytest
+import hashlib
+import json
 import os
 import sys
-import json
-import hashlib
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from src.cli.backup_cli import BackupCLI
 
 

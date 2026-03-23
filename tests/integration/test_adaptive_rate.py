@@ -21,7 +21,6 @@ import pytest
 
 from src.analytics.aggregation import AdaptiveRateComputer
 
-
 # ---------------------------------------------------------------------------
 # Shared in-memory Redis stub
 # ---------------------------------------------------------------------------

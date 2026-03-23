@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Chaos tests for SNI analyzer (Phase 4)."""
 
-import pytest
 from unittest.mock import Mock
+
+import pytest
+
 from src.security.sni_analyzer import SNIAnalyzer
 
 

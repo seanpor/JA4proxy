@@ -6,16 +6,17 @@ Tests threat evaluation across multiple strategies, policy enforcement,
 and evaluation result handling.
 """
 
-import pytest
 from unittest.mock import Mock
 
+import pytest
+
 from src.security.rate_strategy import RateLimitStrategy, RateMetrics
-from src.security.threat_tier import ThreatTier, ThreatTierConfig
 from src.security.threat_evaluator import (
-    ThreatEvaluator,
-    ThreatEvaluation,
     MultiStrategyPolicy,
+    ThreatEvaluation,
+    ThreatEvaluator,
 )
+from src.security.threat_tier import ThreatTier, ThreatTierConfig
 
 
 class TestMultiStrategyPolicy:

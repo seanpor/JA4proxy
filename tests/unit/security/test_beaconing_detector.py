@@ -13,7 +13,6 @@ from src.security.beaconing_detector import (
 )
 from src.security.models import ConnectionContext, RiskSignal
 
-
 # ---------------------------------------------------------------------------
 # Statistical function tests
 # ---------------------------------------------------------------------------

@@ -1,8 +1,9 @@
-import unittest
 import asyncio
-from unittest.mock import MagicMock, AsyncMock, patch
-from src.security.tcp_analyzer import TCPAnalyzer, generate_ja4t
+import unittest
+from unittest.mock import AsyncMock, MagicMock, patch
+
 from src.security.models import ConnectionContext, RiskSignal
+from src.security.tcp_analyzer import TCPAnalyzer, generate_ja4t
 
 
 class TestTCPAnalyzer(unittest.TestCase):

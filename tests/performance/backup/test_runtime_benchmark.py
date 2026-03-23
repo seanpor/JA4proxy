@@ -2,15 +2,17 @@
 Performance benchmark tests for backup/restore operations.
 Tests dataset-size thresholds and runtime characteristics.
 """
-import pytest
-import time
-import tempfile
-import shutil
 import json
+import shutil
+import tempfile
+import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from src.backup.worker import BackupWorker
+
+import pytest
+
 from src.backup.restorer import BackupRestorer
+from src.backup.worker import BackupWorker
 
 
 class TestRuntimeBenchmark:

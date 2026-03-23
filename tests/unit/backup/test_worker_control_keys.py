@@ -2,8 +2,10 @@
 Test suite for Redis control key updates.
 Tests success path and failure path assertions.
 """
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from src.backup.worker import BackupWorker
 
 

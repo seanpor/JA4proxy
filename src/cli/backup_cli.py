@@ -3,13 +3,14 @@ Backup CLI module.
 Implements backup, restore, list, and validate commands.
 """
 import argparse
-import sys
 import json
 import os
+import sys
 from pathlib import Path
-from typing import Optional, List
-from src.backup.worker import BackupWorker
+from typing import List, Optional
+
 from src.backup.restorer import BackupRestorer, RestoreError
+from src.backup.worker import BackupWorker
 from src.config.loader import ConfigLoader
 
 

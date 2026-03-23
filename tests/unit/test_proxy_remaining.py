@@ -34,24 +34,24 @@ import logging
 import os
 import sys
 import time
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
 from proxy import (
-    classify_ja4,
+    MAX_CONCURRENT_CONNECTIONS,
     ConfigManager,
     GeoIPLookup,
     JA4Fingerprint,
     JA4Generator,
-    MAX_CONCURRENT_CONNECTIONS,
     ProxyServer,
-    SecurityManager,
     SecurityError,
+    SecurityManager,
     SensitiveDataFilter,
     TarpitManager,
     TLSParser,
     ValidationError,
+    classify_ja4,
     main,
 )
 from src.security.pipeline import PipelineResult

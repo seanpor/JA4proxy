@@ -14,13 +14,12 @@ Tests cover:
 
 import asyncio
 import time
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
-from proxy import ProxyServer, MAX_CONCURRENT_CONNECTIONS
+from proxy import MAX_CONCURRENT_CONNECTIONS, ProxyServer
 from src.security.pipeline import PipelineResult
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -1,11 +1,13 @@
-import unittest
 import asyncio
-from unittest.mock import MagicMock, AsyncMock, patch
+import unittest
+from unittest.mock import AsyncMock, MagicMock, patch
+
+from cryptography.hazmat.primitives import serialization
+
+from src.cache.local_cache import LocalCache
 from src.security.models import ConnectionContext
 from src.security.pipeline import Pipeline
-from src.cache.local_cache import LocalCache
 from tests.unit.security.test_mtls import generate_self_signed_ca, generate_signed_cert
-from cryptography.hazmat.primitives import serialization
 
 
 class TestTCPPipelineIntegration(unittest.TestCase):

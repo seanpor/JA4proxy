@@ -4,15 +4,18 @@ Property-based testing for JA4 Proxy using Hypothesis
 Tests fingerprint generation, validation, and edge cases.
 """
 
-import pytest
 import string
+import struct
 import time
-from hypothesis import given, strategies as st, assume, settings, HealthCheck
-from hypothesis.stateful import RuleBasedStateMachine, rule, Bundle
+
 import hypothesis.strategies as st
+import pytest
+from hypothesis import HealthCheck, assume, given, settings
+from hypothesis import strategies as st
+from hypothesis.stateful import Bundle, RuleBasedStateMachine, rule
 
 from proxy import JA4Fingerprint, JA4Generator, TLSParser
-from security.validation import SecurityValidator, ValidationError, SecurityError
+from security.validation import SecurityError, SecurityValidator, ValidationError
 
 
 class TestJA4FingerprintProperties:

@@ -28,15 +28,15 @@ import os
 import ssl
 import struct
 import time
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 import redis as redis_lib
 
 from proxy import (
+    MAX_CONCURRENT_CONNECTIONS,
     GeoIPLookup,
     JA4Fingerprint,
-    MAX_CONCURRENT_CONNECTIONS,
     ProxyServer,
     SecurityError,
     TarpitManager,

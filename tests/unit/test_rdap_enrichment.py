@@ -15,22 +15,22 @@ Covers:
 
 import asyncio
 import unittest
-from datetime import datetime, timezone, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
-from src.security.rdap_enrichment import (
-    RDAPEnricher,
-    RDAPConfig,
-    RDAPResult,
-    _BlockExpansionConfig,
-    _OrgReputationConfig,
-    _NewNetblockConfig,
-    _compute_expansion_cidr,
-    new_netblock_signal,
-)
-from src.security.models import RiskSignal
 from src.cache.local_cache import LocalCache
 from src.pubsub import PubSubHandler
+from src.security.models import RiskSignal
+from src.security.rdap_enrichment import (
+    RDAPConfig,
+    RDAPEnricher,
+    RDAPResult,
+    _BlockExpansionConfig,
+    _compute_expansion_cidr,
+    _NewNetblockConfig,
+    _OrgReputationConfig,
+    new_netblock_signal,
+)
 
 
 def _run(coro):
