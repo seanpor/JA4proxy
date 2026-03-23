@@ -180,3 +180,5 @@ phases:
     status: "OPEN"
     summary: "5/5 documentation quality and persona-based navigation."
     action_plan: "docs/phases/PHASE_21_WORK_PLAN.md"
+    gaps:
+      - "Diagrams not standardized to Mermaid format"
