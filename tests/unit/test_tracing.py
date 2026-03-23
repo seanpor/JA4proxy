@@ -22,7 +22,6 @@ from src.security.models import ConnectionContext
 from src.security.pipeline import Pipeline
 from src.telemetry.tracing import Tracing, _NoopSpan, _NoopTracer, init_tracing_from_config
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

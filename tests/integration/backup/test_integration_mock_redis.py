@@ -2,14 +2,16 @@
 Integration tests for backup/restore operations using mocked Redis.
 Tests end-to-end workflows without requiring a real Redis instance.
 """
-import pytest
 import json
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from src.backup.worker import BackupWorker
+
+import pytest
+
 from src.backup.restorer import BackupRestorer
+from src.backup.worker import BackupWorker
 
 
 class TestIntegrationMockRedis:

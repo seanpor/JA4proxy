@@ -1,9 +1,10 @@
-import unittest
 import asyncio
-from unittest.mock import MagicMock, AsyncMock
+import unittest
+from unittest.mock import AsyncMock, MagicMock
+
+from src.cache.local_cache import LocalCache
 from src.security.models import ConnectionContext
 from src.security.pipeline import Pipeline
-from src.cache.local_cache import LocalCache
 
 
 class TestTCPAnalyzerChaos(unittest.TestCase):

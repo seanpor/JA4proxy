@@ -14,7 +14,6 @@ import pytest
 from src.cache.local_cache import LocalCache
 from src.security.pipeline import ConnectionContext, Pipeline
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -119,8 +118,8 @@ class TestLocalCacheWithRedisDown:
         """The dial value set in local cache persists across connections even
         when Redis is unreachable — the last known dial governs scoring."""
         pipeline = _make_pipeline(dial=75)
-        from src.security.risk_scorer import RiskScorer, RiskSignal
         from src.security.action_decider import ActionDecider
+        from src.security.risk_scorer import RiskScorer, RiskSignal
 
         thresholds = {
             "flag": 20,
@@ -194,8 +193,8 @@ class TestRedisDialFailure:
 
     def test_scoring_continues_with_cached_dial(self):
         """Even without Redis, scoring works using last known dial from cache."""
-        from src.security.risk_scorer import RiskScorer, RiskSignal
         from src.security.action_decider import ActionDecider
+        from src.security.risk_scorer import RiskScorer, RiskSignal
 
         thresholds = {
             "flag": 20,

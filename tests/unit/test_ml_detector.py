@@ -1,11 +1,13 @@
 # ML Anomaly Detector Tests
 # Phase 12e: Advanced Threat Intelligence & Automation
 
-import pytest
 import asyncio
 import json
 from unittest.mock import AsyncMock
-from src.analytics.ml_detector import MLDetector, FeatureExtractor
+
+import pytest
+
+from src.analytics.ml_detector import FeatureExtractor, MLDetector
 
 
 class TestFeatureExtractor:
@@ -118,8 +120,9 @@ class TestMLIntegration:
     
     async def test_monitoring_system_integration(self):
         """Test ML detector integration with monitoring system."""
-        from src.analytics.monitoring import MonitoringSystem
         from unittest.mock import AsyncMock
+
+        from src.analytics.monitoring import MonitoringSystem
         
         mock_redis = AsyncMock()
         

@@ -5,7 +5,9 @@ Coverage: Empty lists, max-length fields, GREASE values
 Owner: Phase 16
 """
 import pytest
+
 from proxy import JA4Generator
+
 
 @pytest.mark.parametrize("cipher_list,ext_list,sni", [
     ([], [], None),                                    # All empty

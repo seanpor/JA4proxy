@@ -2,17 +2,19 @@
 Backup worker module.
 Implements deterministic key enumeration, backup artifact creation, and retention.
 """
-import redis
-import json
-import hashlib
-import logging
 import getpass
-import socket
+import hashlib
+import json
+import logging
 import os
-from pathlib import Path
-from typing import List, Dict, Any
+import socket
 from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, List
+
+import redis
 from prometheus_client import Counter, Gauge, Histogram
+
 from src.backup.policy import KeyPolicy
 
 logger = logging.getLogger(__name__)
@@ -104,7 +106,7 @@ class BackupWorker:
         keys = []
         cursor = 0
         while True:
-            cursor, batch = redis_client.scan(cursor=cursor, count=100)
+            cursor, batch = redis_client.scan(cursor=cursor, count=100)  # type: ignore[misc]
             keys.extend(batch)
             if cursor == 0:
                 break
@@ -244,7 +246,7 @@ class BackupWorker:
             for key in safe_keys:
                 dumped = redis_client.dump(key)
                 if dumped:
-                    backup_data += dumped
+                    backup_data += dumped  # type: ignore[operator]
 
             # Generate checksum
             checksum = hashlib.sha256(backup_data).hexdigest()
@@ -405,8 +407,8 @@ class BackupWorker:
             
             if manifest_file.exists():
                 try:
-                    with open(manifest_file, "r") as f:
-                        manifest = json.load(f)
+                    with open(manifest_file, "r") as fh:
+                        manifest = json.load(fh)
                     
                     created_at = datetime.fromisoformat(manifest["created_at"].rstrip("Z"))
                     

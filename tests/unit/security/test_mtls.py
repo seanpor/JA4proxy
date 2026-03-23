@@ -1,13 +1,15 @@
-import unittest
 import os
+import unittest
 from unittest.mock import MagicMock
-from src.security.mtls import MTLSHandler
-from src.security.models import ConnectionContext
+
 from cryptography import x509
-from cryptography.x509.oid import NameOID
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
+from cryptography.x509.oid import NameOID
+
+from src.security.models import ConnectionContext
+from src.security.mtls import MTLSHandler
+
 
 def generate_self_signed_ca():
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)

@@ -17,13 +17,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.analytics.authentication import (
-    HMACAuthenticator,
     MAX_EVENT_AGE_SECONDS,
-    validate_timestamp,
+    HMACAuthenticator,
     sign_event,
+    validate_timestamp,
 )
 from src.analytics.stream_consumer import StreamConsumer
-
 
 # ---------------------------------------------------------------------------
 # Replay prevention: validate_timestamp

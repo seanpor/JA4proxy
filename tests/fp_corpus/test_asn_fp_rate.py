@@ -6,7 +6,8 @@ Owner: Phase 16
 """
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from src.security.asn_classifier import ASNClassifier, ASNClassification
+
+from src.security.asn_classifier import ASNClassification, ASNClassifier
 
 FP_DATA_DIR = Path(__file__).parent / "data"
 MAX_ASN_FP_RATE = 0.02  # 2% false positive rate threshold

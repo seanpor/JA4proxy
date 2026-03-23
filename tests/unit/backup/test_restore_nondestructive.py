@@ -2,11 +2,13 @@
 Test suite for non-destructive restore.
 Tests that pre-existing keys remain after restore.
 """
-import pytest
+import hashlib
 import json
 import os
-import hashlib
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from src.backup.restorer import BackupRestorer, RestoreError
 
 

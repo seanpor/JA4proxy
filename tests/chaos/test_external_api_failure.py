@@ -15,13 +15,13 @@ import unittest
 from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from src.cache.local_cache import LocalCache
 from src.security.abuseipdb import (
     AbuseIPDBChecker,
     AbuseIPDBConfig,
-    abuseipdb_to_risk_signal,
     QuotaExhaustedException,
+    abuseipdb_to_risk_signal,
 )
-from src.cache.local_cache import LocalCache
 
 
 def _make_config(**kwargs) -> AbuseIPDBConfig:
@@ -306,9 +306,7 @@ class TestWorkerPoolStop(unittest.IsolatedAsyncioTestCase):
 
 
 def _make_rdap_config(**kwargs):
-    from src.security.rdap_enrichment import (
-        RDAPConfig, _OrgReputationConfig, _NewNetblockConfig, _BlockExpansionConfig
-    )
+    from src.security.rdap_enrichment import RDAPConfig, _BlockExpansionConfig, _NewNetblockConfig, _OrgReputationConfig
     defaults = dict(
         enabled=True,
         queue_size=10,
@@ -325,9 +323,7 @@ def _make_rdap_config(**kwargs):
 
 
 def _build_rdap_config(defaults):
-    from src.security.rdap_enrichment import (
-        RDAPConfig, _OrgReputationConfig, _NewNetblockConfig, _BlockExpansionConfig
-    )
+    from src.security.rdap_enrichment import RDAPConfig, _BlockExpansionConfig, _NewNetblockConfig, _OrgReputationConfig
     return RDAPConfig(
         enabled=defaults.get("enabled", True),
         queue_size=defaults.get("queue_size", 10),
@@ -366,9 +362,10 @@ class TestRDAPAPIUnreachable(unittest.IsolatedAsyncioTestCase):
 
     async def test_rir_unreachable_fails_open(self):
         """Connection refused to RIR → fail open; rdap_lookup_total{result=error} inc'd."""
-        from src.security.rdap_enrichment import RDAPEnricher
-        from src.cache.local_cache import LocalCache
         from contextlib import asynccontextmanager
+
+        from src.cache.local_cache import LocalCache
+        from src.security.rdap_enrichment import RDAPEnricher
 
         @asynccontextmanager
         async def _network_error(*args, **kwargs):
@@ -400,8 +397,8 @@ class TestRDAPAPIUnreachable(unittest.IsolatedAsyncioTestCase):
 
     async def test_queue_drains_normally_after_api_failure(self):
         """Worker continues processing queue after API failures."""
-        from src.security.rdap_enrichment import RDAPEnricher
         from src.cache.local_cache import LocalCache
+        from src.security.rdap_enrichment import RDAPEnricher
 
         redis = _make_rdap_redis()
         local_cache = LocalCache({})
@@ -438,9 +435,10 @@ class TestRDAPBootstrapFailure(unittest.IsolatedAsyncioTestCase):
 
     async def test_bootstrap_download_fails_uses_redis_cache(self):
         """Bootstrap download fails → load from Redis; WARN logged; no crash."""
-        from src.security.rdap_enrichment import RDAPEnricher
-        from src.cache.local_cache import LocalCache
         import json
+
+        from src.cache.local_cache import LocalCache
+        from src.security.rdap_enrichment import RDAPEnricher
 
         # Bootstrap is available in Redis
         cached_bootstrap = [{"prefixes": ["0.0.0.0/0"], "urls": ["https://rdap.arin.net/registry/"]}]
@@ -463,9 +461,10 @@ class TestRDAPBootstrapFailure(unittest.IsolatedAsyncioTestCase):
 
     async def test_bootstrap_download_and_redis_both_fail_logs_warn(self):
         """Both download and Redis fail → WARN logged; startup continues."""
-        from src.security.rdap_enrichment import RDAPEnricher
-        from src.cache.local_cache import LocalCache
         from contextlib import asynccontextmanager
+
+        from src.cache.local_cache import LocalCache
+        from src.security.rdap_enrichment import RDAPEnricher
 
         @asynccontextmanager
         async def _fail(*args, **kwargs):
@@ -495,9 +494,10 @@ class TestRDAPMalformedJSON(unittest.IsolatedAsyncioTestCase):
 
     async def test_malformed_json_increments_parse_errors_counter(self):
         """Malformed JSON response → rdap_parse_errors_total incremented; fail open."""
-        from src.security.rdap_enrichment import RDAPEnricher
-        from src.cache.local_cache import LocalCache
         from contextlib import asynccontextmanager
+
+        from src.cache.local_cache import LocalCache
+        from src.security.rdap_enrichment import RDAPEnricher
 
         @asynccontextmanager
         async def _malformed_response(*args, **kwargs):
@@ -536,8 +536,8 @@ class TestRDAPQueueOverflow(unittest.IsolatedAsyncioTestCase):
 
     async def test_queue_full_drops_item_silently(self):
         """Full queue → item dropped; rdap_queue_dropped_total incremented; no crash."""
-        from src.security.rdap_enrichment import RDAPEnricher
         from src.cache.local_cache import LocalCache
+        from src.security.rdap_enrichment import RDAPEnricher
 
         redis = _make_rdap_redis()
         local_cache = LocalCache({})
@@ -557,8 +557,8 @@ class TestRDAPQueueOverflow(unittest.IsolatedAsyncioTestCase):
 
     async def test_multiple_overflows_do_not_crash(self):
         """Multiple queue overflows in a row: all dropped silently; no exception."""
-        from src.security.rdap_enrichment import RDAPEnricher
         from src.cache.local_cache import LocalCache
+        from src.security.rdap_enrichment import RDAPEnricher
 
         redis = _make_rdap_redis()
         local_cache = LocalCache({})

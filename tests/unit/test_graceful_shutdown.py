@@ -20,7 +20,6 @@ import pytest
 from proxy import MAX_CONCURRENT_CONNECTIONS, ProxyServer
 from src.security.pipeline import PipelineResult
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

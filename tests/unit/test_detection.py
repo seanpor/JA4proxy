@@ -1,9 +1,11 @@
 # Unit Tests for Detection Modules
 # Phase 12b: Detection Modules
 
-import pytest
 import time
-from src.analytics.detection import CampaignDetector, SlowScanDetector, JA4FingerprintIntelligence
+
+import pytest
+
+from src.analytics.detection import CampaignDetector, JA4FingerprintIntelligence, SlowScanDetector
 
 
 class TestCampaignDetector:

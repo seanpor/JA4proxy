@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Unit tests for SNIAnalyzer (Phase 4)."""
 
-import pytest
 from unittest.mock import Mock
-from src.security.sni_analyzer import SNIAnalyzer, dga_score, _shannon_entropy, _get_primary_label
+
+import pytest
+
 from src.security.risk_scorer import RiskSignal
+from src.security.sni_analyzer import SNIAnalyzer, _get_primary_label, _shannon_entropy, dga_score
 
 
 class TestSNIAnalyzerInit:

@@ -11,11 +11,12 @@ import redis
 # All tests require a live Redis instance — excluded from the fast local test run.
 pytestmark = pytest.mark.live_services
 import json
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
-from src.backup.worker import BackupWorker
+
 from src.backup.restorer import BackupRestorer
+from src.backup.worker import BackupWorker
 
 
 class TestRealRedisIntegration:

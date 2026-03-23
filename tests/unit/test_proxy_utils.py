@@ -21,14 +21,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from proxy import (
-    classify_ja4,
     ConfigManager,
     ProxyServer,
-    SensitiveDataFilter,
     SecureFormatter,
+    SensitiveDataFilter,
     ValidationError,
+    classify_ja4,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

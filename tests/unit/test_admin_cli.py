@@ -7,10 +7,10 @@ Tests verify correct key operations, output format, and --confirm guard.
 from __future__ import annotations
 
 import json
-import sys
 import os
+import sys
 from typing import Any
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 from click.testing import CliRunner
@@ -18,7 +18,6 @@ from click.testing import CliRunner
 # Add scripts/ to path so we can import ja4proxy_admin
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "scripts"))
 from ja4proxy_admin import cli  # noqa: E402
-
 
 # ---------------------------------------------------------------------------
 # Fixtures

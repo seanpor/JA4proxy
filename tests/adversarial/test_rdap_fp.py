@@ -9,23 +9,22 @@ Verifies that:
 
 import asyncio
 import unittest
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock
 
+from src.cache.local_cache import LocalCache
+from src.security.action_decider import ActionDecider
+from src.security.models import RiskSignal
 from src.security.rdap_enrichment import (
-    RDAPEnricher,
     RDAPConfig,
+    RDAPEnricher,
     RDAPResult,
     _BlockExpansionConfig,
-    _OrgReputationConfig,
     _NewNetblockConfig,
+    _OrgReputationConfig,
     new_netblock_signal,
 )
 from src.security.risk_scorer import RiskScorer
-from src.security.action_decider import ActionDecider
-from src.security.models import RiskSignal
-from src.cache.local_cache import LocalCache
-
 
 # Action thresholds from risk_scorer defaults
 _THRESHOLDS = {

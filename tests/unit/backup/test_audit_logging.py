@@ -2,11 +2,13 @@
 Test suite for backup/restore audit logging.
 Tests that audit log entries are written to Redis for all backup/restore operations.
 """
-import pytest
 import json
 from unittest.mock import MagicMock, patch
-from src.backup.worker import BackupWorker
+
+import pytest
+
 from src.backup.restorer import BackupRestorer
+from src.backup.worker import BackupWorker
 
 
 def test_backup_audit_log_success():
@@ -133,9 +135,9 @@ def test_backup_audit_log_failure():
 
 def test_restore_audit_log_success():
     """Test that successful restore operations write audit log entries."""
-    import tempfile
-    import os
     import hashlib
+    import os
+    import tempfile
     
     restorer = BackupRestorer()
     
@@ -209,9 +211,9 @@ def test_restore_audit_log_success():
 
 def test_restore_audit_log_failure():
     """Test that failed restore operations write audit log entries."""
-    import tempfile
-    import os
     import hashlib
+    import os
+    import tempfile
     
     restorer = BackupRestorer()
     

@@ -10,15 +10,15 @@ Covers:
 - threat_evaluator.py lines 414-415: invalid from_config config → ValueError
 """
 
-import pytest
 from unittest.mock import Mock
 
-from src.security.action_types import ActionType, ActionConfig
-from src.security.action_enforcer import ActionEnforcer
-from src.security.threat_evaluator import ThreatEvaluator, MultiStrategyPolicy
-from src.security.threat_tier import ThreatTier, ThreatTierConfig
-from src.security.rate_strategy import RateLimitStrategy
+import pytest
 
+from src.security.action_enforcer import ActionEnforcer
+from src.security.action_types import ActionConfig, ActionType
+from src.security.rate_strategy import RateLimitStrategy
+from src.security.threat_evaluator import MultiStrategyPolicy, ThreatEvaluator
+from src.security.threat_tier import ThreatTier, ThreatTierConfig
 
 # ---------------------------------------------------------------------------
 # action_types.py: NotImplemented in comparison operators (lines 66, 71, 76, 81)

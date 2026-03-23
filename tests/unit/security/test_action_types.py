@@ -8,9 +8,9 @@ Tests action type enums, action results, and configuration validation.
 import pytest
 
 from src.security.action_types import (
-    ActionType,
-    ActionResult,
     ActionConfig,
+    ActionResult,
+    ActionType,
 )
 
 

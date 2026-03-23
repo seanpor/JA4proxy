@@ -4,9 +4,10 @@ Purpose: Verify TLS parser handles adversarial inputs without crashing
 Coverage: All files in tests/adversarial/corpus/
 Owner: Phase 16
 """
-import pytest
-from pathlib import Path
 import struct
+from pathlib import Path
+
+import pytest
 
 # Import from proxy.py where TLSParser is defined
 from proxy import TLSParser

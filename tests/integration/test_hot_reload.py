@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 import yaml
 
-from src.config.loader import ConfigLoader, ConfigError
+from src.config.loader import ConfigError, ConfigLoader
 
 
 def _write(path: Path, data: dict) -> None:

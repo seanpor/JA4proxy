@@ -4,16 +4,18 @@ OWASP Top 10 Security Testing Suite for JA4 Proxy
 Tests for common web application vulnerabilities.
 """
 
-import pytest
 import asyncio
 import json
 import ssl
-import time
-import requests
 import subprocess
-from unittest.mock import Mock, patch, AsyncMock
-from security.validation import SecurityValidator, ValidationError, SecurityError
+import time
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
+import requests
+
 from proxy import ValidationError as ProxyValidationError
+from security.validation import SecurityError, SecurityValidator, ValidationError
 
 
 class TestOWASPTop10:
@@ -152,7 +154,7 @@ class TestOWASPTop10:
         """A06:2021 – Vulnerable and Outdated Components"""
 
         # Test dependency versions (would integrate with safety/pip-audit)
-        from importlib.metadata import version, PackageNotFoundError
+        from importlib.metadata import PackageNotFoundError, version
 
         # Check for known vulnerable packages
         vulnerable_packages = {

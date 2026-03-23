@@ -11,7 +11,7 @@ import pytest
 
 from src.cache.local_cache import LocalCache
 from src.security.models import ConnectionContext, RiskSignal
-from src.security.pipeline import Pipeline, _SIGNAL_ERROR, _SIGNAL_SKIPPED
+from src.security.pipeline import _SIGNAL_ERROR, _SIGNAL_SKIPPED, Pipeline
 
 
 def _make_pipeline():

@@ -13,17 +13,17 @@ Covers:
 
 import asyncio
 import unittest
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
+from src.cache.local_cache import LocalCache
 from src.security.abuseipdb import (
     AbuseIPDBChecker,
     AbuseIPDBConfig,
-    abuseipdb_to_risk_signal,
     QuotaExhaustedException,
     _CacheHitTracker,
+    abuseipdb_to_risk_signal,
 )
 from src.security.models import RiskSignal
-from src.cache.local_cache import LocalCache
 
 
 def _run(coro):

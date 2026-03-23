@@ -2,11 +2,13 @@
 Test suite for retention policies.
 Tests count-based, age-based, and combined retention.
 """
-import pytest
-import os
 import json
-from pathlib import Path
+import os
 from datetime import datetime, timedelta
+from pathlib import Path
+
+import pytest
+
 from src.backup.worker import BackupWorker
 
 

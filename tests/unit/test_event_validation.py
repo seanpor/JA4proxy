@@ -2,13 +2,9 @@
 # Phase 12a: Foundation
 
 import pytest
-from src.analytics.validation import (
-    validate_event_comprehensive,
-    is_valid_ip,
-    is_valid_proxy_id,
-    is_valid_ja4
-)
+
 from src.analytics.stream_consumer import InvalidEventError
+from src.analytics.validation import is_valid_ip, is_valid_ja4, is_valid_proxy_id, validate_event_comprehensive
 
 
 class TestIPValidation:

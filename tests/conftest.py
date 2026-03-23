@@ -41,11 +41,11 @@ import inspect
 import sys
 import textwrap
 import time
-import redis
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import redis
 
 _SESSION_START: list[float] = []  # populated by pytest_sessionstart
 

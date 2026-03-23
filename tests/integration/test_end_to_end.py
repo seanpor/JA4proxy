@@ -10,15 +10,16 @@ These tests verify end-to-end functionality of all security phases:
 - Phase 5: Integrated security manager
 """
 
-import pytest
 import time
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
 
 from src.security import (
-    SecurityManager,
-    ThreatTier,
     ActionType,
     RateLimitStrategy,
+    SecurityManager,
+    ThreatTier,
 )
 
 

@@ -4,13 +4,14 @@ GDPR Compliance Validator for JA4 Proxy
 Validates GDPR requirements and data protection measures.
 """
 
+import hashlib
 import json
 import logging
-import hashlib
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
+
 
 class GDPRValidator:
     """GDPR compliance validation for JA4 Proxy."""

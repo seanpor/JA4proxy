@@ -10,20 +10,20 @@ Tests cover:
 - Error handling
 """
 
-import pytest
 import time
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
+import pytest
 import redis
 
+from src.security.rate_strategy import (
+    RateLimitStrategy,
+    RateMetrics,
+)
 from src.security.rate_tracker import (
     MultiStrategyRateTracker,
     RateTrackerError,
     RedisConnectionError,
-)
-from src.security.rate_strategy import (
-    RateLimitStrategy,
-    RateMetrics,
 )
 
 

@@ -2,14 +2,16 @@
 Adversarial tests for backup/restore operations.
 Tests security against tampered manifests/archives and path traversal attacks.
 """
-import pytest
 import json
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from src.backup.worker import BackupWorker
+
+import pytest
+
 from src.backup.restorer import BackupRestorer, RestoreError
+from src.backup.worker import BackupWorker
 
 
 class TestAdversarialScenarios:

@@ -2,11 +2,13 @@
 Test suite for destructive restore.
 Tests that destructive flag is required for wipe operations.
 """
-import pytest
+import hashlib
 import json
 import os
-import hashlib
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from src.backup.restorer import BackupRestorer, RestoreError
 
 

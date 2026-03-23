@@ -2,12 +2,10 @@
 # Phase 12a: Foundation
 
 import time
+
 import pytest
-from src.analytics.authentication import (
-    sign_event,
-    verify_hmac,
-    HMACAuthenticator
-)
+
+from src.analytics.authentication import HMACAuthenticator, sign_event, verify_hmac
 
 
 class TestHMACFunctions:

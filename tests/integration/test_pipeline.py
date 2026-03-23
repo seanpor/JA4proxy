@@ -439,8 +439,9 @@ class TestAbuseIPDBIntegration:
         """With a pre-cached AbuseIPDB score, get_signal() returns a signal
         that is consumed by the scorer and reflected in the composite score."""
         from unittest.mock import MagicMock
-        from src.security.abuseipdb import AbuseIPDBChecker, AbuseIPDBConfig
+
         from src.cache.local_cache import LocalCache
+        from src.security.abuseipdb import AbuseIPDBChecker, AbuseIPDBConfig
         from tests.mocks.abuseipdb_mock import AbuseIPDBMock
 
         # Build pipeline with a real scorer
@@ -486,9 +487,10 @@ class TestAbuseIPDBIntegration:
 
     def test_abuseipdb_cache_miss_no_signal(self):
         """Cache miss on get_signal() returns None (in-process cache empty)."""
-        from unittest.mock import MagicMock, AsyncMock
-        from src.security.abuseipdb import AbuseIPDBChecker, AbuseIPDBConfig
+        from unittest.mock import AsyncMock, MagicMock
+
         from src.cache.local_cache import LocalCache
+        from src.security.abuseipdb import AbuseIPDBChecker, AbuseIPDBConfig
 
         # In-process LRU is empty — get_signal returns None immediately
         local_cache = LocalCache({})
@@ -521,8 +523,9 @@ class TestAbuseIPDBIntegration:
     def test_abuseipdb_disabled_no_signal(self):
         """Disabled checker produces no signal."""
         from unittest.mock import MagicMock
-        from src.security.abuseipdb import AbuseIPDBChecker, AbuseIPDBConfig
+
         from src.cache.local_cache import LocalCache
+        from src.security.abuseipdb import AbuseIPDBChecker, AbuseIPDBConfig
 
         pipeline = _make_pipeline(dial=100)
         local_cache = pipeline._cache
@@ -547,9 +550,16 @@ class TestPipelineRDAPIntegration:
     def test_rdap_signal_from_lru_cache_added_to_pipeline(self):
         """When RDAP result is in LRU cache with known-bad org, signal appears in pipeline result."""
         from unittest.mock import AsyncMock
-        from src.security.rdap_enrichment import RDAPEnricher, RDAPConfig, RDAPResult
-        from src.security.rdap_enrichment import _OrgReputationConfig, _NewNetblockConfig, _BlockExpansionConfig
+
         from src.cache.local_cache import LocalCache
+        from src.security.rdap_enrichment import (
+            RDAPConfig,
+            RDAPEnricher,
+            RDAPResult,
+            _BlockExpansionConfig,
+            _NewNetblockConfig,
+            _OrgReputationConfig,
+        )
 
         pipeline = _make_pipeline(dial=100)
         local_cache = pipeline._cache
@@ -595,9 +605,16 @@ class TestPipelineRDAPIntegration:
     def test_rdap_lru_miss_does_not_block_connection(self):
         """RDAP LRU miss (cache empty) → pipeline returns allow/monitor; no crash."""
         from unittest.mock import AsyncMock
-        from src.security.rdap_enrichment import RDAPEnricher, RDAPConfig, RDAPResult
-        from src.security.rdap_enrichment import _OrgReputationConfig, _NewNetblockConfig, _BlockExpansionConfig
+
         from src.cache.local_cache import LocalCache
+        from src.security.rdap_enrichment import (
+            RDAPConfig,
+            RDAPEnricher,
+            RDAPResult,
+            _BlockExpansionConfig,
+            _NewNetblockConfig,
+            _OrgReputationConfig,
+        )
 
         pipeline = _make_pipeline(dial=0)  # Monitor mode
         local_cache = pipeline._cache
@@ -625,9 +642,14 @@ class TestPipelineRDAPIntegration:
 
     def test_rdap_disabled_no_signal(self):
         """Disabled RDAP enricher → no rdap signals in result."""
-        from src.security.rdap_enrichment import RDAPEnricher, RDAPConfig
-        from src.security.rdap_enrichment import _OrgReputationConfig, _NewNetblockConfig, _BlockExpansionConfig
         from src.cache.local_cache import LocalCache
+        from src.security.rdap_enrichment import (
+            RDAPConfig,
+            RDAPEnricher,
+            _BlockExpansionConfig,
+            _NewNetblockConfig,
+            _OrgReputationConfig,
+        )
 
         pipeline = _make_pipeline(dial=100)
         local_cache = pipeline._cache

@@ -5,8 +5,10 @@ Coverage: Chrome/Firefox/Safari keep-alive timing patterns
 Owner: Phase 16
 """
 import asyncio
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock
+
 from src.security.beaconing_detector import BeaconingDetector
+
 
 async def test_browser_alpn_guard_ensures_zero_fp():
     """Browser ALPN guard must produce exactly 0% FP rate."""

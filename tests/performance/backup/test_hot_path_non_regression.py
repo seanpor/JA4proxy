@@ -2,12 +2,14 @@
 Hot-path non-regression tests for backup/restore operations.
 Verifies that backup system does not block critical connection hot paths.
 """
-import pytest
-import time
-import tempfile
 import shutil
+import tempfile
+import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from src.backup.worker import BackupWorker
 
 
@@ -111,7 +113,7 @@ class TestHotPathNonRegression:
         avg_latency = sum(connection_latencies) / len(connection_latencies) if connection_latencies else 0
         max_latency = max(connection_latencies) if connection_latencies else 0
         
-        print(f"✓ Backup with concurrent connections:")
+        print("✓ Backup with concurrent connections:")
         print(f"  Backup duration: {total_duration:.3f}s")
         print(f"  Avg connection latency: {avg_latency:.3f}s")
         print(f"  Max connection latency: {max_latency:.3f}s")
@@ -168,7 +170,7 @@ class TestHotPathNonRegression:
         # Verify hot path operations completed quickly
         avg_hot_path = sum(hot_path_completed) / len(hot_path_completed) if hot_path_completed else 0
         
-        print(f"✓ Backup yielding to hot path:")
+        print("✓ Backup yielding to hot path:")
         print(f"  Total duration: {total_duration:.3f}s")
         print(f"  Hot path operations: {len(hot_path_completed)}")
         print(f"  Avg hot path latency: {avg_hot_path:.3f}s")
@@ -238,7 +240,7 @@ class TestHotPathNonRegression:
         avg_high_priority = sum(high_priority_completed) / len(high_priority_completed)
         avg_low_priority = sum(low_priority_completed) / len(low_priority_completed)
         
-        print(f"✓ Priority inversion prevention:")
+        print("✓ Priority inversion prevention:")
         print(f"  High priority avg: {avg_high_priority:.3f}s")
         print(f"  Low priority avg: {avg_low_priority:.3f}s")
         print(f"  Total duration: {total_duration:.3f}s")
@@ -290,7 +292,7 @@ class TestHotPathNonRegression:
         
         avg_contention = sum(resource_wait_times) / len(resource_wait_times) if resource_wait_times else 0
         
-        print(f"✓ Resource contention handling:")
+        print("✓ Resource contention handling:")
         print(f"  Total duration: {total_duration:.3f}s")
         print(f"  Contention events: {len(resource_wait_times)}")
         print(f"  Avg contention delay: {avg_contention:.3f}s")
@@ -347,7 +349,7 @@ class TestHotPathNonRegression:
         
         duration = time.time() - start_time
         
-        print(f"✓ Timeout handling:")
+        print("✓ Timeout handling:")
         print(f"  Duration: {duration:.3f}s")
         print(f"  Backup completed: {backup_completed}")
         print(f"  Timeout occurred: {timeout_occurred}")
@@ -440,7 +442,7 @@ class TestHotPathNonRegression:
         avg_cpu = sum(cpu_usage_samples) / len(cpu_usage_samples) if cpu_usage_samples else 0
         max_cpu = max(cpu_usage_samples) if cpu_usage_samples else 0
         
-        print(f"✓ CPU usage test:")
+        print("✓ CPU usage test:")
         print(f"  Duration: {duration:.3f}s")
         print(f"  Avg CPU usage: {avg_cpu:.1f}%")
         print(f"  Max CPU usage: {max_cpu:.1f}%")
@@ -490,7 +492,7 @@ class TestHotPathNonRegression:
         total_manifests = sum(1 for op, _, _ in io_operations if op == "manifest")
         total_bytes = sum(size for _, size, _ in io_operations)
         
-        print(f"✓ I/O pattern analysis:")
+        print("✓ I/O pattern analysis:")
         print(f"  Duration: {duration:.3f}s")
         print(f"  Write operations: {total_writes}")
         print(f"  Manifest operations: {total_manifests}")
@@ -555,7 +557,7 @@ class TestHotPathNonRegression:
         scan_calls = sum(1 for cmd, _ in network_calls if cmd == 'SCAN')
         dump_calls = sum(1 for cmd, _ in network_calls if cmd == 'DUMP')
         
-        print(f"✓ Network usage analysis:")
+        print("✓ Network usage analysis:")
         print(f"  Duration: {duration:.3f}s")
         print(f"  SCAN calls: {scan_calls}")
         print(f"  DUMP calls: {dump_calls}")
@@ -623,7 +625,7 @@ class TestHotPathNonRegression:
         avg_hot_path = sum(hot_path_times) / len(hot_path_times)
         avg_backup_path = sum(backup_path_times) / len(backup_path_times)
         
-        print(f"✓ Hot path isolation test:")
+        print("✓ Hot path isolation test:")
         print(f"  Hot path avg: {avg_hot_path:.3f}s")
         print(f"  Backup path avg: {avg_backup_path:.3f}s")
         print(f"  Isolation ratio: {avg_backup_path/avg_hot_path:.1f}x")
@@ -698,7 +700,7 @@ class TestHotPathNonRegression:
         avg_medium = sum(medium_priority_times) / len(medium_priority_times) if medium_priority_times else 0
         avg_low = sum(low_priority_times) / len(low_priority_times) if low_priority_times else 0
         
-        print(f"✓ Priority scheduling test:")
+        print("✓ Priority scheduling test:")
         print(f"  High priority avg: {avg_high:.3f}s")
         print(f"  Medium priority avg: {avg_medium:.3f}s")
         print(f"  Low priority avg: {avg_low:.3f}s")

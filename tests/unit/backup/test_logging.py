@@ -2,12 +2,16 @@
 Test suite for backup and restore structured logging.
 Tests that JSON logs are properly emitted during operations.
 """
-import pytest
 import json
 import logging
 from unittest.mock import MagicMock, patch
-from src.backup.worker import BackupWorker, logger as worker_logger
-from src.backup.restorer import BackupRestorer, logger as restorer_logger
+
+import pytest
+
+from src.backup.restorer import BackupRestorer
+from src.backup.restorer import logger as restorer_logger
+from src.backup.worker import BackupWorker
+from src.backup.worker import logger as worker_logger
 
 # Configure loggers to propagate to root logger that caplog captures
 worker_logger.propagate = True
@@ -161,9 +165,9 @@ def test_backup_logging_failure(caplog):
 
 def test_restore_logging_success(caplog):
     """Test that restore operations emit proper structured logs on success."""
-    import tempfile
-    import os
     import hashlib
+    import os
+    import tempfile
     
     # Set up logging capture
     with caplog.at_level(logging.INFO):
@@ -259,9 +263,9 @@ def test_restore_logging_success(caplog):
 
 def test_restore_logging_failure(caplog):
     """Test that restore operations emit proper structured logs on failure."""
-    import tempfile
-    import os
     import hashlib
+    import os
+    import tempfile
     
     # Set up logging capture
     with caplog.at_level(logging.INFO):

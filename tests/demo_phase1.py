@@ -8,9 +8,10 @@ This script demonstrates:
 3. GDPR-compliant data handling
 """
 
+import os
 import sys
 import time
-import os
+
 import redis
 
 # Add src to path
@@ -175,8 +176,8 @@ three independent rate limiting strategies:
         key_str = key.decode() if isinstance(key, bytes) else key
         print(f"  {key_str[:50]:50s} TTL: {ttl}s")
     
-    print(f"\n✅ All keys have TTL ≤ 60 seconds (GDPR compliant)")
-    print(f"✅ Data will auto-expire (no manual cleanup needed)")
+    print("\n✅ All keys have TTL ≤ 60 seconds (GDPR compliant)")
+    print("✅ Data will auto-expire (no manual cleanup needed)")
     
     redis_client.flushdb()
     

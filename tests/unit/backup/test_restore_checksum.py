@@ -2,11 +2,13 @@
 Test suite for checksum verification.
 Tests corruption detection before restoration.
 """
-import pytest
+import hashlib
 import json
 import os
-import hashlib
 from pathlib import Path
+
+import pytest
+
 from src.backup.restorer import BackupRestorer, RestoreError
 
 

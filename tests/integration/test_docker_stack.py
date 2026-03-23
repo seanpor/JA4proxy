@@ -4,11 +4,11 @@ Integration tests for JA4 Proxy with mock backend
 Tests the full proxy stack in Docker environment
 """
 
+import os
+import time
+
 import pytest
 import requests
-import time
-import os
-
 
 # Get service URLs from environment or use defaults
 # Inside Docker, backend is HTTPS on port 443; mapped to host 8443

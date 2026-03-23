@@ -10,17 +10,17 @@ These tests require a running Redis instance and verify:
 - Performance under load
 """
 
-import pytest
-import time
-import redis
 import os
+import time
 
+import pytest
+import redis
+
+from src.security.rate_strategy import RateLimitStrategy
 from src.security.rate_tracker import (
     MultiStrategyRateTracker,
     RedisConnectionError,
 )
-from src.security.rate_strategy import RateLimitStrategy
-
 
 # Use the global redis_client fixture from conftest.py
 # This ensures tests run even without real Redis

@@ -13,18 +13,17 @@ Covers:
 - Lines 371-372: _track_single_strategy except bare Exception
 """
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
 
+import pytest
 import redis
 
+from src.security.rate_strategy import RateLimitStrategy
 from src.security.rate_tracker import (
     MultiStrategyRateTracker,
     RateTrackerError,
     RedisConnectionError,
 )
-from src.security.rate_strategy import RateLimitStrategy
-
 
 # ---------------------------------------------------------------------------
 # Helpers

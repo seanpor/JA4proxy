@@ -2,8 +2,10 @@
 Test suite for deterministic key enumeration.
 Tests ordering, dedup, exclude filters, and max key cap.
 """
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from src.backup.worker import BackupWorker
 
 

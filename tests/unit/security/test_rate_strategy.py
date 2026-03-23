@@ -9,8 +9,9 @@ Tests cover:
 - Immutable data structures
 """
 
-import pytest
 import time
+
+import pytest
 
 from src.security.rate_strategy import (
     RateLimitStrategy,

@@ -26,7 +26,6 @@ from src.security.pipeline import (
     _format_signals,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers (mirrors test_pipeline.py helpers to keep tests self-contained)
 # ---------------------------------------------------------------------------

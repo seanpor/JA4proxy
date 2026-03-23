@@ -2,11 +2,13 @@
 Test suite for never-backup key guard functionality.
 Tests that sensitive keys are never included in backups.
 """
-import pytest
 import json
 from unittest.mock import MagicMock, patch
-from src.backup.worker import BackupWorker
+
+import pytest
+
 from src.backup.policy import KeyPolicy
+from src.backup.worker import BackupWorker
 
 
 def test_never_backup_patterns_defined():
@@ -81,7 +83,9 @@ def test_never_backup_warning_logged():
     """Test that a warning is logged when never-backup keys are detected."""
     import logging
     from unittest.mock import MagicMock, patch
-    from src.backup.worker import BackupWorker, logger as worker_logger
+
+    from src.backup.worker import BackupWorker
+    from src.backup.worker import logger as worker_logger
     
     # Set up logging capture
     with patch('src.backup.worker.logger.warning') as mock_warning:
