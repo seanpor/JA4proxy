@@ -28,3 +28,12 @@ The goal of this phase is to elevate the project documentation to a 5/5 standard
 *   **Task:** Ensure docs don't rot.
 *   **Action:** Add a lightweight Markdown link checker (e.g., `markdown-link-check`) to the Makefile and GitHub Actions CI pipeline.
 *   **Validation:** `make lint-docs` should pass with zero broken internal links.
+
+### Step 5: Diagram Standardization
+*   **Task:** Replace all diagrams with Mermaid diagrams.
+*   **Action:** 
+    *   Audit all documentation files for existing diagrams (ASCII, images, or other formats).
+    *   Convert each diagram to Mermaid syntax.
+    *   Ensure diagrams are consistent in style and formatting.
+    *   Update references to diagrams in the documentation.
+*   **Validation:** All diagrams should be in Mermaid format and render correctly in supported viewers.
