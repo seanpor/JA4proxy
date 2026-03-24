@@ -614,6 +614,17 @@ class ConfigManager:
         if "security" in config:
             self._validate_security_config(config["security"])
 
+        # Validate metrics configuration
+        if "metrics" in config:
+            metrics_config = config["metrics"]
+            if "port" in metrics_config:
+                port = metrics_config["port"]
+                if isinstance(port, str):
+                    try:
+                        metrics_config["port"] = int(port)
+                    except ValueError:
+                        raise ValidationError(f"Invalid metrics port: {port}")
+
         return config
 
     def _validate_proxy_config(self, proxy_config: Dict) -> None:
@@ -1264,13 +1275,27 @@ class ProxyServer:
 
         try:
             # Create Redis connection with security parameters
+            timeout = redis_config.get("timeout", 5)
+            if isinstance(timeout, str):
+                try:
+                    timeout = int(timeout)
+                except ValueError:
+                    timeout = 5
+            
+            db = redis_config.get("db", 0)
+            if isinstance(db, str):
+                try:
+                    db = int(db)
+                except ValueError:
+                    db = 0
+
             redis_client = redis.asyncio.Redis(
                 host=redis_config["host"],
                 port=redis_config["port"],
-                db=redis_config.get("db", 0),
+                db=db,
                 password=password if password else None,
-                socket_timeout=redis_config.get("timeout", 5),
-                socket_connect_timeout=redis_config.get("timeout", 5),
+                socket_timeout=timeout,
+                socket_connect_timeout=timeout,
                 health_check_interval=30,
                 decode_responses=False,  # Security: explicit encoding control
             )

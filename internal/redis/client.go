@@ -91,6 +91,30 @@ func (c *Client) SIsMember(ctx context.Context, key string, member interface{}) 
 	return ok
 }
 
+// SMembers retrieves all members of a set. Returns nil on error (fail open).
+func (c *Client) SMembers(ctx context.Context, key string) []string {
+	result, err := c.rdb.SMembers(ctx, key).Result()
+	if err != nil {
+		c.log.WithError(err).WithField("key", key).Warn("redis: SMEMBERS failed")
+		return nil
+	}
+	return result
+}
+
+// SAdd adds a member to a set. Fails open.
+func (c *Client) SAdd(ctx context.Context, key string, member interface{}) {
+	if err := c.rdb.SAdd(ctx, key, member).Err(); err != nil {
+		c.log.WithError(err).WithField("key", key).Warn("redis: SADD failed")
+	}
+}
+
+// SRem removes a member from a set. Fails open.
+func (c *Client) SRem(ctx context.Context, key string, member interface{}) {
+	if err := c.rdb.SRem(ctx, key, member).Err(); err != nil {
+		c.log.WithError(err).WithField("key", key).Warn("redis: SREM failed")
+	}
+}
+
 // GetDial reads the config:dial key. Returns 0 on error (fail open — monitor mode).
 func (c *Client) GetDial(ctx context.Context) int {
 	val, err := c.rdb.Get(ctx, "config:dial").Result()
