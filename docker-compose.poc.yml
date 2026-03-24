@@ -74,6 +74,8 @@ services:
   redis:
     image: redis/redis-stack:latest
     container_name: ja4proxy-redis
+    ports:
+      - "127.0.0.1:6379:6379"
     environment:
       # redis/redis-stack passes extra flags via REDIS_ARGS (see /entrypoint.sh)
       - REDIS_ARGS=--requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required} --maxmemory 256mb --maxmemory-policy allkeys-lru --hz 20 --tcp-keepalive 60 --save ""
@@ -188,7 +190,7 @@ services:
       network: host
     container_name: ja4proxy-analytics
     ports:
-      - "127.0.0.1:8082:8080"
+      - "127.0.0.1:8083:8080"
     depends_on:
       - redis
     environment:

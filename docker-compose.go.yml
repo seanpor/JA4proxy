@@ -15,15 +15,24 @@ services:
       - "8082:8080"
       - "9092:9090"
     environment:
+      REDIS_HOST: "${REDIS_HOST:-redis}"
+      REDIS_PORT: "${REDIS_PORT:-6379}"
       REDIS_PASSWORD: "${REDIS_PASSWORD:-}"
       BACKEND_HOST: "${BACKEND_HOST:-backend}"
       BACKEND_PORT: "${BACKEND_PORT:-443}"
       ENVIRONMENT: "${ENVIRONMENT:-development}"
     depends_on:
       - redis
+    networks:
+      - ja4proxy-backend
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:9090/health"]
       interval: 10s
       timeout: 5s
       retries: 3
+
+networks:
+  ja4proxy-backend:
+    name: ja4proxy_ja4proxy-backend
+    external: true

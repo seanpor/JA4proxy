@@ -73,7 +73,13 @@ def _python_proxy_live() -> bool:
 def _redis_live() -> bool:
     try:
         import redis as redislib
-        r = redislib.Redis(host=REDIS_HOST, port=REDIS_PORT, socket_connect_timeout=1)
+        password = os.environ.get("REDIS_PASSWORD")
+        r = redislib.Redis(
+            host=REDIS_HOST,
+            port=REDIS_PORT,
+            password=password,
+            socket_connect_timeout=1
+        )
         return r.ping()
     except Exception:
         return False
@@ -165,7 +171,13 @@ def redis_client():
     except ImportError:
         pytest.skip("redis-py not installed")
 
-    r = redislib.Redis(host=REDIS_HOST, port=REDIS_PORT, socket_connect_timeout=2)
+    password = os.environ.get("REDIS_PASSWORD")
+    r = redislib.Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        password=password,
+        socket_connect_timeout=2
+    )
     try:
         r.ping()
     except Exception:
@@ -435,7 +447,7 @@ def test_ja4_blacklist_blocks_go_proxy(go_proxy, redis_client):
         assert result["connected"], "Go proxy refused connection entirely"
         assert result["rst"], (
             f"Go proxy did NOT RST connection with blacklisted JA4={ja4}; "
-            f"data_received={result['data_received']!r}"
+            f"response_received={result['response']!r}"
         )
     finally:
         redis_client.srem("ja4:blacklist", ja4)
