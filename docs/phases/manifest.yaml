@@ -1,7 +1,7 @@
 epics:
   - name: "Epic: Core Performance"
     description: "Optimization for high-throughput and multi-core systems."
-    phases: [0, 15, 17]
+    phases: [0, 15, 17, 24]
     
   - name: "Epic: Security Hardening"
     description: "Deep security analysis, compliance, and audit remediation."
@@ -204,3 +204,9 @@ phases:
     gaps:
       - "Diagrams not standardized to Mermaid format"
       - "P19-G5: DSAR utility (ja4proxy-admin backup redact --ip) for GDPR compliance"
+
+  24:
+    name: "Go Strategy Assessment"
+    status: "PROPOSED"
+    summary: "Assessment of minimal Go component vs comprehensive rewrite approach."
+    action_plan: "docs/phases/PHASE_24_STRATEGY_ASSESSMENT.md"
