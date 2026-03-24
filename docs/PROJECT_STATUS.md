@@ -41,6 +41,7 @@ Cross-instance behavior analysis and threat intelligence.
 | 7 | FCrDNS Enrichment | COMPLETE | Async PTR lookup, residential pattern detection. |
 | 9 | Beaconing Detector | COMPLETE | IAT coefficient of variation, dual window, suspects leaderboard. |
 | 12 | Analytics Node | PARTIAL | Cross-instance statistical analysis via Redis Streams. |
+| 23 | Advanced Traffic Intelligence | PROPOSED | Attacker attribution, geographical intelligence, and threat intelligence integration. |
 
 ### Epic: Next-Gen Passive Capture
 Out-of-band monitoring and enforcement.
@@ -58,6 +59,7 @@ Management dashboards and documentation quality.
 | 13 | Management UI | DEFERRED | FastAPI + React dashboard for real-time monitoring. |
 | 19 | Backup & Restore | COMPLETE | Deterministic backup/restore with real key-name format, manifest+checksum, retention, CLI, observability. |
 | 21 | Documentation Excellence | OPEN | 5/5 documentation quality and persona-based navigation. |
+| 22 | Backup System Enhancements | PROPOSED | Encryption, cloud storage, incremental backups, and performance optimizations. |
 
 ## Phase Completion Details
 
@@ -85,6 +87,8 @@ Management dashboards and documentation quality.
 | 19 | Backup & Restore | COMPLETE | 100% | COMPLETE |
 | 20 | Passive TAP Mode | OPEN | N/A | N/A |
 | 21 | Documentation Excellence | OPEN | N/A | N/A |
+| 22 | Backup System Enhancements | PROPOSED | N/A | N/A |
+| 23 | Advanced Traffic Intelligence | PROPOSED | N/A | N/A |
 | 24 | Go Strategy Assessment | PROPOSED | N/A | N/A |
 
 ---

@@ -9,7 +9,7 @@ epics:
     
   - name: "Epic: Analytics & Intelligence"
     description: "Cross-instance behavior analysis and threat intelligence."
-    phases: [6, 7, 9, 12]
+    phases: [6, 7, 9, 12, 23]
     
   - name: "Epic: Next-Gen Passive Capture"
     description: "Out-of-band monitoring and enforcement."
@@ -17,7 +17,7 @@ epics:
     
   - name: "Epic: User Interface & Experience"
     description: "Management dashboards and documentation quality."
-    phases: [2, 13, 19, 21]
+    phases: [2, 13, 19, 21, 22]
 
 phases:
   0:
@@ -204,6 +204,20 @@ phases:
     gaps:
       - "Diagrams not standardized to Mermaid format"
       - "P19-G5: DSAR utility (ja4proxy-admin backup redact --ip) for GDPR compliance"
+
+  22:
+    name: "Backup System Enhancements"
+    status: "PROPOSED"
+    summary: "Encryption, cloud storage, incremental backups, and performance optimizations."
+    action_plan: "docs/phases/PHASE_22.md"
+    dependencies: [19]
+
+  23:
+    name: "Advanced Traffic Intelligence"
+    status: "PROPOSED"
+    summary: "Attacker attribution, geographical intelligence, and threat intelligence integration."
+    action_plan: "docs/phases/PHASE_23.md"
+    dependencies: [12]
 
   24:
     name: "Go Strategy Assessment"
