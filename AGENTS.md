@@ -18,11 +18,20 @@ This document defines the mandatory operational standards for AI agents working 
 The project uses a **Manifest-Driven Roadmap** to prevent documentation drift.
 
 - **Source of Truth:** `docs/phases/manifest.yaml`
-- **Synchronization:** You MUST run `./scripts/sync-roadmap.py` after any change to the manifest. This updates `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.
-- **Workflow:** 
-  1. Update `manifest.yaml` (status, gaps, tasks).
-  2. Run the sync script.
-  3. Commit the manifest, the sync script (if modified), and the generated markdown files as a single atomic unit.
+- **Synchronization:** You MUST run `python3 scripts/sync-roadmap.py` after any change to the manifest. This updates `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.
+
+### Phase Close-Out Checklist (mandatory — run in order, do not skip steps)
+
+Every phase must be closed by completing **all** of the following before the next phase begins:
+
+1. **Tests pass:** `make test` — zero failures, zero warnings.
+2. **CHANGELOG.md:** Add a standard entry for the phase (see `docs/DOCUMENTATION_STANDARDS.md`).
+3. **REDIS_SCHEMA.md:** Document every new Redis key introduced.
+4. **manifest.yaml:** Set `status: COMPLETE`. Remove any gaps that were resolved during the phase. Add any new gaps discovered to the appropriate future phase.
+5. **Sync:** Run `python3 scripts/sync-roadmap.py` to regenerate `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.
+6. **Atomic commit:** Commit code, `CHANGELOG.md`, `manifest.yaml`, `TODO.md`, and `PROJECT_STATUS.md` together in a single commit.
+
+> **Why this matters:** `manifest.yaml` is the only document downstream tooling reads. If it is not updated at phase-close, `TODO.md` and `PROJECT_STATUS.md` will show stale state, and future sessions will have incorrect context about what work remains.
 
 ---
 

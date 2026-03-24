@@ -335,6 +335,7 @@ See `docs/DOCUMENTATION_STANDARDS.md` for the full spec. Summary:
 - All Redis key patterns in `docs/REDIS_SCHEMA.md` (create if missing).
 - New Docker Compose services in README Services table.
 - Update `CHANGELOG.md` after each phase.
+- Update `docs/phases/manifest.yaml`: set the phase `status` to `COMPLETE`, remove any gaps that were closed. Then run `python3 scripts/sync-roadmap.py` to regenerate `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`. Commit all four files together. This is the **source of truth** for phase status — if it is not updated, downstream tooling and future sessions will show stale state.
 
 ### Prometheus Naming
 
@@ -438,13 +439,21 @@ docs/
 
 ---
 
-## How to Start Each Phase
+## How to Run a Phase
 
+### Starting
 1. Read this file (`CLAUDE.md`) in full.
 2. Read the specific phase file `docs/phases/PHASE_XX.md`.
 3. Read the existing code in `proxy.py` and `src/security/` before writing anything new.
 4. Read `config/proxy.yml` to understand the config structure.
+
+### Implementing
 5. Implement, following the acceptance criteria in the phase file.
-6. Run `./run-tests.sh` — all tests must pass.
-7. Update `CHANGELOG.md` and commit.
-8. Do not start the next phase until all acceptance criteria pass.
+6. Run `make test` — all tests must pass with zero warnings.
+
+### Closing (mandatory — do not skip)
+7. Update `CHANGELOG.md` with a standard entry for the phase.
+8. Update `docs/phases/manifest.yaml`: set `status: COMPLETE`, remove any gaps that were resolved.
+9. Run `python3 scripts/sync-roadmap.py` — regenerates `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.
+10. Commit code, `CHANGELOG.md`, `manifest.yaml`, `TODO.md`, and `PROJECT_STATUS.md` as one atomic commit.
+11. Do not start the next phase until all acceptance criteria pass.
