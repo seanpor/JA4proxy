@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -58,11 +59,14 @@ func main() {
 	// Start background workers
 	proxy.pipeline.StartBackgroundWorkers(ctx)
 
-	// Start pub/sub for config hot-reload
+	// Start pub/sub for config hot-reload and dynamic list updates
 	go redisclient.NewPubSubHandler(proxy.redis, log, func() {
 		if err := proxy.reload(); err != nil {
 			log.WithError(err).Warn("config reload failed")
 		}
+	}, func() {
+		loadSecurityLists(ctx, proxy.redis, proxy.pipeline)
+		log.Info("security lists refreshed via pub/sub")
 	}).Run(ctx)
 
 	// Handle signals
@@ -114,8 +118,14 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 	ctx := context.Background()
 	rc.SeedDialIfAbsent(ctx, cfg.MonitorMode.Dial)
 
+	// Seed JA4 lists from config to Redis (parity with proxy.py)
+	seedSecurityLists(ctx, rc, cfg)
+
 	pipelineCfg := buildPipelineConfig(cfg)
 	p := security.NewPipeline(pipelineCfg, rc, log)
+
+	// Load JA4 lists from Redis into Pipeline's in-process maps
+	loadSecurityLists(ctx, rc, p)
 
 	prx := &proxy{
 		cfg:      cfg,
@@ -238,6 +248,10 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 			if len(hello.ALPNProtocols) > 0 {
 				connCtx.ALPN = hello.ALPNProtocols[0]
 			}
+			connCtx.CipherList = make([]int, len(hello.CipherSuites))
+			for i, cs := range hello.CipherSuites {
+				connCtx.CipherList[i] = int(cs)
+			}
 		} else {
 			p.log.WithError(err).Debug("proxy: TLS parse failed; scoring without JA4")
 		}
@@ -260,13 +274,18 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	case "tarpit":
 		p.tarpit(clientConn, data)
 	case "block", "ban":
-		// RST — just close (already deferred)
 		p.log.WithFields(logrus.Fields{
 			"ip":     connCtx.ClientIP,
 			"ja4":    connCtx.JA4,
 			"action": result.Action,
 			"score":  result.Score,
+			"reason": result.BypassReason,
 		}).Info("proxy: blocked connection")
+
+		// Force RST instead of clean FIN
+		if tcpConn, ok := clientConn.(*net.TCPConn); ok {
+			tcpConn.SetLinger(0)
+		}
 	}
 }
 
@@ -504,6 +523,53 @@ func buildPipelineConfig(cfg *config.Config) *security.PipelineConfig {
 		TCPAnalyzerReturnVisitorMinDays:      cfg.TCPAnalyzer.ReturnVisitorMinDays,
 		TCPAnalyzerReturnVisitorMinAllowRate: cfg.TCPAnalyzer.ReturnVisitorMinAllowRate,
 	}
+}
+
+// seedSecurityLists pre-populates Redis ja4:whitelist and ja4:blacklist from config.
+func seedSecurityLists(ctx context.Context, rc *redisclient.Client, cfg *config.Config) {
+	for _, fp := range cfg.Security.Whitelist {
+		rc.SAdd(ctx, "ja4:whitelist", fp)
+	}
+	for _, fp := range cfg.Security.Blacklist {
+		rc.SAdd(ctx, "ja4:blacklist", fp)
+	}
+	// Dynamic CIDR blocklist (from geoip.country_blacklist_cidrs or similar)
+	// Parity with proxy.py _populate_security_lists
+	for _, cidr := range cfg.GeoIP.CountryBlacklist {
+		// Only seed if it looks like a CIDR
+		if strings.Contains(cidr, "/") || strings.Contains(cidr, ".") || strings.Contains(cidr, ":") {
+			rc.SAdd(ctx, "geoip:blocked_cidrs", cidr)
+		}
+	}
+}
+
+// loadSecurityLists fetches JA4 and CIDR lists from Redis and updates the Pipeline.
+func loadSecurityLists(ctx context.Context, rc *redisclient.Client, p *security.Pipeline) {
+	// Use a timeout for Redis operations
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	wlRaw := rc.SMembers(ctx, "ja4:whitelist")
+	blRaw := rc.SMembers(ctx, "ja4:blacklist")
+	cidrRaw := rc.SMembers(ctx, "geoip:blocked_cidrs")
+
+	wl := make(map[string]bool, len(wlRaw))
+	for _, fp := range wlRaw {
+		wl[fp] = true
+	}
+	bl := make(map[string]bool, len(blRaw))
+	for _, fp := range blRaw {
+		bl[fp] = true
+	}
+
+	p.UpdateSets(wl, bl)
+	p.UpdateDynamicCIDRs(cidrRaw)
+
+	logrus.WithFields(logrus.Fields{
+		"whitelist": len(wl),
+		"blacklist": len(bl),
+		"cidrs":     len(cidrRaw),
+	}).Info("security lists loaded from Redis")
 }
 
 // stringSliceToSet converts a string slice to a set map.
