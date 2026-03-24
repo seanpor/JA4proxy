@@ -8,6 +8,7 @@ import sys
 from typing import Optional
 
 from aiohttp import web
+import redis
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from .config import load_config
@@ -134,7 +135,7 @@ class AnalyticsNode:
             try:
                 await self.consumer.redis.ping()
                 return web.json_response({"status": "ready"})
-            except Exception:
+            except (redis.RedisError, ConnectionError):
                 pass
         return web.json_response({"status": "not ready"}, status=503)
 

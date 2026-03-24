@@ -133,6 +133,7 @@ ja4proxy_dns_ptr_classification_total{ptr_class}     counter  PTR lookup outcome
 ja4proxy_dns_enrichment_queue_depth                  gauge    Current DNS enrichment queue depth
 ja4proxy_dns_enrichment_queue_drops_total            counter  DNS enrichment items dropped due to full queue
 ja4proxy_dns_resolver_errors_total                   counter  DNS resolver errors
+ja4proxy_dns_ptr_errors_total{error_type}            counter  DNS PTR lookup failures by type (timeout|nxdomain|servfail|other)
 ```
 
 #### Blocklist management (Phase 8)
@@ -169,6 +170,7 @@ ja4proxy_rdap_lookup_total{registry,result}          counter  RDAP lookup outcom
 ja4proxy_rdap_enrichment_queue_depth                 gauge    Current RDAP enrichment queue depth
 ja4proxy_rdap_parse_errors_total                     counter  RDAP response parse failures
 ja4proxy_rdap_block_expansions_total                 counter  Automatic block expansions applied
+ja4proxy_rdap_lookup_errors_total{rir}               counter  RDAP lookup failures by RIR (bootstrap routing or registry error)
 ```
 
 #### Analytics node (Phase 12)
@@ -208,6 +210,15 @@ ja4proxy_policy_changes_total{bypass}                counter  Security policy by
 ```
 ja4proxy_tarpit_concurrent                           gauge    Current concurrent tarpitted connections
 ja4proxy_tarpit_overflow_total{action}               counter  Connections that hit tarpit capacity cap
+```
+
+#### Exception handling (Phase 17b)
+
+```
+ja4proxy_pipeline_unexpected_errors_total{phase}     counter  Unexpected errors reaching top-level pipeline handler (must be 0)
+ja4proxy_exception_handled_total{module,exception_type} counter All caught exceptions by module and type — spike = new failure mode
+ja4proxy_signal_skipped_total{module,reason}         counter  Signals skipped due to expected dependency failures (Redis/DNS/timeout)
+ja4proxy_signal_error_total{module}                  counter  Signals failed due to unexpected internal errors
 ```
 
 #### Backup & Restore (Phase 19)
@@ -440,6 +451,14 @@ Row 3: **Error Rates**
 - Blocklist download errors by feed
 - DNS resolver errors/min
 
+Row 3b: **Exception Health** (Phase 17b)
+- **Exception Rate by Module** — Bar gauge, `rate(ja4proxy_exception_handled_total[5m]) by (module)`.
+  Thresholds: 0 = green, > 0.1/s = yellow, > 1/s = red.
+  Description: "Exceptions caught per module. Steady baseline is normal; sudden spike indicates new failure mode."
+- **Pipeline Internal Errors (Must Be Zero)** — Stat, `rate(ja4proxy_pipeline_unexpected_errors_total[5m])`.
+  Thresholds: 0 = green, any value > 0 = red (critical).
+  Description: "Unexpected errors in pipeline logic. Non-zero requires immediate investigation."
+
 Row 4: **Config and Reload**
 - Last config reload timestamp
 - Config reload errors (should be 0)
@@ -590,6 +609,34 @@ groups:
         annotations:
           summary: "Tarpit at >80% capacity — overflow actions may begin"
           runbook: "docs/INCIDENT_RESPONSE.md#tarpit-capacity"
+
+  - name: ja4proxy.exceptions
+    interval: 30s
+    rules:
+
+      - alert: PipelineInternalError
+        expr: rate(ja4proxy_pipeline_unexpected_errors_total[1m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: secops
+        annotations:
+          summary: "Pipeline internal error in {{ $labels.phase }}"
+          description: "An unexpected exception was re-raised in the pipeline. Check logs immediately."
+          runbook: "docs/runbooks/security_incident_response.md#pipeline-internal-error"
+
+      - alert: ExceptionRateSpike
+        expr: |
+          rate(ja4proxy_exception_handled_total[5m]) > 2 *
+          avg_over_time(rate(ja4proxy_exception_handled_total[5m])[1h:5m])
+        for: 5m
+        labels:
+          severity: warning
+          team: secops
+        annotations:
+          summary: "Exception rate 2× above 1h baseline in {{ $labels.module }}"
+          description: "Spike may indicate a new failure mode. Current: {{ $value | humanize }}/s"
+          runbook: "docs/runbooks/security_incident_response.md#exception-rate-spike"
 ```
 
 ---

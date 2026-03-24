@@ -265,7 +265,7 @@ class TestCoverageGaps(unittest.TestCase):
         """_lookup_maxmind returns None on exception."""
         cls = self._make()
         cls._maxmind_reader = MagicMock()
-        cls._maxmind_reader.get.side_effect = Exception("mmdb error")
+        cls._maxmind_reader.get.side_effect = AttributeError("mmdb error")
         result = cls._lookup_maxmind("1.2.3.4")
         assert result is None
 

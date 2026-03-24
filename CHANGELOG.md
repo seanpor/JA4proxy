@@ -1,5 +1,47 @@
 # Changelog
 
+## [19.2.0] - 2026-03-23 — Phase 17b/18: Security Audit Remediation (Complete)
+
+### Added
+
+**Exception Handling — Specific Types**
+- All `except Exception: pass` and broad `except Exception` clauses replaced with
+  specific exception types across all security modules (17b-1 acceptance criteria)
+- `src/security/blocklists.py` — `RedisError`, `JSONDecodeError`, `ValueError` per catch site
+- `src/security/dns_enrichment.py` — `RedisError`, `JSONDecodeError`, `ValueError`, `TypeError` per catch site
+- `src/security/rdap_enrichment.py` — `RedisError`, `JSONDecodeError`, `asyncio.TimeoutError` per catch site
+- `src/security/asn_classifier.py`, `tcp_analyzer.py`, `beaconing_detector.py`, `abuseipdb.py` — specific types
+- `src/analytics/main.py`, `stream_consumer.py` — specific types
+
+**New Prometheus Metrics**
+- `ja4proxy_pipeline_unexpected_errors_total{phase}` — pipeline internal errors (must be 0)
+- `ja4proxy_exception_handled_total{module,exception_type}` — exception census by module
+- `ja4proxy_dns_ptr_errors_total{error_type}` — DNS PTR failures by type (timeout|nxdomain|servfail|other)
+- `ja4proxy_rdap_lookup_errors_total{rir}` — RDAP lookup failures by RIR
+
+**Protocols**
+- `src/security/protocols.py` — `SignalCollector` runtime-checkable Protocol for dependency injection
+- `Pipeline.__init__` accepts `collectors: list | None` for test isolation
+
+**Static Analysis Gates**
+- `scripts/check_bare_except.py` — AST-based checker; fails CI on `except:` or `except Exception: pass`
+- `scripts/check_logger_format.sh` — grep-based checker for f-string logger calls
+
+**Tests** (52 new tests, total 2233)
+- `tests/unit/test_exception_handling.py` — 32 tests, one per specific exception type/module
+- `tests/unit/test_pipeline_isolation.py` — 12 tests for collector injection path
+- `tests/chaos/test_exception_handling_chaos.py` — 8 chaos tests (all APIs failing simultaneously, Redis down, malformed JSON, etc.)
+
+**Documentation**
+- `docs/runbooks/security_incident_response.md` — new runbook for pipeline errors and exception rate spikes
+- `docs/OBSERVABILITY_STANDARDS.md` — 5 new metrics, 2 new Grafana panels, 2 new AlertManager rules
+- `monitoring/alertmanager/rules/security.rules.yml` — `PipelineInternalError` (critical) and `ExceptionRateSpike` (warning)
+
+### Changed
+
+- All exception catch sites in `tests/` updated to raise specific exception types matching narrowed catches
+- `docs/phases/manifest.yaml` Phase 18 updated to COMPLETE
+
 ## [19.1.0] - 2026-03-22 — Phase 18: Security Audit Remediation
 
 ### Added

@@ -5,6 +5,8 @@ import json
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import redis as redis_module
+
 from src.security.dns_enrichment import DNSEnrichment, FCrDNSResult
 
 
@@ -530,7 +532,7 @@ class TestDNSEnrichmentCoverageGaps(unittest.TestCase):
     def test_get_cached_result_exception_returns_none(self):
         """Exception in Redis get → returns None."""
         redis = AsyncMock()
-        redis.get = AsyncMock(side_effect=Exception("redis error"))
+        redis.get = AsyncMock(side_effect=redis_module.RedisError("redis error"))
         enr = self._make(redis=redis)
 
         async def run():

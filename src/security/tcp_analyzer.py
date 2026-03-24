@@ -1,3 +1,4 @@
+import redis
 from typing import List
 
 from prometheus_client import Counter, Gauge
@@ -168,7 +169,7 @@ class TCPAnalyzer:
                         f"0% session resumption across {total} sessions",
                     )
                 ]
-        except Exception:
+        except redis.RedisError:
             # Fail open on Redis error
             pass
         return []
@@ -220,7 +221,7 @@ class TCPAnalyzer:
                                 f"Median connection lifespan is {median_lifespan:.0f}ms",
                             )
                         ]
-        except Exception:
+        except redis.RedisError:
             # Fail open
             pass
         return []
@@ -268,7 +269,7 @@ class TCPAnalyzer:
                         f"{count} concurrent connections",
                     )
                 ]
-        except Exception:
+        except redis.RedisError:
             # Fail open
             pass
         return []
@@ -280,7 +281,7 @@ class TCPAnalyzer:
         try:
             key = f"concurrent:{client_ip}"
             await self._redis.decr(key)
-        except Exception:
+        except redis.RedisError:
             # Errors here are not critical
             pass
 
@@ -330,7 +331,7 @@ class TCPAnalyzer:
                             f"Trusted visitor, score reduced by {score_reduction_pct}%",
                         )
                     ]
-        except Exception:
+        except redis.RedisError:
             # Fail open
             pass
         return []
@@ -356,7 +357,7 @@ class TCPAnalyzer:
                         "high_tls_alert_rate", score, f"{count} TLS alerts in 60s"
                     )
                 ]
-        except Exception:
+        except redis.RedisError:
             # Fail open
             pass
         return []

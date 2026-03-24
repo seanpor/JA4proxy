@@ -42,6 +42,7 @@ import logging
 import statistics
 import time
 import uuid
+import redis
 from typing import TYPE_CHECKING
 
 from prometheus_client import Counter, Gauge, Histogram
@@ -358,7 +359,7 @@ class BeaconingDetector:
                 await self._redis.zremrangebyrank("beacon:suspects", 0, trim - 1)
                 count = self._max_suspects
             _BEACONING_SUSPECTS.set(count)
-        except Exception:
+        except redis.RedisError:
             pass  # Non-critical — suspects list is advisory only
 
         return RiskSignal(

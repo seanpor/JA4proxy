@@ -32,6 +32,7 @@ import ipaddress
 import json
 import logging
 import os
+import redis as redis_lib
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
@@ -77,6 +78,12 @@ _BLOCK_EXPANSIONS = Counter(
 _PARSE_ERRORS = Counter(
     "ja4proxy_rdap_parse_errors_total",
     "RDAP response parse failures",
+)
+
+_LOOKUP_ERRORS = Counter(
+    "ja4proxy_rdap_lookup_errors_total",
+    "RDAP lookup failures by RIR",
+    ["rir"],
 )
 
 _QUEUE_DROPPED = Counter(
@@ -559,7 +566,7 @@ class RDAPEnricher:
                 return
             try:
                 await self._redis.expire("bloom:rdap_enriched", 86400)
-            except Exception:
+            except redis_lib.RedisError:
                 pass
         except Exception:
             # RedisBloom unavailable — fallback SET+TTL
@@ -621,6 +628,7 @@ class RDAPEnricher:
                 })
             )
             _LOOKUP_TOTAL.labels(registry="unknown", result="error").inc()
+            _LOOKUP_ERRORS.labels(rir="unknown").inc()
             return
 
         # Extract registry hostname for rate limiting and metrics
@@ -633,7 +641,7 @@ class RDAPEnricher:
         # Apply per-registry rate limit
         try:
             await self._rate_limiter.acquire(registry_host)
-        except Exception:
+        except (redis_lib.RedisError, asyncio.TimeoutError):
             pass  # Rate limiter failure is non-fatal
 
         # Perform RDAP lookup
@@ -680,6 +688,7 @@ class RDAPEnricher:
                 })
             )
             _LOOKUP_TOTAL.labels(registry=registry_host, result="error").inc()
+            _LOOKUP_ERRORS.labels(rir=registry_host).inc()
             return
         else:
             _LOOKUP_TOTAL.labels(registry=registry_host, result="ok").inc()
@@ -806,7 +815,7 @@ class RDAPEnricher:
                         self._bootstrap_v4 = json.loads(v4_raw)
                         self._bootstrap_v6 = json.loads(v6_raw)
                         return
-                except Exception:
+                except (redis_lib.RedisError, json.JSONDecodeError, ValueError):
                     pass
             # Timed out — warn and continue without bootstrap
             logger.warning(

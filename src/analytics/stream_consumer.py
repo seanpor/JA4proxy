@@ -8,6 +8,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 import aioredis
+import redis
 from jsonschema import ValidationError, validate
 from prometheus_client import Gauge
 
@@ -111,7 +112,7 @@ class StreamConsumer:
                 hll_key = f"analytics:hll:{subnet}"
                 await self.redis.pfadd(hll_key, event_data["src_ip"])
                 await self.redis.expire(hll_key, 86400)  # 24 h TTL per REDIS_SCHEMA.md
-            except Exception:
+            except redis.RedisError:
                 pass  # Fail open; in-process HLL still accurate for this instance
             
             # Update detection modules
@@ -197,7 +198,7 @@ class StreamConsumer:
                                 logging.getLogger(__name__).warning(
                                     "analytics | event=stream_lag_high | lag_seconds=%.1f", lag
                                 )
-                        except Exception:
+                        except (ValueError, AttributeError):
                             pass
 
                         # Validate event

@@ -50,6 +50,7 @@ import ipaddress
 import json
 import logging
 import os
+import redis
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
@@ -458,7 +459,7 @@ class AbuseIPDBChecker:
             # Set TTL on the bloom filter key (24h)
             try:
                 await self._redis.expire("bloom:abuseipdb_enriched", 86400)
-            except Exception:
+            except redis.RedisError:
                 pass
         except Exception:
             # RedisBloom unavailable — fall back to SET+TTL
@@ -679,7 +680,7 @@ class AbuseIPDBChecker:
                 if val is None or int(val) <= self._config.max_requests_per_day:
                     self._quota_exhausted = False
                     _QUOTA_EXHAUSTED.set(0)
-        except Exception:
+        except (redis.RedisError, TypeError, ValueError):
             pass
 
     def on_config_reload(self, new_config: dict) -> None:

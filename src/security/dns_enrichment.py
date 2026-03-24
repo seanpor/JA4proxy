@@ -16,6 +16,8 @@ import socket
 from dataclasses import dataclass
 from typing import Optional
 
+import redis as redis_lib
+
 from prometheus_client import Counter, Gauge
 
 try:
@@ -54,6 +56,12 @@ _DNS_QUEUE_DROPS = Counter(
 _DNS_RESOLVER_ERRORS = Counter(
     "ja4proxy_dns_resolver_errors_total",
     "DNS resolver errors",
+)
+
+_DNS_PTR_ERRORS = Counter(
+    "ja4proxy_dns_ptr_errors_total",
+    "DNS PTR lookup failures by error type",
+    ["error_type"],  # timeout | nxdomain | servfail | other
 )
 
 # ---------------------------------------------------------------------------
@@ -249,6 +257,7 @@ class DNSEnrichment:
         except asyncio.TimeoutError:
             _DNS_TOTAL.labels(result="timeout").inc()
             _DNS_RESOLVER_ERRORS.inc()
+            _DNS_PTR_ERRORS.labels(error_type="timeout").inc()
             logger.error(
                 json.dumps({
                     "type": "system", "level": "ERROR",
@@ -260,6 +269,13 @@ class DNSEnrichment:
         except Exception as exc:
             _DNS_TOTAL.labels(result="error").inc()
             _DNS_RESOLVER_ERRORS.inc()
+            exc_name = type(exc).__name__
+            error_type = (
+                "nxdomain" if "nxdomain" in exc_name.lower()
+                else "servfail" if "servfail" in exc_name.lower()
+                else "other"
+            )
+            _DNS_PTR_ERRORS.labels(error_type=error_type).inc()
             logger.error(
                 json.dumps({
                     "type": "system", "level": "ERROR",
@@ -335,8 +351,8 @@ class DNSEnrichment:
             raw = await self._redis_client.get(f"dns:ptr:{ip}")
             if raw:
                 return json.loads(raw)
-        except Exception:
-            pass
+        except (redis_lib.RedisError, json.JSONDecodeError, ValueError):
+            pass  # cache unavailable or malformed — fall through to DNS lookup
         return None
 
     async def _cache_result(self, ip: str, result: FCrDNSResult) -> None:
@@ -381,8 +397,8 @@ class DNSEnrichment:
                 if exists:
                     return
                 await self._redis_client.bf().add(self._bloom_filter_key, ip)
-        except Exception:
-            pass  # Bloom filter failure is not fatal — continue to enqueue
+        except (redis_lib.RedisError, AttributeError, TypeError):
+            pass  # Bloom filter unavailable or non-awaitable — not fatal, continue to enqueue
 
         try:
             self._queue.put_nowait(ip)

@@ -2,6 +2,8 @@ import asyncio
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import redis as redis_module
+
 from src.security.models import ConnectionContext, RiskSignal
 from src.security.tcp_analyzer import TCPAnalyzer, generate_ja4t
 
@@ -218,6 +220,7 @@ class TestTCPAnalyzerCoverageGaps(unittest.TestCase):
             redis.expire = AsyncMock()
             redis.hmget = AsyncMock(return_value=[9, 0])  # no_session_resumption
             redis.hmset = AsyncMock()
+            redis.zadd = AsyncMock()  # lifespan tracking (zcard=0 → no signal)
             redis.zcard = AsyncMock(return_value=0)  # no lifespan signal
             redis.hgetall = AsyncMock(return_value={})  # new visitor
             tcp = self._make(redis=redis)
@@ -273,7 +276,7 @@ class TestTCPAnalyzerCoverageGaps(unittest.TestCase):
         """Redis exception → fail open, return [] (lines 171-173)."""
         async def run():
             redis = MagicMock()
-            redis.hmget = AsyncMock(side_effect=Exception("redis down"))
+            redis.hmget = AsyncMock(side_effect=redis_module.RedisError("redis down"))
             tcp = self._make(redis=redis)
             ctx = ConnectionContext(client_ip="1.2.3.4", ja4="test")
             signals = await tcp._check_session_resumption(ctx)
@@ -287,7 +290,7 @@ class TestTCPAnalyzerCoverageGaps(unittest.TestCase):
         """Redis exception → fail open, return [] (lines 223-225)."""
         async def run():
             redis = MagicMock()
-            redis.zadd = AsyncMock(side_effect=Exception("redis down"))
+            redis.zadd = AsyncMock(side_effect=redis_module.RedisError("redis down"))
             redis.expire = AsyncMock()
             tcp = self._make(redis=redis)
             ctx = ConnectionContext(client_ip="1.2.3.4", connection_lifespan_ms=100)
@@ -345,7 +348,7 @@ class TestTCPAnalyzerCoverageGaps(unittest.TestCase):
         """Redis exception → fail open, return [] (lines 271-274)."""
         async def run():
             redis = MagicMock()
-            redis.incr = AsyncMock(side_effect=Exception("redis down"))
+            redis.incr = AsyncMock(side_effect=redis_module.RedisError("redis down"))
             tcp = self._make(redis=redis)
             ctx = ConnectionContext(client_ip="1.2.3.4")
             signals = await tcp._check_concurrent_connections(ctx)
@@ -370,7 +373,7 @@ class TestTCPAnalyzerCoverageGaps(unittest.TestCase):
         """Redis exception in decrement is silently ignored."""
         async def run():
             redis = MagicMock()
-            redis.decr = AsyncMock(side_effect=Exception("redis down"))
+            redis.decr = AsyncMock(side_effect=redis_module.RedisError("redis down"))
             tcp = self._make(redis=redis)
             await tcp.decrement_concurrent_connections("1.2.3.4")  # Must not raise
 
@@ -397,7 +400,7 @@ class TestTCPAnalyzerCoverageGaps(unittest.TestCase):
         """Redis exception → fail open, return [] (lines 333-336)."""
         async def run():
             redis = MagicMock()
-            redis.hgetall = AsyncMock(side_effect=Exception("redis down"))
+            redis.hgetall = AsyncMock(side_effect=redis_module.RedisError("redis down"))
             tcp = self._make(redis=redis)
             ctx = ConnectionContext(client_ip="1.2.3.4")
             signals = await tcp._check_return_visitor(ctx)
@@ -468,7 +471,7 @@ class TestTCPAnalyzerCoverageGaps(unittest.TestCase):
         """Redis exception → fail open, return [] (lines 359-362)."""
         async def run():
             redis = MagicMock()
-            redis.incr = AsyncMock(side_effect=Exception("redis down"))
+            redis.incr = AsyncMock(side_effect=redis_module.RedisError("redis down"))
             tcp = self._make(redis=redis)
             ctx = ConnectionContext(client_ip="1.2.3.4", tls_alerts=["close_notify"])
             signals = await tcp._check_tls_alerts(ctx)
