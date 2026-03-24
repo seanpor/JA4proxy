@@ -976,6 +976,25 @@ actual state. Remaining gaps tracked in PHASE_12A-D.md.
 
 ---
 
+## [5.3.0] - 2026-03-07 - PHASE 6: ASN & DATACENTER CLASSIFICATION (COMPLETE)
+
+### Added
+- **`src/security/asn_classifier.py`** — `ASNClassifier` with MaxMind GeoLite2-ASN mmap lookup:
+  datacenter/cloud, Tor exit node, VPN, residential classification; configurable score contributions.
+- **`config/asn_datacenter_list.yml`** — curated datacenter ASN list (AWS, GCP, Azure, DigitalOcean,
+  Linode, Vultr, OVH and others).
+- **`config/proxy.yml`** — `asn_classifier:` section; Tor exit list URL, VPN detection toggle,
+  score weights for each classification type.
+- Pipeline integration: `ASNClassifier.get_signal()` wired into `_collect_signals()` as Phase 6 step.
+- Prometheus metrics: `ja4proxy_asn_classification_total{asn_type}` counter.
+- Tests: unit coverage for all classification paths, FP rate test (`test_asn_fp_rate.py`) — residential
+  IP false positive rate < 2% on corpus.
+
+### Coverage
+- All Phase 6 acceptance criteria met (commit e093b15).
+
+---
+
 ## [6.0.0] - 2026-03-07 - PHASE 7: FCrDNS & PASSIVE DNS ENRICHMENT (COMPLETE)
 
 ### Added
