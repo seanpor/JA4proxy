@@ -65,7 +65,7 @@ def generate_todo(manifest):
     
     for phase_id in sorted(manifest["phases"].keys()):
         data = manifest["phases"][phase_id]
-        if data["status"] in ["OPEN", "DEFERRED"]:
+        if data["status"] in ["OPEN", "DEFERRED", "PROPOSED"]:
             lines.append(f"### Phase {phase_id} — {data['name']}")
             lines.append(f"*   **Status:** **{data['status']}** ({data['summary']})")
             if "action_plan" in data:

@@ -14,6 +14,7 @@ Optimization for high-throughput and multi-core systems.
 | 0 | Foundation | COMPLETE | Configuration loader, hot reload, local cache, Bloom filters. |
 | 15 | Go Rewrite | PARTIAL | 10-50x throughput improvement via CPython/Go transition. |
 | 17 | Docker Test Optimization | COMPLETE | Fix Docker test container hang during teardown. |
+| 24 | Go Strategy Assessment | PROPOSED | Assessment of minimal Go component vs comprehensive rewrite approach. |
 
 ### Epic: Security Hardening
 Deep security analysis, compliance, and audit remediation.
@@ -84,6 +85,7 @@ Management dashboards and documentation quality.
 | 19 | Backup & Restore | COMPLETE | 100% | COMPLETE |
 | 20 | Passive TAP Mode | OPEN | N/A | N/A |
 | 21 | Documentation Excellence | OPEN | N/A | N/A |
+| 24 | Go Strategy Assessment | PROPOSED | N/A | N/A |
 
 ---
 
