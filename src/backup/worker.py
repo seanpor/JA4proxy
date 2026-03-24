@@ -271,6 +271,13 @@ class BackupWorker:
                 "size_bytes": len(backup_data),
                 "included_patterns": self.policy.include_patterns,
                 "excluded_patterns": self.policy.exclude_patterns,
+                # Extensibility block for Phase 21 encryption (always false in Phase 19)
+                "encryption": {
+                    "enabled": False,
+                    "provider": None,   # Phase 21: "aws-kms" | "vault" | "local-aes"
+                    "key_id": None,     # Phase 21: KMS key ARN or Vault key path
+                    "algorithm": None,  # Phase 21: "AES-256-GCM"
+                },
             }
 
             manifest_path = dest_path / f"{backup_filename}.manifest.json"

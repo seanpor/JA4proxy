@@ -66,6 +66,34 @@
     - `src/analytics/` (all modules)
 - Improved `_get_analytics_signals` to propagate dependency failures for proper metric tracking.
 
+## [19.0.1] - 2026-03-24 — Phase 19b: Backup & Restore Gap Closure
+
+### Changed
+
+**Configuration Defaults (corrected to match spec)**
+- `backup.max_keys_per_run`: 1,000 → 5,000,000 (prevents false-low cap on large deployments)
+- `backup.max_size_bytes`: 1 GB → 10 GB (matches Phase 19b spec)
+- `backup.include_audit_log`: true → false (audit log excluded by default; opt-in only)
+- All backup config keys now have inline YAML comments explaining purpose and valid values
+
+**Manifest Format**
+- Added `encryption` block to every backup manifest (always `enabled: false` in Phase 19)
+- Extensibility marker for Phase 21 KMS integration without format redesign
+
+### Added
+
+**FP Corpus Tests**
+- `tests/fp_corpus/test_backup_fp.py` — 13 FP corpus tests verifying:
+  - Critical security keys (ban:*, ja4:blacklist, config:*, tor:exit:ips, rdap:*) always included
+  - Transient keys (session:*, lifespan:*, concurrent:*, beacon:*, bloom:*) always excluded
+  - Deny-by-default for unknown keys not matching any pattern
+
+**Documentation**
+- `docs/DEPLOYMENT_SECURITY_MODEL.md` — OS user model, network exposure, secret management,
+  backup security section with deployment checklist and known limitations per Phase 19b §8
+- `docs/INCIDENT_RESPONSE.md` — Backup & restore recovery procedures: find backup, validate,
+  non-destructive restore, destructive restore, verify state, monitoring alerts
+
 ## [19.0.0] - 2026-03-21 — Phase 19: Backup & Restore Framework
 
 ### Added

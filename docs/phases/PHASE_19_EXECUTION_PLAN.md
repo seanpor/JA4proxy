@@ -1,6 +1,6 @@
 # Phase 19 — Backup & Restore Execution Plan (TDD-First)
 
-## Status: IN PROGRESS — core complete; gap closure in progress
+## Status: COMPLETE — all milestones done; gap closure items G1-G6 closed 2026-03-24
 
 This document is the implementation source of truth for Phase 19 execution order,
 task granularity, and verification gates.
@@ -219,12 +219,12 @@ All must be closed before the Phase Completion Gate is marked PASS.
 
 | # | Item | File(s) | Status |
 |---|------|---------|--------|
-| G1 | Config defaults: max_keys_per_run 1000→5M, max_size_bytes 1GB→10GB, include_audit_log true→false | `config/proxy.yml`, `tests/unit/test_config_validation.py` | ❌ |
-| G2 | Manifest encryption block for Phase 21 extensibility | `src/backup/worker.py` | ❌ |
-| G3 | FP corpus tests: verify critical keys included, transient excluded | `tests/fp_corpus/test_backup_fp.py` | ❌ |
-| G4 | DEPLOYMENT_SECURITY_MODEL.md with backup security section | `docs/DEPLOYMENT_SECURITY_MODEL.md` | ❌ |
-| G5 | INCIDENT_RESPONSE.md backup/restore recovery procedures | `docs/INCIDENT_RESPONSE.md` | ❌ |
-| G6 | CHANGELOG.md Phase 19b entry | `CHANGELOG.md` | ❌ |
+| G1 | Config defaults: max_keys_per_run 1000→5M, max_size_bytes 1GB→10GB, include_audit_log true→false | `config/proxy.yml`, `tests/unit/test_config_validation.py` | ✅ |
+| G2 | Manifest encryption block for Phase 21 extensibility | `src/backup/worker.py` | ✅ |
+| G3 | FP corpus tests: verify critical keys included, transient excluded | `tests/fp_corpus/test_backup_fp.py` | ✅ |
+| G4 | DEPLOYMENT_SECURITY_MODEL.md with backup security section | `docs/DEPLOYMENT_SECURITY_MODEL.md` | ✅ |
+| G5 | INCIDENT_RESPONSE.md backup/restore recovery procedures | `docs/INCIDENT_RESPONSE.md` | ✅ |
+| G6 | CHANGELOG.md Phase 19b entry | `CHANGELOG.md` | ✅ |
 
 ---
 
@@ -264,11 +264,11 @@ All must be closed before the Phase Completion Gate is marked PASS.
 - [x] Backup performance thresholds recorded in benchmark history
 - [x] `docs/REDIS_SCHEMA.md` updated
 - [x] `docs/OBSERVABILITY_STANDARDS.md` updated
-- [ ] Runbooks updated (`SECOPS_OPERATIONS` ✅, `INCIDENT_RESPONSE` ❌, `QUICK_REFERENCE` ✅)
+- [x] Runbooks updated (`SECOPS_OPERATIONS` ✅, `INCIDENT_RESPONSE` ✅, `QUICK_REFERENCE` ✅)
 - [x] `ADR-019` present and linked
 - [x] `BACKUP_THREAT_MODEL` present and linked
 - [x] `CHANGELOG.md` updated after all tests/docs pass
-- [ ] Gap closure items G1–G6 all closed
+- [x] Gap closure items G1–G6 all closed (2026-03-24)
 
 ---
 
