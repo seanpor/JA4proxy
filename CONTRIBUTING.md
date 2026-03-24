@@ -20,7 +20,7 @@ pip install -r requirements.txt
 # Install dev/test dependencies
 pip install -r requirements-dev.txt
 
-# Run the test suite (should pass with 1382 tests, 0 failures)
+# Run the test suite (should pass with 2251 tests, 0 failures)
 make test
 # Or directly:
 python3 -m pytest tests/ --ignore=tests/integration/test_docker_stack.py
@@ -85,7 +85,7 @@ tests/
   performance/                  # Throughput and latency benchmarks
   mocks/                        # Mock servers for external APIs
 docs/
-  phases/                       # Per-phase plan files (PHASE_00.md – PHASE_15.md)
+  phases/                       # Per-phase plan files (PHASE_00.md – PHASE_24.md)
   runbooks/                     # Operational runbooks
   decisions/                    # Architecture Decision Records (ADR-*.md)
 ```
@@ -198,9 +198,24 @@ Co-Authored-By: Your Name <your@email.com>
 - **Never hard-code Redis key patterns.** They are documented in `docs/REDIS_SCHEMA.md`
   and must match exactly.
 
+## Completing a Phase
+
+When a phase is done, run this checklist **in order** before starting the next one:
+
+1. `make test` — zero failures, zero warnings.
+2. Update `CHANGELOG.md` with a standard entry (format: `docs/DOCUMENTATION_STANDARDS.md`).
+3. Update `docs/REDIS_SCHEMA.md` for any new Redis keys introduced.
+4. Update `docs/phases/manifest.yaml` — set `status: COMPLETE`, remove gaps that were resolved.
+5. Run `python3 scripts/sync-roadmap.py` — regenerates `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.
+6. Commit everything together: code, `CHANGELOG.md`, `manifest.yaml`, `TODO.md`, `PROJECT_STATUS.md`.
+
+> `manifest.yaml` is the single source of truth for phase status. Skipping step 4–5 leaves
+> `TODO.md` and `PROJECT_STATUS.md` showing stale state, and breaks the next contributor's
+> understanding of what work remains.
+
 ## Updating Documentation
 
-When adding a new feature:
+When adding a new feature (outside of a phase close-out):
 
 - Update `CHANGELOG.md` (format in `docs/DOCUMENTATION_STANDARDS.md`).
 - Update `docs/REDIS_SCHEMA.md` if new Redis keys are introduced.
