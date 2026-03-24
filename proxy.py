@@ -624,7 +624,7 @@ class ConfigManager:
             if not isinstance(bind_host, str):
                 raise ValidationError("bind_host must be a string")
             # Warn if binding to all interfaces
-            if bind_host == "0.0.0.0":  # nosec B104 — checked at startup; warns if all-interfaces
+            if bind_host == "0.0.0.0":  # nosec B104
                 self.logger.warning(
                     "SECURITY: Binding to 0.0.0.0 exposes service to all interfaces"
                 )
@@ -741,7 +741,7 @@ class ConfigManager:
         """Default configuration."""
         return {
             "proxy": {
-                "bind_host": "0.0.0.0",  # nosec B104 — proxy must bind all interfaces
+                "bind_host": "0.0.0.0",  # nosec B104
                 "bind_port": 8080,
                 "backend_host": "127.0.0.1",
                 "backend_port": 80,

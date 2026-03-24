@@ -250,7 +250,7 @@ class BackupWorker:
                 if dumped:
                     # Encode key name alongside dump data so restore can
                     # write each value back to the correct key.
-                    backup_data += encode_entry(key_str, dumped)  # type: ignore[operator]
+                    backup_data += encode_entry(key_str, dumped)  # type: ignore[operator,arg-type]
 
             # Generate checksum
             checksum = hashlib.sha256(backup_data).hexdigest()

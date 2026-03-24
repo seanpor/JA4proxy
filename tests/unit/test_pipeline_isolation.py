@@ -8,10 +8,9 @@ import asyncio
 import unittest
 from unittest.mock import AsyncMock, MagicMock
 
-from src.security.models import ConnectionContext, RiskSignal, PipelineResult
+from src.security.models import ConnectionContext, PipelineResult, RiskSignal
 from src.security.pipeline import Pipeline
 from src.security.protocols import SignalCollector
-
 
 # ---------------------------------------------------------------------------
 # Helpers

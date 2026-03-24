@@ -50,11 +50,11 @@ import ipaddress
 import json
 import logging
 import os
-import redis
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+import redis
 from prometheus_client import Counter, Gauge
 
 from .models import RiskSignal

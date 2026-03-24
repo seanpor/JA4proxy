@@ -12,7 +12,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import redis
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -340,7 +339,7 @@ class TestBlocklistManagerExceptions(unittest.TestCase):
 class TestFeedManagerExceptions(unittest.TestCase):
 
     def _make_feed_manager(self, redis_client=None):
-        from src.security.blocklists import FeedManager, BlocklistManager
+        from src.security.blocklists import BlocklistManager, FeedManager
         config = {
             "blocklists": {
                 "feeds": [
@@ -525,7 +524,7 @@ class TestPipelineCollectorExceptions(unittest.TestCase):
 class TestRDAPExceptions(unittest.TestCase):
 
     def _make_rdap_enricher(self, redis_client=None, local_cache=None):
-        from src.security.rdap_enrichment import RDAPEnricher, RDAPConfig
+        from src.security.rdap_enrichment import RDAPConfig, RDAPEnricher
         config = RDAPConfig(enabled=True, min_enqueue_score=0)
         lc = local_cache or MagicMock()
         lc.rdap_results = MagicMock()

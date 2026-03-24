@@ -7,8 +7,8 @@ import signal
 import sys
 from typing import Optional
 
-from aiohttp import web
 import redis
+from aiohttp import web
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from .config import load_config
@@ -121,7 +121,7 @@ class AnalyticsNode:
         app.router.add_get("/metrics", self._handle_metrics)
         runner = web.AppRunner(app)
         await runner.setup()
-        site = web.TCPSite(runner, "0.0.0.0", 8080)  # nosec B104 — analytics binds all interfaces
+        site = web.TCPSite(runner, "0.0.0.0", 8080)  # nosec B104
         await site.start()
         return runner
 
