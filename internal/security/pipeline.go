@@ -2,9 +2,13 @@ package security
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"strings"
+	"sync"
 
 	"github.com/sirupsen/logrus"
+	"github.com/yl2chen/cidranger"
 )
 
 // RedisReader is the Redis interface used by the pipeline and signal modules.
@@ -48,6 +52,12 @@ type Pipeline struct {
 	beaconing     *BeaconingDetector
 	abuseipdb     *AbuseIPDB
 	rdap          *RDAPEnricher
+
+	// JA4 lists (dynamic, synchronized with Redis)
+	Whitelist map[string]bool
+	Blacklist map[string]bool
+	dynamicCIDR cidranger.Ranger
+	mu        sync.RWMutex
 }
 
 // PipelineConfig holds the pipeline's toggleable bypass flags and list sets.
@@ -63,6 +73,9 @@ type PipelineConfig struct {
 	Whitelist      map[string]bool
 	WhitelistSuffs []string // pattern suffixes for ALPN-based bypass
 	Blacklist      map[string]bool
+
+	// Mutex for thread-safe list updates
+	mu sync.RWMutex
 
 	// Scoring thresholds (from risk_scorer.thresholds)
 	Thresholds map[string]int
@@ -170,11 +183,13 @@ func NewPipeline(cfg *PipelineConfig, redis RedisReader, log *logrus.Logger) *Pi
 		cfg = &PipelineConfig{}
 	}
 	p := &Pipeline{
-		cfg:     cfg,
-		scorer:  NewRiskScorer(cfg.Thresholds),
-		decider: NewActionDecider(cfg.Thresholds),
-		redis:   redis,
-		log:     log,
+		cfg:       cfg,
+		scorer:    NewRiskScorer(cfg.Thresholds),
+		decider:   NewActionDecider(cfg.Thresholds),
+		redis:     redis,
+		log:       log,
+		Whitelist: cfg.Whitelist,
+		Blacklist: cfg.Blacklist,
 	}
 	p.tlsEnforcer = NewTLSEnforcer(buildTLSEnforcerConfig(cfg), log)
 	p.sniAnalyzer = NewSNIAnalyzer(buildSNIAnalyzerConfig(cfg), log)
@@ -322,8 +337,44 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	}
 }
 
+// UpdateSets replaces in-process JA4 maps. Called on startup and pub/sub update.
+func (p *Pipeline) UpdateSets(whitelist, blacklist map[string]bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.Whitelist = whitelist
+	p.Blacklist = blacklist
+}
+
+// UpdateDynamicCIDRs replaces the in-process CIDR blocklist.
+func (p *Pipeline) UpdateDynamicCIDRs(cidrs []string) {
+	ranger := cidranger.NewPCTrieRanger()
+	for _, c := range cidrs {
+		_, network, err := net.ParseCIDR(c)
+		if err != nil {
+			// Handle plain IPs
+			ip := net.ParseIP(c)
+			if ip != nil {
+				mask := 32
+				if ip.To4() == nil {
+					mask = 128
+				}
+				_, network, _ = net.ParseCIDR(fmt.Sprintf("%s/%d", c, mask))
+			}
+		}
+		if network != nil {
+			_ = ranger.Insert(cidranger.NewBasicRangerEntry(*network))
+		}
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.dynamicCIDR = ranger
+}
+
 // checkBypasses returns (true, reason) if the connection matches an ALLOW bypass.
 func (p *Pipeline) checkBypasses(conn *ConnectionContext) (bool, string) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
 	// ALPN browser bypass: h2 or h1 → always allow
 	if p.cfg.ALPNBrowserBypass && (conn.ALPN == "h2" || conn.ALPN == "h1") {
 		return true, "alpn_browser"
@@ -331,7 +382,7 @@ func (p *Pipeline) checkBypasses(conn *ConnectionContext) (bool, string) {
 
 	// JA4 whitelist bypass
 	if p.cfg.JA4WhitelistBypass && conn.JA4 != "" {
-		if p.cfg.Whitelist[conn.JA4] {
+		if p.Whitelist[conn.JA4] {
 			return true, "ja4_whitelist"
 		}
 		// Pattern match: whitelist_patterns are ALPN suffix patterns
@@ -357,14 +408,27 @@ func (p *Pipeline) checkBypasses(conn *ConnectionContext) (bool, string) {
 
 // checkHardBlocks returns (true, reason) if the connection must be blocked immediately.
 func (p *Pipeline) checkHardBlocks(conn *ConnectionContext) (bool, string) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
 	// JA4 blacklist
-	if p.cfg.JA4BlacklistBypass && conn.JA4 != "" && p.cfg.Blacklist[conn.JA4] {
+	if p.cfg.JA4BlacklistBypass && conn.JA4 != "" && p.Blacklist[conn.JA4] {
 		return true, "ja4_blacklist"
 	}
 
 	// Country blacklist
 	if p.cfg.CountryBlacklistBypass && conn.Country != "" && p.cfg.CountryBlacklist[conn.Country] {
 		return true, "country_blacklist"
+	}
+
+	// Dynamic CIDR blocklist
+	if p.dynamicCIDR != nil {
+		ip := net.ParseIP(conn.ClientIP)
+		if ip != nil {
+			if contains, err := p.dynamicCIDR.Contains(ip); err == nil && contains {
+				return true, "dynamic_cidr"
+			}
+		}
 	}
 
 	return false, ""

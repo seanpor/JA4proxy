@@ -441,8 +441,10 @@ def test_ja4_blacklist_blocks_go_proxy(go_proxy, redis_client):
 
     # Add to blacklist, send hello, expect RST
     redis_client.sadd("ja4:blacklist", ja4)
+    redis_client.publish("ja4:blacklist:add", ja4)
     try:
-        time.sleep(0.2)  # allow proxy to sync blacklist
+        # Wait for Go proxy to receive pub/sub
+        time.sleep(1.0)  # allow proxy to sync blacklist
         result = send_clienthello_and_check(GO_PROXY_HOST, GO_PROXY_PORT, hello)
         assert result["connected"], "Go proxy refused connection entirely"
         assert result["rst"], (

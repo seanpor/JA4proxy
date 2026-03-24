@@ -316,8 +316,12 @@ type SNIAnalyzerConfigYAML struct {
 
 // GeoIPConfigYAML holds GeoIP database settings from proxy.yml.
 type GeoIPConfigYAML struct {
-	DBPath    string `yaml:"db_path"`
-	ASNDBPath string `yaml:"asn_db_path"`
+	DBPath                 string   `yaml:"database_path"`
+	ASNDBPath              string   `yaml:"asn_db_path"`
+	CountryWhitelistEnabled bool     `yaml:"country_whitelist_enabled"`
+	CountryWhitelist        []string `yaml:"country_whitelist"`
+	CountryBlacklistEnabled bool     `yaml:"country_blacklist_enabled"`
+	CountryBlacklist        []string `yaml:"country_blacklist"`
 }
 
 // TCPAnalyzerConfigYAML holds TCP analyzer settings from proxy.yml.
