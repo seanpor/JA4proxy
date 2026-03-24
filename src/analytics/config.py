@@ -17,7 +17,7 @@ def load_config(config_file: str) -> Dict[str, Any]:
     """
     with open(config_file, 'r') as f:
         config = yaml.safe_load(f)
-    
+
     # Set defaults
     defaults = {
         'redis': {
@@ -40,7 +40,7 @@ def load_config(config_file: str) -> Dict[str, Any]:
             'window_seconds': 300
         }
     }
-    
+
     # Merge defaults with loaded config
     for key, value in defaults.items():
         if key not in config:

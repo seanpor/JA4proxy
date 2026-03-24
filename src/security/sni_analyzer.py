@@ -177,7 +177,7 @@ class SNIAnalyzer:
         # Handle None config gracefully
         if config is None:
             config = {}
-        
+
         cfg = config.get("sni_analyzer", {})
         self._enabled: bool = bool(cfg.get("enabled", True))
 
