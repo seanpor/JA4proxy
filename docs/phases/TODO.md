@@ -4,13 +4,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🔴 Critical Gaps in Completed Phases (<= 15)
 
-### Phase 12 — Analytics Node
-*   **Gap:** requirements-analytics.txt missing in Dockerfile
-*   **Gap:** Campaign/SlowScan signals not read by proxy scorer
-*   **Gap:** Grafana drift dashboard missing
-*   **Status:** **PARTIAL** (Cross-instance statistical analysis via Redis Streams.)
-*   **Action Plan:** [PHASE_12_WORK_PLAN.md](PHASE_12_WORK_PLAN.md)
-
 ### Phase 15 — Go Rewrite
 *   **Gap:** Lua scripts not using //go:embed
 *   **Gap:** JA4X missing in Go pipeline

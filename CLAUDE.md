@@ -113,7 +113,15 @@ Practical rules that flow from this:
 | 13 | Management UI *(deferred — implement after Phase 15)* | Live feed; JA4 candidates; IP management; dial control | [PHASE_13.md](docs/phases/PHASE_13.md) |
 | 14 | Production hardening | Secrets, Redis security, resource limits, observability, **tarpit self-protection** | [PHASE_14.md](docs/phases/PHASE_14.md) |
 | 15 | Go rewrite | 10–50× throughput; GIL removed; multi-core TLS parsing | [PHASE_15.md](docs/phases/PHASE_15.md) |
+| 16 | Extended fingerprinting | JA4X cert fingerprinting; adaptive rate limiting; coverage gates; OpenTelemetry tracing | [PHASE_16.md](docs/phases/PHASE_16.md) |
+| 17 | Docker test optimisation | Fix Docker test container hang during teardown; zero-skip test policy | [PHASE_17.md](docs/phases/PHASE_17.md) |
+| 18 | Security audit remediation | Specific exception types; lazy-format logging; `SignalCollector` Protocol; pipeline error metrics | [PHASE_17b.md](docs/phases/PHASE_17b.md) |
+| 19 | Backup & restore framework | Deterministic key enumeration; binary format; retention; CLI; observability | [PHASE_19.md](docs/phases/PHASE_19.md) |
+| 20 | Passive TAP mode *(open)* | AF_PACKET capture; out-of-band enforcement; backup schedule executor; restore hardening | [PHASE_20.md](docs/phases/PHASE_20.md) |
 | 21 | **Documentation excellence** | Audience-first navigation, missing ADRs, GDPR hardening, operator/developer packs, docs-as-code CI | [PHASE_21.md](docs/phases/PHASE_21.md) |
+| 22 | Backup system enhancements *(proposed)* | Encryption; cloud storage; incremental backups; pipeline batching | [PHASE_22.md](docs/phases/PHASE_22.md) |
+| 23 | Advanced traffic intelligence *(proposed)* | Attacker attribution; geo intelligence; threat-intel feeds; cross-instance ML | [PHASE_23.md](docs/phases/PHASE_23.md) |
+| 24 | Go strategy assessment *(proposed)* | Minimal Go component vs full rewrite; decision ADR | [PHASE_24_STRATEGY_ASSESSMENT.md](docs/phases/PHASE_24_STRATEGY_ASSESSMENT.md) |
 
 **Do phases in order. Complete all acceptance criteria before starting the next phase.**
 

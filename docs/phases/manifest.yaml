@@ -106,15 +106,10 @@ phases:
     
   12:
     name: "Analytics Node"
-    status: "PARTIAL"
+    status: "COMPLETE"
     test_coverage: "100%"
     doc_status: "COMPLETE"
-    summary: "Cross-instance statistical analysis via Redis Streams."
-    gaps:
-      - "requirements-analytics.txt missing in Dockerfile"
-      - "Campaign/SlowScan signals not read by proxy scorer"
-      - "Grafana drift dashboard missing"
-    action_plan: "docs/phases/PHASE_12_WORK_PLAN.md"
+    summary: "Cross-instance statistical analysis via Redis Streams. Campaign/slow-scan signals, drift alerting, Grafana dashboard, HyperLogLog, hot-reload."
     
   13:
     name: "Management UI"
