@@ -15,6 +15,7 @@ from typing import Any, Dict, List
 import redis
 from prometheus_client import Counter, Gauge, Histogram
 
+from src.backup.format import encode_entry
 from src.backup.policy import KeyPolicy
 
 logger = logging.getLogger(__name__)
@@ -244,9 +245,12 @@ class BackupWorker:
             )
 
             for key in safe_keys:
+                key_str = key.decode("utf-8") if isinstance(key, bytes) else key
                 dumped = redis_client.dump(key)
                 if dumped:
-                    backup_data += dumped  # type: ignore[operator]
+                    # Encode key name alongside dump data so restore can
+                    # write each value back to the correct key.
+                    backup_data += encode_entry(key_str, dumped)  # type: ignore[operator]
 
             # Generate checksum
             checksum = hashlib.sha256(backup_data).hexdigest()

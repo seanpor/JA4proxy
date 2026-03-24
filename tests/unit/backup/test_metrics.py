@@ -147,9 +147,12 @@ def test_restore_metrics_success():
     RESTORE_CURRENTLY_RUNNING._value.set(0)
     
     restorer = BackupRestorer()
-    
-    # Create test backup and manifest files
-    test_data = b"test backup data"
+
+    # Create test backup and manifest files using the real encoding format so
+    # that _restore_backup_data can decode at least one entry and increment
+    # RESTORE_KEYS_RESTORED_TOTAL above zero.
+    from src.backup.format import encode_entry
+    test_data = encode_entry("ban:10.0.0.1", b"fake_dump_data_for_metrics_test")
     backup_file = "/tmp/test_restore_metrics_backup.bin"
     manifest_file = "/tmp/test_restore_metrics_backup.bin.manifest.json"
     

@@ -21,10 +21,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🟡 Phases In Progress
 
-### Phase 19 — Backup & Restore
-*   **Status:** **NEARLY DONE** (Automated Redis state migration and recovery.)
-*   **Action Plan:** [PHASE_19_EXECUTION_PLAN.md](PHASE_19_EXECUTION_PLAN.md)
-
 ---
 
 ## 🔵 Planned & Open Phases

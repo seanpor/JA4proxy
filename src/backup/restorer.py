@@ -14,6 +14,8 @@ from typing import Any, Dict, Optional
 import redis
 from prometheus_client import Counter, Gauge, Histogram
 
+from src.backup.format import decode_entries
+
 logger = logging.getLogger(__name__)
 
 
@@ -307,15 +309,21 @@ class BackupRestorer:
     ) -> int:
         """Restore backup data to Redis.
 
+        Reads the backup artifact and restores each key-value pair using
+        ``redis.restore(key, 0, dump_data, replace=True)``, which handles
+        all Redis data types transparently. Keys are restored one at a time;
+        individual restore failures are logged and skipped so one corrupt
+        entry does not abort the entire restore.
+
         Args:
             redis_client: Redis client instance.
             backup_path: Path to backup artifact file.
 
         Returns:
-            Number of keys restored.
+            Number of keys successfully restored.
 
         Raises:
-            RestoreError: If backup data cannot be read or restored.
+            RestoreError: If the backup artifact cannot be read.
         """
         try:
             with open(backup_path, "rb") as f:
@@ -323,17 +331,16 @@ class BackupRestorer:
         except OSError as e:
             raise RestoreError(f"Failed to read backup data: {e}")
 
-        # The backup data format depends on how it was created
-        # For this implementation, we assume it's a concatenation of Redis dump files
-        # In a real implementation, you would need to parse the backup format
-        # and restore each key individually
+        keys_restored = 0
+        for key, dump_data in decode_entries(backup_data):
+            try:
+                redis_client.restore(key, 0, dump_data, replace=True)
+                keys_restored += 1
+            except redis.RedisError as exc:
+                logger.warning("restore skipped key %s: %s", key, exc)
 
-        # For now, we'll simulate restoration by setting a restore marker
-        # and return a simulated key count based on the manifest
+        # Record restore markers for auditing and monitoring.
         redis_client.set("backup:last_restore", datetime.utcnow().isoformat() + "Z")
         redis_client.set("backup:restored_from", Path(backup_path).name)
 
-        # Simulate key count - in a real implementation this would be the actual count
-        # For testing purposes, we'll estimate based on file size
-        simulated_key_count = max(1, len(backup_data) // 1000)  # ~1 key per KB
-        return simulated_key_count
+        return keys_restored

@@ -55,7 +55,7 @@ Management dashboards and documentation quality.
 |-------|------|--------|---------|
 | 2 | Monitor Mode & Dial | COMPLETE | Dial formula, Counterfactual logging, Redis Stream XADD. |
 | 13 | Management UI | DEFERRED | FastAPI + React dashboard for real-time monitoring. |
-| 19 | Backup & Restore | NEARLY DONE | Automated Redis state migration and recovery. |
+| 19 | Backup & Restore | COMPLETE | Deterministic backup/restore with real key-name format, manifest+checksum, retention, CLI, observability. |
 | 21 | Documentation Excellence | OPEN | 5/5 documentation quality and persona-based navigation. |
 
 ## Phase Completion Details
@@ -81,7 +81,7 @@ Management dashboards and documentation quality.
 | 16 | Extended Fingerprinting | COMPLETE | N/A | N/A |
 | 17 | Docker Test Optimization | COMPLETE | 100% | COMPLETE |
 | 18 | Security Audit Remediation | COMPLETE | N/A | N/A |
-| 19 | Backup & Restore | NEARLY DONE | N/A | N/A |
+| 19 | Backup & Restore | COMPLETE | 100% | COMPLETE |
 | 20 | Passive TAP Mode | OPEN | N/A | N/A |
 | 21 | Documentation Excellence | OPEN | N/A | N/A |
 
