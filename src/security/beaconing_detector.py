@@ -42,9 +42,9 @@ import logging
 import statistics
 import time
 import uuid
-import redis
 from typing import TYPE_CHECKING
 
+import redis
 from prometheus_client import Counter, Gauge, Histogram
 
 from .models import ConnectionContext, RiskSignal

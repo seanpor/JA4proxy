@@ -15,12 +15,12 @@ EVENT_SCHEMA = {
         },
         "src_ip": {
             "type": "string",
-            "pattern": "^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$|^[0-9a-fA-F:]+$",
+            "pattern": r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$|^[0-9a-fA-F:]+$",
             "maxLength": 45
         },
         "ja4": {
             "type": "string",
-            "pattern": "^[a-zA-Z0-9_\-]{1,64}$",
+            "pattern": r"^[a-zA-Z0-9_\-]{1,64}$",
             "maxLength": 64
         },
         "action": {
@@ -34,7 +34,7 @@ EVENT_SCHEMA = {
         },
         "proxy_id": {
             "type": "string",
-            "pattern": "^[a-zA-Z0-9\-]{1,32}$"
+            "pattern": r"^[a-zA-Z0-9\-]{1,32}$"
         }
     },
     "additionalProperties": True  # Allow additional fields for future expansion

@@ -32,11 +32,11 @@ import ipaddress
 import json
 import logging
 import os
-import redis as redis_lib
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
+import redis as redis_lib
 import yaml
 from prometheus_client import Counter, Gauge
 

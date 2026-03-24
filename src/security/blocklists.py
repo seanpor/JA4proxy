@@ -19,7 +19,6 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 import redis as redis_lib
-
 from prometheus_client import Counter, Gauge
 
 try:

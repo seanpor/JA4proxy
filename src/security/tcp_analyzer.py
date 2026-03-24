@@ -1,6 +1,6 @@
-import redis
 from typing import List
 
+import redis
 from prometheus_client import Counter, Gauge
 
 from src.security.models import ConnectionContext, RiskSignal

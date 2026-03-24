@@ -54,12 +54,12 @@ else
     python3 -m mypy src/ proxy.py && echo "  ✓ mypy: OK" || echo "  ✗ mypy: type errors found (see above)"
 fi
 
-# Security scanning with bandit (Phase 16f — medium/high only; B104 suppressed in source)
+# Security scanning with bandit (Phase 16f — medium/high only; B104 skipped: proxy intentionally binds 0.0.0.0)
 if ! command -v bandit &> /dev/null; then
     echo "  ✗ bandit not installed (pip install bandit)"
 else
     echo "  ✓ Running bandit security scan..."
-    python3 -m bandit -r src/ proxy.py -ll -q && echo "  ✓ bandit: OK" || echo "  ✗ bandit: findings above"
+    python3 -m bandit -r src/ proxy.py -ll -q --skip B104 && echo "  ✓ bandit: OK" || echo "  ✗ bandit: findings above"
 fi
 
 # Ruff linting (Phase 16f — replaces flake8/isort for new code)
