@@ -138,13 +138,16 @@ def test_restore_audit_log_success():
     import hashlib
     import os
     import tempfile
-    
+
+    from src.backup.format import encode_entry
+
     restorer = BackupRestorer()
-    
-    # Create test backup and manifest files
-    test_data = b"test backup data"
+
+    # Use the real encoding format so _restore_backup_data decodes at least one
+    # entry and records keys_restored > 0 in the audit log detail.
+    test_data = encode_entry("ban:192.168.1.1", b"fake_dump_data_for_audit_test")
     checksum = hashlib.sha256(test_data).hexdigest()
-    
+
     with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as backup_f:
         backup_file = backup_f.name
         backup_f.write(test_data)

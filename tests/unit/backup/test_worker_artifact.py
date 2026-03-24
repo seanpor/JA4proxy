@@ -160,7 +160,9 @@ def test_checksum_generation():
         manifest_content = mock_write_text.call_args[0][0]
         manifest = json.loads(manifest_content)
         
-        expected_checksum = hashlib.sha256(test_data).hexdigest()
+        # The backup now encodes key+dump together; checksum covers the encoded entry.
+        from src.backup.format import encode_entry
+        expected_checksum = hashlib.sha256(encode_entry("config:dial", test_data)).hexdigest()
         assert manifest["checksum_sha256"] == expected_checksum
 
 

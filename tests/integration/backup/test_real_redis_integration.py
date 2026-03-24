@@ -28,10 +28,17 @@ class TestRealRedisIntegration:
         self.redis_host = "localhost"
         self.redis_port = 6379
         self.redis_db = 9  # Use a separate database for testing
-        
+
+        # Skip gracefully when Redis is not reachable (CI without live services)
+        try:
+            probe = redis.Redis(host=self.redis_host, port=self.redis_port, db=self.redis_db)
+            probe.ping()
+        except redis.RedisError:
+            pytest.skip(f"Redis not reachable at {self.redis_host}:{self.redis_port}")
+
         # Create temporary backup directory
         self.backup_dir = tempfile.mkdtemp(prefix="backup_test_")
-        
+
         # Clean Redis database before each test
         self.redis_client = redis.Redis(
             host=self.redis_host,
