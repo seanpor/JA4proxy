@@ -389,3 +389,118 @@ docker compose -f docker-compose.poc.yml logs proxy | grep "203.0.113.42" | tail
 2. Commit the change: `git add config/proxy.yml && git commit -m "Blacklist <tool> — seen in incident <date>"`
 3. Run `make flush-redis` to reset counters for clean next-run metrics
 4. Check `./scripts/ja4-admin.sh status` to confirm clean state
+
+---
+
+## Backup & Restore Recovery Procedures (Phase 19)
+
+### When to Use Backup Recovery
+
+| Scenario | Recovery action |
+|----------|----------------|
+| Accidental `FLUSHDB` or `FLUSHALL` | Restore from latest backup (non-destructive or destructive) |
+| Redis data corruption | Restore from backup before corruption timestamp |
+| Migration to new Redis instance | Backup old instance → restore to new |
+| Accidental deletion of ban list or blacklist | Restore selectively by pattern |
+
+### Step 1 — Find the most recent valid backup
+
+```bash
+python3 -m src.cli.backup_cli list
+```
+
+Output shows backup filename, creation time, key count, and size.
+Pick the most recent backup that predates the data loss event.
+
+### Step 2 — Validate backup integrity
+
+```bash
+python3 -m src.cli.backup_cli validate /app/backups/backup_20260321T143000Z.bin
+```
+
+Expected output:
+```
+Manifest validated successfully: backup_20260321T143000Z.bin
+Checksum verification passed
+```
+
+If validation fails with "Checksum verification failed", the archive is corrupted.
+Try the next-most-recent backup.
+
+### Step 3 — Non-destructive restore (safe default)
+
+Non-destructive restore writes keys from the backup into Redis **without** deleting
+existing keys first. Keys in Redis but not in the backup are preserved.
+
+Use this when you need to recover specific keys (ban list, blacklist) without
+affecting other state:
+
+```bash
+python3 -m src.cli.backup_cli restore /app/backups/backup_20260321T143000Z.bin
+```
+
+Expected output:
+```
+Restore completed successfully (non-destructive mode)
+```
+
+### Step 4 — Destructive restore (full wipe + restore)
+
+Destructive restore calls `FLUSHDB` before writing backup data. Use this only
+when the current Redis state is known-corrupted and must be completely replaced.
+
+**Warning: this is irreversible without another backup.**
+
+```bash
+python3 -m src.cli.backup_cli restore /app/backups/backup_20260321T143000Z.bin --force
+```
+
+Confirm the operation when prompted:
+```
+Restore completed successfully (destructive mode)
+```
+
+### Step 5 — Verify restored state
+
+```bash
+./scripts/ja4-admin.sh status         # Check overall state
+./scripts/ja4-admin.sh list-bans      # Confirm bans restored
+./scripts/ja4-admin.sh list-ja4       # Confirm blacklist/whitelist restored
+```
+
+### Backup Monitoring Alerts
+
+| Alert | Meaning | Action |
+|-------|---------|--------|
+| `BackupStale` | No successful backup in 24h | Check `ja4proxy_backup_last_success_timestamp`; run manual backup |
+| `BackupFailureDetected` | Backup job failed | Check logs: `grep backup_failed /var/log/ja4proxy/backup.log` |
+| `RestoreFailureDetected` | Restore failed | Check manifest validity; try previous backup |
+
+### Manual Backup (on-demand)
+
+To create an immediate backup outside the scheduled window:
+
+```bash
+python3 -m src.cli.backup_cli backup --destination /app/backups
+```
+
+### Checking Backup Metrics
+
+```bash
+# Last successful backup timestamp
+curl -s http://localhost:9090/metrics | grep ja4proxy_backup_last_success_timestamp
+
+# Total backup operations
+curl -s http://localhost:9090/metrics | grep ja4proxy_backup_operations_total
+
+# Is a backup currently running?
+curl -s http://localhost:9090/metrics | grep ja4proxy_backup_currently_running
+```
+
+### Known Limitations
+
+- Backup artifacts are **not encrypted at rest**. Keep `/var/backups/ja4proxy/` mode 0700.
+- The manifest checksum detects accidental corruption; it does not prevent a
+  determined attacker who can write to the backup directory from creating a tampered
+  backup that passes checksum validation.
+- Backup is non-incremental in Phase 19. Each backup is a full export of matching keys.

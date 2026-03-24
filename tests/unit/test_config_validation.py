@@ -19,9 +19,9 @@ def test_backup_config_validation():
     assert backup_config["retention_days"] == 30
     assert backup_config["retain_count"] == 10
     assert backup_config["schedule"] == "0 2 * * *"
-    assert backup_config["max_keys_per_run"] == 1000
-    assert backup_config["max_size_bytes"] == 1073741824
-    assert backup_config["include_audit_log"] is True
+    assert backup_config["max_keys_per_run"] == 5000000
+    assert backup_config["max_size_bytes"] == 10737418240
+    assert backup_config["include_audit_log"] is False
 
 
 def test_missing_backup_config():
