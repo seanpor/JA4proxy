@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Dict, Optional, Set
 
 import aiohttp
+import redis
 import yaml
 
 from src.security.models import RiskSignal
@@ -363,7 +364,7 @@ class ASNClassifier:
                 asn = result.get("autonomous_system_number", 0)
                 org = result.get("autonomous_system_organization", "")
                 return {"asn": asn, "asn_str": f"AS{asn}", "org_name": org}
-        except Exception:
+        except (AttributeError, KeyError, TypeError):
             pass
 
         return None

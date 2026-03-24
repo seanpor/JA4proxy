@@ -133,6 +133,18 @@ _SIGNAL_ERROR = Counter(
     ["module"],
 )
 
+_PIPELINE_UNEXPECTED_ERRORS = Counter(
+    "ja4proxy_pipeline_unexpected_errors_total",
+    "Unexpected errors reaching the top-level pipeline handler (should always be 0)",
+    ["phase"],
+)
+
+_EXCEPTION_HANDLED = Counter(
+    "ja4proxy_exception_handled_total",
+    "All caught exceptions by module and exception type",
+    ["module", "exception_type"],
+)
+
 # ---------------------------------------------------------------------------
 # Data classes
 # ---------------------------------------------------------------------------
@@ -251,6 +263,11 @@ class Pipeline:
                 is read here; other sections are read by individual modules).
         local_cache: The process-local :class:`~src.cache.local_cache.LocalCache`.
         redis_client: Sync Redis client for stream events (Phase 12 upgrades to async).
+        tracing: Optional OpenTelemetry tracer wrapper (Phase 16).
+        collectors: Optional list of :class:`~src.security.protocols.SignalCollector`
+            instances.  When supplied (typically in tests) ``_collect_signals``
+            routes through these instead of the built-in modules.  When ``None``
+            (production default) the pipeline builds and owns all modules itself.
 
     The pipeline is intentionally additive: new phases plug in by adding
     signal modules to ``_collect_signals()`` and the scorer/decider are
@@ -263,6 +280,7 @@ class Pipeline:
         local_cache: "LocalCache",
         redis_client: object,
         tracing: Any = None,
+        collectors: list | None = None,
     ) -> None:
         self._config = config
         self._cache = local_cache
@@ -270,6 +288,9 @@ class Pipeline:
         self._policy = config.get("security_policy", {})
         # Phase 16j: optional OpenTelemetry tracer (noop when None / disabled)
         self._tracer = tracing
+        # Optional injected collectors (used in tests for isolation).
+        # When set, _collect_signals routes through these instead of built-ins.
+        self._injected_collectors: list | None = collectors
         self._allowlist = StaticAllowlist(config)
         # In-process sets for O(1) JA4 lookup on hot path
         # Populated from Redis on startup and updated via pub/sub
@@ -477,6 +498,10 @@ class Pipeline:
         try:
             return await self._process_inner(ctx)
         except Exception as exc:  # noqa: BLE001
+            _PIPELINE_UNEXPECTED_ERRORS.labels(phase="process").inc()
+            _EXCEPTION_HANDLED.labels(
+                module="pipeline", exception_type=type(exc).__name__
+            ).inc()
             logger.error(
                 "pipeline | event=unexpected_error | ip=%s | error=%s",
                 ctx.client_ip,
@@ -665,7 +690,30 @@ class Pipeline:
         fail-open (signal skipped) to prevent blocking legitimate users due
         to infrastructure issues. Unexpected logic errors are logged as
         errors and also result in a skip.
+
+        When ``self._injected_collectors`` is set (test injection), this
+        method iterates those instead of calling built-in modules.  This
+        allows unit-testing the pipeline in complete isolation without
+        mocking all 14 signal collectors.
         """
+        # Injection path — used in tests for pipeline isolation
+        if self._injected_collectors is not None:
+            signals = []
+            for collector in self._injected_collectors:
+                try:
+                    signal = await collector.get_signal(ctx)
+                    if signal is not None:
+                        signals.append(signal)
+                except Exception as exc:  # noqa: BLE001
+                    _SIGNAL_ERROR.labels(module=type(collector).__name__).inc()
+                    logger.error(
+                        "pipeline | event=collector_error | collector=%s | error=%s",
+                        type(collector).__name__,
+                        exc,
+                        exc_info=True,
+                    )
+            return signals
+
         signals = []
 
         # Phase 16: JA4X cert extraction from mTLS client cert (if not already set)

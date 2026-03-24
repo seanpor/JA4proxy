@@ -5,6 +5,8 @@ import time
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import redis
+
 from src.security.beaconing_detector import (
     BeaconingDetector,
     beacon_score,
@@ -413,7 +415,7 @@ class TestSuspectsLeaderboardCap(unittest.TestCase):
     def test_trim_error_does_not_propagate(self):
         """An exception from ZREMRANGEBYRANK must be silently swallowed."""
         detector, mock_redis = _make_detector_with_cap(max_suspects=10, zcard_return=20)
-        mock_redis.zremrangebyrank = AsyncMock(side_effect=ConnectionError("redis down"))
+        mock_redis.zremrangebyrank = AsyncMock(side_effect=redis.RedisError("redis down"))
         ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d1234")
         # Must not raise
         result = self._run(detector.get_signal(ctx))

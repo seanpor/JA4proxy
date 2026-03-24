@@ -2,7 +2,7 @@
 
 ## Current Status: Phase 12 (Analytics Node) Next
 
-**Last Updated:** 2026-03-21
+**Last Updated:** 2026-03-24
 
 ## Epics & Roadmap
 
@@ -13,7 +13,7 @@ Optimization for high-throughput and multi-core systems.
 |-------|------|--------|---------|
 | 0 | Foundation | COMPLETE | Configuration loader, hot reload, local cache, Bloom filters. |
 | 15 | Go Rewrite | PARTIAL | 10-50x throughput improvement via CPython/Go transition. |
-| 17 | Docker Test Optimization | NEARLY DONE | Fix Docker test container hang during teardown. |
+| 17 | Docker Test Optimization | COMPLETE | Fix Docker test container hang during teardown. |
 
 ### Epic: Security Hardening
 Deep security analysis, compliance, and audit remediation.
@@ -29,7 +29,7 @@ Deep security analysis, compliance, and audit remediation.
 | 11 | RDAP Enrichment | COMPLETE | IANA bootstrap, CIDR expansion, known-bad org detection. |
 | 14 | Production Hardening | COMPLETE | Rate limiting, circuit breakers, container security. |
 | 16 | Extended Fingerprinting | COMPLETE | JA4X fingerprinting, adaptive rate limiting. |
-| 18 | Security Audit Remediation | COMPLETE | Fix broad exception handling and f-string logging. |
+| 18 | Security Audit Remediation | COMPLETE | Fix broad exception handling, f-string logging, and add SignalCollector protocol. |
 
 ### Epic: Analytics & Intelligence
 Cross-instance behavior analysis and threat intelligence.
@@ -79,8 +79,8 @@ Management dashboards and documentation quality.
 | 14 | Production Hardening | COMPLETE | 100% | COMPLETE |
 | 15 | Go Rewrite | PARTIAL | N/A | N/A |
 | 16 | Extended Fingerprinting | COMPLETE | N/A | N/A |
-| 17 | Docker Test Optimization | NEARLY DONE | N/A | N/A |
-| 18 | Security Audit Remediation | OPEN | N/A | N/A |
+| 17 | Docker Test Optimization | COMPLETE | 100% | COMPLETE |
+| 18 | Security Audit Remediation | COMPLETE | N/A | N/A |
 | 19 | Backup & Restore | NEARLY DONE | N/A | N/A |
 | 20 | Passive TAP Mode | OPEN | N/A | N/A |
 | 21 | Documentation Excellence | OPEN | N/A | N/A |

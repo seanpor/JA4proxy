@@ -14,6 +14,7 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import redis as redis_module
 
 from src.security.blocklists import (
     BlocklistManager,
@@ -533,7 +534,7 @@ class TestFeedManagerCoverageGaps:
         """_load_from_redis returns None on exception."""
         async def run():
             redis = AsyncMock()
-            redis.get = AsyncMock(side_effect=Exception("connection error"))
+            redis.get = AsyncMock(side_effect=redis_module.RedisError("connection error"))
             fm = self._make_fm(redis=redis)
             result = await fm._load_from_redis("test_feed")
             assert result is None
@@ -580,7 +581,7 @@ class TestFeedManagerCoverageGaps:
         """Redis failure → act as leader (fail open)."""
         async def run():
             redis = AsyncMock()
-            redis.set = AsyncMock(side_effect=Exception("redis down"))
+            redis.set = AsyncMock(side_effect=redis_module.RedisError("redis down"))
             fm = self._make_fm(redis=redis)
             fc = FeedConfig("f", "", "cidr", True, "block", 60, 3600)
             result = await fm._try_become_leader(fc)
@@ -614,7 +615,7 @@ class TestFeedManagerCoverageGaps:
         """_get_etag returns None on exception."""
         async def run():
             redis = AsyncMock()
-            redis.get = AsyncMock(side_effect=Exception("err"))
+            redis.get = AsyncMock(side_effect=redis_module.RedisError("err"))
             fm = self._make_fm(redis=redis)
             result = await fm._get_etag("test_feed")
             assert result is None

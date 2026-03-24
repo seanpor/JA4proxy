@@ -6,6 +6,7 @@ import time
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
+import redis as redis_module
 
 from src.analytics.authentication import HMACAuthenticator
 from src.analytics.stream_consumer import StreamConsumer
@@ -246,7 +247,7 @@ class TestRedisHyperLogLog:
     async def test_redis_pfadd_failure_does_not_crash_processing(self):
         """Redis PFADD failure must not prevent event processing (fail open)."""
         consumer, mock_redis = self._make_consumer_with_mock_redis()
-        mock_redis.pfadd = AsyncMock(side_effect=ConnectionError("Redis down"))
+        mock_redis.pfadd = AsyncMock(side_effect=redis_module.RedisError("Redis down"))
         event = {
             "timestamp": time.time(),
             "src_ip": "1.2.3.4",

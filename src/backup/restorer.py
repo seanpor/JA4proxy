@@ -287,7 +287,7 @@ class BackupRestorer:
                 if redis_client:
                     redis_client.lpush("management:audit_log", json.dumps(audit_entry))
                     redis_client.ltrim("management:audit_log", -1000, -1)
-            except Exception:
+            except redis.RedisError:
                 # If audit logging fails, don't let it prevent the main error from being raised
                 pass
             

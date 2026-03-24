@@ -18,6 +18,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Optional
 
+import redis as redis_lib
+
 from prometheus_client import Counter, Gauge
 
 try:
@@ -187,8 +189,8 @@ class BlocklistManager:
                 trie = self._trie_v6 if net.version == 6 else self._trie_v4
                 if trie.has_key(cidr):
                     del trie[cidr]
-            except Exception:
-                pass
+            except (ValueError, KeyError):
+                pass  # malformed CIDR or missing trie entry — skip
 
         # Insert new entries
         loaded: list[str] = []
@@ -384,8 +386,8 @@ class FeedManager:
             raw = await self._redis.get(f"blocklist:cidrs:{feed_name}")
             if raw:
                 return json.loads(raw)
-        except Exception:
-            pass
+        except (redis_lib.RedisError, json.JSONDecodeError, ValueError):
+            pass  # cache unavailable or malformed — fall through to download
         return None
 
     async def _try_become_leader(self, feed_cfg: FeedConfig) -> bool:
@@ -399,7 +401,7 @@ class FeedManager:
                 key, self._instance_id, nx=True, ex=ttl
             )
             return result is not None
-        except Exception:
+        except redis_lib.RedisError:
             return True  # Redis failure → act as leader (fail open)
 
     async def _download_and_store(self, feed_cfg: FeedConfig) -> None:
@@ -478,8 +480,8 @@ class FeedManager:
         try:
             raw = await self._redis.get(f"blocklist:etag:{feed_name}")
             return raw.decode() if isinstance(raw, bytes) else raw
-        except Exception:
-            return None
+        except (redis_lib.RedisError, AttributeError):
+            return None  # ETag unavailable — fall through to unconditional download
 
     async def _store_to_redis(
         self,

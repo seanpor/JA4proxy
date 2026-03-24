@@ -10,6 +10,7 @@ import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import redis
 
 from src.security.blocklists import (
     _BLOCKLIST_DOWNLOAD_ERRORS,
@@ -264,11 +265,11 @@ class TestRedisUnavailableAtStartup:
         assert _run(run()) is True
 
     def test_redis_exception_acts_as_leader(self):
-        """Redis SET NX throwing an exception → act as leader (fail open)."""
+        """Redis SET NX raising RedisError → act as leader (fail open)."""
         feed_cfg = _feed_cfg()
         mock_redis = MagicMock()
         mock_redis.get = AsyncMock(return_value=None)
-        mock_redis.set = AsyncMock(side_effect=Exception("Redis down"))
+        mock_redis.set = AsyncMock(side_effect=redis.RedisError("Redis down"))
         fm, mgr = _make_feed_manager(feed_cfg, redis=mock_redis)
 
         async def run():
@@ -280,7 +281,7 @@ class TestRedisUnavailableAtStartup:
         """_load_from_redis returns None when Redis raises, no crash."""
         feed_cfg = _feed_cfg()
         mock_redis = MagicMock()
-        mock_redis.get = AsyncMock(side_effect=Exception("Redis down"))
+        mock_redis.get = AsyncMock(side_effect=redis.RedisError("Redis down"))
         fm, mgr = _make_feed_manager(feed_cfg, redis=mock_redis)
 
         async def run():
