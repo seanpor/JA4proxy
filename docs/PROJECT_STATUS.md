@@ -31,6 +31,7 @@ Deep security analysis, compliance, and audit remediation.
 | 14 | Production Hardening | COMPLETE | Rate limiting, circuit breakers, container security. |
 | 16 | Extended Fingerprinting | COMPLETE | JA4X fingerprinting, adaptive rate limiting. |
 | 18 | Security Audit Remediation | COMPLETE | Fix broad exception handling, f-string logging, and add SignalCollector protocol. |
+| 25 | Docker Container Management | OPEN | Pin image versions, fix CVE scan gaps, first-party image scanning, image update policy. |
 
 ### Epic: Analytics & Intelligence
 Cross-instance behavior analysis and threat intelligence.
@@ -90,6 +91,7 @@ Management dashboards and documentation quality.
 | 22 | Backup System Enhancements | PROPOSED | N/A | N/A |
 | 23 | Advanced Traffic Intelligence | PROPOSED | N/A | N/A |
 | 24 | Go Strategy Assessment | PROPOSED | N/A | N/A |
+| 25 | Docker Container Management | OPEN | N/A | N/A |
 
 ---
 

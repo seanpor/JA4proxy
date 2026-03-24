@@ -253,14 +253,23 @@ lint-shell:
 # This is informational — images we don't control may lag on patch releases.
 # Fails only on CRITICAL findings; HIGH findings are reported but non-blocking.
 # Scans only pinned third-party images (not images we build ourselves).
+# Covers images deployed in docker-compose.prod.yml + docker-compose.monitoring.yml.
+# Keep versions here in sync with those compose files. Phase 25 will harmonise
+# the prod/monitoring version drift and automate this check.
+# NOTE: monitoring compose runs loki/promtail 3.3.2 and grafana 10.2.2; prod runs
+#       older versions. Both sets are scanned until Phase 25 harmonises them.
 TRIVY_IMAGES := haproxy:2.8-alpine \
 	redis/redis-stack:latest \
 	oliver006/redis_exporter:v1.55.0 \
 	prom/prometheus:v2.48.0 \
 	prom/alertmanager:v0.26.0 \
+	prom/node-exporter:v1.7.0 \
 	grafana/grafana:10.2.0 \
+	grafana/grafana:10.2.2 \
 	grafana/loki:2.9.0 \
-	grafana/promtail:2.9.0
+	grafana/loki:3.3.2 \
+	grafana/promtail:2.9.0 \
+	grafana/promtail:3.3.2
 
 # Manifest consistency check — run before committing a phase close-out.
 # Verifies: TODO.md + PROJECT_STATUS.md in sync with manifest.yaml,
