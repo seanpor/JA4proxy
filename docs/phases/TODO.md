@@ -37,6 +37,14 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **OPEN** (5/5 documentation quality and persona-based navigation.)
 *   **Action Plan:** [PHASE_21_WORK_PLAN.md](PHASE_21_WORK_PLAN.md)
 
+### Phase 22 — Backup System Enhancements
+*   **Status:** **PROPOSED** (Encryption, cloud storage, incremental backups, and performance optimizations.)
+*   **Action Plan:** [PHASE_22.md](PHASE_22.md)
+
+### Phase 23 — Advanced Traffic Intelligence
+*   **Status:** **PROPOSED** (Attacker attribution, geographical intelligence, and threat intelligence integration.)
+*   **Action Plan:** [PHASE_23.md](PHASE_23.md)
+
 ### Phase 24 — Go Strategy Assessment
 *   **Status:** **PROPOSED** (Assessment of minimal Go component vs comprehensive rewrite approach.)
 *   **Action Plan:** [PHASE_24_STRATEGY_ASSESSMENT.md](PHASE_24_STRATEGY_ASSESSMENT.md)
