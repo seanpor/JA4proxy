@@ -2,6 +2,9 @@
 """
 Sync Roadmap Script
 Generates TODO.md and PROJECT_STATUS.md from docs/phases/manifest.yaml
+
+Generation functions return strings so check_manifest.py can import and
+compare without touching the filesystem.
 """
 
 import os
@@ -12,22 +15,25 @@ MANIFEST_PATH = "docs/phases/manifest.yaml"
 TODO_PATH = "docs/phases/TODO.md"
 STATUS_PATH = "docs/PROJECT_STATUS.md"
 
+
 def load_manifest():
     with open(MANIFEST_PATH, "r") as f:
         return yaml.safe_load(f)
 
-def generate_todo(manifest):
+
+def generate_todo(manifest) -> str:
+    """Return the expected TODO.md content as a string."""
     lines = [
         "# JA4proxy Phase TODO List",
         "",
         "This document tracks the remaining work for both historical phases (gaps identified post-completion) and upcoming planned phases. Each item links to a detailed, actionable TDD work plan.",
         "",
     ]
-    
+
     # Critical Gaps
     lines.append("## 🔴 Critical Gaps in Completed Phases (<= 15)")
     lines.append("")
-    
+
     for phase_id, data in manifest["phases"].items():
         if data["status"] == "PARTIAL":
             lines.append(f"### Phase {phase_id} — {data['name']}")
@@ -35,7 +41,6 @@ def generate_todo(manifest):
                 lines.append(f"*   **Gap:** {gap}")
             lines.append(f"*   **Status:** **PARTIAL** ({data['summary']})")
             if "action_plan" in data:
-                # Adjust path for TODO.md which is in docs/phases/
                 plan_file = os.path.basename(data["action_plan"])
                 lines.append(f"*   **Action Plan:** [{plan_file}]({plan_file})")
             lines.append("")
@@ -45,7 +50,7 @@ def generate_todo(manifest):
     lines.append("")
     lines.append("## 🟡 Phases In Progress")
     lines.append("")
-    
+
     for phase_id, data in manifest["phases"].items():
         if data["status"] in ["IN PROGRESS", "NEARLY DONE"]:
             lines.append(f"### Phase {phase_id} — {data['name']}")
@@ -62,7 +67,7 @@ def generate_todo(manifest):
     lines.append("")
     lines.append("## 🔵 Planned & Open Phases")
     lines.append("")
-    
+
     for phase_id in sorted(manifest["phases"].keys()):
         data = manifest["phases"][phase_id]
         if data["status"] in ["OPEN", "DEFERRED", "PROPOSED"]:
@@ -73,12 +78,18 @@ def generate_todo(manifest):
                 lines.append(f"*   **Action Plan:** [{plan_file}]({plan_file})")
             lines.append("")
 
-    with open(TODO_PATH, "w") as f:
-        f.write("\n".join(lines))
+    return "\n".join(lines)
 
-def generate_status(manifest):
-    date_str = datetime.now().strftime("%Y-%m-%d")
-    
+
+def generate_status(manifest, date_str: str | None = None) -> str:
+    """Return the expected PROJECT_STATUS.md content as a string.
+
+    Pass date_str to override today's date (used by check_manifest.py to
+    compare without the timestamp causing false positives).
+    """
+    if date_str is None:
+        date_str = datetime.now().strftime("%Y-%m-%d")
+
     # Find current phase (first non-COMPLETE)
     next_phase = "N/A"
     for phase_id in sorted(manifest["phases"].keys()):
@@ -96,10 +107,10 @@ def generate_status(manifest):
         "## Epics & Roadmap",
         "",
     ]
-    
+
     for epic in manifest["epics"]:
         lines.append(f"### {epic['name']}")
-        lines.append(epic['description'])
+        lines.append(epic["description"])
         lines.append("")
         lines.append("| Phase | Name | Status | Summary |")
         lines.append("|-------|------|--------|---------|")
@@ -114,18 +125,23 @@ def generate_status(manifest):
     lines.append("|-------|------|--------|---------------|---------------|")
     for phase_id in sorted(manifest["phases"].keys()):
         p = manifest["phases"][phase_id]
-        lines.append(f"| {phase_id} | {p['name']} | {p['status']} | {p.get('test_coverage', 'N/A')} | {p.get('doc_status', 'N/A')} |")
-    
+        lines.append(
+            f"| {phase_id} | {p['name']} | {p['status']} "
+            f"| {p.get('test_coverage', 'N/A')} | {p.get('doc_status', 'N/A')} |"
+        )
+
     lines.append("")
     lines.append("---")
     lines.append("")
     lines.append("*Generated automatically from docs/phases/manifest.yaml*")
 
-    with open(STATUS_PATH, "w") as f:
-        f.write("\n".join(lines))
+    return "\n".join(lines)
+
 
 if __name__ == "__main__":
     manifest = load_manifest()
-    generate_todo(manifest)
-    generate_status(manifest)
+    with open(TODO_PATH, "w") as f:
+        f.write(generate_todo(manifest))
+    with open(STATUS_PATH, "w") as f:
+        f.write(generate_status(manifest))
     print(f"Successfully synced {TODO_PATH} and {STATUS_PATH} from manifest.")

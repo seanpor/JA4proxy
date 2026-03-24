@@ -72,6 +72,7 @@ help:
 	@echo "  lint-json         - JSON syntax validation (Grafana dashboards, API spec)"
 	@echo "  lint-alertmanager - amtool semantic validation of Alertmanager config"
 	@echo "  scan-images       - Trivy CVE scan of third-party images (fails on CRITICAL)"
+	@echo "  check-manifest    - Verify manifest.yaml, TODO.md, PROJECT_STATUS.md, CHANGELOG.md, CLAUDE.md are in sync"
 	@echo "  clean             - Stop + remove all containers and volumes"
 	@echo ""
 	@echo "── Go Proxy ─────────────────────────────────────────────────"
@@ -260,6 +261,13 @@ TRIVY_IMAGES := haproxy:2.8-alpine \
 	grafana/grafana:10.2.0 \
 	grafana/loki:2.9.0 \
 	grafana/promtail:2.9.0
+
+# Manifest consistency check — run before committing a phase close-out.
+# Verifies: TODO.md + PROJECT_STATUS.md in sync with manifest.yaml,
+#           every COMPLETE phase has a CHANGELOG entry,
+#           every manifest phase appears in CLAUDE.md's phase table.
+check-manifest:
+	@python3 scripts/check_manifest.py
 
 scan-images:
 	@echo "=== Trivy: third-party image CVE scan (HIGH + CRITICAL) ==="
