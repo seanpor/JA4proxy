@@ -137,12 +137,12 @@ class BackupWorker:
         # Check if directory exists and is accessible
         if not os.access(str(dest_path), os.R_OK | os.W_OK | os.X_OK):
             raise Exception(f"Backup directory {dest_path} is not accessible (read/write/execute)")
-        
+
         # Check ownership first (should be owned by current user)
         stat_info = os.stat(str(dest_path))
         if stat_info.st_uid != os.getuid():
             raise Exception(f"Backup directory {dest_path} is not owned by current user")
-        
+
         # Check directory permissions (should not be world-writable)
         mode = stat_info.st_mode
         if mode & 0o002:  # World-writable bit
@@ -162,7 +162,7 @@ class BackupWorker:
         # Ensure destination directory exists
         dest_path = Path(destination_dir)
         dest_path.mkdir(parents=True, exist_ok=True)
-        
+
         # Validate directory permissions and security
         try:
             self._validate_backup_directory(dest_path)
@@ -184,7 +184,7 @@ class BackupWorker:
         start_time = datetime.utcnow()
         BACKUP_CURRENTLY_RUNNING.set(1)
         BACKUP_OPERATIONS_TOTAL.labels(status="started").inc()
-        
+
         try:
             # Log backup start (before any operations that might fail)
             logger.info(
@@ -196,10 +196,10 @@ class BackupWorker:
                     "event": "backup_started"
                 })
             )
-            
+
             # Get keys to back up
             keys = self.enumerate_keys()
-            
+
             # Log keys enumeration result
             logger.info(
                 json.dumps({
@@ -211,13 +211,13 @@ class BackupWorker:
                     "keys_expected": len(keys)
                 })
             )
-            
+
             BACKUP_KEYS_PROCESSED_TOTAL.inc(len(keys))
 
             # Filter out never-backup keys and log warnings
             safe_keys = []
             never_backup_keys_found = []
-            
+
             for key in keys:
                 if self._is_never_backup_key(key):
                     never_backup_keys_found.append(key)
@@ -234,7 +234,7 @@ class BackupWorker:
                     )
                 else:
                     safe_keys.append(key)
-            
+
             # Create backup artifact
             backup_data = b""
             redis_client = redis.Redis(
@@ -302,7 +302,7 @@ class BackupWorker:
                     "checksum": checksum
                 })
             )
-            
+
             # Write audit log entry
             audit_entry = {
                 "event": "backup_completed",
@@ -326,14 +326,14 @@ class BackupWorker:
             # Update control keys on failure
             if redis_client:
                 redis_client.set("backup:last_failure", datetime.utcnow().isoformat() + "Z")
-            
+
             # Record failure metrics
             duration = (datetime.utcnow() - start_time).total_seconds()
             BACKUP_DURATION_SECONDS.observe(duration)
             BACKUP_OPERATIONS_TOTAL.labels(status="failure").inc()
             BACKUP_LAST_FAILURE_TIMESTAMP.set(datetime.utcnow().timestamp())
             BACKUP_CURRENTLY_RUNNING.set(0)
-            
+
             # Log backup failure
             logger.error(
                 json.dumps({
@@ -346,7 +346,7 @@ class BackupWorker:
                     "duration_ms": int(duration * 1000)
                 })
             )
-            
+
             # Write audit log entry for failure
             if redis_client:
                 audit_entry = {
@@ -361,7 +361,7 @@ class BackupWorker:
                 }
                 redis_client.lpush("management:audit_log", json.dumps(audit_entry))
                 redis_client.ltrim("management:audit_log", -1000, -1)
-            
+
             raise
 
     def _is_never_backup_key(self, key: str) -> bool:
@@ -390,28 +390,28 @@ class BackupWorker:
             retention_days: Maximum age of backups to keep in days (None to disable).
         """
         backup_path = Path(backup_dir)
-        
+
         if not backup_path.exists():
             return
-        
+
         # Get all backup files with their manifests
         backup_files = list(backup_path.glob("backup_*.bin"))
-        
+
         if not backup_files:
             return
-        
+
         # Parse backup information from manifests
         backups = []
         for backup_file in backup_files:
             manifest_file = backup_file.with_suffix(backup_file.suffix + ".manifest.json")
-            
+
             if manifest_file.exists():
                 try:
                     with open(manifest_file, "r") as fh:
                         manifest = json.load(fh)
-                    
+
                     created_at = datetime.fromisoformat(manifest["created_at"].rstrip("Z"))
-                    
+
                     backups.append({
                         "file": backup_file,
                         "manifest": manifest_file,
@@ -421,39 +421,39 @@ class BackupWorker:
                 except (json.JSONDecodeError, KeyError):
                     # Skip invalid manifests
                     continue
-        
+
         if not backups:
             return
-        
+
         # Sort by creation time (newest first)
         backups.sort(key=lambda x: x["created_at"], reverse=True)
-        
+
         # Apply age-based retention first
         if retention_days is not None:
             cutoff = datetime.utcnow() - timedelta(days=retention_days)
             backups = [b for b in backups if b["created_at"] >= cutoff]
-        
+
         # Apply count-based retention
         if retain_count is not None and len(backups) > retain_count:
             backups = backups[:retain_count]
-        
+
         # Delete backups not in the retention list
         all_backup_files = set(backup_path.glob("backup_*.bin"))
         all_manifest_files = set(backup_path.glob("backup_*.bin.manifest.json"))
-        
+
         to_keep_files = {b["file"] for b in backups}
         to_keep_manifests = {b["manifest"] for b in backups}
-        
+
         to_delete_files = all_backup_files - to_keep_files
         to_delete_manifests = all_manifest_files - to_keep_manifests
-        
+
         # Delete files
         for f in to_delete_files:
             try:
                 f.unlink()
             except OSError:
                 pass
-        
+
         # Delete manifests
         for f in to_delete_manifests:
             try:

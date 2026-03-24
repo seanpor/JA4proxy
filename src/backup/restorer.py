@@ -158,7 +158,7 @@ class BackupRestorer:
         restore_type = "destructive" if destructive else "non-destructive"
         RESTORE_CURRENTLY_RUNNING.set(1)
         RESTORE_OPERATIONS_TOTAL.labels(status="started", type=restore_type).inc()
-        
+
         # Log restore start (before loading manifest to avoid file access issues)
         logger.info(
             json.dumps({
@@ -178,11 +178,11 @@ class BackupRestorer:
             port=self.redis_port,
             db=self.redis_db,
         )
-        
+
         try:
             # Load and validate manifest
             manifest = self.load_manifest(manifest_path)
-            
+
             # Log manifest loaded with key count
             logger.info(
                 json.dumps({
@@ -217,7 +217,7 @@ class BackupRestorer:
             RESTORE_OPERATIONS_TOTAL.labels(status="success", type=restore_type).inc()
             RESTORE_LAST_SUCCESS_TIMESTAMP.set(datetime.utcnow().timestamp())
             RESTORE_CURRENTLY_RUNNING.set(0)
-            
+
             # Log restore success
             logger.info(
                 json.dumps({
@@ -232,7 +232,7 @@ class BackupRestorer:
                     "artifact": backup_path
                 })
             )
-            
+
             # Write audit log entry
             audit_entry = {
                 "event": "restore_completed",
@@ -256,7 +256,7 @@ class BackupRestorer:
             RESTORE_OPERATIONS_TOTAL.labels(status="failure", type=restore_type).inc()
             RESTORE_LAST_FAILURE_TIMESTAMP.set(datetime.utcnow().timestamp())
             RESTORE_CURRENTLY_RUNNING.set(0)
-            
+
             # Log restore failure
             logger.error(
                 json.dumps({
@@ -271,7 +271,7 @@ class BackupRestorer:
                     "artifact": backup_path
                 })
             )
-            
+
             # Write audit log entry for failure
             audit_entry = {
                 "event": "restore_failed",
@@ -290,7 +290,7 @@ class BackupRestorer:
             except redis.RedisError:
                 # If audit logging fails, don't let it prevent the main error from being raised
                 pass
-            
+
             raise RestoreError(f"Restore failed: {e}")
 
     def _wipe_redis_data(self, redis_client: redis.Redis) -> None:
@@ -327,12 +327,12 @@ class BackupRestorer:
         # For this implementation, we assume it's a concatenation of Redis dump files
         # In a real implementation, you would need to parse the backup format
         # and restore each key individually
-        
+
         # For now, we'll simulate restoration by setting a restore marker
         # and return a simulated key count based on the manifest
         redis_client.set("backup:last_restore", datetime.utcnow().isoformat() + "Z")
         redis_client.set("backup:restored_from", Path(backup_path).name)
-        
+
         # Simulate key count - in a real implementation this would be the actual count
         # For testing purposes, we'll estimate based on file size
         simulated_key_count = max(1, len(backup_data) // 1000)  # ~1 key per KB

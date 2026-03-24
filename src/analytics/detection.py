@@ -9,8 +9,8 @@ from typing import Any, Dict, List, Optional
 
 class CampaignDetector:
     """Detects coordinated attack campaigns from multiple IPs in same subnet."""
-    
-    def __init__(self, density_threshold: float = 0.15, block_rate_threshold: float = 0.70, 
+
+    def __init__(self, density_threshold: float = 0.15, block_rate_threshold: float = 0.70,
                  min_unique_ips: int = 10, window_seconds: int = 300):
         self.density_threshold = density_threshold
         self.block_rate_threshold = block_rate_threshold
@@ -24,7 +24,7 @@ class CampaignDetector:
             'first_seen': time.time(),
             'last_seen': time.time()
         })
-    
+
     def get_subnet(self, ip_str: str, ipv4_mask: int = 24, ipv6_mask: int = 48) -> str:
         """Get subnet for an IP address."""
         try:
@@ -37,7 +37,7 @@ class CampaignDetector:
                 return str(network)
         except ValueError:
             return "invalid"
-    
+
     def get_subnet_size(self, subnet: str) -> int:
         """Get the size of a subnet."""
         try:
@@ -64,68 +64,68 @@ class CampaignDetector:
                 'last_seen': data['last_seen']
             }
         return None
-    
+
     def update_with_event(self, event: Dict[str, Any]):
         """Update detection data with a new event."""
         # Get current time window
         current_time = int(time.time())
         window = current_time // self.window_seconds
-        
+
         if self.current_window is None:
             self.current_window = window
-        
+
         # Rotate windows if needed
         if window != self.current_window:
             self._rotate_window(window)
-        
+
         # Get subnet for detection
         subnet = self.get_subnet(event["src_ip"])
         if subnet == "invalid":
             return
-        
+
         # Update subnet data
         data = self.subnet_data[subnet]
         data['total_connections'] += 1
-        
+
         if event['action'] == 'block':
             data['blocked_connections'] += 1
-        
+
         data['unique_ips'].add(event['src_ip'])
-        
+
         if 'first_seen' not in data or event['timestamp'] < data['first_seen']:
             data['first_seen'] = event['timestamp']
-        
+
         if event['timestamp'] > data['last_seen']:
             data['last_seen'] = event['timestamp']
-    
+
     def detect_campaigns(self) -> List[Dict[str, Any]]:
         """Detect active campaigns."""
         campaigns = []
         current_time = time.time()
-        
+
         for subnet, data in self.subnet_data.items():
             # Skip if not enough unique IPs
             if len(data['unique_ips']) < self.min_unique_ips:
                 continue
-            
+
             # Skip if no recent activity (last 2 windows)
             if current_time - data['last_seen'] > 2 * self.window_seconds:
                 continue
-            
+
             # Calculate density (unique IPs / subnet size)
             subnet_size = self.get_subnet_size(subnet)
             density = len(data['unique_ips']) / subnet_size
-            
+
             # Calculate block rate
             if data['total_connections'] > 0:
                 block_rate = data['blocked_connections'] / data['total_connections']
             else:
                 block_rate = 0.0
-            
+
             # Check if campaign criteria met
-            if (density >= self.density_threshold and 
+            if (density >= self.density_threshold and
                 block_rate >= self.block_rate_threshold):
-                
+
                 campaign = {
                     'subnet': subnet,
                     'density': density,
@@ -139,31 +139,31 @@ class CampaignDetector:
                     'detected_at': time.time()
                 }
                 campaigns.append(campaign)
-        
+
         return campaigns
-    
+
     def _rotate_window(self, new_window: int):
         """Rotate to a new time window, clearing old data."""
         # Remove subnets with no recent activity
         current_time = time.time()
         active_subnets = set()
-        
+
         for subnet, data in self.subnet_data.items():
             # Keep subnets with activity in the last window
             if current_time - data['last_seen'] <= self.window_seconds:
                 active_subnets.add(subnet)
-        
+
         # Remove inactive subnets
         inactive_subnets = set(self.subnet_data.keys()) - active_subnets
         for subnet in inactive_subnets:
             del self.subnet_data[subnet]
-        
+
         self.current_window = new_window
 
 
 class JA4FingerprintIntelligence:
     """Tracks and analyzes JA4 fingerprints across all instances."""
-    
+
     def __init__(self, min_observations: int = 10, block_rate_threshold: float = 0.95,
                  window_seconds: int = 3600):  # 1 hour window for JA4 intelligence
         self.min_observations = min_observations
@@ -178,66 +178,66 @@ class JA4FingerprintIntelligence:
             'last_seen': time.time(),
             'sources': set()  # Proxy IDs that have seen this fingerprint
         })
-    
+
     def update_with_event(self, event: Dict[str, Any]):
         """Update fingerprint intelligence with a new event."""
         # Get current time window
         current_time = int(time.time())
         window = current_time // self.window_seconds
-        
+
         if self.current_window is None:
             self.current_window = window
-        
+
         # Rotate windows if needed
         if window != self.current_window:
             self._rotate_window(window)
-        
+
         # Get JA4 fingerprint
         ja4 = event.get('ja4')
         if not ja4:
             return
-        
+
         # Update fingerprint data
         data = self.fingerprint_data[ja4]
         data['total_seen'] += 1
         data['sources'].add(event['proxy_id'])
-        
+
         if event['action'] == 'block':
             data['blocked_seen'] += 1
         elif event['action'] == 'allow':
             data['allowed_seen'] += 1
-        
+
         if 'first_seen' not in data or event['timestamp'] < data['first_seen']:
             data['first_seen'] = event['timestamp']
-        
+
         if event['timestamp'] > data['last_seen']:
             data['last_seen'] = event['timestamp']
-    
+
     def identify_candidates(self) -> List[Dict[str, Any]]:
         """Identify JA4 fingerprints that appear suspicious."""
         candidates = []
         current_time = time.time()
-        
+
         for ja4, data in self.fingerprint_data.items():
             # Skip if not enough observations
             if data['total_seen'] < self.min_observations:
                 continue
-            
+
             # Skip if no recent activity (last 2 windows)
             if current_time - data['last_seen'] > 2 * self.window_seconds:
                 continue
-            
+
             # Calculate block rate
             if data['total_seen'] > 0:
                 block_rate = data['blocked_seen'] / data['total_seen']
             else:
                 block_rate = 0.0
-            
+
             # Check if fingerprint is suspicious
             if block_rate >= self.block_rate_threshold:
                 # Check if fingerprint appears only in blocked connections
                 only_in_blocks = data['allowed_seen'] == 0 and data['blocked_seen'] > 0
-                
+
                 candidate = {
                     'ja4': ja4,
                     'total_seen': data['total_seen'],
@@ -252,20 +252,20 @@ class JA4FingerprintIntelligence:
                     'detected_at': time.time()
                 }
                 candidates.append(candidate)
-        
+
         # Sort by block rate (highest first)
         return sorted(candidates, key=lambda x: x['block_rate'], reverse=True)
-    
+
     def get_fingerprint_stats(self, ja4: str) -> Optional[Dict[str, Any]]:
         """Get statistics for a specific JA4 fingerprint."""
         if ja4 in self.fingerprint_data:
             data = self.fingerprint_data[ja4]
-            
+
             if data['total_seen'] > 0:
                 block_rate = data['blocked_seen'] / data['total_seen']
             else:
                 block_rate = 0.0
-            
+
             return {
                 'ja4': ja4,
                 'total_seen': data['total_seen'],
@@ -277,7 +277,7 @@ class JA4FingerprintIntelligence:
                 'last_seen': data['last_seen']
             }
         return None
-    
+
     def _rotate_window(self, new_window: int):
         """Rotate to a new time window, clearing old data."""
         # Remove fingerprints with no recent activity
@@ -299,8 +299,8 @@ class JA4FingerprintIntelligence:
 
 class SlowScanDetector:
     """Detects slow scan activity (many IPs from same subnet, few requests each)."""
-    
-    def __init__(self, max_requests_per_ip: int = 3, min_unique_ips: int = 20, 
+
+    def __init__(self, max_requests_per_ip: int = 3, min_unique_ips: int = 20,
                  window_seconds: int = 300):
         self.max_requests_per_ip = max_requests_per_ip
         self.min_unique_ips = min_unique_ips
@@ -313,7 +313,7 @@ class SlowScanDetector:
             'first_seen': time.time(),
             'last_seen': time.time()
         })
-    
+
     def get_subnet(self, ip_str: str, ipv4_mask: int = 24, ipv6_mask: int = 48) -> str:
         """Get subnet for an IP address."""
         try:
@@ -326,64 +326,64 @@ class SlowScanDetector:
                 return str(network)
         except ValueError:
             return "invalid"
-    
+
     def update_with_event(self, event: Dict[str, Any]):
         """Update detection data with a new event."""
         # Get current time window
         current_time = int(time.time())
         window = current_time // self.window_seconds
-        
+
         if self.current_window is None:
             self.current_window = window
-        
+
         # Rotate windows if needed
         if window != self.current_window:
             self._rotate_window(window)
-        
+
         # Get subnet for detection
         subnet = self.get_subnet(event["src_ip"])
         if subnet == "invalid":
             return
-        
+
         # Update subnet data
         data = self.subnet_data[subnet]
         ip = event["src_ip"]
-        
+
         data['ip_request_counts'][ip] += 1
         data['unique_ips'].add(ip)
         data['total_requests'] += 1
-        
+
         if 'first_seen' not in data or event['timestamp'] < data['first_seen']:
             data['first_seen'] = event['timestamp']
-        
+
         if event['timestamp'] > data['last_seen']:
             data['last_seen'] = event['timestamp']
-    
+
     def detect_slow_scans(self) -> List[Dict[str, Any]]:
         """Detect active slow scan activity."""
         slow_scans = []
         current_time = time.time()
-        
+
         for subnet, data in self.subnet_data.items():
             # Skip if not enough unique IPs
             if len(data['unique_ips']) < self.min_unique_ips:
                 continue
-            
+
             # Skip if no recent activity (last 2 windows)
             if current_time - data['last_seen'] > 2 * self.window_seconds:
                 continue
-            
+
             # Calculate average requests per IP
             if len(data['unique_ips']) > 0:
                 avg_requests_per_ip = data['total_requests'] / len(data['unique_ips'])
             else:
                 avg_requests_per_ip = 0
-            
+
             # Check if slow scan criteria met
             if avg_requests_per_ip <= self.max_requests_per_ip:
                 # Calculate score (0-1 scale)
                 score = min(1.0, len(data['unique_ips']) / 100)
-                
+
                 slow_scan = {
                     'subnet': subnet,
                     'unique_ips': len(data['unique_ips']),
@@ -396,23 +396,23 @@ class SlowScanDetector:
                     'detected_at': time.time()
                 }
                 slow_scans.append(slow_scan)
-        
+
         return slow_scans
-    
+
     def _rotate_window(self, new_window: int):
         """Rotate to a new time window, clearing old data."""
         # Remove subnets with no recent activity
         current_time = time.time()
         active_subnets = set()
-        
+
         for subnet, data in self.subnet_data.items():
             # Keep subnets with activity in the last window
             if current_time - data['last_seen'] <= self.window_seconds:
                 active_subnets.add(subnet)
-        
+
         # Remove inactive subnets
         inactive_subnets = set(self.subnet_data.keys()) - active_subnets
         for subnet in inactive_subnets:
             del self.subnet_data[subnet]
-        
+
         self.current_window = new_window

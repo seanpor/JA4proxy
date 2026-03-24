@@ -410,6 +410,6 @@ class ASNClassifier:
         if not self._tor_list_initialized:
             await self._init_tor_list()
             self._tor_list_initialized = True
-        
+
         signal = self.get_signal(ctx.client_ip)
         return [signal] if signal else []
