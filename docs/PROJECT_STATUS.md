@@ -1,6 +1,6 @@
 # JA4 Proxy - Project Status
 
-## Current Status: Phase 12 (Analytics Node) Next
+## Current Status: Phase 13 (Management UI) Next
 
 **Last Updated:** 2026-03-24
 
@@ -40,7 +40,7 @@ Cross-instance behavior analysis and threat intelligence.
 | 6 | ASN Classification | COMPLETE | MaxMind GeoLite2-ASN, datacenter/Tor/VPN detection. |
 | 7 | FCrDNS Enrichment | COMPLETE | Async PTR lookup, residential pattern detection. |
 | 9 | Beaconing Detector | COMPLETE | IAT coefficient of variation, dual window, suspects leaderboard. |
-| 12 | Analytics Node | PARTIAL | Cross-instance statistical analysis via Redis Streams. |
+| 12 | Analytics Node | COMPLETE | Cross-instance statistical analysis via Redis Streams. Campaign/slow-scan signals, drift alerting, Grafana dashboard, HyperLogLog, hot-reload. |
 | 23 | Advanced Traffic Intelligence | PROPOSED | Attacker attribution, geographical intelligence, and threat intelligence integration. |
 
 ### Epic: Next-Gen Passive Capture
@@ -77,7 +77,7 @@ Management dashboards and documentation quality.
 | 9 | Beaconing Detector | COMPLETE | 100% | COMPLETE |
 | 10 | AbuseIPDB Enrichment | COMPLETE | 100% | COMPLETE |
 | 11 | RDAP Enrichment | COMPLETE | 100% | COMPLETE |
-| 12 | Analytics Node | PARTIAL | 100% | COMPLETE |
+| 12 | Analytics Node | COMPLETE | 100% | COMPLETE |
 | 13 | Management UI | DEFERRED | N/A | N/A |
 | 14 | Production Hardening | COMPLETE | 100% | COMPLETE |
 | 15 | Go Rewrite | PARTIAL | N/A | N/A |
