@@ -41,3 +41,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 24 — Go Strategy Assessment
 *   **Status:** **PROPOSED** (Assessment of minimal Go component vs comprehensive rewrite approach.)
 *   **Action Plan:** [PHASE_24_STRATEGY_ASSESSMENT.md](PHASE_24_STRATEGY_ASSESSMENT.md)
+
+### Phase 25 — Docker Container Management
+*   **Status:** **OPEN** (Pin image versions, fix CVE scan gaps, first-party image scanning, image update policy.)
+*   **Action Plan:** [PHASE_25.md](PHASE_25.md)

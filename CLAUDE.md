@@ -122,6 +122,7 @@ Practical rules that flow from this:
 | 22 | Backup system enhancements *(proposed)* | Encryption; cloud storage; incremental backups; pipeline batching | [PHASE_22.md](docs/phases/PHASE_22.md) |
 | 23 | Advanced traffic intelligence *(proposed)* | Attacker attribution; geo intelligence; threat-intel feeds; cross-instance ML | [PHASE_23.md](docs/phases/PHASE_23.md) |
 | 24 | Go strategy assessment *(proposed)* | Minimal Go component vs full rewrite; decision ADR | [PHASE_24_STRATEGY_ASSESSMENT.md](docs/phases/PHASE_24_STRATEGY_ASSESSMENT.md) |
+| 25 | Docker container management *(open)* | Image version pinning; CVE scan gaps; first-party scanning; update policy | [PHASE_25.md](docs/phases/PHASE_25.md) |
 
 **Do phases in order. Complete all acceptance criteria before starting the next phase.**
 
