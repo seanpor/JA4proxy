@@ -73,7 +73,20 @@ PROXY_FILTER=""
 CONNECT_TIMEOUT=2
 
 REDIS_PASSWORD="${REDIS_PASSWORD:-}"
+# GOROOT validation: the snap Go package sets GOROOT=/usr/share/go in the shell
+# environment, but the stdlib actually lives at /snap/go/current/src.  Detect
+# and correct this by checking whether the fmt package exists under GOROOT.
 GOROOT="${GOROOT:-/snap/go/current}"
+if [[ ! -d "${GOROOT}/src/fmt" ]]; then
+    GOROOT="/snap/go/current"
+fi
+if [[ ! -d "${GOROOT}/src/fmt" ]]; then
+    # Last resort: ask the go binary itself (may still be wrong with snap, but worth trying)
+    _goroot_probe="$(go env GOROOT 2>/dev/null || true)"
+    if [[ -d "${_goroot_probe}/src/fmt" ]]; then
+        GOROOT="${_goroot_probe}"
+    fi
+fi
 BACKEND_HOST="${BACKEND_HOST:-backend}"
 BACKEND_PORT="${BACKEND_PORT:-443}"
 
