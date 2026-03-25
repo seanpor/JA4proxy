@@ -386,3 +386,37 @@ place and can be re-enabled within seconds.
 
 See `docs/runbooks/go_proxy_migration.md` for the full step-by-step procedure.
 
+### Benchmarking Go vs Python
+
+A comprehensive benchmark suite compares throughput, latency, cache effects, and adversarial
+behaviour across both proxy implementations.
+
+```bash
+# Full benchmark (starts Docker services automatically, ~25–35 min)
+make bench
+
+# Quick sanity run, 10 s per scenario (~8–12 min; both proxies must be running)
+make bench-quick
+
+# Go proxy only, extended sustained-load test
+make bench-go ARGS="--scenarios sustained_load --duration-long 120"
+
+# Pass arbitrary flags
+make bench ARGS="--scenarios peak_throughput,throughput_scaling --max-threads 64"
+```
+
+Reports are written to `reports/benchmark/YYYY-MM-DD_HH-MM-SS/`:
+
+| File | Contents |
+|------|----------|
+| `report.md` | Human-readable Markdown: executive summary, per-scenario tables, ASCII charts, Phase 15 gate check |
+| `raw_results.json` | Full JSON data for all scenarios |
+| `scenarios/NN_name.json` | Per-scenario breakdown |
+| `benchmark.log` | Full console output |
+| `sysinfo.txt` | Host CPU, RAM, OS, binary versions |
+
+Ten scenario groups are run against both proxies in sequence:
+`baseline_latency`, `throughput_scaling`, `peak_throughput`, `mixed_traffic`,
+`sustained_load`, `warm_cache`, `cold_cache`, `burst_load`, `adversarial_tls`,
+`latency_percentiles`.
+
