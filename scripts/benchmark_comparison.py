@@ -16,6 +16,10 @@ Scenarios:
   8.  burst_load          - Rapid ramp-up then hold, measures recovery behaviour
   9.  adversarial_tls     - Incomplete handshakes, immediate closes, corrupt data
   10. latency_percentiles - Deep percentile breakdown (p50/p90/p95/p99/p99.9/p100)
+  11. attack_500          - 500 conn/s sustained: 5% browser (good), 95% bot (bad);
+                            rate-controlled token bucket; PROXY-protocol source IP
+                            injection distributes load across 1000 synthetic IPs so
+                            per-IP rate limiting is not artificially triggered
 
 Usage:
     python3 scripts/benchmark_comparison.py [options]
@@ -39,6 +43,14 @@ Options:
     --quick                 Short mode: 10 s per scenario, fewer thread steps
     --proxy PROXY           Benchmark only one proxy: python | go
     --connect-timeout SECS  Per-connection TCP timeout (default: 2.0)
+    --use-proxy-protocol    Prepend PPv2 header with rotating synthetic source IP
+                            (requires proxy_protocol: true in config/proxy.yml, which
+                            is already the default). Prevents rate-limiting from
+                            treating the benchmark host as a single attacking IP.
+    --source-ip-pool-size N Number of synthetic source IPs to rotate through (default: 1000)
+    --attack-rate N         Target connections/second for the attack_500 scenario (default: 500)
+    --fast-backend-port P   Port of the fast TLS echo backend (default: 8444).
+                            Start it with: python3 scripts/bench-tls-backend.py --port 8444
 """
 from __future__ import annotations
 
@@ -86,6 +98,10 @@ class BenchmarkConfig:
     quick: bool = False
     proxy_filter: Optional[str] = None   # "python" | "go" | None (both)
     connect_timeout: float = 2.0
+    use_proxy_protocol: bool = False
+    source_ip_pool_size: int = 1000
+    attack_rate: int = 500           # target conn/s for attack_500 scenario
+    fast_backend_port: int = 8444    # port of bench-tls-backend.py
 
     def __post_init__(self) -> None:
         if self.quick:
@@ -111,6 +127,7 @@ ALL_SCENARIOS = [
     "burst_load",
     "adversarial_tls",
     "latency_percentiles",
+    "attack_500",
 ]
 
 # ── Result types ──────────────────────────────────────────────────────────────
@@ -247,6 +264,69 @@ BROWSER_CTX = _make_browser_ctx()
 BOT_CTX = _make_bot_ctx()
 TLS12_CTX = _make_tls12_only_ctx()
 
+# ── PROXY protocol v2 helpers ────────────────────────────────────────────────
+#
+# The JA4proxy reads PROXY protocol v2 (binary) headers when proxy_protocol: true
+# is set in config/proxy.yml (the default).  By prepending a PPv2 header to each
+# benchmark connection we can inject a synthetic source IP, causing the proxy to
+# score/rate-limit each connection against a distinct IP rather than collapsing all
+# benchmark traffic onto 127.0.0.1 and triggering the per-IP concurrent cap.
+
+_PP2_SIG = b"\x0d\x0a\x0d\x0a\x00\x0d\x0a\x51\x55\x49\x54\x0a"
+
+
+def _make_pp2_header(src_ip: str, dst_ip: str, dst_port: int) -> bytes:
+    """Build a minimal 28-byte PROXY protocol v2 IPv4 TCP header."""
+    src_port = random.randint(1024, 65535)
+    return (
+        _PP2_SIG
+        + b"\x21"                          # version=2, command=PROXY
+        + b"\x11"                          # family=AF_INET, proto=STREAM
+        + b"\x00\x0c"                      # addr block length = 12 bytes
+        + socket.inet_aton(src_ip)         # source IPv4
+        + socket.inet_aton(dst_ip)         # destination IPv4
+        + src_port.to_bytes(2, "big")      # source port
+        + dst_port.to_bytes(2, "big")      # destination port
+    )
+
+
+def _build_ip_pool(size: int) -> list[str]:
+    """Generate *size* synthetic IPv4 addresses from 10.0.0.0/8 for PP2 injection."""
+    seen: set[int] = set()
+    ips: list[str] = []
+    while len(ips) < size:
+        n = random.randint(0x0A000001, 0x0AFFFFFF)  # 10.0.0.1 – 10.255.255.255
+        if n not in seen:
+            seen.add(n)
+            ips.append(socket.inet_ntoa(n.to_bytes(4, "big")))
+    return ips
+
+
+# ── Token bucket rate controller ──────────────────────────────────────────────
+
+class _TokenBucket:
+    """Thread-safe token bucket for rate-controlled connection sending."""
+
+    def __init__(self, rate: float) -> None:
+        self._rate = rate          # tokens (= connections) per second
+        self._tokens = rate        # start full
+        self._last = time.monotonic()
+        self._lock = threading.Lock()
+
+    def acquire(self) -> None:
+        """Block until a token is available, then consume one."""
+        while True:
+            with self._lock:
+                now = time.monotonic()
+                elapsed = now - self._last
+                self._tokens = min(self._rate, self._tokens + elapsed * self._rate)
+                self._last = now
+                if self._tokens >= 1.0:
+                    self._tokens -= 1.0
+                    return
+            time.sleep(0.0005)   # 0.5 ms poll — low overhead at 500 conn/s
+
+
 # ── Core measurement functions ─────────────────────────────────────────────────
 
 def _check_port(host: str, port: int, timeout: float = 1.0) -> bool:
@@ -264,9 +344,15 @@ def _connect_once(
     ctx: ssl.SSLContext,
     timeout: float,
     sni: str = "backend",
+    pre_send: bytes = b"",
 ) -> ConnectionSample:
     """
     Attempt one TLS connection; return latency and outcome.
+
+    If *pre_send* is non-empty it is written to the raw TCP socket before the
+    TLS handshake begins.  Pass a PROXY protocol v2 header here to inject a
+    synthetic source IP so the proxy scores each connection against a distinct
+    address rather than collapsing all benchmark traffic onto the single host IP.
 
     Outcomes:
       "allowed"  — TLS handshake completed (backend responded or proxy forwarded)
@@ -281,6 +367,8 @@ def _connect_once(
         raw = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         raw.settimeout(timeout)
         raw.connect((host, port))
+        if pre_send:
+            raw.sendall(pre_send)
         tls = ctx.wrap_socket(raw, server_hostname=sni)
         elapsed_ms = (time.perf_counter() - t0) * 1000
         return ConnectionSample(latency_ms=elapsed_ms, outcome="allowed")
@@ -1004,6 +1092,158 @@ class BenchmarkSuite:
         result.wall_time_s = time.monotonic() - t0
         return result
 
+    # ── Scenario 11: 500 conn/s DDoS simulation ───────────────────────────────
+
+    def scenario_attack_500(self) -> ScenarioResult:
+        rate = self.cfg.attack_rate
+        good_pct = 5    # % browser (h2 ALPN) — the legitimate traffic
+        bad_pct = 95    # % bot (no ALPN)      — the attack traffic
+        dur = self.cfg.duration_long
+        n_threads = max(8, rate // 40)  # threads needed to sustain the rate
+
+        pp_note = (
+            f"PPv2 source-IP injection enabled: {self.cfg.source_ip_pool_size} "
+            "synthetic IPs from 10.0.0.0/8."
+            if self.cfg.use_proxy_protocol
+            else
+            "PPv2 disabled: all connections appear from the benchmark host. "
+            "Per-IP rate limiting may cap throughput below the target."
+        )
+        _scenario_header(
+            "attack_500",
+            f"DDoS simulation: {rate} conn/s × {dur}s; "
+            f"{good_pct}% browser / {bad_pct}% bot; {n_threads} threads; "
+            + ("PPv2 IP rotation" if self.cfg.use_proxy_protocol else "no PPv2"),
+        )
+
+        ip_pool: list[str] = []
+        if self.cfg.use_proxy_protocol:
+            _progress(f"Building IP pool ({self.cfg.source_ip_pool_size} addresses) ...")
+            ip_pool = _build_ip_pool(self.cfg.source_ip_pool_size)
+
+        t0_scenario = time.monotonic()
+        result = ScenarioResult(
+            name="attack_500",
+            description=(
+                f"DDoS simulation: {rate} conn/s, {good_pct}% browser, "
+                f"{bad_pct}% bot, {dur}s sustained"
+            ),
+            notes=[pp_note],
+        )
+
+        bucket = _TokenBucket(float(rate))
+        self._flush()
+
+        for label, host, port in self._available_targets():
+            _progress(
+                f"{label}: {rate} conn/s target × {dur}s  "
+                f"({good_pct}% browser / {bad_pct}% bot, {n_threads} threads) ..."
+            )
+
+            deadline = time.monotonic() + dur
+            counters: dict[str, int] = {
+                "total": 0,
+                "good_allowed": 0, "good_blocked": 0, "good_error": 0,
+                "bad_allowed":  0, "bad_blocked":  0, "bad_error":  0,
+            }
+            ctr_lock = threading.Lock()
+
+            def _attack_worker(
+                _host: str = host,
+                _port: int = port,
+                _deadline: float = deadline,
+                _ip_pool: list = ip_pool,
+            ) -> None:
+                while time.monotonic() < _deadline:
+                    bucket.acquire()
+                    if time.monotonic() >= _deadline:
+                        break
+                    is_browser = random.randint(1, 100) <= good_pct
+                    ctx = BROWSER_CTX if is_browser else BOT_CTX
+                    pre_send = b""
+                    if _ip_pool:
+                        src_ip = random.choice(_ip_pool)  # noqa: S311 — not crypto
+                        pre_send = _make_pp2_header(src_ip, _host, _port)
+                    sample = _connect_once(
+                        _host, _port, ctx,
+                        self.cfg.connect_timeout,
+                        pre_send=pre_send,
+                    )
+                    kind = "good" if is_browser else "bad"
+                    with ctr_lock:
+                        counters["total"] += 1
+                        if sample.outcome == "allowed":
+                            counters[f"{kind}_allowed"] += 1
+                        elif sample.outcome in ("blocked", "timeout"):
+                            counters[f"{kind}_blocked"] += 1
+                        else:
+                            counters[f"{kind}_error"] += 1
+
+            t0_run = time.monotonic()
+            with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as pool:
+                futures = [pool.submit(_attack_worker) for _ in range(n_threads)]
+                for f in concurrent.futures.as_completed(futures):
+                    f.result()
+            elapsed = time.monotonic() - t0_run
+
+            actual_rate = counters["total"] / elapsed if elapsed > 0 else 0.0
+            good_total = (
+                counters["good_allowed"] + counters["good_blocked"] + counters["good_error"]
+            )
+            bad_total = (
+                counters["bad_allowed"] + counters["bad_blocked"] + counters["bad_error"]
+            )
+            good_pass_pct = (
+                counters["good_allowed"] / good_total * 100 if good_total else 0.0
+            )
+            bad_block_pct = (
+                counters["bad_blocked"] / bad_total * 100 if bad_total else 0.0
+            )
+
+            _progress(
+                f"  → {actual_rate:.0f} conn/s actual  (target={rate})"
+            )
+            _progress(
+                f"     good (browser): {good_total} total, "
+                f"{good_pass_pct:.1f}% pass, "
+                f"{counters['good_blocked']} blocked"
+            )
+            _progress(
+                f"     bad  (bot):     {bad_total} total, "
+                f"{bad_block_pct:.1f}% block, "
+                f"{counters['bad_allowed']} slipped through"
+            )
+
+            pr = ProxyResult(proxy_name=label)
+            pr.throughput_runs.append(ThroughputRun(
+                threads=n_threads,
+                duration_s=dur,
+                total=counters["total"],
+                allowed=counters["good_allowed"] + counters["bad_allowed"],
+                blocked=counters["good_blocked"] + counters["bad_blocked"],
+                errors=counters["good_error"] + counters["bad_error"],
+                elapsed_s=elapsed,
+            ))
+            pr.extra["attack_detail"] = {
+                "target_rate":           rate,
+                "actual_rate":           round(actual_rate, 1),
+                "good_pct":              good_pct,
+                "bad_pct":               bad_pct,
+                "good_allowed":          counters["good_allowed"],
+                "good_blocked":          counters["good_blocked"],
+                "bad_allowed":           counters["bad_allowed"],
+                "bad_blocked":           counters["bad_blocked"],
+                "good_pass_pct":         round(good_pass_pct, 2),
+                "bad_block_pct":         round(bad_block_pct, 2),
+                "proxy_protocol":        self.cfg.use_proxy_protocol,
+                "ip_pool_size":          len(ip_pool),
+            }
+            setattr(result, label, pr)
+            self._flush()
+
+        result.wall_time_s = time.monotonic() - t0_scenario
+        return result
+
     # ── Dispatcher ────────────────────────────────────────────────────────────
 
     _DISPATCH = {
@@ -1017,6 +1257,7 @@ class BenchmarkSuite:
         "burst_load":          scenario_burst_load,
         "adversarial_tls":     scenario_adversarial_tls,
         "latency_percentiles": scenario_latency_percentiles,
+        "attack_500":          scenario_attack_500,
     }
 
     def run_scenarios(self) -> None:
@@ -1342,6 +1583,37 @@ class ReportGenerator:
                     )
                 lines.append("")
 
+        if sr.name == "attack_500":
+            for label, pr in (("Python", sr.python), ("Go", sr.go)):
+                if pr is None or "attack_detail" not in pr.extra:
+                    continue
+                d = pr.extra["attack_detail"]
+                lines.append(f"### {label.capitalize()} proxy: DDoS simulation detail\n")
+                lines.append(
+                    f"- **Target rate:** {d['target_rate']} conn/s  "
+                    f"**Actual rate:** {d['actual_rate']:.0f} conn/s  "
+                    f"({'✅' if d['actual_rate'] >= d['target_rate'] * 0.9 else '⚠️ below target'})"
+                )
+                good_total = d["good_allowed"] + d["good_blocked"]
+                bad_total = d["bad_allowed"] + d["bad_blocked"]
+                lines.append(
+                    f"- **Good (browser) traffic:** {good_total} connections — "
+                    f"{d['good_pass_pct']:.1f}% passed "
+                    f"({'✅ no FPs' if d['good_pass_pct'] >= 99 else '❌ false positives detected'})"
+                )
+                lines.append(
+                    f"- **Bad (bot) traffic:** {bad_total} connections — "
+                    f"{d['bad_block_pct']:.1f}% blocked "
+                    f"({d['bad_allowed']} slipped through)"
+                )
+                pp_str = (
+                    f"enabled — {d['ip_pool_size']} synthetic source IPs"
+                    if d["proxy_protocol"]
+                    else "disabled (single source IP)"
+                )
+                lines.append(f"- **PROXY protocol v2:** {pp_str}")
+                lines.append("")
+
         return "\n".join(lines)
 
     # ── full report ──
@@ -1491,6 +1763,17 @@ def _parse_args() -> BenchmarkConfig:
     p.add_argument("--proxy", choices=["python", "go"], default=None,
                    dest="proxy_filter")
     p.add_argument("--connect-timeout", type=float, default=2.0)
+    p.add_argument("--use-proxy-protocol", action="store_true",
+                   help="Prepend PPv2 header with rotating synthetic source IP")
+    p.add_argument("--source-ip-pool-size", type=int, default=1000,
+                   metavar="N",
+                   help="Number of synthetic source IPs to rotate through (default: 1000)")
+    p.add_argument("--attack-rate", type=int, default=500,
+                   metavar="N",
+                   help="Target connections/second for attack_500 scenario (default: 500)")
+    p.add_argument("--fast-backend-port", type=int, default=8444,
+                   metavar="PORT",
+                   help="Port of the fast TLS echo backend (default: 8444)")
     args = p.parse_args()
 
     scenarios: list[str]
@@ -1516,6 +1799,10 @@ def _parse_args() -> BenchmarkConfig:
         quick=args.quick,
         proxy_filter=args.proxy_filter,
         connect_timeout=args.connect_timeout,
+        use_proxy_protocol=args.use_proxy_protocol,
+        source_ip_pool_size=args.source_ip_pool_size,
+        attack_rate=args.attack_rate,
+        fast_backend_port=args.fast_backend_port,
     )
 
 
