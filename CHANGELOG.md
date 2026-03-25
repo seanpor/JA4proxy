@@ -1,5 +1,49 @@
 # Changelog
 
+## [19.3.0] - 2026-03-25 — Tooling: Go vs Python Comprehensive Benchmark Suite
+
+### Added
+
+**Benchmark orchestrator: `scripts/benchmark-go-python.sh`**
+- Main entry point; handles the full lifecycle: build, start, run, report
+- Builds `bin/ja4proxy` via `GOROOT=/snap/go/current go build` (skippable with `--skip-build`)
+- Starts Python and Go proxies via Docker Compose if not already running; waits for health
+- Falls back to launching `bin/ja4proxy` natively when `--no-docker` and binary exists
+- Collects system info (CPU, RAM, OS, Python/Go versions) into `reports/benchmark/*/sysinfo.txt`
+- Tees full console output to `reports/benchmark/*/benchmark.log`
+- Captures Docker resource usage snapshot before and after the run
+- Flags: `--quick`, `--duration-quick`, `--duration-long`, `--max-threads`, `--scenarios`,
+  `--no-docker`, `--skip-build`, `--no-redis-flush`, `--proxy python|go`, `--connect-timeout`
+
+**Benchmark engine: `scripts/benchmark_comparison.py`**
+- Ten scenario groups covering throughput, latency, cache effects, mixed traffic, and adversarial inputs:
+
+  | # | Scenario | What it measures |
+  |---|----------|-----------------|
+  | 1 | `baseline_latency` | 100 sequential TLS connections; full latency distribution |
+  | 2 | `throughput_scaling` | Thread count 1→2→4→8→16→32; conn/s at each step + ASCII bar chart |
+  | 3 | `peak_throughput` | Max conn/s at full concurrency |
+  | 4 | `mixed_traffic` | Browser (h2 ALPN) vs bot (no ALPN) ratio sweep: 100/0 → 0/100 |
+  | 5 | `sustained_load` | 60 s at multiple thread counts; 6-window drift detection |
+  | 6 | `warm_cache` | 20-connection pre-warm then measure (in-process LRU hit path) |
+  | 7 | `cold_cache` | Redis flush immediately before run (cache miss path) |
+  | 8 | `burst_load` | Ramp-up → peak → recovery; 3-phase conn/s measurement |
+  | 9 | `adversarial_tls` | Garbage bytes, immediate close, TLS-1.2-only, no-ALPN fingerprint |
+  | 10 | `latency_percentiles` | 500-connection deep distribution: p50/p90/p95/p99 |
+
+- Three TLS client contexts: browser (h2+h1.1 ALPN, modern ciphers), bot (no ALPN), TLS-1.2-only
+- Outputs: `report.md` (Markdown with ASCII charts, speedup tables, Phase 15 acceptance criteria check),
+  `raw_results.json`, and per-scenario JSON in `scenarios/NN_name.json`
+- Executive summary: Go/Python speedup ratio, p99 latency improvement, per-scenario comparison table
+- Phase 15 acceptance criteria gate: ≥5× throughput, 1000 conn/s sustained, FP rate < 0.1%
+
+**Makefile targets**
+- `make bench` — full suite; starts Docker services if not running
+- `make bench-quick` — 10 s/scenario, 16 threads; proxies must be running (`--no-docker`)
+- `make bench-go` — Go proxy only
+- `make bench-python` — Python proxy only
+- All targets accept `ARGS=` for pass-through flags
+
 ## [19.2.0] - 2026-03-23 — Phase 17b/18: Security Audit Remediation (Complete)
 
 ### Added
