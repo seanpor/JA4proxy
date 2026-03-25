@@ -26,6 +26,13 @@
 #   --no-redis-flush        Do not flush Redis between scenarios
 #   --proxy python|go       Benchmark only one proxy
 #   --connect-timeout SECS  Per-connection TCP timeout         (default: 2)
+#   --use-proxy-protocol    Inject PPv2 header with rotating synthetic source IP
+#                           Prevents per-IP rate limiting from capping the attack_500
+#                           scenario. Requires proxy_protocol: true in config/proxy.yml.
+#   --source-ip-pool N      Synthetic IP pool size for PPv2    (default: 1000)
+#   --attack-rate N         Target conn/s for attack_500       (default: 500)
+#   --fast-backend-port P   Port of fast TLS echo backend      (default: 8444)
+#                           Start it first: python3 scripts/bench-tls-backend.py --port 8444
 #   --help                  Show this message
 #
 # Environment variables honoured:
@@ -71,6 +78,10 @@ SKIP_BUILD=false
 FLUSH_REDIS=true
 PROXY_FILTER=""
 CONNECT_TIMEOUT=2
+USE_PROXY_PROTOCOL=false
+SOURCE_IP_POOL_SIZE=1000
+ATTACK_RATE=500
+FAST_BACKEND_PORT=8444
 
 REDIS_PASSWORD="${REDIS_PASSWORD:-}"
 # GOROOT validation: the snap Go package sets GOROOT=/usr/share/go in the shell
@@ -121,9 +132,13 @@ while [[ $# -gt 0 ]]; do
         --skip-build)       SKIP_BUILD=true; shift ;;
         --no-redis-flush)   FLUSH_REDIS=false; shift ;;
         --proxy)            PROXY_FILTER="$2"; shift 2 ;;
-        --connect-timeout)  CONNECT_TIMEOUT="$2"; shift 2 ;;
+        --connect-timeout)      CONNECT_TIMEOUT="$2"; shift 2 ;;
+        --use-proxy-protocol)   USE_PROXY_PROTOCOL=true; shift ;;
+        --source-ip-pool)       SOURCE_IP_POOL_SIZE="$2"; shift 2 ;;
+        --attack-rate)          ATTACK_RATE="$2"; shift 2 ;;
+        --fast-backend-port)    FAST_BACKEND_PORT="$2"; shift 2 ;;
         --help|-h)
-            sed -n '3,50p' "${BASH_SOURCE[0]}"
+            sed -n '3,65p' "${BASH_SOURCE[0]}"
             exit 0
             ;;
         *)
@@ -359,6 +374,46 @@ if command -v docker &>/dev/null && [[ "$USE_DOCKER" == "true" ]]; then
         2>/dev/null | grep -E "ja4proxy|proxy|redis" || true
 fi
 
+# ── Fast TLS echo backend (for attack_500 scenario) ──────────────────────────
+# bench-tls-backend.py must be started before the benchmark if the attack_500
+# scenario is selected and the fast backend port is not already listening.
+FAST_BACKEND_PID=""
+FAST_BACKEND_PY="${SCRIPT_DIR}/bench-tls-backend.py"
+
+_scenarios_include_attack() {
+    [[ "$SCENARIOS" == "all" ]] || echo "$SCENARIOS" | grep -q "attack_500"
+}
+
+if _scenarios_include_attack; then
+    if _port_open "127.0.0.1" "${FAST_BACKEND_PORT}"; then
+        ok "Fast TLS backend already listening on port ${FAST_BACKEND_PORT}"
+    elif [[ -f "${FAST_BACKEND_PY}" ]]; then
+        step "Starting Fast TLS Backend"
+        log "Launching bench-tls-backend.py on port ${FAST_BACKEND_PORT} ..."
+        python3 "${FAST_BACKEND_PY}" --port "${FAST_BACKEND_PORT}" \
+            >"${OUTPUT_DIR}/fast-backend.log" 2>&1 &
+        FAST_BACKEND_PID=$!
+        log "Fast backend PID: ${FAST_BACKEND_PID}"
+
+        for i in $(seq 1 10); do
+            if _port_open "127.0.0.1" "${FAST_BACKEND_PORT}"; then
+                ok "Fast TLS backend up (${i}s)"
+                break
+            fi
+            sleep 1
+        done
+        if ! _port_open "127.0.0.1" "${FAST_BACKEND_PORT}"; then
+            warn "Fast TLS backend did not start — attack_500 will use the regular backend"
+            warn "Check ${OUTPUT_DIR}/fast-backend.log for details"
+            kill "${FAST_BACKEND_PID}" 2>/dev/null || true
+            FAST_BACKEND_PID=""
+        fi
+    else
+        warn "bench-tls-backend.py not found at ${FAST_BACKEND_PY}"
+        warn "attack_500 scenario will use the regular backend (may be slower)"
+    fi
+fi
+
 # ── Run Go proxy natively if binary exists and Docker not used ─────────────────
 NATIVE_GO_PID=""
 
@@ -425,6 +480,14 @@ fi
 if [[ "$QUICK" == "true" ]]; then
     PYTHON_ARGS+=("--quick")
 fi
+if [[ "$USE_PROXY_PROTOCOL" == "true" ]]; then
+    PYTHON_ARGS+=("--use-proxy-protocol")
+fi
+PYTHON_ARGS+=(
+    "--source-ip-pool-size" "${SOURCE_IP_POOL_SIZE}"
+    "--attack-rate"         "${ATTACK_RATE}"
+    "--fast-backend-port"   "${FAST_BACKEND_PORT}"
+)
 
 log "Command: ${PYTHON_ARGS[*]}"
 printf "\n"
@@ -434,13 +497,21 @@ BENCH_LOG="${OUTPUT_DIR}/benchmark.log"
 "${PYTHON_ARGS[@]}" 2>&1 | tee "${BENCH_LOG}"
 BENCH_EXIT="${PIPESTATUS[0]}"
 
-# ── Cleanup native Go proxy ───────────────────────────────────────────────────
-if [[ -n "$NATIVE_GO_PID" ]]; then
+# ── Cleanup background processes ──────────────────────────────────────────────
+if [[ -n "$NATIVE_GO_PID" ]] || [[ -n "$FAST_BACKEND_PID" ]]; then
     step "Cleanup"
-    log "Stopping native Go proxy (PID ${NATIVE_GO_PID}) ..."
-    kill "${NATIVE_GO_PID}" 2>/dev/null || true
-    wait "${NATIVE_GO_PID}" 2>/dev/null || true
-    ok "Go proxy stopped"
+    if [[ -n "$NATIVE_GO_PID" ]]; then
+        log "Stopping native Go proxy (PID ${NATIVE_GO_PID}) ..."
+        kill "${NATIVE_GO_PID}" 2>/dev/null || true
+        wait "${NATIVE_GO_PID}" 2>/dev/null || true
+        ok "Go proxy stopped"
+    fi
+    if [[ -n "$FAST_BACKEND_PID" ]]; then
+        log "Stopping fast TLS backend (PID ${FAST_BACKEND_PID}) ..."
+        kill "${FAST_BACKEND_PID}" 2>/dev/null || true
+        wait "${FAST_BACKEND_PID}" 2>/dev/null || true
+        ok "Fast TLS backend stopped"
+    fi
 fi
 
 # ── Capture post-benchmark docker stats ───────────────────────────────────────
