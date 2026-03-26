@@ -121,8 +121,9 @@ Practical rules that flow from this:
 | 21 | **Documentation excellence** | Audience-first navigation, missing ADRs, GDPR hardening, operator/developer packs, docs-as-code CI | [PHASE_21.md](docs/phases/PHASE_21.md) |
 | 22 | Backup system enhancements *(proposed)* | Encryption; cloud storage; incremental backups; pipeline batching | [PHASE_22.md](docs/phases/PHASE_22.md) |
 | 23 | Advanced traffic intelligence *(proposed)* | Attacker attribution; geo intelligence; threat-intel feeds; cross-instance ML | [PHASE_23.md](docs/phases/PHASE_23.md) |
-| 24 | Go strategy assessment *(proposed)* | Minimal Go component vs full rewrite; decision ADR | [PHASE_24_STRATEGY_ASSESSMENT.md](docs/phases/PHASE_24_STRATEGY_ASSESSMENT.md) |
+| 24 | Go strategy assessment *(closed — premise refuted by benchmarks)* | TLS parsing is not the bottleneck; gRPC IPC would add overhead; see Phase 26 | [PHASE_24_STRATEGY_ASSESSMENT.md](docs/phases/PHASE_24_STRATEGY_ASSESSMENT.md) |
 | 25 | Docker container management *(open)* | Image version pinning; CVE scan gaps; first-party scanning; update policy | [PHASE_25.md](docs/phases/PHASE_25.md) |
+| 26 | **Python throughput hardening** *(open)* | Parallel signals (`asyncio.gather`); Redis pipeline batching; Unix socket; multi-process workers → ≥800 conn/s single proc, ≥3,200 conn/s × 4 workers | [PHASE_26.md](docs/phases/PHASE_26.md) |
 
 **Do phases in order. Complete all acceptance criteria before starting the next phase.**
 

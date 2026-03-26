@@ -2,7 +2,7 @@
 
 ## Current Status: Phase 13 (Management UI) Next
 
-**Last Updated:** 2026-03-24
+**Last Updated:** 2026-03-26
 
 ## Epics & Roadmap
 
@@ -14,7 +14,7 @@ Optimization for high-throughput and multi-core systems.
 | 0 | Foundation | COMPLETE | Configuration loader, hot reload, local cache, Bloom filters. |
 | 15 | Go Rewrite | PARTIAL | 10-50x throughput improvement via CPython/Go transition. |
 | 17 | Docker Test Optimization | COMPLETE | Fix Docker test container hang during teardown. |
-| 24 | Go Strategy Assessment | PROPOSED | Assessment of minimal Go component vs comprehensive rewrite approach. |
+| 26 | Python Throughput Hardening | OPEN | Maximise Python proxy conn/s via parallel signal collection, Redis pipeline batching, Unix domain socket, and multi-process worker model. Target: ≥800 conn/s single process, ≥3,200 conn/s with 4 workers. |
 
 ### Epic: Security Hardening
 Deep security analysis, compliance, and audit remediation.
@@ -90,8 +90,9 @@ Management dashboards and documentation quality.
 | 21 | Documentation Excellence | OPEN | N/A | N/A |
 | 22 | Backup System Enhancements | PROPOSED | N/A | N/A |
 | 23 | Advanced Traffic Intelligence | PROPOSED | N/A | N/A |
-| 24 | Go Strategy Assessment | PROPOSED | N/A | N/A |
+| 24 | Go Strategy Assessment | CLOSED | N/A | N/A |
 | 25 | Docker Container Management | OPEN | N/A | N/A |
+| 26 | Python Throughput Hardening | OPEN | N/A | N/A |
 
 ---
 
