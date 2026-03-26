@@ -3214,3 +3214,312 @@ All criteria must pass before this phase is complete.
 - [ ] ADR-020.md: AF_PACKET vs pcap/Scapy vs PF_RING/DPDK decision
 - [ ] ADR-021.md: EDL pull vs push for external firewall integration; why both are supported
 - [ ] Privacy notice / RoPA updated to document `fp:*` Redis data and EDL/F5/PA data flows
+
+### 17l. Phase 19 Gap Remediation
+
+- [ ] `backup.schedule` config key is wired to an asyncio periodic task that triggers backups
+      automatically (P19-G1)
+- [ ] Backup loop uses `redis.pipeline()` in batches of 1000 keys (P19-G3)
+- [ ] Restore raises `RestoreError` if the fraction of failed key-restores exceeds the
+      configured threshold (default 5%); logs count of failed keys (P19-G4)
+- [ ] Fakeredis-based encode→backup→restore round-trip integration test passes (P19-G6)
+
+---
+
+## 18. Phase 13 Dependency — Standalone HTTP Server
+
+Phase 20 introduces several HTTP endpoints (EDL, fingerprint lookup, `/mode`, `/health`
+extension). These are specified to mount on the Phase 13 management API server (port 8090).
+Phase 13 is **DEFERRED** with no timeline. This section defines how Phase 20 provides
+these endpoints without requiring Phase 13.
+
+### 18.1 Approach: Lightweight TAP HTTP Server
+
+When `mode: tap` and Phase 13 management server is not running, a lightweight aiohttp
+HTTP server (`src/tap/http_server.py`) starts automatically on the same port (8090 by
+default, configurable via `tap.http_port`).
+
+This server provides exactly the endpoints Phase 20 needs:
+
+| Endpoint | Implementation | Notes |
+|----------|---------------|-------|
+| `GET /api/v1/mode` | `TapHttpServer._handle_mode()` | Always available in TAP mode |
+| `GET /api/v1/fingerprints/ip/{ip}` | `TapHttpServer._handle_fp_ip()` | Reads `fp:ip:*` from Redis |
+| `GET /api/v1/fingerprints/ja4/{fp}` | `TapHttpServer._handle_fp_ja4()` | Reads `fp:ja4:*` from Redis |
+| `GET /health` | `TapHttpServer._handle_health()` | TAP-mode health struct (§13.4) |
+| `GET /export/edl/*` | `EDLServer.handle_edl_request()` | Registered as route handlers |
+| `GET /taxii2/*` | `TaxiiServer.handle_taxii_request()` | Registered as route handlers |
+
+```python
+# src/tap/http_server.py
+
+class TapHttpServer:
+    """Lightweight aiohttp server providing TAP-mode HTTP endpoints.
+
+    Starts automatically when mode=tap and Phase 13 management server is absent.
+    When Phase 13 is later implemented, these routes migrate to it; this server
+    is replaced by route registration on the Phase 13 app.
+
+    Port: tap.http_port (default: 8090, same as Phase 13 management server)
+    """
+
+    def __init__(self, config: TapConfig, redis: Redis,
+                 edl_server: EDLServer, taxii_server: TaxiiServer,
+                 sensor: "TapSensor") -> None: ...
+
+    async def start(self) -> None:
+        """Create aiohttp.web.Application, register routes, start runner."""
+        ...
+
+    async def stop(self) -> None:
+        """Graceful shutdown: drain connections, stop runner."""
+        ...
+
+    async def _handle_mode(self, request: web.Request) -> web.Response: ...
+    async def _handle_fp_ip(self, request: web.Request) -> web.Response: ...
+    async def _handle_fp_ja4(self, request: web.Request) -> web.Response: ...
+    async def _handle_health(self, request: web.Request) -> web.Response: ...
+```
+
+### 18.2 Phase 13 Forward-Compatibility
+
+When Phase 13 is implemented, the `TapHttpServer` is replaced by registering the
+same route handler functions on the Phase 13 FastAPI application. No handler logic
+changes — only the mount point differs. The transition is a one-line config change
+and does not require re-testing the handlers.
+
+Document in `docs/decisions/ADR-022.md`:
+- Decision: TAP HTTP server is standalone for Phase 20, migrates to Phase 13 when available
+- Why: Phase 13 deferred; TAP mode cannot wait; handlers are decoupled from the server
+- How to migrate: register `TapHttpServer` routes on the Phase 13 `app` instance
+
+### 18.3 Prometheus / Metrics Server
+
+The Prometheus `/metrics` endpoint is served by the existing metrics HTTP server
+already set up in the proxy (not Phase 13). No change needed — TAP mode registers
+its Prometheus metrics at import time (same pattern as all other phases).
+
+### 18.4 Acceptance Criteria (Phase 13 Dependency)
+
+- [ ] Starting `mode: tap` brings up `TapHttpServer` on `tap.http_port` (default 8090)
+- [ ] `GET /api/v1/mode` returns `{"mode": "tap", ...}` within 100ms
+- [ ] `GET /health` returns a TAP-mode health struct (§13.4)
+- [ ] `GET /export/edl/banned-ips` returns the EDL list (with API key auth)
+- [ ] `TapHttpServer` shuts down cleanly as step 7 of the graceful shutdown sequence (§11a.1)
+- [ ] ADR-022.md written documenting the standalone-to-Phase-13 migration path
+
+---
+
+## 19. Phase 19 Gap Remediation
+
+This section details the four Phase 19 gaps assigned to Phase 20 in `docs/phases/manifest.yaml`.
+These are independent of TAP mode and can be implemented first (Group 0 in the work plan).
+
+### 19.1 P19-G1 — Backup Schedule Executor
+
+**Problem:** `backup.schedule` is a documented config key but has no runtime executor.
+Backups must be triggered manually or by external cron.
+
+**Fix:** Wire the schedule to an asyncio periodic task inside `BackupManager`.
+
+```python
+# src/backup/backup_manager.py — additions
+
+class BackupManager:
+
+    async def start_scheduler(self) -> None:
+        """Start the background backup scheduler if backup.schedule is set.
+
+        Reads backup.schedule.cron (cron expression) or backup.schedule.interval_s.
+        Creates an asyncio Task that fires run_backup() on schedule.
+        Logs at INFO on each backup start/finish; WARN on failure.
+        """
+        schedule = self.config.get("backup.schedule")
+        if not schedule or not schedule.get("enabled", False):
+            return
+        if "cron" in schedule:
+            self._scheduler_task = asyncio.create_task(
+                self._cron_loop(schedule["cron"])
+            )
+        elif "interval_s" in schedule:
+            self._scheduler_task = asyncio.create_task(
+                self._interval_loop(schedule["interval_s"])
+            )
+
+    async def stop_scheduler(self) -> None:
+        """Cancel the scheduler task cleanly."""
+        if self._scheduler_task:
+            self._scheduler_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._scheduler_task
+
+    async def _interval_loop(self, interval_s: int) -> None:
+        """Fire run_backup() every interval_s seconds."""
+        while True:
+            await asyncio.sleep(interval_s)
+            try:
+                await self.run_backup()
+            except Exception as exc:
+                logger.warning("backup | event=scheduled_backup_failed | error=%s", exc)
+```
+
+Config additions to `config/proxy.yml`:
+```yaml
+backup:
+  schedule:
+    enabled: false         # set true to enable automatic scheduled backups
+    interval_s: 86400      # backup every 24 hours; mutually exclusive with cron
+    cron: null             # e.g. "0 2 * * *" for 2am daily; overrides interval_s
+    # Requires: APScheduler if using cron expressions (pip install apscheduler)
+    # For simple intervals, interval_s requires no additional dependencies.
+```
+
+**Tests (`tests/unit/test_backup_scheduler.py`):**
+```python
+async def test_scheduler_starts_when_enabled()
+async def test_scheduler_does_not_start_when_disabled()
+async def test_scheduler_fires_backup_after_interval()
+async def test_scheduler_logs_warn_on_backup_failure()
+async def test_stop_scheduler_cancels_task()
+async def test_scheduler_cron_expression_parsed()
+```
+
+### 19.2 P19-G3 — Backup Loop Pipeline Batching
+
+**Problem:** The backup loop calls `redis.dump(key)` sequentially for each key.
+At 5M+ keys this is extremely slow (5M round trips).
+
+**Fix:** Batch keys in groups of 1000, send as a Redis pipeline.
+
+```python
+# src/backup/backup_manager.py — modification to run_backup()
+
+PIPELINE_BATCH_SIZE = 1000
+
+async def _dump_keys_batched(self, keys: list[str]) -> dict[str, bytes | None]:
+    """Dump key values using Redis pipeline batching.
+
+    Processes keys in batches of PIPELINE_BATCH_SIZE to minimise round trips.
+    Returns {key: serialised_value} mapping; None values = key expired mid-backup.
+    """
+    result: dict[str, bytes | None] = {}
+    for batch_start in range(0, len(keys), PIPELINE_BATCH_SIZE):
+        batch = keys[batch_start : batch_start + PIPELINE_BATCH_SIZE]
+        pipe = self.redis.pipeline(transaction=False)
+        for key in batch:
+            pipe.dump(key)
+        values = await pipe.execute(raise_on_error=False)
+        for key, value in zip(batch, values):
+            result[key] = value if not isinstance(value, Exception) else None
+    return result
+```
+
+**Tests (`tests/unit/test_backup_pipeline_batching.py`):**
+```python
+def test_keys_split_into_batches_of_1000()
+async def test_pipeline_executed_once_per_batch()
+async def test_expired_key_returns_none_not_exception()
+async def test_5000_keys_uses_5_pipeline_calls()
+```
+
+### 19.3 P19-G4 — RestoreError on Key-Failure Threshold
+
+**Problem:** Restore silently skips failed keys. An operator has no way to know
+that 50% of their security state was not restored.
+
+**Fix:** Count failed keys and raise `RestoreError` if the failure fraction exceeds
+the configured threshold (default 5%).
+
+```python
+# src/backup/backup_manager.py — modification to restore()
+
+class RestoreError(Exception):
+    """Raised when restore fails more than the configured threshold of keys."""
+    def __init__(self, failed: int, total: int, threshold: float) -> None:
+        self.failed = failed
+        self.total = total
+        self.threshold = threshold
+        super().__init__(
+            f"Restore aborted: {failed}/{total} keys failed "
+            f"({failed/total:.1%} > {threshold:.0%} threshold)"
+        )
+
+async def restore(self, backup_path: Path) -> RestoreResult:
+    """Restore from backup file.
+
+    Raises RestoreError if fraction of failed keys > backup.restore_error_threshold.
+    Default threshold: 0.05 (5%).
+    Always logs: total keys, restored keys, failed keys, skipped keys.
+    """
+    threshold = self.config.get("backup.restore_error_threshold", 0.05)
+    failed_keys: list[str] = []
+    ...
+    if total > 0 and len(failed_keys) / total > threshold:
+        logger.error(
+            "backup | event=restore_threshold_exceeded | failed=%d | total=%d | threshold=%.0f%%",
+            len(failed_keys), total, threshold * 100,
+        )
+        raise RestoreError(len(failed_keys), total, threshold)
+    return RestoreResult(...)
+```
+
+**Tests (`tests/unit/test_backup_restore_error.py`):**
+```python
+async def test_restore_raises_when_failures_exceed_threshold()
+async def test_restore_succeeds_when_failures_below_threshold()
+async def test_restore_error_message_includes_counts()
+async def test_restore_threshold_configurable()
+async def test_restore_logs_failed_key_count()
+async def test_restore_threshold_zero_means_any_failure_raises()
+```
+
+### 19.4 P19-G6 — Fakeredis Round-Trip Integration Test
+
+**Problem:** No integration test verifies that `encode → backup → restore` produces
+bit-for-bit identical Redis state.
+
+**Fix:** Add a fakeredis-based test in `tests/integration/test_backup_roundtrip.py`.
+
+```python
+# tests/integration/test_backup_roundtrip.py
+
+@pytest.mark.asyncio
+async def test_encode_backup_restore_roundtrip(tmp_path):
+    """Full round-trip: populate fakeredis → backup → clear → restore → verify identical."""
+    redis = fakeredis.aioredis.FakeRedis()
+    # Seed representative key types used by the proxy
+    await redis.set("ban:1.2.3.4", "1", ex=3600)
+    await redis.sadd("ja4:blacklist", "t13d1516h2_aabbccddeeff_aabbccddeeff")
+    await redis.hset("visitor:5.6.7.8", mapping={"first_seen": "100", "total": "5"})
+    await redis.zadd("beacon:1.2.3.4:t13d", {f"1000.0:abc": 1000.0})
+
+    manager = BackupManager(config=..., redis=redis)
+    backup_path = tmp_path / "test.bak"
+    await manager.run_backup(output_path=backup_path)
+
+    # Clear all keys
+    await redis.flushdb()
+    assert await redis.dbsize() == 0
+
+    # Restore
+    await manager.restore(backup_path)
+
+    # Verify state is identical
+    assert await redis.get("ban:1.2.3.4") == b"1"
+    assert await redis.sismember("ja4:blacklist", "t13d1516h2_aabbccddeeff_aabbccddeeff")
+    assert await redis.hget("visitor:5.6.7.8", "total") == b"5"
+    beacon_members = await redis.zrange("beacon:1.2.3.4:t13d", 0, -1)
+    assert len(beacon_members) == 1
+
+@pytest.mark.asyncio
+async def test_backup_file_is_deterministic(tmp_path):
+    """Two backups of identical state produce identical files (byte-for-byte)."""
+    ...
+
+@pytest.mark.asyncio
+async def test_restore_preserves_ttls(tmp_path):
+    """Keys with TTL are restored with TTL within ±2 seconds of original."""
+    ...
+```
+
+---
