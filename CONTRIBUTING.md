@@ -207,10 +207,10 @@ When a phase is done, run this checklist **in order** before starting the next o
 3. Update `docs/REDIS_SCHEMA.md` for any new Redis keys introduced.
 4. Update `docs/phases/manifest.yaml` — set `status: COMPLETE`, remove gaps that were resolved.
 5. Run `python3 scripts/sync-roadmap.py` — regenerates `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.
-6. Commit everything together: code, `CHANGELOG.md`, `manifest.yaml`, `TODO.md`, `PROJECT_STATUS.md`.
+6. Commit everything together: code, `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/phases/TODO.md`, `docs/PROJECT_STATUS.md`.
 
-> `manifest.yaml` is the single source of truth for phase status. Skipping step 4–5 leaves
-> `TODO.md` and `PROJECT_STATUS.md` showing stale state, and breaks the next contributor's
+> `docs/phases/manifest.yaml` is the single source of truth for phase status. Skipping step 4–5 leaves
+> `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md` showing stale state, and breaks the next contributor's
 > understanding of what work remains.
 
 ## Updating Documentation

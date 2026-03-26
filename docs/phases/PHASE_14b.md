@@ -492,7 +492,7 @@ tarpit exhaustion) outweighs the risk of adversarial exhaustion.
    requires filesystem encryption (LUKS/dm-crypt) at the host layer.
 
 2. **Redis TLS**: Redis uses TCP without TLS by default. For cross-host replication,
-   configure TLS in `docker-compose.prod.yml`. Single-host deployments are protected
+   configure TLS in `../../docker/docker-compose.prod.yml`. Single-host deployments are protected
    by Docker network isolation.
 
 3. **Multi-tenant isolation**: All proxy instances share a single Redis instance. There

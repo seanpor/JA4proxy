@@ -172,7 +172,7 @@ regression history.
 
 **Load test (`make load-test`):**
 
-Uses the existing `generate-tls-traffic.sh` with standardised parameters:
+Uses the existing `../scripts/generate-tls-traffic.sh` with standardised parameters:
 - Duration: 300 seconds
 - Workers: 50
 - Legitimate traffic: 15%

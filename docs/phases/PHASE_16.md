@@ -43,7 +43,7 @@ tests/adversarial/
 └── test_ja4_adversarial.py
 ```
 
-`test_tls_parser_adversarial.py` — parametrized over every `corpus/*.bin`:
+`../../tests/adversarial/test_tls_parser_adversarial.py` — parametrized over every `corpus/*.bin`:
 
 ```python
 @pytest.mark.parametrize("corpus_file", list(CORPUS_DIR.glob("*.bin")))
@@ -59,7 +59,7 @@ def test_parser_does_not_crash(corpus_file):
     # Uncaught exceptions (AttributeError, IndexError, etc.) fail the test
 ```
 
-`test_ja4_adversarial.py` — JA4 computation on degenerate inputs:
+`../../tests/adversarial/test_ja4_adversarial.py` — JA4 computation on degenerate inputs:
 
 ```python
 @pytest.mark.parametrize("cipher_list,ext_list,sni", [
@@ -105,7 +105,7 @@ tests/fp_corpus/
 └── test_asn_fp_rate.py
 ```
 
-`test_dga_fp_rate.py`:
+`../../tests/fp_corpus/test_dga_fp_rate.py`:
 
 ```python
 MAX_DGA_FP_RATE = 0.01  # 1% — no more than 100 of top 10k flagged as DGA
@@ -125,7 +125,7 @@ def test_sni_dga_fp_rate_below_threshold():
     )
 ```
 
-`test_beaconing_fp_rate.py`:
+`../../tests/fp_corpus/test_beaconing_fp_rate.py`:
 
 ```python
 def test_browser_alpn_guard_ensures_zero_fp():
@@ -149,7 +149,7 @@ def test_irregular_human_timing_scores_zero():
         assert score == 0.0, f"{browser} keep-alive scored {score} (expected 0.0)"
 ```
 
-`test_asn_fp_rate.py`:
+`../../tests/fp_corpus/test_asn_fp_rate.py`:
 
 ```python
 MAX_ASN_FP_RATE = 0.02  # 2% — residential IPs misclassified as datacenter/tor/vpn
@@ -178,7 +178,7 @@ not tested at all today — not even with mocks — leaving real bug surface exp
 
 **Target:** every `src/security/*.py` module ≥ 80%, `proxy.py` ≥ 95%.
 
-### `asn_classifier.py` (currently 70%)
+### `../../src/security/asn_classifier.py` (currently 70%)
 
 Uncovered: MaxMind actual IP lookup (lines 220–265), Tor leader election success path
 (lines 273–300), ASN datacenter list loading (lines 354–357).
@@ -202,7 +202,7 @@ def test_classify_datacenter_ip_with_real_mmdb(test_mmdb):
     assert result.category == "datacenter"
 ```
 
-### `blocklists.py` (currently 69%)
+### `../../src/security/blocklists.py` (currently 69%)
 
 Uncovered: feed download HTTP paths (lines 190–265), ETag 304 handling (lines
 310–341), FeedManager leader election success (lines 382–452).
@@ -212,7 +212,7 @@ Approach:
   Modified, 429 Rate Limited, connection timeout, malformed response body.
 - Test the full leader-election→download→parse→load sequence end-to-end with mocks.
 
-### `dns_enrichment.py` (currently 70%)
+### `../../src/security/dns_enrichment.py` (currently 70%)
 
 Uncovered: async PTR lookup (lines 179–222), worker restart loop (lines 293–358),
 passive DNS startup log (lines 407–443).
@@ -320,8 +320,8 @@ def test_cidr_trie_lookup_latency():
     ...
 ```
 
-Benchmark results written to `reports/benchmark_latest.txt` on every CI run.
-Regression detection: compare against `reports/benchmark_baseline.txt`; fail if
+Benchmark results written to `../reports/benchmark_latest.txt` on every CI run.
+Regression detection: compare against `../reports/benchmark_baseline.txt`; fail if
 any metric regresses by > 20%.
 
 ---
@@ -638,8 +638,8 @@ telemetry:
 ### 16a — Adversarial Corpus ✅
 
 - [x] `tests/adversarial/corpus/` contains 13 `.bin` files; each described in `corpus/README.md`
-- [x] `test_tls_parser_adversarial.py` — all 12 corpus files (parametrized) parse without uncaught exception; runs in ~0.7s
-- [x] `test_ja4_adversarial.py` — 10 degenerate inputs (empty, all-GREASE, max-length, null bytes, duplicates) pass
+- [x] `../../tests/adversarial/test_tls_parser_adversarial.py` — all 12 corpus files (parametrized) parse without uncaught exception; runs in ~0.7s
+- [x] `../../tests/adversarial/test_ja4_adversarial.py` — 10 degenerate inputs (empty, all-GREASE, max-length, null bytes, duplicates) pass
 - [x] `tests/adversarial/` included in default pytest run (testpaths = ["tests"] in pyproject.toml)
 
 ### 16b — False-Positive Rate Corpus ✅
@@ -647,32 +647,32 @@ telemetry:
 - [x] `tests/fp_corpus/data/tranco_top_10k.txt` committed; 10,000 domains; no network required
 - [x] `tests/fp_corpus/data/residential_ips.txt` — 500 IPs; collection method documented in `data/README.md`
 - [x] `tests/fp_corpus/data/browser_keepalive_timestamps.csv` — 450 rows, 30 sessions across Chrome/Firefox/Safari (synthetic but realistic IAT distributions; deterministic seed=2026)
-- [x] DGA FP rate < 1% against Tranco top 10k (`test_dga_fp_rate.py`)
+- [x] DGA FP rate < 1% against Tranco top 10k (`../../tests/fp_corpus/test_dga_fp_rate.py`)
 - [x] Beaconing FP rate = 0% on h2/h1 ALPN connections (ALPN guard test)
 - [x] Beaconing FP rate = 0% on blocked connections (guard verified)
-- [x] ASN FP rate < 2% on known residential IPs (`test_asn_fp_rate.py`)
+- [x] ASN FP rate < 2% on known residential IPs (`../../tests/fp_corpus/test_asn_fp_rate.py`)
 
 ### 16c — Coverage Gates
 
-- [x] `asn_classifier.py` ≥ 80% line coverage (100%)
-- [x] `blocklists.py` ≥ 80% line coverage (87%)
-- [x] `dns_enrichment.py` ≥ 80% line coverage (97%)
-- [x] `tcp_analyzer.py` ≥ 85% line coverage (100%)
+- [x] `../../src/security/asn_classifier.py` ≥ 80% line coverage (100%)
+- [x] `../../src/security/blocklists.py` ≥ 80% line coverage (87%)
+- [x] `../../src/security/dns_enrichment.py` ≥ 80% line coverage (97%)
+- [x] `../../src/security/tcp_analyzer.py` ≥ 85% line coverage (100%)
 - [x] All other `src/security/*.py` modules ≥ 90%
 - [x] `proxy.py` ≥ 95% line coverage (99%)
 - [x] `pytest --cov-fail-under=80` added to CI (`make lint-coverage`); build fails if any module drops below
 
 ### 16d — External API Chaos Tests ✅
 
-- [x] `test_external_api_failure.py` covers: API down (`ConnectionError`), rate limited (429), Redis failures, malformed JSON, timeout (5s drain)
+- [x] `../../tests/chaos/test_external_api_failure.py` covers: API down (`ConnectionError`), rate limited (429), Redis failures, malformed JSON, timeout (5s drain)
 - [x] All scenarios verify: pipeline allows connection (fail open); error logged; no crash
 - [x] Simultaneous failure of all external APIs: `TestAllApiSimultaneousFailure` class (3 tests) — AbuseIPDB + RDAP both down → both fail open, no crash
 
 ### 16e — Performance Benchmark CI Gate ✅
 
-- [x] `test_bench_pipeline.py` — `TestPhase16eAcceptanceCriteria`: allow bypass p99=2.3µs (<500µs ✓); scoring path p99=20.6µs (<1ms ✓)
-- [x] `test_bench_cidr_lookup.py` — 100k-entry trie lookup p99=0.96µs (<10µs ✓); added as proper pytest functions
-- [x] Benchmark baseline committed to `reports/benchmark_baseline.txt`; latest results in `reports/benchmark_latest.txt`
+- [x] `../../tests/performance/test_bench_pipeline.py` — `TestPhase16eAcceptanceCriteria`: allow bypass p99=2.3µs (<500µs ✓); scoring path p99=20.6µs (<1ms ✓)
+- [x] `../../tests/performance/test_bench_cidr_lookup.py` — 100k-entry trie lookup p99=0.96µs (<10µs ✓); added as proper pytest functions
+- [x] Benchmark baseline committed to `../reports/benchmark_baseline.txt`; latest results in `../reports/benchmark_latest.txt`
 - [x] All performance tests pass as part of main test suite (included in `testpaths`)
 
 ### 16f — Static Analysis ✅
@@ -746,4 +746,4 @@ telemetry:
 - [x] Allow bypass p99 < 500µs over 1000 iterations — p99=2.3µs
 - [x] Full scoring path p99 < 1ms over 1000 iterations (no I/O) — p99=20.6µs
 - [x] CIDR trie lookup p99 < 10µs for 100k-entry trie — p99=0.96µs
-- [x] Baseline in `reports/benchmark_baseline.txt`; tests enforce limits
+- [x] Baseline in `../reports/benchmark_baseline.txt`; tests enforce limits

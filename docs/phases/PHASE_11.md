@@ -58,7 +58,7 @@ class RDAPEnricher:
         """
 ```
 
-**Wiring into `pipeline.py`:**
+**Wiring into `../../src/security/pipeline.py`:**
 - `RDAPEnricher.get_signal(ip, trigger_score)` is called **last** in `_collect_signals()`,
   after all other signal collectors have run. This is essential: `trigger_score` is the
   running subtotal from all preceding signals, making the `min_enqueue_score` gate

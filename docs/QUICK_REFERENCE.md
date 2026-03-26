@@ -253,7 +253,7 @@ docker volume prune -f
 | Tests | `tests/` |
 | Test reports | `reports/` |
 | Docker compose (POC) | `docker-compose.poc.yml` |
-| Docker compose (monitoring) | `docker-compose.monitoring.yml` |
+| Docker compose (monitoring) | `../docker/docker-compose.monitoring.yml` |
 | Documentation | `docs/` |
 
 ## First Time Setup

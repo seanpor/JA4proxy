@@ -22,7 +22,7 @@ This plan implements the remediation for the findings in `PHASE_18.md` and `PHAS
 *   **Validation:** Ensure the `pylint` score improves and `W1203` (logging-fstring-interpolation) is eliminated.
 
 ### Step 3: Architectural Complexity Reduction
-**Goal:** Simplify `pipeline.py` to make security audits manageable.
+**Goal:** Simplify `../../src/security/pipeline.py` to make security audits manageable.
 *   **Target File:** `src/security/pipeline.py` (specifically `_collect_signals()`).
 *   **Action:** Implement a "Signal Collector" pattern. Break `_collect_signals()` into smaller methods like `_collect_tls_signals()`, `_collect_network_signals()`, `_collect_threat_intel()`.
 *   **Validation:** Run `flake8` or `mccabe` to verify cyclomatic complexity of `_collect_signals` drops below 10.

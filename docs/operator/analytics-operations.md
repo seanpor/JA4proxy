@@ -1544,10 +1544,10 @@ ssh proxy-01 "tail -f /var/log/ja4proxy/proxy.log"
 
 ### Operational Documentation
 
-- [System Architecture](architecture/system-architecture.md)
-- [Analytics Architecture](architecture/analytics-node-architecture.md)
-- [Developer Guide](developer/analytics-development.md)
-- [Security Guide](security/analytics-security.md)
+- [System Architecture](../architecture/system-architecture.md)
+- [Analytics Architecture](../architecture/analytics-node-architecture.md)
+- [Developer Guide](../developer/analytics-development.md)
+- [Security Guide](../security/analytics-security.md)
 - [Phase 12 Planning](phases/PHASE_12*.md)
 
 ### Tools and Resources

@@ -30,12 +30,12 @@ Do **not** rewrite or delete any of the following. Build on top of it.
 | File | Status |
 |------|--------|
 | `management/auth.py` | Complete — bearer auth, rate limiting, Redis-based fail counter |
-| `management/models.py` | Complete — all Pydantic v2 models |
+| `../../src/security/models.py` | Complete — all Pydantic v2 models |
 | `management/metrics.py` | Complete — all 7 Prometheus metrics |
 | `management/redis_helpers.py` | Complete — scan_iter bans/cidrs, audit log, candidates, publish_invalidation |
 | `management/routers/bans.py` | Complete — GET/POST/DELETE bans and CIDRs |
 | `management/routers/dial.py` | Complete — GET/PUT dial, POST acknowledge, rate limit, safety rules |
-| `management/routers/policy.py` | Complete — GET/PUT bypasses, GET policy audit |
+| `../../src/backup/policy.py` | Complete — GET/PUT bypasses, GET policy audit |
 | `management/routers/fingerprints.py` | Complete — blacklist/whitelist/candidates CRUD |
 | `management/server.py` | Partial — needs startup guard, `allowed_cidr` middleware, router
 |   | extraction, static file mount |
@@ -98,7 +98,7 @@ removed from the inline body of `create_app()`. The existing inline implementati
 contain bugs (decode bytes as string, missing try/except) — the new router files must
 fix these.
 
-#### `management/routers/config.py`
+#### `../../src/analytics/config.py`
 
 Owns:
 ```
@@ -113,7 +113,7 @@ Bugs to fix from the inlined versions:
 - `thresholds.get(b"flag", b"20")` — Redis returns strings when `decode_responses=True`;
   use `thresholds.get("flag", "20")` (no bytes literals).
 - `PUT /api/v1/config/thresholds` must validate thresholds are in ascending order using
-  `ThresholdConfig` model (already in `models.py`).
+  `ThresholdConfig` model (already in `../../src/security/models.py`).
 - `PUT /api/v1/config/countries/blocklist` must write to audit log.
 - All endpoints must use `Depends(require_api_key)` and have proper try/except.
 
@@ -210,7 +210,7 @@ This is the only entirely new backend module.
 **Note on stream name:** PHASE_13.md calls it `ja4proxy:events`. Phase 12 writes to
 `analytics:events`. Use whichever the proxy actually writes to — read the proxy stream
 writer to confirm. The events router must use the same key. Document the actual key in
-`REDIS_SCHEMA.md`.
+`../REDIS_SCHEMA.md`.
 
 **Endpoint:**
 
@@ -598,7 +598,7 @@ Three sections:
 
 ### 5.5 Build Configuration
 
-`management/frontend/package.json` must include:
+`../../package.json` must include:
 
 ```json
 {
@@ -640,7 +640,7 @@ export default defineConfig({
 
 ### 6.1 AlertManager Rules
 
-Create `alerting/management_ui_rules.yml`:
+Create `../../monitoring/alertmanager/rules/management_ui_rules.yml`:
 
 ```yaml
 groups:
@@ -838,7 +838,7 @@ Add an entry:
 - Startup guard: FATAL if `UI_API_KEY` not set
 - `allowed_cidr` middleware: restrict management access to a CIDR range
 - `management_ui:` section in `config/proxy.yml`
-- AlertManager rules: `alerting/management_ui_rules.yml`
+- AlertManager rules: `../../monitoring/alertmanager/rules/management_ui_rules.yml`
 - Grafana dashboard: `grafana/dashboards/management_ui.json`
 - ADR-013: Management UI technology rationale
 - Runbook: `docs/runbooks/management_ui.md`
@@ -856,7 +856,7 @@ Add if not present:
 sse-starlette>=1.6.5
 ```
 
-### Node (`management/frontend/package.json`)
+### Node (`../../package.json`)
 
 All frontend dependencies. Minimum viable set:
 ```json
@@ -1079,7 +1079,7 @@ All boxes must be ticked before Phase 13 is marked complete.
 
 ### 12b. Routers Extracted and Wired
 
-- [ ] `management/routers/config.py` exists; all 5 config endpoints work
+- [ ] `../../src/analytics/config.py` exists; all 5 config endpoints work
 - [ ] `management/routers/health.py` exists; `/health` and `/ready` require no auth
 - [ ] `management/routers/audit.py` exists; returns paginated, filterable audit entries
 - [ ] `management/routers/integrations.py` exists; includes RDAP and analytics endpoints
@@ -1131,7 +1131,7 @@ All boxes must be ticked before Phase 13 is marked complete.
 
 ### 12g. Observability
 
-- [ ] `alerting/management_ui_rules.yml` passes `promtool check rules`
+- [ ] `../../monitoring/alertmanager/rules/management_ui_rules.yml` passes `promtool check rules`
 - [ ] `grafana/dashboards/management_ui.json` is valid JSON and importable into Grafana 10
 - [ ] All 7 Prometheus metrics present in `/metrics` output under load
 

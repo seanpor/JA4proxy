@@ -656,7 +656,7 @@ done by sending high-risk traffic from a few IPs in the target ISP's range, caus
 those IPs to be banned, and then triggering RDAP expansion.
 
 **Attack vector:**
-- Attacker identifies that the target ISP's ASN appears in `known_bad_orgs.yml`
+- Attacker identifies that the target ISP's ASN appears in `../../config/known_bad_orgs.yml`
   (perhaps incorrectly, or the ISP changed ownership).
 - Attacker sends abusive traffic from a handful of IPs in the ISP's range.
 - Proxy bans those IPs; RDAP expansion triggers and bans the entire /24.
@@ -665,7 +665,7 @@ those IPs to be banned, and then triggering RDAP expansion.
 **Mitigations:**
 - Block expansion is off by default. This attack requires the operator to have
   consciously enabled expansion (see ADR-003).
-- Known-bad org list is the first gate. The ISP must be in `known_bad_orgs.yml` for
+- Known-bad org list is the first gate. The ISP must be in `../../config/known_bad_orgs.yml` for
   expansion to trigger. This list is manually maintained by the secops team.
 - Hourly expansion cap (`max_per_hour`, default: 5) limits the total CIDR bans that
   can be created per hour, even under a targeted expansion-trigger attack.
@@ -677,7 +677,7 @@ those IPs to be banned, and then triggering RDAP expansion.
   `redis-cli DEL ban_cidr:<cidr>` (see `docs/runbooks/security_policy.md`).
 
 **Residual risk:** Low when expansion is disabled (default). Medium when enabled —
-operators must review `known_bad_orgs.yml` carefully and monitor the audit trail.
+operators must review `../../config/known_bad_orgs.yml` carefully and monitor the audit trail.
 
 ---
 

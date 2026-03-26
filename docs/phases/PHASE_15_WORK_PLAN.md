@@ -27,7 +27,7 @@ Phase 15 successfully ported the core proxy to Go, delivering 10-50x throughput 
 **Goal:** Wire JA4X into the Go scoring pipeline.
 *   **Task:** Update `internal/security/pipeline.go` to populate `JA4X` in the connection context.
 *   **Task:** Implement JA4X whitelist/blacklist bypass checks.
-*   **TDD:** Update `pipeline_test.go` to inject a blocked JA4X fingerprint and verify the connection is dropped/scored accordingly.
+*   **TDD:** Update `../../internal/security/pipeline_test.go` to inject a blocked JA4X fingerprint and verify the connection is dropped/scored accordingly.
 
 ## 3. Validation
 *   Run the full Go test suite: `go test -v -race -cover ./...`

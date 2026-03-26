@@ -250,7 +250,7 @@ dns_enrichment:
 - [x] JSON log: `{"type":"system","level":"ERROR","subsystem":"dns","event":"resolver_error"}` emitted with `ip` and `error` fields on DNS lookup failure
 - [x] JSON log: `{"type":"system","level":"WARN","subsystem":"dns","event":"queue_full"}` emitted with `dropped_ip` when enrichment queue is at capacity
 
-### Unit Tests  (`tests/unit/test_dns_enrichment.py`)
+### Unit Tests  (`../../tests/unit/security/test_dns_enrichment.py`)
 - [x] `fcrdns_check()`: PTR resolves and forward-confirms → `RiskSignal(name="fcrdns_failed", score=0)`
 - [x] `fcrdns_check()`: PTR resolves but forward-confirm fails → `RiskSignal(name="fcrdns_failed", score=20)`
 - [x] `fcrdns_check()`: no PTR record → `RiskSignal(name="no_ptr", score=15)`

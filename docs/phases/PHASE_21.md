@@ -206,7 +206,7 @@ per-subsystem Go implementation plan."` Do not remove it or merge it.
 
 **Problem:** `docs/OBSERVABILITY_STANDARDS.md §4` references a single alert file:
 `config/alertmanager/rules/ja4proxy.yml`. Phase 14e split this into three files
-(`proxy.rules.yml`, `redis.rules.yml`, `security.rules.yml`) in the new location
+(`../../monitoring/alertmanager/rules/proxy.rules.yml`, `../../monitoring/alertmanager/rules/redis.rules.yml`, `../../monitoring/alertmanager/rules/security.rules.yml`) in the new location
 `monitoring/alertmanager/rules/`.
 
 **Action:** Update §4 (Alert Rules) to:
@@ -216,9 +216,9 @@ per-subsystem Go implementation plan."` Do not remove it or merge it.
 ```markdown
 | File | Covers |
 |------|--------|
-| `proxy.rules.yml` | Active connections, block rate, latency, dial anomalies |
-| `redis.rules.yml` | Redis availability, memory, command latency |
-| `security.rules.yml` | High score rate, bypass disabled, blacklist size anomalies |
+| `../../monitoring/alertmanager/rules/proxy.rules.yml` | Active connections, block rate, latency, dial anomalies |
+| `../../monitoring/alertmanager/rules/redis.rules.yml` | Redis availability, memory, command latency |
+| `../../monitoring/alertmanager/rules/security.rules.yml` | High score rate, bypass disabled, blacklist size anomalies |
 ```
 
 ### 21a-4 Update Test Count in TEST_ORGANIZATION.md
@@ -387,7 +387,7 @@ Establish this as the standard:
 ```markdown
 > **Audience:** SecOps analysts, infrastructure operators
 > **Prerequisites:** JA4proxy deployed and running; Redis accessible
-> **Related:** [Incident response](INCIDENT_RESPONSE.md) · [Alert rules](../monitoring/alertmanager/rules/)
+> **Related:** [Incident response](../INCIDENT_RESPONSE.md) · [Alert rules](../monitoring/alertmanager/rules/)
 ```
 
 Apply this header to every document in:
@@ -471,8 +471,8 @@ The five existing ADRs are discoverable only by listing the directory. Create
 
 | ADR | Title | Status | Phase |
 |-----|-------|--------|-------|
-| [ADR-001](ADR-001.md) | ... | Accepted | 0 |
-| [ADR-002](ADR-002.md) | ... | Accepted | 1 |
+| [ADR-001](../decisions/ADR-001.md) | ... | Accepted | 0 |
+| [ADR-002](../decisions/ADR-002.md) | ... | Accepted | 1 |
 | ...all completed ADRs... |
 | ADR-004 | Dial as post-scorer control | Proposed | 2 |
 | ... |
@@ -521,7 +521,7 @@ but never acts. The project chose (b).
 
 **Key points to document:**
 - Retrospective analysis requires scores even in monitor mode.
-- `action_decider.py` applies dial to the scored output, not to signal collection.
+- `../../src/security/action_decider.py` applies dial to the scored output, not to signal collection.
 - Counterfactual logging (what *would* have been blocked at dial=100) requires full scores.
 - Risk: dial=0 does not mean "no overhead" — it means "full overhead, no blocking."
 
@@ -789,9 +789,9 @@ Expected output: `...`
 When to escalate, and to whom.
 ```
 
-Apply this to: `redis_operations.md`, `scaling.md`, `feed_management.md`,
-`go_proxy_migration.md`, `go_proxy_operations.md`, `analytics_operations.md`,
-`external_api_failures.md`, `security_policy.md`.
+Apply this to: `../runbooks/redis_operations.md`, `../runbooks/scaling.md`, `../runbooks/feed_management.md`,
+`../runbooks/go_proxy_migration.md`, `../runbooks/go_proxy_operations.md`, `analytics_operations.md`,
+`../runbooks/external_api_failures.md`, `../runbooks/security_policy.md`.
 
 ### 21e-2 Add Incident Severity Matrix to INCIDENT_RESPONSE.md
 
@@ -910,7 +910,7 @@ Step-by-step guide for the most common contribution:
 - Build: `GOROOT=/snap/go/current go build ./...`
 - Test: `GOROOT=/snap/go/current go test ./...`
 - Lint: `golangci-lint run`
-- Follow `go_proxy_guide.md` for environment setup.
+- Follow `../developer/go_proxy_guide.md` for environment setup.
 - Every Go signal module must be a port of the Python equivalent, not a reimplementation.
   Read the Python module first, then port the exact semantics.
 
@@ -950,7 +950,7 @@ cover overlapping content (production hardening gaps, remediation status). Merge
 
 - Keep `docs/DMZ_DEPLOYMENT_READINESS.md` as the authoritative source (more detailed,
   better structured, referenced from CLAUDE.md).
-- Add a `## Enterprise Readiness` section to `DMZ_DEPLOYMENT_READINESS.md` that absorbs
+- Add a `## Enterprise Readiness` section to `../DMZ_DEPLOYMENT_READINESS.md` that absorbs
   any non-overlapping content from `ENTERPRISE_READINESS_REPORT.md`.
 - Replace `docs/reports/ENTERPRISE_READINESS_REPORT.md` with a redirect notice:
   `> This document has been merged into [DMZ_DEPLOYMENT_READINESS.md](../DMZ_DEPLOYMENT_READINESS.md).`
@@ -962,7 +962,7 @@ cover overlapping content (production hardening gaps, remediation status). Merge
 
 ```markdown
 > **[SUPERSEDED]** This document has been replaced by
-> [TESTING_STRATEGY.md](TESTING_STRATEGY.md), which is the authoritative
+> [TESTING_STRATEGY.md](../TESTING_STRATEGY.md), which is the authoritative
 > testing reference. This file is retained only for historical context.
 ```
 

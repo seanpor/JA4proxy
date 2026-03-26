@@ -9,7 +9,7 @@
 
 | # | Issue | POC Status | Production Requirement |
 |---|-------|-----------|----------------------|
-| 1 | Password strength | ✅ Auto-generated (32 chars, `openssl rand`) by `start-poc.sh` | Use Docker secrets |
+| 1 | Password strength | ✅ Auto-generated (32 chars, `openssl rand`) by `../scripts/start-poc.sh` | Use Docker secrets |
 | 2 | TLS encryption | ❌ Plaintext (Docker-internal only) | TLS with mutual auth |
 | 3 | Network exposure | ✅ No host port — Docker internal network only | Keep internal, `internal: true` |
 | 4 | Command ACLs | ❌ Single password, full access | ACL file with least-privilege role |

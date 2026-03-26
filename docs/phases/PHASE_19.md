@@ -1007,7 +1007,7 @@ class TestBackupFalsePositives:
 |------|--------|
 | `src/backup/worker.py` | New file — Backup worker class with schedule-based execution  |
 | `src/backup/restorer.py` | New file — Restore class with validation and non-destructive operations |
-| `src/cli/main.py` or new `src/cmds/backup.py` | Wire CLI subcommands (`backup`, `restore`, `list`) |
+| `../../src/analytics/main.py` or new `src/cmds/backup.py` | Wire CLI subcommands (`backup`, `restore`, `list`) |
 | `docs/REDIS_SCHEMA.md` | Add sections for backup control keys (latest, schedule, history) |
 | `docs/OBSERVABILITY_STANDARDS.md` | Register metrics under `ja4proxy_backup_*` prefix; add alert rules to runbook |
 | `CHANGELOG.md` | Add Phase 19 entry with high-level summary |
@@ -1029,7 +1029,7 @@ class TestBackupFalsePositives:
 - **PHASE_13 (Management UI)** can later add UI controls for on-demand backups if desired
 
 ### Security Notes (Phase 14 context)
-- Backups should be encrypted at rest per `docs/SECURITY.md` guidelines; implement encryption support in Phase 20
+- Backups should be encrypted at rest per `../../SECURITY.md` guidelines; implement encryption support in Phase 20
 - Do not ship backup artifacts over unencrypted channels; always use HTTPS/SFTP
 - Consider backing up only `ja4:`, `ban:*`, `block:*` initially; defer RDAP/cache data to Phase 21
 

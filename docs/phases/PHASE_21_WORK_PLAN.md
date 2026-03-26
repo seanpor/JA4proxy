@@ -22,7 +22,7 @@ The goal of this phase is to elevate the project documentation to a 5/5 standard
 
 ### Step 3: ADR Backfill
 *   **Task:** Fill the missing Architectural Decision Records.
-*   **Action:** Write ADR-004 through ADR-012 as required by `DOCUMENTATION_STANDARDS.md`. Ensure existing ADRs (like ADR-015 for Go vs Rust) are linked correctly.
+*   **Action:** Write ADR-004 through ADR-012 as required by `../DOCUMENTATION_STANDARDS.md`. Ensure existing ADRs (like ADR-015 for Go vs Rust) are linked correctly.
 
 ### Step 4: Documentation CI Guard
 *   **Task:** Ensure docs don't rot.

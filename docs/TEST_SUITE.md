@@ -137,7 +137,7 @@ JA4proxy uses a comprehensive multi-layer testing approach following the best pr
 
 ## TLS Traffic Generator
 
-The `generate-tls-traffic.sh` script generates real TLS connections through the proxy to validate:
+The `../scripts/generate-tls-traffic.sh` script generates real TLS connections through the proxy to validate:
 
 - JA4 fingerprinting accuracy
 - Security blocking effectiveness
@@ -209,7 +209,7 @@ docker compose -f docker-compose.poc.yml run --rm test \
 1. **Unit tests:** Add to `tests/unit/` or `tests/unit/security/`
 2. **Integration tests:** Add to `tests/integration/`
 3. **Chaos tests:** Add to `tests/chaos/`
-4. **Follow existing patterns:** Use fixtures from `conftest.py`
+4. **Follow existing patterns:** Use fixtures from `../tests/conftest.py`
 
 ## Troubleshooting
 

@@ -175,7 +175,7 @@ def __init__(self, redis_client, config: Dict, rate_tracker: Optional[...], ...)
 - **Owner**: Development Team
 - **Effort**: 3 days
 - **Actions**:
-  - Refactor `pipeline.py` `_collect_signals()` method
+  - Refactor `../../src/security/pipeline.py` `_collect_signals()` method
   - Break down complex methods into smaller, focused functions
   - Implement signal collector pattern for better organization
 

@@ -70,12 +70,12 @@ The configuration files are already created in `monitoring/prometheus/`.
 
 **Key files:**
 - `prometheus.yml` - Main configuration
-- `alerts.yml` - 15+ alert rules
-- `recording_rules.yml` - Performance optimizations
+- `../monitoring/prometheus/alerts.yml` - 15+ alert rules
+- `../monitoring/prometheus/recording_rules.yml` - Performance optimizations
 
 ### Step 2: Create Docker Compose for Monitoring
 
-Create `docker-compose.monitoring.yml`:
+Create `../docker/docker-compose.monitoring.yml`:
 
 ```yaml
 version: '3.8'

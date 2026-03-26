@@ -24,10 +24,10 @@ Follow these rules in code, config, documentation, and UI. When in doubt, check 
 | Python function / method | `snake_case` | `get_score()`, `classify()`, `maybe_expand_block()` |
 | Python variable / parameter | `snake_case` | `trigger_score`, `list_name`, `org_handle` |
 | Python constant | `SCREAMING_SNAKE_CASE` | `MAX_DIAL_VALUE`, `DEFAULT_BLOCK_THRESHOLD` |
-| Python module filename | `snake_case` | `risk_scorer.py`, `asn_classifier.py`, `local_cache.py` |
+| Python module filename | `snake_case` | `../src/security/risk_scorer.py`, `../src/security/asn_classifier.py`, `../src/cache/local_cache.py` |
 | Python dataclass field | `snake_case` | `total_score`, `recommended_action`, `fetched_at` |
 | Config key (YAML) | `snake_case` | `queue_size`, `worker_count`, `min_enqueue_score` |
-| Config filename | `snake_case` | `proxy.yml`, `asn_datacenter_list.yml`, `known_bad_orgs.yml` |
+| Config filename | `snake_case` | `../config/proxy.yml`, `../config/asn_datacenter_list.yml`, `../config/known_bad_orgs.yml` |
 | Environment variable | `SCREAMING_SNAKE_CASE` | `ABUSEIPDB_API_KEY`, `UI_API_KEY`, `REDIS_URL` |
 | Redis key segment | `snake_case`, colon-separated | `abuseipdb:score:{ip}`, `beacon:{ip}:{ja4}` |
 | Redis key variable part | `{snake_case}` in braces | `{ip}`, `{ja4}`, `{org_handle}`, `{list_name}` |
@@ -46,7 +46,7 @@ Follow these rules in code, config, documentation, and UI. When in doubt, check 
 | UI status label | Sentence case | `Quota exhausted`, `Feed stale`, `Connected` |
 | Management API endpoint | `kebab-case` path segments | `/api/v1/ip-bans`, `/api/v1/ja4-blacklist` |
 | Management API JSON field | `snake_case` | `"org_handle"`, `"trigger_score"`, `"added_by"` |
-| Test file | `test_` + `snake_case` | `test_risk_scorer.py`, `test_dial_propagation.py` |
+| Test file | `test_` + `snake_case` | `../tests/unit/test_risk_scorer.py`, `../tests/integration/test_dial_propagation.py` |
 | Test function | `test_` + `snake_case` describing scenario | `test_beacon_score_below_minimum_observations()` |
 | Test class | `Test` + `PascalCase` module/scenario | `TestASNClassifierDetection` |
 | Grafana dashboard filename | `snake_case` with numeric prefix | `01_operations.json`, `02_security.json` |
@@ -160,19 +160,19 @@ Use the exact strings shown — never invent alternatives.
 
 | Python file | Config key | Prometheus subsystem | Log subsystem | Signal prefix |
 |-------------|------------|----------------------|---------------|---------------|
-| `risk_scorer.py` | `risk_scorer` | `scorer` | `scorer` | *(produces no named signals)* |
-| `action_decider.py` | `action_decider` | `dial` | `dial` | *(decision, not a signal)* |
-| `tls_enforcer.py` | `tls_enforcer` | `tls` | `tls` | `tls_` |
-| `sni_analyzer.py` | `sni_analyzer` | `sni` | `sni` | *(varies: `missing_sni`, `dga`, etc.)* |
-| `tcp_analyzer.py` | `tcp_analyzer` | `tcp` | `tcp` | `tcp_`, `ja4t_`, etc. |
-| `mtls.py` | `mtls` | `tcp` | `mtls` | *(bypass, not a signal)* |
-| `asn_classifier.py` | `asn_classifier` | `asn` | `asn` | `asn_` |
-| `dns_enrichment.py` | `dns_enrichment` | `dns` | `dns` | `no_ptr`, `fcrdns_`, `residential_ptr` |
-| `blocklists.py` | `blocklists` | `blocklist` | `blocklist` | `spamhaus_drop`, etc. |
-| `beaconing_detector.py` | `beaconing_detector` | `beaconing` | `beaconing` | `beaconing` |
-| `abuseipdb.py` | `abuseipdb` | `abuseipdb` | `abuseipdb` | `abuseipdb` |
-| `rdap_enrichment.py` | `rdap_enrichment` | `rdap` | `rdap` | `rdap_` |
-| `local_cache.py` | `local_cache` | `cache` | `cache` | *(infrastructure)* |
+| `../src/security/risk_scorer.py` | `risk_scorer` | `scorer` | `scorer` | *(produces no named signals)* |
+| `../src/security/action_decider.py` | `action_decider` | `dial` | `dial` | *(decision, not a signal)* |
+| `../src/security/tls_enforcer.py` | `tls_enforcer` | `tls` | `tls` | `tls_` |
+| `../src/security/sni_analyzer.py` | `sni_analyzer` | `sni` | `sni` | *(varies: `missing_sni`, `dga`, etc.)* |
+| `../src/security/tcp_analyzer.py` | `tcp_analyzer` | `tcp` | `tcp` | `tcp_`, `ja4t_`, etc. |
+| `../src/security/mtls.py` | `mtls` | `tcp` | `mtls` | *(bypass, not a signal)* |
+| `../src/security/asn_classifier.py` | `asn_classifier` | `asn` | `asn` | `asn_` |
+| `../src/security/dns_enrichment.py` | `dns_enrichment` | `dns` | `dns` | `no_ptr`, `fcrdns_`, `residential_ptr` |
+| `../src/security/blocklists.py` | `blocklists` | `blocklist` | `blocklist` | `spamhaus_drop`, etc. |
+| `../src/security/beaconing_detector.py` | `beaconing_detector` | `beaconing` | `beaconing` | `beaconing` |
+| `../src/security/abuseipdb.py` | `abuseipdb` | `abuseipdb` | `abuseipdb` | `abuseipdb` |
+| `../src/security/rdap_enrichment.py` | `rdap_enrichment` | `rdap` | `rdap` | `rdap_` |
+| `../src/cache/local_cache.py` | `local_cache` | `cache` | `cache` | *(infrastructure)* |
 | `config_loader.py` | `config` | `config` | `config` | *(infrastructure)* |
 
 **Rules for using this table:**

@@ -658,7 +658,7 @@ management/frontend/
 ### 5.5 Adding a New API Endpoint
 
 1. Add the route to the appropriate `management/routers/*.py` file.
-2. Add Pydantic request/response models to `management/models.py`.
+2. Add Pydantic request/response models to `../../src/security/models.py`.
 3. Add a React Query hook in `management/frontend/src/api/`.
 4. Add unit test in `tests/unit/test_management_ui.py`.
 5. Add the endpoint to the catalog in this doc (§3).

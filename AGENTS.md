@@ -27,11 +27,11 @@ Every phase must be closed by completing **all** of the following before the nex
 1. **Tests pass:** `make test` — zero failures, zero warnings.
 2. **CHANGELOG.md:** Add a standard entry for the phase (see `docs/DOCUMENTATION_STANDARDS.md`).
 3. **REDIS_SCHEMA.md:** Document every new Redis key introduced.
-4. **manifest.yaml:** Set `status: COMPLETE`. Remove any gaps that were resolved during the phase. Add any new gaps discovered to the appropriate future phase.
+4. **docs/phases/manifest.yaml:** Set `status: COMPLETE`. Remove any gaps that were resolved during the phase. Add any new gaps discovered to the appropriate future phase.
 5. **Sync:** Run `python3 scripts/sync-roadmap.py` to regenerate `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.
-6. **Atomic commit:** Commit code, `CHANGELOG.md`, `manifest.yaml`, `TODO.md`, and `PROJECT_STATUS.md` together in a single commit.
+6. **Atomic commit:** Commit code, `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/phases/TODO.md`, and `docs/PROJECT_STATUS.md` together in a single commit.
 
-> **Why this matters:** `manifest.yaml` is the only document downstream tooling reads. If it is not updated at phase-close, `TODO.md` and `PROJECT_STATUS.md` will show stale state, and future sessions will have incorrect context about what work remains.
+> **Why this matters:** `docs/phases/manifest.yaml` is the only document downstream tooling reads. If it is not updated at phase-close, `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md` will show stale state, and future sessions will have incorrect context about what work remains.
 
 ---
 

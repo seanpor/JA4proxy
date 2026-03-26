@@ -85,7 +85,7 @@ sni_analyzer:
 - [x] Prometheus counter:   `ja4proxy_sni_signal_total{signal}` — fires per signal name
 - [x] Prometheus histogram: `ja4proxy_sni_dga_score` — DGA confidence score distribution
 
-### Unit Tests  (`tests/unit/test_sni_analyzer.py`)
+### Unit Tests  (`../../tests/unit/security/test_sni_analyzer.py`)
 - [x] `SNIAnalyzer.analyze()`: None → missing_sni signal
 - [x] `SNIAnalyzer.analyze()`: valid hostname → no signal
 - [x] `SNIAnalyzer.analyze()`: IP string → ip_literal_sni signal
