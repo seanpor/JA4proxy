@@ -219,9 +219,11 @@ backup:
   retention_days: 30            # Delete artifacts older than N days (0 = disabled)
   retain_count: 10              # Keep at most N most-recent artifacts (0 = disabled)
   schedule: "0 2 * * *"         # Cron expression for scheduled backups (default: 02:00 daily)
+  schedule_enabled: true        # Set false to disable automatic scheduled runs without removing the cron expression
   max_keys_per_run: 5000000     # Hard cap on keys per backup run; prevents disk-exhaustion attack
   max_size_bytes: 10737418240   # Hard cap on total artifact size in bytes (default: 10 GB)
   include_audit_log: false      # Include management:audit_log in backup (adds up to ~1 MB)
+  restore_error_threshold: 0.05 # Raise RestoreError if more than this fraction of keys fail during restore (0.05 = 5%)
 # Logging configuration
 logging:
   level: "INFO"

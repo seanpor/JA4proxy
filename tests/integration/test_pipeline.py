@@ -715,6 +715,7 @@ def _make_shutdown_server_stub(drain_timeout: float = 0.5, active: int = 0):
     s._abuseipdb_checker = None
     s._rdap_enricher = None
     s._aiohttp_session = None
+    s._backup_scheduler = None
     return s
 
 
