@@ -89,6 +89,18 @@ class ConfigLoader:
             ConfigError: If the file cannot be read or parsed.
         """
         self._config = self._read_and_parse()
+        mode = (self._config.get("proxy") or {}).get("mode", "passthrough")
+        logger.info(
+            json.dumps(
+                {
+                    "type": "system",
+                    "level": "INFO",
+                    "subsystem": "config",
+                    "event": "mode_selected",
+                    "mode": mode,
+                }
+            )
+        )
         logger.info(
             json.dumps(
                 {
@@ -236,6 +248,17 @@ class ConfigLoader:
 
         if not isinstance(parsed, dict):
             raise ConfigError(f"Config file {self._path} must be a YAML mapping")
+
+        # Validate proxy.mode — default to "passthrough" if absent
+        proxy_section = parsed.get("proxy") or {}
+        mode = proxy_section.get("mode", "passthrough")
+        if mode not in ("passthrough", "tap"):
+            raise ConfigError(
+                f"Invalid proxy.mode value: {mode!r}. Must be 'passthrough' or 'tap'."
+            )
+        # Ensure the default is written back so callers always see the field
+        if "mode" not in proxy_section:
+            parsed.setdefault("proxy", {})["mode"] = "passthrough"
 
         return parsed
 

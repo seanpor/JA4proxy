@@ -58,6 +58,7 @@ from src.backup.scheduler import BackupScheduler
 from src.backup.worker import BackupWorker
 from src.cache.local_cache import LocalCache
 from src.security.action_decider import ActionDecider, DialManager
+from src.tap.tap_sensor import TapSensor
 from src.security.pipeline import ConnectionContext, Pipeline
 from src.security.risk_scorer import RiskScorer
 
@@ -2205,16 +2206,24 @@ class JSONFormatter(logging.Formatter):
 async def main():
     """Main entry point.
 
-    Registers SIGTERM and SIGINT handlers that trigger a graceful drain of
-    in-flight connections before process exit.  On SIGTERM Docker gives the
-    process ``drain_timeout_seconds`` to complete before sending SIGKILL.
+    Reads ``proxy.mode`` from the config file to dispatch between
+    passthrough proxy mode (default) and TAP/SPAN passive capture mode.
+    Registers SIGTERM and SIGINT handlers for graceful shutdown.
     """
     import signal
     import sys
 
     config_path = sys.argv[1] if len(sys.argv) > 1 else "config/proxy.yml"
 
-    proxy = await ProxyServer.create(config_path)
+    # Early config read — used only for mode dispatch.
+    # ProxyServer.create() does its own full config load below.
+    try:
+        with open(config_path, "r") as _f:
+            _raw_cfg = yaml.safe_load(_f) or {}
+    except (OSError, yaml.YAMLError):
+        _raw_cfg = {}
+
+    mode = (_raw_cfg.get("proxy") or {}).get("mode", "passthrough")
 
     shutdown_event = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -2229,13 +2238,27 @@ async def main():
     except (NotImplementedError, ValueError):  # pragma: no cover — Windows
         pass
 
-    try:
-        await proxy.start(shutdown_event=shutdown_event)
-    except (KeyboardInterrupt, asyncio.CancelledError):
-        pass  # Clean shutdown already handled via shutdown_event drain path
-    except Exception as e:
-        logging.error(f"Fatal error: {e}")
-        sys.exit(1)
+    match mode:
+        case "passthrough":
+            proxy = await ProxyServer.create(config_path)
+            try:
+                await proxy.start(shutdown_event=shutdown_event)
+            except (KeyboardInterrupt, asyncio.CancelledError):
+                pass  # Clean shutdown already handled via shutdown_event drain path
+            except Exception as e:
+                logging.error(f"Fatal error: {e}")
+                sys.exit(1)
+        case "tap":
+            sensor = TapSensor(_raw_cfg, None)
+            try:
+                await sensor.run()
+            except (KeyboardInterrupt, asyncio.CancelledError):
+                pass
+        case _:
+            logging.critical(
+                "startup | event=invalid_mode | mode=%r -- exiting", mode
+            )
+            sys.exit(1)
 
 
 if __name__ == "__main__":  # pragma: no cover
