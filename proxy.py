@@ -54,6 +54,8 @@ except (
 from scapy.layers.tls.record import TLS
 
 # Phase 0+: Local cache and pipeline infrastructure
+from src.backup.scheduler import BackupScheduler
+from src.backup.worker import BackupWorker
 from src.cache.local_cache import LocalCache
 from src.security.action_decider import ActionDecider, DialManager
 from src.security.pipeline import ConnectionContext, Pipeline
@@ -1025,6 +1027,8 @@ class ProxyServer:
         self._tarpit_concurrent: int = 0
         self._tarpit_per_ip: dict = {}
         self._tarpit_lock: asyncio.Lock = asyncio.Lock()
+        # Phase 20 G0-A: backup scheduler
+        self._backup_scheduler: Optional[BackupScheduler] = None
 
         if config_path:
             self.config_path = config_path
@@ -1431,6 +1435,18 @@ class ProxyServer:
 
         watcher_task: asyncio.Task = asyncio.create_task(_shutdown_watcher())
 
+        # Phase 20 G0-A: start backup scheduler if configured
+        backup_cfg = self.config.get("backup", {})
+        if backup_cfg.get("enabled", False) and backup_cfg.get("schedule"):
+            backup_worker = BackupWorker(
+                redis_host=self.config["redis"]["host"],
+                redis_port=self.config["redis"]["port"],
+                redis_db=self.config["redis"].get("db", 0),
+                max_keys_per_run=backup_cfg.get("max_keys_per_run", 1000),
+            )
+            self._backup_scheduler = BackupScheduler(backup_worker, backup_cfg)
+            await self._backup_scheduler.start()
+
         try:
             async with server:
                 await server.serve_forever()
@@ -1440,6 +1456,10 @@ class ProxyServer:
                 await watcher_task
             except asyncio.CancelledError:
                 pass
+
+            # Phase 20 G0-A: stop backup scheduler
+            if self._backup_scheduler is not None:
+                await self._backup_scheduler.stop()
 
             # Drain in-flight connections when a graceful shutdown was requested.
             if shutdown_event is not None and shutdown_event.is_set():

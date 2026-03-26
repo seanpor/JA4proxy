@@ -54,8 +54,23 @@ RESTORE_KEYS_RESTORED_TOTAL = Counter(
 
 
 class RestoreError(Exception):
-    """Raised when restore operations fail."""
-    pass
+    """Raised when restore operations fail.
+
+    When raised due to the key-failure threshold being exceeded (P19-G4),
+    the ``failed``, ``total``, and ``threshold`` attributes are populated.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        failed: int = 0,
+        total: int = 0,
+        threshold: float = 0.0,
+    ) -> None:
+        super().__init__(message)
+        self.failed = failed
+        self.total = total
+        self.threshold = threshold
 
 
 class BackupRestorer:
@@ -66,6 +81,7 @@ class BackupRestorer:
         redis_host: str = "localhost",
         redis_port: int = 6379,
         redis_db: int = 0,
+        restore_error_threshold: float = 0.05,
     ):
         """Initialize restore engine.
 
@@ -73,10 +89,14 @@ class BackupRestorer:
             redis_host: Redis host.
             redis_port: Redis port.
             redis_db: Redis database.
+            restore_error_threshold: Fraction of keys that may fail before
+                RestoreError is raised.  Default 0.05 (5%).  Set to 0.0 to
+                raise on any failure; set to 1.0 to never raise.
         """
         self.redis_host = redis_host
         self.redis_port = redis_port
         self.redis_db = redis_db
+        self.restore_error_threshold = restore_error_threshold
 
     def load_manifest(self, manifest_path: str) -> Dict[str, Any]:
         """Load and validate backup manifest.
@@ -210,8 +230,33 @@ class BackupRestorer:
                 self._wipe_redis_data(redis_client)
 
             # Restore backup data
-            keys_restored = self._restore_backup_data(redis_client, backup_path)
+            keys_restored, keys_failed = self._restore_backup_data(redis_client, backup_path)
+            keys_total = keys_restored + keys_failed
             RESTORE_KEYS_RESTORED_TOTAL.inc(keys_restored)
+
+            # P19-G4: raise RestoreError if failure fraction exceeds threshold
+            threshold = self.restore_error_threshold
+            if keys_total > 0 and keys_failed / keys_total > threshold:
+                logger.error(
+                    json.dumps({
+                        "ts": datetime.utcnow().isoformat() + "Z",
+                        "type": "system",
+                        "level": "ERROR",
+                        "subsystem": "restore",
+                        "event": "restore_threshold_exceeded",
+                        "keys_total": keys_total,
+                        "keys_failed": keys_failed,
+                        "keys_restored": keys_restored,
+                        "threshold_pct": int(threshold * 100),
+                    })
+                )
+                raise RestoreError(
+                    f"Restore aborted: {keys_failed}/{keys_total} keys failed"
+                    f" ({keys_failed / keys_total:.1%} > {threshold:.0%} threshold)",
+                    failed=keys_failed,
+                    total=keys_total,
+                    threshold=threshold,
+                )
 
             # Record success metrics
             duration = (datetime.utcnow() - start_time).total_seconds()
@@ -230,6 +275,7 @@ class BackupRestorer:
                     "event": "restore_succeeded",
                     "restore_type": restore_type,
                     "keys_restored": keys_restored,
+                    "keys_failed": keys_failed,
                     "duration_ms": int(duration * 1000),
                     "artifact": backup_path
                 })
@@ -293,6 +339,9 @@ class BackupRestorer:
                 # If audit logging fails, don't let it prevent the main error from being raised
                 pass
 
+            # Re-raise RestoreError instances as-is (preserves failed/total/threshold attrs)
+            if isinstance(e, RestoreError):
+                raise
             raise RestoreError(f"Restore failed: {e}")
 
     def _wipe_redis_data(self, redis_client: redis.Redis) -> None:
@@ -306,7 +355,7 @@ class BackupRestorer:
 
     def _restore_backup_data(
         self, redis_client: redis.Redis, backup_path: str
-    ) -> int:
+    ) -> tuple:
         """Restore backup data to Redis.
 
         Reads the backup artifact and restores each key-value pair using
@@ -332,15 +381,17 @@ class BackupRestorer:
             raise RestoreError(f"Failed to read backup data: {e}")
 
         keys_restored = 0
+        keys_failed = 0
         for key, dump_data in decode_entries(backup_data):
             try:
                 redis_client.restore(key, 0, dump_data, replace=True)
                 keys_restored += 1
             except redis.RedisError as exc:
+                keys_failed += 1
                 logger.warning("restore skipped key %s: %s", key, exc)
 
         # Record restore markers for auditing and monitoring.
         redis_client.set("backup:last_restore", datetime.utcnow().isoformat() + "Z")
         redis_client.set("backup:restored_from", Path(backup_path).name)
 
-        return keys_restored
+        return keys_restored, keys_failed

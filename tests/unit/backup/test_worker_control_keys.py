@@ -63,34 +63,34 @@ def test_control_keys_failure_path():
     """Test that control keys are updated on failure."""
     worker = BackupWorker()
     
-    # Mock Redis operations to fail during dump
+    # Mock Redis scan to return one key, configure pipeline mock with test data
     mock_redis = MagicMock()
-    mock_redis.scan = MagicMock(side_effect=[
-        (0, ["config:dial"]),
-        (0, []),  # No more keys
-    ])
-    mock_redis.dump.side_effect = Exception("Redis dump error")
-    
+    mock_redis.scan = MagicMock(side_effect=[(0, ["config:dial"]), (0, [])])
+    pipe_mock = mock_redis.pipeline.return_value
+    pipe_mock.execute.side_effect = lambda raise_on_error=True: [
+        b"test_data" for _ in pipe_mock.dump.call_args_list
+    ]
+
     # Mock filesystem validation
     def mock_access(path, mode):
         return True  # All permissions granted
-    
+
     import os
     mock_stat = MagicMock()
     mock_stat.st_mode = 0o700  # Secure permissions (owner only)
     mock_stat.st_uid = os.getuid()  # Current user
     mock_stat.st_gid = os.getgid()  # Current group
-    
-    # Mock Path operations
+
+    # Backup fails at file write (after redis_client is assigned)
     with patch("src.backup.worker.redis.Redis", return_value=mock_redis), \
          patch("os.access", side_effect=mock_access), \
          patch("os.stat", return_value=mock_stat), \
          patch("pathlib.Path.mkdir"), \
          patch("pathlib.Path.exists"), \
-         patch("pathlib.Path.write_bytes"), \
+         patch("pathlib.Path.write_bytes", side_effect=OSError("No space left on device")), \
          patch("pathlib.Path.write_text") as mock_write_text:
-        
-        # Try to create backup (should fail during dump)
+
+        # Try to create backup (should fail at write_bytes)
         with pytest.raises(Exception):
             worker.create_backup("/tmp/test_backups")
         

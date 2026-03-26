@@ -79,28 +79,31 @@ def test_backup_audit_log_failure():
     """Test that failed backup operations write audit log entries."""
     worker = BackupWorker()
     
-    # Mock Redis to fail after connection is established
+    # Mock Redis scan returning one key; fail at file write (after redis_client is assigned)
     mock_redis = MagicMock()
-    mock_redis.scan = MagicMock(side_effect=[
-        (0, ["config:dial"]),  # First scan succeeds
-        Exception("Redis connection failed")  # Second scan fails
-    ])
-    mock_redis.dump.side_effect = Exception("Redis connection failed")
-    
+    mock_redis.scan = MagicMock(side_effect=[(0, ["config:dial"]), (0, [])])
+    pipe_mock = mock_redis.pipeline.return_value
+    pipe_mock.execute.side_effect = lambda raise_on_error=True: [
+        b"test_data" for _ in pipe_mock.dump.call_args_list
+    ]
+
     # Mock filesystem validation
     def mock_access(path, mode):
         return True  # All permissions granted
-    
+
     import os
     mock_stat = MagicMock()
     mock_stat.st_mode = 0o700  # Secure permissions (owner only)
     mock_stat.st_uid = os.getuid()  # Current user
     mock_stat.st_gid = os.getgid()  # Current group
-    
+
     with patch("src.backup.worker.redis.Redis", return_value=mock_redis), \
          patch("os.access", side_effect=mock_access), \
-         patch("os.stat", return_value=mock_stat):
-        # Try to create backup (should fail)
+         patch("os.stat", return_value=mock_stat), \
+         patch("pathlib.Path.mkdir"), \
+         patch("pathlib.Path.write_bytes", side_effect=OSError("disk write failed")), \
+         patch("pathlib.Path.write_text"):
+        # Try to create backup (should fail at write_bytes)
         try:
             worker.create_backup("/tmp/test_backups")
         except Exception:

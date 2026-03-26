@@ -46,19 +46,23 @@ class TestIntegrationMockRedis:
         
         def mock_dump(key):
             return self.test_data.get(key, b"")
-        
-        mock_redis.dump.side_effect = mock_dump
-        
+
+        # Configure pipeline mock so _dump_keys_batched uses per-key data
+        pipe_mock = mock_redis.pipeline.return_value
+        pipe_mock.execute.side_effect = lambda raise_on_error=True: [
+            mock_dump(call[0][0]) for call in pipe_mock.dump.call_args_list
+        ]
+
         # Mock filesystem validation
         def mock_access(path, mode):
             return True
-        
+
         import os
         mock_stat = MagicMock()
         mock_stat.st_mode = 0o700
         mock_stat.st_uid = os.getuid()
         mock_stat.st_gid = os.getgid()
-        
+
         # Create backup
         with patch("src.backup.worker.redis.Redis", return_value=mock_redis), \
              patch("os.access", side_effect=mock_access), \
@@ -155,7 +159,7 @@ class TestIntegrationMockRedis:
             # Simulate restoring each key
             for key in self.test_data.keys():
                 redis_client.set(key, self.test_data[key])
-            return len(self.test_data)
+            return len(self.test_data), 0  # (keys_restored, keys_failed)
         
         # Test restore
         with patch("src.backup.restorer.redis.Redis") as mock_redis_class, \
@@ -237,7 +241,7 @@ class TestIntegrationMockRedis:
             # Simulate restoring each key and capture the data
             for key, value in original_data.items():
                 restored_data[key] = value
-            return len(original_data)
+            return len(original_data), 0  # (keys_restored, keys_failed)
         
         with patch("src.backup.restorer.redis.Redis") as mock_redis_class, \
              patch.object(BackupRestorer, '_restore_backup_data', side_effect=mock_restore_backup_data):

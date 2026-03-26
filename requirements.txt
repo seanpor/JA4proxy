@@ -20,6 +20,8 @@ bandit==1.7.5
 semgrep==1.45.0
 
 # Testing dependencies
+fakeredis>=2.21,<3          # in-process Redis fake for integration tests (P19-G6)
+croniter>=2.0,<3            # cron expression parser for BackupScheduler (P19-G1)
 pytest==7.4.3
 pytest-asyncio==0.21.1
 pytest-cov==4.1.0

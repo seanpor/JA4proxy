@@ -44,18 +44,22 @@ def test_never_backup_keys_excluded_from_backup():
         (0, all_keys),
         (0, []),  # No more keys
     ])
-    mock_redis.dump = MagicMock(return_value=b"test_data")
-    
+    # Configure pipeline mock so _dump_keys_batched returns test_data per key
+    pipe_mock = mock_redis.pipeline.return_value
+    pipe_mock.execute.side_effect = lambda raise_on_error=True: [
+        b"test_data" for _ in pipe_mock.dump.call_args_list
+    ]
+
     # Mock filesystem validation
     def mock_access(path, mode):
         return True  # All permissions granted
-    
+
     import os
     mock_stat = MagicMock()
     mock_stat.st_mode = 0o700  # Secure permissions (owner only)
     mock_stat.st_uid = os.getuid()  # Current user
     mock_stat.st_gid = os.getgid()  # Current group
-    
+
     with patch("src.backup.worker.redis.Redis", return_value=mock_redis), \
          patch("os.access", side_effect=mock_access), \
          patch("os.stat", return_value=mock_stat), \
@@ -63,18 +67,23 @@ def test_never_backup_keys_excluded_from_backup():
          patch("pathlib.Path.exists"), \
          patch("pathlib.Path.write_bytes"), \
          patch("pathlib.Path.write_text") as mock_write_text:
-        
+
         # Create backup
         backup_path = worker.create_backup("/tmp/test_backups")
-        
+
         # Verify that dump was only called for normal keys, not sensitive ones
-        dumped_keys = [call[0][0] for call in mock_redis.dump.call_args_list]
-        
+        # Dump calls go through the pipeline mock, not mock_redis directly
+        dumped_keys = [call[0][0] for call in pipe_mock.dump.call_args_list]
+
         # Check that sensitive keys were not dumped
         for sensitive_key in sensitive_keys:
             assert sensitive_key not in dumped_keys, f"Sensitive key {sensitive_key} was backed up!"
-        
-        # Check that normal keys were dumped
+
+        # Check that normal keys were dumped (only keys that pass policy AND never-backup filter)
+        # abuseipdb:api_key is excluded by KeyPolicy (not in include patterns)
+        # service:auth_token is excluded by KeyPolicy (not in include patterns)
+        # config:redis_password passes KeyPolicy (config:* include) but excluded by _is_never_backup_key
+        # config:dial and ban:192.168.1.1 should both be dumped
         for normal_key in normal_keys:
             assert normal_key in dumped_keys, f"Normal key {normal_key} was not backed up!"
 
@@ -180,18 +189,22 @@ def test_never_backup_with_custom_policy():
         (0, all_keys),
         (0, []),  # No more keys
     ])
-    mock_redis.dump = MagicMock(return_value=b"test_data")
-    
+    # Configure pipeline mock so _dump_keys_batched returns test_data per key
+    pipe_mock = mock_redis.pipeline.return_value
+    pipe_mock.execute.side_effect = lambda raise_on_error=True: [
+        b"test_data" for _ in pipe_mock.dump.call_args_list
+    ]
+
     # Mock filesystem validation
     def mock_access(path, mode):
         return True  # All permissions granted
-    
+
     import os
     mock_stat = MagicMock()
     mock_stat.st_mode = 0o700  # Secure permissions (owner only)
     mock_stat.st_uid = os.getuid()  # Current user
     mock_stat.st_gid = os.getgid()  # Current group
-    
+
     with patch("src.backup.worker.redis.Redis", return_value=mock_redis), \
          patch("os.access", side_effect=mock_access), \
          patch("os.stat", return_value=mock_stat), \
@@ -199,11 +212,12 @@ def test_never_backup_with_custom_policy():
          patch("pathlib.Path.exists"), \
          patch("pathlib.Path.write_bytes"), \
          patch("pathlib.Path.write_text"):
-        
+
         # Create backup
         worker.create_backup("/tmp/test_backups")
-        
+
         # Verify that sensitive keys were not dumped even though they match include patterns
-        dumped_keys = [call[0][0] for call in mock_redis.dump.call_args_list]
+        # Dump calls go through the pipeline mock, not mock_redis directly
+        dumped_keys = [call[0][0] for call in pipe_mock.dump.call_args_list]
         assert "config:redis_password" not in dumped_keys
         assert "config:dial" in dumped_keys  # Normal key should be backed up

@@ -66,34 +66,27 @@ class TestChaosScenarios:
             assert "Redis timeout" in str(exc_info.value) or "connection" in str(exc_info.value).lower()
     
     def test_network_interruption_during_backup(self):
-        """Test backup resilience to network interruption during data dump."""
-        # Mock Redis to fail during dump operation
+        """Test backup resilience to network interruption during enumeration.
+
+        With pipeline batching, individual key-dump failures are absorbed (the key
+        is skipped rather than aborting the whole backup). A failure during
+        *enumeration* (scan) does abort the backup, which is the behaviour tested here.
+        """
         mock_redis = MagicMock()
-        mock_redis.scan.side_effect = [
-            (0, list(self.test_data.keys())),
-            (0, []),  # All keys enumerated
-        ]
-        
-        # Simulate network interruption during dump
-        def mock_dump(key):
-            if key == "config:dial":
-                return self.test_data[key]
-            else:
-                raise Exception("Network interruption: connection reset by peer")
-        
-        mock_redis.dump.side_effect = mock_dump
-        
+        # Simulate network failure during SCAN enumeration
+        mock_redis.scan.side_effect = Exception("Network interruption: connection reset by peer")
+
         # Mock filesystem validation
         def mock_access(path, mode):
             return True
-        
+
         import os
         mock_stat = MagicMock()
         mock_stat.st_mode = 0o700
         mock_stat.st_uid = os.getuid()
         mock_stat.st_gid = os.getgid()
-        
-        # Test that backup fails gracefully
+
+        # Backup should fail when enumeration fails
         with patch("src.backup.worker.redis.Redis", return_value=mock_redis), \
              patch("os.access", side_effect=mock_access), \
              patch("os.stat", return_value=mock_stat), \
@@ -101,13 +94,12 @@ class TestChaosScenarios:
              patch("pathlib.Path.exists"), \
              patch("pathlib.Path.write_bytes"), \
              patch("pathlib.Path.write_text"):
-            
+
             worker = BackupWorker()
-            
-            # Backup should fail with network error
+
             with pytest.raises(Exception) as exc_info:
                 worker.create_backup(self.backup_dir)
-            
+
             # Verify it's a network-related error
             assert "network" in str(exc_info.value).lower() or "connection" in str(exc_info.value).lower()
     
@@ -298,9 +290,13 @@ class TestChaosScenarios:
         def slow_dump(key):
             time.sleep(0.1)  # Simulate network latency
             return self.test_data.get(key, b"")
-        
+
         mock_redis.scan.side_effect = slow_scan
-        mock_redis.dump.side_effect = slow_dump
+        # Configure pipeline mock: execute simulates per-key latency and returns data
+        pipe_mock = mock_redis.pipeline.return_value
+        pipe_mock.execute.side_effect = lambda raise_on_error=True: [
+            slow_dump(call[0][0]) for call in pipe_mock.dump.call_args_list
+        ]
         
         # Mock filesystem validation
         def mock_access(path, mode):

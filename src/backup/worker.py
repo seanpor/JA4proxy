@@ -20,6 +20,8 @@ from src.backup.policy import KeyPolicy
 
 logger = logging.getLogger(__name__)
 
+# P19-G3: number of keys dumped per Redis pipeline call
+PIPELINE_BATCH_SIZE = 1000
 
 # Never-backup key patterns: keys that must never appear in backups
 _KEY_PATTERNS_NEVER_BACKUP = [
@@ -112,13 +114,14 @@ class BackupWorker:
             if cursor == 0:
                 break
 
-        # Filter and dedup
+        # Filter and dedup; decode bytes keys from Redis to str
         filtered_keys = []
         seen = set()
         for key in keys:
-            if key not in seen and self.policy.should_backup(key):
-                seen.add(key)
-                filtered_keys.append(key)
+            key_str = key.decode() if isinstance(key, bytes) else key
+            if key_str not in seen and self.policy.should_backup(key_str):
+                seen.add(key_str)
+                filtered_keys.append(key_str)
 
         # Order deterministically
         filtered_keys.sort()
@@ -244,9 +247,9 @@ class BackupWorker:
                 db=self.redis_db,
             )
 
-            for key in safe_keys:
-                key_str = key.decode("utf-8") if isinstance(key, bytes) else key
-                dumped = redis_client.dump(key)
+            # P19-G3: dump keys using pipeline batching to minimise round trips
+            key_values = self._dump_keys_batched(redis_client, safe_keys)
+            for key_str, dumped in key_values.items():
                 if dumped:
                     # Encode key name alongside dump data so restore can
                     # write each value back to the correct key.
@@ -374,6 +377,39 @@ class BackupWorker:
                 redis_client.ltrim("management:audit_log", -1000, -1)
 
             raise
+
+    def _dump_keys_batched(
+        self, redis_client: redis.Redis, keys: List[str]
+    ) -> Dict[str, Any]:
+        """Dump key values using Redis pipeline batching.
+
+        Processes *keys* in batches of ``PIPELINE_BATCH_SIZE`` to minimise
+        network round trips.  Returns ``{key_str: dump_bytes_or_None}``
+        mapping; individual errors (e.g. key expired mid-backup) result in
+        a ``None`` value for that key rather than aborting the whole batch.
+
+        Args:
+            redis_client: Synchronous Redis client.
+            keys: Keys to dump (bytes or str).
+
+        Returns:
+            Ordered dict mapping key strings to their serialised dump bytes
+            (or None when the key is missing / expired).
+        """
+        result: Dict[str, Any] = {}
+        for batch_start in range(0, len(keys), PIPELINE_BATCH_SIZE):
+            batch = keys[batch_start : batch_start + PIPELINE_BATCH_SIZE]
+            pipe = redis_client.pipeline(transaction=False)
+            for key in batch:
+                pipe.dump(key)
+            try:
+                values = pipe.execute(raise_on_error=False)
+            except Exception:
+                values = [None] * len(batch)
+            for key, value in zip(batch, values):
+                key_str = key.decode("utf-8") if isinstance(key, bytes) else key
+                result[key_str] = value if not isinstance(value, Exception) else None
+        return result
 
     def _is_never_backup_key(self, key: str) -> bool:
         """Check if a key matches any never-backup pattern.

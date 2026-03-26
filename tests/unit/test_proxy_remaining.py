@@ -128,6 +128,10 @@ def _make_server_stub():
     s._dial_manager.initialize = MagicMock(return_value=0)
     s._local_cache = MagicMock()
     s._local_cache.dial = 0
+    s._backup_scheduler = None
+    s._abuseipdb_checker = None
+    s._rdap_enricher = None
+    s._aiohttp_session = None
     return s
 
 
@@ -1672,6 +1676,7 @@ class TestProxyServerShutdownCoverageGaps:
         server._dial_manager.initialize = MagicMock(return_value=0)
         server._local_cache = MagicMock()
         server.redis_client = MagicMock()
+        server._backup_scheduler = None
         return server
 
     def test_shutdown_with_no_abuseipdb(self):
