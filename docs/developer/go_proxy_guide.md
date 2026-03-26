@@ -97,7 +97,7 @@ TCP accept (main.go:handleConn)
 
 All signal modules receive a `RedisReader` interface rather than a concrete `*redis.Client`.
 This means:
-- Tests inject a lightweight mock (`mockRedis` in `pipeline_test.go`) — no real Redis needed.
+- Tests inject a lightweight mock (`mockRedis` in `../../internal/security/pipeline_test.go`) — no real Redis needed.
 - The interface grew incrementally as each signal module was added. If you add a module
   that needs a new Redis operation, add it to `RedisReader` and add a stub to `mockRedis`.
 
@@ -189,7 +189,7 @@ GOROOT=/snap/go/current go build ./...
 
 ### mockRedis
 
-`pipeline_test.go` contains a `mockRedis` struct that implements the full `RedisReader`
+`../../internal/security/pipeline_test.go` contains a `mockRedis` struct that implements the full `RedisReader`
 interface. When you add a new method to `RedisReader`, you **must** add the corresponding
 stub to `mockRedis` or the package will not compile.
 
@@ -227,7 +227,7 @@ func (m *mockRedis) NewMethod(ctx context.Context, key string) ReturnType {
 
 2. Add config struct to `internal/config/loader.go` under `PipelineConfig`.
 
-3. Add the field to `Pipeline` in `pipeline.go` and wire it in `NewPipeline`.
+3. Add the field to `Pipeline` in `../../internal/security/pipeline.go` and wire it in `NewPipeline`.
 
 4. Call it in `Pipeline.Process()`.
 
@@ -269,7 +269,7 @@ work without modification after the cutover.
 ## Config Hot-Reload
 
 The Go proxy supports the same hot-reload mechanism as Python:
-- `SIGHUP` → reloads `proxy.yml` (implemented in `main.go`)
+- `SIGHUP` → reloads `../../config/proxy.yml` (implemented in `main.go`)
 - Redis pub/sub `channel:config_reload` → triggers reload
 
 Config sections that **cannot** be hot-reloaded (require restart):

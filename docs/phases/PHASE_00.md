@@ -413,7 +413,7 @@ config:
 - [x] JSON log: `{"type":"system","level":"INFO","subsystem":"config","event":"reload_complete"}` emitted on every successful hot reload
 - [x] JSON log: `{"type":"system","level":"ERROR","subsystem":"config","event":"reload_failed"}` emitted with `error` field when config reload fails validation
 
-### Unit Tests  (`tests/unit/test_local_cache.py`, `test_config_loader.py`, `test_pipeline.py`)
+### Unit Tests  (`tests/unit/test_local_cache.py`, `../../tests/unit/test_config_loader.py`, `test_pipeline.py`)
 - [x] `LocalCache`: hit returns value, miss returns None, eviction drops LRU entry
 - [x] `LocalCache`: TTL expiry verified per cache type
 - [x] `get_analysis_subnet()`: IPv4 → /24, IPv6 → /48, edge cases (loopback, ::1)
@@ -424,7 +424,7 @@ config:
 - [x] Hot config reload: changed keys returned in diff; unchanged keys not returned
 - [x] Non-reloadable key change: reload rejected with clear error
 
-### Integration Tests  (`tests/integration/test_cache_hierarchy.py`, `test_hot_reload.py`)
+### Integration Tests  (`tests/integration/test_cache_hierarchy.py`, `../../tests/integration/test_hot_reload.py`)
 - [x] Cache hierarchy: in-process hit skips Redis; in-process miss hits Redis; both miss triggers enrichment
 - [x] Hot reload: SIGHUP applies new config values to next connection within one connection latency
 - [x] Pub/Sub reload: `config_reload` message produces same result as SIGHUP

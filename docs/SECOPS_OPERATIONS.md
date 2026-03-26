@@ -47,7 +47,7 @@ Changes to `BACKEND_HOST`/`BACKEND_PORT` require a restart:
 
 ### First startup (auto-generated)
 
-If `.env` doesn't exist, `start-poc.sh` creates it with random passwords and prints them once. To retrieve them later:
+If `.env` doesn't exist, `../scripts/start-poc.sh` creates it with random passwords and prints them once. To retrieve them later:
 
 ```bash
 cat .env
@@ -204,7 +204,7 @@ geoip:
     - CA
 ```
 
-Changes to `config/proxy.yml` require a proxy restart. Security state changes made via `ja4-admin.sh` (blacklist, country blocks, CIDR blocks, IP blocks) take effect immediately — no restart needed.
+Changes to `config/proxy.yml` require a proxy restart. Security state changes made via `../scripts/ja4-admin.sh` (blacklist, country blocks, CIDR blocks, IP blocks) take effect immediately — no restart needed.
 
 ---
 
@@ -304,7 +304,7 @@ sudo tee /etc/logrotate.d/ja4proxy << 'EOF'
 EOF
 ```
 
-Loki (if running) has its own retention — see `docker-compose.monitoring.yml`.
+Loki (if running) has its own retention — see `../docker/docker-compose.monitoring.yml`.
 
 ### Credential rotation
 

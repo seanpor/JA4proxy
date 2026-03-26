@@ -60,7 +60,7 @@ class AbuseIPDBChecker:
         """Returns cached score, or None if not yet known. Never blocks."""
 ```
 
-**Wiring into `pipeline.py`:** `AbuseIPDBChecker.get_signal(ip)` is called in
+**Wiring into `../../src/security/pipeline.py`:** `AbuseIPDBChecker.get_signal(ip)` is called in
 `_collect_signals()` alongside the other signal collectors. Because it returns
 immediately from cache (or None), it imposes no latency on the hot path. Worker
 startup (`await checker.start()`) is called once in `ProxyServer.initialize()`.
@@ -382,7 +382,7 @@ starting workers. A restart is required to bring the worker pool up.
 - [x] `delegate_to_analytics: true`: IPs published to Redis Set; local workers idle
 - [x] `ABUSEIPDB_API_KEY` documented in `.env.example` with instructions
 - [x] `aiohttp` added to `requirements.txt`
-- [x] `get_signal(ip)` wired into `pipeline.py` `_collect_signals()`; `start()`/`stop()` called in `ProxyServer`
+- [x] `get_signal(ip)` wired into `../../src/security/pipeline.py` `_collect_signals()`; `start()`/`stop()` called in `ProxyServer`
 - [x] `abuseipdb_to_risk_signal()` uses `score_cap` from config (not hard-coded)
 
 ### Configuration

@@ -93,7 +93,7 @@ and for environments where Go deployment is not yet approved.
 **What:** Replace sequential `await signal_module.get_signal(ctx)` calls in
 `_collect_signals()` with concurrent execution using `asyncio.gather`.
 
-**Current code path in `pipeline.py` `_collect_signals()`:**
+**Current code path in `../../src/security/pipeline.py` `_collect_signals()`:**
 ```python
 tcp_signals  = await self._tcp_analyzer.analyze(ctx)      # 2 Redis RTTs
 asn_signals  = await self._asn_classifier.signals(ctx)    # MaxMind mmap
@@ -210,7 +210,7 @@ unixsocket /var/run/redis/redis.sock
 unixsocketperm 770
 ```
 
-**Fallback:** if the socket path does not exist, `config/loader.py` falls back
+**Fallback:** if the socket path does not exist, `../../src/config/loader.py` falls back
 to the TCP URL automatically. No hard dependency.
 
 **Acceptance criteria:**
@@ -359,7 +359,7 @@ the acceptance gate for the phase.
 
 **Requires:**
 - Phase 15 PPv2 implementation (or mock source IP injection)
-- `bench-tls-backend.py` as the backend target (removes backend bottleneck)
+- `../../scripts/bench-tls-backend.py` as the backend target (removes backend bottleneck)
 - 4-worker Docker Compose scale overlay from 26d
 
 **Scenarios:**

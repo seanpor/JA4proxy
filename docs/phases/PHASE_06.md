@@ -26,7 +26,7 @@ class ASNClassifier:
 
 **Classification priority order** (first match wins):
 1. IP in Tor exit node set → `tor`
-2. ASN in `asn_datacenter_list.yml` → `datacenter`
+2. ASN in `../../config/asn_datacenter_list.yml` → `datacenter`
 3. ASN in VPN provider list → `vpn`
 4. MaxMind org name pattern match → `datacenter` or `mobile`
 5. Default → `unknown` (not `residential` — unknown is more honest)
@@ -146,7 +146,7 @@ asn_classifier:
 - [x] JSON log: `{"type":"system","level":"INFO","subsystem":"asn","event":"tor_list_refreshed"}` emitted with `entries` and `elapsed_ms` fields
 - [x] JSON log: `{"type":"system","level":"ERROR","subsystem":"asn","event":"tor_list_download_failed"}` emitted with `error` and `entries_retained` fields
 
-### Unit Tests  (`tests/unit/test_asn_classifier.py`)
+### Unit Tests  (`../../tests/unit/security/test_asn_classifier.py`)
 - [x] `ASNClassifier.classify()`: known Tor exit IPv4 → category=tor, correct score
 - [x] `ASNClassifier.classify()`: known Tor exit IPv6 → category=tor, correct score
 - [x] `ASNClassifier.classify()`: ASN in datacenter list → category=datacenter, correct score

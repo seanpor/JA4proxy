@@ -48,7 +48,7 @@ This phase adds a third:
 | Management FastAPI cannot reach internet | Same |
 | Prometheus scrapes from `net-mgmt` only | All `*/metrics` bound to `net-mgmt` interface |
 
-### 1.2 Production / Multi-Host (`docker-compose.prod.yml`)
+### 1.2 Production / Multi-Host (`../../docker/docker-compose.prod.yml`)
 
 The existing production file already defines four networks. This phase adds the
 management tier split and enforces that Redis is never on `net-edge`:
@@ -960,7 +960,7 @@ USER 10001:10001
 
 ### 7.5 Image security
 
-All base images pinned by digest in `docker-compose.prod.yml`:
+All base images pinned by digest in `../../docker/docker-compose.prod.yml`:
 
 ```yaml
 services:

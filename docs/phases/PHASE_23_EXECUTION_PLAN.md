@@ -69,8 +69,8 @@ Transform JA4Proxy from **behavior detection** to **attacker attribution** by im
 - TDD: Fallback chain tests
 
 **23.1.4 — ASN Classification Database**
-- Files: `src/traffic_intelligence/asn_classifier.py` (new)
-- Tests: `tests/unit/traffic_intelligence/test_asn_classifier.py` (new)
+- Files: `../../src/security/asn_classifier.py` (new)
+- Tests: `../../tests/unit/security/test_asn_classifier.py` (new)
 - Implementation: ASN categorization (cloud, hosting, residential, etc.)
 - TDD: Category detection tests
 
@@ -302,7 +302,7 @@ Transform JA4Proxy from **behavior detection** to **attacker attribution** by im
 - TDD: Alert generation tests
 
 **23.4.9 — Reputation-Based Blocking Rules**
-- Files: `src/proxy.py` (modified) - Future integration
+- Files: `../../proxy.py` (modified) - Future integration
 - Tests: `tests/unit/traffic_intelligence/test_blocking_rules.py` (new)
 - Implementation: Dynamic blocking thresholds
 - TDD: Blocking rule tests

@@ -551,7 +551,7 @@ These extend the acceptance criteria in `PHASE_19.md`.
 ### Security Tests
 
 - [ ] 8 adversarial tests in `test_backup_attacks.py` all pass
-- [ ] 4 FP corpus tests in `test_backup_fp.py` all pass (critical keys included, transient excluded)
+- [ ] 4 FP corpus tests in `../../tests/fp_corpus/test_backup_fp.py` all pass (critical keys included, transient excluded)
 - [ ] `test_backup_excludes_never_backup_patterns` passes (confirms secrets not exported)
 - [ ] `test_restore_without_force_does_not_clear_redis` passes (non-destructive guarantee)
 

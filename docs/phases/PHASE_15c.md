@@ -39,7 +39,7 @@ at compile time so there is only one copy.
 
 4. Delete the `slidingWindowLua` constant — it is no longer needed.
 
-5. The embed path is relative to the source file. `lua.go` is at
+5. The embed path is relative to the source file. `../../internal/redis/lua.go` is at
    `internal/redis/lua.go` so `../../scripts/sliding_window.lua` points to the
    repo root `scripts/` directory. Verify the path is correct by running:
    ```bash
@@ -105,7 +105,7 @@ Read the section. Every done item must have `[x]` and an evidence note.
 
 ### B-1 · Add Go benchmarks for the TLS parser
 
-**File:** `internal/tls/parser_test.go` (create it; the package already has `ja4_test.go`)
+**File:** `internal/tls/parser_test.go` (create it; the package already has `../../internal/tls/ja4_test.go`)
 **Effort:** ~30 minutes
 **Why:** There are no `BenchmarkXxx` functions in any Go test file. Without them you
 cannot measure parser throughput or detect regressions. The TLS parser is the very
@@ -813,7 +813,7 @@ done
 
 Both lines for each fixture must match.
 
-**Add the new fixtures to `known_ja4.json`:**
+**Add the new fixtures to `../../tests/fixtures/clienthello/known_ja4.json`:**
 
 Run `scripts/generate_synthetic_fixtures.py` — it will append the new fixtures if
 you add them to its `KNOWN_FIXTURES` list at the top of that script. Or update

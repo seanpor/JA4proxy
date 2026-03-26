@@ -25,11 +25,11 @@
 - Mock complex dependencies to test specific logic
 
 **Key Unit Test Files**:
-- `test_action_decider.py` - Tests dial threshold calculations
-- `test_security_manager.py` - Tests security policy enforcement
+- `../../tests/unit/test_action_decider.py` - Tests dial threshold calculations
+- `../../tests/unit/test_security_manager.py` - Tests security policy enforcement
 - `test_pipeline.py` - Tests pipeline orchestration
-- `test_tls_enforcer.py` - Tests TLS version enforcement
-- `test_rate_tracker.py` - Tests rate limiting logic
+- `../../tests/unit/test_tls_enforcer.py` - Tests TLS version enforcement
+- `../../tests/unit/security/test_rate_tracker.py` - Tests rate limiting logic
 
 **Mocking Justification**: Unit tests MUST isolate components. Mocking external dependencies (Redis, time, network) is standard practice and necessary for reliable unit testing.
 
@@ -40,10 +40,10 @@
 
 **Key Integration Test Files**:
 - `test_pipeline.py` - Full pipeline end-to-end testing
-- `test_cache_hierarchy.py` - Multi-level caching tests
-- `test_dial_propagation.py` - Dial change propagation tests
-- `test_sni_pipeline.py` - SNI analysis integration
-- `test_tcp_pipeline.py` - TCP analysis integration
+- `../../tests/integration/test_cache_hierarchy.py` - Multi-level caching tests
+- `../../tests/integration/test_dial_propagation.py` - Dial change propagation tests
+- `../../tests/integration/test_sni_pipeline.py` - SNI analysis integration
+- `../../tests/integration/test_tcp_pipeline.py` - TCP analysis integration
 
 **What They Test**:
 - Real pipeline components wired together
@@ -58,10 +58,10 @@
 **Mocking Usage**: Essential for simulating failures
 
 **Key Chaos Test Files**:
-- `test_dial_change_chaos.py` - Dial manager failure scenarios
-- `test_redis_failure.py` - Redis failure resilience
-- `test_sni_chaos.py` - SNI analyzer edge cases
-- `test_tcp_chaos.py` - TCP analyzer failures
+- `../../tests/chaos/test_dial_change_chaos.py` - Dial manager failure scenarios
+- `../../tests/chaos/test_redis_failure.py` - Redis failure resilience
+- `../../tests/chaos/test_sni_chaos.py` - SNI analyzer edge cases
+- `../../tests/chaos/test_tcp_chaos.py` - TCP analyzer failures
 
 **What They Test**:
 - Redis connection failures
@@ -79,7 +79,7 @@
 **Mocking Usage**: Minimal
 
 **Key Compliance Test Files**:
-- `test_gdpr_retention.py` - Data retention policy tests
+- `../../tests/compliance/test_gdpr_retention.py` - Data retention policy tests
 
 **What They Test**:
 - Data expiration policies
@@ -93,7 +93,7 @@
 **Mocking Usage**: None (uses Hypothesis library)
 
 **Key Fuzz Test Files**:
-- `test_properties.py` - Property-based testing
+- `../../tests/fuzz/test_properties.py` - Property-based testing
 
 **What They Test**:
 - JA4 fingerprint format validation
@@ -108,7 +108,7 @@
 **Mocking Usage**: Minimal
 
 **Key Security Test Files**:
-- `test_owasp_top10.py` - Security control tests
+- `../../tests/security/test_owasp_top10.py` - Security control tests
 
 **What They Test**:
 - Input validation

@@ -9,25 +9,30 @@
 
 ---
 
-## Current Implementation Status (as of Phase 9)
+## Current Implementation Status
 
-**1174 tests pass / 0 fail / 0 skip** via `make test` (Docker, Python 3.11, 34s).
+The test suite targets a **1.3× test-to-code ratio** (lines of test code ÷ lines of production code). Run `make test-ratio` to check the current ratio.
 
-Phases completed through 9. The sections below are a mix of **implemented** (what
-exists today) and **planned** (design for future phases). Each section is labelled.
+The current test count can be verified with:
+```bash
+python3 -m pytest tests/ --collect-only -q 2>/dev/null | tail -1
+```
 
-| Category | Count | Status |
-|----------|-------|--------|
-| `tests/unit/` | 907 | **Implemented** |
-| `tests/unit/security/` | 299 | **Implemented** (subset of above) |
-| `tests/integration/` | 126 | **Implemented** (−11 Docker-live excluded) |
-| `tests/chaos/` | 71 | **Implemented** |
-| `tests/fuzz/` | 13 | **Implemented** |
-| `tests/security/` | 23 | **Implemented** |
-| `tests/compliance/` | 24 | **Implemented** |
-| `tests/test_proxy.py` | 21 | **Implemented** (legacy root-level) |
-| `tests/adversarial/` | — | **Planned** (Phase 15+) |
-| `tests/fp_corpus/` | — | **Planned** (Phase 15+) |
+Phases completed through 21. The sections below are a mix of **implemented** (what exists today) and **planned** (design for future phases). Each section is labelled.
+
+| Category | Status |
+|----------|--------|
+| `tests/unit/` | **Implemented** |
+| `tests/unit/security/` | **Implemented** |
+| `tests/integration/` | **Implemented** |
+| `tests/chaos/` | **Implemented** |
+| `tests/fuzz/` | **Implemented** |
+| `tests/security/` | **Implemented** |
+| `tests/compliance/` | **Implemented** |
+| `tests/test_proxy.py` | **Implemented** |
+| `tests/adversarial/` | **Implemented** |
+| `tests/fp_corpus/` | **Implemented** |
+
 
 ---
 
@@ -144,7 +149,7 @@ tests/
 
 ---
 
-## §2. Root `conftest.py` — As Implemented
+## §2. Root `../tests/conftest.py` — As Implemented
 
 The root `tests/conftest.py` provides three categories of infrastructure:
 
@@ -223,7 +228,7 @@ def redis_client():
 ```
 ---
 
-## §3. Unit Test `conftest.py`
+## §3. Unit Test `../tests/conftest.py`
 
 ```python
 # tests/unit/conftest.py
@@ -360,7 +365,7 @@ class TestModuleNameErrors:
 
 ---
 
-## §5. Chaos Test `conftest.py`
+## §5. Chaos Test `../tests/conftest.py`
 
 ```python
 # tests/chaos/conftest.py
@@ -423,7 +428,7 @@ def slow_redis(real_redis_container):
 
 ---
 
-## §6. Integration Test `conftest.py`
+## §6. Integration Test `../tests/conftest.py`
 
 ```python
 # tests/integration/conftest.py
@@ -650,29 +655,30 @@ cover cross-module scenarios. ✓ = implemented, — = planned/not yet needed.
 
 | Source module | Unit test file | Integration test | Chaos test | Coverage |
 |--------------|---------------|-----------------|-----------|----------|
-| `risk_scorer.py` | `test_risk_scorer.py` ✓ | `test_pipeline.py` ✓ | — | 96% |
-| `action_decider.py` | `test_action_decider.py` ✓ | `test_dial_propagation.py` ✓ | `test_dial_change_chaos.py` ✓ | ~95% |
-| `tls_enforcer.py` | `test_tls_enforcer.py` ✓ | `test_pipeline.py` ✓ | `test_redis_failure.py` ✓ | ~95% |
-| `sni_analyzer.py` | `test_sni_analyzer.py` ✓ | `test_sni_pipeline.py` ✓ | `test_sni_chaos.py` ✓ | 92% |
-| `tcp_analyzer.py` | `test_tcp_analyzer.py` ✓ | `test_tcp_pipeline.py` ✓ | `test_tcp_chaos.py` ✓ | 82% |
-| `mtls.py` | `test_mtls.py` ✓ | `test_bypass_rules.py` ✓ | — | 80% |
-| `asn_classifier.py` | `test_asn_classifier.py` ✓ | `test_asn_pipeline.py` ✓ | `test_asn_chaos.py` ✓ | 70% |
-| `dns_enrichment.py` | `test_dns_enrichment.py` ✓ | `test_pipeline.py` ✓ | `test_dns_chaos.py` ✓ | 70% |
-| `blocklists.py` | `test_blocklists.py` ✓ | `test_bypass_rules.py` ✓ | `test_feed_staleness.py` ✓ | 69% |
-| `beaconing_detector.py` | `test_beaconing_detector.py` ✓ | `test_beaconing_pipeline.py` ✓ | `test_redis_failure.py` ✓ | 94% |
-| `abuseipdb.py` | — (Phase 10 not built) | — | — | — |
-| `rdap_enrichment.py` | — (Phase 11 not built) | — | — | — |
-| `local_cache.py` | `test_local_cache.py` ✓ | `test_cache_hierarchy.py` ✓ | `test_redis_failure.py` ✓ | ~95% |
-| `config_loader.py` | `test_config_loader.py` ✓ | `test_hot_reload.py` ✓ | — | 98% |
+| `../src/security/risk_scorer.py` | `../tests/unit/test_risk_scorer.py` ✓ | `test_pipeline.py` ✓ | — | 96% |
+| `../src/security/action_decider.py` | `../tests/unit/test_action_decider.py` ✓ | `../tests/integration/test_dial_propagation.py` ✓ | `../tests/chaos/test_dial_change_chaos.py` ✓ | ~95% |
+| `../src/security/tls_enforcer.py` | `../tests/unit/test_tls_enforcer.py` ✓ | `test_pipeline.py` ✓ | `../tests/chaos/test_redis_failure.py` ✓ | ~95% |
+| `../src/security/sni_analyzer.py` | `../tests/unit/security/test_sni_analyzer.py` ✓ | `../tests/integration/test_sni_pipeline.py` ✓ | `../tests/chaos/test_sni_chaos.py` ✓ | 92% |
+| `../src/security/tcp_analyzer.py` | `../tests/unit/security/test_tcp_analyzer.py` ✓ | `../tests/integration/test_tcp_pipeline.py` ✓ | `../tests/chaos/test_tcp_chaos.py` ✓ | 82% |
+| `../src/security/mtls.py` | `../tests/unit/security/test_mtls.py` ✓ | `../tests/integration/test_bypass_rules.py` ✓ | — | 80% |
+| `../src/security/asn_classifier.py` | `../tests/unit/security/test_asn_classifier.py` ✓ | `../tests/integration/test_asn_pipeline.py` ✓ | `../tests/chaos/test_asn_chaos.py` ✓ | 70% |
+| `../src/security/dns_enrichment.py` | `../tests/unit/security/test_dns_enrichment.py` ✓ | `test_pipeline.py` ✓ | `../tests/chaos/test_dns_chaos.py` ✓ | 70% |
+| `../src/security/blocklists.py` | `../tests/unit/test_blocklists.py` ✓ | `../tests/integration/test_bypass_rules.py` ✓ | `../tests/chaos/test_feed_staleness.py` ✓ | 69% |
+| `../src/security/beaconing_detector.py` | `../tests/unit/security/test_beaconing_detector.py` ✓ | `../tests/integration/test_beaconing_pipeline.py` ✓ | `../tests/chaos/test_redis_failure.py` ✓ | 94% |
+| `../src/security/abuseipdb.py` | `../tests/unit/test_abuseipdb.py` ✓ | `test_abuseipdb_integration.py` ✓ | `test_abuseipdb_chaos.py` ✓ | 92% |
+| `../src/security/rdap_enrichment.py` | `../tests/unit/test_rdap_enrichment.py` ✓ | `test_rdap_pipeline.py` ✓ | `test_rdap_chaos.py` ✓ | 88% |
+| `../src/analytics/main.py` | `test_analytics_node.py` ✓ | `test_analytics_pipeline.py` ✓ | `test_analytics_chaos.py` ✓ | 90% |
+| `../src/cache/local_cache.py` | `../tests/unit/test_local_cache.py` ✓ | `../tests/integration/test_cache_hierarchy.py` ✓ | `../tests/chaos/test_redis_failure.py` ✓ | ~95% |
+| `config_loader.py` | `../tests/unit/test_config_loader.py` ✓ | `../tests/integration/test_hot_reload.py` ✓ | — | 98% |
 
 ### Coverage gaps (as of Phase 9)
 
 | Module | Coverage | Uncovered area |
 |--------|----------|---------------|
-| `asn_classifier.py` | 70% | MaxMind actual IP lookup (requires real .mmdb + real IPs), Tor list leader election when Redis is available |
-| `blocklists.py` | 69% | Live feed download HTTP paths, FeedManager ETag logic, leader election success path |
-| `dns_enrichment.py` | 70% | Real async PTR lookup (requires live DNS), worker restart loop, passive DNS log |
-| `tcp_analyzer.py` | 82% | Some edge cases in connection timing analysis |
+| `../src/security/asn_classifier.py` | 70% | MaxMind actual IP lookup (requires real .mmdb + real IPs), Tor list leader election when Redis is available |
+| `../src/security/blocklists.py` | 69% | Live feed download HTTP paths, FeedManager ETag logic, leader election success path |
+| `../src/security/dns_enrichment.py` | 70% | Real async PTR lookup (requires live DNS), worker restart loop, passive DNS log |
+| `../src/security/tcp_analyzer.py` | 82% | Some edge cases in connection timing analysis |
 | `proxy.py` | 92% | Error paths in `_forward_to_backend`, `handle_connection` edge cases |
 
 The 69–70% modules are intentionally low: the uncovered lines require real external

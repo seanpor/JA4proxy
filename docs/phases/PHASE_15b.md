@@ -408,7 +408,7 @@ switches upstream after validation.
 - Go ≥ 1.22 installed on build host
 - Python proxy running and healthy
 - All Phase 0–14 tests passing
-- `reports/benchmark_baseline.txt` exists (Python benchmark recorded)
+- `../reports/benchmark_baseline.txt` exists (Python benchmark recorded)
 
 ## Step-by-Step Migration
 
@@ -446,7 +446,7 @@ Record Go benchmark:
 python3 -m pytest tests/performance/test_bench_go_proxy.py -v
 ```
 
-Go throughput must be ≥ 5× Python (check `reports/benchmark_baseline.txt`).
+Go throughput must be ≥ 5× Python (check `../reports/benchmark_baseline.txt`).
 
 ### Step 4: Run Chaos Tests Against Go Proxy
 

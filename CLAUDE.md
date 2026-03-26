@@ -457,5 +457,5 @@ docs/
 7. Update `CHANGELOG.md` with a standard entry for the phase.
 8. Update `docs/phases/manifest.yaml`: set `status: COMPLETE`, remove any gaps that were resolved.
 9. Run `python3 scripts/sync-roadmap.py` — regenerates `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.
-10. Commit code, `CHANGELOG.md`, `manifest.yaml`, `TODO.md`, and `PROJECT_STATUS.md` as one atomic commit.
+10. Commit code, `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/phases/TODO.md`, and `docs/PROJECT_STATUS.md` as one atomic commit.
 11. Do not start the next phase until all acceptance criteria pass.

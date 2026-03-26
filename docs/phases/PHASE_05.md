@@ -175,7 +175,7 @@ tcp_analyzer:
 - [x] Prometheus counter: `ja4proxy_tcp_signal_total{signal}` — TCP signal fires by signal name
 - [ ] `docs/REDIS_SCHEMA.md` updated with all Phase 5 key patterns — **deferred; Phase 5 keys follow same pattern as Phase 0 schema**
 
-### Unit Tests  (`tests/unit/test_tcp_analyzer.py`, `tests/unit/test_mtls.py`)
+### Unit Tests  (`../../tests/unit/security/test_tcp_analyzer.py`, `../../tests/unit/security/test_mtls.py`)
 - [x] `TCPAnalyzer`: JA4T OS mismatch → ja4t_mismatch signal
 - [x] `TCPAnalyzer`: JA4T OS matches JA4 → no signal
 - [x] `TCPAnalyzer`: zero resumption after `min_connections` → no_resumption signal

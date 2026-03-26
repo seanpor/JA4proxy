@@ -119,7 +119,7 @@ func TestRateLimiter_BanThreshold(t *testing.T) {
 }
 ```
 
-The `mockRedis` struct in `pipeline_test.go` implements the full `RedisReader` interface.
+The `mockRedis` struct in `../internal/security/pipeline_test.go` implements the full `RedisReader` interface.
 All individual module tests that need Redis use the same mock.
 
 #### Async behaviour

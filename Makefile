@@ -376,8 +376,7 @@ lint-lua:
 # Validate JSON files: Grafana dashboards and API spec.
 JSON_FILES := monitoring/grafana/dashboards/ja4proxy-overview.json \
 	monitoring/grafana/dashboards/analytics.json \
-	docs/api/openapi.json \
-	grafana/dashboards/management_ui.json
+	docs/api/openapi.json
 lint-json:
 	@echo "=== JSON syntax validation ==="
 	@fail=0; \

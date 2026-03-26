@@ -909,9 +909,9 @@ vulnerability_management:
 
 ### Related Documentation
 
-- [System Architecture](architecture/system-architecture.md)
-- [Analytics Architecture](architecture/analytics-node-architecture.md)
-- [Developer Guide](developer/analytics-development.md)
+- [System Architecture](../architecture/system-architecture.md)
+- [Analytics Architecture](../architecture/analytics-node-architecture.md)
+- [Developer Guide](../developer/analytics-development.md)
 - [Comprehensive Security Audit](COMPREHENSIVE_SECURITY_AUDIT.md)
 - [Security Checklist](SECURITY_CHECKLIST.md)
 - [Phase 12 Planning Documents](phases/PHASE_12*.md)

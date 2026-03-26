@@ -9,7 +9,7 @@ Implementation is ~85% complete. Core proxy, TLS parsing, and all 14 signal modu
 The Go proxy must parity the Python proxy's ability to check Redis for real-time blocks/allows.
 - [x] **Add Redis Set support**: Add `SMembers`, `SAdd`, `SRem` to `internal/redis/client.go`.
 - [ ] **Thread-safe Pipeline Lists**: Add mutex-protected maps to `internal/security/pipeline.go` for JA4 lists.
-- [ ] **Redis Pre-population**: Update `cmd/proxy/main.go` to seed Redis from `proxy.yml` on startup (parity with `proxy.py`).
+- [ ] **Redis Pre-population**: Update `cmd/proxy/main.go` to seed Redis from `../../config/proxy.yml` on startup (parity with `proxy.py`).
 - [ ] **Dynamic CIDR Blocking**: Implement `geoip:blocked_cidrs` check in Go.
 
 ### 2. Enhance Pub/Sub & Hot-Reload (Priority: MEDIUM)

@@ -238,7 +238,7 @@ beaconing_detector:
 
 - [x] JSON log: beaconing signal appears in connection `signals` array as `{"name":"beaconing","score":N,"reason":"cv=0.12 over 47 observations"}` when emitted
 
-### Unit Tests  (`tests/unit/test_beaconing_detector.py`)
+### Unit Tests  (`../../tests/unit/security/test_beaconing_detector.py`)
 - [x] `beacon_score()`: CV=0 (perfect beacon) → score=0.9
 - [x] `beacon_score()`: CV=0.12 (jittered beacon) → score=0.9
 - [x] `beacon_score()`: CV=0.25 (moderate) → score=0.5

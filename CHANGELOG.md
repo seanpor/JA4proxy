@@ -85,8 +85,8 @@
 - `src/security/blocklists.py` — `RedisError`, `JSONDecodeError`, `ValueError` per catch site
 - `src/security/dns_enrichment.py` — `RedisError`, `JSONDecodeError`, `ValueError`, `TypeError` per catch site
 - `src/security/rdap_enrichment.py` — `RedisError`, `JSONDecodeError`, `asyncio.TimeoutError` per catch site
-- `src/security/asn_classifier.py`, `tcp_analyzer.py`, `beaconing_detector.py`, `abuseipdb.py` — specific types
-- `src/analytics/main.py`, `stream_consumer.py` — specific types
+- `src/security/asn_classifier.py`, `src/security/tcp_analyzer.py`, `src/security/beaconing_detector.py`, `src/security/abuseipdb.py` — specific types
+- `src/analytics/main.py`, `src/analytics/stream_consumer.py` — specific types
 
 **New Prometheus Metrics**
 - `ja4proxy_pipeline_unexpected_errors_total{phase}` — pipeline internal errors (must be 0)
@@ -240,18 +240,18 @@ No migration required — backup system is opt-in via configuration
 **16a — Adversarial Input Corpus**
 - `tests/adversarial/corpus/` — 13 ClientHello `.bin` files covering truncation, GREASE,
   max-length SNI, null bytes, duplicate extensions, overflow, and random garbage
-- `test_tls_parser_adversarial.py` — parametrized over all corpus files; parser must not
+- `tests/adversarial/test_tls_parser_adversarial.py` — parametrized over all corpus files; parser must not
   raise uncaught exceptions
-- `test_ja4_adversarial.py` — 10 degenerate inputs (empty, all-GREASE, max cipher list,
+- `tests/adversarial/test_ja4_adversarial.py` — 10 degenerate inputs (empty, all-GREASE, max cipher list,
   max SNI, 65 extension types)
 
 **16b — False-Positive Rate Corpus**
 - `tests/fp_corpus/data/tranco_top_10k.txt` — 10,000 domains; no network required
 - `tests/fp_corpus/data/residential_ips.txt` — 500 anonymised residential IPs
 - `tests/fp_corpus/data/browser_keepalive_timestamps.csv` — 450 rows, 30 sessions
-- `test_dga_fp_rate.py` — DGA FP rate < 1% on Tranco top 10k
-- `test_beaconing_fp_rate.py` — 0% FP on h2/h1 ALPN connections (ALPN guard verified)
-- `test_asn_fp_rate.py` — ASN FP rate < 2% on residential IP corpus
+- `tests/fp_corpus/test_dga_fp_rate.py` — DGA FP rate < 1% on Tranco top 10k
+- `tests/fp_corpus/test_beaconing_fp_rate.py` — 0% FP on h2/h1 ALPN connections (ALPN guard verified)
+- `tests/fp_corpus/test_asn_fp_rate.py` — ASN FP rate < 2% on residential IP corpus
 
 **16c — Coverage Gates (all src/security/*.py ≥ 80%, proxy.py ≥ 95%)**
 - `make lint-coverage` runs `pytest --cov-fail-under=80 --cov=src --cov=proxy`
@@ -596,27 +596,27 @@ actual state. Remaining gaps tracked in PHASE_12A-D.md.
 ### Added
 
 **Analytics Node (`src/analytics/`):**
-- `stream_consumer.py`: Redis Stream consumer with consumer group `analytics`,
+- `src/analytics/stream_consumer.py`: Redis Stream consumer with consumer group `analytics`,
   replay on restart, HMAC validation, configurable batch processing
-- `aggregation.py`: 5-minute rolling window aggregation per IP, /24, /48;
+- `src/analytics/aggregation.py`: 5-minute rolling window aggregation per IP, /24, /48;
   HyperLogLog unique IP counting; writes `analytics:agg:{window}:{subnet}`
-- `detection.py`: Campaign detection (density+block_rate thresholds), slow-scan
+- `src/analytics/detection.py`: Campaign detection (density+block_rate thresholds), slow-scan
   detection (low-rate distributed), JA4 fingerprint intelligence (candidate list)
-- `baseline_monitor.py`: Hourly score snapshots to `analytics:baseline:hourly:*`
+- `src/analytics/baseline_monitor.py`: Hourly score snapshots to `analytics:baseline:hourly:*`
   with 7-day TTL
-- `drift_detector.py`: Z-score drift detection vs 7-day baseline; alert to
+- `src/analytics/drift_detector.py`: Z-score drift detection vs 7-day baseline; alert to
   `analytics:alerts:score_drift`; Prometheus gauge
   `ja4proxy_analytics_score_drift_detected`
-- `shadow_scoring.py`: Known-good h2/h1 ALPN traffic tracked as calibration
+- `src/analytics/shadow_scoring.py`: Known-good h2/h1 ALPN traffic tracked as calibration
   signal; calibration alert when shadow median rises
-- `distribution_analyzer.py`: KS-statistic approximation for distribution shift
-- `authentication.py`: HMAC-SHA256 event signing with `compare_digest`
-- `validation.py`, `event_schemas.py`: JSON Schema event validation
-- `security_hardening.py`: Per-proxy rate limiting, audit event logging
-- `monitoring.py`: `MonitoringSystem` orchestrating all 12c components;
+- `src/analytics/distribution_analyzer.py`: KS-statistic approximation for distribution shift
+- `src/analytics/authentication.py`: HMAC-SHA256 event signing with `compare_digest`
+- `validation.py`, `src/analytics/event_schemas.py`: JSON Schema event validation
+- `src/analytics/security_hardening.py`: Per-proxy rate limiting, audit event logging
+- `src/analytics/monitoring.py`: `MonitoringSystem` orchestrating all 12c components;
   Prometheus metrics exposed
-- `main.py`: `AnalyticsNode` entry point with signal handling
-- `Dockerfile`, `entrypoint.sh`: Independent container (no proxy deps)
+- `src/analytics/main.py`: `AnalyticsNode` entry point with signal handling
+- `Dockerfile`, `src/analytics/entrypoint.sh`: Independent container (no proxy deps)
 - `config/analytics.yaml`: Full configuration
 
 **Proxy integration (`src/security/pipeline.py`):**
@@ -669,7 +669,7 @@ actual state. Remaining gaps tracked in PHASE_12A-D.md.
 - **Dial Counterfactual Endpoint**: `GET /api/v1/dial/counterfactual?dial={value}` estimates blocking impact
 
 **New Router Files:**
-- `management/routers/config.py`: Threshold, feature, country management with validation
+- `src/analytics/config.py`: Threshold, feature, country management with validation
 - `management/routers/health.py`: Health/ready endpoints (unauthenticated /health, /ready)
 - `management/routers/audit.py`: Paginated audit log with event type filtering
 - `management/routers/integrations.py`: AbuseIPDB, Spamhaus, RDAP, analytics status endpoints
@@ -712,7 +712,7 @@ actual state. Remaining gaps tracked in PHASE_12A-D.md.
 ### Changed
 
 - `management/server.py`: Added startup guard, CIDR middleware, router wiring, removed inline routes
-- `management/models.py`: Added `ThresholdConfig` model
+- `src/security/models.py`: Added `ThresholdConfig` model
 - `management/routers/dial.py`: Added counterfactual impact endpoint
 - `requirements.txt`: Added `sse-starlette>=1.6.5`
 - `config/proxy.yml`: Added `management_ui:` section with inline comments
@@ -1062,7 +1062,7 @@ actual state. Remaining gaps tracked in PHASE_12A-D.md.
   score weights for each classification type.
 - Pipeline integration: `ASNClassifier.get_signal()` wired into `_collect_signals()` as Phase 6 step.
 - Prometheus metrics: `ja4proxy_asn_classification_total{asn_type}` counter.
-- Tests: unit coverage for all classification paths, FP rate test (`test_asn_fp_rate.py`) — residential
+- Tests: unit coverage for all classification paths, FP rate test (`tests/fp_corpus/test_asn_fp_rate.py`) — residential
   IP false positive rate < 2% on corpus.
 
 ### Coverage
@@ -1306,7 +1306,7 @@ actual state. Remaining gaps tracked in PHASE_12A-D.md.
 ### PHASE 0 — REDIS FOUNDATIONS AND CACHING INFRASTRUCTURE
 
 #### Redis
-- **`docker-compose.poc.yml` / `docker-compose.prod.yml`** — Redis image updated from
+- **`docker-compose.poc.yml` / `docker/docker-compose.prod.yml`** — Redis image updated from
   `redis:7-alpine` to `redis/redis-stack:latest` to enable Bloom filter support
   (`BF.RESERVE`, `BF.ADD`, `BF.EXISTS`). Added `--maxmemory-policy allkeys-lru`,
   `--hz 20`, and `--tcp-keepalive 60` to the POC configuration.
@@ -1435,15 +1435,15 @@ actual state. Remaining gaps tracked in PHASE_12A-D.md.
 
 ### OPERATIONAL IMPROVEMENTS
 
-- **`stop-all.sh`** — unified stop for POC and monitoring stacks in one command.
+- **`scripts/stop-all.sh`** — unified stop for POC and monitoring stacks in one command.
   `--clean` flag removes all Docker volumes for a fresh restart.
-- **`status.sh`** — health dashboard showing container states, service HTTP checks,
+- **`scripts/status.sh`** — health dashboard showing container states, service HTTP checks,
   Redis connectivity, live security state (blacklist size, active bans, blocked countries,
   pending fingerprints), and access URLs with current Grafana password.
 - **`scripts/update-geoip.sh`** — downloads the latest IP2Location LITE DB1 from the
   public CDN (no account needed), validates the file, keeps a `.prev` backup.
   `--check` flag shows database age without downloading. `make update-geoip` / `make check-geoip`.
-- **`poc-status-check.sh`** — rewritten from scratch. Was using wrong backend port (8081),
+- **`scripts/poc-status-check.sh`** — rewritten from scratch. Was using wrong backend port (8081),
   hardcoded Redis password as "admin", and checked for files that don't exist.
   Now reads `.env` for credentials and checks all correct endpoints.
 - **Makefile** — added `start`, `stop`, `stop-clean`, `status`, `start-monitoring`,
@@ -1487,7 +1487,7 @@ actual state. Remaining gaps tracked in PHASE_12A-D.md.
 
 - **Layer 1b: dynamic country blacklist** — Redis set `geoip:dynamic_blacklist` checked on
   every connection after the static country lists. Added via `ja4-admin block-country` or
-  auto-populated by `geoip-monitor.sh`. Fails open on Redis error.
+  auto-populated by `scripts/geoip-monitor.sh`. Fails open on Redis error.
 - **Layer 1c: CIDR block check** — Redis set `geoip:blocked_cidrs` holds CIDRs (e.g.
   `203.0.113.0/24`, `185.220.0.0/16`). Proxy reloads from Redis every 30s; add/remove takes
   effect within 30s without restart.
@@ -1504,7 +1504,7 @@ actual state. Remaining gaps tracked in PHASE_12A-D.md.
   2. ja4db.com API — if `JA4DB_API_KEY` is set in `.env`
   Filters by malicious category keywords (malware, c2, trojan, rat, ransomware, etc.)
   and queues new fingerprints in Redis `ja4:pending` hash for admin review.
-- **Approval workflow** in `ja4-admin.sh`:
+- **Approval workflow** in `scripts/ja4-admin.sh`:
   - `fetch-db` → `list-pending` → `approve <FP>` / `reject <FP>` / `approve-all`
   - Approved fingerprints go into `ja4:blacklist` (instant effect) and should also be
     added to `config/proxy.yml` to survive container restart.
@@ -1567,7 +1567,7 @@ reach rate limiting. Verified across test runs from 20 to 200 concurrent workers
 
 ### 📊 METRICS & TOOLING
 
-- **Metrics summary aggregation** — `generate-tls-traffic.sh` summary now uses awk aggregation
+- **Metrics summary aggregation** — `scripts/generate-tls-traffic.sh` summary now uses awk aggregation
   instead of raw `grep` on `ja4_blocked_requests_total`. The `reason` label contains
   `"expires in Xs"` (unique per second over long runs), which caused the summary to print
   hundreds of lines. Output now shows clean per-fingerprint and per-action totals.
@@ -1595,10 +1595,10 @@ Measured with `./generate-tls-traffic.sh 300 15 200` (300s, 15% legit, 200 worke
 - **tmpfs** mounts for `/tmp` on all containers (noexec, nosuid, nodev)
 
 ### 🔑 SECRETS MANAGEMENT
-- **Auto-generated `.env`** — `start-poc.sh` creates `.env` with `openssl rand` secrets on first run (chmod 600)
+- **Auto-generated `.env`** — `scripts/start-poc.sh` creates `.env` with `openssl rand` secrets on first run (chmod 600)
 - **All passwords from env vars** — Redis, Grafana, and other credentials sourced from `${REDIS_PASSWORD}`, `${GRAFANA_PASSWORD}` 
 - **No hardcoded passwords** — All shell scripts use env vars instead of `changeme`
-- **Grafana password sync** — `start-monitoring.sh` resets admin password to match `.env` on every start
+- **Grafana password sync** — `scripts/start-monitoring.sh` resets admin password to match `.env` on every start
 
 ### 🌐 NETWORK SECURITY
 - **127.0.0.1 port bindings** — Internal services (proxy:8080, metrics:9090, backend:8443, tarpit:8888) only accessible from localhost
@@ -1658,7 +1658,7 @@ Measured with `./generate-tls-traffic.sh 300 15 200` (300s, 15% legit, 200 worke
 - Cleaned up 24 planning/session artifacts from `docs/`
 - Removed root-level `GRAFANA_SETUP.md`, `TRAFFIC_GENERATOR_SUMMARY.txt`
 - Rewrote `README.md` — focused POC demo guide with accurate architecture, ports, and commands
-- Moved `POC_QUICKSTART.md` to `docs/`
+- Moved `docs/POC_QUICKSTART.md` to `docs/`
 
 ## [3.0.0] - 2026-02-17 - ENTERPRISE SECURITY ARCHITECTURE
 
@@ -1709,17 +1709,17 @@ Measured with `./generate-tls-traffic.sh 300 15 200` (300s, 15% legit, 200 worke
 ### 📝 FILES MODIFIED
 - `proxy.py` — Major rewrite: security framework integration, PROXY protocol, tarpit redirect, fixed JA4 parsing
 - `config/proxy.yml` — New security section with thresholds, strategies, whitelist, blacklist
-- `mock-backend.py` — HTTPS support via TLS_CERT/TLS_KEY env vars
+- `scripts/mock-backend.py` — HTTPS support via TLS_CERT/TLS_KEY env vars
 - `Dockerfile.mockbackend` — TLS cert packaging
 - `docker-compose.poc.yml` — Added haproxy, tarpit services; backend on :443
 - `scripts/tls-traffic-generator.py` — Complete rewrite for real TLS connections
-- `generate-tls-traffic.sh` — Updated for new architecture
+- `scripts/generate-tls-traffic.sh` — Updated for new architecture
 - `monitoring/grafana/dashboards/ja4proxy-overview.json` — Redesigned dashboard
 
 ## [2.0.1] - 2026-02-16 - TRAFFIC GENERATOR FIX
 
 ### 🐛 BUG FIXES
-- **Fixed traffic generator bypassing proxy** - `generate-tls-traffic.sh` and `scripts/tls-traffic-generator.py` were sending requests directly to the backend (port 8081), completely bypassing the proxy. Prometheus metrics were never incremented, so Grafana dashboards showed no activity. Traffic is now routed through the proxy (port 8080) so that JA4 fingerprinting, security policies, and metrics collection all function correctly.
+- **Fixed traffic generator bypassing proxy** - `scripts/generate-tls-traffic.sh` and `scripts/tls-traffic-generator.py` were sending requests directly to the backend (port 8081), completely bypassing the proxy. Prometheus metrics were never incremented, so Grafana dashboards showed no activity. Traffic is now routed through the proxy (port 8080) so that JA4 fingerprinting, security policies, and metrics collection all function correctly.
 - **Fixed proxy rejecting non-TLS connections before recording metrics** - `JA4Fingerprint._sanitize_ja4()` raised `ValidationError` on sentinel values `"unknown"` and `"error"`, causing connections to be dropped before `REQUEST_COUNT` was incremented. These sentinel values are now allowed through validation so that all connections — including plain HTTP — are counted in Prometheus metrics and visible in Grafana.
 - **Fixed request duration histogram never recording** - `REQUEST_DURATION.observe()` was never called in `handle_connection`, so latency panels always showed empty. Now records duration from data read through security check.
 - **Fixed BLOCKED_REQUESTS label mismatches** - `check_access()` called `BLOCKED_REQUESTS.labels()` with only `reason` but the counter requires `reason`, `source_country`, and `attack_type`. Now passes all three labels.

@@ -252,7 +252,7 @@ sudo tee /etc/logrotate.d/ja4proxy << 'EOF'
 }
 EOF
 ```
-Loki (if running) has its own retention controlled by `docker-compose.monitoring.yml`.
+Loki (if running) has its own retention controlled by `../docker/docker-compose.monitoring.yml`.
 
 ---
 

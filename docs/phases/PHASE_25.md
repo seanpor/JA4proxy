@@ -12,8 +12,8 @@ policy.
 A gap audit identified four concrete problems:
 
 1. `TRIVY_IMAGES` in the Makefile is stale — wrong versions and missing images.
-2. `redis/redis-stack:latest` is unpinned in `docker-compose.prod.yml` — a security risk.
-3. `docker-compose.prod.yml` and `docker-compose.monitoring.yml` disagree on Grafana,
+2. `redis/redis-stack:latest` is unpinned in `../../docker/docker-compose.prod.yml` — a security risk.
+3. `../../docker/docker-compose.prod.yml` and `../../docker/docker-compose.monitoring.yml` disagree on Grafana,
    Loki, and Promtail versions — which version are we actually scanning?
 4. First-party built images (`ja4proxy`, `ja4proxy-analytics`, `ja4proxy-tarpit`) are
    never scanned for OS/package CVEs.
@@ -58,7 +58,7 @@ Covers: third-party images in all compose files, base images in all Dockerfiles.
 
 **Version harmonisation — prod vs monitoring compose files:**
 
-`docker-compose.prod.yml` and `docker-compose.monitoring.yml` must use the same
+`../../docker/docker-compose.prod.yml` and `../../docker/docker-compose.monitoring.yml` must use the same
 version for shared images. Divergence detected:
 
 | Image | prod version | monitoring version | Resolution |
@@ -72,7 +72,7 @@ version for shared images. Divergence detected:
 Loki 3.x changed the config schema. Before updating prod compose:
 
 1. Spin up monitoring stack (`docker compose -f docker/docker-compose.monitoring.yml up`).
-2. Verify `loki-config.yml` and `promtail-config.yml` work with 3.3.x.
+2. Verify `../../monitoring/loki/loki-config.yml` and `../../monitoring/loki/promtail-config.yml` work with 3.3.x.
 3. If config is incompatible, update the YAML configs first.
 4. Update prod compose only after monitoring stack validates clean.
 
@@ -82,7 +82,7 @@ Do **not** skip validation — a broken Loki in prod means no log ingestion.
 
 - [ ] `docs/DOCKER_IMAGES.md` exists and lists every image from all compose files and Dockerfiles.
 - [ ] No `:latest` tags in any compose file (`grep -r ':latest' docker/ | grep image:` returns empty).
-- [ ] `docker-compose.prod.yml` and `docker-compose.monitoring.yml` agree on version for every shared image.
+- [ ] `../../docker/docker-compose.prod.yml` and `../../docker/docker-compose.monitoring.yml` agree on version for every shared image.
 - [ ] All version changes validated against compose `config` command (no parse errors).
 
 ---
@@ -99,7 +99,7 @@ Problems:
   `ja4proxy-tarpit:latest`) never scanned.
 - Dockerfiles never checked for config misconfigurations (USER root, no
   HEALTHCHECK, ADD with URL, etc.).
-- Both `docker-compose.prod.yml` and `docker-compose.monitoring.yml` deploy images
+- Both `../../docker/docker-compose.prod.yml` and `../../docker/docker-compose.monitoring.yml` deploy images
   but only prod images are scanned.
 
 ### Deliverables
@@ -199,14 +199,14 @@ the current stable. Example: if grafana is at 11.2.x, we should be on ≥11.0.x.
 **Never use `:latest`** — in production compose files. Use a specific version tag.
 
 **Digest pinning (optional stretch goal):** Pin images to their SHA256 digest in
-`docker-compose.prod.yml`. This is the gold standard but requires a process to
+`../../docker/docker-compose.prod.yml`. This is the gold standard but requires a process to
 update digests. Implement only if the team adopts a CI pipeline that automates it.
 
 ### `scripts/check_image_versions.py`
 
 A lightweight script that:
 
-1. Reads all image tags from `docker-compose.prod.yml` and `docker-compose.monitoring.yml`.
+1. Reads all image tags from `../../docker/docker-compose.prod.yml` and `../../docker/docker-compose.monitoring.yml`.
 2. Checks for `image:latest` tags (error).
 3. Reports when the same image appears with different versions in different files (warning).
 4. Outputs a summary report.
@@ -342,7 +342,7 @@ Before marking Phase 25 COMPLETE:
 - [ ] `docs/runbooks/docker_image_updates.md` written.
 - [ ] CHANGELOG.md updated with a Phase 25 entry.
 - [ ] `manifest.yaml` status set to COMPLETE.
-- [ ] `sync-roadmap.py` re-run.
+- [ ] `../../scripts/sync-roadmap.py` re-run.
 - [ ] `make check-manifest` passes.
 
 ---

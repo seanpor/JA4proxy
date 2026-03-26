@@ -46,7 +46,7 @@ Implement in order. Each sub-phase has its own acceptance criteria below.
 ### Secrets hardening
 
 **Gap 1:** `docker-compose.poc.yml` has `${REDIS_PASSWORD:-changeme}` fallback in four
-places. If an operator runs `docker compose up` without `start-poc.sh` they get the
+places. If an operator runs `docker compose up` without `../../scripts/start-poc.sh` they get the
 well-known default password.
 
 **Fix:** Replace all four occurrences with
@@ -321,8 +321,8 @@ beaconing:
 metrics exist** in the current codebase. All real metrics use the `ja4proxy_` prefix.
 
 The alertmanager rules directory (`monitoring/alertmanager/rules/`) contains only
-`management_ui_rules.yml`. The Phase 14 plan requires `proxy.rules.yml`,
-`redis.rules.yml`, and `security.rules.yml`.
+`../../monitoring/alertmanager/rules/management_ui_rules.yml`. The Phase 14 plan requires `../../monitoring/alertmanager/rules/proxy.rules.yml`,
+`../../monitoring/alertmanager/rules/redis.rules.yml`, and `../../monitoring/alertmanager/rules/security.rules.yml`.
 
 ### Implementation
 
@@ -581,7 +581,7 @@ All Phase 14 config values are hot-reloadable (apply to next connection).
 - [x] `ja4_active_connections` renamed to `ja4proxy_active_connections`
 - [x] Three alertmanager rule files created (proxy, redis, security)
 - [x] `promtool check rules` passes on all rule files (43 structural tests substitute where promtool unavailable)
-- [x] `COMPREHENSIVE_SECURITY_AUDIT.md` updated to reflect current state
+- [x] `../security/COMPREHENSIVE_SECURITY_AUDIT.md` updated to reflect current state
 
 ### 14f — Production Docker
 - [x] `docker/docker-compose.prod.yml` references only real files

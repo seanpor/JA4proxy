@@ -4,7 +4,7 @@
 
 Some work from this spec is already done (exception handling in pipeline.py, f-string
 logging, `ja4proxy_signal_skipped_total`, `ja4proxy_signal_error_total`,
-`test_pipeline_remediation.py`). Remaining gaps are listed in `manifest.yaml` Phase 18.
+`../../tests/chaos/test_pipeline_remediation.py`). Remaining gaps are listed in `manifest.yaml` Phase 18.
 
 ## Purpose and Separation from Phase 17a
 
@@ -39,8 +39,8 @@ This phase addresses all of them in four sequential sub-phases.
 
 ## 17b-1: Critical Fixes — Exception Handling
 
-**Files:** `pipeline.py`, `security_manager.py`, `blocklists.py`, `dns_enrichment.py`,
-`asn_classifier.py`, `rdap_enrichment.py`
+**Files:** `../../src/security/pipeline.py`, `../../src/security/security_manager.py`, `../../src/security/blocklists.py`, `../../src/security/dns_enrichment.py`,
+`../../src/security/asn_classifier.py`, `../../src/security/rdap_enrichment.py`
 
 ### Problem
 
@@ -167,7 +167,7 @@ async def _collect_signals(self, ctx: ConnectionContext) -> list[RiskSignal]:
 
 ### Problem
 
-`pipeline.py` imports concrete implementations of every signal collector directly
+`../../src/security/pipeline.py` imports concrete implementations of every signal collector directly
 (`from src.security.asn_classifier import ASNClassifier`). This makes it impossible
 to test the pipeline in isolation without mocking all 14 signal collectors.
 
@@ -566,9 +566,9 @@ async def get_signal(self, ctx: ConnectionContext) -> RiskSignal | None:
 
 ### Tests
 
-- [ ] Minimum 20 unit tests in `test_exception_handling.py` (one per exception type)
-- [ ] Minimum 5 unit tests in `test_pipeline_isolation.py`
-- [ ] Minimum 6 chaos tests in `test_exception_handling_chaos.py`
+- [ ] Minimum 20 unit tests in `../../tests/unit/test_exception_handling.py` (one per exception type)
+- [ ] Minimum 5 unit tests in `../../tests/unit/test_pipeline_isolation.py`
+- [ ] Minimum 6 chaos tests in `../../tests/chaos/test_exception_handling_chaos.py`
 - [ ] All 1293+ existing tests still pass after each sub-phase
 
 ### Observability

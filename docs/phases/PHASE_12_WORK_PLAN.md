@@ -9,10 +9,10 @@ This plan outlines the final steps to transition Phase 12 from "Partial/Gap-fill
 ### 2.1. Dependency Optimization
 *   **Task:** Audit `requirements-analytics.txt` to ensure minimal attack surface.
 *   **Standard:** No unused heavy libraries (like `pandas` or `scipy` if `numpy` suffices).
-*   **Action:** Verify `numpy` vs `scipy` usage for KS-test approximation in `distribution_analyzer.py`.
+*   **Action:** Verify `numpy` vs `scipy` usage for KS-test approximation in `../../src/analytics/distribution_analyzer.py`.
 
 ### 2.2. Health & Readiness
-*   **Task:** Verify the `aiohttp` server in `main.py` correctly reflects downstream health (Redis connection, stream lag).
+*   **Task:** Verify the `aiohttp` server in `../../src/analytics/main.py` correctly reflects downstream health (Redis connection, stream lag).
 *   **TDD:** Add a chaos test that kills Redis and verifies `/health` returns 503 within 5 seconds.
 
 ## 3. Phase 12b: Detection Module Integration (Go-Forward)
@@ -52,7 +52,7 @@ This plan outlines the final steps to transition Phase 12 from "Partial/Gap-fill
 *   **Task:** Convert f-string logging to lazy formatting (`logger.info("msg %s", var)`) to follow project standards across all Python analytics modules.
 
 ### 5.3. Rate Limit Wiring
-*   **Task:** Fully connect the `proxy_specific` rate limit configuration in `analytics.yaml` to `SecurityHardening.check_rate_limit()`.
+*   **Task:** Fully connect the `proxy_specific` rate limit configuration in `../../config/analytics.yaml` to `SecurityHardening.check_rate_limit()`.
 
 ## 6. Detailed Implementation Sequence (TDD)
 
@@ -61,7 +61,7 @@ This plan outlines the final steps to transition Phase 12 from "Partial/Gap-fill
 2. Build the Docker image: `docker build -t ja4proxy-analytics -f src/analytics/Dockerfile .`.
 
 ### Step 2: Security & Cleanup (Day 2)
-1. Refactor exception handling in `aggregation.py` and `stream_consumer.py`.
+1. Refactor exception handling in `../../src/analytics/aggregation.py` and `../../src/analytics/stream_consumer.py`.
 2. Refactor all logging to lazy formatting in `src/analytics/`.
 3. **Validation:** Ensure 100% test pass rate after refactoring.
 

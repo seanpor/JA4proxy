@@ -72,8 +72,8 @@ in their own event loop, the cumulative volume of orphaned tasks causes
 `_cancel_all_tasks` to take longer than the 300 s wall.
 
 Additional long-lived background task creators in the codebase:
-- `blocklists.py`: `asyncio.create_task(self._refresh_loop(feed_cfg))`
-- `dns_enrichment.py`: `asyncio.create_task(self._worker_with_restart(i))`
+- `../../src/security/blocklists.py`: `asyncio.create_task(self._refresh_loop(feed_cfg))`
+- `../../src/security/dns_enrichment.py`: `asyncio.create_task(self._worker_with_restart(i))`
 
 These are not currently implicated but follow the same pattern and should be added
 to `_no_real_network` if they ever cause similar symptoms.

@@ -708,21 +708,21 @@ etc.), but does not explicitly require all 7 categories. This checklist makes it
 
 - [ ] **Unit tests**: `tests/adversarial/`, `tests/fp_corpus/`, `tests/unit/security/test_ja4x.py`,
       `tests/unit/test_admin_cli.py` — minimum 35 tests across all new Phase 16 units
-- [ ] **Integration tests**: `test_fingerprinting.py`, `test_adaptive_rate.py` — minimum 4 tests
-- [ ] **Chaos tests**: `test_external_api_failure.py` with all 3 class scenarios — minimum 8 tests
+- [ ] **Integration tests**: `../../tests/integration/test_fingerprinting.py`, `test_adaptive_rate.py` — minimum 4 tests
+- [ ] **Chaos tests**: `../../tests/chaos/test_external_api_failure.py` with all 3 class scenarios — minimum 8 tests
 - [ ] **Adversarial tests**: `tests/adversarial/test_tls_parser_adversarial.py`,
-      `test_ja4_adversarial.py` — minimum 10 + 8 corpus/degenerate tests
-- [ ] **FP corpus tests**: `test_dga_fp_rate.py`, `test_beaconing_fp_rate.py`,
-      `test_asn_fp_rate.py` — minimum 3 tests with rate assertions
-- [ ] **Performance tests**: `test_bench_pipeline.py`, `test_bench_cidr_lookup.py` —
+      `../../tests/adversarial/test_ja4_adversarial.py` — minimum 10 + 8 corpus/degenerate tests
+- [ ] **FP corpus tests**: `../../tests/fp_corpus/test_dga_fp_rate.py`, `../../tests/fp_corpus/test_beaconing_fp_rate.py`,
+      `../../tests/fp_corpus/test_asn_fp_rate.py` — minimum 3 tests with rate assertions
+- [ ] **Performance tests**: `../../tests/performance/test_bench_pipeline.py`, `../../tests/performance/test_bench_cidr_lookup.py` —
       minimum 3 tests with regression gate
 - [ ] **E2E tests** (where applicable): JA4X emitted in pipeline log; adaptive threshold
       applied when analytics key present — minimum 2 E2E tests
 
 TDD process requirement:
-- [ ] `test_ja4x.py` written before `ja4x` field is added to `ConnectionContext`
+- [ ] `../../tests/unit/security/test_ja4x.py` written before `ja4x` field is added to `ConnectionContext`
 - [ ] `test_adaptive_rate.py` written before `get_rate_threshold()` is modified
-- [ ] `test_admin_cli.py` written before CLI commands are implemented
+- [ ] `../../tests/unit/test_admin_cli.py` written before CLI commands are implemented
 
 ---
 
