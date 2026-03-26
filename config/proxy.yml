@@ -1,5 +1,9 @@
 # Proxy configuration
 proxy:
+  # Operational mode: "passthrough" (default) or "tap"
+  #   passthrough — active inline proxy (forward/block/tarpit connections)
+  #   tap         — passive SPAN/TAP capture; never modifies traffic (Phase 20)
+  mode: passthrough
   # POC: Bind to all interfaces for Docker networking
   bind_host: "0.0.0.0"
   bind_port: "${PROXY_PORT:-8080}"

@@ -226,3 +226,42 @@ class TestConfigLoaderReload:
         loader.on_reload(good_callback)
         _run(loader.reload())
         assert "ok" in calls  # Good callback still called despite bad one
+
+
+# ---------------------------------------------------------------------------
+# Mode validation (G1-D — Phase 20)
+# ---------------------------------------------------------------------------
+
+
+class TestConfigLoaderMode:
+    def test_mode_passthrough_is_valid(self, tmp_path):
+        """proxy.mode=passthrough loads without error."""
+        cfg_file = tmp_path / "proxy.yml"
+        _write_config(cfg_file, {"proxy": {"mode": "passthrough"}})
+        loader = ConfigLoader(str(cfg_file))
+        result = _run(loader.load())
+        assert result["proxy"]["mode"] == "passthrough"
+
+    def test_mode_tap_is_valid(self, tmp_path):
+        """proxy.mode=tap loads without error."""
+        cfg_file = tmp_path / "proxy.yml"
+        _write_config(cfg_file, {"proxy": {"mode": "tap"}})
+        loader = ConfigLoader(str(cfg_file))
+        result = _run(loader.load())
+        assert result["proxy"]["mode"] == "tap"
+
+    def test_mode_invalid_raises_config_error(self, tmp_path):
+        """Unknown proxy.mode raises ConfigError."""
+        cfg_file = tmp_path / "proxy.yml"
+        _write_config(cfg_file, {"proxy": {"mode": "monitor"}})
+        loader = ConfigLoader(str(cfg_file))
+        with pytest.raises(ConfigError, match="Invalid proxy.mode"):
+            _run(loader.load())
+
+    def test_mode_defaults_to_passthrough_when_absent(self, tmp_path):
+        """Missing proxy.mode key defaults to 'passthrough'."""
+        cfg_file = tmp_path / "proxy.yml"
+        _write_config(cfg_file, {"proxy": {"bind_port": 8080}})
+        loader = ConfigLoader(str(cfg_file))
+        result = _run(loader.load())
+        assert result["proxy"]["mode"] == "passthrough"
