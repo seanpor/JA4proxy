@@ -1,7 +1,7 @@
 epics:
   - name: "Epic: Core Performance"
     description: "Optimization for high-throughput and multi-core systems."
-    phases: [0, 15, 17, 24]
+    phases: [0, 15, 17, 26]
     
   - name: "Epic: Security Hardening"
     description: "Deep security analysis, compliance, and audit remediation."
@@ -216,9 +216,10 @@ phases:
 
   24:
     name: "Go Strategy Assessment"
-    status: "PROPOSED"
-    summary: "Assessment of minimal Go component vs comprehensive rewrite approach."
+    status: "CLOSED"
+    summary: "Closed: premise (TLS parsing as bottleneck) refuted by benchmark data. Real bottlenecks are Redis RTT and sequential signal collection. See Phase 26 and Phase 15."
     action_plan: "docs/phases/PHASE_24_STRATEGY_ASSESSMENT.md"
+    closed_reason: "Empirical benchmarks (2026-03-25) showed TLS parsing is not the bottleneck. IPC overhead from gRPC would create a new bottleneck. Correct solutions: Phase 26 (Python hardening) and Phase 15 (full Go rewrite)."
 
   25:
     name: "Docker Container Management"
@@ -226,3 +227,17 @@ phases:
     summary: "Pin image versions, fix CVE scan gaps, first-party image scanning, image update policy."
     action_plan: "docs/phases/PHASE_25.md"
     dependencies: [14]
+
+  26:
+    name: "Python Throughput Hardening"
+    status: "OPEN"
+    summary: "Maximise Python proxy conn/s via parallel signal collection, Redis pipeline batching, Unix domain socket, and multi-process worker model. Target: ≥800 conn/s single process, ≥3,200 conn/s with 4 workers."
+    action_plan: "docs/phases/PHASE_26.md"
+    dependencies: [0, 12, 14]
+    substages:
+      - "26a: asyncio.gather for independent signal modules (highest ROI)"
+      - "26b: Redis pipeline batching for read operations"
+      - "26c: Redis Unix domain socket"
+      - "26d: Multi-process worker model (Docker Compose + HAProxy)"
+      - "26e: Deferred write batching (WriteBuffer)"
+      - "26f: Benchmark-validated capacity report"

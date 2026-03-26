@@ -1,5 +1,36 @@
 # Changelog
 
+## [19.4.0] - 2026-03-26 — Analysis: Benchmark-driven phase strategy update
+
+### Changed
+
+- **Phase 24 (Go strategy assessment)**: Closed. Empirical benchmark data (3 runs on 2026-03-25) shows TLS ClientHello parsing is not the bottleneck. Real bottlenecks are Redis round-trip serialisation (5–7 sequential RTTs per connection) and single-threaded asyncio. The gRPC IPC proposed in Phase 24 would add a new bottleneck without removing the existing ones. Full analysis in `docs/phases/PHASE_24_STRATEGY_ASSESSMENT.md`.
+
+### Added
+
+- **Phase 26 (Python throughput hardening)**: New phase with 6 substages targeting ≥800 conn/s single process and ≥3,200 conn/s with 4 worker processes.
+  - 26a: `asyncio.gather` for independent signal modules (highest ROI; reduces per-connection latency from ~4ms to ~1.5ms)
+  - 26b: Redis pipeline batching — collapse 5–7 sequential RTTs to ≤3
+  - 26c: Redis Unix domain socket — cut per-RTT cost from 0.5ms to 0.1ms
+  - 26d: Multi-process worker model via HAProxy (linear N× scaling, correct Redis semantics)
+  - 26e: Deferred write batching (`WriteBuffer`, 50ms flush window)
+  - 26f: Benchmark-validated capacity gate
+
+- **Benchmark analysis documents** added to `reports/benchmark/`:
+  - `2026-03-25_20-02-12/` — attack_500 with PPv2 (both proxies failed due to unimplemented PPv2 parsing in Go and asyncio saturation in Python)
+  - `2026-03-25_20-12-46/` — attack_500 without PPv2 (Go: 246 conn/s, 100% legit pass, 0% bot detection due to Phase 15 gap; Python: 6 conn/s due to per-IP concurrent cap from single benchmark source IP — correct security behaviour)
+
+### Production Capacity Baselines (measured 2026-03-25, i9-9900K)
+
+| Implementation | Configuration | Measured/Expected conn/s |
+|----------------|--------------|--------------------------|
+| Python current | 1 process | 248 (measured) |
+| Python Phase 26 | 1 process, all opts | 700–950 (expected) |
+| Python Phase 26 | 4 workers | 2,800–3,800 (expected) |
+| Go current (pass-through, no signals) | 1 instance | 335 (measured, backend-limited) |
+| Go Phase 15 complete | 1 instance, mixed traffic | 2,000–8,000 (expected) |
+| Go Phase 15 complete | 1 instance, warm cache | 5,000–15,000 (expected) |
+
 ## [19.3.0] - 2026-03-25 — Tooling: Go vs Python Comprehensive Benchmark Suite
 
 ### Added

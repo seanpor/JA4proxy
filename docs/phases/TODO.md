@@ -38,10 +38,10 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Attacker attribution, geographical intelligence, and threat intelligence integration.)
 *   **Action Plan:** [PHASE_23.md](PHASE_23.md)
 
-### Phase 24 — Go Strategy Assessment
-*   **Status:** **PROPOSED** (Assessment of minimal Go component vs comprehensive rewrite approach.)
-*   **Action Plan:** [PHASE_24_STRATEGY_ASSESSMENT.md](PHASE_24_STRATEGY_ASSESSMENT.md)
-
 ### Phase 25 — Docker Container Management
 *   **Status:** **OPEN** (Pin image versions, fix CVE scan gaps, first-party image scanning, image update policy.)
 *   **Action Plan:** [PHASE_25.md](PHASE_25.md)
+
+### Phase 26 — Python Throughput Hardening
+*   **Status:** **OPEN** (Maximise Python proxy conn/s via parallel signal collection, Redis pipeline batching, Unix domain socket, and multi-process worker model. Target: ≥800 conn/s single process, ≥3,200 conn/s with 4 workers.)
+*   **Action Plan:** [PHASE_26.md](PHASE_26.md)

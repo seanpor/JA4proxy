@@ -1,247 +1,135 @@
 # PHASE 24 — Go Strategy Assessment: Minimal Component vs Comprehensive Rewrite
 
-## Executive Summary
+**Status: CLOSED — superseded by empirical benchmark data (2026-03-25)**
 
-**Current Strategy (Phase 15)**: Comprehensive Go rewrite of entire proxy core (~23k lines)
-**Alternative Strategy**: Minimal Go component (500-2000 lines) handling only the performance-critical TLS parsing loop
+> **TL;DR:** The minimal Go component (gRPC-based TLS parser) was based on a false
+> premise. TLS parsing is not the bottleneck. This phase is closed. See Phase 26
+> (Python throughput hardening) and Phase 15 (full Go rewrite) instead.
 
-## Assessment Framework
+---
 
-### 1. Performance Analysis
+## Original Proposal
 
-**Current Python Bottleneck**:
-```
-TLS ClientHello parsing: 80-90% of CPU time
-- GREASE filtering
-- Cipher suite sorting
-- Extension parsing
-- JA4 fingerprint computation (SHA-256)
-```
+The original Phase 24 proposed a "hybrid" architecture where a small Go component
+(500–2,000 lines) handled TLS ClientHello parsing and handed the result to Python
+via gRPC, claiming 8–15× throughput improvement in 2–4 weeks.
 
-**Performance Potential**:
-```
-Component Size | Throughput Gain | Dev Time | Maintenance
---------------|----------------|----------|-------------
-Full Rewrite (23k LOC) | 10-50× | 4-6 months | High
-Minimal Component (500-2000 LOC) | 8-15× | 2-4 weeks | Low
-```
+---
 
-### 2. SWOT Analysis
+## Why the Premise Was Wrong
 
-**Minimal Go Component Approach**:
+### The bottleneck is not TLS parsing
 
-**Strengths**:
-- ✅ 80% of performance gain with 20% of effort
-- ✅ Maintains Python ecosystem (scipy, pandas, FastAPI)
-- ✅ Easier debugging and profiling
-- ✅ Smaller attack surface
-- ✅ Faster iteration cycle
-
-**Weaknesses**:
-- ❌ Still bound by Python GIL for non-TLS operations
-- ❌ IPC overhead between Go/Python processes
-- ❌ Limited to TLS parsing optimization only
-
-**Opportunities**:
-- 🚀 Can be implemented in parallel with current Phase 15
-- 🚀 Serves as performance baseline for full rewrite
-- 🚀 Lower risk migration path
-- 🚀 Easier to maintain and update
-
-**Threats**:
-- ⚠️ May not achieve 50× throughput target
-- ⚠️ IPC could become new bottleneck
-- ⚠️ Limited scalability ceiling
-
-**Full Rewrite Approach**:
-
-**Strengths**:
-- ✅ Maximum performance potential (10-50×)
-- ✅ Unified codebase
-- ✅ Better resource utilization
-- ✅ Future-proof architecture
-
-**Weaknesses**:
-- ❌ High development cost (4-6 months)
-- ❌ Steep learning curve for Go ecosystem
-- ❌ Larger attack surface
-- ❌ Harder to debug and profile
-
-**Opportunities**:
-- 🚀 Complete architectural modernization
-- 🚀 Better long-term maintainability
-- 🚀 Attracts Go developers
-- 🚀 Industry-standard approach
-
-**Threats**:
-- ⚠️ High risk of scope creep
-- ⚠️ Long time-to-value
-- ⚠️ Potential feature parity issues
-- ⚠️ Team skill gap
-
-## 3. Technical Comparison
-
-### Minimal Component Architecture
+The claim was "TLS ClientHello parsing consumes 80–90% of CPU time." Benchmark
+data disproves this:
 
 ```
-┌─────────────────────────────────────────────────┐
-│                 Python Proxy                    │
-│                                             │
-│  ┌─────────────┐    ┌─────────────────────┐  │
-│  │ TCP Listener│───▶│ Go TLS Parser       │  │
-│  └─────────────┘    │ (500-2000 LOC)       │  │
-│                    └─────────────────────┘  │
-│                              │                │
-│                              ▼                │
-│                    ┌─────────────────┐      │
-│                    │ Python Security │      │
-│                    │ Pipeline        │      │
-│                    └─────────────────┘      │
-│                              │                │
-│                              ▼                │
-│                    ┌─────────────────┐      │
-│                    │ Redis Operations│      │
-│                    └─────────────────┘      │
-└─────────────────────────────────────────────────┘
+Python single-threaded, sequential connections: 248 conn/s
+CPU usage at 248 conn/s on i9-9900K (16-core): <5% of one core
 ```
 
-**IPC Options**:
-1. **gRPC**: High-performance, structured data
-2. **Shared Memory**: Fastest, but complex synchronization
-3. **Unix Domain Sockets**: Simple, good performance
-4. **Redis Pub/Sub**: Already in infrastructure
+TLS ClientHello parsing is deterministic byte manipulation on 200–500 bytes.
+At 250 conn/s it consumes ≈15–30ms of CPU per second. That is unmeasurable
+against a 16-core machine.
 
-### Full Rewrite Architecture
+### The real bottlenecks are:
 
-```
-┌─────────────────────────────────────────────────┐
-│                   Go Proxy                      │
-│                                             │
-│  ┌─────────────┐    ┌─────────────────────┐  │
-│  │ TCP Listener│───▶│ TLS Parser          │  │
-│  └─────────────┘    │ JA4 Computation     │  │
-│                    └─────────────────────┘  │
-│                              │                │
-│                              ▼                │
-│                    ┌─────────────────────┐  │
-│                    │ Security Pipeline   │  │
-│                    │ (Go implementation)  │  │
-│                    └─────────────────────┘  │
-│                              │                │
-│                              ▼                │
-│                    ┌─────────────────────┐  │
-│                    │ Redis Operations    │  │
-│                    └─────────────────────┘  │
-└─────────────────────────────────────────────────┘
-```
+| Bottleneck | Evidence |
+|------------|---------|
+| Redis RTT on hot path | 5–7 sequential Redis round trips per connection (2.5–3.5ms at 0.5ms/RTT) |
+| asyncio single-threaded event loop | Collapses at 2+ concurrent clients from same IP (measured: 248→6 conn/s) |
+| Per-IP concurrent cap (Phase 14c) | `max_per_ip=3` tarpits concurrent load; 12 threads from one IP → 6 conn/s |
+| Signal collection is sequential | 8 signal modules called one-at-a-time; most are independent |
 
-## 4. Implementation Plan for Minimal Component
+### The gRPC IPC would create a new bottleneck
 
-### Phase 24.1: Proof of Concept (2 weeks)
+A gRPC round-trip adds 0.5–2ms per connection — the same order of magnitude as
+a Redis call. At 500 conn/s that is 250–1,000ms of extra latency budget
+consumed by the Go↔Python handoff. Moving TLS parsing to Go while keeping
+all Redis operations in Python leaves the dominant bottleneck untouched and
+adds a new one.
 
-**Tasks**:
-```bash
-24.1.1: Identify exact TLS parsing bottleneck (profiling)
-24.1.2: Create minimal Go TLS parser (500-1000 LOC)
-24.1.3: Implement gRPC interface
-24.1.4: Python gRPC client
-24.1.5: Performance benchmarking
-```
+### Architectural complexity with no net gain
 
-**Deliverables**:
-- Go module: `internal/tls/parser_minimal.go`
-- gRPC proto definition
-- Python client: `src/tls/go_parser_client.py`
-- Performance comparison report
+Current stack: Python + Redis (2 technologies)
+Proposed stack: Python + Go + gRPC + Redis (4 technologies)
 
-### Phase 24.2: Integration (1 week)
+Every debugging session would cross a process boundary. Every deployment would
+need two binaries coordinated. The PPv2-handling bug demonstrated in the
+attack_500 benchmark shows exactly this class of failure.
 
-**Tasks**:
-```bash
-24.2.1: Integrate with existing proxy.py
-24.2.2: Fallback mechanism (Go fails → Python parser)
-24.2.3: Configuration options
-24.2.4: Monitoring and metrics
-```
+---
 
-**Deliverables**:
-- Modified `proxy.py` with Go/Python toggle
-- Prometheus metrics for parser performance
-- Configuration: `use_go_parser: true/false`
+## Correct Alternatives
 
-### Phase 24.3: Optimization (1 week)
+### For ≤500 conn/s (immediate need):
+Two Python instances behind the existing HAProxy. HAProxy is already present.
+Redis handles all shared security state. Takes 20 minutes to configure.
+This is documented and recommended in Phase 26.
 
-**Tasks**:
-```bash
-24.3.1: Profile IPC overhead
-24.3.2: Optimize data serialization
-24.3.3: Batch processing options
-24.3.4: Memory optimization
-```
+### For 500–1,000 conn/s (2–3 weeks):
+Phase 26: Python throughput hardening. Four targeted optimizations
+(parallel signal collection, Redis pipeline batching, Unix socket, multi-process
+workers) increase single-server Python capacity to ~800–1,000 conn/s per
+process, or 3,200–7,200 conn/s with 4–8 processes on this hardware.
 
-**Deliverables**:
-- Optimized gRPC proto
-- Batch processing implementation
-- Memory profiling report
+### For 2,000–50,000 conn/s (4–6 weeks remaining):
+Phase 15: Complete the Go rewrite. The skeleton is ~60% done.
+Signal modules compile and fail-open but need wiring to data sources.
+PPv2 parsing needs implementing (~100 LOC). Prometheus endpoint needed.
+Expected ceiling: 2,000–8,000 conn/s (mixed traffic, Redis-limited),
+5,000–15,000 conn/s (warm cache), ~50,000 conn/s (DDoS, Redis Stack).
 
-## 5. Recommendation
+---
 
-**Hybrid Approach**: Implement minimal Go component ASAP (Phase 24) while continuing full rewrite (Phase 15)
+## Benchmarks That Informed This Decision
 
-**Rationale**:
-1. **Immediate Performance Gain**: 8-15× improvement in 4-6 weeks
-2. **Risk Mitigation**: Validates Go approach before full commitment
-3. **Parallel Development**: Doesn't block Phase 15 progress
-4. **Fallback Option**: If full rewrite encounters issues, minimal component provides safety net
-5. **Incremental Value**: Each phase delivers measurable improvement
+All runs on: Intel i9-9900K, 16 cores, 62GB RAM, Linux 6.17.9, Go 1.26.1,
+Python 3.10.12, Redis (Docker), mock TLS backend.
 
-**Implementation Timeline**:
-```
-Q2 2026: Phase 24 (Minimal Component) - 8-15× improvement
-Q3 2026: Phase 15 (Full Rewrite) - 10-50× improvement
-Q4 2026: Phase 15 deployment
-```
+### Full benchmark suite (2026-03-25_18-08-44)
 
-## 6. Decision Criteria
+| Scenario | Go conn/s | Python conn/s | Speedup |
+|----------|-----------|---------------|---------|
+| throughput_scaling (1 thread) | 335 | 248 | 1.3× |
+| peak_throughput (32 threads) | 244 | 16 | 15.3× |
+| sustained_load | 250 | 16 | 15.7× |
+| warm_cache | 254 | 4 | 63.7× |
+| cold_cache | 254 | 4 | 63.5× |
+| burst_load | 326 | 16 | 20.4× |
 
-**Choose Minimal Component if**:
-- Need immediate performance improvement
-- Limited Go expertise available
-- Want to validate Go approach first
-- Prefer incremental risk
+*Note: Python >1 thread collapses due to per-IP concurrent cap from single
+source IP in benchmark. Go is backend-limited (mock backend ~250–335 TLS/s).
+All Go signals score 0 → allow (Phase 15 gap, not a correctness baseline).*
 
-**Choose Full Rewrite if**:
-- Have 4-6 months development time
-- Need maximum performance (10-50×)
-- Want unified architecture
-- Have Go expertise available
+### DDoS simulation (2026-03-25_20-12-46, no PPv2)
 
-**Recommended Path**: Hybrid approach (both)
+| Proxy | conn/s | Good pass % | Bad block % |
+|-------|--------|-------------|-------------|
+| Python | 6 | 0% | 100% |
+| Go | 246 | 100% | 0% |
 
-## 7. Next Steps
+*Python 6 conn/s = tarpit rate from per-IP concurrent cap (12 concurrent from
+127.0.0.1 → max_per_ip=3 → 9 tarpited × 2s timeout ÷ 12 threads = 6 conn/s).
+This is correct security behaviour, not a bug.*
 
-1. **Performance Profiling**: Confirm TLS parsing is indeed the bottleneck
-2. **POC Development**: Build minimal Go parser prototype
-3. **Benchmarking**: Compare performance gains
-4. **Decision Point**: Based on POC results, decide whether to:
-   - Continue with full rewrite only
-   - Deploy minimal component first
-   - Pursue hybrid approach
+*Go 246 conn/s = backend-limited. 0% bot detection = all signals score 0
+(Phase 15 gap: signal modules compile but not wired to real data sources).*
 
-## 8. Success Metrics
-
-**Minimal Component Success**:
-- 8-15× throughput improvement
-- <5% increase in latency
-- 99.9% uptime
-- Zero security incidents
-
-**Full Rewrite Success**:
-- 10-50× throughput improvement
-- Feature parity with Python version
-- 99.99% uptime
-- Comprehensive test coverage
+---
 
 ## Conclusion
 
-The minimal Go component approach offers 80% of the performance benefit with 20% of the effort and risk. It serves as an excellent validation step for the full rewrite strategy and provides immediate value. The recommended hybrid approach allows for incremental improvement while maintaining the long-term vision of a comprehensive Go rewrite.
+Phase 24 is closed. The minimal Go component approach offers no net advantage
+over the correct alternatives. Development effort is better spent on:
+
+1. **Phase 26** — Python throughput hardening (immediate, low risk, ~2 weeks)
+2. **Phase 15** — completing the Go rewrite (~4–6 more weeks to production-ready)
+
+The "minimal component" recommendation from the original document assumed a
+bottleneck that does not exist. Always profile before architecting.
+
+---
+
+*Closed: 2026-03-26. Decision based on benchmark runs in
+`reports/benchmark/2026-03-25_*/`.*
