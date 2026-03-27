@@ -14,6 +14,7 @@ help:
 	@echo "── Startup / Shutdown ──────────────────────────────────────"
 	@echo "  start             - Start full stack (POC + Prometheus/Grafana)"
 	@echo "  start-monitoring  - Start monitoring stack only"
+	@echo "  start-scaled      - Start 4-worker scaled configuration with HAProxy"
 	@echo "  stop              - Stop all services (keep Redis data)"
 	@echo "  stop-clean        - Stop all services AND wipe volumes (fresh slate)"
 	@echo "  status            - Show health of all services + security state"
@@ -108,6 +109,14 @@ start:
 # Start monitoring stack only (Prometheus / Grafana / Loki)
 start-monitoring:
 	@./scripts/start-monitoring.sh
+
+# Start scaled configuration with 4 workers and HAProxy (Phase 26d)
+start-scaled:
+	@echo "Starting JA4Proxy with 4-worker scaling..."
+	@docker compose -f docker-compose.poc.yml -f docker-compose.scale.yml up -d
+	@echo "✓ HAProxy load balancer started on port 443"
+	@echo "✓ 4 worker processes started on ports 8080, 8083, 8084, 8085"
+	@echo "✓ HAProxy stats available at http://localhost:8404/stats (admin/admin123)"
 
 # Stop all services (keep Redis data)
 stop:

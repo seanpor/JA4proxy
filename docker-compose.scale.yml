@@ -1,0 +1,86 @@
+# Docker Compose scale overlay for multi-process worker model (Phase 26d)
+#
+# Usage: docker compose -f docker-compose.yml -f docker-compose.scale.yml up -d
+#
+# This overlay adds N worker processes that share the same Redis backend.
+# HAProxy load balances TCP connections across all workers using round-robin.
+
+version: '3.8'
+
+services:
+  # HAProxy load balancer for multi-process scaling
+  haproxy:
+    image: haproxy:2.6
+    container_name: ja4proxy_haproxy
+    ports:
+      - "443:443"
+      - "8404:8404"  # HAProxy stats port
+    volumes:
+      - ./config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    networks:
+      - ja4proxy_network
+    restart: unless-stopped
+    depends_on:
+      - proxy-worker-1
+      - proxy-worker-2
+      - proxy-worker-3
+      - proxy-worker-4
+
+  # Proxy worker processes (4 workers for optimal scaling on i9-9900K)
+  proxy-worker-1:
+    extends:
+      service: proxy
+      file: docker-compose.yml
+    container_name: ja4proxy_worker_1
+    environment:
+      - PROXY_PORT=8080
+      - WORKER_ID=1
+    ports:
+      - "8080:8080"
+    networks:
+      - ja4proxy_network
+
+  proxy-worker-2:
+    extends:
+      service: proxy
+      file: docker-compose.yml
+    container_name: ja4proxy_worker_2
+    environment:
+      - PROXY_PORT=8083
+      - WORKER_ID=2
+    ports:
+      - "8083:8083"
+    networks:
+      - ja4proxy_network
+
+  proxy-worker-3:
+    extends:
+      service: proxy
+      file: docker-compose.yml
+    container_name: ja4proxy_worker_3
+    environment:
+      - PROXY_PORT=8084
+      - WORKER_ID=3
+    ports:
+      - "8084:8084"
+    networks:
+      - ja4proxy_network
+
+  proxy-worker-4:
+    extends:
+      service: proxy
+      file: docker-compose.yml
+    container_name: ja4proxy_worker_4
+    environment:
+      - PROXY_PORT=8085
+      - WORKER_ID=4
+    ports:
+      - "8085:8085"
+    networks:
+      - ja4proxy_network
+
+# Shared network for all services
+networks:
+  ja4proxy_network:
+    name: ja4proxy_network
+    driver: bridge
