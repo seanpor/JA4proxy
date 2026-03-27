@@ -112,7 +112,7 @@ Practical rules that flow from this:
 | 12 | Analytics node | Cross-instance aggregation; campaign/slow-scan detection; **score drift alerting** | [PHASE_12.md](docs/phases/PHASE_12.md) |
 | 13 | Management UI *(deferred — implement after Phase 15)* | Live feed; JA4 candidates; IP management; dial control | [PHASE_13.md](docs/phases/PHASE_13.md) |
 | 14 | Production hardening | Secrets, Redis security, resource limits, observability, **tarpit self-protection** | [PHASE_14.md](docs/phases/PHASE_14.md) |
-| 15 | Go rewrite | 10–50× throughput; GIL removed; multi-core TLS parsing | [PHASE_15.md](docs/phases/PHASE_15.md) |
+| 15 | Go rewrite (87.5% complete) | 10–50× throughput; GIL removed; multi-core TLS parsing — core complete, validation ongoing | [PHASE_15.md](docs/phases/PHASE_15.md) |
 | 16 | Extended fingerprinting | JA4X cert fingerprinting; adaptive rate limiting; coverage gates; OpenTelemetry tracing | [PHASE_16.md](docs/phases/PHASE_16.md) |
 | 17 | Docker test optimisation | Fix Docker test container hang during teardown; zero-skip test policy | [PHASE_17.md](docs/phases/PHASE_17.md) |
 | 18 | Security audit remediation | Specific exception types; lazy-format logging; `SignalCollector` Protocol; pipeline error metrics | [PHASE_17b.md](docs/phases/PHASE_17b.md) |

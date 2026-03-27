@@ -8,32 +8,46 @@ The goal of this phase is to elevate the project documentation to a 5/5 standard
 ### Step 1: Critical Fixes & Cleanup
 *   **Task:** Audit the `docs/` directory for stale files.
 *   **Action:** 
-    *   Remove or heavily deprecate `docs/runbooks/management_ui.md` to reflect the v13.2.0 removal.
-    *   Update `docs/TEST_ORGANIZATION.md` to reflect current test counts (1550+ tests).
-    *   Fix the Phase 15 status contradictions across `CLAUDE.md`, `CHANGELOG.md`, and `PHASE_15.md`.
+    *   Add DEPRECATED header to `docs/runbooks/management_ui.md` (removed in v13.2.0).
+    *   Update `docs/TEST_ORGANIZATION.md` to use dynamic test count query.
+    *   Fix Phase 15 status contradictions across `CLAUDE.md`, `CHANGELOG.md`, and `PHASE_15.md`.
+    *   Update `docs/OBSERVABILITY_STANDARDS.md` to reference all three alert rule files.
+    *   Add audience stamps to all major documentation files.
+    *   Create `docs/INDEX.md` for persona-based navigation.
+    *   Write missing ADRs (ADR-004 through ADR-012).
+    *   Expand `docs/compliance/GDPR_COMPLIANCE.md` to enterprise standard.
+    *   Update system architecture diagrams to include Go components.
+    *   Document mock servers in `docs/developer/MOCK_SERVERS.md`.
 
 ### Step 2: Persona-Based Navigation
 *   **Task:** Redesign the documentation entry points.
-*   **Action:** Create or update `docs/README.md` (or `INDEX.md`) with explicit, distinct sections:
-    *   **New Operator (P1)**: Quickstart, PoC deployment.
-    *   **Security Architect (P2)**: Threat models, Phase 20 TAP mode, Data flows.
-    *   **Contributor (P3)**: TDD standards, Go/Python split, local testing.
-    *   **Auditor (P5)**: GDPR compliance, Access logs.
+*   **Action:** 
+    *   Add "Start here by role" table to `docs/README.md`.
+    *   Create comprehensive `docs/INDEX.md` structured by persona.
+    *   Add audience stamps to all documentation files.
+    *   Create `docs/decisions/INDEX.md` for ADR navigation.
 
 ### Step 3: ADR Backfill
 *   **Task:** Fill the missing Architectural Decision Records.
-*   **Action:** Write ADR-004 through ADR-012 as required by `../DOCUMENTATION_STANDARDS.md`. Ensure existing ADRs (like ADR-015 for Go vs Rust) are linked correctly.
+*   **Action:** 
+    *   Write ADR-004 through ADR-012 following the standard template.
+    *   Review and update existing ADRs (001, 002, 003, 013, 015) for post-Phase 15 accuracy.
+    *   Create `docs/decisions/INDEX.md` listing all ADRs.
 
 ### Step 4: Documentation CI Guard
 *   **Task:** Ensure docs don't rot.
-*   **Action:** Add a lightweight Markdown link checker (e.g., `markdown-link-check`) to the Makefile and GitHub Actions CI pipeline.
-*   **Validation:** `make lint-docs` should pass with zero broken internal links.
+*   **Action:** 
+    *   Add `markdown-link-check` to Makefile and CI pipeline.
+    *   Create `scripts/check_doc_frontmatter.py` for frontmatter validation.
+    *   Add `make lint-docs`, `make link-check`, and `make doc-health` targets.
+    *   Update phase completion gate to include documentation checks.
+*   **Validation:** All documentation CI checks pass with zero warnings.
 
 ### Step 5: Diagram Standardization
 *   **Task:** Replace all diagrams with Mermaid diagrams.
 *   **Action:** 
-    *   Audit all documentation files for existing diagrams (ASCII, images, or other formats).
-    *   Convert each diagram to Mermaid syntax.
-    *   Ensure diagrams are consistent in style and formatting.
-    *   Update references to diagrams in the documentation.
-*   **Validation:** All diagrams should be in Mermaid format and render correctly in supported viewers.
+    *   Audit all documentation files for existing diagrams.
+    *   Convert diagrams to Mermaid syntax where appropriate.
+    *   Update `docs/architecture/system-architecture.md` with Go architecture diagram.
+    *   Ensure all new diagrams follow consistent style.
+*   **Validation:** All architecture diagrams are in Mermaid format and current.

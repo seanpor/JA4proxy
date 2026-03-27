@@ -199,6 +199,10 @@ phases:
     gaps:
       - "Diagrams not standardized to Mermaid format"
       - "P19-G5: DSAR utility (ja4proxy-admin backup redact --ip) for GDPR compliance"
+      - "Missing ADRs (ADR-004 through ADR-012)"
+      - "GDPR compliance documentation needs expansion"
+      - "System architecture needs Go components"
+      - "Mock servers need documentation"
 
   22:
     name: "Backup System Enhancements"

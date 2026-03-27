@@ -182,7 +182,7 @@ def _no_real_network():
     test that creates a Pipeline with a MagicMock Redis (because set() returns a
     truthy MagicMock, so the classifier always thinks it is the download leader).
     Patching to an async no-op at session scope eliminates all real network traffic
-    and keeps the full 1174-test suite under 60s.
+    and keeps the full test suite under 60s.
 
     Tests that specifically need real Tor exit IPs pre-populate _tor_exit_ips
     directly. Tests that need the real download logic capture the method reference
