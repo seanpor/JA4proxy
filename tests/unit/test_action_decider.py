@@ -235,76 +235,88 @@ class TestBanDuration:
 
 class TestDialManager:
     def _make_redis_mock(self, get_return=None):
-        m = MagicMock()
+        from unittest.mock import AsyncMock
+        m = AsyncMock()
         m.get.return_value = get_return
         m.set.return_value = True
         m.incr.return_value = 1
         m.expire.return_value = True
         return m
 
-    def test_initialize_reads_existing_dial(self):
+    @pytest.mark.asyncio
+    async def test_initialize_reads_existing_dial(self):
         """Redis returns b'30' → dial=30."""
         redis_mock = self._make_redis_mock(get_return=b"30")
         dm = DialManager({"monitor_mode": {"blocking_acknowledged": True}})
-        result = dm.initialize(redis_mock)
+        result = await dm.initialize(redis_mock)
         assert result == 30
 
-    def test_initialize_redis_error_uses_default(self):
+    @pytest.mark.asyncio
+    async def test_initialize_redis_error_uses_default(self):
         """Redis raises → returns config default (0)."""
-        m = MagicMock()
+        from unittest.mock import AsyncMock
+        m = AsyncMock()
         m.get.side_effect = redis.ConnectionError("down")
         m.set.side_effect = redis.ConnectionError("down")
         dm = DialManager({"monitor_mode": {"dial": 0}})
-        result = dm.initialize(m)
+        result = await dm.initialize(m)
         assert result == 0
 
-    def test_initialize_unacknowledged_nonzero_resets_to_zero(self):
+    @pytest.mark.asyncio
+    async def test_initialize_unacknowledged_nonzero_resets_to_zero(self):
         """blocking_acknowledged=False with stored dial=75 → resets to 0."""
         redis_mock = self._make_redis_mock(get_return=b"75")
         dm = DialManager({"monitor_mode": {"blocking_acknowledged": False}})
-        result = dm.initialize(redis_mock)
+        result = await dm.initialize(redis_mock)
         assert result == 0
 
-    def test_initialize_acknowledged_preserves_nonzero(self):
+    @pytest.mark.asyncio
+    async def test_initialize_acknowledged_preserves_nonzero(self):
         """blocking_acknowledged=True with stored dial=50 → keeps 50."""
         redis_mock = self._make_redis_mock(get_return=b"50")
         dm = DialManager({"monitor_mode": {"blocking_acknowledged": True}})
-        result = dm.initialize(redis_mock)
+        result = await dm.initialize(redis_mock)
         assert result == 50
 
-    def test_validate_change_within_limit_succeeds(self):
+    @pytest.mark.asyncio
+    async def test_validate_change_within_limit_succeeds(self):
         """count=0, max=25 → no exception, counter incremented."""
         redis_mock = self._make_redis_mock(get_return=b"0")
         dm = DialManager({"monitor_mode": {"max_dial_change_per_hour": 25}})
-        dm.validate_change(0, 10, redis_mock)  # must not raise
+        await dm.validate_change(0, 10, redis_mock)  # must not raise
         redis_mock.incr.assert_called_once()
 
-    def test_validate_change_at_limit_raises(self):
+    @pytest.mark.asyncio
+    async def test_validate_change_at_limit_raises(self):
         """count=25, max=25 → ValueError raised."""
         redis_mock = self._make_redis_mock(get_return=b"25")
         dm = DialManager({"monitor_mode": {"max_dial_change_per_hour": 25}})
         with pytest.raises(ValueError, match="Dial change rejected"):
-            dm.validate_change(0, 10, redis_mock)
+            await dm.validate_change(0, 10, redis_mock)
 
-    def test_validate_change_force_bypasses_limit(self):
+    @pytest.mark.asyncio
+    async def test_validate_change_force_bypasses_limit(self):
         """count=25, force=True → no exception."""
         redis_mock = self._make_redis_mock(get_return=b"25")
         dm = DialManager({"monitor_mode": {"max_dial_change_per_hour": 25}})
-        dm.validate_change(0, 10, redis_mock, force=True)  # must not raise
+        await dm.validate_change(0, 10, redis_mock, force=True)  # must not raise
 
-    def test_validate_change_same_value_noop(self):
+    @pytest.mark.asyncio
+    async def test_validate_change_same_value_noop(self):
         """old_val == new_val → no Redis calls."""
         redis_mock = self._make_redis_mock()
         dm = DialManager({"monitor_mode": {}})
-        dm.validate_change(50, 50, redis_mock)
+        await dm.validate_change(50, 50, redis_mock)
         redis_mock.get.assert_not_called()
 
-    def test_validate_change_redis_error_counts_as_zero(self):
+    @pytest.mark.asyncio
+    async def test_validate_change_redis_error_counts_as_zero(self):
         """Redis error reading count → treated as 0, change allowed."""
-        m = MagicMock()
+        from unittest.mock import AsyncMock
+        m = AsyncMock()
         m.get.side_effect = redis.ConnectionError("down")
         m.incr.return_value = 1
         m.expire.return_value = True
         dm = DialManager({"monitor_mode": {"max_dial_change_per_hour": 25}})
         # Should not raise — Redis error means count=0
-        dm.validate_change(0, 10, m)
+        await dm.validate_change(0, 10, m)

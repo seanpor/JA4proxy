@@ -158,21 +158,22 @@ class DialManager:
         self._default_dial: int = int(monitor.get("dial", 0))
         self._logger = logging.getLogger(__name__)
 
-    def initialize(self, redis_client) -> int:
+    async def initialize(self, redis_client) -> int:
         """Read ``config:dial`` from Redis; reset to 0 if blocking not acknowledged.
 
         Sets the key if absent. Returns effective dial value.
 
         Args:
-            redis_client: Synchronous Redis client.
+            redis_client: Async Redis client.
 
         Returns:
             Effective dial value (0–100).
         """
         try:
-            val = redis_client.get(self.DIAL_KEY)
+            val = await redis_client.get(self.DIAL_KEY)
             current = int(val) if val is not None else self._default_dial
-        except Exception:
+        except Exception as e:
+            self._logger.warning("dial | event=read_redis_error | error=%s", e)
             current = self._default_dial
 
         if not self._acknowledged and current != 0:
@@ -184,13 +185,13 @@ class DialManager:
             current = 0
 
         try:
-            redis_client.set(self.DIAL_KEY, current)
+            await redis_client.set(self.DIAL_KEY, current)
         except Exception as e:
             self._logger.warning("dial | event=init_redis_error | error=%s", e)
 
         return current
 
-    def validate_change(
+    async def validate_change(
         self,
         old_val: int,
         new_val: int,
@@ -204,7 +205,7 @@ class DialManager:
         Args:
             old_val: Current dial value.
             new_val: Proposed new dial value.
-            redis_client: Synchronous Redis client.
+            redis_client: Async Redis client.
             force: If True, bypass the rate limit (Management UI emergency override).
 
         Raises:
@@ -214,11 +215,15 @@ class DialManager:
         if abs(new_val - old_val) == 0:
             return
 
-        hour_key = self.COUNT_KEY_PREFIX + datetime.datetime.utcnow().strftime("%Y-%m-%d-%H")
+        hour_key = (
+            self.COUNT_KEY_PREFIX
+            + datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d-%H")
+        )
 
         if not force:
             try:
-                count = int(redis_client.get(hour_key) or 0)
+                val = await redis_client.get(hour_key)
+                count = int(val or 0)
             except Exception:
                 count = 0  # fail open — don't block dial changes on Redis error
 
@@ -235,7 +240,7 @@ class DialManager:
 
         # Record the change
         try:
-            redis_client.incr(hour_key)
-            redis_client.expire(hour_key, 3600)
+            await redis_client.incr(hour_key)
+            await redis_client.expire(hour_key, 3600)
         except Exception as e:
             self._logger.warning("dial | event=count_redis_error | error=%s", e)

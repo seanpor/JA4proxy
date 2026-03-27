@@ -209,7 +209,7 @@ class ASNClassifier:
         is_leader = False
         if self._redis_client:
             try:
-                is_leader = self._redis_client.set(
+                is_leader = await self._redis_client.set(
                     leader_key, self._instance_id, nx=True, ex=lock_ttl
                 )
             except Exception as e:
@@ -219,7 +219,7 @@ class ASNClassifier:
 
         if not is_leader and self._redis_client:
             try:
-                cached_ips = self._redis_client.smembers("tor:exit:ips")
+                cached_ips = await self._redis_client.smembers("tor:exit:ips")
                 if cached_ips:
                     self._tor_exit_ips = {
                         ip.decode() if isinstance(ip, bytes) else ip
@@ -261,7 +261,7 @@ class ASNClassifier:
                             if exit_ips:
                                 pipe.sadd("tor:exit:ips", *exit_ips)
                             pipe.expire("tor:exit:ips", 3900)
-                            pipe.execute()
+                            await pipe.execute()
                         except Exception as e:
                             self.logger.warning(
                                 "asn_classifier | event=redis_tor_write_error | error=%s",
