@@ -1,6 +1,25 @@
 # JA4proxy Incident Response Runbook
 
+> **Audience:** SecOps analysts, incident responders
+> **Prerequisites:** JA4proxy deployed; Redis and Prometheus accessible
+> **Related:** [SecOps Operations](SECOPS_OPERATIONS.md) · [Quick Reference](QUICK_REFERENCE.md)
+
 Quick reference for responding to active attacks. All commands take effect **immediately** — no proxy restart needed.
+
+## Incident Severity Matrix
+
+| Severity | Definition | Example | Response Time |
+|----------|------------|---------|---------------|
+| **P1 — Critical** | Proxy down; all traffic blocked or all traffic passing unscored | Redis connection lost; tarpit overflow blocking all connections | Immediate (<15 min) |
+| **P2 — High** | Major function impaired; false positive rate elevated | External enrichment API down; Spamhaus feed stale >4h; Dial misconfiguration | Urgent (<1 hour) |
+| **P3 — Medium** | Single signal module failing; metrics missing | AbuseIPDB quota exhausted; DNS enrichment queue backed up; Individual signal module crash | Standard (<4 hours) |
+| **P4 — Low** | Cosmetic or informational | Alert rule false-positive; Dashboard panel broken; Documentation error | Next business day |
+
+**Escalation Path:**
+- P1: Immediate page to on-call engineer
+- P2: Slack alert + 15-minute acknowledgment requirement
+- P3: Ticket creation + next business day resolution
+- P4: Backlog for next sprint
 
 ---
 
