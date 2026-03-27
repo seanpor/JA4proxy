@@ -32,6 +32,11 @@ EXEMPT_DIRS = [
     "reports"      # Generated reports
 ]
 
+EXEMPT_FILES = [
+    "PROJECT_STATUS.md",  # Auto-generated from manifest
+    "TODO.md"            # Auto-generated from manifest
+]
+
 class FrontmatterError(Exception):
     """Exception for frontmatter validation errors."""
     pass
@@ -99,6 +104,10 @@ class DocumentValidator:
 
     def _check_file(self, file_path: Path) -> bool:
         """Check a single documentation file."""
+        # Check if file is exempt
+        if file_path.name in EXEMPT_FILES:
+            return True
+            
         try:
             content = file_path.read_text(encoding='utf-8')
             frontmatter = self._extract_frontmatter(content)
