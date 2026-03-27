@@ -251,15 +251,18 @@ class MultiStrategyRateTracker:
         window: str = 'short'
     ) -> Dict[RateLimitStrategy, RateMetrics]:
         """
-        Track a connection using all enabled strategies.
+        Track a connection using all enabled strategies with pipelined batching.
 
         This method is the main entry point for rate tracking. It tracks
         the connection across all enabled strategies and returns metrics.
+        Uses Redis pipeline batching to reduce round trips from 3 per strategy
+        to 1 total batch operation.
 
         Security:
         - Validates inputs to prevent injection
         - Uses atomic Lua script to prevent race conditions
         - Fails closed on Redis errors (returns high rate to trigger block)
+        - Maintains same security semantics as sequential implementation
 
         Args:
             ja4: JA4 fingerprint (validated by caller)
@@ -285,31 +288,165 @@ class MultiStrategyRateTracker:
 
         # Get window size
         window_seconds = self.windows.get(window, 1.0)
+        now = time.time()
+        ttl = max(self.DEFAULT_TTL_SECONDS, int(window_seconds * 2))
 
         results = {}
 
-        # Track for each enabled strategy
-        for strategy in self.enabled_strategies:
-            try:
-                metrics = await self._track_single_strategy(
-                    ja4, ip, strategy, window_seconds
-                )
-                results[strategy] = metrics
-            except RateTrackerError as e:
-                # Log error but continue with other strategies
-                self.logger.error(
-                    "Error tracking strategy %s: %s", strategy.value, e
-                )
-                # Fail closed: return high rate to trigger block
-                results[strategy] = RateMetrics(
-                    connections_per_second=self.MAX_CONNECTIONS_PER_WINDOW,
-                    strategy=strategy,
-                    entity_id=f"ERROR:{strategy.value}",
-                    timestamp=time.time(),
-                    window_seconds=window_seconds,
-                )
+        # Use pipeline batching for all strategies
+        try:
+            await self._track_with_pipeline_batching(
+                ja4, ip, window_seconds, now, ttl, results
+            )
+        except RateTrackerError as e:
+            # If pipeline batching fails, fall back to individual tracking
+            self.logger.warning(
+                "Pipeline batching failed, falling back to individual tracking: %s", e
+            )
+            
+            # Track for each enabled strategy individually (fallback)
+            for strategy in self.enabled_strategies:
+                try:
+                    metrics = await self._track_single_strategy(
+                        ja4, ip, strategy, window_seconds
+                    )
+                    results[strategy] = metrics
+                except RateTrackerError as e:
+                    # Log error but continue with other strategies
+                    self.logger.error(
+                        "Error tracking strategy %s: %s", strategy.value, e
+                    )
+                    # Fail closed: return high rate to trigger block
+                    results[strategy] = RateMetrics(
+                        connections_per_second=self.MAX_CONNECTIONS_PER_WINDOW,
+                        strategy=strategy,
+                        entity_id=f"ERROR:{strategy.value}",
+                        timestamp=now,
+                        window_seconds=window_seconds,
+                    )
 
         return results
+
+    async def _track_with_pipeline_batching(
+        self,
+        ja4: str,
+        ip: str,
+        window_seconds: float,
+        now: float,
+        ttl: int,
+        results: Dict[RateLimitStrategy, RateMetrics]
+    ) -> None:
+        """
+        Track connection for all strategies using Redis pipeline batching.
+
+        This reduces Redis round trips from 3 per strategy to 1 total batch.
+        Maintains same security semantics as individual tracking.
+
+        Args:
+            ja4: JA4 fingerprint
+            ip: IP address
+            window_seconds: Window size in seconds
+            now: Current timestamp
+            ttl: TTL for Redis keys
+            results: Dictionary to populate with results
+
+        Raises:
+            RateTrackerError: On Redis errors
+        """
+        if not self.enabled_strategies:
+            return
+
+        try:
+            # Prepare pipeline
+            if self._is_async_redis(self.redis):
+                async with self.redis.pipeline(transaction=False) as pipe:
+                    # Execute all Lua scripts in pipeline
+                    for strategy in self.enabled_strategies:
+                        entity_id = strategy.get_entity_id(ja4, ip)
+                        key_prefix = strategy.get_redis_key_prefix()
+                        key = f"{key_prefix}:{entity_id}:{window_seconds}s"
+                        counter_key = f"{key}:counter"
+
+                        # Queue the Lua script execution
+                        self.rate_script(
+                            keys=[key, counter_key],
+                            args=[now, window_seconds, ttl],
+                            client=pipe,
+                        )
+
+                    # Execute all queued commands
+                    script_results = await pipe.execute()
+                    
+                    # Process results
+                    for i, strategy in enumerate(self.enabled_strategies):
+                        count = script_results[i]
+                        
+                        # Validate count (security: prevent DoS)
+                        if count > self.MAX_CONNECTIONS_PER_WINDOW:
+                            self.logger.warning(
+                                "Strategy %s exceeded max connections: %s",
+                                strategy.value, count
+                            )
+                            count = self.MAX_CONNECTIONS_PER_WINDOW
+
+                        entity_id = strategy.get_entity_id(ja4, ip)
+                        results[strategy] = RateMetrics(
+                            connections_per_second=int(count),
+                            strategy=strategy,
+                            entity_id=entity_id,
+                            timestamp=now,
+                            window_seconds=window_seconds,
+                        )
+
+            else:
+                # Sync Redis client - use transaction
+                with self.redis.pipeline(transaction=False) as pipe:
+                    # Execute all Lua scripts in pipeline
+                    for strategy in self.enabled_strategies:
+                        entity_id = strategy.get_entity_id(ja4, ip)
+                        key_prefix = strategy.get_redis_key_prefix()
+                        key = f"{key_prefix}:{entity_id}:{window_seconds}s"
+                        counter_key = f"{key}:counter"
+
+                        # Queue the Lua script execution
+                        self.rate_script(
+                            keys=[key, counter_key],
+                            args=[now, window_seconds, ttl],
+                            client=pipe,
+                        )
+
+                    # Execute all queued commands
+                    script_results = pipe.execute()
+                    
+                    # Process results
+                    for i, strategy in enumerate(self.enabled_strategies):
+                        count = script_results[i]
+                        
+                        # Validate count (security: prevent DoS)
+                        if count > self.MAX_CONNECTIONS_PER_WINDOW:
+                            self.logger.warning(
+                                "Strategy %s exceeded max connections: %s",
+                                strategy.value, count
+                            )
+                            count = self.MAX_CONNECTIONS_PER_WINDOW
+
+                        entity_id = strategy.get_entity_id(ja4, ip)
+                        results[strategy] = RateMetrics(
+                            connections_per_second=int(count),
+                            strategy=strategy,
+                            entity_id=entity_id,
+                            timestamp=now,
+                            window_seconds=window_seconds,
+                        )
+
+        except redis.ConnectionError as e:
+            raise RateTrackerError(f"Redis connection error: {e}")
+        except redis.TimeoutError as e:
+            raise RateTrackerError(f"Redis timeout: {e}")
+        except redis.RedisError as e:
+            raise RateTrackerError(f"Redis error: {e}")
+        except Exception as e:
+            raise RateTrackerError(f"Unexpected error: {e}")
 
     async def _track_single_strategy(
         self,
