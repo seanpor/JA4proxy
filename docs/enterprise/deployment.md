@@ -1,3 +1,7 @@
+> **[ASPIRATIONAL]** This document describes a target enterprise architecture that has not yet been validated in production.
+>
+> Treat as a starting point, not a specification. See `docs/DMZ_DEPLOYMENT_READINESS.md` for the validated single-node deployment model.
+
 # Enterprise Deployment Guide
 
 This guide covers enterprise-grade deployment of JA4 Proxy with high availability, security hardening, and operational procedures.
