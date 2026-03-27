@@ -1,5 +1,26 @@
 # Phase 15 — Go Rewrite of Proxy Core
 
+## Current Status (as of 2026-03-27)
+
+**Status: PARTIAL (Core complete, validation ongoing)**
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Go proxy binary (`cmd/proxy/`) | ✅ Complete | Drop-in replacement for `proxy.py` |
+| Core security signals (TLS, SNI, TCP, etc.) | ✅ Complete | All Phase 0–14 signals ported |
+| Prometheus metrics | ✅ Complete | Identical to Python implementation |
+| Health endpoint | ✅ Complete | Redis connectivity check |
+| PROXY protocol support | ✅ Complete | Real client IP extraction |
+| Docker build | ✅ Complete | Multi-stage alpine image |
+| Go unit tests | ✅ Complete | 75+ tests passing |
+| JA4 parity validation | ⚠️ Blocked | Needs real browser fixtures |
+| Performance benchmarking | ⚠️ Blocked | Needs production-like load |
+| Production deployment | ❌ Not started | Awaiting validation gates |
+
+**Completion: 14/16 core components (87.5%)**
+
+See `docs/phases/PHASE_15_WORK_PLAN.md` for detailed implementation plan.
+
 ## Goal
 Rewrite `proxy.py` and `src/security/` in Go. Eliminate Python GIL bottleneck.
 Target: 10–50× throughput improvement per instance.

@@ -1,5 +1,21 @@
 # JA4proxy Documentation
 
+> **Audience:** All users — primary entry point for documentation
+> **Purpose:** Guide readers to the most relevant documentation for their role
+
+## Start here by role
+
+| You are… | Read this first |
+|----------|----------------|
+| **Deploying for the first time** | [Quick-start (5 min)](POC_QUICKSTART.md) |
+| **Daily operator / SecOps** | [Quick reference card](QUICK_REFERENCE.md) |
+| **Investigating an incident** | [Incident response](INCIDENT_RESPONSE.md) |
+| **Security architect / evaluator** | [Architecture overview](architecture/system-architecture.md) |
+| **Contributing code** | [Contributing guide](../CONTRIBUTING.md) |
+| **Compliance / audit** | [GDPR & compliance](compliance/GDPR_COMPLIANCE.md) |
+
+**📖 [Full Documentation Index](INDEX.md)** — Complete map of all documentation
+
 Select your audience below to go directly to what you need.
 
 ---

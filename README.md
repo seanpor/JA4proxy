@@ -278,6 +278,8 @@ Blocked requests by action type:
 
 ## Documentation
 
+**📖 [Documentation Index](docs/INDEX.md)** — **Start here** — All documentation organized by your role (Operator, Architect, Developer, Auditor)
+
 **Getting started and operations:**
 - **[POC Quick Start](docs/POC_QUICKSTART.md)** — 5-minute setup guide
 - **[SecOps Operations Guide](docs/SECOPS_OPERATIONS.md)** — Backend config, passwords, start/stop, maintenance
