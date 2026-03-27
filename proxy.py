@@ -1294,16 +1294,32 @@ class ProxyServer:
                 except ValueError:
                     db = 0
 
-            redis_client = redis.asyncio.Redis(
-                host=redis_config["host"],
-                port=redis_config["port"],
-                db=db,
-                password=password if password else None,
-                socket_timeout=timeout,
-                socket_connect_timeout=timeout,
-                health_check_interval=30,
-                decode_responses=False,  # Security: explicit encoding control
-            )
+            # Check for Unix domain socket configuration
+            unix_socket_path = redis_config.get("unix_socket_path")
+            if unix_socket_path:
+                # Use Unix domain socket
+                self.logger.info(f"Using Redis Unix domain socket: {unix_socket_path}")
+                redis_client = redis.asyncio.Redis(
+                    unix_socket_path=unix_socket_path,
+                    db=db,
+                    password=password if password else None,
+                    socket_timeout=timeout,
+                    socket_connect_timeout=timeout,
+                    health_check_interval=30,
+                    decode_responses=False,  # Security: explicit encoding control
+                )
+            else:
+                # Use TCP connection (default)
+                redis_client = redis.asyncio.Redis(
+                    host=redis_config["host"],
+                    port=redis_config["port"],
+                    db=db,
+                    password=password if password else None,
+                    socket_timeout=timeout,
+                    socket_connect_timeout=timeout,
+                    health_check_interval=30,
+                    decode_responses=False,  # Security: explicit encoding control
+                )
 
             # Test connection
             await redis_client.ping()
