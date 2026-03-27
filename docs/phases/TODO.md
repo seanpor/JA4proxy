@@ -26,18 +26,42 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **OPEN** (AF_PACKET capture and out-of-band enforcement.)
 *   **Action Plan:** [PHASE_20_WORK_PLAN.md](PHASE_20_WORK_PLAN.md)
 
-### Phase 22 — Backup System Enhancements
-*   **Status:** **PROPOSED** (Encryption, cloud storage, incremental backups, and performance optimizations.)
-*   **Action Plan:** [PHASE_22.md](PHASE_22.md)
+### Phase 22 — Backup System Enhancements - Phase 1: Core Features
+*   **Status:** **PROPOSED** (Add backup scheduling, pipeline batching, and restore validation. Target: Production-ready backup system.)
+*   **Action Plan:** [PHASE_22_WORK_PLAN.md](PHASE_22_WORK_PLAN.md)
 
-### Phase 23 — Advanced Traffic Intelligence
-*   **Status:** **PROPOSED** (Attacker attribution, geographical intelligence, and threat intelligence integration.)
-*   **Action Plan:** [PHASE_23.md](PHASE_23.md)
+### Phase 23 — Advanced Traffic Intelligence - Phase 1: Threat Intelligence Integration
+*   **Status:** **PROPOSED** (Integrate external threat intelligence feeds (AbuseIPDB, AlienVault OTX, GreyNoise). Target: Real-time IP reputation.)
+*   **Action Plan:** [PHASE_23_WORK_PLAN.md](PHASE_23_WORK_PLAN.md)
 
 ### Phase 25 — Docker Container Management
 *   **Status:** **OPEN** (Pin image versions, fix CVE scan gaps, first-party image scanning, image update policy.)
 *   **Action Plan:** [PHASE_25.md](PHASE_25.md)
 
-### Phase 26 — Python Throughput Hardening
-*   **Status:** **OPEN** (Maximise Python proxy conn/s via parallel signal collection, Redis pipeline batching, Unix domain socket, and multi-process worker model. Target: ≥800 conn/s single process, ≥3,200 conn/s with 4 workers.)
+### Phase 26 — Python Throughput Hardening - Phase 1: Async I/O Optimization
+*   **Status:** **OPEN** (Implement asyncio.gather for parallel signal collection to maximize CPU utilization. Target: 20-30% throughput improvement.)
 *   **Action Plan:** [PHASE_26.md](PHASE_26.md)
+
+### Phase 28 — Python Throughput Hardening - Phase 2: Redis Optimization
+*   **Status:** **PROPOSED** (Add Redis pipeline batching and Unix domain socket support. Target: 30-40% Redis latency reduction.)
+*   **Action Plan:** [PHASE_28_WORK_PLAN.md](PHASE_28_WORK_PLAN.md)
+
+### Phase 29 — Python Throughput Hardening - Phase 3: Multi-Process Architecture
+*   **Status:** **PROPOSED** (Implement multi-process worker model with Docker Compose and HAProxy load balancing. Target: Linear scaling to 4 workers.)
+*   **Action Plan:** [PHASE_29_WORK_PLAN.md](PHASE_29_WORK_PLAN.md)
+
+### Phase 30 — Python Throughput Hardening - Phase 4: Write Optimization & Benchmarking
+*   **Status:** **PROPOSED** (Add deferred write batching and comprehensive benchmark validation. Target: Final performance report.)
+*   **Action Plan:** [PHASE_30_WORK_PLAN.md](PHASE_30_WORK_PLAN.md)
+
+### Phase 31 — Advanced Traffic Intelligence - Phase 2: Geographical Intelligence
+*   **Status:** **PROPOSED** (Add GeoIP lookup and country-based blocking capabilities. Target: Geographical threat analysis.)
+*   **Action Plan:** [PHASE_31_WORK_PLAN.md](PHASE_31_WORK_PLAN.md)
+
+### Phase 32 — Advanced Traffic Intelligence - Phase 3: Attacker Attribution
+*   **Status:** **PROPOSED** (Implement attacker fingerprinting and behavioral correlation. Target: Advanced threat detection.)
+*   **Action Plan:** [PHASE_32_WORK_PLAN.md](PHASE_32_WORK_PLAN.md)
+
+### Phase 33 — Advanced Traffic Intelligence - Phase 4: Documentation Diagrams
+*   **Status:** **PROPOSED** (Standardize all documentation diagrams to Mermaid format for consistent rendering.)
+*   **Action Plan:** [PHASE_33_WORK_PLAN.md](PHASE_33_WORK_PLAN.md)

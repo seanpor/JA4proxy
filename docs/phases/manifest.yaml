@@ -1,15 +1,15 @@
 epics:
   - name: "Epic: Core Performance"
     description: "Optimization for high-throughput and multi-core systems."
-    phases: [0, 15, 17, 26]
+    phases: [0, 15, 17, 26, 28, 29, 30]
     
   - name: "Epic: Security Hardening"
     description: "Deep security analysis, compliance, and audit remediation."
-    phases: [1, 3, 4, 5, 8, 10, 11, 14, 16, 18, 25, 27]
+    phases: [1, 3, 4, 5, 8, 10, 11, 14, 16, 18, 22, 25, 27, 30]
     
   - name: "Epic: Analytics & Intelligence"
     description: "Cross-instance behavior analysis and threat intelligence."
-    phases: [6, 7, 9, 12, 23]
+    phases: [6, 7, 9, 12, 23, 31, 32, 33]
     
   - name: "Epic: Next-Gen Passive Capture"
     description: "Out-of-band monitoring and enforcement."
@@ -17,7 +17,7 @@ epics:
     
   - name: "Epic: User Interface & Experience"
     description: "Management dashboards and documentation quality."
-    phases: [2, 13, 19, 21, 22]
+    phases: [2, 13, 19, 21]
 
 phases:
   0:
@@ -164,6 +164,7 @@ phases:
     status: "OPEN"
     summary: "AF_PACKET capture and out-of-band enforcement."
     action_plan: "docs/phases/PHASE_20_WORK_PLAN.md"
+    size: "LARGE"  # 5-8 weeks: Network capture integration, protocol parsing, enforcement logic
 
   21:
     name: "Documentation Excellence"
@@ -172,26 +173,85 @@ phases:
     action_plan: "docs/phases/PHASE_21_WORK_PLAN.md"
 
   22:
-    name: "Backup System Enhancements"
+    name: "Backup System Enhancements - Phase 1: Core Features"
     status: "PROPOSED"
-    summary: "Encryption, cloud storage, incremental backups, and performance optimizations."
-    action_plan: "docs/phases/PHASE_22.md"
+    summary: "Add backup scheduling, pipeline batching, and restore validation. Target: Production-ready backup system."
+    action_plan: "docs/phases/PHASE_22_WORK_PLAN.md"
     dependencies: [19]
+    size: "SMALL"  # 1-2 weeks: Core backup enhancements
     gaps:
       - "P19-G1: Wire backup.schedule config to APScheduler/asyncio task executor"
       - "P19-G3: Add redis.pipeline() batching to backup loop (target: batches of 1000)"
       - "P19-G4: Add restore validation - count failed keys, raise RestoreError if >5% fail"
+    success_criteria:
+      - "Scheduled backups working with cron syntax"
+      - "Backup performance improved by ≥300%"
+      - "Restore validation prevents silent failures"
+
+  30:
+    name: "Backup System Enhancements - Phase 2: Compliance & Testing"
+    status: "PROPOSED"
+    summary: "Add DSAR utility for GDPR compliance and comprehensive testing infrastructure."
+    action_plan: "docs/phases/PHASE_30_WORK_PLAN.md"
+    dependencies: [22]
+    size: "SMALL"  # 1-2 weeks: Compliance and testing
+    gaps:
       - "P19-G5: DSAR utility (ja4proxy-admin backup redact --ip) for GDPR compliance"
       - "P19-G6: Add fakeredis-based encode→backup→restore round-trip integration test"
+    success_criteria:
+      - "DSAR utility removes PII from backups"
+      - "Round-trip test validates backup integrity"
+      - "GDPR compliance documentation updated"
 
   23:
-    name: "Advanced Traffic Intelligence"
+    name: "Advanced Traffic Intelligence - Phase 1: Threat Intelligence Integration"
     status: "PROPOSED"
-    summary: "Attacker attribution, geographical intelligence, and threat intelligence integration."
+    summary: "Integrate external threat intelligence feeds (AbuseIPDB, AlienVault OTX, GreyNoise). Target: Real-time IP reputation."
+    action_plan: "docs/phases/PHASE_23_WORK_PLAN.md"
+    dependencies: [12]
+    size: "MEDIUM"  # 3-4 weeks: API integrations and data processing
+    success_criteria:
+      - "≥3 threat intelligence feeds integrated"
+      - "Real-time IP reputation lookup < 50ms"
+      - "Cache hit rate ≥95%"
+
+  31:
+    name: "Advanced Traffic Intelligence - Phase 2: Geographical Intelligence"
+    status: "PROPOSED"
+    summary: "Add GeoIP lookup and country-based blocking capabilities. Target: Geographical threat analysis."
+    action_plan: "docs/phases/PHASE_31_WORK_PLAN.md"
+    dependencies: [23]
+    size: "SMALL"  # 1-2 weeks: GeoIP integration
+    success_criteria:
+      - "GeoIP lookup accuracy ≥98%"
+      - "Country blocking functional"
+      - "Geographical heatmap visualization"
+
+  32:
+    name: "Advanced Traffic Intelligence - Phase 3: Attacker Attribution"
+    status: "PROPOSED"
+    summary: "Implement attacker fingerprinting and behavioral correlation. Target: Advanced threat detection."
+    action_plan: "docs/phases/PHASE_32_WORK_PLAN.md"
+    dependencies: [31]
+    size: "MEDIUM"  # 3-4 weeks: Complex correlation logic
+    success_criteria:
+      - "Attacker fingerprinting working"
+      - "Behavioral patterns detected"
+      - "False positive rate < 1%"
+
+  33:
+    name: "Advanced Traffic Intelligence - Phase 4: Documentation Diagrams"
+    status: "PROPOSED"
+    summary: "Standardize all documentation diagrams to Mermaid format for consistent rendering."
+    action_plan: "docs/phases/PHASE_33_WORK_PLAN.md"
+    dependencies: []
+    size: "SMALL"  # 1-2 weeks: Documentation improvement
     gaps:
       - "Diagrams not standardized to Mermaid format for consistent rendering"
-    action_plan: "docs/phases/PHASE_23.md"
-    dependencies: [12]
+    success_criteria:
+      - "All architecture diagrams in Mermaid format"
+      - "Diagrams render correctly in GitHub/GitLab"
+      - "Documentation build passes with no warnings"
 
   24:
     name: "Go Strategy Assessment"
@@ -206,20 +266,19 @@ phases:
     summary: "Pin image versions, fix CVE scan gaps, first-party image scanning, image update policy."
     action_plan: "docs/phases/PHASE_25.md"
     dependencies: [14]
+    size: "SMALL"  # 1-2 weeks: Configuration updates, CI/CD pipeline adjustments, security scanning setup
 
   26:
-    name: "Python Throughput Hardening"
+    name: "Python Throughput Hardening - Phase 1: Async I/O Optimization"
     status: "OPEN"
-    summary: "Maximise Python proxy conn/s via parallel signal collection, Redis pipeline batching, Unix domain socket, and multi-process worker model. Target: ≥800 conn/s single process, ≥3,200 conn/s with 4 workers."
+    summary: "Implement asyncio.gather for parallel signal collection to maximize CPU utilization. Target: 20-30% throughput improvement."
     action_plan: "docs/phases/PHASE_26.md"
     dependencies: [0, 12, 14]
-    substages:
-      - "26a: asyncio.gather for independent signal modules (highest ROI)"
-      - "26b: Redis pipeline batching for read operations"
-      - "26c: Redis Unix domain socket"
-      - "26d: Multi-process worker model (Docker Compose + HAProxy)"
-      - "26e: Deferred write batching (WriteBuffer)"
-      - "26f: Benchmark-validated capacity report"
+    size: "SMALL"  # 1-2 weeks: Focused async I/O optimization
+    success_criteria:
+      - "Signal collection time reduced by ≥40%"
+      - "CPU utilization increased to 70-80%"
+      - "No regression in signal accuracy"
 
   27:
     name: "Advanced Pentest Remediation"
@@ -228,3 +287,39 @@ phases:
     doc_status: "COMPLETE"
     summary: "Remediate critical vulnerabilities: IP spoofing, sync/async Redis mismatch, and synchronous TLS parsing DoS."
     action_plan: "docs/phases/PHASE_27.md"
+
+  28:
+    name: "Python Throughput Hardening - Phase 2: Redis Optimization"
+    status: "PROPOSED"
+    summary: "Add Redis pipeline batching and Unix domain socket support. Target: 30-40% Redis latency reduction."
+    action_plan: "docs/phases/PHASE_28_WORK_PLAN.md"
+    dependencies: [26]
+    size: "SMALL"  # 1-2 weeks: Redis performance tuning
+    success_criteria:
+      - "Redis round-trip time < 1ms (local)"
+      - "Batch operations reduce queries by ≥60%"
+      - "Unix socket connection established"
+
+  29:
+    name: "Python Throughput Hardening - Phase 3: Multi-Process Architecture"
+    status: "PROPOSED"
+    summary: "Implement multi-process worker model with Docker Compose and HAProxy load balancing. Target: Linear scaling to 4 workers."
+    action_plan: "docs/phases/PHASE_29_WORK_PLAN.md"
+    dependencies: [28]
+    size: "MEDIUM"  # 3-4 weeks: Architecture change
+    success_criteria:
+      - "4-worker setup achieves ≥3,200 conn/s"
+      - "Memory footprint < 200MB per worker"
+      - "HAProxy health checks working"
+
+  30:
+    name: "Python Throughput Hardening - Phase 4: Write Optimization & Benchmarking"
+    status: "PROPOSED"
+    summary: "Add deferred write batching and comprehensive benchmark validation. Target: Final performance report."
+    action_plan: "docs/phases/PHASE_30_WORK_PLAN.md"
+    dependencies: [29]
+    size: "SMALL"  # 1-2 weeks: Final optimizations
+    success_criteria:
+      - "WriteBuffer reduces Redis writes by ≥50%"
+      - "Comprehensive benchmark report generated"
+      - "All targets met: ≥800 conn/s single, ≥3,200 conn/s multi"

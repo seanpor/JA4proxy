@@ -14,7 +14,10 @@ Optimization for high-throughput and multi-core systems.
 | 0 | Foundation | COMPLETE | Configuration loader, hot reload, local cache, Bloom filters. |
 | 15 | Go Rewrite | PARTIAL | 10-50x throughput improvement via CPython/Go transition. |
 | 17 | Docker Test Optimization | COMPLETE | Fix Docker test container hang during teardown. |
-| 26 | Python Throughput Hardening | OPEN | Maximise Python proxy conn/s via parallel signal collection, Redis pipeline batching, Unix domain socket, and multi-process worker model. Target: ≥800 conn/s single process, ≥3,200 conn/s with 4 workers. |
+| 26 | Python Throughput Hardening - Phase 1: Async I/O Optimization | OPEN | Implement asyncio.gather for parallel signal collection to maximize CPU utilization. Target: 20-30% throughput improvement. |
+| 28 | Python Throughput Hardening - Phase 2: Redis Optimization | PROPOSED | Add Redis pipeline batching and Unix domain socket support. Target: 30-40% Redis latency reduction. |
+| 29 | Python Throughput Hardening - Phase 3: Multi-Process Architecture | PROPOSED | Implement multi-process worker model with Docker Compose and HAProxy load balancing. Target: Linear scaling to 4 workers. |
+| 30 | Python Throughput Hardening - Phase 4: Write Optimization & Benchmarking | PROPOSED | Add deferred write batching and comprehensive benchmark validation. Target: Final performance report. |
 
 ### Epic: Security Hardening
 Deep security analysis, compliance, and audit remediation.
@@ -31,7 +34,10 @@ Deep security analysis, compliance, and audit remediation.
 | 14 | Production Hardening | COMPLETE | Rate limiting, circuit breakers, container security. |
 | 16 | Extended Fingerprinting | COMPLETE | JA4X fingerprinting, adaptive rate limiting. |
 | 18 | Security Audit Remediation | COMPLETE | Fix broad exception handling, f-string logging, and add SignalCollector protocol. |
+| 22 | Backup System Enhancements - Phase 1: Core Features | PROPOSED | Add backup scheduling, pipeline batching, and restore validation. Target: Production-ready backup system. |
 | 25 | Docker Container Management | OPEN | Pin image versions, fix CVE scan gaps, first-party image scanning, image update policy. |
+| 27 | Advanced Pentest Remediation | COMPLETE | Remediate critical vulnerabilities: IP spoofing, sync/async Redis mismatch, and synchronous TLS parsing DoS. |
+| 30 | Python Throughput Hardening - Phase 4: Write Optimization & Benchmarking | PROPOSED | Add deferred write batching and comprehensive benchmark validation. Target: Final performance report. |
 
 ### Epic: Analytics & Intelligence
 Cross-instance behavior analysis and threat intelligence.
@@ -42,7 +48,10 @@ Cross-instance behavior analysis and threat intelligence.
 | 7 | FCrDNS Enrichment | COMPLETE | Async PTR lookup, residential pattern detection. |
 | 9 | Beaconing Detector | COMPLETE | IAT coefficient of variation, dual window, suspects leaderboard. |
 | 12 | Analytics Node | COMPLETE | Cross-instance statistical analysis via Redis Streams. Campaign/slow-scan signals, drift alerting, Grafana dashboard, HyperLogLog, hot-reload. |
-| 23 | Advanced Traffic Intelligence | PROPOSED | Attacker attribution, geographical intelligence, and threat intelligence integration. |
+| 23 | Advanced Traffic Intelligence - Phase 1: Threat Intelligence Integration | PROPOSED | Integrate external threat intelligence feeds (AbuseIPDB, AlienVault OTX, GreyNoise). Target: Real-time IP reputation. |
+| 31 | Advanced Traffic Intelligence - Phase 2: Geographical Intelligence | PROPOSED | Add GeoIP lookup and country-based blocking capabilities. Target: Geographical threat analysis. |
+| 32 | Advanced Traffic Intelligence - Phase 3: Attacker Attribution | PROPOSED | Implement attacker fingerprinting and behavioral correlation. Target: Advanced threat detection. |
+| 33 | Advanced Traffic Intelligence - Phase 4: Documentation Diagrams | PROPOSED | Standardize all documentation diagrams to Mermaid format for consistent rendering. |
 
 ### Epic: Next-Gen Passive Capture
 Out-of-band monitoring and enforcement.
@@ -60,7 +69,6 @@ Management dashboards and documentation quality.
 | 13 | Management UI | DEFERRED | FastAPI + React dashboard for real-time monitoring. |
 | 19 | Backup & Restore | COMPLETE | Deterministic backup/restore with real key-name format, manifest+checksum, retention, CLI, observability. |
 | 21 | Documentation Excellence | COMPLETE | 5/5 documentation quality and persona-based navigation. |
-| 22 | Backup System Enhancements | PROPOSED | Encryption, cloud storage, incremental backups, and performance optimizations. |
 
 ## Phase Completion Details
 
@@ -88,11 +96,18 @@ Management dashboards and documentation quality.
 | 19 | Backup & Restore | COMPLETE | 100% | COMPLETE |
 | 20 | Passive TAP Mode | OPEN | N/A | N/A |
 | 21 | Documentation Excellence | COMPLETE | N/A | N/A |
-| 22 | Backup System Enhancements | PROPOSED | N/A | N/A |
-| 23 | Advanced Traffic Intelligence | PROPOSED | N/A | N/A |
+| 22 | Backup System Enhancements - Phase 1: Core Features | PROPOSED | N/A | N/A |
+| 23 | Advanced Traffic Intelligence - Phase 1: Threat Intelligence Integration | PROPOSED | N/A | N/A |
 | 24 | Go Strategy Assessment | CLOSED | N/A | N/A |
 | 25 | Docker Container Management | OPEN | N/A | N/A |
-| 26 | Python Throughput Hardening | OPEN | N/A | N/A |
+| 26 | Python Throughput Hardening - Phase 1: Async I/O Optimization | OPEN | N/A | N/A |
+| 27 | Advanced Pentest Remediation | COMPLETE | 100% | COMPLETE |
+| 28 | Python Throughput Hardening - Phase 2: Redis Optimization | PROPOSED | N/A | N/A |
+| 29 | Python Throughput Hardening - Phase 3: Multi-Process Architecture | PROPOSED | N/A | N/A |
+| 30 | Python Throughput Hardening - Phase 4: Write Optimization & Benchmarking | PROPOSED | N/A | N/A |
+| 31 | Advanced Traffic Intelligence - Phase 2: Geographical Intelligence | PROPOSED | N/A | N/A |
+| 32 | Advanced Traffic Intelligence - Phase 3: Attacker Attribution | PROPOSED | N/A | N/A |
+| 33 | Advanced Traffic Intelligence - Phase 4: Documentation Diagrams | PROPOSED | N/A | N/A |
 
 ---
 
