@@ -1,3 +1,10 @@
+<!--
+title: Scripts
+audience: Developers
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # Scripts Reference
 
 All scripts live in `scripts/`. Each has a usage header — run with `--help` or

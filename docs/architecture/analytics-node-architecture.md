@@ -1,3 +1,10 @@
+<!--
+title: Analytics Node Architecture
+audience: Architects, Technical Leads
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # Analytics Node Architecture
 
 ## Overview

@@ -1,3 +1,10 @@
+<!--
+title: Go_Proxy_Migration
+audience: Operators, Security Teams
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # Go Proxy Migration Runbook
 
 ## Overview

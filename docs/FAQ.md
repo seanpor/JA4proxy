@@ -1,3 +1,10 @@
+<!--
+title: Faq
+audience: Developers
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy — Frequently Asked Questions
 
 Practical answers to common operational questions. For active incidents, see [INCIDENT_RESPONSE.md](INCIDENT_RESPONSE.md).

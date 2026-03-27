@@ -92,6 +92,12 @@ help:
 	@echo "  bench-python      - Python proxy only benchmark"
 	@echo "  ARGS=             - Pass extra flags: e.g. make bench ARGS='--duration-long 120'"
 	@echo ""
+	@echo "── Documentation ────────────────────────────────────────────"
+	@echo "  lint-docs         - Validate doc frontmatter (title, audience, last_reviewed)"
+	@echo "  link-check        - Check all internal Markdown links (requires markdown-link-check)"
+	@echo "  doc-health        - Run all documentation quality checks"
+	@echo "  test-ratio        - Show current test-to-code ratio"
+	@echo ""
 
 # ── Startup / Shutdown ────────────────────────────────────────────────────────
 
@@ -686,3 +692,24 @@ bench-python:
 capture-fixtures-browser:
 	docker compose -f docker-compose.test.yml run --rm browser \
 	  python3 scripts/generate_fixtures_browser.py --recorder-host recorder
+
+# ── Docs ──────────────────────────────────────────────────────────────────────
+
+# Check all docs have frontmatter and aren't stale
+lint-docs:
+	@echo "Checking documentation frontmatter..."
+	@python3 scripts/check_doc_frontmatter.py
+
+# Check all internal Markdown links are valid
+link-check:
+	@echo "Checking internal documentation links..."
+	@find docs/ -name '*.md' | xargs markdown-link-check --config .mlc.json
+
+# Run all documentation quality checks
+doc-health:
+	@make lint-docs link-check
+
+# Show current test-to-code ratio
+test-ratio:
+	@echo "Calculating test-to-code ratio..."
+	@python3 scripts/test_ratio.py

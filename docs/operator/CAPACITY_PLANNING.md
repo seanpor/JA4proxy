@@ -1,3 +1,10 @@
+<!--
+title: Capacity_Planning
+audience: Operators, Security Teams
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy — Capacity Planning Guide
 
 > **Audience:** SecOps operators, infrastructure engineers, capacity planners

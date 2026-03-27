@@ -1,3 +1,10 @@
+<!--
+title: Blocking_Analysis
+audience: Operators, Security Teams
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # Blocking Behavior Analysis at Different Dial Levels
 
 ## Current Configuration (Monitor Mode)

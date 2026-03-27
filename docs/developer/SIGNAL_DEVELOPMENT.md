@@ -1,3 +1,10 @@
+<!--
+title: Signal_Development
+audience: Developers
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy — Signal Development Guide
 
 > **Audience:** Contributing developers, signal module authors

@@ -1,3 +1,10 @@
+<!--
+title: Deployment_Security_Model
+audience: Developers
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy Deployment Security Model
 
 This document describes the security model for production JA4proxy deployments:

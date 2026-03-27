@@ -1,3 +1,10 @@
+<!--
+title: Incident Response Runbook
+audience: SecOps analysts, incident responders
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy Incident Response Runbook
 
 > **Audience:** SecOps analysts, incident responders

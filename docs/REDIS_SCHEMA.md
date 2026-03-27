@@ -1,3 +1,10 @@
+<!--
+title: Redis_Schema
+audience: Developers
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy — Redis Key Schema
 
 > This is the single source of truth for all Redis key patterns.

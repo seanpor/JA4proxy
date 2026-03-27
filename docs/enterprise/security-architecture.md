@@ -1,3 +1,10 @@
+<!--
+title: Security Architecture
+audience: Security Teams, Auditors
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # Security Architecture Document
 
 > **⚠️ TARGET ARCHITECTURE — NOT CURRENT STATE**

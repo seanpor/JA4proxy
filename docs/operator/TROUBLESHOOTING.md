@@ -1,3 +1,10 @@
+<!--
+title: Troubleshooting
+audience: Operators, Security Teams
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy — Troubleshooting Guide
 
 > **Audience:** SecOps operators, DevOps engineers, support staff

@@ -1,3 +1,10 @@
+<!--
+title: Benchmark_History
+audience: Developers
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy — Benchmark History
 
 Record benchmark results here after each phase. Format: date, phase, metric, value, git commit hash.

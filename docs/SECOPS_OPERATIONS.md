@@ -1,4 +1,15 @@
+<!--
+title: SecOps Operations Guide
+audience: SecOps analysts, infrastructure operators
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy — SecOps Operations Guide
+
+> **Audience:** SecOps analysts, infrastructure operators
+> **Prerequisites:** JA4proxy deployed and running; Redis accessible
+> **Related:** [Incident Response](INCIDENT_RESPONSE.md) · [Quick Reference](QUICK_REFERENCE.md)
 
 ## Quick Start (3 steps)
 

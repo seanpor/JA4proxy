@@ -1,3 +1,10 @@
+<!--
+title: Blocking Test Analysis
+audience: Operators, Security Teams
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # Blocking Mode Test Analysis
 
 ## Current Status

@@ -1,3 +1,10 @@
+<!--
+title: JA4proxy Documentation
+audience: All Users
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy Documentation
 
 > **Audience:** All users — primary entry point for documentation

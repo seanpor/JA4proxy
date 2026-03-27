@@ -1,3 +1,10 @@
+<!--
+title: Mock_Servers
+audience: Developers
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy — Mock Servers Documentation
 
 > **Audience:** Test authors, contributing developers

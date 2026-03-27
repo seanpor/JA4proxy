@@ -1,3 +1,10 @@
+<!--
+title: Exceptions
+audience: Security Teams, Auditors
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy — Approved Security & Testing Exceptions
 
 This document tracks all manual approvals for deviations from the project's Zero-Tolerance policy (skips, warnings, or deferred security fixes). Every entry represents an acknowledged risk with a documented justification.

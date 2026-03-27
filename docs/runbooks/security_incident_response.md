@@ -1,3 +1,10 @@
+<!--
+title: Security_Incident_Response
+audience: Operators, Security Teams
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # Security Incident Response Runbook
 
 ## Overview

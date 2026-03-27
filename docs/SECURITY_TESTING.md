@@ -1,3 +1,10 @@
+<!--
+title: Security_Testing
+audience: Developers
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4 Security Testing Guide
 
 This guide demonstrates how to test JA4 fingerprint blocking, rate limiting, and security features.

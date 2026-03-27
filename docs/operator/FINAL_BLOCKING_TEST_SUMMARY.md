@@ -1,3 +1,10 @@
+<!--
+title: Final_Blocking_Test_Summary
+audience: Operators, Security Teams
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # Final Blocking Mode Test Summary
 
 ## 🎯 Test Objective
