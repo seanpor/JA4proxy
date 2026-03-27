@@ -375,7 +375,7 @@ class Pipeline:
         """Wire in the Phase 11 RDAP enricher. Called after start()."""
         self._rdap_enricher = enricher
 
-    def _get_analytics_signals(self, ip: str) -> list:
+    async def _get_analytics_signals(self, ip: str) -> list:
         """Read analytics cross-instance signals from Redis (Phase 12).
 
         Checks for campaign (+35) and slow-scan (+30) findings written by the
@@ -405,7 +405,7 @@ class Pipeline:
                 self._cache.analytics_signals.set(subnet, signals)
                 return signals
 
-            campaign_val = self._redis.get(f"analytics:campaign:{subnet}")
+            campaign_val = await self._redis.get(f"analytics:campaign:{subnet}")
             if campaign_val is not None and isinstance(campaign_val, (bytes, str)):
                 signals.append(
                     RiskSignal(
@@ -416,7 +416,7 @@ class Pipeline:
                 )
                 _ANALYTICS_SIGNALS.labels(signal_type="campaign").inc()
 
-            slowscan_val = self._redis.get(f"analytics:slowscan:{subnet}")
+            slowscan_val = await self._redis.get(f"analytics:slowscan:{subnet}")
             if slowscan_val is not None and isinstance(slowscan_val, (bytes, str)):
                 signals.append(
                     RiskSignal(
@@ -963,7 +963,7 @@ class Pipeline:
 
         # Phase 12: Analytics cross-instance signals (campaign detection, slow-scan)
         try:
-            analytics_signals = self._get_analytics_signals(ctx.client_ip)
+            analytics_signals = await self._get_analytics_signals(ctx.client_ip)
             signals.extend(analytics_signals)
         except (asyncio.TimeoutError, ConnectionError) as exc:
             logger.warning(
@@ -1136,9 +1136,8 @@ class Pipeline:
     ) -> None:
         """XADD one event to ``ja4proxy:events``. Swallows all errors.
 
-        Uses the synchronous Redis client passed at init time (Phase 12 will
-        upgrade to async). The sync call runs in the event loop thread;
-        acceptable at Phase 2 scale as a fire-and-forget write.
+        Uses the async Redis client passed at init time (Phase 12 upgrade).
+        The call is awaited to ensure it is processed correctly by the loop.
         """
         try:
             cf = (
@@ -1157,7 +1156,7 @@ class Pipeline:
                 fields[f"action_at_{d}"] = act
 
             if hasattr(self._redis, "xadd"):
-                self._redis.xadd(
+                await self._redis.xadd(
                     "ja4proxy:events", fields, maxlen=100_000, approximate=True
                 )
         except Exception as exc:

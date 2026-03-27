@@ -66,7 +66,7 @@ from src.security.risk_scorer import RiskScorer
 REQUEST_COUNT = Counter(
     "ja4_requests_total",
     "Total requests processed",
-    ["fingerprint", "fingerprint_name", "action", "source_country", "tls_version"],
+    ["fingerprint_name", "action", "source_country", "tls_version"],
 )
 REQUEST_DURATION = Histogram(
     "ja4_request_duration_seconds",
@@ -1404,7 +1404,7 @@ class ProxyServer:
                 )
 
         # Phase 2: Initialize dial from Redis; reset to 0 if blocking_acknowledged=false
-        initial_dial = self._dial_manager.initialize(self.redis_client)
+        initial_dial = await self._dial_manager.initialize(self.redis_client)
         self._local_cache.dial = initial_dial
         self.logger.info(
             '{"type":"system","level":"INFO","subsystem":"dial",'
@@ -1500,12 +1500,45 @@ class ProxyServer:
                 except Exception as exc:
                     self.logger.warning(f"aiohttp | event=close_error | error={exc}")
 
+    def _is_trusted_proxy_source(self, ip: str) -> bool:
+        """Return True if the peer IP is allowed to provide PROXY/XFF headers.
+
+        Controlled by proxy.upstream_trust:
+            enabled: bool        — must be true to trust any header
+            trusted_cidrs: list  — list of CIDR strings allowed to provide headers
+        """
+        trust_cfg = self.config.get("proxy", {}).get("upstream_trust", {})
+        if not trust_cfg.get("enabled", False):
+            return False
+
+        trusted_cidrs = trust_cfg.get("trusted_cidrs", [])
+        if not trusted_cidrs:
+            return False
+
+        try:
+            addr = ipaddress.ip_address(ip)
+            for cidr in trusted_cidrs:
+                if addr in ipaddress.ip_network(cidr):
+                    return True
+        except (ValueError, TypeError):
+            pass
+
+        return False
+
+    def _sanitize_log(self, text: Any) -> str:
+        """Sanitize text for logging by removing newlines and carriage returns."""
+        if text is None:
+            return ""
+        return str(text).replace("\r", "\\r").replace("\n", "\\n")
+
     async def handle_connection(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ):
         """Handle incoming client connection with PROXY protocol and JA4 security."""
         client_addr = writer.get_extra_info("peername")
-        socket_ip = client_addr[0] if client_addr else "unknown"
+        socket_ip = (
+            self._sanitize_log(client_addr[0]) if client_addr else "unknown"
+        )
         client_ip = socket_ip  # May be overridden by PROXY protocol
 
         self.active_connections += 1
@@ -1528,22 +1561,24 @@ class ProxyServer:
                 )
 
                 if not data:
-                    self.logger.debug(f"Empty data from {client_ip}")
+                    self.logger.debug("Empty data from %s", socket_ip)
                     return
 
-                # Parse PROXY protocol v2 header if enabled
-                proxy_info = {}
-                if self.config["proxy"].get("proxy_protocol", False):
+                # Phase 1: IP Spoofing Prevention
+                # Parse PROXY protocol v2 header ONLY if source is trusted
+                if self.config["proxy"].get(
+                    "proxy_protocol", False
+                ) and self._is_trusted_proxy_source(socket_ip):
                     proxy_info, data = self._parse_proxy_protocol(data, socket_ip)
-                    client_ip = proxy_info.get("client_ip", socket_ip)
+                    client_ip = self._sanitize_log(proxy_info.get("client_ip", socket_ip))
 
-                # Also check for X-Forwarded-For in HTTP requests as fallback
-                if client_ip == socket_ip:
+                # Fallback to X-Forwarded-For ONLY if source is trusted
+                if client_ip == socket_ip and self._is_trusted_proxy_source(socket_ip):
                     extracted_ip = self._extract_client_ip_from_http(data)
                     if extracted_ip:
-                        client_ip = extracted_ip
+                        client_ip = self._sanitize_log(extracted_ip)
 
-                self.logger.info(f"Connection from {client_ip} (socket: {socket_ip})")
+                self.logger.info("Connection from %s (socket: %s)", client_ip, socket_ip)
 
                 # Analyze TLS handshake — extract JA4 fingerprint
                 fingerprint = await asyncio.wait_for(
@@ -1569,7 +1604,6 @@ class ProxyServer:
                                 f"JA4: {ja4} | Name: {classify_ja4(ja4, self.config)}"
                             )
                             REQUEST_COUNT.labels(
-                                fingerprint=ja4,
                                 fingerprint_name=classify_ja4(ja4, self.config),
                                 action="blocked",
                                 source_country=country,
@@ -1594,7 +1628,6 @@ class ProxyServer:
                         f"Name: {classify_ja4(ja4, self.config)}"
                     )
                     REQUEST_COUNT.labels(
-                        fingerprint=ja4,
                         fingerprint_name=classify_ja4(ja4, self.config),
                         action="blocked",
                         source_country=country or "",
@@ -1617,7 +1650,6 @@ class ProxyServer:
                         f"Forwarding (TLS parse failed — fail open)"
                     )
                     REQUEST_COUNT.labels(
-                        fingerprint="unknown",
                         fingerprint_name="Unknown",
                         action="allowed",
                         source_country=country,
@@ -1662,7 +1694,6 @@ class ProxyServer:
                     else "blocked"
                 )
                 REQUEST_COUNT.labels(
-                    fingerprint=ja4,
                     fingerprint_name=classify_ja4(ja4, self.config),
                     action=action_label,
                     source_country=fingerprint.geo_country,
@@ -1940,8 +1971,11 @@ class ProxyServer:
             # TLS record: byte 0 = content type (0x16 = handshake), bytes 1-2 = version, bytes 3-4 = length
             if len(data) >= 5 and data[0] == 0x16:
                 # This is a TLS handshake record — parse with Scapy's TLS layer directly
+                # Phase 20 (Pentest Remediation): Offload Scapy TLS parsing to a thread
+                # Scapy's TLS() parser is synchronous and can block the event loop
+                # on malformed or complex packets.
                 try:
-                    tls_packet = TLS(data)
+                    tls_packet = await asyncio.to_thread(TLS, data)
                     client_hello_fields = self.tls_parser.parse_client_hello(tls_packet)
 
                     if client_hello_fields:
