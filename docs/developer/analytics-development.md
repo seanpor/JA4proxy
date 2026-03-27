@@ -1,6 +1,15 @@
-# Analytics Node Development Guide
+> **[DEPRECATED]** This draft document has been superseded by the analytics architecture documentation
+> in [architecture/analytics-node-architecture.md](../../architecture/analytics-node-architecture.md)
+>
+> The new document provides comprehensive, up-to-date information about the analytics node
+> architecture, stream processing pipeline, and implementation details.
+> This draft is retained for historical reference only.
+
+# Analytics Node Development Guide (Deprecated)
 
 ## Overview
+
+**Note:** This content is outdated. See [analytics-node-architecture.md](../../architecture/analytics-node-architecture.md) for current information.
 
 This guide provides comprehensive development information for the JA4Proxy Analytics Node (Phase 12). It covers architecture, APIs, testing, debugging, and best practices.
 

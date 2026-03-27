@@ -1,4 +1,10 @@
-# Comprehensive Test Analysis Report
+> **[DEPRECATED]** This document has been superseded by the comprehensive testing documentation
+> in [TESTING_STRATEGY.md](../../TESTING_STRATEGY.md) and [TEST_ORGANIZATION.md](../../TEST_ORGANIZATION.md)
+>
+> The new documents provide up-to-date test organization, strategy, and quality standards.
+> This document is retained for historical reference only.
+
+# Comprehensive Test Analysis Report (Deprecated)
 
 ## Executive Summary
 

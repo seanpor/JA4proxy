@@ -1,4 +1,12 @@
-# Go Proxy — Developer Guide
+> **[DEPRECATED]** This document has been superseded by [GO_PORT_GUIDE.md](GO_PORT_GUIDE.md)
+>
+> The new guide provides comprehensive, up-to-date information for Go proxy development,
+> including step-by-step porting instructions, parity testing, performance optimization,
+> and advanced Go topics. This document is retained for historical reference only.
+
+# Go Proxy — Developer Guide (Deprecated)
+
+**Note:** This content is outdated. See [GO_PORT_GUIDE.md](GO_PORT_GUIDE.md) for current information.
 
 This guide covers the architecture, key design decisions, and development workflow for
 the Go proxy (`cmd/proxy/` + `internal/`). Read `docs/phases/PHASE_15.md` for the
