@@ -1138,6 +1138,9 @@ class ProxyServer:
             blacklist={k.decode("utf-8", errors="ignore") for k in bl_raw},
         )
 
+        # Phase 26e: Start WriteBuffer for deferred batching
+        await self.pipeline.start()
+
         # Phase 2: Dial manager (safety: reset to 0 + hourly rate-limit)
         self._dial_manager = DialManager(self.config)
 
@@ -1477,6 +1480,9 @@ class ProxyServer:
             # Phase 20 G0-A: stop backup scheduler
             if self._backup_scheduler is not None:
                 await self._backup_scheduler.stop()
+
+            # Phase 26e: Stop WriteBuffer and flush remaining writes
+            await self.pipeline.stop()
 
             # Drain in-flight connections when a graceful shutdown was requested.
             if shutdown_event is not None and shutdown_event.is_set():

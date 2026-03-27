@@ -48,6 +48,7 @@ import redis
 from prometheus_client import Counter, Gauge, Histogram
 
 from .models import ConnectionContext, RiskSignal
+from .write_buffer import WriteBuffer
 
 if TYPE_CHECKING:
     from ..cache.local_cache import LocalCache
@@ -191,6 +192,17 @@ class BeaconingDetector:
 
         # Phase 14d: cap on beacon:suspects leaderboard size to prevent unbounded growth
         self._max_suspects: int = cfg.get("max_suspects", 10000)
+        
+        # Phase 26e: Write buffer for deferred batching
+        self._write_buffer = WriteBuffer(redis_client)
+
+    async def start(self) -> None:
+        """Start background tasks (WriteBuffer flush loop)."""
+        await self._write_buffer.start()
+
+    async def stop(self) -> None:
+        """Stop background tasks and flush remaining writes."""
+        await self._write_buffer.stop()
 
     async def maybe_record(
         self,
@@ -199,10 +211,11 @@ class BeaconingDetector:
         alpn: str,
         action: str,
     ) -> None:
-        """Record a connection timestamp if it passes all guards.
+        """Record a connection timestamp if it passes all guards using WriteBuffer.
 
         Called fire-and-forget after action is determined. Silently absorbs
         all Redis errors — a recording failure must never affect the response.
+        Uses deferred write batching (Phase 26e) to reduce I/O overhead.
 
         Guards:
           1. Browser ALPN (h2/h1) — regular keep-alive patterns cause FP.
@@ -226,20 +239,18 @@ class BeaconingDetector:
         # same millisecond (ZADD would overwrite same-score, same-member entry).
         uid = f"{now:.6f}:{uuid.uuid4().hex[:8]}"
 
-        # Short window
+        # Short window - use WriteBuffer for deferred batching
         try:
             key = f"beacon:{ip}:{ja4}"
-            pipe = self._redis.pipeline(transaction=False)
-            pipe.zadd(key, {uid: now})
-            pipe.zremrangebyscore(key, 0, now - self._window_seconds)
-            # Trim to newest window_size entries to cap memory usage
-            pipe.zremrangebyrank(key, 0, -(self._window_size + 2))
-            pipe.expire(key, self._window_seconds + 60)
-            await pipe.execute()
+            # Enqueue all operations instead of immediate execution
+            await self._write_buffer.enqueue("zadd", key, {uid: now})
+            await self._write_buffer.enqueue("zremrangebyscore", key, 0, now - self._window_seconds)
+            await self._write_buffer.enqueue("zremrangebyrank", key, 0, -(self._window_size + 2))
+            await self._write_buffer.enqueue("expire", key, self._window_seconds + 60)
             _BEACONING_RECORDS.inc()
         except Exception as exc:
             logger.debug(
-                "beaconing | event=record_failed | ip=%s | error=%s", ip, exc
+                "beaconing | event=record_enqueue_failed | ip=%s | error=%s", ip, exc
             )
             return  # Don't attempt long window if short window failed
 
@@ -247,14 +258,13 @@ class BeaconingDetector:
         if self._long_enabled:
             try:
                 long_key = f"beacon:long:{ip}:{ja4}"
-                pipe = self._redis.pipeline(transaction=False)
-                pipe.zadd(long_key, {uid: now})
-                pipe.zremrangebyscore(long_key, 0, now - self._long_seconds)
-                pipe.expire(long_key, self._long_seconds + 60)
-                await pipe.execute()
+                # Enqueue long window operations
+                await self._write_buffer.enqueue("zadd", long_key, {uid: now})
+                await self._write_buffer.enqueue("zremrangebyscore", long_key, 0, now - self._long_seconds)
+                await self._write_buffer.enqueue("expire", long_key, self._long_seconds + 60)
             except Exception as exc:
                 logger.debug(
-                    "beaconing | event=long_record_failed | ip=%s | error=%s", ip, exc
+                    "beaconing | event=long_record_enqueue_failed | ip=%s | error=%s", ip, exc
                 )
 
     async def get_signal(

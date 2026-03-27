@@ -67,6 +67,7 @@ from .rdap_enrichment import RDAPEnricher
 from .sni_analyzer import SNIAnalyzer
 from .tcp_analyzer import TCPAnalyzer
 from .tls_enforcer import TLSEnforcer
+from .write_buffer import WriteBuffer
 
 if TYPE_CHECKING:
     from ..cache.local_cache import LocalCache
@@ -337,6 +338,8 @@ class Pipeline:
         # Phase 11: RDAP enrichment (offline enrichment; background workers).
         # start()/stop() called by ProxyServer.
         self._rdap_enricher: RDAPEnricher | None = None
+        # Phase 26e: Write buffer for deferred batching of post-decision writes
+        self._write_buffer = WriteBuffer(redis_client)
         # Phase 16: JA4X fingerprint lists (parallel structure to JA4 lists)
         self._ja4x_whitelist: set[str] = set()
         self._ja4x_blacklist: set[str] = set()
@@ -456,6 +459,14 @@ class Pipeline:
         """Replace in-process JA4X sets. Called on startup and pub/sub update."""
         self._ja4x_whitelist = whitelist
         self._ja4x_blacklist = blacklist
+
+    async def start(self) -> None:
+        """Start background tasks (WriteBuffer flush loop)."""
+        await self._write_buffer.start()
+
+    async def stop(self) -> None:
+        """Stop background tasks and flush remaining writes."""
+        await self._write_buffer.stop()
 
     def on_config_reload(self, new_config: dict) -> None:
         """Apply new config on hot reload. Registered with ConfigLoader."""
@@ -1171,10 +1182,10 @@ class Pipeline:
     async def _emit_stream_event(
         self, ctx: ConnectionContext, result: PipelineResult
     ) -> None:
-        """XADD one event to ``ja4proxy:events``. Swallows all errors.
+        """XADD one event to ``ja4proxy:events`` via WriteBuffer.
 
-        Uses the async Redis client passed at init time (Phase 12 upgrade).
-        The call is awaited to ensure it is processed correctly by the loop.
+        Uses deferred write batching (Phase 26e) to reduce I/O overhead.
+        The operation is enqueued for background processing.
         """
         try:
             cf = (
@@ -1192,12 +1203,16 @@ class Pipeline:
             for d, act in cf.items():
                 fields[f"action_at_{d}"] = act
 
-            if hasattr(self._redis, "xadd"):
-                await self._redis.xadd(
-                    "ja4proxy:events", fields, maxlen=100_000, approximate=True
-                )
+            # Enqueue for deferred batching instead of immediate execution
+            await self._write_buffer.enqueue(
+                "xadd",
+                "ja4proxy:events",
+                fields,
+                maxlen=100_000,
+                approximate=True
+            )
         except Exception as exc:
-            logger.debug("stream | event=xadd_failed | error=%s", exc)
+            logger.debug("stream | event=enqueue_failed | error=%s", exc)
 
 
 def _format_signals(signals: list) -> str:
