@@ -1,3 +1,10 @@
+<!--
+title: Testing_Strategy
+audience: Developers
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy — Testing Strategy
 
 > This document defines the full testing methodology for the project.

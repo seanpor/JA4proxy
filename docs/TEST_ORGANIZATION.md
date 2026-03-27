@@ -1,3 +1,10 @@
+<!--
+title: Test_Organization
+audience: Developers
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy — Test Organisation
 
 > This document defines the canonical test file layout, pytest infrastructure,

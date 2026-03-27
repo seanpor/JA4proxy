@@ -1,3 +1,10 @@
+<!--
+title: Go_Proxy_Guide
+audience: Developers
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 > **[DEPRECATED]** This document has been superseded by [GO_PORT_GUIDE.md](GO_PORT_GUIDE.md)
 >
 > The new guide provides comprehensive, up-to-date information for Go proxy development,

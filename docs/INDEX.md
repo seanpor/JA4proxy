@@ -1,3 +1,10 @@
+<!--
+title: Documentation Index
+audience: All Users
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy Documentation Index
 
 > **Purpose:** Central navigable map of all documentation, organized by reader persona

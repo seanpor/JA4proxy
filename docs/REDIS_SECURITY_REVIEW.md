@@ -1,3 +1,10 @@
+<!--
+title: Redis_Security_Review
+audience: Developers
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # Redis Security — POC Status and Production Requirements
 
 **Last reviewed:** 2026-02-23

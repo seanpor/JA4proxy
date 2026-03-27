@@ -1,3 +1,10 @@
+<!--
+title: Threat Model
+audience: Security Teams, Auditors
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4 Proxy Threat Model
 
 > **Note:** This threat model covers the full target architecture including enterprise components (PostgreSQL, Elasticsearch, Kubernetes) not yet implemented in the POC. See [README](../../README.md) for current POC capabilities.

@@ -1,3 +1,10 @@
+<!--
+title: Monitoring_Setup
+audience: Developers
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # Prometheus & Grafana Alerting Setup Guide for JA4proxy
 
 Complete step-by-step guide to set up monitoring, alerting, and dashboards for JA4proxy security events.

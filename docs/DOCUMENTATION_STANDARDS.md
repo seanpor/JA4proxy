@@ -1,3 +1,10 @@
+<!--
+title: Documentation_Standards
+audience: Developers
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy — Documentation Standards
 
 > This document defines how documentation is written and kept up to date.
@@ -242,4 +249,7 @@ Documentation gate — must pass before phase is marked complete:
 [ ] OpenAPI spec regenerated (Phase 13+ only)
 [ ] ADR written for any significant architectural decision made during phase
 [ ] All new code has docstrings (spot-checked, not 100% coverage required)
+[ ] All new documents have correct frontmatter (title, audience, last_reviewed, phase)
+[ ] `make lint-docs` passes with zero warnings
+[ ] `make link-check` passes with zero broken internal links
 ```

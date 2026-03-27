@@ -1,3 +1,10 @@
+<!--
+title: Blocking Guide
+audience: Operators, Security Teams
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # Complete Guide to Enabling Blocking Mode in JA4proxy
 
 ## 🎯 Overview

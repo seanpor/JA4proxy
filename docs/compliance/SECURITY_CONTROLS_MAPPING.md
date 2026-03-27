@@ -1,3 +1,10 @@
+<!--
+title: Security_Controls_Mapping
+audience: Compliance Officers, Auditors
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy — Security Controls Mapping
 
 > **Audience:** Compliance officers, security auditors, ISO 27001 implementers

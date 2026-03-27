@@ -1,3 +1,10 @@
+<!--
+title: Analytics Security
+audience: Security Teams, Auditors
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # Analytics Node Security Guide
 
 ## Overview

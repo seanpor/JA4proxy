@@ -1,3 +1,10 @@
+<!--
+title: Management_Ui
+audience: Operators, Security Teams
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # Management UI Operations Runbook
 
 > **[DEPRECATED — Phase 13 Management UI was removed in v13.2.0]**

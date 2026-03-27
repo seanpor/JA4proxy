@@ -26,10 +26,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **OPEN** (AF_PACKET capture and out-of-band enforcement.)
 *   **Action Plan:** [PHASE_20_WORK_PLAN.md](PHASE_20_WORK_PLAN.md)
 
-### Phase 21 — Documentation Excellence
-*   **Status:** **OPEN** (5/5 documentation quality and persona-based navigation.)
-*   **Action Plan:** [PHASE_21_WORK_PLAN.md](PHASE_21_WORK_PLAN.md)
-
 ### Phase 22 — Backup System Enhancements
 *   **Status:** **PROPOSED** (Encryption, cloud storage, incremental backups, and performance optimizations.)
 *   **Action Plan:** [PHASE_22.md](PHASE_22.md)

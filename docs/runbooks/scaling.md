@@ -1,3 +1,10 @@
+<!--
+title: Scaling
+audience: Operators, Security Teams
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # Runbook: Scaling the Proxy
 
 ## When to Scale

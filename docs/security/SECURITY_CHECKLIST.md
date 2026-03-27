@@ -1,3 +1,10 @@
+<!--
+title: Security_Checklist
+audience: Security Teams, Auditors
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # Security Deployment Checklist
 
 Use this checklist before deploying JA4 Proxy to any environment.

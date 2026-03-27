@@ -1,3 +1,10 @@
+<!--
+title: Backup_Threat_Model
+audience: Security Teams, Auditors
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy Backup & Restore — Threat Model (Phase 19)
 
 **Date:** 2026-03-21

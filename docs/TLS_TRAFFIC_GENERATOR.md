@@ -1,3 +1,10 @@
+<!--
+title: Tls_Traffic_Generator
+audience: Developers
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # TLS Traffic Generator for JA4proxy
 
 This tool generates realistic mixed traffic to performance test JA4proxy with a combination of legitimate customers and malicious attackers.

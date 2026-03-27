@@ -1,3 +1,10 @@
+<!--
+title: Analytics_Lag
+audience: Operators, Security Teams
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # Runbook: Analytics Stream Consumer Lag
 
 ## Alert

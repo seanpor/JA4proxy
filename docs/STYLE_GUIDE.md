@@ -1,3 +1,10 @@
+<!--
+title: Style_Guide
+audience: Developers
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy — Style Guide
 
 > This is the authoritative reference for configuration syntax, log message format,

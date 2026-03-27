@@ -1,3 +1,10 @@
+<!--
+title: Deployment
+audience: Enterprise Architects, Deployment Teams
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 > **[ASPIRATIONAL]** This document describes a target enterprise architecture that has not yet been validated in production.
 >
 > Treat as a starting point, not a specification. See `docs/DMZ_DEPLOYMENT_READINESS.md` for the validated single-node deployment model.

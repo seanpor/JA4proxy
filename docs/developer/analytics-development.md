@@ -1,3 +1,10 @@
+<!--
+title: Analytics Development
+audience: Developers
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 > **[DEPRECATED]** This draft document has been superseded by the analytics architecture documentation
 > in [architecture/analytics-node-architecture.md](../../architecture/analytics-node-architecture.md)
 >

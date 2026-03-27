@@ -1,3 +1,10 @@
+<!--
+title: Dmz_Deployment_Readiness
+audience: Developers
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # DMZ Deployment Readiness Assessment
 
 **JA4proxy — TLS Fingerprinting Security Proxy**

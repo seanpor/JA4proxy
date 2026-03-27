@@ -1,3 +1,10 @@
+<!--
+title: Testing_Go
+audience: Developers
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # Testing the Go Proxy — Comparison with Python Tests
 
 This document describes how Go tests differ from the Python test suite, and what

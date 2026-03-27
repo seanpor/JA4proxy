@@ -1,3 +1,10 @@
+<!--
+title: Go_Port_Guide
+audience: Developers
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy — Go Port Guide
 
 > **Audience:** Developers porting Python signals to Go

@@ -1,3 +1,10 @@
+<!--
+title: Gdpr_Compliance
+audience: Compliance Officers, Auditors
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy — GDPR Compliance
 
 > **Audience:** Compliance officers, Data Protection Officers, security auditors

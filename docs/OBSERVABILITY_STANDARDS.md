@@ -1,3 +1,10 @@
+<!--
+title: Observability Standards
+audience: DevOps, SRE, Monitoring Teams
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4proxy — Observability Standards
 
 > This is the authoritative reference for every observability concern:

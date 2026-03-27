@@ -1,3 +1,10 @@
+<!--
+title: System Architecture
+audience: Architects, Technical Leads
+last_reviewed: 2026-03-27
+phase: 21
+-->
+
 # JA4 Proxy System Architecture
 
 > **Note:** This document describes the **target enterprise architecture**. The current POC implements the core proxy, HAProxy, Redis, tarpit, Prometheus, Grafana, and Loki. Components like PostgreSQL, Elasticsearch, Kubernetes, and WAF are aspirational for production deployment.
