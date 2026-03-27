@@ -240,11 +240,18 @@ logging:
 # Phase 14c: Tarpit self-protection.  Controls how many connections the proxy
 # will simultaneously hold in the tarpit container.  When either cap is hit the
 # overflow_action is taken instead of tarpitting.
+#
+# Phase 26d: Multi-process scaling adjustments
+# When running N workers, set max_per_ip to ceil(3 / N) to preserve the global
+# semantic of "max 3 concurrent tarpit connections per IP across all workers".
+# Examples: 2 workers → max_per_ip=2, 4 workers → max_per_ip=1
 tarpit:
   max_concurrent_connections: 500  # Hard global cap on simultaneous tarpit slots
-  max_per_ip: 3                    # Max concurrent tarpit connections from one source IP
+  max_per_ip: 3                    # Max concurrent tarpit connections from one source IP (per worker)
   overflow_action: "block"         # When cap reached: block | rst | allow (allow = fail open to backend)
   overflow_log: true               # Log overflow events (always true; field reserved for future rate-limiting)
+  # Multi-process scaling (Phase 26d)
+  worker_count: 1                  # Number of worker processes (1 = single process mode)
 
 # ── Phase 0: Infrastructure ───────────────────────────────────────────────
 
