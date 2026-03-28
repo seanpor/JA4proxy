@@ -107,6 +107,8 @@ def _make_server_stub():
     # Phase 2: Pipeline replaces advanced_security layers
     s.pipeline = MagicMock()
     s.pipeline.process = AsyncMock(return_value=PipelineResult(action="allow"))
+    s.pipeline.start = AsyncMock()
+    s.pipeline.stop = AsyncMock()
     s.pipeline._tcp_analyzer = MagicMock()
     s.pipeline._tcp_analyzer.decrement_concurrent_connections = AsyncMock()
     s.security_manager = MagicMock()
@@ -125,7 +127,7 @@ def _make_server_stub():
     s._conn_semaphore = asyncio.Semaphore(MAX_CONCURRENT_CONNECTIONS)
     # Phase 2: dial manager and local cache for start()
     s._dial_manager = MagicMock()
-    s._dial_manager.initialize = MagicMock(return_value=0)
+    s._dial_manager.initialize = AsyncMock(return_value=0)
     s._local_cache = MagicMock()
     s._local_cache.dial = 0
     s._backup_scheduler = None
@@ -1670,10 +1672,12 @@ class TestProxyServerShutdownCoverageGaps:
         server._tarpit_lock = asyncio.Lock()
         server._conn_semaphore = asyncio.Semaphore(100)
         server.pipeline = MagicMock()
+        server.pipeline.start = AsyncMock()
+        server.pipeline.stop = AsyncMock()
         server.pipeline._tcp_analyzer = MagicMock()
         server.pipeline._tcp_analyzer.decrement_concurrent_connections = AsyncMock()
         server._dial_manager = MagicMock()
-        server._dial_manager.initialize = MagicMock(return_value=0)
+        server._dial_manager.initialize = AsyncMock(return_value=0)
         server._local_cache = MagicMock()
         server.redis_client = MagicMock()
         server._backup_scheduler = None
@@ -1955,12 +1959,13 @@ class TestProxyServerCreate:
             rdap_mock = MagicMock()
             rdap_mock.start = AsyncMock()
 
-            pipeline_mock = MagicMock()
-            pipeline_mock.update_scorer = MagicMock()
-            pipeline_mock.update_sets = MagicMock()
-            pipeline_mock.set_abuseipdb_checker = MagicMock()
-            pipeline_mock.set_rdap_enricher = MagicMock()
-            pipeline_mock._blocklist_manager = MagicMock()
+            pipeline_mock = AsyncMock()
+            pipeline_mock.start = AsyncMock()
+            pipeline_mock.update_scorer = AsyncMock()
+            pipeline_mock.update_sets = AsyncMock()
+            pipeline_mock.set_abuseipdb_checker = AsyncMock()
+            pipeline_mock.set_rdap_enricher = AsyncMock()
+            pipeline_mock._blocklist_manager = AsyncMock()
 
             with (
                 patch("proxy.ConfigManager") as MockCM,
@@ -2004,10 +2009,11 @@ class TestProxyServerCreate:
             redis_mock = AsyncMock()
             redis_mock.smembers = AsyncMock(return_value=set())
 
-            pipeline_mock = MagicMock()
-            pipeline_mock.update_scorer = MagicMock()
-            pipeline_mock.update_sets = MagicMock()
-            pipeline_mock._blocklist_manager = MagicMock()
+            pipeline_mock = AsyncMock()
+            pipeline_mock.start = AsyncMock()
+            pipeline_mock.update_scorer = AsyncMock()
+            pipeline_mock.update_sets = AsyncMock()
+            pipeline_mock._blocklist_manager = AsyncMock()
 
             with (
                 patch("proxy.ConfigManager") as MockCM,
