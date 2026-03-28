@@ -37,13 +37,13 @@ type RedisReader interface {
 //
 // Fail open: any module error is logged; a zero/neutral signal is used instead.
 type Pipeline struct {
-	cfg         *PipelineConfig
-	scorer      *RiskScorer
-	decider     *ActionDecider
-	redis       RedisReader
-	log         *logrus.Logger
-	tlsEnforcer *TLSEnforcer
-	sniAnalyzer *SNIAnalyzer
+	cfg           *PipelineConfig
+	scorer        *RiskScorer
+	decider       *ActionDecider
+	redis         RedisReader
+	log           *logrus.Logger
+	tlsEnforcer   *TLSEnforcer
+	sniAnalyzer   *SNIAnalyzer
 	rateLimiter   *RateLimiter
 	tcpAnalyzer   *TCPAnalyzer
 	asnClassifier *ASNClassifier
@@ -54,10 +54,15 @@ type Pipeline struct {
 	rdap          *RDAPEnricher
 
 	// JA4 lists (dynamic, synchronized with Redis)
-	Whitelist map[string]bool
-	Blacklist map[string]bool
+	Whitelist   map[string]bool
+	Blacklist   map[string]bool
 	dynamicCIDR cidranger.Ranger
-	mu        sync.RWMutex
+
+	// JA4X lists (dynamic, synchronized with Redis)
+	JA4XWhitelist map[string]bool
+	JA4XBlacklist map[string]bool
+
+	mu sync.RWMutex
 }
 
 // PipelineConfig holds the pipeline's toggleable bypass flags and list sets.
@@ -99,43 +104,43 @@ type PipelineConfig struct {
 	ExpectedHostnames    map[string]bool
 
 	// Rate limiter (Group 3)
-	RateLimiterEnabled  bool
-	RateLimiterByIP     StrategyConfig
-	RateLimiterByJA4    StrategyConfig
-	RateLimiterByIPJA4  StrategyConfig
+	RateLimiterEnabled bool
+	RateLimiterByIP    StrategyConfig
+	RateLimiterByJA4   StrategyConfig
+	RateLimiterByIPJA4 StrategyConfig
 
 	// TCP analyzer (Group 3)
-	TCPAnalyzerEnabled                    bool
-	TCPAnalyzerSessionResumptionEnabled   bool
-	TCPAnalyzerMinConnectionsForSession   int
-	TCPAnalyzerShortLifespanEnabled       bool
-	TCPAnalyzerShortLifespanThresholdMS   int
-	TCPAnalyzerConcurrencyEnabled         bool
-	TCPAnalyzerConcurrencyModerate        int
-	TCPAnalyzerConcurrencyHigh            int
-	TCPAnalyzerConcurrencySevere          int
-	TCPAnalyzerReturnVisitorEnabled       bool
-	TCPAnalyzerReturnVisitorMinDays       int
-	TCPAnalyzerReturnVisitorMinAllowRate  float64
+	TCPAnalyzerEnabled                   bool
+	TCPAnalyzerSessionResumptionEnabled  bool
+	TCPAnalyzerMinConnectionsForSession  int
+	TCPAnalyzerShortLifespanEnabled      bool
+	TCPAnalyzerShortLifespanThresholdMS  int
+	TCPAnalyzerConcurrencyEnabled        bool
+	TCPAnalyzerConcurrencyModerate       int
+	TCPAnalyzerConcurrencyHigh           int
+	TCPAnalyzerConcurrencySevere         int
+	TCPAnalyzerReturnVisitorEnabled      bool
+	TCPAnalyzerReturnVisitorMinDays      int
+	TCPAnalyzerReturnVisitorMinAllowRate float64
 
 	// ASN classifier (Group 4)
-	ASNClassifierEnabled  bool
-	ASNDBPath             string
-	TorExitListPath       string
-	DatacenterScore       int
-	TorScore              int
-	VPNScore              int
-	UnknownScore          int
-	DatacenterASNs        map[uint]bool
-	DatacenterOrgs        []string
+	ASNClassifierEnabled bool
+	ASNDBPath            string
+	TorExitListPath      string
+	DatacenterScore      int
+	TorScore             int
+	VPNScore             int
+	UnknownScore         int
+	DatacenterASNs       map[uint]bool
+	DatacenterOrgs       []string
 
 	// DNS enrichment (Group 4)
-	DNSEnrichmentEnabled    bool
-	DNSEnrichmentWorkers    int
-	DNSNoPTRScore           int
-	DNSFCrDNSFailedScore    int
-	DNSResidentialScore     int
-	DNSTTL                  int
+	DNSEnrichmentEnabled bool
+	DNSEnrichmentWorkers int
+	DNSNoPTRScore        int
+	DNSFCrDNSFailedScore int
+	DNSResidentialScore  int
+	DNSTTL               int
 
 	// Blocklists (Group 4)
 	BlocklistFeeds []BlocklistFeedConfig
@@ -172,6 +177,12 @@ type PipelineConfig struct {
 
 	// Country blacklist (Group 6)
 	CountryBlacklist map[string]bool
+
+	// JA4X configuration (Group 6)
+	JA4XEnabled         bool
+	JA4XWhitelistBypass bool
+	JA4XBlacklistBypass bool
+	JA4XBlacklistScore  int
 }
 
 // NewPipeline creates a Pipeline ready to process connections.
@@ -243,6 +254,11 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 		}
 	}
 
+	// Extract JA4X from client certificate if not already set
+	if conn.JA4X == "" && len(conn.ClientCertificate) > 0 {
+		conn.JA4X = ExtractJA4X(conn.ClientCertificate)
+	}
+
 	// Blocklist check (hard block — before dial fetch)
 	if blSigs, hardBlock := p.blocklists.Check(conn.ClientIP); hardBlock {
 		return &PipelineResult{Action: "block", Score: 100, BypassReason: "blocklist"}
@@ -269,6 +285,24 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 		return &PipelineResult{Action: "block", Score: 100, BypassReason: "tls_enforcement"}
 	} else {
 		signals = append(signals, tlsSigs...)
+	}
+
+	// JA4X blacklist signal (non-hard-block case)
+	if conn.JA4X != "" && p.cfg.JA4XEnabled && !p.cfg.JA4XBlacklistBypass {
+		p.mu.RLock()
+		ja4xBlacklist := p.JA4XBlacklist
+		blacklistScore := p.cfg.JA4XBlacklistScore
+		p.mu.RUnlock()
+		if blacklistScore == 0 {
+			blacklistScore = 80
+		}
+		if ja4xBlacklist[conn.JA4X] {
+			signals = append(signals, RiskSignal{
+				Name:   "ja4x_blacklist",
+				Score:  blacklistScore,
+				Reason: "JA4X fingerprint in blacklist",
+			})
+		}
 	}
 
 	// SNI analysis
@@ -345,6 +379,14 @@ func (p *Pipeline) UpdateSets(whitelist, blacklist map[string]bool) {
 	p.Blacklist = blacklist
 }
 
+// UpdateJA4XSets replaces in-process JA4X maps. Called on startup and pub/sub update.
+func (p *Pipeline) UpdateJA4XSets(whitelist, blacklist map[string]bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.JA4XWhitelist = whitelist
+	p.JA4XBlacklist = blacklist
+}
+
 // UpdateDynamicCIDRs replaces the in-process CIDR blocklist.
 func (p *Pipeline) UpdateDynamicCIDRs(cidrs []string) {
 	ranger := cidranger.NewPCTrieRanger()
@@ -393,6 +435,13 @@ func (p *Pipeline) checkBypasses(conn *ConnectionContext) (bool, string) {
 		}
 	}
 
+	// JA4X whitelist bypass
+	if p.cfg.JA4XWhitelistBypass && conn.JA4X != "" && p.cfg.JA4XEnabled {
+		if p.JA4XWhitelist[conn.JA4X] {
+			return true, "ja4x_whitelist"
+		}
+	}
+
 	// mTLS bypass: valid client cert
 	if p.cfg.MTLSBypass && conn.HasValidClientCert {
 		return true, "mtls"
@@ -414,6 +463,13 @@ func (p *Pipeline) checkHardBlocks(conn *ConnectionContext) (bool, string) {
 	// JA4 blacklist
 	if p.cfg.JA4BlacklistBypass && conn.JA4 != "" && p.Blacklist[conn.JA4] {
 		return true, "ja4_blacklist"
+	}
+
+	// JA4X blacklist
+	if p.cfg.JA4XBlacklistBypass && conn.JA4X != "" && p.cfg.JA4XEnabled {
+		if p.JA4XBlacklist[conn.JA4X] {
+			return true, "ja4x_blacklist"
+		}
 	}
 
 	// Country blacklist
