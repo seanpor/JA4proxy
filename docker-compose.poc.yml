@@ -1,6 +1,6 @@
 services:
   haproxy:
-    image: haproxy:2.8-alpine
+    image: haproxy:2.8.5-alpine
     container_name: ja4proxy-haproxy
     ports:
       - "443:443"
@@ -34,6 +34,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile
       network: host
+    image: ja4proxy:1.0.0
     container_name: ja4proxy
     ports:
       - "127.0.0.1:8080:8080"
@@ -72,7 +73,7 @@ services:
           memory: 128M
 
   redis:
-    image: redis/redis-stack:latest
+    image: redis/redis-stack:7.4.0-v3
     container_name: ja4proxy-redis
     ports:
       - "127.0.0.1:6379:6379"
@@ -104,6 +105,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.mockbackend
       network: host
+    image: ja4proxy-mockbackend:1.0.0
     container_name: ja4proxy-backend
     ports:
       - "127.0.0.1:8443:443"
@@ -131,6 +133,7 @@ services:
       context: ./tarpit
       dockerfile: Dockerfile
       network: host
+    image: ja4proxy-tarpit:1.0.0
     container_name: ja4proxy-tarpit
     ports:
       - "127.0.0.1:8888:8888"
@@ -163,6 +166,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.trafficgen
       network: host
+    image: ja4proxy-trafficgen:1.0.0
     container_name: ja4proxy-trafficgen
     depends_on:
       - proxy
@@ -188,6 +192,7 @@ services:
       context: .
       dockerfile: src/analytics/Dockerfile
       network: host
+    image: ja4proxy-analytics:1.0.0
     container_name: ja4proxy-analytics
     ports:
       - "127.0.0.1:8083:8080"
@@ -229,6 +234,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.test
       network: host
+    image: ja4proxy-test:1.0.0
     container_name: ja4proxy-test
     depends_on:
       - proxy

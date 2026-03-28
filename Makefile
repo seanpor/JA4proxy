@@ -73,8 +73,8 @@ help:
 	@echo "  lint-json         - JSON syntax validation (Grafana dashboards, API spec)"
 	@echo "  lint-alertmanager - amtool semantic validation of Alertmanager config"
 	@echo "  scan-images       - Trivy CVE scan of third-party images (fails on CRITICAL)"
-	@echo "  scan-dockerfiles  - Trivy misconfiguration scan of Dockerfiles (no build needed)"
 	@echo "  scan-first-party  - Trivy CVE scan of built first-party images (run 'make build' first)"
+	@echo "  scan-dockerfiles  - Trivy misconfiguration scan of Dockerfiles (no build needed)"
 	@echo "  check-image-versions - Detect :latest tags and version drift between compose files"
 	@echo "  check-manifest    - Verify manifest.yaml, TODO.md, PROJECT_STATUS.md, CHANGELOG.md, CLAUDE.md are in sync"
 	@echo "  clean             - Stop + remove all containers and volumes"
@@ -116,7 +116,7 @@ start-monitoring:
 # Start scaled configuration with 4 workers and HAProxy (Phase 26d)
 start-scaled:
 	@echo "Starting JA4Proxy with 4-worker scaling..."
-	@docker compose -f docker-compose.poc.yml -f docker-compose.scale.yml up -d
+	@docker compose -f docker-compose.poc.yml -f docker/docker-compose.scale.yml up -d
 	@echo "✓ HAProxy load balancer started on port 443"
 	@echo "✓ 4 worker processes started on ports 8080, 8083, 8084, 8085"
 	@echo "✓ HAProxy stats available at http://localhost:8404/stats (admin/admin123)"
@@ -279,15 +279,16 @@ lint-shell:
 # Fails only on CRITICAL findings; HIGH findings are reported but non-blocking.
 # Scans only pinned third-party images (not images we build ourselves — use scan-first-party for those).
 # Covers images deployed in docker-compose.prod.yml + docker-compose.monitoring.yml.
-TRIVY_IMAGES := haproxy:2.8-alpine \
+# Keep versions here in sync with those compose files.
+TRIVY_IMAGES := haproxy:2.8.5-alpine \
 	redis/redis-stack:7.4.0-v3 \
 	oliver006/redis_exporter:v1.55.0 \
 	prom/prometheus:v2.48.0 \
 	prom/alertmanager:v0.26.0 \
 	prom/node-exporter:v1.7.0 \
-	grafana/grafana:10.2.0 \
-	grafana/loki:2.9.0 \
-	grafana/promtail:2.9.0
+	grafana/grafana:10.2.2 \
+	grafana/loki:3.3.2 \
+	grafana/promtail:3.3.2
 
 # Manifest consistency check — run before committing a phase close-out.
 # Verifies: TODO.md + PROJECT_STATUS.md in sync with manifest.yaml,
@@ -320,20 +321,28 @@ scan-images:
 # Catches: running as root, missing HEALTHCHECK, ADD with URL, exposed secrets, missing no-new-privileges.
 # Policy: HIGH + CRITICAL → exit 1 (we own these files; zero tolerance).
 scan-dockerfiles:
-	@echo "=== Trivy: Dockerfile/compose misconfiguration scan ==="
-	@docker run --rm -v $(PWD):/scan aquasec/trivy:latest config \
-		--severity HIGH,CRITICAL --exit-code 1 \
-		/scan/docker /scan/src/analytics \
-		&& echo "✓ Dockerfile scan passed"
+	@echo "=== Trivy: Dockerfile/compose misconfiguration scan (HIGH + CRITICAL) ==="
+	@echo "    Fails on HIGH or CRITICAL findings."
+	@fail=0; \
+	for dir in /scan/docker /scan/src/analytics /scan/tarpit; do \
+		echo "  Scanning $$dir ..."; \
+		docker run --rm -v $(PWD):/scan aquasec/trivy:latest config \
+			--severity HIGH,CRITICAL --exit-code 1 \
+			"$$dir" || fail=1; \
+	done; \
+	[ $$fail -eq 0 ] || exit 1
+	@echo "✓ Dockerfile scan passed"
 
 # CVE scan of first-party images we build.
 # Run 'make build' first to ensure images are current.
 # Policy: CRITICAL → exit 1; HIGH → reported but advisory.
 scan-first-party:
-	@echo "=== Trivy: first-party image CVE scan ==="
+	@echo "=== Trivy: first-party image CVE scan (HIGH + CRITICAL) ==="
 	@echo "    Run 'make build' first to ensure images are current."
+	@echo "    Fails on CRITICAL; HIGH findings are reported but advisory."
+	@echo ""
 	@fail=0; \
-	for img in ja4proxy:latest ja4proxy-analytics:latest ja4proxy-tarpit:latest; do \
+	for img in ja4proxy:1.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0; do \
 		echo "  Scanning $$img ..."; \
 		result=$$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
 			aquasec/trivy:latest image --severity HIGH,CRITICAL --exit-code 0 \
@@ -344,7 +353,7 @@ scan-first-party:
 		[ "$$critical" -eq 0 ] || { echo "    ^^^ CRITICAL in $$img — update base image"; fail=1; }; \
 		echo ""; \
 	done; \
-	[ $$fail -eq 0 ] || { echo "✗ CRITICAL CVEs found in first-party images — update base image versions"; exit 1; }
+	[ $$fail -eq 0 ] || exit 1
 	@echo "✓ First-party image scan complete"
 
 # Detect :latest tags and version drift between compose files.

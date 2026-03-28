@@ -10,6 +10,9 @@ ENV PIP_NO_CACHE_DIR=off
 ENV PIP_DISABLE_PIP_VERSION_CHECK=on
 ENV PIP_DEFAULT_TIMEOUT=100
 
+# Security: Create non-root user
+RUN groupadd -r analytics && useradd -r -g analytics analytics
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -32,7 +35,12 @@ COPY config /app/config
 COPY src/analytics/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+RUN chown -R analytics:analytics /app
+
+USER analytics
+
 EXPOSE 8080
 
 ENTRYPOINT ["/entrypoint.sh"]
+
 CMD ["python", "-m", "src.analytics.main"]

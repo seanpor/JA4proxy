@@ -55,6 +55,9 @@ FIRST_PARTY_IMAGES: frozenset[str] = frozenset({
     "ja4proxy",
     "ja4proxy-analytics",
     "ja4proxy-tarpit",
+    "ja4proxy-mockbackend",
+    "ja4proxy-test",
+    "ja4proxy-trafficgen",
 })
 
 
@@ -111,6 +114,9 @@ def main() -> int:
     compose_files = [
         repo_root / "docker" / "docker-compose.prod.yml",
         repo_root / "docker" / "docker-compose.monitoring.yml",
+        repo_root / "docker-compose.poc.yml",
+        repo_root / "docker-compose.scale.yml",
+        repo_root / "docker-compose.test.yml",
     ]
 
     errors, warnings = check(compose_files)

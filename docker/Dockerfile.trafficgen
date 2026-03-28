@@ -1,4 +1,7 @@
-FROM python:3.11-slim
+FROM python:3.11.11-slim
+
+# Security: Create non-root user
+RUN groupadd -r trafficgen && useradd -r -g trafficgen trafficgen
 
 WORKDIR /app
 
@@ -7,6 +10,9 @@ WORKDIR /app
 
 COPY scripts/tls-traffic-generator.py /app/tls-traffic-generator.py
 COPY scripts/benchmark.py /app/scripts/benchmark.py
+
+RUN chown -R trafficgen:trafficgen /app
+USER trafficgen
 
 ENV PYTHONUNBUFFERED=1
 

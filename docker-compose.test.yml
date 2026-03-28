@@ -17,7 +17,7 @@ services:
 
   # ── Redis ───────────────────────────────────────────────────────────────────
   redis:
-    image: redis:7-alpine
+    image: redis:7.2.4-alpine
     command: redis-server --save "" --appendonly no
     networks:
       - ja4proxy-test

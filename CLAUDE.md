@@ -117,13 +117,22 @@ Practical rules that flow from this:
 | 17 | Docker test optimisation | Fix Docker test container hang during teardown; zero-skip test policy | [PHASE_17.md](docs/phases/PHASE_17.md) |
 | 18 | Security audit remediation | Specific exception types; lazy-format logging; `SignalCollector` Protocol; pipeline error metrics | [PHASE_17b.md](docs/phases/PHASE_17b.md) |
 | 19 | Backup & restore framework | Deterministic key enumeration; binary format; retention; CLI; observability | [PHASE_19.md](docs/phases/PHASE_19.md) |
-| 20 | Passive TAP mode *(open)* | AF_PACKET capture; out-of-band enforcement; backup schedule executor; restore hardening | [PHASE_20.md](docs/phases/PHASE_20.md) |
+| 20 | Passive TAP mode | AF_PACKET capture; out-of-band enforcement; backup schedule executor; restore hardening | [PHASE_20.md](docs/phases/PHASE_20.md) |
 | 21 | **Documentation excellence** | Audience-first navigation, missing ADRs, GDPR hardening, operator/developer packs, docs-as-code CI | [PHASE_21.md](docs/phases/PHASE_21.md) |
 | 22 | Backup system enhancements *(proposed)* | Encryption; cloud storage; incremental backups; pipeline batching | [PHASE_22.md](docs/phases/PHASE_22.md) |
 | 23 | Advanced traffic intelligence *(proposed)* | Attacker attribution; geo intelligence; threat-intel feeds; cross-instance ML | [PHASE_23.md](docs/phases/PHASE_23.md) |
-| 24 | Go strategy assessment *(closed — premise refuted by benchmarks)* | TLS parsing is not the bottleneck; gRPC IPC would add overhead; see Phase 26 | [PHASE_24_STRATEGY_ASSESSMENT.md](docs/phases/PHASE_24_STRATEGY_ASSESSMENT.md) |
-| 25 | Docker container management *(open)* | Image version pinning; CVE scan gaps; first-party scanning; update policy | [PHASE_25.md](docs/phases/PHASE_25.md) |
-| 26 | **Python throughput hardening** *(open)* | Parallel signals (`asyncio.gather`); Redis pipeline batching; Unix socket; multi-process workers → ≥800 conn/s single proc, ≥3,200 conn/s × 4 workers | [PHASE_26.md](docs/phases/PHASE_26.md) |
+| 24 | Go strategy assessment *(closed)* | TLS parsing is not the bottleneck; gRPC IPC would add overhead; see Phase 26 | [PHASE_24_STRATEGY_ASSESSMENT.md](docs/phases/PHASE_24_STRATEGY_ASSESSMENT.md) |
+| 25 | Docker container management | Image version pinning; CVE scan gaps; first-party scanning; update policy | [PHASE_25.md](docs/phases/PHASE_25.md) |
+| 26 | **Python throughput hardening** | Parallel signals (`asyncio.gather`); Redis pipeline batching; Unix socket; multi-process workers → ≥800 conn/s single proc, ≥3,200 conn/s × 4 workers | [PHASE_26.md](docs/phases/PHASE_26.md) |
+| 27 | Advanced Pentest Remediation | Remediate critical vulnerabilities: IP spoofing, sync/async Redis mismatch, and synchronous TLS parsing DoS | [PHASE_27.md](docs/phases/PHASE_27.md) |
+| 28 | Python Throughput Hardening - Ph 2 *(prop)* | Redis pipeline batching; Unix domain socket; 30-40% latency reduction | [PHASE_28_WORK_PLAN.md](docs/phases/PHASE_28_WORK_PLAN.md) |
+| 29 | Python Throughput Hardening - Ph 3 *(prop)* | Multi-process worker model with Docker Compose and HAProxy load balancing | [PHASE_29_WORK_PLAN.md](docs/phases/PHASE_29_WORK_PLAN.md) |
+| 30 | Python Throughput Hardening - Ph 4 *(prop)* | Deferred write batching; comprehensive benchmark validation | [PHASE_30_WORK_PLAN.md](docs/phases/PHASE_30_WORK_PLAN.md) |
+| 31 | Geographical Intelligence *(prop)* | GeoIP lookup and country-based blocking; geographical threat analysis | [PHASE_31_WORK_PLAN.md](docs/phases/PHASE_31_WORK_PLAN.md) |
+| 32 | Attacker Attribution *(prop)* | Attacker fingerprinting and behavioral correlation; advanced threat detection | [PHASE_32_WORK_PLAN.md](docs/phases/PHASE_32_WORK_PLAN.md) |
+| 33 | Documentation Diagrams *(prop)* | Standardize all diagrams to Mermaid format for consistent rendering | [PHASE_33_WORK_PLAN.md](docs/phases/PHASE_33_WORK_PLAN.md) |
+| 34 | APT Resilience & Hardening *(prop)* | Parser isolation; Redis mTLS/ACLs; strict container seccomp profiles | [PHASE_34.md](docs/phases/PHASE_34.md) |
+| 35 | Advanced APT Countermeasures *(prop)* | Hardware-rooted integrity; eBPF-based enforcement; honey-fingerprints | [PHASE_35.md](docs/phases/PHASE_35.md) |
 
 **Do phases in order. Complete all acceptance criteria before starting the next phase.**
 

@@ -24,7 +24,7 @@
 
 services:
   haproxy:
-    image: haproxy:2.8-alpine
+    image: haproxy:2.8.5-alpine
     container_name: ja4proxy-haproxy
     ports:
       - "443:443"
@@ -58,7 +58,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
       network: host
-    image: ja4proxy:latest
+    image: ja4proxy:1.0.0
     container_name: ja4proxy
     ports:
       - "127.0.0.1:8080:8080"   # Proxy (HAProxy connects here)
@@ -138,7 +138,7 @@ services:
       context: ..
       dockerfile: src/analytics/Dockerfile
       network: host
-    image: ja4proxy-analytics:latest
+    image: ja4proxy-analytics:1.0.0
     container_name: ja4proxy-analytics
     ports:
       - "127.0.0.1:8082:8080"   # Analytics metrics (internal only)
@@ -182,7 +182,7 @@ services:
       context: ../tarpit
       dockerfile: Dockerfile
       network: host
-    image: ja4proxy-tarpit:latest
+    image: ja4proxy-tarpit:1.0.0
     container_name: ja4proxy-tarpit
     ports:
       - "127.0.0.1:8888:8888"   # Tarpit port (internal only)
@@ -268,7 +268,7 @@ services:
           cpus: '1.0'
 
   grafana:
-    image: grafana/grafana:10.2.0
+    image: grafana/grafana:10.2.2
     container_name: ja4proxy-grafana
     ports:
       - "127.0.0.1:3001:3000"   # Grafana UI (internal only)
@@ -300,7 +300,7 @@ services:
           memory: 128M
 
   loki:
-    image: grafana/loki:2.9.0
+    image: grafana/loki:3.3.2
     container_name: ja4proxy-loki
     ports:
       - "127.0.0.1:3100:3100"   # Loki API (internal only)
@@ -325,7 +325,7 @@ services:
           cpus: '0.5'
 
   promtail:
-    image: grafana/promtail:2.9.0
+    image: grafana/promtail:3.3.2
     container_name: ja4proxy-promtail
     volumes:
       - ../monitoring/loki/promtail-config.yml:/etc/promtail/config.yml:ro
