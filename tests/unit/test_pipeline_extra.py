@@ -14,7 +14,7 @@ Covers:
 """
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -384,11 +384,11 @@ class TestPipelineFailOpen:
 class TestEmitStreamEventException:
     def test_xadd_exception_is_swallowed(self):
         """_emit_stream_event must never raise even when WriteBuffer.enqueue fails."""
+        from unittest.mock import AsyncMock
+
         p = _make_pipeline()
-        # Mock the write buffer to raise an exception
-        mock_write_buffer = AsyncMock()
-        mock_write_buffer.enqueue = AsyncMock(side_effect=ConnectionError("WriteBuffer down"))
-        p._write_buffer = mock_write_buffer
+        # Make the write_buffer.enqueue raise to exercise the exception-swallowing path
+        p._write_buffer.enqueue = AsyncMock(side_effect=ConnectionError("Redis down"))
 
         from src.security.pipeline import PipelineResult
 
@@ -397,4 +397,4 @@ class TestEmitStreamEventException:
 
         # Must not raise
         _run(p._emit_stream_event(ctx, result))
-        mock_write_buffer.enqueue.assert_called_once()
+        p._write_buffer.enqueue.assert_called_once()

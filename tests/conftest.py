@@ -259,6 +259,13 @@ def redis_client():
         return 1
 
     def _script(keys=None, args=None, client=None):
+        if client is not None:
+            # Pipelined call — queue only, do not execute immediately.
+            # In real Redis, pipelined Lua scripts execute on pipe.execute().
+            # The pipeline mock can't return proper results, so the pipeline
+            # batching path will fall back to individual tracking (which calls
+            # _script without client). Do NOT increment here to avoid double-counting.
+            return None
         if keys:
             k = keys[0].decode() if isinstance(keys[0], bytes) else str(keys[0])
             redis_counters[k] += 1
