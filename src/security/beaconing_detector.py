@@ -356,13 +356,14 @@ class BeaconingDetector:
 
         _BEACONING_SCORE.observe(score_float)
 
-        # Update suspects sorted set (score = confidence).
-        # Phase 14d: trim lowest-scoring entries when the cap is exceeded so
-        # sustained attacks with millions of unique IPs cannot grow this set
-        # without bound.
+        # Phase 28a: Use pipeline for suspects update to reduce RTTs from 3 to 1
         try:
-            await self._redis.zadd("beacon:suspects", {f"{ip}:{ja4}": score_float})
-            count = await self._redis.zcard("beacon:suspects")
+            async with self._redis.pipeline(transaction=False) as pipe:
+                pipe.zadd("beacon:suspects", {f"{ip}:{ja4}": score_float})
+                pipe.zcard("beacon:suspects")
+                res = await pipe.execute()
+            
+            count = res[1]
             if count > self._max_suspects:
                 # Remove the (count - max_suspects) lowest-scoring entries
                 trim = count - self._max_suspects

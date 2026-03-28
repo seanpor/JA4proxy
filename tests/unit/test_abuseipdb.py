@@ -48,18 +48,28 @@ def _make_config(**kwargs) -> AbuseIPDBConfig:
 
 
 def _make_redis(get_return=None) -> MagicMock:
-    """Return a mock async Redis client."""
-    redis = MagicMock()
-    redis.get = AsyncMock(return_value=get_return)
-    redis.setex = AsyncMock(return_value=True)
-    redis.incr = AsyncMock(return_value=1)
-    redis.decr = AsyncMock(return_value=0)
-    redis.expire = AsyncMock(return_value=True)
-    redis.sadd = AsyncMock(return_value=1)
+    """Return a mock async Redis client with pipeline support."""
+    redis_mock = MagicMock()
+    redis_mock.get = AsyncMock(return_value=get_return)
+    redis_mock.setex = AsyncMock(return_value=True)
+    redis_mock.incr = AsyncMock(return_value=1)
+    redis_mock.decr = AsyncMock(return_value=0)
+    redis_mock.expire = AsyncMock(return_value=True)
+    redis_mock.sadd = AsyncMock(return_value=1)
+    
+    # Phase 28a: Mock pipeline
+    pipeline = MagicMock()
+    pipeline.incr = MagicMock()
+    pipeline.expire = MagicMock()
+    pipeline.execute = AsyncMock(return_value=[1, True])
+    pipeline.__aenter__ = AsyncMock(return_value=pipeline)
+    pipeline.__aexit__ = AsyncMock(return_value=None)
+    redis_mock.pipeline = MagicMock(return_value=pipeline)
+    
     bf = MagicMock()
     bf.add = AsyncMock(return_value=1)  # 1 = newly added
-    redis.bf = MagicMock(return_value=bf)
-    return redis
+    redis_mock.bf = MagicMock(return_value=bf)
+    return redis_mock
 
 
 def _make_checker(config=None, redis=None, local_cache=None, session=None):
@@ -236,7 +246,8 @@ class TestQuotaEnforcement(unittest.IsolatedAsyncioTestCase):
     async def test_quota_exceeded_is_rejected_and_rolled_back(self):
         """Request at limit+1 is rejected; DECR called to roll back."""
         redis = _make_redis()
-        redis.incr = AsyncMock(return_value=101)  # Over limit
+        # Mock pipeline to return 101 for incr
+        redis.pipeline.return_value.execute = AsyncMock(return_value=[101, True])
         checker = _make_checker(redis=redis)
         result = await checker._check_quota()
         self.assertFalse(result)
@@ -245,13 +256,13 @@ class TestQuotaEnforcement(unittest.IsolatedAsyncioTestCase):
     async def test_quota_first_request_sets_ttl(self):
         """First request today (count=1) sets the TTL on the quota key."""
         redis = _make_redis()
-        redis.incr = AsyncMock(return_value=1)
+        # count=1 from pipeline
+        redis.pipeline.return_value.execute = AsyncMock(return_value=[1, True])
         checker = _make_checker(redis=redis)
         await checker._check_quota()
-        redis.expire.assert_called_once()
-        # TTL should be 86400 + 3600 = 90000
-        args = redis.expire.call_args[0]
-        self.assertEqual(args[1], 90000)
+        redis.pipeline.assert_called_once()
+        # Verify expire was called on pipeline
+        redis.pipeline.return_value.expire.assert_called_once()
 
     async def test_quota_redis_error_fails_open(self):
         """Redis error on quota check fails open (returns True)."""

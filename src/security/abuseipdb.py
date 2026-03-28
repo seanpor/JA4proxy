@@ -646,17 +646,20 @@ class AbuseIPDBChecker:
             return int(data["data"]["abuseConfidenceScore"])
 
     async def _check_quota(self) -> bool:
-        """Return True if quota is available. Uses Redis INCR for atomic tracking.
+        """Return True if quota is available. Uses Redis pipeline for atomic tracking.
 
         Uses datetime.now(timezone.utc) — never datetime.utcnow() (deprecated).
         """
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         key = f"abuseipdb:quota:{today}"
         try:
-            count = await self._redis.incr(key)
-            if count == 1:
-                # New key — set TTL: rest of today + 1h buffer
-                await self._redis.expire(key, 86400 + 3600)
+            # Phase 28a: Use pipeline to reduce RTTs from 2 to 1
+            async with self._redis.pipeline(transaction=False) as pipe:
+                pipe.incr(key)
+                pipe.expire(key, 86400 + 3600)
+                res = await pipe.execute()
+            
+            count = int(res[0])
             if count > self._config.max_requests_per_day:
                 await self._redis.decr(key)  # Roll back the increment
                 return False

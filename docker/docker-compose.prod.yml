@@ -68,11 +68,13 @@ services:
     volumes:
       - ../config:/app/config:ro
       - ../logs:/app/logs
+      - redis-sock:/var/run/redis
     environment:
       - CONFIG_PATH=/app/config/proxy.yml
       - ENVIRONMENT=production
       - BACKEND_HOST=${BACKEND_HOST:?Set BACKEND_HOST to your upstream server IP/hostname}
       - BACKEND_PORT=${BACKEND_PORT:-443}
+      - REDIS_UNIX_SOCKET_PATH=/var/run/redis/redis.sock
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
     secrets:
@@ -110,13 +112,14 @@ services:
     environment:
       # Password injected via Docker secret mounted at /run/secrets/redis_password
       # redis/redis-stack reads REDIS_ARGS for extra flags
-      - REDIS_ARGS=--requirepass-file /run/secrets/redis_password --maxmemory 512mb --maxmemory-policy allkeys-lru --hz 20 --tcp-keepalive 60 --save ""
+      - REDIS_ARGS=--requirepass-file /run/secrets/redis_password --maxmemory 512mb --maxmemory-policy allkeys-lru --hz 20 --tcp-keepalive 60 --save "" --unixsocket /var/run/redis/redis.sock --unixsocketperm 777
     secrets:
       - redis_password
     networks:
       - ja4proxy-backend
     volumes:
       - redis_data:/data
+      - redis-sock:/var/run/redis
     restart: unless-stopped
     read_only: true
     security_opt:
@@ -355,6 +358,7 @@ volumes:
   prometheus_data:
   grafana_data:
   loki_data:
+  redis-sock:
 
 networks:
   ja4proxy-frontend:

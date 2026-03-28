@@ -30,10 +30,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Integrate external threat intelligence feeds (AbuseIPDB, AlienVault OTX, GreyNoise). Target: Real-time IP reputation.)
 *   **Action Plan:** [PHASE_23_WORK_PLAN.md](PHASE_23_WORK_PLAN.md)
 
-### Phase 28 — Python Throughput Hardening - Phase 2: Redis Optimization
-*   **Status:** **PROPOSED** (Add Redis pipeline batching and Unix domain socket support. Target: 30-40% Redis latency reduction.)
-*   **Action Plan:** [PHASE_28_WORK_PLAN.md](PHASE_28_WORK_PLAN.md)
-
 ### Phase 29 — Python Throughput Hardening - Phase 3: Multi-Process Architecture
 *   **Status:** **PROPOSED** (Implement multi-process worker model with Docker Compose and HAProxy load balancing. Target: Linear scaling to 4 workers.)
 *   **Action Plan:** [PHASE_29_WORK_PLAN.md](PHASE_29_WORK_PLAN.md)

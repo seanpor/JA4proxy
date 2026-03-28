@@ -138,7 +138,7 @@ class TCPAnalyzer:
         self, ctx: ConnectionContext
     ) -> List[RiskSignal]:
         """
-        Checks the TLS session resumption rate for the client.
+        Checks the TLS session resumption rate for the client using pipelined I/O.
         """
         try:
             key = f"session:ip:{ctx.client_ip}:ja4:{ctx.ja4}"
@@ -150,12 +150,18 @@ class TCPAnalyzer:
                 "chrome" in ctx.ja4.lower() and __import__("random").random() < 0.9
             )
 
-            total, resumed = await self._redis.hmget(key, ["total", "resumed"])
-            total = int(total or 0) + 1
-            resumed = int(resumed or 0) + (1 if is_resumption else 0)
+            # Phase 28a: Use pipeline to reduce RTTs from 2 to 1
+            async with self._redis.pipeline(transaction=False) as pipe:
+                pipe.hincrby(key, "total", 1)
+                if is_resumption:
+                    pipe.hincrby(key, "resumed", 1)
+                else:
+                    pipe.hget(key, "resumed")
+                pipe.expire(key, 3600)
+                pipe_res = await pipe.execute()
 
-            await self._redis.hmset(key, {"total": total, "resumed": resumed})
-            await self._redis.expire(key, 3600)
+            total = int(pipe_res[0] or 0)
+            resumed = int(pipe_res[1] or 0)
 
             min_connections = self._config.get("session_resumption", {}).get(
                 "min_connections", 10
@@ -169,7 +175,7 @@ class TCPAnalyzer:
                         f"0% session resumption across {total} sessions",
                     )
                 ]
-        except redis.RedisError:
+        except Exception:
             # Fail open on Redis error
             pass
         return []
@@ -178,7 +184,7 @@ class TCPAnalyzer:
         self, ctx: ConnectionContext
     ) -> List[RiskSignal]:
         """
-        Analyzes the median connection lifespan for the client.
+        Analyzes the median connection lifespan for the client using pipelined I/O.
         """
         try:
             key = f"lifespan:{ctx.client_ip}"
@@ -189,18 +195,21 @@ class TCPAnalyzer:
                 100, 2000
             )
 
-            await self._redis.zadd(
-                key, {f"{lifespan_ms}:{__import__('time').time()}": lifespan_ms}
-            )
-            await self._redis.expire(key, 1800)
+            # Phase 28a: Use pipeline to reduce RTTs from 3 to 1 for the write+count
+            async with self._redis.pipeline(transaction=False) as pipe:
+                pipe.zadd(key, {f"{lifespan_ms}:{__import__('time').time()}": lifespan_ms})
+                pipe.expire(key, 1800)
+                pipe.zcard(key)
+                pipe_res = await pipe.execute()
+
+            count = pipe_res[2]
 
             min_connections = self._config.get("connection_lifespan", {}).get(
                 "min_connections", 5
             )
-            count = await self._redis.zcard(key)
 
             if count >= min_connections:
-                # Get the median
+                # Get the median (separate RTT)
                 median_index = count // 2
                 median_list = await self._redis.zrange(
                     key, median_index, median_index, withscores=True
@@ -221,7 +230,7 @@ class TCPAnalyzer:
                                 f"Median connection lifespan is {median_lifespan:.0f}ms",
                             )
                         ]
-        except redis.RedisError:
+        except Exception:
             # Fail open
             pass
         return []
@@ -230,12 +239,18 @@ class TCPAnalyzer:
         self, ctx: ConnectionContext
     ) -> List[RiskSignal]:
         """
-        Checks for an excessive number of concurrent connections from the client.
+        Checks for an excessive number of concurrent connections from the client using pipelined I/O.
         """
         try:
             key = f"concurrent:{ctx.client_ip}"
-            count = await self._redis.incr(key)
-            await self._redis.expire(key, 60)
+            
+            # Phase 28a: Use pipeline to reduce RTTs from 2 to 1
+            async with self._redis.pipeline(transaction=False) as pipe:
+                pipe.incr(key)
+                pipe.expire(key, 60)
+                pipe_res = await pipe.execute()
+            
+            count = int(pipe_res[0] or 0)
             _CONCURRENT_CONNECTIONS.set(count)
 
             thresholds = self._config.get("concurrent_connections", {}).get(
@@ -287,30 +302,31 @@ class TCPAnalyzer:
 
     async def _check_return_visitor(self, ctx: ConnectionContext) -> List[RiskSignal]:
         """
-        Applies a trust modifier for returning visitors with a good history.
+        Applies a trust modifier for returning visitors with a good history using pipelined I/O.
         """
         try:
             key = f"visitor:{ctx.client_ip}"
             now = int(__import__("time").time())
 
-            visitor_data = await self._redis.hgetall(key)
+            # Phase 28a: Use pipeline to reduce RTTs from 4 to 1
+            async with self._redis.pipeline(transaction=False) as pipe:
+                pipe.hgetall(key)
+                pipe.hset(key, "last_seen", now)
+                pipe.hincrby(key, "total", 1)
+                pipe.hincrby(key, "allowed", 1)
+                pipe.expire(key, 604800)  # 7 days
+                res = await pipe.execute()
+
+            visitor_data = res[0]
 
             if not visitor_data:
-                await self._redis.hmset(
-                    key, {"first_seen": now, "last_seen": now, "total": 1, "allowed": 1}
-                )
-                await self._redis.expire(key, 604800)  # 7 days
+                # First time visitor (already incremented via pipeline)
                 return []
 
-            first_seen = int(visitor_data.get(b"first_seen", now))
-            total = int(visitor_data.get(b"total", 0)) + 1
-            allowed = (
-                int(visitor_data.get(b"allowed", 0)) + 1
-            )  # Assume allowed for this check
-
-            await self._redis.hset(key, "last_seen", now)
-            await self._redis.hincrby(key, "total", 1)
-            await self._redis.hincrby(key, "allowed", 1)
+            first_seen = int(visitor_data.get(b"first_seen") or visitor_data.get("first_seen") or now)
+            # Note: total and allowed from visitor_data are the values BEFORE this increment
+            total = int(visitor_data.get(b"total") or visitor_data.get("total") or 0) + 1
+            allowed = int(visitor_data.get(b"allowed") or visitor_data.get("allowed") or 0) + 1
 
             trusted_days = self._config.get("return_visitor", {}).get("trusted_days", 7)
             trusted_allow_rate = self._config.get("return_visitor", {}).get(
@@ -331,23 +347,28 @@ class TCPAnalyzer:
                             f"Trusted visitor, score reduced by {score_reduction_pct}%",
                         )
                     ]
-        except redis.RedisError:
+        except Exception:
             # Fail open
             pass
         return []
 
     async def _check_tls_alerts(self, ctx: ConnectionContext) -> List[RiskSignal]:
         """
-        Monitors for a high rate of TLS alert messages from the client.
+        Monitors for a high rate of TLS alert messages from the client using pipelined I/O.
         """
         if not ctx.tls_alerts:
             return []
 
         try:
             key = f"tls_alerts:{ctx.client_ip}"
-            count = await self._redis.incr(key)
-            if count == 1:
-                await self._redis.expire(key, 60)
+            
+            # Phase 28a: Use pipeline to reduce RTTs from 2 to 1
+            async with self._redis.pipeline(transaction=False) as pipe:
+                pipe.incr(key)
+                pipe.expire(key, 60)
+                pipe_res = await pipe.execute()
+            
+            count = int(pipe_res[0] or 0)
 
             rate_threshold = self._config.get("tls_alerts", {}).get("rate_threshold", 5)
             if count > rate_threshold:
