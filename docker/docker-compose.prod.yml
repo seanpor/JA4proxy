@@ -105,7 +105,7 @@ services:
           memory: 128M
 
   redis:
-    image: redis/redis-stack:latest
+    image: redis/redis-stack:7.4.0-v3
     container_name: ja4proxy-redis
     environment:
       # Password injected via Docker secret mounted at /run/secrets/redis_password
