@@ -491,11 +491,12 @@ class MultiStrategyRateTracker:
             # Keep data for 60 seconds or 2x window, whichever is larger
             ttl = max(self.DEFAULT_TTL_SECONDS, int(window_seconds * 2))
 
-            # Execute atomic Lua script (supports both sync and async Redis clients)
+            # Execute atomic Lua script.
+            # client=None uses the registered client (self.redis); passing client
+            # explicitly is reserved for pipeline batching in _track_with_pipeline_batching.
             result = self.rate_script(
                 keys=[key, counter_key],
                 args=[now, window_seconds, ttl],
-                client=self.redis,
             )
             count = await result if inspect.isawaitable(result) else result
 

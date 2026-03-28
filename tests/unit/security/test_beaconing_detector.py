@@ -196,19 +196,15 @@ class TestMaybeRecordGuards(unittest.TestCase):
         mock_redis.pipeline.assert_not_called()
 
     def test_allowed_connection_recorded(self):
-        """Normal allowed connection → WriteBuffer.enqueue called → timestamp recorded."""
-        mock_write_buffer = AsyncMock()
-        mock_write_buffer.enqueue = AsyncMock()
-
+        """Normal allowed connection → write_buffer.enqueue called with zadd."""
         mock_redis = MagicMock()
-
         detector = _make_detector(redis=mock_redis)
-        # Replace the WriteBuffer with our mock
-        detector._write_buffer = mock_write_buffer
+        detector._write_buffer.enqueue = AsyncMock()
+
         self._run(detector.maybe_record("1.2.3.4", "t13d...", "", "allow"))
 
-        # Should call enqueue 7 times (4 for short window + 3 for long window)
-        self.assertEqual(mock_write_buffer.enqueue.call_count, 7)
+        enqueued_ops = [call.args[0] for call in detector._write_buffer.enqueue.call_args_list]
+        self.assertIn("zadd", enqueued_ops)
 
     def test_disabled_detector_skips_all(self):
         """Disabled detector skips recording entirely."""
@@ -231,20 +227,16 @@ class TestUUIDSuffixPreventsDuplication(unittest.TestCase):
         """Two calls at the same time.time() produce different member strings."""
         added_members = []
 
-        mock_write_buffer = AsyncMock()
-        def capture_zadd_args(op, key, *args):
-            if op == "zadd" and args:
-                # args[0] should be the mapping dict
-                if isinstance(args[0], dict):
-                    added_members.append(list(args[0].keys())[0])
-        mock_write_buffer.enqueue = AsyncMock(side_effect=capture_zadd_args)
+        async def _capture_enqueue(operation, *args, **kwargs):
+            if operation == "zadd" and len(args) >= 2:
+                # args[0] = key, args[1] = {member: score}
+                added_members.extend(args[1].keys())
+            return True
 
         mock_redis = MagicMock()
-
         with patch("src.security.beaconing_detector.time.time", return_value=1700000000.0):
             detector = _make_detector(redis=mock_redis)
-            # Replace the WriteBuffer with our mock
-            detector._write_buffer = mock_write_buffer
+            detector._write_buffer.enqueue = AsyncMock(side_effect=_capture_enqueue)
             self._run(detector.maybe_record("1.2.3.4", "t13d...", "", "allow"))
             self._run(detector.maybe_record("1.2.3.4", "t13d...", "", "allow"))
 

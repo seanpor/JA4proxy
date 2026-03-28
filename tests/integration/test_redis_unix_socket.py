@@ -65,11 +65,12 @@ redis:
         finally:
             os.unlink(config_path)
 
+    @patch('proxy.ProxyServer._init_from_config')
     @patch('proxy.ProxyServer._init_redis')
-    async def test_proxy_uses_unix_socket_when_configured(self, mock_init_redis):
+    async def test_proxy_uses_unix_socket_when_configured(self, mock_init_redis, mock_init_from_config):
         """Test that ProxyServer initializes Redis with Unix socket when configured."""
         from proxy import ProxyServer
-        
+
         config_text = """
 proxy:
   mode: passthrough
@@ -91,22 +92,23 @@ redis:
             mock_redis_client = MagicMock(spec=redis.Redis)
             mock_redis_client.ping = AsyncMock()
             mock_init_redis.return_value = mock_redis_client
-            
+
             # Create ProxyServer instance with config path
             server = ProxyServer(config_path)
             redis_client = await server._init_redis()
-            
+
             # Verify that _init_redis was called
             mock_init_redis.assert_called_once()
-            
+
         finally:
             os.unlink(config_path)
 
+    @patch('proxy.ProxyServer._init_from_config')
     @patch('proxy.ProxyServer._init_redis')
-    async def test_proxy_uses_tcp_when_unix_socket_not_configured(self, mock_init_redis):
+    async def test_proxy_uses_tcp_when_unix_socket_not_configured(self, mock_init_redis, mock_init_from_config):
         """Test that ProxyServer initializes Redis with TCP when Unix socket is not configured."""
         from proxy import ProxyServer
-        
+
         config_text = """
 proxy:
   mode: passthrough
@@ -127,14 +129,14 @@ redis:
             mock_redis_client = MagicMock(spec=redis.Redis)
             mock_redis_client.ping = AsyncMock()
             mock_init_redis.return_value = mock_redis_client
-            
+
             # Create ProxyServer instance with config path
             server = ProxyServer(config_path)
             redis_client = await server._init_redis()
-            
+
             # Verify that _init_redis was called
             mock_init_redis.assert_called_once()
-            
+
         finally:
             os.unlink(config_path)
 
