@@ -66,8 +66,8 @@ class WriteBuffer:
         self,
         redis_client: object,
         flush_interval_ms: int = 50,
-        max_batch_size: int = 1000,
-        max_queue_size: int = 5000,
+        max_batch_size: int = 2000,
+        max_queue_size: int = 10000
     ):
         """
         Initialize WriteBuffer.
@@ -139,24 +139,33 @@ class WriteBuffer:
         self._flush_task = None
         self.logger.info("WriteBuffer stopped")
 
-    async def enqueue(self, operation: str, *args, **kwargs) -> bool:
+    async def enqueue(self, operation: str, *args, priority: bool = False, **kwargs) -> bool:
         """
         Enqueue a Redis write operation.
 
         Args:
             operation: Redis operation name (e.g., 'hset', 'zadd', 'expire')
             *args: Positional arguments for the operation
+            priority: If True, this write is critical and should rarely be dropped.
             **kwargs: Keyword arguments for the operation
 
         Returns:
             True if operation was queued, False if queue is full
 
         Security:
+            - Phase 30a: Load shedding. Drop non-priority writes when > 90% full.
             - Returns False if queue is full (prevents memory exhaustion)
             - Non-blocking (fail-open on full queue)
         """
         async with self.lock:
-            if len(self.queue) >= self.max_queue_size:
+            queue_len = len(self.queue)
+            
+            # Load shedding for non-priority writes
+            if not priority and queue_len > (self.max_queue_size * 0.9):
+                _WRITE_BUFFER_DROPPED.inc()
+                return False
+
+            if queue_len >= self.max_queue_size:
                 # Queue full - drop oldest operation to make room
                 self.queue.popleft()
                 _WRITE_BUFFER_FLUSHES.labels(result="overflow").inc()
@@ -186,10 +195,13 @@ class WriteBuffer:
                     queue_len = len(self.queue)
                 
                 # Adaptive timing:
-                # - > 80% full: flush immediately (sleep 0.001)
+                # - > 90% full: flush immediately (sleep 0.0001)
+                # - > 70% full: flush extremely fast
                 # - > 50% full: flush 2x faster
                 # - < 50% full: use default interval
-                if queue_len > (self.max_queue_size * 0.8):
+                if queue_len > (self.max_queue_size * 0.9):
+                    sleep_time = 0.0001
+                elif queue_len > (self.max_queue_size * 0.7):
                     sleep_time = 0.001
                 elif queue_len > (self.max_queue_size * 0.5):
                     sleep_time = self.flush_interval_ms / 2.0
@@ -247,8 +259,11 @@ class WriteBuffer:
                 async with self.redis_client.pipeline(transaction=False) as pipe:  # type: ignore[attr-defined]
                     for operation, args, kwargs in batch:
                         method = getattr(pipe, operation)
-                        method(*args, **kwargs)
-
+                        result = method(*args, **kwargs)
+                        # Phase 30b: Safety check for mocks that might return coroutines
+                        if asyncio.iscoroutine(result):
+                            await result
+                    
                     await pipe.execute()
             else:
                 # Sync Redis client
