@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased] - Phase 36: Go Test Quality & Parity Gaps
+
+### Fixed
+- **JA4 Fixture Parity Test**: Fixed `TestJA4_FixturesParity` to read from `known_ja4.json` instead of hardcoded empty map.
+- **JA4X Real Certificate Tests**: Added test with real X.509 certificate verifying format and hex validity.
+- **Cross-Language JA4X Parity**: Added test comparing Go JA4X output against Python reference implementation.
+- **JA4X Implementation Fixes**: Fixed Go implementation to match Python format (sorted OID attributes, SAN formatting).
+- **JA4X Benchmarks**: Added benchmarks for real certificate, empty input, and invalid DER parsing.
+
+### Notes
+- JA4S, JA4L, JA4H, JA4SSH are TAP-only features and not applicable to Go proxy.
+
 ## [25.0.0] - 2026-03-28 — Phase 25: Docker Container Management
 
 ### Added
