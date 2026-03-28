@@ -41,6 +41,16 @@ _WRITE_BUFFER_OPERATIONS = Counter(
     ["type"]  # hset, zadd, expire, etc.
 )
 
+_WRITE_BUFFER_DROPPED = Counter(
+    "ja4proxy_write_buffer_dropped_total",
+    "Total number of dropped operations due to overflow"
+)
+
+_WRITE_BUFFER_FLUSH_DURATION = Gauge(
+    "ja4proxy_write_buffer_flush_duration_seconds",
+    "Time taken to flush the last batch to Redis"
+)
+
 
 class WriteBuffer:
     """
@@ -57,8 +67,8 @@ class WriteBuffer:
         self,
         redis_client: object,
         flush_interval_ms: int = 50,
-        max_batch_size: int = 500,
-        max_queue_size: int = 1000
+        max_batch_size: int = 1000,
+        max_queue_size: int = 5000
     ):
         """
         Initialize WriteBuffer.
@@ -147,6 +157,7 @@ class WriteBuffer:
                 # Queue full - drop oldest operation to make room
                 self.queue.popleft()
                 _WRITE_BUFFER_FLUSHES.labels(result="overflow").inc()
+                _WRITE_BUFFER_DROPPED.inc()
                 self.logger.warning(
                     "WriteBuffer overflow: queue size %d >= max %d, dropping oldest operation",
                     len(self.queue), self.max_queue_size
@@ -163,20 +174,31 @@ class WriteBuffer:
         """
         Background task that periodically flushes the write buffer.
 
-        Flushes when either:
-        - Batch size limit reached
-        - Time interval elapsed
+        Phase 30a: Adaptive flush intervals.
         """
         try:
             while not self._stop_event.is_set():
-                # Wait for either flush interval or notification
+                async with self.lock:
+                    queue_len = len(self.queue)
+                
+                # Adaptive timing:
+                # - > 80% full: flush immediately (sleep 0.001)
+                # - > 50% full: flush 2x faster
+                # - < 50% full: use default interval
+                if queue_len > (self.max_queue_size * 0.8):
+                    sleep_time = 0.001
+                elif queue_len > (self.max_queue_size * 0.5):
+                    sleep_time = self.flush_interval_ms / 2.0
+                else:
+                    sleep_time = self.flush_interval_ms
+
                 try:
                     await asyncio.wait_for(
                         self._stop_event.wait(),
-                        timeout=self.flush_interval_ms
+                        timeout=sleep_time
                     )
                 except asyncio.TimeoutError:
-                    pass  # Expected - time to flush
+                    pass  # Time to flush
                 
                 if self._stop_event.is_set():
                     break
@@ -213,6 +235,7 @@ class WriteBuffer:
         if not batch:
             return
         
+        start_time = time.time()
         try:
             if self._is_async:
                 # Async Redis client
@@ -237,6 +260,8 @@ class WriteBuffer:
             _WRITE_BUFFER_FLUSHES.labels(result="error").inc()
             self.logger.error("WriteBuffer batch execution failed: %s", e)
             # Fail-open: write failures don't affect connection processing
+        finally:
+            _WRITE_BUFFER_FLUSH_DURATION.set(time.time() - start_time)
 
     def __del__(self):
         """Cleanup on object destruction."""
