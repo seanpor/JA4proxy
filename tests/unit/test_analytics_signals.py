@@ -12,6 +12,7 @@ Tests cover:
 - analytics_signals LRUCache added to LocalCache
 """
 
+import asyncio
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -45,7 +46,10 @@ def _make_pipeline(redis_get_side_effect=None, redis_get_return=None):
     async def _get_async(key):
         if redis_get_side_effect is not None:
             if callable(redis_get_side_effect):
-                return redis_get_side_effect(key)
+                res = redis_get_side_effect(key)
+                if asyncio.iscoroutine(res):
+                    return await res
+                return res
             else:
                 raise redis_get_side_effect
         elif redis_get_return is not None:
