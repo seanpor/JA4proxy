@@ -5,8 +5,6 @@
 # This overlay adds N worker processes that share the same Redis backend.
 # HAProxy load balances TCP connections across all workers using round-robin.
 
-version: '3.8'
-
 services:
   # HAProxy load balancer for multi-process scaling
   haproxy:
@@ -30,7 +28,7 @@ services:
   proxy-worker-1:
     extends:
       service: proxy
-      file: docker-compose.yml
+      file: docker/docker-compose.prod.yml
     container_name: ja4proxy_worker_1
     environment:
       - PROXY_PORT=8080
@@ -43,7 +41,7 @@ services:
   proxy-worker-2:
     extends:
       service: proxy
-      file: docker-compose.yml
+      file: docker/docker-compose.prod.yml
     container_name: ja4proxy_worker_2
     environment:
       - PROXY_PORT=8083
@@ -56,7 +54,7 @@ services:
   proxy-worker-3:
     extends:
       service: proxy
-      file: docker-compose.yml
+      file: docker/docker-compose.prod.yml
     container_name: ja4proxy_worker_3
     environment:
       - PROXY_PORT=8084
@@ -69,7 +67,7 @@ services:
   proxy-worker-4:
     extends:
       service: proxy
-      file: docker-compose.yml
+      file: docker/docker-compose.prod.yml
     container_name: ja4proxy_worker_4
     environment:
       - PROXY_PORT=8085
@@ -79,8 +77,15 @@ services:
     networks:
       - ja4proxy_network
 
-# Shared network for all services
+# Shared networks and volumes from prod/poc
 networks:
+  ja4proxy-frontend:
+    driver: bridge
+  ja4proxy-backend:
+    driver: bridge
   ja4proxy_network:
     name: ja4proxy_network
     driver: bridge
+
+volumes:
+  redis-sock:

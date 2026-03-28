@@ -25,6 +25,20 @@
   - `TRIVY_IMAGES` list updated to match actual pinned versions.
   - `make help` updated with new security scanning targets.
 
+## [29.0.0] - 2026-03-28 — Phase 29: Multi-Process Architecture
+
+### Added
+- **Horizontal Scaling Orchestration** (`docker-compose.scale.yml`): Functional multi-process overlay that adds 4 independent proxy workers, extending the production base.
+- **Multi-Process Integration Tests** (`tests/integration/test_multi_process_enforcement.py`): Framework for validating shared state and metrics consistency across workers.
+- **Scaling Work Plan** (`docs/phases/PHASE_29_WORK_PLAN.md`): Roadmap for horizontal scaling and load balancer hardening.
+
+### Changed
+- **HAProxy Hardening**:
+  - Implemented enhanced TCP/HTTP health checks targeting the internal metrics port (9090).
+  - Migrated stats authentication to environment variables (`HAPROXY_STATS_USER`, `HAPROXY_STATS_PASSWORD`).
+  - Optimized connection distribution via round-robin balancing across all 4 workers.
+- **Infrastructure Alignment**: Synchronized network and volume definitions across POC and Scaled environments.
+
 ## [28.0.0] - 2026-03-28 — Phase 28: Redis Optimization
 
 ### Added
