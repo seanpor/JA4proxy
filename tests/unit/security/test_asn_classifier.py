@@ -446,7 +446,7 @@ class TestASNClassifierCoverageExtended:
 
     def test_refresh_tor_list_not_leader_redis_cache_hit(self):
         """Non-leader loads Tor IPs from Redis cache (lines 219-234)."""
-        redis = MagicMock()
+        redis = AsyncMock()
         redis.set.return_value = False  # not the leader
         redis.smembers.return_value = {b"1.2.3.4", b"5.6.7.8"}
         cls = self._make(redis=redis)
@@ -461,7 +461,7 @@ class TestASNClassifierCoverageExtended:
 
     def test_refresh_tor_list_not_leader_empty_cache(self):
         """Non-leader with empty Redis cache skips and returns (lines 237-239)."""
-        redis = MagicMock()
+        redis = AsyncMock()
         redis.set.return_value = False  # not leader
         redis.smembers.return_value = set()  # empty cache
         cls = self._make(redis=redis)
@@ -486,7 +486,7 @@ class TestASNClassifierCoverageExtended:
 
     def test_refresh_tor_list_leader_downloads(self):
         """Leader downloads and parses Tor exit list (lines 241-275)."""
-        redis = MagicMock()
+        redis = AsyncMock()
         redis.set.return_value = True  # is the leader
         redis.pipeline.return_value = MagicMock()
         cls = self._make(redis=redis)
@@ -518,7 +518,7 @@ class TestASNClassifierCoverageExtended:
 
     def test_refresh_tor_list_leader_http_error(self):
         """Leader gets non-200 response → exception logged (lines 276-281)."""
-        redis = MagicMock()
+        redis = AsyncMock()
         redis.set.return_value = True
         cls = self._make(redis=redis)
 
@@ -539,7 +539,7 @@ class TestASNClassifierCoverageExtended:
 
     def test_refresh_tor_list_connection_error(self):
         """aiohttp connection error is caught and logged (lines 276-281)."""
-        redis = MagicMock()
+        redis = AsyncMock()
         redis.set.return_value = True
         cls = self._make(redis=redis)
 
@@ -555,7 +555,7 @@ class TestASNClassifierCoverageExtended:
 
     def test_refresh_tor_list_redis_error_in_leader_check(self):
         """Redis error during leader check is caught; falls through to no-leader path."""
-        redis = MagicMock()
+        redis = AsyncMock()
         redis.set.side_effect = Exception("redis down")
         cls = self._make(redis=redis)
 
@@ -697,7 +697,7 @@ class TestASNClassifierCoverageExtended:
 
     def test_refresh_tor_list_redis_smembers_error_caught(self):
         """Redis.smembers error is caught and logged (lines 232-233)."""
-        redis = MagicMock()
+        redis = AsyncMock()
         redis.set.return_value = False  # not leader
         redis.smembers.side_effect = Exception("smembers error")
         cls = self._make(redis=redis)
@@ -712,7 +712,7 @@ class TestASNClassifierCoverageExtended:
 
     def test_refresh_tor_list_redis_pipeline_error_caught(self):
         """Redis pipeline error after download is caught and logged (lines 264-265)."""
-        redis = MagicMock()
+        redis = AsyncMock()
         redis.set.return_value = True  # leader
         mock_pipe = MagicMock()
         mock_pipe.execute.side_effect = Exception("pipeline error")

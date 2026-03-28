@@ -68,6 +68,10 @@ _BASE_CONFIG = {
         "proxy_protocol": False,
         "tarpit_host": "tarpit",
         "tarpit_port": 8888,
+        "upstream_trust": {
+            "enabled": True,
+            "trusted_cidrs": ["0.0.0.0/0", "::/0"],
+        },
     },
     "redis": {
         "host": "localhost",
@@ -109,7 +113,7 @@ def _make_server(config_overrides: dict | None = None) -> ProxyServer:
     server.config = config
     server.logger = logging.getLogger("proxy")
 
-    redis_mock = MagicMock()
+    redis_mock = AsyncMock()
     redis_mock.sismember = AsyncMock(return_value=False)
     redis_mock.smembers = AsyncMock(return_value=set())
     redis_mock.sadd = AsyncMock(return_value=1)
@@ -145,6 +149,8 @@ def _make_server(config_overrides: dict | None = None) -> ProxyServer:
     server._cidr_blocks_loaded_at = 0.0
     server._cidr_cache_ttl = 30
     server.active_connections = 0
+    server.executor = None
+    server.config_loader = MagicMock()
     server._conn_semaphore = asyncio.Semaphore(MAX_CONCURRENT_CONNECTIONS)
     # Phase 14c: tarpit self-protection counters
     server._tarpit_concurrent = 0
@@ -852,15 +858,24 @@ class TestAnalyzeTlsHandshake:
         assert fp.ja4 == "error"
 
     def test_tls_record_calls_scapy(self, server):
-        """A TLS record (0x16) triggers Scapy parsing."""
+        """A TLS record (0x16) triggers Scapy parsing (offloaded to executor)."""
         data = b"\x16\x03\x01\x00\x10" + b"\x00" * 16
-        server.redis_client.hset = MagicMock()
-        server.redis_client.expire = MagicMock()
-        mock_tls = MagicMock()
-        server.tls_parser.parse_client_hello = MagicMock(return_value=None)
-        with patch("proxy.TLS", return_value=mock_tls) as mock_tls_cls:
+        server.redis_client.hset = AsyncMock()
+        server.redis_client.expire = AsyncMock()
+
+        # Phase 28a: Mock run_in_executor since parsing is now isolated
+        with patch("asyncio.get_running_loop") as mock_get_loop:
+            mock_loop = MagicMock()
+            mock_loop.run_in_executor = AsyncMock(return_value=None)
+            mock_get_loop.return_value = mock_loop
+
             _run(server._analyze_tls_handshake(data, "1.2.3.4"))
-        mock_tls_cls.assert_called_once_with(data)
+
+            # Verify it was offloaded to the executor
+            from proxy import _parse_tls_task
+            mock_loop.run_in_executor.assert_called_once_with(
+                server.executor, _parse_tls_task, data
+            )
 
 
 # ---------------------------------------------------------------------------

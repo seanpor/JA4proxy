@@ -308,15 +308,16 @@ class TestProxyServer:
         client_ip = "192.168.1.100"
 
         with (
-            patch.object(
-                self.proxy_server.tls_parser, "parse_client_hello"
-            ) as mock_parse,
+            patch("asyncio.get_running_loop") as mock_get_loop,
             patch.object(
                 self.proxy_server.ja4_generator, "generate_ja4"
             ) as mock_generate,
             patch.object(self.proxy_server, "_store_fingerprint") as mock_store,
         ):
-            mock_parse.return_value = {"version": 0x0303, "supported_versions": []}
+            mock_loop = Mock()
+            mock_loop.run_in_executor = AsyncMock(return_value={"version": 0x0303, "supported_versions": []})
+            mock_get_loop.return_value = mock_loop
+            self.proxy_server.executor = None
             mock_generate.return_value = VALID_FP_A
 
             fingerprint = await self.proxy_server._analyze_tls_handshake(

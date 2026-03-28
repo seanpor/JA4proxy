@@ -70,15 +70,13 @@ class PubSubHandler:
     """Subscribe to the ja4proxy invalidation channel and update local state.
 
     Args:
-        redis_client: An ``redis.asyncio`` client instance (not a connection
-                      pool reference — the handler keeps its own subscription).
+        redis_client: An ``redis.asyncio`` client instance.
         local_cache: The process-local :class:`~src.cache.local_cache.LocalCache`.
         config_loader: The :class:`~src.config.loader.ConfigLoader` to call
                        on ``config_reload`` messages.
         blacklist_set: Mutable ``set[str]`` of JA4 blacklisted fingerprints.
-                       Updated in-place on ``ja4_blacklist_add`` messages.
         whitelist_set: Mutable ``set[str]`` of JA4 whitelisted fingerprints.
-                       Updated in-place on ``whitelist_remove`` messages.
+        signing_key: Optional HMAC secret for verifying critical updates (Phase 28b).
     """
 
     def __init__(
@@ -89,6 +87,7 @@ class PubSubHandler:
         blacklist_set: set,
         whitelist_set: set,
         blocklist_manager: object = None,
+        signing_key: str | None = None,
     ) -> None:
         self._redis = redis_client
         self._cache = local_cache
@@ -96,6 +95,28 @@ class PubSubHandler:
         self._blacklist = blacklist_set
         self._whitelist = whitelist_set
         self._blocklist_manager = blocklist_manager
+        self._signing_key = signing_key
+
+    def _verify_signature(self, msg_type: str, value: str, signature: str) -> bool:
+        """Verify HMAC signature of a pub/sub update (Phase 28b)."""
+        if not self._signing_key:
+            import os
+            # In production, require signing key
+            if os.getenv("ENVIRONMENT") == "production":
+                logger.error("SECURITY: No signing key for pub/sub verification!")
+                return False
+            return True
+
+        if not signature:
+            return False
+
+        import hashlib
+        import hmac
+
+        # Data to sign: type:value
+        data = f"{msg_type}:{value}".encode("utf-8")
+        h = hmac.new(self._signing_key.encode("utf-8"), data, hashlib.sha256)
+        return hmac.compare_digest(h.hexdigest(), signature)
 
     async def run(self) -> None:
         """Subscribe and process messages forever, reconnecting on error.
@@ -144,7 +165,25 @@ class PubSubHandler:
 
         msg_type = msg.get("type", "")
         value = msg.get("value")
+        signature = msg.get("signature")
         _PUBSUB_MESSAGES.labels(msg_type=msg_type).inc()
+
+        # Phase 28b: Cryptographic signing for state updates.
+        # Critical administrative actions must be signed to prevent lateral movement
+        # from a compromised service into other proxy instances.
+        if msg_type in (
+            "ja4_blacklist_add",
+            "dial_change",
+            "config_reload",
+            "cidr_ban_add",
+        ):
+            if not self._verify_signature(msg_type, str(value), signature):
+                logger.error(
+                    "SECURITY: Signature verification failed for %s! Rejecting update.",
+                    msg_type,
+                )
+                _PUBSUB_ERRORS.labels(reason="invalid_signature").inc()
+                return
 
         match msg_type:
             case "whitelist_remove":
