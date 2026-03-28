@@ -112,6 +112,7 @@ Management dashboards and documentation quality.
 | 33 | Advanced Traffic Intelligence - Phase 4: Documentation Diagrams | PROPOSED | N/A | N/A |
 | 34 | APT Resilience & Infrastructure Hardening | PROPOSED | N/A | N/A |
 | 35 | Advanced APT Countermeasures & Integrity Enforcement | PROPOSED | N/A | N/A |
+| 36 | Go Test Quality & Parity Gaps | PROPOSED | N/A | N/A |
 
 ---
 
