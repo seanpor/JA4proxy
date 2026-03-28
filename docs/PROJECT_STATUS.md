@@ -2,7 +2,7 @@
 
 ## Current Status: Phase 13 (Management UI) Next
 
-**Last Updated:** 2026-03-27
+**Last Updated:** 2026-03-28
 
 ## Epics & Roadmap
 
@@ -38,6 +38,8 @@ Deep security analysis, compliance, and audit remediation.
 | 25 | Docker Container Management | OPEN | Pin image versions, fix CVE scan gaps, first-party image scanning, image update policy. |
 | 27 | Advanced Pentest Remediation | COMPLETE | Remediate critical vulnerabilities: IP spoofing, sync/async Redis mismatch, and synchronous TLS parsing DoS. |
 | 30 | Python Throughput Hardening - Phase 4: Write Optimization & Benchmarking | PROPOSED | Add deferred write batching and comprehensive benchmark validation. Target: Final performance report. |
+| 34 | APT Resilience & Infrastructure Hardening | PROPOSED | Defense-in-depth: Parser isolation, Redis mTLS/ACLs, long-tail correlation, and strict container seccomp profiles. |
+| 35 | Advanced APT Countermeasures & Integrity Enforcement | PROPOSED | Proactive defense: Hardware-rooted integrity, eBPF-based kernel-level enforcement, honey-fingerprints, and two-stage seccomp lockdown. |
 
 ### Epic: Analytics & Intelligence
 Cross-instance behavior analysis and threat intelligence.
@@ -58,7 +60,7 @@ Out-of-band monitoring and enforcement.
 
 | Phase | Name | Status | Summary |
 |-------|------|--------|---------|
-| 20 | Passive TAP Mode | OPEN | AF_PACKET capture and out-of-band enforcement. |
+| 20 | Passive TAP Mode | COMPLETE | AF_PACKET capture, full JA4 fingerprint family, out-of-band enforcement, and intelligence export. |
 
 ### Epic: User Interface & Experience
 Management dashboards and documentation quality.
@@ -94,7 +96,7 @@ Management dashboards and documentation quality.
 | 17 | Docker Test Optimization | COMPLETE | 100% | COMPLETE |
 | 18 | Security Audit Remediation | COMPLETE | N/A | N/A |
 | 19 | Backup & Restore | COMPLETE | 100% | COMPLETE |
-| 20 | Passive TAP Mode | OPEN | N/A | N/A |
+| 20 | Passive TAP Mode | COMPLETE | N/A | N/A |
 | 21 | Documentation Excellence | COMPLETE | N/A | N/A |
 | 22 | Backup System Enhancements - Phase 1: Core Features | PROPOSED | N/A | N/A |
 | 23 | Advanced Traffic Intelligence - Phase 1: Threat Intelligence Integration | PROPOSED | N/A | N/A |
@@ -108,6 +110,8 @@ Management dashboards and documentation quality.
 | 31 | Advanced Traffic Intelligence - Phase 2: Geographical Intelligence | PROPOSED | N/A | N/A |
 | 32 | Advanced Traffic Intelligence - Phase 3: Attacker Attribution | PROPOSED | N/A | N/A |
 | 33 | Advanced Traffic Intelligence - Phase 4: Documentation Diagrams | PROPOSED | N/A | N/A |
+| 34 | APT Resilience & Infrastructure Hardening | PROPOSED | N/A | N/A |
+| 35 | Advanced APT Countermeasures & Integrity Enforcement | PROPOSED | N/A | N/A |
 
 ---
 

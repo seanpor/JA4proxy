@@ -1,0 +1,36 @@
+{
+  "_comment": "Seccomp allowlist for JA4proxy TAP mode process (Phase 20).",
+  "_description": "Restricts the TAP sensor to only required syscalls. Applied after CAP_NET_RAW is dropped post-socket-open. Managed by src/tap/security.py.",
+  "defaultAction": "SCMP_ACT_ERRNO",
+  "defaultErrnoRet": 1,
+  "syscalls": [
+    {
+      "names": [
+        "read", "write", "close", "fstat", "lstat", "poll", "lseek",
+        "mmap", "mprotect", "munmap", "brk", "rt_sigaction", "rt_sigprocmask",
+        "rt_sigreturn", "ioctl", "pread64", "pwrite64", "readv", "writev",
+        "access", "select", "sched_yield", "mremap", "msync", "madvise",
+        "dup", "dup2", "nanosleep", "getitimer", "setitimer", "getpid",
+        "socket", "connect", "accept", "sendto", "recvfrom", "sendmsg",
+        "recvmsg", "shutdown", "bind", "listen", "getsockname", "getpeername",
+        "setsockopt", "getsockopt", "clone", "fork", "exit", "wait4", "kill",
+        "fcntl", "flock", "fsync", "fdatasync", "getcwd", "chdir", "rename",
+        "mkdir", "rmdir", "unlink", "readlink", "gettimeofday", "getrlimit",
+        "getuid", "getgid", "setuid", "setgid", "geteuid", "getegid",
+        "setpgid", "getppid", "setsid", "capget", "capset",
+        "rt_sigpending", "rt_sigtimedwait", "sigaltstack", "prctl", "arch_prctl",
+        "setrlimit", "gettid", "futex", "sched_setaffinity", "sched_getaffinity",
+        "set_tid_address", "restart_syscall", "clock_gettime", "clock_getres",
+        "clock_nanosleep", "exit_group", "epoll_wait", "epoll_ctl", "tgkill",
+        "openat", "newfstatat", "unlinkat", "renameat", "readlinkat", "pselect6",
+        "ppoll", "set_robust_list", "get_robust_list", "splice",
+        "utimensat", "epoll_pwait", "timerfd_create", "eventfd", "fallocate",
+        "timerfd_settime", "timerfd_gettime", "accept4", "eventfd2",
+        "epoll_create1", "dup3", "pipe2", "preadv", "pwritev",
+        "recvmmsg", "prlimit64", "sendmmsg", "getcpu",
+        "getrandom", "memfd_create", "statx", "rseq", "epoll_create"
+      ],
+      "action": "SCMP_ACT_ALLOW"
+    }
+  ]
+}

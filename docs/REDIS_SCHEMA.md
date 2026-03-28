@@ -165,4 +165,37 @@ phase: 21
 
 ---
 
-*Last updated: 2026-03-21, Phase 19 complete*
+## Phase 20 — TAP Mode Fingerprint Store
+
+Written by `src/tap/fingerprint_store.py`. All keys are prefixed `fp:`.
+
+| Key pattern | Type | TTL | Written by | Notes |
+|-------------|-|-|--------|-|
+| `fp:conn:{conn_id}` | Hash | 7 days | FingerprintStore.write() | Full connection fingerprint record. Fields: ja4, ja4s, ja4t, ja4x, ja4h, ja4h2, h2_fingerprint, client_ip, server_ip, server_port, os_fingerprint, action, score, timestamp. One key per connection. |
+| `fp:ip:{client_ip}` | Sorted Set | 30 days | FingerprintStore.write() | Per-IP connection history. Score = UNIX timestamp. Member = conn_id. Trimmed to last 1000 entries. Use ZRANGEBYSCORE for time-range queries. |
+| `fp:ja4:hll:{ja4}` | HyperLogLog | 30 days | FingerprintStore.write() | Approximate unique IP count per JA4 fingerprint (PFADD client_ip). Use PFCOUNT for cardinality. ~0.81% error rate. |
+| `fp:ja4:count:{ja4}` | String (int) | 30 days | FingerprintStore.write() | Total connection count for this JA4 fingerprint. Incremented on every observed connection. |
+| `fp:os:count:{os_fingerprint}` | String (int) | 30 days | FingerprintStore.write() | Total connection count for this OS fingerprint (JA4T-derived). |
+| `fp:os:ip:{client_ip}` | String | 24 hours | FingerprintStore.write() | Most recently observed OS fingerprint for this IP. Updated on every connection. |
+| `fp:ja4_to_ja4s:{ja4}` | Hash | 7 days | FingerprintStore.write() | Maps JA4 (client) → JA4S (server) co-occurrence counts. Field = ja4s value, Value = count (HINCRBY). Used to detect server fingerprint inconsistencies. |
+
+### TAP Enforcement Keys
+
+Written by `src/tap/enforcement_bridge.py` and `src/tap/tap_pipeline.py`.
+
+| Key pattern | Type | TTL | Written by | Notes |
+|-------------|-|-|--------|-|
+| `tap:ban:{ip}` | String | configurable | TapPipeline.process() | TAP-mode ban record. Value = JSON {score, reason, timestamp}. TTL = tap_enforcement.ban_ttl_s. Consumed by passthrough proxy via PubSub. |
+| `tap:block_decisions` | List | 24 hours | TapPipeline.process() | Recent block/ban decisions for the management UI. Each entry is JSON {ip, action, score, ja4, timestamp}. Capped at 1000 entries by LTRIM. |
+
+### TAP Intelligence Export Keys
+
+Written by `src/tap/export/` exporters.
+
+| Key pattern | Type | TTL | Written by | Notes |
+|-------------|-|-|--------|-|
+| `tap:edl:{list_name}` | Set | none | EDLServer | IP addresses in the named External Dynamic List. Members added by TapPipeline when action >= signal_block. Used by EDL HTTP server for firewall pull. |
+
+---
+
+*Last updated: 2026-03-28, Phase 20 complete*

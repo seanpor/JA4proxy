@@ -22,10 +22,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **DEFERRED** (FastAPI + React dashboard for real-time monitoring.)
 *   **Action Plan:** [PHASE_13_WORK_PLAN.md](PHASE_13_WORK_PLAN.md)
 
-### Phase 20 — Passive TAP Mode
-*   **Status:** **OPEN** (AF_PACKET capture and out-of-band enforcement.)
-*   **Action Plan:** [PHASE_20_WORK_PLAN.md](PHASE_20_WORK_PLAN.md)
-
 ### Phase 22 — Backup System Enhancements - Phase 1: Core Features
 *   **Status:** **PROPOSED** (Add backup scheduling, pipeline batching, and restore validation. Target: Production-ready backup system.)
 *   **Action Plan:** [PHASE_22_WORK_PLAN.md](PHASE_22_WORK_PLAN.md)
@@ -65,3 +61,11 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 33 — Advanced Traffic Intelligence - Phase 4: Documentation Diagrams
 *   **Status:** **PROPOSED** (Standardize all documentation diagrams to Mermaid format for consistent rendering.)
 *   **Action Plan:** [PHASE_33_WORK_PLAN.md](PHASE_33_WORK_PLAN.md)
+
+### Phase 34 — APT Resilience & Infrastructure Hardening
+*   **Status:** **PROPOSED** (Defense-in-depth: Parser isolation, Redis mTLS/ACLs, long-tail correlation, and strict container seccomp profiles.)
+*   **Action Plan:** [PHASE_34.md](PHASE_34.md)
+
+### Phase 35 — Advanced APT Countermeasures & Integrity Enforcement
+*   **Status:** **PROPOSED** (Proactive defense: Hardware-rooted integrity, eBPF-based kernel-level enforcement, honey-fingerprints, and two-stage seccomp lockdown.)
+*   **Action Plan:** [PHASE_35.md](PHASE_35.md)

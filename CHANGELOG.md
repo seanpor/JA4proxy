@@ -1,5 +1,54 @@
 # Changelog
 
+## [20.0.0] - 2026-03-28 — Phase 20: Passive TAP/SPAN Mode
+
+### Added
+
+- **TAP mode capture** (`src/tap/capture.py`): AF_PACKET raw socket capture with `_parse_ethernet_frame()` supporting Ethernet II, 802.1Q VLAN tags, IPv4/IPv6 fragmentation reassembly, and TCP/UDP demux. Runs in parallel worker shards.
+- **TCP stream reassembler** (`src/tap/reassembler.py`): `StreamReassembler` + `TCPStream` tracking full-duplex TCP streams. Out-of-order reordering buffer, configurable stream timeout/capacity, eviction of oldest streams when at `max_streams` limit.
+- **JA4 fingerprint family** (`src/tap/fingerprints/`):
+  - `ja4.py`: TLS ClientHello fingerprint — GREASE-filtered cipher/extension hashes
+  - `ja4s.py`: TLS ServerHello fingerprint
+  - `ja4t.py`: TCP SYN fingerprint from TCP options (window size, MSS, wscale, option order)
+  - `ja4h.py`: HTTP/1.x request fingerprint (method, version, header order, cookie presence)
+  - `ja4x.py`: X.509 certificate fingerprint (issuer/subject/SAN hash)
+  - `ja4l.py`: TCP latency fingerprint (SYN→ACK RTT)
+  - `ja4h2.py`: HTTP/2 SETTINGS fingerprint
+  - `tls_ext_values.py`: `JA4TLSExtValues` dataclass capturing supported groups, key share, sig algs, PSK modes, GREASE values
+  - `correlation.py`: `ConnectionFingerprints` dataclass with Redis serialisation (`to_redis_dict` / `from_redis_dict`); includes `cert_is_expired`, `cert_is_self_signed`, `h2_matched_client`
+- **Fingerprint store** (`src/tap/fingerprint_store.py`): `FingerprintStore` writes 7 Redis key types: `fp:conn:{id}` (Hash, 7d), `fp:ip:{ip}` (ZSET, 30d), `fp:ja4:hll:{ja4}` (HLL, 30d), `fp:ja4:count:{ja4}` (String, 30d), `fp:os:count/{fp}` (String, 30d), `fp:os:ip:{ip}` (String, 24h), `fp:ja4_to_ja4s:{ja4}` (Hash, 7d).
+- **TAP pipeline** (`src/tap/tap_pipeline.py`): `TapPipeline` scoring with TAP-specific signals (tls_no_grease, scanner_ja4, ja4l_mismatch, cert_expired, cert_self_signed, h2_settings_mismatch, os_ua_mismatch, ssh_attack_tool) and 5-level action scale (observe/flag/signal_slow/signal_block/signal_ban).
+- **Enforcement bridge** (`src/tap/enforcement_bridge.py`): `EnforcementBridge` subscribes to `ja4proxy:bans` PubSub channel. Fan-out via `asyncio.gather` to: iptables/ipset (using `create_subprocess_exec`, never shell=True), BGP announce via ExaBGP named pipe (IPv4 ≥ /24 guard, IPv6 ≥ /48 guard, HMAC-less — BGP trust is network-level), webhook POST (HMAC-SHA256 `X-JA4Proxy-Signature`, retries on 5xx). Auto-reconnects on Redis disconnect.
+- **Intelligence export layer** (`src/tap/export/`):
+  - `edl_server.py`: aiohttp EDL HTTP server at `/edl/{list_name}` with ETag/304 caching and X-API-Key auth
+  - `f5_client.py`: F5 BIG-IP iControl REST push client with rate limiting
+  - `palo_alto_client.py`: Palo Alto XML API IP-to-tag client
+  - `kafka_producer.py`: aiokafka producer with batching and `_NoopProducer` fallback
+  - `syslog_exporter.py`: CEF/RFC5424 syslog with severity mapping
+  - `taxii_server.py`: TAXII 2.1 server with STIX 2.1 indicators
+  - `misp_client.py`: MISP REST client with daily event caching
+  - `export_manager.py`: orchestrates all enabled exporters via `asyncio.gather`
+- **TAP sensor** (`src/tap/tap_sensor.py`): Top-level orchestrator starting capture workers, reassembler, pipeline, enforcement bridge, export manager, and HTTP server.
+- **HTTP server** (`src/tap/http_server.py`): Standalone aiohttp server for `/tap/health`, `/tap/status`, `/edl/*`.
+- **Prometheus metrics** (`src/tap/metrics.py`): 12 metrics under `ja4proxy_tap_*` namespace.
+- **Security hardening** (`src/tap/security.py`): `drop_capabilities()` (removes CAP_NET_RAW post-socket-open), `apply_seccomp_profile()`, path traversal prevention.
+- **Worker watchdog** (`src/tap/watchdog.py`): `WorkerWatchdog` monitors asyncio Tasks, restarts crashed workers, detects rapid-crash loops (≥3 crashes in 60s emits WARNING).
+- **Test infrastructure** (`tests/tap/conftest.py`): `SyntheticPacketBuilder` generates `ParsedPacket` sequences for TLS/HTTP/TCP protocol replays; fixtures `synthetic_packets`, `tap_config`.
+- **Config files**: `config/os_fingerprints.yml` (p0f-style OS database), `config/h2_fingerprints.yml` (known H2 SETTINGS per browser), `config/seccomp_tap.json` (seccomp allowlist).
+- **Scripts**: `scripts/generate_test_pcap.py` (synthetic PCAP corpus generator), `scripts/tap_benchmark.py` (throughput benchmark), `scripts/reconcile_ipset.py` (iptables/ipset drift reconciliation).
+- **Makefile targets**: `test-tap`, `test-tap-live`, `test-tap-perf`, `gdpr-delete`.
+- **ADRs**: ADR-020 (AF_PACKET choice), ADR-021 (EDL pull vs push), ADR-022 (standalone HTTP server migration plan).
+- **Runbook**: `docs/runbooks/tap_mode.md` — complete operator guide covering sizing, health checks, reconciliation, GDPR deletion, troubleshooting.
+
+### Changed
+
+- `docs/REDIS_SCHEMA.md`: Added Phase 20 section with all `fp:*`, `tap:ban:*`, `tap:block_decisions`, and `tap:edl:*` key patterns.
+
+### Tests
+
+- 383 new TAP-mode tests across: unit/fingerprints, unit/pipeline, unit/store, unit/enforcement, unit/export, unit/watchdog, chaos/resilience, fp_corpus/accuracy, fp_corpus/fp_rate.
+- Full test suite: 2687 passing, 21 skipped (docker integration tests), 0 failing.
+
 ## [19.4.0] - 2026-03-26 — Analysis: Benchmark-driven phase strategy update
 
 ### Changed

@@ -1,0 +1,178 @@
+# HTTP/2 SETTINGS fingerprint database for JA4proxy TAP mode (Phase 20)
+#
+# Format:
+#   Each entry maps a known HTTP/2 SETTINGS frame sequence to a client name.
+#   The fingerprint is computed as a hash of (settings_id:value,...) pairs.
+#
+# Used by:
+#   src/tap/fingerprints/ja4h2.py — compute JA4H2 fingerprint
+#   src/tap/tap_pipeline.py      — detect h2_settings_mismatch signal
+#
+# References:
+#   https://www.rfc-editor.org/rfc/rfc7540#section-6.5
+#   https://fingerprint.net/blog/http2-fingerprinting
+#   https://github.com/salesforce/ja3
+#
+# SETTINGS parameter IDs:
+#   0x1 = HEADER_TABLE_SIZE
+#   0x2 = ENABLE_PUSH
+#   0x3 = MAX_CONCURRENT_STREAMS
+#   0x4 = INITIAL_WINDOW_SIZE
+#   0x5 = MAX_FRAME_SIZE
+#   0x6 = MAX_HEADER_LIST_SIZE
+
+clients:
+
+  # ── Chrome ────────────────────────────────────────────────────────────────
+
+  - name: chrome_120
+    description: "Google Chrome 120 (Windows/macOS/Linux)"
+    settings:
+      - id: 0x1    # HEADER_TABLE_SIZE
+        value: 65536
+      - id: 0x4    # INITIAL_WINDOW_SIZE
+        value: 6291456
+      - id: 0x5    # MAX_FRAME_SIZE
+        value: 16384
+    window_update: 15663105
+    pseudo_header_order: [":method", ":authority", ":scheme", ":path"]
+    notes: "Chrome 99-120 share the same SETTINGS"
+
+  - name: chrome_115
+    description: "Google Chrome 115-119"
+    settings:
+      - id: 0x1
+        value: 65536
+      - id: 0x4
+        value: 6291456
+      - id: 0x5
+        value: 16384
+    window_update: 15663105
+    pseudo_header_order: [":method", ":authority", ":scheme", ":path"]
+
+  # ── Firefox ───────────────────────────────────────────────────────────────
+
+  - name: firefox_120
+    description: "Mozilla Firefox 120"
+    settings:
+      - id: 0x1    # HEADER_TABLE_SIZE
+        value: 65536
+      - id: 0x3    # MAX_CONCURRENT_STREAMS
+        value: 100
+      - id: 0x4    # INITIAL_WINDOW_SIZE
+        value: 131072
+      - id: 0x5    # MAX_FRAME_SIZE
+        value: 16384
+      - id: 0x6    # MAX_HEADER_LIST_SIZE
+        value: 65536
+    window_update: 12517377
+    pseudo_header_order: [":method", ":path", ":authority", ":scheme"]
+
+  - name: firefox_115
+    description: "Mozilla Firefox 115 ESR"
+    settings:
+      - id: 0x1
+        value: 65536
+      - id: 0x3
+        value: 100
+      - id: 0x4
+        value: 131072
+      - id: 0x5
+        value: 16384
+      - id: 0x6
+        value: 65536
+    window_update: 12517377
+    pseudo_header_order: [":method", ":path", ":authority", ":scheme"]
+
+  # ── Safari ────────────────────────────────────────────────────────────────
+
+  - name: safari_17
+    description: "Apple Safari 17 (macOS Sonoma / iOS 17)"
+    settings:
+      - id: 0x1    # HEADER_TABLE_SIZE
+        value: 4096
+      - id: 0x3    # MAX_CONCURRENT_STREAMS
+        value: 100
+      - id: 0x4    # INITIAL_WINDOW_SIZE
+        value: 2097152
+    window_update: 10420225
+    pseudo_header_order: [":method", ":scheme", ":path", ":authority"]
+
+  - name: safari_16
+    description: "Apple Safari 16 (macOS Ventura / iOS 16)"
+    settings:
+      - id: 0x1
+        value: 4096
+      - id: 0x3
+        value: 100
+      - id: 0x4
+        value: 2097152
+    window_update: 10420225
+    pseudo_header_order: [":method", ":scheme", ":path", ":authority"]
+
+  # ── Edge ──────────────────────────────────────────────────────────────────
+
+  - name: edge_120
+    description: "Microsoft Edge 120 (Chromium-based)"
+    settings:
+      - id: 0x1
+        value: 65536
+      - id: 0x4
+        value: 6291456
+      - id: 0x5
+        value: 16384
+    window_update: 15663105
+    pseudo_header_order: [":method", ":authority", ":scheme", ":path"]
+    notes: "Same SETTINGS as Chrome (shares Blink engine)"
+
+  # ── curl / command-line HTTP clients ──────────────────────────────────────
+
+  - name: curl_8
+    description: "curl 8.x with HTTP/2"
+    settings:
+      - id: 0x4    # INITIAL_WINDOW_SIZE
+        value: 65536
+    window_update: 65535
+    pseudo_header_order: [":method", ":path", ":scheme", ":authority"]
+
+  - name: python_httpx
+    description: "Python httpx / h2 library"
+    settings:
+      - id: 0x4
+        value: 65535
+      - id: 0x5
+        value: 16384
+    window_update: 65535
+    pseudo_header_order: [":method", ":path", ":scheme", ":authority"]
+
+  - name: go_net_http
+    description: "Go net/http with HTTP/2"
+    settings:
+      - id: 0x3    # MAX_CONCURRENT_STREAMS
+        value: 250
+      - id: 0x4    # INITIAL_WINDOW_SIZE
+        value: 1048576
+    window_update: 1048576
+    pseudo_header_order: [":authority", ":method", ":path", ":scheme"]
+
+  # ── Known scanners with HTTP/2 ────────────────────────────────────────────
+
+  - name: nuclei_scanner
+    description: "ProjectDiscovery Nuclei scanner"
+    settings:
+      - id: 0x4
+        value: 65535
+    window_update: 65535
+    pseudo_header_order: [":method", ":path", ":scheme", ":authority"]
+    scanner: true
+
+  - name: zgrab2
+    description: "ZMap zgrab2 HTTP/2"
+    settings:
+      - id: 0x4
+        value: 65535
+      - id: 0x5
+        value: 16777215
+    window_update: 65535
+    pseudo_header_order: [":method", ":path", ":scheme", ":authority"]
+    scanner: true

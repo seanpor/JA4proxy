@@ -1,0 +1,65 @@
+groups:
+  - name: ja4proxy_tap
+    rules:
+      - alert: TapPacketDropRateCritical
+        expr: rate(ja4proxy_tap_packets_dropped_total[5m]) > 1000
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "TAP packet drop rate critical ({{ $value | humanize }}/s)"
+          description: "Packets are being dropped faster than the pipeline can consume them. Check ring-buffer size and worker count."
+          runbook: "docs/runbooks/tap_packet_drops.md"
+
+      - alert: TapWorkerCrashLoop
+        expr: increase(ja4proxy_tap_worker_restarts_total[5m]) > 2
+        for: 0m
+        labels: {severity: critical}
+        annotations:
+          summary: "TAP worker {{ $labels.worker_id }} is crash-looping"
+          description: "A TAP worker has restarted more than twice in 5 minutes. Check logs for the root cause."
+          runbook: "docs/runbooks/tap_worker_crash.md"
+
+      - alert: TapRingBufferFull
+        expr: ja4proxy_tap_ring_buffer_fill_ratio > 0.9
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: "TAP ring buffer nearly full on {{ $labels.interface }} ({{ $value | humanizePercentage }})"
+          description: "Ring buffer fill ratio has been above 90 % for 2 minutes. Packet drops are imminent."
+          runbook: "docs/runbooks/tap_ring_buffer.md"
+
+      - alert: TapEnforcementBackendError
+        expr: rate(ja4proxy_tap_enforcement_errors_total[5m]) > 10
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: "TAP enforcement backend {{ $labels.backend }} error rate high ({{ $value | humanize }}/s)"
+          description: "Enforcement actions are failing. Bans may not be applied."
+          runbook: "docs/runbooks/tap_enforcement.md"
+
+      - alert: TapExportBackendError
+        expr: rate(ja4proxy_tap_export_errors_total[5m]) > 10
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: "TAP export backend {{ $labels.exporter }} error rate high ({{ $value | humanize }}/s)"
+          description: "Intelligence export is failing. Downstream consumers may be missing events."
+          runbook: "docs/runbooks/tap_export.md"
+
+      - alert: TapNoPacketsReceived
+        expr: rate(ja4proxy_tap_packets_received_total[5m]) == 0
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "TAP sensor on {{ $labels.interface }} is receiving no packets"
+          description: "No packets have been received for 5 minutes. The capture interface may be down or misconfigured."
+          runbook: "docs/runbooks/tap_no_packets.md"
+
+      - alert: TapStreamsAtCapacity
+        expr: ja4proxy_tap_streams_active > 900000
+        for: 2m
+        labels: {severity: warning}
+        annotations:
+          summary: "TAP active stream table near capacity ({{ $value | humanize }} streams)"
+          description: "The active stream count has exceeded 900 000. Older streams will be evicted, which may cause fingerprint misses."
+          runbook: "docs/runbooks/tap_stream_capacity.md"
