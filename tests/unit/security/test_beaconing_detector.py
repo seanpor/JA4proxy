@@ -196,20 +196,19 @@ class TestMaybeRecordGuards(unittest.TestCase):
         mock_redis.pipeline.assert_not_called()
 
     def test_allowed_connection_recorded(self):
-        """Normal allowed connection → pipeline called → timestamp recorded."""
-        pipe_mock = AsyncMock()
-        pipe_mock.execute = AsyncMock(return_value=[1, 0, 0, True])
-        # Support both context-manager and direct pipeline usage
-        pipe_mock.__aenter__ = AsyncMock(return_value=pipe_mock)
-        pipe_mock.__aexit__ = AsyncMock(return_value=False)
+        """Normal allowed connection → WriteBuffer.enqueue called → timestamp recorded."""
+        mock_write_buffer = AsyncMock()
+        mock_write_buffer.enqueue = AsyncMock()
 
         mock_redis = MagicMock()
-        mock_redis.pipeline = MagicMock(return_value=pipe_mock)
 
         detector = _make_detector(redis=mock_redis)
+        # Replace the WriteBuffer with our mock
+        detector._write_buffer = mock_write_buffer
         self._run(detector.maybe_record("1.2.3.4", "t13d...", "", "allow"))
 
-        mock_redis.pipeline.assert_called()
+        # Should call enqueue 7 times (4 for short window + 3 for long window)
+        self.assertEqual(mock_write_buffer.enqueue.call_count, 7)
 
     def test_disabled_detector_skips_all(self):
         """Disabled detector skips recording entirely."""
@@ -232,17 +231,20 @@ class TestUUIDSuffixPreventsDuplication(unittest.TestCase):
         """Two calls at the same time.time() produce different member strings."""
         added_members = []
 
-        pipe_mock = AsyncMock()
-        pipe_mock.zadd = MagicMock(side_effect=lambda k, m: added_members.append(list(m.keys())[0]))
-        pipe_mock.execute = AsyncMock(return_value=[1, 0, 0, True])
-        pipe_mock.__aenter__ = AsyncMock(return_value=pipe_mock)
-        pipe_mock.__aexit__ = AsyncMock(return_value=False)
+        mock_write_buffer = AsyncMock()
+        def capture_zadd_args(op, key, *args):
+            if op == "zadd" and args:
+                # args[0] should be the mapping dict
+                if isinstance(args[0], dict):
+                    added_members.append(list(args[0].keys())[0])
+        mock_write_buffer.enqueue = AsyncMock(side_effect=capture_zadd_args)
 
         mock_redis = MagicMock()
-        mock_redis.pipeline = MagicMock(return_value=pipe_mock)
 
         with patch("src.security.beaconing_detector.time.time", return_value=1700000000.0):
             detector = _make_detector(redis=mock_redis)
+            # Replace the WriteBuffer with our mock
+            detector._write_buffer = mock_write_buffer
             self._run(detector.maybe_record("1.2.3.4", "t13d...", "", "allow"))
             self._run(detector.maybe_record("1.2.3.4", "t13d...", "", "allow"))
 
