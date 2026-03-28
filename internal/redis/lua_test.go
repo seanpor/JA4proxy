@@ -8,28 +8,26 @@ import (
 	"testing"
 )
 
-// TestSlidingWindowScript_MatchesFile verifies the embedded fallback script is
-// byte-identical to scripts/sliding_window.lua in the repo root.
+// TestSlidingWindowScript_MatchesFile verifies the embedded script is
+// byte-identical to internal/redis/scripts/sliding_window.lua.
 func TestSlidingWindowScript_MatchesFile(t *testing.T) {
 	_, filename, _, _ := runtime.Caller(0)
-	repoRoot := filepath.Join(filepath.Dir(filename), "..", "..")
-	luaPath := filepath.Join(repoRoot, "scripts", "sliding_window.lua")
+	luaPath := filepath.Join(filepath.Dir(filename), "scripts", "sliding_window.lua")
 
 	data, err := os.ReadFile(luaPath)
 	if err != nil {
-		t.Skipf("scripts/sliding_window.lua not found (%v); skipping byte-identity check", err)
+		t.Skipf("internal/redis/scripts/sliding_window.lua not found (%v); skipping", err)
 	}
 
 	fileContent := string(data)
 
-	// Normalise line endings for comparison
 	normalise := func(s string) string {
 		return strings.ReplaceAll(strings.TrimSpace(s), "\r\n", "\n")
 	}
 
-	if normalise(fileContent) != normalise(slidingWindowLua) {
-		t.Error("embedded slidingWindowLua does not match scripts/sliding_window.lua")
-		t.Logf("file len=%d, embedded len=%d", len(fileContent), len(slidingWindowLua))
+	if normalise(fileContent) != normalise(SlidingWindowScript) {
+		t.Error("embedded SlidingWindowScript does not match internal/redis/scripts/sliding_window.lua")
+		t.Logf("file len=%d, embedded len=%d", len(fileContent), len(SlidingWindowScript))
 	}
 }
 

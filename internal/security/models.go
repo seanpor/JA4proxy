@@ -17,30 +17,31 @@ type RiskSignal struct {
 // ConnectionContext is an immutable snapshot of observable connection metadata.
 // Populated before the pipeline runs; passed to every module.
 type ConnectionContext struct {
-	ClientIP            string
-	JA4                 string
-	ALPN                string
-	HasValidClientCert  bool
-	ClientCertificate   []byte
-	SNI                 string
-	TLSVersion          int
-	Country             string
-	CipherList          []int
-	TCPJA4T             string
-	TCPWindowSize       int
-	TCPTTL              int
-	TCPOptions          string
+	ClientIP             string
+	JA4                  string
+	JA4X                 string
+	ALPN                 string
+	HasValidClientCert   bool
+	ClientCertificate    []byte
+	SNI                  string
+	TLSVersion           int
+	Country              string
+	CipherList           []int
+	TCPJA4T              string
+	TCPWindowSize        int
+	TCPTTL               int
+	TCPOptions           string
 	ConnectionLifespanMS int
-	TLSAlerts           []string
+	TLSAlerts            []string
 }
 
 // PipelineResult is the outcome of processing one connection.
 type PipelineResult struct {
-	Action         string
-	Bypassed       bool
-	BypassReason   string
-	Score          int
-	Signals        []RiskSignal
-	Dial           int
+	Action          string
+	Bypassed        bool
+	BypassReason    string
+	Score           int
+	Signals         []RiskSignal
+	Dial            int
 	Counterfactuals map[int]string
 }
