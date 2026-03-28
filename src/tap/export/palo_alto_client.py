@@ -3,6 +3,7 @@ PaloAltoClient — registers/unregisters IPs with tags via Palo Alto XML API (Ph
 
 API: GET /api/?type=user-id&action=set&key={api_key}&cmd=<uid-message>...</uid-message>
 """
+
 from __future__ import annotations
 
 import logging
@@ -40,7 +41,9 @@ class PaloAltoClient:
 
     def __init__(self, config: dict, session: Any) -> None:
         self._session = session
-        self._base_url: str = config.get("base_url", "https://pa.example.com").rstrip("/")
+        self._base_url: str = config.get("base_url", "https://pa.example.com").rstrip(
+            "/"
+        )
         self._api_key: str = config.get("api_key", "")
         self._tags: list[str] = config.get("tags", ["ja4proxy-ban"])
         self._verify_tls: bool = bool(config.get("verify_tls", True))

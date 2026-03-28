@@ -82,7 +82,7 @@ class ActionType(Enum):
         return self.get_severity() >= other.get_severity()
 
     @classmethod
-    def from_string(cls, action_str: str) -> Optional['ActionType']:
+    def from_string(cls, action_str: str) -> Optional["ActionType"]:
         """Convert string to action type with validation."""
         try:
             return cls(action_str.lower())
@@ -128,14 +128,13 @@ class ActionResult:
     def to_dict(self) -> dict:
         """Convert to dictionary for logging/metrics."""
         import hashlib
+
         return {
-            'allowed': self.allowed,
-            'action_type': self.action_type.value,
-            'reason': self.reason,
-            'entity_id_hash': hashlib.sha256(
-                self.entity_id.encode()
-            ).hexdigest()[:16],
-            'duration': self.duration,
+            "allowed": self.allowed,
+            "action_type": self.action_type.value,
+            "reason": self.reason,
+            "entity_id_hash": hashlib.sha256(self.entity_id.encode()).hexdigest()[:16],
+            "duration": self.duration,
         }
 
 
@@ -177,22 +176,22 @@ class ActionConfig:
             )
 
     @classmethod
-    def from_config_dict(cls, config: Dict) -> 'ActionConfig':
+    def from_config_dict(cls, config: Dict) -> "ActionConfig":
         """
         Create from configuration dictionary with validation.
 
         Security: Validates all inputs to prevent configuration injection.
         """
         try:
-            security_config = config.get('security', {})
+            security_config = config.get("security", {})
 
             return cls(
-                tarpit_enabled=bool(security_config.get('tarpit_enabled', True)),
-                tarpit_duration=int(security_config.get('tarpit_duration', 10)),
-                block_action=str(security_config.get('block_action', 'tarpit')),
-                ban_duration=int(security_config.get('ban_duration', 604800)),
-                permanent_ban=bool(security_config.get('permanent_ban', False)),
-                max_ban_duration=int(security_config.get('max_ban_duration', 2592000)),
+                tarpit_enabled=bool(security_config.get("tarpit_enabled", True)),
+                tarpit_duration=int(security_config.get("tarpit_duration", 10)),
+                block_action=str(security_config.get("block_action", "tarpit")),
+                ban_duration=int(security_config.get("ban_duration", 604800)),
+                permanent_ban=bool(security_config.get("permanent_ban", False)),
+                max_ban_duration=int(security_config.get("max_ban_duration", 2592000)),
             )
         except (TypeError, ValueError, AttributeError) as e:
             raise ValueError(f"Invalid action configuration: {e}")

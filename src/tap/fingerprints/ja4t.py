@@ -4,6 +4,7 @@ JA4T — TCP client fingerprint extractor (Phase 20, Group 5-C).
 Derives JA4T from raw TCP options bytes (from the SYN packet) and window size.
 Format: {window_size}_{mss}_{options_order}_{window_scale}
 """
+
 from __future__ import annotations
 
 import struct
@@ -33,10 +34,10 @@ _OPTION_LETTERS = {
 class JA4TResult:
     """TCP fingerprint from SYN options."""
 
-    fingerprint: str          # e.g. "65535_1460_MSTNW_8"
+    fingerprint: str  # e.g. "65535_1460_MSTNW_8"
     window_size: int
     mss: Optional[int]
-    options_order: str        # letters for each option in appearance order
+    options_order: str  # letters for each option in appearance order
     window_scale: Optional[int]
     sack_permitted: bool
     timestamps: bool
@@ -86,7 +87,7 @@ def _parse(opts: bytes, window_size: int) -> JA4TResult:
         if opt_len < 2 or pos + opt_len > n:
             break
 
-        payload = opts[pos + 2:pos + opt_len]
+        payload = opts[pos + 2 : pos + opt_len]
 
         if kind == _OPT_MSS:
             letter = "M"

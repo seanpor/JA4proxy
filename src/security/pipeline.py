@@ -50,18 +50,16 @@ import asyncio
 import ipaddress
 import json
 import logging
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from prometheus_client import Counter, Gauge
 
-from .abuseipdb import AbuseIPDBChecker, AbuseIPDBConfig
+from .abuseipdb import AbuseIPDBChecker
 from .asn_classifier import ASNClassifier
 from .beaconing_detector import BeaconingDetector
 from .blocklists import BlocklistManager, FeedConfig
 from .dns_enrichment import DNSEnrichment
 from .mtls import MTLSHandler
-from .rate_strategy import RateLimitStrategy, StrategyConfig
 from .rate_tracker import MultiStrategyRateTracker
 from .rdap_enrichment import RDAPEnricher
 from .sni_analyzer import SNIAnalyzer
@@ -323,11 +321,14 @@ class Pipeline:
         # Rate limiting: multi-strategy sliding window tracker (by_ip, by_ja4, by_ip+ja4)
         # Runs in _collect_signals(); results feed into the risk scorer.
         try:
-            self._rate_tracker: MultiStrategyRateTracker | None = MultiStrategyRateTracker(
-                redis_client, config
+            self._rate_tracker: MultiStrategyRateTracker | None = (
+                MultiStrategyRateTracker(redis_client, config)
             )
         except Exception as exc:
-            logger.warning("rate_tracker | event=init_failed | error=%s — rate limiting disabled", exc)
+            logger.warning(
+                "rate_tracker | event=init_failed | error=%s — rate limiting disabled",
+                exc,
+            )
             self._rate_tracker = None
         # Phase 9: Beaconing detector (IAT coefficient of variation)
         self._beaconing_detector = BeaconingDetector(config, redis_client, local_cache)
@@ -436,7 +437,9 @@ class Pipeline:
                 subnet,
                 exc,
             )
-            _SIGNAL_SKIPPED.labels(module="analytics", reason="timeout_or_conn_error").inc()
+            _SIGNAL_SKIPPED.labels(
+                module="analytics", reason="timeout_or_conn_error"
+            ).inc()
             return []
         except Exception as exc:
             # Fail open — analytics signals are enrichment only; any failure returns []
@@ -733,14 +736,21 @@ class Pipeline:
 
         # Phase 16: JA4X blacklist signal (score contribution, not hard block)
         ja4x_cfg = self._config.get("fingerprinting", {}).get("ja4x", {})
-        if ja4x_cfg.get("enabled", True) and ctx.ja4x and ctx.ja4x in self._ja4x_blacklist:
+        if (
+            ja4x_cfg.get("enabled", True)
+            and ctx.ja4x
+            and ctx.ja4x in self._ja4x_blacklist
+        ):
             from .models import RiskSignal
+
             blacklist_score = ja4x_cfg.get("blacklist_score", 80)
-            signals.append(RiskSignal(
-                name="ja4x_blacklist",
-                score=blacklist_score,
-                reason=f"JA4X {ctx.ja4x} in blacklist",
-            ))
+            signals.append(
+                RiskSignal(
+                    name="ja4x_blacklist",
+                    score=blacklist_score,
+                    reason=f"JA4X {ctx.ja4x} in blacklist",
+                )
+            )
 
         # Phase 11: Record browser subnet for block expansion guard 3.
         # Fire-and-forget: never awaited on the hot path.
@@ -787,7 +797,9 @@ class Pipeline:
                     ctx.client_ip,
                     exc,
                 )
-                _SIGNAL_SKIPPED.labels(module="tcp_analyzer", reason="timeout_or_conn_error").inc()
+                _SIGNAL_SKIPPED.labels(
+                    module="tcp_analyzer", reason="timeout_or_conn_error"
+                ).inc()
                 return []
             except Exception as exc:
                 logger.error(
@@ -808,7 +820,9 @@ class Pipeline:
                     ctx.client_ip,
                     exc,
                 )
-                _SIGNAL_SKIPPED.labels(module="asn_classifier", reason="timeout_or_conn_error").inc()
+                _SIGNAL_SKIPPED.labels(
+                    module="asn_classifier", reason="timeout_or_conn_error"
+                ).inc()
                 return []
             except Exception as exc:
                 logger.error(
@@ -830,7 +844,9 @@ class Pipeline:
                     ctx.client_ip,
                     exc,
                 )
-                _SIGNAL_SKIPPED.labels(module="dns_enrichment", reason="timeout_or_conn_error").inc()
+                _SIGNAL_SKIPPED.labels(
+                    module="dns_enrichment", reason="timeout_or_conn_error"
+                ).inc()
                 return []
             except Exception as exc:
                 logger.error(
@@ -871,6 +887,7 @@ class Pipeline:
                 if strategy_levels:
                     # Majority policy: pick the level that ≥2 strategies agree on
                     from collections import Counter as _Counter
+
                     level_counts = _Counter(strategy_levels.values())
                     majority_level = None
                     for lvl in ("ban", "block", "suspicious"):
@@ -883,11 +900,14 @@ class Pipeline:
                     if majority_level:
                         score = _level_scores[majority_level]
                         from .models import RiskSignal
-                        return [RiskSignal(
-                            name=f"rate_limit_{majority_level}",
-                            score=score,
-                            reason=f"Rate limit: {majority_level} — {len(strategy_levels)} strategies",
-                        )]
+
+                        return [
+                            RiskSignal(
+                                name=f"rate_limit_{majority_level}",
+                                score=score,
+                                reason=f"Rate limit: {majority_level} — {len(strategy_levels)} strategies",
+                            )
+                        ]
                 return []
             except (asyncio.TimeoutError, ConnectionError) as exc:
                 logger.warning(
@@ -895,7 +915,9 @@ class Pipeline:
                     ctx.client_ip,
                     exc,
                 )
-                _SIGNAL_SKIPPED.labels(module="rate_limiter", reason="timeout_or_conn_error").inc()
+                _SIGNAL_SKIPPED.labels(
+                    module="rate_limiter", reason="timeout_or_conn_error"
+                ).inc()
                 return []
             except Exception as exc:
                 logger.error(
@@ -917,7 +939,9 @@ class Pipeline:
                     ctx.client_ip,
                     exc,
                 )
-                _SIGNAL_SKIPPED.labels(module="beaconing_detector", reason="timeout_or_conn_error").inc()
+                _SIGNAL_SKIPPED.labels(
+                    module="beaconing_detector", reason="timeout_or_conn_error"
+                ).inc()
                 return []
             except Exception as exc:
                 logger.error(
@@ -941,7 +965,9 @@ class Pipeline:
                     ctx.client_ip,
                     exc,
                 )
-                _SIGNAL_SKIPPED.labels(module="abuseipdb", reason="timeout_or_conn_error").inc()
+                _SIGNAL_SKIPPED.labels(
+                    module="abuseipdb", reason="timeout_or_conn_error"
+                ).inc()
                 return []
             except Exception as exc:
                 logger.error(
@@ -957,19 +983,17 @@ class Pipeline:
             if self._rdap_enricher is None:
                 return []
             try:
-                running_score = sum(
-                    s.score for s in signals if hasattr(s, "score")
-                )
-                return self._rdap_enricher.get_signal(
-                    ctx.client_ip, running_score
-                )
+                running_score = sum(s.score for s in signals if hasattr(s, "score"))
+                return self._rdap_enricher.get_signal(ctx.client_ip, running_score)
             except (asyncio.TimeoutError, ConnectionError) as exc:
                 logger.warning(
                     "rdap_enricher | event=dependency_failure | ip=%s | error=%s",
                     ctx.client_ip,
                     exc,
                 )
-                _SIGNAL_SKIPPED.labels(module="rdap_enricher", reason="timeout_or_conn_error").inc()
+                _SIGNAL_SKIPPED.labels(
+                    module="rdap_enricher", reason="timeout_or_conn_error"
+                ).inc()
                 return []
             except Exception as exc:
                 logger.error(
@@ -990,7 +1014,9 @@ class Pipeline:
                     ctx.client_ip,
                     exc,
                 )
-                _SIGNAL_SKIPPED.labels(module="analytics", reason="timeout_or_conn_error").inc()
+                _SIGNAL_SKIPPED.labels(
+                    module="analytics", reason="timeout_or_conn_error"
+                ).inc()
                 return []
             except Exception as exc:
                 logger.error(
@@ -1064,7 +1090,9 @@ class Pipeline:
             def _hash(s: str) -> str:
                 if not s:
                     return "000000000000"
-                return hashlib.sha256(s.encode("utf-8", errors="replace")).hexdigest()[:12]
+                return hashlib.sha256(s.encode("utf-8", errors="replace")).hexdigest()[
+                    :12
+                ]
 
             return f"{_hash(issuer)}_{_hash(subject)}_{_hash(san)}"
         except Exception as exc:
@@ -1205,11 +1233,7 @@ class Pipeline:
 
             # Enqueue for deferred batching instead of immediate execution
             await self._write_buffer.enqueue(
-                "xadd",
-                "ja4proxy:events",
-                fields,
-                maxlen=100_000,
-                approximate=True
+                "xadd", "ja4proxy:events", fields, maxlen=100_000, approximate=True
             )
         except Exception as exc:
             logger.debug("stream | event=enqueue_failed | error=%s", exc)

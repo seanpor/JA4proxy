@@ -8,6 +8,7 @@ Endpoints:
 
 Authentication: optional ``X-API-Key`` header.
 """
+
 from __future__ import annotations
 
 import json
@@ -100,7 +101,9 @@ class TaxiiServer:
         path = f"/taxii2/api/collections/{collection_id}/objects/"
         return await self.handle_taxii_request(path, request)
 
-    async def handle_taxii_request(self, path: str, request: web.Request) -> web.Response:
+    async def handle_taxii_request(
+        self, path: str, request: web.Request
+    ) -> web.Response:
         """Dispatch a TAXII request by path prefix."""
         # Auth check for objects endpoint
         if "/objects/" in path or "/collections/" in path or path == "/taxii2/":
@@ -130,7 +133,7 @@ class TaxiiServer:
         if path == "/taxii2/api/collections/":
             body = {
                 "collections": [
-                    {
+                    {  # type: ignore[list-item]
                         "id": self._collection_id,
                         "title": self._collection_title,
                         "can_read": True,
@@ -197,7 +200,11 @@ class TaxiiServer:
 
                 if not ip:
                     key_str = key.decode() if isinstance(key, bytes) else str(key)
-                    ip = key_str[len("ban:"):] if key_str.startswith("ban:") else key_str
+                    ip = (
+                        key_str[len("ban:") :]
+                        if key_str.startswith("ban:")
+                        else key_str
+                    )
 
                 # Apply added_after filter
                 if added_after_ts > 0 and entry_ts <= added_after_ts:

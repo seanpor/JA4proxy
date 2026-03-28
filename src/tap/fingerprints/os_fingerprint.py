@@ -1,19 +1,14 @@
 """
 OS fingerprinting from TCP SYN options (p0f-style) (Phase 20, Group 5-I).
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
 from src.tap.fingerprints.ja4t import (
-    _OPT_EOL,
-    _OPT_MSS,
-    _OPT_NOP,
-    _OPT_SACK_PERMITTED,
-    _OPT_TIMESTAMP,
-    _OPT_WSCALE,
     extract_ja4t_from_syn,
 )
 
@@ -24,12 +19,12 @@ class OSSignature:
 
     fingerprint_id: str
     label: str
-    window_sizes: list[int]     # [0] means "any"
-    mss: Optional[int]          # None = any
+    window_sizes: list[int]  # [0] means "any"
+    mss: Optional[int]  # None = any
     options_order: str
-    wscale: Optional[int]       # None = any
+    wscale: Optional[int]  # None = any
     ttl_range: tuple[int, int]  # (min, max) inclusive
-    df: Optional[bool]          # None = don't care
+    df: Optional[bool]  # None = don't care
 
 
 @dataclass
@@ -183,7 +178,9 @@ def _match(
     best_score = -1.0
 
     for sig in db:
-        score = _score(sig, window_size, ja4t.mss, options_str, ja4t.window_scale, ttl, df)
+        score = _score(
+            sig, window_size, ja4t.mss, options_str, ja4t.window_scale, ttl, df
+        )
         if score > best_score:
             best_score = score
             best_sig = sig

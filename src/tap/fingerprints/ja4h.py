@@ -4,10 +4,11 @@ JA4H — HTTP/1.1 header fingerprint extractor (Phase 20, Group 5-D).
 Parses reassembled HTTP/1.1 request bytes and returns a JA4HResult.
 Format: {method}{version}{cookie?}{referer?}{header_count:02d}{accept_language_hash}_{header_name_hash}_{cookie_value_hash}
 """
+
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 
@@ -97,7 +98,9 @@ def _parse(data: bytes) -> Optional[JA4HResult]:
 
     # Count cookies
     cookie_header = headers.get("cookie", "")
-    cookie_count = len([c for c in cookie_header.split(";") if c.strip()]) if cookie_header else 0
+    cookie_count = (
+        len([c for c in cookie_header.split(";") if c.strip()]) if cookie_header else 0
+    )
     has_cookie = "c" if cookie_count > 0 else "n"
     has_referer = "r" if referer else "n"
 

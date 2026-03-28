@@ -10,6 +10,7 @@ Usage (from proxy.py):
     # ... later ...
     await scheduler.stop()
 """
+
 import asyncio
 import contextlib
 import logging
@@ -30,7 +31,6 @@ def _next_delay_s(schedule: str) -> float:
     and the expression is not a plain integer, falls back to
     ``_DEFAULT_INTERVAL_S`` and logs a warning.
     """
-    import time
 
     # Plain integer → treat as interval in seconds
     try:
@@ -76,10 +76,14 @@ class BackupScheduler:
                                   when schedule key is present
     """
 
-    def __init__(self, worker, backup_config: dict, destination: Optional[str] = None) -> None:
+    def __init__(
+        self, worker, backup_config: dict, destination: Optional[str] = None
+    ) -> None:
         self._worker = worker
         self._config = backup_config
-        self._destination = destination or backup_config.get("destination", "/app/backups")
+        self._destination = destination or backup_config.get(
+            "destination", "/app/backups"
+        )
         self._task: Optional[asyncio.Task] = None
 
     async def start(self) -> None:
@@ -90,12 +94,16 @@ class BackupScheduler:
 
         schedule = self._config.get("schedule")
         if not schedule:
-            logger.debug("backup | event=scheduler_skipped | reason=no_schedule_configured")
+            logger.debug(
+                "backup | event=scheduler_skipped | reason=no_schedule_configured"
+            )
             return
 
         schedule_enabled = self._config.get("schedule_enabled", True)
         if not schedule_enabled:
-            logger.debug("backup | event=scheduler_skipped | reason=schedule_enabled=false")
+            logger.debug(
+                "backup | event=scheduler_skipped | reason=schedule_enabled=false"
+            )
             return
 
         self._task = asyncio.create_task(self._run_loop(str(schedule)))
@@ -119,9 +127,7 @@ class BackupScheduler:
         """Main scheduler loop.  Computes delay, sleeps, fires backup, repeat."""
         while True:
             delay = _next_delay_s(schedule)
-            logger.debug(
-                "backup | event=scheduler_next_run | delay_s=%.1f", delay
-            )
+            logger.debug("backup | event=scheduler_next_run | delay_s=%.1f", delay)
             await asyncio.sleep(delay)
             await self._fire()
 
@@ -133,10 +139,6 @@ class BackupScheduler:
         )
         try:
             path = await asyncio.to_thread(self._worker.create_backup, destination)
-            logger.info(
-                "backup | event=scheduled_backup_success | artifact=%s", path
-            )
+            logger.info("backup | event=scheduled_backup_success | artifact=%s", path)
         except Exception as exc:
-            logger.warning(
-                "backup | event=scheduled_backup_failed | error=%s", exc
-            )
+            logger.warning("backup | event=scheduled_backup_failed | error=%s", exc)

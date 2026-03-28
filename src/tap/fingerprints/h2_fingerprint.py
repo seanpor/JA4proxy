@@ -4,14 +4,14 @@ HTTP/2 SETTINGS frame fingerprint extractor (Phase 20, Group 5-J).
 Parses the HTTP/2 connection preface and SETTINGS frame from a reassembled
 stream and matches it against a database of known client fingerprints.
 """
+
 from __future__ import annotations
 
 import hashlib
 import struct
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
-
 
 # HTTP/2 SETTINGS frame constants
 _H2_PREFACE = b"PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n"
@@ -27,7 +27,7 @@ _SETTINGS_NAMES = {
     0x5: "MAX_FRAME_SIZE",
     0x6: "MAX_HEADER_LIST_SIZE",
     0x8: "ENABLE_CONNECT_PROTOCOL",
-    0xf010: "NO_RFC7540_PRIORITIES",
+    0xF010: "NO_RFC7540_PRIORITIES",
 }
 
 
@@ -36,8 +36,8 @@ class H2Signature:
     """A known HTTP/2 client fingerprint entry."""
 
     client_id: str
-    settings_order: list[str]     # parameter names in send order
-    settings: dict[str, int]      # name → value
+    settings_order: list[str]  # parameter names in send order
+    settings: dict[str, int]  # name → value
     window_update: Optional[int]  # WINDOW_UPDATE increment value, or None if not sent
 
 
@@ -144,7 +144,7 @@ def _parse(
     pos = 0
 
     # Skip the client connection preface if present
-    if data[:len(_H2_PREFACE)] == _H2_PREFACE:
+    if data[: len(_H2_PREFACE)] == _H2_PREFACE:
         pos += len(_H2_PREFACE)
 
     settings: dict[str, int] = {}
@@ -154,11 +154,11 @@ def _parse(
 
     # Parse frames until we find SETTINGS (and optionally WINDOW_UPDATE)
     while pos + 9 <= len(data):
-        frame_len = struct.unpack_from("!I", bytes([0]) + data[pos:pos + 3])[0]
+        frame_len = struct.unpack_from("!I", bytes([0]) + data[pos : pos + 3])[0]
         frame_type = data[pos + 3]
         _flags = data[pos + 4]
         _stream_id = struct.unpack_from("!I", data, pos + 5)[0] & 0x7FFFFFFF
-        payload = data[pos + 9:pos + 9 + frame_len]
+        payload = data[pos + 9 : pos + 9 + frame_len]
         pos += 9 + frame_len
 
         if frame_type == _FRAME_TYPE_SETTINGS:
@@ -182,9 +182,7 @@ def _parse(
         return None
 
     # Compute fingerprint hash
-    settings_str = ",".join(
-        f"{k}={settings[k]}" for k in settings_order
-    )
+    settings_str = ",".join(f"{k}={settings[k]}" for k in settings_order)
     wu_str = str(window_update) if window_update is not None else "none"
     fp_hash = hashlib.sha256(f"{settings_str}|wu={wu_str}".encode()).hexdigest()[:12]
     fingerprint = f"h2_{fp_hash}"

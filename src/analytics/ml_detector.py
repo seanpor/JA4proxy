@@ -1,10 +1,9 @@
 # ML Anomaly Detector
 # Phase 12e: Advanced Threat Intelligence & Automation
 
-import json
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import redis.asyncio as redis
 
@@ -12,6 +11,7 @@ import redis.asyncio as redis
 @dataclass
 class AnomalyResult:
     """Result of anomaly detection."""
+
     fingerprint_id: str
     anomaly_score: float
     is_anomaly: bool
@@ -32,30 +32,30 @@ class FeatureExtractor:
         features = []
 
         # Basic features
-        features.append(float(fingerprint.get('score', 0.0)))
-        features.append(len(fingerprint.get('extensions', [])))
-        features.append(len(fingerprint.get('ciphers', [])))
+        features.append(float(fingerprint.get("score", 0.0)))
+        features.append(len(fingerprint.get("extensions", [])))
+        features.append(len(fingerprint.get("ciphers", [])))
 
         # JA4 string analysis
-        ja4 = fingerprint.get('ja4', '')
+        ja4 = fingerprint.get("ja4", "")
         features.append(len(ja4))
-        features.append(ja4.count('_'))
-        features.append(ja4.count('h'))
-        features.append(ja4.count('d'))
+        features.append(ja4.count("_"))
+        features.append(ja4.count("h"))
+        features.append(ja4.count("d"))
 
         # Timing features (if available)
-        if 'timestamp' in fingerprint:
-            features.append(float(fingerprint['timestamp']) % 1000)  # Seconds component
+        if "timestamp" in fingerprint:
+            features.append(float(fingerprint["timestamp"]) % 1000)  # Seconds component
         else:
             features.append(0.0)
 
         # Network features
-        features.append(1.0 if 'src_ip' in fingerprint else 0.0)
-        features.append(1.0 if 'dest_ip' in fingerprint else 0.0)
+        features.append(1.0 if "src_ip" in fingerprint else 0.0)
+        features.append(1.0 if "dest_ip" in fingerprint else 0.0)
 
         # Protocol features
-        features.append(1.0 if 'alpn' in fingerprint else 0.0)
-        features.append(len(fingerprint.get('alpn', '')))
+        features.append(1.0 if "alpn" in fingerprint else 0.0)
+        features.append(len(fingerprint.get("alpn", "")))
 
         # Pad to minimum feature count
         while len(features) < 20:
@@ -73,29 +73,29 @@ class MLDetector:
         self.logger = logging.getLogger(__name__)
 
         # Initialize components
-        self.extractor = FeatureExtractor(config.get('feature_config', {}))
+        self.extractor = FeatureExtractor(config.get("feature_config", {}))
         self.model: Any = None
         self.model_version = self._extract_model_version(config)
-        self.model_key = config.get('ml_model_path', 'analytics:ml:model:v1')
+        self.model_key = config.get("ml_model_path", "analytics:ml:model:v1")
 
         # Load model on initialization
         self._load_model()
 
     def _extract_model_version(self, config: Dict[str, Any]) -> str:
         """Extract model version from config path."""
-        path = config.get('ml_model_path', '')
-        if 'v' in path:
+        path = config.get("ml_model_path", "")
+        if "v" in path:
             # Extract version number after 'v'
-            parts = path.split('v')
+            parts = path.split("v")
             if len(parts) > 1 and parts[-1]:
                 return parts[-1]
-        return '1'  # Default version
+        return "1"  # Default version
 
     def update_model_version(self, version: str):
         """Update to new model version."""
         self.model_version = version
-        self.model_key = f'analytics:ml:model:v{version}'
-        self.config['ml_model_path'] = self.model_key
+        self.model_key = f"analytics:ml:model:v{version}"
+        self.config["ml_model_path"] = self.model_key
         self._load_model()
 
     def _load_model(self):
@@ -111,6 +111,7 @@ class MLDetector:
 
     def _create_default_model(self):
         """Create default threshold-based model for initial implementation."""
+
         # Simple model that flags scores above threshold as anomalies
         class ThresholdModel:
             def predict(self, features_list: List[List[float]]) -> List[float]:
@@ -157,25 +158,27 @@ class MLDetector:
                 is_anomaly=score > 0.7,  # Threshold for anomaly
                 confidence=0.9 if score > 0.9 else 0.7 if score > 0.7 else 0.5,
                 features_used=[f"feature_{j}" for j in range(len(features_list[i]))],
-                model_version=self.model_version
+                model_version=self.model_version,
             )
-            results.append({
-                'fingerprint_id': result.fingerprint_id,
-                'anomaly_score': result.anomaly_score,
-                'is_anomaly': result.is_anomaly,
-                'confidence': result.confidence,
-                'model_version': result.model_version
-            })
+            results.append(
+                {
+                    "fingerprint_id": result.fingerprint_id,
+                    "anomaly_score": result.anomaly_score,
+                    "is_anomaly": result.is_anomaly,
+                    "confidence": result.confidence,
+                    "model_version": result.model_version,
+                }
+            )
 
         return results
 
     async def get_model_info(self) -> Dict[str, Any]:
         """Get information about current ML model."""
         return {
-            'version': self.model_version,
-            'type': 'threshold',  # Will be 'ml' when real model is implemented
-            'features': 20,
-            'status': 'active'
+            "version": self.model_version,
+            "type": "threshold",  # Will be 'ml' when real model is implemented
+            "features": 20,
+            "status": "active",
         }
 
 
@@ -189,11 +192,15 @@ class MLModelManager:
     async def list_models(self) -> List[Dict[str, Any]]:
         """List available ML models."""
         try:
-            keys = await self.redis.keys('analytics:ml:model:*')
+            keys = await self.redis.keys("analytics:ml:model:*")
             return [
                 {
-                    'key': key.decode() if isinstance(key, bytes) else key,
-                    'version': key.decode().split(':')[-1] if isinstance(key, bytes) else key.split(':')[-1]
+                    "key": key.decode() if isinstance(key, bytes) else key,
+                    "version": (
+                        key.decode().split(":")[-1]
+                        if isinstance(key, bytes)
+                        else key.split(":")[-1]
+                    ),
                 }
                 for key in keys
             ]
@@ -203,7 +210,7 @@ class MLModelManager:
 
     async def delete_model(self, version: str):
         """Delete a model version."""
-        key = f'analytics:ml:model:v{version}'
+        key = f"analytics:ml:model:v{version}"
         await self.redis.delete(key)
 
 
@@ -214,14 +221,16 @@ class MLMonitoringIntegration:
     def __init__(self, monitoring_system):
         self.monitoring = monitoring_system
 
-    async def detect_anomalies(self, fingerprints: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    async def detect_anomalies(
+        self, fingerprints: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         """Delegate to monitoring system's ML detector."""
-        if hasattr(self.monitoring, 'ml_detector'):
+        if hasattr(self.monitoring, "ml_detector"):
             return await self.monitoring.ml_detector.detect(fingerprints)
         return []
 
     async def get_model_metrics(self) -> Dict[str, Any]:
         """Get ML model metrics."""
-        if hasattr(self.monitoring, 'ml_detector'):
+        if hasattr(self.monitoring, "ml_detector"):
             return await self.monitoring.ml_detector.get_model_info()
-        return {'status': 'unavailable'}
+        return {"status": "unavailable"}

@@ -2,7 +2,6 @@ import logging
 
 from cryptography import x509
 from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 from prometheus_client import Counter
 
@@ -79,7 +78,7 @@ class MTLSHandler:
                 if common_name not in self._cert_cn_allowlist:
                     self.logger.warning(
                         "mTLS verification failed: CN '%s' not in allowlist.",
-                        common_name
+                        common_name,
                     )
                     return False
 
@@ -103,8 +102,7 @@ class MTLSHandler:
                 return x509.load_pem_x509_certificate(ca_cert_data)
             except FileNotFoundError:
                 self.logger.error(
-                    "mTLS CA certificate not found at: %s",
-                    self._ca_cert_path
+                    "mTLS CA certificate not found at: %s", self._ca_cert_path
                 )
             except (OSError, ValueError) as e:
                 self.logger.error("Error loading mTLS CA certificate: %s", e)

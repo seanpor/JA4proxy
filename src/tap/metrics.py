@@ -1,4 +1,5 @@
 """TAP-mode Prometheus metrics (Phase 20, Group 11)."""
+
 from prometheus_client import Counter, Gauge, Histogram
 
 # ---------------------------------------------------------------------------

@@ -3,6 +3,7 @@ JA4S — TLS server fingerprint extractor (Phase 20, Group 5-B).
 
 Parses a raw TLS ServerHello byte buffer and returns a JA4SResult.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -64,7 +65,7 @@ def _parse(data: bytes) -> Optional[JA4SResult]:
     msg_type = data[pos]
     if msg_type != 0x02:  # ServerHello
         return None
-    hs_len = struct.unpack_from("!I", bytes([0]) + data[pos + 1:pos + 4])[0]
+    hs_len = struct.unpack_from("!I", bytes([0]) + data[pos + 1 : pos + 4])[0]
     pos += 4
     hs_end = pos + hs_len
     if hs_end > n:

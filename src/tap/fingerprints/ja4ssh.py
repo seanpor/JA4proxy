@@ -3,11 +3,12 @@ JA4SSH — SSH client/server fingerprint extractor (Phase 20, Group 5-G).
 
 Parses a raw SSH_MSG_KEXINIT payload and returns a JA4SSHResult.
 """
+
 from __future__ import annotations
 
 import hashlib
 import struct
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 
@@ -111,9 +112,7 @@ def _parse(data: bytes, direction: str) -> Optional[JA4SSHResult]:
     )
 
 
-def _read_name_list(
-    data: bytes, pos: int
-) -> tuple[Optional[list[str]], int]:
+def _read_name_list(data: bytes, pos: int) -> tuple[Optional[list[str]], int]:
     """Read an SSH name-list (uint32 length-prefixed comma-separated string)."""
     if pos + 4 > len(data):
         return None, pos
@@ -121,7 +120,7 @@ def _read_name_list(
     pos += 4
     if pos + length > len(data):
         return None, pos
-    raw = data[pos:pos + length].decode("ascii", errors="ignore")
+    raw = data[pos : pos + length].decode("ascii", errors="ignore")
     pos += length
     names = [n for n in raw.split(",") if n] if raw else []
     return names, pos

@@ -7,6 +7,7 @@ and extracts the first leaf certificate to compute the JA4X fingerprint.
 JA4X format: {issuer_hash}_{subject_hash}_{san_hash}
 Each hash is SHA-256[:12] of the respective DER-encoded field.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -17,7 +18,7 @@ from typing import Optional
 
 try:
     from cryptography import x509
-    from cryptography.hazmat.primitives import serialization
+
     _CRYPTO_AVAILABLE = True
 except ImportError:  # pragma: no cover
     _CRYPTO_AVAILABLE = False
@@ -95,7 +96,7 @@ def _extract_first_cert(data: bytes) -> Optional[bytes]:
     if 10 + first_cert_len > len(data):
         return None
 
-    return data[10:10 + first_cert_len]
+    return data[10 : 10 + first_cert_len]
 
 
 def _parse_cert(der: bytes) -> Optional[JA4XResult]:
@@ -118,10 +119,7 @@ def _parse_cert(der: bytes) -> Optional[JA4XResult]:
         # get_values_for_type returns plain Python values (str for DNSName,
         # ipaddress.IPv4/IPv6Address for IPAddress) — not wrapper objects.
         san_domains = list(san_ext.value.get_values_for_type(x509.DNSName))
-        san_ips = [
-            str(ip)
-            for ip in san_ext.value.get_values_for_type(x509.IPAddress)
-        ]
+        san_ips = [str(ip) for ip in san_ext.value.get_values_for_type(x509.IPAddress)]
     except x509.extensions.ExtensionNotFound:
         pass
     except Exception:
@@ -134,7 +132,9 @@ def _parse_cert(der: bytes) -> Optional[JA4XResult]:
     issuer_hash = hashlib.sha256(issuer_dn.encode()).hexdigest()[:12]
     subject_hash = hashlib.sha256(subject_dn.encode()).hexdigest()[:12]
     san_str = ",".join(sorted(san_domains + san_ips))
-    san_hash = hashlib.sha256(san_str.encode()).hexdigest()[:12] if san_str else "000000000000"
+    san_hash = (
+        hashlib.sha256(san_str.encode()).hexdigest()[:12] if san_str else "000000000000"
+    )
 
     fingerprint = f"{issuer_hash}_{subject_hash}_{san_hash}"
 
@@ -143,8 +143,16 @@ def _parse_cert(der: bytes) -> Optional[JA4XResult]:
         issuer_dn=issuer_dn,
         subject_dn=subject_dn,
         key_type=key_type,
-        not_before=cert.not_valid_before_utc if hasattr(cert, "not_valid_before_utc") else cert.not_valid_before,
-        not_after=cert.not_valid_after_utc if hasattr(cert, "not_valid_after_utc") else cert.not_valid_after,
+        not_before=(
+            cert.not_valid_before_utc
+            if hasattr(cert, "not_valid_before_utc")
+            else cert.not_valid_before
+        ),
+        not_after=(
+            cert.not_valid_after_utc
+            if hasattr(cert, "not_valid_after_utc")
+            else cert.not_valid_after
+        ),
         san_domains=san_domains,
         san_ips=san_ips,
         self_signed=self_signed,
@@ -154,7 +162,7 @@ def _parse_cert(der: bytes) -> Optional[JA4XResult]:
 
 
 def _key_type(pub_key) -> str:
-    from cryptography.hazmat.primitives.asymmetric import rsa, ec, dsa, ed25519, ed448
+    from cryptography.hazmat.primitives.asymmetric import dsa, ec, ed448, ed25519, rsa
 
     if isinstance(pub_key, rsa.RSAPublicKey):
         bits = pub_key.key_size

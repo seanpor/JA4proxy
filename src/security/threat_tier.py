@@ -72,23 +72,23 @@ class ThreatTierConfig:
 
     # Default thresholds (connections per second)
     DEFAULT_THRESHOLDS = {
-        'suspicious': 1,
-        'block': 5,
-        'ban': 10,
+        "suspicious": 1,
+        "block": 5,
+        "ban": 10,
     }
 
     # Default durations (seconds)
     DEFAULT_DURATIONS = {
-        'suspicious': 300,      # 5 minutes
-        'block': 3600,          # 1 hour
-        'ban': 604800,          # 7 days
+        "suspicious": 300,  # 5 minutes
+        "block": 3600,  # 1 hour
+        "ban": 604800,  # 7 days
     }
 
     # Maximum allowed durations (GDPR compliance)
     MAX_DURATIONS = {
-        'suspicious': 1800,     # 30 minutes max
-        'block': 7200,          # 2 hours max
-        'ban': 2592000,         # 30 days max
+        "suspicious": 1800,  # 30 minutes max
+        "block": 7200,  # 2 hours max
+        "ban": 2592000,  # 30 days max
     }
 
     def __init__(
@@ -132,78 +132,77 @@ class ThreatTierConfig:
             raise ValueError("Ban duration cannot be negative")
 
         # Check GDPR limits
-        if suspicious_duration > self.MAX_DURATIONS['suspicious']:
+        if suspicious_duration > self.MAX_DURATIONS["suspicious"]:
             raise ValueError(
                 f"Suspicious duration exceeds GDPR limit "
                 f"({self.MAX_DURATIONS['suspicious']}s)"
             )
-        if block_duration > self.MAX_DURATIONS['block']:
+        if block_duration > self.MAX_DURATIONS["block"]:
             raise ValueError(
                 f"Block duration exceeds GDPR limit "
                 f"({self.MAX_DURATIONS['block']}s)"
             )
-        if ban_duration > 0 and ban_duration > self.MAX_DURATIONS['ban']:
+        if ban_duration > 0 and ban_duration > self.MAX_DURATIONS["ban"]:
             raise ValueError(
-                f"Ban duration exceeds GDPR limit "
-                f"({self.MAX_DURATIONS['ban']}s)"
+                f"Ban duration exceeds GDPR limit " f"({self.MAX_DURATIONS['ban']}s)"
             )
 
         self.thresholds = {
-            'suspicious': suspicious_threshold,
-            'block': block_threshold,
-            'ban': ban_threshold,
+            "suspicious": suspicious_threshold,
+            "block": block_threshold,
+            "ban": ban_threshold,
         }
 
         self.durations = {
-            'suspicious': suspicious_duration,
-            'block': block_duration,
-            'ban': ban_duration,
+            "suspicious": suspicious_duration,
+            "block": block_duration,
+            "ban": ban_duration,
         }
 
     def get_threshold(self, tier: ThreatTier) -> int:
         """Get threshold for a specific tier."""
         if tier == ThreatTier.SUSPICIOUS:
-            return self.thresholds['suspicious']
+            return self.thresholds["suspicious"]
         elif tier == ThreatTier.BLOCK:
-            return self.thresholds['block']
+            return self.thresholds["block"]
         elif tier == ThreatTier.BANNED:
-            return self.thresholds['ban']
+            return self.thresholds["ban"]
         else:
             return 0
 
     def get_duration(self, tier: ThreatTier) -> int:
         """Get duration for a specific tier."""
         if tier == ThreatTier.SUSPICIOUS:
-            return self.durations['suspicious']
+            return self.durations["suspicious"]
         elif tier == ThreatTier.BLOCK:
-            return self.durations['block']
+            return self.durations["block"]
         elif tier == ThreatTier.BANNED:
-            return self.durations['ban']
+            return self.durations["ban"]
         else:
             return 0
 
     def is_permanent_ban(self) -> bool:
         """Check if ban tier is permanent (duration=0)."""
-        return self.durations['ban'] == 0
+        return self.durations["ban"] == 0
 
     @classmethod
-    def from_config_dict(cls, config: Dict) -> 'ThreatTierConfig':
+    def from_config_dict(cls, config: Dict) -> "ThreatTierConfig":
         """
         Create from configuration dictionary with validation.
 
         Security: Validates all inputs to prevent configuration injection.
         """
         try:
-            thresholds = config.get('thresholds', cls.DEFAULT_THRESHOLDS)
-            durations = config.get('ban_durations', cls.DEFAULT_DURATIONS)
+            thresholds = config.get("thresholds", cls.DEFAULT_THRESHOLDS)
+            durations = config.get("ban_durations", cls.DEFAULT_DURATIONS)
 
             return cls(
-                suspicious_threshold=int(thresholds.get('suspicious', 1)),
-                block_threshold=int(thresholds.get('block', 5)),
-                ban_threshold=int(thresholds.get('ban', 10)),
-                suspicious_duration=int(durations.get('suspicious', 300)),
-                block_duration=int(durations.get('block', 3600)),
-                ban_duration=int(durations.get('ban', 604800)),
+                suspicious_threshold=int(thresholds.get("suspicious", 1)),
+                block_threshold=int(thresholds.get("block", 5)),
+                ban_threshold=int(thresholds.get("ban", 10)),
+                suspicious_duration=int(durations.get("suspicious", 300)),
+                block_duration=int(durations.get("block", 3600)),
+                ban_duration=int(durations.get("ban", 604800)),
             )
         except (TypeError, ValueError, AttributeError) as e:
             raise ValueError(f"Invalid threat tier configuration: {e}")
@@ -211,6 +210,6 @@ class ThreatTierConfig:
     def to_dict(self) -> Dict:
         """Convert to dictionary for serialization."""
         return {
-            'thresholds': self.thresholds.copy(),
-            'durations': self.durations.copy(),
+            "thresholds": self.thresholds.copy(),
+            "durations": self.durations.copy(),
         }

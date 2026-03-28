@@ -6,7 +6,7 @@ All IP handling follows the cross-cutting IPv6 requirements in CLAUDE.md:
 - Both IPv4 and IPv6 supported throughout
 """
 
-from ipaddress import IPv4Address, IPv6Address, ip_address, ip_network
+from ipaddress import IPv6Address, ip_address, ip_network
 
 
 def canonical_ip(raw_ip: str) -> str:

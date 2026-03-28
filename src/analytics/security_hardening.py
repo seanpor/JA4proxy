@@ -15,6 +15,7 @@ import redis.asyncio as redis
 @dataclass
 class SecurityEvent:
     """Security event for audit logging."""
+
     event_type: str
     severity: str
     timestamp: float
@@ -32,9 +33,9 @@ class SecurityHardening:
         self.logger = logging.getLogger(__name__)
 
         # Security configuration
-        self.security_config = config.get('security', {})
-        self.rate_limit_config = self.security_config.get('rate_limiting', {})
-        self.auth_config = self.security_config.get('authentication', {})
+        self.security_config = config.get("security", {})
+        self.rate_limit_config = self.security_config.get("rate_limiting", {})
+        self.auth_config = self.security_config.get("authentication", {})
 
         # Initialize security components
         self._init_rate_limiting()
@@ -44,16 +45,22 @@ class SecurityHardening:
     def _init_rate_limiting(self):
         """Initialize rate limiting configuration."""
         self.rate_limits = {
-            'api_requests': self.rate_limit_config.get('api_requests', {'window': 60, 'limit': 100}),
-            'auth_attempts': self.rate_limit_config.get('auth_attempts', {'window': 300, 'limit': 5}),
-            'monitoring_access': self.rate_limit_config.get('monitoring_access', {'window': 60, 'limit': 60})
+            "api_requests": self.rate_limit_config.get(
+                "api_requests", {"window": 60, "limit": 100}
+            ),
+            "auth_attempts": self.rate_limit_config.get(
+                "auth_attempts", {"window": 300, "limit": 5}
+            ),
+            "monitoring_access": self.rate_limit_config.get(
+                "monitoring_access", {"window": 60, "limit": 60}
+            ),
         }
 
     def _init_authentication(self):
         """Initialize authentication configuration."""
-        self.api_keys = self.auth_config.get('api_keys', {})
-        self.jwt_secret = self.auth_config.get('jwt_secret', 'default-secret-change-me')
-        self.jwt_expiration = self.auth_config.get('jwt_expiration', 3600)  # 1 hour
+        self.api_keys = self.auth_config.get("api_keys", {})
+        self.jwt_secret = self.auth_config.get("jwt_secret", "default-secret-change-me")
+        self.jwt_expiration = self.auth_config.get("jwt_expiration", 3600)  # 1 hour
 
     def _init_audit_logging(self):
         """Initialize audit logging."""
@@ -66,8 +73,8 @@ class SecurityHardening:
             return True  # No limit for this type
 
         config = self.rate_limits[limit_type]
-        window = config['window']
-        limit = config['limit']
+        window = config["window"]
+        limit = config["limit"]
 
         # Use Redis to track request counts
         key = f"analytics:ratelimit:{limit_type}:{identifier}"
@@ -104,8 +111,11 @@ class SecurityHardening:
                     event_type="authentication_success",
                     severity="info",
                     timestamp=time.time(),
-                    details={"auth_method": "api_key", "user_id": user_data.get("user_id")},
-                    source_ip=user_data.get("last_ip")
+                    details={
+                        "auth_method": "api_key",
+                        "user_id": user_data.get("user_id"),
+                    },
+                    source_ip=user_data.get("last_ip"),
                 )
             )
 
@@ -117,7 +127,7 @@ class SecurityHardening:
                 event_type="authentication_failure",
                 severity="warning",
                 timestamp=time.time(),
-                details={"auth_method": "api_key"}
+                details={"auth_method": "api_key"},
             )
         )
 
@@ -130,7 +140,7 @@ class SecurityHardening:
             # For Phase 12d, we'll implement a simplified version
 
             # Check token format
-            parts = token.split('.')
+            parts = token.split(".")
             if len(parts) != 3:
                 return None
 
@@ -144,11 +154,14 @@ class SecurityHardening:
             # Decode payload (simplified)
             import base64
             import json
+
             try:
-                decoded_payload = json.loads(base64.urlsafe_b64decode(payload + '==').decode())
+                decoded_payload = json.loads(
+                    base64.urlsafe_b64decode(payload + "==").decode()
+                )
 
                 # Check expiration
-                if decoded_payload.get('exp', 0) < time.time():
+                if decoded_payload.get("exp", 0) < time.time():
                     return None
 
                 return decoded_payload
@@ -163,10 +176,9 @@ class SecurityHardening:
     def _generate_hmac_signature(self, data: str) -> str:
         """Generate HMAC signature for JWT."""
         import hmac
+
         signature = hmac.new(
-            self.jwt_secret.encode(),
-            data.encode(),
-            hashlib.sha256
+            self.jwt_secret.encode(), data.encode(), hashlib.sha256
         ).hexdigest()
         return signature
 
@@ -175,20 +187,19 @@ class SecurityHardening:
         try:
             # Store in Redis stream for real-time monitoring
             event_data: Dict[str, Any] = {
-                'type': event.event_type,
-                'severity': event.severity,
-                'timestamp': str(event.timestamp),
-                'details': json.dumps(event.details),
-                'source_ip': event.source_ip or '',
-                'user_agent': event.user_agent or ''
+                "type": event.event_type,
+                "severity": event.severity,
+                "timestamp": str(event.timestamp),
+                "details": json.dumps(event.details),
+                "source_ip": event.source_ip or "",
+                "user_agent": event.user_agent or "",
             }
 
             await self.redis.xadd(self.audit_log_key, event_data, maxlen=10000)
 
             # Also store in time-series for analytics
             await self.redis.zadd(
-                self.security_events_key,
-                {json.dumps(event_data): event.timestamp}
+                self.security_events_key, {json.dumps(event_data): event.timestamp}
             )
             await self.redis.expire(self.security_events_key, 86400 * 30)  # 30 days
 
@@ -199,13 +210,14 @@ class SecurityHardening:
         """Check for suspicious activity patterns."""
         # Check for common attack patterns
         suspicious_patterns = [
-            r'\b(union|select|insert|update|delete|drop)\b.*--',  # SQL injection
-            r'<script.*>',  # XSS
-            r'\b(eval|exec|system|passthru)\b',  # Code execution
-            r'\.\./\.\./',  # Path traversal
+            r"\b(union|select|insert|update|delete|drop)\b.*--",  # SQL injection
+            r"<script.*>",  # XSS
+            r"\b(eval|exec|system|passthru)\b",  # Code execution
+            r"\.\./\.\./",  # Path traversal
         ]
 
         import re
+
         for pattern in suspicious_patterns:
             for key, value in request_data.items():
                 if isinstance(value, str) and re.search(pattern, value, re.IGNORECASE):
@@ -216,11 +228,13 @@ class SecurityHardening:
                             severity="high",
                             timestamp=time.time(),
                             details={
-                                'pattern': pattern,
-                                'field': key,
-                                'value': value[:50] + '...' if len(value) > 50 else value
+                                "pattern": pattern,
+                                "field": key,
+                                "value": (
+                                    value[:50] + "..." if len(value) > 50 else value
+                                ),
                             },
-                            source_ip=request_data.get('source_ip')
+                            source_ip=request_data.get("source_ip"),
                         )
                     )
                     return True
@@ -230,7 +244,7 @@ class SecurityHardening:
     async def validate_input_safety(self, data: Dict[str, Any]) -> bool:
         """Validate input for common security issues."""
         # Check for oversized inputs
-        max_size = self.security_config.get('max_input_size', 1024 * 1024)  # 1MB
+        max_size = self.security_config.get("max_input_size", 1024 * 1024)  # 1MB
 
         for key, value in data.items():
             if isinstance(value, str) and len(value) > max_size:
@@ -239,13 +253,17 @@ class SecurityHardening:
                         event_type="input_size_violation",
                         severity="medium",
                         timestamp=time.time(),
-                        details={'field': key, 'size': len(value), 'max_allowed': max_size}
+                        details={
+                            "field": key,
+                            "size": len(value),
+                            "max_allowed": max_size,
+                        },
                     )
                 )
                 return False
 
         # Check for suspicious characters
-        suspicious_chars = [';', '|', '&', '$', '`', '\x00']
+        suspicious_chars = [";", "|", "&", "$", "`", "\x00"]
 
         for key, value in data.items():
             if isinstance(value, str):
@@ -256,7 +274,7 @@ class SecurityHardening:
                                 event_type="suspicious_character_detected",
                                 severity="medium",
                                 timestamp=time.time(),
-                                details={'field': key, 'character': char}
+                                details={"field": key, "character": char},
                             )
                         )
                         return False
@@ -267,12 +285,15 @@ class SecurityHardening:
         """Get recent security audit logs."""
         try:
             # Get logs from Redis stream
-            logs = await self.redis.xrevrange(self.audit_log_key, '+', '-', count=limit)
+            logs = await self.redis.xrevrange(self.audit_log_key, "+", "-", count=limit)
 
             return [
                 {
-                    'id': log[0],
-                    'data': {k: v.decode() if isinstance(v, bytes) else v for k, v in log[1].items()}
+                    "id": log[0],
+                    "data": {
+                        k: v.decode() if isinstance(v, bytes) else v
+                        for k, v in log[1].items()
+                    },
                 }
                 for log in logs
             ]
@@ -287,37 +308,36 @@ class SecurityHardening:
             current_time = time.time()
 
             metrics = {
-                'authentication_success': 0,
-                'authentication_failure': 0,
-                'suspicious_activity': 0,
-                'input_violations': 0,
-                'rate_limit_violations': 0
+                "authentication_success": 0,
+                "authentication_failure": 0,
+                "suspicious_activity": 0,
+                "input_violations": 0,
+                "rate_limit_violations": 0,
             }
 
             # This would be implemented with proper Redis queries
             # For Phase 12d, we'll return a basic structure
 
-            return {
-                'metrics': metrics,
-                'timestamp': current_time,
-                'status': 'active'
-            }
+            return {"metrics": metrics, "timestamp": current_time, "status": "active"}
 
         except redis.RedisError as e:
             self.logger.error("Failed to get security metrics: %s", e)
-            return {'status': 'error', 'error': str(e)}
+            return {"status": "error", "error": str(e)}
 
 
 class SecurityError(Exception):
     """Security-related exception."""
+
     pass
 
 
 class RateLimitExceededError(SecurityError):
     """Rate limit exceeded."""
+
     pass
 
 
 class AuthenticationError(SecurityError):
     """Authentication failed."""
+
     pass

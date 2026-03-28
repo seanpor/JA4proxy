@@ -14,6 +14,7 @@ concurrently to all enabled backends:
 Backend failures are logged individually and never propagate — one failed backend
 never prevents the others from executing.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -22,7 +23,6 @@ import hmac
 import ipaddress
 import json
 import logging
-import time
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
@@ -31,8 +31,8 @@ logger = logging.getLogger(__name__)
 BAN_CHANNEL = "ja4proxy:bans"
 
 # BGP prefix length guards
-_BGP_MIN_PREFIX_V4 = 24   # /24 = 256 hosts; reject anything broader (e.g. /16)
-_BGP_MIN_PREFIX_V6 = 48   # /48; reject /32 or broader
+_BGP_MIN_PREFIX_V4 = 24  # /24 = 256 hosts; reject anything broader (e.g. /16)
+_BGP_MIN_PREFIX_V6 = 48  # /48; reject /32 or broader
 
 
 class EnforcementBridge:
@@ -62,7 +62,9 @@ class EnforcementBridge:
 
         # iptables/ipset backend
         self._iptables_enabled: bool = cfg.get("iptables", {}).get("enabled", False)
-        self._ipset_name: str = cfg.get("iptables", {}).get("ipset_name", "ja4proxy_ban")
+        self._ipset_name: str = cfg.get("iptables", {}).get(
+            "ipset_name", "ja4proxy_ban"
+        )
 
         # BGP backend
         bgp_cfg = cfg.get("bgp", {})
@@ -105,9 +107,7 @@ class EnforcementBridge:
             self._task = None
         if self._pubsub is not None:
             try:
-                await asyncio.get_event_loop().run_in_executor(
-                    None, self._pubsub.close
-                )
+                await asyncio.get_event_loop().run_in_executor(None, self._pubsub.close)
             except Exception:
                 pass
 
@@ -122,12 +122,16 @@ class EnforcementBridge:
                 await asyncio.get_event_loop().run_in_executor(
                     None, lambda: pubsub.subscribe(BAN_CHANNEL)
                 )
-                logger.info("enforcement_bridge | event=subscribed | channel=%s", BAN_CHANNEL)
+                logger.info(
+                    "enforcement_bridge | event=subscribed | channel=%s", BAN_CHANNEL
+                )
 
                 while self._running:
                     msg = await asyncio.get_event_loop().run_in_executor(
                         None,
-                        lambda: pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0),
+                        lambda: pubsub.get_message(
+                            ignore_subscribe_messages=True, timeout=1.0
+                        ),
                     )
                     if msg and msg.get("type") == "message":
                         await self._handle_message(msg)
@@ -177,7 +181,8 @@ class EnforcementBridge:
             if isinstance(result, BaseException):
                 logger.error(
                     "enforcement_bridge | event=backend_error | backend=%d | err=%s",
-                    i, result,
+                    i,
+                    result,
                 )
 
     # ------------------------------------------------------------------
@@ -188,7 +193,12 @@ class EnforcementBridge:
         """Add IP to ipset with TTL via ``ipset add`` (never shell=True)."""
         try:
             proc = await asyncio.create_subprocess_exec(
-                "ipset", "add", self._ipset_name, ip, "timeout", str(ttl),
+                "ipset",
+                "add",
+                self._ipset_name,
+                ip,
+                "timeout",
+                str(ttl),
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.PIPE,
             )
@@ -199,7 +209,8 @@ class EnforcementBridge:
                 if "already added" not in err and "already in set" not in err:
                     logger.warning(
                         "enforcement_bridge | event=ipset_error | ip=%s | err=%s",
-                        ip, err,
+                        ip,
+                        err,
                     )
         except FileNotFoundError:
             logger.warning(
@@ -214,7 +225,10 @@ class EnforcementBridge:
 
         Prefix length guard: rejects IPv4 prefixes broader than /%d,
         IPv6 broader than /%d.
-        """ % (_BGP_MIN_PREFIX_V4, _BGP_MIN_PREFIX_V6)
+        """ % (
+            _BGP_MIN_PREFIX_V4,
+            _BGP_MIN_PREFIX_V6,
+        )
         try:
             addr = ipaddress.ip_address(ip)
             if addr.version == 4:
@@ -223,7 +237,9 @@ class EnforcementBridge:
                     logger.warning(
                         "enforcement_bridge | event=bgp_prefix_rejected | "
                         "ip=%s | prefix_len=%d | min=%d",
-                        ip, agg_len, _BGP_MIN_PREFIX_V4,
+                        ip,
+                        agg_len,
+                        _BGP_MIN_PREFIX_V4,
                     )
                     return
             else:
@@ -232,7 +248,9 @@ class EnforcementBridge:
                     logger.warning(
                         "enforcement_bridge | event=bgp_prefix_rejected | "
                         "ip=%s | prefix_len=%d | min=%d",
-                        ip, agg_len, _BGP_MIN_PREFIX_V6,
+                        ip,
+                        agg_len,
+                        _BGP_MIN_PREFIX_V6,
                     )
                     return
 
@@ -263,8 +281,12 @@ class EnforcementBridge:
 
     async def _webhook_ban(self, ip: str, ttl: int, reason: str) -> None:
         """POST ban to webhook URL with HMAC-SHA256 signature.  Retries on 5xx."""
-        payload = json.dumps({"ip": ip, "ttl": ttl, "reason": reason}, separators=(",", ":"))
-        sig = hmac.new(self._webhook_secret, payload.encode(), hashlib.sha256).hexdigest()
+        payload = json.dumps(
+            {"ip": ip, "ttl": ttl, "reason": reason}, separators=(",", ":")
+        )
+        sig = hmac.new(
+            self._webhook_secret, payload.encode(), hashlib.sha256
+        ).hexdigest()
         headers = {
             "Content-Type": "application/json",
             "X-JA4Proxy-Signature": f"sha256={sig}",
@@ -284,7 +306,8 @@ class EnforcementBridge:
                     logger.warning(
                         "enforcement_bridge | event=webhook_5xx | "
                         "status=%d | attempt=%d",
-                        resp.status, attempt + 1,
+                        resp.status,
+                        attempt + 1,
                     )
             except Exception:
                 logger.exception(
@@ -296,5 +319,6 @@ class EnforcementBridge:
 
         logger.error(
             "enforcement_bridge | event=webhook_max_retries | ip=%s | retries=%d",
-            ip, self._webhook_max_retries,
+            ip,
+            self._webhook_max_retries,
         )

@@ -215,10 +215,9 @@ class DialManager:
         if abs(new_val - old_val) == 0:
             return
 
-        hour_key = (
-            self.COUNT_KEY_PREFIX
-            + datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d-%H")
-        )
+        hour_key = self.COUNT_KEY_PREFIX + datetime.datetime.now(
+            datetime.timezone.utc
+        ).strftime("%Y-%m-%d-%H")
 
         if not force:
             try:

@@ -363,3 +363,11 @@ phases:
       - "TestJA4_FixturesParity runs and passes against 4 fixtures"
       - "JA4X tests include real certificate parsing"
       - "Cross-language JA4X parity verified"
+
+  37:
+    name: "Lint & Static Analysis Cleanup"
+    status: "COMPLETE"
+    test_coverage: "100%"
+    doc_status: "COMPLETE"
+    summary: "Fixed make lint and make lint-static: black reformatted 79 files, removed ~65 unused imports, fixed 15 mypy errors, added .flake8 config, acknowledged pygments CVE."
+    action_plan: "docs/phases/PHASE_37.md"

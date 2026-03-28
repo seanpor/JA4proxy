@@ -101,6 +101,7 @@ class PubSubHandler:
         """Verify HMAC signature of a pub/sub update (Phase 28b)."""
         if not self._signing_key:
             import os
+
             # In production, require signing key
             if os.getenv("ENVIRONMENT") == "production":
                 logger.error("SECURITY: No signing key for pub/sub verification!")
@@ -133,9 +134,7 @@ class PubSubHandler:
                 async with self._redis.pubsub() as ps:
                     await ps.subscribe(CHANNEL)
                     backoff = 1.0  # Reset backoff on successful connection
-                    logger.info(
-                        "pubsub | event=subscribed | channel=%s", CHANNEL
-                    )
+                    logger.info("pubsub | event=subscribed | channel=%s", CHANNEL)
                     async for raw_message in ps.listen():
                         if raw_message["type"] != "message":
                             continue
@@ -190,23 +189,17 @@ class PubSubHandler:
                 if value:
                     self._cache.whitelist_decisions.delete(str(value))
                     self._whitelist.discard(str(value))
-                    logger.debug(
-                        "pubsub | event=whitelist_remove | ja4=%s", value
-                    )
+                    logger.debug("pubsub | event=whitelist_remove | ja4=%s", value)
 
             case "ban_release":
                 if value:
                     self._cache.block_decisions.delete(f"ban:{value}")
-                    logger.debug(
-                        "pubsub | event=ban_release | ip=%s", value
-                    )
+                    logger.debug("pubsub | event=ban_release | ip=%s", value)
 
             case "ja4_blacklist_add":
                 if value:
                     self._blacklist.add(str(value))
-                    logger.debug(
-                        "pubsub | event=ja4_blacklist_add | ja4=%s", value
-                    )
+                    logger.debug("pubsub | event=ja4_blacklist_add | ja4=%s", value)
 
             case "dial_change":
                 try:
@@ -227,9 +220,7 @@ class PubSubHandler:
                 try:
                     await self._config_loader.reload()
                 except Exception as exc:  # noqa: BLE001
-                    logger.error(
-                        "pubsub | event=config_reload_failed | error=%s", exc
-                    )
+                    logger.error("pubsub | event=config_reload_failed | error=%s", exc)
 
             case "cidr_ban_add":
                 # Phase 11: RDAP block expansion — add CIDR to in-process trie
@@ -240,9 +231,7 @@ class PubSubHandler:
                             "rdap_expansion",
                             {"name": "rdap_expansion", "enabled": True},
                         )
-                        logger.debug(
-                            "pubsub | event=cidr_ban_add | cidr=%s", value
-                        )
+                        logger.debug("pubsub | event=cidr_ban_add | cidr=%s", value)
                     except Exception as exc:  # noqa: BLE001
                         logger.warning(
                             "pubsub | event=cidr_ban_add_error | cidr=%s | error=%s",

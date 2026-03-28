@@ -10,6 +10,7 @@ Authentication: optional ``X-API-Key`` header.
 Source IP restriction: optional ``allowed_ips`` config list.
 ETag caching: sha256[:16] of list content; returns 304 on match.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -142,7 +143,11 @@ class EDLServer:
                 if not entry_ip:
                     # Derive IP from key: ban:{ip}
                     key_str = key.decode() if isinstance(key, bytes) else str(key)
-                    entry_ip = key_str[len("ban:"):] if key_str.startswith("ban:") else key_str
+                    entry_ip = (
+                        key_str[len("ban:") :]
+                        if key_str.startswith("ban:")
+                        else key_str
+                    )
 
                 # Apply filters
                 if self._max_age_hours > 0 and entry_ts > 0 and entry_ts < cutoff_ts:
@@ -175,14 +180,18 @@ class EDLServer:
         list_name = request.match_info["list_name"]
         return await self.handle_edl_request(list_name, request)
 
-    async def handle_edl_request(self, list_name: str, request: web.Request) -> web.Response:
+    async def handle_edl_request(
+        self, list_name: str, request: web.Request
+    ) -> web.Response:
         """Handle a GET /edl/{list_name} request.
 
         Returns 403 if auth fails, 304 if ETag matches, or 200 with plaintext list.
         """
         # Source IP restriction
         if self._allowed_ips:
-            remote = getattr(request, "remote", None) or request.headers.get("X-Real-IP", "")
+            remote = getattr(request, "remote", None) or request.headers.get(
+                "X-Real-IP", ""
+            )
             if remote not in self._allowed_ips:
                 return web.Response(status=403, text="Forbidden")
 

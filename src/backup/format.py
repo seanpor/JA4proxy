@@ -16,6 +16,7 @@ terminates iteration gracefully).
 Restore uses ``redis.restore(key, 0, dump_data, replace=True)`` which handles
 all Redis data types transparently.
 """
+
 import struct
 from collections.abc import Iterator
 

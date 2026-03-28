@@ -15,7 +15,7 @@ import asyncio
 import json
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 import redis as redis_lib
@@ -23,6 +23,7 @@ from prometheus_client import Counter, Gauge
 
 try:
     import pytricia
+
     PYTRICIA_AVAILABLE = True
 except ImportError:  # pragma: no cover
     PYTRICIA_AVAILABLE = False
@@ -30,6 +31,7 @@ except ImportError:  # pragma: no cover
 
 try:
     import aiohttp
+
     AIOHTTP_AVAILABLE = True
 except ImportError:  # pragma: no cover
     AIOHTTP_AVAILABLE = False
@@ -69,15 +71,17 @@ _BLOCKLIST_MATCHES = Counter(
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class FeedConfig:
     """Configuration for one blocklist feed."""
+
     name: str
     url: str
-    format: str                     # spamhaus | cidr | ipset
-    is_bypass: bool                 # True → hard-block; False → RiskSignal
-    action: str                     # block | tarpit | flag
-    score: int                      # Risk score when is_bypass=False
+    format: str  # spamhaus | cidr | ipset
+    is_bypass: bool  # True → hard-block; False → RiskSignal
+    action: str  # block | tarpit | flag
+    score: int  # Risk score when is_bypass=False
     refresh_interval_seconds: int
     enabled: bool = True
 
@@ -85,6 +89,7 @@ class FeedConfig:
 # ---------------------------------------------------------------------------
 # Feed parsers
 # ---------------------------------------------------------------------------
+
 
 def parse_feed(text: str, fmt: str) -> list[str]:
     """Parse a blocklist feed text into a list of valid CIDR strings.
@@ -133,11 +138,15 @@ def parse_feed(text: str, fmt: str) -> list[str]:
             cidrs.append(cidr)
         except ValueError:
             logger.warning(
-                json.dumps({
-                    "type": "system", "level": "WARN",
-                    "subsystem": "blocklist", "event": "malformed_cidr",
-                    "cidr": cidr,
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "WARN",
+                        "subsystem": "blocklist",
+                        "event": "malformed_cidr",
+                        "cidr": cidr,
+                    }
+                )
             )
 
     return cidrs
@@ -146,6 +155,7 @@ def parse_feed(text: str, fmt: str) -> list[str]:
 # ---------------------------------------------------------------------------
 # BlocklistManager
 # ---------------------------------------------------------------------------
+
 
 class BlocklistManager:
     """In-process CIDR trie for O(log n) blocklist lookups.
@@ -160,7 +170,9 @@ class BlocklistManager:
             self._trie_v4 = pytricia.PyTricia(32)
             self._trie_v6 = pytricia.PyTricia(128)
         else:  # pragma: no cover
-            raise RuntimeError("pytricia is required — install it: pip install pytricia")
+            raise RuntimeError(
+                "pytricia is required — install it: pip install pytricia"
+            )
 
         # Maps feed_name → FeedConfig (for is_bypass=false signal generation)
         self._feed_configs: dict[str, FeedConfig] = {}
@@ -201,11 +213,16 @@ class BlocklistManager:
                 loaded.append(cidr)
             except Exception:
                 logger.warning(
-                    json.dumps({
-                        "type": "system", "level": "WARN",
-                        "subsystem": "blocklist", "event": "cidr_load_failed",
-                        "list": list_name, "cidr": cidr,
-                    })
+                    json.dumps(
+                        {
+                            "type": "system",
+                            "level": "WARN",
+                            "subsystem": "blocklist",
+                            "event": "cidr_load_failed",
+                            "list": list_name,
+                            "cidr": cidr,
+                        }
+                    )
                 )
 
         self._feed_cidrs[list_name] = set(loaded)
@@ -231,11 +248,16 @@ class BlocklistManager:
                 return True, feed_name
         except Exception as exc:
             logger.error(
-                json.dumps({
-                    "type": "system", "level": "ERROR",
-                    "subsystem": "blocklist", "event": "lookup_error",
-                    "ip": ip, "error": str(exc),
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "ERROR",
+                        "subsystem": "blocklist",
+                        "event": "lookup_error",
+                        "ip": ip,
+                        "error": str(exc),
+                    }
+                )
             )
         return False, ""
 
@@ -257,18 +279,25 @@ class BlocklistManager:
             if cfg is None or cfg.is_bypass:
                 return signals
             _BLOCKLIST_MATCHES.labels(feed=feed_name).inc()
-            signals.append(RiskSignal(
-                name=f"blocklist_{feed_name}",
-                score=cfg.score,
-                reason=f"IP matched {feed_name} blocklist",
-            ))
+            signals.append(
+                RiskSignal(
+                    name=f"blocklist_{feed_name}",
+                    score=cfg.score,
+                    reason=f"IP matched {feed_name} blocklist",
+                )
+            )
         except Exception as exc:
             logger.error(
-                json.dumps({
-                    "type": "system", "level": "ERROR",
-                    "subsystem": "blocklist", "event": "signal_error",
-                    "ip": ip, "error": str(exc),
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "ERROR",
+                        "subsystem": "blocklist",
+                        "event": "signal_error",
+                        "ip": ip,
+                        "error": str(exc),
+                    }
+                )
             )
         return signals
 
@@ -280,6 +309,7 @@ class BlocklistManager:
 # ---------------------------------------------------------------------------
 # FeedManager — download, parse, distribute
 # ---------------------------------------------------------------------------
+
 
 class FeedManager:
     """Manages periodic download and distribution of blocklist feeds.
@@ -309,16 +339,18 @@ class FeedManager:
         for f in raw_feeds:
             if not f.get("enabled", True):
                 continue
-            configs.append(FeedConfig(
-                name=f["name"],
-                url=f.get("url", ""),
-                format=f.get("format", "spamhaus"),
-                is_bypass=f.get("is_bypass", True),
-                action=f.get("action", "block"),
-                score=f.get("score", 60),
-                refresh_interval_seconds=f.get("refresh_interval_seconds", 43200),
-                enabled=True,
-            ))
+            configs.append(
+                FeedConfig(
+                    name=f["name"],
+                    url=f.get("url", ""),
+                    format=f.get("format", "spamhaus"),
+                    is_bypass=f.get("is_bypass", True),
+                    action=f.get("action", "block"),
+                    score=f.get("score", 60),
+                    refresh_interval_seconds=f.get("refresh_interval_seconds", 43200),
+                    enabled=True,
+                )
+            )
         return configs
 
     async def start(self) -> None:
@@ -348,11 +380,16 @@ class FeedManager:
         if cidrs is not None:
             count = self._mgr.load_cidrs(cidrs, feed_cfg.name, feed_cfg)
             logger.info(
-                json.dumps({
-                    "type": "system", "level": "INFO",
-                    "subsystem": "blocklist", "event": "feed_loaded_from_redis",
-                    "feed": feed_cfg.name, "entries": count,
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "INFO",
+                        "subsystem": "blocklist",
+                        "event": "feed_loaded_from_redis",
+                        "feed": feed_cfg.name,
+                        "entries": count,
+                    }
+                )
             )
             return
 
@@ -370,11 +407,15 @@ class FeedManager:
                     return
             # Give up — fail open, trie remains empty/stale
             logger.warning(
-                json.dumps({
-                    "type": "system", "level": "WARN",
-                    "subsystem": "blocklist", "event": "feed_load_timeout",
-                    "feed": feed_cfg.name,
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "WARN",
+                        "subsystem": "blocklist",
+                        "event": "feed_load_timeout",
+                        "feed": feed_cfg.name,
+                    }
+                )
             )
 
     async def _load_from_redis(self, feed_name: str) -> Optional[list[str]]:
@@ -396,9 +437,7 @@ class FeedManager:
         try:
             key = f"leader:blocklist_download:{feed_cfg.name}"
             ttl = max(1, feed_cfg.refresh_interval_seconds // 2)
-            result = await self._redis.set(
-                key, self._instance_id, nx=True, ex=ttl
-            )
+            result = await self._redis.set(key, self._instance_id, nx=True, ex=ttl)
             return result is not None
         except redis_lib.RedisError:
             return True  # Redis failure → act as leader (fail open)
@@ -407,12 +446,17 @@ class FeedManager:
         """Download feed, parse, load trie, and write to Redis."""
         if not AIOHTTP_AVAILABLE:
             logger.error(
-                json.dumps({
-                    "type": "system", "level": "ERROR",
-                    "subsystem": "blocklist", "event": "feed_download_failed",
-                    "feed": feed_cfg.name, "error": "aiohttp not installed",
-                    "entries_retained": self._mgr.entry_count(feed_cfg.name),
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "ERROR",
+                        "subsystem": "blocklist",
+                        "event": "feed_download_failed",
+                        "feed": feed_cfg.name,
+                        "error": "aiohttp not installed",
+                        "entries_retained": self._mgr.entry_count(feed_cfg.name),
+                    }
+                )
             )
             return
 
@@ -425,7 +469,8 @@ class FeedManager:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    feed_cfg.url, headers=headers,
+                    feed_cfg.url,
+                    headers=headers,
                     timeout=aiohttp.ClientTimeout(total=30),
                 ) as resp:
                     if resp.status == 304:
@@ -451,25 +496,34 @@ class FeedManager:
 
             _BLOCKLIST_LAST_REFRESH.labels(feed=feed_cfg.name).set(time.time())
             logger.info(
-                json.dumps({
-                    "type": "system", "level": "INFO",
-                    "subsystem": "blocklist", "event": "feed_refreshed",
-                    "feed": feed_cfg.name, "entries": count,
-                    "elapsed_ms": elapsed_ms,
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "INFO",
+                        "subsystem": "blocklist",
+                        "event": "feed_refreshed",
+                        "feed": feed_cfg.name,
+                        "entries": count,
+                        "elapsed_ms": elapsed_ms,
+                    }
+                )
             )
 
         except Exception as exc:
             _BLOCKLIST_DOWNLOAD_ERRORS.labels(feed=feed_cfg.name).inc()
             logger.error(
-                json.dumps({
-                    "type": "system", "level": "ERROR",
-                    "subsystem": "blocklist", "event": "feed_download_failed",
-                    "feed": feed_cfg.name,
-                    "http_status": getattr(exc, "status", None),
-                    "error": str(exc),
-                    "entries_retained": self._mgr.entry_count(feed_cfg.name),
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "ERROR",
+                        "subsystem": "blocklist",
+                        "event": "feed_download_failed",
+                        "feed": feed_cfg.name,
+                        "http_status": getattr(exc, "status", None),
+                        "error": str(exc),
+                        "entries_retained": self._mgr.entry_count(feed_cfg.name),
+                    }
+                )
             )
 
     async def _get_etag(self, feed_name: str) -> Optional[str]:
@@ -497,14 +551,17 @@ class FeedManager:
                 f"blocklist:cidrs:{feed_cfg.name}", ttl, json.dumps(cidrs)
             )
             if etag:
-                await self._redis.setex(
-                    f"blocklist:etag:{feed_cfg.name}", ttl, etag
-                )
+                await self._redis.setex(f"blocklist:etag:{feed_cfg.name}", ttl, etag)
         except Exception as exc:
             logger.warning(
-                json.dumps({
-                    "type": "system", "level": "WARN",
-                    "subsystem": "blocklist", "event": "redis_write_failed",
-                    "feed": feed_cfg.name, "error": str(exc),
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "WARN",
+                        "subsystem": "blocklist",
+                        "event": "redis_write_failed",
+                        "feed": feed_cfg.name,
+                        "error": str(exc),
+                    }
+                )
             )

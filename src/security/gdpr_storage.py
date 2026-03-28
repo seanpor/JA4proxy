@@ -48,24 +48,24 @@ class DataCategory(Enum):
     def get_default_ttl(self) -> int:
         """Get default TTL for this category (seconds)."""
         defaults = {
-            DataCategory.RATE_TRACKING: 60,        # 1 minute
-            DataCategory.FINGERPRINTS: 3600,       # 1 hour
-            DataCategory.SUSPICIOUS: 1800,         # 30 minutes
-            DataCategory.TEMP_BLOCKS: 3600,        # 1 hour
-            DataCategory.BANS: 604800,             # 7 days
-            DataCategory.AUDIT_LOGS: 2592000,      # 30 days
+            DataCategory.RATE_TRACKING: 60,  # 1 minute
+            DataCategory.FINGERPRINTS: 3600,  # 1 hour
+            DataCategory.SUSPICIOUS: 1800,  # 30 minutes
+            DataCategory.TEMP_BLOCKS: 3600,  # 1 hour
+            DataCategory.BANS: 604800,  # 7 days
+            DataCategory.AUDIT_LOGS: 2592000,  # 30 days
         }
         return defaults[self]
 
     def get_max_ttl(self) -> int:
         """Get maximum allowed TTL for GDPR compliance (seconds)."""
         max_ttls = {
-            DataCategory.RATE_TRACKING: 300,       # 5 minutes max
-            DataCategory.FINGERPRINTS: 86400,      # 24 hours max
-            DataCategory.SUSPICIOUS: 3600,         # 1 hour max
-            DataCategory.TEMP_BLOCKS: 7200,        # 2 hours max
-            DataCategory.BANS: 2592000,            # 30 days max
-            DataCategory.AUDIT_LOGS: 7776000,      # 90 days max (legal requirement)
+            DataCategory.RATE_TRACKING: 300,  # 5 minutes max
+            DataCategory.FINGERPRINTS: 86400,  # 24 hours max
+            DataCategory.SUSPICIOUS: 3600,  # 1 hour max
+            DataCategory.TEMP_BLOCKS: 7200,  # 2 hours max
+            DataCategory.BANS: 2592000,  # 30 days max
+            DataCategory.AUDIT_LOGS: 7776000,  # 90 days max (legal requirement)
         }
         return max_ttls[self]
 
@@ -98,7 +98,7 @@ class GDPRStorage:
         self.redis = redis_client
         self.config = config or {}
         self.logger = logging.getLogger(__name__)
-        self.audit_enabled = self.config.get('gdpr', {}).get('audit_logging', True)
+        self.audit_enabled = self.config.get("gdpr", {}).get("audit_logging", True)
 
         # Load custom retention periods if configured
         self.retention_periods = self._load_retention_periods()
@@ -113,7 +113,7 @@ class GDPRStorage:
     def _load_retention_periods(self) -> Dict[DataCategory, int]:
         """Load retention periods from configuration."""
         retention = {}
-        config_retention = self.config.get('gdpr', {}).get('retention_periods', {})
+        config_retention = self.config.get("gdpr", {}).get("retention_periods", {})
 
         for category in DataCategory:
             # Get configured value or use default
@@ -129,7 +129,7 @@ class GDPRStorage:
                         "Configured TTL for %s (%ss) exceeds GDPR maximum (%ss), using maximum",
                         category.value,
                         configured_ttl,
-                        max_ttl
+                        max_ttl,
                     )
                     configured_ttl = max_ttl
 
@@ -178,7 +178,7 @@ class GDPRStorage:
                     "Custom TTL (%ss) exceeds GDPR maximum for %s (%ss), using maximum",
                     custom_ttl,
                     category.value,
-                    max_ttl
+                    max_ttl,
                 )
                 ttl = max_ttl
             elif custom_ttl <= 0:
@@ -196,13 +196,15 @@ class GDPRStorage:
 
             # Audit log
             if self.audit_enabled:
-                self._audit_log({
-                    'action': 'store',
-                    'key_hash': self._hash_key(key),
-                    'category': category.value,
-                    'ttl': ttl,
-                    'timestamp': datetime.now(timezone.utc).isoformat(),
-                })
+                self._audit_log(
+                    {
+                        "action": "store",
+                        "key_hash": self._hash_key(key),
+                        "category": category.value,
+                        "ttl": ttl,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
 
             return True
         except redis.RedisError as e:
@@ -221,7 +223,7 @@ class GDPRStorage:
             - total_keys: Total number of keys checked
         """
         try:
-            all_keys = self.redis.keys('*')
+            all_keys = self.redis.keys("*")
             compliant = 0
             non_compliant = 0
             violations = []
@@ -233,16 +235,18 @@ class GDPRStorage:
                 # TTL of -2 means key doesn't exist (ignore)
                 if ttl == -1:
                     non_compliant += 1
-                    violations.append(self._hash_key(key.decode() if isinstance(key, bytes) else key))
+                    violations.append(
+                        self._hash_key(key.decode() if isinstance(key, bytes) else key)
+                    )
                 elif ttl >= 0:
                     compliant += 1
 
             result = {
-                'compliant_keys': compliant,
-                'non_compliant_keys': non_compliant,
-                'violations': violations,
-                'total_keys': len(all_keys),
-                'compliance_rate': compliant / len(all_keys) if all_keys else 1.0,
+                "compliant_keys": compliant,
+                "non_compliant_keys": non_compliant,
+                "violations": violations,
+                "total_keys": len(all_keys),
+                "compliance_rate": compliant / len(all_keys) if all_keys else 1.0,
             }
 
             # Log violations
@@ -255,12 +259,12 @@ class GDPRStorage:
         except redis.RedisError as e:
             self.logger.error("Failed to verify compliance: %s", e)
             return {
-                'error': str(e),
-                'compliant_keys': 0,
-                'non_compliant_keys': 0,
-                'violations': [],
-                'total_keys': 0,
-                'compliance_rate': 0.0,
+                "error": str(e),
+                "compliant_keys": 0,
+                "non_compliant_keys": 0,
+                "violations": [],
+                "total_keys": 0,
+                "compliance_rate": 0.0,
             }
 
     def cleanup_expired(self) -> int:
@@ -275,7 +279,7 @@ class GDPRStorage:
         # keys with very short TTLs and log for audit
         try:
             cleaned = 0
-            all_keys = self.redis.keys('*')
+            all_keys = self.redis.keys("*")
 
             for key in all_keys:
                 ttl = self.redis.ttl(key)
@@ -301,33 +305,33 @@ class GDPRStorage:
             Dictionary with retention statistics per category
         """
         report = {
-            'retention_periods': {},
-            'key_counts': {},
-            'timestamp': datetime.now(timezone.utc).isoformat(),
+            "retention_periods": {},
+            "key_counts": {},
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         # Report configured retention periods
         for category, ttl in self.retention_periods.items():
-            report['retention_periods'][category.value] = {
-                'configured_ttl': ttl,
-                'max_allowed_ttl': category.get_max_ttl(),
-                'compliant': ttl <= category.get_max_ttl(),
+            report["retention_periods"][category.value] = {
+                "configured_ttl": ttl,
+                "max_allowed_ttl": category.get_max_ttl(),
+                "compliant": ttl <= category.get_max_ttl(),
             }
 
         # Count keys per category (by key pattern)
         try:
             patterns = {
-                DataCategory.RATE_TRACKING: 'rate:*',
-                DataCategory.FINGERPRINTS: 'fingerprint:*',
-                DataCategory.SUSPICIOUS: 'suspicious:*',
-                DataCategory.TEMP_BLOCKS: 'blocked:*',
-                DataCategory.BANS: 'banned:*',
-                DataCategory.AUDIT_LOGS: 'audit:*',
+                DataCategory.RATE_TRACKING: "rate:*",
+                DataCategory.FINGERPRINTS: "fingerprint:*",
+                DataCategory.SUSPICIOUS: "suspicious:*",
+                DataCategory.TEMP_BLOCKS: "blocked:*",
+                DataCategory.BANS: "banned:*",
+                DataCategory.AUDIT_LOGS: "audit:*",
             }
 
             for category, pattern in patterns.items():
                 keys = self.redis.keys(pattern)
-                report['key_counts'][category.value] = len(keys)
+                report["key_counts"][category.value] = len(keys)
         except redis.RedisError as e:
             self.logger.error("Failed to count keys: %s", e)
 
@@ -346,6 +350,7 @@ class GDPRStorage:
 
             # Convert dict to string for storage
             import json
+
             self.redis.setex(audit_key, audit_ttl, json.dumps(entry))
         except (redis.RedisError, json.JSONDecodeError, ValueError) as e:
             self.logger.error("Failed to write audit log: %s", e)
@@ -362,7 +367,8 @@ class GDPRStorage:
         """
         try:
             import json
-            audit_keys = self.redis.keys('audit:*')
+
+            audit_keys = self.redis.keys("audit:*")
 
             # Sort by timestamp (key name)
             audit_keys = sorted(audit_keys, reverse=True)[:limit]
@@ -382,7 +388,7 @@ class GDPRStorage:
             return []
 
     @classmethod
-    def from_config(cls, redis_client, config: Dict) -> 'GDPRStorage':
+    def from_config(cls, redis_client, config: Dict) -> "GDPRStorage":
         """
         Create GDPRStorage from configuration dictionary.
 

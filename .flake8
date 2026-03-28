@@ -1,0 +1,4 @@
+[flake8]
+# Match black's line length and suppress conflicts with black's formatting style.
+max-line-length = 88
+extend-ignore = E203,W503,E501,E402,F841

@@ -29,13 +29,21 @@ _STREAM_LAG = Gauge(
 class StreamConsumer:
     """Redis Stream consumer for analytics events."""
 
-    def __init__(self, redis_url: str, stream_key: str = "ja4proxy:events",
-                 consumer_group: str = "analytics", consumer_name: str = "analytics-1",
-                 hmac_secret: Optional[str] = None, hmac_required: bool = True,
-                 aggregation_window: int = 300,
-                 campaign_detection: bool = True, slow_scan_detection: bool = True,
-                 ja4_intelligence: bool = True, monitoring_enabled: bool = True,
-                 monitoring_config: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        redis_url: str,
+        stream_key: str = "ja4proxy:events",
+        consumer_group: str = "analytics",
+        consumer_name: str = "analytics-1",
+        hmac_secret: Optional[str] = None,
+        hmac_required: bool = True,
+        aggregation_window: int = 300,
+        campaign_detection: bool = True,
+        slow_scan_detection: bool = True,
+        ja4_intelligence: bool = True,
+        monitoring_enabled: bool = True,
+        monitoring_config: Optional[Dict[str, Any]] = None,
+    ):
         self.redis_url = redis_url
         self.stream_key = stream_key
         self.consumer_group = consumer_group
@@ -52,7 +60,9 @@ class StreamConsumer:
         # Initialize detection modules
         self.campaign_detector = CampaignDetector() if campaign_detection else None
         self.slow_scan_detector = SlowScanDetector() if slow_scan_detection else None
-        self.ja4_intelligence = JA4FingerprintIntelligence() if ja4_intelligence else None
+        self.ja4_intelligence = (
+            JA4FingerprintIntelligence() if ja4_intelligence else None
+        )
 
         # Initialize monitoring system (Phase 12c)
         self.monitoring_enabled = monitoring_enabled
@@ -69,7 +79,7 @@ class StreamConsumer:
                 self.stream_key,
                 self.consumer_group,
                 id="$",  # Start from the end
-                mkstream=True
+                mkstream=True,
             )
         except aioredis.ResponseError as e:
             # Group already exists, which is fine
@@ -79,7 +89,10 @@ class StreamConsumer:
         # Initialize monitoring system (Phase 12c)
         if self.monitoring_enabled:
             from .monitoring import MonitoringSystem
-            self.monitoring_system = MonitoringSystem(self.redis, self.monitoring_config)
+
+            self.monitoring_system = MonitoringSystem(
+                self.redis, self.monitoring_config
+            )
 
     async def validate_event(self, event_data: Dict[str, Any]) -> bool:
         """Validate event against schema and business rules."""
@@ -134,15 +147,22 @@ class StreamConsumer:
             results = self.aggregation_manager.get_aggregation_results()
             total_events = sum(r["total_events"] for r in results.values())
             if total_events % 100 == 0:  # Log every 100 events
-                print(f"Aggregation results: {len(results)} subnets tracked, {total_events} total events")
+                print(
+                    f"Aggregation results: {len(results)} subnets tracked, {total_events} total events"
+                )
 
             return True
         except Exception as e:
             print(f"Error processing event {event_id}: {e}")
             return False
 
-    async def consume_events(self, batch_size: int = 100, timeout_ms: int = 5000,
-                           detection_interval: int = 60, monitoring_interval: int = 60):
+    async def consume_events(
+        self,
+        batch_size: int = 100,
+        timeout_ms: int = 5000,
+        detection_interval: int = 60,
+        monitoring_interval: int = 60,
+    ):
         """Consume events from the stream in batches."""
         if not self.redis:
             await self.connect()
@@ -155,14 +175,20 @@ class StreamConsumer:
             try:
                 # Run detection cycle periodically
                 current_time = time.time()
-                if (current_time - last_detection_time >= detection_interval and
-                    (self.campaign_detector or self.slow_scan_detector or self.ja4_intelligence)):
+                if current_time - last_detection_time >= detection_interval and (
+                    self.campaign_detector
+                    or self.slow_scan_detector
+                    or self.ja4_intelligence
+                ):
                     await self.run_detection_cycle()
                     last_detection_time = current_time
 
                 # Run monitoring cycle periodically (Phase 12c)
-                if (self.monitoring_enabled and self.monitoring_system and
-                    current_time - last_monitoring_time >= monitoring_interval):
+                if (
+                    self.monitoring_enabled
+                    and self.monitoring_system
+                    and current_time - last_monitoring_time >= monitoring_interval
+                ):
                     await self.monitoring_system.run_monitoring_cycle()
                     last_monitoring_time = current_time
 
@@ -172,7 +198,7 @@ class StreamConsumer:
                     self.consumer_name,
                     {self.stream_key: ">"},  # Read new events
                     count=batch_size,
-                    block=timeout_ms
+                    block=timeout_ms,
                 )
 
                 if not events:
@@ -183,20 +209,27 @@ class StreamConsumer:
                 for event_id, event_data in messages:
                     try:
                         # Parse event data
-                        data = {k.decode(): v.decode() if isinstance(v, bytes) else v
-                               for k, v in event_data.items()}
+                        data = {
+                            k.decode(): v.decode() if isinstance(v, bytes) else v
+                            for k, v in event_data.items()
+                        }
 
                         # Update stream lag from the Redis Stream message ID.
                         # Message IDs have the form "<ms_timestamp>-<seq>"; the
                         # ms part is the wall-clock time when the event was XADD'd.
                         try:
-                            msg_id_str = event_id.decode() if isinstance(event_id, bytes) else event_id
+                            msg_id_str = (
+                                event_id.decode()
+                                if isinstance(event_id, bytes)
+                                else event_id
+                            )
                             msg_ms = int(msg_id_str.split("-")[0])
                             lag = max(0.0, time.time() - msg_ms / 1000.0)
                             _STREAM_LAG.set(lag)
                             if lag > 300:
                                 logging.getLogger(__name__).warning(
-                                    "analytics | event=stream_lag_high | lag_seconds=%.1f", lag
+                                    "analytics | event=stream_lag_high | lag_seconds=%.1f",
+                                    lag,
                                 )
                         except (ValueError, AttributeError):
                             pass
@@ -234,29 +267,29 @@ class StreamConsumer:
         # Campaign detection results
         if self.campaign_detector:
             campaigns = self.campaign_detector.detect_campaigns()
-            results['campaigns'] = campaigns
-            results['campaign_count'] = len(campaigns)
+            results["campaigns"] = campaigns
+            results["campaign_count"] = len(campaigns)
         else:
-            results['campaigns'] = []
-            results['campaign_count'] = 0
+            results["campaigns"] = []
+            results["campaign_count"] = 0
 
         # Slow scan detection results
         if self.slow_scan_detector:
             slow_scans = self.slow_scan_detector.detect_slow_scans()
-            results['slow_scans'] = slow_scans
-            results['slow_scan_count'] = len(slow_scans)
+            results["slow_scans"] = slow_scans
+            results["slow_scan_count"] = len(slow_scans)
         else:
-            results['slow_scans'] = []
-            results['slow_scan_count'] = 0
+            results["slow_scans"] = []
+            results["slow_scan_count"] = 0
 
         # JA4 intelligence results
         if self.ja4_intelligence:
             ja4_candidates = self.ja4_intelligence.identify_candidates()
-            results['ja4_candidates'] = ja4_candidates
-            results['ja4_candidate_count'] = len(ja4_candidates)
+            results["ja4_candidates"] = ja4_candidates
+            results["ja4_candidate_count"] = len(ja4_candidates)
         else:
-            results['ja4_candidates'] = []
-            results['ja4_candidate_count'] = 0
+            results["ja4_candidates"] = []
+            results["ja4_candidate_count"] = 0
 
         return results
 
@@ -272,28 +305,34 @@ class StreamConsumer:
             # Store results in Redis
             if self.redis:
                 # Store campaigns
-                for campaign in detection_results['campaigns']:
+                for campaign in detection_results["campaigns"]:
                     key = f"analytics:campaign:{campaign['subnet']}"
-                    await self.redis.set(key, json.dumps(campaign), ex=3600)  # 1 hour TTL
+                    await self.redis.set(
+                        key, json.dumps(campaign), ex=3600
+                    )  # 1 hour TTL
 
                 # Store slow scans
-                for slow_scan in detection_results['slow_scans']:
+                for slow_scan in detection_results["slow_scans"]:
                     key = f"analytics:slowscan:{slow_scan['subnet']}"
-                    await self.redis.set(key, json.dumps(slow_scan), ex=1800)  # 30 min TTL
+                    await self.redis.set(
+                        key, json.dumps(slow_scan), ex=1800
+                    )  # 30 min TTL
 
                 # Store JA4 candidates (sorted set by block rate)
-                if detection_results['ja4_candidates']:
+                if detection_results["ja4_candidates"]:
                     ja4_members = {}
-                    for candidate in detection_results['ja4_candidates']:
-                        ja4_members[candidate['ja4']] = candidate['block_rate']
+                    for candidate in detection_results["ja4_candidates"]:
+                        ja4_members[candidate["ja4"]] = candidate["block_rate"]
 
                     await self.redis.zadd("analytics:ja4:candidates", ja4_members)
-                    await self.redis.expire("analytics:ja4:candidates", 86400)  # 24 hour TTL
+                    await self.redis.expire(
+                        "analytics:ja4:candidates", 86400
+                    )  # 24 hour TTL
 
             return detection_results
         except Exception as e:
             print(f"Error running detection cycle: {e}")
-            return {'error': str(e)}
+            return {"error": str(e)}
 
     async def close(self):
         """Close the Redis connection."""
@@ -304,14 +343,14 @@ class StreamConsumer:
     async def get_monitoring_status(self) -> Dict[str, Any]:
         """Get current monitoring status."""
         if not self.monitoring_enabled or not self.monitoring_system:
-            return {'enabled': False, 'message': 'Monitoring system disabled'}
+            return {"enabled": False, "message": "Monitoring system disabled"}
 
         return await self.monitoring_system.get_monitoring_status()
 
     async def get_alerts(self) -> Dict[str, Any]:
         """Get all active monitoring alerts."""
         if not self.monitoring_enabled or not self.monitoring_system:
-            return {'enabled': False, 'alerts': {}}
+            return {"enabled": False, "alerts": {}}
 
         return await self.monitoring_system.get_alerts()
 
@@ -319,9 +358,9 @@ class StreamConsumer:
         """Clear all monitoring alerts."""
         if self.monitoring_enabled and self.monitoring_system:
             await self.monitoring_system.clear_all_alerts()
-            return {'success': True}
+            return {"success": True}
 
-        return {'success': False, 'message': 'Monitoring system disabled'}
+        return {"success": False, "message": "Monitoring system disabled"}
 
     async def get_drift_history(self, hours: int = 24) -> List[Dict[str, Any]]:
         """Get score drift detection history."""
@@ -347,4 +386,5 @@ class StreamConsumer:
 
 class InvalidEventError(Exception):
     """Raised when an event fails validation."""
+
     pass

@@ -46,7 +46,9 @@ class _NoopSpan:
     def set_attribute(self, key: str, value: Any) -> None:  # noqa: ARG002
         pass
 
-    def add_event(self, name: str, attributes: Optional[dict] = None) -> None:  # noqa: ARG002
+    def add_event(
+        self, name: str, attributes: Optional[dict] = None
+    ) -> None:  # noqa: ARG002
         pass
 
     def record_exception(self, exc: Exception) -> None:  # noqa: ARG002

@@ -3,6 +3,7 @@ JA4 — TLS client fingerprint extractor (Phase 20, Group 5-A).
 
 Parses a raw TLS ClientHello byte buffer and returns a JA4Result.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -10,14 +11,25 @@ import struct
 from dataclasses import dataclass, field
 from typing import Optional
 
-
 # GREASE values (RFC 8701)
 _GREASE = frozenset(
     [
-        0x0A0A, 0x1A1A, 0x2A2A, 0x3A3A,
-        0x4A4A, 0x5A5A, 0x6A6A, 0x7A7A,
-        0x8A8A, 0x9A9A, 0xAAAA, 0xBABA,
-        0xCACA, 0xDADA, 0xEAEA, 0xFAFA,
+        0x0A0A,
+        0x1A1A,
+        0x2A2A,
+        0x3A3A,
+        0x4A4A,
+        0x5A5A,
+        0x6A6A,
+        0x7A7A,
+        0x8A8A,
+        0x9A9A,
+        0xAAAA,
+        0xBABA,
+        0xCACA,
+        0xDADA,
+        0xEAEA,
+        0xFAFA,
     ]
 )
 
@@ -101,7 +113,7 @@ def _parse(data: bytes) -> Optional[JA4Result]:
     msg_type = data[pos]
     if msg_type != 0x01:  # ClientHello
         return None
-    hs_len = struct.unpack_from("!I", bytes([0]) + data[pos + 1: pos + 4])[0]
+    hs_len = struct.unpack_from("!I", bytes([0]) + data[pos + 1 : pos + 4])[0]
     pos += 4
     hs_end = pos + hs_len
     if hs_end > n:
@@ -298,7 +310,7 @@ def _parse_sni(payload: bytes) -> Optional[str]:
         name_len = struct.unpack_from("!H", payload, 3)[0]
         if 5 + name_len > len(payload):
             return None
-        return payload[5:5 + name_len].decode("ascii", errors="ignore")
+        return payload[5 : 5 + name_len].decode("ascii", errors="ignore")
     except Exception:
         return None
 
@@ -316,7 +328,7 @@ def _parse_alpn(payload: bytes, out: list) -> None:
             pos += 1
             if pos + proto_len > len(payload):
                 break
-            proto = payload[pos:pos + proto_len].decode("ascii", errors="ignore")
+            proto = payload[pos : pos + proto_len].decode("ascii", errors="ignore")
             out.append(proto)
             pos += proto_len
     except Exception:
@@ -391,8 +403,7 @@ def _hash_ciphers(ciphers: list) -> str:
 def _hash_exts(exts: list) -> str:
     """SHA-256[:12] of sorted non-GREASE extension types, excluding SNI (0) and ALPN (16)."""
     filtered = [
-        e for e in exts
-        if e not in _GREASE and e != _EXT_SNI and e != _EXT_ALPN
+        e for e in exts if e not in _GREASE and e != _EXT_SNI and e != _EXT_ALPN
     ]
     if not filtered:
         return "000000000000"

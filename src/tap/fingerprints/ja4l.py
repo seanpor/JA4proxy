@@ -4,6 +4,7 @@ JA4L — Light-distance estimation from TCP handshake timing (Phase 20, Group 5-
 Estimates client and server distances from RTT measurements derived from the
 SYN → SYN-ACK → ACK timestamps recorded during the 3-way handshake.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -12,7 +13,7 @@ from typing import Optional
 # Speed of light in fibre, accounting for network overhead.
 # Real-world propagation: ~200 000 km/s (2/3 of c in glass)
 _C_FIBRE_KM_S = 200_000.0
-_MAX_SANE_RTT_S = 10.0   # anything larger is noise / NTP drift
+_MAX_SANE_RTT_S = 10.0  # anything larger is noise / NTP drift
 
 
 @dataclass

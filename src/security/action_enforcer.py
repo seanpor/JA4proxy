@@ -13,7 +13,6 @@ Security Considerations:
 """
 
 import logging
-import time
 from typing import Dict, Optional, Tuple
 
 try:
@@ -162,14 +161,17 @@ class ActionEnforcer:
             entity_id = self._get_entity_id(ja4, ip, strategy)
 
             # Check blocks (tarpit and hard block)
-            for block_type in ('tarpit', 'block'):
+            for block_type in ("tarpit", "block"):
                 block_key = f"blocked:{block_type}:{entity_id}"
                 if self.redis.exists(block_key):
                     ttl = self.redis.ttl(block_key)
-                    return True, f"Blocked ({block_type}) by {strategy.value} (expires in {ttl}s)"
+                    return (
+                        True,
+                        f"Blocked ({block_type}) by {strategy.value} (expires in {ttl}s)",
+                    )
 
             # Check bans (temporary and permanent)
-            for ban_type in ('temporary', 'permanent'):
+            for ban_type in ("temporary", "permanent"):
                 ban_key = f"banned:{ban_type}:{entity_id}"
                 if self.redis.exists(ban_key):
                     ttl = self.redis.ttl(ban_key)
@@ -214,22 +216,26 @@ class ActionEnforcer:
             entity_id = self._get_entity_id(ja4, ip, strat)
 
             # Remove blocks
-            for block_type in ('tarpit', 'block'):
+            for block_type in ("tarpit", "block"):
                 block_key = f"blocked:{block_type}:{entity_id}"
                 if self.redis.delete(block_key):
                     self.logger.warning(
                         "MANUAL UNBAN: Removed %s block for %s:%s",
-                        block_type, strat.value, entity_id[:32]
+                        block_type,
+                        strat.value,
+                        entity_id[:32],
                     )
                     unbanned = True
 
             # Remove bans
-            for ban_type in ('temporary', 'permanent'):
+            for ban_type in ("temporary", "permanent"):
                 ban_key = f"banned:{ban_type}:{entity_id}"
                 if self.redis.delete(ban_key):
                     self.logger.warning(
                         "MANUAL UNBAN: Removed %s ban for %s:%s",
-                        ban_type, strat.value, entity_id[:32]
+                        ban_type,
+                        strat.value,
+                        entity_id[:32],
                     )
                     unbanned = True
 
@@ -261,7 +267,7 @@ class ActionEnforcer:
 
         # Check strategy-specific configuration
         if strategy and strategy in self.strategy_configs:
-            strategy_action = self.strategy_configs[strategy].get('action')
+            strategy_action = self.strategy_configs[strategy].get("action")
             if strategy_action:
                 action = ActionType.from_string(strategy_action)
                 if action:
@@ -290,7 +296,9 @@ class ActionEnforcer:
         """Log suspicious activity but allow connection."""
         self.logger.warning(
             "SUSPICIOUS: IP=%s JA4=%s strategy=%s",
-            ip[:32], ja4[:16], strategy.value if strategy else 'unknown'
+            ip[:32],
+            ja4[:16],
+            strategy.value if strategy else "unknown",
         )
 
         # Store in Redis with short TTL for investigation
@@ -317,7 +325,7 @@ class ActionEnforcer:
         # Get base duration from per-strategy config, fall back to 3600s default
         duration = 3600
         if strategy and strategy in self.strategy_configs:
-            duration = int(self.strategy_configs[strategy].get('ban_duration', 3600))
+            duration = int(self.strategy_configs[strategy].get("ban_duration", 3600))
 
         # Repeat-offender escalation: each consecutive block doubles the duration
         # (counter expires after 24h of good behaviour so duration resets eventually)
@@ -331,7 +339,9 @@ class ActionEnforcer:
                 duration = min(duration * multiplier, 86400)
                 self.logger.info(
                     "REPEAT_OFFENDER: %s offense #%s → block duration escalated to %ss",
-                    entity_id[:32], offense_count, duration
+                    entity_id[:32],
+                    offense_count,
+                    duration,
                 )
         except (redis.RedisError, TypeError, ValueError) as e:
             self.logger.warning("Repeat-offender escalation failed (non-fatal): %s", e)
@@ -340,22 +350,28 @@ class ActionEnforcer:
         if action_type == ActionType.TARPIT:
             # TARPIT: Store with TARPIT duration flag
             block_key = f"blocked:tarpit:{entity_id}"
-            self.redis.setex(block_key, duration, str(self.action_config.tarpit_duration))
+            self.redis.setex(
+                block_key, duration, str(self.action_config.tarpit_duration)
+            )
 
             self.logger.warning(
                 "TARPIT: IP=%s JA4=%s delay=%ss duration=%ss",
-                ip[:32], ja4[:16], self.action_config.tarpit_duration, duration
+                ip[:32],
+                ja4[:16],
+                self.action_config.tarpit_duration,
+                duration,
             )
 
-            reason = f"Rate limit exceeded - TARPIT {self.action_config.tarpit_duration}s"
+            reason = (
+                f"Rate limit exceeded - TARPIT {self.action_config.tarpit_duration}s"
+            )
         else:
             # BLOCK: Hard block
             block_key = f"blocked:block:{entity_id}"
             self.redis.setex(block_key, duration, "1")
 
             self.logger.warning(
-                "BLOCK: IP=%s JA4=%s duration=%ss",
-                ip[:32], ja4[:16], duration
+                "BLOCK: IP=%s JA4=%s duration=%ss", ip[:32], ja4[:16], duration
             )
 
             reason = "Rate limit exceeded - blocked"
@@ -385,7 +401,9 @@ class ActionEnforcer:
 
             self.logger.error(
                 "PERMANENT BAN: IP=%s JA4=%s strategy=%s",
-                ip[:32], ja4[:16], strategy.value if strategy else 'unknown'
+                ip[:32],
+                ja4[:16],
+                strategy.value if strategy else "unknown",
             )
 
             reason = "Permanently banned for excessive abuse"
@@ -397,7 +415,10 @@ class ActionEnforcer:
 
             self.logger.error(
                 "BAN: IP=%s JA4=%s duration=%ss strategy=%s",
-                ip[:32], ja4[:16], ban_duration, strategy.value if strategy else 'unknown'
+                ip[:32],
+                ja4[:16],
+                ban_duration,
+                strategy.value if strategy else "unknown",
             )
 
             reason = f"Banned for {ban_duration}s"
@@ -431,20 +452,20 @@ class ActionEnforcer:
             suspicious = len(self.redis.keys("suspicious:*"))
 
             return {
-                'blocked_tarpit': blocked_tarpit,
-                'blocked_block': blocked_block,
-                'total_blocked': blocked_tarpit + blocked_block,
-                'banned_temporary': banned_temporary,
-                'banned_permanent': banned_permanent,
-                'total_banned': banned_temporary + banned_permanent,
-                'suspicious': suspicious,
+                "blocked_tarpit": blocked_tarpit,
+                "blocked_block": blocked_block,
+                "total_blocked": blocked_tarpit + blocked_block,
+                "banned_temporary": banned_temporary,
+                "banned_permanent": banned_permanent,
+                "total_banned": banned_temporary + banned_permanent,
+                "suspicious": suspicious,
             }
         except redis.RedisError as e:
             self.logger.error("Error getting enforcement stats: %s", e)
             return {}
 
     @classmethod
-    def from_config(cls, redis_client, config: Dict) -> 'ActionEnforcer':
+    def from_config(cls, redis_client, config: Dict) -> "ActionEnforcer":
         """
         Create ActionEnforcer from configuration dictionary.
 
@@ -458,15 +479,15 @@ class ActionEnforcer:
         action_config = ActionConfig.from_config_dict(config)
 
         # Load strategy-specific configurations
-        strategy_configs_raw = config.get('security', {}).get(
-            'rate_limit_strategies', {}
+        strategy_configs_raw = config.get("security", {}).get(
+            "rate_limit_strategies", {}
         )
 
         strategy_configs = {}
         for strategy in RateLimitStrategy:
             config_key = strategy.value
             strategy_config = strategy_configs_raw.get(config_key, {})
-            if strategy_config.get('enabled', False):
+            if strategy_config.get("enabled", False):
                 strategy_configs[strategy] = strategy_config
 
         return cls(

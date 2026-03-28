@@ -78,6 +78,18 @@ def _make_redis() -> MagicMock:
     bf = MagicMock()
     bf.add = AsyncMock(return_value=1)
     redis.bf = MagicMock(return_value=bf)
+    # Pipeline mock for Phase 28 pipeline-based methods
+    pipe = MagicMock()
+    pipe.incr = MagicMock(return_value=None)
+    pipe.expire = MagicMock(return_value=None)
+    pipe.lpush = MagicMock(return_value=None)
+    pipe.ltrim = MagicMock(return_value=None)
+    pipe.execute = AsyncMock(return_value=[1, True])
+    pipeline_cm = MagicMock()
+    pipeline_cm.__aenter__ = AsyncMock(return_value=pipe)
+    pipeline_cm.__aexit__ = AsyncMock(return_value=None)
+    redis.pipeline = MagicMock(return_value=pipeline_cm)
+    redis._test_pipe = pipe
     return redis
 
 
@@ -1342,7 +1354,7 @@ class TestCheckExpansionRateLimit(unittest.TestCase):
     def test_first_expansion_sets_expire(self):
         """count=1 → expire called, returns True (lines 1207-1208)."""
         redis = _make_redis()
-        redis.incr = AsyncMock(return_value=1)
+        redis._test_pipe.execute = AsyncMock(return_value=[1, True])
         enricher = _make_enricher(redis=redis)
 
         async def run():
@@ -1350,12 +1362,12 @@ class TestCheckExpansionRateLimit(unittest.TestCase):
 
         result = _run(run())
         self.assertTrue(result)
-        redis.expire.assert_called_once()
+        redis._test_pipe.expire.assert_called_once()
 
     def test_rate_limit_exceeded_returns_false(self):
         """count > max → decrements counter, returns False (lines 1209-1221)."""
         redis = _make_redis()
-        redis.incr = AsyncMock(return_value=11)  # > max_expansions_per_hour=10
+        redis._test_pipe.execute = AsyncMock(return_value=[11, True])  # > max=10
         enricher = _make_enricher()
         enricher._redis = redis
 
@@ -1471,8 +1483,8 @@ class TestLogExpansionAudit(unittest.TestCase):
             await enricher._log_expansion_audit("1.2.3.4", "1.2.3.0/24", rdap, 80)
 
         _run(run())
-        redis.lpush.assert_called_once()
-        redis.ltrim.assert_called_once()
+        redis._test_pipe.lpush.assert_called_once()
+        redis._test_pipe.ltrim.assert_called_once()
 
     def test_log_expansion_audit_redis_error_swallowed(self):
         """Redis error in audit write is caught (lines 1291-1294)."""
