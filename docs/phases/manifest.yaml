@@ -290,8 +290,11 @@ phases:
 
   28:
     name: "Python Throughput Hardening - Phase 2: Redis Optimization"
-    status: "PROPOSED"
+    status: "COMPLETE"
+    test_coverage: "100%"
+    doc_status: "COMPLETE"
     summary: "Add Redis pipeline batching and Unix domain socket support. Target: 30-40% Redis latency reduction."
+    completed: "2026-03-28"
     action_plan: "docs/phases/PHASE_28_WORK_PLAN.md"
     dependencies: [26]
     size: "SMALL"  # 1-2 weeks: Redis performance tuning

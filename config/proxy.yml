@@ -32,6 +32,9 @@ proxy:
 redis:
   host: "${REDIS_HOST:-redis}"
   port: "${REDIS_PORT:-6379}"
+  # Phase 28b: Redis Unix domain socket support
+  # Set via REDIS_UNIX_SOCKET_PATH environment variable (e.g. /var/run/redis/redis.sock)
+  unix_socket_path: "${REDIS_UNIX_SOCKET_PATH}"
   db: 0
   # SECURITY: Password MUST be set via environment variable REDIS_PASSWORD
   # Never commit actual passwords to version control

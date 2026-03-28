@@ -203,6 +203,7 @@ class TestMaybeRecordGuards(unittest.TestCase):
 
         self._run(detector.maybe_record("1.2.3.4", "t13d...", "", "allow"))
 
+        # Verify it was enqueued
         enqueued_ops = [call.args[0] for call in detector._write_buffer.enqueue.call_args_list]
         self.assertIn("zadd", enqueued_ops)
 
@@ -242,7 +243,6 @@ class TestUUIDSuffixPreventsDuplication(unittest.TestCase):
 
         # Both calls recorded at exact same timestamp — UUID suffix must differ.
         # Each maybe_record adds to 2 keys (short + long), so 4 zadd calls total.
-        # The first call's uid is added twice (short+long); same for second call.
         self.assertEqual(len(added_members), 4)
         unique_members = list(dict.fromkeys(added_members))  # preserve order, deduplicate
         self.assertEqual(len(unique_members), 2)
@@ -281,8 +281,13 @@ class TestGetSignalMinObservations(unittest.TestCase):
 
         mock_redis = MagicMock()
         mock_redis.zrangebyscore = AsyncMock(return_value=timestamps)
-        mock_redis.zadd = AsyncMock()
-        mock_redis.zcard = AsyncMock(return_value=1)
+        
+        # Phase 28a: Use pipeline for suspects update to reduce RTTs
+        pipeline = MagicMock()
+        pipeline.execute = AsyncMock(return_value=[1, 1])  # zadd=1, zcard=1
+        pipeline.__aenter__ = AsyncMock(return_value=pipeline)
+        pipeline.__aexit__ = AsyncMock(return_value=None)
+        mock_redis.pipeline.return_value = pipeline
 
         detector = _make_detector(redis=mock_redis)
         ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d...")
@@ -297,7 +302,7 @@ class TestGetSignalMinObservations(unittest.TestCase):
     def test_redis_failure_returns_none(self):
         """Redis unavailable during get_signal → returns None silently."""
         mock_redis = MagicMock()
-        mock_redis.zrangebyscore = AsyncMock(side_effect=ConnectionError("Redis down"))
+        mock_redis.zrangebyscore = AsyncMock(side_effect=redis.exceptions.ConnectionError("Redis down"))
 
         detector = _make_detector(redis=mock_redis)
         ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d...")
@@ -312,8 +317,13 @@ class TestGetSignalMinObservations(unittest.TestCase):
 
         mock_redis = MagicMock()
         mock_redis.zrangebyscore = AsyncMock(return_value=timestamps)
-        mock_redis.zadd = AsyncMock()
-        mock_redis.zcard = AsyncMock(return_value=1)
+        
+        # Phase 28a: Mock pipeline
+        pipeline = MagicMock()
+        pipeline.execute = AsyncMock(return_value=[1, 1])
+        pipeline.__aenter__ = AsyncMock(return_value=pipeline)
+        pipeline.__aexit__ = AsyncMock(return_value=None)
+        mock_redis.pipeline.return_value = pipeline
 
         detector = _make_detector(redis=mock_redis)
         ctx = ConnectionContext(client_ip="5.6.7.8", ja4="t13d1234")
@@ -336,16 +346,22 @@ def _make_detector_with_cap(max_suspects: int, zcard_return: int):
     """Return a (detector, mock_redis) pair configured with the given cap.
 
     The mock_redis is pre-wired so that zrangebyscore returns 10 evenly-spaced
-    timestamps (enough to produce a strong beacon signal), zcard returns
-    *zcard_return*, and zadd / zremrangebyrank are AsyncMocks we can inspect.
+    timestamps (enough to produce a strong beacon signal), and its pipeline
+    returns zadd result and zcard result.
     """
     now = time.time()
     timestamps = [(now - i * 60, now - i * 60) for i in range(10)]  # (member, score) pairs
 
     mock_redis = MagicMock()
     mock_redis.zrangebyscore = AsyncMock(return_value=timestamps)
-    mock_redis.zadd = AsyncMock()
-    mock_redis.zcard = AsyncMock(return_value=zcard_return)
+    
+    # Phase 28a: Mock pipeline
+    pipeline = MagicMock()
+    pipeline.execute = AsyncMock(return_value=[1, zcard_return])
+    pipeline.__aenter__ = AsyncMock(return_value=pipeline)
+    pipeline.__aexit__ = AsyncMock(return_value=None)
+    mock_redis.pipeline.return_value = pipeline
+    
     mock_redis.zremrangebyrank = AsyncMock()
 
     cfg = {

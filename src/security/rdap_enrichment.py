@@ -1202,19 +1202,22 @@ class RDAPEnricher:
         return True
 
     async def _check_expansion_rate_limit(self) -> bool:
-        """Redis atomic counter for hourly expansion cap.
+        """Redis atomic counter for hourly expansion cap using pipeline.
 
         Returns True if expansion is allowed; False if cap is reached.
-        Rolls back the counter increment on rejection.
         """
         hour_key = (
             f"rdap:expansions:count:"
             f"{datetime.now(timezone.utc).strftime('%Y-%m-%dT%H')}"
         )
         try:
-            count = await self._redis.incr(hour_key)
-            if count == 1:
-                await self._redis.expire(hour_key, 3600)
+            # Phase 28a: Use pipeline to reduce RTTs from 2 to 1
+            async with self._redis.pipeline(transaction=False) as pipe:
+                pipe.incr(hour_key)
+                pipe.expire(hour_key, 3600)
+                res = await pipe.execute()
+            
+            count = int(res[0])
             if count > self._config.block_expansion.max_expansions_per_hour:
                 await self._redis.decr(hour_key)
                 logger.warning(
@@ -1278,7 +1281,7 @@ class RDAPEnricher:
     async def _log_expansion_audit(
         self, ip: str, cidr: str, rdap: RDAPResult, trigger_score: int
     ) -> None:
-        """Write expansion audit entry to Redis LIST (capped at 1000)."""
+        """Write expansion audit entry to Redis LIST (capped at 1000) using pipeline."""
         entry = json.dumps({
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "trigger_ip": ip,
@@ -1295,8 +1298,11 @@ class RDAPEnricher:
             "instance_id": self._instance_id,
         })
         try:
-            await self._redis.lpush("rdap:expansions", entry)
-            await self._redis.ltrim("rdap:expansions", 0, 999)  # Cap at 1000
+            # Phase 28a: Use pipeline to reduce RTTs from 2 to 1
+            async with self._redis.pipeline(transaction=False) as pipe:
+                pipe.lpush("rdap:expansions", entry)
+                pipe.ltrim("rdap:expansions", 0, 999)
+                await pipe.execute()
         except Exception as exc:
             logger.warning(
                 "rdap | event=audit_write_error | cidr=%s | error=%s", cidr, exc

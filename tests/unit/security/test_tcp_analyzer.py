@@ -80,9 +80,14 @@ class TestTCPAnalyzer(unittest.TestCase):
     def test_session_resumption_signal(self):
         async def run_test():
             redis_client = MagicMock()
-            redis_client.hmget = AsyncMock(return_value=[4, 0])
-            redis_client.hmset = AsyncMock()
-            redis_client.expire = AsyncMock()
+            
+            # Phase 28a: Mock pipeline
+            pipeline = MagicMock()
+            pipeline.execute = AsyncMock(return_value=[5, 0, True])  # total=5, resumed=0
+            pipeline.__aenter__ = AsyncMock(return_value=pipeline)
+            pipeline.__aexit__ = AsyncMock(return_value=None)
+            redis_client.pipeline.return_value = pipeline
+            
             tcp_analyzer = self._create_tcp_analyzer(redis_client)
             ctx = ConnectionContext(client_ip="1.2.3.4", ja4="some_ja4")
             signals = await tcp_analyzer._check_session_resumption(ctx)
@@ -94,9 +99,14 @@ class TestTCPAnalyzer(unittest.TestCase):
     def test_session_resumption_no_signal(self):
         async def run_test():
             redis_client = MagicMock()
-            redis_client.hmget = AsyncMock(return_value=[4, 2])
-            redis_client.hmset = AsyncMock()
-            redis_client.expire = AsyncMock()
+            
+            # Phase 28a: Mock pipeline
+            pipeline = MagicMock()
+            pipeline.execute = AsyncMock(return_value=[5, 2, True])  # total=5, resumed=2
+            pipeline.__aenter__ = AsyncMock(return_value=pipeline)
+            pipeline.__aexit__ = AsyncMock(return_value=None)
+            redis_client.pipeline.return_value = pipeline
+            
             tcp_analyzer = self._create_tcp_analyzer(redis_client)
             ctx = ConnectionContext(client_ip="1.2.3.4", ja4="some_ja4")
             signals = await tcp_analyzer._check_session_resumption(ctx)
@@ -107,10 +117,16 @@ class TestTCPAnalyzer(unittest.TestCase):
     def test_connection_lifespan_signal(self):
         async def run_test():
             redis_client = MagicMock()
-            redis_client.zcard = AsyncMock(return_value=5)
+            
+            # Phase 28a: Mock pipeline for zadd, expire, zcard
+            pipeline = MagicMock()
+            pipeline.execute = AsyncMock(return_value=[1, True, 5])  # zcard=5
+            pipeline.__aenter__ = AsyncMock(return_value=pipeline)
+            pipeline.__aexit__ = AsyncMock(return_value=None)
+            redis_client.pipeline.return_value = pipeline
+            
             redis_client.zrange = AsyncMock(return_value=[(b"200:12345", 200.0)])
-            redis_client.zadd = AsyncMock()
-            redis_client.expire = AsyncMock()
+            
             tcp_analyzer = self._create_tcp_analyzer(redis_client)
             ctx = ConnectionContext(client_ip="1.2.3.4", connection_lifespan_ms=200)
             signals = await tcp_analyzer._check_connection_lifespan(ctx)
@@ -122,10 +138,16 @@ class TestTCPAnalyzer(unittest.TestCase):
     def test_connection_lifespan_no_signal(self):
         async def run_test():
             redis_client = MagicMock()
-            redis_client.zcard = AsyncMock(return_value=5)
+            
+            # Phase 28a: Mock pipeline
+            pipeline = MagicMock()
+            pipeline.execute = AsyncMock(return_value=[1, True, 5])  # zcard=5
+            pipeline.__aenter__ = AsyncMock(return_value=pipeline)
+            pipeline.__aexit__ = AsyncMock(return_value=None)
+            redis_client.pipeline.return_value = pipeline
+            
             redis_client.zrange = AsyncMock(return_value=[(b"600:12345", 600.0)])
-            redis_client.zadd = AsyncMock()
-            redis_client.expire = AsyncMock()
+            
             tcp_analyzer = self._create_tcp_analyzer(redis_client)
             ctx = ConnectionContext(client_ip="1.2.3.4", connection_lifespan_ms=600)
             signals = await tcp_analyzer._check_connection_lifespan(ctx)
@@ -136,8 +158,14 @@ class TestTCPAnalyzer(unittest.TestCase):
     def test_concurrent_connections_signal(self):
         async def run_test():
             redis_client = MagicMock()
-            redis_client.incr = AsyncMock(return_value=25)
-            redis_client.expire = AsyncMock()
+            
+            # Phase 28a: Mock pipeline
+            pipeline = MagicMock()
+            pipeline.execute = AsyncMock(return_value=[25, True])  # count=25
+            pipeline.__aenter__ = AsyncMock(return_value=pipeline)
+            pipeline.__aexit__ = AsyncMock(return_value=None)
+            redis_client.pipeline.return_value = pipeline
+            
             tcp_analyzer = self._create_tcp_analyzer(redis_client)
             ctx = ConnectionContext(client_ip="1.2.3.4")
             signals = await tcp_analyzer._check_concurrent_connections(ctx)
@@ -150,17 +178,24 @@ class TestTCPAnalyzer(unittest.TestCase):
         async def run_test():
             redis_client = MagicMock()
             now = __import__("time").time()
-            redis_client.hgetall = AsyncMock(
-                return_value={
+            
+            # Phase 28a: Mock pipeline
+            pipeline = MagicMock()
+            pipeline.execute = AsyncMock(return_value=[
+                {
                     b"first_seen": str(int(now - 8 * 86400)).encode(),
                     b"total": b"100",
                     b"allowed": b"95",
-                }
-            )
-            redis_client.hmset = AsyncMock()
-            redis_client.hset = AsyncMock()
-            redis_client.hincrby = AsyncMock()
-            redis_client.expire = AsyncMock()
+                },
+                True, # hset
+                101,  # hincrby total
+                96,   # hincrby allowed
+                True  # expire
+            ])
+            pipeline.__aenter__ = AsyncMock(return_value=pipeline)
+            pipeline.__aexit__ = AsyncMock(return_value=None)
+            redis_client.pipeline.return_value = pipeline
+            
             tcp_analyzer = self._create_tcp_analyzer(redis_client)
             ctx = ConnectionContext(client_ip="1.2.3.4")
             signals = await tcp_analyzer._check_return_visitor(ctx)
@@ -173,8 +208,14 @@ class TestTCPAnalyzer(unittest.TestCase):
     def test_tls_alert_rate_signal(self):
         async def run_test():
             redis_client = MagicMock()
-            redis_client.incr = AsyncMock(return_value=5)
-            redis_client.expire = AsyncMock()
+            
+            # Phase 28a: Mock pipeline
+            pipeline = MagicMock()
+            pipeline.execute = AsyncMock(return_value=[5, True])  # count=5
+            pipeline.__aenter__ = AsyncMock(return_value=pipeline)
+            pipeline.__aexit__ = AsyncMock(return_value=None)
+            redis_client.pipeline.return_value = pipeline
+            
             tcp_analyzer = self._create_tcp_analyzer(redis_client)
             ctx = ConnectionContext(
                 client_ip="1.2.3.4", tls_alerts=["handshake_failure"]
@@ -216,13 +257,26 @@ class TestTCPAnalyzerCoverageGaps(unittest.TestCase):
         """analyze() runs all enabled checks and increments TCP signals counter."""
         async def run():
             redis = MagicMock()
-            redis.incr = AsyncMock(return_value=35)  # severe concurrency
-            redis.expire = AsyncMock()
-            redis.hmget = AsyncMock(return_value=[9, 0])  # no_session_resumption
-            redis.hmset = AsyncMock()
-            redis.zadd = AsyncMock()  # lifespan tracking (zcard=0 → no signal)
-            redis.zcard = AsyncMock(return_value=0)  # no lifespan signal
-            redis.hgetall = AsyncMock(return_value={})  # new visitor
+            
+            # Phase 28a: Mock pipeline for all checks
+            pipeline = MagicMock()
+            pipeline.__aenter__ = AsyncMock(return_value=pipeline)
+            pipeline.__aexit__ = AsyncMock(return_value=None)
+            
+            # We need to return different results for different calls to execute()
+            # session_resumption: [9, 0, True]
+            # connection_lifespan: [1, True, 0]
+            # concurrent_connections: [35, True]
+            # return_visitor: [{}, True, 1, 1, True]
+            # tls_alerts: (not called because tls_alerts=None)
+            pipeline.execute = AsyncMock(side_effect=[
+                [9, 0, True],           # session_resumption
+                [1, True, 0],           # connection_lifespan
+                [35, True],             # concurrent_connections
+                [{}, True, 1, 1, True]  # return_visitor
+            ])
+            redis.pipeline.return_value = pipeline
+            
             tcp = self._make(redis=redis)
 
             ctx = ConnectionContext(
@@ -276,7 +330,7 @@ class TestTCPAnalyzerCoverageGaps(unittest.TestCase):
         """Redis exception → fail open, return [] (lines 171-173)."""
         async def run():
             redis = MagicMock()
-            redis.hmget = AsyncMock(side_effect=redis_module.RedisError("redis down"))
+            redis.pipeline.side_effect = redis_module.RedisError("redis down")
             tcp = self._make(redis=redis)
             ctx = ConnectionContext(client_ip="1.2.3.4", ja4="test")
             signals = await tcp._check_session_resumption(ctx)
@@ -290,8 +344,7 @@ class TestTCPAnalyzerCoverageGaps(unittest.TestCase):
         """Redis exception → fail open, return [] (lines 223-225)."""
         async def run():
             redis = MagicMock()
-            redis.zadd = AsyncMock(side_effect=redis_module.RedisError("redis down"))
-            redis.expire = AsyncMock()
+            redis.pipeline.side_effect = redis_module.RedisError("redis down")
             tcp = self._make(redis=redis)
             ctx = ConnectionContext(client_ip="1.2.3.4", connection_lifespan_ms=100)
             signals = await tcp._check_connection_lifespan(ctx)
@@ -303,10 +356,15 @@ class TestTCPAnalyzerCoverageGaps(unittest.TestCase):
         """Empty zrange result → no signal (handles median_list == [])."""
         async def run():
             redis = MagicMock()
-            redis.zcard = AsyncMock(return_value=5)
+            
+            # Phase 28a: Mock pipeline
+            pipeline = MagicMock()
+            pipeline.execute = AsyncMock(return_value=[1, True, 5])  # zcard=5
+            pipeline.__aenter__ = AsyncMock(return_value=pipeline)
+            pipeline.__aexit__ = AsyncMock(return_value=None)
+            redis.pipeline.return_value = pipeline
+            
             redis.zrange = AsyncMock(return_value=[])  # Empty — unusual but possible
-            redis.zadd = AsyncMock()
-            redis.expire = AsyncMock()
             tcp = self._make(redis=redis)
             ctx = ConnectionContext(client_ip="1.2.3.4", connection_lifespan_ms=100)
             signals = await tcp._check_connection_lifespan(ctx)
@@ -320,8 +378,14 @@ class TestTCPAnalyzerCoverageGaps(unittest.TestCase):
         """Count ≥ severe threshold → severe_concurrency signal (line 248)."""
         async def run():
             redis = MagicMock()
-            redis.incr = AsyncMock(return_value=35)  # ≥ 30 (severe)
-            redis.expire = AsyncMock()
+            
+            # Phase 28a: Mock pipeline
+            pipeline = MagicMock()
+            pipeline.execute = AsyncMock(return_value=[35, True])  # count=35
+            pipeline.__aenter__ = AsyncMock(return_value=pipeline)
+            pipeline.__aexit__ = AsyncMock(return_value=None)
+            redis.pipeline.return_value = pipeline
+            
             tcp = self._make(redis=redis)
             ctx = ConnectionContext(client_ip="1.2.3.4")
             signals = await tcp._check_concurrent_connections(ctx)
@@ -334,8 +398,14 @@ class TestTCPAnalyzerCoverageGaps(unittest.TestCase):
         """Count ≥ moderate but < high → moderate_concurrency signal (lines 263-270)."""
         async def run():
             redis = MagicMock()
-            redis.incr = AsyncMock(return_value=12)  # ≥ 10 moderate, < 20 high
-            redis.expire = AsyncMock()
+            
+            # Phase 28a: Mock pipeline
+            pipeline = MagicMock()
+            pipeline.execute = AsyncMock(return_value=[12, True])  # count=12
+            pipeline.__aenter__ = AsyncMock(return_value=pipeline)
+            pipeline.__aexit__ = AsyncMock(return_value=None)
+            redis.pipeline.return_value = pipeline
+            
             tcp = self._make(redis=redis)
             ctx = ConnectionContext(client_ip="1.2.3.4")
             signals = await tcp._check_concurrent_connections(ctx)
@@ -348,7 +418,7 @@ class TestTCPAnalyzerCoverageGaps(unittest.TestCase):
         """Redis exception → fail open, return [] (lines 271-274)."""
         async def run():
             redis = MagicMock()
-            redis.incr = AsyncMock(side_effect=redis_module.RedisError("redis down"))
+            redis.pipeline.side_effect = redis_module.RedisError("redis down")
             tcp = self._make(redis=redis)
             ctx = ConnectionContext(client_ip="1.2.3.4")
             signals = await tcp._check_concurrent_connections(ctx)
@@ -385,14 +455,19 @@ class TestTCPAnalyzerCoverageGaps(unittest.TestCase):
         """New visitor (no prior data) → initialise entry, return [] (lines 298-302)."""
         async def run():
             redis = MagicMock()
-            redis.hgetall = AsyncMock(return_value={})  # No existing data
-            redis.hmset = AsyncMock()
-            redis.expire = AsyncMock()
+            
+            # Phase 28a: Mock pipeline
+            pipeline = MagicMock()
+            pipeline.execute = AsyncMock(return_value=[{}, True, 1, 1, True])
+            pipeline.__aenter__ = AsyncMock(return_value=pipeline)
+            pipeline.__aexit__ = AsyncMock(return_value=None)
+            redis.pipeline.return_value = pipeline
+            
             tcp = self._make(redis=redis)
             ctx = ConnectionContext(client_ip="1.2.3.4")
             signals = await tcp._check_return_visitor(ctx)
             self.assertEqual(signals, [])
-            redis.hmset.assert_called_once()  # Initialise entry
+            redis.pipeline.assert_called_once()
 
         asyncio.run(run())
 
@@ -400,7 +475,7 @@ class TestTCPAnalyzerCoverageGaps(unittest.TestCase):
         """Redis exception → fail open, return [] (lines 333-336)."""
         async def run():
             redis = MagicMock()
-            redis.hgetall = AsyncMock(side_effect=redis_module.RedisError("redis down"))
+            redis.pipeline.side_effect = redis_module.RedisError("redis down")
             tcp = self._make(redis=redis)
             ctx = ConnectionContext(client_ip="1.2.3.4")
             signals = await tcp._check_return_visitor(ctx)
@@ -413,14 +488,24 @@ class TestTCPAnalyzerCoverageGaps(unittest.TestCase):
         async def run():
             import time
             redis = MagicMock()
-            redis.hgetall = AsyncMock(return_value={
-                b"first_seen": str(int(time.time() - 3 * 86400)).encode(),  # only 3 days
-                b"total": b"50",
-                b"allowed": b"48",
-            })
-            redis.hset = AsyncMock()
-            redis.hincrby = AsyncMock()
-            redis.expire = AsyncMock()
+            
+            # Phase 28a: Mock pipeline
+            pipeline = MagicMock()
+            pipeline.execute = AsyncMock(return_value=[
+                {
+                    b"first_seen": str(int(time.time() - 3 * 86400)).encode(),  # only 3 days
+                    b"total": b"50",
+                    b"allowed": b"48",
+                },
+                True, # hset
+                51,   # hincrby total
+                49,   # hincrby allowed
+                True  # expire
+            ])
+            pipeline.__aenter__ = AsyncMock(return_value=pipeline)
+            pipeline.__aexit__ = AsyncMock(return_value=None)
+            redis.pipeline.return_value = pipeline
+            
             tcp = self._make(redis=redis)
             ctx = ConnectionContext(client_ip="1.2.3.4")
             signals = await tcp._check_return_visitor(ctx)
@@ -444,13 +529,19 @@ class TestTCPAnalyzerCoverageGaps(unittest.TestCase):
         """count == 1 → expire is set, below threshold → no signal (line 349)."""
         async def run():
             redis = MagicMock()
-            redis.incr = AsyncMock(return_value=1)  # First alert
-            redis.expire = AsyncMock()
+            
+            # Phase 28a: Mock pipeline
+            pipeline = MagicMock()
+            pipeline.execute = AsyncMock(return_value=[1, True])  # First alert
+            pipeline.__aenter__ = AsyncMock(return_value=pipeline)
+            pipeline.__aexit__ = AsyncMock(return_value=None)
+            redis.pipeline.return_value = pipeline
+            
             tcp = self._make(redis=redis)
             ctx = ConnectionContext(client_ip="1.2.3.4", tls_alerts=["close_notify"])
             signals = await tcp._check_tls_alerts(ctx)
             self.assertEqual(signals, [])
-            redis.expire.assert_called_once()
+            redis.pipeline.assert_called_once()
 
         asyncio.run(run())
 
@@ -458,8 +549,14 @@ class TestTCPAnalyzerCoverageGaps(unittest.TestCase):
         """Count ≤ threshold → no signal."""
         async def run():
             redis = MagicMock()
-            redis.incr = AsyncMock(return_value=2)  # ≤ 3
-            redis.expire = AsyncMock()
+            
+            # Phase 28a: Mock pipeline
+            pipeline = MagicMock()
+            pipeline.execute = AsyncMock(return_value=[2, True])  # ≤ 3
+            pipeline.__aenter__ = AsyncMock(return_value=pipeline)
+            pipeline.__aexit__ = AsyncMock(return_value=None)
+            redis.pipeline.return_value = pipeline
+            
             tcp = self._make(redis=redis)
             ctx = ConnectionContext(client_ip="1.2.3.4", tls_alerts=["handshake_failure"])
             signals = await tcp._check_tls_alerts(ctx)
@@ -471,7 +568,7 @@ class TestTCPAnalyzerCoverageGaps(unittest.TestCase):
         """Redis exception → fail open, return [] (lines 359-362)."""
         async def run():
             redis = MagicMock()
-            redis.incr = AsyncMock(side_effect=redis_module.RedisError("redis down"))
+            redis.pipeline.side_effect = redis_module.RedisError("redis down")
             tcp = self._make(redis=redis)
             ctx = ConnectionContext(client_ip="1.2.3.4", tls_alerts=["close_notify"])
             signals = await tcp._check_tls_alerts(ctx)

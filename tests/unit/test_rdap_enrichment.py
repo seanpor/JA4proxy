@@ -69,23 +69,35 @@ def _make_config(**kwargs) -> RDAPConfig:
 
 
 def _make_redis() -> MagicMock:
-    redis = MagicMock()
-    redis.get = AsyncMock(return_value=None)
-    redis.setex = AsyncMock(return_value=True)
-    redis.set = AsyncMock(return_value=True)
-    redis.incr = AsyncMock(return_value=1)
-    redis.decr = AsyncMock(return_value=0)
-    redis.expire = AsyncMock(return_value=True)
-    redis.exists = AsyncMock(return_value=0)
-    redis.sadd = AsyncMock(return_value=1)
-    redis.publish = AsyncMock(return_value=1)
-    redis.lpush = AsyncMock(return_value=1)
-    redis.ltrim = AsyncMock(return_value=True)
-    redis.scan = AsyncMock(return_value=(0, []))
+    redis_mock = MagicMock()
+    redis_mock.get = AsyncMock(return_value=None)
+    redis_mock.setex = AsyncMock(return_value=True)
+    redis_mock.set = AsyncMock(return_value=True)
+    redis_mock.incr = AsyncMock(return_value=1)
+    redis_mock.decr = AsyncMock(return_value=0)
+    redis_mock.expire = AsyncMock(return_value=True)
+    redis_mock.exists = AsyncMock(return_value=0)
+    redis_mock.sadd = AsyncMock(return_value=1)
+    redis_mock.publish = AsyncMock(return_value=1)
+    redis_mock.lpush = AsyncMock(return_value=1)
+    redis_mock.ltrim = AsyncMock(return_value=True)
+    redis_mock.scan = AsyncMock(return_value=(0, []))
+    
+    # Phase 28a: Mock pipeline
+    pipeline = MagicMock()
+    pipeline.incr = MagicMock()
+    pipeline.expire = MagicMock()
+    pipeline.lpush = MagicMock()
+    pipeline.ltrim = MagicMock()
+    pipeline.execute = AsyncMock(return_value=[1, True])
+    pipeline.__aenter__ = AsyncMock(return_value=pipeline)
+    pipeline.__aexit__ = AsyncMock(return_value=None)
+    redis_mock.pipeline = MagicMock(return_value=pipeline)
+    
     bf = MagicMock()
     bf.add = AsyncMock(return_value=1)
-    redis.bf = MagicMock(return_value=bf)
-    return redis
+    redis_mock.bf = MagicMock(return_value=bf)
+    return redis_mock
 
 
 def _make_enricher(config=None, redis=None, local_cache=None, session=None,
@@ -421,9 +433,10 @@ class TestBlockExpansionGuards(unittest.IsolatedAsyncioTestCase):
         parsed = json.loads(msg)
         self.assertEqual(parsed["type"], "cidr_ban_add")
         self.assertEqual(parsed["value"], "1.2.3.0/24")
-        # audit log written
-        redis.lpush.assert_called_once()
-        redis.ltrim.assert_called_once()
+        # audit log written via pipeline
+        redis.pipeline.assert_called()
+        redis.pipeline.return_value.lpush.assert_called_once()
+        redis.pipeline.return_value.ltrim.assert_called_once()
 
     async def test_max_expansions_per_hour_exceeded(self):
         """Rate limit exceeded → expansion skipped; counter rolled back via DECR."""
@@ -439,7 +452,8 @@ class TestBlockExpansionGuards(unittest.IsolatedAsyncioTestCase):
         )
         redis = _make_redis()
         redis.exists = AsyncMock(return_value=0)
-        redis.incr = AsyncMock(return_value=6)  # > max_expansions_per_hour=5
+        # Mock pipeline to return 6 for incr
+        redis.pipeline.return_value.execute = AsyncMock(return_value=[6, True])
         redis.decr = AsyncMock(return_value=5)
 
         enricher = _make_enricher(config=config, redis=redis)

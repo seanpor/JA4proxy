@@ -44,6 +44,7 @@ services:
     volumes:
       - ./config:/app/config:ro
       - ./logs:/app/logs
+      - redis-sock:/var/run/redis
     environment:
       - CONFIG_PATH=/app/config/proxy.yml
       - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
@@ -51,6 +52,7 @@ services:
       # Backend destination — override in .env for production (BACKEND_HOST=your.server.ip)
       - BACKEND_HOST=${BACKEND_HOST:-backend}
       - BACKEND_PORT=${BACKEND_PORT:-443}
+      - REDIS_UNIX_SOCKET_PATH=/var/run/redis/redis.sock
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
     networks:
@@ -79,12 +81,13 @@ services:
       - "127.0.0.1:6379:6379"
     environment:
       # redis/redis-stack passes extra flags via REDIS_ARGS (see /entrypoint.sh)
-      - REDIS_ARGS=--requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required} --maxmemory 256mb --maxmemory-policy allkeys-lru --hz 20 --tcp-keepalive 60 --save ""
+      - REDIS_ARGS=--requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required} --maxmemory 256mb --maxmemory-policy allkeys-lru --hz 20 --tcp-keepalive 60 --save "" --unixsocket /var/run/redis/redis.sock --unixsocketperm 777
     # Redis not exposed to host — only accessible from backend network
     networks:
       - ja4proxy-backend
     volumes:
       - redis_data:/data
+      - redis-sock:/var/run/redis
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -273,6 +276,7 @@ services:
 
 volumes:
   redis_data:
+  redis-sock:
 
 networks:
   ja4proxy-frontend:
