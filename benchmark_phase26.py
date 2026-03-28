@@ -122,7 +122,7 @@ security_policy:
                 ja4=f"t13d_test_fingerprint_{i % 10}",
                 alpn="h2" if i % 5 == 0 else "",  # 20% browser traffic
                 sni=f"example{i % 10}.com",
-                tls_version="TLSv1.3",
+                tls_version=0x0304,
                 cipher_list=[0x1301, 0x1302],
                 client_certificate=None,
                 country="US"
@@ -201,7 +201,7 @@ security_policy:
                 ja4="t13d_test_fingerprint",
                 alpn="h2",
                 sni="example.com",
-                tls_version="TLSv1.3",
+                tls_version=0x0304,
                 cipher_list=[0x1301, 0x1302],
                 client_certificate=None,
                 country="US"
@@ -219,7 +219,7 @@ security_policy:
                 ja4="a" * 300,  # Too long
                 alpn="h2",
                 sni="example.com",
-                tls_version="TLSv1.3",
+                tls_version=0x0304,
                 cipher_list=[0x1301, 0x1302],
                 client_certificate=None,
                 country="US"
@@ -237,7 +237,7 @@ security_policy:
                 ja4="t13d_test_fingerprint",
                 alpn="h2",  # Browser traffic
                 sni="example.com",
-                tls_version="TLSv1.3",
+                tls_version=0x0304,
                 cipher_list=[0x1301, 0x1302],
                 client_certificate=None,
                 country="US"
