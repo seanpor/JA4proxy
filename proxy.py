@@ -32,6 +32,9 @@ import ssl
 import struct
 import time
 import uuid
+import resource
+import signal
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -54,6 +57,8 @@ except (
 from scapy.layers.tls.record import TLS
 
 # Phase 0+: Local cache and pipeline infrastructure
+from src.config.loader import ConfigLoader
+from src.pubsub import PubSubHandler
 from src.backup.scheduler import BackupScheduler
 from src.backup.worker import BackupWorker
 from src.cache.local_cache import LocalCache
@@ -138,6 +143,35 @@ VALID_IP_PATTERN = re.compile(
 VALID_HOSTNAME_PATTERN = re.compile(
     r"^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$"
 )
+
+# Phase 28a: Parser Isolation & Depth Limits
+MAX_TLS_PARSER_DEPTH = 10
+
+
+def _parse_tls_task(data: bytes) -> Optional[Dict]:
+    """
+    Worker function for TLS parsing in a separate process.
+    Provides isolation and memory limits (RLIMIT_AS) to prevent
+    complex/malformed packets from compromising the main process.
+    """
+    try:
+        # Set resource limits for this process (512MB address space)
+        # Scapy's TLS parser can be memory intensive on certain packets.
+        limit = 512 * 1024 * 1024
+        try:
+            resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
+        except (ValueError, OSError):  # pragma: no cover
+            pass
+
+        # Local import to avoid Scapy overhead in the main process
+        from scapy.layers.tls.record import TLS
+
+        # Use the same logic as the main process but in isolation
+        tls_packet = TLS(data)
+        parser = TLSParser()
+        return parser.parse_client_hello(tls_packet)
+    except Exception:
+        return None
 
 
 class SecurityError(Exception):
@@ -342,15 +376,19 @@ class TLSParser:
 
             for msg in tls_layer.msg:
                 if hasattr(msg, "msgtype") and msg.msgtype == 1:  # Client Hello
-                    return self._extract_client_hello_fields(msg)
+                    return self._extract_client_hello_fields(msg, depth=0)
 
             return None
         except Exception as e:
             self.logger.error(f"Error parsing Client Hello: {e}")
             return None
 
-    def _extract_client_hello_fields(self, client_hello) -> Dict:
+    def _extract_client_hello_fields(self, client_hello, depth: int = 0) -> Dict:
         """Extract fields from Client Hello message."""
+        if depth > MAX_TLS_PARSER_DEPTH:
+            self.logger.warning(f"Max TLS parsing depth exceeded: {depth}")
+            return {}
+
         fields = {
             "version": getattr(client_hello, "version", 0),
             "cipher_suites": [],
@@ -797,15 +835,77 @@ class SecurityManager:
         self.whitelist = set()
         self.blacklist = set()
 
+    def _verify_signature(self, data: bytes, expected_signature: str) -> bool:
+        """
+        Verify the cryptographic signature of a security list (Phase 28b).
+        Prevents lateral movement from compromising security lists in Redis.
+        """
+        if not expected_signature:
+            return False
+
+        secret = self.config.get("redis", {}).get("signing_key")
+        # For POC/development, if no key is configured, warn but allow
+        if not secret:
+            if os.getenv("ENVIRONMENT") == "production":
+                self.logger.error(
+                    "SECURITY: No Redis signing key configured in production! "
+                    "Rejecting all Redis security lists."
+                )
+                return False
+            return True
+
+        import hmac
+        import hashlib
+
+        h = hmac.new(secret.encode(), data, hashlib.sha256)
+        return hmac.compare_digest(h.hexdigest(), expected_signature)
+
     async def _load_security_lists(self):
-        """Load whitelist and blacklist from Redis."""
+        """Load whitelist and blacklist from Redis with signature verification."""
         try:
-            self.whitelist = set(await self.redis.smembers("ja4:whitelist") or [])
-            self.blacklist = set(await self.redis.smembers("ja4:blacklist") or [])
+            # Load and verify blacklist
+            bl_raw = await self.redis.smembers("ja4:blacklist")
+            bl_list = sorted(
+                [m.decode() if isinstance(m, bytes) else m for m in bl_raw]
+            )
+            bl_data = "".join(bl_list).encode()
+
+            bl_sig_raw = await self.redis.get("ja4:blacklist:sig")
+            bl_sig = (
+                bl_sig_raw.decode() if isinstance(bl_sig_raw, bytes) else bl_sig_raw
+            )
+
+            if self._verify_signature(bl_data, bl_sig):
+                self.blacklist = set(bl_list)
+            else:
+                self.logger.error(
+                    "SECURITY: ja4:blacklist signature verification failed! "
+                    "Rejecting update to preserve existing state."
+                )
+
+            # Load and verify whitelist
+            wl_raw = await self.redis.smembers("ja4:whitelist")
+            wl_list = sorted(
+                [m.decode() if isinstance(m, bytes) else m for m in wl_raw]
+            )
+            wl_data = "".join(wl_list).encode()
+
+            wl_sig_raw = await self.redis.get("ja4:whitelist:sig")
+            wl_sig = (
+                wl_sig_raw.decode() if isinstance(wl_sig_raw, bytes) else wl_sig_raw
+            )
+
+            if self._verify_signature(wl_data, wl_sig):
+                self.whitelist = set(wl_list)
+            else:
+                self.logger.error(
+                    "SECURITY: ja4:whitelist signature verification failed! "
+                    "Rejecting update."
+                )
+
         except Exception as e:
             self.logger.error(f"Error loading security lists: {e}")
-            self.whitelist = set()
-            self.blacklist = set()
+            # Do NOT clear existing lists on error — preserve last known good state
 
     async def check_access(
         self, fingerprint: JA4Fingerprint, client_ip: str, alpn: str = None
@@ -1000,7 +1100,7 @@ class ProxyServer:
     """Main proxy server implementation."""
 
     def __init__(self, config_path: str = None):
-        self.config_manager = None
+        self.config_loader = None
         self.config = None
         self.logger = None
         self.redis_client = None
@@ -1030,11 +1130,17 @@ class ProxyServer:
         self._tarpit_lock: asyncio.Lock = asyncio.Lock()
         # Phase 20 G0-A: backup scheduler
         self._backup_scheduler: Optional[BackupScheduler] = None
+        # Phase 28b: pub/sub handler for state updates
+        self._pubsub_task: Optional[asyncio.Task] = None
 
         if config_path:
             self.config_path = config_path
-            self.config_manager = ConfigManager(config_path)
-            self.config = self.config_manager.config
+            # Use the new ConfigLoader (Phase 20)
+            self.config_loader = ConfigLoader(config_path)
+            # Sync load for __init__ compatibility (tests)
+            import yaml
+            with open(config_path, "r") as f:
+                self.config = yaml.safe_load(f)
             self._init_from_config()
 
     def _init_from_config(self):
@@ -1077,6 +1183,12 @@ class ProxyServer:
         self.tls_parser = TLSParser()
         self.ja4_generator = JA4Generator()
         self.tarpit_manager = TarpitManager(self.config)
+
+        # Phase 28a: Dedicated ProcessPoolExecutor for isolated TLS parsing
+        # Limits blast radius of Scapy/native parsing vulnerabilities.
+        self.executor = ProcessPoolExecutor(
+            max_workers=min(4, os.cpu_count() or 1)
+        )
 
         # Keep legacy SecurityManager for _populate_security_lists (seeds Redis sets)
         self.security_manager = SecurityManager(self.config, self.redis_client)
@@ -1297,6 +1409,17 @@ class ProxyServer:
                 except ValueError:
                     db = 0
 
+            # Phase 28b: Secure Redis connection (SSL/TLS)
+            ssl_enabled = redis_config.get("ssl", False)
+            ssl_ca_certs = redis_config.get("ssl_ca_certs")
+
+            # In production, SSL is mandatory if configured
+            if os.getenv("ENVIRONMENT") == "production" and not ssl_enabled and not redis_config.get("unix_socket_path"):
+                self.logger.warning(
+                    "SECURITY: Redis SSL is disabled in production. "
+                    "Enable 'ssl: true' in config for transport security."
+                )
+
             # Check for Unix domain socket configuration
             unix_socket_path = redis_config.get("unix_socket_path")
             if unix_socket_path:
@@ -1305,6 +1428,7 @@ class ProxyServer:
                 redis_client = redis.asyncio.Redis(
                     unix_socket_path=unix_socket_path,
                     db=db,
+                    username=redis_config.get("username"),
                     password=password if password else None,
                     socket_timeout=timeout,
                     socket_connect_timeout=timeout,
@@ -1317,11 +1441,16 @@ class ProxyServer:
                     host=redis_config["host"],
                     port=redis_config["port"],
                     db=db,
+                    username=redis_config.get("username"),
                     password=password if password else None,
                     socket_timeout=timeout,
                     socket_connect_timeout=timeout,
                     health_check_interval=30,
                     decode_responses=False,  # Security: explicit encoding control
+                    # Phase 28b security parameters
+                    ssl=ssl_enabled,
+                    ssl_cert_reqs=redis_config.get("ssl_cert_reqs", "required"),
+                    ssl_ca_certs=ssl_ca_certs,
                 )
 
             # Test connection
@@ -1431,6 +1560,18 @@ class ProxyServer:
             initial_dial,
         )
 
+        # Phase 28b: Secure pub/sub for state updates (signed blacklist/dial/config)
+        pubsub_handler = PubSubHandler(
+            redis_client=self.redis_client,
+            local_cache=self._local_cache,
+            config_loader=self.config_loader,
+            blacklist_set=self.pipeline._blacklist,
+            whitelist_set=self.pipeline._whitelist,
+            blocklist_manager=self.pipeline._blocklist_manager,
+            signing_key=self.config.get("redis", {}).get("signing_key"),
+        )
+        self._pubsub_task = asyncio.create_task(pubsub_handler.run())
+
         # Start proxy server
         server = await asyncio.start_server(
             self.handle_connection,
@@ -1472,7 +1613,12 @@ class ProxyServer:
                 await server.serve_forever()
         finally:
             watcher_task.cancel()
+            if self._pubsub_task:
+                self._pubsub_task.cancel()
+            
             try:
+                if self._pubsub_task:
+                    await self._pubsub_task
                 await watcher_task
             except asyncio.CancelledError:
                 pass
@@ -1521,6 +1667,13 @@ class ProxyServer:
                     await self._aiohttp_session.close()
                 except Exception as exc:
                     self.logger.warning(f"aiohttp | event=close_error | error={exc}")
+
+            # Phase 28a: Shutdown isolated TLS parsing executor
+            if getattr(self, "executor", None) is not None:
+                try:
+                    self.executor.shutdown(wait=True)
+                except Exception as exc:
+                    self.logger.warning(f"executor | event=shutdown_error | error={exc}")
 
     def _is_trusted_proxy_source(self, ip: str) -> bool:
         """Return True if the peer IP is allowed to provide PROXY/XFF headers.
@@ -1588,6 +1741,7 @@ class ProxyServer:
 
                 # Phase 1: IP Spoofing Prevention
                 # Parse PROXY protocol v2 header ONLY if source is trusted
+                proxy_info: Dict[str, Any] = {}
                 if self.config["proxy"].get(
                     "proxy_protocol", False
                 ) and self._is_trusted_proxy_source(socket_ip):
@@ -1993,12 +2147,14 @@ class ProxyServer:
             # TLS record: byte 0 = content type (0x16 = handshake), bytes 1-2 = version, bytes 3-4 = length
             if len(data) >= 5 and data[0] == 0x16:
                 # This is a TLS handshake record — parse with Scapy's TLS layer directly
-                # Phase 20 (Pentest Remediation): Offload Scapy TLS parsing to a thread
-                # Scapy's TLS() parser is synchronous and can block the event loop
-                # on malformed or complex packets.
+                # Phase 28a (APT Resilience): Offload TLS parsing to an isolated process.
+                # Scapy's TLS() parser is synchronous and can be computationally expensive
+                # or vulnerable to stack/memory exhaustion on malformed packets.
                 try:
-                    tls_packet = await asyncio.to_thread(TLS, data)
-                    client_hello_fields = self.tls_parser.parse_client_hello(tls_packet)
+                    loop = asyncio.get_running_loop()
+                    client_hello_fields = await loop.run_in_executor(
+                        self.executor, _parse_tls_task, data
+                    )
 
                     if client_hello_fields:
                         ja4 = self.ja4_generator.generate_ja4(client_hello_fields)

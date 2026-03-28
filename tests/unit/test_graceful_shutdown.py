@@ -48,6 +48,11 @@ def _make_server_stub(drain_timeout: float = 1.0) -> ProxyServer:
     s._dial_manager = MagicMock()
     s._dial_manager.initialize = AsyncMock(return_value=0)
     s._local_cache = MagicMock()
+    s.config_loader = MagicMock()
+    s.pipeline = MagicMock()
+    s.pipeline._blacklist = set()
+    s.pipeline._whitelist = set()
+    s.pipeline._blocklist_manager = MagicMock()
     s._local_cache.dial = 0
     s.pipeline = MagicMock()
     s.pipeline.start = AsyncMock()

@@ -98,8 +98,8 @@ def _make_server_stub():
         "geoip": {},
     }
     s.logger = logging.getLogger("proxy")
-    s.redis_client = MagicMock()
-    s.redis_client.sismember = MagicMock(return_value=False)
+    s.redis_client = AsyncMock()
+    s.redis_client.sismember = AsyncMock(return_value=False)
     s.tls_parser = TLSParser()
     s.ja4_generator = JA4Generator()
     s.tarpit_manager = MagicMock()
@@ -125,6 +125,8 @@ def _make_server_stub():
     s._cidr_cache_ttl = 30
     s.active_connections = 0
     s._conn_semaphore = asyncio.Semaphore(MAX_CONCURRENT_CONNECTIONS)
+    s.executor = None
+    s.config_loader = MagicMock()
     # Phase 2: dial manager and local cache for start()
     s._dial_manager = MagicMock()
     s._dial_manager.initialize = AsyncMock(return_value=0)
@@ -780,8 +782,12 @@ class TestProxyServerInitLogging:
         mock_redis.smembers = MagicMock(return_value=set())
         mock_redis.sadd = MagicMock(return_value=1)
 
+        import yaml
+        from unittest.mock import mock_open
         with (
-            patch("proxy.ConfigManager", return_value=mock_cm),
+            patch("proxy.ConfigLoader"),
+            patch("builtins.open", mock_open(read_data=yaml.dump(config))),
+            patch("yaml.safe_load", return_value=config),
             patch("proxy.redis.Redis", return_value=mock_redis),
             patch("proxy.SecurityManager") as mock_sec,
             patch("proxy.Pipeline"),
@@ -844,8 +850,12 @@ class TestProxyServerInitLogging:
         mock_redis.smembers = MagicMock(return_value=set())
         mock_redis.sadd = MagicMock(return_value=1)
 
+        import yaml
+        from unittest.mock import mock_open
         with (
-            patch("proxy.ConfigManager", return_value=mock_cm),
+            patch("proxy.ConfigLoader"),
+            patch("builtins.open", mock_open(read_data=yaml.dump(config))),
+            patch("yaml.safe_load", return_value=config),
             patch("proxy.redis.Redis", return_value=mock_redis),
             patch("proxy.SecurityManager") as mock_sec,
             patch("proxy.Pipeline"),
@@ -1050,21 +1060,23 @@ class TestExtractClientIpInvalidRealIP:
 class TestAnalyzeTlsHandshakeVersions:
     def _make_server_with_analyze(self):
         server = _make_server_stub()
-        server.redis_client.hset = MagicMock()
-        server.redis_client.expire = MagicMock()
+        server.redis_client.hset = AsyncMock()
+        server.redis_client.expire = AsyncMock()
         return server
 
     def _analyze(self, server, fields):
-        """Run _analyze_tls_handshake with mock tls_parser returning given fields."""
+        """Run _analyze_tls_handshake with mock executor returning given fields."""
         data = b"\x16\x03\x01\x00\x10" + b"\x00" * 16  # TLS record header
-        server.tls_parser = MagicMock()
-        server.tls_parser.parse_client_hello = MagicMock(return_value=fields)
         server.ja4_generator = MagicMock()
         server.ja4_generator.generate_ja4 = MagicMock(
             return_value="t13d1516h2_aabbccddeeff_aabbccddeeff"
         )
-        mock_tls = MagicMock()
-        with patch("proxy.TLS", return_value=mock_tls):
+        # Phase 28a: Mock run_in_executor since it now offloads to a process pool
+        with patch("asyncio.get_running_loop") as mock_get_loop:
+            mock_loop = MagicMock()
+            # Return fields directly as if they were returned by the worker
+            mock_loop.run_in_executor = AsyncMock(return_value=fields)
+            mock_get_loop.return_value = mock_loop
             return _run(server._analyze_tls_handshake(data, "1.2.3.4"))
 
     def test_tls_13_via_supported_versions(self):
@@ -1503,11 +1515,16 @@ class TestSecurityManagerCoverageGaps:
         async def run():
             sm, redis = self._make_security_manager()
             redis.smembers = AsyncMock(side_effect=[
-                {b"fp1", b"fp2"},  # whitelist
                 {b"fp3"},          # blacklist
+                {b"fp1", b"fp2"},  # whitelist
             ])
+            redis.get = AsyncMock(side_effect=[
+                b"sig1", # blacklist sig
+                b"sig2"  # whitelist sig
+            ])
+            sm._verify_signature = MagicMock(return_value=True)
             await sm._load_security_lists()
-            assert b"fp3" in sm.blacklist
+            assert "fp3" in sm.blacklist
 
         asyncio.run(run())
 
@@ -1671,6 +1688,8 @@ class TestProxyServerShutdownCoverageGaps:
         server._tarpit_per_ip = {}
         server._tarpit_lock = asyncio.Lock()
         server._conn_semaphore = asyncio.Semaphore(100)
+        server.executor = None
+        server.config_loader = MagicMock()
         server.pipeline = MagicMock()
         server.pipeline.start = AsyncMock()
         server.pipeline.stop = AsyncMock()
@@ -1679,7 +1698,7 @@ class TestProxyServerShutdownCoverageGaps:
         server._dial_manager = MagicMock()
         server._dial_manager.initialize = AsyncMock(return_value=0)
         server._local_cache = MagicMock()
-        server.redis_client = MagicMock()
+        server.redis_client = AsyncMock()
         server._backup_scheduler = None
         return server
 

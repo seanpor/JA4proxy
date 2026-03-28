@@ -94,7 +94,7 @@ class TestASNClassifierChaos:
 
     def test_tor_list_download_failure_retains_cache(self):
         """Tor list download fails → last known list retained, no crash."""
-        mock_redis = MagicMock()
+        mock_redis = AsyncMock()
         mock_redis.smembers.side_effect = ConnectionError("Redis down")
 
         config = {
@@ -118,7 +118,7 @@ class TestASNClassifierChaos:
 
     def test_redis_leader_election_failure_uses_cached(self):
         """Redis leader election fails → use cached Tor list if available."""
-        mock_redis = MagicMock()
+        mock_redis = AsyncMock()
         mock_redis.set.side_effect = ConnectionError("Redis down")
         mock_redis.smembers.return_value = {b"1.2.3.4", b"5.6.7.8"}
 
@@ -153,7 +153,7 @@ class TestASNClassifierChaos:
 
     def test_tor_list_refresh_loop_continues_after_error(self):
         """Tor refresh loop continues running after transient error."""
-        mock_redis = MagicMock()
+        mock_redis = AsyncMock()
         refresh_count = 0
 
         config = {

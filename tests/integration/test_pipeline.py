@@ -709,8 +709,13 @@ def _make_shutdown_server_stub(drain_timeout: float = 0.5, active: int = 0):
     s.redis_client = MagicMock()
     s.active_connections = active
     s._dial_manager = MagicMock()
-    s._dial_manager.initialize = MagicMock(return_value=0)
+    s._dial_manager.initialize = AsyncMock(return_value=0)
     s._local_cache = MagicMock()
+    s.config_loader = MagicMock()
+    s.pipeline = MagicMock()
+    s.pipeline._blacklist = set()
+    s.pipeline._whitelist = set()
+    s.pipeline._blocklist_manager = MagicMock()
     s._local_cache.dial = 0
     s._abuseipdb_checker = None
     s._rdap_enricher = None
