@@ -30,10 +30,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Integrate external threat intelligence feeds (AbuseIPDB, AlienVault OTX, GreyNoise). Target: Real-time IP reputation.)
 *   **Action Plan:** [PHASE_23_WORK_PLAN.md](PHASE_23_WORK_PLAN.md)
 
-### Phase 29 — Python Throughput Hardening - Phase 3: Multi-Process Architecture
-*   **Status:** **PROPOSED** (Implement multi-process worker model with Docker Compose and HAProxy load balancing. Target: Linear scaling to 4 workers.)
-*   **Action Plan:** [PHASE_29_WORK_PLAN.md](PHASE_29_WORK_PLAN.md)
-
 ### Phase 30 — Python Throughput Hardening - Phase 4: Write Optimization & Benchmarking
 *   **Status:** **PROPOSED** (Add deferred write batching and comprehensive benchmark validation. Target: Final performance report.)
 *   **Action Plan:** [PHASE_30_WORK_PLAN.md](PHASE_30_WORK_PLAN.md)
