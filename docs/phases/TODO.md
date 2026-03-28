@@ -34,10 +34,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **OPEN** (Pin image versions, fix CVE scan gaps, first-party image scanning, image update policy.)
 *   **Action Plan:** [PHASE_25.md](PHASE_25.md)
 
-### Phase 26 — Python Throughput Hardening - Phase 1: Async I/O Optimization
-*   **Status:** **OPEN** (Implement asyncio.gather for parallel signal collection to maximize CPU utilization. Target: 20-30% throughput improvement.)
-*   **Action Plan:** [PHASE_26.md](PHASE_26.md)
-
 ### Phase 28 — Python Throughput Hardening - Phase 2: Redis Optimization
 *   **Status:** **PROPOSED** (Add Redis pipeline batching and Unix domain socket support. Target: 30-40% Redis latency reduction.)
 *   **Action Plan:** [PHASE_28_WORK_PLAN.md](PHASE_28_WORK_PLAN.md)
