@@ -320,7 +320,7 @@ phases:
 
   30:
     name: "Python Throughput Hardening - Phase 4: Write Optimization & Benchmarking"
-    status: "PROPOSED"
+    status: "OPEN"
     summary: "Add deferred write batching and comprehensive benchmark validation. Target: Final performance report."
     action_plan: "docs/phases/PHASE_30_WORK_PLAN.md"
     dependencies: [29]

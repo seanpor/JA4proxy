@@ -31,7 +31,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Action Plan:** [PHASE_23_WORK_PLAN.md](PHASE_23_WORK_PLAN.md)
 
 ### Phase 30 — Python Throughput Hardening - Phase 4: Write Optimization & Benchmarking
-*   **Status:** **PROPOSED** (Add deferred write batching and comprehensive benchmark validation. Target: Final performance report.)
+*   **Status:** **OPEN** (Add deferred write batching and comprehensive benchmark validation. Target: Final performance report.)
 *   **Action Plan:** [PHASE_30_WORK_PLAN.md](PHASE_30_WORK_PLAN.md)
 
 ### Phase 31 — Advanced Traffic Intelligence - Phase 2: Geographical Intelligence

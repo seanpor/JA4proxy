@@ -114,8 +114,24 @@ _WEAK_CIPHER_TOTAL = Counter(
 # ---------------------------------------------------------------------------
 
 
-def _version_label(version: int) -> str:
+def _version_label(version: int | str) -> str:
     """Human-readable TLS version label for Prometheus and logs."""
+    if isinstance(version, str):
+        # Handle string input (e.g. from benchmarks or malformed ClientHello)
+        mapping = {
+            "SSLv3": SSL3,
+            "TLSv1.0": TLS10,
+            "TLSv1.1": TLS11,
+            "TLSv1.2": TLS12,
+            "TLSv1.3": TLS13,
+            "TLSv1": TLS10,
+        }
+        version_int = mapping.get(version)
+        if version_int is not None:
+            version = version_int
+        else:
+            return f"unknown_{version}"
+
     return {
         SSL3: "ssl3",
         TLS10: "tls10",
