@@ -161,10 +161,10 @@ phases:
 
   20:
     name: "Passive TAP Mode"
-    status: "OPEN"
-    summary: "AF_PACKET capture and out-of-band enforcement."
+    status: "COMPLETE"
+    summary: "AF_PACKET capture, full JA4 fingerprint family, out-of-band enforcement, and intelligence export."
+    completed: "2026-03-28"
     action_plan: "docs/phases/PHASE_20_WORK_PLAN.md"
-    size: "LARGE"  # 5-8 weeks: Network capture integration, protocol parsing, enforcement logic
 
   21:
     name: "Documentation Excellence"

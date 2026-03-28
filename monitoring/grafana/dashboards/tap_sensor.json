@@ -1,0 +1,385 @@
+{
+  "__inputs": [],
+  "__requires": [
+    {"type": "grafana", "id": "grafana", "name": "Grafana", "version": "9.0.0"},
+    {"type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0"}
+  ],
+  "id": null,
+  "uid": "ja4proxy-tap-sensor",
+  "title": "JA4 Proxy - TAP Sensor",
+  "tags": ["ja4", "tap", "passive", "capture"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "10s",
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {
+    "refresh_intervals": ["5s", "10s", "30s", "1m", "5m"]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Capture",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0}
+    },
+    {
+      "id": 2,
+      "title": "Packets / s",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "pps",
+          "min": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        }
+      },
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "list", "placement": "bottom"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "rate(ja4proxy_tap_packets_received_total[1m])",
+          "legendFormat": "received ({{ interface }})"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Drop Rate / s",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "pps",
+          "min": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        }
+      },
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "list", "placement": "bottom"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "rate(ja4proxy_tap_packets_dropped_total[1m])",
+          "legendFormat": "dropped ({{ interface }}, {{ reason }})"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Ring Buffer Fill Ratio",
+      "type": "gauge",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 0.7},
+              {"color": "orange", "value": 0.85},
+              {"color": "red", "value": 0.9}
+            ]
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        }
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"]},
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "ja4proxy_tap_ring_buffer_fill_ratio",
+          "legendFormat": "{{ interface }}",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Reassembly",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 9}
+    },
+    {
+      "id": 6,
+      "title": "Active Streams",
+      "type": "stat",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 10},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 500000},
+              {"color": "orange", "value": 800000},
+              {"color": "red", "value": 900000}
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "ja4proxy_tap_streams_active",
+          "legendFormat": "Active streams",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Stream Evictions / s",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 16, "x": 8, "y": 10},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "ops",
+          "min": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        }
+      },
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "list", "placement": "bottom"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "rate(ja4proxy_tap_stream_evictions_total[1m])",
+          "legendFormat": "evicted ({{ reason }})"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Fingerprinting",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 18}
+    },
+    {
+      "id": 9,
+      "title": "Fingerprints Extracted / s — by Type",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 19},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "ops",
+          "min": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        }
+      },
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "list", "placement": "bottom"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "rate(ja4proxy_tap_fingerprints_extracted_total[1m])",
+          "legendFormat": "{{ type }}"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Fingerprint Processing Latency (p99)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 19},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        }
+      },
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "list", "placement": "bottom"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "histogram_quantile(0.99, rate(ja4proxy_tap_fingerprint_processing_seconds_bucket[5m]))",
+          "legendFormat": "p99 {{ type }}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Pipeline",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 27}
+    },
+    {
+      "id": 12,
+      "title": "Score Distribution",
+      "type": "histogram",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "short"
+        }
+      },
+      "options": {
+        "bucketSize": "auto",
+        "fillOpacity": 80,
+        "gradientMode": "none",
+        "tooltip": {"mode": "single"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "rate(ja4proxy_tap_pipeline_score_distribution_bucket[5m])",
+          "legendFormat": "score bucket {{ le }}"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "Pipeline Actions / s",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "ops",
+          "min": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        }
+      },
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "list", "placement": "bottom"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "rate(ja4proxy_tap_pipeline_actions_total[1m])",
+          "legendFormat": "{{ action }}"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "Export & Enforcement",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 36}
+    },
+    {
+      "id": 15,
+      "title": "Export Events / s — by Exporter",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 37},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "ops",
+          "min": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        }
+      },
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "list", "placement": "bottom"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "rate(ja4proxy_tap_export_events_total[1m])",
+          "legendFormat": "{{ exporter }} / {{ event_type }}"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "title": "Enforcement Action Latency (p95)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 37},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "s",
+          "min": 0,
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        }
+      },
+      "options": {
+        "tooltip": {"mode": "multi"},
+        "legend": {"displayMode": "list", "placement": "bottom"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+          "expr": "histogram_quantile(0.95, rate(ja4proxy_tap_enforcement_latency_seconds_bucket[5m]))",
+          "legendFormat": "p95 {{ backend }}"
+        }
+      ]
+    }
+  ]
+}

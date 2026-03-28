@@ -1,0 +1,208 @@
+# OS fingerprint database for JA4proxy TAP mode (Phase 20)
+#
+# Format:
+#   Each entry maps a TCP SYN fingerprint (JA4T-style) to an OS family.
+#   Used by the TAP pipeline to correlate OS fingerprint with User-Agent.
+#
+# JA4T format: {window_size}_{mss}_{wscale}_{tcp_options_order}
+#   tcp_options_order: comma-separated option kinds (2=MSS, 3=WS, 4=SACK, 8=TS, 0=EOL, 1=NOP)
+#
+# References:
+#   p0f v3 fingerprint database (https://lcamtuf.coredump.cx/p0f3/)
+#   https://github.com/nicowillis/os-fingerprint-reference
+#
+# os_family values: linux, windows, macos, ios, android, freebsd, other
+
+signatures:
+
+  # ── Linux ────────────────────────────────────────────────────────────────
+
+  - window_size: 29200
+    mss: 1460
+    wscale: 7
+    tcp_options: [2, 4, 8, 1, 3]
+    os_family: linux
+    os_detail: "Linux 3.11+"
+    notes: "Most common Linux kernel 3.11+ default"
+
+  - window_size: 65535
+    mss: 1460
+    wscale: 6
+    tcp_options: [2, 4, 8, 1, 3]
+    os_family: linux
+    os_detail: "Linux 4.x+"
+
+  - window_size: 32768
+    mss: 1460
+    wscale: 7
+    tcp_options: [2, 4, 8, 1, 3]
+    os_family: linux
+    os_detail: "Linux older kernel"
+
+  - window_size: 65495
+    mss: 65495
+    wscale: null
+    tcp_options: [2, 4, 8, 1, 3]
+    os_family: linux
+    os_detail: "Linux loopback"
+
+  # ── Windows ──────────────────────────────────────────────────────────────
+
+  - window_size: 65535
+    mss: 1460
+    wscale: 8
+    tcp_options: [2, 4, 8, 1, 3]
+    os_family: windows
+    os_detail: "Windows 10 / Server 2016+"
+
+  - window_size: 64240
+    mss: 1460
+    wscale: 8
+    tcp_options: [2, 4, 8, 1, 3]
+    os_family: windows
+    os_detail: "Windows 10 (common variant)"
+
+  - window_size: 65535
+    mss: 1452
+    wscale: 8
+    tcp_options: [2, 4, 8, 1, 3]
+    os_family: windows
+    os_detail: "Windows 10 (PPPoE link)"
+
+  - window_size: 8192
+    mss: 1460
+    wscale: 8
+    tcp_options: [2, 4, 8, 1, 3]
+    os_family: windows
+    os_detail: "Windows Vista / 7"
+
+  - window_size: 65535
+    mss: 1460
+    wscale: 2
+    tcp_options: [2, 4, 8, 1, 3]
+    os_family: windows
+    os_detail: "Windows XP"
+
+  # ── macOS ─────────────────────────────────────────────────────────────────
+
+  - window_size: 65535
+    mss: 1460
+    wscale: 6
+    tcp_options: [2, 1, 3, 1, 1, 8, 10, 4, 2]
+    os_family: macos
+    os_detail: "macOS 10.15+ (Catalina and later)"
+
+  - window_size: 65535
+    mss: 1460
+    wscale: 5
+    tcp_options: [2, 1, 1, 8, 10, 1, 3, 4, 2]
+    os_family: macos
+    os_detail: "macOS 10.13 High Sierra"
+
+  - window_size: 65535
+    mss: 1460
+    wscale: 4
+    tcp_options: [2, 1, 3, 1, 1, 8, 10, 4, 2]
+    os_family: macos
+    os_detail: "macOS 10.11 El Capitan"
+
+  # ── iOS ──────────────────────────────────────────────────────────────────
+
+  - window_size: 65535
+    mss: 1460
+    wscale: 6
+    tcp_options: [2, 1, 3, 1, 1, 8, 10, 4, 2]
+    os_family: ios
+    os_detail: "iOS 14+"
+    notes: "Shares fingerprint with macOS — differentiate via User-Agent"
+
+  - window_size: 65535
+    mss: 1440
+    wscale: 6
+    tcp_options: [2, 1, 3, 1, 1, 8, 10, 4, 2]
+    os_family: ios
+    os_detail: "iOS 13 (LTE MTU)"
+
+  # ── Android ──────────────────────────────────────────────────────────────
+
+  - window_size: 65535
+    mss: 1460
+    wscale: 8
+    tcp_options: [2, 4, 8, 1, 3]
+    os_family: android
+    os_detail: "Android 10+ (Google Pixel)"
+
+  - window_size: 29200
+    mss: 1460
+    wscale: 8
+    tcp_options: [2, 4, 8, 1, 3]
+    os_family: android
+    os_detail: "Android 9 (Linux 4.14 kernel)"
+
+  # ── FreeBSD / Other BSDs ──────────────────────────────────────────────────
+
+  - window_size: 65535
+    mss: 1460
+    wscale: 6
+    tcp_options: [2, 4, 8, 1, 3]
+    os_family: freebsd
+    os_detail: "FreeBSD 12+"
+
+  - window_size: 65535
+    mss: 1460
+    wscale: 3
+    tcp_options: [2, 4, 8, 1, 3]
+    os_family: freebsd
+    os_detail: "FreeBSD 10"
+
+  # ── Known scanners / headless tools ──────────────────────────────────────
+  # These are not OS fingerprints but scanner fingerprints that indicate
+  # non-browser clients. The TAP pipeline adds a signal when matched.
+
+  - window_size: 1024
+    mss: 1460
+    wscale: null
+    tcp_options: [2]
+    os_family: other
+    os_detail: "nmap SYN scan (default probe)"
+    scanner: true
+
+  - window_size: 512
+    mss: 512
+    wscale: null
+    tcp_options: [2]
+    os_family: other
+    os_detail: "Masscan default probe"
+    scanner: true
+
+  - window_size: 65535
+    mss: 1460
+    wscale: null
+    tcp_options: [2]
+    os_family: other
+    os_detail: "ZMap default probe"
+    scanner: true
+
+# ── User-Agent family keyword map ────────────────────────────────────────────
+# Used to infer expected os_family from the User-Agent string.
+# The TAP pipeline uses this to detect OS↔UA mismatch signals.
+
+ua_family_map:
+  windows:
+    - "Windows NT"
+    - "Win64"
+  macos:
+    - "Macintosh"
+    - "Mac OS X"
+  ios:
+    - "iPhone"
+    - "iPad"
+    - "iPod"
+    - "iOS"
+  android:
+    - "Android"
+  linux:
+    - "Linux"
+    - "X11"
+  chromeos:
+    - "CrOS"
