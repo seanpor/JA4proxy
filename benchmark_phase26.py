@@ -93,20 +93,41 @@ security_policy:
             config = await loader.load()
             
             # Create mock Redis client with optimizations
-            mock_redis = MagicMock(spec=redis.Redis)
+            # Use a generic MagicMock to avoid spec issues with redis.asyncio
+            mock_redis = MagicMock()
             mock_redis.ping = AsyncMock()
             mock_redis.get = AsyncMock(return_value=None)
+            mock_redis.set = AsyncMock(return_value=True)
+            mock_redis.setex = AsyncMock(return_value=True)
+            mock_redis.smembers = AsyncMock(return_value=[])
             mock_redis.hmget = AsyncMock(return_value={})
             mock_redis.zadd = AsyncMock()
             mock_redis.evalsha = AsyncMock(return_value={"connections_per_second": 0})
-            mock_redis.pipeline = MagicMock(return_value=MagicMock())
+            
+            # Phase 30b: Robust pipeline mocking
+            pipeline = MagicMock()
+            pipeline.execute = AsyncMock(return_value=[None] * 10)
+            pipeline.__aenter__ = AsyncMock(return_value=pipeline)
+            pipeline.__aexit__ = AsyncMock(return_value=None)
+            
+            # Make pipeline methods return the pipeline itself for chaining
+            for method_name in ['hset', 'hincrby', 'hget', 'hgetall', 'expire', 'zadd', 'zcard', 'incr', 'lpush', 'ltrim', 'delete', 'sadd', 'xadd']:
+                setattr(pipeline, method_name, MagicMock(return_value=pipeline))
+            
+            mock_redis.pipeline = MagicMock(return_value=pipeline)
+            
+            # Mock RedisBloom
+            mock_bf = MagicMock()
+            mock_bf.exists = AsyncMock(return_value=False)
+            mock_bf.add = AsyncMock(return_value=True)
+            mock_redis.bf = MagicMock(return_value=mock_bf)
             
             cache = LocalCache({})
             cache.dial = 0
             
             pipeline = Pipeline(config=config, local_cache=cache, redis_client=mock_redis)
             
-            # Start WriteBuffer (26e optimization)
+            # Phase 30b: Start the pipeline (initializes WriteBuffer background task)
             await pipeline.start()
             
             return pipeline

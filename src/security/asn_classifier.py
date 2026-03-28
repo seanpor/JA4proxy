@@ -209,9 +209,11 @@ class ASNClassifier:
         is_leader = False
         if self._redis_client:
             try:
-                is_leader = await self._redis_client.set(
+                # Phase 30b: Explicit check for True to handle truthy mocks
+                res = await self._redis_client.set(
                     leader_key, self._instance_id, nx=True, ex=lock_ttl
                 )
+                is_leader = res is True
             except Exception as e:
                 self.logger.warning(
                     "asn_classifier | event=leader_check_error | error=%s", str(e)

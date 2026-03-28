@@ -451,8 +451,9 @@ class AbuseIPDBChecker:
 
         # Bloom filter dedup
         try:
+            # Phase 30b: Explicit check for True to handle truthy mocks
             added = await self._redis.bf().add("bloom:abuseipdb_enriched", ip)
-            if not added:
+            if added is False:
                 return
             # Set TTL on the bloom filter key (24h)
             try:
