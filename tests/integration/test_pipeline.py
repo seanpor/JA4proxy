@@ -713,6 +713,8 @@ def _make_shutdown_server_stub(drain_timeout: float = 0.5, active: int = 0):
     s._local_cache = MagicMock()
     s.config_loader = MagicMock()
     s.pipeline = MagicMock()
+    s.pipeline.start = AsyncMock()
+    s.pipeline.stop = AsyncMock()
     s.pipeline._blacklist = set()
     s.pipeline._whitelist = set()
     s.pipeline._blocklist_manager = MagicMock()
