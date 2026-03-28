@@ -1,5 +1,39 @@
 # Changelog
 
+## [25.0.0] - 2026-03-28 — Phase 25: Docker Container Management
+
+### Added
+- **Docker Image Inventory** (`docs/DOCKER_IMAGES.md`): Canonical registry of all images, pinned versions, and usage across the project.
+- **Image Update Policy** (`docs/runbooks/docker_image_updates.md`): Documented policy for CVE response timelines, stability windows, and update procedures.
+- **Image Version Check Script** (`scripts/check_image_versions.py`): Automated tool to detect `:latest` tags and version drift between compose files.
+- **New Makefile Targets**:
+  - `make scan-first-party`: Trivy CVE scan for internal images (`ja4proxy`, `analytics`, `tarpit`).
+  - `make scan-dockerfiles`: Trivy misconfiguration scan for all Dockerfiles (fails on HIGH/CRITICAL).
+  - `make check-image-versions`: Runs the version drift detection script.
+- **Root `.dockerignore`**: Excludes `.git`, `secrets`, `tests`, coverage artifacts, and other non-essential files from build context.
+
+### Changed
+- **Version Pinning**: 
+  - All third-party images in `docker-compose.prod.yml` and `docker-compose.monitoring.yml` pinned to specific patch versions.
+  - Harmonised versions for shared images (Grafana 10.2.2, Loki 3.3.2, Promtail 3.3.2).
+  - First-party images pinned to `v1.0.0` to eliminate `:latest` usage.
+  - `redis/redis-stack:latest` in POC pinned to `7.4.0-v3`.
+- **Dockerfile Hardening**:
+  - All base images pinned to specific patch versions (e.g., `python:3.11.11-slim`).
+  - Removed `curl` from production `docker/Dockerfile`; `HEALTHCHECK` now uses `wget`.
+- **Makefile Improvements**:
+  - `TRIVY_IMAGES` list updated to match actual pinned versions.
+  - `make help` updated with new security scanning targets.
+
+## [27.0.0] - 2026-03-27 — Phase 27: Advanced Pentest Remediation
+
+### Fixed
+- **IP Spoofing Protection**: Implemented `_is_trusted_proxy_source()` to validate PROXY/XFF sources against `upstream_trust` CIDRs.
+- **Async Redis Safety**: Corrected multiple missing `await` calls in `DialManager` and `Pipeline` to ensure security policies are reliably enforced.
+- **TLS DoS Mitigation**: Offloaded Scapy `TLS` parsing to background threads via `asyncio.to_thread()` to prevent event loop blocking.
+- **Log Injection Hardening**: Added `_sanitize_log()` to strip control characters from user-provided strings before logging.
+- **Prometheus Cardinality**: Removed high-cardinality `fingerprint` label from metrics to prevent memory exhaustion.
+
 ## [20.0.0] - 2026-03-28 — Phase 20: Passive TAP/SPAN Mode
 
 ### Added

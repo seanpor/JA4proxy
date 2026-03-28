@@ -147,7 +147,7 @@ class MockBackendHandler(BaseHTTPRequestHandler):
 def run_server(port=None, tls=None):
     """Run the mock backend server, optionally with TLS."""
     tls_cert = tls or os.environ.get('TLS_CERT')
-    tls_key = os.environ.get('TLS_KEY')
+    tls_key = os.environ.get('TLS_KEY') or os.environ.get('TLS_PRIVATE_FILE')
 
     if tls_cert and os.path.exists(tls_cert):
         port = port or int(os.environ.get('PORT', 443))

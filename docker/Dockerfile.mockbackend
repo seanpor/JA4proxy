@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11.11-slim
 
 # Security: Create non-root user
 RUN groupadd -r backend && useradd -r -g backend backend
@@ -20,7 +20,7 @@ USER backend
 EXPOSE 443 80
 
 ENV TLS_CERT=/app/ssl/certs/backend.crt
-ENV TLS_KEY=/app/ssl/private/backend.key
+ENV TLS_PRIVATE_FILE=/app/ssl/private/backend.key
 ENV PORT=443
 ENV PYTHONUNBUFFERED=1
 
