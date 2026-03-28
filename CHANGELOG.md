@@ -49,6 +49,33 @@
 - 383 new TAP-mode tests across: unit/fingerprints, unit/pipeline, unit/store, unit/enforcement, unit/export, unit/watchdog, chaos/resilience, fp_corpus/accuracy, fp_corpus/fp_rate.
 - Full test suite: 2687 passing, 21 skipped (docker integration tests), 0 failing.
 
+## [25.0.0] - 2026-03-28 — Phase 25: Docker Container Management
+
+### Added
+
+- **`scripts/check_image_versions.py`**: Detects `:latest` tags and version drift between compose files. First-party images (`ja4proxy`, `ja4proxy-analytics`, `ja4proxy-tarpit`) are exempt as they are locally built. Exits 1 on findings. No external calls; runs in < 5 seconds.
+- **`make check-image-versions`**: Runs the version check script.
+- **`make scan-dockerfiles`**: Trivy misconfiguration scan of `docker/` and `src/analytics/` Dockerfiles. No image build needed. Policy: HIGH + CRITICAL → exit 1.
+- **`make scan-first-party`**: Trivy CVE scan of the three first-party images after `make build`. Policy: CRITICAL → exit 1, HIGH → advisory.
+- **`docs/DOCKER_IMAGES.md`**: Canonical registry of every image used — pinned version, compose file location, last reviewed date.
+- **`docs/runbooks/docker_image_updates.md`**: Update policy runbook covering scan procedure, CVE research, update steps, severity SLAs, and approval requirements.
+- **`.dockerignore`**: Excludes `.git/`, `secrets/`, `tests/`, `*.md`, `.coverage*`, `.local/`, `__pycache__`, `.env`, and build artefacts from Docker build context.
+- **`tests/unit/test_check_image_versions.py`**: 18 tests covering latest-tag detection, version-drift detection, first-party exemption, and clean-baseline validation.
+
+### Changed
+
+- **`docker/Dockerfile`**: Base image pinned to `python:3.11.11-slim` (was unpinned `3.11-slim`). `curl` removed; `HEALTHCHECK` now uses `wget`. Added `--no-install-recommends` to apt-get.
+- **`src/analytics/Dockerfile`**: Base image pinned to `python:3.11.11-slim`.
+- **`docker/Dockerfile.test`**: Base image pinned to `python:3.11.11-slim`.
+- **`docker/docker-compose.prod.yml`**: `redis/redis-stack:latest` → `7.4.0-v3`.
+- **`docker/docker-compose.monitoring.yml`**: Grafana/Loki/Promtail versions harmonised with prod (`10.2.0`, `2.9.0`, `2.9.0`).
+- **`Makefile`**: `TRIVY_IMAGES` updated — removed stale `redis/redis-stack:latest`, removed duplicate grafana/loki/promtail versions from the pre-harmonisation era. `prom/alertmanager:v0.26.0` added. Three new targets added to `.PHONY` and help text.
+
+### Tests
+
+- 18 new unit tests in `tests/unit/test_check_image_versions.py`.
+- `make check-image-versions` exits 0 against the live compose files.
+
 ## [26.0.0] - 2026-03-27 — Phase 26: Python Throughput Hardening
 
 ### Added

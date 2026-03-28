@@ -35,7 +35,7 @@ Deep security analysis, compliance, and audit remediation.
 | 16 | Extended Fingerprinting | COMPLETE | JA4X fingerprinting, adaptive rate limiting. |
 | 18 | Security Audit Remediation | COMPLETE | Fix broad exception handling, f-string logging, and add SignalCollector protocol. |
 | 22 | Backup System Enhancements - Phase 1: Core Features | PROPOSED | Add backup scheduling, pipeline batching, and restore validation. Target: Production-ready backup system. |
-| 25 | Docker Container Management | OPEN | Pin image versions, fix CVE scan gaps, first-party image scanning, image update policy. |
+| 25 | Docker Container Management | COMPLETE | All image versions pinned, version drift harmonised across prod/monitoring compose files, first-party and Dockerfile scan targets added, check-image-versions script, update policy runbook, base images pinned to patch version, curl removed from production image. |
 | 27 | Advanced Pentest Remediation | COMPLETE | Remediate critical vulnerabilities: IP spoofing, sync/async Redis mismatch, and synchronous TLS parsing DoS. |
 | 30 | Python Throughput Hardening - Phase 4: Write Optimization & Benchmarking | PROPOSED | Add deferred write batching and comprehensive benchmark validation. Target: Final performance report. |
 | 34 | APT Resilience & Infrastructure Hardening | PROPOSED | Defense-in-depth: Parser isolation, Redis mTLS/ACLs, long-tail correlation, and strict container seccomp profiles. |
@@ -101,7 +101,7 @@ Management dashboards and documentation quality.
 | 22 | Backup System Enhancements - Phase 1: Core Features | PROPOSED | N/A | N/A |
 | 23 | Advanced Traffic Intelligence - Phase 1: Threat Intelligence Integration | PROPOSED | N/A | N/A |
 | 24 | Go Strategy Assessment | CLOSED | N/A | N/A |
-| 25 | Docker Container Management | OPEN | N/A | N/A |
+| 25 | Docker Container Management | COMPLETE | 100% | COMPLETE |
 | 26 | Python Throughput Hardening | COMPLETE | 100% | COMPLETE |
 | 27 | Advanced Pentest Remediation | COMPLETE | 100% | COMPLETE |
 | 28 | Python Throughput Hardening - Phase 2: Redis Optimization | PROPOSED | N/A | N/A |

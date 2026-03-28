@@ -30,10 +30,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Integrate external threat intelligence feeds (AbuseIPDB, AlienVault OTX, GreyNoise). Target: Real-time IP reputation.)
 *   **Action Plan:** [PHASE_23_WORK_PLAN.md](PHASE_23_WORK_PLAN.md)
 
-### Phase 25 — Docker Container Management
-*   **Status:** **OPEN** (Pin image versions, fix CVE scan gaps, first-party image scanning, image update policy.)
-*   **Action Plan:** [PHASE_25.md](PHASE_25.md)
-
 ### Phase 28 — Python Throughput Hardening - Phase 2: Redis Optimization
 *   **Status:** **PROPOSED** (Add Redis pipeline batching and Unix domain socket support. Target: 30-40% Redis latency reduction.)
 *   **Action Plan:** [PHASE_28_WORK_PLAN.md](PHASE_28_WORK_PLAN.md)
