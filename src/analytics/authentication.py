@@ -12,7 +12,9 @@ from typing import Any, Dict
 MAX_EVENT_AGE_SECONDS = 300  # 5 minutes
 
 
-def validate_timestamp(event: Dict[str, Any], max_age: float = MAX_EVENT_AGE_SECONDS) -> bool:
+def validate_timestamp(
+    event: Dict[str, Any], max_age: float = MAX_EVENT_AGE_SECONDS
+) -> bool:
     """Return True if the event timestamp is within the acceptable window.
 
     Rejects events with a ``timestamp`` field that is absent, non-numeric,
@@ -36,9 +38,7 @@ def sign_event(event_data: Dict[str, Any], secret: str) -> str:
 
     # Create HMAC signature
     hmac_signature = hmac.new(
-        secret.encode(),
-        message.encode(),
-        hashlib.sha256
+        secret.encode(), message.encode(), hashlib.sha256
     ).hexdigest()
 
     return hmac_signature
@@ -55,9 +55,7 @@ def verify_hmac(event_data: Dict[str, Any], secret: str, signature: str) -> bool
 
     # Calculate expected signature
     expected_hmac = hmac.new(
-        secret.encode(),
-        message.encode(),
-        hashlib.sha256
+        secret.encode(), message.encode(), hashlib.sha256
     ).hexdigest()
 
     # Use compare_digest to prevent timing attacks

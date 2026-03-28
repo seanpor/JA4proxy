@@ -27,13 +27,13 @@ import logging
 import logging.handlers
 import os
 import re
+import resource
+import signal
 import socket
 import ssl
 import struct
 import time
 import uuid
-import resource
-import signal
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -56,16 +56,17 @@ except (
 # Specific Scapy imports for TLS fingerprinting
 from scapy.layers.tls.record import TLS
 
-# Phase 0+: Local cache and pipeline infrastructure
-from src.config.loader import ConfigLoader
-from src.pubsub import PubSubHandler
 from src.backup.scheduler import BackupScheduler
 from src.backup.worker import BackupWorker
 from src.cache.local_cache import LocalCache
+
+# Phase 0+: Local cache and pipeline infrastructure
+from src.config.loader import ConfigLoader
+from src.pubsub import PubSubHandler
 from src.security.action_decider import ActionDecider, DialManager
-from src.tap.tap_sensor import TapSensor
 from src.security.pipeline import ConnectionContext, Pipeline
 from src.security.risk_scorer import RiskScorer
+from src.tap.tap_sensor import TapSensor
 
 # Enhanced Metrics with Security Context
 REQUEST_COUNT = Counter(
@@ -512,20 +513,22 @@ class JA4Generator:
         """
         try:
             import hashlib
-            
+
             def _truncate_hash(data: str) -> str:
                 """Generate SHA-256 hash and truncate to 12 hex chars."""
                 if not data:
                     return "000000000000"
-                return hashlib.sha256(data.encode('utf-8', errors='replace')).hexdigest()[:12]
-            
+                return hashlib.sha256(
+                    data.encode("utf-8", errors="replace")
+                ).hexdigest()[:12]
+
             issuer_hash = _truncate_hash(issuer)
             subject_hash = _truncate_hash(subject)
             san_hash = _truncate_hash(san)
-            
+
             ja4x = f"{issuer_hash}_{subject_hash}_{san_hash}"
             return ja4x
-            
+
         except Exception as e:
             self.logger.error(f"Error generating JA4X: {e}", exc_info=True)
             # Return sentinel value for missing/invalid certificates
@@ -854,8 +857,8 @@ class SecurityManager:
                 return False
             return True
 
-        import hmac
         import hashlib
+        import hmac
 
         h = hmac.new(secret.encode(), data, hashlib.sha256)
         return hmac.compare_digest(h.hexdigest(), expected_signature)
@@ -979,14 +982,19 @@ class SecurityManager:
         """
         # Extract /24 subnet for adaptive rate limiting
         import ipaddress
+
         try:
             ip_obj = ipaddress.ip_address(client_ip)
             if isinstance(ip_obj, ipaddress.IPv4Address):
                 # For IPv4, get the /24 network
-                subnet = str(ipaddress.IPv4Network(f"{ip_obj}/24", strict=False).network_address)
+                subnet = str(
+                    ipaddress.IPv4Network(f"{ip_obj}/24", strict=False).network_address
+                )
             else:  # IPv6
                 # For IPv6, get the /64 network
-                subnet = str(ipaddress.IPv6Network(f"{ip_obj}/64", strict=False).network_address)
+                subnet = str(
+                    ipaddress.IPv6Network(f"{ip_obj}/64", strict=False).network_address
+                )
         except Exception:
             subnet = "unknown"
 
@@ -998,8 +1006,16 @@ class SecurityManager:
                 confidence = float(adaptive_data[b"confidence"])
                 if confidence >= 0.7:  # Minimum confidence threshold
                     threshold = int(adaptive_data[b"threshold_rps"])
-                    min_threshold = self.config.get("rate_limiter", {}).get("adaptive", {}).get("min_threshold_rps", 5)
-                    max_threshold = self.config.get("rate_limiter", {}).get("adaptive", {}).get("max_threshold_rps", 1000)
+                    min_threshold = (
+                        self.config.get("rate_limiter", {})
+                        .get("adaptive", {})
+                        .get("min_threshold_rps", 5)
+                    )
+                    max_threshold = (
+                        self.config.get("rate_limiter", {})
+                        .get("adaptive", {})
+                        .get("max_threshold_rps", 1000)
+                    )
                     # Clamp to configured bounds
                     return max(min_threshold, min(threshold, max_threshold))
         except Exception as e:
@@ -1014,9 +1030,13 @@ class SecurityManager:
         Returns False if rate limit exceeded or on error.
         """
         window = self.config["security"].get("rate_limit_window", 60)
-        
+
         # Get adaptive threshold if enabled (Phase 16)
-        adaptive_enabled = self.config.get("rate_limiter", {}).get("adaptive", {}).get("enabled", False)
+        adaptive_enabled = (
+            self.config.get("rate_limiter", {})
+            .get("adaptive", {})
+            .get("enabled", False)
+        )
         if adaptive_enabled:
             max_requests = await self._get_adaptive_rate_threshold(client_ip)
         else:
@@ -1139,6 +1159,7 @@ class ProxyServer:
             self.config_loader = ConfigLoader(config_path)
             # Sync load for __init__ compatibility (tests)
             import yaml
+
             with open(config_path, "r") as f:
                 self.config = yaml.safe_load(f)
             self._init_from_config()
@@ -1186,9 +1207,7 @@ class ProxyServer:
 
         # Phase 28a: Dedicated ProcessPoolExecutor for isolated TLS parsing
         # Limits blast radius of Scapy/native parsing vulnerabilities.
-        self.executor = ProcessPoolExecutor(
-            max_workers=min(4, os.cpu_count() or 1)
-        )
+        self.executor = ProcessPoolExecutor(max_workers=min(4, os.cpu_count() or 1))
 
         # Keep legacy SecurityManager for _populate_security_lists (seeds Redis sets)
         self.security_manager = SecurityManager(self.config, self.redis_client)
@@ -1261,6 +1280,7 @@ class ProxyServer:
             import aiohttp as _aiohttp
 
             from src.security.abuseipdb import AbuseIPDBChecker, AbuseIPDBConfig
+
             self._aiohttp_session = _aiohttp.ClientSession()
             _abuseipdb_cfg = AbuseIPDBConfig.from_config(self.config)
             self._abuseipdb_checker = AbuseIPDBChecker(
@@ -1281,10 +1301,12 @@ class ProxyServer:
         # Phase 11: RDAP enricher — reuses shared aiohttp session; background workers
         try:
             from src.security.rdap_enrichment import RDAPConfig, RDAPEnricher
+
             _rdap_cfg = RDAPConfig.from_config(self.config)
             # Reuse the existing aiohttp session if available; create one if not
             if self._aiohttp_session is None:
                 import aiohttp as _aiohttp
+
                 self._aiohttp_session = _aiohttp.ClientSession()
             self._rdap_enricher = RDAPEnricher(
                 _rdap_cfg,
@@ -1330,9 +1352,7 @@ class ProxyServer:
         await self.security_manager._load_security_lists()
 
         # Populate geoip:safe_countries from config (never auto-blocked by geoip-monitor)
-        safe_countries = self.config.get("geoip", {}).get(
-            "safe_countries", []
-        )
+        safe_countries = self.config.get("geoip", {}).get("safe_countries", [])
         if safe_countries:
             for cc in safe_countries:
                 await self.redis_client.sadd("geoip:safe_countries", cc.upper())
@@ -1388,6 +1408,7 @@ class ProxyServer:
                     'set REDIS_PASSWORD environment variable"}'
                 )
                 import sys
+
                 sys.exit(1)
             self.logger.warning(
                 "SECURITY WARNING: Redis connection without authentication"
@@ -1401,7 +1422,7 @@ class ProxyServer:
                     timeout = int(timeout)
                 except ValueError:
                     timeout = 5
-            
+
             db = redis_config.get("db", 0)
             if isinstance(db, str):
                 try:
@@ -1414,7 +1435,11 @@ class ProxyServer:
             ssl_ca_certs = redis_config.get("ssl_ca_certs")
 
             # In production, SSL is mandatory if configured
-            if os.getenv("ENVIRONMENT") == "production" and not ssl_enabled and not redis_config.get("unix_socket_path"):
+            if (
+                os.getenv("ENVIRONMENT") == "production"
+                and not ssl_enabled
+                and not redis_config.get("unix_socket_path")
+            ):
                 self.logger.warning(
                     "SECURITY: Redis SSL is disabled in production. "
                     "Enable 'ssl: true' in config for transport security."
@@ -1545,7 +1570,9 @@ class ProxyServer:
             self.logger.info(f"Metrics server started on port {metrics_port}")
 
             # Log security warning if metrics exposed
-            if self.config["metrics"].get("bind_host", "0.0.0.0") == "0.0.0.0":  # nosec B104
+            if (
+                self.config["metrics"].get("bind_host", "0.0.0.0") == "0.0.0.0"
+            ):  # nosec B104
                 self.logger.warning(
                     "SECURITY WARNING: Metrics endpoint exposed to all interfaces. "
                     "Restrict access using firewall rules or reverse proxy authentication."
@@ -1615,7 +1642,7 @@ class ProxyServer:
             watcher_task.cancel()
             if self._pubsub_task:
                 self._pubsub_task.cancel()
-            
+
             try:
                 if self._pubsub_task:
                     await self._pubsub_task
@@ -1673,7 +1700,9 @@ class ProxyServer:
                 try:
                     self.executor.shutdown(wait=True)
                 except Exception as exc:
-                    self.logger.warning(f"executor | event=shutdown_error | error={exc}")
+                    self.logger.warning(
+                        f"executor | event=shutdown_error | error={exc}"
+                    )
 
     def _is_trusted_proxy_source(self, ip: str) -> bool:
         """Return True if the peer IP is allowed to provide PROXY/XFF headers.
@@ -1711,9 +1740,7 @@ class ProxyServer:
     ):
         """Handle incoming client connection with PROXY protocol and JA4 security."""
         client_addr = writer.get_extra_info("peername")
-        socket_ip = (
-            self._sanitize_log(client_addr[0]) if client_addr else "unknown"
-        )
+        socket_ip = self._sanitize_log(client_addr[0]) if client_addr else "unknown"
         client_ip = socket_ip  # May be overridden by PROXY protocol
 
         self.active_connections += 1
@@ -1746,7 +1773,9 @@ class ProxyServer:
                     "proxy_protocol", False
                 ) and self._is_trusted_proxy_source(socket_ip):
                     proxy_info, data = self._parse_proxy_protocol(data, socket_ip)
-                    client_ip = self._sanitize_log(proxy_info.get("client_ip", socket_ip))
+                    client_ip = self._sanitize_log(
+                        proxy_info.get("client_ip", socket_ip)
+                    )
 
                 # Fallback to X-Forwarded-For ONLY if source is trusted
                 if client_ip == socket_ip and self._is_trusted_proxy_source(socket_ip):
@@ -1754,7 +1783,9 @@ class ProxyServer:
                     if extracted_ip:
                         client_ip = self._sanitize_log(extracted_ip)
 
-                self.logger.info("Connection from %s (socket: %s)", client_ip, socket_ip)
+                self.logger.info(
+                    "Connection from %s (socket: %s)", client_ip, socket_ip
+                )
 
                 # Analyze TLS handshake — extract JA4 fingerprint
                 fingerprint = await asyncio.wait_for(
@@ -1918,7 +1949,9 @@ class ProxyServer:
                     error_type=error_type, tls_version="unknown"
                 ).inc()
                 SECURITY_EVENTS.labels(
-                    event_type="tls_handshake_error", severity="warning", source=client_ip
+                    event_type="tls_handshake_error",
+                    severity="warning",
+                    source=client_ip,
                 ).inc()
             except Exception as e:
                 self.logger.error(f"ERROR: {client_ip} | {e}", exc_info=False)
@@ -1969,7 +2002,9 @@ class ProxyServer:
                 # Parse TLV fields for JA4T data.
                 # TLVs live between end of fixed address block and header_len.
                 # Fixed address block sizes: AF_INET=12 bytes, AF_INET6=36 bytes.
-                _addr_block_len = 12 if family == 0x11 else (36 if family == 0x21 else addr_len)
+                _addr_block_len = (
+                    12 if family == 0x11 else (36 if family == 0x21 else addr_len)
+                )
                 tlv_data = data[16 + _addr_block_len : header_len]
                 idx = 0
                 while idx < len(tlv_data):
@@ -2079,7 +2114,9 @@ class ProxyServer:
         if not acquired:
             _TARPIT_OVERFLOW.labels(action=overflow_action).inc()
             self.logger.info(
-                "tarpit | event=overflow | ip=%s | action=%s", client_ip, overflow_action
+                "tarpit | event=overflow | ip=%s | action=%s",
+                client_ip,
+                overflow_action,
             )
             if overflow_action == "allow":
                 await self._forward_to_backend(data, client_reader, client_writer)
@@ -2422,7 +2459,6 @@ async def main():
     passthrough proxy mode (default) and TAP/SPAN passive capture mode.
     Registers SIGTERM and SIGINT handlers for graceful shutdown.
     """
-    import signal
     import sys
 
     config_path = sys.argv[1] if len(sys.argv) > 1 else "config/proxy.yml"
@@ -2440,7 +2476,9 @@ async def main():
     shutdown_event = asyncio.Event()
     loop = asyncio.get_running_loop()
 
-    def _handle_shutdown() -> None:  # pragma: no cover — signal path not exercised in unit tests
+    def _handle_shutdown() -> (
+        None
+    ):  # pragma: no cover — signal path not exercised in unit tests
         if not shutdown_event.is_set():
             shutdown_event.set()
 
@@ -2467,9 +2505,7 @@ async def main():
             except (KeyboardInterrupt, asyncio.CancelledError):
                 pass
         case _:
-            logging.critical(
-                "startup | event=invalid_mode | mode=%r -- exiting", mode
-            )
+            logging.critical("startup | event=invalid_mode | mode=%r -- exiting", mode)
             sys.exit(1)
 
 

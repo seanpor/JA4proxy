@@ -34,7 +34,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import redis as redis_lib
 import yaml
@@ -44,6 +44,7 @@ from .models import RiskSignal
 
 try:
     import aiohttp  # type: ignore
+
     AIOHTTP_AVAILABLE = True
 except ImportError:  # pragma: no cover
     aiohttp = None  # type: ignore
@@ -181,8 +182,12 @@ class RDAPConfig:
     lookup_timeout_seconds: int = 15
     delegate_to_analytics: bool = False
     org_reputation: _OrgReputationConfig = field(default_factory=_OrgReputationConfig)
-    new_netblock_flagging: _NewNetblockConfig = field(default_factory=_NewNetblockConfig)
-    block_expansion: _BlockExpansionConfig = field(default_factory=_BlockExpansionConfig)
+    new_netblock_flagging: _NewNetblockConfig = field(
+        default_factory=_NewNetblockConfig
+    )
+    block_expansion: _BlockExpansionConfig = field(
+        default_factory=_BlockExpansionConfig
+    )
 
     @classmethod
     def from_config(cls, config: dict) -> "RDAPConfig":
@@ -216,7 +221,9 @@ class RDAPConfig:
                 min_trigger_score=int(be_cfg.get("min_trigger_score", 75)),
                 max_prefix_length_v4=int(be_cfg.get("max_prefix_length_v4", 24)),
                 max_prefix_length_v6=int(be_cfg.get("max_prefix_length_v6", 48)),
-                require_no_browser_traffic=bool(be_cfg.get("require_no_browser_traffic", True)),
+                require_no_browser_traffic=bool(
+                    be_cfg.get("require_no_browser_traffic", True)
+                ),
                 require_known_bad_org=bool(be_cfg.get("require_known_bad_org", True)),
                 expansion_ban_duration=int(be_cfg.get("expansion_ban_duration", 3600)),
                 max_expansions_per_hour=int(be_cfg.get("max_expansions_per_hour", 10)),
@@ -328,12 +335,12 @@ def _compute_expansion_cidr(ip: str, config: _BlockExpansionConfig) -> str:
     """
     addr = ipaddress.ip_address(ip)
     if addr.version == 4:
-        return str(ipaddress.ip_network(
-            f"{ip}/{config.max_prefix_length_v4}", strict=False
-        ))
-    return str(ipaddress.ip_network(
-        f"{ip}/{config.max_prefix_length_v6}", strict=False
-    ))
+        return str(
+            ipaddress.ip_network(f"{ip}/{config.max_prefix_length_v4}", strict=False)
+        )
+    return str(
+        ipaddress.ip_network(f"{ip}/{config.max_prefix_length_v6}", strict=False)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -377,7 +384,7 @@ class RDAPEnricher:
         self._known_bad_orgs_path = known_bad_orgs_path
         self._queue: asyncio.Queue | None = None
         self._workers: list[asyncio.Task] = []
-        self._bootstrap_v4: list[dict] = []   # list of {prefix, urls}
+        self._bootstrap_v4: list[dict] = []  # list of {prefix, urls}
         self._bootstrap_v6: list[dict] = []
         self._rate_limiter = RegistryRateLimiter()
         self._known_bad: list[dict] = []  # loaded from known_bad_orgs.yml
@@ -409,20 +416,20 @@ class RDAPEnricher:
 
         self._queue = asyncio.Queue(maxsize=self._config.queue_size)
         self._workers = [
-            asyncio.create_task(
-                self._lookup_worker(), name=f"rdap-worker-{i}"
-            )
+            asyncio.create_task(self._lookup_worker(), name=f"rdap-worker-{i}")
             for i in range(self._config.worker_count)
         ]
         logger.info(
-            json.dumps({
-                "type": "system",
-                "level": "INFO",
-                "subsystem": "rdap",
-                "event": "started",
-                "worker_count": self._config.worker_count,
-                "queue_size": self._config.queue_size,
-            })
+            json.dumps(
+                {
+                    "type": "system",
+                    "level": "INFO",
+                    "subsystem": "rdap",
+                    "event": "started",
+                    "worker_count": self._config.worker_count,
+                    "queue_size": self._config.queue_size,
+                }
+            )
         )
 
     async def stop(self) -> None:
@@ -434,13 +441,15 @@ class RDAPEnricher:
             remaining = self._queue.qsize()
             if remaining:
                 logger.warning(
-                    json.dumps({
-                        "type": "system",
-                        "level": "WARN",
-                        "subsystem": "rdap",
-                        "event": "shutdown_queue_not_empty",
-                        "depth": remaining,
-                    })
+                    json.dumps(
+                        {
+                            "type": "system",
+                            "level": "WARN",
+                            "subsystem": "rdap",
+                            "event": "shutdown_queue_not_empty",
+                            "depth": remaining,
+                        }
+                    )
                 )
 
     # ------------------------------------------------------------------
@@ -485,6 +494,7 @@ class RDAPEnricher:
             ip: Canonical IP address string.
         """
         from ..utils.ip import get_analysis_subnet
+
         try:
             subnet = get_analysis_subnet(ip)
             await self._redis.setex(f"browser:seen:subnet:{subnet}", 86400, "1")
@@ -505,33 +515,37 @@ class RDAPEnricher:
 
         if new_cfg.worker_count != self._config.worker_count:
             logger.warning(
-                json.dumps({
-                    "type": "system",
-                    "level": "WARN",
-                    "subsystem": "rdap",
-                    "event": "restart_required",
-                    "key": "worker_count",
-                    "old": self._config.worker_count,
-                    "new": new_cfg.worker_count,
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "WARN",
+                        "subsystem": "rdap",
+                        "event": "restart_required",
+                        "key": "worker_count",
+                        "old": self._config.worker_count,
+                        "new": new_cfg.worker_count,
+                    }
+                )
             )
         if new_cfg.queue_size != self._config.queue_size:
             logger.warning(
-                json.dumps({
-                    "type": "system",
-                    "level": "WARN",
-                    "subsystem": "rdap",
-                    "event": "restart_required",
-                    "key": "queue_size",
-                    "old": self._config.queue_size,
-                    "new": new_cfg.queue_size,
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "WARN",
+                        "subsystem": "rdap",
+                        "event": "restart_required",
+                        "key": "queue_size",
+                        "old": self._config.queue_size,
+                        "new": new_cfg.queue_size,
+                    }
+                )
             )
 
         # Apply hot-reloadable fields; keep old worker_count and queue_size
         self._config = RDAPConfig(
             enabled=new_cfg.enabled,
-            queue_size=self._config.queue_size,      # Keep old — requires restart
+            queue_size=self._config.queue_size,  # Keep old — requires restart
             worker_count=self._config.worker_count,  # Keep old — requires restart
             min_enqueue_score=new_cfg.min_enqueue_score,
             lookup_timeout_seconds=new_cfg.lookup_timeout_seconds,
@@ -598,13 +612,15 @@ class RDAPEnricher:
                     await self._process_lookup(ip)
                 except Exception as exc:
                     logger.error(
-                        json.dumps({
-                            "type": "system",
-                            "level": "ERROR",
-                            "subsystem": "rdap",
-                            "event": "worker_unhandled_error",
-                            "error": str(exc),
-                        })
+                        json.dumps(
+                            {
+                                "type": "system",
+                                "level": "ERROR",
+                                "subsystem": "rdap",
+                                "event": "worker_unhandled_error",
+                                "error": str(exc),
+                            }
+                        )
                     )
                     _LOOKUP_TOTAL.labels(registry="unknown", result="error").inc()
                 finally:
@@ -618,14 +634,16 @@ class RDAPEnricher:
             base_url = await self.get_rdap_base_url(ip)
         except Exception as exc:
             logger.error(
-                json.dumps({
-                    "type": "system",
-                    "level": "ERROR",
-                    "subsystem": "rdap",
-                    "event": "bootstrap_routing_error",
-                    "ip": ip,
-                    "error": str(exc),
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "ERROR",
+                        "subsystem": "rdap",
+                        "event": "bootstrap_routing_error",
+                        "ip": ip,
+                        "error": str(exc),
+                    }
+                )
             )
             _LOOKUP_TOTAL.labels(registry="unknown", result="error").inc()
             _LOOKUP_ERRORS.labels(rir="unknown").inc()
@@ -634,6 +652,7 @@ class RDAPEnricher:
         # Extract registry hostname for rate limiting and metrics
         try:
             from urllib.parse import urlparse
+
             registry_host = urlparse(base_url).netloc
         except Exception:
             registry_host = "unknown"
@@ -649,14 +668,16 @@ class RDAPEnricher:
             rdap = await self._api_lookup(ip, base_url)
         except asyncio.TimeoutError:
             logger.warning(
-                json.dumps({
-                    "type": "system",
-                    "level": "WARN",
-                    "subsystem": "rdap",
-                    "event": "registry_timeout",
-                    "registry": registry_host,
-                    "ip": ip,
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "WARN",
+                        "subsystem": "rdap",
+                        "event": "registry_timeout",
+                        "registry": registry_host,
+                        "ip": ip,
+                    }
+                )
             )
             _LOOKUP_TOTAL.labels(registry=registry_host, result="timeout").inc()
             return
@@ -678,14 +699,16 @@ class RDAPEnricher:
             _LOOKUP_TOTAL.labels(registry=registry_host, result="not_found").inc()
         except Exception as exc:
             logger.error(
-                json.dumps({
-                    "type": "system",
-                    "level": "ERROR",
-                    "subsystem": "rdap",
-                    "event": "registry_error",
-                    "registry": registry_host,
-                    "error": str(exc),
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "ERROR",
+                        "subsystem": "rdap",
+                        "event": "registry_error",
+                        "registry": registry_host,
+                        "error": str(exc),
+                    }
+                )
             )
             _LOOKUP_TOTAL.labels(registry=registry_host, result="error").inc()
             _LOOKUP_ERRORS.labels(rir=registry_host).inc()
@@ -701,7 +724,9 @@ class RDAPEnricher:
             # trigger_score=0: no original score at background enrichment time;
             # expansion is only triggered via explicit maybe_expand_block calls.
             is_known_bad, _ = self._check_known_bad(rdap.org_handle, rdap.org_name)
-            await self.maybe_expand_block(ip, rdap, trigger_score=0, is_known_bad=is_known_bad)
+            await self.maybe_expand_block(
+                ip, rdap, trigger_score=0, is_known_bad=is_known_bad
+            )
 
     async def _cache_result(self, ip: str, rdap: RDAPResult) -> None:
         """Write RDAPResult to Redis and LocalCache."""
@@ -724,14 +749,16 @@ class RDAPEnricher:
             )
         except Exception as exc:
             logger.warning(
-                json.dumps({
-                    "type": "system",
-                    "level": "WARN",
-                    "subsystem": "rdap",
-                    "event": "redis_write_error",
-                    "ip": ip,
-                    "error": str(exc),
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "WARN",
+                        "subsystem": "rdap",
+                        "event": "redis_write_error",
+                        "ip": ip,
+                        "error": str(exc),
+                    }
+                )
             )
 
         # Write to in-process LRU (hot path reads from here)
@@ -746,16 +773,20 @@ class RDAPEnricher:
 
         # Org reputation check
         if self._config.org_reputation.enabled:
-            is_known_bad, org_entry = self._check_known_bad(rdap.org_handle, rdap.org_name)
+            is_known_bad, org_entry = self._check_known_bad(
+                rdap.org_handle, rdap.org_name
+            )
             if is_known_bad and org_entry:
-                signals.append(RiskSignal(
-                    name="rdap_known_bad_org",
-                    score=org_entry.get("score", self._config.org_reputation.score),
-                    reason=(
-                        f"Known bad org: {rdap.org_name or rdap.org_handle} "
-                        f"({org_entry.get('reason', '')})"
-                    ),
-                ))
+                signals.append(
+                    RiskSignal(
+                        name="rdap_known_bad_org",
+                        score=org_entry.get("score", self._config.org_reputation.score),
+                        reason=(
+                            f"Known bad org: {rdap.org_name or rdap.org_handle} "
+                            f"({org_entry.get('reason', '')})"
+                        ),
+                    )
+                )
 
         # New netblock check
         if self._config.new_netblock_flagging.enabled:
@@ -783,18 +814,18 @@ class RDAPEnricher:
                 self._bootstrap_v4 = json.loads(v4_raw)
                 self._bootstrap_v6 = json.loads(v6_raw)
                 logger.info(
-                    json.dumps({
-                        "type": "system",
-                        "level": "INFO",
-                        "subsystem": "rdap",
-                        "event": "bootstrap_loaded_from_redis",
-                    })
+                    json.dumps(
+                        {
+                            "type": "system",
+                            "level": "INFO",
+                            "subsystem": "rdap",
+                            "event": "bootstrap_loaded_from_redis",
+                        }
+                    )
                 )
                 return
         except Exception as exc:
-            logger.warning(
-                "rdap | event=bootstrap_redis_read_error | error=%s", exc
-            )
+            logger.warning("rdap | event=bootstrap_redis_read_error | error=%s", exc)
 
         # Leader election — download bootstrap
         try:
@@ -819,13 +850,15 @@ class RDAPEnricher:
                     pass
             # Timed out — warn and continue without bootstrap
             logger.warning(
-                json.dumps({
-                    "type": "system",
-                    "level": "WARN",
-                    "subsystem": "rdap",
-                    "event": "bootstrap_load_timeout",
-                    "effect": "RDAP lookups may fail until bootstrap is available",
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "WARN",
+                        "subsystem": "rdap",
+                        "event": "bootstrap_load_timeout",
+                        "effect": "RDAP lookups may fail until bootstrap is available",
+                    }
+                )
             )
 
     async def _try_become_bootstrap_leader(self) -> bool:
@@ -845,13 +878,15 @@ class RDAPEnricher:
         """Download IANA bootstrap JSON and write to Redis."""
         if not AIOHTTP_AVAILABLE or self._session is None:
             logger.warning(
-                json.dumps({
-                    "type": "system",
-                    "level": "WARN",
-                    "subsystem": "rdap",
-                    "event": "bootstrap_download_skipped",
-                    "reason": "aiohttp or session unavailable",
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "WARN",
+                        "subsystem": "rdap",
+                        "event": "bootstrap_download_skipped",
+                        "reason": "aiohttp or session unavailable",
+                    }
+                )
             )
             return
 
@@ -880,18 +915,21 @@ class RDAPEnricher:
                     except Exception as exc:
                         logger.warning(
                             "rdap | event=bootstrap_redis_write_error | key=%s | error=%s",
-                            redis_key, exc,
+                            redis_key,
+                            exc,
                         )
             except Exception as exc:
                 logger.warning(
-                    json.dumps({
-                        "type": "system",
-                        "level": "WARN",
-                        "subsystem": "rdap",
-                        "event": "bootstrap_download_failed",
-                        "url": url,
-                        "error": str(exc),
-                    })
+                    json.dumps(
+                        {
+                            "type": "system",
+                            "level": "WARN",
+                            "subsystem": "rdap",
+                            "event": "bootstrap_download_failed",
+                            "url": url,
+                            "error": str(exc),
+                        }
+                    )
                 )
 
     async def get_rdap_base_url(self, ip: str) -> str:
@@ -970,7 +1008,9 @@ class RDAPEnricher:
                             )
                         location = resp.headers.get("Location", "")
                         if not location:
-                            raise Exception(f"Redirect with no Location header for {ip}")
+                            raise Exception(
+                                f"Redirect with no Location header for {ip}"
+                            )
                         url = location
                         redirect_count += 1
                         continue
@@ -981,14 +1021,16 @@ class RDAPEnricher:
                     except Exception as exc:
                         _PARSE_ERRORS.inc()
                         logger.error(
-                            json.dumps({
-                                "type": "system",
-                                "level": "ERROR",
-                                "subsystem": "rdap",
-                                "event": "parse_error",
-                                "ip": ip,
-                                "error": str(exc),
-                            })
+                            json.dumps(
+                                {
+                                    "type": "system",
+                                    "level": "ERROR",
+                                    "subsystem": "rdap",
+                                    "event": "parse_error",
+                                    "ip": ip,
+                                    "error": str(exc),
+                                }
+                            )
                         )
                         raise
             except (_NotFoundError, _RedirectLimitError, asyncio.TimeoutError):
@@ -1038,7 +1080,9 @@ class RDAPEnricher:
                 raw_date = event.get("eventDate", "")
                 if raw_date:
                     # Normalise: strip time part if present
-                    registration_date = raw_date[:10] if len(raw_date) >= 10 else raw_date
+                    registration_date = (
+                        raw_date[:10] if len(raw_date) >= 10 else raw_date
+                    )
                 break
 
         return RDAPResult(
@@ -1162,8 +1206,11 @@ class RDAPEnricher:
         # Guard 3: No browser traffic from this subnet
         try:
             from ..utils.ip import get_analysis_subnet
+
             subnet = get_analysis_subnet(ip)
-            browser_key_exists = await self._redis.exists(f"browser:seen:subnet:{subnet}")
+            browser_key_exists = await self._redis.exists(
+                f"browser:seen:subnet:{subnet}"
+            )
             if browser_key_exists:
                 return False  # Browser traffic observed here — do NOT expand
         except Exception as exc:
@@ -1185,17 +1232,19 @@ class RDAPEnricher:
         await self._log_expansion_audit(ip, expansion_cidr, rdap, trigger_score)
 
         logger.info(
-            json.dumps({
-                "type": "system",
-                "level": "INFO",
-                "subsystem": "rdap",
-                "event": "block_expansion_applied",
-                "ip": ip,
-                "cidr": expansion_cidr,
-                "org_handle": rdap.org_handle,
-                "org_name": rdap.org_name,
-                "trigger_score": trigger_score,
-            })
+            json.dumps(
+                {
+                    "type": "system",
+                    "level": "INFO",
+                    "subsystem": "rdap",
+                    "event": "block_expansion_applied",
+                    "ip": ip,
+                    "cidr": expansion_cidr,
+                    "org_handle": rdap.org_handle,
+                    "org_name": rdap.org_name,
+                    "trigger_score": trigger_score,
+                }
+            )
         )
 
         _BLOCK_EXPANSIONS.inc()
@@ -1221,14 +1270,16 @@ class RDAPEnricher:
             if count > self._config.block_expansion.max_expansions_per_hour:
                 await self._redis.decr(hour_key)
                 logger.warning(
-                    json.dumps({
-                        "type": "system",
-                        "level": "WARN",
-                        "subsystem": "rdap",
-                        "event": "expansion_rate_limit_reached",
-                        "hour_count": count,
-                        "max_per_hour": self._config.block_expansion.max_expansions_per_hour,
-                    })
+                    json.dumps(
+                        {
+                            "type": "system",
+                            "level": "WARN",
+                            "subsystem": "rdap",
+                            "event": "expansion_rate_limit_reached",
+                            "hour_count": count,
+                            "max_per_hour": self._config.block_expansion.max_expansions_per_hour,
+                        }
+                    )
                 )
                 return False
             # Update Prometheus gauge
@@ -1282,21 +1333,23 @@ class RDAPEnricher:
         self, ip: str, cidr: str, rdap: RDAPResult, trigger_score: int
     ) -> None:
         """Write expansion audit entry to Redis LIST (capped at 1000) using pipeline."""
-        entry = json.dumps({
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "trigger_ip": ip,
-            "trigger_score": trigger_score,
-            "expansion_cidr": cidr,
-            "org_name": rdap.org_name,
-            "org_handle": rdap.org_handle,
-            "netblock": rdap.netblock,
-            "guards_checked": {
-                "min_trigger_score": self._config.block_expansion.min_trigger_score,
-                "max_prefix_v4": self._config.block_expansion.max_prefix_length_v4,
-                "max_prefix_v6": self._config.block_expansion.max_prefix_length_v6,
-            },
-            "instance_id": self._instance_id,
-        })
+        entry = json.dumps(
+            {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "trigger_ip": ip,
+                "trigger_score": trigger_score,
+                "expansion_cidr": cidr,
+                "org_name": rdap.org_name,
+                "org_handle": rdap.org_handle,
+                "netblock": rdap.netblock,
+                "guards_checked": {
+                    "min_trigger_score": self._config.block_expansion.min_trigger_score,
+                    "max_prefix_v4": self._config.block_expansion.max_prefix_length_v4,
+                    "max_prefix_v6": self._config.block_expansion.max_prefix_length_v6,
+                },
+                "instance_id": self._instance_id,
+            }
+        )
         try:
             # Phase 28a: Use pipeline to reduce RTTs from 2 to 1
             async with self._redis.pipeline(transaction=False) as pipe:
@@ -1316,10 +1369,12 @@ class RDAPEnricher:
             cidrs: list[str] = []
             cursor = 0
             while True:
-                cursor, keys = await self._redis.scan(cursor, match="ban_cidr:*", count=100)
+                cursor, keys = await self._redis.scan(
+                    cursor, match="ban_cidr:*", count=100
+                )
                 for key in keys:
                     key_str = key.decode("utf-8") if isinstance(key, bytes) else key
-                    cidr = key_str[len("ban_cidr:"):]
+                    cidr = key_str[len("ban_cidr:") :]
                     if cidr:
                         cidrs.append(cidr)
                 if cursor == 0:
@@ -1327,18 +1382,18 @@ class RDAPEnricher:
             if cidrs:
                 self._blocklist_manager.load_cidrs(cidrs, "rdap_expansion")
                 logger.info(
-                    json.dumps({
-                        "type": "system",
-                        "level": "INFO",
-                        "subsystem": "rdap",
-                        "event": "ban_cidrs_loaded_from_redis",
-                        "count": len(cidrs),
-                    })
+                    json.dumps(
+                        {
+                            "type": "system",
+                            "level": "INFO",
+                            "subsystem": "rdap",
+                            "event": "ban_cidrs_loaded_from_redis",
+                            "count": len(cidrs),
+                        }
+                    )
                 )
         except Exception as exc:
-            logger.warning(
-                "rdap | event=ban_cidr_scan_error | error=%s", exc
-            )
+            logger.warning("rdap | event=ban_cidr_scan_error | error=%s", exc)
 
 
 # ---------------------------------------------------------------------------

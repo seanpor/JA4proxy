@@ -23,7 +23,6 @@ Signal names
 """
 
 import logging
-from dataclasses import dataclass, field
 
 from prometheus_client import Counter
 
@@ -235,7 +234,8 @@ class TLSEnforcer:
                     # Hard block
                     _TLS_VERSION_TOTAL.labels(tls_version=label, action="block").inc()
                     logger.debug(
-                        "tls_enforcer | event=old_tls_blocked | version=0x%04x", tls_version
+                        "tls_enforcer | event=old_tls_blocked | version=0x%04x",
+                        tls_version,
                     )
                     return None
                 elif not self._version_bypass_enabled and (
@@ -257,7 +257,9 @@ class TLSEnforcer:
 
             elif tls_version == TLS12:
                 if self._flag_tls12:
-                    _TLS_VERSION_TOTAL.labels(tls_version="tls12", action="signal").inc()
+                    _TLS_VERSION_TOTAL.labels(
+                        tls_version="tls12", action="signal"
+                    ).inc()
                     signals.append(
                         RiskSignal(
                             name="tls_version",

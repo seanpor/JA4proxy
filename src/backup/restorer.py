@@ -2,6 +2,7 @@
 Restore engine module.
 Implements manifest validation, checksum verification, and restore operations.
 """
+
 import getpass
 import hashlib
 import json
@@ -9,7 +10,7 @@ import logging
 import socket
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import redis
 from prometheus_client import Counter, Gauge, Histogram
@@ -23,33 +24,31 @@ logger = logging.getLogger(__name__)
 RESTORE_OPERATIONS_TOTAL = Counter(
     "ja4proxy_restore_operations_total",
     "Total number of restore operations attempted",
-    ["status", "type"]  # success, failure / destructive, non-destructive
+    ["status", "type"],  # success, failure / destructive, non-destructive
 )
 
 RESTORE_DURATION_SECONDS = Histogram(
     "ja4proxy_restore_duration_seconds",
     "Duration of restore operations in seconds",
-    buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0]
+    buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0],
 )
 
 RESTORE_LAST_SUCCESS_TIMESTAMP = Gauge(
     "ja4proxy_restore_last_success_timestamp",
-    "Unix timestamp of last successful restore"
+    "Unix timestamp of last successful restore",
 )
 
 RESTORE_LAST_FAILURE_TIMESTAMP = Gauge(
-    "ja4proxy_restore_last_failure_timestamp",
-    "Unix timestamp of last failed restore"
+    "ja4proxy_restore_last_failure_timestamp", "Unix timestamp of last failed restore"
 )
 
 RESTORE_CURRENTLY_RUNNING = Gauge(
     "ja4proxy_restore_currently_running",
-    "1 if restore is currently running, 0 otherwise"
+    "1 if restore is currently running, 0 otherwise",
 )
 
 RESTORE_KEYS_RESTORED_TOTAL = Counter(
-    "ja4proxy_restore_keys_restored_total",
-    "Total number of keys restored"
+    "ja4proxy_restore_keys_restored_total", "Total number of keys restored"
 )
 
 
@@ -133,8 +132,12 @@ class BackupRestorer:
                 raise RestoreError(f"Manifest missing required field: {field}")
 
         # Validate filename matches pattern
-        if not manifest["filename"].startswith("backup_") or not manifest["filename"].endswith(".bin"):
-            raise RestoreError(f"Invalid backup filename format: {manifest['filename']}")
+        if not manifest["filename"].startswith("backup_") or not manifest[
+            "filename"
+        ].endswith(".bin"):
+            raise RestoreError(
+                f"Invalid backup filename format: {manifest['filename']}"
+            )
 
         return manifest
 
@@ -183,15 +186,17 @@ class BackupRestorer:
 
         # Log restore start (before loading manifest to avoid file access issues)
         logger.info(
-            json.dumps({
-                "ts": datetime.utcnow().isoformat() + "Z",
-                "type": "system",
-                "level": "INFO",
-                "subsystem": "restore",
-                "event": "restore_started",
-                "restore_type": restore_type,
-                "artifact": backup_path
-            })
+            json.dumps(
+                {
+                    "ts": datetime.utcnow().isoformat() + "Z",
+                    "type": "system",
+                    "level": "INFO",
+                    "subsystem": "restore",
+                    "event": "restore_started",
+                    "restore_type": restore_type,
+                    "artifact": backup_path,
+                }
+            )
         )
 
         # Connect to Redis first (before try block so it's available for audit logging)
@@ -207,14 +212,16 @@ class BackupRestorer:
 
             # Log manifest loaded with key count
             logger.info(
-                json.dumps({
-                    "ts": datetime.utcnow().isoformat() + "Z",
-                    "type": "system",
-                    "level": "INFO",
-                    "subsystem": "restore",
-                    "event": "manifest_loaded",
-                    "keys_expected": manifest.get("keys_count", 0)
-                })
+                json.dumps(
+                    {
+                        "ts": datetime.utcnow().isoformat() + "Z",
+                        "type": "system",
+                        "level": "INFO",
+                        "subsystem": "restore",
+                        "event": "manifest_loaded",
+                        "keys_expected": manifest.get("keys_count", 0),
+                    }
+                )
             )
 
             # Verify checksum
@@ -230,7 +237,9 @@ class BackupRestorer:
                 self._wipe_redis_data(redis_client)
 
             # Restore backup data
-            keys_restored, keys_failed = self._restore_backup_data(redis_client, backup_path)
+            keys_restored, keys_failed = self._restore_backup_data(
+                redis_client, backup_path
+            )
             keys_total = keys_restored + keys_failed
             RESTORE_KEYS_RESTORED_TOTAL.inc(keys_restored)
 
@@ -238,17 +247,19 @@ class BackupRestorer:
             threshold = self.restore_error_threshold
             if keys_total > 0 and keys_failed / keys_total > threshold:
                 logger.error(
-                    json.dumps({
-                        "ts": datetime.utcnow().isoformat() + "Z",
-                        "type": "system",
-                        "level": "ERROR",
-                        "subsystem": "restore",
-                        "event": "restore_threshold_exceeded",
-                        "keys_total": keys_total,
-                        "keys_failed": keys_failed,
-                        "keys_restored": keys_restored,
-                        "threshold_pct": int(threshold * 100),
-                    })
+                    json.dumps(
+                        {
+                            "ts": datetime.utcnow().isoformat() + "Z",
+                            "type": "system",
+                            "level": "ERROR",
+                            "subsystem": "restore",
+                            "event": "restore_threshold_exceeded",
+                            "keys_total": keys_total,
+                            "keys_failed": keys_failed,
+                            "keys_restored": keys_restored,
+                            "threshold_pct": int(threshold * 100),
+                        }
+                    )
                 )
                 raise RestoreError(
                     f"Restore aborted: {keys_failed}/{keys_total} keys failed"
@@ -267,18 +278,20 @@ class BackupRestorer:
 
             # Log restore success
             logger.info(
-                json.dumps({
-                    "ts": datetime.utcnow().isoformat() + "Z",
-                    "type": "system",
-                    "level": "INFO",
-                    "subsystem": "restore",
-                    "event": "restore_succeeded",
-                    "restore_type": restore_type,
-                    "keys_restored": keys_restored,
-                    "keys_failed": keys_failed,
-                    "duration_ms": int(duration * 1000),
-                    "artifact": backup_path
-                })
+                json.dumps(
+                    {
+                        "ts": datetime.utcnow().isoformat() + "Z",
+                        "type": "system",
+                        "level": "INFO",
+                        "subsystem": "restore",
+                        "event": "restore_succeeded",
+                        "restore_type": restore_type,
+                        "keys_restored": keys_restored,
+                        "keys_failed": keys_failed,
+                        "duration_ms": int(duration * 1000),
+                        "artifact": backup_path,
+                    }
+                )
             )
 
             # Write audit log entry
@@ -291,8 +304,8 @@ class BackupRestorer:
                     "destructive": destructive,
                     "keys_restored": keys_restored,
                     "validation_passed": True,
-                    "triggered_by": "manual"
-                }
+                    "triggered_by": "manual",
+                },
             }
             redis_client.lpush("management:audit_log", json.dumps(audit_entry))
             redis_client.ltrim("management:audit_log", -1000, -1)
@@ -307,17 +320,19 @@ class BackupRestorer:
 
             # Log restore failure
             logger.error(
-                json.dumps({
-                    "ts": datetime.utcnow().isoformat() + "Z",
-                    "type": "system",
-                    "level": "ERROR",
-                    "subsystem": "restore",
-                    "event": "restore_failed",
-                    "restore_type": restore_type,
-                    "error": str(e),
-                    "duration_ms": int(duration * 1000),
-                    "artifact": backup_path
-                })
+                json.dumps(
+                    {
+                        "ts": datetime.utcnow().isoformat() + "Z",
+                        "type": "system",
+                        "level": "ERROR",
+                        "subsystem": "restore",
+                        "event": "restore_failed",
+                        "restore_type": restore_type,
+                        "error": str(e),
+                        "duration_ms": int(duration * 1000),
+                        "artifact": backup_path,
+                    }
+                )
             )
 
             # Write audit log entry for failure
@@ -328,8 +343,8 @@ class BackupRestorer:
                 "detail": {
                     "error": str(e),
                     "duration_seconds": duration,
-                    "triggered_by": "manual"
-                }
+                    "triggered_by": "manual",
+                },
             }
             try:
                 if redis_client:

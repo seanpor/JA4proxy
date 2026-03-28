@@ -10,11 +10,9 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Dict, Optional, Set
 
 import aiohttp
-import redis
 import yaml
 
 from src.security.models import RiskSignal
@@ -171,7 +169,9 @@ class ASNClassifier:
         await self._refresh_tor_list()
 
         # Store the background task so it can be cancelled later
-        self._tor_refresh_task = asyncio.create_task(self._tor_refresh_loop(refresh_interval))
+        self._tor_refresh_task = asyncio.create_task(
+            self._tor_refresh_loop(refresh_interval)
+        )
 
     async def cleanup(self) -> None:
         """Cancel any background tasks."""

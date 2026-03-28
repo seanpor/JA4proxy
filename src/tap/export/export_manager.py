@@ -4,11 +4,12 @@ ExportManager — orchestrates all intelligence export backends (Phase 20, Group
 Fires fingerprint events and ban events to all enabled exporters concurrently.
 Individual failures are logged and never re-raised.
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -56,61 +57,86 @@ class ExportManager:
         if cfg.get("edl", {}).get("enabled", False):
             try:
                 from src.tap.export.edl_server import EDLServer
+
                 self._edl = EDLServer(self._config, self._redis)
                 await self._edl.start()
                 logger.info("export_manager | event=exporter_started | exporter=edl")
             except Exception:
-                logger.exception("export_manager | event=exporter_start_failed | exporter=edl")
+                logger.exception(
+                    "export_manager | event=exporter_start_failed | exporter=edl"
+                )
 
         if cfg.get("f5", {}).get("enabled", False):
             try:
                 from src.tap.export.f5_client import F5Client
+
                 self._f5 = F5Client(cfg.get("f5", {}), self._session)
                 logger.info("export_manager | event=exporter_started | exporter=f5")
             except Exception:
-                logger.exception("export_manager | event=exporter_start_failed | exporter=f5")
+                logger.exception(
+                    "export_manager | event=exporter_start_failed | exporter=f5"
+                )
 
         if cfg.get("palo_alto", {}).get("enabled", False):
             try:
                 from src.tap.export.palo_alto_client import PaloAltoClient
-                self._palo_alto = PaloAltoClient(cfg.get("palo_alto", {}), self._session)
-                logger.info("export_manager | event=exporter_started | exporter=palo_alto")
+
+                self._palo_alto = PaloAltoClient(
+                    cfg.get("palo_alto", {}), self._session
+                )
+                logger.info(
+                    "export_manager | event=exporter_started | exporter=palo_alto"
+                )
             except Exception:
-                logger.exception("export_manager | event=exporter_start_failed | exporter=palo_alto")
+                logger.exception(
+                    "export_manager | event=exporter_start_failed | exporter=palo_alto"
+                )
 
         if cfg.get("kafka", {}).get("enabled", False):
             try:
                 from src.tap.export.kafka_producer import KafkaExporter
+
                 self._kafka = KafkaExporter(cfg.get("kafka", {}))
                 await self._kafka.start()
                 logger.info("export_manager | event=exporter_started | exporter=kafka")
             except Exception:
-                logger.exception("export_manager | event=exporter_start_failed | exporter=kafka")
+                logger.exception(
+                    "export_manager | event=exporter_start_failed | exporter=kafka"
+                )
 
         if cfg.get("syslog", {}).get("enabled", False):
             try:
                 from src.tap.export.syslog_exporter import SyslogExporter
+
                 self._syslog = SyslogExporter(cfg.get("syslog", {}))
                 logger.info("export_manager | event=exporter_started | exporter=syslog")
             except Exception:
-                logger.exception("export_manager | event=exporter_start_failed | exporter=syslog")
+                logger.exception(
+                    "export_manager | event=exporter_start_failed | exporter=syslog"
+                )
 
         if cfg.get("taxii", {}).get("enabled", False):
             try:
                 from src.tap.export.taxii_server import TaxiiServer
+
                 self._taxii = TaxiiServer(self._config, self._redis)
                 await self._taxii.start()
                 logger.info("export_manager | event=exporter_started | exporter=taxii")
             except Exception:
-                logger.exception("export_manager | event=exporter_start_failed | exporter=taxii")
+                logger.exception(
+                    "export_manager | event=exporter_start_failed | exporter=taxii"
+                )
 
         if cfg.get("misp", {}).get("enabled", False):
             try:
                 from src.tap.export.misp_client import MISPClient
+
                 self._misp = MISPClient(cfg.get("misp", {}), self._session)
                 logger.info("export_manager | event=exporter_started | exporter=misp")
             except Exception:
-                logger.exception("export_manager | event=exporter_start_failed | exporter=misp")
+                logger.exception(
+                    "export_manager | event=exporter_start_failed | exporter=misp"
+                )
 
     async def on_fingerprint(self, fp: Any) -> None:
         """Fire fingerprint event to all streaming exporters.
@@ -131,7 +157,8 @@ class ExportManager:
             if isinstance(result, BaseException):
                 logger.error(
                     "export_manager | event=fingerprint_export_error | exporter_idx=%d | err=%s",
-                    i, result,
+                    i,
+                    result,
                 )
 
     async def on_ban(self, ip: str, score: int, ttl: int, reason: str) -> None:
@@ -157,7 +184,11 @@ class ExportManager:
 
         # Syslog is sync — run in executor
         if self._syslog is not None:
-            action = "signal_ban" if score >= 85 else ("signal_block" if score >= 70 else "flag")
+            action = (
+                "signal_ban"
+                if score >= 85
+                else ("signal_block" if score >= 70 else "flag")
+            )
             loop = asyncio.get_event_loop()
             tasks.append(
                 loop.run_in_executor(
@@ -173,7 +204,8 @@ class ExportManager:
             if isinstance(result, BaseException):
                 logger.error(
                     "export_manager | event=ban_export_error | exporter_idx=%d | err=%s",
-                    i, result,
+                    i,
+                    result,
                 )
 
     async def close(self) -> None:
@@ -188,11 +220,14 @@ class ExportManager:
                     await exporter.close()
                 except Exception:
                     logger.exception(
-                        "export_manager | event=exporter_close_error | exporter=%s", name
+                        "export_manager | event=exporter_close_error | exporter=%s",
+                        name,
                     )
 
         if self._syslog is not None:
             try:
                 self._syslog.close()
             except Exception:
-                logger.exception("export_manager | event=exporter_close_error | exporter=syslog")
+                logger.exception(
+                    "export_manager | event=exporter_close_error | exporter=syslog"
+                )

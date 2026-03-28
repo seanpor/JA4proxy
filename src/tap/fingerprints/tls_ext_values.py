@@ -4,15 +4,16 @@ TLS Extension Value Fingerprint (Phase 20, Group 5-H).
 Derives rich TLS extension detail from an already-parsed JA4Result.
 No additional byte parsing required.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
-from src.tap.fingerprints.ja4 import JA4Result, _GREASE
+from src.tap.fingerprints.ja4 import JA4Result
 
 _EXT_ALPS = 0x4469  # Application-Layer Protocol Settings (ALPS, Chrome)
-_EXT_COMPRESS_CERT = 27   # RFC 8879
+_EXT_COMPRESS_CERT = 27  # RFC 8879
 _EXT_PADDING = 21
 _EXT_SESSION_TICKET = 35
 
@@ -43,7 +44,9 @@ def extract_tls_ext_values(ja4_result: JA4Result) -> JA4TLSExtValues:
     """
     try:
         has_alps = _EXT_ALPS in ja4_result.extensions
-        has_compress_cert = ja4_result.compress_cert_present or (_EXT_COMPRESS_CERT in ja4_result.extensions)
+        has_compress_cert = ja4_result.compress_cert_present or (
+            _EXT_COMPRESS_CERT in ja4_result.extensions
+        )
 
         return JA4TLSExtValues(
             supported_groups=list(ja4_result.supported_groups),

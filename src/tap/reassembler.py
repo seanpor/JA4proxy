@@ -9,6 +9,7 @@ The reassembler processes ParsedPacket objects from PacketCapture/PcapReplay,
 reassembles in-order TCP payload data (with out-of-order buffering), and
 invokes FingerprintExtractor callbacks when stream data arrives or closes.
 """
+
 from __future__ import annotations
 
 import logging
@@ -145,9 +146,7 @@ class StreamReassembler:
         Returns the number of streams evicted.
         """
         cutoff = time.monotonic() - self._stream_timeout_s
-        to_evict = [
-            k for k, s in self._streams.items() if s.last_activity < cutoff
-        ]
+        to_evict = [k for k, s in self._streams.items() if s.last_activity < cutoff]
         for k in to_evict:
             stream = self._streams.pop(k, None)
             if stream is not None and stream.state != "CLOSED":
@@ -219,9 +218,7 @@ class StreamReassembler:
             self._append_data(stream, pkt.data, "server", pkt.seq)
 
         # Notify extractor incrementally
-        if self._extractor is not None and hasattr(
-            self._extractor, "on_stream_data"
-        ):
+        if self._extractor is not None and hasattr(self._extractor, "on_stream_data"):
             self._extractor.on_stream_data(stream)
 
     def _on_fin_rst(self, stream: TCPStream, pkt: ParsedPacket) -> None:
@@ -322,9 +319,7 @@ class StreamReassembler:
 
     def _call_extractor_close(self, stream: TCPStream) -> None:
         """Call extractor.on_stream_close() if extractor is wired."""
-        if self._extractor is not None and hasattr(
-            self._extractor, "on_stream_close"
-        ):
+        if self._extractor is not None and hasattr(self._extractor, "on_stream_close"):
             try:
                 self._extractor.on_stream_close(stream)
             except Exception:

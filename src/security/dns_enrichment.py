@@ -21,6 +21,7 @@ from prometheus_client import Counter, Gauge
 
 try:
     import aiodns
+
     AIODNS_AVAILABLE = True
 except ImportError:
     AIODNS_AVAILABLE = False
@@ -68,16 +69,27 @@ _DNS_PTR_ERRORS = Counter(
 # ---------------------------------------------------------------------------
 
 RESIDENTIAL_PATTERNS = [
-    r'\.dsl\.', r'\.cable\.', r'\.broadband\.', r'\.home\.',
-    r'\.residential\.', r'-\d+\.dynamic\.', r'\.adsl\.',
-    r'\.pppoe\.', r'cpc\d+', r'bchsia\.',
-    r'\.eircom\.net', r'\.bskyb\.com',
+    r"\.dsl\.",
+    r"\.cable\.",
+    r"\.broadband\.",
+    r"\.home\.",
+    r"\.residential\.",
+    r"-\d+\.dynamic\.",
+    r"\.adsl\.",
+    r"\.pppoe\.",
+    r"cpc\d+",
+    r"bchsia\.",
+    r"\.eircom\.net",
+    r"\.bskyb\.com",
 ]
 
 DATACENTER_PATTERNS = [
-    r'\.amazonaws\.com$', r'\.compute\.internal$',
-    r'\.googleusercontent\.com$', r'\.digitalocean\.com$',
-    r'ec2-', r'ip-\d+-\d+-\d+-\d+\.',
+    r"\.amazonaws\.com$",
+    r"\.compute\.internal$",
+    r"\.googleusercontent\.com$",
+    r"\.digitalocean\.com$",
+    r"ec2-",
+    r"ip-\d+-\d+-\d+-\d+\.",
 ]
 
 
@@ -85,9 +97,11 @@ DATACENTER_PATTERNS = [
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class FCrDNSResult:
     """Result of FCrDNS check."""
+
     ip: str
     has_ptr: bool
     hostname: Optional[str] = None
@@ -98,6 +112,7 @@ class FCrDNSResult:
 # ---------------------------------------------------------------------------
 # Main class
 # ---------------------------------------------------------------------------
+
 
 class DNSEnrichment:
     """DNS enrichment service with FCrDNS checks.
@@ -122,7 +137,9 @@ class DNSEnrichment:
         self._cache_ttl: int = fcrdns_cfg.get("cache_ttl_seconds", 21600)
         self._no_ptr_score: int = fcrdns_cfg.get("no_ptr_score", 15)
         self._fcrdns_failed_score: int = fcrdns_cfg.get("fcrdns_failed_score", 20)
-        self._residential_reduction: int = fcrdns_cfg.get("residential_score_reduction", 10)
+        self._residential_reduction: int = fcrdns_cfg.get(
+            "residential_score_reduction", 10
+        )
 
         self._init_resolver()
         self._log_passive_dns_status()
@@ -136,11 +153,15 @@ class DNSEnrichment:
         """Initialise aiodns resolver. Disables enrichment if unavailable."""
         if not AIODNS_AVAILABLE:
             logger.warning(
-                json.dumps({
-                    "type": "system", "level": "WARN",
-                    "subsystem": "dns", "event": "aiodns_unavailable",
-                    "message": "aiodns not installed — DNS enrichment disabled",
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "WARN",
+                        "subsystem": "dns",
+                        "event": "aiodns_unavailable",
+                        "message": "aiodns not installed — DNS enrichment disabled",
+                    }
+                )
             )
             self._enabled = False
             return
@@ -154,11 +175,15 @@ class DNSEnrichment:
                 self._resolver.nameservers = nameservers
         except Exception as exc:
             logger.error(
-                json.dumps({
-                    "type": "system", "level": "ERROR",
-                    "subsystem": "dns", "event": "resolver_init_failed",
-                    "error": str(exc),
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "ERROR",
+                        "subsystem": "dns",
+                        "event": "resolver_init_failed",
+                        "error": str(exc),
+                    }
+                )
             )
             self._enabled = False
 
@@ -167,11 +192,15 @@ class DNSEnrichment:
         passive_cfg = self._config.get("passive_dns", {})
         if not passive_cfg.get("enabled", False):
             logger.info(
-                json.dumps({
-                    "type": "system", "level": "INFO",
-                    "subsystem": "dns", "event": "passive_dns_disabled",
-                    "message": "Passive DNS disabled — no feed configured",
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "INFO",
+                        "subsystem": "dns",
+                        "event": "passive_dns_disabled",
+                        "message": "Passive DNS disabled — no feed configured",
+                    }
+                )
             )
 
     def _start_workers(self) -> None:
@@ -201,11 +230,16 @@ class DNSEnrichment:
                 raise  # Propagate cancellation on shutdown
             except Exception as exc:
                 logger.error(
-                    json.dumps({
-                        "type": "system", "level": "ERROR",
-                        "subsystem": "dns", "event": "worker_crashed",
-                        "worker": worker_id, "error": str(exc),
-                    })
+                    json.dumps(
+                        {
+                            "type": "system",
+                            "level": "ERROR",
+                            "subsystem": "dns",
+                            "event": "worker_crashed",
+                            "worker": worker_id,
+                            "error": str(exc),
+                        }
+                    )
                 )
                 await asyncio.sleep(1)  # Brief pause before restart
 
@@ -218,11 +252,16 @@ class DNSEnrichment:
                 await self._process_ip(ip)
             except Exception as exc:
                 logger.error(
-                    json.dumps({
-                        "type": "system", "level": "ERROR",
-                        "subsystem": "dns", "event": "worker_error",
-                        "ip": ip, "error": str(exc),
-                    })
+                    json.dumps(
+                        {
+                            "type": "system",
+                            "level": "ERROR",
+                            "subsystem": "dns",
+                            "event": "worker_error",
+                            "ip": ip,
+                            "error": str(exc),
+                        }
+                    )
                 )
             finally:
                 self._queue.task_done()
@@ -247,7 +286,9 @@ class DNSEnrichment:
         """Perform the three-step FCrDNS check. Always returns (never raises)."""
         if not self._resolver:
             _DNS_TOTAL.labels(result="error").inc()
-            return FCrDNSResult(ip=ip, has_ptr=False, classification="resolver_unavailable")
+            return FCrDNSResult(
+                ip=ip, has_ptr=False, classification="resolver_unavailable"
+            )
 
         # Step 1: PTR lookup
         try:
@@ -258,11 +299,16 @@ class DNSEnrichment:
             _DNS_RESOLVER_ERRORS.inc()
             _DNS_PTR_ERRORS.labels(error_type="timeout").inc()
             logger.error(
-                json.dumps({
-                    "type": "system", "level": "ERROR",
-                    "subsystem": "dns", "event": "resolver_error",
-                    "ip": ip, "error": "timeout on PTR lookup",
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "ERROR",
+                        "subsystem": "dns",
+                        "event": "resolver_error",
+                        "ip": ip,
+                        "error": "timeout on PTR lookup",
+                    }
+                )
             )
             return FCrDNSResult(ip=ip, has_ptr=False, classification="no_ptr")
         except Exception as exc:
@@ -270,17 +316,22 @@ class DNSEnrichment:
             _DNS_RESOLVER_ERRORS.inc()
             exc_name = type(exc).__name__
             error_type = (
-                "nxdomain" if "nxdomain" in exc_name.lower()
-                else "servfail" if "servfail" in exc_name.lower()
-                else "other"
+                "nxdomain"
+                if "nxdomain" in exc_name.lower()
+                else "servfail" if "servfail" in exc_name.lower() else "other"
             )
             _DNS_PTR_ERRORS.labels(error_type=error_type).inc()
             logger.error(
-                json.dumps({
-                    "type": "system", "level": "ERROR",
-                    "subsystem": "dns", "event": "resolver_error",
-                    "ip": ip, "error": str(exc),
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "ERROR",
+                        "subsystem": "dns",
+                        "event": "resolver_error",
+                        "ip": ip,
+                        "error": str(exc),
+                    }
+                )
             )
             return FCrDNSResult(ip=ip, has_ptr=False, classification="no_ptr")
 
@@ -297,33 +348,58 @@ class DNSEnrichment:
             _DNS_TOTAL.labels(result="timeout").inc()
             _DNS_RESOLVER_ERRORS.inc()
             logger.error(
-                json.dumps({
-                    "type": "system", "level": "ERROR",
-                    "subsystem": "dns", "event": "resolver_error",
-                    "ip": ip, "error": "timeout on forward lookup",
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "ERROR",
+                        "subsystem": "dns",
+                        "event": "resolver_error",
+                        "ip": ip,
+                        "error": "timeout on forward lookup",
+                    }
+                )
             )
-            return FCrDNSResult(ip=ip, has_ptr=True, hostname=hostname,
-                                confirmed=False, classification="fcrdns_failed")
+            return FCrDNSResult(
+                ip=ip,
+                has_ptr=True,
+                hostname=hostname,
+                confirmed=False,
+                classification="fcrdns_failed",
+            )
         except Exception as exc:
             _DNS_TOTAL.labels(result="error").inc()
             _DNS_RESOLVER_ERRORS.inc()
             logger.error(
-                json.dumps({
-                    "type": "system", "level": "ERROR",
-                    "subsystem": "dns", "event": "resolver_error",
-                    "ip": ip, "error": str(exc),
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "ERROR",
+                        "subsystem": "dns",
+                        "event": "resolver_error",
+                        "ip": ip,
+                        "error": str(exc),
+                    }
+                )
             )
-            return FCrDNSResult(ip=ip, has_ptr=True, hostname=hostname,
-                                confirmed=False, classification="fcrdns_failed")
+            return FCrDNSResult(
+                ip=ip,
+                has_ptr=True,
+                hostname=hostname,
+                confirmed=False,
+                classification="fcrdns_failed",
+            )
 
         # Step 3: Confirm
         confirmed = str(ip) in [str(a) for a in forward_ips]
         classification = self._classify_hostname(hostname, confirmed)
         _DNS_TOTAL.labels(result="miss").inc()
-        return FCrDNSResult(ip=ip, has_ptr=True, hostname=hostname,
-                            confirmed=confirmed, classification=classification)
+        return FCrDNSResult(
+            ip=ip,
+            has_ptr=True,
+            hostname=hostname,
+            confirmed=confirmed,
+            classification=classification,
+        )
 
     def _classify_hostname(self, hostname: str, confirmed: bool) -> str:
         """Classify PTR hostname. Returns classification string."""
@@ -371,11 +447,16 @@ class DNSEnrichment:
             )
         except Exception as exc:
             logger.warning(
-                json.dumps({
-                    "type": "system", "level": "WARN",
-                    "subsystem": "dns", "event": "cache_write_failed",
-                    "ip": ip, "error": str(exc),
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "WARN",
+                        "subsystem": "dns",
+                        "event": "cache_write_failed",
+                        "ip": ip,
+                        "error": str(exc),
+                    }
+                )
             )
 
     # ------------------------------------------------------------------
@@ -392,7 +473,9 @@ class DNSEnrichment:
         # Bloom filter dedup
         try:
             if self._redis_client:
-                exists = await self._redis_client.bf().exists(self._bloom_filter_key, ip)
+                exists = await self._redis_client.bf().exists(
+                    self._bloom_filter_key, ip
+                )
                 if exists:
                     return
                 await self._redis_client.bf().add(self._bloom_filter_key, ip)
@@ -405,11 +488,15 @@ class DNSEnrichment:
         except asyncio.QueueFull:
             _DNS_QUEUE_DROPS.inc()
             logger.warning(
-                json.dumps({
-                    "type": "system", "level": "WARN",
-                    "subsystem": "dns", "event": "queue_full",
-                    "dropped_ip": ip,
-                })
+                json.dumps(
+                    {
+                        "type": "system",
+                        "level": "WARN",
+                        "subsystem": "dns",
+                        "event": "queue_full",
+                        "dropped_ip": ip,
+                    }
+                )
             )
 
     async def get_signal(self, ip: str) -> Optional[RiskSignal]:
@@ -430,20 +517,29 @@ class DNSEnrichment:
         ptr = cached.get("ptr", "unknown")
 
         if classification == "no_ptr":
-            return RiskSignal(name="no_ptr", score=self._no_ptr_score,
-                              reason="No PTR record")
+            return RiskSignal(
+                name="no_ptr", score=self._no_ptr_score, reason="No PTR record"
+            )
         if classification == "fcrdns_failed":
-            return RiskSignal(name="fcrdns_failed", score=self._fcrdns_failed_score,
-                              reason=f"FCrDNS failed for {ptr}")
+            return RiskSignal(
+                name="fcrdns_failed",
+                score=self._fcrdns_failed_score,
+                reason=f"FCrDNS failed for {ptr}",
+            )
         if classification == "residential":
-            return RiskSignal(name="residential_ptr", score=-self._residential_reduction,
-                              reason=f"Residential PTR: {ptr}")
+            return RiskSignal(
+                name="residential_ptr",
+                score=-self._residential_reduction,
+                reason=f"Residential PTR: {ptr}",
+            )
         if classification == "datacenter_confirmed":
-            return RiskSignal(name="datacenter_ptr", score=0,
-                              reason=f"Datacenter PTR: {ptr}")
+            return RiskSignal(
+                name="datacenter_ptr", score=0, reason=f"Datacenter PTR: {ptr}"
+            )
         if classification == "confirmed":
-            return RiskSignal(name="ptr_confirmed", score=0,
-                              reason=f"PTR confirmed: {ptr}")
+            return RiskSignal(
+                name="ptr_confirmed", score=0, reason=f"PTR confirmed: {ptr}"
+            )
         return None
 
     # ------------------------------------------------------------------

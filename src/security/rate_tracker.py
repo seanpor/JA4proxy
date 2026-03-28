@@ -19,11 +19,10 @@ GDPR Compliance:
 - Data minimization by strategy selection
 """
 
-import asyncio
 import inspect
 import logging
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import redis
 
@@ -36,11 +35,13 @@ from .rate_strategy import (
 
 class RateTrackerError(Exception):
     """Base exception for rate tracker errors."""
+
     pass
 
 
 class RedisConnectionError(RateTrackerError):
     """Redis connection/operation failed."""
+
     pass
 
 
@@ -129,7 +130,7 @@ class MultiStrategyRateTracker:
 
         self.logger.info(
             "Rate tracker initialized with strategies: %s",
-            [s.value for s in self.enabled_strategies]
+            [s.value for s in self.enabled_strategies],
         )
 
     @staticmethod
@@ -171,8 +172,8 @@ class MultiStrategyRateTracker:
             ValueError: If configuration is invalid
         """
         strategies = []
-        strategy_config = self.config.get('security', {}).get(
-            'rate_limit_strategies', {}
+        strategy_config = self.config.get("security", {}).get(
+            "rate_limit_strategies", {}
         )
 
         if not isinstance(strategy_config, dict):
@@ -192,7 +193,7 @@ class MultiStrategyRateTracker:
                 )
                 continue
 
-            if settings.get('enabled', False):
+            if settings.get("enabled", False):
                 # Convert name to enum
                 strategy = RateLimitStrategy.from_string(strategy_name)
                 if strategy:
@@ -214,15 +215,13 @@ class MultiStrategyRateTracker:
         Returns:
             Dictionary of window configurations
         """
-        windows_config = self.config.get('security', {}).get(
-            'rate_windows', {}
-        )
+        windows_config = self.config.get("security", {}).get("rate_windows", {})
 
         # Default windows
         windows = {
-            'short': 1.0,   # 1 second - real-time
-            'medium': 10.0,  # 10 seconds - burst
-            'long': 60.0,    # 60 seconds - sustained
+            "short": 1.0,  # 1 second - real-time
+            "medium": 10.0,  # 10 seconds - burst
+            "long": 60.0,  # 60 seconds - sustained
         }
 
         # Validate and override with config
@@ -234,21 +233,20 @@ class MultiStrategyRateTracker:
                 else:
                     self.logger.warning(
                         "Window '%s' value %s out of range [%s, %s], using default",
-                        name, value, self.MIN_WINDOW_SECONDS, self.MAX_WINDOW_SECONDS
+                        name,
+                        value,
+                        self.MIN_WINDOW_SECONDS,
+                        self.MAX_WINDOW_SECONDS,
                     )
             except (TypeError, ValueError):
                 self.logger.warning(
-                    "Invalid window '%s' value: %s, using default",
-                    name, value
+                    "Invalid window '%s' value: %s, using default", name, value
                 )
 
         return windows
 
     async def track_connection(
-        self,
-        ja4: str,
-        ip: str,
-        window: str = 'short'
+        self, ja4: str, ip: str, window: str = "short"
     ) -> Dict[RateLimitStrategy, RateMetrics]:
         """
         Track a connection using all enabled strategies with pipelined batching.
@@ -291,7 +289,7 @@ class MultiStrategyRateTracker:
         now = time.time()
         ttl = max(self.DEFAULT_TTL_SECONDS, int(window_seconds * 2))
 
-        results = {}
+        results: Dict[RateLimitStrategy, RateMetrics] = {}
 
         # Use pipeline batching for all strategies
         try:
@@ -303,7 +301,7 @@ class MultiStrategyRateTracker:
             self.logger.warning(
                 "Pipeline batching failed, falling back to individual tracking: %s", e
             )
-            
+
             # Track for each enabled strategy individually (fallback)
             for strategy in self.enabled_strategies:
                 try:
@@ -334,7 +332,7 @@ class MultiStrategyRateTracker:
         window_seconds: float,
         now: float,
         ttl: int,
-        results: Dict[RateLimitStrategy, RateMetrics]
+        results: Dict[RateLimitStrategy, RateMetrics],
     ) -> None:
         """
         Track connection for all strategies using Redis pipeline batching.
@@ -359,7 +357,7 @@ class MultiStrategyRateTracker:
         try:
             # Prepare pipeline
             if self._is_async_redis(self.redis):
-                async with self.redis.pipeline(transaction=False) as pipe:
+                async with self.redis.pipeline(transaction=False) as pipe:  # type: ignore[attr-defined]
                     # Execute all Lua scripts in pipeline
                     for strategy in self.enabled_strategies:
                         entity_id = strategy.get_entity_id(ja4, ip)
@@ -376,16 +374,17 @@ class MultiStrategyRateTracker:
 
                     # Execute all queued commands
                     script_results = await pipe.execute()
-                    
+
                     # Process results
                     for i, strategy in enumerate(self.enabled_strategies):
                         count = script_results[i]
-                        
+
                         # Validate count (security: prevent DoS)
                         if count > self.MAX_CONNECTIONS_PER_WINDOW:
                             self.logger.warning(
                                 "Strategy %s exceeded max connections: %s",
-                                strategy.value, count
+                                strategy.value,
+                                count,
                             )
                             count = self.MAX_CONNECTIONS_PER_WINDOW
 
@@ -417,16 +416,17 @@ class MultiStrategyRateTracker:
 
                     # Execute all queued commands
                     script_results = pipe.execute()
-                    
+
                     # Process results
                     for i, strategy in enumerate(self.enabled_strategies):
                         count = script_results[i]
-                        
+
                         # Validate count (security: prevent DoS)
                         if count > self.MAX_CONNECTIONS_PER_WINDOW:
                             self.logger.warning(
                                 "Strategy %s exceeded max connections: %s",
-                                strategy.value, count
+                                strategy.value,
+                                count,
                             )
                             count = self.MAX_CONNECTIONS_PER_WINDOW
 
@@ -449,11 +449,7 @@ class MultiStrategyRateTracker:
             raise RateTrackerError(f"Unexpected error: {e}")
 
     async def _track_single_strategy(
-        self,
-        ja4: str,
-        ip: str,
-        strategy: RateLimitStrategy,
-        window_seconds: float
+        self, ja4: str, ip: str, strategy: RateLimitStrategy, window_seconds: float
     ) -> RateMetrics:
         """
         Track connection for a single strategy using atomic Lua script.
@@ -503,8 +499,7 @@ class MultiStrategyRateTracker:
             # Validate count (security: prevent DoS)
             if count > self.MAX_CONNECTIONS_PER_WINDOW:
                 self.logger.warning(
-                    "Strategy %s exceeded max connections: %s",
-                    strategy.value, count
+                    "Strategy %s exceeded max connections: %s", strategy.value, count
                 )
                 count = self.MAX_CONNECTIONS_PER_WINDOW
 
@@ -539,8 +534,8 @@ class MultiStrategyRateTracker:
         Raises:
             ValueError: If strategy not configured
         """
-        strategy_configs = self.config.get('security', {}).get(
-            'rate_limit_strategies', {}
+        strategy_configs = self.config.get("security", {}).get(
+            "rate_limit_strategies", {}
         )
 
         config_dict = strategy_configs.get(strategy.value, {})

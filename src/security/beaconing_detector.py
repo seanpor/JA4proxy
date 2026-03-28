@@ -192,7 +192,7 @@ class BeaconingDetector:
 
         # Phase 14d: cap on beacon:suspects leaderboard size to prevent unbounded growth
         self._max_suspects: int = cfg.get("max_suspects", 10000)
-        
+
         # Phase 26e: Write buffer for deferred batching
         self._write_buffer = WriteBuffer(redis_client)
 
@@ -244,8 +244,12 @@ class BeaconingDetector:
             key = f"beacon:{ip}:{ja4}"
             # Enqueue all operations instead of immediate execution
             await self._write_buffer.enqueue("zadd", key, {uid: now})
-            await self._write_buffer.enqueue("zremrangebyscore", key, 0, now - self._window_seconds)
-            await self._write_buffer.enqueue("zremrangebyrank", key, 0, -(self._window_size + 2))
+            await self._write_buffer.enqueue(
+                "zremrangebyscore", key, 0, now - self._window_seconds
+            )
+            await self._write_buffer.enqueue(
+                "zremrangebyrank", key, 0, -(self._window_size + 2)
+            )
             await self._write_buffer.enqueue("expire", key, self._window_seconds + 60)
             _BEACONING_RECORDS.inc()
         except Exception as exc:
@@ -260,16 +264,20 @@ class BeaconingDetector:
                 long_key = f"beacon:long:{ip}:{ja4}"
                 # Enqueue long window operations
                 await self._write_buffer.enqueue("zadd", long_key, {uid: now})
-                await self._write_buffer.enqueue("zremrangebyscore", long_key, 0, now - self._long_seconds)
-                await self._write_buffer.enqueue("expire", long_key, self._long_seconds + 60)
+                await self._write_buffer.enqueue(
+                    "zremrangebyscore", long_key, 0, now - self._long_seconds
+                )
+                await self._write_buffer.enqueue(
+                    "expire", long_key, self._long_seconds + 60
+                )
             except Exception as exc:
                 logger.debug(
-                    "beaconing | event=long_record_enqueue_failed | ip=%s | error=%s", ip, exc
+                    "beaconing | event=long_record_enqueue_failed | ip=%s | error=%s",
+                    ip,
+                    exc,
                 )
 
-    async def get_signal(
-        self, ctx: ConnectionContext
-    ) -> RiskSignal | None:
+    async def get_signal(self, ctx: ConnectionContext) -> RiskSignal | None:
         """Analyse timing data for this IP+JA4 and return a beacon signal.
 
         Checks short window first, then long window independently. Returns the
@@ -325,9 +333,7 @@ class BeaconingDetector:
                 key, now - window_seconds, now, withscores=True
             )
         except Exception as exc:
-            logger.debug(
-                "beaconing | event=read_failed | ip=%s | error=%s", ip, exc
-            )
+            logger.debug("beaconing | event=read_failed | ip=%s | error=%s", ip, exc)
             return None
 
         timestamps = sorted(score for _, score in members)
@@ -350,7 +356,8 @@ class BeaconingDetector:
         n = len(timestamps)
         cv_val = coefficient_of_variation(iats)
         strength = (
-            "strong" if score_float >= 0.9
+            "strong"
+            if score_float >= 0.9
             else ("moderate" if score_float >= 0.5 else "weak")
         )
 

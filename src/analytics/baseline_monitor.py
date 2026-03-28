@@ -21,17 +21,15 @@ class BaselineMonitor:
         self.logger = logging.getLogger(__name__)
 
         # Configuration parameters
-        self.capture_interval = config.get('capture_interval_seconds', 3600)
-        self.retention_days = config.get('retention_days', 7)
-        self.baseline_key_prefix = config.get('baseline_key_prefix', 'analytics:baseline:hourly')
+        self.capture_interval = config.get("capture_interval_seconds", 3600)
+        self.retention_days = config.get("retention_days", 7)
+        self.baseline_key_prefix = config.get(
+            "baseline_key_prefix", "analytics:baseline:hourly"
+        )
 
         # Current window tracking
         self.current_hour = None
-        self.current_stats = {
-            'scores': [],
-            'event_count': 0,
-            'timestamp': None
-        }
+        self.current_stats = {"scores": [], "event_count": 0, "timestamp": None}
 
     async def update_with_score(self, score: float):
         """Update current hour statistics with a new score."""
@@ -42,31 +40,27 @@ class BaselineMonitor:
             await self._rotate_hour(current_hour)
 
         # Add score to current hour
-        self.current_stats['scores'].append(score)
-        self.current_stats['event_count'] += 1
-        self.current_stats['timestamp'] = time.time()
+        self.current_stats["scores"].append(score)
+        self.current_stats["event_count"] += 1
+        self.current_stats["timestamp"] = time.time()
 
     async def _rotate_hour(self, new_hour: str):
         """Rotate to a new hour, capturing baseline for previous hour."""
-        if self.current_hour is not None and self.current_stats['event_count'] > 0:
+        if self.current_hour is not None and self.current_stats["event_count"] > 0:
             # Capture baseline for previous hour
             await self._capture_baseline()
 
         # Initialize new hour
         self.current_hour = new_hour
-        self.current_stats = {
-            'scores': [],
-            'event_count': 0,
-            'timestamp': time.time()
-        }
+        self.current_stats = {"scores": [], "event_count": 0, "timestamp": time.time()}
 
     async def _capture_baseline(self):
         """Capture and store baseline statistics for current hour."""
-        if len(self.current_stats['scores']) == 0:
+        if len(self.current_stats["scores"]) == 0:
             return
 
         # Calculate statistics
-        scores = self.current_stats['scores']
+        scores = self.current_stats["scores"]
         scores_sorted = sorted(scores)
 
         baseline = {
@@ -76,16 +70,20 @@ class BaselineMonitor:
             "min_score": min(scores),
             "max_score": max(scores),
             "score_distribution": self._calculate_histogram(scores),
-            "timestamp": self.current_stats['timestamp'],
-            "event_count": self.current_stats['event_count']
+            "timestamp": self.current_stats["timestamp"],
+            "event_count": self.current_stats["event_count"],
         }
 
         # Store in Redis
         key = f"{self.baseline_key_prefix}:{self.current_hour}"
         await self.redis.set(key, json.dumps(baseline), ex=self.retention_days * 86400)
 
-        self.logger.info("Captured baseline for hour %s: median=%.2f, events=%s",
-                        self.current_hour, baseline['median_score'], baseline['event_count'])
+        self.logger.info(
+            "Captured baseline for hour %s: median=%.2f, events=%s",
+            self.current_hour,
+            baseline["median_score"],
+            baseline["event_count"],
+        )
 
     def _calculate_median(self, sorted_scores: List[float]) -> float:
         """Calculate median score."""
@@ -126,15 +124,17 @@ class BaselineMonitor:
 
     async def get_current_baseline(self) -> Optional[Dict[str, Any]]:
         """Get the current hour's baseline (if available)."""
-        if self.current_hour is None or len(self.current_stats['scores']) == 0:
+        if self.current_hour is None or len(self.current_stats["scores"]) == 0:
             return None
 
         return {
-            "median_score": self._calculate_median(sorted(self.current_stats['scores'])),
-            "mean_score": self._calculate_mean(self.current_stats['scores']),
-            "stddev_score": self._calculate_stddev(self.current_stats['scores']),
-            "event_count": self.current_stats['event_count'],
-            "timestamp": self.current_stats['timestamp']
+            "median_score": self._calculate_median(
+                sorted(self.current_stats["scores"])
+            ),
+            "mean_score": self._calculate_mean(self.current_stats["scores"]),
+            "stddev_score": self._calculate_stddev(self.current_stats["scores"]),
+            "event_count": self.current_stats["event_count"],
+            "timestamp": self.current_stats["timestamp"],
         }
 
     async def get_historical_baseline(self, hour: str) -> Optional[Dict[str, Any]]:
@@ -158,7 +158,7 @@ class BaselineMonitor:
             if baseline:
                 baselines.append(baseline)
 
-        return sorted(baselines, key=lambda x: x['timestamp'], reverse=True)
+        return sorted(baselines, key=lambda x: x["timestamp"], reverse=True)
 
 
 # Import timedelta at top level

@@ -3,25 +3,26 @@ Fingerprint store — writes ConnectionFingerprints to Redis fp:* keys (Phase 20
 
 All writes are fire-and-forget from the hot path.  Failures are logged and swallowed.
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from src.tap.fingerprints.correlation import ConnectionFingerprints
 
 logger = logging.getLogger(__name__)
 
 # TTL constants
-_CONN_TTL = 7 * 86400       # 7 days
-_IP_TTL = 30 * 86400        # 30 days
-_JA4_TTL = 30 * 86400       # 30 days
+_CONN_TTL = 7 * 86400  # 7 days
+_IP_TTL = 30 * 86400  # 30 days
+_JA4_TTL = 30 * 86400  # 30 days
 _OS_COUNT_TTL = 30 * 86400  # 30 days
-_OS_IP_TTL = 86400          # 24 hours
-_JA4S_MAP_TTL = 7 * 86400   # 7 days
+_OS_IP_TTL = 86400  # 24 hours
+_JA4S_MAP_TTL = 7 * 86400  # 7 days
 
-_IP_SORTED_SET_MAX = 1000   # keep last 1000 connections per IP
+_IP_SORTED_SET_MAX = 1000  # keep last 1000 connections per IP
 
 
 def _run(redis: Any, fn) -> "asyncio.Future":
@@ -96,9 +97,7 @@ class FingerprintStore:
         os_count_key = f"fp:os:count:{fp.os_fingerprint}"
         os_ip_key = f"fp:os:ip:{fp.client_ip}"
         await _run(self._redis, lambda: self._redis.incr(os_count_key))
-        await _run(
-            self._redis, lambda: self._redis.expire(os_count_key, _OS_COUNT_TTL)
-        )
+        await _run(self._redis, lambda: self._redis.expire(os_count_key, _OS_COUNT_TTL))
         await _run(
             self._redis,
             lambda: self._redis.set(os_ip_key, fp.os_fingerprint, ex=_OS_IP_TTL),
@@ -110,9 +109,7 @@ class FingerprintStore:
             self._redis,
             lambda: self._redis.hincrby(map_key, fp.ja4s, 1),  # type: ignore[arg-type]
         )
-        await _run(
-            self._redis, lambda: self._redis.expire(map_key, _JA4S_MAP_TTL)
-        )
+        await _run(self._redis, lambda: self._redis.expire(map_key, _JA4S_MAP_TTL))
 
     # ------------------------------------------------------------------
     # Reads
@@ -133,7 +130,9 @@ class FingerprintStore:
                 lambda: self._redis.zrevrange(ip_key, 0, limit - 1),
             )
         except Exception:
-            logger.exception("fingerprint_store | event=get_ip_history_error | ip=%s", ip)
+            logger.exception(
+                "fingerprint_store | event=get_ip_history_error | ip=%s", ip
+            )
             return []
 
         results: list[ConnectionFingerprints] = []
@@ -168,12 +167,8 @@ class FingerprintStore:
         count_key = f"fp:ja4:count:{fingerprint}"
         hll_key = f"fp:ja4:hll:{fingerprint}"
         try:
-            raw_count = await _run(
-                self._redis, lambda: self._redis.get(count_key)
-            )
-            unique_ips = await _run(
-                self._redis, lambda: self._redis.pfcount(hll_key)
-            )
+            raw_count = await _run(self._redis, lambda: self._redis.get(count_key))
+            unique_ips = await _run(self._redis, lambda: self._redis.pfcount(hll_key))
             count = int(raw_count) if raw_count else 0
             unique_ips = int(unique_ips) if unique_ips else 0
             return {"count": count, "unique_ips": unique_ips}

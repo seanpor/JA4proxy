@@ -4,6 +4,7 @@ Fingerprint correlation record (Phase 20, Group 5-L).
 Aggregates all fingerprint results for one connection into a single
 Redis-serialisable dataclass.
 """
+
 from __future__ import annotations
 
 import json
@@ -29,7 +30,7 @@ class ConnectionFingerprints:
     ja4: Optional[str] = None
     ja4s: Optional[str] = None
     ja4t: Optional[str] = None
-    ja4ts: Optional[str] = None    # server-side JA4T (if available)
+    ja4ts: Optional[str] = None  # server-side JA4T (if available)
     ja4h: Optional[str] = None
     ja4l: Optional[str] = None
     ja4x: Optional[str] = None
@@ -63,8 +64,17 @@ class ConnectionFingerprints:
         }
         # Optional fingerprint strings
         for key in (
-            "ja4", "ja4s", "ja4t", "ja4ts", "ja4h", "ja4l",
-            "ja4x", "ja4ssh", "h2_fingerprint", "quic_fingerprint", "os_fingerprint",
+            "ja4",
+            "ja4s",
+            "ja4t",
+            "ja4ts",
+            "ja4h",
+            "ja4l",
+            "ja4x",
+            "ja4ssh",
+            "h2_fingerprint",
+            "quic_fingerprint",
+            "os_fingerprint",
         ):
             val = getattr(self, key)
             if val is not None:

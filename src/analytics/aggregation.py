@@ -52,7 +52,7 @@ class AggregationManager:
                 "tarpitted_events": 0,
                 "total_score": 0.0,
                 "unique_ips": set(),
-                "ja4_fingerprints": defaultdict(int)
+                "ja4_fingerprints": defaultdict(int),
             }
 
         # Ensure all action counters exist
@@ -101,7 +101,7 @@ class AggregationManager:
                 "tarpit_events": data.get("tarpit_events", 0),
                 "avg_score": data["total_score"] / max(1, data["total_events"]),
                 "unique_ip_count": len(data["unique_ips"]),
-                "top_ja4": self._get_top_ja4(data["ja4_fingerprints"])
+                "top_ja4": self._get_top_ja4(data["ja4_fingerprints"]),
             }
 
         return results
@@ -193,12 +193,15 @@ class AdaptiveRateComputer:
             threshold = self._clamp(state["ewma"] * 2.0)  # 2× observed mean as limit
             confidence = self._confidence(state["windows"])
             key = f"{self._KEY_PREFIX}{subnet}"
-            await redis.hset(key, mapping={
-                "threshold_rps": str(threshold),
-                "confidence": f"{confidence:.4f}",
-                "ewma_rps": f"{state['ewma']:.4f}",
-                "windows": str(state["windows"]),
-            })
+            await redis.hset(
+                key,
+                mapping={
+                    "threshold_rps": str(threshold),
+                    "confidence": f"{confidence:.4f}",
+                    "ewma_rps": f"{state['ewma']:.4f}",
+                    "windows": str(state["windows"]),
+                },
+            )
             await redis.expire(key, self._TTL_SECONDS)
             published += 1
         return published

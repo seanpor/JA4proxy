@@ -7,6 +7,7 @@ Functions:
     validate_pcap_path: Prevent path traversal for PCAP file paths.
     gdpr_delete: Delete all fingerprint data for a given IP address.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -14,7 +15,7 @@ import json
 import logging
 import os
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from src.config.loader import ConfigError
 
@@ -87,9 +88,7 @@ def apply_seccomp_profile(profile_path: Path) -> None:
     # Validate the profile file first — ConfigError on bad file, regardless
     # of libseccomp availability.
     if not profile_path.exists():
-        raise ConfigError(
-            f"Seccomp profile not found: {profile_path}"
-        )
+        raise ConfigError(f"Seccomp profile not found: {profile_path}")
 
     try:
         profile_text = profile_path.read_text(encoding="utf-8")
@@ -147,8 +146,7 @@ def apply_seccomp_profile(profile_path: Path) -> None:
             )
         else:
             logger.info(
-                "tap_security | event=seccomp_filter_applied | "
-                "allowed_syscalls=%d",
+                "tap_security | event=seccomp_filter_applied | " "allowed_syscalls=%d",
                 len(allowed),
             )
     except OSError:
@@ -228,7 +226,7 @@ async def gdpr_delete(ip: str, redis: Any) -> dict:
     for raw in conn_ids:
         conn_id = raw.decode() if isinstance(raw, bytes) else raw
         conn_key = f"fp:conn:{conn_id}"
-        n = await loop.run_in_executor(None, lambda k=conn_key: redis.delete(k))
+        n = await loop.run_in_executor(None, lambda k=conn_key: redis.delete(k))  # type: ignore[misc]
         deleted += n or 0
 
     # Delete fp:ip:{ip} (the sorted set itself).

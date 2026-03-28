@@ -18,7 +18,6 @@ The proxy must never crash because of a Bloom filter error. All errors
 are caught, logged, and treated as "not seen" (trigger the enrichment).
 """
 
-import asyncio
 import logging
 
 logger = logging.getLogger(__name__)
@@ -58,9 +57,7 @@ class BloomFilter:
         an error if the key already exists, which we treat as success).
         """
         try:
-            await self._redis.bf().reserve(
-                self._name, self._error_rate, self._capacity
-            )
+            await self._redis.bf().reserve(self._name, self._error_rate, self._capacity)
             self._use_bloom = True
             logger.info(
                 "bloom_filter initialized | name=%s | error_rate=%.3f | capacity=%d",
@@ -103,7 +100,9 @@ class BloomFilter:
                 await self._redis.expire(self._fallback_key, _FALLBACK_TTL_SECONDS)
             return bool(result)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("bloom_filter add error | name=%s | error=%s", self._name, exc)
+            logger.warning(
+                "bloom_filter add error | name=%s | error=%s", self._name, exc
+            )
             return False  # Fail open: treat as already seen
 
     async def contains(self, item: str) -> bool:

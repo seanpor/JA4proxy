@@ -15,30 +15,21 @@ def load_config(config_file: str) -> Dict[str, Any]:
       REDIS_PORT     — Redis port (default: 6379)
       REDIS_PASSWORD — Redis password (default: none)
     """
-    with open(config_file, 'r') as f:
+    with open(config_file, "r") as f:
         config = yaml.safe_load(f)
 
     # Set defaults
     defaults = {
-        'redis': {
-            'host': 'localhost',
-            'port': 6379,
-            'password': None
+        "redis": {"host": "localhost", "port": 6379, "password": None},
+        "stream": {
+            "key": "ja4proxy:events",
+            "consumer_group": "analytics",
+            "consumer_name": "analytics-1",
+            "batch_size": 100,
+            "timeout_ms": 5000,
         },
-        'stream': {
-            'key': 'ja4proxy:events',
-            'consumer_group': 'analytics',
-            'consumer_name': 'analytics-1',
-            'batch_size': 100,
-            'timeout_ms': 5000
-        },
-        'security': {
-            'hmac_secret': 'default-secret-change-me',
-            'hmac_required': True
-        },
-        'aggregation': {
-            'window_seconds': 300
-        }
+        "security": {"hmac_secret": "default-secret-change-me", "hmac_required": True},
+        "aggregation": {"window_seconds": 300},
     }
 
     # Merge defaults with loaded config

@@ -289,9 +289,7 @@ def security_manager(mock_redis, test_config, mock_time):
     # We don't patch 'time.time' globally to avoid affecting other tests
     patchers = [
         patch('src.security.rate_tracker.time.time', new=mock_time),
-        patch('src.security.action_enforcer.time.time', new=mock_time),
         patch('src.security.gdpr_storage.time.time', new=mock_time),
-        patch('src.security.rate_strategy.time.time', new=mock_time),
         patch('src.security.security_manager.time.time', new=mock_time),
     ]
     

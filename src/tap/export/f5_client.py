@@ -7,6 +7,7 @@ API: PATCH /mgmt/tm/ltm/data-group/internal/{data_group}
 Rate limiting: max_rps semaphore (token-bucket approximation).
 Retry: up to 3 retries on 429 and 503.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -32,7 +33,9 @@ class F5Client:
 
     def __init__(self, config: dict, session: Any) -> None:
         self._session = session
-        self._base_url: str = config.get("base_url", "https://f5.example.com").rstrip("/")
+        self._base_url: str = config.get("base_url", "https://f5.example.com").rstrip(
+            "/"
+        )
         self._username: str = config.get("username", "")
         self._password: str = config.get("password", "")
         self._data_group: str = config.get("data_group", "ja4proxy_blocklist")
@@ -125,7 +128,8 @@ class F5Client:
                 if status in (429, 503):
                     logger.warning(
                         "f5_client | event=rate_limited | status=%d | attempt=%d",
-                        status, attempt + 1,
+                        status,
+                        attempt + 1,
                     )
                     if attempt < _MAX_RETRIES:
                         await asyncio.sleep(_RETRY_DELAY)
@@ -136,7 +140,8 @@ class F5Client:
             except Exception:
                 logger.exception(
                     "f5_client | event=patch_error | name=%s | attempt=%d",
-                    name, attempt + 1,
+                    name,
+                    attempt + 1,
                 )
                 if attempt < _MAX_RETRIES:
                     await asyncio.sleep(_RETRY_DELAY)

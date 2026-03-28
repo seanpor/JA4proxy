@@ -2,6 +2,7 @@
 Backup worker module.
 Implements deterministic key enumeration, backup artifact creation, and retention.
 """
+
 import getpass
 import hashlib
 import json
@@ -25,48 +26,45 @@ PIPELINE_BATCH_SIZE = 1000
 
 # Never-backup key patterns: keys that must never appear in backups
 _KEY_PATTERNS_NEVER_BACKUP = [
-    "abuseipdb:*",            # Any abuseipdb key (API keys, etc.)
-    "config:redis_password",    # Passwords should never be in Redis
-    "*:auth_token",           # Any auth token pattern
+    "abuseipdb:*",  # Any abuseipdb key (API keys, etc.)
+    "config:redis_password",  # Passwords should never be in Redis
+    "*:auth_token",  # Any auth token pattern
 ]
 
 # Prometheus metrics for backup operations
 BACKUP_OPERATIONS_TOTAL = Counter(
     "ja4proxy_backup_operations_total",
     "Total number of backup operations attempted",
-    ["status"]  # success, failure
+    ["status"],  # success, failure
 )
 
 BACKUP_KEYS_PROCESSED_TOTAL = Counter(
     "ja4proxy_backup_keys_processed_total",
-    "Total number of keys processed during backups"
+    "Total number of keys processed during backups",
 )
 
 BACKUP_DURATION_SECONDS = Histogram(
     "ja4proxy_backup_duration_seconds",
     "Duration of backup operations in seconds",
-    buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0]
+    buckets=[0.1, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0],
 )
 
 BACKUP_SIZE_BYTES = Histogram(
     "ja4proxy_backup_size_bytes",
     "Size of backup artifacts in bytes",
-    buckets=[1024, 10240, 102400, 1048576, 10485760, 1073741824]
+    buckets=[1024, 10240, 102400, 1048576, 10485760, 1073741824],
 )
 
 BACKUP_LAST_SUCCESS_TIMESTAMP = Gauge(
-    "ja4proxy_backup_last_success_timestamp",
-    "Unix timestamp of last successful backup"
+    "ja4proxy_backup_last_success_timestamp", "Unix timestamp of last successful backup"
 )
 
 BACKUP_LAST_FAILURE_TIMESTAMP = Gauge(
-    "ja4proxy_backup_last_failure_timestamp",
-    "Unix timestamp of last failed backup"
+    "ja4proxy_backup_last_failure_timestamp", "Unix timestamp of last failed backup"
 )
 
 BACKUP_CURRENTLY_RUNNING = Gauge(
-    "ja4proxy_backup_currently_running",
-    "1 if backup is currently running, 0 otherwise"
+    "ja4proxy_backup_currently_running", "1 if backup is currently running, 0 otherwise"
 )
 
 
@@ -140,19 +138,27 @@ class BackupWorker:
         """
         # Check if directory exists and is accessible
         if not os.access(str(dest_path), os.R_OK | os.W_OK | os.X_OK):
-            raise Exception(f"Backup directory {dest_path} is not accessible (read/write/execute)")
+            raise Exception(
+                f"Backup directory {dest_path} is not accessible (read/write/execute)"
+            )
 
         # Check ownership first (should be owned by current user)
         stat_info = os.stat(str(dest_path))
         if stat_info.st_uid != os.getuid():
-            raise Exception(f"Backup directory {dest_path} is not owned by current user")
+            raise Exception(
+                f"Backup directory {dest_path} is not owned by current user"
+            )
 
         # Check directory permissions (should not be world-writable)
         mode = stat_info.st_mode
         if mode & 0o002:  # World-writable bit
-            raise Exception(f"Backup directory {dest_path} has insecure permissions (world-writable)")
+            raise Exception(
+                f"Backup directory {dest_path} has insecure permissions (world-writable)"
+            )
         if mode & 0o020:  # Group-writable bit
-            raise Exception(f"Backup directory {dest_path} has insecure permissions (group-writable)")
+            raise Exception(
+                f"Backup directory {dest_path} has insecure permissions (group-writable)"
+            )
 
     def create_backup(self, destination_dir: str) -> Path:
         """Create backup artifact and manifest.
@@ -172,15 +178,17 @@ class BackupWorker:
             self._validate_backup_directory(dest_path)
         except Exception as e:
             logger.error(
-                json.dumps({
-                    "ts": datetime.utcnow().isoformat() + "Z",
-                    "type": "system",
-                    "level": "ERROR",
-                    "subsystem": "backup",
-                    "event": "filesystem_validation_failed",
-                    "error": str(e),
-                    "directory": str(dest_path)
-                })
+                json.dumps(
+                    {
+                        "ts": datetime.utcnow().isoformat() + "Z",
+                        "type": "system",
+                        "level": "ERROR",
+                        "subsystem": "backup",
+                        "event": "filesystem_validation_failed",
+                        "error": str(e),
+                        "directory": str(dest_path),
+                    }
+                )
             )
             raise
 
@@ -192,13 +200,15 @@ class BackupWorker:
         try:
             # Log backup start (before any operations that might fail)
             logger.info(
-                json.dumps({
-                    "ts": datetime.utcnow().isoformat() + "Z",
-                    "type": "system",
-                    "level": "INFO",
-                    "subsystem": "backup",
-                    "event": "backup_started"
-                })
+                json.dumps(
+                    {
+                        "ts": datetime.utcnow().isoformat() + "Z",
+                        "type": "system",
+                        "level": "INFO",
+                        "subsystem": "backup",
+                        "event": "backup_started",
+                    }
+                )
             )
 
             # Get keys to back up
@@ -206,14 +216,16 @@ class BackupWorker:
 
             # Log keys enumeration result
             logger.info(
-                json.dumps({
-                    "ts": datetime.utcnow().isoformat() + "Z",
-                    "type": "system",
-                    "level": "INFO",
-                    "subsystem": "backup",
-                    "event": "keys_enumerated",
-                    "keys_expected": len(keys)
-                })
+                json.dumps(
+                    {
+                        "ts": datetime.utcnow().isoformat() + "Z",
+                        "type": "system",
+                        "level": "INFO",
+                        "subsystem": "backup",
+                        "event": "keys_enumerated",
+                        "keys_expected": len(keys),
+                    }
+                )
             )
 
             BACKUP_KEYS_PROCESSED_TOTAL.inc(len(keys))
@@ -226,15 +238,17 @@ class BackupWorker:
                 if self._is_never_backup_key(key):
                     never_backup_keys_found.append(key)
                     logger.warning(
-                        json.dumps({
-                            "ts": datetime.utcnow().isoformat() + "Z",
-                            "type": "system",
-                            "level": "WARN",
-                            "subsystem": "backup",
-                            "event": "sensitive_key_detected",
-                            "key": key,
-                            "message": f"Key {key} matches never-backup pattern and will be excluded"
-                        })
+                        json.dumps(
+                            {
+                                "ts": datetime.utcnow().isoformat() + "Z",
+                                "type": "system",
+                                "level": "WARN",
+                                "subsystem": "backup",
+                                "event": "sensitive_key_detected",
+                                "key": key,
+                                "message": f"Key {key} matches never-backup pattern and will be excluded",
+                            }
+                        )
                     )
                 else:
                     safe_keys.append(key)
@@ -281,8 +295,8 @@ class BackupWorker:
                 # Extensibility block for Phase 21 encryption (always false in Phase 19)
                 "encryption": {
                     "enabled": False,
-                    "provider": None,   # Phase 21: "aws-kms" | "vault" | "local-aes"
-                    "key_id": None,     # Phase 21: KMS key ARN or Vault key path
+                    "provider": None,  # Phase 21: "aws-kms" | "vault" | "local-aes"
+                    "key_id": None,  # Phase 21: KMS key ARN or Vault key path
                     "algorithm": None,  # Phase 21: "AES-256-GCM"
                 },
             }
@@ -303,18 +317,20 @@ class BackupWorker:
 
             # Log backup success
             logger.info(
-                json.dumps({
-                    "ts": datetime.utcnow().isoformat() + "Z",
-                    "type": "system",
-                    "level": "INFO",
-                    "subsystem": "backup",
-                    "event": "backup_succeeded",
-                    "keys_processed": len(keys),
-                    "size_bytes": len(backup_data),
-                    "duration_ms": int(duration * 1000),
-                    "artifact_path": str(backup_path),
-                    "checksum": checksum
-                })
+                json.dumps(
+                    {
+                        "ts": datetime.utcnow().isoformat() + "Z",
+                        "type": "system",
+                        "level": "INFO",
+                        "subsystem": "backup",
+                        "event": "backup_succeeded",
+                        "keys_processed": len(keys),
+                        "size_bytes": len(backup_data),
+                        "duration_ms": int(duration * 1000),
+                        "artifact_path": str(backup_path),
+                        "checksum": checksum,
+                    }
+                )
             )
 
             # Write audit log entry
@@ -328,8 +344,8 @@ class BackupWorker:
                     "filename": backup_filename,
                     "size_bytes": len(backup_data),
                     "duration_seconds": duration,
-                    "triggered_by": "manual"
-                }
+                    "triggered_by": "manual",
+                },
             }
             redis_client.lpush("management:audit_log", json.dumps(audit_entry))
             redis_client.ltrim("management:audit_log", -1000, -1)
@@ -339,7 +355,9 @@ class BackupWorker:
         except Exception as e:
             # Update control keys on failure
             if redis_client:
-                redis_client.set("backup:last_failure", datetime.utcnow().isoformat() + "Z")
+                redis_client.set(
+                    "backup:last_failure", datetime.utcnow().isoformat() + "Z"
+                )
 
             # Record failure metrics
             duration = (datetime.utcnow() - start_time).total_seconds()
@@ -350,15 +368,17 @@ class BackupWorker:
 
             # Log backup failure
             logger.error(
-                json.dumps({
-                    "ts": datetime.utcnow().isoformat() + "Z",
-                    "type": "system",
-                    "level": "ERROR",
-                    "subsystem": "backup",
-                    "event": "backup_failed",
-                    "error": str(e),
-                    "duration_ms": int(duration * 1000)
-                })
+                json.dumps(
+                    {
+                        "ts": datetime.utcnow().isoformat() + "Z",
+                        "type": "system",
+                        "level": "ERROR",
+                        "subsystem": "backup",
+                        "event": "backup_failed",
+                        "error": str(e),
+                        "duration_ms": int(duration * 1000),
+                    }
+                )
             )
 
             # Write audit log entry for failure
@@ -370,8 +390,8 @@ class BackupWorker:
                     "detail": {
                         "error": str(e),
                         "duration_seconds": duration,
-                        "triggered_by": "manual"
-                    }
+                        "triggered_by": "manual",
+                    },
                 }
                 redis_client.lpush("management:audit_log", json.dumps(audit_entry))
                 redis_client.ltrim("management:audit_log", -1000, -1)
@@ -421,6 +441,7 @@ class BackupWorker:
             True if the key should never be backed up, False otherwise.
         """
         import fnmatch
+
         for pattern in _KEY_PATTERNS_NEVER_BACKUP:
             if fnmatch.fnmatch(key, pattern):
                 return True
@@ -450,21 +471,27 @@ class BackupWorker:
         # Parse backup information from manifests
         backups = []
         for backup_file in backup_files:
-            manifest_file = backup_file.with_suffix(backup_file.suffix + ".manifest.json")
+            manifest_file = backup_file.with_suffix(
+                backup_file.suffix + ".manifest.json"
+            )
 
             if manifest_file.exists():
                 try:
                     with open(manifest_file, "r") as fh:
                         manifest = json.load(fh)
 
-                    created_at = datetime.fromisoformat(manifest["created_at"].rstrip("Z"))
+                    created_at = datetime.fromisoformat(
+                        manifest["created_at"].rstrip("Z")
+                    )
 
-                    backups.append({
-                        "file": backup_file,
-                        "manifest": manifest_file,
-                        "created_at": created_at,
-                        "filename": manifest["filename"]
-                    })
+                    backups.append(
+                        {
+                            "file": backup_file,
+                            "manifest": manifest_file,
+                            "created_at": created_at,
+                            "filename": manifest["filename"],
+                        }
+                    )
                 except (json.JSONDecodeError, KeyError):
                     # Skip invalid manifests
                     continue

@@ -11,6 +11,7 @@ Message schema v1:
 
 Batching: flush when batch_size reached or after linger_ms milliseconds.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -23,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from aiokafka import AIOKafkaProducer
+
     _AIOKAFKA_AVAILABLE = True
 except ImportError:
     _AIOKAFKA_AVAILABLE = False
@@ -38,7 +40,9 @@ class _NoopProducer:
     async def stop(self) -> None:
         pass
 
-    async def send_and_wait(self, topic: str, key: bytes = b"", value: bytes = b"") -> None:
+    async def send_and_wait(
+        self, topic: str, key: bytes = b"", value: bytes = b""
+    ) -> None:
         logger.debug("kafka_producer | event=noop | topic=%s", topic)
 
     async def flush(self) -> None:
@@ -81,7 +85,9 @@ class KafkaExporter:
         try:
             await self._producer.start()
         except Exception:
-            logger.warning("kafka_producer | event=start_failed | brokers=%s", self._brokers)
+            logger.warning(
+                "kafka_producer | event=start_failed | brokers=%s", self._brokers
+            )
 
     async def close(self) -> None:
         """Flush pending messages and disconnect."""
@@ -107,9 +113,7 @@ class KafkaExporter:
             try:
                 await self._producer.send_and_wait(topic, key=key, value=value)
             except Exception:
-                logger.warning(
-                    "kafka_producer | event=send_failed | topic=%s", topic
-                )
+                logger.warning("kafka_producer | event=send_failed | topic=%s", topic)
 
     # ------------------------------------------------------------------
     # Public send methods
@@ -125,7 +129,11 @@ class KafkaExporter:
         action = getattr(fp, "action", "observe") if fp is not None else "observe"
         timestamp = getattr(fp, "timestamp", None) if fp is not None else None
         if timestamp is not None:
-            ts_str = timestamp.isoformat() if hasattr(timestamp, "isoformat") else str(timestamp)
+            ts_str = (
+                timestamp.isoformat()
+                if hasattr(timestamp, "isoformat")
+                else str(timestamp)
+            )
         else:
             ts_str = datetime.now(timezone.utc).isoformat()
 

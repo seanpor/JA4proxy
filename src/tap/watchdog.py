@@ -3,10 +3,11 @@ Worker watchdog for TAP mode (Phase 20, Group 10).
 
 Monitors capture worker asyncio.Tasks and restarts them when they crash.
 """
+
 import asyncio
 import logging
 import time
-from typing import TYPE_CHECKING, Callable, List, Optional
+from typing import TYPE_CHECKING, Callable, List
 
 if TYPE_CHECKING:
     from src.tap.tap_sensor import TapSensor
@@ -19,16 +20,16 @@ _RAPID_CRASH_THRESHOLD = 3
 
 # Lazy import of metrics to allow Group 11 to supply them later.
 try:
-    from src.tap.metrics import TAP_WORKER_RESTARTS  # type: ignore[import]
+    from src.tap.metrics import TAP_WORKER_RESTARTS_TOTAL  # type: ignore[import]
 except ImportError:  # pragma: no cover
-    TAP_WORKER_RESTARTS = None
+    TAP_WORKER_RESTARTS_TOTAL = None
 
 
 def _increment_restart_metric(worker_id: int) -> None:
     """Increment the restart counter for worker_id if metrics are available."""
-    if TAP_WORKER_RESTARTS is not None:
+    if TAP_WORKER_RESTARTS_TOTAL is not None:
         try:
-            TAP_WORKER_RESTARTS.labels(worker_id=str(worker_id)).inc()
+            TAP_WORKER_RESTARTS_TOTAL.labels(worker_id=str(worker_id)).inc()
         except Exception:  # pragma: no cover
             pass
 
@@ -65,9 +66,7 @@ class WorkerWatchdog:
             await task
         except asyncio.CancelledError:
             # Clean cancellation — do not restart.
-            logger.debug(
-                "tap worker %d cancelled cleanly; not restarting", worker_id
-            )
+            logger.debug("tap worker %d cancelled cleanly; not restarting", worker_id)
             return
         except Exception as exc:
             logger.error(
@@ -90,9 +89,7 @@ class WorkerWatchdog:
             await self.watch(worker_id, new_task)
         else:
             # Task exited without exception — clean shutdown, do not restart.
-            logger.debug(
-                "tap worker %d exited cleanly; not restarting", worker_id
-            )
+            logger.debug("tap worker %d exited cleanly; not restarting", worker_id)
 
     async def _evict_shard(self, shard_id: int) -> None:
         """Evict all streams belonging to this shard (called after crash).

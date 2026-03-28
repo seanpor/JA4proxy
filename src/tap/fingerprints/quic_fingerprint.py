@@ -4,12 +4,12 @@ QUIC Initial packet fingerprint extractor (Phase 20, Group 5-K).
 Parses the first few bytes of a QUIC Initial packet (long header format)
 to extract the QUIC version and connection ID lengths.
 """
+
 from __future__ import annotations
 
 import struct
 from dataclasses import dataclass
 from typing import Optional
-
 
 # QUIC long-header first-byte bit pattern
 _QUIC_LONG_HEADER_MASK = 0xC0  # top 2 bits must be 11

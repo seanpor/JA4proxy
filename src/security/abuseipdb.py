@@ -298,9 +298,7 @@ class AbuseIPDBChecker:
             return
         self._queue = asyncio.Queue(maxsize=self._config.queue_size)
         self._workers = [
-            asyncio.create_task(
-                self._lookup_worker(), name=f"abuseipdb-worker-{i}"
-            )
+            asyncio.create_task(self._lookup_worker(), name=f"abuseipdb-worker-{i}")
             for i in range(self._config.worker_count)
         ]
         logger.info(

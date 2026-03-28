@@ -3,6 +3,7 @@ Top-level orchestrator for TAP/SPAN passive capture mode (Phase 20).
 
 Instantiated by proxy.py when ``proxy.mode = tap``.
 """
+
 import asyncio
 import logging
 from typing import Any, Optional

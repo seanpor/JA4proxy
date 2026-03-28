@@ -18,27 +18,26 @@ import asyncio
 import logging
 import time
 from collections import deque
-from typing import Callable, Deque, Optional, Tuple
+from typing import Deque, Optional, Tuple
 
 from prometheus_client import Counter, Gauge
-
 
 # Metrics
 _WRITE_BUFFER_FLUSHES = Counter(
     "ja4proxy_write_buffer_flush_total",
     "Write buffer flush operations",
-    ["result"]  # ok, overflow, error
+    ["result"],  # ok, overflow, error
 )
 
 _WRITE_BUFFER_QUEUE_DEPTH = Gauge(
     "ja4proxy_write_buffer_queue_depth",
-    "Current number of operations queued in write buffer"
+    "Current number of operations queued in write buffer",
 )
 
 _WRITE_BUFFER_OPERATIONS = Counter(
     "ja4proxy_write_buffer_operations_total",
     "Write operations processed by buffer",
-    ["type"]  # hset, zadd, expire, etc.
+    ["type"],  # hset, zadd, expire, etc.
 )
 
 _WRITE_BUFFER_DROPPED = Counter(
@@ -68,7 +67,7 @@ class WriteBuffer:
         redis_client: object,
         flush_interval_ms: int = 50,
         max_batch_size: int = 1000,
-        max_queue_size: int = 5000
+        max_queue_size: int = 5000,
     ):
         """
         Initialize WriteBuffer.
@@ -87,14 +86,14 @@ class WriteBuffer:
         self.flush_interval_ms = flush_interval_ms / 1000.0  # Convert to seconds
         self.max_batch_size = max_batch_size
         self.max_queue_size = max_queue_size
-        
+
         self.queue: Deque[Tuple[str, Tuple, dict]] = deque()
         self.lock = asyncio.Lock()
         self._flush_task: Optional[asyncio.Task] = None
         self._stop_event = asyncio.Event()
-        
+
         self.logger = logging.getLogger(__name__)
-        
+
         # Check if Redis client is async
         self._is_async = self._check_async_redis()
 
@@ -102,6 +101,7 @@ class WriteBuffer:
         """Check if Redis client is async (redis.asyncio.Redis)."""
         try:
             import redis.asyncio
+
             return isinstance(self.redis_client, redis.asyncio.Redis)
         except ImportError:
             return False
@@ -110,29 +110,32 @@ class WriteBuffer:
         """Start the background flush loop."""
         if self._flush_task is not None:
             return
-        
+
         self._stop_event.clear()
         self._flush_task = asyncio.create_task(self._flush_loop())
-        self.logger.info("WriteBuffer started with flush_interval=%.1fms, max_batch=%d",
-                        self.flush_interval_ms * 1000, self.max_batch_size)
+        self.logger.info(
+            "WriteBuffer started with flush_interval=%.1fms, max_batch=%d",
+            self.flush_interval_ms * 1000,
+            self.max_batch_size,
+        )
 
     async def stop(self) -> None:
         """Stop the background flush loop and flush remaining operations."""
         if self._flush_task is None:
             return
-        
+
         self._stop_event.set()
-        
+
         try:
             await self._flush_task
         except asyncio.CancelledError:
             pass
         except Exception as e:
             self.logger.error("Error stopping WriteBuffer: %s", e)
-        
+
         # Final flush
         await self._flush_now()
-        
+
         self._flush_task = None
         self.logger.info("WriteBuffer stopped")
 
@@ -160,14 +163,15 @@ class WriteBuffer:
                 _WRITE_BUFFER_DROPPED.inc()
                 self.logger.warning(
                     "WriteBuffer overflow: queue size %d >= max %d, dropping oldest operation",
-                    len(self.queue), self.max_queue_size
+                    len(self.queue),
+                    self.max_queue_size,
                 )
-            
+
             # Add new operation
             self.queue.append((operation, args, kwargs))
             _WRITE_BUFFER_OPERATIONS.labels(type=operation).inc()
             _WRITE_BUFFER_QUEUE_DEPTH.set(len(self.queue))
-            
+
             return True
 
     async def _flush_loop(self) -> None:
@@ -195,16 +199,17 @@ class WriteBuffer:
                 try:
                     await asyncio.wait_for(
                         self._stop_event.wait(),
-                        timeout=sleep_time
+                        timeout=sleep_time,
                     )
                 except asyncio.TimeoutError:
                     pass  # Time to flush
-                
+
+
                 if self._stop_event.is_set():
                     break
-                
+
                 await self._flush_now()
-                
+
         except asyncio.CancelledError:
             pass  # Normal shutdown
         except Exception as e:
@@ -215,15 +220,15 @@ class WriteBuffer:
         async with self.lock:
             if not self.queue:
                 return
-            
+
             # Determine batch size (up to max_batch_size)
             batch_size = min(len(self.queue), self.max_batch_size)
             batch = []
-            
+
             # Extract batch from queue
             for _ in range(batch_size):
                 batch.append(self.queue.popleft())
-            
+
             # Update queue depth metric
             _WRITE_BUFFER_QUEUE_DEPTH.set(len(self.queue))
 
@@ -234,28 +239,28 @@ class WriteBuffer:
         """Execute a batch of Redis operations."""
         if not batch:
             return
-        
+
         start_time = time.time()
         try:
             if self._is_async:
                 # Async Redis client
-                async with self.redis_client.pipeline(transaction=False) as pipe:
+                async with self.redis_client.pipeline(transaction=False) as pipe:  # type: ignore[attr-defined]
                     for operation, args, kwargs in batch:
                         method = getattr(pipe, operation)
                         method(*args, **kwargs)
-                    
+
                     await pipe.execute()
             else:
                 # Sync Redis client
-                with self.redis_client.pipeline(transaction=False) as pipe:
+                with self.redis_client.pipeline(transaction=False) as pipe:  # type: ignore[attr-defined]
                     for operation, args, kwargs in batch:
                         method = getattr(pipe, operation)
                         method(*args, **kwargs)
-                    
+
                     pipe.execute()
-            
+
             _WRITE_BUFFER_FLUSHES.labels(result="ok").inc()
-            
+
         except Exception as e:
             _WRITE_BUFFER_FLUSHES.labels(result="error").inc()
             self.logger.error("WriteBuffer batch execution failed: %s", e)
@@ -266,7 +271,7 @@ class WriteBuffer:
     def __del__(self):
         """Cleanup on object destruction."""
         try:
-            if hasattr(self, '_flush_task') and self._flush_task:
+            if hasattr(self, "_flush_task") and self._flush_task:
                 self._flush_task.cancel()
-        except:
+        except Exception:
             pass  # Ignore cleanup errors

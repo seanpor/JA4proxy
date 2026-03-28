@@ -3,7 +3,6 @@
 
 import json
 import logging
-import math
 import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
@@ -20,18 +19,18 @@ class DriftDetector:
         self.logger = logging.getLogger(__name__)
 
         # Configuration parameters
-        self.z_score_threshold = config.get('z_score_threshold', 2.0)
-        self.check_interval = config.get('check_interval_seconds', 60)
-        self.alert_ttl = config.get('alert_ttl_seconds', 3600)
-        self.alert_key = config.get('alert_key', 'analytics:alerts:score_drift')
-        self.baseline_key_prefix = config.get('baseline_key_prefix', 'analytics:baseline:hourly')
+        self.z_score_threshold = config.get("z_score_threshold", 2.0)
+        self.check_interval = config.get("check_interval_seconds", 60)
+        self.alert_ttl = config.get("alert_ttl_seconds", 3600)
+        self.alert_key = config.get("alert_key", "analytics:alerts:score_drift")
+        self.baseline_key_prefix = config.get(
+            "baseline_key_prefix", "analytics:baseline:hourly"
+        )
 
         # Severity levels
-        self.severity_levels = config.get('severity_levels', {
-            'low': 1.5,
-            'medium': 2.0,
-            'high': 3.0
-        })
+        self.severity_levels = config.get(
+            "severity_levels", {"low": 1.5, "medium": 2.0, "high": 3.0}
+        )
 
         # Last check tracking
         self.last_check_time: float = 0
@@ -49,7 +48,7 @@ class DriftDetector:
         # Get current baseline (this hour)
         current_baseline = await self._get_current_baseline()
 
-        if not current_baseline or current_baseline['event_count'] < 10:
+        if not current_baseline or current_baseline["event_count"] < 10:
             return None
 
         # Get historical baseline (previous hour)
@@ -57,28 +56,33 @@ class DriftDetector:
         previous_hour = previous_hour_time.strftime("%Y-%m-%d-%H")
         historical_baseline = await self._get_historical_baseline(previous_hour)
 
-        if not historical_baseline or historical_baseline['event_count'] < 10:
+        if not historical_baseline or historical_baseline["event_count"] < 10:
             return None
 
         # Perform drift analysis
         drift_result = self._analyze_drift(current_baseline, historical_baseline)
 
-        if drift_result['drift_detected']:
+        if drift_result["drift_detected"]:
             # Store alert
             await self._store_alert(drift_result)
 
-            self.logger.warning("Score drift detected: z_score=%.2f, severity=%s",
-                               drift_result['z_score'], drift_result['severity'])
+            self.logger.warning(
+                "Score drift detected: z_score=%.2f, severity=%s",
+                drift_result["z_score"],
+                drift_result["severity"],
+            )
 
             return drift_result
 
         return None
 
-    def _analyze_drift(self, current: Dict[str, Any], baseline: Dict[str, Any]) -> Dict[str, Any]:
+    def _analyze_drift(
+        self, current: Dict[str, Any], baseline: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Analyze drift using z-score comparison."""
-        current_median = current['median_score']
-        baseline_median = baseline['median_score']
-        baseline_stddev = baseline['stddev_score']
+        current_median = current["median_score"]
+        baseline_median = baseline["median_score"]
+        baseline_stddev = baseline["stddev_score"]
 
         # Calculate z-score
         if baseline_stddev > 0:
@@ -90,39 +94,39 @@ class DriftDetector:
         severity = self._determine_severity(abs(z_score))
 
         return {
-            'drift_detected': abs(z_score) >= self.z_score_threshold,
-            'z_score': z_score,
-            'current_median': current_median,
-            'baseline_median': baseline_median,
-            'current_stddev': current['stddev_score'],
-            'baseline_stddev': baseline_stddev,
-            'current_event_count': current['event_count'],
-            'baseline_event_count': baseline['event_count'],
-            'severity': severity,
-            'detected_at': time.time()
+            "drift_detected": abs(z_score) >= self.z_score_threshold,
+            "z_score": z_score,
+            "current_median": current_median,
+            "baseline_median": baseline_median,
+            "current_stddev": current["stddev_score"],
+            "baseline_stddev": baseline_stddev,
+            "current_event_count": current["event_count"],
+            "baseline_event_count": baseline["event_count"],
+            "severity": severity,
+            "detected_at": time.time(),
         }
 
     def _determine_severity(self, z_score: float) -> str:
         """Determine alert severity based on z-score."""
-        if z_score >= self.severity_levels['high']:
-            return 'high'
-        elif z_score >= self.severity_levels['medium']:
-            return 'medium'
-        elif z_score >= self.severity_levels['low']:
-            return 'low'
+        if z_score >= self.severity_levels["high"]:
+            return "high"
+        elif z_score >= self.severity_levels["medium"]:
+            return "medium"
+        elif z_score >= self.severity_levels["low"]:
+            return "low"
         else:
-            return 'info'
+            return "info"
 
     async def _store_alert(self, drift_result: Dict[str, Any]):
         """Store drift alert in Redis with TTL."""
         alert_data = {
-            'type': 'score_drift',
-            'severity': drift_result['severity'],
-            'z_score': drift_result['z_score'],
-            'current_median': drift_result['current_median'],
-            'baseline_median': drift_result['baseline_median'],
-            'detected_at': drift_result['detected_at'],
-            'resolved': False
+            "type": "score_drift",
+            "severity": drift_result["severity"],
+            "z_score": drift_result["z_score"],
+            "current_median": drift_result["current_median"],
+            "baseline_median": drift_result["baseline_median"],
+            "detected_at": drift_result["detected_at"],
+            "resolved": False,
         }
 
         # Store alert with TTL
@@ -155,7 +159,7 @@ class DriftDetector:
             alert_data = json.loads(alert_json)
 
             # Check if alert is still valid (not expired)
-            if not alert_data.get('resolved', False):
+            if not alert_data.get("resolved", False):
                 return alert_data
 
         return None
@@ -166,11 +170,13 @@ class DriftDetector:
 
         if alert_json:
             alert_data = json.loads(alert_json)
-            alert_data['resolved'] = True
-            alert_data['resolved_at'] = time.time()
+            alert_data["resolved"] = True
+            alert_data["resolved_at"] = time.time()
 
             # Store resolved alert (will expire naturally)
-            await self.redis.set(self.alert_key, json.dumps(alert_data), ex=self.alert_ttl)
+            await self.redis.set(
+                self.alert_key, json.dumps(alert_data), ex=self.alert_ttl
+            )
 
             self.logger.info("Score drift alert manually cleared")
 
@@ -187,16 +193,20 @@ class DriftDetector:
 
             if current_baseline and previous_baseline:
                 drift_result = self._analyze_drift(current_baseline, previous_baseline)
-                history.append({
-                    'hour': hour_str,
-                    'drift_detected': drift_result['drift_detected'],
-                    'z_score': drift_result['z_score'],
-                    'severity': drift_result['severity']
-                })
+                history.append(
+                    {
+                        "hour": hour_str,
+                        "drift_detected": drift_result["drift_detected"],
+                        "z_score": drift_result["z_score"],
+                        "severity": drift_result["severity"],
+                    }
+                )
 
-        return sorted(history, key=lambda x: x['hour'], reverse=True)
+        return sorted(history, key=lambda x: x["hour"], reverse=True)
 
-    async def _get_current_baseline_for_hour(self, hour: str) -> Optional[Dict[str, Any]]:
+    async def _get_current_baseline_for_hour(
+        self, hour: str
+    ) -> Optional[Dict[str, Any]]:
         """Get baseline for specific hour (used in history)."""
         key = f"{self.baseline_key_prefix}:{hour}"
         baseline_json = await self.redis.get(key)

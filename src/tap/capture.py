@@ -13,6 +13,7 @@ Supported encapsulations (parsed by _parse_ethernet_frame):
     - VxLAN  (UDP dst port 4789)
     - GENEVE (UDP dst port 6081)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -22,7 +23,7 @@ import socket
 import struct
 import subprocess
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
@@ -106,14 +107,14 @@ def _parse_ethernet_frame(
         return None  # truncated
 
     offset = 12
-    ethertype, = struct.unpack_from("!H", buf, offset)
+    (ethertype,) = struct.unpack_from("!H", buf, offset)
     offset += 2
 
     # --- Strip VLAN tags (802.1q, QinQ) ---
     while ethertype in _VLAN_TYPES:
         if offset + 4 > len(buf):
             return None
-        ethertype, = struct.unpack_from("!H", buf, offset + 2)
+        (ethertype,) = struct.unpack_from("!H", buf, offset + 2)
         offset += 4
 
     # --- Dispatch by ethertype ---
@@ -142,14 +143,14 @@ def _parse_ipv4(
 
     ttl = buf[offset + 8]
     proto = buf[offset + 9]
-    flags_frag, = struct.unpack_from("!H", buf, offset + 6)
+    (flags_frag,) = struct.unpack_from("!H", buf, offset + 6)
     ip_df = bool(flags_frag & 0x4000)
-    ip_id, = struct.unpack_from("!H", buf, offset + 4)
+    (ip_id,) = struct.unpack_from("!H", buf, offset + 4)
     frag_offset = (flags_frag & 0x1FFF) * 8
     more_frags = bool(flags_frag & 0x2000)
 
-    src_ip = socket.inet_ntoa(buf[offset + 12: offset + 16])
-    dst_ip = socket.inet_ntoa(buf[offset + 16: offset + 20])
+    src_ip = socket.inet_ntoa(buf[offset + 12 : offset + 16])
+    dst_ip = socket.inet_ntoa(buf[offset + 16 : offset + 20])
 
     payload_start = offset + ihl
     payload = buf[payload_start:]
@@ -169,7 +170,9 @@ def _parse_ipv4(
 
     # --- VxLAN inner frame ---
     if proto == IPPROTO_UDP:
-        pkt = _try_vxlan_or_geneve(buf, payload, timestamp, frag_store, ttl, ip_df, ip_id)
+        pkt = _try_vxlan_or_geneve(
+            buf, payload, timestamp, frag_store, ttl, ip_df, ip_id
+        )
         if pkt is not None:
             return pkt
 
@@ -192,7 +195,7 @@ def _try_vxlan_or_geneve(
     """Check if UDP payload is VxLAN or GENEVE; parse inner frame if so."""
     if len(udp_payload_including_hdr) < 8:
         return None
-    dst_port, = struct.unpack_from("!H", udp_payload_including_hdr, 2)
+    (dst_port,) = struct.unpack_from("!H", udp_payload_including_hdr, 2)
     udp_data = udp_payload_including_hdr[8:]  # past UDP header
 
     if dst_port == VXLAN_PORT:
@@ -207,7 +210,7 @@ def _try_vxlan_or_geneve(
         if len(udp_data) < 4:
             return None
         opt_len = (udp_data[0] & 0x3F) * 4
-        inner_eth = udp_data[4 + opt_len:]
+        inner_eth = udp_data[4 + opt_len :]
         return _parse_ethernet_frame(memoryview(inner_eth), timestamp, frag_store)
 
     return None
@@ -224,8 +227,8 @@ def _parse_ipv6(
 
     ttl = buf[offset + 7]  # hop limit
     next_hdr = buf[offset + 6]
-    src_ip = socket.inet_ntop(socket.AF_INET6, buf[offset + 8: offset + 24])
-    dst_ip = socket.inet_ntop(socket.AF_INET6, buf[offset + 24: offset + 40])
+    src_ip = socket.inet_ntop(socket.AF_INET6, buf[offset + 8 : offset + 24])
+    dst_ip = socket.inet_ntop(socket.AF_INET6, buf[offset + 24 : offset + 40])
     payload_start = offset + 40
     payload = buf[payload_start:]
 
@@ -273,10 +276,10 @@ def _parse_tcp(
         return None
     src_port, dst_port = struct.unpack_from("!HH", payload, 0)
     seq, ack = struct.unpack_from("!II", payload, 4)
-    data_offset_and_flags, = struct.unpack_from("!H", payload, 12)
+    (data_offset_and_flags,) = struct.unpack_from("!H", payload, 12)
     data_offset = ((data_offset_and_flags >> 12) & 0xF) * 4
     flags = data_offset_and_flags & 0x1FF
-    window, = struct.unpack_from("!H", payload, 14)
+    (window,) = struct.unpack_from("!H", payload, 14)
 
     if data_offset < 20 or data_offset > len(payload):
         return None
@@ -383,6 +386,7 @@ class PacketCapture:
     def _setup_socket(self) -> socket.socket:
         """Create and bind an AF_PACKET / SOCK_RAW socket."""
         import socket as _socket
+
         sock = _socket.socket(
             _socket.AF_PACKET,
             _socket.SOCK_RAW,
@@ -444,18 +448,16 @@ class PacketCapture:
     def _dedup_check(self, pkt: ParsedPacket) -> bool:
         """Return True (discard) if this packet appeared within *dedup_window_s*."""
         now = time.monotonic()
-        key = hashlib.md5(
+        key = hashlib.md5(  # nosec B324 — dedup cache key, not security-sensitive
             f"{pkt.src_ip}:{pkt.src_port}-{pkt.dst_ip}:{pkt.dst_port}"
-            f":{pkt.seq}:{pkt.data[:32]}".encode()
+            f":{pkt.seq}:{pkt.data[:32].hex()}".encode()
         ).hexdigest()
         expire = self._dedup_cache.get(key)
         if expire is not None and expire > now:
             return True
         # Evict expired entries periodically
         if len(self._dedup_cache) > 10_000:
-            self._dedup_cache = {
-                k: v for k, v in self._dedup_cache.items() if v > now
-            }
+            self._dedup_cache = {k: v for k, v in self._dedup_cache.items() if v > now}
         self._dedup_cache[key] = now + self._dedup_window
         return False
 

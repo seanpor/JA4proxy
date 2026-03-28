@@ -18,9 +18,11 @@ class RiskSignal:
     reason: str
     weight: float = 1.0
 
+
 @dataclass
 class ConnectionContext:
     """Immutable snapshot of a connection's observable metadata."""
+
     client_ip: str
     ja4: str = ""
     ja4x: str | None = None  # JA4X extended fingerprint (Phase 16)
@@ -38,9 +40,11 @@ class ConnectionContext:
     connection_lifespan_ms: int = 0
     tls_alerts: list[str] = field(default_factory=list)
 
+
 @dataclass
 class PipelineResult:
     """Result of processing one connection through the pipeline."""
+
     action: str
     bypassed: bool = False
     bypass_reason: str | None = None

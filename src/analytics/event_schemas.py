@@ -8,34 +8,20 @@ EVENT_SCHEMA = {
     "type": "object",
     "required": ["timestamp", "src_ip", "ja4", "action", "score", "proxy_id"],
     "properties": {
-        "timestamp": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 9999999999
-        },
+        "timestamp": {"type": "number", "minimum": 0, "maximum": 9999999999},
         "src_ip": {
             "type": "string",
             "pattern": r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$|^[0-9a-fA-F:]+$",
-            "maxLength": 45
+            "maxLength": 45,
         },
         "ja4": {
             "type": "string",
             "pattern": r"^[a-zA-Z0-9_\-]{1,64}$",
-            "maxLength": 64
+            "maxLength": 64,
         },
-        "action": {
-            "type": "string",
-            "enum": ["allow", "block", "monitor", "tarpit"]
-        },
-        "score": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 100
-        },
-        "proxy_id": {
-            "type": "string",
-            "pattern": r"^[a-zA-Z0-9\-]{1,32}$"
-        }
+        "action": {"type": "string", "enum": ["allow", "block", "monitor", "tarpit"]},
+        "score": {"type": "number", "minimum": 0, "maximum": 100},
+        "proxy_id": {"type": "string", "pattern": r"^[a-zA-Z0-9\-]{1,32}$"},
     },
-    "additionalProperties": True  # Allow additional fields for future expansion
+    "additionalProperties": True,  # Allow additional fields for future expansion
 }

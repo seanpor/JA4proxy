@@ -15,7 +15,7 @@ Security Considerations:
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 from .rate_strategy import RateLimitStrategy, RateMetrics
 from .threat_tier import ThreatTier, ThreatTierConfig
@@ -46,7 +46,7 @@ class MultiStrategyPolicy(Enum):
     MAJORITY = "majority"
 
     @classmethod
-    def from_string(cls, policy_str: str) -> Optional['MultiStrategyPolicy']:
+    def from_string(cls, policy_str: str) -> Optional["MultiStrategyPolicy"]:
         """Convert string to policy enum with validation."""
         try:
             return cls(policy_str.lower())
@@ -84,14 +84,13 @@ class ThreatEvaluation:
     def to_dict(self) -> dict:
         """Convert to dictionary for logging/metrics."""
         import hashlib
+
         return {
-            'strategy': self.strategy.value,
-            'tier': self.tier.name,
-            'rate': self.rate,
-            'threshold_exceeded': self.threshold_exceeded,
-            'entity_id_hash': hashlib.sha256(
-                self.entity_id.encode()
-            ).hexdigest()[:16],
+            "strategy": self.strategy.value,
+            "tier": self.tier.name,
+            "rate": self.rate,
+            "threshold_exceeded": self.threshold_exceeded,
+            "entity_id_hash": hashlib.sha256(self.entity_id.encode()).hexdigest()[:16],
         }
 
 
@@ -123,8 +122,7 @@ class ThreatEvaluator:
         self.logger = logging.getLogger(__name__)
 
     def evaluate_multi_strategy(
-        self,
-        rate_results: Dict[RateLimitStrategy, RateMetrics]
+        self, rate_results: Dict[RateLimitStrategy, RateMetrics]
     ) -> Dict[RateLimitStrategy, ThreatEvaluation]:
         """
         Evaluate threat tier for each strategy.
@@ -151,8 +149,7 @@ class ThreatEvaluator:
 
             # Evaluate tier for this strategy
             tier, threshold = self._evaluate_single(
-                metrics.connections_per_second,
-                thresholds
+                metrics.connections_per_second, thresholds
             )
 
             # Create immutable evaluation result
@@ -171,16 +168,17 @@ class ThreatEvaluator:
                 self.logger.warning(
                     "Threat detected - Strategy: %s, Entity: %s..., "
                     "Rate: %s/sec, Tier: %s, Threshold: %s/sec",
-                    strategy.value, metrics.entity_id[:32],
-                    metrics.connections_per_second, tier.name, threshold
+                    strategy.value,
+                    metrics.entity_id[:32],
+                    metrics.connections_per_second,
+                    tier.name,
+                    threshold,
                 )
 
         return evaluations
 
     def _get_strategy_thresholds(
-        self,
-        strategy: RateLimitStrategy,
-        strategy_config: Dict
+        self, strategy: RateLimitStrategy, strategy_config: Dict
     ) -> Dict[str, int]:
         """
         Get thresholds for a specific strategy.
@@ -188,35 +186,36 @@ class ThreatEvaluator:
         Falls back to global thresholds if strategy-specific not configured.
         """
         # Try strategy-specific thresholds first
-        thresholds = strategy_config.get('thresholds', {})
+        thresholds = strategy_config.get("thresholds", {})
 
         if not thresholds:
             # Fall back to global thresholds
             thresholds = {
-                'suspicious': self.tier_config.get_threshold(ThreatTier.SUSPICIOUS),
-                'block': self.tier_config.get_threshold(ThreatTier.BLOCK),
-                'ban': self.tier_config.get_threshold(ThreatTier.BANNED),
+                "suspicious": self.tier_config.get_threshold(ThreatTier.SUSPICIOUS),
+                "block": self.tier_config.get_threshold(ThreatTier.BLOCK),
+                "ban": self.tier_config.get_threshold(ThreatTier.BANNED),
             }
 
         # Validate thresholds
-        suspicious = int(thresholds.get('suspicious', 1))
-        block = int(thresholds.get('block', 5))
-        ban = int(thresholds.get('ban', 10))
+        suspicious = int(thresholds.get("suspicious", 1))
+        block = int(thresholds.get("block", 5))
+        ban = int(thresholds.get("ban", 10))
 
         if not (0 <= suspicious <= block <= ban):
             self.logger.error(
                 "Invalid thresholds for %s: suspicious=%s, block=%s, ban=%s",
-                strategy.value, suspicious, block, ban
+                strategy.value,
+                suspicious,
+                block,
+                ban,
             )
             # Use safe defaults
-            return {'suspicious': 1, 'block': 5, 'ban': 10}
+            return {"suspicious": 1, "block": 5, "ban": 10}
 
-        return {'suspicious': suspicious, 'block': block, 'ban': ban}
+        return {"suspicious": suspicious, "block": block, "ban": ban}
 
     def _evaluate_single(
-        self,
-        connections_per_second: int,
-        thresholds: Dict[str, int]
+        self, connections_per_second: int, thresholds: Dict[str, int]
     ) -> tuple[ThreatTier, int]:
         """
         Evaluate threat tier for a single metric.
@@ -228,9 +227,9 @@ class ThreatEvaluator:
         Returns:
             Tuple of (tier, threshold_value)
         """
-        ban_threshold = thresholds.get('ban', 10)
-        block_threshold = thresholds.get('block', 5)
-        suspicious_threshold = thresholds.get('suspicious', 1)
+        ban_threshold = thresholds.get("ban", 10)
+        block_threshold = thresholds.get("block", 5)
+        suspicious_threshold = thresholds.get("suspicious", 1)
 
         if connections_per_second > ban_threshold:
             return ThreatTier.BANNED, ban_threshold
@@ -242,8 +241,7 @@ class ThreatEvaluator:
             return ThreatTier.NORMAL, 0
 
     def get_most_severe_tier(
-        self,
-        evaluations: Dict[RateLimitStrategy, ThreatEvaluation]
+        self, evaluations: Dict[RateLimitStrategy, ThreatEvaluation]
     ) -> ThreatTier:
         """
         Get the most severe threat tier across all strategies.
@@ -265,9 +263,7 @@ class ThreatEvaluator:
         return most_severe
 
     def get_triggering_strategy(
-        self,
-        evaluations: Dict[RateLimitStrategy, ThreatEvaluation],
-        tier: ThreatTier
+        self, evaluations: Dict[RateLimitStrategy, ThreatEvaluation], tier: ThreatTier
     ) -> Optional[RateLimitStrategy]:
         """
         Get which strategy triggered a specific tier.
@@ -290,8 +286,7 @@ class ThreatEvaluator:
         return None
 
     def should_apply_action(
-        self,
-        evaluations: Dict[RateLimitStrategy, ThreatEvaluation]
+        self, evaluations: Dict[RateLimitStrategy, ThreatEvaluation]
     ) -> bool:
         """
         Determine if action should be applied based on policy.
@@ -312,8 +307,7 @@ class ThreatEvaluator:
 
         # Count how many strategies detected threats
         threats = [
-            eval for eval in evaluations.values()
-            if eval.tier != ThreatTier.NORMAL
+            eval for eval in evaluations.values() if eval.tier != ThreatTier.NORMAL
         ]
 
         threat_count = len(threats)
@@ -337,8 +331,7 @@ class ThreatEvaluator:
             return threat_count > 0
 
     def get_evaluation_summary(
-        self,
-        evaluations: Dict[RateLimitStrategy, ThreatEvaluation]
+        self, evaluations: Dict[RateLimitStrategy, ThreatEvaluation]
     ) -> Dict:
         """
         Get summary of evaluations for logging/metrics.
@@ -347,23 +340,22 @@ class ThreatEvaluator:
             Dictionary with evaluation summary
         """
         threat_count = sum(
-            1 for eval in evaluations.values()
-            if eval.tier != ThreatTier.NORMAL
+            1 for eval in evaluations.values() if eval.tier != ThreatTier.NORMAL
         )
 
         most_severe = self.get_most_severe_tier(evaluations)
 
         return {
-            'total_strategies': len(evaluations),
-            'threats_detected': threat_count,
-            'most_severe_tier': most_severe.name,
-            'policy': self.policy.value,
-            'action_triggered': self.should_apply_action(evaluations),
-            'evaluations': [eval.to_dict() for eval in evaluations.values()],
+            "total_strategies": len(evaluations),
+            "threats_detected": threat_count,
+            "most_severe_tier": most_severe.name,
+            "policy": self.policy.value,
+            "action_triggered": self.should_apply_action(evaluations),
+            "evaluations": [eval.to_dict() for eval in evaluations.values()],
         }
 
     @classmethod
-    def from_config(cls, config: Dict) -> 'ThreatEvaluator':
+    def from_config(cls, config: Dict) -> "ThreatEvaluator":
         """
         Create ThreatEvaluator from configuration dictionary.
 
@@ -378,31 +370,25 @@ class ThreatEvaluator:
         """
         try:
             # Load global tier configuration
-            tier_config = ThreatTierConfig.from_config_dict(
-                config.get('security', {})
-            )
+            tier_config = ThreatTierConfig.from_config_dict(config.get("security", {}))
 
             # Load strategy-specific configurations
-            strategy_configs_raw = config.get('security', {}).get(
-                'rate_limit_strategies', {}
+            strategy_configs_raw = config.get("security", {}).get(
+                "rate_limit_strategies", {}
             )
 
             strategy_configs = {}
             for strategy in RateLimitStrategy:
                 config_key = strategy.value
                 strategy_config = strategy_configs_raw.get(config_key, {})
-                if strategy_config.get('enabled', False):
+                if strategy_config.get("enabled", False):
                     strategy_configs[strategy] = strategy_config
 
             # Load policy
-            policy_str = config.get('security', {}).get(
-                'multi_strategy_policy', 'any'
-            )
+            policy_str = config.get("security", {}).get("multi_strategy_policy", "any")
             policy = MultiStrategyPolicy.from_string(policy_str)
             if policy is None:
-                logging.warning(
-                    "Invalid policy '%s', using default 'any'", policy_str
-                )
+                logging.warning("Invalid policy '%s', using default 'any'", policy_str)
                 policy = MultiStrategyPolicy.ANY
 
             return cls(

@@ -11,7 +11,6 @@ Security Considerations:
 - Data retention policies must align with strategy granularity
 """
 
-import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
@@ -42,7 +41,7 @@ class RateLimitStrategy(Enum):
     BY_IP_JA4_PAIR = "by_ip_ja4_pair"
 
     @classmethod
-    def from_string(cls, strategy_str: str) -> Optional['RateLimitStrategy']:
+    def from_string(cls, strategy_str: str) -> Optional["RateLimitStrategy"]:
         """
         Convert string to strategy enum with validation.
 
@@ -85,9 +84,9 @@ class RateLimitStrategy(Enum):
             raise ValueError("IP must be non-empty string")
 
         # Prevent Redis key injection - no colons or spaces in components
-        if ':' in ja4 or ' ' in ja4:
+        if ":" in ja4 or " " in ja4:
             raise ValueError("JA4 contains invalid characters")
-        if ':' in ip or ' ' in ip:
+        if ":" in ip or " " in ip:
             raise ValueError("IP contains invalid characters")
 
         if self == RateLimitStrategy.BY_IP:
@@ -128,11 +127,11 @@ class RateMetrics:
     def to_dict(self) -> dict:
         """Convert to dictionary for logging/metrics."""
         return {
-            'connections_per_second': self.connections_per_second,
-            'strategy': self.strategy.value,
-            'entity_id_hash': self._hash_entity_id(),
-            'timestamp': self.timestamp,
-            'window_seconds': self.window_seconds,
+            "connections_per_second": self.connections_per_second,
+            "strategy": self.strategy.value,
+            "entity_id_hash": self._hash_entity_id(),
+            "timestamp": self.timestamp,
+            "window_seconds": self.window_seconds,
         }
 
     def _hash_entity_id(self) -> str:
@@ -142,6 +141,7 @@ class RateMetrics:
         GDPR: Pseudonymization of identifiers in logs.
         """
         import hashlib
+
         return hashlib.sha256(self.entity_id.encode()).hexdigest()[:16]
 
     def exceeds_threshold(self, threshold: int) -> bool:
@@ -169,13 +169,15 @@ class StrategyConfig:
     def __post_init__(self):
         """Validate configuration on creation."""
         # Validate thresholds are ordered correctly
-        if not (0 <= self.suspicious_threshold <= self.block_threshold <= self.ban_threshold):
+        if not (
+            0 <= self.suspicious_threshold <= self.block_threshold <= self.ban_threshold
+        ):
             raise ValueError(
                 "Thresholds must be ordered: 0 <= suspicious <= block <= ban"
             )
 
         # Validate action
-        valid_actions = ['log', 'tarpit', 'block']
+        valid_actions = ["log", "tarpit", "block"]
         if self.action not in valid_actions:
             raise ValueError(
                 f"Action must be one of {valid_actions}, got: {self.action}"
@@ -188,26 +190,26 @@ class StrategyConfig:
             raise ValueError("Ban duration too long (max 30 days)")
 
     @classmethod
-    def from_config_dict(cls, config: dict) -> 'StrategyConfig':
+    def from_config_dict(cls, config: dict) -> "StrategyConfig":
         """
         Create from configuration dictionary with validation.
 
         Security: Validates all inputs to prevent configuration injection.
         """
         try:
-            thresholds = config.get('thresholds', {})
+            thresholds = config.get("thresholds", {})
 
             # Validate thresholds is a dictionary
             if not isinstance(thresholds, dict):
                 raise TypeError("thresholds must be a dictionary")
 
             return cls(
-                enabled=bool(config.get('enabled', False)),
-                suspicious_threshold=int(thresholds.get('suspicious', 1)),
-                block_threshold=int(thresholds.get('block', 5)),
-                ban_threshold=int(thresholds.get('ban', 10)),
-                action=str(config.get('action', 'tarpit')),
-                ban_duration=int(config.get('ban_duration', 3600)),
+                enabled=bool(config.get("enabled", False)),
+                suspicious_threshold=int(thresholds.get("suspicious", 1)),
+                block_threshold=int(thresholds.get("block", 5)),
+                ban_threshold=int(thresholds.get("ban", 10)),
+                action=str(config.get("action", "tarpit")),
+                ban_duration=int(config.get("ban_duration", 3600)),
             )
         except (TypeError, ValueError, AttributeError) as e:
             raise ValueError(f"Invalid strategy configuration: {e}")

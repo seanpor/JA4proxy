@@ -4,6 +4,7 @@ MISPClient — pushes ban events to a MISP instance (Phase 20, Group 9).
 Creates a daily MISP event (or reuses today's existing one) and adds
 ip-dst and (optionally) JA4 fingerprint attributes.
 """
+
 from __future__ import annotations
 
 import logging
@@ -25,7 +26,9 @@ class MISPClient:
 
     def __init__(self, config: dict, session: Any) -> None:
         self._session = session
-        self._base_url: str = config.get("base_url", "https://misp.example.com").rstrip("/")
+        self._base_url: str = config.get("base_url", "https://misp.example.com").rstrip(
+            "/"
+        )
         self._api_key: str = config.get("api_key", "")
         self._verify_tls: bool = bool(config.get("verify_tls", True))
         self._event_distribution: int = int(config.get("event_distribution", 0))
@@ -68,7 +71,8 @@ class MISPClient:
         except Exception:
             logger.warning(
                 "misp_client | event=push_ban_failed | ip=%s | score=%d",
-                ip, score,
+                ip,
+                score,
             )
 
     # ------------------------------------------------------------------
@@ -107,11 +111,7 @@ class MISPClient:
             else:
                 data = await resp_ctx.json()
 
-            event_id = str(
-                data.get("Event", {}).get("id")
-                or data.get("id")
-                or ""
-            )
+            event_id = str(data.get("Event", {}).get("id") or data.get("id") or "")
         except Exception:
             logger.warning("misp_client | event=create_event_failed | title=%s", title)
             event_id = ""
@@ -160,7 +160,9 @@ class MISPClient:
                         logger.warning(
                             "misp_client | event=add_attribute_failed | "
                             "status=%d | type=%s | value=%s",
-                            resp.status, type_, value,
+                            resp.status,
+                            type_,
+                            value,
                         )
             else:
                 status = getattr(resp_ctx, "status", 0)
@@ -170,12 +172,15 @@ class MISPClient:
                     logger.warning(
                         "misp_client | event=add_attribute_failed | "
                         "status=%d | type=%s | value=%s",
-                        status, type_, value,
+                        status,
+                        type_,
+                        value,
                     )
         except Exception:
             logger.warning(
                 "misp_client | event=add_attribute_error | type=%s | value=%s",
-                type_, value,
+                type_,
+                value,
             )
 
     def _headers(self) -> dict:

@@ -2,6 +2,7 @@
 Backup CLI module.
 Implements backup, restore, list, and validate commands.
 """
+
 import argparse
 import json
 import os
@@ -37,7 +38,9 @@ class BackupCLI:
             config = self.config_loader._read_and_parse()
             backup_config = config.get("backup", {})
 
-            destination_dir = args.destination or backup_config.get("destination", "/app/backups")
+            destination_dir = args.destination or backup_config.get(
+                "destination", "/app/backups"
+            )
 
             # Create backup
             backup_path = self.worker.create_backup(destination_dir)
@@ -71,7 +74,9 @@ class BackupCLI:
                 return 1
 
             # Perform restore
-            self.restorer.restore_backup(args.backup_file, manifest_file, destructive=args.force)
+            self.restorer.restore_backup(
+                args.backup_file, manifest_file, destructive=args.force
+            )
 
             restore_type = "destructive" if args.force else "non-destructive"
             print(f"Restore completed successfully ({restore_type} mode)")
@@ -98,7 +103,9 @@ class BackupCLI:
             config = self.config_loader._read_and_parse()
             backup_config = config.get("backup", {})
 
-            backup_dir = args.directory or backup_config.get("destination", "/app/backups")
+            backup_dir = args.directory or backup_config.get(
+                "destination", "/app/backups"
+            )
 
             if not os.path.exists(backup_dir):
                 print(f"Backup directory not found: {backup_dir}", file=sys.stderr)
@@ -118,7 +125,9 @@ class BackupCLI:
             print("-" * 80)
 
             for backup_file in backup_files:
-                manifest_file = backup_file.with_suffix(backup_file.suffix + ".manifest.json")
+                manifest_file = backup_file.with_suffix(
+                    backup_file.suffix + ".manifest.json"
+                )
 
                 if manifest_file.exists():
                     try:
@@ -129,7 +138,9 @@ class BackupCLI:
                         keys_count = manifest.get("keys_count", 0)
                         size_bytes = manifest.get("size_bytes", 0)
 
-                        print(f"{backup_file.name:40} {created_at:26} {keys_count:6} keys {size_bytes:10} bytes")
+                        print(
+                            f"{backup_file.name:40} {created_at:26} {keys_count:6} keys {size_bytes:10} bytes"
+                        )
                     except (json.JSONDecodeError, OSError):
                         print(f"{backup_file.name:40} (corrupted manifest)")
                 else:
@@ -167,7 +178,9 @@ class BackupCLI:
             print(f"Manifest validated successfully: {manifest['filename']}")
 
             # Verify checksum
-            checksum_valid = self.restorer.verify_checksum(args.backup_file, manifest["checksum_sha256"])
+            checksum_valid = self.restorer.verify_checksum(
+                args.backup_file, manifest["checksum_sha256"]
+            )
 
             if checksum_valid:
                 print("Checksum verification passed")
@@ -194,7 +207,7 @@ class BackupCLI:
         """
         parser = argparse.ArgumentParser(
             description="JA4proxy Backup CLI",
-            formatter_class=argparse.RawDescriptionHelpFormatter
+            formatter_class=argparse.RawDescriptionHelpFormatter,
         )
 
         subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -202,37 +215,33 @@ class BackupCLI:
         # Backup command
         backup_parser = subparsers.add_parser("backup", help="Create a new backup")
         backup_parser.add_argument(
-            "--destination",
-            help="Backup destination directory (defaults to config)"
+            "--destination", help="Backup destination directory (defaults to config)"
         )
         backup_parser.set_defaults(func=self.backup_command)
 
         # Restore command
         restore_parser = subparsers.add_parser("restore", help="Restore from backup")
-        restore_parser.add_argument(
-            "backup_file",
-            help="Path to backup file (.bin)"
-        )
+        restore_parser.add_argument("backup_file", help="Path to backup file (.bin)")
         restore_parser.add_argument(
             "--force",
             action="store_true",
-            help="Perform destructive restore (wipes existing data)"
+            help="Perform destructive restore (wipes existing data)",
         )
         restore_parser.set_defaults(func=self.restore_command)
 
         # List command
         list_parser = subparsers.add_parser("list", help="List available backups")
         list_parser.add_argument(
-            "--directory",
-            help="Backup directory to list (defaults to config)"
+            "--directory", help="Backup directory to list (defaults to config)"
         )
         list_parser.set_defaults(func=self.list_command)
 
         # Validate command
-        validate_parser = subparsers.add_parser("validate", help="Validate backup integrity")
+        validate_parser = subparsers.add_parser(
+            "validate", help="Validate backup integrity"
+        )
         validate_parser.add_argument(
-            "backup_file",
-            help="Path to backup file to validate (.bin)"
+            "backup_file", help="Path to backup file to validate (.bin)"
         )
         validate_parser.set_defaults(func=self.validate_command)
 

@@ -21,7 +21,7 @@ Do not invent new names without adding them there first.
 """
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from prometheus_client import Histogram
 
@@ -193,8 +193,5 @@ def _build_explanation(signals: list[RiskSignal]) -> str:
         key=lambda s: abs(s.score * s.weight),
         reverse=True,
     )[:3]
-    parts = [
-        f"{s.name}({'+' if s.score >= 0 else ''}{s.score})"
-        for s in sorted_sigs
-    ]
+    parts = [f"{s.name}({'+' if s.score >= 0 else ''}{s.score})" for s in sorted_sigs]
     return ", ".join(parts)

@@ -6,12 +6,16 @@ import time
 from typing import Any, Dict
 
 
-async def validate_event_comprehensive(event_data: Dict[str, Any], timestamp_tolerance: int = 300) -> bool:
+async def validate_event_comprehensive(
+    event_data: Dict[str, Any], timestamp_tolerance: int = 300
+) -> bool:
     """Comprehensive validation beyond JSON schema."""
 
     # 1. Temporal validation - timestamp should be recent
     current_time = time.time()
-    if abs(current_time - event_data["timestamp"]) > timestamp_tolerance:  # Configurable window
+    if (
+        abs(current_time - event_data["timestamp"]) > timestamp_tolerance
+    ):  # Configurable window
         raise ValueError("Timestamp too old or in future")
 
     # 2. IP validation
@@ -54,7 +58,7 @@ def is_valid_proxy_id(proxy_id: str) -> bool:
     if len(proxy_id) > 32:
         return False
     # Allow alphanumeric, hyphens, and underscores
-    return all(c.isalnum() or c == '-' or c == '_' for c in proxy_id)
+    return all(c.isalnum() or c == "-" or c == "_" for c in proxy_id)
 
 
 def is_valid_ja4(ja4: str) -> bool:
@@ -64,4 +68,4 @@ def is_valid_ja4(ja4: str) -> bool:
     if len(ja4) > 64:
         return False
     # Allow alphanumeric, underscores, and hyphens
-    return all(c.isalnum() or c == '_' or c == '-' for c in ja4)
+    return all(c.isalnum() or c == "_" or c == "-" for c in ja4)

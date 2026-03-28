@@ -9,12 +9,12 @@ CEF format:
 RFC 5424 format:
     <{priority}>1 {timestamp} {hostname} ja4proxy - - - {msg_json}
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import socket
-import time
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -32,11 +32,11 @@ _CEF_SEVERITY: dict[str, int] = {
 # RFC 5424 facility × 8 + severity
 # facility 1 = LOCAL0; severity 5 = Notice (default for informational events)
 _RFC5424_SEVERITY_MAP: dict[str, int] = {
-    "signal_ban": 2,   # Critical
-    "signal_block": 3, # Error
+    "signal_ban": 2,  # Critical
+    "signal_block": 3,  # Error
     "signal_slow": 4,  # Warning
-    "flag": 5,         # Notice
-    "observe": 6,      # Informational
+    "flag": 5,  # Notice
+    "observe": 6,  # Informational
 }
 
 
@@ -124,9 +124,7 @@ class SyslogExporter:
         severity = _CEF_SEVERITY.get(event, _CEF_SEVERITY.get(action, 3))
         ja4_part = f" ja4={ja4}" if ja4 else ""
         ext = f"src={ip}{ja4_part} score={score} action={action}"
-        return (
-            f"CEF:0|JA4proxy|{self._app_name}|1.0|{event}|{event}|{severity}|{ext}"
-        )
+        return f"CEF:0|JA4proxy|{self._app_name}|1.0|{event}|{event}|{severity}|{ext}"
 
     def _format_rfc5424(
         self,

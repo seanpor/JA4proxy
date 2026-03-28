@@ -24,10 +24,9 @@ except ImportError:  # pragma: no cover
     redis = None
 
 from .action_enforcer import ActionEnforcer
-from .action_types import ActionType
 from .gdpr_storage import DataCategory, GDPRStorage
 from .rate_tracker import MultiStrategyRateTracker
-from .threat_evaluator import MultiStrategyPolicy, ThreatEvaluator
+from .threat_evaluator import ThreatEvaluator
 from .threat_tier import ThreatTier
 
 
@@ -129,7 +128,9 @@ class SecurityManager:
         """
         # Validate inputs
         if not ja4 or not client_ip:
-            self.logger.error("Invalid inputs: ja4=%s, ip=%s", bool(ja4), bool(client_ip))
+            self.logger.error(
+                "Invalid inputs: ja4=%s, ip=%s", bool(ja4), bool(client_ip)
+            )
             return False, "Invalid request"
 
         # Check ALPN bypass - browser traffic doesn't get rate limited
@@ -138,8 +139,7 @@ class SecurityManager:
         )
         if browser_alpn.get("enabled", True) and alpn in ("h2", "http/1.1", "h1"):
             self.logger.debug(
-                "ALPN bypass: IP=%s ALPN=%s - skipping rate limit",
-                client_ip[:32], alpn
+                "ALPN bypass: IP=%s ALPN=%s - skipping rate limit", client_ip[:32], alpn
             )
             # Still check blocked/banned but skip rate limiting
             is_blocked, block_reason = self.action_enforcer.is_blocked(ja4, client_ip)
@@ -153,7 +153,9 @@ class SecurityManager:
             if is_blocked:
                 self.logger.info(
                     "Pre-blocked: IP=%s JA4=%s - %s",
-                    client_ip[:32], ja4[:16], block_reason
+                    client_ip[:32],
+                    ja4[:16],
+                    block_reason,
                 )
                 return False, block_reason
 
@@ -169,8 +171,7 @@ class SecurityManager:
             if not self.threat_evaluator.should_apply_action(threat_evaluations):
                 # All strategies show normal behavior
                 self.logger.debug(
-                    "Allowed: IP=%s JA4=%s - Normal traffic",
-                    client_ip[:32], ja4[:16]
+                    "Allowed: IP=%s JA4=%s - Normal traffic", client_ip[:32], ja4[:16]
                 )
                 return True, "Allowed"
 
@@ -201,7 +202,9 @@ class SecurityManager:
 
             return result.allowed, result.reason
 
-        except Exception as e:  # top-level safety net: any component failure must fail secure
+        except (
+            Exception
+        ) as e:  # top-level safety net: any component failure must fail secure
             self.logger.error("Error in check_access: %s", e, exc_info=True)
             return False, "Security check failed"
 
@@ -246,7 +249,9 @@ class SecurityManager:
             if was_unbanned:
                 self.logger.warning(
                     "MANUAL UNBAN: IP=%s JA4=%s Reason: %s",
-                    client_ip[:32], ja4[:16], reason or 'Not specified'
+                    client_ip[:32],
+                    ja4[:16],
+                    reason or "Not specified",
                 )
 
                 # Store unban event in audit log
@@ -260,7 +265,6 @@ class SecurityManager:
         except redis.RedisError as e:
             self.logger.error("Error in manual_unban: %s", e)
             return False
-
 
     def verify_gdpr_compliance(self) -> Dict:
         """
@@ -321,7 +325,7 @@ class SecurityManager:
             client_ip[:32],
             ja4[:16],
             tier.name,
-            strategy.value if strategy else 'N/A',
+            strategy.value if strategy else "N/A",
             result.action_type.value,
             result.allowed,
             result.reason,
