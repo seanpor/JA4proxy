@@ -61,3 +61,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 35 — Advanced APT Countermeasures & Integrity Enforcement
 *   **Status:** **PROPOSED** (Proactive defense: Hardware-rooted integrity, eBPF-based kernel-level enforcement, honey-fingerprints, and two-stage seccomp lockdown.)
 *   **Action Plan:** [PHASE_35.md](PHASE_35.md)
+
+### Phase 36 — Go Test Quality & Parity Gaps
+*   **Status:** **PROPOSED** (Fix broken JA4 fixture parity test, add real certificate JA4X tests, add cross-language JA4X parity, extended fingerprint family parity, and benchmark coverage.)
+*   **Action Plan:** [PHASE_36.md](PHASE_36.md)
