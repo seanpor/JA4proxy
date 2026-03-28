@@ -262,11 +262,12 @@ phases:
 
   25:
     name: "Docker Container Management"
-    status: "OPEN"
-    summary: "Pin image versions, fix CVE scan gaps, first-party image scanning, image update policy."
+    status: "COMPLETE"
+    test_coverage: "100%"
+    doc_status: "COMPLETE"
+    summary: "All image versions pinned, version drift harmonised across prod/monitoring compose files, first-party and Dockerfile scan targets added, check-image-versions script, update policy runbook, base images pinned to patch version, curl removed from production image."
+    completed: "2026-03-28"
     action_plan: "docs/phases/PHASE_25.md"
-    dependencies: [14]
-    size: "SMALL"  # 1-2 weeks: Configuration updates, CI/CD pipeline adjustments, security scanning setup
 
   26:
     name: "Python Throughput Hardening"

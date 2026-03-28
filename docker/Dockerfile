@@ -1,14 +1,15 @@
-FROM python:3.11-slim
+FROM python:3.11.11-slim
 
 # Security hardening - user/group may already exist in base image
 RUN groupadd -r proxy 2>/dev/null || true
 RUN useradd -r -g proxy proxy 2>/dev/null || true
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
+# curl removed — wget used in HEALTHCHECK instead (smaller attack surface)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libpcap-dev \
-    curl \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
@@ -40,9 +41,8 @@ USER proxy
 
 ENV PYTHONUNBUFFERED=1
 
-# SECURITY FIX: Enhanced health check with actual HTTP request
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:9090/metrics || exit 1
+    CMD wget --spider -q http://localhost:9090/metrics || exit 1
 
 # Expose ports
 EXPOSE 8080 9090
