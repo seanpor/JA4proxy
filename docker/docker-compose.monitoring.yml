@@ -73,7 +73,7 @@ services:
       retries: 3
 
   grafana:
-    image: grafana/grafana:10.2.2
+    image: grafana/grafana:10.2.0
     container_name: ja4proxy-grafana
     ports:
       - "3001:3000"
@@ -165,7 +165,7 @@ services:
           cpus: '0.5'
 
   loki:
-    image: grafana/loki:3.3.2
+    image: grafana/loki:2.9.0
     container_name: ja4proxy-loki
     # Not exposed to host — only accessible from monitoring network
     volumes:
@@ -191,7 +191,7 @@ services:
       retries: 5
 
   promtail:
-    image: grafana/promtail:3.3.2
+    image: grafana/promtail:2.9.0
     container_name: ja4proxy-promtail
     volumes:
       - ../monitoring/loki/promtail-config.yml:/etc/promtail/config.yml:ro

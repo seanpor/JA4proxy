@@ -20,6 +20,8 @@ ssl/certs/*.pem
 
 # Claude Code local settings (may contain API keys)
 .claude/settings.local.json
+# Claude Code agent worktrees (temporary isolation directories)
+.claude/worktrees/
 
 # Redis password files
 *_password.txt
