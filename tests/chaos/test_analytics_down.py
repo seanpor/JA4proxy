@@ -67,24 +67,32 @@ def _run(coro):
         Exception("unknown Redis error"),
     ],
 )
-def test_redis_exception_returns_empty_signals(exc):
+async def test_redis_exception_returns_empty_signals(exc):
     """Any Redis exception must yield empty analytics signals, not propagate."""
     redis_mock = MagicMock()
-    redis_mock.get.side_effect = exc
+    
+    async def _get_error(key):
+        raise exc
+    
+    redis_mock.get.side_effect = _get_error
     pipeline = _make_pipeline(redis_mock)
 
-    result = pipeline._get_analytics_signals("10.0.0.1")
+    result = await pipeline._get_analytics_signals("10.0.0.1")
 
     assert result == []
 
 
-def test_redis_down_does_not_cache_partial_result():
+async def test_redis_down_does_not_cache_partial_result():
     """On Redis error, the cache must stay empty so the next request retries."""
     redis_mock = MagicMock()
-    redis_mock.get.side_effect = ConnectionError("Redis down")
+    
+    async def _get_error(key):
+        raise ConnectionError("Redis down")
+    
+    redis_mock.get.side_effect = _get_error
     pipeline = _make_pipeline(redis_mock)
 
-    pipeline._get_analytics_signals("10.0.0.5")
+    await pipeline._get_analytics_signals("10.0.0.5")
 
     cached = pipeline._cache.analytics_signals.get("10.0.0.0/24")
     assert cached is None
@@ -127,24 +135,29 @@ def test_pipeline_scores_correctly_when_analytics_redis_down():
 # ---------------------------------------------------------------------------
 
 
-def test_recovery_after_redis_error():
+async def test_recovery_after_redis_error():
     """After Redis recovers, analytics signals should be readable again."""
     redis_mock = MagicMock()
-    redis_mock.get.side_effect = ConnectionError("Redis down")
+    
+    # Make redis.get async
+    async def _get_error(key):
+        raise ConnectionError("Redis down")
+    
+    redis_mock.get.side_effect = _get_error
     pipeline = _make_pipeline(redis_mock)
 
     # First call — Redis down
-    result1 = pipeline._get_analytics_signals("192.168.5.1")
+    result1 = await pipeline._get_analytics_signals("192.168.5.1")
     assert result1 == []
 
     # Redis recovers; campaign key is now present
-    def _get_recovered(key):
+    async def _get_recovered(key):
         if "campaign" in key:
             return b"1"
         return None
 
     redis_mock.get.side_effect = _get_recovered
-    result2 = pipeline._get_analytics_signals("192.168.5.2")  # same /24
+    result2 = await pipeline._get_analytics_signals("192.168.5.2")  # same /24
     # Still empty — the first call (success path) was not cached (error path),
     # so this call hits Redis and gets the campaign signal.
     assert any(s.name == "analytics_campaign" for s in result2)
@@ -155,8 +168,8 @@ def test_recovery_after_redis_error():
 # ---------------------------------------------------------------------------
 
 
-def test_campaign_signal_score_is_35():
-    def _get(key):
+async def test_campaign_signal_score_is_35():
+    async def _get(key):
         if "campaign" in key:
             return b"1"
         return None
@@ -165,13 +178,13 @@ def test_campaign_signal_score_is_35():
     redis_mock.get.side_effect = _get
     pipeline = _make_pipeline(redis_mock)
 
-    signals = pipeline._get_analytics_signals("10.1.2.3")
+    signals = await pipeline._get_analytics_signals("10.1.2.3")
     campaign = next(s for s in signals if s.name == "analytics_campaign")
     assert campaign.score == 35
 
 
-def test_slowscan_signal_score_is_30():
-    def _get(key):
+async def test_slowscan_signal_score_is_30():
+    async def _get(key):
         if "slowscan" in key:
             return b"1"
         return None
@@ -180,14 +193,14 @@ def test_slowscan_signal_score_is_30():
     redis_mock.get.side_effect = _get
     pipeline = _make_pipeline(redis_mock)
 
-    signals = pipeline._get_analytics_signals("10.2.3.4")
+    signals = await pipeline._get_analytics_signals("10.2.3.4")
     slowscan = next(s for s in signals if s.name == "analytics_slowscan")
     assert slowscan.score == 30
 
 
-def test_both_signals_total_score_is_65():
+async def test_both_signals_total_score_is_65():
     """Campaign(35) + slowscan(30) = 65 risk score contribution."""
-    def _get(key):
+    async def _get(key):
         if "campaign" in key or "slowscan" in key:
             return b"1"
         return None
@@ -196,6 +209,6 @@ def test_both_signals_total_score_is_65():
     redis_mock.get.side_effect = _get
     pipeline = _make_pipeline(redis_mock)
 
-    signals = pipeline._get_analytics_signals("172.20.0.1")
+    signals = await pipeline._get_analytics_signals("172.20.0.1")
     total = sum(s.score for s in signals)
     assert total == 65

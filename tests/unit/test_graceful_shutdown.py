@@ -46,9 +46,12 @@ def _make_server_stub(drain_timeout: float = 1.0) -> ProxyServer:
     s.redis_client = MagicMock()
     s.active_connections = 0
     s._dial_manager = MagicMock()
-    s._dial_manager.initialize = MagicMock(return_value=0)
+    s._dial_manager.initialize = AsyncMock(return_value=0)
     s._local_cache = MagicMock()
     s._local_cache.dial = 0
+    s.pipeline = MagicMock()
+    s.pipeline.start = AsyncMock()
+    s.pipeline.stop = AsyncMock()
     s._abuseipdb_checker = None
     s._rdap_enricher = None
     s._aiohttp_session = None

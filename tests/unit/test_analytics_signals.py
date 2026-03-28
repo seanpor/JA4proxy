@@ -40,12 +40,20 @@ def _make_pipeline(redis_get_side_effect=None, redis_get_return=None):
     }
     cache = LocalCache({})
     mock_redis = MagicMock()
-    if redis_get_side_effect is not None:
-        mock_redis.get.side_effect = redis_get_side_effect
-    elif redis_get_return is not None:
-        mock_redis.get.return_value = redis_get_return
-    else:
-        mock_redis.get.return_value = None
+    
+    # Make redis.get async
+    async def _get_async(key):
+        if redis_get_side_effect is not None:
+            if callable(redis_get_side_effect):
+                return redis_get_side_effect(key)
+            else:
+                raise redis_get_side_effect
+        elif redis_get_return is not None:
+            return redis_get_return
+        else:
+            return None
+    
+    mock_redis.get.side_effect = _get_async
     return Pipeline(config=config, local_cache=cache, redis_client=mock_redis)
 
 
@@ -71,25 +79,25 @@ def test_local_cache_analytics_signals_ttl_configurable():
 # ---------------------------------------------------------------------------
 
 
-def test_ipv4_subnet_is_slash24():
+async def test_ipv4_subnet_is_slash24():
     pipeline = _make_pipeline()
-    signals = pipeline._get_analytics_signals("192.168.1.200")
+    signals = await pipeline._get_analytics_signals("192.168.1.200")
     # No Redis keys set → empty, but subnet was computed correctly.
     # Verify by checking the cache key that was stored.
     cached = pipeline._cache.analytics_signals.get("192.168.1.0/24")
     assert cached == []
 
 
-def test_ipv6_subnet_is_slash48():
+async def test_ipv6_subnet_is_slash48():
     pipeline = _make_pipeline()
-    signals = pipeline._get_analytics_signals("2001:db8::1")
+    signals = await pipeline._get_analytics_signals("2001:db8::1")
     cached = pipeline._cache.analytics_signals.get("2001:db8::/48")
     assert cached == []
 
 
-def test_invalid_ip_returns_empty():
+async def test_invalid_ip_returns_empty():
     pipeline = _make_pipeline()
-    result = pipeline._get_analytics_signals("not-an-ip")
+    result = await pipeline._get_analytics_signals("not-an-ip")
     assert result == []
 
 
@@ -98,14 +106,14 @@ def test_invalid_ip_returns_empty():
 # ---------------------------------------------------------------------------
 
 
-def test_campaign_signal_returned_when_key_set():
-    def _get(key):
+async def test_campaign_signal_returned_when_key_set():
+    async def _get(key):
         if key == "analytics:campaign:192.168.1.0/24":
             return b"1"
         return None
 
     pipeline = _make_pipeline(redis_get_side_effect=_get)
-    signals = pipeline._get_analytics_signals("192.168.1.50")
+    signals = await pipeline._get_analytics_signals("192.168.1.50")
 
     assert len(signals) == 1
     assert signals[0].name == "analytics_campaign"
@@ -113,9 +121,9 @@ def test_campaign_signal_returned_when_key_set():
     assert "192.168.1.0/24" in signals[0].reason
 
 
-def test_campaign_signal_not_returned_when_key_absent():
+async def test_campaign_signal_not_returned_when_key_absent():
     pipeline = _make_pipeline()
-    signals = pipeline._get_analytics_signals("10.0.0.1")
+    signals = await pipeline._get_analytics_signals("10.0.0.1")
     assert signals == []
 
 
@@ -124,14 +132,14 @@ def test_campaign_signal_not_returned_when_key_absent():
 # ---------------------------------------------------------------------------
 
 
-def test_slowscan_signal_returned_when_key_set():
-    def _get(key):
+async def test_slowscan_signal_returned_when_key_set():
+    async def _get(key):
         if key == "analytics:slowscan:10.0.0.0/24":
             return b"1"
         return None
 
     pipeline = _make_pipeline(redis_get_side_effect=_get)
-    signals = pipeline._get_analytics_signals("10.0.0.99")
+    signals = await pipeline._get_analytics_signals("10.0.0.99")
 
     assert len(signals) == 1
     assert signals[0].name == "analytics_slowscan"
@@ -144,14 +152,14 @@ def test_slowscan_signal_returned_when_key_set():
 # ---------------------------------------------------------------------------
 
 
-def test_both_signals_when_both_keys_set():
-    def _get(key):
+async def test_both_signals_when_both_keys_set():
+    async def _get(key):
         if "campaign" in key or "slowscan" in key:
             return b"1"
         return None
 
     pipeline = _make_pipeline(redis_get_side_effect=_get)
-    signals = pipeline._get_analytics_signals("172.16.0.1")
+    signals = await pipeline._get_analytics_signals("172.16.0.1")
 
     names = {s.name for s in signals}
     assert "analytics_campaign" in names
@@ -164,9 +172,11 @@ def test_both_signals_when_both_keys_set():
 # ---------------------------------------------------------------------------
 
 
-def test_redis_error_returns_empty_and_does_not_raise():
-    pipeline = _make_pipeline(redis_get_side_effect=ConnectionError("Redis down"))
-    result = pipeline._get_analytics_signals("1.2.3.4")
+async def test_redis_error_returns_empty_and_does_not_raise():
+    async def _get_error(key):
+        raise ConnectionError("Redis down")
+    pipeline = _make_pipeline(redis_get_side_effect=_get_error)
+    result = await pipeline._get_analytics_signals("1.2.3.4")
     assert result == []
 
 
@@ -179,7 +189,7 @@ def test_redis_error_does_not_cache_empty_result():
     assert cached is None
 
 
-def test_partial_result_returns_empty_not_partial():
+async def test_partial_result_returns_empty_not_partial():
     """If first Redis call (campaign) succeeds but second (slowscan) raises,
     the method must return [] not the partial [campaign_signal] list.
     This prevents a one-signal result from being treated as authoritative
@@ -187,7 +197,7 @@ def test_partial_result_returns_empty_not_partial():
     """
     call_count = 0
 
-    def _get(key):
+    async def _get(key):
         nonlocal call_count
         call_count += 1
         if call_count == 1:
@@ -197,7 +207,7 @@ def test_partial_result_returns_empty_not_partial():
         raise ConnectionError("Redis flap")
 
     pipeline = _make_pipeline(redis_get_side_effect=_get)
-    result = pipeline._get_analytics_signals("1.2.3.4")
+    result = await pipeline._get_analytics_signals("1.2.3.4")
     # Must be empty — fail open, no partial data
     assert result == []
     # Must not be cached so the next call retries
@@ -205,7 +215,7 @@ def test_partial_result_returns_empty_not_partial():
     assert cached is None
 
 
-def test_none_redis_client_returns_empty():
+async def test_none_redis_client_returns_empty():
     config = {
         "security_policy": {
             "alpn_browser_bypass": {"enabled": True},
@@ -220,7 +230,7 @@ def test_none_redis_client_returns_empty():
     }
     cache = LocalCache({})
     pipeline = Pipeline(config=config, local_cache=cache, redis_client=None)
-    result = pipeline._get_analytics_signals("5.5.5.5")
+    result = await pipeline._get_analytics_signals("5.5.5.5")
     assert result == []
 
 
@@ -229,7 +239,7 @@ def test_none_redis_client_returns_empty():
 # ---------------------------------------------------------------------------
 
 
-def test_cache_hit_skips_redis():
+async def test_cache_hit_skips_redis():
     pipeline = _make_pipeline()
     subnet = "192.0.2.0/24"
     from src.security.models import RiskSignal
@@ -237,7 +247,7 @@ def test_cache_hit_skips_redis():
     cached_signals = [RiskSignal(name="analytics_campaign", score=35, reason="cached")]
     pipeline._cache.analytics_signals.set(subnet, cached_signals)
 
-    result = pipeline._get_analytics_signals("192.0.2.1")
+    result = await pipeline._get_analytics_signals("192.0.2.1")
 
     assert result == cached_signals
     # Redis.get should NOT have been called
