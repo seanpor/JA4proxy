@@ -2,7 +2,9 @@ package tls
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -113,12 +115,12 @@ func buildSupportedVersionsExt(versions []uint16) []byte {
 
 func TestComputeJA4_BasicFormat(t *testing.T) {
 	info := &ClientHelloInfo{
-		LegacyVersion: 0x0303,
-		CipherSuites:  []uint16{0x1301, 0x1302},
-		Extensions:    []uint16{0x0000, 0x000b},
-		SNIPresent:    true,
+		LegacyVersion:     0x0303,
+		CipherSuites:      []uint16{0x1301, 0x1302},
+		Extensions:        []uint16{0x0000, 0x000b},
+		SNIPresent:        true,
 		SupportedVersions: []uint16{0x0304},
-		ALPNProtocols: []string{"h2"},
+		ALPNProtocols:     []string{"h2"},
 	}
 	ja4 := ComputeJA4(info)
 
@@ -167,12 +169,12 @@ func TestComputeJA4_BasicFormat(t *testing.T) {
 func TestComputeJA4_GREASEFiltered(t *testing.T) {
 	// GREASE cipher suite 0x0A0A should be excluded from count and hash
 	info := &ClientHelloInfo{
-		LegacyVersion: 0x0303,
-		CipherSuites:  []uint16{0x0A0A, 0x1301, 0x1302, 0x1303}, // 3 non-GREASE
-		Extensions:    []uint16{0x0A0A, 0x0000, 0x000b},           // 2 non-GREASE
-		SNIPresent:    true,
+		LegacyVersion:     0x0303,
+		CipherSuites:      []uint16{0x0A0A, 0x1301, 0x1302, 0x1303}, // 3 non-GREASE
+		Extensions:        []uint16{0x0A0A, 0x0000, 0x000b},         // 2 non-GREASE
+		SNIPresent:        true,
 		SupportedVersions: []uint16{0x0304},
-		ALPNProtocols: []string{"h2"},
+		ALPNProtocols:     []string{"h2"},
 	}
 	ja4 := ComputeJA4(info)
 	parts := strings.Split(ja4, "_")
@@ -192,10 +194,10 @@ func TestComputeJA4_GREASEFiltered(t *testing.T) {
 
 func TestComputeJA4_NoSNI(t *testing.T) {
 	info := &ClientHelloInfo{
-		LegacyVersion: 0x0303,
-		CipherSuites:  []uint16{0x1301},
-		Extensions:    []uint16{0x000b}, // no SNI extension
-		SNIPresent:    false,
+		LegacyVersion:     0x0303,
+		CipherSuites:      []uint16{0x1301},
+		Extensions:        []uint16{0x000b}, // no SNI extension
+		SNIPresent:        false,
 		SupportedVersions: []uint16{0x0304},
 	}
 	ja4 := ComputeJA4(info)
@@ -385,7 +387,7 @@ func TestComputeJA4_HashSorted(t *testing.T) {
 	info2 := &ClientHelloInfo{
 		LegacyVersion: 0x0303,
 		CipherSuites:  []uint16{0x1303, 0x1301, 0x1302}, // different order
-		Extensions:    []uint16{0x000a, 0x000b},           // different order
+		Extensions:    []uint16{0x000a, 0x000b},         // different order
 		SNIPresent:    false,
 	}
 	ja4_1 := ComputeJA4(info1)
@@ -521,7 +523,7 @@ func TestParseClientHello_TruncatedData(t *testing.T) {
 		{0x16},
 		{0x16, 0x03, 0x01},
 		{0x16, 0x03, 0x01, 0x00, 0x10}, // claims 16 bytes but has none
-		make([]byte, 10),                 // all zeros
+		make([]byte, 10),               // all zeros
 	}
 	for i, tc := range cases {
 		_, err := ParseClientHello(tc)
@@ -544,8 +546,8 @@ func TestParseClientHello_NonClientHello(t *testing.T) {
 	// Handshake type != 0x01 should return ErrNotClientHello
 	// Build a minimal TLS record with handshake type 0x02 (ServerHello)
 	body := []byte{
-		0x02,                   // ServerHello handshake type
-		0x00, 0x00, 0x30,       // body length = 48
+		0x02,             // ServerHello handshake type
+		0x00, 0x00, 0x30, // body length = 48
 	}
 	body = append(body, make([]byte, 48)...)
 	rec := []byte{
@@ -621,9 +623,9 @@ func TestParseClientHello_ChromeLikeInputs(t *testing.T) {
 			}
 			return d
 		}()},
-		{extType: 0xff01, data: []byte{0x00}},                  // renegotiation_info
-		{extType: 0x0023, data: []byte{}},                       // session ticket
-		{extType: 0x0010, data: buildALPNExt([]string{"h2"})},   // ALPN
+		{extType: 0xff01, data: []byte{0x00}},                         // renegotiation_info
+		{extType: 0x0023, data: []byte{}},                             // session ticket
+		{extType: 0x0010, data: buildALPNExt([]string{"h2"})},         // ALPN
 		{extType: 0x0005, data: []byte{0x01, 0x00, 0x00, 0x00, 0x00}}, // status_request
 		{extType: 0x000d, data: func() []byte {
 			d := []byte{0x00, 0x08}
@@ -635,11 +637,11 @@ func TestParseClientHello_ChromeLikeInputs(t *testing.T) {
 		{extType: 0x0012, data: []byte{}},                       // signed_certificate_timestamp
 		{extType: 0x0033, data: []byte{0x00, 0x02, 0x00, 0x1d}}, // key_share
 		{extType: 0x002b, data: buildSupportedVersionsExt([]uint16{0x0304, 0x0303})},
-		{extType: 0x002d, data: []byte{0x01, 0x01}},             // psk_key_exchange_modes
-		{extType: 0x0015, data: make([]byte, 10)},               // padding
-		{extType: 0x001b, data: []byte{0x02, 0x02, 0x00}},       // compress_certificate
-		{extType: 0x0017, data: []byte{}},                       // extended_master_secret
-		{extType: 0xffce, data: []byte{0x00, 0x00}},             // GREASE-like but not standard GREASE
+		{extType: 0x002d, data: []byte{0x01, 0x01}},       // psk_key_exchange_modes
+		{extType: 0x0015, data: make([]byte, 10)},         // padding
+		{extType: 0x001b, data: []byte{0x02, 0x02, 0x00}}, // compress_certificate
+		{extType: 0x0017, data: []byte{}},                 // extended_master_secret
+		{extType: 0xffce, data: []byte{0x00, 0x00}},       // GREASE-like but not standard GREASE
 	}
 
 	raw := buildClientHelloBytes(0x0303, ciphers, exts)
@@ -748,37 +750,60 @@ func TestComputeJA4FromFields(t *testing.T) {
 	}
 }
 
-// TestJA4_FixturesParity verifies Go JA4 output matches expected values.
-// Skips if the fixtures directory does not exist or no expectations are defined.
+// TestJA4_FixturesParity verifies Go JA4 output matches expected values from known_ja4.json.
+// Uses synthetic fixtures in tests/fixtures/clienthello/ directory.
 func TestJA4_FixturesParity(t *testing.T) {
-	// expected is updated after running scripts/capture_clienthello.py
-	// and computing JA4 with the Python reference implementation.
-	expected := map[string]string{
-		// "curl_tls13": "t13d...",  // populated after capture
-	}
-	if len(expected) == 0 {
-		t.Skip("no fixture expectations defined; run scripts/capture_clienthello.py to capture fixtures")
-	}
+	// Find fixtures directory relative to this test file
 	dir := "../../tests/fixtures/clienthello"
+	jsonPath := filepath.Join(dir, "known_ja4.json")
+
+	data, err := os.ReadFile(jsonPath)
+	if os.IsNotExist(err) {
+		t.Skipf("fixture file %s not found", jsonPath)
+		return
+	}
+	if err != nil {
+		t.Fatalf("failed to read %s: %v", jsonPath, err)
+	}
+
+	var expected map[string]string
+	if err := json.Unmarshal(data, &expected); err != nil {
+		t.Fatalf("failed to parse %s: %v", jsonPath, err)
+	}
+
+	if len(expected) == 0 {
+		t.Skip("no fixture expectations defined in known_ja4.json")
+		return
+	}
+
+	failed := 0
 	for name, wantJA4 := range expected {
-		path := dir + "/" + name + ".bin"
-		data, err := os.ReadFile(path)
+		path := filepath.Join(dir, name+".bin")
+		binData, err := os.ReadFile(path)
 		if os.IsNotExist(err) {
-			t.Skipf("fixture %s not found; run scripts/capture_clienthello.py", path)
+			t.Errorf("fixture %s not found at %s", name, path)
+			failed++
 			continue
 		}
 		if err != nil {
 			t.Errorf("%s: read error: %v", name, err)
+			failed++
 			continue
 		}
-		info, err := ParseClientHello(data)
+		info, err := ParseClientHello(binData)
 		if err != nil {
 			t.Errorf("%s: parse error: %v", name, err)
+			failed++
 			continue
 		}
 		got := ComputeJA4(info)
 		if got != wantJA4 {
 			t.Errorf("%s: JA4 = %q; want %q", name, got, wantJA4)
+			failed++
 		}
+	}
+
+	if failed > 0 {
+		t.Errorf("%d of %d fixtures failed", failed, len(expected))
 	}
 }

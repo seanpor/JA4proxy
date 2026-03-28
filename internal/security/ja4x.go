@@ -6,6 +6,10 @@ import (
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
+	"sort"
+	"strings"
+
+	"crypto/x509/pkix"
 )
 
 const sentinelHash = "000000000000"
@@ -36,18 +40,36 @@ func ExtractJA4XFromPEM(pemData []byte) string {
 }
 
 func extractSAN(cert *x509.Certificate) string {
-	result := ""
-	for i, dnsName := range cert.DNSNames {
-		if i > 0 {
-			result += ","
-		}
-		result += dnsName
+	if len(cert.DNSNames) == 0 && len(cert.EmailAddresses) == 0 &&
+		len(cert.IPAddresses) == 0 && len(cert.URIs) == 0 {
+		return ""
 	}
-	return result
+
+	var sanList []string
+	for _, dns := range cert.DNSNames {
+		sanList = append(sanList, fmt.Sprintf("<DNSName(value='%s')>", dns))
+	}
+	for _, email := range cert.EmailAddresses {
+		sanList = append(sanList, fmt.Sprintf("<RFC822Name(value='%s')>", email))
+	}
+	for _, ip := range cert.IPAddresses {
+		sanList = append(sanList, fmt.Sprintf("<IPAddress(value='%s')>", ip.String()))
+	}
+	for _, uri := range cert.URIs {
+		sanList = append(sanList, fmt.Sprintf("<URI(value='%s')>", uri.String()))
+	}
+
+	sort.Strings(sanList)
+	return strings.Join(sanList, ",")
 }
 
-func formatName(name interface{ String() string }) string {
-	return name.String()
+func formatName(name pkix.Name) string {
+	var attrs []string
+	for _, attr := range name.Names {
+		attrs = append(attrs, fmt.Sprintf("%s=%s", attr.Type.String(), attr.Value))
+	}
+	sort.Strings(attrs)
+	return strings.Join(attrs, ",")
 }
 
 func formatJA4X(issuer, subject, san string) string {
