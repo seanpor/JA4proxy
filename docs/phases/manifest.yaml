@@ -19,6 +19,10 @@ epics:
     description: "Management dashboards and documentation quality."
     phases: [2, 13, 19, 21, 39]
 
+  - name: "Epic: Operational Excellence & Lifecycle Management"
+    description: "Zero-downtime upgrades, robust health monitoring, and deployment orchestration."
+    phases: [41, 42, 43]
+
 phases:
   0:
     name: "Foundation"
@@ -386,3 +390,27 @@ phases:
     summary: "Audit all phase documentation, synchronize manifest/todo, and ensure clear status indicators across all files."
     completed: "2026-03-28"
     action_plan: "docs/phases/PHASE_39.md"
+
+  41:
+    name: "Robust Health Check API & Anti-Flap Logic"
+    status: "PROPOSED"
+    summary: "Implement deep health/readiness endpoints and hysteresis to prevent status flapping."
+    action_plan: "docs/phases/PHASE_41.md"
+    dependencies: [14]
+    size: "SMALL"
+
+  42:
+    name: "Zero-Downtime Data Upgrades (GeoIP & Config)"
+    status: "PROPOSED"
+    summary: "Enable atomic hot-reloading of large data files and configuration without process restart."
+    action_plan: "docs/phases/PHASE_42.md"
+    dependencies: [41]
+    size: "SMALL"
+
+  43:
+    name: "Blue/Green Deployment & Rollback Tooling"
+    status: "PROPOSED"
+    summary: "Tooling for parallel container releases and rapid traffic-shifting via load balancer."
+    action_plan: "docs/phases/PHASE_43.md"
+    dependencies: [41, 42]
+    size: "SMALL"
