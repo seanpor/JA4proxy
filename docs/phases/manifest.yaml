@@ -1,11 +1,11 @@
 epics:
   - name: "Epic: Core Performance"
     description: "Optimization for high-throughput and multi-core systems."
-    phases: [0, 15, 17, 26, 28, 29, 30]
+    phases: [0, 15, 17, 26, 28, 29, 30, 36]
     
   - name: "Epic: Security Hardening"
     description: "Deep security analysis, compliance, and audit remediation."
-    phases: [1, 3, 4, 5, 8, 10, 11, 14, 16, 18, 22, 25, 27, 30, 34, 35]
+    phases: [1, 3, 4, 5, 8, 10, 11, 14, 16, 18, 22, 25, 27, 30, 34, 35, 37, 38]
     
   - name: "Epic: Analytics & Intelligence"
     description: "Cross-instance behavior analysis and threat intelligence."
@@ -17,7 +17,7 @@ epics:
     
   - name: "Epic: User Interface & Experience"
     description: "Management dashboards and documentation quality."
-    phases: [2, 13, 19, 21]
+    phases: [2, 13, 19, 21, 39]
 
 phases:
   0:
@@ -372,3 +372,16 @@ phases:
     doc_status: "COMPLETE"
     summary: "Fixed make lint and make lint-static: black reformatted 79 files, removed ~65 unused imports, fixed 15 mypy errors, added .flake8 config, acknowledged pygments CVE."
     action_plan: "docs/phases/PHASE_37.md"
+
+  38:
+    name: "ISP Blocking Operations"
+    status: "COMPLETE"
+    summary: "Establish comprehensive operational procedures for identifying, implementing, monitoring, and maintaining blocks against malicious ISPs and organizations."
+    action_plan: "docs/phases/PHASE_38.md"
+    dependencies: [11, 14, 19]
+
+  39:
+    name: "Documentation Audit & Synchronization"
+    status: "IN_PROGRESS"
+    summary: "Audit all phase documentation, synchronize manifest/todo, and ensure clear status indicators across all files."
+    action_plan: "docs/phases/PHASE_39.md"
