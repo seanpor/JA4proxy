@@ -1,5 +1,7 @@
 # Phase 2 — Monitor Mode & Progressive Blocking Dial ⚠️ HIGH PRIORITY
 
+Status: COMPLETE
+
 ## Goal
 
 Deploy safely. A global dial (0–100) controls how aggressively risk scores translate
