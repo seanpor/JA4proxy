@@ -1265,7 +1265,7 @@ class RDAPEnricher:
                 pipe.incr(hour_key)
                 pipe.expire(hour_key, 3600)
                 res = await pipe.execute()
-            
+
             count = int(res[0])
             if count > self._config.block_expansion.max_expansions_per_hour:
                 await self._redis.decr(hour_key)

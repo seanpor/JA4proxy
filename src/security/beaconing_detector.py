@@ -369,7 +369,7 @@ class BeaconingDetector:
                 pipe.zadd("beacon:suspects", {f"{ip}:{ja4}": score_float})
                 pipe.zcard("beacon:suspects")
                 res = await pipe.execute()
-            
+
             count = res[1]
             if count > self._max_suspects:
                 # Remove the (count - max_suspects) lowest-scoring entries

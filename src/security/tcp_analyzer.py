@@ -197,7 +197,9 @@ class TCPAnalyzer:
 
             # Phase 28a: Use pipeline to reduce RTTs from 3 to 1 for the write+count
             async with self._redis.pipeline(transaction=False) as pipe:
-                pipe.zadd(key, {f"{lifespan_ms}:{__import__('time').time()}": lifespan_ms})
+                pipe.zadd(
+                    key, {f"{lifespan_ms}:{__import__('time').time()}": lifespan_ms}
+                )
                 pipe.expire(key, 1800)
                 pipe.zcard(key)
                 pipe_res = await pipe.execute()
@@ -243,13 +245,13 @@ class TCPAnalyzer:
         """
         try:
             key = f"concurrent:{ctx.client_ip}"
-            
+
             # Phase 28a: Use pipeline to reduce RTTs from 2 to 1
             async with self._redis.pipeline(transaction=False) as pipe:
                 pipe.incr(key)
                 pipe.expire(key, 60)
                 pipe_res = await pipe.execute()
-            
+
             count = int(pipe_res[0] or 0)
             _CONCURRENT_CONNECTIONS.set(count)
 
@@ -323,10 +325,17 @@ class TCPAnalyzer:
                 # First time visitor (already incremented via pipeline)
                 return []
 
-            first_seen = int(visitor_data.get(b"first_seen") or visitor_data.get("first_seen") or now)
+            first_seen = int(
+                visitor_data.get(b"first_seen") or visitor_data.get("first_seen") or now
+            )
             # Note: total and allowed from visitor_data are the values BEFORE this increment
-            total = int(visitor_data.get(b"total") or visitor_data.get("total") or 0) + 1
-            allowed = int(visitor_data.get(b"allowed") or visitor_data.get("allowed") or 0) + 1
+            total = (
+                int(visitor_data.get(b"total") or visitor_data.get("total") or 0) + 1
+            )
+            allowed = (
+                int(visitor_data.get(b"allowed") or visitor_data.get("allowed") or 0)
+                + 1
+            )
 
             trusted_days = self._config.get("return_visitor", {}).get("trusted_days", 7)
             trusted_allow_rate = self._config.get("return_visitor", {}).get(
@@ -361,13 +370,13 @@ class TCPAnalyzer:
 
         try:
             key = f"tls_alerts:{ctx.client_ip}"
-            
+
             # Phase 28a: Use pipeline to reduce RTTs from 2 to 1
             async with self._redis.pipeline(transaction=False) as pipe:
                 pipe.incr(key)
                 pipe.expire(key, 60)
                 pipe_res = await pipe.execute()
-            
+
             count = int(pipe_res[0] or 0)
 
             rate_threshold = self._config.get("tls_alerts", {}).get("rate_threshold", 5)
