@@ -53,6 +53,13 @@
   - Hardened `ASNClassifier` and `DNSEnrichment` leader election/Bloom filter checks with explicit boolean validation.
   - Resolved `RuntimeWarning` for unawaited coroutines in `RateTracker` initialization.
 
+## [38.0.0] - 2026-03-28 — Phase 38: ISP Blocking Operations
+
+### Added
+- **ISP Blocking Policy** (`docs/phases/PHASE_38.md`): Comprehensive operational procedures for vetting, implementing, and monitoring blocks against malicious ISPs and organizations.
+- **Vetting Framework**: Established criteria and templates for identifying abuse-tolerant infrastructure.
+- **Operational Procedures**: Documented manual and automated workflows for ISP-level mitigation.
+
 ## [29.0.0] - 2026-03-28 — Phase 29: Multi-Process Architecture
 
 ### Added

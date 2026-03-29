@@ -135,6 +135,9 @@ Practical rules that flow from this:
 | 35 | Advanced APT Countermeasures *(prop)* | Hardware-rooted integrity; eBPF-based enforcement; honey-fingerprints | [PHASE_35.md](docs/phases/PHASE_35.md) |
 | 36 | Go Test Quality & Parity Gaps *(prop)* | Fix JA4 fixtures; real cert JA4X tests; cross-language parity; JA4S/L/H/SSH | [PHASE_36.md](docs/phases/PHASE_36.md) |
 | 37 | Lint & Static Analysis Cleanup *(prop)* | Resolve remaining mypy/ruff/bandit warnings; strictly enforced CI gates | [PHASE_37.md](docs/phases/PHASE_37.md) |
+| 38 | ISP Blocking Operations | Vetting, implementation, and monitoring procedures for malicious ISPs | [PHASE_38.md](docs/phases/PHASE_38.md) |
+| 39 | Documentation Audit & Sync | Audit all phase docs, synchronize manifest/todo, clean up details/ | [PHASE_39.md](docs/phases/PHASE_39.md) |
+| 40 | Backup Enhancements - Ph 2 *(prop)* | DSAR utility for GDPR; round-trip integration tests; compliance docs | [PHASE_40_BACKUP_PLAN.md](docs/phases/details/PHASE_40_BACKUP_PLAN.md) |
 
 **Do phases in order. Complete all acceptance criteria before starting the next phase.**
 
