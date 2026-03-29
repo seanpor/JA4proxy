@@ -12,13 +12,21 @@ import redis.asyncio as redis
 async def test_shared_block_enforcement():
     """
     Verify that a block triggered on one worker is enforced by others.
+    Requires Docker Compose environment (redis hostname must be reachable).
     """
     # 1. Connect to Redis to monitor state
     redis_host = os.environ.get("REDIS_HOST", "redis")
     redis_port = int(os.environ.get("REDIS_PORT", 6379))
     redis_password = os.environ.get("REDIS_PASSWORD")
-    
+
     r = redis.Redis(host=redis_host, port=redis_port, password=redis_password)
+
+    # Skip if Redis is not reachable (test requires Docker Compose)
+    try:
+        await r.ping()
+    except Exception:
+        await r.aclose()
+        pytest.skip("Redis not reachable — Docker Compose environment required")
     
     # 2. Ports for the 4 workers (via HAProxy or directly)
     # Testing via HAProxy (port 443) ensures we hit different workers

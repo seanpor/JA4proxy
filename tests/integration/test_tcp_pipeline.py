@@ -7,6 +7,7 @@ from cryptography.hazmat.primitives import serialization
 from src.cache.local_cache import LocalCache
 from src.security.models import ConnectionContext
 from src.security.pipeline import Pipeline
+from src.security.risk_scorer import RiskAssessment
 from tests.unit.security.test_mtls import generate_self_signed_ca, generate_signed_cert
 
 
@@ -28,6 +29,16 @@ class TestTCPPipelineIntegration(unittest.TestCase):
         }
         self.local_cache = LocalCache(self.config)
         self.redis_client = MagicMock()
+        # Pipeline mock for Phase 28 pipeline-based methods
+        pipe = MagicMock()
+        pipe.incr = MagicMock(return_value=None)
+        pipe.expire = MagicMock(return_value=None)
+        pipe.execute = AsyncMock(return_value=[1, True])
+        pipeline_cm = MagicMock()
+        pipeline_cm.__aenter__ = AsyncMock(return_value=pipe)
+        pipeline_cm.__aexit__ = AsyncMock(return_value=None)
+        self.redis_client.pipeline = MagicMock(return_value=pipeline_cm)
+        self.redis_client._test_pipe = pipe
         # Generate certs first, so the file exists when the pipeline is created
         self.ca_cert, self.ca_key = generate_self_signed_ca()
         self.client_cert, self.client_key = generate_signed_cert(
@@ -38,9 +49,15 @@ class TestTCPPipelineIntegration(unittest.TestCase):
 
         self.pipeline = Pipeline(self.config, self.local_cache, self.redis_client)
 
-        # Mock scorer and decider
+        # Mock scorer and decider — scorer returns proper RiskAssessment to avoid
+        # JSON serialization failures in _emit_log
         self.scorer = MagicMock()
+        self.scorer.score.return_value = RiskAssessment(
+            total_score=0, signals=[], recommended_action="allow", explanation=""
+        )
         self.decider = MagicMock()
+        self.decider.decide.return_value = "allow"
+        self.decider.counterfactuals.return_value = {}
         self.pipeline.update_scorer(self.scorer, self.decider)
 
     def tearDown(self):
@@ -62,9 +79,8 @@ class TestTCPPipelineIntegration(unittest.TestCase):
 
     def test_tcp_signals_in_pipeline(self):
         async def run_test():
-            # Set up async mock for incr
-            self.redis_client.incr = AsyncMock(return_value=5)
-            self.redis_client.expire = AsyncMock()
+            # count=5 exceeds severe threshold (3) → severe_concurrency signal
+            self.redis_client._test_pipe.execute = AsyncMock(return_value=[5, True])
 
             ctx = ConnectionContext(client_ip="1.2.3.4")
 
