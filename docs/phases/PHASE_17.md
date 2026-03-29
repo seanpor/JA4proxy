@@ -1,6 +1,6 @@
 # PHASE 17 — Fix Docker Test Container Hang
 
-## Status: COMPLETE
+Status: COMPLETE
 
 All fixes are applied in `tests/conftest.py`.
 

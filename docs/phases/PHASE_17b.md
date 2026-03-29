@@ -1,6 +1,6 @@
 # Phase 17b — Security Audit Remediation
 
-## Status: PARTIAL (tracked in manifest as Phase 18)
+Status: COMPLETE (Tracked in manifest as Phase 18)
 
 Some work from this spec is already done (exception handling in pipeline.py, f-string
 logging, `ja4proxy_signal_skipped_total`, `ja4proxy_signal_error_total`,
