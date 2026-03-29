@@ -138,6 +138,9 @@ Practical rules that flow from this:
 | 38 | ISP Blocking Operations | Vetting, implementation, and monitoring procedures for malicious ISPs | [PHASE_38.md](docs/phases/PHASE_38.md) |
 | 39 | Documentation Audit & Sync | Audit all phase docs, synchronize manifest/todo, clean up details/ | [PHASE_39.md](docs/phases/PHASE_39.md) |
 | 40 | Backup Enhancements - Ph 2 *(prop)* | DSAR utility for GDPR; round-trip integration tests; compliance docs | [PHASE_40_BACKUP_PLAN.md](docs/phases/details/PHASE_40_BACKUP_PLAN.md) |
+| 41 | Robust Health Check API *(prop)* | Deep health/readiness endpoints; anti-flap hysteresis logic | [PHASE_41.md](docs/phases/PHASE_41.md) |
+| 42 | Zero-Downtime Data Upgrades *(prop)* | Atomic hot-reloading of GeoIP DB and config without process restart | [PHASE_42.md](docs/phases/PHASE_42.md) |
+| 43 | Blue/Green Deployment Tooling *(prop)* | Parallel container releases; traffic-shifting; automated rollbacks | [PHASE_43.md](docs/phases/PHASE_43.md) |
 
 **Do phases in order. Complete all acceptance criteria before starting the next phase.**
 

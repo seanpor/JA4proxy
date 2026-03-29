@@ -76,6 +76,15 @@ Management dashboards and documentation quality.
 | 21 | Documentation Excellence | COMPLETE | 5/5 documentation quality and persona-based navigation. |
 | 39 | Documentation Audit & Synchronization | COMPLETE | Audit all phase documentation, synchronize manifest/todo, and ensure clear status indicators across all files. |
 
+### Epic: Operational Excellence & Lifecycle Management
+Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
+
+| Phase | Name | Status | Summary |
+|-------|------|--------|---------|
+| 41 | Robust Health Check API & Anti-Flap Logic | PROPOSED | Implement deep health/readiness endpoints and hysteresis to prevent status flapping. |
+| 42 | Zero-Downtime Data Upgrades (GeoIP & Config) | PROPOSED | Enable atomic hot-reloading of large data files and configuration without process restart. |
+| 43 | Blue/Green Deployment & Rollback Tooling | PROPOSED | Tooling for parallel container releases and rapid traffic-shifting via load balancer. |
+
 ## Phase Completion Details
 
 | Phase | Name | Status | Test Coverage | Documentation |
@@ -121,6 +130,9 @@ Management dashboards and documentation quality.
 | 38 | ISP Blocking Operations | COMPLETE | N/A | N/A |
 | 39 | Documentation Audit & Synchronization | COMPLETE | N/A | N/A |
 | 40 | Backup System Enhancements - Phase 2: Compliance & Testing | PROPOSED | N/A | N/A |
+| 41 | Robust Health Check API & Anti-Flap Logic | PROPOSED | N/A | N/A |
+| 42 | Zero-Downtime Data Upgrades (GeoIP & Config) | PROPOSED | N/A | N/A |
+| 43 | Blue/Green Deployment & Rollback Tooling | PROPOSED | N/A | N/A |
 
 ---
 

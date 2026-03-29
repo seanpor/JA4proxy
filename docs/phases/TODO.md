@@ -53,3 +53,15 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 40 — Backup System Enhancements - Phase 2: Compliance & Testing
 *   **Status:** **PROPOSED** (Add DSAR utility for GDPR compliance and comprehensive testing infrastructure.)
 *   **Action Plan:** [PHASE_40_BACKUP_PLAN.md](PHASE_40_BACKUP_PLAN.md)
+
+### Phase 41 — Robust Health Check API & Anti-Flap Logic
+*   **Status:** **PROPOSED** (Implement deep health/readiness endpoints and hysteresis to prevent status flapping.)
+*   **Action Plan:** [PHASE_41.md](PHASE_41.md)
+
+### Phase 42 — Zero-Downtime Data Upgrades (GeoIP & Config)
+*   **Status:** **PROPOSED** (Enable atomic hot-reloading of large data files and configuration without process restart.)
+*   **Action Plan:** [PHASE_42.md](PHASE_42.md)
+
+### Phase 43 — Blue/Green Deployment & Rollback Tooling
+*   **Status:** **PROPOSED** (Tooling for parallel container releases and rapid traffic-shifting via load balancer.)
+*   **Action Plan:** [PHASE_43.md](PHASE_43.md)

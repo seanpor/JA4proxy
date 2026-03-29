@@ -37,6 +37,13 @@
   - `TRIVY_IMAGES` list updated to match actual pinned versions.
   - `make help` updated with new security scanning targets.
 
+## [Unreleased]
+
+### Added (Proposed)
+- **Phase 41: Robust Health Check API**: Deep health/readiness endpoints with anti-flap hysteresis logic for upstream load balancer integration.
+- **Phase 42: Zero-Downtime Data Upgrades**: Atomic hot-reloading mechanism for GeoIP databases and configuration files.
+- **Phase 43: Blue/Green Deployment Tooling**: Orchestration framework for parallel container releases and rapid rollbacks.
+
 ## [30.0.0] - 2026-03-28 — Phase 30: Write Optimization & Benchmarking
 
 ### Added
@@ -52,6 +59,16 @@
   - Fixed `MagicMock` await errors in performance test suite by improving Redis mock setup.
   - Hardened `ASNClassifier` and `DNSEnrichment` leader election/Bloom filter checks with explicit boolean validation.
   - Resolved `RuntimeWarning` for unawaited coroutines in `RateTracker` initialization.
+
+## [39.0.0] - 2026-03-28 — Phase 39: Documentation Audit & Synchronization
+
+### Added
+- **Documentation details/** sub-directory: Organized auxiliary work plans, execution plans, and handoff documents to declutter the main `docs/phases/` folder.
+- **Phase Status Headers**: Updated all 38 primary phase documents with consistent "Status: [STATUS]" headers for immediate visibility of implementation progress.
+
+### Changed
+- **ISP Blocking Operations** (formerly unnumbered): Formally assigned as **Phase 38** and integrated into the security hardening roadmap.
+- **Roadmap Synchronization**: Aligned `manifest.yaml`, `TODO.md`, `PROJECT_STATUS.md`, and `CLAUDE.md` to reflect the ground truth of the current codebase.
 
 ## [38.0.0] - 2026-03-28 — Phase 38: ISP Blocking Operations
 
