@@ -1,5 +1,7 @@
 # Phase 6 — ASN & Datacenter Classification
 
+Status: COMPLETE
+
 ## Goal
 
 Classify the origin ASN of every connection. Consumer browsers almost never connect
