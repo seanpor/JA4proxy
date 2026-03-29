@@ -1,9 +1,6 @@
 # Phase 35: Advanced APT Countermeasures & Integrity Enforcement
 
-## Objective
-Elevate the JA4Proxy from reactive filtering to proactive defense and cryptographic integrity enforcement. This phase focuses on preventing post-exploitation persistence, neutralizing advanced C2 channels, and offloading enforcement to the Linux kernel for maximum resilience.
-
-## Status: PROPOSED
+Status: PROPOSED
 **Estimated Duration:** 4 Weeks
 **Priority:** High (Post-Hardening)
 

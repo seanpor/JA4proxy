@@ -1,9 +1,6 @@
 # Phase 34: APT Resilience & Infrastructure Hardening
 
-## Objective
-Transition the JA4Proxy from a "secure proxy" to an "APT-resilient gateway." This phase implements defense-in-depth strategies to mitigate post-exploitation risks, supply chain attacks, and sophisticated evasion techniques used by determined adversaries.
-
-## Status: PROPOSED
+Status: PROPOSED
 **Estimated Duration:** 4 Weeks
 **Priority:** High (Post-Audit)
 
