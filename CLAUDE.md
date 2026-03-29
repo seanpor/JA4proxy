@@ -127,7 +127,7 @@ Practical rules that flow from this:
 | 27 | Advanced Pentest Remediation | Remediate critical vulnerabilities: IP spoofing, sync/async Redis mismatch, and synchronous TLS parsing DoS | [PHASE_27.md](docs/phases/PHASE_27.md) |
 | 28 | Python Throughput Hardening - Ph 2 | Redis pipeline batching; Unix domain socket; 30-40% latency reduction | [PHASE_28_WORK_PLAN.md](docs/phases/PHASE_28_WORK_PLAN.md) |
 | 29 | Python Throughput Hardening - Ph 3 | Multi-process worker model with Docker Compose and HAProxy load balancing | [PHASE_29_WORK_PLAN.md](docs/phases/PHASE_29_WORK_PLAN.md) |
-| 30 | Python Throughput Hardening - Ph 4 *(prop)* | Deferred write batching; comprehensive benchmark validation | [PHASE_30_WORK_PLAN.md](docs/phases/PHASE_30_WORK_PLAN.md) |
+| 30 | Python Throughput Hardening - Ph 4 | Deferred write batching; comprehensive benchmark validation | [PHASE_30_WORK_PLAN.md](docs/phases/PHASE_30_WORK_PLAN.md) |
 | 31 | Geographical Intelligence *(prop)* | GeoIP lookup and country-based blocking; geographical threat analysis | [PHASE_31_WORK_PLAN.md](docs/phases/PHASE_31_WORK_PLAN.md) |
 | 32 | Attacker Attribution *(prop)* | Attacker fingerprinting and behavioral correlation; advanced threat detection | [PHASE_32_WORK_PLAN.md](docs/phases/PHASE_32_WORK_PLAN.md) |
 | 33 | Documentation Diagrams *(prop)* | Standardize all diagrams to Mermaid format for consistent rendering | [PHASE_33_WORK_PLAN.md](docs/phases/PHASE_33_WORK_PLAN.md) |
