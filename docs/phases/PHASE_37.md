@@ -1,6 +1,6 @@
 # Phase 37 — Lint & Static Analysis Cleanup
 
-**Status:** OPEN
+Status: COMPLETE
 **Priority:** HIGH — blocks `make lint` and `make lint-static`
 **Scope:** Code quality only. No logic changes, no new features.
 
