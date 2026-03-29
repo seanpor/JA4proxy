@@ -46,19 +46,29 @@ class TestWriteBuffer:
         await buffer.stop()
 
     async def test_write_buffer_overflow(self):
-        """Test WriteBuffer overflow handling."""
+        """Test WriteBuffer overflow handling (Phase 30b load-shedding behaviour).
+
+        With max_queue_size=10:
+        - Items 0-9 (queue_len 0→9 before add): below 90% threshold → True
+        - Items 10-14 (queue_len already at 10): load-shed non-priority → False
+        """
         mock_redis = MagicMock(spec=redis.Redis)
         buffer = WriteBuffer(mock_redis, flush_interval_ms=100, max_batch_size=5, max_queue_size=10)
-        
+
         # Start the buffer
         await buffer.start()
-        
-        # Fill the queue to capacity
+
+        # Fill the queue to capacity; Phase 30b sheds non-priority writes once
+        # queue_len > 90% of max_queue_size (10 * 0.9 = 9.0, so >=10 triggers shed)
         for i in range(15):  # More than max_queue_size
             success = await buffer.enqueue("zadd", f"key:{i}", {f"member{i}": i})
-            # Should always return True (drops oldest when full)
-            assert success is True
-        
+            if i < 10:
+                # Queue not yet above 90% threshold: write accepted
+                assert success is True, f"item {i}: expected True, got {success}"
+            else:
+                # Queue at capacity (10/10): non-priority write is load-shed
+                assert success is False, f"item {i}: expected False (load-shed), got {success}"
+
         # Stop the buffer
         await buffer.stop()
 
