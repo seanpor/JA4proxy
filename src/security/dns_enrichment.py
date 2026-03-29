@@ -473,9 +473,9 @@ class DNSEnrichment:
         # Bloom filter dedup
         try:
             if self._redis_client:
-                # Phase 30b: Explicit check for True to handle truthy mocks
+                # Phase 30b: Explicit check for 1/True to handle truthy mocks
                 exists = await self._redis_client.bf().exists(self._bloom_filter_key, ip)
-                if exists is True:
+                if exists in (1, True):
                     return
                 await self._redis_client.bf().add(self._bloom_filter_key, ip)
         except (redis_lib.RedisError, AttributeError, TypeError):
