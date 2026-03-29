@@ -37,6 +37,22 @@
   - `TRIVY_IMAGES` list updated to match actual pinned versions.
   - `make help` updated with new security scanning targets.
 
+## [30.0.0] - 2026-03-28 — Phase 30: Write Optimization & Benchmarking
+
+### Added
+- **Phase 30 Capacity Report** (`docs/performance/PHASE_30_CAPACITY_REPORT.md`): Detailed performance analysis showing 8.7x throughput improvement from baseline.
+- **WriteBuffer Metrics**: Added `ja4proxy_write_buffer_dropped_total` and `ja4proxy_write_buffer_flush_duration_seconds` for enhanced observability.
+
+### Changed
+- **WriteBuffer Hardening**:
+  - Increased queue capacity to 10,000 operations and batch size to 2,000.
+  - Implemented **adaptive flushing**: interval decreases automatically as buffer fills (down to 0.1ms at >90% depth).
+  - Added **load shedding**: non-priority telemetry writes are dropped when queue >90% to protect connection path.
+- **Asynchronous Stability**:
+  - Fixed `MagicMock` await errors in performance test suite by improving Redis mock setup.
+  - Hardened `ASNClassifier` and `DNSEnrichment` leader election/Bloom filter checks with explicit boolean validation.
+  - Resolved `RuntimeWarning` for unawaited coroutines in `RateTracker` initialization.
+
 ## [29.0.0] - 2026-03-28 — Phase 29: Multi-Process Architecture
 
 ### Added
