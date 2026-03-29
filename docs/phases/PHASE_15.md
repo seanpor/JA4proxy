@@ -1,8 +1,6 @@
 # Phase 15 — Go Rewrite of Proxy Core
 
-## Current Status (as of 2026-03-27)
-
-**Status: PARTIAL (Core complete, validation ongoing)**
+Status: PARTIAL (Core complete, validation ongoing)
 
 | Component | Status | Notes |
 |-----------|--------|-------|

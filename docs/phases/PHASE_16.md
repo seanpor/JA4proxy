@@ -1,5 +1,7 @@
 # Phase 16 — Test Suite Hardening, Extended Fingerprinting & Operational Excellence
 
+Status: COMPLETE
+
 ## Goal
 
 Close the test coverage and quality gaps carried forward from Phases 0–15. Add
