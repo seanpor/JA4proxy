@@ -1,6 +1,6 @@
 # Phase 13 — Management UI
 
-## Status: COMPLETE — implemented 2026-03-11 (v13.1.0)
+Status: DEFERRED (Aspirational documentation exists but code is not implemented)
 
 ---
 

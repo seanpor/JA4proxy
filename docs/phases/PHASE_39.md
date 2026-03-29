@@ -25,8 +25,8 @@ The project has grown through many phases, and documentation sometimes lags behi
 - [x] Audit and update headers for Phases 05, 06, 07, 08, 09.
 
 ### 39d — Audit Chunk 3 (Phases 10-14)
-- [ ] Audit and update headers for Phases 10, 11, 12, 13, 14.
-- Note: Phase 13 is currently DEFERRED.
+- [x] Audit and update headers for Phases 10, 11, 12, 13, 14.
+- [x] Note: Phase 13 is currently DEFERRED.
 
 ### 39e — Audit Chunk 4 (Phases 15-19)
 - [ ] Audit and update headers for Phases 15, 16, 17, 18, 19.
