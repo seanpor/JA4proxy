@@ -115,7 +115,7 @@ phases:
     name: "Management UI"
     status: "DEFERRED"
     summary: "FastAPI + React dashboard for real-time monitoring."
-    action_plan: "docs/phases/PHASE_13_WORK_PLAN.md"
+    action_plan: "docs/phases/details/PHASE_13_WORK_PLAN.md"
     dependencies: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15]
     
   14:
@@ -132,7 +132,7 @@ phases:
     gaps:
       - "Lua scripts not using //go:embed"
       - "JA4X missing in Go pipeline"
-    action_plan: "docs/phases/PHASE_15_WORK_PLAN.md"
+    action_plan: "docs/phases/details/PHASE_15_WORK_PLAN.md"
     
   16:
     name: "Extended Fingerprinting"
@@ -150,7 +150,7 @@ phases:
     name: "Security Audit Remediation"
     status: "COMPLETE"
     summary: "Fix broad exception handling, f-string logging, and add SignalCollector protocol."
-    action_plan: "docs/phases/PHASE_17b.md"
+    action_plan: "docs/phases/details/PHASE_17b.md"
     
   19:
     name: "Backup & Restore"
@@ -166,19 +166,19 @@ phases:
     doc_status: "COMPLETE"
     summary: "AF_PACKET capture, full JA4 fingerprint family, out-of-band enforcement, and intelligence export."
     completed: "2026-03-28"
-    action_plan: "docs/phases/PHASE_20_WORK_PLAN.md"
+    action_plan: "docs/phases/details/PHASE_20_WORK_PLAN.md"
 
   21:
     name: "Documentation Excellence"
     status: "COMPLETE"
     summary: "5/5 documentation quality and persona-based navigation."
-    action_plan: "docs/phases/PHASE_21_WORK_PLAN.md"
+    action_plan: "docs/phases/details/PHASE_21_WORK_PLAN.md"
 
   22:
     name: "Backup System Enhancements - Phase 1: Core Features"
     status: "PROPOSED"
     summary: "Add backup scheduling, pipeline batching, and restore validation. Target: Production-ready backup system."
-    action_plan: "docs/phases/PHASE_22_WORK_PLAN.md"
+    action_plan: "docs/phases/details/PHASE_22_WORK_PLAN.md"
     dependencies: [19]
     size: "SMALL"  # 1-2 weeks: Core backup enhancements
     gaps:
@@ -190,11 +190,11 @@ phases:
       - "Backup performance improved by ≥300%"
       - "Restore validation prevents silent failures"
 
-  30:
+  40:
     name: "Backup System Enhancements - Phase 2: Compliance & Testing"
     status: "PROPOSED"
     summary: "Add DSAR utility for GDPR compliance and comprehensive testing infrastructure."
-    action_plan: "docs/phases/PHASE_30_WORK_PLAN.md"
+    action_plan: "docs/phases/details/PHASE_40_BACKUP_PLAN.md"
     dependencies: [22]
     size: "SMALL"  # 1-2 weeks: Compliance and testing
     gaps:
@@ -209,7 +209,7 @@ phases:
     name: "Advanced Traffic Intelligence - Phase 1: Threat Intelligence Integration"
     status: "PROPOSED"
     summary: "Integrate external threat intelligence feeds (AbuseIPDB, AlienVault OTX, GreyNoise). Target: Real-time IP reputation."
-    action_plan: "docs/phases/PHASE_23_WORK_PLAN.md"
+    action_plan: "docs/phases/details/PHASE_23_WORK_PLAN.md"
     dependencies: [12]
     size: "MEDIUM"  # 3-4 weeks: API integrations and data processing
     success_criteria:
@@ -295,7 +295,7 @@ phases:
     doc_status: "COMPLETE"
     summary: "Add Redis pipeline batching and Unix domain socket support. Target: 30-40% Redis latency reduction."
     completed: "2026-03-28"
-    action_plan: "docs/phases/PHASE_28_WORK_PLAN.md"
+    action_plan: "docs/phases/details/PHASE_28_WORK_PLAN.md"
     dependencies: [26]
     size: "SMALL"  # 1-2 weeks: Redis performance tuning
     success_criteria:
@@ -310,7 +310,7 @@ phases:
     doc_status: "COMPLETE"
     summary: "Implement multi-process worker model with Docker Compose and HAProxy load balancing. Target: Linear scaling to 4 workers."
     completed: "2026-03-28"
-    action_plan: "docs/phases/PHASE_29_WORK_PLAN.md"
+    action_plan: "docs/phases/details/PHASE_29_WORK_PLAN.md"
     dependencies: [28]
     size: "MEDIUM"  # 3-4 weeks: Architecture change
     success_criteria:
@@ -325,7 +325,7 @@ phases:
     doc_status: "COMPLETE"
     summary: "Add deferred write batching and comprehensive benchmark validation. Target: Final performance report."
     completed: "2026-03-28"
-    action_plan: "docs/phases/PHASE_30_WORK_PLAN.md"
+    action_plan: "docs/phases/details/PHASE_30_THROUGHPUT_PLAN.md"
     dependencies: [29]
     size: "SMALL"  # 1-2 weeks: Final optimizations
     success_criteria:
@@ -382,6 +382,7 @@ phases:
 
   39:
     name: "Documentation Audit & Synchronization"
-    status: "IN_PROGRESS"
+    status: "COMPLETE"
     summary: "Audit all phase documentation, synchronize manifest/todo, and ensure clear status indicators across all files."
+    completed: "2026-03-28"
     action_plan: "docs/phases/PHASE_39.md"

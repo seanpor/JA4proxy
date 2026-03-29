@@ -49,3 +49,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 35 — Advanced APT Countermeasures & Integrity Enforcement
 *   **Status:** **PROPOSED** (Proactive defense: Hardware-rooted integrity, eBPF-based kernel-level enforcement, honey-fingerprints, and two-stage seccomp lockdown.)
 *   **Action Plan:** [PHASE_35.md](PHASE_35.md)
+
+### Phase 40 — Backup System Enhancements - Phase 2: Compliance & Testing
+*   **Status:** **PROPOSED** (Add DSAR utility for GDPR compliance and comprehensive testing infrastructure.)
+*   **Action Plan:** [PHASE_40_BACKUP_PLAN.md](PHASE_40_BACKUP_PLAN.md)
