@@ -37,7 +37,7 @@ The project has grown through many phases, and documentation sometimes lags behi
 - [x] Note: 22, 23 are PROPOSED; 24 is CLOSED.
 
 ### 39g — Audit Chunk 6 (Phases 25-29)
-- [ ] Audit and update headers for Phases 25, 26, 27, 28, 29.
+- [x] Audit and update headers for Phases 25, 26, 27, 28, 29.
 
 ### 39h — Audit Chunk 7 (Phases 30-38)
 - [ ] Audit and update headers for Phases 30, 31, 32, 33, 34, 35, 36, 37, 38.
