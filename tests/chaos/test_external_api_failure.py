@@ -52,6 +52,16 @@ def _make_redis(get_return=None) -> MagicMock:
     bf = MagicMock()
     bf.add = AsyncMock(return_value=1)
     redis.bf = MagicMock(return_value=bf)
+    # Pipeline mock for Phase 28 pipeline-based methods
+    pipe = MagicMock()
+    pipe.incr = MagicMock(return_value=None)
+    pipe.expire = MagicMock(return_value=None)
+    pipe.execute = AsyncMock(return_value=[1, True])
+    pipeline_cm = MagicMock()
+    pipeline_cm.__aenter__ = AsyncMock(return_value=pipe)
+    pipeline_cm.__aexit__ = AsyncMock(return_value=None)
+    redis.pipeline = MagicMock(return_value=pipeline_cm)
+    redis._test_pipe = pipe
     return redis
 
 
@@ -172,7 +182,8 @@ class TestAbuseIPDBQuotaExhausted(unittest.IsolatedAsyncioTestCase):
     async def test_quota_exhausted_gauge_set_to_1(self):
         """Quota exhausted → ja4proxy_abuseipdb_quota_exhausted gauge = 1."""
         redis = _make_redis()
-        redis.incr = AsyncMock(return_value=101)
+        # count=101 > max_requests_per_day=100 → quota exceeded → warning logged
+        redis._test_pipe.execute = AsyncMock(return_value=[101, True])
         local_cache = LocalCache({})
 
         checker = AbuseIPDBChecker(_make_config(), redis, local_cache, MagicMock())

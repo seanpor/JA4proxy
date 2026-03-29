@@ -109,6 +109,15 @@ class TestBeaconingPipeline(unittest.TestCase):
         mock_redis.zrangebyscore = AsyncMock(return_value=timestamps)
         mock_redis.zadd = AsyncMock()
         mock_redis.zcard = AsyncMock(return_value=1)
+        # Pipeline mock for Phase 28 suspects-update pipeline in _check_window
+        _pipe = MagicMock()
+        _pipe.zadd = MagicMock(return_value=None)
+        _pipe.zcard = MagicMock(return_value=None)
+        _pipe.execute = AsyncMock(return_value=[1, 1])  # zadd=1, zcard=1
+        _pipe_cm = MagicMock()
+        _pipe_cm.__aenter__ = AsyncMock(return_value=_pipe)
+        _pipe_cm.__aexit__ = AsyncMock(return_value=None)
+        mock_redis.pipeline = MagicMock(return_value=_pipe_cm)
 
         mock_cache = MagicMock()
         mock_cache.whitelist_decisions = MagicMock()
@@ -192,6 +201,15 @@ class TestBeaconingPipeline(unittest.TestCase):
         mock_redis.zrangebyscore = AsyncMock(return_value=timestamps)
         mock_redis.zadd = AsyncMock()
         mock_redis.zcard = AsyncMock(return_value=1)
+        # Pipeline mock for Phase 28 suspects-update pipeline in _check_window
+        _pipe = MagicMock()
+        _pipe.zadd = MagicMock(return_value=None)
+        _pipe.zcard = MagicMock(return_value=None)
+        _pipe.execute = AsyncMock(return_value=[1, 1])  # zadd=1, zcard=1
+        _pipe_cm = MagicMock()
+        _pipe_cm.__aenter__ = AsyncMock(return_value=_pipe)
+        _pipe_cm.__aexit__ = AsyncMock(return_value=None)
+        mock_redis.pipeline = MagicMock(return_value=_pipe_cm)
 
         mock_cache = MagicMock()
         mock_cache.whitelist_decisions = MagicMock()
