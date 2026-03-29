@@ -42,12 +42,12 @@ _WRITE_BUFFER_OPERATIONS = Counter(
 
 _WRITE_BUFFER_DROPPED = Counter(
     "ja4proxy_write_buffer_dropped_total",
-    "Total number of dropped operations due to overflow"
+    "Total number of dropped operations due to overflow",
 )
 
 _WRITE_BUFFER_FLUSH_DURATION = Gauge(
     "ja4proxy_write_buffer_flush_duration_seconds",
-    "Time taken to flush the last batch to Redis"
+    "Time taken to flush the last batch to Redis",
 )
 
 
@@ -67,7 +67,7 @@ class WriteBuffer:
         redis_client: object,
         flush_interval_ms: int = 50,
         max_batch_size: int = 2000,
-        max_queue_size: int = 10000
+        max_queue_size: int = 10000,
     ):
         """
         Initialize WriteBuffer.
@@ -139,7 +139,9 @@ class WriteBuffer:
         self._flush_task = None
         self.logger.info("WriteBuffer stopped")
 
-    async def enqueue(self, operation: str, *args, priority: bool = False, **kwargs) -> bool:
+    async def enqueue(
+        self, operation: str, *args, priority: bool = False, **kwargs
+    ) -> bool:
         """
         Enqueue a Redis write operation.
 
@@ -159,7 +161,7 @@ class WriteBuffer:
         """
         async with self.lock:
             queue_len = len(self.queue)
-            
+
             # Load shedding for non-priority writes
             if not priority and queue_len > (self.max_queue_size * 0.9):
                 _WRITE_BUFFER_DROPPED.inc()
@@ -193,7 +195,7 @@ class WriteBuffer:
             while not self._stop_event.is_set():
                 async with self.lock:
                     queue_len = len(self.queue)
-                
+
                 # Adaptive timing:
                 # - > 90% full: flush immediately (sleep 0.0001)
                 # - > 70% full: flush extremely fast
@@ -215,7 +217,6 @@ class WriteBuffer:
                     )
                 except asyncio.TimeoutError:
                     pass  # Time to flush
-
 
                 if self._stop_event.is_set():
                     break
@@ -263,7 +264,7 @@ class WriteBuffer:
                         # Phase 30b: Safety check for mocks that might return coroutines
                         if asyncio.iscoroutine(result):
                             await result
-                    
+
                     await pipe.execute()
             else:
                 # Sync Redis client

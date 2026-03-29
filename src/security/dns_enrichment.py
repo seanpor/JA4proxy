@@ -474,7 +474,9 @@ class DNSEnrichment:
         try:
             if self._redis_client:
                 # Phase 30b: Explicit check for 1/True to handle truthy mocks
-                exists = await self._redis_client.bf().exists(self._bloom_filter_key, ip)
+                exists = await self._redis_client.bf().exists(
+                    self._bloom_filter_key, ip
+                )
                 if exists in (1, True):
                     return
                 await self._redis_client.bf().add(self._bloom_filter_key, ip)

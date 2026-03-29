@@ -657,7 +657,7 @@ class AbuseIPDBChecker:
                 pipe.incr(key)
                 pipe.expire(key, 86400 + 3600)
                 res = await pipe.execute()
-            
+
             count = int(res[0])
             if count > self._config.max_requests_per_day:
                 await self._redis.decr(key)  # Roll back the increment
