@@ -1,6 +1,6 @@
 # PHASE 22 — Backup System Enhancements: Encryption, Cloud Storage & Optimization
 
-## Status: PROPOSED
+Status: PROPOSED
 
 > **Prerequisite**: Phase 19 (Backup & Restore Framework) must be complete and stable.
 > **Type**: Feature enhancement phase (builds on Phase 19 foundation)

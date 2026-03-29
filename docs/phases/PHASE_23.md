@@ -1,6 +1,6 @@
 # PHASE 23 — Advanced Traffic Intelligence & Attacker Attribution
 
-## Status: PROPOSED
+Status: PROPOSED
 
 > **Type**: Major feature expansion  
 > **Prerequisite**: Phase 12 (Analytics Node) must be complete  

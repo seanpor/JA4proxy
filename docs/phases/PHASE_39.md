@@ -33,8 +33,8 @@ The project has grown through many phases, and documentation sometimes lags behi
 - [x] Note: Phase 15 is PARTIAL.
 
 ### 39f — Audit Chunk 5 (Phases 20-24)
-- [ ] Audit and update headers for Phases 20, 21, 22, 23, 24.
-- Note: 22, 23 are PROPOSED; 24 is CLOSED.
+- [x] Audit and update headers for Phases 20, 21, 22, 23, 24.
+- [x] Note: 22, 23 are PROPOSED; 24 is CLOSED.
 
 ### 39g — Audit Chunk 6 (Phases 25-29)
 - [ ] Audit and update headers for Phases 25, 26, 27, 28, 29.
