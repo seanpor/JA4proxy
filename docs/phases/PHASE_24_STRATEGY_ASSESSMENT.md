@@ -1,6 +1,6 @@
 # PHASE 24 — Go Strategy Assessment: Minimal Component vs Comprehensive Rewrite
 
-**Status: CLOSED — superseded by empirical benchmark data (2026-03-25)**
+Status: CLOSED (premise refuted by benchmarks; see Phase 26 and Phase 15)
 
 > **TL;DR:** The minimal Go component (gRPC-based TLS parser) was based on a false
 > premise. TLS parsing is not the bottleneck. This phase is closed. See Phase 26
