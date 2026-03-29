@@ -1,5 +1,7 @@
 # Phase 1 — Composite Risk Scorer Scaffold
 
+Status: COMPLETE
+
 ## Goal
 
 Build the **empty scoring framework** before adding any signals. All subsequent phases

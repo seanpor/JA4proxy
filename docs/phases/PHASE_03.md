@@ -1,5 +1,7 @@
 # Phase 3 — TLS Version & Cipher Enforcement
 
+Status: COMPLETE
+
 ## Goal
 
 Reject connections using obsolete TLS versions and known-weak cipher suites at the

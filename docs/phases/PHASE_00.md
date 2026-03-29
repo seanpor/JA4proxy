@@ -1,5 +1,7 @@
 # Phase 0 — Redis Foundations, Caching & Infrastructure
 
+Status: COMPLETE
+
 ## Goal
 
 Establish the correct Redis data structures, in-process caching layer, IPv6 handling,
