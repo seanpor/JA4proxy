@@ -1,17 +1,16 @@
 """Integration tests for WriteBuffer (Phase 26e)."""
 
-import asyncio
-import tempfile
 import os
+import tempfile
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 import redis.asyncio as redis
 
+from src.cache.local_cache import LocalCache
 from src.config.loader import ConfigLoader
 from src.security.pipeline import ConnectionContext, Pipeline
 from src.security.write_buffer import WriteBuffer
-from src.cache.local_cache import LocalCache
 
 
 class TestWriteBuffer:
@@ -161,4 +160,4 @@ security_policy:
 
 
 if __name__ == "__main__":
-    asyncio.run(pytest.main([__file__, "-v"]))
+    pytest.main([__file__, "-v"])

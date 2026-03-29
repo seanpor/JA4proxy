@@ -6,13 +6,12 @@ import struct
 import pytest
 
 from src.tap.fingerprints.h2_fingerprint import (
-    H2FingerprintResult,
-    H2Signature,
     _BUILTIN_DB,
     _H2_PREFACE,
+    H2FingerprintResult,
+    H2Signature,
     extract_h2_fingerprint,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

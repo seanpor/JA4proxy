@@ -14,7 +14,6 @@ from src.tap.fingerprints.ja4s import extract_ja4s
 from src.tap.fingerprints.ja4t import extract_ja4t_from_syn
 from src.tap.reassembler import StreamReassembler, TCPStream
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Capture resilience
 # ─────────────────────────────────────────────────────────────────────────────
