@@ -18,7 +18,6 @@ from typing import Any
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # TapConfigReloader — thin helper that classifies config diff
 # ---------------------------------------------------------------------------

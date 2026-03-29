@@ -19,7 +19,6 @@ from typing import List
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # MockTapSensor — simulates the shutdown sequence
 # ---------------------------------------------------------------------------

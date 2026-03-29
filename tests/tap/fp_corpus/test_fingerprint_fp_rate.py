@@ -5,19 +5,15 @@ The Tranco top-10k test requires the corpus file — it's skipped if not present
 The synthetic FP rate test runs always and verifies browser-like traffic doesn't
 trigger high-severity signals.
 """
-from pathlib import Path
+import uuid
+from datetime import datetime, timezone
+from unittest.mock import MagicMock
 
 import pytest
 
 from src.tap.fingerprints.correlation import ConnectionFingerprints
 from src.tap.fingerprints.tls_ext_values import JA4TLSExtValues
 from src.tap.tap_pipeline import TapPipeline
-from datetime import datetime, timezone
-from unittest.mock import MagicMock
-import uuid
-
-
-_TRANCO_FILE = Path(__file__).parent.parent / "pcap_corpus" / "tranco_top10k.txt"
 
 
 def _make_scorer_returning(score: int):
@@ -50,7 +46,7 @@ def _browser_fp(**kwargs) -> ConnectionFingerprints:
         ),
     }
     defaults.update(kwargs)
-    return ConnectionFingerprints(**defaults)
+    return ConnectionFingerprints(**defaults)  # type: ignore[arg-type]
 
 
 class TestFingerprintFPRate:
@@ -106,21 +102,19 @@ class TestFingerprintFPRate:
             f"Browser FP rate should be 0%, got {rate:.1%} ({fp_count}/100)"
         )
 
-    @pytest.mark.skipif(
-        not _TRANCO_FILE.exists(),
-        reason="Tranco top-10k corpus not present; run scripts/generate_test_pcap.py",
-    )
     def test_fp_rate_tranco_top10k_below_0_5_percent(self):
-        """< 0.5% of Tranco top-10k should be falsely flagged at score ≥ 70."""
-        domains = _TRANCO_FILE.read_text().splitlines()[:10000]
+        """< 0.5% of 1 000 synthetic browser fingerprints should score ≥ 70.
+
+        The scorer does not use domain names, so we use a synthetic sample
+        instead of requiring the optional Tranco corpus file.
+        """
         fp_count = 0
-        for domain in domains:
-            fp = _browser_fp(ja4=f"t13d1516h2_aabbccddeeff_001122334455")
+        samples = 1000
+        for _ in range(samples):
+            fp = _browser_fp(ja4="t13d1516h2_aabbccddeeff_001122334455")
             signals = self.pipeline._fingerprints_to_signals(fp)
             total = sum(s.score for s in signals)
             if total >= 70:
                 fp_count += 1
-        rate = fp_count / len(domains)
-        assert rate < 0.005, (
-            f"FP rate {rate:.3%} exceeds 0.5% threshold"
-        )
+        rate = fp_count / samples
+        assert rate < 0.005, f"FP rate {rate:.3%} exceeds 0.5% threshold"

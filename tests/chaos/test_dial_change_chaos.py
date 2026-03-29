@@ -1,7 +1,7 @@
 """Chaos tests for dial change and DialManager resilience."""
 
 import asyncio
-from unittest.mock import MagicMock, AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import redis

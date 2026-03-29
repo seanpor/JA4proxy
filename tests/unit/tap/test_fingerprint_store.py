@@ -9,17 +9,16 @@ from unittest.mock import MagicMock, call
 import pytest
 
 from src.tap.fingerprint_store import (
-    FingerprintStore,
     _CONN_TTL,
+    _IP_SORTED_SET_MAX,
     _IP_TTL,
     _JA4_TTL,
     _JA4S_MAP_TTL,
     _OS_COUNT_TTL,
     _OS_IP_TTL,
-    _IP_SORTED_SET_MAX,
+    FingerprintStore,
 )
 from src.tap.fingerprints.correlation import ConnectionFingerprints
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -34,7 +33,7 @@ def _make_fp(**kwargs) -> ConnectionFingerprints:
         "server_port": 443,
     }
     defaults.update(kwargs)
-    return ConnectionFingerprints(**defaults)
+    return ConnectionFingerprints(**defaults)  # type: ignore[arg-type]
 
 
 def _make_redis() -> MagicMock:

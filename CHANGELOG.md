@@ -70,6 +70,7 @@
 - **ISP Blocking Operations** (formerly unnumbered): Formally assigned as **Phase 38** and integrated into the security hardening roadmap.
 - **Roadmap Synchronization**: Aligned `manifest.yaml`, `TODO.md`, `PROJECT_STATUS.md`, and `CLAUDE.md` to reflect the ground truth of the current codebase.
 
+
 ## [38.0.0] - 2026-03-28 — Phase 38: ISP Blocking Operations
 
 ### Added

@@ -1,8 +1,7 @@
 """Integration tests for multi-process worker model (Phase 26d)."""
 
-import asyncio
-import tempfile
 import os
+import tempfile
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -144,4 +143,4 @@ tarpit:
 
 
 if __name__ == "__main__":
-    asyncio.run(pytest.main([__file__, "-v"]))
+    pytest.main([__file__, "-v"])

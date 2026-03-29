@@ -5,17 +5,16 @@ import asyncio
 import hashlib
 import hmac
 import json
-from unittest.mock import AsyncMock, MagicMock, patch, call
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
 from src.tap.enforcement_bridge import (
-    EnforcementBridge,
-    BAN_CHANNEL,
     _BGP_MIN_PREFIX_V4,
     _BGP_MIN_PREFIX_V6,
+    BAN_CHANNEL,
+    EnforcementBridge,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

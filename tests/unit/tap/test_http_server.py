@@ -11,7 +11,6 @@ from aiohttp.test_utils import TestClient, TestServer
 
 from src.tap.http_server import TapHttpServer
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
