@@ -10,7 +10,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from src.tap.capture import ParsedPacket
-from src.tap.reassembler import StreamReassembler, TCPStream, TCP_SYN, TCP_ACK, TCP_FIN, TCP_RST
+from src.tap.reassembler import TCP_ACK, TCP_FIN, TCP_RST, TCP_SYN, StreamReassembler, TCPStream
 
 # ---------------------------------------------------------------------------
 # Helpers

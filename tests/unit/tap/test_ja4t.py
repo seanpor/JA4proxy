@@ -7,7 +7,6 @@ import pytest
 
 from src.tap.fingerprints.ja4t import JA4TResult, extract_ja4t_from_syn
 
-
 # ---------------------------------------------------------------------------
 # Helpers — build raw TCP options bytes
 # ---------------------------------------------------------------------------

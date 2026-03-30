@@ -15,8 +15,7 @@ import pytest
 
 from src.tap.fingerprints.correlation import ConnectionFingerprints
 from src.tap.fingerprints.tls_ext_values import JA4TLSExtValues
-from src.tap.tap_pipeline import TapPipeline, _SCORE_ACTIONS
-
+from src.tap.tap_pipeline import _SCORE_ACTIONS, TapPipeline
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -782,8 +782,9 @@ class TestProxyServerInitLogging:
         mock_redis.smembers = MagicMock(return_value=set())
         mock_redis.sadd = MagicMock(return_value=1)
 
-        import yaml
         from unittest.mock import mock_open
+
+        import yaml
         with (
             patch("proxy.ConfigLoader"),
             patch("builtins.open", mock_open(read_data=yaml.dump(config))),
@@ -850,8 +851,9 @@ class TestProxyServerInitLogging:
         mock_redis.smembers = MagicMock(return_value=set())
         mock_redis.sadd = MagicMock(return_value=1)
 
-        import yaml
         from unittest.mock import mock_open
+
+        import yaml
         with (
             patch("proxy.ConfigLoader"),
             patch("builtins.open", mock_open(read_data=yaml.dump(config))),

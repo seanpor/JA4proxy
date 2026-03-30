@@ -17,11 +17,10 @@ import pytest
 
 from src.config.loader import ConfigError
 from src.tap.security import (
-    drop_cap_net_raw,
     apply_seccomp_profile,
+    drop_cap_net_raw,
     validate_pcap_path,
 )
-
 
 # ---------------------------------------------------------------------------
 # validate_pcap_path
