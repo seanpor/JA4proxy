@@ -6,7 +6,6 @@ from prometheus_client import Counter, Gauge, Histogram
 
 from src.tap import metrics
 
-
 # ---------------------------------------------------------------------------
 # Helper
 # ---------------------------------------------------------------------------

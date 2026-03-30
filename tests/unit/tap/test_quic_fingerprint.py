@@ -6,8 +6,8 @@ import struct
 import pytest
 
 from src.tap.fingerprints.quic_fingerprint import (
-    QUICFingerprintResult,
     _QUIC_V1,
+    QUICFingerprintResult,
     extract_quic_fingerprint,
 )
 

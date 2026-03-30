@@ -4,9 +4,9 @@ Unit tests for src/tap/fingerprints/os_fingerprint.py (Phase 20 Group 5-I).
 import pytest
 
 from src.tap.fingerprints.os_fingerprint import (
+    _BUILTIN_DB,
     OSFingerprintResult,
     OSSignature,
-    _BUILTIN_DB,
     load_os_database,
     match_os,
 )

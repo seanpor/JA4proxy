@@ -3,7 +3,7 @@ Unit tests for src/tap/fingerprints/ja4l.py (Phase 20 Group 5-E).
 """
 import pytest
 
-from src.tap.fingerprints.ja4l import JA4LResult, _C_FIBRE_KM_S, extract_ja4l
+from src.tap.fingerprints.ja4l import _C_FIBRE_KM_S, JA4LResult, extract_ja4l
 
 
 class TestJA4L:

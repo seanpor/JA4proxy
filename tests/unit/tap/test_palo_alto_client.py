@@ -8,7 +8,6 @@ import pytest
 
 from src.tap.export.palo_alto_client import PaloAltoClient, _build_uid_xml
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

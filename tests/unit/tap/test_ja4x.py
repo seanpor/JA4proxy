@@ -9,11 +9,12 @@ from src.tap.fingerprints.ja4x import JA4XResult, extract_ja4x
 
 # Try to import cryptography to check availability
 try:
+    import datetime
+
     from cryptography import x509
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import ec, rsa
     from cryptography.x509.oid import NameOID
-    import datetime
 
     _CRYPTO = True
 except ImportError:
@@ -28,12 +29,13 @@ def _gen_rsa_cert(
     key_size: int = 2048,
 ) -> bytes:
     """Generate a self-signed RSA DER certificate for testing."""
-    from cryptography.hazmat.primitives.asymmetric import rsa as _rsa
-    from cryptography.hazmat.primitives import hashes as _hashes
-    from cryptography import x509 as _x509
-    from cryptography.x509.oid import NameOID as _OID
     import datetime as _dt
     import ipaddress
+
+    from cryptography import x509 as _x509
+    from cryptography.hazmat.primitives import hashes as _hashes
+    from cryptography.hazmat.primitives.asymmetric import rsa as _rsa
+    from cryptography.x509.oid import NameOID as _OID
 
     key = _rsa.generate_private_key(public_exponent=65537, key_size=key_size)
     issuer_cn = issuer_cn or subject_cn
@@ -67,11 +69,12 @@ def _gen_rsa_cert(
 
 
 def _gen_ec_cert(curve_name: str = "secp256r1") -> bytes:
-    from cryptography.hazmat.primitives.asymmetric import ec as _ec
-    from cryptography.hazmat.primitives import hashes as _hashes
-    from cryptography import x509 as _x509
-    from cryptography.x509.oid import NameOID as _OID
     import datetime as _dt
+
+    from cryptography import x509 as _x509
+    from cryptography.hazmat.primitives import hashes as _hashes
+    from cryptography.hazmat.primitives.asymmetric import ec as _ec
+    from cryptography.x509.oid import NameOID as _OID
 
     curve_map = {"secp256r1": _ec.SECP256R1(), "secp384r1": _ec.SECP384R1()}
     curve = curve_map.get(curve_name, _ec.SECP256R1())

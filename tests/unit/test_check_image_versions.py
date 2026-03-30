@@ -17,7 +17,7 @@ import yaml
 scripts_dir = Path(__file__).parent.parent.parent / "scripts"
 sys.path.insert(0, str(scripts_dir))
 
-from check_image_versions import ImageRef, check, _extract_images, FIRST_PARTY_IMAGES  # noqa: E402
+from check_image_versions import FIRST_PARTY_IMAGES, ImageRef, _extract_images, check  # noqa: E402
 
 
 def _write_compose(tmp_path: Path, filename: str, content: str) -> Path:

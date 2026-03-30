@@ -5,8 +5,7 @@ import struct
 
 import pytest
 
-from src.tap.fingerprints.ja4 import JA4Result, _GREASE, extract_ja4, _hash_ciphers, _hash_exts
-
+from src.tap.fingerprints.ja4 import _GREASE, JA4Result, _hash_ciphers, _hash_exts, extract_ja4
 
 # ---------------------------------------------------------------------------
 # Helpers — build raw ClientHello bytes
