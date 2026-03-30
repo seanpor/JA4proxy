@@ -217,7 +217,7 @@ class TestGracefulShutdownDrain:
     @pytest.mark.asyncio
     async def test_partial_drain_logs_correct_split(self):
         """Some finish before timeout; the rest are forced — log counts must match."""
-        server = _make_server_stub(drain_timeout=0.20)
+        server = _make_server_stub(drain_timeout=0.50)
         server.active_connections = 10
 
         shutdown_event = asyncio.Event()
@@ -228,7 +228,10 @@ class TestGracefulShutdownDrain:
             shutdown_event.set()
 
         async def _partial_drain():
-            await asyncio.sleep(0.05)
+            # Run at 15 ms — just after trigger (10 ms) but well before the first
+            # drain-loop poll (≥ 100 ms).  Using a tight sleep here makes the test
+            # robust under heavy xdist load where asyncio.sleep can be delayed.
+            await asyncio.sleep(0.015)
             server.active_connections = 3  # 7 drained, 3 stuck
 
         with patch("proxy.asyncio.start_server", AsyncMock(return_value=mock_srv)):
