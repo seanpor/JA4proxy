@@ -292,7 +292,7 @@ scale-workers N=4:
 ```
 
 **Acceptance criteria:**
-- `docker-compose.scale.yml` overlay supports N workers (configurable, default 4)
+- `../../docker-compose.scale.yml` overlay supports N workers (configurable, default 4)
 - HAProxy config routes connections across all workers
 - Rate limiting semantics verified with 2-worker test:
   a. IP banned by worker-1 → subsequent connection to worker-2 is also blocked

@@ -627,7 +627,7 @@ directions and all ECMP paths. This is a network configuration issue, not a JA4p
 (many extensions) and may arrive fragmented on low-MTU paths. Use a fragment cache with
 a 30s TTL; discard incomplete fragments after timeout.
 
-### 5.4 Implementation: `src/tap/capture.py`
+### 5.4 Implementation: `../../src/tap/capture.py`
 
 ```python
 class PacketCapture:
@@ -755,7 +755,7 @@ def _on_segment(self, stream: TCPStream, seq: int, data: bytes, direction: str) 
         pass
 ```
 
-### 6.4 Implementation: `src/tap/reassembler.py`
+### 6.4 Implementation: `../../src/tap/reassembler.py`
 
 ```python
 class StreamReassembler:
@@ -1249,7 +1249,7 @@ This is the approach used by p0f, which achieves ~90% accuracy on unmodified sta
 | Timestamps | Yes | No | Yes | Yes |
 | IP ID | Random | Sequential | Random | Random |
 
-**Database approach:** Ship a `config/os_fingerprints.yml` file with known signatures.
+**Database approach:** Ship a `../../config/os_fingerprints.yml` file with known signatures.
 On each SYN, hash the relevant fields and look up the hash in the database. Provide
 a confidence score (exact match = 1.0; partial match = 0.6).
 
@@ -1481,7 +1481,7 @@ GET /api/v1/fingerprints/ja4/{fingerprint}
 ## 9. Risk Scoring Integration
 
 TAP mode feeds the **same** `RiskScorer` used in passthrough mode. The integration
-point is `src/tap/tap_pipeline.py`, which:
+point is `../../src/tap/tap_pipeline.py`, which:
 
 1. Calls each fingerprint extractor as data becomes available.
 2. Converts fingerprint results into `RiskSignal` objects.
@@ -1527,7 +1527,7 @@ and known-good browser traffic must produce < 0.5% false positive rate at score 
 
 ## 10. Enforcement Bridge
 
-The enforcement bridge is a separate asyncio task (`src/tap/enforcement_bridge.py`)
+The enforcement bridge is a separate asyncio task (`../../src/tap/enforcement_bridge.py`)
 that watches Redis for new bans/blocks and pushes them to configured enforcement points.
 
 ### 10.1 Redis Subscriber
@@ -1638,7 +1638,7 @@ Retry with exponential backoff; log persistent failures; emit Prometheus metric
 
 ## 10.5 Intelligence Export Implementation
 
-### 10.5.1 EDL HTTP Server (`src/tap/export/edl_server.py`)
+### 10.5.1 EDL HTTP Server (`../../src/tap/export/edl_server.py`)
 
 The EDL server is a set of route handlers registered on the existing FastAPI management
 server (Phase 13). Lists are rebuilt from Redis on a background task every
@@ -1709,7 +1709,7 @@ tmsh create sys file data-group ja4proxy_banned_ips {
 }
 ```
 
-### 10.5.2 F5 BIG-IP Push Client (`src/tap/export/f5_client.py`)
+### 10.5.2 F5 BIG-IP Push Client (`../../src/tap/export/f5_client.py`)
 
 ```python
 class F5Client:
@@ -1754,7 +1754,7 @@ when CLIENT_ACCEPTED {
 }
 ```
 
-### 10.5.3 Palo Alto Push Client (`src/tap/export/palo_alto_client.py`)
+### 10.5.3 Palo Alto Push Client (`../../src/tap/export/palo_alto_client.py`)
 
 ```python
 class PaloAltoClient:
@@ -1774,7 +1774,7 @@ class PaloAltoClient:
     async def full_sync(self) -> None: ...
 ```
 
-### 10.5.4 Kafka Producer (`src/tap/export/kafka_producer.py`)
+### 10.5.4 Kafka Producer (`../../src/tap/export/kafka_producer.py`)
 
 ```python
 class KafkaExporter:
@@ -1824,7 +1824,7 @@ Heavy Forwarder with the Kafka consumer app. Index `ja4proxy.bans` to the
 `ja4proxy.*` topics. The `ja4proxy.bans` messages map to the ECS `threat.indicator.*`
 field set.
 
-### 10.5.5 Syslog Exporter (`src/tap/export/syslog_exporter.py`)
+### 10.5.5 Syslog Exporter (`../../src/tap/export/syslog_exporter.py`)
 
 CEF (Common Event Format) is the most widely supported format for security devices.
 CEF messages have the structure:
@@ -1843,7 +1843,7 @@ CEF:0|JA4proxy|JA4proxy|1.0|100|IP Banned|7|src=1.2.3.4 score=87 reason=scanner_
 - `signal_block` → 7 (High)
 - `signal_ban` → 9 (Very High)
 
-### 10.5.6 STIX/TAXII Server (`src/tap/export/taxii_server.py`)
+### 10.5.6 STIX/TAXII Server (`../../src/tap/export/taxii_server.py`)
 
 STIX 2.1 indicators are generated from ban events:
 
@@ -1873,7 +1873,7 @@ GET  /taxii2/collections/{id}/objects/     → STIX bundle (paginated, supports 
 POST /taxii2/collections/{id}/objects/     → not supported (read-only feed)
 ```
 
-### 10.5.7 MISP Push Client (`src/tap/export/misp_client.py`)
+### 10.5.7 MISP Push Client (`../../src/tap/export/misp_client.py`)
 
 ```python
 class MISPClient:
@@ -2120,7 +2120,7 @@ python3 scripts/generate_test_pcap.py --client chrome_120 \
   --output tests/tap/pcap_corpus/chrome_120.pcap
 ```
 
-**PCAP generator** (`scripts/generate_test_pcap.py`) builds synthetic captures:
+**PCAP generator** (`../../scripts/generate_test_pcap.py`) builds synthetic captures:
 - Takes client profile (known cipher lists, extension lists, TCP options) as input
 - Constructs valid Ethernet → IP → TCP → TLS byte sequences using Scapy
 - Writes a `.pcap` file with correct per-packet timestamps for JA4L testing
@@ -2327,7 +2327,7 @@ python3 scripts/generate_fp_corpus_pcap.py \
   --clients chrome_120,firefox_121,safari_17
 ```
 
-**Test file** (`tests/tap/fp_corpus/test_fingerprint_fp_rate.py`):
+**Test file** (`../../tests/tap/fp_corpus/test_fingerprint_fp_rate.py`):
 ```python
 def test_fp_rate_tranco_top10k(pcap_replay, mock_redis, tap_pipeline):
     """Risk signals for top-10k traffic should produce < 0.5% FP rate at score > 70.
@@ -2349,7 +2349,7 @@ def test_fp_rate_tranco_top10k(pcap_replay, mock_redis, tap_pipeline):
     )
 ```
 
-### 12.9 Performance Benchmark (`scripts/tap_benchmark.py`)
+### 12.9 Performance Benchmark (`../../scripts/tap_benchmark.py`)
 
 ```python
 """Benchmark TAP pipeline throughput using tcpreplay.
@@ -2436,7 +2436,7 @@ All new metrics follow the `ja4proxy_tap_{subsystem}_{metric}_{unit}` naming con
 
 ### 13.2 Alerting Rules (AlertManager)
 
-Add to `config/alertmanager_rules.yml` (or `monitoring/rules/tap.yml`):
+Add to `config/alertmanager_rules.yml` (or `../../monitoring/alertmanager/rules/tap.yml`):
 
 ```yaml
 groups:
@@ -2503,7 +2503,7 @@ groups:
 
 ### 13.3 Grafana Dashboard (TAP Sensor)
 
-Create `monitoring/grafana/dashboards/tap_sensor.json`. Panel layout:
+Create `../../monitoring/grafana/dashboards/tap_sensor.json`. Panel layout:
 
 **Row 1 — Capture Health:**
 - `ja4proxy_tap_capture_interface_up` — stat panel (green/red)
@@ -2740,7 +2740,7 @@ capability to the smallest possible scope.
 ### 14a.2 seccomp Profile
 
 After socket setup, restrict the syscall surface of the capture process to the minimum
-needed. A permissive starting profile is provided in `config/seccomp_tap.json`.
+needed. A permissive starting profile is provided in `../../config/seccomp_tap.json`.
 Key restrictions:
 - **Deny** `execve` / `execveat` — prevents shell injection from corrupt packet data
 - **Deny** `ptrace` — prevents process inspection
@@ -3014,7 +3014,7 @@ without clean shutdown. Run a periodic reconciliation:
   --ipset-name ja4proxy_ban >> /var/log/ja4proxy/reconcile.log 2>&1
 ```
 
-`scripts/reconcile_ipset.py` does:
+`../../scripts/reconcile_ipset.py` does:
 1. Read all `ban:{ip}` keys from Redis (with TTLs)
 2. Read all entries from `ipset list ja4proxy_ban`
 3. Add missing entries (in Redis but not in ipset)
@@ -3104,7 +3104,7 @@ All criteria must pass before this phase is complete.
 
 ### 17b. Packet Capture
 
-- [ ] `PacketCapture` can sustain 500k pps on the test machine without drops (verified by `scripts/tap_benchmark.py`)
+- [ ] `PacketCapture` can sustain 500k pps on the test machine without drops (verified by `../../scripts/tap_benchmark.py`)
 - [ ] VLAN-tagged frames (802.1q) are correctly stripped before IP parsing
 - [ ] QinQ (802.1ad) double-tagged frames are correctly stripped
 - [ ] VxLAN-encapsulated frames are decapsulated when `decapsulation: vxlan`
@@ -3137,7 +3137,7 @@ All criteria must pass before this phase is complete.
 - [ ] JA4X: extracted cert hash matches `openssl x509 -fingerprint -sha256` for the same cert
 - [ ] JA4SSH: extracted fingerprint for OpenSSH 8.x client matches known-good value
 - [ ] OS fingerprint: Chrome on Linux is identified as `linux_5x_default` with confidence ≥ 0.8
-- [ ] HTTP/2 SETTINGS: Chrome 120 SETTINGS match `chrome_120` entry in `h2_fingerprints.yml`
+- [ ] HTTP/2 SETTINGS: Chrome 120 SETTINGS match `chrome_120` entry in `../../config/h2_fingerprints.yml`
 - [ ] QUIC Initial packet: QUIC version is extracted correctly for QUIC v1 (0x00000001)
 - [ ] Extractors return `None` (not raise) for truncated or malformed input
 - [ ] False positive rate of new risk signals against Tranco top-10k corpus: < 0.5% at score threshold 70
@@ -3199,7 +3199,7 @@ All criteria must pass before this phase is complete.
 - [ ] Test-to-code ratio ≥ 1.3× for all new `src/tap/` code
 - [ ] All new extractors have at least one test per format field they populate
 - [ ] FP corpus test passes: Tranco top-10k PCAP sample scores < 0.5% FP rate at score threshold 70
-- [ ] Performance benchmark passes: `scripts/tap_benchmark.py` shows ≥ 500k pps without drops
+- [ ] Performance benchmark passes: `../../scripts/tap_benchmark.py` shows ≥ 500k pps without drops
 - [ ] PCAP corpus covers: Chrome, Firefox, Safari, curl, Python requests, nmap, masscan, OpenSSH, PuTTY, HTTP/2, QUIC, VxLAN-encapsulated
 - [ ] IPv6 corpus: at least one PCAP with IPv6 clients; JA4/JA4T/JA4L extracted correctly
 - [ ] `SyntheticPacketBuilder` is tested: builds valid TCP/TLS packet sequences the reassembler processes correctly
@@ -3208,7 +3208,7 @@ All criteria must pass before this phase is complete.
 ### 17k. Documentation
 
 - [ ] `docs/REDIS_SCHEMA.md` updated with all `fp:*` key patterns and `intelligence_export` Redis usage
-- [ ] Runbook `docs/runbooks/tap_mode.md`: SPAN setup, capability setup, mode switching, enforcement, export, diagnostics, rollback, reconciliation, offline analysis
+- [ ] Runbook `../runbooks/tap_mode.md`: SPAN setup, capability setup, mode switching, enforcement, export, diagnostics, rollback, reconciliation, offline analysis
 - [ ] `config/proxy.yml` inline comments explain every new key in `tap:`, `tap_enforcement:`, and `intelligence_export:`
 - [ ] `CHANGELOG.md` updated per §16
 - [ ] ADR-020.md: AF_PACKET vs pcap/Scapy vs PF_RING/DPDK decision

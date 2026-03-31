@@ -82,7 +82,7 @@
 
 ### Changed
 - **Version Pinning**: 
-  - All third-party images in `docker-compose.prod.yml` and `docker-compose.monitoring.yml` pinned to specific patch versions.
+  - All third-party images in `docker/docker-compose.prod.yml` and `docker-compose.monitoring.yml` pinned to specific patch versions.
   - Harmonised versions for shared images (Grafana 10.2.2, Loki 3.3.2, Promtail 3.3.2).
   - First-party images pinned to `v1.0.0` to eliminate `:latest` usage.
   - `redis/redis-stack:latest` in POC pinned to `7.4.0-v3`.
@@ -151,7 +151,7 @@
 ## [28.0.0] - 2026-03-28 — Phase 28: Redis Optimization
 
 ### Added
-- **Unix Domain Socket Support**: Enabled Redis connection via local sockets in `docker-compose.prod.yml` and `docker-compose.poc.yml`, reducing TCP loopback overhead.
+- **Unix Domain Socket Support**: Enabled Redis connection via local sockets in `docker/docker-compose.prod.yml` and `docker-compose.poc.yml`, reducing TCP loopback overhead.
 - **Pipelined I/O Work Plan** (`docs/phases/PHASE_28_WORK_PLAN.md`): Detailed strategy for eliminating sequential Redis dependencies.
 
 ### Changed
@@ -964,7 +964,7 @@ actual state. Remaining gaps tracked in PHASE_12A-D.md.
 
 **New Router Files:**
 - `src/analytics/config.py`: Threshold, feature, country management with validation
-- `management/routers/health.py`: Health/ready endpoints (unauthenticated /health, /ready)
+- `src/security/health.py`: Health/ready endpoints (unauthenticated /health, /ready)
 - `management/routers/audit.py`: Paginated audit log with event type filtering
 - `management/routers/integrations.py`: AbuseIPDB, Spamhaus, RDAP, analytics status endpoints
 - `management/routers/events.py`: SSE live feed and recent events endpoint
