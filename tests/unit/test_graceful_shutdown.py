@@ -216,28 +216,46 @@ class TestGracefulShutdownDrain:
 
     @pytest.mark.asyncio
     async def test_partial_drain_logs_correct_split(self):
-        """Some finish before timeout; the rest are forced — log counts must match."""
-        server = _make_server_stub(drain_timeout=0.50)
+        """Some finish before timeout; the rest are forced — log counts must match.
+
+        Uses a drain-loop hook instead of wall-clock timing so the test is
+        fully deterministic under xdist parallel load.
+
+        Strategy: patch proxy.asyncio.sleep so the FIRST drain-loop poll
+        (sleep(0.1)) also reduces active_connections.  By that point
+        initial_count has already been captured, guaranteeing:
+            drained = initial(10) - forced(3) = 7  ✓
+
+        Patching proxy.asyncio.sleep (not the global asyncio.sleep) scopes
+        the patch to the proxy module; the real sleep is saved and called
+        through so asyncio timers keep working correctly.
+        """
+        server = _make_server_stub(drain_timeout=0.30)
         server.active_connections = 10
 
         shutdown_event = asyncio.Event()
         mock_srv = _make_asyncio_server_mock()
 
+        _real_sleep = asyncio.sleep  # capture before patch
+        _reduced = False
+
+        async def _drain_hook(delay: float) -> None:
+            nonlocal _reduced
+            # Intercept the first drain-loop poll and reduce connections there.
+            # Any other sleep (e.g. watcher task) passes through unchanged.
+            if not _reduced and abs(delay - 0.1) < 0.01:
+                _reduced = True
+                server.active_connections = 3  # 7 drained, 3 stuck
+            await _real_sleep(delay)
+
         async def _trigger():
-            await asyncio.sleep(0.01)
+            await _real_sleep(0.01)
             shutdown_event.set()
 
-        async def _partial_drain():
-            # Run at 15 ms — just after trigger (10 ms) but well before the first
-            # drain-loop poll (≥ 100 ms).  Using a tight sleep here makes the test
-            # robust under heavy xdist load where asyncio.sleep can be delayed.
-            await asyncio.sleep(0.015)
-            server.active_connections = 3  # 7 drained, 3 stuck
-
         with patch("proxy.asyncio.start_server", AsyncMock(return_value=mock_srv)):
-            asyncio.create_task(_trigger())
-            asyncio.create_task(_partial_drain())
-            await server.start(shutdown_event=shutdown_event)
+            with patch("proxy.asyncio.sleep", _drain_hook):
+                asyncio.create_task(_trigger())
+                await server.start(shutdown_event=shutdown_event)
 
         complete = _shutdown_complete_call(server)
         assert complete is not None
