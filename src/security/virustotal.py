@@ -25,6 +25,7 @@ except ImportError:
 
 if TYPE_CHECKING:
     from ..cache.local_cache import LocalCache
+    from .adaptive_cache import AdaptiveCacheManager
 
 logger = logging.getLogger(__name__)
 
@@ -90,11 +91,13 @@ class VirusTotalProvider(TIProvider):
         redis_client: redis.asyncio.Redis,
         local_cache: "LocalCache",
         session: "aiohttp.ClientSession",
+        adaptive_cache: Optional["AdaptiveCacheManager"] = None,
     ) -> None:
         self._config = config
         self._redis = redis_client
         self._local_cache = local_cache
         self._session = session
+        self._adaptive_cache = adaptive_cache
         self._queue: asyncio.Queue = asyncio.Queue(maxsize=config.queue_size)
         self._workers: List[asyncio.Task] = []
         self._hits = 0
@@ -140,6 +143,11 @@ class VirusTotalProvider(TIProvider):
         if cached is not None:
             self._hits += 1
             self._update_metrics()
+            
+            # Record cache hit for adaptive caching
+            if self._adaptive_cache:
+                asyncio.create_task(self._adaptive_cache.record_cache_hit("virustotal"))
+            
             return self._to_signal(ip, cached)
 
         # Tier 2+: Async lookup (respects quota)
@@ -277,13 +285,31 @@ class VirusTotalProvider(TIProvider):
                     _LOOKUP_TOTAL.labels(result="error").inc()
                     return
 
+                # Get old cached value for volatility detection
+                old_value = None
+                try:
+                    old_data = await self._redis.get(f"virustotal:data:{ip}")
+                    if old_data:
+                        old_value = json.loads(old_data)
+                except Exception:
+                    pass
+
+                # Get adaptive TTL if adaptive cache manager is available
+                ttl_seconds = self._config.cache_ttl_seconds
+                if hasattr(self, '_adaptive_cache') and self._adaptive_cache:
+                    ttl_seconds = self._adaptive_cache.get_adaptive_ttl("virustotal")
+
                 # Cache result
                 await self._redis.setex(
                     f"virustotal:data:{ip}",
-                    self._config.cache_ttl_seconds,
+                    ttl_seconds,
                     json.dumps(result)
                 )
                 self._local_cache.virustotal_scores.set(ip, result)
+                
+                # Record cache miss with volatility detection
+                if hasattr(self, '_adaptive_cache') and self._adaptive_cache:
+                    await self._adaptive_cache.record_cache_miss("virustotal", old_value, result)
 
         except asyncio.TimeoutError:
             _LOOKUP_TOTAL.labels(result="timeout").inc()

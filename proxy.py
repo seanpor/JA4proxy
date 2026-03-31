@@ -1283,6 +1283,7 @@ class ProxyServer:
             redis_client=self.redis_client,
             local_cache=self._local_cache,
             session=self._aiohttp_session,
+            adaptive_cache=self.adaptive_cache,
         )
         # Phase 46: ThreatFox Threat Intelligence Provider
         self.threatfox_provider = ThreatFoxProvider(
@@ -1290,6 +1291,7 @@ class ProxyServer:
             redis_client=self.redis_client,
             local_cache=self._local_cache,
             session=self._aiohttp_session,
+            adaptive_cache=self.adaptive_cache,
         )
         # Phase 46: VirusTotal Threat Intelligence Provider
         self.virustotal_provider = VirusTotalProvider(
@@ -1297,6 +1299,7 @@ class ProxyServer:
             redis_client=self.redis_client,
             local_cache=self._local_cache,
             session=self._aiohttp_session,
+            adaptive_cache=self.adaptive_cache,
         )
 
         # Initialize GeoIP lookup
@@ -1346,7 +1349,9 @@ class ProxyServer:
         self.pipeline.update_scorer(_scorer, _decider)
         # Phase 47: Confidence-based weighting system
         from src.security.confidence_manager import ConfidenceManager
+        from src.security.adaptive_cache import AdaptiveCacheManager
         self.confidence_manager = ConfidenceManager(self.redis_client)
+        self.adaptive_cache = AdaptiveCacheManager(self.redis_client)
 
         # Load JA4 whitelist/blacklist into pipeline's in-process sets
         wl_raw = await self.redis_client.smembers("ja4:whitelist")
@@ -1714,6 +1719,8 @@ class ProxyServer:
         
         # Phase 47: Initialize confidence manager
         await self.confidence_manager.initialize()
+        # Phase 47: Initialize adaptive cache manager
+        await self.adaptive_cache.initialize()
 
         # Phase 28b: Secure pub/sub for state updates (signed blacklist/dial/config)
         pubsub_handler = PubSubHandler(
