@@ -57,6 +57,7 @@ from prometheus_client import Counter, Gauge
 from .abuseipdb import AbuseIPDBChecker
 from .alienvault import AlienVaultOTXProvider
 from .asn_classifier import ASNClassifier
+from .attribution import AttributionManager
 from .beaconing_detector import BeaconingDetector
 from .blocklists import BlocklistManager, FeedConfig
 from .dns_enrichment import DNSEnrichment
@@ -358,6 +359,8 @@ class Pipeline:
         # Phase 16: JA4X fingerprint lists (parallel structure to JA4 lists)
         self._ja4x_whitelist: set[str] = set()
         self._ja4x_blacklist: set[str] = set()
+        # Phase 32: Attacker Attribution
+        self._attribution_manager = AttributionManager(redis_client, config)
 
     def _load_blocklist_feeds(self, config: dict) -> None:
         """Load any static/pre-populated blocklist feeds from config."""
@@ -507,6 +510,7 @@ class Pipeline:
         self._allowlist.reload(new_config)
         self._tls_enforcer.on_config_reload(new_config)
         self._sni_analyzer.on_config_reload(new_config)
+        self._attribution_manager.on_config_reload(new_config)
 
     async def process(self, ctx: ConnectionContext) -> PipelineResult:
         """Process one connection through the full pipeline.
@@ -1057,6 +1061,20 @@ class Pipeline:
                 _SIGNAL_ERROR.labels(module="analytics").inc()
                 return []
 
+        async def _collect_attribution_signals():
+            try:
+                signal = await self._attribution_manager.get_signal(ctx)
+                return [signal] if signal is not None else []
+            except Exception as exc:
+                logger.error(
+                    "attribution | event=signal_error | ip=%s | error=%s",
+                    ctx.client_ip,
+                    exc,
+                    exc_info=True,
+                )
+                _SIGNAL_ERROR.labels(module="attribution").inc()
+                return []
+
         async def _collect_greynoise_signals():
             if self._greynoise_provider is None:
                 return []
@@ -1147,6 +1165,7 @@ class Pipeline:
             _collect_abuseipdb_signals(),
             _collect_rdap_signals(),
             _collect_analytics_signals(),
+            _collect_attribution_signals(),
             _collect_greynoise_signals(),
             _collect_alienvault_signals(),
             _collect_misp_signals(),

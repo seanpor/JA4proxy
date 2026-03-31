@@ -16,10 +16,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **DEFERRED** (FastAPI backend for real-time monitoring and configuration management.)
 *   **Action Plan:** [PHASE_13_WORK_PLAN.md](PHASE_13_WORK_PLAN.md)
 
-### Phase 32 — Advanced Traffic Intelligence - Phase 4: Attacker Attribution
-*   **Status:** **PROPOSED** (Implement attacker fingerprinting and JA4 correlation logic.)
-*   **Action Plan:** [PHASE_32_WORK_PLAN.md](PHASE_32_WORK_PLAN.md)
-
 ### Phase 34 — APT Hardening - Phase 1: Parser Isolation & Redis Security
 *   **Status:** **PROPOSED** (Implement parser process isolation and Zero-Trust Redis ACLs with signatures.)
 *   **Action Plan:** [PHASE_34.md](PHASE_34.md)

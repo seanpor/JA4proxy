@@ -523,6 +523,14 @@ abuseipdb:
   score_cap: 40                     # Maximum contribution to composite score (confidence 100 → 40 pts; never a hard block).
   delegate_to_analytics: false      # Set true when Phase 12 analytics node is deployed; local workers idle.
 
+# ── Phase 32: Attacker Attribution ───────────────────────────────────────────
+
+attribution:
+  enabled: true                     # Enable cross-IP attribution logic.
+  escalation_multiplier: 1.5        # Multiplier applied to total score if actor is known malicious.
+  malicious_threshold: 80           # Score at which a profile is auto-tagged as malicious.
+  min_ips_for_suspicious: 3         # Number of unique IPs sharing a fingerprint to trigger 'suspicious'.
+
 # ── Phase 23: GreyNoise Integration ──────────────────────────────────────────
 
 greynoise:
