@@ -67,6 +67,7 @@ from .rate_tracker import MultiStrategyRateTracker
 from .rdap_enrichment import RDAPEnricher
 from .sni_analyzer import SNIAnalyzer
 from .tcp_analyzer import TCPAnalyzer
+from .threatfox import ThreatFoxProvider
 from .tls_enforcer import TLSEnforcer
 from .write_buffer import WriteBuffer
 
@@ -347,6 +348,8 @@ class Pipeline:
         self._alienvault_provider: AlienVaultOTXProvider | None = None
         # Phase 46: MISP Threat Intelligence provider
         self._misp_provider: MISPProvider | None = None
+        # Phase 46: ThreatFox Threat Intelligence provider
+        self._threatfox_provider: ThreatFoxProvider | None = None
         # Phase 26e: Write buffer for deferred batching of post-decision writes
         self._write_buffer = WriteBuffer(redis_client)
         # Phase 16: JA4X fingerprint lists (parallel structure to JA4 lists)
@@ -392,11 +395,13 @@ class Pipeline:
         greynoise: GreyNoiseProvider | None,
         alienvault: AlienVaultOTXProvider | None,
         misp: MISPProvider | None = None,
+        threatfox: ThreatFoxProvider | None = None,
     ) -> None:
         """Wire in Phase 23 & 46 TI providers. Called after start()."""
         self._greynoise_provider = greynoise
         self._alienvault_provider = alienvault
         self._misp_provider = misp
+        self._threatfox_provider = threatfox
 
     async def _get_analytics_signals(self, ip: str) -> list:
         """Read analytics cross-instance signals from Redis (Phase 12).
@@ -1095,6 +1100,22 @@ class Pipeline:
                 _SIGNAL_ERROR.labels(module="misp").inc()
                 return []
 
+        async def _collect_threatfox_signals():
+            if self._threatfox_provider is None:
+                return []
+            try:
+                signal = self._threatfox_provider.get_signal(ctx.client_ip)
+                return [signal] if signal is not None else []
+            except Exception as exc:
+                logger.error(
+                    "threatfox | event=get_signal_error | ip=%s | error=%s",
+                    ctx.client_ip,
+                    exc,
+                    exc_info=True,
+                )
+                _SIGNAL_ERROR.labels(module="threatfox").inc()
+                return []
+
         # Run all I/O-bound signal collectors concurrently
         results = await asyncio.gather(
             _collect_tcp_signals(),
@@ -1108,6 +1129,7 @@ class Pipeline:
             _collect_greynoise_signals(),
             _collect_alienvault_signals(),
             _collect_misp_signals(),
+            _collect_threatfox_signals(),
             return_exceptions=True,
         )
 

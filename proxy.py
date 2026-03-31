@@ -1262,6 +1262,7 @@ class ProxyServer:
         from src.security.alienvault import AlienVaultOTXProvider, OTXConfig
         from src.security.greynoise import GreyNoiseConfig, GreyNoiseProvider
         from src.security.misp import MISPConfig, MISPProvider
+        from src.security.threatfox import ThreatFoxConfig, ThreatFoxProvider
 
         self.greynoise_provider = GreyNoiseProvider(
             config=GreyNoiseConfig.from_config(self.config),
@@ -1278,6 +1279,13 @@ class ProxyServer:
         # Phase 46: MISP Threat Intelligence Provider
         self.misp_provider = MISPProvider(
             config=MISPConfig.from_config(self.config),
+            redis_client=self.redis_client,
+            local_cache=self._local_cache,
+            session=self._aiohttp_session,
+        )
+        # Phase 46: ThreatFox Threat Intelligence Provider
+        self.threatfox_provider = ThreatFoxProvider(
+            config=ThreatFoxConfig.from_config(self.config),
             redis_client=self.redis_client,
             local_cache=self._local_cache,
             session=self._aiohttp_session,
@@ -1710,11 +1718,13 @@ class ProxyServer:
             self.greynoise_provider.start(),
             self.alienvault_provider.start(),
             self.misp_provider.start(),
+            self.threatfox_provider.start(),
         )
         self.pipeline.set_ti_providers(
             greynoise=self.greynoise_provider,
             alienvault=self.alienvault_provider,
             misp=self.misp_provider,
+            threatfox=self.threatfox_provider,
         )
 
         # Start proxy server
@@ -1782,6 +1792,7 @@ class ProxyServer:
                 self.greynoise_provider.stop(),
                 self.alienvault_provider.stop(),
                 self.misp_provider.stop(),
+                self.threatfox_provider.stop(),
                 return_exceptions=True,
             )
 
