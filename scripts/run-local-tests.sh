@@ -102,7 +102,6 @@ set +e
     --cov=proxy \
     --cov-fail-under=80 \
     --cov-report=term-missing \
-    --cov-report=html:.local/coverage \
     --junitxml="$JUNIT" \
     -m "${PYTEST_MARKS:-not live_services}" \
     "$@" \
