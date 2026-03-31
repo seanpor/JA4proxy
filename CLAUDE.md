@@ -151,6 +151,7 @@ Practical rules that flow from this:
 | 44 | Test Audit and Documentation | Audit test suite for genuine assertions; document coverage and gaps | [PHASE_44_TEST_AUDIT.md](docs/phases/PHASE_44_TEST_AUDIT.md) |
 | 45 | Adversarial Test Expansion | Expand adversarial tests for SQLi, XSS, and command injection | [PHASE_45_ADVERSARIAL_TESTS.md](docs/phases/PHASE_45_ADVERSARIAL_TESTS.md) |
 | 46 | Coverage Improvement | Achieve >80% coverage for all critical modules | [PHASE_46_COVERAGE.md](docs/phases/PHASE_46_COVERAGE.md) |
+| 58 | Advanced Intelligence - Ph 3: Opt | Confidence weighting, adaptive caching, and feed reliability | [PHASE_58.md](docs/phases/PHASE_58.md) |
 
 **Do phases in order. Complete all acceptance criteria before starting the next phase.**
 

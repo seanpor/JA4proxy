@@ -24,10 +24,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Implement supply chain integrity monitoring and eBPF/XDP NIC-level blocking.)
 *   **Action Plan:** [PHASE_35.md](PHASE_35.md)
 
-### Phase 43 — Blue/Green Deployment & Rollback Tooling
-*   **Status:** **PROPOSED** (Tooling for parallel container releases and rapid traffic-shifting via load balancer.)
-*   **Action Plan:** [PHASE_43.md](PHASE_43.md)
-
 ### Phase 46 — Coverage Improvement
 *   **Status:** **PROPOSED** (Improve coverage for low-coverage modules and achieve >80% coverage for all critical modules.)
 *   **Action Plan:** [PHASE_46_COVERAGE.md](PHASE_46_COVERAGE.md)

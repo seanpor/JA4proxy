@@ -25,13 +25,12 @@
 services:
   haproxy:
     image: haproxy:2.8.5-alpine
-    container_name: ja4proxy-haproxy
     ports:
       - "443:443"
       - "80:80"
       - "127.0.0.1:8404:8404"   # Stats page — internal only
     volumes:
-      - ../ha-config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ../config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     depends_on:
       - proxy
     networks:
@@ -59,10 +58,9 @@ services:
       dockerfile: docker/Dockerfile
       network: host
     image: ja4proxy:1.0.0
-    container_name: ja4proxy
     ports:
-      - "127.0.0.1:8080:8080"   # Proxy (HAProxy connects here)
-      - "127.0.0.1:9090:9090"   # Prometheus metrics (internal only)
+      - "8080"   # Proxy (HAProxy connects here)
+      - "9090"   # Prometheus metrics / Health API
     depends_on:
       - redis
     volumes:
@@ -80,12 +78,6 @@ services:
     secrets:
       - redis_password
       - abuseipdb_api_key
-    # Pass secret path so proxy can read it at startup
-    # (proxy reads REDIS_PASSWORD env var; use a wrapper or entrypoint to inject)
-    # For simplest compatibility, also support env var override:
-    # REDIS_PASSWORD is read from the secret file by the entrypoint in Dockerfile.
-    # If the Dockerfile does not yet support secret injection, set via env:
-    #   REDIS_PASSWORD_FILE=/run/secrets/redis_password
     networks:
       - ja4proxy-backend
     restart: unless-stopped
@@ -108,7 +100,6 @@ services:
 
   redis:
     image: redis/redis-stack:7.4.0-v3
-    container_name: ja4proxy-redis
     environment:
       # Password injected via Docker secret mounted at /run/secrets/redis_password
       # redis/redis-stack reads REDIS_ARGS for extra flags
@@ -142,9 +133,8 @@ services:
       dockerfile: src/analytics/Dockerfile
       network: host
     image: ja4proxy-analytics:1.0.0
-    container_name: ja4proxy-analytics
     ports:
-      - "127.0.0.1:8082:8080"   # Analytics metrics (internal only)
+      - "8082:8080"   # Analytics metrics (internal only)
     depends_on:
       - redis
     environment:
@@ -186,10 +176,9 @@ services:
       dockerfile: Dockerfile
       network: host
     image: ja4proxy-tarpit:1.0.0
-    container_name: ja4proxy-tarpit
     ports:
-      - "127.0.0.1:8888:8888"   # Tarpit port (internal only)
-      - "127.0.0.1:9099:9099"   # Tarpit metrics (internal only)
+      - "8888:8888"   # Tarpit port (internal only)
+      - "9099:9099"   # Tarpit metrics (internal only)
     environment:
       - TARPIT_PORT=8888
       - TARPIT_DURATION=60
@@ -218,7 +207,6 @@ services:
 
   redis-exporter:
     image: oliver006/redis_exporter:v1.55.0
-    container_name: ja4proxy-redis-exporter
     environment:
       - REDIS_ADDR=redis:6379
       - REDIS_PASSWORD_FILE=/run/secrets/redis_password
@@ -240,9 +228,8 @@ services:
 
   prometheus:
     image: prom/prometheus:v2.48.0
-    container_name: ja4proxy-prometheus
     ports:
-      - "127.0.0.1:9091:9090"   # Prometheus UI (internal only)
+      - "9091:9090"   # Prometheus UI (internal only)
     volumes:
       - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ../monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
@@ -272,9 +259,8 @@ services:
 
   grafana:
     image: grafana/grafana:10.2.2
-    container_name: ja4proxy-grafana
     ports:
-      - "127.0.0.1:3001:3000"   # Grafana UI (internal only)
+      - "3001:3000"   # Grafana UI (internal only)
     volumes:
       - grafana_data:/var/lib/grafana
       - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -304,9 +290,8 @@ services:
 
   loki:
     image: grafana/loki:3.3.2
-    container_name: ja4proxy-loki
     ports:
-      - "127.0.0.1:3100:3100"   # Loki API (internal only)
+      - "3100:3100"   # Loki API (internal only)
     volumes:
       - ../monitoring/loki/loki-config.yml:/etc/loki/config.yml:ro
       - loki_data:/loki
@@ -329,7 +314,6 @@ services:
 
   promtail:
     image: grafana/promtail:3.3.2
-    container_name: ja4proxy-promtail
     volumes:
       - ../monitoring/loki/promtail-config.yml:/etc/promtail/config.yml:ro
       - ../logs:/var/log/ja4proxy:ro
