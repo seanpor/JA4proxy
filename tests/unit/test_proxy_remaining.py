@@ -149,6 +149,18 @@ def _make_server_stub():
     s.alienvault_provider = MagicMock()
     s.alienvault_provider.start = AsyncMock()
     s.alienvault_provider.stop = AsyncMock()
+    s.misp_provider = MagicMock()
+    s.misp_provider.start = AsyncMock()
+    s.misp_provider.stop = AsyncMock()
+    s.threatfox_provider = MagicMock()
+    s.threatfox_provider.start = AsyncMock()
+    s.threatfox_provider.stop = AsyncMock()
+    s.virustotal_provider = MagicMock()
+    s.virustotal_provider.start = AsyncMock()
+    s.virustotal_provider.stop = AsyncMock()
+    s.confidence_manager = MagicMock()
+    s.confidence_manager.initialize = AsyncMock()
+    s.confidence_manager.save_state = AsyncMock()
     s.pipeline.set_ti_providers = MagicMock()
     return s
 
@@ -265,7 +277,7 @@ class TestGeoIPLookupInit:
             mock_ip2loc.IP2Location = MagicMock(side_effect=Exception("corrupt"))
             geo = GeoIPLookup(db_path=str(db_file))
         assert geo.db is None
-        assert any("Failed to load GeoIP" in r.message for r in caplog.records)
+        assert any("Failed to hot-reload GeoIP" in r.message for r in caplog.records)
 
 
 # ---------------------------------------------------------------------------
@@ -1726,6 +1738,18 @@ class TestProxyServerShutdownCoverageGaps:
         server.alienvault_provider = MagicMock()
         server.alienvault_provider.start = AsyncMock()
         server.alienvault_provider.stop = AsyncMock()
+        server.misp_provider = MagicMock()
+        server.misp_provider.start = AsyncMock()
+        server.misp_provider.stop = AsyncMock()
+        server.threatfox_provider = MagicMock()
+        server.threatfox_provider.start = AsyncMock()
+        server.threatfox_provider.stop = AsyncMock()
+        server.virustotal_provider = MagicMock()
+        server.virustotal_provider.start = AsyncMock()
+        server.virustotal_provider.stop = AsyncMock()
+        server.confidence_manager = MagicMock()
+        server.confidence_manager.initialize = AsyncMock()
+        server.confidence_manager.save_state = AsyncMock()
         server.pipeline.set_ti_providers = MagicMock()
         return server
 
