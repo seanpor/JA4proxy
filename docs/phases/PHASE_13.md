@@ -1140,7 +1140,7 @@ test_auth_ratelimiter_works_under_concurrent_failures
 ### 13k. Documentation
 
 - [ ] `docs/REDIS_SCHEMA.md` updated with all `management:*` and `mgmt:*` keys
-- [ ] Runbook `docs/runbooks/management_ui.md`: access setup, key rotation, SOPs, debugging
+- [ ] Runbook `../runbooks/management_ui.md`: access setup, key rotation, SOPs, debugging
 - [ ] `config/proxy.yml` inline comments for all `management_ui:` keys
 - [ ] `CHANGELOG.md` updated
 - [ ] ADR written: why React+FastAPI vs alternatives (`docs/decisions/ADR-013.md`)

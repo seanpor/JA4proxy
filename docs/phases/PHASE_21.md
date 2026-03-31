@@ -52,7 +52,7 @@ The distribution and quality grades are:
 | Miscellaneous / stale | 22 | 2/5 | Cleaned up |
 
 **Critical problems found:**
-- `docs/runbooks/management_ui.md` describes a component removed in v13.2.0.
+- `../runbooks/management_ui.md` describes a component removed in v13.2.0.
 - Phase 15 status contradicts itself across CLAUDE.md, CHANGELOG.md, and PHASE_15.md.
 - `docs/OBSERVABILITY_STANDARDS.md §4` references a single alert file; Phase 14e split
   it into three files.
@@ -161,13 +161,13 @@ find documented retention periods. No evidence of access control.
 These are blockers. A reader following the current documentation hits these immediately.
 Fix them in order before anything else.
 
-### 21a-1 Deprecate `management_ui.md`
+### 21a-1 Deprecate `../runbooks/management_ui.md`
 
-**Problem:** `docs/runbooks/management_ui.md` documents a component removed in
+**Problem:** `../runbooks/management_ui.md` documents a component removed in
 CHANGELOG v13.2.0. A SecOps analyst following the runbook index will find instructions
 for a component that does not exist.
 
-**Action:** Add the following header to `docs/runbooks/management_ui.md`:
+**Action:** Add the following header to `../runbooks/management_ui.md`:
 
 ```markdown
 > **[DEPRECATED — Phase 13 Management UI was removed in v13.2.0]**
@@ -178,7 +178,7 @@ for a component that does not exist.
 > **Do not follow these instructions against a running proxy — the endpoints do not exist.**
 ```
 
-Also remove `management_ui.md` from any runbook index that lists it without a
+Also remove `../runbooks/management_ui.md` from any runbook index that lists it without a
 deprecation notice (check `docs/operator/`, `README.md`, `docs/docs/README.md`).
 
 ### 21a-2 Resolve Phase 15 Status Contradiction
@@ -324,7 +324,7 @@ graph LR
 feeds, and potentially others. A contributor writing a chaos test or adding a new signal
 must discover these by browsing the directory. They are not documented anywhere.
 
-**Action:** Create `docs/developer/MOCK_SERVERS.md`:
+**Action:** Create `../developer/MOCK_SERVERS.md`:
 
 ```markdown
 # Test Mock Servers
@@ -403,7 +403,7 @@ they're in the right place.
 
 ### 21b-3 Create a Documentation Index (docs/INDEX.md)
 
-Create `docs/INDEX.md` as the single navigable map of all documentation. Structure it
+Create `../INDEX.md` as the single navigable map of all documentation. Structure it
 by persona rather than by file type. This is the document a new reader should find
 first if they open the `docs/` directory.
 
@@ -459,12 +459,12 @@ first if they open the `docs/` directory.
 ...
 ```
 
-Link `docs/INDEX.md` from `README.md` as `"Full documentation index → docs/INDEX.md"`.
+Link `../INDEX.md` from `README.md` as `"Full documentation index → docs/INDEX.md"`.
 
 ### 21b-4 Add a Unified ADR Index (docs/decisions/INDEX.md)
 
 The five existing ADRs are discoverable only by listing the directory. Create
-`docs/decisions/INDEX.md`:
+`../decisions/INDEX.md`:
 
 ```markdown
 # Architectural Decision Records
@@ -957,8 +957,8 @@ cover overlapping content (production hardening gaps, remediation status). Merge
 
 ### 21g-2 Mark Old TESTING.md as Superseded
 
-`docs/TESTING.md` is superseded by `docs/TESTING_STRATEGY.md`. Add to the top of
-`docs/TESTING.md`:
+`../TESTING.md` is superseded by `docs/TESTING_STRATEGY.md`. Add to the top of
+`../TESTING.md`:
 
 ```markdown
 > **[SUPERSEDED]** This document has been replaced by
@@ -969,7 +969,7 @@ cover overlapping content (production hardening gaps, remediation status). Merge
 ### 21g-3 Move or Remove developer/ Scratch Notes
 
 - `docs/developer/traffic-generator-fix.md`: extract any operational content into
-  `docs/operator/TROUBLESHOOTING.md` (Phase 21e-4), then delete the file.
+  `../operator/TROUBLESHOOTING.md` (Phase 21e-4), then delete the file.
 - `docs/developer/test-audit.md`: replace with a pointer to `make test-ratio` and
   delete (outdated counts are worse than no counts).
 - `docs/docker_container_test_layers_expanded.md`: evaluate whether this belongs in
@@ -1033,7 +1033,7 @@ phase: 0
 -->
 ```
 
-Write a script (`scripts/check_doc_frontmatter.py`) that:
+Write a script (`../../scripts/check_doc_frontmatter.py`) that:
 - Scans all `.md` files in `docs/` (excluding `phases/`, `decisions/`).
 - Warns for any file missing the frontmatter block.
 - Warns for any file with `last_reviewed` older than 180 days.
@@ -1084,7 +1084,7 @@ Update `docs/DOCUMENTATION_STANDARDS.md §7` (per-phase documentation gate) to i
 - [ ] New Redis keys documented in `docs/REDIS_SCHEMA.md`.
 - [ ] New Prometheus metrics in `docs/OBSERVABILITY_STANDARDS.md §1d`.
 - [ ] CHANGELOG.md entry added.
-- [ ] If any ADR was promised and not written, an entry added to `docs/decisions/INDEX.md`
+- [ ] If any ADR was promised and not written, an entry added to `../decisions/INDEX.md`
   with status "Proposed" and a GitHub issue number.
 ```
 
@@ -1113,11 +1113,11 @@ complete. Without this, documentation debt silently re-accumulates.
 **Rule: Every new phase completion must include the following documentation steps
 (enforce via the gate checklist updated in 21h-3):**
 
-1. **New documents** created by the phase → add entry to `docs/INDEX.md` and apply
+1. **New documents** created by the phase → add entry to `../INDEX.md` and apply
    the audience-stamp format (21b-2). Do not merge the PR until this is done.
 
 2. **New architectural decisions** → either write an ADR or add a "Proposed" entry to
-   `docs/decisions/INDEX.md` with a GitHub issue number for follow-up. Unwritten ADRs
+   `../decisions/INDEX.md` with a GitHub issue number for follow-up. Unwritten ADRs
    that have no tracking entry constitute documentation debt.
 
 3. **New Redis keys** → document in `docs/REDIS_SCHEMA.md` before the PR merges.
@@ -1125,7 +1125,7 @@ complete. Without this, documentation debt silently re-accumulates.
 4. **New Prometheus metrics** → add to `docs/OBSERVABILITY_STANDARDS.md §1d`.
 
 5. **New runbooks or operator commands** → apply the runbook template (21e-1) and link
-   from the relevant persona section of `docs/INDEX.md`.
+   from the relevant persona section of `../INDEX.md`.
 
 6. **If a phase modifies an existing architectural decision** (e.g., changes a config
    default, changes a signal score, changes a bypass rule) → review and update the
@@ -1145,7 +1145,7 @@ All of the following must be true before Phase 21 is complete.
 
 ### Critical Fixes (21a)
 
-- [ ] `docs/runbooks/management_ui.md` has a DEPRECATED header; no active runbook
+- [ ] `../runbooks/management_ui.md` has a DEPRECATED header; no active runbook
   index links to it without noting it is deprecated.
 - [ ] `PHASE_15.md` has a `## Current Status` table showing per-subsystem Go
   completion (✅/❌); `CHANGELOG.md` v15.0.0 entry is accurate.
@@ -1160,7 +1160,7 @@ All of the following must be true before Phase 21 is complete.
   confirming accuracy post-Phase 15, or a `Superseded-by:` link to a new ADR.
 - [ ] `docs/architecture/system-architecture.md` has a `## Phase 15+ Architecture`
   section with a Mermaid diagram showing the Go/Python split-language deployment.
-- [ ] `docs/developer/MOCK_SERVERS.md` exists and documents every mock in `tests/mocks/`.
+- [ ] `../developer/MOCK_SERVERS.md` exists and documents every mock in `tests/mocks/`.
 
 ### Navigation (21b)
 
@@ -1168,21 +1168,21 @@ All of the following must be true before Phase 21 is complete.
   entry points.
 - [ ] Every document in `docs/runbooks/`, `docs/operator/`, `docs/security/`,
   `docs/compliance/`, `docs/architecture/`, `docs/developer/` has an audience stamp.
-- [ ] `docs/INDEX.md` exists, is structured by persona, and links to every active
+- [ ] `../INDEX.md` exists, is structured by persona, and links to every active
   document in `docs/`.
-- [ ] `docs/decisions/INDEX.md` exists and lists all ADRs (existing and planned).
+- [ ] `../decisions/INDEX.md` exists and lists all ADRs (existing and planned).
 
 ### ADRs (21c)
 
 - [ ] ADR-004 through ADR-012 exist in `docs/decisions/` and follow the template.
-- [ ] Each ADR is listed in `docs/decisions/INDEX.md`.
+- [ ] Each ADR is listed in `../decisions/INDEX.md`.
 
 ### Compliance (21d)
 
 - [ ] `docs/compliance/GDPR_COMPLIANCE.md` covers all seven sections defined in 21d-1.
   Minimum length: 600 words (10 pages of substance, not padding).
 - [ ] `docs/INCIDENT_RESPONSE.md` contains a Breach Notification subsection.
-- [ ] `docs/compliance/SECURITY_CONTROLS_MAPPING.md` exists and maps JA4proxy controls
+- [ ] `../compliance/SECURITY_CONTROLS_MAPPING.md` exists and maps JA4proxy controls
   to at least 10 ISO 27001:2022 Annex A controls.
 - [ ] `docs/security/threat-model.md` has a STRIDE table for the proxy hot path and
   Redis components, a trust boundary section, and a "what this proxy cannot protect
@@ -1192,21 +1192,21 @@ All of the following must be true before Phase 21 is complete.
 
 - [ ] All eight active runbooks have the consistent structure defined in 21e-1.
 - [ ] `docs/INCIDENT_RESPONSE.md` contains an Incident Severity Matrix.
-- [ ] `docs/operator/CAPACITY_PLANNING.md` exists with Python and Go sizing guidance.
-- [ ] `docs/operator/TROUBLESHOOTING.md` exists with ≥10 common problems.
+- [ ] `../operator/CAPACITY_PLANNING.md` exists with Python and Go sizing guidance.
+- [ ] `../operator/TROUBLESHOOTING.md` exists with ≥10 common problems.
 
 ### Developer Pack (21f)
 
 - [ ] `CONTRIBUTING.md` covers all six sections defined in 21f-1.
-- [ ] `docs/developer/SIGNAL_DEVELOPMENT.md` exists.
-- [ ] `docs/developer/GO_PORT_GUIDE.md` exists.
-- [ ] `docs/developer/MOCK_SERVERS.md` exists and documents every file in `tests/mocks/`.
+- [ ] `../developer/SIGNAL_DEVELOPMENT.md` exists.
+- [ ] `../developer/GO_PORT_GUIDE.md` exists.
+- [ ] `../developer/MOCK_SERVERS.md` exists and documents every file in `tests/mocks/`.
 
 ### Consolidation (21g)
 
 - [ ] `docs/reports/ENTERPRISE_READINESS_REPORT.md` redirects to
   `docs/DMZ_DEPLOYMENT_READINESS.md`.
-- [ ] `docs/TESTING.md` has a SUPERSEDED header.
+- [ ] `../TESTING.md` has a SUPERSEDED header.
 - [ ] `docs/developer/traffic-generator-fix.md` and `docs/developer/test-audit.md`
   are deleted or have DEPRECATED headers with all useful content extracted.
 - [ ] `docs/enterprise/` files are either rewritten with concrete guidance or have
@@ -1216,7 +1216,7 @@ All of the following must be true before Phase 21 is complete.
 
 ### Documentation as Code (21h)
 
-- [ ] `scripts/check_doc_frontmatter.py` exists and runs without error.
+- [ ] `../../scripts/check_doc_frontmatter.py` exists and runs without error.
 - [ ] `make lint-docs` runs and reports zero warnings against the updated docs/.
 - [ ] `.mlc.json` exists and `make link-check` reports zero broken internal links.
 - [ ] `docs/DOCUMENTATION_STANDARDS.md §7` includes the Phase 21 gate checklist.
@@ -1236,7 +1236,7 @@ Before marking Phase 21 complete:
 
 3. **Frontmatter audit:** `make lint-docs` returns zero warnings.
 
-4. **ADR completeness:** `docs/decisions/INDEX.md` lists all ADRs with no "missing"
+4. **ADR completeness:** `../decisions/INDEX.md` lists all ADRs with no "missing"
    entries.
 
 5. **Compliance review:** Have someone unfamiliar with the codebase read
@@ -1270,7 +1270,7 @@ Work streams are independent unless noted. Suggested order:
 ## Notes on Scope
 
 **This phase does not change any code.** All changes are documentation only. There are
-no new tests required (though `scripts/check_doc_frontmatter.py` is a script that
+no new tests required (though `../../scripts/check_doc_frontmatter.py` is a script that
 should be tested by running it and verifying output).
 
 **This phase does not require phases 16–20 to be complete.** Documentation improvement

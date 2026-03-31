@@ -26,7 +26,7 @@ This phase fixes all four problems and adds tooling to prevent them returning.
 
 ### Deliverables
 
-**`docs/DOCKER_IMAGES.md`** — canonical registry of every image used in this project.
+**`../DOCKER_IMAGES.md`** — canonical registry of every image used in this project.
 
 Format:
 
@@ -80,7 +80,7 @@ Do **not** skip validation — a broken Loki in prod means no log ingestion.
 
 ### Acceptance Criteria
 
-- [ ] `docs/DOCKER_IMAGES.md` exists and lists every image from all compose files and Dockerfiles.
+- [ ] `../DOCKER_IMAGES.md` exists and lists every image from all compose files and Dockerfiles.
 - [ ] No `:latest` tags in any compose file (`grep -r ':latest' docker/ | grep image:` returns empty).
 - [ ] `../../docker/docker-compose.prod.yml` and `../../docker/docker-compose.monitoring.yml` agree on version for every shared image.
 - [ ] All version changes validated against compose `config` command (no parse errors).
@@ -108,7 +108,7 @@ Problems:
 
 Update the hardcoded list to match the current prod + monitoring compose versions.
 Add `prom/node-exporter:v1.7.0`. Remove duplication from the Makefile; derive from
-`docs/DOCKER_IMAGES.md` where possible.
+`../DOCKER_IMAGES.md` where possible.
 
 **`make scan-dockerfiles` target:**
 
@@ -202,7 +202,7 @@ the current stable. Example: if grafana is at 11.2.x, we should be on ≥11.0.x.
 `../../docker/docker-compose.prod.yml`. This is the gold standard but requires a process to
 update digests. Implement only if the team adopts a CI pipeline that automates it.
 
-### `scripts/check_image_versions.py`
+### `../../scripts/check_image_versions.py`
 
 A lightweight script that:
 
@@ -228,7 +228,7 @@ Exit 1 = :latest tags found or version drift detected.
 """
 ```
 
-### `docs/runbooks/docker_image_updates.md`
+### `../runbooks/docker_image_updates.md`
 
 A runbook covering:
 
@@ -242,8 +242,8 @@ A runbook covering:
 
 ### Acceptance Criteria
 
-- [ ] Image update policy documented in `docs/runbooks/docker_image_updates.md`.
-- [ ] `scripts/check_image_versions.py` exists, detects `:latest` and version drift, exits 1 on findings.
+- [ ] Image update policy documented in `../runbooks/docker_image_updates.md`.
+- [ ] `../../scripts/check_image_versions.py` exists, detects `:latest` and version drift, exits 1 on findings.
 - [ ] `make check-image-versions` target added to Makefile.
 - [ ] `make check-image-versions` runs in < 5 seconds (no external calls).
 - [ ] Script included in `make check-manifest` or called from a new `make check-all` target.
@@ -325,7 +325,7 @@ shell scripts, compose files, and documentation. Testing is:
 - `make check-image-versions` — must exit 0 after harmonisation.
 - `make check-manifest` — must pass after this phase is complete.
 
-Add a test in `tests/unit/test_check_image_versions.py` for the Python script:
+Add a test in `../../tests/unit/test_check_image_versions.py` for the Python script:
 
 ```python
 # tests/unit/test_check_image_versions.py
@@ -338,8 +338,8 @@ Add a test in `tests/unit/test_check_image_versions.py` for the Python script:
 
 Before marking Phase 25 COMPLETE:
 
-- [ ] `docs/DOCKER_IMAGES.md` written and complete.
-- [ ] `docs/runbooks/docker_image_updates.md` written.
+- [ ] `../DOCKER_IMAGES.md` written and complete.
+- [ ] `../runbooks/docker_image_updates.md` written.
 - [ ] CHANGELOG.md updated with a Phase 25 entry.
 - [ ] `manifest.yaml` status set to COMPLETE.
 - [ ] `../../scripts/sync-roadmap.py` re-run.
