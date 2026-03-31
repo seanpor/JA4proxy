@@ -22,10 +22,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **DEFERRED** (FastAPI + React dashboard for real-time monitoring.)
 *   **Action Plan:** [PHASE_13_WORK_PLAN.md](PHASE_13_WORK_PLAN.md)
 
-### Phase 22 — Backup System Enhancements - Phase 1: Core Features
-*   **Status:** **PROPOSED** (Add backup scheduling, pipeline batching, and restore validation. Target: Production-ready backup system.)
-*   **Action Plan:** [PHASE_22_WORK_PLAN.md](PHASE_22_WORK_PLAN.md)
-
 ### Phase 23 — Advanced Traffic Intelligence - Phase 1: Threat Intelligence Integration
 *   **Status:** **PROPOSED** (Integrate external threat intelligence feeds (AbuseIPDB, AlienVault OTX, GreyNoise). Target: Real-time IP reputation.)
 *   **Action Plan:** [PHASE_23_WORK_PLAN.md](PHASE_23_WORK_PLAN.md)
@@ -46,8 +42,8 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Proactive defense: Hardware-rooted integrity, eBPF-based kernel-level enforcement, honey-fingerprints, and two-stage seccomp lockdown.)
 *   **Action Plan:** [PHASE_35.md](PHASE_35.md)
 
-### Phase 40 — Backup System Enhancements - Phase 2: Compliance & Testing
-*   **Status:** **PROPOSED** (Add DSAR utility for GDPR compliance and comprehensive testing infrastructure.)
+### Phase 40 — Backup System Enhancements - Phase 2: Enterprise Features & Compliance
+*   **Status:** **PROPOSED** (Add encryption at rest, cloud storage adapters, incremental backups, and DSAR compliance utility.)
 *   **Action Plan:** [PHASE_40_BACKUP_PLAN.md](PHASE_40_BACKUP_PLAN.md)
 
 ### Phase 41 — Robust Health Check API & Anti-Flap Logic

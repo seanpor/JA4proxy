@@ -9,6 +9,14 @@
 ### Changed
 - **Diagram Standardization**: Standardized all documentation diagrams to Mermaid format for consistent rendering across GitHub, GitLab, and other platforms.
 
+## [22.0.0] - 2026-03-29 — Phase 22: Backup System Enhancements - Phase 1: Core Features
+
+### Added
+- **Backup Scheduler**: Implemented `BackupScheduler` (asyncio task executor) to wire `backup.schedule` config (cron or interval) to automated backup creation.
+- **Redis Pipelining**: Added `redis.pipeline()` batching to the backup loop (batches of 1000) for significantly improved performance and reduced round trips.
+- **Restore Validation**: Implemented `RestoreError` threshold logic; restores now fail explicitly if more than 5% of keys fail to restore.
+- **Enhanced Observability**: Added Prometheus metrics for backup duration, size, success/failure counts, and keys processed.
+
 ## [Unreleased] - Phase 36: Go Test Quality & Parity Gaps
 
 ### Fixed
