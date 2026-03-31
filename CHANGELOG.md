@@ -1,5 +1,13 @@
 # Changelog
 
+## [45.0.0] - 2026-03-31 — Phase 45: Adversarial Test Expansion
+
+### Added
+- **SQL Injection Tests** (`tests/adversarial/test_sql_injection.py`): Parametrized tests covering `' OR '1'='1`, `'; DROP TABLE users--`, `UNION SELECT`, `EXEC xp_cmdshell`, and `admin'--` patterns; verifies detection, blocking, and legitimate-input pass-through.
+- **XSS Tests** (`tests/adversarial/test_xss.py`): Tests for `<script>`, `<img onerror>`, `javascript:`, `<svg onload>`, and `<body onload>` payloads; verifies detection, blocking, and legitimate HTML pass-through.
+- **Path Traversal Tests** (`tests/adversarial/test_path_traversal.py`): Tests for Unix and Windows traversal patterns (`../../../etc/passwd`, `..\\..\\etc\\passwd`, `/etc/passwd`) including deep traversal sequences; verifies detection, blocking, and legitimate path pass-through.
+- **Command Injection Tests** (`tests/adversarial/test_command_injection.py`): Tests for `; rm -rf /`, `&& cat /etc/passwd`, `| ls -la`, backtick, and `$()` substitution patterns; verifies detection, blocking, and legitimate command pass-through.
+
 ## [33.0.0] - 2026-03-30 — Phase 33: Advanced Traffic Intelligence - Phase 4: Documentation Diagrams
 
 ### Added
