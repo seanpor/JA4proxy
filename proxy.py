@@ -1229,6 +1229,23 @@ class ProxyServer:
         )
         self._health_task = None
 
+        # Phase 23: Advanced TI Providers
+        from src.security.alienvault import AlienVaultOTXProvider, OTXConfig
+        from src.security.greynoise import GreyNoiseConfig, GreyNoiseProvider
+
+        self.greynoise_provider = GreyNoiseProvider(
+            config=GreyNoiseConfig.from_config(self.config),
+            redis_client=self.redis_client,
+            local_cache=self._local_cache,
+            session=self._session,
+        )
+        self.alienvault_provider = AlienVaultOTXProvider(
+            config=OTXConfig.from_config(self.config),
+            redis_client=self.redis_client,
+            local_cache=self._local_cache,
+            session=self._session,
+        )
+
         # Initialize GeoIP lookup
         geoip_path = self.config.get("geoip", {}).get("database_path")
         self.geoip = GeoIPLookup(geoip_path)
@@ -1611,6 +1628,16 @@ class ProxyServer:
         )
         self._pubsub_task = asyncio.create_task(pubsub_handler.run())
 
+        # Phase 23: Start and wire TI providers
+        await asyncio.gather(
+            self.greynoise_provider.start(),
+            self.alienvault_provider.start(),
+        )
+        self.pipeline.set_ti_providers(
+            greynoise=self.greynoise_provider,
+            alienvault=self.alienvault_provider,
+        )
+
         # Start proxy server
         server = await asyncio.start_server(
             self.handle_connection,
@@ -1670,6 +1697,13 @@ class ProxyServer:
             if self._health_task:
                 self._health_task.cancel()
             await self.health_server.stop()
+
+            # Phase 23: Stop TI providers
+            await asyncio.gather(
+                self.greynoise_provider.stop(),
+                self.alienvault_provider.stop(),
+                return_exceptions=True,
+            )
 
             # Phase 26e: Stop WriteBuffer and flush remaining writes
             await self.pipeline.stop()

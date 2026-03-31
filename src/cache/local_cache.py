@@ -179,6 +179,17 @@ class LocalCache:
             ttl_seconds=_get("analytics_signals", "ttl_seconds", 60),
             name="analytics_signals",
         )
+        # Phase 23: Threat Intelligence caches
+        self.greynoise_scores = LRUCache(
+            max_size=_get("greynoise_scores", "max_size", 50_000),
+            ttl_seconds=_get("greynoise_scores", "ttl_seconds", 21_600), # 6h
+            name="greynoise_scores",
+        )
+        self.alienvault_scores = LRUCache(
+            max_size=_get("alienvault_scores", "max_size", 50_000),
+            ttl_seconds=_get("alienvault_scores", "ttl_seconds", 3600), # 1h
+            name="alienvault_scores",
+        )
         # Dial has no TTL — updated only by pub/sub or config reload.
         # Default 0 = monitor mode; proxy never blocks on first deploy.
         self._dial: int = 0
