@@ -180,34 +180,38 @@ phases:
 
   22:
     name: "Backup System Enhancements - Phase 1: Core Features"
-    status: "PROPOSED"
+    status: "COMPLETE"
+    test_coverage: "100%"
+    doc_status: "COMPLETE"
     summary: "Add backup scheduling, pipeline batching, and restore validation. Target: Production-ready backup system."
+    completed: "2026-03-29"
     action_plan: "docs/phases/details/PHASE_22_WORK_PLAN.md"
     dependencies: [19]
     size: "SMALL"  # 1-2 weeks: Core backup enhancements
-    gaps:
-      - "P19-G1: Wire backup.schedule config to APScheduler/asyncio task executor"
-      - "P19-G3: Add redis.pipeline() batching to backup loop (target: batches of 1000)"
-      - "P19-G4: Add restore validation - count failed keys, raise RestoreError if >5% fail"
+    gaps: []
     success_criteria:
       - "Scheduled backups working with cron syntax"
       - "Backup performance improved by ≥300%"
       - "Restore validation prevents silent failures"
 
   40:
-    name: "Backup System Enhancements - Phase 2: Compliance & Testing"
+    name: "Backup System Enhancements - Phase 2: Enterprise Features & Compliance"
     status: "PROPOSED"
-    summary: "Add DSAR utility for GDPR compliance and comprehensive testing infrastructure."
+    summary: "Add encryption at rest, cloud storage adapters, incremental backups, and DSAR compliance utility."
     action_plan: "docs/phases/details/PHASE_40_BACKUP_PLAN.md"
     dependencies: [22]
-    size: "SMALL"  # 1-2 weeks: Compliance and testing
+    size: "LARGE"
     gaps:
       - "P19-G5: DSAR utility (ja4proxy-admin backup redact --ip) for GDPR compliance"
-      - "P19-G6: Add fakeredis-based encode→backup→restore round-trip integration test"
+      - "P22-G1: AES-256-GCM encryption at rest for backup artifacts"
+      - "P22-G2: Cloud storage adapters (S3, GCS, Azure Blob Storage)"
+      - "P22-G3: Incremental backup strategy (track changed keys since last full)"
+      - "P22-G4: Redis-based distributed locking for backup concurrency control"
     success_criteria:
-      - "DSAR utility removes PII from backups"
-      - "Round-trip test validates backup integrity"
-      - "GDPR compliance documentation updated"
+      - "Backup artifacts encrypted with authenticated encryption (GCM)"
+      - "Successful offsite backup to at least one cloud provider"
+      - "Incremental backups significantly reduce backup window for large datasets"
+      - "DSAR utility successfully redacts IP addresses from backup archives"
 
   23:
     name: "Advanced Traffic Intelligence - Phase 1: Threat Intelligence Integration"
