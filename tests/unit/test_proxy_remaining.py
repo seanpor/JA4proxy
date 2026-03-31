@@ -143,6 +143,13 @@ def _make_server_stub():
     s.health_server.stop = AsyncMock()
     s.health_monitor = MagicMock()
     s.health_monitor.record_pipeline_latency = MagicMock()
+    s.greynoise_provider = MagicMock()
+    s.greynoise_provider.start = AsyncMock()
+    s.greynoise_provider.stop = AsyncMock()
+    s.alienvault_provider = MagicMock()
+    s.alienvault_provider.start = AsyncMock()
+    s.alienvault_provider.stop = AsyncMock()
+    s.pipeline.set_ti_providers = MagicMock()
     return s
 
 
@@ -1713,6 +1720,13 @@ class TestProxyServerShutdownCoverageGaps:
         server.health_server = MagicMock()
         server.health_server.start = AsyncMock()
         server.health_server.stop = AsyncMock()
+        server.greynoise_provider = MagicMock()
+        server.greynoise_provider.start = AsyncMock()
+        server.greynoise_provider.stop = AsyncMock()
+        server.alienvault_provider = MagicMock()
+        server.alienvault_provider.start = AsyncMock()
+        server.alienvault_provider.stop = AsyncMock()
+        server.pipeline.set_ti_providers = MagicMock()
         return server
 
     def test_shutdown_with_no_abuseipdb(self):

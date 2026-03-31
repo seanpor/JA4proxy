@@ -66,6 +66,13 @@ def _make_server_stub(drain_timeout: float = 1.0) -> ProxyServer:
     s.health_server = MagicMock()
     s.health_server.start = AsyncMock()
     s.health_server.stop = AsyncMock()
+    s.greynoise_provider = MagicMock()
+    s.greynoise_provider.start = AsyncMock()
+    s.greynoise_provider.stop = AsyncMock()
+    s.alienvault_provider = MagicMock()
+    s.alienvault_provider.start = AsyncMock()
+    s.alienvault_provider.stop = AsyncMock()
+    s.pipeline.set_ti_providers = MagicMock()
     return s
 
 
