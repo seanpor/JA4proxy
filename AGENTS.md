@@ -64,6 +64,57 @@ Every phase must be closed by completing **all** of the following before the nex
 - **Mandatory Coverage:** A change is incomplete without corresponding tests (Unit, Integration, and Chaos).
 - **Finality:** A task is only "Done" when the relevant test suite and linters pass 100% using the project `Makefile`.
 
+### What `make test` actually checks — read ALL of it
+
+`make test` runs four static-analysis tools **before** pytest. A task is not done until
+every section shows a green tick:
+
+```
+✓ mypy: OK
+✓ bandit: OK
+✓ ruff: OK
+✓ pip-audit: OK
+... 2700+ passed, N skipped (all approved), 0 failed
+```
+
+Any `✗` or `⚠️` is a blocking failure. Do not declare a phase complete, and do not
+commit, until all four tools and pytest are clean.
+
+### ProxyServer test-stub maintenance
+
+`ProxyServer` stubs bypass `__init__` via `object.__new__`. Whenever any code adds a
+new instance attribute used in `start()`, `handle_connection()`, or `create()`, **all
+four stubs must be updated in the same commit**:
+
+| File | Helper |
+|------|--------|
+| `tests/unit/test_graceful_shutdown.py` | `_make_server_stub()` |
+| `tests/unit/test_proxy_remaining.py` | `_make_server_stub()` (top-level) |
+| `tests/unit/test_proxy_remaining.py` | `TestProxyServerShutdownCoverageGaps._make_server_stub()` |
+| `tests/unit/test_proxy_server.py` | `_make_server()` |
+| `tests/integration/test_pipeline.py` | `_make_shutdown_server_stub()` |
+
+**Before referencing `self._foo` in new proxy.py code**, grep to confirm the attribute
+exists in `__init__`:
+
+```bash
+grep -n "self\._foo" proxy.py
+```
+
+Never invent attribute names (e.g. `self._session`) that differ from what `__init__`
+actually sets (e.g. `self._aiohttp_session`).
+
+### New source files — import hygiene
+
+Every new `.py` file must pass ruff immediately. After creating a file run:
+
+```bash
+python3 -m ruff check --select I001 --fix <file>
+python3 -m mypy <file>
+```
+
+Fix all issues before committing.
+
 ---
 
 ## 🏗️ Build & Compilation
