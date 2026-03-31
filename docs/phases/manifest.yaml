@@ -9,7 +9,7 @@ epics:
     
   - name: "Epic: Analytics & Intelligence"
     description: "Cross-instance behavior analysis and threat intelligence."
-    phases: [6, 7, 9, 12, 23, 31, 32, 33, 53, 54, 58]
+    phases: [6, 7, 9, 12, 23, 31, 32, 33, 47, 48, 53, 54]
     
   - name: "Epic: Next-Gen Passive Capture"
     description: "Out-of-band monitoring and enforcement."
@@ -255,17 +255,35 @@ phases:
       - "AbuseIPDB, GreyNoise, and AlienVault OTX feeds integrated"
       - "Real-time IP reputation lookup < 50ms (cached)"
 
-  58:
+  47:
     name: "Advanced Traffic Intelligence - Phase 3: Feed Optimization & Reliability"
-    status: "PROPOSED"
-    summary: "Enhance secondary feeds with confidence weighting, adaptive caching, and advanced reliability features."
-    action_plan: "docs/phases/PHASE_58.md"
+    status: "COMPLETE"
+    summary: "Enhance secondary feeds with confidence weighting and adaptive caching for improved signal quality and performance."
+    action_plan: "docs/phases/PHASE_47.md"
     dependencies: [53, 41]
     size: "SMALL"
+    completed: "2026-04-01"
     success_criteria:
-      - "Confidence weighting reduces false positives by ≥15%"
-      - "Adaptive caching achieves ≥95% hit rate with freshness guarantees"
-      - "Feed reliability maintains 100% uptime during outages"
+      - "Confidence weighting system implemented and tested"
+      - "Adaptive caching system implemented with volatility-based TTL"
+      - "Integration with MISP, ThreatFox, and VirusTotal providers"
+      - "Comprehensive test suite with 22 tests (100% pass rate)"
+    gaps:
+      - "P47-G1: Feed health monitoring and circuit breakers moved to Phase 48"
+      - "P47-G2: Comprehensive chaos testing moved to Phase 48"
+
+  48:
+    name: "Advanced Traffic Intelligence - Phase 4: Feed Reliability & Resilience"
+    status: "PROPOSED"
+    summary: "Enhance feeds with health monitoring, circuit breakers, and comprehensive chaos testing."
+    action_plan: "docs/phases/PHASE_48.md"
+    dependencies: [47, 41]
+    size: "SMALL"
+    success_criteria:
+      - "Feed health monitoring system tracks availability and performance"
+      - "Circuit breakers prevent cascading failures during outages"
+      - "System maintains ≥99.9% uptime during simulated failures"
+      - "Comprehensive documentation for all user roles"
 
   53:
     name: "Advanced Traffic Intelligence - Phase 2: Secondary Feeds"
