@@ -186,28 +186,23 @@ _KEY_PATTERNS_NEVER_BACKUP = [
 
 ### Encryption Status
 
-**Backup artifacts are NOT encrypted at rest in Phase 19.** This is a documented
-risk acceptance (see `docs/decisions/ADR-019.md`).
+**Backup artifacts are encrypted at rest using AES-256-GCM (Phase 40).** 
+Authenticated encryption ensures confidentiality and prevents tamper-then-restore attacks.
 
-Mitigation: restrict `/var/backups/ja4proxy/` to `backup-operator` only.
+Secret Management: The `BACKUP_ENCRYPTION_KEY` must be provided to the backup worker and 
+restorer via environment variables or Docker secrets.
 
-An attacker who can read that directory has equivalent access to a live Redis
-instance — the backup does not expand their capabilities if filesystem permissions
-are correct.
+**Off-host transfer** (rsync, scp, S3) must still use encrypted transport (SSH/TLS) for 
+defense-in-depth.
 
-**Off-host transfer** (rsync, scp, S3) must use encrypted transport (SSH/TLS).
-Phase 21 will add at-rest encryption before off-host upload.
+### Backup Integrity
 
-### Manifest Checksum Limitation
-
-The SHA-256 checksum in the manifest detects accidental corruption but does NOT
-protect against a determined attacker who can write to the backup directory.
-An attacker with write access can replace both the archive and its manifest with
-tampered versions that pass checksum validation.
-
-Phase 21 will add HMAC signing with a KMS-managed key to close this gap.
-
-### Backup Integrity via Filesystem Audit
+Integrity is ensured via:
+1. **SHA-256 Checksum**: Detects accidental corruption.
+2. **AES-GCM Authentication Tag**: Detects determination-level tampering of the 
+   ciphertext.
+3. **Redis Distributed Locking**: Prevents concurrent backup/restore operations 
+   from corrupting live Redis state.
 
 Use `auditd` to detect unauthorized writes to the backup directory:
 
@@ -222,11 +217,9 @@ Use `auditd` to detect unauthorized writes to the backup directory:
 
 | Limitation | Phase | Mitigation |
 |------------|-------|-----------|
-| Backup artifacts are plaintext | 19 | Restrict to `backup-operator:0700`; documented in ADR-019 |
-| Manifest checksum does not prevent determined attacker | 19 | Use `auditd` to detect writes; Phase 21 adds HMAC signing |
-| Backup worker has full Redis read/write access | 19 | Phase 21 will scope with Redis ACLs |
-| No off-host backup replication | 19 | Operator responsibility; Phase 20 adds S3/GCS |
-| Backup directory not created by deployment scripts | 19 | Run `install -d -o backup-operator -m 0700 /var/backups/ja4proxy` |
+| Redis lock stale after crash | 40 | If worker crashes during backup, lock must be manually cleared: `redis-cli DEL backup:operation_lock` |
+| No automated S3/GCS replication | 43 | Phase 57 will add native cloud storage adapters. Current mitigation: `rsync/rclone` cron job. |
+| Zero-downtime Rollouts require HAProxy | 43 | Blue/Green deployment is orchestrated at the LB layer. |
 
 ---
 
@@ -242,10 +235,11 @@ Use `auditd` to detect unauthorized writes to the backup directory:
 - [ ] Prometheus port 9090 firewalled to monitoring network only
 - [ ] `ENVIRONMENT=production` set (enables Redis password enforcement and JSON logs)
 
-### Before Enabling Backup (Phase 19)
+### Before Enabling Backup (Phase 19/40)
 
 - [ ] `/var/backups/ja4proxy` created with `mode 0700`, owned by `backup-operator`
 - [ ] `backup-operator` user has no `sudo` privileges
+- [ ] `BACKUP_ENCRYPTION_KEY` set in environment (AES-256-GCM enforced)
 - [ ] Proxy process (`ja4proxy` user) does NOT have write access to backup directory
 - [ ] `REDIS_URL` for backup worker stored in environment, not in scripts or config files
 - [ ] Off-host transfer (if any) uses SSH/SFTP or S3 with server-side encryption enabled
@@ -265,6 +259,6 @@ Use `auditd` to detect unauthorized writes to the backup directory:
 
 ---
 
-*Last updated: 2026-03-24, Phase 19 gap closure.*
-*See `docs/decisions/ADR-019.md` for encryption deferral rationale.*
+*Last updated: 2026-03-31, Phase 43 complete.*
+*See `docs/runbooks/zero_downtime_rollouts.md` for blue/green deployment procedures.*
 *See `docs/security/BACKUP_THREAT_MODEL.md` for full threat analysis.*
