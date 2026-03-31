@@ -1,5 +1,14 @@
 # Changelog
 
+## [33.0.0] - 2026-03-30 — Phase 33: Advanced Traffic Intelligence - Phase 4: Documentation Diagrams
+
+### Added
+- **Mermaid Visualizations**: Enhanced key documentation (Capacity Planning, Security Checklist) with new Mermaid diagrams for better architectural clarity.
+- **Documentation Audit**: Completed comprehensive audit of all project documentation to identify and convert legacy ASCII diagrams.
+
+### Changed
+- **Diagram Standardization**: Standardized all documentation diagrams to Mermaid format for consistent rendering across GitHub, GitLab, and other platforms.
+
 ## [Unreleased] - Phase 36: Go Test Quality & Parity Gaps
 
 ### Fixed

@@ -250,7 +250,7 @@ phases:
     status: "COMPLETE"
     summary: "Standardize all documentation diagrams to Mermaid format for consistent rendering."
     completed: "2026-03-30"
-    action_plan: "docs/phases/PHASE_33_WORK_PLAN.md"
+    action_plan: "docs/phases/details/PHASE_33_WORK_PLAN.md"
     dependencies: []
     size: "SMALL"  # 1-2 weeks: Documentation improvement
     gaps:

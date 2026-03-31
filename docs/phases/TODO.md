@@ -38,10 +38,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Implement attacker fingerprinting and behavioral correlation. Target: Advanced threat detection.)
 *   **Action Plan:** [PHASE_32_WORK_PLAN.md](PHASE_32_WORK_PLAN.md)
 
-### Phase 33 — Advanced Traffic Intelligence - Phase 4: Documentation Diagrams
-*   **Status:** **PROPOSED** (Standardize all documentation diagrams to Mermaid format for consistent rendering.)
-*   **Action Plan:** [PHASE_33_WORK_PLAN.md](PHASE_33_WORK_PLAN.md)
-
 ### Phase 34 — APT Resilience & Infrastructure Hardening
 *   **Status:** **PROPOSED** (Defense-in-depth: Parser isolation, Redis mTLS/ACLs, long-tail correlation, and strict container seccomp profiles.)
 *   **Action Plan:** [PHASE_34.md](PHASE_34.md)
