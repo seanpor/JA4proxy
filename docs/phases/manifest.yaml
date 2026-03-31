@@ -209,18 +209,17 @@ phases:
 
   40:
     name: "Backup System Enhancements - Phase 2: Security & Compliance"
-    status: "PROPOSED"
+    status: "COMPLETE"
     summary: "Add AES-256-GCM encryption at rest and DSAR compliance utility."
+    completed: "2026-03-31"
     action_plan: "docs/phases/details/PHASE_40_BACKUP_PLAN.md"
     dependencies: [22]
     size: "SMALL"
-    gaps:
-      - "P19-G5: DSAR utility (ja4proxy-admin backup redact --ip) for GDPR compliance"
-      - "P22-G1: AES-256-GCM encryption at rest for backup artifacts"
-      - "P22-G4: Redis-based distributed locking for backup concurrency control"
+    gaps: []
     success_criteria:
       - "Backup artifacts encrypted with authenticated encryption (GCM)"
       - "DSAR utility successfully redacts IP addresses from backup archives"
+      - "Distributed locking prevents concurrent backup/restore corruption"
 
   50:
     name: "Backup System Enhancements - Phase 3: Cloud & Incrementals"
