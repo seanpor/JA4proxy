@@ -44,9 +44,13 @@ This document describes the test types, coverage goals, and guidelines for writi
 - **Examples**:
   - `test_ja4_adversarial.py`: Tests JA4 generation with degenerate inputs.
   - `test_rdap_fp.py`: Tests RDAP enrichment with false positives.
+  - `test_sql_injection.py`: Tests SQL injection detection and blocking.
+  - `test_xss.py`: Tests XSS (Cross-Site Scripting) detection and blocking.
+  - `test_path_traversal.py`: Tests path traversal detection and blocking.
+  - `test_command_injection.py`: Tests command injection detection and blocking.
 - **Guidelines**:
   - Handle degenerate inputs (e.g., empty lists, max-length fields).
-  - Simulate attacks (e.g., SQL injection, XSS).
+  - Simulate attacks (e.g., SQL injection, XSS, path traversal).
   - Ensure the proxy does not crash or leak sensitive data.
 
 ## Coverage Goals
@@ -85,6 +89,17 @@ This document describes the test types, coverage goals, and guidelines for writi
   def test_ja4_does_not_crash(cipher_list, ext_list, sni):
       result = generator.generate_ja4(client_hello_fields)
       assert isinstance(result, str)
+  ```
+
+- **Do** test adversarial inputs:
+  ```python
+  @pytest.mark.parametrize("malicious_input", [
+      "<script>alert('XSS')</script>",
+      "'; DROP TABLE users--",
+  ])
+  def test_adversarial_input_blocked(self, evaluator, malicious_input):
+      result = evaluator.evaluate_input(malicious_input)
+      assert result.is_malicious
   ```
 - **Do** use fixtures for setup:
   ```python
