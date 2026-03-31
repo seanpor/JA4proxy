@@ -32,31 +32,38 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Implement supply chain integrity monitoring and eBPF/XDP NIC-level blocking.)
 *   **Action Plan:** [PHASE_35.md](PHASE_35.md)
 
-### Phase 42 — Zero-Downtime Data Upgrades (GeoIP & Config)
-*   **Status:** **PROPOSED** (Enable atomic hot-reloading of large data files and configuration without process restart.)
-*   **Action Plan:** [PHASE_42.md](PHASE_42.md)
-
 ### Phase 43 — Blue/Green Deployment & Rollback Tooling
 *   **Status:** **PROPOSED** (Tooling for parallel container releases and rapid traffic-shifting via load balancer.)
 *   **Action Plan:** [PHASE_43.md](PHASE_43.md)
 
-### Phase 44 — Management UI - Phase 2: Frontend Dashboard
+### Phase 46 — Coverage Improvement
+*   **Status:** **PROPOSED** (Improve coverage for low-coverage modules and achieve >80% coverage for all critical modules.)
+*   **Action Plan:** [PHASE_46_COVERAGE.md](PHASE_46_COVERAGE.md)
+
+### Phase 51 — Management UI - Phase 2: Frontend Dashboard
 *   **Status:** **PROPOSED** (React-based dashboard for real-time visualization of proxy telemetry.)
+*   **Action Plan:** [PHASE_51.md](PHASE_51.md)
 
-### Phase 45 — Management UI - Phase 3: Administration Tools
+### Phase 52 — Management UI - Phase 3: Administration Tools
 *   **Status:** **PROPOSED** (Interactive tools for managing allowlists, bans, and system configuration.)
+*   **Action Plan:** [PHASE_52.md](PHASE_52.md)
 
-### Phase 46 — Advanced Traffic Intelligence - Phase 2: Secondary Feeds
+### Phase 53 — Advanced Traffic Intelligence - Phase 2: Secondary Feeds
 *   **Status:** **PROPOSED** (Integrate specialized threat intelligence feeds (e.g., MISP, ThreatFox, VirusTotal).)
+*   **Action Plan:** [PHASE_53.md](PHASE_53.md)
 
-### Phase 47 — Advanced Traffic Intelligence - Phase 5: Behavioral Attribution
+### Phase 54 — Advanced Traffic Intelligence - Phase 5: Behavioral Attribution
 *   **Status:** **PROPOSED** (Implement complex behavioral patterns and cross-IP correlation.)
+*   **Action Plan:** [PHASE_54.md](PHASE_54.md)
 
-### Phase 48 — APT Hardening - Phase 2: Advanced Detection & Container Security
+### Phase 55 — APT Hardening - Phase 2: Advanced Detection & Container Security
 *   **Status:** **PROPOSED** (Implement subnet correlation, anti-evasion checks, and strict Seccomp/AppArmor profiles.)
+*   **Action Plan:** [PHASE_55.md](PHASE_55.md)
 
-### Phase 49 — Advanced APT - Phase 2: Deceptive Defense & Persistence Defense
+### Phase 56 — Advanced APT - Phase 2: Deceptive Defense & Persistence Defense
 *   **Status:** **PROPOSED** (Implement honey-fingerprints, honey-SNIs, and runtime process namespace isolation.)
+*   **Action Plan:** [PHASE_56.md](PHASE_56.md)
 
-### Phase 50 — Backup System Enhancements - Phase 3: Cloud & Incrementals
+### Phase 57 — Backup System Enhancements - Phase 3: Cloud & Incrementals
 *   **Status:** **PROPOSED** (Add cloud storage adapters (S3/GCS) and incremental backup strategy.)
+*   **Action Plan:** [PHASE_57.md](PHASE_57.md)

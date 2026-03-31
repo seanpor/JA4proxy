@@ -234,20 +234,49 @@ class GeoIPLookup:
 
     def __init__(self, db_path: str = None):
         self.db = None
+        self.current_path = None
         self.logger = logging.getLogger(__name__)
         if not GEOIP_AVAILABLE:
             self.logger.warning("IP2Location not installed - country lookup disabled")
             return
+        self.reload(db_path)
+
+    def reload(self, db_path: str = None) -> bool:
+        """Atomic hot-reload of the GeoIP database file.
+        
+        Args:
+            db_path: Path to the new database file. If None, uses DB_PATHS.
+            
+        Returns:
+            True if reload was successful, False otherwise.
+        """
         paths = [db_path] if db_path else self.DB_PATHS
         for p in paths:
-            if os.path.exists(p):
+            if p and os.path.exists(p):
                 try:
-                    self.db = IP2Location.IP2Location(p)
-                    self.logger.info(f"GeoIP database loaded: {p}")
-                    return
+                    # Phase 42b: Validation before swapping
+                    # We load it into a temporary object first
+                    new_db = IP2Location.IP2Location(p)
+                    # Simple test lookup to ensure it works
+                    new_db.get_country_short("8.8.8.8")
+                    
+                    # Atomic swap
+                    old_db = self.db
+                    self.db = new_db
+                    self.current_path = p
+                    
+                    # Explicitly close old DB if supported/needed
+                    # IP2Location-Python doesn't have an explicit close() but we 
+                    # let the old object be garbage collected.
+                    
+                    self.logger.info(f"GeoIP database hot-reloaded: {p}")
+                    return True
                 except Exception as e:
-                    self.logger.error(f"Failed to load GeoIP database {p}: {e}")
-        self.logger.warning("No GeoIP database found - country lookup disabled")
+                    self.logger.error(f"Failed to hot-reload GeoIP database {p}: {e}")
+        
+        if not self.db:
+            self.logger.warning("No GeoIP database found - country lookup disabled")
+        return False
 
     def lookup(self, ip: str) -> str:
         """Return ISO 3166-1 alpha-2 country code for an IP, or '' if unknown."""
@@ -1359,7 +1388,47 @@ class ProxyServer:
         self._tarpit_concurrent = 0
         self._tarpit_per_ip = {}
         self._tarpit_lock = asyncio.Lock()
+
+        # Phase 42: Register hot-reload callback
+        self.config_loader.on_reload(self._on_config_reload)
+
         return self
+
+    async def _on_config_reload(self, new_config: dict) -> None:
+        """Callback for hot-reloading components when config changes."""
+        self.logger.info("proxy | event=hot_reload_triggered")
+        self.config = new_config
+        
+        # 1. Update GeoIP if path changed
+        new_geoip_path = new_config.get("geoip", {}).get("database_path")
+        if new_geoip_path != self.geoip.current_path:
+            self.geoip.reload(new_geoip_path)
+            
+        # 2. Update Pipeline (RiskScorer, ActionDecider)
+        from src.security.action_decider import ActionDecider
+        from src.security.risk_scorer import RiskScorer
+        
+        new_scorer = RiskScorer.from_config(new_config)
+        new_decider = ActionDecider.from_config(new_config)
+        self.pipeline.update_scorer(new_scorer, new_decider)
+        
+        # 3. Update TI Providers
+        if hasattr(self, "greynoise_provider") and self.greynoise_provider:
+            self.greynoise_provider.on_config_reload(new_config)
+        if hasattr(self, "alienvault_provider") and self.alienvault_provider:
+            self.alienvault_provider.on_config_reload(new_config)
+        if hasattr(self, "_abuseipdb_checker") and self._abuseipdb_checker:
+            from src.security.abuseipdb import AbuseIPDBConfig
+            self._abuseipdb_checker.on_config_reload(AbuseIPDBConfig.from_config(new_config))
+        if hasattr(self, "_rdap_enricher") and self._rdap_enricher:
+            from src.security.rdap_enrichment import RDAPConfig
+            self._rdap_enricher.on_config_reload(new_config)
+            
+        # 4. Update Health Monitor
+        self.health_monitor.config = new_config
+        self.health_monitor.geoip_path = new_geoip_path
+        
+        self.logger.info("proxy | event=hot_reload_complete")
 
     async def _populate_security_lists(self):
         """Pre-populate Redis whitelist and blacklist from config."""

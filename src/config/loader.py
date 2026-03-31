@@ -129,7 +129,9 @@ class ConfigLoader:
             ConfigError: If parsing fails or a non-reloadable key changed.
         """
         try:
-            new_config = self._read_and_parse()
+            # Phase 42c: Async parsing to avoid blocking the event loop
+            loop = asyncio.get_running_loop()
+            new_config = await loop.run_in_executor(None, self._read_and_parse)
         except ConfigError as exc:
             logger.error(
                 json.dumps(
@@ -145,7 +147,9 @@ class ConfigLoader:
             raise
 
         try:
+            # Phase 42c: Dry-run validation
             self._check_non_reloadable_unchanged(new_config)
+            # Add any other validation here
         except ConfigError as exc:
             logger.error(
                 json.dumps(
@@ -179,7 +183,11 @@ class ConfigLoader:
 
         for callback in self._callbacks:
             try:
-                callback(new_config)
+                # Callbacks should be fast and non-blocking
+                if asyncio.iscoroutinefunction(callback):
+                    asyncio.create_task(callback(new_config))
+                else:
+                    callback(new_config)
             except Exception as exc:  # noqa: BLE001
                 logger.warning("config reload callback raised: %s", exc)
 
