@@ -728,6 +728,13 @@ def _make_shutdown_server_stub(drain_timeout: float = 0.5, active: int = 0):
     s.health_server = MagicMock()
     s.health_server.start = AsyncMock()
     s.health_server.stop = AsyncMock()
+    s.greynoise_provider = MagicMock()
+    s.greynoise_provider.start = AsyncMock()
+    s.greynoise_provider.stop = AsyncMock()
+    s.alienvault_provider = MagicMock()
+    s.alienvault_provider.start = AsyncMock()
+    s.alienvault_provider.stop = AsyncMock()
+    s.pipeline.set_ti_providers = MagicMock()
     return s
 
 

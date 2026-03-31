@@ -10,7 +10,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, List
+from typing import TYPE_CHECKING, List, Optional
 
 import redis
 from prometheus_client import Counter, Gauge
@@ -198,7 +198,7 @@ class AlienVaultOTXProvider(TIProvider):
         
         try:
             async with self._session.get(
-                url, headers=headers, timeout=self._config.lookup_timeout_seconds
+                url, headers=headers, timeout=aiohttp.ClientTimeout(total=self._config.lookup_timeout_seconds)
             ) as resp:
                 if resp.status == 200:
                     data = await resp.json()

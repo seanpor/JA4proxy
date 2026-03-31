@@ -1237,13 +1237,13 @@ class ProxyServer:
             config=GreyNoiseConfig.from_config(self.config),
             redis_client=self.redis_client,
             local_cache=self._local_cache,
-            session=self._session,
+            session=self._aiohttp_session,
         )
         self.alienvault_provider = AlienVaultOTXProvider(
             config=OTXConfig.from_config(self.config),
             redis_client=self.redis_client,
             local_cache=self._local_cache,
-            session=self._session,
+            session=self._aiohttp_session,
         )
 
         # Initialize GeoIP lookup
