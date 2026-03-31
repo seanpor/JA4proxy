@@ -135,7 +135,7 @@ class ThreatFoxProvider(TIProvider):
             _CACHE_HIT_RATIO.set(self._hits / self._total)
         _QUEUE_DEPTH.set(self._queue.qsize())
 
-    def _to_signal(self, ip: str, data: dict) -> Optional[RiskSignal]:
+    def _to_signal(self, ip: str, data: dict, confidence_weight: float = 1.0) -> Optional[RiskSignal]:
         """Convert cached ThreatFox data to a RiskSignal."""
         ioc_count = data.get("ioc_count", 0)
         if ioc_count == 0:
@@ -147,7 +147,8 @@ class ThreatFoxProvider(TIProvider):
         return RiskSignal(
             name="threatfox",
             score=score,
-            reason=f"ThreatFox associated with {ioc_count} IOC(s)"
+            reason=f"ThreatFox associated with {ioc_count} IOC(s)",
+            weight=confidence_weight
         )
 
     async def _maybe_lookup(self, ip: str) -> None:

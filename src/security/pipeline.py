@@ -74,6 +74,9 @@ from .virustotal import VirusTotalProvider
 from .write_buffer import WriteBuffer
 
 if TYPE_CHECKING:
+    from .confidence_manager import ConfidenceManager
+
+if TYPE_CHECKING:
     from ..cache.local_cache import LocalCache
 
 logger = logging.getLogger(__name__)
@@ -361,6 +364,8 @@ class Pipeline:
         self._ja4x_blacklist: set[str] = set()
         # Phase 32: Attacker Attribution
         self._attribution_manager = AttributionManager(redis_client, config)
+        # Phase 47: Confidence manager (injected by proxy)
+        self._confidence_manager: Any | None = None
 
     def _load_blocklist_feeds(self, config: dict) -> None:
         """Load any static/pre-populated blocklist feeds from config."""
@@ -410,6 +415,10 @@ class Pipeline:
         self._misp_provider = misp
         self._threatfox_provider = threatfox
         self._virustotal_provider = virustotal
+
+    def set_confidence_manager(self, confidence_manager: Any | None) -> None:
+        """Wire in Phase 47 confidence manager. Called after start()."""
+        self._confidence_manager = confidence_manager
 
     async def _get_analytics_signals(self, ip: str) -> list:
         """Read analytics cross-instance signals from Redis (Phase 12).
@@ -510,7 +519,6 @@ class Pipeline:
         self._allowlist.reload(new_config)
         self._tls_enforcer.on_config_reload(new_config)
         self._sni_analyzer.on_config_reload(new_config)
-        self._attribution_manager.on_config_reload(new_config)
 
     async def process(self, ctx: ConnectionContext) -> PipelineResult:
         """Process one connection through the full pipeline.
@@ -1061,20 +1069,6 @@ class Pipeline:
                 _SIGNAL_ERROR.labels(module="analytics").inc()
                 return []
 
-        async def _collect_attribution_signals():
-            try:
-                signal = await self._attribution_manager.get_signal(ctx)
-                return [signal] if signal is not None else []
-            except Exception as exc:
-                logger.error(
-                    "attribution | event=signal_error | ip=%s | error=%s",
-                    ctx.client_ip,
-                    exc,
-                    exc_info=True,
-                )
-                _SIGNAL_ERROR.labels(module="attribution").inc()
-                return []
-
         async def _collect_greynoise_signals():
             if self._greynoise_provider is None:
                 return []
@@ -1112,6 +1106,11 @@ class Pipeline:
                 return []
             try:
                 signal = self._misp_provider.get_signal(ctx.client_ip)
+                if signal is not None:
+                    # Apply confidence weight if confidence manager is available
+                    if hasattr(self, '_confidence_manager') and self._confidence_manager:
+                        confidence_weight = self._confidence_manager.get_confidence_weight("misp")
+                        signal.weight = confidence_weight
                 return [signal] if signal is not None else []
             except Exception as exc:
                 logger.error(
@@ -1128,6 +1127,11 @@ class Pipeline:
                 return []
             try:
                 signal = self._threatfox_provider.get_signal(ctx.client_ip)
+                if signal is not None:
+                    # Apply confidence weight if confidence manager is available
+                    if hasattr(self, '_confidence_manager') and self._confidence_manager:
+                        confidence_weight = self._confidence_manager.get_confidence_weight("threatfox")
+                        signal.weight = confidence_weight
                 return [signal] if signal is not None else []
             except Exception as exc:
                 logger.error(
@@ -1144,6 +1148,11 @@ class Pipeline:
                 return []
             try:
                 signal = self._virustotal_provider.get_signal(ctx.client_ip)
+                if signal is not None:
+                    # Apply confidence weight if confidence manager is available
+                    if hasattr(self, '_confidence_manager') and self._confidence_manager:
+                        confidence_weight = self._confidence_manager.get_confidence_weight("virustotal")
+                        signal.weight = confidence_weight
                 return [signal] if signal is not None else []
             except Exception as exc:
                 logger.error(
@@ -1165,7 +1174,6 @@ class Pipeline:
             _collect_abuseipdb_signals(),
             _collect_rdap_signals(),
             _collect_analytics_signals(),
-            _collect_attribution_signals(),
             _collect_greynoise_signals(),
             _collect_alienvault_signals(),
             _collect_misp_signals(),

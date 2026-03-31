@@ -139,7 +139,7 @@ class MISPProvider(TIProvider):
             _CACHE_HIT_RATIO.set(self._hits / self._total)
         _QUEUE_DEPTH.set(self._queue.qsize())
 
-    def _to_signal(self, ip: str, data: dict) -> Optional[RiskSignal]:
+    def _to_signal(self, ip: str, data: dict, confidence_weight: float = 1.0) -> Optional[RiskSignal]:
         """Convert cached MISP data to a RiskSignal."""
         attribute_count = data.get("attribute_count", 0)
         if attribute_count == 0:
@@ -151,7 +151,8 @@ class MISPProvider(TIProvider):
         return RiskSignal(
             name="misp",
             score=score,
-            reason=f"MISP associated with {attribute_count} attribute(s)"
+            reason=f"MISP associated with {attribute_count} attribute(s)",
+            weight=confidence_weight
         )
 
     async def _maybe_lookup(self, ip: str) -> None:

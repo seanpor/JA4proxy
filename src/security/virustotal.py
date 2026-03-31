@@ -153,7 +153,7 @@ class VirusTotalProvider(TIProvider):
         _QUEUE_DEPTH.set(self._queue.qsize())
         _QUOTA_REMAINING.set(max(0, self._config.daily_quota - self._quota_used_today))
 
-    def _to_signal(self, ip: str, data: dict) -> Optional[RiskSignal]:
+    def _to_signal(self, ip: str, data: dict, confidence_weight: float = 1.0) -> Optional[RiskSignal]:
         """Convert cached VirusTotal data to a RiskSignal."""
         malicious_count = data.get("malicious_count", 0)
         suspicious_count = data.get("suspicious_count", 0)
@@ -180,7 +180,8 @@ class VirusTotalProvider(TIProvider):
         return RiskSignal(
             name="virustotal",
             score=score,
-            reason=reason
+            reason=reason,
+            weight=confidence_weight
         )
 
     async def _maybe_lookup(self, ip: str) -> None:
