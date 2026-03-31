@@ -42,7 +42,7 @@ USER proxy
 ENV PYTHONUNBUFFERED=1
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD wget --spider -q http://localhost:9090/metrics || exit 1
+    CMD wget --spider -q http://localhost:9090/health || exit 1
 
 # Expose ports
 EXPOSE 8080 9090

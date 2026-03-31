@@ -40,10 +40,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Add AES-256-GCM encryption at rest and DSAR compliance utility.)
 *   **Action Plan:** [PHASE_40_BACKUP_PLAN.md](PHASE_40_BACKUP_PLAN.md)
 
-### Phase 41 — Robust Health Check API & Anti-Flap Logic
-*   **Status:** **PROPOSED** (Implement deep health/readiness endpoints and hysteresis to prevent status flapping.)
-*   **Action Plan:** [PHASE_41.md](PHASE_41.md)
-
 ### Phase 42 — Zero-Downtime Data Upgrades (GeoIP & Config)
 *   **Status:** **PROPOSED** (Enable atomic hot-reloading of large data files and configuration without process restart.)
 *   **Action Plan:** [PHASE_42.md](PHASE_42.md)
