@@ -5,11 +5,11 @@ epics:
     
   - name: "Epic: Security Hardening"
     description: "Deep security analysis, compliance, and audit remediation."
-    phases: [1, 3, 4, 5, 8, 10, 11, 14, 16, 18, 22, 25, 27, 30, 34, 35, 37, 38]
+    phases: [1, 3, 4, 5, 8, 10, 11, 14, 16, 18, 22, 25, 27, 30, 34, 35, 37, 38, 48, 49]
     
   - name: "Epic: Analytics & Intelligence"
     description: "Cross-instance behavior analysis and threat intelligence."
-    phases: [6, 7, 9, 12, 23, 31, 32, 33]
+    phases: [6, 7, 9, 12, 23, 31, 32, 33, 46, 47]
     
   - name: "Epic: Next-Gen Passive Capture"
     description: "Out-of-band monitoring and enforcement."
@@ -17,11 +17,11 @@ epics:
     
   - name: "Epic: User Interface & Experience"
     description: "Management dashboards and documentation quality."
-    phases: [2, 13, 19, 21, 39]
+    phases: [2, 13, 19, 21, 39, 44, 45]
 
   - name: "Epic: Operational Excellence & Lifecycle Management"
     description: "Zero-downtime upgrades, robust health monitoring, and deployment orchestration."
-    phases: [41, 42, 43]
+    phases: [40, 41, 42, 43, 50]
 
 phases:
   0:
@@ -116,12 +116,27 @@ phases:
     summary: "Cross-instance statistical analysis via Redis Streams. Campaign/slow-scan signals, drift alerting, Grafana dashboard, HyperLogLog, hot-reload."
     
   13:
-    name: "Management UI"
+    name: "Management UI - Phase 1: Backend API"
     status: "DEFERRED"
-    summary: "FastAPI + React dashboard for real-time monitoring."
+    summary: "FastAPI backend for real-time monitoring and configuration management."
     action_plan: "docs/phases/details/PHASE_13_WORK_PLAN.md"
     dependencies: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15]
+    size: "SMALL"
     
+  44:
+    name: "Management UI - Phase 2: Frontend Dashboard"
+    status: "PROPOSED"
+    summary: "React-based dashboard for real-time visualization of proxy telemetry."
+    dependencies: [13]
+    size: "SMALL"
+
+  45:
+    name: "Management UI - Phase 3: Administration Tools"
+    status: "PROPOSED"
+    summary: "Interactive tools for managing allowlists, bans, and system configuration."
+    dependencies: [44]
+    size: "SMALL"
+
   14:
     name: "Production Hardening"
     status: "COMPLETE"
@@ -187,7 +202,7 @@ phases:
     completed: "2026-03-29"
     action_plan: "docs/phases/details/PHASE_22_WORK_PLAN.md"
     dependencies: [19]
-    size: "SMALL"  # 1-2 weeks: Core backup enhancements
+    size: "SMALL"
     gaps: []
     success_criteria:
       - "Scheduled backups working with cron syntax"
@@ -195,74 +210,99 @@ phases:
       - "Restore validation prevents silent failures"
 
   40:
-    name: "Backup System Enhancements - Phase 2: Enterprise Features & Compliance"
+    name: "Backup System Enhancements - Phase 2: Security & Compliance"
     status: "PROPOSED"
-    summary: "Add encryption at rest, cloud storage adapters, incremental backups, and DSAR compliance utility."
+    summary: "Add AES-256-GCM encryption at rest and DSAR compliance utility."
     action_plan: "docs/phases/details/PHASE_40_BACKUP_PLAN.md"
     dependencies: [22]
-    size: "LARGE"
+    size: "SMALL"
     gaps:
       - "P19-G5: DSAR utility (ja4proxy-admin backup redact --ip) for GDPR compliance"
       - "P22-G1: AES-256-GCM encryption at rest for backup artifacts"
-      - "P22-G2: Cloud storage adapters (S3, GCS, Azure Blob Storage)"
-      - "P22-G3: Incremental backup strategy (track changed keys since last full)"
       - "P22-G4: Redis-based distributed locking for backup concurrency control"
     success_criteria:
       - "Backup artifacts encrypted with authenticated encryption (GCM)"
-      - "Successful offsite backup to at least one cloud provider"
-      - "Incremental backups significantly reduce backup window for large datasets"
       - "DSAR utility successfully redacts IP addresses from backup archives"
 
-  23:
-    name: "Advanced Traffic Intelligence - Phase 1: Threat Intelligence Integration"
+  50:
+    name: "Backup System Enhancements - Phase 3: Cloud & Incrementals"
     status: "PROPOSED"
-    summary: "Integrate external threat intelligence feeds (AbuseIPDB, AlienVault OTX, GreyNoise). Target: Real-time IP reputation."
+    summary: "Add cloud storage adapters (S3/GCS) and incremental backup strategy."
+    dependencies: [40]
+    size: "SMALL"
+    gaps:
+      - "P22-G2: Cloud storage adapters (S3, GCS, Azure Blob Storage)"
+      - "P22-G3: Incremental backup strategy (track changed keys since last full)"
+    success_criteria:
+      - "Successful offsite backup to at least one cloud provider"
+      - "Incremental backups significantly reduce backup window for large datasets"
+
+  23:
+    name: "Advanced Traffic Intelligence - Phase 1: Primary Feeds"
+    status: "PROPOSED"
+    summary: "Integrate AbuseIPDB and GreyNoise feeds for real-time IP reputation."
     action_plan: "docs/phases/details/PHASE_23_WORK_PLAN.md"
     dependencies: [12]
-    size: "MEDIUM"  # 3-4 weeks: API integrations and data processing
+    size: "SMALL"
     success_criteria:
-      - "≥3 threat intelligence feeds integrated"
+      - "AbuseIPDB and GreyNoise feeds integrated"
       - "Real-time IP reputation lookup < 50ms"
-      - "Cache hit rate ≥95%"
+
+  46:
+    name: "Advanced Traffic Intelligence - Phase 2: Secondary Feeds"
+    status: "PROPOSED"
+    summary: "Integrate AlienVault OTX and specialized threat intelligence feeds."
+    dependencies: [23]
+    size: "SMALL"
+    success_criteria:
+      - "AlienVault OTX integrated"
+      - "Cache hit rate ≥95% for reputation lookups"
 
   31:
-    name: "Advanced Traffic Intelligence - Phase 2: Geographical Intelligence"
+    name: "Advanced Traffic Intelligence - Phase 3: Geographical Intelligence"
     status: "PROPOSED"
     summary: "Add GeoIP lookup and country-based blocking capabilities. Target: Geographical threat analysis."
     action_plan: "docs/phases/PHASE_31_WORK_PLAN.md"
     dependencies: [23]
-    size: "SMALL"  # 1-2 weeks: GeoIP integration
+    size: "SMALL"
     success_criteria:
       - "GeoIP lookup accuracy ≥98%"
       - "Country blocking functional"
-      - "Geographical heatmap visualization"
 
   32:
-    name: "Advanced Traffic Intelligence - Phase 3: Attacker Attribution"
+    name: "Advanced Traffic Intelligence - Phase 4: Attacker Attribution"
     status: "PROPOSED"
-    summary: "Implement attacker fingerprinting and behavioral correlation. Target: Advanced threat detection."
+    summary: "Implement attacker fingerprinting and JA4 correlation logic."
     action_plan: "docs/phases/PHASE_32_WORK_PLAN.md"
     dependencies: [31]
-    size: "MEDIUM"  # 3-4 weeks: Complex correlation logic
+    size: "SMALL"
     success_criteria:
       - "Attacker fingerprinting working"
-      - "Behavioral patterns detected"
       - "False positive rate < 1%"
 
+  47:
+    name: "Advanced Traffic Intelligence - Phase 5: Behavioral Attribution"
+    status: "PROPOSED"
+    summary: "Implement complex behavioral patterns and cross-IP correlation."
+    dependencies: [32]
+    size: "SMALL"
+    success_criteria:
+      - "Behavioral patterns detected"
+      - "Correlation logic validated against test corpus"
+
   33:
-    name: "Advanced Traffic Intelligence - Phase 4: Documentation Diagrams"
+    name: "Advanced Traffic Intelligence - Phase 6: Documentation Diagrams"
     status: "COMPLETE"
     summary: "Standardize all documentation diagrams to Mermaid format for consistent rendering."
     completed: "2026-03-30"
     action_plan: "docs/phases/details/PHASE_33_WORK_PLAN.md"
     dependencies: []
-    size: "SMALL"  # 1-2 weeks: Documentation improvement
+    size: "SMALL"
     gaps:
       - "Diagrams not standardized to Mermaid format for consistent rendering"
     success_criteria:
       - "All architecture diagrams in Mermaid format"
       - "Diagrams render correctly in GitHub/GitLab"
-      - "Documentation build passes with no warnings"
 
   24:
     name: "Go Strategy Assessment"
@@ -306,11 +346,10 @@ phases:
     completed: "2026-03-28"
     action_plan: "docs/phases/details/PHASE_28_WORK_PLAN.md"
     dependencies: [26]
-    size: "SMALL"  # 1-2 weeks: Redis performance tuning
+    size: "SMALL"
     success_criteria:
       - "Redis round-trip time < 1ms (local)"
       - "Batch operations reduce queries by ≥60%"
-      - "Unix socket connection established"
 
   29:
     name: "Python Throughput Hardening - Phase 3: Multi-Process Architecture"
@@ -321,10 +360,9 @@ phases:
     completed: "2026-03-28"
     action_plan: "docs/phases/details/PHASE_29_WORK_PLAN.md"
     dependencies: [28]
-    size: "MEDIUM"  # 3-4 weeks: Architecture change
+    size: "MEDIUM"
     success_criteria:
       - "4-worker setup achieves ≥3,200 conn/s"
-      - "Memory footprint < 200MB per worker"
       - "HAProxy health checks working"
 
   30:
@@ -336,24 +374,51 @@ phases:
     completed: "2026-03-28"
     action_plan: "docs/phases/details/PHASE_30_THROUGHPUT_PLAN.md"
     dependencies: [29]
-    size: "SMALL"  # 1-2 weeks: Final optimizations
+    size: "SMALL"
     success_criteria:
       - "WriteBuffer reduces Redis writes by ≥50%"
       - "Comprehensive benchmark report generated"
-      - "All targets met: ≥800 conn/s single, ≥3,200 conn/s multi"
 
   34:
-    name: "APT Resilience & Infrastructure Hardening"
+    name: "APT Hardening - Phase 1: Parser Isolation & Redis Security"
     status: "PROPOSED"
-    summary: "Defense-in-depth: Parser isolation, Redis mTLS/ACLs, long-tail correlation, and strict container seccomp profiles."
+    summary: "Implement parser process isolation and Zero-Trust Redis ACLs with signatures."
     action_plan: "docs/phases/PHASE_34.md"
+    size: "SMALL"
+    success_criteria:
+      - "Scapy parsing moved to isolated process pool"
+      - "Redis communication uses TLS and ACLs"
+      - "Critical security lists are cryptographically signed"
+
+  48:
+    name: "APT Hardening - Phase 2: Advanced Detection & Container Security"
+    status: "PROPOSED"
+    summary: "Implement subnet correlation, anti-evasion checks, and strict Seccomp/AppArmor profiles."
+    dependencies: [34]
+    size: "SMALL"
+    success_criteria:
+      - "Strict Seccomp/AppArmor profiles enforced"
+      - "Subnet-level signal correlation functional"
 
   35:
-    name: "Advanced APT Countermeasures & Integrity Enforcement"
+    name: "Advanced APT - Phase 1: Integrity Enforcement & Kernel-Level"
     status: "PROPOSED"
-    summary: "Proactive defense: Hardware-rooted integrity, eBPF-based kernel-level enforcement, honey-fingerprints, and two-stage seccomp lockdown."
+    summary: "Implement supply chain integrity monitoring and eBPF/XDP NIC-level blocking."
     action_plan: "docs/phases/PHASE_35.md"
-    dependencies: [34]
+    size: "SMALL"
+    success_criteria:
+      - "Configuration and code integrity verified on startup"
+      - "eBPF maps synchronized with blacklisted IPs"
+
+  49:
+    name: "Advanced APT - Phase 2: Deceptive Defense & Persistence Defense"
+    status: "PROPOSED"
+    summary: "Implement honey-fingerprints, honey-SNIs, and runtime process namespace isolation."
+    dependencies: [35]
+    size: "SMALL"
+    success_criteria:
+      - "Honey-fingerprint triggers immediately blacklist suspects"
+      - "Runtime filesystem is immutable with tmpfs overlays"
 
   36:
     name: "Go Test Quality & Parity Gaps"
@@ -366,12 +431,8 @@ phases:
     gaps:
       - "G36-1: FIXED - TestJA4_FixturesParity now reads from known_ja4.json"
       - "G36-2: FIXED - Added real certificate test with format verification"
-      - "G36-3: FIXED - Added parity test comparing Go JA4X output with Python reference"
-      - "G36-4: N/A - JA4S/L/H/SSH are TAP-only features, not part of Go proxy"
-      - "G36-5: FIXED - Added JA4X benchmarks"
     success_criteria:
       - "TestJA4_FixturesParity runs and passes against 4 fixtures"
-      - "JA4X tests include real certificate parsing"
       - "Cross-language JA4X parity verified"
 
   37:
@@ -379,20 +440,20 @@ phases:
     status: "COMPLETE"
     test_coverage: "100%"
     doc_status: "COMPLETE"
-    summary: "Fixed make lint and make lint-static: black reformatted 79 files, removed ~65 unused imports, fixed 15 mypy errors, added .flake8 config, acknowledged pygments CVE."
+    summary: "Fixed make lint and make lint-static: black reformatted 79 files, removed ~65 unused imports, fixed 15 mypy errors."
     action_plan: "docs/phases/PHASE_37.md"
 
   38:
     name: "ISP Blocking Operations"
     status: "COMPLETE"
-    summary: "Establish comprehensive operational procedures for identifying, implementing, monitoring, and maintaining blocks against malicious ISPs and organizations."
+    summary: "Establish comprehensive operational procedures for identifying, implementing, monitoring, and maintaining blocks against malicious ISPs."
     action_plan: "docs/phases/PHASE_38.md"
     dependencies: [11, 14, 19]
 
   39:
     name: "Documentation Audit & Synchronization"
     status: "COMPLETE"
-    summary: "Audit all phase documentation, synchronize manifest/todo, and ensure clear status indicators across all files."
+    summary: "Audit all phase documentation, synchronize manifest/todo, and ensure clear status indicators."
     completed: "2026-03-28"
     action_plan: "docs/phases/PHASE_39.md"
 

@@ -110,37 +110,44 @@ Practical rules that flow from this:
 | 10 | AbuseIPDB integration | Scored reputation lookup with aggressive caching | [PHASE_10.md](docs/phases/PHASE_10.md) |
 | 11 | RDAP enrichment & block expansion | Org reputation; /24 block expansion; WHOIS pivot | [PHASE_11.md](docs/phases/PHASE_11.md) |
 | 12 | Analytics node | Cross-instance aggregation; campaign/slow-scan detection; **score drift alerting** | [PHASE_12.md](docs/phases/PHASE_12.md) |
-| 13 | Management UI *(deferred — implement after Phase 15)* | Live feed; JA4 candidates; IP management; dial control | [PHASE_13.md](docs/phases/PHASE_13.md) |
+| 13 | Management UI - Ph 1: Backend API | FastAPI backend for real-time monitoring and configuration management | [PHASE_13_WORK_PLAN.md](docs/phases/details/PHASE_13_WORK_PLAN.md) |
+| 44 | Management UI - Ph 2: Frontend Dashboard | React-based dashboard for real-time visualization of proxy telemetry | [PHASE_44.md](docs/phases/PHASE_44.md) |
+| 45 | Management UI - Ph 3: Admin Tools | Interactive tools for managing allowlists, bans, and configuration | [PHASE_45.md](docs/phases/PHASE_45.md) |
 | 14 | Production hardening | Secrets, Redis security, resource limits, observability, **tarpit self-protection** | [PHASE_14.md](docs/phases/PHASE_14.md) |
-| 15 | Go rewrite (87.5% complete) | 10–50× throughput; GIL removed; multi-core TLS parsing — core complete, validation ongoing | [PHASE_15.md](docs/phases/PHASE_15.md) |
-| 16 | Extended fingerprinting | JA4X cert fingerprinting; adaptive rate limiting; coverage gates; OpenTelemetry tracing | [PHASE_16.md](docs/phases/PHASE_16.md) |
+| 15 | **Go rewrite** | 10–50× throughput; Feature parity achieved including JA4X and Lua embedding | [PHASE_15.md](docs/phases/PHASE_15.md) |
+| 16 | Extended fingerprinting | JA4X fingerprinting; adaptive rate limiting; coverage gates; OpenTelemetry tracing | [PHASE_16.md](docs/phases/PHASE_16.md) |
 | 17 | Docker test optimisation | Fix Docker test container hang during teardown; zero-skip test policy | [PHASE_17.md](docs/phases/PHASE_17.md) |
-| 18 | Security audit remediation | Specific exception types; lazy-format logging; `SignalCollector` Protocol; pipeline error metrics | [PHASE_17b.md](docs/phases/PHASE_17b.md) |
+| 18 | Security audit remediation | Specific exception types; lazy-format logging; `SignalCollector` Protocol | [PHASE_17b.md](docs/phases/PHASE_17b.md) |
 | 19 | Backup & restore framework | Deterministic key enumeration; binary format; retention; CLI; observability | [PHASE_19.md](docs/phases/PHASE_19.md) |
-| 20 | Passive TAP mode | AF_PACKET capture; out-of-band enforcement; backup schedule executor; restore hardening | [PHASE_20.md](docs/phases/PHASE_20.md) |
-| 21 | **Documentation excellence** | Audience-first navigation, missing ADRs, GDPR hardening, operator/developer packs, docs-as-code CI | [PHASE_21.md](docs/phases/PHASE_21.md) |
-| 22 | Backup system enhancements *(proposed)* | Encryption; cloud storage; incremental backups; pipeline batching | [PHASE_22.md](docs/phases/PHASE_22.md) |
-| 23 | Advanced traffic intelligence *(proposed)* | Attacker attribution; geo intelligence; threat-intel feeds; cross-instance ML | [PHASE_23.md](docs/phases/PHASE_23.md) |
-| 24 | Go strategy assessment *(closed)* | TLS parsing is not the bottleneck; gRPC IPC would add overhead; see Phase 26 | [PHASE_24_STRATEGY_ASSESSMENT.md](docs/phases/PHASE_24_STRATEGY_ASSESSMENT.md) |
+| 20 | Passive TAP mode | AF_PACKET capture; out-of-band enforcement; backup schedule executor | [PHASE_20.md](docs/phases/PHASE_20.md) |
+| 21 | **Documentation excellence** | Audience-first navigation, missing ADRs, GDPR hardening, operator/developer packs | [PHASE_21.md](docs/phases/PHASE_21.md) |
+| 22 | Backup Enhancements - Ph 1: Core | Backup scheduling; pipeline batching; restore validation | [PHASE_22_WORK_PLAN.md](docs/phases/details/PHASE_22_WORK_PLAN.md) |
+| 40 | Backup Enhancements - Ph 2: Security | AES-256-GCM encryption at rest; DSAR compliance utility | [PHASE_40_BACKUP_PLAN.md](docs/phases/details/PHASE_40_BACKUP_PLAN.md) |
+| 50 | Backup Enhancements - Ph 3: Cloud | S3/GCS adapters; incremental backup strategy | [PHASE_50.md](docs/phases/PHASE_50.md) |
+| 23 | Advanced Intelligence - Ph 1: Primary | Integrate AbuseIPDB and GreyNoise feeds for real-time reputation | [PHASE_23_WORK_PLAN.md](docs/phases/details/PHASE_23_WORK_PLAN.md) |
+| 46 | Advanced Intelligence - Ph 2: Secondary | Integrate AlienVault OTX and specialized threat intelligence feeds | [PHASE_46.md](docs/phases/PHASE_46.md) |
+| 31 | Advanced Intelligence - Ph 3: Geo | GeoIP lookup and country-based blocking; geographical threat analysis | [PHASE_31_WORK_PLAN.md](docs/phases/PHASE_31_WORK_PLAN.md) |
+| 32 | Advanced Intelligence - Ph 4: Attribution | Attacker fingerprinting and JA4 correlation logic | [PHASE_32_WORK_PLAN.md](docs/phases/PHASE_32_WORK_PLAN.md) |
+| 47 | Advanced Intelligence - Ph 5: Behavioral | Implement complex behavioral patterns and cross-IP correlation | [PHASE_47.md](docs/phases/PHASE_47.md) |
+| 33 | Advanced Intelligence - Ph 6: Diagrams | Standardize all diagrams to Mermaid format for consistent rendering | [PHASE_33_WORK_PLAN.md](docs/phases/details/PHASE_33_WORK_PLAN.md) |
+| 24 | Go strategy assessment *(closed)* | TLS parsing is not the bottleneck; gRPC IPC would add overhead | [PHASE_24_STRATEGY_ASSESSMENT.md](docs/phases/PHASE_24_STRATEGY_ASSESSMENT.md) |
 | 25 | Docker container management | Image version pinning; CVE scan gaps; first-party scanning; update policy | [PHASE_25.md](docs/phases/PHASE_25.md) |
-| 26 | **Python throughput hardening** | Parallel signals (`asyncio.gather`); Redis pipeline batching; Unix socket; multi-process workers → ≥800 conn/s single proc, ≥3,200 conn/s × 4 workers | [PHASE_26.md](docs/phases/PHASE_26.md) |
-| 27 | Advanced Pentest Remediation | Remediate critical vulnerabilities: IP spoofing, sync/async Redis mismatch, and synchronous TLS parsing DoS | [PHASE_27.md](docs/phases/PHASE_27.md) |
-| 28 | Python Throughput Hardening - Ph 2 | Redis pipeline batching; Unix domain socket; 30-40% latency reduction | [PHASE_28_WORK_PLAN.md](docs/phases/PHASE_28_WORK_PLAN.md) |
-| 29 | Python Throughput Hardening - Ph 3 | Multi-process worker model with Docker Compose and HAProxy load balancing | [PHASE_29_WORK_PLAN.md](docs/phases/PHASE_29_WORK_PLAN.md) |
-| 30 | Python Throughput Hardening - Ph 4 | Deferred write batching; comprehensive benchmark validation | [PHASE_30_WORK_PLAN.md](docs/phases/PHASE_30_WORK_PLAN.md) |
-| 31 | Geographical Intelligence *(prop)* | GeoIP lookup and country-based blocking; geographical threat analysis | [PHASE_31_WORK_PLAN.md](docs/phases/PHASE_31_WORK_PLAN.md) |
-| 32 | Attacker Attribution *(prop)* | Attacker fingerprinting and behavioral correlation; advanced threat detection | [PHASE_32_WORK_PLAN.md](docs/phases/PHASE_32_WORK_PLAN.md) |
-| 33 | Documentation Diagrams *(prop)* | Standardize all diagrams to Mermaid format for consistent rendering | [PHASE_33_WORK_PLAN.md](docs/phases/PHASE_33_WORK_PLAN.md) |
-| 34 | APT Resilience & Hardening *(prop)* | Parser isolation; Redis mTLS/ACLs; strict container seccomp profiles | [PHASE_34.md](docs/phases/PHASE_34.md) |
-| 35 | Advanced APT Countermeasures *(prop)* | Hardware-rooted integrity; eBPF-based enforcement; honey-fingerprints | [PHASE_35.md](docs/phases/PHASE_35.md) |
-| 36 | Go Test Quality & Parity Gaps *(prop)* | Fix JA4 fixtures; real cert JA4X tests; cross-language parity; JA4S/L/H/SSH | [PHASE_36.md](docs/phases/PHASE_36.md) |
-| 37 | Lint & Static Analysis Cleanup *(prop)* | Resolve remaining mypy/ruff/bandit warnings; strictly enforced CI gates | [PHASE_37.md](docs/phases/PHASE_37.md) |
+| 26 | **Python throughput hardening** | Parallel signals (`asyncio.gather`); Redis pipeline batching; Unix socket | [PHASE_26.md](docs/phases/PHASE_26.md) |
+| 27 | Advanced Pentest Remediation | Remediate critical vulnerabilities: IP spoofing, sync/async Redis mismatch | [PHASE_27.md](docs/phases/PHASE_27.md) |
+| 28 | Python Hardening - Ph 2: Redis | Redis pipeline batching; Unix domain socket; 30-40% latency reduction | [PHASE_28_WORK_PLAN.md](docs/phases/details/PHASE_28_WORK_PLAN.md) |
+| 29 | Python Hardening - Ph 3: Multi-Proc | Multi-process worker model with Docker Compose and HAProxy LB | [PHASE_29_WORK_PLAN.md](docs/phases/details/PHASE_29_WORK_PLAN.md) |
+| 30 | Python Hardening - Ph 4: Optimization | Deferred write batching; comprehensive benchmark validation | [PHASE_30_THROUGHPUT_PLAN.md](docs/phases/details/PHASE_30_THROUGHPUT_PLAN.md) |
+| 34 | APT Hardening - Ph 1: Isolation | Parser process isolation and Zero-Trust Redis ACLs with signatures | [PHASE_34.md](docs/phases/PHASE_34.md) |
+| 48 | APT Hardening - Ph 2: Detection | Implement subnet correlation, anti-evasion checks, and Seccomp | [PHASE_48.md](docs/phases/PHASE_48.md) |
+| 35 | Advanced APT - Ph 1: Integrity | Implement supply chain integrity monitoring and eBPF/XDP blocking | [PHASE_35.md](docs/phases/PHASE_35.md) |
+| 49 | Advanced APT - Ph 2: Deceptive | Implement honey-fingerprints, honey-SNIs, and namespace isolation | [PHASE_49.md](docs/phases/PHASE_49.md) |
+| 36 | Go Test Quality & Parity Gaps | Fix JA4 fixtures; real cert JA4X tests; cross-language parity | [PHASE_36.md](docs/phases/PHASE_36.md) |
+| 37 | Lint & Static Analysis Cleanup | Resolve remaining mypy/ruff/bandit warnings; strictly enforced CI gates | [PHASE_37.md](docs/phases/PHASE_37.md) |
 | 38 | ISP Blocking Operations | Vetting, implementation, and monitoring procedures for malicious ISPs | [PHASE_38.md](docs/phases/PHASE_38.md) |
 | 39 | Documentation Audit & Sync | Audit all phase docs, synchronize manifest/todo, clean up details/ | [PHASE_39.md](docs/phases/PHASE_39.md) |
-| 40 | Backup Enhancements - Ph 2 *(prop)* | DSAR utility for GDPR; round-trip integration tests; compliance docs | [PHASE_40_BACKUP_PLAN.md](docs/phases/details/PHASE_40_BACKUP_PLAN.md) |
-| 41 | Robust Health Check API *(prop)* | Deep health/readiness endpoints; anti-flap hysteresis logic | [PHASE_41.md](docs/phases/PHASE_41.md) |
-| 42 | Zero-Downtime Data Upgrades *(prop)* | Atomic hot-reloading of GeoIP DB and config without process restart | [PHASE_42.md](docs/phases/PHASE_42.md) |
-| 43 | Blue/Green Deployment Tooling *(prop)* | Parallel container releases; traffic-shifting; automated rollbacks | [PHASE_43.md](docs/phases/PHASE_43.md) |
+| 41 | Robust Health Check API | Deep health/readiness endpoints; anti-flap hysteresis logic | [PHASE_41.md](docs/phases/PHASE_41.md) |
+| 42 | Zero-Downtime Data Upgrades | Atomic hot-reloading of GeoIP DB and config without process restart | [PHASE_42.md](docs/phases/PHASE_42.md) |
+| 43 | Blue/Green Deployment Tooling | Parallel container releases; traffic-shifting; automated rollbacks | [PHASE_43.md](docs/phases/PHASE_43.md) |
 
 **Do phases in order. Complete all acceptance criteria before starting the next phase.**
 
