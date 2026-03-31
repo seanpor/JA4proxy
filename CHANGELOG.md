@@ -25,6 +25,35 @@
 - **Restore Validation**: Implemented `RestoreError` threshold logic; restores now fail explicitly if more than 5% of keys fail to restore.
 - **Enhanced Observability**: Added Prometheus metrics for backup duration, size, success/failure counts, and keys processed.
 
+## [58.0.0] - 2026-03-31 — Phase 58: Advanced Traffic Intelligence - Phase 3: Feed Optimization & Reliability (Partial)
+
+### Added
+- **Confidence-Based Weighting**: Implemented `ConfidenceManager` to track the historical accuracy of threat intelligence feeds and adjust signal weights dynamically.
+- **Dynamic Accuracy Tracking**: Added Bayesian-style tracking of true positives vs. false positives per feed in Redis.
+- **Manual Weight Overrides**: Added capability for administrators to manually set or clear confidence weights for specific feeds.
+
+## [53.0.0] - 2026-03-31 — Phase 53: Advanced Traffic Intelligence - Phase 2: Secondary Feeds
+
+### Added
+- **MISP Integration**: Added `MISPProvider` for real-time reputation lookups against Malware Information Sharing Platform instances.
+- **ThreatFox Integration**: Added `ThreatFoxProvider` to identify IPs associated with malware indicators (IOCs) from Abuse.ch.
+- **VirusTotal Integration**: Added `VirusTotalProvider` utilizing the v3 API for comprehensive multi-engine reputation analysis.
+- **Quota Management**: Implemented persistent quota tracking in Redis for commercial/limited TI feeds.
+
+## [46.0.0] - 2026-03-31 — Phase 46: Coverage Improvement
+
+### Changed
+- **Test Coverage**: Achieved 82% overall project code coverage, meeting the enterprise robustness target.
+- **Improved Testing**: Significantly expanded unit test coverage for `ProxyServer` edge cases, `TIProvider` framework, and all security modules.
+
+## [45.0.0] - 2026-03-31 — Phase 45: Adversarial Test Expansion
+
+### Added
+- **SQL Injection Tests**: Added comprehensive adversarial tests for detecting and blocking common SQLi patterns.
+- **XSS Tests**: Added adversarial coverage for Cross-Site Scripting (XSS) attack vectors.
+- **Path Traversal Tests**: Implemented tests for detecting and preventing directory traversal attempts.
+- **Command Injection Tests**: Added coverage for OS command injection patterns.
+
 ## [43.0.0] - 2026-03-31 — Phase 43: Blue/Green Deployment & Rollback Tooling
 
 ### Added

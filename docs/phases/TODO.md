@@ -24,10 +24,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Implement supply chain integrity monitoring and eBPF/XDP NIC-level blocking.)
 *   **Action Plan:** [PHASE_35.md](PHASE_35.md)
 
-### Phase 46 — Coverage Improvement
-*   **Status:** **PROPOSED** (Improve coverage for low-coverage modules and achieve >80% coverage for all critical modules.)
-*   **Action Plan:** [PHASE_46_COVERAGE.md](PHASE_46_COVERAGE.md)
-
 ### Phase 51 — Management UI - Phase 2: Frontend Dashboard
 *   **Status:** **PROPOSED** (React-based dashboard for real-time visualization of proxy telemetry.)
 *   **Action Plan:** [PHASE_51.md](PHASE_51.md)
@@ -35,14 +31,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 52 — Management UI - Phase 3: Administration Tools
 *   **Status:** **PROPOSED** (Interactive tools for managing allowlists, bans, and system configuration.)
 *   **Action Plan:** [PHASE_52.md](PHASE_52.md)
-
-### Phase 53 — Advanced Traffic Intelligence - Phase 2: Secondary Feeds
-*   **Status:** **PROPOSED** (Integrate specialized threat intelligence feeds (e.g., MISP, ThreatFox, VirusTotal).)
-*   **Action Plan:** [PHASE_53.md](PHASE_53.md)
-
-### Phase 54 — Advanced Traffic Intelligence - Phase 5: Behavioral Attribution
-*   **Status:** **PROPOSED** (Implement complex behavioral patterns and cross-IP correlation.)
-*   **Action Plan:** [PHASE_54.md](PHASE_54.md)
 
 ### Phase 55 — APT Hardening - Phase 2: Advanced Detection & Container Security
 *   **Status:** **PROPOSED** (Implement subnet correlation, anti-evasion checks, and strict Seccomp/AppArmor profiles.)

@@ -72,6 +72,18 @@ def _make_server_stub(drain_timeout: float = 1.0) -> ProxyServer:
     s.alienvault_provider = MagicMock()
     s.alienvault_provider.start = AsyncMock()
     s.alienvault_provider.stop = AsyncMock()
+    s.misp_provider = MagicMock()
+    s.misp_provider.start = AsyncMock()
+    s.misp_provider.stop = AsyncMock()
+    s.threatfox_provider = MagicMock()
+    s.threatfox_provider.start = AsyncMock()
+    s.threatfox_provider.stop = AsyncMock()
+    s.virustotal_provider = MagicMock()
+    s.virustotal_provider.start = AsyncMock()
+    s.virustotal_provider.stop = AsyncMock()
+    s.confidence_manager = MagicMock()
+    s.confidence_manager.initialize = AsyncMock()
+    s.confidence_manager.save_state = AsyncMock()
     s.pipeline.set_ti_providers = MagicMock()
     return s
 

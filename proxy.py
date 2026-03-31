@@ -1171,6 +1171,12 @@ class ProxyServer:
         self.pipeline = None
         self._dial_manager = None
         self._abuseipdb_checker = None
+        self.greynoise_provider = None
+        self.alienvault_provider = None
+        self.misp_provider = None
+        self.threatfox_provider = None
+        self.virustotal_provider = None
+        self.confidence_manager = None
         self._aiohttp_session = None
         self._rdap_enricher = None
         self.active_connections = 0
@@ -1422,7 +1428,8 @@ class ProxyServer:
         self._tarpit_lock = asyncio.Lock()
 
         # Phase 42: Register hot-reload callback
-        self.config_loader.on_reload(self._on_config_reload)
+        if self.config_loader:
+            self.config_loader.on_reload(self._on_config_reload)
 
         return self
 
@@ -1718,9 +1725,13 @@ class ProxyServer:
         )
         
         # Phase 47: Initialize confidence manager
-        await self.confidence_manager.initialize()
+        _cm = getattr(self, "confidence_manager", None)
+        if _cm:
+            await _cm.initialize()
         # Phase 47: Initialize adaptive cache manager
-        await self.adaptive_cache.initialize()
+        _ac = getattr(self, "adaptive_cache", None)
+        if _ac:
+            await _ac.initialize()
 
         # Phase 28b: Secure pub/sub for state updates (signed blacklist/dial/config)
         pubsub_handler = PubSubHandler(
@@ -1735,19 +1746,32 @@ class ProxyServer:
         self._pubsub_task = asyncio.create_task(pubsub_handler.run())
 
         # Phase 23: Start and wire TI providers
-        await asyncio.gather(
-            self.greynoise_provider.start(),
-            self.alienvault_provider.start(),
-            self.misp_provider.start(),
-            self.threatfox_provider.start(),
-            self.virustotal_provider.start(),
-        )
+        ti_tasks = []
+        _gn = getattr(self, "greynoise_provider", None)
+        if _gn:
+            ti_tasks.append(_gn.start())
+        _av = getattr(self, "alienvault_provider", None)
+        if _av:
+            ti_tasks.append(_av.start())
+        _misp = getattr(self, "misp_provider", None)
+        if _misp:
+            ti_tasks.append(_misp.start())
+        _tf = getattr(self, "threatfox_provider", None)
+        if _tf:
+            ti_tasks.append(_tf.start())
+        _vt = getattr(self, "virustotal_provider", None)
+        if _vt:
+            ti_tasks.append(_vt.start())
+            
+        if ti_tasks:
+            await asyncio.gather(*ti_tasks)
+            
         self.pipeline.set_ti_providers(
-            greynoise=self.greynoise_provider,
-            alienvault=self.alienvault_provider,
-            misp=self.misp_provider,
-            threatfox=self.threatfox_provider,
-            virustotal=self.virustotal_provider,
+            greynoise=getattr(self, "greynoise_provider", None),
+            alienvault=getattr(self, "alienvault_provider", None),
+            misp=getattr(self, "misp_provider", None),
+            threatfox=getattr(self, "threatfox_provider", None),
+            virustotal=getattr(self, "virustotal_provider", None),
         )
         # Wire confidence manager into pipeline
         self.pipeline.set_confidence_manager(self.confidence_manager)
@@ -1813,14 +1837,33 @@ class ProxyServer:
             await self.health_server.stop()
 
             # Phase 23: Stop TI providers
-            await asyncio.gather(
-                self.greynoise_provider.stop(),
-                self.alienvault_provider.stop(),
-                self.misp_provider.stop(),
-                self.threatfox_provider.stop(),
-                self.virustotal_provider.stop(),
-                return_exceptions=True,
-            )
+            stop_tasks = []
+            _gn = getattr(self, "greynoise_provider", None)
+            if _gn:
+                stop_tasks.append(_gn.stop())
+            _av = getattr(self, "alienvault_provider", None)
+            if _av:
+                stop_tasks.append(_av.stop())
+            _misp = getattr(self, "misp_provider", None)
+            if _misp:
+                stop_tasks.append(_misp.stop())
+            _tf = getattr(self, "threatfox_provider", None)
+            if _tf:
+                stop_tasks.append(_tf.stop())
+            _vt = getattr(self, "virustotal_provider", None)
+            if _vt:
+                stop_tasks.append(_vt.stop())
+                
+            if stop_tasks:
+                # Filter out None tasks if any stop() returned None
+                stop_tasks = [t for t in stop_tasks if t is not None]
+                if stop_tasks:
+                    await asyncio.gather(*stop_tasks, return_exceptions=True)
+
+            # Phase 47: Save confidence manager state
+            _cm = getattr(self, "confidence_manager", None)
+            if _cm:
+                await _cm.save_state()
 
             # Phase 26e: Stop WriteBuffer and flush remaining writes
             await self.pipeline.stop()
