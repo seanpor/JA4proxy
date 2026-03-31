@@ -16,10 +16,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **DEFERRED** (FastAPI backend for real-time monitoring and configuration management.)
 *   **Action Plan:** [PHASE_13_WORK_PLAN.md](PHASE_13_WORK_PLAN.md)
 
-### Phase 23 — Advanced Traffic Intelligence - Phase 1: Primary Feeds
-*   **Status:** **PROPOSED** (Integrate AbuseIPDB and GreyNoise feeds for real-time IP reputation.)
-*   **Action Plan:** [PHASE_23_WORK_PLAN.md](PHASE_23_WORK_PLAN.md)
-
 ### Phase 31 — Advanced Traffic Intelligence - Phase 3: Geographical Intelligence
 *   **Status:** **PROPOSED** (Add GeoIP lookup and country-based blocking capabilities. Target: Geographical threat analysis.)
 *   **Action Plan:** [PHASE_31_WORK_PLAN.md](PHASE_31_WORK_PLAN.md)
@@ -55,7 +51,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Interactive tools for managing allowlists, bans, and system configuration.)
 
 ### Phase 46 — Advanced Traffic Intelligence - Phase 2: Secondary Feeds
-*   **Status:** **PROPOSED** (Integrate AlienVault OTX and specialized threat intelligence feeds.)
+*   **Status:** **PROPOSED** (Integrate specialized threat intelligence feeds (e.g., MISP, ThreatFox, VirusTotal).)
 
 ### Phase 47 — Advanced Traffic Intelligence - Phase 5: Behavioral Attribution
 *   **Status:** **PROPOSED** (Implement complex behavioral patterns and cross-IP correlation.)

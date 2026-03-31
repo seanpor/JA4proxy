@@ -55,10 +55,12 @@ from typing import TYPE_CHECKING, Any
 from prometheus_client import Counter, Gauge
 
 from .abuseipdb import AbuseIPDBChecker
+from .alienvault import AlienVaultOTXProvider
 from .asn_classifier import ASNClassifier
 from .beaconing_detector import BeaconingDetector
 from .blocklists import BlocklistManager, FeedConfig
 from .dns_enrichment import DNSEnrichment
+from .greynoise import GreyNoiseProvider
 from .mtls import MTLSHandler
 from .rate_tracker import MultiStrategyRateTracker
 from .rdap_enrichment import RDAPEnricher
@@ -339,6 +341,9 @@ class Pipeline:
         # Phase 11: RDAP enrichment (offline enrichment; background workers).
         # start()/stop() called by ProxyServer.
         self._rdap_enricher: RDAPEnricher | None = None
+        # Phase 23: Advanced TI providers (GreyNoise, AlienVault OTX)
+        self._greynoise_provider: GreyNoiseProvider | None = None
+        self._alienvault_provider: AlienVaultOTXProvider | None = None
         # Phase 26e: Write buffer for deferred batching of post-decision writes
         self._write_buffer = WriteBuffer(redis_client)
         # Phase 16: JA4X fingerprint lists (parallel structure to JA4 lists)
@@ -378,6 +383,15 @@ class Pipeline:
     def set_rdap_enricher(self, enricher: RDAPEnricher | None) -> None:
         """Wire in the Phase 11 RDAP enricher. Called after start()."""
         self._rdap_enricher = enricher
+
+    def set_ti_providers(
+        self,
+        greynoise: GreyNoiseProvider | None,
+        alienvault: AlienVaultOTXProvider | None,
+    ) -> None:
+        """Wire in Phase 23 TI providers. Called after start()."""
+        self._greynoise_provider = greynoise
+        self._alienvault_provider = alienvault
 
     async def _get_analytics_signals(self, ip: str) -> list:
         """Read analytics cross-instance signals from Redis (Phase 12).
@@ -1028,6 +1042,38 @@ class Pipeline:
                 _SIGNAL_ERROR.labels(module="analytics").inc()
                 return []
 
+        async def _collect_greynoise_signals():
+            if self._greynoise_provider is None:
+                return []
+            try:
+                signal = self._greynoise_provider.get_signal(ctx.client_ip)
+                return [signal] if signal is not None else []
+            except Exception as exc:
+                logger.error(
+                    "greynoise | event=get_signal_error | ip=%s | error=%s",
+                    ctx.client_ip,
+                    exc,
+                    exc_info=True,
+                )
+                _SIGNAL_ERROR.labels(module="greynoise").inc()
+                return []
+
+        async def _collect_alienvault_signals():
+            if self._alienvault_provider is None:
+                return []
+            try:
+                signal = self._alienvault_provider.get_signal(ctx.client_ip)
+                return [signal] if signal is not None else []
+            except Exception as exc:
+                logger.error(
+                    "alienvault | event=get_signal_error | ip=%s | error=%s",
+                    ctx.client_ip,
+                    exc,
+                    exc_info=True,
+                )
+                _SIGNAL_ERROR.labels(module="alienvault").inc()
+                return []
+
         # Run all I/O-bound signal collectors concurrently
         results = await asyncio.gather(
             _collect_tcp_signals(),
@@ -1038,6 +1084,8 @@ class Pipeline:
             _collect_abuseipdb_signals(),
             _collect_rdap_signals(),
             _collect_analytics_signals(),
+            _collect_greynoise_signals(),
+            _collect_alienvault_signals(),
             return_exceptions=True,
         )
 

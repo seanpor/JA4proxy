@@ -136,6 +136,17 @@ phase: 21
 
 ---
 
+## Phase 23 — Advanced Traffic Intelligence
+
+| Key pattern | Type | TTL | Written by | Notes |
+|-------------|-|-|--------|-|
+| `greynoise:data:{ip}` | String (JSON) | 21600s (6h) | GreyNoiseProvider._process_lookup() | Cached GreyNoise Community data (noise, riot, classification). |
+| `bloom:greynoise_enriched` | Bloom filter | 86400s (24h) | GreyNoiseProvider._maybe_lookup() | Dedup filter for GreyNoise lookups. |
+| `alienvault:data:{ip}` | String (JSON) | 3600s (1h) | AlienVaultOTXProvider._process_lookup() | Cached AlienVault OTX data (pulse_count). |
+| `bloom:alienvault_enriched` | Bloom filter | 86400s (24h) | AlienVaultOTXProvider._maybe_lookup() | Dedup filter for AlienVault OTX lookups. |
+
+---
+
 ## Phase 12 — Analytics Node
 
 | Key pattern | Type | TTL | Written by | Notes |
@@ -198,4 +209,4 @@ Written by `src/tap/export/` exporters.
 
 ---
 
-*Last updated: 2026-03-28, Phase 20 complete*
+*Last updated: 2026-03-31, Phase 23 complete*

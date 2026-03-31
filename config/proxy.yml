@@ -523,6 +523,31 @@ abuseipdb:
   score_cap: 40                     # Maximum contribution to composite score (confidence 100 → 40 pts; never a hard block).
   delegate_to_analytics: false      # Set true when Phase 12 analytics node is deployed; local workers idle.
 
+# ── Phase 23: GreyNoise Integration ──────────────────────────────────────────
+
+greynoise:
+  enabled: false                    # Default: false. Set api_key before enabling.
+  api_key: ""                       # Set via GREYNOISE_API_KEY env var.
+  cache_ttl_seconds: 21600          # 6 hours.
+  lookup_timeout_seconds: 5         # aiohttp request timeout per API call.
+  score_cap: 30                     # Max risk score contribution.
+  noise_score: 25                   # Score if IP is classified as 'noise'.
+  riot_score_reduction: 15          # Score reduction for known benign (RIOT) IPs.
+  queue_size: 500                   # Max pending IPs.
+  worker_count: 2                   # Background workers.
+
+# ── Phase 23: AlienVault OTX Integration ──────────────────────────────────────
+
+alienvault:
+  enabled: false                    # Default: false. Set api_key before enabling.
+  api_key: ""                       # Set via OTX_API_KEY env var.
+  cache_ttl_seconds: 3600           # 1 hour (threat data changes faster).
+  lookup_timeout_seconds: 5         # aiohttp request timeout per API call.
+  score_cap: 45                     # Max risk score contribution.
+  pulse_score: 15                   # Score per pulse association.
+  queue_size: 500                   # Max pending IPs.
+  worker_count: 2                   # Background workers.
+
 # ── Phase 11: RDAP Enrichment & Block Expansion ──────────────────────────────
 
 rdap_enrichment:
