@@ -49,6 +49,23 @@ import redis
 
 _SESSION_START: list[float] = []  # populated by pytest_sessionstart
 
+# ── Approved skip registry ────────────────────────────────────────────────────
+# Tests that are expected to be skipped in a local dev environment are listed
+# here.  Any skip ABOVE this count is flagged as "◀ UNEXPECTED" in the summary.
+#
+# Current approved skips (21 total):
+#   4  Go chaos tests      — tests/chaos/test_go_proxy_chaos.py
+#                            (bin/ja4proxy not built; build: GOROOT=/snap/go/current go build)
+#   8  Go parity tests     — tests/integration/test_go_python_parity.py
+#                            (Go proxy binary not built or running)
+#   3  Real Redis tests    — tests/integration/backup/test_real_redis_integration.py
+#                            (no live Redis at localhost:6379; run: make start)
+#   2  Docker enforcement  — tests/integration/test_multi_process_enforcement.py
+#                            (requires Docker Compose multi-process env; set CI_DOCKER=1)
+#   4  Go perf benchmarks  — tests/performance/test_bench_go_proxy.py
+#                            (Go proxy binary not built or running)
+_APPROVED_SKIP_COUNT = 21
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -358,7 +375,13 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config) -> None:
     if errored:
         tr.write_line(f"  Errors:   {errored}  ◀ ERRORS")
     if skipped:
-        tr.write_line(f"  Skipped:  {skipped}  ◀ UNEXPECTED")
+        unexpected = max(0, skipped - _APPROVED_SKIP_COUNT)
+        if unexpected:
+            tr.write_line(
+                f"  Skipped:  {skipped} ({unexpected} unexpected)  ◀ UNEXPECTED"
+            )
+        else:
+            tr.write_line(f"  Skipped:  {skipped} (all approved)")
     if warnings:
         tr.write_line(f"  Warnings: {warnings}")
     tr.write_line(f"  Duration: {elapsed:.1f}s  ({elapsed / 60:.1f} min)")
