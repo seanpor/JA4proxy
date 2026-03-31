@@ -36,6 +36,10 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Improve coverage for low-coverage modules and achieve >80% coverage for all critical modules.)
 *   **Action Plan:** [PHASE_46_COVERAGE.md](PHASE_46_COVERAGE.md)
 
+### Phase 47 — Advanced Traffic Intelligence - Phase 3: Feed Optimization & Reliability
+*   **Status:** **PROPOSED** (Enhance secondary feeds with confidence weighting, adaptive caching, and advanced reliability features.)
+*   **Action Plan:** [PHASE_47.md](PHASE_47.md)
+
 ### Phase 51 — Management UI - Phase 2: Frontend Dashboard
 *   **Status:** **PROPOSED** (React-based dashboard for real-time visualization of proxy telemetry.)
 *   **Action Plan:** [PHASE_51.md](PHASE_51.md)

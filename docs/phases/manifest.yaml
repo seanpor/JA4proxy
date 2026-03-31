@@ -9,7 +9,7 @@ epics:
     
   - name: "Epic: Analytics & Intelligence"
     description: "Cross-instance behavior analysis and threat intelligence."
-    phases: [6, 7, 9, 12, 23, 31, 32, 33, 53, 54]
+    phases: [6, 7, 9, 12, 23, 31, 32, 33, 47, 53, 54]
     
   - name: "Epic: Next-Gen Passive Capture"
     description: "Out-of-band monitoring and enforcement."
@@ -254,6 +254,18 @@ phases:
     success_criteria:
       - "AbuseIPDB, GreyNoise, and AlienVault OTX feeds integrated"
       - "Real-time IP reputation lookup < 50ms (cached)"
+
+  47:
+    name: "Advanced Traffic Intelligence - Phase 3: Feed Optimization & Reliability"
+    status: "PROPOSED"
+    summary: "Enhance secondary feeds with confidence weighting, adaptive caching, and advanced reliability features."
+    action_plan: "docs/phases/PHASE_47.md"
+    dependencies: [53, 41]
+    size: "SMALL"
+    success_criteria:
+      - "Confidence weighting reduces false positives by ≥15%"
+      - "Adaptive caching achieves ≥95% hit rate with freshness guarantees"
+      - "Feed reliability maintains 100% uptime during outages"
 
   53:
     name: "Advanced Traffic Intelligence - Phase 2: Secondary Feeds"
