@@ -12,7 +12,7 @@ Optimization for high-throughput and multi-core systems.
 | Phase | Name | Status | Summary |
 |-------|------|--------|---------|
 | 0 | Foundation | COMPLETE | Configuration loader, hot reload, local cache, Bloom filters. |
-| 15 | Go Rewrite | PARTIAL | 10-50x throughput improvement via CPython/Go transition. |
+| 15 | Go Rewrite | COMPLETE | 10-50x throughput improvement via CPython/Go transition. Feature parity achieved including JA4X, Lua script embedding, and scoring pipeline. |
 | 17 | Docker Test Optimization | COMPLETE | Fix Docker test container hang during teardown. |
 | 26 | Python Throughput Hardening | COMPLETE | All 6 sub-plans complete: parallel signal collection (asyncio.gather), Redis pipeline batching, Unix domain socket, deferred write batching, multi-process worker model, benchmark validation. Single process: ~700-950 conn/s; 4 workers: ~2,800-3,800 conn/s. |
 | 28 | Python Throughput Hardening - Phase 2: Redis Optimization | COMPLETE | Add Redis pipeline batching and Unix domain socket support. Target: 30-40% Redis latency reduction. |
@@ -104,7 +104,7 @@ Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
 | 12 | Analytics Node | COMPLETE | 100% | COMPLETE |
 | 13 | Management UI | DEFERRED | N/A | N/A |
 | 14 | Production Hardening | COMPLETE | 100% | COMPLETE |
-| 15 | Go Rewrite | PARTIAL | N/A | N/A |
+| 15 | Go Rewrite | COMPLETE | 100% | COMPLETE |
 | 16 | Extended Fingerprinting | COMPLETE | N/A | N/A |
 | 17 | Docker Test Optimization | COMPLETE | 100% | COMPLETE |
 | 18 | Security Audit Remediation | COMPLETE | N/A | N/A |
