@@ -31,6 +31,7 @@ phase: 21
 - [Analytics Operations](operator/analytics-operations.md) — Analytics node management
 - [Go Proxy Migration](runbooks/go_proxy_migration.md) — Transitioning to Go implementation
 - [Go Proxy Operations](runbooks/go_proxy_operations.md) — Go-specific procedures
+- [Zero-Downtime Rollouts](runbooks/zero_downtime_rollouts.md) — Blue/Green deployment guide
 
 **Monitoring & Observability**
 - [Monitoring Setup](MONITORING_SETUP.md) — Prometheus, Grafana, Loki configuration
