@@ -17,7 +17,11 @@ epics:
     
   - name: "Epic: User Interface & Experience"
     description: "Management dashboards and documentation quality."
-    phases: [2, 13, 19, 21, 39, 44, 45]
+    phases: [2, 13, 19, 21, 39]
+
+  - name: "Epic: Testing & Quality"
+    description: "Test audit, adversarial testing, and coverage improvement."
+    phases: [44, 45, 46]
 
   - name: "Epic: Operational Excellence & Lifecycle Management"
     description: "Zero-downtime upgrades, robust health monitoring, and deployment orchestration."
@@ -482,3 +486,36 @@ phases:
     action_plan: "docs/phases/PHASE_43.md"
     dependencies: [41, 42]
     size: "SMALL"
+
+  44:
+    name: "Test Audit and Documentation"
+    status: "COMPLETE"
+    summary: "Audit the test suite to ensure all tests are genuine and document test types, coverage, and gaps."
+    action_plan: "docs/phases/PHASE_44_TEST_AUDIT.md"
+    dependencies: []
+    size: "SMALL"
+    success_criteria:
+      - "All tests audited for genuine assertions"
+      - "Test documentation updated with guidelines"
+
+  45:
+    name: "Adversarial Test Expansion"
+    status: "IN_PROGRESS"
+    summary: "Expand adversarial tests to cover additional attack vectors and ensure comprehensive security coverage."
+    action_plan: "docs/phases/PHASE_45_ADVERSARIAL_TESTS.md"
+    dependencies: [44]
+    size: "SMALL"
+    success_criteria:
+      - "Adversarial tests added for SQLi, XSS, path traversal, and command injection"
+      - "All new tests passing and integrated into the test suite"
+
+  46:
+    name: "Coverage Improvement"
+    status: "PROPOSED"
+    summary: "Improve coverage for low-coverage modules and achieve >80% coverage for all critical modules."
+    action_plan: "docs/phases/PHASE_46_COVERAGE.md"
+    dependencies: [45]
+    size: "SMALL"
+    success_criteria:
+      - "Coverage improved for low-coverage modules"
+      - "Overall coverage >85%"
