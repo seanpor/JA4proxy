@@ -64,6 +64,7 @@ from src.cache.local_cache import LocalCache
 from src.config.loader import ConfigLoader
 from src.pubsub import PubSubHandler
 from src.security.action_decider import ActionDecider, DialManager
+from src.security.health import HealthMonitor, HealthServer
 from src.security.pipeline import ConnectionContext, Pipeline
 from src.security.risk_scorer import RiskScorer
 from src.tap.tap_sensor import TapSensor
@@ -1215,6 +1216,19 @@ class ProxyServer:
         # Connection concurrency semaphore — prevents TCP exhaustion under DDoS
         self._conn_semaphore = asyncio.Semaphore(MAX_CONCURRENT_CONNECTIONS)
 
+        # Phase 41: Health Monitoring
+        self.health_monitor = HealthMonitor(
+            redis_client=self.redis_client,
+            config=self.config,
+            geoip_path=self.config.get("geoip", {}).get("database_path")
+        )
+        self.health_server = HealthServer(
+            monitor=self.health_monitor,
+            host=self.config["metrics"].get("bind_host", "0.0.0.0"),
+            port=int(self.config["metrics"].get("port", 9090))
+        )
+        self._health_task = None
+
         # Initialize GeoIP lookup
         geoip_path = self.config.get("geoip", {}).get("database_path")
         self.geoip = GeoIPLookup(geoip_path)
@@ -1551,30 +1565,28 @@ class ProxyServer:
         """
         self.logger.info("Starting JA4 Proxy Server")
 
-        # Start metrics server with optional authentication (SECURITY FIX)
+        # Phase 41: Robust Health API & Anti-Flap Logic
         if self.config["metrics"]["enabled"]:
-            metrics_port = self.config["metrics"]["port"]
+            # Start Health/Metrics server (replaces simple prometheus_client server)
+            await self.health_server.start()
 
-            # Check if authentication is enabled
-            if self.config["metrics"].get("authentication", {}).get("enabled", False):
-                self.logger.info("Metrics authentication enabled")
-                # Note: Prometheus client doesn't natively support auth
-                # In production, use reverse proxy (nginx/HAProxy) with auth
-                # or restrict metrics port to internal network only
-                self.logger.warning(
-                    "SECURITY: Metrics endpoint requires external authentication via reverse proxy. "
-                    "Ensure metrics port is not exposed to public networks."
-                )
+            # Start background health check task (checks every 2s)
+            async def _health_checker_loop():
+                while True:
+                    try:
+                        await self.health_monitor.check()
+                    except Exception as e:
+                        self.logger.error(f"Error in health check loop: {e}")
+                    await asyncio.sleep(2)
 
-            start_http_server(metrics_port)
-            self.logger.info(f"Metrics server started on port {metrics_port}")
+            self._health_task = asyncio.create_task(_health_checker_loop())
 
             # Log security warning if metrics exposed
             if (
                 self.config["metrics"].get("bind_host", "0.0.0.0") == "0.0.0.0"
             ):  # nosec B104
                 self.logger.warning(
-                    "SECURITY WARNING: Metrics endpoint exposed to all interfaces. "
+                    "SECURITY WARNING: Health/Metrics endpoint exposed to all interfaces. "
                     "Restrict access using firewall rules or reverse proxy authentication."
                 )
 
@@ -1653,6 +1665,11 @@ class ProxyServer:
             # Phase 20 G0-A: stop backup scheduler
             if self._backup_scheduler is not None:
                 await self._backup_scheduler.stop()
+
+            # Phase 41: Stop health monitor and server
+            if self._health_task:
+                self._health_task.cancel()
+            await self.health_server.stop()
 
             # Phase 26e: Stop WriteBuffer and flush remaining writes
             await self.pipeline.stop()
@@ -1892,8 +1909,11 @@ class ProxyServer:
                 )
                 result = await self.pipeline.process(ctx)
 
-                # Record metrics
+                # Phase 41: Record pipeline latency in health monitor
                 request_duration = time.time() - request_start
+                self.health_monitor.record_pipeline_latency(request_duration * 1000)
+
+                # Record metrics
                 REQUEST_DURATION.observe(request_duration)
                 action_label = (
                     "allowed"

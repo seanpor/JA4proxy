@@ -88,7 +88,7 @@ Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
 | Phase | Name | Status | Summary |
 |-------|------|--------|---------|
 | 40 | Backup System Enhancements - Phase 2: Security & Compliance | PROPOSED | Add AES-256-GCM encryption at rest and DSAR compliance utility. |
-| 41 | Robust Health Check API & Anti-Flap Logic | PROPOSED | Implement deep health/readiness endpoints and hysteresis to prevent status flapping. |
+| 41 | Robust Health Check API & Anti-Flap Logic | COMPLETE | Implement deep health/readiness endpoints and hysteresis to prevent status flapping. |
 | 42 | Zero-Downtime Data Upgrades (GeoIP & Config) | PROPOSED | Enable atomic hot-reloading of large data files and configuration without process restart. |
 | 43 | Blue/Green Deployment & Rollback Tooling | PROPOSED | Tooling for parallel container releases and rapid traffic-shifting via load balancer. |
 | 50 | Backup System Enhancements - Phase 3: Cloud & Incrementals | PROPOSED | Add cloud storage adapters (S3/GCS) and incremental backup strategy. |
@@ -138,7 +138,7 @@ Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
 | 38 | ISP Blocking Operations | COMPLETE | N/A | N/A |
 | 39 | Documentation Audit & Synchronization | COMPLETE | N/A | N/A |
 | 40 | Backup System Enhancements - Phase 2: Security & Compliance | PROPOSED | N/A | N/A |
-| 41 | Robust Health Check API & Anti-Flap Logic | PROPOSED | N/A | N/A |
+| 41 | Robust Health Check API & Anti-Flap Logic | COMPLETE | N/A | N/A |
 | 42 | Zero-Downtime Data Upgrades (GeoIP & Config) | PROPOSED | N/A | N/A |
 | 43 | Blue/Green Deployment & Rollback Tooling | PROPOSED | N/A | N/A |
 | 44 | Management UI - Phase 2: Frontend Dashboard | PROPOSED | N/A | N/A |

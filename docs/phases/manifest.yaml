@@ -459,8 +459,9 @@ phases:
 
   41:
     name: "Robust Health Check API & Anti-Flap Logic"
-    status: "PROPOSED"
+    status: "COMPLETE"
     summary: "Implement deep health/readiness endpoints and hysteresis to prevent status flapping."
+    completed: "2026-03-31"
     action_plan: "docs/phases/PHASE_41.md"
     dependencies: [14]
     size: "SMALL"
