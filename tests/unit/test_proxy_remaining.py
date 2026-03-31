@@ -136,6 +136,13 @@ def _make_server_stub():
     s._abuseipdb_checker = None
     s._rdap_enricher = None
     s._aiohttp_session = None
+    s._health_task = None
+    s._pubsub_task = None
+    s.health_server = MagicMock()
+    s.health_server.start = AsyncMock()
+    s.health_server.stop = AsyncMock()
+    s.health_monitor = MagicMock()
+    s.health_monitor.record_pipeline_latency = MagicMock()
     return s
 
 
@@ -931,9 +938,8 @@ class TestProxyServerStart:
         server = _make_server_stub()
         server.config["metrics"]["enabled"] = True
         server.config["metrics"]["port"] = 9090
-        with patch("proxy.start_http_server") as mock_start:
-            self._run_start(server)
-        mock_start.assert_called_once_with(9090)
+        self._run_start(server)
+        server.health_server.start.assert_called_once()
 
     def test_metrics_auth_enabled_warns(self, caplog):
         server = _make_server_stub()
@@ -1702,6 +1708,11 @@ class TestProxyServerShutdownCoverageGaps:
         server._local_cache = MagicMock()
         server.redis_client = AsyncMock()
         server._backup_scheduler = None
+        server._health_task = None
+        server._pubsub_task = None
+        server.health_server = MagicMock()
+        server.health_server.start = AsyncMock()
+        server.health_server.stop = AsyncMock()
         return server
 
     def test_shutdown_with_no_abuseipdb(self):

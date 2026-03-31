@@ -156,6 +156,8 @@ def _make_server(config_overrides: dict | None = None) -> ProxyServer:
     server._tarpit_concurrent = 0
     server._tarpit_per_ip = {}
     server._tarpit_lock = asyncio.Lock()
+    server.health_monitor = MagicMock()
+    server.health_monitor.record_pipeline_latency = MagicMock()
     return server
 
 

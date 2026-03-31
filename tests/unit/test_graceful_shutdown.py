@@ -61,6 +61,11 @@ def _make_server_stub(drain_timeout: float = 1.0) -> ProxyServer:
     s._rdap_enricher = None
     s._aiohttp_session = None
     s._backup_scheduler = None
+    s._health_task = None
+    s._pubsub_task = None
+    s.health_server = MagicMock()
+    s.health_server.start = AsyncMock()
+    s.health_server.stop = AsyncMock()
     return s
 
 
