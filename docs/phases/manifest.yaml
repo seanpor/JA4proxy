@@ -34,6 +34,7 @@ phases:
     test_coverage: "100%"
     doc_status: "COMPLETE"
     summary: "Configuration loader, hot reload, local cache, Bloom filters."
+    size: "SMALL"
     
   1:
     name: "Risk Scorer"
@@ -132,13 +133,6 @@ phases:
     status: "PROPOSED"
     summary: "React-based dashboard for real-time visualization of proxy telemetry."
     dependencies: [13]
-    size: "SMALL"
-
-  45:
-    name: "Management UI - Phase 3: Administration Tools"
-    status: "PROPOSED"
-    summary: "Interactive tools for managing allowlists, bans, and system configuration."
-    dependencies: [44]
     size: "SMALL"
 
   14:
@@ -497,6 +491,7 @@ phases:
     success_criteria:
       - "All tests audited for genuine assertions"
       - "Test documentation updated with guidelines"
+      - "28 new adversarial tests added"
 
   45:
     name: "Adversarial Test Expansion"
