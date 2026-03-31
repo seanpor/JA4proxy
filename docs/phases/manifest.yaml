@@ -131,11 +131,11 @@ phases:
     
   15:
     name: "Go Rewrite"
-    status: "PARTIAL"
-    summary: "10-50x throughput improvement via CPython/Go transition."
-    gaps:
-      - "Lua scripts not using //go:embed"
-      - "JA4X missing in Go pipeline"
+    status: "COMPLETE"
+    test_coverage: "100%"
+    doc_status: "COMPLETE"
+    summary: "10-50x throughput improvement via CPython/Go transition. Feature parity achieved including JA4X, Lua script embedding, and scoring pipeline."
+    completed: "2026-03-31"
     action_plan: "docs/phases/details/PHASE_15_WORK_PLAN.md"
     
   16:

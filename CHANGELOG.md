@@ -17,6 +17,16 @@
 - **Restore Validation**: Implemented `RestoreError` threshold logic; restores now fail explicitly if more than 5% of keys fail to restore.
 - **Enhanced Observability**: Added Prometheus metrics for backup duration, size, success/failure counts, and keys processed.
 
+## [15.0.0] - 2026-03-31 — Phase 15: Go Rewrite (Feature Parity)
+
+### Added
+- **JA4X Go Implementation**: Ported the X.509 certificate fingerprinting (JA4X) from Python to Go with full parity.
+- **Go Pipeline Integration**: Integrated JA4X extraction, whitelist bypass, and blacklist scoring into the Go proxy pipeline.
+- **Lua Script Embedding**: Refactored `internal/redis` to use `//go:embed` for Lua scripts, eliminating runtime file dependencies and simplifying binary distribution.
+
+### Changed
+- **Status**: Updated Phase 15 from PARTIAL to COMPLETE after achieving full feature parity with the Python implementation.
+
 ## [Unreleased] - Phase 36: Go Test Quality & Parity Gaps
 
 ### Fixed

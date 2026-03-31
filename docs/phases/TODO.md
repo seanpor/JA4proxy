@@ -4,12 +4,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🔴 Critical Gaps in Completed Phases (<= 15)
 
-### Phase 15 — Go Rewrite
-*   **Gap:** Lua scripts not using //go:embed
-*   **Gap:** JA4X missing in Go pipeline
-*   **Status:** **PARTIAL** (10-50x throughput improvement via CPython/Go transition.)
-*   **Action Plan:** [PHASE_15_WORK_PLAN.md](PHASE_15_WORK_PLAN.md)
-
 ---
 
 ## 🟡 Phases In Progress
