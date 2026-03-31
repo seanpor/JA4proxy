@@ -16,6 +16,7 @@ import redis
 from prometheus_client import Counter, Gauge, Histogram
 
 from src.backup.format import decode_entries
+from src.backup.encryption import BackupEncryption
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,7 @@ class BackupRestorer:
         redis_port: int = 6379,
         redis_db: int = 0,
         restore_error_threshold: float = 0.05,
+        encryption_key: str = None,
     ):
         """Initialize restore engine.
 
@@ -91,11 +93,13 @@ class BackupRestorer:
             restore_error_threshold: Fraction of keys that may fail before
                 RestoreError is raised.  Default 0.05 (5%).  Set to 0.0 to
                 raise on any failure; set to 1.0 to never raise.
+            encryption_key: Secret key for AES-256-GCM decryption.
         """
         self.redis_host = redis_host
         self.redis_port = redis_port
         self.redis_db = redis_db
         self.restore_error_threshold = restore_error_threshold
+        self.encryption = BackupEncryption(encryption_key) if encryption_key else None
 
     def load_manifest(self, manifest_path: str) -> Dict[str, Any]:
         """Load and validate backup manifest.
@@ -207,6 +211,10 @@ class BackupRestorer:
         )
 
         try:
+            # Phase 40: Distributed Locking
+            if not redis_client.set("backup:operation_lock", "restore", nx=True, ex=600):
+                raise RestoreError("Backup/Restore operation already in progress (lock held)")
+
             # Load and validate manifest
             manifest = self.load_manifest(manifest_path)
 
@@ -236,10 +244,36 @@ class BackupRestorer:
                 # Wipe existing data (destructive restore)
                 self._wipe_redis_data(redis_client)
 
-            # Restore backup data
-            keys_restored, keys_failed = self._restore_backup_data(
-                redis_client, backup_path
-            )
+            # Phase 40: Decryption
+            # _restore_backup_data reads the file directly; we need to handle decryption
+            # if the manifest says it's encrypted.
+            encryption_cfg = manifest.get("encryption", {})
+            is_encrypted = encryption_cfg.get("enabled", False)
+            
+            if is_encrypted:
+                if not self.encryption:
+                    raise RestoreError("Backup is encrypted but no decryption key provided")
+                
+                # Read, decrypt, and save to a temporary file for _restore_backup_data
+                # Alternatively, we could refactor _restore_backup_data to accept bytes.
+                # Let's refactor it to accept data bytes optionally.
+                with open(backup_path, "rb") as f:
+                    encrypted_data = f.read()
+                
+                try:
+                    decrypted_data = self.encryption.decrypt(encrypted_data)
+                except Exception as e:
+                    raise RestoreError(f"Decryption failed: {e}")
+                
+                keys_restored, keys_failed = self._restore_from_bytes(
+                    redis_client, decrypted_data
+                )
+            else:
+                # Restore backup data from file
+                keys_restored, keys_failed = self._restore_backup_data(
+                    redis_client, backup_path
+                )
+            
             keys_total = keys_restored + keys_failed
             RESTORE_KEYS_RESTORED_TOTAL.inc(keys_restored)
 
@@ -354,10 +388,14 @@ class BackupRestorer:
                 # If audit logging fails, don't let it prevent the main error from being raised
                 pass
 
-            # Re-raise RestoreError instances as-is (preserves failed/total/threshold attrs)
             if isinstance(e, RestoreError):
                 raise
             raise RestoreError(f"Restore failed: {e}")
+        finally:
+            if redis_client:
+                # Phase 40: Release Distributed Lock
+                redis_client.delete("backup:operation_lock")
+            RESTORE_CURRENTLY_RUNNING.set(0)
 
     def _wipe_redis_data(self, redis_client: redis.Redis) -> None:
         """Wipe all data from Redis database.
@@ -408,5 +446,21 @@ class BackupRestorer:
         # Record restore markers for auditing and monitoring.
         redis_client.set("backup:last_restore", datetime.utcnow().isoformat() + "Z")
         redis_client.set("backup:restored_from", Path(backup_path).name)
+
+        return keys_restored, keys_failed
+
+    def _restore_from_bytes(self, redis_client: redis.Redis, data: bytes) -> tuple:
+        """
+        Restore backup data from raw bytes.
+        """
+        keys_restored = 0
+        keys_failed = 0
+        for key, dump_data in decode_entries(data):
+            try:
+                redis_client.restore(key, 0, dump_data, replace=True)
+                keys_restored += 1
+            except redis.RedisError as exc:
+                keys_failed += 1
+                logger.warning("restore skipped key %s: %s", key, exc)
 
         return keys_restored, keys_failed

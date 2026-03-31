@@ -18,6 +18,7 @@ from prometheus_client import Counter, Gauge, Histogram
 
 from src.backup.format import encode_entry
 from src.backup.policy import KeyPolicy
+from src.backup.encryption import BackupEncryption
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,7 @@ class BackupWorker:
         redis_port: int = 6379,
         redis_db: int = 0,
         max_keys_per_run: int = 1000,
+        encryption_key: str = None,
     ):
         """Initialize backup worker.
 
@@ -85,12 +87,14 @@ class BackupWorker:
             redis_port: Redis port.
             redis_db: Redis database.
             max_keys_per_run: Maximum keys to back up per run.
+            encryption_key: Secret key for AES-256-GCM encryption.
         """
         self.redis_host = redis_host
         self.redis_port = redis_port
         self.redis_db = redis_db
         self.max_keys_per_run = max_keys_per_run
         self.policy = KeyPolicy()
+        self.encryption = BackupEncryption(encryption_key) if encryption_key else None
 
     def enumerate_keys(self) -> List[str]:
         """Enumerate keys to back up using SCAN.
@@ -198,6 +202,17 @@ class BackupWorker:
         BACKUP_OPERATIONS_TOTAL.labels(status="started").inc()
 
         try:
+            redis_client = redis.Redis(
+                host=self.redis_host,
+                port=self.redis_port,
+                db=self.redis_db,
+            )
+
+            # Phase 40: Distributed Locking
+            # Prevent multiple backup/restore operations from running simultaneously
+            if not redis_client.set("backup:operation_lock", "backup", nx=True, ex=600):
+                raise Exception("Backup operation already in progress (lock held)")
+
             # Log backup start (before any operations that might fail)
             logger.info(
                 json.dumps(
@@ -255,11 +270,6 @@ class BackupWorker:
 
             # Create backup artifact
             backup_data = b""
-            redis_client = redis.Redis(
-                host=self.redis_host,
-                port=self.redis_port,
-                db=self.redis_db,
-            )
 
             # P19-G3: dump keys using pipeline batching to minimise round trips
             key_values = self._dump_keys_batched(redis_client, safe_keys)
@@ -268,6 +278,12 @@ class BackupWorker:
                     # Encode key name alongside dump data so restore can
                     # write each value back to the correct key.
                     backup_data += encode_entry(key_str, dumped)  # type: ignore[operator,arg-type]
+
+            # Phase 40: Encryption
+            is_encrypted = False
+            if self.encryption:
+                backup_data = self.encryption.encrypt(backup_data)
+                is_encrypted = True
 
             # Generate checksum
             checksum = hashlib.sha256(backup_data).hexdigest()
@@ -292,12 +308,12 @@ class BackupWorker:
                 "size_bytes": len(backup_data),
                 "included_patterns": self.policy.include_patterns,
                 "excluded_patterns": self.policy.exclude_patterns,
-                # Extensibility block for Phase 21 encryption (always false in Phase 19)
+                # Phase 40: Encryption manifest update
                 "encryption": {
-                    "enabled": False,
-                    "provider": None,  # Phase 21: "aws-kms" | "vault" | "local-aes"
-                    "key_id": None,  # Phase 21: KMS key ARN or Vault key path
-                    "algorithm": None,  # Phase 21: "AES-256-GCM"
+                    "enabled": is_encrypted,
+                    "provider": "local-aes" if is_encrypted else None,
+                    "key_id": "PBKDF2-AES-256-GCM" if is_encrypted else None,
+                    "algorithm": "AES-256-GCM" if is_encrypted else None,
                 },
             }
 
@@ -397,6 +413,10 @@ class BackupWorker:
                 redis_client.ltrim("management:audit_log", -1000, -1)
 
             raise
+        finally:
+            if redis_client:
+                # Phase 40: Release Distributed Lock
+                redis_client.delete("backup:operation_lock")
 
     def _dump_keys_batched(
         self, redis_client: redis.Redis, keys: List[str]

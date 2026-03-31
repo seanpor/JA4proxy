@@ -32,10 +32,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Implement supply chain integrity monitoring and eBPF/XDP NIC-level blocking.)
 *   **Action Plan:** [PHASE_35.md](PHASE_35.md)
 
-### Phase 40 — Backup System Enhancements - Phase 2: Security & Compliance
-*   **Status:** **PROPOSED** (Add AES-256-GCM encryption at rest and DSAR compliance utility.)
-*   **Action Plan:** [PHASE_40_BACKUP_PLAN.md](PHASE_40_BACKUP_PLAN.md)
-
 ### Phase 42 — Zero-Downtime Data Upgrades (GeoIP & Config)
 *   **Status:** **PROPOSED** (Enable atomic hot-reloading of large data files and configuration without process restart.)
 *   **Action Plan:** [PHASE_42.md](PHASE_42.md)
@@ -44,17 +40,14 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Tooling for parallel container releases and rapid traffic-shifting via load balancer.)
 *   **Action Plan:** [PHASE_43.md](PHASE_43.md)
 
-### Phase 44 — Test Audit and Documentation
-*   **Status:** **COMPLETE** (Audit the test suite to ensure all tests are genuine and document test types, coverage, and gaps.)
-*   **Action Plan:** [PHASE_44_TEST_AUDIT.md](PHASE_44_TEST_AUDIT.md)
+### Phase 44 — Management UI - Phase 2: Frontend Dashboard
+*   **Status:** **PROPOSED** (React-based dashboard for real-time visualization of proxy telemetry.)
 
-### Phase 45 — Adversarial Test Expansion
-*   **Status:** **IN_PROGRESS** (Expand adversarial tests to cover additional attack vectors and ensure comprehensive security coverage.)
-*   **Action Plan:** [PHASE_45_ADVERSARIAL_TESTS.md](PHASE_45_ADVERSARIAL_TESTS.md)
+### Phase 45 — Management UI - Phase 3: Administration Tools
+*   **Status:** **PROPOSED** (Interactive tools for managing allowlists, bans, and system configuration.)
 
-### Phase 46 — Coverage Improvement
-*   **Status:** **PROPOSED** (Improve coverage for low-coverage modules and achieve >80% coverage for all critical modules.)
-*   **Action Plan:** [PHASE_46_COVERAGE.md](PHASE_46_COVERAGE.md)
+### Phase 46 — Advanced Traffic Intelligence - Phase 2: Secondary Feeds
+*   **Status:** **PROPOSED** (Integrate specialized threat intelligence feeds (e.g., MISP, ThreatFox, VirusTotal).)
 
 ### Phase 47 — Advanced Traffic Intelligence - Phase 5: Behavioral Attribution
 *   **Status:** **PROPOSED** (Implement complex behavioral patterns and cross-IP correlation.)

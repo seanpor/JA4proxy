@@ -461,6 +461,129 @@ def status(ctx: click.Context) -> None:
 
 
 # ---------------------------------------------------------------------------
+# backup
+# ---------------------------------------------------------------------------
+
+
+@cli.group()
+def backup() -> None:
+    """Manage proxy state backups."""
+
+
+@backup.command("create")
+@click.option("--dest", default="backups", show_default=True, help="Destination directory.")
+@click.option("--encryption-key", envvar="BACKUP_ENCRYPTION_KEY", help="Secret key for encryption.")
+@click.pass_context
+def backup_create(ctx: click.Context, dest: str, encryption_key: str) -> None:
+    """Create a new Redis state backup."""
+    from src.backup.worker import BackupWorker
+    
+    # Extract host/port/db from REDIS_URL
+    import urllib.parse
+    url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    p = urllib.parse.urlparse(url)
+    
+    worker = BackupWorker(
+        redis_host=p.hostname or "localhost",
+        redis_port=p.port or 6379,
+        redis_db=int(p.path.lstrip("/") or 0),
+        encryption_key=encryption_key
+    )
+    
+    click.echo(f"Starting backup to {dest}...")
+    try:
+        path = worker.create_backup(dest)
+        click.echo(f"Backup successful: {path}")
+        if encryption_key:
+            click.echo("Artifact is ENCRYPTED (AES-256-GCM).")
+    except Exception as e:
+        click.echo(f"ERROR: Backup failed: {e}", err=True)
+        sys.exit(1)
+
+
+@backup.command("restore")
+@click.argument("artifact")
+@click.argument("manifest")
+@click.option("--encryption-key", envvar="BACKUP_ENCRYPTION_KEY", help="Secret key for decryption.")
+@click.option("--destructive", is_flag=True, default=False, help="Wipe Redis before restore.")
+@click.option("--confirm", is_flag=True, default=False)
+@click.pass_context
+def backup_restore(ctx: click.Context, artifact: str, manifest: str, encryption_key: str, destructive: bool, confirm: bool) -> None:
+    """Restore Redis state from an artifact."""
+    if destructive and not confirm:
+        _confirm_required("This will DESTRUCTIVELY wipe Redis before restoring.")
+    if not confirm:
+        _confirm_required(f"Restoring backup from {artifact}.")
+        
+    from src.backup.restorer import BackupRestorer
+    import urllib.parse
+    url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    p = urllib.parse.urlparse(url)
+    
+    restorer = BackupRestorer(
+        redis_host=p.hostname or "localhost",
+        redis_port=p.port or 6379,
+        redis_db=int(p.path.lstrip("/") or 0),
+        encryption_key=encryption_key
+    )
+    
+    click.echo(f"Restoring {artifact}...")
+    try:
+        restorer.restore_backup(artifact, manifest, destructive=destructive)
+        click.echo("Restore successful.")
+    except Exception as e:
+        click.echo(f"ERROR: Restore failed: {e}", err=True)
+        sys.exit(1)
+
+
+@backup.command("redact")
+@click.argument("artifact")
+@click.option("--ip", "ips", multiple=True, required=True, help="IP address to redact (can be repeated).")
+@click.option("--output", "out_path", help="Output path for redacted artifact (defaults to overwrite).")
+@click.option("--confirm", is_flag=True, default=False)
+@click.pass_context
+def backup_redact(ctx: click.Context, artifact: str, ips: list[str], out_path: str, confirm: bool) -> None:
+    """Redact PII (IP addresses) from a backup artifact (DSAR tool)."""
+    if not out_path and not confirm:
+        _confirm_required(f"This will OVERWRITE {artifact} with redacted data.")
+        
+    from src.backup.redactor import BackupRedactor
+    from pathlib import Path
+    import hashlib
+    
+    artifact_path = Path(artifact)
+    if not artifact_path.exists():
+        click.echo(f"ERROR: Artifact {artifact} not found.", err=True)
+        sys.exit(1)
+        
+    redactor = BackupRedactor()
+    data = artifact_path.read_bytes()
+    
+    click.echo(f"Redacting {len(ips)} IP(s) from {artifact}...")
+    new_data, count = redactor.redact(data, list(ips))
+    
+    if count == 0:
+        click.echo("No matching entries found. Artifact unchanged.")
+        return
+        
+    target = out_path if out_path else artifact
+    Path(target).write_bytes(new_data)
+    
+    # If we overwrote, we MUST update the manifest checksum
+    manifest_path = artifact_path.with_suffix(".manifest.json")
+    if not out_path and manifest_path.exists():
+        import json
+        manifest = json.loads(manifest_path.read_text())
+        manifest["checksum_sha256"] = hashlib.sha256(new_data).hexdigest()
+        manifest["size_bytes"] = len(new_data)
+        manifest["redacted_ips"] = list(ips)
+        manifest_path.write_text(json.dumps(manifest, indent=2))
+        click.echo("Updated manifest checksum.")
+
+    click.echo(f"Successfully redacted {count} entries. Saved to {target}.")
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
