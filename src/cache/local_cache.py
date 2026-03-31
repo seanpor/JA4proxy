@@ -196,6 +196,12 @@ class LocalCache:
             ttl_seconds=_get("misp_scores", "ttl_seconds", 3600), # 1h
             name="misp_scores",
         )
+        # Phase 46: ThreatFox Threat Intelligence cache
+        self.threatfox_scores = LRUCache(
+            max_size=_get("threatfox_scores", "max_size", 50_000),
+            ttl_seconds=_get("threatfox_scores", "ttl_seconds", 3600), # 1h
+            name="threatfox_scores",
+        )
         # Dial has no TTL — updated only by pub/sub or config reload.
         # Default 0 = monitor mode; proxy never blocks on first deploy.
         self._dial: int = 0
