@@ -1344,6 +1344,9 @@ class ProxyServer:
         _decider = ActionDecider.from_config(self.config)
         self.pipeline = Pipeline(self.config, self._local_cache, self.redis_client)
         self.pipeline.update_scorer(_scorer, _decider)
+        # Phase 47: Confidence-based weighting system
+        from src.security.confidence_manager import ConfidenceManager
+        self.confidence_manager = ConfidenceManager(self.redis_client)
 
         # Load JA4 whitelist/blacklist into pipeline's in-process sets
         wl_raw = await self.redis_client.smembers("ja4:whitelist")
@@ -1708,6 +1711,9 @@ class ProxyServer:
             '"event":"dial_initialized","value":%d}',
             initial_dial,
         )
+        
+        # Phase 47: Initialize confidence manager
+        await self.confidence_manager.initialize()
 
         # Phase 28b: Secure pub/sub for state updates (signed blacklist/dial/config)
         pubsub_handler = PubSubHandler(
@@ -1736,6 +1742,8 @@ class ProxyServer:
             threatfox=self.threatfox_provider,
             virustotal=self.virustotal_provider,
         )
+        # Wire confidence manager into pipeline
+        self.pipeline.set_confidence_manager(self.confidence_manager)
 
         # Start proxy server
         server = await asyncio.start_server(
