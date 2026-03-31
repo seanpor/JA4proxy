@@ -44,14 +44,17 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Tooling for parallel container releases and rapid traffic-shifting via load balancer.)
 *   **Action Plan:** [PHASE_43.md](PHASE_43.md)
 
-### Phase 44 — Management UI - Phase 2: Frontend Dashboard
-*   **Status:** **PROPOSED** (React-based dashboard for real-time visualization of proxy telemetry.)
+### Phase 44 — Test Audit and Documentation
+*   **Status:** **COMPLETE** (Audit the test suite to ensure all tests are genuine and document test types, coverage, and gaps.)
+*   **Action Plan:** [PHASE_44_TEST_AUDIT.md](PHASE_44_TEST_AUDIT.md)
 
-### Phase 45 — Management UI - Phase 3: Administration Tools
-*   **Status:** **PROPOSED** (Interactive tools for managing allowlists, bans, and system configuration.)
+### Phase 45 — Adversarial Test Expansion
+*   **Status:** **IN_PROGRESS** (Expand adversarial tests to cover additional attack vectors and ensure comprehensive security coverage.)
+*   **Action Plan:** [PHASE_45_ADVERSARIAL_TESTS.md](PHASE_45_ADVERSARIAL_TESTS.md)
 
-### Phase 46 — Advanced Traffic Intelligence - Phase 2: Secondary Feeds
-*   **Status:** **PROPOSED** (Integrate specialized threat intelligence feeds (e.g., MISP, ThreatFox, VirusTotal).)
+### Phase 46 — Coverage Improvement
+*   **Status:** **PROPOSED** (Improve coverage for low-coverage modules and achieve >80% coverage for all critical modules.)
+*   **Action Plan:** [PHASE_46_COVERAGE.md](PHASE_46_COVERAGE.md)
 
 ### Phase 47 — Advanced Traffic Intelligence - Phase 5: Behavioral Attribution
 *   **Status:** **PROPOSED** (Implement complex behavioral patterns and cross-IP correlation.)
