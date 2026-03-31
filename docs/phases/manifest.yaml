@@ -268,8 +268,9 @@ phases:
 
   31:
     name: "Advanced Traffic Intelligence - Phase 3: Geographical Intelligence"
-    status: "PROPOSED"
+    status: "COMPLETE"
     summary: "Add GeoIP lookup and country-based blocking capabilities. Target: Geographical threat analysis."
+    completed: "2026-03-31"
     action_plan: "docs/phases/details/PHASE_31_WORK_PLAN.md"
     dependencies: [23]
     size: "SMALL"

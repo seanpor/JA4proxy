@@ -56,7 +56,7 @@ Cross-instance behavior analysis and threat intelligence.
 | 9 | Beaconing Detector | COMPLETE | IAT coefficient of variation, dual window, suspects leaderboard. |
 | 12 | Analytics Node | COMPLETE | Cross-instance statistical analysis via Redis Streams. Campaign/slow-scan signals, drift alerting, Grafana dashboard, HyperLogLog, hot-reload. |
 | 23 | Advanced Traffic Intelligence - Phase 1: Primary Feeds | COMPLETE | Integrate AbuseIPDB, GreyNoise, and AlienVault OTX feeds for real-time IP reputation. |
-| 31 | Advanced Traffic Intelligence - Phase 3: Geographical Intelligence | PROPOSED | Add GeoIP lookup and country-based blocking capabilities. Target: Geographical threat analysis. |
+| 31 | Advanced Traffic Intelligence - Phase 3: Geographical Intelligence | COMPLETE | Add GeoIP lookup and country-based blocking capabilities. Target: Geographical threat analysis. |
 | 32 | Advanced Traffic Intelligence - Phase 4: Attacker Attribution | PROPOSED | Implement attacker fingerprinting and JA4 correlation logic. |
 | 33 | Advanced Traffic Intelligence - Phase 6: Documentation Diagrams | COMPLETE | Standardize all documentation diagrams to Mermaid format for consistent rendering. |
 | 53 | Advanced Traffic Intelligence - Phase 2: Secondary Feeds | PROPOSED | Integrate specialized threat intelligence feeds (e.g., MISP, ThreatFox, VirusTotal). |
@@ -137,7 +137,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 28 | Python Throughput Hardening - Phase 2: Redis Optimization | COMPLETE | 100% | COMPLETE |
 | 29 | Python Throughput Hardening - Phase 3: Multi-Process Architecture | COMPLETE | 100% | COMPLETE |
 | 30 | Python Throughput Hardening - Phase 4: Write Optimization & Benchmarking | COMPLETE | 100% | COMPLETE |
-| 31 | Advanced Traffic Intelligence - Phase 3: Geographical Intelligence | PROPOSED | N/A | N/A |
+| 31 | Advanced Traffic Intelligence - Phase 3: Geographical Intelligence | COMPLETE | N/A | N/A |
 | 32 | Advanced Traffic Intelligence - Phase 4: Attacker Attribution | PROPOSED | N/A | N/A |
 | 33 | Advanced Traffic Intelligence - Phase 6: Documentation Diagrams | COMPLETE | N/A | N/A |
 | 34 | APT Hardening - Phase 1: Parser Isolation & Redis Security | PROPOSED | N/A | N/A |

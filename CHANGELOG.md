@@ -28,6 +28,14 @@
 ### Changed
 - **Async Config Parsing**: Refactored `ConfigLoader.reload()` to use `run_in_executor`, preventing the event loop from blocking during large YAML parsing.
 
+## [31.0.0] - 2026-03-31 — Phase 31: Advanced Traffic Intelligence - Phase 3: Geographical Intelligence
+
+### Added
+- **GeoIP Integration**: Integrated IP2Location LITE database for mapping IP addresses to source countries.
+- **Country-Based Blocking**: Implemented static and dynamic country-based blocking rules (whitelist/blacklist) in the proxy pipeline.
+- **Geographical Metrics**: Added Prometheus metrics for connection tracking and blocking events by country code.
+- **GeoIP Maintenance**: Created `scripts/update-geoip.sh` for automated monthly database updates and age verification.
+
 ## [44.0.0] - 2026-03-31 — Phase 44: Test Audit and Documentation
 
 ### Added
