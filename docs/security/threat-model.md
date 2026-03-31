@@ -388,72 +388,103 @@ Risk = Impact × Likelihood × Asset Value
 
 ### Attack Tree: Data Breach via Database Compromise
 
-```
-Goal: Steal JA4 Fingerprint Database
-├── OR
-    ├── Direct Database Access
-    │   ├── AND
-    │   │   ├── Credential Compromise
-    │   │   │   ├── Password Brute Force
-    │   │   │   ├── Credential Stuffing
-    │   │   │   └── Social Engineering
-    │   │   └── Network Access
-    │   │       ├── VPN Compromise
-    │   │       ├── Internal Network Access
-    │   │       └── Database Port Exposure
-    │   └── Database Vulnerability Exploitation
-    │       ├── SQL Injection
-    │       ├── Unpatched Database Software
-    │       └── Weak Database Configuration
-    ├── Application Layer Attack
-    │   ├── AND
-    │   │   ├── Application Vulnerability
-    │   │   │   ├── Code Injection
-    │   │   │   ├── Authentication Bypass
-    │   │   │   └── Authorization Flaws
-    │   │   └── Data Access
-    │   │       ├── ORM Manipulation
-    │   │   │       ├── Cache Poisoning
-    │   │       └── Memory Extraction
-    └── Infrastructure Compromise
-        ├── AND
-        │   ├── System Access
-        │   │   ├── Container Escape
-        │   │   ├── Privilege Escalation
-        │   │   └── Host Compromise
-        │   └── Data Extraction
-        │       ├── Memory Dumps
-        │       ├── File System Access
-        │       └── Network Sniffing
+```mermaid
+graph TD
+    Goal[Goal: Steal JA4 Fingerprint Database]
+    OR1{OR}
+    
+    Goal --- OR1
+    
+    OR1 --- DDA[Direct Database Access]
+    OR1 --- ALA[Application Layer Attack]
+    OR1 --- IC[Infrastructure Compromise]
+    
+    subgraph "Direct Database Access"
+        DDA --- AND1{AND}
+        AND1 --- CC[Credential Compromise]
+        CC --- PBF[Password Brute Force]
+        CC --- CS[Credential Stuffing]
+        CC --- SE[Social Engineering]
+        
+        AND1 --- NA[Network Access]
+        NA --- VC[VPN Compromise]
+        NA --- INA[Internal Network Access]
+        NA --- DPE[Database Port Exposure]
+        
+        DDA --- DVE[Database Vulnerability Exploitation]
+        DVE --- SQLI[SQL Injection]
+        DVE --- UDS[Unpatched Database Software]
+        DVE --- WDC[Weak Database Configuration]
+    end
+    
+    subgraph "Application Layer Attack"
+        ALA --- AND2{AND}
+        AND2 --- AV[Application Vulnerability]
+        AV --- CI[Code Injection]
+        AV --- AB[Authentication Bypass]
+        AV --- AF[Authorization Flaws]
+        
+        AND2 --- DAC[Data Access]
+        DAC --- OM[ORM Manipulation]
+        DAC --- CP[Cache Poisoning]
+        DAC --- ME[Memory Extraction]
+    end
+    
+    subgraph "Infrastructure Compromise"
+        IC --- AND3{AND}
+        AND3 --- SA[System Access]
+        SA --- CE[Container Escape]
+        SA --- PE[Privilege Escalation]
+        SA --- HC[Host Compromise]
+        
+        AND3 --- DE[Data Extraction]
+        DE --- MD[Memory Dumps]
+        DE --- FSA[File System Access]
+        DE --- NS[Network Sniffing]
+    end
 ```
 
 ### Attack Tree: Service Disruption via DDoS
 
-```
-Goal: Disrupt JA4 Proxy Service
-├── OR
-    ├── Network Layer DDoS
-    │   ├── Volumetric Attacks
-    │   │   ├── UDP Flood
-    │   │   ├── ICMP Flood
-    │   │   └── Spoofed Packet Flood
-    │   └── Protocol Attacks
-    │       ├── SYN Flood
-    │       ├── TCP Reset Attack
-    │       └── Fragmentation Attack
-    ├── Application Layer DDoS
-    │   ├── HTTP Flood
-    │   ├── Slowloris Attack
-    │   ├── Slow POST Attack
-    │   └── Resource Exhaustion
-    │       ├── Memory Exhaustion
-    │       ├── CPU Exhaustion
-    │       └── Connection Exhaustion
-    └── Logic Layer Attacks
-        ├── Business Logic Abuse
-        ├── API Rate Limit Bypass
-        ├── Cache Exhaustion
-        └── Database Connection Pool Exhaustion
+```mermaid
+graph TD
+    Goal[Goal: Disrupt JA4 Proxy Service]
+    OR1{OR}
+    
+    Goal --- OR1
+    
+    OR1 --- NL[Network Layer DDoS]
+    OR1 --- AL[Application Layer DDoS]
+    OR1 --- LL[Logic Layer Attacks]
+    
+    subgraph "Network Layer DDoS"
+        NL --- VA[Volumetric Attacks]
+        VA --- UF[UDP Flood]
+        VA --- IF[ICMP Flood]
+        VA --- SPF[Spoofed Packet Flood]
+        
+        NL --- PA[Protocol Attacks]
+        PA --- SF[SYN Flood]
+        PA --- TRA[TCP Reset Attack]
+        PA --- FA[Fragmentation Attack]
+    end
+    
+    subgraph "Application Layer DDoS"
+        AL --- HF[HTTP Flood]
+        AL --- SLA[Slowloris Attack]
+        AL --- SPA[Slow POST Attack]
+        AL --- RE[Resource Exhaustion]
+        RE --- ME[Memory Exhaustion]
+        RE --- CE[CPU Exhaustion]
+        RE --- CONE[Connection Exhaustion]
+    end
+    
+    subgraph "Logic Layer Attacks"
+        LL --- BLA[Business Logic Abuse]
+        LL --- RLB[API Rate Limit Bypass]
+        LL --- CEH[Cache Exhaustion]
+        LL --- CPE[Database Connection Pool Exhaustion]
+    end
 ```
 
 ## Security Controls Mapping

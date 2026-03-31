@@ -7,6 +7,39 @@ phase: 21
 
 # Security Deployment Checklist
 
+```mermaid
+flowchart TD
+    Start[Start Deployment] --> Secrets[1. Critical: Secrets & Credentials]
+    Secrets --> Config[2. Critical: Configuration Hardening]
+    Config --> TLS[3. Critical: TLS/SSL Setup]
+    
+    subgraph "Phase 1: Critical Gates"
+        Secrets
+        Config
+        TLS
+    end
+    
+    TLS --> Containers[4. High: Container Security]
+    Containers --> Net[5. High: Network Segmentation]
+    Net --> Mon[6. High: Monitoring & Logging]
+    
+    subgraph "Phase 2: Production Hardening"
+        Containers
+        Net
+        Mon
+    end
+    
+    Mon --> Test[7. Medium: Testing & Validation]
+    Test --> Audit[8. Medium: Compliance & Audit]
+    
+    subgraph "Phase 3: Operational Readiness"
+        Test
+        Audit
+    end
+    
+    Audit --> End[Ready for Production]
+```
+
 Use this checklist before deploying JA4 Proxy to any environment.
 
 ## 🔴 CRITICAL - Must Complete Before Deployment

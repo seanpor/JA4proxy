@@ -9,20 +9,35 @@ A security proxy that extracts [JA4 TLS fingerprints](https://github.com/FoxIO-L
 
 Everything runs in Docker. Two Compose files manage the stack:
 
-```
-┌──── docker-compose.poc.yml ─────────────────────────────────────────┐
-│                                                                      │
-│  Client ──TLS──▶ [haproxy] ──TCP──▶ [proxy] ──TLS──▶ [backend]    │
-│                   :443               :8080            :443           │
-│                   :8404 (stats)      :9090 (metrics)                 │
-│                                          │                           │
-│                                     [redis:6379]  [tarpit:8888]     │
-└──────────────────────────────────────────────────────────────────────┘
-         scrapes :9090 ▲                              logs ▲
-┌──── docker-compose.monitoring.yml ──────────────────────────────────┐
-│  [prometheus]:9091  [grafana]:3001  [loki]:3100  [alertmgr]:9093   │
-│  [node-exporter]    [redis-exporter]              [promtail]        │
-└──────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph "docker-compose.poc.yml"
+        C[Client] -->|TLS| HA[haproxy:443]
+        HA -->|TCP| P[proxy:8080]
+        P -->|TLS| B[backend:443]
+        
+        P <--> R[redis:6379]
+        P --> T[tarpit:8888]
+        
+        HA -.->|stats| HS[haproxy:8404]
+        P -.->|metrics| PM[proxy:9090]
+    end
+    
+    subgraph "docker-compose.monitoring.yml"
+        PROM[prometheus:9091]
+        GRAF[grafana:3001]
+        LOKI[loki:3100]
+        AM[alertmgr:9093]
+        NE[node-exporter]
+        RE[redis-exporter]
+        PT[promtail]
+    end
+    
+    PM -.->|scrapes| PROM
+    P -.->|logs| LOKI
+    PT -.->|logs| LOKI
+    PROM -.-> GRAF
+    LOKI -.-> GRAF
 ```
 
 1. Client sends a TLS ClientHello (plaintext, before encryption)

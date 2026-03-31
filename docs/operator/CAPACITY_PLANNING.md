@@ -32,6 +32,15 @@ This guide provides capacity planning recommendations for JA4proxy deployments, 
 **Throughput Ceiling:** ~350 connections/second per instance (GIL-bound)
 
 **CPU Profile:**
+
+```mermaid
+pie title Python Proxy CPU Distribution
+    "TLS Parsing & JA4" : 60
+    "Signal Collection" : 25
+    "Redis I/O" : 10
+    "Network I/O" : 5
+```
+
 - 60% TLS parsing and JA4 computation
 - 25% Signal collection and scoring
 - 10% Redis I/O
