@@ -17,6 +17,17 @@
 - **Restore Validation**: Implemented `RestoreError` threshold logic; restores now fail explicitly if more than 5% of keys fail to restore.
 - **Enhanced Observability**: Added Prometheus metrics for backup duration, size, success/failure counts, and keys processed.
 
+## [43.0.0] - 2026-03-31 — Phase 43: Blue/Green Deployment & Rollback Tooling
+
+### Added
+- **Blue/Green Orchestration**: Developed `scripts/blue-green-deploy.sh` to manage zero-downtime rollouts by running parallel stacks (`ja4proxy-blue` and `ja4proxy-green`).
+- **Health-Aware Swapping**: Integrated deployment script with the Phase 41 Health API to ensure new stacks are fully functional before shifting traffic.
+- **Atomic Traffic-Shifting**: Implemented rapid backend switching in HAProxy using the Phase 42 hot-reload mechanism.
+- **Instant Rollback**: Added one-command rollback capability to instantly restore traffic to the previous stable stack in case of issues.
+
+### Changed
+- **Stack Isolation**: Updated `docker-compose.prod.yml` to support multiple parallel instances by removing fixed container names and optimizing port bindings.
+
 ## [42.0.0] - 2026-03-31 — Phase 42: Zero-Downtime Data Upgrades (GeoIP & Config)
 
 ### Added
