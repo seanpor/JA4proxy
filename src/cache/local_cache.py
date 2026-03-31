@@ -190,6 +190,12 @@ class LocalCache:
             ttl_seconds=_get("alienvault_scores", "ttl_seconds", 3600), # 1h
             name="alienvault_scores",
         )
+        # Phase 46: MISP Threat Intelligence cache
+        self.misp_scores = LRUCache(
+            max_size=_get("misp_scores", "max_size", 50_000),
+            ttl_seconds=_get("misp_scores", "ttl_seconds", 3600), # 1h
+            name="misp_scores",
+        )
         # Dial has no TTL — updated only by pub/sub or config reload.
         # Default 0 = monitor mode; proxy never blocks on first deploy.
         self._dial: int = 0

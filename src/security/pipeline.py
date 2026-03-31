@@ -61,6 +61,7 @@ from .beaconing_detector import BeaconingDetector
 from .blocklists import BlocklistManager, FeedConfig
 from .dns_enrichment import DNSEnrichment
 from .greynoise import GreyNoiseProvider
+from .misp import MISPProvider
 from .mtls import MTLSHandler
 from .rate_tracker import MultiStrategyRateTracker
 from .rdap_enrichment import RDAPEnricher
@@ -344,6 +345,8 @@ class Pipeline:
         # Phase 23: Advanced TI providers (GreyNoise, AlienVault OTX)
         self._greynoise_provider: GreyNoiseProvider | None = None
         self._alienvault_provider: AlienVaultOTXProvider | None = None
+        # Phase 46: MISP Threat Intelligence provider
+        self._misp_provider: MISPProvider | None = None
         # Phase 26e: Write buffer for deferred batching of post-decision writes
         self._write_buffer = WriteBuffer(redis_client)
         # Phase 16: JA4X fingerprint lists (parallel structure to JA4 lists)
@@ -388,10 +391,12 @@ class Pipeline:
         self,
         greynoise: GreyNoiseProvider | None,
         alienvault: AlienVaultOTXProvider | None,
+        misp: MISPProvider | None = None,
     ) -> None:
-        """Wire in Phase 23 TI providers. Called after start()."""
+        """Wire in Phase 23 & 46 TI providers. Called after start()."""
         self._greynoise_provider = greynoise
         self._alienvault_provider = alienvault
+        self._misp_provider = misp
 
     async def _get_analytics_signals(self, ip: str) -> list:
         """Read analytics cross-instance signals from Redis (Phase 12).
@@ -1074,6 +1079,22 @@ class Pipeline:
                 _SIGNAL_ERROR.labels(module="alienvault").inc()
                 return []
 
+        async def _collect_misp_signals():
+            if self._misp_provider is None:
+                return []
+            try:
+                signal = self._misp_provider.get_signal(ctx.client_ip)
+                return [signal] if signal is not None else []
+            except Exception as exc:
+                logger.error(
+                    "misp | event=get_signal_error | ip=%s | error=%s",
+                    ctx.client_ip,
+                    exc,
+                    exc_info=True,
+                )
+                _SIGNAL_ERROR.labels(module="misp").inc()
+                return []
+
         # Run all I/O-bound signal collectors concurrently
         results = await asyncio.gather(
             _collect_tcp_signals(),
@@ -1086,6 +1107,7 @@ class Pipeline:
             _collect_analytics_signals(),
             _collect_greynoise_signals(),
             _collect_alienvault_signals(),
+            _collect_misp_signals(),
             return_exceptions=True,
         )
 
