@@ -125,7 +125,7 @@ class HealthMonitor:
 
     def get_status_report(self) -> Dict[str, Any]:
         """Generate full health report for /health endpoint."""
-        avg_latency = 0
+        avg_latency: float = 0.0
         if self._pipeline_latencies:
             avg_latency = sum(self._pipeline_latencies) / len(self._pipeline_latencies)
 
