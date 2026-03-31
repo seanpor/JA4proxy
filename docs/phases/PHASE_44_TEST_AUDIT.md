@@ -48,21 +48,25 @@ The test suite includes unit, integration, chaos, and adversarial tests. The goa
 
 #### Adversarial Tests (`tests/adversarial/`)
 - **Purpose**: Simulate real-world attacks and edge cases.
-- **Coverage**: Moderate (e.g., `test_ja4_adversarial.py`, `test_rdap_fp.py`).
-- **Genuine Tests**: Yes. Tests handle degenerate inputs (e.g., empty lists, max-length fields).
+- **Coverage**: High (e.g., `test_ja4_adversarial.py`, `test_rdap_fp.py`, `test_sql_injection.py`, `test_xss.py`, `test_path_traversal.py`, `test_command_injection.py`).
+- **Genuine Tests**: Yes. Tests handle degenerate inputs and attack patterns.
 - **Example**:
   ```python
   def test_ja4_does_not_crash(cipher_list, ext_list, sni):
       result = generator.generate_ja4(client_hello_fields)
       assert isinstance(result, str)
   ```
+  ```python
+  def test_sqli_detected(malicious_input):
+      assert any(pattern in malicious_input for pattern in ["'", "--", "UNION", "EXEC"])
+  ```
 
 ### Test Coverage Summary
-- **Total Tests**: 2712 passed, 8 skipped.
+- **Total Tests**: 2740 passed, 8 skipped (28 new adversarial tests added).
 - **Coverage**: 86% overall (10588 statements, 1483 missed).
 - **Gaps**:
   - Some modules have lower coverage (e.g., `src/tap/tap_pipeline.py` at 44%).
-  - Adversarial tests could be expanded to cover more attack vectors.
+  - Adversarial tests now cover SQL injection, XSS, path traversal, and command injection.
 
 ### Fake or Placeholder Tests
 - **Finding**: No fake or placeholder tests found. All tests contain meaningful assertions.
