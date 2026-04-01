@@ -1237,6 +1237,23 @@ class ProxyServer:
 
         # Initialize components
         self.redis_client = await self._init_redis()
+
+        # Core state components (needed by TI providers and pipeline)
+        from src.cache.local_cache import LocalCache
+        from src.security.adaptive_cache import AdaptiveCacheManager
+        from src.security.confidence_manager import ConfidenceManager
+        import aiohttp
+
+        self._local_cache = LocalCache(self.config)
+        self.confidence_manager = ConfidenceManager(self.redis_client)
+        self.adaptive_cache = AdaptiveCacheManager(self.redis_client)
+        try:
+            import aiohttp
+            self._aiohttp_session = aiohttp.ClientSession()
+        except (ImportError, Exception):
+            self.logger.warning("aiohttp not installed or failed to init - TI providers using network will be disabled")
+            self._aiohttp_session = None
+
         self.tls_parser = TLSParser()
         self.ja4_generator = JA4Generator()
         self.tarpit_manager = TarpitManager(self.config)
@@ -1345,19 +1362,11 @@ class ProxyServer:
         # Pre-populate Redis whitelist/blacklist from config
         await self._populate_security_lists()
 
-        # Phase 0+: Local cache (dial updated by pub/sub; used by pipeline hot path)
-        self._local_cache = LocalCache(self.config)
-
         # Phase 1+: Pipeline replaces legacy security layers
         _scorer = RiskScorer.from_config(self.config)
         _decider = ActionDecider.from_config(self.config)
         self.pipeline = Pipeline(self.config, self._local_cache, self.redis_client)
         self.pipeline.update_scorer(_scorer, _decider)
-        # Phase 47: Confidence-based weighting system
-        from src.security.confidence_manager import ConfidenceManager
-        from src.security.adaptive_cache import AdaptiveCacheManager
-        self.confidence_manager = ConfidenceManager(self.redis_client)
-        self.adaptive_cache = AdaptiveCacheManager(self.redis_client)
 
         # Load JA4 whitelist/blacklist into pipeline's in-process sets
         wl_raw = await self.redis_client.smembers("ja4:whitelist")
@@ -1375,11 +1384,11 @@ class ProxyServer:
 
         # Phase 10: AbuseIPDB checker — shared aiohttp session, background workers
         try:
-            import aiohttp as _aiohttp
+            if self._aiohttp_session is None:
+                raise Exception("aiohttp session not available")
 
             from src.security.abuseipdb import AbuseIPDBChecker, AbuseIPDBConfig
 
-            self._aiohttp_session = _aiohttp.ClientSession()
             _abuseipdb_cfg = AbuseIPDBConfig.from_config(self.config)
             self._abuseipdb_checker = AbuseIPDBChecker(
                 _abuseipdb_cfg,
@@ -1393,19 +1402,16 @@ class ProxyServer:
             self.logger.warning(
                 f"abuseipdb | event=init_failed | error={exc} — AbuseIPDB disabled"
             )
-            self._aiohttp_session = None
             self._abuseipdb_checker = None
 
         # Phase 11: RDAP enricher — reuses shared aiohttp session; background workers
         try:
+            if self._aiohttp_session is None:
+                raise Exception("aiohttp session not available")
+
             from src.security.rdap_enrichment import RDAPConfig, RDAPEnricher
 
             _rdap_cfg = RDAPConfig.from_config(self.config)
-            # Reuse the existing aiohttp session if available; create one if not
-            if self._aiohttp_session is None:
-                import aiohttp as _aiohttp
-
-                self._aiohttp_session = _aiohttp.ClientSession()
             self._rdap_enricher = RDAPEnricher(
                 _rdap_cfg,
                 self.redis_client,
