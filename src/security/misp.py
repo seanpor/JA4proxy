@@ -9,12 +9,14 @@ import asyncio
 import json
 import logging
 import os
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional
 
 import redis
 from prometheus_client import Counter, Gauge
 
+from .feed_health import FeedHealthMonitor
 from .models import RiskSignal
 from .ti_provider import TIProvider, TIProviderConfig
 
@@ -26,6 +28,7 @@ except ImportError:
 if TYPE_CHECKING:
     from ..cache.local_cache import LocalCache
     from .adaptive_cache import AdaptiveCacheManager
+    from .feed_health import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -86,12 +89,14 @@ class MISPProvider(TIProvider):
         local_cache: "LocalCache",
         session: "aiohttp.ClientSession",
         adaptive_cache: Optional["AdaptiveCacheManager"] = None,
+        health_monitor: Optional[FeedHealthMonitor] = None,
     ) -> None:
         self._config = config
         self._redis = redis_client
         self._local_cache = local_cache
         self._session = session
         self._adaptive_cache = adaptive_cache
+        self._health_monitor = health_monitor
         self._queue: asyncio.Queue = asyncio.Queue(maxsize=config.queue_size)
         self._workers: List[asyncio.Task] = []
         self._hits = 0
@@ -205,6 +210,14 @@ class MISPProvider(TIProvider):
         if not self._config.api_key or not self._config.base_url:
             return
 
+        # Circuit breaker: skip API call if feed is consistently failing
+        cb = None
+        if self._health_monitor:
+            cb = self._health_monitor.get_circuit_breaker("misp")
+            if cb.is_open():
+                logger.debug("misp | event=circuit_open_skip | ip=%s", ip)
+                return
+
         url = f"{self._config.base_url}/attributes/restSearch/json"
         headers = {
             "Authorization": self._config.api_key,
@@ -229,10 +242,11 @@ class MISPProvider(TIProvider):
         except Exception:
             pass
         
+        t0 = time.monotonic()
         try:
             async with self._session.post(
-                url, 
-                headers=headers, 
+                url,
+                headers=headers,
                 json=payload,
                 timeout=aiohttp.ClientTimeout(total=self._config.lookup_timeout_seconds)
             ) as resp:
@@ -240,15 +254,20 @@ class MISPProvider(TIProvider):
                     data = await resp.json()
                     attributes = data.get("response", [])
                     attribute_count = len(attributes)
-                    
+
                     result = {"attribute_count": attribute_count}
                     _LOOKUP_TOTAL.labels(result="success").inc()
                 elif resp.status == 404:
                     result = {"attribute_count": 0}
                     _LOOKUP_TOTAL.labels(result="not_found").inc()
                 else:
-                    logger.warning(f"misp | event=api_error | status={resp.status} | ip={ip}")
+                    logger.warning(
+                        "misp | event=api_error | status=%d | ip=%s",
+                        resp.status, ip,
+                    )
                     _LOOKUP_TOTAL.labels(result="error").inc()
+                    if cb:
+                        cb.record_failure()
                     return
 
                 # Get adaptive TTL if adaptive cache manager is available
@@ -263,17 +282,23 @@ class MISPProvider(TIProvider):
                     json.dumps(result)
                 )
                 self._local_cache.misp_scores.set(ip, result)
-                
+
                 # Record cache miss with volatility detection
                 if hasattr(self, '_adaptive_cache') and self._adaptive_cache:
                     await self._adaptive_cache.record_cache_miss("misp", old_value, result)
-=======
+
+                if cb:
+                    cb.record_success(time.monotonic() - t0)
 
         except asyncio.TimeoutError:
             _LOOKUP_TOTAL.labels(result="timeout").inc()
+            if cb:
+                cb.record_failure()
         except Exception as e:
-            logger.error(f"misp | event=api_exception | ip={ip} | error={e}")
+            logger.error("misp | event=api_exception | ip=%s | error=%s", ip, e)
             _LOOKUP_TOTAL.labels(result="error").inc()
+            if cb:
+                cb.record_failure()
 
     def on_config_reload(self, new_config: dict) -> None:
         self._config = MISPConfig.from_config(new_config)
