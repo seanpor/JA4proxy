@@ -1,24 +1,25 @@
-# Phase 45: Management UI - Phase 3: Administration Tools
+# Phase 52: Management UI - Phase 3: Administration Tools
 
 Status: PROPOSED
-Priority: MEDIUM (Post-Phase 44)
+Priority: MEDIUM (Post-Phase 51)
+Dependencies: Phase 51 (Management UI - Phase 2: Frontend Dashboard)
 
 ## Goal
 Implement interactive administrative tools for managing allowlists, bans, and system configuration directly from the dashboard.
 
 ## Sub-Tasks
 
-### 45a — List Management UI
+### 52a — List Management UI
 - [ ] **Allowlist:** CRUD interface for the `static:allowlist` in Redis.
 - [ ] **JA4 Management:** Search and manage entries in `ja4:whitelist` and `ja4:blacklist`.
 - [ ] **Audit Integration:** All UI actions must produce entries in `management:audit_log`.
 
-### 45b — CIDR Ban & Incident Response
+### 52b — CIDR Ban & Incident Response
 - [ ] **CIDR UI:** Visual tool for applying subnet-level blocks (`ban_cidr:{cidr}`) with duration controls.
 - [ ] **Search:** Quick-search connections by IP or JA4 to identify active attacks.
 - [ ] **Action:** "Kill Connection" button to immediately blacklist an IP from the live feed.
 
-### 45c — System Health & Status
+### 52c — System Health & Status
 - [ ] **Component View:** Visual indicators for Redis, GeoIP, and Worker health (powered by Phase 41 Health API).
 - [ ] **Log Viewer:** Log streaming component for debugging proxy issues in real-time.
 
