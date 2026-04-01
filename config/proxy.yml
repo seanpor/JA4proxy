@@ -531,6 +531,14 @@ attribution:
   malicious_threshold: 80           # Score at which a profile is auto-tagged as malicious.
   min_ips_for_suspicious: 3         # Number of unique IPs sharing a fingerprint to trigger 'suspicious'.
 
+# ── Phase 54: Behavioral Attribution ─────────────────────────────────────────
+
+behavioral:
+  enabled: true                     # Enable behavioral pattern detection.
+  probing_unique_sni_threshold: 5   # Num unique SNIs per fingerprint to flag probing.
+  burst_window_ms: 100              # Window for coordinated burst detection.
+  burst_count_threshold: 10         # Num unique IPs in window to flag burst.
+
 # ── Phase 23: GreyNoise Integration ──────────────────────────────────────────
 
 greynoise:
