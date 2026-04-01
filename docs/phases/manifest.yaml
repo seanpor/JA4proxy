@@ -206,7 +206,7 @@ phases:
     doc_status: "COMPLETE"
     summary: "Add backup scheduling, pipeline batching, and restore validation. Target: Production-ready backup system."
     completed: "2026-03-29"
-    action_plan: "docs/phases/details/PHASE_22_WORK_PLAN.md"
+    action_plan: "docs/phases/PHASE_22.md"
     dependencies: [19]
     size: "SMALL"
     gaps: []
@@ -248,7 +248,7 @@ phases:
     status: "COMPLETE"
     summary: "Integrate AbuseIPDB, GreyNoise, and AlienVault OTX feeds for real-time IP reputation."
     completed: "2026-03-31"
-    action_plan: "docs/phases/details/PHASE_23_WORK_PLAN.md"
+    action_plan: "docs/phases/PHASE_23.md"
     dependencies: [12]
     size: "SMALL"
     success_criteria:
@@ -271,7 +271,7 @@ phases:
 
   59:
     name: "Advanced Traffic Intelligence - Phase 4: Feed Reliability & Resilience"
-    status: "INCOMPLETE"
+    status: "IN_PROGRESS"
     summary: "Enhance feeds with health monitoring, circuit breakers, and comprehensive chaos testing."
     action_plan: "docs/phases/PHASE_59.md"
     dependencies: [58, 41]

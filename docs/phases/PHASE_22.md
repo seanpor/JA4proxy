@@ -1,4 +1,4 @@
-# PHASE 22 — Backup System Enhancements: Encryption, Cloud Storage & Optimization
+# PHASE 22 — Backup System Enhancements - Phase 1: Core Features
 
 Status: PROPOSED
 

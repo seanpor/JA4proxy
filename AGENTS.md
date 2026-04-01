@@ -17,8 +17,37 @@ This document defines the mandatory operational standards for AI agents working 
 
 The project uses a **Manifest-Driven Roadmap** to prevent documentation drift.
 
-- **Source of Truth:** `docs/phases/manifest.yaml`
-- **Synchronization:** You MUST run `python3 scripts/sync-roadmap.py` after any change to the manifest. This updates `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.
+- **Single source of truth for phase status:** `docs/phases/manifest.yaml` — nowhere else.
+- **Synchronization:** Run `python3 scripts/sync-roadmap.py` after any change to the manifest. This regenerates `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.
+- **Validation:** Run `python3 scripts/lint-phases.py` (or `make lint-phases`) to catch broken action_plan paths, stale phase numbers in headings, and invalid status values. Must exit 0 before any phase-closeout commit.
+
+> **Note:** The Phase Index table in `CLAUDE.md` is a static reference summary and is **not actively maintained**. For current phase status always read `docs/phases/manifest.yaml` or `docs/phases/TODO.md`.
+
+### Phase Documentation Rules (read before creating or renaming phase docs)
+
+These rules exist so that renaming a phase never requires editing file content — only the filename and the manifest entry.
+
+**Rule 1 — Phase number lives in the FILENAME only.**
+H1 headings must contain the phase title, NOT the phase number:
+```markdown
+# Backup System Enhancements - Phase 1: Core Features    ✓  (title only)
+# Phase 22: Backup System Enhancements - Phase 1...      ✗  (number in heading = will go stale)
+```
+
+**Rule 2 — Status lives in `manifest.yaml` only.**
+Do NOT include a `Status:` line in phase doc files. If an existing doc has one, ignore it — trust the manifest.
+
+**Rule 3 — Sub-task labels use letters, not `NNa`/`NNb`.**
+```markdown
+### A — List Management UI     ✓
+### 52a — List Management UI   ✗  (stale when renumbered)
+```
+
+**Rule 4 — To rename/renumber a phase:**
+1. Rename the file (e.g. `PHASE_45.md` → `PHASE_52.md`)
+2. Update `action_plan:` in `manifest.yaml`
+3. Run `make lint-phases` — must exit 0
+4. No content edits needed (because the number isn't in the content)
 
 ### Phase Close-Out Checklist (mandatory — run in order, do not skip steps)
 
@@ -27,9 +56,10 @@ Every phase must be closed by completing **all** of the following before the nex
 1. **Tests pass:** `make test` — zero failures, zero warnings.
 2. **CHANGELOG.md:** Add a standard entry for the phase (see `docs/DOCUMENTATION_STANDARDS.md`).
 3. **REDIS_SCHEMA.md:** Document every new Redis key introduced.
-4. **docs/phases/manifest.yaml:** Set `status: COMPLETE`. Remove any gaps that were resolved during the phase. Add any new gaps discovered to the appropriate future phase.
+4. **docs/phases/manifest.yaml:** Set `status: COMPLETE`, add `completed: YYYY-MM-DD`. Remove resolved gaps. Add new gaps to appropriate future phases.
 5. **Sync:** Run `python3 scripts/sync-roadmap.py` to regenerate `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.
-6. **Atomic commit:** Commit code, `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/phases/TODO.md`, and `docs/PROJECT_STATUS.md` together in a single commit.
+6. **Lint:** Run `make lint-phases` — must exit 0. Fix any violations before continuing.
+7. **Atomic commit:** Commit code, `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/phases/TODO.md`, and `docs/PROJECT_STATUS.md` together in a single commit.
 
 > **Why this matters:** `docs/phases/manifest.yaml` is the only document downstream tooling reads. If it is not updated at phase-close, `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md` will show stale state, and future sessions will have incorrect context about what work remains.
 
