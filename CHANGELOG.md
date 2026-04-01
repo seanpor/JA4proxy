@@ -54,6 +54,14 @@
 - **Path Traversal Tests**: Implemented tests for detecting and preventing directory traversal attempts.
 - **Command Injection Tests**: Added coverage for OS command injection patterns.
 
+## [54.0.0] - 2026-03-31 — Phase 54: Advanced Traffic Intelligence - Phase 5: Behavioral Attribution
+
+### Added
+- **Sequential Probing Detection**: Implemented logic to detect threat actor fingerprints that systematically probe multiple unique SNIs/hostnames.
+- **Coordinated Burst Detection**: Added millisecond-accurate burst detection to identify multiple IPs hitting the same target simultaneously.
+- **Fingerprint Drift Alerting**: Implemented real-time tracking and alerting for previously unseen JA4 fingerprints appearing in the environment.
+- **Advanced Attribution Integration**: Integrated behavioral signals with Attacker Fingerprints (JA4+JA4X+JA4T) for high-fidelity threat tracking.
+
 ## [43.0.0] - 2026-03-31 — Phase 43: Blue/Green Deployment & Rollback Tooling
 
 ### Added

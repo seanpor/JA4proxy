@@ -58,6 +58,7 @@ from .abuseipdb import AbuseIPDBChecker
 from .alienvault import AlienVaultOTXProvider
 from .asn_classifier import ASNClassifier
 from .attribution import AttributionManager
+from .behavioral import BehavioralAnalyzer
 from .beaconing_detector import BeaconingDetector
 from .blocklists import BlocklistManager, FeedConfig
 from .dns_enrichment import DNSEnrichment
@@ -366,6 +367,8 @@ class Pipeline:
         self._attribution_manager = AttributionManager(redis_client, config)
         # Phase 47: Confidence manager (injected by proxy)
         self._confidence_manager: Any | None = None
+        # Phase 54: Behavioral Attribution
+        self._behavioral_analyzer = BehavioralAnalyzer(redis_client, config)
 
     def _load_blocklist_feeds(self, config: dict) -> None:
         """Load any static/pre-populated blocklist feeds from config."""
@@ -519,6 +522,8 @@ class Pipeline:
         self._allowlist.reload(new_config)
         self._tls_enforcer.on_config_reload(new_config)
         self._sni_analyzer.on_config_reload(new_config)
+        self._attribution_manager.on_config_reload(new_config)
+        self._behavioral_analyzer.on_config_reload(new_config)
 
     async def process(self, ctx: ConnectionContext) -> PipelineResult:
         """Process one connection through the full pipeline.
@@ -1164,6 +1169,35 @@ class Pipeline:
                 _SIGNAL_ERROR.labels(module="virustotal").inc()
                 return []
 
+        async def _collect_attribution_signals():
+            try:
+                signal = await self._attribution_manager.get_signal(ctx)
+                return [signal] if signal is not None else []
+            except Exception as exc:
+                logger.error(
+                    "attribution | event=signal_error | ip=%s | error=%s",
+                    ctx.client_ip,
+                    exc,
+                    exc_info=True,
+                )
+                _SIGNAL_ERROR.labels(module="attribution").inc()
+                return []
+
+        async def _collect_behavioral_signals():
+            try:
+                # Attribution manager is a dependency for behavioral analysis
+                afp = self._attribution_manager.compute_fingerprint(ctx)
+                return await self._behavioral_analyzer.get_signals(ctx, afp)
+            except Exception as exc:
+                logger.error(
+                    "behavioral | event=signal_error | ip=%s | error=%s",
+                    ctx.client_ip,
+                    exc,
+                    exc_info=True,
+                )
+                _SIGNAL_ERROR.labels(module="behavioral").inc()
+                return []
+
         # Run all I/O-bound signal collectors concurrently
         results = await asyncio.gather(
             _collect_tcp_signals(),
@@ -1179,6 +1213,8 @@ class Pipeline:
             _collect_misp_signals(),
             _collect_threatfox_signals(),
             _collect_virustotal_signals(),
+            _collect_attribution_signals(),
+            _collect_behavioral_signals(),
             return_exceptions=True,
         )
 
