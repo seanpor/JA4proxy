@@ -28,10 +28,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Improve coverage for low-coverage modules and achieve >80% coverage for all critical modules.)
 *   **Action Plan:** [PHASE_46_COVERAGE.md](PHASE_46_COVERAGE.md)
 
-### Phase 48 — Advanced Traffic Intelligence - Phase 4: Feed Reliability & Resilience
-*   **Status:** **PROPOSED** (Enhance feeds with health monitoring, circuit breakers, and comprehensive chaos testing.)
-*   **Action Plan:** [PHASE_48.md](PHASE_48.md)
-
 ### Phase 51 — Management UI - Phase 2: Frontend Dashboard
 *   **Status:** **PROPOSED** (React-based dashboard for real-time visualization of proxy telemetry.)
 *   **Action Plan:** [PHASE_51.md](PHASE_51.md)
