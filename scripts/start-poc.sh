@@ -72,7 +72,7 @@ echo -n "Checking Redis... "
 MAX_RETRIES=30
 RETRY_COUNT=0
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if docker exec ja4proxy-redis redis-cli -a "${REDIS_PASSWORD}" ping > /dev/null 2>&1; then
+    if docker exec ja4proxy-redis-1 redis-cli -a "${REDIS_PASSWORD}" --no-auth-warning ping > /dev/null 2>&1; then
         echo -e "${GREEN}✓${NC}"
         break
     fi
@@ -88,7 +88,7 @@ fi
 echo -n "Checking Backend... "
 RETRY_COUNT=0
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if docker exec ja4proxy-backend python3 -c "import urllib.request,ssl; urllib.request.urlopen('https://localhost/api/health',context=ssl._create_unverified_context())" > /dev/null 2>&1; then
+    if docker exec ja4proxy-backend-1 python3 -c "import urllib.request,ssl; urllib.request.urlopen('https://localhost/api/health',context=ssl._create_unverified_context())" > /dev/null 2>&1; then
         echo -e "${GREEN}✓${NC}"
         break
     fi
