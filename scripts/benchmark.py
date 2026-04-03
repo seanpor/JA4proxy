@@ -337,7 +337,21 @@ def main():
                         help="Output markdown file path")
     parser.add_argument("--json", default=None,
                         help="Output JSON results file path")
+    parser.add_argument("--agent", default=None,
+                        help="Target an isolated agent environment (e.g. gemini)")
     args = parser.parse_args()
+
+    if args.agent:
+        env_file = f".env.{args.agent}"
+        if not os.path.exists(env_file):
+            print(f"Error: {env_file} not found. Run './scripts/agent-env.sh {args.agent}'")
+            sys.exit(1)
+        with open(env_file, 'r') as f:
+            for line in f:
+                if line.startswith("AGENT_BIND_IP="):
+                    args.host = line.split("=")[1].strip()
+                elif line.startswith("HOST_PORT_INGRESS="):
+                    args.port = int(line.split("=")[1].strip())
 
     bad_rates = [float(x) for x in args.bad_rates.split(",")]
     proxy_counts = [int(x) for x in args.proxy_counts.split(",")]
