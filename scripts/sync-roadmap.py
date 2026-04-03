@@ -52,7 +52,7 @@ def generate_todo(manifest) -> str:
     lines.append("")
 
     for phase_id, data in manifest["phases"].items():
-        if data["status"] in ["IN PROGRESS", "NEARLY DONE"]:
+        if data["status"] in ["IN_PROGRESS", "IN PROGRESS", "NEARLY DONE"]:
             lines.append(f"### Phase {phase_id} — {data['name']}")
             for task in data.get("tasks_remaining", []):
                 lines.append(f"*   **Task:** {task}")
