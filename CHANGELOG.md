@@ -1,14 +1,32 @@
 # Changelog
 
-## [Unreleased] - 2026-04-03 — Security: Metrics Endpoint DoS & Startup Crash Remediation
+## [Unreleased] - 2026-04-03 — Docker Multi-Agent Isolation (Phases 71–75)
 
 ### Added
 
-- **Phase 71: Docker Isolation - Foundations & Registry (Proposed)** — Architecture for agent identity source of truth and automated environment generation.
-- **Phase 72: Docker Isolation - Logical Network Zones (Proposed)** — Implementation of three-tier logical zones (DMZ, APP, ORIGIN) mirroring production security boundaries.
-- **Phase 73: Docker Isolation - Host-Level Hardening (Proposed)** — Strict 'Two-Port Policy', loopback IP binding (127.0.0.x), and CPU partitioning on i9-9900K.
-- **Phase 74: Docker Isolation - Shared Assets & Tooling (Proposed)** — Read-only GeoIP sharing across agent stacks and multi-agent support for admin scripts.
-- **Phase 75: Docker Isolation - Security Audit & Validation (Proposed)** — Final Red Team validation and automated isolation verification scripts.
+- **Phase 71–75: Docker Multi-Agent Isolation** — Full implementation of isolated per-agent
+  environments on a shared host, enabling Gemini, Claude, Ollama, and Mistral to run
+  concurrent independent JA4proxy stacks without interference.
+
+  - `scripts/agent-env.sh` — generates `.env.<agent>` with unique loopback IP
+    (`127.0.0.10–13`), CPU set, random secrets, and all compose variables. Overwrite-guarded.
+  - `docker-compose.poc.yml` — refactored from 2 flat networks to 4 security zones:
+    `dmz_net` (HAProxy↔Proxy), `data_net` (Proxy↔Redis, `internal: true`),
+    `origin_net` (Proxy↔Backend/Tarpit, `internal: true`), `mgmt_net` (Proxy↔Analytics).
+    Redis, backend, and tarpit ports removed from host. All ports bound to `${AGENT_BIND_IP}`.
+    CPU pinning (`cpuset`), non-root users (`1000:1000`), 300 MB log rotation, and shared
+    read-only GeoIP volume added to all services.
+  - `scripts/ja4-admin.sh` — `--agent <name>` flag targets specific agent's Redis container
+    and metrics endpoint. Auto-detects from `.current-agent` when flag is omitted.
+  - `Makefile` — `make agent-up NAME=<agent>`, `make agent-down`, `make agent-status`.
+    `agent-up` writes `.current-agent` so subsequent commands default to the active agent.
+  - `scripts/check-isolation.sh` — automated isolation audit: host port surface,
+    Docker socket access, network zone boundaries (including internet egress tests),
+    IPC namespace independence, and cross-agent reach verification.
+  - `docs/architecture/ISOLATION_MODEL.md` — updated with quickstart workflow, manual
+    workflow, agent resolution priority table, and verification section.
+
+### Security: Metrics Endpoint DoS & Startup Crash Remediation
 
 ### Security
 

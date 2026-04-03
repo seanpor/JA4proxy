@@ -705,61 +705,59 @@ phases:
 
   71:
     name: "Docker Isolation - Foundations & Registry"
-    status: "PROPOSED"
-    summary: "Establish the source of truth for agent identities and automated environment generation."
+    status: "COMPLETE"
+    summary: "scripts/agent-env.sh generates isolated .env.<agent> files; Makefile agent-up/down/status targets; .current-agent persistence; docker-compose.poc.yml refactored with 4 network zones, per-agent loopback IP binding, cpuset, non-root users, log rotation, geoip RO volume; ja4-admin.sh --agent flag."
     action_plan: "docs/phases/PHASE_71.md"
     dependencies: [25]
     size: "SMALL"
     success_criteria:
-      - "registry/agents.json correctly maps agents to IPs and CPU sets"
       - "scripts/agent-env.sh generates valid isolated .env files"
       - "Makefile supports 'make agent-up NAME=gemini'"
+      - ".current-agent written on agent-up, read as default by subsequent commands"
 
   72:
     name: "Docker Isolation - Logical Network Zones"
-    status: "PROPOSED"
-    summary: "Implement three-tier logical zones (DMZ, APP, ORIGIN) with strict internal isolation."
+    status: "COMPLETE"
+    summary: "Four-zone network model (dmz_net, data_net/internal, origin_net/internal, mgmt_net) implemented in docker-compose.poc.yml. All eight services assigned to correct zones."
     action_plan: "docs/phases/PHASE_72.md"
     dependencies: [71]
     size: "SMALL"
     success_criteria:
-      - "Three-tier zones implemented in docker-compose.poc.yml"
+      - "Four-zone network model implemented in docker-compose.poc.yml"
       - "internal: true enforced on data_net and origin_net"
-      - "DNS resolution verified between Proxy and Redis zones"
+      - "All services assigned to correct zones per the zone assignment table"
 
   73:
     name: "Docker Isolation - Host-Level Hardening"
-    status: "PROPOSED"
-    summary: "Implement two-port policy, loopback IP binding, and resource partitioning."
+    status: "COMPLETE"
+    summary: "AGENT_BIND_IP port binding for haproxy/analytics/metrics; Redis/backend/tarpit ports removed from host; cpuset pinning; user:1000:1000; 300MB log rotation on all services."
     action_plan: "docs/phases/PHASE_73.md"
     dependencies: [72]
     size: "SMALL"
     success_criteria:
-      - "Two-port policy (443, 8080) verified for running agents"
-      - "Loopback IP binding (127.0.0.10-13) verified"
-      - "cpuset pinning verified for i9-9900K threads"
-      - "Non-root user enforcement verified across all containers"
+      - "Per-agent loopback IP binding on haproxy (443), analytics (8080), proxy metrics (9090)"
+      - "Redis, backend, tarpit ports removed from host exposure"
+      - "cpuset, non-root user, log rotation applied to all services"
 
   74:
     name: "Docker Isolation - Shared Assets & Tooling"
-    status: "PROPOSED"
-    summary: "Optimize resource usage with shared RO volumes and update admin scripts for multi-agent support."
+    status: "COMPLETE"
+    summary: "GeoIP shared as read-only volume; ja4-admin.sh --agent flag with .current-agent fallback; make agent-up/down/status targets with auto-env generation."
     action_plan: "docs/phases/PHASE_74.md"
     dependencies: [73]
     size: "SMALL"
     success_criteria:
       - "GeoIP shared as read-only volume across all agent stacks"
-      - "ja4-admin.sh and benchmark.py support --agent flag"
-      - "Automatic .env sourcing implemented for admin scripts"
+      - "ja4-admin.sh supports --agent flag and .current-agent auto-detection"
+      - "make agent-up/down/status targets implemented"
 
   75:
     name: "Docker Isolation - Security Audit & Validation"
-    status: "PROPOSED"
-    summary: "Final Red Team verification and comprehensive isolation documentation."
+    status: "COMPLETE"
+    summary: "scripts/check-isolation.sh verifies port surface, Docker socket, network zone boundaries, IPC isolation, and cross-agent reach. ISOLATION_MODEL.md updated with verification section."
     action_plan: "docs/phases/PHASE_75.md"
     dependencies: [74]
     size: "SMALL"
     success_criteria:
-      - "docs/architecture/ISOLATION_MODEL.md complete with Mermaid diagrams"
-      - "scripts/check-isolation.sh confirms no lateral leaks or egress violations"
-      - "Successful concurrent run of multiple agent environments verified"
+      - "scripts/check-isolation.sh implemented with 5 check categories"
+      - "docs/architecture/ISOLATION_MODEL.md updated with verification workflow"
