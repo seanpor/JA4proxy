@@ -158,7 +158,7 @@ class HealthServer:
         self.runner: Optional[web.AppRunner] = None
 
     async def handle_metrics(self, request):
-        return web.Response(body=generate_latest(), content_type=CONTENT_TYPE_LATEST)
+        return web.Response(body=generate_latest(), headers={"Content-Type": CONTENT_TYPE_LATEST})
 
     async def handle_health(self, request):
         report = self.monitor.get_status_report()
