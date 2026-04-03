@@ -6,63 +6,83 @@
 
 ## Goal
 
-Partition the physical resources of the i9-9900K host and minimize the attack surface by enforcing a "Two-Port Policy" across agent-specific loopback IP addresses.
+Partition physical resources of the i9-9900K host and minimise the attack surface by
+enforcing per-agent loopback IP binding across all host-exposed ports, removing
+unnecessary host exposure, adding CPU pinning, non-root users, and log rotation.
 
 ---
 
-## 73a. The "Two-Port Policy"
+## 73a. Complete Port Change Table
 
-### Implementation
+This table specifies every host `ports:` mapping change in `docker-compose.poc.yml`.
+Current state → target state.
 
-Update `docker-compose.poc.yml` to bind only HAProxy and Analytics to the host, using the `AGENT_BIND_IP` variable. Remove host-level port exposures for all other services.
+| Service | Current | Target | Reason |
+|---------|---------|--------|--------|
+| `haproxy` | `443:443` | `${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_INGRESS:-443}:443` | Per-agent IP binding |
+| `haproxy` | `8880:80` | *(remove)* | HTTP redirect not needed in POC; reduces surface |
+| `haproxy` | `127.0.0.1:8404:8404` | `${AGENT_BIND_IP:-127.0.0.1}:8404:8404` | Per-agent binding to avoid collision |
+| `proxy` | `127.0.0.1:8080:8080` | *(remove)* | Internal service; route via HAProxy only |
+| `proxy` | `127.0.0.1:9090:9090` | `${AGENT_BIND_IP:-127.0.0.1}:9090:9090` | Per-agent binding for metrics scrape |
+| `redis` | `127.0.0.1:6379:6379` | *(remove)* | `data_net` internal; never expose to host |
+| `backend` | `127.0.0.1:8443:443` | *(remove)* | `origin_net` internal; no direct host access |
+| `tarpit` | `127.0.0.1:8888:8888` | *(remove)* | `origin_net` internal |
+| `tarpit` | `127.0.0.1:9099:9099` | *(remove)* | `origin_net` internal; tarpit metrics collected by proxy |
+| `analytics` | `127.0.0.1:8083:8080` | `${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_ANALYTICS:-8080}:8080` | Per-agent IP binding |
 
-### Code Change: `docker-compose.poc.yml`
-
-```yaml
-services:
-  haproxy:
-    ports:
-      - "${AGENT_BIND_IP}:${HOST_PORT_INGRESS:-443}:443"
-  
-  analytics:
-    ports:
-      - "${AGENT_BIND_IP}:${HOST_PORT_ANALYTICS:-8080}:8080"
-```
+**Default behaviour** (no agent env): `AGENT_BIND_IP` defaults to `127.0.0.1`, which
+preserves backward-compatible single-instance behaviour.
 
 ---
 
 ## 73b. CPU Partitioning
 
-### Implementation
-
-Implement `cpuset` pinning and resource limits for the i9-9900K (16 logical threads). Use the `${AGENT_CPU_SET}` variable from the environment.
-
-### Code Change: `docker-compose.poc.yml`
+Use `cpuset` (top-level service key) to pin agent containers to specific logical cores.
+Apply to the `proxy` service only — it is the CPU-intensive hot path.
 
 ```yaml
 services:
   proxy:
+    cpuset: "${AGENT_CPU_SET:-0-15}"   # default: unrestricted
     deploy:
       resources:
         limits:
-          cpus: '2.0'
-    cpuset: "${AGENT_CPU_SET}"
+          cpus: '4.0'          # weight/share limit — separate from cpuset
+          memory: 512M
+        reservations:
+          memory: 128M
 ```
+
+`cpuset` and `deploy.resources.limits.cpus` are independent controls:
+- `cpuset`: which physical cores the container may use (hard affinity)
+- `cpus`: maximum CPU share weight (soft scheduling limit)
+
+Both are set so that even on the allowed cores, one agent cannot consume all CPU weight.
 
 ---
 
-## 73c. Non-Root Execution & Quotas
+## 73c. Non-Root Execution
 
-### Implementation
+Add `user: "1000:1000"` to every service. This requires the container image to have a
+non-root user at UID 1000 (`appuser` in existing Dockerfiles). Verify with
+`docker compose exec proxy id` after starting.
 
-Ensure all containers execute as a non-privileged user and implement log rotation limits to prevent disk exhaustion.
-
-### Code Change: `docker-compose.poc.yml`
+Services that need it: `proxy`, `redis`, `backend`, `tarpit`, `analytics`, `trafficgen`,
+`test`. `haproxy` already drops privileges internally via `cap_drop: ALL`.
 
 ```yaml
 services:
   proxy:
     user: "1000:1000"
+```
+
+---
+
+## 73d. Log Rotation
+
+Add to every service to prevent disk exhaustion:
+
+```yaml
     logging:
       driver: "json-file"
       options:
@@ -70,15 +90,37 @@ services:
         max-file: "3"
 ```
 
+300 MB cap per container (3 × 100 MB). Apply to all 8 services.
+
+---
+
+## 73e. Backward Compatibility
+
+When no `.env.<agent>` is used (plain `docker compose up` or `make start`):
+- `AGENT_BIND_IP` unset → defaults in compose expressions (`:-127.0.0.1`) kick in
+- `AGENT_CPU_SET` unset → defaults to `0-15` (unrestricted)
+- `HOST_PORT_INGRESS` unset → defaults to `443`
+- `HOST_PORT_ANALYTICS` unset → defaults to `8080`
+
+Behaviour is identical to the current single-instance setup. Existing `make start`,
+`make stop`, smoke tests, and CI are unaffected.
+
 ---
 
 ## Acceptance Criteria
 
-- [ ] Two-port policy (443, 8080) verified for running agents.
-- [ ] Loopback IP binding (127.0.0.10-13) verified via `netstat`.
-- [ ] `cpuset` pinning verified for i9-9900K threads.
-- [ ] All containers run as non-root users (`user: "1000:1000"`).
-- [ ] Log rotation enforced at 300MB per container.
+- [ ] `haproxy` port `8880:80` removed from compose.
+- [ ] `redis` host port `6379` removed from compose.
+- [ ] `backend` host port `8443` removed from compose.
+- [ ] `tarpit` host ports `8888` and `9099` removed from compose.
+- [ ] `haproxy` ingress port bound to `${AGENT_BIND_IP}:443`.
+- [ ] `analytics` port bound to `${AGENT_BIND_IP}:8080`.
+- [ ] `proxy` metrics port bound to `${AGENT_BIND_IP}:9090`.
+- [ ] `proxy` has `cpuset: "${AGENT_CPU_SET:-0-15}"`.
+- [ ] All services have `user: "1000:1000"` (where applicable).
+- [ ] All services have log rotation at 300 MB.
+- [ ] `make start` (no agent env) still works identically to before.
+- [ ] Verify loopback IP binding: `ss -tlnp | grep 127.0.0.10` shows 443 and 8080 when running as gemini agent.
 
 ---
 
@@ -86,7 +128,5 @@ services:
 
 | File | Change |
 |------|--------|
-| `docker-compose.poc.yml` | Update host-level port binding and resource limits |
-| `docker-compose.test.yml` | Update host-level port binding |
-| `docs/architecture/ISOLATION_MODEL.md` | Update hardening documentation |
+| `docker-compose.poc.yml` | All port, cpuset, user, logging changes per tables above |
 | `CHANGELOG.md` | Phase 73 entry |

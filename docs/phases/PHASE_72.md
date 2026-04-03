@@ -6,7 +6,9 @@
 
 ## Goal
 
-Implement a production-mirrored, three-tier network architecture within Docker Compose. This ensures that even in development, components like Redis and the Mockbackend are logically isolated from the public-facing HAProxy and the management-facing Analytics node.
+Implement a production-mirrored, three-tier network architecture within Docker Compose.
+Ensures that even in development, components like Redis and the Mockbackend are logically
+isolated from the public-facing HAProxy and the management-facing Analytics node.
 
 ---
 
@@ -14,14 +16,15 @@ Implement a production-mirrored, three-tier network architecture within Docker C
 
 ### Implementation
 
-Update `docker-compose.poc.yml` to define the following private bridge networks:
+Replace the existing two networks (`ja4proxy-frontend`, `ja4proxy-backend`) with four
+discrete zones in `docker-compose.poc.yml`:
 
-- **`dmz_net`**: Public-facing ingress (HAProxy ↔ Proxy).
-- **`data_net`**: Internal state (Proxy ↔ Redis). Marked `internal: true`.
-- **`origin_net`**: Backend egress (Proxy ↔ Mockbackend). Marked `internal: true`.
-- **`mgmt_net`**: Monitoring/Admin (Proxy ↔ Analytics).
-
-### Code Change: `docker-compose.poc.yml`
+| Network | `internal` | Purpose |
+|---------|-----------|---------|
+| `dmz_net` | no | Public-facing ingress: HAProxy ↔ Proxy |
+| `data_net` | **yes** | Internal state: Proxy ↔ Redis. No internet egress. |
+| `origin_net` | **yes** | Backend egress: Proxy ↔ Backend, Proxy ↔ Tarpit. No internet egress. |
+| `mgmt_net` | no | Monitoring/Admin: Proxy ↔ Analytics |
 
 ```yaml
 networks:
@@ -29,10 +32,10 @@ networks:
     driver: bridge
   data_net:
     driver: bridge
-    internal: true  # No internet/external access
+    internal: true   # No internet/external access
   origin_net:
     driver: bridge
-    internal: true  # No internet/external access
+    internal: true   # No internet/external access
   mgmt_net:
     driver: bridge
 ```
@@ -41,27 +44,92 @@ networks:
 
 ## 72b. Service Zone Assignment
 
-### Implementation
-
-Reassign service network interfaces to enforce zero-trust boundaries.
+Reassign every service's network interfaces to enforce zero-trust boundaries.
 
 | Service | Networks | Rationale |
-| :--- | :--- | :--- |
-| **haproxy** | `dmz_net` | The ingress gateway. |
-| **proxy** | `dmz_net`, `data_net`, `origin_net`, `mgmt_net` | The secure bridge node. |
-| **redis** | `data_net` | Deep isolated state. |
-| **backend** | `origin_net` | Isolated origin simulation. |
-| **analytics** | `mgmt_net` | Management and telemetry. |
+|---------|----------|-----------|
+| `haproxy` | `dmz_net` | Ingress gateway only. Cannot reach Redis or backend directly. |
+| `proxy` | `dmz_net`, `data_net`, `origin_net`, `mgmt_net` | The secure bridge node — the only dual-homed service. |
+| `redis` | `data_net` | Deep isolated state. No route to internet or other zones. |
+| `backend` | `origin_net` | Isolated origin simulation. |
+| `tarpit` | `origin_net` | Receives tarpitted connections forwarded by proxy. |
+| `analytics` | `mgmt_net` | Management and telemetry only. |
+| `trafficgen` | `dmz_net` | Sends synthetic TLS traffic to HAProxy ingress. |
+| `test` | `dmz_net`, `data_net`, `origin_net` | Needs to reach proxy, redis, and backend for integration tests. |
+
+### Service network config fragments
+
+```yaml
+services:
+  haproxy:
+    networks:
+      - dmz_net
+
+  proxy:
+    networks:
+      - dmz_net
+      - data_net
+      - origin_net
+      - mgmt_net
+
+  redis:
+    networks:
+      - data_net
+
+  backend:
+    networks:
+      - origin_net
+
+  tarpit:
+    networks:
+      - origin_net
+
+  analytics:
+    networks:
+      - mgmt_net
+
+  trafficgen:
+    networks:
+      - dmz_net
+
+  test:
+    networks:
+      - dmz_net
+      - data_net
+      - origin_net
+```
+
+---
+
+## 72c. DNS Resolution After Zone Change
+
+Docker Compose DNS resolves service names (e.g. `redis`, `proxy`) only between services
+that share a network. Verify the following cross-zone DNS paths work after migration:
+
+| From | To | Via | Expected result |
+|------|----|-----|----------------|
+| `haproxy` | `proxy:8080` | `dmz_net` | ✓ resolves |
+| `proxy` | `redis:6379` | `data_net` | ✓ resolves |
+| `proxy` | `backend:443` | `origin_net` | ✓ resolves |
+| `proxy` | `tarpit:8888` | `origin_net` | ✓ resolves |
+| `proxy` | `analytics:8080` | `mgmt_net` | ✓ resolves |
+| `haproxy` | `redis` | — | ✗ no shared network |
+| `redis` | `backend` | — | ✗ no shared network |
+| `backend` | `analytics` | — | ✗ no shared network |
+
+The `haproxy.cfg` file does NOT need changes — it references `proxy:8080` and `proxy:9090`
+which resolve via `dmz_net`, unchanged from before.
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] `docker-compose.poc.yml` updated with 4 discrete zones.
-- [ ] `internal: true` verified for `data_net` and `origin_net`.
-- [ ] Verified `proxy` can reach `redis` via internal DNS.
-- [ ] Verified `haproxy` CANNOT reach `redis` directly.
-- [ ] Verified `backend` CANNOT reach `analytics` directly.
+- [ ] `docker-compose.poc.yml` has exactly 4 network definitions, replacing the old 2.
+- [ ] `internal: true` set on `data_net` and `origin_net`.
+- [ ] Proxy can reach `redis` via DNS (`data_net`).
+- [ ] HAProxy CANNOT reach `redis` directly (no shared network).
+- [ ] Backend CANNOT reach `analytics` directly (no shared network).
+- [ ] All 8 services have correct network assignments per the table above.
 
 ---
 
@@ -69,7 +137,5 @@ Reassign service network interfaces to enforce zero-trust boundaries.
 
 | File | Change |
 |------|--------|
-| `docker-compose.poc.yml` | Update network definitions and service assignments |
-| `docker-compose.test.yml` | Mirror network changes for test environment |
-| `docs/architecture/ISOLATION_MODEL.md` | Update zone documentation |
+| `docker-compose.poc.yml` | Replace network definitions and reassign all service networks |
 | `CHANGELOG.md` | Phase 72 entry |
