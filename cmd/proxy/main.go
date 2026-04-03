@@ -522,7 +522,83 @@ func buildPipelineConfig(cfg *config.Config) *security.PipelineConfig {
 		TCPAnalyzerReturnVisitorEnabled:      cfg.TCPAnalyzer.ReturnVisitorEnabled,
 		TCPAnalyzerReturnVisitorMinDays:      cfg.TCPAnalyzer.ReturnVisitorMinDays,
 		TCPAnalyzerReturnVisitorMinAllowRate: cfg.TCPAnalyzer.ReturnVisitorMinAllowRate,
+		// ASN classifier (Group 4)
+		ASNClassifierEnabled: cfg.ASNClassifier.Enabled,
+		ASNDBPath:            cfg.ASNClassifier.MaxMindDBPath,
+		TorExitListPath:      "", // downloaded at runtime; path not exposed in proxy.yml
+		DatacenterScore:      cfg.ASNClassifier.RiskContributions.Datacenter,
+		TorScore:             cfg.ASNClassifier.RiskContributions.Tor,
+		VPNScore:             cfg.ASNClassifier.RiskContributions.VPN,
+		UnknownScore:         cfg.ASNClassifier.RiskContributions.Unknown,
+		// DNS enrichment (Group 4)
+		DNSEnrichmentEnabled: cfg.DNSEnrichment.Enabled,
+		DNSEnrichmentWorkers: cfg.DNSEnrichment.WorkerCount,
+		DNSNoPTRScore:        cfg.DNSEnrichment.FCrDNS.NoPTRScore,
+		DNSFCrDNSFailedScore: cfg.DNSEnrichment.FCrDNS.FCrDNSFailedScore,
+		DNSResidentialScore:  -cfg.DNSEnrichment.FCrDNS.ResidentialScoreReduction, // stored positive in YAML, applied negative
+		DNSTTL:               cfg.DNSEnrichment.FCrDNS.CacheTTLSeconds,
+		// Blocklists (Group 4) — convert YAML feed list to security.BlocklistFeedConfig
+		BlocklistFeeds: buildBlocklistFeedConfigs(cfg),
+		// Beaconing detector (Group 5)
+		BeaconingEnabled:         cfg.BeaconingDetector.Enabled,
+		BeaconingScoreCap:        cfg.BeaconingDetector.Score,
+		BeaconingMinObservations: cfg.BeaconingDetector.MinObservations,
+		BeaconingShortWindowSec:  cfg.BeaconingDetector.ObservationWindowSeconds,
+		BeaconingLongWindowSec:   cfg.BeaconingDetector.LongWindow.WindowSeconds,
+		// AbuseIPDB (Group 5)
+		AbuseIPDBEnabled:           cfg.AbuseIPDB.Enabled,
+		AbuseIPDBAPIKey:            cfg.AbuseIPDB.APIKey,
+		AbuseIPDBScoreCap:          cfg.AbuseIPDB.ScoreCap,
+		AbuseIPDBSharedIPThreshold: cfg.AbuseIPDB.SharedIPThreshold,
+		AbuseIPDBLocalCacheSize:    10000, // not in proxy.yml; use fixed default
+		AbuseIPDBWorkers:           cfg.AbuseIPDB.WorkerCount,
+		AbuseIPDBAPIURL:            "https://api.abuseipdb.com/api/v2/check",
+		// RDAP enrichment (Group 5)
+		RDAPEnabled:               cfg.RDAPEnrichment.Enabled,
+		RDAPMinTriggerScore:       cfg.RDAPEnrichment.MinEnqueueScore,
+		RDAPNewNetblockMaxAgeDays: cfg.RDAPEnrichment.NewNetblockFlagging.MaxAgeDays,
+		RDAPNewNetblockScore:      cfg.RDAPEnrichment.NewNetblockFlagging.Score,
+		RDAPKnownBadOrgScore:      cfg.RDAPEnrichment.OrgReputation.Score,
+		RDAPRequireKnownBadOrg:    cfg.RDAPEnrichment.BlockExpansion.RequireKnownBadOrg,
+		RDAPBlockExpansionEnabled: cfg.RDAPEnrichment.BlockExpansion.Enabled,
+		// Static IP allowlist (Group 6)
+		StaticIPAllowlistEnabled: cfg.StaticAllowlist.Enabled,
+		StaticIPAllowlist:        buildStaticAllowlist(cfg),
+		// JA4X (Group 6)
+		JA4XEnabled:         cfg.Fingerprinting.JA4X.Enabled,
+		JA4XWhitelistBypass: true, // always bypass on JA4X whitelist match
+		JA4XBlacklistBypass: false,
+		JA4XBlacklistScore:  cfg.Fingerprinting.JA4X.BlacklistScore,
 	}
+}
+
+// buildBlocklistFeedConfigs converts the YAML blocklist feed list to security.BlocklistFeedConfig.
+func buildBlocklistFeedConfigs(cfg *config.Config) []security.BlocklistFeedConfig {
+	feeds := make([]security.BlocklistFeedConfig, 0, len(cfg.Blocklists.Feeds))
+	for _, f := range cfg.Blocklists.Feeds {
+		if !f.Enabled {
+			continue
+		}
+		feeds = append(feeds, security.BlocklistFeedConfig{
+			Name:    f.Name,
+			Enabled: f.Enabled,
+			Path:    "", // Go implementation fetches at startup; path not used here
+			IsBlock: f.IsBypass,
+			Score:   f.Score,
+		})
+	}
+	return feeds
+}
+
+// buildStaticAllowlist converts the static allowlist YAML entries into a set of IP strings.
+func buildStaticAllowlist(cfg *config.Config) map[string]bool {
+	m := make(map[string]bool, len(cfg.StaticAllowlist.IPs))
+	for _, entry := range cfg.StaticAllowlist.IPs {
+		if entry.IP != "" {
+			m[entry.IP] = true
+		}
+	}
+	return m
 }
 
 // seedSecurityLists pre-populates Redis ja4:whitelist and ja4:blacklist from config.

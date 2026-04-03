@@ -171,20 +171,28 @@ func defaultConfig() *Config {
 
 // Config is the top-level configuration structure. Field names match proxy.yml.
 type Config struct {
-	Proxy          ProxyConfig          `yaml:"proxy"`
-	Redis          RedisConfig          `yaml:"redis"`
-	Security       SecurityConfig       `yaml:"security"`
-	MonitorMode    MonitorModeConfig    `yaml:"monitor_mode"`
-	SecurityPolicy SecurityPolicyConfig `yaml:"security_policy"`
-	RiskScorer     RiskScorerConfig     `yaml:"risk_scorer"`
-	Logging        LoggingConfig        `yaml:"logging"`
-	Metrics        MetricsConfig        `yaml:"metrics"`
-	Tarpit         TarpitConfig         `yaml:"tarpit"`
-	TLSEnforcer    TLSEnforcerConfigYAML  `yaml:"tls_enforcer"`
-	SNIAnalyzer    SNIAnalyzerConfigYAML  `yaml:"sni_analyzer"`
-	GeoIP          GeoIPConfigYAML        `yaml:"geoip"`
-	TCPAnalyzer    TCPAnalyzerConfigYAML  `yaml:"tcp_analyzer"`
-	RateLimiter    RateLimiterConfigYAML  `yaml:"rate_limiter"`
+	Proxy           ProxyConfig              `yaml:"proxy"`
+	Redis           RedisConfig              `yaml:"redis"`
+	Security        SecurityConfig           `yaml:"security"`
+	MonitorMode     MonitorModeConfig        `yaml:"monitor_mode"`
+	SecurityPolicy  SecurityPolicyConfig     `yaml:"security_policy"`
+	RiskScorer      RiskScorerConfig         `yaml:"risk_scorer"`
+	Logging         LoggingConfig            `yaml:"logging"`
+	Metrics         MetricsConfig            `yaml:"metrics"`
+	Tarpit          TarpitConfig             `yaml:"tarpit"`
+	TLSEnforcer     TLSEnforcerConfigYAML    `yaml:"tls_enforcer"`
+	SNIAnalyzer     SNIAnalyzerConfigYAML    `yaml:"sni_analyzer"`
+	GeoIP           GeoIPConfigYAML          `yaml:"geoip"`
+	TCPAnalyzer     TCPAnalyzerConfigYAML    `yaml:"tcp_analyzer"`
+	RateLimiter     RateLimiterConfigYAML    `yaml:"rate_limiter"`
+	ASNClassifier   ASNClassifierConfigYAML  `yaml:"asn_classifier"`
+	DNSEnrichment   DNSEnrichmentConfigYAML  `yaml:"dns_enrichment"`
+	Blocklists      BlocklistsConfigYAML     `yaml:"blocklists"`
+	BeaconingDetector BeaconingConfigYAML    `yaml:"beaconing_detector"`
+	AbuseIPDB       AbuseIPDBConfigYAML      `yaml:"abuseipdb"`
+	RDAPEnrichment  RDAPEnrichmentConfigYAML `yaml:"rdap_enrichment"`
+	StaticAllowlist StaticAllowlistConfigYAML `yaml:"static_allowlist"`
+	Fingerprinting  FingerprintingConfigYAML  `yaml:"fingerprinting"`
 }
 
 // ProxyConfig holds network listener and connection settings.
@@ -356,4 +364,123 @@ type RateLimiterConfigYAML struct {
 	ByIP    RateLimiterStrategyYAML `yaml:"by_ip"`
 	ByJA4   RateLimiterStrategyYAML `yaml:"by_ja4"`
 	ByIPJA4 RateLimiterStrategyYAML `yaml:"by_ip_ja4"`
+}
+
+// ASNClassifierConfigYAML holds ASN classifier settings from proxy.yml (asn_classifier:).
+type ASNClassifierConfigYAML struct {
+	Enabled            bool   `yaml:"enabled"`
+	DatacenterListPath string `yaml:"datacenter_list_path"`
+	MaxMindDBPath      string `yaml:"maxmind_db_path"`
+	TorExitList        struct {
+		Enabled bool `yaml:"enabled"`
+	} `yaml:"tor_exit_list"`
+	RiskContributions struct {
+		Tor         int `yaml:"tor"`
+		Datacenter  int `yaml:"datacenter"`
+		VPN         int `yaml:"vpn"`
+		Unknown     int `yaml:"unknown"`
+	} `yaml:"risk_contributions"`
+}
+
+// DNSEnrichmentConfigYAML holds DNS enrichment settings from proxy.yml (dns_enrichment:).
+type DNSEnrichmentConfigYAML struct {
+	Enabled     bool `yaml:"enabled"`
+	QueueSize   int  `yaml:"queue_size"`
+	WorkerCount int  `yaml:"worker_count"`
+	FCrDNS      struct {
+		Enabled              bool `yaml:"enabled"`
+		NoPTRScore           int  `yaml:"no_ptr_score"`
+		FCrDNSFailedScore    int  `yaml:"fcrdns_failed_score"`
+		ResidentialScoreReduction int `yaml:"residential_score_reduction"`
+		CacheTTLSeconds      int  `yaml:"cache_ttl_seconds"`
+	} `yaml:"fcrdns"`
+}
+
+// BlocklistFeedConfigYAML holds a single blocklist feed entry from proxy.yml.
+type BlocklistFeedConfigYAML struct {
+	Name                   string `yaml:"name"`
+	URL                    string `yaml:"url"`
+	Format                 string `yaml:"format"`
+	IsBypass               bool   `yaml:"is_bypass"`
+	Action                 string `yaml:"action"`
+	Score                  int    `yaml:"score"`
+	RefreshIntervalSeconds int    `yaml:"refresh_interval_seconds"`
+	Enabled                bool   `yaml:"enabled"`
+}
+
+// BlocklistsConfigYAML holds blocklist settings from proxy.yml (blocklists:).
+type BlocklistsConfigYAML struct {
+	Feeds []BlocklistFeedConfigYAML `yaml:"feeds"`
+}
+
+// BeaconingConfigYAML holds beaconing detector settings from proxy.yml (beaconing_detector:).
+type BeaconingConfigYAML struct {
+	Enabled         bool    `yaml:"enabled"`
+	MinObservations int     `yaml:"min_observations"`
+	Score           int     `yaml:"score"`
+	ObservationWindowSeconds float64 `yaml:"observation_window_seconds"`
+	LongWindow      struct {
+		Enabled        bool    `yaml:"enabled"`
+		WindowSeconds  float64 `yaml:"window_seconds"`
+		MinObservations int    `yaml:"min_observations"`
+		Score          int     `yaml:"score"`
+	} `yaml:"long_window"`
+}
+
+// AbuseIPDBConfigYAML holds AbuseIPDB settings from proxy.yml (abuseipdb:).
+type AbuseIPDBConfigYAML struct {
+	Enabled           bool   `yaml:"enabled"`
+	APIKey            string `yaml:"api_key"`
+	MaxRequestsPerDay int    `yaml:"max_requests_per_day"`
+	CacheTTLSeconds   int    `yaml:"cache_ttl_seconds"`
+	SharedIPThreshold int    `yaml:"shared_ip_threshold"`
+	QueueSize         int    `yaml:"queue_size"`
+	WorkerCount       int    `yaml:"worker_count"`
+	ScoreCap          int    `yaml:"score_cap"`
+}
+
+// RDAPEnrichmentConfigYAML holds RDAP settings from proxy.yml (rdap_enrichment:).
+type RDAPEnrichmentConfigYAML struct {
+	Enabled        bool `yaml:"enabled"`
+	QueueSize      int  `yaml:"queue_size"`
+	WorkerCount    int  `yaml:"worker_count"`
+	MinEnqueueScore int `yaml:"min_enqueue_score"`
+	OrgReputation  struct {
+		Enabled bool `yaml:"enabled"`
+		Score   int  `yaml:"score"`
+	} `yaml:"org_reputation"`
+	NewNetblockFlagging struct {
+		Enabled    bool `yaml:"enabled"`
+		MaxAgeDays int  `yaml:"max_age_days"`
+		Score      int  `yaml:"score"`
+	} `yaml:"new_netblock_flagging"`
+	BlockExpansion struct {
+		Enabled            bool `yaml:"enabled"`
+		MinTriggerScore    int  `yaml:"min_trigger_score"`
+		RequireKnownBadOrg bool `yaml:"require_known_bad_org"`
+	} `yaml:"block_expansion"`
+}
+
+// StaticAllowlistEntryYAML holds a single static allowlist entry.
+type StaticAllowlistEntryYAML struct {
+	IP      string `yaml:"ip"`
+	Comment string `yaml:"comment"`
+	AddedBy string `yaml:"added_by"`
+}
+
+// StaticAllowlistConfigYAML holds the static IP allowlist from proxy.yml (static_allowlist:).
+type StaticAllowlistConfigYAML struct {
+	Enabled bool                       `yaml:"enabled"`
+	IPs     []StaticAllowlistEntryYAML `yaml:"ips"`
+}
+
+// JA4XConfigYAML holds JA4X fingerprinting settings from proxy.yml (fingerprinting.ja4x:).
+type JA4XConfigYAML struct {
+	Enabled        bool `yaml:"enabled"`
+	BlacklistScore int  `yaml:"blacklist_score"`
+}
+
+// FingerprintingConfigYAML holds fingerprinting settings from proxy.yml (fingerprinting:).
+type FingerprintingConfigYAML struct {
+	JA4X JA4XConfigYAML `yaml:"ja4x"`
 }
