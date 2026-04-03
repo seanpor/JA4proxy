@@ -20,7 +20,7 @@ services:
     restart: unless-stopped
     networks:
       - ja4proxy-monitoring
-      - ja4proxy2_ja4proxy-backend
+      - ja4proxy_ja4proxy-backend
     read_only: true
     tmpfs:
       - /tmp:noexec,nosuid,nodev,size=50m
@@ -96,7 +96,7 @@ services:
     restart: unless-stopped
     networks:
       - ja4proxy-monitoring
-      - ja4proxy2_ja4proxy-backend
+      - ja4proxy_ja4proxy-backend
     depends_on:
       - prometheus
       - loki
@@ -151,7 +151,7 @@ services:
     # Not exposed to host — only accessible from monitoring network
     restart: unless-stopped
     networks:
-      - ja4proxy2_ja4proxy-backend
+      - ja4proxy_ja4proxy-backend
       - ja4proxy-monitoring
     read_only: true
     security_opt:
@@ -232,5 +232,5 @@ networks:
   ja4proxy-monitoring:
     driver: bridge
   # Connect to POC backend network for metrics scraping
-  ja4proxy2_ja4proxy-backend:
+  ja4proxy_ja4proxy-backend:
     external: true
