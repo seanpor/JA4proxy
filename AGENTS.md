@@ -34,7 +34,7 @@ H1 headings must contain the phase title, NOT the phase number:
 # Phase 22: Backup System Enhancements - Phase 1...      ✗  (number in heading = will go stale)
 ```
 
-**Rule 2 — Status lives in `manifest.yaml` only.**
+**Rule 2 — Status lives in `docs/phases/manifest.yaml` only.**
 Do NOT include a `Status:` line in phase doc files. If an existing doc has one, ignore it — trust the manifest.
 
 **Rule 3 — Sub-task labels use letters, not `NNa`/`NNb`.**
@@ -45,7 +45,7 @@ Do NOT include a `Status:` line in phase doc files. If an existing doc has one, 
 
 **Rule 4 — To rename/renumber a phase:**
 1. Rename the file (e.g. `PHASE_45.md` → `PHASE_52.md`)
-2. Update `action_plan:` in `manifest.yaml`
+2. Update `action_plan:` in `docs/phases/manifest.yaml`
 3. Run `make lint-phases` — must exit 0
 4. No content edits needed (because the number isn't in the content)
 
