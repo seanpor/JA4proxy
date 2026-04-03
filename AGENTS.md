@@ -54,12 +54,15 @@ Do NOT include a `Status:` line in phase doc files. If an existing doc has one, 
 Every phase must be closed by completing **all** of the following before the next phase begins:
 
 1. **Tests pass:** `make test` — zero failures, zero warnings.
-2. **CHANGELOG.md:** Add a standard entry for the phase (see `docs/DOCUMENTATION_STANDARDS.md`).
-3. **REDIS_SCHEMA.md:** Document every new Redis key introduced.
-4. **docs/phases/manifest.yaml:** Set `status: COMPLETE`, add `completed: YYYY-MM-DD`. Remove resolved gaps. Add new gaps to appropriate future phases.
-5. **Sync:** Run `python3 scripts/sync-roadmap.py` to regenerate `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.
-6. **Lint:** Run `make lint-phases` — must exit 0. Fix any violations before continuing.
-7. **Atomic commit:** Commit code, `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/phases/TODO.md`, and `docs/PROJECT_STATUS.md` together in a single commit.
+2. **Go tests pass:** `make go-test` — zero failures. Required for any phase that touches Go source.
+3. **CHANGELOG.md:** Add a standard entry for the phase (see `docs/DOCUMENTATION_STANDARDS.md`).
+4. **REDIS_SCHEMA.md:** Document every new Redis key introduced.
+5. **Signal scores:** If the phase adds or changes any signal score value, run `make check-scores` — must exit 0. This verifies both Python and Go implementations match `config/signal_scores.yml`.
+6. **Parity check:** If the phase affects connection scoring or pipeline decisions, run `make parity-check` (requires both proxies running). Must exit 0. See *Go/Python Proxy Parity* section below.
+7. **docs/phases/manifest.yaml:** Set `status: COMPLETE`, add `completed: YYYY-MM-DD`. Remove resolved gaps. Add new gaps to appropriate future phases.
+8. **Sync:** Run `python3 scripts/sync-roadmap.py` to regenerate `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.
+9. **Lint:** Run `make lint-phases` — must exit 0. Fix any violations before continuing.
+10. **Atomic commit:** Commit code, `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/phases/TODO.md`, and `docs/PROJECT_STATUS.md` together in a single commit.
 
 > **Why this matters:** `docs/phases/manifest.yaml` is the only document downstream tooling reads. If it is not updated at phase-close, `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md` will show stale state, and future sessions will have incorrect context about what work remains.
 
@@ -143,7 +146,75 @@ python3 -m ruff check --select I001 --fix <file>
 python3 -m mypy <file>
 ```
 
+Every new `.go` file must pass vet immediately. After creating a file run:
+
+```bash
+GOROOT=/snap/go/current go vet ./...
+```
+
 Fix all issues before committing.
+
+---
+
+## 🔄 Go/Python Proxy Parity
+
+The project maintains two complete proxy implementations that must produce identical
+decisions for identical inputs. Three permanent tools enforce this:
+
+### Signal score registry (`config/signal_scores.yml`)
+
+This file is the **single authoritative source** for every signal score value used by
+either proxy. When adding or changing a signal:
+
+1. Update `config/signal_scores.yml` first — this is the spec.
+2. Implement in Python (`src/security/`) matching the registry value exactly.
+3. Implement in Go (`internal/security/`) matching the registry value exactly.
+4. Run `make check-scores` — must exit 0 before committing.
+
+Never hardcode a score in either proxy without a corresponding entry in the registry.
+If `make check-scores` reports drift, fix the code — do not adjust the registry to
+match wrong code.
+
+### Binary ClientHello fixtures (`tests/fixtures/clienthello/`)
+
+These `.bin` files are the ground truth for JA4 fingerprint computation. The expected
+fingerprint for each file is in `tests/fixtures/clienthello/README.md`.
+
+- Both Python and Go test suites assert `parse(fixture) == expected_ja4`.
+- If you change JA4 computation in either proxy, update README.md with the new
+  expected values and confirm both suites pass.
+- To capture new fixtures: `python3 scripts/capture_clienthello.py`
+
+### Live parity harness (`make parity-check`)
+
+Sends synthetic traffic through both proxies and compares `(action, score)` pairs.
+Required in the close-out checklist for any phase that touches scoring or pipeline
+logic. Both proxies must be running (`make go-start` + `make start`).
+
+### When adding a new signal module
+
+A new signal in one proxy requires a corresponding implementation in the other before
+the phase can be marked COMPLETE. If there is a genuine reason to skip the Go port
+(e.g., the signal is Python-only analytics), create an explicit gap in the manifest:
+
+```yaml
+gaps:
+  - "Go: <signal_name> not yet ported (see Phase NNN)"
+```
+
+A phase with an unresolved Go parity gap may not be marked COMPLETE.
+
+### GOROOT environment note
+
+The snap Go installation sets `GOROOT=/usr/share/go` which does not exist on this host.
+All `go` commands require:
+
+```bash
+GOROOT=/snap/go/current go build ./...
+GOROOT=/snap/go/current go test ./...
+```
+
+Or add `export GOROOT=/snap/go/current` to `~/.bashrc` to set it permanently.
 
 ---
 
