@@ -1,10 +1,11 @@
-# docker-compose.go.yml — runs Go proxy on port 8082 for parallel validation.
-# Usage: docker compose -f docker-compose.poc.yml -f docker-compose.go.yml up
+# docker-compose.go.yml — overlay that adds the Go proxy alongside the Python stack.
+# Usage: docker compose -f docker-compose.poc.yml -f docker-compose.go.yml --env-file .env.<agent> up -d
+#   or:  make agent-up-go NAME=<agent>
 #
 # Go proxy listens on :8082 (host) / :8080 (container)
 # Go metrics listen on :9092 (host) / :9090 (container)
-# Python proxy remains on :8080 (host)
-# Both proxies share the same Redis instance.
+# Python proxy remains on its configured ports.
+# Both proxies share the same Redis instance (data_net).
 
 services:
   go-proxy:
@@ -12,8 +13,8 @@ services:
       context: .
       dockerfile: Dockerfile-go
     ports:
-      - "8082:8080"
-      - "9092:9090"
+      - "${AGENT_BIND_IP:-127.0.0.1}:8082:8080"
+      - "${AGENT_BIND_IP:-127.0.0.1}:9092:9090"
     environment:
       REDIS_HOST: "${REDIS_HOST:-redis}"
       REDIS_PORT: "${REDIS_PORT:-6379}"
@@ -24,7 +25,10 @@ services:
     depends_on:
       - redis
     networks:
-      - ja4proxy-backend
+      - dmz_net
+      - data_net
+      - origin_net
+      - mgmt_net
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:9090/health"]
@@ -32,7 +36,5 @@ services:
       timeout: 5s
       retries: 3
 
-networks:
-  ja4proxy-backend:
-    name: ja4proxy_ja4proxy-backend
-    external: true
+# Networks are declared in docker-compose.poc.yml (dmz_net, data_net, origin_net, mgmt_net).
+# No network declarations needed here — the overlay inherits them from the base file.
