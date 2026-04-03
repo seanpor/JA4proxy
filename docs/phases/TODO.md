@@ -43,3 +43,23 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 57 — Backup System Enhancements - Phase 3: Cloud & Incrementals
 *   **Status:** **PROPOSED** (Add cloud storage adapters (S3/GCS) and incremental backup strategy.)
 *   **Action Plan:** [PHASE_57.md](PHASE_57.md)
+
+### Phase 60 — Master Plan and Governance
+*   **Status:** **PROPOSED** (Comprehensive quality improvement roadmap and governance framework.)
+*   **Action Plan:** [PHASE_60.md](PHASE_60.md)
+
+### Phase 61 — Technical Quality Improvements
+*   **Status:** **PROPOSED** (Code quality, architecture, performance, and reliability enhancements.)
+*   **Action Plan:** [PHASE_61.md](PHASE_61.md)
+
+### Phase 62 — Security Hardening
+*   **Status:** **PROPOSED** (Penetration testing, threat modeling, incident response, and compliance.)
+*   **Action Plan:** [PHASE_62.md](PHASE_62.md)
+
+### Phase 63 — Observability and Monitoring
+*   **Status:** **PROPOSED** (Technical observability, executive dashboards, alerting, and reporting.)
+*   **Action Plan:** [PHASE_63.md](PHASE_63.md)
+
+### Phase 64 — Operational Excellence
+*   **Status:** **PROPOSED** (Process optimization, training, documentation, and continuous improvement.)
+*   **Action Plan:** [PHASE_64.md](PHASE_64.md)
