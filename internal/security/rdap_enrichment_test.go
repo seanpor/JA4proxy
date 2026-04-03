@@ -2,6 +2,7 @@ package security
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -14,7 +15,9 @@ func defaultRDAPCfg() *RDAPConfig {
 		NewNetblockScore:      20,
 		KnownBadOrgScore:      45,
 		RequireKnownBadOrg:    true,
-		KnownBadOrgs:          map[string]bool{"evil hosting": true},
+		KnownBadOrgs: []KnownBadOrgEntry{
+			{Name: "evil hosting", Score: 45, Reason: "bulletproof"},
+		},
 	}
 }
 
@@ -61,10 +64,9 @@ func TestRDAP_NoCachedData_BelowThreshold_NotEnqueued(t *testing.T) {
 
 func TestRDAP_KnownBadOrg_Signal(t *testing.T) {
 	mock := &mockRedisKV{
-		hashes: map[string]map[string]string{
-			"rdap:1.2.3.4": {"org": "evil hosting"},
+		strings: map[string]string{
+			"rdap:ip:1.2.3.4": `{"org_name": "evil hosting", "org_handle": "EVIL-1", "is_unknown": false}`,
 		},
-		strings: map[string]string{},
 	}
 	r := NewRDAPEnricher(defaultRDAPCfg(), mock, nil)
 	sigs := r.GetSignals(context.Background(), &ConnectionContext{ClientIP: "1.2.3.4"}, 80)
@@ -79,10 +81,9 @@ func TestRDAP_KnownBadOrg_Signal(t *testing.T) {
 func TestRDAP_NewNetblock_Signal(t *testing.T) {
 	recentDate := time.Now().AddDate(0, 0, -30).Format("2006-01-02")
 	mock := &mockRedisKV{
-		hashes: map[string]map[string]string{
-			"rdap:1.2.3.4": {"org": "some org", "registered_date": recentDate},
+		strings: map[string]string{
+			"rdap:ip:1.2.3.4": fmt.Sprintf(`{"org_name": "some org", "registration_date": "%s", "is_unknown": false}`, recentDate),
 		},
-		strings: map[string]string{},
 	}
 	cfg := defaultRDAPCfg()
 	cfg.RequireKnownBadOrg = false
@@ -106,10 +107,9 @@ func TestRDAP_NewNetblock_Signal(t *testing.T) {
 func TestRDAP_OldNetblock_NoSignal(t *testing.T) {
 	oldDate := time.Now().AddDate(-2, 0, 0).Format("2006-01-02")
 	mock := &mockRedisKV{
-		hashes: map[string]map[string]string{
-			"rdap:1.2.3.4": {"org": "some org", "registered_date": oldDate},
+		strings: map[string]string{
+			"rdap:ip:1.2.3.4": fmt.Sprintf(`{"org_name": "some org", "registration_date": "%s", "is_unknown": false}`, oldDate),
 		},
-		strings: map[string]string{},
 	}
 	cfg := defaultRDAPCfg()
 	cfg.RequireKnownBadOrg = false

@@ -7,19 +7,27 @@ import (
 
 	"github.com/oschwald/geoip2-golang"
 	"github.com/sirupsen/logrus"
+	"go.yaml.in/yaml/v3"
 )
 
 // ASNClassifierConfig configures ASN-based risk classification.
 type ASNClassifierConfig struct {
-	Enabled         bool
-	DBPath          string
-	TorExitListPath string
-	DatacenterScore int // default 20
-	TorScore        int // default 40
-	VPNScore        int // default 10
-	UnknownScore    int // default 5
-	DatacenterASNs  map[uint]bool
-	DatacenterOrgs  []string
+	Enabled            bool
+	DBPath             string
+	TorExitListPath    string
+	DatacenterListPath string
+	DatacenterScore    int // default 20
+	TorScore           int // default 40
+	VPNScore           int // default 10
+	UnknownScore       int // default 5
+	DatacenterASNs     map[uint]bool
+	DatacenterOrgs     []string
+}
+
+// datacenterListYAML matches the schema of config/asn_datacenter_list.yml
+type datacenterListYAML struct {
+	ASNS map[uint]string `yaml:"asns"`
+	Orgs []string        `yaml:"orgs"`
 }
 
 // ASNClassifier classifies IPs by ASN: datacenter, Tor, VPN, or residential.
@@ -48,6 +56,28 @@ func NewASNClassifier(cfg *ASNClassifierConfig, log *logrus.Logger) *ASNClassifi
 		cfg = &ASNClassifierConfig{}
 	}
 	c := &ASNClassifier{cfg: cfg, log: log, torExits: make(map[string]bool)}
+
+	// Load datacenter list if path provided
+	if cfg.DatacenterListPath != "" {
+		if data, err := os.ReadFile(cfg.DatacenterListPath); err == nil {
+			var dl datacenterListYAML
+			if err := yaml.Unmarshal(data, &dl); err == nil {
+				if cfg.DatacenterASNs == nil {
+					cfg.DatacenterASNs = make(map[uint]bool)
+				}
+				for asn := range dl.ASNS {
+					cfg.DatacenterASNs[asn] = true
+				}
+				cfg.DatacenterOrgs = append(cfg.DatacenterOrgs, dl.Orgs...)
+				log.WithFields(logrus.Fields{
+					"asns": len(dl.ASNS),
+					"orgs": len(dl.Orgs),
+				}).Info("asn_classifier: loaded datacenter list")
+			} else {
+				log.WithError(err).Warn("asn_classifier: failed to parse datacenter list YAML")
+			}
+		}
+	}
 
 	// Load MaxMind DB
 	if cfg.DBPath != "" {

@@ -6,22 +6,49 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"go.yaml.in/yaml/v3"
 )
 
 // RDAPConfig configures RDAP enrichment.
 type RDAPConfig struct {
 	Enabled               bool
-	MinTriggerScore       int     // default 75
-	NewNetblockMaxAgeDays int     // default 90
-	NewNetblockScore      int     // default 20
-	KnownBadOrgScore      int     // default 45
-	RequireKnownBadOrg    bool    // default true
+	MinTriggerScore       int
+	NewNetblockMaxAgeDays int
+	NewNetblockScore      int
+	KnownBadOrgScore      int
+	RequireKnownBadOrg    bool
 	BlockExpansionEnabled bool
-	KnownBadOrgs          map[string]bool // loaded from config
+	KnownBadOrgsPath      string
+	KnownBadOrgs          []KnownBadOrgEntry
+}
+
+// KnownBadOrgEntry represents an entry in known_bad_orgs.yml
+type KnownBadOrgEntry struct {
+	Handle string `yaml:"handle"`
+	Name   string `yaml:"name"`
+	Reason string `yaml:"reason"`
+	Score  int    `yaml:"score"`
+}
+
+type knownBadOrgsYAML struct {
+	Orgs []KnownBadOrgEntry `yaml:"orgs"`
+}
+
+// rdapResult matches the JSON schema stored in Redis by both Python and Go.
+type rdapResult struct {
+	Netblock         string  `json:"netblock"`
+	OrgName          string  `json:"org_name"`
+	OrgHandle        string  `json:"org_handle"`
+	ASN              string  `json:"asn"`
+	Country          string  `json:"country"`
+	RegistrationDate string  `json:"registration_date"`
+	FetchedAt        float64 `json:"fetched_at"`
+	IsUnknown        bool    `json:"is_unknown"`
 }
 
 type rdapJob struct {
@@ -47,6 +74,20 @@ func NewRDAPEnricher(cfg *RDAPConfig, redis RedisReader, log *logrus.Logger) *RD
 	if cfg == nil {
 		cfg = &RDAPConfig{}
 	}
+
+	// Load known-bad orgs if path provided
+	if cfg.KnownBadOrgsPath != "" {
+		if data, err := os.ReadFile(cfg.KnownBadOrgsPath); err == nil {
+			var kbo knownBadOrgsYAML
+			if err := yaml.Unmarshal(data, &kbo); err == nil {
+				cfg.KnownBadOrgs = kbo.Orgs
+				log.WithField("count", len(kbo.Orgs)).Info("rdap: loaded known-bad orgs")
+			} else {
+				log.WithError(err).Warn("rdap: failed to parse known-bad orgs YAML")
+			}
+		}
+	}
+
 	return &RDAPEnricher{
 		cfg:   cfg,
 		redis: redis,
@@ -78,13 +119,14 @@ func (r *RDAPEnricher) GetSignals(ctx context.Context, conn *ConnectionContext, 
 	if !r.cfg.Enabled {
 		return nil
 	}
-	key := fmt.Sprintf("rdap:%s", conn.ClientIP)
-	data := r.redis.HGetAll(ctx, key)
-	if len(data) == 0 {
+	// Python uses rdap:ip:{ip}, Go used rdap:{ip}. Aligning to Python.
+	key := fmt.Sprintf("rdap:ip:%s", conn.ClientIP)
+	val := r.redis.GetString(ctx, key)
+	if val == "" {
 		// Enqueue lookup if score is interesting
 		minScore := r.cfg.MinTriggerScore
 		if minScore == 0 {
-			minScore = 75
+			minScore = 20 // Standard default from proxy.yml
 		}
 		if triggerScore >= minScore {
 			select {
@@ -94,24 +136,39 @@ func (r *RDAPEnricher) GetSignals(ctx context.Context, conn *ConnectionContext, 
 		}
 		return nil
 	}
+
+	var res rdapResult
+	if err := json.Unmarshal([]byte(val), &res); err != nil {
+		r.log.WithError(err).Warn("rdap: failed to unmarshal result from Redis")
+		return nil
+	}
+
+	if res.IsUnknown {
+		return nil
+	}
+
 	var signals []RiskSignal
-	org := data["org"]
+
 	// Known bad org check
-	if org != "" && r.cfg.KnownBadOrgs[strings.ToLower(org)] {
-		score := r.cfg.KnownBadOrgScore
+	if isMatch, entry := r.checkKnownBad(res.OrgHandle, res.OrgName); isMatch {
+		score := entry.Score
 		if score == 0 {
-			score = 45
+			score = r.cfg.KnownBadOrgScore
+			if score == 0 {
+				score = 45
+			}
 		}
 		signals = append(signals, RiskSignal{
 			Name:   "rdap_known_bad_org",
 			Score:  score,
-			Reason: fmt.Sprintf("org '%s' in known-bad list", org),
+			Reason: fmt.Sprintf("Known bad org: %s (%s)", res.OrgName, entry.Reason),
 			Weight: 1.0,
 		})
 	}
+
 	// New netblock check
-	if registered := data["registered_date"]; registered != "" {
-		regTime, err := time.Parse("2006-01-02", registered)
+	if res.RegistrationDate != "" {
+		regTime, err := time.Parse("2006-01-02", res.RegistrationDate)
 		maxAge := r.cfg.NewNetblockMaxAgeDays
 		if maxAge == 0 {
 			maxAge = 90
@@ -124,12 +181,30 @@ func (r *RDAPEnricher) GetSignals(ctx context.Context, conn *ConnectionContext, 
 			signals = append(signals, RiskSignal{
 				Name:   "rdap_new_netblock",
 				Score:  score,
-				Reason: "netblock registered recently",
+				Reason: fmt.Sprintf("Netblock registered %d days ago", int(time.Since(regTime).Hours()/24)),
 				Weight: 1.0,
 			})
 		}
 	}
 	return signals
+}
+
+func (r *RDAPEnricher) checkKnownBad(handle, name string) (bool, *KnownBadOrgEntry) {
+	if len(r.cfg.KnownBadOrgs) == 0 {
+		return false, nil
+	}
+	handleLower := strings.ToLower(handle)
+	nameLower := strings.ToLower(name)
+
+	for _, entry := range r.cfg.KnownBadOrgs {
+		if entry.Handle != "" && strings.ToLower(entry.Handle) == handleLower {
+			return true, &entry
+		}
+		if entry.Name != "" && strings.Contains(nameLower, strings.ToLower(entry.Name)) {
+			return true, &entry
+		}
+	}
+	return false, nil
 }
 
 func (r *RDAPEnricher) enrich(ctx context.Context, job rdapJob) {
@@ -154,14 +229,18 @@ func (r *RDAPEnricher) enrich(ctx context.Context, job rdapJob) {
 	if name, ok := result["name"].(string); ok {
 		org = name
 	}
+	handle := ""
+	if h, ok := result["handle"].(string); ok {
+		handle = h
+	}
+
 	// Block expansion
 	if r.cfg.BlockExpansionEnabled && job.alpn != "h2" && job.alpn != "h1" {
-		r.maybeExpandBlock(ctx, job.ip, org, job.score)
+		r.maybeExpandBlock(ctx, job.ip, handle, org, job.score)
 	}
-	_ = org
 }
 
-func (r *RDAPEnricher) maybeExpandBlock(ctx context.Context, ip, org string, score int) {
+func (r *RDAPEnricher) maybeExpandBlock(ctx context.Context, ip, handle, org string, score int) {
 	minScore := r.cfg.MinTriggerScore
 	if minScore == 0 {
 		minScore = 75
@@ -169,7 +248,8 @@ func (r *RDAPEnricher) maybeExpandBlock(ctx context.Context, ip, org string, sco
 	if score < minScore {
 		return
 	}
-	if r.cfg.RequireKnownBadOrg && !r.cfg.KnownBadOrgs[strings.ToLower(org)] {
+	isMatch, _ := r.checkKnownBad(handle, org)
+	if r.cfg.RequireKnownBadOrg && !isMatch {
 		return
 	}
 	// Derive /24 (IPv4) or /48 (IPv6) CIDR

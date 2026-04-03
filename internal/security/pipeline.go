@@ -125,15 +125,16 @@ type PipelineConfig struct {
 	TCPAnalyzerReturnVisitorMinAllowRate float64
 
 	// ASN classifier (Group 4)
-	ASNClassifierEnabled bool
-	ASNDBPath            string
-	TorExitListPath      string
-	DatacenterScore      int
-	TorScore             int
-	VPNScore             int
-	UnknownScore         int
-	DatacenterASNs       map[uint]bool
-	DatacenterOrgs       []string
+	ASNClassifierEnabled            bool
+	ASNDBPath                       string
+	TorExitListPath                 string
+	ASNClassifierDatacenterListPath string
+	DatacenterScore                 int
+	TorScore                        int
+	VPNScore                        int
+	UnknownScore                    int
+	DatacenterASNs                  map[uint]bool
+	DatacenterOrgs                  []string
 
 	// DNS enrichment (Group 4)
 	DNSEnrichmentEnabled bool
@@ -170,7 +171,7 @@ type PipelineConfig struct {
 	RDAPKnownBadOrgScore      int
 	RDAPRequireKnownBadOrg    bool
 	RDAPBlockExpansionEnabled bool
-	RDAPKnownBadOrgs          map[string]bool
+	RDAPKnownBadOrgsPath      string
 
 	// Static IP allowlist (Group 6)
 	StaticIPAllowlistEnabled bool
@@ -541,7 +542,7 @@ func buildAbuseIPDBConfig(cfg *PipelineConfig) *AbuseIPDBConfig {
 	}
 }
 
-// buildRDAPConfig creates a RDAPConfig from the pipeline config.
+// buildRDAPConfig creates an RDAPConfig from the pipeline config.
 func buildRDAPConfig(cfg *PipelineConfig) *RDAPConfig {
 	return &RDAPConfig{
 		Enabled:               cfg.RDAPEnabled,
@@ -551,22 +552,24 @@ func buildRDAPConfig(cfg *PipelineConfig) *RDAPConfig {
 		KnownBadOrgScore:      cfg.RDAPKnownBadOrgScore,
 		RequireKnownBadOrg:    cfg.RDAPRequireKnownBadOrg,
 		BlockExpansionEnabled: cfg.RDAPBlockExpansionEnabled,
-		KnownBadOrgs:          cfg.RDAPKnownBadOrgs,
+		KnownBadOrgsPath:      cfg.RDAPKnownBadOrgsPath,
 	}
 }
+
 
 // buildASNClassifierConfig creates an ASNClassifierConfig from the pipeline config.
 func buildASNClassifierConfig(cfg *PipelineConfig) *ASNClassifierConfig {
 	return &ASNClassifierConfig{
-		Enabled:         cfg.ASNClassifierEnabled,
-		DBPath:          cfg.ASNDBPath,
-		TorExitListPath: cfg.TorExitListPath,
-		DatacenterScore: cfg.DatacenterScore,
-		TorScore:        cfg.TorScore,
-		VPNScore:        cfg.VPNScore,
-		UnknownScore:    cfg.UnknownScore,
-		DatacenterASNs:  cfg.DatacenterASNs,
-		DatacenterOrgs:  cfg.DatacenterOrgs,
+		Enabled:            cfg.ASNClassifierEnabled,
+		DBPath:             cfg.ASNDBPath,
+		TorExitListPath:    cfg.TorExitListPath,
+		DatacenterListPath: cfg.ASNClassifierDatacenterListPath,
+		DatacenterScore:    cfg.DatacenterScore,
+		TorScore:           cfg.TorScore,
+		VPNScore:           cfg.VPNScore,
+		UnknownScore:       cfg.UnknownScore,
+		DatacenterASNs:     cfg.DatacenterASNs,
+		DatacenterOrgs:     cfg.DatacenterOrgs,
 	}
 }
 
