@@ -8,6 +8,14 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🟡 Phases In Progress
 
+### Phase 15 — Go Rewrite
+*   **Status:** **IN_PROGRESS** (10-50x throughput improvement via CPython/Go transition. Signal module implementations complete but config wiring for ASN, DNS, blocklists, beaconing, AbuseIPDB, RDAP, and JA4X is missing — all seven run disabled. Cross-language parity fixtures not captured.)
+*   **Action Plan:** [PHASE_15.md](PHASE_15.md)
+
+### Phase 59 — Advanced Traffic Intelligence - Phase 4: Feed Reliability & Resilience
+*   **Status:** **IN_PROGRESS** (Enhance feeds with health monitoring, circuit breakers, and comprehensive chaos testing.)
+*   **Action Plan:** [PHASE_59.md](PHASE_59.md)
+
 ---
 
 ## 🔵 Planned & Open Phases
