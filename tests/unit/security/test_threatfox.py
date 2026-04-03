@@ -1,5 +1,6 @@
 """
 Unit tests for Phase 46 ThreatFox Provider.
+Phase 59a: circuit breaker and retry wiring added.
 """
 
 import asyncio
@@ -8,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from src.security.feed_health import CircuitBreaker, FeedHealthMonitor
 from src.security.threatfox import ThreatFoxConfig, ThreatFoxProvider
 from src.security.models import RiskSignal
 
@@ -146,3 +148,117 @@ async def test_threatfox_config_reload(mock_redis, mock_local_cache, mock_sessio
     provider.on_config_reload(new_config_dict)
     assert provider._config.api_key == "new_key"
     assert provider._config.ioc_score == 30
+
+
+# ---------------------------------------------------------------------------
+# Phase 59a: circuit breaker and retry tests
+# ---------------------------------------------------------------------------
+
+
+def _make_ctx(status: int, body: dict):
+    mock_resp = AsyncMock()
+    mock_resp.status = status
+    mock_resp.json = AsyncMock(return_value=body)
+    ctx = MagicMock()
+    ctx.__aenter__ = AsyncMock(return_value=mock_resp)
+    ctx.__aexit__ = AsyncMock(return_value=None)
+    return ctx
+
+
+_TF_OK_BODY = {
+    "data": [
+        {"id": "1", "ioc": "1.2.3.4", "threat_type": "malware"},
+    ]
+}
+
+
+@pytest.mark.asyncio
+async def test_threatfox_no_health_monitor_works(mock_redis, mock_local_cache, mock_session):
+    """Provider works normally without a health_monitor (backwards compat)."""
+    config = ThreatFoxConfig(enabled=True, api_key="key")
+    provider = ThreatFoxProvider(config, mock_redis, mock_local_cache, mock_session)
+
+    mock_session.post.return_value = _make_ctx(200, _TF_OK_BODY)
+    await provider._process_lookup("1.2.3.4")
+    mock_redis.setex.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_threatfox_circuit_open_skips_api(mock_redis, mock_local_cache, mock_session):
+    """When the circuit is open, _process_lookup returns without calling the API."""
+    monitor = FeedHealthMonitor()
+    cb = monitor.get_circuit_breaker("threatfox", failure_threshold=1)
+    cb.record_failure()
+    assert cb.is_open()
+
+    config = ThreatFoxConfig(enabled=True, api_key="key")
+    provider = ThreatFoxProvider(
+        config, mock_redis, mock_local_cache, mock_session, health_monitor=monitor
+    )
+
+    await provider._process_lookup("1.2.3.4")
+    mock_session.post.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_threatfox_circuit_records_success(mock_redis, mock_local_cache, mock_session):
+    """Successful API call causes record_success() to be invoked."""
+    monitor = FeedHealthMonitor()
+    cb = monitor.get_circuit_breaker("threatfox")
+    cb_mock = MagicMock(wraps=cb)
+    cb_mock.is_open.return_value = False
+
+    with patch.object(monitor, "get_circuit_breaker", return_value=cb_mock):
+        config = ThreatFoxConfig(enabled=True, api_key="key")
+        provider = ThreatFoxProvider(
+            config, mock_redis, mock_local_cache, mock_session, health_monitor=monitor
+        )
+
+        mock_session.post.return_value = _make_ctx(200, _TF_OK_BODY)
+        await provider._process_lookup("1.2.3.4")
+        cb_mock.record_success.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_threatfox_circuit_records_failure_on_exception(
+    mock_redis, mock_local_cache, mock_session
+):
+    """When all retry attempts raise, record_failure() is called."""
+    monitor = FeedHealthMonitor()
+    cb_mock = MagicMock(spec=CircuitBreaker)
+    cb_mock.is_open.return_value = False
+
+    with patch.object(monitor, "get_circuit_breaker", return_value=cb_mock):
+        config = ThreatFoxConfig(enabled=True, api_key="key")
+        provider = ThreatFoxProvider(
+            config, mock_redis, mock_local_cache, mock_session, health_monitor=monitor
+        )
+
+        mock_session.post.side_effect = OSError("connection refused")
+        await provider._process_lookup("1.2.3.4")
+        cb_mock.record_failure.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_threatfox_retry_twice_then_succeed(mock_redis, mock_local_cache, mock_session):
+    """API fails twice then succeeds; session.post called 3 times."""
+    config = ThreatFoxConfig(enabled=True, api_key="key")
+    provider = ThreatFoxProvider(config, mock_redis, mock_local_cache, mock_session)
+
+    success_ctx = _make_ctx(200, _TF_OK_BODY)
+    call_count = 0
+
+    def side_effect(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count < 3:
+            raise OSError("transient error")
+        return success_ctx
+
+    mock_session.post.side_effect = side_effect
+
+    with patch("asyncio.sleep", new_callable=AsyncMock):
+        await provider._process_lookup("1.2.3.4")
+
+    assert call_count == 3
+    mock_redis.setex.assert_called_once()
