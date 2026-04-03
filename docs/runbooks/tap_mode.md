@@ -1,3 +1,10 @@
+<!--
+title: TAP Mode Operator Runbook
+audience: Operators, Security Teams
+last_reviewed: 2026-04-03
+phase: 20
+-->
+
 # TAP Mode Operator Runbook
 
 **Phase:** 20 — Passive TAP/SPAN Mode

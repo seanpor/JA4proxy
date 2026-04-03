@@ -361,10 +361,6 @@ VOLUME /var/lib/analytics/models
 
 ## References
 
-- [Phase 12a Planning](phases/PHASE_12A.md)
-- [Phase 12b Planning](phases/PHASE_12B.md)
-- [Phase 12c Planning](phases/PHASE_12C.md)
-- [Phase 12d Planning](phases/PHASE_12D.md)
-- [Phase 12e Planning](../phases/PHASE_12E.md)
+- [Phase 12 — Analytics Node](../phases/PHASE_12.md)
 - [Security Architecture](../security/threat-model.md)
 - [Testing Strategy](../developer/testing-analysis.md)

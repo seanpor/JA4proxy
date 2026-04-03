@@ -1,3 +1,10 @@
+<!--
+title: Docker Image Inventory
+audience: Operators, DevOps
+last_reviewed: 2026-04-03
+phase: 25
+-->
+
 # Docker Image Inventory
 
 This document serves as the canonical registry of every Docker image used in the JA4Proxy project.

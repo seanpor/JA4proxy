@@ -6,7 +6,7 @@ phase: 21
 -->
 
 > **[DEPRECATED]** This draft document has been superseded by the analytics architecture documentation
-> in [architecture/analytics-node-architecture.md](../../architecture/analytics-node-architecture.md)
+> in [architecture/analytics-node-architecture.md](../architecture/analytics-node-architecture.md)
 >
 > The new document provides comprehensive, up-to-date information about the analytics node
 > architecture, stream processing pipeline, and implementation details.
@@ -16,7 +16,7 @@ phase: 21
 
 ## Overview
 
-**Note:** This content is outdated. See [analytics-node-architecture.md](../../architecture/analytics-node-architecture.md) for current information.
+**Note:** This content is outdated. See [analytics-node-architecture.md](../architecture/analytics-node-architecture.md) for current information.
 
 This guide provides comprehensive development information for the JA4Proxy Analytics Node (Phase 12). It covers architecture, APIs, testing, debugging, and best practices.
 
@@ -1379,11 +1379,7 @@ BREAKING CHANGE: Requires scikit-learn 1.0+
 
 ### References
 
-- [Phase 12a Planning](phases/PHASE_12A.md)
-- [Phase 12b Planning](phases/PHASE_12B.md)
-- [Phase 12c Planning](phases/PHASE_12C.md)
-- [Phase 12d Planning](phases/PHASE_12D.md)
-- [Phase 12e Planning](../phases/PHASE_12E.md)
+- [Phase 12 — Analytics Node](../phases/PHASE_12.md)
 - [System Architecture](../architecture/system-architecture.md)
 - [Security Guide](../security/COMPREHENSIVE_SECURITY_AUDIT.md)
 - [Testing Strategy](testing-analysis.md)

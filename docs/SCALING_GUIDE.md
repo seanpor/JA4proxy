@@ -1,3 +1,10 @@
+<!--
+title: Scaling Guide
+audience: Operators, DevOps
+last_reviewed: 2026-04-03
+phase: 26
+-->
+
 # JA4Proxy Multi-Process Scaling Guide (Phase 26d)
 
 ## Overview
@@ -365,7 +372,7 @@ For issues with multi-process scaling:
 
 ## References
 
-- [HAProxy Documentation](http://www.haproxy.org/documentation/)
+- [HAProxy Documentation](https://docs.haproxy.org/)
 - [Docker Compose Overlay Pattern](https://docs.docker.com/compose/extends/)
 - [Redis Scaling Guide](https://redis.io/topics/cluster-tutorial)
-- [Phase 26 Specification](../phases/PHASE_26.md)
+- [Phase 26 Specification](phases/PHASE_26.md)

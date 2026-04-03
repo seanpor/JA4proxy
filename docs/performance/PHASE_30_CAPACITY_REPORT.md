@@ -1,3 +1,10 @@
+<!--
+title: Phase 30 Capacity Report
+audience: Operators, Developers
+last_reviewed: 2026-04-03
+phase: 30
+-->
+
 # Phase 30 Capacity Report — Python Throughput Hardening
 
 ## Executive Summary

@@ -344,7 +344,7 @@ open http://localhost:3001
 3. Select **Prometheus**
 4. Configure:
    - **Name:** JA4proxy Prometheus
-   - **URL:** http://prometheus:9090
+   - **URL:** `http://prometheus:9090`
    - **Access:** Server (default)
 5. Click **Save & Test**
 

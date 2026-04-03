@@ -734,10 +734,10 @@ redis-cli SADD persistent_whitelist 1.2.3.4
 | Role | Contact | Method |
 |------|---------|--------|
 | **On-Call Engineer** | #incidents Slack | `@here P1 incident` |
-| **Security Team** | security@company.com | Encrypted email |
-| **Data Protection Officer** | dpo@company.com | Phone + Email |
+| **Security Team** | security@example.com | Encrypted email |
+| **Data Protection Officer** | dpo@example.com | Phone + Email |
 | **Infrastructure Team** | #infrastructure | Slack mention |
-| **Development Lead** | dev-lead@company.com | Slack DM |
+| **Development Lead** | dev-lead@example.com | Slack DM |
 
 ### Post-Incident Process
 
