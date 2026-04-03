@@ -1,5 +1,38 @@
 # Changelog
 
+## [Unreleased] - 2026-04-03 — Security: Metrics Endpoint DoS & Startup Crash Remediation
+
+### Security
+
+- **CVE-class: Metrics endpoint denial-of-service** — `src/security/health.py` and
+  `src/analytics/main.py` both served `/metrics` via `web.Response(content_type=CONTENT_TYPE_LATEST)`.
+  The prometheus-client `CONTENT_TYPE_LATEST` constant includes `charset=utf-8`, which aiohttp
+  rejects at the Response constructor level with `ValueError: charset must not be in content_type
+  argument`. Every scrape request to either metrics endpoint raised an unhandled exception, causing
+  the handler to return HTTP 500 and preventing Prometheus from collecting telemetry. An attacker
+  aware of this could use it to blind monitoring silently while conducting other activity.
+  **Fix:** pass the Content-Type as a raw header (`headers={"Content-Type": CONTENT_TYPE_LATEST}`)
+  in both locations. Confirmed no other `content_type=` usages in the codebase contain `charset`.
+
+- **Startup crash (non-fatal log corruption)** — `proxy.py` emitted a structured JSON log line at
+  startup using `%d` format for the initial dial value, which `DialManager.initialize()` returns as
+  a string. Python's logging module suppresses the resulting `TypeError` with a `--- Logging error
+  ---` banner rather than crashing the process, but the dial-initialized event was silently lost
+  from the audit trail on every cold start.
+  **Fix:** changed format specifier to `%s` with an explicit `int()` cast.
+
+### Fixed
+
+- HAProxy crash-loop on POC startup: three config errors introduced by Phase 43 blue/green changes
+  (`accept-proxy` bare keyword, duplicate `frontend tls_in` block, missing errorfile) and backend
+  servers referencing non-existent `proxy-worker-blue-*` containers. Rewritten for single-worker
+  POC topology.
+- `start-poc.sh` readiness checks used Docker Compose v1-style container names (`ja4proxy-redis`,
+  `ja4proxy-backend`); Compose v2 appends `-1` suffix. Fixed to `ja4proxy-redis-1` /
+  `ja4proxy-backend-1`.
+- Analytics entrypoint used `nc` for Redis readiness check; `nc` is not installed in the analytics
+  image, causing an infinite startup loop. Replaced with `python3 socket.connect_ex`.
+
 ## [45.0.0] - 2026-03-31 — Phase 45: Adversarial Test Expansion
 
 ### Added
