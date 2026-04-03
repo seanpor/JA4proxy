@@ -79,9 +79,58 @@ We use `cpuset` to pin agents to specific logical cores on the i9-9900K. This pr
 
 ## Implementation for Agents
 
-Agents should initialize their environment using the `scripts/agent-env.sh` utility. This script ensures that the `.env` file is populated with the correct isolated IP, CPU set, and project name before `docker compose up` is executed.
+### Local state files
+
+Two gitignored files track per-agent state in the repo root:
+
+| File | Contents | Written by |
+|------|----------|-----------|
+| `.env.<agent>` | Agent secrets, IP, CPU set, passwords | `scripts/agent-env.sh` |
+| `.current-agent` | One line: the active agent name (e.g. `claude`) | `make agent-up` |
+
+### Quickstart
 
 ```bash
-./scripts/agent-env.sh <agent_name>
-docker compose --env-file .env.<agent_name> up -d
+# First time — generate env file and start
+make agent-up NAME=claude
+
+# Subsequent commands — .current-agent is used automatically, no NAME= needed
+./scripts/ja4-admin.sh status
+./scripts/ja4-admin.sh top 10
+./scripts/ja4-admin.sh block-ip 1.2.3.4
+
+# Stop (reads .current-agent, clears it on success)
+make agent-down
+
+# Run a second agent alongside the first
+make agent-up NAME=gemini
+# Now .current-agent = gemini. To target claude explicitly:
+./scripts/ja4-admin.sh --agent claude status
+
+# See all running agents
+make agent-status
 ```
+
+### Manual workflow (without make)
+
+```bash
+# Generate env file (once per agent, safe to re-run with -f to rotate secrets)
+./scripts/agent-env.sh claude
+
+# Start
+docker compose --project-name ja4_claude --env-file .env.claude up -d
+
+# Admin (explicit --agent flag required without .current-agent)
+./scripts/ja4-admin.sh --agent claude status
+
+# Stop
+docker compose --project-name ja4_claude --env-file .env.claude down
+```
+
+### Agent resolution priority in `ja4-admin.sh`
+
+| Condition | Env file | Redis container | Metrics URL |
+|-----------|----------|-----------------|-------------|
+| `--agent claude` passed | `.env.claude` | `ja4_claude-redis-1` | `127.0.0.11:9090` |
+| `.current-agent` = `claude` | `.env.claude` | `ja4_claude-redis-1` | `127.0.0.11:9090` |
+| Neither | `.env` | `ja4proxy-redis` | `localhost:9090` |

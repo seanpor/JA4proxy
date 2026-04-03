@@ -17,7 +17,14 @@ METRICS_URL="${METRICS_URL:-http://localhost:9090/metrics}"
 ENV_FILE="${ENV_FILE:-.env}"
 
 # ── Multi-agent support ────────────────────────────────────────────────────────
-# Parse --agent flag if present (must be first two args)
+# Resolve which agent to target using this priority order:
+#   1. Explicit --agent <name> flag (must be first two args)
+#   2. .current-agent file (written by: make agent-up NAME=<agent>)
+#   3. Default single-instance mode (uses .env, ja4proxy-redis, localhost:9090)
+#
+# Example usage:
+#   ./scripts/ja4-admin.sh status                  # uses .current-agent or default
+#   ./scripts/ja4-admin.sh --agent claude status   # explicit override
 if [[ "${1:-}" == "--agent" ]]; then
     AGENT_NAME="${2:?--agent requires a name (gemini|claude|ollama|mistral)}"
     shift 2
@@ -27,6 +34,14 @@ if [[ "${1:-}" == "--agent" ]]; then
     [ -n "$AGENT_BIND_IP" ] || { echo -e "${RED}✗ AGENT_BIND_IP not set in $ENV_FILE${NC}" >&2; exit 1; }
     REDIS_CONTAINER="ja4_${AGENT_NAME}-redis-1"
     METRICS_URL="http://${AGENT_BIND_IP}:9090/metrics"
+elif [[ -f ".current-agent" ]]; then
+    AGENT_NAME="$(cat .current-agent)"
+    ENV_FILE=".env.${AGENT_NAME}"
+    if [[ -f "$ENV_FILE" ]]; then
+        AGENT_BIND_IP=$(grep '^AGENT_BIND_IP=' "$ENV_FILE" | cut -d= -f2)
+        REDIS_CONTAINER="ja4_${AGENT_NAME}-redis-1"
+        METRICS_URL="http://${AGENT_BIND_IP}:9090/metrics"
+    fi
 fi
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
