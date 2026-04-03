@@ -141,28 +141,36 @@ status:
 
 # ── Multi-Agent ───────────────────────────────────────────────────────────────
 
-# Start an isolated agent environment (auto-generates .env.<name> if missing)
+# Start an isolated agent environment (auto-generates .env.<name> if missing).
+# Writes .current-agent so subsequent commands default to this agent.
 # Usage: make agent-up NAME=claude
 agent-up:
 	@[ -n "$(NAME)" ] || (echo "Usage: make agent-up NAME=<agent>  (agents: gemini|claude|ollama|mistral)"; exit 1)
 	@[ -f ".env.$(NAME)" ] || (echo "→ No .env.$(NAME) found — generating..."; ./scripts/agent-env.sh $(NAME))
 	docker compose --project-name ja4_$(NAME) --env-file .env.$(NAME) up -d
-	@echo "✓ Agent $(NAME) started"
+	@echo "$(NAME)" > .current-agent
+	@echo "✓ Agent $(NAME) started (saved to .current-agent)"
 	@grep AGENT_BIND_IP .env.$(NAME) | awk -F= '{print "  Ingress:   https://" $$2 ":443"}'
 	@grep AGENT_BIND_IP .env.$(NAME) | awk -F= '{print "  Analytics: http://" $$2 ":8080"}'
 	@grep AGENT_BIND_IP .env.$(NAME) | awk -F= '{print "  Metrics:   http://" $$2 ":9090/metrics"}'
+	@echo "  Admin:     ./scripts/ja4-admin.sh status  (uses .current-agent automatically)"
 
-# Stop an isolated agent environment
-# Usage: make agent-down NAME=claude
+# Stop an isolated agent environment.
+# If NAME is not given, reads .current-agent (set by the last agent-up).
+# Clears .current-agent if it matches the stopped agent.
+# Usage: make agent-down NAME=claude  OR  make agent-down
 agent-down:
-	@[ -n "$(NAME)" ] || (echo "Usage: make agent-down NAME=<agent>"; exit 1)
-	@[ -f ".env.$(NAME)" ] || (echo "No .env.$(NAME) — is agent $(NAME) configured?"; exit 1)
-	docker compose --project-name ja4_$(NAME) --env-file .env.$(NAME) down
+	$(eval _NAME := $(or $(NAME),$(shell cat .current-agent 2>/dev/null)))
+	@[ -n "$(_NAME)" ] || (echo "Usage: make agent-down NAME=<agent>  (or run make agent-up first to set .current-agent)"; exit 1)
+	@[ -f ".env.$(_NAME)" ] || (echo "No .env.$(_NAME) — is agent $(_NAME) configured?"; exit 1)
+	docker compose --project-name ja4_$(_NAME) --env-file .env.$(_NAME) down
+	@if [ "$$(cat .current-agent 2>/dev/null)" = "$(_NAME)" ]; then rm -f .current-agent; echo "✓ Cleared .current-agent"; fi
 
-# List all running agent environments
+# List all running agent environments and show which is current.
 agent-status:
 	@echo "Running ja4_* agent environments:"
 	@docker compose ls 2>/dev/null | grep '^ja4_' || echo "  (none running)"
+	@if [ -f .current-agent ]; then echo "Current (.current-agent): $$(cat .current-agent)"; fi
 
 # ── Build ──────────────────────────────────────────────────────────────────────
 

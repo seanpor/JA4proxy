@@ -16,6 +16,10 @@ ssl/certs/*.pem
 # Environment files with secrets
 .env
 .env.*
+
+# Active agent tracker (written by: make agent-up NAME=<agent>)
+# Contains only the agent name (e.g. "claude"). Never commit.
+.current-agent
 .env.local
 .env.production
 
