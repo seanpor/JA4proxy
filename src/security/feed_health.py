@@ -25,12 +25,20 @@ Integration pattern (inside TIProvider._process_lookup)
     except Exception:
         cb.record_failure()
         raise
+
+Phase 59b extensions
+--------------------
+- CircuitBreaker._history: deque(maxlen=100) tracking success/failure/state_change events
+- FeedHealthMonitor.register_probe / start_probing / stop_probing: background health probing
+- FeedHealthMonitor.set_alert_callback: callback fired on circuit open and new feed registration
 """
 
+import asyncio
 import logging
 import time
+from collections import deque
 from enum import Enum
-from typing import Dict, Optional
+from typing import Awaitable, Callable, Dict, List, Optional
 
 from prometheus_client import Counter, Gauge
 
@@ -64,6 +72,11 @@ _CIRCUIT_TRANSITIONS = Counter(
     "ja4proxy_ti_circuit_transitions_total",
     "Circuit breaker state transitions",
     ["feed", "to_state"],
+)
+_PROBE_INTERVAL_SECONDS = Gauge(
+    "ja4proxy_ti_feed_probe_interval_seconds",
+    "Configured probe interval for a TI feed",
+    ["feed"],
 )
 
 
@@ -100,6 +113,9 @@ class CircuitBreaker:
         self._opened_at: Optional[float] = None
         self._last_response_time: float = 0.0
 
+        # Historical event log — max 100 entries (phase-59b)
+        self._history: deque = deque(maxlen=100)
+
         # Initialise Prometheus labels
         _FEED_HEALTHY.labels(feed=feed_name).set(1)
         _CIRCUIT_OPEN.labels(feed=feed_name).set(0)
@@ -131,6 +147,12 @@ class CircuitBreaker:
         self._last_response_time = response_time
         _RESPONSE_TIME.labels(feed=self.feed_name).set(response_time)
         _CONSECUTIVE_FAILURES.labels(feed=self.feed_name).set(0)
+        self._history.append({
+            "ts": time.monotonic(),
+            "event": "success",
+            "state": self._state.value,
+            "response_time": response_time,
+        })
         if self._state != CircuitState.CLOSED:
             self._transition(CircuitState.CLOSED)
 
@@ -138,6 +160,12 @@ class CircuitBreaker:
         """Record a failed API call and open the circuit if threshold exceeded."""
         self._consecutive_failures += 1
         _CONSECUTIVE_FAILURES.labels(feed=self.feed_name).set(self._consecutive_failures)
+        self._history.append({
+            "ts": time.monotonic(),
+            "event": "failure",
+            "state": self._state.value,
+            "response_time": 0.0,
+        })
 
         should_open = (
             self._state == CircuitState.HALF_OPEN
@@ -162,6 +190,11 @@ class CircuitBreaker:
     def last_response_time(self) -> float:
         return self._last_response_time
 
+    @property
+    def history(self) -> List[dict]:
+        """Return a copy of the historical event log (up to 100 entries)."""
+        return list(self._history)
+
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
@@ -172,6 +205,12 @@ class CircuitBreaker:
         _CIRCUIT_TRANSITIONS.labels(
             feed=self.feed_name, to_state=new_state.value
         ).inc()
+        self._history.append({
+            "ts": time.monotonic(),
+            "event": "state_change",
+            "state": new_state.value,
+            "response_time": 0.0,
+        })
 
         if new_state == CircuitState.OPEN:
             self._opened_at = time.monotonic()
@@ -222,6 +261,12 @@ class FeedHealthMonitor:
 
     def __init__(self) -> None:
         self._breakers: Dict[str, CircuitBreaker] = {}
+        # Probe registry: feed_name → (probe_fn, interval_seconds)
+        self._probes: Dict[str, tuple] = {}
+        # Active asyncio tasks created by start_probing
+        self._probe_tasks: Dict[str, asyncio.Task] = {}
+        # Optional alert callback
+        self._alert_callback: Optional[Callable[[str, str, dict], None]] = None
 
     def get_circuit_breaker(
         self,
@@ -231,12 +276,125 @@ class FeedHealthMonitor:
     ) -> CircuitBreaker:
         """Return the existing circuit breaker for *feed_name*, or create one."""
         if feed_name not in self._breakers:
-            self._breakers[feed_name] = CircuitBreaker(
+            cb = CircuitBreaker(
                 feed_name=feed_name,
                 failure_threshold=failure_threshold,
                 recovery_probe_interval=recovery_probe_interval,
             )
+            self._breakers[feed_name] = cb
+            # Wrap record_failure to fire alert when circuit opens (phase-59b)
+            self._attach_open_alert(feed_name, cb)
+            if self._alert_callback is not None:
+                self._alert_callback(
+                    feed_name,
+                    "feed_registered",
+                    {
+                        "feed_name": feed_name,
+                        "consecutive_failures": 0,
+                        "state": cb.state.value,
+                    },
+                )
         return self._breakers[feed_name]
+
+    def _attach_open_alert(self, feed_name: str, cb: CircuitBreaker) -> None:
+        """Wrap cb._transition so we fire the alert callback on OPEN transitions."""
+        original_transition = cb._transition
+
+        def _patched_transition(new_state: CircuitState) -> None:
+            original_transition(new_state)
+            if new_state == CircuitState.OPEN and self._alert_callback is not None:
+                self._alert_callback(
+                    feed_name,
+                    "circuit_opened",
+                    {
+                        "feed_name": feed_name,
+                        "consecutive_failures": cb.consecutive_failures,
+                        "state": cb.state.value,
+                    },
+                )
+
+        cb._transition = _patched_transition  # type: ignore[method-assign]
+
+    def set_alert_callback(
+        self,
+        callback: Callable[[str, str, dict], None],
+    ) -> None:
+        """
+        Register a callback for feed health alerts.
+
+        The callback signature is ``callback(feed_name, event, context)`` where
+        *event* is ``"circuit_opened"`` or ``"feed_registered"`` and *context*
+        is a dict with at minimum ``feed_name``, ``consecutive_failures``, and
+        ``state``.  Called synchronously on state transitions; keep it fast.
+        """
+        self._alert_callback = callback
+
+    def register_probe(
+        self,
+        feed_name: str,
+        probe_fn: Callable[[], Awaitable[float]],
+        interval_seconds: float = 30.0,
+    ) -> None:
+        """
+        Register an async probe function for *feed_name*.
+
+        *probe_fn* must return a response time (float, seconds) on success and
+        raise any exception on failure.  Called by each provider at startup
+        before :meth:`start_probing`.
+        """
+        self._probes[feed_name] = (probe_fn, interval_seconds)
+        _PROBE_INTERVAL_SECONDS.labels(feed=feed_name).set(interval_seconds)
+
+    async def start_probing(self) -> None:
+        """Launch background probe tasks for all registered feeds.
+
+        Call once at startup, after all probes have been registered via
+        :meth:`register_probe`.  Each task probes its feed every
+        *interval_seconds* using :func:`asyncio.sleep`.
+        """
+        for feed_name, (probe_fn, interval_seconds) in self._probes.items():
+            if feed_name in self._probe_tasks:
+                # Already running — skip
+                continue
+            task = asyncio.create_task(
+                self._probe_loop(feed_name, probe_fn, interval_seconds),
+                name=f"probe-{feed_name}",
+            )
+            self._probe_tasks[feed_name] = task
+
+    async def stop_probing(self) -> None:
+        """Cancel all background probe tasks and wait for them to finish."""
+        for task in self._probe_tasks.values():
+            task.cancel()
+        if self._probe_tasks:
+            await asyncio.gather(*self._probe_tasks.values(), return_exceptions=True)
+        self._probe_tasks.clear()
+
+    async def _probe_loop(
+        self,
+        feed_name: str,
+        probe_fn: Callable[[], Awaitable[float]],
+        interval_seconds: float,
+    ) -> None:
+        """Background loop: probe every *interval_seconds*, update circuit breaker."""
+        cb = self.get_circuit_breaker(feed_name)
+        while True:
+            try:
+                response_time = await probe_fn()
+                cb.record_success(response_time)
+            except asyncio.CancelledError:
+                return
+            except Exception as exc:  # noqa: BLE001
+                cb.record_failure()
+                logger.warning(
+                    "ti_feed | event=probe_failed | feed=%s | error=%s",
+                    feed_name,
+                    exc,
+                )
+            try:
+                await asyncio.sleep(interval_seconds)
+            except asyncio.CancelledError:
+                return
 
     def get_health_summary(self) -> Dict[str, dict]:
         """Return a snapshot of every registered feed's health."""
