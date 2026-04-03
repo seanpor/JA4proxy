@@ -1,6 +1,5 @@
 # Phase 42 — Zero-Downtime Data Upgrades (GeoIP & Config)
 
-Status: COMPLETE
 Completed: 2026-03-31
 
 ## Goal

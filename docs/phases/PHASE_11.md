@@ -1,7 +1,5 @@
 # Phase 11 — RDAP Enrichment & Block Expansion
 
-Status: COMPLETE
-
 ## Goal
 
 Pivot from individual bad IPs to their containing netblock and owning organisation.

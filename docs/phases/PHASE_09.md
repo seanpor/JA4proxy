@@ -1,7 +1,5 @@
 # Phase 9 — Beaconing Detection
 
-Status: COMPLETE
-
 ## Goal
 
 Detect Command-and-Control (C2) beacon patterns by analysing the timing of connections

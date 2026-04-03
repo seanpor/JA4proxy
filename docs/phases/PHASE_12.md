@@ -1,9 +1,5 @@
 # Phase 12 — Analytics Node
 
-Status: COMPLETE
-
-## Status: COMPLETE (2026-03-15) — 1435 tests passing
-
 | Sub-phase | Status | Completed |
 |-----------|--------|-----------|
 | 12a | ✅ Complete | HTTP server, requirements-analytics.txt, docker-compose, chaos tests |

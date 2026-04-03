@@ -1,7 +1,5 @@
 # Phase 16 — Test Suite Hardening, Extended Fingerprinting & Operational Excellence
 
-Status: COMPLETE
-
 ## Goal
 
 Close the test coverage and quality gaps carried forward from Phases 0–15. Add
@@ -266,12 +264,10 @@ class TestAbuseIPDBDown:
     def test_api_returns_malformed_json(self): ...
         # JSON parse error → logged + None returned; no crash
 
-
 class TestRDAPDown:
     def test_rdap_unavailable_returns_no_signal(self): ...
     def test_rdap_iana_bootstrap_fails_gracefully(self): ...
     def test_block_expansion_skipped_when_rdap_unreachable(self): ...
-
 
 class TestAllExternalAPIsDown:
     def test_pipeline_allows_when_all_apis_down(self): ...

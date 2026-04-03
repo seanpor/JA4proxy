@@ -1,7 +1,5 @@
 # Phase 38 — Operational Procedures for ISP/Organization Blocking
 
-Status: COMPLETE
-
 ## Goal
 
 Establish comprehensive operational procedures for identifying, implementing, monitoring, and maintaining blocks against malicious ISPs and organizations. This phase focuses on the human workflows, documentation, and tooling needed to effectively manage ISP-level blocking in production environments.

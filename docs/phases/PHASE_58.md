@@ -1,6 +1,5 @@
 # Phase 58: Advanced Traffic Intelligence - Phase 3: Feed Optimization & Reliability
 
-Status: PROPOSED
 Priority: MEDIUM (Post-Phase 53)
 Size: SMALL
 
@@ -17,8 +16,6 @@ Phase 53 successfully integrated MISP, ThreatFox, and VirusTotal feeds with basi
 - [x] **Dynamic Weight Adjustment:** Automatically adjust signal weights based on false positive/true positive rates
 - [x] **Trusted Source Boost:** Allow configuration of trusted MISP sources to receive higher base weights
 - [x] **Admin Override Interface:** Provide administrative controls to manually adjust confidence weights
-
-Status: COMPLETE (2026-03-31)
 
 ### 47b — Adaptive Caching Strategies
 - [ ] **Volatility-Based TTL:** Implement different cache TTLs based on data volatility (e.g., C2 IPs vs. known VPN exits)

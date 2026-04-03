@@ -1,6 +1,5 @@
 # Phase 57: Backup System Enhancements - Phase 3: Cloud & Incrementals
 
-Status: PROPOSED
 Priority: MEDIUM (Post-Phase 40)
 
 ## Goal

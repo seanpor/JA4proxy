@@ -1,7 +1,5 @@
 # Phase 10 — AbuseIPDB Integration
 
-Status: COMPLETE
-
 ## Goal
 
 Add reputation scoring from AbuseIPDB's crowdsourced abuse confidence database.

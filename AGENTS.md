@@ -60,9 +60,10 @@ Every phase must be closed by completing **all** of the following before the nex
 5. **Signal scores:** If the phase adds or changes any signal score value, run `make check-scores` — must exit 0. This verifies both Python and Go implementations match `config/signal_scores.yml`.
 6. **Parity check:** If the phase affects connection scoring or pipeline decisions, run `make parity-check` (requires both proxies running). Must exit 0. See *Go/Python Proxy Parity* section below.
 7. **docs/phases/manifest.yaml:** Set `status: COMPLETE`, add `completed: YYYY-MM-DD`. Remove resolved gaps. Add new gaps to appropriate future phases.
-8. **Sync:** Run `python3 scripts/sync-roadmap.py` to regenerate `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.
-9. **Lint:** Run `make lint-phases` — must exit 0. Fix any violations before continuing.
-10. **Atomic commit:** Commit code, `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/phases/TODO.md`, and `docs/PROJECT_STATUS.md` together in a single commit.
+8. **Phase doc hygiene:** If the phase doc (`docs/phases/PHASE_XX.md`) contains a `## Status:` line, **remove it** — status belongs only in the manifest (Rule 2). This line going stale is a common source of confusion between agents.
+9. **Sync:** Run `python3 scripts/sync-roadmap.py` to regenerate `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.
+10. **Lint:** Run `make lint-phases` — must exit 0. Fix any violations before continuing.
+11. **Atomic commit:** Commit code, `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/phases/TODO.md`, `docs/PROJECT_STATUS.md`, and the phase doc together in a single commit.
 
 > **Why this matters:** `docs/phases/manifest.yaml` is the only document downstream tooling reads. If it is not updated at phase-close, `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md` will show stale state, and future sessions will have incorrect context about what work remains.
 

@@ -1,6 +1,5 @@
 # Phase 41 — Robust Health Check API & Anti-Flap Logic
 
-Status: COMPLETE
 Completed: 2026-03-31
 
 ## Goal

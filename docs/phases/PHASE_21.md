@@ -1,6 +1,5 @@
 # Phase 21 — Documentation Excellence & Knowledge Architecture
 
-Status: COMPLETE
 >
 > Read this phase file fully before starting. Then read `docs/DOCUMENTATION_STANDARDS.md`
 > and skim `docs/STYLE_GUIDE.md §3`. This phase has no code changes — all work is

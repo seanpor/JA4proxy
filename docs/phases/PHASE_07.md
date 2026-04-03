@@ -1,7 +1,5 @@
 # Phase 7 — FCrDNS & Passive DNS Enrichment
 
-Status: COMPLETE
-
 ## Goal
 
 Enrich IP reputation using DNS-derived signals, entirely off the hot path. The core

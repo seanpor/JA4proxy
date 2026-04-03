@@ -1,7 +1,5 @@
 # Phase 25 — Docker Container Management
 
-Status: COMPLETE
-
 **Goal:** Close the security scanning gaps, eliminate unpinned image tags, harmonise
 image versions across all compose files, and establish a sustainable image update
 policy.

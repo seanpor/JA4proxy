@@ -1,6 +1,5 @@
 # Phase 51: Management UI - Phase 2: Frontend Dashboard
 
-Status: PROPOSED
 Priority: MEDIUM (Post-Phase 13)
 
 ## Goal
