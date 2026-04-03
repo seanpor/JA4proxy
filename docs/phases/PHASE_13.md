@@ -9,7 +9,7 @@ The Management UI was removed in v13.2.0 due to extreme bloat. This phase resurr
 ## 2. Preparation & Clean Slate
 **Goal:** Ensure no residual broken code is interfering.
 *   **Task:** Verify `management/` directory and UI-specific Dockerfiles are completely removed.
-*   **Validation:** `git ls-files | grep management` should return nothing (except potentially `docs/runbooks/management_ui.md`).
+*   **Validation:** `git ls-files | grep management` should return nothing (except potentially `../runbooks/management_ui.md`).
 
 ## 3. Architecture & Tech Stack
 **Goal:** Keep it lightweight and fast.

@@ -94,8 +94,10 @@ Connections pass through layers in order. Bypass checks short-circuit the pipeli
 | 2 | **JA4 blacklist** | Known-bad fingerprint → BLOCK immediately (TCP RST) |
 | 3 | **TLS enforcement** | TLS 1.0/1.1/SSLv3 → BLOCK; weak ciphers → scored signal |
 | 4–8 | **Signal collection** | TLS version, SNI, TCP behaviour, ASN/datacenter, FCrDNS, rate limiting → risk signals |
-| 9 | **Risk scorer** | Aggregates all signals → score 0–100 |
-| 10 | **Action decider (dial)** | Score × dial setting → allow / flag / rate_limit / tarpit / block / ban |
+| 9 | **Attacker Attribution** | Stable fingerprinting (JA4+JA4X+JA4T); cross-IP correlation → risk escalation |
+| 10 | **Behavioral Analysis** | Sequential probing, coordinated bursts, and fingerprint drift detection → risk signals |
+| 11 | **Risk scorer** | Aggregates all signals (with confidence weighting) → score 0–100 |
+| 12 | **Action decider (dial)** | Score × dial setting → allow / flag / rate_limit / tarpit / block / ban |
 
 Blocking actions escalate with TTL: **suspicious → tarpit → block → ban** (default 5-min TTL; self-healing).
 At dial=0 (default): all traffic passes, everything scored and logged — monitor mode only.
@@ -146,7 +148,7 @@ Key values (see `deploy/helm/ja4proxy/values.yaml`):
 | Grafana | `http://localhost:3001` | admin / see .env |
 | Loki | `http://localhost:3100` | Centralized container logs (internal only) |
 | Alertmanager | `http://localhost:9093` | |
-| Management UI | *(Phase 13 — not yet implemented)* | Deferred until after Go rewrite |
+| Management UI | *(Phase 13 — in refactor)* | Lightweight FastAPI backend + React dashboard |
 
 ## Configuration
 
