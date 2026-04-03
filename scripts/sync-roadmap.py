@@ -8,12 +8,28 @@ compare without touching the filesystem.
 """
 
 import os
+import sys
 import yaml
 from datetime import datetime
 
 MANIFEST_PATH = "docs/phases/manifest.yaml"
 TODO_PATH = "docs/phases/TODO.md"
 STATUS_PATH = "docs/PROJECT_STATUS.md"
+
+# Maps each canonical status value to the TODO.md section it belongs to.
+# None  = phase is not shown in TODO.md (work complete or abandoned).
+#
+# Keep this aligned with ALLOWED_STATUSES in scripts/lint-phases.py.
+# If a new status is added there, add it here too — generate_todo() warns
+# on stderr for any phase whose status is absent from this map, so silent
+# data-loss on future additions is impossible.
+TODO_SECTION_MAP: dict = {
+    "COMPLETE":    None,          # Not shown — work done
+    "CLOSED":      None,          # Not shown — abandoned/superseded
+    "IN_PROGRESS": "in_progress", # → 🟡 Phases In Progress
+    "PROPOSED":    "planned",     # → 🔵 Planned & Open Phases
+    "DEFERRED":    "planned",     # → 🔵 Planned & Open Phases
+}
 
 
 def load_manifest():
@@ -23,6 +39,19 @@ def load_manifest():
 
 def generate_todo(manifest) -> str:
     """Return the expected TODO.md content as a string."""
+    # Validate statuses up front — warn on any value not covered by TODO_SECTION_MAP.
+    # This makes future status additions visible rather than silently dropped.
+    for phase_id, data in manifest["phases"].items():
+        status = data.get("status", "")
+        if status not in TODO_SECTION_MAP:
+            print(
+                f"WARNING: Phase {phase_id} has unrecognised status {status!r} "
+                f"(not in {sorted(TODO_SECTION_MAP)}). "
+                f"Phase omitted from TODO.md. "
+                f"Update TODO_SECTION_MAP in scripts/sync-roadmap.py.",
+                file=sys.stderr,
+            )
+
     lines = [
         "# JA4proxy Phase TODO List",
         "",
@@ -30,30 +59,15 @@ def generate_todo(manifest) -> str:
         "",
     ]
 
-    # Critical Gaps
-    lines.append("## 🔴 Critical Gaps in Completed Phases (<= 15)")
-    lines.append("")
-
-    for phase_id, data in manifest["phases"].items():
-        if data["status"] == "PARTIAL":
-            lines.append(f"### Phase {phase_id} — {data['name']}")
-            for gap in data.get("gaps", []):
-                lines.append(f"*   **Gap:** {gap}")
-            lines.append(f"*   **Status:** **PARTIAL** ({data['summary']})")
-            if "action_plan" in data:
-                plan_file = os.path.basename(data["action_plan"])
-                lines.append(f"*   **Action Plan:** [{plan_file}]({plan_file})")
-            lines.append("")
-
     # In Progress
-    lines.append("---")
-    lines.append("")
     lines.append("## 🟡 Phases In Progress")
     lines.append("")
 
     for phase_id, data in manifest["phases"].items():
-        if data["status"] in ["IN_PROGRESS", "IN PROGRESS", "NEARLY DONE"]:
+        if TODO_SECTION_MAP.get(data.get("status")) == "in_progress":
             lines.append(f"### Phase {phase_id} — {data['name']}")
+            for gap in data.get("gaps", []):
+                lines.append(f"*   **Gap:** {gap}")
             for task in data.get("tasks_remaining", []):
                 lines.append(f"*   **Task:** {task}")
             lines.append(f"*   **Status:** **{data['status']}** ({data['summary']})")
@@ -70,7 +84,7 @@ def generate_todo(manifest) -> str:
 
     for phase_id in sorted(manifest["phases"].keys()):
         data = manifest["phases"][phase_id]
-        if data["status"] in ["OPEN", "DEFERRED", "PROPOSED"]:
+        if TODO_SECTION_MAP.get(data.get("status")) == "planned":
             lines.append(f"### Phase {phase_id} — {data['name']}")
             lines.append(f"*   **Status:** **{data['status']}** ({data['summary']})")
             if "action_plan" in data:
