@@ -6,6 +6,9 @@
 -include .local/machine.mk
 WORKERS ?= auto
 
+# Normalise NAME= variable — accept Name= or name= as common typos
+NAME ?= $(or $(Name),$(name))
+
 # Default target
 help:
 	@echo ""
