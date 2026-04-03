@@ -13,11 +13,15 @@ import (
 
 // BlocklistFeedConfig configures one blocklist feed.
 type BlocklistFeedConfig struct {
-	Name    string
-	Enabled bool
-	Path    string
-	IsBlock bool // true = hard block; false = scored signal
-	Score   int
+	Name                   string
+	Enabled                bool
+	URL                    string
+	Format                 string
+	IsBypass               bool
+	Action                 string
+	Score                  int
+	RefreshIntervalSeconds int
+	Path                   string // Local path for loading CIDRs (if already downloaded)
 }
 
 // BlocklistConfig holds all feed configurations.
@@ -26,10 +30,11 @@ type BlocklistConfig struct {
 }
 
 type blocklistFeed struct {
-	name    string
-	isBlock bool
-	score   int
-	ranger  cidranger.Ranger
+	name     string
+	isBypass bool
+	action   string
+	score    int
+	ranger   cidranger.Ranger
 }
 
 // BlocklistManager holds in-process CIDR tries for all configured feeds.
@@ -90,7 +95,11 @@ func NewBlocklistManager(cfg *BlocklistConfig, log *logrus.Logger) *BlocklistMan
 		}
 		log.WithFields(logrus.Fields{"feed": fc.Name, "cidrs": loaded}).Debug("blocklist: feed loaded")
 		m.feeds = append(m.feeds, blocklistFeed{
-			name: fc.Name, isBlock: fc.IsBlock, score: fc.Score, ranger: ranger,
+			name:     fc.Name,
+			isBypass: fc.IsBypass,
+			action:   fc.Action,
+			score:    fc.Score,
+			ranger:   ranger,
 		})
 	}
 	return m
@@ -109,7 +118,7 @@ func (m *BlocklistManager) Check(clientIP string) (signals []RiskSignal, hardBlo
 		if err != nil || !contains {
 			continue
 		}
-		if feed.isBlock {
+		if feed.isBypass && feed.action == "block" {
 			return nil, true
 		}
 		return []RiskSignal{{

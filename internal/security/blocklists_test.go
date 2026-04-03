@@ -36,7 +36,7 @@ func TestBlocklists_IPInHardBlockFeed_HardBlock(t *testing.T) {
 	path := writeTempBlocklist(t, "1.2.3.0/24\n")
 	m := NewBlocklistManager(&BlocklistConfig{
 		Feeds: []BlocklistFeedConfig{
-			{Name: "spamhaus", Enabled: true, Path: path, IsBlock: true, Score: 0},
+			{Name: "spamhaus", Enabled: true, Path: path, IsBypass: true, Action: "block", Score: 0},
 		},
 	}, nil)
 	sigs, hardBlock := m.Check("1.2.3.4")
@@ -52,7 +52,7 @@ func TestBlocklists_IPInScoredFeed_Signal(t *testing.T) {
 	path := writeTempBlocklist(t, "10.0.0.0/8\n")
 	m := NewBlocklistManager(&BlocklistConfig{
 		Feeds: []BlocklistFeedConfig{
-			{Name: "reputation", Enabled: true, Path: path, IsBlock: false, Score: 30},
+			{Name: "reputation", Enabled: true, Path: path, Action: "signal", Score: 30},
 		},
 	}, nil)
 	sigs, hardBlock := m.Check("10.1.2.3")
@@ -71,7 +71,7 @@ func TestBlocklists_IPv6_Matched(t *testing.T) {
 	path := writeTempBlocklist(t, "2001:db8::/32\n")
 	m := NewBlocklistManager(&BlocklistConfig{
 		Feeds: []BlocklistFeedConfig{
-			{Name: "ipv6_block", Enabled: true, Path: path, IsBlock: true, Score: 0},
+			{Name: "ipv6_block", Enabled: true, Path: path, IsBypass: true, Action: "block", Score: 0},
 		},
 	}, nil)
 	_, hardBlock := m.Check("2001:db8::1")
@@ -84,7 +84,7 @@ func TestBlocklists_IPNotInAnyFeed_Clean(t *testing.T) {
 	path := writeTempBlocklist(t, "192.168.0.0/16\n")
 	m := NewBlocklistManager(&BlocklistConfig{
 		Feeds: []BlocklistFeedConfig{
-			{Name: "private", Enabled: true, Path: path, IsBlock: true, Score: 0},
+			{Name: "private", Enabled: true, Path: path, IsBypass: true, Action: "block", Score: 0},
 		},
 	}, nil)
 	sigs, hardBlock := m.Check("8.8.8.8")
@@ -100,7 +100,7 @@ func TestBlocklists_DisabledFeed_NotChecked(t *testing.T) {
 	path := writeTempBlocklist(t, "1.2.3.0/24\n")
 	m := NewBlocklistManager(&BlocklistConfig{
 		Feeds: []BlocklistFeedConfig{
-			{Name: "disabled", Enabled: false, Path: path, IsBlock: true, Score: 0},
+			{Name: "disabled", Enabled: false, Path: path, IsBypass: true, Action: "block", Score: 0},
 		},
 	}, nil)
 	_, hardBlock := m.Check("1.2.3.4")
