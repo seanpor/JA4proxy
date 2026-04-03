@@ -16,7 +16,7 @@ Phase 15 successfully ported the core proxy to Go, delivering 10-50x throughput 
 
 ### Step 2: JA4X Implementation in Go
 **Goal:** Bring the Go proxy to full parity with Phase 16 (which added JA4X to Python).
-*   **Task:** Implement JA4X (X.509 certificate fingerprinting) in `internal/security/ja4x.go`.
+*   **Task:** Implement JA4X (X.509 certificate fingerprinting) in `internal/tls/ja4x.go`.
 *   **Algorithm:** Extract the leaf certificate from the TLS record, calculate SHA-256 hashes of the issuer, subject, and SAN. Format: `{issuer_hash}_{subject_hash}_{san_hash}`.
 *   **TDD:** 
     1. Copy test certificates from Python's `tests/unit/security/test_ja4x.py` to Go's test fixtures.

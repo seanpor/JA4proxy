@@ -136,7 +136,7 @@ Specific files that exist and are functional:
 | `internal/redis/pubsub.go` | ⚠️ Works but no reconnect on channel close |
 | `internal/cache/local.go` | ✅ Thread-safe LRU with TTL |
 | `internal/config/loader.go` | ✅ Full proxy.yml schema, `${VAR:-default}` expansion, unknown keys ignored |
-| `Dockerfile-go` | ✅ Multi-stage alpine build |
+| `docker/Dockerfile.go-proxy` | ✅ Multi-stage alpine build |
 | `config/build.yml` | ✅ Go build settings |
 
 ### Known environment issue: GOROOT

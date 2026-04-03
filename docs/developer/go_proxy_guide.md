@@ -297,10 +297,10 @@ Config sections that **cannot** be hot-reloaded (require restart):
 
 ## Binary Size
 
-The multi-stage `Dockerfile-go` produces an Alpine runtime image. Verify after changes:
+The multi-stage `docker/Dockerfile.go-proxy` produces an Alpine runtime image. Verify after changes:
 
 ```bash
-docker build -f Dockerfile-go -t ja4proxy-go:latest .
+docker build -f docker/Dockerfile.go-proxy -t ja4proxy-go:latest .
 docker image inspect ja4proxy-go:latest --format '{{.Size}}' | numfmt --to=iec
 # Target: ≤ 10MB
 ```

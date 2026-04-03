@@ -1,19 +1,21 @@
-package security
+package tls
 
 import (
 	"crypto/sha256"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"sort"
 	"strings"
-
-	"crypto/x509/pkix"
 )
 
 const sentinelHash = "000000000000"
 
+// ExtractJA4X computes the JA4X fingerprint from a DER-encoded X.509 certificate.
+// Returns three underscore-separated 12-char SHA-256 hex segments: issuer_subject_san.
+// Returns all-sentinel on parse failure or empty input.
 func ExtractJA4X(certDER []byte) string {
 	if len(certDER) == 0 {
 		return formatJA4X("", "", "")
@@ -31,6 +33,7 @@ func ExtractJA4X(certDER []byte) string {
 	return formatJA4X(issuer, subject, san)
 }
 
+// ExtractJA4XFromPEM computes the JA4X fingerprint from a PEM-encoded certificate.
 func ExtractJA4XFromPEM(pemData []byte) string {
 	block, _ := pem.Decode(pemData)
 	if block == nil || block.Type != "CERTIFICATE" {

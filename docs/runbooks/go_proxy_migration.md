@@ -16,7 +16,7 @@ zero-downtime via HAProxy upstream switching.
 ## Prerequisites
 
 - Go proxy built and tested: `GOROOT=/snap/go/current go build -o bin/ja4proxy ./cmd/proxy`
-- Docker image built: `docker build -f Dockerfile-go -t ja4proxy-go:latest .`
+- Docker image built: `docker build -f docker/Dockerfile.go-proxy -t ja4proxy-go:latest .`
 - Both proxies can share the same Redis instance (key schema unchanged)
 - Parallel validation complete: Go proxy running on port 8082, Python on 8080
 

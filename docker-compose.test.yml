@@ -51,7 +51,7 @@ services:
   go-proxy:
     build:
       context: .
-      dockerfile: Dockerfile-go
+      dockerfile: docker/Dockerfile.go-proxy
     networks:
       - ja4proxy-test
     ports:

@@ -1,11 +1,11 @@
-# Dockerfile.go — multi-stage build for the JA4proxy Go binary.
+# Dockerfile.go-proxy — multi-stage build for the JA4proxy Go binary.
 #
 # Build stage: full Go toolchain on Alpine.
 # Runtime stage: minimal Alpine with only the binary + config.
 # Target runtime image size: ≤ 10MB.
 #
 # Build:
-#   docker build -f Dockerfile.go -t ja4proxy-go .
+#   docker build -f docker/Dockerfile.go-proxy -t ja4proxy-go .
 #
 # Run:
 #   docker run --rm -p 8080:8080 \
