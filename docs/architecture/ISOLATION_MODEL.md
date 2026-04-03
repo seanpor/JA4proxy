@@ -134,3 +134,27 @@ docker compose --project-name ja4_claude --env-file .env.claude down
 | `--agent claude` passed | `.env.claude` | `ja4_claude-redis-1` | `127.0.0.11:9090` |
 | `.current-agent` = `claude` | `.env.claude` | `ja4_claude-redis-1` | `127.0.0.11:9090` |
 | Neither | `.env` | `ja4proxy-redis` | `localhost:9090` |
+
+## Verifying Isolation
+
+Run the automated audit script after any agent stack is started:
+
+```bash
+# Uses .current-agent automatically
+./scripts/check-isolation.sh
+
+# Explicit agent
+./scripts/check-isolation.sh --agent claude
+```
+
+The script performs five check categories:
+
+| Category | What is verified |
+|----------|----------------|
+| **Host port surface** | Only 443, 8080, 8404, 9090 open on the agent's bind IP; Redis/backend/tarpit not exposed |
+| **Docker socket** | `/var/run/docker.sock` not accessible inside proxy or redis containers |
+| **Network zones** | `data_net` and `origin_net` have no internet egress; HAProxy cannot reach Redis; Analytics cannot reach Backend; Proxy can reach both Redis and Backend |
+| **IPC namespace** | `/dev/shm` inodes differ between containers (not shared) |
+| **Cross-agent** | Proxy container cannot reach other agents' bind IPs on port 443 |
+
+Exit code 0 = all checks pass. Exit code 1 = one or more failures.
