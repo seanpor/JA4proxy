@@ -12,7 +12,7 @@ Optimization for high-throughput and multi-core systems.
 | Phase | Name | Status | Summary |
 |-------|------|--------|---------|
 | 0 | Foundation | COMPLETE | Configuration loader, hot reload, local cache, Bloom filters. |
-| 15 | Go Rewrite | IN_PROGRESS | 10-50x throughput improvement via CPython/Go transition. Signal module implementations complete but config wiring for ASN, DNS, blocklists, beaconing, AbuseIPDB, RDAP, and JA4X is missing — all seven run disabled. Cross-language parity fixtures not captured. |
+| 15 | Go Rewrite | IN_PROGRESS | 10-50x throughput improvement via CPython/Go transition. Config wiring complete for all signal modules. Remaining: ClientHello fixtures, live parity harness validation, Prometheus metric alignment. |
 | 17 | Docker Test Optimization | COMPLETE | Fix Docker test container hang during teardown. |
 | 26 | Python Throughput Hardening | COMPLETE | All 6 sub-plans complete: parallel signal collection (asyncio.gather), Redis pipeline batching, Unix domain socket, deferred write batching, multi-process worker model, benchmark validation. Single process: ~700-950 conn/s; 4 workers: ~2,800-3,800 conn/s. |
 | 28 | Python Throughput Hardening - Phase 2: Redis Optimization | COMPLETE | Add Redis pipeline batching and Unix domain socket support. Target: 30-40% Redis latency reduction. |

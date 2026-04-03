@@ -5,12 +5,11 @@ This document tracks the remaining work for both historical phases (gaps identif
 ## 🟡 Phases In Progress
 
 ### Phase 15 — Go Rewrite
-*   **Gap:** config/loader.go missing YAML struct types for ASN, DNS, blocklists, beaconing, AbuseIPDB, RDAP, JA4X
-*   **Gap:** buildPipelineConfig() does not populate those 7 modules — all run with Enabled=false
-*   **Gap:** No binary ClientHello fixtures in tests/fixtures/clienthello/
-*   **Gap:** Cross-language parity integration tests are structural stubs only
+*   **Gap:** No binary ClientHello fixtures in tests/fixtures/clienthello/ — JA4 parity vs Python untestable at fixture level
+*   **Gap:** Cross-language parity integration tests are structural stubs only (make parity-check requires both proxies running)
 *   **Gap:** Prometheus metric name alignment with Python not verified
-*   **Status:** **IN_PROGRESS** (10-50x throughput improvement via CPython/Go transition. Signal module implementations complete but config wiring for ASN, DNS, blocklists, beaconing, AbuseIPDB, RDAP, and JA4X is missing — all seven run disabled. Cross-language parity fixtures not captured.)
+*   **Gap:** Go: PubSub reconnect on channel close exits goroutine instead of reconnecting
+*   **Status:** **IN_PROGRESS** (10-50x throughput improvement via CPython/Go transition. Config wiring complete for all signal modules. Remaining: ClientHello fixtures, live parity harness validation, Prometheus metric alignment.)
 *   **Action Plan:** [PHASE_15.md](PHASE_15.md)
 
 ### Phase 59 — Advanced Traffic Intelligence - Phase 4: Feed Reliability & Resilience

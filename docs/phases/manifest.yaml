@@ -139,14 +139,13 @@ phases:
     status: "IN_PROGRESS"
     test_coverage: "100%"
     doc_status: "COMPLETE"
-    summary: "10-50x throughput improvement via CPython/Go transition. Signal module implementations complete but config wiring for ASN, DNS, blocklists, beaconing, AbuseIPDB, RDAP, and JA4X is missing — all seven run disabled. Cross-language parity fixtures not captured."
+    summary: "10-50x throughput improvement via CPython/Go transition. Config wiring complete for all signal modules. Remaining: ClientHello fixtures, live parity harness validation, Prometheus metric alignment."
     action_plan: "docs/phases/PHASE_15.md"
     gaps:
-      - "config/loader.go missing YAML struct types for ASN, DNS, blocklists, beaconing, AbuseIPDB, RDAP, JA4X"
-      - "buildPipelineConfig() does not populate those 7 modules — all run with Enabled=false"
-      - "No binary ClientHello fixtures in tests/fixtures/clienthello/"
-      - "Cross-language parity integration tests are structural stubs only"
+      - "No binary ClientHello fixtures in tests/fixtures/clienthello/ — JA4 parity vs Python untestable at fixture level"
+      - "Cross-language parity integration tests are structural stubs only (make parity-check requires both proxies running)"
       - "Prometheus metric name alignment with Python not verified"
+      - "Go: PubSub reconnect on channel close exits goroutine instead of reconnecting"
     
   16:
     name: "Extended Fingerprinting"
