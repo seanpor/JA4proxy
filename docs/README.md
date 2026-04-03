@@ -36,8 +36,7 @@ Deployment architecture, security design, compliance posture, and readiness asse
 | [Security Architecture](enterprise/security-architecture.md) | Defense-in-depth design, threat model, access controls, compliance framework |
 | [Enterprise Deployment Guide](enterprise/deployment.md) | HA deployment topology, hardware sizing, network segmentation, hardening |
 | [System Architecture](architecture/system-architecture.md) | Target enterprise architecture diagram and pipeline description |
-| [Enterprise Readiness Report](reports/ENTERPRISE_READINESS_REPORT.md) | Strengths, open gaps, and remediation priorities |
-| [Enterprise Review](reports/ENTERPRISE_REVIEW.md) | Full production readiness assessment |
+| [Enterprise Review](reports/ENTERPRISE_REVIEW.md) | Strengths, open gaps, and full production readiness assessment |
 | [DMZ Deployment Readiness](DMZ_DEPLOYMENT_READINESS.md) | Controls in place vs. required for DMZ placement |
 
 ---
@@ -97,9 +96,7 @@ Contributing to the proxy: coding standards, test structure, Redis schema, phase
 | [Test Organisation](TEST_ORGANIZATION.md) | Test file layout, conftest structure, fixture factories, parametrize patterns |
 | [Observability Standards](OBSERVABILITY_STANDARDS.md) | Prometheus metric naming, JSON log schema, Grafana layout, SLIs |
 | [Redis Schema](REDIS_SCHEMA.md) | All Redis key patterns with per-phase provenance |
-| [Test Audit](developer/test-audit.md) | Audit of test categories, coverage, and quality assessment |
 | [Testing Analysis](developer/testing-analysis.md) | Detailed breakdown of test legitimacy and mocking rationale |
-| [Traffic Generator Fix](developer/traffic-generator-fix.md) | Fix log: error vs. blocked classification in tls-traffic-generator.py |
 | [TLS Traffic Generator](TLS_TRAFFIC_GENERATOR.md) | Simulating legitimate and malicious TLS clients for testing |
 | [Phase Plans](phases/PHASE_00.md) | Per-phase implementation plans and acceptance criteria (start at Phase 0) |
 
@@ -112,7 +109,6 @@ High-level performance data, readiness status, and project state.
 | Document | Purpose |
 |----------|---------|
 | [Performance Benchmark](reports/PERFORMANCE_BENCHMARK.md) | Measured throughput, latency, and blocking accuracy |
-| [Enterprise Readiness Report](reports/ENTERPRISE_READINESS_REPORT.md) | Strengths and open gaps at a glance |
 | [Testing Session Summary](reports/testing-session-summary.md) | Summary of traffic generator fix and test validation session |
 
 ---

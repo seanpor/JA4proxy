@@ -391,7 +391,7 @@ country = geoip_lookup.local_database_lookup(ip)  # Local file only
 | **Access control** | Redis ACLs, firewall rules | `redis-cli ACL LIST` |
 | **Audit logging** | Structured JSON logs with access tracking | `grep "access" /var/log/ja4proxy/*.log` |
 | **Pseudonymization** | JA4 fingerprints instead of raw IPs where possible | Code review |
-| **Regular testing** | Penetration testing (Phase 14) | [Security Audit](security/COMPREHENSIVE_SECURITY_AUDIT.md) |
+| **Regular testing** | Penetration testing (Phase 14) | [Security Audit](../security/COMPREHENSIVE_SECURITY_AUDIT.md) |
 
 ### 8.2. Organizational Measures
 
@@ -399,7 +399,7 @@ country = geoip_lookup.local_database_lookup(ip)  # Local file only
 |---------|----------------|
 | **Data Protection Officer** | Assigned DPO for deployment organization |
 | **Staff training** | Annual GDPR training for operators |
-| **Incident response** | [Documented procedure](INCIDENT_RESPONSE.md) |
+| **Incident response** | [Documented procedure](../INCIDENT_RESPONSE.md) |
 | **Policy review** | Quarterly compliance review |
 | **Data mapping** | This document (updated annually) |
 

@@ -1,6 +1,6 @@
 # PHASE 17 — Technical Analysis (Senior Dev)
 
-> The step-by-step implementation is in [PHASE_17_JUNIOR.md](PHASE_17_JUNIOR.md).
+> The step-by-step implementation is in [PHASE_17_JUNIOR.md](PHASE_17_JUNIOR.md) (same directory).
 > This document covers root cause, fix rationale, versioning constraints, and
 > guidance for future maintainers.
 

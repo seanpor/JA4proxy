@@ -97,7 +97,7 @@ phase: 21
 
 - **[Project Status](PROJECT_STATUS.md)** — Current phase completion status
 - **[Performance Benchmark](reports/PERFORMANCE_BENCHMARK.md)** — Throughput, latency, accuracy
-- **[Enterprise Readiness Report](reports/ENTERPRISE_READINESS_REPORT.md)** — Strengths and gaps
+- **[Enterprise Review](reports/ENTERPRISE_REVIEW.md)** — Strengths and gaps
 - **[Testing Session Summary](reports/testing-session-summary.md)** — Test validation results
 - **[CHANGELOG](../CHANGELOG.md)** — Version history by phase
 

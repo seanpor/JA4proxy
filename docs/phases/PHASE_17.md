@@ -14,10 +14,10 @@ All fixes are applied in `tests/conftest.py`.
 
 ## Which document do you need?
 
-### → [PHASE_17_JUNIOR.md](PHASE_17_JUNIOR.md)
+### → [PHASE_17_JUNIOR.md](details/PHASE_17_JUNIOR.md)
 Step-by-step implementation guide. You do not need to understand the internals —
 just follow the steps, run the verification commands, and commit.
 
-### → [PHASE_17_SENIOR.md](PHASE_17_SENIOR.md)
+### → [PHASE_17_SENIOR.md](details/PHASE_17_SENIOR.md)
 Technical root cause analysis, explanation of why each fix works, versioning
 constraints, and notes for future maintainers.

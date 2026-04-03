@@ -1,3 +1,10 @@
+<!--
+title: Zero-Downtime Blue/Green Rollouts
+audience: DevOps, SecOps, SRE Teams
+last_reviewed: 2026-04-03
+phase: 43
+-->
+
 # Runbook: Zero-Downtime Blue/Green Rollouts
 
 > **Audience:** DevOps, SecOps, SRE Teams

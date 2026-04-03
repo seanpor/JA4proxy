@@ -921,4 +921,4 @@ vulnerability_management:
 - [Developer Guide](../developer/analytics-development.md)
 - [Comprehensive Security Audit](COMPREHENSIVE_SECURITY_AUDIT.md)
 - [Security Checklist](SECURITY_CHECKLIST.md)
-- [Phase 12 Planning Documents](phases/PHASE_12*.md)
+- [Phase 12 — Analytics Node](../phases/PHASE_12.md)

@@ -329,11 +329,11 @@ config:
 risk_scorer:
   enabled: true             # Default: true. Set to false to disable scoring (monitor mode forced).
   thresholds:
-    flag:       20          # Default: 20. Connection allowed; elevated logging.
-    rate_limit: 35          # Default: 35. Connection rate-limited.
-    tarpit:     55          # Default: 55. Connection slow-drained.
-    block:      70          # Default: 70. Connection rejected with RST.
-    ban:        85          # Default: 85. Rejected; IP banned for ban_duration_seconds.
+    flag: 20          # Default: 20. Connection allowed; elevated logging.
+    rate_limit: 35    # Default: 35. Connection rate-limited.
+    tarpit: 55        # Default: 55. Connection slow-drained.
+    block: 70         # Default: 70. Connection rejected with RST.
+    ban: 85           # Default: 85. Rejected; IP banned for ban_duration_seconds.
   ban_duration_seconds: 300 # Default: 300 (5 min). Duration of IP bans triggered by scorer.
 
 # ── Phase 2: Monitor Mode & Progressive Blocking Dial ─────────────────────
@@ -358,13 +358,13 @@ monitor_mode:
 
 tls_enforcer:
   enabled: true             # Default: true. Set false to disable all TLS enforcement.
-  block_ssl3:       true    # Default: true. Block SSLv3 — protocol is broken by design; no bypass option.
-  block_tls_10:     true    # Default: true. Block TLS 1.0 connections (hard block via tls_version_bypass).
-  block_tls_11:     true    # Default: true. Block TLS 1.1 connections (hard block via tls_version_bypass).
-  flag_tls_12:      false   # Default: false. Set true to add a scored signal for TLS 1.2 connections.
-  score:            10      # Score contribution when flag_tls_12 is true. Default: 10.
+  block_ssl3: true          # Default: true. Block SSLv3 — protocol is broken by design; no bypass option.
+  block_tls_10: true        # Default: true. Block TLS 1.0 connections (hard block via tls_version_bypass).
+  block_tls_11: true        # Default: true. Block TLS 1.1 connections (hard block via tls_version_bypass).
+  flag_tls_12: false        # Default: false. Set true to add a scored signal for TLS 1.2 connections.
+  score: 10                 # Score contribution when flag_tls_12 is true. Default: 10.
   block_weak_ciphers: false # Default: false. Hard-block connections offering weak cipher suites.
-  weak_cipher_score:  20    # Score contribution when block_weak_ciphers is false. Default: 20.
+  weak_cipher_score: 20     # Score contribution when block_weak_ciphers is false. Default: 20.
   weak_ciphers:
     - 0x0004  # TLS_RSA_WITH_RC4_128_MD5
     - 0x0005  # TLS_RSA_WITH_RC4_128_SHA

@@ -1,8 +1,9 @@
----
+<!--
 title: Docker Image Update Runbook
-audience: operator
+audience: Operators, DevOps
 last_reviewed: 2026-03-28
----
+phase: 25
+-->
 
 # Docker Image Update Runbook
 

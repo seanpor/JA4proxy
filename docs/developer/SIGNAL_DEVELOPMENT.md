@@ -10,7 +10,7 @@ phase: 21
 > **Audience:** Contributing developers, signal module authors
 > **Purpose:** Comprehensive guide for developing new risk signal modules
 > **Last Reviewed:** 2026-03-27
-> **Related:** [Contributing Guide](../../CONTRIBUTING.md) · [Style Guide](../../STYLE_GUIDE.md) · [Testing Strategy](../../TESTING_STRATEGY.md)
+> **Related:** [Contributing Guide](../../CONTRIBUTING.md) · [Style Guide](../STYLE_GUIDE.md) · [Testing Strategy](../TESTING_STRATEGY.md)
 
 ---
 
