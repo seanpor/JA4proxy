@@ -136,12 +136,17 @@ phases:
     
   15:
     name: "Go Rewrite"
-    status: "COMPLETE"
+    status: "IN_PROGRESS"
     test_coverage: "100%"
     doc_status: "COMPLETE"
-    summary: "10-50x throughput improvement via CPython/Go transition. Feature parity achieved including JA4X, Lua script embedding, and scoring pipeline."
-    completed: "2026-03-31"
+    summary: "10-50x throughput improvement via CPython/Go transition. Signal module implementations complete but config wiring for ASN, DNS, blocklists, beaconing, AbuseIPDB, RDAP, and JA4X is missing — all seven run disabled. Cross-language parity fixtures not captured."
     action_plan: "docs/phases/PHASE_15.md"
+    gaps:
+      - "config/loader.go missing YAML struct types for ASN, DNS, blocklists, beaconing, AbuseIPDB, RDAP, JA4X"
+      - "buildPipelineConfig() does not populate those 7 modules — all run with Enabled=false"
+      - "No binary ClientHello fixtures in tests/fixtures/clienthello/"
+      - "Cross-language parity integration tests are structural stubs only"
+      - "Prometheus metric name alignment with Python not verified"
     
   16:
     name: "Extended Fingerprinting"
@@ -579,7 +584,7 @@ phases:
     action_plan: "docs/phases/PHASE_60.md"
     dependencies: []
     size: "XL"
-    
+
   61:
     name: "Technical Quality Improvements"
     status: "PROPOSED"
@@ -588,7 +593,7 @@ phases:
     action_plan: "docs/phases/PHASE_61.md"
     dependencies: [60]
     size: "L"
-    
+
   62:
     name: "Security Hardening"
     status: "PROPOSED"
@@ -597,7 +602,7 @@ phases:
     action_plan: "docs/phases/PHASE_62.md"
     dependencies: [60, 61]
     size: "XL"
-    
+
   63:
     name: "Observability and Monitoring"
     status: "PROPOSED"
@@ -606,7 +611,7 @@ phases:
     action_plan: "docs/phases/PHASE_63.md"
     dependencies: [60, 61]
     size: "L"
-    
+
   64:
     name: "Operational Excellence"
     status: "PROPOSED"
@@ -615,3 +620,18 @@ phases:
     action_plan: "docs/phases/PHASE_64.md"
     dependencies: [60, 61, 62, 63]
     size: "M"
+
+  65:
+    name: "Performance Hardening & Go/Python Parity"
+    status: "PROPOSED"
+    summary: "Replace Python Scapy+subprocess TLS parser with pure-Python implementation (~20% latency improvement). Fix Go config gap so all 7 signal modules are enabled. Establish permanent cross-proxy parity tooling: binary fixtures, signal score registry, live decision comparison harness."
+    action_plan: "docs/phases/PHASE_65.md"
+    dependencies: [15]
+    size: "MEDIUM"
+    success_criteria:
+      - "Python baseline_latency mean improves by >= 1ms"
+      - "Go attack_500 blocks > 0% of bot traffic"
+      - "Binary ClientHello fixtures committed for Chrome, Firefox, Safari, curl, bot variants"
+      - "make check-scores exits 0"
+      - "make parity-check exits 0 with both proxies running"
+      - "Phase 15 reopened and re-verified COMPLETE"
