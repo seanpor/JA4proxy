@@ -16,6 +16,19 @@ REDIS_CONTAINER="${REDIS_CONTAINER:-ja4proxy-redis}"
 METRICS_URL="${METRICS_URL:-http://localhost:9090/metrics}"
 ENV_FILE="${ENV_FILE:-.env}"
 
+# ── Multi-agent support ────────────────────────────────────────────────────────
+# Parse --agent flag if present (must be first two args)
+if [[ "${1:-}" == "--agent" ]]; then
+    AGENT_NAME="${2:?--agent requires a name (gemini|claude|ollama|mistral)}"
+    shift 2
+    ENV_FILE=".env.${AGENT_NAME}"
+    [ -f "$ENV_FILE" ] || { echo -e "${RED}✗ No $ENV_FILE found — run: ./scripts/agent-env.sh ${AGENT_NAME}${NC}" >&2; exit 1; }
+    AGENT_BIND_IP=$(grep '^AGENT_BIND_IP=' "$ENV_FILE" | cut -d= -f2)
+    [ -n "$AGENT_BIND_IP" ] || { echo -e "${RED}✗ AGENT_BIND_IP not set in $ENV_FILE${NC}" >&2; exit 1; }
+    REDIS_CONTAINER="ja4_${AGENT_NAME}-redis-1"
+    METRICS_URL="http://${AGENT_BIND_IP}:9090/metrics"
+fi
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
 die() { echo -e "${RED}✗ $*${NC}" >&2; exit 1; }
 
