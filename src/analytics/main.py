@@ -144,7 +144,7 @@ class AnalyticsNode:
         if self.consumer and self.consumer.monitoring_system:
             registry = self.consumer.monitoring_system.registry
         output = generate_latest(registry) if registry else generate_latest()
-        return web.Response(body=output, content_type=CONTENT_TYPE_LATEST)
+        return web.Response(body=output, headers={"Content-Type": CONTENT_TYPE_LATEST})
 
     # ── Health check (also called by /health endpoint) ─────────────────────
 
