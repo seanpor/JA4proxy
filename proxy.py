@@ -1726,8 +1726,8 @@ class ProxyServer:
         self._local_cache.dial = initial_dial
         self.logger.info(
             '{"type":"system","level":"INFO","subsystem":"dial",'
-            '"event":"dial_initialized","value":%d}',
-            initial_dial,
+            '"event":"dial_initialized","value":%s}',
+            int(initial_dial),
         )
         
         # Phase 47: Initialize confidence manager
