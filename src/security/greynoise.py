@@ -9,14 +9,16 @@ import asyncio
 import json
 import logging
 import os
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional
 
 import redis
 from prometheus_client import Counter, Gauge
 
+from .feed_health import FeedHealthMonitor
 from .models import RiskSignal
-from .ti_provider import TIProvider, TIProviderConfig
+from .ti_provider import TIProvider, TIProviderConfig, retry_with_backoff
 
 try:
     import aiohttp
@@ -25,6 +27,7 @@ except ImportError:
 
 if TYPE_CHECKING:
     from ..cache.local_cache import LocalCache
+    from .feed_health import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -84,11 +87,13 @@ class GreyNoiseProvider(TIProvider):
         redis_client: redis.asyncio.Redis,
         local_cache: "LocalCache",
         session: "aiohttp.ClientSession",
+        health_monitor: Optional[FeedHealthMonitor] = None,
     ) -> None:
         self._config = config
         self._redis = redis_client
         self._local_cache = local_cache
         self._session = session
+        self._health_monitor = health_monitor
         self._queue: asyncio.Queue = asyncio.Queue(maxsize=config.queue_size)
         self._workers: List[asyncio.Task] = []
         self._hits = 0
@@ -211,43 +216,66 @@ class GreyNoiseProvider(TIProvider):
         if not self._config.api_key:
             return
 
+        # Circuit breaker: skip API call if feed is consistently failing
+        cb: Optional["CircuitBreaker"] = None
+        if self._health_monitor:
+            cb = self._health_monitor.get_circuit_breaker("greynoise")
+            if cb.is_open():
+                logger.debug("greynoise | event=circuit_open_skip | ip=%s", ip)
+                return
+
         url = f"https://api.greynoise.io/v3/community/{ip}"
         headers = {"key": self._config.api_key, "Accept": "application/json"}
-        
-        try:
+
+        async def _do_request():
             async with self._session.get(
                 url, headers=headers, timeout=aiohttp.ClientTimeout(total=self._config.lookup_timeout_seconds)
             ) as resp:
                 if resp.status == 200:
                     data = await resp.json()
-                    # Normalize data
                     result = {
                         "noise": data.get("noise", False),
                         "riot": data.get("riot", False),
-                        "classification": data.get("classification", "unknown")
+                        "classification": data.get("classification", "unknown"),
                     }
                     _LOOKUP_TOTAL.labels(result="success").inc()
                 elif resp.status == 404:
                     result = {"noise": False, "riot": False, "classification": "unknown"}
                     _LOOKUP_TOTAL.labels(result="not_found").inc()
                 else:
-                    logger.warning(f"greynoise | event=api_error | status={resp.status} | ip={ip}")
+                    logger.warning(
+                        "greynoise | event=api_error | status=%d | ip=%s",
+                        resp.status, ip,
+                    )
                     _LOOKUP_TOTAL.labels(result="error").inc()
-                    return
+                    raise RuntimeError(f"greynoise API error: status={resp.status}")
+                return result
 
-                # Cache result
-                await self._redis.setex(
-                    f"greynoise:data:{ip}",
-                    self._config.cache_ttl_seconds,
-                    json.dumps(result)
-                )
-                self._local_cache.greynoise_scores.set(ip, result)
+        t0 = time.monotonic()
+        try:
+            result = await retry_with_backoff(
+                _do_request,
+                feed_name="greynoise",
+            )
+            # Cache result
+            await self._redis.setex(
+                f"greynoise:data:{ip}",
+                self._config.cache_ttl_seconds,
+                json.dumps(result),
+            )
+            self._local_cache.greynoise_scores.set(ip, result)
+            if cb:
+                cb.record_success(time.monotonic() - t0)
 
         except asyncio.TimeoutError:
             _LOOKUP_TOTAL.labels(result="timeout").inc()
+            if cb:
+                cb.record_failure()
         except Exception as e:
-            logger.error(f"greynoise | event=api_exception | ip={ip} | error={e}")
+            logger.error("greynoise | event=api_exception | ip=%s | error=%s", ip, e)
             _LOOKUP_TOTAL.labels(result="error").inc()
+            if cb:
+                cb.record_failure()
 
     def on_config_reload(self, new_config: dict) -> None:
         self._config = GreyNoiseConfig.from_config(new_config)

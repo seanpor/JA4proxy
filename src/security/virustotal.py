@@ -9,14 +9,16 @@ import asyncio
 import json
 import logging
 import os
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional
 
 import redis
 from prometheus_client import Counter, Gauge
 
+from .feed_health import FeedHealthMonitor
 from .models import RiskSignal
-from .ti_provider import TIProvider, TIProviderConfig
+from .ti_provider import TIProvider, TIProviderConfig, retry_with_backoff
 
 try:
     import aiohttp
@@ -26,6 +28,7 @@ except ImportError:
 if TYPE_CHECKING:
     from ..cache.local_cache import LocalCache
     from .adaptive_cache import AdaptiveCacheManager
+    from .feed_health import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -92,12 +95,14 @@ class VirusTotalProvider(TIProvider):
         local_cache: "LocalCache",
         session: "aiohttp.ClientSession",
         adaptive_cache: Optional["AdaptiveCacheManager"] = None,
+        health_monitor: Optional[FeedHealthMonitor] = None,
     ) -> None:
         self._config = config
         self._redis = redis_client
         self._local_cache = local_cache
         self._session = session
         self._adaptive_cache = adaptive_cache
+        self._health_monitor = health_monitor
         self._queue: asyncio.Queue = asyncio.Queue(maxsize=config.queue_size)
         self._workers: List[asyncio.Task] = []
         self._hits = 0
@@ -239,83 +244,110 @@ class VirusTotalProvider(TIProvider):
         if not self._config.api_key:
             return
 
+        # Circuit breaker: skip API call if feed is consistently failing
+        cb: Optional["CircuitBreaker"] = None
+        if self._health_monitor:
+            cb = self._health_monitor.get_circuit_breaker("virustotal")
+            if cb.is_open():
+                logger.debug("virustotal | event=circuit_open_skip | ip=%s", ip)
+                return
+
         url = f"https://www.virustotal.com/api/v3/ip_addresses/{ip}"
         headers = {
             "x-apikey": self._config.api_key,
-            "Accept": "application/json"
+            "Accept": "application/json",
         }
-        
-        try:
+
+        # Capture quota_used reference so inner closure can update it
+        async def _do_request():
             async with self._session.get(
-                url, 
+                url,
                 headers=headers,
-                timeout=aiohttp.ClientTimeout(total=self._config.lookup_timeout_seconds)
+                timeout=aiohttp.ClientTimeout(total=self._config.lookup_timeout_seconds),
             ) as resp:
                 if resp.status == 200:
                     data = await resp.json()
                     attributes = data.get("data", {}).get("attributes", {})
                     last_analysis_stats = attributes.get("last_analysis_stats", {})
-                    
+
                     malicious_count = last_analysis_stats.get("malicious", 0)
                     suspicious_count = last_analysis_stats.get("suspicious", 0)
-                    
+
                     result = {
                         "malicious_count": malicious_count,
-                        "suspicious_count": suspicious_count
+                        "suspicious_count": suspicious_count,
                     }
-                    
+
                     # Increment quota and save state
                     self._quota_used_today += 1
                     await self._save_quota_state()
-                    
+
                     _LOOKUP_TOTAL.labels(result="success").inc()
                 elif resp.status == 404:
-                    result = {
-                        "malicious_count": 0,
-                        "suspicious_count": 0
-                    }
+                    result = {"malicious_count": 0, "suspicious_count": 0}
                     _LOOKUP_TOTAL.labels(result="not_found").inc()
                 elif resp.status == 403:
-                    # Rate limited or quota exceeded
-                    logger.warning(f"virustotal | event=api_rate_limited | ip={ip}")
+                    # Rate limited or quota exceeded — do not retry
+                    logger.warning("virustotal | event=api_rate_limited | ip=%s", ip)
                     _LOOKUP_TOTAL.labels(result="rate_limited").inc()
-                    return
+                    return None
                 else:
-                    logger.warning(f"virustotal | event=api_error | status={resp.status} | ip={ip}")
+                    logger.warning(
+                        "virustotal | event=api_error | status=%d | ip=%s",
+                        resp.status, ip,
+                    )
                     _LOOKUP_TOTAL.labels(result="error").inc()
-                    return
+                    raise RuntimeError(f"virustotal API error: status={resp.status}")
+                return result
 
-                # Get old cached value for volatility detection
-                old_value = None
-                try:
-                    old_data = await self._redis.get(f"virustotal:data:{ip}")
-                    if old_data:
-                        old_value = json.loads(old_data)
-                except Exception:
-                    pass
+        # Get old cached value for volatility detection
+        old_value = None
+        try:
+            old_data = await self._redis.get(f"virustotal:data:{ip}")
+            if old_data:
+                old_value = json.loads(old_data)
+        except Exception:
+            pass
 
-                # Get adaptive TTL if adaptive cache manager is available
-                ttl_seconds = self._config.cache_ttl_seconds
-                if hasattr(self, '_adaptive_cache') and self._adaptive_cache:
-                    ttl_seconds = self._adaptive_cache.get_adaptive_ttl("virustotal")
+        t0 = time.monotonic()
+        try:
+            result = await retry_with_backoff(
+                _do_request,
+                feed_name="virustotal",
+            )
+            if result is None:
+                # rate-limited — do not record success/failure on circuit breaker
+                return
 
-                # Cache result
-                await self._redis.setex(
-                    f"virustotal:data:{ip}",
-                    ttl_seconds,
-                    json.dumps(result)
-                )
-                self._local_cache.virustotal_scores.set(ip, result)
-                
-                # Record cache miss with volatility detection
-                if hasattr(self, '_adaptive_cache') and self._adaptive_cache:
-                    await self._adaptive_cache.record_cache_miss("virustotal", old_value, result)
+            # Get adaptive TTL if adaptive cache manager is available
+            ttl_seconds = self._config.cache_ttl_seconds
+            if self._adaptive_cache:
+                ttl_seconds = self._adaptive_cache.get_adaptive_ttl("virustotal")
+
+            # Cache result
+            await self._redis.setex(
+                f"virustotal:data:{ip}",
+                ttl_seconds,
+                json.dumps(result),
+            )
+            self._local_cache.virustotal_scores.set(ip, result)
+
+            # Record cache miss with volatility detection
+            if self._adaptive_cache:
+                await self._adaptive_cache.record_cache_miss("virustotal", old_value, result)
+
+            if cb:
+                cb.record_success(time.monotonic() - t0)
 
         except asyncio.TimeoutError:
             _LOOKUP_TOTAL.labels(result="timeout").inc()
+            if cb:
+                cb.record_failure()
         except Exception as e:
-            logger.error(f"virustotal | event=api_exception | ip={ip} | error={e}")
+            logger.error("virustotal | event=api_exception | ip=%s | error=%s", ip, e)
             _LOOKUP_TOTAL.labels(result="error").inc()
+            if cb:
+                cb.record_failure()
 
     async def _load_quota_state(self):
         """Load quota usage state from Redis."""
