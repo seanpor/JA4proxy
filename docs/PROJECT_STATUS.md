@@ -51,6 +51,7 @@ Deep security analysis, compliance, and audit remediation.
 | 55 | APT Hardening - Phase 2: Advanced Detection & Container Security | PROPOSED | Implement subnet correlation, anti-evasion checks, and strict Seccomp/AppArmor profiles. |
 | 56 | Advanced APT - Phase 2: Deceptive Defense & Persistence Defense | PROPOSED | Implement honey-fingerprints, honey-SNIs, and runtime process namespace isolation. |
 | 62 | Security Hardening | PROPOSED | Penetration testing, threat modeling, incident response, and compliance. |
+| 75 | Docker Isolation - Security Audit & Validation | PROPOSED | Final Red Team verification and comprehensive isolation documentation. |
 
 ### Epic: Analytics & Intelligence
 Cross-instance behavior analysis and threat intelligence.
@@ -102,6 +103,10 @@ Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
 | 57 | Backup System Enhancements - Phase 3: Cloud & Incrementals | PROPOSED | Add cloud storage adapters (S3/GCS) and incremental backup strategy. |
 | 63 | Observability and Monitoring | PROPOSED | Technical observability, executive dashboards, alerting, and reporting. |
 | 64 | Operational Excellence | PROPOSED | Process optimization, training, documentation, and continuous improvement. |
+| 71 | Docker Isolation - Foundations & Registry | PROPOSED | Establish the source of truth for agent identities and automated environment generation. |
+| 72 | Docker Isolation - Logical Network Zones | PROPOSED | Implement three-tier logical zones (DMZ, APP, ORIGIN) with strict internal isolation. |
+| 73 | Docker Isolation - Host-Level Hardening | PROPOSED | Implement two-port policy, loopback IP binding, and resource partitioning. |
+| 74 | Docker Isolation - Shared Assets & Tooling | PROPOSED | Optimize resource usage with shared RO volumes and update admin scripts for multi-agent support. |
 
 ### Epic: Quality Assurance & Test Maturity
 Comprehensive testing, adversarial coverage, and performance validation.
@@ -185,6 +190,11 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 68 | Python 3.14 Hot Path Optimizations | PROPOSED | N/A | N/A |
 | 69 | Free-Threaded Python Proxy | PROPOSED | N/A | N/A |
 | 70 | Analytics Upgrade & Subinterpreter Experiment | PROPOSED | N/A | N/A |
+| 71 | Docker Isolation - Foundations & Registry | PROPOSED | N/A | N/A |
+| 72 | Docker Isolation - Logical Network Zones | PROPOSED | N/A | N/A |
+| 73 | Docker Isolation - Host-Level Hardening | PROPOSED | N/A | N/A |
+| 74 | Docker Isolation - Shared Assets & Tooling | PROPOSED | N/A | N/A |
+| 75 | Docker Isolation - Security Audit & Validation | PROPOSED | N/A | N/A |
 
 ---
 

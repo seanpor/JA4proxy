@@ -2,6 +2,14 @@
 
 ## [Unreleased] - 2026-04-03 — Security: Metrics Endpoint DoS & Startup Crash Remediation
 
+### Added
+
+- **Phase 71: Docker Isolation - Foundations & Registry (Proposed)** — Architecture for agent identity source of truth and automated environment generation.
+- **Phase 72: Docker Isolation - Logical Network Zones (Proposed)** — Implementation of three-tier logical zones (DMZ, APP, ORIGIN) mirroring production security boundaries.
+- **Phase 73: Docker Isolation - Host-Level Hardening (Proposed)** — Strict 'Two-Port Policy', loopback IP binding (127.0.0.x), and CPU partitioning on i9-9900K.
+- **Phase 74: Docker Isolation - Shared Assets & Tooling (Proposed)** — Read-only GeoIP sharing across agent stacks and multi-agent support for admin scripts.
+- **Phase 75: Docker Isolation - Security Audit & Validation (Proposed)** — Final Red Team validation and automated isolation verification scripts.
+
 ### Security
 
 - **CVE-class: Metrics endpoint denial-of-service** — `src/security/health.py` and
