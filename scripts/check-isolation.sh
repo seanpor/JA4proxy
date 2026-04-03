@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
 # scripts/check-isolation.sh — Verify multi-agent Docker isolation
 #
-# Runs a series of checks from the host and from inside containers to confirm
-# that network zones, port surface, Docker socket access, and cross-agent
-# isolation are all correctly enforced.
+# Runs checks from the host and inside containers to confirm network zones,
+# port surface, Docker socket access, and cross-agent isolation are enforced.
 #
 # Usage:
 #   ./scripts/check-isolation.sh                  # uses .current-agent
 #   ./scripts/check-isolation.sh --agent claude   # explicit agent
 #
-# Requires: at least one agent stack running (make agent-up NAME=<agent>)
+# Requirements: at least one agent stack running (make agent-up NAME=<agent>)
 # Exit code: 0 = all checks pass, 1 = one or more checks failed
 
 set -euo pipefail
@@ -17,8 +16,8 @@ set -euo pipefail
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BOLD='\033[1m'; NC='\033[0m'
 PASS=0; FAIL=0
 
-pass() { echo -e "  ${GREEN}✓ PASS${NC}  $*"; ((PASS++)); }
-fail() { echo -e "  ${RED}✗ FAIL${NC}  $*"; ((FAIL++)); }
+pass() { echo -e "  ${GREEN}✓ PASS${NC}  $*"; PASS=$((PASS + 1)); }
+fail() { echo -e "  ${RED}✗ FAIL${NC}  $*"; FAIL=$((FAIL + 1)); }
 info() { echo -e "  ${YELLOW}→${NC}      $*"; }
 section() { echo ""; echo -e "${BOLD}$*${NC}"; }
 
@@ -32,7 +31,6 @@ elif [[ -f ".current-agent" ]]; then
 fi
 
 if [[ -z "$AGENT" ]]; then
-    # Try to detect from running ja4_* containers
     AGENT=$(docker compose ls 2>/dev/null | grep '^ja4_' | head -1 | awk '{print $1}' | sed 's/^ja4_//' || true)
 fi
 
@@ -44,10 +42,7 @@ if [[ -z "$AGENT" ]]; then
 fi
 
 ENV_FILE=".env.${AGENT}"
-if [[ ! -f "$ENV_FILE" ]]; then
-    echo -e "${RED}✗ No $ENV_FILE found.${NC}"
-    exit 1
-fi
+[[ -f "$ENV_FILE" ]] || { echo -e "${RED}✗ No $ENV_FILE found.${NC}"; exit 1; }
 
 BIND_IP=$(grep '^AGENT_BIND_IP=' "$ENV_FILE" | cut -d= -f2)
 PROJECT="ja4_${AGENT}"
@@ -62,6 +57,38 @@ echo -e "${BOLD}══ JA4proxy Isolation Audit ══${NC}"
 echo -e "  Agent:   ${AGENT}"
 echo -e "  IP:      ${BIND_IP}"
 echo -e "  Project: ${PROJECT}"
+
+# ── Helper: Python TCP connect test inside a container ────────────────────────
+# Usage: py_connect <container> <host> <port> <timeout>
+# Returns 0 if connected, 1 if not
+py_connect() {
+    local ctr="$1" host="$2" port="$3" timeout="${4:-2}"
+    docker exec "$ctr" python3 -c "
+import socket, sys
+s = socket.socket()
+s.settimeout($timeout)
+try:
+    s.connect(('$host', $port))
+    s.close()
+    sys.exit(0)
+except Exception:
+    sys.exit(1)
+" 2>/dev/null
+}
+
+# ── Helper: check if two containers share a Docker network (host-side) ────────
+containers_share_network() {
+    local c1="$1" c2="$2"
+    local nets1 nets2
+    nets1=$(docker inspect "$c1" --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' 2>/dev/null)
+    nets2=$(docker inspect "$c2" --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' 2>/dev/null)
+    for net in $nets1; do
+        if echo "$nets2" | grep -qw "$net"; then
+            return 0
+        fi
+    done
+    return 1
+}
 
 # ── Section 1: Host Port Surface ──────────────────────────────────────────────
 section "1. Host Port Surface (${BIND_IP})"
@@ -98,80 +125,78 @@ fi
 # ── Section 2: Docker Socket ──────────────────────────────────────────────────
 section "2. Docker Socket Access"
 
-if docker exec "$PROXY_CONTAINER" test -S /var/run/docker.sock 2>/dev/null; then
-    fail "Docker socket accessible inside proxy container"
-else
-    pass "Docker socket NOT accessible inside proxy container"
-fi
-
-if docker exec "$REDIS_CONTAINER" test -S /var/run/docker.sock 2>/dev/null; then
-    fail "Docker socket accessible inside redis container"
-else
-    pass "Docker socket NOT accessible inside redis container"
-fi
+for ctr in "$PROXY_CONTAINER" "$REDIS_CONTAINER"; do
+    if docker exec "$ctr" test -S /var/run/docker.sock 2>/dev/null; then
+        fail "Docker socket accessible inside ${ctr}"
+    else
+        pass "Docker socket NOT accessible inside ${ctr}"
+    fi
+done
 
 # ── Section 3: Network Zone Isolation ────────────────────────────────────────
 section "3. Network Zone Isolation"
 
 # data_net: Redis must not reach internet (internal: true)
-info "Redis → internet (expect: unreachable)..."
-if docker exec "$REDIS_CONTAINER" ping -c 2 -W 2 8.8.8.8 >/dev/null 2>&1; then
+info "Redis → internet port 443 (expect: blocked)..."
+if py_connect "$REDIS_CONTAINER" "8.8.8.8" 443 3; then
     fail "Redis can reach internet (data_net should have internal: true)"
 else
     pass "Redis cannot reach internet (data_net isolated)"
 fi
 
 # origin_net: Backend must not reach internet (internal: true)
-info "Backend → internet (expect: unreachable)..."
-if docker exec "$BACKEND_CONTAINER" ping -c 2 -W 2 8.8.8.8 >/dev/null 2>&1; then
+info "Backend → internet port 443 (expect: blocked)..."
+if py_connect "$BACKEND_CONTAINER" "8.8.8.8" 443 3; then
     fail "Backend can reach internet (origin_net should have internal: true)"
 else
     pass "Backend cannot reach internet (origin_net isolated)"
 fi
 
-# HAProxy must not reach Redis (no shared network)
-info "HAProxy → Redis (expect: no route)..."
-if docker exec "$HAPROXY_CONTAINER" nc -z -w2 redis 6379 >/dev/null 2>&1; then
-    fail "HAProxy can reach Redis directly (they share no network)"
+# HAProxy must not share a network with Redis (checked via Docker network inspection)
+info "HAProxy ↔ Redis: shared network check (expect: none)..."
+if containers_share_network "$HAPROXY_CONTAINER" "$REDIS_CONTAINER"; then
+    fail "HAProxy and Redis share a Docker network (expected: no shared network)"
 else
-    pass "HAProxy cannot reach Redis (zone boundary confirmed)"
+    pass "HAProxy and Redis share no Docker network"
 fi
 
-# Analytics must not reach Backend (no shared network)
-info "Analytics → Backend (expect: no route)..."
-if docker exec "$ANALYTICS_CONTAINER" nc -z -w2 backend 443 >/dev/null 2>&1; then
-    fail "Analytics can reach Backend directly (they share no network)"
+# Analytics must not share a network with Backend
+info "Analytics ↔ Backend: shared network check (expect: none)..."
+if containers_share_network "$ANALYTICS_CONTAINER" "$BACKEND_CONTAINER"; then
+    fail "Analytics and Backend share a Docker network (expected: no shared network)"
 else
-    pass "Analytics cannot reach Backend (zone boundary confirmed)"
+    pass "Analytics and Backend share no Docker network"
 fi
 
 # Proxy must reach Redis (data_net)
-info "Proxy → Redis (expect: reachable)..."
-if docker exec "$PROXY_CONTAINER" nc -z -w2 redis 6379 >/dev/null 2>&1; then
+info "Proxy → Redis port 6379 (expect: reachable)..."
+if py_connect "$PROXY_CONTAINER" "redis" 6379 3; then
     pass "Proxy can reach Redis (data_net working)"
 else
     fail "Proxy CANNOT reach Redis (data_net broken)"
 fi
 
 # Proxy must reach Backend (origin_net)
-info "Proxy → Backend (expect: reachable)..."
-if docker exec "$PROXY_CONTAINER" nc -z -w2 backend 443 >/dev/null 2>&1; then
+info "Proxy → Backend port 443 (expect: reachable)..."
+if py_connect "$PROXY_CONTAINER" "backend" 443 3; then
     pass "Proxy can reach Backend (origin_net working)"
 else
     fail "Proxy CANNOT reach Backend (origin_net broken)"
 fi
 
-# ── Section 4: IPC Namespace Isolation ───────────────────────────────────────
-section "4. IPC Namespace (/dev/shm)"
+# ── Section 4: IPC Namespace ──────────────────────────────────────────────────
+section "4. IPC Namespace"
 
-PROXY_SHM=$(docker exec "$PROXY_CONTAINER" stat -c '%i' /dev/shm 2>/dev/null || echo "unknown")
-REDIS_SHM=$(docker exec "$REDIS_CONTAINER" stat -c '%i' /dev/shm 2>/dev/null || echo "unknown2")
-
-if [[ "$PROXY_SHM" != "$REDIS_SHM" ]]; then
-    pass "/dev/shm inode differs between proxy and redis (independent)"
-else
-    fail "/dev/shm appears shared between proxy and redis (inode: ${PROXY_SHM})"
-fi
+# Check IPC mode via docker inspect — "private" or "" means each container has
+# its own IPC namespace. "host" or "container:<name>" means sharing.
+for ctr in "$PROXY_CONTAINER" "$REDIS_CONTAINER" "$BACKEND_CONTAINER" "$ANALYTICS_CONTAINER"; do
+    IPC_MODE=$(docker inspect "$ctr" --format '{{.HostConfig.IpcMode}}' 2>/dev/null || echo "unknown")
+    if [[ "$IPC_MODE" == "host" || "$IPC_MODE" == container:* ]]; then
+        fail "${ctr} has shared IPC mode: ${IPC_MODE}"
+    else
+        pass "${ctr} has private IPC namespace (mode: '${IPC_MODE:-private}')"
+    fi
+done
 
 # ── Section 5: Cross-Agent Isolation ─────────────────────────────────────────
 section "5. Cross-Agent Isolation"
@@ -186,7 +211,7 @@ for other in $OTHER_AGENTS; do
     CHECKED=$((CHECKED + 1))
     OTHER_IP=$(grep '^AGENT_BIND_IP=' "$OTHER_ENV" | cut -d= -f2)
     info "Proxy → ${other} (${OTHER_IP}:443, expect: unreachable from container)..."
-    if docker exec "$PROXY_CONTAINER" nc -z -w2 "$OTHER_IP" 443 >/dev/null 2>&1; then
+    if py_connect "$PROXY_CONTAINER" "$OTHER_IP" 443 3; then
         fail "Proxy container can reach ${other} agent at ${OTHER_IP}:443"
     else
         pass "Proxy container cannot reach ${other} at ${OTHER_IP}:443"
@@ -195,7 +220,7 @@ done
 
 if [[ "$CHECKED" -eq 0 ]]; then
     info "No other agent .env files found — cross-agent check skipped"
-    info "Start another agent with 'make agent-up NAME=<other>' to test cross-agent isolation"
+    info "Start another agent with 'make agent-up NAME=<other>' to test"
 fi
 
 # ── Summary ───────────────────────────────────────────────────────────────────
