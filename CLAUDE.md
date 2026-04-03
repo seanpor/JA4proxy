@@ -158,6 +158,7 @@ Practical rules that flow from this:
 | 62 | Security Hardening | Pentesting, threat modeling, and incident response | [PHASE_62.md](docs/phases/PHASE_62.md) |
 | 63 | Observability and Monitoring | Technical observability and executive dashboards | [PHASE_63.md](docs/phases/PHASE_63.md) |
 | 64 | Operational Excellence | Process optimization and continuous improvement | [PHASE_64.md](docs/phases/PHASE_64.md) |
+| 65 | Performance Hardening & Go/Python Parity | Pure-Python TLS parser, JA4 bug fixes, Go config wiring, parity harness | [PHASE_65.md](docs/phases/PHASE_65.md) |
 
 **Do phases in order. Complete all acceptance criteria before starting the next phase.**
 

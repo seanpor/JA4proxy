@@ -2,17 +2,22 @@
 
 This document tracks the remaining work for both historical phases (gaps identified post-completion) and upcoming planned phases. Each item links to a detailed, actionable TDD work plan.
 
-## 🔴 Critical Gaps in Completed Phases (<= 15)
-
----
-
 ## 🟡 Phases In Progress
 
 ### Phase 15 — Go Rewrite
+*   **Gap:** config/loader.go missing YAML struct types for ASN, DNS, blocklists, beaconing, AbuseIPDB, RDAP, JA4X
+*   **Gap:** buildPipelineConfig() does not populate those 7 modules — all run with Enabled=false
+*   **Gap:** No binary ClientHello fixtures in tests/fixtures/clienthello/
+*   **Gap:** Cross-language parity integration tests are structural stubs only
+*   **Gap:** Prometheus metric name alignment with Python not verified
 *   **Status:** **IN_PROGRESS** (10-50x throughput improvement via CPython/Go transition. Signal module implementations complete but config wiring for ASN, DNS, blocklists, beaconing, AbuseIPDB, RDAP, and JA4X is missing — all seven run disabled. Cross-language parity fixtures not captured.)
 *   **Action Plan:** [PHASE_15.md](PHASE_15.md)
 
 ### Phase 59 — Advanced Traffic Intelligence - Phase 4: Feed Reliability & Resilience
+*   **Gap:** P59-G1: Syntax error in misp.py preventing test execution
+*   **Gap:** P59-G2: Feed health monitoring system not yet implemented
+*   **Gap:** P59-G3: Circuit breaker pattern not yet implemented
+*   **Gap:** P59-G4: Chaos testing for feed failures not comprehensive
 *   **Status:** **IN_PROGRESS** (Enhance feeds with health monitoring, circuit breakers, and comprehensive chaos testing.)
 *   **Action Plan:** [PHASE_59.md](PHASE_59.md)
 
