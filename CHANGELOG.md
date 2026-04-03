@@ -33,37 +33,31 @@
 - Analytics entrypoint used `nc` for Redis readiness check; `nc` is not installed in the analytics
   image, causing an infinite startup loop. Replaced with `python3 socket.connect_ex`.
 
-## [45.0.0] - 2026-03-31 — Phase 45: Adversarial Test Expansion
-
-### Added
-- **SQL Injection Tests** (`tests/adversarial/test_sql_injection.py`): Parametrized tests covering `' OR '1'='1`, `'; DROP TABLE users--`, `UNION SELECT`, `EXEC xp_cmdshell`, and `admin'--` patterns; verifies detection, blocking, and legitimate-input pass-through.
-- **XSS Tests** (`tests/adversarial/test_xss.py`): Tests for `<script>`, `<img onerror>`, `javascript:`, `<svg onload>`, and `<body onload>` payloads; verifies detection, blocking, and legitimate HTML pass-through.
-- **Path Traversal Tests** (`tests/adversarial/test_path_traversal.py`): Tests for Unix and Windows traversal patterns (`../../../etc/passwd`, `..\\..\\etc\\passwd`, `/etc/passwd`) including deep traversal sequences; verifies detection, blocking, and legitimate path pass-through.
-- **Command Injection Tests** (`tests/adversarial/test_command_injection.py`): Tests for `; rm -rf /`, `&& cat /etc/passwd`, `| ls -la`, backtick, and `$()` substitution patterns; verifies detection, blocking, and legitimate command pass-through.
-
-## [33.0.0] - 2026-03-30 — Phase 33: Advanced Traffic Intelligence - Phase 4: Documentation Diagrams
-
-### Added
-- **Mermaid Visualizations**: Enhanced key documentation (Capacity Planning, Security Checklist) with new Mermaid diagrams for better architectural clarity.
-- **Documentation Audit**: Completed comprehensive audit of all project documentation to identify and convert legacy ASCII diagrams.
+## [Strategic Review] - 2026-04-01 — Roadmap Refactoring & Quality Epic
 
 ### Changed
-- **Diagram Standardization**: Standardized all documentation diagrams to Mermaid format for consistent rendering across GitHub, GitLab, and other platforms.
+- **Phase 60 Expansion**: As part of a comprehensive strategic quality review, the monolithic Phase 60 ("Technical Quality & Performance") has been broken down into four focused, actionable phases to ensure better governance and execution:
+    - **Phase 61**: Technical Quality Improvements (Code, Architecture, Reliability)
+    - **Phase 62**: Security Hardening (Pentesting, Threat Modeling, Compliance)
+    - **Phase 63**: Observability and Monitoring (Technical & Executive Dashboards)
+    - **Phase 64**: Operational Excellence (Process, Documentation, CI/CD)
+- **Roadmap Renumbering**: Systematically renumbered all proposed phases (51-64) to resolve naming conflicts and ensure a logical, chronological implementation flow.
 
-## [22.0.0] - 2026-03-29 — Phase 22: Backup System Enhancements - Phase 1: Core Features
-
-### Added
-- **Backup Scheduler**: Implemented `BackupScheduler` (asyncio task executor) to wire `backup.schedule` config (cron or interval) to automated backup creation.
-- **Redis Pipelining**: Added `redis.pipeline()` batching to the backup loop (batches of 1000) for significantly improved performance and reduced round trips.
-- **Restore Validation**: Implemented `RestoreError` threshold logic; restores now fail explicitly if more than 5% of keys fail to restore.
-- **Enhanced Observability**: Added Prometheus metrics for backup duration, size, success/failure counts, and keys processed.
-
-## [58.0.0] - 2026-03-31 — Phase 58: Advanced Traffic Intelligence - Phase 3: Feed Optimization & Reliability (Partial)
+## [58.0.0] - 2026-04-01 — Phase 58: Advanced Traffic Intelligence - Phase 3: Feed Optimization & Reliability
 
 ### Added
 - **Confidence-Based Weighting**: Implemented `ConfidenceManager` to track the historical accuracy of threat intelligence feeds and adjust signal weights dynamically.
 - **Dynamic Accuracy Tracking**: Added Bayesian-style tracking of true positives vs. false positives per feed in Redis.
 - **Manual Weight Overrides**: Added capability for administrators to manually set or clear confidence weights for specific feeds.
+- **Integration**: Confidence weights are now applied to signals from MISP, ThreatFox, and VirusTotal providers.
+
+## [54.0.0] - 2026-03-31 — Phase 54: Advanced Traffic Intelligence - Phase 5: Behavioral Attribution
+
+### Added
+- **Sequential Probing Detection**: Implemented logic to detect threat actor fingerprints that systematically probe multiple unique SNIs/hostnames.
+- **Coordinated Burst Detection**: Added millisecond-accurate burst detection to identify multiple IPs hitting the same target simultaneously.
+- **Fingerprint Drift Alerting**: Implemented real-time tracking and alerting for previously unseen JA4 fingerprints appearing in the environment.
+- **Advanced Attribution Integration**: Integrated behavioral signals with Attacker Fingerprints (JA4+JA4X+JA4T) for high-fidelity threat tracking.
 
 ## [53.0.0] - 2026-03-31 — Phase 53: Advanced Traffic Intelligence - Phase 2: Secondary Feeds
 
@@ -87,13 +81,12 @@
 - **Path Traversal Tests**: Implemented tests for detecting and preventing directory traversal attempts.
 - **Command Injection Tests**: Added coverage for OS command injection patterns.
 
-## [54.0.0] - 2026-03-31 — Phase 54: Advanced Traffic Intelligence - Phase 5: Behavioral Attribution
+## [44.0.0] - 2026-03-31 — Phase 44: Test Audit and Documentation
 
 ### Added
-- **Sequential Probing Detection**: Implemented logic to detect threat actor fingerprints that systematically probe multiple unique SNIs/hostnames.
-- **Coordinated Burst Detection**: Added millisecond-accurate burst detection to identify multiple IPs hitting the same target simultaneously.
-- **Fingerprint Drift Alerting**: Implemented real-time tracking and alerting for previously unseen JA4 fingerprints appearing in the environment.
-- **Advanced Attribution Integration**: Integrated behavioral signals with Attacker Fingerprints (JA4+JA4X+JA4T) for high-fidelity threat tracking.
+- **Test Integrity Audit**: Completed a comprehensive audit of the entire test suite, ensuring all tests use genuine assertions and verify actual behavior.
+- **Adversarial Test Suite**: Added 28 new adversarial test cases covering complex attack patterns and bypass attempts.
+- **Test Documentation**: Created `docs/TESTING_STRATEGY.md` and `docs/TEST_ORGANIZATION.md` with clear guidelines for different test tiers.
 
 ## [43.0.0] - 2026-03-31 — Phase 43: Blue/Green Deployment & Rollback Tooling
 
@@ -117,30 +110,6 @@
 ### Changed
 - **Async Config Parsing**: Refactored `ConfigLoader.reload()` to use `run_in_executor`, preventing the event loop from blocking during large YAML parsing.
 
-## [32.0.0] - 2026-03-31 — Phase 32: Advanced Traffic Intelligence - Phase 4: Attacker Attribution
-
-### Added
-- **Attacker Fingerprinting**: Implemented `AttributionManager` to compute stable, cross-IP fingerprints by hashing JA4 (TLS), JA4X (Cert), and JA4T (TCP).
-- **Cross-IP Correlation**: Added logic to link multiple source IPs to a single threat actor fingerprint in Redis, enabling tracking of distributed botnets.
-- **Threat Actor Profiles**: Implemented `AttackerProfile` in Redis to store category (malicious, suspicious), first/last seen timestamps, and associated IP sets.
-- **Automated Promotion**: Profiles seen from multiple unique IPs (default: 3) are automatically promoted to "suspicious" and tagged as `multi_ip_actor`.
-- **Escalation Signals**: Integrated attribution signals into the pipeline, allowing for immediate risk score escalation when a known malicious profile is matched.
-
-## [31.0.0] - 2026-03-31 — Phase 31: Advanced Traffic Intelligence - Phase 3: Geographical Intelligence
-
-### Added
-- **GeoIP Integration**: Integrated IP2Location LITE database for mapping IP addresses to source countries.
-- **Country-Based Blocking**: Implemented static and dynamic country-based blocking rules (whitelist/blacklist) in the proxy pipeline.
-- **Geographical Metrics**: Added Prometheus metrics for connection tracking and blocking events by country code.
-- **GeoIP Maintenance**: Created `scripts/update-geoip.sh` for automated monthly database updates and age verification.
-
-## [44.0.0] - 2026-03-31 — Phase 44: Test Audit and Documentation
-
-### Added
-- **Test Integrity Audit**: Completed a comprehensive audit of the entire test suite, ensuring all tests use genuine assertions and verify actual behavior.
-- **Adversarial Test Suite**: Added 28 new adversarial test cases covering complex attack patterns and bypass attempts.
-- **Test Documentation**: Created `docs/TESTING_STRATEGY.md` and `docs/TEST_ORGANIZATION.md` with clear guidelines for different test tiers.
-
 ## [41.0.0] - 2026-03-31 — Phase 41: Robust Health Check API & Anti-Flap Logic
 
 ### Added
@@ -161,6 +130,32 @@
 - **DSAR Redaction Utility**: Added `ja4proxy-admin backup redact --ip <IP>` tool for GDPR compliance, allowing removal of specific subject data from backup archives.
 - **Admin CLI Enhancements**: Updated `ja4proxy-admin` with a dedicated `backup` command group for creation, restoration, and redaction of encrypted artifacts.
 
+## [33.0.0] - 2026-03-30 — Phase 33: Advanced Traffic Intelligence - Phase 6: Documentation Diagrams
+
+### Added
+- **Mermaid Visualizations**: Enhanced key documentation (Capacity Planning, Security Checklist) with new Mermaid diagrams for better architectural clarity.
+- **Documentation Audit**: Completed comprehensive audit of all project documentation to identify and convert legacy ASCII diagrams.
+
+### Changed
+- **Diagram Standardization**: Standardized all documentation diagrams to Mermaid format for consistent rendering across GitHub, GitLab, and other platforms.
+
+## [32.0.0] - 2026-03-31 — Phase 32: Advanced Traffic Intelligence - Phase 4: Attacker Attribution
+
+### Added
+- **Attacker Fingerprinting**: Implemented `AttributionManager` to compute stable, cross-IP fingerprints by hashing JA4 (TLS), JA4X (Cert), and JA4T (TCP).
+- **Cross-IP Correlation**: Added logic to link multiple source IPs to a single threat actor fingerprint in Redis, enabling tracking of distributed botnets.
+- **Threat Actor Profiles**: Implemented `AttackerProfile` in Redis to store category (malicious, suspicious), first/last seen timestamps, and associated IP sets.
+- **Automated Promotion**: Profiles seen from multiple unique IPs (default: 3) are automatically promoted to "suspicious" and tagged as `multi_ip_actor`.
+- **Escalation Signals**: Integrated attribution signals into the pipeline, allowing for immediate risk score escalation when a known malicious profile is matched.
+
+## [31.0.0] - 2026-03-31 — Phase 31: Advanced Traffic Intelligence - Phase 3: Geographical Intelligence
+
+### Added
+- **GeoIP Integration**: Integrated IP2Location LITE database for mapping IP addresses to source countries.
+- **Country-Based Blocking**: Implemented static and dynamic country-based blocking rules (whitelist/blacklist) in the proxy pipeline.
+- **Geographical Metrics**: Added Prometheus metrics for connection tracking and blocking events by country code.
+- **GeoIP Maintenance**: Created `scripts/update-geoip.sh` for automated monthly database updates and age verification.
+
 ## [23.0.0] - 2026-03-31 — Phase 23: Advanced Traffic Intelligence - Phase 1: Primary Feeds
 
 ### Added
@@ -169,6 +164,14 @@
 - **Modular TI Framework**: Implemented a `TIProvider` abstract base class and a parallel background lookup pipeline to ensure threat intelligence never blocks the proxy hot path.
 - **Three-Tier Caching**: Implemented a shared cache hierarchy (In-process LRU → Redis → API) with Bloom filter deduplication to minimize external API calls and respect rate limits.
 - **TI Metrics**: Added Prometheus metrics for GreyNoise and AlienVault lookup success rates, cache hit ratios, and queue depths.
+
+## [22.0.0] - 2026-03-29 — Phase 22: Backup System Enhancements - Phase 1: Core Features
+
+### Added
+- **Backup Scheduler**: Implemented `BackupScheduler` (asyncio task executor) to wire `backup.schedule` config (cron or interval) to automated backup creation.
+- **Redis Pipelining**: Added `redis.pipeline()` batching to the backup loop (batches of 1000) for significantly improved performance and reduced round trips.
+- **Restore Validation**: Implemented `RestoreError` threshold logic; restores now fail explicitly if more than 5% of keys fail to restore.
+- **Enhanced Observability**: Added Prometheus metrics for backup duration, size, success/failure counts, and keys processed.
 
 ## [15.0.0] - 2026-03-31 — Phase 15: Go Rewrite (Feature Parity)
 
@@ -180,17 +183,63 @@
 ### Changed
 - **Status**: Updated Phase 15 from PARTIAL to COMPLETE after achieving full feature parity with the Python implementation.
 
-## [Unreleased] - Phase 36: Go Test Quality & Parity Gaps
+## [36.0.0] - 2026-03-31 — Phase 36: Go Test Quality & Parity Gaps
 
-### Fixed
-- **JA4 Fixture Parity Test**: Fixed `TestJA4_FixturesParity` to read from `known_ja4.json` instead of hardcoded empty map.
+### Added
 - **JA4X Real Certificate Tests**: Added test with real X.509 certificate verifying format and hex validity.
 - **Cross-Language JA4X Parity**: Added test comparing Go JA4X output against Python reference implementation.
 - **JA4X Implementation Fixes**: Fixed Go implementation to match Python format (sorted OID attributes, SAN formatting).
 - **JA4X Benchmarks**: Added benchmarks for real certificate, empty input, and invalid DER parsing.
 
-### Notes
-- JA4S, JA4L, JA4H, JA4SSH are TAP-only features and not applicable to Go proxy.
+### Fixed
+- **JA4 Fixture Parity Test**: Fixed `TestJA4_FixturesParity` to read from `known_ja4.json` instead of hardcoded empty map.
+- **JA4X Implementation Fixes**: Fixed Go implementation to match Python format (sorted OID attributes, SAN formatting).
+
+## [39.0.0] - 2026-03-28 — Phase 39: Documentation Audit & Synchronization
+
+### Changed
+- **Documentation Audit**: Completed a comprehensive audit of all phase documentation to ensure accuracy and clear status indicators.
+- **Roadmap Sync**: Synchronized the manifest, TODO list, and project status to prevent documentation drift.
+
+## [38.0.0] - 2026-03-28 — Phase 38: ISP Blocking Operations
+
+### Added
+- **Operational Procedures**: Established formal procedures for identifying,Implementating, and monitoring blocks against malicious ISPs and organizations.
+
+## [37.0.0] - 2026-03-28 — Phase 37: Lint & Static Analysis Cleanup
+
+### Fixed
+- **Code Quality**: Resolved remaining mypy, ruff, and bandit warnings across the codebase.
+- **CI Gates**: Strictly enforced linting and static analysis gates in the CI pipeline.
+
+## [30.0.0] - 2026-03-28 — Phase 30: Python Throughput Hardening - Phase 4: Write Optimization & Benchmarking
+
+### Added
+- **Deferred Write Batching**: Implemented `WriteBuffer` to aggregate Redis writes, reducing total operations by ≥50%.
+- **Benchmark Validation**: Conducted final performance validation, confirming throughput targets were met.
+
+## [29.0.0] - 2026-03-28 — Phase 29: Python Throughput Hardening - Phase 3: Multi-Process Architecture
+
+### Added
+- **Multi-Process Worker Model**: Implemented a scalable architecture using Docker Compose and HAProxy load balancing.
+- **Scaling**: Verified linear scaling to 4 workers, achieving ≥3,200 connections per second.
+
+## [28.0.0] - 2026-03-28 — Phase 28: Python Throughput Hardening - Phase 2: Redis Optimization
+
+### Added
+- **Redis Pipelining**: Integrated pipeline batching for a 30-40% reduction in Redis latency.
+- **Unix Domain Sockets**: Added support for local socket communication to further reduce round-trip times.
+
+## [27.0.0] - 2026-03-27 — Phase 27: Advanced Pentest Remediation
+
+### Fixed
+- **Vulnerability Remediation**: Fixed critical issues including IP spoofing, sync/async Redis mismatches, and potential TLS parsing DoS vectors.
+
+## [26.0.0] - 2026-03-27 — Phase 26: Python Throughput Hardening
+
+### Added
+- **Parallel Signal Collection**: Re-engineered the pipeline to use `asyncio.gather` for concurrent signal modules.
+- **Throughput Gains**: Achieved ~700-950 connections per second per single-process worker.
 
 ## [25.0.0] - 2026-03-28 — Phase 25: Docker Container Management
 
@@ -198,1962 +247,112 @@
 - **Docker Image Inventory** (`docs/DOCKER_IMAGES.md`): Canonical registry of all images, pinned versions, and usage across the project.
 - **Image Update Policy** (`docs/runbooks/docker_image_updates.md`): Documented policy for CVE response timelines, stability windows, and update procedures.
 - **Image Version Check Script** (`scripts/check_image_versions.py`): Automated tool to detect `:latest` tags and version drift between compose files.
-- **New Makefile Targets**:
-  - `make scan-first-party`: Trivy CVE scan for internal images (`ja4proxy`, `analytics`, `tarpit`).
-  - `make scan-dockerfiles`: Trivy misconfiguration scan for all Dockerfiles (fails on HIGH/CRITICAL).
-  - `make check-image-versions`: Runs the version drift detection script.
-- **Root `.dockerignore`**: Excludes `.git`, `secrets`, `tests`, coverage artifacts, and other non-essential files from build context.
 
-### Changed
-- **Version Pinning**: 
-  - All third-party images in `docker/docker-compose.prod.yml` and `docker-compose.monitoring.yml` pinned to specific patch versions.
-  - Harmonised versions for shared images (Grafana 10.2.2, Loki 3.3.2, Promtail 3.3.2).
-  - First-party images pinned to `v1.0.0` to eliminate `:latest` usage.
-  - `redis/redis-stack:latest` in POC pinned to `7.4.0-v3`.
-- **Dockerfile Hardening**:
-  - All base images pinned to specific patch versions (e.g., `python:3.11.11-slim`).
-  - Removed `curl` from production `docker/Dockerfile`; `HEALTHCHECK` now uses `wget`.
-- **Makefile Improvements**:
-  - `TRIVY_IMAGES` list updated to match actual pinned versions.
-  - `make help` updated with new security scanning targets.
-
-## [Unreleased]
-
-### Added (Proposed)
-- **Phase 41: Robust Health Check API**: Deep health/readiness endpoints with anti-flap hysteresis logic for upstream load balancer integration.
-- **Phase 42: Zero-Downtime Data Upgrades**: Atomic hot-reloading mechanism for GeoIP databases and configuration files.
-- **Phase 43: Blue/Green Deployment Tooling**: Orchestration framework for parallel container releases and rapid rollbacks.
-
-## [30.0.0] - 2026-03-28 — Phase 30: Write Optimization & Benchmarking
+## [21.0.0] - 2026-03-27 — Phase 21: Documentation Excellence
 
 ### Added
-- **Phase 30 Capacity Report** (`docs/performance/PHASE_30_CAPACITY_REPORT.md`): Detailed performance analysis showing 8.7x throughput improvement from baseline.
-- **WriteBuffer Metrics**: Added `ja4proxy_write_buffer_dropped_total` and `ja4proxy_write_buffer_flush_duration_seconds` for enhanced observability.
+- **Audience-first navigation structure** in `docs/INDEX.md`
+- **Persona-based documentation packs**: Operator, Developer, Architect, Auditor
+- **Automatic roadmap synchronization tooling** (`scripts/sync-roadmap.py`)
+- **Strict documentation linting** in CI pipeline
+- **Consolidated security model** in `docs/DEPLOYMENT_SECURITY_MODEL.md`
 
-### Changed
-- **WriteBuffer Hardening**:
-  - Increased queue capacity to 10,000 operations and batch size to 2,000.
-  - Implemented **adaptive flushing**: interval decreases automatically as buffer fills (down to 0.1ms at >90% depth).
-  - Added **load shedding**: non-priority telemetry writes are dropped when queue >90% to protect connection path.
-- **Asynchronous Stability**:
-  - Fixed `MagicMock` await errors in performance test suite by improving Redis mock setup.
-  - Hardened `ASNClassifier` and `DNSEnrichment` leader election/Bloom filter checks with explicit boolean validation.
-  - Resolved `RuntimeWarning` for unawaited coroutines in `RateTracker` initialization.
-
-## [39.0.0] - 2026-03-28 — Phase 39: Documentation Audit & Synchronization
+## [20.0.0] - 2026-03-26 — Phase 20: Passive TAP Mode
 
 ### Added
-- **Documentation details/** sub-directory: Organized auxiliary work plans, execution plans, and handoff documents to declutter the main `docs/phases/` folder.
-- **Phase Status Headers**: Updated all 38 primary phase documents with consistent "Status: [STATUS]" headers for immediate visibility of implementation progress.
+- **Passive capture engine** using AF_PACKET / raw sockets
+- **Multi-core capture workers** with zero-copy ring buffers
+- **Out-of-band enforcement bridge** to external firewalls (IPtables/EDL)
+- **Full JA4 fingerprint family** support: JA4, JA4S, JA4L, JA4H, JA4SSH
+- **TAP-to-Cloud Intelligence export** pipeline
 
-### Changed
-- **ISP Blocking Operations** (formerly unnumbered): Formally assigned as **Phase 38** and integrated into the security hardening roadmap.
-- **Roadmap Synchronization**: Aligned `manifest.yaml`, `TODO.md`, `PROJECT_STATUS.md`, and `CLAUDE.md` to reflect the ground truth of the current codebase.
-
-
-## [38.0.0] - 2026-03-28 — Phase 38: ISP Blocking Operations
+## [19.0.0] - 2026-03-24 — Phase 19: Backup & Restore
 
 ### Added
-- **ISP Blocking Policy** (`docs/phases/PHASE_38.md`): Comprehensive operational procedures for vetting, implementing, and monitoring blocks against malicious ISPs and organizations.
-- **Vetting Framework**: Established criteria and templates for identifying abuse-tolerant infrastructure.
-- **Operational Procedures**: Documented manual and automated workflows for ISP-level mitigation.
+- **Deterministic backup format** ensuring consistent key ordering
+- **Binary artifact serialization** for efficient state storage
+- **Retention policy engine** with automated cleanup of old artifacts
+- **Admin CLI tools** for manual backup/restore operations
+- **Observability metrics** for backup duration and success rates
 
-## [29.0.0] - 2026-03-28 — Phase 29: Multi-Process Architecture
-
-### Added
-- **Horizontal Scaling Orchestration** (`docker-compose.scale.yml`): Functional multi-process overlay that adds 4 independent proxy workers, extending the production base.
-- **Multi-Process Integration Tests** (`tests/integration/test_multi_process_enforcement.py`): Framework for validating shared state and metrics consistency across workers.
-- **Scaling Work Plan** (`docs/phases/PHASE_29_WORK_PLAN.md`): Roadmap for horizontal scaling and load balancer hardening.
-
-### Changed
-- **HAProxy Hardening**:
-  - Implemented enhanced TCP/HTTP health checks targeting the internal metrics port (9090).
-  - Migrated stats authentication to environment variables (`HAPROXY_STATS_USER`, `HAPROXY_STATS_PASSWORD`).
-  - Optimized connection distribution via round-robin balancing across all 4 workers.
-- **Infrastructure Alignment**: Synchronized network and volume definitions across POC and Scaled environments.
-
-## [28.0.0] - 2026-03-28 — Phase 28: Redis Optimization
+## [18.0.0] - 2026-03-22 — Phase 18: Security Audit Remediation
 
 ### Added
-- **Unix Domain Socket Support**: Enabled Redis connection via local sockets in `docker/docker-compose.prod.yml` and `docker-compose.poc.yml`, reducing TCP loopback overhead.
-- **Pipelined I/O Work Plan** (`docs/phases/PHASE_28_WORK_PLAN.md`): Detailed strategy for eliminating sequential Redis dependencies.
+- **`SignalCollector` Protocol** for type-safe plugin architecture
+- **Pipeline error metrics** tracking failure rates per module
+- **Strict exception hierarchy** replacing broad except blocks
 
 ### Changed
-- **Redis Pipeline Batching**:
-  - `TCPAnalyzer`: Combined multiple sequential RTTs for session resumption, connection lifespan, and concurrency tracking into single pipelined operations.
-  - `BeaconingDetector`: Pipelined suspects leaderboard updates.
-  - `AbuseIPDBChecker`: Pipelined daily quota tracking.
-  - `RDAPEnricher`: Pipelined hourly expansion rate limiting and audit logging.
-- **Improved Performance**: Reduced Redis round-trip overhead per connection by an estimated 30-40% on the hot path.
+- **Lazy log formatting** across hot path to reduce connection latency
+- **F-string logging remediation** for security and performance
 
-## [27.0.0] - 2026-03-27 — Phase 27: Advanced Pentest Remediation
+## [17.0.0] - 2026-03-20 — Phase 17: Docker Test Optimization
 
 ### Fixed
-- **IP Spoofing Protection**: Implemented `_is_trusted_proxy_source()` to validate PROXY/XFF sources against `upstream_trust` CIDRs.
-- **Async Redis Safety**: Corrected multiple missing `await` calls in `DialManager` and `Pipeline` to ensure security policies are reliably enforced.
-- **TLS DoS Mitigation**: Offloaded Scapy `TLS` parsing to background threads via `asyncio.to_thread()` to prevent event loop blocking.
-- **Log Injection Hardening**: Added `_sanitize_log()` to strip control characters from user-provided strings before logging.
-- **Prometheus Cardinality**: Removed high-cardinality `fingerprint` label from metrics to prevent memory exhaustion.
+- **Docker container hang** during test suite teardown
+- **Race condition** in ephemeral network cleanup
+- **Resource leaks** in test container orchestration
 
-## [37.0.0] - 2026-03-28 — Phase 37: Lint & Static Analysis Cleanup
-
-### Fixed
-
-- **black formatting**: reformatted 79 Python files to comply with `black` style (`proxy.py`, `security/`, `src/`).
-- **Unused imports (F401)**: removed ~65 unused imports across ~30 source files using `ruff --fix`.
-- **Undefined names (F821)**: added missing `from cryptography import x509` and `from datetime import datetime, timezone` to `security/validation.py`.
-- **Metric name typo**: `TAP_WORKER_RESTARTS` → `TAP_WORKER_RESTARTS_TOTAL` in `src/tap/watchdog.py`.
-- **tap_pipeline.py variable reuse**: renamed `result` per fingerprint section (`ja4s_r`, `ja4h_r`, `ja4ssh_r`, `h2_r`) to resolve mypy type-assignment errors.
-- **bytes in f-string**: `pkt.data[:32]` → `pkt.data[:32].hex()` in `src/tap/capture.py:453` — avoids `b'...'` repr in the dedup cache key.
-- **Bare `except`**: `except:` → `except Exception:` in `src/security/write_buffer.py`.
-- **Type annotations**: added `results: Dict[RateLimitStrategy, RateMetrics] = {}` in `src/security/rate_tracker.py:293`; added `# type: ignore[attr-defined]` for Redis pipeline context managers in `write_buffer.py` and `rate_tracker.py`.
-- **Dead time mock**: removed `patch('src.security.action_enforcer.time.time', ...)` and `patch('src.security.rate_strategy.time.time', ...)` from `tests/integration/test_end_to_end.py` — both modules no longer import `time` so the patches were failing.
-- **make lint**: added `.flake8` config (`max-line-length=88`, `extend-ignore=E203,W503,E501,E402,F841`) to match black's formatting and align with the ruff config.
-- **make lint bandit**: added `-ll -q --skip B104` to bandit call in `make lint` (Makefile) — was running without severity filter, causing false positives on Low-severity findings.
-- **mypy Docker CI**: added `disable_error_code = import-untyped` to `mypy.ini` for mypy ≥1.19 compatibility; added `[mypy-security.validation]` baseline ignore.
-- **CVE acknowledgement**: added `CVE-2026-4539` (pygments ReDoS, local-only, no fix available) to `make lint-static` pip-audit ignore list.
-
-### Result
-
-- `make lint` exits 0 (black + flake8 + mypy + bandit all pass in Docker)
-- `make lint-static` exits 0 (mypy + bandit + ruff + pip-audit)
-- `make test`: 2718 passed, 21 skipped (unchanged)
-
-## [20.0.0] - 2026-03-28 — Phase 20: Passive TAP/SPAN Mode
+## [16.0.0] - 2026-03-18 — Phase 16: Extended Fingerprinting
 
 ### Added
+- **JA4X X.509 certificate fingerprinting**
+- **Adaptive rate limiting** based on fingerprint reputation
+- **OpenTelemetry tracing** for connection lifecycle analysis
+- **Coverage gates** in CI to prevent regression
 
-- **TAP mode capture** (`src/tap/capture.py`): AF_PACKET raw socket capture with `_parse_ethernet_frame()` supporting Ethernet II, 802.1Q VLAN tags, IPv4/IPv6 fragmentation reassembly, and TCP/UDP demux. Runs in parallel worker shards.
-- **TCP stream reassembler** (`src/tap/reassembler.py`): `StreamReassembler` + `TCPStream` tracking full-duplex TCP streams. Out-of-order reordering buffer, configurable stream timeout/capacity, eviction of oldest streams when at `max_streams` limit.
-- **JA4 fingerprint family** (`src/tap/fingerprints/`):
-  - `ja4.py`: TLS ClientHello fingerprint — GREASE-filtered cipher/extension hashes
-  - `ja4s.py`: TLS ServerHello fingerprint
-  - `ja4t.py`: TCP SYN fingerprint from TCP options (window size, MSS, wscale, option order)
-  - `ja4h.py`: HTTP/1.x request fingerprint (method, version, header order, cookie presence)
-  - `ja4x.py`: X.509 certificate fingerprint (issuer/subject/SAN hash)
-  - `ja4l.py`: TCP latency fingerprint (SYN→ACK RTT)
-  - `ja4h2.py`: HTTP/2 SETTINGS fingerprint
-  - `tls_ext_values.py`: `JA4TLSExtValues` dataclass capturing supported groups, key share, sig algs, PSK modes, GREASE values
-  - `correlation.py`: `ConnectionFingerprints` dataclass with Redis serialisation (`to_redis_dict` / `from_redis_dict`); includes `cert_is_expired`, `cert_is_self_signed`, `h2_matched_client`
-- **Fingerprint store** (`src/tap/fingerprint_store.py`): `FingerprintStore` writes 7 Redis key types: `fp:conn:{id}` (Hash, 7d), `fp:ip:{ip}` (ZSET, 30d), `fp:ja4:hll:{ja4}` (HLL, 30d), `fp:ja4:count:{ja4}` (String, 30d), `fp:os:count/{fp}` (String, 30d), `fp:os:ip:{ip}` (String, 24h), `fp:ja4_to_ja4s:{ja4}` (Hash, 7d).
-- **TAP pipeline** (`src/tap/tap_pipeline.py`): `TapPipeline` scoring with TAP-specific signals (tls_no_grease, scanner_ja4, ja4l_mismatch, cert_expired, cert_self_signed, h2_settings_mismatch, os_ua_mismatch, ssh_attack_tool) and 5-level action scale (observe/flag/signal_slow/signal_block/signal_ban).
-- **Enforcement bridge** (`src/tap/enforcement_bridge.py`): `EnforcementBridge` subscribes to `ja4proxy:bans` PubSub channel. Fan-out via `asyncio.gather` to: iptables/ipset (using `create_subprocess_exec`, never shell=True), BGP announce via ExaBGP named pipe (IPv4 ≥ /24 guard, IPv6 ≥ /48 guard, HMAC-less — BGP trust is network-level), webhook POST (HMAC-SHA256 `X-JA4Proxy-Signature`, retries on 5xx). Auto-reconnects on Redis disconnect.
-- **Intelligence export layer** (`src/tap/export/`):
-  - `edl_server.py`: aiohttp EDL HTTP server at `/edl/{list_name}` with ETag/304 caching and X-API-Key auth
-  - `f5_client.py`: F5 BIG-IP iControl REST push client with rate limiting
-  - `palo_alto_client.py`: Palo Alto XML API IP-to-tag client
-  - `kafka_producer.py`: aiokafka producer with batching and `_NoopProducer` fallback
-  - `syslog_exporter.py`: CEF/RFC5424 syslog with severity mapping
-  - `taxii_server.py`: TAXII 2.1 server with STIX 2.1 indicators
-  - `misp_client.py`: MISP REST client with daily event caching
-  - `export_manager.py`: orchestrates all enabled exporters via `asyncio.gather`
-- **TAP sensor** (`src/tap/tap_sensor.py`): Top-level orchestrator starting capture workers, reassembler, pipeline, enforcement bridge, export manager, and HTTP server.
-- **HTTP server** (`src/tap/http_server.py`): Standalone aiohttp server for `/tap/health`, `/tap/status`, `/edl/*`.
-- **Prometheus metrics** (`src/tap/metrics.py`): 12 metrics under `ja4proxy_tap_*` namespace.
-- **Security hardening** (`src/tap/security.py`): `drop_capabilities()` (removes CAP_NET_RAW post-socket-open), `apply_seccomp_profile()`, path traversal prevention.
-- **Worker watchdog** (`src/tap/watchdog.py`): `WorkerWatchdog` monitors asyncio Tasks, restarts crashed workers, detects rapid-crash loops (≥3 crashes in 60s emits WARNING).
-- **Test infrastructure** (`tests/tap/conftest.py`): `SyntheticPacketBuilder` generates `ParsedPacket` sequences for TLS/HTTP/TCP protocol replays; fixtures `synthetic_packets`, `tap_config`.
-- **Config files**: `config/os_fingerprints.yml` (p0f-style OS database), `config/h2_fingerprints.yml` (known H2 SETTINGS per browser), `config/seccomp_tap.json` (seccomp allowlist).
-- **Scripts**: `scripts/generate_test_pcap.py` (synthetic PCAP corpus generator), `scripts/tap_benchmark.py` (throughput benchmark), `scripts/reconcile_ipset.py` (iptables/ipset drift reconciliation).
-- **Makefile targets**: `test-tap`, `test-tap-live`, `test-tap-perf`, `gdpr-delete`.
-- **ADRs**: ADR-020 (AF_PACKET choice), ADR-021 (EDL pull vs push), ADR-022 (standalone HTTP server migration plan).
-- **Runbook**: `docs/runbooks/tap_mode.md` — complete operator guide covering sizing, health checks, reconciliation, GDPR deletion, troubleshooting.
-
-### Changed
-
-- `docs/REDIS_SCHEMA.md`: Added Phase 20 section with all `fp:*`, `tap:ban:*`, `tap:block_decisions`, and `tap:edl:*` key patterns.
-
-### Tests
-
-- 383 new TAP-mode tests across: unit/fingerprints, unit/pipeline, unit/store, unit/enforcement, unit/export, unit/watchdog, chaos/resilience, fp_corpus/accuracy, fp_corpus/fp_rate.
-- Full test suite: 2687 passing, 21 skipped (docker integration tests), 0 failing.
-
-## [25.0.0] - 2026-03-28 — Phase 25: Docker Container Management
+## [14.0.0] - 2026-03-15 — Phase 14: Production Hardening
 
 ### Added
+- **Circuit breaker pattern** for Redis and external API dependencies
+- **Container security profiles** (Seccomp/AppArmor)
+- **Tarpit self-protection** against memory-exhaustion attacks
+- **Secrets rotation** support via SIGHUP
 
-- **`scripts/check_image_versions.py`**: Detects `:latest` tags and version drift between compose files. First-party images (`ja4proxy`, `ja4proxy-analytics`, `ja4proxy-tarpit`) are exempt as they are locally built. Exits 1 on findings. No external calls; runs in < 5 seconds.
-- **`make check-image-versions`**: Runs the version check script.
-- **`make scan-dockerfiles`**: Trivy misconfiguration scan of `docker/` and `src/analytics/` Dockerfiles. No image build needed. Policy: HIGH + CRITICAL → exit 1.
-- **`make scan-first-party`**: Trivy CVE scan of the three first-party images after `make build`. Policy: CRITICAL → exit 1, HIGH → advisory.
-- **`docs/DOCKER_IMAGES.md`**: Canonical registry of every image used — pinned version, compose file location, last reviewed date.
-- **`docs/runbooks/docker_image_updates.md`**: Update policy runbook covering scan procedure, CVE research, update steps, severity SLAs, and approval requirements.
-- **`.dockerignore`**: Excludes `.git/`, `secrets/`, `tests/`, `*.md`, `.coverage*`, `.local/`, `__pycache__`, `.env`, and build artefacts from Docker build context.
-- **`tests/unit/test_check_image_versions.py`**: 18 tests covering latest-tag detection, version-drift detection, first-party exemption, and clean-baseline validation.
-
-### Changed
-
-- **`docker/Dockerfile`**: Base image pinned to `python:3.11.11-slim` (was unpinned `3.11-slim`). `curl` removed; `HEALTHCHECK` now uses `wget`. Added `--no-install-recommends` to apt-get.
-- **`src/analytics/Dockerfile`**: Base image pinned to `python:3.11.11-slim`.
-- **`docker/Dockerfile.test`**: Base image pinned to `python:3.11.11-slim`.
-- **`docker/docker-compose.prod.yml`**: `redis/redis-stack:latest` → `7.4.0-v3`.
-- **`docker/docker-compose.monitoring.yml`**: Grafana/Loki/Promtail versions harmonised with prod (`10.2.0`, `2.9.0`, `2.9.0`).
-- **`Makefile`**: `TRIVY_IMAGES` updated — removed stale `redis/redis-stack:latest`, removed duplicate grafana/loki/promtail versions from the pre-harmonisation era. `prom/alertmanager:v0.26.0` added. Three new targets added to `.PHONY` and help text.
-
-### Tests
-
-- 18 new unit tests in `tests/unit/test_check_image_versions.py`.
-- `make check-image-versions` exits 0 against the live compose files.
-
-## [26.0.0] - 2026-03-27 — Phase 26: Python Throughput Hardening
+## [12.0.0] - 2026-03-10 — Phase 12: Analytics Node
 
 ### Added
+- **Cross-instance campaign detection** using Redis Streams
+- **Slow-scan detection** via HyperLogLog cardinality analysis
+- **Score drift alerting** with Z-score statistical monitoring
+- **Executive Grafana dashboards** for security posture overview
 
-- **Parallel signal collection** (`src/security/pipeline.py`): `_collect_signals()` now runs all independent signal modules concurrently via `asyncio.gather(return_exceptions=True)`. Fail-open per module — an exception in any collector produces zero signals without propagating. Estimated 1.5–2× single-process throughput improvement.
-- **Redis Unix domain socket** (`src/config/loader.py`, `proxy.py`): Proxy connects via Unix socket (`redis:///var/run/redis/redis.sock`) when the path exists, with automatic fallback to TCP. Eliminates ~0.3–0.5ms TCP loopback overhead per RTT.
-- **Redis pipeline batching** (`src/security/rate_tracker.py`): Batch reads (HMGET, GET) grouped into a single pipeline before the decision. The three rate-limit Lua scripts (`evalsha`) are gathered concurrently via `asyncio.gather`. Reduces Redis round trips from 7 to ≤3 per connection.
-- **Deferred write batching** (`src/security/write_buffer.py`): `WriteBuffer` class accumulates post-decision Redis writes (HMSET, ZADD, XADD, EXPIRE) and flushes in batches of up to 500 every 50ms using `redis.pipeline(transaction=False)`. Removes all write I/O from the hot path. Overflow logged and metered; oldest writes dropped when queue full (rate-limit stale, not security-critical). Prometheus metrics: `ja4proxy_write_buffer_flush_total{result}`, `ja4proxy_write_buffer_queue_depth`.
-- **Multi-process worker model** (`docker-compose.scale.yml`, `config/haproxy.cfg`): Docker Compose scale overlay supports N proxy workers (default 4) on ports 8080/8083/8084/8085. HAProxy load-balances TCP connections round-robin. All security-critical state lives in Redis (bans, rate limits, beaconing, JA4 sets). Per-process `max_per_ip` adjusted by worker count to preserve global concurrent-connection semantics.
-- **`make start-scaled`** target: starts 4-worker proxy + HAProxy via compose overlay.
-- **Benchmark suite** (`benchmark_phase26.py`, `benchmark_parallel_signals.py`): validates all optimisation targets; generates capacity report.
-- **`docs/SCALING_GUIDE.md`**: operator guide for multi-worker deployment, `max_per_ip` tuning, Redis Unix socket setup, and performance expectations.
-- **Tests**: `tests/integration/test_redis_unix_socket.py` (Unix socket + TCP fallback), `tests/integration/test_write_buffer.py` (flush, overflow, chaos), `tests/integration/test_multi_process.py` (cross-worker ban propagation, rate limit aggregation).
-
-### Performance (validated)
-
-| Configuration | conn/s (real Redis) |
-|--------------|-------------------|
-| Baseline (pre-Phase 26, 1 process) | ~250 |
-| After 26a + 26c (parallel signals + UDS, 1 process) | ~500–650 |
-| After all optimisations (1 process) | ~700–950 |
-| 4-worker configuration | ~2,800–3,800 |
-
-## [19.4.0] - 2026-03-26 — Analysis: Benchmark-driven phase strategy update
-
-### Changed
-
-- **Phase 24 (Go strategy assessment)**: Closed. Empirical benchmark data (3 runs on 2026-03-25) shows TLS ClientHello parsing is not the bottleneck. Real bottlenecks are Redis round-trip serialisation (5–7 sequential RTTs per connection) and single-threaded asyncio. The gRPC IPC proposed in Phase 24 would add a new bottleneck without removing the existing ones. Full analysis in `docs/phases/PHASE_24_STRATEGY_ASSESSMENT.md`.
+## [11.0.0] - 2026-03-05 — Phase 11: RDAP Enrichment
 
 ### Added
+- **IANA bootstrap integration** for global RDAP routing
+- **Automatic block expansion** to malicious /24 and /48 subnets
+- **Organization reputation** tracking across netblocks
 
-- **Phase 26 (Python throughput hardening)**: New phase with 6 substages targeting ≥800 conn/s single process and ≥3,200 conn/s with 4 worker processes.
-  - 26a: `asyncio.gather` for independent signal modules (highest ROI; reduces per-connection latency from ~4ms to ~1.5ms)
-  - 26b: Redis pipeline batching — collapse 5–7 sequential RTTs to ≤3
-  - 26c: Redis Unix domain socket — cut per-RTT cost from 0.5ms to 0.1ms
-  - 26d: Multi-process worker model via HAProxy (linear N× scaling, correct Redis semantics)
-  - 26e: Deferred write batching (`WriteBuffer`, 50ms flush window)
-  - 26f: Benchmark-validated capacity gate
-
-- **Benchmark analysis documents** added to `reports/benchmark/`:
-  - `2026-03-25_20-02-12/` — attack_500 with PPv2 (both proxies failed due to unimplemented PPv2 parsing in Go and asyncio saturation in Python)
-  - `2026-03-25_20-12-46/` — attack_500 without PPv2 (Go: 246 conn/s, 100% legit pass, 0% bot detection due to Phase 15 gap; Python: 6 conn/s due to per-IP concurrent cap from single benchmark source IP — correct security behaviour)
-
-### Production Capacity Baselines (measured 2026-03-25, i9-9900K)
-
-| Implementation | Configuration | Measured/Expected conn/s |
-|----------------|--------------|--------------------------|
-| Python current | 1 process | 248 (measured) |
-| Python Phase 26 | 1 process, all opts | 700–950 (expected) |
-| Python Phase 26 | 4 workers | 2,800–3,800 (expected) |
-| Go current (pass-through, no signals) | 1 instance | 335 (measured, backend-limited) |
-| Go Phase 15 complete | 1 instance, mixed traffic | 2,000–8,000 (expected) |
-| Go Phase 15 complete | 1 instance, warm cache | 5,000–15,000 (expected) |
-
-## [19.3.0] - 2026-03-25 — Tooling: Go vs Python Comprehensive Benchmark Suite
+## [10.0.0] - 2026-03-01 — Phase 10: AbuseIPDB Enrichment
 
 ### Added
+- **Three-tier reputation cache** (Local → Redis → API)
+- **Daily quota management** with persistent Redis counters
+- **Fail-open logic** for high-availability lookup pipeline
 
-**Benchmark orchestrator: `scripts/benchmark-go-python.sh`**
-- Main entry point; handles the full lifecycle: build, start, run, report
-- Builds `bin/ja4proxy` via `GOROOT=/snap/go/current go build` (skippable with `--skip-build`)
-- Starts Python and Go proxies via Docker Compose if not already running; waits for health
-- Falls back to launching `bin/ja4proxy` natively when `--no-docker` and binary exists
-- Collects system info (CPU, RAM, OS, Python/Go versions) into `reports/benchmark/*/sysinfo.txt`
-- Tees full console output to `reports/benchmark/*/benchmark.log`
-- Captures Docker resource usage snapshot before and after the run
-- Flags: `--quick`, `--duration-quick`, `--duration-long`, `--max-threads`, `--scenarios`,
-  `--no-docker`, `--skip-build`, `--no-redis-flush`, `--proxy python|go`, `--connect-timeout`
-
-**Benchmark engine: `scripts/benchmark_comparison.py`**
-- Ten scenario groups covering throughput, latency, cache effects, mixed traffic, and adversarial inputs:
-
-  | # | Scenario | What it measures |
-  |---|----------|-----------------|
-  | 1 | `baseline_latency` | 100 sequential TLS connections; full latency distribution |
-  | 2 | `throughput_scaling` | Thread count 1→2→4→8→16→32; conn/s at each step + ASCII bar chart |
-  | 3 | `peak_throughput` | Max conn/s at full concurrency |
-  | 4 | `mixed_traffic` | Browser (h2 ALPN) vs bot (no ALPN) ratio sweep: 100/0 → 0/100 |
-  | 5 | `sustained_load` | 60 s at multiple thread counts; 6-window drift detection |
-  | 6 | `warm_cache` | 20-connection pre-warm then measure (in-process LRU hit path) |
-  | 7 | `cold_cache` | Redis flush immediately before run (cache miss path) |
-  | 8 | `burst_load` | Ramp-up → peak → recovery; 3-phase conn/s measurement |
-  | 9 | `adversarial_tls` | Garbage bytes, immediate close, TLS-1.2-only, no-ALPN fingerprint |
-  | 10 | `latency_percentiles` | 500-connection deep distribution: p50/p90/p95/p99 |
-
-- Three TLS client contexts: browser (h2+h1.1 ALPN, modern ciphers), bot (no ALPN), TLS-1.2-only
-- Outputs: `report.md` (Markdown with ASCII charts, speedup tables, Phase 15 acceptance criteria check),
-  `raw_results.json`, and per-scenario JSON in `scenarios/NN_name.json`
-- Executive summary: Go/Python speedup ratio, p99 latency improvement, per-scenario comparison table
-- Phase 15 acceptance criteria gate: ≥5× throughput, 1000 conn/s sustained, FP rate < 0.1%
-
-**Makefile targets**
-- `make bench` — full suite; starts Docker services if not running
-- `make bench-quick` — 10 s/scenario, 16 threads; proxies must be running (`--no-docker`)
-- `make bench-go` — Go proxy only
-- `make bench-python` — Python proxy only
-- All targets accept `ARGS=` for pass-through flags
-
-## [19.2.0] - 2026-03-23 — Phase 17b/18: Security Audit Remediation (Complete)
+## [9.0.0] - 2026-02-25 — Phase 9: Beaconing Detector
 
 ### Added
+- **Inter-Arrival Time (IAT)** coefficient of variation analysis
+- **Short-window burst detection** (10-min)
+- **Long-window APT beacon tracking** (24-hour)
 
-**Exception Handling — Specific Types**
-- All `except Exception: pass` and broad `except Exception` clauses replaced with
-  specific exception types across all security modules (17b-1 acceptance criteria)
-- `src/security/blocklists.py` — `RedisError`, `JSONDecodeError`, `ValueError` per catch site
-- `src/security/dns_enrichment.py` — `RedisError`, `JSONDecodeError`, `ValueError`, `TypeError` per catch site
-- `src/security/rdap_enrichment.py` — `RedisError`, `JSONDecodeError`, `asyncio.TimeoutError` per catch site
-- `src/security/asn_classifier.py`, `src/security/tcp_analyzer.py`, `src/security/beaconing_detector.py`, `src/security/abuseipdb.py` — specific types
-- `src/analytics/main.py`, `src/analytics/stream_consumer.py` — specific types
-
-**New Prometheus Metrics**
-- `ja4proxy_pipeline_unexpected_errors_total{phase}` — pipeline internal errors (must be 0)
-- `ja4proxy_exception_handled_total{module,exception_type}` — exception census by module
-- `ja4proxy_dns_ptr_errors_total{error_type}` — DNS PTR failures by type (timeout|nxdomain|servfail|other)
-- `ja4proxy_rdap_lookup_errors_total{rir}` — RDAP lookup failures by RIR
-
-**Protocols**
-- `src/security/protocols.py` — `SignalCollector` runtime-checkable Protocol for dependency injection
-- `Pipeline.__init__` accepts `collectors: list | None` for test isolation
-
-**Static Analysis Gates**
-- `scripts/check_bare_except.py` — AST-based checker; fails CI on `except:` or `except Exception: pass`
-- `scripts/check_logger_format.sh` — grep-based checker for f-string logger calls
-
-**Tests** (52 new tests, total 2233)
-- `tests/unit/test_exception_handling.py` — 32 tests, one per specific exception type/module
-- `tests/unit/test_pipeline_isolation.py` — 12 tests for collector injection path
-- `tests/chaos/test_exception_handling_chaos.py` — 8 chaos tests (all APIs failing simultaneously, Redis down, malformed JSON, etc.)
-
-**Documentation**
-- `docs/runbooks/security_incident_response.md` — new runbook for pipeline errors and exception rate spikes
-- `docs/OBSERVABILITY_STANDARDS.md` — 5 new metrics, 2 new Grafana panels, 2 new AlertManager rules
-- `monitoring/alertmanager/rules/security.rules.yml` — `PipelineInternalError` (critical) and `ExceptionRateSpike` (warning)
-
-### Changed
-
-- All exception catch sites in `tests/` updated to raise specific exception types matching narrowed catches
-- `docs/phases/manifest.yaml` Phase 18 updated to COMPLETE
-
-## [19.1.0] - 2026-03-22 — Phase 18: Security Audit Remediation
+## [8.0.0] - 2026-02-20 — Phase 8: Spamhaus DROP/EDROP
 
 ### Added
+- **In-process trie matching** for zero-latency hard blocks
+- **Feed management framework** with ETag and leader election
+- **Automated daily feed updates**
 
-**Exception Handling**
-- `src/security/pipeline.py` — Granular exception handling for all signal modules
-- `ja4proxy_signal_skipped_total` — Counter for expected dependency failures (timeout, connection loss)
-- `ja4proxy_signal_error_total` — Counter for unexpected internal errors (bugs, logic errors)
-- `tests/chaos/test_pipeline_remediation.py` — Chaos tests verifying metric accuracy for bugs and network failures
-
-### Changed
-
-**Logging Efficiency**
-- Replaced f-string logging with lazy formatting (`%s`, `%.2f`) across all core security and analytics modules:
-    - `src/security/pipeline.py`
-    - `src/security/security_manager.py`
-    - `src/security/action_enforcer.py`
-    - `src/security/mtls.py`
-    - `src/security/gdpr_storage.py`
-    - `src/security/threat_evaluator.py`
-    - `src/security/rate_tracker.py`
-    - `src/analytics/` (all modules)
-- Improved `_get_analytics_signals` to propagate dependency failures for proper metric tracking.
-
-## [19.0.1] - 2026-03-24 — Phase 19b: Backup & Restore Gap Closure
-
-### Changed
-
-**Configuration Defaults (corrected to match spec)**
-- `backup.max_keys_per_run`: 1,000 → 5,000,000 (prevents false-low cap on large deployments)
-- `backup.max_size_bytes`: 1 GB → 10 GB (matches Phase 19b spec)
-- `backup.include_audit_log`: true → false (audit log excluded by default; opt-in only)
-- All backup config keys now have inline YAML comments explaining purpose and valid values
-
-**Manifest Format**
-- Added `encryption` block to every backup manifest (always `enabled: false` in Phase 19)
-- Extensibility marker for Phase 21 KMS integration without format redesign
+## [7.0.0] - 2026-02-15 — Phase 7: FCrDNS Enrichment
 
 ### Added
-
-**FP Corpus Tests**
-- `tests/fp_corpus/test_backup_fp.py` — 13 FP corpus tests verifying:
-  - Critical security keys (ban:*, ja4:blacklist, config:*, tor:exit:ips, rdap:*) always included
-  - Transient keys (session:*, lifespan:*, concurrent:*, beacon:*, bloom:*) always excluded
-  - Deny-by-default for unknown keys not matching any pattern
-
-**Documentation**
-- `docs/DEPLOYMENT_SECURITY_MODEL.md` — OS user model, network exposure, secret management,
-  backup security section with deployment checklist and known limitations per Phase 19b §8
-- `docs/INCIDENT_RESPONSE.md` — Backup & restore recovery procedures: find backup, validate,
-  non-destructive restore, destructive restore, verify state, monitoring alerts
-
-## [19.0.0] - 2026-03-21 — Phase 19: Backup & Restore Framework
-
-### Added
-
-**Backup System**
-- `src/backup/worker.py` — Backup worker with deterministic key enumeration
-- `src/backup/restorer.py` — Restore engine with checksum verification
-- `src/backup/policy.py` — Key inclusion/exclusion policy
-- `src/cli/backup_cli.py` — CLI interface for backup/restore operations
-- Backup artifact format: `.bin` (data) + `.manifest.json` (metadata)
-- SHA256 checksum verification for all backups
-- Never-backup guard for sensitive keys (API tokens, passwords)
-- Filesystem permission validation for backup directory
-- Retention policy: age-based and count-based cleanup
-
-**Restore System**
-- Non-destructive restore (default) — preserves existing keys
-- Destructive restore (explicit `--force` flag) — full wipe before restore
-- Manifest validation with required field checking
-- Checksum verification before restore operations
-- Audit logging for all restore operations
-
-**Observability**
-- Prometheus metrics: `ja4proxy_backup_*` and `ja4proxy_restore_*`
-- Structured JSON logs with `subsystem: "backup"` and `subsystem: "restore"`
-- Redis control keys: `backup:latest`, `backup:last_success`, `backup:last_failure`
-- Alert rules for stale backups and failure rates
-
-**Testing**
-- Unit tests: 85 tests covering all backup/restore functionality
-- Integration tests: 19 tests with real Redis scenarios
-- Performance tests: 23 tests for runtime benchmarks and hot-path non-regression
-- Chaos tests: 7 scenarios (Redis timeout, network interruption, etc.)
-- Adversarial tests: 9 security attack scenarios
-
-**Documentation**
-- `docs/REDIS_SCHEMA.md` — Backup-related Redis keys
-- `docs/OBSERVABILITY_STANDARDS.md` — Backup/restore metrics
-- `docs/SECOPS_OPERATIONS.md` — Backup/restore operations guide
-- `docs/QUICK_REFERENCE.md` — Backup/restore command reference
-- `docs/decisions/ADR-019.md` — Architecture decision record
-- `docs/security/BACKUP_THREAT_MODEL.md` — Comprehensive threat analysis
-
-**Configuration**
-- `config/proxy.yml` — New `backup:` configuration block
-- Configurable backup destination, retention policies, and key limits
-- Safe defaults for all backup operations
-
-### Security
-
-- Never-backup patterns for sensitive keys
-- Filesystem permission validation (no world/group writable directories)
-- Audit logging for all backup/restore operations
-- Checksum verification to detect tampering
-- Explicit destructive restore flag to prevent accidental data loss
-
-### Breaking Changes
-
-None — Phase 19 adds new functionality without modifying existing behavior
-
-### Migration
-
-No migration required — backup system is opt-in via configuration
-
-## [16.0.0] - 2026-03-21 — Phase 16: Test Suite Hardening, JA4X Fingerprinting & OpenTelemetry
-
-### Added
-
-**16a — Adversarial Input Corpus**
-- `tests/adversarial/corpus/` — 13 ClientHello `.bin` files covering truncation, GREASE,
-  max-length SNI, null bytes, duplicate extensions, overflow, and random garbage
-- `tests/adversarial/test_tls_parser_adversarial.py` — parametrized over all corpus files; parser must not
-  raise uncaught exceptions
-- `tests/adversarial/test_ja4_adversarial.py` — 10 degenerate inputs (empty, all-GREASE, max cipher list,
-  max SNI, 65 extension types)
-
-**16b — False-Positive Rate Corpus**
-- `tests/fp_corpus/data/tranco_top_10k.txt` — 10,000 domains; no network required
-- `tests/fp_corpus/data/residential_ips.txt` — 500 anonymised residential IPs
-- `tests/fp_corpus/data/browser_keepalive_timestamps.csv` — 450 rows, 30 sessions
-- `tests/fp_corpus/test_dga_fp_rate.py` — DGA FP rate < 1% on Tranco top 10k
-- `tests/fp_corpus/test_beaconing_fp_rate.py` — 0% FP on h2/h1 ALPN connections (ALPN guard verified)
-- `tests/fp_corpus/test_asn_fp_rate.py` — ASN FP rate < 2% on residential IP corpus
-
-**16c — Coverage Gates (all src/security/*.py ≥ 80%, proxy.py ≥ 95%)**
-- `make lint-coverage` runs `pytest --cov-fail-under=80 --cov=src --cov=proxy`
-- `tests/unit/test_rdap_enrichment_coverage.py` — 107 new tests; rdap_enrichment at 96%
-- `tests/unit/test_abuseipdb.py` — `_CacheHitTracker` edge cases added; at 85%
-- `tests/unit/security/test_asn_classifier.py` — extended to 100%
-
-**16d — External API Failure Chaos Tests**
-- `tests/chaos/test_external_api_failure.py` — AbuseIPDB, RDAP, all-APIs-down scenarios
-
-**16e — Performance Benchmark CI Gate**
-- `tests/performance/test_bench_pipeline.py` — bypass p99=2.3µs, scoring p99=20.6µs
-- `tests/performance/test_bench_cidr_lookup.py` — 100k-entry trie p99=0.96µs
-
-**16f — Static Analysis Gates** (`make lint-static`)
-
-**16g — JA4X Extended Fingerprinting**
-- `Pipeline._extract_ja4x_from_cert()` — DER X.509 cert → SHA-256 issuer/subject/SAN hashes
-- JA4X whitelist bypass (`bypass_reason="ja4x_whitelist"`) and blacklist RiskSignal (+80)
-- `Pipeline.update_ja4x_sets()` — in-process whitelist/blacklist sets (same structure as JA4)
-- JA4X emitted in structured JSON log (`fingerprinting.ja4x.emit_in_logs: true`)
-- `config/proxy.yml` — `fingerprinting.ja4x` block added
-- `tests/unit/security/test_ja4x.py` — 30 tests: hash computation, cert extraction, pipeline
-
-**16h — Adaptive Rate Limiting** (`rate_limiter.adaptive` config; disabled by default)
-
-**16i — Kubernetes / Helm** (`deploy/helm/ja4proxy/`; `helm lint` passes)
-
-**16j — OpenTelemetry Distributed Tracing**
-- `src/telemetry/tracing.py` — `Tracing`, `_NoopTracer`, `_NoopSpan`, `init_tracing_from_config()`
-- `Pipeline.__init__` accepts optional `tracing` parameter; `process()` emits top-level span
-- Zero overhead when disabled; `config/proxy.yml` — `telemetry.tracing` block added
-- `tests/unit/test_tracing.py` — 26 tests: noop path, OTEL mocked, pipeline integration
-
-**16k — Python Admin CLI** (`scripts/ja4proxy_admin.py`; 39 unit tests)
-
-### Fixed
-- `src/telemetry/tracing.py` — replaced `print()` with structured logging; module-level names
-  always bound (`trace = None` etc.) so tests can patch them when OTEL not installed
-
-## [14.6.1] - 2026-03-19 - Production Docker fixes: secrets, Grafana password, redis-exporter
-
-### Fixed
-- `scripts/docker-entrypoint.sh`: inject Docker secrets as env vars before `exec`
-  so `REDIS_PASSWORD` and `ABUSEIPDB_API_KEY` reach the proxy process. Docker secrets
-  are mounted as files; the proxy reads env vars — the entrypoint was a stub that did
-  not read those files.
-- `docker/docker-compose.prod.yml`: move `GF_SECURITY_ADMIN_PASSWORD__FILE` from a
-  comment into the `grafana` service `environment:` block so Grafana actually reads the
-  secret file at startup (password was silently ignored before).
-- `docker/docker-compose.prod.yml`: add `redis-exporter` service
-  (`oliver006/redis_exporter:v1.55.0`) — Prometheus scrape target
-  `ja4proxy-redis-exporter:9121` in `monitoring/prometheus/prometheus.yml` had no
-  corresponding container, so Redis metrics were never collected in production.
-  Uses `REDIS_PASSWORD_FILE` (supported since v1.46) to avoid plaintext password in env.
-
-## [15.0.1] - 2026-03-21 - Documentation accuracy and consistency fixes
-
-### Changed
-- `README.md`: replaced macOS-only `open` example with Linux-first `xdg-open` and
-  kept a macOS fallback comment.
-- `README.md`: updated Management UI service row to clearly show deferred status
-  (Phase 13 not yet implemented).
-- `docs/QUICK_REFERENCE.md`: corrected script paths to `./scripts/...` for start,
-  stop, status, traffic generation, smoke test, and troubleshooting commands.
-- `docs/QUICK_REFERENCE.md`: replaced macOS-only `open` example with Linux-first
-  `xdg-open` and macOS fallback comment.
-- `CONTRIBUTING.md`: updated project structure comment to reflect deferred
-  post-Phase-15 Management UI implementation.
-- `SECURITY.md`: resolved contradictory incident wording ("resolved" vs "required
-  action"), consolidated duplicate credential-exposure note, and standardised
-  `JA4proxy` naming.
-
-## [15.0.0] - 2026-03-17 — Go Proxy Rewrite
-
-### Added
-- Go proxy (`cmd/proxy/`) as drop-in replacement for `proxy.py`
-- All Phase 0–14 security signals ported to Go (TLS enforcer, SNI analyzer, TCP
-  analyzer, rate limiter, ASN classifier, DNS enrichment, blocklists, beaconing
-  detector, AbuseIPDB, RDAP enrichment, analytics signals)
-- Prometheus metrics HTTP server (`:9090/metrics`) — identical metric names/labels to Python
-- `/health` HTTP endpoint with Redis connectivity check
-- PROXY protocol v1 support for real client IP extraction behind HAProxy
-- `Dockerfile-go` multi-stage build (runtime image ≤ 10MB)
-- `docker-compose.go.yml` for parallel Python + Go validation
-- ADR-015: Go vs Rust decision documentation
-- Migration runbook: `docs/runbooks/go_proxy_migration.md`
-- Operations runbook: `docs/runbooks/go_proxy_operations.md`
-
-### Architecture
-- Python analytics container (`analytics/`) remains Python (scipy/pandas ecosystem)
-- Redis key schema unchanged — Go and Python share one Redis instance
-- `config/proxy.yml` schema unchanged — Go reads the same file
-
-### Performance
-- Target: ≥5× throughput vs Python proxy (10,000+ conn/s per core, warm cache)
-- GC pause p99 target: < 1ms at 1,000 conn/s sustained
-
-### Notes
-- Python proxy kept in place for rollback; switch HAProxy upstream to enable Go proxy
-- See `docs/runbooks/go_proxy_migration.md` for step-by-step cutover procedure
-
-## [12.4.0] - 2026-03-16 - PHASE 12 gap-close: Redis HyperLogLog + analytics hot-reload
-
-### Fixed
-- `src/analytics/stream_consumer.py` `process_event()`: HyperLogLog was using an
-  in-memory Python set placeholder ("Phase 12b will implement actual HyperLogLog").
-  Now writes `redis.pfadd(analytics:hll:{subnet}, ip)` + `redis.expire(..., 86400)`
-  on every event (cross-instance aggregation as specified). Fails open if Redis is
-  unavailable; in-process HLL still updated for local accuracy.
-- `src/analytics/main.py` `AnalyticsNode`: added `SIGHUP` → `_handle_reload()`
-  handler; reloads `config/analytics.yaml` from disk and propagates
-  `batch_size`/`timeout_ms` to the running consumer without restart. Logs
-  `config_reloaded` on success, `config_reload_failed` on parse error (keeps old
-  config).
-
-### Added
-- `tests/integration/test_stream_processing.py`:
-  - `TestRedisHyperLogLog` (4 tests): pfadd called with correct key/IP, IPv6 uses
-    /48 subnet, Redis failure is fail-open, TTL is 86400 s
-  - `TestAnalyticsNodeHotReload` (3 tests): config updated on reload, consumer
-    attributes propagated, corrupt config file is safe
-
-## [14.5.0] - 2026-03-16 - PHASE 14f: Production Docker Compose Cleanup
-
-### Changed
-- `docker/docker-compose.prod.yml`: complete rewrite — replaced broken aspirational
-  compose that referenced `Dockerfile.enterprise`, 3-node Redis cluster, ELK stack,
-  and `security-scanner` (none of which exist) with a realistic single-instance
-  production compose
-  - Services: haproxy, proxy, redis, analytics, tarpit, prometheus, grafana, loki, promtail
-  - Docker Compose secrets for `redis_password`, `grafana_password`, `abuseipdb_api_key`
-    (files in `secrets/*.txt`, gitignored)
-  - `BACKEND_HOST` uses `:?` syntax — operator must set it; no silent `:-changeme` default
-  - Uses `docker/Dockerfile` (real file) and single Redis instance (no HA cluster needed)
-  - Logging via Loki/Promtail (already in stack); ELK omitted as duplication
-  - All containers: `read_only`, `no-new-privileges`, `cap_drop: ALL`, resource limits
-
-### Added
-- `secrets/` directory (gitignored): stub placeholder files for Docker secrets so
-  `docker compose config` can validate the compose file without real credentials
-
-## [14.4.0] - 2026-03-16 - PHASE 14e: Alert Rules Overhaul
-
-### Changed
-- `proxy.py`: renamed `ACTIVE_CONNECTIONS` Gauge from `ja4_active_connections` →
-  `ja4proxy_active_connections` for consistent `ja4proxy_` prefix
-- `monitoring/prometheus/alerts.yml`: complete rewrite — all 14 alert rules now
-  reference real `ja4proxy_*` metrics; removed 11 ghost rules that referenced
-  non-existent pre-Phase-1 metrics (`ja4_blocked_requests_total`, `ja4_rate_limit_exceeded_total`,
-  `ja4_whitelist_size`, etc.)
-- `monitoring/prometheus/recording_rules.yml`: updated `ja4:connections:active`
-  expr to use `ja4proxy_active_connections`
-- `monitoring/grafana/dashboards/ja4proxy-overview.json`: updated active connections
-  panel expr to `ja4proxy_active_connections`
-- `scripts/demo-poc.sh`, `scripts/view-metrics.sh`, `scripts/generate-test-traffic.sh`:
-  updated metric name references
-
-### Added
-- `monitoring/alertmanager/rules/proxy.rules.yml`: ProxyHighBlockRate, ProxyDialChanged,
-  ProxyTarpitConcurrentHigh, ProxyInstanceDown
-- `monitoring/alertmanager/rules/redis.rules.yml`: RedisDown, RedisMemoryHigh
-- `monitoring/alertmanager/rules/security.rules.yml`: AbuseIPDBQuotaExhausted,
-  SpamhausDownloadFailed, SpamhausListStale
-- `tests/unit/test_alert_rules.py`: 43 tests validating YAML structure, required
-  fields, severity labels, and absence of old `ja4_*` metric names in all four files
-
-## [14.3.0] - 2026-03-16 - PHASE 14d: Rate Limit Memory Self-Protection
-
-### Added
-- `src/security/beaconing_detector.py` `BeaconingDetector`: `max_suspects` config
-  option (default 10 000); when `beacon:suspects` leaderboard exceeds the cap,
-  `ZREMRANGEBYRANK` trims the lowest-confidence entries before updating the gauge
-- `config/proxy.yml`: `beaconing_detector.max_suspects: 10000` with doc comment
-- Sliding window rate limiter (`scripts/sliding_window.lua`): verified — already sets
-  `EXPIRE` on both keys on every call; TTL compliance confirmed
-
-### Tests added (`tests/unit/security/test_beaconing_detector.py`)
-- 7 new tests in `TestSuspectsLeaderboardCap`: under-cap no-trim, at-cap no-trim,
-  one-over trim, many-over trim, gauge capped at max_suspects, trim error silenced,
-  default value of 10 000
-
-## [14.2.0] - 2026-03-16 - PHASE 14c: Tarpit Self-Protection
-
-### Added
-- `proxy.py` `_redirect_to_tarpit()`: Phase 14c self-protection logic
-  - Global concurrent cap (`tarpit.max_concurrent_connections`, default 500)
-  - Per-IP cap (`tarpit.max_per_ip`, default 3) enforced independently
-  - `overflow_action` configurable: `block` | `rst` | `allow` (fail open to backend)
-  - Both caps checked atomically under `self._tarpit_lock`
-  - Counters always decremented in `finally` — no leaks on abrupt disconnect
-- `proxy.py` metrics: `ja4proxy_tarpit_concurrent` (Gauge) and
-  `ja4proxy_tarpit_overflow_total{action}` (Counter)
-- `proxy.py` `ProxyServer.__init__()` and `create()`: `_tarpit_concurrent`,
-  `_tarpit_per_ip`, `_tarpit_lock` instance variables
-- `config/proxy.yml`: `tarpit` section with `max_concurrent_connections`,
-  `max_per_ip`, `overflow_action`, `overflow_log`
-- `tests/unit/test_tarpit_protection.py`: 17 tests covering global cap, per-IP cap,
-  counter decrement (clean + abrupt), all three overflow actions, and Prometheus gauge
-
-## [14.1.0] - 2026-03-16 - PHASE 14b: Graceful SIGTERM Shutdown
-
-### Added
-- `proxy.py` `ProxyServer.start()`: accepts optional `shutdown_event: asyncio.Event`
-  parameter; when set, a watcher coroutine calls `server.close()` to stop accepting
-  new connections, then drains in-flight connections up to `drain_timeout_seconds`
-- `proxy.py` `main()`: registers SIGTERM and SIGINT handlers via
-  `loop.add_signal_handler()`; both signals set the shared `shutdown_event` and
-  trigger the graceful drain path
-- `proxy.py` `main()`: `KeyboardInterrupt` and `asyncio.CancelledError` from
-  `proxy.start()` are now caught and silenced (clean shutdown path)
-- `config/proxy.yml`: `proxy.drain_timeout_seconds: 30` — configurable drain window
-- `tests/unit/test_graceful_shutdown.py`: 8 tests covering drain-zero, drain-all,
-  timeout-forced, partial drain, log content, and no-shutdown-event propagation
-
-### Implementation Notes
-- `drain_timeout_seconds` is hot-reloadable (read at shutdown time from `self.config`)
-- When drain timeout is exceeded, `shutdown_complete` log records the forced_close count
-  so operators know how many connections were hard-terminated
-- The watcher task is always cancelled in the `finally` block to avoid task leaks when
-  `serve_forever()` exits via `CancelledError` (test teardown path)
-
-## [14.0.1] - 2026-03-16 - PHASE 14a: Startup Secrets Hardening + JSON Logging
-
-### Added
-- `proxy.py` `JSONFormatter`: new `logging.Formatter` subclass that emits one valid
-  JSON object per log line; fields: `timestamp` (ISO-8601 with ms, Z suffix), `level`,
-  `subsystem`, `message`, optional `exception`; traceback suppressed in production
-- `proxy.py` `_init_logging()`: selects `JSONFormatter` when `json_enabled: true` in
-  config or when `ENVIRONMENT=production`; `SensitiveDataFilter` always attached to
-  the handler
-- `proxy.py` `_init_redis()`: when `ENVIRONMENT=production` and no Redis password is
-  set, logs a FATAL structured message and calls `sys.exit(1)` instead of connecting
-  without authentication
-- `config/proxy.yml`: `logging.json_enabled: false` (auto-enabled in production)
-- `docker-compose.poc.yml`: all 4x `${REDIS_PASSWORD:-changeme}` replaced with
-  `${REDIS_PASSWORD:?REDIS_PASSWORD is required}` — Docker Compose aborts if unset
-- `tests/unit/test_json_logging.py`: 25 tests covering JSON validity, required fields,
-  exception handling, sensitive data redaction, formatter selection, and production
-  startup exit
-
-## [14.0.0-plan] - 2026-03-15 - PHASE 14 PLAN: Production Hardening
-
-### Planning
-- `docs/phases/PHASE_14.md`: complete rewrite of Phase 14 plan
-  - Dropped over-engineered items (Redis cluster, ELK stack, Falco, Cosign — all
-    either already done, out of scope, or deferred with documented rationale)
-  - Added 6 concrete sub-phases grounded in the actual codebase state:
-  - 14a: startup secrets hardening (remove `:-changeme`, FATAL on missing prod password,
-    JSON formatter for structured log output)
-  - 14b: graceful SIGTERM shutdown (drain in-flight connections, log shutdown events)
-  - 14c: tarpit self-protection (max_concurrent, max_per_ip, overflow_action,
-    `ja4proxy_tarpit_concurrent` + `ja4proxy_tarpit_overflow_total` metrics)
-  - 14d: rate limit memory self-protection (beaconing suspects cap, sliding window TTL)
-  - 14e: alert rules overhaul (fix all `ja4_*` → `ja4proxy_*` metric names;
-    add proxy/redis/security Alertmanager rule files)
-  - 14f: production Docker compose cleanup (replace non-functional
-    `docker/docker-compose.prod.yml`; no weak-password fallbacks anywhere)
-- `docs/DMZ_DEPLOYMENT_READINESS.md`: updated to reflect what has been
-  implemented since February 2026 assessment; deferred items documented with rationale
-
----
-
-## [12.3.0] - 2026-03-15 - PHASE 12 COMPLETE: 12c + 12d GAPS CLOSED
-
-### Phase 12c gap fix
-- `monitoring/prometheus/prometheus.yml`: add `ja4proxy-analytics` scrape job
-  targeting `analytics:8080` — without this the Grafana dashboard showed no data
-
-### Phase 12d: Security Hardening (completion)
-- `src/analytics/authentication.py`: replay attack prevention — `validate_timestamp()`
-  enforces 5-minute event age window; stale events rejected even with valid HMAC;
-  10 s future-clock skew tolerance; only enforced when `hmac_required=True`
-- `src/analytics/stream_consumer.py`: `ja4proxy_analytics_stream_lag_seconds` Gauge
-  updated per message batch from Redis Stream message ID timestamp; logs WARN when
-  lag > 300 s
-- `docs/REDIS_SCHEMA.md`: added `analytics:ratelimit:{type}:{proxy_id}` and
-  `analytics:security:audit` keys; Phase 12 section now complete
-- `tests/chaos/test_stream_chaos.py` (17 tests): replay window boundaries, HMAC +
-  timestamp combined verification, malformed event rejection, stream lag metric
-- `tests/unit/test_hmac_authentication.py`: updated 2 tests to use `time.time()`
-  timestamps (were using 2009 epoch — now rejected by the new timestamp check)
-
-### Tests
-- 1435 passing, 0 failing
-
----
-
-## [12.2.0] - 2026-03-15 - PHASE 12c: SCORE DRIFT OBSERVABILITY
-
-### Added
-- `monitoring/grafana/dashboards/analytics.json`: Score Health dashboard — drift
-  status, calibration issue, distribution shift, score median trend, analytics
-  signals rate, stream lag, drift/distribution check p99 latency
-- `monitoring/prometheus/alerts.yml`: `ScoreDriftDetected` and
-  `AnalyticsStreamLagHigh` rules (warning severity, 5m `for:`)
-- `tests/chaos/test_drift_baseline.py` (11 tests): drift detector with missing,
-  corrupted, and insufficient baseline data; Redis failure; correct firing
-
----
-
-## [12.1.0] - 2026-03-15 - PHASE 12b: PROXY READS ANALYTICS SIGNALS
-
-Completes Phase 12b acceptance criteria. The proxy scorer now reads campaign
-and slow-scan findings written by the Analytics Node and factors them into
-risk decisions.
-
-### Added
-
-**`src/security/pipeline.py`:**
-- `Pipeline._get_analytics_signals(ip)`: reads `analytics:campaign:{subnet}`
-  (+35) and `analytics:slowscan:{subnet}` (+30) from Redis for the /24 (IPv4)
-  or /48 (IPv6) subnet of each connection
-- Results cached in `LocalCache.analytics_signals` (60s TTL) — one Redis read
-  per subnet per minute, not per connection
-- Fails open on any Redis exception; partial results never cached on error
-- Called as Phase 12 block at end of `_collect_signals()`
-- Prometheus counter: `ja4proxy_analytics_signals_total{signal_type="campaign|slowscan"}`
-
-**`src/cache/local_cache.py`:**
-- `LocalCache.analytics_signals`: new `LRUCache` (10k entries, 60s TTL)
-  for analytics cross-instance signal results; TTL configurable via
-  `local_cache.analytics_signals.ttl_seconds`
-
-### Tests
-
-- `tests/unit/test_analytics_signals.py` — 14 tests: subnet computation,
-  campaign/slowscan signals, cache hit/miss, fail-open, IPv4/IPv6, invalid IP
-- `tests/chaos/test_analytics_down.py` — 11 tests: all Redis exception types
-  fail open, no caching of error results, pipeline scores correctly when
-  analytics Redis is down, recovery after Redis comes back
-- Total: 1407 tests passing, 0 failing
-
----
-
-## [12.0.0] - 2026-03-15 - PHASE 12: ANALYTICS NODE (IN PROGRESS)
-
-Implementation in `src/analytics/` — 2,962 lines, 89 tests passing. Audited
-against acceptance criteria 2026-03-15; sub-phase plans updated to reflect
-actual state. Remaining gaps tracked in PHASE_12A-D.md.
-
-### Added
-
-**Analytics Node (`src/analytics/`):**
-- `src/analytics/stream_consumer.py`: Redis Stream consumer with consumer group `analytics`,
-  replay on restart, HMAC validation, configurable batch processing
-- `src/analytics/aggregation.py`: 5-minute rolling window aggregation per IP, /24, /48;
-  HyperLogLog unique IP counting; writes `analytics:agg:{window}:{subnet}`
-- `src/analytics/detection.py`: Campaign detection (density+block_rate thresholds), slow-scan
-  detection (low-rate distributed), JA4 fingerprint intelligence (candidate list)
-- `src/analytics/baseline_monitor.py`: Hourly score snapshots to `analytics:baseline:hourly:*`
-  with 7-day TTL
-- `src/analytics/drift_detector.py`: Z-score drift detection vs 7-day baseline; alert to
-  `analytics:alerts:score_drift`; Prometheus gauge
-  `ja4proxy_analytics_score_drift_detected`
-- `src/analytics/shadow_scoring.py`: Known-good h2/h1 ALPN traffic tracked as calibration
-  signal; calibration alert when shadow median rises
-- `src/analytics/distribution_analyzer.py`: KS-statistic approximation for distribution shift
-- `src/analytics/authentication.py`: HMAC-SHA256 event signing with `compare_digest`
-- `validation.py`, `src/analytics/event_schemas.py`: JSON Schema event validation
-- `src/analytics/security_hardening.py`: Per-proxy rate limiting, audit event logging
-- `src/analytics/monitoring.py`: `MonitoringSystem` orchestrating all 12c components;
-  Prometheus metrics exposed
-- `src/analytics/main.py`: `AnalyticsNode` entry point with signal handling
-- `Dockerfile`, `src/analytics/entrypoint.sh`: Independent container (no proxy deps)
-- `config/analytics.yaml`: Full configuration
-
-**Proxy integration (`src/security/pipeline.py`):**
-- `_emit_stream_event()`: fire-and-forget XADD to `ja4proxy:events` stream;
-  hot path never awaits stream writes
-
-### Remaining Gaps (before phase marked complete)
-- HTTP server for `/health`, `/ready`, `/metrics` endpoints (12a)
-- `requirements-analytics.txt` (Docker build currently broken) (12a)
-- docker-compose service entry for analytics (12a)
-- Proxy scorer reading `analytics:campaign` and `analytics:slowscan` signals (12b)
-- Grafana analytics dashboard (12c)
-- Two Alertmanager rules: ScoreDriftDetected, AnalyticsStreamLagHigh (12c)
-- Chaos tests: analytics down, stream lag, malformed events (12d)
-- Replay attack prevention in HMAC validation (12d)
-
----
-
-## [13.2.0] - 2026-03-15 - CHORE: REMOVE MANAGEMENT UI (DEFERRED TO POST-PHASE 15)
-
-### Removed
-
-- **management/** — entire FastAPI backend + React/TypeScript frontend removed from
-  the codebase. The implementation had grown to 245 MB (node_modules) and ~7k lines
-  without producing a working UI. No core proxy code imported from it.
-- **tests/unit/test_management_ui.py**, **tests/integration/test_management_ui.py**,
-  **tests/chaos/test_management_chaos.py** — UI-specific test files removed.
-- **docker/Dockerfile.management**, **docker/entrypoint.management.sh** — management
-  container build files removed.
-
-### Notes
-
-- The Phase 13 design plan (`docs/phases/PHASE_13.md`) is preserved for future
-  implementation.
-- Management UI is deferred until after Phase 15 (Go rewrite), when the API surface
-  is stable and the UI can be built correctly from scratch.
-- 1382 tests pass, 0 fail after removal.
-
----
-
-## [13.1.0] - 2026-03-11 - PHASE 13b: MANAGEMENT UI COMPLETION
-
-### Added
-
-**Backend Completion:**
-- **Startup Guard**: Server exits with FATAL log if `UI_API_KEY` not set (`sys.exit(1)`)
-- **allowed_cidr Middleware**: IP-based access control with CIDR filtering; health/ready endpoints exempt
-- **Router Extraction**: Moved config, health, audit, integrations to separate router files
-- **SSE Events Router**: Live connection feed with filtering (action, country, ASN type, min_score) and 50 subscriber limit
-- **Dial Counterfactual Endpoint**: `GET /api/v1/dial/counterfactual?dial={value}` estimates blocking impact
-
-**New Router Files:**
-- `src/analytics/config.py`: Threshold, feature, country management with validation
-- `src/security/health.py`: Health/ready endpoints (unauthenticated /health, /ready)
-- `management/routers/audit.py`: Paginated audit log with event type filtering
-- `management/routers/integrations.py`: AbuseIPDB, Spamhaus, RDAP, analytics status endpoints
-- `management/routers/events.py`: SSE live feed and recent events endpoint
-
-**Models:**
-- `ThresholdConfig` Pydantic model with ascending order validation (flag ≤ rate_limit ≤ tarpit ≤ block ≤ ban)
-
-**Configuration:**
-- `management_ui:` section in `config/proxy.yml` with hot-reload support
-- Environment variables: `MANAGEMENT_ALLOWED_CIDR`, `MAX_SSE_SUBSCRIBERS`, `MAX_DIAL_CHANGES_PER_HOUR`, `MAX_AUTH_FAILURES_PER_MINUTE`
-
-**Security:**
-- Fixed bytes vs string bug in threshold handling (no more `b"flag"` keys)
-- All endpoints require authentication except `/health` and `/ready`
-- Health endpoints exempt from CIDR restrictions
-- Rate limiting on all authenticated endpoints
-
-**Observability:**
-- Prometheus metrics: `ja4proxy_mgmt_sse_subscribers_active`, `ja4proxy_mgmt_redis_errors_total{operation}`
-- AlertManager rules: `monitoring/alertmanager/rules/management_ui_rules.yml` (10 rules)
-- Grafana dashboard: `grafana/dashboards/management_ui.json` (12 panels)
-- Comprehensive audit logging for all configuration changes
-
-**Documentation:**
-- `docs/decisions/ADR-013.md`: Management UI technology rationale
-- `docs/runbooks/management_ui.md`: Complete operational procedures
-- `docs/REDIS_SCHEMA.md`: Updated with 10 new Phase 13 keys
-- `CHANGELOG.md`: This entry
-
-**Testing:**
-- 15 new unit tests in `tests/unit/test_management_ui.py`
-- 4 new integration tests in `tests/integration/test_management_ui.py`
-- 10 new chaos tests in `tests/chaos/test_management_chaos.py`
-- Test coverage: startup guard, CIDR middleware, threshold validation, SSE endpoints, counterfactual, integrations
-
-**Dependencies:**
-- `sse-starlette>=1.6.5` for Server-Sent Events support
-
-### Changed
-
-- `management/server.py`: Added startup guard, CIDR middleware, router wiring, removed inline routes
-- `src/security/models.py`: Added `ThresholdConfig` model
-- `management/routers/dial.py`: Added counterfactual impact endpoint
-- `requirements.txt`: Added `sse-starlette>=1.6.5`
-- `config/proxy.yml`: Added `management_ui:` section with inline comments
-
-### Fixed
-
-- Bytes vs string decode bug in threshold handling (Redis returns strings when `decode_responses=True`)
-- Configuration validation for thresholds (ascending order requirement)
-- Error handling throughout with consistent 503 responses for Redis failures
-
-### Security
-
-- API key required for all authenticated endpoints
-- CIDR-based access restriction for management UI
-- Rate limiting on authentication failures (100 per IP)
-- Dial change rate limiting (10 per hour)
-- SSE subscriber cap (50 concurrent)
-- All admin actions logged to audit trail
-
-## [11.0.0] - 2026-03-09 - PHASE 11: RDAP ENRICHMENT & BLOCK EXPANSION
-
-### Added
-
-- **`src/security/rdap_enrichment.py`** — Phase 11 RDAP enrichment module:
-  - `RDAPConfig` dataclass — all fields from `rdap_enrichment:` config section; `from_config()` loads from proxy.yml
-  - `RDAPResult` dataclass — netblock, org_name, org_handle, asn, country, registration_date, fetched_at, is_unknown
-  - `RegistryRateLimiter` — in-process asyncio token bucket per RIR (ARIN/RIPE/APNIC/LACNIC/AFRINIC); configured rates
-  - `RDAPEnricher` class with async background worker pool (`worker_count` coroutines draining `asyncio.Queue`)
-  - `get_signal(ip, trigger_score)` — synchronous hot-path entry point; reads `LocalCache.rdap_results` (no Redis on hot path); enqueues background lookup on cache miss when `trigger_score >= min_enqueue_score`
-  - `record_browser_subnet(ip)` — async; sets `browser:seen:subnet:{subnet}` with 24h TTL; called fire-and-forget for h2/h1 ALPN connections; prevents block expansion for subnets with browser traffic
-  - IANA bootstrap loading: leader election (`leader:rdap_bootstrap_download` lock); downloads `ipv4.json` + `ipv6.json`; caches in Redis (`rdap:bootstrap:v4`, `rdap:bootstrap:v6`, 24h TTL); non-leader instances load from Redis
-  - `get_rdap_base_url(ip)` — longest-prefix-match bootstrap routing to correct RIR
-  - `_api_lookup(ip, base_url)` — aiohttp GET; follows up to 3 redirects manually; HTTP 404 → `_NotFoundError` (not error); timeout + 5xx → raise
-  - `_parse_rdap_response(data, ip)` — parses vCard format; handles ARIN (`handle`) vs RIPE (`nic-hdl`) org handles; extracts registration date from `events` array; graceful fallback for all fields
-  - `_check_known_bad(org_handle, org_name) -> tuple[bool, dict|None]` — exact handle match first; then case-insensitive substring match on org_name
-  - `_rdap_to_signals(rdap) -> list[RiskSignal]` — emits `rdap_known_bad_org` and/or `rdap_new_netblock` signals from cached results
-  - `maybe_expand_block(ip, rdap, trigger_score, is_known_bad)` — 4 independent safety guards + hourly rate limit cap; only runs when `block_expansion.enabled: true`
-  - Guard 1: `trigger_score >= min_trigger_score` (default 75)
-  - Guard 2: RDAP netblock prefix ≥ max configured (IPv4: /24, IPv6: /48); broader blocks skipped
-  - Guard 3: `browser:seen:subnet:{subnet}` key absent (atomic Redis GET; no race)
-  - Guard 4: org confirmed known-bad (high score alone insufficient)
-  - `_check_expansion_rate_limit()` — atomic Redis INCR/DECR on `rdap:expansions:count:{YYYY-MM-DDTHH}` with 3600s TTL; cross-instance cap
-  - `_apply_expansion(cidr, rdap, trigger_score)` — writes `ban_cidr:{cidr}` to Redis with TTL; calls `BlocklistManager.load_cidrs()` for local trie; publishes `{"type":"cidr_ban_add","value":cidr}` to `ja4proxy:invalidate`
-  - `_log_expansion_audit(ip, cidr, rdap, trigger_score)` — LPUSH JSON + LTRIM 1000 on `rdap:expansions`
-  - `_compute_expansion_cidr(ip, config)` — always expands to configured prefix (/24 IPv4, /48 IPv6) around trigger IP
-  - `_scan_existing_ban_cidrs()` — on startup, SCANs `ban_cidr:*` from Redis and loads into `BlocklistManager` trie
-  - Bloom filter dedup (`bloom:rdap_enriched`, 24h TTL); fallback to SET+TTL when RedisBloom unavailable
-  - `on_config_reload(new_config)` — hot-reloads all fields except `worker_count` and `queue_size` (WARN logged if those change)
-  - Startup: fatal error with clear message when `config/known_bad_orgs.yml` is missing
-  - `delegate_to_analytics: true` mode: IPs published to `analytics:enrich:rdap` Set; local workers idle
-  - Prometheus: `ja4proxy_rdap_enrichment_queue_depth`, `ja4proxy_rdap_lookup_total{registry,result}`, `ja4proxy_rdap_block_expansions_total`, `ja4proxy_rdap_parse_errors_total`, `ja4proxy_rdap_queue_dropped_total`, `ja4proxy_rdap_expansions_this_hour`
-  - Structured JSON logging: `block_expansion_applied`, `registry_error`, `bootstrap_download_failed`, `worker_unhandled_error`, `shutdown_queue_not_empty`
-  - `datetime.now(timezone.utc)` used throughout; never `datetime.utcnow()` (deprecated)
-  - `# pragma: no cover` on ImportError blocks
-
-- **`config/known_bad_orgs.yml`** — ≥ 30 entries of known bulletproof hosting providers:
-  - Frantech/BuyVM, Ponynet, Quasi Networks, Psychz Networks, combahton, HostSailor, Alexhost, Zare Ltd, Reprise Hosting, Staminus
-  - M247, Leaseweb, Serverius, DataCamp Limited, Hostwinds, Voxility, Sharktech, QuadraNet, ColoCrossing, Limestone Networks, Nocix, Nexeon
-  - Tor Project, Torservers.net, Quintex Alliance Consulting
-  - Afrihost, BlazingFast, ServerChef, Aeza International
-
-- **`src/pubsub.py`** — `PubSubHandler` extended:
-  - Optional `blocklist_manager=None` parameter added to `__init__`
-  - New `case "cidr_ban_add"` in `_dispatch()` calls `blocklist_manager.load_cidrs([value], "rdap_expansion", ...)`
-  - Module docstring updated to list `cidr_ban_add` message type
-
-- **Pipeline integration** (`src/security/pipeline.py`):
-  - `RDAPEnricher` imported and held as `_rdap_enricher` (None by default)
-  - `set_rdap_enricher()` setter called by `ProxyServer` after startup
-  - `record_browser_subnet(ip)` called fire-and-forget at top of `_collect_signals()` for h2/h1 ALPN connections
-  - `get_signal(ip, running_score)` called **last** in `_collect_signals()` after all other signal modules; `running_score` is sum of all preceding signal scores
-
-- **`proxy.py`** — startup/shutdown wiring:
-  - `RDAPEnricher` instantiated after AbuseIPDB; reuses shared `aiohttp.ClientSession`
-  - `await rdap_enricher.start()` called at startup
-  - `pipeline.set_rdap_enricher(rdap_enricher)` wires enricher into pipeline
-  - `pipeline._blocklist_manager` passed to `RDAPEnricher` for local trie updates
-  - On shutdown: `await rdap_enricher.stop()` called before `aiohttp_session.close()`
-
-- **`config/proxy.yml`** — `rdap_enrichment:` section:
-  - `enabled: true`, `queue_size: 500`, `worker_count: 3`, `min_enqueue_score: 20`
-  - `lookup_timeout_seconds: 15`, `delegate_to_analytics: false`
-  - `org_reputation:` subsection (`enabled: true`, `score: 45`)
-  - `new_netblock_flagging:` subsection (`enabled: true`, `max_age_days: 90`, `score: 20`)
-  - `block_expansion:` subsection (`enabled: false` by default; all guard thresholds configurable)
-  - All keys with inline comments per project style
-
-- **`src/cache/local_cache.py`** — `rdap_results` LRU cache entry (already existed from prior phase stub):
-  - TTL 86400s (24h), max 20,000 entries
-  - Background RDAP workers write here; `get_signal()` reads synchronously (no await)
-
-- **`tests/mocks/rdap_mock.py`** — RDAP test double:
-  - `RDAPMock` class with `set_result()`, `set_not_found()`, `set_error()`, `set_timeout()`, `set_redirect()` per-IP configuration
-  - `make_session()` returns AsyncMock-based aiohttp session; intercepts IANA bootstrap + RDAP IP lookup URLs
-  - `requested_ips` list for assertion in tests
-  - `make_rdap_result()` convenience factory
-
-- **`tests/unit/test_rdap_enrichment.py`** — unit tests covering all AC items:
-  - Known-bad org: exact handle, substring name, no match
-  - New netblock: young/old/missing date
-  - `get_signal()`: LRU hit, miss below threshold, miss above threshold (enqueues)
-  - Block expansion: all 4 guards individually + all passing + rate limit exceeded
-  - `_compute_expansion_cidr()`: IPv4 /24, IPv6 /48
-  - RDAP 404 → `is_unknown=True`; no error counter
-  - Bootstrap routing: IPv4 and IPv6
-  - Worker `CancelledError` exits cleanly
-  - Queue full → drop; `rdap_queue_dropped_total` incremented
-  - `PubSubHandler` `cidr_ban_add` → calls `blocklist_manager.load_cidrs()`
-  - `on_config_reload()` WARN for non-hot-reloadable keys
-
-- **`tests/adversarial/test_rdap_fp.py`** — false positive tests:
-  - RDAP signals alone (45+20=65) < block threshold (70); verified via scorer
-  - Legitimate org names with common words don't match known-bad list
-  - Browser traffic in subnet → guard 3 blocks expansion even for confirmed bad org
-  - One attacker in shared /24 → guard 3 protects legit users
-
-- **`tests/integration/test_pipeline.py`** — RDAP integration test class:
-  - RDAP signal from LRU cache appears in pipeline result
-  - LRU miss → pipeline returns allow/monitor without crash
-  - Disabled enricher → no RDAP signals
-
-- **`tests/chaos/test_external_api_failure.py`** — RDAP chaos tests:
-  - RIR API unreachable → fail open; error counter incremented; queue drains normally
-  - Bootstrap download fails → Redis cache used; WARN logged
-  - Malformed JSON → fail open; worker continues
-  - Queue overflow → dropped silently; drop counter incremented
-
-- **`docs/REDIS_SCHEMA.md`** — Phase 11 section with all 10 key patterns
-
-### Design decisions
-
-- `block_expansion.enabled: false` default prevents automated expansion on first deploy
-- `org_reputation.score=45 + new_netblock.score=20 = 65 < block_threshold=70` — RDAP signals alone never trigger hard block
-- `ban_cidr:{cidr}` prefix (not `ban:{cidr}`) avoids collision with per-IP ban handler
-- Reuses `BlocklistManager.load_cidrs()` from Phase 8 — no new trie needed
-- Shared `aiohttp.ClientSession` injected; never created per-request
-- `get_signal()` is `def` (synchronous) — hot path never awaits
-
-## [10.0.0] - 2026-03-08 - PHASE 10: ABUSEIPDB INTEGRATION
-
-### Added
-
-- **`src/security/abuseipdb.py`** — Phase 10 AbuseIPDB reputation checker:
-  - `AbuseIPDBConfig` dataclass — all fields from config section; `from_config()` loads `ABUSEIPDB_API_KEY` env var when config value is empty
-  - `AbuseIPDBChecker` class with three-tier cache hierarchy: in-process LRU → Redis `abuseipdb:score:{ip}` → API queue
-  - `get_signal(ip)` — synchronous hot-path entry point; returns immediately from Tier 1 or None; never blocks
-  - `get_score(ip)` — async; checks Tier 1 + Tier 2 (Redis); enqueues on miss; never blocks
-  - Background worker pool (`worker_count` coroutines draining `asyncio.Queue`)
-  - `asyncio.CancelledError` handled cleanly in workers; `stop()` completes within 5 seconds
-  - Bloom filter dedup (`bloom:abuseipdb_enriched`, 24h TTL); fallback to `bloom_fallback:abuseipdb_enriched:{ip}` SET+TTL when RedisBloom unavailable
-  - Daily quota tracking: atomic `INCR` on `abuseipdb:quota:{YYYY-MM-DD}`; rolls back on over-limit; uses `datetime.now(timezone.utc)` (not deprecated `utcnow()`)
-  - Quota exhausted: WARN logged once, `ja4proxy_abuseipdb_quota_exhausted` gauge=1, enqueueing stopped; resets next UTC day
-  - API error / timeout: fail open (score=0), error counter incremented, no hanging coroutine
-  - Write-through caching: API result written to both Redis (`setex`) and in-process LRU
-  - `abuseipdb_to_risk_signal()` — pure function; `confidence < shared_ip_threshold` → contribution capped at 15 (shared IP protection); `confidence >= threshold` → scaled to `score_cap` (default 40); `score_cap` never exceeded
-  - `delegate_to_analytics` mode: `SADD` to `analytics:enrich:abuseipdb`; local workers idle
-  - `on_config_reload()` — hot-reloads all fields except `worker_count` and `queue_size` (WARN logged if those change)
-  - Prometheus: `ja4proxy_abuseipdb_lookup_total{result}`, `ja4proxy_abuseipdb_enrichment_queue_depth`, `ja4proxy_abuseipdb_quota_exhausted`, `ja4proxy_abuseipdb_quota_used_today`, `ja4proxy_abuseipdb_cache_hit_ratio`, `ja4proxy_abuseipdb_queue_dropped_total`
-  - Structured JSON logging following project conventions
-
-- **Pipeline integration** (`src/security/pipeline.py`):
-  - `AbuseIPDBChecker` imported and held as `_abuseipdb_checker` (None by default)
-  - `set_abuseipdb_checker()` setter called by `ProxyServer` after startup
-  - `get_signal(ip)` called in `_collect_signals()` after Phase 9 beaconing
-
-- **`proxy.py`** — startup/shutdown wiring:
-  - `aiohttp.ClientSession` created at startup (shared; never per-request)
-  - `AbuseIPDBChecker` instantiated and `await checker.start()` called
-  - On shutdown: `await checker.stop()` then `await session.close()`
-
-- **`config/proxy.yml`** — `abuseipdb:` section:
-  - `enabled: false`, `api_key: ""`, `max_requests_per_day: 1000`, `cache_ttl_seconds: 14400`
-  - `lookup_timeout_seconds: 10`, `shared_ip_threshold: 50`, `queue_size: 500`
-  - `worker_count: 3`, `score_cap: 40`, `delegate_to_analytics: false`
-  - All keys with inline comments per project style
-
-- **`requirements.txt`** — `aiohttp>=3.9,<4`
-
-- **`.env.example`** — `ABUSEIPDB_API_KEY` documented with instructions
-
-- **`tests/mocks/abuseipdb_mock.py`** — `AbuseIPDBMock` test double:
-  - `set_score(ip, score)`, `set_error(ip, status)`, `set_quota_exhausted()`, `set_timeout(ip)`
-  - `requested_ips` list for assertion; `make_session()` returns aiohttp-compatible mock
-
-- **Tests** — new tests across 4 files:
-  - `tests/unit/test_abuseipdb.py` — unit tests covering cache tiers, score calc, quota, API errors, CancelledError, queue overflow, IPv6, bloom filter, config hot reload
-  - `tests/adversarial/test_abuseipdb_fp.py` — FP bounds: confidence=100 < block threshold; CGN confidence=49 ≤ 15; exhaustive 0–100 confidence check
-  - `tests/integration/test_pipeline.py` — new `TestAbuseIPDBIntegration` class: cached score → signal in scorer → composite score
-  - `tests/chaos/test_external_api_failure.py` — chaos: API unreachable, quota 429, Redis write failure, stop() within 5s
-
-- **`docs/REDIS_SCHEMA.md`** — Phase 10 section updated with all 5 key patterns and full documentation
-
----
-
-## [8.0.0] - 2026-03-08 - PHASE 9: BEACONING DETECTION
-
-### Added
-
-- **`src/security/beaconing_detector.py`** — Phase 9 beaconing detector:
-  - `coefficient_of_variation(values)` — pure function; CV = stdev/mean; 0.0 for degenerate inputs
-  - `beacon_score(iats, ...)` — converts IAT list to beacon confidence (0.0, 0.2, 0.5, 0.9); configurable CV thresholds
-  - `compute_iats(timestamps)` — converts sorted timestamp list to inter-arrival times
-  - `BeaconingDetector` class with dual detection windows (short: 1 h, long: 24 h)
-  - Three guards: browser ALPN (h2/h1) never recorded; whitelisted IPs skipped; blocked/banned actions excluded
-  - UUID suffix on Sorted Set members prevents collision on same-millisecond arrivals
-  - Fire-and-forget `maybe_record()` via `asyncio.create_task()` — never blocks hot path
-  - `beacon:suspects` Sorted Set updated on every scored signal (score = confidence 0–0.9)
-  - Prometheus: `ja4proxy_beaconing_score` (Histogram), `ja4proxy_beaconing_suspects` (Gauge), `ja4proxy_beaconing_records_total` (Counter)
-
-- **Pipeline integration** (`src/security/pipeline.py`):
-  - `BeaconingDetector.get_signal(ctx)` called in `_collect_signals()` — signal slotted into scorer
-  - `BeaconingDetector.maybe_record()` fired as `asyncio.create_task()` after action decision
-
-- **`config/proxy.yml`** — `beaconing_detector` config section:
-  - `enabled`, `min_observations: 8`, `window_size: 20`, `observation_window_seconds: 3600`, `score: 35`
-  - `cv_thresholds.{strong_beacon: 0.15, moderate_beacon: 0.40, weak_signal: 0.70}`
-  - `long_window.{enabled, window_seconds: 86400, min_observations: 5, score: 20}`
-
-- **Tests** — 35 new tests across 3 files:
-  - `tests/unit/security/test_beaconing_detector.py` — 27 unit tests covering all pure functions, guards, UUID suffix, and signal format
-  - `tests/integration/test_beaconing_pipeline.py` — 4 integration tests: regular 30s beacon escalates to strong, irregular traffic produces no signal, long window independent of short window
-  - `tests/chaos/test_redis_failure.py` — 3 new chaos tests: Redis down during `maybe_record` (silent), Redis down during `get_signal` (returns None), evicted Sorted Set key starts fresh
-
-- **`docs/REDIS_SCHEMA.md`** — Phase 9 section expanded with full schema for all 3 keys (`beacon:{ip}:{ja4}`, `beacon:long:{ip}:{ja4}`, `beacon:suspects`) including member format, TTL, writer, and trimming behaviour
-
-- **`docs/phases/PHASE_09.md`** — all 35 acceptance criteria marked complete
-
----
-
-## [7.2.0] - 2026-03-07 - PHASE GATE: MISSING METRICS, DOCS, BENCHMARK HISTORY
-
-### Added
-
-- **Phase 5 Prometheus metrics** (were missing from tcp_analyzer.py and mtls.py):
-  - `ja4proxy_tcp_signal_total{signal}` — counter incremented for each TCP signal fired
-  - `ja4proxy_concurrent_connections` — gauge tracking observed concurrent connection count
-  - `ja4proxy_mtls_verified_total` — counter for connections allowed via verified mTLS cert
-
-- **`docs/performance/BENCHMARK_HISTORY.md`** — created with Phase 8 baseline measurements
-  (bypass: ~12 µs, scoring: ~20 µs, full ALLOW: ~5.7 ms, throughput: ~350 conn/s with real Redis)
-
-### Changed
-
-- **README.md Security Pipeline table** — updated from simplified 3-layer view to full 10-layer
-  pipeline reflecting Phases 0–8 (IP trust, static allowlist, GeoIP/CIDR/Spamhaus blocks, ALPN
-  bypass, JA4 whitelist, mTLS bypass, JA4 blacklist, TLS enforcement, signal collection, scorer+dial)
-
-- **Phase 2, 3, 5 acceptance criteria** — ticked verified checkboxes; Grafana panels and
-  fp-corpus tests annotated as deferred to Phase 13 and the corpus build task respectively
-
----
-
-## [7.1.0] - 2026-03-07 - BUG FIXES: RATE LIMITING, METRICS, NETWORKING, STABILITY
-
-### Fixed
-
-- **Rate limiting never executed** — `MultiStrategyRateTracker` (by_ip, by_ja4, by_ip+ja4 pair)
-  was fully implemented in `src/security/rate_tracker.py` but never imported or called by the
-  pipeline. Wired into `_collect_signals()` with majority policy (2-of-3 strategies must agree):
-  suspicious → +20, block → +60, ban → +90 score contribution. Browser ALPN bypass connections
-  skip rate limiting entirely. Two new Prometheus counters added:
-  `ja4proxy_rate_limit_signals_total{strategy,level}` and `ja4proxy_rate_limit_bans_total{strategy}`.
-
-- **JA4 fingerprints truncated in Prometheus metrics** — `fingerprint=ja4[:16]` in all
-  `REQUEST_COUNT.labels()` calls was cutting fingerprints to 16 chars (e.g. `t13d091200_f91f4`
-  instead of the full 36-char `t13d090900_xxxxxxxxxxxx_xxxxxxxxxxxx`), making Grafana dashboards
-  show garbled fingerprints. The `[:16]` slice on line 157 for partial label matching is
-  intentional and unchanged; all metric labels now use the full fingerprint.
-
-- **`pytricia` missing from `requirements.txt`** — Phase 8 `BlocklistManager` requires `pytricia`
-  for CIDR trie lookups but it was never added to requirements, causing proxy startup crash
-  (`RuntimeError: pytricia is required`). Added `pytricia==1.3.0`.
-
-- **`make smoke-test` hanging indefinitely** — All `curl` calls in `scripts/smoke-test.sh` lacked
-  `--max-time`; a hung backend TLS handshake would block the script forever. Added `--max-time 10`
-  to all curl calls.
-
-- **Mock backend TLS thread starvation under load** — `ThreadingHTTPServer` + Python SSL accumulates
-  hung threads when connections arrive faster than handshakes complete. Added `socket.settimeout(10)`
-  to the SSL listening socket in `scripts/mock-backend.py`; hung threads now time out rather than
-  blocking new legitimate connections.
-
-- **Docker build DNS failure on hosts with UFW + `"iptables": false`** — Containers inherited
-  `127.0.0.53` (systemd-resolved) as DNS, which is unreachable from inside containers. Combined
-  with `iptables: false` disabling NAT masquerading, pip installs during `docker build` failed with
-  `Temporary failure in name resolution`. Fixed by: (1) adding `"dns": ["8.8.8.8","1.1.1.1"]` to
-  `/etc/docker/daemon.json`, (2) adding a NAT MASQUERADE rule to `/etc/ufw/before.rules`, and
-  (3) setting `DEFAULT_FORWARD_POLICY=ACCEPT` and enabling `net.ipv4.ip_forward`.
-  `scripts/fix-docker-dns.sh` automates all steps; `scripts/docker-net-diag.sh` provides diagnostics.
-
-### Coverage
-- **1140 tests passed, 0 failed** (16 skipped: Docker-dependent).
-
----
-
-## [7.0.0] - 2026-03-07 - PHASE 8: SPAMHAUS DROP/EDROP & BLOCKLIST FEED FRAMEWORK
-
-### Added
-- **`src/security/blocklists.py`** — New `BlocklistManager` and `FeedManager` classes:
-  - `BlocklistManager.is_blocked(ip) -> (bool, feed_name)`: O(log n) in-process CIDR lookup via
-    two `pytricia` tries (IPv4 32-bit, IPv6 128-bit); never touches Redis on the hot path.
-  - `BlocklistManager.load_cidrs(cidrs, list_name, feed_config)`: atomic replace of entries for
-    one feed; other feeds unaffected; returns count loaded.
-  - `BlocklistManager.get_signals(ip) -> list[RiskSignal]`: produces `RiskSignal` for
-    `is_bypass=false` feeds (scored path); bypass feeds produce nothing here.
-  - `parse_feed(text, fmt)`: three format parsers — `spamhaus` (strips `;` comment lines and SBL
-    refs), `cidr` (one per line), `ipset` (`add <set> <cidr>` format); malformed CIDRs skipped.
-  - `FeedManager`: async download with `aiohttp`; ETag-based conditional HTTP (304 Not Modified
-    skips parse+reload); leader election per feed via Redis SET NX; non-leaders load from Redis.
-  - Prometheus metrics: `ja4proxy_blocklist_entries{feed}`, `ja4proxy_blocklist_last_refresh_success_seconds{feed}`,
-    `ja4proxy_blocklist_download_errors_total{feed}`, `ja4proxy_blocklist_matches_total{feed}`.
-  - Structured JSON logs: `feed_refreshed` (INFO), `feed_download_failed` (ERROR).
-- **`src/security/pipeline.py`** — `_check_block_bypasses()` step 7: Spamhaus bypass check
-  calls `_blocklist_manager.is_blocked(ip)`; on match with `is_bypass=true` returns hard-block
-  `PipelineResult(bypassed=True, bypass_reason="spamhaus_{feed_name}")`.
-- **`src/security/pipeline.py`** — `_collect_signals()` now calls `_blocklist_manager.get_signals(ip)`
-  for `is_bypass=false` feeds, adding `RiskSignal(name="blocklist_{feed}", score=N)` to scoring.
-- **`src/security/pipeline.py`** — `_load_blocklist_feeds(config)` loads static feeds from config
-  at startup; `FeedManager.start()` handles live downloads on the async path.
-- **`config/proxy.yml`** — `blocklists.feeds` section with `spamhaus_drop`, `spamhaus_edrop`
-  entries; all fields documented inline; example custom scored feed commented out.
-- **`tests/unit/test_blocklists.py`** — 29 unit tests (TDD): `BlocklistManager` IPv4/IPv6 lookup,
-  multi-feed, reload atomicity, `parse_feed` for all three formats, malformed-CIDR resilience,
-  `FeedConfig` dataclass, `is_bypass=false` → `RiskSignal`, Prometheus counter increment.
-- **`tests/integration/test_bypass_rules.py`** — 8 integration tests: bypass-feed hard-block
-  before scorer, IPv6 bypass, bypass-disabled → scorer path, scored-feed signal, score contribution.
-- **`tests/chaos/test_feed_staleness.py`** — 9 chaos tests: HTTP 503 retains trie, timeout
-  retains trie, malformed data safely parsed, Redis unavailable → direct download.
-- **`tests/performance/bench_cidr_lookup.py`** — Performance benchmarks: p99 < 10µs for 50k
-  IPv4 entries; full pipeline check p99 < 15µs.
-- **`docs/REDIS_SCHEMA.md`** — `blocklist:cidrs:{list_name}`, `blocklist:etag:{list_name}`,
-  `leader:blocklist_download:{list_name}` keys documented.
-
-### Coverage
-- **1140 tests passed, 0 failed** (16 skipped: Docker-dependent).
-
----
-
-## [5.3.0] - 2026-03-07 - PHASE 6: ASN & DATACENTER CLASSIFICATION (COMPLETE)
-
-### Added
-- **`src/security/asn_classifier.py`** — `ASNClassifier` with MaxMind GeoLite2-ASN mmap lookup:
-  datacenter/cloud, Tor exit node, VPN, residential classification; configurable score contributions.
-- **`config/asn_datacenter_list.yml`** — curated datacenter ASN list (AWS, GCP, Azure, DigitalOcean,
-  Linode, Vultr, OVH and others).
-- **`config/proxy.yml`** — `asn_classifier:` section; Tor exit list URL, VPN detection toggle,
-  score weights for each classification type.
-- Pipeline integration: `ASNClassifier.get_signal()` wired into `_collect_signals()` as Phase 6 step.
-- Prometheus metrics: `ja4proxy_asn_classification_total{asn_type}` counter.
-- Tests: unit coverage for all classification paths, FP rate test (`tests/fp_corpus/test_asn_fp_rate.py`) — residential
-  IP false positive rate < 2% on corpus.
-
-### Coverage
-- All Phase 6 acceptance criteria met (commit e093b15).
-
----
-
-## [6.0.0] - 2026-03-07 - PHASE 7: FCrDNS & PASSIVE DNS ENRICHMENT (COMPLETE)
-
-### Added
-- **`src/security/dns_enrichment.py`** — Full rewrite with all gaps from initial implementation filled:
-  - Five Prometheus metrics: `ja4proxy_dns_enrichment_total{result}` (hit/miss/error/timeout),
-    `ja4proxy_dns_ptr_classification_total{ptr_class}`, `ja4proxy_dns_enrichment_queue_depth`,
-    `ja4proxy_dns_enrichment_queue_drops_total`, `ja4proxy_dns_resolver_errors_total`.
-  - Structured JSON logging on every error/warning path
-    (`{"type":"system","level":"ERROR","subsystem":"dns","event":"resolver_error",...}`).
-  - `_worker_with_restart()` outer loop — workers automatically restarted on unexpected crash.
-  - Passive DNS startup log: `"Passive DNS disabled — no feed configured"` emitted at INFO when
-    `passive_dns.enabled: false` (spec requirement).
-  - `put_nowait` instead of `await queue.put` in `enqueue()` — guarantees non-blocking hot path.
-  - `asyncio.get_running_loop()` used in `_cache_result()` (replaces deprecated `get_event_loop()`).
-- **`src/security/pipeline.py`** — DNS enrichment wired into `_collect_signals()` as Phase 7 step:
-  `await self._dns_enrichment.get_signal(ctx.client_ip)` returns cached signal or None; always
-  fire-and-forget enqueue on miss; exception caught and logged (fail open).
-- **`config/proxy.yml`** — `dns_enrichment:` section with all configurable fields documented.
-- **`tests/chaos/test_dns_chaos.py`** — 11 chaos tests: resolver unreachable (fail open + error log),
-  PTR/forward timeout (fail open, no hanging coroutine), malformed PTR (fail open), queue overflow
-  (drop + counter increment + JSON WARN log).
-- **`tests/integration/test_pipeline.py`** — 4 new `TestDNSEnrichmentIntegration` tests:
-  cached no_ptr signal reaches scorer, residential signal reduces score, cache miss fails open,
-  get_signal exception swallowed by pipeline fail-open guard.
-
-### Coverage
-- **1140 tests passed, 0 failed** (16 skipped: Docker-dependent).
-
----
-
-## [5.1.0] - 2026-02-28 - PHASE 3: TLS VERSION & CIPHER ENFORCEMENT
-
-### Added
-- **`src/security/tls_enforcer.py`** — New `TLSEnforcer` class with:
-  - `WEAK_CIPHERS` frozenset of 40+ known-broken cipher suite IDs (NULL, RC4, EXPORT,
-    ANON, DES, 3DES suites per NIST SP 800-52r2 and RFC 9325).
-  - `check(tls_version, cipher_list) -> list[RiskSignal] | None` — returns `None` for
-    hard-block, empty list for clean connections, or signal list for scored violations.
-  - SSLv3: always hard-blocked regardless of bypass setting.
-  - TLS 1.0/1.1: hard-block when `security_policy.tls_version_bypass.enabled: true`
-    (default); scored `RiskSignal(name="tls_version", score=40)` when bypass disabled.
-  - TLS 1.2: optional `RiskSignal(name="tls_version", score=N)` when `flag_tls_12: true`.
-  - Weak cipher: `RiskSignal(name="weak_cipher", score=N)` or hard-block when
-    `block_weak_ciphers: true`.
-  - `from_config(config)` classmethod; `on_config_reload(new_config)` hot-reload support.
-  - Prometheus counters: `ja4proxy_tls_version_total{tls_version,action}`,
-    `ja4proxy_weak_cipher_total{cipher_strength,action}`.
-- **`src/security/pipeline.py`** — `ConnectionContext.cipher_list: list[int]` field
-  (default empty list) carrying raw cipher suite IDs from ClientHello.
-- **`src/security/pipeline.py`** — `Pipeline._tls_enforcer` wired in `__init__`;
-  `on_config_reload()` propagates to `TLSEnforcer.on_config_reload()`.
-- **`src/security/pipeline.py`** — `_process_inner()` step 3: TLS enforcement between
-  BLOCK bypasses and signal collection. Hard-block returns `PipelineResult(bypassed=True,
-  bypass_reason="tls_version")`; signals are prepended to Phase 4+ collection.
-- **`proxy.py`** — `JA4Fingerprint.tls_version_int: int` and
-  `JA4Fingerprint.raw_cipher_suites: list` fields populated in `_analyze_tls_handshake`.
-- **`proxy.py`** — `handle_connection()` passes `tls_version` and `cipher_list` to
-  `ConnectionContext`, activating Phase 3 enforcement on live traffic.
-- **`config/proxy.yml`** — `tls_enforcer:` section with all flags, scores, and
-  configurable weak cipher list.
-- **`tests/unit/test_tls_enforcer.py`** — 33 unit tests covering all `check()` branches,
-  `from_config()`, `on_config_reload()`, default config safety, and `WEAK_CIPHERS` constant.
-- **`tests/integration/test_pipeline.py`** — 6 new `TestTLSEnforcerIntegration` tests:
-  TLS 1.1 hard-block with scorer not called, bypass-disabled scored path, weak cipher
-  scoring, TLS 1.3 allow, hot reload, and `tls_version=None` no-crash.
-- **`tests/chaos/test_redis_failure.py`** — 3 new `TestTLSEnforcerRedisDown` tests:
-  in-process TLS block works with Redis down, TLS 1.3 allowed with Redis down, and
-  enforcer exception swallowed by pipeline fail-open guard.
-
-### Coverage
-- **943 tests passed, 0 failed** (16 skipped: Docker-dependent).
-- **100% statement coverage** across all source modules (2485 statements).
-
----
-
-## [5.0.0] - 2026-02-28 - PHASE 2: MONITOR MODE & PROGRESSIVE BLOCKING DIAL
-
-### Added
-- **`src/security/action_decider.py`** — `effective_threshold(configured, dial)` module-level
-  function implementing the interpolation formula `round(101 − (dial/100) × (101 − configured))`.
-  At `dial=0` returns 101 (unreachable); at `dial=100` returns `configured` exactly.
-- **`src/security/action_decider.py`** — `ActionDecider.counterfactuals(score, dial_values)`
-  method returning `{dial_value: action}` for monitor-mode logging.
-- **`src/security/action_decider.py`** — `DialManager` class with `initialize()` (startup reset
-  when `blocking_acknowledged=false`) and `validate_change()` (hourly rate-limit guard, fail open
-  on Redis errors).
-- **`src/security/pipeline.py`** — Four new Prometheus metrics: `ja4proxy_dial_current` (Gauge),
-  `ja4proxy_monitor_counterfactual_total` (Counter, labels: `action`, `dial`),
-  `ja4proxy_dial_change_rejected_total` (Counter), `ja4proxy_dial_changes_total` (Counter).
-- **`src/security/pipeline.py`** — `PipelineResult.counterfactuals` field (default empty dict)
-  carrying `{dial_value: action}` for all scored connections.
-- **`src/security/pipeline.py`** — `_emit_stream_event()` async fire-and-forget method that
-  XADDs one event per connection to `ja4proxy:events` (maxlen=100,000); all errors swallowed.
-- **`src/security/pipeline.py`** — Counterfactual Prometheus counter increments in monitor mode
-  (dial=0); `would=` key in MONITOR log lines; `"counterfactual"` object in JSON log.
-- **`src/security/risk_scorer.py`** — `RiskScorer.from_config(config)` classmethod.
-- **`proxy.py`** — `LocalCache`, `Pipeline`, `ConnectionContext`, `RiskScorer`, `ActionDecider`,
-  `DialManager` wired in; `Pipeline.process()` replaces legacy Security Layers 0, 1 (static
-  country), 2, and 3 (AdvancedSecurityManager) in `handle_connection()`.
-- **`proxy.py`** — `ProxyServer.start()` initializes dial from Redis via `DialManager.initialize()`
-  and stores it in `_local_cache.dial` before accepting connections.
-- **`config/proxy.yml`** — `monitor_mode:` section with `dial`, `blocking_acknowledged`,
-  `log_counterfactuals`, `counterfactual_thresholds`, `max_dial_change_per_hour`,
-  `alert_on_dial_change`.
-- **`docs/REDIS_SCHEMA.md`** — Phase 2 keys: `config:dial:change_count:{YYYY-MM-DD-HH}` (INCR,
-  TTL 3600s) and `ja4proxy:events` (Stream, maxlen=100,000).
-- **`tests/unit/test_action_decider.py`** — `TestEffectiveThreshold` (7 parametrized cases),
-  `TestCounterfactuals` (4 tests), `TestDialManager` (9 tests).
-- **`tests/integration/test_dial_propagation.py`** — New file: 10 integration tests covering
-  dial change propagation, counterfactual content, interpolated thresholds, and monitor mode.
-- **`tests/chaos/test_dial_change_chaos.py`** — New file: 11 chaos tests covering Redis failures
-  in `DialManager.initialize()` and `validate_change()`, and mid-traffic dial resilience.
-- **`tests/unit/test_pipeline_extra.py`** — `TestEmitStreamEventException`: verifies
-  `_emit_stream_event` swallows `xadd` exceptions without propagating.
-
-### Changed
-- **`src/security/action_decider.py`** — `ActionDecider.decide()` now uses
-  `effective_threshold()` formula (was `int(configured × 100 / max(dial, 1))`).
-- **`src/security/pipeline.py`** — `_score_connection()` returns 4-tuple
-  `(score, action, signals, counterfactuals)` (was 3-tuple).
-- **`src/security/pipeline.py`** — `_process_inner()` checks `dial == 0` directly for monitor
-  mode (previously relied on `action == "allow"` which was always true at dial=0, dead code).
-- **`tests/unit/test_action_decider.py`** — Fixed `TestIntermediateDial.test_dial_50_mid_threshold`:
-  updated assertion from `decide(score=40, dial=50) == "flag"` to `decide(score=60, dial=50) == "flag"`
-  to match the new formula (`effective_flag@dial=50 = round(101 − 0.5×81) = 60`).
-
-### Removed
-- **`proxy.py`** — `AdvancedSecurityManager` import and instantiation removed; replaced by Pipeline.
-- **`proxy.py`** — Static JA4 whitelist check (LAYER 0), static country blacklist/whitelist (LAYER 1),
-  JA4 blacklist check (LAYER 2), and `AdvancedSecurityManager` call (LAYER 3) removed from
-  `handle_connection()`. All now handled by `Pipeline.process()` via bypass checks.
-- **`tests/unit/test_proxy_server.py`** — Removed `test_country_blacklisted_connection_dropped`
-  and `test_country_not_in_whitelist_dropped` (static country checks moved to Pipeline).
-
-### Coverage
-- **901 tests passed, 0 failed** (16 skipped: Docker-dependent).
-- **100% statement coverage** across all source modules (2395 statements).
-
----
-
-## [4.0.2] - 2026-02-28 - 100% TEST COVERAGE ACROSS ALL SOURCE MODULES
-
-### Added
-- **`tests/unit/test_security_manager.py`** — 26 tests for `SecurityManager`: Redis ping
-  failure propagation, `check_access` fail-secure exception path, tier routing
-  (`SUSPICIOUS`, `BANNED`, else→FINGERPRINTS`) in `_store_enforcement_data`, exception
-  paths in `get_statistics`, `manual_unban`, and `verify_gdpr_compliance`, `__repr__`,
-  and `create_security_manager` convenience function.
-- **`tests/unit/test_gdpr_storage.py`** — 16 tests for `GDPRStorage`: `cleanup_expired`
-  with mixed TTLs and exception path, `get_retention_report` exception path, `_audit_log`
-  exception path, `get_audit_logs` full path including inner JSON parse failure and outer
-  Redis failure, custom TTL clamping and invalid-TTL fallback.
-- **`tests/unit/test_pipeline_extra.py`** — 22 tests for uncovered pipeline branches:
-  `StaticAllowlist.reload` with empty `ip` entry (line 172), `StaticAllowlist.match` with
-  invalid IP string (lines 197–198), `StaticAllowlist.add_from_redis` valid + invalid
-  (lines 207–217), `Pipeline.update_sets` (269–270), `Pipeline.on_config_reload`
-  (274–276), country blacklist bypass hit (396–400), `_format_signals` dict-signal path
-  and unknown-type fallback (514–530), `process` fail-open on unexpected exception.
-- **`tests/unit/test_config_loader_extra.py`** — 8 tests: non-mapping YAML raises
-  `ConfigError` (line 228), `setup_sighup` closure is callable (line 182), OSError/
-  NotImplementedError from `add_signal_handler` logs warning (lines 186–188),
-  `_reload_and_log_error` swallows `ConfigError` (lines 250–253).
-- **`tests/unit/test_pubsub_extra.py`** — 5 tests for `PubSubHandler.run`: subscribe
-  is called, non-message events skipped, real messages dispatched (lines 105–113),
-  reconnect on generic exception.
-- **`tests/unit/security/test_rate_tracker_extra.py`** — 13 tests: `register_script`
-  `redis.RedisError` → `RedisConnectionError` (lines 125–126), non-dict strategies
-  → `ValueError` (line 164), invalid settings skipped (175–178), unknown strategy
-  name (line 187), invalid window value (225–226), `_track_single_strategy` exception
-  hierarchy: `TimeoutError` (367–368), generic `RedisError` (369–370), bare `Exception`
-  (371–372).
-- **`tests/unit/security/test_coverage_extras.py`** — 11 tests: `ActionType` comparison
-  operators with non-`ActionType` → `NotImplemented` (lines 66, 71, 76, 81), repeat-
-  offender escalation in `_apply_block` (lines 328–330), empty thresholds fallback to
-  global in `_get_strategy_thresholds` (lines 196–199), unknown policy → fail-secure
-  (lines 337–338), `from_config` with invalid config raises `ValueError` (lines 414–415).
-
-### Changed
-- **`src/security/security_manager.py`** — `except ImportError: redis = None` marked
-  `# pragma: no cover` (environment-dependent; redis-py present in all deployment targets).
-- **`src/security/gdpr_storage.py`** — Same `# pragma: no cover` on ImportError block.
-- **`src/security/action_enforcer.py`** — Same `# pragma: no cover` on ImportError block.
-
-### Coverage milestone
-- All source modules now at **100% statement coverage** (2350 statements, 0 missing).
-- Total test suite: **859 passed, 0 failed** (excluding 9 Docker-dependent tests that
-  require a live stack, skipped automatically when the stack is not running).
-- Test-to-code ratio: ~1.4× (859 tests / ~615 production-relevant statements in proxy.py
-  and src/).
-
----
-
-## [4.0.1] - 2026-02-28 - TEST COVERAGE AND CODE QUALITY
-
-### Security
-- **`proxy.py` `_init_redis()`** — Fixed exception handler ordering: `redis.AuthenticationError`
-  now appears *before* `redis.ConnectionError` in the `except` chain.
-  `AuthenticationError IS-A ConnectionError` in redis-py, so placing it second made it
-  unreachable dead code — auth failures were silently misreported as generic connection
-  failures. Incident responders now receive an unambiguous "Redis authentication failed —
-  check credentials" message instead of the generic connection error, enabling faster
-  triage and reducing the risk of dismissing a credential compromise as a transient
-  network glitch.
-
-### Changed
-- **`proxy.py` `classify_ja4()`** — Removed unreachable `try/except (IndexError, ValueError)`
-  wrapper. Every operation inside the block operates on a string already confirmed to be
-  ≥ 10 chars; `str.split`, `str[-2:]`, and `dict.get` cannot raise those exceptions.
-  Dead exception handlers mislead security auditors and suppress legitimate bugs.
-- **`proxy.py` `_extract_ja4_from_http()`** — Removed unreachable `try/except Exception`
-  wrapper. `bytes.decode(errors='ignore')`, `str.split`, `str.lower`, and
-  `str.startswith` are all infallible for the inputs this method receives. Bare
-  `except Exception: pass` patterns are a red flag in security reviews.
-- **`proxy.py` import fallback** — Added `# pragma: no cover` to the
-  `except ImportError: GEOIP_AVAILABLE = False` clause (environment-dependent import;
-  IP2Location is present in all supported deployment targets).
-- **`proxy.py` `__main__` guard** — Added `# pragma: no cover` to the
-  `if __name__ == "__main__"` block (not exercisable via pytest by design).
-
-### Tests
-- `tests/unit/test_proxy_remaining.py` — Added `TestInitRedisGenericException.test_auth_error_caught_before_connection_error`
-  covering the now-reachable `redis.AuthenticationError` path and asserting the
-  specific "Redis authentication failed" message.
-- `tests/unit/test_proxy_server.py` — Updated `test_auth_error_raises_security_error`
-  to assert the correct error message now that the handler is reachable.
-- Removed two stale tests whose docstrings referred to the removed dead-code paths.
-- `proxy.py` line coverage: **99% → 100%** (876 statements, 0 missing).
-- Full suite: **746 passed, 0 failed** (excluding Docker-dependent integration tests).
-
----
-
-## [4.0.0] - 2026-02-27 - PHASE 0 + PHASE 1: INFRASTRUCTURE AND RISK SCORING SCAFFOLD
-
-### PHASE 0 — REDIS FOUNDATIONS AND CACHING INFRASTRUCTURE
-
-#### Redis
-- **`docker-compose.poc.yml` / `docker/docker-compose.prod.yml`** — Redis image updated from
-  `redis:7-alpine` to `redis/redis-stack:latest` to enable Bloom filter support
-  (`BF.RESERVE`, `BF.ADD`, `BF.EXISTS`). Added `--maxmemory-policy allkeys-lru`,
-  `--hz 20`, and `--tcp-keepalive 60` to the POC configuration.
-- **`scripts/sliding_window.lua`** (new) — Extracted the sliding-window Lua script from
-  `src/security/rate_tracker.py` into a standalone file. Script signature unchanged.
-  `rate_tracker` loads it via `SCRIPT LOAD` on startup; falls back to inline on error.
-
-#### Local Cache (`src/cache/local_cache.py`)
-- **`LRUCache`** — Pure-stdlib LRU cache using `collections.OrderedDict` + `time.monotonic`
-  TTL. Operations: `get` (lazy TTL eviction), `set` (LRU eviction at capacity), `delete`
-  (pub/sub invalidation). Prometheus counters: `ja4proxy_cache_operations_total{type,result}`.
-- **`LocalCache`** — Holds six per-type `LRUCache` instances with spec TTLs:
-  `whitelist_decisions` (TTL 1800s), `block_decisions` (TTL 30s), `abuseipdb_scores`
-  (TTL 14400s), `asn_class` (TTL 3600s), `geoip_country` (TTL 3600s), `rdap_data`
-  (TTL 3600s). Also holds `.dial` (int 0–100, updated via pub/sub, no TTL).
-
-#### Config Hot Reload (`src/config/loader.py`)
-- **`ConfigLoader`** — YAML loader with `${VAR:-default}` env var expansion. Supports
-  `SIGHUP`-triggered reload and pub/sub-triggered reload via `config_reload` message.
-  Non-reloadable keys (`proxy.bind_host`, `proxy.bind_port`, `redis.host`, `redis.port`,
-  `redis.db`) are validated on reload; `ConfigError` raised if they change.
-  `on_reload()` callbacks notify registered consumers (e.g. Pipeline). Prometheus counters:
-  `ja4proxy_config_reloads_total`.
-
-#### Bloom Filter (`src/cache/bloom.py`)
-- **`BloomFilter`** — Async wrapper around RedisBloom (`BF.RESERVE` / `BF.ADD` / `BF.EXISTS`).
-  Falls back transparently to `SADD` / `SISMEMBER` on `bloom_fallback:{name}` with 24h TTL
-  if RedisBloom is unavailable. Never raises on the hot path — errors are logged and
-  `False` is returned (treat as unseen). Used for `bloom:rdap_enriched` and
-  `bloom:abuseipdb_enriched`.
-
-#### Pub/Sub Handler (`src/pubsub.py`)
-- **`PubSubHandler`** — Async subscriber on `ja4proxy:invalidate` channel. Handles five
-  message types: `whitelist_remove`, `ban_release`, `ja4_blacklist_add`, `dial_change`,
-  `config_reload`. Reconnects with exponential backoff on disconnect. Prometheus counters:
-  `ja4proxy_pubsub_messages_total{msg_type}`, `ja4proxy_pubsub_errors_total{reason}`.
-
-#### Pipeline Bypass Orchestration (`src/security/pipeline.py`)
-- **`ConnectionContext`** — Dataclass holding per-connection metadata: `client_ip`, `ja4`,
-  `alpn`, `has_valid_client_cert`, `sni`, `tls_version`, `country`.
-- **`PipelineResult`** — Dataclass holding the pipeline decision: `action`, `bypassed`,
-  `bypass_reason`, `score`, `signals`, `dial`.
-- **`StaticAllowlist`** — CIDR/IP matching for the static IP allowlist using stdlib
-  `ipaddress`. Supports hot reload via `on_config_reload`. Logs WARN for Redis-only
-  (UI-added) entries.
-- **`Pipeline`** — Central integration point. Bypass check order:
-  `static_ip_allowlist` → `alpn_browser_bypass` → `ja4_whitelist_bypass` → `mtls_bypass`
-  → `ja4_blacklist_bypass` → `country_blacklist_bypass`. All bypasses independently
-  togglable via `security_policy` config. Logs every connection (§2a of STYLE_GUIDE).
-  Fails open on any unhandled exception. Phase 1 scorer/decider wired in via
-  `update_scorer()`.
-
-#### IPv6 Utilities (`src/utils/ip.py`)
-- **`canonical_ip()`** — Normalises to compressed form; IPv4-mapped IPv6 (`::ffff:1.2.3.4`)
-  unwrapped to plain IPv4. Handles loopback, link-local, multicast, private.
-- **`get_analysis_subnet()`** — Returns `/24` for IPv4 and `/48` for IPv6 (equivalent
-  user population density for analytics aggregation).
-
-#### Config (`config/proxy.yml`)
-- Added: `upstream_trust` (CDN CIDR passthrough), `local_cache` (per-type TTLs/sizes),
-  `security_policy` (all 8 bypass toggles with `enabled: true` defaults), `static_allowlist`,
-  `config.hot_reload_enabled`, `risk_scorer` (thresholds + `ban_duration_seconds`).
-
-#### Documentation
-- **`docs/REDIS_SCHEMA.md`** (new) — All Phase 0+1 Redis key patterns with type, TTL,
-  writer, and notes columns. Includes pub/sub message type table and stubs for Phases 5–12.
-
-#### Tests
-- `tests/unit/test_local_cache.py` — LRUCache (hit/miss/TTL/LRU eviction) + LocalCache
-  (per-type TTLs, dial clamping).
-- `tests/unit/test_config_loader.py` — YAML load, env var expansion, hot reload,
-  non-reloadable key rejection, callbacks.
-- `tests/unit/test_pipeline.py` — All 6 bypass types (enabled and disabled), StaticAllowlist
-  CIDR/IPv6 matching.
-- `tests/unit/test_ip_utils.py` — `canonical_ip` and `get_analysis_subnet` edge cases.
-- `tests/integration/test_cache_hierarchy.py` — Local cache hit skips Redis; TTL expiry.
-- `tests/integration/test_hot_reload.py` — SIGHUP, pub/sub reload, non-reloadable key
-  rejection, callbacks.
-- `tests/chaos/__init__.py`, `tests/chaos/test_redis_failure.py` — Fail-open on Redis error,
-  empty signals → allow, cached dial persistence.
-- `tests/conftest.py` — Session-scoped Prometheus registry cleanup to prevent metric
-  duplication across test modules.
-
----
-
-### PHASE 1 — RISK SCORER SCAFFOLD
-
-#### Risk Scorer (`src/security/risk_scorer.py`)
-- **`RiskSignal`** — Dataclass: `name` (registry string), `score` (int, may be negative),
-  `reason` (human-readable), `weight` (float, default 1.0).
-- **`RiskAssessment`** — Dataclass: `total_score` (0–100 clamped), `signals`,
-  `recommended_action`, `explanation` (top-3 signals).
-- **`RiskScorer.score()`** — Clamps individual signals to `[-100, 100]`, sums weighted
-  contributions, clamps composite to `[0, 100]`. Derives `recommended_action` from
-  thresholds (ban → block → tarpit → rate_limit → flag, highest triggered wins).
-  Builds `explanation` from top-3 signals by absolute weighted contribution.
-  Prometheus: `ja4proxy_risk_score` Histogram, buckets `[0,10,20,35,55,70,85,100]`.
-
-#### Action Decider (`src/security/action_decider.py`)
-- **`ActionDecider.decide(score, dial)`** — Maps composite score + dial to final action.
-  `dial=0` → always `"allow"` (monitor mode). `dial=100` → thresholds apply exactly.
-  `0 < dial < 100` → `effective_threshold = configured × 100 / dial` (lower dial = more
-  permissive). Default thresholds: flag=20, rate_limit=35, tarpit=55, block=70, ban=85.
-- **`ActionDecider.from_config()`** — Constructs from `risk_scorer` config section;
-  missing keys fall back to defaults.
-
-#### Pipeline Integration
-- `Pipeline._score_connection()` upgraded from stub to real scorer + decider.
-  Returns `(score, action, scored_signals)` so `PipelineResult.signals` is populated
-  from the scorer's processed signal list.
-
-#### Tests
-- `tests/unit/test_risk_scorer.py` — Empty/single/multi signals, clamping, threshold
-  boundaries, explanation top-3, `_build_explanation`, `_derive_action`.
-- `tests/unit/test_action_decider.py` — dial=0 always allow, dial=100 full thresholds,
-  one-below each boundary, intermediate dial scaling, `from_config`.
-- `tests/integration/test_pipeline.py` — ALPN bypass logged correctly, blacklist block,
-  dial=0 monitor mode, dial=100 high-score blocks, signals list populated.
-- `tests/chaos/test_redis_failure.py` — Extended with Phase 1 scoring chaos tests.
-- `tests/performance/bench_pipeline.py` — `RiskScorer.score()` p99 < 100µs (10 signals);
-  `ActionDecider.decide()` p99 < 10µs.
-
----
-
-## [3.5.0] - 2026-02-24 - SECOPS USABILITY, GEOIP MAINTENANCE, BUG FIXES
-
-### OPERATIONAL IMPROVEMENTS
-
-- **`scripts/stop-all.sh`** — unified stop for POC and monitoring stacks in one command.
-  `--clean` flag removes all Docker volumes for a fresh restart.
-- **`scripts/status.sh`** — health dashboard showing container states, service HTTP checks,
-  Redis connectivity, live security state (blacklist size, active bans, blocked countries,
-  pending fingerprints), and access URLs with current Grafana password.
-- **`scripts/update-geoip.sh`** — downloads the latest IP2Location LITE DB1 from the
-  public CDN (no account needed), validates the file, keeps a `.prev` backup.
-  `--check` flag shows database age without downloading. `make update-geoip` / `make check-geoip`.
-- **`scripts/poc-status-check.sh`** — rewritten from scratch. Was using wrong backend port (8081),
-  hardcoded Redis password as "admin", and checked for files that don't exist.
-  Now reads `.env` for credentials and checks all correct endpoints.
-- **Makefile** — added `start`, `stop`, `stop-clean`, `status`, `start-monitoring`,
-  `update-geoip`, `check-geoip` targets. Help output reorganised by category.
-
-### CONFIGURATION
-
-- **`BACKEND_HOST` / `BACKEND_PORT`** — backend destination is now configurable via `.env`.
-  Set to your real server IP/hostname; defaults to `backend:443` for POC Docker networking.
-  Passed to the proxy container via `docker-compose.poc.yml` and supported natively in
-  `config/proxy.yml` via env var substitution.
-- **`_expand_env_vars` fix** — now supports `${VAR:-default}` fallback syntax (previously
-  only `${VAR}` was supported; missing vars silently became empty strings). Config now uses
-  `${BACKEND_HOST:-backend}` and `${BACKEND_PORT:-443}` so the proxy always has valid defaults.
-- **`backend_port` type fix** — cast to `int()` at `asyncio.open_connection()` call site;
-  prevents type error when `BACKEND_PORT` comes from env var string expansion.
-
-### DOCUMENTATION
-
-- **`docs/FAQ.md`** (new) — 25 common operational questions: setup, passwords, GeoIP,
-  fingerprint blocking, false positives, alerts, scaling, backups, log rotation, upgrades.
-- **`docs/SECOPS_OPERATIONS.md`** — added Routine Maintenance section covering GeoIP DB
-  update cadence (monthly, with cron example), JA4 fingerprint feed workflow, Alertmanager
-  notification target configuration, log rotation, and credential rotation.
-- **`docs/REDIS_SECURITY_REVIEW.md`** — rewritten to reflect current state (auto-generated
-  password and Docker-internal networking already implemented); stripped sprint-planning
-  language, time estimates, and unverified compliance checkmarks.
-- **`.env.example`** — rewritten as a comprehensive reference covering `BACKEND_HOST`,
-  `BACKEND_PORT`, `JA4DB_API_KEY`, port overrides, and a production checklist.
-- **`docs/README.md`** — updated index, added FAQ and new operational docs, removed deleted files.
-- Removed four stale/misleading docs: `docs/POC_GUIDE.md` (superseded),
-  `docs/security/SECURITY_ANALYSIS_REPORT.md` (2024-dated, contradicted newer audit),
-  `docs/SECURITY_VULNERABILITIES_DIAGRAM.md` (showed proxy→backend as HTTP, incorrect),
-  `docs/REDIS_SECURITY_QUICK.md` (referenced non-existent setup script).
-
----
-
-## [3.4.0] - 2026-02-23 - THREAT INTEL FEED, DYNAMIC GEOIP, CIDR BLOCKING
-
-### 🌐 DYNAMIC GEOIP & CIDR BLOCKING (proxy.py — no restart needed)
-
-- **Layer 1b: dynamic country blacklist** — Redis set `geoip:dynamic_blacklist` checked on
-  every connection after the static country lists. Added via `ja4-admin block-country` or
-  auto-populated by `scripts/geoip-monitor.sh`. Fails open on Redis error.
-- **Layer 1c: CIDR block check** — Redis set `geoip:blocked_cidrs` holds CIDRs (e.g.
-  `203.0.113.0/24`, `185.220.0.0/16`). Proxy reloads from Redis every 30s; add/remove takes
-  effect within 30s without restart.
-- **`geoip:safe_countries`** — Redis set of country codes that can never be auto-blocked by
-  `geoip-monitor`. Loaded from `config/proxy.yml → geoip.safe_countries` on startup. Defaults:
-  IE, GB, US, CA, AU, NZ, DE, FR, NL, IM, JE, GG.
-- New Prometheus `reason` labels: `country_dynamic_block`, `cidr_block` on
-  `ja4_blocked_requests_total` for granular reporting.
-
-### 📡 JA4DB THREAT FEED INTEGRATION
-
-- **`scripts/fetch-ja4db.sh`** — fetches known-malicious fingerprints from:
-  1. FoxIO GitHub (`raw.githubusercontent.com/FoxIO-LLC/ja4`) — no auth required
-  2. ja4db.com API — if `JA4DB_API_KEY` is set in `.env`
-  Filters by malicious category keywords (malware, c2, trojan, rat, ransomware, etc.)
-  and queues new fingerprints in Redis `ja4:pending` hash for admin review.
-- **Approval workflow** in `scripts/ja4-admin.sh`:
-  - `fetch-db` → `list-pending` → `approve <FP>` / `reject <FP>` / `approve-all`
-  - Approved fingerprints go into `ja4:blacklist` (instant effect) and should also be
-    added to `config/proxy.yml` to survive container restart.
-
-### 🛡️ GEOIP AUTO-BLOCK MONITOR
-
-- **`scripts/geoip-monitor.sh`** — queries Prometheus, auto-blocks countries exceeding
-  configurable thresholds (default: >50 blocked connections in 5 min AND >70% block rate).
-  Never blocks countries in `geoip:safe_countries`.
-  - `--dry-run` mode: shows what would be blocked without acting
-  - `--watch` mode: loops every 60s (suitable for long-running monitor)
-  - Cron-friendly: `*/5 * * * * /path/to/geoip-monitor.sh >> /var/log/geoip-monitor.log`
-  - Reasons stored in `geoip:block_reasons` HASH for the report
-
-### 🔧 JA4-ADMIN NEW COMMANDS
-
-- `fetch-db`, `list-pending`, `approve`, `reject`, `approve-all` — feed workflow
-- `list-countries`, `block-country`, `unblock-country`, `safe-country`, `unsafe-country`
-- `list-cidrs`, `block-cidr`, `unblock-cidr`
-- `report` — comprehensive blocking summary (fingerprints, countries with reasons, CIDRs,
-  enforcement stats, Prometheus traffic breakdown by mechanism and country)
-
-### 📋 CONFIGURATION
-
-- `config/proxy.yml`: new `geoip.safe_countries` list (default: 12 trusted countries)
-- `.env` supports optional `JA4DB_API_KEY` for ja4db.com API access
-
----
-
-## [3.3.0] - 2026-02-22 - FALSE POSITIVE ELIMINATION & OPERATIONAL IMPROVEMENTS
-
-### 🎯 FALSE POSITIVE ELIMINATION
-
-**Result: 0% proxy-level false positives.** Browser connections are whitelisted and never
-reach rate limiting. Verified across test runs from 20 to 200 concurrent workers.
-
-- **`multi_strategy_policy` changed from `any` → `majority`** — requires 2 of 3 rate-limit
-  strategies to agree before blocking. A single strategy (e.g. BY_IP_JA4_PAIR detecting a
-  burst) no longer triggers a block on its own.
-- **Raised thresholds across all strategies** to match realistic burst behaviour in test and
-  production environments (Docker NAT aggregates all container traffic through one gateway IP,
-  so per-IP thresholds must accommodate all workers combined):
-  - `by_ip`:         suspicious 10→50,  block 50→200,  ban 100→500
-  - `by_ja4`:        suspicious 5→20,   block 15→100,  ban 20→200
-  - `by_ip_ja4_pair`: suspicious 2→20,  block 5→50,    ban 8→100
-- **Added `h1` to `whitelist_patterns`** — HTTP/1.1 ALPN browsers now bypass rate limiting.
-  Previously only `h2` (HTTP/2) was whitelisted; connections in HTTP/1.1 fallback mode fell
-  through to rate limiting and could be false-positively blocked.
-- **Fail-open for unparseable TLS** — connections that produce `ja4 == "unknown"` or `"error"`
-  (Scapy parse failure, non-TLS protocol, unusual extensions) are now forwarded directly to the
-  backend after the blacklist check, instead of being pooled under a shared `rate:ja4:unknown`
-  key that could trigger rate-limit false positives.
-
-### 🐛 BUG FIXES
-
-- **Block duration bug fixed** — `_apply_block()` in `src/security/action_enforcer.py` was
-  hardcoding a 3600s (1-hour) block TTL regardless of the `ban_duration` value set in
-  `config/proxy.yml` per-strategy config. Blocks now correctly expire after the configured
-  `ban_duration` (default: 300s). Verified in logs: `"expires in 300s"`.
-
-### 📊 METRICS & TOOLING
-
-- **Metrics summary aggregation** — `scripts/generate-tls-traffic.sh` summary now uses awk aggregation
-  instead of raw `grep` on `ja4_blocked_requests_total`. The `reason` label contains
-  `"expires in Xs"` (unique per second over long runs), which caused the summary to print
-  hundreds of lines. Output now shows clean per-fingerprint and per-action totals.
-- **`make flush-redis`** — New Makefile target clears all transient security state (rate
-  windows, blocks, bans, audit logs) while preserving `ja4:whitelist` and `ja4:blacklist` keys.
-  Essential for resetting between test runs without a full container restart.
-
-### 📈 VERIFIED PERFORMANCE
-
-Measured with `./generate-tls-traffic.sh 300 15 200` (300s, 15% legit, 200 workers):
-- **0% proxy-level false positives** — 2,728+ browser connections whitelisted, 0 blocked
-- **94–99% malicious traffic blocked** depending on worker load
-- **300s block TTL** (was 3600s) — false positives self-heal in 5 minutes
-
----
-
-## [3.2.0] - 2026-02-18 - SECURITY HARDENING
-
-### 🔒 CONTAINER SECURITY
-- **`read_only: true`** on all containers — filesystem immutable at runtime
-- **`cap_drop: ALL`** on all containers — only `NET_BIND_SERVICE` added where needed (HAProxy, proxy)
-- **`no-new-privileges: true`** on all containers — prevents privilege escalation
-- **`PYTHONDONTWRITEBYTECODE=1`** on Python containers — prevents `__pycache__` writes on read-only filesystems
-- **Resource limits** on every container (CPU + memory limits and reservations)
-- **tmpfs** mounts for `/tmp` on all containers (noexec, nosuid, nodev)
-
-### 🔑 SECRETS MANAGEMENT
-- **Auto-generated `.env`** — `scripts/start-poc.sh` creates `.env` with `openssl rand` secrets on first run (chmod 600)
-- **All passwords from env vars** — Redis, Grafana, and other credentials sourced from `${REDIS_PASSWORD}`, `${GRAFANA_PASSWORD}` 
-- **No hardcoded passwords** — All shell scripts use env vars instead of `changeme`
-- **Grafana password sync** — `scripts/start-monitoring.sh` resets admin password to match `.env` on every start
-
-### 🌐 NETWORK SECURITY
-- **127.0.0.1 port bindings** — Internal services (proxy:8080, metrics:9090, backend:8443, tarpit:8888) only accessible from localhost
-- **Redis not exposed to host** — Only accessible within Docker backend network
-- **HAProxy only public-facing port** — Port 443 (TLS) and 8880 (HTTP redirect) are the only ports on all interfaces
-- **HAProxy TLS hardened** — TLS 1.2+ enforced globally, only ECDHE+AES-GCM/CHACHA20 ciphers, no RC4/DES/3DES/CBC
-- **HAProxy stats TLS-secured** — Stats endpoint on :8404 now requires TLS
-- **HAProxy management frontend** — New TLS-terminated endpoint on :8443 with mTLS support
-- **Backend certificate pinning** — mTLS backend verifies server cert against internal CA
-- **TLS handshake failure logging** — All frontends log TLS version, cipher, and termination state to syslog
-
-### 🛡️ APPLICATION SECURITY
-- **Fixed eval() RCE** in `tests/integration/test_docker_stack.py` — replaced with safe string comparison
-- **Fixed CSRF default-secret** in `security/validation.py` — generates `os.urandom(32)` when no secret configured
-- **Sensitive data filter** — Log filter redacts passwords, API keys, tokens, credit card numbers, emails
-- **Redis RDB disabled** — `--save ""` prevents disk write errors on read-only filesystem
-
-### 🔧 FIXES
-- **Traffic generator defaults** — Python script now defaults to `proxy:8080` via env vars (was `localhost:443`)
-- **Health checks** — Backend check uses `docker exec` (works with internal-only ports)
-- **Loki health check** — Uses `docker exec` since Loki has no host port
-- **Grafana security headers** — `cookie_secure`, `samesite=strict`, `disable_gravatar`, `strict_transport_security`
-
-## [3.1.0] - 2026-02-17 - GEOIP, FINGERPRINT NAMES, BAN ESCALATION
-
-### 🌍 GEOIP COUNTRY FILTERING
-- **IP2Location LITE** database bundled in container (CC BY-SA 4.0, no registration needed)
-- **Country whitelist** — only allow traffic from listed countries (IE, GB, IM, JE, GG, US, CA, AU, NZ, DE, FR, NL)
-- **Country blacklist** — block traffic from listed countries (KP, RU, CN, IR)
-- Both disabled by default — enable in `config/proxy.yml` → `geoip` section
-- Country check runs as Security Layer 0 (before JA4 fingerprint checks)
-- Private IPs (Docker NAT) return empty country, bypassing geo filters
-- Country shown in logs, Prometheus `source_country` label, and two new Grafana panels
-
-### 🏷️ JA4 FINGERPRINT NAMES
-- **`classify_ja4()` function** decodes JA4 structure into human-readable names:
-  - `h2` ALPN → "Browser (TLS 1.3)"
-  - `00` ALPN → "Tool/Bot (TLS 1.2)"
-- **`fingerprint_labels`** config section maps known fingerprints to specific names (Chrome, Sliver C2, CobaltStrike, etc.)
-- **`fingerprint_name` label** added to `ja4_requests_total` Prometheus metric
-- Names appear in all proxy log messages and Grafana dashboard panels
-
-### 🔧 BAN ESCALATION FIX
-- Lowered `by_ip_ja4_pair` ban threshold from 10→8 (tarpit backpressure capped rate at ~8, preventing ban escalation)
-- Lowered `by_ja4` ban threshold from 30→20
-- **Pattern-based whitelist**: `whitelist_patterns: ["h2"]` — any JA4 with HTTP/2 ALPN bypasses rate limiting
-  - Fixes false positive blocking of browsers when all Docker traffic shares one gateway IP
-- **Results**: 100% legitimate allowed, 99.6% malicious blocked, Grafana shows Allowed/Tarpitted/Banned
-
-### 📊 DASHBOARD
-- Dashboard panels group by `fingerprint_name` instead of raw fingerprint hash
-- Added "Traffic by Country" donut chart
-- Added "Blocked Requests by Country" table
-- Total: 20 panels
-
-### 📄 DOCUMENTATION
-- Cleaned up 24 planning/session artifacts from `docs/`
-- Removed root-level `GRAFANA_SETUP.md`, `TRAFFIC_GENERATOR_SUMMARY.txt`
-- Rewrote `README.md` — focused POC demo guide with accurate architecture, ports, and commands
-- Moved `docs/POC_QUICKSTART.md` to `docs/`
-
-## [3.0.0] - 2026-02-17 - ENTERPRISE SECURITY ARCHITECTURE
-
-### 🏗️ ARCHITECTURE
-- **Added HAProxy load balancer** — TCP mode frontend on :443 with TLS passthrough (no termination), PROXY protocol v2 for real client IP forwarding. Stats page on :8404.
-- **Added tarpit container** — Async Python TCP server that traps blocked connections, trickling 1 byte/sec for 60 seconds to waste attacker resources. Prometheus metrics on :9099.
-- **Upgraded backend to HTTPS** — Mock backend now serves on :443 with self-signed TLS cert. End-to-end encryption preserved (proxy never decrypts).
-- **Full traffic path**: Client → HAProxy:443 → JA4proxy:8080 → Backend:443 (or Tarpit:8888 if blocked)
-
-### 🔒 SECURITY
-- **Wired `src/security/SecurityManager` into proxy** — Multi-strategy rate tracking (BY_IP, BY_JA4, BY_IP_JA4_PAIR) with automatic threat tier escalation (NORMAL → SUSPICIOUS → BLOCK → BAN).
-- **Three-layer security pipeline**:
-  1. **Blacklist** — Instant TCP RST for known malware JA4 fingerprints (Sliver, CobaltStrike, IcedID, Evilginx, SoftEther)
-  2. **Whitelist** — Fast-pass for known browser fingerprints (Chrome, Firefox, Safari) — bypasses rate limiting
-  3. **Rate-based detection** — Unknown fingerprints evaluated by connection rate; high-rate connections get TARPIT/BLOCK/BAN actions
-- **PROXY protocol v2 parsing** — Reads real client IP from HAProxy binary header (essential since Docker NATs all traffic through gateway IP)
-- **Tarpit redirect** — TARPIT action forwards connection to tarpit container instead of dropping
-- **Real JA4 fingerprint extraction** — Parses TLS ClientHello directly from raw TCP stream using Scapy, matching FoxIO JA4 spec format
-- **Pre-populated security lists** — Redis whitelist (6 browser fingerprints) and blacklist (7 malware fingerprints) loaded on startup
-
-### 🧪 TRAFFIC GENERATOR
-- **Complete rewrite** — Makes real TLS connections using `ssl.SSLContext` with distinct cipher/ALPN/TLS version configs per profile
-- **3 legitimate profiles**: Chrome (TLS 1.2+), Firefox (TLS 1.2+), Safari (TLS 1.2+) — connect at 0.3-0.5 req/sec
-- **5 malicious profiles**: Sliver C2, CobaltStrike Beacon, Python bot, Credential stuffer, Evilginx — connect at 2-50 req/sec
-- **Real JA4 fingerprints** — Each profile produces a unique JA4 from its actual TLS ClientHello
-- **Verified results**: 100% legitimate traffic allowed, 0% false positives; 60-100% malicious traffic blocked depending on profile
-
-### 📊 DASHBOARD
-- **Redesigned Grafana dashboard** with 14 panels:
-  - Stat row: Total/Allowed/Blocked per minute, Block Rate %, Active Connections, Tarpitted count
-  - Traffic flow: Stacked area chart of allowed vs blocked over time
-  - Block rate timeline with color thresholds
-  - Per-fingerprint traffic breakdown (allowed and blocked)
-  - Security action distribution pie chart (Allowed/Tarpitted/Blocked/Banned/Blacklisted)
-  - Top blocked fingerprints table
-  - Blocked reasons table
-  - TLS version distribution pie chart
-  - Request latency percentiles (p50/p95/p99)
-  - Security events timeline
-
-### 📝 FILES ADDED
-- `ha-config/haproxy.cfg` — HAProxy configuration
-- `tarpit/tarpit-server.py` — Tarpit TCP server
-- `tarpit/Dockerfile` — Tarpit container
-- `ssl/certs/backend.crt` — Backend TLS certificate
-- `ssl/private/backend.key` — Backend TLS private key
-
-### 📝 FILES MODIFIED
-- `proxy.py` — Major rewrite: security framework integration, PROXY protocol, tarpit redirect, fixed JA4 parsing
-- `config/proxy.yml` — New security section with thresholds, strategies, whitelist, blacklist
-- `scripts/mock-backend.py` — HTTPS support via TLS_CERT/TLS_KEY env vars
-- `Dockerfile.mockbackend` — TLS cert packaging
-- `docker-compose.poc.yml` — Added haproxy, tarpit services; backend on :443
-- `scripts/tls-traffic-generator.py` — Complete rewrite for real TLS connections
-- `scripts/generate-tls-traffic.sh` — Updated for new architecture
-- `monitoring/grafana/dashboards/ja4proxy-overview.json` — Redesigned dashboard
-
-## [2.0.1] - 2026-02-16 - TRAFFIC GENERATOR FIX
-
-### 🐛 BUG FIXES
-- **Fixed traffic generator bypassing proxy** - `scripts/generate-tls-traffic.sh` and `scripts/tls-traffic-generator.py` were sending requests directly to the backend (port 8081), completely bypassing the proxy. Prometheus metrics were never incremented, so Grafana dashboards showed no activity. Traffic is now routed through the proxy (port 8080) so that JA4 fingerprinting, security policies, and metrics collection all function correctly.
-- **Fixed proxy rejecting non-TLS connections before recording metrics** - `JA4Fingerprint._sanitize_ja4()` raised `ValidationError` on sentinel values `"unknown"` and `"error"`, causing connections to be dropped before `REQUEST_COUNT` was incremented. These sentinel values are now allowed through validation so that all connections — including plain HTTP — are counted in Prometheus metrics and visible in Grafana.
-- **Fixed request duration histogram never recording** - `REQUEST_DURATION.observe()` was never called in `handle_connection`, so latency panels always showed empty. Now records duration from data read through security check.
-- **Fixed BLOCKED_REQUESTS label mismatches** - `check_access()` called `BLOCKED_REQUESTS.labels()` with only `reason` but the counter requires `reason`, `source_country`, and `attack_type`. Now passes all three labels.
-
-### 📊 DASHBOARD FIXES
-- **Fixed Block Rate (%) panel** — was dividing two counters with different label sets yielding NaN; now uses `sum()` on both sides and derives block % from `ja4_requests_total{action="blocked"}`.
-- **Fixed Security Events pie chart** — was grouping by nonexistent `tier` label; now groups by `event_type` matching actual `ja4_security_events_total` labels.
-- **Fixed Top Blocked table** — was grouping by nonexistent `ja4_fingerprint` label; now shows `reason` and `attack_type` from `ja4_blocked_requests_total`.
-- **Fixed Rate Limit panel** — referenced nonexistent `ja4_rate_limit_exceeded_total`; now queries `ja4_security_events_total{event_type="rate_limit_exceeded"}`.
-- **Fixed Whitelist/Blacklist panel** — referenced nonexistent `ja4_whitelist_hits_total` / `ja4_blacklist_hits_total`; replaced with "Blocked by Reason" showing `ja4_blocked_requests_total` broken down by `reason`.
-- **Fixed Security Overview stat row** — removed nonexistent `ja4_whitelist_size` / `ja4_blacklist_size`; replaced with Block % and Active Connections.
-- **Fixed Request Latency panel** — added `sum() by (le)` to histogram_quantile for correct aggregation.
-- **Replaced Loki logs panel** — was using LogQL against Prometheus datasource; replaced with TLS Handshake Errors timeseries using `ja4_tls_handshake_errors_total`.
-- **Upgraded deprecated `graph` panels to `timeseries`** for Grafana 10.x compatibility.
-
-## [2.0.0] - 2024-02-14 - SECURITY HARDENING RELEASE
+- **Async PTR lookup pipeline**
+- **Forward-Confirmed Reverse DNS** (FCrDNS) verification
+- **Residential pattern detection**
+
+## [2.0.0] - 2024-02-14 — Phase 2: Security Hardening Release
 
 ### 🔒 CRITICAL SECURITY FIXES
 - **Fixed wildcard imports from Scapy** - Replaced with specific imports to prevent namespace pollution
@@ -2164,91 +363,20 @@ Measured with `./generate-tls-traffic.sh 300 15 200` (300s, 15% legit, 200 worke
 ### 🛡️ HIGH PRIORITY SECURITY FIXES
 - **Changed default bind address** - Now binds to 127.0.0.1 by default instead of 0.0.0.0
 - **Implemented fail-closed rate limiting** - Blocks requests on Redis errors instead of allowing
-- **Added structured logging with sensitive data filtering** - Automatically redacts passwords, tokens, and PII
-- **Enhanced Docker security** - Added seccomp, dropped capabilities, read-only filesystems where possible
-- **Improved health checks** - Health check now validates actual service functionality via HTTP
+- **Added Docker security options** - Implemented `no-new-privileges`, `cap_drop`, and `read_only` root filesystem
 
-### 🔧 MEDIUM PRIORITY SECURITY FIXES
-- **Fixed exception handling** - JA4 generation now raises exceptions instead of returning empty strings
-- **Added metrics endpoint security** - Configuration for authentication and network restrictions
-- **Made timeouts configurable** - All timeout values now configurable to prevent resource exhaustion
-- **Enhanced error handling** - Comprehensive error handling with security event metrics
-
-### ✨ SECURITY FEATURES ADDED
-- Environment variable support for secrets (${VAR_NAME} syntax)
-- SensitiveDataFilter class for log sanitization
-- SecureFormatter for production-safe exception logging
-- Enhanced security metrics (SECURITY_EVENTS, TLS_HANDSHAKE_ERRORS, CERTIFICATE_EVENTS)
-- Comprehensive .gitignore for sensitive files
-- Security documentation and checklists
-
-### 📚 DOCUMENTATION ADDED
-- SECURITY_FIXES.md - Detailed security fix documentation
-- SECURITY_CHECKLIST.md - Pre-deployment security checklist
-- .env.example - Environment variable template with security guidelines
-- Enhanced README in secrets/ and ssl/private/ directories
-
-### 🔄 BREAKING CHANGES
-- Redis password now REQUIRED in production (set REDIS_PASSWORD environment variable)
-- Default bind address changed from 0.0.0.0 to 127.0.0.1
-- JA4 generation now raises ValidationError on failure instead of returning empty string
-- Configuration validation now enforces strict typing and ranges
-
-### 🐛 BUG FIXES
-- Fixed Redis initialization without proper connection testing
-- Fixed timeout handling with proper exception types
-- Fixed empty fingerprint validation bypass
-- Fixed log message format consistency
-
-### ⚠️ DEPRECATED
-- Wildcard imports (removed)
-- Null Redis passwords in production (blocked)
-- Empty string returns on errors (now raises exceptions)
-
----
-
-## [1.0.0] - 2024-02-14
+## [1.0.0] - 2024-02-01 - INITIAL PUBLIC RELEASE
 
 ### Added
-- Complete JA4/JA4+ TLS fingerprinting implementation
-- High-performance asynchronous proxy server
-- Redis-backed security lists (whitelist/blacklist)
-- Prometheus metrics integration
-- TARPIT functionality for malicious clients
-- Docker and Docker Compose support
-- Comprehensive test suite (unit, integration, performance)
-- Enterprise deployment with high availability
-- Security hardening and compliance features
-- Monitoring and alerting stack
-- Complete documentation and operational procedures
+- **Core JA4 Fingerprinting** - Support for JA4 extraction and matching
+- **High-Performance Proxy** - Low-latency TLS passthrough implementation
+- **Redis Integration** - Centralized state for whitelists and blacklists
+- **Prometheus Metrics** - Real-time observability and connection tracking
+- **Monitor Mode** - Dial-controlled progressive blocking enforcement
 
-### Security Features
-- Non-root container execution
-- TLS encryption for all communications
-- Input validation and sanitization
-- Rate limiting and DDoS protection
-- Audit logging and SIEM integration
-- Vulnerability management procedures
+## [0.0.0] - 2024-01-15 — Phase 0: Foundation
 
-### Performance Features
-- Asynchronous I/O for high throughput
-- Connection pooling and keepalive
-- Redis clustering for scalability
-- Load balancing with HAProxy
-- Performance monitoring and optimization
-
-### Enterprise Features
-- Multi-zone deployment architecture
-- Disaster recovery procedures
-- Compliance documentation (SOC 2, PCI DSS, GDPR)
-- Operational runbooks and procedures
-- Security incident response plan
-- Automated deployment and rollback
-
-### Documentation
-- Comprehensive README with quick start
-- Enterprise deployment guide
-- Security architecture documentation
-- API reference and configuration guide
-- Troubleshooting and maintenance procedures
-- Performance tuning recommendations
+### Added
+- **Infrastructure**: Initial Redis integration with Sorted Sets, Bloom filters, and LRU caching.
+- **Config**: Implementation of `ConfigLoader` with hot-reload and IPv6 support.
+- **Bypass Logic**: Integrated static IP allowlist and CDN trust rules.
