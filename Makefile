@@ -147,7 +147,7 @@ status:
 agent-up:
 	@[ -n "$(NAME)" ] || (echo "Usage: make agent-up NAME=<agent>  (agents: gemini|claude|ollama|mistral)"; exit 1)
 	@[ -f ".env.$(NAME)" ] || (echo "→ No .env.$(NAME) found — generating..."; ./scripts/agent-env.sh $(NAME))
-	docker compose --project-name ja4_$(NAME) --env-file .env.$(NAME) up -d
+	docker compose -f docker-compose.poc.yml --project-name ja4_$(NAME) --env-file .env.$(NAME) up -d
 	@echo "$(NAME)" > .current-agent
 	@echo "✓ Agent $(NAME) started (saved to .current-agent)"
 	@grep AGENT_BIND_IP .env.$(NAME) | awk -F= '{print "  Ingress:   https://" $$2 ":443"}'
@@ -163,7 +163,7 @@ agent-down:
 	$(eval _NAME := $(or $(NAME),$(shell cat .current-agent 2>/dev/null)))
 	@[ -n "$(_NAME)" ] || (echo "Usage: make agent-down NAME=<agent>  (or run make agent-up first to set .current-agent)"; exit 1)
 	@[ -f ".env.$(_NAME)" ] || (echo "No .env.$(_NAME) — is agent $(_NAME) configured?"; exit 1)
-	docker compose --project-name ja4_$(_NAME) --env-file .env.$(_NAME) down
+	docker compose -f docker-compose.poc.yml --project-name ja4_$(_NAME) --env-file .env.$(_NAME) down
 	@if [ "$$(cat .current-agent 2>/dev/null)" = "$(_NAME)" ]; then rm -f .current-agent; echo "✓ Cleared .current-agent"; fi
 
 # List all running agent environments and show which is current.

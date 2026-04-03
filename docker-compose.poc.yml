@@ -70,7 +70,7 @@ services:
       - ALL
     cap_add:
       - NET_BIND_SERVICE
-    user: "1000:1000"
+    # Non-root user set in docker/Dockerfile (USER proxy)
     cpuset: "${AGENT_CPU_SET:-0-15}"
     deploy:
       resources:
@@ -134,7 +134,7 @@ services:
       - /tmp:noexec,nosuid,nodev,size=50m
     cap_drop:
       - ALL
-    user: "1000:1000"
+    # Non-root user set in docker/Dockerfile.mockbackend (USER backend)
     deploy:
       resources:
         limits:
@@ -170,7 +170,7 @@ services:
       - /tmp:noexec,nosuid,nodev,size=50m
     cap_drop:
       - ALL
-    user: "1000:1000"
+    # Non-root user set in tarpit/Dockerfile (USER tarpit)
     deploy:
       resources:
         limits:
@@ -203,7 +203,7 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    user: "1000:1000"
+    # Non-root user set in docker/Dockerfile.trafficgen
     deploy:
       resources:
         limits:
@@ -248,7 +248,7 @@ services:
       - /tmp:noexec,nosuid,nodev,size=50m
     cap_drop:
       - ALL
-    user: "1000:1000"
+    # Non-root user set in src/analytics/Dockerfile (USER analytics)
     deploy:
       resources:
         limits:

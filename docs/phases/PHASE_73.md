@@ -63,18 +63,23 @@ Both are set so that even on the allowed cores, one agent cannot consume all CPU
 
 ## 73c. Non-Root Execution
 
-Add `user: "1000:1000"` to every service. This requires the container image to have a
-non-root user at UID 1000 (`appuser` in existing Dockerfiles). Verify with
-`docker compose exec proxy id` after starting.
+All first-party Dockerfiles already create and switch to a named non-root system user:
 
-Services that need it: `proxy`, `redis`, `backend`, `tarpit`, `analytics`, `trafficgen`,
-`test`. `haproxy` already drops privileges internally via `cap_drop: ALL`.
+| Service | Dockerfile | User |
+|---------|-----------|------|
+| `proxy` | `docker/Dockerfile` | `proxy` |
+| `backend` | `docker/Dockerfile.mockbackend` | `backend` |
+| `tarpit` | `tarpit/Dockerfile` | `tarpit` |
+| `analytics` | `src/analytics/Dockerfile` | `analytics` |
+| `trafficgen` | `docker/Dockerfile.trafficgen` | `trafficgen` |
+| `test` | `docker/Dockerfile.test` | `proxy` |
 
-```yaml
-services:
-  proxy:
-    user: "1000:1000"
-```
+These use `useradd -r` (system accounts, UID < 1000). Do NOT add `user:` overrides in
+`docker-compose.poc.yml` — that would override the Dockerfile's USER directive with a UID
+that does not exist in the container's `/etc/passwd`, breaking file permission checks on
+internal paths. The `haproxy` stock image manages its own privilege dropping internally.
+
+Verify non-root after starting: `docker compose exec proxy id` should show a non-root UID.
 
 ---
 
@@ -117,7 +122,7 @@ Behaviour is identical to the current single-instance setup. Existing `make star
 - [ ] `analytics` port bound to `${AGENT_BIND_IP}:8080`.
 - [ ] `proxy` metrics port bound to `${AGENT_BIND_IP}:9090`.
 - [ ] `proxy` has `cpuset: "${AGENT_CPU_SET:-0-15}"`.
-- [ ] All services have `user: "1000:1000"` (where applicable).
+- [ ] All containers run as non-root users (Dockerfiles set named system users; no `user:` override in compose).
 - [ ] All services have log rotation at 300 MB.
 - [ ] `make start` (no agent env) still works identically to before.
 - [ ] Verify loopback IP binding: `ss -tlnp | grep 127.0.0.10` shows 443 and 8080 when running as gemini agent.
