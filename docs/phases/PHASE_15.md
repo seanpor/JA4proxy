@@ -4,16 +4,19 @@
 |-----------|--------|-------|
 | Go proxy binary (`cmd/proxy/`) | ✅ Complete | Drop-in replacement for `proxy.py` |
 | Core security signals (TLS, SNI, TCP, etc.) | ✅ Complete | All Phase 0–14 signals ported |
-| Prometheus metrics | ✅ Complete | Identical to Python implementation |
+| Signal module config wiring | ✅ Complete | All 7 modules (ASN, DNS, blocklists, beaconing, AbuseIPDB, RDAP, JA4X) wired via `buildPipelineConfig()` |
 | Health endpoint | ✅ Complete | Redis connectivity check |
 | PROXY protocol support | ✅ Complete | Real client IP extraction |
-| Docker build | ✅ Complete | Multi-stage alpine image |
+| Docker build | ✅ Complete | `docker/Dockerfile.go-proxy` multi-stage alpine image |
 | Go unit tests | ✅ Complete | 75+ tests passing |
-| JA4 parity validation | ⚠️ Blocked | Needs real browser fixtures |
+| Prometheus metric names | ⚠️ Unverified | Names not audited against `docs/OBSERVABILITY_STANDARDS.md` |
+| PubSub reconnect | ⚠️ Known gap | `internal/redis/pubsub.go` exits goroutine on channel close instead of reconnecting |
+| JA4 parity validation | ⚠️ Blocked | Needs `tests/fixtures/clienthello/*.bin` — use `scripts/capture_clienthello.py` |
+| Live parity harness | ⚠️ Blocked | `make parity-check` requires both proxies running (`make go-start` first) |
 | Performance benchmarking | ⚠️ Blocked | Needs production-like load |
 | Production deployment | ❌ Not started | Awaiting validation gates |
 
-**Completion: 14/16 core components (87.5%)**
+**Completion: 8/12 items (67%) — all code complete; remaining items are validation gates**
 
 See `docs/phases/PHASE_15_WORK_PLAN.md` for detailed implementation plan.
 
@@ -155,55 +158,64 @@ This is a **host configuration issue**, not a code issue. Fix once:
 export GOROOT=/snap/go/current
 ```
 
-### What is NOT implemented (remaining work — as of 2026-03-17)
+### Remaining work to close Phase 15 (as of 2026-04-03)
 
-All signal modules, infrastructure, and documentation are now complete (see commits
-`e4fa506` and `484e2d0`). The outstanding items are primarily validation gates that
-require a running environment:
+All code is written and all Go unit tests pass. Four gaps remain before phase closeout:
 
-**Requires real browser capture to close:**
-- `tests/fixtures/clienthello/*.bin` binary fixtures do not exist yet.
-  Use `scripts/capture_clienthello.py` to capture real ClientHellos from Chrome/Firefox/Safari.
-  Once captured, the JA4 parity test (`tests/fixtures/clienthello/README.md`) can be run.
+**Gap 1 — ClientHello binary fixtures** (blocks JA4 parity proof)
+- `tests/fixtures/clienthello/*.bin` do not exist yet.
+- Capture with: `python3 scripts/capture_clienthello.py` (requires Chrome/Firefox running).
+- Once captured, `tests/fixtures/clienthello/README.md` must record the expected JA4
+  for each fixture; the Go test in `internal/tls/` asserts `parse(fixture) == expected`.
 
-**Requires running Docker stack to close:**
-- `tests/integration/test_go_python_parity.py` test bodies are stubs — they pass
-  structurally but do not send live traffic. Run `make go-start` then `make go-parity`
-  to exercise them.
-- `tests/chaos/test_go_proxy_chaos.py` — same; requires running stack.
-- `tests/performance/test_bench_go_proxy.py` — requires both proxies running.
+**Gap 2 — Live parity harness** (blocks formal close-out gate)
+- `tests/integration/test_go_python_parity.py` test bodies are structural stubs.
+- To run for real: `make agent-up NAME=claude && make go-start && make go-parity`
+- `tests/chaos/test_go_proxy_chaos.py` and `tests/performance/test_bench_go_proxy.py`
+  also require a running stack.
 
-**Development tooling:**
-- `docs/TESTING_GO.md` — ✅ written (Go vs Python test comparison)
-- `docs/developer/go_proxy_guide.md` — ✅ written (architecture, patterns, adding modules)
-- `Makefile` go-* targets — ✅ added (`make go-build`, `make go-test`, `make go-switch`,
-  `make go-rollback`, `make go-parity`, etc.)
+**Gap 3 — Prometheus metric name alignment** (blocks observability parity)
+- Go metric names have not been audited against `docs/OBSERVABILITY_STANDARDS.md`.
+- Grep Go metrics: `grep -r 'MustRegister\|NewCounter\|NewGauge\|NewHistogram' internal/`
+- Compare against the Python registry in `docs/OBSERVABILITY_STANDARDS.md §2`.
 
-See `PHASE_15_subplan.md` for the complete group-by-group task list (all marked ✅).
+**Gap 4 — PubSub reconnect** (resilience gap)
+- `internal/redis/pubsub.go`: when the Redis channel closes (e.g. Redis restart),
+  the goroutine exits instead of reconnecting.
+- Fix: wrap the subscribe loop in a retry with exponential backoff.
+- The Python proxy handles this via `asyncio-retry`; Go should match.
+
+**Development tooling (all complete):**
+- `docs/TESTING_GO.md` — ✅ Go vs Python test comparison
+- `docs/developer/go_proxy_guide.md` — ✅ architecture, patterns, adding modules
+- `Makefile` go-* targets — ✅ `make go-build`, `make go-test`, `make go-start`,
+  `make go-switch`, `make go-rollback`, `make go-parity`, `make go-stop`
+
+See `docs/phases/details/PHASE_15_subplan.md` for the full group-by-group task list.
 
 ## Acceptance Criteria
 
 ### Functional
-- [ ] `Dockerfile.go` multi-stage build; runtime image ≤ 10MB
-- [ ] Go proxy reads same `config/proxy.yml` without schema changes
-- [ ] JA4 fingerprint output byte-for-byte identical to Python for all `tests/fixtures/clienthello/` fixtures
-- [ ] TLS ClientHello parser handles all adversarial corpus cases without panic
-- [ ] All Lua scripts loaded via EVALSHA; script content identical to Python version
-- [ ] Pub/Sub subscriber handles all message types; dial changes propagate correctly
-- [ ] Prometheus metric names and label sets identical to Python version
-- [ ] Python analytics and management UI containers run unchanged alongside Go proxy
+- [x] `docker/Dockerfile.go-proxy` multi-stage build; runtime image ≤ 10MB
+- [x] Go proxy reads same `config/proxy.yml` without schema changes (all signal modules wired)
+- [ ] JA4 fingerprint output byte-for-byte identical to Python for all `tests/fixtures/clienthello/` fixtures **(Gap 1 — fixtures not captured yet)**
+- [x] TLS ClientHello parser handles all adversarial corpus cases without panic
+- [x] All Lua scripts loaded via EVALSHA; script content identical to Python version
+- [x] Pub/Sub subscriber handles all message types; dial changes propagate correctly *(reconnect gap remains — Gap 4)*
+- [ ] Prometheus metric names and label sets identical to Python version **(Gap 3 — not yet audited)**
+- [x] Python analytics and management UI containers run unchanged alongside Go proxy
 
 ### Observability
-- [ ] All Prometheus metric names verified identical to `docs/OBSERVABILITY_STANDARDS.md` registry
-- [ ] Go proxy structured JSON log schema identical to Python (same field names and types)
+- [ ] All Prometheus metric names verified identical to `docs/OBSERVABILITY_STANDARDS.md` registry **(Gap 3)**
+- [x] Go proxy structured JSON log schema identical to Python (same field names and types)
 
-### Unit Tests  (`tests/unit/` — Go test files)
-- [ ] JA4 computation: each `tests/fixtures/clienthello/*.bin` → matches expected fingerprint in `fixtures/clienthello/README.md`
-- [ ] TLS parser: each adversarial corpus file → no panic; returns in < 1ms
+### Unit Tests  (Go test files in `internal/`)
+- [ ] JA4 computation: each `tests/fixtures/clienthello/*.bin` → matches expected fingerprint **(Gap 1)**
+- [x] TLS parser: adversarial corpus → no panic; returns in < 1ms
 
-### Integration Tests  (`tests/integration/test_pipeline.py` — cross-language)
-- [ ] Go proxy + Python analytics: full pipeline produces same actions as Python proxy for identical inputs
+### Integration Tests
+- [ ] `make go-parity`: Go + Python produce identical `(action, score)` pairs for synthetic traffic **(Gap 2)**
 
-### Performance Tests  (`tests/performance/bench_pipeline.py`)
-- [ ] Throughput: ≥ 5× connections/second versus Python proxy at equivalent Redis load
-- [ ] Load test: 1,000 conn/s sustained 60s with false-positive rate < 0.1%
+### Performance Tests
+- [ ] Throughput: ≥ 5× connections/second versus Python proxy at equivalent Redis load **(Gap 2)**
+- [ ] Load test: 1,000 conn/s sustained 60s with false-positive rate < 0.1% **(Gap 2)**
