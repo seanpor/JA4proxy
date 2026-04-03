@@ -5,7 +5,7 @@ epics:
     
   - name: "Epic: Security Hardening"
     description: "Deep security analysis, compliance, and audit remediation."
-    phases: [1, 3, 4, 5, 8, 10, 11, 14, 16, 18, 22, 25, 27, 30, 34, 35, 37, 38, 55, 56, 62]
+    phases: [1, 3, 4, 5, 8, 10, 11, 14, 16, 18, 22, 25, 27, 30, 34, 35, 37, 38, 55, 56, 62, 75]
     
   - name: "Epic: Analytics & Intelligence"
     description: "Cross-instance behavior analysis and threat intelligence."
@@ -21,7 +21,7 @@ epics:
 
   - name: "Epic: Operational Excellence & Lifecycle Management"
     description: "Zero-downtime upgrades, robust health monitoring, and deployment orchestration."
-    phases: [40, 41, 42, 43, 57, 63, 64]
+    phases: [40, 41, 42, 43, 57, 63, 64, 71, 72, 73, 74]
 
   - name: "Epic: Quality Assurance & Test Maturity"
     description: "Comprehensive testing, adversarial coverage, and performance validation."
@@ -702,3 +702,64 @@ phases:
       - "Analytics tests pass"
       - "Subinterpreter experiment: benchmark comparison committed, keep/remove decision documented"
       - "README.md states Python >= 3.14 requirement"
+
+  71:
+    name: "Docker Isolation - Foundations & Registry"
+    status: "PROPOSED"
+    summary: "Establish the source of truth for agent identities and automated environment generation."
+    action_plan: "docs/phases/PHASE_71.md"
+    dependencies: [25]
+    size: "SMALL"
+    success_criteria:
+      - "registry/agents.json correctly maps agents to IPs and CPU sets"
+      - "scripts/agent-env.sh generates valid isolated .env files"
+      - "Makefile supports 'make agent-up NAME=gemini'"
+
+  72:
+    name: "Docker Isolation - Logical Network Zones"
+    status: "PROPOSED"
+    summary: "Implement three-tier logical zones (DMZ, APP, ORIGIN) with strict internal isolation."
+    action_plan: "docs/phases/PHASE_72.md"
+    dependencies: [71]
+    size: "SMALL"
+    success_criteria:
+      - "Three-tier zones implemented in docker-compose.poc.yml"
+      - "internal: true enforced on data_net and origin_net"
+      - "DNS resolution verified between Proxy and Redis zones"
+
+  73:
+    name: "Docker Isolation - Host-Level Hardening"
+    status: "PROPOSED"
+    summary: "Implement two-port policy, loopback IP binding, and resource partitioning."
+    action_plan: "docs/phases/PHASE_73.md"
+    dependencies: [72]
+    size: "SMALL"
+    success_criteria:
+      - "Two-port policy (443, 8080) verified for running agents"
+      - "Loopback IP binding (127.0.0.10-13) verified"
+      - "cpuset pinning verified for i9-9900K threads"
+      - "Non-root user enforcement verified across all containers"
+
+  74:
+    name: "Docker Isolation - Shared Assets & Tooling"
+    status: "PROPOSED"
+    summary: "Optimize resource usage with shared RO volumes and update admin scripts for multi-agent support."
+    action_plan: "docs/phases/PHASE_74.md"
+    dependencies: [73]
+    size: "SMALL"
+    success_criteria:
+      - "GeoIP shared as read-only volume across all agent stacks"
+      - "ja4-admin.sh and benchmark.py support --agent flag"
+      - "Automatic .env sourcing implemented for admin scripts"
+
+  75:
+    name: "Docker Isolation - Security Audit & Validation"
+    status: "PROPOSED"
+    summary: "Final Red Team verification and comprehensive isolation documentation."
+    action_plan: "docs/phases/PHASE_75.md"
+    dependencies: [74]
+    size: "SMALL"
+    success_criteria:
+      - "docs/architecture/ISOLATION_MODEL.md complete with Mermaid diagrams"
+      - "scripts/check-isolation.sh confirms no lateral leaks or egress violations"
+      - "Successful concurrent run of multiple agent environments verified"

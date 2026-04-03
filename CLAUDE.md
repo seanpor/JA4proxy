@@ -164,6 +164,11 @@ Practical rules that flow from this:
 | 68 | **Python 3.14 Hot Path Optimizations** | JIT-friendly scoring loop; uvloop for 2-4× I/O throughput; config toggle | [PHASE_68.md](docs/phases/PHASE_68.md) |
 | 69 | **Free-Threaded Python Proxy** | python:3.14t-slim; thread safety audit; ThreadPoolExecutor; target ≥600 conn/s | [PHASE_69.md](docs/phases/PHASE_69.md) |
 | 70 | **Analytics Upgrade & Subinterpreter Experiment** | Analytics container to 3.14; optional subinterpreter worker pool experiment | [PHASE_70.md](docs/phases/PHASE_70.md) |
+| 71 | **Docker Isolation - Foundations & Registry** | Agent identity source of truth; automated environment generator; make integration | [PHASE_71.md](docs/phases/PHASE_71.md) |
+| 72 | **Docker Isolation - Logical Network Zones** | Three-tier production mirroring (DMZ, APP, ORIGIN) with strict network isolation | [PHASE_72.md](docs/phases/PHASE_72.md) |
+| 73 | **Docker Isolation - Host-Level Hardening** | Two-port policy; loopback IP binding (127.0.0.x); CPU pinning; non-root user | [PHASE_73.md](docs/phases/PHASE_73.md) |
+| 74 | **Docker Isolation - Shared Assets & Tooling** | GeoIP sharing (RO); admin script support for --agent flag; automatic .env sourcing | [PHASE_74.md](docs/phases/PHASE_74.md) |
+| 75 | **Docker Isolation - Security Audit & Validation** | Red Team verification; check-isolation.sh script; final documentation | [PHASE_75.md](docs/phases/PHASE_75.md) |
 
 **Do phases in order. Complete all acceptance criteria before starting the next phase.**
 

@@ -100,3 +100,23 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 70 — Analytics Upgrade & Subinterpreter Experiment
 *   **Status:** **PROPOSED** (Upgrade analytics container to Python 3.14 once numpy/scipy wheels confirmed. Optional: implement subinterpreter worker pool (Python 3.14 interpreters module) as a feature-flagged alternative to ThreadPoolExecutor; benchmark and keep or remove based on data.)
 *   **Action Plan:** [PHASE_70.md](PHASE_70.md)
+
+### Phase 71 — Docker Isolation - Foundations & Registry
+*   **Status:** **PROPOSED** (Establish the source of truth for agent identities and automated environment generation.)
+*   **Action Plan:** [PHASE_71.md](PHASE_71.md)
+
+### Phase 72 — Docker Isolation - Logical Network Zones
+*   **Status:** **PROPOSED** (Implement three-tier logical zones (DMZ, APP, ORIGIN) with strict internal isolation.)
+*   **Action Plan:** [PHASE_72.md](PHASE_72.md)
+
+### Phase 73 — Docker Isolation - Host-Level Hardening
+*   **Status:** **PROPOSED** (Implement two-port policy, loopback IP binding, and resource partitioning.)
+*   **Action Plan:** [PHASE_73.md](PHASE_73.md)
+
+### Phase 74 — Docker Isolation - Shared Assets & Tooling
+*   **Status:** **PROPOSED** (Optimize resource usage with shared RO volumes and update admin scripts for multi-agent support.)
+*   **Action Plan:** [PHASE_74.md](PHASE_74.md)
+
+### Phase 75 — Docker Isolation - Security Audit & Validation
+*   **Status:** **PROPOSED** (Final Red Team verification and comprehensive isolation documentation.)
+*   **Action Plan:** [PHASE_75.md](PHASE_75.md)
