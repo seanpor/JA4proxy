@@ -14,7 +14,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ### Phase 13 — Management UI - Phase 1: Backend API
 *   **Status:** **DEFERRED** (FastAPI backend for real-time monitoring and configuration management.)
-*   **Action Plan:** [PHASE_13_WORK_PLAN.md](PHASE_13_WORK_PLAN.md)
+*   **Action Plan:** [PHASE_13.md](PHASE_13.md)
 
 ### Phase 34 — APT Hardening - Phase 1: Parser Isolation & Redis Security
 *   **Status:** **PROPOSED** (Implement parser process isolation and Zero-Trust Redis ACLs with signatures.)

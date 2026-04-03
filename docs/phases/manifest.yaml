@@ -5,7 +5,7 @@ epics:
     
   - name: "Epic: Security Hardening"
     description: "Deep security analysis, compliance, and audit remediation."
-    phases: [1, 3, 4, 5, 8, 10, 11, 14, 16, 18, 22, 25, 27, 30, 34, 35, 37, 38, 55, 56]
+    phases: [1, 3, 4, 5, 8, 10, 11, 14, 16, 18, 22, 25, 27, 30, 34, 35, 37, 38, 55, 56, 62]
     
   - name: "Epic: Analytics & Intelligence"
     description: "Cross-instance behavior analysis and threat intelligence."
@@ -21,11 +21,11 @@ epics:
 
   - name: "Epic: Operational Excellence & Lifecycle Management"
     description: "Zero-downtime upgrades, robust health monitoring, and deployment orchestration."
-    phases: [40, 41, 42, 43, 57]
+    phases: [40, 41, 42, 43, 57, 63, 64]
 
   - name: "Epic: Quality Assurance & Test Maturity"
     description: "Comprehensive testing, adversarial coverage, and performance validation."
-    phases: [44, 45, 46]
+    phases: [44, 45, 46, 60, 61]
 
 phases:
   0:
@@ -34,46 +34,6 @@ phases:
     test_coverage: "100%"
     doc_status: "COMPLETE"
     summary: "Configuration loader, hot reload, local cache, Bloom filters."
-  60:
-    name: "Master Plan and Governance"
-    status: "PROPOSED"
-    doc_status: "COMPLETE"
-    summary: "Comprehensive quality improvement roadmap and governance framework."
-    dependencies: []
-    size: "XL"
-    epic: "Comprehensive Quality Improvement"
-  61:
-    name: "Technical Quality Improvements"
-    status: "PROPOSED"
-    doc_status: "COMPLETE"
-    summary: "Code quality, architecture, performance, and reliability enhancements."
-    dependencies: [60]
-    size: "L"
-    epic: "Quality Assurance & Test Maturity"
-  62:
-    name: "Security Hardening"
-    status: "PROPOSED"
-    doc_status: "COMPLETE"
-    summary: "Penetration testing, threat modeling, incident response, and compliance."
-    dependencies: [60, 61]
-    size: "XL"
-    epic: "Security Hardening"
-  63:
-    name: "Observability and Monitoring"
-    status: "PROPOSED"
-    doc_status: "COMPLETE"
-    summary: "Technical observability, executive dashboards, alerting, and reporting."
-    dependencies: [60, 61]
-    size: "L"
-    epic: "Operational Excellence"
-  64:
-    name: "Operational Excellence"
-    status: "PROPOSED"
-    doc_status: "COMPLETE"
-    summary: "Process optimization, training, documentation, and continuous improvement."
-    dependencies: [60, 61, 62, 63]
-    size: "M"
-    epic: "Operational Excellence"
     
   1:
     name: "Risk Scorer"
@@ -163,26 +123,10 @@ phases:
     name: "Management UI - Phase 1: Backend API"
     status: "DEFERRED"
     summary: "FastAPI backend for real-time monitoring and configuration management."
-    action_plan: "docs/phases/details/PHASE_13_WORK_PLAN.md"
+    action_plan: "docs/phases/PHASE_13.md"
     dependencies: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15]
     size: "SMALL"
     
-  51:
-    name: "Management UI - Phase 2: Frontend Dashboard"
-    status: "PROPOSED"
-    summary: "React-based dashboard for real-time visualization of proxy telemetry."
-    action_plan: "docs/phases/PHASE_51.md"
-    dependencies: [13]
-    size: "SMALL"
-
-  52:
-    name: "Management UI - Phase 3: Administration Tools"
-    status: "PROPOSED"
-    summary: "Interactive tools for managing allowlists, bans, and system configuration."
-    action_plan: "docs/phases/PHASE_52.md"
-    dependencies: [51]
-    size: "SMALL"
-
   14:
     name: "Production Hardening"
     status: "COMPLETE"
@@ -197,12 +141,13 @@ phases:
     doc_status: "COMPLETE"
     summary: "10-50x throughput improvement via CPython/Go transition. Feature parity achieved including JA4X, Lua script embedding, and scoring pipeline."
     completed: "2026-03-31"
-    action_plan: "docs/phases/details/PHASE_15_WORK_PLAN.md"
+    action_plan: "docs/phases/PHASE_15.md"
     
   16:
     name: "Extended Fingerprinting"
     status: "COMPLETE"
     summary: "JA4X fingerprinting, adaptive rate limiting."
+    action_plan: "docs/phases/PHASE_16.md"
     
   17:
     name: "Docker Test Optimization"
@@ -210,12 +155,13 @@ phases:
     test_coverage: "100%"
     doc_status: "COMPLETE"
     summary: "Fix Docker test container hang during teardown."
+    action_plan: "docs/phases/PHASE_17.md"
     
   18:
     name: "Security Audit Remediation"
     status: "COMPLETE"
     summary: "Fix broad exception handling, f-string logging, and add SignalCollector protocol."
-    action_plan: "docs/phases/details/PHASE_17b.md"
+    action_plan: "docs/phases/PHASE_18.md"
     
   19:
     name: "Backup & Restore"
@@ -223,6 +169,7 @@ phases:
     test_coverage: "100%"
     doc_status: "COMPLETE"
     summary: "Deterministic backup/restore with real key-name format, manifest+checksum, retention, CLI, observability."
+    action_plan: "docs/phases/PHASE_19.md"
 
   20:
     name: "Passive TAP Mode"
@@ -231,13 +178,13 @@ phases:
     doc_status: "COMPLETE"
     summary: "AF_PACKET capture, full JA4 fingerprint family, out-of-band enforcement, and intelligence export."
     completed: "2026-03-28"
-    action_plan: "docs/phases/details/PHASE_20_WORK_PLAN.md"
+    action_plan: "docs/phases/PHASE_20.md"
 
   21:
     name: "Documentation Excellence"
     status: "COMPLETE"
     summary: "5/5 documentation quality and persona-based navigation."
-    action_plan: "docs/phases/details/PHASE_21_WORK_PLAN.md"
+    action_plan: "docs/phases/PHASE_21.md"
 
   22:
     name: "Backup System Enhancements - Phase 1: Core Features"
@@ -255,34 +202,6 @@ phases:
       - "Backup performance improved by ≥300%"
       - "Restore validation prevents silent failures"
 
-  40:
-    name: "Backup System Enhancements - Phase 2: Security & Compliance"
-    status: "COMPLETE"
-    summary: "Add AES-256-GCM encryption at rest and DSAR compliance utility."
-    completed: "2026-03-31"
-    action_plan: "docs/phases/details/PHASE_40_BACKUP_PLAN.md"
-    dependencies: [22]
-    size: "SMALL"
-    gaps: []
-    success_criteria:
-      - "Backup artifacts encrypted with authenticated encryption (GCM)"
-      - "DSAR utility successfully redacts IP addresses from backup archives"
-      - "Distributed locking prevents concurrent backup/restore corruption"
-
-  57:
-    name: "Backup System Enhancements - Phase 3: Cloud & Incrementals"
-    status: "PROPOSED"
-    summary: "Add cloud storage adapters (S3/GCS) and incremental backup strategy."
-    action_plan: "docs/phases/PHASE_57.md"
-    dependencies: [40]
-    size: "SMALL"
-    gaps:
-      - "P22-G2: Cloud storage adapters (S3, GCS, Azure Blob Storage)"
-      - "P22-G3: Incremental backup strategy (track changed keys since last full)"
-    success_criteria:
-      - "Successful offsite backup to at least one cloud provider"
-      - "Incremental backups significantly reduce backup window for large datasets"
-
   23:
     name: "Advanced Traffic Intelligence - Phase 1: Primary Feeds"
     status: "COMPLETE"
@@ -295,105 +214,11 @@ phases:
       - "AbuseIPDB, GreyNoise, and AlienVault OTX feeds integrated"
       - "Real-time IP reputation lookup < 50ms (cached)"
 
-  58:
-    name: "Advanced Traffic Intelligence - Phase 3: Feed Optimization & Reliability"
-    status: "COMPLETE"
-    summary: "Enhance secondary feeds with confidence weighting and adaptive caching for improved signal quality and performance."
-    action_plan: "docs/phases/PHASE_58.md"
-    dependencies: [53, 41]
-    size: "SMALL"
-    completed: "2026-04-01"
-    success_criteria:
-      - "Confidence weighting system implemented and tested"
-      - "Adaptive caching system implemented with volatility-based TTL"
-      - "Integration with MISP, ThreatFox, and VirusTotal providers"
-      - "Comprehensive test suite with 22 tests (100% pass rate)"
-
-  59:
-    name: "Advanced Traffic Intelligence - Phase 4: Feed Reliability & Resilience"
-    status: "IN_PROGRESS"
-    summary: "Enhance feeds with health monitoring, circuit breakers, and comprehensive chaos testing."
-    action_plan: "docs/phases/PHASE_59.md"
-    dependencies: [58, 41]
-    size: "SMALL"
-    success_criteria:
-      - "Feed health monitoring system tracks availability and performance"
-      - "Circuit breakers prevent cascading failures during outages"
-      - "System maintains ≥99.9% uptime during simulated failures"
-      - "Comprehensive documentation for all user roles"
-    gaps:
-      - "P59-G1: Syntax error in misp.py preventing test execution"
-      - "P59-G2: Feed health monitoring system not yet implemented"
-      - "P59-G3: Circuit breaker pattern not yet implemented"
-      - "P59-G4: Chaos testing for feed failures not comprehensive"
-
-  53:
-    name: "Advanced Traffic Intelligence - Phase 2: Secondary Feeds"
-    status: "COMPLETE"
-    summary: "Integrate specialized threat intelligence feeds (e.g., MISP, ThreatFox, VirusTotal)."
-    completed: "2026-03-31"
-    action_plan: "docs/phases/PHASE_53.md"
-    dependencies: [23]
-    size: "SMALL"
-    success_criteria:
-      - "Secondary threat feeds integrated"
-      - "Cache hit rate ≥95% for reputation lookups"
-
-  31:
-    name: "Advanced Traffic Intelligence - Phase 3: Geographical Intelligence"
-    status: "COMPLETE"
-    summary: "Add GeoIP lookup and country-based blocking capabilities. Target: Geographical threat analysis."
-    completed: "2026-03-31"
-    action_plan: "docs/phases/details/PHASE_31_WORK_PLAN.md"
-    dependencies: [23]
-    size: "SMALL"
-    success_criteria:
-      - "GeoIP lookup accuracy ≥98%"
-      - "Country blocking functional"
-
-  32:
-    name: "Advanced Traffic Intelligence - Phase 4: Attacker Attribution"
-    status: "COMPLETE"
-    summary: "Implement attacker fingerprinting and JA4 correlation logic."
-    completed: "2026-03-31"
-    action_plan: "docs/phases/details/PHASE_32_WORK_PLAN.md"
-    dependencies: [31]
-    size: "SMALL"
-    success_criteria:
-      - "Attacker fingerprinting working"
-      - "False positive rate < 1%"
-
-  54:
-    name: "Advanced Traffic Intelligence - Phase 5: Behavioral Attribution"
-    status: "COMPLETE"
-    summary: "Implement complex behavioral patterns and cross-IP correlation."
-    completed: "2026-03-31"
-    action_plan: "docs/phases/PHASE_54.md"
-    dependencies: [32]
-    size: "SMALL"
-    success_criteria:
-      - "Behavioral patterns detected"
-      - "Correlation logic validated against test corpus"
-
-  33:
-    name: "Advanced Traffic Intelligence - Phase 6: Documentation Diagrams"
-    status: "COMPLETE"
-    summary: "Standardize all documentation diagrams to Mermaid format for consistent rendering."
-    completed: "2026-03-30"
-    action_plan: "docs/phases/details/PHASE_33_WORK_PLAN.md"
-    dependencies: []
-    size: "SMALL"
-    gaps:
-      - "Diagrams not standardized to Mermaid format for consistent rendering"
-    success_criteria:
-      - "All architecture diagrams in Mermaid format"
-      - "Diagrams render correctly in GitHub/GitLab"
-
   24:
     name: "Go Strategy Assessment"
     status: "CLOSED"
     summary: "Closed: premise (TLS parsing as bottleneck) refuted by benchmark data. Real bottlenecks are Redis RTT and sequential signal collection. See Phase 26 and Phase 15."
-    action_plan: "docs/phases/PHASE_24_STRATEGY_ASSESSMENT.md"
+    action_plan: "docs/phases/PHASE_24.md"
     closed_reason: "Empirical benchmarks (2026-03-25) showed TLS parsing is not the bottleneck. IPC overhead from gRPC would create a new bottleneck. Correct solutions: Phase 26 (Python hardening) and Phase 15 (full Go rewrite)."
 
   25:
@@ -464,6 +289,44 @@ phases:
       - "WriteBuffer reduces Redis writes by ≥50%"
       - "Comprehensive benchmark report generated"
 
+  31:
+    name: "Advanced Traffic Intelligence - Phase 3: Geographical Intelligence"
+    status: "COMPLETE"
+    summary: "Add GeoIP lookup and country-based blocking capabilities. Target: Geographical threat analysis."
+    completed: "2026-03-31"
+    action_plan: "docs/phases/PHASE_31.md"
+    dependencies: [23]
+    size: "SMALL"
+    success_criteria:
+      - "GeoIP lookup accuracy ≥98%"
+      - "Country blocking functional"
+
+  32:
+    name: "Advanced Traffic Intelligence - Phase 4: Attacker Attribution"
+    status: "COMPLETE"
+    summary: "Implement attacker fingerprinting and JA4 correlation logic."
+    completed: "2026-03-31"
+    action_plan: "docs/phases/PHASE_32.md"
+    dependencies: [31]
+    size: "SMALL"
+    success_criteria:
+      - "Attacker fingerprinting working"
+      - "False positive rate < 1%"
+
+  33:
+    name: "Advanced Traffic Intelligence - Phase 6: Documentation Diagrams"
+    status: "COMPLETE"
+    summary: "Standardize all documentation diagrams to Mermaid format for consistent rendering."
+    completed: "2026-03-30"
+    action_plan: "docs/phases/PHASE_33.md"
+    dependencies: []
+    size: "SMALL"
+    gaps:
+      - "Diagrams not standardized to Mermaid format for consistent rendering"
+    success_criteria:
+      - "All architecture diagrams in Mermaid format"
+      - "Diagrams render correctly in GitHub/GitLab"
+
   34:
     name: "APT Hardening - Phase 1: Parser Isolation & Redis Security"
     status: "PROPOSED"
@@ -475,17 +338,6 @@ phases:
       - "Redis communication uses TLS and ACLs"
       - "Critical security lists are cryptographically signed"
 
-  55:
-    name: "APT Hardening - Phase 2: Advanced Detection & Container Security"
-    status: "PROPOSED"
-    summary: "Implement subnet correlation, anti-evasion checks, and strict Seccomp/AppArmor profiles."
-    action_plan: "docs/phases/PHASE_55.md"
-    dependencies: [34]
-    size: "SMALL"
-    success_criteria:
-      - "Strict Seccomp/AppArmor profiles enforced"
-      - "Subnet-level signal correlation functional"
-
   35:
     name: "Advanced APT - Phase 1: Integrity Enforcement & Kernel-Level"
     status: "PROPOSED"
@@ -495,17 +347,6 @@ phases:
     success_criteria:
       - "Configuration and code integrity verified on startup"
       - "eBPF maps synchronized with blacklisted IPs"
-
-  56:
-    name: "Advanced APT - Phase 2: Deceptive Defense & Persistence Defense"
-    status: "PROPOSED"
-    summary: "Implement honey-fingerprints, honey-SNIs, and runtime process namespace isolation."
-    action_plan: "docs/phases/PHASE_56.md"
-    dependencies: [35]
-    size: "SMALL"
-    success_criteria:
-      - "Honey-fingerprint triggers immediately blacklist suspects"
-      - "Runtime filesystem is immutable with tmpfs overlays"
 
   36:
     name: "Go Test Quality & Parity Gaps"
@@ -544,6 +385,20 @@ phases:
     completed: "2026-03-28"
     action_plan: "docs/phases/PHASE_39.md"
 
+  40:
+    name: "Backup System Enhancements - Phase 2: Security & Compliance"
+    status: "COMPLETE"
+    summary: "Add AES-256-GCM encryption at rest and DSAR compliance utility."
+    completed: "2026-03-31"
+    action_plan: "docs/phases/details/PHASE_40_BACKUP_PLAN.md"
+    dependencies: [22]
+    size: "SMALL"
+    gaps: []
+    success_criteria:
+      - "Backup artifacts encrypted with authenticated encryption (GCM)"
+      - "DSAR utility successfully redacts IP addresses from backup archives"
+      - "Distributed locking prevents concurrent backup/restore corruption"
+
   41:
     name: "Robust Health Check API & Anti-Flap Logic"
     status: "COMPLETE"
@@ -575,7 +430,8 @@ phases:
     name: "Test Audit and Documentation"
     status: "COMPLETE"
     summary: "Audit the test suite to ensure all tests are genuine and document test types, coverage, and gaps."
-    action_plan: "docs/phases/PHASE_44_TEST_AUDIT.md"
+    completed: "2026-03-31"
+    action_plan: "docs/phases/PHASE_44.md"
     dependencies: []
     size: "SMALL"
     success_criteria:
@@ -588,7 +444,7 @@ phases:
     status: "COMPLETE"
     summary: "Expand adversarial tests to cover additional attack vectors and ensure comprehensive security coverage."
     completed: "2026-03-31"
-    action_plan: "docs/phases/PHASE_45_ADVERSARIAL_TESTS.md"
+    action_plan: "docs/phases/PHASE_45.md"
     dependencies: [44]
     size: "SMALL"
     success_criteria:
@@ -600,9 +456,162 @@ phases:
     status: "COMPLETE"
     summary: "Improve coverage for low-coverage modules and achieve >80% coverage for all critical modules."
     completed: "2026-03-31"
-    action_plan: "docs/phases/PHASE_46_COVERAGE.md"
+    action_plan: "docs/phases/PHASE_46.md"
     dependencies: [45]
     size: "SMALL"
     success_criteria:
       - "Coverage improved for low-coverage modules"
       - "Overall coverage >85%"
+
+  51:
+    name: "Management UI - Phase 2: Frontend Dashboard"
+    status: "PROPOSED"
+    summary: "React-based dashboard for real-time visualization of proxy telemetry."
+    action_plan: "docs/phases/PHASE_51.md"
+    dependencies: [13]
+    size: "SMALL"
+
+  52:
+    name: "Management UI - Phase 3: Administration Tools"
+    status: "PROPOSED"
+    summary: "Interactive tools for managing allowlists, bans, and system configuration."
+    action_plan: "docs/phases/PHASE_52.md"
+    dependencies: [51]
+    size: "SMALL"
+
+  53:
+    name: "Advanced Traffic Intelligence - Phase 2: Secondary Feeds"
+    status: "COMPLETE"
+    summary: "Integrate specialized threat intelligence feeds (e.g., MISP, ThreatFox, VirusTotal)."
+    completed: "2026-03-31"
+    action_plan: "docs/phases/PHASE_53.md"
+    dependencies: [23]
+    size: "SMALL"
+    success_criteria:
+      - "Secondary threat feeds integrated"
+      - "Cache hit rate ≥95% for reputation lookups"
+
+  54:
+    name: "Advanced Traffic Intelligence - Phase 5: Behavioral Attribution"
+    status: "COMPLETE"
+    summary: "Implement complex behavioral patterns and cross-IP correlation."
+    completed: "2026-03-31"
+    action_plan: "docs/phases/PHASE_54.md"
+    dependencies: [32]
+    size: "SMALL"
+    success_criteria:
+      - "Behavioral patterns detected"
+      - "Correlation logic validated against test corpus"
+
+  55:
+    name: "APT Hardening - Phase 2: Advanced Detection & Container Security"
+    status: "PROPOSED"
+    summary: "Implement subnet correlation, anti-evasion checks, and strict Seccomp/AppArmor profiles."
+    action_plan: "docs/phases/PHASE_55.md"
+    dependencies: [34]
+    size: "SMALL"
+    success_criteria:
+      - "Strict Seccomp/AppArmor profiles enforced"
+      - "Subnet-level signal correlation functional"
+
+  56:
+    name: "Advanced APT - Phase 2: Deceptive Defense & Persistence Defense"
+    status: "PROPOSED"
+    summary: "Implement honey-fingerprints, honey-SNIs, and runtime process namespace isolation."
+    action_plan: "docs/phases/PHASE_56.md"
+    dependencies: [35]
+    size: "SMALL"
+    success_criteria:
+      - "Honey-fingerprint triggers immediately blacklist suspects"
+      - "Runtime filesystem is immutable with tmpfs overlays"
+
+  57:
+    name: "Backup System Enhancements - Phase 3: Cloud & Incrementals"
+    status: "PROPOSED"
+    summary: "Add cloud storage adapters (S3/GCS) and incremental backup strategy."
+    action_plan: "docs/phases/PHASE_57.md"
+    dependencies: [40]
+    size: "SMALL"
+    gaps:
+      - "P22-G2: Cloud storage adapters (S3, GCS, Azure Blob Storage)"
+      - "P22-G3: Incremental backup strategy (track changed keys since last full)"
+    success_criteria:
+      - "Successful offsite backup to at least one cloud provider"
+      - "Incremental backups significantly reduce backup window for large datasets"
+
+  58:
+    name: "Advanced Traffic Intelligence - Phase 3: Feed Optimization & Reliability"
+    status: "COMPLETE"
+    summary: "Enhance secondary feeds with confidence weighting and adaptive caching for improved signal quality and performance."
+    action_plan: "docs/phases/PHASE_58.md"
+    dependencies: [53, 41]
+    size: "SMALL"
+    completed: "2026-04-01"
+    success_criteria:
+      - "Confidence weighting system implemented and tested"
+      - "Adaptive caching system implemented with volatility-based TTL"
+      - "Integration with MISP, ThreatFox, and VirusTotal providers"
+      - "Comprehensive test suite with 22 tests (100% pass rate)"
+
+  59:
+    name: "Advanced Traffic Intelligence - Phase 4: Feed Reliability & Resilience"
+    status: "IN_PROGRESS"
+    summary: "Enhance feeds with health monitoring, circuit breakers, and comprehensive chaos testing."
+    action_plan: "docs/phases/PHASE_59.md"
+    dependencies: [58, 41]
+    size: "SMALL"
+    success_criteria:
+      - "Feed health monitoring system tracks availability and performance"
+      - "Circuit breakers prevent cascading failures during outages"
+      - "System maintains ≥99.9% uptime during simulated failures"
+      - "Comprehensive documentation for all user roles"
+    gaps:
+      - "P59-G1: Syntax error in misp.py preventing test execution"
+      - "P59-G2: Feed health monitoring system not yet implemented"
+      - "P59-G3: Circuit breaker pattern not yet implemented"
+      - "P59-G4: Chaos testing for feed failures not comprehensive"
+
+  60:
+    name: "Master Plan and Governance"
+    status: "PROPOSED"
+    doc_status: "COMPLETE"
+    summary: "Comprehensive quality improvement roadmap and governance framework."
+    action_plan: "docs/phases/PHASE_60.md"
+    dependencies: []
+    size: "XL"
+    
+  61:
+    name: "Technical Quality Improvements"
+    status: "PROPOSED"
+    doc_status: "COMPLETE"
+    summary: "Code quality, architecture, performance, and reliability enhancements."
+    action_plan: "docs/phases/PHASE_61.md"
+    dependencies: [60]
+    size: "L"
+    
+  62:
+    name: "Security Hardening"
+    status: "PROPOSED"
+    doc_status: "COMPLETE"
+    summary: "Penetration testing, threat modeling, incident response, and compliance."
+    action_plan: "docs/phases/PHASE_62.md"
+    dependencies: [60, 61]
+    size: "XL"
+    
+  63:
+    name: "Observability and Monitoring"
+    status: "PROPOSED"
+    doc_status: "COMPLETE"
+    summary: "Technical observability, executive dashboards, alerting, and reporting."
+    action_plan: "docs/phases/PHASE_63.md"
+    dependencies: [60, 61]
+    size: "L"
+    
+  64:
+    name: "Operational Excellence"
+    status: "PROPOSED"
+    doc_status: "COMPLETE"
+    summary: "Process optimization, training, documentation, and continuous improvement."
+    action_plan: "docs/phases/PHASE_64.md"
+    dependencies: [60, 61, 62, 63]
+    size: "M"

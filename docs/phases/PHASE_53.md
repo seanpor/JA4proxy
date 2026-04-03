@@ -26,4 +26,3 @@ Integrate specialized and private threat intelligence feeds to broaden the scope
 - [x] At least two new specialized feeds are integrated and producing signals.
 - [x] Cache hit rate for secondary feeds exceeds 90% in production.
 - [x] System handles feed downtime or API errors without impacting proxy latency.
-

@@ -110,27 +110,27 @@ Practical rules that flow from this:
 | 10 | AbuseIPDB integration | Scored reputation lookup with aggressive caching | [PHASE_10.md](docs/phases/PHASE_10.md) |
 | 11 | RDAP enrichment & block expansion | Org reputation; /24 block expansion; WHOIS pivot | [PHASE_11.md](docs/phases/PHASE_11.md) |
 | 12 | Analytics node | Cross-instance aggregation; campaign/slow-scan detection; **score drift alerting** | [PHASE_12.md](docs/phases/PHASE_12.md) |
-| 13 | Management UI - Ph 1: Backend API | FastAPI backend for real-time monitoring and configuration management | [PHASE_13_WORK_PLAN.md](docs/phases/details/PHASE_13_WORK_PLAN.md) |
+| 13 | Management UI - Ph 1: Backend API | FastAPI backend for real-time monitoring and configuration management | [PHASE_13.md](docs/phases/PHASE_13.md) |
 | 51 | Management UI - Ph 2: Frontend | React-based dashboard for real-time visualization of proxy telemetry | [PHASE_51.md](docs/phases/PHASE_51.md) |
 | 52 | Management UI - Ph 3: Admin | Interactive tools for managing allowlists, bans, and configuration | [PHASE_52.md](docs/phases/PHASE_52.md) |
 | 14 | Production hardening | Secrets, Redis security, resource limits, observability, **tarpit self-protection** | [PHASE_14.md](docs/phases/PHASE_14.md) |
 | 15 | **Go rewrite** | 10–50× throughput; Feature parity achieved including JA4X and Lua embedding | [PHASE_15.md](docs/phases/PHASE_15.md) |
 | 16 | Extended fingerprinting | JA4X fingerprinting; adaptive rate limiting; coverage gates; OpenTelemetry tracing | [PHASE_16.md](docs/phases/PHASE_16.md) |
 | 17 | Docker test optimisation | Fix Docker test container hang during teardown; zero-skip test policy | [PHASE_17.md](docs/phases/PHASE_17.md) |
-| 18 | Security audit remediation | Specific exception types; lazy-format logging; `SignalCollector` Protocol | [PHASE_17b.md](docs/phases/PHASE_17b.md) |
+| 18 | Security audit remediation | Specific exception types; lazy-format logging; `SignalCollector` Protocol | [PHASE_18.md](docs/phases/PHASE_18.md) |
 | 19 | Backup & restore framework | Deterministic key enumeration; binary format; retention; CLI; observability | [PHASE_19.md](docs/phases/PHASE_19.md) |
 | 20 | Passive TAP mode | AF_PACKET capture; out-of-band enforcement; backup schedule executor | [PHASE_20.md](docs/phases/PHASE_20.md) |
 | 21 | **Documentation excellence** | Audience-first navigation, missing ADRs, GDPR hardening, operator/developer packs | [PHASE_21.md](docs/phases/PHASE_21.md) |
-| 22 | Backup Enhancements - Ph 1: Core | Backup scheduling; pipeline batching; restore validation | [PHASE_22_WORK_PLAN.md](docs/phases/details/PHASE_22_WORK_PLAN.md) |
+| 22 | Backup Enhancements - Ph 1: Core | Backup scheduling; pipeline batching; restore validation | [PHASE_22.md](docs/phases/PHASE_22.md) |
 | 40 | Backup Enhancements - Ph 2: Security | AES-256-GCM encryption at rest; DSAR compliance utility | [PHASE_40_BACKUP_PLAN.md](docs/phases/details/PHASE_40_BACKUP_PLAN.md) |
 | 57 | Backup Enhancements - Ph 3: Cloud | S3/GCS adapters; incremental backup strategy | [PHASE_57.md](docs/phases/PHASE_57.md) |
-| 23 | Advanced Intelligence - Ph 1: Primary | Integrate AbuseIPDB and GreyNoise feeds for real-time reputation | [PHASE_23_WORK_PLAN.md](docs/phases/details/PHASE_23_WORK_PLAN.md) |
+| 23 | Advanced Intelligence - Ph 1: Primary | Integrate AbuseIPDB and GreyNoise feeds for real-time reputation | [PHASE_23.md](docs/phases/PHASE_23.md) |
 | 53 | Advanced Intelligence - Ph 2: Feed | Integrate specialized threat intelligence feeds (MISP, VT) | [PHASE_53.md](docs/phases/PHASE_53.md) |
-| 31 | Advanced Intelligence - Ph 3: Geo | GeoIP lookup and country-based blocking; geographical threat analysis | [PHASE_31_WORK_PLAN.md](docs/phases/details/PHASE_31_WORK_PLAN.md) |
-| 32 | Advanced Intelligence - Ph 4: Attribution | Attacker fingerprinting and JA4 correlation logic | [PHASE_32_WORK_PLAN.md](docs/phases/details/PHASE_32_WORK_PLAN.md) |
+| 31 | Advanced Intelligence - Ph 3: Geo | GeoIP lookup and country-based blocking; geographical threat analysis | [PHASE_31.md](docs/phases/PHASE_31.md) |
+| 32 | Advanced Intelligence - Ph 4: Attribution | Attacker fingerprinting and JA4 correlation logic | [PHASE_32.md](docs/phases/PHASE_32.md) |
 | 54 | Advanced Intelligence - Ph 5: Beh | Implement complex behavioral patterns and cross-IP correlation | [PHASE_54.md](docs/phases/PHASE_54.md) |
-| 33 | Advanced Intelligence - Ph 6: Diagrams | Standardize all diagrams to Mermaid format for consistent rendering | [PHASE_33_WORK_PLAN.md](docs/phases/details/PHASE_33_WORK_PLAN.md) |
-| 24 | Go strategy assessment *(closed)* | TLS parsing is not the bottleneck; gRPC IPC would add overhead | [PHASE_24_STRATEGY_ASSESSMENT.md](docs/phases/PHASE_24_STRATEGY_ASSESSMENT.md) |
+| 33 | Advanced Intelligence - Ph 6: Diagrams | Standardize all diagrams to Mermaid format for consistent rendering | [PHASE_33.md](docs/phases/PHASE_33.md) |
+| 24 | Go strategy assessment *(closed)* | TLS parsing is not the bottleneck; gRPC IPC would add overhead | [PHASE_24.md](docs/phases/PHASE_24.md) |
 | 25 | Docker container management | Image version pinning; CVE scan gaps; first-party scanning; update policy | [PHASE_25.md](docs/phases/PHASE_25.md) |
 | 26 | **Python throughput hardening** | Parallel signals (`asyncio.gather`); Redis pipeline batching; Unix socket | [PHASE_26.md](docs/phases/PHASE_26.md) |
 | 27 | Advanced Pentest Remediation | Remediate critical vulnerabilities: IP spoofing, sync/async Redis mismatch | [PHASE_27.md](docs/phases/PHASE_27.md) |
@@ -148,11 +148,16 @@ Practical rules that flow from this:
 | 41 | Robust Health Check API | Deep health/readiness endpoints; anti-flap hysteresis logic | [PHASE_41.md](docs/phases/PHASE_41.md) |
 | 42 | Zero-Downtime Data Upgrades | Atomic hot-reloading of GeoIP DB and config without process restart | [PHASE_42.md](docs/phases/PHASE_42.md) |
 | 43 | Blue/Green Deployment Tooling | Parallel container releases; traffic-shifting; automated rollbacks | [PHASE_43.md](docs/phases/PHASE_43.md) |
-| 44 | Test Audit and Documentation | Audit test suite for genuine assertions; document coverage and gaps | [PHASE_44_TEST_AUDIT.md](docs/phases/PHASE_44_TEST_AUDIT.md) |
-| 45 | Adversarial Test Expansion | Expand adversarial tests for SQLi, XSS, and command injection | [PHASE_45_ADVERSARIAL_TESTS.md](docs/phases/PHASE_45_ADVERSARIAL_TESTS.md) |
-| 46 | Coverage Improvement | Achieve >80% coverage for all critical modules | [PHASE_46_COVERAGE.md](docs/phases/PHASE_46_COVERAGE.md) |
+| 44 | Test Audit and Documentation | Audit test suite for genuine assertions; document coverage and gaps | [PHASE_44.md](docs/phases/PHASE_44.md) |
+| 45 | Adversarial Test Expansion | Expand adversarial tests for SQLi, XSS, and command injection | [PHASE_45.md](docs/phases/PHASE_45.md) |
+| 46 | Coverage Improvement | Achieve >80% coverage for all critical modules | [PHASE_46.md](docs/phases/PHASE_46.md) |
 | 58 | Advanced Intelligence - Ph 3: Opt | Confidence weighting, adaptive caching, and feed reliability | [PHASE_58.md](docs/phases/PHASE_58.md) |
 | 59 | Advanced Intelligence - Ph 4: Rel | Feed health monitoring, circuit breakers, and chaos testing | [PHASE_59.md](docs/phases/PHASE_59.md) |
+| 60 | Master Plan and Governance | Quality roadmap and governance framework | [PHASE_60.md](docs/phases/PHASE_60.md) |
+| 61 | Technical Quality Improvements | Code quality, architecture, and reliability enhancements | [PHASE_61.md](docs/phases/PHASE_61.md) |
+| 62 | Security Hardening | Pentesting, threat modeling, and incident response | [PHASE_62.md](docs/phases/PHASE_62.md) |
+| 63 | Observability and Monitoring | Technical observability and executive dashboards | [PHASE_63.md](docs/phases/PHASE_63.md) |
+| 64 | Operational Excellence | Process optimization and continuous improvement | [PHASE_64.md](docs/phases/PHASE_64.md) |
 
 **Do phases in order. Complete all acceptance criteria before starting the next phase.**
 
@@ -292,7 +297,7 @@ Every feature that touches an IP address must handle both IPv4 and IPv6:
 - **HyperLogLog per subnet:** IPv4 use `/24` (256 addresses). IPv6 use `/48` (same
   approximate user population density). Key: `hll:cidr48:{cidr}` for IPv6.
 - **Beaconing keys:** `beacon:{ip}:{ja4}` — full IP string, works for both.
-- **Ban keys:** `ban:{ip}` — full IP string, works for both.
+- **Ban keys:**    `ban:{ip}` — full IP string, works for both.
 - **RDAP:** IPv6 lookups route to the same RIRs via IANA bootstrap.
 - **Block expansion:** never auto-expand IPv6 beyond `/48` (equivalent to IPv4 `/24`).
 - **Log format:** always log the full IP. Do not abbreviate IPv6.

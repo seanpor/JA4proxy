@@ -2,7 +2,6 @@
 
 Status: PROPOSED
 Priority: MEDIUM (Post-Phase 51)
-Dependencies: Phase 51 (Management UI - Phase 2: Frontend Dashboard)
 
 ## Goal
 Implement interactive administrative tools for managing allowlists, bans, and system configuration directly from the dashboard.
