@@ -5,6 +5,127 @@
 
 ---
 
+## Multi-Agent Coordination — Read Before Anything Else
+
+These rules exist because multiple Claude Code agents work on this repo in parallel.
+Conflicts and regressions happen when agents ignore file ownership or push to the wrong
+branch. Follow these rules exactly.
+
+### Git Rules — Critical
+
+Always start from a clean branch. Never commit directly to `main`.
+
+```bash
+git checkout main
+git pull
+git checkout -b claude/phase-XX-description
+```
+
+Commit often — after every meaningful chunk of work:
+```bash
+git add -A
+git commit -m "phase-XX: brief description of what changed"
+```
+
+When finished with a phase:
+```bash
+git push origin claude/phase-XX-description
+```
+
+Do NOT merge to main yourself. The orchestrator handles merging.
+
+### File Ownership
+
+Each phase agent owns ONLY:
+```
+src/           — only files relevant to your phase
+tests/         — only test files for your phase
+docs/phases/   — only PHASE_XX.md and PHASE_XX_notes.md for your phase
+```
+
+Shared files have specific rules:
+
+| File | Rule |
+|---|---|
+| `Makefile` | Add a new named target (e.g. `test-phase-15`). Do NOT edit existing targets. |
+| `README.md` | Add your section under a heading named `## Phase XX`. Do not edit other sections. |
+| `CHANGELOG.md` | Prepend a new entry at the top only. Do not edit existing entries. |
+| `requirements.txt` | Add new dependencies at the bottom with a comment: `# phase-XX` |
+| `config/proxy.yml` | Only edit config keys your phase introduces. Comment them: `# phase-XX` |
+| `docs/phases/TODO.md` | READ ONLY. Never edit directly. Updated by `sync-roadmap.py`. |
+| `docs/phases/manifest.yaml` | Edit ONLY to mark your phase COMPLETE. Nothing else. |
+| `docker-compose*.yml` | Only edit if your phase explicitly requires a new service. Add at the bottom. |
+
+If you need to touch a file another agent owns, spawn a coordination subagent to
+review both changesets and produce a merged version that preserves all work from both
+phases. Commit the merged result and note it in `PHASE_XX_notes.md`:
+```
+COORDINATION DONE: rate_limiter.py touched by both phase-15 and phase-71.
+Subagent merged both changesets — all work preserved. See commit abc1234.
+```
+
+### Makefile Pattern — How to Add Tests
+
+Never edit existing Makefile targets. Add yours at the bottom:
+
+```makefile
+## Phase XX targets
+test-phase-XX:
+	python -m pytest tests/phase-XX/ -v
+
+test-phase-XX-integration:
+	./tests/phase-XX/integration_test.sh
+```
+
+### Parallel vs Sequential Work
+
+**Can run in parallel (no shared files):**
+- Phase A implementation + Phase B implementation (different `src/` directories)
+- Writing tests + writing documentation for the same phase
+- Running the linter + running unit tests
+- Read-only codebase exploration across different directories
+
+**Must run sequentially (shared file risk):**
+- Any two agents both touching `proxy.py`
+- Updating `Makefile` aggregate targets after merging
+- Updating `README.md` top-level summary or table of contents
+- Merging branches (always one at a time)
+
+**Merging phase branches:**
+```bash
+git checkout main
+git merge --no-ff claude/phase-71-75   # merge first branch
+git merge --no-ff claude/phase-15      # merge second branch
+git push origin main
+```
+
+When resolving conflicts in shared files, always keep ALL content from both branches.
+Never discard work. For complex merges, spawn a subagent whose sole job is to read
+both conflicting versions and produce a single file that preserves everything.
+
+### When You Are Unsure
+
+If you are not sure whether a change is safe:
+1. Spawn a subagent to review the change for correctness and safety
+2. If it confirms safe, proceed and commit
+3. If it flags a problem, fix it before committing
+4. Note what was reviewed in `PHASE_XX_notes.md`
+
+Do not guess on security-critical changes. Do not silently skip hard things.
+
+### Checklist Before Pushing
+
+- [ ] Working on a named branch, not `main`
+- [ ] Only edited files within this phase's ownership
+- [ ] Shared file edits follow the rules above
+- [ ] New Makefile targets added at the bottom only
+- [ ] Tests pass: `make test-unit` at minimum
+- [ ] Meaningful commit messages (not just "wip")
+- [ ] Uncertainty resolved via subagent review before pushing
+- [ ] `PHASE_XX_notes.md` written summarising work and notable decisions
+
+---
+
 ## What This Project Is
 
 JA4proxy is a TLS-aware passthrough security proxy that sits in front of web server
@@ -412,7 +533,7 @@ ja4proxy_dial_setting                   # gauge
 | Cross-instance events | Redis Stream (XADD/XREADGROUP) | Persistent, replayable |
 | Analytics findings | String + TTL | Read by proxy as scorer inputs |
 
-**Never use Redis for CIDR matching. Always in-process trie.**  
+**Never use Redis for CIDR matching. Always in-process trie.**
 **Bloom filter fallback:** if RedisBloom unavailable, use SET + 24h TTL.
 
 ---
@@ -493,14 +614,17 @@ docs/
 2. Read the specific phase file `docs/phases/PHASE_XX.md`.
 3. Read the existing code in `proxy.py` and `src/security/` before writing anything new.
 4. Read `config/proxy.yml` to understand the config structure.
+5. Create your branch: `git checkout main && git pull && git checkout -b claude/phase-XX-description`
 
 ### Implementing
-5. Implement, following the acceptance criteria in the phase file.
-6. Run `make test` — all tests must pass with zero warnings.
+6. Implement, following the acceptance criteria in the phase file.
+7. Commit often: `git add -A && git commit -m "phase-XX: description"`
+8. Run `make test` — all tests must pass with zero warnings.
 
 ### Closing (mandatory — do not skip)
-7. Update `CHANGELOG.md` with a standard entry for the phase.
-8. Update `docs/phases/manifest.yaml`: set `status: COMPLETE`, remove any gaps that were resolved.
-9. Run `python3 scripts/sync-roadmap.py` — regenerates `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.
-10. Commit code, `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/phases/TODO.md`, and `docs/PROJECT_STATUS.md` as one atomic commit.
-11. Do not start the next phase until all acceptance criteria pass.
+9. Update `CHANGELOG.md` with a standard entry for the phase.
+10. Update `docs/phases/manifest.yaml`: set `status: COMPLETE`, remove any gaps that were resolved.
+11. Run `python3 scripts/sync-roadmap.py` — regenerates `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.
+12. Commit code, `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/phases/TODO.md`, and `docs/PROJECT_STATUS.md` as one atomic commit.
+13. Push branch: `git push origin claude/phase-XX-description`
+14. Do not start the next phase until all acceptance criteria pass.
