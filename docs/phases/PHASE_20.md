@@ -1,7 +1,5 @@
 # PHASE 20 — Passive TAP/SPAN Mode: Deep Fingerprinting at the Internet Edge
 
-Status: COMPLETE
-
 ---
 
 ## 1. Overview

@@ -1,7 +1,5 @@
 # Phase 4 — SNI Analysis
 
-Status: COMPLETE
-
 ## Goal
 
 Extract high-signal anomalies from the TLS ClientHello SNI field.

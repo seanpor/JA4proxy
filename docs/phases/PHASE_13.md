@@ -1,6 +1,5 @@
 # Phase 13 Detailed Work Plan: Management UI - Phase 1: Backend API
 
-Status: DEFERRED
 Priority: MEDIUM (Post-Phase 15)
 
 ## 1. Overview

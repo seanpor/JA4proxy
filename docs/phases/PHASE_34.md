@@ -1,6 +1,5 @@
 # Phase 34: APT Resilience & Infrastructure Hardening
 
-Status: PROPOSED
 **Estimated Duration:** 4 Weeks
 **Priority:** High (Post-Audit)
 

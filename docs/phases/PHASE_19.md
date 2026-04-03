@@ -1,7 +1,5 @@
 # PHASE 19 — Backup & Restore Framework
 
-Status: COMPLETE
-
 > Implementation note: this document captures scope and background. Use
 > `docs/phases/PHASE_19_EXECUTION_PLAN.md` as the canonical task-by-task,
 > TDD-first implementation sequence.
@@ -116,7 +114,6 @@ logger = logging.getLogger(__name__)
 
 BACKUP_DIR = Path("/var/backups/ja4proxy")
 MANIFEST_DIR = BACKUP_DIR / "manifests"
-
 
 class BackupWorker:
     """Periodically backs up Redis state to local filesystem."""
@@ -298,7 +295,6 @@ class BackupWorker:
         self.redis.set("backup:last_success", last_success)
         self.redis.lpush("backup:history", filepath, maxlen=self.retain_count)
 
-
 # Cleanup old backups (separate task to avoid blocking backup job)
 def cleanup_old_backups(redis_URL: str, retention_days: int = 14, retain_count: int = 14):
     """Remove backups older than retention_days or beyond retain_count."""
@@ -320,7 +316,6 @@ from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
-
 
 class Restorer:
     """Restore Redis state from backup artifact with validation."""
@@ -388,7 +383,6 @@ class Restorer:
         key_set = frozenset(keys)
         return hashlib.sha256(str(sorted(key_set)).encode()).hexdigest()[:16]
 
-
 # Validation utilities
 class BackupValidator:
     """Validate backup artifacts before restore."""
@@ -445,7 +439,6 @@ class BackupValidator:
                 "valid": False,
                 "error": f"Invalid manifest JSON: {e}"
             }
-
 
 # CLI tools (NEW: CLI entry points for manual operations)
 class BackupCLI:
@@ -528,7 +521,6 @@ class BackupCLI:
         
         return 0
 
-
 class RestoreCLI:
     """Command-line interface for restore operations."""
 
@@ -538,7 +530,6 @@ class RestoreCLI:
         
         # Implementation similar to BackupCLI.restore_backup
         pass
-
 
 # Configuration schema
 BACKUP_CONFIG_SCHEMA = {
@@ -716,7 +707,6 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 from src.backup.worker import BackupWorker, BackupCLI
 
-
 class TestBackupWorker:
     """Unit tests for backup worker."""
 
@@ -757,7 +747,6 @@ import pytest
 from pathlib import Path
 from src.backup.worker import BackupWorker
 from tests.fixtures import chaos_factory  # Reuse existing chaos fixtures
-
 
 class TestBackupResilience:
     """Chaos engineering tests for backup operations."""
@@ -808,7 +797,6 @@ class TestBackupResilience:
 import pytest
 import subprocess
 from pathlib import Path
-
 
 class TestBackupRestoreIntegration:
     """Integration tests for backup/restore workflows."""
@@ -878,7 +866,6 @@ class TestBackupRestoreIntegration:
 import pytest
 from src.backup.worker import BackupWorker
 
-
 class TestBackupPerformance:
     """Verify backup operations don't impact production throughput."""
 
@@ -914,7 +901,6 @@ class TestBackupPerformance:
 import pytest
 from hypothesis import given, strategies as st
 
-
 class TestBackupValidation:
     """Fuzz backup input data and manifest formats."""
 
@@ -938,7 +924,6 @@ def test_edge_case_key_patterns(keys_to_exclude) -> bool:
 ```python
 import pytest
 
-
 class TestBackupSecurity:
     """Security-focused tests for backup operations."""
 
@@ -954,7 +939,6 @@ class TestBackupSecurity:
         from tests.fixtures import create_tampered_backup
         
         bad_backup = tamper_backup(valid_backup)
-
 
 @pytest.fixture
 def signing_key():

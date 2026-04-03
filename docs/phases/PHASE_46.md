@@ -1,6 +1,5 @@
 # PHASE 46 — Coverage Improvement
 
-Status: COMPLETE
 Completed: 2026-03-31
 
 ## Goal

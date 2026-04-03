@@ -1,7 +1,5 @@
 # Phase 8 — Spamhaus DROP/EDROP & Blocklist Feed Framework
 
-Status: COMPLETE
-
 ## Goal
 
 Add a hard-block layer for netblocks that are provably operated by professional

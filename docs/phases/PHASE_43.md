@@ -1,6 +1,5 @@
 # Phase 43 — Blue/Green Deployment & Rollback Tooling
 
-Status: COMPLETE
 Completed: 2026-03-31
 
 ## Goal

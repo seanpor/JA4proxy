@@ -1,7 +1,5 @@
 # Phase 15 — Go Rewrite of Proxy Core
 
-Status: PARTIAL (Core complete, validation ongoing)
-
 | Component | Status | Notes |
 |-----------|--------|-------|
 | Go proxy binary (`cmd/proxy/`) | ✅ Complete | Drop-in replacement for `proxy.py` |

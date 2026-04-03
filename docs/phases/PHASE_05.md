@@ -1,7 +1,5 @@
 # Phase 5 — TCP & Connection Behaviour + mTLS
 
-Status: COMPLETE
-
 ## Goal
 
 Phase 5 adds two complementary capabilities: TCP-level signals that are entirely independent of TLS content, and mTLS client certificate support as a cryptographic allowlist. Both operate at the handshake level, require no external services, and have zero dependency on the backend webserver.

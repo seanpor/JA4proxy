@@ -1,9 +1,5 @@
 # PHASE 71 — Docker Environment Isolation
 
-## Status: OPEN
-
----
-
 ## Goal
 
 Enable multiple AI agents (Gemini, Claude, Ollama, Mistral, etc.) to run independent,

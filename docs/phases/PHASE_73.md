@@ -1,9 +1,5 @@
 # PHASE 73 — Docker Isolation: Host-Level Hardening
 
-## Status: OPEN
-
----
-
 ## Goal
 
 Partition physical resources of the i9-9900K host and minimise the attack surface by

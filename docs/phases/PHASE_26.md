@@ -1,7 +1,5 @@
 # Phase 26 — Python Throughput Hardening
 
-Status: COMPLETE
-
 ## Goal
 
 Maximise connections/second from the Python proxy **without changing its security

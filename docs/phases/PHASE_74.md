@@ -1,9 +1,5 @@
 # PHASE 74 — Docker Isolation: Shared Assets & Tooling
 
-## Status: OPEN
-
----
-
 ## Goal
 
 Optimise the shared resource footprint and update administrative tools to support the
