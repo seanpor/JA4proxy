@@ -8,18 +8,18 @@ Deploy deceptive "Honey-Assets" to identify attackers during the research phase 
 
 ## Sub-Tasks
 
-### 49a — Honey-Fingerprints & Honey-SNIs
+### 56a — Honey-Fingerprints & Honey-SNIs
 - [ ] **Implementation:** Define "Deception JA4" fingerprints in `config/deception.yml` that should never appear in legitimate traffic.
 - [ ] **Detection:** Configure the proxy to monitor for specific deceptive hostnames (e.g., `admin-dev-portal.internal`).
 - [ ] **Escalation:** If a honey-asset is hit, immediately promote the IP to `BAN` status with an `APT: DECEPTION_TRIGGERED` tag.
 - [ ] **Silent Drops:** Implement "No-Feedback Blocking" (silent drops) for deception triggers to slow down attacker discovery.
 
-### 49b — Runtime Persistence Defense
+### 56b — Runtime Persistence Defense
 - [ ] **Two-Stage Seccomp:** Implement a startup Seccomp profile (permissive for binding) and a runtime profile (forbids `execve`, `fork`, and most file writes).
 - [ ] **Namespace Isolation:** Move the `ProxyServer` into a dedicated network and PID namespace after initial socket binding.
 - [ ] **Dead-Man's Switch:** Implement an internal integrity service that the proxy must heart-beat to; proxy self-terminates if heartbeat fails.
 
-### 49c — Ephemeral Filesystem
+### 56c — Ephemeral Filesystem
 - [ ] **tmpfs Overlays:** Configure `docker-compose.prod.yml` to use `tmpfs` for all writable paths (`/tmp`, `/var/run`).
 - [ ] **Read-Only Root:** Enforce an immutable filesystem root for the proxy container.
 

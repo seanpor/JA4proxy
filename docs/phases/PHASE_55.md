@@ -8,16 +8,16 @@ Implement advanced subnet-level signal correlation and strict container-level sa
 
 ## Sub-Tasks
 
-### 48a — Subnet-Level Signal Correlation
+### 55a — Subnet-Level Signal Correlation
 - [ ] **Implementation:** Add logic to `src/security/pipeline.py` to check for "Rare Fingerprint Clusters" within /24 (IPv4) or /48 (IPv6) subnets.
 - [ ] **Scoring:** If multiple unique IPs in the same subnet share a rare/malicious JA4, escalate the risk score for the entire subnet.
 - [ ] **Metrics:** Add `ja4proxy_subnet_correlation_events_total` metric.
 
-### 48b — Anti-Evasion & SNI Entropy
+### 55b — Anti-Evasion & SNI Entropy
 - [ ] **Entropy Scoring:** Implement hostname entropy calculation for SNI fields to detect high-entropy DGAs (Domain Generation Algorithms).
 - [ ] **JA4/TLS Mismatch:** Detect and score mismatches between the JA4 fingerprint's claimed browser version and the actual TLS version used.
 
-### 48c — Strict Container Sandbox (Seccomp/AppArmor)
+### 55c — Strict Container Sandbox (Seccomp/AppArmor)
 - [ ] **Seccomp Profile:** Create `config/seccomp_profile.json` that forbids `execve`, `fork`, and `clone`.
 - [ ] **AppArmor Profile:** Define a profile that limits file access to specific read-only paths and denies all outbound networking except to configured backend/redis.
 - [ ] **Deployment:** Update `docker-compose.prod.yml` to apply these security options.
