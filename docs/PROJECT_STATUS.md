@@ -19,6 +19,11 @@ Optimization for high-throughput and multi-core systems.
 | 29 | Python Throughput Hardening - Phase 3: Multi-Process Architecture | COMPLETE | Implement multi-process worker model with Docker Compose and HAProxy load balancing. Target: Linear scaling to 4 workers. |
 | 30 | Python Throughput Hardening - Phase 4: Write Optimization & Benchmarking | COMPLETE | Add deferred write batching and comprehensive benchmark validation. Target: Final performance report. |
 | 36 | Go Test Quality & Parity Gaps | COMPLETE | Fix broken JA4 fixture parity test, add real certificate JA4X tests, add cross-language JA4X parity verification, and benchmark coverage. |
+| 66 | Python 3.14 Compatibility Assessment | PROPOSED | Zero-risk pre-upgrade phase: write PyPI wheel checker script, run full test suite on Python 3.14 locally to surface deprecation issues, capture Python 3.11 benchmark baseline for before/after comparison. No Dockerfile changes. |
+| 67 | Python 3.14 Base Image Upgrade | PROPOSED | Upgrade nine non-analytics Dockerfiles from python:3.11.11-slim to python:3.14.0-slim. Update pyproject.toml target-version. Full test suite must pass. Benchmark before/after — expected ~25-35% CPU path improvement from tail-call interpreter and JIT. |
+| 68 | Python 3.14 Hot Path Optimizations | PROPOSED | Make the JA4/scoring hot path JIT-friendly (remove try/except from inner loops, monomorphic call sites). Integrate uvloop as the asyncio event loop on Linux for 2-4x I/O throughput gain. Both changes are additive and independently revertable. |
+| 69 | Free-Threaded Python Proxy | PROPOSED | Conditional on Phase 67 throughput < 600 conn/s. Switch proxy container to python:3.14t-slim (no-GIL). Thread safety audit; replace asyncio.Lock with threading.Lock in local_cache and config loader. Replace ProcessPoolExecutor with ThreadPoolExecutor for zero-IPC TLS parsing. |
+| 70 | Analytics Upgrade & Subinterpreter Experiment | PROPOSED | Upgrade analytics container to Python 3.14 once numpy/scipy wheels confirmed. Optional: implement subinterpreter worker pool (Python 3.14 interpreters module) as a feature-flagged alternative to ThreadPoolExecutor; benchmark and keep or remove based on data. |
 
 ### Epic: Security Hardening
 Deep security analysis, compliance, and audit remediation.
@@ -175,6 +180,11 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 63 | Observability and Monitoring | PROPOSED | N/A | COMPLETE |
 | 64 | Operational Excellence | PROPOSED | N/A | COMPLETE |
 | 65 | Performance Hardening & Go/Python Parity | PROPOSED | N/A | N/A |
+| 66 | Python 3.14 Compatibility Assessment | PROPOSED | N/A | N/A |
+| 67 | Python 3.14 Base Image Upgrade | PROPOSED | N/A | N/A |
+| 68 | Python 3.14 Hot Path Optimizations | PROPOSED | N/A | N/A |
+| 69 | Free-Threaded Python Proxy | PROPOSED | N/A | N/A |
+| 70 | Analytics Upgrade & Subinterpreter Experiment | PROPOSED | N/A | N/A |
 
 ---
 

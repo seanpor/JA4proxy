@@ -1,7 +1,7 @@
 epics:
   - name: "Epic: Core Performance"
     description: "Optimization for high-throughput and multi-core systems."
-    phases: [0, 15, 17, 26, 28, 29, 30, 36]
+    phases: [0, 15, 17, 26, 28, 29, 30, 36, 66, 67, 68, 69, 70]
     
   - name: "Epic: Security Hardening"
     description: "Deep security analysis, compliance, and audit remediation."
@@ -635,3 +635,70 @@ phases:
       - "make check-scores exits 0"
       - "make parity-check exits 0 with both proxies running"
       - "Phase 15 reopened and re-verified COMPLETE"
+
+  66:
+    name: "Python 3.14 Compatibility Assessment"
+    status: "PROPOSED"
+    summary: "Zero-risk pre-upgrade phase: write PyPI wheel checker script, run full test suite on Python 3.14 locally to surface deprecation issues, capture Python 3.11 benchmark baseline for before/after comparison. No Dockerfile changes."
+    action_plan: "docs/phases/PHASE_66.md"
+    dependencies: [65]
+    size: "SMALL"
+    success_criteria:
+      - "scripts/check-python314-compat.py exits 0"
+      - "reports/python314-compat.md committed with all packages assessed"
+      - "reports/benchmark/python311-baseline.md committed"
+      - "Full test suite run result documented (pass/fail count)"
+
+  67:
+    name: "Python 3.14 Base Image Upgrade"
+    status: "PROPOSED"
+    summary: "Upgrade nine non-analytics Dockerfiles from python:3.11.11-slim to python:3.14.0-slim. Update pyproject.toml target-version. Full test suite must pass. Benchmark before/after — expected ~25-35% CPU path improvement from tail-call interpreter and JIT."
+    action_plan: "docs/phases/PHASE_67.md"
+    dependencies: [66]
+    size: "SMALL"
+    success_criteria:
+      - "All nine non-analytics Dockerfiles on python:3.14.0-slim"
+      - "make test passes: 2687+ tests, 0 failures"
+      - "Scoring path mean latency improves by >= 10% vs Phase 66 baseline"
+      - "reports/benchmark/python314-stage1.md committed"
+
+  68:
+    name: "Python 3.14 Hot Path Optimizations"
+    status: "PROPOSED"
+    summary: "Make the JA4/scoring hot path JIT-friendly (remove try/except from inner loops, monomorphic call sites). Integrate uvloop as the asyncio event loop on Linux for 2-4x I/O throughput gain. Both changes are additive and independently revertable."
+    action_plan: "docs/phases/PHASE_68.md"
+    dependencies: [67]
+    size: "SMALL"
+    success_criteria:
+      - "RiskScorer inner loop has no try/except; uses dict.get() instead"
+      - "uvloop integrated with ImportError fallback; config toggle in proxy.yml"
+      - "make test passes: 2687+ tests, 0 failures"
+      - "Throughput improves by >= 20% vs Phase 67 baseline (uvloop contribution)"
+      - "reports/benchmark/python314-stage2.md committed"
+
+  69:
+    name: "Free-Threaded Python Proxy"
+    status: "PROPOSED"
+    summary: "Conditional on Phase 67 throughput < 600 conn/s. Switch proxy container to python:3.14t-slim (no-GIL). Thread safety audit; replace asyncio.Lock with threading.Lock in local_cache and config loader. Replace ProcessPoolExecutor with ThreadPoolExecutor for zero-IPC TLS parsing."
+    action_plan: "docs/phases/PHASE_69.md"
+    dependencies: [67, 68]
+    size: "SMALL"
+    success_criteria:
+      - "docs/security/THREAD_SAFETY_AUDIT.md committed"
+      - "docker/Dockerfile uses python:3.14t-slim"
+      - "make test passes deterministically across 5 runs"
+      - "Throughput ceiling >= 600 conn/s"
+      - "reports/benchmark/python314-stage3-freethreaded.md committed"
+
+  70:
+    name: "Analytics Upgrade & Subinterpreter Experiment"
+    status: "PROPOSED"
+    summary: "Upgrade analytics container to Python 3.14 once numpy/scipy wheels confirmed. Optional: implement subinterpreter worker pool (Python 3.14 interpreters module) as a feature-flagged alternative to ThreadPoolExecutor; benchmark and keep or remove based on data."
+    action_plan: "docs/phases/PHASE_70.md"
+    dependencies: [67]
+    size: "SMALL"
+    success_criteria:
+      - "src/analytics/Dockerfile updated to python:3.14.0-slim"
+      - "Analytics tests pass"
+      - "Subinterpreter experiment: benchmark comparison committed, keep/remove decision documented"
+      - "README.md states Python >= 3.14 requirement"
