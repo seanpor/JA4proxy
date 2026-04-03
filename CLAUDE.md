@@ -159,6 +159,11 @@ Practical rules that flow from this:
 | 63 | Observability and Monitoring | Technical observability and executive dashboards | [PHASE_63.md](docs/phases/PHASE_63.md) |
 | 64 | Operational Excellence | Process optimization and continuous improvement | [PHASE_64.md](docs/phases/PHASE_64.md) |
 | 65 | Performance Hardening & Go/Python Parity | Pure-Python TLS parser, JA4 bug fixes, Go config wiring, parity harness | [PHASE_65.md](docs/phases/PHASE_65.md) |
+| 66 | **Python 3.14 Compatibility Assessment** | PyPI wheel checker; local 3.14 test run; Python 3.11 benchmark baseline capture | [PHASE_66.md](docs/phases/PHASE_66.md) |
+| 67 | **Python 3.14 Base Image Upgrade** | Nine Dockerfiles → python:3.14.0-slim; test suite; ~25-35% CPU gain from tail-call interp + JIT | [PHASE_67.md](docs/phases/PHASE_67.md) |
+| 68 | **Python 3.14 Hot Path Optimizations** | JIT-friendly scoring loop; uvloop for 2-4× I/O throughput; config toggle | [PHASE_68.md](docs/phases/PHASE_68.md) |
+| 69 | **Free-Threaded Python Proxy** | python:3.14t-slim; thread safety audit; ThreadPoolExecutor; target ≥600 conn/s | [PHASE_69.md](docs/phases/PHASE_69.md) |
+| 70 | **Analytics Upgrade & Subinterpreter Experiment** | Analytics container to 3.14; optional subinterpreter worker pool experiment | [PHASE_70.md](docs/phases/PHASE_70.md) |
 
 **Do phases in order. Complete all acceptance criteria before starting the next phase.**
 
