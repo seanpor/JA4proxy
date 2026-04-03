@@ -162,7 +162,7 @@ FORCE="${2:-}"
 
 usage() {
     echo "Usage: $0 <agent_name> [-f]"
-    echo "  agent_name: gemini | claude | ollama | mistral"
+    echo "  agent_name: any identifier (gemini|claude|ollama|mistral get fixed IPs)"
     echo "  -f: overwrite existing .env.<agent_name>"
     exit 1
 }
