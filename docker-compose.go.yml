@@ -11,7 +11,7 @@ services:
   go-proxy:
     build:
       context: .
-      dockerfile: Dockerfile-go
+      dockerfile: docker/Dockerfile.go-proxy
     ports:
       - "${AGENT_BIND_IP:-127.0.0.1}:8082:8080"
       - "${AGENT_BIND_IP:-127.0.0.1}:9092:9090"

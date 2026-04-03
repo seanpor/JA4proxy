@@ -273,7 +273,7 @@ lint-coverage:
 # docker/docker-compose.test.yml is an overlay stub; it cannot be validated standalone.
 HADOLINT_IGNORE := --ignore DL3008 --ignore DL3013 --ignore DL3015 --ignore DL3018 --ignore DL3059
 HADOLINT_DOCKERFILES := docker/Dockerfile docker/Dockerfile.mockbackend docker/Dockerfile.test \
-	docker/Dockerfile.trafficgen Dockerfile-go src/analytics/Dockerfile tarpit/Dockerfile \
+	docker/Dockerfile.trafficgen docker/Dockerfile.go-proxy src/analytics/Dockerfile tarpit/Dockerfile \
 	tests/docker/Dockerfile.python-proxy tests/docker/Dockerfile.recorder \
 	tests/docker/Dockerfile.test-runner tests/docker/Dockerfile.tls-backend
 

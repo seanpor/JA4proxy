@@ -27,7 +27,7 @@ This phase addresses critical gaps in the Go test suite identified during the Ph
 
 ### Gap 2: JA4X Missing Real Certificate Tests (Critical)
 
-**Location:** `internal/security/ja4x_test.go`
+**Location:** `internal/tls/ja4x_test.go`
 
 **Issue:** The Go JA4X tests only test:
 - Empty inputs

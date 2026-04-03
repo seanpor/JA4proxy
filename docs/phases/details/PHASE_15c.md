@@ -78,7 +78,7 @@ short evidence line after each ticked item in parentheses. Use this mapping:
 
 | Criterion | Evidence to add |
 |-----------|----------------|
-| `Dockerfile.go` multi-stage build | `(Dockerfile-go exists; alpine runtime image)` |
+| `Dockerfile.go` multi-stage build | `(docker/Dockerfile.go-proxy exists; alpine runtime image)` |
 | Go proxy reads same `config/proxy.yml` | `(internal/config/loader.go; 11 passing tests)` |
 | JA4 fingerprint identical to Python | `(tests/fixtures/clienthello/known_ja4.json; verified Go==Python for all 4 fixtures)` |
 | TLS ClientHello parser handles adversarial | `(internal/tls/parser.go never panics; fuzz-tested via go test -fuzz)` — leave unchecked until A-4 is done |
@@ -461,7 +461,7 @@ and add an evidence note matching the test name. For example:
 
 Also check the Docker image size:
 ```bash
-docker build -f Dockerfile-go -t ja4proxy-go:check .
+docker build -f docker/Dockerfile.go-proxy -t ja4proxy-go:check .
 docker image inspect ja4proxy-go:check --format '{{.Size}}' | numfmt --to=iec
 ```
 If ≤ 10MB, tick that box too.
@@ -472,9 +472,9 @@ If ≤ 10MB, tick that box too.
 
 ---
 
-### C-1 · Add `GOMEMLIMIT` to `Dockerfile-go`
+### C-1 · Add `GOMEMLIMIT` to `docker/Dockerfile.go-proxy`
 
-**File:** `Dockerfile-go`
+**File:** `docker/Dockerfile.go-proxy`
 **Effort:** ~10 minutes
 **Why:** By default the Go runtime grows heap until the OS OOM-kills the process.
 `GOMEMLIMIT` gives the GC a soft ceiling and triggers earlier, more frequent GC
@@ -483,7 +483,7 @@ OOM-kill pattern under sustained load.
 
 **What to do:**
 
-1. Open `Dockerfile-go`.
+1. Open `docker/Dockerfile.go-proxy`.
 
 2. Find the `CMD` or `ENTRYPOINT` line in the final stage (the runtime stage, not
    the build stage).
@@ -504,7 +504,7 @@ OOM-kill pattern under sustained load.
 
 5. Rebuild:
    ```bash
-   docker build -f Dockerfile-go -t ja4proxy-go:test .
+   docker build -f docker/Dockerfile.go-proxy -t ja4proxy-go:test .
    ```
 
 **How to verify it worked:**

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	ja4tls "github.com/anomalyco/ja4proxy/internal/tls"
 	"github.com/sirupsen/logrus"
 	"github.com/yl2chen/cidranger"
 )
@@ -256,7 +257,7 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 
 	// Extract JA4X from client certificate if not already set
 	if conn.JA4X == "" && len(conn.ClientCertificate) > 0 {
-		conn.JA4X = ExtractJA4X(conn.ClientCertificate)
+		conn.JA4X = ja4tls.ExtractJA4X(conn.ClientCertificate)
 	}
 
 	// Blocklist check (hard block — before dial fetch)
