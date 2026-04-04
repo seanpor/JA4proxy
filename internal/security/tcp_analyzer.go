@@ -66,7 +66,7 @@ func (a *TCPAnalyzer) Analyze(ctx context.Context, conn *ConnectionContext) []Ri
 				ratio := float64(resumed) / float64(total)
 				if ratio < 0.05 {
 					signals = append(signals, RiskSignal{
-						Name:   "no_session_resumption",
+						Name:   "no_resumption",
 						Score:  15,
 						Reason: "very low session resumption rate",
 						Weight: 1.0,
@@ -84,7 +84,7 @@ func (a *TCPAnalyzer) Analyze(ctx context.Context, conn *ConnectionContext) []Ri
 		}
 		if conn.ConnectionLifespanMS < threshold {
 			signals = append(signals, RiskSignal{
-				Name:   "short_connection_lifespan",
+				Name:   "short_lived",
 				Score:  20,
 				Reason: "connection closed unusually quickly",
 				Weight: 1.0,
@@ -113,21 +113,21 @@ func (a *TCPAnalyzer) Analyze(ctx context.Context, conn *ConnectionContext) []Ri
 
 		if concurrent >= severe {
 			signals = append(signals, RiskSignal{
-				Name:   "severe_concurrency",
+				Name:   "high_concurrency",
 				Score:  40,
 				Reason: "very high concurrent connection count",
 				Weight: 1.0,
 			})
 		} else if concurrent >= high {
 			signals = append(signals, RiskSignal{
-				Name:   "high_concurrency",
+				Name:   "moderate_concurrency",
 				Score:  25,
 				Reason: "high concurrent connection count",
 				Weight: 1.0,
 			})
 		} else if concurrent >= moderate {
 			signals = append(signals, RiskSignal{
-				Name:   "moderate_concurrency",
+				Name:   "low_concurrency",
 				Score:  10,
 				Reason: "moderate concurrent connection count",
 				Weight: 1.0,
@@ -157,8 +157,8 @@ func (a *TCPAnalyzer) Analyze(ctx context.Context, conn *ConnectionContext) []Ri
 				allowRate := float64(allowed) / float64(total)
 				if err == nil && ageDays >= float64(minDays) && allowRate >= minRate {
 					signals = append(signals, RiskSignal{
-						Name:   "return_visitor_trust",
-						Score:  -1,
+						Name:   "return_visitor",
+						Score:  -20,
 						Reason: "established return visitor with high allow rate",
 						Weight: 1.0,
 					})

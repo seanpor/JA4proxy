@@ -65,7 +65,7 @@ func (e *TLSEnforcer) Check(tlsVersion uint16, ciphers []uint16) (signals []Risk
 		if !e.cfg.TLSVersionBypassEnabled {
 			signals = append(signals, RiskSignal{
 				Name:   "tls_version",
-				Score:  40,
+				Score:  10,
 				Reason: "TLS 1.0 detected",
 				Weight: 1.0,
 			})
@@ -82,7 +82,7 @@ func (e *TLSEnforcer) Check(tlsVersion uint16, ciphers []uint16) (signals []Risk
 		if !e.cfg.TLSVersionBypassEnabled {
 			signals = append(signals, RiskSignal{
 				Name:   "tls_version",
-				Score:  40,
+				Score:  10,
 				Reason: "TLS 1.1 detected",
 				Weight: 1.0,
 			})
@@ -116,7 +116,7 @@ func (e *TLSEnforcer) Check(tlsVersion uint16, ciphers []uint16) (signals []Risk
 		}
 		signals = append(signals, RiskSignal{
 			Name:   "weak_cipher",
-			Score:  20,
+			Score:  35,
 			Reason: "weak cipher suite offered",
 			Weight: 1.0,
 		})

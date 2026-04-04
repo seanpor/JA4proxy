@@ -488,6 +488,13 @@ class TLSParser:
         return fields
 
 
+# Phase 65: Optimized GREASE values set for O(1) lookup
+_GREASE_VALUES: frozenset[int] = frozenset({
+    0x0A0A, 0x1A1A, 0x2A2A, 0x3A3A, 0x4A4A, 0x5A5A, 0x6A6A, 0x7A7A,
+    0x8A8A, 0x9A9A, 0xAAAA, 0xBABA, 0xCACA, 0xDADA, 0xEAEA, 0xFAFA,
+})
+
+
 class JA4Generator:
     """JA4 fingerprint generator."""
 
@@ -508,14 +515,19 @@ class JA4Generator:
             if 0x0304 in supported_versions:
                 version = "13"
 
-            # Filter GREASE from cipher suites and extensions for counting
+            # Filter GREASE from cipher suites and extensions for counting and hashing
+            # Optimization: filter once here and pass pre-filtered lists to hash functions
             raw_ciphers = client_hello_fields.get("cipher_suites", [])
-            ciphers = [cs for cs in raw_ciphers if not self._is_grease(cs)]
+            ciphers = [cs for cs in raw_ciphers if cs not in _GREASE_VALUES]
+
             raw_exts = client_hello_fields.get("extensions", [])
-            exts = [ext for ext in raw_exts if not self._is_grease(ext)]
+            # Filter GREASE from extensions for counting
+            exts_for_count = [ext for ext in raw_exts if ext not in _GREASE_VALUES]
+            # Filter GREASE and SNI (type 0) from extensions for the hash part
+            exts_for_hash = [ext for ext in exts_for_count if ext != 0]
 
             cipher_count = len(ciphers)
-            extension_count = len(exts)
+            extension_count = len(exts_for_count)
 
             # Protocol: q for QUIC, t for TCP/TLS
             proto = "q" if version.startswith("QUIC") else "t"
@@ -525,7 +537,7 @@ class JA4Generator:
             alpn = self._get_alpn_string(client_hello_fields)
 
             cipher_hash = self._hash_cipher_suites(ciphers)
-            extension_hash = self._hash_extensions(exts)
+            extension_hash = self._hash_extensions(exts_for_hash)
 
             ja4 = f"{proto}{version}{sni}{cipher_count:02d}{extension_count:02d}{alpn}_{cipher_hash}_{extension_hash}"
 
@@ -581,48 +593,24 @@ class JA4Generator:
         return version_map.get(version, "00")
 
     def _hash_cipher_suites(self, cipher_suites: List[int]) -> str:
-        """Hash cipher suites for JA4."""
+        """Hash cipher suites for JA4. Expects pre-filtered list (no GREASE)."""
         if not cipher_suites:
             return "000000000000"
 
-        # Remove GREASE values
-        filtered_suites = [cs for cs in cipher_suites if not self._is_grease(cs)]
-        suite_string = ",".join(f"{cs:04x}" for cs in sorted(filtered_suites))
+        suite_string = ",".join(f"{cs:04x}" for cs in sorted(cipher_suites))
         return hashlib.sha256(suite_string.encode()).hexdigest()[:12]
 
     def _hash_extensions(self, extensions: List[int]) -> str:
-        """Hash extensions for JA4."""
+        """Hash extensions for JA4. Expects pre-filtered list (no GREASE, no SNI)."""
         if not extensions:
             return "000000000000"
 
-        # Remove GREASE values and SNI
-        filtered_extensions = [
-            ext for ext in extensions if not self._is_grease(ext) and ext != 0
-        ]
-        ext_string = ",".join(f"{ext:04x}" for ext in sorted(filtered_extensions))
+        ext_string = ",".join(f"{ext:04x}" for ext in sorted(extensions))
         return hashlib.sha256(ext_string.encode()).hexdigest()[:12]
 
     def _is_grease(self, value: int) -> bool:
-        """Check if value is a GREASE value."""
-        grease_values = [
-            0x0A0A,
-            0x1A1A,
-            0x2A2A,
-            0x3A3A,
-            0x4A4A,
-            0x5A5A,
-            0x6A6A,
-            0x7A7A,
-            0x8A8A,
-            0x9A9A,
-            0xAAAA,
-            0xBABA,
-            0xCACA,
-            0xDADA,
-            0xEAEA,
-            0xFAFA,
-        ]
-        return value in grease_values
+        """Check if value is a GREASE value. (Deprecated in Phase 65)"""
+        return value in _GREASE_VALUES
 
 
 class ConfigManager:
@@ -2403,36 +2391,38 @@ class ProxyServer:
             # The data is raw TCP stream, not IP-wrapped — check for TLS record header
             # TLS record: byte 0 = content type (0x16 = handshake), bytes 1-2 = version, bytes 3-4 = length
             if len(data) >= 5 and data[0] == 0x16:
-                # This is a TLS handshake record — parse with Scapy's TLS layer directly
-                # Phase 28a (APT Resilience): Offload TLS parsing to an isolated process.
-                # Scapy's TLS() parser is synchronous and can be computationally expensive
-                # or vulnerable to stack/memory exhaustion on malformed packets.
-                try:
-                    loop = asyncio.get_running_loop()
-                    client_hello_fields = await loop.run_in_executor(
-                        self.executor, _parse_tls_task, data
-                    )
+                # Phase 65: Use pure-Python parser first (fast, direct call)
+                from src.tls.parser import parse_client_hello
+                client_hello_fields = parse_client_hello(data)
 
-                    if client_hello_fields:
-                        ja4 = self.ja4_generator.generate_ja4(client_hello_fields)
-                        # Extract TLS version string
-                        ver = client_hello_fields.get("version", 0)
-                        supported = client_hello_fields.get("supported_versions", [])
-                        if 0x0304 in supported:
-                            tls_version = "TLS 1.3"
-                        elif ver == 0x0303:
-                            tls_version = "TLS 1.2"
-                        elif ver == 0x0302:
-                            tls_version = "TLS 1.1"
-                        elif ver == 0x0301:
-                            tls_version = "TLS 1.0"
-                        else:
-                            tls_version = f"TLS 0x{ver:04x}" if ver else "unknown"
-                        # Phase 3: raw integer version and cipher list for TLSEnforcer
-                        tls_version_int = 0x0304 if 0x0304 in supported else ver
-                        raw_cipher_suites = client_hello_fields.get("cipher_suites", [])
-                except Exception as e:
-                    self.logger.debug(f"TLS parsing with Scapy failed: {e}")
+                # Fallback to Scapy in subprocess if pure-Python parser fails
+                if client_hello_fields is None:
+                    try:
+                        loop = asyncio.get_running_loop()
+                        client_hello_fields = await loop.run_in_executor(
+                            self.executor, _parse_tls_task, data
+                        )
+                    except Exception as e:
+                        self.logger.debug(f"TLS parsing fallback with Scapy failed: {e}")
+
+                if client_hello_fields:
+                    ja4 = self.ja4_generator.generate_ja4(client_hello_fields)
+                    # Extract TLS version string
+                    ver = client_hello_fields.get("version", 0)
+                    supported = client_hello_fields.get("supported_versions", [])
+                    if 0x0304 in supported:
+                        tls_version = "TLS 1.3"
+                    elif ver == 0x0303:
+                        tls_version = "TLS 1.2"
+                    elif ver == 0x0302:
+                        tls_version = "TLS 1.1"
+                    elif ver == 0x0301:
+                        tls_version = "TLS 1.0"
+                    else:
+                        tls_version = f"TLS 0x{ver:04x}" if ver else "unknown"
+                    # Phase 3: raw integer version and cipher list for TLSEnforcer
+                    tls_version_int = 0x0304 if 0x0304 in supported else ver
+                    raw_cipher_suites = client_hello_fields.get("cipher_suites", [])
             else:
                 # Not a TLS record — might be HTTP or other protocol
                 self.logger.debug(
@@ -2444,7 +2434,8 @@ class ProxyServer:
 
             fingerprint = JA4Fingerprint(
                 ja4=ja4,
-                client_hello_hash=hashlib.sha256(data).hexdigest()[:16],
+                # Phase 65: Only hash the first 64 bytes for the log field (5x faster)
+                client_hello_hash=hashlib.sha256(data[:64]).hexdigest()[:16],
                 timestamp=time.time(),
                 source_ip=client_ip,
                 tls_version=tls_version,

@@ -91,6 +91,8 @@ help:
 	@echo "  go-switch         - Switch HAProxy to route traffic to Go proxy"
 	@echo "  go-rollback       - Switch HAProxy back to Python proxy"
 	@echo "  go-parity         - Run cross-language parity tests (both proxies must be running)"
+	@echo "  check-scores      - Audit Python and Go signal scores against registry"
+	@echo "  parity-check      - Live end-to-end decision parity verification"
 	@echo ""
 	@echo "── Benchmarking ─────────────────────────────────────────────"
 	@echo "  bench             - Full Go vs Python benchmark suite (starts Docker if needed)"
@@ -665,6 +667,14 @@ go-test:
 # Run go vet (static analysis)
 go-lint:
 	$(GO) vet ./...
+
+# Audit Python and Go signal scores against registry (Phase 65)
+check-scores:
+	@python3 scripts/check-signal-scores.py
+
+# Live end-to-end decision parity verification (Phase 65)
+parity-check:
+	@python3 scripts/parity-check.py
 
 # Start Go proxy in parallel with Python proxy (parallel validation mode)
 # Both proxies share the same Redis instance.
