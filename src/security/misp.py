@@ -273,7 +273,7 @@ class MISPProvider(TIProvider):
                 # Get adaptive TTL if adaptive cache manager is available
                 ttl_seconds = self._config.cache_ttl_seconds
                 if hasattr(self, '_adaptive_cache') and self._adaptive_cache:
-                    ttl_seconds = self._adaptive_cache.get_adaptive_ttl("misp")
+                    ttl_seconds = int(self._adaptive_cache.get_adaptive_ttl("misp"))
 
                 # Cache result
                 await self._redis.setex(
