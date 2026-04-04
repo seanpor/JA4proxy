@@ -199,6 +199,14 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 76 | Enterprise RHEL Production Deployment Strategy | COMPLETE | N/A | N/A |
 | 77 | Enterprise Security Stack & SIEM Integration | COMPLETE | N/A | N/A |
 | 78 | Enterprise Scale, Hardening & Governance | COMPLETE | N/A | N/A |
+| 79 | Management API v2, RBAC & Enterprise Identity | PROPOSED | N/A | N/A |
+| 80 | ECS Structured Logging & SIEM Integration Pack | PROPOSED | N/A | N/A |
+| 81 | SOAR, Webhooks & Enterprise Operations Platforms | PROPOSED | N/A | N/A |
+| 82 | Policy-as-Code, Shadow Mode & Governance | PROPOSED | N/A | N/A |
+| 83 | Infrastructure Automation — Terraform, CLI & Kubernetes Operator | PROPOSED | N/A | N/A |
+| 84 | Compliance & Reporting | PROPOSED | N/A | N/A |
+| 85 | Threat Intelligence Ingestion | PROPOSED | N/A | N/A |
+| 86 | Observability & Capacity Planning | PROPOSED | N/A | N/A |
 
 ---
 
