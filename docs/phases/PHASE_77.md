@@ -1,7 +1,7 @@
 # Phase 77: Enterprise Security Stack & SIEM Integration
 
 ## 1. Overview
-JA4Proxy2 is designed to be a high-signal "sensor" in an enterprise security ecosystem. This phase provides the standard integration patterns for both Open Source (Wazuh, CrowdSec) and Commercial (Splunk, QRadar, Sentinel, Chronicle) security platforms.
+JA4proxy is designed to be a high-signal "sensor" in an enterprise security ecosystem. This phase provides the standard integration patterns for both Open Source (Wazuh, CrowdSec) and Commercial (Splunk, QRadar, Sentinel, Chronicle) security platforms.
 
 **The "Clean Option" Principle:** Deployers can choose their stack by enabling specific "Integrator Sidecars" or configuring the "Universal Log Forwarder."
 
@@ -15,7 +15,7 @@ JA4Proxy2 is designed to be a high-signal "sensor" in an enterprise security eco
 - **Deployment:** 
   - Install `wazuh-agent` on the proxy host.
   - Apply the custom **JA4 Decoder** and **Rule 100201** (High Threat JA4 Fingerprint).
-  - **Active Response:** Wazuh triggers a script to add the IP to the JA4Proxy2 Redis blacklist.
+  - **Active Response:** Wazuh triggers a script to add the IP to the JA4proxy Redis blacklist.
 
 ### 2.2 CrowdSec (Collaborative Firewall)
 - **Role:** Behavior-based blocking and community threat intelligence.
@@ -51,7 +51,7 @@ Most enterprise SIEMs prefer logs in **HEC (HTTP Event Collector)** or **Syslog 
 
 If an enterprise uses a tool not listed above (e.g., Devo, Sumo Logic, or a custom in-house SOC tool), use the **Vector Sidecar Pattern**.
 
-**Vector** (vector.dev) acts as the "Universal Translator" for JA4Proxy2:
+**Vector** (vector.dev) acts as the "Universal Translator" for JA4proxy:
 1. **Source:** Reads from `journald` or `stdout` (JSON).
 2. **Transform:** Re-maps fields (e.g., rename `client_ip` to `src_ip` for QRadar).
 3. **Sink:** Ships to *any* destination (S3, Kafka, HEC, Syslog, Webhooks).

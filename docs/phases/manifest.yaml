@@ -748,7 +748,7 @@ phases:
   76:
     name: "Enterprise RHEL Production Deployment Strategy"
     status: "COMPLETE"
-    summary: "Created phase paper outlining best practices for deploying JA4proxy2 inline on an enterprise RHEL server (Quadlets, systemd, volume/log management, external Redis, verification steps)."
+    summary: "Created phase paper outlining best practices for deploying JA4proxy inline on an enterprise RHEL server (Quadlets, systemd, volume/log management, external Redis, verification steps)."
     action_plan: "docs/phases/PHASE_76.md"
     dependencies: [75]
     size: "SMALL"
@@ -766,3 +766,14 @@ phases:
     success_criteria:
       - "Integration roadmap documented for both OSS and Commercial SIEM/SOAR stacks."
       - "Standardized 'Vector' pattern provided for universal log translation."
+
+  78:
+    name: "Enterprise Scale, Hardening & Governance"
+    status: "COMPLETE"
+    summary: "Documented the roadmap for global multi-node scalability (Redis Cluster), Fail-Open/Fail-Closed policies, PII masking for GDPR, and FIPS 140-2 compliance for RHEL."
+    action_plan: "docs/phases/PHASE_78.md"
+    dependencies: [77]
+    size: "SMALL"
+    success_criteria:
+      - "Global scalability roadmap for multi-node JA4proxy clusters defined."
+      - "Operational resilience policies (Fail-Open) and compliance strategies documented."
