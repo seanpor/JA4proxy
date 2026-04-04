@@ -63,9 +63,13 @@ def test_nondestructive_restore_preserves_existing_keys():
             assert "backup:last_restore" in set_calls
             assert "backup:restored_from" in set_calls
             
-            # Verify that existing key was not deleted
-            assert not mock_redis.delete.called
+            # Verify that existing user data was not wiped
             assert not mock_redis.flushdb.called
+            # Only the distributed lock key should have been deleted (lock release)
+            delete_calls = [call[0][0] for call in mock_redis.delete.call_args_list]
+            assert all("operation_lock" in k for k in delete_calls), (
+                f"Unexpected delete calls: {delete_calls}"
+            )
         
     finally:
         # Clean up

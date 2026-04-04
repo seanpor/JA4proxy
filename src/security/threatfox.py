@@ -9,14 +9,16 @@ import asyncio
 import json
 import logging
 import os
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional
 
 import redis
 from prometheus_client import Counter, Gauge
 
+from .feed_health import FeedHealthMonitor
 from .models import RiskSignal
-from .ti_provider import TIProvider, TIProviderConfig
+from .ti_provider import TIProvider, TIProviderConfig, retry_with_backoff
 
 try:
     import aiohttp
@@ -26,6 +28,7 @@ except ImportError:
 if TYPE_CHECKING:
     from ..cache.local_cache import LocalCache
     from .adaptive_cache import AdaptiveCacheManager
+    from .feed_health import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -82,12 +85,14 @@ class ThreatFoxProvider(TIProvider):
         local_cache: "LocalCache",
         session: "aiohttp.ClientSession",
         adaptive_cache: Optional["AdaptiveCacheManager"] = None,
+        health_monitor: Optional[FeedHealthMonitor] = None,
     ) -> None:
         self._config = config
         self._redis = redis_client
         self._local_cache = local_cache
         self._session = session
         self._adaptive_cache = adaptive_cache
+        self._health_monitor = health_monitor
         self._queue: asyncio.Queue = asyncio.Queue(maxsize=config.queue_size)
         self._workers: List[asyncio.Task] = []
         self._hits = 0
@@ -201,71 +206,94 @@ class ThreatFoxProvider(TIProvider):
         if not self._config.api_key:
             return
 
-        url = f"https://threatfox-api.abuse.ch/api/v1/"
+        # Circuit breaker: skip API call if feed is consistently failing
+        cb: Optional["CircuitBreaker"] = None
+        if self._health_monitor:
+            cb = self._health_monitor.get_circuit_breaker("threatfox")
+            if cb.is_open():
+                logger.debug("threatfox | event=circuit_open_skip | ip=%s", ip)
+                return
+
+        url = "https://threatfox-api.abuse.ch/api/v1/"
         headers = {
             "Accept": "application/json",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
-        
-        # Search for IP address IOCs
         payload = {
             "query": "search_ioc",
-            "search_term": ip
+            "search_term": ip,
         }
-        
-        try:
+
+        async def _do_request():
             async with self._session.post(
-                url, 
-                headers=headers, 
+                url,
+                headers=headers,
                 json=payload,
-                timeout=aiohttp.ClientTimeout(total=self._config.lookup_timeout_seconds)
+                timeout=aiohttp.ClientTimeout(total=self._config.lookup_timeout_seconds),
             ) as resp:
                 if resp.status == 200:
                     data = await resp.json()
                     iocs = data.get("data", [])
                     ioc_count = len(iocs)
-                    
                     result = {"ioc_count": ioc_count}
                     _LOOKUP_TOTAL.labels(result="success").inc()
                 elif resp.status == 404:
                     result = {"ioc_count": 0}
                     _LOOKUP_TOTAL.labels(result="not_found").inc()
                 else:
-                    logger.warning(f"threatfox | event=api_error | status={resp.status} | ip={ip}")
+                    logger.warning(
+                        "threatfox | event=api_error | status=%d | ip=%s",
+                        resp.status, ip,
+                    )
                     _LOOKUP_TOTAL.labels(result="error").inc()
-                    return
+                    raise RuntimeError(f"threatfox API error: status={resp.status}")
+                return result
 
-                        # Get old cached value for volatility detection
-                old_value = None
-                try:
-                    old_data = await self._redis.get(f"threatfox:data:{ip}")
-                    if old_data:
-                        old_value = json.loads(old_data)
-                except Exception:
-                    pass
+        # Get old cached value for volatility detection
+        old_value = None
+        try:
+            old_data = await self._redis.get(f"threatfox:data:{ip}")
+            if old_data:
+                old_value = json.loads(old_data)
+        except Exception:
+            pass
 
-                # Get adaptive TTL if adaptive cache manager is available
-                ttl_seconds = self._config.cache_ttl_seconds
-                if hasattr(self, '_adaptive_cache') and self._adaptive_cache:
-                    ttl_seconds = self._adaptive_cache.get_adaptive_ttl("threatfox")
+        t0 = time.monotonic()
+        try:
+            result = await retry_with_backoff(
+                _do_request,
+                feed_name="threatfox",
+            )
 
-                # Cache result
-                await self._redis.setex(
-                    f"threatfox:data:{ip}",
-                    ttl_seconds,
-                    json.dumps(result)
-                )
-                self._local_cache.threatfox_scores.set(ip, result)
-                
-                # Record cache miss with volatility detection
-                if hasattr(self, '_adaptive_cache') and self._adaptive_cache:
-                    await self._adaptive_cache.record_cache_miss("threatfox", old_value, result)
+            # Get adaptive TTL if adaptive cache manager is available
+            ttl_seconds = self._config.cache_ttl_seconds
+            if self._adaptive_cache:
+                ttl_seconds = self._adaptive_cache.get_adaptive_ttl("threatfox")
+
+            # Cache result
+            await self._redis.setex(
+                f"threatfox:data:{ip}",
+                ttl_seconds,
+                json.dumps(result),
+            )
+            self._local_cache.threatfox_scores.set(ip, result)
+
+            # Record cache miss with volatility detection
+            if self._adaptive_cache:
+                await self._adaptive_cache.record_cache_miss("threatfox", old_value, result)
+
+            if cb:
+                cb.record_success(time.monotonic() - t0)
 
         except asyncio.TimeoutError:
             _LOOKUP_TOTAL.labels(result="timeout").inc()
+            if cb:
+                cb.record_failure()
         except Exception as e:
-            logger.error(f"threatfox | event=api_exception | ip={ip} | error={e}")
+            logger.error("threatfox | event=api_exception | ip=%s | error=%s", ip, e)
             _LOOKUP_TOTAL.labels(result="error").inc()
+            if cb:
+                cb.record_failure()
 
     def on_config_reload(self, new_config: dict) -> None:
         self._config = ThreatFoxConfig.from_config(new_config)

@@ -564,6 +564,56 @@ alienvault:
   queue_size: 500                   # Max pending IPs.
   worker_count: 2                   # Background workers.
 
+# ── Phase 46: MISP Threat Intelligence ───────────────────────────────────────
+
+misp:
+  enabled: false                    # Default: false. Requires a reachable MISP instance.
+  api_key: ""                       # Set via MISP_API_KEY env var.
+  base_url: ""                      # e.g. https://misp.internal  No trailing slash.
+  cache_ttl_seconds: 3600           # 1 hour.
+  lookup_timeout_seconds: 10        # aiohttp request timeout per API call.
+  score_cap: 50                     # Max risk score contribution.
+  attribute_score: 20               # Score per matched MISP attribute.
+  queue_size: 500                   # Max pending IPs.
+  worker_count: 2                   # Background workers.
+
+# ── Phase 46: ThreatFox Integration ──────────────────────────────────────────
+
+threatfox:
+  enabled: false                    # Default: false. Free API; no key required.
+  api_key: ""                       # Optional. Increases rate limits if provided.
+  cache_ttl_seconds: 3600           # 1 hour.
+  lookup_timeout_seconds: 10        # aiohttp request timeout per API call.
+  score_cap: 45                     # Max risk score contribution.
+  ioc_score: 20                     # Score per matched IOC.
+  queue_size: 500                   # Max pending IPs.
+  worker_count: 2                   # Background workers.
+
+# ── Phase 46: VirusTotal Integration ─────────────────────────────────────────
+
+virustotal:
+  enabled: false                    # Default: false. Requires paid API key for production use.
+  api_key: ""                       # Set via VT_API_KEY env var. Required.
+  cache_ttl_seconds: 86400          # 24 hours (VT data changes slowly).
+  lookup_timeout_seconds: 15        # aiohttp request timeout per API call.
+  score_cap: 50                     # Max risk score contribution.
+  malicious_threshold: 3            # Min malicious detections to trigger a score.
+  malicious_score: 30               # Score contribution per malicious detection batch.
+  daily_quota: 500                  # Daily API request quota. 0 = unlimited.
+  queue_size: 500                   # Max pending IPs.
+  worker_count: 2                   # Background workers.
+
+# ── Phase 59: TI Feed Health & Circuit Breakers ──────────────────────────────
+# Shared settings for all TI provider circuit breakers and health probing.
+# Not hot-reloadable — restart required for threshold changes.
+
+threat_intelligence:
+  circuit_breaker_failure_threshold: 5       # Consecutive failures before a feed's circuit opens.
+                                              # Lower = more sensitive; increase for flaky feeds.
+  circuit_breaker_recovery_probe_interval: 60.0  # Seconds before probing a tripped circuit (OPEN→HALF_OPEN).
+  health_probe_interval_seconds: 30.0        # How often to ping each enabled feed for reachability.
+                                              # Set 0 to disable probing (rely on real-request failures only).
+
 # ── Phase 11: RDAP Enrichment & Block Expansion ──────────────────────────────
 
 rdap_enrichment:

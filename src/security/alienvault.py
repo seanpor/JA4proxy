@@ -9,14 +9,16 @@ import asyncio
 import json
 import logging
 import os
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, List, Optional
 
 import redis
 from prometheus_client import Counter, Gauge
 
+from .feed_health import FeedHealthMonitor
 from .models import RiskSignal
-from .ti_provider import TIProvider, TIProviderConfig
+from .ti_provider import TIProvider, TIProviderConfig, retry_with_backoff
 
 try:
     import aiohttp
@@ -25,6 +27,7 @@ except ImportError:
 
 if TYPE_CHECKING:
     from ..cache.local_cache import LocalCache
+    from .feed_health import CircuitBreaker
 
 logger = logging.getLogger(__name__)
 
@@ -81,11 +84,13 @@ class AlienVaultOTXProvider(TIProvider):
         redis_client: redis.asyncio.Redis,
         local_cache: "LocalCache",
         session: "aiohttp.ClientSession",
+        health_monitor: Optional[FeedHealthMonitor] = None,
     ) -> None:
         self._config = config
         self._redis = redis_client
         self._local_cache = local_cache
         self._session = session
+        self._health_monitor = health_monitor
         self._queue: asyncio.Queue = asyncio.Queue(maxsize=config.queue_size)
         self._workers: List[asyncio.Task] = []
         self._hits = 0
@@ -193,10 +198,18 @@ class AlienVaultOTXProvider(TIProvider):
         if not self._config.api_key:
             return
 
+        # Circuit breaker: skip API call if feed is consistently failing
+        cb: Optional["CircuitBreaker"] = None
+        if self._health_monitor:
+            cb = self._health_monitor.get_circuit_breaker("alienvault_otx")
+            if cb.is_open():
+                logger.debug("alienvault | event=circuit_open_skip | ip=%s", ip)
+                return
+
         url = f"https://otx.alienvault.com/api/v1/indicators/IPv4/{ip}/general"
         headers = {"X-OTX-API-KEY": self._config.api_key, "Accept": "application/json"}
-        
-        try:
+
+        async def _do_request():
             async with self._session.get(
                 url, headers=headers, timeout=aiohttp.ClientTimeout(total=self._config.lookup_timeout_seconds)
             ) as resp:
@@ -204,30 +217,45 @@ class AlienVaultOTXProvider(TIProvider):
                     data = await resp.json()
                     pulse_info = data.get("pulse_info", {})
                     pulse_count = pulse_info.get("count", 0)
-                    
                     result = {"pulse_count": pulse_count}
                     _LOOKUP_TOTAL.labels(result="success").inc()
                 elif resp.status == 404:
                     result = {"pulse_count": 0}
                     _LOOKUP_TOTAL.labels(result="not_found").inc()
                 else:
-                    logger.warning(f"alienvault | event=api_error | status={resp.status} | ip={ip}")
+                    logger.warning(
+                        "alienvault | event=api_error | status=%d | ip=%s",
+                        resp.status, ip,
+                    )
                     _LOOKUP_TOTAL.labels(result="error").inc()
-                    return
+                    raise RuntimeError(f"alienvault API error: status={resp.status}")
+                return result
 
-                # Cache result
-                await self._redis.setex(
-                    f"alienvault:data:{ip}",
-                    self._config.cache_ttl_seconds,
-                    json.dumps(result)
-                )
-                self._local_cache.alienvault_scores.set(ip, result)
+        t0 = time.monotonic()
+        try:
+            result = await retry_with_backoff(
+                _do_request,
+                feed_name="alienvault_otx",
+            )
+            # Cache result
+            await self._redis.setex(
+                f"alienvault:data:{ip}",
+                self._config.cache_ttl_seconds,
+                json.dumps(result),
+            )
+            self._local_cache.alienvault_scores.set(ip, result)
+            if cb:
+                cb.record_success(time.monotonic() - t0)
 
         except asyncio.TimeoutError:
             _LOOKUP_TOTAL.labels(result="timeout").inc()
+            if cb:
+                cb.record_failure()
         except Exception as e:
-            logger.error(f"alienvault | event=api_exception | ip={ip} | error={e}")
+            logger.error("alienvault | event=api_exception | ip=%s | error=%s", ip, e)
             _LOOKUP_TOTAL.labels(result="error").inc()
+            if cb:
+                cb.record_failure()
 
     def on_config_reload(self, new_config: dict) -> None:
         self._config = OTXConfig.from_config(new_config)

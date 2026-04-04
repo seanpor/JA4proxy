@@ -728,12 +728,36 @@ def _make_shutdown_server_stub(drain_timeout: float = 0.5, active: int = 0):
     s.health_server = MagicMock()
     s.health_server.start = AsyncMock()
     s.health_server.stop = AsyncMock()
+    from src.security.feed_health import FeedHealthMonitor
+    s._feed_health_monitor = FeedHealthMonitor()
     s.greynoise_provider = MagicMock()
     s.greynoise_provider.start = AsyncMock()
     s.greynoise_provider.stop = AsyncMock()
+    s.greynoise_provider._config = MagicMock()
+    s.greynoise_provider._config.enabled = False
     s.alienvault_provider = MagicMock()
     s.alienvault_provider.start = AsyncMock()
     s.alienvault_provider.stop = AsyncMock()
+    s.alienvault_provider._config = MagicMock()
+    s.alienvault_provider._config.enabled = False
+    s.misp_provider = MagicMock()
+    s.misp_provider.start = AsyncMock()
+    s.misp_provider.stop = AsyncMock()
+    s.misp_provider._config = MagicMock()
+    s.misp_provider._config.enabled = False
+    s.threatfox_provider = MagicMock()
+    s.threatfox_provider.start = AsyncMock()
+    s.threatfox_provider.stop = AsyncMock()
+    s.threatfox_provider._config = MagicMock()
+    s.threatfox_provider._config.enabled = False
+    s.virustotal_provider = MagicMock()
+    s.virustotal_provider.start = AsyncMock()
+    s.virustotal_provider.stop = AsyncMock()
+    s.virustotal_provider._config = MagicMock()
+    s.virustotal_provider._config.enabled = False
+    s.confidence_manager = MagicMock()
+    s.confidence_manager.initialize = AsyncMock()
+    s.confidence_manager.save_state = AsyncMock()
     s.pipeline.set_ti_providers = MagicMock()
     return s
 
