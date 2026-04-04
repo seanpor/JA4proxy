@@ -1,0 +1,223 @@
+%% ch01-introduction.tex — JA4proxy Operator's User Guide
+%% Chapter 1: Introduction
+
+\chapter{Introduction}
+\index{introduction}
+
+\newthought{Most TLS security products work by breaking encryption.}
+They sit between the client and the server, decrypt the traffic, inspect it,
+re-encrypt it, and forward it on. This gives them visibility into HTTP content,
+but it comes at significant cost: the product must hold your TLS private keys,
+your users are exposed to an additional certificate chain they did not negotiate,
+and performance overhead is substantial.
+
+\ja\ takes a different approach. It never decrypts anything.
+
+\section{The Core Insight: TLS Fingerprinting}
+\index{TLS fingerprinting}
+\index{JA4 fingerprint}
+
+The TLS handshake begins with a \emph{ClientHello} message sent in plaintext before
+any encryption is established. This message contains a structured description of the
+client's TLS capabilities: which protocol versions it supports, which cipher suites
+it offers, which extensions it uses, and in what order.
+
+The combination of these fields is highly characteristic of the software that generated
+them. Chrome 120 on Windows produces a different ClientHello than curl 8.3, which
+produces a different ClientHello than a Cobalt Strike beacon, which produces a different
+ClientHello than an automated credential-stuffing tool.
+
+The \emph{JA4} algorithm\sidenote{JA4 is a fingerprinting algorithm by FoxIO. Specification
+at \url{https://github.com/FoxIO-LLC/ja4}} hashes these ClientHello fields into a compact,
+human-readable fingerprint string. A typical fingerprint looks like
+\fingerprint{t13d1113h2\_8daaf6152771\_b0da82dd1658}. The prefix encodes the
+TLS version, the middle section encodes the cipher and extension set, and the suffix
+encodes the ALPN values.
+
+\ja\ computes this fingerprint for every incoming connection — before the handshake
+completes, before any HTTP request is made — and uses it as the primary signal for
+traffic classification.
+
+\begin{notebox}[The architectural guarantee]
+Because \ja\ reads only the ClientHello plaintext, it never holds TLS private keys
+and never terminates TLS. The encrypted session passes through unchanged. Your backend
+server terminates TLS exactly as it would without \ja\ in the path.
+\end{notebox}
+
+\section{What JA4proxy Does Not Do}
+\index{non-goals}
+
+Understanding the boundaries is as important as understanding the capabilities.
+
+\ja\ \emph{does not}:
+\begin{itemize}
+  \item Inspect HTTP request content, headers, or bodies
+  \item Decrypt TLS traffic
+  \item Parse application-layer protocols
+  \item Replace a WAF for content-based attack detection (SQLi, XSS, and similar)
+  \item Authenticate individual users
+\end{itemize}
+
+\ja\ \emph{does}:
+\begin{itemize}
+  \item Identify and block known-bad TLS fingerprints (C2 tools, crawlers, bots)
+  \item Enforce minimum TLS version and cipher suite requirements
+  \item Detect and rate-limit automated scanning behaviour
+  \item Block connections from known-bad IP addresses, ASNs, and countries
+  \item Identify Tor exit nodes, datacenter IP ranges, and VPN providers
+  \item Detect beaconing patterns (regular-interval connections characteristic of C2 traffic)
+  \item Apply reputation data from AbuseIPDB and Spamhaus DROP lists
+\end{itemize}
+
+\section{The Network Architecture}
+\index{architecture}
+
+\ja\ sits between your load balancer and your backend. In the reference deployment:
+
+\begin{figure}[ht]
+\begin{lstlisting}[language=bash, numbers=none, backgroundcolor=\color{white}, frame=none, xleftmargin=0pt, framexleftmargin=0pt]
+Internet
+  |
+  v  :443 (TLS, PROXY protocol v2)
+HAProxy (load balancer)
+  |
+  v  :8080 (TCP passthrough)
+JA4proxy x N  <----> Redis (shared state)
+  |
+  v  :443 (TLS, unmodified)
+Backend server
+\end{lstlisting}
+\end{figure}
+
+HAProxy terminates nothing — it operates in TCP passthrough mode, forwarding the raw
+TLS stream to \ja\ with a PROXY protocol v2 header prepended so the proxy knows the
+real client IP address. \ja\ reads the ClientHello, makes its decision, and either
+forwards the connection to the backend unchanged or closes it.
+
+Multiple \ja\ instances share state through Redis: the JA4 blacklist and whitelist,
+IP bans, rate-limiting windows, and enrichment results are all available to every
+instance.\sidenote{This means you can scale to many proxy instances without
+any sticky-session requirement.}
+
+\section{The Decision Pipeline}
+\index{pipeline}
+\index{bypass!fast path}
+
+Every connection passes through a two-stage pipeline.
+
+\subsection{Stage 1: Fast-Path Bypasses}
+
+Before any scoring occurs, a set of conditions can short-circuit the pipeline
+entirely. These are \emph{bypass checks} — they produce an immediate ALLOW or BLOCK
+decision without consulting the scorer.
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{lXl}
+    \toprule
+    \textbf{Condition} & \textbf{Behaviour} & \textbf{Configurable} \\
+    \midrule
+    h2/h1 ALPN (browser) & \badgeallow{} immediately & Yes \\
+    JA4 in whitelist & \badgeallow{} immediately & Yes \\
+    Valid mTLS client cert & \badgeallow{} immediately & Yes \\
+    IP in static allowlist & \badgeallow{} immediately & Yes \\
+    \midrule
+    JA4 in blacklist & \badgeblock{} immediately (RST) & Yes \\
+    Country in blocklist & \badgeblock{} immediately & Yes \\
+    Spamhaus DROP match & \badgeblock{} immediately & Yes \\
+    TLS 1.0/1.1 version & \badgeblock{} immediately (RST) & Yes \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Fast-path bypass conditions and their defaults}
+\end{table}
+
+The browser ALPN bypass deserves special mention. Any connection advertising \code{h2}
+or \code{h1} (standard browser ALPN values) is allowed immediately, regardless of
+any other rule. This is an architectural guarantee against false positives — legitimate
+browser traffic can never be blocked by \ja, regardless of configuration.\sidenote{This
+guarantee exists because the cost of blocking a real user is always higher than the cost
+of letting through a bot that happens to advertise browser ALPN values. The proxy is
+designed around this asymmetry.}
+
+\subsection{Stage 2: Signal Collection and Scoring}
+
+Connections that reach Stage 2 are analysed by a set of signal collectors running
+in parallel. Each collector examines one aspect of the connection and produces a
+\emph{RiskSignal} — a numeric score contribution and a label. The signals are:
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{lX}
+    \toprule
+    \textbf{Signal} & \textbf{What it examines} \\
+    \midrule
+    TLS enforcer & TLS version, cipher strength \\
+    SNI analyser & Missing SNI, IP-literal, DGA-pattern hostnames \\
+    TCP analyser & JA4T fingerprint, connection lifespan, concurrency \\
+    ASN classifier & Datacenter, Tor exit, VPN ranges \\
+    FCrDNS enrichment & Forward-confirmed reverse DNS; residential classification \\
+    Blocklist check & Spamhaus DROP/EDROP match (as signal, not bypass) \\
+    Beaconing detector & IAT coefficient of variation; regular-interval connections \\
+    AbuseIPDB & IP reputation score from community abuse reports \\
+    RDAP enrichment & Org-level reputation; netblock classification \\
+    Analytics findings & Cross-instance campaign and slow-scan detection \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Signal collectors in Stage 2}
+\end{table}
+
+The composite scorer aggregates all RiskSignals into a single score from 0 to 100.
+The action decider then maps that score to a decision based on the current \emph{dial} setting.
+
+\section{The Dial}
+\index{dial}
+\index{monitor mode}
+
+The dial is a single number from 0 to 100 that controls how aggressively \ja\ acts
+on risk scores.
+
+\begin{description}[leftmargin=2.5cm]
+  \item[\dialzero] The proxy scores all traffic but takes no blocking action.
+    Every connection is allowed. Events are logged and metrics are recorded.
+    This is the default and the correct setting for initial deployment.
+  \item[\dialhundred] The proxy applies its configured thresholds. Connections
+    with scores above the block threshold are blocked; those above the tarpit
+    threshold are tarpitted; those above the rate-limit threshold are rate-limited.
+\end{description}
+
+\begin{importantbox}[Why the default is zero]
+The default \code{dial=0} is deliberate. On first deployment, you do not yet know
+what your legitimate traffic looks like. Deploying with blocking enabled risks
+immediately breaking real users. Spend time at dial=0 reviewing the logs and Grafana
+dashboard. Only raise the dial when you are confident the scoring matches reality.
+\end{importantbox}
+
+Values between 0 and 100 proportionally raise the thresholds at which each action
+triggers. The dial is designed to be raised gradually: from 0 to 25 (flag only),
+then to 50 (rate limiting), then to 75 (tarpit high-risk), then to 100 (full blocking).
+\emph{See Chapter~\ref{ch:configuration} for the full dial rollout procedure.}
+
+\section{Self-Healing Design}
+\index{self-healing}
+\index{ban!TTL}
+
+Every ban in \ja\ has a 5-minute TTL.\sidenote{This is intentional and cannot be
+configured away. The rationale: a 5-minute ban on a scanner costs them the same
+operational disruption as a permanent ban, because scanners retry anyway. But a
+5-minute window limits the blast radius when a legitimate IP is incorrectly flagged.}
+There are no permanent bans by default. The system is designed to fail open: if
+Redis is unreachable, the proxy allows connections rather than blocking them.
+
+This approach accepts a small number of false negatives (bad traffic slipping through
+during a recovery window) in exchange for a strong guarantee against false positives
+(real users being locked out).
+
+\section{What This Guide Covers}
+
+This guide is the operational reference: how to install, configure, operate, monitor,
+and troubleshoot \ja. It assumes you have a working knowledge of Docker, TLS basics,
+and network security concepts.
+
+For architecture decision records, signal algorithm specifications, full Prometheus
+metric definitions, Redis schema documentation, and API references, see the
+\emph{Technical Reference Manual}.

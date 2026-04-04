@@ -1,0 +1,142 @@
+%% cover-common.tex
+%% Shared TikZ cover artwork for JA4proxy documents.
+%% Include this file inside a \begin{titlepage}...\end{titlepage} block.
+%% Requires: \covertype, \coverdescription, \coveraccentcolor defined before inclusion.
+%%
+%% Usage:
+%%   \def\covertype{Product Overview \& Buying Guide}
+%%   \def\coverdescription{For Security Buyers and Technical Evaluators}
+%%   \def\coveraccentcolor{ja4cyan}
+%%   \begin{titlepage}\input{../shared/artwork/cover-common.tex}\end{titlepage}
+
+\begin{tikzpicture}[remember picture, overlay]
+
+  %% ── Background ─────────────────────────────────────────────────────────────
+  \fill[color=ja4navydark]
+    (current page.south west) rectangle (current page.north east);
+
+  %% Subtle dot-grid texture
+  \foreach \x in {0,0.8,...,21} {
+    \foreach \y in {0,0.8,...,29.7} {
+      \fill[color=ja4navylight, opacity=0.12]
+        ($(current page.south west) + (\x cm, \y cm)$) circle (0.7pt);
+    }
+  }
+
+  %% ── Fingerprint / TLS Network Visualization ────────────────────────────────
+  %% Positioned lower-right, large abstract arc pattern suggesting TLS layers
+
+  \coordinate (fp) at ($(current page.south east) + (-4.5cm, 9cm)$);
+
+  %% Concentric arcs — evoke fingerprint ridges / TLS cipher layers
+  \foreach \r/\op in {1.0/0.55, 1.7/0.50, 2.4/0.45, 3.1/0.38,
+                      3.8/0.30, 4.5/0.22, 5.2/0.16, 5.9/0.11} {
+    \draw[color=ja4cyan, opacity=\op, line width={0.5 + \r*0.15}pt,
+          rounded corners=0pt]
+      ($(fp) + (180:\r cm)$) arc[start angle=180, end angle=360,
+                                  radius=\r cm];
+  }
+
+  %% Network nodes — connections being analysed
+  %% Outer ring: 10 nodes, colour-coded by fate
+  \foreach \ang/\col/\op in {
+    10/ja4green/0.90, 46/ja4cyan/0.70, 82/ja4red/0.90,
+   118/ja4cyan/0.60, 154/ja4green/0.80, 190/ja4red/0.85,
+   226/ja4cyan/0.65, 262/ja4green/0.75, 298/ja4amber/0.80,
+   334/ja4cyan/0.60}
+  {
+    \coordinate (n\ang) at ($(fp) + (\ang:6.8cm)$);
+    \draw[color=\col, opacity={\op*0.35}, line width=0.4pt] (fp) -- (n\ang);
+    \fill[color=\col, opacity=\op] (n\ang) circle (2.5pt);
+  }
+
+  %% Middle ring: 6 nodes
+  \foreach \ang/\col in {
+    30/ja4cyanlight, 90/ja4green, 150/ja4cyanlight,
+   210/ja4red,      270/ja4cyanlight, 330/ja4green}
+  {
+    \coordinate (m\ang) at ($(fp) + (\ang:4.2cm)$);
+    \draw[color=\col, opacity=0.25, very thin] (fp) -- (m\ang);
+    \fill[color=\col, opacity=0.55] (m\ang) circle (1.8pt);
+  }
+
+  %% Centre node
+  \fill[color=ja4cyan, opacity=0.9] (fp) circle (4pt);
+  \draw[color=ja4cyanlight, line width=0.8pt, opacity=0.6] (fp) circle (7pt);
+
+  %% ── Accent bar across top ───────────────────────────────────────────────────
+  \fill[color=\coveraccentcolor]
+    ($(current page.north west) + (0, -1.1cm)$) rectangle
+    ($(current page.north east) + (0, -0.0cm)$);
+
+  %% Thin rule below accent bar
+  \draw[color=ja4cyanlight, line width=0.4pt, opacity=0.4]
+    ($(current page.north west) + (0, -1.15cm)$) --
+    ($(current page.north east) + (0, -1.15cm)$);
+
+  %% ── Title Block ─────────────────────────────────────────────────────────────
+  %% Wordmark
+  \node[anchor=north west,
+        text=white,
+        font=\fontsize{44}{48}\selectfont\sffamily\bfseries,
+        inner sep=0pt]
+    at ($(current page.north west) + (2.4cm, -2.2cm)$)
+    {JA4proxy};
+
+  %% Tagline
+  \node[anchor=north west,
+        text=ja4cyanlight,
+        font=\fontsize{13}{16}\selectfont\sffamily,
+        inner sep=0pt]
+    at ($(current page.north west) + (2.4cm, -4.0cm)$)
+    {Enterprise TLS Security Proxy};
+
+  %% Horizontal rule under tagline
+  \draw[color=ja4cyan, line width=1.2pt, opacity=0.7]
+    ($(current page.north west) + (2.4cm, -4.6cm)$) --
+    ($(current page.north west) + (13cm, -4.6cm)$);
+
+  %% Document type heading
+  \node[anchor=north west,
+        text=white,
+        font=\fontsize{20}{24}\selectfont\sffamily\bfseries,
+        inner sep=0pt]
+    at ($(current page.north west) + (2.4cm, -5.4cm)$)
+    {\covertype};
+
+  %% Document description
+  \node[anchor=north west,
+        text=ja4cyanlight,
+        font=\fontsize{11}{14}\selectfont\sffamily,
+        inner sep=0pt, text width=12cm]
+    at ($(current page.north west) + (2.4cm, -6.6cm)$)
+    {\coverdescription};
+
+  %% ── Bottom bar ──────────────────────────────────────────────────────────────
+  \fill[color=ja4navy, opacity=0.9]
+    (current page.south west) rectangle
+    ($(current page.south east) + (0, 2.2cm)$);
+
+  \draw[color=ja4cyan, line width=0.6pt, opacity=0.5]
+    ($(current page.south west) + (0, 2.2cm)$) --
+    ($(current page.south east) + (0, 2.2cm)$);
+
+  %% Version / edition
+  \node[anchor=west,
+        text=ja4cyanlight,
+        font=\fontsize{9}{11}\selectfont\sffamily,
+        inner sep=0pt]
+    at ($(current page.south west) + (2.4cm, 1.1cm)$)
+    {Edition 1.0 \quad|\quad \the\year \quad|\quad github.com/seanpor/JA4proxy};
+
+  %% Status badge
+  \node[anchor=east,
+        text=ja4navydark,
+        fill=ja4cyan,
+        rounded corners=2pt,
+        font=\fontsize{8}{10}\selectfont\sffamily\bfseries,
+        inner sep=4pt]
+    at ($(current page.south east) + (-2.4cm, 1.1cm)$)
+    {POC — Functional \& Tested};
+
+\end{tikzpicture}
