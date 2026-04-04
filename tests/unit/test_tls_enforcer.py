@@ -32,7 +32,7 @@ def _make_enforcer(**overrides) -> TLSEnforcer:
             "block_tls_10": True,
             "block_tls_11": True,
             "flag_tls_12": False,
-            "score": 10,
+            "score": 40,
             "block_weak_ciphers": False,
             "weak_cipher_score": 20,
             "weak_ciphers": [],
