@@ -14,8 +14,13 @@ phase: 59
 | MISP | `ja4proxy_ti_circuit_breaker_open{feed="misp"}` | `misp.enabled` | 5 consecutive failures |
 | GreyNoise | `ja4proxy_ti_circuit_breaker_open{feed="greynoise"}` | `greynoise.enabled` | 5 consecutive failures |
 | AlienVault OTX | `ja4proxy_ti_circuit_breaker_open{feed="alienvault_otx"}` | `alienvault.enabled` | 5 consecutive failures |
-| VirusTotal | `ja4proxy_ti_circuit_breaker_open{feed="virustotal"}` | `virustotal.enabled` | 5 consecutive failures |
-| ThreatFox | `ja4proxy_ti_circuit_breaker_open{feed="threatfox"}` | `threatfox.enabled` | 5 consecutive failures |
+| VirusTotal | `ja4proxy_ti_circuit_breaker_open{feed="virustotal"}` | `threat_intelligence.virustotal.enabled` | 5 consecutive failures |
+| ThreatFox | `ja4proxy_ti_circuit_breaker_open{feed="threatfox"}` | `threat_intelligence.threatfox.enabled` | 5 consecutive failures |
+
+Shared circuit breaker thresholds (all feeds): `threat_intelligence.circuit_breaker_failure_threshold`
+(default: 5) and `threat_intelligence.circuit_breaker_recovery_probe_interval` (default: 60s).
+Background probe interval (MISP, GreyNoise, AlienVault OTX, ThreatFox):
+`threat_intelligence.health_probe_interval_seconds` (default: 30s). VirusTotal has no probe.
 
 All circuit breakers default to CLOSED on startup. Recovery probe interval defaults to
 60 seconds. The proxy fails open on every circuit breaker trip — traffic continues to
@@ -117,6 +122,36 @@ circuit breakers. A feed that is failing may trip one instance's breaker before
 another's. This is by design: each instance fails open independently, preventing a
 single Redis-stored state from simultaneously disabling a feed across all instances.
 
+### Startup integration
+
+`FeedHealthMonitor` is created once in `ProxyServer.__init__` and passed to all five
+providers (MISP, GreyNoise, AlienVault OTX, VirusTotal, ThreatFox) via the
+`health_monitor=` constructor parameter.
+
+Each provider that supports background probing calls
+`health_monitor.register_probe(feed_name, probe_fn, interval_seconds)` during its
+`start()` method. After all providers have started, `ProxyServer` calls
+`await health_monitor.start_probing()` to launch the background probe tasks.
+
+Before shutdown, `ProxyServer` calls `await health_monitor.stop_probing()` which
+cancels all probe tasks and awaits their completion.
+
+**VirusTotal does not register a probe.** VirusTotal's API has strict daily quotas;
+probing it independently of actual lookups would consume quota with no benefit. Its
+circuit breaker still operates normally — it is updated by `record_success()` /
+`record_failure()` calls inside `_process_lookup()`.
+
+Circuit breakers are pre-registered at startup via `get_circuit_breaker()` with
+thresholds read from the `threat_intelligence.*` config section:
+- `threat_intelligence.circuit_breaker_failure_threshold` — defaults to 5
+- `threat_intelligence.circuit_breaker_recovery_probe_interval` — defaults to 60.0s
+- `threat_intelligence.health_probe_interval_seconds` — per-feed probe interval default
+
+If a provider is instantiated without `health_monitor` (the parameter defaults to
+`None`), the circuit breaker guard inside `_process_lookup` is silently skipped and
+the provider behaves as if no circuit breaker is present. This preserves backwards
+compatibility for deployments or tests that do not pass a monitor instance.
+
 ### Prometheus metrics reference
 
 | Metric | Type | Labels | Description |
@@ -126,6 +161,7 @@ single Redis-stored state from simultaneously disabling a feed across all instan
 | `ja4proxy_ti_feed_consecutive_failures` | Gauge | `feed` | Current consecutive failure count; resets to 0 on any success |
 | `ja4proxy_ti_feed_last_response_time_seconds` | Gauge | `feed` | Wall-clock seconds for the last successful API call |
 | `ja4proxy_ti_circuit_transitions_total` | Counter | `feed`, `to_state` | Cumulative state transitions; `to_state` is `open`, `half_open`, or `closed` |
+| `ja4proxy_ti_feed_probe_interval_seconds` | Gauge | `feed` | Configured background probe interval for this feed (set by `register_probe`; absent if no probe registered) |
 | `ja4proxy_feed_accuracy_score` | Gauge | `feed_name` | Current confidence weight, 0.0–1.0 (from ConfidenceManager) |
 | `ja4proxy_confidence_adjustments_total` | Counter | `feed_name`, `direction` | Confidence weight changes; `direction` is `up`, `down`, or `manual` |
 | `ja4proxy_feed_validations_total` | Counter | `feed_name`, `result` | Outcome feedback events; `result` is `tp`, `fp`, `tn`, or `fn` |
@@ -347,10 +383,27 @@ misp:
   attribute_score: 20                # Score per matched MISP attribute.
 ```
 
-**Circuit breaker parameters** are not currently exposed as YAML config — they use the
-`CircuitBreaker` defaults: `failure_threshold=5`, `recovery_probe_interval=60.0s`.
-These can only be changed by modifying the code or by overriding at `get_circuit_breaker()`
-call sites in each provider. Document this limitation if you need per-feed tuning.
+**Circuit breaker and probe parameters** are configured under a top-level
+`threat_intelligence:` section in `config/proxy.yml`. These apply to all feeds
+uniformly; per-feed overrides are not supported without a code change.
+
+```yaml
+threat_intelligence:
+  circuit_breaker_failure_threshold: 5       # Consecutive failures before tripping open. hot-reloadable.
+  circuit_breaker_recovery_probe_interval: 60.0  # Seconds before OPEN transitions to HALF_OPEN. hot-reloadable.
+  health_probe_interval_seconds: 30.0        # Background probe cadence (per feed that registers a probe). hot-reloadable.
+  # Individual feed sections (shown for misp; same pattern for virustotal, threatfox):
+  misp:
+    enabled: false                           # Master switch. hot-reloadable.
+  virustotal:
+    enabled: false
+  threatfox:
+    enabled: false
+```
+
+Note: VirusTotal does not register a background probe — quota constraints make
+independent probing wasteful. Its circuit breaker parameters still read from the
+shared `threat_intelligence.circuit_breaker_*` keys.
 
 **Confidence manager state** is persisted to Redis under the key `ja4proxy:confidence:state`.
 This key survives restarts and is loaded at startup. Default accuracy scores at first
@@ -420,11 +473,14 @@ docker compose logs proxy --since 1m | grep 'event=started\|event=disabled\|enab
 
 **Circuit breaker sensitivity:**
 
-The default `failure_threshold=5` is appropriate for most environments. If a feed is
-intermittently unreliable (e.g., rate-limited frequently), you may want to raise this
-effectively by wrapping quota-exhaustion errors differently in the provider code, so
-they do not count as circuit-breaker failures. This requires a code change; document it
-as a deployment-specific patch.
+The default `failure_threshold=5` is appropriate for most environments. Raise it via
+`threat_intelligence.circuit_breaker_failure_threshold` in `config/proxy.yml` and send
+SIGHUP — the change is hot-reloadable.
+
+If a feed is intermittently unreliable (e.g., rate-limited frequently), raising the
+threshold buys more tolerance before a trip. Alternatively, wrap quota-exhaustion
+errors differently in the provider code so they do not count as circuit-breaker
+failures — that requires a code change; document it as a deployment-specific patch.
 
 ### API key rotation procedure (zero-downtime)
 
@@ -509,12 +565,28 @@ stateDiagram-v2
 
 ### Historical ring buffer: what's tracked, size limit, how to query
 
-The `ConfidenceManager` tracks outcome feedback events in Redis under the key
-`ja4proxy:confidence:state`. This is a JSON snapshot, not a time-series ring buffer —
-it stores cumulative counters (`true_positives`, `false_positives`) per feed.
+Each `CircuitBreaker` instance maintains an in-process ring buffer of the last 100
+events (`CircuitBreaker._history`, a `collections.deque(maxlen=100)`). Each entry is
+a dict with four fields:
 
-Per-lookup historical data (response times, individual outcomes) is not stored in Redis.
-The Prometheus metrics exposed by `CircuitBreaker` provide the queryable time-series:
+| Field | Type | Description |
+|-------|------|-------------|
+| `ts` | float | `time.monotonic()` timestamp of the event |
+| `event` | str | `"success"`, `"failure"`, or `"state_change"` |
+| `state` | str | Circuit state at the time of the event (`"closed"`, `"open"`, `"half_open"`) |
+| `response_time` | float | Seconds for the API call (0.0 for failures and state changes) |
+
+This buffer is in-process only — it is not persisted to Redis and resets on every
+proxy restart. Access it programmatically via `cb.history` (returns a list copy) on
+a live instance. It is not currently exposed via any HTTP endpoint.
+
+The `ConfidenceManager` tracks outcome feedback events separately in Redis under the
+key `ja4proxy:confidence:state`. This is a JSON snapshot, not a ring buffer — it
+stores cumulative counters (`true_positives`, `false_positives`) per feed and is
+unrelated to the circuit breaker history.
+
+For time-series queries, the Prometheus metrics exposed by `CircuitBreaker` provide
+the queryable history:
 
 ```promql
 # Transition history: how often has a feed opened in the last 24h?
@@ -601,8 +673,10 @@ The default `recovery_probe_interval` of 60 seconds is a balance between:
 - Avoiding hammering a degraded upstream (longer interval → politer backoff)
 
 For feeds with known rate limits or slow recovery characteristics, consider increasing
-`recovery_probe_interval` to 300s (5 minutes). This requires a code change to the
-`get_circuit_breaker()` call in the relevant provider — it is not currently YAML-configurable.
+`threat_intelligence.circuit_breaker_recovery_probe_interval` to 300 (5 minutes) in
+`config/proxy.yml`. The change is hot-reloadable via SIGHUP and takes effect on the
+next state transition — already-open circuits use the updated value for their
+remaining timer.
 
 ---
 
