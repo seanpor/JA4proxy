@@ -6,6 +6,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/anomalyco/ja4proxy/internal/metrics"
 	"github.com/sirupsen/logrus"
 )
 
@@ -63,10 +64,12 @@ func (d *DNSEnrichment) Start(ctx context.Context) {
 
 func (d *DNSEnrichment) worker(ctx context.Context) {
 	for {
+		metrics.DNSEnrichmentQueueDepth.Set(float64(len(d.queue)))
 		select {
 		case <-ctx.Done():
 			return
 		case ip := <-d.queue:
+			metrics.DNSEnrichmentQueueDepth.Set(float64(len(d.queue)))
 			d.enrich(ctx, ip)
 		}
 	}
@@ -82,6 +85,7 @@ func (d *DNSEnrichment) enrich(ctx context.Context, clientIP string) {
 	// PTR lookup
 	names, err := net.LookupAddr(clientIP)
 	if err != nil || len(names) == 0 {
+		metrics.DNSPTRErrorsTotal.WithLabelValues("no_ptr").Inc()
 		d.redis.SetString(ctx, key, "no_ptr", ttl)
 		return
 	}
@@ -91,6 +95,7 @@ func (d *DNSEnrichment) enrich(ctx context.Context, clientIP string) {
 	// FCrDNS: forward lookup must resolve back to the same IP
 	addrs, err := net.LookupHost(hostname)
 	if err != nil {
+		metrics.DNSResolverErrorsTotal.Inc()
 		d.redis.SetString(ctx, key, "fcrdns_failed", ttl)
 		return
 	}
@@ -103,6 +108,7 @@ func (d *DNSEnrichment) enrich(ctx context.Context, clientIP string) {
 		}
 	}
 	if !confirmed {
+		metrics.DNSPTRErrorsTotal.WithLabelValues("fcrdns_failed").Inc()
 		d.redis.SetString(ctx, key, "fcrdns_failed", ttl)
 		return
 	}
@@ -118,10 +124,13 @@ func (d *DNSEnrichment) enrich(ctx context.Context, clientIP string) {
 		}
 	}
 	if isResidential {
+		metrics.DNSPTRClassificationTotal.WithLabelValues("residential").Inc()
 		d.redis.SetString(ctx, key, "confirmed_residential", ttl)
 	} else if strings.Contains(lower, "datacenter") || strings.Contains(lower, "cloud") || strings.Contains(lower, "hosting") {
+		metrics.DNSPTRClassificationTotal.WithLabelValues("datacenter").Inc()
 		d.redis.SetString(ctx, key, "confirmed_datacenter", ttl)
 	} else {
+		metrics.DNSPTRClassificationTotal.WithLabelValues("unknown").Inc()
 		d.redis.SetString(ctx, key, "confirmed_unknown", ttl)
 	}
 }
@@ -152,19 +161,25 @@ func (d *DNSEnrichment) GetSignal(ctx context.Context, conn *ConnectionContext) 
 
 	switch cached {
 	case "no_ptr":
+		metrics.DNSEnrichmentTotal.WithLabelValues("no_ptr").Inc()
 		return &RiskSignal{Name: "no_ptr", Score: noPTRScore, Reason: "no PTR record", Weight: 1.0}
 	case "fcrdns_failed":
+		metrics.DNSEnrichmentTotal.WithLabelValues("fcrdns_failed").Inc()
 		return &RiskSignal{Name: "fcrdns_failed", Score: fcrdnsScore, Reason: "FCrDNS verification failed", Weight: 1.0}
 	case "confirmed_residential":
+		metrics.DNSEnrichmentTotal.WithLabelValues("residential").Inc()
 		return &RiskSignal{Name: "residential_ptr", Score: residentialScore, Reason: "confirmed residential PTR", Weight: 1.0}
 	case "confirmed_datacenter", "confirmed_unknown":
+		metrics.DNSEnrichmentTotal.WithLabelValues("benign").Inc()
 		return nil // no additional signal
 	default:
 		// Not cached: enqueue lookup (skip browser traffic)
 		if conn.ALPN != "h2" && conn.ALPN != "h1" {
 			select {
 			case d.queue <- conn.ClientIP:
+				metrics.DNSEnrichmentQueueDepth.Set(float64(len(d.queue)))
 			default: // queue full, skip silently
+				metrics.DNSEnrichmentQueueDropsTotal.Inc()
 			}
 		}
 		return nil

@@ -333,12 +333,12 @@ This automatically scales containers and reconfigures HAProxy for round-robin. A
 
 | Category | Lines | What |
 |---|---:|---|
-| **Python proxy core** | ~15,500 | `proxy.py` + `src/security/` + `src/cache/` + `src/config/` — TLS parsing, JA4 fingerprinting, all signal modules, pipeline, rate limiting |
-| **Go proxy core** | ~8,300 | `cmd/proxy/` + `internal/` — high-throughput replacement; in active development (Phase 15) |
-| **Tests** | ~28,900 | 1,600 tests — unit, integration, chaos, adversarial, performance (1.2× test-to-code ratio) |
-| **Supporting services** | ~600 | Tarpit server, mock backend, performance tools |
-| **Infrastructure** | ~7,500 | Dockerfiles, Compose files, shell scripts |
-| **Total** | **~61,000** | |
+| **Python proxy core** | ~26,087 | `proxy.py` + `src/security/` + `src/cache/` + `src/config/` — TLS parsing, JA4 fingerprinting, all signal modules, pipeline, rate limiting |
+| **Go proxy core** | ~4,966 | `cmd/proxy/` + `internal/` — high-throughput replacement; in active development (Phase 15) |
+| **Tests** | ~60,581 | 1,600 tests — unit, integration, chaos, adversarial, performance (1.2× test-to-code ratio) |
+| **Supporting services** | ~12,624 | Tarpit server, mock backend, performance tools |
+| **Infrastructure** | ~4,399 | Dockerfiles, Compose files, shell scripts |
+| **Total** | **~108,657** | |
 
 Plus: ~48,400 lines of documentation across 106 files (architecture, runbooks, phase plans, security audit, compliance).
 

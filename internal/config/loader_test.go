@@ -127,8 +127,8 @@ func TestLoad_Defaults(t *testing.T) {
 	if cfg.MonitorMode.Dial != 0 {
 		t.Errorf("default Dial: got %d, want 0", cfg.MonitorMode.Dial)
 	}
-	if cfg.Tarpit.MaxConcurrentConnections != 500 {
-		t.Errorf("default MaxConcurrentConnections: got %d, want 500", cfg.Tarpit.MaxConcurrentConnections)
+	if cfg.Tarpit.MaxActiveConnections != 500 {
+		t.Errorf("default MaxActiveConnections: got %d, want 500", cfg.Tarpit.MaxActiveConnections)
 	}
 }
 
