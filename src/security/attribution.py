@@ -131,11 +131,11 @@ class AttributionManager:
         """
         try:
             # 1. Add IP to fingerprint set
-            added = await self._redis.sadd(f"attribution:ips:{afp}", ip)
+            added = await self._redis.sadd(f"attribution:ips:{afp}", ip)  # type: ignore[misc]
             if added:
                 _CORRELATION_EVENTS.inc()
                 # Optional: expire IP set after 30 days
-                await self._redis.expire(f"attribution:ips:{afp}", 2592000)
+                await self._redis.expire(f"attribution:ips:{afp}", 2592000)  # type: ignore[misc]
 
             # 2. Update or create profile
             profile_key = f"attribution:profile:{afp}"

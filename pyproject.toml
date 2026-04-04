@@ -50,7 +50,7 @@ filterwarnings = [
 
 [tool.ruff]
 # Phase 16f baseline — check src/ and proxy.py; tests are advisory only.
-target-version = "py311"
+target-version = "py314"
 line-length = 120
 
 [tool.ruff.lint]
