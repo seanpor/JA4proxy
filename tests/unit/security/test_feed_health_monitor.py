@@ -16,7 +16,6 @@ import pytest
 
 from src.security.feed_health import CircuitBreaker, CircuitState, FeedHealthMonitor
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

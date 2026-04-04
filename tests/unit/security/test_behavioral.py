@@ -4,9 +4,11 @@ Unit tests for Phase 54 Behavioral Attribution.
 
 import asyncio
 import json
-import pytest
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
 from src.security.behavioral import BehavioralAnalyzer
 from src.security.models import ConnectionContext, RiskSignal
 

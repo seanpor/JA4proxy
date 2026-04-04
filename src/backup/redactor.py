@@ -5,7 +5,9 @@ Ensures GDPR compliance by allowing removal of specific subject data from archiv
 
 import logging
 from typing import List, Tuple
+
 from prometheus_client import Counter
+
 from src.backup.format import decode_entries, encode_entry
 
 logger = logging.getLogger(__name__)

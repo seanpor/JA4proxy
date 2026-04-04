@@ -16,9 +16,9 @@ from typing import Any, Dict, List
 import redis
 from prometheus_client import Counter, Gauge, Histogram
 
+from src.backup.encryption import BackupEncryption
 from src.backup.format import encode_entry
 from src.backup.policy import KeyPolicy
-from src.backup.encryption import BackupEncryption
 
 logger = logging.getLogger(__name__)
 

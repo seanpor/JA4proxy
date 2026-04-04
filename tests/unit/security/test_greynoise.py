@@ -12,7 +12,6 @@ from src.security.feed_health import CircuitBreaker, FeedHealthMonitor
 from src.security.greynoise import GreyNoiseConfig, GreyNoiseProvider
 from src.security.models import RiskSignal
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

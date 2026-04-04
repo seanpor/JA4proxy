@@ -4,10 +4,12 @@ Unit tests for Phase 32 Attacker Attribution.
 
 import asyncio
 import json
-import pytest
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
-from src.security.attribution import AttributionManager, AttackerProfile
+
+import pytest
+
+from src.security.attribution import AttackerProfile, AttributionManager
 from src.security.models import ConnectionContext, RiskSignal
 
 

@@ -4,8 +4,9 @@ High-performance, zero-dependency parser for JA4 fingerprinting.
 Eliminates Scapy IPC overhead.
 """
 
-from typing import Dict, List, Optional
 import struct
+from typing import Dict, List, Optional
+
 
 def parse_client_hello(data: bytes) -> Optional[Dict]:
     """

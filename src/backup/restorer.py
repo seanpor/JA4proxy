@@ -15,8 +15,8 @@ from typing import Any, Dict
 import redis
 from prometheus_client import Counter, Gauge, Histogram
 
-from src.backup.format import decode_entries
 from src.backup.encryption import BackupEncryption
+from src.backup.format import decode_entries
 
 logger = logging.getLogger(__name__)
 

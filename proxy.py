@@ -262,7 +262,6 @@ class GeoIPLookup:
                     new_db.get_country_short("8.8.8.8")
                     
                     # Atomic swap
-                    old_db = self.db
                     self.db = new_db
                     self.current_path = p
                     
@@ -1231,10 +1230,8 @@ class ProxyServer:
         self.redis_client = await self._init_redis()
 
         # Core state components (needed by TI providers and pipeline)
-        from src.cache.local_cache import LocalCache
         from src.security.adaptive_cache import AdaptiveCacheManager
         from src.security.confidence_manager import ConfidenceManager
-        import aiohttp
 
         self._local_cache = LocalCache(self.config)
         self.confidence_manager = ConfidenceManager(self.redis_client)
@@ -1784,8 +1781,9 @@ class ProxyServer:
         _probe_session = self._aiohttp_session
 
         async def _http_probe(url: str, feed: str) -> float:
-            import aiohttp as _aiohttp
             import time as _t
+
+            import aiohttp as _aiohttp
             t0 = _t.monotonic()
             async with _probe_session.head(url, timeout=_aiohttp.ClientTimeout(total=5)) as r:
                 if r.status >= 500:

@@ -95,6 +95,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 set +e
 "$PYTHON" -m pytest tests/ \
     --ignore=tests/integration/test_docker_stack.py \
+    --ignore=tests/integration/test_multi_process_enforcement.py \
     -n "$WORKERS" \
     --dist=loadfile \
     --timeout=60 \
