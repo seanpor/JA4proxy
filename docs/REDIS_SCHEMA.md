@@ -77,6 +77,14 @@ phase: 54
 
 ---
 
+## Phase 58 — Advanced Intelligence: Confidence Weighting
+
+| Key pattern | Type | TTL | Written by | Notes |
+|-------------|------|-----|------------|-------|
+| `ja4proxy:confidence:state` | Hash | No TTL | ConfidenceManager | Per-feed confidence tracking: fields `{feed_name}:successes`, `{feed_name}:total`, `{feed_name}:weight`. Updated on each lookup result. In-memory primary; Redis used for persistence across restarts. |
+
+---
+
 ## Phase 12 — Analytics Node
 
 | Key pattern | Type | TTL | Written by | Notes |

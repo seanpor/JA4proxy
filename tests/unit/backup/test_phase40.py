@@ -69,11 +69,13 @@ def test_worker_locking(mock_redis_cls):
 
 
 @patch("redis.Redis")
-def test_restorer_locking(mock_redis_cls):
+@patch.object(BackupRestorer, "verify_checksum", return_value=True)
+@patch.object(BackupRestorer, "load_manifest", return_value={"checksum_sha256": "abc", "keys_count": 0})
+def test_restorer_locking(mock_load_manifest, mock_verify, mock_redis_cls):
     mock_redis = mock_redis_cls.return_value
-    # Lock fails
+    # Lock fails — simulate a concurrent operation already holding the lock
     mock_redis.set.return_value = False
-    
+
     restorer = BackupRestorer()
     with pytest.raises(Exception, match="already in progress"):
         restorer.restore_backup("art", "manifest")

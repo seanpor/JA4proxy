@@ -64,6 +64,7 @@ from src.cache.local_cache import LocalCache
 from src.config.loader import ConfigLoader
 from src.pubsub import PubSubHandler
 from src.security.action_decider import ActionDecider, DialManager
+from src.security.feed_health import FeedHealthMonitor
 from src.security.health import HealthMonitor, HealthServer
 from src.security.pipeline import ConnectionContext, Pipeline
 from src.security.risk_scorer import RiskScorer
@@ -1276,17 +1277,22 @@ class ProxyServer:
         from src.security.threatfox import ThreatFoxConfig, ThreatFoxProvider
         from src.security.virustotal import VirusTotalConfig, VirusTotalProvider
 
+        # Phase 59: Single shared FeedHealthMonitor for all TI providers
+        self._feed_health_monitor = FeedHealthMonitor()
+
         self.greynoise_provider = GreyNoiseProvider(
             config=GreyNoiseConfig.from_config(self.config),
             redis_client=self.redis_client,
             local_cache=self._local_cache,
             session=self._aiohttp_session,
+            health_monitor=self._feed_health_monitor,
         )
         self.alienvault_provider = AlienVaultOTXProvider(
             config=OTXConfig.from_config(self.config),
             redis_client=self.redis_client,
             local_cache=self._local_cache,
             session=self._aiohttp_session,
+            health_monitor=self._feed_health_monitor,
         )
         # Phase 46: MISP Threat Intelligence Provider
         self.misp_provider = MISPProvider(
@@ -1295,6 +1301,7 @@ class ProxyServer:
             local_cache=self._local_cache,
             session=self._aiohttp_session,
             adaptive_cache=self.adaptive_cache,
+            health_monitor=self._feed_health_monitor,
         )
         # Phase 46: ThreatFox Threat Intelligence Provider
         self.threatfox_provider = ThreatFoxProvider(
@@ -1303,6 +1310,7 @@ class ProxyServer:
             local_cache=self._local_cache,
             session=self._aiohttp_session,
             adaptive_cache=self.adaptive_cache,
+            health_monitor=self._feed_health_monitor,
         )
         # Phase 46: VirusTotal Threat Intelligence Provider
         self.virustotal_provider = VirusTotalProvider(
@@ -1311,6 +1319,7 @@ class ProxyServer:
             local_cache=self._local_cache,
             session=self._aiohttp_session,
             adaptive_cache=self.adaptive_cache,
+            health_monitor=self._feed_health_monitor,
         )
 
         # Initialize GeoIP lookup
@@ -1759,7 +1768,58 @@ class ProxyServer:
             
         if ti_tasks:
             await asyncio.gather(*ti_tasks)
-            
+
+        # Phase 59: Register per-feed health probes and start background probing
+        _ti_cfg = self.config.get("threat_intelligence", {})
+        _cb_fail = _ti_cfg.get("circuit_breaker_failure_threshold", 5)
+        _cb_recovery = _ti_cfg.get("circuit_breaker_recovery_probe_interval", 60.0)
+        _probe_interval = _ti_cfg.get("health_probe_interval_seconds", 30.0)
+        _probe_session = self._aiohttp_session
+
+        async def _http_probe(url: str, feed: str) -> float:
+            import aiohttp as _aiohttp
+            import time as _t
+            t0 = _t.monotonic()
+            async with _probe_session.head(url, timeout=_aiohttp.ClientTimeout(total=5)) as r:
+                if r.status >= 500:
+                    raise RuntimeError(f"{feed} probe returned HTTP {r.status}")
+            return _t.monotonic() - t0
+
+        if getattr(self, "greynoise_provider", None) and self.greynoise_provider._config.enabled:
+            self._feed_health_monitor.get_circuit_breaker("greynoise", _cb_fail, _cb_recovery)
+            self._feed_health_monitor.register_probe(
+                "greynoise",
+                lambda: _http_probe("https://api.greynoise.io/ping", "greynoise"),
+                _probe_interval,
+            )
+        if getattr(self, "alienvault_provider", None) and self.alienvault_provider._config.enabled:
+            self._feed_health_monitor.get_circuit_breaker("alienvault_otx", _cb_fail, _cb_recovery)
+            self._feed_health_monitor.register_probe(
+                "alienvault_otx",
+                lambda: _http_probe("https://otx.alienvault.com/api/v1/user/me", "alienvault_otx"),
+                _probe_interval,
+            )
+        if getattr(self, "misp_provider", None) and self.misp_provider._config.enabled:
+            _misp_base = self.misp_provider._config.base_url.rstrip("/")
+            self._feed_health_monitor.get_circuit_breaker("misp", _cb_fail, _cb_recovery)
+            self._feed_health_monitor.register_probe(
+                "misp",
+                lambda: _http_probe(f"{_misp_base}/users/login.json", "misp"),
+                _probe_interval,
+            )
+        if getattr(self, "threatfox_provider", None) and self.threatfox_provider._config.enabled:
+            self._feed_health_monitor.get_circuit_breaker("threatfox", _cb_fail, _cb_recovery)
+            self._feed_health_monitor.register_probe(
+                "threatfox",
+                lambda: _http_probe("https://threatfox-api.abuse.ch/api/v1/", "threatfox"),
+                _probe_interval,
+            )
+        # VirusTotal: no probe (quota-sensitive; no free health endpoint)
+        if getattr(self, "virustotal_provider", None) and self.virustotal_provider._config.enabled:
+            self._feed_health_monitor.get_circuit_breaker("virustotal", _cb_fail, _cb_recovery)
+
+        await self._feed_health_monitor.start_probing()
+
         self.pipeline.set_ti_providers(
             greynoise=getattr(self, "greynoise_provider", None),
             alienvault=getattr(self, "alienvault_provider", None),
@@ -1829,6 +1889,9 @@ class ProxyServer:
             if self._health_task:
                 self._health_task.cancel()
             await self.health_server.stop()
+
+            # Phase 59: Stop feed health probing before providers shut down
+            await self._feed_health_monitor.stop_probing()
 
             # Phase 23: Stop TI providers
             stop_tasks = []

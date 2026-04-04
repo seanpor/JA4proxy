@@ -1,5 +1,39 @@
 # Changelog
 
+## [Unreleased] - 2026-04-04 — TI Feed Reliability & Resilience (Phase 59)
+
+### Added
+
+- **Phase 59: TI Feed Reliability & Resilience** — Full circuit breaker and health
+  monitoring system for all five Threat Intelligence providers.
+
+  - `src/security/feed_health.py` — Extended `FeedHealthMonitor` with 100-entry
+    `CircuitBreaker._history` ring buffer, `register_probe`/`start_probing`/`stop_probing`
+    background health-check lifecycle, and `set_alert_callback` for circuit-open events.
+    New Prometheus gauge `ja4proxy_ti_feed_probe_interval_seconds{feed}`.
+  - `src/security/ti_provider.py` — `retry_with_backoff()` async helper with
+    exponential backoff (base×2^attempt, capped at `max_delay`), standard log format.
+  - Circuit breaker wired into `GreyNoiseProvider`, `AlienVaultOTXProvider`,
+    `VirusTotalProvider`, `ThreatFoxProvider` (MISP was already wired). VirusTotal
+    403 responses bypass the circuit breaker (quota ≠ outage).
+  - `proxy.py` — `FeedHealthMonitor` instantiated at startup; passed as
+    `health_monitor=` to all 5 providers; per-feed probes registered for enabled
+    feeds; `start_probing()`/`stop_probing()` called in the server lifecycle.
+  - `config/proxy.yml` — Added `misp:`, `threatfox:`, `virustotal:` config sections;
+    new `threat_intelligence:` block with `circuit_breaker_failure_threshold`,
+    `circuit_breaker_recovery_probe_interval`, `health_probe_interval_seconds`.
+  - `docs/REDIS_SCHEMA.md` — Added Phase 58 section documenting `ja4proxy:confidence:state`.
+  - `docs/runbooks/ti_feed_health.md` — 617-line operator runbook covering Security
+    Analyst, DevOps/SRE, Administrator, and Data Scientist audiences; includes
+    Alertmanager YAML, Mermaid circuit-breaker diagram, full Prometheus metric table.
+
+### Tests
+
+  - 97 new tests: 33 unit (provider wiring), 15 unit (FeedHealthMonitor extensions),
+    4 unit (proxy wiring), 28 chaos (all 5 providers + multi-provider degradation).
+  - All pre-existing tests pass (6 pre-existing failures are unrelated: 4 backup
+    Redis-connectivity, 2 tarpit timing).
+
 ## [Unreleased] - 2026-04-03 — Docker Multi-Agent Isolation (Phases 71–75)
 
 ### Added

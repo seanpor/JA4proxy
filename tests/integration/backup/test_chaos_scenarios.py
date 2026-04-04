@@ -63,7 +63,7 @@ class TestChaosScenarios:
                 worker.create_backup(self.backup_dir)
             
             # Verify it's a Redis-related error
-            assert "Redis timeout" in str(exc_info.value) or "connection" in str(exc_info.value).lower()
+            assert "Redis timeout" in str(exc_info.value) or "connect" in str(exc_info.value).lower()
     
     def test_network_interruption_during_backup(self):
         """Test backup resilience to network interruption during enumeration.
