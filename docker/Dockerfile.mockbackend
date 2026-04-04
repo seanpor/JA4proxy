@@ -1,4 +1,4 @@
-FROM python:3.11.11-slim
+FROM python:3.14.0-slim
 
 # Security: Create non-root user
 RUN groupadd -r backend && useradd -r -g backend backend

@@ -1,4 +1,4 @@
-FROM python:3.11.11-slim
+FROM python:3.14.0-slim
 
 # Security: Create non-root user - may already exist in base image
 RUN groupadd -r proxy 2>/dev/null || true
