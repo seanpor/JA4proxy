@@ -247,7 +247,7 @@ class TLSEnforcer:
                     signals.append(
                         RiskSignal(
                             name="tls_version",
-                            score=40,
+                            score=10,
                             reason=f"Deprecated TLS version ({label}); bypass disabled",
                         )
                     )

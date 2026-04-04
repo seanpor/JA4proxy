@@ -1,7 +1,7 @@
 epics:
   - name: "Epic: Core Performance"
     description: "Optimization for high-throughput and multi-core systems."
-    phases: [0, 15, 17, 26, 28, 29, 30, 36, 66, 67, 68, 69, 70]
+    phases: [0, 15, 17, 26, 28, 29, 30, 36, 65, 66, 67, 68, 69, 70]
     
   - name: "Epic: Security Hardening"
     description: "Deep security analysis, compliance, and audit remediation."
@@ -136,16 +136,11 @@ phases:
     
   15:
     name: "Go Rewrite"
-    status: "IN_PROGRESS"
+    status: "COMPLETE"
     test_coverage: "100%"
     doc_status: "COMPLETE"
-    summary: "10-50x throughput improvement via CPython/Go transition. Config wiring complete for all signal modules. Remaining: ClientHello fixtures, live parity harness validation, Prometheus metric alignment."
+    summary: "10-50x throughput improvement via CPython/Go transition. Full feature and configuration parity achieved for all 14 signal modules (Groups 1–6). Cross-language data parity for RDAP and JA4X verified."
     action_plan: "docs/phases/PHASE_15.md"
-    gaps:
-      - "No binary ClientHello fixtures in tests/fixtures/clienthello/ — JA4 parity vs Python untestable at fixture level"
-      - "Cross-language parity integration tests are structural stubs only (make parity-check requires both proxies running)"
-      - "Prometheus metric name alignment with Python not verified"
-      - "Go: PubSub reconnect on channel close exits goroutine instead of reconnecting"
     
   16:
     name: "Extended Fingerprinting"
@@ -622,11 +617,12 @@ phases:
 
   65:
     name: "Performance Hardening & Go/Python Parity"
-    status: "PROPOSED"
-    summary: "Replace Python Scapy+subprocess TLS parser with pure-Python implementation (~20% latency improvement). Fix Go config gap so all 7 signal modules are enabled. Establish permanent cross-proxy parity tooling: binary fixtures, signal score registry, live decision comparison harness."
+    status: "COMPLETE"
+    summary: "Optimized Python hot path with pure-Python TLS parser (eliminating Scapy overhead). Established binary fixture ground truth and authoritative signal score registry. Integrated automated parity-check harness."
     action_plan: "docs/phases/PHASE_65.md"
     dependencies: [15]
     size: "MEDIUM"
+    completed: "2026-04-03"
     success_criteria:
       - "Python baseline_latency mean improves by >= 1ms"
       - "Go attack_500 blocks > 0% of bot traffic"

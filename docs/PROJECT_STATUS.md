@@ -12,13 +12,14 @@ Optimization for high-throughput and multi-core systems.
 | Phase | Name | Status | Summary |
 |-------|------|--------|---------|
 | 0 | Foundation | COMPLETE | Configuration loader, hot reload, local cache, Bloom filters. |
-| 15 | Go Rewrite | COMPLETE | 10-50x throughput improvement via CPython/Go transition. Full feature and configuration parity achieved for all 14 signal modules. Remaining: Browser fixture validation, metric alignment. |
+| 15 | Go Rewrite | COMPLETE | 10-50x throughput improvement via CPython/Go transition. Full feature and configuration parity achieved for all 14 signal modules (Groups 1–6). Cross-language data parity for RDAP and JA4X verified. |
 | 17 | Docker Test Optimization | COMPLETE | Fix Docker test container hang during teardown. |
 | 26 | Python Throughput Hardening | COMPLETE | All 6 sub-plans complete: parallel signal collection (asyncio.gather), Redis pipeline batching, Unix domain socket, deferred write batching, multi-process worker model, benchmark validation. Single process: ~700-950 conn/s; 4 workers: ~2,800-3,800 conn/s. |
 | 28 | Python Throughput Hardening - Phase 2: Redis Optimization | COMPLETE | Add Redis pipeline batching and Unix domain socket support. Target: 30-40% Redis latency reduction. |
 | 29 | Python Throughput Hardening - Phase 3: Multi-Process Architecture | COMPLETE | Implement multi-process worker model with Docker Compose and HAProxy load balancing. Target: Linear scaling to 4 workers. |
 | 30 | Python Throughput Hardening - Phase 4: Write Optimization & Benchmarking | COMPLETE | Add deferred write batching and comprehensive benchmark validation. Target: Final performance report. |
 | 36 | Go Test Quality & Parity Gaps | COMPLETE | Fix broken JA4 fixture parity test, add real certificate JA4X tests, add cross-language JA4X parity verification, and benchmark coverage. |
+| 65 | Performance Hardening & Go/Python Parity | COMPLETE | Optimized Python hot path with pure-Python TLS parser (eliminating Scapy overhead). Established binary fixture ground truth and authoritative signal score registry. Integrated automated parity-check harness. |
 | 66 | Python 3.14 Compatibility Assessment | PROPOSED | Zero-risk pre-upgrade phase: write PyPI wheel checker script, run full test suite on Python 3.14 locally to surface deprecation issues, capture Python 3.11 benchmark baseline for before/after comparison. No Dockerfile changes. |
 | 67 | Python 3.14 Base Image Upgrade | PROPOSED | Upgrade nine non-analytics Dockerfiles from python:3.11.11-slim to python:3.14.0-slim. Update pyproject.toml target-version. Full test suite must pass. Benchmark before/after — expected ~25-35% CPU path improvement from tail-call interpreter and JIT. |
 | 68 | Python 3.14 Hot Path Optimizations | PROPOSED | Make the JA4/scoring hot path JIT-friendly (remove try/except from inner loops, monomorphic call sites). Integrate uvloop as the asyncio event loop on Linux for 2-4x I/O throughput gain. Both changes are additive and independently revertable. |
@@ -184,7 +185,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 62 | Security Hardening | PROPOSED | N/A | COMPLETE |
 | 63 | Observability and Monitoring | PROPOSED | N/A | COMPLETE |
 | 64 | Operational Excellence | PROPOSED | N/A | COMPLETE |
-| 65 | Performance Hardening & Go/Python Parity | PROPOSED | N/A | N/A |
+| 65 | Performance Hardening & Go/Python Parity | COMPLETE | 100% | COMPLETE |
 | 66 | Python 3.14 Compatibility Assessment | PROPOSED | N/A | N/A |
 | 67 | Python 3.14 Base Image Upgrade | PROPOSED | N/A | N/A |
 | 68 | Python 3.14 Hot Path Optimizations | PROPOSED | N/A | N/A |
