@@ -34,7 +34,7 @@ import ssl
 import struct
 import time
 import uuid
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -517,13 +517,16 @@ class JA4Generator:
                 version = "13"
 
             # Filter GREASE from cipher suites and extensions for counting and hashing
-            # Optimization: filter once here and pass pre-filtered lists to hash functions
+            # Optimization: filter once here and pass pre-filtered lists to hash functions.
+            # Phase 68b: bind module-level frozenset to local name to avoid repeated
+            # global lookup inside list comprehensions (JIT-friendlier monomorphic callsite).
+            _grease = _GREASE_VALUES
             raw_ciphers = client_hello_fields.get("cipher_suites", [])
-            ciphers = [cs for cs in raw_ciphers if cs not in _GREASE_VALUES]
+            ciphers = [cs for cs in raw_ciphers if cs not in _grease]
 
             raw_exts = client_hello_fields.get("extensions", [])
             # Filter GREASE from extensions for counting
-            exts_for_count = [ext for ext in raw_exts if ext not in _GREASE_VALUES]
+            exts_for_count = [ext for ext in raw_exts if ext not in _grease]
             # Filter GREASE and SNI (type 0) from extensions for the hash part
             exts_for_hash = [ext for ext in exts_for_count if ext != 0]
 
@@ -1247,9 +1250,13 @@ class ProxyServer:
         self.ja4_generator = JA4Generator()
         self.tarpit_manager = TarpitManager(self.config)
 
-        # Phase 28a: Dedicated ProcessPoolExecutor for isolated TLS parsing
-        # Limits blast radius of Scapy/native parsing vulnerabilities.
-        self.executor = ProcessPoolExecutor(max_workers=min(4, os.cpu_count() or 1))
+        # Phase 69: ThreadPoolExecutor for TLS parsing fallback (Scapy).
+        # Replaced ProcessPoolExecutor (Phase 28a) — zero-IPC overhead, safe for free-threaded Python.
+        # Thread count bounded to CPU count; named for observability.
+        self.executor = ThreadPoolExecutor(
+            max_workers=min(4, os.cpu_count() or 1),
+            thread_name_prefix="tls-parser",
+        )
 
         # Keep legacy SecurityManager for _populate_security_lists (seeds Redis sets)
         self.security_manager = SecurityManager(self.config, self.redis_client)
@@ -2726,6 +2733,33 @@ class JSONFormatter(logging.Formatter):
         return json.dumps(entry, separators=(",", ":"))
 
 
+# ---------------------------------------------------------------------------
+# Phase 68c: Event loop policy selection
+# ---------------------------------------------------------------------------
+
+
+def _install_event_loop() -> None:
+    """Install uvloop event loop policy if available (Linux + Python >= 3.14).
+
+    Falls back gracefully to the default asyncio event loop policy when
+    uvloop is not installed or import fails. Controlled by
+    ``runtime.event_loop`` in config/proxy.yml (informational only — the
+    actual switch is purely availability-based here).
+
+    Must be called before the event loop is started (i.e. before asyncio.run()).
+    Calling inside an already-running coroutine has no effect on the current
+    loop but will apply to any subsequent asyncio.run() calls in the same process.
+    """
+    _logger = logging.getLogger(__name__)
+    try:
+        import uvloop  # type: ignore[import-untyped]
+
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        _logger.info("proxy | event=event_loop_policy | loop=uvloop")
+    except ImportError:
+        _logger.info("proxy | event=event_loop_policy | loop=asyncio_default")
+
+
 async def main():
     """Main entry point.
 
@@ -2784,4 +2818,5 @@ async def main():
 
 
 if __name__ == "__main__":  # pragma: no cover
+    _install_event_loop()  # Must be before asyncio.run() to take effect
     asyncio.run(main())

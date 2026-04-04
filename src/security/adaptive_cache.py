@@ -52,7 +52,7 @@ class FeedVolatility:
     change_count: int = 0  # Number of times cached data has changed
     access_count: int = 0  # Number of times cached data has been accessed
     last_change_time: float = 0.0  # Timestamp of last change
-    current_ttl: int = 3600  # Current TTL in seconds (default: 1 hour)
+    current_ttl: float = 3600  # Current TTL in seconds (default: 1 hour)
 
 
 class AdaptiveCacheManager:
@@ -164,7 +164,7 @@ class AdaptiveCacheManager:
             hit_ratio = (self._hit_count.get(feed_name, 0) / total) if total > 0 else 0.0
             _CACHE_HIT_RATIO.labels(feed_name=feed_name).set(hit_ratio)
 
-    def get_adaptive_ttl(self, feed_name: str) -> int:
+    def get_adaptive_ttl(self, feed_name: str) -> float:
         """
         Get the adaptive TTL for a feed.
         
@@ -293,7 +293,7 @@ class AdaptiveCacheManager:
         # More volatile → shorter TTL
         ttl_reduction = volatility.volatility_score * 0.8  # Reduce by up to 80%
         new_ttl = int(base_ttl * (1.0 - ttl_reduction))
-        new_ttl = max(min_ttl, new_ttl)  # Enforce minimum TTL
+        new_ttl = max(int(min_ttl), new_ttl)  # Enforce minimum TTL
         
         old_ttl = volatility.current_ttl
         volatility.current_ttl = new_ttl

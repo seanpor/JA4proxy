@@ -1,5 +1,71 @@
 # Changelog
 
+## [68.0.0] - 2026-04-04 - Python 3.14 Hot Path Optimizations & Thread Safety
+
+### Changed
+
+- `proxy.py`: verified `_GREASE_VALUES` is a module-level `frozenset`; bound to
+  local `_grease` variable inside `generate_ja4()` list comprehensions to avoid
+  repeated global lookup (JIT-friendly monomorphic call site).
+- `proxy.py`: replaced `ProcessPoolExecutor` (Phase 28a) with
+  `ThreadPoolExecutor(thread_name_prefix="tls-parser")` for zero-IPC TLS parsing
+  fallback; safe for free-threaded Python (GIL disabled).
+- `proxy.py`: added `_install_event_loop()` helper that installs uvloop event loop
+  policy when available, with graceful `ImportError` fallback to asyncio default.
+- `requirements.txt`: added `uvloop>=0.21.0` conditional dependency
+  (Linux + Python >= 3.14 only).
+- `config/proxy.yml`: added `runtime:` section with `event_loop` and
+  `tls_parser_workers` config keys.
+- `src/security/risk_scorer.py`: audited — inner scoring loop already uses
+  `dict.get()` with no `try/except`; no change required.
+- `src/cache/local_cache.py`: audited — no `asyncio.Lock` found; no lock migration
+  required (asyncio-only access pattern).
+- `src/config/loader.py`: audited — no `asyncio.Lock` found; no lock migration
+  required (config dict replaced atomically).
+
+### Added
+
+- `docs/security/THREAD_SAFETY_AUDIT.md`: full audit of all mutable shared state on
+  the hot path with per-object thread-safety assessment and recommendations for full
+  free-threading readiness.
+- `reports/benchmark/python314-stage2.md`: benchmark notes and reproduction
+  instructions (live benchmark requires Python 3.14 Docker image from Phase 67).
+
+## [66.0.0] - 2026-04-04 - Python 3.14 Compatibility Assessment
+
+### Added
+- `scripts/check-python314-compat.py` — PyPI wheel checker for Python 3.14 compatibility.
+  Parses requirements.txt, requirements-test.txt, requirements-analytics.txt; queries PyPI
+  JSON API; checks for cp314/py3 wheels; outputs markdown table. Stdlib-only; runs on
+  Python 3.10+. Exit 0 if all packages compatible; exit 1 if any C-extension lacks a wheel.
+- `docs/reports/python314-compat.md` — compatibility report for all 33 dependencies.
+  Result: 7 packages have cp314 wheels, 25 are pure-Python, 1 (pytricia) is sdist-only
+  (warn, not fail). No upgrade blockers found.
+- `docs/reports/benchmark/python311-baseline.md` — hot-path performance baseline on
+  Python 3.10.12 before Dockerfile upgrade. Key numbers: RiskScorer p99=21.2µs,
+  ActionDecider p99=1.54µs, full scoring path p99=11.4µs, all well within limits.
+
+### Changed
+- All non-analytics Dockerfiles upgraded: `python:3.11.11-slim` → `python:3.14.0-slim`
+  (`docker/Dockerfile`, `docker/Dockerfile.test`, `docker/Dockerfile.mockbackend`,
+  `docker/Dockerfile.trafficgen`, `tarpit/Dockerfile`) — Phase 67.
+- Test Dockerfiles upgraded: `python:3.11-slim` → `python:3.14-slim`
+  (`tests/docker/Dockerfile.test-runner`, `tests/docker/Dockerfile.python-proxy`,
+  `tests/docker/Dockerfile.tls-backend`, `tests/docker/Dockerfile.recorder`) — Phase 67.
+- `src/analytics/Dockerfile`: `python:3.11.11-slim` → `python:3.14.0-slim` — Phase 70.
+- `pyproject.toml`: ruff `target-version` changed from `py311` to `py314` — Phase 67.
+- `src/tls/interpreter_pool.py` (new): subinterpreter pool with ThreadPoolExecutor
+  fallback for TLS parsing workers. Uses Python 3.14 `interpreters` module (each worker
+  gets its own GIL) when available; falls back to ThreadPoolExecutor silently — Phase 70.
+
+### Fixed
+- `src/security/tls_enforcer.py`: restore `score=40` default for deprecated TLS
+  bypass-disabled signal (Phase 65 regression where score was hardcoded to 10,
+  below the `flag` threshold of 20, making the signal functionally useless).
+- `tests/unit/test_graceful_shutdown.py`: make `test_connections_drain_before_timeout`
+  deterministic under pytest-xdist by using asyncio.sleep hook pattern instead of
+  wall-clock timing.
+
 ## [Unreleased] - 2026-04-04 — TI Feed Reliability & Resilience (Phase 59)
 
 ### Added

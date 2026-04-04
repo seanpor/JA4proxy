@@ -4,14 +4,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🟡 Phases In Progress
 
-### Phase 15 — Go Rewrite
-*   **Gap:** No binary ClientHello fixtures in tests/fixtures/clienthello/ — JA4 parity vs Python untestable at fixture level
-*   **Gap:** Cross-language parity integration tests are structural stubs only (make parity-check requires both proxies running)
-*   **Gap:** Prometheus metric name alignment with Python not verified
-*   **Gap:** Go: PubSub reconnect on channel close exits goroutine instead of reconnecting
-*   **Status:** **IN_PROGRESS** (10-50x throughput improvement via CPython/Go transition. Config wiring complete for all signal modules. Remaining: ClientHello fixtures, live parity harness validation, Prometheus metric alignment.)
-*   **Action Plan:** [PHASE_15.md](PHASE_15.md)
-
 ---
 
 ## 🔵 Planned & Open Phases
@@ -68,18 +60,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Process optimization, training, documentation, and continuous improvement.)
 *   **Action Plan:** [PHASE_64.md](PHASE_64.md)
 
-### Phase 65 — Performance Hardening & Go/Python Parity
-*   **Status:** **PROPOSED** (Replace Python Scapy+subprocess TLS parser with pure-Python implementation (~20% latency improvement). Fix Go config gap so all 7 signal modules are enabled. Establish permanent cross-proxy parity tooling: binary fixtures, signal score registry, live decision comparison harness.)
-*   **Action Plan:** [PHASE_65.md](PHASE_65.md)
-
-### Phase 66 — Python 3.14 Compatibility Assessment
-*   **Status:** **PROPOSED** (Zero-risk pre-upgrade phase: write PyPI wheel checker script, run full test suite on Python 3.14 locally to surface deprecation issues, capture Python 3.11 benchmark baseline for before/after comparison. No Dockerfile changes.)
-*   **Action Plan:** [PHASE_66.md](PHASE_66.md)
-
-### Phase 67 — Python 3.14 Base Image Upgrade
-*   **Status:** **PROPOSED** (Upgrade nine non-analytics Dockerfiles from python:3.11.11-slim to python:3.14.0-slim. Update pyproject.toml target-version. Full test suite must pass. Benchmark before/after — expected ~25-35% CPU path improvement from tail-call interpreter and JIT.)
-*   **Action Plan:** [PHASE_67.md](PHASE_67.md)
-
 ### Phase 68 — Python 3.14 Hot Path Optimizations
 *   **Status:** **PROPOSED** (Make the JA4/scoring hot path JIT-friendly (remove try/except from inner loops, monomorphic call sites). Integrate uvloop as the asyncio event loop on Linux for 2-4x I/O throughput gain. Both changes are additive and independently revertable.)
 *   **Action Plan:** [PHASE_68.md](PHASE_68.md)
@@ -87,7 +67,3 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 69 — Free-Threaded Python Proxy
 *   **Status:** **PROPOSED** (Conditional on Phase 67 throughput < 600 conn/s. Switch proxy container to python:3.14t-slim (no-GIL). Thread safety audit; replace asyncio.Lock with threading.Lock in local_cache and config loader. Replace ProcessPoolExecutor with ThreadPoolExecutor for zero-IPC TLS parsing.)
 *   **Action Plan:** [PHASE_69.md](PHASE_69.md)
-
-### Phase 70 — Analytics Upgrade & Subinterpreter Experiment
-*   **Status:** **PROPOSED** (Upgrade analytics container to Python 3.14 once numpy/scipy wheels confirmed. Optional: implement subinterpreter worker pool (Python 3.14 interpreters module) as a feature-flagged alternative to ThreadPoolExecutor; benchmark and keep or remove based on data.)
-*   **Action Plan:** [PHASE_70.md](PHASE_70.md)

@@ -1,5 +1,6 @@
 # Core dependencies
 aiohttp>=3.9,<4
+uvloop>=0.21.0; sys_platform == "linux" and python_version >= "3.14"  # phase-68
 # urllib3: pinned to 1.x by transitive dep (locust 2.17). Tracked in security backlog.
 # CVE-2025-50181/66418/66471/CVE-2026-21441 acknowledged; upgrade when locust drops 1.x constraint.
 asyncio-throttle==1.0.2
