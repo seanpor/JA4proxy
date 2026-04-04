@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/anomalyco/ja4proxy/internal/metrics"
 	"github.com/sirupsen/logrus"
 )
 
@@ -65,8 +66,9 @@ func (a *TCPAnalyzer) Analyze(ctx context.Context, conn *ConnectionContext) []Ri
 			if total >= min && total > 0 {
 				ratio := float64(resumed) / float64(total)
 				if ratio < 0.05 {
+					metrics.TCPSignalTotal.WithLabelValues("no_session_resumption").Inc()
 					signals = append(signals, RiskSignal{
-						Name:   "no_resumption",
+						Name:   "no_session_resumption",
 						Score:  15,
 						Reason: "very low session resumption rate",
 						Weight: 1.0,
@@ -83,8 +85,9 @@ func (a *TCPAnalyzer) Analyze(ctx context.Context, conn *ConnectionContext) []Ri
 			threshold = 500
 		}
 		if conn.ConnectionLifespanMS < threshold {
+			metrics.TCPSignalTotal.WithLabelValues("short_connection_lifespan").Inc()
 			signals = append(signals, RiskSignal{
-				Name:   "short_lived",
+				Name:   "short_connection_lifespan",
 				Score:  20,
 				Reason: "connection closed unusually quickly",
 				Weight: 1.0,
@@ -97,6 +100,7 @@ func (a *TCPAnalyzer) Analyze(ctx context.Context, conn *ConnectionContext) []Ri
 		concurrentKey := "concurrent:" + conn.ClientIP
 		concurrentStr := a.redis.GetString(ctx, concurrentKey)
 		concurrent, _ := strconv.Atoi(concurrentStr)
+		metrics.ActiveConnections.Set(float64(concurrent))
 
 		severe := a.cfg.ConcurrencySevere
 		high := a.cfg.ConcurrencyHigh
@@ -112,22 +116,25 @@ func (a *TCPAnalyzer) Analyze(ctx context.Context, conn *ConnectionContext) []Ri
 		}
 
 		if concurrent >= severe {
+			metrics.TCPSignalTotal.WithLabelValues("severe_concurrency").Inc()
 			signals = append(signals, RiskSignal{
-				Name:   "high_concurrency",
+				Name:   "severe_concurrency",
 				Score:  40,
 				Reason: "very high concurrent connection count",
 				Weight: 1.0,
 			})
 		} else if concurrent >= high {
+			metrics.TCPSignalTotal.WithLabelValues("high_concurrency").Inc()
 			signals = append(signals, RiskSignal{
-				Name:   "moderate_concurrency",
+				Name:   "high_concurrency",
 				Score:  25,
 				Reason: "high concurrent connection count",
 				Weight: 1.0,
 			})
 		} else if concurrent >= moderate {
+			metrics.TCPSignalTotal.WithLabelValues("moderate_concurrency").Inc()
 			signals = append(signals, RiskSignal{
-				Name:   "low_concurrency",
+				Name:   "moderate_concurrency",
 				Score:  10,
 				Reason: "moderate concurrent connection count",
 				Weight: 1.0,
@@ -156,8 +163,9 @@ func (a *TCPAnalyzer) Analyze(ctx context.Context, conn *ConnectionContext) []Ri
 				ageDays := time.Since(time.Unix(firstSeen, 0)).Hours() / 24
 				allowRate := float64(allowed) / float64(total)
 				if err == nil && ageDays >= float64(minDays) && allowRate >= minRate {
+					metrics.TCPSignalTotal.WithLabelValues("return_visitor_trust").Inc()
 					signals = append(signals, RiskSignal{
-						Name:   "return_visitor",
+						Name:   "return_visitor_trust",
 						Score:  -20,
 						Reason: "established return visitor with high allow rate",
 						Weight: 1.0,

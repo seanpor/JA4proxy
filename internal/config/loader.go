@@ -160,7 +160,7 @@ func defaultConfig() *Config {
 			Port:    9090,
 		},
 		Tarpit: TarpitConfig{
-			MaxConcurrentConnections: 500,
+			MaxActiveConnections: 500,
 			MaxPerIP:                 3,
 			OverflowAction:           "block",
 		},
@@ -401,7 +401,7 @@ type MetricsConfig struct {
 
 // TarpitConfig holds tarpit self-protection settings.
 type TarpitConfig struct {
-	MaxConcurrentConnections int    `yaml:"max_concurrent_connections"`
+	MaxActiveConnections int    `yaml:"max_concurrent_connections"`
 	MaxPerIP                 int    `yaml:"max_per_ip"`
 	OverflowAction           string `yaml:"overflow_action"`
 }

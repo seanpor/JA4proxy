@@ -102,6 +102,11 @@ type proxy struct {
 
 	activeConns int64 // atomic
 	mu          sync.RWMutex
+
+	// Tarpit self-protection
+	tarpitConcurrent int
+	tarpitPerIP      map[string]int
+	tarpitMu         sync.Mutex
 }
 
 func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
@@ -128,10 +133,11 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 	}()
 
 	prx := &proxy{
-		cfg:      cfg,
-		log:      log,
-		pipeline: p,
-		redis:    rc,
+		cfg:         cfg,
+		log:         log,
+		pipeline:    p,
+		redis:       rc,
+		tarpitPerIP: make(map[string]int),
 	}
 
 	// Open GeoIP DB if configured
@@ -197,9 +203,9 @@ func (p *proxy) serve(ctx context.Context) {
 }
 
 func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
-	metrics.ConcurrentConnections.Inc()
+	metrics.ActiveConnections.Inc()
 	defer func() {
-		metrics.ConcurrentConnections.Dec()
+		metrics.ActiveConnections.Dec()
 		atomic.AddInt64(&p.activeConns, -1)
 		clientConn.Close()
 	}()
@@ -258,7 +264,9 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	}
 
 	// Run pipeline
+	start := time.Now()
 	result := p.pipeline.Process(ctx, connCtx)
+	metrics.PipelineDurationSeconds.Observe(time.Since(start).Seconds())
 
 	// Record metrics
 	metrics.ConnectionsTotal.WithLabelValues(result.Action).Inc()
@@ -272,7 +280,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	case "allow", "flag", "rate_limit":
 		p.forward(clientConn, data)
 	case "tarpit":
-		p.tarpit(clientConn, data)
+		p.tarpit(clientConn, data, connCtx.ClientIP)
 	case "block", "ban":
 		p.log.WithFields(logrus.Fields{
 			"ip":     connCtx.ClientIP,
@@ -334,28 +342,81 @@ func (p *proxy) forward(clientConn net.Conn, initialData []byte) {
 	<-done
 }
 
-func (p *proxy) tarpit(clientConn net.Conn, _ []byte) {
+func (p *proxy) tarpit(clientConn net.Conn, data []byte, clientIP string) {
 	p.mu.RLock()
 	cfg := p.cfg
 	p.mu.RUnlock()
 
+	maxConcurrent := cfg.Tarpit.MaxActiveConnections
+	maxPerIP := cfg.Tarpit.MaxPerIP
+	overflowAction := cfg.Tarpit.OverflowAction
+
+	acquired := false
+	p.tarpitMu.Lock()
+	overGlobal := p.tarpitConcurrent >= maxConcurrent
+	overPerIP := p.tarpitPerIP[clientIP] >= maxPerIP
+	if !overGlobal && !overPerIP {
+		p.tarpitConcurrent++
+		p.tarpitPerIP[clientIP]++
+		metrics.TarpitConcurrent.Set(float64(p.tarpitConcurrent))
+		acquired = true
+	}
+	p.tarpitMu.Unlock()
+
+	if !acquired {
+		metrics.TarpitOverflowTotal.WithLabelValues(overflowAction).Inc()
+		p.log.WithFields(logrus.Fields{
+			"ip":     clientIP,
+			"action": overflowAction,
+		}).Info("tarpit: capacity reached — executing overflow action")
+
+		if overflowAction == "allow" {
+			p.forward(clientConn, data)
+		}
+		// block/ban: return and let handleConn's defer close clientConn
+		return
+	}
+
+	defer func() {
+		p.tarpitMu.Lock()
+		p.tarpitConcurrent--
+		if p.tarpitConcurrent < 0 {
+			p.tarpitConcurrent = 0
+		}
+		ipCount := p.tarpitPerIP[clientIP]
+		if ipCount <= 1 {
+			delete(p.tarpitPerIP, clientIP)
+		} else {
+			p.tarpitPerIP[clientIP] = ipCount - 1
+		}
+		metrics.TarpitConcurrent.Set(float64(p.tarpitConcurrent))
+		p.tarpitMu.Unlock()
+	}()
+
 	tarpitAddr := net.JoinHostPort(cfg.Proxy.TarpitHost, fmt.Sprintf("%d", cfg.Proxy.TarpitPort.Int()))
-	tarpitConn, err := net.DialTimeout("tcp", tarpitAddr, 2*time.Second)
+	tarpitConn, err := net.DialTimeout("tcp", tarpitAddr, 5*time.Second)
 	if err != nil {
-		// Tarpit unavailable → just close (fail open to block rather than forward)
 		p.log.WithError(err).Debug("proxy: tarpit connect failed; closing connection")
 		return
 	}
 	defer tarpitConn.Close()
 
-	// Forward to tarpit — same bidirectional copy
-	buf := make([]byte, 512)
+	// Send buffered initial data
+	if _, err := tarpitConn.Write(data); err != nil {
+		p.log.WithError(err).Debug("proxy: write to tarpit failed")
+		return
+	}
+
+	// Forward to tarpit — bidirectional copy
 	done := make(chan struct{}, 2)
 	copyOne := func(dst, src net.Conn) {
+		buf := make([]byte, 512)
 		for {
 			n, err := src.Read(buf)
 			if n > 0 {
-				dst.Write(buf[:n]) //nolint:errcheck
+				if _, werr := dst.Write(buf[:n]); werr != nil {
+					break
+				}
 			}
 			if err != nil {
 				break

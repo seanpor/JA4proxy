@@ -6,7 +6,9 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/anomalyco/ja4proxy/internal/metrics"
 	"github.com/sirupsen/logrus"
 	"github.com/yl2chen/cidranger"
 )
@@ -109,6 +111,10 @@ func NewBlocklistManager(cfg *BlocklistConfig, log *logrus.Logger) *BlocklistMan
 // hardBlock=true means block immediately; signals will be nil.
 // Returns (nil, false) if no feed matched.
 func (m *BlocklistManager) Check(clientIP string) (signals []RiskSignal, hardBlock bool) {
+	start := time.Now()
+	defer func() {
+		metrics.PipelineDurationSeconds.Observe(float64(time.Since(start).Seconds()))
+	}()
 	ip := net.ParseIP(clientIP)
 	if ip == nil {
 		return nil, false
@@ -121,6 +127,7 @@ func (m *BlocklistManager) Check(clientIP string) (signals []RiskSignal, hardBlo
 		if feed.isBypass && feed.action == "block" {
 			return nil, true
 		}
+		metrics.BlocklistMatchesTotal.WithLabelValues(feed.name).Inc()
 		return []RiskSignal{{
 			Name:   fmt.Sprintf("blocklist_%s", feed.name),
 			Score:  feed.score,

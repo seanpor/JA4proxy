@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/anomalyco/ja4proxy/internal/metrics"
 	"github.com/oschwald/geoip2-golang"
 	"github.com/sirupsen/logrus"
 	"go.yaml.in/yaml/v3"
@@ -100,6 +101,7 @@ func NewASNClassifier(cfg *ASNClassifierConfig, log *logrus.Logger) *ASNClassifi
 					c.torExits[line] = true
 				}
 			}
+			metrics.TorExitListEntries.Set(float64(len(c.torExits)))
 		}
 	}
 
@@ -132,6 +134,7 @@ func (c *ASNClassifier) Classify(clientIP string) []RiskSignal {
 
 	// Check Tor exit list first
 	if c.torExits[clientIP] {
+		metrics.ASNClassificationTotal.WithLabelValues("tor").Inc()
 		score := c.cfg.TorScore
 		if score == 0 {
 			score = 40
@@ -155,6 +158,7 @@ func (c *ASNClassifier) Classify(clientIP string) []RiskSignal {
 	}
 
 	if orgName == "" {
+		metrics.ASNClassificationTotal.WithLabelValues("unknown").Inc()
 		score := c.cfg.UnknownScore
 		if score == 0 {
 			score = 5
@@ -171,6 +175,7 @@ func (c *ASNClassifier) Classify(clientIP string) []RiskSignal {
 
 	// Datacenter check
 	if c.cfg.DatacenterASNs[asnNum] {
+		metrics.ASNClassificationTotal.WithLabelValues("datacenter").Inc()
 		score := c.cfg.DatacenterScore
 		if score == 0 {
 			score = 20
@@ -184,6 +189,7 @@ func (c *ASNClassifier) Classify(clientIP string) []RiskSignal {
 	}
 	for _, pat := range c.cfg.DatacenterOrgs {
 		if strings.Contains(lowerOrg, strings.ToLower(pat)) {
+			metrics.ASNClassificationTotal.WithLabelValues("datacenter").Inc()
 			score := c.cfg.DatacenterScore
 			if score == 0 {
 				score = 20
@@ -200,6 +206,7 @@ func (c *ASNClassifier) Classify(clientIP string) []RiskSignal {
 	// VPN check
 	for _, pat := range vpnPatterns {
 		if strings.Contains(lowerOrg, pat) {
+			metrics.ASNClassificationTotal.WithLabelValues("vpn").Inc()
 			score := c.cfg.VPNScore
 			if score == 0 {
 				score = 10
@@ -213,5 +220,6 @@ func (c *ASNClassifier) Classify(clientIP string) []RiskSignal {
 		}
 	}
 
+	metrics.ASNClassificationTotal.WithLabelValues("residential").Inc()
 	return nil // residential / mobile / unknown-benign
 }
