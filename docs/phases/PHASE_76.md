@@ -1,7 +1,7 @@
 # Phase 76: Enterprise RHEL Production Deployment Strategy
 
 ## 1. Overview
-This phase paper outlines the definitive best-practice architecture and operational playbook for deploying JA4Proxy2 into a strict enterprise environment. The target environment is a remote Red Hat Enterprise Linux (RHEL 8/9) server acting as a dedicated inline network middlebox, situated between a Load Balancer (LB) and the protected Backend Host.
+This phase paper outlines the definitive best-practice architecture and operational playbook for deploying JA4proxy into a strict enterprise environment. The target environment is a remote Red Hat Enterprise Linux (RHEL 8/9) server acting as a dedicated inline network middlebox, situated between a Load Balancer (LB) and the protected Backend Host.
 
 **Key Constraints:**
 - No development tools, compilers, or source code on the production host.
@@ -16,7 +16,7 @@ This phase paper outlines the definitive best-practice architecture and operatio
 The host acts strictly as a Layer 7 / Layer 4 proxy depending on configuration.
 
 **Traffic Flow:**
-`Client` -> `Enterprise Load Balancer (F5, ALB, HAProxy)` -> `JA4Proxy2 (RHEL Node)` -> `Protected Backend Application`
+`Client` -> `Enterprise Load Balancer (F5, ALB, HAProxy)` -> `JA4proxy (RHEL Node)` -> `Protected Backend Application`
 
 ### 2.1 Dependencies
 To guarantee predictable proxy performance, all stateful dependencies should be offloaded in a production tier:
@@ -37,7 +37,7 @@ Docker daemon runs as root and is often prohibited in strict enterprise environm
 Instead of manual `podman run` commands or `docker-compose`, the deployment will use Systemd Quadlets (`.container` files).
 - These files are placed in `/etc/containers/systemd/`.
 - Systemd automatically generates service units and manages the lifecycle of the containers natively.
-- This ensures JA4Proxy2 starts automatically on boot and recovers from crashes, utilizing systemd's robust dependency mapping (e.g., `After=network-online.target`).
+- This ensures JA4proxy starts automatically on boot and recovers from crashes, utilizing systemd's robust dependency mapping (e.g., `After=network-online.target`).
 
 ---
 
@@ -59,7 +59,7 @@ net.core.wmem_max = 16777216
 
 ### 4.2 SELinux and Capabilities
 SELinux **must** remain `Enforcing`.
-- **Volumes:** All configuration files mounted into the container must be labeled with the `container_file_t` SELinux context. (e.g., `chcon -Rt svirt_sandbox_file_t /etc/ja4proxy2/`).
+- **Volumes:** All configuration files mounted into the container must be labeled with the `container_file_t` SELinux context. (e.g., `chcon -Rt svirt_sandbox_file_t /etc/ja4proxy/`).
 - **Capabilities:** The containers should drop all capabilities (`--cap-drop=all`) and explicitly add only what is necessary (e.g., `CAP_NET_BIND_SERVICE` if binding to ports < 1024).
 
 ---
@@ -68,10 +68,10 @@ SELinux **must** remain `Enforcing`.
 
 The host filesystem must be kept immutable where possible to prevent tampering and disk-exhaustion from logs.
 
-1. **Configuration (`/etc/ja4proxy2/`):**
+1. **Configuration (`/etc/ja4proxy/`):**
    - Managed entirely by a configuration management tool (Ansible/Chef).
    - Mounted into the Podman containers as **Read-Only** (`:ro`).
-2. **Secrets (`/etc/ja4proxy2/certs/`):**
+2. **Secrets (`/etc/ja4proxy/certs/`):**
    - TLS certificates and Redis passwords must be restricted to root-only (`chmod 0400`).
    - Alternatively, inject secrets natively via Podman secrets which mount them into `tmpfs` (memory).
 3. **No Persistent Data Volumes:**
@@ -85,7 +85,7 @@ Writing logs to a local disk inside a container is a severe anti-pattern for net
 
 1. **Log Output:** All components (Go Proxy, Python Analytics) must log strictly to `stdout`/`stderr` in structured JSON format.
 2. **Log Driver:** Podman must be configured to use the `journald` log driver.
-3. **Log Shipping:** A lightweight log shipper (Vector or Fluent-bit) runs as a system service or Quadlet container on the host. It tails the `journald` entries for the JA4Proxy2 services, enriches them with host metadata, and forwards them to the enterprise SIEM (Splunk, ELK) or observability platform (Datadog).
+3. **Log Shipping:** A lightweight log shipper (Vector or Fluent-bit) runs as a system service or Quadlet container on the host. It tails the `journald` entries for the JA4proxy services, enriches them with host metadata, and forwards them to the enterprise SIEM (Splunk, ELK) or observability platform (Datadog).
 4. **Metrics:** The Go Proxy exposes a `/metrics` Prometheus endpoint on an internal-only port. An enterprise scrape agent (e.g., Datadog agent, Prometheus node) collects these metrics.
 
 ---
@@ -97,14 +97,14 @@ Deployments must follow a strict, automated, zero-downtime workflow coordinated 
 ### 7.1 Deployment Execution
 1. **Drain:** Ansible instructs the Load Balancer to drain traffic from the target RHEL node.
 2. **Update:** Ansible pulls the latest Podman images, updates the Quadlet configurations in `/etc/containers/systemd/`, and reloads the systemd daemon.
-3. **Restart:** `systemctl restart ja4proxy2-*`
+3. **Restart:** `systemctl restart ja4proxy-*`
 4. **Wait for Health:** Systemd waits for the service to report healthy.
 
 ### 7.2 Verification (Post-Flight Checks)
 Verification must be empirical and multi-layered:
 
 1. **Host-Level Verification:**
-   - `systemctl is-active ja4proxy2`
+   - `systemctl is-active ja4proxy`
    - Test internal `/health` endpoint: `curl -f http://localhost:9090/health`
 2. **Dataplane Verification (Crucial):**
    - Generate synthetic traffic from the Ansible controller or a designated jump host.
