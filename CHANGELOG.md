@@ -1,5 +1,36 @@
 # Changelog
 
+## [68.0.0] - 2026-04-04 - Python 3.14 Hot Path Optimizations & Thread Safety
+
+### Changed
+
+- `proxy.py`: verified `_GREASE_VALUES` is a module-level `frozenset`; bound to
+  local `_grease` variable inside `generate_ja4()` list comprehensions to avoid
+  repeated global lookup (JIT-friendly monomorphic call site).
+- `proxy.py`: replaced `ProcessPoolExecutor` (Phase 28a) with
+  `ThreadPoolExecutor(thread_name_prefix="tls-parser")` for zero-IPC TLS parsing
+  fallback; safe for free-threaded Python (GIL disabled).
+- `proxy.py`: added `_install_event_loop()` helper that installs uvloop event loop
+  policy when available, with graceful `ImportError` fallback to asyncio default.
+- `requirements.txt`: added `uvloop>=0.21.0` conditional dependency
+  (Linux + Python >= 3.14 only).
+- `config/proxy.yml`: added `runtime:` section with `event_loop` and
+  `tls_parser_workers` config keys.
+- `src/security/risk_scorer.py`: audited — inner scoring loop already uses
+  `dict.get()` with no `try/except`; no change required.
+- `src/cache/local_cache.py`: audited — no `asyncio.Lock` found; no lock migration
+  required (asyncio-only access pattern).
+- `src/config/loader.py`: audited — no `asyncio.Lock` found; no lock migration
+  required (config dict replaced atomically).
+
+### Added
+
+- `docs/security/THREAD_SAFETY_AUDIT.md`: full audit of all mutable shared state on
+  the hot path with per-object thread-safety assessment and recommendations for full
+  free-threading readiness.
+- `reports/benchmark/python314-stage2.md`: benchmark notes and reproduction
+  instructions (live benchmark requires Python 3.14 Docker image from Phase 67).
+
 ## [Unreleased] - 2026-04-04 — TI Feed Reliability & Resilience (Phase 59)
 
 ### Added
