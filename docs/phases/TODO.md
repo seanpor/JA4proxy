@@ -59,11 +59,3 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 64 — Operational Excellence
 *   **Status:** **PROPOSED** (Process optimization, training, documentation, and continuous improvement.)
 *   **Action Plan:** [PHASE_64.md](PHASE_64.md)
-
-### Phase 68 — Python 3.14 Hot Path Optimizations
-*   **Status:** **PROPOSED** (Make the JA4/scoring hot path JIT-friendly (remove try/except from inner loops, monomorphic call sites). Integrate uvloop as the asyncio event loop on Linux for 2-4x I/O throughput gain. Both changes are additive and independently revertable.)
-*   **Action Plan:** [PHASE_68.md](PHASE_68.md)
-
-### Phase 69 — Free-Threaded Python Proxy
-*   **Status:** **PROPOSED** (Conditional on Phase 67 throughput < 600 conn/s. Switch proxy container to python:3.14t-slim (no-GIL). Thread safety audit; replace asyncio.Lock with threading.Lock in local_cache and config loader. Replace ProcessPoolExecutor with ThreadPoolExecutor for zero-IPC TLS parsing.)
-*   **Action Plan:** [PHASE_69.md](PHASE_69.md)

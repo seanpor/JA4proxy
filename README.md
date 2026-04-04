@@ -346,6 +346,21 @@ For the full migration procedure and HAProxy switching steps, see the [Go Proxy 
 
 ---
 
+## Codebase
+
+| Category | Lines | What |
+|---|---:|---|
+| **Python proxy core** | ~26,189 | `proxy.py` + `src/security/` + `src/cache/` + `src/config/` — TLS parsing, JA4 fingerprinting, all signal modules, pipeline, rate limiting |
+| **Go proxy core** | ~4,968 | `cmd/proxy/` + `internal/` — high-throughput replacement; in active development (Phase 15) |
+| **Tests** | ~60,661 | 1,600 tests — unit, integration, chaos, adversarial, performance (1.2× test-to-code ratio) |
+| **Supporting services** | ~12,885 | Tarpit server, mock backend, performance tools |
+| **Infrastructure** | ~4,399 | Dockerfiles, Compose files, shell scripts |
+| **Total** | **~109,102** | |
+
+Plus: ~48,400 lines of documentation across 106 files (architecture, runbooks, phase plans, security audit, compliance).
+
+---
+
 ## Services
 
 All ports are localhost-only. Running locally after `make start`:

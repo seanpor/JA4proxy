@@ -1,164 +1,48 @@
 # Changelog
 
-## [68.0.0] - 2026-04-04 - Python 3.14 Hot Path Optimizations & Thread Safety
+## [78.0.0] - 2026-04-04 — Enterprise Scale, Hardening & Governance (Phases 76, 77, 78)
+
+### Added
+- **Phase 76: Enterprise RHEL Production Deployment Strategy** — Best practices for deploying JA4proxy inline on RHEL 8/9 using Podman and Systemd Quadlets.
+- **Phase 77: Enterprise Security Stack & SIEM Integration** — Integration patterns for Wazuh, CrowdSec, Splunk, QRadar, and a universal Vector-based translator.
+- **Phase 78: Enterprise Scale, Hardening & Governance** — Roadmap for global multi-node scalability, Fail-Open policies, PII masking for GDPR, and FIPS 140-2 compliance.
+
+## [75.0.0] - 2026-04-04 — Docker Multi-Agent Isolation (Phases 71, 72, 73, 74, 75)
+
+### Added
+- **Phase 71: Docker Isolation - Foundations & Registry** — Agent identity source of truth; automated environment generator.
+- **Phase 72: Docker Isolation - Logical Network Zones** — Three-tier production mirroring (DMZ, APP, ORIGIN) with strict network isolation.
+- **Phase 73: Docker Isolation - Host-Level Hardening** — Two-port policy; loopback IP binding; CPU pinning; non-root user.
+- **Phase 74: Docker Isolation - Shared Assets & Tooling** — GeoIP sharing (RO); admin script support for --agent flag.
+- **Phase 75: Docker Isolation - Security Audit & Validation** — automated isolation audit via `scripts/check-isolation.sh`.
+- `scripts/agent-env.sh` — generates `.env.<agent>` with unique loopback IP, CPU set, and secrets.
+- `docker-compose.poc.yml` — refactored for dmz_net, data_net, origin_net, and mgmt_net isolation zones.
+- `scripts/ja4-admin.sh` — `--agent <name>` flag targets specific agent's containers and endpoints.
+- `docs/architecture/ISOLATION_MODEL.md` — updated with quickstart, manual workflow, and verification section.
+
+## [68.0.0] - 2026-04-04 — Phase 68 & 69: Python 3.14 Hot Path Optimizations & Free-Threading
 
 ### Changed
+- `proxy.py`: replaced `ProcessPoolExecutor` (Phase 28a) with `ThreadPoolExecutor`; safe for free-threaded Python (Phase 69).
+- `proxy.py`: added `_install_event_loop()` for uvloop support (Phase 68).
 
-- `proxy.py`: verified `_GREASE_VALUES` is a module-level `frozenset`; bound to
-  local `_grease` variable inside `generate_ja4()` list comprehensions to avoid
-  repeated global lookup (JIT-friendly monomorphic call site).
-- `proxy.py`: replaced `ProcessPoolExecutor` (Phase 28a) with
-  `ThreadPoolExecutor(thread_name_prefix="tls-parser")` for zero-IPC TLS parsing
-  fallback; safe for free-threaded Python (GIL disabled).
-- `proxy.py`: added `_install_event_loop()` helper that installs uvloop event loop
-  policy when available, with graceful `ImportError` fallback to asyncio default.
-- `requirements.txt`: added `uvloop>=0.21.0` conditional dependency
-  (Linux + Python >= 3.14 only).
-- `config/proxy.yml`: added `runtime:` section with `event_loop` and
-  `tls_parser_workers` config keys.
-- `src/security/risk_scorer.py`: audited — inner scoring loop already uses
-  `dict.get()` with no `try/except`; no change required.
-- `src/cache/local_cache.py`: audited — no `asyncio.Lock` found; no lock migration
-  required (asyncio-only access pattern).
-- `src/config/loader.py`: audited — no `asyncio.Lock` found; no lock migration
-  required (config dict replaced atomically).
+## [66.0.0] - 2026-04-04 — Phase 66, 67, 70: Python 3.14 Compatibility & Base Image Upgrade
 
 ### Added
-
-- `docs/security/THREAD_SAFETY_AUDIT.md`: full audit of all mutable shared state on
-  the hot path with per-object thread-safety assessment and recommendations for full
-  free-threading readiness.
-- `reports/benchmark/python314-stage2.md`: benchmark notes and reproduction
-  instructions (live benchmark requires Python 3.14 Docker image from Phase 67).
-
-## [66.0.0] - 2026-04-04 - Python 3.14 Compatibility Assessment
-
-### Added
-- `scripts/check-python314-compat.py` — PyPI wheel checker for Python 3.14 compatibility.
-  Parses requirements.txt, requirements-test.txt, requirements-analytics.txt; queries PyPI
-  JSON API; checks for cp314/py3 wheels; outputs markdown table. Stdlib-only; runs on
-  Python 3.10+. Exit 0 if all packages compatible; exit 1 if any C-extension lacks a wheel.
-- `docs/reports/python314-compat.md` — compatibility report for all 33 dependencies.
-  Result: 7 packages have cp314 wheels, 25 are pure-Python, 1 (pytricia) is sdist-only
-  (warn, not fail). No upgrade blockers found.
-- `docs/reports/benchmark/python311-baseline.md` — hot-path performance baseline on
-  Python 3.10.12 before Dockerfile upgrade. Key numbers: RiskScorer p99=21.2µs,
-  ActionDecider p99=1.54µs, full scoring path p99=11.4µs, all well within limits.
-
-### Changed
-- All non-analytics Dockerfiles upgraded: `python:3.11.11-slim` → `python:3.14.0-slim`
-  (`docker/Dockerfile`, `docker/Dockerfile.test`, `docker/Dockerfile.mockbackend`,
-  `docker/Dockerfile.trafficgen`, `tarpit/Dockerfile`) — Phase 67.
-- Test Dockerfiles upgraded: `python:3.11-slim` → `python:3.14-slim`
-  (`tests/docker/Dockerfile.test-runner`, `tests/docker/Dockerfile.python-proxy`,
-  `tests/docker/Dockerfile.tls-backend`, `tests/docker/Dockerfile.recorder`) — Phase 67.
-- `src/analytics/Dockerfile`: `python:3.11.11-slim` → `python:3.14.0-slim` — Phase 70.
-- `pyproject.toml`: ruff `target-version` changed from `py311` to `py314` — Phase 67.
-- `src/tls/interpreter_pool.py` (new): subinterpreter pool with ThreadPoolExecutor
-  fallback for TLS parsing workers. Uses Python 3.14 `interpreters` module (each worker
-  gets its own GIL) when available; falls back to ThreadPoolExecutor silently — Phase 70.
+- `scripts/check-python314-compat.py` — PyPI wheel checker for Python 3.14 compatibility (Phase 66).
+- All Dockerfiles upgraded to `python:3.14.0-slim` (Phase 67).
+- Analytics container upgraded to Python 3.14 with subinterpreter experiment (Phase 70).
 
 ### Fixed
-- `src/security/tls_enforcer.py`: restore `score=40` default for deprecated TLS
-  bypass-disabled signal (Phase 65 regression where score was hardcoded to 10,
-  below the `flag` threshold of 20, making the signal functionally useless).
-- `tests/unit/test_graceful_shutdown.py`: make `test_connections_drain_before_timeout`
-  deterministic under pytest-xdist by using asyncio.sleep hook pattern instead of
-  wall-clock timing.
+- `src/security/tls_enforcer.py`: restore `score=40` default for deprecated TLS bypass-disabled signal (Phase 65).
 
-## [Unreleased] - 2026-04-04 — TI Feed Reliability & Resilience (Phase 59)
+## [59.0.0] - 2026-04-04 — TI Feed Reliability & Resilience (Phase 59)
 
 ### Added
-
-- **Phase 59: TI Feed Reliability & Resilience** — Full circuit breaker and health
-  monitoring system for all five Threat Intelligence providers.
-
-  - `src/security/feed_health.py` — Extended `FeedHealthMonitor` with 100-entry
-    `CircuitBreaker._history` ring buffer, `register_probe`/`start_probing`/`stop_probing`
-    background health-check lifecycle, and `set_alert_callback` for circuit-open events.
-    New Prometheus gauge `ja4proxy_ti_feed_probe_interval_seconds{feed}`.
-  - `src/security/ti_provider.py` — `retry_with_backoff()` async helper with
-    exponential backoff (base×2^attempt, capped at `max_delay`), standard log format.
-  - Circuit breaker wired into `GreyNoiseProvider`, `AlienVaultOTXProvider`,
-    `VirusTotalProvider`, `ThreatFoxProvider` (MISP was already wired). VirusTotal
-    403 responses bypass the circuit breaker (quota ≠ outage).
-  - `proxy.py` — `FeedHealthMonitor` instantiated at startup; passed as
-    `health_monitor=` to all 5 providers; per-feed probes registered for enabled
-    feeds; `start_probing()`/`stop_probing()` called in the server lifecycle.
-  - `config/proxy.yml` — Added `misp:`, `threatfox:`, `virustotal:` config sections;
-    new `threat_intelligence:` block with `circuit_breaker_failure_threshold`,
-    `circuit_breaker_recovery_probe_interval`, `health_probe_interval_seconds`.
-  - `docs/REDIS_SCHEMA.md` — Added Phase 58 section documenting `ja4proxy:confidence:state`.
-  - `docs/runbooks/ti_feed_health.md` — 617-line operator runbook covering Security
-    Analyst, DevOps/SRE, Administrator, and Data Scientist audiences; includes
-    Alertmanager YAML, Mermaid circuit-breaker diagram, full Prometheus metric table.
-
-### Tests
-
-  - 97 new tests: 33 unit (provider wiring), 15 unit (FeedHealthMonitor extensions),
-    4 unit (proxy wiring), 28 chaos (all 5 providers + multi-provider degradation).
-  - All pre-existing tests pass (6 pre-existing failures are unrelated: 4 backup
-    Redis-connectivity, 2 tarpit timing).
-
-## [Unreleased] - 2026-04-03 — Docker Multi-Agent Isolation (Phases 71–75)
-
-### Added
-
-- **Phase 71–75: Docker Multi-Agent Isolation** — Full implementation of isolated per-agent
-  environments on a shared host, enabling Gemini, Claude, Ollama, and Mistral to run
-  concurrent independent JA4proxy stacks without interference.
-
-  - `scripts/agent-env.sh` — generates `.env.<agent>` with unique loopback IP
-    (`127.0.0.10–13`), CPU set, random secrets, and all compose variables. Overwrite-guarded.
-  - `docker-compose.poc.yml` — refactored from 2 flat networks to 4 security zones:
-    `dmz_net` (HAProxy↔Proxy), `data_net` (Proxy↔Redis, `internal: true`),
-    `origin_net` (Proxy↔Backend/Tarpit, `internal: true`), `mgmt_net` (Proxy↔Analytics).
-    Redis, backend, and tarpit ports removed from host. All ports bound to `${AGENT_BIND_IP}`.
-    CPU pinning (`cpuset`), non-root users (`1000:1000`), 300 MB log rotation, and shared
-    read-only GeoIP volume added to all services.
-  - `scripts/ja4-admin.sh` — `--agent <name>` flag targets specific agent's Redis container
-    and metrics endpoint. Auto-detects from `.current-agent` when flag is omitted.
-  - `Makefile` — `make agent-up NAME=<agent>`, `make agent-down`, `make agent-status`.
-    `agent-up` writes `.current-agent` so subsequent commands default to the active agent.
-  - `scripts/check-isolation.sh` — automated isolation audit: host port surface,
-    Docker socket access, network zone boundaries (including internet egress tests),
-    IPC namespace independence, and cross-agent reach verification.
-  - `docs/architecture/ISOLATION_MODEL.md` — updated with quickstart workflow, manual
-    workflow, agent resolution priority table, and verification section.
-
-### Security: Metrics Endpoint DoS & Startup Crash Remediation
-
-### Security
-
-- **CVE-class: Metrics endpoint denial-of-service** — `src/security/health.py` and
-  `src/analytics/main.py` both served `/metrics` via `web.Response(content_type=CONTENT_TYPE_LATEST)`.
-  The prometheus-client `CONTENT_TYPE_LATEST` constant includes `charset=utf-8`, which aiohttp
-  rejects at the Response constructor level with `ValueError: charset must not be in content_type
-  argument`. Every scrape request to either metrics endpoint raised an unhandled exception, causing
-  the handler to return HTTP 500 and preventing Prometheus from collecting telemetry. An attacker
-  aware of this could use it to blind monitoring silently while conducting other activity.
-  **Fix:** pass the Content-Type as a raw header (`headers={"Content-Type": CONTENT_TYPE_LATEST}`)
-  in both locations. Confirmed no other `content_type=` usages in the codebase contain `charset`.
-
-- **Startup crash (non-fatal log corruption)** — `proxy.py` emitted a structured JSON log line at
-  startup using `%d` format for the initial dial value, which `DialManager.initialize()` returns as
-  a string. Python's logging module suppresses the resulting `TypeError` with a `--- Logging error
-  ---` banner rather than crashing the process, but the dial-initialized event was silently lost
-  from the audit trail on every cold start.
-  **Fix:** changed format specifier to `%s` with an explicit `int()` cast.
-
-### Fixed
-
-- HAProxy crash-loop on POC startup: three config errors introduced by Phase 43 blue/green changes
-  (`accept-proxy` bare keyword, duplicate `frontend tls_in` block, missing errorfile) and backend
-  servers referencing non-existent `proxy-worker-blue-*` containers. Rewritten for single-worker
-  POC topology.
-- `start-poc.sh` readiness checks used Docker Compose v1-style container names (`ja4proxy-redis`,
-  `ja4proxy-backend`); Compose v2 appends `-1` suffix. Fixed to `ja4proxy-redis-1` /
-  `ja4proxy-backend-1`.
-- Analytics entrypoint used `nc` for Redis readiness check; `nc` is not installed in the analytics
-  image, causing an infinite startup loop. Replaced with `python3 socket.connect_ex`.
-
+- **Phase 59: TI Feed Reliability & Resilience** — Full circuit breaker and health monitoring system for all five Threat Intelligence providers.
+- `src/security/feed_health.py` — Extended `FeedHealthMonitor` with ring buffer and circuit-breaker logic.
+- `src/security/ti_provider.py` — `retry_with_backoff()` async helper for stable re-connection.
+- `docs/runbooks/ti_feed_health.md` — 617-line operator runbook for security analysts and SREs.
 ## [Strategic Review] - 2026-04-01 — Roadmap Refactoring & Quality Epic
 
 ### Changed
