@@ -6,8 +6,8 @@ The TLS ClientHello is sent in plaintext before encryption begins. It contains e
 
 Measured: **0% false positive rate** on browser traffic. **94–99% of malicious traffic blocked** across all test runs. The 0% is an architectural guarantee: browser traffic matches the `h2`/`h1` ALPN bypass and never reaches the scorer. Blocking a real browser is structurally impossible regardless of traffic volume.
 
-> **Status:** POC — functional and tested, not production-hardened.
-> Production gaps are documented in [DMZ Deployment Readiness](docs/DMZ_DEPLOYMENT_READINESS.md).
+> **Status:** Hardened prototype — security-hardened, extensively tested, and enterprise-featured. Not yet field-validated in production.
+> Documented gaps are in [DMZ Deployment Readiness](docs/DMZ_DEPLOYMENT_READINESS.md). Enterprise deployment paths are in [docs/enterprise/](docs/enterprise/).
 
 ---
 
@@ -34,7 +34,7 @@ flowchart TB
         API["🔑  API Client"]
     end
 
-    HA["HAProxy  :443\nTLS passthrough  ·  load balancer"]
+    HA["Load Balancer\nTLS passthrough  ·  PROXY protocol"]
 
     subgraph PIPE["  JA4proxy ×N  ·  reads ClientHello  ·  never decrypts  "]
         direction LR
@@ -52,7 +52,7 @@ flowchart TB
         BN["⛔  Ban  5 min"]
     end
 
-    BE["Backend  :443\nTLS completes here · never decrypted"]
+    BE["Backend\nTLS completes here · never decrypted"]
 
     RD[("Redis\nbans · lists · rates")]
     OBS["Prometheus  ·  Grafana  ·  Loki"]
@@ -112,7 +112,7 @@ open http://localhost:3001                     # macOS
 xdg-open http://localhost:3001                # Linux
 ```
 
-The dashboard shows allowed vs blocked traffic, JA4 fingerprint names, action distribution, and logs in real time. For a full first-run walkthrough, see the [POC Quick Start guide](docs/POC_QUICKSTART.md).
+The dashboard shows allowed vs blocked traffic, JA4 fingerprint names, action distribution, and logs in real time. For a full first-run walkthrough, see the [POC Quick Start guide](docs/POC_QUICKSTART.md) or [Quick Reference](docs/QUICK_REFERENCE.md).
 
 ### New machine setup
 
@@ -210,13 +210,13 @@ security:
 
 ## Deployment
 
-### Docker (recommended for POC and staging)
+### Docker
 
 ```bash
 make start                          # start the full stack
 make stop                           # stop, keep Redis state
 make stop-clean                     # stop + wipe volumes
-./scripts/scale-proxies.sh 4        # run 4 instances (~1,400 conn/s)
+./scripts/scale-proxies.sh 4        # run 4 instances (~8,000 conn/s)
 ./scripts/scale-proxies.sh 1        # back to single instance
 ```
 
@@ -246,6 +246,73 @@ Key values (full list in `deploy/helm/ja4proxy/values.yaml`):
 | `redis.external` | `true` | Set to false to bundle a dev Redis |
 | `secrets.create` | `true` | Use Vault/ESO in production |
 
+### Enterprise (RHEL / Podman)
+
+For bare-metal or VM deployment on RHEL 8/9 using Podman and Quadlets, see the [Enterprise Deployment Guide](docs/enterprise/deployment.md). This covers systemd unit generation, SELinux policy for TLS passthrough, and integration with enterprise tooling.
+
+For SIEM integration (Wazuh, CrowdSec, Splunk, QRadar) and enterprise security architecture, see [Enterprise Security Architecture](docs/enterprise/security-architecture.md).
+
+### Passive TAP / SPAN Mode
+
+JA4proxy can operate **out-of-band** via AF_PACKET traffic mirroring — no inline deployment required. In TAP mode, the proxy observes and fingerprints all mirrored traffic, then signals enforcement actions to existing inline infrastructure rather than acting as the forwarding path itself. This is the lowest-risk initial deployment option for conservative environments.
+
+See the [TAP Mode Runbook](docs/runbooks/tap_mode.md) for setup and operation.
+
+---
+
+## High-Performance Go Proxy
+
+A Go implementation of the full proxy core is available at `cmd/proxy/`. It is architecturally designed to eliminate GIL contention and deliver substantially higher throughput than the Python implementation.
+
+```bash
+make go-build
+docker compose -f docker-compose.poc.yml -f docker-compose.go.yml up -d go-proxy
+```
+
+**What is verified:**
+- Full feature parity with the Python core — all 14 security signal modules implemented
+- JA4/JA4X fingerprint output matches Python fixtures exactly (cross-language parity tests pass)
+- 75+ unit tests passing; identical Redis schema and config format to Python
+
+**What is not yet complete:**
+- End-to-end throughput has not been formally benchmarked under load
+- Production deployment validation gates have not been run
+
+The Python proxy remains the primary surface for developing new signal modules — prototype in Python, then port to Go once stable.
+
+For operational guidance: [Go Proxy Migration Runbook](docs/runbooks/go_proxy_migration.md) · [Go Proxy Operations](docs/runbooks/go_proxy_operations.md) · [Go Proxy Developer Guide](docs/developer/go_proxy_guide.md)
+
+---
+
+## Performance
+
+Measured on i9-9900K (Linux, Ubuntu 22.04), after Phase 26–30 throughput optimizations (asyncio.gather parallelisation, Redis pipeline batching, Unix domain sockets, deferred write buffer):
+
+| Metric | Result |
+|--------|--------|
+| False positive rate | **0%** — by design; `h2`/`h1` ALPN bypasses the scorer entirely |
+| Malicious traffic blocked | **94–99%** |
+| Ban TTL | **300s** — false positives self-heal automatically |
+| p50 connection latency | **0.50 ms** |
+| p99 connection latency | **1.62 ms** |
+| Single instance (Python) | **2,184 conn/s** |
+| 4 instances (Python) | **~8,100 conn/s** |
+| Go proxy | Architecture eliminates GIL; formal end-to-end benchmarks not yet run |
+
+See [Phase 30 Capacity Report](docs/performance/PHASE_30_CAPACITY_REPORT.md) and [Benchmark History](docs/performance/BENCHMARK_HISTORY.md) for full methodology and per-scenario data.
+
+### Traffic generator
+
+The included traffic generator produces realistic TLS fingerprints per client profile — Chrome, Firefox, Safari (legitimate) plus Sliver C2, CobaltStrike, Evilginx, Python bot, and credential stuffer (malicious).
+
+```bash
+./scripts/generate-tls-traffic.sh 60 10 20    # 60s, 10% legit, 20 workers
+./scripts/generate-tls-traffic.sh 300 15 50   # 5-min assessment
+make flush-redis                               # reset state between runs
+```
+
+See [TLS Traffic Generator](docs/TLS_TRAFFIC_GENERATOR.md) for profile details and interpreting results.
+
 ---
 
 ## Observability
@@ -271,58 +338,6 @@ Custom name mappings go in `config/proxy.yml` → `fingerprint_labels`. See [Mon
 
 ---
 
-## Performance
-
-Tested with 200 concurrent workers (300s run, 15% legitimate traffic):
-
-| Metric | Result |
-|--------|--------|
-| False positive rate | **0%** — by design; `h2`/`h1` ALPN bypasses the scorer entirely |
-| Malicious traffic blocked | **94–99%** |
-| Ban TTL | **300s** — false positives self-heal automatically |
-| Single instance (Python) | ~350 conn/s with Redis; ~550 conn/s in-process only |
-| 4 instances (Python) | ~1,400 conn/s |
-| Go proxy (Phase 15, in progress) | 10–50× Python — target, not yet measured end-to-end |
-
-See [Performance Benchmark](docs/reports/PERFORMANCE_BENCHMARK.md) for full methodology and per-scenario data.
-
-### Traffic generator
-
-The included traffic generator produces realistic TLS fingerprints per client profile — Chrome, Firefox, Safari (legitimate) plus Sliver C2, CobaltStrike, Evilginx, Python bot, and credential stuffer (malicious).
-
-```bash
-./scripts/generate-tls-traffic.sh 60 10 20    # 60s, 10% legit, 20 workers
-./scripts/generate-tls-traffic.sh 300 15 50   # 5-min assessment
-make flush-redis                               # reset state between runs
-```
-
-See [TLS Traffic Generator](docs/TLS_TRAFFIC_GENERATOR.md) for profile details and interpreting results.
-
----
-
-## Go Proxy (Production Ready)
-
-**Phase 15 is complete.** The Go proxy is a drop-in, high-performance replacement for the Python implementation, delivering 10–50× higher throughput by eliminating the Python GIL.
-
-`cmd/proxy/` provides full feature and configuration parity with the Python core, including JA4/JA4X fingerprinting, all 14 security signal modules, Redis-backed rate limiting, and mTLS bypass.
-
-```bash
-make go-build
-# Start the Go proxy alongside the existing stack
-docker compose -f docker-compose.poc.yml -f docker-compose.go.yml up -d go-proxy
-```
-
-### Performance & Migration
-- **Throughput:** ~15,000+ conn/s (vs ~350 conn/s for Python).
-- **Latency:** Sub-millisecond hot-path processing.
-- **Parity:** Verified 1:1 data parity for all fingerprinting and scoring logic.
-
-For the full migration procedure and HAProxy switching steps, see the [Go Proxy Migration Runbook](docs/runbooks/go_proxy_migration.md).
-
-**Recommendation:** Use the Go proxy for all production environments requiring high concurrency or minimal latency. Maintain the Python proxy for rapid prototyping of new security signals before they are ported to the Go core.
-
----
-
 ## Documentation
 
 **[Documentation Index](docs/INDEX.md)** — all docs organised by role (operator, architect, developer, auditor).
@@ -330,17 +345,24 @@ For the full migration procedure and HAProxy switching steps, see the [Go Proxy 
 | Audience | Doc | What's in it |
 |----------|-----|--------------|
 | First run | [POC Quick Start](docs/POC_QUICKSTART.md) | Step-by-step from zero to traffic flowing |
+| Quick reference | [Quick Reference](docs/QUICK_REFERENCE.md) | Essential commands and config at a glance |
 | SecOps operators | [SecOps Operations Guide](docs/SECOPS_OPERATIONS.md) | Start/stop, config, managing lists and bans day-to-day |
 | Incident response | [Incident Response Runbook](docs/INCIDENT_RESPONSE.md) | Step-by-step playbooks for active attack scenarios |
-| Production readiness | [DMZ Deployment Readiness](docs/DMZ_DEPLOYMENT_READINESS.md) | Documented gaps between POC and production hardening |
+| Blocking operations | [Blocking Guide](docs/operator/blocking-guide.md) | ISP and CIDR blocking procedures and monitoring |
+| Troubleshooting | [Troubleshooting Guide](docs/operator/TROUBLESHOOTING.md) | Diagnosis and resolution for common operational issues |
+| Production readiness | [DMZ Deployment Readiness](docs/DMZ_DEPLOYMENT_READINESS.md) | Documented gaps between prototype and production hardening |
+| Enterprise deployment | [Enterprise Deployment](docs/enterprise/deployment.md) | RHEL/Podman deployment with systemd and SELinux |
 | Security evaluators | [Comprehensive Security Audit](docs/security/COMPREHENSIVE_SECURITY_AUDIT.md) | Vulnerability assessment, pentest findings, mitigations |
 | Security evaluators | [Threat Model](docs/security/threat-model.md) | Attack surface analysis, trust boundaries, adversarial assumptions |
 | Pre-deployment | [Security Checklist](docs/security/SECURITY_CHECKLIST.md) | Go/no-go checklist before putting traffic through the proxy |
 | Compliance | [GDPR Compliance](docs/compliance/GDPR_COMPLIANCE.md) | What data is logged, how long it's retained, DSAR handling |
 | Monitoring | [Monitoring Setup](docs/MONITORING_SETUP.md) | Prometheus metrics, Grafana dashboards, Loki, Alertmanager rules |
-| Capacity planning | [Scaling Guide](docs/SCALING_GUIDE.md) | HAProxy tuning, instance scaling, Redis sizing |
+| Capacity planning | [Scaling Guide](docs/SCALING_GUIDE.md) | Instance scaling, Redis sizing, HAProxy tuning |
 | Architects | [System Architecture](docs/architecture/system-architecture.md) | Target enterprise architecture, component responsibilities |
-| All | [CHANGELOG](CHANGELOG.md) | Version history and per-phase changes |
+| Architects | [Architecture Decisions](docs/decisions/INDEX.md) | ADRs covering key non-obvious design choices |
+| Go developers | [Go Proxy Developer Guide](docs/developer/go_proxy_guide.md) | Building, testing, and extending the Go proxy |
+| Signal developers | [Signal Development Guide](docs/developer/SIGNAL_DEVELOPMENT.md) | How to implement and test new detection signals |
+| All | [CHANGELOG](CHANGELOG.md) | Version history and changes |
 
 ---
 
@@ -349,28 +371,30 @@ For the full migration procedure and HAProxy switching steps, see the [Go Proxy 
 | Category | Lines | What |
 |---|---:|---|
 | **Python proxy core** | ~26,189 | `proxy.py` + `src/security/` + `src/cache/` + `src/config/` — TLS parsing, JA4 fingerprinting, all signal modules, pipeline, rate limiting |
-| **Go proxy core** | ~4,968 | `cmd/proxy/` + `internal/` — high-throughput replacement; in active development (Phase 15) |
-| **Tests** | ~60,661 | 1,600 tests — unit, integration, chaos, adversarial, performance (1.2× test-to-code ratio) |
+| **Go proxy core** | ~9,534 | `cmd/proxy/` + `internal/` — high-throughput replacement with full signal parity |
+| **Tests** | ~60,661 | 2,948 tests — unit, integration, chaos, adversarial, performance (~1.3× test-to-code ratio) |
 | **Supporting services** | ~12,885 | Tarpit server, mock backend, performance tools |
 | **Infrastructure** | ~4,399 | Dockerfiles, Compose files, shell scripts |
-| **Total** | **~109,102** | |
+| **Total** | **~113,668** | |
 
-Plus: ~48,400 lines of documentation across 106 files (architecture, runbooks, phase plans, security audit, compliance).
+Plus: documentation across 205+ files (architecture, runbooks, security audit, compliance, operational guides).
 
 ---
 
-## Services
+## Local Development Stack
 
-All ports are localhost-only. Running locally after `make start`:
+The following ports are active when running `make start` on a **local development or test machine**. This stack includes a mock TLS backend that stands in for a real upstream service.
 
-| Service | URL |
-|---------|-----|
-| HAProxy | `https://localhost:443` — TLS passthrough, PROXY protocol v2 |
-| HAProxy stats | `http://localhost:8404/stats` |
-| JA4proxy | `http://localhost:8080` — metrics on `:9090` |
-| Backend | `https://localhost:8443` |
-| Tarpit | `http://localhost:8888` |
-| Prometheus | `http://localhost:9091` |
-| Grafana | `http://localhost:3001` — credentials in `.env` |
-| Loki | `http://localhost:3100` |
-| Alertmanager | `http://localhost:9093` |
+In production, JA4proxy sits inline between your load balancer and backend — the mock backend and local port bindings below are not part of that deployment.
+
+| Service | URL | Notes |
+|---------|-----|-------|
+| HAProxy | `https://localhost:443` | TLS passthrough, PROXY protocol v2 |
+| HAProxy stats | `http://localhost:8404/stats` | |
+| JA4proxy | `:8080` (proxy) · `:9090` (metrics) | |
+| Mock backend | `https://localhost:8443` | Test-only — not present in production |
+| Tarpit | `http://localhost:8888` | |
+| Prometheus | `http://localhost:9091` | |
+| Grafana | `http://localhost:3001` | Credentials in `.env` |
+| Loki | `http://localhost:3100` | |
+| Alertmanager | `http://localhost:9093` | |
