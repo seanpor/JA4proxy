@@ -20,10 +20,3 @@ htmlcov/
 reports/
 bin/
 benchmark_*.py
-docker-compose*.yml
-.dockerignore
-.gitignore
-.yamllint.yaml
-Makefile
-go/
-cmd/
