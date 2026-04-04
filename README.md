@@ -27,115 +27,65 @@ When external feeds are unreachable (AbuseIPDB, Spamhaus), the proxy fails open 
 
 ```mermaid
 flowchart TB
-    %% ═══ INTERNET ═══
-    subgraph INT["  Internet  "]
+    subgraph NET["  Internet  "]
         direction LR
-        BR["Browser\nChrome · Firefox · Safari\nh2/h1 ALPN"]
-        BOT["Bot / Scanner\nC2 Framework\nCredential Stuffer"]
-        APICL["API Client\nwhitelisted JA4 / mTLS"]
+        BR["🌐  Browser\nh2 / h1 ALPN"]
+        BOT["🤖  Bot / C2 / Scanner"]
+        API["🔑  API Client"]
     end
 
-    %% ═══ DMZ ═══
-    subgraph DMZ["  DMZ  :443  "]
-        HA["HAProxy\nTLS passthrough  •  PROXY protocol v2\nLoad balancing across N proxy instances"]
+    HA["HAProxy  :443\nTLS passthrough  ·  load balancer"]
+
+    subgraph PIPE["  JA4proxy ×N  ·  reads ClientHello  ·  never decrypts  "]
+        direction LR
+        FP["Fast Path\nbrowser → allow\nblacklist · Spamhaus · geo → block"]
+        SIG["Score  0–100\n8 signals · parallel\nTLS · SNI · ASN · DNS · Reputation"]
+        DIAL["Dial  0–100\n0 = monitor only\n100 = full blocking"]
+        FP --> SIG --> DIAL
     end
 
-    %% ═══ PROXY PIPELINE ═══
-    subgraph PROX["  JA4proxy  ×N instances  :8080  "]
-        direction TB
-
-        CH["Read TLS ClientHello\nExtract JA4 fingerprint from plaintext\n── connection never decrypted ──"]
-
-        subgraph FAST["Fast-Path  (bypass scorer entirely)"]
-            direction LR
-            FA["ALLOW immediately\nh2/h1 ALPN browser\nJA4 whitelist match\nValid mTLS certificate\nStatic IP allowlist"]
-            FB["BLOCK immediately\nJA4 blacklist  •  Spamhaus DROP/EDROP\nCountry blacklist\nTLS 1.0 / 1.1 / SSLv3"]
-        end
-
-        subgraph SIG["Signal Collection  (async · parallel · non-blocking)"]
-            direction LR
-            S1["TLS version\n& ciphers"]
-            S2["SNI / DGA\nanalysis"]
-            S3["TCP behaviour\nJA4T timing"]
-            S4["ASN / datacenter\nTor / VPN"]
-            S5["FCrDNS\nrDNS enrichment"]
-            S6["Beaconing\ndetector"]
-            S7["AbuseIPDB\nreputation"]
-            S8["RDAP org\nscore"]
-        end
-
-        SCORE["Risk Scorer  →  0–100\nconfidence-weighted signal aggregation"]
-
-        DIAL["Action Decider  ·  dial 0–100\ndial 0 = monitor only   dial 100 = full blocking\nscore × dial  →  action"]
-    end
-
-    %% ═══ ACTIONS ═══
     subgraph ACT["  Actions  "]
         direction LR
-        OK["Allow\npassthrough"]
-        TP["Tarpit\n1 byte/sec drain"]
-        BK["Block\nTCP RST"]
-        BN["Ban\n5-min TTL · self-healing"]
+        OK["✅  Allow"]
+        TP["🐢  Tarpit"]
+        BK["🚫  Block"]
+        BN["⛔  Ban  5 min"]
     end
 
-    %% ═══ ORIGIN ═══
-    subgraph ORI["  Origin  :443  "]
-        BE["Protected Backend\nTLS handshake completes here\nProxy never sees plaintext content"]
-    end
+    BE["Backend  :443\nTLS completes here · never decrypted"]
 
-    %% ═══ SHARED STATE ═══
-    subgraph STATE["  Shared State & Intelligence  "]
-        direction LR
-        RD["Redis\nblacklist / whitelist\nbans + TTLs\nrate-limit windows\ncross-instance state"]
-        AN["Analytics Node\ncampaign detection\nslow-scan patterns\nscore drift alerts\ncross-IP correlation"]
-    end
+    RD[("Redis\nbans · lists · rates")]
+    OBS["Prometheus  ·  Grafana  ·  Loki"]
 
-    %% ═══ OBSERVABILITY ═══
-    subgraph MON["  Observability  "]
-        direction LR
-        PR["Prometheus\nmetrics :9090"]
-        GR["Grafana\ndashboards :3001"]
-        LK["Loki\nlogs :3100"]
-    end
+    NET --> HA --> FP
+    DIAL --> ACT
+    OK --> BE
+    PIPE <-->|"async"| RD
+    PIPE -.->|"metrics + logs"| OBS
 
-    %% ═══ TRAFFIC FLOW ═══
-    BR & BOT & APICL -->|"TLS ClientHello  :443"| HA
-    HA -->|"TCP + PROXY protocol"| CH
+    classDef inet fill:#f59e0b,stroke:#b45309,color:#1c1917
+    classDef lb fill:#3b82f6,stroke:#1d4ed8,color:#fff
+    classDef fast fill:#f43f5e,stroke:#be123c,color:#fff
+    classDef score fill:#8b5cf6,stroke:#6d28d9,color:#fff
+    classDef dial fill:#6366f1,stroke:#4338ca,color:#fff
+    classDef allow fill:#22c55e,stroke:#15803d,color:#fff
+    classDef tarpit fill:#f97316,stroke:#c2410c,color:#fff
+    classDef block fill:#ef4444,stroke:#991b1b,color:#fff
+    classDef backend fill:#14b8a6,stroke:#0f766e,color:#fff
+    classDef redis fill:#0ea5e9,stroke:#0369a1,color:#fff
+    classDef obs fill:#a855f7,stroke:#7c3aed,color:#fff
 
-    CH --> FAST
-    FA -->|"bypasses scorer"| OK
-    FB -->|"bypasses scorer"| BK
-
-    CH --> SIG
-    SIG --> SCORE
-    SCORE --> DIAL
-    DIAL --> OK & TP & BK & BN
-
-    OK -->|"TLS passthrough\n(never decrypted)"| BE
-
-    %% ═══ CONTROL PLANE ═══
-    PROX <-->|"async R/W\nbans · rates · lists"| RD
-    PROX -->|"events via Redis Stream"| AN
-    AN -->|"findings written back"| RD
-
-    PROX -->|"metrics"| PR
-    PROX -->|"structured JSON logs"| LK
-    PR & LK --> GR
-
-    %% ═══ STYLES ═══
-    classDef allow fill:#1a4731,stroke:#2d6a4f,color:#d8f3dc
-    classDef block fill:#4a1515,stroke:#9b2c2c,color:#fed7d7
-    classDef tarpit fill:#4a2a0a,stroke:#c05621,color:#feebc8
-    classDef state fill:#1a2f4a,stroke:#2b6cb0,color:#bee3f8
-    classDef obs fill:#2d1b69,stroke:#553c9a,color:#e9d8fd
-    classDef neutral fill:#1a202c,stroke:#4a5568,color:#e2e8f0
-
-    class FA,OK allow
-    class FB,BK,BN block
+    class BR,BOT,API inet
+    class HA lb
+    class FP fast
+    class SIG score
+    class DIAL dial
+    class OK allow
     class TP tarpit
-    class RD,AN state
-    class PR,GR,LK obs
-    class CH,SCORE,DIAL,S1,S2,S3,S4,S5,S6,S7,S8 neutral
+    class BK,BN block
+    class BE backend
+    class RD redis
+    class OBS obs
 ```
 
 The **fast-path** handles known-good and known-bad traffic without scoring. For everything else, eight signal checks run in parallel and feed a confidence-weighted scorer; the dial translates score to action.
