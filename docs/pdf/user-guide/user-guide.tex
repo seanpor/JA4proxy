@@ -1,0 +1,123 @@
+%% user-guide.tex — JA4proxy Operator's User Guide
+%% tufte-book, A4, full operator manual
+%% Compile: pdflatex -interaction=nonstopmode user-guide.tex  (run twice for TOC/index)
+
+\documentclass[a4paper, justified, twoside, notoc]{tufte-book}
+
+\geometry{
+  a4paper,
+  left=24.8mm,
+  top=27.4mm,
+  headsep=2\baselineskip,
+  textwidth=107mm,
+  marginparsep=8mm,
+  marginparwidth=49.4mm,
+  textheight=49\baselineskip,
+  headheight=\baselineskip
+}
+
+\usepackage{../shared/ja4proxy-style}
+\usepackage{enumitem}
+\usepackage{multicol}
+\usepackage{afterpage}
+\usepackage{parskip}
+\usepackage{tocbibind}
+
+\makeindex
+
+\setlist[itemize]{leftmargin=1.2em, itemsep=2pt, parsep=0pt}
+\setlist[enumerate]{leftmargin=1.4em, itemsep=2pt, parsep=0pt}
+
+\hypersetup{
+  pdftitle={JA4proxy Operator's User Guide},
+  pdfsubject={Enterprise TLS Security Proxy — Operator Guide},
+}
+
+%% ── Tufte book customisations ────────────────────────────────────────────────
+\renewcommand{\maketitlepage}{%
+  \begin{titlepage}
+    \def\covertype{Operator's User Guide}
+    \def\coverdescription{For Security Engineers and Operations Teams deploying JA4proxy}
+    \def\coveraccentcolor{ja4cyan}
+    \input{../shared/artwork/cover-common.tex}
+  \end{titlepage}
+}
+
+\title{\ja\ Operator's User Guide}
+\author{JA4proxy Project}
+\date{Edition 1.0 \quad \the\year}
+
+\begin{document}
+
+\maketitlepage
+
+%%── Half-title / Series page ─────────────────────────────────────────────────
+\newpage
+\thispagestyle{empty}
+\vspace*{4cm}
+{\noindent\Large\sffamily\bfseries\color{ja4navy} JA4proxy Documentation Series}
+\vspace{0.5\baselineskip}
+\hrule height 0.6pt
+\vspace{0.8\baselineskip}
+
+{\small\sffamily
+\begin{description}[leftmargin=4cm, style=nextline]
+  \item[Product Overview] Introduction for buyers and evaluators
+  \item[\textbf{Operator's User Guide}] \textbf{This document} — installation, configuration, day-to-day operations
+  \item[Technical Reference Manual] Complete configuration, signals, metrics, and API reference
+\end{description}
+}
+
+\vspace{2\baselineskip}
+{\small\noindent
+\textbf{Status:} POC — Functional and tested. Not yet production-hardened.
+See \emph{DMZ Deployment Readiness} in the reference manual for known gaps.
+}
+
+\vfill
+{\footnotesize\sffamily\color{ja4gray}
+JA4proxy is an open-source project. Source code and issue tracker:\\
+\url{https://github.com/seanpor/JA4proxy}\\[4pt]
+JA4 fingerprint specification: \url{https://github.com/FoxIO-LLC/ja4}\\[4pt]
+Copyright \textcopyright\ \the\year\ JA4proxy Contributors. Licensed under the project licence.
+}
+\newpage
+
+%%── Table of Contents ─────────────────────────────────────────────────────────
+{
+  \hypersetup{linkcolor=black}
+  \setcounter{tocdepth}{2}
+  \tableofcontents
+}
+
+%%── Preface ───────────────────────────────────────────────────────────────────
+\input{chapters/preface.tex}
+
+%%── Main matter ───────────────────────────────────────────────────────────────
+\mainmatter
+
+\input{chapters/ch01-introduction.tex}
+\input{chapters/ch02-installation.tex}
+\input{chapters/ch03-first-steps.tex}
+\input{chapters/ch04-configuration.tex}
+\input{chapters/ch05-operations.tex}
+\input{chapters/ch06-monitoring.tex}
+\input{chapters/ch07-incident-response.tex}
+\input{chapters/ch08-scaling.tex}
+\input{chapters/ch09-troubleshooting.tex}
+
+%%── Back matter ───────────────────────────────────────────────────────────────
+\backmatter
+
+\chapter{Quick Reference}
+\input{chapters/quick-reference.tex}
+
+\printindex
+
+%%── Back cover ────────────────────────────────────────────────────────────────
+\clearpage
+\begin{titlepage}
+  \input{../shared/artwork/cover-back.tex}
+\end{titlepage}
+
+\end{document}

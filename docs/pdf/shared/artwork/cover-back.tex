@@ -1,0 +1,148 @@
+%% cover-back.tex
+%% Back cover for all JA4proxy documents.
+%% Include at \end{document} wrapped in a \clearpage + titlepage.
+
+\begin{tikzpicture}[remember picture, overlay]
+
+  %% Background
+  \fill[color=ja4navydark]
+    (current page.south west) rectangle (current page.north east);
+
+  %% Dot-grid texture
+  \foreach \x in {0,0.8,...,21} {
+    \foreach \y in {0,0.8,...,29.7} {
+      \fill[color=ja4navylight, opacity=0.10]
+        ($(current page.south west) + (\x cm, \y cm)$) circle (0.7pt);
+    }
+  }
+
+  %% Large decorative arc — top left
+  \foreach \r in {3, 5, 7, 9, 11} {
+    \draw[color=ja4cyan, opacity={0.08 + 0.04*\r}, line width=0.4pt]
+      ($(current page.north west) + (0, 0)$)
+      arc[start angle=270, end angle=0, radius=\r cm];
+  }
+
+  %% Accent bar — top
+  \fill[color=ja4navy, opacity=0.95]
+    ($(current page.north west) + (0, -2.5cm)$) rectangle
+    (current page.north east);
+
+  %% Wordmark — top left
+  \node[anchor=north west,
+        text=white,
+        font=\fontsize{28}{32}\selectfont\sffamily\bfseries,
+        inner sep=0pt]
+    at ($(current page.north west) + (2.4cm, -0.6cm)$)
+    {JA4proxy};
+
+  \node[anchor=north west,
+        text=ja4cyanlight,
+        font=\fontsize{10}{13}\selectfont\sffamily,
+        inner sep=0pt]
+    at ($(current page.north west) + (2.4cm, -1.55cm)$)
+    {Enterprise TLS Security Proxy};
+
+  %% ── Summary block ──────────────────────────────────────────────────────────
+  \node[anchor=north west,
+        text=white,
+        font=\fontsize{13}{18}\selectfont\sffamily\bfseries,
+        inner sep=0pt]
+    at ($(current page.north west) + (2.4cm, -4.5cm)$)
+    {What JA4proxy does};
+
+  \draw[color=ja4cyan, line width=1pt, opacity=0.6]
+    ($(current page.north west) + (2.4cm, -5.0cm)$) --
+    ($(current page.north west) + (13cm,  -5.0cm)$);
+
+  \node[anchor=north west,
+        text=ja4cyanlight,
+        font=\fontsize{11}{16}\selectfont,
+        inner sep=0pt,
+        text width=14cm]
+    at ($(current page.north west) + (2.4cm, -5.5cm)$)
+    {%
+      JA4proxy intercepts the TLS ClientHello --- which is always
+      transmitted in plaintext, before encryption begins.  It computes
+      a JA4 fingerprint from the cipher suites, extensions, ALPN, and
+      elliptic curves advertised by each client, then routes the
+      connection through a multi-signal scoring pipeline to decide:
+      \emph{allow, tarpit, block, or ban.}
+      Allowed connections are forwarded byte-for-byte unchanged.
+      The proxy never decrypts, never holds your private keys, and is
+      transparent to both client and backend.
+    };
+
+  %% ── Key facts ──────────────────────────────────────────────────────────────
+  \node[anchor=north west,
+        text=white,
+        font=\fontsize{11}{14}\selectfont\sffamily\bfseries,
+        inner sep=0pt]
+    at ($(current page.north west) + (2.4cm, -10.5cm)$)
+    {Key facts};
+
+  \draw[color=ja4cyan, line width=1pt, opacity=0.6]
+    ($(current page.north west) + (2.4cm, -11.0cm)$) --
+    ($(current page.north west) + (13cm,  -11.0cm)$);
+
+  \foreach \y/\fact in {
+    -11.6cm/{0\% false positive rate on browser traffic --- by design},
+    -12.4cm/{94--99\% of malicious traffic blocked in testing},
+    -13.2cm/{Default dial~=~0: monitor mode, never blocks on first deploy},
+    -14.0cm/{All bans carry a 5-minute TTL --- false positives self-heal},
+    -14.8cm/{Never decrypts: no key custody, no SSL inspection compliance risk},
+    -15.6cm/{Scales horizontally; Redis synchronises bans across all instances}
+  }{%
+    \node[anchor=north west, text=ja4cyanlight,
+          font=\fontsize{10}{13}\selectfont, inner sep=0pt]
+      at ($(current page.north west) + (2.7cm, \y)$)
+      {\fact};
+    \fill[color=ja4cyan, opacity=0.7]
+      ($(current page.north west) + (2.3cm, \y) + (0, -0.35cm)$)
+      circle (2pt);
+  }
+
+  %% ── Resources ──────────────────────────────────────────────────────────────
+  \node[anchor=north west,
+        text=white,
+        font=\fontsize{11}{14}\selectfont\sffamily\bfseries,
+        inner sep=0pt]
+    at ($(current page.north west) + (2.4cm, -17.0cm)$)
+    {Resources};
+
+  \draw[color=ja4cyan, line width=1pt, opacity=0.6]
+    ($(current page.north west) + (2.4cm, -17.5cm)$) --
+    ($(current page.north west) + (13cm,  -17.5cm)$);
+
+  \foreach \y/\item in {
+    -18.0cm/{Source code \& issue tracker: \texttt{github.com/seanpor/JA4proxy}},
+    -18.7cm/{JA4 fingerprint specification: \texttt{github.com/FoxIO-LLC/ja4}},
+    -19.4cm/{Documentation index: \texttt{docs/INDEX.md} in the repository}
+  }{%
+    \node[anchor=north west, text=ja4cyanlight,
+          font=\fontsize{10}{13}\selectfont, inner sep=0pt,
+          text width=15cm]
+      at ($(current page.north west) + (2.3cm, \y)$)
+      {\item};
+  }
+
+  %% ── Bottom bar ─────────────────────────────────────────────────────────────
+  \fill[color=ja4navy, opacity=0.95]
+    (current page.south west) rectangle
+    ($(current page.south east) + (0, 2.0cm)$);
+
+  \draw[color=ja4cyan, line width=0.6pt, opacity=0.5]
+    ($(current page.south west) + (0, 2.0cm)$) --
+    ($(current page.south east) + (0, 2.0cm)$);
+
+  \node[anchor=west, text=ja4cyanlight,
+        font=\fontsize{8}{10}\selectfont\sffamily, inner sep=0pt]
+    at ($(current page.south west) + (2.4cm, 1.0cm)$)
+    {Licensed under the project licence. \the\year\ JA4proxy contributors.};
+
+  \node[anchor=east, text=ja4cyanlight,
+        font=\fontsize{8}{10}\selectfont\sffamily, inner sep=0pt]
+    at ($(current page.south east) + (-2.4cm, 1.0cm)$)
+    {Edition 1.0};
+
+\end{tikzpicture}
