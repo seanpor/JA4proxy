@@ -777,3 +777,108 @@ phases:
     success_criteria:
       - "Global scalability roadmap for multi-node JA4proxy clusters defined."
       - "Operational resilience policies (Fail-Open) and compliance strategies documented."
+
+  79:
+    name: "Management API v2, RBAC & Enterprise Identity"
+    status: "PROPOSED"
+    summary: "Production-grade REST API with stable IDs, full RBAC (Auditor/Analyst/Operator/Admin), SAML 2.0 + OIDC SSO (Okta, Entra ID), mandatory MFA for Admin/Operator, append-only audit trail. Critical dependency for phases 80-86."
+    action_plan: "docs/phases/PHASE_79.md"
+    dependencies: [78]
+    size: "LARGE"
+    success_criteria:
+      - "All 22 API endpoints implemented with RFC 7807 error bodies"
+      - "SAML 2.0 SSO working against Okta and Entra ID tenants"
+      - "Four RBAC roles enforced at handler level with test coverage"
+      - "Append-only audit trail: every mutating action logged, no role can delete entries"
+
+  80:
+    name: "ECS Structured Logging & SIEM Integration Pack"
+    status: "PROPOSED"
+    summary: "Canonical ECS 8.x JSON log format for all events. Splunk TA (CIM-compliant, 5 dashboards, 5 correlation searches, alert action). Microsoft Sentinel content pack. IBM QRadar DSM. Elastic integration. HMAC-signed webhook event stream."
+    action_plan: "docs/phases/PHASE_80.md"
+    dependencies: [79]
+    size: "LARGE"
+    success_criteria:
+      - "All JA4proxy log output conforms to ECS 8.x schema validated by CI"
+      - "Splunk TA packaged with CIM compliance and all 5 correlation searches"
+      - "Sentinel data connector and analytics rules ship in content pack"
+      - "Webhook delivery with HMAC-SHA256 and dead-letter queue"
+
+  81:
+    name: "SOAR, Webhooks & Enterprise Operations Platforms"
+    status: "PROPOSED"
+    summary: "XSOAR integration (8 commands, 2 playbooks). Splunk SOAR app. ServiceNow SecOps SIR auto-creation and close-loop release. ServiceNow Spoke. xMatters two-way mobile response (5 options). Interlink Software Service Watch (UK NOC). PagerDuty/OpsGenie runbook links."
+    action_plan: "docs/phases/PHASE_81.md"
+    dependencies: [79, 80]
+    size: "LARGE"
+    success_criteria:
+      - "XSOAR integration package installable with both playbooks working"
+      - "ServiceNow SIR auto-created on ban webhook; close-loop releases ban"
+      - "xMatters 5 mobile response options call correct API endpoints"
+      - "Interlink Service Watch CEF syslog forwarding working with TLS"
+
+  82:
+    name: "Policy-as-Code, Shadow Mode & Governance"
+    status: "PROPOSED"
+    summary: "Policy YAML schema versioned in git, applied via CI/CD. Shadow mode simulation (what would dial=X have blocked last week?). Four-eyes approval workflow. ServiceNow change record integration. Drift detection scheduled job."
+    action_plan: "docs/phases/PHASE_82.md"
+    dependencies: [79]
+    size: "LARGE"
+    success_criteria:
+      - "ja4proxy-cli policy validate/apply/diff implemented and idempotent"
+      - "Shadow mode simulation returns results within 5 minutes for 30-day window"
+      - "Four-eyes approval gate enforced — changes do not apply until approved"
+      - "GitHub Actions, GitLab CI, and Jenkins pipeline templates ship in repo"
+
+  83:
+    name: "Infrastructure Automation — Terraform, CLI & Kubernetes Operator"
+    status: "PROPOSED"
+    summary: "ja4proxy-cli Go binary (full command set: ip, allowlist, blocklist, dial, policy, simulation). Terraform provider with drift protection and import workflow. Kubernetes operator + CRDs (JA4ProxyConfig, JA4ProxyAllowlist, JA4ProxyDial). CMDB/NetBox integration. Three emergency runbook Ansible playbooks."
+    action_plan: "docs/phases/PHASE_83.md"
+    dependencies: [79, 82]
+    size: "LARGE"
+    success_criteria:
+      - "ja4proxy-cli binary: all commands in spec implemented and tested"
+      - "Terraform provider: all 6 resource types with protect_unmanaged_entries flag"
+      - "Kubernetes operator: all CRDs with admission webhook validation"
+      - "All 3 emergency runbook playbooks tested end-to-end"
+
+  84:
+    name: "Compliance & Reporting"
+    status: "PROPOSED"
+    summary: "PCI-DSS v4.0 evidence pack (8 artefacts, auto-generated). SOC 2 Type II control narrative and monthly evidence collection. GDPR retention/purge/DSAR/erasure. Executive PDF report with value-of-product metric. ISO 27001 Annex A mapping."
+    action_plan: "docs/phases/PHASE_84.md"
+    dependencies: [79]
+    size: "MEDIUM"
+    success_criteria:
+      - "ja4proxy-cli compliance pci-dss-pack generates all 8 artefacts"
+      - "GDPR DSAR export and erasure commands implemented"
+      - "Executive PDF report auto-generated with value-of-product metric"
+      - "docs/compliance/ directory with all three compliance documents"
+
+  85:
+    name: "Threat Intelligence Ingestion"
+    status: "PROPOSED"
+    summary: "TAXII 2.1 client consuming JA4 fingerprint and IP indicators. JA4 STIX 2.1 extension definition (strategic moat — first standard for JA4 indicators). Recorded Future and CrowdStrike named connectors. Curated JA4 fingerprint community feed architecture."
+    action_plan: "docs/phases/PHASE_85.md"
+    dependencies: [79]
+    size: "LARGE"
+    success_criteria:
+      - "TAXII 2.1 client polls servers and creates blocklist/ban entries"
+      - "JA4 STIX 2.1 extension definition published at docs/stix/"
+      - "Recorded Future and CrowdStrike connectors authenticate and poll"
+      - "known_bad_fingerprints.yml ships with at least 10 vetted fingerprints"
+
+  86:
+    name: "Observability & Capacity Planning"
+    status: "PROPOSED"
+    summary: "Datadog Agent integration tile with dashboard and 4 monitors. Dynatrace EF2 extension with topology entity type. Nagios check plugin and Zabbix template. Capacity sizing calculator script. make load-test harness. Published benchmark numbers. 7 operator runbooks."
+    action_plan: "docs/phases/PHASE_86.md"
+    dependencies: [79, 80]
+    size: "MEDIUM"
+    success_criteria:
+      - "Datadog Agent check emitting ja4proxy.* metrics with dashboard and monitors"
+      - "Nagios check plugin and Zabbix template ship in deploy/"
+      - "scripts/capacity_calculator.py produces valid recommendations"
+      - "Published benchmark numbers committed to docs/performance/benchmarks.md"
+      - "All 7 runbook files present in docs/runbooks/"
