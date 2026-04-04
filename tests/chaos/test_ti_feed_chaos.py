@@ -27,7 +27,6 @@ from src.security.misp import MISPConfig, MISPProvider
 from src.security.threatfox import ThreatFoxConfig, ThreatFoxProvider
 from src.security.virustotal import VirusTotalConfig, VirusTotalProvider
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

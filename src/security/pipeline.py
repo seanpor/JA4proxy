@@ -58,8 +58,8 @@ from .abuseipdb import AbuseIPDBChecker
 from .alienvault import AlienVaultOTXProvider
 from .asn_classifier import ASNClassifier
 from .attribution import AttributionManager
-from .behavioral import BehavioralAnalyzer
 from .beaconing_detector import BeaconingDetector
+from .behavioral import BehavioralAnalyzer
 from .blocklists import BlocklistManager, FeedConfig
 from .dns_enrichment import DNSEnrichment
 from .greynoise import GreyNoiseProvider

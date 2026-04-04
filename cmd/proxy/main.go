@@ -114,18 +114,18 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 	}
 	rc := redisclient.New(redisCfg, log)
 
-	// Seed dial from config if not already set in Redis
-	ctx := context.Background()
-	rc.SeedDialIfAbsent(ctx, cfg.MonitorMode.Dial)
-
-	// Seed JA4 lists from config to Redis (parity with proxy.py)
-	seedSecurityLists(ctx, rc, cfg)
-
 	pipelineCfg := buildPipelineConfig(cfg)
 	p := security.NewPipeline(pipelineCfg, rc, log)
 
-	// Load JA4 lists from Redis into Pipeline's in-process maps
-	loadSecurityLists(ctx, rc, p)
+	// Seed Redis in the background so a slow/unavailable Redis does not block
+	// the proxy from starting to accept connections (fail-open on startup).
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		rc.SeedDialIfAbsent(ctx, cfg.MonitorMode.Dial)
+		seedSecurityLists(ctx, rc, cfg)
+		loadSecurityLists(ctx, rc, p)
+	}()
 
 	prx := &proxy{
 		cfg:      cfg,

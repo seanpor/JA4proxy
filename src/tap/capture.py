@@ -448,7 +448,7 @@ class PacketCapture:
     def _dedup_check(self, pkt: ParsedPacket) -> bool:
         """Return True (discard) if this packet appeared within *dedup_window_s*."""
         now = time.monotonic()
-        key = hashlib.md5(  # nosec B324 — dedup cache key, not security-sensitive
+        key = hashlib.md5(  # nosec: B324
             f"{pkt.src_ip}:{pkt.src_port}-{pkt.dst_ip}:{pkt.dst_port}"
             f":{pkt.seq}:{pkt.data[:32].hex()}".encode()
         ).hexdigest()

@@ -4,11 +4,13 @@ Unit tests for Phase 42 Zero-Downtime Data Upgrades.
 
 import asyncio
 import os
-import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, patch, AsyncMock
-from src.utils.atomic_swap import atomic_write, atomic_symlink_swap
-from src.config.loader import ConfigLoader, ConfigError
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+from src.config.loader import ConfigError, ConfigLoader
+from src.utils.atomic_swap import atomic_symlink_swap, atomic_write
 
 
 def test_atomic_write(tmp_path):
