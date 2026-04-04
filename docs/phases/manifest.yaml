@@ -744,3 +744,14 @@ phases:
     success_criteria:
       - "scripts/check-isolation.sh implemented with 5 check categories"
       - "docs/architecture/ISOLATION_MODEL.md updated with verification workflow"
+
+  76:
+    name: "Enterprise RHEL Production Deployment Strategy"
+    status: "COMPLETE"
+    summary: "Created phase paper outlining best practices for deploying JA4proxy2 inline on an enterprise RHEL server (Quadlets, systemd, volume/log management, external Redis, verification steps)."
+    action_plan: "docs/phases/PHASE_76.md"
+    dependencies: [75]
+    size: "SMALL"
+    success_criteria:
+      - "Phase paper documented in PHASE_76.md covering RHEL 8/9 deployment."
+      - "Verified deployment flow incorporates Podman, quadlets, zero-downtime draining, and log offloading."
