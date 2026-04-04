@@ -45,28 +45,43 @@ func NewPubSubHandler(client *Client, log *logrus.Logger, onReload, onRefresh fu
 }
 
 // Run subscribes to config channels and blocks until ctx is cancelled.
-// Reconnects automatically on connection failures (fail open).
+// Reconnects automatically on connection failures (fail open) with exponential backoff.
 func (h *PubSubHandler) Run(ctx context.Context) {
-	backoff := time.Second
+	const (
+		minBackoff = 100 * time.Millisecond
+		maxBackoff = 30 * time.Second
+	)
+	backoff := minBackoff
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 		}
+
+		start := time.Now()
 		h.runOnce(ctx)
+
+		// If we stayed connected for more than 10 seconds, reset backoff
+		if time.Since(start) > 10*time.Second {
+			backoff = minBackoff
+		}
+
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(backoff):
-			if backoff < 30*time.Second {
-				backoff = backoff * 2
+			backoff *= 2
+			if backoff > maxBackoff {
+				backoff = maxBackoff
 			}
 		}
 	}
 }
 
 func (h *PubSubHandler) runOnce(ctx context.Context) {
+	h.log.Info("pubsub: subscribing to config channels")
 	sub := h.client.rdb.Subscribe(ctx,
 		ChannelConfigReload,
 		ChannelDialChange,
