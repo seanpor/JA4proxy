@@ -204,25 +204,37 @@ class TestGracefulShutdownDrain:
 
     @pytest.mark.asyncio
     async def test_connections_drain_before_timeout(self):
-        """Connections that finish inside the window → forced_close=0."""
+        """Connections that finish inside the window → forced_close=0.
+
+        Uses the same deterministic drain-loop hook pattern as
+        test_partial_drain_logs_correct_split to avoid wall-clock races
+        under xdist parallel load.
+        """
         server = _make_server_stub(drain_timeout=2.0)
         server.active_connections = 4
 
         shutdown_event = asyncio.Event()
         mock_srv = _make_asyncio_server_mock()
 
+        _real_sleep = asyncio.sleep
+        _completed = False
+
+        async def _drain_hook(delay: float) -> None:
+            nonlocal _completed
+            # On the first drain-loop poll, simulate all connections finishing.
+            if not _completed and abs(delay - 0.1) < 0.01:
+                _completed = True
+                server.active_connections = 0
+            await _real_sleep(delay)
+
         async def _trigger():
-            await asyncio.sleep(0.01)
+            await _real_sleep(0.01)
             shutdown_event.set()
 
-        async def _connections_complete():
-            await asyncio.sleep(0.05)
-            server.active_connections = 0
-
         with patch("proxy.asyncio.start_server", AsyncMock(return_value=mock_srv)):
-            asyncio.create_task(_trigger())
-            asyncio.create_task(_connections_complete())
-            await server.start(shutdown_event=shutdown_event)
+            with patch("proxy.asyncio.sleep", _drain_hook):
+                asyncio.create_task(_trigger())
+                await server.start(shutdown_event=shutdown_event)
 
         complete = _shutdown_complete_call(server)
         assert complete is not None
