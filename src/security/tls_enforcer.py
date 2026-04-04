@@ -164,7 +164,7 @@ class TLSEnforcer:
         self._block_tls10: bool = bool(cfg.get("block_tls_10", True))
         self._block_tls11: bool = bool(cfg.get("block_tls_11", True))
         self._flag_tls12: bool = bool(cfg.get("flag_tls_12", False))
-        self._tls_score: int = int(cfg.get("score", 10))
+        self._tls_score: int = int(cfg.get("score", 40))
         self._block_weak_ciphers: bool = bool(cfg.get("block_weak_ciphers", False))
         self._weak_cipher_score: int = int(cfg.get("weak_cipher_score", 20))
 
@@ -247,7 +247,7 @@ class TLSEnforcer:
                     signals.append(
                         RiskSignal(
                             name="tls_version",
-                            score=10,
+                            score=self._tls_score,
                             reason=f"Deprecated TLS version ({label}); bypass disabled",
                         )
                     )
