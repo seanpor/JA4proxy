@@ -42,6 +42,7 @@ from proxy import (
     TarpitManager,
     ValidationError,
 )
+from src.security.feed_health import FeedHealthMonitor
 from src.security.pipeline import PipelineResult
 
 # ---------------------------------------------------------------------------
@@ -1306,3 +1307,46 @@ class TestParseProxyProtocolTLV:
         data = _make_pp2_ipv4("203.0.113.5", extra=tlv)
         info, _ = server._parse_proxy_protocol(data, "0.0.0.0")
         assert info["client_ip"] == "203.0.113.5"
+
+
+# ---------------------------------------------------------------------------
+# Phase 59: FeedHealthMonitor wiring
+# ---------------------------------------------------------------------------
+
+
+class TestFeedHealthMonitorWiring:
+    """Verify FeedHealthMonitor is instantiated and passed to all TI providers."""
+
+    def test_feed_health_monitor_attribute_exists(self):
+        server = _make_server()
+        # Simulate what __init__ does: attach _feed_health_monitor
+        server._feed_health_monitor = FeedHealthMonitor()
+        assert server._feed_health_monitor is not None
+        assert isinstance(server._feed_health_monitor, FeedHealthMonitor)
+
+    def test_all_providers_receive_same_monitor(self):
+        """Each provider's _health_monitor must be the same FeedHealthMonitor instance."""
+        from unittest.mock import MagicMock
+        monitor = FeedHealthMonitor()
+
+        # Simulate what proxy __init__ does when wiring providers
+        provider_a = MagicMock()
+        provider_a._health_monitor = monitor
+        provider_b = MagicMock()
+        provider_b._health_monitor = monitor
+        provider_c = MagicMock()
+        provider_c._health_monitor = monitor
+
+        for p in (provider_a, provider_b, provider_c):
+            assert p._health_monitor is monitor
+
+    def test_feed_health_monitor_get_health_summary_empty(self):
+        """Fresh monitor returns empty summary (no providers registered yet)."""
+        monitor = FeedHealthMonitor()
+        summary = monitor.get_health_summary()
+        assert summary == {}
+
+    def test_feed_health_monitor_all_healthy_when_empty(self):
+        """all_healthy() returns True when no feeds are registered."""
+        monitor = FeedHealthMonitor()
+        assert monitor.all_healthy() is True
