@@ -290,6 +290,9 @@ Practical rules that flow from this:
 | 73 | **Docker Isolation - Host-Level Hardening** | Two-port policy; loopback IP binding (127.0.0.x); CPU pinning; non-root user | [PHASE_73.md](docs/phases/PHASE_73.md) |
 | 74 | **Docker Isolation - Shared Assets & Tooling** | GeoIP sharing (RO); admin script support for --agent flag; automatic .env sourcing | [PHASE_74.md](docs/phases/PHASE_74.md) |
 | 75 | **Docker Isolation - Security Audit & Validation** | Red Team verification; check-isolation.sh script; final documentation | [PHASE_75.md](docs/phases/PHASE_75.md) |
+| 76 | **Enterprise RHEL Production Deployment Strategy** | Best practices for deploying JA4proxy inline on RHEL 8/9 using Podman/Quadlets | [PHASE_76.md](docs/phases/PHASE_76.md) |
+| 77 | **Enterprise Security Stack & SIEM Integration** | Integration patterns for Wazuh, CrowdSec, Splunk, QRadar, and Vector | [PHASE_77.md](docs/phases/PHASE_77.md) |
+| 78 | **Enterprise Scale, Hardening & Governance** | Multi-node scaling, Fail-Open policies, GDPR masking, and FIPS compliance | [PHASE_78.md](docs/phases/PHASE_78.md) |
 
 **Do phases in order. Complete all acceptance criteria before starting the next phase.**
 

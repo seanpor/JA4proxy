@@ -22,8 +22,8 @@ Optimization for high-throughput and multi-core systems.
 | 65 | Performance Hardening & Go/Python Parity | COMPLETE | Optimized Python hot path with pure-Python TLS parser (eliminating Scapy overhead). Established binary fixture ground truth and authoritative signal score registry. Integrated automated parity-check harness. |
 | 66 | Python 3.14 Compatibility Assessment | COMPLETE | PyPI wheel checker script created; all 33 packages verified compatible (7 cp314 wheels, 25 pure-Python, 1 sdist-only warn for pytricia — no blockers). Python 3.10 benchmark baseline captured. Dockerfile upgrade safe to proceed. |
 | 67 | Python 3.14 Base Image Upgrade | COMPLETE | All nine non-analytics Dockerfiles upgraded to python:3.14.0-slim (or python:3.14-slim for test variants). pyproject.toml ruff target-version updated to py314. Full test suite passes: 2896 passed, 28 skipped, 0 failed. Docker benchmark pending (requires docker pull of 3.14 image). |
-| 68 | Python 3.14 Hot Path Optimizations | PROPOSED | Make the JA4/scoring hot path JIT-friendly (remove try/except from inner loops, monomorphic call sites). Integrate uvloop as the asyncio event loop on Linux for 2-4x I/O throughput gain. Both changes are additive and independently revertable. |
-| 69 | Free-Threaded Python Proxy | PROPOSED | Conditional on Phase 67 throughput < 600 conn/s. Switch proxy container to python:3.14t-slim (no-GIL). Thread safety audit; replace asyncio.Lock with threading.Lock in local_cache and config loader. Replace ProcessPoolExecutor with ThreadPoolExecutor for zero-IPC TLS parsing. |
+| 68 | Python 3.14 Hot Path Optimizations | COMPLETE | Make the JA4/scoring hot path JIT-friendly (remove try/except from inner loops, monomorphic call sites). Integrate uvloop as the asyncio event loop on Linux for 2-4x I/O throughput gain. Both changes are additive and independently revertable. |
+| 69 | Free-Threaded Python Proxy | COMPLETE | Conditional on Phase 67 throughput < 600 conn/s. Switch proxy container to python:3.14t-slim (no-GIL). Thread safety audit; replace asyncio.Lock with threading.Lock in local_cache and config loader. Replace ProcessPoolExecutor with ThreadPoolExecutor for zero-IPC TLS parsing. |
 | 70 | Analytics Upgrade & Subinterpreter Experiment | COMPLETE | src/analytics/Dockerfile upgraded to python:3.14.0-slim (numpy has cp314 wheel confirmed by Phase 66 checker). src/tls/interpreter_pool.py created: drop-in replacement for ThreadPoolExecutor using Python 3.14 interpreters module (each worker gets own GIL); transparent ThreadPoolExecutor fallback on older Python. |
 
 ### Epic: Security Hardening
@@ -188,14 +188,17 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 65 | Performance Hardening & Go/Python Parity | COMPLETE | N/A | N/A |
 | 66 | Python 3.14 Compatibility Assessment | COMPLETE | N/A | N/A |
 | 67 | Python 3.14 Base Image Upgrade | COMPLETE | N/A | N/A |
-| 68 | Python 3.14 Hot Path Optimizations | PROPOSED | N/A | N/A |
-| 69 | Free-Threaded Python Proxy | PROPOSED | N/A | N/A |
+| 68 | Python 3.14 Hot Path Optimizations | COMPLETE | N/A | N/A |
+| 69 | Free-Threaded Python Proxy | COMPLETE | N/A | N/A |
 | 70 | Analytics Upgrade & Subinterpreter Experiment | COMPLETE | N/A | N/A |
 | 71 | Docker Isolation - Foundations & Registry | COMPLETE | N/A | N/A |
 | 72 | Docker Isolation - Logical Network Zones | COMPLETE | N/A | N/A |
 | 73 | Docker Isolation - Host-Level Hardening | COMPLETE | N/A | N/A |
 | 74 | Docker Isolation - Shared Assets & Tooling | COMPLETE | N/A | N/A |
 | 75 | Docker Isolation - Security Audit & Validation | COMPLETE | N/A | N/A |
+| 76 | Enterprise RHEL Production Deployment Strategy | COMPLETE | N/A | N/A |
+| 77 | Enterprise Security Stack & SIEM Integration | COMPLETE | N/A | N/A |
+| 78 | Enterprise Scale, Hardening & Governance | COMPLETE | N/A | N/A |
 
 ---
 
