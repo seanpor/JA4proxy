@@ -203,7 +203,18 @@ class BackupRestorer:
             )
         )
 
-        # Connect to Redis first (before try block so it's available for audit logging)
+        # Load and verify manifest/checksum BEFORE connecting to Redis.
+        # Fast-fail: no point acquiring a distributed lock on a corrupt backup.
+        try:
+            manifest = self.load_manifest(manifest_path)
+            if not self.verify_checksum(backup_path, manifest["checksum_sha256"]):
+                raise RestoreError("Checksum verification failed")
+        except RestoreError:
+            RESTORE_CURRENTLY_RUNNING.set(0)
+            RESTORE_OPERATIONS_TOTAL.labels(status="failure", type=restore_type).inc()
+            raise
+
+        # Connect to Redis (manifest is valid, safe to proceed)
         redis_client = redis.Redis(
             host=self.redis_host,
             port=self.redis_port,
@@ -214,9 +225,6 @@ class BackupRestorer:
             # Phase 40: Distributed Locking
             if not redis_client.set("backup:operation_lock", "restore", nx=True, ex=600):
                 raise RestoreError("Backup/Restore operation already in progress (lock held)")
-
-            # Load and validate manifest
-            manifest = self.load_manifest(manifest_path)
 
             # Log manifest loaded with key count
             logger.info(
@@ -231,10 +239,6 @@ class BackupRestorer:
                     }
                 )
             )
-
-            # Verify checksum
-            if not self.verify_checksum(backup_path, manifest["checksum_sha256"]):
-                raise RestoreError("Checksum verification failed")
 
             # Check if Redis is available
             if not redis_client.ping():
