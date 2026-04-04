@@ -5,6 +5,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/anomalyco/ja4proxy/internal/metrics"
 	"github.com/sirupsen/logrus"
 )
 
@@ -52,6 +53,7 @@ func (a *SNIAnalyzer) Analyze(sni string) (signals []RiskSignal) {
 	// Missing SNI
 	if sni == "" {
 		if a.cfg.MissingSNIEnabled {
+			metrics.SNISignalTotal.WithLabelValues("missing_sni").Inc()
 			signals = append(signals, RiskSignal{
 				Name:   "missing_sni",
 				Score:  a.cfg.MissingSNIScore,
@@ -64,6 +66,7 @@ func (a *SNIAnalyzer) Analyze(sni string) (signals []RiskSignal) {
 
 	// IP literal SNI
 	if a.cfg.IPLiteralSNIEnabled && net.ParseIP(sni) != nil {
+		metrics.SNISignalTotal.WithLabelValues("ip_literal_sni").Inc()
 		signals = append(signals, RiskSignal{
 			Name:   "ip_literal_sni",
 			Score:  a.cfg.IPLiteralSNIScore,
@@ -76,8 +79,10 @@ func (a *SNIAnalyzer) Analyze(sni string) (signals []RiskSignal) {
 	// DGA detection
 	if a.cfg.DGAEnabled {
 		confidence := dgaConfidence(sni)
+		metrics.SNIDGAScore.Observe(confidence)
 		score := int(confidence * float64(a.cfg.DGAScoreCap))
 		if score > 0 {
+			metrics.SNISignalTotal.WithLabelValues("dga").Inc()
 			signals = append(signals, RiskSignal{
 				Name:   "dga",
 				Score:  score,
@@ -90,6 +95,7 @@ func (a *SNIAnalyzer) Analyze(sni string) (signals []RiskSignal) {
 	// Unexpected SNI
 	if a.cfg.UnexpectedSNIEnabled && len(a.cfg.ExpectedHostnames) > 0 {
 		if !a.cfg.ExpectedHostnames[sni] {
+			metrics.SNISignalTotal.WithLabelValues("unexpected_sni").Inc()
 			signals = append(signals, RiskSignal{
 				Name:   "unexpected_sni",
 				Score:  a.cfg.UnexpectedSNIScore,
