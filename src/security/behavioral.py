@@ -81,10 +81,10 @@ class BehavioralAnalyzer:
         key = f"behavioral:probing:{afp}"
         try:
             # Add SNI to set of probed hostnames for this fingerprint
-            await self._redis.sadd(key, sni)
-            await self._redis.expire(key, 3600) # 1h window
-            
-            count = await self._redis.scard(key)
+            await self._redis.sadd(key, sni)  # type: ignore[misc]
+            await self._redis.expire(key, 3600)  # 1h window  # type: ignore[misc]
+
+            count = await self._redis.scard(key)  # type: ignore[misc]
             if count >= self._probing_threshold:
                 _PATTERN_DETECTED.labels(pattern_type="sequential_probing").inc()
                 return RiskSignal(
@@ -137,7 +137,7 @@ class BehavioralAnalyzer:
             
         key = "behavioral:known_ja4"
         try:
-            is_new = await self._redis.sadd(key, ja4)
+            is_new = await self._redis.sadd(key, ja4)  # type: ignore[misc]
             if is_new:
                 logger.warning(
                     json.dumps({
