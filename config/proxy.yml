@@ -670,3 +670,16 @@ telemetry:
     service_name: ja4proxy        # Service name recorded in all spans.
     sample_rate: 0.01             # Fraction of connections traced (default 1%).
                                   # At 1000 conn/s → ~10 traces/s sent to collector.
+
+# ── Phase 68: Runtime Performance Options ─────────────────────────────────────
+
+runtime:
+  event_loop: "uvloop"          # uvloop | default  # phase-68
+  # uvloop: libuv-backed asyncio event loop; 2-4x I/O throughput on Linux.
+  # Requires uvloop>=0.21. Falls back to asyncio default if not installed.
+  # Informational only — the proxy auto-detects uvloop availability at startup.
+  # Restart required to apply changes (event loop policy is set once at startup).
+
+  tls_parser_workers: 4         # Thread count for TLS parsing fallback (ThreadPoolExecutor).  # phase-69
+  # Number of background threads available for Scapy-based TLS parsing fallback.
+  # Bounded to min(tls_parser_workers, os.cpu_count()). Restart required.

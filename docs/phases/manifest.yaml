@@ -649,7 +649,7 @@ phases:
 
   68:
     name: "Python 3.14 Hot Path Optimizations"
-    status: "PROPOSED"
+    status: "COMPLETE"
     summary: "Make the JA4/scoring hot path JIT-friendly (remove try/except from inner loops, monomorphic call sites). Integrate uvloop as the asyncio event loop on Linux for 2-4x I/O throughput gain. Both changes are additive and independently revertable."
     action_plan: "docs/phases/PHASE_68.md"
     dependencies: [67]
@@ -663,7 +663,7 @@ phases:
 
   69:
     name: "Free-Threaded Python Proxy"
-    status: "PROPOSED"
+    status: "COMPLETE"
     summary: "Conditional on Phase 67 throughput < 600 conn/s. Switch proxy container to python:3.14t-slim (no-GIL). Thread safety audit; replace asyncio.Lock with threading.Lock in local_cache and config loader. Replace ProcessPoolExecutor with ThreadPoolExecutor for zero-IPC TLS parsing."
     action_plan: "docs/phases/PHASE_69.md"
     dependencies: [67, 68]
