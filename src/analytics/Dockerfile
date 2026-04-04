@@ -1,7 +1,7 @@
 # Analytics Node Dockerfile
 # Phase 12a: Foundation
 
-FROM python:3.11.11-slim as base
+FROM python:3.14.0-slim as base
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
