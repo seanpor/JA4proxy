@@ -479,6 +479,18 @@ See `docs/TESTING_STRATEGY.md` for the full methodology. Summary:
 - New signals: FP rate test against real-world corpus (Tranco top 10k for domains).
 - Phase completion gate (`docs/TESTING_STRATEGY.md §5`) must fully pass before next phase.
 
+**Web service phases — two additional mandatory test files** (learned from phases 13/51/52):
+
+`test_pages.py` — for every HTML-rendering route:
+- GET with valid auth → assert 200 + `text/html` + landmark string in body
+- GET without auth → assert `status_code < 500` (a 500 means the route crashed before auth ran)
+- Mocks alone are not sufficient: template rendering must be exercised in tests, not just auth redirects.
+
+`test_container_config.py` — for every service with external dependencies:
+- Parse `docker-compose.poc.yml` and assert the service's env section passes credentials correctly
+- Assert that when a password env var exists, the built connection URL includes it
+- Rationale: in-memory fakes (fakeredis, sqlite) don't need passwords; real containers do. This gap is invisible to unit tests alone.
+
 ### Documentation Standards
 
 See `docs/DOCUMENTATION_STANDARDS.md` for the full spec. Summary:
