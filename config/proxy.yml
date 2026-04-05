@@ -43,6 +43,16 @@ redis:
   # Enable TLS for Redis connections in production
   ssl: false
   ssl_cert_reqs: "required"
+  acl_users:
+    # Per-service ACL users. Requires Redis 6+ with ACL support.
+    # Create these users in Redis with:
+    #   ACL SETUSER proxy on >$REDIS_PASSWORD ~ratelimit:* ~ban:* ~beacon:* ~dns:* ~abuseipdb:* ~rdap:* ~ja4:* ~config:* +GET +SET +DEL +EXPIRE +TTL +ZADD +ZRANGE +ZRANGEBYSCORE +ZREMRANGEBYSCORE +ZCARD +ZINCRBY +SADD +SREM +SISMEMBER +SMEMBERS +HSET +HGET +HINCRBY +HGETALL +PFADD +PFCOUNT +XADD
+    #   ACL SETUSER analytics on >$REDIS_PASSWORD ~ja4proxy:events +XADD +XREAD +XREADGROUP
+    #   ACL SETUSER admin on >$REDIS_PASSWORD ~* +@all
+    # Run scripts/redis-acl-setup.sh to apply these users automatically.
+    enabled: false  # Default off — requires Redis ACL setup
+    proxy_user: "proxy"
+    analytics_user: "analytics"
 
 # Security settings
 security:
@@ -670,6 +680,19 @@ telemetry:
     service_name: ja4proxy        # Service name recorded in all spans.
     sample_rate: 0.01             # Fraction of connections traced (default 1%).
                                   # At 1000 conn/s → ~10 traces/s sent to collector.
+
+# ── Phase 56: Honey-Fingerprint & Honey-SNI Deception Detection ───────────────
+# Full asset lists live in config/deception.yml (loaded at startup; hot-reloadable).
+# This section controls the master switch only.  All other deception settings
+# must be edited in deception.yml to avoid accidentally committing honey asset
+# details into the primary config file.
+
+deception:
+  enabled: false          # Master switch — mirrors deception.enabled in deception.yml.
+                          # Set true only after reviewing deception.yml and populating
+                          # at least one honey asset list.
+  config_path: "config/deception.yml"  # Path to the full deception asset config.
+                          # Relative to the proxy working directory.
 
 # ── Phase 68: Runtime Performance Options ─────────────────────────────────────
 

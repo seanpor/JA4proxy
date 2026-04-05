@@ -64,9 +64,11 @@ services:
       - mgmt_net
     security_opt:
       - no-new-privileges:true
+      - seccomp:config/seccomp/proxy.json
     read_only: true
     tmpfs:
       - /tmp:noexec,nosuid,nodev,size=100m
+      - /var/run:noexec,nosuid,nodev,size=10m
     ulimits:
       nofile:
         soft: 65536
@@ -106,6 +108,7 @@ services:
     read_only: true
     tmpfs:
       - /tmp:noexec,nosuid,nodev,size=50m
+      - /var/run:noexec,nosuid,nodev,size=10m
     cap_drop:
       - ALL
     deploy:
