@@ -17,7 +17,7 @@ echo
 
 # Check if POC services are already running
 POC_RUNNING=false
-if docker ps --format '{{.Names}}' | grep -q "ja4proxy$"; then
+if docker compose -f docker-compose.poc.yml ps --format '{{.Status}}' | grep -q "Up"; then
     echo -e "${YELLOW}▶ POC services already running, skipping...${NC}"
     POC_RUNNING=true
 else
@@ -32,7 +32,7 @@ fi
 
 # Check if monitoring services are already running
 MONITORING_RUNNING=false
-if docker ps --format '{{.Names}}' | grep -q "ja4proxy-grafana"; then
+if docker compose -f docker/docker-compose.monitoring.yml ps --format '{{.Status}}' | grep -q "Up"; then
     echo -e "${YELLOW}▶ Monitoring services already running, skipping...${NC}"
     MONITORING_RUNNING=true
 else

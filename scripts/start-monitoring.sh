@@ -14,7 +14,7 @@ echo -e "${BLUE}========================================${NC}"
 echo ""
 
 # Check if POC is running
-if ! docker ps | grep -q "ja4proxy"; then
+if ! docker compose -f docker-compose.poc.yml ps --format '{{.Status}}' | grep -q "Up"; then
     echo -e "${YELLOW}⚠ JA4proxy POC not running. Starting...${NC}"
     ./scripts/start-poc.sh
     sleep 10

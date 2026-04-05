@@ -43,12 +43,12 @@ echo ""
 # Check Redis
 echo -e "${CYAN}Redis Data:${NC}"
 echo "------------"
-if docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" ping 2>/dev/null | grep -q PONG; then
+if docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "${REDIS_PW}" ping 2>/dev/null | grep -q PONG; then
     echo -e "  ✓ Redis is running"
-    WHITELIST=$(docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" SCARD ja4:whitelist 2>/dev/null)
-    BLACKLIST=$(docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" SCARD ja4:blacklist 2>/dev/null)
-    BLOCKS=$(docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" KEYS 'ja4:block:*' 2>/dev/null | wc -l)
-    BANS=$(docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" KEYS 'ja4:ban:*' 2>/dev/null | wc -l)
+    WHITELIST=$(docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "${REDIS_PW}" SCARD ja4:whitelist 2>/dev/null)
+    BLACKLIST=$(docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "${REDIS_PW}" SCARD ja4:blacklist 2>/dev/null)
+    BLOCKS=$(docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "${REDIS_PW}" KEYS 'ja4:block:*' 2>/dev/null | wc -l)
+    BANS=$(docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "${REDIS_PW}" KEYS 'ja4:ban:*' 2>/dev/null | wc -l)
     
     echo "  - Whitelist entries: $WHITELIST"
     echo "  - Blacklist entries: $BLACKLIST"

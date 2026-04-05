@@ -19,8 +19,21 @@ set -euo pipefail
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 
 ENV_FILE="${ENV_FILE:-.env}"
-REDIS_CONTAINER="${REDIS_CONTAINER:-ja4proxy-redis}"
 CACHE_DIR="${CACHE_DIR:-/tmp/ja4db_cache}"
+
+# Resolve agent/project for Redis communication
+COMPOSE_PROJECT_NAME=""
+COMPOSE_FILE="docker-compose.poc.yml"
+if [[ -f ".current-agent" ]]; then
+    AGENT_NAME="$(cat .current-agent)"
+    ENV_FILE=".env.${AGENT_NAME}"
+    COMPOSE_PROJECT_NAME="ja4_${AGENT_NAME}"
+fi
+
+COMPOSE_CMD="docker compose -f ${COMPOSE_FILE}"
+if [ -n "$COMPOSE_PROJECT_NAME" ]; then
+    COMPOSE_CMD="${COMPOSE_CMD} --project-name ${COMPOSE_PROJECT_NAME}"
+fi
 
 # Categories from ja4db that we consider malicious (case-insensitive match)
 MALICIOUS_CATEGORIES="malware|c2|trojan|ransomware|rat|botnet|spyware|backdoor|exploit|infostealer|banker|dropper|loader|stealer|beacon|implant|agent"
@@ -39,7 +52,7 @@ load_env() {
 }
 
 redis_cmd() {
-    docker exec "$REDIS_CONTAINER" redis-cli -a "$REDIS_PASS" --no-auth-warning "$@" 2>/dev/null
+    $COMPOSE_CMD exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning "$@" 2>/dev/null
 }
 
 mkdir -p "$CACHE_DIR"

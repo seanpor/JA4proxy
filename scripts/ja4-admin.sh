@@ -12,7 +12,6 @@ set -euo pipefail
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 BLUE='\033[0;34m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 
-REDIS_CONTAINER="${REDIS_CONTAINER:-ja4proxy-redis}"
 METRICS_URL="${METRICS_URL:-http://localhost:9090/metrics}"
 ENV_FILE="${ENV_FILE:-.env}"
 
@@ -20,11 +19,15 @@ ENV_FILE="${ENV_FILE:-.env}"
 # Resolve which agent to target using this priority order:
 #   1. Explicit --agent <name> flag (must be first two args)
 #   2. .current-agent file (written by: make agent-up NAME=<agent>)
-#   3. Default single-instance mode (uses .env, ja4proxy-redis, localhost:9090)
+#   3. Default single-instance mode (uses .env)
 #
 # Example usage:
 #   ./scripts/ja4-admin.sh status                  # uses .current-agent or default
 #   ./scripts/ja4-admin.sh --agent claude status   # explicit override
+
+COMPOSE_PROJECT_NAME=""
+COMPOSE_FILE="docker-compose.poc.yml"
+
 if [[ "${1:-}" == "--agent" ]]; then
     AGENT_NAME="${2:?--agent requires a name (gemini|claude|ollama|mistral)}"
     shift 2
@@ -32,16 +35,22 @@ if [[ "${1:-}" == "--agent" ]]; then
     [ -f "$ENV_FILE" ] || { echo -e "${RED}✗ No $ENV_FILE found — run: ./scripts/agent-env.sh ${AGENT_NAME}${NC}" >&2; exit 1; }
     AGENT_BIND_IP=$(grep '^AGENT_BIND_IP=' "$ENV_FILE" | cut -d= -f2)
     [ -n "$AGENT_BIND_IP" ] || { echo -e "${RED}✗ AGENT_BIND_IP not set in $ENV_FILE${NC}" >&2; exit 1; }
-    REDIS_CONTAINER="ja4_${AGENT_NAME}-redis-1"
+    COMPOSE_PROJECT_NAME="ja4_${AGENT_NAME}"
     METRICS_URL="http://${AGENT_BIND_IP}:9090/metrics"
 elif [[ -f ".current-agent" ]]; then
     AGENT_NAME="$(cat .current-agent)"
     ENV_FILE=".env.${AGENT_NAME}"
     if [[ -f "$ENV_FILE" ]]; then
         AGENT_BIND_IP=$(grep '^AGENT_BIND_IP=' "$ENV_FILE" | cut -d= -f2)
-        REDIS_CONTAINER="ja4_${AGENT_NAME}-redis-1"
+        COMPOSE_PROJECT_NAME="ja4_${AGENT_NAME}"
         METRICS_URL="http://${AGENT_BIND_IP}:9090/metrics"
     fi
+fi
+
+# If no project name from agent, let docker compose decide (usually folder name)
+COMPOSE_CMD="docker compose -f ${COMPOSE_FILE}"
+if [ -n "$COMPOSE_PROJECT_NAME" ]; then
+    COMPOSE_CMD="${COMPOSE_CMD} --project-name ${COMPOSE_PROJECT_NAME}"
 fi
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -54,7 +63,7 @@ load_redis_pass() {
 }
 
 redis_cmd() {
-    docker exec "$REDIS_CONTAINER" redis-cli -a "$REDIS_PASS" --no-auth-warning "$@" 2>/dev/null
+    $COMPOSE_CMD exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning "$@" 2>/dev/null
 }
 
 redis_count() {

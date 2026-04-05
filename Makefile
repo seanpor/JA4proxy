@@ -534,7 +534,7 @@ health-check:
 	@echo "Running health checks..."
 	@curl -sf http://localhost:9090/metrics > /dev/null && echo "✓ Proxy metrics OK" || echo "✗ Proxy metrics failed"
 	@curl -sk https://localhost:8443/api/health > /dev/null && echo "✓ Backend OK" || echo "✗ Backend failed"
-	@docker exec ja4proxy-redis redis-cli -a $${REDIS_PASSWORD:-changeme} ping > /dev/null 2>&1 && echo "✓ Redis OK" || echo "✗ Redis failed"
+	@docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a $${REDIS_PASSWORD:-changeme} ping > /dev/null 2>&1 && echo "✓ Redis OK" || echo "✗ Redis failed"
 
 # View logs
 logs:
@@ -546,7 +546,7 @@ flush-redis:
 	@echo "Flushing Redis security state..."
 	@REDIS_PASS=$$(grep '^REDIS_PASSWORD=' .env 2>/dev/null | cut -d= -f2); \
 	if [ -z "$$REDIS_PASS" ]; then echo "✗ No REDIS_PASSWORD in .env"; exit 1; fi; \
-	COUNT=$$(docker exec ja4proxy-redis redis-cli -a "$$REDIS_PASS" --no-auth-warning \
+	COUNT=$$(docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "$$REDIS_PASS" --no-auth-warning \
 		EVAL "local n=0; \
 		      for _,p in ipairs({'rate:*','banned:*','blocked:*','suspicious:*','enforcement:*','audit:*','repeat_block:*'}) do \
 		        for _,k in ipairs(redis.call('keys',p)) do redis.call('del',k); n=n+1 end \
