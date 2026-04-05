@@ -12,7 +12,7 @@
 {% set is_ja4 = is_ja4 | default(True) %}
 {% set delete_url_prefix = delete_url_prefix | default("/api/v1/lists") %}
 
-<div id="{{ list_name }}-table">
+<div class="list-table-content">
 
   {% if entries %}
   <div class="overflow-x-auto">
