@@ -1,0 +1,64 @@
+%% brochure.tex — JA4proxy Product Overview & Buying Guide
+%% tufte-handout, A4, professional brochure/product brief
+%% Compile: pdflatex -interaction=nonstopmode brochure.tex
+
+\documentclass[a4paper, justified, notitlepage]{tufte-handout}
+
+\geometry{
+  a4paper,
+  left=24.8mm,
+  top=27.4mm,
+  headsep=2\baselineskip,
+  textwidth=107mm,
+  marginparsep=8mm,
+  marginparwidth=49.4mm,
+  textheight=49\baselineskip,
+  headheight=\baselineskip
+}
+
+\usepackage{../shared/ja4proxy-style}
+\usepackage{enumitem}
+\usepackage{multicol}
+\usepackage{afterpage}
+\usepackage{parskip}
+
+\setlist[itemize]{leftmargin=1.2em, itemsep=2pt, parsep=0pt}
+\setlist[enumerate]{leftmargin=1.4em, itemsep=2pt, parsep=0pt}
+
+%% PDF metadata
+\hypersetup{
+  pdftitle={JA4proxy — Product Overview and Buying Guide},
+  pdfsubject={Enterprise TLS Security Proxy},
+}
+
+%% ── Cover page ──────────────────────────────────────────────────────────────
+\def\covertype{Product Overview \& Buying Guide}
+\def\coverdescription{For Security Buyers and Technical Evaluators}
+\def\coveraccentcolor{ja4cyan}
+
+\begin{document}
+
+\begin{titlepage}
+  \input{../shared/artwork/cover-common.tex}
+\end{titlepage}
+
+\newpage
+
+%% ── Contents ────────────────────────────────────────────────────────────────
+{
+  \hypersetup{linkcolor=black}
+  \tableofcontents
+}
+
+\newpage
+
+%% ── Body ────────────────────────────────────────────────────────────────────
+\input{brochure-body.tex}
+
+%% ── Back cover ──────────────────────────────────────────────────────────────
+\clearpage
+\begin{titlepage}
+  \input{../shared/artwork/cover-back.tex}
+\end{titlepage}
+
+\end{document}

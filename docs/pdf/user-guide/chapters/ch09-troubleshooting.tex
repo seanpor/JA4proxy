@@ -1,0 +1,283 @@
+%% ch09-troubleshooting.tex — JA4proxy Operator's User Guide
+%% Chapter 9: Troubleshooting
+
+\chapter{Troubleshooting}
+\label{ch:troubleshooting}
+\index{troubleshooting}
+
+\newthought{Most \ja\ problems fall into one of five categories:}
+containers that will not start, traffic not being blocked when it should be,
+traffic being blocked when it should not be, performance problems, and
+connectivity issues between components. This chapter covers all five.
+
+Start with \code{docker compose ps} and \code{docker compose logs} for any
+problem — most issues produce clear error messages in the container logs.
+
+\section{Quick Diagnostic Commands}
+\index{diagnostics}
+
+These commands give you a fast overview of what is happening:
+
+\begin{bashcode}
+# Container status and health
+docker compose ps
+
+# All container logs, last 50 lines each
+docker compose logs --tail=50
+
+# Proxy-specific logs, live
+docker compose logs -f ja4proxy
+
+# Redis connectivity test
+docker compose exec redis redis-cli PING
+
+# Proxy health endpoint
+curl -s http://localhost:8080/health | python3 -m json.tool
+
+# HAProxy stats
+curl -s http://localhost:8404/stats
+
+# Active ban count
+docker compose exec redis redis-cli --scan --pattern "ban:*" | wc -l
+
+# Current dial setting
+docker compose exec redis redis-cli GET "config:dial"
+\end{bashcode}
+
+\section{Symptom Lookup Table}
+\index{troubleshooting!symptom table}
+
+\subsection{Container Will Not Start}
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{lXX}
+    \toprule
+    \textbf{Symptom} & \textbf{Likely cause} & \textbf{Fix} \\
+    \midrule
+    \code{Error: port 443 in use} & Another process is on port 443 & Stop the conflicting
+      service or change the port mapping in \code{docker-compose.yml} \\
+    \midrule
+    \code{redis: connection refused} & Redis did not start before the proxy & Wait 10s
+      and retry; Redis has a health check dependency. Run \code{docker compose restart ja4proxy} \\
+    \midrule
+    \code{No such file: proxy.yml} & Config file missing from expected path & Ensure
+      \code{config/proxy.yml} exists. It is not auto-created; restore from \code{config/proxy.yml.example} \\
+    \midrule
+    \code{YAML parse error} & Syntax error in \code{config/proxy.yml} & Validate with
+      \code{python3 -c "import yaml; yaml.safe\_load(open('config/proxy.yml'))"} \\
+    \midrule
+    Build fails at pip install & Network issue or PyPI unavailable & Try
+      \code{docker compose build --no-cache ja4proxy} with a working network connection \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Container startup failures}
+\end{table}
+
+\subsection{Proxy Running but Not Blocking}
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{lXX}
+    \toprule
+    \textbf{Symptom} & \textbf{Likely cause} & \textbf{Fix} \\
+    \midrule
+    All traffic shows ALLOWED & Dial is 0 (monitor mode) & This is correct behaviour.
+      Raise the dial in \code{config/proxy.yml} when ready \\
+    \midrule
+    Known-bad fingerprint not blocked & JA4 blacklist bypass disabled in config & Check
+      \configkey{security\_policy.ja4\_blacklist\_bypass.enabled} \\
+    \midrule
+    Blacklisted fingerprint not blocked & Fingerprint not in Redis SET & After config
+      reload, verify: \code{redis-cli SISMEMBER ja4:blacklist "fingerprint"} \\
+    \midrule
+    Country block not working & GeoIP database missing or stale & Run
+      \code{make update-geoip} and reload config \\
+    \midrule
+    High-score traffic not blocked & Dial too low for score & Check the score in
+      logs and compare to the block threshold at your current dial setting \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Traffic not being blocked as expected}
+\end{table}
+
+\subsection{Legitimate Traffic Being Blocked}
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{lXX}
+    \toprule
+    \textbf{Symptom} & \textbf{Likely cause} & \textbf{Fix} \\
+    \midrule
+    All browser traffic blocked & ALPN bypass disabled & Set
+      \configkey{security\_policy.alpn\_browser\_bypass.enabled: true} and reload \\
+    \midrule
+    Specific legitimate tool blocked & Tool fingerprint blacklisted & Move fingerprint
+      from blacklist to whitelist, or remove from blacklist \\
+    \midrule
+    API client rate-limited & Rate limit too aggressive for API use case & Add
+      client fingerprint to whitelist or increase rate limit thresholds \\
+    \midrule
+    Customer reports blocked & IP in wrong GeoIP country & Check the country
+      shown in the log entry; update GeoIP if stale \\
+    \midrule
+    Monitoring tool blocked & Internal IP not in allowlist & Add monitoring agent's
+      IP to \configkey{security.static\_ip\_allowlist} \\
+    \bottomrule
+  \end{tabularx}
+  \caption{False positives — legitimate traffic blocked}
+\end{table}
+
+\subsection{High Latency}
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{lXX}
+    \toprule
+    \textbf{Symptom} & \textbf{Likely cause} & \textbf{Fix} \\
+    \midrule
+    P95 connection latency $>$5ms & Redis TCP round-trips & Switch to Unix domain
+      socket: set \configkey{redis.unix\_socket} in config \\
+    \midrule
+    P99 latency spikes & AbuseIPDB API timeout & AbuseIPDB calls are fire-and-forget;
+      they should not affect latency. Check if the AbuseIPDB timeout is set correctly \\
+    \midrule
+    High latency on first connection from new IP & DNS lookup blocking & DNS enrichment
+      uses async non-blocking lookups; verify \code{dns\_enrichment.async: true} \\
+    \midrule
+    Redis latency $>$2ms & Redis container resource-starved & Check
+      \code{docker stats} for Redis CPU and memory; increase Docker memory limit \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Latency problems}
+\end{table}
+
+\subsection{Redis Connection Errors}
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{lXX}
+    \toprule
+    \textbf{Symptom} & \textbf{Likely cause} & \textbf{Fix} \\
+    \midrule
+    Proxy logs: \code{Redis connection lost} & Redis container restarted & Proxy
+      reconnects automatically; verify Redis is healthy \\
+    \midrule
+    \code{READONLY error} & Redis has entered read-only mode & Check Redis logs;
+      may indicate disk-full condition \\
+    \midrule
+    \code{OOM command not allowed} & Redis hit \code{maxmemory} limit & Increase
+      \code{maxmemory} in \code{config/redis.conf} or clear expired keys \\
+    \midrule
+    All metrics show zero bans & Redis data was flushed & Check if something
+      ran \code{FLUSHALL}; this is the expected state after \code{make stop-clean} \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Redis connectivity and data issues}
+\end{table}
+
+\subsection{Metrics Not Appearing in Grafana}
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{lXX}
+    \toprule
+    \textbf{Symptom} & \textbf{Likely cause} & \textbf{Fix} \\
+    \midrule
+    Grafana shows ``No data'' & Prometheus target is down & Check
+      \url{http://localhost:9091/targets} — the ja4proxy target should be UP \\
+    \midrule
+    Prometheus target UP but no data & No traffic has been processed & Generate
+      test traffic with \code{generate-tls-traffic.sh} \\
+    \midrule
+    Dashboard panels show different time ranges & Panel time range overrides set & Click
+      each panel, edit, and remove time range overrides \\
+    \midrule
+    Loki shows no logs & Promtail not running & Check \code{docker compose ps}
+      for the promtail service \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Observability issues}
+\end{table}
+
+\section{Log Analysis for Common Issues}
+\index{log analysis}
+
+\subsection{Finding the Root Cause of a Block}
+
+When a connection is blocked and you want to know why:
+
+\begin{bashcode}
+# Search for a specific IP in logs
+docker compose logs ja4proxy | grep "192.0.2.1"
+\end{bashcode}
+
+The \code{Reason:} field in the log line identifies the blocking cause:
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{lX}
+    \toprule
+    \textbf{Reason string} & \textbf{Cause} \\
+    \midrule
+    \code{JA4 blacklisted} & Fingerprint is in the blacklist \\
+    \code{Banned for 300s} & IP was auto-banned by rate limiter \\
+    \code{Country blocked: RU} & Country is in the blacklist \\
+    \code{TLS version rejected} & TLS 1.0 or 1.1 \\
+    \code{Spamhaus DROP match} & IP is in Spamhaus DROP/EDROP list \\
+    \code{Score: 85 exceeds threshold} & Risk score above block threshold at current dial \\
+    \code{Rate limited by IP} & by\_ip strategy triggered \\
+    \code{Rate limited by JA4} & by\_ja4 strategy triggered \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Block reason strings and their causes}
+\end{table}
+
+\subsection{Checking Signal Contributions}
+
+At \code{DEBUG} log level, the proxy logs individual signal contributions. Enable
+debug logging temporarily:
+
+\begin{yamlcode}
+logging:
+  level: DEBUG   # Change from INFO to DEBUG
+\end{yamlcode}
+
+Reload config. Debug output includes each signal's score contribution:
+
+\begin{lstlisting}[language=bash, numbers=none]
+DEBUG | scorer | ip=185.220.0.1 | signal=abuseipdb | contrib=+30 | reason=score=75
+DEBUG | scorer | ip=185.220.0.1 | signal=asn | contrib=+20 | reason=datacenter_asn
+DEBUG | scorer | ip=185.220.0.1 | signal=beaconing | contrib=+40 | reason=cv=0.12
+DEBUG | scorer | ip=185.220.0.1 | total_score=90
+\end{lstlisting}
+
+\begin{warningbox}[Debug logging volume]
+At DEBUG level, every connection produces many log lines. On a busy proxy this
+generates significant log volume. Enable debug logging only for targeted
+investigations and disable it immediately after.
+\end{warningbox}
+
+\section{Getting Help}
+\index{support}
+\index{GitHub issues}
+
+\begin{description}[leftmargin=3.5cm]
+  \item[GitHub Issues] \url{https://github.com/seanpor/JA4proxy/issues} — for bug
+    reports and feature requests. Include the output of \code{docker compose logs}
+    and the relevant section of \code{config/proxy.yml} (with any credentials redacted).
+  \item[JA4 Database] \url{https://ja4db.com} — for identifying unknown fingerprints.
+  \item[JA4 Specification] \url{https://github.com/FoxIO-LLC/ja4} — for understanding
+    how fingerprints are computed.
+  \item[Reference Manual] The companion document for architecture detail, signal
+    algorithm specifications, and API documentation.
+\end{description}
+
+When reporting an issue, include:
+\begin{itemize}
+  \item The symptom (what you expected vs what happened)
+  \item The relevant section of \code{config/proxy.yml}
+  \item Output of \code{docker compose ps} and \code{docker compose logs --tail=100}
+  \item The \ja\ version (\code{git rev-parse --short HEAD})
+  \item The host OS and Docker version
+\end{itemize}

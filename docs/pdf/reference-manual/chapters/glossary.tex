@@ -1,0 +1,267 @@
+%% glossary.tex — Alphabetical technical glossary
+%% JA4proxy Technical Reference Manual
+%% Note: \chapter{Glossary} is in the main file. This file provides only the entries.
+
+\index{glossary}
+
+\newthought{Terms are listed alphabetically.} Cross-references point to the chapter or
+section where each concept is covered in detail.
+
+\begin{description}[leftmargin=0pt, style=nextline, itemsep=8pt]
+
+  \item[Action decider\index{action decider}]
+  The final pipeline layer (Layer 14) that maps a computed risk score and the current
+  dial setting to one of the six actions: allow, flag, rate\_limit, tarpit, block, or
+  ban. The action decider applies the operator's dial policy to the objective score
+  produced by the risk scorer.
+  See Chapter~\ref{ch:pipeline}, Section on the Action Decider.
+
+  \item[ALPN (Application-Layer Protocol Negotiation)\index{ALPN}]
+  A TLS extension (extension type 0x0010) in the ClientHello that lists the
+  application-layer protocols the client supports, in preference order. The most common
+  values for HTTPS are \code{h2} (HTTP/2) and \code{h1} (HTTP/1.1). \ja\ uses ALPN
+  to identify browser traffic — real browsers always negotiate h2 or h1.
+  See Chapter~\ref{ch:pipeline}, Layer 1.
+
+  \item[ASN (Autonomous System Number)\index{ASN}]
+  A globally unique number assigned to a network operator (ISP, cloud provider,
+  university, etc.) by a Regional Internet Registry (RIR). IP prefixes are announced
+  under an ASN in the global BGP routing table. \ja\ uses the MaxMind GeoLite2 ASN
+  database to map client IPs to their originating ASN and organisation name.
+  See Chapter~\ref{ch:signals}, Signal 4.
+
+  \item[AbuseIPDB\index{AbuseIPDB}]
+  A community-maintained reputation database of IP addresses reported for malicious
+  activity (scanning, brute-force, spam, C2 traffic). Each IP receives a confidence
+  score 0–100. \ja\ caches AbuseIPDB responses in Redis and uses the score as a
+  weighted signal. Scores below 50 are suppressed to avoid false positives from
+  shared infrastructure.
+  See Chapter~\ref{ch:signals}, Signal 7.
+
+  \item[Attacker attribution\index{attacker attribution}]
+  Pipeline Layer 11. The process of correlating JA4, JA4X, and JA4T fingerprints
+  across multiple source IPs to identify coordinated campaigns, botnet activations,
+  and IP-rotation evasion attempts. Attribution findings are written by the analytics
+  node and read back by the pipeline.
+  See Chapter~\ref{ch:pipeline}, Section on Layer 11.
+
+  \item[Asymmetry principle\index{asymmetry principle}]
+  The core design principle of \ja: the cost of a false positive (real user blocked)
+  is higher than the cost of a false negative (bad bot allowed). This principle
+  governs all threshold defaults, caching TTLs, and fallback behaviours. When in
+  doubt, fail open.
+  See Chapter~\ref{ch:architecture}, Section on Design Principles.
+
+  \item[Ban TTL\index{ban TTL}]
+  The time-to-live of an IP ban entry in Redis (\code{ban:\{ip\}}). Initial TTL is
+  configurable (default 300 seconds); it escalates by doubling on each re-ban up
+  to a maximum of 604800 seconds (7 days). After the TTL expires, the ban entry is
+  automatically removed by Redis and the IP is re-evaluated on next connection.
+  See Chapter~\ref{ch:pipeline}, Section on Blocking Escalation.
+
+  \item[Beaconing\index{beaconing}]
+  A network traffic pattern characterised by regular, periodic connections with low
+  variance in inter-arrival times (IAT). Beaconing is characteristic of C2 (command
+  and control) implants and automated scheduled tasks, as opposed to human browsing
+  which has highly variable timing. Detected using the coefficient of variation of
+  IAT.
+  See Chapter~\ref{ch:signals}, Signal 6.
+
+  \item[Bloom filter\index{Bloom filter}]
+  A probabilistic data structure that supports membership queries with a controlled
+  false positive rate and no false negatives. \ja\ uses Redis Bloom filters (via
+  RedisBloom module) for enrichment deduplication — to avoid re-querying AbuseIPDB
+  or RDAP for IPs that have already been processed. If RedisBloom is unavailable,
+  a Redis SET with a 24h TTL is used as fallback.
+  See Chapter~\ref{ch:redis}.
+
+  \item[Bypass condition\index{bypass condition}]
+  A fast-path rule that short-circuits the pipeline immediately when a specific
+  condition is met, without running the signal collection or scoring layers.
+  \ja\ has eight bypass conditions, each independently configurable.
+  See Chapter~\ref{ch:pipeline}, Section on the Fast-Path Bypass System.
+
+  \item[CIDR (Classless Inter-Domain Routing)\index{CIDR}]
+  IP prefix notation combining a base address with a prefix length (e.g.\
+  \code{185.220.96.0/21}). Used in \ja\ for subnet blocking, trusted upstream CIDR
+  verification, and block expansion. CIDR matching is always performed in-process
+  using a trie data structure — never via Redis queries.
+  See Chapter~\ref{ch:redis}.
+
+  \item[ClientHello\index{ClientHello}]
+  The first message sent by a TLS client in a TLS handshake. It is transmitted in
+  plaintext (TLS record type 0x16, content type 0x01) before any encryption is
+  established. It contains the TLS version, cipher suite list, extensions (including
+  SNI, ALPN, supported groups), and other parameters. \ja\ reads and parses the
+  ClientHello without participating in the TLS handshake.
+  See Chapter~\ref{ch:architecture}, Section on Data Flow.
+
+  \item[Cold cache\index{cold cache}]
+  The state of the local in-process LRU cache immediately after startup, or for a
+  newly seen IP address. Cold cache state means there is no locally cached decision;
+  the pipeline must execute in full (including Redis lookups and signal collection)
+  to produce a decision for this IP.
+  Contrast with \textit{warm cache}.
+
+  \item[Coefficient of variation (CV)\index{coefficient of variation}]
+  A statistical measure of dispersion: CV = standard deviation / mean. Used in the
+  beaconing detector to quantify the regularity of inter-arrival times. Low CV
+  ($<$0.4) indicates regular, beaconing-like timing. High CV ($>$0.8) indicates
+  variable, human-like timing.
+  See Chapter~\ref{ch:signals}, Signal 6.
+
+  \item[Dial\index{dial}]
+  A scalar integer setting (0–100) that controls how aggressively risk scores are
+  translated into blocking actions. At dial=0, the proxy is in monitor-only mode —
+  all connections are allowed regardless of score. At dial=100, configured thresholds
+  apply fully. The dial should be raised incrementally after validating the score
+  distribution.
+  See Chapter~\ref{ch:configuration}, Section on dial.
+
+  \item[DGA (Domain Generation Algorithm)\index{DGA}]
+  An algorithm used by malware to generate pseudo-random domain names for C2
+  communication, making blacklisting difficult. DGA-generated domains typically
+  have high Shannon entropy and use unusual TLD patterns. \ja\ detects DGA-like
+  SNI values as a scored signal.
+  See Chapter~\ref{ch:signals}, Signal 2.
+
+  \item[FCrDNS (Forward-confirmed reverse DNS)\index{FCrDNS}]
+  A DNS validation technique: the PTR record for an IP resolves to a hostname, and
+  that hostname's A/AAAA record resolves back to the original IP. FCrDNS is a
+  lightweight indicator of network infrastructure legitimacy — residential ISPs,
+  major cloud providers, and CDNs maintain consistent FCrDNS.
+  See Chapter~\ref{ch:signals}, Signal 5.
+
+  \item[Fail open\index{fail open}]
+  The principle that in all uncertainty or failure conditions, connections are allowed
+  rather than blocked. An unavailable external service, a Redis error, or an
+  unrecognised fingerprint all result in a zero signal contribution — the score can
+  only decrease when services fail, not increase. The fail-open guarantee is fundamental
+  to \ja's false positive minimisation.
+  See Chapter~\ref{ch:security}, Section on the Fail-Open Guarantee.
+
+  \item[Fast path\index{fast path}]
+  The set of pipeline layers (0–2) that short-circuit immediately without running
+  the signal collection or scoring layers. Fast-path decisions (from local cache,
+  bypass conditions) complete in under 100 microseconds. Connections that bypass
+  the fast path proceed to the signal collection zone.
+  See Chapter~\ref{ch:pipeline}.
+
+  \item[HyperLogLog\index{HyperLogLog}]
+  A probabilistic data structure for counting distinct elements with fixed memory
+  cost (12KB per key in Redis). Used in \ja\ to count unique IPs per /24 (IPv4)
+  or /48 (IPv6) CIDR prefix. Standard error is 0.81\%. Individual elements cannot
+  be removed from a HyperLogLog without clearing the entire structure.
+  See Chapter~\ref{ch:redis}.
+
+  \item[IAT (Inter-arrival time)\index{IAT}]
+  The time elapsed between consecutive connections from the same source (IP + JA4
+  fingerprint pair). IAT analysis is the core of the beaconing detection algorithm.
+  IAT values are stored as timestamps in a Redis Sorted Set with a 30-minute
+  sliding window.
+  See Chapter~\ref{ch:signals}, Signal 6.
+
+  \item[JA4\index{JA4}]
+  A TLS client fingerprinting algorithm that produces a deterministic hash from the
+  TLS ClientHello: cipher suites (sorted), TLS extensions (sorted), ALPN values, and
+  signature algorithms. Produces a string of the form
+  \fingerprint{t13d1516h2\_8daaf6152771\_02713d6af862}. The algorithm was developed
+  by FoxIO and is defined at \url{https://github.com/FoxIO-LLC/ja4}.
+  See Chapter~\ref{ch:signals}.
+
+  \item[JA4X\index{JA4X}]
+  The extended JA4 fingerprint that includes the TLS extension type and ordering
+  information — not just which extensions are present, but in what order the client
+  sent them. JA4X can distinguish clients that share the same JA4 value but have
+  different extension ordering (e.g., a real Chrome vs a JA4-copying tool).
+  See Chapter~\ref{ch:signals}.
+
+  \item[JA4T\index{JA4T}]
+  The TCP transport fingerprint component of the JA4 family. Encodes the TCP window
+  size, TCP options (MSS, window scale, SACK, timestamps), and their ordering.
+  JA4T fingerprints the OS-level TCP/IP stack, making it harder to spoof than JA4
+  (which fingerprints the TLS library layer).
+  See Chapter~\ref{ch:signals}, Signal 3.
+
+  \item[Monitor mode\index{monitor mode}]
+  The operating mode when \code{dial: 0}. In monitor mode, the full pipeline runs
+  (all signals collected, scores computed, actions decided), but every connection is
+  allowed regardless of score. Actions are logged as \badgemonitor. Monitor mode
+  is the default and recommended starting point for all deployments.
+  See Chapter~\ref{ch:pipeline}, Section on the Action Decider.
+
+  \item[mTLS (Mutual TLS)\index{mTLS}]
+  TLS authentication where both the server and the client present certificates.
+  A valid mTLS client certificate is cryptographic proof of identity — the client
+  holds the private key corresponding to a certificate signed by the configured
+  trusted CA (\code{config/trusted\_cas.pem}). By default, mTLS clients bypass
+  the scoring pipeline entirely.
+  See Chapter~\ref{ch:pipeline}, Layer 1c.
+
+  \item[PROXY protocol\index{PROXY protocol}]
+  A binary or text framing format prepended to a TCP stream by a load balancer to
+  convey the original client IP address and port. \ja\ requires HAProxy to use
+  PROXY protocol v2 (binary format) so that the real client IP is available after
+  the TCP connection arrives from HAProxy.
+  See Chapter~\ref{ch:architecture}, Section on Stage 1.
+
+  \item[RDAP (Registration Data Access Protocol)\index{RDAP}]
+  The modern replacement for WHOIS. Provides structured JSON responses about IP
+  address registrations from Regional Internet Registries (RIRs: ARIN, RIPE, APNIC,
+  LACNIC, AFRINIC). \ja\ uses RDAP to identify the organisation owning an IP block
+  and cross-reference it against the known-bad organisations list.
+  See Chapter~\ref{ch:signals}, Signal 8.
+
+  \item[Risk score\index{risk score}]
+  A scalar integer in the range 0–100 produced by the risk scorer (pipeline Layer 13)
+  by confidence-weighted aggregation of all signal contributions. A score of 0 means
+  clean; 100 means maximum risk. The dial setting controls how the score is
+  translated into a blocking action.
+  See Chapter~\ref{ch:pipeline}, Section on the Risk Scorer.
+
+  \item[Signal\index{signal}]
+  A scored observation produced by one of the eight signal checks (pipeline Layers
+  3–10). Each signal returns a \code{RiskSignal(score, weight, reason)} object.
+  Signals run concurrently via \code{asyncio.gather()}. A signal that cannot produce
+  a result (service unavailable) returns score=0 (fail open).
+  See Chapter~\ref{ch:signals}.
+
+  \item[SNI (Server Name Indication)\index{SNI}]
+  A TLS extension (type 0x0000) in the ClientHello that specifies the hostname the
+  client intends to connect to. SNI allows a single server to host multiple TLS
+  virtual hosts on the same IP. \ja\ uses SNI to detect missing SNI, IP-literal SNI,
+  and DGA-like domain names.
+  See Chapter~\ref{ch:signals}, Signal 2.
+
+  \item[Spamhaus DROP/EDROP\index{Spamhaus DROP}\index{Spamhaus EDROP}]
+  The Spamhaus Don't Route Or Peer (DROP) and Extended DROP (EDROP) blocklists
+  contain IP ranges that have been hijacked or directly allocated to cybercriminals.
+  False positive rate is near zero. \ja\ downloads these lists at startup and on a
+  refresh interval, storing them in an in-process trie for O(log n) lookup.
+  See Chapter~\ref{ch:pipeline}, Layer 0e.
+
+  \item[Tarpit\index{tarpit}]
+  An action that accepts a connection but delivers data to the backend at an
+  artificially throttled rate, consuming the attacker's connection slots and CPU
+  while expending minimal resources on the defender's side. Effective against
+  connection-limited scanners and brute-force tools. \ja\ implements tarpit as a
+  rate-controlled TCP relay.
+  See Chapter~\ref{ch:pipeline}, Section on the Six Actions.
+
+  \item[TLS fingerprinting\index{TLS fingerprinting}]
+  The technique of computing a deterministic identifier from the parameters in a
+  TLS ClientHello (cipher suites, extensions, ALPN, etc.) to identify the TLS
+  client implementation. Different applications produce different fingerprints even
+  when connecting to the same server. The JA4 algorithm is the fingerprinting
+  standard used by \ja.
+  See Chapter~\ref{ch:signals}.
+
+  \item[Warm cache\index{warm cache}]
+  The state of the local in-process LRU cache when it contains a recent decision
+  for a given IP address. A warm cache hit means the pipeline can return a decision
+  in under 100 microseconds without any Redis or signal collection overhead. Cache
+  entries have asymmetric TTLs: ALLOW entries are cached for 30 minutes; BLOCK
+  entries for 30 seconds.
+  Contrast with \textit{cold cache}.
+
+\end{description}

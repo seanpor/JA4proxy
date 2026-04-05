@@ -1,0 +1,313 @@
+%% ch10-compliance.tex — Compliance Reference
+%% JA4proxy Technical Reference Manual
+
+\chapter{Compliance Reference}
+\index{compliance}
+\label{ch:compliance}
+
+\begin{chapterquote}
+\ja\ processes IP addresses and TLS fingerprints in the course of its security
+function. This chapter documents what personal data is processed, for how long,
+what controls apply, and how to satisfy data subject requests.
+\end{chapterquote}
+
+\newthought{Compliance obligation depends on deployment context.} \ja\ is a
+security proxy; the operator who deploys it is the data controller. This chapter
+provides the technical facts that a data controller needs to assess their compliance
+obligations. It does not constitute legal advice.
+
+\section{Data Inventory}
+\index{data inventory}
+\index{personal data}
+
+\subsection{What Data is Processed}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Data elements processed by \ja}
+\label{tab:data-inventory}
+\begin{tabular}{@{}lllp{4.5cm}@{}}
+\toprule
+\textbf{Data element} & \textbf{Personal data?} & \textbf{Where stored} & \textbf{Purpose} \\
+\midrule
+Client IP address (IPv4/IPv6) & Yes (see note) & Redis, logs, Prometheus labels & Pipeline decisions; rate limiting; ban enforcement; CIDR density \\
+JA4 fingerprint & No (device, not person) & Redis, logs & TLS client identification \\
+JA4X fingerprint & No & Redis, logs & Extended TLS fingerprint \\
+JA4T fingerprint & No & Redis, logs & TCP stack fingerprint \\
+SNI hostname & No (operator's domain) & Logs & Pipeline signal; not personal data of client \\
+Country code & No (GeoIP; not precise location) & Redis, logs & Country-level access control \\
+ASN organisation name & No & Logs (transient) & Signal computation \\
+AbuseIPDB score & Derivative of IP (see note) & Redis (cache) & Signal computation \\
+RDAP organisation & No & Redis (cache) & Signal computation \\
+PTR/FCrDNS hostname & Potentially (if ISP assigns personal hostnames) & In-process cache (transient) & Signal computation \\
+Beaconing timestamps & Linked to IP (see note) & Redis Sorted Set & Beaconing detection \\
+Connection metadata (port, timing) & Potentially linked to IP & Logs, Prometheus & Operational metrics \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\begin{notebox}[IP Addresses as Personal Data]
+Under GDPR Recital 30, IP addresses are personal data when they can be linked to a
+natural person. Dynamic IP addresses assigned by ISPs to residential customers are
+generally considered personal data in the EU. Static IP addresses assigned to
+organisations are generally not personal data. \ja\ processes both categories and
+cannot distinguish them at the time of processing. Operators must account for this
+in their DPIA.
+\end{notebox}
+
+\subsection{Legal Basis for Processing}
+
+The operator must establish a legal basis for processing IP addresses. Typical bases:
+
+\begin{description}
+  \item[Legitimate interests (Art. 6(1)(f))] Security monitoring and DDoS/bot
+    mitigation is a legitimate interest of the controller. The processing is
+    proportionate because: only metadata is processed (no content decryption),
+    data is retained for the minimum period necessary, and the security purpose
+    is genuine.
+  \item[Legal obligation (Art. 6(1)(c))] If the operator is subject to regulations
+    requiring security controls (PCI-DSS, NIS2), processing for compliance purposes
+    has a legal basis.
+\end{description}
+
+\section{Data Retention}
+\index{data retention}
+\index{GDPR!data retention}
+
+\subsection{Redis Key TTLs}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Redis key TTLs for compliance purposes}
+\label{tab:ttl-compliance}
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Key type} & \textbf{Contains IP?} & \textbf{TTL} & \textbf{Notes} \\
+\midrule
+\code{ban:\{ip\}} & Yes & 300s–604800s & Escalating ban. Max 7 days. \\
+\code{rate:\{strategy\}:\{key\}} & Yes (in key) & 60s window & Sliding window; entries expire with window \\
+\code{beacon:\{ip\}:\{ja4\}} & Yes (in key) & 30min window & Timestamps expire; key persists until last entry expires \\
+\code{conn:\{ip\}} & Yes (in key) & Connection lifetime & Deleted when connection count reaches 0 \\
+\code{visit:\{ip\}} & Yes (in key) & None (persistent) & Manual deletion required for erasure \\
+\code{sess:\{ip\}} & Yes (in key) & None (persistent) & Manual deletion required for erasure \\
+\code{hll:cidr24:\{cidr\}} & Yes (CIDR containing IP) & 30 days & Approximate; cannot extract individual IPs \\
+\code{abuseipdb:\{ip\}} & Yes (in key) & 3600s & Cache; auto-expires \\
+\code{geo:\{ip\}} & Yes (in key) & 86400s & Cache; auto-expires \\
+\code{rdap:\{ip\}} & Yes (in key) & 86400s & Cache; auto-expires \\
+\code{findings:\{ip\}} & Yes (in key) & 300s & Analytics output; auto-expires \\
+\code{management:policy\_audit} & No & None (max 1000 entries) & Audit log; no IP data \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{Log Retention}
+
+Connection logs are emitted to stdout and shipped to Loki (or another log aggregator).
+The retention period is configured in the log aggregation system:
+
+\begin{itemize}
+  \item \textbf{Recommended retention:} 30 days for operational logs
+  \item \textbf{Security incident retention:} 90 days (check applicable law)
+  \item \textbf{Legal hold:} Operator-specific; coordinate with legal team
+\end{itemize}
+
+Log retention is configured in Loki's \code{storage\_config} section. \ja\ does not
+enforce log retention directly — this is the responsibility of the log aggregation
+pipeline.
+
+\subsection{Prometheus Metrics Retention}
+
+Prometheus metrics contain IP addresses only in specific label combinations (notably
+the ban metrics, which label by IP). Default Prometheus retention is 15 days.
+For compliance, either:
+\begin{enumerate}
+  \item Reduce retention to 7 days for metrics containing IP labels
+  \item Configure remote write to a long-term storage system with access controls
+  \item Consider using IP prefix labels (/24 or /48) instead of full IPs for metrics
+\end{enumerate}
+
+\section{Right to Erasure (GDPR Art. 17)}
+\index{GDPR!right to erasure}
+\index{DSAR}
+
+\subsection{Data Subject Access Request (DSAR) Process}
+
+When a data subject submits a right-to-erasure request identifying their IP address,
+the operator must delete all personal data associated with that IP. The following
+Redis keys must be deleted:
+
+\begin{lstlisting}[language=bash]
+# DSAR erasure script for a specific IP address
+# Replace TARGET_IP with the subject's IP address
+
+TARGET_IP="203.0.113.42"
+
+# Delete all Redis keys containing this IP
+redis-cli DEL "ban:${TARGET_IP}"
+redis-cli DEL "conn:${TARGET_IP}"
+redis-cli DEL "visit:${TARGET_IP}"
+redis-cli DEL "sess:${TARGET_IP}"
+redis-cli DEL "abuseipdb:${TARGET_IP}"
+redis-cli DEL "geo:${TARGET_IP}"
+redis-cli DEL "rdap:${TARGET_IP}"
+redis-cli DEL "findings:${TARGET_IP}"
+
+# Delete beaconing keys (need to enumerate JA4 variants)
+redis-cli SCAN 0 MATCH "beacon:${TARGET_IP}:*" COUNT 100
+# Delete each matched key
+
+# Delete rate limit keys
+redis-cli SCAN 0 MATCH "rate:*:${TARGET_IP}*" COUNT 100
+# Delete each matched key
+
+# Logs: use log aggregation platform API to delete/redact log entries
+# HyperLogLog: individual IPs cannot be removed from HLL — document this limitation
+\end{lstlisting}
+
+\begin{warningbox}[HyperLogLog Erasure Limitation]
+HyperLogLog data structures (\code{hll:cidr24:} and \code{hll:cidr48:}) do not
+support removal of individual elements. Once an IP has been added to a HLL, it cannot
+be removed without deleting the entire HLL key (which would also remove all other
+IPs from that CIDR). Document this technical limitation in your DPIA and assess
+whether HLL data constitutes personal data under your jurisdiction (it does not
+reveal the actual IP address, only an approximate count).
+\end{warningbox}
+
+\subsection{IP Anonymisation Option}
+\index{IP anonymisation}
+
+For environments where storing full IP addresses is not appropriate, \ja\ can be
+configured to truncate IP addresses in logs and Redis keys:
+
+\begin{itemize}
+  \item IPv4: truncate last octet (e.g.\ \code{203.0.113.42} → \code{203.0.113.0})
+  \item IPv6: truncate to /48 (e.g.\ \code{2001:db8::1} → \code{2001:db8::})
+\end{itemize}
+
+\begin{dangerbox}[IP Anonymisation Degrades Security Function]
+Truncating IP addresses prevents ban enforcement (you cannot ban \code{203.0.113.0/24}
+without blocking 255 potentially innocent IPs). It also prevents return visitor
+tracking, session resumption ratio, and concurrent connection counting. IP anonymisation
+severely degrades the security function of \ja\ and should only be used when legally
+required, with operator acknowledgement of the security trade-off.
+\end{dangerbox}
+
+\section{PCI-DSS Considerations}
+\index{PCI-DSS}
+
+\ja\ contributes to the following PCI-DSS v4.0 requirements when deployed in front
+of a cardholder data environment:
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{PCI-DSS v4.0 control contributions}
+\label{tab:pci-dss}
+\begin{tabular}{@{}llp{7cm}@{}}
+\toprule
+\textbf{Requirement} & \textbf{Control} & \textbf{\ja\ contribution} \\
+\midrule
+1.2 & Network access controls & Enforces perimeter access control via IP, country, and TLS fingerprint \\
+1.3 & Network access restriction & Blocks traffic from known malicious sources (Spamhaus, blacklisted countries) \\
+6.4 & WAF/bot protection & TLS fingerprint analysis detects automated tools and scanners \\
+6.5 & Change management & Config audit log (\code{management:policy\_audit}) provides change trail \\
+10.2 & Audit logs & Structured JSON logs cover all access events with action, IP, and reason \\
+10.3 & Audit log protection & Logs shipped to Loki; proxy cannot delete its own logs \\
+10.5 & Log retention & Log retention policy (see Section above) \\
+12.10 & Incident response | Security monitoring via anomaly detection and alerting \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\section{SOC 2 Audit Trail Completeness}
+\index{SOC 2}
+\index{audit trail}
+
+For SOC 2 Type II assessments, auditors typically request evidence of:
+
+\begin{description}
+  \item[Access control decisions] Every connection produces a JSON log entry with
+    action, reason, and client identification. The structured log format provides
+    a complete, queryable audit trail.
+  \item[Configuration change management] The \code{management:policy\_audit} Redis
+    list records every policy change with timestamp, operator attribution, and
+    old/new values. This list is limited to 1000 entries — for long-term retention,
+    ship audit log entries to an external store.
+  \item[Security monitoring] Prometheus metrics, Grafana dashboards, and Alertmanager
+    alert rules provide evidence of continuous security monitoring.
+  \item[Incident response] The analytics node's campaign detection and score drift
+    alerting provide evidence of automated anomaly detection.
+\end{description}
+
+\section{GDPR Data Flow Diagram}
+\index{GDPR!data flow}
+
+\begin{figure}[h]
+\begin{fullwidth}
+\begin{tikzpicture}[
+  node distance=1.2cm,
+  box/.style={draw=ja4navy, fill=ja4lightgray, rounded corners=3pt,
+              minimum width=3cm, minimum height=0.8cm,
+              font=\footnotesize\sffamily, text centered},
+  store/.style={draw=ja4purple, fill=ja4purplelight, rounded corners=3pt,
+                minimum width=3cm, minimum height=0.8cm,
+                font=\footnotesize\sffamily, text centered},
+  ext/.style={draw=ja4gray, fill=white, rounded corners=3pt,
+              minimum width=2.8cm, minimum height=0.8cm,
+              font=\footnotesize\sffamily, text centered},
+  arrow/.style={->, >=Stealth, draw=ja4navy},
+  label/.style={font=\tiny\sffamily\itshape, text=ja4gray},
+]
+  \node[box] (client) {Data Subject\\(Client IP)};
+  \node[box, right=1.5cm of client] (proxy) {\ja\ Proxy\\(Controller's system)};
+  \node[store, right=1.5cm of proxy] (redis) {Redis\\(IP + metadata\\TTL varies)};
+  \node[store, above=0.8cm of redis] (loki) {Loki\\(Logs with IP\\30-day retention)};
+  \node[store, below=0.8cm of redis] (prom) {Prometheus\\(Metrics\\15-day default)};
+  \node[ext, right=1.5cm of redis] (abuseipdb) {AbuseIPDB\\(3rd party processor)};
+  \node[ext, above=0.8cm of abuseipdb] (rdap) {RDAP / RIR\\(Public data)};
+  \node[ext, below=0.8cm of abuseipdb] (maxmind) {MaxMind\\(GeoLite2\\local DB)};
+
+  \draw[arrow] (client) -- node[above, label]{IP addr} (proxy);
+  \draw[arrow] (proxy) -- node[above, label]{ban/visit/sess} (redis);
+  \draw[arrow] (proxy) -- node[left, label]{JSON log} (loki);
+  \draw[arrow] (proxy) -- node[left, label]{metrics} (prom);
+  \draw[arrow] (proxy) -- node[above, label]{IP lookup} (abuseipdb);
+  \draw[arrow] (proxy) -- node[above, label]{IP lookup} (rdap);
+  \draw[arrow] (maxmind) -- node[below, label]{country/ASN} (proxy);
+\end{tikzpicture}
+\end{fullwidth}
+\caption{GDPR data flow showing all systems where client IP addresses are processed or stored.}
+\label{fig:gdpr-flow}
+\end{figure}
+
+\subsection{Third-Party Data Processors}
+
+\ja\ sends client IP addresses to the following third-party services. Operators must
+ensure appropriate data processing agreements (DPAs) are in place:
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Third-party data processors}
+\label{tab:processors}
+\begin{tabular}{@{}lllp{4cm}@{}}
+\toprule
+\textbf{Service} & \textbf{Data sent} & \textbf{Retention by processor} & \textbf{DPA required?} \\
+\midrule
+AbuseIPDB & Client IP address & Per AbuseIPDB privacy policy & Yes, if processing EU personal data \\
+RDAP/WHOIS (RIRs) & Client IP address & Public records; varies by RIR & Assess per RIR \\
+MaxMind GeoLite2 & None (local DB) & N/A — local file, no network calls & No \\
+DNS resolver & Reverse DNS query for client IP & Per resolver retention policy & Depends on resolver \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\begin{notebox}[Disabling AbuseIPDB for Privacy Compliance]
+If your jurisdiction or DPA requires that client IP addresses not be sent to third
+parties without consent, set \configkey{abuseipdb.enabled: false}. This removes the
+only signal that requires active transmission of client IPs to an external service.
+RDAP queries can also be disabled (\configkey{rdap.enabled: false}).
+MaxMind GeoLite2 operates entirely on a local database file with no network calls.
+\end{notebox}

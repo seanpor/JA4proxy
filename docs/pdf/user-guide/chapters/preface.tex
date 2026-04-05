@@ -1,0 +1,88 @@
+%% preface.tex — JA4proxy Operator's User Guide
+%% Preface
+
+\chapter*{Preface}
+\addcontentsline{toc}{chapter}{Preface}
+
+\newthought{This guide is for the engineer who has to make JA4proxy work.}
+Not for the evaluator deciding whether to buy it, and not for the developer
+reading the source code. For the security engineer or operations team who has
+been handed a repository URL and told to get it in front of production traffic.
+
+If that is you, this document covers what you need: installing the stack, understanding
+what the proxy is doing and why, configuring it for your environment, keeping it running,
+and responding when something goes wrong.
+
+\section*{How This Guide Is Organised}
+
+The chapters follow the natural sequence of operating \ja\ for the first time and
+then day-to-day:
+
+\begin{description}[leftmargin=3.5cm, style=nextline]
+  \item[Chapter 1 — Introduction] What \ja\ actually does, and the key concepts
+    (TLS fingerprinting, the dial, the pipeline) you need to understand before
+    touching any configuration.
+  \item[Chapter 2 — Installation] Getting the stack running from scratch. Prerequisites,
+    step-by-step setup, and how to verify everything is healthy.
+  \item[Chapter 3 — First Steps] What to look at once the proxy is running. Generating
+    test traffic, reading the logs, and opening the Grafana dashboard for the first time.
+  \item[Chapter 4 — Configuration] The full configuration file walkthrough: the dial,
+    country filtering, fingerprint lists, rate limiting, and bypass conditions.
+  \item[Chapter 5 — Day-to-Day Operations] Starting and stopping, adding entries to
+    lists, managing bans, updating the GeoIP database.
+  \item[Chapter 6 — Monitoring] The Grafana dashboard in detail, key Prometheus
+    metrics, Loki log queries, and pre-configured alerts.
+  \item[Chapter 7 — Incident Response] Detecting an active attack, emergency blocking
+    procedures, investigating suspicious fingerprints, recovering from false positives.
+  \item[Chapter 8 — Scaling] Adding proxy instances, what state is shared, Kubernetes
+    deployment and autoscaling.
+  \item[Chapter 9 — Troubleshooting] Common failure modes and how to fix them.
+    Diagnostic commands and log analysis.
+  \item[Quick Reference] All \code{make} targets, Redis CLI commands, port numbers,
+    and metric names on one page.
+\end{description}
+
+\section*{The Technical Reference Manual}
+
+This guide deliberately stops short of exhaustive technical detail. Signal definitions,
+full metric listings, Redis key schemas, API specifications, and architecture decision
+records live in the companion \emph{Technical Reference Manual}. Where this guide says
+\emph{see the Reference Manual}, that is where to look.
+
+\section*{Status Note}
+
+\ja\ is a proof-of-concept: functional, tested against real traffic profiles, and
+used in pre-production environments. It is \emph{not} yet production-hardened in the
+sense that an audited commercial product would be. Secrets management, TLS mutual
+authentication between internal services, and several other hardening items are
+documented as known gaps in the Reference Manual's \emph{DMZ Deployment Readiness}
+chapter. Read that chapter before placing \ja\ in front of live user traffic.
+
+This guide is honest about those limitations. Where something requires additional
+hardening before production, it says so plainly.
+
+\section*{Conventions}
+
+\begin{description}[leftmargin=3cm, style=nextline]
+  \item[\code{monospace}] Commands, file paths, configuration keys, and code.
+  \item[\configkey{config.key}] Configuration file keys in \code{config/proxy.yml}.
+  \item[\emph{Side notes}] Supplementary information in the margin.\sidenote{Margin
+    notes like this one provide context or cross-references without interrupting
+    the main text.}
+  \item[\emph{Note boxes}] Provide important information you should read.
+  \item[\emph{Warning boxes}] Flag things that can cause operational problems.
+  \item[\emph{Danger boxes}] Describe actions that can cause data loss or outages.
+\end{description}
+
+\vspace{0.5\baselineskip}
+\begin{notebox}[Example note box]
+This is a note box. Use these for important context that does not interrupt the main flow.
+\end{notebox}
+
+\begin{warningbox}[Example warning box]
+This is a warning box. Use these for operational risks.
+\end{warningbox}
+
+\vspace{\baselineskip}
+\noindent\emph{Sean O'Riordain\\
+JA4proxy Project}

@@ -1,0 +1,459 @@
+%% ch06-redis-schema.tex — Redis Schema
+%% JA4proxy Technical Reference Manual
+
+\chapter{Redis Schema}
+\index{Redis!schema}
+\label{ch:redis}
+
+\begin{chapterquote}
+Redis is the shared state layer. Every \ja\ instance reads and writes the same
+Redis instance. All bans, rate windows, beaconing timestamps, JA4 lists, and
+enrichment caches live here. The local in-process cache is a performance overlay —
+Redis is the source of truth.
+\end{chapterquote}
+
+\newthought{Redis data structure selection} is not arbitrary. Each use case has a
+specific rationale — wrong data structures produce incorrect sliding windows,
+lost updates, or excessive memory usage. This chapter documents every key pattern,
+its data structure, and the rationale for that choice.
+
+\section{Data Structure Rationale}
+\index{Redis!data structures}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Redis data structure selection rationale}
+\label{tab:redis-rationale}
+\begin{tabular}{@{}llp{4cm}p{4.5cm}@{}}
+\toprule
+\textbf{Use case} & \textbf{Structure} & \textbf{Why this structure} & \textbf{Alternative considered} \\
+\midrule
+JA4 blacklist/whitelist & SET & O(1) SISMEMBER; small and static & Hash — unnecessary overhead \\
+IP bans & String + TTL & Per-key TTL required; atomic SETEX & SET — no per-key TTL \\
+Sliding window rate limiting & Sorted Set + Lua (EVALSHA) & True sliding window; no boundary errors & INCR + EXPIRE — fixed window only \\
+Beaconing timestamps & Sorted Set (score=timestamp) & ZRANGEBYSCORE for time windows; ordered & List — no time range queries \\
+Session resumption ratio & Hash (total, resumed) & Atomic HINCRBY; two fields one key & Two strings — two round-trips \\
+Concurrent connection count & String (INCR/DECR) & Simple atomic counter & Hash — unnecessary \\
+Return visitor tracking & Hash (first\_seen, total, allowed, blocked) & Multi-field HINCRBY; atomic & Multiple keys — no atomicity \\
+Unique IP per CIDR & HyperLogLog (PFADD/PFCOUNT) & O(1), 12KB/key, 0.81\% error & Hash of IPs — unbounded memory \\
+Enrichment dedup & Bloom filter (BF.ADD/BF.EXISTS) & False positives acceptable; O(1) & SET — exact but uses more memory \\
+CIDR matching & In-process trie (NOT Redis) & No CIDR primitive in Redis; O(log n) trie & Redis SCAN — too slow \\
+GeoIP/ASN lookup & In-process mmap (NOT Redis) & MaxMind designed for mmap & Redis hash — defeats mmap optimisation \\
+Cross-instance events & Stream (XADD/XREADGROUP) & Persistent, replayable; consumer groups & Pub/Sub — ephemeral, no replay \\
+Analytics findings & String + TTL & Read by proxy; simple JSON blob & Stream — adds complexity \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\begin{dangerbox}[Never Use Redis for CIDR Matching]
+CIDR matching in Redis requires iterating all keys matching a pattern or maintaining
+a sorted set of prefixes. Both approaches are O(n) for large blocklists. The in-process
+trie (pytricia for Python, prefix trie for Go) provides O(log n) lookup and is the
+only correct approach. All CIDR matching is done in-process; Redis stores the list
+for sharing across instances and reloading after restart.
+\end{dangerbox}
+
+\section{JA4 Fingerprint Lists}
+\index{Redis!ja4:blacklist}
+\index{Redis!ja4:whitelist}
+
+\subsection{ja4:blacklist}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{ja4:blacklist} key reference}
+\label{tab:redis-ja4-blacklist}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Key} & \code{ja4:blacklist} \\
+\textbf{Type} & SET \\
+\textbf{TTL} & None (persistent) \\
+\textbf{Writer} & Config loader at startup; Management UI \\
+\textbf{Reader} & Pipeline layer 2 (JA4 blacklist bypass) \\
+\textbf{Example members} & \code{t13d190900\_9dc949149365\_97f8aa674fd9} \\
+\textbf{Operations} & \code{SADD}, \code{SREM}, \code{SISMEMBER}, \code{SMEMBERS} \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+At startup, the config loader reads \configkey{security.blacklist} from
+\code{proxy.yml} and executes a Redis pipeline to \code{SADD} all entries to
+\code{ja4:blacklist}. On hot-reload, entries removed from config are \code{SREM}'d.
+An in-process set mirrors the Redis SET for zero-latency lookup on the hot path.
+
+\subsection{ja4:whitelist}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{ja4:whitelist} key reference}
+\label{tab:redis-ja4-whitelist}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Key} & \code{ja4:whitelist} \\
+\textbf{Type} & SET \\
+\textbf{TTL} & None (persistent) \\
+\textbf{Writer} & Config loader at startup; Management UI \\
+\textbf{Reader} & Pipeline layer 1b (JA4 whitelist bypass) \\
+\textbf{Example members} & \code{t13d1516h2\_8daaf6152771\_02713d6af862} \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\section{IP Bans}
+\index{Redis!ban}
+
+\subsection{ban:\{ip\}}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{ban:\{ip\}} key reference}
+\label{tab:redis-ban}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Key pattern} & \code{ban:\{ip\}} where \code{\{ip\}} is the canonical IP string \\
+\textbf{Type} & String \\
+\textbf{Value} & JSON: \code{\{"banned\_at": 1712232896, "reason": "rate\_limit\_by\_ip", "ttl": 300\}} \\
+\textbf{TTL} & \code{ban\_duration} seconds (escalates on re-ban) \\
+\textbf{Writer} & Action decider (ban action) \\
+\textbf{Reader} & Pipeline layer 0 (early ban check); local LRU cache \\
+\textbf{Examples} & \code{ban:185.220.101.1}, \code{ban:2a06:98c1:3120::3} \\
+\textbf{Operations} & \code{SET key value EX ttl}, \code{GET}, \code{DEL} \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+Ban TTL follows an escalation schedule: initial TTL is \configkey{ban\_duration}
+(default 300s); subsequent bans double the TTL up to a maximum of 604800s (7 days).
+The current escalation level is stored in the JSON value's \code{escalation} field.
+
+\section{Rate Limiting Windows}
+\index{Redis!rate limiting}
+\index{sliding window}
+
+\subsection{rate:\{strategy\}:\{key\}}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{rate:\{strategy\}:\{key\}} key reference}
+\label{tab:redis-rate}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Key pattern} & \code{rate:\{strategy\}:\{key\}} \\
+\textbf{Type} & Sorted Set \\
+\textbf{Score} & Unix timestamp in milliseconds \\
+\textbf{Member} & Connection UUID (ensures uniqueness) \\
+\textbf{TTL} & Managed by ZREMRANGEBYSCORE; no explicit key TTL \\
+\textbf{Writer} & Pipeline rate-limiting layer \\
+\textbf{Reader} & Pipeline rate-limiting layer (ZCOUNT) \\
+\textbf{Example keys} & \code{rate:by\_ip:185.220.101.1} \\
+ & \code{rate:by\_ja4:t13d190900\_...} \\
+ & \code{rate:by\_ip\_ja4\_pair:185.220.101.1:t13d190900\_...} \\
+\textbf{Operations} & Lua EVALSHA for atomic ZADD + ZREMRANGEBYSCORE + ZCOUNT \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+The sliding window is implemented as a Lua script that atomically:
+\begin{enumerate}
+  \item Removes entries older than the window size (ZREMRANGEBYSCORE)
+  \item Adds the current timestamp (ZADD)
+  \item Returns the current window count (ZCOUNT)
+\end{enumerate}
+
+Using Lua (EVALSHA) ensures the three operations are atomic from Redis's perspective —
+no race condition is possible between the remove and count steps.
+
+\section{Beaconing Data}
+\index{Redis!beaconing}
+
+\subsection{beacon:\{ip\}:\{ja4\}}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{beacon:\{ip\}:\{ja4\}} key reference}
+\label{tab:redis-beacon}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Key pattern} & \code{beacon:\{ip\}:\{ja4\}} \\
+\textbf{Type} & Sorted Set \\
+\textbf{Score} & Unix timestamp in milliseconds \\
+\textbf{Member} & Unix timestamp (same as score — member must be unique) \\
+\textbf{TTL} & Managed by ZREMRANGEBYSCORE (30-minute sliding window) \\
+\textbf{Writer} & Beaconing detector signal \\
+\textbf{Reader} & Beaconing detector signal (ZRANGEBYSCORE) \\
+\textbf{Example key} & \code{beacon:185.220.101.1:t13d1900...} \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\section{Connection State}
+\index{Redis!connection state}
+
+\subsection{conn:\{ip\}}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{conn:\{ip\}} key reference — concurrent connections}
+\label{tab:redis-conn}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Key pattern} & \code{conn:\{ip\}} \\
+\textbf{Type} & String (integer) \\
+\textbf{TTL} & Managed by INCR/DECR lifecycle; expires after last connection closes \\
+\textbf{Writer} & TCP connection handler (INCR on accept, DECR on close) \\
+\textbf{Reader} & TCP behaviour signal \\
+\textbf{Example} & \code{conn:185.220.101.1} → \code{"42"} \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{visit:\{ip\}}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{visit:\{ip\}} key reference — return visitor tracking}
+\label{tab:redis-visit}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Key pattern} & \code{visit:\{ip\}} \\
+\textbf{Type} & Hash \\
+\textbf{Fields} & \code{first\_seen} (Unix timestamp), \code{total} (integer), \code{allowed} (integer), \code{blocked} (integer) \\
+\textbf{TTL} & None (persistent for now; rotation policy TBD) \\
+\textbf{Writer} & Action decider (HINCRBY on each action) \\
+\textbf{Reader} & TCP behaviour signal \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{sess:\{ip\}}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{sess:\{ip\}} key reference — session resumption ratio}
+\label{tab:redis-sess}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Key pattern} & \code{sess:\{ip\}} \\
+\textbf{Type} & Hash \\
+\textbf{Fields} & \code{total} (integer), \code{resumed} (integer) \\
+\textbf{TTL} & None (persistent) \\
+\textbf{Writer} & TLS handshake analyser \\
+\textbf{Reader} & TCP behaviour signal (ratio = resumed/total) \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\section{HyperLogLog CIDR Density}
+\index{Redis!HyperLogLog}
+\index{HyperLogLog}
+
+\subsection{hll:cidr24:\{cidr\} and hll:cidr48:\{cidr\}}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{HyperLogLog CIDR density keys}
+\label{tab:redis-hll}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Key patterns} & \code{hll:cidr24:\{cidr\}} (IPv4 /24), \code{hll:cidr48:\{cidr\}} (IPv6 /48) \\
+\textbf{Type} & HyperLogLog \\
+\textbf{Operations} & \code{PFADD} (add IP), \code{PFCOUNT} (count unique IPs) \\
+\textbf{Memory} & Fixed 12KB per key, regardless of distinct IP count \\
+\textbf{Error rate} & 0.81\% standard error \\
+\textbf{Example key} & \code{hll:cidr24:185.220.101.0/24} \\
+\textbf{Writer} & IP normalisation layer \\
+\textbf{Reader} & Analytics node (CIDR density signals) \\
+\textbf{TTL} & 30 days \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+HyperLogLog is the only correct data structure for this use case. Tracking all distinct
+IPs in a /24 in a Hash would require up to 256 entries per key; in a /48 it would be
+unbounded. HyperLogLog provides an accurate-enough count with fixed memory cost.
+
+\section{Enrichment Caches}
+\index{Redis!enrichment cache}
+
+\subsection{abuseipdb:\{ip\}}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{abuseipdb:\{ip\}} key reference}
+\label{tab:redis-abuseipdb}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Key pattern} & \code{abuseipdb:\{ip\}} \\
+\textbf{Type} & String \\
+\textbf{Value} & JSON: \code{\{"score": 85, "cached\_at": 1712232896, "categories": [14, 21]\}} \\
+\textbf{TTL} & \configkey{abuseipdb.cache\_ttl} seconds (default 3600) \\
+\textbf{Writer} & AbuseIPDB signal (async, after API response) \\
+\textbf{Reader} & AbuseIPDB signal (cache check) \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{rdap:\{ip\_or\_prefix\}}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{rdap:\{ip\_or\_prefix\}} key reference}
+\label{tab:redis-rdap}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Key pattern} & \code{rdap:\{ip\_or\_prefix\}} \\
+\textbf{Type} & String \\
+\textbf{Value} & JSON: \code{\{"org": "Example ISP", "prefix": "185.220.0.0/16", "country": "DE"\}} \\
+\textbf{TTL} & 86400 seconds (24h) \\
+\textbf{Writer} & RDAP enrichment signal \\
+\textbf{Reader} & RDAP enrichment signal (cache check) \\
+\textbf{Example key} & \code{rdap:185.220.101.1}, \code{rdap:185.220.0.0/16} \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{geo:\{ip\}}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{geo:\{ip\}} key reference — GeoIP country cache}
+\label{tab:redis-geo}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Key pattern} & \code{geo:\{ip\}} \\
+\textbf{Type} & String \\
+\textbf{Value} & ISO 3166-1 alpha-2 country code, e.g.\ \code{"RU"} \\
+\textbf{TTL} & 86400 seconds (24h) \\
+\textbf{Writer} & GeoIP lookup layer \\
+\textbf{Reader} & GeoIP country block layer \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\section{Analytics Infrastructure}
+\index{Redis!streams}
+\index{Redis Streams}
+
+\subsection{events — The Event Stream}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{events} Redis Stream key reference}
+\label{tab:redis-events}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Key} & \code{events} \\
+\textbf{Type} & Stream \\
+\textbf{Writer} & Proxy (XADD, fire-and-forget) \\
+\textbf{Reader} & Analytics node (XREADGROUP with consumer group \code{analytics}) \\
+\textbf{Retention} & MAXLEN 100000 entries (approximate, using \code{XADD MAXLEN \textasciitilde}) \\
+\textbf{Operations} & \code{XADD events * field1 val1 ...} (write), \code{XREADGROUP GROUP analytics consumer1 COUNT 100 STREAMS events >} (read) \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+Every connection that completes the scoring pipeline produces one stream entry.
+Bypassed connections (ALPN, whitelist) also produce a minimal entry for volume tracking.
+The analytics node processes entries in batch using consumer groups, allowing multiple
+analytics workers to process in parallel without duplicate processing.
+
+\begin{notebox}[Why Streams not Pub/Sub]
+Redis Pub/Sub is ephemeral — a message published while a subscriber is down is lost.
+Redis Streams persist messages and allow consumer groups with acknowledgements. After
+a restart or deployment, the analytics node replays missed events from where it left
+off. This is critical for campaign detection, which requires historical context.
+\end{notebox}
+
+\subsection{findings:\{ip\}}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{findings:\{ip\}} key reference — analytics findings feed-back}
+\label{tab:redis-findings}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Key pattern} & \code{findings:\{ip\}} \\
+\textbf{Type} & String \\
+\textbf{Value} & JSON: \code{\{"campaign": "scan-wave-14", "attribution\_score": 80, "coordinated": true\}} \\
+\textbf{TTL} & 300 seconds \\
+\textbf{Writer} & Analytics node \\
+\textbf{Reader} & Pipeline layers 11 and 12 (attacker attribution, behavioural analysis) \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\section{Management and Audit}
+\index{Redis!management}
+\index{policy audit log}
+
+\subsection{management:policy\_audit}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{management:policy\_audit} key reference}
+\label{tab:redis-audit}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Key} & \code{management:policy\_audit} \\
+\textbf{Type} & LIST \\
+\textbf{Value} & JSON entries: \code{\{"timestamp": "...", "changed\_by": "admin@10.0.4.2", "item": "dial", "old\_value": 0, "new\_value": 50\}} \\
+\textbf{TTL} & None (persistent; max 1000 entries via LTRIM) \\
+\textbf{Writer} & Management UI (config changes); config reload process \\
+\textbf{Reader} & Management UI audit log view \\
+\textbf{Operations} & \code{LPUSH} (prepend new entry), \code{LTRIM 0 999} (keep last 1000) \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+Every change to \configkey{security\_policy} is written here. Changes via the
+Management UI are attributed to the operator's session IP. Changes via \code{SIGHUP}
+config reload are attributed to \code{"config\_reload"}. This list provides the
+complete audit trail for compliance purposes.
+
+\section{Key Namespace Summary}
+\index{Redis!key namespace}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Complete Redis key namespace}
+\label{tab:redis-namespace}
+\begin{tabular}{@{}lllp{4.5cm}@{}}
+\toprule
+\textbf{Prefix} & \textbf{Type} & \textbf{TTL} & \textbf{Purpose} \\
+\midrule
+\code{ja4:blacklist} & SET & None & JA4 fingerprint blacklist \\
+\code{ja4:whitelist} & SET & None & JA4 fingerprint whitelist \\
+\code{ban:\{ip\}} & String & 300s–604800s & IP ban with escalating TTL \\
+\code{rate:\{strategy\}:\{key\}} & Sorted Set & Managed & Sliding window rate limits \\
+\code{beacon:\{ip\}:\{ja4\}} & Sorted Set & Managed & Beaconing IAT timestamps \\
+\code{conn:\{ip\}} & String (int) & Managed & Concurrent connection count \\
+\code{visit:\{ip\}} & Hash & None & Return visitor history \\
+\code{sess:\{ip\}} & Hash & None & Session resumption ratio \\
+\code{hll:cidr24:\{cidr\}} & HyperLogLog & 30d & Unique IPs per /24 (IPv4) \\
+\code{hll:cidr48:\{cidr\}} & HyperLogLog & 30d & Unique IPs per /48 (IPv6) \\
+\code{abuseipdb:\{ip\}} & String (JSON) & 3600s & AbuseIPDB score cache \\
+\code{rdap:\{ip\}} & String (JSON) & 86400s & RDAP org lookup cache \\
+\code{geo:\{ip\}} & String & 86400s & GeoIP country cache \\
+\code{events} & Stream & MAXLEN 100k & Proxy event stream \\
+\code{findings:\{ip\}} & String (JSON) & 300s & Analytics findings feed-back \\
+\code{management:policy\_audit} & List & None (max 1000) & Policy change audit log \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}

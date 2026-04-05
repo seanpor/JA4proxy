@@ -1,0 +1,295 @@
+%% ch07-incident-response.tex — JA4proxy Operator's User Guide
+%% Chapter 7: Incident Response
+
+\chapter{Incident Response}
+\label{ch:incident}
+\index{incident response}
+
+\newthought{An active attack looks different depending on its type.}
+A fingerprint-consistent botnet shows up immediately in the Grafana fingerprint
+panel. A slow scan with randomised tool configurations might only show up in the
+analytics node's campaign detection. A sudden volumetric spike shows up in the
+connection rate panel within seconds.
+
+This chapter gives you a structured approach to detecting, responding to, and
+recovering from incidents involving \ja.
+
+\section{Detecting an Active Attack}
+\index{attack detection}
+
+\subsection{What to Look For in Grafana}
+
+Open the \emph{JA4proxy Overview} dashboard and look for these indicators:
+
+\begin{description}[leftmargin=4.5cm]
+  \item[Connection rate spike] A sudden increase in connections/second, especially
+    if the action distribution shows a high BLOCKED fraction. This is a good sign
+    — the proxy is detecting and handling the attack.
+
+  \item[Risk score distribution shift] The histogram shifts right (higher scores).
+    This indicates more traffic scoring as suspicious.
+
+  \item[New dominant fingerprint] A single fingerprint appears at the top of the
+    Top Fingerprints table with high connection counts and high average scores.
+
+  \item[Geographic concentration] The map shows a sudden spike from a region
+    you do not normally serve.
+
+  \item[Beaconing spikes] The analytics node detects a cluster of IPs beaconing
+    at similar intervals — characteristic of C2 callback traffic.
+\end{description}
+
+\subsection{Using the Score Drift Alert}
+
+The \code{ScoreDrift} Alertmanager alert fires when the mean risk score across all
+connections drifts more than 20 points from the 24-hour baseline. This catches
+attacks that do not produce obvious connection rate spikes — such as slow scanners
+or distributed credential-stuffing campaigns spread across many source IPs.
+
+\subsection{Checking the Analytics Node}
+
+The analytics node performs cross-instance aggregation and campaign detection.
+Its findings are pushed to Redis and read by the scorer. Check its logs for
+detected patterns:
+
+\begin{bashcode}
+docker compose logs analytics | grep -E "campaign|slow.scan|score.drift"
+\end{bashcode}
+
+\section{Emergency Blocking Procedures}
+\index{emergency blocking}
+\index{blacklist!emergency}
+
+\subsection{Blocking a JA4 Fingerprint Immediately}
+
+When you identify a malicious fingerprint and need to block it immediately:
+
+\begin{enumerate}
+  \item Add it to the blacklist in \code{config/proxy.yml}:
+\begin{yamlcode}
+security:
+  blacklist:
+    - t13d0912_a1b2c3d4e5f6_987654321abc  # Sliver C2 — 2026-04-04 incident
+\end{yamlcode}
+  \item Reload config:
+\begin{bashcode}
+kill -HUP $(docker compose exec ja4proxy cat /var/run/proxy.pid)
+\end{bashcode}
+  \item Verify in logs that subsequent connections from that fingerprint are blocked:
+\begin{bashcode}
+docker compose logs -f ja4proxy | grep "JA4 blacklisted"
+\end{bashcode}
+\end{enumerate}
+
+\begin{tipbox}[Blocking via Redis directly]
+For even faster response (before you can edit the config file), you can add a
+fingerprint to the Redis blacklist set directly:
+\begin{lstlisting}[language=bash, numbers=none]
+docker compose exec redis redis-cli SADD ja4:blacklist \
+  "t13d0912_a1b2c3d4e5f6_987654321abc"
+\end{lstlisting}
+This takes effect immediately for new connections. Remember to also add it to
+\code{config/proxy.yml} to persist the change through restarts.
+\end{tipbox}
+
+\subsection{Blocking a Specific IP Address}
+
+To immediately ban an IP for the standard 5-minute TTL:
+
+\begin{bashcode}
+docker compose exec redis redis-cli SETEX "ban:185.220.0.1" 300 "manual"
+\end{bashcode}
+
+For a longer ban (e.g., 1 hour = 3600 seconds):
+
+\begin{bashcode}
+docker compose exec redis redis-cli SETEX "ban:185.220.0.1" 3600 "manual-1h"
+\end{bashcode}
+
+\begin{notebox}[Ban TTLs and self-healing]
+There are no permanent bans in \ja. The maximum practical ban duration is
+whatever you set manually in Redis — but be careful with long ban durations.
+Shared IP infrastructure (NAT, corporate proxies, CDN exit nodes) means long
+bans can affect many legitimate users sharing an IP.
+\end{notebox}
+
+\subsection{Blocking a CIDR Range}
+
+\ja\ does not currently support native CIDR banning via Redis (CIDR matching
+is in-process via a trie, not Redis). For immediate CIDR blocking, use HAProxy's
+ACL mechanism or your network firewall.
+
+For example, to block \code{185.220.0.0/24} at the HAProxy level:
+\begin{lstlisting}[language=bash, numbers=none]
+# Add to haproxy.cfg in the frontend section:
+acl blocked_range src 185.220.0.0/24
+tcp-request connection reject if blocked_range
+\end{lstlisting}
+
+Then reload HAProxy:
+\begin{bashcode}
+docker compose kill -s HUP haproxy
+\end{bashcode}
+
+\subsection{Emergency Country Block}
+
+To block an entire country immediately via config:
+
+\begin{yamlcode}
+country_blacklist_enabled: true
+country_blacklist:
+  - RU   # Added 2026-04-04 — active attack campaign
+\end{yamlcode}
+
+Reload config. The block takes effect for new connections immediately.
+
+\section{Investigating a Suspicious Fingerprint}
+\index{fingerprint investigation}
+
+\subsection{Step 1: Identify the Fingerprint}
+
+From Grafana's Top Fingerprints panel, or from logs:
+
+\begin{bashcode}
+docker compose logs ja4proxy | grep "Score: [7-9][0-9]\|Score: 100" | \
+  grep -oP "JA4: \K[^ |]+" | sort | uniq -c | sort -rn | head -20
+\end{bashcode}
+
+\subsection{Step 2: Look It Up}
+
+Search the JA4 community database: \url{https://ja4db.com}
+
+The database contains community-identified labels for thousands of fingerprints,
+including known C2 frameworks, scanners, and security tools.
+
+\subsection{Step 3: Query Redis for Activity}
+
+Check the rate-limit history for this fingerprint:
+
+\begin{bashcode}
+docker compose exec redis redis-cli \
+  ZCARD "rl:ja4:t13d0912_a1b2c3d4e5f6_987654321abc"
+\end{bashcode}
+
+Check beaconing records:
+
+\begin{bashcode}
+docker compose exec redis redis-cli --scan \
+  --pattern "beacon:*:t13d0912_a1b2c3d4e5f6_987654321abc"
+\end{bashcode}
+
+\subsection{Step 4: Assess Risk}
+
+Ask:
+\begin{itemize}
+  \item Is this fingerprint in the JA4 database as a known malicious tool?
+  \item What is its average risk score? (Grafana fingerprint panel)
+  \item How many source IPs are using it? (Redis PFCOUNT on the HLL key)
+  \item Is it beaconing at regular intervals?
+  \item Is it associated with known-bad ASNs or countries?
+\end{itemize}
+
+If the answer to the first question is yes and the fingerprint is not shared with
+any legitimate tool, add it to the blacklist. If you are unsure, add it to the
+watchlist and continue monitoring for 24--48 hours.
+
+\section{Escalating to a Permanent Country Block}
+\index{country blocking}
+
+Country blocking is a significant decision — it will affect all users from that
+country, including legitimate ones. Follow this procedure:
+
+\begin{enumerate}
+  \item Verify the attack is predominantly from the target country (Grafana
+    geographic distribution panel).
+  \item Check how much legitimate traffic you receive from that country
+    (filter Grafana for the country code and check the action distribution).
+  \item If legitimate traffic from that country is $<$1\% of total, the block
+    has acceptable false-positive impact.
+  \item Add to the blacklist in \code{config/proxy.yml}. Note: if
+    \configkey{country\_whitelist\_enabled} is true, add the excluded countries
+    to the whitelist instead.
+  \item Reload config and monitor the block rate for 30 minutes.
+  \item Document the decision: which country, why, what the evidence was, who
+    approved it.
+\end{enumerate}
+
+\section{Recovering From a False Positive}
+\index{false positive!recovery}
+\index{false positive}
+
+A false positive occurs when a legitimate connection is blocked or banned. The
+most common causes are:
+\begin{itemize}
+  \item A legitimate tool uses a fingerprint that also appears in the blacklist
+  \item A legitimate IP has been auto-banned due to high request volume
+  \item A country block is affecting legitimate users
+\end{itemize}
+
+\subsection{Immediate Recovery}
+
+If a user is currently blocked:
+
+\begin{bashcode}
+# Clear their ban immediately
+docker compose exec redis redis-cli DEL "ban:192.0.2.1"
+\end{bashcode}
+
+If a fingerprint was incorrectly blacklisted:
+
+\begin{enumerate}
+  \item Remove the fingerprint from \code{security.blacklist} in
+    \code{config/proxy.yml}
+  \item Reload config
+  \item If the fingerprint was also added to the Redis blacklist directly,
+    remove it there too:
+\begin{bashcode}
+docker compose exec redis redis-cli SREM ja4:blacklist \
+  "t13d1113h2_8daaf6152771_b0da82dd1658"
+\end{bashcode}
+\end{enumerate}
+
+\subsection{Root Cause and Prevention}
+
+After clearing the false positive:
+
+\begin{enumerate}
+  \item Identify what triggered it (which bypass condition or scoring signal)
+  \item If a specific fingerprint was too broadly blacklisted, consider whether
+    the problematic tool shares a fingerprint with legitimate software
+  \item If the rate limit was too aggressive, adjust the threshold in
+    \code{config/proxy.yml} and reload
+  \item Add the legitimate fingerprint to the whitelist to prevent recurrence
+  \item Document the incident and the configuration change
+\end{enumerate}
+
+\section{Post-Incident Review}
+\index{post-incident review}
+
+After resolving any significant incident:
+
+\begin{enumerate}
+  \item Export Grafana panel data for the incident time window (use the panel's
+    share/export function)
+  \item Pull the log segment from Loki covering the incident
+  \item Record:
+    \begin{itemize}
+      \item When it started and when it was resolved
+      \item The attack type (fingerprint-based, volumetric, geographic)
+      \item Which signals detected it first
+      \item What actions were taken
+      \item Whether any false positives occurred
+    \end{itemize}
+  \item Update the fingerprint blacklist, labels, or rate-limit thresholds based
+    on what you learned
+  \item Consider whether a new alert rule would have caught this faster
+\end{enumerate}
+
+\begin{tipbox}[Preserving incident data]
+Grafana's snapshot feature captures the current state of the dashboard for a
+specific time range. Save a snapshot for significant incidents before the data
+rolls out of the retention window:
+\begin{lstlisting}[language=bash, numbers=none]
+Dashboard menu → Share → Snapshot → Publish
+\end{lstlisting}
+\end{tipbox}

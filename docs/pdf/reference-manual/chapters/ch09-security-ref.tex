@@ -1,0 +1,259 @@
+%% ch09-security-ref.tex — Security Reference
+%% JA4proxy Technical Reference Manual
+
+\chapter{Security Reference}
+\index{security}
+\label{ch:security}
+
+\begin{chapterquote}
+\ja\ is a security tool, but it is also a target. This chapter documents the security
+properties of \ja\ itself: what it guarantees, where its boundaries are, what its
+known gaps are at POC stage, and how to harden it for production.
+\end{chapterquote}
+
+\newthought{The security model of \ja} rests on three guarantees: it never decrypts
+traffic (cryptographic transparency), it fails open when uncertain (false positive
+minimisation), and it enforces a configurable hard floor below which browser traffic
+can never be blocked (ALPN structural bypass).
+
+\section{The Bypass System — Security Model}
+\index{bypass!security model}
+\index{bypass!risk analysis}
+
+\subsection{Bypass Architecture}
+
+Bypass conditions are not simply configuration flags — they represent a deliberate
+security policy decision about which classes of traffic should be exempt from scoring.
+Each bypass type has a specific threat model and risk profile when enabled or disabled.
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Bypass security analysis — each bypass, its threat model, and risk of disabling}
+\label{tab:bypass-security}
+\begin{tabular}{@{}lp{3.5cm}p{3.5cm}p{4cm}@{}}
+\toprule
+\textbf{Bypass} & \textbf{Threat addressed} & \textbf{Risk if disabled} & \textbf{Use case for disabling} \\
+\midrule
+\code{alpn\_browser\_bypass} & Not applicable — this is a false-positive protection, not a threat bypass & Browser traffic scored; significant false positive risk at scale & Scoring specific h2 API clients known to not be real browsers \\
+\addlinespace
+\code{ja4\_whitelist\_bypass} & Trusted fingerprints (known-good tools, monitoring) bypass scorer & Whitelisted fingerprints may be blocked if they score above threshold & Testing whether a whitelisted fingerprint would be scored \\
+\addlinespace
+\code{mtls\_bypass} & Cryptographic identity proofing — mTLS client is verified & mTLS clients scored and potentially blocked & Auditing mTLS client behaviour \\
+\addlinespace
+\code{static\_ip\_allowlist} & Trusted internal IPs (monitoring, CI) bypass scorer & Monitoring may be blocked; CI tests fail & Temporary removal during security audit \\
+\addlinespace
+\code{ja4\_blacklist\_bypass} & Known-bad fingerprints (C2, scanners) immediately rejected & Blacklisted fingerprints only blocked if score exceeds dial threshold & Investigating traffic from a specific fingerprint \\
+\addlinespace
+\code{country\_blacklist\_bypass} & Geographically restricted access & Blocked countries go through scorer; may not be blocked at low dial & Investigating specific country traffic \\
+\addlinespace
+\code{spamhaus\_bypass} & Hijacked/criminal IP blocks immediately rejected & Spamhaus matches produce signal(+80) instead of hard block & Investigating Spamhaus-listed range \\
+\addlinespace
+\code{tls\_version\_bypass} & Deprecated TLS versions immediately rejected & Old TLS produces risk signal instead of hard reject & Auditing legacy client population \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{Startup Warnings for High-Risk Bypass Disabling}
+\index{bypass!startup warnings}
+
+When any bypass is disabled that has elevated false positive or false negative risk,
+\ja\ emits a \code{WARN} level log at startup. This ensures the operator cannot
+accidentally disable a bypass in a config file and have the change go unnoticed.
+
+\begin{lstlisting}[language=bash]
+# Example startup warnings for disabled bypasses
+WARN | policy | event=bypass_disabled | bypass=alpn_browser_bypass
+     | effect=browser traffic will be scored; false positive risk elevated
+
+WARN | policy | event=bypass_disabled | bypass=spamhaus_drop_bypass
+     | effect=Spamhaus DROP matches scored as signal(+80) instead of hard block
+\end{lstlisting}
+
+\section{The Asymmetry Principle — In Depth}
+\index{asymmetry principle!in depth}
+\index{false positive!protection}
+
+\subsection{Why Fail Open is Correct}
+
+The asymmetry principle (Chapter~\ref{ch:architecture}) has specific technical
+manifestations throughout the system. Understanding why each mechanism exists as it
+does requires understanding the cost model:
+
+\begin{itemize}
+  \item \textbf{A false negative} (bad bot allowed) produces a malformed request to the
+    backend. The backend logs it. The analytics node may detect the pattern retrospectively.
+    The next connection from the same IP will have a better signal set (AbuseIPDB cache
+    populated, beaconing window extended). Recovery is automatic.
+  \item \textbf{A false positive} (real browser blocked) produces a failed page load for
+    a human user. The user sees a connection error with no explanation. They may never
+    return. There is no automatic recovery — the damage is immediate and irreversible.
+\end{itemize}
+
+\subsection{False Positive Protection Mechanisms}
+
+These mechanisms exist specifically to prevent false positives:
+
+\begin{description}
+  \item[ALPN structural bypass] h2/h1 ALPN connections can never be blocked, regardless
+    of score or dial setting. This is not a configurable threshold — it is structural.
+    Even with dial=100 and all signals firing, a connection presenting h2 ALPN is allowed.
+    Only if the operator explicitly disables this bypass does the structural protection
+    lift.\sidenote{Browser traffic presenting h2 or h1 ALPN could theoretically score
+    highly if, for example, the IP is on Spamhaus DROP and the browser is behind a
+    compromised ISP. The bypass ensures this never causes a false positive.}
+
+  \item[ALLOW cached 30min, BLOCK cached 30s] The local LRU cache intentionally uses
+    asymmetric TTLs. An IP allowed 29 minutes ago gets another 30-minute free pass.
+    An IP blocked 31 seconds ago is re-evaluated against current Redis state.
+
+  \item[Local cache wins on Redis failure] When the local cache says allow and Redis
+    says block (or Redis is unreachable), the local cache wins. Real users in the local
+    cache continue to be served even during Redis outages.
+
+  \item[External service unavailability → zero signal] If AbuseIPDB is down, RDAP is
+    unreachable, or DNS lookups time out, the affected signal contributes 0 to the score.
+    The score can only go down when services fail, not up.
+
+  \item[AbuseIPDB floor at 50] AbuseIPDB scores below 50 are suppressed. This prevents
+    shared infrastructure (NAT gateways, corporate egress, VPNs) from triggering signals
+    just because one user behind that NAT misbehaved.
+
+  \item[RDAP block expansion off by default] Expanding a block to an entire /24 based
+    on one bad IP is a high-impact action. The default is off. Operators must consciously
+    opt in.
+\end{description}
+
+\section{The Fail-Open Guarantee}
+\index{fail open!guarantee}
+
+The fail-open guarantee is: \textbf{in all uncertainty, connections are allowed rather
+than blocked}. This guarantee applies to:
+
+\begin{itemize}
+  \item Redis unreachable: bans not enforced; rate limits not enforced; signals that
+    depend on Redis return 0
+  \item External service (AbuseIPDB, RDAP, DNS) unreachable: affected signals return 0
+  \item Config parse error on reload: previous valid config retained; new config not applied
+  \item Pipeline exception: connection is allowed; exception is logged
+  \item Unknown fingerprint: score 0 (unknown is not inherently suspicious)
+\end{itemize}
+
+\begin{importantbox}[Fail-Open is Not a Bug]
+Operators sometimes ask whether fail-open can be changed to fail-closed. The answer is
+no — this would be an architectural change that fundamentally compromises the false
+positive guarantee. Fail-closed means an outage blocks real users. The system is
+designed to tolerate outages gracefully, not to use them as an excuse to block.
+\end{importantbox}
+
+\section{Hot Config Reload — Security Implications}
+\index{hot reload!security implications}
+
+Hot config reload is a convenience, but it has security implications:
+
+\begin{description}
+  \item[Policy change audit log] Every config reload is written to
+    \code{management:policy\_audit} in Redis with a timestamp and attribution.
+    Operators can audit all policy changes without consulting application logs.
+  \item[Config file integrity] The proxy does not verify the cryptographic integrity
+    of \code{config/proxy.yml} before loading. In production, config files should
+    be managed by a configuration management system (Ansible, Terraform, Kubernetes
+    ConfigMap) with change control and audit trail.
+  \item[SIGHUP race condition] There is a brief window during config reload where
+    new bypass states are being applied and some connections may be evaluated under
+    the old configuration. This window is bounded by the duration of the reload
+    operation (typically $<$50ms). No connections are dropped during reload.
+  \item[Management UI reload] The Management UI triggers reload via a Redis pub/sub
+    message. If Redis is compromised, an attacker could trigger arbitrary config
+    reloads. Redis authentication (\configkey{redis.password}) must be set in
+    production.
+\end{description}
+
+\section{Known Security Gaps (POC Stage)}
+\index{security gaps!POC stage}
+
+The following gaps are documented in \code{docs/DMZ\_DEPLOYMENT\_READINESS.md} and
+\code{docs/security/COMPREHENSIVE\_SECURITY\_AUDIT.md}. They must be addressed
+before production deployment with dial $>$ 0.
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Known security gaps at POC stage}
+\label{tab:security-gaps}
+\begin{tabular}{@{}lllp{5cm}@{}}
+\toprule
+\textbf{Gap} & \textbf{Severity} & \textbf{Phase addressing it} & \textbf{Description} \\
+\midrule
+Secrets in environment variables & Medium & Phase 14 & API keys and Redis password should come from a secret manager (Vault, AWS Secrets Manager), not plain environment variables \\
+Redis without TLS & High & Phase 14 & Redis communications are unencrypted. In production, Redis must use TLS or a Unix domain socket with filesystem permissions \\
+Tarpit self-protection absent & Medium & Phase 14 & The tarpit mechanism has no limit on concurrent tarpitted connections. A sustained flood could exhaust file descriptors \\
+Config file not integrity-checked & Low & Phase 14 & No signature verification on proxy.yml before hot-reload \\
+Management UI authentication & High & Phase 13 & Management UI has no authentication in POC. Must add before production \\
+Redis ACLs not configured & Medium & Phase 34 & All clients share a single Redis connection. Should use ACLs with per-service credentials \\
+No Seccomp/AppArmor profiles & Low & Phase 55 & Container syscall surface not restricted \\
+Supply chain integrity & Low & Phase 35 & No SBOM, no container image signing \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\section{Production Hardening Checklist}
+\index{production hardening!checklist}
+\index{deployment!security hardening}
+
+\begin{enumerate}
+  \item[\(\square\)] \textbf{Secrets manager integration} — API keys and passwords from Vault or cloud secret manager; never in \code{.env} files
+  \item[\(\square\)] \textbf{Redis TLS} — enable TLS for Redis connections or use Unix socket with restricted permissions
+  \item[\(\square\)] \textbf{Redis AUTH} — set strong Redis password; verify it is not default
+  \item[\(\square\)] \textbf{Redis ACLs} — separate credentials for proxy, analytics, and management services
+  \item[\(\square\)] \textbf{Management UI authentication} — complete Phase 13 before deploying Management UI
+  \item[\(\square\)] \textbf{Tarpit resource limits} — configure maximum concurrent tarpitted connections
+  \item[\(\square\)] \textbf{Container non-root user} — verify proxy runs as non-root (uid 1000)
+  \item[\(\square\)] \textbf{Read-only filesystem} — mount application directories read-only where possible
+  \item[\(\square\)] \textbf{Network policy} — enforce network zone isolation (see Chapter~\ref{ch:deployment})
+  \item[\(\square\)] \textbf{HAProxy trusted CIDR} — configure the exact HAProxy IP range in proxy trusted upstream config
+  \item[\(\square\)] \textbf{Grafana admin password changed} — default \code{admin}/\code{admin} must not be used
+  \item[\(\square\)] \textbf{Loki log retention} — configure retention policy (30 days recommended for GDPR compliance)
+  \item[\(\square\)] \textbf{Audit log retention} — verify \code{management:policy\_audit} retention policy
+  \item[\(\square\)] \textbf{Pentest validation} — complete the adversarial test suite (Phase 45) before raising dial
+\end{enumerate}
+
+\section{IP Spoofing Protection}
+\index{IP spoofing}
+\index{PROXY protocol!trust}
+
+Without trusted upstream CIDR verification, an attacker who can reach port 8080
+directly could inject a PROXY protocol header claiming any source IP address —
+effectively bypassing all IP-based checks by claiming to be a whitelisted IP.
+
+\ja\ mitigates this by verifying that the sender of the TCP connection (before reading
+the PROXY protocol header) is within the configured trusted upstream CIDR. Only
+HAProxy addresses should be in this CIDR. If the sender is not in the trusted CIDR,
+the PROXY protocol header is rejected and the real TCP peer IP is used instead.
+
+\begin{warningbox}[Port 8080 Must Not Be Internet-Accessible]
+Port 8080 (the \ja\ listen port) must only be reachable from HAProxy. If an attacker
+can reach port 8080 directly, they can manipulate their apparent source IP. Firewall
+rules must block port 8080 from all sources except the HAProxy IP range.
+\end{warningbox}
+
+\section{JA4 Fingerprint Limitations}
+\index{JA4!limitations}
+\index{fingerprint evasion}
+
+JA4 fingerprinting is powerful but not infallible. Security engineers should
+understand its limitations:
+
+\begin{description}
+  \item[JA4 copying] An attacker can copy a known-good JA4 fingerprint by configuring
+    their TLS library to match the exact cipher suite list and extension ordering.
+    JA4T (TCP fingerprint) makes this harder — it requires matching the OS-level TCP
+    stack, not just the TLS library.
+  \item[JA4 rotation] A sophisticated attacker can rotate through JA4 values to evade
+    per-fingerprint rate limits. The \code{by\_ip\_ja4\_pair} rate limit strategy is
+    designed to catch this pattern.
+  \item[JA4 collisions] Multiple legitimate clients may share the same JA4 value.
+    JA4 blacklisting should only be applied to fingerprints that are \textit{uniquely}
+    associated with malicious tools — not fingerprints shared with any legitimate client
+    software.
+\end{description}

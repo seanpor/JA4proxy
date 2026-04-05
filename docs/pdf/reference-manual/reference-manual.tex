@@ -1,0 +1,121 @@
+%% reference-manual.tex — JA4proxy Technical Reference Manual
+%% tufte-book, A4, comprehensive technical reference
+%% Compile: pdflatex -interaction=nonstopmode reference-manual.tex  (run twice)
+
+\documentclass[a4paper, justified, twoside, notoc]{tufte-book}
+
+\geometry{
+  a4paper,
+  left=24.8mm,
+  top=27.4mm,
+  headsep=2\baselineskip,
+  textwidth=107mm,
+  marginparsep=8mm,
+  marginparwidth=49.4mm,
+  textheight=49\baselineskip,
+  headheight=\baselineskip
+}
+
+\usepackage{../shared/ja4proxy-style}
+\usepackage{enumitem}
+\usepackage{multicol}
+\usepackage{afterpage}
+\usepackage{parskip}
+\usepackage{tocbibind}
+
+\makeindex
+
+\setlist[itemize]{leftmargin=1.2em, itemsep=2pt, parsep=0pt}
+\setlist[enumerate]{leftmargin=1.4em, itemsep=2pt, parsep=0pt}
+
+\hypersetup{
+  pdftitle={JA4proxy Technical Reference Manual},
+  pdfsubject={Enterprise TLS Security Proxy — Technical Reference},
+}
+
+\renewcommand{\maketitlepage}{%
+  \begin{titlepage}
+    \def\covertype{Technical Reference Manual}
+    \def\coverdescription{Complete reference for architects, developers, and security engineers}
+    \def\coveraccentcolor{ja4navy}
+    \input{../shared/artwork/cover-common.tex}
+  \end{titlepage}
+}
+
+\title{\ja\ Technical Reference Manual}
+\author{JA4proxy Project}
+\date{Edition 1.0 \quad \the\year}
+
+\begin{document}
+
+\maketitlepage
+
+%%── Series page ──────────────────────────────────────────────────────────────
+\newpage
+\thispagestyle{empty}
+\vspace*{4cm}
+{\noindent\Large\sffamily\bfseries\color{ja4navy} JA4proxy Documentation Series}
+\vspace{0.5\baselineskip}
+\hrule height 0.6pt
+\vspace{0.8\baselineskip}
+
+{\small\sffamily
+\begin{description}[leftmargin=4cm, style=nextline]
+  \item[Product Overview] Introduction for buyers and evaluators
+  \item[Operator's User Guide] Installation, configuration, and day-to-day operations
+  \item[\textbf{Technical Reference Manual}] \textbf{This document} — complete specification for all components
+\end{description}
+}
+
+\vspace{2\baselineskip}
+{\small\noindent
+\textbf{Status:} POC — Functional and tested. Not yet production-hardened.
+}
+
+\vfill
+{\footnotesize\sffamily\color{ja4gray}
+Source: \url{https://github.com/seanpor/JA4proxy} \quad
+JA4 spec: \url{https://github.com/FoxIO-LLC/ja4}\\[4pt]
+Copyright \textcopyright\ \the\year\ JA4proxy Contributors.
+}
+\newpage
+
+%%── Contents and Lists ────────────────────────────────────────────────────────
+{
+  \hypersetup{linkcolor=black}
+  \setcounter{tocdepth}{2}
+  \tableofcontents
+  \clearpage
+  \listoftables
+  \clearpage
+}
+
+%%── Main matter ───────────────────────────────────────────────────────────────
+\mainmatter
+
+\input{chapters/ch01-architecture.tex}
+\input{chapters/ch02-pipeline.tex}
+\input{chapters/ch03-configuration-ref.tex}
+\input{chapters/ch04-signals.tex}
+\input{chapters/ch05-metrics.tex}
+\input{chapters/ch06-redis-schema.tex}
+\input{chapters/ch07-log-format.tex}
+\input{chapters/ch08-deployment-ref.tex}
+\input{chapters/ch09-security-ref.tex}
+\input{chapters/ch10-compliance.tex}
+
+%%── Back matter ───────────────────────────────────────────────────────────────
+\backmatter
+
+\chapter{Glossary}
+\input{chapters/glossary.tex}
+
+\printindex
+
+%%── Back cover ────────────────────────────────────────────────────────────────
+\clearpage
+\begin{titlepage}
+  \input{../shared/artwork/cover-back.tex}
+\end{titlepage}
+
+\end{document}
