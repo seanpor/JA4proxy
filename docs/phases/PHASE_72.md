@@ -120,12 +120,12 @@ which resolve via `dmz_net`, unchanged from before.
 
 ## Acceptance Criteria
 
-- [ ] `docker-compose.poc.yml` has exactly 4 network definitions, replacing the old 2.
-- [ ] `internal: true` set on `data_net` and `origin_net`.
-- [ ] Proxy can reach `redis` via DNS (`data_net`).
-- [ ] HAProxy CANNOT reach `redis` directly (no shared network).
-- [ ] Backend CANNOT reach `analytics` directly (no shared network).
-- [ ] All 8 services have correct network assignments per the table above.
+- [x] `docker-compose.poc.yml` has exactly 4 network definitions, replacing the old 2.
+- [x] `internal: true` set on `data_net` and `origin_net`.
+- [x] Proxy can reach `redis` via DNS (`data_net`).
+- [x] HAProxy CANNOT reach `redis` directly (no shared network).
+- [x] Backend CANNOT reach `analytics` directly (no shared network).
+- [x] All 8 services have correct network assignments per the table above.
 
 ---
 

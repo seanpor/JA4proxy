@@ -16,10 +16,10 @@ All 2718 tests pass; 21 skips are expected (Go binary / live Redis / PCAP corpus
 
 ## Acceptance Criteria
 
-- [ ] `make lint` exits 0 (black + flake8 + mypy + bandit all pass in Docker)
-- [ ] `make lint-static` exits 0 (mypy, bandit, ruff, pip-audit)
-- [ ] `make test` still passes with 2718 tests, 21 expected skips
-- [ ] No logic changes — diffs are formatting, import removals, and `# type: ignore` annotations only
+- [x] `make lint` exits 0 (black + flake8 + mypy + bandit all pass in Docker)
+- [x] `make lint-static` exits 0 (mypy, bandit, ruff, pip-audit)
+- [x] `make test` still passes with 2718 tests, 21 expected skips
+- [x] No logic changes — diffs are formatting, import removals, and `# type: ignore` annotations only
 
 ---
 

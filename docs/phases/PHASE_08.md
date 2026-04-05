@@ -259,7 +259,7 @@ blocklists:
 - [x] Prometheus gauge:   `ja4proxy_blocklist_last_refresh_success_seconds{feed}` — last successful refresh timestamp
 - [x] Prometheus counter: `ja4proxy_blocklist_download_errors_total{feed}` — failed download attempts
 - [x] Prometheus counter: `ja4proxy_blocklist_matches_total{feed}` — connections matched per feed
-- [ ] Grafana: Blocklist Health panel showing entries and last refresh per feed (Phase 13)
+- [x] Grafana: Blocklist Health panel showing entries and last refresh per feed (Phase 13)
 - [x] `docs/REDIS_SCHEMA.md` updated with `blocklist:cidrs:{list_name}`, `blocklist:etag:{list_name}`, `leader:blocklist_download:{list_name}`
 
 - [x] JSON log: `{"type":"system","level":"INFO","subsystem":"blocklist","event":"feed_refreshed"}` emitted with `feed`, `entries`, and `elapsed_ms` after each successful download

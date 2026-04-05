@@ -175,19 +175,19 @@ Record also: IPC-related latency (bypass path should drop by 0.7–1.5ms if
 
 ## Acceptance Criteria
 
-- [ ] `docs/security/THREAD_SAFETY_AUDIT.md` committed; all mutable shared state
+- [x] `docs/security/THREAD_SAFETY_AUDIT.md` committed; all mutable shared state
       either immutable or guarded by `threading.Lock` / `threading.RLock`
-- [ ] `docker/Dockerfile` uses `python:3.14t-slim`
-- [ ] `docker build` succeeds for the proxy image
-- [ ] `asyncio.Lock` replaced with `threading.Lock` in `local_cache.py` and
+- [x] `docker/Dockerfile` uses `python:3.14t-slim`
+- [x] `docker build` succeeds for the proxy image
+- [x] `asyncio.Lock` replaced with `threading.Lock` in `local_cache.py` and
       `config/loader.py` (or confirmed that the GIL was the only guard and the free-
       threaded build now exposes a race that is fixed)
-- [ ] Full test suite passes: 2687+ tests, 0 failures, deterministic across 5 runs
-- [ ] `make parity-check` passes (pipeline decisions unchanged)
-- [ ] Throughput ceiling ≥ 600 conn/s in benchmark
-- [ ] IPC latency saving documented (bypass path latency delta vs Phase 68)
-- [ ] `reports/benchmark/python314-stage3-freethreaded.md` committed
-- [ ] `CHANGELOG.md` entry for Phase 69
+- [x] Full test suite passes: 2687+ tests, 0 failures, deterministic across 5 runs
+- [x] `make parity-check` passes (pipeline decisions unchanged)
+- [x] Throughput ceiling ≥ 600 conn/s in benchmark
+- [x] IPC latency saving documented (bypass path latency delta vs Phase 68)
+- [x] `reports/benchmark/python314-stage3-freethreaded.md` committed
+- [x] `CHANGELOG.md` entry for Phase 69
 
 ---
 

@@ -226,14 +226,14 @@ reflect the `make agent-up` workflow and the actual (not planned) port table.
 
 ## Acceptance Criteria
 
-- [ ] `scripts/check-isolation.sh` exists and is executable (`chmod +x`).
-- [ ] `./scripts/check-isolation.sh --agent gemini` exits 0 with all PASS.
-- [ ] `ping 8.8.8.8` from Redis container results in 0% success.
-- [ ] `ping 8.8.8.8` from Backend container results in 0% success.
-- [ ] HAProxy container cannot reach Redis container.
-- [ ] Analytics container cannot reach Backend container.
-- [ ] Docker socket is not accessible inside any container.
-- [ ] `docs/architecture/ISOLATION_MODEL.md` updated to reflect implemented state.
+- [x] `scripts/check-isolation.sh` exists and is executable (`chmod +x`).
+- [x] `./scripts/check-isolation.sh --agent gemini` exits 0 with all PASS.
+- [x] `ping 8.8.8.8` from Redis container results in 0% success.
+- [x] `ping 8.8.8.8` from Backend container results in 0% success.
+- [x] HAProxy container cannot reach Redis container.
+- [x] Analytics container cannot reach Backend container.
+- [x] Docker socket is not accessible inside any container.
+- [x] `docs/architecture/ISOLATION_MODEL.md` updated to reflect implemented state.
 
 ---
 

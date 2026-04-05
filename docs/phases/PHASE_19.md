@@ -971,17 +971,17 @@ class TestBackupFalsePositives:
 
 ## 19g. Acceptance Criteria
 
-- [ ] `./run-tests.sh` passes with all backup tests included in the suite
-- [ ] `backups` directory created at `/var/backups/ja4proxy` with manifest JSON sidecars
-- [ ] Latest backup stored in Redis key `backup:latest` as JSON metadata object
-- [ ] Backup job writes to stdout/stderr with structured JSON logs on each run; errors logged at ERROR level
-- [ ] Grafana dashboard panel "Backup Health" shows green/red status based on staleness threshold (4h)
-- [ ] Alertmanager rule `BackupStale` fires after 1h of silence → notification at 24h+
-- [ ] No backup exceeds 60s for medium dataset size or block the proxy
-- [ ] Restore operation accepts manifest validation without modifying production Redis state when `--force` not set
-- [ ] Cleanup job respects both `retention_days` (time-based) and `retain_count` (count-based) retention policy
-- [ ] Backup of 10k keys completes in under 15s; benchmark included in CI
-- [ ] Manifest checksum validates against actual RDB contents when manifest present; mismatch rejected
+- [x] `./run-tests.sh` passes with all backup tests included in the suite
+- [x] `backups` directory created at `/var/backups/ja4proxy` with manifest JSON sidecars
+- [x] Latest backup stored in Redis key `backup:latest` as JSON metadata object
+- [x] Backup job writes to stdout/stderr with structured JSON logs on each run; errors logged at ERROR level
+- [x] Grafana dashboard panel "Backup Health" shows green/red status based on staleness threshold (4h)
+- [x] Alertmanager rule `BackupStale` fires after 1h of silence → notification at 24h+
+- [x] No backup exceeds 60s for medium dataset size or block the proxy
+- [x] Restore operation accepts manifest validation without modifying production Redis state when `--force` not set
+- [x] Cleanup job respects both `retention_days` (time-based) and `retain_count` (count-based) retention policy
+- [x] Backup of 10k keys completes in under 15s; benchmark included in CI
+- [x] Manifest checksum validates against actual RDB contents when manifest present; mismatch rejected
 
 ---
 

@@ -219,15 +219,15 @@ echo "  Stop:   docker compose -f docker-compose.poc.yml --project-name ja4_${AG
 
 ## Acceptance Criteria
 
-- [ ] `scripts/agent-env.sh gemini` creates `.env.gemini` with all required vars.
-- [ ] `scripts/agent-env.sh gemini` (second run, no `-f`) exits non-zero without overwriting.
-- [ ] `docker compose --project-name ja4_gemini --env-file .env.gemini up -d` starts successfully.
-- [ ] Two-Port Policy: only ports 443 and 8080 are publicly intended per agent; 9090 and 8404 exposed as management-only.
-- [ ] Interface Isolation: Bot Alpha (`127.0.0.10`) cannot reach Bot Beta (`127.0.0.11`) via host loopback from within a container.
-- [ ] Zone Isolation: `redis` container has no route to `mockbackend` (Origin Zone).
-- [ ] Egress Hardening: `internal: true` verified on `data_net` and `origin_net`.
-- [ ] Non-Root Execution: All containers run as non-root users (`user: "1000:1000"`).
-- [ ] Log Quotas: Log files are capped and rotated correctly.
+- [x] `scripts/agent-env.sh gemini` creates `.env.gemini` with all required vars.
+- [x] `scripts/agent-env.sh gemini` (second run, no `-f`) exits non-zero without overwriting.
+- [x] `docker compose --project-name ja4_gemini --env-file .env.gemini up -d` starts successfully.
+- [x] Two-Port Policy: only ports 443 and 8080 are publicly intended per agent; 9090 and 8404 exposed as management-only.
+- [x] Interface Isolation: Bot Alpha (`127.0.0.10`) cannot reach Bot Beta (`127.0.0.11`) via host loopback from within a container.
+- [x] Zone Isolation: `redis` container has no route to `mockbackend` (Origin Zone).
+- [x] Egress Hardening: `internal: true` verified on `data_net` and `origin_net`.
+- [x] Non-Root Execution: All containers run as non-root users (`user: "1000:1000"`).
+- [x] Log Quotas: Log files are capped and rotated correctly.
 
 ---
 
