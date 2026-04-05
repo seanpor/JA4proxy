@@ -120,7 +120,16 @@ class TestSignAndVerifyIntegration:
         )
 
     def test_corrupt_sig_byte_by_byte_fails_verification(self, tmp_path):
-        """Corrupting each byte in the .sig file makes verification return False."""
+        """Corrupting decoded signature bytes makes verification return False.
+
+        We corrupt the raw Ed25519 signature bytes (before base64 encoding) so
+        that the base64 in the .sig file is always valid — this isolates the
+        Ed25519 verification failure from base64 decode errors and avoids the
+        edge case where Python's b64decode silently discards a corrupted trailing
+        byte and recovers the original valid signature.
+        """
+        import base64 as _base64
+
         from src.security.integrity_monitor import IntegrityMonitor
 
         privkey, pubkey = _generate_keypair()
@@ -128,22 +137,26 @@ class TestSignAndVerifyIntegration:
         config_file.write_text("dial: 0\n")
         sig_path = tmp_path / "proxy.yml.sig"
         _sign_file(privkey, config_file, sig_path)
-        original_sig = sig_path.read_bytes()
+
+        # Decode the stored signature to get raw 64 bytes
+        original_sig_bytes = _base64.b64decode(sig_path.read_bytes().strip())
+        assert len(original_sig_bytes) == 64
 
         pubkey_path = tmp_path / "pubkey.pem"
         _write_pubkey_raw(pubkey, pubkey_path)
 
         monitor = IntegrityMonitor()
 
-        # Test first, middle, and last byte corruption
-        for byte_pos in [0, len(original_sig) // 2, len(original_sig) - 1]:
-            corrupted_sig = bytearray(original_sig)
-            corrupted_sig[byte_pos] ^= 0xFF
-            sig_path.write_bytes(bytes(corrupted_sig))
+        # Corrupt first, middle, and last byte of the decoded 64-byte signature
+        for byte_pos in [0, len(original_sig_bytes) // 2, len(original_sig_bytes) - 1]:
+            corrupted = bytearray(original_sig_bytes)
+            corrupted[byte_pos] ^= 0xFF
+            # Re-encode so the .sig file has valid base64, wrong signature value
+            sig_path.write_bytes(_base64.b64encode(bytes(corrupted)) + b"\n")
 
             result = monitor.verify_config_signature(str(config_file), str(pubkey_path))
             assert result is False, (
-                f"Expected False when sig byte {byte_pos} is corrupted, got {result}"
+                f"Expected False when decoded sig byte {byte_pos} is corrupted, got {result}"
             )
 
 
