@@ -120,38 +120,38 @@ This phase addresses critical gaps in the Go test suite identified during the Ph
 ## Implementation Steps (TDD)
 
 ### Step 1: Fix Fixture Parity Test
-- [ ] Modify `TestJA4_FixturesParity` to read JSON fixture file
-- [ ] Verify test runs against existing 4 fixtures
-- [ ] Add additional fixtures if needed
+- [x] Modify `TestJA4_FixturesParity` to read JSON fixture file
+- [x] Verify test runs against existing 4 fixtures
+- [x] Add additional fixtures if needed
 
 ### Step 2: Add Real Certificate JA4X Tests
-- [ ] Add test with hardcoded DER certificate
-- [ ] Verify JA4X format correctness
-- [ ] Test sentinel values for missing fields
+- [x] Add test with hardcoded DER certificate
+- [x] Verify JA4X format correctness
+- [x] Test sentinel values for missing fields
 
 ### Step 3: Add Cross-Language JA4X Parity
-- [ ] Add integration test comparing Go vs Python JA4X
-- [ ] Document known-good test certificates
+- [x] Add integration test comparing Go vs Python JA4X
+- [x] Document known-good test certificates
 
 ### Step 4: Extended Fingerprint Family (Optional)
-- [ ] Implement JA4S, JA4L, JA4H in Go
-- [ ] Add unit tests
-- [ ] Add parity tests
+- [x] Implement JA4S, JA4L, JA4H in Go
+- [x] Add unit tests
+- [x] Add parity tests
 
 ### Step 5: Benchmark Coverage (Optional)
-- [ ] Add JA4X benchmark
-- [ ] Add pipeline benchmark
-- [ ] Document baseline numbers
+- [x] Add JA4X benchmark
+- [x] Add pipeline benchmark
+- [x] Document baseline numbers
 
 ---
 
 ## Success Criteria
 
-- [ ] `TestJA4_FixturesParity` runs and passes against all 4 fixtures
-- [ ] Go JA4X tests include real certificate parsing
-- [ ] Cross-language JA4X parity verified
-- [ ] All Go tests pass: `GOROOT=/snap/go/current go test ./...`
-- [ ] Zero skips due to missing fixtures (unless genuinely unavailable)
+- [x] `TestJA4_FixturesParity` runs and passes against all 4 fixtures
+- [x] Go JA4X tests include real certificate parsing
+- [x] Cross-language JA4X parity verified
+- [x] All Go tests pass: `GOROOT=/snap/go/current go test ./...`
+- [x] Zero skips due to missing fixtures (unless genuinely unavailable)
 
 ---
 

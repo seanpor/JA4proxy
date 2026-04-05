@@ -163,16 +163,16 @@ backward-compatible.
 
 ## Acceptance Criteria
 
-- [ ] `./geoip:/app/geoip:ro` volume present in proxy service.
-- [ ] `make agent-up NAME=gemini` starts the stack if `.env.gemini` exists, or generates it first.
-- [ ] `make agent-down NAME=gemini` stops and removes containers for that agent.
-- [ ] `make agent-status` lists running `ja4_*` projects.
-- [ ] `make agent-up NAME=claude` creates `.current-agent` containing `claude`.
-- [ ] `make agent-down` (no NAME) reads `.current-agent` and brings down the correct stack; clears `.current-agent`.
-- [ ] `make agent-down NAME=gemini` brings down gemini regardless of `.current-agent`.
-- [ ] `./scripts/ja4-admin.sh status` after `make agent-up NAME=claude` auto-targets claude via `.current-agent`.
-- [ ] `./scripts/ja4-admin.sh --agent gemini status` overrides `.current-agent` and targets gemini.
-- [ ] `./scripts/ja4-admin.sh status` with no `.current-agent` still works identically to before.
+- [x] `./geoip:/app/geoip:ro` volume present in proxy service.
+- [x] `make agent-up NAME=gemini` starts the stack if `.env.gemini` exists, or generates it first.
+- [x] `make agent-down NAME=gemini` stops and removes containers for that agent.
+- [x] `make agent-status` lists running `ja4_*` projects.
+- [x] `make agent-up NAME=claude` creates `.current-agent` containing `claude`.
+- [x] `make agent-down` (no NAME) reads `.current-agent` and brings down the correct stack; clears `.current-agent`.
+- [x] `make agent-down NAME=gemini` brings down gemini regardless of `.current-agent`.
+- [x] `./scripts/ja4-admin.sh status` after `make agent-up NAME=claude` auto-targets claude via `.current-agent`.
+- [x] `./scripts/ja4-admin.sh --agent gemini status` overrides `.current-agent` and targets gemini.
+- [x] `./scripts/ja4-admin.sh status` with no `.current-agent` still works identically to before.
 
 ---
 

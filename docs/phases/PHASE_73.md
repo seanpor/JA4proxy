@@ -110,18 +110,18 @@ Behaviour is identical to the current single-instance setup. Existing `make star
 
 ## Acceptance Criteria
 
-- [ ] `haproxy` port `8880:80` removed from compose.
-- [ ] `redis` host port `6379` removed from compose.
-- [ ] `backend` host port `8443` removed from compose.
-- [ ] `tarpit` host ports `8888` and `9099` removed from compose.
-- [ ] `haproxy` ingress port bound to `${AGENT_BIND_IP}:443`.
-- [ ] `analytics` port bound to `${AGENT_BIND_IP}:8080`.
-- [ ] `proxy` metrics port bound to `${AGENT_BIND_IP}:9090`.
-- [ ] `proxy` has `cpuset: "${AGENT_CPU_SET:-0-15}"`.
-- [ ] All containers run as non-root users (Dockerfiles set named system users; no `user:` override in compose).
-- [ ] All services have log rotation at 300 MB.
-- [ ] `make start` (no agent env) still works identically to before.
-- [ ] Verify loopback IP binding: `ss -tlnp | grep 127.0.0.10` shows 443 and 8080 when running as gemini agent.
+- [x] `haproxy` port `8880:80` removed from compose.
+- [x] `redis` host port `6379` removed from compose.
+- [x] `backend` host port `8443` removed from compose.
+- [x] `tarpit` host ports `8888` and `9099` removed from compose.
+- [x] `haproxy` ingress port bound to `${AGENT_BIND_IP}:443`.
+- [x] `analytics` port bound to `${AGENT_BIND_IP}:8080`.
+- [x] `proxy` metrics port bound to `${AGENT_BIND_IP}:9090`.
+- [x] `proxy` has `cpuset: "${AGENT_CPU_SET:-0-15}"`.
+- [x] All containers run as non-root users (Dockerfiles set named system users; no `user:` override in compose).
+- [x] All services have log rotation at 300 MB.
+- [x] `make start` (no agent env) still works identically to before.
+- [x] Verify loopback IP binding: `ss -tlnp | grep 127.0.0.10` shows 443 and 8080 when running as gemini agent.
 
 ---
 

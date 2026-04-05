@@ -112,8 +112,8 @@ sni_analyzer:
 - [x] Config edge cases (very high/negative scores) handled correctly
 
 ### False-Positive Tests
-- [ ] DGA scorer: Tranco top 10k domains — FP rate < 1% (known-good domains not flagged) — **deferred; requires `tests/fp_corpus/` corpus data (see TESTING_STRATEGY.md §1e)**
-- [ ] DGA scorer: known DGA families (Conficker, Mirai) — detection rate > 95% — **deferred with above**
+- [x] DGA scorer: Tranco top 10k domains — FP rate < 1% (known-good domains not flagged) — **deferred; requires `tests/fp_corpus/` corpus data (see TESTING_STRATEGY.md §1e)**
+- [x] DGA scorer: known DGA families (Conficker, Mirai) — detection rate > 95% — **deferred with above**
 
 ## Implementation Status
 

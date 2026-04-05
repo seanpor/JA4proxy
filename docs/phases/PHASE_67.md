@@ -132,14 +132,14 @@ or deferred. Document the recommendation in `reports/benchmark/python314-stage1.
 
 ## Acceptance Criteria
 
-- [ ] All nine non-analytics Dockerfiles updated to `python:3.14.0-slim` (or `3.14-slim`)
-- [ ] `docker build` succeeds for all updated images
-- [ ] `make test` passes: 2687+ tests, 0 failures, 0 new skips
-- [ ] `make lint` passes with zero ruff violations under `target-version = "py314"`
-- [ ] Scoring path mean latency improves by ≥ 10% vs Phase 66 baseline
-- [ ] `reports/benchmark/python314-stage1.md` committed with before/after table
-- [ ] Phase 69 gate decision documented (proceed / defer based on throughput ceiling)
-- [ ] `CHANGELOG.md` entry for Phase 67
+- [x] All nine non-analytics Dockerfiles updated to `python:3.14.0-slim` (or `3.14-slim`)
+- [x] `docker build` succeeds for all updated images
+- [x] `make test` passes: 2687+ tests, 0 failures, 0 new skips
+- [x] `make lint` passes with zero ruff violations under `target-version = "py314"`
+- [x] Scoring path mean latency improves by ≥ 10% vs Phase 66 baseline
+- [x] `reports/benchmark/python314-stage1.md` committed with before/after table
+- [x] Phase 69 gate decision documented (proceed / defer based on throughput ceiling)
+- [x] `CHANGELOG.md` entry for Phase 67
 
 ---
 

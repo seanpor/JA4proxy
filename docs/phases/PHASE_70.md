@@ -134,23 +134,23 @@ isolation), keep it as the non-default option with a note explaining when to use
 
 ### Analytics Upgrade (required)
 
-- [ ] `src/analytics/Dockerfile` updated to `python:3.14.0-slim`
-- [ ] Analytics Docker image builds successfully
-- [ ] Analytics tests pass: `python3 -m pytest tests/ -k analytics`
-- [ ] Any deprecated scipy/numpy API calls fixed in `analytics/`
+- [x] `src/analytics/Dockerfile` updated to `python:3.14.0-slim`
+- [x] Analytics Docker image builds successfully
+- [x] Analytics tests pass: `python3 -m pytest tests/ -k analytics`
+- [x] Any deprecated scipy/numpy API calls fixed in `analytics/`
 
 ### Subinterpreter Experiment (optional — only if Phase 69 complete)
 
-- [ ] `src/tls/interpreter_pool.py` implemented with `ThreadPoolExecutor` fallback
-- [ ] `runtime.tls_parser_model` config key added with comment
-- [ ] Benchmark comparison committed to `reports/benchmark/`
-- [ ] Decision documented: keep or remove `interpreter_pool` based on benchmark data
+- [x] `src/tls/interpreter_pool.py` implemented with `ThreadPoolExecutor` fallback
+- [x] `runtime.tls_parser_model` config key added with comment
+- [x] Benchmark comparison committed to `reports/benchmark/`
+- [x] Decision documented: keep or remove `interpreter_pool` based on benchmark data
 
 ### Common
 
-- [ ] Full test suite passes: 2687+ tests, 0 failures
-- [ ] `README.md` states Python ≥ 3.14 requirement (update from any 3.11 reference)
-- [ ] `CHANGELOG.md` entry for Phase 70
+- [x] Full test suite passes: 2687+ tests, 0 failures
+- [x] `README.md` states Python ≥ 3.14 requirement (update from any 3.11 reference)
+- [x] `CHANGELOG.md` entry for Phase 70
 
 ---
 

@@ -162,15 +162,15 @@ speed; measurements should be taken after warm-up.
 
 ## Acceptance Criteria
 
-- [ ] `RiskScorer.score()` inner loop has no `try/except`; uses `dict.get()` instead
-- [ ] `_GREASE_VALUES` is a module-level `frozenset` (not rebuilt per call)
-- [ ] `uvloop` integrated with graceful `ImportError` fallback; logs which loop is active
-- [ ] `runtime.event_loop` config key present in `config/proxy.yml` with comment
-- [ ] Full test suite passes: 2687+ tests, 0 failures
-- [ ] Scoring path improves by ≥ 5% vs Phase 67 baseline (JIT refactor alone)
-- [ ] Throughput improves by ≥ 20% vs Phase 67 baseline (uvloop contribution)
-- [ ] `reports/benchmark/python314-stage2.md` committed with before/after table
-- [ ] `CHANGELOG.md` entry for Phase 68
+- [x] `RiskScorer.score()` inner loop has no `try/except`; uses `dict.get()` instead
+- [x] `_GREASE_VALUES` is a module-level `frozenset` (not rebuilt per call)
+- [x] `uvloop` integrated with graceful `ImportError` fallback; logs which loop is active
+- [x] `runtime.event_loop` config key present in `config/proxy.yml` with comment
+- [x] Full test suite passes: 2687+ tests, 0 failures
+- [x] Scoring path improves by ≥ 5% vs Phase 67 baseline (JIT refactor alone)
+- [x] Throughput improves by ≥ 20% vs Phase 67 baseline (uvloop contribution)
+- [x] `reports/benchmark/python314-stage2.md` committed with before/after table
+- [x] `CHANGELOG.md` entry for Phase 68
 
 ---
 

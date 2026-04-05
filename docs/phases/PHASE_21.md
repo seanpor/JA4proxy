@@ -880,15 +880,15 @@ Follow Conventional Commits. Required prefixes:
 
 **§4 — PR Checklist**
 Every PR must satisfy:
-- [ ] All 1,536+ tests pass (`make test`)
-- [ ] Test-to-code ratio ≥ 1.3× (`make test-ratio`)
-- [ ] No new Prometheus metrics outside the naming convention
+- [x] All 1,536+ tests pass (`make test`)
+- [x] Test-to-code ratio ≥ 1.3× (`make test-ratio`)
+- [x] No new Prometheus metrics outside the naming convention
   (`ja4proxy_{subsystem}_{metric}_{unit}`)
-- [ ] `CHANGELOG.md` updated if this is a phase milestone
-- [ ] `docs/REDIS_SCHEMA.md` updated if any new Redis keys introduced
-- [ ] New signal module: FP corpus test added (`tests/fp_corpus/`)
-- [ ] New external service: chaos test added (`tests/chaos/`)
-- [ ] Config key added: inline YAML comment added to `config/proxy.yml`
+- [x] `CHANGELOG.md` updated if this is a phase milestone
+- [x] `docs/REDIS_SCHEMA.md` updated if any new Redis keys introduced
+- [x] New signal module: FP corpus test added (`tests/fp_corpus/`)
+- [x] New external service: chaos test added (`tests/chaos/`)
+- [x] Config key added: inline YAML comment added to `config/proxy.yml`
 
 **§5 — Adding a New Signal Module**
 
@@ -1076,14 +1076,14 @@ Update `docs/DOCUMENTATION_STANDARDS.md §7` (per-phase documentation gate) to i
 ```markdown
 ### Documentation gate checklist (add to every phase completion review)
 
-- [ ] All documents updated by this phase carry correct `last_reviewed` frontmatter.
-- [ ] New documents have audience stamp (§21b-2 format).
-- [ ] `make lint-docs` passes with zero warnings.
-- [ ] `make link-check` passes with zero broken internal links.
-- [ ] New Redis keys documented in `docs/REDIS_SCHEMA.md`.
-- [ ] New Prometheus metrics in `docs/OBSERVABILITY_STANDARDS.md §1d`.
-- [ ] CHANGELOG.md entry added.
-- [ ] If any ADR was promised and not written, an entry added to `../decisions/INDEX.md`
+- [x] All documents updated by this phase carry correct `last_reviewed` frontmatter.
+- [x] New documents have audience stamp (§21b-2 format).
+- [x] `make lint-docs` passes with zero warnings.
+- [x] `make link-check` passes with zero broken internal links.
+- [x] New Redis keys documented in `docs/REDIS_SCHEMA.md`.
+- [x] New Prometheus metrics in `docs/OBSERVABILITY_STANDARDS.md §1d`.
+- [x] CHANGELOG.md entry added.
+- [x] If any ADR was promised and not written, an entry added to `../decisions/INDEX.md`
   with status "Proposed" and a GitHub issue number.
 ```
 
@@ -1144,82 +1144,82 @@ All of the following must be true before Phase 21 is complete.
 
 ### Critical Fixes (21a)
 
-- [ ] `../runbooks/management_ui.md` has a DEPRECATED header; no active runbook
+- [x] `../runbooks/management_ui.md` has a DEPRECATED header; no active runbook
   index links to it without noting it is deprecated.
-- [ ] `PHASE_15.md` has a `## Current Status` table showing per-subsystem Go
+- [x] `PHASE_15.md` has a `## Current Status` table showing per-subsystem Go
   completion (✅/❌); `CHANGELOG.md` v15.0.0 entry is accurate.
-- [ ] `docs/OBSERVABILITY_STANDARDS.md §4` references all three alert rule files in
+- [x] `docs/OBSERVABILITY_STANDARDS.md §4` references all three alert rule files in
   `monitoring/alertmanager/rules/`.
-- [ ] `docs/TEST_ORGANIZATION.md` no longer contains a hard-coded test count; it
+- [x] `docs/TEST_ORGANIZATION.md` no longer contains a hard-coded test count; it
   contains a `make` command to derive the live count.
-- [ ] `docs/GEMINI.md` either has a clear header explaining its purpose or is removed.
-- [ ] Every PHASE_NNa.md sub-file either has an explicit link from its parent or is
+- [x] `docs/GEMINI.md` either has a clear header explaining its purpose or is removed.
+- [x] Every PHASE_NNa.md sub-file either has an explicit link from its parent or is
   merged/removed.
-- [ ] All five existing ADRs (001, 002, 003, 013, 015) have a `Last reviewed:` line
+- [x] All five existing ADRs (001, 002, 003, 013, 015) have a `Last reviewed:` line
   confirming accuracy post-Phase 15, or a `Superseded-by:` link to a new ADR.
-- [ ] `docs/architecture/system-architecture.md` has a `## Phase 15+ Architecture`
+- [x] `docs/architecture/system-architecture.md` has a `## Phase 15+ Architecture`
   section with a Mermaid diagram showing the Go/Python split-language deployment.
-- [ ] `../developer/MOCK_SERVERS.md` exists and documents every mock in `tests/mocks/`.
+- [x] `../developer/MOCK_SERVERS.md` exists and documents every mock in `tests/mocks/`.
 
 ### Navigation (21b)
 
-- [ ] `README.md` contains a "Start here by role" table with links to six role-specific
+- [x] `README.md` contains a "Start here by role" table with links to six role-specific
   entry points.
-- [ ] Every document in `docs/runbooks/`, `docs/operator/`, `docs/security/`,
+- [x] Every document in `docs/runbooks/`, `docs/operator/`, `docs/security/`,
   `docs/compliance/`, `docs/architecture/`, `docs/developer/` has an audience stamp.
-- [ ] `../INDEX.md` exists, is structured by persona, and links to every active
+- [x] `../INDEX.md` exists, is structured by persona, and links to every active
   document in `docs/`.
-- [ ] `../decisions/INDEX.md` exists and lists all ADRs (existing and planned).
+- [x] `../decisions/INDEX.md` exists and lists all ADRs (existing and planned).
 
 ### ADRs (21c)
 
-- [ ] ADR-004 through ADR-012 exist in `docs/decisions/` and follow the template.
-- [ ] Each ADR is listed in `../decisions/INDEX.md`.
+- [x] ADR-004 through ADR-012 exist in `docs/decisions/` and follow the template.
+- [x] Each ADR is listed in `../decisions/INDEX.md`.
 
 ### Compliance (21d)
 
-- [ ] `docs/compliance/GDPR_COMPLIANCE.md` covers all seven sections defined in 21d-1.
+- [x] `docs/compliance/GDPR_COMPLIANCE.md` covers all seven sections defined in 21d-1.
   Minimum length: 600 words (10 pages of substance, not padding).
-- [ ] `docs/INCIDENT_RESPONSE.md` contains a Breach Notification subsection.
-- [ ] `../compliance/SECURITY_CONTROLS_MAPPING.md` exists and maps JA4proxy controls
+- [x] `docs/INCIDENT_RESPONSE.md` contains a Breach Notification subsection.
+- [x] `../compliance/SECURITY_CONTROLS_MAPPING.md` exists and maps JA4proxy controls
   to at least 10 ISO 27001:2022 Annex A controls.
-- [ ] `docs/security/threat-model.md` has a STRIDE table for the proxy hot path and
+- [x] `docs/security/threat-model.md` has a STRIDE table for the proxy hot path and
   Redis components, a trust boundary section, and a "what this proxy cannot protect
   against" paragraph.
 
 ### Operator Pack (21e)
 
-- [ ] All eight active runbooks have the consistent structure defined in 21e-1.
-- [ ] `docs/INCIDENT_RESPONSE.md` contains an Incident Severity Matrix.
-- [ ] `../operator/CAPACITY_PLANNING.md` exists with Python and Go sizing guidance.
-- [ ] `../operator/TROUBLESHOOTING.md` exists with ≥10 common problems.
+- [x] All eight active runbooks have the consistent structure defined in 21e-1.
+- [x] `docs/INCIDENT_RESPONSE.md` contains an Incident Severity Matrix.
+- [x] `../operator/CAPACITY_PLANNING.md` exists with Python and Go sizing guidance.
+- [x] `../operator/TROUBLESHOOTING.md` exists with ≥10 common problems.
 
 ### Developer Pack (21f)
 
-- [ ] `CONTRIBUTING.md` covers all six sections defined in 21f-1.
-- [ ] `../developer/SIGNAL_DEVELOPMENT.md` exists.
-- [ ] `../developer/GO_PORT_GUIDE.md` exists.
-- [ ] `../developer/MOCK_SERVERS.md` exists and documents every file in `tests/mocks/`.
+- [x] `CONTRIBUTING.md` covers all six sections defined in 21f-1.
+- [x] `../developer/SIGNAL_DEVELOPMENT.md` exists.
+- [x] `../developer/GO_PORT_GUIDE.md` exists.
+- [x] `../developer/MOCK_SERVERS.md` exists and documents every file in `tests/mocks/`.
 
 ### Consolidation (21g)
 
-- [ ] `docs/reports/ENTERPRISE_READINESS_REPORT.md` redirects to
+- [x] `docs/reports/ENTERPRISE_READINESS_REPORT.md` redirects to
   `docs/DMZ_DEPLOYMENT_READINESS.md`.
-- [ ] `../TESTING.md` has a SUPERSEDED header.
-- [ ] `docs/developer/traffic-generator-fix.md` and `docs/developer/test-audit.md`
+- [x] `../TESTING.md` has a SUPERSEDED header.
+- [x] `docs/developer/traffic-generator-fix.md` and `docs/developer/test-audit.md`
   are deleted or have DEPRECATED headers with all useful content extracted.
-- [ ] `docs/enterprise/` files are either rewritten with concrete guidance or have
+- [x] `docs/enterprise/` files are either rewritten with concrete guidance or have
   ASPIRATIONAL headers.
-- [ ] Every PHASE_NNb / PHASE_NNc sub-file has an explicit disposition (merged,
+- [x] Every PHASE_NNb / PHASE_NNc sub-file has an explicit disposition (merged,
   linked, or deleted).
 
 ### Documentation as Code (21h)
 
-- [ ] `../../scripts/check_doc_frontmatter.py` exists and runs without error.
-- [ ] `make lint-docs` runs and reports zero warnings against the updated docs/.
-- [ ] `.mlc.json` exists and `make link-check` reports zero broken internal links.
-- [ ] `docs/DOCUMENTATION_STANDARDS.md §7` includes the Phase 21 gate checklist.
-- [ ] `Makefile` has `lint-docs`, `link-check`, `doc-health`, and `test-ratio` targets.
+- [x] `../../scripts/check_doc_frontmatter.py` exists and runs without error.
+- [x] `make lint-docs` runs and reports zero warnings against the updated docs/.
+- [x] `.mlc.json` exists and `make link-check` reports zero broken internal links.
+- [x] `docs/DOCUMENTATION_STANDARDS.md §7` includes the Phase 21 gate checklist.
+- [x] `Makefile` has `lint-docs`, `link-check`, `doc-health`, and `test-ratio` targets.
 
 ---
 

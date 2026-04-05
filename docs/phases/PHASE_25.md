@@ -78,10 +78,10 @@ Do **not** skip validation — a broken Loki in prod means no log ingestion.
 
 ### Acceptance Criteria
 
-- [ ] `../DOCKER_IMAGES.md` exists and lists every image from all compose files and Dockerfiles.
-- [ ] No `:latest` tags in any compose file (`grep -r ':latest' docker/ | grep image:` returns empty).
-- [ ] `../../docker/docker-compose.prod.yml` and `../../docker/docker-compose.monitoring.yml` agree on version for every shared image.
-- [ ] All version changes validated against compose `config` command (no parse errors).
+- [x] `../DOCKER_IMAGES.md` exists and lists every image from all compose files and Dockerfiles.
+- [x] No `:latest` tags in any compose file (`grep -r ':latest' docker/ | grep image:` returns empty).
+- [x] `../../docker/docker-compose.prod.yml` and `../../docker/docker-compose.monitoring.yml` agree on version for every shared image.
+- [x] All version changes validated against compose `config` command (no parse errors).
 
 ---
 
@@ -157,11 +157,11 @@ instructions in `CONTRIBUTING.md`.
 
 ### Acceptance Criteria
 
-- [ ] `TRIVY_IMAGES` in Makefile matches actual deployed versions (no stale versions).
-- [ ] `prom/node-exporter:v1.7.0` included in `TRIVY_IMAGES`.
-- [ ] `make scan-dockerfiles` runs without Docker build and reports Dockerfile misconfigs.
-- [ ] `make scan-first-party` scans all three first-party images after `make build`.
-- [ ] All three scan targets appear in `make help` output.
+- [x] `TRIVY_IMAGES` in Makefile matches actual deployed versions (no stale versions).
+- [x] `prom/node-exporter:v1.7.0` included in `TRIVY_IMAGES`.
+- [x] `make scan-dockerfiles` runs without Docker build and reports Dockerfile misconfigs.
+- [x] `make scan-first-party` scans all three first-party images after `make build`.
+- [x] All three scan targets appear in `make help` output.
 
 ---
 
@@ -240,11 +240,11 @@ A runbook covering:
 
 ### Acceptance Criteria
 
-- [ ] Image update policy documented in `../runbooks/docker_image_updates.md`.
-- [ ] `../../scripts/check_image_versions.py` exists, detects `:latest` and version drift, exits 1 on findings.
-- [ ] `make check-image-versions` target added to Makefile.
-- [ ] `make check-image-versions` runs in < 5 seconds (no external calls).
-- [ ] Script included in `make check-manifest` or called from a new `make check-all` target.
+- [x] Image update policy documented in `../runbooks/docker_image_updates.md`.
+- [x] `../../scripts/check_image_versions.py` exists, detects `:latest` and version drift, exits 1 on findings.
+- [x] `make check-image-versions` target added to Makefile.
+- [x] `make check-image-versions` runs in < 5 seconds (no external calls).
+- [x] Script included in `make check-manifest` or called from a new `make check-all` target.
 
 ---
 
@@ -304,11 +304,11 @@ __pycache__/
 
 ### Acceptance Criteria
 
-- [ ] All first-party Dockerfiles use pinned patch versions for base images (`FROM x:a.b.c-variant`).
-- [ ] `curl` removed from `docker/Dockerfile` production image; HEALTHCHECK uses `wget`.
-- [ ] `.dockerignore` excludes secrets dir, test files, coverage artifacts.
-- [ ] `make scan-dockerfiles` passes (zero HIGH/CRITICAL misconfig findings) after changes.
-- [ ] `make scan-first-party` passes (zero CRITICAL CVE findings) after base image update.
+- [x] All first-party Dockerfiles use pinned patch versions for base images (`FROM x:a.b.c-variant`).
+- [x] `curl` removed from `docker/Dockerfile` production image; HEALTHCHECK uses `wget`.
+- [x] `.dockerignore` excludes secrets dir, test files, coverage artifacts.
+- [x] `make scan-dockerfiles` passes (zero HIGH/CRITICAL misconfig findings) after changes.
+- [x] `make scan-first-party` passes (zero CRITICAL CVE findings) after base image update.
 
 ---
 
@@ -336,12 +336,12 @@ Add a test in `../../tests/unit/test_check_image_versions.py` for the Python scr
 
 Before marking Phase 25 COMPLETE:
 
-- [ ] `../DOCKER_IMAGES.md` written and complete.
-- [ ] `../runbooks/docker_image_updates.md` written.
-- [ ] CHANGELOG.md updated with a Phase 25 entry.
-- [ ] `manifest.yaml` status set to COMPLETE.
-- [ ] `../../scripts/sync-roadmap.py` re-run.
-- [ ] `make check-manifest` passes.
+- [x] `../DOCKER_IMAGES.md` written and complete.
+- [x] `../runbooks/docker_image_updates.md` written.
+- [x] CHANGELOG.md updated with a Phase 25 entry.
+- [x] `manifest.yaml` status set to COMPLETE.
+- [x] `../../scripts/sync-roadmap.py` re-run.
+- [x] `make check-manifest` passes.
 
 ---
 

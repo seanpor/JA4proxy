@@ -131,14 +131,14 @@ Record at minimum:
 
 ## Acceptance Criteria
 
-- [ ] `scripts/check-python314-compat.py` runs on Python 3.11 with no extra installs
-- [ ] `reports/python314-compat.md` committed with a row for every package in requirements*.txt
-- [ ] All packages either have a 3.14 wheel or are marked `BUILD_FROM_SOURCE` with the
+- [x] `scripts/check-python314-compat.py` runs on Python 3.11 with no extra installs
+- [x] `reports/python314-compat.md` committed with a row for every package in requirements*.txt
+- [x] All packages either have a 3.14 wheel or are marked `BUILD_FROM_SOURCE` with the
       required Dockerfile fix documented
-- [ ] Full test suite run attempted on Python 3.14 — result (pass/fail/count) documented
-- [ ] `reports/benchmark/python311-baseline.md` committed with scoring path and bypass
+- [x] Full test suite run attempted on Python 3.14 — result (pass/fail/count) documented
+- [x] `reports/benchmark/python311-baseline.md` committed with scoring path and bypass
       path mean latencies
-- [ ] `CHANGELOG.md` entry for Phase 66
+- [x] `CHANGELOG.md` entry for Phase 66
 
 ---
 

@@ -1705,30 +1705,30 @@ in this phase:
 
 ## 21. Acceptance Criteria
 
-- [ ] Ansible inventory separates `proxy_tier` and `analytics_tier` into independent play groups
-- [ ] Pre-flight playbook (`preflight.yml`) validates all §8 checks before any deployment task
-- [ ] Rolling deploy uses `serial: 1` on proxy tier with `any_errors_fatal: true`
-- [ ] Canary gate evaluates all five metrics criteria before fleet promotion
-- [ ] LB drain/undrain role implemented for at least the provider(s) in use
-- [ ] Rollback playbook achieves < 60-second RTO from trigger to traffic restored
-- [ ] Previous image tag preserved locally — `podman image prune` excludes `current` and `previous`
-- [ ] `make deploy ENV=prod VERSION=x.y.z TICKET=CHGxxxxxxx` is the single deployment entry point
-- [ ] Deployment manifest (`deploy/manifest.yml`) checked into git with version pin per environment
-- [ ] `ja4proxy_deployment_info` metric emitted on every deployment
-- [ ] Quadlet unit files include `WatchdogSec=30`, `StartLimitBurst=3`, `NoNewPrivileges=true`
-- [ ] Automatic weekly image prune job (systemd timer) excludes rollback image
-- [ ] journald cap configured — `SystemMaxUse=2G`, `MaxRetentionSec=30day`
-- [ ] FIPS: Go binary compiled with `GOEXPERIMENT=boringcrypto` and `CGO_ENABLED=1`
-- [ ] FIPS: Redis `tls-ciphersuites` removes ChaCha20-Poly1305
-- [ ] FIPS: Python containers use UBI9 base image
-- [ ] Go runtime image uses `ubi9-minimal` (not Alpine)
-- [ ] Cosign signature enforced via `containers-policy.json` on every host
-- [ ] gitleaks pre-commit hook blocks secret commits
-- [ ] Prometheus metrics bound to `127.0.0.1:9090`
-- [ ] SELinux `Enforcing` check is a hard pre-flight abort
-- [ ] auditd rules deployed watching `/etc/ja4proxy2/` and `podman` lifecycle
-- [ ] firewalld two-zone model: DMZ (proxy traffic), internal (management/metrics)
-- [ ] Redis TLS client pins to internal CA only — system CA bundle not loaded
-- [ ] Trivy CVE scan gate in CI — blocks push on unpatched CRITICAL CVEs
-- [ ] Falco rules deployed detecting unexpected outbound connections and write attempts
-- [ ] Base image update CI job runs every 72 hours
+- [x] Ansible inventory separates `proxy_tier` and `analytics_tier` into independent play groups
+- [x] Pre-flight playbook (`preflight.yml`) validates all §8 checks before any deployment task
+- [x] Rolling deploy uses `serial: 1` on proxy tier with `any_errors_fatal: true`
+- [x] Canary gate evaluates all five metrics criteria before fleet promotion
+- [x] LB drain/undrain role implemented for at least the provider(s) in use
+- [x] Rollback playbook achieves < 60-second RTO from trigger to traffic restored
+- [x] Previous image tag preserved locally — `podman image prune` excludes `current` and `previous`
+- [x] `make deploy ENV=prod VERSION=x.y.z TICKET=CHGxxxxxxx` is the single deployment entry point
+- [x] Deployment manifest (`deploy/manifest.yml`) checked into git with version pin per environment
+- [x] `ja4proxy_deployment_info` metric emitted on every deployment
+- [x] Quadlet unit files include `WatchdogSec=30`, `StartLimitBurst=3`, `NoNewPrivileges=true`
+- [x] Automatic weekly image prune job (systemd timer) excludes rollback image
+- [x] journald cap configured — `SystemMaxUse=2G`, `MaxRetentionSec=30day`
+- [x] FIPS: Go binary compiled with `GOEXPERIMENT=boringcrypto` and `CGO_ENABLED=1`
+- [x] FIPS: Redis `tls-ciphersuites` removes ChaCha20-Poly1305
+- [x] FIPS: Python containers use UBI9 base image
+- [x] Go runtime image uses `ubi9-minimal` (not Alpine)
+- [x] Cosign signature enforced via `containers-policy.json` on every host
+- [x] gitleaks pre-commit hook blocks secret commits
+- [x] Prometheus metrics bound to `127.0.0.1:9090`
+- [x] SELinux `Enforcing` check is a hard pre-flight abort
+- [x] auditd rules deployed watching `/etc/ja4proxy2/` and `podman` lifecycle
+- [x] firewalld two-zone model: DMZ (proxy traffic), internal (management/metrics)
+- [x] Redis TLS client pins to internal CA only — system CA bundle not loaded
+- [x] Trivy CVE scan gate in CI — blocks push on unpatched CRITICAL CVEs
+- [x] Falco rules deployed detecting unexpected outbound connections and write attempts
+- [x] Base image update CI job runs every 72 hours

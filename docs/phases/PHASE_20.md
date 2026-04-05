@@ -3094,133 +3094,133 @@ All criteria must pass before this phase is complete.
 
 ### 17a. Infrastructure
 
-- [ ] `make test` passes with all TAP tests included (PCAP replay, no live interface)
-- [ ] `mode: tap` starts without error; `mode: passthrough` continues to work unchanged
-- [ ] Starting with `mode: invalid_value` produces a clear `ConfigError` and exits 1
-- [ ] `CAP_NET_RAW` is the only capability required for capture-only operation
-- [ ] Running two instances (passthrough + TAP) sharing one Redis instance: bans written by TAP are enforced by passthrough within 1 Redis pub/sub round trip
+- [x] `make test` passes with all TAP tests included (PCAP replay, no live interface)
+- [x] `mode: tap` starts without error; `mode: passthrough` continues to work unchanged
+- [x] Starting with `mode: invalid_value` produces a clear `ConfigError` and exits 1
+- [x] `CAP_NET_RAW` is the only capability required for capture-only operation
+- [x] Running two instances (passthrough + TAP) sharing one Redis instance: bans written by TAP are enforced by passthrough within 1 Redis pub/sub round trip
 
 ### 17b. Packet Capture
 
-- [ ] `PacketCapture` can sustain 500k pps on the test machine without drops (verified by `../../scripts/tap_benchmark.py`)
-- [ ] VLAN-tagged frames (802.1q) are correctly stripped before IP parsing
-- [ ] QinQ (802.1ad) double-tagged frames are correctly stripped
-- [ ] VxLAN-encapsulated frames are decapsulated when `decapsulation: vxlan`
-- [ ] IPv4 fragments are reassembled correctly (test: ClientHello split across two fragments)
-- [ ] IPv6 extension headers are walked correctly to find fragment header (type 44)
-- [ ] Duplicate packets from bonded SPAN are discarded and counted by `ja4proxy_tap_packets_duplicates_total`
-- [ ] `ja4proxy_tap_packets_dropped_total` increments when ring buffer overflows (chaos test)
-- [ ] `ja4proxy_tap_ring_buffer_fill_ratio` gauge reaches 1.0 during the overflow chaos test
-- [ ] BPF filter compilation failure emits a clear error and exits 1 (not a silent capture of all traffic)
-- [ ] `ja4proxy_tap_capture_interface_up` goes to 0 when the interface link drops (simulated with `ip link set eth1 down`)
+- [x] `PacketCapture` can sustain 500k pps on the test machine without drops (verified by `../../scripts/tap_benchmark.py`)
+- [x] VLAN-tagged frames (802.1q) are correctly stripped before IP parsing
+- [x] QinQ (802.1ad) double-tagged frames are correctly stripped
+- [x] VxLAN-encapsulated frames are decapsulated when `decapsulation: vxlan`
+- [x] IPv4 fragments are reassembled correctly (test: ClientHello split across two fragments)
+- [x] IPv6 extension headers are walked correctly to find fragment header (type 44)
+- [x] Duplicate packets from bonded SPAN are discarded and counted by `ja4proxy_tap_packets_duplicates_total`
+- [x] `ja4proxy_tap_packets_dropped_total` increments when ring buffer overflows (chaos test)
+- [x] `ja4proxy_tap_ring_buffer_fill_ratio` gauge reaches 1.0 during the overflow chaos test
+- [x] BPF filter compilation failure emits a clear error and exits 1 (not a silent capture of all traffic)
+- [x] `ja4proxy_tap_capture_interface_up` goes to 0 when the interface link drops (simulated with `ip link set eth1 down`)
 
 ### 17c. TCP Reassembler
 
-- [ ] Out-of-order segments: final assembled data is identical to in-order delivery (property test with 1000 permutations)
-- [ ] Retransmitted segments do not produce duplicate data in assembled stream
-- [ ] Streams idle for `stream_timeout_s` are expired and their state freed
-- [ ] Streams exceeding `max_stream_buffer_bytes` are dropped; a metric is emitted; other streams are unaffected
-- [ ] RST packet immediately closes stream and emits final score
-- [ ] Maximum stream table size (`max_streams`) is respected; oldest idle streams are evicted first
-- [ ] Worker crash (unhandled exception in worker Task) triggers watchdog restart within 1s; shard streams evicted; `ja4proxy_tap_worker_restarts_total` incremented
-- [ ] Graceful shutdown completes within 15s under normal load (drain + score + flush)
+- [x] Out-of-order segments: final assembled data is identical to in-order delivery (property test with 1000 permutations)
+- [x] Retransmitted segments do not produce duplicate data in assembled stream
+- [x] Streams idle for `stream_timeout_s` are expired and their state freed
+- [x] Streams exceeding `max_stream_buffer_bytes` are dropped; a metric is emitted; other streams are unaffected
+- [x] RST packet immediately closes stream and emits final score
+- [x] Maximum stream table size (`max_streams`) is respected; oldest idle streams are evicted first
+- [x] Worker crash (unhandled exception in worker Task) triggers watchdog restart within 1s; shard streams evicted; `ja4proxy_tap_worker_restarts_total` incremented
+- [x] Graceful shutdown completes within 15s under normal load (drain + score + flush)
 
 ### 17d. Fingerprint Extractors
 
-- [ ] JA4 from PCAP replay matches JA4 computed by an independent reference implementation (FoxIO's `ja4` tool) for all corpus PCAPs
-- [ ] JA4S is extracted from ServerHello and stored with the connection record
-- [ ] JA4T matches JA4T from reference tool for all corpus PCAPs
-- [ ] JA4H is extracted from HTTP/1.1 requests on ports in `tap.http_ports`
-- [ ] JA4L: for a synthesised PCAP with known inter-packet timestamps, distance estimates are within ±50km of expected
-- [ ] JA4X: extracted cert hash matches `openssl x509 -fingerprint -sha256` for the same cert
-- [ ] JA4SSH: extracted fingerprint for OpenSSH 8.x client matches known-good value
-- [ ] OS fingerprint: Chrome on Linux is identified as `linux_5x_default` with confidence ≥ 0.8
-- [ ] HTTP/2 SETTINGS: Chrome 120 SETTINGS match `chrome_120` entry in `../../config/h2_fingerprints.yml`
-- [ ] QUIC Initial packet: QUIC version is extracted correctly for QUIC v1 (0x00000001)
-- [ ] Extractors return `None` (not raise) for truncated or malformed input
-- [ ] False positive rate of new risk signals against Tranco top-10k corpus: < 0.5% at score threshold 70
+- [x] JA4 from PCAP replay matches JA4 computed by an independent reference implementation (FoxIO's `ja4` tool) for all corpus PCAPs
+- [x] JA4S is extracted from ServerHello and stored with the connection record
+- [x] JA4T matches JA4T from reference tool for all corpus PCAPs
+- [x] JA4H is extracted from HTTP/1.1 requests on ports in `tap.http_ports`
+- [x] JA4L: for a synthesised PCAP with known inter-packet timestamps, distance estimates are within ±50km of expected
+- [x] JA4X: extracted cert hash matches `openssl x509 -fingerprint -sha256` for the same cert
+- [x] JA4SSH: extracted fingerprint for OpenSSH 8.x client matches known-good value
+- [x] OS fingerprint: Chrome on Linux is identified as `linux_5x_default` with confidence ≥ 0.8
+- [x] HTTP/2 SETTINGS: Chrome 120 SETTINGS match `chrome_120` entry in `../../config/h2_fingerprints.yml`
+- [x] QUIC Initial packet: QUIC version is extracted correctly for QUIC v1 (0x00000001)
+- [x] Extractors return `None` (not raise) for truncated or malformed input
+- [x] False positive rate of new risk signals against Tranco top-10k corpus: < 0.5% at score threshold 70
 
 ### 17e. Fingerprint Store
 
-- [ ] `fp:conn:{conn_id}` is written to Redis within 100ms of stream close
-- [ ] `fp:ip:{ip}` Sorted Set is trimmed to 1000 entries per IP
-- [ ] `fp:ja4:hll:{fingerprint}` PFADD is called for each unique JA4 observed
-- [ ] `/api/v1/fingerprints/ip/{ip}` returns correct data for a known test IP
-- [ ] `/api/v1/fingerprints/ja4/{fp}` returns correct count for a known test fingerprint
+- [x] `fp:conn:{conn_id}` is written to Redis within 100ms of stream close
+- [x] `fp:ip:{ip}` Sorted Set is trimmed to 1000 entries per IP
+- [x] `fp:ja4:hll:{fingerprint}` PFADD is called for each unique JA4 observed
+- [x] `/api/v1/fingerprints/ip/{ip}` returns correct data for a known test IP
+- [x] `/api/v1/fingerprints/ja4/{fp}` returns correct count for a known test fingerprint
 
 ### 17f. Risk Scoring Integration
 
-- [ ] All new risk signals (§9.2) have unit tests with boundary values
-- [ ] Risk score for `scanner_nmap.pcap` is ≥ 70 (nmap should be blocked)
-- [ ] Risk score for `chrome_120.pcap` is ≤ 10 (real browser should pass)
-- [ ] `signal_ban` action causes `ban:{ip}` to be written to Redis with TTL
+- [x] All new risk signals (§9.2) have unit tests with boundary values
+- [x] Risk score for `scanner_nmap.pcap` is ≥ 70 (nmap should be blocked)
+- [x] Risk score for `chrome_120.pcap` is ≤ 10 (real browser should pass)
+- [x] `signal_ban` action causes `ban:{ip}` to be written to Redis with TTL
 
 ### 17g. Enforcement Bridge
 
-- [ ] iptables backend: `ipset add ja4proxy_ban {ip} timeout {ttl}` is executed for each `signal_ban` (chaos test with mock subprocess)
-- [ ] BGP backend: correct ExaBGP announce command is written to pipe for each ban (mock pipe test)
-- [ ] BGP prefix length guard: prefixes broader than /24 (IPv4) or /48 (IPv6) are rejected and not announced
-- [ ] Webhook backend: HMAC-SHA256 signature header present on every request; request rejected on signature mismatch (mock receiver test)
-- [ ] Webhook backend: correct JSON body is sent; retries on 5xx; gives up after `retry_count`; emits metric
-- [ ] Failure of one backend does not prevent others from running (`asyncio.gather(return_exceptions=True)`)
-- [ ] `ban_ttl_s` is respected: iptables/ipset entry has correct timeout
+- [x] iptables backend: `ipset add ja4proxy_ban {ip} timeout {ttl}` is executed for each `signal_ban` (chaos test with mock subprocess)
+- [x] BGP backend: correct ExaBGP announce command is written to pipe for each ban (mock pipe test)
+- [x] BGP prefix length guard: prefixes broader than /24 (IPv4) or /48 (IPv6) are rejected and not announced
+- [x] Webhook backend: HMAC-SHA256 signature header present on every request; request rejected on signature mismatch (mock receiver test)
+- [x] Webhook backend: correct JSON body is sent; retries on 5xx; gives up after `retry_count`; emits metric
+- [x] Failure of one backend does not prevent others from running (`asyncio.gather(return_exceptions=True)`)
+- [x] `ban_ttl_s` is respected: iptables/ipset entry has correct timeout
 
 ### 17h. Intelligence Export
 
-- [ ] EDL `/export/edl/banned-ips` returns only IPs currently in `ban:{ip}` Redis keys, within `max_age_s`
-- [ ] EDL returns 304 Not Modified when ETag matches (efficient polling)
-- [ ] EDL requires API key when `api_key` is configured; returns 403 without key
-- [ ] EDL IP access control: returns 403 for IPs not in `allowed_ips` when configured
-- [ ] F5 client: full sync pushes all banned IPs to the configured data group (mock F5 API test)
-- [ ] F5 client: delta push fires within 5s of Redis ban pub/sub event
-- [ ] F5 client: respects `max_rps` rate limit (mock F5 API, measure request timing)
-- [ ] Palo Alto client: `register_ip` calls XML API with correct tag (mock PA API test)
-- [ ] Kafka producer: ban events appear in `ja4proxy.bans` topic with correct JSON schema
-- [ ] Kafka producer: message key is the client IP (enables partition affinity for per-IP ordering)
-- [ ] Syslog exporter: CEF format is valid per ArcSight CEF specification (validate with test parser)
-- [ ] Syslog exporter: severity mapping matches `severity_map` config
-- [ ] TAXII server: `GET /taxii2/collections/{id}/objects/` returns valid STIX 2.1 bundle
-- [ ] TAXII server: `added_after` query parameter filters correctly
-- [ ] MISP client: ban creates an Attribute in the daily event with type `ip-dst`
-- [ ] Failure of any one export backend does not affect other exporters
+- [x] EDL `/export/edl/banned-ips` returns only IPs currently in `ban:{ip}` Redis keys, within `max_age_s`
+- [x] EDL returns 304 Not Modified when ETag matches (efficient polling)
+- [x] EDL requires API key when `api_key` is configured; returns 403 without key
+- [x] EDL IP access control: returns 403 for IPs not in `allowed_ips` when configured
+- [x] F5 client: full sync pushes all banned IPs to the configured data group (mock F5 API test)
+- [x] F5 client: delta push fires within 5s of Redis ban pub/sub event
+- [x] F5 client: respects `max_rps` rate limit (mock F5 API, measure request timing)
+- [x] Palo Alto client: `register_ip` calls XML API with correct tag (mock PA API test)
+- [x] Kafka producer: ban events appear in `ja4proxy.bans` topic with correct JSON schema
+- [x] Kafka producer: message key is the client IP (enables partition affinity for per-IP ordering)
+- [x] Syslog exporter: CEF format is valid per ArcSight CEF specification (validate with test parser)
+- [x] Syslog exporter: severity mapping matches `severity_map` config
+- [x] TAXII server: `GET /taxii2/collections/{id}/objects/` returns valid STIX 2.1 bundle
+- [x] TAXII server: `added_after` query parameter filters correctly
+- [x] MISP client: ban creates an Attribute in the daily event with type `ip-dst`
+- [x] Failure of any one export backend does not affect other exporters
 
 ### 17i. Security
 
-- [ ] `CAP_NET_RAW` is dropped after socket `bind()` (verified by reading `/proc/{pid}/status` for `CapEff`)
-- [ ] PCAP replay path traversal: `pcap_file: "../../etc/passwd"` raises `ConfigError` and exits 1
-- [ ] Webhook TLS validation: `verify_tls: false` emits startup WARN (chaos test checks log)
-- [ ] BGP injection guard: attempting to announce a /16 prefix logs ERROR and increments error metric; no BGP command is written
-- [ ] GDPR erasure: `make gdpr-delete IP=1.2.3.4` deletes all `fp:ip:1.2.3.4` and linked `fp:conn:*` keys
+- [x] `CAP_NET_RAW` is dropped after socket `bind()` (verified by reading `/proc/{pid}/status` for `CapEff`)
+- [x] PCAP replay path traversal: `pcap_file: "../../etc/passwd"` raises `ConfigError` and exits 1
+- [x] Webhook TLS validation: `verify_tls: false` emits startup WARN (chaos test checks log)
+- [x] BGP injection guard: attempting to announce a /16 prefix logs ERROR and increments error metric; no BGP command is written
+- [x] GDPR erasure: `make gdpr-delete IP=1.2.3.4` deletes all `fp:ip:1.2.3.4` and linked `fp:conn:*` keys
 
 ### 17j. Tests
 
-- [ ] Test-to-code ratio ≥ 1.3× for all new `src/tap/` code
-- [ ] All new extractors have at least one test per format field they populate
-- [ ] FP corpus test passes: Tranco top-10k PCAP sample scores < 0.5% FP rate at score threshold 70
-- [ ] Performance benchmark passes: `../../scripts/tap_benchmark.py` shows ≥ 500k pps without drops
-- [ ] PCAP corpus covers: Chrome, Firefox, Safari, curl, Python requests, nmap, masscan, OpenSSH, PuTTY, HTTP/2, QUIC, VxLAN-encapsulated
-- [ ] IPv6 corpus: at least one PCAP with IPv6 clients; JA4/JA4T/JA4L extracted correctly
-- [ ] `SyntheticPacketBuilder` is tested: builds valid TCP/TLS packet sequences the reassembler processes correctly
-- [ ] Chaos tests cover: ring buffer overflow, corrupt packet, truncated TLS record, stream table full, all enforcement backends failing, all export backends failing, worker crash
+- [x] Test-to-code ratio ≥ 1.3× for all new `src/tap/` code
+- [x] All new extractors have at least one test per format field they populate
+- [x] FP corpus test passes: Tranco top-10k PCAP sample scores < 0.5% FP rate at score threshold 70
+- [x] Performance benchmark passes: `../../scripts/tap_benchmark.py` shows ≥ 500k pps without drops
+- [x] PCAP corpus covers: Chrome, Firefox, Safari, curl, Python requests, nmap, masscan, OpenSSH, PuTTY, HTTP/2, QUIC, VxLAN-encapsulated
+- [x] IPv6 corpus: at least one PCAP with IPv6 clients; JA4/JA4T/JA4L extracted correctly
+- [x] `SyntheticPacketBuilder` is tested: builds valid TCP/TLS packet sequences the reassembler processes correctly
+- [x] Chaos tests cover: ring buffer overflow, corrupt packet, truncated TLS record, stream table full, all enforcement backends failing, all export backends failing, worker crash
 
 ### 17k. Documentation
 
-- [ ] `docs/REDIS_SCHEMA.md` updated with all `fp:*` key patterns and `intelligence_export` Redis usage
-- [ ] Runbook `../runbooks/tap_mode.md`: SPAN setup, capability setup, mode switching, enforcement, export, diagnostics, rollback, reconciliation, offline analysis
-- [ ] `config/proxy.yml` inline comments explain every new key in `tap:`, `tap_enforcement:`, and `intelligence_export:`
-- [ ] `CHANGELOG.md` updated per §16
-- [ ] ADR-020.md: AF_PACKET vs pcap/Scapy vs PF_RING/DPDK decision
-- [ ] ADR-021.md: EDL pull vs push for external firewall integration; why both are supported
-- [ ] Privacy notice / RoPA updated to document `fp:*` Redis data and EDL/F5/PA data flows
+- [x] `docs/REDIS_SCHEMA.md` updated with all `fp:*` key patterns and `intelligence_export` Redis usage
+- [x] Runbook `../runbooks/tap_mode.md`: SPAN setup, capability setup, mode switching, enforcement, export, diagnostics, rollback, reconciliation, offline analysis
+- [x] `config/proxy.yml` inline comments explain every new key in `tap:`, `tap_enforcement:`, and `intelligence_export:`
+- [x] `CHANGELOG.md` updated per §16
+- [x] ADR-020.md: AF_PACKET vs pcap/Scapy vs PF_RING/DPDK decision
+- [x] ADR-021.md: EDL pull vs push for external firewall integration; why both are supported
+- [x] Privacy notice / RoPA updated to document `fp:*` Redis data and EDL/F5/PA data flows
 
 ### 17l. Phase 19 Gap Remediation
 
-- [ ] `backup.schedule` config key is wired to an asyncio periodic task that triggers backups
+- [x] `backup.schedule` config key is wired to an asyncio periodic task that triggers backups
       automatically (P19-G1)
-- [ ] Backup loop uses `redis.pipeline()` in batches of 1000 keys (P19-G3)
-- [ ] Restore raises `RestoreError` if the fraction of failed key-restores exceeds the
+- [x] Backup loop uses `redis.pipeline()` in batches of 1000 keys (P19-G3)
+- [x] Restore raises `RestoreError` if the fraction of failed key-restores exceeds the
       configured threshold (default 5%); logs count of failed keys (P19-G4)
-- [ ] Fakeredis-based encode→backup→restore round-trip integration test passes (P19-G6)
+- [x] Fakeredis-based encode→backup→restore round-trip integration test passes (P19-G6)
 
 ---
 
@@ -3299,12 +3299,12 @@ its Prometheus metrics at import time (same pattern as all other phases).
 
 ### 18.4 Acceptance Criteria (Phase 13 Dependency)
 
-- [ ] Starting `mode: tap` brings up `TapHttpServer` on `tap.http_port` (default 8090)
-- [ ] `GET /api/v1/mode` returns `{"mode": "tap", ...}` within 100ms
-- [ ] `GET /health` returns a TAP-mode health struct (§13.4)
-- [ ] `GET /export/edl/banned-ips` returns the EDL list (with API key auth)
-- [ ] `TapHttpServer` shuts down cleanly as step 7 of the graceful shutdown sequence (§11a.1)
-- [ ] ADR-022.md written documenting the standalone-to-Phase-13 migration path
+- [x] Starting `mode: tap` brings up `TapHttpServer` on `tap.http_port` (default 8090)
+- [x] `GET /api/v1/mode` returns `{"mode": "tap", ...}` within 100ms
+- [x] `GET /health` returns a TAP-mode health struct (§13.4)
+- [x] `GET /export/edl/banned-ips` returns the EDL list (with API key auth)
+- [x] `TapHttpServer` shuts down cleanly as step 7 of the graceful shutdown sequence (§11a.1)
+- [x] ADR-022.md written documenting the standalone-to-Phase-13 migration path
 
 ---
 

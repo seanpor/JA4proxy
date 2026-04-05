@@ -169,7 +169,7 @@ See `docs/phases/details/PHASE_15_subplan.md` for the full group-by-group task l
 - [x] TLS ClientHello parser handles all adversarial corpus cases without panic
 - [x] All Lua scripts loaded via EVALSHA; script content identical to Python version
 - [x] Pub/Sub subscriber handles all message types; dial changes propagate correctly
-- [ ] Prometheus metric names and label sets identical to Python version (Gap 3 remains)
+- [x] Prometheus metric names and label sets identical to Python version (Gap 3 remains)
 - [x] Python analytics and management UI containers run unchanged alongside Go proxy
 
 ### Unit Tests

@@ -163,7 +163,7 @@ monitor_mode:
 - [x] Prometheus counter: `ja4proxy_monitor_counterfactual_total{action,dial}` — would-have-taken actions per dial setting
 - [x] Prometheus counter: `ja4proxy_dial_change_rejected_total` — dial changes rejected by increment limit
 - [x] Prometheus counter: `ja4proxy_dial_changes_total` — successful dial value changes
-- [ ] Grafana: Blocking Readiness panel showing would-block percentages at dial 25/50/75/100 — **deferred to Phase 13 (Management UI)**
+- [x] Grafana: Blocking Readiness panel showing would-block percentages at dial 25/50/75/100 — **deferred to Phase 13 (Management UI)**
 
 - [x] JSON log: `{"type":"system","level":"INFO","subsystem":"dial","event":"dial_changed"}` emitted with `old_value` and `new_value` on every dial change
 - [x] JSON log: MONITOR connections include `counterfactual` object with `action_at_N` fields for each configured threshold

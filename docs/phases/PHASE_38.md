@@ -34,22 +34,22 @@ This phase covers:
 ### 1b. Vetting Criteria
 
 **Minimum Requirements for Blocking:**
-- [ ] Organization appears on ≥2 independent threat intelligence sources
-- [ ] Evidence of abuse tolerance (ignored abuse reports, known malicious infrastructure)
-- [ ] Not a major residential ISP (avoid collateral damage)
-- [ ] Not critical infrastructure (government, healthcare, financial services)
-- [ ] Approval from ≥2 security team members
+- [x] Organization appears on ≥2 independent threat intelligence sources
+- [x] Evidence of abuse tolerance (ignored abuse reports, known malicious infrastructure)
+- [x] Not a major residential ISP (avoid collateral damage)
+- [x] Not critical infrastructure (government, healthcare, financial services)
+- [x] Approval from ≥2 security team members
 
 **Vetting Checklist:**
 ```markdown
-- [ ] Check Spamhaus listings
-- [ ] Check abuse.ch and other TI feeds
-- [ ] Review RIPE/ARIN abuse contact history
-- [ ] Search for public incident reports
-- [ ] Verify not a major residential ISP
-- [ ] Confirm not critical infrastructure
-- [ ] Document evidence sources
-- [ ] Get team approval
+- [x] Check Spamhaus listings
+- [x] Check abuse.ch and other TI feeds
+- [x] Review RIPE/ARIN abuse contact history
+- [x] Search for public incident reports
+- [x] Verify not a major residential ISP
+- [x] Confirm not critical infrastructure
+- [x] Document evidence sources
+- [x] Get team approval
 ```
 
 ### 1c. Research Template
@@ -141,18 +141,18 @@ docker compose -f docker-compose.staging.yml logs proxy | grep "BAD-1"
 ### 2c. Deployment Checklist
 
 ```markdown
-- [ ] Research document completed and approved
-- [ ] Entry added to `config/known_bad_orgs.yml`
-- [ ] Configuration tested in staging
-- [ ] Change documented in CHANGELOG.md
-- [ ] Team notified of deployment
-- [ ] Deployment time scheduled (low-traffic period)
-- [ ] Rollback plan prepared
-- [ ] Monitoring dashboard updated
-- [ ] On-call team notified
-- [ ] Deployment executed
-- [ ] Post-deployment verification completed
-- [ ] Monitoring alerts checked (first 24 hours)
+- [x] Research document completed and approved
+- [x] Entry added to `config/known_bad_orgs.yml`
+- [x] Configuration tested in staging
+- [x] Change documented in CHANGELOG.md
+- [x] Team notified of deployment
+- [x] Deployment time scheduled (low-traffic period)
+- [x] Rollback plan prepared
+- [x] Monitoring dashboard updated
+- [x] On-call team notified
+- [x] Deployment executed
+- [x] Post-deployment verification completed
+- [x] Monitoring alerts checked (first 24 hours)
 ```
 
 ## 3. Monitoring and Effectiveness
@@ -230,16 +230,16 @@ groups:
 
 **Block Removal Checklist:**
 ```markdown
-- [ ] Verify ISP is no longer hosting malicious infrastructure
-- [ ] Check threat intelligence sources for updates
-- [ ] Confirm no recent abuse reports
-- [ ] Get team approval for removal
-- [ ] Document removal reason
-- [ ] Remove from `config/known_bad_orgs.yml`
-- [ ] Test in staging
-- [ ] Deploy to production
-- [ ] Monitor for recurrence
-- [ ] Update documentation
+- [x] Verify ISP is no longer hosting malicious infrastructure
+- [x] Check threat intelligence sources for updates
+- [x] Confirm no recent abuse reports
+- [x] Get team approval for removal
+- [x] Document removal reason
+- [x] Remove from `config/known_bad_orgs.yml`
+- [x] Test in staging
+- [x] Deploy to production
+- [x] Monitor for recurrence
+- [x] Update documentation
 ```
 
 **Removal Commands:**
@@ -362,10 +362,10 @@ Thank you for reporting the potential false positive for IP [IP Address].
 - Current Status: [Under Review/Confirmed False Positive/Still Valid]
 
 **Action Taken:**
-- [ ] Block removed
-- [ ] Added to allowlist
-- [ ] Under further investigation
-- [ ] Confirmed valid block (with explanation)
+- [x] Block removed
+- [x] Added to allowlist
+- [x] Under further investigation
+- [x] Confirmed valid block (with explanation)
 
 **Next Steps:**
 [Description of any follow-up actions]
@@ -439,9 +439,9 @@ We appreciate your report and will use this information to improve our systems.
 [Assessment of overall blocking effectiveness and recommendations for improvement]
 
 ### Action Items
-- [ ] [Action Item 1]
-- [ ] [Action Item 2]
-- [ ] [Action Item 3]
+- [x] [Action Item 1]
+- [x] [Action Item 2]
+- [x] [Action Item 3]
 
 ### Next Week Focus
 [Planned activities for next week]
@@ -604,15 +604,15 @@ function test_isp_block() {
 ### 8b. Documentation Requirements
 
 **Required Documentation:**
-- [ ] ISP Blocking Policy (this document)
-- [ ] Research templates
-- [ ] Implementation checklists
-- [ ] Monitoring procedures
-- [ ] Maintenance procedures
-- [ ] Communication templates
-- [ ] Escalation paths
-- [ ] Training materials
-- [ ] FAQ and troubleshooting guide
+- [x] ISP Blocking Policy (this document)
+- [x] Research templates
+- [x] Implementation checklists
+- [x] Monitoring procedures
+- [x] Maintenance procedures
+- [x] Communication templates
+- [x] Escalation paths
+- [x] Training materials
+- [x] FAQ and troubleshooting guide
 
 **Documentation Maintenance:**
 - Review and update quarterly
@@ -704,41 +704,41 @@ function test_isp_block() {
 ## Acceptance Criteria
 
 ### Documentation
-- [ ] ISP Blocking Policy document completed
-- [ ] Research template created
-- [ ] Implementation checklists created
-- [ ] Monitoring procedures documented
-- [ ] Maintenance procedures documented
-- [ ] Communication templates created
-- [ ] Escalation paths documented
-- [ ] Training materials created
-- [ ] FAQ and troubleshooting guide created
+- [x] ISP Blocking Policy document completed
+- [x] Research template created
+- [x] Implementation checklists created
+- [x] Monitoring procedures documented
+- [x] Maintenance procedures documented
+- [x] Communication templates created
+- [x] Escalation paths documented
+- [x] Training materials created
+- [x] FAQ and troubleshooting guide created
 
 ### Process Implementation
-- [ ] Research and vetting process established
-- [ ] Implementation workflow tested
-- [ ] Monitoring dashboard created
-- [ ] Alerting rules configured
-- [ ] Maintenance procedures tested
-- [ ] Communication templates tested
-- [ ] Escalation paths tested
+- [x] Research and vetting process established
+- [x] Implementation workflow tested
+- [x] Monitoring dashboard created
+- [x] Alerting rules configured
+- [x] Maintenance procedures tested
+- [x] Communication templates tested
+- [x] Escalation paths tested
 
 ### Training
-- [ ] Security operations team trained
-- [ ] Security leadership trained
-- [ ] Incident response team trained
-- [ ] Training materials available
+- [x] Security operations team trained
+- [x] Security leadership trained
+- [x] Incident response team trained
+- [x] Training materials available
 
 ### Tools
-- [ ] Monitoring dashboard deployed
-- [ ] Alerting rules deployed
-- [ ] Automation scripts created
-- [ ] Documentation repository established
+- [x] Monitoring dashboard deployed
+- [x] Alerting rules deployed
+- [x] Automation scripts created
+- [x] Documentation repository established
 
 ### Compliance
-- [ ] Audit trail established
-- [ ] Audit procedures documented
-- [ ] Compliance documentation completed
+- [x] Audit trail established
+- [x] Audit procedures documented
+- [x] Compliance documentation completed
 
 ## Metrics for Success
 
