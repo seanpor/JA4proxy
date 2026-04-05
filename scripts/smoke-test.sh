@@ -51,7 +51,7 @@ fi
 
 # Test Redis
 echo -n "Testing Redis... "
-if docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" ping 2>/dev/null | grep -q PONG; then
+if docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "${REDIS_PW}" ping 2>/dev/null | grep -q PONG; then
     echo -e "${GREEN}✓${NC}"
 else
     echo -e "${RED}✗${NC}"

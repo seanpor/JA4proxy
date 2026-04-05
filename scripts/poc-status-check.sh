@@ -27,9 +27,9 @@ echo "────────────────────────�
 # ── Containers ─────────────────────────────────────────────────────────────────
 echo ""
 echo "Containers:"
-for svc in ja4proxy-haproxy ja4proxy ja4proxy-redis ja4proxy-backend ja4proxy-tarpit; do
-    if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$svc"; then
-        STATUS=$(docker ps --format '{{.Status}}' --filter "name=^${svc}$" 2>/dev/null | head -1)
+for svc in haproxy proxy redis backend tarpit; do
+    if docker compose -f docker-compose.poc.yml ps "$svc" --format '{{.Status}}' 2>/dev/null | grep -qi "Up"; then
+        STATUS=$(docker compose -f docker-compose.poc.yml ps "$svc" --format '{{.Status}}' 2>/dev/null)
         pass "$svc  ($STATUS)"
     else
         fail "$svc  — not running"
@@ -52,7 +52,7 @@ curl -sf --max-time 3 http://localhost:8404/stats > /dev/null 2>&1 \
     && pass "HAProxy stats       http://localhost:8404/stats" \
     || fail "HAProxy stats       http://localhost:8404/stats — not reachable"
 
-docker exec ja4proxy-redis redis-cli -a "$REDIS_PASS" --no-auth-warning ping > /dev/null 2>&1 \
+docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning ping > /dev/null 2>&1 \
     && pass "Redis               authenticated connection OK" \
     || fail "Redis               — not reachable or wrong password"
 
@@ -60,8 +60,8 @@ docker exec ja4proxy-redis redis-cli -a "$REDIS_PASS" --no-auth-warning ping > /
 echo ""
 echo "Security state:"
 
-BL=$(docker exec ja4proxy-redis redis-cli -a "$REDIS_PASS" --no-auth-warning SCARD ja4:blacklist 2>/dev/null || echo 0)
-WL=$(docker exec ja4proxy-redis redis-cli -a "$REDIS_PASS" --no-auth-warning SCARD ja4:whitelist 2>/dev/null || echo 0)
+BL=$(docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning SCARD ja4:blacklist 2>/dev/null || echo 0)
+WL=$(docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning SCARD ja4:whitelist 2>/dev/null || echo 0)
 if [ "${BL:-0}" -gt 0 ]; then
     pass "JA4 blacklist:  $BL fingerprints loaded"
 else

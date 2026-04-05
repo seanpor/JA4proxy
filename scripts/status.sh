@@ -30,7 +30,7 @@ BACKEND_HOST="${BACKEND_HOST:-backend}"
 BACKEND_PORT="${BACKEND_PORT:-443}"
 
 redis_cmd() {
-    docker exec ja4proxy-redis redis-cli -a "$REDIS_PASS" --no-auth-warning "$@" 2>/dev/null
+    docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning "$@" 2>/dev/null
 }
 
 echo
@@ -57,32 +57,42 @@ fi
 echo
 echo -e "${BOLD}▸ Docker Containers${NC}"
 
-check_container() {
-    local name="$1" label="$2"
-    if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx "$name"; then
-        local status
-        status=$(docker ps --format '{{.Status}}' --filter "name=^${name}$" 2>/dev/null | head -1)
-        ok "${label} (${status})"
-    else
-        if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -qx "$name"; then
-            local status
-            status=$(docker ps -a --format '{{.Status}}' --filter "name=^${name}$" 2>/dev/null | head -1)
+check_service() {
+    local svc="$1" label="$2"
+    local status
+    status=$(docker compose -f docker-compose.poc.yml ps "$svc" --format '{{.Status}}' 2>/dev/null || true)
+    
+    if [ -n "$status" ]; then
+        if echo "$status" | grep -qi "Up"; then
+            ok "${label} (${status})"
+        else
             fail "${label} — STOPPED (${status})"
+        fi
+    else
+        # Try monitoring compose if not in POC
+        status=$(docker compose -f docker/docker-compose.monitoring.yml ps "$svc" --format '{{.Status}}' 2>/dev/null || true)
+        if [ -n "$status" ]; then
+             if echo "$status" | grep -qi "Up"; then
+                ok "${label} (${status})"
+            else
+                fail "${label} — STOPPED (${status})"
+            fi
         else
             warn "${label} — not deployed"
         fi
     fi
 }
 
-check_container ja4proxy-haproxy  "HAProxy         :443 / :8404"
-check_container ja4proxy          "JA4 Proxy       :8080 / metrics :9090"
-check_container ja4proxy-redis    "Redis           (internal)"
-check_container ja4proxy-backend  "Mock Backend    :8443"
-check_container ja4proxy-tarpit   "Tarpit          :8888"
-check_container ja4proxy-prometheus "Prometheus    :9091"
-check_container ja4proxy-grafana       "Grafana          :3001"
-check_container ja4proxy-loki          "Loki             (internal)"
-check_container ja4proxy-management-ui "Management UI    :8001"
+check_service haproxy     "HAProxy         :443 / :8404"
+check_service proxy       "JA4 Proxy       :8080 / metrics :9090"
+check_service redis       "Redis           (internal)"
+check_service backend     "Mock Backend    :8443"
+check_service tarpit      "Tarpit          :8888"
+check_service prometheus  "Prometheus    :9091"
+check_service grafana     "Grafana          :3001"
+check_service loki        "Loki             (internal)"
+# Management UI might be in a different file or service name
+# check_service management-ui "Management UI    :8001"
 
 # ── 3. Service health ──────────────────────────────────────────────────────────
 echo
@@ -105,7 +115,7 @@ http_check "Grafana"         "http://localhost:3001/api/health"
 http_check "Management UI"  "http://localhost:8001/health"
 
 # Redis
-if docker exec ja4proxy-redis redis-cli -a "$REDIS_PASS" --no-auth-warning ping > /dev/null 2>&1; then
+if docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning ping > /dev/null 2>&1; then
     ok "Redis  (docker network — authenticated)"
 else
     fail "Redis  — not reachable or auth failed"
@@ -115,7 +125,7 @@ fi
 echo
 echo -e "${BOLD}▸ Live Security State${NC}"
 
-if docker ps --format '{{.Names}}' 2>/dev/null | grep -qx ja4proxy-redis; then
+if docker compose -f docker-compose.poc.yml ps redis --format '{{.Status}}' 2>/dev/null | grep -qi "Up"; then
     BL_COUNT=$(redis_cmd SCARD ja4:blacklist 2>/dev/null || echo "?")
     WL_COUNT=$(redis_cmd SCARD ja4:whitelist 2>/dev/null || echo "?")
     SAFE_CC=$(redis_cmd SCARD geoip:safe_countries 2>/dev/null || echo "?")
