@@ -321,7 +321,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.management
     ports:
-      - "127.0.0.1:8090:8090"
+      - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_MANAGEMENT:-8090}:8090"
     environment:
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - MANAGEMENT_JWT_SECRET=${MANAGEMENT_JWT_SECRET:-change-me-in-production}
