@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Bans{% endblock %}
+{% block page_title %}Active Bans{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-[900px]">
+
+  <!-- ── Add ban form ──────────────────────────────────────────── -->
+  <div class="bg-[#1e293b] border border-[#334155] rounded-xl overflow-hidden">
+    <div class="flex items-center gap-2 px-4 py-3 border-b border-[#334155]">
+      <svg class="w-4 h-4 text-[#7c3aed]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+      </svg>
+      <h2 class="text-sm font-semibold text-[#f1f5f9]">Add Ban</h2>
+    </div>
+
+    <form hx-post="/api/v1/bans"
+          hx-target="#bans-table"
+          hx-swap="outerHTML"
+          hx-indicator="#htmx-indicator"
+          class="px-4 py-4"
+          x-data="{ ip: '', ttl: 3600, reason: '', submitting: false }"
+          @htmx:before-request="submitting = true"
+          @htmx:after-request="submitting = false; ip = ''; reason = ''">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token | default('') }}" />
+      <div class="grid grid-cols-1 sm:grid-cols-[1fr_120px_1fr_auto] gap-3 items-end">
+
+        <!-- IP field -->
+        <div>
+          <label for="ban-ip" class="block text-xs font-medium text-[#94a3b8] mb-1.5">IP Address</label>
+          <input id="ban-ip"
+                 name="ip"
+                 type="text"
+                 required
+                 x-model="ip"
+                 placeholder="203.0.113.42"
+                 class="w-full px-3 py-2 rounded-lg bg-[#0f172a] border border-[#334155] text-[#f1f5f9] text-sm
+                        placeholder-[#475569] focus:outline-none focus:ring-2 focus:ring-[#7c3aed] focus:border-transparent" />
+        </div>
+
+        <!-- TTL field -->
+        <div>
+          <label for="ban-ttl" class="block text-xs font-medium text-[#94a3b8] mb-1.5">TTL (seconds)</label>
+          <input id="ban-ttl"
+                 name="ttl"
+                 type="number"
+                 min="1"
+                 max="604800"
+                 x-model="ttl"
+                 class="w-full px-3 py-2 rounded-lg bg-[#0f172a] border border-[#334155] text-[#f1f5f9] text-sm
+                        focus:outline-none focus:ring-2 focus:ring-[#7c3aed] focus:border-transparent" />
+        </div>
+
+        <!-- Reason field -->
+        <div>
+          <label for="ban-reason" class="block text-xs font-medium text-[#94a3b8] mb-1.5">Reason</label>
+          <input id="ban-reason"
+                 name="reason"
+                 type="text"
+                 required
+                 x-model="reason"
+                 placeholder="e.g. Brute force, Scan activity"
+                 class="w-full px-3 py-2 rounded-lg bg-[#0f172a] border border-[#334155] text-[#f1f5f9] text-sm
+                        placeholder-[#475569] focus:outline-none focus:ring-2 focus:ring-[#7c3aed] focus:border-transparent" />
+        </div>
+
+        <!-- Submit -->
+        <button type="submit"
+                :disabled="submitting || !ip || !reason"
+                class="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg
+                       bg-[#7c3aed] hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed
+                       text-white text-sm font-medium transition-colors">
+          <svg class="w-4 h-4" :class="submitting ? 'animate-spin' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path x-show="!submitting" stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+            <path x-show="submitting" stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          Ban IP
+        </button>
+
+      </div>
+
+      <!-- TTL presets -->
+      <div class="flex items-center gap-2 mt-2.5 flex-wrap">
+        <span class="text-xs text-[#475569]">Quick TTL:</span>
+        {% for label, seconds in [("1 hour", 3600), ("6 hours", 21600), ("24 hours", 86400), ("7 days", 604800)] %}
+        <button type="button" @click="ttl = {{ seconds }}"
+                :class="ttl == {{ seconds }} ? 'bg-[#7c3aed]/30 text-[#c4b5fd] border-[#7c3aed]/40' : 'text-[#94a3b8] border-[#334155] hover:border-[#7c3aed]/40 hover:text-[#c4b5fd]'"
+                class="px-2 py-0.5 text-xs rounded border transition-colors">
+          {{ label }}
+        </button>
+        {% endfor %}
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Active bans table ─────────────────────────────────────── -->
+  <div class="bg-[#1e293b] border border-[#334155] rounded-xl overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-[#334155]">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-[#7c3aed]"></span>
+        <h2 class="text-sm font-semibold text-[#f1f5f9]">Active Bans</h2>
+      </div>
+      <span class="text-xs text-[#94a3b8]">Auto-refreshes every 30s</span>
+    </div>
+
+    <div id="bans-table"
+         hx-get="/api/v1/partials/bans"
+         hx-trigger="load, every 30s"
+         hx-swap="outerHTML"
+         hx-indicator="#htmx-indicator">
+      <div class="px-4 py-8 text-center text-sm text-[#94a3b8]">Loading bans…</div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

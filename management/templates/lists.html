@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}Lists{% endblock %}
+{% block page_title %}Allow / Block Lists{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-[1000px]"
+     x-data="{ activeTab: 'ja4' }">
+
+  <!-- Tab bar -->
+  <div class="flex gap-1 bg-[#1e293b] border border-[#334155] rounded-xl p-1 w-fit">
+    <button
+      @click="activeTab = 'ja4'"
+      :class="activeTab === 'ja4'
+        ? 'bg-[#0ea5e9] text-white'
+        : 'text-[#94a3b8] hover:text-[#f1f5f9] hover:bg-[#334155]'"
+      class="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors">
+      JA4 Fingerprints
+    </button>
+    <button
+      @click="activeTab = 'ip'"
+      :class="activeTab === 'ip'
+        ? 'bg-[#0ea5e9] text-white'
+        : 'text-[#94a3b8] hover:text-[#f1f5f9] hover:bg-[#334155]'"
+      class="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors">
+      IP Allowlist
+    </button>
+  </div>
+
+  <!-- ── JA4 Tab ───────────────────────────────────────────────── -->
+  <div x-show="activeTab === 'ja4'" class="space-y-6">
+
+    <!-- JA4 Whitelist -->
+    <div class="bg-[#1e293b] border border-[#334155] rounded-xl overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-[#334155]">
+        <div class="flex items-center gap-2.5">
+          <span class="w-2.5 h-2.5 rounded-full bg-[#16a34a]"></span>
+          <h2 class="text-sm font-semibold text-[#f1f5f9]">JA4 Whitelist</h2>
+        </div>
+        <span id="ja4-whitelist-count"
+              class="text-xs bg-[#16a34a]/20 text-[#4ade80] border border-[#16a34a]/30 px-2 py-0.5 rounded-full font-medium">
+          — entries
+        </span>
+      </div>
+
+      <!-- Add entry form -->
+      <div class="px-4 py-3 border-b border-[#334155] bg-[#0f172a]/40">
+        <form hx-post="/api/v1/lists/ja4/whitelist"
+              hx-target="#ja4-whitelist-table"
+              hx-swap="outerHTML"
+              hx-indicator="#htmx-indicator"
+              class="flex gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token | default('') }}" />
+          <input type="text"
+                 name="fingerprint"
+                 required
+                 placeholder="e.g. t13d1516h2_8daaf6152771_b0da82dd1658"
+                 class="flex-1 min-w-0 px-3 py-1.5 rounded-lg bg-[#0f172a] border border-[#334155] text-[#f1f5f9] text-xs
+                        placeholder-[#475569] focus:outline-none focus:ring-2 focus:ring-[#16a34a] focus:border-transparent" />
+          <button type="submit"
+                  class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#16a34a] hover:bg-green-500
+                         text-white text-xs font-medium transition-colors">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+            </svg>
+            Add
+          </button>
+        </form>
+      </div>
+
+      <!-- Table (loaded via HTMX, also used as swap target) -->
+      <div id="ja4-whitelist-table"
+           hx-get="/api/v1/partials/list-table?list=ja4_whitelist"
+           hx-trigger="load"
+           hx-swap="outerHTML"
+           hx-indicator="#htmx-indicator">
+        <div class="px-4 py-6 text-center text-sm text-[#94a3b8]">Loading…</div>
+      </div>
+    </div>
+
+    <!-- JA4 Blacklist -->
+    <div class="bg-[#1e293b] border border-[#334155] rounded-xl overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-[#334155]">
+        <div class="flex items-center gap-2.5">
+          <span class="w-2.5 h-2.5 rounded-full bg-[#dc2626]"></span>
+          <h2 class="text-sm font-semibold text-[#f1f5f9]">JA4 Blacklist</h2>
+        </div>
+        <span id="ja4-blacklist-count"
+              class="text-xs bg-[#dc2626]/20 text-[#f87171] border border-[#dc2626]/30 px-2 py-0.5 rounded-full font-medium">
+          — entries
+        </span>
+      </div>
+
+      <div class="px-4 py-3 border-b border-[#334155] bg-[#0f172a]/40">
+        <form hx-post="/api/v1/lists/ja4/blacklist"
+              hx-target="#ja4-blacklist-table"
+              hx-swap="outerHTML"
+              hx-indicator="#htmx-indicator"
+              class="flex gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token | default('') }}" />
+          <input type="text"
+                 name="fingerprint"
+                 required
+                 placeholder="e.g. t13d1516h2_8daaf6152771_b0da82dd1658"
+                 class="flex-1 min-w-0 px-3 py-1.5 rounded-lg bg-[#0f172a] border border-[#334155] text-[#f1f5f9] text-xs
+                        placeholder-[#475569] focus:outline-none focus:ring-2 focus:ring-[#dc2626] focus:border-transparent" />
+          <button type="submit"
+                  class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#dc2626] hover:bg-red-500
+                         text-white text-xs font-medium transition-colors">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+            </svg>
+            Add
+          </button>
+        </form>
+      </div>
+
+      <div id="ja4-blacklist-table"
+           hx-get="/api/v1/partials/list-table?list=ja4_blacklist"
+           hx-trigger="load"
+           hx-swap="outerHTML"
+           hx-indicator="#htmx-indicator">
+        <div class="px-4 py-6 text-center text-sm text-[#94a3b8]">Loading…</div>
+      </div>
+    </div>
+
+  </div><!-- /ja4 tab -->
+
+  <!-- ── IP Allowlist Tab ──────────────────────────────────────── -->
+  <div x-show="activeTab === 'ip'" class="space-y-6" style="display:none;">
+
+    <div class="bg-[#1e293b] border border-[#334155] rounded-xl overflow-hidden">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-[#334155]">
+        <div class="flex items-center gap-2.5">
+          <span class="w-2.5 h-2.5 rounded-full bg-[#0ea5e9]"></span>
+          <h2 class="text-sm font-semibold text-[#f1f5f9]">IP Allowlist</h2>
+        </div>
+        <span id="ip-allowlist-count"
+              class="text-xs bg-[#0ea5e9]/20 text-[#38bdf8] border border-[#0ea5e9]/30 px-2 py-0.5 rounded-full font-medium">
+          — entries
+        </span>
+      </div>
+
+      <div class="px-4 py-3 border-b border-[#334155] bg-[#0f172a]/40">
+        <form hx-post="/api/v1/lists/ip-allowlist"
+              hx-target="#ip-allowlist-table"
+              hx-swap="outerHTML"
+              hx-indicator="#htmx-indicator"
+              class="flex gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token | default('') }}" />
+          <input type="text"
+                 name="ip"
+                 required
+                 placeholder="IP address or CIDR e.g. 203.0.113.42 or 198.51.100.0/24"
+                 class="flex-1 min-w-0 px-3 py-1.5 rounded-lg bg-[#0f172a] border border-[#334155] text-[#f1f5f9] text-xs
+                        placeholder-[#475569] focus:outline-none focus:ring-2 focus:ring-[#0ea5e9] focus:border-transparent" />
+          <button type="submit"
+                  class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0ea5e9] hover:bg-sky-400
+                         text-white text-xs font-medium transition-colors">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+            </svg>
+            Add
+          </button>
+        </form>
+      </div>
+
+      <div id="ip-allowlist-table"
+           hx-get="/api/v1/partials/list-table?list=ip_allowlist"
+           hx-trigger="load"
+           hx-swap="outerHTML"
+           hx-indicator="#htmx-indicator">
+        <div class="px-4 py-6 text-center text-sm text-[#94a3b8]">Loading…</div>
+      </div>
+    </div>
+
+    <!-- Info notice about static IP allowlist -->
+    <div class="flex gap-2.5 px-4 py-3 rounded-xl bg-[#0ea5e9]/10 border border-[#0ea5e9]/25 text-sm text-[#94a3b8]">
+      <svg class="w-4 h-4 text-[#0ea5e9] flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <span>IPs on the allowlist bypass all scoring and bypass checks. Changes take effect within 30 seconds after hot reload. CIDR notation supported (IPv4 and IPv6).</span>
+    </div>
+
+  </div><!-- /ip tab -->
+
+</div>
+{% endblock %}

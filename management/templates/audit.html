@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Log{% endblock %}
+{% block page_title %}Audit Log{% endblock %}
+
+{% block content %}
+<div class="space-y-4 max-w-[1100px]">
+
+  <!-- Controls bar -->
+  <div class="flex items-center justify-between gap-4 flex-wrap">
+
+    <!-- Filter chips (Alpine-controlled, sent as query param on next load) -->
+    <div class="flex items-center gap-2 flex-wrap"
+         x-data="{ filter: 'all' }">
+      <span class="text-xs text-[#94a3b8] mr-1">Filter:</span>
+      {% set filters = [
+        ("all",    "All",         "text-[#94a3b8]"),
+        ("dial",   "Dial",        "text-[#38bdf8]"),
+        ("ban",    "Bans",        "text-[#f87171]"),
+        ("list",   "Lists",       "text-[#fbbf24]"),
+        ("reload", "Reload",      "text-[#c4b5fd]"),
+      ] %}
+      {% for key, label, color in filters %}
+      <button
+        @click="filter = '{{ key }}'"
+        :class="filter === '{{ key }}' ? 'bg-[#334155] {{ color }}' : 'text-[#475569] hover:text-[#94a3b8]'"
+        hx-get="/api/v1/partials/audit?filter={{ key }}"
+        hx-target="#audit-table"
+        hx-swap="outerHTML"
+        hx-indicator="#htmx-indicator"
+        class="px-2.5 py-1 text-xs rounded-lg border border-transparent transition-colors">
+        {{ label }}
+      </button>
+      {% endfor %}
+    </div>
+
+    <!-- Refresh button -->
+    <button
+      hx-get="/api/v1/partials/audit"
+      hx-target="#audit-table"
+      hx-swap="outerHTML"
+      hx-indicator="#htmx-indicator"
+      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
+             bg-[#1e293b] border border-[#334155] text-[#94a3b8]
+             hover:bg-[#334155] hover:text-[#f1f5f9] transition-colors">
+      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+      </svg>
+      Refresh
+    </button>
+
+  </div>
+
+  <!-- Audit log table -->
+  <div class="bg-[#1e293b] border border-[#334155] rounded-xl overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-[#334155]">
+      <h2 class="text-sm font-semibold text-[#f1f5f9]">Policy Audit Events</h2>
+      <span class="text-xs text-[#94a3b8]">Latest 100 events</span>
+    </div>
+
+    <div id="audit-table"
+         hx-get="/api/v1/partials/audit"
+         hx-trigger="load"
+         hx-swap="outerHTML"
+         hx-indicator="#htmx-indicator">
+      <div class="px-4 py-8 text-center text-sm text-[#94a3b8]">Loading audit log…</div>
+    </div>
+  </div>
+
+  <!-- Load more -->
+  <div class="flex justify-center">
+    <button
+      hx-get="/api/v1/partials/audit?offset=100"
+      hx-target="#audit-table"
+      hx-swap="beforeend"
+      hx-indicator="#htmx-indicator"
+      class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm
+             bg-[#1e293b] border border-[#334155] text-[#94a3b8]
+             hover:bg-[#334155] hover:text-[#f1f5f9] transition-colors">
+      Load more events
+    </button>
+  </div>
+
+</div>
+{% endblock %}
