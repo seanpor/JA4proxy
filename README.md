@@ -381,6 +381,25 @@ Plus: documentation across 205+ files (architecture, runbooks, security audit, c
 
 ---
 
+## Enterprise Integration (Phases 79–86)
+
+The enterprise phases deliver the integration surface that regulated-industry buyers require. They build on the hardened prototype (phases 0–78) and assume the quality baseline established by phases 61–64.
+
+| Phase | Deliverable | Prerequisite |
+|---|---|---|
+| 79 | Management API v2, RBAC, SSO (OIDC/SAML) | Phases 13/51/52 management UI |
+| 80 | ECS 8.x log format + SIEM connectors (Splunk, QRadar, Sentinel, Elastic) | Phase 79 |
+| 81 | SOAR playbooks (XSOAR, Splunk SOAR) + ops platform integrations (PagerDuty, ServiceNow) | Phase 79 |
+| 82 | Policy-as-Code (YAML), shadow mode simulation, four-eyes dial approval | Phase 79 |
+| 83 | `ja4proxy-cli` Go binary, Terraform provider, Kubernetes operator + CRDs | Phase 79 |
+| 84 | ISO 27001 / SOC 2 evidence pack, automated compliance report generator | Phases 79 + 83 |
+| 85 | TAXII 2.1 / MISP threat intel ingestion, STIX 2.1 indicator conversion | Phase 79 |
+| 86 | Grafana enterprise dashboards, SLO burn-rate alerting, capacity calculator | Phases 79 + 80 |
+
+Phase 79 is the critical path — every subsequent enterprise phase depends on it. It is being developed in parallel with phases 13/51/52 (Management UI). See [`docs/phases/PHASE_79.md`](docs/phases/PHASE_79.md) for the detailed spec.
+
+---
+
 ## Local Development Stack
 
 The following ports are active when running `make start` on a **local development or test machine**. This stack includes a mock TLS backend that stands in for a real upstream service.

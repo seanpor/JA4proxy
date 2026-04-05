@@ -293,6 +293,14 @@ Practical rules that flow from this:
 | 76 | **Enterprise RHEL Production Deployment Strategy** | Best practices for deploying JA4proxy inline on RHEL 8/9 using Podman/Quadlets | [PHASE_76.md](docs/phases/PHASE_76.md) |
 | 77 | **Enterprise Security Stack & SIEM Integration** | Integration patterns for Wazuh, CrowdSec, Splunk, QRadar, and Vector | [PHASE_77.md](docs/phases/PHASE_77.md) |
 | 78 | **Enterprise Scale, Hardening & Governance** | Multi-node scaling, Fail-Open policies, GDPR masking, and FIPS compliance | [PHASE_78.md](docs/phases/PHASE_78.md) |
+| 79 | **Management API v2, RBAC & Enterprise Identity** | REST Management API, role-based access control, JWT auth, SSO (OIDC) integration | [PHASE_79.md](docs/phases/PHASE_79.md) |
+| 80 | **ECS Structured Logging & SIEM Integration** | ECS 8.x log format, Splunk HEC / QRadar CEF / Sentinel / Elastic SIEM connectors | [PHASE_80.md](docs/phases/PHASE_80.md) |
+| 81 | **SOAR, Webhooks & Enterprise Operations Platforms** | XSOAR / Splunk SOAR playbooks, PagerDuty / ServiceNow / Jira / xMatters integration | [PHASE_81.md](docs/phases/PHASE_81.md) |
+| 82 | **Policy-as-Code, Shadow Mode & Governance** | YAML policy files, shadow mode simulation, four-eyes dial approval, full audit trail | [PHASE_82.md](docs/phases/PHASE_82.md) |
+| 83 | **Infrastructure Automation — Terraform, CLI & Kubernetes Operator** | `ja4proxy-cli` Go binary, Terraform provider, Kubernetes operator + CRDs | [PHASE_83.md](docs/phases/PHASE_83.md) |
+| 84 | **Compliance Reporting & Evidence Pack** | ISO 27001 / SOC 2 evidence pack, automated report generator, compliance dashboard | [PHASE_84.md](docs/phases/PHASE_84.md) |
+| 85 | **Threat Intelligence Ingestion** | TAXII 2.1 client, MISP integration, STIX 2.1 indicator conversion, ISAC sharing | [PHASE_85.md](docs/phases/PHASE_85.md) |
+| 86 | **Observability Upgrade & Capacity Planning** | Grafana enterprise dashboards, SLO burn-rate alerting, capacity calculator | [PHASE_86.md](docs/phases/PHASE_86.md) |
 
 **Do phases in order. Complete all acceptance criteria before starting the next phase.**
 
