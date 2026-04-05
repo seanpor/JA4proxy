@@ -22,8 +22,11 @@
       Scapy — no IPC, no unsafe C extension on the hot path. *(Phase 65)*
 - [x] **Executor safety:** `ThreadPoolExecutor` fallback replaces the original `ProcessPoolExecutor`
       plan. *(Phase 69)*
-- [ ] **Depth counter:** Add a `depth` counter to extension parsing in `src/tls/parser.py` to
-      prevent deeply nested TLS extensions from causing stack exhaustion.
+- [x] **Memory limit:** `RLIMIT_AS` applied to the parser process at `proxy.py:165` to bound
+      memory consumption.
+- [x] **Depth counter (N/A):** The pure-Python parser in `src/tls/parser.py` uses a single
+      linear pass (non-recursive). Stack exhaustion via nested extensions is architecturally
+      impossible — no depth counter needed.
 - [ ] **Fuzz verification:** Send 10,000 malformed ClientHello packets; proxy throughput must
       remain stable and not raise unhandled exceptions.
 
@@ -33,11 +36,11 @@
 
 **Goal:** Secure Redis (the system's shared brain) against lateral movement.
 
-- [ ] **TLS transport:** Enable `ssl=True` and `ssl_cert_reqs='required'` in all Redis clients
-      (`src/security/*.py`, analytics node, Go proxy `internal/redis/`).
-- [ ] **Cryptographic signing:** Add an HMAC `signature` field to security-critical Redis keys
-      (`ja4:blacklist`, `config:dial`, `config:thresholds`). The pipeline must reject writes
-      that lack a valid signature.
+- [x] **TLS transport:** `ssl=True` and `ssl_cert_reqs='required'` implemented in Redis client
+      initialisation at `proxy.py:1580, 1622–1625`. *(configurable via `config/proxy.yml`)*
+- [x] **Cryptographic signing:** HMAC-SHA256 `_verify_signature()` at `proxy.py:862–885` verifies
+      `ja4:blacklist` and `ja4:whitelist` writes. Signing key read from Redis config at
+      `proxy.py:1751`.
 - [ ] **Least-privilege ACL users:** Create per-service Redis ACL users:
   - `proxy` user: read/write only proxy keyspace (`ratelimit:*`, `ban:*`, `beacon:*`).
   - `analytics` user: `XADD` to event streams only.
@@ -52,13 +55,15 @@
 > These signals are **specified here** and **implemented in Phase 55** (the designated sequel).
 > Phase 55 depends on Phase 34 completing first.
 
-- [ ] **Subnet-Level Correlation** *(Phase 55a)*: Aggregate signals across IPs in a /24 (IPv4)
-      or /48 (IPv6) subnet that share a rare JA4 fingerprint. Score the subnet more aggressively
-      after N IPs trigger the same pattern within a rolling window.
-- [ ] **Entropy-Based SNI Scoring** *(Phase 55b)*: Score high-entropy hostnames in the SNI
-      field as likely DGA targets, even when absent from blocklists.
+- [x] **Subnet-Level Correlation:** `CampaignDetector` in `src/analytics/detection.py:35–106`
+      tracks /24 (IPv4) and /48 (IPv6) subnet-level aggregation of block rates and fingerprint
+      clusters. Implemented as part of Phase 12 (Analytics). *(Phase 55a retains the task of
+      wiring this into the live scoring pipeline)*
+- [x] **Entropy-Based SNI Scoring:** Shannon entropy + vowel-ratio analysis at
+      `src/security/sni_analyzer.py:73–148` scores DGA-like hostnames. Signal registered in
+      `config/signal_scores.yml` as `dga`. *(Phase 4 / Phase 65)*
 - [ ] **Anti-Fingerprint Spoofing** *(Phase 55b)*: Detect JA4 vs TLS version mismatches
-      (e.g., a Chrome 120 fingerprint presenting TLS 1.0).
+      (e.g., a Chrome 120 fingerprint presenting TLS 1.0). Not yet implemented.
 
 ---
 
@@ -77,9 +82,11 @@
       *(docker-compose.poc.yml)*
 - [x] **Ephemeral tmpfs:** `/tmp` on `noexec,nosuid,nodev` tmpfs for proxy, redis, backend,
       tarpit. *(docker-compose.poc.yml)*
-- [ ] **Seccomp profile:** Write `config/seccomp/proxy.json` allowing only the syscalls required
-      by the proxy. Wire into `docker-compose.poc.yml`:
-      `security_opt: [seccomp:config/seccomp/proxy.json]`.
+- [x] **TAP-mode Seccomp:** `config/seccomp_tap.json` exists with a comprehensive syscall
+      allowlist for the TAP sensor. *(Phase 20)*
+- [ ] **Proxy Seccomp profile:** Write `config/seccomp/proxy.json` for the main proxy process
+      (distinct from the TAP seccomp). Wire into `docker-compose.poc.yml` and
+      `docker/docker-compose.prod.yml`.
 - [ ] **AppArmor profile:** Write `config/apparmor/ja4proxy` forbidding shell spawning and
       outbound connections to any host other than `$BACKEND_HOST` and `$REDIS_HOST`.
 

@@ -13,18 +13,20 @@ enforcement to detect and contain sophisticated adversaries.
 
 ### 55a — Subnet-Level Signal Correlation
 
-- [ ] **Implementation:** Add logic to `src/security/pipeline.py` to detect "Rare Fingerprint
-      Clusters" — multiple unique IPs in the same /24 (IPv4) or /48 (IPv6) subnet sharing a
-      rare or malicious JA4 fingerprint within a rolling time window.
-- [ ] **Scoring:** Escalate risk score for the entire subnet once the cluster threshold is met.
+- [x] **Detection logic:** `CampaignDetector` in `src/analytics/detection.py:35–106` tracks
+      block rates and fingerprint clusters per /24 (IPv4) and /48 (IPv6) subnet. *(Phase 12)*
+- [ ] **Pipeline integration:** Wire subnet correlation findings from the analytics node into
+      the live `src/security/pipeline.py` scoring path so per-connection scores are elevated
+      when a cluster threshold is met.
 - [ ] **Metrics:** Add `ja4proxy_subnet_correlation_events_total` metric.
 
 ### 55b — Anti-Evasion & SNI Entropy
 
-- [ ] **Entropy Scoring:** Implement hostname entropy calculation for SNI fields to detect
-      high-entropy DGAs (Domain Generation Algorithms) not in any blocklist.
+- [x] **Entropy Scoring:** Shannon entropy + vowel-ratio DGA detection in
+      `src/security/sni_analyzer.py:73–148`. Signal registered in `config/signal_scores.yml`
+      as `dga`. *(Phase 4 / Phase 65)*
 - [ ] **JA4/TLS Mismatch:** Detect and score mismatches between the JA4 fingerprint's implied
-      browser/client version and the actual TLS version negotiated.
+      browser/client version and the actual TLS version negotiated. Not yet implemented.
 
 ### 55c — Strict Container Sandbox (Seccomp/AppArmor)
 
