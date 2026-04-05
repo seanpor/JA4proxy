@@ -1,6 +1,6 @@
 # Phase 84: Compliance & Reporting
 
-> **Prerequisite: Phase 79 (Management API + audit trail) must be complete.**
+> **Prerequisites: Phase 79 (Management API + audit trail) AND Phase 83 (`ja4proxy-cli` binary) must both be complete.** The `ja4proxy-cli compliance` and `ja4proxy-cli report` commands in this phase are implemented in the CLI binary from Phase 83. Phase 84 cannot be completed without Phase 83.
 
 ---
 
@@ -132,7 +132,40 @@ Secureframe). Includes:
 - Responsible role
 - Evidence collection frequency
 
-### 3.3 Evidence Collection for SOC 2 Type II
+### 3.3 Evidence Collection — Authentication Strategy
+
+The GitHub Actions evidence collection workflow (§3.4) calls the Management API using an API token. This token must be:
+
+1. **Auditor-scoped** (read-only): evidence collection never needs to mutate state
+2. **Stored as a GitHub Actions secret** in a dedicated GitHub Environment (e.g., `compliance-evidence`), not in a repository-level secret accessible to all workflows
+3. **Rotated on a schedule**: add a `rotate-compliance-token` workflow that calls `POST /api/v1/tokens/{id}/rotate` and updates the GitHub secret via the GitHub API. Run quarterly.
+4. **Long-lived but tracked**: set a 400-day expiry (longer than the annual evidence collection cycle) and add a Prometheus alert for token expiry ≤ 60 days
+
+```yaml
+# .github/workflows/rotate-compliance-token.yml
+name: Rotate Compliance Evidence Token
+on:
+  schedule:
+    - cron: "0 3 1 */3 *"   # Quarterly: 1st of Jan, Apr, Jul, Oct
+  workflow_dispatch:
+
+jobs:
+  rotate:
+    environment: compliance-evidence
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rotate JA4proxy compliance token
+        run: |
+          NEW_TOKEN=$(curl -s -X POST \
+            -H "Authorization: Bearer ${{ secrets.JA4PROXY_COMPLIANCE_TOKEN }}" \
+            "${{ vars.JA4PROXY_MGMT_URL }}/api/v1/tokens/${{ vars.JA4PROXY_COMPLIANCE_TOKEN_ID }}/rotate" \
+            | jq -r '.token')
+          gh secret set JA4PROXY_COMPLIANCE_TOKEN --body "$NEW_TOKEN" --env compliance-evidence
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_SECRET_WRITE }}
+```
+
+### 3.4 Evidence Collection for SOC 2 Type II
 
 The auditor requires evidence that controls operated **continuously** over the audit
 period (typically 12 months). Ship a scheduled evidence collection job:
@@ -296,7 +329,30 @@ ja4proxy-cli report generate \
 PDF generation uses `WeasyPrint` (Python, no external process dependencies) with a
 clean corporate template. The template is configurable at `config/report_template.html`.
 
-### 5.3 Automated Monthly Distribution
+### 5.3 Container Dependencies
+
+WeasyPrint requires system-level libraries that are not present in the default Python Docker image:
+- `pango` (text layout)
+- `cairo` (2D graphics)
+- `fontconfig` (font management)
+- `libffi` (foreign function interface)
+
+These must be added to whichever container runs the report generation command (analytics node or a dedicated reporting container). Add to the relevant Dockerfile:
+
+```dockerfile
+# WeasyPrint system dependencies (Phase 84)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libcairo2 \
+    libfontconfig1 \
+    libffi-dev \
+    && rm -rf /var/lib/apt/lists/*
+```
+
+Add `weasyprint>=60.0` to `requirements.txt` with a `# phase-84` comment. Test the PDF generation in CI using a headless Docker environment — WeasyPrint does not require a display but does require the system libraries above.
+
+### 5.4 Automated Monthly Distribution
 
 ```yaml
 # deploy/ansible/playbooks/monthly-report.yml
@@ -364,7 +420,7 @@ controls to Annex A controls in the 2022 edition:
 
 | Annex A Control | JA4proxy Evidence |
 |-----------------|-------------------|
-| A.8.6 Capacity management | Capacity metrics + sizing calculator (Phase 86) |
+| A.8.6 Capacity management | Capacity metrics + sizing calculator (see Phase 86) *(aspirational — requires Phase 86 completion)* |
 | A.8.7 Protection against malware | TLS fingerprint-based bot/malware blocking |
 | A.8.16 Monitoring activities | ECS logs, SIEM integration, analytics alerts |
 | A.8.20 Networks security | DMZ placement, network isolation (Phase 72/73) |
@@ -379,6 +435,10 @@ Document delivered as `docs/compliance/iso27001-annex-a-mapping.md`.
 
 ## 8. Acceptance Criteria
 
+- [ ] Prerequisites confirmed: Phase 79 and Phase 83 both complete before Phase 84 implementation starts
+- [ ] WeasyPrint system dependencies added to relevant Dockerfile; PDF generation tested in CI
+- [ ] Compliance API token: Auditor-scoped, stored in dedicated GitHub Environment, quarterly rotation workflow implemented
+- [ ] Forward reference to Phase 86 (ISO 27001 §7) noted as aspirational pending Phase 86 completion
 - [ ] `ja4proxy-cli compliance pci-dss-pack` generates all 8 artefacts in §2.2
 - [ ] PCI-DSS pack PDFs include SHA-256 checksum in footer
 - [ ] SOC 2 narrative file committed to `docs/compliance/soc2-control-narrative.md`
