@@ -1,0 +1,170 @@
+/*
+ * JA4proxy Management UI — Custom CSS
+ * Supplements Tailwind CSS with things the CDN version can't express.
+ * Keep this file minimal: prefer Tailwind utility classes in templates.
+ */
+
+/* ── Base ─────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Custom scrollbar (dark theme) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* ── HTMX loading indicator ───────────────────────────────────── */
+#htmx-indicator {
+  /* Base state: invisible; made visible by JS in base.html */
+  background: linear-gradient(90deg, #0ea5e9, #38bdf8);
+  height: 2px;
+  position: fixed;
+  top: 0;
+  left: 200px; /* sidebar width */
+  right: 0;
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+/* ── Tables ───────────────────────────────────────────────────── */
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+/* Smooth row removal (HTMX swap:300ms) */
+tr[hx-swap] {
+  transition: opacity 0.3s ease, background-color 0.3s ease;
+}
+tr.htmx-swapping {
+  opacity: 0;
+  background-color: #dc262620;
+}
+
+/* ── Form controls ────────────────────────────────────────────── */
+
+/* Range slider thumb */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: #334155;
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #0ea5e9;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  background: #38bdf8;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #0ea5e9;
+  cursor: pointer;
+  border: none;
+}
+
+/* ── Action badges (live feed) ────────────────────────────────── */
+.badge-allow  { background-color: #16a34a20; color: #4ade80; border: 1px solid #16a34a40; }
+.badge-block  { background-color: #dc262620; color: #f87171; border: 1px solid #dc262640; }
+.badge-tarpit { background-color: #d9770620; color: #fbbf24; border: 1px solid #d9770640; }
+.badge-ban    { background-color: #7c3aed20; color: #c4b5fd; border: 1px solid #7c3aed40; }
+.badge-flag   { background-color: #0ea5e920; color: #38bdf8; border: 1px solid #0ea5e940; }
+.badge-rate   { background-color: #d9770620; color: #fb923c; border: 1px solid #d9770640; }
+
+.action-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* ── Score bar (live feed risk score column) ──────────────────── */
+.score-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Dial gauge canvas ────────────────────────────────────────── */
+#dialChart {
+  max-width: 200px;
+  max-height: 160px;
+}
+
+/* ── Animations ───────────────────────────────────────────────── */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in {
+  animation: fade-in 0.2s ease-out both;
+}
+
+/* New row highlight (SSE live feed) */
+@keyframes row-highlight {
+  0%   { background-color: #0ea5e915; }
+  100% { background-color: transparent; }
+}
+#live-feed-body tr:first-child {
+  animation: row-highlight 2s ease-out;
+}
+
+/* ── Sidebar active indicator ─────────────────────────────────── */
+/* Already handled by Tailwind in base.html, but add a subtle left bar */
+aside nav a[class*="bg-[#0ea5e9]"] {
+  box-shadow: inset 3px 0 0 #38bdf8;
+}
+
+/* ── Responsive adjustments for ~800px viewport ───────────────── */
+@media (max-width: 900px) {
+  #htmx-indicator {
+    left: 0; /* full width on small screens if sidebar is hidden */
+  }
+}
+
+/* ── Print styles ─────────────────────────────────────────────── */
+@media print {
+  aside, header, #htmx-indicator, button {
+    display: none !important;
+  }
+  .ml-\[200px\] {
+    margin-left: 0 !important;
+  }
+  body {
+    background: white;
+    color: black;
+  }
+}
