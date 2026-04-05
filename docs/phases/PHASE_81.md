@@ -67,6 +67,10 @@ A custom XSOAR integration (`JA4proxy`) with the following commands:
 | `ja4proxy-add-to-allowlist` | Temporary allowlist (with mandatory expiry) |
 | `ja4proxy-get-dial` | Return current dial setting |
 
+**Test strategy:** XSOAR playbooks cannot be tested without an XSOAR tenant. Two acceptable approaches:
+1. **Developer tenant** — Palo Alto provides free XSOAR developer instances; provision one for integration testing. Document setup in `docs/developer/MOCK_SERVERS.md`.
+2. **Mock HTTP server** — implement a mock XSOAR webhook receiver in `tests/mocks/soar_mock.py` that validates the correct API calls are made. Both approaches must be documented; at least the mock must be implemented for CI.
+
 ### 3.2 Incident Playbooks (2)
 
 **Playbook 1 — JA4proxy Ban Event Response:**
@@ -113,12 +117,16 @@ A Splunk SOAR app (`ja4proxy`) with actions:
 | `remove_from_allowlist` | `ip` |
 | `get_health` | — |
 
+**Test strategy:** Use the existing `tests/mocks/` pattern. A Splunk SOAR mock server or developer sandbox must be documented for integration testing.
+
 ### 4.2 Connector Configuration
 
 The app stores the Management API base URL and Operator-scoped API token in Splunk
 SOAR's asset configuration (encrypted credential store). Token rotation is handled
 by calling `POST /api/v1/tokens/{id}/rotate` and updating the SOAR asset — a process
 that should be scripted and run on a 90-day schedule.
+
+**Token rotation script:** A script `scripts/rotate_soar_token.sh` must be delivered with this phase. It calls `POST /api/v1/tokens/{id}/rotate`, updates the SOAR platform asset/credential via its API, and logs the rotation event. Validated for Splunk SOAR and XSOAR. Run on a 90-day schedule via cron or CI.
 
 ---
 
@@ -219,6 +227,18 @@ THEN:
   Notify SecOps manager AND on-call analyst simultaneously
   Post campaign summary to #threat-intel Slack channel
 ```
+
+### 6.5 Deployment Architecture Requirement for Mobile Response
+
+The two-way mobile response options in §6.2 (e.g., "False Positive — Release") require xMatters to call the JA4proxy Management API outbound. This means the Management API must be reachable from xMatters Cloud or the xMatters On-Premise Agent. This is a deployment constraint that must be resolved before implementing the integration.
+
+**Option A — Internet-accessible Management API (recommended for cloud deployments):**
+Place the Management API behind a reverse proxy with TLS client certificate authentication (mTLS). Only requests presenting a valid xMatters-issued client certificate are accepted. The xMatters Endpoint is configured with the client certificate and the Management API URL.
+
+**Option B — xMatters On-Premise Agent (for air-gapped or internal-only deployments):**
+Deploy the xMatters On-Premise Agent inside the corporate network alongside JA4proxy. The agent proxies outbound xMatters Cloud requests to the internal Management API. No internet exposure required. This is the correct choice for most enterprise deployments where the Management API is on an internal network.
+
+Document the chosen option in `docs/enterprise/security-architecture.md` and in the xMatters integration runbook. Default recommendation: Option B for all regulated-industry deployments.
 
 ### 6.4 xMatters API Token Storage
 
@@ -344,7 +364,6 @@ handle delivery. This is a configuration task, not a development task.
 - [ ] Splunk SOAR app installable with all 7 actions functional
 - [ ] ServiceNow SIR incident auto-created on ban webhook event
 - [ ] ServiceNow resolution close-loop releases ban and adds allowlist entry
-- [ ] ServiceNow Spoke submitted to ServiceNow Store
 - [ ] xMatters Event Plan routes correctly based on risk_score thresholds
 - [ ] All 5 xMatters mobile response options call the correct API endpoints
 - [ ] xMatters Flow Designer integration exported as shared library
@@ -354,3 +373,15 @@ handle delivery. This is a configuration task, not a development task.
 - [ ] PagerDuty and OpsGenie runbook URLs on all Alertmanager rules
 - [ ] All SOAR integrations use Operator-scoped API tokens (never Admin)
 - [ ] Token rotation script documented and validated for all platforms
+- [ ] Mock SOAR server or developer tenant documented in `tests/mocks/` or `docs/developer/MOCK_SERVERS.md`
+- [ ] Token rotation script `scripts/rotate_soar_token.sh` implemented and tested for XSOAR and Splunk SOAR
+- [ ] xMatters deployment architecture (Option A or B) documented in `docs/enterprise/security-architecture.md`
+
+---
+
+## 10. Business Track (Not Engineering Acceptance Criteria)
+
+The following are external publishing processes that cannot be completed by the engineering team alone and must not block the phase from being marked COMPLETE:
+
+- **ServiceNow Spoke — ServiceNow Store submission** — submit after the Spoke is validated end-to-end in a test ServiceNow tenant. Store review takes several weeks. Track separately.
+- **xMatters shared library publication** — export the Flow Designer integration as a shared library and publish to the xMatters marketplace after internal validation. Track separately.

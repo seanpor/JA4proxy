@@ -82,7 +82,36 @@ threat_intel:
       managed_by_tag: "taxii-isac"
 ```
 
-### 2.3 Indicator Processing
+### 2.3 Feed Circuit-Breaker
+
+Feed polling must not retry endlessly on failure. Implement a per-feed circuit-breaker:
+
+```python
+# src/analytics/ti_feed_client.py — circuit-breaker behaviour
+# State: CLOSED (normal) → OPEN (failed) → HALF-OPEN (testing recovery)
+
+CIRCUIT_BREAKER_THRESHOLD = 3        # failures before opening
+CIRCUIT_BREAKER_TIMEOUT_S  = 600     # 10 minutes before testing recovery
+CIRCUIT_BREAKER_BACKOFF_MAX_S = 3600 # max backoff: 1 hour
+
+# On failure:
+# 1. Increment failure counter for feed_id
+# 2. If counter >= threshold: open circuit, log WARNING, increment Prometheus counter
+#    ja4proxy_ti_feed_circuit_open{feed_id="taxii-isac"}
+# 3. While open: skip poll, log DEBUG "circuit open, skipping"
+# 4. After timeout: attempt one poll (HALF-OPEN)
+#    - Success: close circuit, reset counter, log INFO "circuit closed"
+#    - Failure: reset timeout, stay open, log WARNING
+```
+
+Add Prometheus metrics:
+- `ja4proxy_ti_feed_poll_total{feed_id, result="success|failure|skipped"}` — counter
+- `ja4proxy_ti_feed_circuit_open{feed_id}` — gauge (1 = open, 0 = closed)
+- `ja4proxy_ti_feed_indicators_managed{feed_id}` — gauge
+
+Add Alertmanager rule: alert when `ja4proxy_ti_feed_circuit_open == 1` for > 30 minutes.
+
+### 2.4 Indicator Processing
 
 For each STIX Indicator received:
 1. Check if it's an IP pattern — if so, call `POST /api/v1/bans` with `managed_by=taxii-isac`
@@ -91,7 +120,7 @@ For each STIX Indicator received:
 4. Deduplicate: if indicator already exists with matching content, skip (idempotent)
 5. Log to audit trail: `actor=feed:taxii-isac, action=blocklist_entry_added, source=taxii`
 
-### 2.4 Automatic Feed Cleanup
+### 2.5 Automatic Feed Cleanup
 
 When an indicator expires in the TAXII feed (revoked or past `valid_until`), the
 client calls `DELETE /api/v1/blocklist/{id}` or `DELETE /api/v1/bans/{ip}` to remove
@@ -157,11 +186,22 @@ fingerprints. This extension defines one.
 
 The extension definition is:
 - Published to `https://ja4proxy.io/stix/extensions/ja4-fingerprint/`
-- Submitted to the OASIS STIX 2.1 extension registry
+- Registered in the OASIS STIX community by posting to the `cti-stix2-json-schemas` GitHub repository (the community convention for custom extension definitions — OASIS does not operate a formal approval registry). Open a PR adding the extension schema to `extensions/` in that repo and note the PR URL in `docs/stix/ja4-fingerprint-extension.md`.
 - Documented in `docs/stix/ja4-fingerprint-extension.md` with full schema and examples
 
 This establishes JA4proxy as the reference implementation for JA4 threat indicators.
 Any other tool that wants to share JA4 fingerprint threat intel uses this extension.
+
+### 3.4 UUID Reservation
+
+The extension definition UUID (`extension-definition--3b37e1e8-5a20-4c3d-aa0c-9a581b6f9d4e`) becomes the permanent canonical identifier once published. It cannot be changed without breaking every downstream consumer.
+
+**Before any implementation:**
+1. Verify this UUID does not clash with any existing STIX extension definition by searching the OASIS CTI TC schema repository and the MITRE ATT&CK extension registry.
+2. If a clash is found, generate a new UUID with `python3 -c "import uuid; print('extension-definition--' + str(uuid.uuid4()))"` and update the spec.
+3. Record the confirmed UUID in `docs/stix/ja4-fingerprint-extension.md` with a note: "This UUID is permanent. Do not change post-publication."
+
+This is a pre-implementation gate: no STIX code is written until the UUID is confirmed and recorded.
 
 ---
 
@@ -245,55 +285,53 @@ threat_intel:
 
 ## 5. Curated JA4 Fingerprint Feed
 
-This is the strategic long-term asset. As JA4proxy deployments accumulate fingerprints
-of blocking events across thousands of customers, a curated feed of high-confidence
-malicious JA4 fingerprints becomes extremely valuable.
+> **Scope boundary:** §5.1–§5.3 (hosted feed infrastructure) are a **business track item**, not an engineering deliverable for this phase. The engineering team delivers §5.4 (the bundled seed file) and §5.2 (the contribution client config). The hosted TAXII server at `https://feed.ja4proxy.io/` requires cloud infrastructure, a domain, a curation process, and ongoing operations — this is a product investment decision separate from Phase 85.
 
-### 5.1 Architecture
+### 5.1 Architecture (Future Hosted Feed — Business Track)
 
 ```
 Customer Deployment A  ──▶ ┐
 Customer Deployment B  ──▶ │──▶ JA4proxy Cloud Feed ──▶ TAXII Server ──▶ All Customers
-Customer Deployment C  ──▶ ┘         (opt-in)
+Customer Deployment C  ──▶ ┘         (opt-in, hosted service — future)
 ```
 
-Each customer that opts in to feed contribution submits:
-- JA4 fingerprints that were blocked with high confidence (risk score ≥ 85)
-- The triggering signals (not the raw traffic — no PII)
-- The confirmed false-positive rate for that fingerprint
+When the hosted feed is launched (business track), each contributing customer submits:
+- JA4 fingerprints blocked with high confidence (risk score ≥ 85)
+- Triggering signals (no PII — no raw IP addresses)
+- Confirmed false-positive rate
 
-The feed team curates submissions (removes false positives, classifies malware
-families) and publishes a vetted feed available to all subscribers.
+### 5.2 Contribution Client (Engineering Deliverable)
 
-### 5.2 Contribution API
+The contribution client config is an engineering deliverable — the code to send data to a future hosted feed. Disabled by default. When the hosted feed is available, customers opt in:
 
-Customers opt in via:
 ```yaml
 threat_intel:
   feed_contribution:
     enabled: false   # opt-in, never default
-    submit_threshold: 90         # Only submit fingerprints with score ≥ 90
-    submit_min_occurrences: 100  # Must have been seen at least 100 times
-    anonymise: true              # Strip customer-identifying metadata
-    endpoint: "https://feed.ja4proxy.io/api/v1/contribute"
+    submit_threshold: 90
+    submit_min_occurrences: 100
+    anonymise: true
+    endpoint: "https://feed.ja4proxy.io/api/v1/contribute"   # future hosted service
     api_key: "${JA4PROXY_FEED_API_KEY}"
 ```
 
-### 5.3 Feed Format
+The contribution endpoint is stubbed in the code but not functional until the hosted service exists. Emit a log WARNING if `enabled: true` but the endpoint is unreachable.
 
-The curated feed is published as:
+### 5.3 Feed Format (Future)
+
+When the hosted feed launches:
 - TAXII 2.1 server at `https://feed.ja4proxy.io/taxii2/`
 - JSON download at `https://feed.ja4proxy.io/ja4-blocklist.json`
-- Supported by the standard TAXII client (§2) — no special integration required
+- Compatible with the standard TAXII client from §2 — no special integration needed
 
-### 5.4 Initial Seed
+### 5.4 Initial Seed File (Engineering Deliverable)
 
-The feed launches with fingerprints from the Phase 20 TAP mode TAXII export and the
-following known-bad fingerprints from public research:
+Ship a `config/known_bad_fingerprints.yml` bundled with the product. This is an engineering deliverable — a static YAML file of vetted public-research fingerprints, loadable by the blocklist module on startup.
 
 ```yaml
-# config/known_bad_fingerprints.yml (ships with the product)
+# config/known_bad_fingerprints.yml — phase-85
 # Source: public security research, verified against production traffic
+# This file is loaded at startup if threat_intel.seed_file.enabled: true
 fingerprints:
   - ja4: "t10d170900_9dc949161b6c_b64c0ad42cb7"
     name: "Cobalt Strike default TLS profile"
@@ -348,6 +386,10 @@ The feed management page in the UI shows:
 
 ## 7. Acceptance Criteria
 
+- [ ] UUID confirmed non-clashing and recorded in `docs/stix/ja4-fingerprint-extension.md` before any STIX code is written
+- [ ] Circuit-breaker implemented with Prometheus metrics and Alertmanager rule
+- [ ] `config/known_bad_fingerprints.yml` ships with ≥ 10 vetted fingerprints (seed file — engineering deliverable)
+- [ ] Contribution client code present but endpoint stubbed; WARNING logged if enabled without live hosted service
 - [ ] TAXII 2.1 client polls configured servers and creates blocklist/ban entries
 - [ ] Deduplication: re-ingesting the same indicator is a no-op
 - [ ] Expired/revoked TAXII indicators are removed from blocklist/bans
@@ -358,9 +400,16 @@ The feed management page in the UI shows:
 - [ ] CrowdStrike connector authenticates (OAuth2) and polls indicators
 - [ ] Generic REST connector works with configurable JSONPath extraction
 - [ ] `known_bad_fingerprints.yml` ships with ≥10 vetted fingerprints
-- [ ] Feed contribution config documented and opt-in only
+- [ ] Feed contribution config documented and opt-in only (opt-in, endpoint stubbed until hosted service available)
 - [ ] Feed management API endpoint returns per-feed status
 - [ ] Feed status visible in Management UI
 - [ ] All feed operations logged to audit trail with `source=feed:{id}`
 - [ ] Feed polling failures circuit-break and alert (do not retry endlessly)
 - [ ] Min confidence threshold respected — below-threshold indicators are logged but not applied
+
+---
+
+## 8. Business Track (Not Engineering Acceptance Criteria)
+
+- **Hosted JA4proxy community feed** (`https://feed.ja4proxy.io/`) — requires cloud infrastructure, domain, TLS certificates, a curation team, and ongoing operations. This is a product investment decision, not an engineering task for Phase 85.
+- **OASIS CTI TC community registration** — post the extension schema to `cti-stix2-json-schemas` as a community PR. Not a blocking gate; track separately.
