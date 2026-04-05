@@ -4,6 +4,10 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🟡 Phases In Progress
 
+### Phase 34 — APT Hardening - Phase 1: Parser Isolation & Redis Security
+*   **Status:** **IN_PROGRESS** (Implement parser process isolation and Zero-Trust Redis ACLs with signatures. Now also covers items absorbed from cancelled Phase 55: Redis ACL users, JA4/TLS mismatch detection, proxy Seccomp JSON profile, AppArmor profile, subnet correlation pipeline wiring, and fuzz test.)
+*   **Action Plan:** [PHASE_34.md](PHASE_34.md)
+
 ---
 
 ## 🔵 Planned & Open Phases
@@ -11,10 +15,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 13 — Management UI - Phase 1: Backend API
 *   **Status:** **DEFERRED** (FastAPI backend for real-time monitoring and configuration management.)
 *   **Action Plan:** [PHASE_13.md](PHASE_13.md)
-
-### Phase 34 — APT Hardening - Phase 1: Parser Isolation & Redis Security
-*   **Status:** **PROPOSED** (Implement parser process isolation and Zero-Trust Redis ACLs with signatures.)
-*   **Action Plan:** [PHASE_34.md](PHASE_34.md)
 
 ### Phase 35 — Advanced APT - Phase 1: Integrity Enforcement & Kernel-Level
 *   **Status:** **PROPOSED** (Implement supply chain integrity monitoring and eBPF/XDP NIC-level blocking.)
@@ -27,10 +27,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 52 — Management UI - Phase 3: Administration Tools
 *   **Status:** **PROPOSED** (Interactive tools for managing allowlists, bans, and system configuration.)
 *   **Action Plan:** [PHASE_52.md](PHASE_52.md)
-
-### Phase 55 — APT Hardening - Phase 2: Advanced Detection & Container Security
-*   **Status:** **PROPOSED** (Implement subnet correlation, anti-evasion checks, and strict Seccomp/AppArmor profiles.)
-*   **Action Plan:** [PHASE_55.md](PHASE_55.md)
 
 ### Phase 56 — Advanced APT - Phase 2: Deceptive Defense & Persistence Defense
 *   **Status:** **PROPOSED** (Implement honey-fingerprints, honey-SNIs, and runtime process namespace isolation.)

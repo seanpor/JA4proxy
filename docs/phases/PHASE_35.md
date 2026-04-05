@@ -6,11 +6,8 @@
 **Prerequisite:** Phase 34 (recommended, but 35 can run concurrently with 34)
 **Sequel:** Phase 56 (Advanced APT - Phase 2: Deceptive Defense & Persistence)
 
-> **Track note:** There are two parallel APT tracks in this roadmap:
-> - **Track A — APT Hardening** (Phases 34 → 55): parser/Redis security, then advanced detection & Seccomp.
-> - **Track B — Advanced APT** (Phases 35 → 56): supply chain integrity & eBPF, then deception & persistence defense.
-> Both tracks are independent and can be worked in parallel, but Track B (35/56) assumes the
-> baseline container hardening from Track A (34/55) is complete.
+> **Note:** Phase 56 covers deceptive defense and persistence — Phase 35 owns supply chain
+> integrity and kernel-level enforcement only.
 
 ---
 
@@ -52,43 +49,22 @@ bypass.
 
 ---
 
-## 35c: Deceptive Defense & Honey-Assets (Week 3)
+## 35c: eBPF Metrics & Observability (Week 3)
 
-**Goal:** Flush out sophisticated adversaries by poisoning their scanning and reconnaissance
-tools.
+**Goal:** Make kernel-level drop activity visible to operators and alert on volumetric attacks.
 
-> These assets are **specified here** and **implemented in Phase 56a** (the designated sequel).
-> Phase 56 depends on Phase 35 completing first.
-
-- [ ] **Honey-Fingerprints** *(Phase 56a)*: Define a set of "Deception JA4" fingerprints in
-      `config/deception.yml` — fingerprints that should never appear in legitimate traffic.
-      Any client presenting a honey-fingerprint is immediately promoted to the `BAN` tier with
-      tag `APT:DECEPTION_TRIGGERED` and a 7-day TTL.
-- [ ] **Honey-SNIs** *(Phase 56a)*: Configure the proxy to recognise specific deceptive
-      hostnames (e.g., `admin-dev-portal.internal`). Triggers the same immediate BAN +
-      silent drop (no TCP RST, to slow the attacker's discovery loop).
-- [ ] **No-Feedback policy** *(Phase 56a)*: Silent drops (no RST or ICMP) for all
-      deception-triggered connections.
-
----
-
-## 35d: Post-Exploitation Persistence Defense (Week 4)
-
-**Goal:** Prevent an attacker from gaining a permanent foothold if they achieve code execution.
-
-> These controls are **specified here** and **implemented in Phase 56b**.
-
-- [ ] **Two-Stage Seccomp** *(Phase 56b)*: "Startup" profile (allows file loading, socket
-      binding) transitions to a locked-down "Runtime" profile (forbids `execve`, `fork`, most
-      file writes) once the proxy has fully initialized.
-- [ ] **Process Isolation** *(Phase 56b)*: Use `unshare(CLONE_NEWNET | CLONE_NEWPID)` to move
-      `ProxyServer` into a dedicated network and PID namespace, isolating it from the rest of
-      the container.
-- [ ] **Dead-Man's Switch** *(Phase 56b)*: Proxy self-terminates if it cannot reach its
-      internal integrity-monitoring service for more than 5 minutes.
-- [ ] **Ephemeral Filesystem** *(Phase 56b)*: Enforce tmpfs overlays for all writable paths
-      (`/tmp`, `/var/run`). Note: `/tmp` tmpfs is already applied in `docker-compose.poc.yml`;
-      `/var/run` tmpfs needs to be added.
+- [ ] **Prometheus metric wiring:** Ensure `ja4proxy_ebpf_drops_total{reason="blacklist|ban"}`
+      is scraped by the Prometheus instance and visible in the metrics endpoint at
+      `/metrics`. Counter increments must be sourced from the XDP stats map populated in 35b.
+- [ ] **Grafana panel:** Add a "Kernel-Level Drop Rate" panel to the main Grafana dashboard
+      showing `rate(ja4proxy_ebpf_drops_total[1m])` broken out by `reason` label.
+- [ ] **Alert rule:** Configure an Alertmanager rule:
+      - **Condition:** eBPF drop rate > 10,000 drops/s **and** proxy process CPU < 5%.
+      - **Meaning:** High-volume traffic is being dropped at kernel level but the proxy itself
+        is not under load — indicates a volumetric (DDoS/SYN-flood) attack where eBPF is
+        absorbing the burst.
+      - **Severity:** `critical`
+      - **Annotation:** "Possible volumetric attack — kernel absorbing burst, proxy CPU nominal."
 
 ---
 
@@ -102,15 +78,15 @@ tools.
   proxy process must not increase (drops handled entirely in the kernel).
 - **eBPF fallback:** Start the proxy as a non-root user without `CAP_BPF`; verify it starts
   successfully with a WARNING log and no eBPF attachment.
-- **Red-team deception** *(Phase 56)*: Connect with a custom TLS stack presenting a
-  honey-fingerprint; verify immediate BAN with `APT:DECEPTION_TRIGGERED` tag in Redis and a
-  silent drop (no RST visible to the attacker).
-- **Syscall lockdown** *(Phase 56)*: Use `strace -e trace=execve,fork` to confirm both are
-  blocked after the proxy enters its Runtime Seccomp phase.
+- **Metrics visibility:** Confirm `ja4proxy_ebpf_drops_total` appears in `/metrics` output
+  and the Grafana panel renders the correct time-series.
+- **Alert firing:** Simulate > 10k drops/s (via BPF map injection) with proxy idle; confirm
+  Alertmanager fires the volumetric-attack alert within one evaluation interval.
 
 ---
 
 ## Dependencies
 
 Phase 35 must complete before Phase 56 (deceptive defense, persistence) can begin. Phase 35
-is independent of Phase 34, but both should be completed before Phase 55 and 56 are started.
+is independent of Phase 34, but Phase 34 baseline container hardening should be complete
+before Phase 56 is started.

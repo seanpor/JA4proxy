@@ -258,8 +258,8 @@ Practical rules that flow from this:
 | 28 | Python Hardening - Ph 2: Redis | Redis pipeline batching; Unix domain socket; 30-40% latency reduction | [PHASE_28_WORK_PLAN.md](docs/phases/details/PHASE_28_WORK_PLAN.md) |
 | 29 | Python Hardening - Ph 3: Multi-Proc | Multi-process worker model with Docker Compose and HAProxy LB | [PHASE_29_WORK_PLAN.md](docs/phases/details/PHASE_29_WORK_PLAN.md) |
 | 30 | Python Hardening - Ph 4: Optimization | Deferred write batching; comprehensive benchmark validation | [PHASE_30_THROUGHPUT_PLAN.md](docs/phases/details/PHASE_30_THROUGHPUT_PLAN.md) |
-| 34 | APT Hardening - Ph 1: Isolation | Parser process isolation and Zero-Trust Redis ACLs with signatures | [PHASE_34.md](docs/phases/PHASE_34.md) |
-| 55 | APT Hardening - Ph 2: Detection | Implement subnet correlation, anti-evasion checks, and Seccomp | [PHASE_55.md](docs/phases/PHASE_55.md) |
+| 34 | APT Hardening - Ph 1: Isolation | Parser isolation, Zero-Trust Redis ACLs, Seccomp/AppArmor, subnet correlation wiring — **IN_PROGRESS** (absorbs cancelled Phase 55) | [PHASE_34.md](docs/phases/PHASE_34.md) |
+| 55 | APT Hardening - Ph 2: Detection *(cancelled — absorbed into Phase 34)* | Implement subnet correlation, anti-evasion checks, and Seccomp | [PHASE_55.md](docs/phases/PHASE_55.md) |
 | 35 | Advanced APT - Ph 1: Integrity | Implement supply chain integrity monitoring and eBPF/XDP blocking | [PHASE_35.md](docs/phases/PHASE_35.md) |
 | 56 | Advanced APT - Ph 2: Deceptive | Implement honey-fingerprints, honey-SNIs, and namespace isolation | [PHASE_56.md](docs/phases/PHASE_56.md) |
 | 36 | Go Test Quality & Parity Gaps | Fix JA4 fixtures; real cert JA4X tests; cross-language parity | [PHASE_36.md](docs/phases/PHASE_36.md) |

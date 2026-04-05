@@ -1,9 +1,13 @@
 # Phase 34: APT Hardening - Phase 1: Parser Isolation & Redis Security
 
-**Status:** PROPOSED
-**Estimated Duration:** 3 Weeks (reduced from 4 — 34a substantially completed by Phase 65)
+**Status:** IN_PROGRESS — ~80% complete
 **Priority:** High (Post-Audit)
-**Sequel:** Phase 55 (APT Hardening - Phase 2: Advanced Detection & Container Security)
+**Sequel:** ~~Phase 55 (cancelled — absorbed)~~ Phase 56 (deception, persistence defense)
+
+> **Sprint note (2026-04-05):** Phase 55 has been cancelled and its remaining work absorbed
+> here. The remaining open items are: Redis ACL users (34b), JA4/TLS mismatch detection
+> (34c), proxy Seccomp JSON profile (34d), AppArmor profile (34d), subnet correlation
+> pipeline wiring (34c), fuzz test (34a).
 
 ---
 
@@ -52,18 +56,19 @@
 
 **Goal:** Detect "Low and Slow" attacks that bypass standard beaconing detection.
 
-> These signals are **specified here** and **implemented in Phase 55** (the designated sequel).
-> Phase 55 depends on Phase 34 completing first.
+> Previously some items in this section were deferred to Phase 55. Phase 55 has been
+> cancelled; all remaining items are now owned by Phase 34 directly.
 
 - [x] **Subnet-Level Correlation:** `CampaignDetector` in `src/analytics/detection.py:35–106`
       tracks /24 (IPv4) and /48 (IPv6) subnet-level aggregation of block rates and fingerprint
-      clusters. Implemented as part of Phase 12 (Analytics). *(Phase 55a retains the task of
-      wiring this into the live scoring pipeline)*
+      clusters. Implemented as part of Phase 12 (Analytics).
 - [x] **Entropy-Based SNI Scoring:** Shannon entropy + vowel-ratio analysis at
       `src/security/sni_analyzer.py:73–148` scores DGA-like hostnames. Signal registered in
       `config/signal_scores.yml` as `dga`. *(Phase 4 / Phase 65)*
-- [ ] **Anti-Fingerprint Spoofing** *(Phase 55b)*: Detect JA4 vs TLS version mismatches
-      (e.g., a Chrome 120 fingerprint presenting TLS 1.0). Not yet implemented.
+- [ ] **Subnet correlation pipeline wiring:** Wire `CampaignDetector` findings into the live
+      scoring pipeline so subnet-level block signals contribute to per-connection risk scores.
+- [ ] **Anti-Fingerprint Spoofing:** Detect JA4 vs TLS version mismatches (e.g., a Chrome 120
+      fingerprint presenting TLS 1.0). Not yet implemented.
 
 ---
 
@@ -73,7 +78,8 @@
 
 > `read_only: true`, `cap_drop: [ALL]`, `security_opt: [no-new-privileges:true]`, and `tmpfs:`
 > mounts are **already implemented** in `docker-compose.poc.yml` for all services. What remains
-> is writing explicit Seccomp/AppArmor profile files and wiring them in.
+> is writing explicit Seccomp/AppArmor profile files and wiring them in. These items were
+> previously listed under Phase 55; Phase 55 has been cancelled and they are now owned here.
 
 - [x] **Immutable filesystem:** `read_only: true` for all services. *(docker-compose.poc.yml)*
 - [x] **Capability drop:** `cap_drop: [ALL]` + selective `cap_add` where required.
@@ -109,5 +115,6 @@
 
 ## Dependencies
 
-Phase 34 must complete before Phase 55 (subnet correlation, AppArmor/Seccomp implementation)
-and Phase 56 (deception, persistence defense) can begin.
+Phase 34 must complete before Phase 56 (deception, persistence defense) can begin. Phase 55
+has been cancelled — its remaining items (subnet correlation wiring, Seccomp, AppArmor) are
+now part of Phase 34 itself.
