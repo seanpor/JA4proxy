@@ -823,33 +823,6 @@ function test_isp_block() {
 **Risk: Documentation not maintained**
 - Mitigation: Regular reviews, version control, ownership
 
-## Resources
-
-**Team Resources:**
-- 1 Security Architect (20% time)
-- 2 Security Engineers (30% time each)
-- 1 Documentation Specialist (50% time)
-- 1 Training Specialist (20% time)
-
-**Budget:**
-- Documentation tools: $2,000
-- Training materials: $1,500
-- Monitoring enhancements: $3,000
-- Total: $6,500
-
-## Sign-off
-
-**Policy Owner:** [Security Lead Name]
-**Approval Date:** [Date]
-**Version:** 1.0
-**Effective Date:** [Date]
-
-## Change History
-
-| Version | Date | Changes | Author |
-|---------|------|---------|--------|
-| 1.0 | 2024-03-20 | Initial document | [Author] |
-
 ## Appendix
 
 ### A. Glossary
