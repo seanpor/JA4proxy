@@ -1,0 +1,368 @@
+%% ch01-architecture.tex — System Architecture
+%% JA4proxy Technical Reference Manual
+
+\chapter{System Architecture}
+\index{architecture}
+\label{ch:architecture}
+
+\begin{chapterquote}
+\ja\ makes allow/block/tarpit decisions based entirely on plaintext metadata visible
+before and during the TLS handshake. It never decrypts traffic, never holds TLS keys,
+and forwards allowed connections byte-for-byte unchanged.
+\end{chapterquote}
+
+\newthought{Three design principles} govern every architectural decision in \ja:
+\textbf{fail open} (a missed threat is recoverable; a blocked legitimate user is not),
+\textbf{never decrypt} (the proxy is cryptographically transparent — it reads only the
+plaintext ClientHello), and \textbf{monitor first} (the default dial is 0; the system
+observes and scores before it ever blocks).
+
+\section{Design Principles}
+\index{design principles}
+\index{fail open}
+
+\subsection{The Asymmetry Principle}
+\index{asymmetry principle}
+\index{false positive}
+\index{false negative}
+
+The most important design constraint in \ja\ is the cost asymmetry between the two
+error types:
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Error cost asymmetry — the governing principle of all threshold and TTL decisions}
+\label{tab:asymmetry}
+\begin{tabular}{@{}lllp{7cm}@{}}
+\toprule
+\textbf{Error type} & \textbf{Example} & \textbf{Cost} & \textbf{Consequence} \\
+\midrule
+False negative & Bad bot slips through during cache sync window & \textcolor{ja4green}{Low} & Recoverable. Log entry exists; retrospective analysis possible; no user harm. \\
+\addlinespace
+False positive & Real browser is blocked or tarpitted & \textcolor{ja4red}{\textbf{High}} & Not recoverable. User leaves. Revenue impact. Reputation damage. \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+Every caching TTL, every threshold default, every fallback behaviour, and every new
+feature decision flows from this asymmetry. When the answer is not obvious, fail open.
+
+\begin{importantbox}[The Asymmetry Rule]
+ALLOW decisions are cached for 30 minutes. BLOCK decisions are cached for 30 seconds.
+When Redis says block but the local in-process cache says allow, the local cache wins.
+If Redis is down, real browsers continue to work.
+\end{importantbox}
+
+\subsection{Never Decrypt}
+\index{TLS!never decrypt}
+\index{ClientHello}
+
+\ja\ operates entirely on \textbf{plaintext metadata}. The TLS ClientHello — the
+first message a TLS client sends — is transmitted in plaintext before any encryption
+is established. It contains:
+
+\begin{itemize}
+  \item The TLS version and list of supported cipher suites
+  \item Supported extensions and their parameters
+  \item The SNI (Server Name Indication) hostname
+  \item ALPN (Application-Layer Protocol Negotiation) values
+  \item Elliptic curve groups and point formats
+\end{itemize}
+
+From these fields, the JA4 fingerprinting algorithm produces a deterministic string
+that identifies the TLS client implementation (browser, bot, scanner, malware C2)
+with high accuracy. The proxy never participates in the TLS handshake — it is a
+passthrough observer and gatekeeper, not a terminator.
+
+\subsection{Monitor First}
+\index{monitor mode}
+\index{dial!default}
+
+The default configuration ships with \configkey{dial: 0}. At dial=0, the pipeline
+runs completely — all signals are collected, all scores are computed, all decisions
+are made — but no connection is ever blocked. Every connection is allowed with a
+\badgemonitor\ annotation in the log.
+
+This means operators can deploy \ja\ in front of production traffic immediately,
+observe the score distribution, tune thresholds, and build confidence before enabling
+any blocking. Raising the dial is a conscious operator decision.
+
+\subsection{Config-Driven, Hot-Reloadable}
+\index{hot reload}
+\index{SIGHUP}
+
+Every behavioural parameter is configurable in \code{config/proxy.yml}. The proxy
+watches for \code{SIGHUP} and reloads configuration without dropping connections.
+The Management UI triggers reload via a Redis pub/sub message. After reload, new
+configuration applies to all subsequent connections.
+
+Only the listen port, Redis URL, and TLS certificate paths require a process restart.
+All other parameters — dial, bypass conditions, thresholds, blacklists, whitelists —
+are hot-reloadable.\sidenote{Config reload events are logged and reflected in the
+\code{ja4proxy\_config\_reloads\_total} Prometheus counter.}
+
+\section{Component Overview}
+\index{components}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{System components and their responsibilities}
+\label{tab:components}
+\begin{tabular}{@{}lllp{6.5cm}@{}}
+\toprule
+\textbf{Component} & \textbf{Language} & \textbf{Port} & \textbf{Responsibility} \\
+\midrule
+HAProxy & C & :443 & TLS passthrough load balancer; PROXY protocol v2 injection; upstream TLS listener \\
+\addlinespace
+\ja\ Proxy & Python / Go\textsuperscript{*} & :8080 & TLS ClientHello sniffing; pipeline execution; allow/block/tarpit/ban decisions; Redis I/O \\
+\addlinespace
+Redis & Redis 7 & :6379 & Shared state: bans, rate windows, beaconing timestamps, JA4 lists, HLL per CIDR, event stream \\
+\addlinespace
+Analytics Node & Python & — & Reads Redis Streams (\code{XREADGROUP}); cross-instance aggregation; campaign detection; writes findings to Redis \\
+\addlinespace
+Prometheus & Go & :9090 & Metrics collection and storage \\
+\addlinespace
+Grafana & Go & :3001 & Dashboards; visualisation of proxy telemetry \\
+\addlinespace
+Loki & Go & :3100 & Structured log aggregation \\
+\addlinespace
+Alertmanager & Go & :9093 & Alert routing and deduplication \\
+\addlinespace
+Backend & any & :443 & Protected origin service; receives only allowed, unmodified TLS connections \\
+\bottomrule
+\end{tabular}
+{\footnotesize\textsuperscript{*}Python is the current production path.
+The Go rewrite (\code{cmd/proxy/}) reached feature parity in Phase~15.}
+\end{table}
+\end{fullwidth}
+
+\section{Network Topology}
+\index{network topology}
+\index{network zones}
+\index{DMZ}
+
+\subsection{Traffic Flow Diagram}
+
+\begin{figure}[h]
+\begin{fullwidth}
+\begin{tikzpicture}[
+  node distance=1.6cm,
+  box/.style={draw=ja4navy, fill=ja4lightgray, rounded corners=3pt,
+              minimum width=2.6cm, minimum height=0.9cm,
+              font=\small\sffamily, text centered},
+  internet/.style={draw=ja4red, fill=ja4redlight, rounded corners=3pt,
+                   minimum width=2.6cm, minimum height=0.9cm,
+                   font=\small\sffamily, text centered},
+  backend/.style={draw=ja4green, fill=ja4greenlight, rounded corners=3pt,
+                  minimum width=2.6cm, minimum height=0.9cm,
+                  font=\small\sffamily, text centered},
+  redis/.style={draw=ja4purple, fill=ja4purplelight, rounded corners=3pt,
+                minimum width=2.2cm, minimum height=0.8cm,
+                font=\small\sffamily, text centered},
+  arrow/.style={->, >=Stealth, thick, draw=ja4navy},
+  label/.style={font=\footnotesize\sffamily\itshape, text=ja4gray},
+]
+  \node[internet] (internet) {Internet};
+  \node[box, right=of internet] (haproxy) {HAProxy\\{\footnotesize :443}};
+  \node[box, right=of haproxy] (proxy1) {\ja\ \#1\\{\footnotesize :8080}};
+  \node[box, below=0.5cm of proxy1] (proxy2) {\ja\ \#2\\{\footnotesize :8080}};
+  \node[backend, right=2.2cm of proxy1] (backend) {Backend\\{\footnotesize :443}};
+  \node[redis, below=1.4cm of haproxy] (redis) {Redis\\{\footnotesize :6379}};
+  \node[box, right=of redis] (analytics) {Analytics\\{\footnotesize Node}};
+
+  \draw[arrow] (internet) -- node[above, label]{TLS} (haproxy);
+  \draw[arrow] (haproxy) -- node[above, label]{TCP} (proxy1);
+  \draw[arrow] (haproxy) -- (proxy2);
+  \draw[arrow] (proxy1) -- node[above, label]{TLS} (backend);
+  \draw[arrow] (proxy2) -- (backend);
+  \draw[arrow, <->] (proxy1) -- node[right, label]{state} (redis);
+  \draw[arrow, <->] (proxy2) -- (redis);
+  \draw[arrow] (redis) -- node[above, label]{Streams} (analytics);
+  \draw[arrow] (analytics) -- node[below, label]{findings} (redis);
+\end{tikzpicture}
+\end{fullwidth}
+\caption{High-level traffic flow. HAProxy injects PROXY protocol v2 headers so \ja\ can recover the real client IP.}
+\label{fig:traffic-flow}
+\end{figure}
+
+\subsection{Network Zones}
+\index{network zones!DMZ}
+\index{network zones!App}
+\index{network zones!Data}
+\index{network zones!Management}
+
+A production deployment uses four network zones:
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Network zone definitions and permitted traffic}
+\label{tab:zones}
+\begin{tabular}{@{}llp{4cm}p{5cm}@{}}
+\toprule
+\textbf{Zone} & \textbf{Subnet (example)} & \textbf{Contains} & \textbf{Permitted inbound} \\
+\midrule
+DMZ & 10.0.1.0/24 & HAProxy load balancer & Internet :443 only \\
+App & 10.0.2.0/24 & \ja\ proxy instances & HAProxy TCP from DMZ only \\
+Data & 10.0.3.0/24 & Redis, analytics node & App zone on :6379 only \\
+Management & 10.0.4.0/24 & Prometheus, Grafana, Loki & Operator VPN only \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+The Backend origin server sits behind the App zone, reachable only from \ja\ instances.
+Internet traffic never reaches the App zone directly. The Data zone is not routable from
+the DMZ or from the internet.
+
+\section{Data Flow: TLS Connection Lifecycle}
+\index{TLS!connection lifecycle}
+\index{ClientHello!parsing}
+
+\subsection{Stage 1 — TCP Accept and IP Extraction}
+
+When HAProxy accepts a TLS connection, it wraps it in a PROXY protocol v2
+header\sidenote{PROXY protocol v2 is a binary framing format prepended by HAProxy to
+the TCP stream. It carries the original client IP:port and the HAProxy IP:port.} and
+forwards the raw TCP stream to a \ja\ instance on port 8080.
+
+\ja\ reads the PROXY protocol header first, extracting:
+\begin{itemize}
+  \item The \textbf{real client IP} (IPv4 or IPv6)
+  \item The real client port
+  \item The HAProxy (sender) IP — used for upstream CIDR trust verification
+\end{itemize}
+
+The client IP is canonicalised to its compressed string representation
+(\code{ipaddress.ip\_address(ip).compressed} in Python, \code{netip.Addr.String()} in Go)
+immediately. All subsequent pipeline steps use this canonical form.
+
+\subsection{Stage 2 — TLS ClientHello Sniff}
+\index{TLS!ClientHello!sniff}
+
+After PROXY protocol extraction, \ja\ reads the first TLS record from the TCP stream.
+This is always the ClientHello — a plaintext record (record type 0x16, content type 0x01).
+The proxy parses:
+
+\begin{itemize}
+  \item Handshake type and TLS record version
+  \item Client random (32 bytes, not used for fingerprinting)
+  \item Session ID length and value
+  \item Cipher suite list (ordered)
+  \item Compression methods
+  \item Extensions: SNI (0x0000), ALPN (0x0010), supported groups (0x000a),
+        EC point formats (0x000b), signature algorithms (0x000d),
+        supported versions (0x002b), PSK key exchange modes (0x002d),
+        key share (0x0033), and others
+\end{itemize}
+
+From this data, the JA4, JA4X, and JA4T fingerprints are computed (see
+Chapter~\ref{ch:signals}). The entire sniff operation is non-blocking and completes
+before any response is sent.
+
+\subsection{Stage 3 — Pipeline Execution}
+
+The pipeline (Chapter~\ref{ch:pipeline}) runs all 12 layers. Layers 0–2 are
+bypass/block decisions that short-circuit the pipeline immediately. Layers 4–8 are
+signals that run in parallel via \code{asyncio.gather()}. The pipeline produces a
+score (0–100) and an action.
+
+\subsection{Stage 4 — Action Execution}
+
+Based on the action from the pipeline:
+
+\begin{description}
+  \item[\badgeallow] The buffered ClientHello bytes are forwarded to the backend. \ja\
+    acts as a transparent TCP relay for the remainder of the connection.
+  \item[\badgeblock] A TCP RST is sent. The connection is closed immediately.
+  \item[\badgetarpit] The connection is accepted but data is delivered to the backend
+    at an artificially low rate (or deliberately delayed), consuming attacker resources.
+  \item[\badgeban] The IP is added to Redis with a TTL. Subsequent connections from
+    this IP are rejected immediately at layer 0 without pipeline execution.
+  \item[Flag] The connection is allowed but a high-priority alert is emitted to the
+    Redis Stream for the Analytics node.
+\end{description}
+
+\subsection{Stage 5 — Event Emission}
+
+Every connection that completes pipeline evaluation produces a JSON event written to
+the \code{events} Redis Stream via \code{XADD} (fire-and-forget). The analytics node
+consumes these events for cross-instance aggregation, campaign detection, and score
+drift alerting. Stream writes add zero latency to the hot path.
+
+\section{IPv6 Handling}
+\index{IPv6}
+\index{IPv4}
+
+IPv6 is a first-class concern throughout \ja. Every feature that touches an IP address
+handles both address families:
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{IPv6 handling rules by subsystem}
+\label{tab:ipv6}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Subsystem} & \textbf{IPv4 rule} & \textbf{IPv6 rule} \\
+\midrule
+Rate limiting keys & Full IP string & Full IP string (no truncation) \\
+CIDR matching & In-process pytricia / Go trie & Same trie handles both natively \\
+GeoIP lookup & MaxMind GeoLite2 City/ASN & Same DB covers IPv6 \\
+HyperLogLog per subnet & \code{hll:cidr24:\{cidr\}} (/24) & \code{hll:cidr48:\{cidr\}} (/48) \\
+Beaconing key & \code{beacon:\{ip\}:\{ja4\}} & Same key format, full IPv6 \\
+Ban key & \code{ban:\{ip\}} & Same key format, full IPv6 \\
+RDAP lookup & RIR via IANA bootstrap & Same bootstrap — works for IPv6 \\
+Block expansion & Never beyond /24 & Never beyond /48 \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\begin{notebox}[IPv6 /48 Equivalence]
+A /48 IPv6 prefix is the approximate equivalent of an IPv4 /24 for population density
+purposes. A typical ISP assigns a /48 to a single customer premises. Block expansion
+(RDAP Phase~11) never expands beyond /48 for IPv6 or /24 for IPv4 — expanding further
+would risk blocking entire ISP customer populations.
+\end{notebox}
+
+\section{The Python and Go Implementations}
+\index{Go rewrite}
+\index{Python implementation}
+
+\subsection{Python (Current Production Path)}
+
+The Python implementation in \code{proxy.py} and \code{src/security/} is the current
+production-validated path. It uses \code{asyncio} throughout for non-blocking I/O.
+All external service calls use \code{asyncio.create\_task()} — fire-and-forget from
+the hot path. No blocking I/O is permitted on the connection handling code path.
+
+\subsection{Go Rewrite (Phase 15)}
+\index{Go rewrite!Phase 15}
+
+The Go rewrite in \code{cmd/proxy/} targets 10–50× throughput improvement over the
+Python implementation. It has achieved feature parity with the Python implementation
+including JA4X fingerprinting and Lua policy embedding. The Go implementation uses
+\code{net/netip} for IP handling, Go's \code{crypto/tls} stack for ClientHello
+parsing, and goroutine-per-connection concurrency.
+
+\begin{notebox}[Implementation Status]
+Python is \statuspoc\ — functional and tested. Go rewrite is \statuspoc\ — feature
+parity achieved but not yet production-hardened. Neither implementation has completed
+the full Phase~14 production hardening checklist.
+\end{notebox}
+
+\section{Horizontal Scaling}
+\index{horizontal scaling}
+\index{Redis!shared state}
+
+Multiple \ja\ instances share state through Redis. Because all ban decisions, rate
+windows, JA4 lists, and beaconing data live in Redis, any instance can enforce
+decisions made by any other instance. There is no sticky routing requirement — HAProxy
+distributes connections across instances with standard round-robin or least-connection
+load balancing.
+
+The only per-instance state is the in-process LRU cache (\code{src/cache/local\_cache.py}).
+This cache is intentionally not synchronised across instances. Cache misses are handled
+by Redis fallback. The local cache uses conservative TTLs (30min for ALLOW, 30s for
+BLOCK) to bound the window in which a newly added ban is not yet enforced by a
+particular instance.

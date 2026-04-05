@@ -1,0 +1,298 @@
+%% ch06-monitoring.tex — JA4proxy Operator's User Guide
+%% Chapter 6: Monitoring and Alerting
+
+\chapter{Monitoring and Alerting}
+\label{ch:monitoring}
+\index{monitoring}
+\index{observability}
+
+\newthought{The observability stack is Prometheus, Grafana, Loki, and Alertmanager.}
+They run in the same Compose stack as the proxy and require no external setup.
+This chapter explains what each panel in the Grafana dashboard means, which
+Prometheus metrics matter most, how to query logs in Loki, and what alerts are
+pre-configured.
+
+\section{The Observability Stack}
+\index{Prometheus}
+\index{Grafana}
+\index{Loki}
+\index{Alertmanager}
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{llX}
+    \toprule
+    \textbf{Service} & \textbf{URL} & \textbf{Purpose} \\
+    \midrule
+    Grafana & \url{http://localhost:3001} & Dashboard, log exploration, alerting UI \\
+    Prometheus & \url{http://localhost:9091} & Metrics storage and query (PromQL) \\
+    Loki & \url{http://localhost:3100} & Log aggregation (queried via Grafana) \\
+    Alertmanager & \url{http://localhost:9093} & Alert routing and silencing \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Observability service endpoints}
+\end{table}
+
+The proxy exposes its Prometheus metrics endpoint at \code{http://localhost:9090}.
+Prometheus scrapes this every 15 seconds.\sidenote{If you run multiple proxy
+instances, each instance has its own metrics endpoint. Prometheus is pre-configured
+to scrape all of them via service discovery.}
+
+\section{The Grafana Dashboard}
+\index{Grafana!dashboard panels}
+
+Open \url{http://localhost:3001} and select the \emph{JA4proxy Overview} dashboard.
+The default time range is the last hour; use the time picker in the top right to
+adjust.
+
+\subsection{Connection Rate Panel}
+\index{connection rate}
+
+The top-line panel. Shows connections per second, stacked by action type.
+
+\textbf{What to look for:}
+\begin{itemize}
+  \item A sudden spike in the red (BLOCKED) area indicates an active attack
+    has been detected and is being blocked.
+  \item A spike in total connections without a corresponding increase in BLOCKED
+    connections may indicate a new attack type that the proxy is not yet classifying
+    correctly — or that the dial is at zero.
+  \item A sudden drop to zero in all lines means the proxy has stopped accepting
+    connections. Check the container status.
+\end{itemize}
+
+\subsection{Action Distribution Panel}
+\index{action distribution}
+
+Shows the percentage breakdown of actions over the selected time window.
+In a well-tuned deployment with the dial at 100, typical values are:
+
+\begin{itemize}
+  \item 60--80\% ALLOWED (legitimate traffic)
+  \item 15--35\% BLOCKED (confirmed bad traffic)
+  \item 1--5\% TARPITTED (high-risk, being slowed)
+  \item $<$1\% RATE\_LIMITED (automated clients hitting limits)
+  \item 0\% at dial=0 (everything is ALLOWED)
+\end{itemize}
+
+If BLOCKED is above 50\%, either your traffic is heavily automated or a bypass
+condition needs tuning. Investigate before raising the dial further.
+
+\subsection{Risk Score Distribution Panel}
+\index{risk score!distribution}
+
+A histogram of risk scores (0--100) across all scored connections. The shape
+tells you about the quality of your traffic classification:
+
+\begin{description}[leftmargin=3.5cm]
+  \item[Bimodal] Peaks near 0--10 and 80--100. Ideal. Legitimate traffic is
+    scoring low, bad traffic is scoring high, with a clear separation.
+  \item[Left-skewed] Most traffic near 0, long tail to the right. Typical for
+    low-attack-volume deployments. The tail represents the bad traffic.
+  \item[Flat/uniform] Signals may be under-tuned or traffic is very mixed.
+    Review which signals are contributing most.
+  \item[Right-skewed] Most traffic scoring high. Either the proxy is seeing a
+    lot of automated traffic, or whitelist entries are needed for legitimate tools.
+\end{description}
+
+\subsection{Top JA4 Fingerprints Panel}
+
+A ranked table of fingerprints seen in the selected window, with:
+\begin{itemize}
+  \item Connection count
+  \item Average risk score
+  \item Human-readable label (if configured)
+  \item Action distribution for that fingerprint
+\end{itemize}
+
+\textbf{Workflow:} Look for high-volume fingerprints with high average scores
+that are currently being ALLOWED (dial=0 or dial too low). These are your
+blacklist candidates. Look for high-volume fingerprints with high average scores
+that are BLOCKED — verify these are genuinely malicious before keeping them blocked.
+
+\subsection{Geographic Distribution Panel}
+
+Connection count by country. Useful for:
+\begin{itemize}
+  \item Verifying your GeoIP database is working (you should see your own country)
+  \item Detecting a volumetric attack from a specific region
+  \item Validating country whitelist/blacklist configuration
+\end{itemize}
+
+\subsection{Beaconing Activity Panel}
+
+Shows IPs currently flagged by the beaconing detector. Regular-interval connections
+from the same IP+JA4 pair suggest C2 traffic. The panel shows the IAT coefficient
+of variation — values below the threshold indicate suspicious regularity.
+
+\subsection{Rate Limiting Panel}
+
+Breakdown of rate-limit triggers by strategy (by\_ip, by\_ja4, by\_ip\_ja4\_pair).
+High sustained activity in by\_ip suggests volumetric attacks from single sources.
+High activity in by\_ja4 suggests a distributed botnet using consistent tooling.
+
+\section{Key Prometheus Metrics}
+\index{Prometheus!metrics}
+\index{metrics}
+
+\subsection{Connection Metrics}
+
+\begin{lstlisting}[language=bash, numbers=none]
+# Total connections by action
+ja4proxy_connections_total{action="allowed|blocked|tarpitted|rate_limited"}
+
+# Active connections right now
+ja4proxy_active_connections
+
+# Connection processing duration
+ja4proxy_connection_duration_seconds{quantile="0.5|0.95|0.99"}
+\end{lstlisting}
+
+\subsection{Risk Scoring}
+
+\begin{lstlisting}[language=bash, numbers=none]
+# Score distribution histogram
+ja4proxy_risk_score_distribution{le="10|25|50|75|100"}
+
+# Current dial setting
+ja4proxy_dial_setting
+\end{lstlisting}
+
+\subsection{Signal Performance}
+
+\begin{lstlisting}[language=bash, numbers=none]
+# Per-signal hit rates
+ja4proxy_signal_hits_total{signal="abuseipdb|beaconing|asn|tls_version|..."}
+
+# External service latency (AbuseIPDB, RDAP)
+ja4proxy_external_lookup_duration_seconds{service="abuseipdb|rdap"}
+
+# External service errors (should be near zero)
+ja4proxy_external_lookup_errors_total{service="abuseipdb|rdap"}
+\end{lstlisting}
+
+\subsection{Redis Performance}
+
+\begin{lstlisting}[language=bash, numbers=none]
+# Redis operation latency
+ja4proxy_redis_operation_duration_seconds{operation="get|set|zadd|..."}
+
+# Redis errors (critical — should be zero in normal operation)
+ja4proxy_redis_errors_total{operation="..."}
+\end{lstlisting}
+
+\subsection{Useful PromQL Queries}
+
+Block rate over the last 5 minutes:
+\begin{lstlisting}[language=bash, numbers=none]
+rate(ja4proxy_connections_total{action="blocked"}[5m]) /
+  rate(ja4proxy_connections_total[5m])
+\end{lstlisting}
+
+Average risk score (approximated from histogram):
+\begin{lstlisting}[language=bash, numbers=none]
+histogram_quantile(0.50,
+  rate(ja4proxy_risk_score_distribution_bucket[5m]))
+\end{lstlisting}
+
+AbuseIPDB error rate (should alert if non-zero):
+\begin{lstlisting}[language=bash, numbers=none]
+rate(ja4proxy_external_lookup_errors_total{service="abuseipdb"}[5m])
+\end{lstlisting}
+
+\section{Loki Log Queries}
+\index{Loki}
+\index{LogQL}
+
+Access Loki through the Grafana Explore interface: navigate to Explore and select
+the Loki data source.
+
+\subsection{Common LogQL Queries}
+
+Find all blocked connections in the last hour:
+\begin{lstlisting}[language=bash, numbers=none]
+{container="ja4proxy"} |= "BLOCKED:"
+\end{lstlisting}
+
+Find all connections from a specific IP:
+\begin{lstlisting}[language=bash, numbers=none]
+{container="ja4proxy"} |= "185.220.0.1"
+\end{lstlisting}
+
+Find all connections with a specific fingerprint:
+\begin{lstlisting}[language=bash, numbers=none]
+{container="ja4proxy"} |= "t13d0912_a1b2c3d4e5f6"
+\end{lstlisting}
+
+Find high-scoring connections (score above 70):
+\begin{lstlisting}[language=bash, numbers=none]
+{container="ja4proxy"} |= "Score:" | regexp "Score: (?P<score>[789][0-9]|100)"
+\end{lstlisting}
+
+Count block events by country over time:
+\begin{lstlisting}[language=bash, numbers=none]
+sum by (country) (
+  count_over_time(
+    {container="ja4proxy"} |= "BLOCKED:" | regexp "Country: (?P<country>[A-Z]{2})"
+    [5m]
+  )
+)
+\end{lstlisting}
+
+\section{Pre-Configured Alerts}
+\index{Alertmanager}
+\index{alerts}
+
+The following alerts are pre-configured in Alertmanager. Review and adjust
+thresholds to match your environment before deploying to production.
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{lXl}
+    \toprule
+    \textbf{Alert} & \textbf{Condition} & \textbf{Severity} \\
+    \midrule
+    \code{ProxyDown} & Proxy metrics endpoint unreachable for 1m & Critical \\
+    \code{RedisDown} & Redis health check failing for 1m & Critical \\
+    \code{HighBlockRate} & Block rate $>$80\% for 5m & Warning \\
+    \code{HighRiskScores} & P95 risk score $>$75 for 10m & Warning \\
+    \code{AbuseIPDBErrors} & AbuseIPDB error rate $>$0 for 5m & Info \\
+    \code{ScoreDrift} & Mean risk score drifts $>$20 points from 24h baseline & Warning \\
+    \code{BeaconingSpike} & Beaconing detections $>$ 10× baseline for 5m & Warning \\
+    \code{RedisLatency} & P99 Redis operation $>$5ms for 5m & Warning \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Pre-configured alert rules}
+\end{table}
+
+\begin{notebox}[Score drift alerting]
+The \code{ScoreDrift} alert is particularly useful. A sudden increase in mean risk
+scores across all connections often indicates a new attack campaign has started.
+A sudden decrease may indicate a bypass condition was incorrectly configured or
+that attackers have adapted their fingerprints.
+\end{notebox}
+
+\subsection{Configuring Alert Destinations}
+
+Alert destinations (email, PagerDuty, Slack) are configured in
+\code{config/alertmanager.yml}. The file ships with a commented-out template
+for each integration type. \emph{See the Alertmanager documentation for
+receiver configuration.}
+
+\section{Accessing Logs Directly}
+
+For quick investigations without the Grafana interface:
+
+\begin{bashcode}
+# All proxy logs, live
+docker compose logs -f ja4proxy
+
+# Last 500 lines, grep for errors
+docker compose logs --tail=500 ja4proxy | grep -E "ERROR|WARN"
+
+# Analytics node logs (campaign detection, slow-scan)
+docker compose logs -f analytics
+
+# HAProxy access log (raw TCP connections)
+docker compose logs -f haproxy
+\end{bashcode}

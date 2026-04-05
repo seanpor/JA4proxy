@@ -1,0 +1,302 @@
+%% ch05-operations.tex — JA4proxy Operator's User Guide
+%% Chapter 5: Day-to-Day Operations
+
+\chapter{Day-to-Day Operations}
+\label{ch:operations}
+\index{operations}
+
+\newthought{Running \ja\ day-to-day is mostly unremarkable.} The proxy handles
+connections, Redis holds state, and Grafana shows you what is happening. This
+chapter covers the routine operational tasks: starting and stopping the stack,
+updating lists, managing bans, maintaining the GeoIP database, and keeping
+the proxy healthy.
+
+\section{Starting and Stopping}
+\index{make start}
+\index{make stop}
+
+\subsection{Normal Start}
+
+\begin{bashcode}
+make start
+\end{bashcode}
+
+Starts all containers. Existing Redis data (bans, rate-limit windows) is preserved.
+The proxy begins processing connections as soon as it becomes healthy, which
+takes approximately 5--10 seconds after the containers start.
+
+\subsection{Stop Without Data Loss}
+
+\begin{bashcode}
+make stop
+\end{bashcode}
+
+Stops all containers. Redis data persists on the host volume. Logs are preserved.
+Use this for planned maintenance or before deploying a configuration change
+that requires a restart.
+
+\subsection{Stop and Clean Everything}
+
+\begin{bashcode}
+make stop-clean
+\end{bashcode}
+
+Stops all containers and removes volumes. Use this when you want a completely
+fresh start — for example, when moving from testing to a fresh production deployment,
+or when debugging requires a known-clean Redis state.
+
+\begin{dangerbox}[Data loss]
+\code{make stop-clean} permanently deletes all Redis data: bans, rate-limit windows,
+beaconing history, enrichment cache, and return visitor records. Any active bans
+will be lifted immediately.
+\end{dangerbox}
+
+\subsection{Full Rebuild}
+
+After pulling a new version of the repository:
+
+\begin{bashcode}
+git pull
+make rebuild
+\end{bashcode}
+
+This stops the stack, rebuilds all Docker images from scratch, and starts the
+new version.
+
+\section{Updating Fingerprint Lists}
+\index{fingerprint lists!updating}
+\index{hot reload}
+
+The JA4 blacklist, whitelist, patterns, and labels all live in
+\code{config/proxy.yml} under \configkey{security}. To add or remove entries:
+
+\begin{enumerate}
+  \item Edit \code{config/proxy.yml}
+  \item Reload without restart:
+\begin{bashcode}
+kill -HUP $(docker compose exec ja4proxy cat /var/run/proxy.pid)
+\end{bashcode}
+  \item Verify the reload in logs:
+\begin{bashcode}
+docker compose logs ja4proxy | tail -5
+# Should show: INFO | config | event=reload | status=ok
+\end{bashcode}
+\end{enumerate}
+
+\subsection{Adding a Fingerprint to the Blacklist}
+
+When you identify a malicious fingerprint (from logs, Grafana, or threat intelligence):
+
+\begin{yamlcode}
+security:
+  blacklist:
+    - t13d0912_a1b2c3d4e5f6_987654321abc  # Sliver C2 — added 2026-04-04
+    - t12d1302_c0ffee123456_aabbccddeeff  # Cobalt Strike — added 2026-04-04
+    # Add your new entry here:
+    - t13d1015_newfingerprint_0123456789  # Description — date
+\end{yamlcode}
+
+Comment each entry with a description and the date it was added. This is your
+operational audit trail.
+
+\subsection{Adding a Fingerprint to the Whitelist}
+
+For a legitimate tool that is scoring too high:
+
+\begin{yamlcode}
+security:
+  whitelist:
+    - t13d1113h2_8daaf6152771_b0da82dd1658  # Chrome 120 (Windows)
+    # Add your tool here:
+    - t13d0914h2_abcdef123456_fedcba654321  # Internal monitoring agent
+\end{yamlcode}
+
+\begin{warningbox}[Whitelist changes are immediate]
+Whitelist additions take effect on reload and apply to all subsequent connections.
+They do not apply retroactively to active bans — if a whitelisted IP is currently
+banned, the ban persists until it expires (5 minutes).
+\end{warningbox}
+
+\section{Managing IP Bans}
+\index{bans!managing}
+\index{Redis!ban keys}
+
+\subsection{Viewing Current Bans}
+
+\begin{bashcode}
+# List all active bans with TTLs
+docker compose exec redis redis-cli --scan --pattern "ban:*" | \
+  xargs -I{} sh -c 'echo -n "{}: "; docker compose exec redis redis-cli TTL "{}"'
+\end{bashcode}
+
+Or for a quick count:
+
+\begin{bashcode}
+docker compose exec redis redis-cli --scan --pattern "ban:*" | wc -l
+\end{bashcode}
+
+\subsection{Clearing a Specific Ban}
+
+If a legitimate IP has been incorrectly banned:
+
+\begin{bashcode}
+# Replace with the actual IP address
+docker compose exec redis redis-cli DEL "ban:192.0.2.1"
+\end{bashcode}
+
+The next connection from that IP will be processed normally. There is no need
+to restart anything.
+
+\subsection{Ban Expiry}
+
+All bans have a 5-minute TTL.\sidenote{The self-healing TTL is intentional and cannot
+be disabled. See Section~1.5 for the rationale.} You do not need to manually clear
+bans — they expire automatically. Manual clearing is only needed when you need to
+restore access immediately (e.g., during an incident where a legitimate user has been
+blocked).
+
+\subsection{Clearing All Bans}
+
+Use this with caution — it immediately releases all currently-banned IPs:
+
+\begin{bashcode}
+docker compose exec redis redis-cli --scan --pattern "ban:*" | \
+  xargs docker compose exec redis redis-cli DEL
+\end{bashcode}
+
+\section{Managing Rate-Limit Windows}
+\index{rate limiting!clearing}
+
+Rate-limit sliding windows are stored as Redis Sorted Sets. To clear rate-limit
+state for a specific IP (for example, after a customer reports being rate-limited):
+
+\begin{bashcode}
+# Clear by-IP rate limit for a specific address
+docker compose exec redis redis-cli DEL "rl:ip:192.0.2.1"
+
+# Clear by-IP+JA4 pair rate limit
+docker compose exec redis redis-cli DEL "rl:pair:192.0.2.1:t13d1113h2_8daaf6152771_b0da82dd1658"
+\end{bashcode}
+
+To clear all rate-limit windows (useful between load tests):
+
+\begin{bashcode}
+docker compose exec redis redis-cli --scan --pattern "rl:*" | \
+  xargs docker compose exec redis redis-cli DEL
+\end{bashcode}
+
+\section{Updating the GeoIP Database}
+\index{GeoIP!updating}
+\index{IP2Location}
+
+The IP2Location database should be refreshed monthly. IP allocations change;
+a stale database will misclassify newer IP ranges.
+
+\begin{bashcode}
+make update-geoip
+\end{bashcode}
+
+The proxy reloads the database on the next \code{SIGHUP} or can be made to
+reload it immediately:
+
+\begin{bashcode}
+# Reload everything including the GeoIP database
+kill -HUP $(docker compose exec ja4proxy cat /var/run/proxy.pid)
+\end{bashcode}
+
+If the database file is missing or corrupted, the proxy falls back to treating
+all IPs as country code \code{XX} (unknown). Country filtering is effectively
+disabled in this state, and the proxy logs a startup warning. Other functions
+are unaffected.
+
+\section{Flushing Redis Between Test Runs}
+\index{Redis!flush}
+
+When running load tests or switching between test scenarios, flush Redis to
+start with a clean state:
+
+\begin{bashcode}
+docker compose exec redis redis-cli FLUSHALL
+\end{bashcode}
+
+\begin{warningbox}[FLUSHALL in production]
+Never run \code{FLUSHALL} on a production Redis instance. It removes all data
+including bans and enrichment caches. Use it only in development or test environments.
+\end{warningbox}
+
+\section{Checking Proxy Health}
+\index{health check}
+
+\subsection{Quick Health Check}
+
+\begin{bashcode}
+curl -s http://localhost:8080/health
+\end{bashcode}
+
+Returns JSON with status, Redis connectivity, GeoIP status, and uptime.
+
+\subsection{Readiness Check}
+
+\begin{bashcode}
+curl -s http://localhost:8080/ready
+\end{bashcode}
+
+Returns 200 when the proxy is ready to accept connections. Used by Kubernetes
+readiness probes.
+
+\subsection{Container Status}
+
+\begin{bashcode}
+docker compose ps
+docker compose top
+\end{bashcode}
+
+\subsection{Resource Usage}
+
+\begin{bashcode}
+docker stats --no-stream
+\end{bashcode}
+
+Shows CPU, memory, and network I/O for all containers. The proxy container should
+be using well under 100\% CPU at normal load; spikes above this indicate a
+performance issue.
+
+\section{Log Management}
+\index{logs!management}
+\index{Loki}
+
+Logs are collected by Promtail and stored in Loki. The Grafana Explore interface
+queries them directly. For direct log access:
+
+\begin{bashcode}
+# Live proxy logs
+docker compose logs -f ja4proxy
+
+# Last 100 lines of all services
+docker compose logs --tail=100
+
+# Logs since a specific time
+docker compose logs --since=2026-04-04T10:00:00 ja4proxy
+\end{bashcode}
+
+Log files are also written to \code{logs/} on the host. Default retention is
+7 days; adjust in \code{config/proxy.yml} under \configkey{logging.retention\_days}.
+
+\section{Scheduled Maintenance Checklist}
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{llX}
+    \toprule
+    \textbf{Frequency} & \textbf{Task} & \textbf{Command} \\
+    \midrule
+    Daily & Review Grafana dashboard & Visual check: action distribution, score histogram \\
+    Daily & Check for new fingerprints & Grafana Top Fingerprints panel \\
+    Weekly & Review ban log & Check for patterns suggesting targeting \\
+    Monthly & Update GeoIP database & \code{make update-geoip} \\
+    Monthly & Review blacklist & Remove stale entries, add newly identified tools \\
+    Monthly & Check Docker image updates & \code{git pull \&\& make rebuild} \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Recommended maintenance schedule}
+\end{table}

@@ -31,7 +31,8 @@
   %% Concentric arcs — evoke fingerprint ridges / TLS cipher layers
   \foreach \r/\op in {1.0/0.55, 1.7/0.50, 2.4/0.45, 3.1/0.38,
                       3.8/0.30, 4.5/0.22, 5.2/0.16, 5.9/0.11} {
-    \draw[color=ja4cyan, opacity=\op, line width={0.5 + \r*0.15}pt,
+    \pgfmathsetmacro{\lw}{0.5 + \r*0.15}
+    \draw[color=ja4cyan, opacity=\op, line width=\lw pt,
           rounded corners=0pt]
       ($(fp) + (180:\r cm)$) arc[start angle=180, end angle=360,
                                   radius=\r cm];

@@ -1,0 +1,321 @@
+%% ch07-log-format.tex — Log Format Reference
+%% JA4proxy Technical Reference Manual
+
+\chapter{Log Format Reference}
+\index{log format}
+\label{ch:logformat}
+
+\begin{chapterquote}
+\ja\ emits structured JSON logs to stdout. Every connection produces exactly one
+connection log entry at the action decision point. Additional entries are emitted
+for config reloads, errors, and policy events.
+\end{chapterquote}
+
+\newthought{JSON is the primary log format.} The human-readable text format is a
+secondary view, derived from the JSON, suitable for interactive terminal use.
+All SIEM integrations, log aggregation (Loki), and alerting pipelines should use
+the JSON format.
+
+\section{JSON Log Schema}
+\index{log format!JSON}
+
+\subsection{Complete Field Reference}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{JSON log field reference — connection event}
+\label{tab:log-fields}
+\begin{tabular}{@{}lllp{5.5cm}@{}}
+\toprule
+\textbf{Field} & \textbf{Type} & \textbf{Always present} & \textbf{Description} \\
+\midrule
+\code{timestamp} & string (ISO 8601) & Yes & UTC timestamp with milliseconds: \code{2026-04-04T12:34:56.789Z} \\
+\code{event} & string & Yes & Event type: \code{connection}, \code{config\_reload}, \code{error}, \code{bypass\_disabled} \\
+\code{action} & string & Yes & Final action: \code{allow}, \code{block}, \code{tarpit}, \code{ban}, \code{flag}, \code{rate\_limit} \\
+\code{client\_ip} & string & Yes & Canonical client IP (from PROXY protocol). Full IPv4 or IPv6 string. \\
+\code{country} & string & No & ISO 3166-1 alpha-2 country code. Absent if GeoIP lookup failed. \\
+\code{ja4} & string & No & JA4 fingerprint string. Absent if ClientHello could not be parsed. \\
+\code{ja4x} & string & No & JA4X extended fingerprint. Absent if not computed. \\
+\code{ja4t} & string & No & JA4T TCP fingerprint. Absent if not computed. \\
+\code{fingerprint\_name} & string & No & Human-readable label for JA4, from \configkey{security.fingerprint\_labels} \\
+\code{tls\_version} & string & No & TLS version string: \code{TLS 1.3}, \code{TLS 1.2}, etc. \\
+\code{sni} & string & No & Server Name Indication from ClientHello. Absent if not present in handshake. \\
+\code{alpn} & string & No & First ALPN value: \code{h2}, \code{h1}, etc. \\
+\code{risk\_score} & integer & No & Computed risk score (0–100). Absent for bypassed connections. \\
+\code{dial} & integer & Yes & Current dial setting at decision time. \\
+\code{bypass} & string & No & Bypass type if connection was bypassed: \code{alpn\_browser}, \code{ja4\_whitelist}, etc. \\
+\code{reason} & string & Yes & Human-readable reason for the action. \\
+\code{duration\_ms} & float & Yes & Pipeline execution time in milliseconds. \\
+\code{signals} & object & No & Per-signal scores as a JSON object. Absent for bypassed connections. \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{The signals Object}
+\index{log format!signals object}
+
+When present, the \code{signals} field contains the individual score contribution
+from each signal:
+
+\begin{lstlisting}[language=json]
+"signals": {
+  "tls":       0,
+  "sni":       0,
+  "tcp":       0,
+  "asn":       15,
+  "dns":       0,
+  "beacon":    0,
+  "abuseipdb": 0,
+  "rdap":      0
+}
+\end{lstlisting}
+
+Each value is the raw signal score (0–100) before confidence weighting. A score of 0
+means either the signal found nothing suspicious, or the external service was
+unavailable (fail open — both produce 0).
+
+\section{Example Log Entries}
+\index{log format!examples}
+
+\subsection{Allowed Browser Connection (ALPN bypass)}
+\index{log format!allow example}
+
+\begin{lstlisting}[language=json]
+{
+  "timestamp": "2026-04-04T12:34:56.789Z",
+  "event": "connection",
+  "action": "allow",
+  "client_ip": "172.19.0.10",
+  "country": "IE",
+  "ja4": "t13d1113h2_8daaf6152771_02713d6af862",
+  "fingerprint_name": "Browser (TLS 1.3)",
+  "tls_version": "TLS 1.3",
+  "sni": "example.com",
+  "alpn": "h2",
+  "dial": 0,
+  "bypass": "alpn_browser",
+  "reason": "Browser ALPN bypass",
+  "duration_ms": 0.8
+}
+\end{lstlisting}
+
+Note: \code{risk\_score} and \code{signals} are absent because the connection was
+bypassed before scoring.
+
+\subsection{Blocked Connection (Spamhaus DROP match)}
+\index{log format!block example}
+\index{Spamhaus!log entry}
+
+\begin{lstlisting}[language=json]
+{
+  "timestamp": "2026-04-04T12:35:10.421Z",
+  "event": "connection",
+  "action": "block",
+  "client_ip": "185.220.101.1",
+  "country": "DE",
+  "ja4": "t13d1900h2_8daaf6152771_97f8aa674fd9",
+  "fingerprint_name": "Tool/Bot (TLS 1.3)",
+  "tls_version": "TLS 1.3",
+  "sni": null,
+  "dial": 75,
+  "bypass": "spamhaus",
+  "reason": "Spamhaus DROP match: 185.220.96.0/21",
+  "duration_ms": 0.3
+}
+\end{lstlisting}
+
+\subsection{Scored and Tarpitted Connection}
+\index{log format!tarpit example}
+
+\begin{lstlisting}[language=json]
+{
+  "timestamp": "2026-04-04T12:36:42.100Z",
+  "event": "connection",
+  "action": "tarpit",
+  "client_ip": "45.142.212.100",
+  "country": "RU",
+  "ja4": "t13d190900_9dc949149365_97f8aa674fd9",
+  "ja4x": "a5c0d0f3d1b2_0e8a7c6b5d4e",
+  "ja4t": "8192_2_1460_nWS",
+  "fingerprint_name": "Sliver C2",
+  "tls_version": "TLS 1.3",
+  "sni": "cdn-185.example.com",
+  "risk_score": 87,
+  "dial": 75,
+  "reason": "Score 87 exceeds tarpit threshold",
+  "duration_ms": 2.4,
+  "signals": {
+    "tls":       0,
+    "sni":       40,
+    "tcp":       25,
+    "asn":       65,
+    "dns":       35,
+    "beacon":    50,
+    "abuseipdb": 80,
+    "rdap":      60
+  }
+}
+\end{lstlisting}
+
+\subsection{Banned Connection (Subsequent Request)}
+\index{log format!ban example}
+
+\begin{lstlisting}[language=json]
+{
+  "timestamp": "2026-04-04T12:37:05.002Z",
+  "event": "connection",
+  "action": "block",
+  "client_ip": "45.142.212.100",
+  "country": "RU",
+  "dial": 75,
+  "bypass": "ban_cache",
+  "reason": "Banned for 604800s (escalation level 3)",
+  "duration_ms": 0.1
+}
+\end{lstlisting}
+
+Subsequent connections from a banned IP are rejected at layer 0 from the local ban
+cache. No JA4 parsing occurs, hence the absent fingerprint fields.
+
+\subsection{Config Reload Event}
+\index{log format!config reload}
+
+\begin{lstlisting}[language=json]
+{
+  "timestamp": "2026-04-04T13:00:00.000Z",
+  "event": "config_reload",
+  "action": null,
+  "result": "success",
+  "changed_keys": ["dial", "security_policy.spamhaus_bypass.enabled"],
+  "duration_ms": 45.2
+}
+\end{lstlisting}
+
+\subsection{Bypass Disabled Warning}
+\index{log format!bypass disabled warning}
+
+\begin{lstlisting}[language=json]
+{
+  "timestamp": "2026-04-04T08:00:00.001Z",
+  "event": "bypass_disabled",
+  "bypass": "alpn_browser_bypass",
+  "effect": "browser traffic will be scored; false positive risk elevated",
+  "level": "WARN"
+}
+\end{lstlisting}
+
+\section{Human-Readable Text Format}
+\index{log format!text format}
+
+The text format is a condensed single-line summary derived from the JSON event.
+It is written to a separate log stream (or can be toggled on/off) for operator
+convenience during interactive sessions.
+
+\begin{lstlisting}[language=bash]
+ALLOWED:  172.19.0.10 | Country: IE  | JA4: t13d1113h2_... | Name: Browser (TLS 1.3) | TLS: TLS 1.3
+BLOCKED:  185.220.101.1 | Country: DE | Reason: Spamhaus DROP: 185.220.96.0/21
+TARPIT:   45.142.212.100 | Country: RU | JA4: t13d190900_... | Name: Sliver C2 | Score: 87
+BANNED:   45.142.212.100 | Country: RU | Reason: Banned for 604800s (level 3)
+\end{lstlisting}
+
+\section{Log Levels}
+\index{log format!log levels}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Log levels and when each is emitted}
+\label{tab:log-levels}
+\begin{tabular}{@{}llp{8cm}@{}}
+\toprule
+\textbf{Level} & \textbf{Volume} & \textbf{Emitted for} \\
+\midrule
+ERROR & Low & Redis connection failure, config parse failure, TLS parser crash, external API repeated failure \\
+WARN & Low & Bypass disabled at startup, AbuseIPDB rate limit hit, RDAP block expansion triggered \\
+INFO & Medium & Config reload (success or error), startup completion, shutdown \\
+DEBUG & High & Individual signal scores, cache hits/misses, Redis operations. Disabled in production. \\
+(connection) & Very high & Every connection event — not strictly a log level; always emitted \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\section{Loki Log Queries (LogQL)}
+\index{Loki}
+\index{LogQL}
+
+Assuming logs are shipped to Loki with the label \code{job="ja4proxy"}, the
+following LogQL queries cover common operational needs:
+
+\begin{lstlisting}[language=bash]
+# All blocked connections in last hour
+{job="ja4proxy"} | json | action="block"
+
+# All connections from a specific IP
+{job="ja4proxy"} | json | client_ip="185.220.101.1"
+
+# Connections with risk_score > 80
+{job="ja4proxy"} | json | risk_score > 80
+
+# All Spamhaus bypasses
+{job="ja4proxy"} | json | bypass="spamhaus"
+
+# Tarpitted connections with their signal breakdown
+{job="ja4proxy"} | json | action="tarpit"
+  | line_format "{{.client_ip}} score={{.risk_score}}"
+
+# Config reload events
+{job="ja4proxy"} | json | event="config_reload"
+
+# Error events only
+{job="ja4proxy"} | json | level="ERROR"
+
+# Fingerprint distribution for last 24h
+{job="ja4proxy"} | json | fingerprint_name != ""
+  | unwrap risk_score
+  | rate by (fingerprint_name) [5m]
+\end{lstlisting}
+
+\section{SIEM Integration — CEF Format}
+\index{SIEM integration}
+\index{CEF format}
+
+For SIEM platforms that require Common Event Format (CEF), the following mapping
+converts \ja\ JSON fields to CEF:
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{CEF field mapping for \ja\ connection events}
+\label{tab:cef-mapping}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{CEF field} & \textbf{\ja\ JSON field} & \textbf{Notes} \\
+\midrule
+\code{CEF:0|JA4proxy|JA4proxy|1.0} & — & CEF header (vendor|product|version) \\
+\code{name} & \code{event} + \code{action} & e.g.\ \code{connection\_block} \\
+\code{severity} & \code{risk\_score} / 10 & Scale: 0–10 \\
+\code{src} & \code{client\_ip} & Source IP \\
+\code{cs1} (JA4) & \code{ja4} & Custom string field \\
+\code{cs2} (Country) & \code{country} & Custom string field \\
+\code{cs3} (Reason) & \code{reason} & Custom string field \\
+\code{cn1} (Score) & \code{risk\_score} & Custom number field \\
+\code{cn2} (Dial) & \code{dial} & Custom number field \\
+\code{act} & \code{action} & Device action \\
+\code{start} & \code{timestamp} & Event time \\
+\code{deviceProcessName} & \code{"ja4proxy"} & Fixed string \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+Example CEF line for a tarpitted connection:
+
+\begin{lstlisting}[language=bash]
+CEF:0|JA4proxy|JA4proxy|1.0|connection_tarpit|connection_tarpit|8|
+  src=45.142.212.100 act=tarpit cs1Label=JA4
+  cs1=t13d190900_9dc949149365_97f8aa674fd9
+  cs2Label=Country cs2=RU cs3Label=Reason
+  cs3=Score 87 exceeds tarpit threshold cn1Label=Score
+  cn1=87 cn2Label=Dial cn2=75
+  start=2026-04-04T12:36:42.100Z
+\end{lstlisting}
