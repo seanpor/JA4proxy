@@ -1,0 +1,57 @@
+<!--
+  HTMX Partial: health_cards.html
+  GET /api/v1/partials/health-cards
+  Polled every 10s. Template vars:
+    health_cards: list of {label, value, unit, status: ok|warn|error, icon_path}
+-->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+
+  {# Default cards if no data is passed (shows skeleton) #}
+  {% set cards = health_cards | default([
+    {"label": "Redis", "value": "—", "unit": "", "status": "ok",
+     "icon_path": "M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"},
+    {"label": "Active Bans", "value": "—", "unit": "", "status": "ok",
+     "icon_path": "M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"},
+    {"label": "Dial Setting", "value": "—", "unit": "/100", "status": "ok",
+     "icon_path": "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0"},
+    {"label": "Events/min", "value": "—", "unit": "", "status": "ok",
+     "icon_path": "M13 10V3L4 14h7v7l9-11h-7z"},
+  ]) %}
+
+  {% for card in cards %}
+  {% set status_ring = {
+    "ok":    "ring-[#16a34a]/30",
+    "warn":  "ring-[#d97706]/30",
+    "error": "ring-[#dc2626]/30",
+  }.get(card.status, "ring-[#334155]") %}
+  {% set status_dot = {
+    "ok":    "bg-[#16a34a]",
+    "warn":  "bg-[#d97706]",
+    "error": "bg-[#dc2626]",
+  }.get(card.status, "bg-[#475569]") %}
+  {% set icon_color = {
+    "ok":    "text-[#16a34a]",
+    "warn":  "text-[#d97706]",
+    "error": "text-[#dc2626]",
+  }.get(card.status, "text-[#94a3b8]") %}
+
+  <div class="relative bg-[#1e293b] border border-[#334155] ring-1 {{ status_ring }} rounded-xl p-4">
+    <!-- Status dot -->
+    <span class="absolute top-3 right-3 w-2 h-2 rounded-full {{ status_dot }}
+                 {% if card.status == 'error' %}animate-ping{% endif %}"></span>
+    <!-- Icon -->
+    <div class="mb-3">
+      <svg class="w-5 h-5 {{ icon_color }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="{{ card.icon_path }}"/>
+      </svg>
+    </div>
+    <!-- Value -->
+    <p class="text-2xl font-bold text-[#f1f5f9] leading-none">
+      {{ card.value }}<span class="text-sm font-normal text-[#94a3b8] ml-0.5">{{ card.unit }}</span>
+    </p>
+    <!-- Label -->
+    <p class="text-xs text-[#94a3b8] mt-1.5">{{ card.label }}</p>
+  </div>
+  {% endfor %}
+
+</div>

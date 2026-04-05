@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-[1200px]">
+
+  <!-- ── Row 1: Health cards (polled every 10s via HTMX) ──────────── -->
+  <section aria-label="System health">
+    <div id="health-cards"
+         hx-get="/api/v1/partials/health-cards"
+         hx-trigger="load, every 10s"
+         hx-swap="innerHTML"
+         hx-indicator="#htmx-indicator">
+      <!-- Skeleton placeholders shown while first load is in flight -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {% for _ in range(4) %}
+        <div class="bg-[#1e293b] border border-[#334155] rounded-xl p-4 animate-pulse">
+          <div class="h-3 w-24 bg-[#334155] rounded mb-3"></div>
+          <div class="h-7 w-16 bg-[#334155] rounded"></div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Row 2: Live feed + Dial widget ─────────────────────────── -->
+  <section class="grid grid-cols-1 lg:grid-cols-3 gap-6" aria-label="Live connections and dial">
+
+    <!-- Live feed (2/3 width) -->
+    <div class="lg:col-span-2">
+      <div class="bg-[#1e293b] border border-[#334155] rounded-xl overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-[#334155]">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-[#16a34a] animate-pulse"></span>
+            <h2 class="text-sm font-semibold text-[#f1f5f9]">Live Connection Feed</h2>
+          </div>
+          <span class="text-xs text-[#94a3b8]">Latest 50</span>
+        </div>
+
+        <!-- SSE-powered live feed partial -->
+        <div id="live-feed-container">
+          {% include "partials/live_feed.html" %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Dial widget (1/3 width) -->
+    <div class="lg:col-span-1">
+      <div id="dial-widget"
+           hx-get="/api/v1/partials/dial"
+           hx-trigger="load"
+           hx-swap="outerHTML"
+           hx-indicator="#htmx-indicator">
+        {% include "partials/dial_widget.html" %}
+      </div>
+    </div>
+
+  </section>
+
+</div>
+{% endblock %}

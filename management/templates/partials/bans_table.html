@@ -1,0 +1,111 @@
+<!--
+  HTMX Partial: bans_table.html
+  GET /api/v1/partials/bans
+  Auto-refreshed every 30s from bans.html
+  Template vars:
+    bans: list of {ip: str, reason: str, ttl: int (seconds remaining), banned_at: str, banned_by: str}
+-->
+{% set bans = bans | default([]) %}
+
+<div id="bans-inner">
+
+  {% if bans %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-xs" aria-label="Active bans">
+      <thead>
+        <tr class="border-b border-[#334155]">
+          <th class="px-4 py-2.5 text-left font-medium text-[#94a3b8]">IP Address</th>
+          <th class="px-4 py-2.5 text-left font-medium text-[#94a3b8]">Reason</th>
+          <th class="px-4 py-2.5 text-left font-medium text-[#94a3b8] hidden sm:table-cell w-[110px]">Banned At</th>
+          <th class="px-4 py-2.5 text-left font-medium text-[#94a3b8] w-[100px]">TTL Remaining</th>
+          <th class="px-4 py-2.5 text-right font-medium text-[#94a3b8] w-[80px]">Action</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-[#334155]/50">
+        {% for ban in bans %}
+        {% set ttl = ban.ttl | default(0) | int %}
+        {% set ttl_mins = (ttl // 60) | int %}
+        {% set ttl_hrs = (ttl_mins // 60) | int %}
+        {% if ttl_hrs > 0 %}
+          {% set ttl_display = ttl_hrs | string + "h " + (ttl_mins % 60) | string + "m" %}
+        {% elif ttl_mins > 0 %}
+          {% set ttl_display = ttl_mins | string + "m " + (ttl % 60) | string + "s" %}
+        {% else %}
+          {% set ttl_display = ttl | string + "s" %}
+        {% endif %}
+        {% if ban.ttl is none %}{% set ttl_display = "∞" %}{% endif %}
+        {% set urgency_class = "text-[#dc2626]" if ttl < 300 else ("text-[#d97706]" if ttl < 3600 else "text-[#94a3b8]") %}
+
+        <tr id="ban-row-{{ loop.index }}"
+            class="hover:bg-[#334155]/30 transition-colors group"
+            x-data="{ lifting: false }">
+          <!-- IP -->
+          <td class="px-4 py-2.5">
+            <div class="flex items-center gap-2">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#7c3aed] flex-shrink-0"></span>
+              <code class="font-mono text-[#f1f5f9]">{{ ban.ip }}</code>
+            </div>
+          </td>
+          <!-- Reason -->
+          <td class="px-4 py-2.5 text-[#94a3b8] max-w-[200px] truncate" title="{{ ban.reason }}">
+            {{ ban.reason }}
+          </td>
+          <!-- Banned at -->
+          <td class="px-4 py-2.5 text-[#94a3b8] hidden sm:table-cell whitespace-nowrap">
+            {{ ban.banned_at | default("—") }}
+          </td>
+          <!-- TTL -->
+          <td class="px-4 py-2.5">
+            <span class="font-medium {{ urgency_class }}">{{ ttl_display }}</span>
+          </td>
+          <!-- Lift button -->
+          <td class="px-4 py-2.5 text-right">
+            <button
+              type="button"
+              :disabled="lifting"
+              @click="if (!confirm('Lift ban on {{ ban.ip }}?')) return;
+                      lifting = true;
+                      fetch('/api/v1/bans/' + encodeURIComponent('{{ ban.ip }}'), {
+                        method: 'DELETE',
+                        credentials: 'include'
+                      }).then(function(r) {
+                        if (r.ok) {
+                          document.getElementById('ban-row-{{ loop.index }}').remove();
+                        } else {
+                          lifting = false;
+                        }
+                      }).catch(function() { lifting = false; })"
+              class="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium
+                     text-[#94a3b8] border border-[#334155] bg-[#0f172a]
+                     hover:text-[#4ade80] hover:bg-[#16a34a]/15 hover:border-[#16a34a]/40
+                     disabled:opacity-40 disabled:cursor-not-allowed
+                     transition-colors">
+              <span x-text="lifting ? '…' : 'Lift'">Lift</span>
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Footer -->
+  <div class="flex items-center justify-between px-4 py-2.5 border-t border-[#334155]">
+    <span class="text-[10px] text-[#475569]">
+      {{ bans | length }} active ban{{ "s" if bans | length != 1 else "" }}
+    </span>
+    <span class="text-[10px] text-[#475569]">Auto-refreshes every 30s</span>
+  </div>
+
+  {% else %}
+  <!-- Empty state -->
+  <div class="flex flex-col items-center justify-center py-12 text-center">
+    <svg class="w-10 h-10 text-[#334155] mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    <p class="text-sm text-[#94a3b8]">No active bans</p>
+    <p class="text-xs text-[#475569] mt-1">All connections are passing through normally</p>
+  </div>
+  {% endif %}
+
+</div>

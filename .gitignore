@@ -150,3 +150,9 @@ test-results/
 *.nav
 *.snm
 *.vrb
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/

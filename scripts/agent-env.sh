@@ -123,6 +123,7 @@ AGENT_CPU_SET=${CPUS}
 # ── Host port assignments ────────────────────────────────────────────────────
 HOST_PORT_INGRESS=443
 HOST_PORT_ANALYTICS=8080
+HOST_PORT_MANAGEMENT=8090
 
 # ── Secrets (auto-generated) ─────────────────────────────────────────────────
 REDIS_PASSWORD=$(openssl rand -hex 32)
