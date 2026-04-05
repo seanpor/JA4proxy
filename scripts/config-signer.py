@@ -167,7 +167,8 @@ def _sign_file(target: Path, privkey_path: Path, pubkey_path: Path) -> None:
 def _verify_file(target: Path, pubkey_path: Path) -> bool:
     """Verify the signature for *target*.
 
-    Returns True on success, False on failure.  Exits 0 or 1 accordingly.
+    Returns True if the signature is valid, False otherwise.
+    The caller (``main``) maps the return value to exit codes 0/1.
     """
     from cryptography.exceptions import InvalidSignature
 

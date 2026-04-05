@@ -11,7 +11,7 @@ groups:
         expr: >
           rate(ja4proxy_ebpf_drops_total[1m]) > 10000
           and
-          process_cpu_seconds_total < 0.05
+          rate(process_cpu_seconds_total[1m]) < 0.05
         for: 1m
         labels:
           severity: critical
@@ -23,4 +23,4 @@ groups:
             blocked sources while the JA4proxy process CPU usage is below 5%.
             This pattern indicates a high-volume (DDoS/SYN-flood) attack where
             eBPF is absorbing the burst entirely at the kernel level.
-          runbook_url: "https://github.com/your-org/ja4proxy/blob/main/docs/runbooks/ebpf-volumetric-attack.md"
+          runbook_url: "docs/runbooks/ebpf-volumetric-attack.md"

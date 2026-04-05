@@ -11,7 +11,8 @@ Key/sig format matches scripts/config-signer.py:
   - Keys: base64-encoded raw 32 bytes, one line + newline (no PEM wrapper)
   - Sig:  base64-encoded raw 64-byte Ed25519 signature, one line + newline
 
-The implementation does NOT exist yet — these tests define the interface contract.
+Tests were written TDD-style before implementation.  All tests now pass against
+the live implementation in src/security/integrity_monitor.py.
 """
 
 import asyncio
@@ -555,3 +556,85 @@ class TestStartBackgroundMonitor:
             "integrity" in msg.lower() or "violation" in msg.lower() or str(watched_file) in msg
             for msg in error_messages
         ), f"Expected an ERROR log about integrity violation, got: {error_messages}"
+
+    def test_new_file_post_baseline_logs_warning(self, tmp_path, caplog):
+        """A file that appears after baseline is established logs at WARNING level.
+
+        A new file should be suspicious — not silently accepted — because an
+        attacker who can write to the monitored tree could plant a backdoor module.
+        """
+        import logging
+
+        from src.security.integrity_monitor import IntegrityMonitor
+
+        existing_file = tmp_path / "proxy.py"
+        existing_file.write_text("# original\n")
+        new_file = tmp_path / "injected.py"
+
+        monitor = IntegrityMonitor()
+
+        async def run_test():
+            task = asyncio.create_task(
+                monitor.start_background_monitor(
+                    paths=[str(tmp_path)], interval_s=0.05
+                )
+            )
+            await asyncio.sleep(0.1)
+            # Plant a new file after baseline is set
+            new_file.write_text("import os; os.system('evil')\n")
+            await asyncio.sleep(0.15)
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+        with caplog.at_level(logging.WARNING):
+            _run(run_test())
+
+        warning_messages = [
+            r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING
+        ]
+        assert any(
+            "new_file" in msg or str(new_file) in msg
+            for msg in warning_messages
+        ), f"Expected WARNING about new file in monitored tree, got: {warning_messages}"
+
+    def test_shutdown_on_violation_calls_sys_exit(self, tmp_path):
+        """When shutdown_on_violation is True, a tampered file triggers sys.exit(1)."""
+        import sys
+        from unittest.mock import patch
+
+        from src.security.integrity_monitor import IntegrityMonitor
+
+        watched_file = tmp_path / "proxy.py"
+        watched_file.write_text("# original\n")
+
+        monitor = IntegrityMonitor({"integrity": {"shutdown_on_violation": True}})
+
+        exit_calls = []
+
+        async def run_test():
+            with patch.object(sys, "exit", side_effect=lambda code: exit_calls.append(code)):
+                task = asyncio.create_task(
+                    monitor.start_background_monitor(
+                        paths=[str(watched_file)], interval_s=0.05
+                    )
+                )
+                await asyncio.sleep(0.1)
+                watched_file.write_text("# tampered\n")
+                await asyncio.sleep(0.15)
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+
+        _run(run_test())
+        # The mock sys.exit doesn't actually stop the process, so the monitor
+        # continues polling and may call sys.exit(1) more than once.
+        # Assert it was called at least once with code 1.
+        assert exit_calls and all(c == 1 for c in exit_calls), (
+            f"sys.exit(1) should be called on violation with shutdown_on_violation=True, "
+            f"got exit_calls={exit_calls}"
+        )

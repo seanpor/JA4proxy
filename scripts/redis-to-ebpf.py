@@ -47,11 +47,15 @@ from prometheus_client import Counter, start_http_server
 # Logging
 # ---------------------------------------------------------------------------
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-)
 logger = logging.getLogger("redis-to-ebpf")
+
+# Configure root logger only when running as a standalone script.
+# Importing this module for testing must not reconfigure the caller's logging.
+if not logger.handlers and not logging.root.handlers:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
 
 # ---------------------------------------------------------------------------
 # Prometheus
@@ -268,61 +272,65 @@ async def _sync_loop(
         redis_url,
     )
 
-    while True:
-        try:
-            # ── Collect current blocked IPs ──────────────────────────────
-            blocked = await _collect_blocked_ips(redis_client)
+    try:
+        while True:
+            try:
+                # ── Collect current blocked IPs ──────────────────────────────
+                blocked = await _collect_blocked_ips(redis_client)
 
-            # ── Add new entries ──────────────────────────────────────────
-            for ip, reason in blocked.items():
-                if ip in synced:
-                    continue
-                ip_hex = _ip_to_hex(ip)
-                if ip_hex is None:
-                    logger.debug(
-                        "ebpf | event=ipv6_skip | ip=%s | "
-                        "effect=XDP map only supports IPv4",
-                        ip,
-                    )
-                    continue  # skip IPv6 / invalid
-                ok = _bpftool_update(map_id, ip_hex)
-                if ok:
-                    synced.add(ip)
-                    logger.debug(
-                        "ebpf | event=ip_added | ip=%s | reason=%s", ip, reason
-                    )
-
-            # ── Remove stale entries ─────────────────────────────────────
-            for ip in list(synced):
-                if ip not in blocked:
+                # ── Add new entries ──────────────────────────────────────────
+                for ip, reason in blocked.items():
+                    if ip in synced:
+                        continue
                     ip_hex = _ip_to_hex(ip)
-                    if ip_hex:
-                        _bpftool_delete(map_id, ip_hex)
-                    synced.discard(ip)
-                    logger.debug(
-                        "ebpf | event=ip_removed | ip=%s", ip
-                    )
+                    if ip_hex is None:
+                        logger.debug(
+                            "ebpf | event=ipv6_skip | ip=%s | "
+                            "effect=XDP map only supports IPv4",
+                            ip,
+                        )
+                        continue  # skip IPv6 / invalid
+                    ok = _bpftool_update(map_id, ip_hex)
+                    if ok:
+                        synced.add(ip)
+                        logger.debug(
+                            "ebpf | event=ip_added | ip=%s | reason=%s", ip, reason
+                        )
 
-            # ── Update Prometheus counters from BPF map ──────────────────
-            if drop_counters_map_id is not None:
-                current = _read_drop_counters(drop_counters_map_id)
-                for reason, total in current.items():
-                    prev = prev_drop_counts.get(reason, 0)
-                    delta = max(0, total - prev)
-                    if delta > 0:
-                        EBPF_DROPS.labels(reason=reason).inc(delta)
-                    prev_drop_counts[reason] = total
+                # ── Remove stale entries ─────────────────────────────────────
+                for ip in list(synced):
+                    if ip not in blocked:
+                        ip_hex = _ip_to_hex(ip)
+                        if ip_hex:
+                            _bpftool_delete(map_id, ip_hex)
+                        synced.discard(ip)
+                        logger.debug(
+                            "ebpf | event=ip_removed | ip=%s", ip
+                        )
 
-        except asyncio.CancelledError:
-            logger.info("ebpf | event=sync_stopped")
-            raise  # propagate so asyncio.Task cleanup works correctly
-        except Exception as exc:
-            logger.error(
-                "ebpf | event=sync_error | error=%s", exc
-            )
-            EBPF_SYNC_ERRORS.inc()
+                # ── Update Prometheus counters from BPF map ──────────────────
+                if drop_counters_map_id is not None:
+                    current = _read_drop_counters(drop_counters_map_id)
+                    for reason, total in current.items():
+                        prev = prev_drop_counts.get(reason, 0)
+                        delta = max(0, total - prev)
+                        if delta > 0:
+                            EBPF_DROPS.labels(reason=reason).inc(delta)
+                        prev_drop_counts[reason] = total
 
-        await asyncio.sleep(interval)
+            except asyncio.CancelledError:
+                logger.info("ebpf | event=sync_stopped")
+                raise  # propagate so asyncio.Task cleanup works correctly
+            except Exception as exc:
+                logger.error(
+                    "ebpf | event=sync_error | error=%s", exc
+                )
+                EBPF_SYNC_ERRORS.inc()
+
+            await asyncio.sleep(interval)
+    finally:
+        await redis_client.aclose()
+        logger.debug("ebpf | event=redis_client_closed")
 
 
 # ---------------------------------------------------------------------------
