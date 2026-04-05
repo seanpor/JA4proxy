@@ -43,7 +43,7 @@ services:
       - redis
     volumes:
       - ./config:/app/config:ro
-      - ./logs:/app/logs
+      - logs_data:/app/logs
       - redis-sock:/var/run/redis
       - ./geoip:/app/geoip:ro
     environment:
@@ -275,7 +275,7 @@ services:
     volumes:
       - ./tests:/app/tests:ro
       - ./performance:/app/performance:ro
-      - ./reports:/app/reports
+      - reports_data:/app/reports
       - ./proxy.py:/app/proxy.py:ro
       - ./src:/app/src:ro
       - ./config:/app/config:ro
@@ -313,6 +313,8 @@ services:
 volumes:
   redis_data:
   redis-sock:
+  logs_data:     # Per-agent proxy logs — prefixed by COMPOSE_PROJECT_NAME (e.g. ja4_claude0_logs_data)
+  reports_data:  # Per-agent test reports — prefixed by COMPOSE_PROJECT_NAME
 
 networks:
   dmz_net:
