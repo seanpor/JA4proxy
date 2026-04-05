@@ -16,10 +16,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **DEFERRED** (FastAPI backend for real-time monitoring and configuration management.)
 *   **Action Plan:** [PHASE_13.md](PHASE_13.md)
 
-### Phase 35 — Advanced APT - Phase 1: Integrity Enforcement & Kernel-Level
-*   **Status:** **PROPOSED** (Implement supply chain integrity monitoring and eBPF/XDP NIC-level blocking.)
-*   **Action Plan:** [PHASE_35.md](PHASE_35.md)
-
 ### Phase 51 — Management UI - Phase 2: Frontend Dashboard
 *   **Status:** **PROPOSED** (React-based dashboard for real-time visualization of proxy telemetry.)
 *   **Action Plan:** [PHASE_51.md](PHASE_51.md)
