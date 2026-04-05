@@ -415,7 +415,7 @@ def _compare_and_alert(
                 import sys
                 sys.exit(1)
 
-    # Report deleted files
+    # Report deleted files — and remove from baseline so we don't alert every cycle
     for path in list(baseline.keys()):
         if path not in current:
             violation_counter.inc()  # unlabelled total
@@ -423,6 +423,7 @@ def _compare_and_alert(
             logger.error(
                 "integrity | event=file_deleted | path=%s", path
             )
+            del baseline[path]  # stop alerting on every subsequent scan cycle
 
 
 def _read_last_line_hash(log_path: str) -> str:
