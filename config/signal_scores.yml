@@ -7,6 +7,7 @@ signals:
   # TLS Enforcement (Phase 3)
   tls_version:           { score: 10, description: "Informational: TLS 1.2 used (when flag_tls_12 is true)" }
   weak_cipher:           { score: 35, description: "Weak or null cipher suite offered" }
+  ja4_tls_mismatch:      { score_cap: 35, description: "JA4-claimed TLS version differs from actual negotiated version — fingerprint spoofing indicator" }
 
   # SNI Analysis (Phase 4)
   missing_sni:           { score: 30, description: "No SNI extension in ClientHello" }
@@ -52,3 +53,6 @@ signals:
   analytics_subnet:      { score: 25, description: "Analytics: Subnet-level suspicious activity" }
   analytics_campaign:    { score: 35, description: "Analytics: Cross-instance campaign activity" }
   analytics_slow_scan:   { score: 30, description: "Analytics: Cross-instance slow-scan activity" }
+
+  # Subnet Correlation Pipeline (Phase 55)
+  subnet_campaign:       { score: 25, description: "Subnet correlation: campaign activity for the client's /24 or /48 subnet" }

@@ -18,8 +18,9 @@ Design
 
 Signal names
 ------------
-- ``tls_version``  — old or deprecated TLS version
-- ``weak_cipher``  — weak or broken cipher suite offered
+- ``tls_version``       — old or deprecated TLS version
+- ``weak_cipher``       — weak or broken cipher suite offered
+- ``ja4_tls_mismatch``  — JA4-claimed TLS version differs from negotiated version
 """
 
 import logging
@@ -107,6 +108,32 @@ _WEAK_CIPHER_TOTAL = Counter(
     ["cipher_strength", "action"],
 )
 
+_JA4_TLS_MISMATCH_TOTAL = Counter(
+    "ja4proxy_ja4_tls_mismatch_total",
+    "Connections where the TLS version encoded in the JA4 fingerprint "
+    "does not match the actual negotiated TLS version",
+)
+
+
+# ---------------------------------------------------------------------------
+# JA4 TLS version prefix → integer version mapping
+# ---------------------------------------------------------------------------
+
+# JA4 encodes the TLS version as the first 3 characters of the fingerprint:
+#   t13 → TLS 1.3 (0x0304)
+#   t12 → TLS 1.2 (0x0303)
+#   t11 → TLS 1.1 (0x0302)
+#   t10 → TLS 1.0 / 1.1 (0x0301 or 0x0302; treated as TLS 1.0 family)
+#   t10 prefix is also used for TLS 1.1 in some JA4 implementations.
+#   s3  → SSLv3 (0x0300)  — rare; included for completeness.
+_JA4_VERSION_PREFIX_MAP: dict[str, int] = {
+    "t13": TLS13,  # TLS 1.3
+    "t12": TLS12,  # TLS 1.2
+    "t11": TLS11,  # TLS 1.1
+    "t10": TLS10,  # TLS 1.0
+    "s30": SSL3,   # SSLv3
+}
+
 
 # ---------------------------------------------------------------------------
 # Version label helper
@@ -138,6 +165,98 @@ def _version_label(version: int | str) -> str:
         TLS12: "tls12",
         TLS13: "tls13",
     }.get(version, f"unknown_0x{version:04x}")
+
+
+# ---------------------------------------------------------------------------
+# JA4 / TLS version mismatch detection
+# ---------------------------------------------------------------------------
+
+
+def check_ja4_tls_mismatch(ja4: str, tls_version: int | str | None) -> "RiskSignal | None":
+    """Detect a mismatch between the TLS version claimed in a JA4 fingerprint
+    and the actual negotiated TLS version.
+
+    A JA4 fingerprint begins with a 3-character prefix that encodes the TLS
+    version the client *claims* to support (e.g. ``t13`` = TLS 1.3, ``t12`` =
+    TLS 1.2).  If the actual negotiated version does not match, it is a strong
+    indicator of fingerprint spoofing — a client presenting a manipulated
+    ClientHello to evade JA4-based detection.
+
+    Args:
+        ja4: The JA4 fingerprint string extracted from the ClientHello.
+             Must have at least 3 characters. An empty or ``None`` value
+             causes a silent fail-open (returns ``None``).
+        tls_version: The actual negotiated TLS version as an integer
+                     (e.g. ``0x0304`` for TLS 1.3) or a string label
+                     (``"TLSv1.3"``).  ``None`` → fail open.
+
+    Returns:
+        A :class:`~src.security.risk_scorer.RiskSignal` with name
+        ``ja4_tls_mismatch``, score 35, weight 1.0 if a mismatch is detected.
+        Returns ``None`` on any parse error or when no mismatch is found
+        (fail open).
+    """
+    try:
+        if not ja4 or tls_version is None:
+            return None
+
+        # Extract the 3-char version prefix from the JA4 fingerprint.
+        # JA4 format: <version_prefix><...rest>
+        version_prefix = ja4[:3].lower()
+        ja4_implied_version = _JA4_VERSION_PREFIX_MAP.get(version_prefix)
+        if ja4_implied_version is None:
+            # Unknown prefix — cannot determine implied version; fail open.
+            return None
+
+        # Normalise the actual tls_version to an integer.
+        actual_version: int
+        if isinstance(tls_version, str):
+            mapping = {
+                "SSLv3": SSL3,
+                "TLSv1.0": TLS10,
+                "TLSv1.1": TLS11,
+                "TLSv1.2": TLS12,
+                "TLSv1.3": TLS13,
+                "TLSv1": TLS10,
+            }
+            resolved = mapping.get(tls_version)
+            if resolved is None:
+                return None
+            actual_version = resolved
+        else:
+            actual_version = int(tls_version)
+
+        # TLS 1.0 and 1.1 are both encoded as ``t10`` in some JA4
+        # implementations.  Treat them as equivalent to avoid false positives.
+        def _normalise(v: int) -> int:
+            return TLS10 if v == TLS11 else v
+
+        if _normalise(ja4_implied_version) == _normalise(actual_version):
+            return None
+
+        # Mismatch detected.
+        _JA4_TLS_MISMATCH_TOTAL.inc()
+        logger.warning(
+            "tls_enforcer | event=ja4_tls_mismatch "
+            "| ja4_prefix=%s | ja4_implied=0x%04x | actual=0x%04x",
+            version_prefix,
+            ja4_implied_version,
+            actual_version,
+        )
+        return RiskSignal(
+            name="ja4_tls_mismatch",
+            score=35,
+            reason=(
+                f"JA4 fingerprint claims {_version_label(ja4_implied_version)} "
+                f"but actual negotiated version is {_version_label(actual_version)}"
+            ),
+        )
+    except Exception as exc:  # noqa: BLE001
+        # Fail open — any parse error must not propagate.
+        logger.debug(
+            "tls_enforcer | event=ja4_tls_mismatch_error | error=%s", exc
+        )
+        return None
 
 
 # ---------------------------------------------------------------------------
