@@ -41,7 +41,7 @@ enforcement to detect and contain sophisticated adversaries.
       read-only paths; deny all outbound connections except to `$BACKEND_HOST` and
       `$REDIS_HOST`. Apply in both compose files.
 
-## Acceptance Criteria
+## Verification Plan
 
 - [ ] Seccomp/AppArmor profiles enforced in both poc and prod compose stacks.
 - [ ] Subnet-level signal correlation functional and verified with test corpus.

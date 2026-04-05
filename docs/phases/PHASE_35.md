@@ -3,8 +3,14 @@
 **Status:** PROPOSED
 **Estimated Duration:** 4 Weeks
 **Priority:** High (Post-Hardening)
-**Prerequisite:** Phase 34
+**Prerequisite:** Phase 34 (recommended, but 35 can run concurrently with 34)
 **Sequel:** Phase 56 (Advanced APT - Phase 2: Deceptive Defense & Persistence)
+
+> **Track note:** There are two parallel APT tracks in this roadmap:
+> - **Track A — APT Hardening** (Phases 34 → 55): parser/Redis security, then advanced detection & Seccomp.
+> - **Track B — Advanced APT** (Phases 35 → 56): supply chain integrity & eBPF, then deception & persistence defense.
+> Both tracks are independent and can be worked in parallel, but Track B (35/56) assumes the
+> baseline container hardening from Track A (34/55) is complete.
 
 ---
 
