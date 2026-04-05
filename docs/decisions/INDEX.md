@@ -15,19 +15,26 @@
 | [ADR-005](ADR-005.md) | RDAP block expansion off by default | Accepted | 11 | 2026-03-27 |
 | [ADR-006](ADR-006.md) | Analytics node as separate container | Accepted | 12 | 2026-03-27 |
 | [ADR-013](ADR-013.md) | Management UI as separate container | Accepted | 13 | 2026-03-27 |
-| [ADR-015](ADR-015.md) | Go not Rust for Phase 15 proxy rewrite | Accepted | 15 | 2026-03-27 |
+| [ADR-015](ADR-015.md) | Go proxy rewrite — language selection rationale | Accepted | 15 | 2026-03-17 |
 | [ADR-019](ADR-019.md) | Block expansion off by default with /24 ceiling | Accepted | 11 | 2026-03-27 |
+| [ADR-020](ADR-020.md) | AF_PACKET vs pcap/Scapy vs PF_RING/DPDK for TAP mode capture | Accepted | 20 | 2026-03-28 |
+| [ADR-021](ADR-021.md) | EDL pull vs push for external firewall integration | Accepted | 20 | 2026-03-28 |
+| [ADR-022](ADR-022.md) | TAP HTTP server — standalone for Phase 20, migrates to Phase 13 | Accepted | 20 | 2026-03-28 |
 
 ## Planned ADRs (To Be Written)
 
-| ADR | Title | Status | Phase | Target Completion |
-|-----|-------|--------|-------|-------------------|
-| ADR-007 | mTLS as hard bypass, not scored signal | Proposed | 5 | Phase 21 |
-| ADR-008 | JA4 auto-classify produces candidate list only | Proposed | 12 | Phase 21 |
-| ADR-009 | Redis Streams for cross-instance events, not Pub/Sub | Proposed | 12 | Phase 21 |
-| ADR-010 | Fail-open for every external service | Proposed | 10 | Phase 21 |
-| ADR-011 | In-process Trie for CIDR matching, never Redis | Proposed | 8 | Phase 21 |
-| ADR-012 | Score always, even at dial=0 | Proposed | 2 | Phase 21 |
+These decisions are implemented and well-understood but not yet formally documented. They are not blocking any current work; write them opportunistically when touching the relevant code.
+
+| ADR | Title | Status | Phase | Notes |
+|-----|-------|--------|-------|-------|
+| ADR-007 | mTLS as hard bypass, not scored signal | Proposed | 5 | Rationale in CLAUDE.md Decision Log |
+| ADR-008 | JA4 auto-classify produces candidate list only | Proposed | 12 | Rationale in CLAUDE.md Decision Log |
+| ADR-009 | Redis Streams for cross-instance events, not Pub/Sub | Proposed | 12 | Rationale in CLAUDE.md Decision Log |
+| ADR-010 | Fail-open for every external service | Proposed | 10 | Rationale in CLAUDE.md Decision Log |
+| ADR-011 | In-process Trie for CIDR matching, never Redis | Proposed | 8 | Rationale in CLAUDE.md Decision Log |
+| ADR-012 | Score always, even at dial=0 | Proposed | 2 | Rationale in CLAUDE.md Decision Log |
+| ADR-023 | Terraform Registry namespace selection | Proposed | 83 | Required before Phase 83 implementation starts — see PHASE_83.md §3.1.1 |
+| ADR-024 | Management API v2 RBAC role model | Proposed | 79 | Required before Phase 79 implementation starts |
 
 ---
 
