@@ -126,6 +126,12 @@ def _bpftool_update(map_id: int, ip_hex: str) -> bool:
             "effect=eBPF sync disabled (bpftool not installed)"
         )
         return False
+    except PermissionError:
+        logger.warning(
+            "ebpf | event=bpftool_permission_denied | "
+            "effect=eBPF sync disabled (missing CAP_BPF)"
+        )
+        return False
     except subprocess.CalledProcessError as exc:
         logger.warning(
             "ebpf | event=bpftool_error | cmd=%s | stderr=%s",
@@ -157,7 +163,7 @@ def _bpftool_delete(map_id: int, ip_hex: str) -> bool:
     try:
         subprocess.run(cmd, check=True, capture_output=True, timeout=5)
         return True
-    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+    except (FileNotFoundError, PermissionError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
         return False
 
 
