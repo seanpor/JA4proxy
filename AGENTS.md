@@ -98,6 +98,60 @@ Every phase must be closed by completing **all** of the following before the nex
 - **Mandatory Coverage:** A change is incomplete without corresponding tests (Unit, Integration, and Chaos).
 - **Finality:** A task is only "Done" when the relevant test suite and linters pass 100% using the project `Makefile`.
 
+### Web service TDD — two mandatory test categories
+
+Both failures below reached production because they were absent from the initial test suite. Every web service agent must include them.
+
+#### 1. HTML page rendering tests (catches framework API mismatches)
+
+Every route that returns HTML **must** have a test that:
+- GETs the route with a valid auth token and asserts `status_code == 200`
+- Asserts `"text/html"` in `Content-Type`
+- Asserts at least one landmark string is in `response.text`
+- GETs the route *without* a token and asserts `status_code < 500`
+
+**Why:** The Starlette `TemplateResponse` API changed between versions (`TemplateResponse(name, context)` → `TemplateResponse(request, name, context)`). A test that only checked redirect behavior (401) on page routes never executed the template rendering path. The mismatch was invisible until the container ran against a real Starlette version.
+
+Pattern (copy into every `test_pages.py`):
+```python
+async def test_login_page_renders(test_client):
+    r = await test_client.get("/login")
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert "JA4" in r.text  # landmark string
+
+async def test_dashboard_renders(authenticated_client):
+    r = await authenticated_client.get("/")
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+
+async def test_unauthenticated_never_500(test_client):
+    r = await test_client.get("/")
+    assert r.status_code < 500  # 401 ok, 500 = crash before auth ran
+```
+
+#### 2. Container configuration parity tests (catches env var mismatches)
+
+Every service that connects to an external dependency (Redis, DB, etc.) **must** have a test that:
+- Reads `docker-compose.poc.yml` (or the relevant compose file) and verifies that the compose env section passes the correct connection string format
+- Verifies that when a password env var is set, the built connection URL actually contains it
+
+**Why:** fakeredis requires no password, so unit tests passed 67/67 while the real container connected to password-protected Redis with a bare `redis://redis:6379/0` URL and got `AuthenticationError` at runtime.
+
+Pattern (copy into every `test_container_config.py`):
+```python
+def test_docker_compose_redis_url_includes_password():
+    with open("docker-compose.poc.yml") as f:
+        content = f.read()
+    service_section = content[content.find("  myservice:"):][:1500]
+    url_match = re.search(r"REDIS_URL=([^\n]+)", service_section)
+    assert url_match, "REDIS_URL not found in service definition"
+    assert "REDIS_PASSWORD" in url_match.group(1), (
+        "REDIS_URL must include ${REDIS_PASSWORD}. "
+        "fakeredis doesn't need auth — real Redis does."
+    )
+```
+
 ### What `make test` actually checks — read ALL of it
 
 `make test` runs four static-analysis tools **before** pytest. A task is not done until
