@@ -100,9 +100,18 @@ def _generate_keypair(privkey_path: Path, pubkey_path: Path) -> None:
 
 
 def _write_key(path: Path, data: bytes, mode: int) -> None:
-    """Write *data* to *path* atomically and set *mode*."""
-    path.write_bytes(data + b"\n")
-    os.chmod(path, mode)
+    """Write *data* to *path* atomically with the correct permissions.
+
+    Uses ``os.open`` with ``O_CREAT|O_EXCL`` so that the file is created
+    with *mode* in a single syscall — eliminating the TOCTOU window that
+    would exist between ``write_bytes`` and a subsequent ``os.chmod``.
+    Raises ``FileExistsError`` if *path* already exists (caller must check).
+    """
+    fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode)
+    try:
+        os.write(fd, data + b"\n")
+    finally:
+        os.close(fd)
 
 
 def _load_private_key(privkey_path: Path):
