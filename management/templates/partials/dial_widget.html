@@ -1,0 +1,181 @@
+<!--
+  HTMX Partial: dial_widget.html
+  GET /api/v1/partials/dial
+  Template vars: dial_value (int 0-100)
+-->
+{% set dial = dial_value | default(0) | int %}
+{% if dial == 0 %}
+  {% set dial_color = "#16a34a" %}
+  {% set dial_label = "Monitor Mode" %}
+  {% set dial_desc = "All traffic is scored but no connections are blocked." %}
+  {% set dial_ring = "ring-[#16a34a]/30" %}
+{% elif dial <= 49 %}
+  {% set dial_color = "#d97706" %}
+  {% set dial_label = "Moderate" %}
+  {% set dial_desc = "High-confidence threats are blocked. Low-confidence are flagged." %}
+  {% set dial_ring = "ring-[#d97706]/30" %}
+{% else %}
+  {% set dial_color = "#dc2626" %}
+  {% set dial_label = "Active Enforcement" %}
+  {% set dial_desc = "Aggressive blocking. Increase false-positive monitoring." %}
+  {% set dial_ring = "ring-[#dc2626]/30" %}
+{% endif %}
+
+<div id="dial-widget"
+     class="bg-[#1e293b] border border-[#334155] ring-1 {{ dial_ring }} rounded-xl overflow-hidden"
+     x-data="dialWidget({{ dial }})"
+     x-init="initChart()">
+
+  <div class="flex items-center justify-between px-4 py-3 border-b border-[#334155]">
+    <h2 class="text-sm font-semibold text-[#f1f5f9]">Enforcement Dial</h2>
+    <span class="text-xs text-[#94a3b8]">0 = monitor, 100 = enforce</span>
+  </div>
+
+  <div class="p-4 space-y-5">
+
+    <!-- Chart.js doughnut gauge -->
+    <div class="relative flex items-center justify-center" style="height:160px;">
+      <canvas id="dialChart" width="200" height="200" aria-label="Dial gauge showing value {{ dial }}"></canvas>
+      <!-- Centre overlay -->
+      <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none" style="padding-top:30px;">
+        <span class="text-4xl font-bold text-[#f1f5f9]" x-text="currentDial">{{ dial }}</span>
+        <span class="text-xs text-[#94a3b8] mt-0.5" x-text="dialLabel">{{ dial_label }}</span>
+      </div>
+    </div>
+
+    <!-- Warning box (shown when dial > 50) -->
+    <div x-show="currentDial > 50"
+         class="flex gap-2 px-3 py-2.5 rounded-lg bg-[#dc2626]/15 border border-[#dc2626]/35 text-xs text-[#f87171]"
+         style="display:none;">
+      <svg class="w-4 h-4 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+      </svg>
+      <span>High enforcement mode. Monitor false-positive rates closely before raising further.</span>
+    </div>
+
+    <!-- Description -->
+    <p class="text-xs text-[#94a3b8]" x-text="dialDesc">{{ dial_desc }}</p>
+
+    <!-- Change form -->
+    <form hx-put="/api/v1/dial"
+          hx-target="#dial-widget"
+          hx-swap="outerHTML"
+          hx-indicator="#htmx-indicator"
+          hx-confirm="Are you sure you want to change the dial to the new value?"
+          class="space-y-3"
+          @htmx:before-request="submitting = true"
+          @htmx:after-request="submitting = false">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token | default('') }}" />
+
+      <div>
+        <label for="dial-value" class="block text-xs font-medium text-[#94a3b8] mb-1.5">New value (0–100)</label>
+        <div class="flex gap-2">
+          <input id="dial-value"
+                 name="value"
+                 type="number"
+                 min="0"
+                 max="100"
+                 :value="pendingDial"
+                 x-model.number="pendingDial"
+                 @input="updatePending"
+                 class="flex-1 min-w-0 px-3 py-2 rounded-lg bg-[#0f172a] border border-[#334155] text-[#f1f5f9] text-sm
+                        focus:outline-none focus:ring-2 focus:ring-[#0ea5e9] focus:border-transparent" />
+          <button type="submit"
+                  :disabled="submitting || pendingDial === currentDial"
+                  class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium
+                         bg-[#0ea5e9] hover:bg-sky-400 disabled:opacity-40 disabled:cursor-not-allowed
+                         text-white transition-colors">
+            Apply
+          </button>
+        </div>
+
+        <!-- Range slider -->
+        <input type="range" min="0" max="100" step="1"
+               x-model.number="pendingDial"
+               @input="updatePending"
+               class="w-full mt-2 accent-[#0ea5e9] cursor-pointer" aria-label="Dial slider" />
+        <div class="flex justify-between text-[10px] text-[#475569] mt-0.5">
+          <span>0</span><span>25</span><span>50</span><span>75</span><span>100</span>
+        </div>
+      </div>
+
+      <!-- Quick presets -->
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-[10px] text-[#475569]">Presets:</span>
+        {% for preset_label, preset_val, preset_cls in [
+            ("Monitor", 0, "hover:bg-[#16a34a]/20 hover:text-[#4ade80] hover:border-[#16a34a]/40"),
+            ("Low (25)", 25, "hover:bg-[#d97706]/20 hover:text-[#fbbf24] hover:border-[#d97706]/40"),
+            ("Mid (50)", 50, "hover:bg-[#dc2626]/20 hover:text-[#f87171] hover:border-[#dc2626]/40"),
+            ("High (75)", 75, "hover:bg-[#dc2626]/20 hover:text-[#f87171] hover:border-[#dc2626]/40"),
+        ] %}
+        <button type="button"
+                @click="pendingDial = {{ preset_val }}; updatePending()"
+                :class="pendingDial === {{ preset_val }} ? 'bg-[#334155] text-[#f1f5f9]' : 'text-[#475569]'"
+                class="px-2 py-0.5 text-[10px] rounded border border-[#334155] transition-colors {{ preset_cls }}">
+          {{ preset_label }}
+        </button>
+        {% endfor %}
+      </div>
+
+    </form>
+  </div>
+</div>
+
+<script>
+function dialWidget(initial) {
+  return {
+    currentDial: initial,
+    pendingDial: initial,
+    submitting: false,
+    chart: null,
+    get dialLabel() {
+      if (this.currentDial === 0) return 'Monitor Mode';
+      if (this.currentDial <= 49) return 'Moderate';
+      return 'Active Enforcement';
+    },
+    get dialDesc() {
+      if (this.currentDial === 0) return 'All traffic is scored but no connections are blocked.';
+      if (this.currentDial <= 49) return 'High-confidence threats are blocked. Low-confidence are flagged.';
+      return 'Aggressive blocking. Increase false-positive monitoring.';
+    },
+    get dialColor() {
+      if (this.currentDial === 0) return '#16a34a';
+      if (this.currentDial <= 49) return '#d97706';
+      return '#dc2626';
+    },
+    updatePending() {
+      // Update chart preview when slider/input changes
+      if (this.chart) {
+        var val = Math.max(0, Math.min(100, this.pendingDial));
+        var color = val === 0 ? '#16a34a' : val <= 49 ? '#d97706' : '#dc2626';
+        this.chart.data.datasets[0].data = [val, 100 - val];
+        this.chart.data.datasets[0].backgroundColor = [color, '#334155'];
+        this.chart.update('none');
+      }
+    },
+    initChart() {
+      var ctx = document.getElementById('dialChart');
+      if (!ctx || typeof Chart === 'undefined') return;
+      this.chart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          datasets: [{
+            data: [this.currentDial, 100 - this.currentDial],
+            backgroundColor: [this.dialColor, '#334155'],
+            borderWidth: 0,
+            circumference: 270,
+            rotation: 225,
+          }]
+        },
+        options: {
+          cutout: '78%',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { enabled: false } },
+          animation: { duration: 400 }
+        }
+      });
+    }
+  }
+}
+</script>

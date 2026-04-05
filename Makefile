@@ -865,3 +865,14 @@ management-test:
 
 management-shell:
 	docker compose -f docker-compose.poc.yml exec management /bin/sh
+
+
+## Phase 13/51/52 targets — Management UI backend API
+test-phase-13:
+	cd management && python3 -m pytest tests/ -v
+
+test-phase-13-unit:
+	cd management && python3 -m pytest tests/test_auth.py tests/test_dial.py tests/test_lists.py tests/test_bans.py tests/test_health.py tests/test_config_ops.py tests/test_audit.py -v
+
+test-phase-13-events:
+	cd management && python3 -m pytest tests/test_events.py -v
