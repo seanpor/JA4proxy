@@ -279,6 +279,11 @@ async def _sync_loop(
                     continue
                 ip_hex = _ip_to_hex(ip)
                 if ip_hex is None:
+                    logger.debug(
+                        "ebpf | event=ipv6_skip | ip=%s | "
+                        "effect=XDP map only supports IPv4",
+                        ip,
+                    )
                     continue  # skip IPv6 / invalid
                 ok = _bpftool_update(map_id, ip_hex)
                 if ok:
