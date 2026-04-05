@@ -1,0 +1,49 @@
+# Deception assets — fingerprints and SNIs that should never appear in
+# legitimate traffic.  Any client triggering these is immediately banned
+# with tag APT:DECEPTION_TRIGGERED.
+#
+# This file is loaded at startup and re-read on SIGHUP (hot reload).
+# If the file is absent, all deception checks are silently skipped (fail open).
+#
+# Design principles
+# -----------------
+# - Default: disabled.  Secops must consciously set enabled: true after
+#   populating at least one honey asset list.
+# - Silent drop only — no TCP RST is sent.  An attacker inferring RST vs.
+#   silence could distinguish honey assets from real infrastructure.
+# - Bans are written to Redis `ban:{ip}` with the configured TTL so all
+#   proxy instances enforce the ban immediately via their local-cache
+#   lookup (pub/sub removal propagation applies if ban is later lifted).
+# - Counter: ja4proxy_deception_triggered_total{trigger="fingerprint|sni"}
+
+deception:
+  enabled: false          # Default: off.  Set true to activate honey-asset checks.
+                          # CAUTION: populating honey_fingerprints with real browser
+                          # JA4 values will ban legitimate users.  Only add fingerprints
+                          # that you have verified are never produced by real clients.
+
+  ban_ttl_seconds: 604800 # 7 days.  How long the ban:{ip} Redis key lives.
+                          # Shorter = lower false-positive persistence cost if a
+                          # legitimate client somehow triggers a honey asset.
+
+  silent_drop: true       # Default: true.  Close the connection without sending a
+                          # TCP RST.  Set false to send RST (may reveal detection).
+
+  # JA4 fingerprints that legitimate clients never produce.
+  # A match immediately bans the source IP for ban_ttl_seconds.
+  #
+  # Examples (uncomment to activate):
+  # - "t10d010h2_..."   # Ancient TLS 1.0 fingerprint used by a known scanner
+  # - "t13d..."         # Custom research-tool fingerprint seeded in honeypot
+  honey_fingerprints: []
+
+  # SNI hostnames that only an attacker probing your infrastructure would try.
+  # These are internal names that must never appear in legitimate TLS traffic.
+  # A match immediately bans the source IP for ban_ttl_seconds.
+  #
+  # Examples (uncomment to activate):
+  # - "admin-dev-portal.internal"
+  # - "redis.internal"
+  # - "internal-api.corp"
+  # - "staging-backend.lan"
+  honey_snis: []

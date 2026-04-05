@@ -61,6 +61,7 @@ from .attribution import AttributionManager
 from .beaconing_detector import BeaconingDetector
 from .behavioral import BehavioralAnalyzer
 from .blocklists import BlocklistManager, FeedConfig
+from .deception import DeceptionChecker
 from .dns_enrichment import DNSEnrichment
 from .greynoise import GreyNoiseProvider
 from .misp import MISPProvider
@@ -158,6 +159,10 @@ _EXCEPTION_HANDLED = Counter(
 # Data classes
 # ---------------------------------------------------------------------------
 
+# Sentinel action returned when a deception asset (honey-fingerprint / honey-SNI)
+# is triggered.  The caller (proxy.py) silently closes the connection — no TCP RST.
+_SENTINEL_ACTION = "silent_drop"
+
 # Verb tokens — 8 chars, uppercase, right-padded (§2a of STYLE_GUIDE)
 _VERBS: dict[str, str] = {
     "allow": "ALLOW   ",
@@ -168,6 +173,7 @@ _VERBS: dict[str, str] = {
     "ban": "BAN     ",
     "bypass": "BYPASS  ",
     "monitor": "MONITOR ",
+    "silent_drop": "SILENTDR",  # Deception asset triggered — no TCP RST
 }
 
 
@@ -328,6 +334,8 @@ class Pipeline:
         # Phase 8: Spamhaus DROP/EDROP blocklist trie
         self._blocklist_manager = BlocklistManager()
         self._load_blocklist_feeds(config)
+        # Phase 56: Honey-fingerprint and honey-SNI deception detection
+        self._deception_checker = DeceptionChecker(config, redis_client)
         # Rate limiting: multi-strategy sliding window tracker (by_ip, by_ja4, by_ip+ja4)
         # Runs in _collect_signals(); results feed into the risk scorer.
         try:
@@ -463,6 +471,19 @@ class Pipeline:
                     )
                 )
                 _ANALYTICS_SIGNALS.labels(signal_type="campaign").inc()
+                # Phase 55: subnet_campaign — a lighter-weight corroborating signal
+                # that fires on the same key but with a lower score (25 vs 35), allowing
+                # the scorer to blend it with other signals rather than treating the
+                # analytics finding as the sole determinant.
+                signals.append(
+                    RiskSignal(
+                        name="subnet_campaign",
+                        score=25,
+                        weight=1.0,
+                        reason=f"Subnet correlation: campaign activity detected for {subnet}",
+                    )
+                )
+                _ANALYTICS_SIGNALS.labels(signal_type="subnet_campaign").inc()
 
             slowscan_val = await self._redis.get(f"analytics:slowscan:{subnet}")
             if slowscan_val is not None and isinstance(slowscan_val, (bytes, str)):
@@ -524,6 +545,7 @@ class Pipeline:
         self._sni_analyzer.on_config_reload(new_config)
         self._attribution_manager.on_config_reload(new_config)
         self._behavioral_analyzer.on_config_reload(new_config)
+        self._deception_checker.reload(new_config)
 
     async def process(self, ctx: ConnectionContext) -> PipelineResult:
         """Process one connection through the full pipeline.
@@ -593,6 +615,24 @@ class Pipeline:
             _CONNECTIONS.labels(action="bypass_block").inc()
             self._emit_log(ctx, block)
             return block
+
+        # ── 2b. Honey-fingerprint / honey-SNI deception check ──────────
+        # Runs before the scorer; a match bans the IP and silently drops.
+        deception_hit = await self._deception_checker.check(
+            client_ip=ctx.client_ip,
+            ja4=ctx.ja4 or None,
+            sni=ctx.sni,
+        )
+        if deception_hit is not None:
+            action = _SENTINEL_ACTION  # "silent_drop"
+            _CONNECTIONS.labels(action=action).inc()
+            drop_result = PipelineResult(
+                action=action,
+                bypassed=True,
+                bypass_reason=f"deception_{deception_hit['trigger']}",
+            )
+            self._emit_log(ctx, drop_result)
+            return drop_result
 
         # ── 3. TLS enforcement (Phase 3) ───────────────────────────────
         # check() returns None → hard block; list → signals (may be empty)
@@ -804,6 +844,24 @@ class Pipeline:
             asyncio.create_task(
                 self._rdap_enricher.record_browser_subnet(ctx.client_ip)
             )
+
+        # Phase 3 (mismatch): JA4/TLS version mismatch detection (synchronous, no I/O)
+        # Runs in signal collection (not TLS enforcement) because it needs both
+        # the JA4 fingerprint (from the ClientHello) and the negotiated tls_version.
+        try:
+            from .tls_enforcer import check_ja4_tls_mismatch
+
+            mismatch_signal = check_ja4_tls_mismatch(ctx.ja4, ctx.tls_version)
+            if mismatch_signal is not None:
+                signals.append(mismatch_signal)
+        except Exception as exc:
+            logger.error(
+                "tls_enforcer | event=ja4_mismatch_pipeline_error | ip=%s | error=%s",
+                ctx.client_ip,
+                exc,
+                exc_info=True,
+            )
+            _SIGNAL_ERROR.labels(module="tls_enforcer_mismatch").inc()
 
         # Phase 4: SNI analysis (synchronous, no I/O)
         try:
