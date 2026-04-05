@@ -339,13 +339,16 @@ phases:
 
   35:
     name: "Advanced APT - Phase 1: Integrity Enforcement & Kernel-Level"
-    status: "PROPOSED"
-    summary: "Implement supply chain integrity monitoring and eBPF/XDP NIC-level blocking."
+    status: "COMPLETE"
+    summary: "Supply chain integrity monitoring (Ed25519 config signing, SHA-256 hash-chain audit log, async background monitor) and eBPF/XDP NIC-level blocking (XDP program, Redis-to-BPF sync sidecar, graceful fallback, Alertmanager volumetric-attack rule)."
     action_plan: "docs/phases/PHASE_35.md"
-    size: "SMALL"
+    size: "MEDIUM"
+    test_coverage: "61 unit tests passing"
+    doc_status: "COMPLETE"
     success_criteria:
       - "Configuration and code integrity verified on startup"
       - "eBPF maps synchronized with blacklisted IPs"
+    gaps: []
 
   36:
     name: "Go Test Quality & Parity Gaps"

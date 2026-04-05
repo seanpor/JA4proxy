@@ -1179,6 +1179,9 @@ class ProxyServer:
         self._backup_scheduler: Optional[BackupScheduler] = None
         # Phase 28b: pub/sub handler for state updates
         self._pubsub_task: Optional[asyncio.Task] = None
+        # Phase 35: integrity monitor task
+        self._integrity_monitor_task: Optional[asyncio.Task] = None  # phase-35
+        self._integrity_monitor = None  # phase-35
 
         if config_path:
             self.config_path = config_path
@@ -1437,6 +1440,33 @@ class ProxyServer:
         # Phase 42: Register hot-reload callback
         if self.config_loader:
             self.config_loader.on_reload(self._on_config_reload)
+
+        # Phase 35: Integrity monitor — verify config signature on startup
+        try:
+            from src.security.integrity_monitor import IntegrityMonitor  # phase-35
+            self._integrity_monitor = IntegrityMonitor(self.config)  # phase-35
+            integrity_cfg = self.config.get("integrity", {})  # phase-35
+            if integrity_cfg.get("verify_on_startup", False):  # phase-35
+                pubkey_path = integrity_cfg.get(  # phase-35
+                    "pubkey_path", "config/keys/integrity.pub"  # phase-35
+                )  # phase-35
+                config_path_for_verify = getattr(self, "config_path", "config/proxy.yml")  # phase-35
+                if not self._integrity_monitor.verify_config_signature(  # phase-35
+                    config_path_for_verify, pubkey_path  # phase-35
+                ):  # phase-35
+                    self.logger.critical(  # phase-35
+                        "integrity | event=startup_verify_failed | "  # phase-35
+                        "path=%s | effect=exiting",  # phase-35
+                        config_path_for_verify,  # phase-35
+                    )  # phase-35
+                    import sys  # phase-35
+                    sys.exit(1)  # phase-35
+        except SystemExit:  # phase-35
+            raise  # phase-35
+        except Exception as exc:  # phase-35
+            self.logger.error(  # phase-35
+                "integrity | event=init_error | error=%s | effect=continuing", exc  # phase-35
+            )  # phase-35
 
         return self
 
@@ -1752,6 +1782,22 @@ class ProxyServer:
         )
         self._pubsub_task = asyncio.create_task(pubsub_handler.run())
 
+        # Phase 35: Start background integrity monitor
+        _im = getattr(self, "_integrity_monitor", None)  # phase-35
+        if _im is not None:  # phase-35
+            _integrity_cfg = self.config.get("integrity", {})  # phase-35
+            _monitor_paths = _integrity_cfg.get(  # phase-35
+                "monitor_paths", ["proxy.py", "src/"]  # phase-35
+            )  # phase-35
+            _monitor_interval = _integrity_cfg.get("monitor_interval_s", 60)  # phase-35
+            self._integrity_monitor_task = asyncio.create_task(  # phase-35
+                _im.start_background_monitor(_monitor_paths, _monitor_interval)  # phase-35
+            )  # phase-35
+            self.logger.info(  # phase-35
+                "integrity | event=monitor_started | paths=%s | interval=%d",  # phase-35
+                _monitor_paths, _monitor_interval,  # phase-35
+            )  # phase-35
+
         # Phase 23: Start and wire TI providers
         ti_tasks = []
         _gn = getattr(self, "greynoise_provider", None)
@@ -1885,6 +1931,15 @@ class ProxyServer:
                 await watcher_task
             except asyncio.CancelledError:
                 pass
+
+            # Phase 35: Stop integrity monitor
+            _imt = getattr(self, "_integrity_monitor_task", None)  # phase-35
+            if _imt:  # phase-35
+                _imt.cancel()  # phase-35
+                try:  # phase-35
+                    await _imt  # phase-35
+                except asyncio.CancelledError:  # phase-35
+                    pass  # phase-35
 
             # Phase 20 G0-A: stop backup scheduler
             if self._backup_scheduler is not None:
