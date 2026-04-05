@@ -1,0 +1,92 @@
+<!--
+  HTMX Partial: live_feed.html
+  Uses hx-ext="sse" to stream events from /api/v1/events
+  Each SSE event message is a <tr> fragment to be prepended into the tbody.
+  Template vars: none (SSE streams directly into tbody)
+-->
+
+<div id="live-feed"
+     hx-ext="sse"
+     sse-connect="/api/v1/events"
+     sse-swap="message"
+     hx-swap="afterbegin"
+     hx-target="#live-feed-body"
+     class="overflow-hidden">
+
+  <div class="overflow-x-auto">
+    <table class="w-full text-xs" aria-label="Live connection feed">
+      <thead>
+        <tr class="border-b border-[#334155]">
+          <th class="px-3 py-2.5 text-left font-medium text-[#94a3b8] w-[90px]">Time (UTC)</th>
+          <th class="px-3 py-2.5 text-left font-medium text-[#94a3b8]">Client IP</th>
+          <th class="px-3 py-2.5 text-left font-medium text-[#94a3b8] hidden sm:table-cell">JA4 Fingerprint</th>
+          <th class="px-3 py-2.5 text-left font-medium text-[#94a3b8] w-[80px]">Action</th>
+          <th class="px-3 py-2.5 text-right font-medium text-[#94a3b8] w-[60px]">Score</th>
+        </tr>
+      </thead>
+      <tbody id="live-feed-body"
+             x-data="liveFeed()"
+             x-init="startMaxRows()"
+             class="divide-y divide-[#1e293b]">
+        <!-- Initial placeholder rows while SSE connects -->
+        {% for _ in range(5) %}
+        <tr class="animate-pulse">
+          <td class="px-3 py-2.5"><div class="h-2.5 w-16 bg-[#334155] rounded"></div></td>
+          <td class="px-3 py-2.5"><div class="h-2.5 w-24 bg-[#334155] rounded"></div></td>
+          <td class="px-3 py-2.5 hidden sm:table-cell"><div class="h-2.5 w-40 bg-[#334155] rounded"></div></td>
+          <td class="px-3 py-2.5"><div class="h-2.5 w-14 bg-[#334155] rounded"></div></td>
+          <td class="px-3 py-2.5 text-right"><div class="h-2.5 w-8 bg-[#334155] rounded ml-auto"></div></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- SSE connection status bar -->
+  <div class="flex items-center gap-2 px-3 py-2 border-t border-[#334155] bg-[#0f172a]/40">
+    <span id="sse-indicator" class="w-1.5 h-1.5 rounded-full bg-[#d97706] transition-colors"></span>
+    <span id="sse-status" class="text-[10px] text-[#475569]">Connecting…</span>
+  </div>
+
+</div>
+
+<script>
+(function() {
+  // Update SSE connection indicator
+  var indicator = document.getElementById('sse-indicator');
+  var status = document.getElementById('sse-status');
+
+  document.addEventListener('htmx:sseOpen', function() {
+    if (indicator) { indicator.className = 'w-1.5 h-1.5 rounded-full bg-[#16a34a] transition-colors'; }
+    if (status) { status.textContent = 'Live'; }
+  });
+  document.addEventListener('htmx:sseError', function() {
+    if (indicator) { indicator.className = 'w-1.5 h-1.5 rounded-full bg-[#dc2626] transition-colors'; }
+    if (status) { status.textContent = 'Disconnected — reconnecting…'; }
+  });
+  document.addEventListener('htmx:sseClose', function() {
+    if (indicator) { indicator.className = 'w-1.5 h-1.5 rounded-full bg-[#d97706] transition-colors'; }
+    if (status) { status.textContent = 'Closed'; }
+  });
+})();
+
+function liveFeed() {
+  return {
+    maxRows: 50,
+    startMaxRows() {
+      // Trim tbody to maxRows whenever HTMX inserts a new row
+      var observer = new MutationObserver(function() {
+        var tbody = document.getElementById('live-feed-body');
+        if (!tbody) return;
+        while (tbody.children.length > 50) {
+          tbody.removeChild(tbody.lastElementChild);
+        }
+      });
+      var tbody = document.getElementById('live-feed-body');
+      if (tbody) {
+        observer.observe(tbody, { childList: true });
+      }
+    }
+  }
+}
+</script>

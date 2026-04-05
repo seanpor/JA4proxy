@@ -15,24 +15,29 @@
       <h2 class="text-sm font-semibold text-[#f1f5f9]">Add Ban</h2>
     </div>
 
-    <form hx-post="/api/v1/bans"
-          hx-target="#bans-table"
-          hx-swap="outerHTML"
-          hx-indicator="#htmx-indicator"
-          class="px-4 py-4"
-          x-data="{ ip: '', ttl: 3600, reason: '', submitting: false }"
-          @htmx:before-request="submitting = true"
-          @htmx:after-request="submitting = false; ip = ''; reason = ''">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token | default('') }}" />
+    <div class="px-4 py-4"
+         x-data="banForm()"
+         x-init="init()">
+
+      <!-- Error / success feedback -->
+      <div x-show="feedback"
+           :class="feedbackOk ? 'bg-[#16a34a]/15 border-[#16a34a]/35 text-[#4ade80]' : 'bg-[#dc2626]/15 border-[#dc2626]/35 text-[#f87171]'"
+           class="flex items-center gap-2 px-3 py-2 mb-3 rounded-lg border text-xs"
+           style="display:none;">
+        <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path x-show="feedbackOk" stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          <path x-show="!feedbackOk" stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+        </svg>
+        <span x-text="feedback"></span>
+      </div>
+
       <div class="grid grid-cols-1 sm:grid-cols-[1fr_120px_1fr_auto] gap-3 items-end">
 
         <!-- IP field -->
         <div>
           <label for="ban-ip" class="block text-xs font-medium text-[#94a3b8] mb-1.5">IP Address</label>
           <input id="ban-ip"
-                 name="ip"
                  type="text"
-                 required
                  x-model="ip"
                  placeholder="203.0.113.42"
                  class="w-full px-3 py-2 rounded-lg bg-[#0f172a] border border-[#334155] text-[#f1f5f9] text-sm
@@ -43,11 +48,10 @@
         <div>
           <label for="ban-ttl" class="block text-xs font-medium text-[#94a3b8] mb-1.5">TTL (seconds)</label>
           <input id="ban-ttl"
-                 name="ttl"
                  type="number"
                  min="1"
                  max="604800"
-                 x-model="ttl"
+                 x-model.number="ttl"
                  class="w-full px-3 py-2 rounded-lg bg-[#0f172a] border border-[#334155] text-[#f1f5f9] text-sm
                         focus:outline-none focus:ring-2 focus:ring-[#7c3aed] focus:border-transparent" />
         </div>
@@ -56,9 +60,7 @@
         <div>
           <label for="ban-reason" class="block text-xs font-medium text-[#94a3b8] mb-1.5">Reason</label>
           <input id="ban-reason"
-                 name="reason"
                  type="text"
-                 required
                  x-model="reason"
                  placeholder="e.g. Brute force, Scan activity"
                  class="w-full px-3 py-2 rounded-lg bg-[#0f172a] border border-[#334155] text-[#f1f5f9] text-sm
@@ -66,16 +68,16 @@
         </div>
 
         <!-- Submit -->
-        <button type="submit"
-                :disabled="submitting || !ip || !reason"
+        <button type="button"
+                :disabled="submitting || !ip.trim() || !reason.trim()"
+                @click="submitBan()"
                 class="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-lg
                        bg-[#7c3aed] hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed
                        text-white text-sm font-medium transition-colors">
           <svg class="w-4 h-4" :class="submitting ? 'animate-spin' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <path x-show="!submitting" stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
-            <path x-show="submitting" stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
           </svg>
-          Ban IP
+          <span x-text="submitting ? 'Banning…' : 'Ban IP'">Ban IP</span>
         </button>
 
       </div>
@@ -91,7 +93,7 @@
         </button>
         {% endfor %}
       </div>
-    </form>
+    </div>
   </div>
 
   <!-- ── Active bans table ─────────────────────────────────────── -->
@@ -106,12 +108,67 @@
 
     <div id="bans-table"
          hx-get="/api/v1/partials/bans"
-         hx-trigger="load, every 30s"
-         hx-swap="outerHTML"
+         hx-trigger="load, every 30s, refresh"
+         hx-swap="innerHTML"
          hx-indicator="#htmx-indicator">
       <div class="px-4 py-8 text-center text-sm text-[#94a3b8]">Loading bans…</div>
     </div>
   </div>
 
 </div>
+
+<script>
+function banForm() {
+  return {
+    ip: '',
+    ttl: 3600,
+    reason: '',
+    submitting: false,
+    feedback: '',
+    feedbackOk: false,
+    _feedbackTimer: null,
+
+    init() {
+      // Alpine init hook — nothing needed
+    },
+
+    showFeedback(msg, ok) {
+      this.feedback = msg;
+      this.feedbackOk = ok;
+      if (this._feedbackTimer) clearTimeout(this._feedbackTimer);
+      this._feedbackTimer = setTimeout(() => { this.feedback = ''; }, 5000);
+    },
+
+    async submitBan() {
+      if (!this.ip.trim() || !this.reason.trim()) return;
+      this.submitting = true;
+      try {
+        var response = await fetch(
+          '/api/v1/bans/' + encodeURIComponent(this.ip.trim()),
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ ttl: this.ttl, reason: this.reason.trim() }),
+          }
+        );
+        if (response.ok) {
+          this.showFeedback('Ban created for ' + this.ip, true);
+          this.ip = '';
+          this.reason = '';
+          // Refresh bans table
+          htmx.trigger('#bans-table', 'refresh');
+        } else {
+          var data = await response.json().catch(() => ({ detail: 'Request failed' }));
+          this.showFeedback(data.detail || 'Failed to create ban', false);
+        }
+      } catch (err) {
+        this.showFeedback('Network error: ' + err.message, false);
+      } finally {
+        this.submitting = false;
+      }
+    }
+  }
+}
+</script>
 {% endblock %}

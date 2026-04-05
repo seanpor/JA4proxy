@@ -43,36 +43,44 @@
         </span>
       </div>
 
-      <!-- Add entry form -->
-      <div class="px-4 py-3 border-b border-[#334155] bg-[#0f172a]/40">
-        <form hx-post="/api/v1/lists/ja4/whitelist"
-              hx-target="#ja4-whitelist-table"
-              hx-swap="outerHTML"
-              hx-indicator="#htmx-indicator"
-              class="flex gap-2">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token | default('') }}" />
+      <!-- Add entry form — entry goes in the URL path, not body -->
+      <div class="px-4 py-3 border-b border-[#334155] bg-[#0f172a]/40"
+           x-data="{ fp: '', submitting: false }">
+        <div class="flex gap-2">
           <input type="text"
-                 name="fingerprint"
-                 required
+                 x-model="fp"
                  placeholder="e.g. t13d1516h2_8daaf6152771_b0da82dd1658"
                  class="flex-1 min-w-0 px-3 py-1.5 rounded-lg bg-[#0f172a] border border-[#334155] text-[#f1f5f9] text-xs
                         placeholder-[#475569] focus:outline-none focus:ring-2 focus:ring-[#16a34a] focus:border-transparent" />
-          <button type="submit"
+          <button type="button"
+                  :disabled="submitting || !fp.trim()"
+                  @click="if (!fp.trim()) return;
+                          submitting = true;
+                          fetch('/api/v1/lists/ja4/whitelist/' + encodeURIComponent(fp.trim()), {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            credentials: 'include'
+                          }).then(function(r) {
+                            if (r.ok) {
+                              fp = '';
+                              htmx.trigger('#ja4-whitelist-table', 'refresh');
+                            }
+                          }).finally(function() { submitting = false; })"
                   class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#16a34a] hover:bg-green-500
-                         text-white text-xs font-medium transition-colors">
+                         disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-medium transition-colors">
             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
             </svg>
             Add
           </button>
-        </form>
+        </div>
       </div>
 
-      <!-- Table (loaded via HTMX, also used as swap target) -->
+      <!-- Table -->
       <div id="ja4-whitelist-table"
            hx-get="/api/v1/partials/list-table?list=ja4_whitelist"
-           hx-trigger="load"
-           hx-swap="outerHTML"
+           hx-trigger="load, refresh"
+           hx-swap="innerHTML"
            hx-indicator="#htmx-indicator">
         <div class="px-4 py-6 text-center text-sm text-[#94a3b8]">Loading…</div>
       </div>
@@ -91,34 +99,42 @@
         </span>
       </div>
 
-      <div class="px-4 py-3 border-b border-[#334155] bg-[#0f172a]/40">
-        <form hx-post="/api/v1/lists/ja4/blacklist"
-              hx-target="#ja4-blacklist-table"
-              hx-swap="outerHTML"
-              hx-indicator="#htmx-indicator"
-              class="flex gap-2">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token | default('') }}" />
+      <div class="px-4 py-3 border-b border-[#334155] bg-[#0f172a]/40"
+           x-data="{ fp: '', submitting: false }">
+        <div class="flex gap-2">
           <input type="text"
-                 name="fingerprint"
-                 required
+                 x-model="fp"
                  placeholder="e.g. t13d1516h2_8daaf6152771_b0da82dd1658"
                  class="flex-1 min-w-0 px-3 py-1.5 rounded-lg bg-[#0f172a] border border-[#334155] text-[#f1f5f9] text-xs
                         placeholder-[#475569] focus:outline-none focus:ring-2 focus:ring-[#dc2626] focus:border-transparent" />
-          <button type="submit"
+          <button type="button"
+                  :disabled="submitting || !fp.trim()"
+                  @click="if (!fp.trim()) return;
+                          submitting = true;
+                          fetch('/api/v1/lists/ja4/blacklist/' + encodeURIComponent(fp.trim()), {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            credentials: 'include'
+                          }).then(function(r) {
+                            if (r.ok) {
+                              fp = '';
+                              htmx.trigger('#ja4-blacklist-table', 'refresh');
+                            }
+                          }).finally(function() { submitting = false; })"
                   class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#dc2626] hover:bg-red-500
-                         text-white text-xs font-medium transition-colors">
+                         disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-medium transition-colors">
             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
             </svg>
             Add
           </button>
-        </form>
+        </div>
       </div>
 
       <div id="ja4-blacklist-table"
            hx-get="/api/v1/partials/list-table?list=ja4_blacklist"
-           hx-trigger="load"
-           hx-swap="outerHTML"
+           hx-trigger="load, refresh"
+           hx-swap="innerHTML"
            hx-indicator="#htmx-indicator">
         <div class="px-4 py-6 text-center text-sm text-[#94a3b8]">Loading…</div>
       </div>
@@ -141,34 +157,42 @@
         </span>
       </div>
 
-      <div class="px-4 py-3 border-b border-[#334155] bg-[#0f172a]/40">
-        <form hx-post="/api/v1/lists/ip-allowlist"
-              hx-target="#ip-allowlist-table"
-              hx-swap="outerHTML"
-              hx-indicator="#htmx-indicator"
-              class="flex gap-2">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token | default('') }}" />
+      <div class="px-4 py-3 border-b border-[#334155] bg-[#0f172a]/40"
+           x-data="{ ip: '', submitting: false }">
+        <div class="flex gap-2">
           <input type="text"
-                 name="ip"
-                 required
+                 x-model="ip"
                  placeholder="IP address or CIDR e.g. 203.0.113.42 or 198.51.100.0/24"
                  class="flex-1 min-w-0 px-3 py-1.5 rounded-lg bg-[#0f172a] border border-[#334155] text-[#f1f5f9] text-xs
                         placeholder-[#475569] focus:outline-none focus:ring-2 focus:ring-[#0ea5e9] focus:border-transparent" />
-          <button type="submit"
+          <button type="button"
+                  :disabled="submitting || !ip.trim()"
+                  @click="if (!ip.trim()) return;
+                          submitting = true;
+                          fetch('/api/v1/lists/ip/allowlist/' + encodeURIComponent(ip.trim()), {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            credentials: 'include'
+                          }).then(function(r) {
+                            if (r.ok) {
+                              ip = '';
+                              htmx.trigger('#ip-allowlist-table', 'refresh');
+                            }
+                          }).finally(function() { submitting = false; })"
                   class="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0ea5e9] hover:bg-sky-400
-                         text-white text-xs font-medium transition-colors">
+                         disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-medium transition-colors">
             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
             </svg>
             Add
           </button>
-        </form>
+        </div>
       </div>
 
       <div id="ip-allowlist-table"
            hx-get="/api/v1/partials/list-table?list=ip_allowlist"
-           hx-trigger="load"
-           hx-swap="outerHTML"
+           hx-trigger="load, refresh"
+           hx-swap="innerHTML"
            hx-indicator="#htmx-indicator">
         <div class="px-4 py-6 text-center text-sm text-[#94a3b8]">Loading…</div>
       </div>
@@ -177,7 +201,7 @@
     <!-- Info notice about static IP allowlist -->
     <div class="flex gap-2.5 px-4 py-3 rounded-xl bg-[#0ea5e9]/10 border border-[#0ea5e9]/25 text-sm text-[#94a3b8]">
       <svg class="w-4 h-4 text-[#0ea5e9] flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0"/>
       </svg>
       <span>IPs on the allowlist bypass all scoring and bypass checks. Changes take effect within 30 seconds after hot reload. CIDR notation supported (IPv4 and IPv6).</span>
     </div>

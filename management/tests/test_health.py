@@ -56,29 +56,21 @@ async def test_health_proxy_instances_is_int(authenticated_client: AsyncClient) 
 
 @pytest.mark.asyncio
 async def test_health_redis_unavailable_returns_degraded(
-    test_client: AsyncClient,
-    fake_redis,
+    authenticated_client: AsyncClient,
 ) -> None:
     """When Redis ping fails, health returns degraded but NOT 500."""
     from management.api import redis_client as rc
+    from unittest.mock import AsyncMock
 
     # Patch the Redis client to raise on ping
     original = rc.get_redis_client()
     broken_mock = AsyncMock()
     broken_mock.ping.side_effect = Exception("Redis connection refused")
+    broken_mock.keys.side_effect = Exception("Redis connection refused")
     rc._redis_client = broken_mock
 
     try:
-        # Need to use authenticated_client, but we have test_client here.
-        # Re-use the auth token approach differently by patching get_current_user.
-        from management.api.auth import get_current_user
-        from fastapi import Request
-
-        with patch(
-            "management.api.routes.health.get_current_user",
-            return_value="admin",
-        ):
-            r = await test_client.get("/api/v1/health")
+        r = await authenticated_client.get("/api/v1/health")
     finally:
         rc._redis_client = original
 

@@ -4,31 +4,33 @@
 {% block page_title %}Audit Log{% endblock %}
 
 {% block content %}
-<div class="space-y-4 max-w-[1100px]">
+<div class="space-y-4 max-w-[1100px]"
+     x-data="{ activeFilter: 'all' }">
 
   <!-- Controls bar -->
   <div class="flex items-center justify-between gap-4 flex-wrap">
 
-    <!-- Filter chips (Alpine-controlled, sent as query param on next load) -->
-    <div class="flex items-center gap-2 flex-wrap"
-         x-data="{ filter: 'all' }">
+    <!-- Filter chips -->
+    <div class="flex items-center gap-2 flex-wrap">
       <span class="text-xs text-[#94a3b8] mr-1">Filter:</span>
       {% set filters = [
-        ("all",    "All",         "text-[#94a3b8]"),
-        ("dial",   "Dial",        "text-[#38bdf8]"),
-        ("ban",    "Bans",        "text-[#f87171]"),
-        ("list",   "Lists",       "text-[#fbbf24]"),
-        ("reload", "Reload",      "text-[#c4b5fd]"),
+        ("all",    "All",     ""),
+        ("dial",   "Dial",    "text-[#38bdf8]"),
+        ("ban",    "Bans",    "text-[#f87171]"),
+        ("list",   "Lists",   "text-[#fbbf24]"),
+        ("reload", "Reload",  "text-[#c4b5fd]"),
       ] %}
-      {% for key, label, color in filters %}
+      {% for key, label, active_color in filters %}
       <button
-        @click="filter = '{{ key }}'"
-        :class="filter === '{{ key }}' ? 'bg-[#334155] {{ color }}' : 'text-[#475569] hover:text-[#94a3b8]'"
+        @click="activeFilter = '{{ key }}'"
+        :class="activeFilter === '{{ key }}'
+          ? 'bg-[#334155] text-[#f1f5f9] border-[#475569]'
+          : 'text-[#475569] border-[#334155] hover:text-[#94a3b8] hover:border-[#475569]'"
         hx-get="/api/v1/partials/audit?filter={{ key }}"
-        hx-target="#audit-table"
+        hx-target="#audit-tbody"
         hx-swap="outerHTML"
         hx-indicator="#htmx-indicator"
-        class="px-2.5 py-1 text-xs rounded-lg border border-transparent transition-colors">
+        class="px-3 py-1 text-xs rounded-lg border transition-colors">
         {{ label }}
       </button>
       {% endfor %}
@@ -37,7 +39,7 @@
     <!-- Refresh button -->
     <button
       hx-get="/api/v1/partials/audit"
-      hx-target="#audit-table"
+      hx-target="#audit-tbody"
       hx-swap="outerHTML"
       hx-indicator="#htmx-indicator"
       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
@@ -51,34 +53,55 @@
 
   </div>
 
-  <!-- Audit log table -->
+  <!-- Audit log table container -->
   <div class="bg-[#1e293b] border border-[#334155] rounded-xl overflow-hidden">
     <div class="flex items-center justify-between px-4 py-3 border-b border-[#334155]">
       <h2 class="text-sm font-semibold text-[#f1f5f9]">Policy Audit Events</h2>
       <span class="text-xs text-[#94a3b8]">Latest 100 events</span>
     </div>
 
-    <div id="audit-table"
-         hx-get="/api/v1/partials/audit"
-         hx-trigger="load"
-         hx-swap="outerHTML"
-         hx-indicator="#htmx-indicator">
-      <div class="px-4 py-8 text-center text-sm text-[#94a3b8]">Loading audit log…</div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs" aria-label="Policy audit log">
+        <thead>
+          <tr class="border-b border-[#334155]">
+            <th class="px-4 py-2.5 text-left font-medium text-[#94a3b8] w-[150px]">Timestamp (UTC)</th>
+            <th class="px-4 py-2.5 text-left font-medium text-[#94a3b8] w-[100px]">User</th>
+            <th class="px-4 py-2.5 text-left font-medium text-[#94a3b8] w-[130px]">Action</th>
+            <th class="px-4 py-2.5 text-left font-medium text-[#94a3b8]">Details</th>
+          </tr>
+        </thead>
+        <!-- tbody is the HTMX swap target -->
+        <tbody id="audit-tbody"
+               hx-get="/api/v1/partials/audit"
+               hx-trigger="load"
+               hx-swap="outerHTML"
+               hx-indicator="#htmx-indicator">
+          <!-- Loading skeleton -->
+          {% for _ in range(6) %}
+          <tr class="animate-pulse border-b border-[#334155]/40">
+            <td class="px-4 py-3"><div class="h-2.5 w-28 bg-[#334155] rounded"></div></td>
+            <td class="px-4 py-3"><div class="h-2.5 w-16 bg-[#334155] rounded"></div></td>
+            <td class="px-4 py-3"><div class="h-5 w-20 bg-[#334155] rounded-full"></div></td>
+            <td class="px-4 py-3"><div class="h-2.5 w-48 bg-[#334155] rounded"></div></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-  </div>
 
-  <!-- Load more -->
-  <div class="flex justify-center">
-    <button
-      hx-get="/api/v1/partials/audit?offset=100"
-      hx-target="#audit-table"
-      hx-swap="beforeend"
-      hx-indicator="#htmx-indicator"
-      class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm
-             bg-[#1e293b] border border-[#334155] text-[#94a3b8]
-             hover:bg-[#334155] hover:text-[#f1f5f9] transition-colors">
-      Load more events
-    </button>
+    <!-- Load more (appends rows into existing tbody) -->
+    <div class="flex justify-center px-4 py-3 border-t border-[#334155]">
+      <button
+        hx-get="/api/v1/partials/audit?offset=100"
+        hx-target="#audit-tbody"
+        hx-swap="beforeend"
+        hx-indicator="#htmx-indicator"
+        class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium
+               bg-[#0f172a] border border-[#334155] text-[#94a3b8]
+               hover:bg-[#334155] hover:text-[#f1f5f9] transition-colors">
+        Load more events
+      </button>
+    </div>
   </div>
 
 </div>

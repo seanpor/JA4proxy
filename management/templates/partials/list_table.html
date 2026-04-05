@@ -1,0 +1,99 @@
+<!--
+  HTMX Partial: list_table.html
+  GET /api/v1/partials/list-table?list={ja4_whitelist|ja4_blacklist|ip_allowlist}
+  Template vars:
+    list_name: str  (e.g. "ja4_whitelist")
+    entries:   list of {value: str, added_at: str, added_by: str}
+    is_ja4:    bool (True for JA4 lists, False for IP allowlist)
+    delete_url_prefix: str (e.g. "/api/v1/lists/ja4/whitelist")
+-->
+{% set entries = entries | default([]) %}
+{% set list_name = list_name | default("unknown") %}
+{% set is_ja4 = is_ja4 | default(True) %}
+{% set delete_url_prefix = delete_url_prefix | default("/api/v1/lists") %}
+
+<div id="{{ list_name }}-table">
+
+  {% if entries %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-xs" aria-label="{{ list_name | replace('_', ' ') | title }} entries">
+      <thead>
+        <tr class="border-b border-[#334155]">
+          <th class="px-4 py-2.5 text-left font-medium text-[#94a3b8]">
+            {% if is_ja4 %}Fingerprint{% else %}IP / CIDR{% endif %}
+          </th>
+          <th class="px-4 py-2.5 text-left font-medium text-[#94a3b8] hidden md:table-cell w-[130px]">Added</th>
+          <th class="px-4 py-2.5 text-left font-medium text-[#94a3b8] hidden md:table-cell w-[100px]">By</th>
+          <th class="px-4 py-2.5 text-right font-medium text-[#94a3b8] w-[60px]">Action</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-[#334155]/50">
+        {% for entry in entries %}
+        <tr id="{{ list_name }}-row-{{ loop.index }}"
+            class="hover:bg-[#334155]/30 transition-colors group"
+            x-data="{ removing: false }">
+          <!-- Value (fingerprint or IP) -->
+          <td class="px-4 py-2.5">
+            <code class="font-mono text-[#f1f5f9] {% if is_ja4 %}text-[10px]{% endif %}">{{ entry.value | truncate(52, True, '…') }}</code>
+          </td>
+          <!-- Added at -->
+          <td class="px-4 py-2.5 text-[#94a3b8] hidden md:table-cell whitespace-nowrap">
+            {{ entry.added_at | default("—") }}
+          </td>
+          <!-- Added by -->
+          <td class="px-4 py-2.5 text-[#94a3b8] hidden md:table-cell">
+            {{ entry.added_by | default("system") }}
+          </td>
+          <!-- Delete button: uses fetch to DELETE with entry in URL path -->
+          <td class="px-4 py-2.5 text-right">
+            <button
+              type="button"
+              :disabled="removing"
+              @click="if (!confirm('Remove from this list?')) return;
+                      removing = true;
+                      fetch('{{ delete_url_prefix }}/{{ entry.value | urlencode }}', {
+                        method: 'DELETE',
+                        credentials: 'include'
+                      }).then(function(r) {
+                        if (r.ok) {
+                          document.getElementById('{{ list_name }}-row-{{ loop.index }}').remove();
+                        } else {
+                          removing = false;
+                          alert('Failed to remove entry');
+                        }
+                      }).catch(function() {
+                        removing = false;
+                      })"
+              class="inline-flex items-center justify-center w-6 h-6 rounded text-[#475569]
+                     hover:text-[#dc2626] hover:bg-[#dc2626]/15 transition-colors
+                     opacity-0 group-hover:opacity-100 focus:opacity-100
+                     disabled:opacity-30 disabled:cursor-not-allowed"
+              aria-label="Remove {{ entry.value }}">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Footer: entry count -->
+  <div class="px-4 py-2.5 border-t border-[#334155] text-[10px] text-[#475569]">
+    {{ entries | length }} entr{{ "y" if entries | length == 1 else "ies" }}
+  </div>
+
+  {% else %}
+  <!-- Empty state -->
+  <div class="flex flex-col items-center justify-center py-10 text-center">
+    <svg class="w-8 h-8 text-[#334155] mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+    </svg>
+    <p class="text-sm text-[#94a3b8]">No entries yet</p>
+    <p class="text-xs text-[#475569] mt-1">Use the form above to add entries</p>
+  </div>
+  {% endif %}
+
+</div>
