@@ -1,0 +1,26 @@
+## phase-35: eBPF/XDP volumetric-attack alerting rules
+##
+## Fires when the XDP program is absorbing a high-volume traffic burst but
+## the proxy process CPU is nominal — the classic DDoS fingerprint where
+## the kernel handles the flood before packets reach user space.
+
+groups:
+  - name: ebpf_volumetric
+    rules:
+      - alert: KernelLevelVolumetricAttack
+        expr: >
+          rate(ja4proxy_ebpf_drops_total[1m]) > 10000
+          and
+          rate(process_cpu_seconds_total[1m]) < 0.05
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: >-
+            Possible volumetric attack — kernel absorbing burst, proxy CPU nominal.
+          description: >-
+            The XDP program is dropping more than 10,000 packets per second from
+            blocked sources while the JA4proxy process CPU usage is below 5%.
+            This pattern indicates a high-volume (DDoS/SYN-flood) attack where
+            eBPF is absorbing the burst entirely at the kernel level.
+          runbook_url: "docs/runbooks/ebpf-volumetric-attack.md"

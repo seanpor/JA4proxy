@@ -46,7 +46,7 @@ Deep security analysis, compliance, and audit remediation.
 | 27 | Advanced Pentest Remediation | COMPLETE | Remediate critical vulnerabilities: IP spoofing, sync/async Redis mismatch, and synchronous TLS parsing DoS. |
 | 30 | Python Throughput Hardening - Phase 4: Write Optimization & Benchmarking | COMPLETE | Add deferred write batching and comprehensive benchmark validation. Target: Final performance report. |
 | 34 | APT Hardening - Phase 1: Parser Isolation & Redis Security | IN_PROGRESS | Implement parser process isolation and Zero-Trust Redis ACLs with signatures. Now also covers items absorbed from cancelled Phase 55: Redis ACL users, JA4/TLS mismatch detection, proxy Seccomp JSON profile, AppArmor profile, subnet correlation pipeline wiring, and fuzz test. |
-| 35 | Advanced APT - Phase 1: Integrity Enforcement & Kernel-Level | PROPOSED | Implement supply chain integrity monitoring and eBPF/XDP NIC-level blocking. |
+| 35 | Advanced APT - Phase 1: Integrity Enforcement & Kernel-Level | COMPLETE | Supply chain integrity monitoring (Ed25519 config signing, SHA-256 hash-chain audit log, async background monitor) and eBPF/XDP NIC-level blocking (XDP program, Redis-to-BPF sync sidecar, graceful fallback, Alertmanager volumetric-attack rule). |
 | 37 | Lint & Static Analysis Cleanup | COMPLETE | Fixed make lint and make lint-static: black reformatted 79 files, removed ~65 unused imports, fixed 15 mypy errors. |
 | 38 | ISP Blocking Operations | COMPLETE | Establish comprehensive operational procedures for identifying, implementing, monitoring, and maintaining blocks against malicious ISPs. |
 | 55 | APT Hardening - Phase 2: Advanced Detection & Container Security | CANCELLED | Implement subnet correlation, anti-evasion checks, and strict Seccomp/AppArmor profiles. |
@@ -159,7 +159,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 32 | Advanced Traffic Intelligence - Phase 4: Attacker Attribution | COMPLETE | N/A | N/A |
 | 33 | Advanced Traffic Intelligence - Phase 6: Documentation Diagrams | COMPLETE | N/A | N/A |
 | 34 | APT Hardening - Phase 1: Parser Isolation & Redis Security | IN_PROGRESS | N/A | N/A |
-| 35 | Advanced APT - Phase 1: Integrity Enforcement & Kernel-Level | PROPOSED | N/A | N/A |
+| 35 | Advanced APT - Phase 1: Integrity Enforcement & Kernel-Level | COMPLETE | 61 unit tests passing | COMPLETE |
 | 36 | Go Test Quality & Parity Gaps | COMPLETE | 100% | COMPLETE |
 | 37 | Lint & Static Analysis Cleanup | COMPLETE | 100% | COMPLETE |
 | 38 | ISP Blocking Operations | COMPLETE | N/A | N/A |
