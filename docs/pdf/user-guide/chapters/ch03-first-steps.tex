@@ -1,0 +1,284 @@
+%% ch03-first-steps.tex — JA4proxy Operator's User Guide
+%% Chapter 3: First Steps
+
+\chapter{First Steps}
+\label{ch:firststeps}
+\index{first steps}
+
+\newthought{The proxy is running and the dashboard is open.} Now what?
+
+This chapter walks through what you will see in the first minutes of operation:
+what the logs mean, how to generate representative test traffic, and how to
+read the Grafana dashboard. By the end of this chapter you should be able to
+tell from the dashboard whether \ja\ is classifying traffic correctly.
+
+\section{What Happens at Dial Zero}
+\index{dial!monitor mode}
+\index{monitor mode}
+
+At \code{dial=0} (the default), \ja\ is in monitor mode. Every connection is
+analysed, scored, and logged — but no connection is ever blocked. The proxy
+passes everything through to your backend regardless of its risk score.
+
+This is the right mode for initial deployment. You are building a baseline
+understanding of what your traffic looks like before you start acting on it.
+
+Logs will show entries like this:
+
+\begin{lstlisting}[language=bash, numbers=none]
+ALLOWED:  172.19.0.10 | Country: IE | JA4: t13d1113h2_8daaf6152771_b0da82dd1658 |
+          Name: Browser (TLS 1.3) | TLS: TLS 1.3
+ALLOWED:  185.220.0.1 | Country: RU | JA4: t13d0912_a1b2c3d4e5f6_987654321abc |
+          Name: Tool/Bot (TLS 1.3) | TLS: TLS 1.3 | Score: 74
+\end{lstlisting}
+
+At dial=0, both lines show \code{ALLOWED}. The second entry has a high risk score (74)
+and would be blocked at dial=100 — but in monitor mode it passes through. This is
+correct behaviour. You are observing, not acting.\sidenote{The score is still
+computed and recorded even at dial=0. This means when you eventually raise the dial,
+you already have weeks of score history to reason about.}
+
+\section{The Traffic Generator}
+\index{traffic generator}
+\index{generate-tls-traffic.sh}
+
+\ja\ ships with a traffic generator for testing and demonstration. It sends realistic
+TLS connections using a mix of legitimate browser profiles and known-malicious tool
+profiles.\sidenote{Profiles included: Chrome, Firefox, Safari (legitimate) and Sliver
+C2, Cobalt Strike, Evilginx, Python bot, credential stuffer (malicious).}
+
+\begin{bashcode}
+./scripts/generate-tls-traffic.sh <duration_seconds> <legit_percent> <workers>
+\end{bashcode}
+
+For example, to run for 60 seconds with 30\% legitimate traffic and 10 workers:
+
+\begin{bashcode}
+./scripts/generate-tls-traffic.sh 60 30 10
+\end{bashcode}
+
+A good first run to populate the dashboard:
+
+\begin{bashcode}
+# 60 seconds, mixed traffic, moderate load
+./scripts/generate-tls-traffic.sh 60 50 20
+\end{bashcode}
+
+While it runs you will see log output showing connections being processed. Some will
+have fingerprints identified as known tools; these will show elevated risk scores.
+With dial=0 they will all be allowed, but the scoring information appears in the log.
+
+\section{Reading the Logs}
+\index{log format}
+\index{logs!reading}
+
+\subsection{Log Line Format}
+
+Each connection produces one log line on close. The format is:
+
+\begin{lstlisting}[language=bash, numbers=none]
+{ACTION}: {client_ip} | Country: {cc} | JA4: {fingerprint} |
+          Name: {label} | TLS: {version} [| Reason: {reason}]
+          [| Score: {score}]
+\end{lstlisting}
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{lX}
+    \toprule
+    \textbf{Field} & \textbf{Meaning} \\
+    \midrule
+    \code{ACTION} & \code{ALLOWED}, \code{BLOCKED}, \code{TARPITTED}, or \code{RATE\_LIMITED} \\
+    \code{client\_ip} & Real client IP (extracted from PROXY protocol header) \\
+    \code{Country} & Two-letter country code from GeoIP lookup \\
+    \code{JA4} & The computed JA4 fingerprint string \\
+    \code{Name} & Human-readable label for the fingerprint, if known \\
+    \code{TLS} & TLS version negotiated in the ClientHello \\
+    \code{Reason} & For blocked connections, the blocking reason \\
+    \code{Score} & Risk score (0--100); appears when score is non-zero \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Log line fields}
+\end{table}
+
+\subsection{Example Log Lines}
+
+A legitimate browser connecting from Ireland:
+\begin{lstlisting}[language=bash, numbers=none]
+ALLOWED:  172.19.0.10 | Country: IE | JA4: t13d1113h2_8daaf6152771_b0da82dd1658 |
+          Name: Browser (TLS 1.3) | TLS: TLS 1.3
+\end{lstlisting}
+
+A known tool blocked by the JA4 blacklist:
+\begin{lstlisting}[language=bash, numbers=none]
+BLOCKED:  185.220.0.1 | Country: RU | JA4: t13d0912_a1b2c3d4e5f6_987654321abc |
+          Name: Tool/Bot (TLS 1.3) | Reason: JA4 blacklisted
+\end{lstlisting}
+
+An IP that has been banned (reached rate limit and been automatically banned):
+\begin{lstlisting}[language=bash, numbers=none]
+BLOCKED:  10.0.0.42 | Country: DE | JA4: t13d1113h2_8daaf6152771_b0da82dd1658 |
+          Name: Browser (TLS 1.3) | Reason: Banned for 300s
+\end{lstlisting}
+
+A high-scoring connection at dial=0 (passed through but scored):
+\begin{lstlisting}[language=bash, numbers=none]
+ALLOWED:  198.51.100.3 | Country: NL | JA4: t13d0809_c0ffee123456_aabbccddeeff |
+          Name: Python-requests (TLS 1.3) | TLS: TLS 1.3 | Score: 68
+\end{lstlisting}
+
+\subsection{Accessing Logs}
+
+Live tail all proxy output:
+\begin{bashcode}
+docker compose logs -f ja4proxy
+\end{bashcode}
+
+Filter for blocked connections only:
+\begin{bashcode}
+docker compose logs ja4proxy | grep "^BLOCKED"
+\end{bashcode}
+
+Search for a specific IP:
+\begin{bashcode}
+docker compose logs ja4proxy | grep "185.220.0.1"
+\end{bashcode}
+
+\section{The Grafana Dashboard}
+\index{Grafana}
+\index{dashboard}
+
+Open \url{http://localhost:3001} and navigate to the \emph{JA4proxy Overview} dashboard.
+After running the traffic generator you should see all panels populated.
+
+\subsection{Panel-by-Panel Guide}
+
+\subsection{Connection Rate}
+\index{Grafana!connection rate panel}
+
+Shows connections per second over time, coloured by action:
+\begin{itemize}
+  \item Green: \badgeallow{} — connections passed to backend
+  \item Red: \badgeblock{} — connections rejected
+  \item Amber: \badgetarpit{} — connections held in tarpit
+  \item Dark: \badgeban{} — connections from currently-banned IPs
+\end{itemize}
+
+At dial=0, everything is green. When you raise the dial, you will start to see
+red and amber segments appear.
+
+\subsection{Action Distribution}
+\index{Grafana!action distribution}
+
+A pie or bar chart showing the percentage breakdown of actions over the selected
+time window. This is the key panel for understanding how \ja\ is classifying
+your traffic. In a healthy deployment you should see the vast majority as ALLOWED,
+with a small but non-zero fraction as BLOCKED.
+
+If you see zero BLOCKED and you know malicious traffic is present, the dial is
+probably at zero. If you see a high BLOCKED fraction, investigate before raising
+the dial further — high block rates often mean a fingerprint list needs tuning.
+
+\subsection{Risk Score Distribution}
+\index{Grafana!risk score distribution}
+
+A histogram of risk scores across all connections. This is your most important
+panel for dial calibration. The shape of this histogram tells you where to set
+blocking thresholds:
+
+\begin{itemize}
+  \item A bimodal distribution (peaks near 0 and near 80--100) is ideal: legitimate
+    traffic clusters at low scores, bad traffic clusters at high scores.
+  \item A single peak near zero means either the traffic is mostly legitimate, or
+    the signal collectors are not seeing the bad traffic you expect.
+  \item A broad flat distribution suggests mixed signals — worth investigating
+    which specific signals are contributing.
+\end{itemize}
+
+\subsection{Top JA4 Fingerprints}
+\index{Grafana!fingerprint panel}
+
+A table of the most frequent JA4 fingerprints seen, with their labels (if known),
+connection counts, and average risk scores. This is where you identify candidate
+fingerprints for your whitelist or blacklist.
+
+If a fingerprint appears frequently with a high average score but a human-readable
+label that sounds legitimate, investigate before blacklisting it — it may be a
+shared fingerprint used by both automated and manual clients.
+
+\subsection{Geographic Distribution}
+
+A world map or table showing connection volume by country. Useful for identifying
+whether a sudden traffic increase is concentrated in an unexpected region.
+
+\subsection{Rate Limiting Activity}
+
+Shows how many connections are hitting each rate-limit strategy (by IP, by JA4
+fingerprint, by IP+JA4 pair). High activity here means automated clients are
+testing your rate limits.
+
+\subsection{Redis Lag}
+
+Shows Redis response time. Spikes here affect scoring latency. If Redis lag is
+consistently above 1ms, investigate the Redis container's resource usage.
+
+\section{Understanding Fingerprint Labels}
+\index{fingerprint labels}
+\index{JA4!labels}
+
+The \emph{Name} field in logs and the label column in the Grafana fingerprint table
+come from \code{config/proxy.yml}'s \configkey{fingerprint\_labels} section. This
+is a mapping from JA4 fingerprint strings to human-readable names.
+
+\ja\ ships with labels for common browsers, known security tools, and common C2
+frameworks. You will extend this list as you observe your own traffic.
+
+When you see an unfamiliar fingerprint appearing frequently, look it up in the JA4
+community database at \url{https://ja4db.com} and add an appropriate label to your
+config. This makes the dashboard and logs much easier to interpret.
+
+\section{Your First Configuration Change}
+\index{configuration!first change}
+
+The two most common initial configuration tasks are:
+
+\subsection{Setting Your Backend Host}
+
+If you have not already set \code{BACKEND\_HOST} in \code{.env}, the proxy is
+forwarding to the default test backend. Update \code{.env} and restart:
+
+\begin{bashcode}
+# In .env:
+BACKEND_HOST=prod.internal.example.com
+
+make stop
+make start
+\end{bashcode}
+
+\subsection{Enabling Country Filtering}
+
+To restrict traffic to specific countries, edit \code{config/proxy.yml}:
+
+\begin{yamlcode}
+# Enable the whitelist (only listed countries pass)
+country_whitelist_enabled: true
+country_whitelist:
+  - IE
+  - GB
+  - US
+  - DE
+\end{yamlcode}
+
+Then reload the config without restarting (see Section~\ref{sec:hotreload}):
+
+\begin{bashcode}
+# Signal the proxy to reload config
+kill -HUP $(docker compose exec ja4proxy cat /var/run/proxy.pid)
+\end{bashcode}
+
+\begin{warningbox}[Country filtering and false positives]
+Country whitelisting is a blunt instrument. VPN users, Tor exit nodes, and CDN
+origin IPs may appear to come from unexpected countries. Enable country filtering
+only if you have a genuine operational reason to restrict by geography, and verify
+your legitimate user base is not affected before enabling.
+\end{warningbox}

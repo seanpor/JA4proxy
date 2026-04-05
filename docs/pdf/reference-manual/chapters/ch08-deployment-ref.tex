@@ -1,0 +1,284 @@
+%% ch08-deployment-ref.tex — Deployment Reference
+%% JA4proxy Technical Reference Manual
+
+\chapter{Deployment Reference}
+\index{deployment}
+\label{ch:deployment}
+
+\begin{chapterquote}
+\ja\ is deployed as a set of Docker containers orchestrated by Docker Compose
+(development and single-host production) or Helm (Kubernetes multi-host production).
+This chapter documents every service, environment variable, port, and network
+requirement.
+\end{chapterquote}
+
+\newthought{The reference deployment topology} places \ja\ between a HAProxy
+load balancer and the backend origin server. All traffic from the internet passes
+through HAProxy (:443), which forwards raw TCP streams (with PROXY protocol v2
+headers) to \ja\ instances (:8080). \ja\ then proxies allowed connections to the
+backend (:443).
+
+\section{Docker Compose Reference}
+\index{Docker Compose}
+
+\subsection{Services Overview}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Docker Compose services}
+\label{tab:compose-services}
+\begin{tabular}{@{}lllp{5.5cm}@{}}
+\toprule
+\textbf{Service} & \textbf{Image} & \textbf{Ports} & \textbf{Role} \\
+\midrule
+\code{haproxy} & \code{haproxy:2.9-alpine} & \code{0.0.0.0:443:443} & TLS passthrough LB; injects PROXY protocol v2 \\
+\code{proxy} & \code{ja4proxy:latest} & \code{127.0.0.1:8080:8080} & \ja\ pipeline; exposes metrics on :9090 \\
+\code{redis} & \code{redis:7.2-alpine} & \code{127.0.0.1:6379:6379} & Shared state; NOT exposed to internet \\
+\code{analytics} & \code{ja4analytics:latest} & — & Redis Streams consumer; findings writer \\
+\code{prometheus} & \code{prom/prometheus:v2.51.0} & \code{127.0.0.1:9090:9090} & Metrics collection \\
+\code{grafana} & \code{grafana/grafana:10.4.0} & \code{127.0.0.1:3001:3000} & Dashboards \\
+\code{loki} & \code{grafana/loki:2.9.5} & \code{127.0.0.1:3100:3100} & Log aggregation \\
+\code{alertmanager} & \code{prom/alertmanager:v0.27.0} & \code{127.0.0.1:9093:9093} & Alert routing \\
+\code{backend} & (operator-provided) & — & Protected origin; only reachable from proxy \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\begin{dangerbox}[Port Binding Policy]
+Management services (Prometheus, Grafana, Loki, Alertmanager) bind to
+\code{127.0.0.1} only. They must never be exposed on \code{0.0.0.0} in production.
+Redis binds to \code{127.0.0.1}. Only HAProxy binds to \code{0.0.0.0:443}.
+The proxy service binds to \code{127.0.0.1:8080} — it receives connections only
+from HAProxy, which is on the same host or the same Docker network.
+\end{dangerbox}
+
+\subsection{Docker Networks}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Docker Compose network definitions}
+\label{tab:compose-networks}
+\begin{tabular}{@{}lllp{5.5cm}@{}}
+\toprule
+\textbf{Network} & \textbf{Subnet} & \textbf{Connected services} & \textbf{Purpose} \\
+\midrule
+\code{dmz} & 172.20.0.0/24 & haproxy, proxy & HAProxy → proxy path \\
+\code{app} & 172.21.0.0/24 & proxy, redis, analytics, backend & proxy → redis, backend \\
+\code{monitoring} & 172.22.0.0/24 & proxy, prometheus, loki & Metrics and log scraping \\
+\code{mgmt} & 172.23.0.0/24 & prometheus, grafana, alertmanager, loki & Observability stack internal \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{Environment Variables}
+\index{environment variables}
+
+The following environment variables must be set in the deployment environment
+(e.g.\ in a \code{.env} file alongside \code{docker-compose.yml}).
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Required and optional environment variables}
+\label{tab:env-vars}
+\begin{tabular}{@{}lllp{4.5cm}@{}}
+\toprule
+\textbf{Variable} & \textbf{Required} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\code{REDIS\_PASSWORD} & Yes & — & Redis AUTH password. Set on both proxy and redis services. \\
+\code{ABUSEIPDB\_API\_KEY} & No & — & AbuseIPDB API key. If unset, AbuseIPDB lookups are disabled. \\
+\code{JA4\_DIAL} & No & \code{0} & Override dial setting at container start (useful for testing). \\
+\code{JA4\_LOG\_LEVEL} & No & \code{INFO} & Log verbosity: \code{DEBUG}, \code{INFO}, \code{WARN}, \code{ERROR} \\
+\code{JA4\_BACKEND\_HOST} & No & \code{backend} & Backend hostname override. Useful when backend DNS differs. \\
+\code{JA4\_BACKEND\_PORT} & No & \code{443} & Backend port override. \\
+\code{GF\_SECURITY\_ADMIN\_PASSWORD} & No & \code{admin} & Grafana admin password. Change before production deployment. \\
+\code{GF\_SERVER\_ROOT\_URL} & No & — & Grafana public URL for link generation. \\
+\code{MAXMIND\_LICENSE\_KEY} & Conditional & — & MaxMind license key for GeoLite2 database download. Required if using auto-download. \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{Volume Mounts}
+\index{volumes}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Docker volume mounts}
+\label{tab:volumes}
+\begin{tabular}{@{}lllp{5cm}@{}}
+\toprule
+\textbf{Service} & \textbf{Host path} & \textbf{Container path} & \textbf{Notes} \\
+\midrule
+proxy & \code{./config} & \code{/app/config} & Read-only (RO). Config files. \\
+proxy & \code{./certs} & \code{/app/certs} & Read-only. mTLS CA and certs. \\
+proxy & \code{./data/geoip} & \code{/app/data/geoip} & Read-only. MaxMind DB files. \\
+redis & \code{./data/redis} & \code{/data} & Redis persistence (RDB/AOF). \\
+prometheus & \code{./data/prometheus} & \code{/prometheus} & Prometheus TSDB. \\
+grafana & \code{./data/grafana} & \code{/var/lib/grafana} & Grafana dashboards and state. \\
+loki & \code{./data/loki} & \code{/loki} & Loki log chunks. \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{HAProxy Configuration}
+\index{HAProxy!configuration}
+
+HAProxy must be configured for TLS passthrough with PROXY protocol v2 injection.
+The critical sections of \code{haproxy.cfg}:
+
+\begin{lstlisting}[language=bash]
+frontend tls_in
+    bind *:443
+    mode tcp
+    option tcplog
+    default_backend ja4proxy
+
+backend ja4proxy
+    mode tcp
+    option tcp-check
+    server proxy1 proxy:8080 check send-proxy-v2
+    # send-proxy-v2 enables PROXY protocol v2 header injection
+    # TLS is NOT terminated — raw TCP passthrough
+\end{lstlisting}
+
+\begin{warningbox}[TLS Passthrough — Not TLS Termination]
+HAProxy must be configured in TCP mode (\code{mode tcp}), not HTTP mode
+(\code{mode http}). HTTP mode would terminate the TLS connection and re-encrypt it,
+defeating the purpose of \ja. In TCP mode, HAProxy passes the raw TLS bytes through
+to \ja\ unchanged. Only the PROXY protocol header is added by HAProxy.
+\end{warningbox}
+
+\section{Helm Chart Reference}
+\index{Helm}
+\index{Kubernetes}
+
+\subsection{Chart Structure}
+
+The \ja\ Helm chart is located at \code{helm/ja4proxy/}. It deploys:
+\begin{itemize}
+  \item A \code{Deployment} for the proxy pods
+  \item A \code{Service} (ClusterIP) exposing port 8080
+  \item A \code{ConfigMap} containing \code{proxy.yml}
+  \item A \code{Secret} for Redis password and API keys
+  \item A \code{ServiceMonitor} for Prometheus Operator scraping
+  \item (Optional) A \code{HorizontalPodAutoscaler}
+\end{itemize}
+
+\subsection{values.yaml Reference}
+\index{Helm!values.yaml}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Key Helm chart values}
+\label{tab:helm-values}
+\begin{tabular}{@{}lllp{4.5cm}@{}}
+\toprule
+\textbf{Key} & \textbf{Type} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\code{replicaCount} & integer & \code{2} & Number of proxy pod replicas \\
+\code{image.repository} & string & \code{ja4proxy} & Container image repository \\
+\code{image.tag} & string & \code{latest} & Image tag. Pin to a specific version in production. \\
+\code{proxy.backendHost} & string & \textit{required} & Backend service hostname \\
+\code{proxy.backendPort} & integer & \code{443} & Backend port \\
+\code{proxy.dial} & integer & \code{0} & Initial dial setting \\
+\code{redis.url} & string & \textit{required} & Redis connection URL \\
+\code{redis.existingSecret} & string & \code{""} & Kubernetes Secret name containing \code{redis-password} key \\
+\code{abuseipdb.enabled} & boolean & \code{true} & Enable AbuseIPDB lookups \\
+\code{abuseipdb.existingSecret} & string & \code{""} & Secret containing \code{api-key} \\
+\code{resources.requests.cpu} & string & \code{100m} & CPU request per pod \\
+\code{resources.requests.memory} & string & \code{128Mi} & Memory request per pod \\
+\code{resources.limits.cpu} & string & \code{1000m} & CPU limit \\
+\code{resources.limits.memory} & string & \code{256Mi} & Memory limit \\
+\code{autoscaling.enabled} & boolean & \code{false} & Enable HPA \\
+\code{autoscaling.minReplicas} & integer & \code{2} & Minimum replicas \\
+\code{autoscaling.maxReplicas} & integer & \code{10} & Maximum replicas \\
+\code{autoscaling.targetCPUUtilizationPercentage} & integer & \code{70} & HPA CPU target \\
+\code{serviceMonitor.enabled} & boolean & \code{true} & Create ServiceMonitor for Prometheus Operator \\
+\code{geoip.volumeClaimName} & string & \code{""} & PVC name for GeoIP database files (read-only mount) \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{Kubernetes Resources Created}
+\index{Kubernetes!resources}
+
+\begin{lstlisting}[language=bash]
+# Install
+helm install ja4proxy helm/ja4proxy \
+  --set proxy.backendHost=backend-svc.app.svc.cluster.local \
+  --set redis.url=redis://redis-svc.data.svc.cluster.local:6379 \
+  --set redis.existingSecret=ja4proxy-secrets
+
+# Upgrade (e.g., raise dial)
+helm upgrade ja4proxy helm/ja4proxy --set proxy.dial=50
+\end{lstlisting}
+
+\section{Networking Requirements}
+\index{networking!firewall rules}
+\index{firewall}
+
+\subsection{Firewall Rules for DMZ Deployment}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Required firewall rules for DMZ deployment}
+\label{tab:firewall-rules}
+\begin{tabular}{@{}lllll@{}}
+\toprule
+\textbf{Source} & \textbf{Destination} & \textbf{Port} & \textbf{Protocol} & \textbf{Purpose} \\
+\midrule
+Internet & HAProxy (DMZ) & 443 & TCP & Incoming TLS connections \\
+HAProxy (DMZ) & \ja\ (App) & 8080 & TCP & PROXY protocol + TLS passthrough \\
+\ja\ (App) & Redis (Data) & 6379 & TCP & State read/write \\
+\ja\ (App) & Backend (App) & 443 & TCP & Forwarded TLS connections \\
+\ja\ (App) & DNS resolver & 53 & UDP/TCP & FCrDNS lookups \\
+\ja\ (App) & AbuseIPDB API & 443 & TCP & Reputation lookup (outbound) \\
+\ja\ (App) & RDAP endpoints & 443 & TCP & RDAP lookup (outbound) \\
+\ja\ (App) & Spamhaus URLs & 443 & TCP & Blocklist refresh (outbound) \\
+Prometheus (Mgmt) & \ja\ (App) & 9090 & TCP & Metrics scraping \\
+Loki (Mgmt) & \ja\ (App) & (log push) & TCP & Log collection \\
+Operator VPN & Grafana (Mgmt) & 3001 & TCP & Dashboard access \\
+Operator VPN & Alertmanager (Mgmt) & 9093 & TCP & Alert management \\
+\midrule
+\multicolumn{5}{@{}l}{\textbf{Blocked (explicit DENY):}} \\
+Internet & \ja\ (App) & any & any & Proxy never directly reachable from internet \\
+Internet & Redis (Data) & any & any & Redis never internet-accessible \\
+Internet & Mgmt zone & any & any & Management never internet-accessible \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\section{Production Deployment Checklist}
+\index{deployment!checklist}
+
+The following checklist must be completed before any production deployment:
+
+\begin{enumerate}
+  \item[\(\square\)] \textbf{Set \code{dial: 0}} — deploy in monitor-only mode
+  \item[\(\square\)] \textbf{Pin image tags} — replace \code{latest} with a specific version
+  \item[\(\square\)] \textbf{Change default passwords} — Grafana admin, Redis password
+  \item[\(\square\)] \textbf{Secrets via Secret Manager} — no passwords in \code{.env} committed to Git
+  \item[\(\square\)] \textbf{TLS certificate for backend} — verify backend cert is valid and trusted
+  \item[\(\square\)] \textbf{Trusted upstream CIDR} — configure HAProxy address range in proxy config
+  \item[\(\square\)] \textbf{GeoIP database present} — MaxMind GeoLite2 files mounted and current
+  \item[\(\square\)] \textbf{Redis persistence enabled} — RDB or AOF configured; data volume mounted
+  \item[\(\square\)] \textbf{Loki log shipping} — proxy logs flowing to Loki; retention policy set
+  \item[\(\square\)] \textbf{Prometheus scraping} — metrics endpoint reachable; dashboards loaded
+  \item[\(\square\)] \textbf{Alert rules loaded} — minimum alert set from Chapter~\ref{ch:metrics}
+  \item[\(\square\)] \textbf{HAProxy in TCP mode} — not HTTP mode; TLS passthrough verified
+  \item[\(\square\)] \textbf{Management ports bound to 127.0.0.1} — not 0.0.0.0
+  \item[\(\square\)] \textbf{Verify score distribution} — run for 24h at dial=0; review histogram
+  \item[\(\square\)] \textbf{Phase 14 hardening} — complete Phase~14 checklist before raising dial above 0
+\end{enumerate}
+
+\begin{notebox}[Phase 14 Hardening Prerequisite]
+The Phase~14 production hardening checklist (\code{docs/DMZ\_DEPLOYMENT\_READINESS.md})
+must be completed before raising the dial above 0 in production. Key gaps identified
+at POC stage include: secrets management integration, Redis TLS, rate-limit self-protection
+for the tarpit mechanism, and resource limit tuning. Do not skip this step.
+\end{notebox}

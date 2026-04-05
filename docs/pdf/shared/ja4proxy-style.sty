@@ -1,0 +1,265 @@
+%% ja4proxy-style.sty
+%% Shared style package for all JA4proxy PDF documents
+%% Use with tufte-book or tufte-handout
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{ja4proxy-style}[2026/04/04 JA4proxy document style]
+
+%% ── Fonts ────────────────────────────────────────────────────────────────────
+%% Note: tufte classes load palatino + textcomp during \documentclass processing.
+%% We do NOT load ETbb here — it uses LY1 encoding which clashes with the
+%% textcomp instance already held by tufte. Let tufte's Palatino stand.
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[scaled=0.90]{FiraSans} % Fira Sans for headings / sans-serif
+\usepackage[scaled=0.85]{sourcecodepro} % Source Code Pro for monospace
+\usepackage{microtype}             % Improved typography
+
+%% ── Colours ──────────────────────────────────────────────────────────────────
+\usepackage{xcolor}
+\definecolor{ja4navy}{HTML}{1e3a5f}       % Primary navy
+\definecolor{ja4navydark}{HTML}{0d1f35}   % Dark navy (backgrounds)
+\definecolor{ja4navylight}{HTML}{2d5a8e}  % Light navy
+\definecolor{ja4cyan}{HTML}{0ea5e9}       % Accent cyan
+\definecolor{ja4cyanlight}{HTML}{7dd3fc}  % Light cyan
+\definecolor{ja4green}{HTML}{16a34a}      % Allow green
+\definecolor{ja4greenlight}{HTML}{dcfce7} % Light green bg
+\definecolor{ja4red}{HTML}{dc2626}        % Block red
+\definecolor{ja4redlight}{HTML}{fee2e2}   % Light red bg
+\definecolor{ja4amber}{HTML}{d97706}      % Warning amber
+\definecolor{ja4amberlight}{HTML}{fef3c7} % Light amber bg
+\definecolor{ja4purple}{HTML}{7c3aed}     % Purple accent
+\definecolor{ja4purplelight}{HTML}{ede9fe}% Light purple bg
+\definecolor{ja4gray}{HTML}{6b7280}       % Body gray
+\definecolor{ja4lightgray}{HTML}{f3f4f6}  % Light gray bg
+\definecolor{ja4rulecolor}{HTML}{e5e7eb}  % Horizontal rules
+
+%% ── Math / Symbol support ────────────────────────────────────────────────────
+\usepackage{amsmath}
+\usepackage{amssymb}   % \square for checklist items
+
+%% ── Graphics and TikZ ────────────────────────────────────────────────────────
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{
+  calc,
+  positioning,
+  shapes.geometric,
+  shapes.misc,
+  arrows.meta,
+  backgrounds,
+  decorations.pathmorphing,
+  decorations.markings,
+  fadings,
+  shadings,
+  fit,
+  matrix,
+  chains,
+  scopes
+}
+
+%% ── Tables ───────────────────────────────────────────────────────────────────
+\usepackage{booktabs}
+\usepackage{colortbl}   % \rowcolor, \columncolor for table shading
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+\newcolumntype{R}[1]{>{\raggedleft\arraybackslash}p{#1}}
+
+%% ── Code Listings ────────────────────────────────────────────────────────────
+\usepackage{listings}
+\usepackage{lstautogobble}
+
+\lstset{
+  basicstyle=\small\ttfamily,
+  columns=fullflexible,
+  keepspaces=true,
+  autogobble=true,
+  breaklines=true,
+  breakatwhitespace=false,
+  showstringspaces=false,
+  tabsize=2,
+  frame=none,
+  backgroundcolor=\color{ja4lightgray},
+  rulecolor=\color{ja4rulecolor},
+  commentstyle=\color{ja4gray}\itshape,
+  keywordstyle=\color{ja4navy}\bfseries,
+  stringstyle=\color{ja4green},
+  numberstyle=\tiny\color{ja4gray},
+  numbers=left,
+  numbersep=8pt,
+  xleftmargin=12pt,
+  framexleftmargin=12pt,
+  aboveskip=\baselineskip,
+  belowskip=\baselineskip,
+  %% Map non-ASCII characters that may appear in code comments/strings
+  literate=
+    {—}{--}1
+    {–}{-}1
+    {→}{->}2
+    {←}{<-}2
+    {'}{'}{1}
+    {'}{`}1
+    {"}{"}1
+    {"}{"}1,
+}
+
+\lstdefinelanguage{yaml}{
+  keywords={true,false,null,yes,no},
+  sensitive=false,
+  comment=[l]{\#},
+  morestring=[b]",
+  morestring=[b]',
+}
+
+\lstdefinelanguage{json}{
+  keywords={true,false,null},
+  sensitive=false,
+  morestring=[b]",
+  literate=
+    *{0}{{{\color{ja4purple}0}}}1
+     {1}{{{\color{ja4purple}1}}}1
+     {2}{{{\color{ja4purple}2}}}1
+     {3}{{{\color{ja4purple}3}}}1
+     {4}{{{\color{ja4purple}4}}}1
+     {5}{{{\color{ja4purple}5}}}1
+     {6}{{{\color{ja4purple}6}}}1
+     {7}{{{\color{ja4purple}7}}}1
+     {8}{{{\color{ja4purple}8}}}1
+     {9}{{{\color{ja4purple}9}}}1
+     {\{}{{{\color{ja4navy}\{}}}1
+     {\}}{{{\color{ja4navy}\}}}}1
+     {[}{{{\color{ja4navy}[}}}1
+     {]}{{{\color{ja4navy}]}}}1,
+}
+
+\lstdefinelanguage{bash}{
+  keywords={},
+  sensitive=true,
+  comment=[l]{\#},
+  morestring=[b]",
+  morestring=[b]',
+}
+
+\lstnewenvironment{yamlcode}[1][]
+  {\lstset{language=yaml, #1}}{}
+
+\lstnewenvironment{bashcode}[1][]
+  {\lstset{language=bash, #1}}{}
+
+%% ── Callout Boxes ────────────────────────────────────────────────────────────
+\usepackage{tcolorbox}
+\tcbuselibrary{skins, breakable, most}
+
+% Base callout style
+\tcbset{
+  ja4base/.style={
+    breakable,
+    enhanced,
+    boxrule=0pt,
+    left=8pt, right=8pt, top=6pt, bottom=6pt,
+    leftrule=3pt,
+    arc=2pt,
+    fonttitle=\small\sffamily\bfseries,
+    coltitle=black,
+    attach boxed title to top left={yshift=-2pt, xshift=4pt},
+  }
+}
+
+\newtcolorbox{notebox}[1][Note]{
+  ja4base,
+  colback=ja4cyanlight!30!white,
+  colframe=ja4cyan,
+  title={#1},
+}
+
+\newtcolorbox{warningbox}[1][Warning]{
+  ja4base,
+  colback=ja4amberlight,
+  colframe=ja4amber,
+  title={\textbf{#1}},
+}
+
+\newtcolorbox{dangerbox}[1][Danger]{
+  ja4base,
+  colback=ja4redlight,
+  colframe=ja4red,
+  title={\textbf{#1}},
+}
+
+\newtcolorbox{tipbox}[1][Tip]{
+  ja4base,
+  colback=ja4greenlight,
+  colframe=ja4green,
+  title={#1},
+}
+
+\newtcolorbox{importantbox}[1][Important]{
+  ja4base,
+  colback=ja4purplelight,
+  colframe=ja4purple,
+  title={\textbf{#1}},
+}
+
+%% ── Custom Commands ──────────────────────────────────────────────────────────
+
+% Product name
+\newcommand{\ja}{JA4proxy}
+\newcommand{\jalong}{JA4proxy Enterprise TLS Security Proxy}
+\newcommand{\javersion}{1.0}
+
+% Inline code — small monospace
+\newcommand{\code}[1]{\texttt{\small #1}}
+
+% Config key reference
+\newcommand{\configkey}[1]{\texttt{\small\color{ja4navy}#1}}
+
+% JA4 fingerprint example
+\newcommand{\fingerprint}[1]{\texttt{\footnotesize #1}}
+
+% Status badges
+\newcommand{\badgeallow}{\colorbox{ja4green}{\color{white}\tiny\sffamily\bfseries ALLOW}}
+\newcommand{\badgeblock}{\colorbox{ja4red}{\color{white}\tiny\sffamily\bfseries BLOCK}}
+\newcommand{\badgetarpit}{\colorbox{ja4amber}{\color{white}\tiny\sffamily\bfseries TARPIT}}
+\newcommand{\badgeban}{\colorbox{ja4red!80!black}{\color{white}\tiny\sffamily\bfseries BAN}}
+\newcommand{\badgemonitor}{\colorbox{ja4navy}{\color{white}\tiny\sffamily\bfseries MONITOR}}
+
+% POC / Production status
+\newcommand{\statuspoc}{\colorbox{ja4amber}{\color{white}\small\sffamily\bfseries POC}}
+\newcommand{\statusprod}{\colorbox{ja4green}{\color{white}\small\sffamily\bfseries PRODUCTION}}
+
+% Dial indicator
+\newcommand{\dialzero}{\texttt{dial=0} (monitor only)}
+\newcommand{\dialhundred}{\texttt{dial=100} (full blocking)}
+
+% Chapter opening quote environment
+\newenvironment{chapterquote}
+  {\begin{quote}\itshape\small}
+  {\end{quote}}
+
+% Pipeline layer row highlight — uses \cellcolor (valid mid-row, unlike \rowcolor)
+\newcommand{\bypassrow}[1]{\cellcolor{ja4cyanlight!25!white}#1}
+\newcommand{\signalrow}[1]{\cellcolor{ja4lightgray}#1}
+
+%% ── Index Support ────────────────────────────────────────────────────────────
+\usepackage{makeidx}
+
+%% ── Hyperref (must be last) ──────────────────────────────────────────────────
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=ja4navy,
+  citecolor=ja4navy,
+  urlcolor=ja4cyan,
+  bookmarksnumbered=true,
+  bookmarksopen=true,
+  pdftitle={JA4proxy Documentation},
+  pdfauthor={JA4proxy Project},
+  pdfsubject={Enterprise TLS Security Proxy},
+  pdfkeywords={JA4, TLS, fingerprinting, security, proxy},
+}
+
+\endinput

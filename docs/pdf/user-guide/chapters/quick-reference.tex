@@ -1,0 +1,197 @@
+%% quick-reference.tex — JA4proxy Operator's User Guide
+%% Quick Reference (no \chapter — inserted after \chapter{Quick Reference} in main file)
+
+\index{quick reference}
+
+\section{Make Targets}
+\index{make targets}
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{lX}
+    \toprule
+    \textbf{Target} & \textbf{Effect} \\
+    \midrule
+    \code{make start} & Build images (if needed) and start the full stack \\
+    \code{make stop} & Stop all containers; preserve Redis data \\
+    \code{make stop-clean} & Stop and remove all containers and volumes \\
+    \code{make rebuild} & Wipe images and rebuild from scratch; wipes data \\
+    \code{make update-geoip} & Download and install IP2Location database \\
+    \code{make test} & Run full test suite \\
+    \code{make test-unit} & Unit tests only \\
+    \code{make logs} & Tail logs for all services \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section{Docker Compose Commands}
+\index{Docker Compose commands}
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{lX}
+    \toprule
+    \textbf{Command} & \textbf{Effect} \\
+    \midrule
+    \code{docker compose ps} & Show container status and health \\
+    \code{docker compose logs -f ja4proxy} & Live proxy logs \\
+    \code{docker compose logs --tail=100} & Last 100 lines, all services \\
+    \code{docker compose exec ja4proxy bash} & Shell into proxy container \\
+    \code{docker compose exec redis redis-cli} & Redis CLI session \\
+    \code{docker compose restart ja4proxy} & Restart proxy (preserves Redis) \\
+    \code{docker compose kill -s HUP haproxy} & Reload HAProxy config \\
+    \code{docker stats --no-stream} & Resource usage snapshot \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section{Redis CLI — Common Operations}
+\index{Redis!CLI commands}
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{lX}
+    \toprule
+    \textbf{Command} & \textbf{Effect} \\
+    \midrule
+    \code{redis-cli PING} & Connectivity check \\
+    \code{redis-cli GET "ban:1.2.3.4"} & Check if IP is banned \\
+    \code{redis-cli DEL "ban:1.2.3.4"} & Clear a specific ban \\
+    \code{redis-cli SETEX "ban:1.2.3.4" 300 "manual"} & Ban IP for 5 minutes \\
+    \code{redis-cli --scan --pattern "ban:*" | wc -l} & Count active bans \\
+    \code{redis-cli SADD ja4:blacklist "fingerprint"} & Add to JA4 blacklist \\
+    \code{redis-cli SREM ja4:blacklist "fingerprint"} & Remove from blacklist \\
+    \code{redis-cli SISMEMBER ja4:blacklist "fp"} & Check if fingerprint is blacklisted \\
+    \code{redis-cli GET "config:dial"} & Read current dial value \\
+    \code{redis-cli SET "config:dial" "50"} & Set dial to 50 (affects new connections) \\
+    \code{redis-cli FLUSHALL} & \textbf{DEV ONLY} — wipe all Redis data \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+Prefix all commands with \code{docker compose exec redis} when running from the host:
+\begin{bashcode}
+docker compose exec redis redis-cli DEL "ban:1.2.3.4"
+\end{bashcode}
+
+\section{Config Reload}
+\index{config reload!quick reference}
+
+\begin{bashcode}
+# Hot reload (no restart required)
+kill -HUP $(docker compose exec ja4proxy cat /var/run/proxy.pid)
+
+# Verify reload succeeded
+docker compose logs ja4proxy | tail -3
+# Expected: INFO | config | event=reload | status=ok
+\end{bashcode}
+
+\section{Traffic Generator}
+\index{traffic generator!quick reference}
+
+\begin{bashcode}
+# Usage: ./scripts/generate-tls-traffic.sh <seconds> <legit_%> <workers>
+./scripts/generate-tls-traffic.sh 60 50 10   # 60s, 50% legit, 10 workers
+./scripts/generate-tls-traffic.sh 30 10 20   # 30s, 10% legit, 20 workers (stress test)
+./scripts/generate-tls-traffic.sh 300 80 5   # 5m, 80% legit (baseline capture)
+\end{bashcode}
+
+\section{Scaling}
+\index{scaling!quick reference}
+
+\begin{bashcode}
+# Docker Compose scaling
+./scripts/scale-proxies.sh 4   # Scale to 4 proxy instances
+
+# Kubernetes
+helm install ja4proxy ./deploy/helm/ja4proxy \
+  --set proxy.backendHost=your.backend \
+  --namespace ja4proxy --create-namespace
+
+kubectl get hpa -n ja4proxy    # Check autoscaler status
+kubectl rollout restart deployment/ja4proxy -n ja4proxy  # Rolling restart
+\end{bashcode}
+
+\section{Port Reference}
+\index{ports}
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{llX}
+    \toprule
+    \textbf{Port} & \textbf{Service} & \textbf{URL} \\
+    \midrule
+    443 & HAProxy (TLS entry) & \code{https://localhost:443} \\
+    8080 & JA4proxy & \code{http://localhost:8080} \\
+    8404 & HAProxy stats & \code{http://localhost:8404/stats} \\
+    8443 & Test backend & \code{https://localhost:8443} \\
+    8888 & Tarpit & \code{http://localhost:8888} \\
+    9090 & Proxy metrics & \code{http://localhost:9090/metrics} \\
+    9091 & Prometheus & \code{http://localhost:9091} \\
+    3001 & Grafana & \code{http://localhost:3001} \\
+    3100 & Loki & \code{http://localhost:3100} \\
+    9093 & Alertmanager & \code{http://localhost:9093} \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section{Key Prometheus Metrics}
+\index{Prometheus!metrics!quick reference}
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{lX}
+    \toprule
+    \textbf{Metric} & \textbf{What it measures} \\
+    \midrule
+    \code{ja4proxy\_connections\_total\{action\}} & Connections by action (allowed/blocked/tarpitted) \\
+    \code{ja4proxy\_active\_connections} & Live connection count right now \\
+    \code{ja4proxy\_connection\_duration\_seconds} & Processing latency histogram \\
+    \code{ja4proxy\_risk\_score\_distribution} & Score histogram (0--100) \\
+    \code{ja4proxy\_dial\_setting} & Current dial value \\
+    \code{ja4proxy\_redis\_errors\_total} & Redis errors (alert if non-zero) \\
+    \code{ja4proxy\_external\_lookup\_errors\_total} & AbuseIPDB / RDAP errors \\
+    \code{ja4proxy\_signal\_hits\_total\{signal\}} & Per-signal trigger counts \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section{File Locations}
+\index{file locations}
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{lX}
+    \toprule
+    \textbf{File} & \textbf{Purpose} \\
+    \midrule
+    \code{config/proxy.yml} & All proxy configuration (hot-reloadable) \\
+    \code{.env} & Environment variables (credentials, backend host) \\
+    \code{config/haproxy.cfg} & HAProxy load balancer configuration \\
+    \code{config/proxy.yml.example} & Config template with all keys documented \\
+    \code{logs/} & Proxy log files (host-mounted volume) \\
+    \code{data/geoip/} & IP2Location database files \\
+    \code{deploy/helm/ja4proxy/} & Kubernetes Helm chart \\
+    \code{scripts/scale-proxies.sh} & Horizontal scaling helper \\
+    \code{scripts/generate-tls-traffic.sh} & Test traffic generator \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\section{Dial Quick Reference}
+\index{dial!quick reference}
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{llX}
+    \toprule
+    \textbf{Dial value} & \textbf{Behaviour} & \textbf{Use when} \\
+    \midrule
+    0 & Monitor only — all traffic passes & Initial deployment; building baseline \\
+    25 & Flag high-risk traffic & First week; reviewing score distribution \\
+    50 & Rate limiting active & Confident in rate-limit thresholds \\
+    75 & Tarpit + rate limit & Ready to slow down high-risk traffic \\
+    100 & Full blocking & Production, after validating at lower settings \\
+    \bottomrule
+  \end{tabularx}
+\end{table}

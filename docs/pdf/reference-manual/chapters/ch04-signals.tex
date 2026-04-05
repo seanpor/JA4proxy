@@ -1,0 +1,493 @@
+%% ch04-signals.tex — Signal Reference
+%% JA4proxy Technical Reference Manual
+
+\chapter{Signal Reference}
+\index{signals}
+\label{ch:signals}
+
+\begin{chapterquote}
+A signal is a scored observation. Each of the eight signal checks contributes a score
+in [0, 100] and a confidence weight. The risk scorer combines them. No single signal
+can block a connection — only the combined score, acting through the dial, produces
+blocking actions.
+\end{chapterquote}
+
+\newthought{All eight signals run concurrently} after the fast-path bypass zone.
+Each signal is independent. An unreachable external service contributes zero — it
+never increases the score (fail open). Signal results are logged in the
+\code{signals} field of every connection event.
+
+\section{Signal Score Model}
+\index{signals!score model}
+\index{RiskSignal}
+
+Each signal produces a \code{RiskSignal} with three fields:
+
+\begin{description}
+  \item[\code{score}] Integer 0–100. Higher means more suspicious.
+  \item[\code{weight}] Float 0.0–1.0. The confidence weight of this signal type.
+        High-confidence signals (TLS version, JA4 blacklist category) have higher weights.
+        Low-certainty signals (RDAP org, passive DNS) have lower weights.
+  \item[\code{reason}] Human-readable explanation for the log.
+\end{description}
+
+The risk scorer computes: $\text{final\_score} = \text{clamp}(\sum_i \text{score}_i \times \text{weight}_i, 0, 100)$
+where weights are normalised to sum to 1.0 across all active signals.
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Signal summary — all eight signals}
+\label{tab:signal-summary}
+\begin{tabular}{@{}lllllp{4cm}@{}}
+\toprule
+\textbf{\#} & \textbf{Signal} & \textbf{Phase} & \textbf{Default weight} & \textbf{External service} & \textbf{Failure behaviour} \\
+\midrule
+1 & TLS version \& cipher & 3 & 0.20 & None & N/A — local check \\
+2 & SNI analysis & 4 & 0.15 & None & N/A — local check \\
+3 & TCP \& connection behaviour & 5 & 0.15 & Redis & Score=0 on Redis error \\
+4 & ASN classification & 6 & 0.15 & MaxMind DB (mmap) & Score=0 if DB unavailable \\
+5 & FCrDNS enrichment & 7 & 0.10 & DNS resolver & Score=0 on DNS error \\
+6 & Beaconing detector & 9 & 0.10 & Redis & Score=0 on Redis error \\
+7 & AbuseIPDB score & 10 & 0.10 & AbuseIPDB API & Score=0 on API error \\
+8 & RDAP org reputation & 11 & 0.05 & RDAP/WHOIS APIs & Score=0 on API error \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\section{Signal 1 — TLS Version and Cipher Check}
+\index{signals!TLS version}
+\index{TLS!version enforcement}
+\index{cipher suites}
+\label{sig:tls}
+
+\textbf{Phase:} 3 \quad \textbf{Module:} \code{src/security/tls\_enforcer.py}
+
+\subsection{What It Measures}
+
+This signal checks the TLS protocol version and cipher suite list from the ClientHello
+against a set of hard rules. TLS 1.0 and 1.1 are deprecated and have known
+vulnerabilities; SSLv3 is critically broken. Weak cipher suites indicate either an
+outdated client or deliberate downgrade probing.
+
+\subsection{Score Computation}
+\index{TLS!SSLv3}
+\index{TLS 1.0}
+\index{TLS 1.1}
+
+When \configkey{security\_policy.tls\_version\_bypass.enabled} is \code{true}, TLS
+1.0/1.1/SSLv3 trigger an immediate TCP RST (before scoring). When the bypass is disabled,
+they contribute a RiskSignal instead:
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{TLS version score contributions}
+\label{tab:tls-scores}
+\begin{tabular}{@{}llp{7cm}@{}}
+\toprule
+\textbf{Condition} & \textbf{Score} & \textbf{Notes} \\
+\midrule
+TLS 1.3, strong ciphers & 0 & Clean \\
+TLS 1.2, ECDHE + AES-GCM / ChaCha20 & 0 & Acceptable \\
+TLS 1.2 with weak ciphers (RC4, DES, 3DES, NULL, EXPORT) & 40 & Routed through scorer \\
+TLS 1.1 (bypass disabled) & 70 & Deprecated protocol \\
+TLS 1.0 (bypass disabled) & 80 & Deprecated protocol \\
+SSLv3 (bypass disabled) & 95 & Critically deprecated \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{Configuration Keys}
+
+\configkey{security\_policy.tls\_version\_bypass.enabled} — when true, old TLS versions
+trigger TCP RST directly. When false, they contribute a risk score.
+
+\subsection{Failure Behaviour}
+
+This signal performs only local parsing of the ClientHello. There is no external service
+dependency. It cannot fail.
+
+\section{Signal 2 — SNI Analysis}
+\index{signals!SNI}
+\index{SNI}
+\index{DGA}
+\label{sig:sni}
+
+\textbf{Phase:} 4 \quad \textbf{Module:} \code{src/security/sni\_analyzer.py}
+
+\subsection{What It Measures}
+
+Server Name Indication (SNI) is an extension in the ClientHello that specifies which
+hostname the client is trying to reach. Legitimate browsers always include SNI when
+connecting to HTTPS services. Missing SNI, IP-literal SNI, and algorithmically generated
+domain names are all strong signals of automated tools or malware.
+
+\subsection{Score Computation}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{SNI signal score contributions}
+\label{tab:sni-scores}
+\begin{tabular}{@{}llp{6cm}@{}}
+\toprule
+\textbf{Condition} & \textbf{Score} & \textbf{Notes} \\
+\midrule
+SNI present, matches expected hostname & 0 & Normal browser or API client \\
+SNI present, unexpected hostname & 10--30 & May be misconfigured client or proxy \\
+SNI absent & 50 & Scanners and tools typically omit SNI \\
+SNI is an IP literal (e.g., \code{192.168.1.1}) & 60 & Invalid SNI; tools and scanners \\
+SNI is DGA-like (high entropy, no real TLD) & 40--80 & Score based on entropy measurement \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{DGA Detection Algorithm}
+\index{DGA!detection algorithm}
+
+Domain Generation Algorithm detection uses Shannon entropy of the domain label
+characters. A real domain like \code{example.com} has low entropy; a DGA domain like
+\code{xk9p2mq4vrl.cn} has high entropy. The threshold is tunable:
+\begin{itemize}
+  \item Entropy $<$ 3.5 bits/character: clean
+  \item Entropy 3.5–4.2 bits/character: moderate score (40)
+  \item Entropy $>$ 4.2 bits/character: high score (80)
+\end{itemize}
+
+Additionally, the TLD is checked against a list of TLDs commonly used in DGA campaigns.
+A domain matching a flagged TLD with high entropy scores at the upper end of the range.
+
+\subsection{Failure Behaviour}
+
+This signal performs only local computation. There is no external service dependency.
+It cannot fail.
+
+\section{Signal 3 — TCP and Connection Behaviour}
+\index{signals!TCP behaviour}
+\index{JA4T}
+\index{session resumption}
+\index{concurrency}
+\label{sig:tcp}
+
+\textbf{Phase:} 5 \quad \textbf{Modules:} \code{src/security/tcp\_analyzer.py}, \code{src/security/mtls.py}
+
+\subsection{What It Measures}
+
+TCP and connection behaviour signals capture how a client connects over time, not just
+what it sends. Automated tools have different connection patterns from real users:
+they connect more frequently, resume sessions less often, and maintain more simultaneous
+connections.
+
+\subsection{JA4T Fingerprinting}
+\index{JA4T!definition}
+
+JA4T is the TLS transport fingerprint — a hash of the TCP window size, TCP options
+(MSS, window scale, SACK, timestamps), and their ordering. Unlike JA4 (which fingerprints
+the TLS application layer), JA4T fingerprints the TCP/IP stack implementation. Together,
+JA4 + JA4T can distinguish a real Chrome browser from a tool that has copied Chrome's
+JA4 value but runs on a different OS or with a modified TCP stack.
+
+\subsection{Score Components}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{TCP behaviour signal score components}
+\label{tab:tcp-scores}
+\begin{tabular}{@{}llp{6.5cm}@{}}
+\toprule
+\textbf{Component} & \textbf{Score contribution} & \textbf{Notes} \\
+\midrule
+JA4T mismatch with claimed browser & +20 & JA4T profile inconsistent with JA4 fingerprint label \\
+Session resumption ratio $<$ 10\% & +15 & Legitimate browsers resume sessions aggressively \\
+Concurrent connections $>$ 20 & +30 & Legitimate browsers maintain 6–8 connections \\
+Very short connection lifespan ($<$ 0.1s) & +20 & Scanner pattern — connect, sniff, disconnect \\
+First-seen IP (no return visit history) & +5 & Weak signal; most IPs start here \\
+Return visitor with all blocked history & +25 & IP that only ever got blocked \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{Redis Keys Used}
+
+\begin{itemize}
+  \item \code{sess:\{ip\}} — Hash of \code{total} and \code{resumed} session counts
+  \item \code{conn:\{ip\}} — Current concurrent connection count (INCR/DECR)
+  \item \code{visit:\{ip\}} — Hash of \code{first\_seen}, \code{total}, \code{allowed}, \code{blocked}
+\end{itemize}
+
+\subsection{Failure Behaviour}
+
+If Redis is unreachable, all Redis-backed sub-signals return score=0. The signal as a
+whole returns score=0. The proxy logs the Redis error and increments
+\code{ja4proxy\_redis\_errors\_total}.
+
+\section{Signal 4 — ASN Classification}
+\index{signals!ASN}
+\index{ASN}
+\index{datacenter detection}
+\index{Tor!exit node}
+\label{sig:asn}
+
+\textbf{Phase:} 6 \quad \textbf{Module:} \code{src/security/asn\_classifier.py}
+
+\subsection{What It Measures}
+
+The Autonomous System Number (ASN) associated with the client IP identifies the network
+organisation that owns the IP block. Legitimate browser traffic overwhelmingly originates
+from residential ISPs, mobile carriers, and corporate networks. Automated scanners and
+bots are disproportionately hosted in datacenters and cloud providers.
+
+\subsection{Score Computation}
+
+ASN classification uses:
+\begin{enumerate}
+  \item The MaxMind GeoLite2 ASN database (memory-mapped for zero-copy lookup)
+  \item A curated datacenter ASN list in \code{config/asn\_datacenter\_list.yml}
+  \item The Tor exit node list (fetched periodically from \code{check.torproject.org})
+\end{enumerate}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{ASN signal score contributions}
+\label{tab:asn-scores}
+\begin{tabular}{@{}llp{6cm}@{}}
+\toprule
+\textbf{ASN category} & \textbf{Score} & \textbf{Notes} \\
+\midrule
+Residential ISP & 0 & Expected for browser traffic \\
+Mobile carrier & 0 & Expected for mobile browser traffic \\
+Corporate network & 5 & Minor flag — APIs often originate here \\
+Hosting / datacenter (general) & 25 & Common for cloud-hosted scanners \\
+Known VPN provider & 30 & Often used to evade geo-blocking \\
+Tor exit node & 65 & Significant signal — anonymisation tool \\
+Known botnet/abuse ASN & 80 & From curated bad-org list \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{Failure Behaviour}
+
+If the MaxMind database file is missing or corrupt, this signal returns score=0.
+The proxy logs the failure and increments \code{ja4proxy\_signal\_duration\_seconds}
+with an error tag. The GeoLite2 database should be updated monthly and validated
+at startup.
+
+\section{Signal 5 — FCrDNS Enrichment}
+\index{signals!FCrDNS}
+\index{FCrDNS}
+\index{PTR record}
+\index{passive DNS}
+\label{sig:dns}
+
+\textbf{Phase:} 7 \quad \textbf{Module:} \code{src/security/dns\_enrichment.py}
+
+\subsection{What It Measures}
+
+Forward-confirmed reverse DNS (FCrDNS) validates that the PTR record for a client IP
+resolves to a hostname, and that hostname's A/AAAA record resolves back to the same IP.
+Residential ISPs, cloud providers, and CDNs all maintain consistent FCrDNS. Ephemeral
+scanner infrastructure typically does not.
+
+\subsection{Classification Logic}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{FCrDNS signal classification and scores}
+\label{tab:dns-scores}
+\begin{tabular}{@{}llp{7cm}@{}}
+\toprule
+\textbf{Classification} & \textbf{Score} & \textbf{Notes} \\
+\midrule
+FCrDNS valid, residential pattern & 0 & PTR resolves to ISP hostname pattern \\
+FCrDNS valid, cloud/datacenter & 10 & e.g.\ \code{ec2-*.compute.amazonaws.com} \\
+PTR absent or NXDOMAIN & 30 & No reverse DNS — common for scanners \\
+PTR present but FCrDNS fails & 35 & Inconsistent DNS — suspicious \\
+PTR matches known scanning hostname & 60 & e.g.\ Shodan, Censys, known scanner infra \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{Async Lookup Architecture}
+
+DNS lookups are fire-and-forget: \code{asyncio.create\_task(dns\_lookup(ip))} is called
+at pipeline start. Results are written to a short-lived in-process cache. If the lookup
+has not completed when the scorer runs, the signal returns score=0 for this connection
+(fail open). Results are available for subsequent connections from the same IP.
+
+\subsection{Failure Behaviour}
+
+DNS resolution errors (NXDOMAIN, SERVFAIL, timeout) cause this signal to return score=0.
+The failure is logged at DEBUG level (DNS failures are common and non-actionable).
+
+\section{Signal 6 — Beaconing Detector}
+\index{signals!beaconing}
+\index{beaconing}
+\index{IAT}
+\label{sig:beacon}
+
+\textbf{Phase:} 9 \quad \textbf{Module:} \code{src/security/beaconing\_detector.py}
+
+\subsection{What It Measures}
+
+Beaconing is the pattern of regular, low-jitter connections from the same source —
+characteristic of C2 implants and automated scheduled tasks rather than human browsing.
+Human browsing has highly variable inter-arrival times (IAT). Beaconing tools produce
+IAT distributions with low coefficient of variation.
+
+\subsection{IAT Algorithm}
+\index{IAT!coefficient of variation}
+
+\begin{enumerate}
+  \item Connection timestamps are stored in Redis Sorted Set \code{beacon:\{ip\}:\{ja4\}}
+        (score = Unix timestamp in milliseconds)
+  \item The sliding window retains the last $N$ timestamps within a 30-minute window
+  \item \textbf{Inter-arrival times} are computed as consecutive differences:
+        $\text{IAT}_i = t_{i+1} - t_i$
+  \item The \textbf{coefficient of variation} (CV) is computed: $\text{CV} = \sigma / \mu$
+  \item Low CV indicates regular beaconing; high CV indicates human browsing
+\end{enumerate}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Beaconing signal score thresholds}
+\label{tab:beacon-scores}
+\begin{tabular}{@{}llp{6cm}@{}}
+\toprule
+\textbf{CV range} & \textbf{Score} & \textbf{Notes} \\
+\midrule
+$<$ 5 connections in window & 0 & Insufficient data; no score assigned \\
+CV $>$ 0.8 & 0 & High variability — human pattern \\
+CV 0.4–0.8 & 20 & Moderate regularity \\
+CV 0.1–0.4 & 50 & Strong beaconing pattern \\
+CV $<$ 0.1 & 75 & Near-perfect regularity — almost certainly automated \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{Redis Keys Used}
+
+\code{beacon:\{ip\}:\{ja4\}} — Sorted Set where member = timestamp and score = timestamp.
+ZRANGEBYSCORE is used to retrieve the sliding window. ZADD appends new timestamps.
+Old members (outside the window) are removed with ZREMRANGEBYSCORE.
+
+\subsection{Failure Behaviour}
+
+If Redis is unreachable, this signal returns score=0. Redis writes are fire-and-forget
+and do not block the pipeline.
+
+\section{Signal 7 — AbuseIPDB Score}
+\index{signals!AbuseIPDB}
+\index{AbuseIPDB}
+\label{sig:abuseipdb}
+
+\textbf{Phase:} 10 \quad \textbf{Module:} \code{src/security/abuseipdb.py}
+
+\subsection{What It Measures}
+
+AbuseIPDB is a community-maintained database of IP addresses reported for malicious
+activity (scanning, brute-force, spam, C2 traffic). Each IP has a confidence score
+(0–100) reflecting how frequently it has been reported and how recently.
+
+\subsection{Score Computation}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{AbuseIPDB signal score mapping}
+\label{tab:abuseipdb-scores}
+\begin{tabular}{@{}llp{6.5cm}@{}}
+\toprule
+\textbf{AbuseIPDB confidence} & \textbf{Risk signal score} & \textbf{Notes} \\
+\midrule
+0–49 & 0 & Below minimum threshold; no signal \\
+50–74 & 30 & Moderate abuse history \\
+75–89 & 60 & Significant abuse history \\
+90–100 & 80 & Very high confidence abuse \\
+API error / timeout & 0 & Fail open — never increases score \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{Caching Architecture}
+\index{AbuseIPDB!caching}
+
+AbuseIPDB responses are cached in Redis as \code{abuseipdb:\{ip\}} (JSON, TTL=3600s by
+default). Cache hits return immediately with zero API call. Cache misses trigger an
+async API call (fire-and-forget) and return score=0 for the current connection. The
+result is available for subsequent connections from the same IP.
+
+This design means the \emph{first} connection from a never-seen-before IP pays no
+AbuseIPDB penalty — it is allowed while the lookup runs. This is intentional (fail open).
+
+\subsection{Failure Behaviour}
+
+API errors, HTTP 429 rate limit responses, and network timeouts all produce score=0.
+The error is logged with context and the \code{ja4proxy\_abuseipdb\_lookups\_total\{result="error"\}}
+counter is incremented. The proxy continues functioning with zero AbuseIPDB signal.
+
+\section{Signal 8 — RDAP Org Reputation}
+\index{signals!RDAP}
+\index{RDAP}
+\index{WHOIS}
+\label{sig:rdap}
+
+\textbf{Phase:} 11 \quad \textbf{Module:} \code{src/security/rdap\_enrichment.py}
+
+\subsection{What It Measures}
+
+RDAP (Registration Data Access Protocol) and WHOIS provide the organisation that owns
+an IP block. \ja\ maintains a curated list of known-bad organisations in
+\code{config/known\_bad\_orgs.yml}. Matching the RDAP organisation name against this
+list provides a signal about whether the client IP is associated with organisations
+that systematically operate malicious infrastructure.
+
+\subsection{Score Computation}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{RDAP signal score contributions}
+\label{tab:rdap-scores}
+\begin{tabular}{@{}llp{6cm}@{}}
+\toprule
+\textbf{Condition} & \textbf{Score} & \textbf{Notes} \\
+\midrule
+Known-good org (major cloud, CDN) & 0 & AWS, GCP, Azure, Cloudflare, Akamai \\
+Unknown org & 5 & Default for unrecognised registrants \\
+Org name matches known-bad list & 60--80 & Score from \code{known\_bad\_orgs.yml} \\
+RDAP lookup failed & 0 & Fail open \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{Block Expansion}
+\index{RDAP!block expansion}
+
+When \configkey{rdap.block\_expansion: true} (disabled by default), blocking an IP
+from a known-bad org triggers an automatic CIDR block of the entire /24 (IPv4) or
+/48 (IPv6) prefix containing that IP. The expanded block is written to Redis and picked
+up by the Layer 0d CIDR trie refresh.
+
+\begin{dangerbox}[Block Expansion Risk]
+Block expansion must never be enabled without manual review of the affected prefix.
+RDAP data is sometimes stale, incorrect, or shared between legitimate and malicious
+operators. A rogue /24 expansion affecting a major ISP block can lock out thousands
+of legitimate users.
+\end{dangerbox}
+
+\subsection{WHOIS Pivot}
+
+The RDAP enrichment module also performs WHOIS pivoting: it looks up the registrant
+email domain for the IP block's registrant record. A registrant email from a known
+throwaway or bulletproof hosting domain adds an additional score contribution.
+
+\subsection{Failure Behaviour}
+
+RDAP API errors, timeouts, and malformed responses all return score=0. RDAP queries
+are cached in Redis (\code{rdap:\{ip\_or\_prefix\}}, TTL=86400s) to avoid repeated
+lookups for the same prefix.

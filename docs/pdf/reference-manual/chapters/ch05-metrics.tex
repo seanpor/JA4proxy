@@ -1,0 +1,420 @@
+%% ch05-metrics.tex — Metrics Reference
+%% JA4proxy Technical Reference Manual
+
+\chapter{Metrics Reference}
+\index{metrics}
+\index{Prometheus}
+\label{ch:metrics}
+
+\begin{chapterquote}
+All \ja\ metrics are prefixed \code{ja4proxy\_}. They are exposed on the
+\code{/metrics} HTTP endpoint (default port 9090) in Prometheus text format and
+scraped by the Prometheus instance at \code{:9090}.
+\end{chapterquote}
+
+\newthought{Metric naming follows} the Prometheus naming convention:
+\code{ja4proxy\_\{subsystem\}\_\{metric\_name\}\_\{unit\}}. Counters always end
+in \code{\_total}. Histograms emit \code{\_bucket}, \code{\_count}, and \code{\_sum}
+automatically. All metrics are registered at startup; a metric that has never been
+incremented will still appear in \code{/metrics} with a zero value.
+
+\section{Connection Metrics}
+\index{metrics!connections}
+
+\subsection{ja4proxy\_connections\_total}
+\index{ja4proxy\_connections\_total}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{ja4proxy\_connections\_total} — connection outcome counter}
+\label{tab:metric-conn-total}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Field} & \textbf{Value} \\
+\midrule
+Type & Counter \\
+Labels & \code{action}: \code{allow} | \code{block} | \code{tarpit} | \code{ban} | \code{flag} | \code{rate\_limit} \\
+Description & Total connections processed, labelled by the final action taken \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+Example PromQL:
+\begin{lstlisting}[language=bash]
+# Current connection rate (all outcomes)
+rate(ja4proxy_connections_total[5m])
+
+# Block ratio
+rate(ja4proxy_connections_total{action="block"}[5m])
+  / rate(ja4proxy_connections_total[5m])
+
+# Breakdown by action
+sum by (action) (rate(ja4proxy_connections_total[1m]))
+\end{lstlisting}
+
+\subsection{ja4proxy\_connections\_active}
+\index{ja4proxy\_connections\_active}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{ja4proxy\_connections\_active} — current active connections gauge}
+\label{tab:metric-conn-active}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Type & Gauge \\
+Labels & None \\
+Description & Number of connections currently in the pipeline or forwarding phase \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\section{Bypass Metrics}
+\index{metrics!bypass}
+
+\subsection{ja4proxy\_bypass\_total}
+\index{ja4proxy\_bypass\_total}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{ja4proxy\_bypass\_total} — fast-path bypass counter by bypass type}
+\label{tab:metric-bypass}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Type & Counter \\
+Labels & \code{type}: \code{alpn} | \code{ja4\_whitelist} | \code{mtls} | \code{static\_ip} | \code{ja4\_blacklist} | \code{country} | \code{spamhaus} | \code{tls\_version} \\
+Description & Total connections short-circuited by each bypass condition \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\begin{notebox}[Monitor Bypass Volumes]
+Monitor \code{ja4proxy\_bypass\_total} when modifying bypass configuration. A sudden
+drop in \code{alpn} bypass traffic may indicate HAProxy misconfiguration or an upstream
+change in ALPN negotiation.
+\end{notebox}
+
+Example PromQL:
+\begin{lstlisting}[language=bash]
+# ALPN bypass rate
+rate(ja4proxy_bypass_total{type="alpn"}[5m])
+
+# Spamhaus blocks per minute
+rate(ja4proxy_bypass_total{type="spamhaus"}[1m]) * 60
+\end{lstlisting}
+
+\section{Risk Scoring Metrics}
+\index{metrics!risk score}
+
+\subsection{ja4proxy\_risk\_score\_distribution}
+\index{ja4proxy\_risk\_score\_distribution}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{ja4proxy\_risk\_score\_distribution} — score distribution histogram}
+\label{tab:metric-score-hist}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Type & Histogram \\
+Labels & None \\
+Buckets & 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 \\
+Description & Distribution of computed risk scores across all fully scored connections (bypassed connections are excluded) \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+This histogram is the primary tool for evaluating threshold configuration before raising
+the dial. Plot the distribution in Grafana and select a threshold that captures known-bad
+traffic with minimal false positive exposure.
+
+Example PromQL:
+\begin{lstlisting}[language=bash]
+# 95th percentile score
+histogram_quantile(0.95, rate(ja4proxy_risk_score_distribution_bucket[5m]))
+
+# Fraction of connections scoring above 60
+(
+  sum(rate(ja4proxy_risk_score_distribution_bucket{le="100"}[5m]))
+  - sum(rate(ja4proxy_risk_score_distribution_bucket{le="60"}[5m]))
+)
+/ sum(rate(ja4proxy_risk_score_distribution_bucket{le="100"}[5m]))
+\end{lstlisting}
+
+\subsection{ja4proxy\_dial\_setting}
+\index{ja4proxy\_dial\_setting}
+\index{dial!metric}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{ja4proxy\_dial\_setting} — current dial value gauge}
+\label{tab:metric-dial}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Type & Gauge \\
+Labels & None \\
+Description & Current value of the dial setting (0–100). Updated on every config reload. \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\section{Signal Metrics}
+\index{metrics!signals}
+
+\subsection{ja4proxy\_signal\_duration\_seconds}
+\index{ja4proxy\_signal\_duration\_seconds}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{ja4proxy\_signal\_duration\_seconds} — per-signal latency histogram}
+\label{tab:metric-signal-dur}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Type & Histogram \\
+Labels & \code{signal}: \code{tls} | \code{sni} | \code{tcp} | \code{asn} | \code{dns} | \code{beacon} | \code{abuseipdb} | \code{rdap} \\
+Description & Time taken (in seconds) by each signal check, including cache hits \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+Example PromQL:
+\begin{lstlisting}[language=bash]
+# 99th percentile AbuseIPDB lookup latency
+histogram_quantile(0.99,
+  rate(ja4proxy_signal_duration_seconds_bucket{signal="abuseipdb"}[5m])
+)
+
+# Mean signal latency by type
+rate(ja4proxy_signal_duration_seconds_sum[5m])
+/ rate(ja4proxy_signal_duration_seconds_count[5m])
+\end{lstlisting}
+
+\subsection{ja4proxy\_signal\_score}
+\index{ja4proxy\_signal\_score}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{ja4proxy\_signal\_score} — last-seen score per signal}
+\label{tab:metric-signal-score}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Type & Gauge \\
+Labels & \code{signal}: same set as above \\
+Description & Most recent score contributed by each signal. Useful for debugging individual signal behaviour. Updated on every scored connection. \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\section{External Service Metrics}
+\index{metrics!AbuseIPDB}
+\index{metrics!RDAP}
+
+\subsection{ja4proxy\_abuseipdb\_lookups\_total}
+\index{ja4proxy\_abuseipdb\_lookups\_total}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{ja4proxy\_abuseipdb\_lookups\_total}}
+\label{tab:metric-abuseipdb}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Type & Counter \\
+Labels & \code{result}: \code{hit} (cache hit) | \code{miss} (cache miss → API call) | \code{error} (API error) \\
+Description & Total AbuseIPDB cache operations \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+Example PromQL:
+\begin{lstlisting}[language=bash]
+# AbuseIPDB cache hit rate
+rate(ja4proxy_abuseipdb_lookups_total{result="hit"}[5m])
+/ rate(ja4proxy_abuseipdb_lookups_total[5m])
+
+# AbuseIPDB error rate alert (should be near zero)
+rate(ja4proxy_abuseipdb_lookups_total{result="error"}[5m]) > 0.1
+\end{lstlisting}
+
+\subsection{ja4proxy\_rdap\_lookups\_total}
+\index{ja4proxy\_rdap\_lookups\_total}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{ja4proxy\_rdap\_lookups\_total}}
+\label{tab:metric-rdap}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Type & Counter \\
+Labels & \code{result}: \code{hit} | \code{miss} | \code{error} \\
+Description & Total RDAP cache operations \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\section{Infrastructure Metrics}
+\index{metrics!Redis}
+\index{metrics!config reload}
+
+\subsection{ja4proxy\_redis\_errors\_total}
+\index{ja4proxy\_redis\_errors\_total}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{ja4proxy\_redis\_errors\_total}}
+\label{tab:metric-redis-err}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Type & Counter \\
+Labels & \code{operation}: the Redis operation that failed (e.g.\ \code{GET}, \code{ZADD}, \code{XADD}) \\
+Description & Total Redis operation failures. Any sustained non-zero rate indicates Redis connectivity issues. \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{ja4proxy\_config\_reloads\_total}
+\index{ja4proxy\_config\_reloads\_total}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{ja4proxy\_config\_reloads\_total}}
+\label{tab:metric-cfg-reload}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Type & Counter \\
+Labels & \code{result}: \code{success} | \code{error} \\
+Description & Total config reload attempts. An \code{error} result means the new config was invalid and the proxy continues with the previous configuration. \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\section{Fingerprint Metrics}
+\index{metrics!fingerprint}
+
+\subsection{ja4proxy\_fingerprint\_seen\_total}
+\index{ja4proxy\_fingerprint\_seen\_total}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{ja4proxy\_fingerprint\_seen\_total} — fingerprint observation counter}
+\label{tab:metric-fp}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Type & Counter \\
+Labels & \code{name}: human-readable fingerprint label from \configkey{security.fingerprint\_labels}, e.g.\ \code{Chrome 120+}, \code{Tool/Bot (TLS 1.3)}, \code{Unknown} \\
+Description & Total connections seen by named fingerprint category. Useful for tracking browser vs tool traffic ratios. \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\section{Ban Metrics}
+\index{metrics!ban}
+
+\subsection{ja4proxy\_ban\_ttl\_seconds}
+\index{ja4proxy\_ban\_ttl\_seconds}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{ja4proxy\_ban\_ttl\_seconds} — ban TTL distribution histogram}
+\label{tab:metric-ban}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Type & Histogram \\
+Labels & None \\
+Description & Distribution of ban TTLs at the time the ban is issued. Escalating bans produce higher TTL values over time. \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\section{Alert Rule Examples}
+\index{metrics!alert rules}
+\index{Alertmanager}
+
+The following Prometheus alert rules provide a starting point for production alerting:
+
+\begin{lstlisting}[language=yaml]
+groups:
+  - name: ja4proxy
+    rules:
+      # Redis connectivity — any failure is critical
+      - alert: JA4proxyRedisErrors
+        expr: rate(ja4proxy_redis_errors_total[2m]) > 0.5
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "JA4proxy Redis errors ({{ $value }}/s)"
+          description: >
+            JA4proxy is experiencing Redis errors. The fail-open
+            guarantee means connections are still being allowed,
+            but bans, rate limits, and signals are not being applied.
+
+      # Blocking rate spike — may indicate attack or misconfiguration
+      - alert: JA4proxyHighBlockRate
+        expr: |
+          rate(ja4proxy_connections_total{action="block"}[5m])
+            / rate(ja4proxy_connections_total[5m]) > 0.3
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "JA4proxy block rate > 30%"
+          description: >
+            More than 30% of connections are being blocked.
+            Verify this is not a false positive wave.
+
+      # AbuseIPDB API errors — degraded enrichment
+      - alert: JA4proxyAbuseIPDBErrors
+        expr: rate(ja4proxy_abuseipdb_lookups_total{result="error"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AbuseIPDB lookup errors"
+
+      # No connections — possible proxy failure
+      - alert: JA4proxyNoConnections
+        expr: rate(ja4proxy_connections_total[5m]) == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "JA4proxy receiving no connections"
+\end{lstlisting}
+
+\section{Grafana Dashboard Panels}
+\index{Grafana!dashboard}
+
+The following panels are recommended for the \ja\ operational dashboard:
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Recommended Grafana dashboard panels}
+\label{tab:grafana-panels}
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Panel name} & \textbf{Visualisation} & \textbf{PromQL query} \\
+\midrule
+Connection rate by action & Stacked time series & \code{sum by (action) (rate(ja4proxy\_connections\_total[1m]))} \\
+Risk score heatmap & Heatmap & \code{rate(ja4proxy\_risk\_score\_distribution\_bucket[1m])} \\
+Block rate \% & Gauge (0–100\%) & Block / total connections \\
+Bypass breakdown & Pie chart & \code{sum by (type) (rate(ja4proxy\_bypass\_total[5m]))} \\
+Signal latency P99 & Bar chart & P99 histogram for each signal \\
+Fingerprint traffic mix & Pie chart & \code{sum by (name) (rate(ja4proxy\_fingerprint\_seen\_total[5m]))} \\
+Dial setting & Stat panel & \code{ja4proxy\_dial\_setting} \\
+Redis error rate & Time series & \code{rate(ja4proxy\_redis\_errors\_total[1m])} \\
+AbuseIPDB cache hit rate & Stat panel & hit / total rate \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}

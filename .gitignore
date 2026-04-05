@@ -133,3 +133,20 @@ test-results/
 /proxy
 /ja4proxy
 /cmd/proxy/proxy
+
+# LaTeX build artifacts (docs/pdf/)
+*.aux
+*.log
+*.toc
+*.idx
+*.ind
+*.ilg
+*.out
+*.lot
+*.lof
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+*.nav
+*.snm
+*.vrb
