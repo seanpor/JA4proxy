@@ -51,6 +51,13 @@ _INTEGRITY_VIOLATIONS_BY_PATH = Counter(
     ["path"],
 )
 
+# Skipped-verification counter — fired when optional dependencies are absent.
+_INTEGRITY_SKIP = Counter(
+    "ja4proxy_integrity_skip_total",
+    "Integrity checks skipped due to missing optional dependency",
+    ["reason"],
+)
+
 # ---------------------------------------------------------------------------
 # IntegrityMonitor
 # ---------------------------------------------------------------------------
@@ -128,9 +135,10 @@ class IntegrityMonitor:
             from cryptography.exceptions import InvalidSignature
         except ImportError:
             logger.warning(
-                "integrity | event=cryptography_missing | "
-                "effect=signature verification skipped (fail-open)"
+                "WARN | integrity | event=cryptography_missing | "
+                "effect=signature_verification_skipped"
             )
+            _INTEGRITY_SKIP.labels(reason="cryptography_missing").inc()
             return True
 
         sig_path = config_path + ".sig"
