@@ -328,10 +328,10 @@ phases:
 
   34:
     name: "APT Hardening - Phase 1: Parser Isolation & Redis Security"
-    status: "PROPOSED"
-    summary: "Implement parser process isolation and Zero-Trust Redis ACLs with signatures."
+    status: "IN_PROGRESS"
+    summary: "Implement parser process isolation and Zero-Trust Redis ACLs with signatures. Now also covers items absorbed from cancelled Phase 55: Redis ACL users, JA4/TLS mismatch detection, proxy Seccomp JSON profile, AppArmor profile, subnet correlation pipeline wiring, and fuzz test."
     action_plan: "docs/phases/PHASE_34.md"
-    size: "SMALL"
+    size: "MEDIUM"
     success_criteria:
       - "Scapy parsing moved to isolated process pool"
       - "Redis communication uses TLS and ACLs"
@@ -504,11 +504,12 @@ phases:
 
   55:
     name: "APT Hardening - Phase 2: Advanced Detection & Container Security"
-    status: "PROPOSED"
+    status: "CANCELLED"
     summary: "Implement subnet correlation, anti-evasion checks, and strict Seccomp/AppArmor profiles."
     action_plan: "docs/phases/PHASE_55.md"
-    dependencies: [34]
+    dependencies: []
     size: "SMALL"
+    cancelled_note: "Absorbed into Phase 34. All remaining items (JA4/TLS mismatch, Seccomp, AppArmor, subnet correlation wiring) moved to Phase 34."
     success_criteria:
       - "Strict Seccomp/AppArmor profiles enforced"
       - "Subnet-level signal correlation functional"

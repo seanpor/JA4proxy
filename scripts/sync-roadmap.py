@@ -26,6 +26,7 @@ STATUS_PATH = "docs/PROJECT_STATUS.md"
 TODO_SECTION_MAP: dict = {
     "COMPLETE":    None,          # Not shown — work done
     "CLOSED":      None,          # Not shown — abandoned/superseded
+    "CANCELLED":   None,          # Not shown — absorbed into another phase
     "IN_PROGRESS": "in_progress", # → 🟡 Phases In Progress
     "PROPOSED":    "planned",     # → 🔵 Planned & Open Phases
     "DEFERRED":    "planned",     # → 🔵 Planned & Open Phases
