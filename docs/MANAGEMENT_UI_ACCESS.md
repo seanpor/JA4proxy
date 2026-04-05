@@ -1,191 +1,243 @@
-# Management UI Access via SSH Tunnel
+<!--
+title: Remote Access — Management UI, Grafana, and All Services
+audience: Operators, Developers
+last_reviewed: 2026-04-05
+phase: 13
+-->
 
-The JA4proxy Management UI runs on port 8090 bound to `127.0.0.1` only. This means
-it is not reachable from the internet — you must connect through an SSH tunnel from a
-machine that has SSH access to the server.
+# Remote Access Guide
 
-This document covers access from a Chromebook (Linux container), but the same
-instructions apply to any Linux/macOS machine.
+JA4proxy binds all management and monitoring ports to loopback addresses only — they
+are never reachable over the internet without an SSH tunnel. This is a deliberate
+security property: even if the management login endpoint has a vulnerability, it cannot
+be reached unless you already have an SSH session on the server.
 
----
-
-## Why SSH Tunnel?
-
-Port 8090 is deliberately bound to loopback (`127.0.0.1:8090`) and not to the server's
-public interface. This prevents the management API from being reachable over the internet
-without the protection of an SSH session. The management API has a login endpoint, but
-exposing it directly to the internet adds unnecessary attack surface.
-
-SSH tunnelling means:
-- The management UI never appears in port scans of your server
-- Brute-force attacks against the login endpoint are not possible from the internet
-- You get the security of SSH key authentication "for free" before the management login
-  page is even presented
+This guide covers how to access all services from a Chromebook (or any machine with SSH).
 
 ---
 
-## Quick Start
+## How It Works
 
-This is the minimum you need. Run this on your local machine (Chromebook, laptop, etc.):
+Each agent (e.g. `claude4`, `gemini`) gets its own loopback IP — for example
+`127.0.0.21`. All that agent's services bind to that IP. The SSH tunnel forwards
+each service's port from the server's loopback to your local machine, where Chrome
+can open it as `http://localhost:PORT`.
 
-```bash
-# On your Chromebook / local machine:
-ssh -L 8090:localhost:8090 user@your-server-ip -N
-
-# Then open in Chrome:
-# http://localhost:8090
+```
+Chromebook                            Server
+──────────                            ──────
+Chrome → localhost:8090  ══SSH══▶  127.0.0.21:8090  (Management UI, agent claude4)
+Chrome → localhost:8080  ══SSH══▶  127.0.0.21:8080  (Analytics,     agent claude4)
+Chrome → localhost:3001  ══SSH══▶  127.0.0.1:3001   (Grafana,       shared)
+Chrome → localhost:9091  ══SSH══▶  127.0.0.1:9091   (Prometheus,    shared)
+Chrome → localhost:8404  ══SSH══▶  127.0.0.21:8404  (HAProxy stats, agent claude4)
 ```
 
-The `-L 8090:localhost:8090` flag forwards your local port 8090 to port 8090 on the
-remote server. The `-N` flag opens the tunnel without starting a shell.
+---
 
-Leave this terminal open while you use the UI. Press Ctrl+C to close the tunnel.
+## Quick Start (one command)
+
+On the server, find the tunnel command for your agent:
+
+```bash
+make tunnel NAME=claude4
+```
+
+Example output:
+```
+Agent: claude4  |  IP: 127.0.0.21
+
+Run this in a NEW terminal on your Chromebook:
+
+  ssh -N \
+    -L 8090:127.0.0.21:8090 \
+    -L 8080:127.0.0.21:8080 \
+    -L 8404:127.0.0.21:8404 \
+    -L 9091:127.0.0.1:9091 \
+    -L 3001:127.0.0.1:3001 \
+    USER@YOUR-SERVER
+
+Then browse to:
+  http://localhost:8090        — Management UI  (claude4)
+  http://localhost:8080        — Analytics      (claude4)
+  http://localhost:8404/stats  — HAProxy stats  (claude4)
+  http://localhost:9091        — Prometheus     (shared)
+  http://localhost:3001        — Grafana        (shared)
+```
+
+Copy the `ssh -N ...` command, open a **new terminal tab** on your Chromebook, paste
+and run it. Leave that terminal open while you use the services.
+
+If you know the server hostname upfront, you can also include it directly:
+
+```bash
+# Prints the command with the hostname already filled in — ready to copy-paste
+make tunnel NAME=claude4 HOST=sean@myserver.example.com
+```
 
 ---
 
-## Persistent Tunnel for Regular Use
+## Services Reference
 
-For day-to-day use, add a host entry to `~/.ssh/config` on your Chromebook so you can
-bring the tunnel up with a single short command.
+| Service | Local URL | Description |
+|---------|-----------|-------------|
+| Management UI | `http://localhost:8090` | Config, lists, bans, dial, audit log |
+| Analytics | `http://localhost:8080` | Real-time traffic analysis, campaign detection |
+| HAProxy Stats | `http://localhost:8404/stats` | Connection counts, backend status |
+| Prometheus | `http://localhost:9091` | Raw metrics, ad-hoc queries |
+| Grafana | `http://localhost:3001` | Dashboards — start with **JA4proxy Security Overview** |
+
+### Finding your agent's IP
+
+If you need the IP without running `make tunnel`:
 
 ```bash
-# Add to ~/.ssh/config on your Chromebook (create the file if it doesn't exist):
+grep AGENT_BIND_IP .env.claude4
+# AGENT_BIND_IP=127.0.0.21
+```
 
-Host ja4proxy-mgmt
-  HostName your-server-ip
+---
+
+## Persistent Access (SSH Config)
+
+For daily use, add an entry to `~/.ssh/config` on your Chromebook. This lets you
+bring up all tunnels with a single short command.
+
+```
+# ~/.ssh/config on your Chromebook
+
+Host ja4proxy-claude4
+  HostName your-server-ip-or-hostname
   User your-username
-  LocalForward 8090 localhost:8090
+  # Per-agent services (adjust IPs to match your agent's AGENT_BIND_IP)
+  LocalForward 8090 127.0.0.21:8090   # Management UI
+  LocalForward 8080 127.0.0.21:8080   # Analytics
+  LocalForward 8404 127.0.0.21:8404   # HAProxy stats
+  # Shared monitoring stack
+  LocalForward 9091 127.0.0.1:9091    # Prometheus
+  LocalForward 3001 127.0.0.1:3001    # Grafana
+  # Keep tunnel alive through short inactivity periods
   ServerAliveInterval 60
   ServerAliveCountMax 3
 ```
 
-Then open the tunnel with:
+Open the tunnel:
 
 ```bash
-ssh ja4proxy-mgmt -N
+ssh ja4proxy-claude4 -N
 ```
 
-And navigate to: `http://localhost:8090`
+Then browse to `http://localhost:8090` (and any of the other URLs above).
 
-The `ServerAliveInterval 60` and `ServerAliveCountMax 3` settings keep the tunnel alive
-through short periods of inactivity (up to 3 minutes without traffic before the connection
-drops).
+To add a second agent, duplicate the `Host` block with a different name and the
+other agent's IP:
 
----
-
-## Chromebook Linux Container Specifics
-
-The Chromebook's Linux container (Crostini) has a full OpenSSH client available in the
-Terminal app. Port forwarding set up inside the Linux container is accessible in Chrome
-on the Chromebook — Chrome can open `http://localhost:8090` directly.
-
-Steps:
-1. Open the Terminal app (Linux apps → Terminal)
-2. Run: `ssh -L 8090:localhost:8090 user@your-server-ip -N`
-3. Open Chrome and navigate to: `http://localhost:8090`
-
-The Chromebook does not require any special firewall configuration — the port forwarding
-works entirely within the Linux container's loopback interface, and Chrome can reach it.
-
----
-
-## Starting the Management UI on the Server
-
-Before connecting via SSH tunnel, ensure the management service is running on the server:
-
-```bash
-# On the server, in the JA4proxy directory:
-cd /path/to/JA4proxy4
-make management-up
-
-# Verify it started:
-curl http://localhost:8090/api/v1/health
-# Expected: {"status": "ok", ...}
 ```
-
-To check logs:
-
-```bash
-make management-logs
-```
-
-To stop:
-
-```bash
-make management-down
+Host ja4proxy-gemini
+  HostName your-server-ip-or-hostname
+  User your-username
+  # Use different local ports to avoid clashes with the claude4 entry
+  LocalForward 8190 127.0.0.10:8090   # Management UI (gemini, on local :8190)
+  LocalForward 8180 127.0.0.10:8080   # Analytics     (gemini, on local :8180)
+  ...
 ```
 
 ---
 
-## Default Credentials
+## Starting Services on the Server
 
-| Setting | Default | Environment Variable |
-|---------|---------|---------------------|
-| Username | `admin` | `MANAGEMENT_ADMIN_USER` |
-| Password | `admin` | `MANAGEMENT_ADMIN_PASSWORD` |
+The tunnel forwards ports that must already be listening. Start the agent stack first:
 
-These defaults are intentionally weak. Change them before sharing access with any team
-member. See the security checklist below.
+```bash
+# On the server:
+make agent-up NAME=claude4
+```
+
+This starts the full stack (proxy, Redis, HAProxy, management, analytics). The output
+shows all bound addresses and a reminder to run `make tunnel`.
+
+To start the shared monitoring stack (Grafana, Prometheus):
+
+```bash
+make start-monitoring
+```
+
+Verify the management service is healthy before connecting:
+
+```bash
+curl http://127.0.0.21:8090/api/v1/health
+# {"status": "ok", "redis": "ok", ...}
+```
 
 ---
 
-## Changing Credentials
+## Management UI Login
 
-Set these in your `.env` file in the JA4proxy root directory (never commit `.env` to git):
+| Setting | Default | How to change |
+|---------|---------|---------------|
+| Username | `admin` | Set `MANAGEMENT_ADMIN_USER` in `.env.claude4` |
+| Password | `admin` | Set `MANAGEMENT_ADMIN_PASSWORD` in `.env.claude4` |
+
+**Change both before sharing access.** After editing the env file, restart the agent:
 
 ```bash
-# In /path/to/JA4proxy4/.env:
-MANAGEMENT_JWT_SECRET=<random-32-char-string>
-MANAGEMENT_ADMIN_USER=youruser
-MANAGEMENT_ADMIN_PASSWORD=your-strong-password
+make agent-down NAME=claude4
+make agent-up   NAME=claude4
 ```
 
-Generate a random JWT secret:
+Generate a strong JWT secret:
 
 ```bash
 python3 -c "import secrets; print(secrets.token_hex(32))"
-```
-
-After updating `.env`, restart the management service:
-
-```bash
-make management-down && make management-up
+# Add result as MANAGEMENT_JWT_SECRET in .env.claude4
 ```
 
 ---
 
-## Security Checklist
+## Security Notes
 
-Complete this checklist before sharing management access with any team member:
-
-- [ ] Set `MANAGEMENT_JWT_SECRET` to a random 32+ character string in `.env`
-- [ ] Set `MANAGEMENT_ADMIN_PASSWORD` to a strong password in `.env`
-- [ ] Verify port 8090 is NOT listed in your server firewall's allowed inbound rules
-      (check: `curl --connect-timeout 5 http://<server-public-ip>:8090` from an external
-      machine — it should time out)
-- [ ] Use SSH key authentication for the SSH tunnel (not password auth)
-- [ ] Ensure your SSH private key is passphrase-protected on the Chromebook
+- Port 8090 binds to `127.0.0.X` only — never `0.0.0.0`. It will not appear in an
+  external port scan.
+- SSH key auth is enforced for the tunnel before the management login page is served.
+  This gives you two layers of authentication.
+- JWT tokens expire after 8 hours. The browser automatically redirects to `/login`
+  when the session expires.
+- The login endpoint rate-limits to 5 attempts per minute. There is no lockout —
+  just a 60-second cooldown.
 
 ---
 
 ## Troubleshooting
 
-**"Connection refused" when opening http://localhost:8090:**
-The SSH tunnel is open but the management service is not running on the server.
-Run `make management-up` on the server.
+**`Connection refused` when opening `http://localhost:8090`**
+The tunnel is open but the service is not running. Run `make agent-up NAME=claude4`
+on the server, then check `make management-logs NAME=claude4`.
 
-**"Channel 3: open failed: connect failed" in the SSH terminal:**
-The management service is not listening on port 8090 on the server. Check:
-`docker compose -f docker-compose.poc.yml ps management`
+**`Channel N: open failed: connect failed` in the SSH terminal**
+The service is not listening on the expected IP/port. Check the bound address:
+```bash
+ss -tlnp | grep 8090
+```
+If the IP doesn't match what the tunnel expects, check `grep AGENT_BIND_IP .env.claude4`.
 
-**Tunnel drops frequently:**
-Add to your SSH config or use `-o ServerAliveInterval=60 -o ServerAliveCountMax=3`
-on the command line.
+**Tunnel drops after a period of inactivity**
+Add `ServerAliveInterval 60` and `ServerAliveCountMax 3` to the `Host` block in
+`~/.ssh/config` (shown in the persistent access section above).
 
-**Login page does not appear (blank page or 404):**
-The management service may still be starting up. Wait 10 seconds and refresh.
+**Dashboard panels are blank**
+The management UI shows live data from Redis. If no proxy traffic has been generated,
+most panels will be empty. Run `make agent-up NAME=claude4` to ensure the proxy is
+running, then send some test traffic or wait for real connections.
+
+**`Bind for 127.0.0.1:8090 failed: port is already allocated`**
+Two agents are both trying to bind port 8090 on the same IP. This should not happen
+with the current setup (each agent uses its own IP). If it does, check whether an old
+management-only container is still running:
+```bash
+docker ps | grep management
+docker stop <container-name>
+```
+
+**Login page does not appear (blank page or 404)**
+The management container may still be initialising. Wait 10 seconds and refresh.
 Check `make management-logs` for startup errors.
-
-**"Too many requests" on login:**
-The login endpoint rate-limits to 5 attempts per 60 seconds. Wait 60 seconds and try
-again with the correct credentials.
