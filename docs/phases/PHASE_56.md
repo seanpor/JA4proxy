@@ -3,6 +3,7 @@
 **Status:** PROPOSED
 **Priority:** HIGH (Post-Phase 35)
 **Prerequisite:** Phase 35
+**Track:** Track B — Advanced APT (see Phase 35 for track overview)
 
 ## Goal
 
@@ -45,7 +46,7 @@ implement kernel-level isolation to prevent post-exploitation persistence.
 - [ ] **Prod parity:** Ensure `docker/docker-compose.prod.yml` matches poc on all ephemeral
       filesystem settings.
 
-## Acceptance Criteria
+## Verification Plan
 
 - [ ] Client using a Honey-Fingerprint is immediately banned with `APT:DECEPTION_TRIGGERED`
       tag; no RST is sent (silent drop confirmed via tcpdump).
