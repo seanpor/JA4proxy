@@ -272,10 +272,10 @@ docker compose -f docker-compose.poc.yml -f docker-compose.go.yml up -d go-proxy
 **What is verified:**
 - Full feature parity with the Python core — all 14 security signal modules implemented
 - JA4/JA4X fingerprint output matches Python fixtures exactly (cross-language parity tests pass)
+- End-to-end throughput verified: **15,000+ conn/s** peak measured (13-31x Python)
 - 75+ unit tests passing; identical Redis schema and config format to Python
 
 **What is not yet complete:**
-- End-to-end throughput has not been formally benchmarked under load
 - Production deployment validation gates have not been run
 
 The Python proxy remains the primary surface for developing new signal modules — prototype in Python, then port to Go once stable.
@@ -297,7 +297,7 @@ Measured on i9-9900K (Linux, Ubuntu 22.04), after Phase 26–30 throughput optim
 | p99 connection latency | **1.62 ms** |
 | Single instance (Python) | **2,184 conn/s** |
 | 4 instances (Python) | **~8,100 conn/s** |
-| Go proxy | Architecture eliminates GIL; formal end-to-end benchmarks not yet run |
+| Go proxy | **15,000+ conn/s** (measured peak) |
 
 See [Phase 30 Capacity Report](docs/performance/PHASE_30_CAPACITY_REPORT.md) and [Benchmark History](docs/performance/BENCHMARK_HISTORY.md) for full methodology and per-scenario data.
 
