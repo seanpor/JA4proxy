@@ -1,0 +1,414 @@
+%% ch02-pipeline.tex — The Security Pipeline
+%% JA4proxy Technical Reference Manual
+
+\chapter{The Security Pipeline}
+\index{pipeline}
+\label{ch:pipeline}
+
+\begin{chapterquote}
+The pipeline is the ordered sequence of checks applied to every TLS connection.
+Every layer runs in microseconds. Signal collection layers run in parallel.
+The pipeline produces exactly one action per connection.
+\end{chapterquote}
+
+\newthought{The pipeline has three zones}: the \textbf{fast-path bypass zone} (layers 0–2),
+which short-circuits immediately on certain conditions; the \textbf{signal collection zone}
+(layers 3–10), where eight checks run concurrently; and the \textbf{decision zone}
+(layers 11–12), which aggregates signals into a score and maps the score to an action.
+
+\section{Pipeline Overview}
+\index{pipeline!overview}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Complete pipeline layer reference}
+\label{tab:pipeline-layers}
+\begin{tabular}{@{}llllp{5.5cm}@{}}
+\toprule
+\textbf{Layer} & \textbf{Name} & \textbf{Zone} & \textbf{Output} & \textbf{Trigger condition} \\
+\midrule
+\bypassrow{0} & \bypassrow{IP trust \& normalisation} & \bypassrow{Fast path} & \bypassrow{—} & \bypassrow{Every connection} \\
+\bypassrow{0b} & \bypassrow{Static IP allowlist} & \bypassrow{Fast path} & \bypassrow{\badgeallow} & \bypassrow{IP in static allowlist} \\
+\bypassrow{0c} & \bypassrow{GeoIP country block} & \bypassrow{Fast path} & \bypassrow{\badgeblock} & \bypassrow{Country in blacklist} \\
+\bypassrow{0d} & \bypassrow{CIDR block} & \bypassrow{Fast path} & \bypassrow{\badgeblock} & \bypassrow{IP in blocked subnet} \\
+\bypassrow{0e} & \bypassrow{Spamhaus DROP/EDROP} & \bypassrow{Fast path} & \bypassrow{\badgeblock} & \bypassrow{IP in DROP/EDROP trie} \\
+\bypassrow{1} & \bypassrow{ALPN browser bypass} & \bypassrow{Fast path} & \bypassrow{\badgeallow} & \bypassrow{ALPN = h2 or h1} \\
+\bypassrow{1b} & \bypassrow{JA4 whitelist} & \bypassrow{Fast path} & \bypassrow{\badgeallow} & \bypassrow{JA4 in whitelist SET} \\
+\bypassrow{1c} & \bypassrow{mTLS client cert} & \bypassrow{Fast path} & \bypassrow{\badgeallow} & \bypassrow{Valid client certificate} \\
+\bypassrow{2} & \bypassrow{JA4 blacklist} & \bypassrow{Fast path} & \bypassrow{\badgeblock} & \bypassrow{JA4 in blacklist SET} \\
+\signalrow{3} & \signalrow{TLS enforcement} & \signalrow{Signal} & \signalrow{Signal or \badgeblock} & \signalrow{TLS version/cipher check} \\
+\signalrow{4} & \signalrow{SNI analysis} & \signalrow{Signal} & \signalrow{Signal} & \signalrow{Every connection} \\
+\signalrow{5} & \signalrow{TCP \& connection behaviour} & \signalrow{Signal} & \signalrow{Signal} & \signalrow{Every connection} \\
+\signalrow{6} & \signalrow{ASN classification} & \signalrow{Signal} & \signalrow{Signal} & \signalrow{Every connection} \\
+\signalrow{7} & \signalrow{FCrDNS enrichment} & \signalrow{Signal} & \signalrow{Signal} & \signalrow{Every connection} \\
+\signalrow{8} & \signalrow{Beaconing detector} & \signalrow{Signal} & \signalrow{Signal} & \signalrow{Every connection} \\
+\signalrow{9} & \signalrow{AbuseIPDB score} & \signalrow{Signal} & \signalrow{Signal} & \signalrow{Every connection} \\
+\signalrow{10} & \signalrow{RDAP org reputation} & \signalrow{Signal} & \signalrow{Signal} & \signalrow{Every connection} \\
+11 & Attacker attribution & Analysis & Signal & Cross-IP JA4/JA4X correlation \\
+12 & Behavioural analysis & Analysis & Signal & Sequential/coordinated patterns \\
+13 & Risk scorer & Decision & Score 0–100 & Always \\
+14 & Action decider & Decision & Action & Always \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\section{The Fast-Path Bypass System}
+\index{bypass!fast path}
+\index{bypass!configuring}
+
+\subsection{How Bypasses Work}
+
+Each bypass condition is independently configurable under the \configkey{security\_policy}
+configuration section. When a bypass condition is met and its bypass is enabled, the
+pipeline short-circuits immediately — the signal collection and scoring layers never
+execute, and no Redis signal-collection writes are made.
+
+All bypass conditions are toggleable. Disabling an ALLOW bypass causes those connections
+to pass through the full scorer. Disabling a BLOCK bypass routes those connections through
+the scorer, where the dial controls whether they are actually blocked.
+
+\begin{warningbox}[Bypass Modification Risk]
+The proxy emits a startup \code{WARN} log entry and increments a Prometheus counter for
+every high-risk bypass that is disabled. Operators should monitor
+\code{ja4proxy\_bypass\_total} to verify bypass layer traffic volumes are as expected.
+\end{warningbox}
+
+\subsection{Layer 0 — IP Trust and Normalisation}
+\index{PROXY protocol}
+\index{IP normalisation}
+\index{trusted upstream CIDR}
+
+Every connection enters layer 0. This layer:
+\begin{enumerate}
+  \item Verifies the connection originates from a trusted upstream CIDR (the HAProxy address range)
+  \item Reads the PROXY protocol v2 header to extract the real client IP
+  \item Canonicalises the IP to its compressed string representation
+  \item Checks whether the IP is in the in-process ban cache (fast reject before Redis)
+\end{enumerate}
+
+If the sender is not in the trusted upstream CIDR, the connection is rejected immediately.
+This prevents IP spoofing via injected PROXY protocol headers.\sidenote{Without trusted
+upstream CIDR verification, an attacker who can reach port 8080 directly could inject a
+PROXY header claiming any client IP.}
+
+\subsection{Layer 0b — Static IP Allowlist}
+\index{bypass!static IP allowlist}
+\index{static IP allowlist}
+
+Configuration key: \configkey{security\_policy.static\_ip\_allowlist.enabled}
+
+If the client IP is found in the static IP allowlist (configured in
+\configkey{config/proxy.yml} and hot-reloadable), the connection is immediately allowed
+without scoring. Typical use: trusted monitoring systems, CI test runners, internal
+health checkers.
+
+\subsection{Layer 0c — GeoIP Country Block}
+\index{GeoIP}
+\index{country blocking}
+\index{bypass!country blacklist}
+
+Configuration key: \configkey{security\_policy.country\_blacklist\_bypass.enabled}
+
+Country lookup uses the IP2Location LITE database in conjunction with a Redis-backed
+country blacklist. Countries in \configkey{geoip.country\_blacklist} trigger an immediate
+BLOCK. This check runs before any TLS parsing — the country decision is based on IP alone.
+
+\begin{notebox}[Country Allowlist vs Blacklist]
+\configkey{geoip.country\_whitelist\_enabled} and \configkey{geoip.country\_blacklist\_enabled}
+are independent toggles. The allowlist mode (only listed countries are permitted) is
+distinct from the blacklist mode (listed countries are blocked). Both can be active
+simultaneously; the whitelist check runs first.
+\end{notebox}
+
+\subsection{Layer 0d — CIDR Block}
+\index{CIDR blocking}
+
+Subnet blocks are maintained in Redis and refreshed every 30 seconds into an in-process
+trie. This layer is the enforcement point for RDAP block expansion (Phase~11) and
+manually added subnet bans. Matching an entry produces an immediate BLOCK without
+scoring.
+
+\textbf{IPv6:} The trie handles both IPv4 and IPv6 prefixes natively. Block expansion
+never adds prefixes shorter than /24 (IPv4) or /48 (IPv6).
+
+\subsection{Layer 0e — Spamhaus DROP/EDROP}
+\index{Spamhaus!DROP}
+\index{Spamhaus!EDROP}
+\index{bypass!Spamhaus}
+
+Configuration key: \configkey{security\_policy.spamhaus\_bypass.enabled}
+
+Spamhaus DROP and EDROP lists are fetched at startup and refreshed every
+\configkey{spamhaus.refresh\_interval} seconds (default 3600). They are stored
+in an in-process trie for O(log n) lookup.\sidenote{The Spamhaus DROP list contains
+IP ranges that have been hijacked or directly allocated to cybercriminals. False
+positive rate is near zero — these ranges are never used for legitimate traffic.}
+
+When disabled, Spamhaus matches produce a \code{RiskSignal(+80)} instead of a hard
+block. The signal flows through the scorer, and the dial controls whether the connection
+is blocked.
+
+\subsection{Layer 1 — ALPN Browser Bypass}
+\index{bypass!ALPN browser}
+\index{ALPN}
+\index{h2}
+
+Configuration key: \configkey{security\_policy.alpn\_browser\_bypass.enabled}
+
+\begin{dangerbox}[ALPN Bypass — Do Not Disable Without Justification]
+The ALPN browser bypass is structurally the most critical bypass. h2 and h1 ALPN values
+are set exclusively by real browsers communicating over HTTPS. Disabling this bypass
+causes all browser traffic to be scored. With typical score distributions, this will
+generate false positives at scale. This bypass should only be disabled to score specific
+h2 API clients, and only with monitoring in place.
+\end{dangerbox}
+
+Connections presenting \code{h2} or \code{h1} ALPN values are immediately allowed.
+These connections are never enqueued for enrichment, and their IP/netblock is never
+eligible for block expansion.
+
+\subsection{Layer 1b — JA4 Whitelist}
+\index{JA4!whitelist}
+\index{bypass!JA4 whitelist}
+
+Configuration key: \configkey{security\_policy.ja4\_whitelist\_bypass.enabled}
+
+The JA4 whitelist is a Redis SET (\code{ja4:whitelist}) loaded into an in-process set
+at startup and refreshed on config reload. JA4 fingerprints matching the whitelist
+trigger an immediate ALLOW. Wildcard and regex matching are not supported —
+whitelist entries are exact fingerprint strings.
+
+\subsection{Layer 1c — mTLS Client Certificate}
+\index{mTLS}
+\index{bypass!mTLS}
+\index{client certificate}
+
+Configuration key: \configkey{security\_policy.mtls\_bypass.enabled}
+
+A valid mTLS client certificate is cryptographic proof of identity. By default,
+presenting a valid certificate against the configured trusted CA set
+(\code{config/trusted\_cas.pem}) triggers an immediate ALLOW without scoring.
+If disabled, mTLS clients are scored — they can still be blocked if their score
+exceeds the dial threshold.
+
+\subsection{Layer 2 — JA4 Blacklist}
+\index{JA4!blacklist}
+\index{bypass!JA4 blacklist}
+
+Configuration key: \configkey{security\_policy.ja4\_blacklist\_bypass.enabled}
+
+The JA4 blacklist is a Redis SET (\code{ja4:blacklist}) mirroring the whitelist
+architecture. Matching fingerprints trigger an immediate TCP RST with no further
+processing. Known blacklist entries include tool and C2 implant fingerprints such as
+\fingerprint{t13d190900\_9dc949149365\_97f8aa674fd9} (Sliver C2 framework).
+
+When disabled, blacklisted fingerprints produce a high-weight \code{RiskSignal}
+routed through the scorer. This is useful for investigating traffic from
+known-bad fingerprints without hard-blocking.
+
+\section{Signal Collection (Layers 3–10)}
+\index{signals!collection}
+\index{asyncio.gather}
+
+Layers 3–10 run concurrently via \code{asyncio.gather()} after the fast-path zone
+completes without a decision. Each signal check is a coroutine that:
+\begin{enumerate}
+  \item Reads relevant data from the connection context and Redis
+  \item Optionally calls an external service (AbuseIPDB, RDAP, DNS)
+  \item Returns a \code{RiskSignal(score, weight, reason)} object
+\end{enumerate}
+
+All signal checks are non-blocking. External service calls are fire-and-forget via
+\code{asyncio.create\_task()} — they do not block the connection handling coroutine.
+Every signal check has an explicit failure handler that logs the failure, increments
+a Prometheus error counter, and returns a zero/neutral result.
+
+See Chapter~\ref{ch:signals} for full documentation of each signal.
+
+\section{Attacker Attribution (Layer 11)}
+\index{attacker attribution}
+\index{JA4X}
+\index{JA4T}
+
+Layer 11 correlates JA4, JA4X, and JA4T fingerprints across IPs observed by the
+analytics node. It looks for:
+\begin{itemize}
+  \item Multiple IPs sharing the same JA4/JA4T profile (coordinated scanning)
+  \item JA4X extension ordering inconsistencies with claimed browser identity
+  \item Fingerprint drift — the same IP changing fingerprints across connections
+\end{itemize}
+
+Attribution findings are written by the analytics node to \code{findings:\{ip\}} in
+Redis (TTL=300s) and read back by the pipeline at layer 11.
+
+\section{Behavioural Analysis (Layer 12)}
+\index{behavioural analysis}
+\index{sequential probing}
+\index{coordinated bursts}
+
+Layer 12 detects behavioural patterns that individual connections cannot reveal:
+\begin{itemize}
+  \item \textbf{Sequential probing} — connections to incrementally varying SNI values
+        from the same source IP, characteristic of host enumeration
+  \item \textbf{Coordinated bursts} — sudden increases in connection rate from multiple
+        IPs sharing a fingerprint (botnet activation pattern)
+  \item \textbf{Fingerprint drift} — the same IP cycling through multiple JA4 values
+        to evade per-fingerprint rate limits
+\end{itemize}
+
+\section{Risk Scorer (Layer 13)}
+\index{risk scorer}
+\index{confidence weighting}
+\index{score!0-100}
+
+\subsection{Score Aggregation Algorithm}
+
+The risk scorer aggregates all \code{RiskSignal} objects from layers 3–12 into a
+single integer score in the range 0–100. The aggregation algorithm is
+confidence-weighted:
+
+\begin{enumerate}
+  \item Each signal contributes \code{signal.score × signal.weight} to the total
+  \item Weights are normalised to sum to 1.0 across all active signals
+  \item The raw weighted sum is clamped to [0, 100]
+  \item Signal scores from external services that are unreachable contribute 0
+        (fail open — a missing signal never increases the score)
+\end{enumerate}
+
+\subsection{Score Semantics}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Score ranges and their interpretation}
+\label{tab:score-ranges}
+\begin{tabular}{@{}lllp{6cm}@{}}
+\toprule
+\textbf{Score} & \textbf{Interpretation} & \textbf{Typical source} & \textbf{Default action at dial=100} \\
+\midrule
+0–19 & Clean & Browser traffic, known-good fingerprints & Allow \\
+20–39 & Low risk & Datacenter IP with clean fingerprint & Allow or flag \\
+40–59 & Moderate risk & Scanner, unresolved PTR, high-confidence AbuseIPDB & Rate limit \\
+60–79 & High risk & Tor exit, known-bad ASN, beaconing pattern & Tarpit \\
+80–100 & Critical & Confirmed C2 fingerprint, Spamhaus signal, banned IP & Block or ban \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\section{Action Decider (Layer 14)}
+\index{action decider}
+\index{dial}
+\index{actions}
+
+\subsection{The Dial}
+\index{dial!semantics}
+
+The \configkey{dial} value (0–100) controls how aggressively scores are translated into
+blocking actions. At \code{dial=0}, every connection is allowed regardless of score —
+the system is in pure monitor mode. At \code{dial=100}, the thresholds configured in
+\configkey{security.rate\_limit\_strategies} apply in full.
+
+\begin{notebox}[Dial Increment Policy]
+The dial should be raised incrementally. A jump from 0 to 100 without first validating
+the score distribution risks generating false positives at scale. The recommended approach
+is to raise the dial to 20 and observe for 24 hours, then to 50, then to 100.
+\end{notebox}
+
+\subsection{The Six Actions}
+\index{actions!allow}
+\index{actions!flag}
+\index{actions!rate\_limit}
+\index{actions!tarpit}
+\index{actions!block}
+\index{actions!ban}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Action definitions and connection handling behaviour}
+\label{tab:actions}
+\begin{tabular}{@{}llp{4cm}p{5.5cm}@{}}
+\toprule
+\textbf{Action} & \textbf{Badge} & \textbf{Connection fate} & \textbf{Notes} \\
+\midrule
+allow & \badgeallow & Forwarded to backend unchanged & ClientHello bytes replayed to backend; proxy becomes transparent relay \\
+\addlinespace
+flag & \badgeallow & Forwarded to backend & Connection allowed but high-priority event emitted to analytics stream \\
+\addlinespace
+rate\_limit & \badgemonitor & Queued or delayed & Token bucket or sliding window rate limiting applied per-IP or per-JA4 \\
+\addlinespace
+tarpit & \badgetarpit & Artificially slowed & Data delivered to backend at throttled rate; consumes attacker connection slots \\
+\addlinespace
+block & \badgeblock & TCP RST sent & Connection closed immediately; no data forwarded; TTL-free (not persistent) \\
+\addlinespace
+ban & \badgeban & TCP RST sent & IP added to Redis ban SET with TTL; all future connections blocked immediately at layer 0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{Ban Escalation}
+\index{ban!escalation}
+\index{ban!TTL}
+
+Ban escalation applies when an IP continues to trigger blocks after an initial ban
+expires. The ban TTL doubles on each re-ban up to the configured maximum:
+
+\begin{itemize}
+  \item First ban: \code{ban\_duration} seconds (default 300)
+  \item Second ban: \code{ban\_duration × 2} seconds
+  \item Subsequent bans: capped at 604800 seconds (7 days)
+\end{itemize}
+
+Ban state is stored in Redis as \code{ban:\{ip\}} with the TTL set at write time.
+The proxy reads ban state from its local in-process cache first (TTL=30s) to avoid
+Redis round-trips for known-banned IPs.
+
+\section{Multi-Strategy Policy}
+\index{multi-strategy policy}
+\index{rate limiting!strategies}
+
+Three rate-limiting strategies run simultaneously, each tracking a different key:
+
+\begin{description}
+  \item[by\_ip] Rate window keyed by client IP. Detects high-volume floods from a single address.
+  \item[by\_ja4] Rate window keyed by JA4 fingerprint. Detects distributed scanning sharing a tool fingerprint.
+  \item[by\_ip\_ja4\_pair] Rate window keyed by (IP, JA4) pair. Detects IP-rotation evasion where each IP presents the same fingerprint.
+\end{description}
+
+The \configkey{security.multi\_strategy\_policy} setting controls how strategy results are combined:
+
+\begin{description}
+  \item[\code{any}] Block if \emph{any} strategy triggers (most aggressive)
+  \item[\code{majority}] Block if \emph{two or more} strategies trigger (default)
+  \item[\code{all}] Block only if \emph{all} strategies trigger (most conservative)
+\end{description}
+
+\section{Pipeline Performance Characteristics}
+\index{performance}
+\index{latency}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Expected latency contribution by pipeline zone}
+\label{tab:pipeline-perf}
+\begin{tabular}{@{}llll@{}}
+\toprule
+\textbf{Zone} & \textbf{Python (asyncio)} & \textbf{Go} & \textbf{Notes} \\
+\midrule
+Fast-path bypass (cache hit) & $<$100\,µs & $<$10\,µs & Local LRU cache, no Redis \\
+Fast-path bypass (Redis) & 200–400\,µs & 150–300\,µs & Single Redis GET \\
+Signal collection (parallel) & 1–5\,ms & 0.1–1\,ms & External services: AbuseIPDB ~50ms (cached) \\
+Scoring and decision & $<$100\,µs & $<$10\,µs & Pure computation \\
+Total (cached, fast path) & $<$500\,µs & $<$50\,µs & Typical cached connection \\
+Total (full pipeline, no cache) & 2–10\,ms & 0.3–2\,ms & First-seen IP, all signals \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\begin{notebox}[AbuseIPDB Latency]
+AbuseIPDB lookups use aggressive caching (TTL=3600s by default). A cache hit adds zero
+latency. Only cache misses (first-seen IP) incur the network round-trip, which is
+~50ms and runs asynchronously — it does not block the connection decision.
+\end{notebox}

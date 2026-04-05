@@ -1,0 +1,390 @@
+%% ch04-configuration.tex — JA4proxy Operator's User Guide
+%% Chapter 4: Configuration
+
+\chapter{Configuration}
+\label{ch:configuration}
+\index{configuration}
+
+\newthought{All runtime behaviour is controlled by \code{config/proxy.yml}.}
+This chapter walks through every significant configuration section, explains what
+each setting does, and gives guidance on choosing values for your environment.
+
+The configuration file uses YAML. Every key is documented with an inline comment
+in the file itself; this chapter provides the operational context that comments
+cannot.
+
+\section{Hot Reload}
+\label{sec:hotreload}
+\index{hot reload}
+\index{SIGHUP}
+
+Configuration changes take effect without restarting the proxy. Send \code{SIGHUP}
+to the proxy process:
+
+\begin{bashcode}
+kill -HUP $(docker compose exec ja4proxy cat /var/run/proxy.pid)
+\end{bashcode}
+
+The proxy logs a confirmation:
+\begin{lstlisting}[language=bash, numbers=none]
+INFO | config | event=reload | status=ok | keys_changed=3
+\end{lstlisting}
+
+The Management UI (when present) triggers reload via a Redis pub/sub message —
+the proxy subscribes to a reload channel and applies new configuration on receipt.
+
+Configuration sections that \emph{cannot} be hot-reloaded and require a full
+restart: listen port, Redis URL, TLS certificate paths, and the number of worker
+processes. These are logged as \code{restart\_required} in the reload response.
+
+\section{The Dial}
+\index{dial}
+\index{dial!rollout}
+
+\begin{yamlcode}
+# Blocking aggression: 0 = monitor only, 100 = full blocking
+# Default: 0 (never block on first deploy)
+dial: 0
+\end{yamlcode}
+
+The dial is the single most consequential configuration setting. Get it wrong and
+you either block legitimate users or provide no protection.
+
+\subsection{Dial Rollout Procedure}
+
+Follow this progression. Spend at least 24--48 hours at each stage before proceeding,
+and watch the Grafana action distribution and false-positive indicators throughout.
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{llX}
+    \toprule
+    \textbf{Dial} & \textbf{Effect} & \textbf{What to watch for} \\
+    \midrule
+    0 & Monitor only & Baseline. All traffic passes. Review score distribution. \\
+    25 & Flag only & High-scoring traffic is flagged in metrics. No blocking. \\
+    50 & Rate limiting active & Automated clients start hitting rate limits. Check
+         for false positives in rate-limited IPs. \\
+    75 & Tarpit + rate limit & High-risk connections enter tarpit. Verify no
+         legitimate API clients are affected. \\
+    100 & Full blocking & Block threshold applies. Last check: review BLOCKED log
+         lines for any unexpected legitimate traffic. \\
+    \bottomrule
+  \end{tabularx}
+  \caption{Dial rollout stages}
+\end{table}
+
+\begin{dangerbox}[Do not jump to dial=100]
+The dial increment limit exists for a reason. A jump from 0 to 100 on a production
+system, without first reviewing scores at intermediate stages, risks immediately
+blocking legitimate users. Always progress gradually.
+\end{dangerbox}
+
+\subsection{Dial and Bypass Interaction}
+
+ALLOW bypasses (browser ALPN, JA4 whitelist, mTLS) are \emph{unaffected by the dial}.
+They always allow. Disabling a bypass is the correct way to route that category
+through the scorer; the dial then controls whether scoring results in a block.
+
+BLOCK bypasses (JA4 blacklist, country block, Spamhaus) also operate independently
+of the dial at their default setting — they produce hard blocks before scoring.
+When a BLOCK bypass is disabled, those connections enter the scorer, and the dial
+then controls what happens to them.
+
+\section{Country Filtering}
+\index{country filtering}
+\index{GeoIP}
+
+\begin{yamlcode}
+# Country whitelist: only these countries are allowed
+# Requires GeoIP database (make update-geoip)
+country_whitelist_enabled: false
+country_whitelist:
+  - IE
+  - GB
+  - US
+
+# Country blacklist: these countries are always blocked
+# Takes effect only when country_whitelist_enabled is false
+country_blacklist_enabled: false
+country_blacklist:
+  - KP
+  - RU
+  - CN
+\end{yamlcode}
+
+Whitelist and blacklist are mutually exclusive: if \configkey{country\_whitelist\_enabled}
+is \code{true}, the blacklist is ignored (the whitelist already excludes everything not
+listed). If both are disabled, country filtering has no effect.
+
+\begin{warningbox}[Whitelist vs blacklist]
+The whitelist is the more robust option for deployments where you know your legitimate
+audience is geographically bounded. The blacklist is more convenient but less effective
+— attackers are not constrained to operate from the countries you have blocked.
+
+VPN usage means country codes are unreliable. Do not rely on country filtering as
+your primary defence.
+\end{warningbox}
+
+\section{JA4 Fingerprint Lists}
+\index{JA4!blacklist}
+\index{JA4!whitelist}
+\index{fingerprint lists}
+
+\begin{yamlcode}
+security:
+  # Exact-match whitelist: these fingerprints are always allowed (bypass scoring)
+  whitelist:
+    - t13d1113h2_8daaf6152771_b0da82dd1658  # Chrome 120 on Windows
+    - t13d1113h2_8daaf6152771_02713d6af862  # Chrome 120 on macOS
+
+  # Pattern-match whitelist: regex patterns matched against fingerprint strings
+  # Use for version-resilient matching when the full fingerprint changes with browser updates
+  whitelist_patterns:
+    - "t13d111[0-9]h2_.*"  # Any Chrome-like TLS 1.3 fingerprint
+
+  # Exact-match blacklist: these fingerprints are immediately blocked (hard block)
+  blacklist:
+    - t13d0912_a1b2c3d4e5f6_987654321abc  # Sliver C2
+    - t12d1302_c0ffee123456_aabbccddeeff  # Cobalt Strike default
+
+  # Human-readable labels for known fingerprints (used in logs and dashboard)
+  fingerprint_labels:
+    t13d1113h2_8daaf6152771_b0da82dd1658: "Chrome 120 (Windows)"
+    t13d1113h2_8daaf6152771_02713d6af862: "Chrome 120 (macOS)"
+    t13d0912_a1b2c3d4e5f6_987654321abc: "Sliver C2"
+\end{yamlcode}
+
+\subsection{Managing the Whitelist}
+
+Add fingerprints to the whitelist when:
+\begin{itemize}
+  \item A legitimate API client or monitoring tool is being scored too harshly
+  \item An internal service has a non-browser TLS fingerprint you know is safe
+  \item A specific customer's tooling is repeatedly triggering rate limits
+\end{itemize}
+
+Use \configkey{whitelist\_patterns} for browser fingerprints that change with each
+browser update, to avoid constant maintenance. The pattern \code{t13d111[0-9]h2\_.*}
+matches all TLS 1.3 connections with Chrome-like cipher ordering, regardless of
+the specific extension hashes.
+
+\begin{notebox}[Whitelist patterns and performance]
+Patterns are evaluated as regular expressions for each connection. Keep the pattern
+list short (under 20 entries) and anchor patterns where possible to avoid
+backtracking. Exact matches in \configkey{whitelist} are O(1) hash lookups.
+\end{notebox}
+
+\subsection{Managing the Blacklist}
+
+Add fingerprints to the blacklist when you have high confidence that a fingerprint
+represents a malicious tool and that no legitimate software shares it. The JA4
+community database at \url{https://ja4db.com} is a useful reference for known
+tool fingerprints.
+
+The blacklist produces an immediate RST (hard block) before scoring. This is the
+most efficient way to drop known-bad clients.
+
+\begin{warningbox}[Shared fingerprints]
+Some penetration testing tools use the same underlying TLS library as legitimate
+software. Before blacklisting a fingerprint, verify it is not shared with any
+legitimate client in your environment. Fingerprints from generic HTTP libraries
+(like Python's \code{requests} or Node.js's \code{https}) are often shared.
+\end{warningbox}
+
+\section{Rate Limiting}
+\index{rate limiting}
+\index{rate limiting!strategies}
+
+\begin{yamlcode}
+rate_limiting:
+  enabled: true
+
+  # Three independent strategies — any, all, or a majority can trigger
+  rate_limit_strategies:
+    by_ip:
+      enabled: true
+      limit: 60          # connections per window
+      window_seconds: 60
+      action: ban        # ban, block, or tarpit
+
+    by_ja4:
+      enabled: true
+      limit: 200         # same fingerprint across all IPs
+      window_seconds: 60
+      action: tarpit
+
+    by_ip_ja4_pair:
+      enabled: true
+      limit: 30          # same IP + same fingerprint
+      window_seconds: 60
+      action: ban
+
+  # How to combine strategy decisions when multiple trigger
+  # majority: trigger if >=2 of 3 strategies say yes (default)
+  # any: trigger if any strategy says yes (aggressive)
+  # all: trigger if all enabled strategies say yes (conservative)
+  multi_strategy_policy: majority
+\end{yamlcode}
+
+\subsection{Strategy Selection}
+
+The three strategies catch different attack patterns:
+
+\begin{description}[leftmargin=4.5cm]
+  \item[\configkey{by\_ip}] Catches any single source sending high volume,
+    regardless of tool. The bluntest instrument — catches bots, scanners,
+    and DDoS sources. Low false-positive risk for normal users.
+
+  \item[\configkey{by\_ja4}] Catches distributed attacks using the same tool
+    across many source IPs. A botnet of 1000 IPs each sending 2 connections
+    might not trigger the IP strategy, but will trigger the JA4 strategy if
+    the fingerprint is consistent across the botnet.
+
+  \item[\configkey{by\_ip\_ja4\_pair}] The most precise strategy. Catches
+    a single source using a single tool intensively, while allowing the same
+    IP to use multiple different tools (e.g., a security researcher running
+    multiple scanners from one IP).
+\end{description}
+
+\subsection{Multi-Strategy Policy}
+
+\configkey{multi\_strategy\_policy: majority} is the default and recommended
+setting. It requires two of the three strategies to agree before triggering
+an action. This reduces false positives from any single strategy misfiring,
+while still catching distributed attacks that trigger multiple strategies.
+
+Use \configkey{any} only if you need maximum sensitivity and are comfortable
+with a higher false-positive rate. Use \configkey{all} only if you have
+persistent false positive issues with the majority policy.
+
+\section{Bypass Conditions}
+\index{bypass conditions}
+\index{security policy}
+
+\begin{yamlcode}
+security_policy:
+  # ALLOW bypasses — short-circuit scoring
+  alpn_browser_bypass:
+    enabled: true        # h2/h1 ALPN → always allowed
+
+  ja4_whitelist_bypass:
+    enabled: true        # JA4 in whitelist → always allowed
+
+  mtls_bypass:
+    enabled: true        # Valid mTLS client cert → always allowed
+
+  static_ip_allowlist:
+    enabled: true        # IP in static allowlist → always allowed
+
+  # BLOCK bypasses — hard block before scoring
+  ja4_blacklist_bypass:
+    enabled: true        # JA4 in blacklist → immediate RST
+
+  country_blacklist_bypass:
+    enabled: true        # Country in blocklist → immediate block
+
+  spamhaus_bypass:
+    enabled: true        # Spamhaus DROP/EDROP match → immediate block
+
+  tls_version_bypass:
+    enabled: true        # TLS 1.0/1.1 → immediate RST
+\end{yamlcode}
+
+Every bypass condition is independently configurable. The defaults are sensible
+for most deployments; here is when you would change them:
+
+\begin{table}[ht]
+  \small
+  \begin{tabularx}{\linewidth}{lX}
+    \toprule
+    \textbf{Bypass} & \textbf{When to disable} \\
+    \midrule
+    \configkey{alpn\_browser\_bypass} & Almost never. Disabling this means legitimate
+      browsers can be blocked, which is the primary false-positive risk. Only disable
+      if scoring specific h2 API clients is critical to your use case. \\
+    \midrule
+    \configkey{ja4\_whitelist\_bypass} & If you want whitelisted fingerprints to be
+      scored for observability purposes but still allowed. \\
+    \midrule
+    \configkey{mtls\_bypass} & If you want to score mTLS clients rather than
+      unconditionally trust them. \\
+    \midrule
+    \configkey{spamhaus\_bypass} & If you want to investigate traffic from Spamhaus-listed
+      ranges rather than hard-blocking it. Disabling routes those connections through
+      the scorer with a +80 risk signal contribution. \\
+    \midrule
+    \configkey{tls\_version\_bypass} & If you need to score rather than immediately
+      reject TLS 1.0/1.1 clients — e.g., to quantify how much legacy TLS your
+      infrastructure actually receives. \\
+    \bottomrule
+  \end{tabularx}
+  \caption{When to disable bypass conditions}
+\end{table}
+
+\begin{warningbox}[Startup warnings for disabled bypasses]
+If you disable any high-risk bypass, the proxy emits a \code{WARN} log at startup
+and increments a Prometheus counter. This is intentional — it is a reminder that
+a non-default bypass configuration is active. The warning format:
+\begin{lstlisting}[language=bash, numbers=none]
+WARN | policy | event=bypass_disabled | bypass=alpn_browser_bypass |
+       effect=browser traffic will be scored; false positive risk elevated
+\end{lstlisting}
+\end{warningbox}
+
+\section{Additional Configuration Sections}
+
+\subsection{Signal Weights}
+\index{risk scorer!weights}
+
+Individual signal weights can be tuned in the \configkey{scorer} section. The
+defaults are calibrated from empirical testing; only adjust them if you have
+clear evidence that a specific signal is over- or under-contributing in your
+environment. \emph{See the Technical Reference Manual for signal weight documentation.}
+
+\subsection{Beaconing Detection}
+\index{beaconing}
+
+\begin{yamlcode}
+beaconing:
+  enabled: true
+  min_connections: 5       # minimum connections before analysis
+  cv_threshold: 0.3        # coefficient of variation threshold
+  window_seconds: 3600     # look-back window
+\end{yamlcode}
+
+The beaconing detector looks for connections from the same IP+JA4 pair at
+suspiciously regular intervals. A coefficient of variation below the threshold
+(very regular timing) triggers a risk signal. The default threshold of 0.3
+catches C2 beaconing without flagging APIs with regular polling intervals.
+
+\subsection{AbuseIPDB}
+\index{AbuseIPDB}
+
+\begin{yamlcode}
+abuseipdb:
+  enabled: true            # set to false if no API key
+  api_key: ""              # or set via ABUSEIPDB_API_KEY env var
+  score_threshold: 50      # minimum score to generate a risk signal
+  cache_ttl_seconds: 3600  # cache successful lookups for 1 hour
+  hard_block_threshold: 0  # 0 = never hard-block via AbuseIPDB alone
+\end{yamlcode}
+
+AbuseIPDB score is used as one signal among many. The \configkey{hard\_block\_threshold}
+defaults to 0 (disabled) because AbuseIPDB scores reflect community reports that may
+include shared IPs (NAT, VPNs). A high AbuseIPDB score contributes to the composite
+risk score, but does not by itself produce a hard block.
+
+\subsection{Redis Connection}
+\index{Redis!configuration}
+
+\begin{yamlcode}
+redis:
+  host: redis              # hostname or socket path
+  port: 6379
+  db: 0
+  # unix_socket: /var/run/redis/redis.sock  # 30-40% lower latency than TCP
+\end{yamlcode}
+
+The Unix domain socket option is significantly faster than TCP for same-host Redis.
+If your proxy and Redis run on the same host, configure the socket path.

@@ -1,0 +1,472 @@
+%% ch03-configuration-ref.tex — Configuration Reference
+%% JA4proxy Technical Reference Manual
+
+\chapter{Configuration Reference}
+\index{configuration}
+\label{ch:configuration}
+
+\begin{chapterquote}
+Every behavioural parameter in \ja\ is configurable in \code{config/proxy.yml}.
+All keys except listen port, Redis URL, and TLS certificate paths support
+hot-reload via \code{SIGHUP} or the Management UI.
+\end{chapterquote}
+
+\newthought{The configuration file} is \code{config/proxy.yml}. Environment variable
+interpolation is supported: \code{\$\{VAR\_NAME\}} is replaced with the environment
+variable at startup. Secrets (API keys, Redis password) must be provided via
+environment variables — never hard-coded in the config file.
+
+\section{Hot Reload Behaviour}
+\index{hot reload!configuration}
+
+On \code{SIGHUP}, \ja\ re-reads \code{config/proxy.yml} and applies all changes that
+support hot-reload. A \code{config\_reload} event is emitted to the policy audit log
+in Redis. The Management UI sends a Redis pub/sub message to trigger reload without
+a Unix signal.
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{Hot-reload support by configuration section}
+\label{tab:hotreload}
+\begin{tabular}{@{}llp{6cm}@{}}
+\toprule
+\textbf{Section} & \textbf{Hot-reloadable} & \textbf{Notes} \\
+\midrule
+\code{proxy.bind\_host} / \code{bind\_port} & No & Requires process restart \\
+\code{proxy.backend\_host} / \code{backend\_port} & Yes & Applies to new connections \\
+\code{dial} & Yes & Applies immediately to all new decisions \\
+\code{security\_policy} & Yes & New bypass states apply to next connection \\
+\code{geoip} & Yes & New country lists apply immediately \\
+\code{security} (lists) & Yes & List changes apply to next connection \\
+\code{abuseipdb} & Yes & Cache TTL change affects new lookups \\
+\code{rdap} & Yes & block\_expansion toggle applies immediately \\
+\code{spamhaus} & No (refresh\_interval) & Next trie refresh uses new URL \\
+\code{redis.url} / \code{redis.password} & No & Requires process restart \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\section{proxy — Core Listener Settings}
+\index{configuration!proxy}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{proxy} section — core listener settings}
+\label{tab:config-proxy}
+\begin{tabular}{@{}lllp{5.5cm}@{}}
+\toprule
+\textbf{Key} & \textbf{Type} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\code{bind\_host} & string & \code{"0.0.0.0"} & Listen address for incoming TCP connections from HAProxy \\
+\code{bind\_port} & integer & \code{8080} & Listen port. Must match HAProxy backend configuration \\
+\code{backend\_host} & string & \textit{required} & Hostname or IP of the protected backend. Must be set \\
+\code{backend\_port} & integer & \code{443} & Backend port. Typically 443 for HTTPS \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\begin{yamlcode}
+proxy:
+  bind_host: "0.0.0.0"
+  bind_port: 8080
+  backend_host: "backend"   # Docker service name or hostname
+  backend_port: 443
+\end{yamlcode}
+
+\section{dial — Blocking Aggression}
+\index{dial}
+\index{configuration!dial}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{dial} setting}
+\label{tab:config-dial}
+\begin{tabular}{@{}lllp{7cm}@{}}
+\toprule
+\textbf{Key} & \textbf{Type} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\code{dial} & integer & \code{0} & Blocking aggression: 0 = monitor only (no blocking); 100 = full blocking per configured thresholds. Intermediate values scale blocking proportionally. Raise incrementally. \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\begin{warningbox}[Never Deploy with dial=100 on First Install]
+Always start at \code{dial: 0}. Observe the score distribution for at least 24 hours
+before raising the dial. A premature jump to 100 can block legitimate traffic before
+you have validated your threshold configuration.
+\end{warningbox}
+
+\section{security\_policy — Bypass Conditions}
+\index{configuration!security\_policy}
+\index{bypass!configuration}
+
+Each bypass condition has a single \code{enabled} boolean key. All default to \code{true}.
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{security\_policy} section — bypass conditions}
+\label{tab:config-secpolicy}
+\begin{tabular}{@{}llp{3.5cm}p{5.5cm}@{}}
+\toprule
+\textbf{Key} & \textbf{Default} & \textbf{Effect when true} & \textbf{Risk if disabled} \\
+\midrule
+\code{alpn\_browser\_bypass.enabled} & \code{true} & h2/h1 ALPN → ALLOW without scoring & Browser traffic scored; false positive risk elevated \\
+\code{ja4\_whitelist\_bypass.enabled} & \code{true} & JA4 in whitelist → ALLOW without scoring & Whitelisted fingerprints scored; may be blocked if above threshold \\
+\code{mtls\_bypass.enabled} & \code{true} & Valid mTLS cert → ALLOW without scoring & mTLS clients scored; may be blocked if above threshold \\
+\code{static\_ip\_allowlist.enabled} & \code{true} & IP in allowlist → ALLOW without scoring & Allowlisted IPs scored \\
+\code{ja4\_blacklist\_bypass.enabled} & \code{true} & JA4 in blacklist → TCP RST immediately & Blacklisted fingerprints only blocked if score exceeds dial threshold \\
+\code{country\_blacklist\_bypass.enabled} & \code{true} & Country in blacklist → BLOCK immediately & Blacklisted countries only blocked by scorer \\
+\code{spamhaus\_bypass.enabled} & \code{true} & Spamhaus DROP match → BLOCK immediately & Spamhaus matches produce RiskSignal(+80) instead of hard block \\
+\code{tls\_version\_bypass.enabled} & \code{true} & TLS 1.0/1.1/SSLv3 → TCP RST immediately & Old TLS versions produce risk score contribution instead of hard reject \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\begin{yamlcode}
+security_policy:
+  alpn_browser_bypass:
+    enabled: true   # h2/h1 ALPN -> ALLOW without scoring
+  ja4_whitelist_bypass:
+    enabled: true   # JA4 in whitelist -> ALLOW without scoring
+  mtls_bypass:
+    enabled: true   # Valid mTLS cert -> ALLOW without scoring
+  static_ip_allowlist:
+    enabled: true   # IP in static allowlist -> ALLOW without scoring
+  ja4_blacklist_bypass:
+    enabled: true   # JA4 in blacklist -> immediate RST, no scoring
+  country_blacklist_bypass:
+    enabled: true   # Country in GeoIP blocklist -> immediate block
+  spamhaus_bypass:
+    enabled: true   # Spamhaus DROP/EDROP -> immediate block
+  tls_version_bypass:
+    enabled: true   # TLS 1.0/1.1/SSLv3 -> immediate RST
+\end{yamlcode}
+
+\section{geoip — Geographic Controls}
+\index{configuration!geoip}
+\index{GeoIP}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{geoip} section}
+\label{tab:config-geoip}
+\begin{tabular}{@{}lllp{5.5cm}@{}}
+\toprule
+\textbf{Key} & \textbf{Type} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\code{country\_whitelist\_enabled} & boolean & \code{true} & Enable country allowlist mode. If true, only countries in \code{country\_whitelist} are allowed \\
+\code{country\_whitelist} & list & \code{["IE","GB","IM","US"]} & ISO 3166-1 alpha-2 country codes permitted when whitelist mode is active \\
+\code{country\_blacklist\_enabled} & boolean & \code{true} & Enable country blacklist mode. Listed countries are immediately blocked \\
+\code{country\_blacklist} & list & \code{["KP","RU"]} & ISO 3166-1 alpha-2 country codes to block immediately \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\begin{notebox}[Whitelist and Blacklist Together]
+Both modes can be active simultaneously. The whitelist check runs first. A country
+not on the whitelist (when whitelist mode is active) is blocked independently of
+whether it appears on the blacklist. Use whitelist mode for strict geographic restrictions
+(allowlist your expected countries), and blacklist mode for blocking specific known-bad
+countries when you serve a broad geographic audience.
+\end{notebox}
+
+\begin{yamlcode}
+geoip:
+  country_whitelist_enabled: true
+  country_whitelist: ["IE", "GB", "IM", "US"]
+  country_blacklist_enabled: true
+  country_blacklist: ["KP", "RU"]
+\end{yamlcode}
+
+\section{security — Fingerprint Lists and Rate Limits}
+\index{configuration!security}
+
+\subsection{Fingerprint Lists}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{security} section — fingerprint lists}
+\label{tab:config-fp-lists}
+\begin{tabular}{@{}lllp{5.5cm}@{}}
+\toprule
+\textbf{Key} & \textbf{Type} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\code{whitelist} & list of strings & \code{[]} & Exact JA4 fingerprints to whitelist. Loaded into Redis \code{ja4:whitelist} and an in-process set \\
+\code{whitelist\_patterns} & list of strings & \code{["h2","h1"]} & ALPN patterns that trigger the ALPN browser bypass. Separate from the JA4 whitelist \\
+\code{blacklist} & list of strings & \code{[]} & Exact JA4 fingerprints to blacklist. Loaded into Redis \code{ja4:blacklist} \\
+\code{fingerprint\_labels} & map & \code{\{\}} & Human-readable names for fingerprints. Used in logs and metrics \\
+\code{multi\_strategy\_policy} & string & \code{"majority"} & How to combine rate limit strategy results: \code{any} / \code{majority} / \code{all} \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\subsection{Rate Limit Strategies}
+\index{rate limiting!configuration}
+
+Three rate-limiting strategies are defined under \code{security.rate\_limit\_strategies}.
+Each has an identical structure:
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{rate\_limit\_strategies} — per-strategy keys}
+\label{tab:config-rl}
+\begin{tabular}{@{}lllp{5cm}@{}}
+\toprule
+\textbf{Key} & \textbf{Type} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\code{thresholds.suspicious} & integer & — & Connections/second at which the strategy flags as suspicious \\
+\code{thresholds.block} & integer & — & Connections/second at which the strategy triggers a block \\
+\code{thresholds.ban} & integer & — & Connections/second at which the strategy triggers a permanent ban \\
+\code{action} & string & — & Action to take when threshold is crossed: \code{tarpit} or \code{block} \\
+\code{ban\_duration} & integer & \code{300} & Initial ban TTL in seconds. Escalates on re-ban \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\begin{yamlcode}
+security:
+  whitelist:
+    - "t13d1516h2_8daaf6152771_02713d6af862"  # Chrome 120+
+  whitelist_patterns:
+    - "h2"
+    - "h1"
+  blacklist:
+    - "t13d190900_9dc949149365_97f8aa674fd9"  # Sliver C2
+  fingerprint_labels:
+    "t13d1516h2_8daaf6152771_02713d6af862": "Chrome 120+"
+  multi_strategy_policy: "majority"
+  rate_limit_strategies:
+    by_ip:
+      thresholds: {suspicious: 50, block: 200, ban: 500}
+      action: "tarpit"
+      ban_duration: 300
+    by_ja4:
+      thresholds: {suspicious: 20, block: 100, ban: 200}
+      action: "block"
+      ban_duration: 300
+    by_ip_ja4_pair:
+      thresholds: {suspicious: 20, block: 50, ban: 100}
+      action: "tarpit"
+      ban_duration: 300
+\end{yamlcode}
+
+\section{abuseipdb — Reputation Lookup}
+\index{configuration!abuseipdb}
+\index{AbuseIPDB}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{abuseipdb} section}
+\label{tab:config-abuseipdb}
+\begin{tabular}{@{}lllp{5.5cm}@{}}
+\toprule
+\textbf{Key} & \textbf{Type} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\code{enabled} & boolean & \code{true} & Enable AbuseIPDB lookups \\
+\code{api\_key} & string & \textit{required} & AbuseIPDB API key. Must be an env var reference: \code{\$\{ABUSEIPDB\_API\_KEY\}} \\
+\code{cache\_ttl} & integer & \code{3600} & Seconds to cache AbuseIPDB responses in Redis \\
+\code{min\_score\_to\_signal} & integer & \code{50} & Minimum AbuseIPDB score (0–100) that produces a RiskSignal. Never hard-block below 50 \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\begin{warningbox}[AbuseIPDB Score 50 Floor]
+The \code{min\_score\_to\_signal} floor exists because AbuseIPDB scores below 50 are
+common for shared infrastructure (NAT gateways, VPNs, corporate egress). Hard-blocking
+based on scores below 50 has an unacceptably high false positive rate. The default of
+50 should not be lowered without evaluating the false positive impact on your traffic.
+\end{warningbox}
+
+\begin{yamlcode}
+abuseipdb:
+  enabled: true
+  api_key: "${ABUSEIPDB_API_KEY}"
+  cache_ttl: 3600
+  min_score_to_signal: 50
+\end{yamlcode}
+
+\section{rdap — WHOIS/RDAP Org Reputation}
+\index{configuration!rdap}
+\index{RDAP}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{rdap} section}
+\label{tab:config-rdap}
+\begin{tabular}{@{}lllp{5.5cm}@{}}
+\toprule
+\textbf{Key} & \textbf{Type} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\code{enabled} & boolean & \code{true} & Enable RDAP/WHOIS enrichment lookups \\
+\code{block\_expansion} & boolean & \code{false} & Automatically block the entire /24 (IPv4) or /48 (IPv6) of a blocked IP. Must be explicitly enabled \\
+\code{max\_expansion} & integer & \code{24} & Maximum prefix length for block expansion. Never set below 24 for IPv4 \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\begin{dangerbox}[Block Expansion Off by Default]
+\code{block\_expansion: true} will cause \ja\ to block the entire /24 subnet when a
+single IP is blocked. On residential ISPs and shared hosting, an entire /24 may serve
+thousands of unrelated users. Enable only after confirming that the blocked IPs are
+from dedicated attacker infrastructure with no residential or business customers.
+\end{dangerbox}
+
+\begin{yamlcode}
+rdap:
+  enabled: true
+  block_expansion: false      # secops must explicitly opt in
+  max_expansion: 24           # never beyond /24 IPv4, /48 IPv6
+\end{yamlcode}
+
+\section{spamhaus — DROP/EDROP Blocklists}
+\index{configuration!spamhaus}
+\index{Spamhaus}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{spamhaus} section}
+\label{tab:config-spamhaus}
+\begin{tabular}{@{}lllp{5.5cm}@{}}
+\toprule
+\textbf{Key} & \textbf{Type} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\code{drop\_list\_url} & string & \footnotesize\code{https://www.spamhaus.org/drop/drop.txt} & URL to the Spamhaus DROP list \\
+\code{edrop\_list\_url} & string & \footnotesize\code{https://www.spamhaus.org/drop/edrop.txt} & URL to the Spamhaus EDROP list \\
+\code{refresh\_interval} & integer & \code{3600} & Seconds between trie refresh cycles \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\begin{yamlcode}
+spamhaus:
+  drop_list_url: "https://www.spamhaus.org/drop/drop.txt"
+  edrop_list_url: "https://www.spamhaus.org/drop/edrop.txt"
+  refresh_interval: 3600
+\end{yamlcode}
+
+\section{redis — Connection Settings}
+\index{configuration!redis}
+\index{Redis!connection}
+
+\begin{fullwidth}
+\begin{table}[h]
+\caption{\code{redis} section}
+\label{tab:config-redis}
+\begin{tabular}{@{}lllp{5.5cm}@{}}
+\toprule
+\textbf{Key} & \textbf{Type} & \textbf{Default} & \textbf{Description} \\
+\midrule
+\code{url} & string & \code{"redis://redis:6379"} & Redis connection URL. For Unix socket: \code{unix:///var/run/redis/redis.sock} \\
+\code{password} & string & \textit{optional} & Redis AUTH password. Use env var: \code{\$\{REDIS\_PASSWORD\}} \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{fullwidth}
+
+\begin{notebox}[Unix Domain Socket Performance]
+For deployments where \ja\ and Redis are on the same host, using a Unix domain socket
+for the Redis URL reduces latency by approximately 30–40\% compared to TCP loopback.
+Set \code{url: "unix:///var/run/redis/redis.sock"} and ensure the socket path is
+accessible inside the container.
+\end{notebox}
+
+\begin{yamlcode}
+redis:
+  url: "redis://redis:6379"
+  password: "${REDIS_PASSWORD}"
+\end{yamlcode}
+
+\section{Complete Configuration Example}
+\index{configuration!example}
+
+\begin{yamlcode}
+# config/proxy.yml — complete reference configuration
+
+proxy:
+  bind_host: "0.0.0.0"
+  bind_port: 8080
+  backend_host: "backend"
+  backend_port: 443
+
+# 0 = monitor only. Raise incrementally after validating score distribution.
+dial: 0
+
+security_policy:
+  alpn_browser_bypass:
+    enabled: true
+  ja4_whitelist_bypass:
+    enabled: true
+  mtls_bypass:
+    enabled: true
+  static_ip_allowlist:
+    enabled: true
+  ja4_blacklist_bypass:
+    enabled: true
+  country_blacklist_bypass:
+    enabled: true
+  spamhaus_bypass:
+    enabled: true
+  tls_version_bypass:
+    enabled: true
+
+geoip:
+  country_whitelist_enabled: true
+  country_whitelist: ["IE", "GB", "IM", "US"]
+  country_blacklist_enabled: true
+  country_blacklist: ["KP", "RU"]
+
+security:
+  whitelist:
+    - "t13d1516h2_8daaf6152771_02713d6af862"  # Chrome 120+
+  whitelist_patterns:
+    - "h2"
+    - "h1"
+  blacklist:
+    - "t13d190900_9dc949149365_97f8aa674fd9"  # Sliver C2
+  fingerprint_labels:
+    "t13d1516h2_8daaf6152771_02713d6af862": "Chrome 120+"
+  multi_strategy_policy: "majority"
+  rate_limit_strategies:
+    by_ip:
+      thresholds: {suspicious: 50, block: 200, ban: 500}
+      action: "tarpit"
+      ban_duration: 300
+    by_ja4:
+      thresholds: {suspicious: 20, block: 100, ban: 200}
+      action: "block"
+      ban_duration: 300
+    by_ip_ja4_pair:
+      thresholds: {suspicious: 20, block: 50, ban: 100}
+      action: "tarpit"
+      ban_duration: 300
+
+abuseipdb:
+  enabled: true
+  api_key: "${ABUSEIPDB_API_KEY}"
+  cache_ttl: 3600
+  min_score_to_signal: 50
+
+rdap:
+  enabled: true
+  block_expansion: false
+  max_expansion: 24
+
+spamhaus:
+  drop_list_url: "https://www.spamhaus.org/drop/drop.txt"
+  edrop_list_url: "https://www.spamhaus.org/drop/edrop.txt"
+  refresh_interval: 3600
+
+redis:
+  url: "redis://redis:6379"
+  password: "${REDIS_PASSWORD}"
+\end{yamlcode}

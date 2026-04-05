@@ -66,13 +66,22 @@ hardening before production, it says so plainly.
 \begin{description}[leftmargin=3cm, style=nextline]
   \item[\code{monospace}] Commands, file paths, configuration keys, and code.
   \item[\configkey{config.key}] Configuration file keys in \code{config/proxy.yml}.
-  \item[\sidenote{Margin notes like this one provide context or cross-references without
-    interrupting the main text.} \emph{Side notes}] Supplementary information in the
-    margin.
-  \item[\begin{notebox}[Note boxes] provide important information you should read.\end{notebox}]
-  \item[\begin{warningbox}[Warning boxes] flag things that can cause operational problems.\end{warningbox}]
-  \item[\begin{dangerbox}[Danger boxes] describe actions that can cause data loss or outages.\end{dangerbox}]
+  \item[\emph{Side notes}] Supplementary information in the margin.\sidenote{Margin
+    notes like this one provide context or cross-references without interrupting
+    the main text.}
+  \item[\emph{Note boxes}] Provide important information you should read.
+  \item[\emph{Warning boxes}] Flag things that can cause operational problems.
+  \item[\emph{Danger boxes}] Describe actions that can cause data loss or outages.
 \end{description}
+
+\vspace{0.5\baselineskip}
+\begin{notebox}[Example note box]
+This is a note box. Use these for important context that does not interrupt the main flow.
+\end{notebox}
+
+\begin{warningbox}[Example warning box]
+This is a warning box. Use these for operational risks.
+\end{warningbox}
 
 \vspace{\baselineskip}
 \noindent\emph{Sean O'Riordain\\
