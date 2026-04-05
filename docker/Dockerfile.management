@@ -1,0 +1,21 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install deps first for layer caching
+COPY management/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy management service
+COPY management/ ./management/
+
+# Non-root user
+RUN useradd -r -u 1001 -s /bin/false management
+USER management
+
+EXPOSE 8090
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
+CMD ["uvicorn", "management.api.main:app", "--host", "0.0.0.0", "--port", "8090", "--workers", "1"]
