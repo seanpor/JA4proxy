@@ -359,6 +359,10 @@ def _hash_paths(paths: List[str]) -> Dict[str, str]:
         try:
             if p.is_dir():
                 for child in sorted(p.rglob("*")):
+                    # Skip Python bytecode caches — they are regenerated automatically
+                    # during normal interpreter operation and would cause false positives.
+                    if "__pycache__" in child.parts or child.suffix in (".pyc", ".pyo"):
+                        continue
                     if child.is_file():
                         try:
                             result[str(child)] = _hash_file(str(child))
