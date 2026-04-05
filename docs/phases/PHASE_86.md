@@ -319,6 +319,17 @@ The calculator uses the published benchmark numbers from §6 and applies:
 - Redis memory formula: `key_count × avg_key_size × 1.3 (overhead factor)`
 - Analytics storage formula: `bytes_per_connection × connections_per_second × 86400 × retention_days`
 
+### 5.4 Bootstrap Sequence
+
+The capacity calculator (§5) references "published benchmark numbers from §6". This creates a dependency: the calculator cannot be validated until real benchmarks are run. The correct implementation sequence is:
+
+1. Implement and run the load testing harness (§6) first, on the reference hardware.
+2. Record the actual measured numbers in `docs/performance/benchmarks.md`.
+3. Wire those numbers into the capacity calculator as its constants.
+4. Validate the calculator output against the measured data.
+
+Do not hard-code the §6.3 placeholder numbers into the calculator source as if they were measurements. The calculator constants must come from the benchmark run, not from the spec document.
+
 ---
 
 ## 6. Load Testing Harness
@@ -366,44 +377,52 @@ load-test-report:
 
 ### 6.3 Published Reference Numbers
 
-These are the published, reproducible benchmark numbers to be updated with each
-major release. Committed to `docs/performance/benchmarks.md`:
+These numbers are populated by running the load testing harness (§6.2) on the reference hardware below and recording actual measured results. **Do not pre-fill with estimates — measure first, then publish.**
+
+**Reference hardware (run the harness on this configuration):**
+- AWS c6g.2xlarge (8 vCPU, 16 GB RAM, ARM Graviton 3) — or document actual hardware used
+- Amazon Linux 2023 (or document actual OS)
+- Redis: Elasticache r6g.large (single node, same AZ) — or equivalent
+
+Commit results to `docs/performance/benchmarks.md` after each benchmark run. The file must include:
+- Hardware and OS specification
+- Go proxy version / git commit SHA
+- Date of run
+- Results table:
 
 ```
-JA4proxy Performance Reference — v1.x (Go proxy)
-Hardware: AWS c6g.2xlarge (8 vCPU, 16 GB RAM, ARM Graviton 3)
-OS: Amazon Linux 2023
-Redis: Elasticache r6g.large (single node, same AZ)
-Date: 2026-04-04
+JA4proxy Performance Reference — vX.Y (Go proxy)
+Hardware: [record actual hardware]
+OS: [record actual OS]
+Redis: [record actual Redis config]
+Date: [date of run]
+Git SHA: [commit]
 
 BYPASS PATH (h2/h1 ALPN → immediate allow):
-  Throughput:               18,400 conn/s
-  P50 latency:               0.2ms
-  P99 latency:               0.6ms
-  CPU (single proxy core):  68% at peak
+  Throughput:               [measure]  conn/s
+  P50 latency:              [measure]  ms
+  P99 latency:              [measure]  ms
+  CPU (single proxy core):  [measure]  % at peak
 
-FULL SIGNAL PATH (all 9 signal modules, Redis reads):
-  Throughput:                6,200 conn/s
-  P50 latency:               1.8ms
-  P99 latency:               4.2ms
-  CPU (single proxy core):  94% at peak
+FULL SIGNAL PATH (all signal modules, Redis reads):
+  Throughput:               [measure]  conn/s
+  P50 latency:              [measure]  ms
+  P99 latency:              [measure]  ms
+  CPU (single proxy core):  [measure]  % at peak
 
-TARPIT PATH (all connections tarpitted, 30s drain):
-  Max concurrent tarpitted:  4,800
-  Memory per tarpitted conn: 12 KB
-  CPU overhead:              minimal (mostly sleeping goroutines)
+TARPIT PATH:
+  Max concurrent tarpitted: [measure]
+  Memory per tarpitted conn:[measure]  KB
 
 REDIS LATENCY SENSITIVITY:
-  At 1ms Redis P99:    6,200 conn/s (baseline)
-  At 5ms Redis P99:    4,100 conn/s (-34%)
-  At 20ms Redis P99:   1,800 conn/s (-71%)
-  → Keep Redis in the same AZ as proxy nodes.
+  At 1ms Redis P99:         [measure]  conn/s
+  At 5ms Redis P99:         [measure]  conn/s
+  At 20ms Redis P99:        [measure]  conn/s
 
 MEMORY FOOTPRINT:
-  Proxy process (idle):      28 MB
-  Proxy process (10K conns): 180 MB
-  LRU cache (100K entries):  85 MB
-  Estimated total (4 vCPU):  350 MB
+  Proxy process (idle):     [measure]  MB
+  Proxy process (10K conns):[measure]  MB
+  LRU cache (100K entries): [measure]  MB
 ```
 
 ---
@@ -412,6 +431,8 @@ MEMORY FOOTPRINT:
 
 Requirement from Phase 81 §8: every Alertmanager rule must include a `runbook_url`.
 This phase delivers the actual runbook pages they link to:
+
+> **Cross-phase file edit required:** The Alertmanager rules in Phase 14e (`monitoring/alertmanager/rules/`) must be updated to add `runbook_url` annotations pointing to the runbooks listed below. Per CLAUDE.md file ownership rules, this phase must add a new Makefile target (`## Phase 86 targets` / `update-alertmanager-runbook-urls`) rather than editing Phase 14e Makefile targets. The actual alert rule files can be edited since they are infrastructure files being extended, not overwritten — add only `runbook_url` and `summary` annotations; do not change existing alert conditions or thresholds.
 
 ```
 docs/runbooks/
@@ -457,6 +478,9 @@ Page SecOps lead if block rate >10% AND FP rate >0.1%.
 
 ## 8. Acceptance Criteria
 
+- [ ] Load testing harness run on reference hardware; actual measured numbers committed to `docs/performance/benchmarks.md` before capacity calculator constants are set
+- [ ] Capacity calculator constants sourced from measured benchmark run, not from spec placeholders
+- [ ] Phase 14e Alertmanager rule files updated with `runbook_url` annotations; new `update-alertmanager-runbook-urls` Makefile target added (not editing existing targets)
 - [ ] Datadog Agent check installable and emitting `ja4proxy.*` metrics
 - [ ] Datadog dashboard JSON ships in `deploy/datadog/`
 - [ ] Datadog monitors JSON ships in `deploy/datadog/`

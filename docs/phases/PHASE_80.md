@@ -2,6 +2,8 @@
 
 > **Prerequisite: Phase 79 (Management API + API tokens) must be complete.**
 
+> **Note:** Phase 77 (Enterprise Security Stack — Vector sidecar pattern) must also be complete before the SIEM delivery mechanism is available. Confirm Phase 77 is merged before starting this phase.
+
 ---
 
 ## 1. Overview
@@ -122,6 +124,30 @@ Non-ECS fields are namespaced under `ja4proxy.*`:
   "ja4proxy.campaign.id": "camp-20260404-0042"
 }
 ```
+
+### 2.4 Log Format Migration
+
+Migrating all JA4proxy components to ECS 8.x is a **breaking change** for existing log consumers. The following must be planned before deployment:
+
+**What breaks:**
+- Existing Grafana/Loki dashboards that parse the current `ALLOWED: ... | JA4: ...` log format will produce no results after migration.
+- Any Prometheus alerting rules that rely on log-derived metrics via Loki will need updating.
+- Downstream SIEM queries written against the old format need rewriting.
+
+**Migration strategy:**
+1. Add a `log_format` config key: `legacy` (default during transition) or `ecs`.
+2. Run both formats in parallel for 2 sprints: the proxy emits both the legacy line and the ECS JSON object on separate log channels (e.g., stdout vs stderr, or two distinct Loki labels).
+3. Update all Grafana dashboards and alert rules against the ECS format while legacy is still running.
+4. Once dashboards are verified, flip `log_format: ecs` and remove legacy output.
+
+```yaml
+# config/proxy.yml
+logging:
+  format: legacy   # legacy | ecs — change to ecs after dashboard migration
+  dual_output: true  # emit both during transition period
+```
+
+**CI gate:** Add a schema validation step to CI that runs `ecs-logging-validate` (or equivalent) against sample log output to catch ECS regressions before they ship.
 
 ---
 
@@ -306,13 +332,15 @@ webhooks:
 
 ## 8. Acceptance Criteria
 
+- [ ] Log format migration plan documented; `log_format` config key implemented with `legacy` and `ecs` modes
+- [ ] Dual-output transition mode working; Grafana dashboards updated to ECS format before legacy removed
+- [ ] ECS schema validation CI step added to catch regressions
 - [ ] All JA4proxy log output conforms to ECS 8.x schema, validated by CI schema check
 - [ ] `ja4proxy.*` extension fields documented in `docs/api/ecs_extension.md`
 - [ ] Splunk TA packaged, installable, and producing CIM-compliant events
 - [ ] All 5 Splunk correlation searches fire correctly against synthetic test events
 - [ ] All 5 Splunk dashboards render with live data
 - [ ] Splunk alert action successfully calls Management API ban endpoint
-- [ ] Splunk TA submitted for Cloud Compatibility certification
 - [ ] Sentinel data connector ingests events into `JA4proxy_CL` table
 - [ ] All 5 Sentinel analytics rules fire on test events with correct MITRE tags
 - [ ] Both Sentinel playbooks execute end-to-end in test tenant
@@ -321,3 +349,12 @@ webhooks:
 - [ ] Webhook delivery working with HMAC-SHA256 signature verification
 - [ ] Webhook retry and dead-letter queue implemented
 - [ ] Vector sidecar config templates provided for all four SIEM targets
+
+---
+
+## 9. Business Track (Not Engineering Acceptance Criteria)
+
+The following are external publishing processes that cannot be completed by the engineering team alone and must not block the phase from being marked COMPLETE:
+
+- **Splunk TA Cloud Compatibility Certification** — submit to Splunk's programme after the TA is packaged and tested. Allow 4–6 weeks for Splunk review. Track separately.
+- **Microsoft Sentinel Content Hub publication** — submit ARM/Bicep templates after content pack is validated against a test Sentinel tenant. Allow 4–6 weeks for Microsoft review. Track separately.

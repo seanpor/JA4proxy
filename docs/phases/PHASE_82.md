@@ -2,6 +2,8 @@
 
 > **Prerequisite: Phase 79 (Management API) must be complete.**
 
+> **API extension required:** Phase 79's resource catalogue must include `POST /api/v1/simulation/run` and `GET /api/v1/simulation/{id}/report` before Phase 82 can begin. Confirm these endpoints are in scope with the Phase 79 team before starting implementation.
+
 ---
 
 ## 1. Overview
@@ -212,6 +214,26 @@ This is additional storage in the analytics node's Redis or a time-series store.
 Estimate: ~500 bytes per connection × 14M connections/month = ~7 GB/month.
 Redis with compression, or ClickHouse for larger deployments.
 
+### 3.3.1 Storage Backend — Decision Gate (Required Before Implementation)
+
+The storage backend for shadow mode signal data must be decided and recorded in an ADR before any implementation begins. The two options have significantly different operational implications:
+
+| | Option A: Redis (compressed) | Option B: ClickHouse |
+|---|---|---|
+| **Additional infrastructure** | None (uses existing Redis) | New ClickHouse container/cluster |
+| **Estimated size (90 days)** | ~63 GB compressed (7 GB/month × 0.4 compression ratio = ~17 GB/month → ~63 GB at 90 days) | Same data, columnar — ~8–12 GB |
+| **Query performance** | Adequate for ≤ 10M connections/period | Better for > 10M; supports SQL aggregations |
+| **Operational complexity** | Low — no new service | High — ClickHouse backup, replication, monitoring |
+| **Recommended for** | Single-site deployments, ≤ 50M connections/month | Multi-site or high-volume deployments |
+
+**Decision process:**
+1. Estimate the target deployment's connection volume (connections/month).
+2. If ≤ 50M connections/month: use Option A (Redis).
+3. If > 50M connections/month: use Option B (ClickHouse). Add it to `docker-compose.poc.yml` and Helm chart.
+4. Record the decision in `docs/decisions/ADR-NNN.md` before writing any shadow mode code.
+
+The acceptance criteria gate: no shadow mode implementation starts until the ADR is committed.
+
 ### 3.4 UI Integration
 
 Shadow mode results are displayed in the Management UI with:
@@ -298,6 +320,8 @@ environment security controls) and SOC 2 CC7.2 (monitoring of system operations)
 
 ## 6. Acceptance Criteria
 
+- [ ] ADR committed to `docs/decisions/` recording shadow mode storage backend choice (Option A or B) before any implementation
+- [ ] Shadow mode simulation endpoints (`POST /api/v1/simulation/run`, `GET /api/v1/simulation/{id}/report`) confirmed in Phase 79 API catalogue
 - [ ] Policy YAML schema validated and documented in `docs/policy/schema.md`
 - [ ] `ja4proxy-cli policy validate` catches invalid YAML, unknown fields, TTL violations
 - [ ] `ja4proxy-cli policy apply` is idempotent across all resource types

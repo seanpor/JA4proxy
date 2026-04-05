@@ -23,7 +23,10 @@ delivers the infrastructure automation layer:
 
 The Management UI is a browser application. Platform engineers and on-call SREs
 operate from terminals, especially at 2 AM during incidents. The CLI is the single
-most-requested day-2 tool and should be built concurrently with Phase 79.
+most-requested day-2 tool. The CLI stub — with mock API responses for all commands
+— **can and should be developed in parallel with Phase 79**, integrating against the
+live API once Phase 79 stabilises. The CLI is still listed as depending on Phase 79
+because it cannot be fully tested or released without the live API.
 
 ### 2.1 Binary Distribution
 
@@ -96,6 +99,11 @@ ja4proxy-cli ip lookup 198.51.100.4 --output json | jq '.signals[].name'
   interactive prompt on first run (stores in OS keychain via `99designs/keyring`)
 - All mutating commands (`ban`, `release`, `dial set`) prompt for confirmation
   unless `--confirm` is passed explicitly — prevents accidental changes in scripts
+- **Binary distribution security:** All CLI binary releases must include:
+  - GPG signature (detached `.asc` file) signed with the project's release key
+  - SLSA provenance attestation (level 2 minimum: build on hosted CI, provenance uploaded to GitHub release)
+  - SHA-256 checksums file (`checksums.txt`)
+  - These are required for enterprise security teams that validate binaries before deployment. Document the signing process in `docs/developer/RELEASE_PROCESS.md`.
 
 ---
 
@@ -107,6 +115,16 @@ ja4proxy-cli ip lookup 198.51.100.4 --output json | jq '.signals[].name'
 Admin-scoped API token and manages JA4proxy rules as Terraform resources.
 Published to the Terraform Registry under `hashicorp/ja4proxy` (or
 `ja4proxy/ja4proxy` if open-source independent).
+
+### 3.1.1 Registry Namespace — Decision Required Before Work Starts
+
+The Terraform Registry namespace determines the provider import path in all customer Terraform configs (`required_providers { ja4proxy = { source = "<namespace>/ja4proxy" } }`). This cannot be changed post-publication without breaking existing customers.
+
+**Decision options:**
+- `hashicorp/ja4proxy` — requires Hashicorp partnership; use for commercial/partner-published providers
+- `ja4proxy/ja4proxy` — self-published; recommended for open-source; full control over publish cadence
+
+**Action required:** Decide and record the namespace in `docs/decisions/ADR-NNN.md` before writing any Terraform provider code. The namespace must also be reflected in the `go.mod` module path for the provider.
 
 ### 3.2 Resource Types
 
@@ -362,6 +380,9 @@ posts to `#security-ops` confirming dial was re-applied.
 
 ## 7. Acceptance Criteria
 
+- [ ] Terraform Registry namespace recorded in ADR before provider development starts
+- [ ] CLI binary releases include GPG signature, SLSA provenance attestation, and SHA-256 checksums
+- [ ] CLI stub with mock API responses developed and tested independently of Phase 79 API availability
 - [ ] `ja4proxy-cli` binary: all commands in §2.2 implemented and tested
 - [ ] CLI: `--output json|table|csv` for all read commands
 - [ ] CLI: mutating commands require `--confirm` unless flag passed
@@ -369,7 +390,7 @@ posts to `#security-ops` confirming dial was re-applied.
 - [ ] Terraform provider: all resource types in §3.2 implemented
 - [ ] Terraform provider: `protect_unmanaged_entries` flag works correctly
 - [ ] Terraform provider: import workflow documented with example script
-- [ ] Terraform provider: published to Terraform Registry
+- [ ] Terraform provider: submitted for publication to Terraform Registry (publishing is a business track item; submission is the engineering AC)
 - [ ] Kubernetes operator: all CRDs in §4.1 with admission webhook validation
 - [ ] Kubernetes operator: reconciliation loop + immediate-on-change working
 - [ ] DaemonSet `safe-to-evict: false` annotation in operator-managed spec
@@ -378,3 +399,10 @@ posts to `#security-ops` confirming dial was re-applied.
 - [ ] NetBox inbound integration with fallback to static CIDRs
 - [ ] All 3 emergency runbook playbooks tested end-to-end
 - [ ] Emergency playbooks documented in `docs/runbooks/`
+
+---
+
+## 8. Business Track (Not Engineering Acceptance Criteria)
+
+- **Terraform Registry publication approval** — Hashicorp reviews provider submissions via GitHub PR to the registry repository. Allow 1–2 weeks. Track separately from engineering completion.
+- **Kubernetes operator publication** — if publishing to OperatorHub, submit after internal validation. Track separately.
