@@ -94,7 +94,7 @@ def _generate_keypair(privkey_path: Path, pubkey_path: Path) -> None:
     _write_key(privkey_path, base64.b64encode(priv_raw), mode=0o600)
     _write_key(pubkey_path, base64.b64encode(pub_raw), mode=0o644)
 
-    print(f"Generated keypair:")
+    print("Generated keypair:")
     print(f"  Private key : {privkey_path}")
     print(f"  Public key  : {pubkey_path}")
 

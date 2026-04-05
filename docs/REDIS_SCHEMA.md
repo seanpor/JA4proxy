@@ -32,6 +32,7 @@ phase: 54
 | `ja4:whitelist` | SET of JA4 strings | none | Management UI, config reload | JA4 whitelist; loaded into in-process frozenset on startup |
 | `ja4:blacklist` | SET of JA4 strings | none | Management UI, config reload | JA4 blacklist; loaded into in-process frozenset on startup |
 | `ban:{ip}` | String (reason) | configurable (default 3600s) | Scorer (Phase 1+), ActionEnforcer | Active ban from risk score or manual action; presence in Redis means IP is banned. |
+| `ip:blacklist` | SET of IPv4/IPv6 strings | none | Manual operator action | Static IP-level blocklist (distinct from `ja4:blacklist` which holds JA4 fingerprints). Read by `scripts/redis-to-ebpf.py` to populate the XDP kernel-drop map. IPv6 entries are logged but not enforced at the XDP layer (IPv4 only). *(Phase 35)* |
 | `session:ip:{ip}:ja4:{ja4}` | Hash `{total, resumed}` | 3600s | Proxy (Phase 5) | TLS session resumption tracking per IP+JA4 pair |
 | `lifespan:{ip}` | Sorted Set of durations (ms) | 1800s | Proxy (Phase 5) | Connection lifespan samples; score = timestamp |
 | `concurrent:{ip}` | Integer (INCR/DECR) | 60s | Proxy (Phase 5) | Live concurrent connection count per IP |

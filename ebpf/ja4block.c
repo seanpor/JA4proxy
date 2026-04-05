@@ -48,7 +48,10 @@ struct {
     __uint(max_entries, 2);
     __type(key, __u32);
     __type(value, __u64);
-} drop_counters SEC(".maps");  /* 0 = blacklist drops, 1 = ban drops */
+} drop_counters SEC(".maps");
+/* Index 0 = all XDP drops (blacklist + ban combined).
+ * Index 1 = reserved for future per-reason breakdown.
+ * Values are per-CPU; userspace sums all CPUs via bpftool map dump. */
 
 // ── XDP Program ──────────────────────────────────────────────────────────
 
@@ -63,7 +66,9 @@ int ja4_block(struct xdp_md *ctx)
     if ((void *)(eth + 1) > data_end)
         return XDP_PASS;
 
-    // Only handle IPv4; pass everything else (IPv6, ARP, etc.)
+    // Only handle IPv4; pass everything else (IPv6, ARP, etc.) unchanged.
+    // IPv6 blocking is not implemented at the XDP layer — a separate map with
+    // __u128 keys would be required.  IPv6 bans are enforced by the proxy only.
     if (eth->h_proto != __constant_htons(ETH_P_IP))
         return XDP_PASS;
 
@@ -84,10 +89,10 @@ int ja4_block(struct xdp_md *ctx)
         return XDP_PASS;
 
     // ── Drop and count ────────────────────────────────────────────────
-    __u32 counter_key = 0;  /* index 0 = blacklist/ban (combined) */
+    __u32 counter_key = 0;  /* index 0 = all drops (combined) */
     __u64 *cnt = bpf_map_lookup_elem(&drop_counters, &counter_key);
     if (cnt)
-        __sync_fetch_and_add(cnt, 1);
+        (*cnt)++;  /* per-CPU array: each CPU writes its own slot, no contention */
 
     return XDP_DROP;
 }

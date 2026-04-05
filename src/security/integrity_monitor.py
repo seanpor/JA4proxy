@@ -221,21 +221,27 @@ class IntegrityMonitor:
             )
 
             while not self._shutdown:
-                await asyncio.sleep(interval_s)
+                try:
+                    await asyncio.sleep(interval_s)
+                except asyncio.CancelledError:
+                    logger.info("integrity | event=monitor_stopped")
+                    return
                 if self._shutdown:
                     break
-                current = _hash_paths(paths)
-                _compare_and_alert(
-                    self._baseline, current, self._integrity_cfg,
-                    self.violation_counter,
-                )
+                try:
+                    current = _hash_paths(paths)
+                    _compare_and_alert(
+                        self._baseline, current, self._integrity_cfg,
+                        self.violation_counter,
+                    )
+                except Exception as exc:
+                    # Fail open — log the error but keep the monitor running.
+                    logger.error(
+                        "integrity | event=monitor_error | error=%s", exc
+                    )
         except asyncio.CancelledError:
             logger.info("integrity | event=monitor_stopped")
             return
-        except Exception as exc:
-            logger.error(
-                "integrity | event=monitor_error | error=%s", exc
-            )
 
     def append_audit_log(
         self, log_path: str, status: str, detail: str
@@ -405,10 +411,15 @@ def _compare_and_alert(
     for path, digest in current.items():
         baseline_digest = baseline.get(path)
         if baseline_digest is None:
-            # New file — update baseline silently
+            # New file appeared in the monitored tree after baseline was set.
+            # Log at WARNING — a legitimately deployed file should have been
+            # present when the baseline was established.  Silently accepting new
+            # files would allow an attacker to plant a backdoor module.
             baseline[path] = digest
-            logger.info(
-                "integrity | event=new_file_detected | path=%s", path
+            logger.warning(
+                "integrity | event=new_file_detected | path=%s | "
+                "effect=added to baseline — verify this file is expected",
+                path,
             )
         elif baseline_digest != digest:
             violation_counter.inc()  # unlabelled total

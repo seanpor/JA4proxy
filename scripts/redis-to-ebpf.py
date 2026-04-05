@@ -220,10 +220,10 @@ async def _collect_blocked_ips(redis_client: aioredis.Redis) -> Dict[str, str]:
     """
     result: Dict[str, str] = {}
     try:
-        # JA4 blacklist is a SET of JA4 fingerprints — not IPs, skip
-        # The IP-level blacklist is stored under different keys depending on
-        # phase; here we scan for ban:{ip} keys (Phase 0+) and a set at
-        # ip:blacklist (Phase 34+, optional).
+        # ja4:blacklist holds JA4 fingerprints, not IPs — not used here.
+        # IP-level blocking sources:
+        #   ban:{ip}      — TTL-bound per-IP bans (Phase 0+, see REDIS_SCHEMA.md)
+        #   ip:blacklist  — static operator-managed IP SET (Phase 35, see REDIS_SCHEMA.md)
         #
         # ban:{ip} keys — TTL-bound per-IP bans
         async for key in redis_client.scan_iter("ban:*"):
@@ -315,7 +315,7 @@ async def _sync_loop(
 
         except asyncio.CancelledError:
             logger.info("ebpf | event=sync_stopped")
-            break
+            raise  # propagate so asyncio.Task cleanup works correctly
         except Exception as exc:
             logger.error(
                 "ebpf | event=sync_error | error=%s", exc
