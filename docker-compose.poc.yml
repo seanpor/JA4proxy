@@ -315,6 +315,46 @@ services:
         max-size: "100m"
         max-file: "3"
 
+  management:
+    image: ja4proxy-management:1.0.0
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.management
+    ports:
+      - "127.0.0.1:8090:8090"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - MANAGEMENT_JWT_SECRET=${MANAGEMENT_JWT_SECRET:-change-me-in-production}
+      - MANAGEMENT_ADMIN_USER=${MANAGEMENT_ADMIN_USER:-admin}
+      - MANAGEMENT_ADMIN_PASSWORD=${MANAGEMENT_ADMIN_PASSWORD:-admin}
+    networks:
+      - mgmt_net
+      - data_net
+    depends_on:
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8090/api/v1/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 64M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
 volumes:
   redis_data:
   redis-sock:
