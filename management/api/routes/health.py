@@ -18,7 +18,6 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
 
-from ..auth import get_current_user
 from ..models import HealthResponse
 from ..redis_client import get_redis
 
@@ -33,7 +32,6 @@ _START_TIME: float = time.monotonic()
 @router.get("/api/v1/health", response_model=HealthResponse)
 async def health(
     request: Request,
-    current_user: str = Depends(get_current_user),
     redis=Depends(get_redis),
 ) -> HealthResponse:
     """Return system health status.

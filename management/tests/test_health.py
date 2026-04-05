@@ -6,7 +6,7 @@ Covers
 - Redis available → status=ok, redis=ok
 - Redis unavailable → status=degraded, redis=unavailable (NOT 500)
 - All fields present in response
-- Requires authentication
+- Public endpoint — no authentication required (used by Docker healthcheck)
 """
 
 import pytest
@@ -15,9 +15,9 @@ from unittest.mock import AsyncMock, patch
 
 
 @pytest.mark.asyncio
-async def test_health_returns_ok_with_redis(authenticated_client: AsyncClient) -> None:
+async def test_health_returns_ok_with_redis(test_client: AsyncClient) -> None:
     """Health endpoint returns ok status when Redis is available."""
-    r = await authenticated_client.get("/api/v1/health")
+    r = await test_client.get("/api/v1/health")
     assert r.status_code == 200
     data = r.json()
     assert data["status"] == "ok"
@@ -26,10 +26,10 @@ async def test_health_returns_ok_with_redis(authenticated_client: AsyncClient) -
 
 @pytest.mark.asyncio
 async def test_health_response_has_all_fields(
-    authenticated_client: AsyncClient,
+    test_client: AsyncClient,
 ) -> None:
     """Health response includes all required fields."""
-    r = await authenticated_client.get("/api/v1/health")
+    r = await test_client.get("/api/v1/health")
     assert r.status_code == 200
     data = r.json()
 
@@ -38,17 +38,17 @@ async def test_health_response_has_all_fields(
 
 
 @pytest.mark.asyncio
-async def test_health_uptime_is_positive(authenticated_client: AsyncClient) -> None:
+async def test_health_uptime_is_positive(test_client: AsyncClient) -> None:
     """uptime_seconds is a non-negative number."""
-    r = await authenticated_client.get("/api/v1/health")
+    r = await test_client.get("/api/v1/health")
     data = r.json()
     assert data["uptime_seconds"] >= 0
 
 
 @pytest.mark.asyncio
-async def test_health_proxy_instances_is_int(authenticated_client: AsyncClient) -> None:
+async def test_health_proxy_instances_is_int(test_client: AsyncClient) -> None:
     """proxy_instances is a non-negative integer."""
-    r = await authenticated_client.get("/api/v1/health")
+    r = await test_client.get("/api/v1/health")
     data = r.json()
     assert isinstance(data["proxy_instances"], int)
     assert data["proxy_instances"] >= 0
@@ -56,7 +56,7 @@ async def test_health_proxy_instances_is_int(authenticated_client: AsyncClient) 
 
 @pytest.mark.asyncio
 async def test_health_redis_unavailable_returns_degraded(
-    authenticated_client: AsyncClient,
+    test_client: AsyncClient,
 ) -> None:
     """When Redis ping fails, health returns degraded but NOT 500."""
     from management.api import redis_client as rc
@@ -70,7 +70,7 @@ async def test_health_redis_unavailable_returns_degraded(
     rc._redis_client = broken_mock
 
     try:
-        r = await authenticated_client.get("/api/v1/health")
+        r = await test_client.get("/api/v1/health")
     finally:
         rc._redis_client = original
 
@@ -82,18 +82,21 @@ async def test_health_redis_unavailable_returns_degraded(
 
 
 @pytest.mark.asyncio
-async def test_health_requires_auth(test_client: AsyncClient) -> None:
-    """Health endpoint requires authentication."""
+async def test_health_is_public(test_client: AsyncClient) -> None:
+    """Health endpoint is public — no auth token needed (used by Docker healthcheck)."""
     r = await test_client.get(
         "/api/v1/health", headers={"Accept": "application/json"}
     )
-    assert r.status_code == 401
+    assert r.status_code == 200, (
+        f"Health endpoint returned {r.status_code}; expected 200. "
+        "Docker healthcheck calls /api/v1/health without a token — it must be public."
+    )
 
 
 @pytest.mark.asyncio
-async def test_health_geoip_field_present(authenticated_client: AsyncClient) -> None:
+async def test_health_geoip_field_present(test_client: AsyncClient) -> None:
     """geoip field is present in the response."""
-    r = await authenticated_client.get("/api/v1/health")
+    r = await test_client.get("/api/v1/health")
     data = r.json()
     assert "geoip" in data
     # Value can be "ok" or "unavailable"
