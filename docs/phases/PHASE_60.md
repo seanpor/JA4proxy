@@ -1,403 +1,153 @@
-# PHASE 60: Master Plan and Executive Summary
-
-## Overview
-
-This master plan document provides a comprehensive roadmap for the JA4proxy project, outlining the strategic vision, assessment findings, and implementation approach across multiple phases. It serves as the executive summary and governance framework for all subsequent phases.
-
-## Status
-
-- **Status**: APPROVED
-- **Epic**: Comprehensive Quality Improvement
-- **Dependencies**: None
-- **Size**: XL (Master Plan)
-- **Duration**: 32 weeks (Overall Program)
-
-## Executive Summary
-
-### Project Vision
-To elevate the JA4proxy project to exemplary standards of security, quality, and operational excellence through comprehensive assessment and systematic remediation across all software engineering dimensions.
-
-### Strategic Objectives
-1. **Comprehensive Assessment**: Evaluate all aspects of the project against industry best practices
-2. **Systematic Remediation**: Address identified gaps through structured implementation phases
-3. **Quality Improvement**: Enhance code quality, security, and operational excellence
-4. **Continuous Improvement**: Establish processes for ongoing quality enhancement
-
-### Key Benefits
-- **Enhanced Security**: Comprehensive security hardening and threat protection
-- **Improved Quality**: Systematic code quality and architectural improvements
-- **Operational Excellence**: Robust observability and incident response capabilities
-- **Compliance Assurance**: Full compliance with relevant standards and regulations
-- **Stakeholder Confidence**: Clear visibility and reporting for all stakeholders
-
-## Assessment Findings Summary
-
-### Strengths
-1. **Clear Objectives**: Well-defined project aims and comprehensive roadmap
-2. **Excellent Documentation**: Organized structure with good coverage
-3. **Robust Architecture**: Well-designed, scalable architecture with good security practices
-4. **Comprehensive Testing**: Extensive test suite with good coverage
-5. **Strong Observability**: Good performance testing and monitoring setup
-
-### Gap Analysis
-1. **Documentation**: Needs formal update process and technical enhancements
-2. **Architecture**: Requires better decision documentation and component interaction maps
-3. **Testing**: Some areas need additional performance and security testing
-4. **Code Quality**: Opportunities for type hints, error handling, and validation
-5. **Security**: Comprehensive penetration testing and threat modeling needed
-6. **Compliance**: Full regulatory compliance implementation required
-7. **Observability**: Dual-layer observability for technical and executive needs
-
-## Strategic Roadmap
-
-### Phase Structure
-
-```mermaid
-gantt
-    title JA4proxy Quality Improvement Roadmap
-    dateFormat  YYYY-MM-DD
-    section Assessment & Planning
-    Master Plan Development       :a1, 2024-01-01, 4w
-    section Technical Quality
-    Code & Architecture Improvements: 2024-01-15, 8w
-    section Security Hardening
-    Penetration Testing & Compliance: 2024-03-15, 12w
-    section Observability
-    Monitoring Implementation      : 2024-06-15, 8w
-    section Operational Excellence
-    Process & Training            : 2024-08-15, 8w
-```
-
-### Phase Breakdown
-
-| Phase | Focus Area | Duration | Size |
-|-------|------------|----------|------|
-| 60 | Master Plan & Governance | 4 weeks | XL |
-| 61 | Technical Quality Improvements | 8 weeks | L |
-| 62 | Security Hardening | 12 weeks | XL |
-| 63 | Observability & Monitoring | 8 weeks | L |
-| 64 | Operational Excellence | 8 weeks | M |
-
-## Resource Planning
-
-### Team Structure
-
-```mermaid
-orgChart
-    BT --> CT
-    BT --> ST
-    BT --> OT
-    CT --> DA
-    CT --> QA
-    ST --> SE
-    ST --> PT
-    OT --> OM
-    OT --> TR
-    BT[Board/Leadership]
-    CT[Core Team]
-    ST[Security Team]
-    OT[Operations Team]
-    DA[Development & Architecture]
-    QA[Quality Assurance]
-    SE[Security Engineering]
-    PT[Penetration Testing]
-    OM[Observability & Monitoring]
-    TR[Training & Documentation]
-```
-
-### Resource Allocation
-
-| Phase | Developers | Security | QA | Documentation | Training | Management |
-|-------|------------|----------|----|---------------|----------|-------------|
-| 60 | 1.0 | 0.5 | 0.5 | 0.5 | 0.2 | 0.5 |
-| 61 | 2.0 | 1.0 | 1.0 | 0.5 | 0.5 | 0.5 |
-| 62 | 1.0 | 3.0 | 1.0 | 0.5 | 0.5 | 0.5 |
-| 63 | 1.0 | 1.0 | 1.0 | 0.5 | 0.5 | 0.5 |
-| 64 | 0.5 | 0.5 | 0.5 | 1.0 | 1.0 | 0.5 |
-
-### Budget Overview
-
-| Category | Estimated Budget |
-|----------|------------------|
-| Personnel | $500,000 |
-| Tools & Licenses | $150,000 |
-| Consulting | $200,000 |
-| Training | $50,000 |
-| Infrastructure | $100,000 |
-| **Total** | **$1,000,000** |
-
-## Governance Framework
-
-### Decision Making
-- **Steering Committee**: Monthly reviews and strategic decisions
-- **Technical Review Board**: Bi-weekly technical architecture reviews
-- **Security Council**: Weekly security posture reviews
-- **Change Control Board**: As-needed change approvals
-
-### Reporting Structure
-- **Executive Reports**: Monthly to leadership
-- **Technical Reports**: Bi-weekly to development teams
-- **Security Reports**: Weekly to security team
-- **Progress Updates**: Weekly to all stakeholders
-
-### Risk Management
-- **Risk Register**: Maintained and reviewed monthly
-- **Risk Assessment**: Quarterly comprehensive assessments
-- **Mitigation Planning**: Continuous risk treatment
-- **Contingency Planning**: Annual review and updates
-
-## Quality Dimensions Coverage
-
-### Comprehensive Quality Model
-
-```mermaid
-mindmap
-    root((Quality Dimensions))
-      Technical Quality
-        Code Quality
-        Architecture
-        Performance
-        Reliability
-      Security
-        Penetration Testing
-        Threat Modeling
-        Incident Response
-        Compliance
-      Observability
-        Technical Monitoring
-        Executive Dashboards
-        Alerting
-        Reporting
-      Operational Excellence
-        Processes
-        Training
-        Documentation
-        Continuous Improvement
-```
-
-### Coverage Matrix
-
-| Dimension | Phase 60 | Phase 61 | Phase 62 | Phase 63 | Phase 64 |
-|-----------|---------|---------|---------|---------|---------|
-| Code Quality | Assessment | Implementation | Maintenance | Monitoring | Improvement |
-| Architecture | Assessment | Implementation | Review | Monitoring | Documentation |
-| Performance | Assessment | Implementation | Validation | Monitoring | Optimization |
-| Security | Assessment | Basics | Comprehensive | Monitoring | Culture |
-| Compliance | Assessment | Basics | Comprehensive | Monitoring | Training |
-| Observability | Assessment | Basics | Security | Comprehensive | Improvement |
-| Processes | Assessment | Basics | Integration | Monitoring | Maturity |
-| Training | Assessment | Basics | Security | Basics | Comprehensive |
-| Documentation | Assessment | Technical | Security | Executive | Comprehensive |
-
-## Implementation Approach
-
-### Phased Implementation Strategy
-
-1. **Assessment & Planning (Phase 60)**
-   - Comprehensive current state analysis
-   - Gap identification and prioritization
-   - Strategic roadmap development
-   - Resource and budget planning
-
-2. **Technical Foundation (Phase 61)**
-   - Code quality improvements
-   - Architecture enhancements
-   - Performance optimization
-   - Reliability engineering
-
-3. **Security Hardening (Phase 62)**
-   - Penetration testing
-   - Threat modeling
-   - Incident response
-   - Compliance implementation
-
-4. **Observability Implementation (Phase 63)**
-   - Technical monitoring
-   - Executive dashboards
-   - Alerting strategy
-   - Reporting framework
-
-5. **Operational Maturity (Phase 64)**
-   - Process optimization
-   - Training programs
-   - Documentation excellence
-   - Continuous improvement
-
-### Work Stream Coordination
-
-```mermaid
-gantt
-    title Work Stream Coordination
-    dateFormat  YYYY-MM-DD
-    section Assessment
-    Current State Analysis: a1, 2024-01-01, 2w
-    Gap Identification:     2024-01-15, 2w
-    section Technical
-    Code Quality:          2024-02-01, 8w
-    Architecture:          2024-02-01, 8w
-    section Security
-    Penetration Testing:    2024-04-01, 12w
-    Threat Modeling:       2024-04-01, 12w
-    section Observability
-    Technical Monitoring:  2024-07-01, 8w
-    Executive Dashboards:  2024-07-01, 8w
-    section Operational
-    Process Improvement:    2024-09-01, 8w
-    Training Programs:      2024-09-01, 8w
-```
-
-## Success Metrics
-
-### Overall Program Metrics
-
-1. **Quality Improvement**: 95% overall quality score achievement
-2. **Security Posture**: 90% reduction in critical vulnerabilities
-3. **Compliance Coverage**: 100% of applicable regulations addressed
-4. **Observability Maturity**: Level 4 observability capability achieved
-5. **Operational Excellence**: 95% process maturity score
-
-### Phase-Specific Metrics
-
-**Phase 61 - Technical Quality:**
-- 95% code quality score
-- 100% architecture decisions documented
-- 20% performance improvement
-- 99.9% system uptime
-
-**Phase 62 - Security Hardening:**
-- 90% vulnerability remediation
-- 95% test coverage of attack surface
-- 100% compliance requirements addressed
-- Comprehensive incident response capability
-
-**Phase 63 - Observability:**
-- 100% critical component instrumentation
-- Real-time executive dashboards
-- <5% false positive alert rate
-- Comprehensive reporting coverage
-
-**Phase 64 - Operational Excellence:**
-- Mature process documentation
-- 95% training completion rate
-- Comprehensive documentation coverage
-- Established continuous improvement processes
-
-## Risk Management
-
-### Top Risks and Mitigation
-
-| Risk | Impact | Likelihood | Mitigation Strategy |
-|------|--------|------------|---------------------|
-| Resource constraints | High | Medium | Prioritize critical path, use contractors |
-| Scope creep | Medium | High | Strict change control, phase boundaries |
-| Technical debt | High | Low | Systematic reduction plan |
-| Security vulnerabilities | Critical | Medium | Comprehensive testing and remediation |
-| Compliance gaps | High | Medium | Expert consultation, phased implementation |
-| Adoption resistance | Medium | High | Stakeholder engagement, training |
-| Tool limitations | Medium | Low | Pilot testing, fallback options |
-| Integration challenges | High | Medium | Early integration testing, interface standards |
-
-### Risk Monitoring
-
-- **Monthly Risk Reviews**: Steering committee risk assessment
-- **Bi-weekly Technical Risks**: Architecture review board
-- **Weekly Security Risks**: Security council meetings
-- **Continuous Monitoring**: Automated risk tracking
-
-## Stakeholder Communication
-
-### Communication Plan
-
-| Audience | Frequency | Format | Content Focus |
-|----------|-----------|--------|---------------|
-| Executive Leadership | Monthly | Presentation | Strategic progress, ROI, risk summary |
-| Technical Teams | Bi-weekly | Technical Review | Implementation details, challenges, solutions |
-| Security Team | Weekly | Security Briefing | Threat landscape, vulnerabilities, incidents |
-| Operations | Bi-weekly | Operations Review | Process improvements, tooling, metrics |
-| All Staff | Quarterly | Town Hall | Overall progress, achievements, recognition |
-
-### Reporting Standards
-
-1. **Executive Reports**: High-level summary with visual indicators
-2. **Technical Reports**: Detailed implementation status
-3. **Security Reports**: Threat landscape and vulnerability status
-4. **Progress Updates**: Standardized format with RAG status
-
-## Program Governance
-
-### Decision Rights
-
-| Decision Type | Authority | Process |
-|---------------|----------|---------|
-| Strategic Direction | Steering Committee | Monthly review |
-| Technical Architecture | Technical Review Board | Bi-weekly review |
-| Security Policies | Security Council | Weekly review |
-| Budget Changes | Steering Committee | As needed |
-| Scope Changes | Change Control Board | Bi-weekly review |
-| Resource Allocation | Program Manager | Continuous |
-
-### Escalation Path
-
-```mermaid
-flowchart TD
-    A[Issue Identified] --> B[Team Level Resolution]
-    B -->|Resolved| E[Closed]
-    B -->|Not Resolved| C[Work Stream Lead]
-    C -->|Resolved| E
-    C -->|Not Resolved| D[Program Manager]
-    D -->|Resolved| E
-    D -->|Not Resolved| F[Steering Committee]
-    F --> E
-```
-
-## Continuous Improvement
-
-### Feedback Loops
-
-1. **Phase Retrospectives**: Lessons learned from each phase
-2. **Quarterly Reviews**: Overall program effectiveness
-3. **User Feedback**: Continuous stakeholder input
-4. **Metrics Analysis**: Data-driven improvement identification
-
-### Improvement Processes
-
-1. **Kaizen Events**: Focused improvement workshops
-2. **Process Optimization**: Continuous process refinement
-3. **Tool Enhancement**: Regular tooling improvements
-4. **Training Updates**: Continuous training material updates
-
-## Conclusion
-
-This master plan provides a comprehensive governance framework and strategic roadmap for the JA4proxy quality improvement program. By following this structured approach, the project will systematically address all identified quality dimensions and achieve exemplary standards across security, technical quality, observability, and operational excellence.
-
-### Key Outcomes
-
-1. **Comprehensive Quality Improvement**: Systematic enhancement across all dimensions
-2. **Enhanced Security Posture**: Robust protection against evolving threats
-3. **Operational Excellence**: Mature processes and continuous improvement
-4. **Stakeholder Confidence**: Clear visibility and effective communication
-5. **Future Readiness**: Architecture and processes prepared for evolution
-
-### Next Steps
-
-1. **Steering Committee Approval**: Finalize master plan
-2. **Resource Allocation**: Secure team and budget
-3. **Phase 61 Kickoff**: Begin technical quality improvements
-4. **Governance Establishment**: Implement review boards and councils
-5. **Stakeholder Communication**: Initiate reporting and updates
-
-## Related Phase Documents
-
-- **PHASE 61**: Technical Quality Improvements
-- **PHASE 62**: Security Hardening
-- **PHASE 63**: Observability and Monitoring
-- **PHASE 64**: Operational Excellence
-
-## Document Version History
-
-| Version | Date | Author | Changes |
-|---------|------|--------|---------|
-| 1.0 | 2024-01-01 | Project Team | Initial comprehensive assessment |
-| 1.1 | 2024-01-15 | Project Team | Added penetration testing strategy |
-| 1.2 | 2024-01-30 | Project Team | Enhanced with additional quality dimensions |
-| 2.0 | 2024-02-15 | Project Team | Restructured as master plan |
+# Phase 60: Product Strategy & Gap Registry
+
+---
+
+## 1. Purpose of This Document
+
+Phase 60 is not an implementation phase. It is a living strategic reference for the 60–64 cluster. It maps what has been built, identifies what genuinely remains, and states the product's direction and limitations honestly. Teams working on phases 61–64 should read this document before starting. The original Phase 60 content (dated 2024, referencing budget tables, a Steering Committee, and Gantt charts) is superseded entirely by this document; the project is developed by AI agents operating in parallel with no human management hierarchy.
+
+---
+
+## 2. Where the Product Is (April 2026)
+
+### 2.1 Capability Summary
+
+| Capability | Status | Key Phases |
+|---|---|---|
+| TLS fingerprinting — JA4, JA4X, JA4T | Production | 0, 5, 16 |
+| Risk scoring (composite, 0–100) | Production | 1 |
+| Dial system (0–100, monitor to full-block) | Production | 2 |
+| Configurable bypass rules (ALLOW + BLOCK) | Production | 0–8 |
+| Signal collection — TLS, SNI, TCP, ASN, DNS, blocklists, beaconing, AbuseIPDB, RDAP | Production | 3–11 |
+| Redis-backed shared state (bans, rate limits, streams, HLL, bloom) | Production | 0 |
+| Analytics node (cross-instance aggregation, campaign detection) | Production | 12 |
+| TAP / SPAN mode (out-of-band, AF_PACKET capture) | Production | 20 |
+| Go proxy (full signal parity with Python, compiles and passes all unit tests) | Complete | 15 |
+| Helm / Kubernetes deployment (DaemonSet topology, chart included) | Complete | 72–75 |
+| RHEL 8/9 via Podman and Quadlets | Complete | 76 |
+| SIEM integration patterns (Wazuh, CrowdSec, Splunk, QRadar, Vector) | Documented | 77 |
+| Enterprise scale, FIPS, GDPR masking | Documented | 78 |
+
+### 2.2 Performance Baseline
+
+Python proxy, single instance: **2,184 conn/s**, p50 0.50 ms, p99 1.62 ms.
+Python proxy, 4 workers (HAProxy LB): **8,100 conn/s**.
+Go proxy: implemented and all unit tests pass. Full signal parity verified against Python. Formal production-load benchmarks have not yet been run.
+
+### 2.3 Test Coverage
+
+**2,948 tests** across unit, integration, chaos, adversarial, and performance categories. The project maintains a ~1.3× test-to-code ratio. 21 tests are skipped in CI because they require live Docker services; all others pass in the standard `make test` run.
+
+---
+
+## 3. What Phases 61–64 Are (And Are Not)
+
+Phases 61–64 are the quality and operational consolidation layer for the 60–86 programme. They do not add new proxy capabilities, new signals, or changes to the risk scoring model. A team starting Phase 61 should not attempt to improve detection rates; that is not the goal and any such work would be out of scope.
+
+A significant portion of what was originally outlined for 61–64 in the 2024 governance document has already been completed through other phases — see §4 for the full list. What remains, documented in §5, is a smaller and more concrete set of genuine gaps. The enterprise integration phases (79–86) assume a quality baseline that 61–64 establishes: specifically, that supply chain integrity exists before distributing binaries (Phase 61), that known security regressions cannot silently resurface (Phase 62), that the product has measurable SLOs before connecting to a SIEM (Phase 63), and that deployment procedures have been exercised end-to-end before enterprise buyers run them (Phase 64).
+
+---
+
+## 4. Work Already Done (Context for Teams Starting 61–64)
+
+Teams should review this table before writing any Phase 61–64 task. Do not re-do work that is already complete.
+
+| Original Concern | Phase That Addressed It | Status |
+|---|---|---|
+| Type hints, linting, mypy, ruff, bandit | Phase 37 | COMPLETE |
+| Documentation excellence (ADRs, runbooks, audience-first navigation) | Phase 21 | COMPLETE |
+| Penetration testing and specific vulnerability remediation | Phase 27 | COMPLETE |
+| Test audit (genuine assertions, no hollow tests) | Phase 44 | COMPLETE |
+| Coverage improvement (>80% on critical modules) | Phase 46 | COMPLETE |
+| Docker image version pinning and CVE scanning | Phase 25 | COMPLETE |
+| Python throughput optimisation (parallel signals, Redis pipelining, Unix socket) | Phases 26–30 | COMPLETE |
+| Circuit breaker patterns and feed reliability | Phase 59 | COMPLETE |
+| Architecture Decision Records (13 ADRs) | Multiple phases | COMPLETE |
+| Security audit documentation | docs/security/ | COMPLETE |
+| Docker network isolation (DMZ/APP/ORIGIN zones) | Phases 71–75 | COMPLETE |
+
+---
+
+## 5. Real Remaining Gaps
+
+### 5.1 Supply Chain Security & Build Integrity (Phase 61)
+
+No CI pipeline exists — `.github/workflows/` is absent from the repository. No SBOM (Software Bill of Materials) is generated at build time. Container images are not signed; there is no build provenance record. Enterprise procurement processes increasingly require all four before approving a security appliance. This is the highest-priority uncovered gap because every subsequent enterprise phase (79–86) will produce artifacts — API binaries, CLI tools, container images — that need signing from the start. Retrofitting supply chain controls after images are already in the field is significantly harder.
+
+### 5.2 Security Regression Testing (Phase 62)
+
+Phase 27 identified and fixed specific penetration testing findings. There is no automated harness that would detect if those vulnerabilities resurface — for example, if a refactor reintroduced IP spoofing via untrusted X-Forwarded-For headers, or if the ClientHello parser gained a new code path that is not covered by adversarial fixtures. There is no fuzzer running against the ClientHello parser. There is no pre-enterprise validation report that can be provided to a security team during procurement. Before the enterprise integration phases introduce third-party buyers and SIEM connectors, a regression validation step is required.
+
+### 5.3 SLI / SLO Framework (Phase 63)
+
+The proxy exposes over 200 Prometheus metrics, but zero Service Level Objectives are defined. The question "is the product operating normally?" has no measurable answer. There are no error budgets, no on-call runbooks tied to burn-rate alerts, and no formal service definition that states what availability, latency, and correctness the product commits to. Connecting the proxy to a SIEM (Phase 80) or an observability platform (Phase 86) without defined SLOs will produce dashboards and alerts with no actionable thresholds. Phase 63 must define SLOs before those phases begin.
+
+### 5.4 Deployment Validation & Disaster Recovery (Phase 64)
+
+The RHEL/Podman deployment guide (Phase 76), the Helm chart, and the Docker Compose stack are all documented. None has been run end-to-end in a controlled environment and formally validated. There is no documented disaster recovery procedure — no defined RTO/RPO, no GameDay scenario, no runbook for "Redis is down and the proxy node has crashed simultaneously." Enterprise buyers require evidence of DR capability during procurement. Phase 64 closes this gap by running the deployment procedures, recording the results, and producing a DR runbook with tested recovery steps.
+
+---
+
+## 6. Product Direction
+
+### 6.1 Strategic Trajectory
+
+JA4proxy is maturing from a security-hardened prototype into an enterprise security appliance for regulated industries. The 79–86 enterprise integration phases deliver the integration surface — Management API, SIEM connectors, SOAR playbooks, Terraform provider, compliance reporting, threat intel ingestion — that enterprise buyers require to adopt the product. Phases 60–64 are the foundation that makes the enterprise phases credible: without CI signing (61), regression safety (62), measurable SLOs (63), and validated deployments (64), the enterprise integration work sits on an unvalidated base.
+
+### 6.2 Target Deployment Pattern
+
+The intended production topology is: load balancer (HAProxy or F5) → JA4proxy ×N (inline) → backend HTTPS servers. JA4proxy is a transparent passthrough proxy that operates on TLS metadata before the handshake completes. It is not a WAF and should not be positioned as one.
+
+### 6.3 Supported Deployment Platforms (after phases 61–64 complete)
+
+- Docker Compose — development and staging environments
+- Kubernetes — Helm chart, DaemonSet topology, three-tier network isolation
+- RHEL 8/9 via Podman and Quadlets — enterprise bare-metal and VM deployments
+- TAP / SPAN mode — out-of-band monitoring without inline deployment, suitable for initial evaluation or network segments where inline insertion is not possible
+
+---
+
+## 7. Product Limitations
+
+This section is deliberately honest. Enterprise buyers and architects must understand these constraints before deployment.
+
+### 7.1 Preprocessor, Not a WAF
+
+JA4proxy operates on TLS metadata visible before and during the handshake. It never decrypts traffic. It cannot inspect HTTP content, detect SQL injection, XSS, or application-layer payloads. These capabilities are architecturally impossible given the design constraint that the proxy never holds TLS keys. Position this product as a complement to a WAF, not a replacement. The correct framing is: JA4proxy filters automated threats at the network layer before they consume WAF capacity.
+
+### 7.2 Fingerprint Evasion
+
+JA4 fingerprints can be forged. A sophisticated attacker who studies the allowlist and mimics a browser's fingerprint will pass through. The product's primary defensive value is against mass automation — C2 frameworks, credential stuffers, vulnerability scanners, and bot networks — that do not bother to mimic real browser TLS behaviour. Against a targeted attacker with knowledge of the proxy's configuration, protection is materially reduced. This limitation is inherent to any fingerprint-based system and should be disclosed during procurement.
+
+### 7.3 Redis Failure = Fail-Open
+
+During a Redis outage the proxy fails open — all connections are allowed through. This is intentional: false positives (blocking legitimate users) cost more than false negatives (missing a blocked connection during the outage window). However, it means the proxy provides zero active blocking during a Redis unavailability event. Rate limiting, bans, cross-instance coordination, and Spamhaus lookups all require Redis. The proxy logs the failure and continues forwarding. Operators must treat Redis availability as a direct dependency of the proxy's security function.
+
+### 7.4 Python Throughput Ceiling
+
+The Python proxy is limited to approximately 2,184 conn/s (single instance) and 8,100 conn/s (4 instances) by the Python GIL and asyncio overhead. This is sufficient for most enterprise DMZ deployments, but insufficient for very high-traffic environments above roughly 10 Gbps sustained ingress. The Go proxy removes this ceiling and is implemented with full signal parity. Formal Go benchmarks under production-representative load have not yet been run; operators targeting >10 Gbps should wait for Phase 65 benchmark results before committing to the Go proxy in production.
+
+### 7.5 False Positive Guarantee Scope
+
+The "0% false positive" claim applies specifically to browser traffic presenting h2 or h1 ALPN — these bypass the scorer entirely by design and can never be blocked. Legitimate API clients, monitoring tools, CI/CD health checks, and automated systems that do not send h2/h1 ALPN may trigger false positives under high dial settings. The dial=0 default, shadow mode simulation (Phase 82), and the majority-vote rate-limiting policy all mitigate this, but false positives cannot be eliminated for non-browser automated traffic without tuning.
+
+### 7.6 Phases 61–64 Add No New Proxy Capabilities
+
+These are quality and operational phases. They do not improve detection rates, add new signals, or change the risk scoring model. An enterprise buyer evaluating detection efficacy should focus on phases 0–20 (core proxy capabilities) and phases 79–86 (integration and policy surface). Phases 61–64 exist to make the product trustworthy and deployable in enterprise environments, not to make it more capable.
+
+---
+
+## 8. Relationship to Enterprise Phases (79–86)
+
+| Enterprise Phase | What It Needs From 60–64 |
+|---|---|
+| Phase 79 (Management API) | Phase 61 CI pipeline — the API must be built with image signing and dependency scanning from day one; retrofitting later is harder |
+| Phase 80 (SIEM Integration) | Phase 63 SLOs — connecting a SIEM without defined thresholds produces unactionable alerts |
+| Phase 82 (Policy / Shadow Mode) | Phase 62 regression testing — shadow mode block decisions must be based on a security baseline that is known to be clean |
+| Phase 83 (Terraform Provider / CLI) | Phase 61 supply chain — CLI binaries require signing and provenance before distribution |
+| Phase 84 (Compliance Reports) | Phase 62 pre-enterprise validation report — compliance evidence requires a clean, documented penetration test result |
+| Phase 86 (Observability / Capacity Planner) | Phase 63 SLOs — the capacity calculator needs defined "healthy" thresholds to produce useful projections |
+
+---
+
+*This document is updated whenever the project's strategic direction changes or a major gap is closed. Last updated: 2026-04-05.*
