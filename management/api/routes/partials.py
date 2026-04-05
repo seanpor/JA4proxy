@@ -152,13 +152,8 @@ async def health_cards_partial(
     ]
 
     return templates.TemplateResponse(
-        "partials/health_cards.html",
-        {
-            "request": request,
-            "user": current_user,
-            "health_cards": health_cards,
-            "dial_value": dial_value,
-        },
+        request, "partials/health_cards.html",
+        {"user": current_user, "health_cards": health_cards, "dial_value": dial_value},
     )
 
 
@@ -173,12 +168,8 @@ async def dial_partial(
     dial_value = await _get_dial(redis)
 
     return templates.TemplateResponse(
-        "partials/dial_widget.html",
-        {
-            "request": request,
-            "user": current_user,
-            "dial_value": dial_value,
-        },
+        request, "partials/dial_widget.html",
+        {"user": current_user, "dial_value": dial_value},
     )
 
 
@@ -229,13 +220,8 @@ async def bans_partial(
     dial_value = await _get_dial(redis)
 
     return templates.TemplateResponse(
-        "partials/bans_table.html",
-        {
-            "request": request,
-            "user": current_user,
-            "bans": bans,
-            "dial_value": dial_value,
-        },
+        request, "partials/bans_table.html",
+        {"user": current_user, "bans": bans, "dial_value": dial_value},
     )
 
 
@@ -294,13 +280,8 @@ async def audit_partial(
     dial_value = await _get_dial(redis)
 
     return templates.TemplateResponse(
-        "partials/audit_table.html",
-        {
-            "request": request,
-            "user": current_user,
-            "events": normalised,
-            "dial_value": dial_value,
-        },
+        request, "partials/audit_table.html",
+        {"user": current_user, "events": normalised, "dial_value": dial_value},
     )
 
 
@@ -338,9 +319,8 @@ async def list_table_partial(
     dial_value = await _get_dial(redis)
 
     return templates.TemplateResponse(
-        "partials/list_table.html",
+        request, "partials/list_table.html",
         {
-            "request": request,
             "user": current_user,
             "list_name": list,
             "entries": entries,

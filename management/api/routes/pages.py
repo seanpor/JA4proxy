@@ -58,10 +58,7 @@ async def login_page(request: Request) -> HTMLResponse:
         return RedirectResponse(url="/", status_code=302)
 
     templates = _get_templates()
-    return templates.TemplateResponse(
-        "login.html",
-        {"request": request},
-    )
+    return templates.TemplateResponse(request, "login.html", {})
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -71,10 +68,7 @@ async def dashboard_page(
 ) -> HTMLResponse:
     """Render the main dashboard page."""
     templates = _get_templates()
-    return templates.TemplateResponse(
-        "dashboard.html",
-        {"request": request, "user": current_user},
-    )
+    return templates.TemplateResponse(request, "dashboard.html", {"user": current_user})
 
 
 @router.get("/lists", response_class=HTMLResponse)
@@ -84,10 +78,7 @@ async def lists_page(
 ) -> HTMLResponse:
     """Render the JA4 / IP list management page."""
     templates = _get_templates()
-    return templates.TemplateResponse(
-        "lists.html",
-        {"request": request, "user": current_user},
-    )
+    return templates.TemplateResponse(request, "lists.html", {"user": current_user})
 
 
 @router.get("/bans", response_class=HTMLResponse)
@@ -97,10 +88,7 @@ async def bans_page(
 ) -> HTMLResponse:
     """Render the active bans management page."""
     templates = _get_templates()
-    return templates.TemplateResponse(
-        "bans.html",
-        {"request": request, "user": current_user},
-    )
+    return templates.TemplateResponse(request, "bans.html", {"user": current_user})
 
 
 @router.get("/audit", response_class=HTMLResponse)
@@ -110,7 +98,4 @@ async def audit_page(
 ) -> HTMLResponse:
     """Render the audit log page."""
     templates = _get_templates()
-    return templates.TemplateResponse(
-        "audit.html",
-        {"request": request, "user": current_user},
-    )
+    return templates.TemplateResponse(request, "audit.html", {"user": current_user})
