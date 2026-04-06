@@ -8,7 +8,7 @@
 # Python proxy listens on :8083 (host) / :8080 (container)
 # Python metrics listen on :9093 (host) / :9090 (container)
 # Go proxy (primary) remains on :8081 / :9090.
-# Both proxies share the same Redis instance (data_net).
+# Both proxies share the same Redis instance (ja4proxy-data).
 
 services:
   python-proxy:
@@ -30,10 +30,10 @@ services:
     depends_on:
       - redis
     networks:
-      - dmz_net
-      - data_net
-      - origin_net
-      - mgmt_net
+      - ja4proxy-dmz
+      - ja4proxy-data
+      - ja4proxy-origin
+      - ja4proxy-mgmt
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:9090/health"]
@@ -41,5 +41,5 @@ services:
       timeout: 5s
       retries: 3
 
-# Networks are declared in docker-compose.poc.yml (dmz_net, data_net, origin_net, mgmt_net).
+# Networks are declared in docker/docker-compose.poc.yml (ja4proxy-dmz, ja4proxy-data, ja4proxy-origin, ja4proxy-mgmt).
 # No network declarations needed here — the overlay inherits them from the base file.

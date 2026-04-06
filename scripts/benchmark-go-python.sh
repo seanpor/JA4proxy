@@ -287,10 +287,10 @@ if [[ "$USE_DOCKER" == "true" ]]; then
     fi
 
     if [[ "$GO_UP" == "false" ]]; then
-        log "Starting Go proxy (docker compose) ..."
+        log "Starting Go proxy ..."
         docker compose \
             -f docker/docker-compose.poc.yml \
-            up -d --quiet-pull go-proxy 2>&1 | tail -5 | sed 's/^/    /'
+            up -d --quiet-pull proxy 2>&1 | tail -5 | sed 's/^/    /'
         log "Waiting for Go proxy to become healthy ..."
         for i in $(seq 1 30); do
             if _port_open "${GO_HOST}" "${GO_PORT}"; then

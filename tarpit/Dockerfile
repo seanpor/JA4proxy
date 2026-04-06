@@ -1,4 +1,7 @@
 FROM python:3.14.0-slim
+LABEL dockerfile.location="module" \
+      dockerfile.module="tarpit" \
+      dockerfile.build-context="module-local"
 
 RUN pip install --no-cache-dir prometheus_client
 

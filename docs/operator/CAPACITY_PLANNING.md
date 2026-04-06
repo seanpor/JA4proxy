@@ -95,7 +95,7 @@ pie title Python Proxy CPU Distribution
 **Migration Recommendation:**
 - Start with Python for simplicity
 - Migrate to Go when >350 conn/s sustained load
-- Use `docker/docker-compose.go.yml` for parallel validation
+- Go proxy is the default in `docker/docker-compose.poc.yml`; use `docker/docker-compose.python-legacy.yml` overlay for cross-language parity validation
 
 ---
 
