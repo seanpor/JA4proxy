@@ -568,40 +568,40 @@ phases:
     size: "XL"
 
   61:
-    name: "Technical Quality Improvements"
+    name: "Supply Chain Security & Build Integrity"
     status: "PROPOSED"
     doc_status: "COMPLETE"
-    summary: "Code quality, architecture, performance, and reliability enhancements."
+    summary: "GitHub Actions CI pipeline (Python + Go tests, SAST, dependency audit); SBOM generation (CycloneDX 1.4); Cosign keyless image signing; SLSA level 2 provenance for Go binary; action SHA pinning; branch protection rules."
     action_plan: "docs/phases/PHASE_61.md"
     dependencies: [60]
     size: "L"
 
   62:
-    name: "Security Hardening"
+    name: "Security Regression Harness, Fuzzing & Pre-Enterprise Validation"
     status: "PROPOSED"
     doc_status: "COMPLETE"
-    summary: "Penetration testing, threat modeling, incident response, and compliance."
+    summary: "Automated regression tests for all Phase 27 pentest findings; atheris + Go native fuzzing harnesses with CI smoke run; break-glass verification procedure; pre-enterprise validation report generator."
     action_plan: "docs/phases/PHASE_62.md"
     dependencies: [60, 61]
     size: "XL"
 
   63:
-    name: "Observability and Monitoring"
+    name: "Service Level Objectives"
     status: "PROPOSED"
     doc_status: "COMPLETE"
-    summary: "Technical observability, executive dashboards, alerting, and reporting."
+    summary: "Four SLIs (availability 99.9%, latency 99% <10ms, Redis correctness 99.5%, FP rate <2%); multiwindow burn-rate alerts; Grafana SLO dashboard; on-call runbooks; metric naming prerequisite (ja4_ → ja4proxy_ rename + add missing counters)."
     action_plan: "docs/phases/PHASE_63.md"
     dependencies: [60, 61]
     size: "L"
 
   64:
-    name: "Operational Excellence"
+    name: "Deployment Validation & Disaster Recovery"
     status: "PROPOSED"
     doc_status: "COMPLETE"
-    summary: "Process optimization, training, documentation, and continuous improvement."
+    summary: "Smoke test suite (Docker Compose, Helm/kind, Podman/Quadlet); DR runbook with 5 scenarios incl. Redis data loss; credential rotation runbooks; TLS certificate rotation; rolling upgrade procedure; MTTR baseline measurement."
     action_plan: "docs/phases/PHASE_64.md"
     dependencies: [60, 61, 62, 63]
-    size: "M"
+    size: "L"
 
   65:
     name: "Performance Hardening & Go/Python Parity"
