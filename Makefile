@@ -899,7 +899,7 @@ test-tap-perf:
 # Usage: make gdpr-delete IP=1.2.3.4
 gdpr-delete:
 	@[ -n "$(IP)" ] || (echo "Usage: make gdpr-delete IP=1.2.3.4"; exit 1)
-	@python3 scripts/gdpr_delete.py --ip $(IP)
+	@python3 scripts/gdpr_delete.py --ip $(IP) $(if $(DRY_RUN),--dry-run,)
 
 ## ── Management UI ────────────────────────────────────────────────────────────
 management-build:
@@ -1026,3 +1026,7 @@ test-phase-89-lint:
 	docker compose -f docker/docker-compose.test.yml config --quiet
 	BACKEND_HOST=lint \
 	  docker compose -f docker/docker-compose.prod.yml config --quiet
+
+## Phase 91 targets
+test-phase-91:
+	python3 -m pytest tests/unit/test_gdpr_delete.py -v
