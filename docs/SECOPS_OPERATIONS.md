@@ -98,7 +98,7 @@ chmod 600 .env    # Ensure .env is not world-readable
 | Stop + wipe data | `./stop-all.sh --clean` | `make stop-clean` |
 | Full clean rebuild | — | `make rebuild` |
 | View status | `./status.sh` | `make status` |
-| View logs | `make logs` | `docker compose -f docker-compose.poc.yml logs -f proxy` |
+| View logs | `make logs` | `docker compose -f docker/docker-compose.poc.yml logs -f proxy` |
 
 ### What `stop-all.sh --clean` does
 
@@ -335,7 +335,7 @@ Both the Redis server and proxy container must restart together so they use the 
 ```bash
 git pull
 ./stop-all.sh
-docker compose -f docker-compose.poc.yml build
+docker compose -f docker/docker-compose.poc.yml build
 ./start-all.sh
 ./poc-status-check.sh    # Verify everything is healthy
 ```

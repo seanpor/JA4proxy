@@ -180,7 +180,7 @@ management/                  — Phase 13/51/52 owns entirely
   templates/
   tests/
 docker/Dockerfile.management  — Phase 13/51/52 adds
-docker-compose.poc.yml         — Phase 13/51/52 adds management service (bottom of services)
+docker/docker-compose.poc.yml         — Phase 13/51/52 adds management service (bottom of services)
 Makefile                       — Phase 13/51/52 adds targets at bottom only
 docs/MANAGEMENT_UI_ACCESS.md   — Phase 13/51/52 adds
 ```

@@ -114,9 +114,9 @@ def main() -> int:
     compose_files = [
         repo_root / "docker" / "docker-compose.prod.yml",
         repo_root / "docker" / "docker-compose.monitoring.yml",
-        repo_root / "docker-compose.poc.yml",
-        repo_root / "docker-compose.scale.yml",
-        repo_root / "docker-compose.test.yml",
+        repo_root / "docker" / "docker-compose.poc.yml",
+        repo_root / "docker" / "docker-compose.scale.yml",
+        repo_root / "docker" / "docker-compose.test.yml",
     ]
 
     errors, warnings = check(compose_files)

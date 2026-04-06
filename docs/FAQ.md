@@ -226,7 +226,7 @@ The canonical source is `config/proxy.yml` — the blacklist there loads into Re
 ```bash
 git pull
 make stop
-docker compose -f docker-compose.poc.yml build
+docker compose -f docker/docker-compose.poc.yml build
 make start
 ./poc-status-check.sh    # Verify
 ```

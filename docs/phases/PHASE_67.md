@@ -72,8 +72,8 @@ Run `make lint` to confirm zero new ruff violations.
 
 ```bash
 # Build all updated images
-docker compose -f docker-compose.poc.yml build
-docker compose -f docker-compose.test.yml build
+docker compose -f docker/docker-compose.poc.yml build
+docker compose -f docker/docker-compose.test.yml build
 
 # Run full test suite against the new images
 make test

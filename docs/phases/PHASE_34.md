@@ -81,24 +81,24 @@
 **Goal:** Minimise the blast radius of a compromised container.
 
 > `read_only: true`, `cap_drop: [ALL]`, `security_opt: [no-new-privileges:true]`, and `tmpfs:`
-> mounts are **already implemented** in `docker-compose.poc.yml` for all services. What remains
+> mounts are **already implemented** in `docker/docker-compose.poc.yml` for all services. What remains
 > is writing explicit Seccomp/AppArmor profile files and wiring them in. These items were
 > previously listed under Phase 55; Phase 55 has been cancelled and they are now owned here.
 
-- [x] **Immutable filesystem:** `read_only: true` for all services. *(docker-compose.poc.yml)*
+- [x] **Immutable filesystem:** `read_only: true` for all services. *(docker/docker-compose.poc.yml)*
 - [x] **Capability drop:** `cap_drop: [ALL]` + selective `cap_add` where required.
-      *(docker-compose.poc.yml)*
+      *(docker/docker-compose.poc.yml)*
 - [x] **No new privileges:** `security_opt: [no-new-privileges:true]` on every service.
-      *(docker-compose.poc.yml)*
+      *(docker/docker-compose.poc.yml)*
 - [x] **Ephemeral tmpfs:** `/tmp` on `noexec,nosuid,nodev` tmpfs for proxy, redis, backend,
-      tarpit. *(docker-compose.poc.yml)*
+      tarpit. *(docker/docker-compose.poc.yml)*
 - [x] **TAP-mode Seccomp:** `config/seccomp_tap.json` exists with a comprehensive syscall
       allowlist for the TAP sensor. *(Phase 20)*
 - [x] **Proxy Seccomp profile:** `config/seccomp/proxy.json` exists. Wired into
-      `docker-compose.poc.yml` at `security_opt: [seccomp:config/seccomp/proxy.json]`.
+      `docker/docker-compose.poc.yml` at `security_opt: [seccomp:config/seccomp/proxy.json]`.
 - [x] **AppArmor profile:** `config/apparmor/ja4proxy` — denies shell/ptrace execution,
       allows Python runtime + redis Unix socket + TCP stream. Wired (commented) into
-      docker-compose.poc.yml and docker/docker-compose.prod.yml with host-load instructions.
+      docker/docker-compose.poc.yml and docker/docker-compose.prod.yml with host-load instructions.
       Note: outbound IP whitelisting is at nftables level (Phase 72); AppArmor handles
       exec/ptrace denial.
 
