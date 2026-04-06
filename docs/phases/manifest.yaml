@@ -121,11 +121,9 @@ phases:
     
   13:
     name: "Management UI - Phase 1: Backend API"
-    status: "DEFERRED"
-    summary: "FastAPI backend for real-time monitoring and configuration management."
+    status: "COMPLETE"
+    summary: "FastAPI backend for real-time monitoring and configuration management. Delivered together with Phases 51/52 in merge commit 2aeb2ba."
     action_plan: "docs/phases/PHASE_13.md"
-    dependencies: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15]
-    size: "SMALL"
     
   14:
     name: "Production Hardening"
@@ -467,19 +465,15 @@ phases:
 
   51:
     name: "Management UI - Phase 2: Frontend Dashboard"
-    status: "PROPOSED"
-    summary: "React-based dashboard for real-time visualization of proxy telemetry."
+    status: "COMPLETE"
+    summary: "Server-rendered Jinja2 dashboard (dashboard.html, partials) for real-time visualization of proxy telemetry. Delivered together with Phases 13/52 in merge commit 2aeb2ba."
     action_plan: "docs/phases/PHASE_51.md"
-    dependencies: [13]
-    size: "SMALL"
 
   52:
     name: "Management UI - Phase 3: Administration Tools"
-    status: "PROPOSED"
-    summary: "Interactive tools for managing allowlists, bans, and system configuration."
+    status: "COMPLETE"
+    summary: "Admin UI for allowlists, bans, dial, audit log, and config. Full test suite including test_pages.py and test_container_config.py. Delivered together with Phases 13/51 in merge commit 2aeb2ba."
     action_plan: "docs/phases/PHASE_52.md"
-    dependencies: [51]
-    size: "SMALL"
 
   53:
     name: "Advanced Traffic Intelligence - Phase 2: Secondary Feeds"

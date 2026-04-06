@@ -1,6 +1,6 @@
 # Phase 34: APT Hardening - Phase 1: Parser Isolation & Redis Security
 
-**Status:** IN_PROGRESS — ~80% complete
+**Status:** IN_PROGRESS — ~95% complete (AppArmor profile is the only remaining item)
 **Priority:** High (Post-Audit)
 **Sequel:** ~~Phase 55 (cancelled — absorbed)~~ Phase 56 (deception, persistence defense)
 
@@ -31,8 +31,9 @@
 - [x] **Depth counter (N/A):** The pure-Python parser in `src/tls/parser.py` uses a single
       linear pass (non-recursive). Stack exhaustion via nested extensions is architecturally
       impossible — no depth counter needed.
-- [ ] **Fuzz verification:** Send 10,000 malformed ClientHello packets; proxy throughput must
-      remain stable and not raise unhandled exceptions.
+- [x] **Fuzz verification:** `tests/unit/test_tls_parser_fuzz.py` — 15 test functions covering
+      empty inputs, truncation, random bytes, 500 nested extensions (stack exhaustion), length
+      overflows, and non-handshake record types. All pass without unhandled exceptions.
 
 ---
 
@@ -45,10 +46,10 @@
 - [x] **Cryptographic signing:** HMAC-SHA256 `_verify_signature()` at `proxy.py:862–885` verifies
       `ja4:blacklist` and `ja4:whitelist` writes. Signing key read from Redis config at
       `proxy.py:1751`.
-- [ ] **Least-privilege ACL users:** Create per-service Redis ACL users:
-  - `proxy` user: read/write only proxy keyspace (`ratelimit:*`, `ban:*`, `beacon:*`).
-  - `analytics` user: `XADD` to event streams only.
-  - `admin` user: full access (management UI only).
+- [x] **Least-privilege ACL users:** `config/redis/users.acl` defines `ja4proxy`, `admin`,
+      `monitor`, and `backup` users with scoped keyspace access. `scripts/redis-acl-setup.sh`
+      applies them. Wired in `config/redis/redis.conf` (`aclfile`) and `config/proxy.yml`
+      (`redis.acl_users`). Enabled via `acl_users.enabled: true`.
 
 ---
 
@@ -65,10 +66,13 @@
 - [x] **Entropy-Based SNI Scoring:** Shannon entropy + vowel-ratio analysis at
       `src/security/sni_analyzer.py:73–148` scores DGA-like hostnames. Signal registered in
       `config/signal_scores.yml` as `dga`. *(Phase 4 / Phase 65)*
-- [ ] **Subnet correlation pipeline wiring:** Wire `CampaignDetector` findings into the live
-      scoring pipeline so subnet-level block signals contribute to per-connection risk scores.
-- [ ] **Anti-Fingerprint Spoofing:** Detect JA4 vs TLS version mismatches (e.g., a Chrome 120
-      fingerprint presenting TLS 1.0). Not yet implemented.
+- [x] **Subnet correlation pipeline wiring:** `src/security/pipeline.py:438–502` reads
+      `analytics:campaign:{subnet}` and `analytics:slowscan:{subnet}` keys and emits
+      `subnet_campaign` and `slowscan` `RiskSignal`s into the live scoring pipeline.
+- [x] **Anti-Fingerprint Spoofing:** `check_ja4_tls_mismatch()` in
+      `src/security/tls_enforcer.py:175` detects JA4 vs TLS version mismatches; wired into
+      pipeline at `src/security/pipeline.py:852`. Prometheus counter
+      `ja4proxy_ja4_tls_mismatch_total` tracks detections.
 
 ---
 
@@ -90,9 +94,8 @@
       tarpit. *(docker-compose.poc.yml)*
 - [x] **TAP-mode Seccomp:** `config/seccomp_tap.json` exists with a comprehensive syscall
       allowlist for the TAP sensor. *(Phase 20)*
-- [ ] **Proxy Seccomp profile:** Write `config/seccomp/proxy.json` for the main proxy process
-      (distinct from the TAP seccomp). Wire into `docker-compose.poc.yml` and
-      `docker/docker-compose.prod.yml`.
+- [x] **Proxy Seccomp profile:** `config/seccomp/proxy.json` exists. Wired into
+      `docker-compose.poc.yml` at `security_opt: [seccomp:config/seccomp/proxy.json]`.
 - [ ] **AppArmor profile:** Write `config/apparmor/ja4proxy` forbidding shell spawning and
       outbound connections to any host other than `$BACKEND_HOST` and `$REDIS_HOST`.
 
