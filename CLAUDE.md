@@ -633,9 +633,11 @@ docs/
 
 ## How to Run a Phase
 
+> **Before anything else:** If the phase document (`docs/phases/PHASE_XX.md`) does not already exist, you MUST create it and have it reviewed by the user before writing any code. See the **Mandatory Planning Protocol** in `AGENTS.md`. This rule overrides the steps below — do not begin "Starting" until a plan exists and has been approved.
+
 ### Starting
 1. Read this file (`CLAUDE.md`) in full.
-2. Read the specific phase file `docs/phases/PHASE_XX.md`.
+2. Read the specific phase file `docs/phases/PHASE_XX.md` (create it first if it does not exist — see note above).
 3. Read the existing code in `proxy.py` and `src/security/` before writing anything new.
 4. Read `config/proxy.yml` to understand the config structure.
 5. Create your branch: `git checkout main && git pull && git checkout -b claude/phase-XX-description`
