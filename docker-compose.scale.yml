@@ -1,8 +1,8 @@
-# Docker Compose scale overlay for multi-process worker model (Phase 26d)
+# Docker Compose scale overlay for multi-instance Go proxy scaling.
 #
-# Usage: docker compose -f docker-compose.yml -f docker-compose.scale.yml up -d
+# Usage: docker compose -f docker-compose.poc.yml -f docker-compose.scale.yml up -d
 #
-# This overlay adds N worker processes that share the same Redis backend.
+# This overlay adds N Go proxy worker instances that share the same Redis backend.
 # HAProxy load balances TCP connections across all workers using round-robin.
 
 services:
@@ -24,11 +24,11 @@ services:
       - proxy-worker-3
       - proxy-worker-4
 
-  # Proxy worker processes (4 workers for optimal scaling on i9-9900K)
+  # Go proxy worker instances (4 workers for optimal scaling on i9-9900K)
   proxy-worker-1:
     extends:
       service: proxy
-      file: docker/docker-compose.prod.yml
+      file: docker-compose.poc.yml
     container_name: ja4proxy_worker_1
     environment:
       - PROXY_PORT=8080
@@ -41,7 +41,7 @@ services:
   proxy-worker-2:
     extends:
       service: proxy
-      file: docker/docker-compose.prod.yml
+      file: docker-compose.poc.yml
     container_name: ja4proxy_worker_2
     environment:
       - PROXY_PORT=8083
@@ -54,7 +54,7 @@ services:
   proxy-worker-3:
     extends:
       service: proxy
-      file: docker/docker-compose.prod.yml
+      file: docker-compose.poc.yml
     container_name: ja4proxy_worker_3
     environment:
       - PROXY_PORT=8084
@@ -67,7 +67,7 @@ services:
   proxy-worker-4:
     extends:
       service: proxy
-      file: docker/docker-compose.prod.yml
+      file: docker-compose.poc.yml
     container_name: ja4proxy_worker_4
     environment:
       - PROXY_PORT=8085

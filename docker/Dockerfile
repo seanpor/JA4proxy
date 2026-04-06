@@ -1,3 +1,6 @@
+# LEGACY PYTHON PROXY — for parity validation and prototyping new signal modules only.
+# Production deployments use docker/Dockerfile.go-proxy (Go binary).
+# Keep this image until Python proxy is formally retired.
 FROM python:3.14.0-slim
 
 # Security hardening - user/group may already exist in base image
