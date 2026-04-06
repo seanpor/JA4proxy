@@ -70,6 +70,32 @@ scrape_configs:
         labels:
           role: 'infrastructure'
 
+  - job_name: 'cadvisor'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    static_configs:
+      - targets: ['cadvisor:8080']
+        labels:
+          service: cadvisor
+          role: container-metrics
+    metric_relabel_configs:
+      # Drop per-device blkio series — high cardinality, unused
+      - source_labels: [__name__]
+        regex: 'container_(blkio_device|tasks_state).*'
+        action: drop
+      # Drop the host cgroup root (name="") — covered by node-exporter
+      - source_labels: [name]
+        regex: ''
+        action: drop
+
+  - job_name: 'haproxy'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['haproxy-exporter:9101']
+        labels:
+          service: haproxy
+          role: load-balancer
+
 # Storage configuration is set via command-line flags in docker-compose.yml
 # retention.time and retention.size are passed as startup arguments
 

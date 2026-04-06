@@ -49,7 +49,7 @@ Deep security analysis, compliance, and audit remediation.
 | 35 | Advanced APT - Phase 1: Integrity Enforcement & Kernel-Level | COMPLETE | Supply chain integrity monitoring (Ed25519 config signing, SHA-256 hash-chain audit log, async background monitor) and eBPF/XDP NIC-level blocking (XDP program, Redis-to-BPF sync sidecar, graceful fallback, Alertmanager volumetric-attack rule). |
 | 37 | Lint & Static Analysis Cleanup | COMPLETE | Fixed make lint and make lint-static: black reformatted 79 files, removed ~65 unused imports, fixed 15 mypy errors. |
 | 38 | ISP Blocking Operations | COMPLETE | Establish comprehensive operational procedures for identifying, implementing, monitoring, and maintaining blocks against malicious ISPs. |
-| 55 | APT Hardening - Phase 2: Advanced Detection & Container Security | CANCELLED | Implement subnet correlation, anti-evasion checks, and strict Seccomp/AppArmor profiles. |
+| 55 | APT Hardening - Phase 2: Advanced Detection & Container Security | CLOSED | Implement subnet correlation, anti-evasion checks, and strict Seccomp/AppArmor profiles. |
 | 56 | Advanced APT - Phase 2: Deceptive Defense & Persistence Defense | PROPOSED | Implement honey-fingerprints, honey-SNIs, and runtime process namespace isolation. |
 | 62 | Security Hardening | PROPOSED | Penetration testing, threat modeling, incident response, and compliance. |
 | 75 | Docker Isolation - Security Audit & Validation | COMPLETE | scripts/check-isolation.sh verifies port surface, Docker socket, network zone boundaries, IPC isolation, and cross-agent reach. ISOLATION_MODEL.md updated with verification section. |
@@ -175,7 +175,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 52 | Management UI - Phase 3: Administration Tools | COMPLETE | N/A | N/A |
 | 53 | Advanced Traffic Intelligence - Phase 2: Secondary Feeds | COMPLETE | N/A | N/A |
 | 54 | Advanced Traffic Intelligence - Phase 5: Behavioral Attribution | COMPLETE | N/A | N/A |
-| 55 | APT Hardening - Phase 2: Advanced Detection & Container Security | CANCELLED | N/A | N/A |
+| 55 | APT Hardening - Phase 2: Advanced Detection & Container Security | CLOSED | N/A | N/A |
 | 56 | Advanced APT - Phase 2: Deceptive Defense & Persistence Defense | PROPOSED | N/A | N/A |
 | 57 | Backup System Enhancements - Phase 3: Cloud & Incrementals | PROPOSED | N/A | N/A |
 | 58 | Advanced Traffic Intelligence - Phase 3: Feed Optimization & Reliability | COMPLETE | N/A | N/A |
@@ -207,6 +207,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 84 | Compliance & Reporting | PROPOSED | N/A | N/A |
 | 85 | Threat Intelligence Ingestion | PROPOSED | N/A | N/A |
 | 86 | Observability & Capacity Planning | PROPOSED | N/A | N/A |
+| 87 | Container & Host Infrastructure Observability | COMPLETE | N/A | N/A |
 
 ---
 
