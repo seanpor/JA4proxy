@@ -1909,6 +1909,29 @@ class ProxyServer:
         )
         self.logger.info(f"Proxy server listening on {bind_addr}")
 
+        # Phase 56b: Apply runtime seccomp profile — narrower than startup profile.
+        # Startup (Docker seccomp JSON) allows file loading and module imports;
+        # runtime profile removes execve/fork/vfork once socket is bound and listening.
+        # Fails open: if python-libseccomp is absent or the profile is malformed,
+        # the proxy continues on the Docker-applied startup profile.
+        try:  # phase-56
+            from src.security.seccomp_transition import apply_runtime_seccomp, is_supported  # phase-56
+            _sc_cfg = self.config.get("deception", {}).get("seccomp_transition", {})  # phase-56
+            if _sc_cfg.get("enabled", True) and is_supported():  # phase-56
+                _sc_profile = _sc_cfg.get(  # phase-56
+                    "runtime_profile", "config/seccomp/proxy_runtime.json"  # phase-56
+                )  # phase-56
+                _sc_ok = apply_runtime_seccomp(_sc_profile)  # phase-56
+                self.logger.info(  # phase-56
+                    "seccomp | event=runtime_transition | applied=%s | profile=%s",  # phase-56
+                    _sc_ok, _sc_profile,  # phase-56
+                )  # phase-56
+        except Exception as _sc_exc:  # phase-56
+            self.logger.warning(  # phase-56
+                "seccomp | event=transition_error | error=%s | effect=continuing",  # phase-56
+                _sc_exc,  # phase-56
+            )  # phase-56
+
         # Phase 14b: Shutdown watcher — stops the server when shutdown_event fires.
         # Runs concurrently with serve_forever(); cancels itself if serve_forever()
         # exits first (e.g. via CancelledError from a test).

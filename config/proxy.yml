@@ -701,6 +701,13 @@ deception:
     timeout_seconds: 300    # How long integrity monitor can be silent before triggering.
     grace_period_seconds: 30 # Startup grace period before switch arms.
 
+  # Phase 56b: Runtime seccomp profile transition.
+  # After startup completes, applies a stricter seccomp filter (removes execve/fork/vfork).
+  # Requires python3-seccomp (libseccomp-dev); fails open if library is absent.
+  seccomp_transition:
+    enabled: true           # Default: on. Set false to skip the runtime profile application.
+    runtime_profile: "config/seccomp/proxy_runtime.json"  # Path to the strict runtime profile.
+
 # ── Phase 68: Runtime Performance Options ─────────────────────────────────────
 
 runtime:
