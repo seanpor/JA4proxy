@@ -1,6 +1,6 @@
 # Phase 34: APT Hardening - Phase 1: Parser Isolation & Redis Security
 
-**Status:** IN_PROGRESS — ~95% complete (AppArmor profile is the only remaining item)
+**Status:** COMPLETE
 **Priority:** High (Post-Audit)
 **Sequel:** ~~Phase 55 (cancelled — absorbed)~~ Phase 56 (deception, persistence defense)
 
@@ -96,8 +96,11 @@
       allowlist for the TAP sensor. *(Phase 20)*
 - [x] **Proxy Seccomp profile:** `config/seccomp/proxy.json` exists. Wired into
       `docker-compose.poc.yml` at `security_opt: [seccomp:config/seccomp/proxy.json]`.
-- [ ] **AppArmor profile:** Write `config/apparmor/ja4proxy` forbidding shell spawning and
-      outbound connections to any host other than `$BACKEND_HOST` and `$REDIS_HOST`.
+- [x] **AppArmor profile:** `config/apparmor/ja4proxy` — denies shell/ptrace execution,
+      allows Python runtime + redis Unix socket + TCP stream. Wired (commented) into
+      docker-compose.poc.yml and docker/docker-compose.prod.yml with host-load instructions.
+      Note: outbound IP whitelisting is at nftables level (Phase 72); AppArmor handles
+      exec/ptrace denial.
 
 ---
 

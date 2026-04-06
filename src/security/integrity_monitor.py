@@ -112,6 +112,10 @@ class IntegrityMonitor:
         # Per-instance counter shim: monitor.violation_counter._value.get()
         # starts at 0 for each new IntegrityMonitor instance.
         self.violation_counter = _ViolationCounterShim()
+        # Phase 56b: timestamp of the last successful clean check cycle.
+        # Set to 0.0 until the first check completes.
+        # Read by DeadManSwitch to determine whether the monitor is still alive.
+        self.last_check_time: float = 0.0  # phase-56b
 
     # ------------------------------------------------------------------
     # Public API
@@ -234,6 +238,8 @@ class IntegrityMonitor:
                         self._baseline, current, self._integrity_cfg,
                         self.violation_counter,
                     )
+                    # Phase 56b: record that a check completed — used by DeadManSwitch.
+                    self.last_check_time = time.monotonic()  # phase-56b
                 except Exception as exc:
                     # Fail open — log the error but keep the monitor running.
                     logger.error(
