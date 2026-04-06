@@ -24,9 +24,9 @@ zero-downtime via HAProxy upstream switching.
 
 ### Phase 1: Parallel Validation (Recommended: 48h minimum)
 
-1. Start Go proxy in parallel:
+1. Start the Go proxy (it is now the default service in poc.yml):
    ```bash
-   docker compose -f docker/docker-compose.poc.yml -f docker/docker-compose.go.yml up -d go-proxy
+   docker compose -f docker/docker-compose.poc.yml up -d proxy
    ```
 
 2. Verify Go proxy health:

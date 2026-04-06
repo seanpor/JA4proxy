@@ -13,6 +13,8 @@ linters:
     - staticcheck
     - govet
     - unused
+    - gosec      # phase-91: security anti-patterns (weak crypto, cmd injection, path traversal)
+    - bodyclose  # phase-91: unclosed HTTP response bodies (resource leak)
 
   settings:
     errcheck:

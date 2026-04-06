@@ -2,6 +2,9 @@
 # Phase 12a: Foundation
 
 FROM python:3.14.0-slim as base
+LABEL dockerfile.location="module" \
+      dockerfile.module="src/analytics" \
+      dockerfile.build-context="root"
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1

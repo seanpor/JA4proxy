@@ -39,10 +39,10 @@ graph TD
 
 Every agent project (e.g., `ja4_gemini`) uses a set of private bridge networks. These are strictly isolated using the `internal: true` flag where appropriate to prevent unauthorized egress.
 
-- **`dmz_net`**: Only HAProxy and Proxy. No external internet access.
-- **`data_net`**: Only Proxy and Redis. **`internal: true`**. No internet, no ingress.
-- **`origin_net`**: Only Proxy and Mockbackend. **`internal: true`**. No internet, no ingress.
-- **`mgmt_net`**: Proxy and Analytics. Standard bridge for telemetry egress.
+- **`ja4proxy-dmz`**: Only HAProxy and Proxy. No external internet access.
+- **`ja4proxy-data`**: Only Proxy and Redis. **`internal: true`**. No internet, no ingress.
+- **`ja4proxy-origin`**: Only Proxy and Mockbackend. **`internal: true`**. No internet, no ingress.
+- **`ja4proxy-mgmt`**: Proxy and Analytics. Standard bridge for telemetry egress.
 
 ### 2. Interface Layer (Host-Level)
 
@@ -153,7 +153,7 @@ The script performs five check categories:
 |----------|----------------|
 | **Host port surface** | Only 443, 8080, 8404, 9090 open on the agent's bind IP; Redis/backend/tarpit not exposed |
 | **Docker socket** | `/var/run/docker.sock` not accessible inside proxy or redis containers |
-| **Network zones** | `data_net` and `origin_net` have no internet egress; HAProxy cannot reach Redis; Analytics cannot reach Backend; Proxy can reach both Redis and Backend |
+| **Network zones** | `ja4proxy-data` and `ja4proxy-origin` have no internet egress; HAProxy cannot reach Redis; Analytics cannot reach Backend; Proxy can reach both Redis and Backend |
 | **IPC namespace** | `/dev/shm` inodes differ between containers (not shared) |
 | **Cross-agent** | Proxy container cannot reach other agents' bind IPs on port 443 |
 
