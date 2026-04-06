@@ -108,6 +108,15 @@ phase: 54
 
 ---
 
+## Phase 57 — Cloud Backup & Restore Hardening
+
+| Key pattern | Type | TTL | Written by | Notes |
+|-------------|-|-|--------|-|
+| `backup:restored_from` | String (JSON) | none | BackupRestorer._write_restored_from() | Written after each successful restore. JSON: `{"filename":"...","restored_at":"ISO-8601","keys_count":N}`. Useful as an audit trail and post-restore sanity check. |
+| `backup:artifacts` | Sorted Set | optional | BackupWorker (if artifact tracking enabled) | Score = Unix timestamp, member = JSON metadata blob. Populated only when artifact tracking is enabled in config. Not written in default configuration. |
+
+---
+
 ## Phase 6 — ASN & Datacenter Classification
 
 | Key pattern | Type | TTL | Written by | Notes |

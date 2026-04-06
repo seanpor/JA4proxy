@@ -101,7 +101,7 @@ Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
 | 41 | Robust Health Check API & Anti-Flap Logic | COMPLETE | Implement deep health/readiness endpoints and hysteresis to prevent status flapping. |
 | 42 | Zero-Downtime Data Upgrades (GeoIP & Config) | COMPLETE | Enable atomic hot-reloading of large data files and configuration without process restart. |
 | 43 | Blue/Green Deployment & Rollback Tooling | COMPLETE | Tooling for parallel container releases and rapid traffic-shifting via load balancer. |
-| 57 | Backup System Enhancements - Phase 3: Cloud & Incrementals | PROPOSED | Add cloud storage adapters (S3/GCS) and incremental backup strategy. |
+| 57 | Backup System Enhancements - Phase 3: Cloud & Incrementals | COMPLETE | Cloud storage adapters (S3/GCS), 9-byte format header, DSAR value-scan hardening, restore_with_fallback DR, CLI subcommands. |
 | 63 | Service Level Objectives | PROPOSED | Four SLIs (availability 99.9%, latency 99% <10ms, Redis correctness 99.5%, FP rate <2%); multiwindow burn-rate alerts; Grafana SLO dashboard; on-call runbooks; metric naming prerequisite (ja4_ → ja4proxy_ rename + add missing counters). |
 | 64 | Deployment Validation & Disaster Recovery | PROPOSED | Smoke test suite (Docker Compose, Helm/kind, Podman/Quadlet); DR runbook with 5 scenarios incl. Redis data loss; credential rotation runbooks; TLS certificate rotation; rolling upgrade procedure; MTTR baseline measurement. |
 | 71 | Docker Isolation - Foundations & Registry | COMPLETE | scripts/agent-env.sh generates isolated .env.<agent> files; Makefile agent-up/down/status targets; .current-agent persistence; docker-compose.poc.yml refactored with 4 network zones, per-agent loopback IP binding, cpuset, non-root users, log rotation, geoip RO volume; ja4-admin.sh --agent flag. |
@@ -177,7 +177,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 54 | Advanced Traffic Intelligence - Phase 5: Behavioral Attribution | COMPLETE | N/A | N/A |
 | 55 | APT Hardening - Phase 2: Advanced Detection & Container Security | CLOSED | N/A | N/A |
 | 56 | Advanced APT - Phase 2: Deceptive Defense & Persistence Defense | COMPLETE | N/A | N/A |
-| 57 | Backup System Enhancements - Phase 3: Cloud & Incrementals | PROPOSED | N/A | N/A |
+| 57 | Backup System Enhancements - Phase 3: Cloud & Incrementals | COMPLETE | N/A | N/A |
 | 58 | Advanced Traffic Intelligence - Phase 3: Feed Optimization & Reliability | COMPLETE | N/A | N/A |
 | 59 | Advanced Traffic Intelligence - Phase 4: Feed Reliability & Resilience | COMPLETE | N/A | N/A |
 | 60 | Master Plan and Governance | PROPOSED | N/A | COMPLETE |

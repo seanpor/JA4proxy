@@ -506,34 +506,78 @@ def backup_create(ctx: click.Context, dest: str, encryption_key: str) -> None:
 @click.argument("manifest")
 @click.option("--encryption-key", envvar="BACKUP_ENCRYPTION_KEY", help="Secret key for decryption.")
 @click.option("--destructive", is_flag=True, default=False, help="Wipe Redis before restore.")
+@click.option(
+    "--fallback",
+    "fallbacks",
+    multiple=True,
+    help=(
+        "Path to a fallback artifact to try if the primary fails. "
+        "The corresponding manifest must exist alongside it "
+        "(<artifact>.manifest.json). Can be repeated; tried in order."
+    ),
+)
 @click.option("--confirm", is_flag=True, default=False)
 @click.pass_context
-def backup_restore(ctx: click.Context, artifact: str, manifest: str, encryption_key: str, destructive: bool, confirm: bool) -> None:
-    """Restore Redis state from an artifact."""
+def backup_restore(
+    ctx: click.Context,
+    artifact: str,
+    manifest: str,
+    encryption_key: str,
+    destructive: bool,
+    fallbacks: tuple[str, ...],
+    confirm: bool,
+) -> None:
+    """Restore Redis state from an artifact.
+
+    ARTIFACT is the path to the backup .bin file.
+    MANIFEST is the path to the .manifest.json sidecar.
+
+    Use --fallback to specify additional artifacts to try if the primary fails
+    (useful for disaster recovery when the newest backup may be corrupt).
+    The manifest for each fallback artifact is expected at
+    <fallback_path>.manifest.json.
+    """
     if destructive and not confirm:
         _confirm_required("This will DESTRUCTIVELY wipe Redis before restoring.")
     if not confirm:
         _confirm_required(f"Restoring backup from {artifact}.")
-        
+
     from src.backup.restorer import BackupRestorer
+    from pathlib import Path
     import urllib.parse
+
     url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
     p = urllib.parse.urlparse(url)
-    
+
     restorer = BackupRestorer(
         redis_host=p.hostname or "localhost",
         redis_port=p.port or 6379,
         redis_db=int(p.path.lstrip("/") or 0),
-        encryption_key=encryption_key
+        encryption_key=encryption_key,
     )
-    
-    click.echo(f"Restoring {artifact}...")
-    try:
-        restorer.restore_backup(artifact, manifest, destructive=destructive)
-        click.echo("Restore successful.")
-    except Exception as e:
-        click.echo(f"ERROR: Restore failed: {e}", err=True)
-        sys.exit(1)
+
+    if fallbacks:
+        # Use restore_with_fallback for DR scenarios with multiple artifacts
+        click.echo(
+            f"Restoring {artifact} (with {len(fallbacks)} fallback(s) if primary fails)..."
+        )
+        try:
+            used = restorer.restore_with_fallback(
+                primary_path=Path(artifact),
+                fallback_paths=[Path(f) for f in fallbacks],
+            )
+            click.echo(f"Restore successful. Used: {used.name}")
+        except Exception as exc:
+            click.echo(f"ERROR: Restore failed: {exc}", err=True)
+            sys.exit(1)
+    else:
+        click.echo(f"Restoring {artifact}...")
+        try:
+            restorer.restore_backup(artifact, manifest, destructive=destructive)
+            click.echo("Restore successful.")
+        except Exception as exc:
+            click.echo(f"ERROR: Restore failed: {exc}", err=True)
+            sys.exit(1)
 
 
 @backup.command("redact")
@@ -546,29 +590,29 @@ def backup_redact(ctx: click.Context, artifact: str, ips: list[str], out_path: s
     """Redact PII (IP addresses) from a backup artifact (DSAR tool)."""
     if not out_path and not confirm:
         _confirm_required(f"This will OVERWRITE {artifact} with redacted data.")
-        
+
     from src.backup.redactor import BackupRedactor
     from pathlib import Path
     import hashlib
-    
+
     artifact_path = Path(artifact)
     if not artifact_path.exists():
         click.echo(f"ERROR: Artifact {artifact} not found.", err=True)
         sys.exit(1)
-        
+
     redactor = BackupRedactor()
     data = artifact_path.read_bytes()
-    
+
     click.echo(f"Redacting {len(ips)} IP(s) from {artifact}...")
     new_data, count = redactor.redact(data, list(ips))
-    
+
     if count == 0:
         click.echo("No matching entries found. Artifact unchanged.")
         return
-        
+
     target = out_path if out_path else artifact
     Path(target).write_bytes(new_data)
-    
+
     # If we overwrote, we MUST update the manifest checksum
     manifest_path = artifact_path.with_suffix(".manifest.json")
     if not out_path and manifest_path.exists():
@@ -581,6 +625,257 @@ def backup_redact(ctx: click.Context, artifact: str, ips: list[str], out_path: s
         click.echo("Updated manifest checksum.")
 
     click.echo(f"Successfully redacted {count} entries. Saved to {target}.")
+
+
+@backup.command("dsar-redact")
+@click.argument("artifact_path")
+@click.option("--ip", "ips", multiple=True, required=True, help="IP address to redact (can be repeated).")
+@click.option("--output", "out_path", help="Output path (defaults to <artifact>.redacted.bin).")
+@click.pass_context
+def backup_dsar_redact(ctx: click.Context, artifact_path: str, ips: list[str], out_path: str) -> None:
+    """Redact a GDPR data subject's IP from a backup artifact (key names and JSON values).
+
+    Scans both Redis key names and decoded JSON values for the target IP(s).
+    Sets dsar_scanned: true in the manifest sidecar after redaction.
+    Use before cloud upload when DSAR compliance is required.
+    """
+    from src.backup.redactor import BackupRedactor
+    from pathlib import Path
+    import hashlib
+
+    source = Path(artifact_path)
+    if not source.exists():
+        click.echo(f"ERROR: Artifact {artifact_path} not found.", err=True)
+        sys.exit(1)
+
+    dest = Path(out_path) if out_path else source.with_suffix("").with_suffix(".redacted.bin")
+
+    redactor = BackupRedactor()
+    data = source.read_bytes()
+
+    click.echo(f"Scanning {source.name} for {len(ips)} IP(s)...")
+    new_data, count = redactor.redact(data, list(ips))
+
+    dest.write_bytes(new_data)
+    click.echo(f"Redacted {count} entries. Saved to {dest}.")
+
+    # Update manifest sidecar: set dsar_scanned and refresh checksum
+    manifest_path = source.parent / f"{source.name}.manifest.json"
+    if manifest_path.exists():
+        import json as _json
+        manifest = _json.loads(manifest_path.read_text())
+        manifest["checksum_sha256"] = hashlib.sha256(new_data).hexdigest()
+        manifest["size_bytes"] = len(new_data)
+        manifest["dsar_scanned"] = True
+        manifest["redacted_ips"] = list(ips)
+        # Write manifest alongside the new artifact
+        dest_manifest = dest.parent / f"{dest.name}.manifest.json"
+        dest_manifest.write_text(_json.dumps(manifest, indent=2))
+        click.echo(f"Updated manifest written to {dest_manifest}.")
+
+
+# ---------------------------------------------------------------------------
+# backup cloud subgroup (Phase 57b/57c)
+# ---------------------------------------------------------------------------
+
+
+@backup.group("cloud")
+def backup_cloud() -> None:
+    """Upload, list, and download backup artifacts from cloud storage (S3 or GCS)."""
+
+
+def _make_storage_adapter(provider: str) -> "Any":
+    """Instantiate the correct StorageAdapter from environment variables.
+
+    Args:
+        provider: ``"s3"`` or ``"gcs"``.
+
+    Returns:
+        A configured StorageAdapter instance.
+    """
+    import asyncio
+    import importlib
+    if provider == "s3":
+        try:
+            mod = importlib.import_module("src.backup.cloud.s3_adapter")
+            cls = getattr(mod, "S3StorageAdapter")
+        except (ImportError, AttributeError) as exc:
+            click.echo(f"ERROR: S3 adapter not available: {exc}", err=True)
+            click.echo("Ensure boto3 is installed: pip install boto3", err=True)
+            sys.exit(1)
+        bucket = os.environ.get("BACKUP_S3_BUCKET")
+        region = os.environ.get("BACKUP_S3_REGION", "us-east-1")
+        prefix = os.environ.get("BACKUP_S3_PREFIX", "backups/")
+        if not bucket:
+            click.echo(
+                "ERROR: BACKUP_S3_BUCKET environment variable is not set.", err=True
+            )
+            sys.exit(1)
+        return cls(bucket=bucket, region=region, prefix=prefix)
+    elif provider == "gcs":
+        try:
+            mod = importlib.import_module("src.backup.cloud.gcs_adapter")
+            cls = getattr(mod, "GCSStorageAdapter")
+        except (ImportError, AttributeError) as exc:
+            click.echo(f"ERROR: GCS adapter not available: {exc}", err=True)
+            click.echo(
+                "Ensure google-cloud-storage is installed: pip install google-cloud-storage",
+                err=True,
+            )
+            sys.exit(1)
+        bucket = os.environ.get("BACKUP_GCS_BUCKET")
+        project_id = os.environ.get("BACKUP_GCS_PROJECT_ID")
+        credentials_path = os.environ.get("BACKUP_GCS_CREDENTIALS_PATH")
+        prefix = os.environ.get("BACKUP_GCS_PREFIX", "backups/")
+        if not bucket:
+            click.echo(
+                "ERROR: BACKUP_GCS_BUCKET environment variable is not set.", err=True
+            )
+            sys.exit(1)
+        return cls(
+            bucket=bucket,
+            project_id=project_id,
+            credentials_path=credentials_path,
+            prefix=prefix,
+        )
+    else:
+        click.echo(f"ERROR: Unknown provider '{provider}'. Use 's3' or 'gcs'.", err=True)
+        sys.exit(1)
+
+
+@backup_cloud.command("upload")
+@click.argument("artifact_path")
+@click.option(
+    "--provider",
+    type=click.Choice(["s3", "gcs"]),
+    default="s3",
+    show_default=True,
+    help="Cloud storage provider.",
+)
+@click.pass_context
+def backup_cloud_upload(ctx: click.Context, artifact_path: str, provider: str) -> None:
+    """Upload a local backup artifact to cloud storage.
+
+    Prints the cloud URI on success.
+    Reads credentials from environment variables (AWS_* for S3, BACKUP_GCS_* for GCS).
+    """
+    import asyncio
+    from pathlib import Path
+
+    source = Path(artifact_path)
+    if not source.exists():
+        click.echo(f"ERROR: Artifact {artifact_path} not found.", err=True)
+        sys.exit(1)
+
+    # Load manifest sidecar for metadata
+    manifest_path = source.parent / f"{source.name}.manifest.json"
+    manifest: dict[str, Any] = {}
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text())
+
+    adapter = _make_storage_adapter(provider)
+
+    click.echo(f"Uploading {source.name} to {provider}...")
+    try:
+        metadata = asyncio.run(adapter.upload(source, manifest))
+        click.echo(f"Uploaded: {metadata.uri}")
+        _output(
+            {
+                "uri": metadata.uri,
+                "filename": metadata.filename,
+                "size_bytes": metadata.size_bytes,
+                "provider": metadata.provider,
+            },
+            ctx.obj["fmt"],
+        )
+    except Exception as exc:
+        click.echo(f"ERROR: Upload failed: {exc}", err=True)
+        sys.exit(1)
+
+
+@backup_cloud.command("list")
+@click.option(
+    "--provider",
+    type=click.Choice(["s3", "gcs"]),
+    default="s3",
+    show_default=True,
+    help="Cloud storage provider.",
+)
+@click.option("--prefix", default="", show_default=False, help="Filename prefix filter.")
+@click.pass_context
+def backup_cloud_list(ctx: click.Context, provider: str, prefix: str) -> None:
+    """List backup artifacts available in cloud storage.
+
+    Columns: uri, filename, size_bytes, created_at.
+    """
+    import asyncio
+
+    adapter = _make_storage_adapter(provider)
+
+    try:
+        artifacts = asyncio.run(adapter.list_backups(prefix=prefix))
+    except Exception as exc:
+        click.echo(f"ERROR: List failed: {exc}", err=True)
+        sys.exit(1)
+
+    if not artifacts:
+        click.echo("No artifacts found.")
+        return
+
+    results = [
+        {
+            "uri": m.uri,
+            "filename": m.filename,
+            "size_bytes": m.size_bytes,
+            "created_at": m.created_at,
+        }
+        for m in artifacts
+    ]
+    _output(results, ctx.obj["fmt"])
+
+
+@backup_cloud.command("download")
+@click.argument("artifact_id")
+@click.option(
+    "--provider",
+    type=click.Choice(["s3", "gcs"]),
+    default="s3",
+    show_default=True,
+    help="Cloud storage provider.",
+)
+@click.option(
+    "--dest",
+    default=".",
+    show_default=True,
+    help="Local destination directory.",
+)
+@click.pass_context
+def backup_cloud_download(ctx: click.Context, artifact_id: str, provider: str, dest: str) -> None:
+    """Download a backup artifact from cloud storage.
+
+    ARTIFACT_ID is the filename or full cloud URI returned by ``backup cloud list``.
+    Prints the path of the downloaded file on success.
+    """
+    import asyncio
+    from pathlib import Path
+
+    dest_dir = Path(dest)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    # Derive local filename from artifact_id (strip any path prefix)
+    filename = artifact_id.split("/")[-1]
+    local_path = dest_dir / filename
+
+    adapter = _make_storage_adapter(provider)
+
+    click.echo(f"Downloading {artifact_id} from {provider}...")
+    try:
+        result_path = asyncio.run(adapter.download(artifact_id, local_path))
+        click.echo(f"Downloaded: {result_path}")
+        _output({"local_path": str(result_path), "provider": provider}, ctx.obj["fmt"])
+    except Exception as exc:
+        click.echo(f"ERROR: Download failed: {exc}", err=True)
+        sys.exit(1)
 
 
 # ---------------------------------------------------------------------------

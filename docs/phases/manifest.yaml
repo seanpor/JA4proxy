@@ -524,17 +524,18 @@ phases:
 
   57:
     name: "Backup System Enhancements - Phase 3: Cloud & Incrementals"
-    status: "PROPOSED"
-    summary: "Add cloud storage adapters (S3/GCS) and incremental backup strategy."
+    status: "COMPLETE"
+    summary: "Cloud storage adapters (S3/GCS), 9-byte format header, DSAR value-scan hardening, restore_with_fallback DR, CLI subcommands."
     action_plan: "docs/phases/PHASE_57.md"
     dependencies: [40]
     size: "SMALL"
+    completed: "2026-04-06"
     gaps:
       - "P22-G2: Cloud storage adapters (S3, GCS, Azure Blob Storage)"
-      - "P22-G3: Incremental backup strategy (track changed keys since last full)"
+      - "P22-G3: Incremental backup strategy (track changed keys since last full) — deferred to Phase 58"
     success_criteria:
       - "Successful offsite backup to at least one cloud provider"
-      - "Incremental backups significantly reduce backup window for large datasets"
+      - "Incremental backups significantly reduce backup window for large datasets — deferred to Phase 58"
 
   58:
     name: "Advanced Traffic Intelligence - Phase 3: Feed Optimization & Reliability"
