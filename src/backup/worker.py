@@ -323,6 +323,11 @@ class BackupWorker:
                     "key_id": "PBKDF2-AES-256-GCM" if is_encrypted else None,
                     "algorithm": "AES-256-GCM" if is_encrypted else None,
                 },
+                # Phase 57e: DSAR compliance — must be set to True by the operator
+                # after running BackupRedactor.redact() before any cloud upload.
+                # False by default so StorageAdapter.pre_upload_check() rejects
+                # un-scanned artifacts when dsar.redact_values is enabled.
+                "dsar_scanned": False,
             }
 
             manifest_path = dest_path / f"{backup_filename}.manifest.json"
