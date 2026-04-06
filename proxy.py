@@ -1798,6 +1798,21 @@ class ProxyServer:
                 _monitor_paths, _monitor_interval,  # phase-35
             )  # phase-35
 
+        # Phase 56b: Dead-Man's Switch — self-terminates if integrity monitor goes silent
+        from src.security.dead_man_switch import DeadManSwitch  # phase-56
+        _dms_cfg = self.config.get("deception", {}).get("dead_man_switch", {})  # phase-56
+        if _dms_cfg.get("enabled", False) and _im is not None:  # phase-56
+            _dms = DeadManSwitch(  # phase-56
+                integrity_monitor=_im,  # phase-56
+                timeout_seconds=_dms_cfg.get("timeout_seconds", 300),  # phase-56
+                grace_period_seconds=_dms_cfg.get("grace_period_seconds", 30),  # phase-56
+            )  # phase-56
+            self._dead_man_task = asyncio.create_task(_dms.run())  # phase-56
+            self.logger.info(  # phase-56
+                "integrity | event=dead_man_switch_armed | timeout=%d",  # phase-56
+                _dms_cfg.get("timeout_seconds", 300),  # phase-56
+            )  # phase-56
+
         # Phase 23: Start and wire TI providers
         ti_tasks = []
         _gn = getattr(self, "greynoise_provider", None)
@@ -1940,6 +1955,15 @@ class ProxyServer:
                     await _imt  # phase-35
                 except asyncio.CancelledError:  # phase-35
                     pass  # phase-35
+
+            # Phase 56b: Stop dead-man's switch watchdog
+            _dmt = getattr(self, "_dead_man_task", None)  # phase-56
+            if _dmt:  # phase-56
+                _dmt.cancel()  # phase-56
+                try:  # phase-56
+                    await _dmt  # phase-56
+                except asyncio.CancelledError:  # phase-56
+                    pass  # phase-56
 
             # Phase 20 G0-A: stop backup scheduler
             if self._backup_scheduler is not None:
