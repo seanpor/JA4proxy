@@ -301,6 +301,7 @@ Practical rules that flow from this:
 | 84 | **Compliance Reporting & Evidence Pack** | ISO 27001 / SOC 2 evidence pack, automated report generator, compliance dashboard | [PHASE_84.md](docs/phases/PHASE_84.md) |
 | 85 | **Threat Intelligence Ingestion** | TAXII 2.1 client, MISP integration, STIX 2.1 indicator conversion, ISAC sharing | [PHASE_85.md](docs/phases/PHASE_85.md) |
 | 86 | **Observability Upgrade & Capacity Planning** | Grafana enterprise dashboards, SLO burn-rate alerting, capacity calculator | [PHASE_86.md](docs/phases/PHASE_86.md) |
+| 87 | **Container & Host Infrastructure Observability** | cAdvisor per-container metrics; dedicated infra dashboard (fleet strip + variable drill-down); host/container/attack-detection alert rules | [PHASE_87.md](docs/phases/PHASE_87.md) |
 
 **Do phases in order. Complete all acceptance criteria before starting the next phase.**
 
