@@ -91,8 +91,7 @@ class TestInfraDashboard:
     def test_dashboard_links_to_security_overview(self, infra_dash):
         """Dashboard must link to the security overview dashboard."""
         links = infra_dash.get("links", [])
-        link_urls = [lnk.get("url", "") + lnk.get("targetBlank", "") for lnk in links]
-        # Check either links list or panel links contain a reference to the overview
+        # Serialise the links list to check for overview dashboard reference
         all_link_text = json.dumps(links)
         assert "ja4proxy-overview" in all_link_text or "ja4proxy_overview" in all_link_text, (
             "Dashboard should link to ja4proxy-overview security dashboard"
