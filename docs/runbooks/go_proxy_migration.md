@@ -26,7 +26,7 @@ zero-downtime via HAProxy upstream switching.
 
 1. Start Go proxy in parallel:
    ```bash
-   docker compose -f docker-compose.poc.yml -f docker-compose.go.yml up -d go-proxy
+   docker compose -f docker/docker-compose.poc.yml -f docker/docker-compose.go.yml up -d go-proxy
    ```
 
 2. Verify Go proxy health:

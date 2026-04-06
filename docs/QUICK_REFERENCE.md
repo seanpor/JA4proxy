@@ -100,14 +100,14 @@ See [INCIDENT_RESPONSE.md](INCIDENT_RESPONSE.md) for step-by-step attack playboo
 ./run-tests.sh
 
 # Run specific test category
-docker compose -f docker-compose.poc.yml run --rm test pytest tests/unit/ -v
-docker compose -f docker-compose.poc.yml run --rm test pytest tests/integration/ -v
+docker compose -f docker/docker-compose.poc.yml run --rm test pytest tests/unit/ -v
+docker compose -f docker/docker-compose.poc.yml run --rm test pytest tests/integration/ -v
 
 # Run single test file
-docker compose -f docker-compose.poc.yml run --rm test pytest tests/test_proxy.py -v
+docker compose -f docker/docker-compose.poc.yml run --rm test pytest tests/test_proxy.py -v
 
 # Run with coverage report
-docker compose -f docker-compose.poc.yml run --rm test pytest tests/ --cov=proxy --cov-report=term
+docker compose -f docker/docker-compose.poc.yml run --rm test pytest tests/ --cov=proxy --cov-report=term
 ```
 
 ## Makefile Shortcuts
@@ -154,31 +154,31 @@ curl -X POST -d '{"test":"data"}' https://localhost:8443/api/echo
 
 ```bash
 # Start all services
-docker compose -f docker-compose.poc.yml up -d
+docker compose -f docker/docker-compose.poc.yml up -d
 
 # Stop all services
-docker compose -f docker-compose.poc.yml down
+docker compose -f docker/docker-compose.poc.yml down
 
 # Stop and remove volumes
-docker compose -f docker-compose.poc.yml down -v
+docker compose -f docker/docker-compose.poc.yml down -v
 
 # View service status
-docker compose -f docker-compose.poc.yml ps
+docker compose -f docker/docker-compose.poc.yml ps
 
 # View logs (all services)
-docker compose -f docker-compose.poc.yml logs -f
+docker compose -f docker/docker-compose.poc.yml logs -f
 
 # View logs (specific service)
-docker compose -f docker-compose.poc.yml logs -f proxy
-docker compose -f docker-compose.poc.yml logs -f backend
-docker compose -f docker-compose.poc.yml logs -f redis
+docker compose -f docker/docker-compose.poc.yml logs -f proxy
+docker compose -f docker/docker-compose.poc.yml logs -f backend
+docker compose -f docker/docker-compose.poc.yml logs -f redis
 
 # Restart service
-docker compose -f docker-compose.poc.yml restart proxy
+docker compose -f docker/docker-compose.poc.yml restart proxy
 
 # Rebuild images
-docker compose -f docker-compose.poc.yml build
-docker compose -f docker-compose.poc.yml build --no-cache
+docker compose -f docker/docker-compose.poc.yml build
+docker compose -f docker/docker-compose.poc.yml build --no-cache
 ```
 
 ## Redis Operations
@@ -208,7 +208,7 @@ make flush-redis
 
 ```bash
 # Shell access to test container
-docker compose -f docker-compose.poc.yml run --rm test bash
+docker compose -f docker/docker-compose.poc.yml run --rm test bash
 
 # Shell access to proxy container
 docker exec -it ja4proxy bash
@@ -244,11 +244,11 @@ docker volume prune -f
 
 | Problem | Solution |
 |---------|----------|
-| Services won't start | Run `docker compose -f docker-compose.poc.yml down -v` then `./scripts/start-poc.sh` |
-| Port conflicts | Edit ports in `docker-compose.poc.yml` |
+| Services won't start | Run `docker compose -f docker/docker-compose.poc.yml down -v` then `./scripts/start-poc.sh` |
+| Port conflicts | Edit ports in `docker/docker-compose.poc.yml` |
 | Tests failing | Run `./scripts/start-poc.sh` then `./scripts/smoke-test.sh` |
 | Permission errors | Run `sudo chown -R $USER:$USER reports/` |
-| Redis connection fails | Run `docker compose -f docker-compose.poc.yml restart redis` |
+| Redis connection fails | Run `docker compose -f docker/docker-compose.poc.yml restart redis` |
 | Good traffic blocked from previous run | Run `make flush-redis` to clear stale bans (auto-expires in 300s anyway) |
 
 ## File Locations
@@ -259,7 +259,7 @@ docker volume prune -f
 | Configuration | `config/proxy.yml` |
 | Tests | `tests/` |
 | Test reports | `reports/` |
-| Docker compose (POC) | `docker-compose.poc.yml` |
+| Docker compose (POC) | `docker/docker-compose.poc.yml` |
 | Docker compose (monitoring) | `../docker/docker-compose.monitoring.yml` |
 | Documentation | `docs/` |
 

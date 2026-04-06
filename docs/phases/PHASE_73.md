@@ -10,7 +10,7 @@ unnecessary host exposure, adding CPU pinning, non-root users, and log rotation.
 
 ## 73a. Complete Port Change Table
 
-This table specifies every host `ports:` mapping change in `docker-compose.poc.yml`.
+This table specifies every host `ports:` mapping change in `docker/docker-compose.poc.yml`.
 Current state → target state.
 
 | Service | Current | Target | Reason |
@@ -71,7 +71,7 @@ All first-party Dockerfiles already create and switch to a named non-root system
 | `test` | `docker/Dockerfile.test` | `proxy` |
 
 These use `useradd -r` (system accounts, UID < 1000). Do NOT add `user:` overrides in
-`docker-compose.poc.yml` — that would override the Dockerfile's USER directive with a UID
+`docker/docker-compose.poc.yml` — that would override the Dockerfile's USER directive with a UID
 that does not exist in the container's `/etc/passwd`, breaking file permission checks on
 internal paths. The `haproxy` stock image manages its own privilege dropping internally.
 
@@ -129,5 +129,5 @@ Behaviour is identical to the current single-instance setup. Existing `make star
 
 | File | Change |
 |------|--------|
-| `docker-compose.poc.yml` | All port, cpuset, user, logging changes per tables above |
+| `docker/docker-compose.poc.yml` | All port, cpuset, user, logging changes per tables above |
 | `CHANGELOG.md` | Phase 73 entry |

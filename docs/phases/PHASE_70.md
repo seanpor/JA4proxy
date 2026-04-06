@@ -44,7 +44,7 @@ FROM python:3.14.0-slim as base   # was python:3.11.11-slim
 Build and run the analytics-specific test suite:
 
 ```bash
-docker compose -f docker-compose.poc.yml build analytics
+docker compose -f docker/docker-compose.poc.yml build analytics
 python3 -m pytest tests/ -k "analytics" -v
 ```
 

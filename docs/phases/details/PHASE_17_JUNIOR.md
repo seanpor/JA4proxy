@@ -134,10 +134,10 @@ The hang only happens inside Docker. Build the test image and run it:
 
 ```bash
 # Build (only needed the first time, or after Dockerfile changes)
-docker compose -f docker-compose.poc.yml build test
+docker compose -f docker/docker-compose.poc.yml build test
 
 # Run — should complete in under 60 s
-time docker compose -f docker-compose.poc.yml run --rm test
+time docker compose -f docker/docker-compose.poc.yml run --rm test
 ```
 
 **Success looks like:**
@@ -169,7 +169,7 @@ git commit -m "fix(tests): patch _tor_refresh_loop to prevent Docker test hang"
 
 ## Acceptance Criteria
 
-- [ ] `time docker compose -f docker-compose.poc.yml run --rm test` completes in ≤ 60 s
+- [ ] `time docker compose -f docker/docker-compose.poc.yml run --rm test` completes in ≤ 60 s
 - [ ] Results output contains "N passed" (not `Passed: 0`)
 - [ ] Exit code from the Docker run is 0
 - [ ] `python3 -m pytest tests/ --ignore=tests/integration/test_docker_stack.py` shows 1583+ passed locally

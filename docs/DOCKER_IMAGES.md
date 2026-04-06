@@ -14,11 +14,11 @@ This document serves as the canonical registry of every Docker image used in the
 | Image | Pinned Version | Used in | Last Reviewed | Notes |
 |-------|----------------|---------|---------------|-------|
 | `python:3.11-slim` | `3.11.11-slim` | `docker/Dockerfile`, `src/analytics/Dockerfile`, `tarpit/Dockerfile`, `docker/Dockerfile.mockbackend`, `docker/Dockerfile.test`, `docker/Dockerfile.trafficgen` | 2026-03-28 | Base for all Python services |
-| `redis/redis-stack` | `7.4.0-v3` | `docker/docker-compose.prod.yml`, `docker-compose.poc.yml` | 2026-03-28 | Database with RediSearch/RedisJSON |
-| `haproxy:2.8-alpine` | `2.8.5-alpine` | `docker/docker-compose.prod.yml`, `docker-compose.poc.yml` | 2026-03-28 | Edge proxy/Load balancer |
-| `haproxy:2.6` | `2.6.15` | `docker-compose.scale.yml` | 2026-03-28 | Legacy scaling tests |
-| `redis:7-alpine` | `7.2.4-alpine` | `docker-compose.test.yml` | 2026-03-28 | Lightweight Redis for tests |
-| `mcr.microsoft.com/playwright:v1.40.0-jammy` | `v1.40.0-jammy` | `docker-compose.test.yml` | 2026-03-28 | E2E testing environment |
+| `redis/redis-stack` | `7.4.0-v3` | `docker/docker-compose.prod.yml`, `docker/docker-compose.poc.yml` | 2026-03-28 | Database with RediSearch/RedisJSON |
+| `haproxy:2.8-alpine` | `2.8.5-alpine` | `docker/docker-compose.prod.yml`, `docker/docker-compose.poc.yml` | 2026-03-28 | Edge proxy/Load balancer |
+| `haproxy:2.6` | `2.6.15` | `docker/docker-compose.scale.yml` | 2026-03-28 | Legacy scaling tests |
+| `redis:7-alpine` | `7.2.4-alpine` | `docker/docker-compose.test.yml` | 2026-03-28 | Lightweight Redis for tests |
+| `mcr.microsoft.com/playwright:v1.40.0-jammy` | `v1.40.0-jammy` | `docker/docker-compose.test.yml` | 2026-03-28 | E2E testing environment |
 | `prom/prometheus` | `v2.48.0` | `docker/docker-compose.prod.yml`, `docker/docker-compose.monitoring.yml` | 2026-03-28 | Time-series metrics |
 | `prom/alertmanager` | `v0.26.0` | `docker/docker-compose.monitoring.yml` | 2026-03-28 | Alerting gateway |
 | `grafana/grafana` | `10.2.2` | `docker/docker-compose.prod.yml`, `docker/docker-compose.monitoring.yml` | 2026-03-28 | Visualisation dashboard |

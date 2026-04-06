@@ -209,7 +209,7 @@ system works together, not just individual components.
 - Redis failure during test → browser traffic continues; block decisions fail open
 - mTLS client cert → ALLOWED regardless of score (Phase 5+)
 
-E2E tests use Docker Compose test environment (`docker-compose.test.yml`).
+E2E tests use Docker Compose test environment (`docker/docker-compose.test.yml`).
 They take longer to run — separate CI step, not on every commit.
 
 ---
@@ -219,7 +219,7 @@ They take longer to run — separate CI step, not on every commit.
 ### Redis for Tests
 
 - **Unit tests:** use `fakeredis` (in-process mock, no Docker required)
-- **Integration tests:** use real Redis Stack in Docker (`docker-compose.test.yml`)
+- **Integration tests:** use real Redis Stack in Docker (`docker/docker-compose.test.yml`)
 - **Chaos tests:** use real Redis with controlled failure injection
 
 Never run tests against the production or development Redis instance.

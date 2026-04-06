@@ -5,7 +5,7 @@ set -euo pipefail
 # Usage: ./scale-proxies.sh [N]   (default: 1, i.e. reset to POC default)
 
 N=${1:-1}
-COMPOSE_FILE="docker-compose.poc.yml"
+COMPOSE_FILE="docker/docker-compose.poc.yml"
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'

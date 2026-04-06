@@ -569,7 +569,7 @@ compliance:
 
 ### Environment-Specific Configurations
 
-**Development (docker-compose.poc.yml):**
+**Development (docker/docker-compose.poc.yml):**
 - Relaxed security for testing
 - Local-only binding
 - Debug logging enabled

@@ -35,7 +35,7 @@ services:
 
   proxy:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile.go-proxy
       network: host
     image: ja4proxy:2.0.0
@@ -127,7 +127,7 @@ services:
 
   backend:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile.mockbackend
       network: host
     image: ja4proxy-mockbackend:1.0.0
@@ -159,7 +159,7 @@ services:
 
   tarpit:
     build:
-      context: ./tarpit
+      context: ../tarpit
       dockerfile: Dockerfile
       network: host
     image: ja4proxy-tarpit:1.0.0
@@ -195,7 +195,7 @@ services:
 
   trafficgen:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile.trafficgen
       network: host
     image: ja4proxy-trafficgen:1.0.0
@@ -226,7 +226,7 @@ services:
 
   analytics:
     build:
-      context: .
+      context: ..
       dockerfile: src/analytics/Dockerfile
       network: host
     image: ja4proxy-analytics:1.0.0
@@ -273,7 +273,7 @@ services:
 
   admin-api:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile.admin
       network: host
     image: ja4proxy-admin-api:1.0.0
@@ -314,7 +314,7 @@ services:
 
   test:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile.test
       network: host
     image: ja4proxy-test:1.0.0
@@ -363,7 +363,7 @@ services:
   management:
     image: ja4proxy-management:1.0.0
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile.management
     ports:
       - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_MANAGEMENT:-8090}:8090"

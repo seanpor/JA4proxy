@@ -914,13 +914,13 @@ watch -n2 'echo "show stat" | socat stdio /var/run/haproxy/admin.sock | \
 **T+30s:** Stop proxy processes gracefully (SIGTERM for graceful drain):
 
 ```bash
-docker compose -f docker-compose.poc.yml stop proxy
+docker compose -f docker/docker-compose.poc.yml stop proxy
 ```
 
 **After proxy stops:** Stop the sync agent:
 
 ```bash
-docker compose -f docker-compose.poc.yml stop syncagent
+docker compose -f docker/docker-compose.poc.yml stop syncagent
 ```
 
 **Perform maintenance.**
