@@ -5,7 +5,7 @@ services:
     image: haproxy:2.8.5-alpine
     ports:
       - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_INGRESS:-443}:443"
-      - "${AGENT_BIND_IP:-127.0.0.1}:8404:8404"
+      - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_HAPROXY_STATS:-8404}:8404"
     volumes:
       - ./config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     depends_on:
@@ -40,8 +40,8 @@ services:
       network: host
     image: ja4proxy:2.0.0
     ports:
-      - "${AGENT_BIND_IP:-127.0.0.1}:8081:8080"
-      - "${AGENT_BIND_IP:-127.0.0.1}:9090:9090"
+      - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_PROXY:-8081}:8080"
+      - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_METRICS:-9090}:9090"
     depends_on:
       - redis
     volumes:
@@ -278,7 +278,7 @@ services:
       network: host
     image: ja4proxy-admin-api:1.0.0
     ports:
-      - "${AGENT_BIND_IP:-127.0.0.1}:8090:8090"
+      - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_ADMIN_API:-8091}:8090"
     depends_on:
       - redis
     environment:
