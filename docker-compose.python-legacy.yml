@@ -1,20 +1,23 @@
-# docker-compose.go.yml — overlay that adds the Go proxy alongside the Python stack.
-# Usage: docker compose -f docker-compose.poc.yml -f docker-compose.go.yml --env-file .env.<agent> up -d
-#   or:  make agent-up-go NAME=<agent>
+# docker-compose.python-legacy.yml — overlay that adds the Python proxy alongside the Go stack.
+# Use for cross-language parity validation and legacy feature prototyping only.
+# The Go proxy is the production default (runs as the 'proxy' service in docker-compose.poc.yml).
 #
-# Go proxy listens on :8082 (host) / :8080 (container)
-# Go metrics listen on :9092 (host) / :9090 (container)
-# Python proxy remains on its configured ports.
+# Usage: docker compose -f docker-compose.poc.yml -f docker-compose.python-legacy.yml --env-file .env.<agent> up -d
+#   or:  make go-start  (starts Python legacy proxy for parity comparison)
+#
+# Python proxy listens on :8083 (host) / :8080 (container)
+# Python metrics listen on :9093 (host) / :9090 (container)
+# Go proxy (primary) remains on :8081 / :9090.
 # Both proxies share the same Redis instance (data_net).
 
 services:
-  go-proxy:
+  python-proxy:
     build:
       context: .
-      dockerfile: docker/Dockerfile.go-proxy
+      dockerfile: docker/Dockerfile
     ports:
-      - "${AGENT_BIND_IP:-127.0.0.1}:8082:8080"
-      - "${AGENT_BIND_IP:-127.0.0.1}:9092:9090"
+      - "${AGENT_BIND_IP:-127.0.0.1}:8083:8080"
+      - "${AGENT_BIND_IP:-127.0.0.1}:9093:9090"
     environment:
       REDIS_HOST: "${REDIS_HOST:-redis}"
       REDIS_PORT: "${REDIS_PORT:-6379}"
@@ -22,6 +25,8 @@ services:
       BACKEND_HOST: "${BACKEND_HOST:-backend}"
       BACKEND_PORT: "${BACKEND_PORT:-443}"
       ENVIRONMENT: "${ENVIRONMENT:-development}"
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
     depends_on:
       - redis
     networks:

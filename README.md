@@ -275,10 +275,7 @@ docker compose -f docker-compose.poc.yml -f docker-compose.go.yml up -d go-proxy
 - End-to-end throughput verified: **15,000+ conn/s** peak measured (13-31x Python)
 - 75+ unit tests passing; identical Redis schema and config format to Python
 
-**What is not yet complete:**
-- Production deployment validation gates have not been run
-
-The Python proxy remains the primary surface for developing new signal modules — prototype in Python, then port to Go once stable.
+The Go proxy is the production implementation. Python (`proxy.py`) is retained as the prototyping surface for new signal modules — prototype in Python, then port to Go once stable.
 
 For operational guidance: [Go Proxy Migration Runbook](docs/runbooks/go_proxy_migration.md) · [Go Proxy Operations](docs/runbooks/go_proxy_operations.md) · [Go Proxy Developer Guide](docs/developer/go_proxy_guide.md)
 
