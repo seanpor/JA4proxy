@@ -940,3 +940,8 @@ test-phase-87-integration:
 	@echo "Requires monitoring stack: cd docker && docker compose -f docker-compose.monitoring.yml up -d"
 	@./tests/integration/phase-87/check_cadvisor_metrics.sh
 	@./tests/integration/phase-87/check_haproxy_exporter.sh
+
+
+## Roadmap sync
+sync:
+	python3 scripts/sync-roadmap.py

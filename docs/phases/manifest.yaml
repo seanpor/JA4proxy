@@ -251,7 +251,7 @@ phases:
     doc_status: "COMPLETE"
     summary: "Add Redis pipeline batching and Unix domain socket support. Target: 30-40% Redis latency reduction."
     completed: "2026-03-28"
-    action_plan: "docs/phases/details/PHASE_28_WORK_PLAN.md"
+    action_plan: "docs/phases/archive/PHASE_28_WORK_PLAN.md"
     dependencies: [26]
     size: "SMALL"
     success_criteria:
@@ -265,7 +265,7 @@ phases:
     doc_status: "COMPLETE"
     summary: "Implement multi-process worker model with Docker Compose and HAProxy load balancing. Target: Linear scaling to 4 workers."
     completed: "2026-03-28"
-    action_plan: "docs/phases/details/PHASE_29_WORK_PLAN.md"
+    action_plan: "docs/phases/archive/PHASE_29_WORK_PLAN.md"
     dependencies: [28]
     size: "MEDIUM"
     success_criteria:
@@ -279,7 +279,7 @@ phases:
     doc_status: "COMPLETE"
     summary: "Add deferred write batching and comprehensive benchmark validation. Target: Final performance report."
     completed: "2026-03-28"
-    action_plan: "docs/phases/details/PHASE_30_THROUGHPUT_PLAN.md"
+    action_plan: "docs/phases/archive/PHASE_30_THROUGHPUT_PLAN.md"
     dependencies: [29]
     size: "SMALL"
     success_criteria:
@@ -390,7 +390,7 @@ phases:
     status: "COMPLETE"
     summary: "Add AES-256-GCM encryption at rest and DSAR compliance utility."
     completed: "2026-03-31"
-    action_plan: "docs/phases/details/PHASE_40_BACKUP_PLAN.md"
+    action_plan: "docs/phases/archive/PHASE_40_BACKUP_PLAN.md"
     dependencies: [22]
     size: "SMALL"
     gaps: []
