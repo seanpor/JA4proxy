@@ -886,3 +886,19 @@ phases:
       - "scripts/capacity_calculator.py produces valid recommendations"
       - "Published benchmark numbers committed to docs/performance/benchmarks.md"
       - "All 7 runbook files present in docs/runbooks/"
+
+  87:
+    name: "Container & Host Infrastructure Observability"
+    status: "PROPOSED"
+    summary: "cAdvisor per-container metrics integration. Dedicated ja4proxy-infrastructure Grafana dashboard with fleet status strip and container variable drill-down (no infinite scroll). Host CPU/memory/disk alert rules. Per-container OOM and restart-loop alerts. Connection rate spike and distributed attack detection rules. Infrastructure runbook."
+    action_plan: "docs/phases/PHASE_87.md"
+    dependencies: [14]
+    size: "MEDIUM"
+    success_criteria:
+      - "cAdvisor service added to docker/docker-compose.monitoring.yml and scraped by Prometheus"
+      - "ja4proxy-infrastructure.json dashboard: fleet status strip visible without scrolling, container variable drill-down"
+      - "Alert groups ja4proxy_infrastructure and ja4proxy_attack_detection present in alerts.yml"
+      - "ContainerOOMKilled and ContainerRestartLoop alerts fire for all ja4proxy-owned containers"
+      - "ConnectionRateSpike alert uses 1h rolling baseline with clamp_min guard"
+      - "docs/runbooks/infrastructure.md present with all 12 sections"
+      - "make test-phase-87 passes"
