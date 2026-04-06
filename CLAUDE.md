@@ -243,7 +243,7 @@ Practical rules that flow from this:
 | 20 | Passive TAP mode | AF_PACKET capture; out-of-band enforcement; backup schedule executor | [PHASE_20.md](docs/phases/PHASE_20.md) |
 | 21 | **Documentation excellence** | Audience-first navigation, missing ADRs, GDPR hardening, operator/developer packs | [PHASE_21.md](docs/phases/PHASE_21.md) |
 | 22 | Backup Enhancements - Ph 1: Core | Backup scheduling; pipeline batching; restore validation | [PHASE_22.md](docs/phases/PHASE_22.md) |
-| 40 | Backup Enhancements - Ph 2: Security | AES-256-GCM encryption at rest; DSAR compliance utility | [PHASE_40_BACKUP_PLAN.md](docs/phases/details/PHASE_40_BACKUP_PLAN.md) |
+| 40 | Backup Enhancements - Ph 2: Security | AES-256-GCM encryption at rest; DSAR compliance utility | [PHASE_40_BACKUP_PLAN.md](docs/phases/archive/PHASE_40_BACKUP_PLAN.md) |
 | 57 | Backup Enhancements - Ph 3: Cloud | S3/GCS adapters; incremental backup strategy | [PHASE_57.md](docs/phases/PHASE_57.md) |
 | 23 | Advanced Intelligence - Ph 1: Primary | Integrate AbuseIPDB and GreyNoise feeds for real-time reputation | [PHASE_23.md](docs/phases/PHASE_23.md) |
 | 53 | Advanced Intelligence - Ph 2: Feed | Integrate specialized threat intelligence feeds (MISP, VT) | [PHASE_53.md](docs/phases/PHASE_53.md) |
@@ -255,9 +255,9 @@ Practical rules that flow from this:
 | 25 | Docker container management | Image version pinning; CVE scan gaps; first-party scanning; update policy | [PHASE_25.md](docs/phases/PHASE_25.md) |
 | 26 | **Python throughput hardening** | Parallel signals (`asyncio.gather`); Redis pipeline batching; Unix socket | [PHASE_26.md](docs/phases/PHASE_26.md) |
 | 27 | Advanced Pentest Remediation | Remediate critical vulnerabilities: IP spoofing, sync/async Redis mismatch | [PHASE_27.md](docs/phases/PHASE_27.md) |
-| 28 | Python Hardening - Ph 2: Redis | Redis pipeline batching; Unix domain socket; 30-40% latency reduction | [PHASE_28_WORK_PLAN.md](docs/phases/details/PHASE_28_WORK_PLAN.md) |
-| 29 | Python Hardening - Ph 3: Multi-Proc | Multi-process worker model with Docker Compose and HAProxy LB | [PHASE_29_WORK_PLAN.md](docs/phases/details/PHASE_29_WORK_PLAN.md) |
-| 30 | Python Hardening - Ph 4: Optimization | Deferred write batching; comprehensive benchmark validation | [PHASE_30_THROUGHPUT_PLAN.md](docs/phases/details/PHASE_30_THROUGHPUT_PLAN.md) |
+| 28 | Python Hardening - Ph 2: Redis | Redis pipeline batching; Unix domain socket; 30-40% latency reduction | [PHASE_28_WORK_PLAN.md](docs/phases/archive/PHASE_28_WORK_PLAN.md) |
+| 29 | Python Hardening - Ph 3: Multi-Proc | Multi-process worker model with Docker Compose and HAProxy LB | [PHASE_29_WORK_PLAN.md](docs/phases/archive/PHASE_29_WORK_PLAN.md) |
+| 30 | Python Hardening - Ph 4: Optimization | Deferred write batching; comprehensive benchmark validation | [PHASE_30_THROUGHPUT_PLAN.md](docs/phases/archive/PHASE_30_THROUGHPUT_PLAN.md) |
 | 34 | APT Hardening - Ph 1: Isolation | Parser isolation, Zero-Trust Redis ACLs, Seccomp/AppArmor, subnet correlation wiring — **IN_PROGRESS** (absorbs cancelled Phase 55) | [PHASE_34.md](docs/phases/PHASE_34.md) |
 | 55 | APT Hardening - Ph 2: Detection *(cancelled — absorbed into Phase 34)* | Implement subnet correlation, anti-evasion checks, and Seccomp | [PHASE_55.md](docs/phases/PHASE_55.md) |
 | 35 | Advanced APT - Ph 1: Integrity | Implement supply chain integrity monitoring and eBPF/XDP blocking | [PHASE_35.md](docs/phases/PHASE_35.md) |
@@ -528,7 +528,7 @@ See `docs/DOCUMENTATION_STANDARDS.md` for the full spec. Summary:
 - All Redis key patterns in `docs/REDIS_SCHEMA.md` (create if missing).
 - New Docker Compose services in README Services table.
 - Update `CHANGELOG.md` after each phase.
-- Update `docs/phases/manifest.yaml`: set the phase `status` to `COMPLETE`, remove any gaps that were closed. Then run `python3 scripts/sync-roadmap.py` to regenerate `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`. Commit all four files together. This is the **source of truth** for phase status — if it is not updated, downstream tooling and future sessions will show stale state.
+- Update `docs/phases/manifest.yaml`: set the phase `status` to `COMPLETE`, remove any gaps that were closed. Then run `make sync` to regenerate `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`. Commit all four files together. This is the **source of truth** for phase status — if it is not updated, downstream tooling and future sessions will show stale state.
 
 ### Prometheus Naming
 
@@ -651,7 +651,7 @@ docs/
 ### Closing (mandatory — do not skip)
 9. Update `CHANGELOG.md` with a standard entry for the phase.
 10. Update `docs/phases/manifest.yaml`: set `status: COMPLETE`, remove any gaps that were resolved.
-11. Run `python3 scripts/sync-roadmap.py` — regenerates `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.
+11. Run `make sync` — regenerates `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.
 12. Commit code, `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/phases/TODO.md`, and `docs/PROJECT_STATUS.md` as one atomic commit.
 13. Push branch: `git push origin claude/phase-XX-description`
 14. Do not start the next phase until all acceptance criteria pass.
