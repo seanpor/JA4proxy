@@ -128,6 +128,7 @@ HOST_PORT_MANAGEMENT=8090
 
 # ── Secrets (auto-generated) ─────────────────────────────────────────────────
 REDIS_PASSWORD=$(openssl rand -hex 32)
+REDIS_SIGNING_KEY=$(openssl rand -hex 32)
 GRAFANA_PASSWORD=$(openssl rand -hex 16)
 
 # ── Backend ──────────────────────────────────────────────────────────────────
