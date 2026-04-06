@@ -209,7 +209,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 86 | Observability & Capacity Planning | PROPOSED | N/A | N/A |
 | 87 | Container & Host Infrastructure Observability | COMPLETE | N/A | N/A |
 | 88 | Multi-Datacenter Survivability & Failover | PROPOSED | N/A | N/A |
-| 89 | Docker Consolidation & Image Hygiene | PROPOSED | N/A | N/A |
+| 89 | Dockerfile Base Image Hygiene | PROPOSED | N/A | N/A |
 | 90 | Root Directory Cleanup & Docker Compose Consolidation | COMPLETE | N/A | N/A |
 
 ---

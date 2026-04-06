@@ -917,7 +917,7 @@ phases:
       - "make test-phase-88 passes"
 
   89:
-    name: "Docker Consolidation & Image Hygiene"
+    name: "Dockerfile Base Image Hygiene"
     status: "PROPOSED"
     action_plan: "docs/phases/PHASE_89.md"
     dependencies: [88]
