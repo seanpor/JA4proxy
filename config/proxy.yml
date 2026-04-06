@@ -694,6 +694,13 @@ deception:
   config_path: "config/deception.yml"  # Path to the full deception asset config.
                           # Relative to the proxy working directory.
 
+  # Phase 56b: Dead-Man's Switch — self-terminates proxy if integrity monitor goes silent.
+  dead_man_switch:
+    enabled: false          # Default: off. Set true when integrity monitor is active.
+                            # Self-terminates proxy if integrity check goes silent > timeout.
+    timeout_seconds: 300    # How long integrity monitor can be silent before triggering.
+    grace_period_seconds: 30 # Startup grace period before switch arms.
+
 # ── Phase 68: Runtime Performance Options ─────────────────────────────────────
 
 runtime:
