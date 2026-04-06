@@ -77,6 +77,13 @@ grep -rn "REDIS_PASSWORD:-changeme" (yml/yaml, excluding .git)
 ```
 No remaining occurrences.
 
+## Pre-existing Issue: docker-compose.go.yml Missing
+
+`Makefile` line 316 references `docker/docker-compose.go.yml` in the `lint-docker`
+target, but this file does not exist. This causes `make lint-docker` to fail at that
+step. This is a pre-existing defect predating Phase 89 and is outside Phase 89's scope
+(Dockerfile hygiene). Flagged for a future cleanup phase.
+
 ## Files Modified
 
 | File | Change |
