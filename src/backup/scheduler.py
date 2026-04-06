@@ -68,6 +68,11 @@ class BackupScheduler:
     dispatched via ``asyncio.to_thread`` so the synchronous ``BackupWorker``
     never blocks the event loop.
 
+    After a successful local backup, if *storage_adapter* is provided, the
+    artifact is uploaded to the cloud storage backend.  Cloud upload failure
+    is logged and counted but never propagates — the local backup is the
+    source of truth.
+
     Config keys read from *backup_config*:
         enabled (bool)         — must be True for scheduler to run
         schedule (str)         — cron expression or integer seconds
@@ -77,13 +82,18 @@ class BackupScheduler:
     """
 
     def __init__(
-        self, worker, backup_config: dict, destination: Optional[str] = None
+        self,
+        worker,
+        backup_config: dict,
+        destination: Optional[str] = None,
+        storage_adapter=None,
     ) -> None:
         self._worker = worker
         self._config = backup_config
         self._destination = destination or backup_config.get(
             "destination", "/app/backups"
         )
+        self._storage_adapter = storage_adapter
         self._task: Optional[asyncio.Task] = None
 
     async def start(self) -> None:
@@ -142,3 +152,21 @@ class BackupScheduler:
             logger.info("backup | event=scheduled_backup_success | artifact=%s", path)
         except Exception as exc:
             logger.warning("backup | event=scheduled_backup_failed | error=%s", exc)
+            return  # local backup failed; no cloud upload attempted
+
+        # Optional cloud upload — fail-open (local artifact already written)
+        if self._storage_adapter is not None:
+            try:
+                import json
+                from pathlib import Path
+
+                manifest_path = Path(str(path) + ".manifest.json")
+                manifest: dict = {}
+                if manifest_path.exists():
+                    manifest = json.loads(manifest_path.read_text())
+                await self._storage_adapter.upload(path, manifest)
+            except Exception as exc:  # noqa: BLE001
+                logger.error(
+                    "backup | event=cloud_upload_exception | error=%s", exc
+                )
+                # fail-open: local backup already written

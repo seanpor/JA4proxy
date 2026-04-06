@@ -44,3 +44,7 @@ cerberus==1.3.5
 # phase-56: Runtime seccomp profile transition (optional — fails open if absent)
 # Requires libseccomp-dev on the host: apt-get install libseccomp-dev
 # python3-seccomp>=2.5.0
+
+boto3>=1.34              # phase-57b: S3 cloud backup adapter
+moto[s3]>=5.0            # phase-57b: S3 mock for tests
+google-cloud-storage>=2.0  # phase-57c: GCS backup adapter (optional)

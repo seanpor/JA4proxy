@@ -17,7 +17,7 @@ import redis
 from prometheus_client import Counter, Gauge, Histogram
 
 from src.backup.encryption import BackupEncryption
-from src.backup.format import encode_entry
+from src.backup.format import encode_entry, encode_header, FLAG_FULL, FLAG_ENCRYPTED
 from src.backup.policy import KeyPolicy
 
 logger = logging.getLogger(__name__)
@@ -285,7 +285,12 @@ class BackupWorker:
                 backup_data = self.encryption.encrypt(backup_data)
                 is_encrypted = True
 
-            # Generate checksum
+            # Phase 57a: Prepend 9-byte format header (after encryption so the
+            # header itself is never encrypted and remains inspectable).
+            format_flags = FLAG_FULL | (FLAG_ENCRYPTED if is_encrypted else 0)
+            backup_data = encode_header("full", format_flags) + backup_data
+
+            # Generate checksum (covers header + payload)
             checksum = hashlib.sha256(backup_data).hexdigest()
 
             # Create artifact file
@@ -308,6 +313,9 @@ class BackupWorker:
                 "size_bytes": len(backup_data),
                 "included_patterns": self.policy.include_patterns,
                 "excluded_patterns": self.policy.exclude_patterns,
+                # Phase 57a: format header metadata
+                "format_version": 1,
+                "format_flags": format_flags,
                 # Phase 40: Encryption manifest update
                 "encryption": {
                     "enabled": is_encrypted,
