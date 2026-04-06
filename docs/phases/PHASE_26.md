@@ -282,15 +282,15 @@ only:
 **New `make` targets:**
 ```makefile
 start-scaled:   # Start proxy + N workers + HAProxy
-    @docker compose -f docker-compose.poc.yml \
-                    -f docker-compose.scale.yml up -d
+    @docker compose -f docker/docker-compose.poc.yml \
+                    -f docker/docker-compose.scale.yml up -d
 
 scale-workers N=4:
-    @WORKERS=$(N) docker compose -f docker-compose.scale.yml up -d --scale proxy=$(N)
+    @WORKERS=$(N) docker compose -f docker/docker-compose.scale.yml up -d --scale proxy=$(N)
 ```
 
 **Acceptance criteria:**
-- `../../docker-compose.scale.yml` overlay supports N workers (configurable, default 4)
+- `../../docker/docker-compose.scale.yml` overlay supports N workers (configurable, default 4)
 - HAProxy config routes connections across all workers
 - Rate limiting semantics verified with 2-worker test:
   a. IP banned by worker-1 → subsequent connection to worker-2 is also blocked

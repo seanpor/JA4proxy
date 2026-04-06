@@ -442,7 +442,7 @@ docker stats --no-stream
 2. If Redis was killed: proxy is in fail-open mode. Restart Redis, then verify proxy reconnects: `docker logs proxy | grep "Redis connected"`.
 3. Set Redis memory limit to prevent recurrence: `docker exec redis redis-cli config set maxmemory 2gb`.
 4. If proxy was killed: check for memory leak — compare `container_memory_working_set_bytes` before and after restart trends.
-5. Increase container memory limit in `docker-compose.poc.yml` and redeploy if the workload legitimately requires more.
+5. Increase container memory limit in `docker/docker-compose.poc.yml` and redeploy if the workload legitimately requires more.
 
 **Escalation:** Immediate escalation if Redis was the killed container — all active bans and rate limits are lost until state rebuilds.
 
@@ -531,7 +531,7 @@ docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}"
 top -b -n1 | head -5
 
 # Check container CPU limit in compose
-grep -A5 "cpus:" docker-compose.poc.yml
+grep -A5 "cpus:" docker/docker-compose.poc.yml
 ```
 
 **Common causes:**
@@ -541,7 +541,7 @@ grep -A5 "cpus:" docker-compose.poc.yml
 - Proxy container limited to 1 CPU but scoring pipeline is CPU-intensive
 
 **Resolution steps:**
-1. Increase container CPU limit in `docker-compose.poc.yml`: change `cpus: "1"` to `cpus: "2"` and redeploy.
+1. Increase container CPU limit in `docker/docker-compose.poc.yml`: change `cpus: "1"` to `cpus: "2"` and redeploy.
 2. If host CPU is the ceiling (NodeHighCPU also firing), address that first — container limit increase will not help.
 3. Check if the throttled container is proxy: if so, consider switching to the Go proxy which is far more CPU-efficient.
 4. Pin the proxy container to dedicated CPUs: `cpuset: "0,1"` to avoid competing with analytics.

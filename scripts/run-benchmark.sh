@@ -46,7 +46,7 @@ echo "  Phase 1: Single Proxy Instance"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" FLUSHALL > /dev/null 2>&1 || true
-docker compose -f docker-compose.poc.yml run --rm \
+docker compose -f docker/docker-compose.poc.yml run --rm \
     -e PYTHONUNBUFFERED=1 \
     trafficgen python3 /app/scripts/benchmark.py \
     --host proxy --port 8080 \
@@ -58,7 +58,7 @@ docker compose -f docker-compose.poc.yml run --rm \
     --json /tmp/bench-1.json 2>&1
 
 # Copy results out
-docker compose -f docker-compose.poc.yml run --rm \
+docker compose -f docker/docker-compose.poc.yml run --rm \
     -v "$(pwd)/$REPORT_DIR:/reports" \
     trafficgen cp /tmp/bench-1.md /tmp/bench-1.json /reports/ 2>/dev/null || true
 
@@ -71,11 +71,11 @@ echo "  Phase 2: Two Proxy Instances"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Scale proxy to 2 and update HAProxy
-docker compose -f docker-compose.poc.yml up -d --scale proxy=2 --no-recreate 2>/dev/null || true
+docker compose -f docker/docker-compose.poc.yml up -d --scale proxy=2 --no-recreate 2>/dev/null || true
 
 # Get the container names/IPs for the scaled proxies
 sleep 3
-PROXY_IPS=$(docker compose -f docker-compose.poc.yml ps -q proxy | xargs -I{} docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' {} 2>/dev/null | tr '\n' ' ')
+PROXY_IPS=$(docker compose -f docker/docker-compose.poc.yml ps -q proxy | xargs -I{} docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' {} 2>/dev/null | tr '\n' ' ')
 echo "  Proxy IPs: $PROXY_IPS"
 
 # Generate HAProxy config for 2 backends
@@ -126,7 +126,7 @@ sleep 2
 
 docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" FLUSHALL > /dev/null 2>&1 || true
 
-docker compose -f docker-compose.poc.yml run --rm \
+docker compose -f docker/docker-compose.poc.yml run --rm \
     -e PYTHONUNBUFFERED=1 \
     trafficgen python3 /app/scripts/benchmark.py \
     --host proxy --port 8080 \
@@ -145,10 +145,10 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "  Phase 3: Four Proxy Instances"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-docker compose -f docker-compose.poc.yml up -d --scale proxy=4 --no-recreate 2>/dev/null || true
+docker compose -f docker/docker-compose.poc.yml up -d --scale proxy=4 --no-recreate 2>/dev/null || true
 sleep 3
 
-PROXY_IPS=$(docker compose -f docker-compose.poc.yml ps -q proxy | xargs -I{} docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' {} 2>/dev/null | tr '\n' ' ')
+PROXY_IPS=$(docker compose -f docker/docker-compose.poc.yml ps -q proxy | xargs -I{} docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' {} 2>/dev/null | tr '\n' ' ')
 echo "  Proxy IPs: $PROXY_IPS"
 
 cat > /tmp/haproxy-bench.cfg << 'HAEOF'
@@ -196,7 +196,7 @@ sleep 2
 
 docker exec ja4proxy-redis redis-cli -a "${REDIS_PW}" FLUSHALL > /dev/null 2>&1 || true
 
-docker compose -f docker-compose.poc.yml run --rm \
+docker compose -f docker/docker-compose.poc.yml run --rm \
     -e PYTHONUNBUFFERED=1 \
     trafficgen python3 /app/scripts/benchmark.py \
     --host proxy --port 8080 \
@@ -212,7 +212,7 @@ docker compose -f docker-compose.poc.yml run --rm \
 # ─────────────────────────────────────────────────────────────────────
 echo ""
 echo "Restoring single proxy configuration..."
-docker compose -f docker-compose.poc.yml up -d --scale proxy=1 --no-recreate 2>/dev/null || true
+docker compose -f docker/docker-compose.poc.yml up -d --scale proxy=1 --no-recreate 2>/dev/null || true
 docker cp "$(pwd)/ha-config/haproxy.cfg" ja4proxy-haproxy:/usr/local/etc/haproxy/haproxy.cfg
 docker kill -s HUP ja4proxy-haproxy 2>/dev/null || docker restart ja4proxy-haproxy
 

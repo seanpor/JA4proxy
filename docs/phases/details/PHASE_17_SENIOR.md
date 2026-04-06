@@ -89,7 +89,7 @@ block-buffered stdout. The "N passed in Xs" summary line from pytest was buffere
 userspace and never flushed to the `tee` pipe before the process was killed, causing
 `Passed: 0` in the results file even when all tests had passed.
 
-Setting `PYTHONUNBUFFERED=1` in `docker/Dockerfile.test` and `docker-compose.poc.yml`
+Setting `PYTHONUNBUFFERED=1` in `docker/Dockerfile.test` and `docker/docker-compose.poc.yml`
 eliminates the buffering. This does not fix the hang itself — it only fixes the
 misleading output.
 

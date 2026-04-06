@@ -16,7 +16,7 @@ Redis Stack is a drop-in replacement that adds RedisBloom (Bloom filters) and
 RedisJSON natively. HyperLogLog and Sorted Sets are built into standard Redis already.
 
 ```yaml
-# docker-compose.poc.yml, docker-compose.prod.yml, docker-compose.monitoring.yml:
+# docker/docker-compose.poc.yml, docker-compose.prod.yml, docker-compose.monitoring.yml:
 redis:
   image: redis/redis-stack:latest    # was: redis:alpine
   # Everything else unchanged — fully backwards compatible

@@ -123,7 +123,7 @@ with `deploy.resources.limits.cpus` which controls the CPU share weight — both
 
 ### Storage & Log Quotas
 
-Prevent Disk-Full DoS by enforcing strict logging limits in `docker-compose.poc.yml`:
+Prevent Disk-Full DoS by enforcing strict logging limits in `docker/docker-compose.poc.yml`:
 
 ```yaml
 logging:
@@ -142,7 +142,7 @@ Applied to every service in the compose file (300 MB cap per container).
 ### Implementation: `scripts/agent-env.sh`
 
 Generates the `.env.<agent>` file required to spin up an isolated agent environment.
-Must generate **all** variables referenced in `docker-compose.poc.yml`, not just the
+Must generate **all** variables referenced in `docker/docker-compose.poc.yml`, not just the
 isolation-specific ones.
 
 ```bash
@@ -210,9 +210,9 @@ EOF
 chmod 600 "$OUTFILE"
 echo "✓ Created $OUTFILE (agent=${AGENT}, ip=${IP}, cpus=${CPUS})"
 echo ""
-echo "  Start:  docker compose -f docker-compose.poc.yml --project-name ja4_${AGENT} --env-file $OUTFILE up -d"
+echo "  Start:  docker compose -f docker/docker-compose.poc.yml --project-name ja4_${AGENT} --env-file $OUTFILE up -d"
 echo "  Admin:  ./scripts/ja4-admin.sh --agent ${AGENT} status"
-echo "  Stop:   docker compose -f docker-compose.poc.yml --project-name ja4_${AGENT} --env-file $OUTFILE down"
+echo "  Stop:   docker compose -f docker/docker-compose.poc.yml --project-name ja4_${AGENT} --env-file $OUTFILE down"
 ```
 
 ---
@@ -235,7 +235,7 @@ echo "  Stop:   docker compose -f docker-compose.poc.yml --project-name ja4_${AG
 
 | File | Change |
 |------|--------|
-| `docker-compose.poc.yml` | 3-tier zones, `AGENT_BIND_IP` port binding, `cpuset`, logging quotas, `user:` |
+| `docker/docker-compose.poc.yml` | 3-tier zones, `AGENT_BIND_IP` port binding, `cpuset`, logging quotas, `user:` |
 | `scripts/agent-env.sh` | New file — Secure environment generator (full script above) |
 | `docs/architecture/ISOLATION_MODEL.md` | Update to reflect implemented model |
 | `README.md` | Update "Getting Started" for multi-agent support |

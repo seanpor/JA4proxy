@@ -30,7 +30,7 @@ Phase 26 established the foundation for performance (parallel signals, write buf
 
 ### 28b — Unix Domain Socket Integration
 **What:** Enable and validate Redis Unix domain socket support across the stack.
-- Update `docker/docker-compose.prod.yml` and `docker-compose.poc.yml` to mount a shared `redis-sock` volume.
+- Update `docker/docker-compose.prod.yml` and `docker/docker-compose.poc.yml` to mount a shared `redis-sock` volume.
 - Update Redis configuration to enable `unixsocket`.
 - Update `config/proxy.yml` to use `unix_socket_path`.
 - Verify graceful fallback to TCP when socket is missing.

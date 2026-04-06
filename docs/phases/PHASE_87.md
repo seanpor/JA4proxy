@@ -110,7 +110,7 @@ HAProxy also exposes:
 - `haproxy_frontend_connections_rate` — sessions/s entering the stack (OS-level view)
 
 The HAProxy exporter (`prom/haproxy-exporter`) scrapes HAProxy's stats endpoint on
-`:8404` (already exposed in `docker-compose.poc.yml`) and emits Prometheus metrics.
+`:8404` (already exposed in `docker/docker-compose.poc.yml`) and emits Prometheus metrics.
 
 ### 2.5 Load Average vs CPU % — Why Both Matter
 
@@ -409,7 +409,7 @@ Five agents with non-overlapping file ownership. Can run in parallel.
 
 This requires HAProxy to have stats configured. Verify `config/haproxy.cfg` exposes
 the stats endpoint on `:8404` with CSV output (it already does based on the port
-mapping in `docker-compose.poc.yml`).
+mapping in `docker/docker-compose.poc.yml`).
 
 **cAdvisor scrape job (prometheus.yml):**
 ```yaml
@@ -1117,7 +1117,7 @@ After Agents A–D have pushed, Agent E reviews and produces `docs/phases/PHASE_
 **Critical checks:**
 
 1. **Container name consistency** — every `name=~"..."` pattern in new alert rules
-   matches actual service names from `docker-compose.poc.yml` and
+   matches actual service names from `docker/docker-compose.poc.yml` and
    `docker-compose.monitoring.yml`. Enumerate all patterns and cross-check.
 
 2. **HAProxy stats endpoint** — verify `config/haproxy.cfg` exposes `/stats?stats;csv`

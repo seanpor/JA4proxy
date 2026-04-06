@@ -13,7 +13,7 @@ isolated from the public-facing HAProxy and the management-facing Analytics node
 ### Implementation
 
 Replace the existing two networks (`ja4proxy-frontend`, `ja4proxy-backend`) with four
-discrete zones in `docker-compose.poc.yml`:
+discrete zones in `docker/docker-compose.poc.yml`:
 
 | Network | `internal` | Purpose |
 |---------|-----------|---------|
@@ -120,7 +120,7 @@ which resolve via `dmz_net`, unchanged from before.
 
 ## Acceptance Criteria
 
-- [x] `docker-compose.poc.yml` has exactly 4 network definitions, replacing the old 2.
+- [x] `docker/docker-compose.poc.yml` has exactly 4 network definitions, replacing the old 2.
 - [x] `internal: true` set on `data_net` and `origin_net`.
 - [x] Proxy can reach `redis` via DNS (`data_net`).
 - [x] HAProxy CANNOT reach `redis` directly (no shared network).
@@ -133,5 +133,5 @@ which resolve via `dmz_net`, unchanged from before.
 
 | File | Change |
 |------|--------|
-| `docker-compose.poc.yml` | Replace network definitions and reassign all service networks |
+| `docker/docker-compose.poc.yml` | Replace network definitions and reassign all service networks |
 | `CHANGELOG.md` | Phase 72 entry |

@@ -1,5 +1,19 @@
 # Changelog
 
+## [90.0.0] - 2026-04-06 - Root Directory Cleanup & Docker Compose Consolidation
+
+### Changed
+- Moved all root-level docker-compose files into `docker/`: `docker-compose.poc.yml`, `docker-compose.python-legacy.yml`, `docker-compose.scale.yml`, `docker-compose.test.yml`
+- Updated build contexts in moved files from `context: .` to `context: ..` to preserve correct repo-root references
+- Replaced 7-line `docker/docker-compose.test.yml` stub with the full Go test environment compose file
+- Moved `benchmark_parallel_signals.py` and `benchmark_phase26.py` from root to `performance/`
+- Updated all references in Makefile (30+ occurrences), scripts, and docs to use new `docker/` paths
+- Added `REDIS_PASSWORD=lint-placeholder` to `make lint-docker` compose config validation
+
+### Removed
+- Untracked artefact files from root: `docker-compose.poc.yml.backup`, `*.log`, `*.pid`, `ja4proxy_plan.zip`
+- Unused `package.json`, `package-lock.json`, `node_modules/` from root (`sql.js` was unused)
+
 ## [57.0.0] - 2026-04-06 - Cloud Backup & Restore Hardening
 
 ### Added

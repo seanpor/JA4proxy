@@ -118,13 +118,13 @@ make agent-status
 ./scripts/agent-env.sh claude
 
 # Start
-docker compose -f docker-compose.poc.yml --project-name ja4_claude --env-file .env.claude up -d
+docker compose -f docker/docker-compose.poc.yml --project-name ja4_claude --env-file .env.claude up -d
 
 # Admin (explicit --agent flag required without .current-agent)
 ./scripts/ja4-admin.sh --agent claude status
 
 # Stop
-docker compose -f docker-compose.poc.yml --project-name ja4_claude --env-file .env.claude down
+docker compose -f docker/docker-compose.poc.yml --project-name ja4_claude --env-file .env.claude down
 ```
 
 ### Agent resolution priority in `ja4-admin.sh`

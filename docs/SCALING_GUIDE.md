@@ -90,7 +90,7 @@ The HAProxy configuration is in `config/haproxy.cfg`:
 
 ### Docker Compose Scale Overlay
 
-The scale configuration is in `docker-compose.scale.yml`:
+The scale configuration is in `docker/docker-compose.scale.yml`:
 
 - 4 worker services (proxy-worker-1 through proxy-worker-4)
 - Each worker has its own port and WORKER_ID
@@ -144,7 +144,7 @@ The scale configuration is in `docker-compose.scale.yml`:
 make start-scaled
 
 # Stop scaled configuration
-docker compose -f docker-compose.poc.yml -f docker-compose.scale.yml down
+docker compose -f docker/docker-compose.poc.yml -f docker/docker-compose.scale.yml down
 
 # Restart a single worker
 docker restart ja4proxy_worker_1
@@ -168,7 +168,7 @@ docker exec -it redis redis-cli info stats
 
 To change the number of workers:
 
-1. Edit `docker-compose.scale.yml`
+1. Edit `docker/docker-compose.scale.yml`
 2. Add/remove worker service definitions
 3. Update HAProxy configuration to include new workers
 4. Update `max_per_ip` setting in `config/proxy.yml`
@@ -216,14 +216,14 @@ To use a different number of workers:
 
 1. Create a custom overlay file (e.g., `docker-compose.scale-8workers.yml`)
 2. Add 8 worker service definitions
-3. Start with: `docker compose -f docker-compose.poc.yml -f docker-compose.scale-8workers.yml up -d`
+3. Start with: `docker compose -f docker/docker-compose.poc.yml -f docker-compose.scale-8workers.yml up -d`
 
 ### Worker-Specific Configuration
 
 Each worker can have environment variables:
 
 ```yaml
-# docker-compose.scale.yml
+# docker/docker-compose.scale.yml
 environment:
   - PROXY_PORT=8080
   - WORKER_ID=1
@@ -236,7 +236,7 @@ environment:
 Add resource limits to prevent worker runaway:
 
 ```yaml
-# docker-compose.scale.yml
+# docker/docker-compose.scale.yml
 deploy:
   resources:
     limits:

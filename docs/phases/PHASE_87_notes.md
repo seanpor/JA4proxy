@@ -19,7 +19,7 @@ HAProxy exporter URI.
 
 ### Check 1: Container name consistency
 - **Status: PASS**
-- Docker Compose services in `docker-compose.poc.yml`: `haproxy`, `proxy`, `redis`,
+- Docker Compose services in `docker/docker-compose.poc.yml`: `haproxy`, `proxy`, `redis`,
   `backend`, `tarpit`, `analytics`, `management` (no explicit `container_name`, so
   names follow `<project>-<service>-<replica>` pattern).
 - Monitoring containers in `docker/docker-compose.monitoring.yml`: all prefixed

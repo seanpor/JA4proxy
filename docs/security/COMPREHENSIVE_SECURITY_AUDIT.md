@@ -30,7 +30,7 @@ This audit originally identified **18 critical and high-severity vulnerabilities
 
 | # | Finding | Status | Fix Location |
 |---|---------|--------|-------------|
-| 1 | Default/Weak Secrets | ✅ RESOLVED | `docker-compose.poc.yml` `:?` syntax; `proxy.py` `_init_redis()` exits on missing prod password |
+| 1 | Default/Weak Secrets | ✅ RESOLVED | `docker/docker-compose.poc.yml` `:?` syntax; `proxy.py` `_init_redis()` exits on missing prod password |
 | 2 | Unpinned Docker Images | ⚠️ DEFERRED | Phase 15 — image signing is a CI/CD concern; documented in `docker/docker-compose.prod.yml` header |
 | 3 | Unpinned Python Deps | ⚠️ DEFERRED | Phase 15 rewrite replaces Python dep tree; current `requirements.txt` uses pinned `==` versions |
 | 4 | Missing TLS to Backend | ℹ️ DESIGN | Proxy is TLS passthrough; backend TLS is backend's responsibility; not a proxy concern |
@@ -44,7 +44,7 @@ This audit originally identified **18 critical and high-severity vulnerabilities
 ## Critical Vulnerabilities (Severity: CRITICAL)
 
 ### 1. **Default/Weak Secrets in Configuration**
-**Location:** `docker-compose.poc.yml:17, 36`  
+**Location:** `docker/docker-compose.poc.yml:17, 36`  
 **Severity:** CRITICAL  
 **CWE:** CWE-798 (Use of Hard-coded Credentials)
 
@@ -73,7 +73,7 @@ The default password "changeme" is used when REDIS_PASSWORD is not set, creating
 ---
 
 ### 2. **Unpinned Docker Base Images**
-**Location:** `Dockerfile:1`, `docker-compose.poc.yml:34, 53`  
+**Location:** `Dockerfile:1`, `docker/docker-compose.poc.yml:34, 53`  
 **Severity:** CRITICAL  
 **CWE:** CWE-494 (Download of Code Without Integrity Check)
 
@@ -215,7 +215,7 @@ if self.config['metrics']['enabled']:
 ---
 
 ### 7. **Container Running with Excessive Capabilities**
-**Location:** `docker-compose.poc.yml:26-29`  
+**Location:** `docker/docker-compose.poc.yml:26-29`  
 **Severity:** HIGH  
 **CWE:** CWE-250 (Execution with Unnecessary Privileges)
 
@@ -683,7 +683,7 @@ No automated scanning for:
 
 Phase 14 (Production Hardening, 2026-03-16) addressed the following from this audit:
 
-- **Finding 1 (Weak secrets):** `docker-compose.poc.yml` replaced `:-changeme` with `:?`; proxy refuses to start in `ENVIRONMENT=production` without a Redis password (`proxy.py` `_init_redis()`).
+- **Finding 1 (Weak secrets):** `docker/docker-compose.poc.yml` replaced `:-changeme` with `:?`; proxy refuses to start in `ENVIRONMENT=production` without a Redis password (`proxy.py` `_init_redis()`).
 - **Finding 6 (Metrics auth):** Metrics endpoint bound to `127.0.0.1` only in all compose files. Auth via reverse proxy documented.
 - **Finding 7 (Container capabilities):** `docker/docker-compose.prod.yml` now enforces `cap_drop: ALL`, `read_only: true`, `security_opt: no-new-privileges` on every container.
 - **Finding 8 (Tarpit unlimited):** `proxy.py` `_redirect_to_tarpit()` enforces `max_concurrent_connections` and `max_per_ip` with `overflow_action` fallback (Phase 14c).

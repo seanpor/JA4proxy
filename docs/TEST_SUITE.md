@@ -202,12 +202,12 @@ The test suite is designed to run in CI pipelines:
 
 ```bash
 # Full test suite with coverage
-docker compose -f docker-compose.poc.yml run --rm test \
+docker compose -f docker/docker-compose.poc.yml run --rm test \
     pytest /app/tests -v --cov=proxy \
     --cov-report=xml --cov-report=term
 
 # Quick smoke test
-docker compose -f docker-compose.poc.yml run --rm test \
+docker compose -f docker/docker-compose.poc.yml run --rm test \
     pytest /app/tests/integration/ -v
 ```
 
