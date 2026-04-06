@@ -31,6 +31,7 @@ This phase does NOT re-do: linting/mypy (Phase 37, complete), Docker image CVE s
     security.yml     # Security scanning — run on every PR and push to main
     build.yml        # Build and sign artifacts — run on push to main and tags
     release.yml      # Create releases with signed artifacts and SBOM
+  dependabot.yml     # Keep action SHAs and package versions current
 ```
 
 ### 2.2 `ci.yml` — Core Test Pipeline
@@ -52,12 +53,15 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read   # Minimum — only read repo content
+
 jobs:
   test-python:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: "3.11"
       - run: pip install -r requirements.txt
@@ -66,8 +70,8 @@ jobs:
   test-go:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5.2.0
         with:
           go-version: "1.22"
       - run: go test ./...
@@ -77,13 +81,13 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: "3.11"
       - run: pip install ruff mypy
       - run: ruff check . && mypy src/ proxy.py --ignore-missing-imports
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5.2.0
         with:
           go-version: "1.22"
       - run: test -z "$(gofmt -l .)" && go vet ./...
@@ -116,6 +120,9 @@ Jobs:
 4. **`dependency-audit-go`**: `govulncheck ./...`. Fails CI on any known-vulnerable Go
    module dependencies.
 
+5. **`dependency-review`**: GitHub Dependency Review Action on pull requests — detects
+   newly introduced vulnerable dependencies at PR time, before merge.
+
 ```yaml
 # .github/workflows/security.yml
 name: Security Scanning
@@ -126,14 +133,18 @@ on:
   schedule:
     - cron: "0 6 * * 1"   # Weekly Monday scan for newly-disclosed CVEs
 
+permissions:
+  contents: read
+  security-events: write   # Required to upload SARIF results to GitHub Security tab
+
 jobs:
   secrets-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
-      - uses: trufflesecurity/trufflehog@main
+      - uses: trufflesecurity/trufflehog@05ef3e3f827cec1c08ec5a3a61b5aa66cd7e5f9f # v3.88.19
         with:
           path: ./
           base: ${{ github.event.repository.default_branch }}
@@ -142,16 +153,16 @@ jobs:
   sast:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: returntocorp/semgrep-action@v1
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: returntocorp/semgrep-action@fcd5ab7459e8d91cb1777481980d1b18b4fc6735 # v1.1.0
         with:
           config: "p/python p/golang p/secrets"
 
   dependency-audit-python:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
         with:
           python-version: "3.11"
       - run: pip install pip-audit && pip-audit -r requirements.txt --severity high
@@ -159,12 +170,27 @@ jobs:
   dependency-audit-go:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a # v5.2.0
         with:
           go-version: "1.22"
       - run: go install golang.org/x/vuln/cmd/govulncheck@latest && govulncheck ./...
+
+  dependency-review:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/dependency-review-action@3b139cfc5fae8b618d3eae3675e383bb1769c019 # v4.3.3
+        with:
+          fail-on-severity: high
+          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0, SSPL-1.0
 ```
+
+The `dependency-review` job catches newly added vulnerable or licence-violating
+dependencies at pull request time — before they land on `main`. The weekly scheduled
+scan (`dependency-audit-python`, `dependency-audit-go`) covers CVEs disclosed after
+a dependency was merged.
 
 **CVE triage policy:** HIGH and CRITICAL CVEs must be addressed within 7 days of
 discovery — by upgrading the dependency, applying a patch, or filing a documented risk
@@ -205,6 +231,158 @@ Creates a GitHub release with:
 - `licence-inventory-python.json`
 - `licence-inventory-go.csv`
 - SLSA provenance attestation (`.intoto.jsonl`) for the Go binary
+
+---
+
+### 2.6 Action Version Pinning
+
+**All GitHub Actions must be pinned to a specific commit SHA — never to a floating tag
+or branch name.**
+
+Tags can be moved. A maintainer (or an attacker who has compromised a maintainer
+account) can silently push new code to an existing tag and every downstream workflow
+that references that tag will execute the new code on its next run. A branch reference
+such as `@main` is even more exposed: any push to that branch immediately affects every
+consumer. This is a direct supply chain attack vector — and it is particularly ironic
+when the compromised action is running inside a security scanning workflow.
+
+The canonical pinned form is:
+
+```yaml
+uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+```
+
+The SHA is immutable — it refers to exactly one commit in the action repository's
+history and cannot be silently changed. The human-readable tag comment (`# v4.2.2`) is
+for maintainability only and has no effect on what code runs.
+
+A corrected version of the `secrets-scan` job from an earlier draft illustrates the
+difference between a dangerous reference and the correct form:
+
+```yaml
+# WRONG — @main is a live supply chain risk
+- uses: trufflesecurity/trufflehog@main
+
+# CORRECT — SHA-pinned with tag comment for readability
+- uses: trufflesecurity/trufflehog@05ef3e3f827cec1c08ec5a3a61b5aa66cd7e5f9f # v3.88.19
+```
+
+Every workflow file in this phase uses SHA-pinned references. The full list of pinned
+SHAs (with their corresponding tags) is maintained by Dependabot (see §2.7) and updated
+automatically via pull request when new versions are released.
+
+**How to find the correct SHA for an action:**
+
+```bash
+# Get the SHA for a specific tag
+git ls-remote https://github.com/actions/checkout refs/tags/v4.2.2
+# Output: 11bd71901bbe5b1630ceea73d27597364c9af683  refs/tags/v4.2.2
+```
+
+Alternatively, view the tag on GitHub, navigate to the commit it points to, and copy
+the full 40-character SHA from the URL.
+
+### 2.7 Dependabot Configuration
+
+SHA pins must be kept current — a pinned-but-outdated SHA may reference a version with
+known CVEs. Dependabot is configured to open pull requests whenever a new version of a
+pinned action (or a Python/Go dependency) is released:
+
+```yaml
+# .github/dependabot.yml
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+```
+
+Dependabot PRs for `github-actions` updates include both the new SHA and the new tag in
+the commit message. The CI pipeline runs against each Dependabot PR before it is merged,
+so a broken action update is caught before it affects the main pipeline.
+
+### 2.8 Branch Protection Rules
+
+The CI pipeline is theater without branch protection. Workflow files can be bypassed by
+anyone who can push directly to `main`. The `main` branch must have the following GitHub
+branch protection rules configured:
+
+| Rule | Setting |
+|------|---------|
+| Require status checks to pass before merging | `test-python`, `test-go`, `lint`, `secrets-scan`, `sast`, `dependency-audit-python`, `dependency-audit-go` |
+| Require branches to be up to date before merging | true |
+| Restrict pushes that create matching branches | No direct pushes to `main`; all changes via PR |
+| Require pull request reviews before merging | 0 approvals (this is an AI-agent project; the gate is CI, not human review) |
+| Enforce admins | false (allows emergency hotfix via admin override with full audit trail) |
+
+Apply with the GitHub CLI:
+
+```bash
+gh api repos/{owner}/{repo}/branches/main/protection \
+  --method PUT \
+  --field required_status_checks='{"strict":true,"contexts":["test-python","test-go","lint","secrets-scan","sast","dependency-audit-python","dependency-audit-go"]}' \
+  --field enforce_admins=false \
+  --field required_pull_request_reviews=null \
+  --field restrictions=null
+```
+
+Replace `{owner}` and `{repo}` with the actual GitHub organisation and repository name.
+Run this once when the repository is first set up, and re-run it if the set of required
+status checks changes (e.g. when a new workflow job is added).
+
+### 2.9 OIDC Token Permission Minimization
+
+The default GitHub Actions `GITHUB_TOKEN` has broad permissions (`contents: write` on
+many events). Every workflow must declare a top-level `permissions:` block that grants
+only what that workflow actually needs. Excess permissions mean a compromised step in
+one job can push commits, create releases, or modify packages that the job should never
+touch.
+
+Minimum permissions by workflow:
+
+| Workflow | Permissions required | Reason |
+|----------|---------------------|--------|
+| `ci.yml` | `contents: read` | Only needs to check out source |
+| `security.yml` | `contents: read`, `security-events: write` | `security-events: write` is required to upload SARIF results to the GitHub Security tab |
+| `build.yml` | `contents: read`, `packages: write`, `id-token: write` | `packages: write` for GHCR push; `id-token: write` for Cosign keyless signing |
+| `release.yml` | `contents: write`, `packages: write`, `id-token: write`, `actions: read` | `contents: write` for release creation; `actions: read` for SLSA provenance |
+
+The corrected `ci.yml` header (shown in §2.2) already includes the minimum declaration.
+The pattern for `security.yml`:
+
+```yaml
+name: Security Scanning
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+  security-events: write
+```
+
+Permission blocks are declared at the workflow level, which sets the default for all
+jobs. Individual jobs may further restrict their own permissions if needed, but may not
+grant more than the workflow-level declaration.
 
 ---
 
@@ -287,6 +465,16 @@ a legal justification before the release is published. The format is:
 - **Justification**: <why this licence is acceptable for this use case>
 ```
 
+### 3.5 SBOM Coverage Limitation
+
+The SBOMs generated in §3.1–3.3 cover declared package dependencies only. They do not cover:
+
+- **Lua scripts** — `scripts/sliding_window.lua` and related Lua scripts execute inside Redis via `EVALSHA`. These are first-party code, not package dependencies, and are not listed by any SBOM generator.
+- **eBPF programs** — the eBPF/XDP blocking programs from Phase 35 are compiled C and run in kernel context. `cyclonedx-py` and Syft do not enumerate kernel-loaded programs.
+- **Shell scripts** — the scripts in `scripts/` and `scripts/smoke/` run at deployment and maintenance time. They are not tracked as package dependencies.
+
+For a procurement questionnaire asking "does your SBOM include all executable components?", the honest answer is: the SBOM covers all declared package dependencies. First-party code (proxy source, Lua scripts, shell scripts, eBPF programs) is in version control and auditable via git history, but is not represented in the CycloneDX SBOM files. This limitation is typical for SBOMs generated from dependency manifests; a full-scope SBOM would require custom tooling beyond the scope of this phase.
+
 ---
 
 ## 4. Container Image Signing
@@ -303,7 +491,7 @@ repository.
 ```yaml
 # In build.yml — after docker build and push to ghcr.io
 - name: Install Cosign
-  uses: sigstore/cosign-installer@v3
+  uses: sigstore/cosign-installer@d7d6bc7722e3daa8354c50bcb52f4837da5e9b6a # v3.8.1
 
 - name: Sign proxy image
   run: |
@@ -424,3 +612,8 @@ dependency-audit:
 - [ ] SLSA level 2 provenance attestation (`.intoto.jsonl`) is generated for Go binary releases and attached to GitHub releases
 - [ ] `make sbom`, `make licence-check`, and `make dependency-audit` targets are added to the bottom of `Makefile`
 - [ ] `README.md` updated to note that images are Cosign-signed and how to verify them
+- [ ] All GitHub Actions in all workflow files are pinned to a commit SHA (not to a floating tag or `@main`), with a tag comment for human readability
+- [ ] `.github/dependabot.yml` is configured to keep action SHAs, pip packages, and Go modules current via weekly automated PRs
+- [ ] `main` branch protection rules are configured per §2.8: required status checks enabled, no direct pushes to `main`
+- [ ] Every workflow file has a top-level `permissions:` block granting only the minimum permissions required for that workflow
+- [ ] `dependency-review` job is present in `security.yml` and runs on all pull requests, blocking merge on HIGH severity vulnerable or licence-violating dependencies

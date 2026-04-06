@@ -98,6 +98,15 @@ These tests call `_is_trusted_proxy_source()` directly and also test the full
 `handle_connection()` path using the `AsyncMock` stream pattern established in
 `tests/unit/test_proxy_server.py`.
 
+**Scope limitation:** These are unit and mock-integration tests. They verify that the
+`_is_trusted_proxy_source()` function and the `handle_connection()` mock path enforce
+the CIDR check correctly. They do not test the live network stack — a PROXY protocol
+header sent from a real HAProxy instance to a real listening socket. End-to-end
+verification of this protection requires the Docker Compose integration test
+(`tests/integration/test_docker_stack.py`), which is excluded from CI because it
+requires a live backend. The integration test must be run locally before marking this
+phase complete. Document the result in `PHASE_62_notes.md`.
+
 ### 2.3 `test_redis_async_regression.py`
 
 **Asserts:** No file in the codebase that imports `asyncio` also calls the synchronous
@@ -294,11 +303,11 @@ class TestRateLimitIPv6Regression:
         The IP normalisation utility must collapse ::ffff:1.2.3.4 to 1.2.3.4
         so that rate-limit keys, ban keys, and log entries are consistent.
         """
-        from src.utils.ip_utils import normalise_ip
-        assert normalise_ip("::ffff:1.2.3.4") == "1.2.3.4"
-        assert normalise_ip("::ffff:192.168.1.1") == "192.168.1.1"
-        assert normalise_ip("2001:db8::1") == "2001:db8::1"  # Real IPv6 unchanged
-        assert normalise_ip("1.2.3.4") == "1.2.3.4"          # IPv4 unchanged
+        from src.utils.ip import canonical_ip
+        assert canonical_ip("::ffff:1.2.3.4") == "1.2.3.4"
+        assert canonical_ip("::ffff:192.168.1.1") == "192.168.1.1"
+        assert canonical_ip("2001:db8::1") == "2001:db8::1"  # Real IPv6 unchanged
+        assert canonical_ip("1.2.3.4") == "1.2.3.4"          # IPv4 unchanged
 
     @pytest.mark.asyncio
     async def test_ban_key_uses_normalised_ip(self):
@@ -512,11 +521,156 @@ When the fuzzer finds a crash, the input is saved to
 Quarterly fuzzing procedure is documented in `tests/fuzz/README.md`. The recommended
 minimum runtime for a meaningful full fuzz campaign is 24 hours per target.
 
+### 3.8 CI-Scheduled Fuzz Smoke
+
+The quarterly manual fuzz documented in `tests/fuzz/README.md` is for deep, multi-hour
+fuzzing campaigns. A lightweight fuzz smoke (60s per target) runs automatically as part
+of the weekly Monday security scan in `.github/workflows/security.yml`. Add this job to
+that workflow:
+
+```yaml
+fuzz-smoke:
+  runs-on: ubuntu-latest
+  timeout-minutes: 15
+  steps:
+    - uses: actions/checkout@<SHA> # v4.2.2
+    - uses: actions/setup-python@<SHA> # v5
+      with:
+        python-version: "3.11"
+    - run: pip install atheris -r requirements.txt
+    - uses: actions/setup-go@<SHA> # v5
+      with:
+        go-version: "1.22"
+    - run: make fuzz
+    - uses: actions/upload-artifact@<SHA> # v4
+      if: failure()
+      with:
+        name: fuzz-findings-${{ github.run_id }}
+        path: tests/fuzz/findings/
+        retention-days: 90
+```
+
+`make fuzz` fails the job if new crashes are found in `tests/fuzz/findings/`. New crash
+inputs are uploaded as CI artifacts (90-day retention) so the triaging engineer can
+reproduce the crash locally by replaying the saved input against the fuzz target.
+
 ---
 
-## 4. Pre-Enterprise Validation Report
+## 4. Break-Glass Verification
 
-### 4.1 Purpose
+Security regression tests that never fail are cargo-cult security. This section
+defines a break-glass procedure: how to deliberately introduce each Phase 27
+vulnerability, run the regression test suite, and verify it fails. This procedure
+must be run once before Phase 62 is marked COMPLETE, and the results documented
+in PHASE_62_notes.md.
+
+The break-glass tests are NOT committed to main. They are applied as temporary
+patches, CI is run (or `make test-security-regression` is run locally), the failure
+is confirmed, and the patch is reverted.
+
+### 4.1 Break-Glass: IP Spoofing (Finding 1.1)
+
+Patch: In `proxy.py`, temporarily modify `_is_trusted_proxy_source()` to always
+return True regardless of the source IP:
+
+```python
+def _is_trusted_proxy_source(source_ip: str, trusted_cidrs: list) -> bool:
+    return True  # BREAK-GLASS: trust everything
+```
+
+Expected failure: `test_untrusted_source_proxy_protocol_is_ignored` and
+`test_untrusted_xff_header_is_ignored` both fail.
+
+Revert: `git checkout proxy.py`
+
+### 4.2 Break-Glass: Sync Redis in Async Context (Finding 1.2)
+
+Patch: In `src/security/action_decider.py`, change `DialManager.initialize` to a
+synchronous function by removing the `async` keyword:
+
+```python
+def initialize(self, redis_client) -> None:  # BREAK-GLASS: remove async
+    ...
+```
+
+Expected failure: `test_dial_manager_initialize_is_async` fails.
+
+Revert: `git checkout src/security/action_decider.py`
+
+### 4.3 Break-Glass: TLS Parsing on Event Loop (Finding 1.3)
+
+Patch: In `proxy.py`, locate the `asyncio.to_thread()` call that wraps TLS parsing
+and replace it with a direct synchronous call.
+
+Expected failure: `test_tls_parsing_offloaded_to_thread` fails.
+
+Revert: `git checkout proxy.py`
+
+### 4.4 Break-Glass: Prometheus Cardinality (Finding 1.4)
+
+Patch: Add a `fingerprint` label to `ja4_requests_total` in the Prometheus
+counter definition:
+
+```python
+ja4_requests_total = Counter(
+    "ja4_requests_total",
+    "...",
+    ["result", "fingerprint"]  # BREAK-GLASS: add fingerprint label
+)
+```
+
+Expected failure: `test_ja4_requests_total_has_no_fingerprint_label` fails.
+
+Revert: restore the original label list.
+
+### 4.5 Break-Glass: Log Injection (Finding 1.5)
+
+Patch: In `proxy.py`, locate a log statement that calls `_sanitize_log()` on the
+client IP, and remove the `_sanitize_log()` wrapper:
+
+```python
+# BREAK-GLASS: remove sanitize_log
+logger.info(f"Connection from {client_ip}")  # was: {_sanitize_log(client_ip)}
+```
+
+Expected failure: `test_sanitize_log_applied_to_client_ip` fails (if the AST check
+covers this specific call site).
+
+Note: the AST-based check in this test is structural — it checks that `_sanitize_log`
+appears somewhere in proxy.py, not that every log call is wrapped. If removing one
+instance doesn't fail the test, the test needs strengthening. Document this finding
+in PHASE_62_notes.md. The fuzzer will catch actual injection; the AST check is a
+belt-and-braces check that the function still exists.
+
+Revert: `git checkout proxy.py`
+
+### 4.6 Documenting Break-Glass Results
+
+After running all five break-glass patches and confirming each one causes its
+corresponding test to fail, document the results in PHASE_62_notes.md:
+
+```markdown
+## Break-Glass Verification Results
+
+Date: YYYY-MM-DD
+
+| Finding | Break-glass patch | Regression test | Fails as expected? |
+|---------|------------------|----------------|-------------------|
+| 1.1 IP spoofing | _is_trusted_proxy_source always True | test_untrusted_source_proxy_protocol_is_ignored | YES |
+| 1.2 Sync Redis | DialManager.initialize sync | test_dial_manager_initialize_is_async | YES |
+| 1.3 TLS on event loop | Remove asyncio.to_thread | test_tls_parsing_offloaded_to_thread | YES |
+| 1.4 Metric cardinality | Add fingerprint label | test_ja4_requests_total_has_no_fingerprint_label | YES |
+| 1.5 Log injection | Remove _sanitize_log | test_sanitize_log_applied_to_client_ip | PARTIAL — AST check is structural only |
+```
+
+Any PARTIAL or NO result requires either strengthening the regression test or
+documenting why the test gap is acceptable.
+
+---
+
+## 5. Pre-Enterprise Validation Report
+
+### 5.1 Purpose
 
 Enterprise procurement teams commonly ask:
 - "What known vulnerabilities exist in this product?"
@@ -528,7 +682,7 @@ Enterprise procurement teams commonly ask:
 a single generated document. It is regenerated before each procurement engagement by
 running `make validation-report`.
 
-### 4.2 `scripts/generate_validation_report.py`
+### 5.2 `scripts/generate_validation_report.py`
 
 ```python
 #!/usr/bin/env python3
@@ -676,7 +830,7 @@ if __name__ == "__main__":
     write_report(sections, pathlib.Path(args.output))
 ```
 
-### 4.3 Report Structure and Content
+### 5.3 Report Structure and Content
 
 The generated `docs/security/PRE_ENTERPRISE_VALIDATION_REPORT.md` contains:
 
@@ -707,7 +861,7 @@ a failing `make validation-report` run.
 
 ---
 
-## 5. Makefile Targets
+## 6. Makefile Targets
 
 Add to the bottom of `Makefile` (never edit existing targets):
 
@@ -719,26 +873,34 @@ test-security-regression:
 
 fuzz:
 	@echo "Running fuzzer smoke tests (60s each)..."
+	@CRASH_BEFORE=$$(find tests/fuzz/findings/ -name '*.bin' 2>/dev/null | wc -l); \
 	python3 tests/fuzz/fuzz_clienthello.py -max_total_time=60 \
-	    tests/fuzz/corpus/clienthello/ || true
+	    tests/fuzz/corpus/clienthello/ 2>&1 || true; \
 	python3 tests/fuzz/fuzz_proxy_protocol.py -max_total_time=60 \
-	    tests/fuzz/corpus/proxy_protocol/ || true
+	    tests/fuzz/corpus/proxy_protocol/ 2>&1 || true; \
 	python3 tests/fuzz/fuzz_config.py -max_total_time=60 \
-	    tests/fuzz/corpus/config/ || true
-	GOROOT=/snap/go/current go test -fuzz=FuzzClientHello -fuzztime=60s ./cmd/proxy/ || true
-	@echo "Fuzz smoke complete. Check tests/fuzz/findings/ for any crash inputs."
+	    tests/fuzz/corpus/config/ 2>&1 || true; \
+	go test -fuzz=FuzzClientHello -fuzztime=60s ./cmd/proxy/ 2>&1 || true; \
+	CRASH_AFTER=$$(find tests/fuzz/findings/ -name '*.bin' 2>/dev/null | wc -l); \
+	NEW_CRASHES=$$((CRASH_AFTER - CRASH_BEFORE)); \
+	if [ "$$NEW_CRASHES" -gt 0 ]; then \
+	    echo "FAIL: $$NEW_CRASHES new crash(es) found in tests/fuzz/findings/ — triage before marking Phase 62 complete"; \
+	    exit 1; \
+	fi; \
+	echo "Fuzz smoke complete. No new crashes found."
 
 validation-report:
 	python3 scripts/generate_validation_report.py
 ```
 
-The `|| true` on fuzz runs prevents `make fuzz` from failing if atheris reports a
-known-unfixed finding. The exit code of the fuzz targets is only meaningful during
-triage; CI smoke is about ensuring the fuzzers start and run without setup errors.
+The `|| true` on individual fuzz invocations allows each target to run even if a
+previous one exits non-zero. The crash count check at the end fails `make fuzz` if
+any new crash input was saved to `tests/fuzz/findings/` during the run, surfacing
+the failure to CI rather than silently swallowing it.
 
 ---
 
-## 6. Acceptance Criteria
+## 7. Acceptance Criteria
 
 - [ ] `tests/security_regression/` directory exists with all six test files listed in Section 2.1
 - [ ] `test_ip_spoofing_regression.py` covers trusted-source acceptance, untrusted-source rejection, empty-trusted-cidrs case, and IPv6 trusted CIDR
@@ -756,7 +918,13 @@ triage; CI smoke is about ensuring the fuzzers start and run without setup error
 - [ ] `atheris>=2.3.0` added to `requirements.txt` with `# phase-62` comment
 - [ ] `scripts/generate_validation_report.py` exists and is executable
 - [ ] `make validation-report` runs to completion and writes `docs/security/PRE_ENTERPRISE_VALIDATION_REPORT.md`
-- [ ] The generated report contains all four sections described in Section 4.3
+- [ ] The generated report contains all four sections described in Section 5.3
 - [ ] The report exits with code 1 if any security regression test fails; CI catches this
 - [ ] `tests/fuzz/README.md` documents the quarterly full-fuzz procedure and corpus management
 - [ ] `tests/security_regression/` tests are included in the standard `make test` run (not excluded)
+- [ ] Break-glass procedure run for all five Phase 27 findings; results documented in PHASE_62_notes.md
+- [ ] Each regression test confirmed to fail when its corresponding vulnerability is deliberately introduced
+- [ ] Any PARTIAL results (test does not fully catch the reintroduced vulnerability) are documented and either the test is strengthened or the gap is explicitly accepted
+- [ ] `make fuzz` reports new crashes as CI failures rather than silently swallowing them with `|| true`
+- [ ] Fuzz smoke job added to the weekly Monday CI schedule in `.github/workflows/security.yml`
+- [ ] Fuzz crash inputs are uploaded as CI artifacts (90-day retention) when `make fuzz` fails
