@@ -136,20 +136,20 @@ done
 # ── Section 3: Network Zone Isolation ────────────────────────────────────────
 section "3. Network Zone Isolation"
 
-# data_net: Redis must not reach internet (internal: true)
+# ja4proxy-data: Redis must not reach internet (internal: true)
 info "Redis → internet port 443 (expect: blocked)..."
 if py_connect "$REDIS_CONTAINER" "8.8.8.8" 443 3; then
-    fail "Redis can reach internet (data_net should have internal: true)"
+    fail "Redis can reach internet (ja4proxy-data should have internal: true)"
 else
-    pass "Redis cannot reach internet (data_net isolated)"
+    pass "Redis cannot reach internet (ja4proxy-data isolated)"
 fi
 
-# origin_net: Backend must not reach internet (internal: true)
+# ja4proxy-origin: Backend must not reach internet (internal: true)
 info "Backend → internet port 443 (expect: blocked)..."
 if py_connect "$BACKEND_CONTAINER" "8.8.8.8" 443 3; then
-    fail "Backend can reach internet (origin_net should have internal: true)"
+    fail "Backend can reach internet (ja4proxy-origin should have internal: true)"
 else
-    pass "Backend cannot reach internet (origin_net isolated)"
+    pass "Backend cannot reach internet (ja4proxy-origin isolated)"
 fi
 
 # HAProxy must not share a network with Redis (checked via Docker network inspection)
@@ -168,20 +168,20 @@ else
     pass "Analytics and Backend share no Docker network"
 fi
 
-# Proxy must reach Redis (data_net)
+# Proxy must reach Redis (ja4proxy-data)
 info "Proxy → Redis port 6379 (expect: reachable)..."
 if py_connect "$PROXY_CONTAINER" "redis" 6379 3; then
-    pass "Proxy can reach Redis (data_net working)"
+    pass "Proxy can reach Redis (ja4proxy-data working)"
 else
-    fail "Proxy CANNOT reach Redis (data_net broken)"
+    fail "Proxy CANNOT reach Redis (ja4proxy-data broken)"
 fi
 
-# Proxy must reach Backend (origin_net)
+# Proxy must reach Backend (ja4proxy-origin)
 info "Proxy → Backend port 443 (expect: reachable)..."
 if py_connect "$PROXY_CONTAINER" "backend" 443 3; then
-    pass "Proxy can reach Backend (origin_net working)"
+    pass "Proxy can reach Backend (ja4proxy-origin working)"
 else
-    fail "Proxy CANNOT reach Backend (origin_net broken)"
+    fail "Proxy CANNOT reach Backend (ja4proxy-origin broken)"
 fi
 
 # ── Section 4: IPC Namespace ──────────────────────────────────────────────────

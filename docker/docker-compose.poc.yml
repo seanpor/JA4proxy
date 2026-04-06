@@ -11,7 +11,7 @@ services:
     depends_on:
       - proxy
     networks:
-      - dmz_net
+      - ja4proxy-dmz
     restart: unless-stopped
     read_only: true
     security_opt:
@@ -37,8 +37,8 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.go-proxy
-      network: host
     image: ja4proxy:2.0.0
+    restart: unless-stopped
     ports:
       - "${AGENT_BIND_IP:-127.0.0.1}:8081:8080"
       - "${AGENT_BIND_IP:-127.0.0.1}:9090:9090"
@@ -56,10 +56,10 @@ services:
       - BACKEND_PORT=${BACKEND_PORT:-443}
       - ENVIRONMENT=${ENVIRONMENT:-development}
     networks:
-      - dmz_net
-      - data_net
-      - origin_net
-      - mgmt_net
+      - ja4proxy-dmz
+      - ja4proxy-data
+      - ja4proxy-origin
+      - ja4proxy-mgmt
     security_opt:
       - no-new-privileges:true
       # AppArmor profile (Phase 34d): must be loaded on host before enabling.
@@ -95,14 +95,15 @@ services:
 
   redis:
     image: redis/redis-stack:7.4.0-v3
-    # No host port exposure — internal to data_net only
+    # No host port exposure — internal to ja4proxy-data only
+    restart: unless-stopped
     environment:
       # redis/redis-stack passes extra flags via REDIS_ARGS (see /entrypoint.sh)
       - REDIS_ARGS=--requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required} --maxmemory 256mb --maxmemory-policy allkeys-lru --hz 20 --tcp-keepalive 60 --save "" --unixsocket /var/run/redis/redis.sock --unixsocketperm 777
     networks:
-      - data_net
+      - ja4proxy-data
     volumes:
-      - redis_data:/data
+      - redis-data:/data
       - redis-sock:/var/run/redis
     security_opt:
       - no-new-privileges:true
@@ -129,13 +130,13 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.mockbackend
-      network: host
     image: ja4proxy-mockbackend:1.0.0
-    # No host port exposure — internal to origin_net only
+    restart: unless-stopped
+    # No host port exposure — internal to ja4proxy-origin only
     environment:
       - PYTHONDONTWRITEBYTECODE=1
     networks:
-      - origin_net
+      - ja4proxy-origin
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -161,9 +162,9 @@ services:
     build:
       context: ../tarpit
       dockerfile: Dockerfile
-      network: host
     image: ja4proxy-tarpit:1.0.0
-    # No host port exposure — internal to origin_net only
+    restart: unless-stopped
+    # No host port exposure — internal to ja4proxy-origin only
     environment:
       - TARPIT_PORT=8888
       - TARPIT_DURATION=60
@@ -171,7 +172,7 @@ services:
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
     networks:
-      - origin_net
+      - ja4proxy-origin
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -197,14 +198,14 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.trafficgen
-      network: host
     image: ja4proxy-trafficgen:1.0.0
+    restart: unless-stopped
     depends_on:
       - proxy
     environment:
       - PYTHONUNBUFFERED=1
     networks:
-      - dmz_net
+      - ja4proxy-dmz
     profiles:
       - traffic
     read_only: true
@@ -228,8 +229,8 @@ services:
     build:
       context: ..
       dockerfile: src/analytics/Dockerfile
-      network: host
     image: ja4proxy-analytics:1.0.0
+    restart: unless-stopped
     ports:
       - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_ANALYTICS:-8080}:8080"
     depends_on:
@@ -249,7 +250,7 @@ services:
       timeout: 10s
       retries: 3
     networks:
-      - mgmt_net
+      - ja4proxy-mgmt
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -275,8 +276,8 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.admin
-      network: host
     image: ja4proxy-admin-api:1.0.0
+    restart: unless-stopped
     ports:
       - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_ADMIN_API:-8091}:8090"
     depends_on:
@@ -290,8 +291,8 @@ services:
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
     networks:
-      - mgmt_net
-      - data_net
+      - ja4proxy-mgmt
+      - ja4proxy-data
     security_opt:
       - no-new-privileges:true
     read_only: true
@@ -316,7 +317,6 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.test
-      network: host
     image: ja4proxy-test:1.0.0
     depends_on:
       - proxy
@@ -325,7 +325,7 @@ services:
     volumes:
       - ./tests:/app/tests:ro
       - ./performance:/app/performance:ro
-      - reports_data:/app/reports
+      - reports-data:/app/reports
       - ./proxy.py:/app/proxy.py:ro
       - ./src:/app/src:ro
       - ./config:/app/config:ro
@@ -339,9 +339,9 @@ services:
       - REDIS_PORT=6379
       - PYTHONUNBUFFERED=1
     networks:
-      - dmz_net
-      - data_net
-      - origin_net
+      - ja4proxy-dmz
+      - ja4proxy-data
+      - ja4proxy-origin
     profiles:
       - test
     command: ["pytest", "/app/tests", "-v", "--cov=proxy", "--cov-report=html:/app/reports/coverage", "--cov-report=term", "--junitxml=/app/reports/junit.xml"]
@@ -373,8 +373,8 @@ services:
       - MANAGEMENT_ADMIN_USER=${MANAGEMENT_ADMIN_USER:-admin}
       - MANAGEMENT_ADMIN_PASSWORD=${MANAGEMENT_ADMIN_PASSWORD:-admin}
     networks:
-      - mgmt_net
-      - data_net
+      - ja4proxy-mgmt
+      - ja4proxy-data
     depends_on:
       - redis
     restart: unless-stopped
@@ -401,18 +401,22 @@ services:
         max-file: "3"
 
 volumes:
-  redis_data:
+  redis-data:
   redis-sock:
-  reports_data:  # Per-agent test reports — prefixed by COMPOSE_PROJECT_NAME
+  reports-data:  # Per-agent test reports — prefixed by COMPOSE_PROJECT_NAME
 
 networks:
-  dmz_net:
+  ja4proxy-dmz:
     driver: bridge
-  data_net:
+    name: ja4proxy-dmz
+  ja4proxy-data:
     driver: bridge
     internal: true   # No internet/external access — Proxy ↔ Redis only
-  origin_net:
+    name: ja4proxy-data
+  ja4proxy-origin:
     driver: bridge
     internal: true   # No internet/external access — Proxy ↔ Backend/Tarpit only
-  mgmt_net:
+    name: ja4proxy-origin
+  ja4proxy-mgmt:
     driver: bridge
+    name: ja4proxy-mgmt
