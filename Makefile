@@ -82,14 +82,14 @@ help:
 	@echo "  check-manifest    - Verify manifest.yaml, TODO.md, PROJECT_STATUS.md, CHANGELOG.md, CLAUDE.md are in sync"
 	@echo "  clean             - Stop + remove all containers and volumes"
 	@echo ""
-	@echo "── Go Proxy ─────────────────────────────────────────────────"
+	@echo "── Proxy Operations ─────────────────────────────────────────"
 	@echo "  go-build          - Build Go proxy binary to bin/ja4proxy"
 	@echo "  go-test           - Run all Go unit tests"
 	@echo "  go-lint           - Run go vet on Go code"
-	@echo "  go-start          - Start Go proxy alongside Python proxy (parallel validation)"
-	@echo "  go-stop           - Stop Go proxy container"
-	@echo "  go-switch         - Switch HAProxy to route traffic to Go proxy"
-	@echo "  go-rollback       - Switch HAProxy back to Python proxy"
+	@echo "  go-start          - Start Python legacy proxy alongside Go proxy (for parity comparison)"
+	@echo "  go-stop           - Stop Python legacy proxy container"
+	@echo "  go-switch         - Show instructions to confirm Go proxy is HAProxy primary"
+	@echo "  go-rollback       - Emergency: roll HAProxy back to Python proxy"
 	@echo "  go-parity         - Run cross-language parity tests (both proxies must be running)"
 	@echo "  check-scores      - Audit Python and Go signal scores against registry"
 	@echo "  parity-check      - Live end-to-end decision parity verification"
@@ -648,7 +648,7 @@ ssh-tunnels:
 	@echo "  http://localhost:3001  — Grafana (no tunnel needed, already public)"
 	@echo ""
 
-# ── Go Proxy ──────────────────────────────────────────────────────────────────
+# ── Proxy Operations ──────────────────────────────────────────────────────────
 
 GOROOT ?= /snap/go/current
 GO     := GOROOT=$(GOROOT) go
@@ -676,52 +676,50 @@ check-scores:
 parity-check:
 	@python3 scripts/parity-check.py
 
-# Start Go proxy in parallel with Python proxy (parallel validation mode)
+# Start Python legacy proxy alongside the Go proxy for parity comparison.
 # Both proxies share the same Redis instance.
-# Go proxy: host port 8082 / metrics 9092
-# Python proxy: host port 8080 / metrics 9090 (unchanged)
+# Go proxy (primary): host port 8081 / metrics 9090
+# Python proxy (legacy): host port 8083 / metrics 9093
 go-start:
-	@echo "Starting Go proxy in parallel (port 8082)..."
-	docker compose -f docker-compose.poc.yml -f docker-compose.go.yml up -d go-proxy
+	@echo "Starting Python legacy proxy (port 8083) for parity comparison..."
+	docker compose -f docker-compose.poc.yml -f docker-compose.python-legacy.yml up -d python-proxy
 	@echo ""
-	@echo "  Go proxy:        http://localhost:8082"
-	@echo "  Go metrics/health: http://localhost:9092/health"
-	@echo "  Python proxy:    http://localhost:8080 (unchanged)"
+	@echo "  Go proxy (primary): http://localhost:8081"
+	@echo "  Go metrics/health:  http://localhost:9090/health"
+	@echo "  Python proxy:       http://localhost:8083 (legacy, parity only)"
 	@echo ""
 	@echo "Run 'make go-parity' after 60s to validate decision parity."
 
-# Stop Go proxy container only (Python proxy unaffected)
+# Stop Python legacy proxy (Go proxy unaffected)
 go-stop:
-	docker compose -f docker-compose.poc.yml -f docker-compose.go.yml stop go-proxy
+	docker compose -f docker-compose.poc.yml -f docker-compose.python-legacy.yml stop python-proxy
 
-# Switch HAProxy upstream from Python to Go proxy.
-# See docs/runbooks/go_proxy_migration.md for the full cutover checklist.
-# Prerequisites: Go proxy must be running and healthy (make go-start).
+# Confirm Go proxy is HAProxy primary (Go is the default — verify config is correct).
+# See docs/runbooks/go_proxy_migration.md for background.
 go-switch:
-	@echo "Switching HAProxy to Go proxy..."
+	@echo "Go proxy is the production default. Confirm HAProxy config points to the proxy service:"
 	@echo ""
-	@echo "Update your HAProxy config to:"
 	@echo "  backend ja4proxy"
-	@echo "      server go-proxy ja4proxy-go:8080 check"
-	@echo "      # server python-proxy ja4proxy:8080 check backup"
+	@echo "      server go-proxy proxy:8080 check"
 	@echo ""
-	@echo "Then reload HAProxy:"
-	@echo "  docker exec haproxy haproxy -sf \$$(cat /var/run/haproxy.pid)"
-	@echo ""
-	@echo "Monitor for 15 minutes. Use 'make go-rollback' if issues appear."
+	@echo "Then reload HAProxy if needed:"
+	@echo "  docker compose exec haproxy haproxy -sf \$$(cat /var/run/haproxy.pid)"
 
-# Rollback: switch HAProxy back to Python proxy.
+# Emergency rollback: switch HAProxy to Python legacy proxy.
+# Prerequisites: Python proxy must be running (make go-start).
 go-rollback:
-	@echo "Rolling back to Python proxy..."
+	@echo "EMERGENCY ROLLBACK — switching HAProxy to Python legacy proxy..."
 	@echo ""
-	@echo "Restore your HAProxy config to:"
+	@echo "Start Python proxy first (if not already running): make go-start"
+	@echo ""
+	@echo "Update HAProxy config to:"
 	@echo "  backend ja4proxy"
-	@echo "      server python-proxy ja4proxy:8080 check"
+	@echo "      server python-proxy python-proxy:8080 check"
 	@echo ""
 	@echo "Then reload HAProxy:"
-	@echo "  docker exec haproxy haproxy -sf \$$(cat /var/run/haproxy.pid)"
+	@echo "  docker compose exec haproxy haproxy -sf \$$(cat /var/run/haproxy.pid)"
 	@echo ""
-	@echo "Rollback complete. Python proxy is primary."
+	@echo "Rollback complete. Run 'make go-switch' to restore Go proxy when ready."
 
 # Run cross-language parity tests.
 # Both proxies must be running: Python on :8080, Go on :8082.
