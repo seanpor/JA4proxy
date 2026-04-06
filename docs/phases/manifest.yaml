@@ -966,3 +966,17 @@ phases:
       - "Runbook section written for GDPR erasure procedure"
       - "make test-phase-87-integration passes against a running monitoring stack"
       - "Phase 87 manifest success_criteria updated to include integration test target"
+
+  92:
+    name: "Makefile Lint Target Hierarchy"
+    status: "COMPLETE"
+    completed: "2026-04-06"
+    action_plan: "docs/phases/PHASE_92.md"
+    dependencies: []
+    size: "SMALL"
+    summary: "Added 11 new individual lint targets (pylint, semgrep, checkov, haproxy, helm, ansible-lint, markdownlint, codespell, TOML, checkmake, go mod verify) and 8 aggregates (lint-python, lint-go, lint-sast, lint-infra, lint-observability, lint-supply-chain, lint-docs-all, lint-all). Also added gosec + bodyclose to golangci-lint and fixed missing docker-compose.scale.yml in lint-docker."
+    success_criteria:
+      - "make lint-all runs all linters in sequence"
+      - "make lint-python, lint-go, lint-sast, lint-infra, lint-observability, lint-supply-chain, lint-docs-all all work"
+      - "No existing Makefile targets modified"
+      - "make lint-phases passes"
