@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
+GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; CYAN='\033[0;36m'; NC='\033[0m'
 
 CLEAN=false
 for arg in "$@"; do
@@ -19,6 +19,15 @@ echo "JA4proxy — Stopping all services"
 [ "$CLEAN" = true ] && echo "  (--clean: volumes will be removed)"
 echo "========================================"
 echo
+
+# ── Agent context: if .current-agent is set, target that stack ────────────────
+_AGENT=$(cat .current-agent 2>/dev/null || true)
+if [[ -n "$_AGENT" && -f ".env.$_AGENT" ]]; then
+    echo -e "${CYAN}  (active agent: $_AGENT)${NC}"
+    POC_FLAGS="--project-name ja4_${_AGENT} --env-file .env.${_AGENT}"
+else
+    POC_FLAGS=""
+fi
 
 # Stop monitoring stack
 if docker compose -f docker/docker-compose.monitoring.yml ps -q 2>/dev/null | grep -q .; then
@@ -33,15 +42,19 @@ else
     echo -e "${YELLOW}  ▷ Monitoring stack not running — skipping${NC}"
 fi
 
-# Stop POC stack
-if docker compose -f docker-compose.poc.yml ps -q 2>/dev/null | grep -q .; then
+# Stop POC stack (agent-aware)
+# shellcheck disable=SC2086
+if docker compose -f docker-compose.poc.yml $POC_FLAGS ps -q 2>/dev/null | grep -q .; then
     echo -e "${BLUE}▶ Stopping POC stack (proxy/HAProxy/Redis/backend)...${NC}"
     if [ "$CLEAN" = true ]; then
-        docker compose -f docker-compose.poc.yml down -v --remove-orphans
+        # shellcheck disable=SC2086
+        docker compose -f docker-compose.poc.yml $POC_FLAGS down -v --remove-orphans
     else
-        docker compose -f docker-compose.poc.yml down --remove-orphans
+        # shellcheck disable=SC2086
+        docker compose -f docker-compose.poc.yml $POC_FLAGS down --remove-orphans
     fi
     echo -e "${GREEN}  ✓ POC stack stopped${NC}"
+    [[ -n "$_AGENT" ]] && rm -f .current-agent && echo -e "${GREEN}  ✓ Cleared .current-agent${NC}"
 else
     echo -e "${YELLOW}  ▷ POC stack not running — skipping${NC}"
 fi
