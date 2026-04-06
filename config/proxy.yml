@@ -241,6 +241,22 @@ backup:
   max_size_bytes: 10737418240   # Hard cap on total artifact size in bytes (default: 10 GB)
   include_audit_log: false      # Include management:audit_log in backup (adds up to ~1 MB)
   restore_error_threshold: 0.05 # Raise RestoreError if more than this fraction of keys fail during restore (0.05 = 5%)
+  cloud_storage:
+    enabled: false          # phase-57b: set true to enable cloud upload after backup
+    provider: "s3"          # phase-57b: s3 | gcs
+    s3:
+      bucket: "${BACKUP_S3_BUCKET}"             # phase-57b: S3 bucket name
+      region: "${BACKUP_S3_REGION:-us-east-1}"  # phase-57b: AWS region
+      prefix: "backups/"                        # phase-57b: key prefix in bucket
+      storage_class: "STANDARD"                 # phase-57b: STANDARD | GLACIER
+      retention_days: 90                        # phase-57b: delete objects older than N days
+    gcs:
+      bucket: "${BACKUP_GCS_BUCKET}"            # phase-57c: GCS bucket name
+      project_id: "${BACKUP_GCS_PROJECT_ID}"    # phase-57c: Google Cloud project ID
+      credentials_path: "${BACKUP_GCS_CREDENTIALS_PATH}"  # phase-57c: path to service account JSON (optional; uses ADC when unset)
+      prefix: "backups/"                        # phase-57c: object name prefix in bucket
+      storage_class: "STANDARD"                 # phase-57c: STANDARD | NEARLINE | COLDLINE | ARCHIVE
+      retention_days: 90                        # phase-57c: delete objects older than N days
 # Logging configuration
 logging:
   level: "INFO"
