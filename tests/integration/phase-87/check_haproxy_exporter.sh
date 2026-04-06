@@ -64,4 +64,20 @@ else
     echo "OK  haproxy_up=1 (exporter connected)"
 fi
 
+# 4. Check haproxy_frontend_bytes_in_total is present (HAProxy actively serving)
+BYTES_COUNT=$(curl -sf \
+    "${PROM_URL}/api/v1/query?query=haproxy_frontend_bytes_in_total" \
+    2>/dev/null \
+    | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+print(len(data.get('data', {}).get('result', [])))
+" 2>/dev/null || echo "0")
+
+if [[ "$BYTES_COUNT" -eq 0 ]]; then
+    echo "WARN: haproxy_frontend_bytes_in_total not present. HAProxy may not be serving traffic yet."
+else
+    echo "OK  haproxy_frontend_bytes_in_total present (${BYTES_COUNT} series)"
+fi
+
 echo "=== HAProxy exporter check passed ==="
