@@ -108,10 +108,19 @@ help:
 	@echo "  test-ratio        - Show current test-to-code ratio"
 	@echo ""
 	@echo "── Multi-Agent ──────────────────────────────────────────────"
-	@echo "  agent-up   NAME=<agent>  - Start isolated agent environment"
-	@echo "  agent-down NAME=<agent>  - Stop isolated agent environment"
+	@echo "  agent-up   NAME=<agent>  - Start isolated agent env (writes .current-agent)"
+	@echo "  agent-down [NAME=<agent>]- Stop agent env (reads .current-agent if no NAME)"
 	@echo "  agent-status             - List all running agent environments"
-	@echo "  (agents: gemini | claude | ollama | mistral)"
+	@echo "  tunnel NAME=<agent> [HOST=user@server]  - SSH tunnels for agent UIs"
+	@echo ""
+	@echo "  After agent-up, these targets automatically target the active agent"
+	@echo "  (they all read .current-agent; no NAME= needed):"
+	@echo "    stop  stop-clean  status  logs  health-check"
+	@echo "    flush-redis  clean  rebuild"
+	@echo "    management-up/down/logs/shell"
+	@echo ""
+	@echo "  NOT affected by .current-agent (code/test targets, not containers):"
+	@echo "    build  test  test-*  lint-*  scan-*  go-build  go-test  bench-*"
 	@echo ""
 
 # ── Startup / Shutdown ────────────────────────────────────────────────────────
@@ -155,12 +164,22 @@ agent-up:
 	docker compose -f docker-compose.poc.yml --project-name ja4_$(NAME) --env-file .env.$(NAME) up -d
 	@echo "$(NAME)" > .current-agent
 	@echo "✓ Agent $(NAME) started (saved to .current-agent)"
-	@grep AGENT_BIND_IP .env.$(NAME) | awk -F= '{print "  Ingress:   https://" $$2 ":443"}'
-	@grep AGENT_BIND_IP .env.$(NAME) | awk -F= '{print "  Analytics: http://" $$2 ":8080"}'
-	@grep AGENT_BIND_IP .env.$(NAME) | awk -F= '{print "  Management:http://" $$2 ":8090"}'
-	@grep AGENT_BIND_IP .env.$(NAME) | awk -F= '{print "  Metrics:   http://" $$2 ":9090/metrics"}'
+	@IP=$$(grep '^AGENT_BIND_IP=' .env.$(NAME) | cut -d= -f2); \
+	MGMT=$$(grep '^HOST_PORT_MANAGEMENT=' .env.$(NAME) | cut -d= -f2); MGMT=$${MGMT:-8090}; \
+	ADMIN=$$(grep '^HOST_PORT_ADMIN_API=' .env.$(NAME) | cut -d= -f2); ADMIN=$${ADMIN:-8091}; \
+	ANL=$$(grep '^HOST_PORT_ANALYTICS=' .env.$(NAME) | cut -d= -f2); ANL=$${ANL:-8080}; \
+	echo "  Ingress:   https://$$IP:443"; \
+	echo "  Analytics: http://$$IP:$$ANL"; \
+	echo "  Management:http://$$IP:$$MGMT"; \
+	echo "  Admin API: http://$$IP:$$ADMIN"; \
+	echo "  Metrics:   http://$$IP:9090/metrics"
 	@echo "  Admin:     ./scripts/ja4-admin.sh status  (uses .current-agent automatically)"
 	@echo "  Tunnels:   make tunnel NAME=$(NAME) HOST=user@this-server"
+	@echo ""
+	@echo "Agent-aware targets (all read .current-agent automatically):"
+	@echo "  make stop / stop-clean / status / logs / health-check"
+	@echo "  make flush-redis / clean / rebuild"
+	@echo "  make management-up/down/logs/shell"
 
 # Stop an isolated agent environment.
 # If NAME is not given, reads .current-agent (set by the last agent-up).
@@ -505,10 +524,15 @@ lint-alertmanager:
 		check-config /monitoring/alertmanager/alertmanager.yml \
 		&& echo "✓ Alertmanager config valid"
 
-# Clean up
+# Clean up (agent-aware: uses .current-agent if set)
 clean:
+	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
 	@echo "Cleaning up containers and volumes..."
-	docker compose -f docker-compose.poc.yml down -v --remove-orphans
+	@if [ -n "$(_AGENT)" ]; then \
+		docker compose -f docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) down -v --remove-orphans; \
+	else \
+		docker compose -f docker-compose.poc.yml down -v --remove-orphans; \
+	fi
 	docker compose -f docker/docker-compose.prod.yml down -v --remove-orphans
 	rm -rf reports/ __pycache__/ .pytest_cache/ .mypy_cache/
 
@@ -543,24 +567,38 @@ deploy-enterprise:
 	@echo "Running enterprise deployment script..."
 	@sudo ./scripts/deploy.sh production
 
-# Health checks
+# Health checks (agent-aware: uses .current-agent if set)
 health-check:
-	@echo "Running health checks..."
-	@curl -sf http://localhost:9090/metrics > /dev/null && echo "✓ Proxy metrics OK" || echo "✗ Proxy metrics failed"
-	@curl -sk https://localhost:8443/api/health > /dev/null && echo "✓ Backend OK" || echo "✗ Backend failed"
-	@docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a $${REDIS_PASSWORD:-changeme} ping > /dev/null 2>&1 && echo "✓ Redis OK" || echo "✗ Redis failed"
+	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
+	@ENVFILE=$$([ -n "$(_AGENT)" ] && echo ".env.$(_AGENT)" || echo ".env"); \
+	IP=$$(grep '^AGENT_BIND_IP=' "$$ENVFILE" 2>/dev/null | cut -d= -f2); IP=$${IP:-localhost}; \
+	RPASS=$$(grep '^REDIS_PASSWORD=' "$$ENVFILE" 2>/dev/null | cut -d= -f2); RPASS=$${RPASS:-changeme}; \
+	FLAGS=$$([ -n "$(_AGENT)" ] && echo "--project-name ja4_$(_AGENT) --env-file $$ENVFILE" || true); \
+	echo "Running health checks ($$IP)..."; \
+	curl -sf "http://$$IP:9090/metrics" > /dev/null && echo "✓ Proxy metrics OK" || echo "✗ Proxy metrics failed"; \
+	curl -sk "https://$$IP:8443/api/health" > /dev/null && echo "✓ Backend OK" || echo "✗ Backend failed"; \
+	docker compose -f docker-compose.poc.yml $$FLAGS exec -T redis redis-cli -a "$$RPASS" ping > /dev/null 2>&1 && echo "✓ Redis OK" || echo "✗ Redis failed"
 
-# View logs
+# View logs (agent-aware: uses .current-agent if set)
 logs:
-	docker compose -f docker-compose.poc.yml logs -f proxy
+	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
+	@if [ -n "$(_AGENT)" ]; then \
+		docker compose -f docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) logs -f proxy; \
+	else \
+		docker compose -f docker-compose.poc.yml logs -f proxy; \
+	fi
 
 # Flush all transient security state from Redis (bans, blocks, rate windows, audit logs)
 # Preserves ja4:whitelist and ja4:blacklist so config survives the flush.
+# Agent-aware: uses .current-agent if set.
 flush-redis:
-	@echo "Flushing Redis security state..."
-	@REDIS_PASS=$$(grep '^REDIS_PASSWORD=' .env 2>/dev/null | cut -d= -f2); \
-	if [ -z "$$REDIS_PASS" ]; then echo "✗ No REDIS_PASSWORD in .env"; exit 1; fi; \
-	COUNT=$$(docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "$$REDIS_PASS" --no-auth-warning \
+	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
+	@ENVFILE=$$([ -n "$(_AGENT)" ] && echo ".env.$(_AGENT)" || echo ".env"); \
+	REDIS_PASS=$$(grep '^REDIS_PASSWORD=' "$$ENVFILE" 2>/dev/null | cut -d= -f2); \
+	if [ -z "$$REDIS_PASS" ]; then echo "✗ No REDIS_PASSWORD in $$ENVFILE"; exit 1; fi; \
+	FLAGS=$$([ -n "$(_AGENT)" ] && echo "--project-name ja4_$(_AGENT) --env-file $$ENVFILE" || true); \
+	echo "Flushing Redis security state$$([ -n "$(_AGENT)" ] && echo " (agent: $(_AGENT))")..."; \
+	COUNT=$$(docker compose -f docker-compose.poc.yml $$FLAGS exec -T redis redis-cli -a "$$REDIS_PASS" --no-auth-warning \
 		EVAL "local n=0; \
 		      for _,p in ipairs({'rate:*','banned:*','blocked:*','suspicious:*','enforcement:*','audit:*','repeat_block:*'}) do \
 		        for _,k in ipairs(redis.call('keys',p)) do redis.call('del',k); n=n+1 end \
@@ -648,10 +686,13 @@ dial:
 
 # ── Operations ────────────────────────────────────────────────────────────────
 
-# Print SSH tunnel command for accessing localhost-only UIs from a remote machine
+# Print SSH tunnel command for the default (non-agent) stack.
+# For agent stacks use: make tunnel NAME=<agent> [HOST=user@server]
 ssh-tunnels:
 	@echo ""
-	@echo "To access localhost-only UIs from a remote machine, run this on your laptop:"
+	@echo "NOTE: For agent stacks use: make tunnel NAME=<agent> HOST=user@server"
+	@echo ""
+	@echo "Default stack — run this on your laptop:"
 	@echo ""
 	@echo "  ssh -L 9091:localhost:9091 -L 9093:localhost:9093 -L 8404:localhost:8404 USER@HOST"
 	@echo ""
@@ -659,7 +700,7 @@ ssh-tunnels:
 	@echo "  http://localhost:9091  — Prometheus"
 	@echo "  http://localhost:9093  — Alertmanager"
 	@echo "  http://localhost:8404/stats  — HAProxy stats"
-	@echo "  http://localhost:3001  — Grafana (no tunnel needed, already public)"
+	@echo "  http://localhost:3001  — Grafana"
 	@echo ""
 
 # ── Proxy Operations ──────────────────────────────────────────────────────────
@@ -864,19 +905,39 @@ management-build:
 	docker build -f docker/Dockerfile.management -t ja4proxy-management:1.0.0 .
 
 management-up: management-build
-	docker compose -f docker-compose.poc.yml up -d management
+	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
+	@if [ -n "$(_AGENT)" ]; then \
+		docker compose -f docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) up -d management; \
+	else \
+		docker compose -f docker-compose.poc.yml up -d management; \
+	fi
 
 management-down:
-	docker compose -f docker-compose.poc.yml stop management
+	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
+	@if [ -n "$(_AGENT)" ]; then \
+		docker compose -f docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) stop management; \
+	else \
+		docker compose -f docker-compose.poc.yml stop management; \
+	fi
 
 management-logs:
-	docker compose -f docker-compose.poc.yml logs -f management
+	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
+	@if [ -n "$(_AGENT)" ]; then \
+		docker compose -f docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) logs -f management; \
+	else \
+		docker compose -f docker-compose.poc.yml logs -f management; \
+	fi
 
 management-test:
 	cd management && python -m pytest tests/ -v
 
 management-shell:
-	docker compose -f docker-compose.poc.yml exec management /bin/sh
+	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
+	@if [ -n "$(_AGENT)" ]; then \
+		docker compose -f docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) exec management /bin/sh; \
+	else \
+		docker compose -f docker-compose.poc.yml exec management /bin/sh; \
+	fi
 
 
 ## Phase 13/51/52 targets — Management UI backend API
@@ -904,10 +965,9 @@ tunnel:
 	@[ -f ".env.$(NAME)" ] || (echo "No .env.$(NAME) found. Run: make agent-up NAME=$(NAME)"; exit 1)
 	@bash -c ' \
 		IP=$$(grep "^AGENT_BIND_IP=" .env.$(NAME) | cut -d= -f2); \
-		MGMT=$$(grep "^HOST_PORT_MANAGEMENT=" .env.$(NAME) | cut -d= -f2); \
-		MGMT=$${MGMT:-8090}; \
-		ANL=$$(grep "^HOST_PORT_ANALYTICS=" .env.$(NAME) | cut -d= -f2); \
-		ANL=$${ANL:-8080}; \
+		MGMT=$$(grep "^HOST_PORT_MANAGEMENT=" .env.$(NAME) | cut -d= -f2); MGMT=$${MGMT:-8090}; \
+		ADMIN=$$(grep "^HOST_PORT_ADMIN_API=" .env.$(NAME) | cut -d= -f2); ADMIN=$${ADMIN:-8091}; \
+		ANL=$$(grep "^HOST_PORT_ANALYTICS=" .env.$(NAME) | cut -d= -f2); ANL=$${ANL:-8080}; \
 		echo ""; \
 		echo "Agent: $(NAME)  |  IP: $$IP"; \
 		echo ""; \
@@ -916,6 +976,7 @@ tunnel:
 		if [ -n "$(HOST)" ]; then SERVER="$(HOST)"; else SERVER="USER@YOUR-SERVER"; fi; \
 		echo "  ssh -N \\"; \
 		echo "    -L $${MGMT}:$${IP}:$${MGMT} \\"; \
+		echo "    -L $${ADMIN}:$${IP}:$${ADMIN} \\"; \
 		echo "    -L $${ANL}:$${IP}:$${ANL} \\"; \
 		echo "    -L 8404:$${IP}:8404 \\"; \
 		echo "    -L 9091:127.0.0.1:9091 \\"; \
@@ -924,6 +985,7 @@ tunnel:
 		echo ""; \
 		echo "Then browse to:"; \
 		echo "  http://localhost:$${MGMT}        — Management UI  ($(NAME))"; \
+		echo "  http://localhost:$${ADMIN}        — Admin API      ($(NAME))"; \
 		echo "  http://localhost:$${ANL}          — Analytics      ($(NAME))"; \
 		echo "  http://localhost:8404/stats        — HAProxy stats  ($(NAME))"; \
 		echo "  http://localhost:9091              — Prometheus     (shared)"; \
@@ -934,6 +996,7 @@ tunnel:
 			echo ""; \
 			ssh -N \
 				-L $${MGMT}:$${IP}:$${MGMT} \
+				-L $${ADMIN}:$${IP}:$${ADMIN} \
 				-L $${ANL}:$${IP}:$${ANL} \
 				-L 8404:$${IP}:8404 \
 				-L 9091:127.0.0.1:9091 \
