@@ -60,4 +60,41 @@ else
     echo "OK  ja4proxy container metrics present (${METRIC_COUNT} series)"
 fi
 
+# 4. Check at least one ContainerOOMKilled alert rule is loaded
+ALERT_COUNT=$(curl -sf \
+    "${PROM_URL}/api/v1/rules?type=alert" \
+    2>/dev/null \
+    | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+groups = data.get('data', {}).get('groups', [])
+rules = [r for g in groups for r in g.get('rules', [])
+         if r.get('type') == 'alerting' and 'OOMKilled' in r.get('name', '')]
+print(len(rules))
+" 2>/dev/null || echo "0")
+
+if [[ "$ALERT_COUNT" -eq 0 ]]; then
+    echo "WARN: No ContainerOOMKilled alert rules found in Prometheus."
+    echo "      Check that alert rules are loaded in prometheus.yml"
+else
+    echo "OK  ContainerOOMKilled alert rules present (${ALERT_COUNT} rules)"
+fi
+
+# 5. Check Grafana ja4proxy-infrastructure dashboard exists
+GRAFANA_HOST="${GRAFANA_HOST:-localhost}"
+GRAFANA_PORT="${GRAFANA_PORT:-3000}"
+GRAFANA_URL="http://${GRAFANA_HOST}:${GRAFANA_PORT}"
+
+DASHBOARD_STATUS=$(curl -sf -o /dev/null -w "%{http_code}" \
+    "${GRAFANA_URL}/api/dashboards/uid/ja4proxy-infra" 2>/dev/null || echo "000")
+
+if [[ "$DASHBOARD_STATUS" == "200" ]]; then
+    echo "OK  ja4proxy-infrastructure Grafana dashboard accessible"
+elif [[ "$DASHBOARD_STATUS" == "000" ]]; then
+    echo "WARN: Grafana not reachable at ${GRAFANA_URL} (start monitoring stack)"
+else
+    echo "WARN: ja4proxy-infrastructure dashboard returned HTTP ${DASHBOARD_STATUS}"
+    echo "      Dashboard may not be provisioned. Check Grafana provisioning config."
+fi
+
 echo "=== cAdvisor check passed ==="
