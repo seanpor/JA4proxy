@@ -66,15 +66,14 @@ correctly placed after `IntegrityMonitor` initialisation.
 `pipeline.py:548`. The Redis client is passed correctly from the pipeline's own `redis_client`
 argument, so bans will be written in production.
 
-**Two-stage seccomp runtime transition is NOT wired into proxy.py.**
-`config/seccomp/proxy_startup.json`, `config/seccomp/proxy_runtime.json`, and
-`src/security/seccomp_transition.py` all exist. But `apply_runtime_seccomp()` is never
-called from `proxy.py` or anywhere in the startup path — confirmed via grep. The Docker
-Compose `security_opt` wires the base `proxy.json` only; the startup/runtime split is
-implemented but never activated. This means the two-stage transition is dead code in all
-current deployments. The fix requires: (1) adding the `seccomp` Python library to
-`requirements.txt`, (2) calling `apply_runtime_seccomp("config/seccomp/proxy_runtime.json")`
-in `proxy.py` after the proxy has fully initialised and bound its listening socket.
+**Two-stage seccomp runtime transition wiring — FIXED in commit 55c9695.**
+The critique originally flagged `apply_runtime_seccomp()` as dead code. This was immediately
+addressed: `proxy.py` now calls `apply_runtime_seccomp()` after `asyncio.start_server()` binds
+the listening socket (the correct moment — startup file-loading phase is complete). The `seccomp`
+Python library is documented in `requirements.txt` as an optional dependency with install
+instructions. Config key `deception.seccomp_transition.enabled` (default: true) allows operators
+to disable the transition. The function fails open if `python3-seccomp` is not installed — the
+proxy continues on the Docker-applied startup profile rather than refusing to start.
 
 **Seccomp profile allows `clone`.**
 `clone` (without `CLONE_NEWUSER`) is needed for threading. However, the entry lists plain
