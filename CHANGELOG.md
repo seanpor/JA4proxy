@@ -1,5 +1,25 @@
 # Changelog
 
+## [Phase 92] — 2026-04-06
+
+### Added
+- `lint-pylint`: pylint `--errors-only` for Python semantic bugs (undefined names, unreachable code, attribute errors)
+- `lint-semgrep`: semgrep `--config=auto` cross-language pattern analysis (Python, Go, YAML, shell)
+- `lint-checkov`: checkov IaC security scan (Dockerfiles, Compose, Ansible, Helm)
+- `lint-haproxy`: `haproxy -c` semantic config validation for `config/haproxy.cfg` and `ha-config/haproxy.cfg`
+- `lint-helm`: `helm lint` Helm chart structural and template validation
+- `lint-ansible`: ansible-lint for `deploy/ansible/` playbooks and roles
+- `lint-markdown`: markdownlint-cli2 Markdown structure checks (heading hierarchy, list consistency, code fences)
+- `lint-spelling`: codespell typo detection across docs and code
+- `lint-toml`: Python tomllib parse validation for `pyproject.toml` and `.gitleaks.toml`
+- `lint-makefiles`: checkmake for Makefile anti-patterns and missing `.PHONY`
+- `lint-go-mod`: `go mod verify` module checksum integrity check
+- Aggregate targets: `lint-python`, `lint-go`, `lint-sast`, `lint-infra`, `lint-observability`, `lint-supply-chain`, `lint-docs-all`, `lint-all`
+- `gosec` and `bodyclose` linters added to `.golangci.yaml` (enabled in `lint-go-full`)
+
+### Fixed
+- `docker/docker-compose.scale.yml` was missing from `lint-docker` compose validation
+
 ## [Phase 89] — 2026-04-06
 
 ### Added
