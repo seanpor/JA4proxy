@@ -12,18 +12,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🔵 Planned & Open Phases
 
-### Phase 13 — Management UI - Phase 1: Backend API
-*   **Status:** **DEFERRED** (FastAPI backend for real-time monitoring and configuration management.)
-*   **Action Plan:** [PHASE_13.md](PHASE_13.md)
-
-### Phase 51 — Management UI - Phase 2: Frontend Dashboard
-*   **Status:** **PROPOSED** (React-based dashboard for real-time visualization of proxy telemetry.)
-*   **Action Plan:** [PHASE_51.md](PHASE_51.md)
-
-### Phase 52 — Management UI - Phase 3: Administration Tools
-*   **Status:** **PROPOSED** (Interactive tools for managing allowlists, bans, and system configuration.)
-*   **Action Plan:** [PHASE_52.md](PHASE_52.md)
-
 ### Phase 56 — Advanced APT - Phase 2: Deceptive Defense & Persistence Defense
 *   **Status:** **PROPOSED** (Implement honey-fingerprints, honey-SNIs, and runtime process namespace isolation.)
 *   **Action Plan:** [PHASE_56.md](PHASE_56.md)
