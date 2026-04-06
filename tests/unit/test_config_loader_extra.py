@@ -165,3 +165,73 @@ class TestReloadAndLogError:
             # Must not raise
             _run(loader._reload_and_log_error())
             mock_reload.assert_called_once()
+
+
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+
+class TestConfigLoaderCoverageGaps:
+    """Cover lines 135-147, 188, 211-212.
+
+    So what: these paths prevent broken configs from silently replacing a working
+    one and ensure async callbacks and signal handlers behave correctly at the
+    boundaries of the event loop lifecycle.
+    """
+
+    def test_reload_read_failure_logged_and_reraises(self, tmp_path):
+        """ConfigError from _read_and_parse inside reload() is logged and re-raised (lines 135-147).
+        So what: if this exception is swallowed, a syntactically broken config file
+        silently replaces the running config, taking down the proxy."""
+        cfg_file = tmp_path / "proxy.yml"
+        _write_config(cfg_file, {"proxy": {"bind_port": 8080}})
+        loader = ConfigLoader(str(cfg_file))
+        _run(loader.load())
+
+        # Make _read_and_parse raise ConfigError on next call
+        with patch.object(
+            loader, "_read_and_parse", side_effect=ConfigError("YAML syntax error")
+        ):
+            with pytest.raises(ConfigError):
+                _run(loader.reload())
+
+    def test_reload_async_callback_is_scheduled_as_task(self, tmp_path):
+        """Coroutine function callback is scheduled via asyncio.create_task (line 188).
+        So what: if async callbacks are never scheduled, components that register
+        coroutine on_reload hooks (e.g., beaconing detector) never receive config
+        updates — their thresholds stay stale."""
+        cfg_file = tmp_path / "proxy.yml"
+        _write_config(cfg_file, {"proxy": {"bind_port": 8080}})
+        loader = ConfigLoader(str(cfg_file))
+        _run(loader.load())
+
+        async_callback_called = []
+
+        async def _async_cb(new_cfg):
+            async_callback_called.append(new_cfg)
+
+        loader.on_reload(_async_cb)
+
+        with patch("asyncio.create_task") as mock_create_task:
+            _run(loader.reload())
+        mock_create_task.assert_called_once()
+
+    def test_handle_sighup_runtime_error_swallowed(self, tmp_path):
+        """RuntimeError from asyncio.create_task inside _handle_sighup is swallowed (lines 211-212).
+        So what: if this exception propagates, any SIGHUP received without a running
+        event loop crashes the process instead of being silently ignored."""
+        cfg_file = tmp_path / "proxy.yml"
+        _write_config(cfg_file, {"proxy": {"bind_port": 8080}})
+        loader = ConfigLoader(str(cfg_file))
+        _run(loader.load())
+
+        captured_handler = {}
+        loop = MagicMock()
+        loop.add_signal_handler.side_effect = lambda sig, handler: (
+            captured_handler.update({"h": handler})
+        )
+        loader.setup_sighup(loop)
+        assert "h" in captured_handler
+
+        # asyncio.create_task raises RuntimeError when called outside an event loop
+        with patch("asyncio.create_task", side_effect=RuntimeError("no running event loop")):
+            captured_handler["h"]()  # must not raise

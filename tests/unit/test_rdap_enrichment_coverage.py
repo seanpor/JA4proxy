@@ -1781,5 +1781,243 @@ class TestExtractOrg(unittest.TestCase):
         self.assertEqual(name, "")
 
 
+# ---------------------------------------------------------------------------
+# Second-pass coverage additions — 25 missed lines
+# ---------------------------------------------------------------------------
+
+import redis as redis_lib  # noqa: E402 (append block)
+
+
+class TestRDAPCoverageGaps2(unittest.TestCase):
+    """Lines 438, 584, 657-658, 663-664, 849-850, 1011, 1021-1035, 1038-1041,
+    1288-1292, 1359-1360, 1436-1437, 1446-1447."""
+
+    # ── stop() with active workers (line 438) ────────────────────────────────
+
+    def test_stop_cancels_active_workers(self):
+        """Line 438: stop() calls w.cancel() for each worker task.
+        So what: without this, shutdown leaves worker coroutines running forever,
+        preventing clean process exit and leaking event-loop resources."""
+        async def run():
+            enricher = _make_enricher()
+            # Inject a fake long-running worker task
+            never_done = asyncio.create_task(asyncio.sleep(9999))
+            enricher._workers = [never_done]
+            await enricher.stop()
+            assert never_done.cancelled()
+
+        _run(run())
+
+    # ── bloom expire RedisError (line 584) ───────────────────────────────────
+
+    def test_bloom_expire_redis_error_is_suppressed(self):
+        """Line 584: bloom filter expire raises RedisError → suppressed.
+        So what: without this except, a transient Redis error after successful
+        bf().add() propagates and aborts the enqueue path, losing the RDAP lookup."""
+        async def run():
+            redis = _make_redis()
+            # bf().add returns 1 (new entry), but expire raises
+            bf_mock = MagicMock()
+            bf_mock.add = AsyncMock(return_value=1)
+            redis.bf = MagicMock(return_value=bf_mock)
+            redis.expire = AsyncMock(side_effect=redis_lib.RedisError("expire failed"))
+            enricher = _make_enricher(redis=redis)
+            enricher._queue = asyncio.Queue(maxsize=10)
+            # Should not raise
+            await enricher._enqueue_lookup("1.2.3.4")
+
+        _run(run())
+
+    # ── urlparse exception → registry_host="unknown" (lines 657-658) ─────────
+
+    def test_lookup_urlparse_exception_falls_back_to_unknown(self):
+        """Lines 657-658: urlparse raises → registry_host set to 'unknown'.
+        So what: without this fallback, a malformed RDAP registry URL crashes the
+        entire lookup goroutine, silently dropping the enrichment signal."""
+        async def run():
+            enricher = _make_enricher()
+            enricher._rate_limiter = MagicMock()
+            enricher._rate_limiter.acquire = AsyncMock(return_value=None)
+            enricher._api_lookup = AsyncMock(side_effect=asyncio.TimeoutError())
+
+            with patch("urllib.parse.urlparse", side_effect=Exception("parse error")):
+                enricher.get_rdap_base_url = AsyncMock(return_value="https://malformed-url")
+                try:
+                    await enricher._process_lookup("1.2.3.4")
+                except Exception:
+                    pass  # timeout is expected
+
+        _run(run())
+
+    # ── rate limiter acquire fails (lines 663-664) ────────────────────────────
+
+    def test_lookup_rate_limiter_error_is_non_fatal(self):
+        """Lines 663-664: rate_limiter.acquire() raises RedisError → suppressed.
+        So what: without this except, a Redis outage in the rate limiter would
+        prevent all RDAP lookups globally even though the RDAP service is healthy."""
+        async def run():
+            enricher = _make_enricher()
+            enricher._rate_limiter = MagicMock()
+            enricher._rate_limiter.acquire = AsyncMock(
+                side_effect=redis_lib.RedisError("rate limiter down")
+            )
+            enricher._api_lookup = AsyncMock(side_effect=asyncio.TimeoutError())
+            enricher.get_rdap_base_url = AsyncMock(return_value="https://rdap.arin.net/registry")
+
+            # Should not raise — rate limiter error suppressed, TimeoutError caught further down
+            await enricher._process_lookup("1.2.3.4")
+
+        _run(run())
+
+    # ── bootstrap follower Redis error (lines 849-850) ───────────────────────
+
+    def test_bootstrap_follower_redis_error_retries(self):
+        """Lines 849-850: follower Redis.get raises → exception caught, loop continues.
+        So what: without this except, a transient Redis outage during bootstrap
+        propagates out of _load_bootstrap(), leaving the enricher permanently unable
+        to route lookups to the correct RIR."""
+        async def run():
+            enricher = _make_enricher()
+            enricher._redis.set = AsyncMock(return_value=None)  # follower (no lock)
+
+            call_count = [0]
+            async def _get(key):
+                call_count[0] += 1
+                if call_count[0] <= 2:
+                    raise redis_lib.RedisError("Redis flap")
+                # On 3rd call return valid data
+                if "v4" in key:
+                    return json.dumps({"services": []}).encode()
+                return json.dumps({"services": []}).encode()
+
+            enricher._redis.get = _get
+
+            with patch("asyncio.sleep", new_callable=AsyncMock):
+                await enricher._load_bootstrap()
+
+        _run(run())
+
+    # ── redirect with no Location header (line 1011) ─────────────────────────
+
+    def test_api_lookup_redirect_no_location_raises(self):
+        """Line 1011: redirect response with no Location header → raises Exception.
+        So what: without this guard, the url variable stays unchanged and the loop
+        retries the same URL forever, hanging the lookup goroutine until timeout."""
+        async def run():
+            enricher = _make_enricher()
+            import aiohttp
+
+            resp = MagicMock()
+            resp.status = 301
+            resp.headers = {}  # no Location
+            resp.__aenter__ = AsyncMock(return_value=resp)
+            resp.__aexit__ = AsyncMock(return_value=None)
+            enricher._session.get = MagicMock(return_value=resp)
+
+            with self.assertRaises(Exception):
+                await enricher._api_lookup("1.2.3.4", "https://rdap.arin.net/registry/ip/1.2.3.4")
+
+        _run(run())
+
+    # ── _parse_rdap_response error in _api_lookup (lines 1021-1035) ──────────
+
+    def test_api_lookup_parse_error_is_logged_and_reraised(self):
+        """Lines 1021-1035: _parse_rdap_response raises → logged then re-raised.
+        So what: without this block, parse errors are silent — the caller never
+        knows the lookup failed, and the stale/missing cache entry persists."""
+        async def run():
+            enricher = _make_enricher()
+            import aiohttp
+
+            resp = MagicMock()
+            resp.status = 200
+            resp.raise_for_status = MagicMock(return_value=None)
+            resp.json = AsyncMock(return_value={"bad": "data"})
+            resp.__aenter__ = AsyncMock(return_value=resp)
+            resp.__aexit__ = AsyncMock(return_value=None)
+            enricher._session.get = MagicMock(return_value=resp)
+            enricher._parse_rdap_response = MagicMock(side_effect=ValueError("bad response"))
+
+            with self.assertRaises((ValueError, Exception)):
+                await enricher._api_lookup("1.2.3.4", "https://rdap.arin.net/registry/ip/1.2.3.4")
+
+        _run(run())
+
+    # ── expansion rate limit check exception (lines 1288-1292) ──────────────
+
+    def test_expansion_rate_limit_exception_fails_open(self):
+        """Lines 1288-1292: exception in rate-limit check → returns True (fail open).
+        So what: without this, a Redis outage in the rate limiter would block ALL block
+        expansions globally, leaving known malicious CIDRs un-blocked during an attack."""
+        async def run():
+            redis = _make_redis()
+            # Make the pipeline execute raise
+            pipe = MagicMock()
+            pipe.incr = MagicMock(return_value=None)
+            pipe.expire = MagicMock(return_value=None)
+            pipe.execute = AsyncMock(side_effect=redis_lib.RedisError("pipeline fail"))
+            pipeline_cm = MagicMock()
+            pipeline_cm.__aenter__ = AsyncMock(return_value=pipe)
+            pipeline_cm.__aexit__ = AsyncMock(return_value=None)
+            redis.pipeline = MagicMock(return_value=pipeline_cm)
+
+            enricher = _make_enricher(redis=redis)
+            result = await enricher._check_expansion_rate_limit()
+            self.assertTrue(result)  # fail open → True
+
+        _run(run())
+
+    # ── audit log pipeline exception (lines 1359-1360) ──────────────────────
+
+    def test_log_expansion_audit_pipeline_exception_is_suppressed(self):
+        """Lines 1359-1360: pipeline for audit log raises → suppressed.
+        So what: without this, an audit-log write failure propagates out of
+        _log_expansion_audit, aborting the _maybe_block_expand flow and silently
+        skipping the expansion even though the CIDR was already written to Redis."""
+        async def run():
+            redis = _make_redis()
+            # Make the pipeline execute raise
+            pipe = MagicMock()
+            pipe.lpush = MagicMock()
+            pipe.ltrim = MagicMock()
+            pipe.execute = AsyncMock(side_effect=Exception("pipeline error"))
+            pipeline_cm = MagicMock()
+            pipeline_cm.__aenter__ = AsyncMock(return_value=pipe)
+            pipeline_cm.__aexit__ = AsyncMock(return_value=None)
+            redis.pipeline = MagicMock(return_value=pipeline_cm)
+
+            enricher = _make_enricher(redis=redis)
+            rdap = _make_rdap_result()
+            # Should not raise
+            await enricher._log_expansion_audit("1.2.3.4", "1.2.3.0/24", rdap, trigger_score=80)
+
+        _run(run())
+
+    # ── _extract_netblock ValueError on network.cidr (lines 1436-1437) ────────
+
+    def test_extract_netblock_invalid_network_cidr_uses_fallback(self):
+        """Lines 1436-1437: ValueError on ip_network(start/cidr_len) in network → falls through.
+        So what: without this except, a malformed RDAP network sub-object crashes
+        block expansion entirely, preventing CIDR banning for the offending org."""
+        from src.security.rdap_enrichment import _extract_netblock
+        # network.startAddress is invalid, so ip_network raises
+        data = {"network": {"startAddress": "not-an-ip", "cidrLength": 24}}
+        result = _extract_netblock(data, "1.2.3.4")
+        # Falls through to the fallback /24 from trigger IP
+        self.assertEqual(result, "1.2.3.0/24")
+
+    # ── _extract_netblock ValueError on IP range (lines 1446-1447) ──────────
+
+    def test_extract_netblock_invalid_ip_range_uses_fallback(self):
+        """Lines 1446-1447: ValueError on ip_address(start) for endAddress range → falls through.
+        So what: without this except, a malformed endAddress in the RDAP response
+        crashes the expansion, leaving a known-bad netblock without a ban entry."""
+        from src.security.rdap_enrichment import _extract_netblock
+        # network.startAddress is invalid IP, so ip_address() raises
+        data = {"network": {"startAddress": "bad-ip", "endAddress": "1.2.3.255"}}
+        result = _extract_netblock(data, "1.2.3.4")
+        self.assertEqual(result, "1.2.3.0/24")
+
+
 if __name__ == "__main__":
     unittest.main()

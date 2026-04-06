@@ -410,3 +410,51 @@ class TestCreateSecurityManager:
         redis_mock.ping.return_value = True
         mgr = create_security_manager(redis_mock, {})
         assert isinstance(mgr, SecurityManager)
+
+
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+
+class TestAlpnBypassCoverage:
+    """Cover lines 141-148: ALPN browser bypass in check_access."""
+
+    @pytest.mark.asyncio
+    async def test_alpn_h2_bypasses_rate_limiting_and_allows(self):
+        """Lines 141-148: ALPN=h2 skips rate limiting, checks blocked status,
+        and returns (True, 'ALPN bypass') when not blocked.
+        So what: if the ALPN bypass is missing, browser h2 traffic is scored and
+        rate-limited — the proxy would block legitimate Chrome/Firefox users on
+        any high-traffic deployment, causing mass false positives."""
+        ae = MagicMock()
+        ae.is_blocked.return_value = (False, "")
+        mgr, _, _, _, _, _ = _make_manager(action_enforcer=ae)
+        # Inject ALPN bypass config
+        mgr.config["security_policy"] = {"alpn_browser_bypass": {"enabled": True}}
+
+        allowed, reason = await mgr.check_access(
+            ja4="t13d1516h2_abc_def",
+            client_ip="1.2.3.4",
+            alpn="h2",
+        )
+        assert allowed is True
+        assert "ALPN bypass" in reason
+
+    @pytest.mark.asyncio
+    async def test_alpn_bypass_still_blocks_already_blocked_entity(self):
+        """Lines 145-147: even with ALPN bypass, an already-blocked entity is
+        rejected with the existing block reason.
+        So what: if this is_blocked check inside the ALPN bypass is missing,
+        a previously banned IP could evade enforcement simply by connecting with
+        an h2 ALPN — the ban is silently ignored for browser-like connections."""
+        ae = MagicMock()
+        ae.is_blocked.return_value = (True, "Permanently banned")
+        mgr, _, _, _, _, _ = _make_manager(action_enforcer=ae)
+        mgr.config["security_policy"] = {"alpn_browser_bypass": {"enabled": True}}
+
+        allowed, reason = await mgr.check_access(
+            ja4="t13d1516h2_abc_def",
+            client_ip="1.2.3.4",
+            alpn="http/1.1",
+        )
+        assert allowed is False
+        assert reason == "Permanently banned"

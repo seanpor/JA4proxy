@@ -123,3 +123,64 @@ class TestJA4SSH:
         result = extract_ja4ssh(data, direction="client")
         assert result is not None
         assert "chacha20-poly1305@openssh.com" in result.encryption_client_to_server
+
+
+# ── Missing-coverage tests ────────────────────────────────────────────────────
+
+class TestJA4SSHEdgeCases:
+    """Cover boundary paths in _parse() and helpers (lines 47-48, 53, 72, 118, 122, 131).
+
+    So what: every unchecked parse path is a crash vector when the SSH fingerprinter
+    receives attacker-controlled bytes from the network capture pipeline.
+    """
+
+    def test_exception_in_parse_returns_none(self):
+        """_parse() raising → None (lines 47-48).
+        So what: an unexpected internal error must not crash the tap capture loop."""
+        from unittest.mock import patch
+        import src.tap.fingerprints.ja4ssh as _mod
+        with patch.object(_mod, "_parse", side_effect=RuntimeError("injected")):
+            result = _mod.extract_ja4ssh(_build_kexinit(), "client")
+        assert result is None
+
+    def test_empty_bytes_returns_none(self):
+        """Empty input → None from _parse() (line 53).
+        So what: zero-length payload arrives when the reassembler captures a
+        truncated SSH banner; must not IndexError on data[0]."""
+        result = extract_ja4ssh(b"", "client")
+        assert result is None
+
+    def test_truncated_after_cookie_returns_none(self):
+        """Payload truncated mid-name-list → None (line 72).
+        So what: a partial KEXINIT frame must not cause partial list construction
+        that yields wrong algorithm counts in the fingerprint."""
+        # 1 byte msg type + 16 byte cookie = 17 bytes — no room for any name-list
+        data = bytes([0x14]) + b"\xaa" * 16
+        result = extract_ja4ssh(data, "client")
+        assert result is None
+
+    def test_read_name_list_too_short_for_length_field(self):
+        """_read_name_list() with < 4 bytes remaining → (None, pos) (line 118).
+        So what: a crafted packet with a length field straddling a boundary must
+        not cause struct.unpack_from to overread."""
+        from src.tap.fingerprints.ja4ssh import _read_name_list
+        data = b"\x00\x00"  # Only 2 bytes — too short for uint32
+        result, pos = _read_name_list(data, 0)
+        assert result is None
+
+    def test_read_name_list_length_overruns_data(self):
+        """_read_name_list() when stated length > available bytes → (None, pos) (line 122).
+        So what: an oversized length field must not cause a slice overread that
+        returns garbage algorithm names and corrupts the fingerprint."""
+        from src.tap.fingerprints.ja4ssh import _read_name_list
+        data = struct.pack("!I", 9999) + b"short"
+        result, pos = _read_name_list(data, 0)
+        assert result is None
+
+    def test_hash12_empty_string_returns_zero_hash(self):
+        """_hash12('') → '000000000000' (line 131).
+        So what: an empty algorithm list must produce a deterministic zero hash
+        rather than a SHA-256 of an empty string, ensuring cross-implementation
+        fingerprint compatibility."""
+        from src.tap.fingerprints.ja4ssh import _hash12
+        assert _hash12("") == "000000000000"

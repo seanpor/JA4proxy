@@ -284,3 +284,89 @@ class TestBGPPrefixGuard:
 
         # All 5 calls completed without blocking or error.
         assert call_count == 5
+
+
+# ── Missing-coverage tests ────────────────────────────────────────────────────
+
+class TestApplySeccompProfileWithLibSeccomp:
+    """Cover lines 121-148: paths when libseccomp.so.2 IS successfully loaded.
+
+    So what: these paths are the actual security enforcement — if they're never
+    tested, a libseccomp API change or parameter mismatch silently disables
+    seccomp filtering without any indication to the operator.
+    """
+
+    def _write_profile(self, tmp_path, data):
+        p = tmp_path / "seccomp.json"
+        p.write_text(json.dumps(data))
+        return p
+
+    def test_seccomp_init_returns_null_logs_warning(self, tmp_path, caplog):
+        """seccomp_init() returns 0 (null ctx) → WARNING logged, function returns (lines 124-130).
+        So what: null ctx means seccomp filter is NOT applied; operator must be warned."""
+        profile = self._write_profile(tmp_path, {
+            "defaultAction": "SCMP_ACT_ERRNO",
+            "syscalls": [{"names": ["read"], "action": "SCMP_ACT_ALLOW"}]
+        })
+        mock_lib = MagicMock()
+        mock_lib.seccomp_init.return_value = 0  # null ctx
+
+        with patch("ctypes.CDLL", return_value=mock_lib):
+            with caplog.at_level(logging.WARNING, logger="src.tap.security"):
+                apply_seccomp_profile(profile)
+
+        assert any("seccomp_init_failed" in r.message for r in caplog.records)
+
+    def test_seccomp_load_success_logs_info(self, tmp_path, caplog):
+        """seccomp_load() returns 0 → INFO 'seccomp_filter_applied' logged (lines 147-150).
+        So what: successful seccomp application must be confirmed in audit logs."""
+        profile = self._write_profile(tmp_path, {
+            "defaultAction": "SCMP_ACT_ERRNO",
+            "syscalls": [{"names": ["read", "write"], "action": "SCMP_ACT_ALLOW"}]
+        })
+        mock_lib = MagicMock()
+        mock_lib.seccomp_init.return_value = 1  # non-null ctx
+        mock_lib.seccomp_syscall_resolve_name.return_value = 3  # valid syscall nr
+        mock_lib.seccomp_rule_add.return_value = 0
+        mock_lib.seccomp_load.return_value = 0  # success
+
+        with patch("ctypes.CDLL", return_value=mock_lib):
+            with caplog.at_level(logging.INFO, logger="src.tap.security"):
+                apply_seccomp_profile(profile)
+
+        assert any("seccomp_filter_applied" in r.message for r in caplog.records)
+
+    def test_seccomp_load_failure_logs_warning(self, tmp_path, caplog):
+        """seccomp_load() returns non-zero → WARNING 'seccomp_load_failed' (lines 141-146).
+        So what: a failed seccomp load means the filter was NOT applied — high-severity
+        security misconfiguration that must be visible in logs."""
+        profile = self._write_profile(tmp_path, {
+            "defaultAction": "SCMP_ACT_ERRNO",
+            "syscalls": []
+        })
+        mock_lib = MagicMock()
+        mock_lib.seccomp_init.return_value = 1  # valid ctx
+        mock_lib.seccomp_load.return_value = -1  # failure
+
+        with patch("ctypes.CDLL", return_value=mock_lib):
+            with caplog.at_level(logging.WARNING, logger="src.tap.security"):
+                apply_seccomp_profile(profile)
+
+        assert any("seccomp_load_failed" in r.message for r in caplog.records)
+
+    def test_seccomp_invalid_syscall_name_skipped(self, tmp_path):
+        """syscall name that resolves to -1 → rule not added, no crash (line 134-136).
+        So what: unknown syscall names in profile must not crash filter construction."""
+        profile = self._write_profile(tmp_path, {
+            "defaultAction": "SCMP_ACT_ERRNO",
+            "syscalls": [{"names": ["unknown_syscall_xyz"], "action": "SCMP_ACT_ALLOW"}]
+        })
+        mock_lib = MagicMock()
+        mock_lib.seccomp_init.return_value = 1
+        mock_lib.seccomp_syscall_resolve_name.return_value = -1  # not found
+        mock_lib.seccomp_load.return_value = 0
+
+        with patch("ctypes.CDLL", return_value=mock_lib):
+            apply_seccomp_profile(profile)  # must not raise
+        # seccomp_rule_add must NOT be called for unknown syscall
+        mock_lib.seccomp_rule_add.assert_not_called()

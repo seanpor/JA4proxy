@@ -103,3 +103,19 @@ async def test_disabled_analyzer(mock_redis):
     signals = await analyzer.get_signals(ConnectionContext(client_ip="1.1.1.1", ja4="ja4"), "fp")
     assert len(signals) == 0
     mock_redis.sadd.assert_not_called()
+
+
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_fingerprint_drift_empty_ja4_returns_early(mock_redis):
+    """Line 136: _check_fingerprint_drift() returns immediately when ja4 is empty.
+    So what: if this guard is missing, sadd is called with an empty string key —
+    poisoning the known-ja4 set and potentially suppressing future drift alerts
+    for every new fingerprint that would have matched the empty-string sentinel."""
+    config = {"behavioral": {"enabled": True}}
+    analyzer = BehavioralAnalyzer(mock_redis, config)
+    # Call directly with empty ja4 — should return without touching Redis
+    await analyzer._check_fingerprint_drift("")
+    mock_redis.sadd.assert_not_called()

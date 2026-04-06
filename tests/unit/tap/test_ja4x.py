@@ -176,3 +176,194 @@ class TestJA4X:
         assert len(parts) == 3
         for p in parts:
             assert len(p) == 12
+
+
+# ── Missing-coverage tests ────────────────────────────────────────────────────
+
+class TestJA4XCryptoUnavailable:
+    def test_returns_none_when_crypto_unavailable(self):
+        """_CRYPTO_AVAILABLE=False → extract_ja4x returns None immediately.
+        So what: if cryptography is absent at deploy time the proxy must not crash;
+        JA4X fingerprinting simply produces no output."""
+        import src.tap.fingerprints.ja4x as _mod
+        from unittest.mock import patch
+        with patch.object(_mod, "_CRYPTO_AVAILABLE", False):
+            result = _mod.extract_ja4x(b"\x30\x00")
+        assert result is None
+
+
+@pytest.mark.skipif(not _CRYPTO, reason="cryptography package not installed")
+class TestJA4XExtractFirstCert:
+    """Cover _extract_first_cert() edge cases (lines 74, 83-99)."""
+
+    def test_empty_bytes_returns_none(self):
+        """Empty input → None (line 74).
+        So what: empty TLS cert buffer from network must not crash fingerprinting."""
+        assert extract_ja4x(b"") is None
+
+    def test_short_non_der_data_returns_none(self):
+        """Non-DER (first byte != 0x30), len < 10 → None (line 83).
+        So what: too-short handshake record must not cause an unpack error."""
+        assert extract_ja4x(bytes([0x0B, 0x00, 0x00, 0x05, 0x00])) is None
+
+    def test_wrong_handshake_type_returns_none(self):
+        """First byte 0x02 (ServerHello) rather than 0x0B (Certificate) → None.
+        So what: wrong message type arriving in cert slot must not be misinterpreted."""
+        data = bytes([0x02]) + b"\x00" * 15
+        assert extract_ja4x(data) is None
+
+    def test_hs_len_exceeds_buffer_returns_none(self):
+        """hs_len claims 255 bytes but buffer is only 10 bytes → None (lines 88-89).
+        So what: attacker-crafted oversized length field must not cause overread."""
+        data = bytes([0x0B, 0x00, 0x00, 0xFF]) + b"\x00" * 6
+        assert extract_ja4x(data) is None
+
+    def test_cert_list_len_exceeds_buffer_returns_none(self):
+        """cert_list_len larger than remaining bytes → None (lines 92-93)."""
+        data = bytes([0x0B, 0x00, 0x00, 0x06, 0x00, 0x00, 0xFF, 0x00, 0x00, 0x00])
+        assert extract_ja4x(data) is None
+
+    def test_first_cert_len_exceeds_buffer_returns_none(self):
+        """first_cert_len overruns buffer → None (lines 96-97)."""
+        data = bytes([0x0B, 0x00, 0x00, 0x06, 0x00, 0x00, 0x03, 0x00, 0x00, 0xFF])
+        assert extract_ja4x(data) is None
+
+    def test_tls_certificate_message_with_valid_der(self):
+        """Valid TLS Certificate message wrapping a real DER cert → parsed (line 99).
+        So what: if TLS-wrapped cert messages aren't parsed, server certs arriving in
+        Certificate handshake format produce no JA4X fingerprint."""
+        import struct as _struct
+        der = _gen_rsa_cert()
+        # Construct TLS Certificate message
+        first_cert_len_bytes = _struct.pack("!I", len(der))[1:]  # 3 bytes
+        cert_list = first_cert_len_bytes + der
+        cert_list_len_bytes = _struct.pack("!I", len(cert_list))[1:]  # 3 bytes
+        hs_body = cert_list_len_bytes + cert_list
+        hs_len_bytes = _struct.pack("!I", len(hs_body))[1:]  # 3 bytes
+        msg = bytes([0x0B]) + hs_len_bytes + hs_body
+        result = extract_ja4x(msg)
+        assert result is not None
+        assert result.key_type.startswith("RSA")
+
+
+@pytest.mark.skipif(not _CRYPTO, reason="cryptography package not installed")
+class TestJA4XAlternativeKeyTypes:
+    """Lines 173-180: DSA, Ed25519, Ed448, UNKNOWN key type identification."""
+
+    def _gen_ed25519_cert(self) -> bytes:
+        import datetime as _dt
+        from cryptography import x509 as _x509
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        from cryptography.x509.oid import NameOID as _OID
+        key = Ed25519PrivateKey.generate()
+        subj = _x509.Name([_x509.NameAttribute(_OID.COMMON_NAME, "ed25519.example.com")])
+        cert = (
+            _x509.CertificateBuilder()
+            .subject_name(subj).issuer_name(subj)
+            .public_key(key.public_key())
+            .serial_number(_x509.random_serial_number())
+            .not_valid_before(_dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc))
+            .not_valid_after(_dt.datetime(2025, 1, 1, tzinfo=_dt.timezone.utc))
+            .sign(key, None)
+        )
+        return cert.public_bytes(serialization.Encoding.DER)
+
+    def _gen_ed448_cert(self) -> bytes:
+        import datetime as _dt
+        from cryptography import x509 as _x509
+        from cryptography.hazmat.primitives import serialization
+        from cryptography.hazmat.primitives.asymmetric.ed448 import Ed448PrivateKey
+        from cryptography.x509.oid import NameOID as _OID
+        key = Ed448PrivateKey.generate()
+        subj = _x509.Name([_x509.NameAttribute(_OID.COMMON_NAME, "ed448.example.com")])
+        cert = (
+            _x509.CertificateBuilder()
+            .subject_name(subj).issuer_name(subj)
+            .public_key(key.public_key())
+            .serial_number(_x509.random_serial_number())
+            .not_valid_before(_dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc))
+            .not_valid_after(_dt.datetime(2025, 1, 1, tzinfo=_dt.timezone.utc))
+            .sign(key, None)
+        )
+        return cert.public_bytes(serialization.Encoding.DER)
+
+    def test_ed25519_key_type(self):
+        """Ed25519 cert → key_type == 'ED25519'.
+        So what: wrong key label corrupts the JA4X fingerprint, breaking blocklist lookups."""
+        result = extract_ja4x(self._gen_ed25519_cert())
+        assert result is not None
+        assert result.key_type == "ED25519"
+
+    def test_ed448_key_type(self):
+        """Ed448 cert → key_type == 'ED448'."""
+        result = extract_ja4x(self._gen_ed448_cert())
+        assert result is not None
+        assert result.key_type == "ED448"
+
+    def _gen_dsa_cert(self) -> bytes:
+        import datetime as _dt
+        from cryptography import x509 as _x509
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import dsa
+        from cryptography.x509.oid import NameOID as _OID
+        params = dsa.generate_parameters(key_size=1024)
+        key = params.generate_private_key()
+        subj = _x509.Name([_x509.NameAttribute(_OID.COMMON_NAME, "dsa.example.com")])
+        cert = (
+            _x509.CertificateBuilder()
+            .subject_name(subj).issuer_name(subj)
+            .public_key(key.public_key())
+            .serial_number(_x509.random_serial_number())
+            .not_valid_before(_dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc))
+            .not_valid_after(_dt.datetime(2025, 1, 1, tzinfo=_dt.timezone.utc))
+            .sign(key, hashes.SHA256())
+        )
+        return cert.public_bytes(serialization.Encoding.DER)
+
+    def test_dsa_key_type(self):
+        """Lines 174-175: DSA cert → key_type starts with 'DSA' followed by key size.
+        So what: if this branch is missing, any DSA-keyed certificate gets 'UNKNOWN' as
+        key_type, causing a mismatch in the JA4X fingerprint and silently breaking
+        blocklist lookups against known-malicious DSA-cert patterns."""
+        result = extract_ja4x(self._gen_dsa_cert())
+        assert result is not None
+        assert result.key_type.startswith("DSA")
+
+    def test_unknown_key_type_returns_unknown(self):
+        """Public key not matching any known type → 'UNKNOWN' (line 180).
+        So what: unknown key must not crash fingerprinting — must produce a safe sentinel."""
+        from src.tap.fingerprints.ja4x import _key_type
+        from unittest.mock import MagicMock
+
+        class _WeirdKey:
+            pass
+
+        result = _key_type(_WeirdKey())
+        assert result == "UNKNOWN"
+
+
+@pytest.mark.skipif(not _CRYPTO, reason="cryptography package not installed")
+class TestJA4XSANExceptionSwallowed:
+    """Lines 125-126: generic exception in SAN parsing is swallowed."""
+
+    def test_san_generic_exception_does_not_propagate(self):
+        """A non-ExtensionNotFound exception from SAN parsing must be swallowed.
+        So what: a crafted cert with a corrupted SAN extension must not crash
+        fingerprinting and must not bypass the JA4X blacklist check."""
+        from unittest.mock import MagicMock, patch
+        import src.tap.fingerprints.ja4x as _mod
+
+        # Patch x509.SubjectAlternativeName so extensions.get_extension_for_class raises
+        # a generic Exception (not ExtensionNotFound), hitting lines 125-126.
+        der = _gen_rsa_cert()
+        with patch.object(
+            _mod.x509.extensions.Extensions,
+            "get_extension_for_class",
+            side_effect=ValueError("malformed SAN"),
+        ):
+            result = _mod.extract_ja4x(der)
+        # Must return a result (not None) with empty SANs — fail-open
+        assert result is not None
+        assert result.san_domains == []
+        assert result.san_ips == []

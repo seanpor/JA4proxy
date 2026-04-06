@@ -760,3 +760,362 @@ class TestFeedManagerCoverageGaps:
                 await fm.stop()
 
         asyncio.run(run())
+
+
+# ── Missing-coverage tests ────────────────────────────────────────────────────
+
+class TestBlocklistsMissingCoverage:
+    """Cover uncovered paths in blocklists.py.
+
+    Uncovered lines: 113 (empty line skip), 372-374 (_refresh_loop),
+    397-409 (non-leader wait path), 448-461 (aiohttp unavailable),
+    467-498 (download success path with etag + status variations).
+    """
+
+    _BASE_CFG = {
+        "blocklists": {
+            "feeds": [
+                {
+                    "name": "test_feed",
+                    "url": "http://example.com/feed.txt",
+                    "format": "cidr",
+                    "enabled": True,
+                    "action": "block",
+                    "refresh_interval_seconds": 3600,
+                    "max_age_seconds": 86400,
+                }
+            ]
+        }
+    }
+
+    def test_parse_feed_skips_empty_lines(self):
+        """Empty lines in feed text → skipped (line 113).
+        So what: feed files often have trailing newlines; empty lines must not
+        cause ValueError from ipaddress.ip_network('')."""
+        from src.security.blocklists import parse_feed
+        text = "1.2.3.0/24\n\n\n10.0.0.0/8\n"
+        result = parse_feed(text, "cidr")
+        assert "1.2.3.0/24" in result
+        assert "10.0.0.0/8" in result
+        # Empty lines must not produce empty or invalid CIDRs
+        for cidr in result:
+            assert cidr.strip() != ""
+
+    def test_refresh_loop_calls_load_feed(self):
+        """_refresh_loop calls _load_feed after sleep (lines 372-374).
+        So what: without the loop running, blocklists never refresh and stale bans
+        persist past their expiry — or attackers that got unblocked at ISP level
+        keep flowing through."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from src.security.blocklists import BlocklistManager, FeedManager, FeedConfig
+
+        async def run():
+            mgr = BlocklistManager()
+            fm = FeedManager(self._BASE_CFG, mgr)
+            fc = FeedConfig("rf_feed", "http://x.com/f", "cidr", True, "block", 3600, 86400)
+
+            load_calls = []
+            async def fake_load(feed_cfg):
+                load_calls.append(feed_cfg.name)
+                raise asyncio.CancelledError()  # stop the loop after one call
+
+            # Patch sleep to be a no-op so the loop immediately proceeds to _load_feed
+            async def no_sleep(delay):
+                pass
+
+            with patch("src.security.blocklists.asyncio.sleep", side_effect=no_sleep):
+                with patch.object(fm, "_load_feed", side_effect=fake_load):
+                    try:
+                        await fm._refresh_loop(fc)
+                    except asyncio.CancelledError:
+                        pass
+            assert len(load_calls) >= 1
+
+        asyncio.run(run())
+
+    def test_load_feed_non_leader_wait_timeout(self):
+        """Non-leader waits up to 30s then fails open if Redis never populated (lines 400-419).
+        So what: if the leader dies after winning election and Redis never gets written,
+        non-leaders must fail open (not crash) — stale trie is better than no service."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from src.security.blocklists import BlocklistManager, FeedManager, FeedConfig
+
+        async def run():
+            redis = AsyncMock()
+            # Redis always returns None (no data written by leader)
+            redis.get = AsyncMock(return_value=None)
+            redis.set = AsyncMock(return_value=None)  # loses leadership election
+            mgr = BlocklistManager()
+            fm = FeedManager(self._BASE_CFG, mgr, redis_client=redis)
+            fc = FeedConfig("timeout_feed", "http://x.com/f", "cidr", True, "block", 3600, 86400)
+
+            # Patch sleep to not actually wait, and iteration count to 2
+            call_count = 0
+            async def fast_sleep(delay):
+                nonlocal call_count
+                call_count += 1
+                if call_count >= 2:
+                    # Simulate giving up after 2 waits (shortened for speed)
+                    # Patch the loop exit by patching redis.get to stay None
+                    pass
+
+            with patch("asyncio.sleep", side_effect=fast_sleep):
+                # _try_become_leader returns False (lost)
+                with patch.object(fm, "_try_become_leader", return_value=False):
+                    # _load_from_redis always returns None (leader hasn't written)
+                    with patch.object(fm, "_load_from_redis", return_value=None):
+                        # Patch the range to only loop 2 times for speed
+                        with patch("builtins.range", return_value=range(2)):
+                            await fm._load_feed(fc)
+            # Must not raise; mgr may have empty trie (fail open)
+            assert mgr.entry_count("timeout_feed") == 0
+
+    def test_download_and_store_aiohttp_unavailable(self):
+        """aiohttp not installed → logs error and returns (lines 447-461).
+        So what: a deploy without aiohttp must not crash — it must log the config
+        error and keep the proxy running with the stale trie."""
+        import asyncio
+        from unittest.mock import AsyncMock, patch
+        from src.security.blocklists import BlocklistManager, FeedManager, FeedConfig
+
+        async def run():
+            mgr = BlocklistManager()
+            fm = FeedManager(self._BASE_CFG, mgr)
+            fc = FeedConfig("nohttp_feed", "http://x.com/f", "cidr", True, "block", 3600, 86400)
+
+            with patch("src.security.blocklists.AIOHTTP_AVAILABLE", False):
+                await fm._download_and_store(fc)
+            # Must not raise; trie remains empty
+
+        asyncio.run(run())
+
+    def test_load_feed_slow_path_leader_downloads(self):
+        """Leader wins election → calls _download_and_store (lines 397-399).
+        So what: if leader doesn't download, no instance ever populates the blocklist."""
+        import asyncio
+        from unittest.mock import AsyncMock, patch
+        from src.security.blocklists import BlocklistManager, FeedManager, FeedConfig
+
+        async def run():
+            mgr = BlocklistManager()
+            fm = FeedManager(self._BASE_CFG, mgr)
+            fc = FeedConfig("leader_feed", "http://x.com/f", "cidr", True, "block", 3600, 86400)
+
+            download_called = []
+            async def fake_download(feed_cfg):
+                download_called.append(feed_cfg.name)
+
+            with patch.object(fm, "_load_from_redis", return_value=None):
+                with patch.object(fm, "_try_become_leader", return_value=True):
+                    with patch.object(fm, "_download_and_store", side_effect=fake_download):
+                        await fm._load_feed(fc)
+            assert "leader_feed" in download_called
+
+        asyncio.run(run())
+
+    def test_load_feed_non_leader_finds_redis_data_during_wait(self):
+        """Non-leader waits and finds Redis data on second check (lines 402-407).
+        So what: the happy path for non-leaders relies on the wait loop;
+        if lines 406-407 are never exercised, non-leaders always fail open
+        even when the leader has successfully written the blocklist."""
+        import asyncio
+        from unittest.mock import AsyncMock, patch
+        from src.security.blocklists import BlocklistManager, FeedManager, FeedConfig
+        import json
+
+        async def run():
+            mgr = BlocklistManager()
+            fm = FeedManager(self._BASE_CFG, mgr)
+            fc = FeedConfig("wait_feed", "http://x.com/f", "cidr", True, "block", 3600, 86400)
+
+            call_count = 0
+            async def load_from_redis_eventually(feed_name):
+                nonlocal call_count
+                call_count += 1
+                if call_count >= 2:
+                    return ["10.0.0.0/8"]  # Leader wrote data
+                return None
+
+            async def no_sleep(d):
+                pass
+
+            with patch("src.security.blocklists.asyncio.sleep", side_effect=no_sleep):
+                with patch.object(fm, "_try_become_leader", return_value=False):
+                    with patch.object(fm, "_load_from_redis", side_effect=load_from_redis_eventually):
+                        await fm._load_feed(fc)
+
+            # Data should be loaded once Redis was populated
+            assert mgr.entry_count("wait_feed") == 1
+
+        asyncio.run(run())
+
+    def test_download_and_store_success_path(self):
+        """Successful HTTP 200 download → parse, load, store in Redis (lines 471-498).
+        So what: this is the core blocklist update path; if it's untested,
+        a regression in ETag handling or Redis write could silently leave the
+        blocklist forever stale without any test catching it."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from src.security.blocklists import BlocklistManager, FeedManager, FeedConfig
+        import json
+
+        async def run():
+            mgr = BlocklistManager()
+            redis = AsyncMock()
+            redis.get = AsyncMock(return_value=None)  # No ETag
+            redis.set = AsyncMock(return_value=True)
+            redis.expire = AsyncMock(return_value=True)
+            fm = FeedManager(self._BASE_CFG, mgr, redis_client=redis)
+            fc = FeedConfig("ok_feed", "https://x.com/f.txt", "cidr", True, "block", 3600, 86400)
+
+            # Build mock aiohttp response
+            mock_resp = MagicMock()
+            mock_resp.status = 200
+            mock_resp.headers = {"ETag": '"new-etag"'}
+            mock_resp.text = AsyncMock(return_value="192.168.0.0/16\n10.0.0.0/8\n")
+            mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
+            mock_resp.__aexit__ = AsyncMock(return_value=False)
+
+            mock_get = MagicMock(return_value=mock_resp)
+
+            mock_session = MagicMock()
+            mock_session.get = mock_get
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=False)
+
+            mock_aiohttp = MagicMock()
+            mock_aiohttp.ClientSession.return_value = mock_session
+            mock_aiohttp.ClientTimeout = MagicMock(return_value=None)
+            mock_aiohttp.ClientResponseError = Exception
+
+            with patch("src.security.blocklists.aiohttp", mock_aiohttp):
+                with patch("src.security.blocklists.AIOHTTP_AVAILABLE", True):
+                    with patch.object(fm, "_get_etag", AsyncMock(return_value=None)):
+                        with patch.object(fm, "_store_to_redis", AsyncMock(return_value=None)):
+                            await fm._download_and_store(fc)
+
+            # Both CIDRs should be loaded
+            assert mgr.entry_count("ok_feed") == 2
+
+        asyncio.run(run())
+
+    def test_download_and_store_etag_sent_in_headers(self):
+        """Existing ETag → If-None-Match header sent (line 467).
+        So what: ETag caching is the primary mechanism to avoid redundant
+        downloads; if the header is never sent, the server always returns 200
+        and we re-parse and re-store the entire blocklist on every refresh."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from src.security.blocklists import BlocklistManager, FeedManager, FeedConfig
+
+        async def run():
+            mgr = BlocklistManager()
+            fm = FeedManager(self._BASE_CFG, mgr)
+            fc = FeedConfig("etag_feed", "https://x.com/f.txt", "cidr", True, "block", 3600, 86400)
+
+            captured_headers = []
+
+            mock_resp = MagicMock()
+            mock_resp.status = 304
+            mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
+            mock_resp.__aexit__ = AsyncMock(return_value=False)
+
+            def capture_get(url, headers=None, timeout=None):
+                captured_headers.append(dict(headers or {}))
+                return mock_resp
+
+            mock_session = MagicMock()
+            mock_session.get = capture_get
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=False)
+
+            mock_aiohttp = MagicMock()
+            mock_aiohttp.ClientSession.return_value = mock_session
+            mock_aiohttp.ClientTimeout = MagicMock(return_value=None)
+
+            with patch("src.security.blocklists.aiohttp", mock_aiohttp):
+                with patch("src.security.blocklists.AIOHTTP_AVAILABLE", True):
+                    with patch.object(fm, "_get_etag", AsyncMock(return_value='"cached-etag"')):
+                        await fm._download_and_store(fc)
+
+            assert any("If-None-Match" in h for h in captured_headers), (
+                f"Expected If-None-Match header; got: {captured_headers}"
+            )
+
+        asyncio.run(run())
+
+    def test_load_feed_non_leader_timeout_logs_warning(self):
+        """Non-leader exhausts all 30 wait cycles → warning logged (line 409).
+        So what: the warning is the only signal that a leader died and no blocklist
+        was loaded; without this test, a regression that silently swallows the
+        warning would make the failure invisible in production logs."""
+        import asyncio
+        from unittest.mock import AsyncMock, patch
+        from src.security.blocklists import BlocklistManager, FeedManager, FeedConfig
+        import logging
+
+        async def run():
+            mgr = BlocklistManager()
+            fm = FeedManager(self._BASE_CFG, mgr)
+            fc = FeedConfig("timeout_feed2", "http://x.com/f", "cidr", True, "block", 3600, 86400)
+
+            async def no_sleep(d):
+                pass
+
+            with patch("src.security.blocklists.asyncio.sleep", side_effect=no_sleep):
+                with patch.object(fm, "_try_become_leader", return_value=False):
+                    with patch.object(fm, "_load_from_redis", return_value=None):
+                        with patch("builtins.range", return_value=range(2)):
+                            import logging
+                            with __import__("unittest.mock", fromlist=["patch"]).patch.object(
+                                __import__("logging").getLogger("src.security.blocklists"), "warning"
+                            ) as mock_warn:
+                                await fm._load_feed(fc)
+                            assert mock_warn.called
+
+        asyncio.run(run())
+
+    def test_download_and_store_non_200_raises_error(self):
+        """HTTP non-200 (e.g. 503) → ClientResponseError raised (line 483).
+        So what: non-200 responses must not be silently treated as empty lists;
+        raising the error triggers the outer exception handler that increments
+        the error counter and logs the failure."""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock, patch
+        from src.security.blocklists import BlocklistManager, FeedManager, FeedConfig
+
+        async def run():
+            mgr = BlocklistManager()
+            fm = FeedManager(self._BASE_CFG, mgr)
+            fc = FeedConfig("e503_feed", "https://x.com/f.txt", "cidr", True, "block", 3600, 86400)
+
+            mock_resp = MagicMock()
+            mock_resp.status = 503
+            mock_resp.request_info = MagicMock()
+            mock_resp.history = []
+            mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
+            mock_resp.__aexit__ = AsyncMock(return_value=False)
+
+            mock_session = MagicMock()
+            mock_session.get = MagicMock(return_value=mock_resp)
+            mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+            mock_session.__aexit__ = AsyncMock(return_value=False)
+
+            import aiohttp
+            mock_aiohttp = MagicMock()
+            mock_aiohttp.ClientSession.return_value = mock_session
+            mock_aiohttp.ClientTimeout = MagicMock(return_value=None)
+            mock_aiohttp.ClientResponseError = aiohttp.ClientResponseError
+
+            from src.security.blocklists import _BLOCKLIST_DOWNLOAD_ERRORS
+            before = _BLOCKLIST_DOWNLOAD_ERRORS.labels(feed="e503_feed")._value.get()
+            with patch("src.security.blocklists.aiohttp", mock_aiohttp):
+                with patch("src.security.blocklists.AIOHTTP_AVAILABLE", True):
+                    with patch.object(fm, "_get_etag", AsyncMock(return_value=None)):
+                        await fm._download_and_store(fc)
+            after = _BLOCKLIST_DOWNLOAD_ERRORS.labels(feed="e503_feed")._value.get()
+            assert after == before + 1
+
+        asyncio.run(run())

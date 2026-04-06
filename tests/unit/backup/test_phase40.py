@@ -106,3 +106,29 @@ def test_worker_encryption_integration(mock_path, mock_redis_cls, mock_enc_cls):
         
     mock_enc.encrypt.assert_called()
     # Verify manifest would show encryption (harder to check with mock Path but logic was added)
+
+
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+
+class TestBackupEncryptionCoverageGaps:
+    """Cover lines 27, 61 in src/backup/encryption.py."""
+
+    def test_empty_secret_key_raises_value_error(self):
+        """Line 27: BackupEncryption('') raises ValueError.
+        So what: if this guard is missing, a misconfigured proxy starts with an
+        empty key — all backup data is 'encrypted' with a zero-entropy key that
+        any attacker can reproduce, defeating confidentiality entirely."""
+        with pytest.raises(ValueError, match="Secret key must not be empty"):
+            BackupEncryption("")
+
+    def test_decrypt_short_data_raises_value_error(self):
+        """Line 61: decrypt() raises ValueError when data is shorter than
+        salt(16) + nonce(12) + tag(16) = 44 bytes minimum.
+        So what: if this guard is missing, slice operations on too-short data
+        silently produce empty byte strings — AESGCM.decrypt() would then fail
+        with a cryptographic error rather than a descriptive ValueError, making
+        tampering detection opaque to operators."""
+        enc = BackupEncryption("valid-key")
+        with pytest.raises(ValueError, match="Invalid encrypted data format"):
+            enc.decrypt(b"too_short")

@@ -159,12 +159,107 @@ def test_combined_retention_policy():
     remaining_backups = list(Path(backup_dir).glob("backup_*.bin"))
     # Should have min(5, 7) = 5 most recent backups that are < 7 days old
     assert len(remaining_backups) == 5
-    
+
     # Check that manifests were also cleaned up
     remaining_manifests = list(Path(backup_dir).glob("backup_*.bin.manifest.json"))
     assert len(remaining_manifests) == 5
-    
+
     # Clean up
     for f in Path(backup_dir).glob("*"):
         f.unlink()
     os.rmdir(backup_dir)
+
+
+# ---------------------------------------------------------------------------
+# Coverage gap additions — lines 483, 489, 515-517, 520, 548-549, 555-556
+# ---------------------------------------------------------------------------
+
+import json
+import shutil
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
+
+
+class TestRetentionCoverageGaps:
+    """Missing branches in apply_retention: nonexistent dir, empty dir,
+    invalid manifests, and OSError on unlink."""
+
+    def test_apply_retention_nonexistent_dir_returns_early(self):
+        """Line 483: backup_dir does not exist → returns immediately without error.
+        So what: without this guard, Path.glob() would raise FileNotFoundError,
+        crashing the backup scheduler cron and leaving retention unenforced."""
+        worker = BackupWorker()
+        worker.apply_retention("/nonexistent/backup/dir/xyz", retain_count=3)
+
+    def test_apply_retention_empty_dir_returns_early(self):
+        """Line 489: dir exists but contains no backup_*.bin files → returns early.
+        So what: without this guard, the code proceeds through an empty loop cleanly,
+        but this short-circuit avoids unnecessary manifest-parsing I/O."""
+        tmpdir = tempfile.mkdtemp()
+        try:
+            (Path(tmpdir) / "not_a_backup.txt").write_text("nope")
+            BackupWorker().apply_retention(tmpdir, retain_count=3)
+            assert Path(tmpdir).exists()
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_apply_retention_invalid_manifest_json_skipped(self):
+        """Lines 515-517: manifest with invalid JSON → KeyError/JSONDecodeError → skipped.
+        So what: without this except, a single corrupted manifest file would crash
+        apply_retention for the entire backup directory, leaving stale backups forever."""
+        tmpdir = tempfile.mkdtemp()
+        try:
+            bp = Path(tmpdir) / "backup_20260101T000000Z.bin"
+            mp = Path(tmpdir) / "backup_20260101T000000Z.bin.manifest.json"
+            bp.write_bytes(b"data")
+            mp.write_text("{ invalid json !!!")
+            BackupWorker().apply_retention(tmpdir, retain_count=3)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_apply_retention_all_manifests_invalid_returns_early(self):
+        """Line 520: all manifests were invalid → backups=[] → early return before deletion.
+        So what: without this guard, the code would proceed to compute set differences
+        on empty sets — harmless but this short-circuits cleanly."""
+        tmpdir = tempfile.mkdtemp()
+        try:
+            bp = Path(tmpdir) / "backup_20260101T000000Z.bin"
+            mp = Path(tmpdir) / "backup_20260101T000000Z.bin.manifest.json"
+            bp.write_bytes(b"data")
+            mp.write_text('{"missing": "required_fields"}')  # no created_at → KeyError
+            BackupWorker().apply_retention(tmpdir, retain_count=1)
+            assert bp.exists()  # file untouched (returned early)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_apply_retention_oserror_on_unlink_is_suppressed(self):
+        """Lines 548-549, 555-556: unlink() raises OSError → suppressed, loop continues.
+        So what: without these excepts, a single locked file would abort cleanup of all
+        remaining expired backups, leaving disk space unreleased."""
+        tmpdir = tempfile.mkdtemp()
+        try:
+            now = datetime.utcnow()
+            for i, age_days in enumerate([10, 0]):
+                ts = (now - timedelta(days=age_days, seconds=i)).strftime("%Y%m%dT%H%M%SZ")
+                bp = Path(tmpdir) / f"backup_{ts}.bin"
+                mp = Path(tmpdir) / f"backup_{ts}.bin.manifest.json"
+                bp.write_bytes(b"data")
+                mp.write_text(json.dumps({
+                    "filename": f"backup_{ts}.bin",
+                    "created_at": (now - timedelta(days=age_days, seconds=i)).isoformat() + "Z",
+                    "backup_type": "full",
+                    "keys_count": 1,
+                    "checksum_sha256": "abc",
+                    "size_bytes": 4,
+                    "included_patterns": [],
+                    "excluded_patterns": [],
+                }))
+
+            def _failing_unlink(self, missing_ok=False):
+                raise OSError("permission denied")
+
+            with patch.object(Path, "unlink", _failing_unlink):
+                BackupWorker().apply_retention(tmpdir, retain_count=1)
+        finally:
+            shutil.rmtree(tmpdir)

@@ -190,6 +190,44 @@ class TestHMACAuthenticator:
         assert authenticator.verify(signed_event) == True
 
 
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+
+class TestValidateTimestampCoverageGaps:
+    """Cover lines 26, 29-30 in src/analytics/authentication.py.
+
+    So what: these paths prevent replay attacks — if validate_timestamp silently
+    accepts None or non-numeric timestamps, any old or forged event passes HMAC
+    verification and could inject false threat signals.
+    """
+
+    def test_missing_timestamp_returns_false(self):
+        """Event with no timestamp key → ts is None → return False (line 26).
+        So what: a proxy-generated event without a timestamp field must be
+        rejected — a silent accept would skip the replay-protection window."""
+        from src.analytics.authentication import validate_timestamp
+
+        result = validate_timestamp({"src_ip": "1.2.3.4", "action": "allow"})
+        assert result is False
+
+    def test_non_numeric_timestamp_returns_false(self):
+        """Non-numeric timestamp string → float() raises → return False (lines 29-30).
+        So what: an attacker injecting 'timestamp: hacked' must be rejected;
+        if float() raises uncaught, the auth middleware crashes instead."""
+        from src.analytics.authentication import validate_timestamp
+
+        result = validate_timestamp({"timestamp": "not_a_number"})
+        assert result is False
+
+    def test_none_timestamp_value_returns_false(self):
+        """Explicit None timestamp → ts is None → return False (line 26).
+        So what: an explicitly null timestamp must not slip through as zero."""
+        from src.analytics.authentication import validate_timestamp
+
+        result = validate_timestamp({"timestamp": None})
+        assert result is False
+
+
 class TestHMACWithStreamConsumer:
     """Test HMAC integration with stream consumer."""
     

@@ -708,15 +708,54 @@ class TestASNClassifierCoverageExtended:
         asyncio.run(run())
         assert len(cls._tor_exit_ips) == 0  # nothing was loaded
 
-    # ── Redis pipeline write error (lines 264-265) ───────────────────────────
+    # ── Redis pipeline write (lines 263-266) ─────────────────────────────────
 
-    def test_refresh_tor_list_redis_pipeline_error_caught(self):
-        """Redis pipeline error after download is caught and logged (lines 264-265)."""
+    def test_refresh_tor_list_redis_pipeline_success(self):
+        """Leader downloads Tor list and writes exit IPs to Redis pipeline (lines 263-266).
+        So what: if pipeline.sadd/expire/execute are never called, the Tor exit-node
+        list is held only in memory and lost on process restart — exit-node detection
+        across proxy instances would silently stop working."""
         redis = AsyncMock()
         redis.set.return_value = True  # leader
-        mock_pipe = MagicMock()
+        mock_pipe = AsyncMock()
+        # pipeline() must be a synchronous call (not awaited) — use MagicMock
+        redis.pipeline = MagicMock(return_value=mock_pipe)
+        cls = self._make(redis=redis)
+
+        tor_content = (
+            "r Node1 xxxx 2024-01-01 00:00:00 9.9.9.9 9001 0 Exit Fast\n"
+        )
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.text = AsyncMock(return_value=tor_content)
+
+        mock_session = MagicMock()
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+        mock_session.get.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_session.get.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        async def run():
+            with patch("src.security.asn_classifier.aiohttp.ClientSession", return_value=mock_session):
+                await _REAL_REFRESH_TOR_LIST(cls)
+
+        asyncio.run(run())
+        # pipeline.sadd must have been called with the exit IP
+        mock_pipe.sadd.assert_called_once_with("tor:exit:ips", "9.9.9.9")
+        mock_pipe.expire.assert_called_once_with("tor:exit:ips", 3900)
+        mock_pipe.execute.assert_called_once()
+
+    def test_refresh_tor_list_redis_pipeline_error_caught(self):
+        """Redis pipeline error after download is caught and logged (lines 263-271).
+        So what: if this exception propagates, a transient Redis timeout during
+        Tor-list sync would crash the refresh coroutine and permanently disable
+        Tor exit-node detection until the proxy is restarted."""
+        redis = AsyncMock()
+        redis.set.return_value = True  # leader
+        mock_pipe = AsyncMock()
         mock_pipe.execute.side_effect = Exception("pipeline error")
-        redis.pipeline.return_value = mock_pipe
+        # pipeline() must be synchronous — use MagicMock so pipe.delete() works
+        redis.pipeline = MagicMock(return_value=mock_pipe)
         cls = self._make(redis=redis)
 
         tor_content = (

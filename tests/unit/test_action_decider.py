@@ -320,3 +320,28 @@ class TestDialManager:
         dm = DialManager({"monitor_mode": {"max_dial_change_per_hour": 25}})
         # Should not raise — Redis error means count=0
         await dm.validate_change(0, 10, m)
+
+
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+
+class TestDialManagerRecordRedisError:
+    """Cover lines 244-245: Redis error in the 'Record the change' try/except."""
+
+    @pytest.mark.asyncio
+    async def test_validate_change_record_redis_error_swallowed(self):
+        """Lines 244-245: Redis error on incr() in the record step is logged as
+        warning and swallowed — validate_change must still return normally.
+        So what: if this exception propagates, a transient Redis hiccup during
+        the counter update would reject the operator's dial change, preventing
+        security configuration from being applied under the exact conditions
+        (high load / Redis instability) when rapid configuration is most needed."""
+        from unittest.mock import AsyncMock
+        import redis as _redis
+        m = AsyncMock()
+        m.get.return_value = None   # count = 0 → change allowed
+        m.incr.side_effect = _redis.ConnectionError("Redis down")
+        from src.security.action_decider import DialManager
+        dm = DialManager({"monitor_mode": {"max_dial_change_per_hour": 25}})
+        # Must not raise — incr failure in the record step is non-fatal
+        await dm.validate_change(0, 10, m)

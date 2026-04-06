@@ -162,3 +162,49 @@ class TestCleanShutdown:
         await watchdog.watch(0, _crash_task(asyncio.CancelledError()))
 
         assert factory_calls == []
+
+
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+
+class TestEvictShardCoverageGaps:
+    """Lines 105, 110-114 in _evict_shard_streams."""
+
+    @pytest.mark.asyncio
+    async def test_evict_shard_coroutine_is_awaited(self):
+        """Line 105: when evict_shard returns a coroutine, it is awaited.
+        So what: if the iscoroutine branch is missing, async evict_shard
+        implementations are never awaited — stream eviction never completes and
+        the proxy leaks memory (open streams) after every worker crash."""
+        awaited = []
+
+        async def _async_evict(shard_id: int) -> None:
+            awaited.append(shard_id)
+
+        sensor = MagicMock()
+        sensor.evict_shard = _async_evict  # returns a coroutine when called
+
+        def factory(worker_id: int) -> asyncio.Task:
+            return _clean_task()
+
+        watchdog = WorkerWatchdog(sensor, factory)
+        await watchdog.watch(0, _crash_task())
+        assert 0 in awaited  # coroutine was awaited
+
+    @pytest.mark.asyncio
+    async def test_evict_shard_missing_logs_warning(self):
+        """Lines 110-114: when sensor has no evict_shard method, a warning is logged.
+        So what: if the else branch is missing, the watchdog silently skips eviction
+        on sensors that don't support it — no operator visibility that stream cleanup
+        didn't happen, leaving the tap pipeline in a partially inconsistent state."""
+        sensor = _make_sensor(has_evict_shard=False)
+
+        def factory(worker_id: int) -> asyncio.Task:
+            return _clean_task()
+
+        watchdog = WorkerWatchdog(sensor, factory)
+        with patch("src.tap.watchdog.logger") as mock_logger:
+            await watchdog.watch(0, _crash_task())
+        # Warning must have been emitted about missing evict_shard
+        warning_calls = [str(c) for c in mock_logger.warning.call_args_list]
+        assert any("evict_shard" in c or "no evict_shard" in c for c in warning_calls)

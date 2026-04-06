@@ -187,8 +187,95 @@ async def test_fallback_when_uninitialized(mock_redis):
 def test_feed_stats(mock_redis):
     """Test get_feed_stats method."""
     manager = ConfidenceManager(mock_redis)
-    
+
     # Test with unknown feed
     stats = manager.get_feed_stats("unknown")
     assert stats["accuracy_score"] == 1.0
     assert stats["effective_weight"] == 1.0
+
+
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_initialize_redis_error_falls_back_to_defaults(mock_redis):
+    """Redis error during initialize() falls back to defaults (lines 101-109).
+    So what: if the fallback is broken, a Redis outage at startup leaves all
+    feeds with zero confidence weight, silently disabling all TI signals."""
+    mock_redis.get.side_effect = Exception("Redis down")
+
+    manager = ConfidenceManager(mock_redis)
+    await manager.initialize()  # must not raise
+
+    assert manager._initialized is True
+    # Default feeds must be populated from _default_confidence
+    assert "misp" in manager._feeds
+    assert manager._feeds["misp"].accuracy_score == 0.9
+
+
+@pytest.mark.asyncio
+async def test_save_state_not_initialized_returns_early(mock_redis):
+    """save_state() before initialize() returns immediately (line 114).
+    So what: calling save_state() before init must not crash or write garbage
+    state to Redis, which would corrupt future load."""
+    manager = ConfidenceManager(mock_redis)
+    # Do NOT call initialize()
+
+    await manager.save_state()
+    mock_redis.setex.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_save_state_redis_error_swallowed(mock_redis):
+    """Redis error in save_state() is logged and swallowed (lines 132-133).
+    So what: a Redis outage during periodic save must not propagate to the
+    caller — persistence failures are non-fatal."""
+    mock_redis.setex.side_effect = Exception("Redis write failed")
+
+    manager = ConfidenceManager(mock_redis)
+    await manager.initialize()
+
+    await manager.save_state()  # must not raise
+
+
+@pytest.mark.asyncio
+async def test_record_validation_creates_new_feed_entry(mock_redis):
+    """record_validation() for unknown feed creates FeedConfidence (line 182).
+    So what: a new feed getting its first validation must not KeyError — silently
+    dropping the record would prevent confidence from building for that feed."""
+    manager = ConfidenceManager(mock_redis)
+    await manager.initialize()
+
+    # Feed not previously known
+    await manager.record_validation("brand_new_feed", is_true_positive=True)
+    assert "brand_new_feed" in manager._feeds
+    assert manager._feeds["brand_new_feed"].true_positives == 1
+
+
+@pytest.mark.asyncio
+async def test_record_validation_periodic_save_triggered(mock_redis):
+    """save_state() is called every 10 validations (line 215).
+    So what: without periodic saves, a crash between explicit saves loses all
+    confidence state, resetting every feed to defaults on restart."""
+    manager = ConfidenceManager(mock_redis)
+    await manager.initialize()
+    mock_redis.setex.reset_mock()
+
+    # Record 10 validations → triggers save at total=10
+    for _ in range(10):
+        await manager.record_validation("misp", is_true_positive=True)
+
+    mock_redis.setex.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_set_manual_override_creates_new_feed_entry(mock_redis):
+    """set_manual_override() for unknown feed creates FeedConfidence (line 226).
+    So what: a manual override on an unseen feed must not KeyError — the secops
+    operator must be able to pin confidence for any feed at any time."""
+    manager = ConfidenceManager(mock_redis)
+    await manager.initialize()
+
+    await manager.set_manual_override("unknown_new_feed", 1.3)
+    assert "unknown_new_feed" in manager._feeds
+    assert manager._feeds["unknown_new_feed"].manual_override == 1.3

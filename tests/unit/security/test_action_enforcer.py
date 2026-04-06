@@ -510,3 +510,65 @@ class TestEnforceEdgeCases:
         
         # Entity IDs should be different
         assert result_ip.entity_id != result_pair.entity_id
+
+
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+
+class TestActionEnforcerCoverageGaps:
+    """Cover lines 67-68, 338-347.
+
+    So what: these paths ensure the enforcer refuses to start against a broken
+    Redis (preventing silent fail-open) and that repeat offenders receive
+    escalated blocking durations.
+    """
+
+    def test_init_redis_error_logs_and_reraises(self, action_config):
+        """Lines 67-68: redis.RedisError during ping → logged and re-raised.
+        So what: if this re-raise is missing, an enforcer backed by a dead Redis
+        silently constructs — subsequent enforce() calls would crash with AttributeError
+        rather than a clear initialization failure, making the root cause hard to debug."""
+        import redis as _redis
+        mock_redis = Mock()
+        mock_redis.ping.side_effect = _redis.ConnectionError("connection refused")
+        with pytest.raises(_redis.RedisError):
+            ActionEnforcer(redis_client=mock_redis, action_config=action_config)
+
+    def test_repeat_offender_escalation_doubles_duration(self, mock_redis, action_config):
+        """Lines 338-345: second offense (incr returns 2) → block duration doubled.
+        So what: if the escalation logic is never reached, all repeat offenders receive
+        the same base ban duration — persistent attackers learn the exact unblock time
+        and retry immediately, defeating the purpose of tiered enforcement."""
+        mock_redis.incr.return_value = 2  # second offense
+        enforcer = ActionEnforcer(
+            redis_client=mock_redis,
+            action_config=action_config,
+        )
+        result = enforcer.enforce(
+            ja4="t13d1516h2_abc_def",
+            ip="192.168.1.100",
+            tier=ThreatTier.BLOCK,
+        )
+        assert result.allowed is False
+        # Duration should be 2× the base 3600 = 7200
+        assert result.duration == 7200
+
+    def test_repeat_offender_redis_error_swallowed(self, mock_redis, action_config):
+        """Lines 346-347: redis.RedisError in incr during repeat-offender check →
+        logged as warning, block still applied at base duration (non-fatal).
+        So what: if this exception propagates, a transient Redis hiccup would prevent
+        *any* block from being applied — attackers could continue through by timing
+        requests to coincide with Redis instability."""
+        import redis as _redis
+        mock_redis.incr.side_effect = _redis.RedisError("Redis unavailable")
+        enforcer = ActionEnforcer(
+            redis_client=mock_redis,
+            action_config=action_config,
+        )
+        # Must not raise — block is still applied at base duration
+        result = enforcer.enforce(
+            ja4="t13d1516h2_abc_def",
+            ip="192.168.1.100",
+            tier=ThreatTier.BLOCK,
+        )
+        assert result.allowed is False

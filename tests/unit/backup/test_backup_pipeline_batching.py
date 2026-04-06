@@ -136,3 +136,21 @@ class TestDumpKeysBatched:
 
     def test_batch_size_constant_is_1000(self):
         assert PIPELINE_BATCH_SIZE == 1000
+
+    def test_pipeline_execute_exception_maps_all_keys_to_none(self):
+        """Lines 447-448: pipe.execute() raises → all keys in that batch map to None.
+        So what: without this except, a transient Redis pipeline error propagates out of
+        _dump_keys_batched, aborting the entire backup run — losing all subsequent keys
+        even though only one batch encountered the network fault."""
+        worker = _make_worker()
+        keys = ["k1", "k2", "k3"]
+
+        mock_redis = MagicMock()
+        pipe = MagicMock()
+        pipe.dump.return_value = pipe
+        pipe.execute.side_effect = Exception("pipeline timeout")
+        mock_redis.pipeline.return_value = pipe
+
+        result = worker._dump_keys_batched(mock_redis, keys)
+
+        assert result == {"k1": None, "k2": None, "k3": None}

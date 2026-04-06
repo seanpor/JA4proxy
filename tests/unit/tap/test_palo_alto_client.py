@@ -105,3 +105,62 @@ class TestBuildUidXml:
     def test_xml_contains_tag(self):
         xml = _build_uid_xml("register", "1.2.3.4", ["ja4proxy-ban"])
         assert "ja4proxy-ban" in xml
+
+
+# ---------------------------------------------------------------------------
+# Additional tests targeting previously uncovered lines
+# ---------------------------------------------------------------------------
+
+class TestCallApiEdgeCases:
+    """Lines 98-104: _call_api error and non-context-manager paths."""
+
+    @pytest.mark.asyncio
+    async def test_api_error_status_logs_warning_but_does_not_raise(self, caplog):
+        # Lines 97-100: when the XML API returns >= 400, log a WARNING but do not raise.
+        # A PAN device rejecting a tag update must not crash the export pipeline.
+        resp = _make_response(400)
+        session = _make_session(400)
+        client = PaloAltoClient(_make_config(), session)
+
+        with caplog.at_level(logging.WARNING, logger="src.tap.export.palo_alto_client"):
+            await client.register_ip("1.2.3.4", ["ja4proxy-ban"])
+
+        assert any("api_error" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_api_200_does_not_log_warning(self, caplog):
+        # Lines 95-100: a 200 response from the XML API must produce no warning.
+        # Spurious warnings would flood SIEM dashboards and mask real issues.
+        session = _make_session(200)
+        client = PaloAltoClient(_make_config(), session)
+
+        with caplog.at_level(logging.WARNING, logger="src.tap.export.palo_alto_client"):
+            await client.register_ip("1.2.3.4", ["ja4proxy-ban"])
+
+        assert not any("api_error" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_non_aenter_response_reads_status_attribute(self):
+        # Lines 101-102: when resp_ctx has no __aenter__, status is read via getattr().
+        # This path is hit by mock responses in tests and must be handled cleanly.
+        resp_mock = MagicMock()
+        resp_mock.status = 200
+        # Remove __aenter__ so the else branch is taken
+        del resp_mock.__aenter__
+        session = MagicMock()
+        session.get.return_value = resp_mock
+        client = PaloAltoClient(_make_config(), session)
+        await client.register_ip("1.2.3.4", ["ja4proxy-ban"])  # must not raise
+
+    @pytest.mark.asyncio
+    async def test_request_exception_is_caught_and_logged(self, caplog):
+        # Lines 103-104: session.get() raising must be caught and logged.
+        # A network error to PAN must never propagate to the proxy's hot path.
+        session = MagicMock()
+        session.get.side_effect = ConnectionError("PAN unreachable")
+        client = PaloAltoClient(_make_config(), session)
+
+        with caplog.at_level(logging.ERROR, logger="src.tap.export.palo_alto_client"):
+            await client.register_ip("1.2.3.4", ["ja4proxy-ban"])  # must not raise
+
+        assert any("request_error" in r.message for r in caplog.records)

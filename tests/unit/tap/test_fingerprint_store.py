@@ -324,3 +324,41 @@ class TestGetJA4Stats:
 
         stats = await store.get_ja4_stats("t13d1516h2_aabbccddeeff_001122334455")
         assert stats == {"count": 0, "unique_ips": 0}
+
+
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+
+class TestFingerprintStoreCoverageGaps:
+    """Lines 67-68, 155-156: exception handlers in write_fingerprint and hydrate."""
+
+    @pytest.mark.asyncio
+    async def test_write_exception_logged(self):
+        """Lines 67-68: exception in the write pipeline is caught and logged.
+        So what: if this except block is absent, a transient Redis pipeline error
+        propagates through write() and crashes the async task that records connection
+        fingerprints — all subsequent connections lose their metadata record in the
+        tap store."""
+        redis = _make_redis()
+        redis.hset.side_effect = ConnectionError("Redis write error")
+        store = FingerprintStore(redis)
+        fp = _make_fp()
+
+        # Must not raise — exception is swallowed and logged
+        await store.write(fp)
+
+    @pytest.mark.asyncio
+    async def test_get_ip_history_hydrate_exception_logged(self):
+        """Lines 155-156: exception in per-conn_id hgetall is caught and skipped.
+        So what: if missing, a corrupted fingerprint record in Redis would raise
+        through get_ip_history() and halt retrieval of ALL connection records in that
+        batch — one bad entry would cause complete loss of the tap dashboard view."""
+        redis = _make_redis()
+        # zrevrange returns one conn_id, hgetall raises for that id
+        redis.zrevrange = MagicMock(return_value=[b"conn-id-1"])
+        redis.hgetall.side_effect = ConnectionError("Redis read error")
+        store = FingerprintStore(redis)
+
+        # Must not raise — bad entry is skipped, empty results returned
+        results = await store.get_ip_history("192.168.1.1")
+        assert results == []

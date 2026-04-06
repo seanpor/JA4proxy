@@ -23,8 +23,8 @@ class MTLSHandler:
         self._ca_cert_path = self._config.get("ca_cert_path")
         self._require_client_cert = self._config.get("require_client_cert", False)
         self._cert_cn_allowlist = set(self._config.get("cert_cn_allowlist", []))
-        self._ca_cert = self._load_ca_cert() if self._enabled else None
         self.logger = logging.getLogger(__name__)
+        self._ca_cert = self._load_ca_cert() if self._enabled else None
 
     def verify_client_cert(self, ctx: ConnectionContext) -> bool:
         """

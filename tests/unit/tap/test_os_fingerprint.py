@@ -86,3 +86,27 @@ class TestOSFingerprint:
     def test_never_raises_on_garbage_opts(self):
         result = match_os(b"\xff\xff\xff", window_size=0, ttl=0, df=False)
         assert result is not None
+
+
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+
+class TestMatchOsExceptionHandler:
+    """Lines 162-163: exception from _match is caught and _unknown returned."""
+
+    def test_match_os_exception_returns_unknown(self):
+        """Lines 162-163: if _match() raises, match_os() catches it and returns an
+        _unknown result rather than propagating the exception.
+        So what: if this except branch is absent, any unexpected ValueError in _match
+        (e.g. from a corrupted OS database entry) would crash the fingerprinting
+        pipeline for every subsequent packet — the proxy loses OS classification for
+        the lifetime of that connection."""
+        from unittest.mock import patch
+        import src.tap.fingerprints.os_fingerprint as _mod
+
+        syn_opts = _opts((2, 1460), (4,))
+        with patch.object(_mod, "_match", side_effect=ValueError("corrupted db entry")):
+            result = match_os(syn_opts, window_size=65535, ttl=64, df=True)
+        # Must return a valid result, not raise
+        assert isinstance(result, OSFingerprintResult)
+        assert result.fingerprint_id == "unknown"

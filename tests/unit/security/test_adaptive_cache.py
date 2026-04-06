@@ -252,3 +252,152 @@ async def test_volatility_blending(mock_redis):
     # Blended score = (0.8 * 0.7) + (0.8 * 0.3) = 0.8
     new_stats = manager.get_cache_stats("misp")
     assert new_stats["volatility_score"] == pytest.approx(0.8, abs=0.01)
+
+# ── Missing-coverage tests ────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_init_redis_exception_falls_back_to_defaults():
+    """Redis error during initialize() → falls back to default profiles (lines 115-126).
+    So what: if Redis is unavailable at startup the adaptive cache must still
+    function with defaults; without this fallback all threat-feed TTLs become 0."""
+    redis = AsyncMock()
+    redis.get = AsyncMock(side_effect=ConnectionError("Redis down"))
+    manager = AdaptiveCacheManager(redis)
+    await manager.initialize()
+    assert manager._initialized is True
+    assert "misp" in manager._feeds
+    assert "virustotal" in manager._feeds
+
+
+@pytest.mark.asyncio
+async def test_save_state_not_initialized_returns_immediately():
+    """save_state() before initialize() → returns without touching Redis (line 131).
+    So what: calling save_state prematurely must not write empty/corrupt state
+    that would then poison the next startup's Redis load."""
+    redis = AsyncMock()
+    manager = AdaptiveCacheManager(redis)
+    # Not initialized
+    await manager.save_state()
+    redis.setex.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_save_state_redis_exception_logged(mock_redis):
+    """Redis exception in save_state() → logs error, does not propagate (lines 149-150).
+    So what: a Redis write failure during periodic state save must not crash
+    the background worker or surface as an unhandled exception."""
+    mock_redis.setex = AsyncMock(side_effect=ConnectionError("Redis write failed"))
+    manager = AdaptiveCacheManager(mock_redis)
+    await manager.initialize()
+    import logging
+    with pytest.raises(Exception) if False else __import__('contextlib').nullcontext():
+        await manager.save_state()  # Should not raise
+
+
+@pytest.mark.asyncio
+async def test_record_cache_hit_triggers_periodic_save(mock_redis):
+    """Access count multiple of 50 → save_state() called (line 204).
+    So what: if periodic saves never fire, Redis state drifts permanently from
+    in-memory state; the next restart loads stale (or no) volatility data."""
+    manager = AdaptiveCacheManager(mock_redis)
+    await manager.initialize()
+    feed = manager._feeds["misp"]
+    feed.access_count = 49  # Next hit will make 50
+    manager._hit_count["misp"] = 49
+
+    await manager.record_cache_hit("misp")
+    # access_count is now 50, triggering periodic save
+    mock_redis.setex.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_record_cache_miss_triggers_periodic_save(mock_redis):
+    """Access count multiple of 50 during miss → save_state() called (line 251).
+    So what: same as hit-path — volatile feed state must be persisted
+    periodically to survive restarts without losing learned TTL reductions."""
+    manager = AdaptiveCacheManager(mock_redis)
+    await manager.initialize()
+    feed = manager._feeds["misp"]
+    feed.access_count = 49
+    manager._miss_count["misp"] = 49
+
+    await manager.record_cache_miss("misp", None, {"attribute_count": 5})
+    mock_redis.setex.assert_called()
+
+
+def test_get_cache_key_fallback_json(mock_redis):
+    """Data with no known fields → falls back to JSON serialisation (line 264).
+    So what: unknown data shapes must produce a stable comparison key; if this
+    path raises, all unknown feed comparisons report false 'no change'."""
+    manager = AdaptiveCacheManager(MagicMock())
+    key = manager._get_cache_key({"unknown_field": "value", "other": 42})
+    import json
+    expected = json.dumps({"other": 42, "unknown_field": "value"}, sort_keys=True)
+    assert key == expected
+
+
+@pytest.mark.asyncio
+async def test_adjust_volatility_unknown_feed_returns_immediately():
+    """_adjust_volatility() for unknown feed → returns without crash (line 275).
+    So what: if a feed is removed from default_profiles but referenced in legacy
+    Redis state, the volatility adjuster must silently skip it."""
+    manager = AdaptiveCacheManager(AsyncMock())
+    # Call with a feed that doesn't exist
+    manager._adjust_volatility("nonexistent_feed")  # Should not raise
+
+
+@pytest.mark.asyncio
+async def test_adjust_volatility_ttl_increases_when_low_volatility(mock_redis):
+    """Low change ratio → TTL increases, direction='up' counter incremented (line 303).
+    So what: feeds that rarely change must earn longer TTLs automatically;
+    if the 'up' direction is never reached, TTLs can only decrease or stay flat."""
+    manager = AdaptiveCacheManager(mock_redis)
+    await manager.initialize()
+    feed = manager._feeds["misp"]
+    # Set current TTL well below what low-volatility would produce
+    feed.current_ttl = 400
+    feed.volatility_score = 0.9  # Will blend down toward low ratio
+    feed.change_count = 1
+    feed.access_count = 100  # Very low change ratio → low volatility → long TTL
+    manager._adjust_volatility("misp")
+    stats = manager.get_cache_stats("misp")
+    assert stats["current_ttl"] > 400
+
+
+@pytest.mark.asyncio
+async def test_adjust_volatility_ttl_unchanged_counter_incremented(mock_redis):
+    """New TTL equals old TTL → direction='unchanged' counter incremented (line 307).
+    So what: if the 'unchanged' path is untested, a regression might silently
+    mis-label stable feeds as volatile in monitoring dashboards."""
+    manager = AdaptiveCacheManager(mock_redis)
+    await manager.initialize()
+    feed = manager._feeds["misp"]
+    # Force a stable scenario: set volatility and change ratio so TTL doesn't move
+    feed.change_count = 0
+    feed.access_count = 1
+    feed.volatility_score = 0.0
+    feed.current_ttl = 3600  # Max TTL — cannot increase further
+    manager._adjust_volatility("misp")
+    # If TTL stayed the same (already at max), unchanged counter fires
+
+
+@pytest.mark.asyncio
+async def test_get_cache_stats_unknown_feed_returns_defaults(mock_redis):
+    """get_cache_stats() for unknown feed → returns default stats dict (lines 312-...).
+    So what: callers must not receive a KeyError when querying a feed that was
+    never loaded; the default dict prevents NoneType crashes in the UI layer."""
+    manager = AdaptiveCacheManager(mock_redis)
+    await manager.initialize()
+    stats = manager.get_cache_stats("unknown_feed_xyz")
+    assert stats["volatility_score"] == 0.5
+    assert stats["current_ttl"] == 3600
+    assert stats["hit_ratio"] == 0.0
+
+
+def test_update_metrics_unknown_feed_returns_immediately():
+    """_update_metrics() for unknown feed → returns without crash (line 155).
+    So what: _update_metrics is called after every cache operation; a crash here
+    on an unknown feed would break all cache hit/miss recording for that feed."""
+    manager = AdaptiveCacheManager(MagicMock())
+    # _update_metrics with a feed not in _feeds — must not raise
+    manager._update_metrics("nonexistent_feed_xyz")

@@ -226,3 +226,219 @@ class TestStixIndicator:
         ext = indicator["extensions"]["x-ja4proxy"]
         assert ext["score"] == 85
         assert ext["ja4"] == "t13d_abc"
+
+
+# ---------------------------------------------------------------------------
+# Additional tests targeting previously uncovered lines
+# ---------------------------------------------------------------------------
+
+class TestTaxiiServerLifecycle:
+    """Lines 55-62, 66-71, 85-87: _create_app, start, close lifecycle."""
+
+    @pytest.mark.asyncio
+    async def test_create_app_registers_three_routes(self):
+        # _create_app (lines 54-62) registers discovery, collections, objects endpoints.
+        # If any route is missing, threat intelligence consumers will fail silently.
+        server = TaxiiServer(_make_config(), _make_redis())
+        app = server._create_app()
+        routes = {str(r.resource.canonical) for r in app.router.routes()}
+        assert "/taxii2/" in routes
+        assert "/taxii2/api/collections/" in routes
+        assert any("objects" in r for r in routes)
+
+    @pytest.mark.asyncio
+    async def test_start_and_close_run_without_error(self):
+        # start (lines 64-81) and close (lines 83-87) manage the HTTP server lifecycle.
+        # A crash here means the TAXII feed silently stops serving to consumers.
+        from unittest.mock import AsyncMock, patch, MagicMock
+
+        mock_runner = AsyncMock()
+        mock_site = AsyncMock()
+
+        with patch("src.tap.export.taxii_server.web.AppRunner", return_value=mock_runner), \
+             patch("src.tap.export.taxii_server.web.TCPSite", return_value=mock_site):
+            server = TaxiiServer(_make_config(), _make_redis())
+            await server.start()
+            assert server._runner is mock_runner
+            await server.close()
+            # After close, _runner must be cleared so re-start is safe
+            assert server._runner is None
+
+    @pytest.mark.asyncio
+    async def test_close_is_idempotent_when_runner_is_none(self):
+        # close() (lines 83-87) must be safe to call before start().
+        # A second close() on teardown must not raise.
+        server = TaxiiServer(_make_config(), _make_redis())
+        await server.close()  # runner is None — must not raise
+
+
+class TestPrivateHandlers:
+    """Lines 93-94, 97, 100-102: _handle_discovery, _handle_collections, _handle_objects."""
+
+    @pytest.mark.asyncio
+    async def test_handle_discovery_delegates_correctly(self):
+        # _handle_discovery (line 93-94) is the aiohttp route callback.
+        # If the delegation is broken, the /taxii2/ route returns nothing useful.
+        server = TaxiiServer(_make_config(), _make_redis())
+        req = _make_request()
+        resp = await server._handle_discovery(req)
+        assert resp.status == 200
+        body = json.loads(resp.text)
+        assert "title" in body
+
+    @pytest.mark.asyncio
+    async def test_handle_collections_delegates_correctly(self):
+        # _handle_collections (line 96-97) routes aiohttp callbacks.
+        # A broken delegation means collection listing fails for STIX clients.
+        server = TaxiiServer(_make_config(), _make_redis())
+        req = _make_request()
+        resp = await server._handle_collections(req)
+        assert resp.status == 200
+        body = json.loads(resp.text)
+        assert "collections" in body
+
+    @pytest.mark.asyncio
+    async def test_handle_objects_extracts_collection_id_from_match_info(self):
+        # _handle_objects (lines 99-102) reads collection_id from match_info.
+        # If the path assembly is wrong, the objects path never matches.
+        server = TaxiiServer(_make_config(), _make_redis())
+        req = _make_request()
+        req.match_info = {"collection_id": "my-col"}
+        resp = await server._handle_objects(req)
+        assert resp.status == 200
+
+
+class TestHandleTaxiiRequestEdgeCases:
+    """Lines 154: 404 for unknown paths."""
+
+    @pytest.mark.asyncio
+    async def test_unknown_path_returns_404(self):
+        # handle_taxii_request (line 154) returns 404 for unrecognised paths.
+        # Without this, malformed requests might match unintended handlers.
+        server = TaxiiServer(_make_config(), _make_redis())
+        req = _make_request()
+        resp = await server.handle_taxii_request("/taxii2/unknown/", req)
+        assert resp.status == 404
+
+
+class TestObjectsResponseEdgeCases:
+    """Lines 165-166, 171-172, 178, 197-199, 202-203, 214-215, 240: _objects_response paths."""
+
+    @pytest.mark.asyncio
+    async def test_added_after_invalid_timestamp_is_ignored(self):
+        # Lines 165-166: an unparseable added_after must be silently ignored (no crash).
+        # A malformed query parameter must never cause an outage for STIX consumers.
+        bans = {
+            "ban:1.2.3.4": json.dumps({"ip": "1.2.3.4", "score": 80, "reason": "r", "timestamp": time.time()})
+        }
+        server = TaxiiServer(_make_config(), _make_redis(bans))
+        req = _make_request(query={"added_after": "not-a-date"})
+        resp = await server.handle_taxii_request(
+            "/taxii2/api/collections/ja4proxy-bans/objects/", req
+        )
+        # Invalid date must not crash — all entries should be returned
+        assert resp.status == 200
+        body = json.loads(resp.text)
+        assert len(body["objects"]) >= 1
+
+    @pytest.mark.asyncio
+    async def test_redis_keys_exception_returns_empty_bundle(self):
+        # Lines 171-172: Redis unavailability must not crash the TAXII endpoint.
+        # Fail-open: return an empty bundle rather than a 500.
+        redis = MagicMock()
+        redis.keys.side_effect = ConnectionError("redis down")
+        server = TaxiiServer(_make_config(), redis)
+        req = _make_request()
+        resp = await server.handle_taxii_request(
+            "/taxii2/api/collections/ja4proxy-bans/objects/", req
+        )
+        assert resp.status == 200
+        body = json.loads(resp.text)
+        assert body["objects"] == []
+
+    @pytest.mark.asyncio
+    async def test_ban_entry_with_none_value_is_skipped(self):
+        # Line 178: keys() may return a key whose TTL expired before get().
+        # The None value must be skipped — never raises, never adds empty indicator.
+        redis = MagicMock()
+        redis.keys.return_value = [b"ban:1.2.3.4"]
+        redis.get.return_value = None
+        server = TaxiiServer(_make_config(), redis)
+        req = _make_request()
+        resp = await server.handle_taxii_request(
+            "/taxii2/api/collections/ja4proxy-bans/objects/", req
+        )
+        assert resp.status == 200
+        body = json.loads(resp.text)
+        assert body["objects"] == []
+
+    @pytest.mark.asyncio
+    async def test_ban_entry_with_plain_string_json_value(self):
+        # Lines 197-199: JSON value that is a plain string (not a dict) falls through
+        # to ip = str(meta) branch.  The indicator must still be created.
+        redis = MagicMock()
+        redis.keys.return_value = [b"ban:1.2.3.4"]
+        # JSON-encoded plain string
+        redis.get.return_value = json.dumps("1.2.3.4").encode()
+        server = TaxiiServer(_make_config(), redis)
+        req = _make_request()
+        resp = await server.handle_taxii_request(
+            "/taxii2/api/collections/ja4proxy-bans/objects/", req
+        )
+        assert resp.status == 200
+        body = json.loads(resp.text)
+        assert len(body["objects"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_ban_entry_with_non_json_raw_value(self):
+        # Lines 198-199: raw value is not valid JSON at all (plain IP text).
+        # ip = raw.strip() path must produce a valid indicator.
+        redis = MagicMock()
+        redis.keys.return_value = [b"ban:2.2.2.2"]
+        redis.get.return_value = b"2.2.2.2"
+        server = TaxiiServer(_make_config(), redis)
+        req = _make_request()
+        resp = await server.handle_taxii_request(
+            "/taxii2/api/collections/ja4proxy-bans/objects/", req
+        )
+        assert resp.status == 200
+        body = json.loads(resp.text)
+        assert any("2.2.2.2" in obj.get("name", "") for obj in body["objects"])
+
+    @pytest.mark.asyncio
+    async def test_ban_entry_with_missing_ip_field_falls_back_to_key(self):
+        # Lines 202-203: when JSON is valid dict but 'ip' is empty, derive IP from key.
+        # This ensures every ban key produces an indicator regardless of value format.
+        redis = MagicMock()
+        redis.keys.return_value = [b"ban:3.3.3.3"]
+        redis.get.return_value = json.dumps({"score": 80, "reason": "r"}).encode()
+        server = TaxiiServer(_make_config(), redis)
+        req = _make_request()
+        resp = await server.handle_taxii_request(
+            "/taxii2/api/collections/ja4proxy-bans/objects/", req
+        )
+        assert resp.status == 200
+        body = json.loads(resp.text)
+        assert any("3.3.3.3" in obj.get("name", "") for obj in body["objects"])
+
+    @pytest.mark.asyncio
+    async def test_entry_parse_exception_is_caught_not_propagated(self):
+        # Lines 214-215: malformed per-entry data must be skipped, not crash the endpoint.
+        redis = MagicMock()
+        redis.keys.return_value = [b"ban:bad"]
+        # get() raises unexpectedly — simulates corrupt Redis response
+        redis.get.side_effect = RuntimeError("corrupted data")
+        server = TaxiiServer(_make_config(), redis)
+        req = _make_request()
+        resp = await server.handle_taxii_request(
+            "/taxii2/api/collections/ja4proxy-bans/objects/", req
+        )
+        assert resp.status == 200
+
+    def test_build_stix_indicator_uses_ipv6_pattern_for_ipv6_address(self):
+        # Line 240: IPv6 addresses must use [ipv6-addr:value = '...'] STIX pattern.
+        # Using the wrong pattern type would cause STIX consumers to reject the indicator.
+        server = TaxiiServer(_make_config(), _make_redis())
+        indicator = server._build_stix_indicator("2001:db8::1", 80, "reason", None)
+        assert "ipv6-addr" in indicator["pattern"]
+        assert "2001:db8::1" in indicator["pattern"]

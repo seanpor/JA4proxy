@@ -113,3 +113,27 @@ class TestTLSExtValues:
         )
         result = extract_tls_ext_values(empty)
         assert isinstance(result, JA4TLSExtValues)
+
+
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+
+class TestTLSExtValuesExceptionHandler:
+    """Lines 62-63: exception inside extract_tls_ext_values is caught."""
+
+    def test_exception_returns_safe_default(self):
+        """Lines 62-63: if JA4Result attribute access raises, the except block returns
+        a zeroed JA4TLSExtValues with empty lists and False flags.
+        So what: if this except block is absent, any AttributeError on a malformed
+        JA4Result (e.g. from an experimental parser version) propagates to the tap
+        pipeline and crashes the fingerprint aggregation for the entire connection batch."""
+        from unittest.mock import patch
+
+        bad_result = object()  # not a JA4Result — accessing .extensions raises
+        result = extract_tls_ext_values(bad_result)
+        assert isinstance(result, JA4TLSExtValues)
+        assert result.supported_groups == []
+        assert result.key_share_groups == []
+        assert result.has_compress_cert is False
+        assert result.has_alps is False
+        assert result.session_ticket_len == 0

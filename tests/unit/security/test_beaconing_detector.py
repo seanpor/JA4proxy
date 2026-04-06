@@ -436,3 +436,131 @@ class TestSuspectsLeaderboardCap(unittest.TestCase):
         """Without config, max_suspects defaults to 10 000."""
         detector = _make_detector()
         self.assertEqual(detector._max_suspects, 10000)
+
+
+# ── Missing-coverage additions ─────────────────────────────────────────────────
+
+
+class TestBeaconingCoverageGaps(unittest.TestCase):
+    """Cover lines 100, 201, 205, 255-259, 273-274, 294, 316, 353.
+
+    So what: these paths are the fail-open fallbacks and disabled-detector guards
+    that prevent beaconing analysis from crashing the hot path when Redis is
+    unavailable or the detector is administratively disabled.
+    """
+
+    def _run(self, coro):
+        return asyncio.run(coro)
+
+    # Line 100 — coefficient_of_variation with zero-mean input
+    def test_coefficient_of_variation_zero_mean_returns_zero(self):
+        """CV with all-zero values (mean=0) returns 0.0 (line 100).
+        So what: if this returns NaN (0/0), any downstream comparison to 0.15
+        raises TypeError, crashing the signal path for that connection."""
+        self.assertEqual(coefficient_of_variation([0.0, 0.0, 0.0]), 0.0)
+
+    # Lines 201, 205 — start()/stop() lifecycle
+    def test_start_calls_write_buffer_start(self):
+        """start() must call _write_buffer.start() (line 201).
+        So what: if the write buffer never starts, all beacon records are silently
+        dropped — beaconing analysis produces no data."""
+        detector = _make_detector()
+        detector._write_buffer.start = AsyncMock()
+        self._run(detector.start())
+        detector._write_buffer.start.assert_called_once()
+
+    def test_stop_calls_write_buffer_stop(self):
+        """stop() must call _write_buffer.stop() (line 205).
+        So what: without this, the write buffer's flush loop leaks as a zombie
+        task, potentially preventing clean process shutdown."""
+        detector = _make_detector()
+        detector._write_buffer.stop = AsyncMock()
+        self._run(detector.stop())
+        detector._write_buffer.stop.assert_called_once()
+
+    # Lines 255-259 — short-window enqueue exception in maybe_record
+    def test_maybe_record_short_window_enqueue_failure_swallowed(self):
+        """Exception in short-window enqueue is swallowed (lines 255-259).
+        So what: a write buffer failure must not propagate to the caller — beacon
+        recording must always be fire-and-forget from the connection hot path."""
+        detector = _make_detector()
+        detector._write_buffer.enqueue = AsyncMock(side_effect=RuntimeError("queue full"))
+        # Must not raise
+        self._run(detector.maybe_record("1.2.3.4", "t13d...", "", "allow"))
+
+    # Lines 273-274 — long-window enqueue exception in maybe_record
+    def test_maybe_record_long_window_enqueue_failure_swallowed(self):
+        """Exception in long-window enqueue is swallowed independently (lines 273-274).
+        So what: if long-window recording fails, the short-window record should
+        survive — the two windows are independent error boundaries."""
+        short_window_count = [0]
+
+        async def _selective_raise(operation, *args, **kwargs):
+            short_window_count[0] += 1
+            if short_window_count[0] <= 4:
+                return True  # short window succeeds (4 operations)
+            raise RuntimeError("long window exploded")
+
+        detector = _make_detector()
+        detector._write_buffer.enqueue = AsyncMock(side_effect=_selective_raise)
+        # Must not raise — long-window failure is non-fatal
+        self._run(detector.maybe_record("1.2.3.4", "t13d...", "", "allow"))
+        # Short window succeeded (4 enqueue calls)
+        assert short_window_count[0] >= 4
+
+    # Line 294 — get_signal() when disabled
+    def test_get_signal_disabled_returns_none(self):
+        """get_signal() returns None immediately when disabled (line 294).
+        So what: if this guard is missing, a disabled detector still calls Redis,
+        wasting connections and potentially causing noise in test environments."""
+        cfg = {"beaconing_detector": {"enabled": False}}
+        detector = _make_detector(config=cfg)
+        ctx = ConnectionContext(client_ip="1.2.3.4", ja4="t13d...")
+        result = self._run(detector.get_signal(ctx))
+        self.assertIsNone(result)
+
+    # Line 316 — get_signal() returns None when long window disabled + short misses
+    def test_get_signal_no_long_window_returns_none_when_short_misses(self):
+        """Return None at end of get_signal when long_window is off (line 316).
+        So what: if this return is missing, the method falls off the end returning
+        None implicitly — but future refactors could introduce a spurious signal."""
+        mock_redis = MagicMock()
+        # Short window returns fewer than min_observations timestamps
+        mock_redis.zrangebyscore = AsyncMock(return_value=[])
+        cfg = {
+            "beaconing_detector": {
+                "enabled": True,
+                "min_observations": 8,
+                "window_size": 20,
+                "observation_window_seconds": 3600,
+                "score": 35,
+                "long_window": {"enabled": False},
+            }
+        }
+        mock_cache = MagicMock()
+        mock_cache.whitelist_decisions.get = MagicMock(return_value=None)
+        detector = BeaconingDetector(cfg, mock_redis, mock_cache)
+        ctx = ConnectionContext(client_ip="5.5.5.5", ja4="t13d...")
+        result = self._run(detector.get_signal(ctx))
+        self.assertIsNone(result)
+
+    # Line 353 — _check_window returns None when score_float == 0.0
+    def test_check_window_returns_none_when_cv_too_high(self):
+        """score_float==0.0 (highly irregular timing) → None returned (line 353).
+        So what: if this return is missing, a zero-score signal propagates with
+        risk_score=0, polluting the composite scorer with noise."""
+        import time as _time
+        now = _time.time()
+        # 10 timestamps with very high CV (random-ish timing → score_float=0.0)
+        # IATs: [300, 1, 500, 2, 400, 1, 600] — extremely irregular
+        ts_list = [now - 1800, now - 1500, now - 1499, now - 999, now - 997,
+                   now - 597, now - 596, now - 196, now - 195, now - 1]
+        mock_members = [(f"m{i}", t) for i, t in enumerate(ts_list)]
+
+        mock_redis = MagicMock()
+        mock_redis.zrangebyscore = AsyncMock(return_value=mock_members)
+        detector = _make_detector(redis=mock_redis)
+        ctx = ConnectionContext(client_ip="6.6.6.6", ja4="t13d...")
+        result = self._run(detector.get_signal(ctx))
+        # High-CV timing → beacon_score returns 0.0 → _check_window returns None
+        self.assertIsNone(result)
