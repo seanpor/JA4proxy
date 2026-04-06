@@ -250,7 +250,9 @@ services:
     image: prom/haproxy-exporter:v0.15.0
     container_name: ja4proxy-haproxy-exporter
     command:
-      - '--haproxy.scrape-uri=http://haproxy:8404/stats?stats;csv'
+      # Use HAProxy path-parameter CSV suffix (;csv) and include basic-auth credentials.
+      # Credentials default to match haproxy.cfg stats auth defaults; override via .env.
+      - '--haproxy.scrape-uri=http://${HAPROXY_STATS_USER:-admin}:${HAPROXY_STATS_PASSWORD:-admin123}@haproxy:8404/stats;csv'
     restart: unless-stopped
     networks:
       - ja4proxy-monitoring
