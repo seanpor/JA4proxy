@@ -44,14 +44,14 @@ fi
 
 # Stop POC stack (agent-aware)
 # shellcheck disable=SC2086
-if docker compose -f docker-compose.poc.yml $POC_FLAGS ps -q 2>/dev/null | grep -q .; then
+if docker compose -f docker/docker-compose.poc.yml $POC_FLAGS ps -q 2>/dev/null | grep -q .; then
     echo -e "${BLUE}▶ Stopping POC stack (proxy/HAProxy/Redis/backend)...${NC}"
     if [ "$CLEAN" = true ]; then
         # shellcheck disable=SC2086
-        docker compose -f docker-compose.poc.yml $POC_FLAGS down -v --remove-orphans
+        docker compose -f docker/docker-compose.poc.yml $POC_FLAGS down -v --remove-orphans
     else
         # shellcheck disable=SC2086
-        docker compose -f docker-compose.poc.yml $POC_FLAGS down --remove-orphans
+        docker compose -f docker/docker-compose.poc.yml $POC_FLAGS down --remove-orphans
     fi
     echo -e "${GREEN}  ✓ POC stack stopped${NC}"
     [[ -n "$_AGENT" ]] && rm -f .current-agent && echo -e "${GREEN}  ✓ Cleared .current-agent${NC}"

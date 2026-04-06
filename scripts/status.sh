@@ -42,7 +42,7 @@ BIND_IP="${AGENT_BIND_IP:-localhost}"
 
 # shellcheck disable=SC2086
 redis_cmd() {
-    docker compose -f docker-compose.poc.yml $POC_FLAGS exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning "$@" 2>/dev/null
+    docker compose -f docker/docker-compose.poc.yml $POC_FLAGS exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning "$@" 2>/dev/null
 }
 
 echo
@@ -77,7 +77,7 @@ check_service() {
     local svc="$1" label="$2"
     local status
     # shellcheck disable=SC2086
-    status=$(docker compose -f docker-compose.poc.yml $POC_FLAGS ps "$svc" --format '{{.Status}}' 2>/dev/null || true)
+    status=$(docker compose -f docker/docker-compose.poc.yml $POC_FLAGS ps "$svc" --format '{{.Status}}' 2>/dev/null || true)
 
     if [ -n "$status" ]; then
         if echo "$status" | grep -qi "Up"; then
@@ -133,7 +133,7 @@ http_check "Management UI"   "http://${BIND_IP}:8090/api/v1/health"
 
 # Redis
 # shellcheck disable=SC2086
-if docker compose -f docker-compose.poc.yml $POC_FLAGS exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning ping > /dev/null 2>&1; then
+if docker compose -f docker/docker-compose.poc.yml $POC_FLAGS exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning ping > /dev/null 2>&1; then
     ok "Redis  (docker network — authenticated)"
 else
     fail "Redis  — not reachable or auth failed"
@@ -144,7 +144,7 @@ echo
 echo -e "${BOLD}▸ Live Security State${NC}"
 
 # shellcheck disable=SC2086
-if docker compose -f docker-compose.poc.yml $POC_FLAGS ps redis --format '{{.Status}}' 2>/dev/null | grep -qi "Up"; then
+if docker compose -f docker/docker-compose.poc.yml $POC_FLAGS ps redis --format '{{.Status}}' 2>/dev/null | grep -qi "Up"; then
     BL_COUNT=$(redis_cmd SCARD ja4:blacklist 2>/dev/null || echo "?")
     WL_COUNT=$(redis_cmd SCARD ja4:whitelist 2>/dev/null || echo "?")
     SAFE_CC=$(redis_cmd SCARD geoip:safe_countries 2>/dev/null || echo "?")

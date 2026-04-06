@@ -102,8 +102,8 @@ demo_architecture() {
     header "1. Service Architecture"
     
     step "Checking running services..."
-    command_demo "docker compose -f docker-compose.poc.yml ps"
-    docker compose -f docker-compose.poc.yml ps
+    command_demo "docker compose -f docker/docker-compose.poc.yml ps"
+    docker compose -f docker/docker-compose.poc.yml ps
     echo ""
     
     success "All 4 services are running:"
@@ -321,11 +321,11 @@ conclusion() {
     echo ""
     
     echo "4. View live logs:"
-    echo "   docker compose -f docker-compose.poc.yml logs -f"
+    echo "   docker compose -f docker/docker-compose.poc.yml logs -f"
     echo ""
     
     echo "5. Stop the POC:"
-    echo "   docker compose -f docker-compose.poc.yml down"
+    echo "   docker compose -f docker/docker-compose.poc.yml down"
     echo ""
     
     echo -e "${BOLD}${MAGENTA}For production deployment, see:${NC}"
