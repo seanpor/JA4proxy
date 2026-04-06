@@ -197,16 +197,16 @@ def test_audit_log_dry_run_flagged():
 # ---------------------------------------------------------------------------
 
 def test_ipv6_canonical_form():
-    """Purging ::1 deletes the key keyed under the canonical compressed form."""
+    """Passing a non-canonical IPv6 form is normalised before key lookup."""
     r = _make_redis()
-    # The canonical compressed form of the IPv6 loopback is "::1"
-    canonical = "::1"
-    r.set(f"ban:{canonical}", "value")
+    # Seed the key using the canonical compressed form of ::1
+    r.set("ban:::1", "value")
 
-    result = purge_ip(canonical, dry_run=False, r=r)
+    # Pass the full uncompressed form — purge_ip must normalise it to "::1"
+    result = purge_ip("0:0:0:0:0:0:0:1", dry_run=False, r=r)
 
-    assert not r.exists(f"ban:{canonical}"), (
-        "Canonical IPv6 key 'ban:::1' should have been deleted"
+    assert not r.exists("ban:::1"), (
+        "Key 'ban:::1' should have been deleted after normalising '0:0:0:0:0:0:0:1' → '::1'"
     )
     assert result["keys_deleted"] >= 1
 

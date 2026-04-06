@@ -80,4 +80,24 @@ else
     echo "OK  haproxy_frontend_bytes_in_total present (${BYTES_COUNT} series)"
 fi
 
+# 5. Check at least one HAProxy-related alert rule is loaded in Prometheus
+HAPROXY_ALERT_COUNT=$(curl -sf \
+    "${PROM_URL}/api/v1/rules?type=alert" \
+    2>/dev/null \
+    | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+groups = data.get('data', {}).get('groups', [])
+rules = [r for g in groups for r in g.get('rules', [])
+         if r.get('type') == 'alerting' and 'haproxy' in r.get('name', '').lower()]
+print(len(rules))
+" 2>/dev/null || echo "0")
+
+if [[ "$HAPROXY_ALERT_COUNT" -eq 0 ]]; then
+    echo "WARN: No HAProxy alert rules found in Prometheus."
+    echo "      Check that HAProxy alert rules are loaded in prometheus.yml"
+else
+    echo "OK  HAProxy alert rules present (${HAPROXY_ALERT_COUNT} rules)"
+fi
+
 echo "=== HAProxy exporter check passed ==="
