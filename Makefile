@@ -512,15 +512,27 @@ clean:
 	docker compose -f docker/docker-compose.prod.yml down -v --remove-orphans
 	rm -rf reports/ __pycache__/ .pytest_cache/ .mypy_cache/
 
-# Full clean rebuild from scratch — wipes volumes, removes built images, rebuilds, starts
+# Full clean rebuild from scratch — wipes volumes, removes built images, rebuilds, starts.
+# If .current-agent is set (i.e. an agent stack is active), rebuilds and restarts that
+# agent's stack.  Otherwise rebuilds and restarts the default ja4proxy stack.
 rebuild:
+	$(eval _AGENT := $(shell cat .current-agent 2>/dev/null))
 	@echo "Stopping all services and wiping volumes..."
-	docker compose -f docker-compose.poc.yml down -v --remove-orphans --rmi local
+	@if [ -n "$(_AGENT)" ]; then \
+		echo "  (active agent: $(_AGENT))"; \
+		docker compose -f docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) down -v --remove-orphans --rmi local; \
+	else \
+		docker compose -f docker-compose.poc.yml down -v --remove-orphans --rmi local; \
+	fi
 	docker compose -f docker/docker-compose.monitoring.yml down -v --remove-orphans --rmi local 2>/dev/null || true
 	@echo "Rebuilding all images (no cache)..."
 	docker compose -f docker-compose.poc.yml build --no-cache
 	@echo "Starting full stack..."
-	@./scripts/start-all.sh
+	@if [ -n "$(_AGENT)" ]; then \
+		docker compose -f docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) up -d; \
+	else \
+		./scripts/start-all.sh; \
+	fi
 
 # Deploy PoC environment
 deploy-poc:
