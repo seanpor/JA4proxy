@@ -952,7 +952,7 @@ phases:
 
   91:
     name: "GDPR Live Data Erasure & Operational Script Gap Remediation"
-    status: "IN_PROGRESS"
+    status: "COMPLETE"
     action_plan: "docs/phases/PHASE_91.md"
     dependencies: [40, 87]
     size: "SMALL"

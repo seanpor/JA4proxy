@@ -4,10 +4,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🟡 Phases In Progress
 
-### Phase 91 — GDPR Live Data Erasure & Operational Script Gap Remediation
-*   **Status:** **IN_PROGRESS** (Phase 89 Makefile audit discovered that make gdpr-delete has never worked (scripts/gdpr_delete.py never existed) and make test-phase-87-integration has been broken since Phase 87 shipped. Basic scripts created in Phase 89 cleanup. Phase 91 completes the work: HyperLogLog handling, ZSET member erasure, audit logging, unit tests, runbook, and Phase 87 integration test extension.)
-*   **Action Plan:** [PHASE_91.md](PHASE_91.md)
-
 ---
 
 ## 🔵 Planned & Open Phases
