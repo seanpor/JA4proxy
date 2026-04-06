@@ -2,6 +2,8 @@
 StorageAdapter — abstract base class for pluggable backup storage backends.
 
 Phase 57a introduces the ABC and a LocalStorageAdapter (filesystem passthrough).
+Phase 57e adds DSARComplianceError and pre_upload_check() to enforce that backup
+artifacts are DSAR-scanned before cloud upload.
 Future phases add S3Adapter (Phase 57b) and GCSAdapter (Phase 57c).
 
 No new pip dependencies: uses only stdlib (abc, hashlib, shutil, pathlib, dataclasses).
@@ -12,6 +14,19 @@ import shutil
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
+
+
+class DSARComplianceError(Exception):
+    """Raised when attempting to upload an artifact that has not been DSAR-scanned.
+
+    A DSAR (Data Subject Access Request) scan runs BackupRedactor.redact() to
+    strip PII (IP addresses) before the artifact leaves the local host.  Uploading
+    an unscanned artifact to cloud storage would constitute a GDPR violation.
+
+    To suppress this error legitimately:
+    - Run BackupRedactor.redact() and set ``dsar_scanned=True`` in the manifest, OR
+    - Set ``dsar.redact_values=False`` in the manifest if the artifact contains no PII.
+    """
 
 
 @dataclass
@@ -112,6 +127,38 @@ class StorageAdapter(ABC):
             otherwise.
         """
 
+    def pre_upload_check(self, manifest: dict) -> None:
+        """Raise DSARComplianceError if the artifact has not been DSAR-scanned.
+
+        The check is opt-in: it only fires when the manifest explicitly declares
+        ``dsar.redact_values=True`` AND ``dsar_scanned=False``.  If the ``dsar``
+        section is absent the check is skipped (backward-compatible default: existing
+        manifests that pre-date Phase 57e are unaffected).
+
+        Args:
+            manifest: Manifest dict as produced by ``BackupWorker.create_backup()``.
+
+        Raises:
+            DSARComplianceError: When ``dsar.redact_values`` is ``True`` and
+                                 ``dsar_scanned`` is explicitly ``False``.
+        """
+        dsar_config = manifest.get("dsar")
+        if dsar_config is None:
+            # No dsar section at all → backward-compatible: skip check
+            return
+        redact_values = dsar_config.get("redact_values", False)
+        if not redact_values:
+            # Caller explicitly opted out of value redaction → skip check
+            return
+        dsar_scanned = manifest.get("dsar_scanned", True)  # default True = safe/skip
+        if dsar_scanned is False:
+            filename = manifest.get("filename", "?")
+            raise DSARComplianceError(
+                f"Refusing to upload artifact '{filename}': "
+                "dsar_scanned=False. Run BackupRedactor.redact() before uploading "
+                "to cloud storage, or set dsar_scanned=True if this artifact contains no PII."
+            )
+
 
 class LocalStorageAdapter(StorageAdapter):
     """Local-filesystem storage adapter (passthrough).
@@ -131,13 +178,24 @@ class LocalStorageAdapter(StorageAdapter):
     async def upload(self, local_path: Path, manifest: dict) -> StorageMetadata:
         """Return metadata for an already-written local file (no-op upload).
 
+        Calls ``pre_upload_check()`` before returning metadata so that DSAR
+        compliance is enforced even for local uploads (which is where artifacts
+        originate before any cloud transfer).
+
         Args:
             local_path: Path to the existing backup artifact.
             manifest:   Manifest dict; ``created_at`` is forwarded to metadata.
+                        Set ``dsar_scanned=True`` (or omit ``dsar`` section) to
+                        pass the compliance check.
 
         Returns:
             ``StorageMetadata`` with ``provider="local"``.
+
+        Raises:
+            DSARComplianceError: If ``dsar.redact_values=True`` and
+                                 ``dsar_scanned=False`` in *manifest*.
         """
+        self.pre_upload_check(manifest)
         local_path = Path(local_path)
         data = local_path.read_bytes()
         return StorageMetadata(
