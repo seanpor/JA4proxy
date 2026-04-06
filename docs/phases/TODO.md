@@ -64,6 +64,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Redis Sentinel per-DC plus a new Go sync agent (cmd/syncagent) for cross-DC state replication. State Classification Table (25 key types: SYNC-IMMEDIATE, SYNC-ASYNC, LOCAL-ONLY, DIAL-PROTOCOL). Synchronous Dial Consistency Protocol (port 7380, 8s ACK timeout, last-writer-wins by origin_ts). Active-active and active-passive topology documentation. Seven failure scenario runbooks (WAN failure, DC dark, Redis-only failure, dial divergence, data loss, asymmetric degradation, split-brain). New multi-DC metrics on port 9382 with six alert rules including DialDivergence (critical). Cross-DC Grafana dashboard. Operational procedures for maintenance drain, DC expansion, and rolling upgrade.)
 *   **Action Plan:** [PHASE_88.md](PHASE_88.md)
 
-### Phase 89 — Docker Consolidation & Image Hygiene
+### Phase 89 — Dockerfile Base Image Hygiene
 *   **Status:** **PROPOSED** (Standardise Python base images: upgrade python:3.11-slim to 3.14.0-slim in admin and management Dockerfiles; pin test infrastructure from python:3.14-slim to python:3.14.0-slim.)
 *   **Action Plan:** [PHASE_89.md](PHASE_89.md)

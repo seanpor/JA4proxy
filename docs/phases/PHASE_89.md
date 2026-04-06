@@ -1,4 +1,4 @@
-# PHASE 89 — Docker Consolidation & Image Hygiene
+# PHASE 89 — Dockerfile Base Image Hygiene
 
 > **Prerequisites:** No functional prerequisites. This is infrastructure hygiene and may
 > be applied to any branch after Phase 88 is complete.
