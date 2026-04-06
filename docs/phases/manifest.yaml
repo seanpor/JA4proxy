@@ -21,7 +21,7 @@ epics:
 
   - name: "Epic: Operational Excellence & Lifecycle Management"
     description: "Zero-downtime upgrades, robust health monitoring, and deployment orchestration."
-    phases: [40, 41, 42, 43, 57, 63, 64, 71, 72, 73, 74]
+    phases: [40, 41, 42, 43, 57, 63, 64, 71, 72, 73, 74, 91]
 
   - name: "Epic: Quality Assurance & Test Maturity"
     description: "Comprehensive testing, adversarial coverage, and performance validation."
@@ -890,6 +890,8 @@ phases:
     action_plan: "docs/phases/PHASE_87.md"
     dependencies: [14]
     size: "MEDIUM"
+    gaps:
+      - "make test-phase-87-integration target was broken since Phase 87 shipped (scripts never created). Basic scripts added in Phase 89 cleanup; full alert-rule and Grafana verification tracked in Phase 91b."
     success_criteria:
       - "cAdvisor service added to docker/docker-compose.monitoring.yml and scraped by Prometheus"
       - "ja4proxy-infrastructure.json dashboard: fleet status strip visible without scrolling, container variable drill-down"
@@ -945,3 +947,21 @@ phases:
       - "All compose files in docker/ validate via docker compose config"
       - "benchmark scripts at performance/, not root"
       - "No untracked artefact files in root"
+
+  91:
+    name: "GDPR Live Data Erasure & Operational Script Gap Remediation"
+    status: "IN_PROGRESS"
+    action_plan: "docs/phases/PHASE_91.md"
+    dependencies: [40, 87]
+    size: "SMALL"
+    summary: "Phase 89 Makefile audit discovered that make gdpr-delete has never worked (scripts/gdpr_delete.py never existed) and make test-phase-87-integration has been broken since Phase 87 shipped. Basic scripts created in Phase 89 cleanup. Phase 91 completes the work: HyperLogLog handling, ZSET member erasure, audit logging, unit tests, runbook, and Phase 87 integration test extension."
+    success_criteria:
+      - "scripts/gdpr_delete.py correctly handles exact keys, wildcard keys, ZSET members, and reports HLL skips"
+      - "Audit log entry written to management:gdpr_erasure_log after every invocation"
+      - "All 10 unit tests in tests/unit/test_gdpr_delete.py pass (fakeredis)"
+      - "make gdpr-delete IP=127.0.0.1 runs without error against a live Redis"
+      - "HLL keys are NOT deleted; limitation documented in erasure report output"
+      - "docs/REDIS_SCHEMA.md updated with management:gdpr_erasure_log key"
+      - "Runbook section written for GDPR erasure procedure"
+      - "make test-phase-87-integration passes against a running monitoring stack"
+      - "Phase 87 manifest success_criteria updated to include integration test target"
