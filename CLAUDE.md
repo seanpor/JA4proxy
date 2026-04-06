@@ -302,6 +302,7 @@ Practical rules that flow from this:
 | 85 | **Threat Intelligence Ingestion** | TAXII 2.1 client, MISP integration, STIX 2.1 indicator conversion, ISAC sharing | [PHASE_85.md](docs/phases/PHASE_85.md) |
 | 86 | **Observability Upgrade & Capacity Planning** | Grafana enterprise dashboards, SLO burn-rate alerting, capacity calculator | [PHASE_86.md](docs/phases/PHASE_86.md) |
 | 87 | **Container & Host Infrastructure Observability** | cAdvisor per-container metrics; dedicated infra dashboard (fleet strip + variable drill-down); host/container/attack-detection alert rules | [PHASE_87.md](docs/phases/PHASE_87.md) |
+| 88 | **Multi-Datacenter Survivability & Failover** | Redis Sentinel per-DC + sync agent; State Classification Table; Dial Consistency Protocol (synchronous RPC); 7 failure scenario runbooks; active-active and active-passive topologies | [PHASE_88.md](docs/phases/PHASE_88.md) |
 
 **Do phases in order. Complete all acceptance criteria before starting the next phase.**
 
