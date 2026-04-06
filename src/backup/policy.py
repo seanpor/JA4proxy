@@ -16,10 +16,19 @@ class KeyPolicy:
             "ja4:blacklist",
             "tor:exit:ips",
             "dns:ptr:*",
-            "abuseipdb:score:*",
+            # abuseipdb:score:* intentionally omitted: these are external
+            # reputation scores re-fetchable from the AbuseIPDB API and do not
+            # need to survive a Redis failure.  worker.py also lists abuseipdb:*
+            # in _KEY_PATTERNS_NEVER_BACKUP as a defence-in-depth guard.
             "rdap:ip:*",
             "rdap:org:*",
             "analytics:*",
+            # attribution:profile:* — 90-day-TTL attacker fingerprint correlation
+            # profiles built up over weeks; must survive a Redis failure.
+            "attribution:profile:*",
+            # attribution:ips:* — 30-day-TTL IP sets correlated to a JA4
+            # fingerprint; losing them requires weeks of re-accumulation.
+            "attribution:ips:*",
         ]
 
         # Exclude patterns: keys that should not be backed up

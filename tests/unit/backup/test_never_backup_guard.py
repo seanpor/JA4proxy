@@ -100,9 +100,12 @@ def test_never_backup_warning_logged():
     with patch('src.backup.worker.logger.warning') as mock_warning:
         worker = BackupWorker()
         
-        # Mock Redis with sensitive keys that match include patterns
+        # Mock Redis with sensitive keys that match include patterns.
+        # Only config:redis_password is used here: abuseipdb:score:* was
+        # intentionally removed from include_patterns (Bug 1 fix) so it never
+        # reaches the never-backup guard and no warning is expected for it.
         mock_redis = MagicMock()
-        sensitive_keys = ["abuseipdb:score:api_key", "config:redis_password"]
+        sensitive_keys = ["config:redis_password"]
         normal_keys = ["config:dial", "ban:192.168.1.1"]
         all_keys = sensitive_keys + normal_keys
         

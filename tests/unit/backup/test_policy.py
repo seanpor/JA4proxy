@@ -41,3 +41,34 @@ def test_deterministic_ordering():
     keys = ["config:dial", "ban:192.168.1.1", "session:ip:192.168.1.1:ja4:abc123"]
     ordered = policy.order_keys(keys)
     assert ordered == sorted(keys)
+
+
+def test_abuseipdb_score_not_in_backup():
+    """AbuseIPDB score keys must not be backed up.
+
+    These are external reputation scores re-fetchable from the API.
+    worker.py _KEY_PATTERNS_NEVER_BACKUP blocks abuseipdb:* as a safety net,
+    and policy.py must not list abuseipdb:score:* in include_patterns either.
+    """
+    policy = KeyPolicy()
+    assert not policy.should_backup("abuseipdb:score:1.2.3.4")
+
+
+def test_attribution_profile_is_backed_up():
+    """attribution:profile:* keys must be backed up.
+
+    These hold 90-day-TTL attacker fingerprint correlation profiles built up
+    over weeks; they must survive a Redis failure.
+    """
+    policy = KeyPolicy()
+    assert policy.should_backup("attribution:profile:abc123def")
+
+
+def test_attribution_ips_is_backed_up():
+    """attribution:ips:* keys must be backed up.
+
+    These hold 30-day-TTL IP sets correlated to a JA4 fingerprint; losing
+    them requires weeks of re-accumulation after a Redis failure.
+    """
+    policy = KeyPolicy()
+    assert policy.should_backup("attribution:ips:abc123def")
