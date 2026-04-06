@@ -42,10 +42,10 @@ Code written before a plan is reviewed tends to drift from intent, require rewri
 
 ## 🛠️ Tool Usage & Communication
 
-- **Bash Tool:** Strictly only use the `command` field. Do not include `description` as it triggers validation errors.
+- **Bash Tool:** Use only the `command` field — do not include `description`. This triggers validation errors in opencode (another agent that works on this repo).
 - **High-Signal Output:** Adopt a Senior Engineer persona. Be concise, direct, and technical. Avoid conversational filler, apologies, or "I will now..." preambles.
 - **Explain Before Acting:** Briefly explain the intent and potential impact of any command that modifies the filesystem or system state.
-- **Efficiency:** Parallelize independent searches (`grep_search`, `glob`) and file reads to minimize turn overhead.
+- **Efficiency:** Parallelize independent searches (`Grep`, `Glob`) and file reads to minimize turn overhead.
 
 ---
 
@@ -113,7 +113,7 @@ Every phase must be closed by completing **all** of the following before the nex
   - Propose a draft message before executing the commit.
   - Follow the format: `type(scope): brief description` (e.g., `feat(security): add JA4X fingerprinting`).
   - Focus on **why** a change was made, not just **what** changed.
-- **No Pushing:** Never push to a remote repository or stage changes unless explicitly directed.
+- **Pushing:** Push only when a phase is fully complete and all close-out checklist items pass (`git push origin claude/phase-XX-description`). Do not push mid-phase or for speculative work. The orchestrator handles merging to `main` — never push directly there.
 
 ---
 
@@ -362,5 +362,6 @@ If instructions conflict, use this priority:
 1.  **User Hints** (Directives in the current session)
 2.  **docs/phases/PHASE_XX.md** (Current phase mandate)
 3.  **AGENTS.md** (This document)
-4.  **docs/STYLE_GUIDE.md** / **docs/DOCUMENTATION_STANDARDS.md**
-5.  **General System Prompt**
+4.  **CLAUDE.md** (Project-wide architecture and cross-cutting rules)
+5.  **docs/STYLE_GUIDE.md** / **docs/DOCUMENTATION_STANDARDS.md**
+6.  **General System Prompt**

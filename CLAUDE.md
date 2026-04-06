@@ -23,7 +23,7 @@ git checkout -b claude/phase-XX-description
 
 Commit often — after every meaningful chunk of work:
 ```bash
-git add -A
+git add src/ tests/ docs/phases/PHASE_XX.md   # stage only files you own
 git commit -m "phase-XX: brief description of what changed"
 ```
 
@@ -215,6 +215,9 @@ Practical rules that flow from this:
 ---
 
 ## Phase Index
+
+> **Reference only — titles and doc links are stable. Phase status is NOT maintained here.**
+> For current status always read `docs/phases/manifest.yaml` or `docs/phases/TODO.md`.
 
 | # | Phase | Key deliverable | Doc |
 |---|-------|----------------|-----|
