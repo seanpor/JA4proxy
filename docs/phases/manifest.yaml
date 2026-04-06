@@ -688,7 +688,7 @@ phases:
   71:
     name: "Docker Isolation - Foundations & Registry"
     status: "COMPLETE"
-    summary: "scripts/agent-env.sh generates isolated .env.<agent> files; Makefile agent-up/down/status targets; .current-agent persistence; docker-compose.poc.yml refactored with 4 network zones, per-agent loopback IP binding, cpuset, non-root users, log rotation, geoip RO volume; ja4-admin.sh --agent flag."
+    summary: "scripts/agent-env.sh generates isolated .env.<agent> files; Makefile agent-up/down/status targets; .current-agent persistence; docker/docker-compose.poc.yml refactored with 4 network zones, per-agent loopback IP binding, cpuset, non-root users, log rotation, geoip RO volume; ja4-admin.sh --agent flag."
     action_plan: "docs/phases/PHASE_71.md"
     dependencies: [25]
     size: "SMALL"
@@ -700,12 +700,12 @@ phases:
   72:
     name: "Docker Isolation - Logical Network Zones"
     status: "COMPLETE"
-    summary: "Four-zone network model (dmz_net, data_net/internal, origin_net/internal, mgmt_net) implemented in docker-compose.poc.yml. All eight services assigned to correct zones."
+    summary: "Four-zone network model (dmz_net, data_net/internal, origin_net/internal, mgmt_net) implemented in docker/docker-compose.poc.yml. All eight services assigned to correct zones."
     action_plan: "docs/phases/PHASE_72.md"
     dependencies: [71]
     size: "SMALL"
     success_criteria:
-      - "Four-zone network model implemented in docker-compose.poc.yml"
+      - "Four-zone network model implemented in docker/docker-compose.poc.yml"
       - "internal: true enforced on data_net and origin_net"
       - "All services assigned to correct zones per the zone assignment table"
 
@@ -915,3 +915,29 @@ phases:
       - "DialDivergence alert fires within 15s of divergence exceeding threshold"
       - "Multi-DC Grafana dashboard: replication lag, dial values per DC, WAN link status visible"
       - "make test-phase-88 passes"
+
+  89:
+    name: "Dockerfile Base Image Hygiene"
+    status: "PROPOSED"
+    action_plan: "docs/phases/PHASE_89.md"
+    dependencies: [88]
+    size: "SMALL"
+    summary: "Standardise Python base images: upgrade python:3.11-slim to 3.14.0-slim in admin and management Dockerfiles; pin test infrastructure from python:3.14-slim to python:3.14.0-slim."
+    success_criteria:
+      - "No Dockerfile uses python:3.11-slim"
+      - "All test infrastructure Dockerfiles pin to python:3.14.0-slim"
+      - "make lint-docker passes"
+
+  90:
+    name: "Root Directory Cleanup & Docker Compose Consolidation"
+    status: "COMPLETE"
+    completed: "2026-04-06"
+    action_plan: "docs/phases/PHASE_90.md"
+    dependencies: []
+    size: "SMALL"
+    summary: "Moved all root docker-compose files (poc, python-legacy, scale, test) into docker/. Updated build contexts from context:. to context:.. Updated all references in Makefile, scripts, and docs. Moved benchmark scripts to performance/. Removed untracked artefact files and unused sql.js package."
+    success_criteria:
+      - "git ls-files | grep '^docker-compose' returns empty"
+      - "All compose files in docker/ validate via docker compose config"
+      - "benchmark scripts at performance/, not root"
+      - "No untracked artefact files in root"

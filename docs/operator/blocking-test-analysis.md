@@ -154,10 +154,10 @@ curl localhost:9090/metrics | grep ja4proxy_dial_current
 ### Step 2: Manually Set Dial in Redis (Temporary)
 ```bash
 # Set dial to 50 directly in Redis (bypasses safety gate temporarily)
-docker compose -f docker-compose.poc.yml exec redis redis-cli -a "${REDIS_PASSWORD}" set "config:dial" 50
+docker compose -f docker/docker-compose.poc.yml exec redis redis-cli -a "${REDIS_PASSWORD}" set "config:dial" 50
 
 # Restart proxy
-docker compose -f docker-compose.poc.yml restart proxy
+docker compose -f docker/docker-compose.poc.yml restart proxy
 
 # Verify dial change
 sleep 5 && curl localhost:9090/metrics | grep ja4proxy_dial_current
@@ -203,8 +203,8 @@ curl localhost:9090/metrics | grep ja4_blocked_requests_total
 ### Step 7: Rollback if Needed
 ```bash
 # If false positives detected, rollback to monitor mode
-docker compose -f docker-compose.poc.yml exec redis redis-cli -a "${REDIS_PASSWORD}" set "config:dial" 0
-docker compose -f docker-compose.poc.yml restart proxy
+docker compose -f docker/docker-compose.poc.yml exec redis redis-cli -a "${REDIS_PASSWORD}" set "config:dial" 0
+docker compose -f docker/docker-compose.poc.yml restart proxy
 ```
 
 ## 📊 Success Criteria

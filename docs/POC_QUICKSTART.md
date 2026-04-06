@@ -118,7 +118,7 @@ This resets all transient security state so consecutive test runs start clean wi
 curl -sk https://localhost:8443/api/health
 
 # Check proxy logs for ALLOWED decisions
-docker compose -f docker-compose.poc.yml logs proxy | grep ALLOWED | tail -5
+docker compose -f docker/docker-compose.poc.yml logs proxy | grep ALLOWED | tail -5
 ```
 
 ## Scale Up (Optional)

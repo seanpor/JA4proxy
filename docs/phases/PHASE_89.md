@@ -1,4 +1,4 @@
-# PHASE 89 — Docker Consolidation & Image Hygiene
+# PHASE 89 — Dockerfile Base Image Hygiene
 
 > **Prerequisites:** No functional prerequisites. This is infrastructure hygiene and may
 > be applied to any branch after Phase 88 is complete.
@@ -117,8 +117,8 @@ HADOLINT_DOCKERFILES := docker/Dockerfile docker/Dockerfile.admin docker/Dockerf
 After all changes, rebuild and verify:
 
 ```bash
-docker compose -f docker-compose.poc.yml build --no-cache admin-api management
-docker compose -f docker-compose.test.yml build --no-cache
+docker compose -f docker/docker-compose.poc.yml build --no-cache admin-api management
+docker compose -f docker/docker-compose.test.yml build --no-cache
 ```
 
 ---
@@ -148,8 +148,8 @@ FROM golang:1.25-alpine AS go-builder
 Rebuild and confirm the binary reports the correct version:
 
 ```bash
-docker compose -f docker-compose.test.yml build --no-cache test-runner
-docker compose -f docker-compose.test.yml run --rm test-runner \
+docker compose -f docker/docker-compose.test.yml build --no-cache test-runner
+docker compose -f docker/docker-compose.test.yml run --rm test-runner \
   /usr/local/bin/ja4proxy --version
 ```
 
@@ -164,7 +164,7 @@ Two files share a near-identical name but serve completely different purposes:
 | File | Lines | Content |
 |------|-------|---------|
 | `docker/docker-compose.test.yml` | 8 | Redis-only port stub; no networks, no services except bare `redis:` with port mappings |
-| `docker-compose.test.yml` (root) | 160 | Full integration test suite with TLS backend, Go proxy, Python proxy, recorder, and test-runner |
+| `docker/docker-compose.test.yml` (root) | 160 | Full integration test suite with TLS backend, Go proxy, Python proxy, recorder, and test-runner |
 
 The 8-line stub has no declared network, no healthcheck, and no image pin. No Makefile
 functional target references it by path; the Makefile comment at line 277 explicitly
@@ -203,7 +203,7 @@ Remove the now-obsolete comment from `Makefile` line 277:
 
 ### Finding
 
-`docker-compose.poc.yml` uses underscore naming for all networks and two volumes:
+`docker/docker-compose.poc.yml` uses underscore naming for all networks and two volumes:
 
 ```
 Networks: dmz_net, data_net, origin_net, mgmt_net
@@ -218,7 +218,7 @@ Networks: ja4proxy-frontend, ja4proxy-backend, ja4proxy-monitoring
 Volumes:  prometheus-data, alertmanager-data, grafana-data, loki-data
 ```
 
-Because `docker-compose.poc.yml` has `name: ja4proxy`, Docker currently creates
+Because `docker/docker-compose.poc.yml` has `name: ja4proxy`, Docker currently creates
 networks named `ja4proxy_dmz_net`, `ja4proxy_data_net` etc. (project-name prefix + YAML
 key). `docker/docker-compose.monitoring.yml` joins these as external networks using
 hard-coded `name:` values matching this pattern. When both files use the same Docker
@@ -240,7 +240,7 @@ If you need to preserve Redis data across the rename:
 
 ```bash
 # Export data before bringing the stack down
-docker compose -f docker-compose.poc.yml exec redis \
+docker compose -f docker/docker-compose.poc.yml exec redis \
   redis-cli --pass "$REDIS_PASSWORD" BGSAVE
 docker run --rm \
   -v ja4proxy_redis_data:/data \
@@ -248,21 +248,21 @@ docker run --rm \
   alpine tar czf /backup/redis-data-backup.tar.gz /data
 
 # Bring all stacks down
-docker compose -f docker-compose.poc.yml down
+docker compose -f docker/docker-compose.poc.yml down
 docker compose -f docker/docker-compose.monitoring.yml down 2>/dev/null || true
-docker compose -f docker-compose.poc.yml \
-               -f docker-compose.python-legacy.yml down 2>/dev/null || true
+docker compose -f docker/docker-compose.poc.yml \
+               -f docker/docker-compose.python-legacy.yml down 2>/dev/null || true
 
 # Remove old named volumes (data backed up above)
 docker volume rm ja4proxy_redis_data ja4proxy_reports_data 2>/dev/null || true
 ```
 
-All three files (`docker-compose.poc.yml`, `docker-compose.python-legacy.yml`,
+All three files (`docker/docker-compose.poc.yml`, `docker/docker-compose.python-legacy.yml`,
 `docker/docker-compose.monitoring.yml`) must be updated in a **single commit**. Running
 `make lint-docker` between partial updates will fail because monitoring's external
 network references will not resolve against the partially-updated base file.
 
-### Implementation — docker-compose.poc.yml: networks
+### Implementation — docker/docker-compose.poc.yml: networks
 
 Rename the four network keys and add explicit `name:` fields:
 
@@ -298,7 +298,7 @@ networks:
     name: ja4proxy-mgmt
 ```
 
-Update every service `networks:` list in `docker-compose.poc.yml`:
+Update every service `networks:` list in `docker/docker-compose.poc.yml`:
 
 | Service | Old network keys | New network keys |
 |---------|-----------------|-----------------|
@@ -313,7 +313,7 @@ Update every service `networks:` list in `docker-compose.poc.yml`:
 | `test` | `dmz_net, data_net, origin_net` | `ja4proxy-dmz, ja4proxy-data, ja4proxy-origin` |
 | `management` | `mgmt_net, data_net` | `ja4proxy-mgmt, ja4proxy-data` |
 
-### Implementation — docker-compose.poc.yml: volumes
+### Implementation — docker/docker-compose.poc.yml: volumes
 
 ```yaml
 # Before
@@ -389,14 +389,14 @@ Also update the comment near line 293 that documents how these names are derived
 
 ```yaml
 # Before
-# Names match the fixed project name in docker-compose.poc.yml (name: ja4proxy).
+# Names match the fixed project name in docker/docker-compose.poc.yml (name: ja4proxy).
 
 # After
-# Names match the explicit name: fields on networks in docker-compose.poc.yml.
+# Names match the explicit name: fields on networks in docker/docker-compose.poc.yml.
 # After Phase 89, poc networks have explicit name: ja4proxy-dmz / ja4proxy-data / ja4proxy-mgmt.
 ```
 
-### Implementation — docker-compose.python-legacy.yml: network references
+### Implementation — docker/docker-compose.python-legacy.yml: network references
 
 ```yaml
 # Before (lines 33–36)
@@ -418,10 +418,10 @@ Update the comment on line 44:
 
 ```yaml
 # Before
-# Networks are declared in docker-compose.poc.yml (dmz_net, data_net, origin_net, mgmt_net).
+# Networks are declared in docker/docker-compose.poc.yml (dmz_net, data_net, origin_net, mgmt_net).
 
 # After
-# Networks are declared in docker-compose.poc.yml (ja4proxy-dmz, ja4proxy-data, ja4proxy-origin, ja4proxy-mgmt).
+# Networks are declared in docker/docker-compose.poc.yml (ja4proxy-dmz, ja4proxy-data, ja4proxy-origin, ja4proxy-mgmt).
 ```
 
 ### Living Documentation Updates
@@ -449,7 +449,7 @@ the host's network stack, bypassing Docker's network isolation for the build pha
 
 Affected build blocks:
 
-- `docker-compose.poc.yml`: proxy, backend, tarpit, trafficgen, analytics, admin-api, test (7 blocks)
+- `docker/docker-compose.poc.yml`: proxy, backend, tarpit, trafficgen, analytics, admin-api, test (7 blocks)
 - `docker/docker-compose.prod.yml`: proxy, analytics, tarpit (3 blocks)
 
 Inspection of each Dockerfile confirms they only install packages via `pip` or `apk`
@@ -478,10 +478,10 @@ that images build successfully:
 
 ```bash
 REDIS_PASSWORD=test BACKEND_HOST=test \
-  docker compose -f docker-compose.poc.yml config --quiet
+  docker compose -f docker/docker-compose.poc.yml config --quiet
 BACKEND_HOST=test \
   docker compose -f docker/docker-compose.prod.yml config --quiet
-docker compose -f docker-compose.poc.yml build --no-cache
+docker compose -f docker/docker-compose.poc.yml build --no-cache
 ```
 
 ### Air-gapped / Custom Build Network Environments
@@ -520,8 +520,8 @@ This substitutes the literal string `changeme` if the variable is unset — an o
 who forgets to set `REDIS_PASSWORD` deploys an exporter authenticating with a
 known-default password. All other compose files use `${REDIS_PASSWORD:?REDIS_PASSWORD is required}`.
 
-Note: `docker-compose.python-legacy.yml` uses `${REDIS_PASSWORD:-}` (empty fallback)
-but this is an overlay that is always used with `docker-compose.poc.yml` as the base.
+Note: `docker/docker-compose.python-legacy.yml` uses `${REDIS_PASSWORD:-}` (empty fallback)
+but this is an overlay that is always used with `docker/docker-compose.poc.yml` as the base.
 The base file enforces `:?` and fails first if the variable is unset, making the
 overlay's pattern harmless in practice. The legacy overlay is **not changed** in this
 phase to avoid redundant error messages.
@@ -554,7 +554,7 @@ docker compose -f docker/docker-compose.monitoring.yml config 2>&1 \
 
 ### Finding
 
-In `docker-compose.poc.yml`, the following permanent services have no `restart:`
+In `docker/docker-compose.poc.yml`, the following permanent services have no `restart:`
 policy (default is `restart: no` — they stay down after a crash until manually restarted):
 
 | Service | Role |
@@ -575,7 +575,7 @@ default stack. When it IS started, it should remain running until explicitly sto
 
 ### Implementation
 
-Add `restart: unless-stopped` to each service listed above in `docker-compose.poc.yml`.
+Add `restart: unless-stopped` to each service listed above in `docker/docker-compose.poc.yml`.
 Place it after the `image:` line and before the first service-specific configuration
 key. Example:
 
@@ -605,10 +605,10 @@ After 89c, six files remain:
 
 | File | Lines | Current documentation |
 |------|-------|-----------------------|
-| `docker-compose.poc.yml` | 418 | Inline comments only |
-| `docker-compose.python-legacy.yml` | 46 | Header comment |
-| `docker-compose.scale.yml` | 92 | Header comment |
-| `docker-compose.test.yml` | 160 | Header comment |
+| `docker/docker-compose.poc.yml` | 418 | Inline comments only |
+| `docker/docker-compose.python-legacy.yml` | 46 | Header comment |
+| `docker/docker-compose.scale.yml` | 92 | Header comment |
+| `docker/docker-compose.test.yml` | 160 | Header comment |
 | `docker/docker-compose.prod.yml` | 369 | Header comment |
 | `docker/docker-compose.monitoring.yml` | 303 | No header |
 
@@ -628,10 +628,10 @@ Read this before running any `docker compose` command.
 
 | File | Type | Environment | Purpose |
 |------|------|-------------|---------|
-| `docker-compose.poc.yml` | Standalone base | Development / POC | Full stack: HAProxy + Go proxy + Redis + tarpit + analytics + admin-api + management |
-| `docker-compose.python-legacy.yml` | Overlay | Development only | Adds Python proxy alongside Go proxy for cross-language parity validation |
-| `docker-compose.scale.yml` | Overlay | Load testing | Replaces single proxy with 4 worker instances behind HAProxy |
-| `docker-compose.test.yml` | Standalone | CI / integration tests | Isolated test environment: Go proxy + Python proxy + TLS backend + recorder + test-runner |
+| `docker/docker-compose.poc.yml` | Standalone base | Development / POC | Full stack: HAProxy + Go proxy + Redis + tarpit + analytics + admin-api + management |
+| `docker/docker-compose.python-legacy.yml` | Overlay | Development only | Adds Python proxy alongside Go proxy for cross-language parity validation |
+| `docker/docker-compose.scale.yml` | Overlay | Load testing | Replaces single proxy with 4 worker instances behind HAProxy |
+| `docker/docker-compose.test.yml` | Standalone | CI / integration tests | Isolated test environment: Go proxy + Python proxy + TLS backend + recorder + test-runner |
 | `docker/docker-compose.prod.yml` | Standalone | Production | Single-instance production stack; uses Docker secrets for credentials |
 | `docker/docker-compose.monitoring.yml` | Overlay (joins POC networks) | Development / POC | Prometheus + Grafana + Loki + Alertmanager; attaches to a running POC stack |
 
@@ -644,7 +644,7 @@ Read this before running any `docker compose` command.
 ```bash
 export REDIS_PASSWORD=$(openssl rand -base64 32)
 export BACKEND_HOST=your-backend.example.com
-docker compose -f docker-compose.poc.yml up -d
+docker compose -f docker/docker-compose.poc.yml up -d
 ```
 
 ### Run the development stack with monitoring
@@ -658,7 +658,7 @@ docker compose -f docker/docker-compose.monitoring.yml up -d
 ### Run the integration test suite (CI)
 
 ```bash
-docker compose -f docker-compose.test.yml up --build \
+docker compose -f docker/docker-compose.test.yml up --build \
   --abort-on-container-exit --exit-code-from test-runner
 ```
 
@@ -667,8 +667,8 @@ Makefile target: `make test-go-docker`
 ### Add the Python proxy for parity comparison
 
 ```bash
-docker compose -f docker-compose.poc.yml \
-               -f docker-compose.python-legacy.yml \
+docker compose -f docker/docker-compose.poc.yml \
+               -f docker/docker-compose.python-legacy.yml \
                --env-file .env.dev up -d
 ```
 
@@ -677,8 +677,8 @@ Makefile target: `make go-start`
 ### Run the multi-worker scaled stack
 
 ```bash
-docker compose -f docker-compose.poc.yml \
-               -f docker-compose.scale.yml up -d
+docker compose -f docker/docker-compose.poc.yml \
+               -f docker/docker-compose.scale.yml up -d
 ```
 
 Makefile target: `make start-scaled`
@@ -704,10 +704,10 @@ BACKEND_HOST=upstream.example.com ENVIRONMENT=production \
 
 | File | Standalone? | Required base |
 |------|-------------|---------------|
-| `docker-compose.poc.yml` | Yes | — |
-| `docker-compose.python-legacy.yml` | No | `docker-compose.poc.yml` |
-| `docker-compose.scale.yml` | No | `docker-compose.poc.yml` |
-| `docker-compose.test.yml` | Yes | — |
+| `docker/docker-compose.poc.yml` | Yes | — |
+| `docker/docker-compose.python-legacy.yml` | No | `docker/docker-compose.poc.yml` |
+| `docker/docker-compose.scale.yml` | No | `docker/docker-compose.poc.yml` |
+| `docker/docker-compose.test.yml` | Yes | — |
 | `docker/docker-compose.prod.yml` | Yes | — |
 | `docker/docker-compose.monitoring.yml` | No | Running POC stack (external network join) |
 
@@ -799,21 +799,21 @@ The Dockerfile Location Policy is documented in `docker/README.md` (created in 8
 `Makefile` line 130 references `docker/docker-compose.scale.yml`:
 
 ```makefile
-@docker compose -f docker-compose.poc.yml -f docker/docker-compose.scale.yml up -d
+@docker compose -f docker/docker-compose.poc.yml -f docker/docker-compose.scale.yml up -d
 ```
 
 The file `docker/docker-compose.scale.yml` does not exist. The actual file is
-`docker-compose.scale.yml` at the repo root. The `start-scaled` target has been broken
+`docker/docker-compose.scale.yml` at the repo root. The `start-scaled` target has been broken
 since it was written.
 
 ### Implementation
 
 ```makefile
 # Before (Makefile line 130)
-@docker compose -f docker-compose.poc.yml -f docker/docker-compose.scale.yml up -d
+@docker compose -f docker/docker-compose.poc.yml -f docker/docker-compose.scale.yml up -d
 
 # After
-@docker compose -f docker-compose.poc.yml -f docker-compose.scale.yml up -d
+@docker compose -f docker/docker-compose.poc.yml -f docker/docker-compose.scale.yml up -d
 ```
 
 ---
@@ -875,13 +875,13 @@ that does not have `external: true`, assert the key contains no underscore chara
 ```python
 assert not Path("docker/docker-compose.test.yml").exists(), (
     "docker/docker-compose.test.yml must be deleted (Phase 89c); "
-    "it is an abandoned stub that collides with docker-compose.test.yml"
+    "it is an abandoned stub that collides with docker/docker-compose.test.yml"
 )
 ```
 
 **Restart policy on permanent services (89g)**
 
-Parse `docker-compose.poc.yml`. Assert that each of `proxy`, `redis`, `backend`,
+Parse `docker/docker-compose.poc.yml`. Assert that each of `proxy`, `redis`, `backend`,
 `tarpit`, `analytics`, `admin-api`, `trafficgen`, `haproxy`, `management` has
 `restart: unless-stopped`.
 
@@ -891,7 +891,7 @@ Parse `docker-compose.poc.yml`. Assert that each of `proxy`, `redis`, `backend`,
 readme = Path("docker/README.md")
 assert readme.exists()
 content = readme.read_text()
-assert "docker-compose.poc.yml" in content
+assert "docker/docker-compose.poc.yml" in content
 assert "docker-compose.monitoring.yml" in content
 # All local markdown links must reference files that exist
 for link in re.findall(r'\[.*?\]\((?!http)(.*?)\)', content):
@@ -934,7 +934,7 @@ match exists.
 **Every Dockerfile in `tests/docker/` is referenced in at least one compose file**
 
 Same as above for `tests/docker/Dockerfile*`. Expected referencing file:
-`docker-compose.test.yml`.
+`docker/docker-compose.test.yml`.
 
 **Every `build.context` resolves to an existing directory**
 
@@ -952,8 +952,8 @@ Parse all compose YAML files. For each service with a `build:` block specifying
 @pytest.mark.skipif(not shutil.which("docker"), reason="Docker not installed")
 def test_standalone_compose_files_validate():
     for compose_file, env in [
-        ("docker-compose.poc.yml", {"REDIS_PASSWORD": "test", "BACKEND_HOST": "lint"}),
-        ("docker-compose.test.yml", {}),
+        ("docker/docker-compose.poc.yml", {"REDIS_PASSWORD": "test", "BACKEND_HOST": "lint"}),
+        ("docker/docker-compose.test.yml", {}),
         ("docker/docker-compose.prod.yml", {"BACKEND_HOST": "lint"}),
     ]:
         result = subprocess.run(
@@ -972,7 +972,7 @@ def test_standalone_compose_files_validate():
 @pytest.mark.skipif(not shutil.which("docker"), reason="Docker not installed")
 def test_monitoring_overlay_references_valid_poc_networks():
     """External network names in monitoring must match explicit name: in poc."""
-    poc = yaml.safe_load(Path("docker-compose.poc.yml").read_text())
+    poc = yaml.safe_load(Path("docker/docker-compose.poc.yml").read_text())
     monitoring = yaml.safe_load(
         Path("docker/docker-compose.monitoring.yml").read_text()
     )
@@ -985,7 +985,7 @@ def test_monitoring_overlay_references_valid_poc_networks():
             declared_name = cfg.get("name", key)
             assert declared_name in poc_network_names, (
                 f"monitoring overlay references network '{declared_name}' "
-                f"which is not declared in docker-compose.poc.yml"
+                f"which is not declared in docker/docker-compose.poc.yml"
             )
 ```
 
@@ -1001,8 +1001,8 @@ test-phase-89:
 
 test-phase-89-lint:
 	REDIS_PASSWORD=lint BACKEND_HOST=lint \
-	  docker compose -f docker-compose.poc.yml config --quiet
-	docker compose -f docker-compose.test.yml config --quiet
+	  docker compose -f docker/docker-compose.poc.yml config --quiet
+	docker compose -f docker/docker-compose.test.yml config --quiet
 	BACKEND_HOST=lint \
 	  docker compose -f docker/docker-compose.prod.yml config --quiet
 ```
@@ -1018,19 +1018,19 @@ test-phase-89-lint:
 - [ ] `docker/Dockerfile.admin` and `docker/Dockerfile.management` added to `HADOLINT_DOCKERFILES` in `Makefile`
 - [ ] `docker/docker-compose.test.yml` does not exist (deleted)
 - [ ] Makefile line 277 comment referencing the deleted stub is removed
-- [ ] All networks in `docker-compose.poc.yml` use hyphen naming with explicit `name:` fields (`ja4proxy-dmz`, `ja4proxy-data`, `ja4proxy-origin`, `ja4proxy-mgmt`)
-- [ ] All volumes in `docker-compose.poc.yml` use hyphen naming (`redis-data`, `redis-sock`, `reports-data`)
+- [ ] All networks in `docker/docker-compose.poc.yml` use hyphen naming with explicit `name:` fields (`ja4proxy-dmz`, `ja4proxy-data`, `ja4proxy-origin`, `ja4proxy-mgmt`)
+- [ ] All volumes in `docker/docker-compose.poc.yml` use hyphen naming (`redis-data`, `redis-sock`, `reports-data`)
 - [ ] `docker/docker-compose.prod.yml` `redis_data` volume renamed to `redis-data`
 - [ ] `docker/docker-compose.monitoring.yml` external network `name:` fields updated to `ja4proxy-dmz`, `ja4proxy-data`, `ja4proxy-mgmt`; stale comment updated
-- [ ] `docker-compose.python-legacy.yml` network references updated to hyphen names
+- [ ] `docker/docker-compose.python-legacy.yml` network references updated to hyphen names
 - [ ] `docs/architecture/ISOLATION_MODEL.md`, `scripts/check-isolation.sh`, `docs/PROJECT_STATUS.md` updated with new network names
 - [ ] Zero occurrences of `network: host` in any `build:` block across all compose files
 - [ ] `docker/docker-compose.monitoring.yml` redis-exporter uses `${REDIS_PASSWORD:?REDIS_PASSWORD is required}` (was `${REDIS_PASSWORD:-changeme}`)
-- [ ] `proxy`, `redis`, `backend`, `tarpit`, `analytics`, `admin-api`, `trafficgen` all have `restart: unless-stopped` in `docker-compose.poc.yml`
+- [ ] `proxy`, `redis`, `backend`, `tarpit`, `analytics`, `admin-api`, `trafficgen` all have `restart: unless-stopped` in `docker/docker-compose.poc.yml`
 - [ ] `docker/README.md` exists with compose file inventory, usage commands per scenario, overlay vs standalone table, network architecture table, and Dockerfile location policy
 - [ ] `src/analytics/Dockerfile` carries `LABEL dockerfile.location="module"`
 - [ ] `tarpit/Dockerfile` carries `LABEL dockerfile.location="module"`
-- [ ] `Makefile` `start-scaled` target references `docker-compose.scale.yml` (not `docker/docker-compose.scale.yml`)
+- [ ] `Makefile` `start-scaled` target references `docker/docker-compose.scale.yml` (not `docker/docker-compose.scale.yml`)
 - [ ] `tests/unit/test_docker_consistency.py` exists; all assertions pass against the fixed files
 - [ ] `tests/integration/test_dockerfile_coverage.py` exists; all assertions pass
 - [ ] `make test-phase-89` passes with zero failures
@@ -1050,10 +1050,10 @@ test-phase-89-lint:
 | `tests/docker/Dockerfile.recorder` | `FROM python:3.14-slim` → `FROM python:3.14.0-slim` |
 | `tests/docker/Dockerfile.tls-backend` | `FROM python:3.14-slim` → `FROM python:3.14.0-slim` |
 | `tests/docker/Dockerfile.test-runner` | Builder: `golang:1.23-alpine` → `golang:1.25-alpine`; Runtime: `python:3.14-slim` → `python:3.14.0-slim` |
-| `Makefile` | Add `docker/Dockerfile.admin` and `docker/Dockerfile.management` to `HADOLINT_DOCKERFILES` (line 279); remove line 277 comment; fix line 130 `docker/docker-compose.scale.yml` → `docker-compose.scale.yml` |
+| `Makefile` | Add `docker/Dockerfile.admin` and `docker/Dockerfile.management` to `HADOLINT_DOCKERFILES` (line 279); remove line 277 comment; fix line 130 `docker/docker-compose.scale.yml` → `docker/docker-compose.scale.yml` |
 | `docker/docker-compose.test.yml` | Delete entirely |
-| `docker-compose.poc.yml` | Rename 4 networks to hyphen form with `name:` fields; rename volumes; update all service network lists; remove `network: host` from 7 build blocks; add `restart: unless-stopped` to 7 services |
-| `docker-compose.python-legacy.yml` | Update 4 network references to hyphen names; update comment on line 44 |
+| `docker/docker-compose.poc.yml` | Rename 4 networks to hyphen form with `name:` fields; rename volumes; update all service network lists; remove `network: host` from 7 build blocks; add `restart: unless-stopped` to 7 services |
+| `docker/docker-compose.python-legacy.yml` | Update 4 network references to hyphen names; update comment on line 44 |
 | `docker/docker-compose.prod.yml` | `redis_data` → `redis-data`; remove `network: host` from 3 build blocks |
 | `docker/docker-compose.monitoring.yml` | Update 3 external network `name:` fields; update stale comment; `${REDIS_PASSWORD:-changeme}` → `${REDIS_PASSWORD:?REDIS_PASSWORD is required}` |
 | `src/analytics/Dockerfile` | Add `LABEL dockerfile.location="module"` |
@@ -1081,8 +1081,8 @@ names before monitoring.yml is updated, as `make lint-docker` will fail between 
 will continue serving the old `3.11-slim` base until you force a rebuild:
 
 ```bash
-docker compose -f docker-compose.poc.yml build --no-cache admin-api management
-docker compose -f docker-compose.test.yml build --no-cache
+docker compose -f docker/docker-compose.poc.yml build --no-cache admin-api management
+docker compose -f docker/docker-compose.test.yml build --no-cache
 ```
 
 Verify the running image actually uses the new base after rebuilding:
@@ -1093,7 +1093,7 @@ docker inspect ja4proxy-admin-api:1.0.0 | python3 -c \
    print([e for e in d[0]['Config']['Env'] if 'PYTHON' in e])"
 ```
 
-**`docker-compose.scale.yml` is not modified in this phase.** It uses its own
+**`docker/docker-compose.scale.yml` is not modified in this phase.** It uses its own
 `ja4proxy_network` which is independent of the POC four-zone model, and it has its own
 `redis-sock` volume reference. Network naming normalisation for the scale file is
 deferred to a future phase.

@@ -206,11 +206,11 @@ bandit -r proxy.py security/ -f screen
 safety check
 
 # 6. Test Docker build
-docker compose -f docker-compose.poc.yml build
+docker compose -f docker/docker-compose.poc.yml build
 
 # 7. Test deployment
-docker compose -f docker-compose.poc.yml up -d
-docker compose -f docker-compose.poc.yml ps
+docker compose -f docker/docker-compose.poc.yml up -d
+docker compose -f docker/docker-compose.poc.yml ps
 # All services should be "Up"
 
 # 8. Test health endpoint
@@ -218,10 +218,10 @@ curl http://localhost:9090/metrics
 # Should return metrics
 
 # 9. Check logs for errors
-docker compose -f docker-compose.poc.yml logs | grep -i error
+docker compose -f docker/docker-compose.poc.yml logs | grep -i error
 
 # 10. Clean up test deployment
-docker compose -f docker-compose.poc.yml down -v
+docker compose -f docker/docker-compose.poc.yml down -v
 ```
 
 ---
@@ -293,7 +293,7 @@ docker compose logs proxy | grep -i security
 ## Phase 14 — Production Hardening Checklist
 
 ### 14a — Startup Secrets
-- [x] No `:-changeme` password fallbacks in any compose file (`docker-compose.poc.yml` uses `:?`)
+- [x] No `:-changeme` password fallbacks in any compose file (`docker/docker-compose.poc.yml` uses `:?`)
 - [x] `ENVIRONMENT=production` + no Redis password → FATAL log + `sys.exit(1)` before any connections accepted
 - [x] JSON structured logging enabled in production (`logging.json_enabled: true`)
 - [x] `SensitiveDataFilter` applied before JSON formatter — passwords/tokens not in log output

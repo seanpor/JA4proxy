@@ -50,16 +50,16 @@ implement kernel-level isolation to prevent post-exploitation persistence.
 
 ### 56c — Ephemeral Filesystem
 
-> `/tmp` tmpfs and `read_only: true` are **already in place** in `docker-compose.poc.yml`.
+> `/tmp` tmpfs and `read_only: true` are **already in place** in `docker/docker-compose.poc.yml`.
 > What remains is applying `/var/run` tmpfs and ensuring the prod compose matches.
 
 - [x] `/tmp` tmpfs (`noexec,nosuid,nodev`) — proxy, redis, backend, tarpit.
-      *(docker-compose.poc.yml)*
-- [x] `read_only: true` root filesystem — all services. *(docker-compose.poc.yml)*
+      *(docker/docker-compose.poc.yml)*
+- [x] `read_only: true` root filesystem — all services. *(docker/docker-compose.poc.yml)*
 - [x] **`/var/run` tmpfs:** `tmpfs: [/var/run:noexec,nosuid,nodev,size=10m]` present in
-      both `docker-compose.poc.yml` (line 75) and `docker/docker-compose.prod.yml` (line 94)
+      both `docker/docker-compose.poc.yml` (line 75) and `docker/docker-compose.prod.yml` (line 94)
       for proxy and redis services.
-- [x] **Prod parity:** `docker/docker-compose.prod.yml` matches `docker-compose.poc.yml` on
+- [x] **Prod parity:** `docker/docker-compose.prod.yml` matches `docker/docker-compose.poc.yml` on
       all ephemeral filesystem settings (`/tmp` and `/var/run` tmpfs, `read_only: true`).
 
 ## Verification Plan

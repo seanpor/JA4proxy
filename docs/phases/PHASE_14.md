@@ -12,14 +12,14 @@ The following items from the DMZ readiness doc and security audit are **already 
 
 | Item | Where |
 |------|--------|
-| Non-root containers, read-only FS, cap_drop ALL, no-new-privileges | `docker-compose.poc.yml` |
-| CPU + memory limits on every container | `docker-compose.poc.yml` |
-| Redis AUTH (`--requirepass`), no host port | `docker-compose.poc.yml` redis service |
-| Redis `maxmemory` + `allkeys-lru` | `docker-compose.poc.yml` REDIS_ARGS |
+| Non-root containers, read-only FS, cap_drop ALL, no-new-privileges | `docker/docker-compose.poc.yml` |
+| CPU + memory limits on every container | `docker/docker-compose.poc.yml` |
+| Redis AUTH (`--requirepass`), no host port | `docker/docker-compose.poc.yml` redis service |
+| Redis `maxmemory` + `allkeys-lru` | `docker/docker-compose.poc.yml` REDIS_ARGS |
 | `stream_max_length` cap on `ja4proxy:events` | `config/proxy.yml` analytics section |
 | Structured log filtering (SensitiveDataFilter) | `proxy.py` |
-| Network segmentation (separate Docker networks) | `docker-compose.poc.yml` |
-| Health check on analytics container | `docker-compose.poc.yml` analytics service |
+| Network segmentation (separate Docker networks) | `docker/docker-compose.poc.yml` |
+| Health check on analytics container | `docker/docker-compose.poc.yml` analytics service |
 | Container security scanning (Bandit, Safety, Trivy) | CI pipeline |
 
 ---
@@ -43,7 +43,7 @@ Implement in order. Each sub-phase has its own acceptance criteria below.
 
 ### Secrets hardening
 
-**Gap 1:** `docker-compose.poc.yml` has `${REDIS_PASSWORD:-changeme}` fallback in four
+**Gap 1:** `docker/docker-compose.poc.yml` has `${REDIS_PASSWORD:-changeme}` fallback in four
 places. If an operator runs `docker compose up` without `../../scripts/start-poc.sh` they get the
 well-known default password.
 
@@ -91,7 +91,7 @@ logging:
 
 ### Acceptance criteria
 
-- [x] `docker-compose.poc.yml`: all four `:-changeme` fallbacks replaced with `:?` error syntax
+- [x] `docker/docker-compose.poc.yml`: all four `:-changeme` fallbacks replaced with `:?` error syntax
 - [x] `proxy.py` startup: `ENVIRONMENT=production` + no password → FATAL log + `sys.exit(1)`
 - [x] `JSONFormatter` class implemented; outputs valid JSON for every log record
 - [x] `SensitiveDataFilter` applied before JSONFormatter; passwords/tokens not in JSON output
@@ -464,7 +464,7 @@ compose file that:
 - Uses a single Redis (not a cluster) — cluster is Phase 15+ territory
 - Uses Loki + Promtail for logging (already in monitoring setup) — **not** ELK
 - Uses Docker secrets for `REDIS_PASSWORD`, `GRAFANA_PASSWORD`, `ABUSEIPDB_API_KEY`
-- Keeps all the security hardening from `docker-compose.poc.yml` (read-only, cap_drop, etc.)
+- Keeps all the security hardening from `docker/docker-compose.poc.yml` (read-only, cap_drop, etc.)
 - References only files that actually exist in the repo
 
 The management UI service should be included (Phase 13 will have built it by the time
@@ -553,7 +553,7 @@ All Phase 14 config values are hot-reloadable (apply to next connection).
 ## Acceptance Criteria (Complete Phase Gate)
 
 ### 14a — Startup hardening
-- [x] `docker-compose.poc.yml`: no `:-changeme` fallbacks remain
+- [x] `docker/docker-compose.poc.yml`: no `:-changeme` fallbacks remain
 - [x] Production startup without password: FATAL + exit 1
 - [x] JSON logging: all log lines valid JSON when enabled
 - [x] `SensitiveDataFilter` active before JSON formatter

@@ -42,7 +42,7 @@ static IPs, not env-var-resolved hostnames) and correctly defers that to the nft
 
 **Both compose files fully match on ephemeral filesystem settings.**
 `/tmp` and `/var/run` tmpfs with `noexec,nosuid,nodev` enforced in both
-`docker-compose.poc.yml` and `docker/docker-compose.prod.yml`. `read_only: true` on all
+`docker/docker-compose.poc.yml` and `docker/docker-compose.prod.yml`. `read_only: true` on all
 services. This is the strongest defence against write-based persistence attacks.
 
 **Seccomp profile is comprehensive.**

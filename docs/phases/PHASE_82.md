@@ -229,7 +229,7 @@ The storage backend for shadow mode signal data must be decided and recorded in 
 **Decision process:**
 1. Estimate the target deployment's connection volume (connections/month).
 2. If ≤ 50M connections/month: use Option A (Redis).
-3. If > 50M connections/month: use Option B (ClickHouse). Add it to `docker-compose.poc.yml` and Helm chart.
+3. If > 50M connections/month: use Option B (ClickHouse). Add it to `docker/docker-compose.poc.yml` and Helm chart.
 4. Record the decision in `docs/decisions/ADR-NNN.md` before writing any shadow mode code.
 
 The acceptance criteria gate: no shadow mode implementation starts until the ADR is committed.

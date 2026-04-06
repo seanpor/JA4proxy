@@ -445,11 +445,11 @@ make go-build-ja4check
 make capture-fixtures
 
 # Start the full test stack
-docker compose -f docker-compose.test.yml up --build \
+docker compose -f docker/docker-compose.test.yml up --build \
   --abort-on-container-exit --exit-code-from test-runner
 
 # If you want to see which tests pass/fail:
-docker compose -f docker-compose.test.yml logs test-runner
+docker compose -f docker/docker-compose.test.yml logs test-runner
 ```
 
 For each passing test, tick the corresponding box in `docs/phases/PHASE_15.md`
@@ -778,17 +778,17 @@ fixtures for the JA4 parity test.
 
 ```bash
 # Start the recorder service
-docker compose -f docker-compose.test.yml up -d recorder
+docker compose -f docker/docker-compose.test.yml up -d recorder
 
 # Wait a few seconds for it to start
 sleep 3
 
 # Run the browser fixture generator
-docker compose -f docker-compose.test.yml run --rm browser \
+docker compose -f docker/docker-compose.test.yml run --rm browser \
   python3 scripts/generate_fixtures_browser.py --recorder-host recorder
 
 # Stop the recorder
-docker compose -f docker-compose.test.yml stop recorder
+docker compose -f docker/docker-compose.test.yml stop recorder
 ```
 
 Or use the Makefile target:

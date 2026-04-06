@@ -53,10 +53,10 @@ GOROOT=/snap/go/current go build -o ja4proxy ./cmd/proxy/
 ./ja4proxy --config config/proxy.yml
 
 # Docker build
-GOROOT=/snap/go/current docker-compose -f docker-compose.go.yml build
+GOROOT=/snap/go/current docker-compose -f docker/docker-compose.go.yml build
 
 # Run Go proxy
-GOROOT=/snap/go/current docker-compose -f docker-compose.go.yml up go-proxy
+GOROOT=/snap/go/current docker-compose -f docker/docker-compose.go.yml up go-proxy
 ```
 
 ### Development Workflow

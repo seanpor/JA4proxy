@@ -444,7 +444,7 @@ pod disruption budgets, and secrets management via Kubernetes Secrets or Vault.
 ```
 deploy/helm/ja4proxy/
 ├── Chart.yaml
-├── values.yaml             # Default values matching docker-compose.poc.yml
+├── values.yaml             # Default values matching docker/docker-compose.poc.yml
 ├── templates/
 │   ├── deployment.yaml     # proxy + anti-affinity for multi-node spread
 │   ├── service.yaml        # ClusterIP for HAProxy upstream

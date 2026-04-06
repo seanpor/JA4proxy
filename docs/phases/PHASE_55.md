@@ -31,14 +31,14 @@ enforcement to detect and contain sophisticated adversaries.
 ### 55c — Strict Container Sandbox (Seccomp/AppArmor)
 
 > `read_only: true`, `cap_drop: [ALL]`, `security_opt: [no-new-privileges:true]`, and `/tmp`
-> tmpfs are already in place in `docker-compose.poc.yml`. What remains is writing and loading
+> tmpfs are already in place in `docker/docker-compose.poc.yml`. What remains is writing and loading
 > the explicit Seccomp and AppArmor profile files.
 
 - [x] `read_only: true`, `cap_drop: [ALL]`, `no-new-privileges`, `/tmp` tmpfs — all services.
-      *(docker-compose.poc.yml)*
+      *(docker/docker-compose.poc.yml)*
 - [ ] **Seccomp Profile:** Create `config/seccomp/proxy.json` forbidding `execve`, `fork`, and
       `clone`. Apply via `security_opt: [seccomp:config/seccomp/proxy.json]` in both
-      `docker-compose.poc.yml` and `docker/docker-compose.prod.yml`.
+      `docker/docker-compose.poc.yml` and `docker/docker-compose.prod.yml`.
 - [ ] **AppArmor Profile:** Define `config/apparmor/ja4proxy` — restrict file access to
       read-only paths; deny all outbound connections except to `$BACKEND_HOST` and
       `$REDIS_HOST`. Apply in both compose files.

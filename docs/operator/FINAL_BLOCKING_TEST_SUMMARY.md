@@ -149,7 +149,7 @@ ja4proxy_monitor_counterfactual_total{action="block",dial="100"} 1700  ← ~1,70
 
 2. **Ensure config is mounted correctly**:
    ```yaml
-   # docker-compose.poc.yml
+   # docker/docker-compose.poc.yml
    volumes:
      - ./config:/app/config:ro  # ✅ Correct
    ```

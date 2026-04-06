@@ -180,7 +180,7 @@ backward-compatible.
 
 | File | Change |
 |------|--------|
-| `docker-compose.poc.yml` | Add `./geoip:/app/geoip:ro` volume to proxy service |
+| `docker/docker-compose.poc.yml` | Add `./geoip:/app/geoip:ro` volume to proxy service |
 | `Makefile` | Add `agent-up`, `agent-down`, `agent-status` targets and help text |
 | `scripts/ja4-admin.sh` | Add `--agent` flag parsing block (exact code above) |
 | `CHANGELOG.md` | Phase 74 entry |

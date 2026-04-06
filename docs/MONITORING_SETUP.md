@@ -464,7 +464,7 @@ curl http://localhost:9091/api/v1/alerts | \
 
 ```bash
 # Stop JA4proxy
-docker compose -f docker-compose.poc.yml stop proxy
+docker compose -f docker/docker-compose.poc.yml stop proxy
 
 # Wait 1 minute
 sleep 60
@@ -474,7 +474,7 @@ curl http://localhost:9091/api/v1/alerts | \
   jq '.data.alerts[] | select(.labels.alertname=="JA4ProxyServiceDown")'
 
 # Restart service
-docker compose -f docker-compose.poc.yml start proxy
+docker compose -f docker/docker-compose.poc.yml start proxy
 ```
 
 ---

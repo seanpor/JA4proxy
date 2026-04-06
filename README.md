@@ -266,7 +266,7 @@ A Go implementation of the full proxy core is available at `cmd/proxy/`. It is a
 
 ```bash
 make go-build
-docker compose -f docker-compose.poc.yml -f docker-compose.go.yml up -d go-proxy
+docker compose -f docker/docker-compose.poc.yml -f docker/docker-compose.go.yml up -d go-proxy
 ```
 
 **What is verified:**
