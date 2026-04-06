@@ -7,23 +7,23 @@ groups:
     rules:
       # Request rate per minute
       - record: ja4:requests:rate1m
-        expr: rate(ja4_requests_total[1m])
+        expr: rate(ja4proxy_connections_total[1m])
 
       # Request rate per 5 minutes
       - record: ja4:requests:rate5m
-        expr: rate(ja4_requests_total[5m])
+        expr: rate(ja4proxy_connections_total[5m])
 
       # Block rate per minute
       - record: ja4:blocked:rate1m
-        expr: rate(ja4_blocked_requests_total[1m])
+        expr: rate(ja4proxy_connections_total{action=~"block|ban"}[1m])
 
       # Block percentage
       - record: ja4:blocked:percentage
         expr: |
           (
-            rate(ja4_blocked_requests_total[5m])
+            rate(ja4proxy_connections_total{action=~"block|ban"}[5m])
             /
-            rate(ja4_requests_total[5m])
+            rate(ja4proxy_connections_total[5m])
           ) * 100
 
       # Security events by tier
@@ -35,13 +35,13 @@ groups:
         expr: |
           topk(10,
             sum by (ja4_fingerprint) (
-              increase(ja4_blocked_requests_total[1h])
+              increase(ja4proxy_connections_total{action=~"block|ban"}[1h])
             )
           )
 
       # Unique fingerprints seen
       - record: ja4:fingerprints:unique_count
-        expr: count(count by (ja4_fingerprint) (ja4_requests_total))
+        expr: count(count by (ja4_fingerprint) (ja4proxy_connections_total))
 
       # Active connections
       - record: ja4:connections:active
@@ -55,25 +55,25 @@ groups:
         expr: |
           topk(20,
             sum by (client_ip) (
-              increase(ja4_rate_limit_exceeded_total[1h])
+              increase(ja4proxy_connections_total{action="rate_limit"}[1h])
             )
           )
 
       # Banned fingerprints count
       - record: ja4:banned:count
-        expr: sum(increase(ja4_security_events_total{tier="banned"}[1h]))
+        expr: sum(increase(ja4proxy_connections_total{action="ban"}[1h]))
 
       # Suspicious activity rate
       - record: ja4:suspicious:rate
-        expr: rate(ja4_security_events_total{tier="suspicious"}[5m])
+        expr: rate(ja4proxy_connections_total{action="flag"}[5m])
 
       # Whitelist hit rate
       - record: ja4:whitelist:hit_rate
-        expr: rate(ja4_whitelist_hits_total[5m])
+        expr: rate(ja4proxy_connections_total{action="allow",bypass="whitelist"}[5m])
 
       # Blacklist hit rate
       - record: ja4:blacklist:hit_rate
-        expr: rate(ja4_blacklist_hits_total[5m])
+        expr: rate(ja4proxy_connections_total{action="block",bypass="blacklist"}[5m])
 
   - name: ja4proxy_performance
     interval: 30s
@@ -81,29 +81,67 @@ groups:
       # Average request latency
       - record: ja4:latency:avg
         expr: |
-          rate(ja4_request_duration_seconds_sum[5m])
+          rate(ja4proxy_connection_duration_seconds_sum[5m])
           /
-          rate(ja4_request_duration_seconds_count[5m])
+          rate(ja4proxy_connection_duration_seconds_count[5m])
 
       # 95th percentile latency
       - record: ja4:latency:p95
-        expr: histogram_quantile(0.95, rate(ja4_request_duration_seconds_bucket[5m]))
+        expr: histogram_quantile(0.95, rate(ja4proxy_connection_duration_seconds_bucket[5m]))
 
       # 99th percentile latency
       - record: ja4:latency:p99
-        expr: histogram_quantile(0.99, rate(ja4_request_duration_seconds_bucket[5m]))
+        expr: histogram_quantile(0.99, rate(ja4proxy_connection_duration_seconds_bucket[5m]))
 
       # Error rate
       - record: ja4:errors:rate
-        expr: rate(ja4_errors_total[5m])
+        expr: rate(ja4proxy_errors_total[5m])
 
       # Success rate percentage
       - record: ja4:success:percentage
         expr: |
           (
             1 - (
-              rate(ja4_errors_total[5m])
+              rate(ja4proxy_errors_total[5m])
               /
-              rate(ja4_requests_total[5m])
+              rate(ja4proxy_connections_total[5m])
             )
           ) * 100
+
+  - name: ja4proxy_infra_aggregations
+    interval: 30s
+    rules:
+      # Host CPU utilisation percentage
+      - record: ja4proxy:cpu_utilization:pct
+        expr: 100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100)
+
+      # Normalised load average (load1 / CPU count)
+      - record: ja4proxy:load_normalized
+        expr: >
+          node_load1
+          / count(node_cpu_seconds_total{mode="idle"}) without (cpu)
+
+      # File descriptor utilisation percentage
+      - record: ja4proxy:filefd_utilization:pct
+        expr: node_filefd_allocated / node_filefd_maximum * 100
+
+      # Container memory as percentage of configured limit
+      - record: ja4proxy:container_mem_pct
+        expr: >
+          container_memory_working_set_bytes
+          / clamp_min(container_spec_memory_limit_bytes, 1) * 100
+
+      # Container CPU throttle ratio (0-1)
+      - record: ja4proxy:container_cpu_throttle_ratio
+        expr: >
+          rate(container_cpu_cfs_throttled_seconds_total[2m])
+          / clamp_min(rate(container_cpu_usage_seconds_total[2m]), 1e-6)
+
+      # Average inbound packet size — SYN flood drops this toward 60-80 bytes
+      - record: ja4proxy:network_avg_pkt_size_bytes
+        expr: >
+          rate(node_network_receive_bytes_total{device!~"lo|docker.*|br-.*"}[2m])
+          / clamp_min(
+              rate(node_network_receive_packets_total{device!~"lo|docker.*|br-.*"}[2m]),
+              1
+            )
