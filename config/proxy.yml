@@ -250,6 +250,13 @@ backup:
       prefix: "backups/"                        # phase-57b: key prefix in bucket
       storage_class: "STANDARD"                 # phase-57b: STANDARD | GLACIER
       retention_days: 90                        # phase-57b: delete objects older than N days
+    gcs:
+      bucket: "${BACKUP_GCS_BUCKET}"            # phase-57c: GCS bucket name
+      project_id: "${BACKUP_GCS_PROJECT_ID}"    # phase-57c: Google Cloud project ID
+      credentials_path: "${BACKUP_GCS_CREDENTIALS_PATH}"  # phase-57c: path to service account JSON (optional; uses ADC when unset)
+      prefix: "backups/"                        # phase-57c: object name prefix in bucket
+      storage_class: "STANDARD"                 # phase-57c: STANDARD | NEARLINE | COLDLINE | ARCHIVE
+      retention_days: 90                        # phase-57c: delete objects older than N days
 # Logging configuration
 logging:
   level: "INFO"
