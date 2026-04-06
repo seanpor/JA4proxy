@@ -8,10 +8,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🔵 Planned & Open Phases
 
-### Phase 57 — Backup System Enhancements - Phase 3: Cloud & Incrementals
-*   **Status:** **PROPOSED** (Add cloud storage adapters (S3/GCS) and incremental backup strategy.)
-*   **Action Plan:** [PHASE_57.md](PHASE_57.md)
-
 ### Phase 60 — Master Plan and Governance
 *   **Status:** **PROPOSED** (Comprehensive quality improvement roadmap and governance framework.)
 *   **Action Plan:** [PHASE_60.md](PHASE_60.md)

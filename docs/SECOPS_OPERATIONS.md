@@ -585,3 +585,54 @@ The following key patterns are never included in backups:
 All backup and restore operations are logged in:
 - `management:audit_log` Redis list
 - Structured JSON logs with `subsystem: "backup"` or `subsystem: "restore"`
+
+---
+
+## Cloud Backup Operations (Phase 57)
+
+Phase 57 adds optional cloud upload of completed local backup artifacts to AWS S3
+or Google Cloud Storage. The local artifact is always written first; cloud upload is
+a non-blocking async step. Cloud upload failure is non-fatal and never prevents the
+local artifact from being available for restore.
+
+Full operational procedures are in the dedicated runbook:
+**[docs/runbooks/cloud_backup_operations.md](runbooks/cloud_backup_operations.md)**
+
+### Quick Reference
+
+```bash
+# Upload a local artifact to S3
+python3 scripts/ja4proxy_admin.py backup cloud upload /app/backups/backup_latest.bin --provider s3
+
+# List artifacts in S3
+python3 scripts/ja4proxy_admin.py backup cloud list --provider s3
+
+# Download an artifact from GCS for DR restore
+python3 scripts/ja4proxy_admin.py backup cloud download backup_20260406T020000Z.bin \
+  --provider gcs --dest /tmp/recovery/
+
+# Restore with fallback (Phase 57f)
+python3 scripts/ja4proxy_admin.py backup restore primary.bin primary.bin.manifest.json \
+  --fallback fallback.bin --confirm
+
+# DSAR: redact a subject's IP before cloud upload
+python3 scripts/ja4proxy_admin.py backup dsar-redact /app/backups/backup_latest.bin \
+  --ip 192.0.2.1 --output /app/backups/backup_latest_redacted.bin
+```
+
+### Key Metrics
+
+| Metric | Alert condition |
+|--------|----------------|
+| `ja4proxy_backup_cloud_upload_total{result="failure"}` | Any non-zero value warrants investigation |
+| `ja4proxy_backup_cloud_upload_total{result="success"}` | Should be non-zero after each scheduled backup window |
+| `ja4proxy_backup_last_success_timestamp` | No successful local backup in 25 hours |
+
+### Manifest Fields Added in Phase 57
+
+| Field | Description |
+|-------|-------------|
+| `format_version` | `1` for all Phase 57+ artifacts; absent in legacy artifacts |
+| `format_flags` | Bitmask: `0x01`=full, `0x02`=incremental (reserved), `0x04`=encrypted |
+| `dsar_scanned` | `true` if DSAR redaction has been run against this artifact |
+| `sequence_number` | `0` for full backups; reserved for incremental chain (Phase 58) |
