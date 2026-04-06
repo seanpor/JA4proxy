@@ -28,8 +28,8 @@ echo "────────────────────────�
 echo ""
 echo "Containers:"
 for svc in haproxy proxy redis backend tarpit; do
-    if docker compose -f docker-compose.poc.yml ps "$svc" --format '{{.Status}}' 2>/dev/null | grep -qi "Up"; then
-        STATUS=$(docker compose -f docker-compose.poc.yml ps "$svc" --format '{{.Status}}' 2>/dev/null)
+    if docker compose -f docker/docker-compose.poc.yml ps "$svc" --format '{{.Status}}' 2>/dev/null | grep -qi "Up"; then
+        STATUS=$(docker compose -f docker/docker-compose.poc.yml ps "$svc" --format '{{.Status}}' 2>/dev/null)
         pass "$svc  ($STATUS)"
     else
         fail "$svc  — not running"
@@ -52,7 +52,7 @@ curl -sf --max-time 3 http://localhost:8404/stats > /dev/null 2>&1 \
     && pass "HAProxy stats       http://localhost:8404/stats" \
     || fail "HAProxy stats       http://localhost:8404/stats — not reachable"
 
-docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning ping > /dev/null 2>&1 \
+docker compose -f docker/docker-compose.poc.yml exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning ping > /dev/null 2>&1 \
     && pass "Redis               authenticated connection OK" \
     || fail "Redis               — not reachable or wrong password"
 
@@ -60,8 +60,8 @@ docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "$REDIS_PASS
 echo ""
 echo "Security state:"
 
-BL=$(docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning SCARD ja4:blacklist 2>/dev/null || echo 0)
-WL=$(docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning SCARD ja4:whitelist 2>/dev/null || echo 0)
+BL=$(docker compose -f docker/docker-compose.poc.yml exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning SCARD ja4:blacklist 2>/dev/null || echo 0)
+WL=$(docker compose -f docker/docker-compose.poc.yml exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning SCARD ja4:whitelist 2>/dev/null || echo 0)
 if [ "${BL:-0}" -gt 0 ]; then
     pass "JA4 blacklist:  $BL fingerprints loaded"
 else
@@ -81,7 +81,7 @@ fi
 echo ""
 echo "Configuration:"
 [ -f config/proxy.yml ]        && pass "config/proxy.yml" || fail "config/proxy.yml — missing"
-[ -f docker-compose.poc.yml ]  && pass "docker-compose.poc.yml" || fail "docker-compose.poc.yml — missing"
+[ -f docker/docker-compose.poc.yml ]  && pass "docker-compose.poc.yml" || fail "docker-compose.poc.yml — missing"
 [ -f .env ]                    && pass ".env (credentials file)" || warn ".env missing — run ./scripts/start-poc.sh to auto-generate"
 
 # ── Summary ─────────────────────────────────────────────────────────────────────

@@ -22,7 +22,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # Test configuration
-COMPOSE_FILE="docker-compose.poc.yml"
+COMPOSE_FILE="docker/docker-compose.poc.yml"
 TEST_CONTAINER="ja4proxy-test"
 REPORTS_DIR="reports"
 EXIT_CODE=0
