@@ -160,3 +160,504 @@ groups:
           summary: "Analytics node lagging ({{ $value | humanizeDuration }})"
           description: "The analytics consumer is behind the proxy event stream. Cross-instance signals (campaign, slow-scan) may be stale."
           runbook: "docs/runbooks/analytics_lag.md"
+
+  # ── Infrastructure ──────────────────────────────────────────────────────────
+  - name: ja4proxy_infrastructure
+    interval: 60s
+    rules:
+
+      - alert: NodeHighCPU
+        expr: ja4proxy:cpu_utilization:pct > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+          alert_type: infrastructure
+        annotations:
+          summary: "Host CPU above 80% ({{ $value | humanize }}%)"
+          description: >
+            CPU has exceeded 80% for 5 minutes. A large attack or misconfigured
+            signal module is the most likely cause. Check block rate and tarpit count.
+          runbook_url: "docs/runbooks/infrastructure.md#host-cpu-high"
+
+      - alert: NodeCriticalCPU
+        expr: ja4proxy:cpu_utilization:pct > 95
+        for: 2m
+        labels:
+          severity: critical
+          component: infrastructure
+          alert_type: infrastructure
+        annotations:
+          summary: "Host CPU saturated ({{ $value | humanize }}%)"
+          description: >
+            CPU above 95% for 2 minutes. Proxy will begin dropping connections.
+            Consider upstream HAProxy rate limiting or lowering the scoring dial.
+          runbook_url: "docs/runbooks/infrastructure.md#host-cpu-critical"
+
+      - alert: NodeHighLoad
+        expr: ja4proxy:load_normalized > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+          alert_type: infrastructure
+        annotations:
+          summary: "Normalised load above 0.8 ({{ $value | humanize }}×)"
+          description: >
+            Load average (normalised by CPU count) above 0.8 for 5 minutes.
+            Unlike CPU%, high load also catches I/O wait and memory pressure.
+            Check disk I/O (Redis AOF fsync), DNS resolution queuing, and swap.
+          runbook_url: "docs/runbooks/infrastructure.md#high-load"
+
+      - alert: NodeCriticalLoad
+        expr: ja4proxy:load_normalized > 1.5
+        for: 2m
+        labels:
+          severity: critical
+          component: infrastructure
+          alert_type: infrastructure
+        annotations:
+          summary: "Normalised load above 1.5 ({{ $value | humanize }}×)"
+          description: >
+            Severe load saturation. Every CPU core has more than 1.5 tasks queued.
+            Proxy latency will degrade. Investigate I/O bottlenecks before CPU.
+          runbook_url: "docs/runbooks/infrastructure.md#critical-load"
+
+      - alert: NodeHighMemory
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+          alert_type: infrastructure
+        annotations:
+          summary: "Host memory above 85% ({{ $value | humanize }}%)"
+          description: >
+            Available memory is low. If Redis has no memory limit, it may be the
+            cause. OOM kill risk is elevated for all containers.
+          runbook_url: "docs/runbooks/infrastructure.md#host-memory-high"
+
+      - alert: NodeCriticalMemory
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          component: infrastructure
+          alert_type: infrastructure
+        annotations:
+          summary: "Host memory near exhaustion ({{ $value | humanize }}%)"
+          description: >
+            Memory above 95%. OOM kill of proxy or Redis is imminent.
+            If Redis is killed, the proxy fails open — all connections are allowed.
+          runbook_url: "docs/runbooks/infrastructure.md#host-memory-critical"
+
+      - alert: NodeFileDescriptorsHigh
+        expr: ja4proxy:filefd_utilization:pct > 70
+        for: 2m
+        labels:
+          severity: warning
+          component: infrastructure
+          alert_type: infrastructure
+        annotations:
+          summary: "File descriptors above 70% ({{ $value | humanize }}%)"
+          description: >
+            Each active connection uses at least 2 file descriptors (client + backend socket).
+            At ~80%, new accept() calls will return EMFILE and connections will be
+            refused at OS level — silently, without any application log entry.
+          runbook_url: "docs/runbooks/infrastructure.md#file-descriptors"
+
+      - alert: NodeFileDescriptorsCritical
+        expr: ja4proxy:filefd_utilization:pct > 85
+        for: 1m
+        labels:
+          severity: critical
+          component: infrastructure
+          alert_type: infrastructure
+        annotations:
+          summary: "File descriptors critical ({{ $value | humanize }}%)"
+          description: >
+            OS is likely already refusing new connections with EMFILE.
+            Connection rate will drop (no new accepts) while the attack continues.
+            Increase fs.file-max sysctl or reduce active connections immediately.
+          runbook_url: "docs/runbooks/infrastructure.md#file-descriptors-critical"
+
+      - alert: NodeDiskSpaceLow
+        expr: >
+          (1 - (
+            node_filesystem_avail_bytes{fstype!~"tmpfs|devtmpfs|overlay|squashfs"}
+            / node_filesystem_size_bytes{fstype!~"tmpfs|devtmpfs|overlay|squashfs"}
+          )) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+          alert_type: infrastructure
+        annotations:
+          summary: "Disk {{ $labels.mountpoint }} above 80% ({{ $value | humanize }}%)"
+          description: >
+            Disk filling. Common causes: log growth, Redis RDB snapshots, backup
+            retention not running. Check log rotation and Redis appendonly config.
+          runbook_url: "docs/runbooks/infrastructure.md#disk-low"
+
+      - alert: NodeDiskSpaceCritical
+        expr: >
+          (1 - (
+            node_filesystem_avail_bytes{fstype!~"tmpfs|devtmpfs|overlay|squashfs"}
+            / node_filesystem_size_bytes{fstype!~"tmpfs|devtmpfs|overlay|squashfs"}
+          )) * 100 > 90
+        for: 5m
+        labels:
+          severity: critical
+          component: infrastructure
+          alert_type: infrastructure
+        annotations:
+          summary: "Disk {{ $labels.mountpoint }} above 90% ({{ $value | humanize }}%)"
+          description: >
+            Disk critically full. Redis AOF/RDB writes and log rotation will fail.
+            Redis may crash. Immediate remediation required.
+          runbook_url: "docs/runbooks/infrastructure.md#disk-critical"
+
+      - alert: NodeInodesLow
+        expr: >
+          node_filesystem_files_free{fstype!~"tmpfs|devtmpfs|overlay|squashfs"}
+          / node_filesystem_files{fstype!~"tmpfs|devtmpfs|overlay|squashfs"} * 100 < 20
+        for: 10m
+        labels:
+          severity: warning
+          component: infrastructure
+          alert_type: infrastructure
+        annotations:
+          summary: "Inodes below 20% free on {{ $labels.mountpoint }}"
+          description: >
+            Inode exhaustion is independent of disk space. When inodes run out,
+            new files cannot be created — Redis AOF rotation, log writes, and
+            tmpfile operations all fail even if disk space is available.
+          runbook_url: "docs/runbooks/infrastructure.md#inodes"
+
+      - alert: NodeEntropyLow
+        expr: node_entropy_available_bytes < 512
+        for: 2m
+        labels:
+          severity: warning
+          component: infrastructure
+          alert_type: infrastructure
+        annotations:
+          summary: "Kernel entropy pool below 512 bytes ({{ $value }} bytes)"
+          description: >
+            TLS handshakes consume entropy. Under heavy load, entropy can be
+            depleted and new TLS contexts stall waiting for replenishment.
+            Ensure rng-tools or haveged is running on the host.
+          runbook_url: "docs/runbooks/infrastructure.md#entropy"
+
+  # ── Container health ────────────────────────────────────────────────────────
+  - name: ja4proxy_container
+    interval: 60s
+    rules:
+
+      - alert: ContainerOOMKilled
+        expr: >
+          increase(container_oom_events_total{
+            name=~"ja4proxy.*|proxy|redis|analytics"
+          }[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          component: infrastructure
+          alert_type: infrastructure
+        annotations:
+          summary: "OOM kill in container {{ $labels.name }}"
+          description: >
+            {{ $labels.name }} was OOM-killed. If proxy: active connections dropped.
+            If Redis: proxy fails open until Redis restarts and state is rebuilt.
+          runbook_url: "docs/runbooks/infrastructure.md#oom-kill"
+
+      - alert: ContainerRestartLoop
+        expr: >
+          changes(container_start_time_seconds{
+            name=~"ja4proxy.*|proxy|redis|analytics"
+          }[30m]) >= 2
+        for: 0m
+        labels:
+          severity: critical
+          component: infrastructure
+          alert_type: infrastructure
+        annotations:
+          summary: "Container {{ $labels.name }} restarting repeatedly ({{ $value }} times in 30m)"
+          description: >
+            Crash-restart loop detected. Check container logs. If the proxy is
+            restarting, traffic is unprotected during restart intervals.
+          runbook_url: "docs/runbooks/infrastructure.md#restart-loop"
+
+      - alert: ContainerMemoryHigh
+        expr: >
+          ja4proxy:container_mem_pct{
+            name=~"ja4proxy.*|proxy|redis|analytics"
+          } > 85
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+          alert_type: infrastructure
+        annotations:
+          summary: "Container {{ $labels.name }} memory above 85% of limit"
+          description: >
+            {{ $labels.name }} is using {{ $value | humanize }}% of its memory limit.
+            OOM kill risk is elevated. Review memory limit and recent growth.
+          runbook_url: "docs/runbooks/infrastructure.md#container-memory"
+
+      - alert: ContainerCPUThrottleHigh
+        expr: >
+          ja4proxy:container_cpu_throttle_ratio{
+            name=~"proxy|redis|analytics"
+          } > 0.20
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+          alert_type: infrastructure
+        annotations:
+          summary: "Container {{ $labels.name }} CPU throttled {{ $value | humanizePercentage }}"
+          description: >
+            {{ $labels.name }} is spending {{ $value | humanizePercentage }} of its time
+            suspended waiting for CPU quota. This directly causes connection latency spikes
+            even when host CPU% looks healthy. Increase the container's cpus limit.
+          runbook_url: "docs/runbooks/infrastructure.md#cpu-throttle"
+
+  # ── HAProxy ─────────────────────────────────────────────────────────────────
+  - name: ja4proxy_haproxy
+    interval: 30s
+    rules:
+
+      - alert: HAProxyBackendQueueing
+        expr: haproxy_backend_current_queue{proxy="ja4proxy"} > 0
+        for: 30s
+        labels:
+          severity: warning
+          component: haproxy
+          alert_type: infrastructure
+        annotations:
+          summary: "HAProxy queuing {{ $value }} connections to JA4proxy backend"
+          description: >
+            JA4proxy backend is at capacity. HAProxy is holding connections in queue.
+            This is the earliest reliable saturation signal. Check proxy CPU and
+            active connection count. Consider raising HAProxy backend maxconn.
+          runbook_url: "docs/runbooks/infrastructure.md#haproxy-queue"
+
+      - alert: HAProxySessionLimitApproaching
+        expr: >
+          haproxy_frontend_current_sessions
+          / haproxy_frontend_limit_sessions * 100 > 80
+        for: 2m
+        labels:
+          severity: warning
+          component: haproxy
+          alert_type: infrastructure
+        annotations:
+          summary: "HAProxy session limit above 80% ({{ $value | humanize }}%)"
+          description: >
+            HAProxy is approaching its maximum session count. When the limit is
+            reached, new connections are rejected at the load balancer with a 503.
+          runbook_url: "docs/runbooks/infrastructure.md#haproxy-sessions"
+
+      - alert: HAProxyBackendDown
+        expr: haproxy_server_status{proxy="ja4proxy"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: haproxy
+          alert_type: infrastructure
+        annotations:
+          summary: "HAProxy backend {{ $labels.server }} is DOWN"
+          description: >
+            HAProxy has marked JA4proxy backend {{ $labels.server }} as DOWN.
+            Traffic is not being forwarded to this instance.
+          runbook_url: "docs/runbooks/infrastructure.md#haproxy-backend-down"
+
+      - alert: HAProxyConnectionErrorRate
+        expr: rate(haproxy_server_connection_errors_total{proxy="ja4proxy"}[2m]) > 1
+        for: 2m
+        labels:
+          severity: warning
+          component: haproxy
+          alert_type: infrastructure
+        annotations:
+          summary: "HAProxy connection errors to JA4proxy ({{ $value | humanize }}/s)"
+          description: >
+            HAProxy is failing to establish connections to JA4proxy backends.
+            May indicate proxy crash-restart loop or TCP backlog overflow.
+          runbook_url: "docs/runbooks/infrastructure.md#haproxy-connection-errors"
+
+  # ── Capacity prediction ──────────────────────────────────────────────────────
+  - name: ja4proxy_capacity
+    interval: 60s
+    rules:
+
+      - alert: DiskWillFillIn24h
+        expr: >
+          predict_linear(
+            node_filesystem_avail_bytes{fstype!~"tmpfs|devtmpfs|overlay|squashfs"}[6h],
+            86400
+          ) < 0
+        for: 30m
+        labels:
+          severity: warning
+          component: infrastructure
+          alert_type: infrastructure
+        annotations:
+          summary: "{{ $labels.mountpoint }} predicted full within 24h"
+          description: >
+            Based on the growth rate over the last 6 hours, {{ $labels.mountpoint }}
+            will run out of space within 24 hours. Check log rotation schedule and
+            Redis RDB/AOF file sizes. Act now — not when the threshold alert fires.
+          runbook_url: "docs/runbooks/infrastructure.md#disk-prediction"
+
+      - alert: RedisMemoryWillHitLimitIn1h
+        expr: >
+          predict_linear(
+            container_memory_working_set_bytes{name="redis"}[1h],
+            3600
+          ) > on() group_left()
+            container_spec_memory_limit_bytes{name="redis"}
+        for: 10m
+        labels:
+          severity: warning
+          component: infrastructure
+          alert_type: infrastructure
+        annotations:
+          summary: "Redis memory predicted to hit limit within 1 hour"
+          description: >
+            Redis working set is growing and will hit its configured memory limit
+            within 1 hour. If maxmemory policy is noeviction, new writes will fail.
+            If allkeys-lru, eviction will degrade scoring cache hit rate.
+          runbook_url: "docs/runbooks/infrastructure.md#redis-memory-growth"
+
+      - alert: ProxyAvailabilitySLOBurn
+        expr: (1 - avg_over_time(up{job="ja4proxy"}[5m])) > 0.001
+        for: 2m
+        labels:
+          severity: critical
+          component: ja4proxy
+          alert_type: infrastructure
+        annotations:
+          summary: "JA4proxy availability SLO burn rate critical"
+          description: >
+            Fast burn: proxy is unavailable for >0.1% of the last 5 minutes,
+            consuming the 30-day error budget at >14.4x the allowed rate.
+            This fires on partial outages and brownouts that up==0 misses.
+          runbook_url: "docs/runbooks/infrastructure.md#slo-burn"
+
+  # ── Attack detection ─────────────────────────────────────────────────────────
+  - name: ja4proxy_attack_detection
+    interval: 30s
+    rules:
+
+      - alert: ConnectionRateSpike
+        expr: |
+          sum(rate(ja4proxy_connections_total[1m]))
+          >= 3 * clamp_min(
+            avg_over_time(sum(rate(ja4proxy_connections_total[1m]))[1h:1m]),
+            0.1
+          )
+        for: 2m
+        labels:
+          severity: warning
+          component: ja4proxy
+          alert_type: ddos
+        annotations:
+          summary: "Connection rate 3x above 1h baseline ({{ $value | humanize }} conn/s)"
+          description: >
+            Rate has been at least 3x its 1-hour rolling average for 2 minutes.
+            Open the Infrastructure & Attack dashboard to compare live rate vs baseline.
+            Check block/ban rate. Consider raising the dial.
+          runbook_url: "docs/runbooks/infrastructure.md#connection-rate-spike"
+
+      - alert: ConnectionRateSustainedHigh
+        expr: sum(rate(ja4proxy_connections_total[1m])) > 600
+        for: 5m
+        labels:
+          severity: critical
+          component: ja4proxy
+          alert_type: ddos
+        annotations:
+          summary: "Connection rate sustained above 600/s ({{ $value | humanize }})"
+          description: >
+            More than 600 new TLS connections/second for 5 minutes. Python proxy ceiling
+            is ~350/s — service degradation is likely. Consider upstream HAProxy
+            rate limiting immediately.
+          runbook_url: "docs/runbooks/infrastructure.md#connection-rate-sustained"
+
+      - alert: HAProxyQueueSignalsCapacityAttack
+        expr: haproxy_backend_current_queue{proxy="ja4proxy"} > 5
+        for: 1m
+        labels:
+          severity: warning
+          component: haproxy
+          alert_type: ddos
+        annotations:
+          summary: "HAProxy queuing {{ $value }} connections — proxy at capacity under load"
+          description: >
+            HAProxy has more than 5 connections queued for JA4proxy. Combined with any
+            connection rate increase, this indicates the proxy is saturated by
+            incoming load. Check if block/ban rate is also elevated.
+          runbook_url: "docs/runbooks/infrastructure.md#haproxy-queue-attack"
+
+      - alert: SYNFloodIndicator
+        expr: ja4proxy:network_avg_pkt_size_bytes < 150
+        for: 2m
+        labels:
+          severity: warning
+          component: infrastructure
+          alert_type: ddos
+        annotations:
+          summary: "Average inbound packet size {{ $value | humanize }} bytes — possible SYN flood"
+          description: >
+            Average inbound packet size has dropped to {{ $value | humanize }} bytes
+            (normal HTTPS is at least 1000 bytes/packet). This pattern is consistent with a
+            SYN flood or small-packet amplification attack. Check NIC drop counters
+            and node_netstat_Tcp_AttemptFails.
+          runbook_url: "docs/runbooks/infrastructure.md#syn-flood"
+
+      - alert: TimeWaitSpike
+        expr: node_sockstat_TCP_tw > 5000
+        for: 2m
+        labels:
+          severity: warning
+          component: infrastructure
+          alert_type: ddos
+        annotations:
+          summary: "TCP TIME_WAIT count above 5000 ({{ $value }})"
+          description: >
+            High TIME_WAIT count indicates rapid connection churn — many connections
+            opening and closing quickly. This is a leading attack indicator; it
+            precedes ConnectionRateSpike by 30-60 seconds. Check conn/s trend.
+          runbook_url: "docs/runbooks/infrastructure.md#time-wait-spike"
+
+      - alert: NICPacketDrops
+        expr: rate(node_network_receive_drop_total{device!~"lo|docker.*|br-.*"}[2m]) > 100
+        for: 2m
+        labels:
+          severity: warning
+          component: infrastructure
+          alert_type: ddos
+        annotations:
+          summary: "NIC dropping {{ $value | humanize }} packets/s on {{ $labels.device }}"
+          description: >
+            Packets are being dropped at the NIC ring buffer on {{ $labels.device }}.
+            This happens before HAProxy — the connection count metric underestimates
+            the true incoming traffic. NIC is saturated or ring buffer is undersized.
+          runbook_url: "docs/runbooks/infrastructure.md#nic-drops"
+
+      - alert: NewUniqueIPsBurst
+        expr: rate(ja4proxy_analytics_unique_ips_seen_total[5m]) > 50
+        for: 3m
+        labels:
+          severity: warning
+          component: analytics
+          alert_type: ddos
+        annotations:
+          summary: "New unique source IPs at {{ $value | humanize }}/s — possible distributed attack"
+          description: >
+            More than 50 new unique source IPs/second for 3 minutes. Distinct from a single
+            scanner — indicates a distributed botnet or coordinated scan campaign.
+            Check beaconing suspects leaderboard and campaign detector.
+          runbook_url: "docs/runbooks/infrastructure.md#distributed-attack"
