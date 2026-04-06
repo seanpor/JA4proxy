@@ -1,3 +1,5 @@
+name: ja4proxy
+
 services:
   haproxy:
     image: haproxy:2.8.5-alpine
