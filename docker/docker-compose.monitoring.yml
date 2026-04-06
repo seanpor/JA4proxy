@@ -290,14 +290,13 @@ networks:
   ja4proxy-monitoring:
     driver: bridge
   # Connect to POC networks for metrics scraping.
-  # Network names are prefixed by the Compose project name (directory basename, lowercased).
-  # Override by setting COMPOSE_PROJECT_NAME in your environment or .env file.
+  # Names match the fixed project name in docker-compose.poc.yml (name: ja4proxy).
   poc_dmz_net:
     external: true
-    name: ${COMPOSE_PROJECT_NAME:-ja4proxy4}_dmz_net
+    name: ja4proxy_dmz_net
   poc_data_net:
     external: true
-    name: ${COMPOSE_PROJECT_NAME:-ja4proxy4}_data_net
+    name: ja4proxy_data_net
   poc_mgmt_net:
     external: true
-    name: ${COMPOSE_PROJECT_NAME:-ja4proxy4}_mgmt_net
+    name: ja4proxy_mgmt_net
