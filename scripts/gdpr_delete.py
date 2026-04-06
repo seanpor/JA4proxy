@@ -99,10 +99,12 @@ def purge_ip(ip: str, dry_run: bool = False, r=None) -> dict:
       keys_deleted, zset_members_removed, hll_skipped
 
     Args:
-        ip: Canonical IP address string to erase.
+        ip: IP address string to erase (any valid form; normalised internally).
         dry_run: If True, report what would be deleted without deleting.
         r: Optional Redis client. If None, one is created via _redis_client().
     """
+    # Normalise to canonical form before any key operations
+    ip = ipaddress.ip_address(ip.strip()).compressed
     if r is None:
         r = _redis_client()
     keys_to_delete = []
