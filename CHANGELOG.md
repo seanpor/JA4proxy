@@ -1,5 +1,21 @@
 # Changelog
 
+## [Phase 91] — GDPR Live Data Erasure & Operational Script Gap Remediation
+
+### Added
+- `scripts/gdpr_delete.py`: audit logging to `management:gdpr_erasure_log` after every invocation (including dry-run)
+- `scripts/gdpr_delete.py`: `--report` flag for machine-readable JSON output
+- `scripts/gdpr_delete.py`: IP canonicalisation inside `purge_ip()` for correct IPv6 handling
+- `tests/unit/test_gdpr_delete.py`: 10 unit tests using fakeredis (TDD)
+- `docs/runbooks/gdpr_erasure.md`: operator runbook for GDPR subject erasure
+- `tests/integration/phase-87/check_cadvisor_metrics.sh`: alert rule and Grafana dashboard checks
+- `tests/integration/phase-87/check_haproxy_exporter.sh`: HAProxy alert rule and traffic metric checks
+
+### Fixed
+- `scripts/gdpr_delete.py`: HLL keys were incorrectly listed in deletion patterns — now correctly excluded and reported
+- Phase 87 `make test-phase-87-integration` was broken since Phase 87 (scripts never created) — retrospectively implemented and extended
+- Phase 87 `success_criteria` in manifest updated to include integration test target
+
 ## [Phase 89] — 2026-04-06
 
 ### Added

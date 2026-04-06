@@ -901,6 +901,7 @@ phases:
       - "ConnectionRateSpike alert uses 1h rolling baseline with clamp_min guard"
       - "docs/runbooks/infrastructure.md present with all 30 sections"
       - "make test-phase-87 passes"
+      - "make test-phase-87-integration passes"
 
   88:
     name: "Multi-Datacenter Survivability & Failover"
