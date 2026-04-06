@@ -43,12 +43,12 @@ echo ""
 # Check Redis
 echo -e "${CYAN}Redis Data:${NC}"
 echo "------------"
-if docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "${REDIS_PW}" ping 2>/dev/null | grep -q PONG; then
+if docker compose -f docker/docker-compose.poc.yml exec -T redis redis-cli -a "${REDIS_PW}" ping 2>/dev/null | grep -q PONG; then
     echo -e "  ✓ Redis is running"
-    WHITELIST=$(docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "${REDIS_PW}" SCARD ja4:whitelist 2>/dev/null)
-    BLACKLIST=$(docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "${REDIS_PW}" SCARD ja4:blacklist 2>/dev/null)
-    BLOCKS=$(docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "${REDIS_PW}" KEYS 'ja4:block:*' 2>/dev/null | wc -l)
-    BANS=$(docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "${REDIS_PW}" KEYS 'ja4:ban:*' 2>/dev/null | wc -l)
+    WHITELIST=$(docker compose -f docker/docker-compose.poc.yml exec -T redis redis-cli -a "${REDIS_PW}" SCARD ja4:whitelist 2>/dev/null)
+    BLACKLIST=$(docker compose -f docker/docker-compose.poc.yml exec -T redis redis-cli -a "${REDIS_PW}" SCARD ja4:blacklist 2>/dev/null)
+    BLOCKS=$(docker compose -f docker/docker-compose.poc.yml exec -T redis redis-cli -a "${REDIS_PW}" KEYS 'ja4:block:*' 2>/dev/null | wc -l)
+    BANS=$(docker compose -f docker/docker-compose.poc.yml exec -T redis redis-cli -a "${REDIS_PW}" KEYS 'ja4:ban:*' 2>/dev/null | wc -l)
     
     echo "  - Whitelist entries: $WHITELIST"
     echo "  - Blacklist entries: $BLACKLIST"
@@ -102,10 +102,10 @@ echo "1. Populate demo data:"
 echo "   ./scripts/populate-grafana-demo-data.sh"
 echo ""
 echo "2. View all containers:"
-echo "   docker compose -f docker-compose.poc.yml ps"
+echo "   docker compose -f docker/docker-compose.poc.yml ps"
 echo ""
 echo "3. View logs:"
-echo "   docker compose -f docker-compose.poc.yml logs -f proxy"
+echo "   docker compose -f docker/docker-compose.poc.yml logs -f proxy"
 echo ""
 echo "4. Run tests:"
 echo "   ./scripts/run-tests.sh"
