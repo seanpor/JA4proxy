@@ -11,10 +11,17 @@ Usage:
     python3 scripts/gdpr_delete.py --ip 1.2.3.4
     python3 scripts/gdpr_delete.py --ip 1.2.3.4 --dry-run
 
+Limitations (see Phase 91 for full remediation):
+    - HyperLogLog keys (hll:cidr48:*) cannot be individually erased.
+      They are skipped and reported. They expire naturally via TTL.
+    - Audit logging to management:gdpr_erasure_log is not yet implemented.
+      See Phase 91 acceptance criteria.
+
 For backup archive redaction (separate concern), see src/backup/redactor.py.
 """
 
 import argparse
+import ipaddress
 import os
 import sys
 
@@ -47,7 +54,19 @@ _IP_KEY_PATTERNS = [
     "threatfox:data:{ip}",
     "virustotal:data:{ip}",
     "beacon:{ip}:*",          # wildcard — scan required
-    "hll:cidr48:*",           # per-CIDR HyperLogLog — not per-IP; skip
+]
+
+# HyperLogLog keys: individual contributors CANNOT be removed from a sketch.
+# These are NOT deleted. The limitation is reported to the caller.
+# hll:cidr48:* keys carry a 24h TTL and expire naturally.
+_HLL_PATTERNS = [
+    "hll:cidr48:*",
+]
+
+# Sorted sets where the IP appears as a member value (key is not the IP).
+# Requires ZREM rather than DEL.  Format: (key_glob, member_prefix_template)
+_ZSET_MEMBER_PATTERNS = [
+    ("behavioral:burst:*", "{ip}:"),  # member format: {ip}:{ts_ms}
 ]
 
 # Patterns that need a SCAN (contain wildcard)
@@ -55,19 +74,24 @@ _SCAN_PATTERNS = [p for p in _IP_KEY_PATTERNS if "*" in p]
 _EXACT_PATTERNS = [p for p in _IP_KEY_PATTERNS if "*" not in p]
 
 
-def purge_ip(ip: str, dry_run: bool = False) -> int:
-    """Delete all Redis keys associated with *ip*. Returns count of deleted keys."""
-    r = _redis_client()
-    deleted = 0
-    keys_to_delete = []
+def purge_ip(ip: str, dry_run: bool = False) -> dict:
+    """Delete all Redis data associated with *ip*.
 
-    # Exact-match keys
+    Returns a dict with keys:
+      keys_deleted, zset_members_removed, hll_skipped
+    """
+    r = _redis_client()
+    keys_to_delete = []
+    zset_removed = 0
+    hll_skipped = 0
+
+    # --- Exact-match keys ---
     for pattern in _EXACT_PATTERNS:
         key = pattern.replace("{ip}", ip)
         if r.exists(key):
             keys_to_delete.append(key)
 
-    # Wildcard patterns — use SCAN with the IP embedded
+    # --- Wildcard key patterns — SCAN with IP embedded ---
     for pattern in _SCAN_PATTERNS:
         scan_glob = pattern.replace("{ip}", ip)
         cursor = 0
@@ -77,19 +101,54 @@ def purge_ip(ip: str, dry_run: bool = False) -> int:
             if cursor == 0:
                 break
 
-    if not keys_to_delete:
-        print(f"No Redis keys found for IP {ip}.")
-        return 0
+    # --- Sorted set member removal ---
+    for key_glob, member_prefix_tpl in _ZSET_MEMBER_PATTERNS:
+        member_prefix = member_prefix_tpl.replace("{ip}", ip)
+        cursor = 0
+        while True:
+            cursor, keys = r.scan(cursor, match=key_glob, count=100)
+            for key in keys:
+                members = [m for m in r.zrange(key, 0, -1)
+                           if m.startswith(member_prefix)]
+                if members:
+                    if dry_run:
+                        print(f"  [dry-run] would ZREM {len(members)} member(s) from: {key}")
+                    else:
+                        r.zrem(key, *members)
+                        print(f"  ZREM {len(members)} member(s) from: {key}")
+                    zset_removed += len(members)
+            if cursor == 0:
+                break
 
-    for key in sorted(keys_to_delete):
-        if dry_run:
-            print(f"  [dry-run] would delete: {key}")
-        else:
-            r.delete(key)
-            print(f"  deleted: {key}")
-            deleted += 1
+    # --- HyperLogLog: cannot erase individual contributors ---
+    for pattern in _HLL_PATTERNS:
+        cursor = 0
+        while True:
+            cursor, keys = r.scan(cursor, match=pattern, count=100)
+            if keys:
+                hll_skipped += len(keys)
+                for key in keys:
+                    print(f"  [skipped HLL — cannot remove individual IP] {key}")
+            if cursor == 0:
+                break
 
-    return len(keys_to_delete) if dry_run else deleted
+    keys_deleted = 0
+    if keys_to_delete:
+        for key in sorted(keys_to_delete):
+            if dry_run:
+                print(f"  [dry-run] would delete: {key}")
+            else:
+                r.delete(key)
+                print(f"  deleted: {key}")
+                keys_deleted += 1
+    elif zset_removed == 0 and hll_skipped == 0:
+        print(f"No Redis data found for IP {ip}.")
+
+    return {
+        "keys_deleted": len(keys_to_delete) if dry_run else keys_deleted,
+        "zset_members_removed": zset_removed,
+        "hll_skipped": hll_skipped,
+    }
 
 
 def main() -> int:
@@ -104,28 +163,30 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    ip = args.ip.strip()
+    raw_ip = args.ip.strip()
     try:
-        import ipaddress
-        ipaddress.ip_address(ip)
+        ip = ipaddress.ip_address(raw_ip).compressed  # canonical form
     except ValueError:
-        print(f"ERROR: '{ip}' is not a valid IP address.", file=sys.stderr)
+        print(f"ERROR: '{raw_ip}' is not a valid IP address.", file=sys.stderr)
         return 1
 
     action = "DRY RUN —" if args.dry_run else "Deleting"
     print(f"GDPR erasure: {action} all Redis data for IP {ip}")
 
     try:
-        count = purge_ip(ip, dry_run=args.dry_run)
+        result = purge_ip(ip, dry_run=args.dry_run)
     except Exception as exc:
         print(f"ERROR: could not connect to Redis: {exc}", file=sys.stderr)
         print("Set REDIS_HOST / REDIS_PORT / REDIS_PASSWORD as needed.", file=sys.stderr)
         return 1
 
-    if args.dry_run:
-        print(f"\nDry run complete. {count} key(s) would be deleted.")
-    else:
-        print(f"\nErasure complete. {count} key(s) deleted.")
+    prefix = "Dry run complete." if args.dry_run else "Erasure complete."
+    print(f"\n{prefix}")
+    print(f"  Keys deleted:          {result['keys_deleted']}")
+    print(f"  ZSET members removed:  {result['zset_members_removed']}")
+    if result["hll_skipped"]:
+        print(f"  HLL keys skipped:      {result['hll_skipped']} "
+              f"(probabilistic sketch — cannot erase; expire via TTL)")
     return 0
 
 
