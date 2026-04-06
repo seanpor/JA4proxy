@@ -326,8 +326,8 @@ phases:
 
   34:
     name: "APT Hardening - Phase 1: Parser Isolation & Redis Security"
-    status: "IN_PROGRESS"
-    summary: "Implement parser process isolation and Zero-Trust Redis ACLs with signatures. Now also covers items absorbed from cancelled Phase 55: Redis ACL users, JA4/TLS mismatch detection, proxy Seccomp JSON profile, AppArmor profile, subnet correlation pipeline wiring, and fuzz test."
+    status: "COMPLETE"
+    summary: "Parser isolation via pure-Python TLS parser (Phase 65). Zero-Trust Redis ACLs with HMAC signing. JA4/TLS mismatch detection. Subnet correlation wiring. Proxy Seccomp profile. AppArmor profile. All items complete."
     action_plan: "docs/phases/PHASE_34.md"
     size: "MEDIUM"
     success_criteria:
@@ -513,8 +513,8 @@ phases:
 
   56:
     name: "Advanced APT - Phase 2: Deceptive Defense & Persistence Defense"
-    status: "PROPOSED"
-    summary: "Implement honey-fingerprints, honey-SNIs, and runtime process namespace isolation."
+    status: "COMPLETE"
+    summary: "Honey-fingerprint and honey-SNI deception detection (DeceptionChecker). Silent-drop bans with APT:DECEPTION_TRIGGERED tag. Dead-Man's Switch watchdog. Two-stage seccomp profiles. Ephemeral filesystem (tmpfs for /tmp and /var/run, read_only). AppArmor profile delivered as Phase 34d."
     action_plan: "docs/phases/PHASE_56.md"
     dependencies: [35]
     size: "SMALL"
