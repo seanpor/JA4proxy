@@ -34,9 +34,9 @@ services:
   proxy:
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: docker/Dockerfile.go-proxy
       network: host
-    image: ja4proxy:1.0.0
+    image: ja4proxy:2.0.0
     ports:
       - "${AGENT_BIND_IP:-127.0.0.1}:8081:8080"
       - "${AGENT_BIND_IP:-127.0.0.1}:9090:9090"
@@ -44,19 +44,15 @@ services:
       - redis
     volumes:
       - ./config:/app/config:ro
-      - logs_data:/app/logs
-      - redis-sock:/var/run/redis
       - ./geoip:/app/geoip:ro
     environment:
       - CONFIG_PATH=/app/config/proxy.yml
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
-      - ENVIRONMENT=${ENVIRONMENT:-development}
-      # Backend destination — override in .env for production (BACKEND_HOST=your.server.ip)
       - BACKEND_HOST=${BACKEND_HOST:-backend}
       - BACKEND_PORT=${BACKEND_PORT:-443}
-      - REDIS_UNIX_SOCKET_PATH=/var/run/redis/redis.sock
-      - PYTHONUNBUFFERED=1
-      - PYTHONDONTWRITEBYTECODE=1
+      - ENVIRONMENT=${ENVIRONMENT:-development}
     networks:
       - dmz_net
       - data_net
@@ -64,7 +60,6 @@ services:
       - mgmt_net
     security_opt:
       - no-new-privileges:true
-      - seccomp:config/seccomp/proxy.json
     read_only: true
     tmpfs:
       - /tmp:noexec,nosuid,nodev,size=100m
@@ -77,7 +72,7 @@ services:
       - ALL
     cap_add:
       - NET_BIND_SERVICE
-    # Non-root user set in docker/Dockerfile (USER proxy)
+    # Non-root user: ja4proxy (set in docker/Dockerfile.go-proxy)
     cpuset: "${AGENT_CPU_SET:-0-15}"
     deploy:
       resources:
@@ -362,7 +357,6 @@ services:
 volumes:
   redis_data:
   redis-sock:
-  logs_data:     # Per-agent proxy logs — prefixed by COMPOSE_PROJECT_NAME (e.g. ja4_claude0_logs_data)
   reports_data:  # Per-agent test reports — prefixed by COMPOSE_PROJECT_NAME
 
 networks:
