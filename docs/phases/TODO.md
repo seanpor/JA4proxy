@@ -8,22 +8,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🔵 Planned & Open Phases
 
-### Phase 13 — Management UI - Phase 1: Backend API
-*   **Status:** **DEFERRED** (FastAPI backend for real-time monitoring and configuration management.)
-*   **Action Plan:** [PHASE_13.md](PHASE_13.md)
-
-### Phase 51 — Management UI - Phase 2: Frontend Dashboard
-*   **Status:** **PROPOSED** (React-based dashboard for real-time visualization of proxy telemetry.)
-*   **Action Plan:** [PHASE_51.md](PHASE_51.md)
-
-### Phase 52 — Management UI - Phase 3: Administration Tools
-*   **Status:** **PROPOSED** (Interactive tools for managing allowlists, bans, and system configuration.)
-*   **Action Plan:** [PHASE_52.md](PHASE_52.md)
-
-### Phase 56 — Advanced APT - Phase 2: Deceptive Defense & Persistence Defense
-*   **Status:** **PROPOSED** (Implement honey-fingerprints, honey-SNIs, and runtime process namespace isolation.)
-*   **Action Plan:** [PHASE_56.md](PHASE_56.md)
-
 ### Phase 57 — Backup System Enhancements - Phase 3: Cloud & Incrementals
 *   **Status:** **PROPOSED** (Add cloud storage adapters (S3/GCS) and incremental backup strategy.)
 *   **Action Plan:** [PHASE_57.md](PHASE_57.md)
@@ -32,20 +16,20 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Comprehensive quality improvement roadmap and governance framework.)
 *   **Action Plan:** [PHASE_60.md](PHASE_60.md)
 
-### Phase 61 — Technical Quality Improvements
-*   **Status:** **PROPOSED** (Code quality, architecture, performance, and reliability enhancements.)
+### Phase 61 — Supply Chain Security & Build Integrity
+*   **Status:** **PROPOSED** (GitHub Actions CI pipeline (Python + Go tests, SAST, dependency audit); SBOM generation (CycloneDX 1.4); Cosign keyless image signing; SLSA level 2 provenance for Go binary; action SHA pinning; branch protection rules.)
 *   **Action Plan:** [PHASE_61.md](PHASE_61.md)
 
-### Phase 62 — Security Hardening
-*   **Status:** **PROPOSED** (Penetration testing, threat modeling, incident response, and compliance.)
+### Phase 62 — Security Regression Harness, Fuzzing & Pre-Enterprise Validation
+*   **Status:** **PROPOSED** (Automated regression tests for all Phase 27 pentest findings; atheris + Go native fuzzing harnesses with CI smoke run; break-glass verification procedure; pre-enterprise validation report generator.)
 *   **Action Plan:** [PHASE_62.md](PHASE_62.md)
 
-### Phase 63 — Observability and Monitoring
-*   **Status:** **PROPOSED** (Technical observability, executive dashboards, alerting, and reporting.)
+### Phase 63 — Service Level Objectives
+*   **Status:** **PROPOSED** (Four SLIs (availability 99.9%, latency 99% <10ms, Redis correctness 99.5%, FP rate <2%); multiwindow burn-rate alerts; Grafana SLO dashboard; on-call runbooks; metric naming prerequisite (ja4_ → ja4proxy_ rename + add missing counters).)
 *   **Action Plan:** [PHASE_63.md](PHASE_63.md)
 
-### Phase 64 — Operational Excellence
-*   **Status:** **PROPOSED** (Process optimization, training, documentation, and continuous improvement.)
+### Phase 64 — Deployment Validation & Disaster Recovery
+*   **Status:** **PROPOSED** (Smoke test suite (Docker Compose, Helm/kind, Podman/Quadlet); DR runbook with 5 scenarios incl. Redis data loss; credential rotation runbooks; TLS certificate rotation; rolling upgrade procedure; MTTR baseline measurement.)
 *   **Action Plan:** [PHASE_64.md](PHASE_64.md)
 
 ### Phase 79 — Management API v2, RBAC & Enterprise Identity
@@ -79,3 +63,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 86 — Observability & Capacity Planning
 *   **Status:** **PROPOSED** (Datadog Agent integration tile with dashboard and 4 monitors. Dynatrace EF2 extension with topology entity type. Nagios check plugin and Zabbix template. Capacity sizing calculator script. make load-test harness. Published benchmark numbers. 7 operator runbooks.)
 *   **Action Plan:** [PHASE_86.md](PHASE_86.md)
+
+### Phase 88 — Multi-Datacenter Survivability & Failover
+*   **Status:** **PROPOSED** (Redis Sentinel per-DC plus a new Go sync agent (cmd/syncagent) for cross-DC state replication. State Classification Table (25 key types: SYNC-IMMEDIATE, SYNC-ASYNC, LOCAL-ONLY, DIAL-PROTOCOL). Synchronous Dial Consistency Protocol (port 7380, 8s ACK timeout, last-writer-wins by origin_ts). Active-active and active-passive topology documentation. Seven failure scenario runbooks (WAN failure, DC dark, Redis-only failure, dial divergence, data loss, asymmetric degradation, split-brain). New multi-DC metrics on port 9382 with six alert rules including DialDivergence (critical). Cross-DC Grafana dashboard. Operational procedures for maintenance drain, DC expansion, and rolling upgrade.)
+*   **Action Plan:** [PHASE_88.md](PHASE_88.md)

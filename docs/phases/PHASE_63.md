@@ -6,7 +6,7 @@
 
 JA4proxy already has:
 
-- 200+ Prometheus metrics in the `ja4proxy_*` namespace
+- 200+ Prometheus metrics (mixed `ja4_*` and `ja4proxy_*` namespaces — see §1.5 for the naming inconsistency and required fixes)
 - Grafana dashboards in `monitoring/grafana/dashboards/`
 - Alertmanager rules in `monitoring/alertmanager/rules/` (Phase 14e)
 - OpenTelemetry tracing (Phase 16)
@@ -23,12 +23,104 @@ cannot page on a number that has no agreed-upon bound.
 
 This phase delivers:
 
-1. Four SLI definitions with precise PromQL expressions
-2. Numeric SLO targets for three of the four SLIs
+1. Five SLI definitions with precise PromQL expressions (§2.1–§2.4 observation metrics,
+   §2.5 False Positive Rate SLO, §2.6 Throughput SLO)
+2. Numeric SLO targets for the three availability/latency/Redis SLIs plus the §2.5
+   FP Rate SLO with an Alertmanager inhibit rule for declared attack windows
 3. Prometheus recording rules for error budget arithmetic
-4. Multiwindow burn-rate alert rules in a new `slo_alerts.yml`
+4. Multiwindow burn-rate alert rules in a new `slo_alerts.yml`, including the
+   `JA4proxyHighBlockingRate` alert (the primary FP protection alert)
 5. A Grafana SLO dashboard provisioned as `monitoring/grafana/dashboards/slo_overview.json`
-6. On-call runbook skeletons — one per SLI burn-rate alert
+6. Four on-call runbooks with actionable Step 1–4 diagnostic commands (not placeholders)
+7. SLO review cadence with a defined 4-week baseline period (§9)
+
+---
+
+## 1.5 Metric Naming Prerequisite
+
+**This section must be read before implementing any PromQL expressions in this phase.**
+
+The proxy codebase has an inconsistent metric naming convention that affects SLO
+correctness. This inconsistency must be acknowledged and partially resolved before
+SLO recording rules will work correctly.
+
+### Current state (as of the proxy.py implementation)
+
+| Metric name in proxy.py | prometheus_client registration |
+|---|---|
+| `ja4_requests_total` | Counter — labels: `fingerprint_name`, `action`, `source_country`, `tls_version`. Actions: `"blocked"`, `"allowed"`, `"tarpitted"`, `"rate_limited"`, `"banned"` |
+| `ja4_request_duration_seconds` | Histogram — buckets: 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0 |
+| `ja4proxy_active_connections` | Gauge |
+| `ja4_blocked_requests_total` | Counter — labels: `reason`, `source_country`, `attack_type` |
+| `ja4proxy_tarpit_concurrent` | Gauge |
+| `ja4proxy_tarpit_overflow_total` | Counter — labels: `action` |
+
+### Metrics referenced in this phase that do NOT currently exist
+
+| Metric referenced in sections 2–4 | Status | Action required |
+|---|---|---|
+| `ja4proxy_connections_total` | Does not exist | The concept maps to `ja4_requests_total`; rename to `ja4proxy_requests_total` during standardisation (see below) |
+| `ja4proxy_connection_errors_total` | Does not exist | Add to `proxy.py` `handle_connection()` error handler |
+| `ja4proxy_request_duration_seconds` | Wrong prefix (`ja4_` not `ja4proxy_`) | Rename during metric standardisation |
+| `ja4proxy_redis_operations_total` | Does not exist | Add to every Redis call site in `proxy.py` and `src/` |
+
+### Standard going forward
+
+The standard for all new metrics in this project is the `ja4proxy_` prefix.
+The `ja4_` prefix used by the original metrics is a legacy inconsistency.
+
+**Required fixes (prerequisite for SLO recording rules to produce accurate data):**
+
+1. **Rename `ja4_requests_total` to `ja4proxy_requests_total`** in `proxy.py` and all
+   test files. Update any dashboard JSON that references the old name. The SLI
+   expressions in sections 2 and 3 of this phase use `ja4proxy_requests_total`
+   (not `ja4proxy_connections_total`) as the post-rename target name.
+
+2. **Rename `ja4_request_duration_seconds` to `ja4proxy_request_duration_seconds`** in
+   `proxy.py`. The `le="0.01"` bucket already exists (confirmed in `proxy.py` bucket
+   list: `0.001, 0.005, 0.01, ...`); no bucket change is needed.
+
+3. **Add `ja4proxy_connection_errors_total`** counter to `proxy.py`:
+   ```python
+   CONNECTION_ERRORS = Counter(
+       "ja4proxy_connection_errors_total",
+       "Unhandled errors in handle_connection() before a policy decision is reached",
+       ["error_type"],  # values: "redis_timeout", "tls_parse_error", "backend_refused", "oom", "unknown"
+   )
+   ```
+   Increment this in the `except` block of `handle_connection()`.
+
+4. **Add `ja4proxy_redis_operations_total`** counter to `proxy.py` and all Redis call
+   sites in `src/`:
+   ```python
+   REDIS_OPERATIONS = Counter(
+       "ja4proxy_redis_operations_total",
+       "Redis operations performed by the proxy",
+       ["command", "result"],  # result: "ok" or "error"
+   )
+   ```
+   Increment `result="ok"` on success and `result="error"` on any `RedisError` exception.
+
+### PromQL fallback expressions (current metric names)
+
+All PromQL expressions in sections 2, 3, and 4 use the **target (post-rename) metric
+names** (`ja4proxy_*` prefix throughout). Until the renames and additions above are
+complete, use the following fallback expressions that work against the current metric
+names:
+
+| SLI | Target expression (post-rename) | Fallback expression (current names) |
+|---|---|---|
+| Availability — numerator | `rate(ja4proxy_requests_total[5m])` | `rate(ja4_requests_total[5m])` |
+| Availability — denominator | `rate(ja4proxy_requests_total[5m]) + rate(ja4proxy_connection_errors_total[5m])` | `rate(ja4_requests_total[5m])` only — `connection_errors` does not yet exist; SLI reads as 1.0 until the metric is added |
+| Latency | `rate(ja4proxy_request_duration_seconds_bucket{le="0.01"}[5m])` | `rate(ja4_request_duration_seconds_bucket{le="0.01"}[5m])` |
+| Redis correctness | `rate(ja4proxy_redis_operations_total{result="ok"}[5m])` | Not available until metric added; recording rule returns `NaN` |
+| False positive rate | `rate(ja4proxy_requests_total{action=~"blocked\|banned\|tarpitted\|rate_limited"}[5m])` | `rate(ja4_requests_total{action=~"blocked\|banned\|tarpitted\|rate_limited"}[5m])` |
+
+Note the action label value details: `ja4_requests_total` (and its renamed successor)
+uses `"tarpitted"` (not `"tarpit"`) and `"rate_limited"` (not `"rate_limit"`). The
+regex filters in sections 2.4, 2.5, and the alert rules must match these exact values.
+
+Document all of the above findings in `PHASE_63_notes.md` when submitting.
 
 ---
 
@@ -48,10 +140,12 @@ proxy encountered an internal error before reaching a decision.
 
 ```promql
 # SLI value (ratio 0–1)
-rate(ja4proxy_connections_total[5m])
+# Target metric name (post-rename): ja4proxy_requests_total
+# Current fallback: ja4_requests_total
+rate(ja4proxy_requests_total[5m])
 /
 (
-  rate(ja4proxy_connections_total[5m])
+  rate(ja4proxy_requests_total[5m])
   + rate(ja4proxy_connection_errors_total[5m])
 )
 ```
@@ -61,11 +155,13 @@ rate(ja4proxy_connections_total[5m])
 **Error budget:** 0.1% of 28 days = 40.32 minutes of allowable bad minutes per window.
 
 **Notes:**
-- `ja4proxy_connections_total` increments on every connection that reaches a
-  decision (allow, block, tarpit, ban, rate_limit, flag). It does not increment on
-  connections that fail before the pipeline runs.
+- `ja4proxy_requests_total` (renamed from `ja4_requests_total` — see §1.5) increments
+  on every connection that reaches a decision (allowed, blocked, tarpitted, banned,
+  rate_limited, flagged). It does not increment on connections that fail before the
+  pipeline runs.
 - `ja4proxy_connection_errors_total` increments when an unhandled exception or
-  timeout occurs in `handle_connection()`.
+  timeout occurs in `handle_connection()`. This metric does not yet exist in
+  `proxy.py` — see §1.5 for the code addition required.
 - Both metrics carry a `{job="ja4proxy"}` label. When multiple proxy instances
   run, aggregate with `sum(rate(...))` in the numerator and denominator
   separately before dividing.
@@ -78,6 +174,8 @@ rate(ja4proxy_connections_total[5m])
 
 ```promql
 # SLI value (ratio 0–1)
+# Target metric name (post-rename): ja4proxy_request_duration_seconds
+# Current fallback: ja4_request_duration_seconds
 rate(ja4proxy_request_duration_seconds_bucket{le="0.01"}[5m])
 /
 rate(ja4proxy_request_duration_seconds_count[5m])
@@ -90,10 +188,12 @@ rate(ja4proxy_request_duration_seconds_count[5m])
 **Notes:**
 - The 10ms threshold covers the proxy's internal decision cost. It excludes backend
   connection time, which is not under proxy control.
-- The `le="0.01"` bucket must exist in the histogram. Verify with:
+- The `le="0.01"` bucket exists in `proxy.py` (confirmed: buckets list is
+  `0.001, 0.005, 0.01, 0.025, ...`). No bucket change is needed.
+- Before the rename, verify with the current name:
+  `promtool query instant http://localhost:9090 'ja4_request_duration_seconds_bucket{le="0.01"}'`
+- After the rename (§1.5), use:
   `promtool query instant http://localhost:9090 'ja4proxy_request_duration_seconds_bucket{le="0.01"}'`
-- If the bucket does not exist, it must be added to the histogram definition in
-  `proxy.py` / `cmd/proxy/main.go` before this SLI can be measured.
 
 ### 2.3 Redis Correctness SLI
 
@@ -114,41 +214,148 @@ rate(ja4proxy_redis_operations_total[5m])
 **Error budget:** 0.5% of Redis operations may fail.
 
 **Notes:**
-- `ja4proxy_redis_operations_total` must carry a `result` label with values `"ok"`
-  and `"error"`. If it currently only has `result="error"` (error counter only),
-  an `"ok"` series must be added at every Redis call site.
+- `ja4proxy_redis_operations_total` does not yet exist in `proxy.py` — see §1.5 for
+  the code addition required. Until it is added, the recording rule for this SLI
+  returns `NaN` and the Redis correctness panels in the dashboard will show no data.
+- When added, the metric must carry a `result` label with both `"ok"` and `"error"`
+  values, incremented at every Redis call site.
 - Redis failures are expected during planned Redis restarts and cluster failovers.
   These are recorded in the error budget but do not require a page if the duration
   is within the maintenance window announced in advance.
 - A 99.5% SLO at 5ms average Redis operation means up to ~72 minutes of Redis
   unavailability per 28-day window before the budget is exhausted.
 
-### 2.4 False Positive Rate (Policy Metric — No Hard SLO)
+### 2.4 False Positive Rate (Observation Metric)
 
 **Definition:** Fraction of connections that are blocked (action in `block`, `ban`,
 `tarpit`, `rate_limit`) relative to all connections in a 5-minute window.
 
 ```promql
 # False positive rate indicator (ratio 0–1)
-rate(ja4proxy_connections_total{action=~"block|ban|tarpit|rate_limit"}[5m])
+# Target metric name (post-rename): ja4proxy_requests_total
+# Current fallback: ja4_requests_total
+# Action label values in ja4_requests_total: "blocked", "tarpitted", "rate_limited", "banned"
+# (note: "tarpitted" not "tarpit"; "rate_limited" not "rate_limit")
+rate(ja4proxy_requests_total{action=~"blocked|banned|tarpitted|rate_limited"}[5m])
 /
-rate(ja4proxy_connections_total[5m])
+rate(ja4proxy_requests_total[5m])
 ```
 
-**SLO target:** None. This is a policy metric. The blocking rate depends on the
-dial setting and the traffic profile of each deployment. At dial=0, the blocking
-rate is always 0 regardless of scored traffic.
+**Notes:**
+- At dial=0, the blocking rate is always 0 regardless of scored traffic. The SLO
+  in §2.5 applies only at dial ≥ 50.
+- This recording rule feeds both the dashboard and the §2.5 SLO alert.
+- At dial=0 (monitor mode) this metric is always 0 by design.
+- The action label values on `ja4_requests_total` / `ja4proxy_requests_total` are
+  `"blocked"`, `"tarpitted"`, `"rate_limited"`, `"banned"` — not the shorter forms
+  `"block"`, `"tarpit"`, `"rate_limit"`. Use the full forms in regex filters.
 
-**Alert threshold:** Alert if the 5-minute blocking ratio exceeds 5% (i.e., more
-than 1 in 20 connections is blocked). This threshold indicates either a mass attack,
-a misconfiguration that is creating false positives, or a sudden change in traffic
-composition. It is an observation alert, not a paging alert.
+---
+
+### 2.5 False Positive Rate SLO
+
+**Definition:** Fraction of connections at dial ≥ 50 that result in a block, ban,
+tarpit, or rate_limit action, measured over a rolling 1-hour window. At dial=0
+(monitor mode) this metric is always 0 by design and the SLO does not apply.
+
+```promql
+# FP Rate indicator (ratio 0–1, only meaningful when dial > 0)
+# Target metric name (post-rename): ja4proxy_requests_total
+# Current fallback: ja4_requests_total
+# Use full action label values: "blocked", "tarpitted", "rate_limited", "banned"
+rate(ja4proxy_requests_total{action=~"blocked|banned|tarpitted|rate_limited"}[5m])
+/
+rate(ja4proxy_requests_total[5m])
+```
+
+**SLO target:** The blocking rate must not exceed 2% during any rolling 1-hour window
+when dial ≥ 50.
+
+**Why 2% and not lower?** At high dial settings during an active attack campaign,
+blocking rates can legitimately reach 5–15%. The 2% threshold applies specifically
+when the operator has confirmed there is no ongoing attack (i.e., normal traffic
+conditions). During a declared attack window, this alert is silenced via Alertmanager
+inhibit rules against an `attack_in_progress` alert.
+
+**Why this matters:** This SLO is the only metric that directly measures the product's
+primary failure mode — blocking legitimate users. Without it, the proxy can be
+silently misconfigured to block 20% of connections and no alert fires until users
+complain. A 2% blocking rate on normal traffic means roughly 1 in 50 connections is
+blocked; at 10,000 connections/hour that is 200 blocked users per hour — enterprise
+customers will escalate this within minutes.
+
+**Error budget:** This SLO operates on a per-incident basis rather than a rolling
+28-day error budget. Any 1-hour window with blocking rate > 2% (outside a declared
+attack window) is a policy incident requiring investigation. There is no error budget
+accumulation — every incident is investigated.
+
+**Alerting rule:**
+```yaml
+- alert: JA4proxyHighBlockingRate
+  expr: |
+    # NOTE: uses ja4proxy_requests_total (renamed from ja4_requests_total — see §1.5)
+    # Action label values are "blocked", "tarpitted", "rate_limited", "banned"
+    (
+      rate(ja4proxy_requests_total{action=~"blocked|banned|tarpitted|rate_limited"}[1h])
+      / rate(ja4proxy_requests_total[1h])
+    ) > 0.02
+    and
+    ja4proxy_dial_setting >= 50
+  for: 5m
+  labels:
+    severity: warning
+    team: security-ops
+  annotations:
+    summary: "JA4proxy blocking rate exceeds 2% — possible false positive spike"
+    description: |
+      Blocking rate is {{ $value | humanizePercentage }} over the last hour
+      with dial at {{ $labels.dial_setting }}.
+      This may indicate a misconfiguration, an overly aggressive dial setting,
+      or a legitimate attack campaign.
+      Runbook: docs/runbooks/slo_fp_rate_runbook.md
+```
+
+**Inhibit rule for declared attack windows:**
+Add to Alertmanager configuration:
+```yaml
+inhibit_rules:
+  - source_match:
+      alertname: JA4proxyAttackCampaignDetected
+    target_match:
+      alertname: JA4proxyHighBlockingRate
+    equal: ['job']
+```
+
+The `JA4proxyAttackCampaignDetected` alert is produced by the analytics node (Phase 12)
+when a coordinated attack campaign is identified. When it is active, the FP rate SLO
+alert is suppressed because high blocking is expected.
+
+---
+
+### 2.6 Throughput SLO (Capacity Commitment)
+
+**Definition:** The proxy must process all incoming connections without queueing.
+A queueing proxy is one where `ja4proxy_active_connections` grows unboundedly over
+a 5-minute window.
+
+```promql
+# Throughput health indicator: active connections not growing unboundedly
+# Alert if active connections have grown by more than 100 in 5 minutes
+# (growth indicates connections are not completing)
+increase(ja4proxy_active_connections[5m]) > 100
+```
+
+**SLO target:** Zero unbounded connection growth over any 5-minute window.
 
 **Notes:**
-- The 5% threshold is a starting point. Operators must adjust it for their traffic
-  profile after observing baseline blocking rates for at least one week.
-- This metric is reported on the SLO dashboard for visibility but does not
-  contribute to any error budget.
+- This SLO is a leading indicator for capacity exhaustion, not a hard throughput
+  guarantee. The proxy's documented throughput ceiling (Python: ~8,100 conn/s at
+  4 workers; Go: TBD after Phase 65 benchmarks) is the practical limit.
+- A growing active connection count indicates the proxy is accepting connections
+  faster than it is completing them — either because the backend is slow or because
+  the proxy itself is saturated.
+- This SLO does NOT page immediately; it feeds into the capacity planning workflow
+  documented in Phase 86.
 
 ---
 
@@ -175,43 +382,50 @@ groups:
     interval: 1m
     rules:
       # ── Availability ────────────────────────────────────────────────────────
+      # Uses ja4proxy_requests_total (renamed from ja4_requests_total — see §1.5).
+      # Until renamed, substitute ja4_requests_total in the fallback expressions.
+      # ja4proxy_connection_errors_total does not yet exist; add it per §1.5.
+      # Until added, the denominator equals the numerator and the SLI reads as 1.0.
       - record: job:ja4proxy_availability:ratio_rate5m
         expr: |
-          sum(rate(ja4proxy_connections_total[5m]))
+          sum(rate(ja4proxy_requests_total[5m]))
           /
           (
-            sum(rate(ja4proxy_connections_total[5m]))
+            sum(rate(ja4proxy_requests_total[5m]))
             + sum(rate(ja4proxy_connection_errors_total[5m]))
           )
 
       - record: job:ja4proxy_availability:ratio_rate1h
         expr: |
-          sum(rate(ja4proxy_connections_total[1h]))
+          sum(rate(ja4proxy_requests_total[1h]))
           /
           (
-            sum(rate(ja4proxy_connections_total[1h]))
+            sum(rate(ja4proxy_requests_total[1h]))
             + sum(rate(ja4proxy_connection_errors_total[1h]))
           )
 
       - record: job:ja4proxy_availability:ratio_rate6h
         expr: |
-          sum(rate(ja4proxy_connections_total[6h]))
+          sum(rate(ja4proxy_requests_total[6h]))
           /
           (
-            sum(rate(ja4proxy_connections_total[6h]))
+            sum(rate(ja4proxy_requests_total[6h]))
             + sum(rate(ja4proxy_connection_errors_total[6h]))
           )
 
       - record: job:ja4proxy_availability:ratio_rate3d
         expr: |
-          sum(rate(ja4proxy_connections_total[3d]))
+          sum(rate(ja4proxy_requests_total[3d]))
           /
           (
-            sum(rate(ja4proxy_connections_total[3d]))
+            sum(rate(ja4proxy_requests_total[3d]))
             + sum(rate(ja4proxy_connection_errors_total[3d]))
           )
 
       # ── Latency ─────────────────────────────────────────────────────────────
+      # Uses ja4proxy_request_duration_seconds (renamed from ja4_request_duration_seconds
+      # — see §1.5). Until renamed, substitute ja4_request_duration_seconds.
+      # The le="0.01" bucket exists in the current histogram definition.
       - record: job:ja4proxy_latency_p99_good:ratio_rate5m
         expr: |
           sum(rate(ja4proxy_request_duration_seconds_bucket{le="0.01"}[5m]))
@@ -233,6 +447,9 @@ groups:
           / sum(rate(ja4proxy_request_duration_seconds_count[3d]))
 
       # ── Redis Correctness ────────────────────────────────────────────────────
+      # ja4proxy_redis_operations_total does not yet exist — add it per §1.5.
+      # Until added, these recording rules return NaN; Redis correctness panels
+      # in the dashboard will show no data until the metric is instrumented.
       - record: job:ja4proxy_redis_correctness:ratio_rate5m
         expr: |
           sum(rate(ja4proxy_redis_operations_total{result="ok"}[5m]))
@@ -333,10 +550,13 @@ groups:
           )
 
       # False positive rate (no error budget, but record for dashboard display)
+      # Uses ja4proxy_requests_total (renamed from ja4_requests_total — see §1.5).
+      # Action label values: "blocked", "tarpitted", "rate_limited", "banned"
+      # (full forms as stored in the metric, not short forms like "block"/"tarpit")
       - record: job:ja4proxy_false_positive_rate:ratio_rate5m
         expr: |
-          sum(rate(ja4proxy_connections_total{action=~"block|ban|tarpit|rate_limit"}[5m]))
-          / sum(rate(ja4proxy_connections_total[5m]))
+          sum(rate(ja4proxy_requests_total{action=~"blocked|banned|tarpitted|rate_limited"}[5m]))
+          / sum(rate(ja4proxy_requests_total[5m]))
 ```
 
 Add `slo_recording_rules.yml` to the `rule_files` list in
@@ -396,7 +616,7 @@ groups:
           description: >
             The 1h burn rate is {{ $value | humanize }}× (threshold 14.4×).
             At this rate the 28-day error budget will be exhausted in under 2 hours.
-          runbook_url: "docs/runbooks/slo_availability.md"
+          runbook_url: "docs/runbooks/slo_availability_runbook.md"
 
       - alert: JA4ProxyAvailabilitySlowBurn
         expr: |
@@ -413,7 +633,7 @@ groups:
           description: >
             The 6h burn rate is {{ $value | humanize }}× (threshold 6×).
             At this rate the 28-day error budget will be exhausted within the week.
-          runbook_url: "docs/runbooks/slo_availability.md"
+          runbook_url: "docs/runbooks/slo_availability_runbook.md"
 
   - name: ja4proxy_slo_latency
     rules:
@@ -433,7 +653,7 @@ groups:
             The 1h latency burn rate is {{ $value | humanize }}× (threshold 14.4×).
             More than 1% of connections are exceeding the 10ms threshold and the
             rate is accelerating.
-          runbook_url: "docs/runbooks/slo_latency.md"
+          runbook_url: "docs/runbooks/slo_latency_runbook.md"
 
       - alert: JA4ProxyLatencySlowBurn
         expr: |
@@ -450,7 +670,7 @@ groups:
           description: >
             The 6h latency burn rate is {{ $value | humanize }}×.
             Review connection counts and Redis response times.
-          runbook_url: "docs/runbooks/slo_latency.md"
+          runbook_url: "docs/runbooks/slo_latency_runbook.md"
 
   - name: ja4proxy_slo_redis_correctness
     rules:
@@ -470,7 +690,7 @@ groups:
             Redis operation error rate is causing rapid error budget burn
             (1h burn rate {{ $value | humanize }}×). Bans, rate limits, and
             block lists may not be applying correctly. Fail-open is active.
-          runbook_url: "docs/runbooks/slo_redis_correctness.md"
+          runbook_url: "docs/runbooks/slo_redis_correctness_runbook.md"
 
       - alert: JA4ProxyRedisCorrectnessSlowBurn
         expr: |
@@ -487,10 +707,38 @@ groups:
           description: >
             The 6h Redis error burn rate is {{ $value | humanize }}×. Review
             Redis connection pool exhaustion and network stability.
-          runbook_url: "docs/runbooks/slo_redis_correctness.md"
+          runbook_url: "docs/runbooks/slo_redis_correctness_runbook.md"
 
   - name: ja4proxy_slo_false_positive
     rules:
+      # §2.5 FP Rate SLO alert — fires when blocking rate > 2% at dial >= 50.
+      # Suppressed by JA4proxyAttackCampaignDetected inhibit rule during attack windows.
+      # NOTE: uses ja4proxy_requests_total (renamed from ja4_requests_total — see §1.5)
+      # Action label values: "blocked", "tarpitted", "rate_limited", "banned"
+      - alert: JA4proxyHighBlockingRate
+        expr: |
+          (
+            rate(ja4proxy_requests_total{action=~"blocked|banned|tarpitted|rate_limited"}[1h])
+            / rate(ja4proxy_requests_total[1h])
+          ) > 0.02
+          and
+          ja4proxy_dial_setting >= 50
+        for: 5m
+        labels:
+          severity: warning
+          slo: false_positive_rate
+          team: security-ops
+        annotations:
+          summary: "JA4proxy blocking rate exceeds 2% — possible false positive spike"
+          description: |
+            Blocking rate is {{ $value | humanizePercentage }} over the last hour
+            with dial at {{ $labels.dial_setting }}.
+            This may indicate a misconfiguration, an overly aggressive dial setting,
+            or a legitimate attack campaign.
+          runbook_url: "docs/runbooks/slo_fp_rate_runbook.md"
+
+      # §2.4 observation alert — fires at high block rates regardless of dial.
+      # This is a broad-signal warning; the §2.5 alert is the actionable SLO alert.
       - alert: JA4ProxyHighBlockRate
         # Policy observation alert — not an SLO burn-rate alert.
         # Fires when more than 5% of connections are blocked in a 5-minute window.
@@ -507,7 +755,7 @@ groups:
             {{ $value | humanizePercentage }} of connections are being blocked.
             Check the dial setting, recent blacklist changes, and traffic origin.
             Do not raise the dial further until the cause is confirmed.
-          runbook_url: "docs/runbooks/slo_availability.md"
+          runbook_url: "docs/runbooks/slo_fp_rate_runbook.md"
 ```
 
 ---
@@ -819,16 +1067,21 @@ existing Prometheus datasource defined in
 
 ---
 
-## 6. On-Call Runbook Skeletons
+## 6. On-Call Runbooks
 
-Three runbook files. Each follows the same four-section structure used in existing
-runbooks under `docs/runbooks/`. Fill in `[FILL IN]` placeholders with org-specific
-contact and escalation information before the phase is marked complete.
+Four runbook files — one per SLI plus one for the FP Rate SLO. Each follows the
+same four-section structure used in existing runbooks under `docs/runbooks/`. The
+`[FILL IN]` escalation placeholders must be replaced with org-specific contact
+information before the phase is marked complete, but the diagnostic steps are
+complete and actionable as written.
 
-### 6.1 `docs/runbooks/slo_availability.md`
+### 6.1 `docs/runbooks/slo_availability_runbook.md`
 
 ```markdown
-# Runbook: Availability SLO Burn-Rate Alert
+# Runbook: JA4proxyAvailabilityBurnRateFast
+
+**Alert fires when:** Availability SLI burn rate > 14.4 over a 1-hour window
+(the error budget will exhaust in < 2 hours if not addressed).
 
 ## Alert trigger condition
 
@@ -840,63 +1093,59 @@ job:ja4proxy_availability:burn_rate6h > 14.4
 
 Slow-burn variant: `burn_rate6h > 6 and burn_rate3d > 1` (severity: warning).
 
-## Initial triage
+## Step 1 — Determine scope
 
-1. Check deep health endpoint:
-   ```bash
-   curl -s http://<proxy-host>:9090/api/v1/health/deep | python3 -m json.tool
-   ```
-   Any `"status": "degraded"` field identifies the failing component.
+```bash
+# Which proxy nodes are affected?
+curl -s http://localhost:8090/api/v1/health/deep | python3 -m json.tool
+# Check all nodes if multi-instance:
+for node in proxy-1 proxy-2 proxy-3; do
+  echo "=== $node ==="; curl -s http://$node:8090/api/v1/health/deep | python3 -m json.tool
+done
+```
 
-2. Check proxy CLI health:
-   ```bash
-   ja4proxy health --verbose
-   ```
+Any `"status": "degraded"` field identifies the failing component.
 
-3. Check Prometheus for the raw rate:
-   ```bash
-   curl -sg 'http://localhost:9090/api/v1/query?query=job:ja4proxy_availability:ratio_rate5m' \
-     | python3 -m json.tool
-   ```
+## Step 2 — Check error rate by category
 
-4. Check proxy logs for `event=connection_error` entries:
-   ```bash
-   journalctl -u ja4proxy --since "10 minutes ago" -o json | \
-     python3 -c "import sys,json; [print(l) for l in sys.stdin if 'connection_error' in l]"
-   ```
+In Grafana: SLO Overview dashboard -> Availability SLI panel -> drill down to
+`ja4proxy_connection_errors_total` by `error_type` label.
 
-## Decision tree
+Common causes and responses:
+- `error_type="redis_timeout"`: Redis is slow/unavailable. See Redis failure runbook.
+- `error_type="backend_refused"`: Backend is down. Escalate to backend team.
+- `error_type="tls_parse_error"`: Parser bug or unusual TLS. Check recent deployments.
+- `error_type="oom"`: Memory pressure. Check `ja4proxy_memory_bytes`, restart if needed.
 
-- **Proxy process is not running (`up{job="ja4proxy"} == 0`)**
-  → Restart: `systemctl restart ja4proxy` (or `docker compose restart proxy`).
-  → If it crashes again immediately, check `ja4proxy_errors_total` and journal logs.
+Also check proxy logs for `event=connection_error` entries:
+```bash
+journalctl -u ja4proxy --since "10 minutes ago" -o json | \
+  python3 -c "import sys,json; [print(l) for l in sys.stdin if 'connection_error' in l]"
+```
 
-- **Redis is down**
-  → This is expected to trigger the Redis correctness alert, not the availability
-    alert. If availability is degraded due to Redis: the proxy is not failing open
-    correctly. Check `src/cache/local_cache.py` and the `fail_open` config key.
-  → Page Redis on-call: `[FILL IN]`
+## Step 3 — If a recent deployment is suspected
 
-- **High connection rate causing exhaustion**
-  → Check `ja4proxy_active_connections` gauge vs the configured `max_connections`
-    limit. If near the limit, either add proxy instances or temporarily raise
-    `max_connections` in `config/proxy.yml` and send `SIGHUP`.
+```bash
+git log --oneline -5  # Check last 5 commits on main
+# Roll back if needed:
+docker-compose up -d --no-deps ja4proxy=<previous-tag>
+```
 
-- **Burn rate is fast but proxy appears healthy**
-  → Check if a new proxy deployment just occurred and the 1h window is carrying
-    startup errors from before the fix. Wait 10 minutes for the window to roll.
-
-## Escalation
+## Step 4 — Escalate
 
 - Severity `critical` (fast burn): page primary on-call: `[FILL IN]`
+  The error budget expires in < 2 hours. If not resolved within 30 minutes, escalate.
 - Severity `warning` (slow burn): file ticket assigned to `[FILL IN]`
 - If unresolved after 30 minutes: escalate to `[FILL IN]`
 ```
 
-### 6.2 `docs/runbooks/slo_latency.md`
+### 6.2 `docs/runbooks/slo_latency_runbook.md`
 
 ```markdown
-# Runbook: Latency SLO Burn-Rate Alert
+# Runbook: JA4proxyLatencyBurnRateFast
+
+**Alert fires when:** More than 1% of connections are taking > 10ms, sustained
+for > 5 minutes.
 
 ## Alert trigger condition
 
@@ -908,55 +1157,65 @@ job:ja4proxy_latency_p99_good:burn_rate6h > 14.4
 
 Slow-burn variant: `burn_rate6h > 6 and burn_rate3d > 1` (severity: warning).
 
-## Initial triage
+## Step 1 — Check Redis latency
 
-1. Check current p99 latency:
-   ```bash
-   curl -sg 'http://localhost:9090/api/v1/query?query=histogram_quantile(0.99,rate(ja4proxy_request_duration_seconds_bucket[5m]))' \
-     | python3 -m json.tool
-   ```
+```bash
+redis-cli --latency -h redis
+# Expected: < 1ms. If > 5ms, Redis is the bottleneck.
+```
 
-2. Check active connection count:
-   ```bash
-   curl -sg 'http://localhost:9090/api/v1/query?query=ja4proxy_active_connections' \
-     | python3 -m json.tool
-   ```
+Also check current p99 latency via Prometheus:
+```bash
+# Use current metric name (ja4_request_duration_seconds) until rename is applied:
+curl -sg 'http://localhost:9090/api/v1/query?query=histogram_quantile(0.99,rate(ja4_request_duration_seconds_bucket[5m]))' \
+  | python3 -m json.tool
+# After rename (ja4proxy_request_duration_seconds):
+# curl -sg 'http://localhost:9090/api/v1/query?query=histogram_quantile(0.99,rate(ja4proxy_request_duration_seconds_bucket[5m]))' \
+#   | python3 -m json.tool
+```
 
-3. Check Redis operation latency (Redis slowness adds directly to proxy latency):
-   ```bash
-   curl -sg 'http://localhost:9090/api/v1/query?query=histogram_quantile(0.99,rate(ja4proxy_redis_operation_duration_seconds_bucket[5m]))' \
-     | python3 -m json.tool
-   ```
+## Step 2 — Check signal collection times
 
-4. Check for tarpit saturation:
-   ```bash
-   curl -sg 'http://localhost:9090/api/v1/query?query=ja4proxy_tarpit_concurrent' \
-     | python3 -m json.tool
-   ```
+In Grafana: per-signal latency panel. The slowest signals (AbuseIPDB, RDAP) are
+fire-and-forget — they should not affect the hot path. If they do, check that
+`asyncio.create_task()` is being used for these calls, not `await`.
 
-## Decision tree
+Also check active connection count and tarpit saturation:
+```bash
+curl -sg 'http://localhost:9090/api/v1/query?query=ja4proxy_active_connections' \
+  | python3 -m json.tool
+curl -sg 'http://localhost:9090/api/v1/query?query=ja4proxy_tarpit_concurrent' \
+  | python3 -m json.tool
+```
 
-- **Active connections near configured limit**
-  → Latency is expected to rise as the connection pool saturates. Scale horizontally:
-    add proxy instances behind HAProxy, or raise `max_connections` if headroom exists.
+If tarpit concurrent count > 400, it is near its 500-connection cap and consuming
+resources that slow normal connection handling. Consider lowering
+`tarpit_max_concurrent` to free resources.
 
-- **Redis p99 latency >5ms**
-  → Redis is slow. Check Redis CPU, memory, and network. This is a Redis problem, not
-    a proxy problem. Page Redis on-call: `[FILL IN]`
+## Step 3 — Check proxy CPU
 
-- **Tarpit concurrent count >400**
-  → Tarpit is near its 500-connection cap. The tarpit workers are consuming resources
-    that slow normal connection handling. Review `tarpit_capacity.md` runbook.
-    Consider lowering `tarpit_max_concurrent` to free resources.
+If the Python proxy is CPU-bound (>80% single core), the GIL is the bottleneck.
+Add a worker instance (HAProxy auto-distributes):
+```bash
+docker-compose up -d --scale ja4proxy=<current+1>
+```
 
-- **Latency spike correlates with a recent deploy**
-  → Check git log and rollback if the spike started within 5 minutes of deploy.
-    Roll back: `docker compose up -d --no-build proxy` (previous image tag).
+If the latency spike correlates with a recent deployment, roll back:
+```bash
+git log --oneline -5
+docker compose up -d --no-build proxy  # reverts to previous image tag
+```
 
-- **No obvious cause**
-  → Check system-level metrics: CPU steal time, network receive buffer drops
-    (`netstat -s | grep "receive buffer errors"`), and kernel connection backlog
-    (`ss -s | grep "TCP:"`).
+## Step 4 — Check for connection storms
+
+A sudden spike in new connections will push latency up. Check
+`ja4proxy_requests_total` rate (renamed from `ja4_requests_total` — see §1.5)
+— if it has spiked, the high latency may be transient as the proxy works through
+the queue. Also check system-level metrics:
+```bash
+netstat -s | grep "receive buffer errors"
+ss -s | grep "TCP:"
+```
 
 ## Escalation
 
@@ -965,10 +1224,16 @@ Slow-burn variant: `burn_rate6h > 6 and burn_rate3d > 1` (severity: warning).
 - If unresolved after 30 minutes: escalate to `[FILL IN]`
 ```
 
-### 6.3 `docs/runbooks/slo_redis_correctness.md`
+### 6.3 `docs/runbooks/slo_redis_correctness_runbook.md`
 
 ```markdown
-# Runbook: Redis Correctness SLO Burn-Rate Alert
+# Runbook: JA4proxyRedisCorrectnessBurnRateFast
+
+**Alert fires when:** Redis operation error rate > 0.5% sustained.
+
+This alert means the proxy is operating in degraded mode — bans, rate limits,
+and enrichment decisions are unreliable. The proxy continues to forward traffic
+(fail-open), but policy enforcement is weakened.
 
 ## Alert trigger condition
 
@@ -980,59 +1245,53 @@ job:ja4proxy_redis_correctness:burn_rate6h > 14.4
 
 Slow-burn variant: `burn_rate6h > 6 and burn_rate3d > 1` (severity: warning).
 
-**Important:** When this alert fires, the proxy is still accepting connections
-(fail-open design). However, bans, rate limits, Spamhaus block lists, and AbuseIPDB
-decisions may not be enforcing correctly. Treat this as a security degradation, not
-just a reliability event.
+## Step 1 — Assess Redis health
 
-## Initial triage
+```bash
+redis-cli INFO server | grep -E "redis_version|uptime_in_seconds|connected_clients"
+redis-cli INFO stats | grep -E "rejected_connections|instantaneous_ops_per_sec"
+redis-cli INFO memory | grep -E "used_memory_human|maxmemory_human"
+```
 
-1. Check Redis connectivity from a proxy host:
-   ```bash
-   redis-cli -h <redis-host> -p 6379 ping
-   ```
+Also check Redis connectivity from a proxy host:
+```bash
+redis-cli -h <redis-host> -p 6379 ping
+```
 
-2. Check Redis error rate in Prometheus:
-   ```bash
-   curl -sg 'http://localhost:9090/api/v1/query?query=rate(ja4proxy_redis_operations_total{result="error"}[5m])' \
-     | python3 -m json.tool
-   ```
+## Step 2 — Check for memory pressure
 
-3. Check which Redis operations are failing (look for a `command` label if present):
-   ```bash
-   curl -sg 'http://localhost:9090/api/v1/query?query=rate(ja4proxy_redis_operations_total{result="error"}[5m])' \
-     | python3 -m json.tool
-   ```
+If Redis `used_memory` is approaching `maxmemory`, Redis is evicting keys. The
+proxy's `redis.maxmemory-policy` should be `allkeys-lru` (evicts least-recently-used
+keys first). Verify:
+```bash
+redis-cli CONFIG GET maxmemory-policy
+```
 
-4. Check proxy logs for Redis error events:
-   ```bash
-   journalctl -u ja4proxy --since "10 minutes ago" -o json | \
-     python3 -c "import sys,json; [print(l) for l in sys.stdin if 'redis' in l.lower()]"
-   ```
+Check proxy logs for Redis error events:
+```bash
+journalctl -u ja4proxy --since "10 minutes ago" -o json | \
+  python3 -c "import sys,json; [print(l) for l in sys.stdin if 'redis' in l.lower()]"
+```
 
-## Decision tree
+## Step 3 — Check connection pool exhaustion
 
-- **Redis is completely unreachable (ping fails)**
-  → Proxy is in full fail-open mode. No policy decisions involving Redis state
-    are applying. Page Redis on-call immediately: `[FILL IN]`
-  → Until Redis recovers, the proxy will not block known-bad IPs or enforce
-    rate limits. Notify the security team: `[FILL IN]`
+A Redis connection pool that is full causes blocking waits, which appear as errors
+in high-load scenarios. Check `ja4proxy_redis_pool_exhausted_total`. If the pool
+is exhausted, increase `redis_pool_size` in `config/proxy.yml` and reload:
+```bash
+kill -HUP $(pgrep -f ja4proxy)   # or docker-compose kill -s HUP proxy
+```
 
-- **Redis responds to ping but errors are high**
-  → Redis may be under memory pressure (OOM killer evicting keys) or overloaded.
-  → Check Redis INFO: `redis-cli INFO memory` and `redis-cli INFO stats`.
-  → If `used_memory_rss > maxmemory * 0.9`, Redis is near eviction threshold.
+## Step 4 — Check network between proxy and Redis
 
-- **Intermittent errors only during connection spikes**
-  → Redis connection pool may be exhausted. Check `ja4proxy_redis_pool_exhausted_total`.
-  → Increase `redis_pool_size` in `config/proxy.yml` and reload with `SIGHUP`.
+```bash
+redis-cli --latency -h redis -p 6379
+# Sustained > 5ms indicates network or Redis disk I/O issues
+```
 
-- **Redis is fine but the SLI is below target after Redis recovery**
-  → The 1h and 6h windows are still carrying errors from before the fix.
-  → Confirm Redis is healthy, then wait for the windows to roll. The SLI
-    should recover within 1h.
-
-## Escalation
+If Redis is completely unreachable (ping fails), the proxy is in full fail-open
+mode. No policy decisions involving Redis state are applying. Notify the security
+team immediately: `[FILL IN]`
 
 - Severity `critical` (fast burn): page primary on-call AND notify security team:
   `[FILL IN]`. Reason: policy enforcement is degraded.
@@ -1040,6 +1299,97 @@ just a reliability event.
 - If Redis is down and cannot be recovered within 15 minutes: escalate to
   `[FILL IN]` and consider enabling a temporary static ACL via `config/proxy.yml`
   `static_ip_blocklist` as a manual fallback.
+```
+
+### 6.4 `docs/runbooks/slo_fp_rate_runbook.md`
+
+```markdown
+# Runbook: JA4proxyHighBlockingRate
+
+**Alert fires when:** Blocking rate > 2% over the last 1 hour with dial >= 50.
+
+This alert means either (a) there is a misconfiguration causing false positives,
+(b) the dial is set too aggressively for the current traffic profile, or (c) there
+is an ongoing attack campaign (in which case the alert should be inhibited — see below).
+
+## Alert trigger condition
+
+```promql
+# Uses ja4proxy_requests_total (renamed from ja4_requests_total — see §1.5 of PHASE_63.md)
+# Action label values: "blocked", "tarpitted", "rate_limited", "banned"
+(
+  rate(ja4proxy_requests_total{action=~"blocked|banned|tarpitted|rate_limited"}[1h])
+  / rate(ja4proxy_requests_total[1h])
+) > 0.02
+and
+ja4proxy_dial_setting >= 50
+```
+
+## Step 1 — Check whether an attack campaign is declared
+
+If `JA4proxyAttackCampaignDetected` is also firing, the high blocking rate is
+expected. The Alertmanager inhibit rule should have suppressed this alert; if it
+did not, check the Alertmanager inhibit configuration.
+
+```bash
+curl -s http://localhost:9093/api/v2/alerts | \
+  python3 -m json.tool | grep -A5 "JA4proxyAttackCampaignDetected"
+```
+
+If an attack is confirmed, silence this alert for the duration:
+```bash
+# In Alertmanager UI: create silence for JA4proxyHighBlockingRate for 4h
+```
+
+## Step 2 — Identify which action is driving the block rate
+
+```bash
+# Note: metric is ja4proxy_requests_total (renamed from ja4_requests_total)
+curl -sg 'http://localhost:9090/api/v1/query?query=rate(ja4proxy_requests_total[5m])' \
+  | python3 -m json.tool
+```
+
+In Grafana: SLO Overview dashboard -> Block Rate panel -> break down by `action` label.
+
+- `action="blocked"` (JA4 blacklist, country, Spamhaus): check for recent blacklist
+  changes. A bad entry added to the JA4 blacklist or a country blacklist change can
+  instantly spike the block rate.
+- `action="banned"`: check `ja4proxy_bans_active_total` — a mass ban event may have
+  occurred (e.g., a scoring bug that over-bans).
+- `action="rate_limited"`: check for a traffic surge from a single IP range.
+- `action="tarpitted"`: check `ja4proxy_tarpit_concurrent`.
+
+## Step 3 — Check for a recent dial change or config reload
+
+```bash
+redis-cli LRANGE management:policy_audit 0 9 | python3 -m json.tool
+```
+
+A recent dial increase (e.g., from 40 to 60) with an ill-calibrated threshold can
+immediately start blocking legitimate traffic. If the dial was recently raised, lower
+it back to the previous setting:
+```bash
+# Via management API:
+curl -X PUT http://localhost:8090/api/v1/config/dial -d '{"value": 40}'
+# Or via config file + SIGHUP:
+# Edit config/proxy.yml: dial: 40
+kill -HUP $(pgrep -f ja4proxy)
+```
+
+## Step 4 — Escalate
+
+If the cause is identified and fixed, monitor for 15 minutes to confirm the blocking
+rate drops below 2%.
+
+If no cause is found within 20 minutes:
+- Lower the dial to 0 (monitor mode) immediately to stop blocking legitimate traffic.
+- Escalate to `[FILL IN]` with the time range and blocking rate.
+- File a policy incident report describing the blocking window, volume of affected
+  connections, and the dial setting at the time.
+
+Severity: `warning`. This alert does not require an immediate page but does require
+investigation within 30 minutes. If the blocking rate exceeds 10% (1 in 10 connections
+blocked), treat as `critical` and page on-call.
 ```
 
 ---
@@ -1104,22 +1454,82 @@ least 3 days of data for the budget-remaining calculations to be meaningful.
 - [ ] Six burn-rate alerts defined: fast and slow burn for each of the three SLIs
 - [ ] One policy observation alert (`JA4ProxyHighBlockRate`) defined with 5%
       threshold and `for: 5m`
-- [ ] All seven alerts include a `runbook_url` annotation pointing to a file that
+- [ ] §2.5 FP Rate SLO exists with a numeric target (2% blocking rate) and an alert rule
+- [ ] The `JA4proxyHighBlockingRate` alert exists in `slo_alerts.yml` with
+      `ja4proxy_dial_setting >= 50` condition and `for: 5m`
+- [ ] Alertmanager inhibit rule for `JA4proxyAttackCampaignDetected` exists in
+      `slo_alerts.yml` to suppress FP rate alerts during declared attack windows
+- [ ] §2.6 Throughput SLO exists with a connection growth alert rule
+- [ ] All alerts include a `runbook_url` annotation pointing to a file that
       exists under `docs/runbooks/`
 - [ ] `monitoring/grafana/dashboards/slo_overview.json` exists and is valid JSON
 - [ ] SLO dashboard has three rows: current SLI stat panels, error budget time series,
       false positive rate with threshold line
 - [ ] Stat panels for availability, latency, and Redis correctness show green above
       SLO target, yellow in the warning band, red below
-- [ ] `docs/runbooks/slo_availability.md` exists with all four sections
-- [ ] `docs/runbooks/slo_latency.md` exists with all four sections
-- [ ] `docs/runbooks/slo_redis_correctness.md` exists with all four sections
+- [ ] `docs/runbooks/slo_availability_runbook.md` exists with Step 1–4 diagnostic
+      commands (not placeholder text)
+- [ ] `docs/runbooks/slo_latency_runbook.md` exists with Step 1–4 diagnostic
+      commands (not placeholder text)
+- [ ] `docs/runbooks/slo_redis_correctness_runbook.md` exists with Step 1–4 diagnostic
+      commands (not placeholder text)
+- [ ] `docs/runbooks/slo_fp_rate_runbook.md` exists with Step 1–4 diagnostic
+      commands and attack campaign inhibit instructions
 - [ ] `make validate-slo-rules` target added to bottom of `Makefile` and runs without
       error against the delivered rule files
 - [ ] `make slo-report` target added to bottom of `Makefile`
-- [ ] `ja4proxy_request_duration_seconds_bucket{le="0.01"}` bucket confirmed to exist
-      in histogram definition (proxy.py and cmd/proxy/main.go); if missing, add it and
-      note the change in `PHASE_63_notes.md`
-- [ ] `ja4proxy_redis_operations_total` confirmed to carry both `result="ok"` and
-      `result="error"` label values; if only `result="error"` exists, add the `"ok"`
-      series and note the change in `PHASE_63_notes.md`
+- [ ] Metric naming prerequisite (§1.5) addressed:
+      - [ ] `ja4_requests_total` renamed to `ja4proxy_requests_total` in `proxy.py`
+            and all referencing files
+      - [ ] `ja4_request_duration_seconds` renamed to `ja4proxy_request_duration_seconds`
+            in `proxy.py`; `le="0.01"` bucket confirmed present (it is — no bucket change
+            needed)
+      - [ ] `ja4proxy_connection_errors_total` counter added to `proxy.py`
+            `handle_connection()` error handler
+      - [ ] `ja4proxy_redis_operations_total` counter with `result="ok"` and
+            `result="error"` labels added to all Redis call sites in `proxy.py` and `src/`
+      - [ ] All of the above changes noted in `PHASE_63_notes.md`
+- [ ] §9 SLO Review Cadence section exists and defines the 4-week baseline period
+      and review process
+
+---
+
+## 9. SLO Review Cadence
+
+### 9.1 Weekly Error Budget Check
+
+Once per week, confirm that no error budget has been consumed in the preceding 7 days.
+The check is automated via a Prometheus query:
+
+```promql
+# Is the 28-day availability error budget > 50% remaining?
+job:ja4proxy_availability:budget_remaining28d > 0.5
+```
+
+If any error budget is below 50%, schedule a review before it exhausts.
+
+### 9.2 First Deployment Baseline Period
+
+SLO targets were set before the proxy was deployed at scale. The first 4 weeks of
+production deployment constitute a baseline period. During this period:
+
+- SLO alerts fire and are recorded, but do not require immediate on-call response.
+- The observed SLI values are used to calibrate whether the targets are achievable
+  (too tight) or unchallenging (too loose).
+- After 4 weeks, the team reviews the baseline and adjusts SLO targets if needed.
+
+The 99.9% availability target is conservative for a fail-open proxy — the proxy
+itself rarely generates connection errors; errors usually come from Redis or backend
+failures. If the observed availability is 99.99%, consider tightening to 99.95%.
+
+If the observed p99 latency is consistently < 2ms, consider tightening the 10ms
+latency SLO target to 5ms.
+
+### 9.3 SLO Target Changes
+
+SLO targets are not changed reactively (i.e., not because an alert is annoying).
+They are changed after at least one full 28-day measurement period has passed, with
+data showing the target is systematically unachievable or trivially easy to maintain.
+
+SLO target changes are documented in an ADR (`docs/decisions/ADR-NNN.md`) with the
+measurement data that motivated the change.

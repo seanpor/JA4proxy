@@ -1,0 +1,105 @@
+<!--
+  HTMX Partial: audit_table.html
+  GET /api/v1/partials/audit?offset=0&filter=all
+  Template vars:
+    events: list of {timestamp, changed_by, action, item, old_value, new_value, details}
+    offset: int (for pagination)
+-->
+{% set events = events | default([]) %}
+
+{% if events %}
+<tbody id="audit-tbody" class="divide-y divide-[#334155]/40">
+  {% for event in events %}
+  {% set action = event.action | default("") | lower %}
+
+  {# Action color coding #}
+  {% if "dial" in action %}
+    {% set action_bg = "bg-[#0ea5e9]/15" %}
+    {% set action_text = "text-[#38bdf8]" %}
+    {% set action_border = "border-[#0ea5e9]/30" %}
+  {% elif "ban" in action and "lift" not in action %}
+    {% set action_bg = "bg-[#dc2626]/15" %}
+    {% set action_text = "text-[#f87171]" %}
+    {% set action_border = "border-[#dc2626]/30" %}
+  {% elif "lift" in action or "unban" in action %}
+    {% set action_bg = "bg-[#16a34a]/15" %}
+    {% set action_text = "text-[#4ade80]" %}
+    {% set action_border = "border-[#16a34a]/30" %}
+  {% elif "list" in action or "whitelist" in action or "blacklist" in action or "allowlist" in action %}
+    {% set action_bg = "bg-[#d97706]/15" %}
+    {% set action_text = "text-[#fbbf24]" %}
+    {% set action_border = "border-[#d97706]/30" %}
+  {% elif "reload" in action or "config" in action %}
+    {% set action_bg = "bg-[#7c3aed]/15" %}
+    {% set action_text = "text-[#c4b5fd]" %}
+    {% set action_border = "border-[#7c3aed]/30" %}
+  {% else %}
+    {% set action_bg = "bg-[#334155]/50" %}
+    {% set action_text = "text-[#94a3b8]" %}
+    {% set action_border = "border-[#334155]" %}
+  {% endif %}
+
+  <tr class="hover:bg-[#334155]/20 transition-colors group text-xs"
+      x-data="{ showDetails: false }">
+    <!-- Timestamp -->
+    <td class="px-4 py-3 whitespace-nowrap text-[#94a3b8] align-top w-[150px]">
+      {{ event.timestamp | default("—") }}
+    </td>
+    <!-- User -->
+    <td class="px-4 py-3 align-top w-[100px]">
+      <span class="font-medium text-[#f1f5f9]">{{ event.changed_by | default("system") }}</span>
+    </td>
+    <!-- Action badge -->
+    <td class="px-4 py-3 align-top w-[130px]">
+      <span class="inline-block px-2 py-0.5 rounded border text-[10px] font-medium {{ action_bg }} {{ action_text }} {{ action_border }}">
+        {{ event.action | default("unknown") }}
+      </span>
+    </td>
+    <!-- Details column -->
+    <td class="px-4 py-3 align-top">
+      <div class="text-[#94a3b8]">
+        {% if event.item %}
+        <span class="text-[#f1f5f9] font-medium">{{ event.item }}</span>
+        {% endif %}
+        {% if event.old_value is not none and event.new_value is not none %}
+          <span class="ml-1 text-[#475569]">
+            <span class="line-through">{{ event.old_value }}</span>
+            <span class="mx-1">→</span>
+            <span class="{{ action_text }}">{{ event.new_value }}</span>
+          </span>
+        {% endif %}
+
+        {# Expand/collapse raw details #}
+        {% if event.details %}
+        <button @click="showDetails = !showDetails"
+                class="ml-2 text-[10px] text-[#475569] hover:text-[#94a3b8] transition-colors"
+                :aria-expanded="showDetails">
+          <span x-text="showDetails ? 'Hide ▲' : 'Details ▼'">Details ▼</span>
+        </button>
+        <pre x-show="showDetails"
+             class="mt-2 p-2 rounded bg-[#0f172a] border border-[#334155] text-[10px] text-[#94a3b8]
+                    overflow-x-auto whitespace-pre-wrap break-all max-w-sm"
+             style="display:none;">{{ event.details | tojson(indent=2) if event.details is mapping else event.details }}</pre>
+        {% endif %}
+      </div>
+    </td>
+  </tr>
+  {% endfor %}
+</tbody>
+
+{% else %}
+<!-- Empty state (rendered as tbody for correct table structure) -->
+<tbody id="audit-tbody">
+  <tr>
+    <td colspan="4">
+      <div class="flex flex-col items-center justify-center py-12 text-center">
+        <svg class="w-8 h-8 text-[#334155] mb-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <p class="text-sm text-[#94a3b8]">No audit events found</p>
+        <p class="text-xs text-[#475569] mt-1">Policy changes will appear here</p>
+      </div>
+    </td>
+  </tr>
+</tbody>
+{% endif %}

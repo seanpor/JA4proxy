@@ -274,11 +274,11 @@ Practical rules that flow from this:
 | 46 | Coverage Improvement | Achieve >80% coverage for all critical modules | [PHASE_46.md](docs/phases/PHASE_46.md) |
 | 58 | Advanced Intelligence - Ph 3: Opt | Confidence weighting, adaptive caching, and feed reliability | [PHASE_58.md](docs/phases/PHASE_58.md) |
 | 59 | Advanced Intelligence - Ph 4: Rel | Feed health monitoring, circuit breakers, and chaos testing | [PHASE_59.md](docs/phases/PHASE_59.md) |
-| 60 | Master Plan and Governance | Quality roadmap and governance framework | [PHASE_60.md](docs/phases/PHASE_60.md) |
-| 61 | Technical Quality Improvements | Code quality, architecture, and reliability enhancements | [PHASE_61.md](docs/phases/PHASE_61.md) |
-| 62 | Security Hardening | Pentesting, threat modeling, and incident response | [PHASE_62.md](docs/phases/PHASE_62.md) |
-| 63 | Observability and Monitoring | Technical observability and executive dashboards | [PHASE_63.md](docs/phases/PHASE_63.md) |
-| 64 | Operational Excellence | Process optimization and continuous improvement | [PHASE_64.md](docs/phases/PHASE_64.md) |
+| 60 | Master Plan and Governance | Strategy doc for 61–64 cluster; identified gaps, product limitations, execution order | [PHASE_60.md](docs/phases/PHASE_60.md) |
+| 61 | **Supply Chain Security & Build Integrity** | GitHub Actions CI; SBOM (CycloneDX 1.4); Cosign image signing; SLSA level 2; action SHA pinning; branch protection | [PHASE_61.md](docs/phases/PHASE_61.md) |
+| 62 | **Security Regression Harness & Fuzzing** | Regression tests for Phase 27 findings; atheris + Go fuzzing; break-glass verification; pre-enterprise validation report | [PHASE_62.md](docs/phases/PHASE_62.md) |
+| 63 | **Service Level Objectives** | Four SLIs with burn-rate alerts; FP rate SLO; Grafana SLO dashboard; on-call runbooks; metric naming prerequisite | [PHASE_63.md](docs/phases/PHASE_63.md) |
+| 64 | **Deployment Validation & Disaster Recovery** | Smoke tests; DR runbook (5 scenarios incl. data loss); credential & cert rotation; rolling upgrade; MTTR baseline | [PHASE_64.md](docs/phases/PHASE_64.md) |
 | 65 | Performance Hardening & Go/Python Parity | Pure-Python TLS parser, JA4 bug fixes, Go config wiring, parity harness | [PHASE_65.md](docs/phases/PHASE_65.md) |
 | 66 | **Python 3.14 Compatibility Assessment** | PyPI wheel checker; local 3.14 test run; Python 3.11 benchmark baseline capture | [PHASE_66.md](docs/phases/PHASE_66.md) |
 | 67 | **Python 3.14 Base Image Upgrade** | Nine Dockerfiles → python:3.14.0-slim; test suite; ~25-35% CPU gain from tail-call interp + JIT | [PHASE_67.md](docs/phases/PHASE_67.md) |
@@ -301,6 +301,8 @@ Practical rules that flow from this:
 | 84 | **Compliance Reporting & Evidence Pack** | ISO 27001 / SOC 2 evidence pack, automated report generator, compliance dashboard | [PHASE_84.md](docs/phases/PHASE_84.md) |
 | 85 | **Threat Intelligence Ingestion** | TAXII 2.1 client, MISP integration, STIX 2.1 indicator conversion, ISAC sharing | [PHASE_85.md](docs/phases/PHASE_85.md) |
 | 86 | **Observability Upgrade & Capacity Planning** | Grafana enterprise dashboards, SLO burn-rate alerting, capacity calculator | [PHASE_86.md](docs/phases/PHASE_86.md) |
+| 87 | **Container & Host Infrastructure Observability** | cAdvisor per-container metrics; dedicated infra dashboard (fleet strip + variable drill-down); host/container/attack-detection alert rules | [PHASE_87.md](docs/phases/PHASE_87.md) |
+| 88 | **Multi-Datacenter Survivability & Failover** | Redis Sentinel per-DC + sync agent; State Classification Table; Dial Consistency Protocol (synchronous RPC); 7 failure scenario runbooks; active-active and active-passive topologies | [PHASE_88.md](docs/phases/PHASE_88.md) |
 
 **Do phases in order. Complete all acceptance criteria before starting the next phase.**
 
@@ -487,6 +489,18 @@ See `docs/TESTING_STRATEGY.md` for the full methodology. Summary:
 - New signals: FP rate test against real-world corpus (Tranco top 10k for domains).
 - Phase completion gate (`docs/TESTING_STRATEGY.md §5`) must fully pass before next phase.
 
+**Web service phases — two additional mandatory test files** (learned from phases 13/51/52):
+
+`test_pages.py` — for every HTML-rendering route:
+- GET with valid auth → assert 200 + `text/html` + landmark string in body
+- GET without auth → assert `status_code < 500` (a 500 means the route crashed before auth ran)
+- Mocks alone are not sufficient: template rendering must be exercised in tests, not just auth redirects.
+
+`test_container_config.py` — for every service with external dependencies:
+- Parse `docker-compose.poc.yml` and assert the service's env section passes credentials correctly
+- Assert that when a password env var exists, the built connection URL includes it
+- Rationale: in-memory fakes (fakeredis, sqlite) don't need passwords; real containers do. This gap is invisible to unit tests alone.
+
 ### Documentation Standards
 
 See `docs/DOCUMENTATION_STANDARDS.md` for the full spec. Summary:
@@ -620,9 +634,11 @@ docs/
 
 ## How to Run a Phase
 
+> **Before anything else:** If the phase document (`docs/phases/PHASE_XX.md`) does not already exist, you MUST create it and have it reviewed by the user before writing any code. See the **Mandatory Planning Protocol** in `AGENTS.md`. This rule overrides the steps below — do not begin "Starting" until a plan exists and has been approved.
+
 ### Starting
 1. Read this file (`CLAUDE.md`) in full.
-2. Read the specific phase file `docs/phases/PHASE_XX.md`.
+2. Read the specific phase file `docs/phases/PHASE_XX.md` (create it first if it does not exist — see note above).
 3. Read the existing code in `proxy.py` and `src/security/` before writing anything new.
 4. Read `config/proxy.yml` to understand the config structure.
 5. Create your branch: `git checkout main && git pull && git checkout -b claude/phase-XX-description`
