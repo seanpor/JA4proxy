@@ -147,7 +147,7 @@ services:
     container_name: ja4proxy-redis-exporter
     environment:
       - REDIS_ADDR=redis:6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     # Not exposed to host — only accessible from monitoring network
     restart: unless-stopped
     networks:
@@ -290,13 +290,14 @@ networks:
   ja4proxy-monitoring:
     driver: bridge
   # Connect to POC networks for metrics scraping.
-  # Names match the fixed project name in docker-compose.poc.yml (name: ja4proxy).
+  # Names match the explicit name: fields on networks in docker/docker-compose.poc.yml.
+  # After Phase 89, poc networks have explicit name: ja4proxy-dmz / ja4proxy-data / ja4proxy-mgmt.
   poc_dmz_net:
     external: true
-    name: ja4proxy_dmz_net
+    name: ja4proxy-dmz
   poc_data_net:
     external: true
-    name: ja4proxy_data_net
+    name: ja4proxy-data
   poc_mgmt_net:
     external: true
-    name: ja4proxy_mgmt_net
+    name: ja4proxy-mgmt

@@ -295,7 +295,8 @@ lint-coverage:
 # Ignored rules are consciously accepted — see .hadolint.yaml for rationale.
 # docker/docker-compose.test.yml is the full Go test environment.
 HADOLINT_IGNORE := --ignore DL3008 --ignore DL3013 --ignore DL3015 --ignore DL3018 --ignore DL3059
-HADOLINT_DOCKERFILES := docker/Dockerfile docker/Dockerfile.mockbackend docker/Dockerfile.test \
+HADOLINT_DOCKERFILES := docker/Dockerfile docker/Dockerfile.admin docker/Dockerfile.management \
+	docker/Dockerfile.mockbackend docker/Dockerfile.test \
 	docker/Dockerfile.trafficgen docker/Dockerfile.go-proxy src/analytics/Dockerfile tarpit/Dockerfile \
 	tests/docker/Dockerfile.python-proxy tests/docker/Dockerfile.recorder \
 	tests/docker/Dockerfile.test-runner tests/docker/Dockerfile.tls-backend
@@ -1013,3 +1014,15 @@ test-phase-87-integration:
 	@echo "Requires monitoring stack: cd docker && docker compose -f docker-compose.monitoring.yml up -d"
 	@./tests/integration/phase-87/check_cadvisor_metrics.sh
 	@./tests/integration/phase-87/check_haproxy_exporter.sh
+
+## Phase 89 targets
+test-phase-89:
+	python3 -m pytest tests/unit/test_docker_consistency.py \
+	                 tests/integration/test_dockerfile_coverage.py -v
+
+test-phase-89-lint:
+	REDIS_PASSWORD=lint BACKEND_HOST=lint \
+	  docker compose -f docker/docker-compose.poc.yml config --quiet
+	docker compose -f docker/docker-compose.test.yml config --quiet
+	BACKEND_HOST=lint \
+	  docker compose -f docker/docker-compose.prod.yml config --quiet
