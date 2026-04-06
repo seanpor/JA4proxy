@@ -328,7 +328,7 @@ phases:
 
   34:
     name: "APT Hardening - Phase 1: Parser Isolation & Redis Security"
-    status: "IN_PROGRESS"
+    status: "COMPLETE"
     summary: "Implement parser process isolation and Zero-Trust Redis ACLs with signatures. Now also covers items absorbed from cancelled Phase 55: Redis ACL users, JA4/TLS mismatch detection, proxy Seccomp JSON profile, AppArmor profile, subnet correlation pipeline wiring, and fuzz test."
     action_plan: "docs/phases/PHASE_34.md"
     size: "MEDIUM"
