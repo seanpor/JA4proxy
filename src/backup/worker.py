@@ -316,6 +316,8 @@ class BackupWorker:
                 # Phase 57a: format header metadata
                 "format_version": 1,
                 "format_flags": format_flags,
+                # Phase 57f: sequence_number (0 = full backup; reserved for incremental)
+                "sequence_number": 0,
                 # Phase 40: Encryption manifest update
                 "encryption": {
                     "enabled": is_encrypted,

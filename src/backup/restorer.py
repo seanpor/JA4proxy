@@ -8,9 +8,9 @@ import hashlib
 import json
 import logging
 import socket
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 import redis
 from prometheus_client import Counter, Gauge, Histogram
@@ -307,6 +307,18 @@ class BackupRestorer:
                     threshold=threshold,
                 )
 
+            # Phase 57f: post-restore verification (advisory — never blocks success)
+            self._verify_key_count(
+                redis_client,
+                expected_count=manifest.get("keys_count", 0),
+                backup_filename=manifest["filename"],
+            )
+            self._write_restored_from(
+                redis_client,
+                filename=manifest["filename"],
+                keys_count=keys_restored,
+            )
+
             # Record success metrics
             duration = (datetime.utcnow() - start_time).total_seconds()
             RESTORE_DURATION_SECONDS.observe(duration)
@@ -447,9 +459,8 @@ class BackupRestorer:
                 keys_failed += 1
                 logger.warning("restore skipped key %s: %s", key, exc)
 
-        # Record restore markers for auditing and monitoring.
+        # Record restore marker for time-of-restore auditing.
         redis_client.set("backup:last_restore", datetime.utcnow().isoformat() + "Z")
-        redis_client.set("backup:restored_from", Path(backup_path).name)
 
         return keys_restored, keys_failed
 
@@ -468,3 +479,137 @@ class BackupRestorer:
                 logger.warning("restore skipped key %s: %s", key, exc)
 
         return keys_restored, keys_failed
+
+    # ------------------------------------------------------------------
+    # Phase 57f: post-restore verification helpers
+    # ------------------------------------------------------------------
+
+    def _verify_key_count(
+        self,
+        redis_client: redis.Redis,
+        expected_count: int,
+        backup_filename: str,
+    ) -> None:
+        """Verify the number of keys in Redis after restore matches the manifest.
+
+        This check is **advisory only** — it logs a WARNING if divergence exceeds
+        5% but never raises an exception or blocks a successful restore.  Any
+        error during the SCAN (e.g. mock incompatibility) is silently swallowed
+        so the advisory can never break a restore.
+
+        Args:
+            redis_client: Connected Redis client.
+            expected_count: Number of keys recorded in the backup manifest.
+            backup_filename: Name of the backup artifact (for log context).
+        """
+        if expected_count <= 0:
+            return  # Nothing meaningful to check
+
+        try:
+            restored_count = 0
+            cursor = 0
+            while True:
+                cursor, keys = redis_client.scan(cursor=cursor, count=100)
+                restored_count += len(keys)
+                if cursor == 0:
+                    break
+
+            divergence = abs(restored_count - expected_count) / expected_count
+            if divergence > 0.05:
+                logger.warning(
+                    "backup | event=restore_key_count_divergence | filename=%s | "
+                    "expected=%d | restored=%d | divergence_pct=%.1f",
+                    backup_filename,
+                    expected_count,
+                    restored_count,
+                    divergence * 100,
+                )
+        except Exception as exc:
+            logger.debug(
+                "backup | event=key_count_verify_skipped | filename=%s | reason=%s",
+                backup_filename,
+                exc,
+            )
+
+    def _write_restored_from(
+        self,
+        redis_client: redis.Redis,
+        filename: str,
+        keys_count: int,
+    ) -> None:
+        """Record which backup artifact was used for this restore.
+
+        Writes ``backup:restored_from`` as a JSON object with ``filename``,
+        ``restored_at`` (ISO-8601), and ``keys_count`` fields.
+
+        Args:
+            redis_client: Connected Redis client.
+            filename: Backup artifact filename (basename only).
+            keys_count: Number of keys successfully restored.
+        """
+        record = json.dumps({
+            "filename": filename,
+            "restored_at": datetime.now(timezone.utc).isoformat(),
+            "keys_count": keys_count,
+        })
+        redis_client.set("backup:restored_from", record)
+
+    def restore_with_fallback(
+        self,
+        primary_path: Path,
+        fallback_paths: Optional[List[Path]] = None,
+    ) -> Path:
+        """Restore from ``primary_path``; try ``fallback_paths`` in order if primary fails.
+
+        Attempts each artifact in sequence until one succeeds.  The first
+        artifact whose checksum validates and whose restore completes without
+        error is used.  If a fallback is used a WARNING is logged identifying
+        which artifact succeeded.
+
+        Args:
+            primary_path: Path to the primary backup artifact (.bin file).
+            fallback_paths: Ordered list of fallback artifact paths to try
+                if the primary fails.  Defaults to an empty list.
+
+        Returns:
+            The ``Path`` of the artifact that was successfully restored.
+
+        Raises:
+            RestoreError: If every artifact in ``primary_path + fallback_paths``
+                fails checksum verification or restore.
+        """
+        all_paths = [primary_path] + list(fallback_paths or [])
+        manifest_suffix = ".manifest.json"
+        last_exc: Optional[Exception] = None
+
+        for i, artifact_path in enumerate(all_paths):
+            manifest_path = Path(str(artifact_path) + manifest_suffix)
+            try:
+                self.restore_backup(str(artifact_path), str(manifest_path))
+                if i > 0:
+                    logger.warning(
+                        "backup | event=fallback_restore_used | primary=%s | used=%s",
+                        primary_path.name,
+                        artifact_path.name,
+                    )
+                return artifact_path
+            except Exception as exc:
+                last_exc = exc
+                if i < len(all_paths) - 1:
+                    logger.warning(
+                        "backup | event=restore_artifact_failed | path=%s | "
+                        "trying_fallback=True | error=%s",
+                        artifact_path.name,
+                        exc,
+                    )
+                else:
+                    logger.error(
+                        "backup | event=all_restore_paths_failed | tried=%d | error=%s",
+                        len(all_paths),
+                        exc,
+                    )
+
+        raise RestoreError(
+            f"All {len(all_paths)} restore artifact(s) failed. "
+            f"Last error: {last_exc}"
+        ) from last_exc
