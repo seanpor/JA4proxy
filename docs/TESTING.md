@@ -64,12 +64,12 @@ This document describes the test types, coverage goals, and guidelines for writi
 
 ### Overall Coverage
 - **Target**: 80% minimum for all modules.
-- **Current**: 86% overall (10588 statements, 1483 missed).
+- **Current**: 84% overall (11570 statements, 1870 missed) — 3124 tests collected.
 
 ### Module-Specific Goals
 - **High Coverage (90%+)**: Core security modules (e.g., `src/security/`).
 - **Moderate Coverage (80-90%)**: Utility modules (e.g., `src/utils/`).
-- **Low Coverage (<80%)**: Legacy or experimental modules (e.g., `src/tap/tap_pipeline.py`).
+- **Low Coverage (<80%)**: TAP and export modules (e.g., `src/tap/tap_pipeline.py` at 44%, `src/tap/export/export_manager.py` at 44%); `src/utils/logging_config.py` currently at 0%.
 
 ### Coverage Reporting
 - **Tool**: `pytest-cov`.
@@ -155,7 +155,7 @@ This document describes the test types, coverage goals, and guidelines for writi
   ```
 
 ## Resources
-- **Phase Documentation**: `docs/phases/PHASE_44_TEST_AUDIT.md`.
+- **Phase Documentation**: `docs/phases/PHASE_44.md`.
 - **Test Examples**: `tests/unit/`, `tests/integration/`, `tests/chaos/`, `tests/adversarial/`.
 - **Coverage Reports**: `reports/coverage/html`.
 
