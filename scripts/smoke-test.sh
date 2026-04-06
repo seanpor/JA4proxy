@@ -51,7 +51,7 @@ fi
 
 # Test Redis
 echo -n "Testing Redis... "
-if docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "${REDIS_PW}" ping 2>/dev/null | grep -q PONG; then
+if docker compose -f docker/docker-compose.poc.yml exec -T redis redis-cli -a "${REDIS_PW}" ping 2>/dev/null | grep -q PONG; then
     echo -e "${GREEN}✓${NC}"
 else
     echo -e "${RED}✗${NC}"
@@ -78,7 +78,7 @@ else
     echo ""
     echo "Troubleshooting:"
     echo "  1. Ensure services are running: ./scripts/start-poc.sh"
-    echo "  2. Check logs: docker compose -f docker-compose.poc.yml logs"
-    echo "  3. Check service status: docker compose -f docker-compose.poc.yml ps"
+    echo "  2. Check logs: docker compose -f docker/docker-compose.poc.yml logs"
+    echo "  3. Check service status: docker compose -f docker/docker-compose.poc.yml ps"
     exit 1
 fi

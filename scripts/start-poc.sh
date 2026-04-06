@@ -51,7 +51,7 @@ echo -e "${BLUE}Starting services...${NC}"
 docker network prune -f > /dev/null 2>&1 || true
 
 # Try to start services with --remove-orphans to avoid warnings
-if ! docker compose -f docker-compose.poc.yml up -d --remove-orphans redis backend proxy haproxy tarpit analytics 2>&1; then
+if ! docker compose -f docker/docker-compose.poc.yml up -d --remove-orphans redis backend proxy haproxy tarpit analytics 2>&1; then
     echo ""
     echo -e "${RED}Failed to start services. This may be a Docker networking issue.${NC}"
     echo ""
@@ -74,7 +74,7 @@ echo -n "Checking Redis... "
 MAX_RETRIES=30
 RETRY_COUNT=0
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "${REDIS_PASSWORD}" --no-auth-warning ping > /dev/null 2>&1; then
+    if docker compose -f docker/docker-compose.poc.yml exec -T redis redis-cli -a "${REDIS_PASSWORD}" --no-auth-warning ping > /dev/null 2>&1; then
         echo -e "${GREEN}✓${NC}"
         break
     fi
@@ -90,7 +90,7 @@ fi
 echo -n "Checking Backend... "
 RETRY_COUNT=0
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    if docker compose -f docker-compose.poc.yml exec -T backend python3 -c "import urllib.request,ssl; urllib.request.urlopen('https://localhost/api/health',context=ssl._create_unverified_context())" > /dev/null 2>&1; then
+    if docker compose -f docker/docker-compose.poc.yml exec -T backend python3 -c "import urllib.request,ssl; urllib.request.urlopen('https://localhost/api/health',context=ssl._create_unverified_context())" > /dev/null 2>&1; then
         echo -e "${GREEN}✓${NC}"
         break
     fi
@@ -115,7 +115,7 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
 done
 if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
     echo -e "${RED}✗ Failed${NC}"
-    docker compose -f docker-compose.poc.yml logs proxy
+    docker compose -f docker/docker-compose.poc.yml logs proxy
     exit 1
 fi
 
@@ -132,7 +132,7 @@ echo "  Metrics:     http://localhost:9090/metrics"
 echo "  Backend:     https://localhost:8443"
 echo ""
 echo "View logs:"
-echo "  docker compose -f docker-compose.poc.yml logs -f"
+echo "  docker compose -f docker/docker-compose.poc.yml logs -f"
 echo ""
 echo "Start monitoring (Prometheus/Grafana):"
 echo "  ./scripts/start-monitoring.sh"

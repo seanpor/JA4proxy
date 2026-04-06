@@ -19,7 +19,7 @@ NC='\033[0m' # No Color
 echo "Checking if services are running..."
 if ! docker ps | grep -q ja4proxy-redis; then
     echo -e "${YELLOW}Services not running. Starting services...${NC}"
-    docker compose -f docker-compose.poc.yml up -d redis backend proxy
+    docker compose -f docker/docker-compose.poc.yml up -d redis backend proxy
     echo "Waiting for services to be ready..."
     sleep 10
 fi
@@ -40,7 +40,7 @@ done
 
 if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
     echo -e "${RED}Proxy failed to become healthy${NC}"
-    docker compose -f docker-compose.poc.yml logs proxy
+    docker compose -f docker/docker-compose.poc.yml logs proxy
     exit 1
 fi
 
@@ -89,7 +89,7 @@ echo "[1/5] Starting test execution..."
 # Trap SIGINT for clean shutdown
 trap 'echo "Caught SIGINT, shutting down..." && exit 130' INT
 
-timeout "$TIMEOUT" docker compose -f docker-compose.poc.yml run --rm test pytest /app/tests/ \
+timeout "$TIMEOUT" docker compose -f docker/docker-compose.poc.yml run --rm test pytest /app/tests/ \
     --ignore=/app/tests/integration/test_docker_stack.py \
     -v --tb=short \
     $PARALLEL_FLAG \
