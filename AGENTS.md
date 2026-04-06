@@ -4,7 +4,7 @@ This document defines the mandatory operational standards for AI agents working 
 
 ---
 
-## 🛠️ Tool Usage & Communication
+## Tool Usage & Communication
 
 - **Bash Tool:** Strictly only use the `command` field. Do not include `description` as it triggers validation errors.
 - **High-Signal Output:** Adopt a Senior Engineer persona. Be concise, direct, and technical. Avoid conversational filler, apologies, or "I will now..." preambles.
@@ -13,7 +13,7 @@ This document defines the mandatory operational standards for AI agents working 
 
 ---
 
-## 📑 Roadmap & Task Management
+## Roadmap & Task Management
 
 The project uses a **Manifest-Driven Roadmap** to prevent documentation drift.
 
@@ -69,7 +69,7 @@ Every phase must be closed by completing **all** of the following before the nex
 
 ---
 
-## 📜 Git & Version Control
+## Git & Version Control
 
 - **Atomic Commits:** One commit per phase or logical sub-task. Do not bundle unrelated refactors with feature work.
 - **Commit Preparation:** Always run `git status && git diff HEAD` to review changes before committing.
@@ -81,7 +81,7 @@ Every phase must be closed by completing **all** of the following before the nex
 
 ---
 
-## 🧪 Testing, Linting & Validation (TDD)
+## Testing, Linting & Validation (TDD)
 
 - **Test-First:** Always search for existing tests before modifying code. If a bug is reported, reproduce it with a new test case first.
 - **Zero-Tolerance Policy:**
@@ -111,7 +111,7 @@ every section shows a green tick:
 ... 2700+ passed, N skipped (all approved), 0 failed
 ```
 
-Any `✗` or `⚠️` is a blocking failure. Do not declare a phase complete, and do not
+Any `✗` or `[!]` is a blocking failure. Do not declare a phase complete, and do not
 commit, until all four tools and pytest are clean.
 
 ### ProxyServer test-stub maintenance
@@ -157,7 +157,7 @@ Fix all issues before committing.
 
 ---
 
-## 🔄 Go/Python Proxy Parity
+## Go/Python Proxy Parity
 
 The project maintains two complete proxy implementations that must produce identical
 decisions for identical inputs. Three permanent tools enforce this:
@@ -219,18 +219,18 @@ Or add `export GOROOT=/snap/go/current` to `~/.bashrc` to set it permanently.
 
 ---
 
-## 🏗️ Build & Compilation
+## Build & Compilation
 
 - **Strict Compilation:** All compiled code (Go, etc.) must compile with the equivalent of `-Wall` (all warnings enabled).
 - **Zero-Warning Build:** The build process must produce **zero warnings**. Any compiler warning is a blocking failure that must be resolved before the code is considered valid.
 
 ---
 
-## 🛡️ Security & Coding Standards (Phase 18 Alignment)
+## Security & Coding Standards (Phase 18 Alignment)
 
 - **Logging:** **Never use f-strings or `.format()` in logging calls.** Use lazy formatting to prevent overhead and accidental data exposure.
-  - `logger.info("Connection from %s", ip)` ✅
-  - `logger.info(f"Connection from {ip}")` ❌
+  - `logger.info("Connection from %s", ip)`  (correct)
+  - `logger.info(f"Connection from {ip}")`   (wrong)
 - **Exception Handling:** **Never use broad `except Exception:` blocks.**
   - Catch specific exceptions (e.g., `redis.ConnectionError`, `aiohttp.ClientError`).
   - Implement "Fail-Open" for enrichment: if an external API/Redis fails, log a WARNING, increment a counter, and allow the connection without that specific signal.
@@ -239,7 +239,7 @@ Or add `export GOROOT=/snap/go/current` to `~/.bashrc` to set it permanently.
 
 ---
 
-## 📖 Documentation Maintenance
+## Documentation Maintenance
 
 Every phase completion requires updating the following (per `docs/DOCUMENTATION_STANDARDS.md`):
 
@@ -250,7 +250,7 @@ Every phase completion requires updating the following (per `docs/DOCUMENTATION_
 
 ---
 
-## 📈 Strategic Review Protocol
+## Strategic Review Protocol
 
 To prevent technical myopia and ensure enterprise-readiness, the project maintains a **Multi-Role Critique** log.
 
@@ -265,7 +265,7 @@ To prevent technical myopia and ensure enterprise-readiness, the project maintai
 
 ---
 
-## 🗂️ Project Context Hierarchy
+## Project Context Hierarchy
 
 
 If instructions conflict, use this priority:
