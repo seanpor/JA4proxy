@@ -11,8 +11,6 @@ set -euo pipefail
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 BLUE='\033[0;34m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 
-ENV_FILE="${ENV_FILE:-.env}"
-
 ok()   { echo -e "  ${GREEN}✓${NC}  $*"; }
 fail() { echo -e "  ${RED}✗${NC}  $*"; ERRORS=$((ERRORS+1)); }
 warn() { echo -e "  ${YELLOW}⚠${NC}  $*"; }
@@ -20,7 +18,19 @@ info() { echo -e "  ${CYAN}·${NC}  $*"; }
 
 ERRORS=0
 
-# ── Load .env ──────────────────────────────────────────────────────────────────
+# ── Agent context ──────────────────────────────────────────────────────────────
+# If .current-agent is set, target that agent's stack and env file.
+# Override with ENV_FILE=.env.myagent ./scripts/status.sh if needed.
+_AGENT=$(cat .current-agent 2>/dev/null || true)
+if [[ -n "$_AGENT" && -f ".env.$_AGENT" ]]; then
+    ENV_FILE="${ENV_FILE:-.env.$_AGENT}"
+    POC_FLAGS="--project-name ja4_${_AGENT} --env-file .env.${_AGENT}"
+else
+    ENV_FILE="${ENV_FILE:-.env}"
+    POC_FLAGS=""
+fi
+
+# ── Load env file ──────────────────────────────────────────────────────────────
 if [ -f "$ENV_FILE" ]; then
     set -a; source "$ENV_FILE"; set +a
 fi
@@ -28,14 +38,20 @@ REDIS_PASS="${REDIS_PASSWORD:-changeme}"
 GRAFANA_PASS="${GRAFANA_PASSWORD:-admin}"
 BACKEND_HOST="${BACKEND_HOST:-backend}"
 BACKEND_PORT="${BACKEND_PORT:-443}"
+BIND_IP="${AGENT_BIND_IP:-localhost}"
 
+# shellcheck disable=SC2086
 redis_cmd() {
-    docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning "$@" 2>/dev/null
+    docker compose -f docker-compose.poc.yml $POC_FLAGS exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning "$@" 2>/dev/null
 }
 
 echo
 echo -e "${BOLD}${CYAN}══════════════════════════════════════════════════${NC}"
-echo -e "${BOLD}${CYAN}  JA4proxy — Status Overview$(date +'  %Y-%m-%d %H:%M:%S')${NC}"
+if [[ -n "$_AGENT" ]]; then
+    echo -e "${BOLD}${CYAN}  JA4proxy — Status: agent=${_AGENT}  (${BIND_IP})$(date +'  %H:%M:%S')${NC}"
+else
+    echo -e "${BOLD}${CYAN}  JA4proxy — Status Overview$(date +'  %Y-%m-%d %H:%M:%S')${NC}"
+fi
 echo -e "${BOLD}${CYAN}══════════════════════════════════════════════════${NC}"
 
 # ── 1. Configuration ───────────────────────────────────────────────────────────
@@ -60,8 +76,9 @@ echo -e "${BOLD}▸ Docker Containers${NC}"
 check_service() {
     local svc="$1" label="$2"
     local status
-    status=$(docker compose -f docker-compose.poc.yml ps "$svc" --format '{{.Status}}' 2>/dev/null || true)
-    
+    # shellcheck disable=SC2086
+    status=$(docker compose -f docker-compose.poc.yml $POC_FLAGS ps "$svc" --format '{{.Status}}' 2>/dev/null || true)
+
     if [ -n "$status" ]; then
         if echo "$status" | grep -qi "Up"; then
             ok "${label} (${status})"
@@ -107,15 +124,16 @@ http_check() {
     fi
 }
 
-http_check "Proxy metrics"   "http://localhost:9090/metrics"
-http_check "Backend TLS"     "https://localhost:8443/api/health" "-k"
-http_check "HAProxy stats"   "http://localhost:8404/stats"
+http_check "Proxy metrics"   "http://${BIND_IP}:9090/metrics"
+http_check "Backend TLS"     "https://${BIND_IP}:8443/api/health" "-k"
+http_check "HAProxy stats"   "http://${BIND_IP}:8404/stats"
 http_check "Prometheus"      "http://localhost:9091/-/ready"
 http_check "Grafana"         "http://localhost:3001/api/health"
-http_check "Management UI"  "http://localhost:8001/health"
+http_check "Management UI"   "http://${BIND_IP}:8090/api/v1/health"
 
 # Redis
-if docker compose -f docker-compose.poc.yml exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning ping > /dev/null 2>&1; then
+# shellcheck disable=SC2086
+if docker compose -f docker-compose.poc.yml $POC_FLAGS exec -T redis redis-cli -a "$REDIS_PASS" --no-auth-warning ping > /dev/null 2>&1; then
     ok "Redis  (docker network — authenticated)"
 else
     fail "Redis  — not reachable or auth failed"
@@ -125,7 +143,8 @@ fi
 echo
 echo -e "${BOLD}▸ Live Security State${NC}"
 
-if docker compose -f docker-compose.poc.yml ps redis --format '{{.Status}}' 2>/dev/null | grep -qi "Up"; then
+# shellcheck disable=SC2086
+if docker compose -f docker-compose.poc.yml $POC_FLAGS ps redis --format '{{.Status}}' 2>/dev/null | grep -qi "Up"; then
     BL_COUNT=$(redis_cmd SCARD ja4:blacklist 2>/dev/null || echo "?")
     WL_COUNT=$(redis_cmd SCARD ja4:whitelist 2>/dev/null || echo "?")
     SAFE_CC=$(redis_cmd SCARD geoip:safe_countries 2>/dev/null || echo "?")
@@ -150,13 +169,12 @@ fi
 # ── 5. Access summary ──────────────────────────────────────────────────────────
 echo
 echo -e "${BOLD}▸ Access URLs${NC}"
-echo -e "  HAProxy (TLS entry):  ${CYAN}https://localhost:443${NC}"
-echo -e "  HAProxy stats:        ${CYAN}http://localhost:8404/stats${NC}"
-echo -e "  Proxy metrics:        ${CYAN}http://localhost:9090/metrics${NC}"
-echo -e "  Prometheus:           ${CYAN}http://localhost:9091${NC}"
-echo -e "  Grafana:              ${CYAN}http://localhost:3001${NC}  (admin / ${GRAFANA_PASS})"
-UI_PASS=$(grep UI_PASSWORD .env 2>/dev/null | cut -d= -f2 || echo "see .env")
-echo -e "  Management UI:        ${CYAN}http://localhost:8001${NC}  (admin / ${UI_PASS})"
+echo -e "  HAProxy (TLS entry):  ${CYAN}https://${BIND_IP}:443${NC}"
+echo -e "  HAProxy stats:        ${CYAN}http://${BIND_IP}:8404/stats${NC}"
+echo -e "  Proxy metrics:        ${CYAN}http://${BIND_IP}:9090/metrics${NC}"
+echo -e "  Management UI:        ${CYAN}http://${BIND_IP}:8090${NC}"
+echo -e "  Prometheus:           ${CYAN}http://localhost:9091${NC}  (shared)"
+echo -e "  Grafana:              ${CYAN}http://localhost:3001${NC}  (admin / ${GRAFANA_PASS})  (shared)"
 echo
 
 # ── 6. Summary ─────────────────────────────────────────────────────────────────
