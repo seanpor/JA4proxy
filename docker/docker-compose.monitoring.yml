@@ -216,6 +216,62 @@ services:
           memory: 256M
           cpus: '0.5'
 
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.2
+    container_name: ja4proxy-cadvisor
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    restart: unless-stopped
+    networks:
+      - ja4proxy-monitoring
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 64M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+  haproxy-exporter:
+    image: prom/haproxy-exporter:v0.15.0
+    container_name: ja4proxy-haproxy-exporter
+    command:
+      - '--haproxy.scrape-uri=http://haproxy:8404/stats?stats;csv'
+    restart: unless-stopped
+    networks:
+      - ja4proxy-monitoring
+      - ja4proxy_ja4proxy-backend
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.2'
+        reservations:
+          memory: 32M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
 volumes:
   prometheus-data:
     driver: local
