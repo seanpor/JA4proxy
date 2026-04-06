@@ -93,3 +93,51 @@ async def test_proxy_server_on_config_reload():
     mock_proxy.geoip.reload.assert_called_with("new.bin")
     mock_proxy.pipeline.update_scorer.assert_called()
     assert mock_proxy.health_monitor.config == new_config
+
+
+# ── Missing-coverage tests for atomic_swap.py ──────────────────────────────────
+
+class TestAtomicSwapErrorPaths:
+    """Lines 25-28 (atomic_write exception cleanup) and 42, 48-51 (symlink edge cases)."""
+
+    def test_atomic_write_cleans_up_tempfile_on_rename_failure(self, tmp_path):
+        """os.rename raises → temp file deleted, exception re-raised (lines 25-28).
+        So what: a cross-device rename during GeoIP hot-reload must not leave orphan
+        temp files that could fill /tmp and prevent the next reload."""
+        target = tmp_path / "target.bin"
+        with patch("os.rename", side_effect=OSError("cross-device link")):
+            with pytest.raises(OSError):
+                atomic_write(b"data", target)
+        # No stray temp files should remain
+        assert list(tmp_path.iterdir()) == []
+
+    def test_atomic_symlink_swap_removes_stale_tmp_symlink(self, tmp_path):
+        """Stale .tmp symlink from a previous crash is removed before creating new (line 42).
+        So what: a crashed reload must not prevent the next reload from succeeding."""
+        real_dir = tmp_path / "real"
+        real_dir.mkdir()
+        link = tmp_path / "current"
+        link.symlink_to(real_dir)
+        stale_tmp = tmp_path / "current.tmp"
+        stale_tmp.symlink_to(real_dir)
+
+        new_dir = tmp_path / "new"
+        new_dir.mkdir()
+        atomic_symlink_swap(link, new_dir)
+        assert link.resolve() == new_dir.resolve()
+        assert not stale_tmp.exists()
+
+    def test_atomic_symlink_swap_cleans_tmp_on_rename_failure(self, tmp_path):
+        """os.rename raises → .tmp symlink deleted, exception re-raised (lines 48-51).
+        So what: a dangling .tmp symlink would cause the next reload to reuse stale data."""
+        real_dir = tmp_path / "real"
+        real_dir.mkdir()
+        link = tmp_path / "current"
+        link.symlink_to(real_dir)
+        new_dir = tmp_path / "new"
+        new_dir.mkdir()
+
+        with patch("os.rename", side_effect=OSError("rename failed")):
+            with pytest.raises(OSError):
+                atomic_symlink_swap(link, new_dir)
+        assert not (tmp_path / "current.tmp").exists()

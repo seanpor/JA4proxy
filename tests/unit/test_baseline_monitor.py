@@ -159,3 +159,39 @@ class TestBaselineMonitor:
 
 # Import asyncio for sleep
 import asyncio
+
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+
+class TestBaselineMonitorCoverageGaps:
+    """Cover lines 60, 92, 102."""
+
+    @pytest.mark.asyncio
+    async def test_capture_baseline_returns_early_when_no_scores(self):
+        """Line 60: _capture_baseline() returns immediately when scores list is empty.
+        So what: if this guard is missing, the function proceeds to compute statistics
+        on an empty list — causing ZeroDivisionError or storing a meaningless baseline
+        with all zeros, which would suppress legitimate anomaly alerts."""
+        mock_redis = MagicMock()
+        monitor = BaselineMonitor(mock_redis, {})
+        # Don't add any scores — scores list stays empty
+        await monitor._capture_baseline()
+        # Redis set must NOT be called (no baseline stored for empty window)
+        mock_redis.set.assert_not_called()
+
+    def test_calculate_median_empty_list_returns_zero(self):
+        """Line 92: _calculate_median([]) returns 0.0 without IndexError.
+        So what: if this guard is missing, sorted_scores[n//2] raises IndexError
+        when the list is empty — the analytics node crashes instead of returning
+        a neutral score, taking down all anomaly detection."""
+        mock_redis = MagicMock()
+        monitor = BaselineMonitor(mock_redis, {})
+        assert monitor._calculate_median([]) == 0.0
+
+    def test_calculate_mean_empty_list_returns_zero(self):
+        """Line 102: _calculate_mean([]) returns 0.0.
+        So what: if this guard is missing, sum([]) / 0 raises ZeroDivisionError —
+        same consequence as above: analytics node crash on an empty baseline window."""
+        mock_redis = MagicMock()
+        monitor = BaselineMonitor(mock_redis, {})
+        assert monitor._calculate_mean([]) == 0.0

@@ -147,3 +147,78 @@ class TestSendBehavior:
 
             mock_sock.close.assert_called_once()
             assert exporter._sock is None
+
+
+# ---------------------------------------------------------------------------
+# Additional tests targeting previously uncovered lines
+# ---------------------------------------------------------------------------
+
+class TestSocketCreationFailure:
+    """Lines 62-64: socket creation failure at __init__."""
+
+    def test_socket_creation_failure_sets_sock_to_none(self):
+        # Lines 62-64: if socket() raises (e.g. resource limit), _sock is set to None.
+        # Without this, send() would crash with an AttributeError on None._sock.sendto().
+        with patch("socket.socket", side_effect=OSError("too many open files")):
+            exporter = SyslogExporter(_make_config())
+        assert exporter._sock is None
+
+
+class TestSendWithNoneSocket:
+    """Lines 77-78, 97: send() when _sock is None."""
+
+    def test_send_does_nothing_when_sock_is_none(self):
+        # Lines 96-97: send() must return early when _sock is None.
+        # A lost socket (after creation failure or close()) must not raise AttributeError.
+        exporter = _make_exporter()
+        exporter._sock = None
+        # Must not raise
+        exporter.send("signal_ban", "1.2.3.4", 90, "signal_ban", None)
+
+    def test_close_is_idempotent_when_sock_already_none(self):
+        # Lines 74-79: close() when _sock is already None must not raise.
+        # Double-close on teardown must be safe.
+        exporter = _make_exporter()
+        exporter._sock = None
+        exporter.close()  # must not raise
+
+
+class TestSendExceptionHandling:
+    """Lines 101, 106-107: exception inside send() is logged, not propagated."""
+
+    def test_sendto_exception_is_caught_not_propagated(self):
+        # Lines 106-107: if sendto() raises (e.g. network error), send() must not crash.
+        # A broken SIEM link must never affect the proxy's ability to handle connections.
+        with patch("socket.socket") as mock_socket_class:
+            mock_sock = MagicMock()
+            mock_sock.sendto.side_effect = OSError("network unreachable")
+            mock_socket_class.return_value = mock_sock
+            exporter = SyslogExporter(_make_config())
+            exporter._sock = mock_sock
+            # Must not raise
+            exporter.send("signal_ban", "1.2.3.4", 90, "signal_ban", None)
+
+    def test_rfc5424_format_dispatched_by_send(self):
+        # Line 101: when format="rfc5424", send() must call _format_rfc5424 not _format_cef.
+        # Misconfigured format silently sends wrong-format messages that SIEM rejects.
+        with patch("socket.socket") as mock_socket_class:
+            mock_sock = MagicMock()
+            mock_socket_class.return_value = mock_sock
+            exporter = SyslogExporter(_make_config(format="rfc5424"))
+            exporter._sock = mock_sock
+            exporter.send("signal_ban", "1.2.3.4", 90, "signal_ban", None)
+            sent_data = mock_sock.sendto.call_args[0][0].decode()
+            # RFC 5424 starts with <priority>
+            assert sent_data.startswith("<")
+
+    def test_close_swallows_socket_close_exception(self):
+        # Lines 77-78: if sock.close() raises, the exception must be silently swallowed.
+        # A broken socket on teardown must not prevent the rest of cleanup from running.
+        with patch("socket.socket") as mock_socket_class:
+            mock_sock = MagicMock()
+            mock_sock.close.side_effect = OSError("already closed")
+            mock_socket_class.return_value = mock_sock
+            exporter = SyslogExporter(_make_config())
+            exporter._sock = mock_sock
+            exporter.close()  # must not raise
+            assert exporter._sock is None

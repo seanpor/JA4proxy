@@ -371,3 +371,117 @@ class TestWeakCiphersConstant:
     def test_strong_cipher_not_in_weak_ciphers(self):
         assert 0xC02B not in WEAK_CIPHERS  # ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
         assert 0x1301 not in WEAK_CIPHERS  # TLS_AES_128_GCM_SHA256 (TLS 1.3)
+
+
+# ── Missing-coverage tests ────────────────────────────────────────────────────
+
+class TestVersionLabel:
+    """Cover _version_label() string-input branch (lines 147-159).
+
+    So what: Prometheus metric labels use _version_label(); wrong labels cause
+    miscounted metrics and break security dashboards.
+    """
+
+    def test_string_tls12_resolves(self):
+        """'TLSv1.2' string → 'tls12' label (line 151).
+        So what: string version from server config must map to the correct Prometheus label."""
+        from src.security.tls_enforcer import _version_label
+        assert _version_label("TLSv1.2") == "tls12"
+
+    def test_string_tls13_resolves(self):
+        """'TLSv1.3' string → 'tls13' label."""
+        from src.security.tls_enforcer import _version_label
+        assert _version_label("TLSv1.3") == "tls13"
+
+    def test_string_tls10_alias_resolves(self):
+        """'TLSv1' (alias for TLS 1.0) → 'tls10' label (line 153)."""
+        from src.security.tls_enforcer import _version_label
+        assert _version_label("TLSv1") == "tls10"
+
+    def test_unknown_string_returns_unknown_prefix(self):
+        """Unrecognised string → 'unknown_{version}' (line 159).
+        So what: unknown versions must produce a labelled sentinel, not crash."""
+        from src.security.tls_enforcer import _version_label
+        assert _version_label("DTLSv1.2") == "unknown_DTLSv1.2"
+
+    def test_integer_ssl3_resolves(self):
+        """Integer SSL3 → 'ssl3' label."""
+        from src.security.tls_enforcer import _version_label
+        assert _version_label(SSL3) == "ssl3"
+
+    def test_unknown_integer_returns_hex_label(self):
+        """Unknown integer → 'unknown_0x{hex}' label."""
+        from src.security.tls_enforcer import _version_label
+        assert _version_label(0xDEAD) == "unknown_0xdead"
+
+
+class TestCheckJA4TLSMismatch:
+    """Cover check_ja4_tls_mismatch() (lines 199-259).
+
+    So what: JA4 fingerprint spoofing is a real attack vector — bots present
+    a TLS 1.3 ClientHello but negotiate TLS 1.2 to evade detection.  Every
+    uncovered path here is a potential evasion route.
+    """
+
+    def test_mismatch_detected_returns_signal(self):
+        """JA4 claims TLS13 but actual is TLS12 → RiskSignal returned (line 246).
+        So what: spoofed TLS version in fingerprint must be caught and scored."""
+        from src.security.tls_enforcer import check_ja4_tls_mismatch
+        sig = check_ja4_tls_mismatch("t13d0100h2_aabbcc_ddeeff", TLS12)
+        assert sig is not None
+        assert sig.name == "ja4_tls_mismatch"
+        assert sig.score == 35
+
+    def test_no_mismatch_returns_none(self):
+        """JA4 claims TLS13 and actual is TLS13 → None (line 235).
+        So what: legitimate TLS 1.3 connections must not be falsely flagged."""
+        from src.security.tls_enforcer import check_ja4_tls_mismatch
+        sig = check_ja4_tls_mismatch("t13d0100h2_aabbcc_ddeeff", TLS13)
+        assert sig is None
+
+    def test_empty_ja4_returns_none(self):
+        """Empty JA4 string → None (line 200-201). Fail open.
+        So what: missing JA4 must not crash the enforcer or generate false signals."""
+        from src.security.tls_enforcer import check_ja4_tls_mismatch
+        assert check_ja4_tls_mismatch("", TLS13) is None
+
+    def test_none_tls_version_returns_none(self):
+        """tls_version=None → None (line 200-201). Fail open.
+        So what: absent negotiated version means no data to compare — must not signal."""
+        from src.security.tls_enforcer import check_ja4_tls_mismatch
+        assert check_ja4_tls_mismatch("t13d0100h2_aabbcc_ddeeff", None) is None
+
+    def test_unknown_ja4_prefix_returns_none(self):
+        """Unknown 3-char JA4 prefix → None (lines 207-209). Fail open.
+        So what: future JA4 versions must not trigger false alarms."""
+        from src.security.tls_enforcer import check_ja4_tls_mismatch
+        assert check_ja4_tls_mismatch("xxx_aabbcc_ddeeff", TLS13) is None
+
+    def test_string_tls_version_mismatch(self):
+        """Actual version as string 'TLSv1.2' → resolves and detects mismatch (line 213-225).
+        So what: TLS version arriving as string label must be correctly normalised."""
+        from src.security.tls_enforcer import check_ja4_tls_mismatch
+        sig = check_ja4_tls_mismatch("t13d0100h2_aabbcc_ddeeff", "TLSv1.2")
+        assert sig is not None
+        assert sig.score == 35
+
+    def test_unknown_string_tls_version_returns_none(self):
+        """Unrecognised string version → None (line 223-224). Fail open.
+        So what: future TLS version strings must not crash the mismatch detector."""
+        from src.security.tls_enforcer import check_ja4_tls_mismatch
+        assert check_ja4_tls_mismatch("t13d0100h2_aabbcc_ddeeff", "TLSv9.9") is None
+
+    def test_tls10_tls11_treated_as_equivalent(self):
+        """JA4 prefix t10 with actual TLS11 → None (lines 231-235). No false alarm.
+        So what: TLS 1.0/1.1 JA4 normalisation prevents false mismatch signals on
+        TLS 1.1 connections (both are 't10' in JA4 spec)."""
+        from src.security.tls_enforcer import check_ja4_tls_mismatch
+        assert check_ja4_tls_mismatch("t10d0100h2_aabbcc_ddeeff", TLS11) is None
+
+    def test_exception_in_parse_returns_none(self):
+        """Unexpected exception → None (lines 254-259). Fail open.
+        So what: corrupted JA4 must not crash the pipeline."""
+        from src.security.tls_enforcer import check_ja4_tls_mismatch
+        # Pass an integer for ja4 to force an unexpected AttributeError
+        sig = check_ja4_tls_mismatch(12345, TLS13)
+        assert sig is None

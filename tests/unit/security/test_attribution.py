@@ -114,9 +114,65 @@ async def test_get_signal_malicious(manager, mock_redis):
 @pytest.mark.asyncio
 async def test_get_signal_unknown(manager, mock_redis):
     ctx = ConnectionContext(client_ip="1.1.1.1", ja4="ja4")
-    
+
     # Mock unknown profile
     mock_redis.get.return_value = None
-    
+
     signal = await manager.get_signal(ctx)
     assert signal is None
+
+
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_get_signal_disabled_returns_none(mock_redis):
+    """get_signal() returns None immediately when attribution is disabled (line 97).
+    So what: if this guard is missing, the disabled manager still issues Redis
+    queries and creates background correlation tasks, wasting resources."""
+    config = {"attribution": {"enabled": False}}
+    mgr = AttributionManager(mock_redis, config)
+    ctx = ConnectionContext(client_ip="1.1.1.1", ja4="ja4")
+    result = await mgr.get_signal(ctx)
+    assert result is None
+    mock_redis.get.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_get_signal_suspicious_profile_returns_signal(mock_redis):
+    """get_signal() returns attribution_suspicious signal for suspicious profiles (lines 118-126).
+    So what: if this branch is missing, suspicious actors are silently ignored —
+    only explicitly malicious actors contribute to the composite score, leaving a
+    gap for actors that haven't yet been confirmed as malicious."""
+    config = {"attribution": {"enabled": True}}
+    mgr = AttributionManager(mock_redis, config)
+    ctx = ConnectionContext(client_ip="5.5.5.5", ja4="t13d...")
+    afp = mgr.compute_fingerprint(ctx)
+
+    profile = AttackerProfile(fingerprint=afp, category="suspicious")
+    mock_redis.get.return_value = profile.to_json()
+
+    result = await mgr.get_signal(ctx)
+    assert result is not None
+    assert result.name == "attribution_suspicious"
+    assert result.score == 20
+    assert afp in result.reason
+
+
+@pytest.mark.asyncio
+async def test_get_signal_unknown_profile_returns_none(mock_redis):
+    """get_signal() returns None for an unknown/research category profile (line 126).
+    So what: an attributed actor that hasn't been classified yet must not emit a
+    signal — if this return is missing, unclassified actors could accidentally
+    pass through the malicious check and fall into the wrong branch."""
+    config = {"attribution": {"enabled": True}}
+    mgr = AttributionManager(mock_redis, config)
+    ctx = ConnectionContext(client_ip="9.9.9.9", ja4="t13d...")
+    afp = mgr.compute_fingerprint(ctx)
+
+    # Profile exists but is neither malicious nor suspicious
+    profile = AttackerProfile(fingerprint=afp, category="research")
+    mock_redis.get.return_value = profile.to_json()
+
+    result = await mgr.get_signal(ctx)
+    assert result is None

@@ -195,3 +195,131 @@ class TestGetOrCreateDailyEvent:
         # Only one POST to create event
         event_posts = [c for c in session.post.call_args_list if "/events" in str(c)]
         assert len(event_posts) == 1
+
+
+# ---------------------------------------------------------------------------
+# Additional tests targeting previously uncovered lines
+# ---------------------------------------------------------------------------
+
+class TestPushBanExceptionPath:
+    """Lines 71-72: outer exception handler in push_ban logs WARNING and does not raise."""
+
+    @pytest.mark.asyncio
+    async def test_push_ban_logs_warning_on_unexpected_error(self, caplog):
+        # Lines 71-72: any unexpected exception in push_ban is caught and logged.
+        # Without this catch, a MISP outage would propagate and block the proxy pipeline.
+        session = _make_session()
+        client = MISPClient(_make_config(), session)
+
+        async def explode(event_id, type_, value, comment):
+            raise RuntimeError("unexpected error")
+
+        client._add_attribute = explode
+
+        with caplog.at_level(logging.WARNING, logger="src.tap.export.misp_client"):
+            await client.push_ban("1.2.3.4", 80, "reason")
+
+        assert any("push_ban_failed" in r.message for r in caplog.records)
+
+
+class TestGetOrCreateDailyEventCreateFails:
+    """Line 112: create_event_failed log path when session.post raises."""
+
+    @pytest.mark.asyncio
+    async def test_create_event_failure_returns_empty_string(self, caplog):
+        # Line 112 (and surrounding exception block): when event creation POST raises,
+        # event_id is set to "" and a WARNING is logged.
+        # An empty event_id must not crash _add_attribute (line 136 guards it).
+        session = MagicMock()
+        session.post.side_effect = ConnectionError("misp unreachable")
+        client = MISPClient(_make_config(), session)
+
+        with caplog.at_level(logging.WARNING, logger="src.tap.export.misp_client"):
+            event_id = await client._get_or_create_daily_event()
+
+        assert event_id == ""
+        assert any("create_event_failed" in r.message for r in caplog.records)
+
+
+class TestAddAttributeEdgeCases:
+    """Lines 159-180: _add_attribute HTTP error and non-context-manager paths."""
+
+    @pytest.mark.asyncio
+    async def test_add_attribute_skips_when_event_id_empty(self):
+        # Line 136: _add_attribute must return immediately if event_id is "".
+        # This guards against POSTing attributes to an invalid MISP event.
+        session = MagicMock()
+        client = MISPClient(_make_config(), session)
+        await client._add_attribute("", "ip-dst", "1.2.3.4", "comment")
+        session.post.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_add_attribute_logs_warning_on_400_error(self, caplog):
+        # Lines 159-166: HTTP 4xx (not 409) must log a WARNING but not raise.
+        # A rejected attribute must not abort the entire push_ban flow.
+        attr_resp = _make_response(400, {})
+        session = _make_session(attr_response=attr_resp)
+        client = MISPClient(_make_config(), session)
+
+        with caplog.at_level(logging.WARNING, logger="src.tap.export.misp_client"):
+            await client._add_attribute("42", "ip-dst", "1.2.3.4", "comment")
+
+        assert any("add_attribute_failed" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_add_attribute_exception_is_caught_and_logged(self, caplog):
+        # Lines 179-183: if session.post() raises, _add_attribute logs a WARNING.
+        # Network errors must never propagate up to crash push_ban.
+        session = MagicMock()
+        session.post.side_effect = ConnectionError("MISP unreachable")
+        client = MISPClient(_make_config(), session)
+
+        with caplog.at_level(logging.WARNING, logger="src.tap.export.misp_client"):
+            await client._add_attribute("42", "ip-dst", "1.2.3.4", "comment")
+
+        assert any("add_attribute_error" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_add_attribute_non_aenter_path_handles_409(self):
+        # Lines 168-170: when resp_ctx has no __aenter__ (plain response object),
+        # a 409 status must be silently swallowed (duplicate attribute).
+        resp_mock = MagicMock()
+        resp_mock.status = 409
+        # No __aenter__ — simulates a non-context-manager response
+        del resp_mock.__aenter__
+        session = MagicMock()
+        session.post.return_value = resp_mock
+
+        client = MISPClient(_make_config(), session)
+        await client._add_attribute("42", "ip-dst", "1.2.3.4", "comment")  # must not raise
+
+    @pytest.mark.asyncio
+    async def test_add_attribute_non_aenter_path_logs_warning_on_error(self, caplog):
+        # Lines 171-178: non-context-manager response with status >= 400 (not 409) logs WARNING.
+        resp_mock = MagicMock()
+        resp_mock.status = 500
+        del resp_mock.__aenter__
+        session = MagicMock()
+        session.post.return_value = resp_mock
+
+        client = MISPClient(_make_config(), session)
+
+        with caplog.at_level(logging.WARNING, logger="src.tap.export.misp_client"):
+            await client._add_attribute("42", "ip-dst", "1.2.3.4", "comment")
+
+        assert any("add_attribute_failed" in r.message for r in caplog.records)
+
+    @pytest.mark.asyncio
+    async def test_get_or_create_non_aenter_response_calls_json_directly(self):
+        # Line 112: when resp_ctx has no __aenter__, data = await resp_ctx.json() is called.
+        # This non-context-manager path must correctly extract the event_id.
+        resp_mock = AsyncMock()
+        resp_mock.json = AsyncMock(return_value={"Event": {"id": "77"}})
+        # Remove __aenter__ so the else branch is taken in _get_or_create_daily_event
+        del resp_mock.__aenter__
+        session = MagicMock()
+        session.post.return_value = resp_mock
+
+        client = MISPClient(_make_config(), session)
+        event_id = await client._get_or_create_daily_event()
+        assert event_id == "77"

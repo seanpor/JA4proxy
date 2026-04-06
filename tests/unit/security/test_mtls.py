@@ -96,3 +96,130 @@ class TestMTLSHandler(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+# ── Missing-coverage tests (pytest-style) ─────────────────────────────────────
+
+import pytest
+from unittest.mock import patch
+
+
+class TestMTLSMissingPaths:
+    """Cover error-handling paths not reached by the happy-path unittest tests."""
+
+    def _make_handler_with_ca(self):
+        ca_cert, ca_key = generate_self_signed_ca()
+        client_cert, _ = generate_signed_cert(ca_cert, ca_key)
+        import tempfile, os
+        with tempfile.NamedTemporaryFile(suffix=".pem", delete=False) as f:
+            f.write(ca_cert.public_bytes(serialization.Encoding.PEM))
+            path = f.name
+        try:
+            handler = MTLSHandler({"mtls": {"enabled": True, "ca_cert_path": path}})
+        finally:
+            os.unlink(path)
+        return handler, ca_cert, ca_key, client_cert
+
+    def test_ca_cert_none_with_client_certificate_returns_false(self):
+        """has_valid_client_cert=False, client_certificate present, but _ca_cert=None.
+        Triggers lines 46-48: logs error and returns False.
+        So what: if the CA cert failed to load, a presented client cert must be rejected,
+        not silently accepted — prevents privilege escalation."""
+        handler = MTLSHandler({"mtls": {"enabled": True, "ca_cert_path": "/nonexistent/ca.pem"}})
+        assert handler._ca_cert is None  # confirm load failed
+        ctx = MagicMock()
+        ctx.has_valid_client_cert = False
+        ctx.client_certificate = b"-----BEGIN CERTIFICATE-----\nfake\n-----END CERTIFICATE-----"
+        assert handler.verify_client_cert(ctx) is False
+
+    def test_malformed_pem_raises_value_error_caught(self):
+        """Garbage PEM bytes → ValueError from load_pem_x509_certificate.
+        Triggers lines 90-92: except (ValueError, TypeError, OSError).
+        So what: attacker-supplied malformed cert must not crash the proxy."""
+        _, ca_cert, ca_key, _ = self._make_handler_with_ca()
+        # Make a new temp CA file
+        import tempfile, os
+        with tempfile.NamedTemporaryFile(suffix=".pem", delete=False) as f:
+            f.write(ca_cert.public_bytes(serialization.Encoding.PEM))
+            path = f.name
+        try:
+            handler = MTLSHandler({"mtls": {"enabled": True, "ca_cert_path": path}})
+        finally:
+            os.unlink(path)
+        ctx = MagicMock()
+        ctx.has_valid_client_cert = False
+        ctx.client_certificate = b"not-a-valid-pem-cert-at-all"
+        result = handler.verify_client_cert(ctx)
+        assert result is False  # caught, not raised
+
+    def test_load_ca_cert_file_not_found_returns_none(self):
+        """CA cert path does not exist → FileNotFoundError logged (lines 103-106).
+        So what: a missing CA cert file at startup must not crash the proxy,
+        just disable mTLS."""
+        handler = MTLSHandler({"mtls": {"enabled": True, "ca_cert_path": "/no/such/file.pem"}})
+        assert handler._ca_cert is None
+
+    def test_load_ca_cert_os_error_returns_none(self):
+        """CA cert path is a directory → OSError logged (lines 107-108).
+        So what: misconfigured path must fail gracefully, not crash."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            handler = MTLSHandler({"mtls": {"enabled": True, "ca_cert_path": d}})
+        assert handler._ca_cert is None
+
+
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+
+class TestMTLSCoverageGaps:
+    """Cover lines 56, 59-60 in verify_client_cert()."""
+
+    def test_no_client_cert_returns_false(self):
+        """Line 56: ctx has no client_certificate and has_valid_client_cert=False
+        → verify_client_cert returns False immediately.
+        So what: if this guard is missing, the function proceeds to try parsing
+        None as a certificate, raising an uncaught AttributeError or crashing the
+        proxy instead of a clean False."""
+        handler = MTLSHandler({"mtls": {"enabled": True, "ca_cert_path": "/nonexistent/ca.pem"}})
+        ctx = MagicMock(spec=[])  # no attributes at all
+        ctx.has_valid_client_cert = False
+        # Ensure client_certificate attr does not exist
+        assert not hasattr(ctx, "client_certificate")
+        result = handler.verify_client_cert(ctx)
+        assert result is False
+
+    def test_client_cert_present_but_ca_cert_not_loaded_returns_false(self):
+        """Lines 59-60: has_cert=True but _ca_cert is None → logs error and returns False.
+        So what: if this guard is missing, the code continues to ca_cert.verify(...)
+        on a None object — AttributeError crashes the connection handling coroutine
+        rather than cleanly rejecting the unverifiable client certificate."""
+        handler = MTLSHandler({"mtls": {"enabled": True, "ca_cert_path": "/nonexistent/ca.pem"}})
+        assert handler._ca_cert is None
+        ctx = MagicMock()
+        ctx.has_valid_client_cert = False
+        ctx.client_certificate = b"-----BEGIN CERTIFICATE-----\nZmFrZQ==\n-----END CERTIFICATE-----"
+        result = handler.verify_client_cert(ctx)
+        assert result is False
+
+
+class TestMTLSCoverageGaps2:
+    """Lines 35, 39-40: disabled handler; has_valid_client_cert bypass."""
+
+    def test_disabled_handler_returns_false(self):
+        """Line 35: mTLS disabled → verify_client_cert returns False immediately.
+        So what: without this guard, disabling mTLS via config would still attempt
+        certificate parsing, potentially blocking connections that should be allowed."""
+        handler = MTLSHandler({"mtls": {"enabled": False}})
+        from unittest.mock import MagicMock
+        ctx = MagicMock()
+        assert handler.verify_client_cert(ctx) is False
+
+    def test_has_valid_client_cert_flag_returns_true(self):
+        """Lines 39-40: ctx.has_valid_client_cert=True → verified counter inc + return True.
+        So what: without this shortcut, valid TLS-layer-verified client certs would
+        go through full x509 parsing on the hot path, adding latency and potential crashes."""
+        handler = MTLSHandler({"mtls": {"enabled": True, "ca_cert_path": "/nonexistent/ca.pem"}})
+        from unittest.mock import MagicMock
+        ctx = MagicMock()
+        ctx.has_valid_client_cert = True
+        assert handler.verify_client_cert(ctx) is True

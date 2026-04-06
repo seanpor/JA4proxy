@@ -418,3 +418,215 @@ class TestMonitoringIntegration:
         assert len(monitoring.drift_check_duration._buckets) > 0
         assert len(monitoring.distribution_check_duration._buckets) > 0
         assert len(monitoring.calibration_check_duration._buckets) > 0
+
+# ── Missing-coverage tests ────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+class TestMonitoringMissingCoverage:
+    """Cover remaining paths in MonitoringSystem (lines 48-49, 153, 259, 265-330)."""
+
+    async def test_ml_disabled_sets_none_attributes(self):
+        """ml.enabled=False → ml_detector=None, model_manager=None (lines 48-49).
+        So what: ML components are optional; if their config flag is missing the
+        system must boot cleanly without ML, not raise AttributeError on None."""
+        mock_redis = AsyncMock()
+        config = {"ml": {"enabled": False}}
+        monitoring = MonitoringSystem(mock_redis, config)
+        assert monitoring.ml_detector is None
+        assert monitoring.model_manager is None
+
+    async def test_run_monitoring_cycle_rate_limited(self):
+        """Monitoring cycle within interval → returns immediately (line 153).
+        So what: if rate-limiting is broken, every event triggers a full monitoring
+        cycle, causing N×N Redis calls and quadratic performance degradation."""
+        mock_redis = AsyncMock()
+        config = {"monitoring_cycle_seconds": 60}
+        monitoring = MonitoringSystem(mock_redis, config)
+        # First call sets timestamp
+        monitoring.last_monitoring_cycle = __import__('time').time()
+        # Second call within interval should return immediately
+        await monitoring.run_monitoring_cycle()
+        # Should not have called Redis (rate limited)
+        mock_redis.get.assert_not_called()
+
+    async def test_get_monitoring_status_ml_disabled_shows_disabled(self):
+        """ML disabled → status['components']['ml_detector'] = 'disabled' (line 259).
+        So what: the ops dashboard must accurately show ML as disabled, not raise
+        AttributeError when reading ml_detector.get_model_info()."""
+        mock_redis = AsyncMock()
+        mock_redis.get.return_value = None
+        config = {"ml": {"enabled": False}}
+        monitoring = MonitoringSystem(mock_redis, config)
+        status = await monitoring.get_monitoring_status()
+        assert status["components"]["ml_detector"] == "disabled"
+
+    async def test_get_drift_history_delegates(self):
+        """get_drift_history() delegates to drift_detector (line 265).
+        So what: if this delegation is broken, the API returns the wrong history
+        and the Grafana drift panel shows stale data."""
+        from unittest.mock import AsyncMock as AM
+        mock_redis = AsyncMock()
+        config = {}
+        monitoring = MonitoringSystem(mock_redis, config)
+        monitoring.drift_detector.get_drift_history = AM(return_value=[{"hour": "2024-01-01-00"}])
+        result = await monitoring.get_drift_history(hours=1)
+        assert result == [{"hour": "2024-01-01-00"}]
+
+    async def test_get_shift_history_delegates(self):
+        """get_shift_history() delegates to distribution_analyzer (line 269).
+        So what: same — distribution shift history must come from the right subsystem."""
+        from unittest.mock import AsyncMock as AM
+        mock_redis = AsyncMock()
+        monitoring = MonitoringSystem(mock_redis, {})
+        monitoring.distribution_analyzer.get_shift_history = AM(return_value=[{"hour": "x"}])
+        result = await monitoring.get_shift_history(hours=2)
+        assert result == [{"hour": "x"}]
+
+    async def test_get_calibration_history_delegates(self):
+        """get_calibration_history() delegates to shadow_scoring (line 273).
+        So what: calibration history must come from shadow_scoring, not drift_detector."""
+        from unittest.mock import AsyncMock as AM
+        mock_redis = AsyncMock()
+        monitoring = MonitoringSystem(mock_redis, {})
+        monitoring.shadow_scoring.get_calibration_history = AM(return_value=[{"h": "y"}])
+        result = await monitoring.get_calibration_history(hours=3)
+        assert result == [{"h": "y"}]
+
+    async def test_check_api_authentication_delegates(self):
+        """check_api_authentication() delegates to security_hardening (line 278).
+        So what: if this delegation is broken, all API keys pass authentication,
+        exposing the admin API to unauthenticated callers."""
+        from unittest.mock import AsyncMock as AM
+        mock_redis = AsyncMock()
+        monitoring = MonitoringSystem(mock_redis, {})
+        monitoring.security_hardening.authenticate_api_key = AM(return_value={"user": "admin"})
+        result = await monitoring.check_api_authentication("valid-key")
+        assert result is True
+
+    async def test_validate_jwt_token_delegates(self):
+        """validate_jwt_token() delegates to security_hardening (line 282)."""
+        from unittest.mock import AsyncMock as AM
+        mock_redis = AsyncMock()
+        monitoring = MonitoringSystem(mock_redis, {})
+        monitoring.security_hardening.validate_jwt_token = AM(return_value={"sub": "user"})
+        result = await monitoring.validate_jwt_token("tok")
+        assert result == {"sub": "user"}
+
+    async def test_check_rate_limit_delegates(self):
+        """check_rate_limit() delegates to security_hardening (line 286)."""
+        from unittest.mock import AsyncMock as AM
+        mock_redis = AsyncMock()
+        monitoring = MonitoringSystem(mock_redis, {})
+        monitoring.security_hardening.check_rate_limit = AM(return_value=True)
+        result = await monitoring.check_rate_limit("ip", "1.2.3.4")
+        assert result is True
+
+    async def test_validate_input_safety_delegates(self):
+        """validate_input_safety() delegates to security_hardening (line 290)."""
+        from unittest.mock import AsyncMock as AM
+        mock_redis = AsyncMock()
+        monitoring = MonitoringSystem(mock_redis, {})
+        monitoring.security_hardening.validate_input_safety = AM(return_value=True)
+        result = await monitoring.validate_input_safety({"data": "safe"})
+        assert result is True
+
+    async def test_check_suspicious_activity_delegates(self):
+        """check_suspicious_activity() delegates to security_hardening (line 294)."""
+        from unittest.mock import AsyncMock as AM
+        mock_redis = AsyncMock()
+        monitoring = MonitoringSystem(mock_redis, {})
+        monitoring.security_hardening.check_suspicious_activity = AM(return_value=False)
+        result = await monitoring.check_suspicious_activity({"ip": "1.2.3.4"})
+        assert result is False
+
+    async def test_get_security_audit_logs_delegates(self):
+        """get_security_audit_logs() delegates to security_hardening (line 298)."""
+        from unittest.mock import AsyncMock as AM
+        mock_redis = AsyncMock()
+        monitoring = MonitoringSystem(mock_redis, {})
+        monitoring.security_hardening.get_security_audit_logs = AM(return_value=[{"ts": 1}])
+        result = await monitoring.get_security_audit_logs(limit=10)
+        assert result == [{"ts": 1}]
+
+    async def test_get_security_metrics_delegates(self):
+        """get_security_metrics() delegates to security_hardening (line 302)."""
+        from unittest.mock import AsyncMock as AM
+        mock_redis = AsyncMock()
+        monitoring = MonitoringSystem(mock_redis, {})
+        monitoring.security_hardening.get_security_metrics = AM(return_value={"score": 0})
+        result = await monitoring.get_security_metrics()
+        assert result == {"score": 0}
+
+    async def test_detect_anomalies_no_ml_returns_empty(self):
+        """detect_anomalies() with ml_detector=None → [] (lines 309-310).
+        So what: callers must receive an empty list, not AttributeError, when
+        ML is disabled — the pipeline must not crash without ML."""
+        mock_redis = AsyncMock()
+        monitoring = MonitoringSystem(mock_redis, {"ml": {"enabled": False}})
+        result = await monitoring.detect_anomalies([{"ja4": "abc"}])
+        assert result == []
+
+    async def test_detect_anomalies_with_ml_delegates(self):
+        """detect_anomalies() with ml_detector present → delegates (line 311)."""
+        from unittest.mock import AsyncMock as AM
+        mock_redis = AsyncMock()
+        monitoring = MonitoringSystem(mock_redis, {})
+        monitoring.ml_detector.detect = AM(return_value=[{"anomaly": True}])
+        result = await monitoring.detect_anomalies([{"ja4": "abc"}])
+        assert result == [{"anomaly": True}]
+
+    async def test_get_ml_model_info_no_ml_returns_disabled(self):
+        """get_ml_model_info() with ml_detector=None → disabled dict (lines 315-316).
+        So what: the model info endpoint must return a sensible status rather
+        than crashing when ML is not configured."""
+        mock_redis = AsyncMock()
+        monitoring = MonitoringSystem(mock_redis, {"ml": {"enabled": False}})
+        result = await monitoring.get_ml_model_info()
+        assert result == {"status": "disabled"}
+
+    async def test_get_ml_model_info_with_ml_delegates(self):
+        """get_ml_model_info() with ml_detector → delegates (line 317)."""
+        from unittest.mock import AsyncMock as AM
+        mock_redis = AsyncMock()
+        monitoring = MonitoringSystem(mock_redis, {})
+        monitoring.ml_detector.get_model_info = AM(return_value={"version": "1.0"})
+        result = await monitoring.get_ml_model_info()
+        assert result == {"version": "1.0"}
+
+    async def test_list_ml_models_no_model_manager_returns_empty(self):
+        """list_ml_models() with model_manager=None → [] (lines 321-322).
+        So what: model listing must not crash when the model manager was not
+        initialized (e.g., Redis unavailable at startup)."""
+        mock_redis = AsyncMock()
+        monitoring = MonitoringSystem(mock_redis, {"ml": {"enabled": False}})
+        result = await monitoring.list_ml_models()
+        assert result == []
+
+    async def test_list_ml_models_with_manager_delegates(self):
+        """list_ml_models() with model_manager → delegates (line 323)."""
+        from unittest.mock import AsyncMock as AM
+        mock_redis = AsyncMock()
+        monitoring = MonitoringSystem(mock_redis, {})
+        monitoring.model_manager.list_models = AM(return_value=[{"name": "v1"}])
+        result = await monitoring.list_ml_models()
+        assert result == [{"name": "v1"}]
+
+    async def test_update_ml_model_with_detector_updates_version(self):
+        """update_ml_model() with ml_detector → updates version (lines 327-329).
+        So what: hot-swapping the ML model without restart requires this path;
+        if it silently falls through to 'unavailable', deployments appear to fail."""
+        from unittest.mock import MagicMock
+        mock_redis = AsyncMock()
+        monitoring = MonitoringSystem(mock_redis, {})
+        monitoring.ml_detector.update_model_version = MagicMock()
+        result = await monitoring.update_ml_model("v2.0")
+        assert result == {"status": "updated", "version": "v2.0"}
+
+    async def test_update_ml_model_no_detector_returns_unavailable(self):
+        """update_ml_model() with ml_detector=None → unavailable (line 330).
+        So what: the update endpoint must return a clear error when ML is disabled;
+        a silent success would mislead the operator into thinking the model changed."""
+        mock_redis = AsyncMock()
+        monitoring = MonitoringSystem(mock_redis, {"ml": {"enabled": False}})
+        result = await monitoring.update_ml_model("v2.0")
+        assert result == {"status": "unavailable"}

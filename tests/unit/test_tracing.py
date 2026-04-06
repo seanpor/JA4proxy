@@ -466,5 +466,87 @@ class TestPipelineTracingIntegration(unittest.TestCase):
         self.assertIsInstance(span.exceptions[0], RuntimeError)
 
 
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+
+class TestTracingOtelImportBlock(unittest.TestCase):
+    """Cover lines 22-27: the opentelemetry import try block.
+
+    So what: if these lines are never executed, the real OTEL SDK initialization
+    code path is only ever tested via post-import patches — a silent import
+    failure in production (e.g. missing grpc extras) would leave tracing broken
+    without any unit-test signal.
+    """
+
+    def test_otel_available_set_true_when_sdk_importable(self):
+        """Lines 22-27: OTEL_AVAILABLE becomes True when all opentelemetry imports succeed.
+        So what: confirms that the try-block runs end-to-end and that OTEL_AVAILABLE
+        is correctly set to True, not left as False — without this, the enabled-tracing
+        code path is never reachable in production even when the SDK is installed."""
+        import importlib
+        import sys
+        import types
+
+        import src.telemetry.tracing as tracing_mod
+
+        # Build minimal stubs for every name imported in the try block.
+        fake_trace = types.ModuleType("opentelemetry.trace")
+        fake_trace.get_tracer = MagicMock()
+        fake_trace.set_tracer_provider = MagicMock()
+
+        fake_otel = types.ModuleType("opentelemetry")
+        fake_otel.trace = fake_trace
+
+        fake_exporter_mod = types.ModuleType(
+            "opentelemetry.exporter.otlp.proto.grpc.trace_exporter"
+        )
+        fake_exporter_mod.OTLPSpanExporter = MagicMock()
+
+        fake_resources = types.ModuleType("opentelemetry.sdk.resources")
+        fake_resources.Resource = MagicMock()
+
+        fake_sdk_trace = types.ModuleType("opentelemetry.sdk.trace")
+        fake_sdk_trace.TracerProvider = MagicMock()
+
+        fake_sdk_export = types.ModuleType("opentelemetry.sdk.trace.export")
+        fake_sdk_export.BatchSpanProcessor = MagicMock()
+
+        stub_modules = {
+            "opentelemetry": fake_otel,
+            "opentelemetry.trace": fake_trace,
+            "opentelemetry.exporter": types.ModuleType("opentelemetry.exporter"),
+            "opentelemetry.exporter.otlp": types.ModuleType("opentelemetry.exporter.otlp"),
+            "opentelemetry.exporter.otlp.proto": types.ModuleType(
+                "opentelemetry.exporter.otlp.proto"
+            ),
+            "opentelemetry.exporter.otlp.proto.grpc": types.ModuleType(
+                "opentelemetry.exporter.otlp.proto.grpc"
+            ),
+            "opentelemetry.exporter.otlp.proto.grpc.trace_exporter": fake_exporter_mod,
+            "opentelemetry.sdk": types.ModuleType("opentelemetry.sdk"),
+            "opentelemetry.sdk.resources": fake_resources,
+            "opentelemetry.sdk.trace": fake_sdk_trace,
+            "opentelemetry.sdk.trace.export": fake_sdk_export,
+        }
+
+        # Save whatever is currently in sys.modules (None if absent)
+        saved = {k: sys.modules.get(k) for k in stub_modules}
+
+        try:
+            sys.modules.update(stub_modules)
+            importlib.reload(tracing_mod)
+            self.assertTrue(tracing_mod.OTEL_AVAILABLE)
+        finally:
+            # Remove stubs
+            for k in stub_modules:
+                sys.modules.pop(k, None)
+            # Restore originals (all None since opentelemetry is not installed)
+            for k, v in saved.items():
+                if v is not None:
+                    sys.modules[k] = v
+            # Reload to restore OTEL_AVAILABLE = False for subsequent tests
+            importlib.reload(tracing_mod)
+
+
 if __name__ == "__main__":
     unittest.main()

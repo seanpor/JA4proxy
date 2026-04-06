@@ -13,7 +13,7 @@ Covers:
 - Lines 371-372: _track_single_strategy except bare Exception
 """
 
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 import redis
@@ -256,3 +256,290 @@ class TestTrackSingleStrategyExceptions:
 
         for metrics in results.values():
             assert metrics.connections_per_second == tracker.MAX_CONNECTIONS_PER_WINDOW
+
+
+# ── Missing-coverage tests ────────────────────────────────────────────────────
+
+class TestIsAsyncRedis:
+    """Cover _is_async_redis() AttributeError path (line 141-142).
+
+    So what: if redis.asyncio doesn't exist on older installs the tracker must
+    not crash on init — it must gracefully return False (sync mode).
+    """
+
+    def test_is_async_redis_attribute_error_returns_false(self):
+        """redis.asyncio missing Redis attr → returns False (lines 141-142).
+        So what: environments without redis.asyncio must still initialise safely."""
+        from src.security.rate_tracker import MultiStrategyRateTracker
+        mock_client = MagicMock()
+        # Simulate redis.asyncio not having a Redis attribute at all
+        import types
+        fake_asyncio = types.ModuleType("redis.asyncio")
+        # Do NOT set fake_asyncio.Redis — accessing it raises AttributeError
+        with patch("src.security.rate_tracker.redis") as mock_redis_mod:
+            mock_redis_mod.asyncio = fake_asyncio
+            result = MultiStrategyRateTracker._is_async_redis(mock_client)
+        assert result is False
+
+
+class TestValidateRedisConnectionAsync:
+    """Cover _validate_redis_connection() async skip path (line 154).
+
+    So what: for async Redis clients, ping() returns a coroutine that cannot
+    be awaited synchronously — skipping validates the connection was already
+    established by the caller.
+    """
+
+    def test_validate_redis_async_skips_ping(self):
+        """Async Redis client → _validate_redis_connection returns early (line 154).
+        So what: calling sync ping on async client raises TypeError; must be skipped."""
+        mock_redis = _make_redis()
+        cfg = _minimal_config()
+        tracker = MultiStrategyRateTracker(mock_redis, cfg)
+        # Patch _is_async_redis to pretend our mock is async
+        with patch.object(MultiStrategyRateTracker, "_is_async_redis", return_value=True):
+            # Should not call ping
+            tracker._validate_redis_connection()
+        mock_redis.ping.assert_called_once()  # was called in __init__, not in validate
+
+
+class TestHealthCheckAsync:
+    """Cover health_check() for async Redis (line 555).
+
+    So what: if health_check() tries to call sync ping on async Redis it would
+    get a coroutine back (not a bool). Must return True immediately for async.
+    """
+
+    def test_health_check_returns_true_for_async_client(self):
+        """Async Redis client → health_check returns True without calling ping (line 555).
+        So what: calling .ping() on async client returns a coroutine, not a bool."""
+        mock_redis = _make_redis()
+        cfg = _minimal_config()
+        tracker = MultiStrategyRateTracker(mock_redis, cfg)
+        with patch.object(MultiStrategyRateTracker, "_is_async_redis", return_value=True):
+            result = tracker.health_check()
+        assert result is True
+
+
+class TestTrackWithPipelineBatchingSyncPath:
+    """Cover the sync Redis pipeline batching path (lines 404-434).
+
+    So what: the proxy uses pipeline batching to reduce Redis round-trips by 3×.
+    If the sync pipeline path never executes, the batching never actually fires for
+    sync Redis deployments, reverting to individual calls and tripling latency.
+    """
+
+    @pytest.mark.asyncio
+    async def test_sync_pipeline_batching_populates_results(self):
+        """Sync Redis pipeline batching → results dict populated (lines 404-434).
+        So what: pipeline batching must work with sync Redis or rate data is lost."""
+        mock_redis = _make_redis()
+        cfg = _minimal_config()
+        tracker = MultiStrategyRateTracker(mock_redis, cfg)
+
+        # Set up pipeline mock
+        mock_pipe = MagicMock()
+        mock_pipe.execute.return_value = [5]  # one strategy, count=5
+        mock_pipe.__enter__ = MagicMock(return_value=mock_pipe)
+        mock_pipe.__exit__ = MagicMock(return_value=False)
+        mock_redis.pipeline.return_value = mock_pipe
+
+        results = {}
+        with patch.object(MultiStrategyRateTracker, "_is_async_redis", return_value=False):
+            await tracker._track_with_pipeline_batching(
+                "t13d", "1.2.3.4",
+                window_seconds=60.0,
+                now=1700000000.0,
+                ttl=60,
+                results=results,
+            )
+        assert len(results) == 1
+        for metrics in results.values():
+            assert metrics.connections_per_second == 5
+
+    @pytest.mark.asyncio
+    async def test_sync_pipeline_batching_clamps_oversized_count(self):
+        """Count > MAX_CONNECTIONS_PER_WINDOW is clamped (lines 425-431).
+        So what: a malicious Redis returning huge count must not bypass rate limits."""
+        mock_redis = _make_redis()
+        cfg = _minimal_config()
+        tracker = MultiStrategyRateTracker(mock_redis, cfg)
+
+        mock_pipe = MagicMock()
+        mock_pipe.execute.return_value = [tracker.MAX_CONNECTIONS_PER_WINDOW + 9999]
+        mock_pipe.__enter__ = MagicMock(return_value=mock_pipe)
+        mock_pipe.__exit__ = MagicMock(return_value=False)
+        mock_redis.pipeline.return_value = mock_pipe
+
+        results = {}
+        with patch.object(MultiStrategyRateTracker, "_is_async_redis", return_value=False):
+            await tracker._track_with_pipeline_batching(
+                "t13d", "1.2.3.4",
+                window_seconds=60.0,
+                now=1700000000.0,
+                ttl=60,
+                results=results,
+            )
+        for metrics in results.values():
+            assert metrics.connections_per_second == tracker.MAX_CONNECTIONS_PER_WINDOW
+
+    @pytest.mark.asyncio
+    async def test_sync_pipeline_batching_connection_error_raises(self):
+        """redis.ConnectionError in sync pipeline → RateTrackerError (line 443).
+        So what: Redis going down during batch must be surfaced, not silently dropped."""
+        mock_redis = _make_redis()
+        cfg = _minimal_config()
+        tracker = MultiStrategyRateTracker(mock_redis, cfg)
+
+        mock_pipe = MagicMock()
+        mock_pipe.__enter__ = MagicMock(return_value=mock_pipe)
+        mock_pipe.__exit__ = MagicMock(return_value=False)
+        mock_pipe.execute.side_effect = redis.ConnectionError("down")
+        mock_redis.pipeline.return_value = mock_pipe
+
+        results = {}
+        with patch.object(MultiStrategyRateTracker, "_is_async_redis", return_value=False):
+            with pytest.raises(RateTrackerError, match="Redis connection error"):
+                await tracker._track_with_pipeline_batching(
+                    "t13d", "1.2.3.4", 60.0, 1700000000.0, 60, results,
+                )
+
+    @pytest.mark.asyncio
+    async def test_sync_pipeline_batching_timeout_error_raises(self):
+        """redis.TimeoutError in sync pipeline → RateTrackerError (line 445).
+        So what: timeout during batch must propagate so track_connection can fail-closed."""
+        mock_redis = _make_redis()
+        cfg = _minimal_config()
+        tracker = MultiStrategyRateTracker(mock_redis, cfg)
+
+        mock_pipe = MagicMock()
+        mock_pipe.__enter__ = MagicMock(return_value=mock_pipe)
+        mock_pipe.__exit__ = MagicMock(return_value=False)
+        mock_pipe.execute.side_effect = redis.TimeoutError("timeout")
+        mock_redis.pipeline.return_value = mock_pipe
+
+        results = {}
+        with patch.object(MultiStrategyRateTracker, "_is_async_redis", return_value=False):
+            with pytest.raises(RateTrackerError, match="Redis timeout"):
+                await tracker._track_with_pipeline_batching(
+                    "t13d", "1.2.3.4", 60.0, 1700000000.0, 60, results,
+                )
+
+    @pytest.mark.asyncio
+    async def test_sync_pipeline_batching_redis_error_raises(self):
+        """redis.RedisError in sync pipeline → RateTrackerError (line 447).
+        So what: generic Redis error during batch must not silently succeed."""
+        mock_redis = _make_redis()
+        cfg = _minimal_config()
+        tracker = MultiStrategyRateTracker(mock_redis, cfg)
+
+        mock_pipe = MagicMock()
+        mock_pipe.__enter__ = MagicMock(return_value=mock_pipe)
+        mock_pipe.__exit__ = MagicMock(return_value=False)
+        mock_pipe.execute.side_effect = redis.RedisError("generic error")
+        mock_redis.pipeline.return_value = mock_pipe
+
+        results = {}
+        with patch.object(MultiStrategyRateTracker, "_is_async_redis", return_value=False):
+            with pytest.raises(RateTrackerError, match="Redis error"):
+                await tracker._track_with_pipeline_batching(
+                    "t13d", "1.2.3.4", 60.0, 1700000000.0, 60, results,
+                )
+
+    @pytest.mark.asyncio
+    async def test_no_enabled_strategies_returns_immediately(self):
+        """enabled_strategies empty → _track_with_pipeline_batching returns (line 354-355).
+        So what: a proxy with all rate strategies disabled must not attempt Redis calls."""
+        mock_redis = _make_redis()
+        tracker = MultiStrategyRateTracker(mock_redis, {"security": {"rate_limit_strategies": {}}})
+        results = {}
+        await tracker._track_with_pipeline_batching(
+            "t13d", "1.2.3.4", 60.0, 1700000000.0, 60, results,
+        )
+        assert results == {}
+
+
+class TestTrackWithPipelineBatchingAsyncPath:
+    """Cover the async Redis pipeline batching path (lines 360-398).
+
+    So what: async Redis is the default in modern async Python deployments.
+    If the async pipeline path never runs, every tracking call is serialised
+    (one round-trip per strategy) instead of batched — 3× the Redis latency.
+    """
+
+    @pytest.mark.asyncio
+    async def test_async_pipeline_batching_populates_results(self):
+        """Async Redis pipeline → results populated with connection counts (lines 360-398).
+        So what: pipeline must fire all strategy scripts in one round-trip."""
+        mock_redis = _make_redis()
+        cfg = _minimal_config()
+        tracker = MultiStrategyRateTracker(mock_redis, cfg)
+
+        # Build async context manager pipeline mock
+        mock_pipe = AsyncMock()
+        mock_pipe.execute = AsyncMock(return_value=[5])  # one strategy, count=5
+        async_cm = MagicMock()
+        async_cm.__aenter__ = AsyncMock(return_value=mock_pipe)
+        async_cm.__aexit__ = AsyncMock(return_value=False)
+        mock_redis.pipeline = MagicMock(return_value=async_cm)
+
+        results = {}
+        with patch.object(MultiStrategyRateTracker, "_is_async_redis", return_value=True):
+            await tracker._track_with_pipeline_batching(
+                "t13d", "1.2.3.4",
+                window_seconds=60.0,
+                now=1700000000.0,
+                ttl=60,
+                results=results,
+            )
+        assert len(results) == 1
+        for metrics in results.values():
+            assert metrics.connections_per_second == 5
+
+    @pytest.mark.asyncio
+    async def test_async_pipeline_clamps_oversized_count(self):
+        """Count > MAX_CONNECTIONS_PER_WINDOW clamped in async path (lines 382-389).
+        So what: Redis returning an extreme count must not bypass rate limiting."""
+        mock_redis = _make_redis()
+        cfg = _minimal_config()
+        tracker = MultiStrategyRateTracker(mock_redis, cfg)
+
+        mock_pipe = AsyncMock()
+        mock_pipe.execute = AsyncMock(return_value=[tracker.MAX_CONNECTIONS_PER_WINDOW + 9999])
+        async_cm = MagicMock()
+        async_cm.__aenter__ = AsyncMock(return_value=mock_pipe)
+        async_cm.__aexit__ = AsyncMock(return_value=False)
+        mock_redis.pipeline = MagicMock(return_value=async_cm)
+
+        results = {}
+        with patch.object(MultiStrategyRateTracker, "_is_async_redis", return_value=True):
+            await tracker._track_with_pipeline_batching(
+                "t13d", "1.2.3.4",
+                window_seconds=60.0,
+                now=1700000000.0,
+                ttl=60,
+                results=results,
+            )
+        for metrics in results.values():
+            assert metrics.connections_per_second == tracker.MAX_CONNECTIONS_PER_WINDOW
+
+    @pytest.mark.asyncio
+    async def test_async_pipeline_connection_error_raises(self):
+        """redis.ConnectionError in async pipeline → RateTrackerError (line 443)."""
+        mock_redis = _make_redis()
+        cfg = _minimal_config()
+        tracker = MultiStrategyRateTracker(mock_redis, cfg)
+
+        mock_pipe = AsyncMock()
+        mock_pipe.execute = AsyncMock(side_effect=redis.ConnectionError("down"))
+        async_cm = MagicMock()
+        async_cm.__aenter__ = AsyncMock(return_value=mock_pipe)
+        async_cm.__aexit__ = AsyncMock(return_value=False)
+        mock_redis.pipeline = MagicMock(return_value=async_cm)
+
+        results = {}
+        with patch.object(MultiStrategyRateTracker, "_is_async_redis", return_value=True):
+            with pytest.raises(RateTrackerError, match="Redis connection error"):
+                await tracker._track_with_pipeline_batching(
+                    "t13d", "1.2.3.4", 60.0, 1700000000.0, 60, results,
+                )

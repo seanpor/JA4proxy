@@ -187,21 +187,102 @@ class TestFpJa4Endpoint:
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Coverage gap additions — lines 146-149, 154-155, 176-177
+# ---------------------------------------------------------------------------
+
+class TestHttpServerCoverageGaps:
+    """Missing branches: sensor-delegated IP history, Redis exceptions, count exception."""
+
+    @pytest.mark.asyncio
+    async def test_fp_ip_sensor_returns_none_gives_404(self):
+        """Lines 147-148: sensor.get_ip_history() returns None → 404.
+        So what: without this check, returning None from the sensor would cause
+        json_response to serialize None as 'connections: null' instead of a 404,
+        misleading consumers into thinking the IP has empty connection history."""
+        sensor = MagicMock()
+        sensor.get_ip_history = AsyncMock(return_value=None)
+        srv = _make_http_server(sensor=sensor)
+        async with _client(srv) as c:
+            resp = await c.get("/api/v1/fingerprints/ip/1.2.3.4")
+        assert resp.status == 404
+
+    @pytest.mark.asyncio
+    async def test_fp_ip_sensor_returns_history_gives_200(self):
+        """Line 146-149: sensor with get_ip_history returns list → 200 with connections.
+        So what: without this delegation, the sensor's assembled history is never used
+        and the API always falls back to raw Redis zrange, losing enriched connection data."""
+        sensor = MagicMock()
+        sensor.get_ip_history = AsyncMock(return_value=[{"conn_id": "abc", "timestamp": "2024"}])
+        srv = _make_http_server(sensor=sensor)
+        async with _client(srv) as c:
+            resp = await c.get("/api/v1/fingerprints/ip/1.2.3.4")
+            data = await resp.json()
+        assert resp.status == 200
+        assert data["connections"][0]["conn_id"] == "abc"
+
+    @pytest.mark.asyncio
+    async def test_fp_ip_redis_exception_returns_404(self):
+        """Lines 154-155: Redis zrange raises → raw=[] → 404.
+        So what: without this except, a transient Redis error on the fingerprint
+        endpoint crashes the aiohttp handler with a 500 instead of a clean 404."""
+        redis = _mock_redis()
+        redis.zrange.side_effect = Exception("Redis connection refused")
+        srv = _make_http_server(redis=redis)
+        async with _client(srv) as c:
+            resp = await c.get("/api/v1/fingerprints/ip/1.2.3.4")
+        assert resp.status == 404
+
+    @pytest.mark.asyncio
+    async def test_fp_ja4_redis_exception_returns_zero_count(self):
+        """Lines 176-177: Redis get raises → count=0 → 200 with count=0.
+        So what: without this except, a Redis error on the JA4 stats endpoint
+        returns a 500, breaking dashboards that poll this endpoint continuously."""
+        redis = _mock_redis()
+        redis.get.side_effect = Exception("Redis unavailable")
+        srv = _make_http_server(redis=redis)
+        fp = "t13d1516h2_aabbccddeeff_aabbccddeeff"
+        async with _client(srv) as c:
+            resp = await c.get(f"/api/v1/fingerprints/ja4/{fp}")
+            data = await resp.json()
+        assert resp.status == 200
+        assert data["count"] == 0
+
+
 class TestServerLifecycle:
     @pytest.mark.asyncio
     async def test_server_starts_on_configured_port(self):
         """start() creates a runner; no exception expected."""
+        from unittest.mock import patch, AsyncMock, MagicMock
+        from aiohttp import web
+
         srv = _make_http_server()
-        try:
+        mock_runner = MagicMock()
+        mock_runner.setup = AsyncMock(return_value=None)
+        mock_runner.cleanup = AsyncMock(return_value=None)
+        mock_site = MagicMock()
+        mock_site.start = AsyncMock(return_value=None)
+
+        with patch("aiohttp.web.AppRunner", return_value=mock_runner), \
+             patch("aiohttp.web.TCPSite", return_value=mock_site):
             await srv.start()
             assert srv._runner is not None
-        finally:
             await srv.stop()
 
     @pytest.mark.asyncio
     async def test_server_shuts_down_cleanly(self):
         """stop() clears the runner without raising."""
+        from unittest.mock import patch, AsyncMock, MagicMock
+
         srv = _make_http_server()
-        await srv.start()
-        await srv.stop()
+        mock_runner = MagicMock()
+        mock_runner.setup = AsyncMock(return_value=None)
+        mock_runner.cleanup = AsyncMock(return_value=None)
+        mock_site = MagicMock()
+        mock_site.start = AsyncMock(return_value=None)
+
+        with patch("aiohttp.web.AppRunner", return_value=mock_runner), \
+             patch("aiohttp.web.TCPSite", return_value=mock_site):
+            await srv.start()
+            await srv.stop()
         assert srv._runner is None

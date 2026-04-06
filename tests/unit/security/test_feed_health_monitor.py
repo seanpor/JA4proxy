@@ -258,3 +258,98 @@ class TestGetHealthSummaryRegression:
 
         cb.record_failure()
         assert monitor.all_healthy() is False
+
+
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+
+class TestCircuitBreakerIsOpenCoverage:
+    """Cover lines 139-140, 142 in is_open()."""
+
+    def test_is_open_returns_true_when_open_and_interval_not_elapsed(self):
+        """Line 142: is_open() returns True when circuit is OPEN and recovery window
+        has not elapsed.
+        So what: if this returns False when the circuit is genuinely OPEN, requests
+        are forwarded to a broken TI feed — the circuit breaker provides no protection."""
+        cb = _cb(threshold=1, name="open_block")
+        cb.record_failure()  # opens circuit (threshold=1)
+        assert cb.state == CircuitState.OPEN
+        # Immediately call is_open — elapsed ≈ 0 < 60s default → must return True
+        assert cb.is_open() is True
+
+    def test_is_open_transitions_to_half_open_after_recovery_interval(self):
+        """Lines 139-140 + 225-232: after recovery_probe_interval elapses,
+        is_open() transitions OPEN→HALF_OPEN and returns False (allows one probe).
+        So what: if this transition never fires, a dead TI feed is blocked forever —
+        the circuit can never recover and the feed permanently stops contributing
+        threat intelligence."""
+        import time as _time
+        from unittest.mock import patch
+
+        cb = CircuitBreaker("recovery_test", failure_threshold=1, recovery_probe_interval=30.0)
+        cb.record_failure()  # opens circuit
+        assert cb.state == CircuitState.OPEN
+
+        # Advance monotonic time past the recovery interval
+        real_opened_at = cb._opened_at
+        with patch("src.security.feed_health.time") as mock_time:
+            mock_time.monotonic.return_value = real_opened_at + 40.0  # > 30s
+            result = cb.is_open()
+
+        assert result is False
+        assert cb.state == CircuitState.HALF_OPEN
+
+    def test_record_success_transitions_closed_from_half_open(self):
+        """Lines 157 + 233-240: record_success() when in HALF_OPEN state transitions
+        circuit to CLOSED.
+        So what: if this transition is missing, a successful probe after the recovery
+        window does not close the circuit — requests continue to be blocked even after
+        the feed has recovered."""
+        import time as _time
+        from unittest.mock import patch
+
+        cb = CircuitBreaker("close_test", failure_threshold=1, recovery_probe_interval=10.0)
+        cb.record_failure()  # opens circuit
+        assert cb.state == CircuitState.OPEN
+
+        real_opened_at = cb._opened_at
+        with patch("src.security.feed_health.time") as mock_time:
+            mock_time.monotonic.return_value = real_opened_at + 20.0
+            cb.is_open()  # transitions OPEN → HALF_OPEN
+
+        assert cb.state == CircuitState.HALF_OPEN
+
+        # Successful probe → must close the circuit
+        cb.record_success(0.05)
+        assert cb.state == CircuitState.CLOSED
+
+
+class TestProbeLoopCancellationDuringProbeFn:
+    """Cover line 386: CancelledError raised inside await probe_fn()."""
+
+    @pytest.mark.asyncio
+    async def test_probe_loop_cancelled_while_awaiting_probe_fn(self):
+        """Line 386: CancelledError propagated from within probe_fn is caught and
+        causes _probe_loop to return cleanly.
+        So what: if this return is missing, CancelledError propagates uncaught through
+        stop_probing(), leaving the event loop in an inconsistent state — the proxy
+        shutdown sequence would hang or raise on every graceful stop."""
+        monitor = FeedHealthMonitor()
+        monitor.get_circuit_breaker("cancel_probe")
+
+        probe_started = asyncio.Event()
+
+        async def blocking_probe() -> float:
+            probe_started.set()
+            await asyncio.sleep(100)  # blocks here; cancelled from outside
+            return 0.0
+
+        monitor.register_probe("cancel_probe", blocking_probe, interval_seconds=60.0)
+        await monitor.start_probing()
+
+        # Wait until the probe coroutine actually starts executing (event set)
+        await probe_started.wait()
+
+        # Cancel while probe_fn is awaiting asyncio.sleep — hits line 386
+        await monitor.stop_probing()
+        assert len(monitor._probe_tasks) == 0

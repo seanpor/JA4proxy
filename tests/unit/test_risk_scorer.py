@@ -262,3 +262,33 @@ class TestBuildExplanation:
         sigs = [RiskSignal(f"sig{i}", i * 10, "") for i in range(1, 6)]
         result = _build_explanation(sigs)
         assert result.count("sig") == 3
+
+
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+
+class TestRiskScorerFromConfig:
+    """Cover lines 112-113: RiskScorer.from_config() classmethod."""
+
+    def test_from_config_returns_instance(self):
+        """Lines 112-113: from_config() reads risk_scorer.thresholds from config
+        and constructs a RiskScorer instance.
+        So what: if from_config() is broken, the proxy falls back to a default
+        RiskScorer with no thresholds, silently ignoring operator-configured
+        scoring policy — all traffic scores would use the hardcoded defaults."""
+        config = {
+            "risk_scorer": {
+                "thresholds": {"flag": 30, "rate_limit": 50, "block": 75, "ban": 90}
+            }
+        }
+        scorer = RiskScorer.from_config(config)
+        assert isinstance(scorer, RiskScorer)
+        # The thresholds should be loaded from config
+        assert scorer._thresholds.get("flag") == 30
+
+    def test_from_config_empty_config_uses_defaults(self):
+        """from_config({}) constructs RiskScorer with empty thresholds (uses defaults).
+        So what: a missing config key must not raise KeyError — the proxy must
+        start cleanly with default scoring even without a risk_scorer config block."""
+        scorer = RiskScorer.from_config({})
+        assert isinstance(scorer, RiskScorer)

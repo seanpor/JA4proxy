@@ -144,3 +144,101 @@ class TestH2Fingerprint:
         result = extract_h2_fingerprint(stream, database=[custom_sig])
         assert result is not None
         assert result.matched_client == "test_client"
+
+
+# ── Missing-coverage tests ────────────────────────────────────────────────────
+
+class TestH2FingerprintMissingCoverage:
+    """Cover load_h2_database(), exception in extract_h2_fingerprint(), and
+    zero-settings signature (line 216).
+
+    So what: h2_fingerprint.py parses attacker-controlled HTTP/2 frames —
+    every unhandled exception in this path is a potential proxy DoS vector.
+    """
+
+    def test_load_h2_database_from_yaml_file(self, tmp_path):
+        """load_h2_database reads YAML and returns H2Signature list (lines 99-117).
+        So what: if database loading fails, ALL h2 fingerprints are unmatched —
+        no bot identification, no blocklist lookups based on h2 fingerprint."""
+        from src.tap.fingerprints.h2_fingerprint import load_h2_database, H2Signature
+        yaml_content = """
+signatures:
+  - id: TestBrowser/1.0
+    settings_order:
+      - HEADER_TABLE_SIZE
+    settings:
+      HEADER_TABLE_SIZE: 65536
+    window_update: 1048576
+"""
+        p = tmp_path / "h2db.yaml"
+        p.write_text(yaml_content)
+        sigs = load_h2_database(p)
+        assert len(sigs) == 1
+        assert sigs[0].client_id == "TestBrowser/1.0"
+        assert sigs[0].settings.get("HEADER_TABLE_SIZE") == 65536
+        assert sigs[0].window_update == 1048576
+
+    def test_load_h2_database_malformed_yaml_returns_builtin(self, tmp_path):
+        """load_h2_database with malformed YAML → returns builtin DB (line 116-117).
+        So what: a corrupt database file must not crash fingerprinting — built-in
+        signatures must still be available for known-bad bot detection."""
+        from src.tap.fingerprints.h2_fingerprint import load_h2_database
+        p = tmp_path / "bad.yaml"
+        p.write_text("not: valid: yaml: content: [unclosed")
+        sigs = load_h2_database(p)
+        # Must return builtin signatures, not empty list
+        assert len(sigs) > 0
+
+    def test_load_h2_database_nonexistent_returns_builtin(self, tmp_path):
+        """load_h2_database with missing file → returns builtin DB.
+        So what: missing YAML on first deploy must not crash the fingerprinter."""
+        from src.tap.fingerprints.h2_fingerprint import load_h2_database
+        sigs = load_h2_database(tmp_path / "nonexistent.yaml")
+        assert len(sigs) > 0
+
+    def test_load_h2_database_empty_signatures_returns_builtin(self, tmp_path):
+        """load_h2_database with empty signatures list → returns builtin (line 115).
+        So what: an empty YAML must not silently disable all client identification."""
+        from src.tap.fingerprints.h2_fingerprint import load_h2_database
+        p = tmp_path / "empty.yaml"
+        p.write_text("signatures: []\n")
+        sigs = load_h2_database(p)
+        assert len(sigs) > 0
+
+    def test_extract_h2_fingerprint_exception_returns_none(self):
+        """_parse() raising → extract_h2_fingerprint returns None (lines 136-137).
+        So what: unexpected parse error on malformed H2 frame must not crash the tap."""
+        from unittest.mock import patch
+        import src.tap.fingerprints.h2_fingerprint as _mod
+        with patch.object(_mod, "_parse", side_effect=RuntimeError("injected")):
+            result = _mod.extract_h2_fingerprint(b"\x00" * 20)
+        assert result is None
+
+    def test_match_db_skips_zero_settings_signature(self):
+        """Signature with empty settings → continue (line 216).
+        So what: zero-settings signature must not be matched against any client,
+        which would produce a false 'unknown' identity."""
+        from src.tap.fingerprints.h2_fingerprint import (
+            H2Signature, _match_db
+        )
+        empty_sig = H2Signature(
+            client_id="empty_sig",
+            settings_order=[],
+            settings={},
+            window_update=None,  # total = 0 → must be skipped
+        )
+        real_sig = H2Signature(
+            client_id="real_client",
+            settings_order=["HEADER_TABLE_SIZE"],
+            settings={"HEADER_TABLE_SIZE": 65536},
+            window_update=None,
+        )
+        client, score = _match_db(
+            {"HEADER_TABLE_SIZE": 65536},
+            ["HEADER_TABLE_SIZE"],
+            None,
+            [empty_sig, real_sig],  # empty_sig must be skipped
+        )
+        # Should match real_sig, not empty_sig
+        assert client == "real_client"
+        assert score > 0

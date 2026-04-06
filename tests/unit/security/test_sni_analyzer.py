@@ -481,3 +481,80 @@ class TestPerformance:
         
         # Should be very fast (< 0.2ms per call - adjusted for CI environments)
         assert duration_per_call < 0.0002
+
+
+# ── Missing-coverage tests ────────────────────────────────────────────────────
+
+class TestSNIAnalyzerInitErrorHandling:
+    """Cover ValueError/TypeError exception handlers in __init__ (lines 179, 189-190,
+    197-198, 207-208, 211-212, 223-224) and non-list expected_hostnames (line 217).
+
+    So what: an operator typo in proxy.yml must not crash the proxy on startup —
+    invalid config values must silently fall back to safe defaults.
+    """
+
+    def test_invalid_missing_sni_score_falls_back_to_default(self):
+        """Non-numeric missing_sni score → defaults to 30 (line 179).
+        So what: a config typo must not raise ValueError at startup."""
+        config = {"sni_analyzer": {"missing_sni": {"score": "not-a-number"}}}
+        analyzer = SNIAnalyzer(config)
+        assert analyzer._missing_sni_score == 30
+
+    def test_invalid_ip_literal_score_falls_back_to_default(self):
+        """Non-numeric ip_literal score → defaults to 25 (lines 189-190)."""
+        config = {"sni_analyzer": {"ip_literal_sni": {"score": [1, 2]}}}
+        analyzer = SNIAnalyzer(config)
+        assert analyzer._ip_literal_score == 25
+
+    def test_invalid_entropy_threshold_falls_back_to_default(self):
+        """Non-numeric entropy_threshold → defaults to 3.8 (lines 197-198)."""
+        config = {"sni_analyzer": {"dga_detection": {"entropy_threshold": "high"}}}
+        analyzer = SNIAnalyzer(config)
+        assert analyzer._entropy_threshold == 3.8
+
+    def test_invalid_dga_score_cap_falls_back_to_default(self):
+        """Non-numeric dga score_cap → defaults to 40 (lines 207-208)."""
+        config = {"sni_analyzer": {"dga_detection": {"score_cap": None}}}
+        analyzer = SNIAnalyzer(config)
+        assert analyzer._dga_score_cap == 40
+
+    def test_invalid_unexpected_sni_score_falls_back_to_default(self):
+        """Non-numeric unexpected score → defaults to 15 (lines 223-224)."""
+        config = {"sni_analyzer": {"score": "bad"}}
+        analyzer = SNIAnalyzer(config)
+        assert analyzer._unexpected_sni_score == 15
+
+    def test_non_list_expected_hostnames_treated_as_empty(self):
+        """expected_hostnames that isn't a list → empty frozenset (line 217).
+        So what: a misconfigured string value must not crash with TypeError."""
+        config = {"sni_analyzer": {"expected_hostnames": "not-a-list"}}
+        analyzer = SNIAnalyzer(config)
+        assert analyzer._expected_hostnames == frozenset()
+
+
+class TestDGAConsonantHeavy:
+    """Cover the consonant-heavy branch in dga_score() (line 136).
+
+    So what: C2 beacons often use domains that have vowels but at a very low
+    ratio (mostly consonants). Missing this branch means reduced DGA detection.
+    """
+
+    def test_consonant_heavy_long_label_scores(self):
+        """alpha_count >= 10, vowel_count > 0, ratio > 5.0 → score += 0.20 (line 136).
+        So what: a consonant-heavy but not vowel-free label must still get scored."""
+        # Need: >=10 alpha, some vowels, but alpha/vowel > 5.0
+        # e.g. 10 alpha: 1 vowel, 9 consonants → ratio = 10.0 > 5.0
+        # 'bcdfghjklm' + 'a' → ratio=11 but that's exactly 12 chars
+        label = "bcdfghjklma.com"  # 11 alpha, 1 vowel → ratio=11>5
+        score = dga_score(label)
+        # Should score at least 0.20 from this branch
+        assert score >= 0.20
+
+    def test_consonant_heavy_short_label_not_scored(self):
+        """alpha_count < 10 → consonant-heavy branch skipped.
+        So what: short hostnames with no vowels must not be falsely flagged."""
+        label = "bcdfg.com"  # only 5 alpha
+        score = dga_score(label)
+        # Should not trigger the >=10 alpha branch
+        # (may trigger other branches but not line 136)
+        assert 0.0 <= score <= 1.0

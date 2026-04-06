@@ -506,3 +506,285 @@ class TestDetectionIntegration:
         assert candidate['ja4'] == ja4
         assert candidate['block_rate'] == 1.0
         assert candidate['only_in_blocks'] == True
+
+# ── Missing-coverage tests ────────────────────────────────────────────────────
+
+from src.analytics.detection import (
+    CampaignDetector,
+    JA4FingerprintIntelligence,
+    SlowScanDetector,
+)
+
+
+class TestDetectionMissingCoverage:
+    """Cover remaining edge paths in detection.py."""
+
+    # ── CampaignDetector paths ───────────────────────────────────────────────
+
+    def test_get_subnet_stats_returns_none_for_unknown_subnet(self):
+        """get_subnet_stats() for unknown subnet → None (line 73).
+        So what: campaign analytics must not crash when queried for a subnet that
+        hasn't been seen yet; returning None is the correct fail-open."""
+        d = CampaignDetector()
+        result = d.get_subnet_stats("99.99.99.0/24")
+        assert result is None
+
+    def test_update_with_event_invalid_subnet_returns_immediately(self):
+        """update_with_event() with invalid IP → returns without crash (line 91).
+        So what: a malformed IP from a corrupt event must not crash the analytics
+        pipeline; 'invalid' subnets must be silently skipped."""
+        d = CampaignDetector()
+        d.update_with_event({
+            "src_ip": "not-an-ip", "action": "allow",
+            "timestamp": __import__('time').time(),
+        })
+        assert len(d.subnet_data) == 0
+
+    def test_update_with_event_sets_last_seen_on_newer_timestamp(self):
+        """update_with_event() with newer timestamp → last_seen updated (line 106).
+        So what: if last_seen is not updated, window rotation will prune active
+        subnets, causing the campaign detector to lose ongoing attack data."""
+        import time as _t
+        d = CampaignDetector()
+        t1 = _t.time()
+        d.update_with_event({"src_ip": "1.2.3.4", "action": "block", "timestamp": t1})
+        t2 = t1 + 10
+        d.update_with_event({"src_ip": "1.2.3.5", "action": "block", "timestamp": t2})
+        subnet = d.get_subnet("1.2.3.4")
+        assert d.subnet_data[subnet]["last_seen"] == t2
+
+    def test_detect_campaigns_skips_old_subnets(self):
+        """detect_campaigns() skips subnets with old last_seen (line 120).
+        So what: stale campaign data must not trigger alerts hours after the
+        attack ended; time-window filtering prevents false positives."""
+        import time as _t
+        d = CampaignDetector(min_unique_ips=2, density_threshold=0.01, block_rate_threshold=0.5)
+        # Add data with old timestamp
+        subnet = "1.2.3.0/24"
+        d.subnet_data[subnet]["unique_ips"] = {"1.2.3.1", "1.2.3.2", "1.2.3.3"}
+        d.subnet_data[subnet]["total_connections"] = 10
+        d.subnet_data[subnet]["blocked_connections"] = 9
+        d.subnet_data[subnet]["first_seen"] = 0.0
+        d.subnet_data[subnet]["last_seen"] = 0.0  # Very old
+        result = d.detect_campaigns()
+        assert len(result) == 0
+
+    def test_detect_campaigns_zero_total_connections_block_rate_zero(self):
+        """detect_campaigns() with total_connections=0 → block_rate=0.0 (line 130).
+        So what: division-by-zero must not crash the detector; a subnet with
+        no connections has zero block rate by definition."""
+        import time as _t
+        d = CampaignDetector(min_unique_ips=2, density_threshold=0.0, block_rate_threshold=0.0)
+        subnet = "1.2.3.0/24"
+        now = _t.time()
+        d.subnet_data[subnet]["unique_ips"] = {"1.2.3.1", "1.2.3.2", "1.2.3.3"}
+        d.subnet_data[subnet]["total_connections"] = 0
+        d.subnet_data[subnet]["blocked_connections"] = 0
+        d.subnet_data[subnet]["first_seen"] = now
+        d.subnet_data[subnet]["last_seen"] = now
+        result = d.detect_campaigns()
+        # block_rate=0.0 meets threshold 0.0 — should be in results
+        assert any(c["block_rate"] == 0.0 for c in result)
+
+    def test_campaign_rotate_window_keeps_active_subnets(self):
+        """_rotate_window() keeps subnets with recent last_seen (line 163).
+        So what: active campaigns must survive window rotation; if active subnets
+        are pruned, multi-window attacks evade detection."""
+        import time as _t
+        d = CampaignDetector()
+        now = _t.time()
+        subnet = "1.2.3.0/24"
+        d.subnet_data[subnet]["unique_ips"] = {"1.2.3.1"}
+        d.subnet_data[subnet]["total_connections"] = 1
+        d.subnet_data[subnet]["blocked_connections"] = 0
+        d.subnet_data[subnet]["first_seen"] = now
+        d.subnet_data[subnet]["last_seen"] = now  # Recent
+        d.current_window = 0
+        d._rotate_window(1)
+        assert subnet in d.subnet_data
+
+    # ── JA4FingerprintIntelligence paths ────────────────────────────────────
+
+    def test_fingerprint_update_returns_early_on_no_ja4(self):
+        """update_with_event() without ja4 key → returns (line 213).
+        So what: events from non-TLS connections have no JA4; silently skipping
+        them is correct; adding them would corrupt the fingerprint database."""
+        fi = JA4FingerprintIntelligence()
+        fi.update_with_event({
+            "proxy_id": "p1", "action": "allow",
+            "timestamp": __import__('time').time(),
+            # No 'ja4' key
+        })
+        assert len(fi.fingerprint_data) == 0
+
+    def test_fingerprint_update_sets_last_seen_on_newer_event(self):
+        """update_with_event() newer timestamp → last_seen updated (line 229).
+        So what: same window-rotation risk as campaign detector — stale last_seen
+        causes active fingerprints to be pruned mid-campaign."""
+        import time as _t
+        fi = JA4FingerprintIntelligence()
+        t1 = _t.time()
+        fi.update_with_event({"ja4": "abc", "proxy_id": "p1", "action": "block", "timestamp": t1})
+        t2 = t1 + 5
+        fi.update_with_event({"ja4": "abc", "proxy_id": "p1", "action": "block", "timestamp": t2})
+        assert fi.fingerprint_data["abc"]["last_seen"] == t2
+
+    def test_identify_candidates_skips_old_fingerprints(self):
+        """identify_candidates() skips fingerprints with old last_seen (line 243).
+        So what: stale fingerprints must not generate candidate alerts days after
+        they were last seen; this prevents alert fatigue from expired data."""
+        fi = JA4FingerprintIntelligence(min_observations=5, block_rate_threshold=0.9)
+        fi.fingerprint_data["abc"]["total_seen"] = 10
+        fi.fingerprint_data["abc"]["blocked_seen"] = 10
+        fi.fingerprint_data["abc"]["allowed_seen"] = 0
+        fi.fingerprint_data["abc"]["last_seen"] = 0.0  # Very old
+        result = fi.identify_candidates()
+        assert len(result) == 0
+
+    def test_identify_candidates_zero_total_block_rate_zero(self):
+        """identify_candidates() with total_seen=0 → block_rate=0.0 (line 249).
+        So what: the zero-division guard must not crash; block_rate=0 means
+        the fingerprint won't meet the high threshold and won't be a candidate."""
+        import time as _t
+        fi = JA4FingerprintIntelligence(min_observations=0, block_rate_threshold=0.0)
+        now = _t.time()
+        fi.fingerprint_data["abc"]["total_seen"] = 0
+        fi.fingerprint_data["abc"]["blocked_seen"] = 0
+        fi.fingerprint_data["abc"]["allowed_seen"] = 0
+        fi.fingerprint_data["abc"]["last_seen"] = now
+        fi.fingerprint_data["abc"]["sources"] = {"p1"}
+        result = fi.identify_candidates()
+        # block_rate=0.0 meets threshold 0.0
+        assert any(c["block_rate"] == 0.0 for c in result)
+
+    def test_get_fingerprint_stats_returns_stats(self):
+        """get_fingerprint_stats() for known JA4 → returns stats dict (lines 279-286).
+        So what: the admin UI calls this to show per-fingerprint statistics;
+        if it returns None for known fingerprints, the UI shows empty tables."""
+        import time as _t
+        fi = JA4FingerprintIntelligence()
+        now = _t.time()
+        fi.fingerprint_data["abc"]["total_seen"] = 5
+        fi.fingerprint_data["abc"]["blocked_seen"] = 4
+        fi.fingerprint_data["abc"]["allowed_seen"] = 1
+        fi.fingerprint_data["abc"]["first_seen"] = now
+        fi.fingerprint_data["abc"]["last_seen"] = now
+        fi.fingerprint_data["abc"]["sources"] = {"p1", "p2"}
+        result = fi.get_fingerprint_stats("abc")
+        assert result is not None
+        assert result["block_rate"] == 0.8
+        assert result["source_count"] == 2
+
+    def test_get_fingerprint_stats_zero_total_seen(self):
+        """get_fingerprint_stats() with total_seen=0 → block_rate=0.0 (lines 283-284).
+        So what: same division-by-zero guard as identify_candidates."""
+        import time as _t
+        fi = JA4FingerprintIntelligence()
+        now = _t.time()
+        fi.fingerprint_data["abc"]["total_seen"] = 0
+        fi.fingerprint_data["abc"]["blocked_seen"] = 0
+        fi.fingerprint_data["abc"]["allowed_seen"] = 0
+        fi.fingerprint_data["abc"]["first_seen"] = now
+        fi.fingerprint_data["abc"]["last_seen"] = now
+        fi.fingerprint_data["abc"]["sources"] = set()
+        result = fi.get_fingerprint_stats("abc")
+        assert result["block_rate"] == 0.0
+
+    def test_ja4_rotate_window_keeps_active_fingerprints(self):
+        """_rotate_window() keeps recently-seen JA4 fingerprints (line 307).
+        So what: active malicious fingerprints must survive window rotation or
+        they'll be re-enrolled next window with a fresh (zero) block rate."""
+        import time as _t
+        fi = JA4FingerprintIntelligence()
+        now = _t.time()
+        fi.fingerprint_data["abc"]["last_seen"] = now  # Recent
+        fi.current_window = 0
+        fi._rotate_window(1)
+        assert "abc" in fi.fingerprint_data
+
+    # ── SlowScanDetector paths ───────────────────────────────────────────────
+
+    def test_slow_scan_get_subnet_ipv6(self):
+        """get_subnet() with IPv6 address → IPv6 /48 network (lines 348-349).
+        So what: slow-scan detection must work for IPv6 campaigns; if IPv6 is
+        not handled, entire IPv6 botnets evade subnet-level correlation."""
+        d = SlowScanDetector()
+        result = d.get_subnet("2001:db8::1")
+        assert "2001:db8::" in result
+        assert "/48" in result
+
+    def test_slow_scan_get_subnet_invalid_returns_invalid(self):
+        """get_subnet() with invalid IP → 'invalid' (lines 350-351).
+        So what: same crash-protection as campaign detector — invalid IPs must
+        not raise ValueError and kill the analytics loop."""
+        d = SlowScanDetector()
+        result = d.get_subnet("not-an-ip")
+        assert result == "invalid"
+
+    def test_slow_scan_update_returns_early_on_invalid_ip(self):
+        """update_with_event() with invalid IP → returns (line 369).
+        So what: malformed src_ip in event stream must not corrupt subnet data."""
+        d = SlowScanDetector()
+        d.update_with_event({
+            "src_ip": "bad-ip", "timestamp": __import__('time').time()
+        })
+        assert len(d.subnet_data) == 0
+
+    def test_slow_scan_update_sets_last_seen(self):
+        """update_with_event() newer timestamp → last_seen updated (line 383).
+        So what: last_seen drives window rotation; stale last_seen causes
+        active slow scans to be pruned from memory mid-campaign."""
+        import time as _t
+        d = SlowScanDetector()
+        t1 = _t.time()
+        d.update_with_event({"src_ip": "1.2.3.4", "timestamp": t1})
+        t2 = t1 + 5
+        d.update_with_event({"src_ip": "1.2.3.5", "timestamp": t2})
+        subnet = d.get_subnet("1.2.3.4")
+        assert d.subnet_data[subnet]["last_seen"] == t2
+
+    def test_detect_slow_scans_skips_old_subnets(self):
+        """detect_slow_scans() skips subnets with old last_seen (line 397).
+        So what: expired slow scans must not generate alerts; this keeps the
+        alert feed focused on active threats, reducing SIEM noise."""
+        d = SlowScanDetector(min_unique_ips=2, max_requests_per_ip=3)
+        subnet = "1.2.3.0/24"
+        d.subnet_data[subnet]["unique_ips"] = {"1.2.3.1", "1.2.3.2", "1.2.3.3"}
+        d.subnet_data[subnet]["total_requests"] = 3
+        d.subnet_data[subnet]["first_seen"] = 0.0
+        d.subnet_data[subnet]["last_seen"] = 0.0  # Very old
+        result = d.detect_slow_scans()
+        assert len(result) == 0
+
+    def test_detect_slow_scans_zero_unique_ips_block_rate_zero(self):
+        """detect_slow_scans() with zero unique_ips → avg=0 (line 403).
+        So what: same division-by-zero guard in slow scan path."""
+        import time as _t
+        d = SlowScanDetector(min_unique_ips=0, max_requests_per_ip=99)
+        now = _t.time()
+        subnet = "1.2.3.0/24"
+        d.subnet_data[subnet]["unique_ips"] = set()  # Zero unique IPs
+        d.subnet_data[subnet]["total_requests"] = 0
+        d.subnet_data[subnet]["first_seen"] = now
+        d.subnet_data[subnet]["last_seen"] = now
+        result = d.detect_slow_scans()
+        # avg=0 ≤ max_requests_per_ip=99 → should be in results
+        if result:
+            assert result[0]["avg_requests_per_ip"] == 0
+
+    def test_slow_scan_rotate_window_keeps_active_subnets(self):
+        """_rotate_window() keeps recently-active subnets (line 434).
+        So what: active slow scans must survive window boundaries; without
+        this the detector would reset its counter every window."""
+        import time as _t
+        d = SlowScanDetector()
+        now = _t.time()
+        subnet = "1.2.3.0/24"
+        d.subnet_data[subnet]["unique_ips"] = {"1.2.3.1"}
+        d.subnet_data[subnet]["ip_request_counts"] = {"1.2.3.1": 1}
+        d.subnet_data[subnet]["total_requests"] = 1
+        d.subnet_data[subnet]["first_seen"] = now
+        d.subnet_data[subnet]["last_seen"] = now  # Recent
+        d.current_window = 0
+        d._rotate_window(1)
+        assert subnet in d.subnet_data

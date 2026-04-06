@@ -664,3 +664,428 @@ class TestCacheHitTracker(unittest.TestCase):
         tracker.record_miss()  # Overflow
         # total should be trimmed back to window
         self.assertLessEqual(tracker._total, 2)
+
+
+# ---------------------------------------------------------------------------
+# Missing-coverage tests
+# ---------------------------------------------------------------------------
+
+
+class TestStartDisabled(unittest.IsolatedAsyncioTestCase):
+    """Cover start() early-return when disabled (line 298)."""
+
+    async def test_start_when_disabled_returns_without_creating_workers(self):
+        """start() with enabled=False → returns immediately, no workers created.
+        So what: a disabled checker must not spawn background tasks that consume
+        resources and hold Redis connections unnecessarily."""
+        cfg = _make_config(enabled=False)
+        checker = _make_checker(config=cfg)
+        await checker.start()
+        self.assertIsNone(checker._queue)
+        self.assertEqual(checker._workers, [])
+
+
+class TestStopQueueNotEmpty(unittest.IsolatedAsyncioTestCase):
+    """Cover stop() warning when queue has remaining items (line 325)."""
+
+    async def test_stop_with_items_in_queue_logs_warning(self):
+        """stop() when queue still has IPs → WARN logged for unprocessed items.
+        So what: lost enrichment requests are a data quality issue; the warning
+        lets operators detect under-sized queues during shutdown."""
+        checker = _make_checker()
+        await checker.start()
+        # Manually add items to queue without workers draining them
+        checker._queue.put_nowait("1.2.3.4")
+        checker._queue.put_nowait("5.6.7.8")
+        import logging
+        with self.assertLogs("src.security.abuseipdb", level="WARNING"):
+            await checker.stop()
+
+
+class TestMaybeLookup(unittest.IsolatedAsyncioTestCase):
+    """Cover _maybe_lookup() paths: tier1 hit, redis hit, redis error (lines 393, 420-426, 402-403)."""
+
+    async def test_get_score_tier1_hit_skips_redis(self):
+        """get_score() with tier-1 LRU hit → returns immediately without Redis (line 393).
+        So what: tier-1 bypass is the key latency optimization; a regression here
+        doubles Redis RTTs on hot-path requests."""
+        from src.cache.local_cache import LocalCache
+        local_cache = LocalCache({})
+        local_cache.abuseipdb_scores.set("1.2.3.4", 75)
+        redis = _make_redis()
+        checker = _make_checker(redis=redis, local_cache=local_cache)
+        score = await checker.get_score("1.2.3.4")
+        self.assertEqual(score, 75)
+        redis.get.assert_not_called()
+
+    async def test_maybe_lookup_redis_hit_populates_tier1(self):
+        """_maybe_lookup() with Redis hit → populates tier-1 cache (lines 420-424).
+        So what: warm-through from Redis to LRU prevents duplicate Redis reads
+        on subsequent connections from the same IP."""
+        local_cache = MagicMock()
+        local_cache.abuseipdb_scores = MagicMock()
+        redis = _make_redis(get_return=b"60")
+        checker = _make_checker(redis=redis, local_cache=local_cache)
+        checker._queue = asyncio.Queue(maxsize=10)
+        checker._workers = []
+        await checker._maybe_lookup("1.2.3.4")
+        local_cache.abuseipdb_scores.set.assert_called()
+
+    async def test_maybe_lookup_redis_error_logs_warning_and_enqueues(self):
+        """_maybe_lookup() redis.get raises → logs warning, enqueues (lines 425-426).
+        So what: Redis read errors must not crash the background pipeline; the IP
+        gets re-queued for enrichment on the next connection."""
+        local_cache = MagicMock()
+        local_cache.abuseipdb_scores = MagicMock()
+        redis = _make_redis()
+        redis.get = AsyncMock(side_effect=ConnectionError("Redis down"))
+        bf = MagicMock()
+        bf.add = AsyncMock(return_value=1)
+        redis.bf = MagicMock(return_value=bf)
+        checker = _make_checker(redis=redis, local_cache=local_cache)
+        checker._queue = asyncio.Queue(maxsize=10)
+        checker._workers = []
+        import logging
+        with self.assertLogs("src.security.abuseipdb", level="WARNING"):
+            await checker._maybe_lookup("1.2.3.4")
+
+
+class TestEnqueueLookupEdgePaths(unittest.IsolatedAsyncioTestCase):
+    """Cover _enqueue_lookup() edge paths (lines 442, 446-447, 461-462, 469, 471-472)."""
+
+    async def test_enqueue_skips_when_quota_exhausted(self):
+        """_enqueue_lookup() skips when quota exhausted (line 442).
+        So what: enqueueing after quota exhaustion wastes queue slots and causes
+        misleading 429-cycle errors; the flag must short-circuit immediately."""
+        redis = _make_redis()
+        checker = _make_checker(redis=redis)
+        checker._quota_exhausted = True
+        checker._queue = asyncio.Queue(maxsize=10)
+        checker._workers = []
+        await checker._enqueue_lookup("1.2.3.4")
+        self.assertEqual(checker._queue.qsize(), 0)
+
+    async def test_enqueue_delegate_redis_error_logs_warning(self):
+        """delegate_to_analytics=True, sadd raises → logs warning (lines 446-447).
+        So what: a Redis error during delegation must not crash the background
+        worker; the IP is silently dropped, which is acceptable fail-open behavior."""
+        redis = _make_redis()
+        redis.sadd = AsyncMock(side_effect=ConnectionError("Redis error"))
+        cfg = _make_config(delegate_to_analytics=True)
+        checker = _make_checker(config=cfg, redis=redis)
+        checker._queue = asyncio.Queue(maxsize=10)
+        checker._workers = []
+        import logging
+        with self.assertLogs("src.security.abuseipdb", level="WARNING"):
+            await checker._enqueue_lookup("1.2.3.4")
+
+    async def test_bloom_expire_redis_error_swallowed(self):
+        """bloom filter expire RedisError → swallowed (lines 461-462).
+        So what: TTL-setting failure must not prevent the IP from being enqueued;
+        slightly longer bloom filter retention is acceptable."""
+        import redis as redis_lib
+        r = _make_redis()
+        bf = MagicMock()
+        bf.add = AsyncMock(return_value=1)  # newly added
+        r.bf = MagicMock(return_value=bf)
+        r.expire = AsyncMock(side_effect=redis_lib.RedisError("expire failed"))
+        checker = _make_checker(redis=r)
+        checker._quota_exhausted = False
+        checker._queue = asyncio.Queue(maxsize=10)
+        checker._workers = []
+        await checker._enqueue_lookup("1.2.3.4")
+        # Should still enqueue despite expire failure
+        self.assertEqual(checker._queue.qsize(), 1)
+
+    async def test_bloom_fallback_already_present_skips_enqueue(self):
+        """Fallback bloom key exists → IP already enriched, skip enqueue (line 469).
+        So what: the fallback path must dedup correctly when RedisBloom is absent,
+        otherwise unbounded re-enqueueing will exhaust the daily API quota."""
+        redis = _make_redis()
+        bf = MagicMock()
+        bf.add = AsyncMock(side_effect=Exception("WRONGTYPE"))
+        redis.bf = MagicMock(return_value=bf)
+        # Fallback key exists
+        redis.get = AsyncMock(return_value=b"1")
+        checker = _make_checker(redis=redis)
+        checker._quota_exhausted = False
+        checker._queue = asyncio.Queue(maxsize=10)
+        checker._workers = []
+        await checker._enqueue_lookup("1.2.3.4")
+        self.assertEqual(checker._queue.qsize(), 0)
+
+    async def test_bloom_fallback_set_error_still_enqueues(self):
+        """Fallback setex raises → debug log, but IP still enqueued (lines 471-472).
+        So what: bloom dedup failure must not silently drop the enrichment request;
+        a duplicate API call is preferable to a missed lookup."""
+        redis = _make_redis()
+        bf = MagicMock()
+        bf.add = AsyncMock(side_effect=Exception("WRONGTYPE"))
+        redis.bf = MagicMock(return_value=bf)
+        # Fallback key does NOT exist, but setex also fails
+        redis.get = AsyncMock(return_value=None)
+        redis.setex = AsyncMock(side_effect=Exception("setex failed"))
+        checker = _make_checker(redis=redis)
+        checker._quota_exhausted = False
+        checker._queue = asyncio.Queue(maxsize=10)
+        checker._workers = []
+        await checker._enqueue_lookup("1.2.3.4")
+        # Should still enqueue since dedup failure falls through
+        self.assertEqual(checker._queue.qsize(), 1)
+
+
+class TestLookupWorkerPaths(unittest.IsolatedAsyncioTestCase):
+    """Cover _lookup_worker() processing paths (lines 489-506)."""
+
+    async def test_lookup_worker_processes_item_end_to_end(self):
+        """Worker dequeues IP, calls _process_lookup, marks task_done (lines 489-506).
+        So what: if task_done is not called, the queue.join() will hang forever,
+        blocking a clean shutdown."""
+        redis = _make_redis()
+        local_cache = MagicMock()
+        local_cache.abuseipdb_scores = MagicMock()
+        local_cache.abuseipdb_scores.get = MagicMock(return_value=None)
+        local_cache.abuseipdb_scores.set = MagicMock()
+
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def _ok_get(url, params=None, **kwargs):
+            resp = MagicMock()
+            resp.status = 200
+            resp.json = AsyncMock(return_value={"data": {"abuseConfidenceScore": 50}})
+            resp.raise_for_status = MagicMock()
+            yield resp
+
+        session = MagicMock()
+        session.get = _ok_get
+        checker = _make_checker(redis=redis, local_cache=local_cache, session=session)
+        await checker.start()
+        await checker._queue.put("1.2.3.4")
+        # Give worker time to process
+        await asyncio.sleep(0.05)
+        await checker.stop()
+        local_cache.abuseipdb_scores.set.assert_called()
+
+    async def test_lookup_worker_exception_in_process_lookup_does_not_crash(self):
+        """Worker catches unhandled exception from _process_lookup (lines 492-506).
+        So what: an unexpected crash in process_lookup must not kill the worker
+        goroutine — the proxy cannot restart workers mid-traffic."""
+        redis = _make_redis()
+        checker = _make_checker(redis=redis)
+        await checker.start()
+
+        with patch.object(checker, "_process_lookup", side_effect=RuntimeError("bang")):
+            await checker._queue.put("1.2.3.4")
+            await asyncio.sleep(0.05)
+
+        await checker.stop()
+        # If we got here without hanging, the worker survived the exception
+
+
+class TestProcessLookupPaths(unittest.IsolatedAsyncioTestCase):
+    """Cover _process_lookup() quota-exhausted and ValueError paths (lines 515-529, 534-535)."""
+
+    async def test_process_lookup_quota_check_false_sets_exhausted_flag(self):
+        """_check_quota() → False → sets _quota_exhausted, logs WARN (lines 515-529).
+        So what: the exhausted flag prevents further queue buildup for the rest of
+        the UTC day; without it every connection spawns a doomed API request."""
+        redis = _make_redis()
+        checker = _make_checker(redis=redis)
+        await checker.start()
+
+        with patch.object(checker, "_check_quota", AsyncMock(return_value=False)):
+            import logging
+            with self.assertLogs("src.security.abuseipdb", level="WARNING"):
+                await checker._process_lookup("1.2.3.4")
+
+        self.assertTrue(checker._quota_exhausted)
+        await checker.stop()
+
+    async def test_process_lookup_quota_already_exhausted_no_double_warn(self):
+        """Second quota failure when already exhausted → no duplicate WARN (line 515).
+        So what: duplicate WARNs flood Splunk/Wazuh dashboards; the flag must prevent
+        log storms during sustained quota-exceeded periods."""
+        redis = _make_redis()
+        checker = _make_checker(redis=redis)
+        checker._quota_exhausted = True  # Already set
+        await checker.start()
+
+        with patch.object(checker, "_check_quota", AsyncMock(return_value=False)):
+            # Should not log (already exhausted)
+            await checker._process_lookup("1.2.3.4")
+
+        await checker.stop()
+
+    async def test_process_lookup_invalid_ip_uses_raw_string(self):
+        """Invalid IP string → ValueError caught, raw string used as canonical (lines 534-535).
+        So what: a malformed IP in the queue (from a corrupt event) must not crash
+        the worker; it should fall through and attempt the API call with the raw value."""
+        redis = _make_redis()
+        local_cache = MagicMock()
+        local_cache.abuseipdb_scores = MagicMock()
+        local_cache.abuseipdb_scores.set = MagicMock()
+
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def _ok_get(url, params=None, **kwargs):
+            resp = MagicMock()
+            resp.status = 200
+            resp.json = AsyncMock(return_value={"data": {"abuseConfidenceScore": 0}})
+            resp.raise_for_status = MagicMock()
+            yield resp
+
+        session = MagicMock()
+        session.get = _ok_get
+        checker = _make_checker(redis=redis, local_cache=local_cache, session=session)
+        await checker.start()
+        # "not-an-ip" will trigger ValueError in ipaddress.ip_address()
+        await checker._process_lookup("not-an-ip")
+        await checker.stop()
+        # Should have stored score under the raw string
+        local_cache.abuseipdb_scores.set.assert_called()
+
+    async def test_process_lookup_api_429_sets_exhausted(self):
+        """API returns 429 → QuotaExhaustedException → sets _quota_exhausted (lines 542-556).
+        So what: receiving 429 from AbuseIPDB means we have burned the quota in another
+        process; the flag must propagate to avoid hammering their API further."""
+        redis = _make_redis()
+        checker = _make_checker(redis=redis)
+        await checker.start()
+
+        with patch.object(checker, "_api_lookup", AsyncMock(side_effect=QuotaExhaustedException())):
+            import logging
+            with self.assertLogs("src.security.abuseipdb", level="WARNING"):
+                await checker._process_lookup("1.2.3.4")
+
+        self.assertTrue(checker._quota_exhausted)
+        await checker.stop()
+
+    async def test_process_lookup_redis_write_error_logs_warning(self):
+        """Redis write failure after API lookup → logs WARNING, does not lose score (lines 596-597).
+        So what: a Redis write error must not lose the freshly fetched score; it should
+        still populate the in-process LRU so at least this instance caches it."""
+        redis = _make_redis()
+        redis.setex = AsyncMock(side_effect=ConnectionError("Redis write failed"))
+        local_cache = MagicMock()
+        local_cache.abuseipdb_scores = MagicMock()
+        local_cache.abuseipdb_scores.set = MagicMock()
+
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def _ok_get(url, params=None, **kwargs):
+            resp = MagicMock()
+            resp.status = 200
+            resp.json = AsyncMock(return_value={"data": {"abuseConfidenceScore": 42}})
+            resp.raise_for_status = MagicMock()
+            yield resp
+
+        session = MagicMock()
+        session.get = _ok_get
+        checker = _make_checker(redis=redis, local_cache=local_cache, session=session)
+        await checker.start()
+        import logging
+        with self.assertLogs("src.security.abuseipdb", level="WARNING"):
+            await checker._process_lookup("1.2.3.4")
+        await checker.stop()
+        # Score still set in LRU despite Redis error
+        local_cache.abuseipdb_scores.set.assert_called()
+
+
+class TestAPILookupQuota429(unittest.IsolatedAsyncioTestCase):
+    """Cover _api_lookup() 429 → QuotaExhaustedException (line 642)."""
+
+    async def test_api_lookup_429_raises_quota_exhausted(self):
+        """HTTP 429 from API → raises QuotaExhaustedException (line 642).
+        So what: 429 must be translated to QuotaExhaustedException so the caller
+        can set the exhaustion flag; treating it as a generic error would cause
+        repeated hammering until the daily window resets."""
+        from contextlib import asynccontextmanager
+
+        @asynccontextmanager
+        async def _429_get(url, params=None, **kwargs):
+            resp = MagicMock()
+            resp.status = 429
+            yield resp
+
+        session = MagicMock()
+        session.get = _429_get
+        checker = _make_checker(session=session)
+        with self.assertRaises(QuotaExhaustedException):
+            await checker._api_lookup("1.2.3.4")
+
+
+class TestCheckQuotaException(unittest.IsolatedAsyncioTestCase):
+    """Cover _check_quota() pipeline exception → fail open (lines 666-670)."""
+
+    async def test_check_quota_pipeline_exception_fails_open(self):
+        """Redis pipeline exception in _check_quota → True (fail open) (lines 666-670).
+        So what: a quota check failure must not block enrichment; failing open means
+        we may exceed the daily limit by a few requests, which is acceptable."""
+        redis = _make_redis()
+        # Make pipeline raise on execute
+        pipe = MagicMock()
+        pipe.incr = MagicMock()
+        pipe.expire = MagicMock()
+        pipe.execute = AsyncMock(side_effect=ConnectionError("Redis pipeline down"))
+        pipe.__aenter__ = AsyncMock(return_value=pipe)
+        pipe.__aexit__ = AsyncMock(return_value=None)
+        redis.pipeline = MagicMock(return_value=pipe)
+        checker = _make_checker(redis=redis)
+        import logging
+        with self.assertLogs("src.security.abuseipdb", level="WARNING"):
+            result = await checker._check_quota()
+        self.assertTrue(result)
+
+
+class TestUpdateQuotaGauge(unittest.IsolatedAsyncioTestCase):
+    """Cover _update_quota_gauge() paths (lines 679, 682-686)."""
+
+    async def test_update_quota_gauge_sets_gauge_when_key_present(self):
+        """Redis quota key present → Prometheus gauge updated (line 679).
+        So what: if the gauge is never updated, the Grafana quota dashboard
+        always shows 0, masking quota exhaustion from the SRE on-call rotation."""
+        redis = _make_redis(get_return=b"42")
+        checker = _make_checker(redis=redis)
+        await checker._update_quota_gauge()
+        # No exception → gauge was set; spot-check via get_return
+
+    async def test_update_quota_gauge_resets_exhausted_flag_on_new_day(self):
+        """Quota exhausted but redis shows count ≤ limit → reset flag (lines 682-684).
+        So what: if the flag is not reset at midnight, the checker remains disabled
+        for the new UTC day even though quota has fully refreshed."""
+        redis = _make_redis(get_return=b"5")  # Well below daily limit
+        checker = _make_checker(redis=redis)
+        checker._quota_exhausted = True
+        await checker._update_quota_gauge()
+        self.assertFalse(checker._quota_exhausted)
+
+    async def test_update_quota_gauge_redis_error_swallowed(self):
+        """Redis error in _update_quota_gauge → swallowed (line 685-686).
+        So what: gauge updates are best-effort; a Redis error here must not
+        propagate and crash the worker that called it after a successful lookup."""
+        import redis as redis_lib
+        redis = _make_redis()
+        redis.get = AsyncMock(side_effect=redis_lib.RedisError("redis down"))
+        checker = _make_checker(redis=redis)
+        # Should not raise
+        await checker._update_quota_gauge()
+
+
+class TestGetScoreRedisException(unittest.IsolatedAsyncioTestCase):
+    """Cover get_score() Redis exception path (lines 402-403)."""
+
+    async def test_get_score_redis_exception_logs_warning_and_returns_none(self):
+        """get_score() when redis.get raises → logs WARNING, returns None (lines 402-403).
+        So what: a Redis outage during score lookup must not propagate up and
+        crash the hot path; fail-open returns None so the connection is allowed."""
+        local_cache = LocalCache({})  # Empty — no tier-1 hit
+        redis = _make_redis()
+        redis.get = AsyncMock(side_effect=ConnectionError("Redis read failed"))
+        checker = _make_checker(redis=redis, local_cache=local_cache)
+        import logging
+        with self.assertLogs("src.security.abuseipdb", level="WARNING"):
+            score = await checker.get_score("1.2.3.4")
+        self.assertIsNone(score)

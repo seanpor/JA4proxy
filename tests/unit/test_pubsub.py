@@ -338,3 +338,120 @@ class TestRunReconnection:
                 _run(handler.run())
 
         assert max(sleep_durations) == 60.0
+
+
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+
+class TestPubSubCoverageGaps:
+    """Cover lines 107-108, 111-120, 180-185, 235-236.
+
+    So what: these paths guard against unsigned admin commands being injected
+    by compromised proxies and protect blocklist manager integrity — gaps here
+    allow lateral movement across proxy instances via forged pub/sub messages.
+    """
+
+    # Lines 107-108 — no signing key + ENVIRONMENT=production
+    def test_verify_signature_no_key_in_production_returns_false(self, caplog):
+        """_verify_signature with no signing key in production returns False (lines 107-108).
+        So what: in production, unsigned critical updates must be rejected; if this
+        returns True, any compromised instance can mass-update all instances' dial."""
+        handler, _, _, _, _ = _make_handler()
+        assert handler._signing_key is None
+        with patch.dict("os.environ", {"ENVIRONMENT": "production"}):
+            with caplog.at_level(logging.ERROR, logger="src.pubsub"):
+                result = handler._verify_signature("dial_change", "100", "")
+        assert result is False
+        assert any("No signing key" in r.message for r in caplog.records)
+
+    # Lines 111-120 — signing key set, signature computation
+    def test_verify_signature_with_key_returns_true_for_correct_sig(self):
+        """_verify_signature computes HMAC and verifies correct signature (lines 111-120).
+        So what: if the HMAC check is never exercised, a wrong implementation
+        could accept any signature, allowing any compromised instance to forge updates."""
+        import hashlib
+        import hmac as _hmac
+
+        handler, _, _, _, _ = _make_handler()
+        handler._signing_key = "test-secret-key"
+        msg_type = "dial_change"
+        value = "75"
+        data = f"{msg_type}:{value}".encode("utf-8")
+        correct_sig = _hmac.new(
+            "test-secret-key".encode("utf-8"), data, hashlib.sha256
+        ).hexdigest()
+
+        result = handler._verify_signature(msg_type, value, correct_sig)
+        assert result is True
+
+    def test_verify_signature_with_key_returns_false_for_wrong_sig(self):
+        """_verify_signature rejects wrong HMAC signature (lines 111-120).
+        So what: if compare_digest is bypassed, all signed updates are accepted
+        regardless of source."""
+        handler, _, _, _, _ = _make_handler()
+        handler._signing_key = "test-secret-key"
+        result = handler._verify_signature("dial_change", "75", "wrong_sig")
+        assert result is False
+
+    def test_verify_signature_with_key_empty_signature_returns_false(self):
+        """Empty signature with signing key set returns False (line 111-112).
+        So what: a message with no signature must never be accepted when signing
+        is required — this is the primary guard against unsigned lateral movement."""
+        handler, _, _, _, _ = _make_handler()
+        handler._signing_key = "test-secret-key"
+        result = handler._verify_signature("dial_change", "50", "")
+        assert result is False
+
+    # Lines 180-185 — signature verification failure in _dispatch
+    def test_dispatch_rejects_critical_message_with_bad_signature(self, caplog):
+        """_dispatch logs SECURITY error and returns when sig verification fails (lines 180-185).
+        So what: if this return is skipped, a compromised proxy instance can update the
+        dial to 0 (disabling all blocking) on every other proxy simultaneously."""
+        handler, _, _, _, _ = _make_handler()
+        handler._signing_key = "secret"
+
+        # Send a critical message type with wrong signature
+        msg = json.dumps({
+            "type": "dial_change",
+            "value": 0,
+            "signature": "wrong_signature",
+        }).encode()
+
+        with caplog.at_level(logging.ERROR, logger="src.pubsub"):
+            _run(handler._dispatch(msg))
+
+        assert any("Signature verification failed" in r.message for r in caplog.records)
+
+    # Lines 235-236 — cidr_ban_add blocklist_manager exception
+    def test_dispatch_cidr_ban_add_blocklist_exception_swallowed(self, caplog):
+        """Exception from blocklist_manager.load_cidrs is swallowed (lines 235-236).
+        So what: a buggy blocklist manager must not crash the pub/sub loop —
+        all other message types after this one must still be processed."""
+        cache = LocalCache({})
+        config_loader = MagicMock()
+        config_loader.reload = AsyncMock()
+        blacklist: set = set()
+        whitelist: set = set()
+
+        mock_blocklist = MagicMock()
+        mock_blocklist.load_cidrs = MagicMock(side_effect=ValueError("bad CIDR"))
+
+        redis_mock = MagicMock()
+        handler = PubSubHandler(
+            redis_client=redis_mock,
+            local_cache=cache,
+            config_loader=config_loader,
+            blacklist_set=blacklist,
+            whitelist_set=whitelist,
+            blocklist_manager=mock_blocklist,
+        )
+
+        msg = json.dumps({
+            "type": "cidr_ban_add",
+            "value": "10.0.0.0/24",
+        }).encode()
+
+        with caplog.at_level(logging.WARNING, logger="src.pubsub"):
+            _run(handler._dispatch(msg))
+
+        assert any("cidr_ban_add_error" in r.message for r in caplog.records)

@@ -102,3 +102,78 @@ class TestConnectionFingerprints:
         d = fp.to_redis_dict()
         fp2 = ConnectionFingerprints.from_redis_dict(d)
         assert fp2.server_port == 8443
+
+
+# ── Missing-coverage tests ────────────────────────────────────────────────────
+
+class TestConnectionFingerprintsEdgeCases:
+    """Cover remaining paths in to_redis_dict() and from_redis_dict() (lines 84-88, 117-143)."""
+
+    def test_to_redis_dict_cert_expired_included(self):
+        """cert_is_expired=True → 'cert_is_expired':'1' in dict (line 84).
+        So what: if this flag is not serialised, the TAP export pipeline loses
+        expired-cert evidence that downstream SIEM rules depend on."""
+        fp = _make_fp(cert_is_expired=True)
+        d = fp.to_redis_dict()
+        assert d.get("cert_is_expired") == "1"
+
+    def test_to_redis_dict_cert_self_signed_included(self):
+        """cert_is_self_signed=True → 'cert_is_self_signed':'1' in dict (line 86).
+        So what: self-signed cert flag is a high-weight risk signal; losing it
+        in serialisation silently drops a scoring input."""
+        fp = _make_fp(cert_is_self_signed=True)
+        d = fp.to_redis_dict()
+        assert d.get("cert_is_self_signed") == "1"
+
+    def test_to_redis_dict_h2_matched_client_included(self):
+        """h2_matched_client set → included in dict (line 88).
+        So what: H2 client identity is used for bot classification; omitting it
+        breaks the downstream attribution pipeline."""
+        fp = _make_fp(h2_matched_client="Chrome/120")
+        d = fp.to_redis_dict()
+        assert d.get("h2_matched_client") == "Chrome/120"
+
+    def test_from_redis_dict_invalid_timestamp_falls_back_to_now(self):
+        """Invalid timestamp string → fallback to datetime.now() (lines 117-118).
+        So what: a corrupt timestamp must not crash the deserialiser; losing
+        the timestamp precision is preferable to a dropped event."""
+        d = {
+            "conn_id": "test-id",
+            "timestamp": "not-a-datetime",
+            "client_ip": "1.2.3.4",
+            "server_ip": "5.6.7.8",
+            "server_port": "443",
+        }
+        fp = ConnectionFingerprints.from_redis_dict(d)
+        assert fp.timestamp is not None
+        assert fp.conn_id == "test-id"
+
+    def test_from_redis_dict_invalid_tls_ext_values_swallowed(self):
+        """Corrupt tls_ext_values JSON → exception swallowed, tls_ext=None (lines 135-136).
+        So what: a single corrupt field in the Redis hash must not prevent the
+        rest of the connection record from being deserialised."""
+        d = {
+            "conn_id": "test-id",
+            "timestamp": "2024-01-01T00:00:00+00:00",
+            "client_ip": "1.2.3.4",
+            "server_ip": "5.6.7.8",
+            "server_port": "443",
+            "tls_ext_values": "not-valid-json",
+        }
+        fp = ConnectionFingerprints.from_redis_dict(d)
+        assert fp.tls_ext_values is None
+
+    def test_from_redis_dict_invalid_signals_swallowed(self):
+        """Corrupt signals JSON → exception swallowed, signals=[] (lines 142-143).
+        So what: corrupt signal data must not prevent the connection record from
+        loading; the risk score itself (already stored) remains accessible."""
+        d = {
+            "conn_id": "test-id",
+            "timestamp": "2024-01-01T00:00:00+00:00",
+            "client_ip": "1.2.3.4",
+            "server_ip": "5.6.7.8",
+            "server_port": "443",
+            "signals": "{bad-json",
+        }
+        fp = ConnectionFingerprints.from_redis_dict(d)
+        assert fp.signals == []

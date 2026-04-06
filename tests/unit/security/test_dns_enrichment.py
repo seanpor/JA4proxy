@@ -717,5 +717,72 @@ class TestDNSEnrichmentCoverageGaps(unittest.TestCase):
             self.assertFalse(any("passive_dns_disabled" in e for e in logged_events))
 
 
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+
+class TestDNSEnrichmentCoverageGaps2(unittest.TestCase):
+    """Cover lines 26-28, 217-218, 531."""
+
+    def _make(self, redis=None, worker_count=0):
+        config = {
+            "dns_enrichment": {
+                "enabled": True,
+                "worker_count": worker_count,
+                "passive_dns": {"enabled": False},
+                "fcrdns": {},
+            }
+        }
+        return DNSEnrichment(config, redis)
+
+    def test_signal_from_cache_residential_returns_negative_score(self):
+        """Line 531: residential PTR classification → residential_ptr signal with
+        negative score (score reduction).
+        So what: if this return is missing, residential connections that resolve to
+        home ISP hostnames never receive the benign-traffic discount — ordinary end
+        users accumulate higher risk scores, increasing false-positive block rates."""
+        enr = self._make()
+        sig = enr._signal_from_cache({"classification": "residential", "ptr": "pool-72-84-14-102.rcmdva.fios.verizon.net"})
+        self.assertIsNotNone(sig)
+        self.assertEqual(sig.name, "residential_ptr")
+        self.assertLess(sig.score, 0)  # score is negative (reduction)
+
+    def test_start_workers_in_async_context_creates_tasks(self):
+        """Lines 217-218: _start_workers() called from a running event loop creates
+        asyncio tasks for each worker.
+        So what: if task creation is skipped, DNS resolution requests pile up in the
+        queue indefinitely — the entire FCrDNS enrichment pipeline stalls and all
+        connections that need PTR lookups bypass DNS scoring silently."""
+        async def run():
+            enr = self._make(worker_count=2)
+            # Cancel any tasks already created so they don't linger
+            try:
+                for t in list(enr._workers):
+                    t.cancel()
+            except Exception:
+                pass
+            enr._workers.clear()
+
+            # Now call _start_workers() from within a running loop
+            # asyncio.get_running_loop() succeeds → tasks should be created
+            enr._config["worker_count"] = 2
+            enr._start_workers()
+            self.assertEqual(len(enr._workers), 2)
+            for t in enr._workers:
+                t.cancel()
+
+        asyncio.run(run())
+
+    def test_aiodns_available_flag_is_set(self):
+        """Lines 26-28: AIODNS_AVAILABLE and aiodns module-level names exist after import.
+        So what: if the except block is missing and aiodns is absent, NameError crashes
+        the proxy at import time — the security pipeline fails to start even when DNS
+        enrichment is disabled in config. Verifying the module exports both names
+        confirms the try/except guard is wired correctly."""
+        import src.security.dns_enrichment as dns_mod
+        # Both names must exist regardless of whether aiodns is installed
+        self.assertIn("AIODNS_AVAILABLE", dir(dns_mod))
+        self.assertIsInstance(dns_mod.AIODNS_AVAILABLE, bool)
+
+
 if __name__ == "__main__":
     unittest.main()

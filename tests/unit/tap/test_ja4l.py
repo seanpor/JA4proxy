@@ -75,3 +75,25 @@ class TestJA4L:
         result = extract_ja4l(syn_ts=0.0, synack_ts=100.0, ack_ts=200.0)
         assert result is not None
         assert result.client_distance_km <= (_C_FIBRE_KM_S * 10.0 / 2.0)
+
+
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+class TestJA4LCoverageGaps:
+    """Cover lines 55-56 and 104 in ja4l.py.
+
+    So what: these exception paths guarantee that the capture loop always
+    receives a valid JA4LResult even when timestamps are garbage — a crash
+    here would drop all light-distance signals for that connection.
+    """
+
+    def test_exception_in_compute_returns_zero(self):
+        """_compute() raising → _zero() returned (lines 55-56, 104).
+        So what: any crash in distance math must return a zero-result, not propagate."""
+        from unittest.mock import patch
+        import src.tap.fingerprints.ja4l as _mod
+        with patch.object(_mod, "_compute", side_effect=RuntimeError("injected")):
+            result = _mod.extract_ja4l(syn_ts=0.0, synack_ts=0.1, ack_ts=0.2)
+        assert result is not None
+        assert result.fingerprint == "ja4l_0_0"
+        assert result.client_distance_km == 0.0

@@ -233,3 +233,68 @@ class TestIntegration:
         
         # Verify consistency
         assert agg_results[subnet]["unique_ip_count"] == hll_manager.count_unique_ips(subnet)
+
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+from src.analytics.aggregation import AdaptiveRateComputer
+
+
+class TestAggregationCoverageGaps:
+    """Cover lines 73, 112, 192."""
+
+    def test_aggregate_event_non_standard_action_initializes_counter(self):
+        """Line 73: when an event's action key is not in agg, it is initialized to 0
+        before being incremented.
+        So what: if this initialization is missing, an event with action='rate_limit'
+        would trigger a KeyError, crashing the aggregation loop and dropping all
+        subsequent events from the analytics pipeline."""
+        manager = AggregationManager()
+        event = {
+            "src_ip": "10.0.0.1",
+            "ja4": "t13d_x",
+            "action": "rate_limit",  # not a pre-initialized action
+            "score": 60,
+            "timestamp": 1000.0,
+        }
+        manager.update_aggregation(event)
+        subnet = manager.get_subnet("10.0.0.1")
+        # Check internal state directly — get_aggregation_results only surfaces
+        # the standard action keys, so we verify the raw aggregation_data
+        assert manager.aggregation_data[subnet]["rate_limit_events"] == 1
+
+    def test_get_top_ja4_empty_returns_empty_list(self):
+        """Line 112: _get_top_ja4({}) returns [] when no JA4 data is present.
+        So what: if this early return is missing, sorted({}.items()) works fine but
+        the downstream consumer receives an unexpected empty-dict result instead of
+        a typed empty list — breaking JSON serialization of the analytics summary."""
+        manager = AggregationManager()
+        result = manager._get_top_ja4({})
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_publish_anomalies_skips_subnet_with_zero_windows(self):
+        """Line 192: subnets with windows=0 are skipped (not enough data yet).
+        So what: if the continue guard is missing, a subnet with zero observed
+        windows would publish threshold=0 — causing the proxy to immediately block
+        all traffic to that subnet even when no baseline has been established."""
+        from unittest.mock import AsyncMock, patch
+
+        computer = AdaptiveRateComputer()
+        # Inject a subnet with windows=0 directly and patch _rotate() to a no-op
+        # so the window count stays 0, making the guard on line 192 reachable.
+        computer._state["10.0.0.0/24"] = {
+            "ewma": 1.0,
+            "windows": 0,       # < 1 → should be skipped
+            "events_this_window": 5,
+        }
+
+        redis_mock = AsyncMock()
+        redis_mock.hset = AsyncMock()
+        redis_mock.expire = AsyncMock()
+
+        with patch.object(computer, "_rotate"):  # prevent rotate from bumping windows
+            published = await computer.compute_and_publish(redis_mock)
+
+        # Subnet with windows=0 must be skipped — nothing published
+        assert published == 0
+        redis_mock.hset.assert_not_called()

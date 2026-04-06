@@ -242,3 +242,109 @@ class TestStoreCustomTtl:
         redis_mock.setex.side_effect = redis.ResponseError("write error")
         result = storage.store("key", "value", DataCategory.FINGERPRINTS)
         assert result is False
+
+
+# ── Missing-coverage additions ────────────────────────────────────────────────
+
+
+class TestGDPRStorageCoverageGaps:
+    """Cover lines 96, 109-111, 124-136, 188, 199, 241-242, 259-261, 402.
+
+    So what: these paths protect against broken Redis connections corrupting the
+    GDPR data store silently, ensure TTL clamping actually enforces GDPR limits,
+    and verify that the audit trail is written on successful stores.
+    """
+
+    def test_none_redis_client_raises_value_error(self):
+        """Line 96: GDPRStorage(None) raises ValueError immediately.
+        So what: a None client would cause AttributeError deep in setex/ping later —
+        an explicit ValueError at construction time is clearer and prevents silent
+        GDPR non-compliance from an unconfigured storage instance."""
+        with pytest.raises(ValueError, match="Redis client is required"):
+            GDPRStorage(redis_client=None, config={})
+
+    def test_ping_redis_error_propagates(self):
+        """Lines 109-111: redis.RedisError during ping → logged and re-raised.
+        So what: if this re-raise is missing, a proxy started with a dead Redis
+        silently accepts and stores all data without TTLs — violating GDPR retention
+        requirements from the first connection."""
+        redis_mock = MagicMock()
+        redis_mock.ping.side_effect = redis.ConnectionError("connection refused")
+        config = {"gdpr": {"audit_logging": True}}
+        with pytest.raises(redis.RedisError):
+            GDPRStorage(redis_client=redis_mock, config=config)
+
+    def test_load_retention_clamps_ttl_exceeding_max(self):
+        """Lines 124-136: configured TTL > GDPR maximum → clamped to max.
+        So what: if clamping is skipped, an operator error in proxy.yml can set a
+        90-day retention on rate-tracking data — a direct GDPR violation for
+        ephemeral traffic metadata."""
+        redis_mock = MagicMock()
+        redis_mock.ping.return_value = True
+        # rate_tracking max = 300s; set to 99999 → must be clamped to 300
+        config = {
+            "gdpr": {
+                "audit_logging": False,
+                "retention_periods": {"rate_tracking": 99999},
+            }
+        }
+        storage = GDPRStorage(redis_client=redis_mock, config=config)
+        assert storage.retention_periods[DataCategory.RATE_TRACKING] == DataCategory.RATE_TRACKING.get_max_ttl()
+
+    def test_store_valid_custom_ttl_uses_custom_value(self):
+        """Line 188: valid custom_ttl (positive, within max) → stored with that exact TTL.
+        So what: if the else-branch is missing, all valid custom TTLs silently fall
+        through to the default, which could be much shorter or longer than intended —
+        breaking downstream retention SLAs."""
+        storage, redis_mock = _make_storage(audit_enabled=False)
+        redis_mock.setex.return_value = True
+        # FINGERPRINTS max is 86400; use 7200 — valid
+        storage.store("mykey", "val", DataCategory.FINGERPRINTS, custom_ttl=7200)
+        call = redis_mock.setex.call_args_list[0]
+        assert call[0][1] == 7200
+
+    def test_store_audit_log_called_when_enabled(self):
+        """Line 199: when audit_enabled=True and setex succeeds, _audit_log is called.
+        So what: if this branch is never exercised, the audit trail is silently empty
+        — compliance officers would see zero evidence of data stored, making GDPR
+        audit reports unverifiable."""
+        storage, redis_mock = _make_storage(audit_enabled=True)
+        redis_mock.setex.return_value = True
+        result = storage.store("tracked_key", "value", DataCategory.FINGERPRINTS)
+        assert result is True
+        # setex called at least twice: once for data, once for audit log
+        assert redis_mock.setex.call_count >= 2
+
+    def test_verify_compliance_counts_compliant_keys(self):
+        """Lines 241-242: keys with TTL >= 0 are counted as compliant.
+        So what: if this branch is missing, all keys appear non-compliant in audit
+        reports — operators would see false GDPR violations and might unnecessarily
+        purge live keys or escalate to a DPO."""
+        storage, redis_mock = _make_storage()
+        redis_mock.keys.return_value = [b"rate:1.2.3.4", b"blocked:t:abc"]
+        redis_mock.ttl.return_value = 300  # positive TTL → compliant
+        result = storage.verify_compliance()
+        assert result["compliant_keys"] == 2
+        assert result["non_compliant_keys"] == 0
+
+    def test_verify_compliance_redis_error_returns_error_dict(self):
+        """Lines 259-261: redis.RedisError in verify_compliance → error dict returned.
+        So what: if this exception propagates, the health endpoint that calls
+        verify_compliance() would crash — the proxy operator loses visibility into
+        GDPR compliance status exactly when Redis is under pressure."""
+        storage, redis_mock = _make_storage()
+        redis_mock.keys.side_effect = redis.TimeoutError("Redis timeout")
+        result = storage.verify_compliance()
+        assert "error" in result
+        assert result["compliant_keys"] == 0
+
+    def test_from_config_classmethod(self):
+        """Line 402: from_config() constructs a GDPRStorage instance.
+        So what: operators use from_config() to wire up GDPRStorage from proxy.yml;
+        if the classmethod is broken, the storage object is never created and all
+        GDPR retention enforcement is silently absent."""
+        redis_mock = MagicMock()
+        redis_mock.ping.return_value = True
+        config = {"gdpr": {"audit_logging": False}}
+        storage = GDPRStorage.from_config(redis_mock, config)
+        assert isinstance(storage, GDPRStorage)

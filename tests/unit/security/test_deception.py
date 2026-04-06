@@ -410,3 +410,124 @@ class TestPipelineDeceptionIntegration:
         result = _run(pipeline.process(ctx))
         # dial=0 → monitor mode → allow
         assert result.action == "allow"
+
+
+# ── Missing-coverage tests ────────────────────────────────────────────────────
+
+class TestDeceptionConfigLoadPaths:
+    """Cover _load_deception_config() edge paths (lines 88-147) and reload() (lines 151-155)."""
+
+    def test_config_file_not_found_fails_open(self, tmp_path):
+        """Config file does not exist → debug log, checker stays disabled (lines 88-93).
+        So what: a missing deception config must not crash at startup; the checker
+        must silently disable itself so real traffic is never blocked."""
+        redis = _make_redis()
+        checker = DeceptionChecker(
+            proxy_config={"deception": {"config_path": str(tmp_path / "nonexistent.yml")}},
+            redis_client=redis,
+        )
+        assert not checker._enabled
+        assert checker._honey_fingerprints == frozenset()
+
+    def test_config_file_not_a_mapping_warns_and_fails_open(self, tmp_path):
+        """YAML file that is a list instead of a mapping → warning, disabled (lines 99-105).
+        So what: an operator who accidentally YAML-edits the file into a list must
+        not crash the proxy; the warning surfaces the misconfiguration."""
+        cfg_file = tmp_path / "deception.yml"
+        cfg_file.write_text("- item1\n- item2\n")
+        import logging
+        with __import__('unittest.mock', fromlist=['patch']).patch(
+            'src.security.deception.logger'
+        ) as mock_log:
+            checker = DeceptionChecker(
+                proxy_config={"deception": {"config_path": str(cfg_file)}},
+                redis_client=_make_redis(),
+            )
+        assert not checker._enabled
+
+    def test_deception_section_not_a_dict_returns_early(self, tmp_path):
+        """YAML with 'deception' key that is not a dict → returns (line 109).
+        So what: a scalar 'deception: true' must not cause AttributeError on .get()."""
+        cfg_file = tmp_path / "deception.yml"
+        cfg_file.write_text("deception: true\n")
+        checker = DeceptionChecker(
+            proxy_config={"deception": {"config_path": str(cfg_file)}},
+            redis_client=_make_redis(),
+        )
+        assert not checker._enabled
+
+    def test_honey_fingerprints_non_list_replaced_with_empty(self, tmp_path):
+        """honey_fingerprints: not-a-list → treated as empty list (line 117).
+        So what: misconfigured fingerprint type must not raise TypeError; the checker
+        should stay functional with no honey fingerprints."""
+        cfg_file = tmp_path / "deception.yml"
+        cfg_file.write_text("deception:\n  enabled: true\n  honey_fingerprints: 12345\n")
+        checker = DeceptionChecker(
+            proxy_config={"deception": {"config_path": str(cfg_file)}},
+            redis_client=_make_redis(),
+        )
+        assert checker._honey_fingerprints == frozenset()
+
+    def test_honey_snis_non_list_replaced_with_empty(self, tmp_path):
+        """honey_snis: not-a-list → treated as empty list (line 124).
+        So what: same as fingerprints — invalid type must not propagate as TypeError."""
+        cfg_file = tmp_path / "deception.yml"
+        cfg_file.write_text("deception:\n  enabled: true\n  honey_snis: 99\n")
+        checker = DeceptionChecker(
+            proxy_config={"deception": {"config_path": str(cfg_file)}},
+            redis_client=_make_redis(),
+        )
+        assert checker._honey_snis == frozenset()
+
+    def test_config_load_exception_fails_open(self, tmp_path):
+        """Unexpected exception in _load_deception_config → disables checker (lines 137-147).
+        So what: any I/O error (permissions, corrupt UTF-8) must not propagate to
+        the hot path; the checker disables itself and allows all connections."""
+        cfg_file = tmp_path / "deception.yml"
+        cfg_file.write_text("deception:\n  enabled: true\n")
+        import builtins
+        original_open = builtins.open
+
+        def _raise_open(path, *args, **kwargs):
+            if "deception.yml" in str(path):
+                raise PermissionError("No read permission")
+            return original_open(path, *args, **kwargs)
+
+        with __import__('unittest.mock', fromlist=['patch']).patch('builtins.open', _raise_open):
+            checker = DeceptionChecker(
+                proxy_config={"deception": {"config_path": str(cfg_file)}},
+                redis_client=_make_redis(),
+            )
+        assert not checker._enabled
+        assert checker._honey_fingerprints == frozenset()
+        assert checker._honey_snis == frozenset()
+
+    def test_reload_updates_config_path_and_reloads(self, tmp_path):
+        """reload() updates config_path and calls _load_deception_config (lines 151-155).
+        So what: SIGHUP hot-reload must pick up a new deception config file path;
+        if the path is not updated, old honey assets remain after the reload."""
+        cfg_file = tmp_path / "deception_new.yml"
+        cfg_file.write_text(
+            "deception:\n  enabled: true\n  honey_fingerprints:\n    - abc123\n"
+        )
+        checker = DeceptionChecker(proxy_config={}, redis_client=_make_redis())
+        assert not checker._enabled
+
+        checker.reload({"deception": {"config_path": str(cfg_file)}})
+        assert checker._enabled
+        assert "abc123" in checker._honey_fingerprints
+
+
+class TestCheckExceptionFails(object):
+    """Cover check() exception path (lines 210-212)."""
+
+    def test_check_exception_in_ban_ip_does_not_propagate(self):
+        """_ban_ip raises RuntimeError inside check() → logs error, returns None (lines 210-212).
+        So what: an unhandled exception in the deception check must not crash the
+        hot path; fail-open means the connection is allowed through."""
+        redis = _make_redis()
+        honey_ja4 = "t13d030500_deadbeef0000_000000000000"
+        checker = _make_checker(enabled=True, honey_fingerprints=[honey_ja4], redis=redis)
+        with patch.object(checker, "_ban_ip", side_effect=RuntimeError("injected")):
+            result = _run(checker.check("1.2.3.4", honey_ja4, None))
+        assert result is None
