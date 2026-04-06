@@ -292,7 +292,7 @@ du -sh /var/lib/docker/* | sort -rh | head -10
 du -sh /var/log/* | sort -rh | head -10
 
 # Redis data files
-du -sh /var/lib/docker/volumes/redis_data/
+du -sh /var/lib/docker/volumes/redis-data/
 ```
 
 **Common causes:**
@@ -304,7 +304,7 @@ du -sh /var/lib/docker/volumes/redis_data/
 **Resolution steps:**
 1. Run log rotation immediately: `logrotate -f /etc/logrotate.d/ja4proxy`.
 2. Clean Docker images and stopped containers: `docker system prune -f`.
-3. Check Redis dump.rdb size: `ls -lh /var/lib/docker/volumes/redis_data/_data/dump.rdb`. If large, verify `save ""` config or reduce save frequency.
+3. Check Redis dump.rdb size: `ls -lh /var/lib/docker/volumes/redis-data/_data/dump.rdb`. If large, verify `save ""` config or reduce save frequency.
 4. Remove old backup files: `find /backups/ja4proxy -mtime +7 -delete`.
 5. Expand the volume or mount a new disk if growth is structural (attack-sustained log rate).
 
@@ -726,7 +726,7 @@ df -h
 watch -n 60 "df -h | grep -v tmpfs"
 
 # Identify growth source
-du -sh /var/log/ja4proxy/ /var/lib/docker/volumes/redis_data/ /backups/
+du -sh /var/log/ja4proxy/ /var/lib/docker/volumes/redis-data/ /backups/
 ```
 
 **Common causes:**

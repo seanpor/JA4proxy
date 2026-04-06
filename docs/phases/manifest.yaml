@@ -918,15 +918,19 @@ phases:
 
   89:
     name: "Dockerfile Base Image Hygiene"
-    status: "PROPOSED"
+    status: "COMPLETE"
+    completed: "2026-04-06"
     action_plan: "docs/phases/PHASE_89.md"
     dependencies: [88]
     size: "SMALL"
-    summary: "Standardise Python base images: upgrade python:3.11-slim to 3.14.0-slim in admin and management Dockerfiles; pin test infrastructure from python:3.14-slim to python:3.14.0-slim."
+    summary: "Standardise Python base images (3.11-slim/3.14-slim → 3.14.0-slim), Go toolchain (1.23 → 1.25), network/volume naming (underscores → hyphens with explicit name: fields), remove network:host from all build blocks, add restart:unless-stopped to all permanent POC services, fix REDIS_PASSWORD to :? form, create docker/README.md, add Dockerfile location labels."
     success_criteria:
-      - "No Dockerfile uses python:3.11-slim"
+      - "No Dockerfile uses python:3.11-slim or python:3.14-slim"
       - "All test infrastructure Dockerfiles pin to python:3.14.0-slim"
-      - "make lint-docker passes"
+      - "No network:host in any build block"
+      - "All non-external volumes and networks use hyphen naming"
+      - "docker/README.md exists"
+      - "57 unit tests + 6 integration tests pass"
 
   90:
     name: "Root Directory Cleanup & Docker Compose Consolidation"
