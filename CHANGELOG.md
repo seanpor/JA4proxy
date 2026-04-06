@@ -1,5 +1,48 @@
 # Changelog
 
+## [Phase 92] — 2026-04-06
+
+### Added
+- `lint-pylint`: pylint `--errors-only` for Python semantic bugs (undefined names, unreachable code, attribute errors)
+- `lint-semgrep`: semgrep `--config=auto` cross-language pattern analysis (Python, Go, YAML, shell)
+- `lint-checkov`: checkov IaC security scan (Dockerfiles, Compose, Ansible, Helm)
+- `lint-haproxy`: `haproxy -c` semantic config validation for `config/haproxy.cfg` and `ha-config/haproxy.cfg`
+- `lint-helm`: `helm lint` Helm chart structural and template validation
+- `lint-ansible`: ansible-lint for `deploy/ansible/` playbooks and roles
+- `lint-markdown`: markdownlint-cli2 Markdown structure checks (heading hierarchy, list consistency, code fences)
+- `lint-spelling`: codespell typo detection across docs and code
+- `lint-toml`: Python tomllib parse validation for `pyproject.toml` and `.gitleaks.toml`
+- `lint-makefiles`: checkmake for Makefile anti-patterns and missing `.PHONY`
+- `lint-go-mod`: `go mod verify` module checksum integrity check
+- Aggregate targets: `lint-python`, `lint-go`, `lint-sast`, `lint-infra`, `lint-observability`, `lint-supply-chain`, `lint-docs-all`, `lint-all`
+- `gosec` and `bodyclose` linters added to `.golangci.yaml` (enabled in `lint-go-full`)
+
+### Fixed
+- `docker/docker-compose.scale.yml` was missing from `lint-docker` compose validation
+
+## [Phase 89] — 2026-04-06
+
+### Added
+- `docker/README.md`: Single source of truth for all Docker Compose file purposes and usage scenarios
+- Dockerfile location metadata labels on `src/analytics/Dockerfile` and `tarpit/Dockerfile`
+- `tests/unit/test_docker_consistency.py`: Pure-Python TDD tests enforcing Dockerfile and compose file hygiene rules
+- `tests/integration/test_dockerfile_coverage.py`: Structural relationship tests for Dockerfiles and compose files
+
+### Changed
+- Python base images: `python:3.11-slim` → `python:3.14.0-slim` in `docker/Dockerfile.admin` and `docker/Dockerfile.management`
+- Python test images: `python:3.14-slim` → `python:3.14.0-slim` in all `tests/docker/` Dockerfiles
+- Go toolchain: `golang:1.23-alpine` → `golang:1.25-alpine` in `tests/docker/Dockerfile.test-runner` builder stage
+- Network naming: `dmz_net/data_net/origin_net/mgmt_net` → `ja4proxy-dmz/ja4proxy-data/ja4proxy-origin/ja4proxy-mgmt` with explicit `name:` fields in `docker/docker-compose.poc.yml`
+- Volume naming: `redis_data/reports_data` → `redis-data/reports-data` in poc; `redis_data/prometheus_data/grafana_data/loki_data` → hyphen form in prod; `ja4proxy_network` → `ja4proxy-network` in scale overlay
+- Monitoring overlay external network names updated to match new POC explicit names (`ja4proxy-dmz`, `ja4proxy-data`, `ja4proxy-mgmt`)
+- `restart: unless-stopped` added to `proxy`, `redis`, `backend`, `tarpit`, `analytics`, `admin-api`, `trafficgen` in `docker/docker-compose.poc.yml`
+- `docker/Dockerfile.admin` and `docker/Dockerfile.management` added to `HADOLINT_DOCKERFILES` in `Makefile`
+
+### Fixed
+- Removed `network: host` from all build blocks in `docker/docker-compose.poc.yml` (7 services) and `docker/docker-compose.prod.yml` (3 services) — security fix
+- `REDIS_PASSWORD` in `docker/docker-compose.monitoring.yml` redis-exporter now uses `:?` required form (was `:-changeme`)
+- Phase 89c: `docker/docker-compose.test.yml` stub already superseded by Phase 90 which moved the canonical 159-line test environment to `docker/`
+
 ## [90.0.0] - 2026-04-06 - Root Directory Cleanup & Docker Compose Consolidation
 
 ### Changed

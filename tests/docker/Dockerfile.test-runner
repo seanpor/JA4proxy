@@ -1,4 +1,4 @@
-FROM golang:1.23-alpine AS go-builder
+FROM golang:1.25-alpine AS go-builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
@@ -6,7 +6,7 @@ COPY . .
 RUN go build -o /ja4check ./cmd/ja4check
 RUN go build -o /ja4proxy ./cmd/proxy
 
-FROM python:3.14-slim
+FROM python:3.14.0-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl openssl redis-tools netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
