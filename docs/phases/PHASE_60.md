@@ -6,6 +6,8 @@
 
 Phase 60 is not an implementation phase. It is a living strategic reference for the 60–64 cluster. It maps what has been built, identifies what genuinely remains, and states the product's direction and limitations honestly. Teams working on phases 61–64 should read this document before starting. The original Phase 60 content (dated 2024, referencing budget tables, a Steering Committee, and Gantt charts) is superseded entirely by this document; the project is developed by AI agents operating in parallel with no human management hierarchy.
 
+Note: The `manifest.yaml` entries for phases 61–64 carry legacy summary text (e.g., "Technical Quality Improvements", "Security Hardening") that predates the current phase specifications. The manifest summaries should be updated when each phase moves to IN_PROGRESS status to reflect the actual deliverables described in the phase documents.
+
 ---
 
 ## 2. Where the Product Is (April 2026)
@@ -48,6 +50,18 @@ A significant portion of what was originally outlined for 61–64 in the 2024 go
 
 ---
 
+## 3.5 Execution Order and Why It Matters
+
+Phase 61 must come first. Without a CI/CD pipeline, every other phase's work cannot be validated reproducibly. A security regression harness (Phase 62) has nowhere to run if there is no pipeline to execute it. SLO instrumentation changes (Phase 63) cannot be tested consistently if builds are ad-hoc. Deployment procedures (Phase 64) cannot be validated if the artifacts being deployed are not signed and tracked. Phase 61 is the prerequisite for meaningful quality gates in every phase that follows.
+
+Phase 62 and Phase 63 can run in parallel once Phase 61 completes. Phase 62 (security regression harness) has no dependency on Phase 63 (SLO framework definition); Phase 63 has no dependency on Phase 62. The two workstreams touch different parts of the codebase and infrastructure — Phase 62 modifies test infrastructure and adversarial fixtures, Phase 63 modifies Prometheus alert rules and runbooks — so they can be assigned to separate agent branches simultaneously.
+
+Phase 64 depends on all three. It validates the full integrated stack that Phases 61–63 build: the signed artifact pipeline (61), the clean security baseline (62), and the actionable SLO thresholds (63). Running Phase 64 before all three are complete produces a deployment validation report against an incomplete foundation.
+
+The phases carry size estimates of XL / L / L / M respectively. If capacity is limited, Phase 63 (L, no proxy code changes — only alert rules and runbooks) can be worked concurrently with Phase 62 (XL, code and test changes). The constraint is that Phase 62 branch and Phase 63 branch must not both touch the same Prometheus alert rule files simultaneously; coordinate via the standard shared-file protocol in `CLAUDE.md`.
+
+---
+
 ## 4. Work Already Done (Context for Teams Starting 61–64)
 
 Teams should review this table before writing any Phase 61–64 task. Do not re-do work that is already complete.
@@ -85,6 +99,24 @@ The proxy exposes over 200 Prometheus metrics, but zero Service Level Objectives
 ### 5.4 Deployment Validation & Disaster Recovery (Phase 64)
 
 The RHEL/Podman deployment guide (Phase 76), the Helm chart, and the Docker Compose stack are all documented. None has been run end-to-end in a controlled environment and formally validated. There is no documented disaster recovery procedure — no defined RTO/RPO, no GameDay scenario, no runbook for "Redis is down and the proxy node has crashed simultaneously." Enterprise buyers require evidence of DR capability during procurement. Phase 64 closes this gap by running the deployment procedures, recording the results, and producing a DR runbook with tested recovery steps.
+
+### 5.5 Credential and Secret Lifecycle
+
+The proxy holds several long-lived secrets: a Redis auth password, an AbuseIPDB API key (Phase 10), RDAP enrichment credentials if used (Phase 11), and potentially AWS/GCS storage credentials (Phase 57 cloud backup). No documented procedure exists for rotating any of these. Enterprise procurement questions will include "how do you rotate credentials without a service outage?" and the current answer is that there is no documented procedure.
+
+The rotation procedure for each secret must be written and tested before any enterprise pilot deployment. Rotation must be achievable without a proxy restart — the hot-reload path via SIGHUP supports this for most secrets that are loaded from `config/proxy.yml`. Redis password rotation is a special case because it requires coordinating the Redis server, all proxy instances, and the analytics node simultaneously. Phase 64 is the correct home for this gap: each rotation procedure should be documented as a runbook, tested in the validation environment, and its steps recorded in the phase notes.
+
+### 5.6 TLS Certificate Lifecycle
+
+The proxy's listen-side TLS certificate (presented to clients) and the mTLS CA certificate (Phase 5) used to verify client certificates both have expiry dates. No phase currently documents: what certificate expiry looks like in monitoring (a metric or alert for `cert_days_remaining`), what the rotation procedure is, or what happens if a certificate expires in production (connection failures visible as TLS handshake errors to clients).
+
+This is a silent operational failure mode: unlike a crashed process, certificate expiry does not generate a loud alert unless someone explicitly monitors it. The first sign of expiry is typically a spike in client-visible TLS errors — at which point the damage is already occurring. Phase 64 should add certificate expiry monitoring (a Prometheus gauge exported at startup and on SIGHUP reload), a low-watermark alert rule (e.g., warn at 30 days, page at 7 days), and a tested rotation runbook covering both the listen-side cert and the mTLS CA.
+
+### 5.7 Rolling Upgrade Procedure
+
+When a new version of the proxy is released, the procedure for upgrading from the current version to the next without dropping traffic is not documented. The fail-open design and shared Redis state make rolling upgrades architecturally feasible — HAProxy can drain connections from one proxy node while it restarts on the new version — but the exact command sequence (drain → upgrade → health check → bring back into rotation → proceed to next node) has never been written down or tested.
+
+Enterprise buyers with uptime commitments require evidence that software upgrades are non-disruptive. A rolling upgrade runbook is a standard procurement deliverable for any inline security appliance. Phase 64 should add this runbook alongside the disaster recovery runbook already planned for that phase. The runbook should cover Docker Compose, Kubernetes (rolling deployment strategy), and RHEL/Podman (Quadlet unit restart sequence) separately, as the drain and health-check commands differ across platforms.
 
 ---
 
@@ -135,19 +167,31 @@ The "0% false positive" claim applies specifically to browser traffic presenting
 
 These are quality and operational phases. They do not improve detection rates, add new signals, or change the risk scoring model. An enterprise buyer evaluating detection efficacy should focus on phases 0–20 (core proxy capabilities) and phases 79–86 (integration and policy surface). Phases 61–64 exist to make the product trustworthy and deployable in enterprise environments, not to make it more capable.
 
+### 7.7 Redis as a Security Dependency — Write-Abuse Threat Model
+
+Section 7.3 discloses that Redis unavailability causes the proxy to fail open. A complementary threat that is less visible but equally significant: Redis availability with unauthorised write access. An attacker or a misconfigured internal service with write access to the Redis instance can:
+
+- Set `ja4proxy:dial 0` across the entire fleet, disabling all blocking silently
+- Delete the Spamhaus DROP trie keys, removing the hard-block layer
+- Zero out all active ban keys, releasing all banned IPs simultaneously
+- Inject false positive entries into the rate-limit Sorted Sets, triggering false blocks against legitimate IPs
+
+The proxy's Redis ACL, network segmentation, and audit logging are what prevent this. At minimum: Redis must not be network-accessible from untrusted segments; the proxy's Redis user must have only the specific command permissions it needs (not `+@all`); and `KEYS`, `DEBUG`, `CONFIG SET`, and `FLUSHALL/FLUSHDB` must be blocked on the proxy's Redis ACL. Phase 34 (Zero-Trust Redis ACLs) addresses this directly. This limitation is disclosed here because enterprise buyers in regulated industries will ask about the threat model for the proxy's shared state store during procurement, and the correct answer must reference both the fail-open design (§7.3) and the write-abuse protection (Phase 34 ACLs).
+
 ---
 
 ## 8. Relationship to Enterprise Phases (79–86)
 
 | Enterprise Phase | What It Needs From 60–64 |
 |---|---|
-| Phase 79 (Management API) | Phase 61 CI pipeline — the API must be built with image signing and dependency scanning from day one; retrofitting later is harder |
+| Phase 79 (Management API) | Phase 61 CI pipeline — the API must be built with image signing and dependency scanning from day one; retrofitting later is harder. Phase 64 credential rotation procedure — JWT signing keys and session tokens follow the same hot-reload rotation pattern established for Redis and AbuseIPDB credentials. |
 | Phase 80 (SIEM Integration) | Phase 63 SLOs — connecting a SIEM without defined thresholds produces unactionable alerts |
 | Phase 82 (Policy / Shadow Mode) | Phase 62 regression testing — shadow mode block decisions must be based on a security baseline that is known to be clean |
 | Phase 83 (Terraform Provider / CLI) | Phase 61 supply chain — CLI binaries require signing and provenance before distribution |
 | Phase 84 (Compliance Reports) | Phase 62 pre-enterprise validation report — compliance evidence requires a clean, documented penetration test result |
 | Phase 86 (Observability / Capacity Planner) | Phase 63 SLOs — the capacity calculator needs defined "healthy" thresholds to produce useful projections |
+| Phase 64 (Deployment Validation) | Phases 61–63 foundation — credential rotation, cert lifecycle monitoring, and rolling upgrade runbooks are all validated in Phase 64 and referenced by the enterprise phases that follow |
 
 ---
 
-*This document is updated whenever the project's strategic direction changes or a major gap is closed. Last updated: 2026-04-05.*
+*This document is updated whenever the project's strategic direction changes or a major gap is closed. Last updated: 2026-04-06.*

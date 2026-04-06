@@ -79,6 +79,14 @@ inhibit_rules:
       alertname: 'JA4Proxy.*'
     equal: ['cluster']
 
+  # Host-level saturation suppresses redundant per-container alerts — same root cause
+  - source_match_re:
+      alertname: 'Node(Critical)(CPU|Memory)'
+    target_match:
+      alert_type: infrastructure
+    equal:
+      - cluster
+
 # Notification receivers
 receivers:
   # Default receiver - logs only

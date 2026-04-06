@@ -121,11 +121,9 @@ phases:
     
   13:
     name: "Management UI - Phase 1: Backend API"
-    status: "DEFERRED"
-    summary: "FastAPI backend for real-time monitoring and configuration management."
+    status: "COMPLETE"
+    summary: "FastAPI backend for real-time monitoring and configuration management. Delivered together with Phases 51/52 in merge commit 2aeb2ba."
     action_plan: "docs/phases/PHASE_13.md"
-    dependencies: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 15]
-    size: "SMALL"
     
   14:
     name: "Production Hardening"
@@ -329,7 +327,7 @@ phases:
   34:
     name: "APT Hardening - Phase 1: Parser Isolation & Redis Security"
     status: "COMPLETE"
-    summary: "Implement parser process isolation and Zero-Trust Redis ACLs with signatures. Now also covers items absorbed from cancelled Phase 55: Redis ACL users, JA4/TLS mismatch detection, proxy Seccomp JSON profile, AppArmor profile, subnet correlation pipeline wiring, and fuzz test."
+    summary: "Parser isolation via pure-Python TLS parser (Phase 65). Zero-Trust Redis ACLs with HMAC signing. JA4/TLS mismatch detection. Subnet correlation wiring. Proxy Seccomp profile. AppArmor profile. All items complete."
     action_plan: "docs/phases/PHASE_34.md"
     size: "MEDIUM"
     success_criteria:
@@ -467,19 +465,15 @@ phases:
 
   51:
     name: "Management UI - Phase 2: Frontend Dashboard"
-    status: "PROPOSED"
-    summary: "React-based dashboard for real-time visualization of proxy telemetry."
+    status: "COMPLETE"
+    summary: "Server-rendered Jinja2 dashboard (dashboard.html, partials) for real-time visualization of proxy telemetry. Delivered together with Phases 13/52 in merge commit 2aeb2ba."
     action_plan: "docs/phases/PHASE_51.md"
-    dependencies: [13]
-    size: "SMALL"
 
   52:
     name: "Management UI - Phase 3: Administration Tools"
-    status: "PROPOSED"
-    summary: "Interactive tools for managing allowlists, bans, and system configuration."
+    status: "COMPLETE"
+    summary: "Admin UI for allowlists, bans, dial, audit log, and config. Full test suite including test_pages.py and test_container_config.py. Delivered together with Phases 13/51 in merge commit 2aeb2ba."
     action_plan: "docs/phases/PHASE_52.md"
-    dependencies: [51]
-    size: "SMALL"
 
   53:
     name: "Advanced Traffic Intelligence - Phase 2: Secondary Feeds"
@@ -507,7 +501,7 @@ phases:
 
   55:
     name: "APT Hardening - Phase 2: Advanced Detection & Container Security"
-    status: "CANCELLED"
+    status: "CLOSED"
     summary: "Implement subnet correlation, anti-evasion checks, and strict Seccomp/AppArmor profiles."
     action_plan: "docs/phases/PHASE_55.md"
     dependencies: []
@@ -519,8 +513,8 @@ phases:
 
   56:
     name: "Advanced APT - Phase 2: Deceptive Defense & Persistence Defense"
-    status: "PROPOSED"
-    summary: "Implement honey-fingerprints, honey-SNIs, and runtime process namespace isolation."
+    status: "COMPLETE"
+    summary: "Honey-fingerprint and honey-SNI deception detection (DeceptionChecker). Silent-drop bans with APT:DECEPTION_TRIGGERED tag. Dead-Man's Switch watchdog. Two-stage seccomp profiles. Ephemeral filesystem (tmpfs for /tmp and /var/run, read_only). AppArmor profile delivered as Phase 34d."
     action_plan: "docs/phases/PHASE_56.md"
     dependencies: [35]
     size: "SMALL"
@@ -574,40 +568,40 @@ phases:
     size: "XL"
 
   61:
-    name: "Technical Quality Improvements"
+    name: "Supply Chain Security & Build Integrity"
     status: "PROPOSED"
     doc_status: "COMPLETE"
-    summary: "Code quality, architecture, performance, and reliability enhancements."
+    summary: "GitHub Actions CI pipeline (Python + Go tests, SAST, dependency audit); SBOM generation (CycloneDX 1.4); Cosign keyless image signing; SLSA level 2 provenance for Go binary; action SHA pinning; branch protection rules."
     action_plan: "docs/phases/PHASE_61.md"
     dependencies: [60]
     size: "L"
 
   62:
-    name: "Security Hardening"
+    name: "Security Regression Harness, Fuzzing & Pre-Enterprise Validation"
     status: "PROPOSED"
     doc_status: "COMPLETE"
-    summary: "Penetration testing, threat modeling, incident response, and compliance."
+    summary: "Automated regression tests for all Phase 27 pentest findings; atheris + Go native fuzzing harnesses with CI smoke run; break-glass verification procedure; pre-enterprise validation report generator."
     action_plan: "docs/phases/PHASE_62.md"
     dependencies: [60, 61]
     size: "XL"
 
   63:
-    name: "Observability and Monitoring"
+    name: "Service Level Objectives"
     status: "PROPOSED"
     doc_status: "COMPLETE"
-    summary: "Technical observability, executive dashboards, alerting, and reporting."
+    summary: "Four SLIs (availability 99.9%, latency 99% <10ms, Redis correctness 99.5%, FP rate <2%); multiwindow burn-rate alerts; Grafana SLO dashboard; on-call runbooks; metric naming prerequisite (ja4_ → ja4proxy_ rename + add missing counters)."
     action_plan: "docs/phases/PHASE_63.md"
     dependencies: [60, 61]
     size: "L"
 
   64:
-    name: "Operational Excellence"
+    name: "Deployment Validation & Disaster Recovery"
     status: "PROPOSED"
     doc_status: "COMPLETE"
-    summary: "Process optimization, training, documentation, and continuous improvement."
+    summary: "Smoke test suite (Docker Compose, Helm/kind, Podman/Quadlet); DR runbook with 5 scenarios incl. Redis data loss; credential rotation runbooks; TLS certificate rotation; rolling upgrade procedure; MTTR baseline measurement."
     action_plan: "docs/phases/PHASE_64.md"
     dependencies: [60, 61, 62, 63]
-    size: "M"
+    size: "L"
 
   65:
     name: "Performance Hardening & Go/Python Parity"
@@ -886,3 +880,37 @@ phases:
       - "scripts/capacity_calculator.py produces valid recommendations"
       - "Published benchmark numbers committed to docs/performance/benchmarks.md"
       - "All 7 runbook files present in docs/runbooks/"
+
+  87:
+    name: "Container & Host Infrastructure Observability"
+    status: "COMPLETE"
+    completed: "2026-04-06"
+    summary: "cAdvisor per-container metrics integration. Dedicated ja4proxy-infrastructure Grafana dashboard with fleet status strip and container variable drill-down (no infinite scroll). Host CPU/memory/disk alert rules. Per-container OOM and restart-loop alerts. Connection rate spike and distributed attack detection rules. Infrastructure runbook."
+    action_plan: "docs/phases/PHASE_87.md"
+    dependencies: [14]
+    size: "MEDIUM"
+    success_criteria:
+      - "cAdvisor service added to docker/docker-compose.monitoring.yml and scraped by Prometheus"
+      - "ja4proxy-infrastructure.json dashboard: fleet status strip visible without scrolling, container variable drill-down"
+      - "Alert groups ja4proxy_infrastructure and ja4proxy_attack_detection present in alerts.yml"
+      - "ContainerOOMKilled and ContainerRestartLoop alerts fire for all ja4proxy-owned containers"
+      - "ConnectionRateSpike alert uses 1h rolling baseline with clamp_min guard"
+      - "docs/runbooks/infrastructure.md present with all 30 sections"
+      - "make test-phase-87 passes"
+
+  88:
+    name: "Multi-Datacenter Survivability & Failover"
+    status: "PROPOSED"
+    summary: "Redis Sentinel per-DC plus a new Go sync agent (cmd/syncagent) for cross-DC state replication. State Classification Table (25 key types: SYNC-IMMEDIATE, SYNC-ASYNC, LOCAL-ONLY, DIAL-PROTOCOL). Synchronous Dial Consistency Protocol (port 7380, 8s ACK timeout, last-writer-wins by origin_ts). Active-active and active-passive topology documentation. Seven failure scenario runbooks (WAN failure, DC dark, Redis-only failure, dial divergence, data loss, asymmetric degradation, split-brain). New multi-DC metrics on port 9382 with six alert rules including DialDivergence (critical). Cross-DC Grafana dashboard. Operational procedures for maintenance drain, DC expansion, and rolling upgrade."
+    action_plan: "docs/phases/PHASE_88.md"
+    dependencies: [64, 86, 87]
+    size: "XL"
+    success_criteria:
+      - "cmd/syncagent compiles and unit tests pass"
+      - "State Classification Table implemented: ban keys sync in ≤30s across DCs"
+      - "Dial Consistency Protocol: dial change propagates to all DCs within 8s"
+      - "All seven failure scenario runbooks documented and tested in staging"
+      - "WAN failure test: each DC operates independently for 60 minutes without errors"
+      - "DialDivergence alert fires within 15s of divergence exceeding threshold"
+      - "Multi-DC Grafana dashboard: replication lag, dial values per DC, WAN link status visible"
+      - "make test-phase-88 passes"

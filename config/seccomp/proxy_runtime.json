@@ -1,0 +1,41 @@
+{
+  "_comment": "Runtime seccomp profile for JA4proxy (Phase 56b).",
+  "_description": "Strict profile applied after startup is complete. Derived from proxy.json with execve/fork/vfork removed to prevent process spawning (container escape vector). clone(2) is retained for asyncio/threading (CLONE_THREAD flag path) but the broad fork/exec family is denied. open/openat are retained because Python's import system performs lazy imports at runtime; their use is monitored by the integrity monitor (Phase 35). Apply via src/security/seccomp_transition.apply_runtime_seccomp().",
+  "_phase": "runtime: strict lockdown — no fork/exec, no new processes",
+  "defaultAction": "SCMP_ACT_ERRNO",
+  "defaultErrnoRet": 1,
+  "syscalls": [
+    {
+      "names": [
+        "socket", "bind", "listen", "accept", "accept4", "connect",
+        "sendto", "recvfrom", "sendmsg", "recvmsg", "sendmmsg", "recvmmsg",
+        "setsockopt", "getsockopt", "shutdown", "getpeername", "getsockname",
+        "read", "write", "readv", "writev", "open", "openat", "close",
+        "stat", "fstat", "lstat", "lseek", "mmap", "mprotect", "munmap",
+        "brk", "ioctl", "pread64", "pwrite64", "readlink", "readlinkat",
+        "getcwd",
+        "getpid", "getppid", "getuid", "getgid", "geteuid", "getegid",
+        "getgroups", "getpgrp", "getrlimit", "setrlimit", "getrusage",
+        "uname", "sysinfo", "times",
+        "clone",
+        "futex", "nanosleep", "clock_nanosleep", "clock_gettime",
+        "clock_getres", "gettimeofday", "settimeofday",
+        "poll", "epoll_create", "epoll_create1", "epoll_ctl", "epoll_wait",
+        "epoll_pwait", "select", "pselect6",
+        "eventfd", "eventfd2", "pipe", "pipe2",
+        "madvise", "mincore", "msync",
+        "rt_sigaction", "rt_sigprocmask", "rt_sigreturn", "sigaltstack",
+        "kill", "tkill", "tgkill",
+        "access", "faccessat", "chdir", "fchdir",
+        "mkdir", "mkdirat", "unlink", "unlinkat",
+        "rename", "renameat", "renameat2",
+        "fcntl", "dup", "dup2", "dup3",
+        "fsync", "fdatasync", "truncate", "ftruncate",
+        "exit", "exit_group",
+        "prctl", "arch_prctl", "getrandom", "prlimit64",
+        "set_tid_address", "set_robust_list"
+      ],
+      "action": "SCMP_ACT_ALLOW"
+    }
+  ]
+}

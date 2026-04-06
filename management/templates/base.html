@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}{{ page_title | default("JA4proxy") }} — JA4proxy Management{% endblock %}</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- HTMX -->
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script src="https://unpkg.com/htmx-ext-sse@2.2.1/sse.js"></script>
+
+  <!-- Alpine.js -->
+  <script src="https://unpkg.com/alpinejs@3.14.0/dist/cdn.min.js" defer></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/static/custom.css" />
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            'slate-950': '#0f172a',
+            'slate-800': '#1e293b',
+            'slate-700': '#334155',
+            'sky-500':   '#0ea5e9',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="dark h-full bg-[#0f172a] text-[#f1f5f9] font-[system-ui,sans-serif]">
+
+<div class="flex h-full min-h-screen">
+
+  <!-- ── Sidebar ─────────────────────────────────────────────────── -->
+  <aside class="fixed inset-y-0 left-0 z-30 w-[200px] flex flex-col bg-[#1e293b] border-r border-[#334155]">
+
+    <!-- Logo / Brand -->
+    <div class="flex items-center gap-2 px-4 py-5 border-b border-[#334155]">
+      <!-- Shield icon -->
+      <svg class="w-7 h-7 text-[#0ea5e9] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 2l8 3v6c0 5-3.5 9.3-8 11C7.5 20.3 4 16 4 11V5l8-3z"/>
+      </svg>
+      <div class="leading-tight">
+        <p class="text-sm font-bold tracking-wide text-[#f1f5f9]">JA4proxy</p>
+        <p class="text-[10px] text-[#94a3b8]">Management Console</p>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="flex-1 px-2 py-4 space-y-1" aria-label="Sidebar">
+      {% set nav_items = [
+        ("/",      "Dashboard",  "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"),
+        ("/lists",  "Lists",     "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"),
+        ("/bans",   "Bans",      "M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"),
+        ("/audit",  "Audit Log", "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"),
+      ] %}
+      {% for href, label, icon_path in nav_items %}
+        {% set active = request.url.path == href or (href != "/" and request.url.path.startswith(href)) %}
+        <a href="{{ href }}"
+           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors
+                  {% if active %}bg-[#0ea5e9] text-white font-medium{% else %}text-[#94a3b8] hover:bg-[#334155] hover:text-[#f1f5f9]{% endif %}">
+          <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="{{ icon_path }}"/>
+          </svg>
+          {{ label }}
+        </a>
+      {% endfor %}
+    </nav>
+
+    <!-- Logout -->
+    <div class="px-2 py-4 border-t border-[#334155]">
+      {% if user %}
+      <div class="px-3 py-1 mb-2">
+        <p class="text-[11px] text-[#94a3b8] truncate">Signed in as</p>
+        <p class="text-xs font-medium text-[#f1f5f9] truncate">{{ user }}</p>
+      </div>
+      {% endif %}
+      <form method="post" action="/auth/logout">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token | default('') }}" />
+        <button type="submit"
+                class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-[#94a3b8] hover:bg-[#334155] hover:text-[#f1f5f9] transition-colors">
+          <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+          </svg>
+          Logout
+        </button>
+      </form>
+    </div>
+
+  </aside>
+
+  <!-- ── Main area ────────────────────────────────────────────────── -->
+  <div class="flex-1 flex flex-col ml-[200px] min-w-0">
+
+    <!-- Top bar -->
+    <header class="sticky top-0 z-20 flex items-center justify-between px-6 py-3 bg-[#1e293b] border-b border-[#334155]">
+      <h1 class="text-base font-semibold text-[#f1f5f9]">
+        {% block page_title %}{{ page_title | default("Dashboard") }}{% endblock %}
+      </h1>
+      <div class="flex items-center gap-4">
+        <!-- Dial badge -->
+        {% set dial = dial_value | default(0) | int %}
+        {% if dial == 0 %}
+          {% set dial_color = "bg-[#16a34a] text-white" %}
+          {% set dial_label = "Monitor" %}
+        {% elif dial <= 49 %}
+          {% set dial_color = "bg-[#d97706] text-white" %}
+          {% set dial_label = "Moderate" %}
+        {% else %}
+          {% set dial_color = "bg-[#dc2626] text-white" %}
+          {% set dial_label = "Active" %}
+        {% endif %}
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium {{ dial_color }}"
+              title="Enforcement dial: {{ dial }}/100">
+          <span class="w-1.5 h-1.5 rounded-full bg-current opacity-75"></span>
+          Dial: {{ dial }} — {{ dial_label }}
+        </span>
+        <!-- UTC clock -->
+        <span class="text-xs text-[#94a3b8]" id="utc-clock">UTC —</span>
+      </div>
+    </header>
+
+    <!-- HTMX loading indicator -->
+    <div id="htmx-indicator"
+         class="htmx-indicator fixed top-0 left-[200px] right-0 h-0.5 bg-[#0ea5e9] z-50
+                transition-opacity duration-200 opacity-0">
+    </div>
+
+    <!-- Page content -->
+    <main class="flex-1 p-6 overflow-auto">
+      {% block content %}{% endblock %}
+    </main>
+
+  </div><!-- /main area -->
+
+</div><!-- /flex layout -->
+
+<!-- UTC clock script (no framework needed, tiny) -->
+<script>
+  (function() {
+    var el = document.getElementById('utc-clock');
+    if (!el) return;
+    function tick() {
+      var d = new Date();
+      el.textContent = d.toISOString().slice(0, 19).replace('T', ' ') + ' UTC';
+    }
+    tick();
+    setInterval(tick, 1000);
+  })();
+
+  // HTMX: show loading indicator
+  document.addEventListener('htmx:beforeRequest', function() {
+    document.getElementById('htmx-indicator').style.opacity = '1';
+  });
+  document.addEventListener('htmx:afterRequest', function() {
+    document.getElementById('htmx-indicator').style.opacity = '0';
+  });
+</script>
+
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

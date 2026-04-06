@@ -490,7 +490,17 @@
   ],
   "annotations": {"list": []},
   "templating": {"list": []},
-  "links": [],
+  "links": [
+    {
+      "title": "Infrastructure & Attack",
+      "url": "/d/ja4proxy-infrastructure/ja4proxy-infrastructure-attack",
+      "type": "link",
+      "icon": "external link",
+      "tooltip": "Open the Infrastructure & Attack dashboard",
+      "targetBlank": false,
+      "tags": []
+    }
+  ],
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,

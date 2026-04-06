@@ -199,7 +199,12 @@ async def test_slowscan_signal_score_is_30():
 
 
 async def test_both_signals_total_score_is_65():
-    """Campaign(35) + slowscan(30) = 65 risk score contribution."""
+    """Campaign(35) + subnet_campaign(25) + slowscan(30) = 90 risk score contribution.
+
+    Phase 34 (APT Hardening — subnet correlation) added subnet_campaign(25) as a
+    corroborating signal that fires alongside analytics_campaign whenever a campaign
+    key is present.  The total is now 35 + 25 + 30 = 90.
+    """
     async def _get(key):
         if "campaign" in key or "slowscan" in key:
             return b"1"
@@ -210,5 +215,9 @@ async def test_both_signals_total_score_is_65():
     pipeline = _make_pipeline(redis_mock)
 
     signals = await pipeline._get_analytics_signals("172.20.0.1")
+    names = {s.name for s in signals}
+    assert "analytics_campaign" in names
+    assert "subnet_campaign" in names
+    assert "analytics_slowscan" in names
     total = sum(s.score for s in signals)
-    assert total == 65
+    assert total == 90  # 35 (analytics_campaign) + 25 (subnet_campaign) + 30 (analytics_slowscan)

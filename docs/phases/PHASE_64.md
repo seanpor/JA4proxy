@@ -22,8 +22,9 @@ improvement processes. It does NOT require human coordination that cannot be scr
 automated.
 
 What it delivers: a deployment smoke test suite that exercises each topology end-to-end,
-a DR runbook with four failure scenarios and tested recovery steps, a GameDay design
-document, MTTR baseline measurements, and a pre-enterprise validation report section.
+a DR runbook with five failure scenarios and tested recovery steps, credential and TLS
+certificate rotation runbooks, a rolling upgrade procedure, a GameDay design document,
+MTTR baseline measurements, and a pre-enterprise validation report section.
 
 ---
 
@@ -231,7 +232,7 @@ Validation". It must be run by the operator on the target RHEL host and the resu
 
 `docs/runbooks/disaster_recovery.md` — create this file.
 
-The runbook covers four failure scenarios. Each scenario follows the same structure:
+The runbook covers five failure scenarios. Each scenario follows the same structure:
 symptoms (what you observe first), impact (what the proxy does during the failure),
 simulation (how to deliberately trigger the failure in a test environment), and recovery
 steps (ordered commands with expected outputs).
@@ -408,6 +409,74 @@ kill -HUP $(pgrep -f proxy.py)
 **RTO target:** 3 minutes to monitor mode; investigation and full restoration within 15 minutes
 **RPO:** Zero for config (git-tracked); ban/rate-limit state unaffected
 
+### 3.5 Scenario 5: Redis Data Loss
+
+This scenario covers total loss of Redis persistent data — either through accidental
+`FLUSHALL`, AOF corruption, or RDB file loss. It is distinct from Scenario 1 (Redis
+unavailability): when Redis comes back after a data loss event, the proxy reconnects
+successfully but all ban lists, rate limit counters, enrichment cache, and analytics
+state are gone.
+
+**Symptoms:**
+- Redis restarts without error but all keys are absent
+- `ja4proxy_blocked_total` drops to zero (ban list lost)
+- AbuseIPDB and Spamhaus decisions revert to live lookups with no cache
+- `ja4proxy_ban_count` (if instrumented) drops from known non-zero to zero
+- On a multi-instance cluster: `scan 0 COUNT 10` returns 0 or very few keys when
+  the pre-loss key count was in the thousands
+
+**Impact:**
+- All active bans are lost immediately. IPs that were banned continue to connect
+  until they are re-banned by the scoring pipeline.
+- Rate limit counters are reset — rate-limited clients get a fresh budget.
+- The fail-open safety remains: the proxy never blocks due to Redis state being
+  absent.
+- Phase 19 (backup/restore framework) provides the recovery path. If backups exist,
+  state can be restored. If backups do not exist or are outdated, the proxy must
+  re-learn state from live traffic.
+
+**Simulate (Docker Compose):**
+```bash
+# Stop Redis, delete its data volume, restart
+docker-compose stop redis
+docker volume rm ja4proxy_redis-data 2>/dev/null || true
+docker-compose up -d redis
+# Observe: Redis starts clean; all keys gone
+redis-cli DBSIZE  # Should return 0
+```
+
+**Recovery steps:**
+1. Confirm data loss: `redis-cli DBSIZE` returns 0 or far fewer keys than expected
+2. Check for Phase 19 backup:
+   ```bash
+   ls -la /opt/ja4proxy/backups/  # or wherever backups are stored
+   ja4proxy-cli backup list --latest
+   ```
+3. If a recent backup exists (< 1 hour old), restore it:
+   ```bash
+   ja4proxy-cli backup restore --file <latest-backup-file> --confirm
+   # Verify restore:
+   redis-cli DBSIZE  # Should return non-zero
+   ```
+4. If no backup exists or the backup is too stale (> 4 hours):
+   - Accept the data loss
+   - Set dial to 0 (monitor mode) to prevent false positives while state rebuilds:
+     ```bash
+     redis-cli SET ja4proxy:dial 0
+     redis-cli PUBLISH ja4proxy:config_reload '{"source":"dr","dial":0}'
+     ```
+   - Notify the security team that ban enforcement is suspended
+   - Allow 1–4 hours for the scoring pipeline to re-learn ban-worthy IPs from live traffic
+   - Gradually raise dial back to operational level once ban counts return to baseline
+5. Conduct post-incident review; verify Phase 19 backup configuration is working
+   (`make test-backup-restore`) if backup was absent or stale
+
+**RTO target:** 30 minutes if a recent backup exists; 4 hours if not (dial=0 mode during re-learning)
+**RPO:** Last backup timestamp (Phase 19 backup schedule determines this; recommended: every 30 minutes)
+**Prevention:** Ensure Redis has both AOF enabled (for point-in-time recovery) and scheduled
+snapshots via Phase 19/22. Enable Redis persistence: `appendonly yes` and
+`appendfsync everysec` in Redis configuration.
+
 ---
 
 ## 4. GameDay Design
@@ -502,12 +571,334 @@ redis-cli SET ja4proxy:dial 100 && \
 
 ---
 
-## 5. MTTR Baseline Measurement
+## 5. Credential Rotation Runbook
 
-`scripts/measure_mttr.sh` — automates Scenarios 1, 2, and 4 in a local Docker Compose
-environment and records actual recovery times. Scenario 3 (total fleet failure) is not
-automated because it requires deliberate operator judgment for the cause-investigation
-phase; include it in GameDay exercises instead.
+`docs/runbooks/credential_rotation.md` — create this file.
+
+The proxy holds long-lived credentials that must be rotatable without service
+disruption. The rotation procedure for each credential type is documented here.
+
+### 5.1 Redis Auth Password Rotation
+
+**Trigger:** Password compromise suspected, or security policy mandates rotation
+every 90 days.
+
+**Procedure (zero-downtime using Redis ACL):**
+
+Redis 6+ supports multiple active passwords simultaneously via ACL, enabling
+zero-downtime rotation:
+
+```bash
+# Step 1: Add the new password alongside the existing one
+redis-cli ACL SETUSER default on >NEW_PASSWORD >OLD_PASSWORD ~* &* +@all
+
+# Step 2: Update config/proxy.yml with the new password
+# Under redis: section, change auth: <old> to auth: <new>
+# (Do NOT commit this change to git — the password is a secret)
+
+# Step 3: Trigger hot reload on all proxy nodes
+for node in proxy-1 proxy-2 proxy-3; do
+  kill -HUP $(ssh $node "pgrep -f proxy.py")
+done
+# Or via Management API (Phase 79):
+# ja4proxy-cli config reload --all-nodes
+
+# Step 4: Verify all proxy nodes are connected with the new password
+# (Watch ja4proxy_redis_errors_total — it must not increase during rotation)
+
+# Step 5: Remove the old password from Redis ACL
+redis-cli ACL SETUSER default on >NEW_PASSWORD ~* &* +@all
+
+# Step 6: Verify old password no longer works
+redis-cli -a OLD_PASSWORD PING  # Should return WRONGPASS
+```
+
+**Rollback:** If Step 3 or 4 fails, add the old password back to the ACL:
+```bash
+redis-cli ACL SETUSER default on >NEW_PASSWORD >OLD_PASSWORD ~* &* +@all
+```
+Then investigate the failure before retrying.
+
+**Note:** In Docker Compose, the Redis password is set via environment variable
+(`REDIS_PASSWORD`). Update the `.env` file and restart Redis. In this case,
+there IS a brief reconnect period — schedule during a maintenance window.
+
+### 5.2 AbuseIPDB API Key Rotation
+
+**Trigger:** Key compromised, or subscription renewal generates a new key.
+
+**Procedure:**
+```bash
+# Step 1: Obtain new API key from AbuseIPDB dashboard
+
+# Step 2: Test the new key before deployment
+curl -s "https://api.abuseipdb.com/api/v2/check?ipAddress=8.8.8.8" \
+  -H "Key: NEW_KEY" | python3 -m json.tool
+
+# Step 3: Update config/proxy.yml under abuseipdb: section:
+# api_key: NEW_KEY
+# (Do NOT commit this to git)
+
+# Step 4: Trigger hot reload
+kill -HUP $(pgrep -f proxy.py)
+# Or: ja4proxy-cli config reload
+
+# Step 5: Verify lookups are succeeding
+# Watch ja4proxy_abuseipdb_lookups_total{result="hit"} — it should continue to increment
+
+# Step 6: Revoke old key in AbuseIPDB dashboard
+```
+
+**Zero-downtime:** Yes. The config hot-reload path (Phase 0) applies the new key
+on the next AbuseIPDB lookup. In-flight lookups using the old key may fail if the
+key is revoked before hot-reload completes — add a 30-second delay between
+hot-reload and key revocation.
+
+### 5.3 Cloud Storage Credentials (Phase 57 — S3/GCS)
+
+**Trigger:** IAM key rotation policy, or key compromise.
+
+**Procedure (AWS S3):**
+```bash
+# Step 1: Create new IAM access key for the ja4proxy-backup IAM user
+aws iam create-access-key --user-name ja4proxy-backup
+
+# Step 2: Update the Docker Compose environment or Kubernetes Secret with the new key
+# For Docker Compose: update .env file (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+# For Kubernetes: kubectl create secret generic ja4proxy-cloud-creds \
+#   --from-literal=AWS_ACCESS_KEY_ID=NEW_KEY \
+#   --from-literal=AWS_SECRET_ACCESS_KEY=NEW_SECRET \
+#   --dry-run=client -o yaml | kubectl apply -f -
+
+# Step 3: Restart the backup container (it reads credentials at startup):
+docker-compose restart ja4proxy-backup
+
+# Step 4: Trigger a manual backup to verify the new credentials work:
+ja4proxy-cli backup run --immediate
+
+# Step 5: Delete the old IAM access key:
+aws iam delete-access-key --user-name ja4proxy-backup --access-key-id OLD_KEY
+```
+
+---
+
+## 6. TLS Certificate Rotation Runbook
+
+`docs/runbooks/tls_certificate_rotation.md` — create this file.
+
+Two TLS certificates are in use:
+1. The proxy's server-side TLS certificate (presented to clients)
+2. The mTLS CA certificate used to verify client certificates (Phase 5)
+
+### 6.1 Certificate Expiry Monitoring
+
+Certificate expiry must be monitored proactively. Add an alert to
+`monitoring/alertmanager/rules/tls_alerts.yml`:
+
+```yaml
+groups:
+  - name: tls_certificate_expiry
+    rules:
+      - alert: JA4proxyTLSCertExpiringSoon
+        expr: |
+          (ja4proxy_tls_cert_expiry_timestamp_seconds - time()) / 86400 < 30
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "TLS certificate expires in {{ $value | humanize }} days"
+          description: |
+            The proxy's server-side TLS certificate expires in less than 30 days.
+            Rotate using the procedure in docs/runbooks/tls_certificate_rotation.md.
+
+      - alert: JA4proxyTLSCertExpiryCritical
+        expr: |
+          (ja4proxy_tls_cert_expiry_timestamp_seconds - time()) / 86400 < 7
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "TLS certificate expires in {{ $value | humanize }} days — CRITICAL"
+          description: |
+            The proxy's server-side TLS certificate expires in less than 7 days.
+            Rotate immediately using docs/runbooks/tls_certificate_rotation.md.
+```
+
+The `ja4proxy_tls_cert_expiry_timestamp_seconds` gauge must be emitted by the proxy
+at startup and refreshed every 5 minutes. If this metric does not exist, it is tracked
+as a gap requiring implementation in Phase 63/86 scope.
+
+### 6.2 Server-Side TLS Certificate Rotation (Docker Compose)
+
+```bash
+# Step 1: Generate or obtain new certificate
+# For self-signed (test only):
+openssl req -x509 -newkey rsa:4096 -keyout new_server.key -out new_server.crt \
+  -days 365 -nodes -subj "/CN=ja4proxy"
+
+# For production: obtain from your CA or Let's Encrypt
+
+# Step 2: Copy to cert location (without replacing the live cert yet)
+cp new_server.crt config/certs/server.crt.new
+cp new_server.key config/certs/server.key.new
+
+# Step 3: Rolling rotation — update one node at a time:
+# On proxy-1:
+mv config/certs/server.crt.new config/certs/server.crt
+mv config/certs/server.key.new config/certs/server.key
+kill -HUP $(pgrep -f proxy.py)  # Hot-reload loads new cert
+
+# HAProxy continues to route to proxy-2 while proxy-1 reloads.
+# Note: if the proxy does NOT support hot TLS cert reload, a brief restart
+# is required. In that case, HAProxy's health check window (inter 2s rise 2)
+# ensures no traffic is lost during the restart.
+
+# Step 4: Verify new cert is active:
+openssl s_client -connect localhost:8080 -servername localhost 2>/dev/null \
+  | openssl x509 -noout -dates
+
+# Step 5: Repeat for each proxy node
+```
+
+### 6.3 mTLS CA Certificate Rotation (Phase 5)
+
+mTLS CA rotation is more complex because it affects all existing client certificates.
+A new CA certificate cannot simply replace the old one — existing clients will fail.
+The procedure requires a dual-CA trust period:
+
+```bash
+# Step 1: Generate new CA certificate
+openssl genrsa -out config/certs/new_client_ca.key 4096
+openssl req -new -x509 -key config/certs/new_client_ca.key \
+  -out config/certs/new_client_ca.crt -days 730 \
+  -subj "/CN=JA4proxy Client CA v2"
+
+# Step 2: Combine old and new CA into a trust bundle
+cat config/certs/client_ca.pem config/certs/new_client_ca.crt \
+  > config/certs/trusted_cas_bundle.pem
+
+# Step 3: Update config/proxy.yml to use the bundle:
+# mtls:
+#   trusted_ca_file: config/certs/trusted_cas_bundle.pem
+# Then hot-reload the proxy on each node.
+
+# Step 4: Issue new client certificates from the new CA
+# (this is an external procedure for each mTLS client)
+
+# Step 5: After all clients have migrated to new certs (verify via
+# ja4proxy_mtls_cert_issuer metric if available), remove the old CA:
+cp config/certs/new_client_ca.crt config/certs/client_ca.pem
+# Update config to point back to single CA file and hot-reload.
+
+# Step 6: Revoke the old CA certificate in any PKI infrastructure
+```
+
+---
+
+## 7. Rolling Upgrade Procedure
+
+`docs/runbooks/rolling_upgrade.md` — create this file.
+
+### 7.1 Prerequisites
+
+A rolling upgrade assumes:
+- HAProxy load balancer with health checks configured (`inter 2s rise 2 fall 2`)
+- At least 2 proxy instances behind HAProxy
+- The new version passes smoke tests (`make smoke-docker`) in staging before production
+
+### 7.2 Docker Compose Rolling Upgrade
+
+```bash
+#!/usr/bin/env bash
+# rolling_upgrade.sh — upgrade ja4proxy from v_old to v_new without downtime
+set -euo pipefail
+
+NEW_TAG="${1:?Usage: rolling_upgrade.sh <new-image-tag>}"
+SERVICES=$(docker-compose ps --services | grep ja4proxy)
+
+for SERVICE in $SERVICES; do
+  echo "=== Upgrading $SERVICE to $NEW_TAG ==="
+
+  # Step 1: Drain connections from this node
+  # If using HAProxy admin socket:
+  echo "disable server ja4proxy_backend/$SERVICE" | \
+    socat - /var/run/haproxy/admin.sock
+  echo "Draining $SERVICE — waiting 10s for in-flight connections to complete..."
+  sleep 10
+
+  # Step 2: Update the service image
+  docker-compose up -d --no-deps --force-recreate "$SERVICE" \
+    --image "ghcr.io/org/ja4proxy:$NEW_TAG"
+
+  # Step 3: Wait for health check to pass (max 60s)
+  for i in $(seq 1 60); do
+    if curl -sf http://localhost:$((8080 + ${SERVICE##*-}))/health >/dev/null 2>&1; then
+      echo "$SERVICE is healthy after ${i}s"
+      break
+    fi
+    [ "$i" -eq 60 ] && { echo "FAIL: $SERVICE did not become healthy"; exit 1; }
+    sleep 1
+  done
+
+  # Step 4: Re-enable traffic to this node
+  echo "enable server ja4proxy_backend/$SERVICE" | \
+    socat - /var/run/haproxy/admin.sock
+
+  echo "$SERVICE upgrade complete."
+  echo "Waiting 30s before upgrading next node..."
+  sleep 30
+done
+
+echo "Rolling upgrade to $NEW_TAG complete."
+```
+
+### 7.3 Kubernetes Rolling Upgrade
+
+Kubernetes handles rolling upgrades natively via DaemonSet rolling update:
+
+```bash
+# Update the image tag in the Helm values file
+# or override at upgrade time:
+helm upgrade ja4proxy deploy/helm/ja4proxy/ \
+  --set image.tag=NEW_TAG \
+  --wait \
+  --timeout=300s
+
+# Monitor rollout:
+kubectl rollout status daemonset/ja4proxy
+```
+
+The DaemonSet's `updateStrategy.rollingUpdate.maxUnavailable` must be set to 1
+(default) in the Helm chart values to ensure only one node is updated at a time.
+
+### 7.4 Rollback Procedure
+
+If the new version fails health checks on any node:
+
+**Docker Compose:**
+```bash
+# Redeploy the old version on the failing node:
+docker-compose up -d --no-deps --force-recreate ja4proxy-1 \
+  --image "ghcr.io/org/ja4proxy:PREVIOUS_TAG"
+# Re-enable traffic:
+echo "enable server ja4proxy_backend/ja4proxy-1" | \
+  socat - /var/run/haproxy/admin.sock
+```
+
+**Kubernetes:**
+```bash
+kubectl rollout undo daemonset/ja4proxy
+kubectl rollout status daemonset/ja4proxy
+```
+
+---
+
+## 8. MTTR Baseline Measurement
+
+`scripts/measure_mttr.sh` — automates Scenarios 1, 2, 4, and 5 in a local Docker
+Compose environment and records actual recovery times. Scenario 3 (total fleet failure)
+is not automated because it requires deliberate operator judgment for the
+cause-investigation phase; include it in GameDay exercises instead.
 
 ```bash
 #!/usr/bin/env bash
@@ -601,6 +992,33 @@ MEASURED_S[4]=$MTTR_4
 PASS[4]=$([ "$MTTR_4" -le 180 ] && echo "PASS" || echo "FAIL")
 log "Scenario 4 MTTR: ${MTTR_4}s (RTO: 180s) — ${PASS[4]}"
 
+# ── Scenario 5: Redis data loss ───────────────────────────────────────────────
+log "=== Scenario 5: Redis data loss ==="
+# Seed a known key so we can detect its absence after the data loss
+redis-cli SET ja4proxy:mttr_probe "1" EX 3600 >/dev/null
+$COMPOSE stop redis
+docker volume rm ja4proxy_redis-data 2>/dev/null || true
+START=$(date +%s)
+$COMPOSE up -d redis
+# Wait for Redis to be up but confirm data is gone
+until redis-cli PING >/dev/null 2>&1; do
+  sleep 1
+  [ $(($(date +%s) - START)) -gt 30 ] && { log "Redis did not restart within 30s"; break; }
+done
+KEY_EXISTS=$(redis-cli EXISTS ja4proxy:mttr_probe)
+if [ "$KEY_EXISTS" != "0" ]; then
+  log "WARN: probe key still exists — data loss simulation may not have worked (volume persisted)"
+fi
+# Recovery: set dial to 0 (monitor mode while state rebuilds)
+redis-cli SET ja4proxy:dial 0 >/dev/null
+redis-cli PUBLISH ja4proxy:config_reload '{"source":"measure_mttr","dial":0}' >/dev/null
+MTTR_5=$(($(date +%s) - START))
+MEASURED_S[5]=$MTTR_5
+# RTO for automated portion: Redis restart + dial reset < 5 minutes
+# Full re-learning is not automated (1-4 hours); only the initial recovery steps are measured here
+PASS[5]=$([ "$MTTR_5" -le 300 ] && echo "PASS" || echo "FAIL")
+log "Scenario 5 MTTR (Redis restart + dial reset): ${MTTR_5}s (RTO: 300s) — ${PASS[5]}"
+
 # ── Write MTTR_BASELINE.md ────────────────────────────────────────────────────
 cat > "$OUTPUT" <<EOF
 # MTTR Baseline
@@ -613,22 +1031,27 @@ Environment: Docker Compose (local)
 | 1: Redis failure | \`docker-compose stop redis\` | ${MEASURED_S[1]}s | 300s | ${PASS[1]} |
 | 2: Single node failure | \`docker-compose stop ja4proxy-1\` | ${MEASURED_S[2]}s | 120s | ${PASS[2]} |
 | 4: Dial corruption | \`redis-cli SET ja4proxy:dial 100\` | ${MEASURED_S[4]}s | 180s | ${PASS[4]} |
+| 5: Redis data loss | \`docker volume rm ja4proxy_redis-data\` | ${MEASURED_S[5]}s | 300s | ${PASS[5]} |
 
 Scenario 3 (total fleet failure) is exercised via GameDay only — not automated.
 See: docs/runbooks/gameday_scenarios.md
+
+Scenario 5 MTTR covers Redis restart and dial reset to monitor mode only.
+Full state re-learning (1–4 hours) is not automated; see §3.5 for the full procedure.
 
 ## Notes
 
 - MTTR is measured from trigger command to full health endpoint recovery.
 - Scenario 2 MTTR ends when HAProxy marks the restarted node UP (two consecutive health checks).
 - Scenario 4 MTTR ends when the health endpoint reflects \`"dial": 0\`.
+- Scenario 5 MTTR ends when Redis is responding and dial has been reset to 0.
 - All scenarios were run in sequence on the same Docker Compose stack.
 EOF
 
 log "MTTR_BASELINE.md written"
 
 OVERALL="PASS"
-for k in 1 2 4; do
+for k in 1 2 4 5; do
   [ "${PASS[$k]}" != "PASS" ] && OVERALL="FAIL"
 done
 log "Overall result: $OVERALL"
@@ -642,7 +1065,7 @@ and commit `MTTR_BASELINE.md` to the repository. The baseline is used in:
 
 ---
 
-## 6. Pre-Enterprise Validation Report Integration
+## 9. Pre-Enterprise Validation Report Integration
 
 Phase 62 introduced `scripts/generate_validation_report.py`. Add a `--section
 deployment` flag that appends a deployment evidence section to the report.
@@ -700,7 +1123,7 @@ to the report before the final sign-off block.
 
 ---
 
-## 7. Makefile Targets
+## 10. Makefile Targets
 
 Add to the bottom of `Makefile` (never edit existing targets):
 
@@ -730,17 +1153,23 @@ operator before an enterprise pilot and is not run in CI.
 
 ---
 
-## 8. Acceptance Criteria
+## 11. Acceptance Criteria
 
 - [ ] `scripts/smoke/test_docker_compose.sh` exists, passes in CI (`make smoke-docker`), and writes a result file to `test-results/smoke/`
 - [ ] `scripts/smoke/test_helm_kind.sh` exists and passes in a local `kind` environment or in CI via `helm/kind-action`; result is documented
 - [ ] `scripts/smoke/test_podman_quadlet.sh` exists, skips gracefully on non-RHEL platforms, and is documented in the Phase 76 deployment guide as the manual pre-deployment validation step
-- [ ] `docs/runbooks/disaster_recovery.md` exists and documents all four scenarios with symptoms, impact, `simulate:` command, recovery steps, RTO target, and RPO
+- [ ] `docs/runbooks/disaster_recovery.md` exists and documents all five scenarios with symptoms, impact, `simulate:` command, recovery steps, RTO target, and RPO
 - [ ] Each scenario in `docs/runbooks/disaster_recovery.md` includes a `simulate:` command that can be run without modifying any source files
-- [ ] `scripts/measure_mttr.sh` exists and produces `MTTR_BASELINE.md` with results for Scenarios 1, 2, and 4
-- [ ] `MTTR_BASELINE.md` shows measured MTTR within the RTO target for all three automated scenarios
+- [ ] `docs/runbooks/disaster_recovery.md` includes Scenario 5 (Redis data loss) with simulate command, recovery steps, RTO/RPO targets, and prevention guidance
+- [ ] `scripts/measure_mttr.sh` exists and produces `MTTR_BASELINE.md` with results for Scenarios 1, 2, 4, and 5
+- [ ] `MTTR_BASELINE.md` shows measured MTTR within the RTO target for all four automated scenarios
 - [ ] `docs/runbooks/gameday_scenarios.md` exists and documents all four GameDay exercises with trigger command, expected symptoms, team actions, and success criteria
 - [ ] `docs/runbooks/disaster_recovery.md` contains a "Runbook Exercise History" section with at least one dated entry (first GameDay completed before enterprise pilot)
-- [ ] `scripts/generate_validation_report.py` is extended (as specified in §6) to accept `--section deployment` and appends smoke test results, MTTR baseline, and DR exercise history to the report
+- [ ] `docs/runbooks/credential_rotation.md` exists and documents zero-downtime rotation for Redis password, AbuseIPDB key, and cloud storage credentials
+- [ ] `docs/runbooks/tls_certificate_rotation.md` exists and documents server-side cert rotation, mTLS CA rotation with dual-CA trust period, and cert expiry alert rules
+- [ ] `docs/runbooks/rolling_upgrade.md` exists and documents Docker Compose rolling upgrade, Kubernetes rolling upgrade, and rollback procedures for both
+- [ ] The `JA4proxyTLSCertExpiringSoon` (< 30 days, warning) and `JA4proxyTLSCertExpiryCritical` (< 7 days, critical) alert rules are added to `monitoring/alertmanager/rules/tls_alerts.yml`
+- [ ] `ja4proxy_tls_cert_expiry_timestamp_seconds` metric is tracked as a gap requiring implementation; noted in Phase 63/86 scope if not implemented in this phase
+- [ ] `scripts/generate_validation_report.py` is extended (as specified in §9) to accept `--section deployment` and appends smoke test results, MTTR baseline, and DR exercise history to the report
 - [ ] `make smoke`, `make smoke-docker`, `make smoke-k8s`, and `make measure-mttr` targets are added to the bottom of `Makefile`
 - [ ] `make smoke-docker` is added as a required status check in `.github/workflows/ci.yml`

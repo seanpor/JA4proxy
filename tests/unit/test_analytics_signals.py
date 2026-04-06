@@ -119,10 +119,14 @@ async def test_campaign_signal_returned_when_key_set():
     pipeline = _make_pipeline(redis_get_side_effect=_get)
     signals = await pipeline._get_analytics_signals("192.168.1.50")
 
-    assert len(signals) == 1
-    assert signals[0].name == "analytics_campaign"
-    assert signals[0].score == 35
-    assert "192.168.1.0/24" in signals[0].reason
+    # Phase 34: campaign key now emits both analytics_campaign AND subnet_campaign signals.
+    assert len(signals) == 2
+    names = {s.name for s in signals}
+    assert "analytics_campaign" in names
+    assert "subnet_campaign" in names
+    campaign = next(s for s in signals if s.name == "analytics_campaign")
+    assert campaign.score == 35
+    assert "192.168.1.0/24" in campaign.reason
 
 
 async def test_campaign_signal_not_returned_when_key_absent():
@@ -165,10 +169,13 @@ async def test_both_signals_when_both_keys_set():
     pipeline = _make_pipeline(redis_get_side_effect=_get)
     signals = await pipeline._get_analytics_signals("172.16.0.1")
 
+    # Phase 34 (subnet correlation) adds subnet_campaign alongside analytics_campaign,
+    # so campaign key → 2 signals (analytics_campaign + subnet_campaign) + slowscan → 3 total
     names = {s.name for s in signals}
     assert "analytics_campaign" in names
+    assert "subnet_campaign" in names
     assert "analytics_slowscan" in names
-    assert len(signals) == 2
+    assert len(signals) == 3
 
 
 # ---------------------------------------------------------------------------

@@ -41,3 +41,6 @@ pylint==3.0.2
 # Compliance and audit
 jsonschema==4.20.0
 cerberus==1.3.5
+# phase-56: Runtime seccomp profile transition (optional — fails open if absent)
+# Requires libseccomp-dev on the host: apt-get install libseccomp-dev
+# python3-seccomp>=2.5.0

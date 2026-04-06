@@ -4,7 +4,43 @@ This document defines the mandatory operational standards for AI agents working 
 
 ---
 
-## Tool Usage & Communication
+## 📋 Mandatory Planning Protocol — Read Before Doing Anything
+
+**When asked to perform any work — new feature, bug fix, refactor, or investigation — the agent MUST follow this sequence. No exceptions.**
+
+### Step 1 — Write the plan first
+
+Before writing a single line of code or running any mutating command:
+
+1. Determine the correct phase number (check `docs/phases/manifest.yaml` for the next available number).
+2. Create the phase document at `docs/phases/PHASE_XX.md` using the standard template:
+   - **Goal** — one-paragraph summary of what is being built and why.
+   - **Scope** — exact list of files to be created or modified.
+   - **Implementation plan** — numbered steps in the order they will be executed.
+   - **Test strategy** — which test categories are needed and what they verify.
+   - **Acceptance criteria** — explicit, checkable conditions that define "done".
+   - **Out of scope** — explicit list of things this phase will NOT touch.
+3. Present the plan to the user with a brief summary: *"Here is the plan — please review before I begin."*
+
+### Step 2 — Wait for explicit approval
+
+Do **not** proceed until the user gives a clear go-ahead (e.g., "looks good", "proceed", "yes").
+
+If the user requests changes to the plan, update `PHASE_XX.md` and re-present it. Repeat until approved.
+
+### Step 3 — Implement
+
+Only after written approval: create the branch, write code, write tests, and follow the Phase Close-Out Checklist.
+
+### Why this matters
+
+Code written before a plan is reviewed tends to drift from intent, require rewrites, and accumulate technical debt. The plan document is the contract between the agent and the user. Starting with code instead of a plan is the single most common source of rework on this project.
+
+> **Exception:** If the user explicitly says "just do it, no plan needed" or "skip the plan", proceed directly to implementation. Record this waiver in the phase notes.
+
+---
+
+## 🛠️ Tool Usage & Communication
 
 - **Bash Tool:** Strictly only use the `command` field. Do not include `description` as it triggers validation errors.
 - **High-Signal Output:** Adopt a Senior Engineer persona. Be concise, direct, and technical. Avoid conversational filler, apologies, or "I will now..." preambles.
@@ -97,6 +133,60 @@ Every phase must be closed by completing **all** of the following before the nex
      - Go: `// Approved Exception #001: see docs/security/EXCEPTIONS.md`
 - **Mandatory Coverage:** A change is incomplete without corresponding tests (Unit, Integration, and Chaos).
 - **Finality:** A task is only "Done" when the relevant test suite and linters pass 100% using the project `Makefile`.
+
+### Web service TDD — two mandatory test categories
+
+Both failures below reached production because they were absent from the initial test suite. Every web service agent must include them.
+
+#### 1. HTML page rendering tests (catches framework API mismatches)
+
+Every route that returns HTML **must** have a test that:
+- GETs the route with a valid auth token and asserts `status_code == 200`
+- Asserts `"text/html"` in `Content-Type`
+- Asserts at least one landmark string is in `response.text`
+- GETs the route *without* a token and asserts `status_code < 500`
+
+**Why:** The Starlette `TemplateResponse` API changed between versions (`TemplateResponse(name, context)` → `TemplateResponse(request, name, context)`). A test that only checked redirect behavior (401) on page routes never executed the template rendering path. The mismatch was invisible until the container ran against a real Starlette version.
+
+Pattern (copy into every `test_pages.py`):
+```python
+async def test_login_page_renders(test_client):
+    r = await test_client.get("/login")
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert "JA4" in r.text  # landmark string
+
+async def test_dashboard_renders(authenticated_client):
+    r = await authenticated_client.get("/")
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+
+async def test_unauthenticated_never_500(test_client):
+    r = await test_client.get("/")
+    assert r.status_code < 500  # 401 ok, 500 = crash before auth ran
+```
+
+#### 2. Container configuration parity tests (catches env var mismatches)
+
+Every service that connects to an external dependency (Redis, DB, etc.) **must** have a test that:
+- Reads `docker-compose.poc.yml` (or the relevant compose file) and verifies that the compose env section passes the correct connection string format
+- Verifies that when a password env var is set, the built connection URL actually contains it
+
+**Why:** fakeredis requires no password, so unit tests passed 67/67 while the real container connected to password-protected Redis with a bare `redis://redis:6379/0` URL and got `AuthenticationError` at runtime.
+
+Pattern (copy into every `test_container_config.py`):
+```python
+def test_docker_compose_redis_url_includes_password():
+    with open("docker-compose.poc.yml") as f:
+        content = f.read()
+    service_section = content[content.find("  myservice:"):][:1500]
+    url_match = re.search(r"REDIS_URL=([^\n]+)", service_section)
+    assert url_match, "REDIS_URL not found in service definition"
+    assert "REDIS_PASSWORD" in url_match.group(1), (
+        "REDIS_URL must include ${REDIS_PASSWORD}. "
+        "fakeredis doesn't need auth — real Redis does."
+    )
+```
 
 ### What `make test` actually checks — read ALL of it
 
