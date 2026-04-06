@@ -313,8 +313,8 @@ lint-docker:
 	@echo "=== docker compose config: compose files ==="
 	@BACKEND_HOST=lint-placeholder REDIS_PASSWORD=lint-placeholder docker compose -f docker/docker-compose.poc.yml config --quiet \
 		&& echo "  docker/docker-compose.poc.yml                      OK"
-	@BACKEND_HOST=lint-placeholder REDIS_PASSWORD=lint-placeholder docker compose -f docker/docker-compose.poc.yml -f docker/docker-compose.go.yml config --quiet \
-		&& echo "  docker/docker-compose.go.yml (overlay)             OK"
+	@BACKEND_HOST=lint-placeholder REDIS_PASSWORD=lint-placeholder docker compose -f docker/docker-compose.poc.yml -f docker/docker-compose.python-legacy.yml config --quiet \
+		&& echo "  docker/docker-compose.python-legacy.yml (overlay)  OK"
 	@docker compose -f docker/docker-compose.test.yml config --quiet \
 		&& echo "  docker/docker-compose.test.yml                     OK"
 	@docker compose -f docker/docker-compose.monitoring.yml config --quiet \

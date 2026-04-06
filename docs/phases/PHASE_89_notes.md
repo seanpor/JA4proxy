@@ -77,12 +77,19 @@ grep -rn "REDIS_PASSWORD:-changeme" (yml/yaml, excluding .git)
 ```
 No remaining occurrences.
 
-## Pre-existing Issue: docker-compose.go.yml Missing
+## docker-compose.go.yml Stale References — Investigated and Fixed
 
-`Makefile` line 316 references `docker/docker-compose.go.yml` in the `lint-docker`
-target, but this file does not exist. This causes `make lint-docker` to fail at that
-step. This is a pre-existing defect predating Phase 89 and is outside Phase 89's scope
-(Dockerfile hygiene). Flagged for a future cleanup phase.
+`Makefile` line 316 referenced `docker/docker-compose.go.yml` which no longer exists.
+Investigation via `git log` found it was **intentionally deleted** in commit b012edf
+("refactor(compose): Go proxy is production default; Python is legacy overlay") — the
+Go proxy is now the default service in `docker-compose.poc.yml`, making a separate
+Go overlay redundant.
+
+Stale references updated:
+- `Makefile` lint-docker target: updated to reference `docker-compose.python-legacy.yml` (the current overlay)
+- `docs/runbooks/go_proxy_migration.md`: updated "start Go proxy" step to use `poc.yml` directly
+- `docs/developer/GO_PORT_GUIDE.md`: removed `docker-compose.go.yml` build/run commands
+- `docs/operator/CAPACITY_PLANNING.md`: updated to reference `python-legacy.yml` for parity validation
 
 ## Files Modified
 
