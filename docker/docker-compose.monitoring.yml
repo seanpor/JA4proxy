@@ -20,7 +20,8 @@ services:
     restart: unless-stopped
     networks:
       - ja4proxy-monitoring
-      - ja4proxy_ja4proxy-backend
+      - poc_dmz_net
+      - poc_mgmt_net
     read_only: true
     tmpfs:
       - /tmp:noexec,nosuid,nodev,size=50m
@@ -96,7 +97,6 @@ services:
     restart: unless-stopped
     networks:
       - ja4proxy-monitoring
-      - ja4proxy_ja4proxy-backend
     depends_on:
       - prometheus
       - loki
@@ -151,7 +151,7 @@ services:
     # Not exposed to host — only accessible from monitoring network
     restart: unless-stopped
     networks:
-      - ja4proxy_ja4proxy-backend
+      - poc_data_net
       - ja4proxy-monitoring
     read_only: true
     security_opt:
@@ -256,7 +256,7 @@ services:
     restart: unless-stopped
     networks:
       - ja4proxy-monitoring
-      - ja4proxy_ja4proxy-backend
+      - poc_dmz_net
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -289,6 +289,15 @@ volumes:
 networks:
   ja4proxy-monitoring:
     driver: bridge
-  # Connect to POC backend network for metrics scraping
-  ja4proxy_ja4proxy-backend:
+  # Connect to POC networks for metrics scraping.
+  # Network names are prefixed by the Compose project name (directory basename, lowercased).
+  # Override by setting COMPOSE_PROJECT_NAME in your environment or .env file.
+  poc_dmz_net:
     external: true
+    name: ${COMPOSE_PROJECT_NAME:-ja4proxy4}_dmz_net
+  poc_data_net:
+    external: true
+    name: ${COMPOSE_PROJECT_NAME:-ja4proxy4}_data_net
+  poc_mgmt_net:
+    external: true
+    name: ${COMPOSE_PROJECT_NAME:-ja4proxy4}_mgmt_net
