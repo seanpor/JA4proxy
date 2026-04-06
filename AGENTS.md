@@ -4,6 +4,42 @@ This document defines the mandatory operational standards for AI agents working 
 
 ---
 
+## 📋 Mandatory Planning Protocol — Read Before Doing Anything
+
+**When asked to perform any work — new feature, bug fix, refactor, or investigation — the agent MUST follow this sequence. No exceptions.**
+
+### Step 1 — Write the plan first
+
+Before writing a single line of code or running any mutating command:
+
+1. Determine the correct phase number (check `docs/phases/manifest.yaml` for the next available number).
+2. Create the phase document at `docs/phases/PHASE_XX.md` using the standard template:
+   - **Goal** — one-paragraph summary of what is being built and why.
+   - **Scope** — exact list of files to be created or modified.
+   - **Implementation plan** — numbered steps in the order they will be executed.
+   - **Test strategy** — which test categories are needed and what they verify.
+   - **Acceptance criteria** — explicit, checkable conditions that define "done".
+   - **Out of scope** — explicit list of things this phase will NOT touch.
+3. Present the plan to the user with a brief summary: *"Here is the plan — please review before I begin."*
+
+### Step 2 — Wait for explicit approval
+
+Do **not** proceed until the user gives a clear go-ahead (e.g., "looks good", "proceed", "yes").
+
+If the user requests changes to the plan, update `PHASE_XX.md` and re-present it. Repeat until approved.
+
+### Step 3 — Implement
+
+Only after written approval: create the branch, write code, write tests, and follow the Phase Close-Out Checklist.
+
+### Why this matters
+
+Code written before a plan is reviewed tends to drift from intent, require rewrites, and accumulate technical debt. The plan document is the contract between the agent and the user. Starting with code instead of a plan is the single most common source of rework on this project.
+
+> **Exception:** If the user explicitly says "just do it, no plan needed" or "skip the plan", proceed directly to implementation. Record this waiver in the phase notes.
+
+---
+
 ## 🛠️ Tool Usage & Communication
 
 - **Bash Tool:** Strictly only use the `command` field. Do not include `description` as it triggers validation errors.

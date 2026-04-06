@@ -1,0 +1,107 @@
+# AppArmor profile for the JA4proxy main proxy process (Phase 34d / 56b)
+#
+# INSTALLATION
+# ============
+# This profile must be loaded into the host kernel before Docker can reference it:
+#
+#   sudo apparmor_parser -r config/apparmor/ja4proxy
+#   # or, for persistence across reboots:
+#   sudo install -m 644 config/apparmor/ja4proxy /etc/apparmor.d/ja4proxy
+#   sudo apparmor_parser -r /etc/apparmor.d/ja4proxy
+#
+# Then reference it in docker-compose under the proxy service:
+#   security_opt:
+#     - apparmor:ja4proxy
+#
+# PURPOSE
+# =======
+# Minimal permit-list for the JA4proxy TLS passthrough process:
+#   - Allows Python runtime operations (mmap, futex, signal handling)
+#   - Allows reading config files, certificates, GeoIP databases
+#   - Allows Unix-socket I/O with Redis (the only permitted file write target)
+#   - Allows TCP socket operations (accept, forward, connect to backend/Redis)
+#   - DENIES spawning shells or external programs (execve of non-Python binaries)
+#   - DENIES writes outside of allowed paths (tmpfs, Unix socket, /proc/self)
+#   - DENIES ptrace (prevent process inspection / debug injection)
+#
+# NOTE: AppArmor network address rules require specific IP addresses.  Because
+# backend/Redis IPs are environment-variable driven, the profile uses a broad
+# "network stream" permission.  Outbound-IP whitelisting is enforced at the
+# nftables/iptables egress layer in the Docker network configuration.
+# See docs/phases/PHASE_72.md for network zone isolation details.
+
+#include <tunables/global>
+
+profile ja4proxy flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  # ── Python runtime ────────────────────────────────────────────────────
+  # Allow Python interpreter and its standard library (read-only)
+  /usr/bin/python3*           rix,
+  /usr/local/bin/python3*     rix,
+  /usr/lib/python3*/          r,
+  /usr/lib/python3/**         r,
+  /usr/local/lib/python3*/    r,
+  /usr/local/lib/python3/**   r,
+
+  # Allow compiled .pyc files to be created in __pycache__ dirs
+  /app/**/__pycache__/        rw,
+  /app/**/__pycache__/**      rw,
+
+  # ── Application files (read-only) ────────────────────────────────────
+  /app/                       r,
+  /app/**                     r,
+
+  # ── Config, certs, GeoIP (read-only) ─────────────────────────────────
+  /app/config/                r,
+  /app/config/**              r,
+  /etc/ssl/                   r,
+  /etc/ssl/**                 r,
+  /usr/share/GeoIP/           r,
+  /usr/share/GeoIP/**         r,
+
+  # ── Ephemeral tmpfs (write permitted — noexec enforced by mount flags) ─
+  /tmp/                       rw,
+  /tmp/**                     rw,
+  /var/run/                   rw,
+  /var/run/**                 rw,
+
+  # ── System files (read-only access for Python runtime introspection) ──
+  /proc/self/                 r,
+  /proc/self/*                r,
+  /proc/sys/net/**            r,
+  /sys/kernel/mm/transparent_hugepage/hpage_pmd_size r,
+
+  # ── Network operations ────────────────────────────────────────────────
+  # TCP stream sockets (accept from clients, connect to backend/Redis)
+  network inet  stream,
+  network inet6 stream,
+  # Unix domain sockets (Redis Unix socket path in /var/run/redis/)
+  network unix  stream,
+
+  # ── Capabilities ──────────────────────────────────────────────────────
+  # Allow binding to privileged ports only if explicitly needed (default: off)
+  # capability net_bind_service,
+
+  # ── EXPLICIT DENIES ───────────────────────────────────────────────────
+  # Deny execution of any shell or system utility — prevents post-exploitation
+  # lateral movement even if the Python process is compromised.
+  deny /bin/sh     x,
+  deny /bin/bash   x,
+  deny /bin/dash   x,
+  deny /bin/ash    x,
+  deny /usr/bin/sh x,
+  deny /usr/bin/bash x,
+  deny /usr/bin/env x,
+  deny /usr/bin/perl* x,
+  deny /usr/bin/ruby* x,
+
+  # Deny ptrace — prevents a compromised container from inspecting sibling processes
+  deny ptrace,
+
+  # Deny writes to sensitive host paths that might be bind-mounted
+  deny /etc/passwd w,
+  deny /etc/shadow w,
+  deny /etc/hosts  w,
+  deny /etc/resolv.conf w,
+}

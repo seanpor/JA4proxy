@@ -4,17 +4,9 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🟡 Phases In Progress
 
-### Phase 34 — APT Hardening - Phase 1: Parser Isolation & Redis Security
-*   **Status:** **IN_PROGRESS** (Implement parser process isolation and Zero-Trust Redis ACLs with signatures. Now also covers items absorbed from cancelled Phase 55: Redis ACL users, JA4/TLS mismatch detection, proxy Seccomp JSON profile, AppArmor profile, subnet correlation pipeline wiring, and fuzz test.)
-*   **Action Plan:** [PHASE_34.md](PHASE_34.md)
-
 ---
 
 ## 🔵 Planned & Open Phases
-
-### Phase 56 — Advanced APT - Phase 2: Deceptive Defense & Persistence Defense
-*   **Status:** **PROPOSED** (Implement honey-fingerprints, honey-SNIs, and runtime process namespace isolation.)
-*   **Action Plan:** [PHASE_56.md](PHASE_56.md)
 
 ### Phase 57 — Backup System Enhancements - Phase 3: Cloud & Incrementals
 *   **Status:** **PROPOSED** (Add cloud storage adapters (S3/GCS) and incremental backup strategy.)
@@ -71,3 +63,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 86 — Observability & Capacity Planning
 *   **Status:** **PROPOSED** (Datadog Agent integration tile with dashboard and 4 monitors. Dynatrace EF2 extension with topology entity type. Nagios check plugin and Zabbix template. Capacity sizing calculator script. make load-test harness. Published benchmark numbers. 7 operator runbooks.)
 *   **Action Plan:** [PHASE_86.md](PHASE_86.md)
+
+### Phase 87 — Container & Host Infrastructure Observability
+*   **Status:** **PROPOSED** (cAdvisor per-container metrics integration. Dedicated ja4proxy-infrastructure Grafana dashboard with fleet status strip and container variable drill-down (no infinite scroll). Host CPU/memory/disk alert rules. Per-container OOM and restart-loop alerts. Connection rate spike and distributed attack detection rules. Infrastructure runbook.)
+*   **Action Plan:** [PHASE_87.md](PHASE_87.md)

@@ -1,0 +1,44 @@
+{
+  "_comment": "Startup phase seccomp profile for JA4proxy (Phase 56b).",
+  "_description": "Permissive profile used during startup while Python imports modules, opens files, and binds sockets. Includes all syscalls from proxy_runtime.json PLUS additional syscalls required for module loading, dynamic linking, and process initialisation. Replaced by proxy_runtime.json after startup is complete (if apply_runtime_seccomp() is called).",
+  "_phase": "startup: allows file loading, socket binding, module imports",
+  "defaultAction": "SCMP_ACT_ERRNO",
+  "defaultErrnoRet": 1,
+  "syscalls": [
+    {
+      "names": [
+        "socket", "bind", "listen", "accept", "accept4", "connect",
+        "sendto", "recvfrom", "sendmsg", "recvmsg", "sendmmsg", "recvmmsg",
+        "setsockopt", "getsockopt", "shutdown", "getpeername", "getsockname",
+        "read", "write", "readv", "writev", "open", "creat", "openat", "openat2",
+        "close", "stat", "fstat", "lstat", "newfstatat", "statx",
+        "lseek", "mmap", "mprotect", "munmap", "brk",
+        "ioctl", "pread64", "pwrite64", "readlink", "readlinkat",
+        "getcwd",
+        "getpid", "getppid", "getuid", "getgid", "geteuid", "getegid",
+        "getgroups", "getpgrp", "getrlimit", "setrlimit", "getrusage",
+        "uname", "sysinfo", "times",
+        "clone", "fork", "vfork",
+        "execve",
+        "futex", "nanosleep", "clock_nanosleep", "clock_gettime",
+        "clock_getres", "gettimeofday", "settimeofday",
+        "poll", "epoll_create", "epoll_create1", "epoll_ctl", "epoll_wait",
+        "epoll_pwait", "select", "pselect6",
+        "eventfd", "eventfd2", "pipe", "pipe2",
+        "madvise", "mincore", "msync",
+        "rt_sigaction", "rt_sigprocmask", "rt_sigreturn", "sigaltstack",
+        "kill", "tkill", "tgkill",
+        "access", "faccessat", "chdir", "fchdir",
+        "mkdir", "mkdirat", "unlink", "unlinkat",
+        "rename", "renameat", "renameat2",
+        "fcntl", "dup", "dup2", "dup3",
+        "fsync", "fdatasync", "truncate", "ftruncate",
+        "exit", "exit_group",
+        "prctl", "arch_prctl", "getrandom", "prlimit64",
+        "set_tid_address", "set_robust_list",
+        "getdents64", "getdents"
+      ],
+      "action": "SCMP_ACT_ALLOW"
+    }
+  ]
+}
