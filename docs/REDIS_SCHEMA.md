@@ -137,4 +137,15 @@ phase: 54
 
 ---
 
-*Last updated: 2026-04-06, Phase 91 complete*
+---
+
+## Phase 80 — ECS Structured Logging & SIEM Integration
+
+| Key pattern | Type | TTL | Written by | Notes |
+|-------------|-|-|--------|-|
+| `events:connection` | Redis Stream | none | Go proxy (`internal/webhook/delivery.go` `Run()`) | Source stream of connection events consumed by the webhook dispatcher. Each entry has a single field `event` = ECS JSON string. The dispatcher uses `XREAD` with `lastID` tracking; no consumer group required. |
+| `webhooks:dlq` | Redis Stream | none | Webhook `Dispatcher.deliverToEndpoint()` | Dead-letter queue for webhook deliveries that exhausted all retry attempts. Each entry has a single field `payload` = original ECS event JSON (including the `signature` field). Operators must manually inspect and replay or discard DLQ entries. |
+
+---
+
+*Last updated: 2026-04-07, Phase 80 complete*

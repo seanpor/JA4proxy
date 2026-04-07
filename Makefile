@@ -1211,3 +1211,13 @@ test-phase-92:
         lint-markdown lint-spelling lint-toml lint-makefiles lint-go-mod \
         lint-python lint-go lint-sast lint-infra lint-observability \
         lint-supply-chain lint-docs-all lint-all test-phase-92
+
+## Phase 80 targets
+test-phase-80:
+	GOROOT=/snap/go/current go test ./internal/logging/... ./internal/webhook/... -v
+	python3 -m pytest tests/unit/test_ecs_logging.py -v
+
+validate-ecs-schema:
+	python3 -c "import json,jsonschema; from jsonschema import Draft7Validator,FormatChecker; schema=json.load(open('config/integrations/ecs-schema.json')); sample=json.load(open('config/integrations/ecs-sample-event.json')); errors=list(Draft7Validator(schema,format_checker=FormatChecker()).iter_errors(sample)); [(__import__('sys').exit(1) or print('ERROR:',e.message)) for e in errors] if errors else print('ECS schema validation: OK')"
+
+.PHONY: test-phase-80 validate-ecs-schema

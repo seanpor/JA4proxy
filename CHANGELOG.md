@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.80.0] - 2026-04-07 - ECS Structured Logging & SIEM Integration Pack
+
+### Added
+- ECS 8.x formatter for Go proxy (`internal/logging/ecs_formatter.go`): outputs dotted-key ECS JSON via `logrus`; `Mode: "ecs"` produces ECS 8.x fields; `Mode: "legacy"` retains pre-Phase 80 format
+- ECS 8.x formatter for Python analytics (`src/utils/logging_config.py`): `JSONFormatter(format="ecs")` emits `@timestamp`, `source.ip`, `event.action`, `ja4proxy.*`, and all standard ECS fields; `dual_output=True` emits legacy + ECS lines for migration windows
+- Webhook dispatcher (`internal/webhook/delivery.go`): HMAC-SHA256 signed delivery to configurable HTTP endpoints; exponential backoff retry; Redis Stream DLQ (`webhooks:dlq`) after retry exhaustion; `X-JA4Proxy-Signature` header; event-type filtering per endpoint
+- Vector config templates in `config/integrations/`: `vector-splunk-hec.yaml`, `vector-sentinel.yaml`, `vector-qradar-leef.yaml`, `vector-elastic.yaml`
+- Splunk TA (CIM-compliant, 5 correlation searches covering ban storms, campaign detection, dial changes, TLS downgrade, and score drift)
+- Microsoft Sentinel content pack (5 KQL analytic rules, 2 Logic App playbooks for automated IP enrichment and dial adjustment)
+- IBM QRadar DSM for LEEF-formatted JA4proxy events
+- Elastic integration pack with ingest pipeline and index template
+- `config/integrations/ecs-schema.json`: JSON Schema (draft-07) validating the five mandatory ECS fields; used in CI via `make validate-ecs-schema`
+- `config/integrations/ecs-sample-event.json`: minimal valid ECS `blocked` connection event for schema CI validation
+- `docs/api/ecs_extension.md`: canonical ECS field reference for SOC analysts — mandatory fields table, full `ja4proxy.*` extension field table, event type examples, webhook payload and signature verification (Python and bash), schema validation instructions
+
+### Changed
+- `logging.format` config key added to `config/proxy.yml` (default: `legacy`); valid values: `legacy`, `ecs`
+- Connection log now emits full ECS field set when `logging.format: ecs` is configured — `@timestamp`, `event.action`, `event.outcome`, `event.severity`, `event.risk_score`, `source.ip`, `tls.version`, `tls.cipher`, `threat.indicator.*` (ban events), all `ja4proxy.*` fields
+- `setup_logging()` in `src/utils/logging_config.py` accepts `format=` parameter (`"legacy"` or `"ecs"`) in addition to the existing `level=` and `json_format=` parameters
+
+### Notes
+- `logging.format: legacy` is the default; no changes required on upgrade for operators not adopting ECS
+- Existing Grafana dashboards consume Prometheus metrics; they are not affected by the log format setting
+- Phase 79 API-dependent features (Splunk alert action webhook, Sentinel automated playbooks) are verified once Phase 79 merges; all other deliverables are standalone
+
 ## [Phase 92] — 2026-04-07
 
 ### Added
