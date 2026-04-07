@@ -510,3 +510,263 @@ def test_map_role_empty_groups_no_default() -> None:
             os.environ["MANAGEMENT_SAML_DEFAULT_ROLE"] = saved
         else:
             os.environ["MANAGEMENT_SAML_DEFAULT_ROLE"] = ""
+
+# ── Section 8: Integration test stubs (Gap 5 — Phase 100) ────────────────────
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(
+    not os.environ.get("OKTA_METADATA_URL"),
+    reason="OKTA_METADATA_URL not set — live Okta test skipped",
+)
+async def test_saml_live_okta_login() -> None:
+    """Placeholder: end-to-end login against live Okta SAML IdP.
+
+    To run: OKTA_METADATA_URL=https://... pytest -m integration
+    """
+    pytest.skip("Not yet implemented — stub for future live-IdP test")
+
+# ── Section 9: Audit log events (Gap 2 — Phase 100) ──────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_saml_acs_success_writes_audit_entry(
+    public_client: AsyncClient,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> None:
+    """Successful SAML ACS login writes an entry to management:audit_log.
+
+    Verifies Gap 2: SSO login events must appear in the audit trail.
+    Entry must have action_type='sso.login' and actor_id equal to the SAML NameID.
+    """
+    nonce = "test-nonce-audit"
+    await fake_redis.set(f"mgmt:saml:nonce:{nonce}", "/", ex=300)
+
+    mock_auth = _make_mock_saml_auth(
+        nameid="audited@example.com",
+        groups=["Security-Admins"],
+    )
+    with patch("management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+        r = await public_client.post(
+            "/auth/sso/saml/acs",
+            data={"SAMLResponse": "ZmFrZQ==", "RelayState": nonce},
+            follow_redirects=False,
+        )
+    assert r.status_code in (200, 302), f"Expected login success, got {r.status_code}: {r.text}"
+
+    # Audit entry must exist in Redis
+    entries = await fake_redis.lrange("management:audit_log", 0, 0)
+    assert entries, "Expected at least one audit entry in management:audit_log"
+
+    entry = json.loads(entries[0])
+    assert entry.get("action_type") == "sso.login", (
+        f"Expected action_type='sso.login', got {entry.get('action_type')!r}"
+    )
+    assert entry.get("actor_id") == "audited@example.com", (
+        f"Expected actor_id='audited@example.com', got {entry.get('actor_id')!r}"
+    )
+    assert entry.get("resource_type") == "session", (
+        f"Expected resource_type='session', got {entry.get('resource_type')!r}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_saml_acs_failure_does_not_write_audit_entry(
+    public_client: AsyncClient,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> None:
+    """Failed SAML ACS (auth_failed) does NOT write an audit entry."""
+    nonce = "test-nonce-noaudit"
+    await fake_redis.set(f"mgmt:saml:nonce:{nonce}", "/", ex=300)
+
+    mock_auth = _make_mock_saml_auth(authenticated=False, errors=["bad_response"])
+    with patch("management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+        r = await public_client.post(
+            "/auth/sso/saml/acs",
+            data={"SAMLResponse": "ZmFrZQ==", "RelayState": nonce},
+            follow_redirects=False,
+        )
+    assert r.status_code == 401
+
+    entries = await fake_redis.lrange("management:audit_log", 0, -1)
+    for e in entries:
+        parsed = json.loads(e)
+        assert parsed.get("action_type") != "sso.login", (
+            f"Failed login must not produce an audit entry: {parsed}"
+        )
+
+# ── Section 10: SSO-delegated MFA trust (Gap 4 — Phase 100) ──────────────────
+
+
+@pytest.mark.asyncio
+async def test_saml_acs_idp_mfa_trust_sets_session_key(
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> None:
+    """When MANAGEMENT_SSO_TRUST_IDP_MFA=true and IdP asserts MFA, session MFA key is set.
+
+    The authn context urn:...TimeSyncToken is an MFA context — mgmt:mfa:session:* must
+    be set after ACS so the user does not need to complete a separate TOTP/WebAuthn step.
+    """
+    import hashlib
+    from jose import jwt as _jwt
+
+    app = create_app()
+    await _redis_module.init_redis(override_client=fake_redis)
+
+    nonce = "test-nonce-mfa-trust"
+    await fake_redis.set(f"mgmt:saml:nonce:{nonce}", "/", ex=300)
+
+    mock_auth = _make_mock_saml_auth(
+        nameid="mfa-user@example.com",
+        groups=["Security-Admins"],
+    )
+    mock_auth.get_last_authn_contexts.return_value = [
+        "urn:oasis:names:tc:SAML:2.0:ac:classes:TimeSyncToken"
+    ]
+
+    saved = os.environ.get("MANAGEMENT_SSO_TRUST_IDP_MFA")
+    try:
+        os.environ["MANAGEMENT_SSO_TRUST_IDP_MFA"] = "true"
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            with patch("management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+                r = await client.post(
+                    "/auth/sso/saml/acs",
+                    data={"SAMLResponse": "ZmFrZQ==", "RelayState": nonce},
+                    follow_redirects=False,
+                )
+    finally:
+        if saved is not None:
+            os.environ["MANAGEMENT_SSO_TRUST_IDP_MFA"] = saved
+        else:
+            os.environ.pop("MANAGEMENT_SSO_TRUST_IDP_MFA", None)
+        await _redis_module.close_redis()
+
+    assert r.status_code in (200, 302), f"Expected login success, got {r.status_code}: {r.text}"
+
+    token_value = r.cookies.get("token")
+    assert token_value, "No token cookie issued"
+
+    mfa_key = "mgmt:mfa:session:" + hashlib.sha256(token_value.encode()).hexdigest()
+    value = await fake_redis.get(mfa_key)
+    assert value == "verified", (
+        f"Expected MFA session key set to 'verified' when IdP asserts MFA, got {value!r}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_saml_acs_idp_mfa_trust_disabled_no_session_key(
+    public_client: AsyncClient,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> None:
+    """When MANAGEMENT_SSO_TRUST_IDP_MFA is not set (default), MFA session key is NOT set."""
+    import hashlib
+
+    nonce = "test-nonce-mfa-notrust"
+    await fake_redis.set(f"mgmt:saml:nonce:{nonce}", "/", ex=300)
+
+    mock_auth = _make_mock_saml_auth(
+        nameid="mfa-user2@example.com",
+        groups=["Security-Admins"],
+    )
+    mock_auth.get_last_authn_contexts.return_value = [
+        "urn:oasis:names:tc:SAML:2.0:ac:classes:TimeSyncToken"
+    ]
+
+    saved = os.environ.pop("MANAGEMENT_SSO_TRUST_IDP_MFA", None)
+    try:
+        with patch("management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+            r = await public_client.post(
+                "/auth/sso/saml/acs",
+                data={"SAMLResponse": "ZmFrZQ==", "RelayState": nonce},
+                follow_redirects=False,
+            )
+    finally:
+        if saved is not None:
+            os.environ["MANAGEMENT_SSO_TRUST_IDP_MFA"] = saved
+
+    assert r.status_code in (200, 302)
+    token_value = r.cookies.get("token")
+    if token_value:
+        mfa_key = "mgmt:mfa:session:" + hashlib.sha256(token_value.encode()).hexdigest()
+        value = await fake_redis.get(mfa_key)
+        assert value is None, (
+            f"MFA session key must NOT be set when trust flag is off, got {value!r}"
+        )
+
+# ── Section 11: config/proxy.yml role mapping (Gap 6 — Phase 100) ────────────
+
+
+def test_saml_map_role_from_proxy_config(tmp_path) -> None:
+    """_map_role() honours sso.role_mapping from config/proxy.yml.
+
+    When env var is empty, the config-file mapping is used as the base.
+    """
+    import yaml
+    from management.api.proxy_config import _clear_cache as _clr
+    from management.api.routes.saml import _map_role
+
+    cfg = tmp_path / "proxy.yml"
+    cfg.write_text("sso:\n  role_mapping:\n    Config-Group: auditor\n")
+
+    saved_path = os.environ.get("MANAGEMENT_PROXY_CONFIG_PATH")
+    saved_env = os.environ.pop("MANAGEMENT_SAML_ROLE_MAPPING", None)
+    _clr()
+    try:
+        os.environ["MANAGEMENT_PROXY_CONFIG_PATH"] = str(cfg)
+        os.environ["MANAGEMENT_SAML_ROLE_MAPPING"] = "{}"
+        role = _map_role(["Config-Group"])
+    finally:
+        _clr()
+        if saved_path is not None:
+            os.environ["MANAGEMENT_PROXY_CONFIG_PATH"] = saved_path
+        else:
+            os.environ.pop("MANAGEMENT_PROXY_CONFIG_PATH", None)
+        if saved_env is not None:
+            os.environ["MANAGEMENT_SAML_ROLE_MAPPING"] = saved_env
+        else:
+            os.environ["MANAGEMENT_SAML_ROLE_MAPPING"] = json.dumps({
+                "Security-Admins": "admin",
+                "SecOps-Operators": "operator",
+                "SOC-Analysts": "analyst",
+            })
+
+    from management.api.models import Role
+    assert role == Role.auditor, f"Expected auditor from config file mapping, got {role}"
+
+
+def test_saml_map_role_env_overrides_config(tmp_path) -> None:
+    """Env var mapping takes precedence over config/proxy.yml for the same group."""
+    from management.api.proxy_config import _clear_cache as _clr
+    from management.api.routes.saml import _map_role
+    from management.api.models import Role
+
+    cfg = tmp_path / "proxy.yml"
+    cfg.write_text("sso:\n  role_mapping:\n    Overlap-Group: auditor\n")
+
+    saved_path = os.environ.get("MANAGEMENT_PROXY_CONFIG_PATH")
+    saved_env = os.environ.get("MANAGEMENT_SAML_ROLE_MAPPING")
+    _clr()
+    try:
+        os.environ["MANAGEMENT_PROXY_CONFIG_PATH"] = str(cfg)
+        os.environ["MANAGEMENT_SAML_ROLE_MAPPING"] = json.dumps({"Overlap-Group": "admin"})
+        role = _map_role(["Overlap-Group"])
+    finally:
+        _clr()
+        if saved_path is not None:
+            os.environ["MANAGEMENT_PROXY_CONFIG_PATH"] = saved_path
+        else:
+            os.environ.pop("MANAGEMENT_PROXY_CONFIG_PATH", None)
+        if saved_env is not None:
+            os.environ["MANAGEMENT_SAML_ROLE_MAPPING"] = saved_env
+        else:
+            os.environ["MANAGEMENT_SAML_ROLE_MAPPING"] = json.dumps({
+                "Security-Admins": "admin",
+                "SecOps-Operators": "operator",
+                "SOC-Analysts": "analyst",
+            })
+
+    assert role == Role.admin, (
+        f"Expected admin (env var wins over config file), got {role}"
+    )

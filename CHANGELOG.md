@@ -1,5 +1,27 @@
 # Changelog
 
+## [Unreleased] - Phase 100 - Phase 79 SSO/MFA Gap Closure
+
+### Added
+- OIDC JWKS signature verification: `_fetch_jwks()` with double-checked `asyncio.Lock` caching (1-hour TTL), `authlib.jose` RS256 decode + claim validation; `MANAGEMENT_TEST_MODE=1` bypass for unit tests (`management/api/routes/oidc.py`)
+- SSO audit log events: `write_audit()` called on every successful SAML and OIDC login with `action_type="sso.login"`, `resource_type="session"`, and `{"provider": "saml"|"oidc"}` in `after_value`
+- WebAuthn credential management endpoints: `GET /auth/mfa/webauthn/credentials` lists enrolled credentials with `created_at`; `DELETE /auth/mfa/webauthn/credentials/{id}` removes credential hash and SET entry with ownership check (returns 204/403/404)
+- SSO-delegated MFA trust: `MANAGEMENT_SSO_TRUST_IDP_MFA=true` env var enables automatic MFA session stamp when SAML response includes `TimeSyncToken` or `MobileTwoFactorContract` authn context, or OIDC `amr` claim includes `mfa`, `otp`, `hwk`, or `swk`
+- `pytest.mark.integration` markers registered in `pyproject.toml` for SAML and OIDC live-IdP placeholder tests
+- `management/api/proxy_config.py`: `get_sso_role_mapping()` reads `sso.role_mapping` from `config/proxy.yml` with 60-second in-process cache; env-var `MANAGEMENT_SAML_ROLE_MAPPING` / `MANAGEMENT_OIDC_ROLE_MAPPING` take priority over config-file entries
+- `pyyaml>=6.0.0` added to `management/requirements.txt`
+
+### Tests
+- `management/tests/test_proxy_config.py`: 7 tests — valid YAML, missing file, no sso section, cache hit/miss, malformed YAML, empty file
+- `management/tests/test_saml.py` Sections 9–11: audit write, MFA trust session key, proxy.yml role-mapping merge, env-override
+- `management/tests/test_oidc.py` Sections 9–11: audit write, MFA trust (amr claim), JWKS signature verification with real RSA key pair, cache call-count test
+- `management/tests/test_webauthn.py` Section 6: list empty/populated credentials, delete success/not-found/wrong-owner (6 tests)
+
+### Notes
+- MANAGEMENT_TEST_MODE=1 bypass in `_extract_claims` mirrors the bcrypt bypass in `auth.py` — allows all existing OIDC tests with unsigned fake tokens to keep passing
+- JWKS cache uses double-checked locking to prevent thundering-herd on cold start
+- Gap 7 (OpenAPI 3.1 spec generation) was completed in Phase 79 C10; not repeated here
+
 ## [Unreleased] - Phase 82 - Policy-as-Code, Shadow Mode & Governance
 
 ### Added

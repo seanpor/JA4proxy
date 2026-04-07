@@ -50,7 +50,8 @@ from fastapi.responses import RedirectResponse, Response
 from onelogin.saml2.auth import OneLogin_Saml2_Auth
 from onelogin.saml2.settings import OneLogin_Saml2_Settings
 
-from ..auth import _create_access_token
+from ..audit_utils import write_audit
+from ..auth import _client_ip, _create_access_token, mfa_session_key
 from ..models import Role
 from ..redis_client import get_redis
 
@@ -125,17 +126,25 @@ async def _build_request_data(request: Request) -> dict:
 def _map_role(groups: list[str]) -> Optional[Role]:
     """Map a list of SAML group names to a management Role.
 
-    Checks ``MANAGEMENT_SAML_ROLE_MAPPING`` (JSON dict) in order; the first
-    matching group wins.  Falls back to ``MANAGEMENT_SAML_DEFAULT_ROLE`` if no
-    group matches.  Returns ``None`` (deny) if neither produces a valid role.
+    Merges group→role mappings from two sources, in priority order:
+    1. ``MANAGEMENT_SAML_ROLE_MAPPING`` env var (JSON dict) — highest priority
+    2. ``sso.role_mapping`` in config/proxy.yml — base mapping
+
+    The first matching group wins.  Falls back to ``MANAGEMENT_SAML_DEFAULT_ROLE``
+    if no group matches.  Returns ``None`` (deny) if neither produces a valid role.
     """
+    from ..proxy_config import get_sso_role_mapping  # local import avoids circular
+
     role_mapping_raw = os.environ.get("MANAGEMENT_SAML_ROLE_MAPPING", "{}")
     default_role_str = os.environ.get("MANAGEMENT_SAML_DEFAULT_ROLE", "")
 
     try:
-        role_mapping: dict = json.loads(role_mapping_raw)
+        env_mapping: dict = json.loads(role_mapping_raw)
     except json.JSONDecodeError:
-        role_mapping = {}
+        env_mapping = {}
+
+    # Config-file base; env var entries override config-file entries for the same group
+    role_mapping: dict = {**get_sso_role_mapping(), **env_mapping}
 
     for group in (groups or []):
         role_str = role_mapping.get(group)
@@ -288,6 +297,20 @@ async def saml_acs(
         )
 
     token = _create_access_token(nameid, role=role.value)
+
+    # Gap 4 (Phase 100): SSO-delegated MFA trust
+    _MFA_SESSION_TTL = 8 * 3600
+    trust_idp_mfa = os.environ.get("MANAGEMENT_SSO_TRUST_IDP_MFA", "false").lower() == "true"
+    if trust_idp_mfa:
+        authn_contexts = auth.get_last_authn_contexts() or []
+        _MFA_AUTHN_CONTEXTS = {
+            "urn:oasis:names:tc:SAML:2.0:ac:classes:MobileTwoFactorContract",
+            "urn:oasis:names:tc:SAML:2.0:ac:classes:TimeSyncToken",
+        }
+        if set(authn_contexts) & _MFA_AUTHN_CONTEXTS:
+            await redis.set(mfa_session_key(token), "verified", ex=_MFA_SESSION_TTL)
+            logger.info("sso | event=idp_mfa_trusted | user=%s | provider=saml", nameid)
+
     response = RedirectResponse(url=redirect_target or "/", status_code=302)
     response.set_cookie(
         "token",
@@ -296,6 +319,18 @@ async def saml_acs(
         samesite="lax",
         secure=request.url.scheme == "https",
     )
+
+    # Gap 2 (Phase 100): audit SSO login event
+    await write_audit(
+        redis,
+        actor_id=nameid,
+        actor_ip=_client_ip(request),
+        action_type="sso.login",
+        resource_type="session",
+        role=role.value,
+        after_value={"provider": "saml"},
+    )
+
     logger.info(
         "saml | event=login_success | user=%s | role=%s", nameid, role.value
     )
