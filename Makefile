@@ -1237,3 +1237,9 @@ openapi-spec:
 	MANAGEMENT_TEST_MODE=1 python3 management/scripts/export_openapi.py
 
 .PHONY: openapi-spec
+
+## Phase 83 targets
+test-phase-83:
+	go test ./internal/cli/... -v -count=1
+	python3 -m pytest tests/integration/test_cli_parity.py -v
+.PHONY: test-phase-83
