@@ -1,0 +1,8 @@
+<nav search_view="search" color="#4B0082">
+  <view name="soc_realtime" default="true"/>
+  <view name="campaign_tracker"/>
+  <view name="dial_history"/>
+  <view name="fingerprint_intel"/>
+  <view name="management_summary"/>
+  <view name="search" label="Search"/>
+</nav>

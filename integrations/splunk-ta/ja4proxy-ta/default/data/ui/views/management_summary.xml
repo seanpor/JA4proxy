@@ -1,0 +1,55 @@
+<dashboard version="1.1">
+  <label>JA4proxy — Management Summary</label>
+
+  <row>
+    <panel>
+      <title>Total Connections (Last 7 Days)</title>
+      <single>
+        <search>
+          <query>`$ja4proxy_index$` earliest=-7d | stats count</query>
+          <earliest>-7d</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>Block Rate (Last 7 Days)</title>
+      <single>
+        <search>
+          <query>`$ja4proxy_index$` earliest=-7d | stats count as total, sum(eval(if('event.action' IN ("blocked","banned","tarpitted"),1,0))) as blocked | eval rate=round(blocked/total*100,1) | fields rate</query>
+          <earliest>-7d</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="unit">%</option>
+        <option name="useColors">true</option>
+        <option name="colorBy">value</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xD93F3C"]</option>
+        <option name="rangeValues">[0,20]</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Top 10 Countries by Block Count (Last 7 Days)</title>
+      <table>
+        <search>
+          <query>`$ja4proxy_index$` earliest=-7d | where 'event.action' IN ("blocked","banned") | stats count as blocks by 'ja4proxy.country_code' | sort -blocks | head 10</query>
+          <earliest>-7d</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="wrap">false</option>
+        <option name="rowNumbers">true</option>
+        <format type="color" field="blocks">
+          <colorPalette type="minMidMax" maxColor="#D93F3C" midColor="#F7BC38" minColor="#65A637"/>
+          <scale type="minMidMax"/>
+        </format>
+      </table>
+    </panel>
+  </row>
+</dashboard>

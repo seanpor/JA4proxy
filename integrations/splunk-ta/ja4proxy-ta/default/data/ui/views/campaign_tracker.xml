@@ -1,0 +1,39 @@
+<dashboard version="1.1">
+  <label>JA4proxy — Campaign Tracker</label>
+
+  <row>
+    <panel>
+      <title>Active Campaigns (Last 24h)</title>
+      <table>
+        <search>
+          <query>`$ja4proxy_index$` 'event.action'="campaign_detected" earliest=-24h | table 'ja4proxy.campaign.id', 'ja4proxy.campaign.fingerprint', 'ja4proxy.campaign.ip_count', 'ja4proxy.campaign.window_minutes', _time</query>
+          <earliest>-24h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="wrap">true</option>
+        <option name="rowNumbers">true</option>
+        <option name="count">20</option>
+      </table>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Campaign Events Over Time</title>
+      <chart>
+        <search>
+          <query>`$ja4proxy_index$` 'event.action'="campaign_detected" | timechart count span=1h</query>
+          <earliest>-24h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.chart.nullValueMode">zero</option>
+        <option name="charting.legend.placement">none</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.axisTitleX.text">Time</option>
+        <option name="charting.axisTitleY.text">Campaign Events</option>
+      </chart>
+    </panel>
+  </row>
+</dashboard>
