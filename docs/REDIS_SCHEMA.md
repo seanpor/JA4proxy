@@ -148,4 +148,15 @@ phase: 54
 
 ---
 
-*Last updated: 2026-04-07, Phase 80 complete*
+## Phase 82 — Policy-as-Code, Shadow Mode & Governance
+
+| Key pattern | Type | TTL | Written by | Notes |
+|-------------|-|-|--------|-|
+| `decisions:pending:{id}` | Hash | none (explicit delete on approve/reject) | Management API (`src/governance/policy_applier.py`) | Pending approval queue entry. Fields: `proposed_by`, `action`, `resource_type`, `resource_id`, `payload`, `status`, `created_at`, `itsm_ticket`. |
+| `decisions:history` | Stream (XADD) | none | Management API (`src/governance/policy_applier.py`) | Append-only log of all approve/reject decisions. Each entry records actor, decision, timestamp, and the original `decisions:pending` payload. |
+| `sim:conn:{hour_epoch}:{conn_id}` | Hash | 7776000s (90d) | Analytics node (`analytics/signal_retention.py`) | Connection signal snapshot for shadow mode replay. Fields: `timestamp`, `source_ip`, `ja4`, `score`, `signals` (JSON array). LZ4-compressed when `shadow_mode.backend: redis`. |
+| `sim:job:{sim_id}` | Hash | 604800s (7d) | Analytics node (`analytics/simulation_runner.py`) | Simulation job state. Fields: `status`, `hypothetical_dial`, `from_ts`, `to_ts`, `result_json`. |
+
+---
+
+*Last updated: 2026-04-07, Phase 82 complete*
