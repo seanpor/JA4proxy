@@ -1,0 +1,54 @@
+# config/integrations/vector-interlink.yaml
+#
+# Vector sidecar configuration for Interlink Software Service Watch integration.
+# phase-81
+#
+# Source: "stdin" is the correct choice for Docker/container deployments — the
+# Go proxy writes to stdout and Docker captures it. "journald" is ONLY correct
+# for bare-metal RHEL deployments where the proxy runs as a systemd service.
+# This config matches the pattern in vector-sentinel.yaml (Phase 80).
+#
+# For bare-metal systemd deployments, replace the source with:
+#   type: journald
+#   units: ["ja4proxy-proxy.service", "ja4proxy-analytics.service"]
+
+sources:
+  ja4proxy_logs:
+    type: stdin
+    # Reads newline-delimited ECS JSON from the Go proxy's stdout.
+
+transforms:
+  parse_ecs:
+    type: remap
+    inputs: ["ja4proxy_logs"]
+    source: |
+      . = parse_json!(string!(.message))
+
+  to_cef:
+    type: remap
+    inputs: ["parse_ecs"]
+    source: |
+      # CEF severity must be an integer 0-10.
+      # risk_score is 0-100; divide by 10 and round to nearest integer.
+      cef_severity = to_string(to_int(round(float!(.["event.risk_score"]) / 10.0)))
+
+      .cef = "CEF:0|JA4proxy|JA4proxy Proxy|" + string(.["service.version"] ?? "unknown") +
+             "|" + string!(.["event.action"]) +
+             "|JA4proxy " + string!(.["event.action"]) +
+             "|" + cef_severity +
+             "|src=" + string!(.["source.ip"]) +
+             " dst=" + string(.["destination.ip"] ?? "") +
+             " act=" + string!(.["event.action"]) +
+             " cs1=" + string(.["ja4proxy.fingerprint.ja4"] ?? "") +
+             " cs1Label=JA4Fingerprint"
+
+sinks:
+  interlink_syslog:
+    type: socket
+    inputs: ["to_cef"]
+    # Set INTERLINK_SYSLOG_HOST env var to your Service Watch syslog receiver hostname.
+    address: "${INTERLINK_SYSLOG_HOST}:6514"
+    mode: tcp
+    tls:
+      enabled: true
+      ca_file: "/etc/ja4proxy/tls/interlink-ca.crt"

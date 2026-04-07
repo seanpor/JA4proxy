@@ -8,6 +8,7 @@ groups:
         annotations:
           summary: "AbuseIPDB daily quota exhausted; enrichment paused until midnight UTC"
           runbook: "docs/runbooks/external_api_failures.md"
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
 
       - alert: SpamhausDownloadFailed
         expr: rate(ja4proxy_blocklist_download_errors_total[5m]) > 0
@@ -16,6 +17,7 @@ groups:
         annotations:
           summary: "Spamhaus DROP/EDROP download failing"
           runbook: "docs/runbooks/feed_management.md"
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
 
       - alert: SpamhausListStale
         expr: time() - ja4proxy_blocklist_last_refresh_success_seconds > 7200
@@ -23,6 +25,7 @@ groups:
         labels: {severity: warning}
         annotations:
           summary: "Spamhaus list not refreshed for >2 hours"
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
 
       - alert: PipelineInternalError
         expr: rate(ja4proxy_pipeline_unexpected_errors_total[1m]) > 0
@@ -32,6 +35,7 @@ groups:
           summary: "Pipeline internal error ({{ $labels.phase }})"
           description: "An unexpected exception was re-raised in the pipeline. Check logs immediately."
           runbook: "docs/runbooks/security_incident_response.md#pipeline-internal-error"
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
 
       - alert: ExceptionRateSpike
         expr: |
@@ -43,3 +47,4 @@ groups:
           summary: "Exception rate 2× above 1h baseline in {{ $labels.module }}"
           description: "Spike may indicate new failure mode. Current: {{ $value | humanize }}/s"
           runbook: "docs/runbooks/security_incident_response.md#exception-rate-spike"
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
