@@ -47,6 +47,7 @@ from .routes import (
     lists,
     pages,
     partials,
+    tokens,
 )
 
 logger = logging.getLogger(__name__)
@@ -90,7 +91,7 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=cors_origins.split(","),
         allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "DELETE"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=["*"],
     )
 
@@ -121,6 +122,7 @@ def create_app() -> FastAPI:
     app.include_router(config_ops.router)
     app.include_router(audit.router)
     app.include_router(partials.router)
+    app.include_router(tokens.router)
 
     # HTML page routes (auth enforced per-route via Depends)
     app.include_router(pages.router)

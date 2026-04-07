@@ -137,4 +137,13 @@ phase: 54
 
 ---
 
-*Last updated: 2026-04-06, Phase 91 complete*
+## Phase 79 — Management API v2: Bearer Token Infrastructure
+
+| Key pattern | Type | TTL | Written by | Notes |
+|-------------|-|-|--------|-|
+| `mgmt:token:{id}` | Hash | none (permanent until revoked; 60s grace TTL during rotation) | `POST /api/v1/tokens`, `POST /api/v1/tokens/{id}/rotate` | Bearer token record. Fields: `id` (UUID4), `name` (human label), `role` (`auditor`\|`analyst`\|`operator`\|`admin`), `hash` (bcrypt of raw token — never returned via API), `created_at` (ISO 8601 UTC), `expires_at` (ISO 8601 UTC or empty string), `last_used_at` (ISO 8601 UTC or empty string). The `hash` field stores a bcrypt digest of the raw bearer token. The raw token is shown only once at creation. *(Phase 79)* |
+| `mgmt:token:idx` | SET of token ID strings | none | `POST /api/v1/tokens` (SADD), `DELETE /api/v1/tokens/{id}` (SREM) | Index of all active bearer token IDs. Used by the bearer auth middleware to enumerate tokens for hash-check lookup. *(Phase 79)* |
+
+---
+
+*Last updated: 2026-04-07, Phase 79 Cluster 1 complete*

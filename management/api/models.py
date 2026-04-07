@@ -4,10 +4,23 @@ All models use strict validation with descriptive field constraints to
 ensure API contract adherence and clear error messages.
 """
 
-from datetime import datetime
-from typing import Any, Optional
+from datetime import datetime, timezone
+from enum import Enum
+from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
+
+
+# ── RBAC ─────────────────────────────────────────────────────────────────────
+
+
+class Role(str, Enum):
+    """Role vocabulary for bearer token access control."""
+
+    auditor = "auditor"
+    analyst = "analyst"
+    operator = "operator"
+    admin = "admin"
 
 
 # ── Auth models ───────────────────────────────────────────────────────────────
@@ -156,3 +169,64 @@ class ConfigReloadResponse(BaseModel):
 
     message: str = "Config reload signal published"
     published_to: str = "config.reload"
+
+
+# ── Token models (Phase 79) ───────────────────────────────────────────────────
+
+
+class TokenCreate(BaseModel):
+    """Request body for POST /api/v1/tokens."""
+
+    name: str = Field(..., min_length=1, max_length=128)
+    role: Role
+    expires_at: Optional[str] = Field(
+        None,
+        description="ISO 8601 UTC timestamp; must be in the future if provided",
+    )
+
+    @field_validator("expires_at")
+    @classmethod
+    def expires_at_must_be_future(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        try:
+            dt = datetime.fromisoformat(v)
+        except ValueError as exc:
+            raise ValueError(f"expires_at is not a valid ISO 8601 timestamp: {v!r}") from exc
+        # Ensure timezone-aware comparison
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        if dt <= datetime.now(timezone.utc):
+            raise ValueError("expires_at must be in the future")
+        return v
+
+
+class TokenResponse(BaseModel):
+    """Token metadata — no hash, no plaintext."""
+
+    id: str
+    name: str
+    role: str
+    created_at: str
+    expires_at: Optional[str] = None
+    last_used_at: Optional[str] = None
+
+
+class TokenCreateResponse(TokenResponse):
+    """Returned once on creation — includes the plaintext token."""
+
+    token: str
+
+
+class TokenListResponse(BaseModel):
+    """Response from GET /api/v1/tokens."""
+
+    tokens: List[TokenResponse] = Field(default_factory=list)
+    count: int = Field(..., ge=0)
+
+
+class TokenRotateResponse(BaseModel):
+    """Response from POST /api/v1/tokens/{id}/rotate."""
+
+    id: str
+    token: str  # new plaintext token

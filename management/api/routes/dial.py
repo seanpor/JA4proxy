@@ -78,7 +78,7 @@ def _client_ip(request: Request) -> str:
 @router.get("/api/v1/dial", response_model=DialValue)
 async def get_dial(
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(get_current_user),
     redis=Depends(get_redis),
 ) -> DialValue:
     """Return the current dial value."""
@@ -86,11 +86,12 @@ async def get_dial(
     return DialValue(value=value, updated_at=None)
 
 
+@router.patch("/api/v1/dial", response_model=DialValue)
 @router.put("/api/v1/dial", response_model=DialValue)
 async def update_dial(
     body: DialUpdateRequest,
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(get_current_user),
     redis=Depends(get_redis),
 ) -> DialValue:
     """Update the dial value.
@@ -104,6 +105,7 @@ async def update_dial(
     Raises:
         HTTPException(400): If the requested change exceeds ±10.
     """
+    identity = current_user[0]
     current = await _get_current_dial(redis)
     delta = abs(body.value - current)
 
@@ -120,7 +122,7 @@ async def update_dial(
     await redis.set(_DIAL_KEY, str(body.value))
     logger.info(
         "dial | event=dial_changed | user=%s | from=%d | to=%d",
-        current_user,
+        identity,
         current,
         body.value,
     )
@@ -128,7 +130,7 @@ async def update_dial(
     await _write_audit(
         redis,
         action="dial_changed",
-        user=current_user,
+        user=identity,
         detail={"from": current, "to": body.value},
         client_ip=_client_ip(request),
     )

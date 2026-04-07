@@ -1,5 +1,22 @@
 # Changelog
 
+## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 1: Bearer Token Infrastructure — 2026-04-07
+
+### Added
+- `POST /api/v1/tokens`, `GET /api/v1/tokens`, `DELETE /api/v1/tokens` endpoints for API token lifecycle management (Admin role only)
+- `GET /api/v1/tokens/{id}`, `DELETE /api/v1/tokens/{id}` for individual token inspection and revocation
+- `POST /api/v1/tokens/{id}/rotate` for token rotation with a 60-second grace period (old token remains valid during overlap)
+- Bearer token authentication middleware: `Authorization: Bearer <token>` accepted on all protected endpoints alongside existing cookie JWT
+- `Role` enum (`auditor`, `analyst`, `operator`, `admin`) in `management/api/models.py`
+- `TokenCreate`, `TokenResponse`, `TokenCreateResponse`, `TokenListResponse`, `TokenRotateResponse` Pydantic models
+- `get_bearer_user()` dependency in `management/api/auth.py` for bearer-token extraction and bcrypt verification
+- `get_current_user()` now returns `Tuple[str, Role]` (identity and role); bearer token checked first, cookie JWT as fallback
+- Tokens stored as bcrypt hashes in Redis (`mgmt:token:{id}` Hash); raw token shown only once at creation
+- `mgmt:token:idx` SET tracks all active token IDs; used by middleware for enumeration during hash-check lookup
+- `last_used_at` field updated in Redis on every successful bearer authentication
+- `bcrypt>=4.1.0` added to `management/requirements.txt`
+- CORS middleware updated to allow `PATCH` method
+
 ## [Phase 92] — 2026-04-06
 
 ### Added

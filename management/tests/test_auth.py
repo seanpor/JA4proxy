@@ -187,3 +187,113 @@ async def test_valid_token_allows_access(authenticated_client: AsyncClient) -> N
     response = await authenticated_client.get("/api/v1/dial")
     # Should succeed (200) or at most return a data-level error, not 401
     assert response.status_code != 401
+
+
+# ── Bearer token auth middleware — additions for Phase 79 Cluster 1 ───────────
+#
+# These tests document how the bearer token middleware interacts with the
+# existing cookie-based auth path.  They are expected to FAIL until the
+# bearer token implementation is in place.
+
+
+@pytest.mark.asyncio
+async def test_bearer_takes_precedence_over_cookie(
+    authenticated_client: AsyncClient,
+    fake_redis,
+) -> None:
+    """Bearer token wins over cookie; identity attributed to token, not admin session."""
+    create_resp = await authenticated_client.post(
+        "/api/v1/tokens",
+        json={"name": "precedence-check", "role": "operator"},
+    )
+    assert create_resp.status_code == 201
+    plaintext = create_resp.json()["token"]
+    token_name = create_resp.json()["name"]
+
+    # Issue a mutating action so an audit entry is written under the bearer identity
+    response = await authenticated_client.patch(
+        "/api/v1/dial",
+        json={"value": 5},
+        headers={"Authorization": f"Bearer {plaintext}", "Accept": "application/json"},
+    )
+    assert response.status_code == 200
+
+    # The audit log must attribute the action to the token identity, not "admin"
+    import json as _json
+    raw_entries = await fake_redis.lrange("management:audit_log", 0, 0)
+    assert raw_entries, "No audit log entry was written"
+    entry = _json.loads(raw_entries[0])
+    assert entry.get("user") != "admin", (
+        f"Audit log user is 'admin' — bearer identity did not take precedence. Entry: {entry}"
+    )
+    assert token_name in entry.get("user", "") or "token:" in entry.get("user", ""), (
+        f"Expected audit log user to reference the token identity, got: {entry.get('user')}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_expired_cookie_valid_bearer_succeeds(fake_redis) -> None:
+    """Expired cookie + valid Bearer token → 200. Expired cookie alone → 401.
+
+    The middleware must fall through from expired cookie to bearer auth,
+    not short-circuit on cookie failure.
+    """
+    from datetime import datetime, timedelta, timezone
+    from jose import jwt
+    from httpx import ASGITransport
+    from management.api import redis_client as _redis_module
+    from management.api.auth import ALGORITHM, _create_access_token, _get_secret_key
+    from management.api.main import create_app
+    from management.tests.test_tokens import _create_token
+
+    expired_payload = {
+        "sub": "admin",
+        "iat": datetime.now(timezone.utc) - timedelta(hours=10),
+        "exp": datetime.now(timezone.utc) - timedelta(hours=2),
+    }
+    expired_cookie = jwt.encode(expired_payload, _get_secret_key(), algorithm=ALGORITHM)
+
+    app = create_app()
+    await _redis_module.init_redis(override_client=fake_redis)
+
+    # Seed a valid bearer token
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        cookies={"token": _create_access_token("admin")},
+    ) as admin_client:
+        created = await _create_token(admin_client, name="fallthrough-bearer")
+        valid_bearer = created["token"]
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        # Expired cookie alone → 401
+        r1 = await client.get(
+            "/api/v1/dial",
+            cookies={"token": expired_cookie},
+            headers={"Accept": "application/json"},
+        )
+        assert r1.status_code == 401
+
+        # Expired cookie + bad bearer → 401
+        r2 = await client.get(
+            "/api/v1/dial",
+            cookies={"token": expired_cookie},
+            headers={"Authorization": "Bearer not-a-real-token", "Accept": "application/json"},
+        )
+        assert r2.status_code == 401
+
+        # Expired cookie + valid bearer → 200 (the load-bearing assertion)
+        r3 = await client.get(
+            "/api/v1/dial",
+            cookies={"token": expired_cookie},
+            headers={"Authorization": f"Bearer {valid_bearer}", "Accept": "application/json"},
+        )
+        assert r3.status_code == 200, (
+            f"Expired cookie + valid bearer must return 200; got {r3.status_code}. "
+            "Middleware must fall through from cookie failure to bearer auth."
+        )
+
+    await _redis_module.close_redis()

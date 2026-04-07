@@ -58,7 +58,7 @@ def _client_ip(request: Request) -> str:
 @router.post("/api/v1/config/reload", response_model=ConfigReloadResponse)
 async def reload_config(
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(get_current_user),
     redis=Depends(get_redis),
 ) -> ConfigReloadResponse:
     """Publish a config reload signal to all proxy instances.
@@ -66,24 +66,25 @@ async def reload_config(
     All instances subscribed to ``config.reload`` will hot-reload their
     configuration on receipt.
     """
+    identity = current_user[0]
     payload = json.dumps(
         {
             "type": "config_reload",
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "requested_by": current_user,
+            "requested_by": identity,
         }
     )
     subscribers = await redis.publish(_RELOAD_CHANNEL, payload)
     logger.info(
         "config_ops | event=reload_published | user=%s | subscribers=%d",
-        current_user,
+        identity,
         subscribers,
     )
 
     await _write_audit(
         redis,
         action="config_reload",
-        user=current_user,
+        user=identity,
         detail={"channel": _RELOAD_CHANNEL, "subscribers": subscribers},
         client_ip=_client_ip(request),
     )
