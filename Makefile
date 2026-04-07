@@ -1039,6 +1039,10 @@ test-phase-87-integration:
 	@./tests/integration/phase-87/check_cadvisor_metrics.sh
 	@./tests/integration/phase-87/check_haproxy_exporter.sh
 
+## Roadmap sync
+sync:
+	python3 scripts/sync-roadmap.py
+
 ## Phase 89 targets
 test-phase-89:
 	python3 -m pytest tests/unit/test_docker_consistency.py \
@@ -1210,4 +1214,4 @@ test-phase-92:
 .PHONY: lint-pylint lint-semgrep lint-checkov lint-haproxy lint-helm lint-ansible \
         lint-markdown lint-spelling lint-toml lint-makefiles lint-go-mod \
         lint-python lint-go lint-sast lint-infra lint-observability \
-        lint-supply-chain lint-docs-all lint-all test-phase-92
+        lint-supply-chain lint-docs-all lint-all test-phase-92 sync
