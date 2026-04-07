@@ -650,3 +650,85 @@ Process Improvement
 This security architecture provides comprehensive protection for the JA4 Proxy system through defense-in-depth strategies, continuous monitoring, and proactive threat management. Regular reviews and updates ensure the architecture remains effective against evolving threats while meeting compliance requirements.
 
 The implementation of these security controls, combined with ongoing security operations and incident response capabilities, provides a robust security posture suitable for enterprise deployment in regulated environments.
+
+## xMatters Integration Architecture
+
+xMatters provides two-way on-call routing with mobile response capability. The
+integration with JA4proxy goes beyond simple alerting: on-call engineers can
+acknowledge, escalate, or act on a ban directly from their mobile device without
+opening a browser. This requires xMatters to call the JA4proxy Management API
+outbound.
+
+### Deployment Options
+
+There are two supported deployment options. Choose based on whether the JA4proxy
+Management API is internet-accessible.
+
+#### Option A: Internet-Accessible Management API
+
+The Management API is placed behind a reverse proxy (nginx, HAProxy, or an API
+gateway) with TLS client certificate authentication (mTLS). Only HTTPS requests that
+present a valid xMatters-issued client certificate are accepted. xMatters Cloud calls
+the Management API URL directly using the client certificate configured in the xMatters
+Endpoint settings.
+
+**When to use Option A:**
+
+- JA4proxy is deployed in a cloud environment where the Management API can be safely
+  exposed via a locked-down reverse proxy.
+- Your security policy permits internet-accessible management interfaces when protected
+  by mTLS.
+- Operator preference for minimal infrastructure (no on-premise agent to manage).
+
+**mTLS client certificate requirement:**
+
+xMatters provides a client certificate for each Endpoint. The reverse proxy in front
+of the Management API must be configured to:
+
+1. Require a client certificate on the management API path.
+2. Verify the certificate against the xMatters CA bundle (available from the xMatters
+   support portal).
+3. Reject connections without a valid certificate before they reach the Management API.
+
+The Management API itself authenticates callers via the Operator-scoped API token
+(stored in xMatters Endpoint configuration). mTLS provides network-layer access
+control in addition to the application-layer token check. Both are required for
+Option A.
+
+For the full mTLS reverse proxy configuration, refer to your organisation's TLS
+hardening standard and the JA4proxy TLS configuration guide.
+
+#### Option B: xMatters On-Premise Agent
+
+The xMatters On-Premise Agent is deployed inside the corporate network on a host with
+access to the JA4proxy Management API. The agent proxies outbound requests from
+xMatters Cloud to the internal Management API. No internet exposure of the Management
+API is required.
+
+**When to use Option B:**
+
+- JA4proxy is deployed on an internal network with no internet-facing management
+  interfaces (air-gapped, DMZ-isolated, or behind a corporate firewall).
+- Regulatory requirements (PCI DSS, UK FCA, NCSC guidelines) prohibit internet-
+  accessible management APIs.
+- The JA4proxy Management API binds to an internal IP address only.
+
+**Agent deployment notes:**
+
+- Install the xMatters On-Premise Agent on a host in the same network zone as the
+  JA4proxy Management API.
+- The agent requires outbound HTTPS to `*.xmatters.com` on port 443. It does not
+  require any inbound internet connectivity.
+- Follow the xMatters On-Premise Agent installation guide for your OS. For RHEL 8/9
+  deployments using Podman/Quadlets, see `docs/phases/PHASE_76.md`.
+
+### Default Recommendation
+
+**Option B is the default recommendation for regulated-industry deployments** (UK
+financial services, utilities, telco, healthcare, and any environment subject to FCA,
+PRA, NCSC CAF, or ISO 27001 controls). The Management API should not be
+internet-accessible unless your organisation has explicitly assessed and accepted the
+risk, and mTLS has been implemented and independently verified.
+
+Document the chosen option in the xMatters integration runbook and in your change
+management record for the deployment.
