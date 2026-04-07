@@ -31,6 +31,7 @@ import (
 	redisclient "github.com/anomalyco/ja4proxy/internal/redis"
 	"github.com/anomalyco/ja4proxy/internal/security"
 	tlsparse "github.com/anomalyco/ja4proxy/internal/tls"
+	webhook "github.com/anomalyco/ja4proxy/internal/webhook"
 )
 
 func main() {
@@ -76,6 +77,11 @@ func main() {
 
 	go proxy.serve(ctx)
 
+	// Start webhook dispatcher if enabled. phase-80.
+	if cfg.Webhooks.Enabled && proxy.dispatcher != nil {
+		go proxy.dispatcher.Run(ctx)
+	}
+
 	for sig := range sigCh {
 		switch sig {
 		case syscall.SIGHUP:
@@ -95,11 +101,12 @@ func main() {
 // ── Proxy ─────────────────────────────────────────────────────────────────
 
 type proxy struct {
-	cfg      *config.Config
-	log      *logrus.Logger
-	pipeline *security.Pipeline
-	redis    *redisclient.Client
-	geoIP    *geoip2.Reader
+	cfg        *config.Config
+	log        *logrus.Logger
+	pipeline   *security.Pipeline
+	redis      *redisclient.Client
+	geoIP      *geoip2.Reader
+	dispatcher *webhook.Dispatcher // phase-80: webhook event delivery
 
 	activeConns int64 // atomic
 	mu          sync.RWMutex
@@ -133,11 +140,53 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 		loadSecurityLists(ctx, rc, p)
 	}()
 
+	// Initialise webhook dispatcher (starts inactive if cfg.Webhooks.Enabled is false).
+	// phase-80: build per-endpoint config; per-endpoint retry/timeout fields are
+	// stored in WebhookEndpointConfig but DispatcherConfig holds global retry settings.
+	// Use the first endpoint's settings as global defaults (or safe defaults if none set).
+	endpoints := make([]webhook.WebhookEndpoint, len(cfg.Webhooks.Endpoints))
+	var dispatchRetryAttempts int = 3
+	var dispatchRetryBackoff float64 = 5.0
+	var dispatchTimeout float64 = 30.0
+	for i, e := range cfg.Webhooks.Endpoints {
+		endpoints[i] = webhook.WebhookEndpoint{
+			ID:     e.ID,
+			URL:    e.URL,
+			Secret: e.Secret,
+			Events: e.Events,
+		}
+		if i == 0 {
+			if e.RetryAttempts > 0 {
+				dispatchRetryAttempts = e.RetryAttempts
+			}
+			if e.RetryBackoffSeconds > 0 {
+				dispatchRetryBackoff = e.RetryBackoffSeconds
+			}
+			if e.TimeoutSeconds > 0 {
+				dispatchTimeout = e.TimeoutSeconds
+			}
+		}
+	}
+	redisAddr := fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port.Int())
+	dispatcherCfg := webhook.DispatcherConfig{
+		Endpoints:      endpoints,
+		StreamKey:      cfg.Webhooks.StreamKey,
+		DLQStreamKey:   cfg.Webhooks.DLQKey,
+		RetryAttempts:  dispatchRetryAttempts,
+		RetryBackoff:   time.Duration(dispatchRetryBackoff * float64(time.Second)),
+		TimeoutSeconds: dispatchTimeout,
+	}
+	disp, err := webhook.NewDispatcher(dispatcherCfg, redisAddr, log)
+	if err != nil {
+		log.WithError(err).Warn("proxy: webhook dispatcher init failed; webhooks disabled")
+	}
+
 	prx := &proxy{
 		cfg:         cfg,
 		log:         log,
 		pipeline:    p,
 		redis:       rc,
+		dispatcher:  disp,
 		tarpitPerIP: make(map[string]int),
 	}
 
@@ -278,6 +327,9 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 
 	// Log every connection decision — required for SIEM visibility at all dial settings.
 	// ECS formatter maps these fields to standard ECS field names.
+	p.mu.RLock()
+	backendHost := p.cfg.Proxy.BackendHost
+	p.mu.RUnlock()
 	p.log.WithFields(logrus.Fields{
 		"client_ip":   connCtx.ClientIP,
 		"ja4":         connCtx.JA4,
@@ -291,7 +343,35 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		"ja4t":        connCtx.TCPJA4T,
 		"dial":        result.Dial,
 		"signals":     result.Signals,
+		"dst_ip":      backendHost, // phase-80: destination for ECS field mapping
 	}).Info("proxy: connection decision")
+
+	// Publish ECS connection event to Redis Stream for webhook delivery.
+	// Fire-and-forget: stream write must never block the hot path.  phase-80.
+	if p.dispatcher != nil {
+		go func() {
+			ecsFields := map[string]interface{}{
+				"@timestamp":                time.Now().UTC().Format(time.RFC3339Nano),
+				"event.action":              result.Action,
+				"event.risk_score":          result.Score,
+				"source.ip":                 connCtx.ClientIP,
+				"destination.ip":            backendHost,
+				"destination.port":          443,
+				"network.transport":         "tcp",
+				"network.protocol":          "tls",
+				"service.name":              "ja4proxy",
+				"ja4proxy.fingerprint.ja4":  connCtx.JA4,
+				"ja4proxy.sni":              connCtx.SNI,
+				"ja4proxy.dial_setting":     result.Dial,
+			}
+			ecsJSON, err := json.Marshal(ecsFields)
+			if err != nil {
+				return
+			}
+			p.redis.XAdd(context.Background(), "events:connection",
+				map[string]interface{}{"event": string(ecsJSON)})
+		}()
+	}
 
 	// Execute action
 	switch result.Action {
@@ -496,6 +576,9 @@ func remoteIP(conn net.Conn) string {
 
 func newLogger(cfg *config.Config) *logrus.Logger {
 	log := logrus.New()
+	// Always write to stdout so that Vector (stdin source) and Docker log drivers
+	// receive structured log lines. logrus defaults to stderr which breaks pipelines.
+	log.SetOutput(os.Stdout)
 	useJSON := cfg.Logging.JSONEnabled || os.Getenv("ENVIRONMENT") == "production"
 	if useJSON || cfg.Logging.Format == "ecs" {
 		// Use ECS formatter when explicitly configured or when JSON+ecs format requested.
@@ -506,6 +589,10 @@ func newLogger(cfg *config.Config) *logrus.Logger {
 		level = logrus.InfoLevel
 	}
 	log.SetLevel(level)
+	// phase-80: dual_output is Python-only. Log a warning if misconfigured.
+	if cfg.Logging.DualOutput && cfg.Logging.Format == "ecs" {
+		log.Warn("proxy: logging.dual_output=true is a Python-only feature; Go proxy emits ECS-only format")
+	}
 	return log
 }
 
