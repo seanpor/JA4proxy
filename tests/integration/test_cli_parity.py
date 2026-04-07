@@ -18,17 +18,56 @@ PYTHON_SCRIPT = os.path.join(REPO_ROOT, "scripts", "ja4proxy-policy.py")
 CLI_BINARY = os.path.join(REPO_ROOT, "_build", "ja4proxy-cli")
 
 
+def _find_go_toolchain() -> tuple[str, str]:
+    """Return (go_binary, goroot) for the available Go toolchain.
+
+    Tries the snap-installed Go first (which requires GOROOT=/snap/go/current),
+    then falls back to whatever `go` is on PATH.  Returns ("", "") if no Go
+    toolchain is found.
+    """
+    import shutil
+
+    # The snap Go binary reports /usr/share/go as GOROOT (wrong stub path),
+    # but the actual standard library is under /snap/go/current.
+    snap_go = "/snap/bin/go"
+    snap_goroot = "/snap/go/current"
+    if os.path.isfile(snap_go) and os.path.isdir(snap_goroot):
+        return snap_go, snap_goroot
+
+    # Fallback: plain `go` on PATH with its own GOROOT.
+    plain_go = shutil.which("go")
+    if plain_go:
+        try:
+            result = subprocess.run(
+                [plain_go, "env", "GOROOT"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            goroot = result.stdout.strip() if result.returncode == 0 else ""
+        except Exception:
+            goroot = ""
+        return plain_go, goroot
+
+    return "", ""
+
+
 @pytest.fixture(scope="session")
 def cli_binary():
     """Compile the Go CLI binary. Skip if go toolchain not available."""
+    go_binary, goroot = _find_go_toolchain()
+    if not go_binary:
+        pytest.skip("No Go toolchain found (tried /snap/bin/go and PATH)")
+
     os.makedirs(os.path.join(REPO_ROOT, "_build"), exist_ok=True)
 
+    build_env = {**os.environ, "GOROOT": goroot} if goroot else {**os.environ}
     result = subprocess.run(
-        ["go", "build", "-o", CLI_BINARY, "./cmd/ja4proxy-cli/"],
+        [go_binary, "build", "-o", CLI_BINARY, "./cmd/ja4proxy-cli/"],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
-        env={**os.environ, "GOROOT": os.environ.get("GOROOT", "/snap/go/current")},
+        env=build_env,
         timeout=120,
     )
     if result.returncode != 0:
@@ -174,3 +213,58 @@ def test_go_cli_validate_exit_codes(tmp_path, cli_binary, yaml_text, expected_ex
         f"Go CLI returned {go_result.returncode}, expected {expected_exit}. "
         f"stderr: {go_result.stderr.decode(errors='replace')}"
     )
+
+
+def test_mutating_command_requires_confirm(cli_binary):
+    """Verify that mutating commands refuse to run without --confirm and exit 1.
+
+    This is the acceptance criterion: mutating commands (ban, release, dial set,
+    allowlist remove, blocklist remove, watchlist remove) must refuse without --confirm.
+    We test ip ban as a representative case — it should exit 1 with a message
+    containing 'confirm' before making any API calls (no server needed).
+    """
+    result = subprocess.run(
+        [cli_binary, "--url", "http://127.0.0.1:1", "ip", "ban", "198.51.100.4"],
+        capture_output=True,
+        timeout=5,
+    )
+    # Must exit non-zero (1) — NOT reach the API (which would fail differently
+    # since 127.0.0.1:1 is not listening).
+    assert result.returncode != 0, (
+        f"Expected non-zero exit without --confirm, got 0"
+    )
+    stderr = result.stderr.decode(errors="replace").lower()
+    assert "confirm" in stderr, (
+        f"Expected 'confirm' in stderr, got: {stderr!r}"
+    )
+
+
+def test_dial_set_requires_confirm(cli_binary):
+    """Verify that 'dial set' refuses to run without --confirm."""
+    result = subprocess.run(
+        [cli_binary, "--url", "http://127.0.0.1:1", "dial", "set", "50"],
+        capture_output=True,
+        timeout=5,
+    )
+    assert result.returncode != 0, "Expected non-zero exit without --confirm"
+    stderr = result.stderr.decode(errors="replace").lower()
+    assert "confirm" in stderr, f"Expected 'confirm' in stderr, got: {stderr!r}"
+
+
+def test_allowlist_remove_requires_confirm(cli_binary):
+    """Verify that 'allowlist remove' refuses to run without --confirm."""
+    result = subprocess.run(
+        [
+            cli_binary,
+            "--url",
+            "http://127.0.0.1:1",
+            "allowlist",
+            "remove",
+            "t13d1516h2_aabbccddeeff_aabbccddeeff",
+        ],
+        capture_output=True,
+        timeout=5,
+    )
+    assert result.returncode != 0, "Expected non-zero exit without --confirm"
+    stderr = result.stderr.decode(errors="replace").lower()
+    assert "confirm" in stderr, f"Expected 'confirm' in stderr, got: {stderr!r}"

@@ -135,3 +135,28 @@ func TestResolveURL_PrecedenceOrder(t *testing.T) {
 		})
 	}
 }
+
+// TestResolveToken_EnvBeatsConfigFile documents the auth resolution contract:
+// env var must beat config file (flag > env > config > keychain).
+// This test is a documentation-level regression guard for the ordering contract.
+// The actual config-file fallback is applied in newClient() in cmd/ja4proxy-cli/main.go,
+// not in auth.ResolveToken — so the env var (checked by ResolveToken) always wins
+// over config-file values (checked in newClient only when ResolveToken returns "").
+func TestResolveToken_EnvBeatsConfigFile(t *testing.T) {
+	// When env var is set and flag is empty, ResolveToken returns the env var.
+	// newClient() only consults the config file when ResolveToken returns "".
+	t.Setenv("JA4PROXY_TOKEN", "env-token")
+	got := auth.ResolveToken("")
+	if got != "env-token" {
+		t.Errorf("env var should beat config file: ResolveToken(%q) = %q; want env-token", "", got)
+	}
+}
+
+// TestResolveURL_EnvBeatsConfigFile documents that env var beats config file for URL.
+func TestResolveURL_EnvBeatsConfigFile(t *testing.T) {
+	t.Setenv("JA4PROXY_URL", "http://from-env:8090")
+	got := auth.ResolveURL("")
+	if got != "http://from-env:8090" {
+		t.Errorf("env var should beat config file: ResolveURL(%q) = %q; want http://from-env:8090", "", got)
+	}
+}

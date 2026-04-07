@@ -1077,6 +1077,99 @@ python3 scripts/ja4proxy-policy.py apply \
 
 ---
 
+### Item 100-O: Phase 83 — keychain token storage not implemented
+
+**Origin:** Phase 83 Critical Review (2026-04-07)
+**Effort:** ~2–3 hours
+**Blocker:** None (env var and config file fallback work fine)
+
+#### Context
+
+The spec (`PHASE_83.md §4`) defines a four-level auth resolution order:
+`flag > env > config file > keychain (99designs/keyring)`.
+
+The current implementation in `internal/cli/auth/auth.go` only handles
+`flag > env`. The config file fallback is applied in `cmd/ja4proxy-cli/main.go`
+`newClient()` (flag > env > config — correct). The keychain level (level 4)
+is not implemented.
+
+#### Exact changes needed
+
+1. Add `github.com/99designs/keyring` to `go.mod` (or use
+   `github.com/zalando/go-keyring` which is simpler).
+2. In `internal/cli/auth/auth.go`, add:
+   ```go
+   // ResolveTokenWithKeychain extends ResolveToken with a keychain fallback.
+   // Resolution order: flagValue → JA4PROXY_TOKEN env var → keyring → "".
+   func ResolveTokenWithKeychain(flagValue string) string {
+       if tok := ResolveToken(flagValue); tok != "" {
+           return tok
+       }
+       tok, err := keyring.Get("ja4proxy-cli", "token")
+       if err == nil && tok != "" {
+           return tok
+       }
+       return ""
+   }
+   ```
+3. Update `newClient()` in `cmd/ja4proxy-cli/main.go` to call
+   `auth.ResolveTokenWithKeychain(gf.token)` instead of `auth.ResolveToken(gf.token)`.
+4. Add a `login` command stub (or `config set-token`) to store credentials:
+   ```
+   ja4proxy-cli config set-token <token>   # stores in keyring
+   ja4proxy-cli config set-url <url>       # writes to config file
+   ```
+
+#### Acceptance criteria
+
+- `TestResolveTokenWithKeychain_KeychainFallback` passes with a mock keyring.
+- `ja4proxy-cli config set-token` stores the token and subsequent commands
+  pick it up without any flag or env var.
+- Unit test documents that flag and env still beat keychain.
+
+---
+
+### Item 100-P: Phase 83 — `confirm_mutating: false` config flag not honoured
+
+**Origin:** Phase 83 Critical Review (2026-04-07)
+**Effort:** ~1 hour
+**Blocker:** None
+
+#### Context
+
+`PHASE_83.md §4` specifies a `confirm_mutating: true` key in the CLI config
+file. When set to `false`, mutating commands should not require `--confirm`
+(useful for non-interactive scripts). This flag is parsed by `config.go` but
+is never checked in `requireConfirm()`.
+
+#### Exact changes needed
+
+1. In `cmd/ja4proxy-cli/main.go`, update `requireConfirm()`:
+   ```go
+   func requireConfirm(confirmed bool, _ *cobra.Command) {
+       if confirmed {
+           return
+       }
+       // Allow skipping prompt if config says so.
+       if cfg, _ := cliconfig.Load(); cfg != nil && !cfg.ConfirmMutating {
+           return
+       }
+       fmt.Fprintf(os.Stderr, "This is a mutating operation. Add --confirm to proceed.\n")
+       os.Exit(1)
+   }
+   ```
+2. Add `ConfirmMutating bool \`yaml:"confirm_mutating"\`` field to `CLIConfig`
+   in `internal/cli/config/config.go` with a default of `true`.
+3. Add a test in `internal/cli/config/config_test.go` that verifies
+   `confirm_mutating: false` is parsed correctly.
+
+#### Acceptance criteria
+
+- A test for `config.go` parsing `confirm_mutating: false` passes.
+- `requireConfirm` behaviour documented in `docs/developer/RELEASE_PROCESS.md`.
+
+---
+
 ## 3. Closed Items
 
 *(None yet — phase opened 2026-04-07)*
