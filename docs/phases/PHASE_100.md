@@ -743,6 +743,82 @@ make help | grep -E "quick-start|perf-test-basic"
 
 ---
 
+### Item 100-J: Verify `PATCH /api/v1/bans/{ip}` exists in Phase 79
+
+**Origin:** Phase 81 Critical Review
+**Effort:** ~15 minutes
+**Blocked on:** Phase 79 merge to main
+
+#### Context
+
+Phase 81's xMatters "Extend Ban" response option (§6.2) calls
+`PATCH /api/v1/bans/{ip}` to extend an active ban's TTL by 24h. This endpoint
+is listed in Phase 81's §2 API table. Phase 79 defines the Management API; if
+`PATCH /api/v1/bans/{ip}` was not implemented there, the xMatters integration
+silently fails on "Extend Ban" responses.
+
+#### Verify steps
+
+```bash
+# After Phase 79 merges, start the management API and check the OpenAPI spec:
+curl -s http://localhost:8090/openapi.json | python3 -c "
+import sys, json
+spec = json.load(sys.stdin)
+paths = spec.get('paths', {})
+endpoint = paths.get('/api/v1/bans/{ip}', {})
+print('PATCH exists:', 'patch' in endpoint)
+print('Methods:', list(endpoint.keys()))
+"
+```
+
+If `PATCH /api/v1/bans/{ip}` is absent from Phase 79: open a Phase 79 gap
+item and add `PATCH /api/v1/bans/{ip}` with body `{"extend_ttl_seconds": N}`
+to the management API. The xMatters connector must not be marked complete until
+this endpoint exists.
+
+#### Acceptance criteria
+- [ ] `PATCH /api/v1/bans/{ip}` present in Phase 79 OpenAPI spec with `extend_ttl_seconds` body field
+- [ ] Returns 200 with updated expiry timestamp on success
+- [ ] Returns 404 if ban does not exist
+
+---
+
+### Item 100-K: Verify `POST /api/v1/tokens/{id}/rotate` exists in Phase 79
+
+**Origin:** Phase 81 Critical Review
+**Effort:** ~15 minutes
+**Blocked on:** Phase 79 merge to main
+
+#### Context
+
+Phase 81's token rotation script (`scripts/rotate_soar_token.sh`) calls
+`POST /api/v1/tokens/{id}/rotate` on a 90-day schedule to refresh SOAR
+platform credentials. If Phase 79 does not deliver this endpoint, the rotation
+script cannot be implemented or tested end-to-end.
+
+#### Verify steps
+
+```bash
+# After Phase 79 merges:
+curl -s http://localhost:8090/openapi.json | python3 -c "
+import sys, json
+spec = json.load(sys.stdin)
+paths = spec.get('paths', {})
+print('rotate exists:', '/api/v1/tokens/{id}/rotate' in paths)
+"
+```
+
+If absent: raise with the Phase 79 author. The endpoint should return the new
+token value in the response body so the rotation script can update SOAR platform
+assets without a second GET call.
+
+#### Acceptance criteria
+- [ ] `POST /api/v1/tokens/{id}/rotate` present in Phase 79 OpenAPI spec
+- [ ] Response body contains `{"token": "<new_value>", "expires_at": "<ISO-8601>"}`
+- [ ] Old token is invalidated immediately after rotation
+
+---
+
 ## 3. Closed Items
 
 *(None yet — phase opened 2026-04-07)*
@@ -751,14 +827,12 @@ make help | grep -E "quick-start|perf-test-basic"
 
 ## 4. Phase completion criteria
 
-Phase 100 is COMPLETE when all nine items above are either:
+Phase 100 is COMPLETE when all eleven items above are either:
 - **Closed** — fix implemented, tests pass, commit SHA recorded, or
 - **Explicitly deferred** — moved to a named future phase with written
   rationale (not silently dropped)
 
-**Unblocked (pick up now):** 100-A, 100-B, 100-C, 100-H, 100-I
-**Blocked on Phase 79:** 100-D
+**Unblocked (pick up now):** 100-A, 100-B, 100-C, 100-F, 100-H, 100-I
+**Blocked on Phase 79:** 100-D, 100-J, 100-K
 **Blocked on platform access:** 100-E
 **Requires engineer triage:** 100-G
-**Integration work deferred:** 100-F (tests and linter wiring can be done now;
-full proxy pipeline integration is a separate phase)
