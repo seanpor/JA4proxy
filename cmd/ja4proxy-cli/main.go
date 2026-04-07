@@ -38,20 +38,6 @@ type globalFlags struct {
 var gf globalFlags
 
 func main() {
-	// Load optional config file defaults.
-	cfg, _ := cliconfig.Load()
-	if cfg != nil {
-		if cfg.URL != "" && gf.url == "" {
-			gf.url = cfg.URL
-		}
-		if cfg.Token != "" && gf.token == "" {
-			gf.token = cfg.Token
-		}
-		if cfg.DefaultOutput != "" && gf.format == "" {
-			gf.format = cfg.DefaultOutput
-		}
-	}
-
 	root := buildRoot()
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -60,12 +46,28 @@ func main() {
 }
 
 // newClient builds a Management API client using the resolved URL and token.
-// Returns an error if either is empty.
+// Resolution order: --flag > JA4PROXY_* env var > ~/.config/ja4proxy/cli.yaml > "".
+// Returns an error if URL is still empty after all resolution steps.
 func newClient() (*client.Client, error) {
+	// Resolve flag > env first.
 	apiURL := auth.ResolveURL(gf.url)
 	token := auth.ResolveToken(gf.token)
+
+	// Fall back to config file only if flag and env produced nothing.
+	if apiURL == "" || token == "" {
+		cfg, _ := cliconfig.Load()
+		if cfg != nil {
+			if apiURL == "" && cfg.URL != "" {
+				apiURL = cfg.URL
+			}
+			if token == "" && cfg.Token != "" {
+				token = cfg.Token
+			}
+		}
+	}
+
 	if apiURL == "" {
-		return nil, fmt.Errorf("API URL is required — use --url or set JA4PROXY_URL")
+		return nil, fmt.Errorf("API URL is required — use --url, set JA4PROXY_URL, or add url to ~/.config/ja4proxy/cli.yaml")
 	}
 	return client.New(apiURL, token), nil
 }
@@ -79,13 +81,32 @@ func requireConfirm(confirmed bool, cmd *cobra.Command) {
 	}
 }
 
+// resolveFormat returns the output format to use.
+// Resolution order: --output flag (if non-default) > JA4PROXY_OUTPUT env var >
+// config file default_output > "table".
+func resolveFormat() string {
+	// The cobra default is "table"; if gf.format differs, user set it explicitly.
+	if gf.format != "table" {
+		return gf.format
+	}
+	// Env var override.
+	if v := os.Getenv("JA4PROXY_OUTPUT"); v != "" {
+		return v
+	}
+	// Config file fallback.
+	if cfg, _ := cliconfig.Load(); cfg != nil && cfg.DefaultOutput != "" {
+		return cfg.DefaultOutput
+	}
+	return "table"
+}
+
 // renderOutput writes data to stdout in the format specified by gf.format.
 func renderOutput(data interface{}) error {
 	var (
 		s   string
 		err error
 	)
-	switch gf.format {
+	switch resolveFormat() {
 	case "json":
 		s, err = output.RenderJSON(data)
 	case "csv":

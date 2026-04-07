@@ -134,3 +134,105 @@ func TestPolicyValidate_TableDriven(t *testing.T) {
 		})
 	}
 }
+
+// TestPolicyValidate_DialIncreaseRequiresApproval verifies that a dial increase
+// of more than 20 points from currentDial without shadow_mode_approved: true
+// returns a PolicyValidationError.
+func TestPolicyValidate_DialIncreaseRequiresApproval(t *testing.T) {
+	// current=0, new=50 → increase=50 > 20, no shadow_mode_approved → error
+	policy := validMinimalPolicy + ""
+	// Override dial setting to 50
+	policy = strings.ReplaceAll(policy, "setting: 10", "setting: 50")
+
+	err := commands.RunPolicyValidate(policy, 0)
+	if err == nil {
+		t.Fatal("expected error for dial increase > 20 without approval, got nil")
+	}
+
+	var validErr *commands.PolicyValidationError
+	if !errors.As(err, &validErr) {
+		t.Errorf("expected *commands.PolicyValidationError, got %T: %v", err, err)
+	}
+}
+
+// TestPolicyValidate_DialIncreaseWithApproval verifies that a dial increase > 20
+// is allowed when shadow_mode_approved: true is set.
+func TestPolicyValidate_DialIncreaseWithApproval(t *testing.T) {
+	policy := `meta:
+  version: "1.0"
+  environment: prod
+  last_updated: "2026-04-01T00:00:00Z"
+  last_updated_by: "ops@example.com"
+dial:
+  setting: 50
+  changed_by: "ops@example.com"
+  shadow_mode_approved: true
+`
+	err := commands.RunPolicyValidate(policy, 0)
+	if err != nil {
+		t.Errorf("expected nil error with shadow_mode_approved, got: %v", err)
+	}
+}
+
+// TestPolicyValidate_ExpiredEntry verifies that an expires field in the past
+// is rejected with a PolicyTTLError.
+func TestPolicyValidate_ExpiredEntry(t *testing.T) {
+	policy := validMinimalPolicy + `
+allowlist:
+  fingerprints:
+    - ja4: "t13d1516h2_aabbccddeeff_aabbccddeeff"
+      reason: "test"
+      expires: "2020-01-01T00:00:00Z"
+`
+	err := commands.RunPolicyValidate(policy, 0)
+	if err == nil {
+		t.Fatal("expected error for expired entry, got nil")
+	}
+
+	var ttlErr *commands.PolicyTTLError
+	if !errors.As(err, &ttlErr) {
+		t.Errorf("expected *commands.PolicyTTLError, got %T: %v", err, err)
+	}
+}
+
+// TestPolicyValidate_DuplicateJA4 verifies that duplicate JA4 fingerprints in
+// the same list are rejected with a PolicyDuplicateError.
+func TestPolicyValidate_DuplicateJA4(t *testing.T) {
+	policy := validMinimalPolicy + `
+allowlist:
+  fingerprints:
+    - ja4: "t13d1516h2_aabbccddeeff_aabbccddeeff"
+      reason: "first entry"
+    - ja4: "t13d1516h2_aabbccddeeff_aabbccddeeff"
+      reason: "duplicate!"
+`
+	err := commands.RunPolicyValidate(policy, 0)
+	if err == nil {
+		t.Fatal("expected error for duplicate JA4 fingerprints, got nil")
+	}
+
+	var dupErr *commands.PolicyDuplicateError
+	if !errors.As(err, &dupErr) {
+		t.Errorf("expected *commands.PolicyDuplicateError, got %T: %v", err, err)
+	}
+}
+
+// TestPolicyValidate_InvalidCIDR verifies that an invalid CIDR in a blocklist
+// is rejected with a PolicySchemaError.
+func TestPolicyValidate_InvalidCIDR(t *testing.T) {
+	policy := validMinimalPolicy + `
+blocklist:
+  ips:
+    - cidr: "not-a-cidr"
+      reason: "test"
+`
+	err := commands.RunPolicyValidate(policy, 0)
+	if err == nil {
+		t.Fatal("expected error for invalid CIDR, got nil")
+	}
+
+	var schemaErr *commands.PolicySchemaError
+	if !errors.As(err, &schemaErr) {
+		t.Errorf("expected *commands.PolicySchemaError, got %T: %v", err, err)
+	}
+}
