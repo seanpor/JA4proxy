@@ -1,0 +1,46 @@
+{
+  "kind": "Scheduled",
+  "properties": {
+    "displayName": "JA4proxy - Multiple Blocked Fingerprints from Single IP",
+    "description": "Detects when a single source IP presents multiple distinct JA4 TLS fingerprints in a short window. Fingerprint rotation is a common evasion technique used after an initial fingerprint is blocked. Correlates with MITRE ATT&CK T1190 (Exploit Public-Facing Application) and T1036 (Masquerading).",
+    "severity": "High",
+    "enabled": true,
+    "query": "JA4proxy_CL\n| where TimeGenerated > ago(1h)\n| where ja4proxy_action_s in ('blocked', 'banned')\n| where isnotempty(ja4proxy_fingerprint_s)\n| summarize\n    DistinctFingerprints = dcount(ja4proxy_fingerprint_s),\n    FingerprintList = make_set(ja4proxy_fingerprint_s, 20),\n    BlockCount = count(),\n    MaxScore = max(ja4proxy_risk_score_d),\n    CountryCode = any(ja4proxy_country_code_s),\n    ASNOrg = any(ja4proxy_asn_org_s),\n    FirstSeen = min(TimeGenerated),\n    LastSeen = max(TimeGenerated)\n    by source_ip_s, bin(TimeGenerated, 1h)\n| where DistinctFingerprints >= 3\n| extend\n    AlertTitle = strcat('Fingerprint rotation from ', source_ip_s, ': ', DistinctFingerprints, ' distinct fingerprints'),\n    DurationMinutes = datetime_diff('minute', LastSeen, FirstSeen)",
+    "queryFrequency": "PT15M",
+    "queryPeriod": "PT1H",
+    "triggerOperator": "GreaterThan",
+    "triggerThreshold": 0,
+    "suppressionDuration": "PT2H",
+    "suppressionEnabled": false,
+    "tactics": [
+      "InitialAccess",
+      "DefenseEvasion"
+    ],
+    "techniques": [
+      "T1190",
+      "T1036"
+    ],
+    "alertDetailsOverride": {
+      "alertDisplayNameFormat": "JA4proxy Fingerprint Rotation: {{source_ip_s}} ({{DistinctFingerprints}} fingerprints)",
+      "alertDescriptionFormat": "Source IP {{source_ip_s}} presented {{DistinctFingerprints}} distinct TLS fingerprints across {{BlockCount}} blocked connections. Possible tool rotation after initial block.",
+      "alertSeverityColumnName": null,
+      "alertTacticsColumnName": null
+    },
+    "entityMappings": [
+      {
+        "entityType": "IP",
+        "fieldMappings": [
+          {
+            "identifier": "Address",
+            "columnName": "source_ip_s"
+          }
+        ]
+      }
+    ],
+    "customDetails": {
+      "DistinctFingerprints": "DistinctFingerprints",
+      "BlockCount": "BlockCount",
+      "ASNOrg": "ASNOrg"
+    }
+  }
+}

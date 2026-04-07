@@ -1,0 +1,160 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2016-06-01/Microsoft.Logic.json",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "title": "JA4proxy - Block IP",
+    "description": "Logic App playbook triggered by a Microsoft Sentinel incident. Extracts the source IP from the incident entities, calls the JA4proxy Management API to add a ban, and posts a notification to a Teams channel. Requires: JA4PROXY_MGMT_URL and JA4PROXY_MGMT_TOKEN stored in Azure Key Vault.",
+    "prerequisites": [
+      "JA4proxy Management API (Phase 79) deployed and reachable at JA4PROXY_MGMT_URL",
+      "API bearer token stored in Key Vault secret JA4PROXY_MGMT_TOKEN",
+      "Teams webhook URL stored in Key Vault secret TEAMS_WEBHOOK_URL",
+      "Managed Identity with Key Vault Secrets User role on the Key Vault"
+    ]
+  },
+  "parameters": {
+    "KeyVaultName": {
+      "type": "string",
+      "defaultValue": "kv-ja4proxy-prod",
+      "metadata": { "description": "Azure Key Vault name containing JA4proxy API credentials" }
+    },
+    "TeamsChannelName": {
+      "type": "string",
+      "defaultValue": "SOC Alerts",
+      "metadata": { "description": "Teams channel name for notifications" }
+    }
+  },
+  "triggers": {
+    "Microsoft_Sentinel_incident": {
+      "type": "ApiConnectionWebhook",
+      "inputs": {
+        "host": {
+          "connection": { "name": "@parameters('$connections')['azuresentinel']['connectionId']" }
+        },
+        "body": { "callback_url": "@listCallbackUrl()" },
+        "path": "/incident-creation"
+      }
+    }
+  },
+  "actions": {
+    "Get_JA4proxy_API_token_from_KeyVault": {
+      "type": "Http",
+      "inputs": {
+        "method": "GET",
+        "uri": "https://@{parameters('KeyVaultName')}.vault.azure.net/secrets/JA4PROXY-MGMT-TOKEN?api-version=7.4",
+        "authentication": { "type": "ManagedServiceIdentity" }
+      },
+      "runAfter": {}
+    },
+    "Get_Teams_webhook_from_KeyVault": {
+      "type": "Http",
+      "inputs": {
+        "method": "GET",
+        "uri": "https://@{parameters('KeyVaultName')}.vault.azure.net/secrets/TEAMS-WEBHOOK-URL?api-version=7.4",
+        "authentication": { "type": "ManagedServiceIdentity" }
+      },
+      "runAfter": {}
+    },
+    "Get_JA4proxy_URL_from_KeyVault": {
+      "type": "Http",
+      "inputs": {
+        "method": "GET",
+        "uri": "https://@{parameters('KeyVaultName')}.vault.azure.net/secrets/JA4PROXY-MGMT-URL?api-version=7.4",
+        "authentication": { "type": "ManagedServiceIdentity" }
+      },
+      "runAfter": {}
+    },
+    "Parse_incident_entities": {
+      "type": "ParseJson",
+      "inputs": {
+        "content": "@triggerBody()?['object']?['properties']?['relatedEntities']",
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "kind": { "type": "string" },
+              "properties": {
+                "type": "object",
+                "properties": {
+                  "address": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "runAfter": {
+        "Get_JA4proxy_API_token_from_KeyVault": ["Succeeded"],
+        "Get_JA4proxy_URL_from_KeyVault": ["Succeeded"],
+        "Get_Teams_webhook_from_KeyVault": ["Succeeded"]
+      }
+    },
+    "For_each_IP_entity": {
+      "type": "Foreach",
+      "foreach": "@body('Parse_incident_entities')",
+      "actions": {
+        "Check_if_IP_entity": {
+          "type": "If",
+          "expression": {
+            "and": [
+              {
+                "equals": ["@item()?['kind']", "Ip"]
+              }
+            ]
+          },
+          "actions": {
+            "Call_JA4proxy_ban_API": {
+              "type": "Http",
+              "inputs": {
+                "method": "POST",
+                "uri": "@{body('Get_JA4proxy_URL_from_KeyVault')?['value']}/api/v1/bans",
+                "headers": {
+                  "Authorization": "Bearer @{body('Get_JA4proxy_API_token_from_KeyVault')?['value']}",
+                  "Content-Type": "application/json"
+                },
+                "body": {
+                  "ip": "@{item()?['properties']?['address']}",
+                  "reason": "Blocked via Sentinel playbook — incident: @{triggerBody()?['object']?['properties']?['incidentNumber']}",
+                  "ttl_seconds": 86400,
+                  "source": "sentinel_playbook"
+                }
+              }
+            },
+            "Post_Teams_notification": {
+              "type": "Http",
+              "inputs": {
+                "method": "POST",
+                "uri": "@{body('Get_Teams_webhook_from_KeyVault')?['value']}",
+                "headers": { "Content-Type": "application/json" },
+                "body": {
+                  "@type": "MessageCard",
+                  "@context": "https://schema.org/extensions",
+                  "summary": "JA4proxy IP Ban Applied",
+                  "themeColor": "FF0000",
+                  "title": "JA4proxy: IP Banned via Sentinel",
+                  "text": "IP **@{item()?['properties']?['address']}** has been banned in JA4proxy (TTL: 24h).\n\nSentinel Incident: @{triggerBody()?['object']?['properties']?['title']} (#@{triggerBody()?['object']?['properties']?['incidentNumber']})\n\nSeverity: @{triggerBody()?['object']?['properties']?['severity']}",
+                  "potentialAction": [
+                    {
+                      "@type": "OpenUri",
+                      "name": "View Incident in Sentinel",
+                      "targets": [
+                        {
+                          "os": "default",
+                          "uri": "@{triggerBody()?['object']?['properties']?['incidentUrl']}"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              "runAfter": { "Call_JA4proxy_ban_API": ["Succeeded", "Failed"] }
+            }
+          },
+          "else": { "actions": {} }
+        }
+      },
+      "runAfter": { "Parse_incident_entities": ["Succeeded"] }
+    }
+  },
+  "outputs": {}
+}

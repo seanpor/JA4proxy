@@ -1,0 +1,66 @@
+{
+  "policy": {
+    "_meta": {
+      "description": "ILM policy for JA4proxy telemetry indices. Balances query performance (hot), cost (warm/cold), and compliance retention (delete).",
+      "version": "1.0.0"
+    },
+    "phases": {
+      "hot": {
+        "min_age": "0ms",
+        "actions": {
+          "rollover": {
+            "max_age": "7d",
+            "max_primary_shard_size": "50gb"
+          },
+          "set_priority": {
+            "priority": 100
+          },
+          "forcemerge": {
+            "max_num_segments": 1
+          }
+        }
+      },
+      "warm": {
+        "min_age": "7d",
+        "actions": {
+          "set_priority": {
+            "priority": 50
+          },
+          "shrink": {
+            "number_of_shards": 1
+          },
+          "allocate": {
+            "number_of_replicas": 1,
+            "require": {
+              "data": "warm"
+            }
+          },
+          "readonly": {}
+        }
+      },
+      "cold": {
+        "min_age": "30d",
+        "actions": {
+          "set_priority": {
+            "priority": 0
+          },
+          "allocate": {
+            "number_of_replicas": 0,
+            "require": {
+              "data": "cold"
+            }
+          },
+          "freeze": {}
+        }
+      },
+      "delete": {
+        "min_age": "90d",
+        "actions": {
+          "delete": {
+            "delete_searchable_snapshot": true
+          }
+        }
+      }
+    }
+  }
+}

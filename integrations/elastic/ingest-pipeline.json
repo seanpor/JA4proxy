@@ -1,0 +1,132 @@
+{
+  "description": "JA4proxy telemetry enrichment pipeline. Parses ECS JSON, enriches source.ip with GeoIP and ASN data, and normalises field types for Kibana Security.",
+  "_meta": {
+    "version": "1.0.0",
+    "created_by": "JA4proxy Phase 80"
+  },
+  "processors": [
+    {
+      "json": {
+        "description": "Parse the raw ECS JSON message if it arrives as a string. Skip if already parsed.",
+        "field": "message",
+        "target_field": "_parsed",
+        "ignore_failure": true
+      }
+    },
+    {
+      "script": {
+        "description": "Promote top-level _parsed fields into the document if JSON parsing succeeded.",
+        "lang": "painless",
+        "source": "if (ctx._parsed != null) { for (entry in ctx._parsed.entrySet()) { ctx[entry.getKey()] = entry.getValue(); } ctx.remove('_parsed'); }",
+        "ignore_failure": true
+      }
+    },
+    {
+      "geoip": {
+        "description": "Enrich source IP with city-level GeoIP data. Populates source.geo.* fields. Uses the bundled MaxMind GeoLite2-City database.",
+        "field": "source.ip",
+        "target_field": "source.geo",
+        "properties": ["city_name", "continent_name", "country_iso_code", "country_name", "location", "region_iso_code", "region_name"],
+        "ignore_missing": true,
+        "ignore_failure": true,
+        "first_only": true
+      }
+    },
+    {
+      "geoip": {
+        "description": "Enrich source IP with ASN data. Populates source.as.* fields. Requires the GeoLite2-ASN Elasticsearch ingest database plugin.",
+        "field": "source.ip",
+        "database_file": "GeoLite2-ASN.mmdb",
+        "target_field": "source.as",
+        "properties": ["asn", "organization_name"],
+        "ignore_missing": true,
+        "ignore_failure": true
+      }
+    },
+    {
+      "convert": {
+        "description": "Ensure source.port is integer type for range queries.",
+        "field": "source.port",
+        "type": "integer",
+        "ignore_missing": true,
+        "ignore_failure": true
+      }
+    },
+    {
+      "convert": {
+        "description": "Ensure destination.port is integer type.",
+        "field": "destination.port",
+        "type": "integer",
+        "ignore_missing": true,
+        "ignore_failure": true
+      }
+    },
+    {
+      "convert": {
+        "description": "Ensure event.risk_score is float for range aggregations.",
+        "field": "event.risk_score",
+        "type": "float",
+        "ignore_missing": true,
+        "ignore_failure": true
+      }
+    },
+    {
+      "convert": {
+        "description": "Ensure ja4proxy.dial_setting is integer.",
+        "field": "ja4proxy.dial_setting",
+        "type": "integer",
+        "ignore_missing": true,
+        "ignore_failure": true
+      }
+    },
+    {
+      "set": {
+        "description": "Set service.name if not already present (should always be 'ja4proxy').",
+        "field": "service.name",
+        "value": "ja4proxy",
+        "override": false,
+        "ignore_failure": true
+      }
+    },
+    {
+      "date": {
+        "description": "Parse @timestamp from ISO-8601 string to Elasticsearch date. Needed if the upstream shipper sends it as a string.",
+        "field": "@timestamp",
+        "formats": ["ISO8601", "strict_date_optional_time"],
+        "ignore_failure": true
+      }
+    },
+    {
+      "fingerprint": {
+        "description": "Generate a document ID fingerprint from the event's unique attributes. Prevents duplicate documents when Vector retries delivery.",
+        "fields": ["@timestamp", "source.ip", "source.port", "host.name"],
+        "target_field": "_id",
+        "method": "SHA-256",
+        "ignore_missing": true,
+        "ignore_failure": true
+      }
+    },
+    {
+      "set": {
+        "description": "Tag the event with the pipeline version for troubleshooting.",
+        "field": "_pipeline_version",
+        "value": "ja4proxy-enrichment-v1"
+      }
+    }
+  ],
+  "on_failure": [
+    {
+      "set": {
+        "description": "Tag failed events for review without dropping them.",
+        "field": "_pipeline_error",
+        "value": "{{ _ingest.on_failure_message }}"
+      }
+    },
+    {
+      "set": {
+        "field": "_pipeline_error_processor",
+        "value": "{{ _ingest.on_failure_processor_tag }}"
+      }
+    }
+  ]
+}

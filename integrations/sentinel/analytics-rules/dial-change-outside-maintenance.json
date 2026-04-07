@@ -1,0 +1,47 @@
+{
+  "kind": "Scheduled",
+  "properties": {
+    "displayName": "JA4proxy - Dial Change Outside Maintenance Window",
+    "description": "Detects when the JA4proxy blocking dial is changed outside the defined maintenance window (09:00-11:00 UTC Monday-Friday). An unexpected dial decrease could indicate an attacker or insider reducing the proxy's blocking aggression. Correlates with MITRE ATT&CK T1562 (Impair Defenses).",
+    "severity": "Medium",
+    "enabled": true,
+    "query": "JA4proxy_CL\n| where TimeGenerated > ago(10m)\n| where RawData has 'config_change'\n| extend EventAction = tostring(parse_json(RawData)[\"event.action\"])\n| where EventAction == 'config_change'\n| extend\n    NewDial = toint(parse_json(RawData)[\"ja4proxy.dial_setting\"]),\n    OldDial = toint(parse_json(RawData)[\"ja4proxy.dial_setting_previous\"]),\n    ChangedBy = tostring(parse_json(RawData)[\"ja4proxy.changed_by\"]),\n    HostName = tostring(parse_json(RawData)[\"host.name\"])\n| extend\n    HourUTC = hourofday(TimeGenerated),\n    DayUTC = dayofweek(TimeGenerated),\n    IsWeekday = dayofweek(TimeGenerated) between (1d .. 5d),\n    IsMaintenanceHour = hourofday(TimeGenerated) between (9 .. 10)\n| extend IsMaintenanceWindow = IsWeekday and IsMaintenanceHour\n| where not(IsMaintenanceWindow)\n| project\n    TimeGenerated,\n    HostName,\n    OldDial,\n    NewDial,\n    DialDelta = NewDial - OldDial,\n    ChangedBy,\n    IsWeekday,\n    HourUTC",
+    "queryFrequency": "PT5M",
+    "queryPeriod": "PT10M",
+    "triggerOperator": "GreaterThan",
+    "triggerThreshold": 0,
+    "suppressionDuration": "PT30M",
+    "suppressionEnabled": false,
+    "tactics": [
+      "DefenseEvasion"
+    ],
+    "techniques": [
+      "T1562"
+    ],
+    "subTechniques": [
+      "T1562.001"
+    ],
+    "alertDetailsOverride": {
+      "alertDisplayNameFormat": "JA4proxy dial changed on {{HostName}}: {{OldDial}} → {{NewDial}}",
+      "alertDescriptionFormat": "JA4proxy dial changed from {{OldDial}} to {{NewDial}} on {{HostName}} outside the maintenance window. Changed by: {{ChangedBy}}.",
+      "alertSeverityColumnName": null,
+      "alertTacticsColumnName": null
+    },
+    "entityMappings": [
+      {
+        "entityType": "Host",
+        "fieldMappings": [
+          {
+            "identifier": "HostName",
+            "columnName": "HostName"
+          }
+        ]
+      }
+    ],
+    "customDetails": {
+      "OldDial": "OldDial",
+      "NewDial": "NewDial",
+      "ChangedBy": "ChangedBy"
+    }
+  }
+}

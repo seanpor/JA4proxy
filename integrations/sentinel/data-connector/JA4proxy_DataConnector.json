@@ -1,0 +1,103 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "title": "JA4proxy TLS Security Proxy",
+    "description": "This data connector ingests telemetry from JA4proxy — a TLS-aware passthrough security proxy — into Microsoft Sentinel via Azure Monitor Logs (Custom Logs / Log Analytics HTTP Data Collector API). Events are stored in the JA4proxy_CL custom table.",
+    "prerequisites": [
+      "JA4proxy with logging.format: ecs set in config/proxy.yml",
+      "Vector shipping agent configured with config/integrations/vector-sentinel.yaml",
+      "SENTINEL_WORKSPACE_ID and SENTINEL_SHARED_KEY environment variables set on the proxy host"
+    ],
+    "version": "1.0.0",
+    "author": "JA4proxy"
+  },
+  "parameters": {
+    "workspace": {
+      "type": "string",
+      "metadata": {
+        "description": "Log Analytics workspace name"
+      }
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/tables",
+      "apiVersion": "2021-12-01-preview",
+      "name": "[concat(parameters('workspace'), '/JA4proxy_CL')]",
+      "properties": {
+        "schema": {
+          "name": "JA4proxy_CL",
+          "columns": [
+            {
+              "name": "TimeGenerated",
+              "type": "datetime",
+              "description": "Event timestamp (UTC). Copied from ECS @timestamp field."
+            },
+            {
+              "name": "ja4proxy_action_s",
+              "type": "string",
+              "description": "Action taken: allowed, blocked, banned, tarpitted, rate_limited, flagged"
+            },
+            {
+              "name": "ja4proxy_risk_score_d",
+              "type": "real",
+              "description": "Composite risk score 0-100 from the JA4proxy RiskScorer"
+            },
+            {
+              "name": "ja4proxy_fingerprint_s",
+              "type": "string",
+              "description": "JA4 TLS client fingerprint"
+            },
+            {
+              "name": "ja4proxy_sni_s",
+              "type": "string",
+              "description": "TLS SNI hostname from ClientHello"
+            },
+            {
+              "name": "ja4proxy_asn_org_s",
+              "type": "string",
+              "description": "Autonomous System Organisation name (MaxMind GeoLite2-ASN)"
+            },
+            {
+              "name": "ja4proxy_country_code_s",
+              "type": "string",
+              "description": "ISO 3166-1 alpha-2 country code"
+            },
+            {
+              "name": "ja4proxy_dial_d",
+              "type": "real",
+              "description": "Proxy dial setting (0=monitor only, 100=full blocking)"
+            },
+            {
+              "name": "source_ip_s",
+              "type": "string",
+              "description": "Client source IP address (IPv4 or IPv6)"
+            },
+            {
+              "name": "source_port_d",
+              "type": "real",
+              "description": "Client source port"
+            },
+            {
+              "name": "tls_version_s",
+              "type": "string",
+              "description": "Negotiated TLS version (1.2, 1.3)"
+            },
+            {
+              "name": "tls_cipher_s",
+              "type": "string",
+              "description": "Negotiated TLS cipher suite (IANA name)"
+            },
+            {
+              "name": "RawData",
+              "type": "string",
+              "description": "Original ECS JSON event as emitted by JA4proxy"
+            }
+          ]
+        },
+        "retentionInDays": 90
+      }
+    }
+  ]
+}
