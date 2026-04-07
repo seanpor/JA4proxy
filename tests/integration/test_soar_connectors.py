@@ -86,12 +86,12 @@ class TestXSOARBanIP:
 
     @pytest.mark.asyncio
     async def test_xsoar_ban_ip_raises_on_error_status(self, soar_mock):
-        """Non-2xx responses are raised as exceptions."""
+        """Non-2xx responses raise JA4proxyError — not a generic Python exception."""
         base_url, token, mock = soar_mock
         commands = _import_xsoar()
         mock.set_error("POST", "/api/v1/bans", status=500)
 
-        with pytest.raises(Exception):
+        with pytest.raises(commands.JA4proxyError):
             await commands.ban_ip(
                 base_url=base_url,
                 token=token,
@@ -217,9 +217,9 @@ class TestXSOARGetHealth:
         assert req["method"] == "GET"
         assert req["path"] == "/api/v1/health/deep"
         assert req["headers"].get("Authorization") == f"Bearer {token}"
-        # The returned value must contain a "status" field
-        assert "status" in result, (
-            f"Expected 'status' key in health response, got: {result!r}"
+        # Verify the connector returns the parsed response body (not None or empty dict).
+        assert result.get("status") in ("ok", "degraded", "critical"), (
+            f"Expected status in (ok, degraded, critical), got: {result!r}"
         )
 
 
@@ -295,8 +295,8 @@ class TestXSOARGetDial:
         assert req["method"] == "GET"
         assert req["path"] == "/api/v1/dial"
         assert req["headers"].get("Authorization") == f"Bearer {token}"
-        assert "dial" in result, (
-            f"Expected 'dial' key in response, got: {result!r}"
+        assert isinstance(result.get("dial"), int), (
+            f"Expected 'dial' to be an integer in response, got: {result!r}"
         )
 
 
@@ -520,8 +520,8 @@ class TestSplunkGetHealth:
         assert req["method"] == "GET"
         assert req["path"] == "/api/v1/health/deep"
         assert req["headers"].get("Authorization") == f"Bearer {token}"
-        assert "status" in result, (
-            f"Expected 'status' key in health response, got: {result!r}"
+        assert result.get("status") in ("ok", "degraded", "critical"), (
+            f"Expected status in (ok, degraded, critical), got: {result!r}"
         )
 
 

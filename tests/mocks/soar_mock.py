@@ -168,10 +168,11 @@ class SOARMock:
             )
 
         # Default response
+        # RFC 9110 §15.3.5: 204 No Content MUST NOT include a message body.
+        if request.method == "DELETE":
+            return web.Response(status=204)
         response_body = _default_body_for_path(request.path)
-        # For DELETE operations, return 204 by default
-        status = 204 if request.method == "DELETE" else 200
-        return web.json_response(response_body, status=status)
+        return web.json_response(response_body, status=200)
 
     # ------------------------------------------------------------------
     # Lifecycle

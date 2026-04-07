@@ -32,7 +32,11 @@ class AuthError(JA4proxyError):
 
 
 def _make_headers(token: str) -> dict:
-    return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    return {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
 
 
 async def _request(
@@ -178,7 +182,7 @@ async def add_to_allowlist(
     """ja4proxy-add-to-allowlist — POST /api/v1/allowlist.
 
     Raises:
-        ValueError: if ttl_seconds=0 (no indefinite allowlist entries allowed).
+        ValueError: if ttl_seconds <= 0 (no indefinite allowlist entries allowed).
     """
     if ttl_seconds <= 0:
         raise ValueError(
