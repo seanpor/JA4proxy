@@ -41,7 +41,6 @@ echo "[${TIMESTAMP}] Rotating SOAR token id=${JA4PROXY_TOKEN_ID} at ${ROTATE_URL
 HTTP_RESPONSE=$(
     curl --silent \
          --show-error \
-         --fail \
          --max-time 30 \
          --request POST \
          --header "Authorization: Bearer ${JA4PROXY_API_TOKEN}" \
@@ -50,7 +49,7 @@ HTTP_RESPONSE=$(
          "${ROTATE_URL}" \
     2>&1
 ) || {
-    echo "[${TIMESTAMP}] ERROR: curl failed — could not reach ${ROTATE_URL}" >&2
+    echo "[${TIMESTAMP}] ERROR: curl failed — network or DNS error reaching ${ROTATE_URL}" >&2
     exit 1
 }
 
