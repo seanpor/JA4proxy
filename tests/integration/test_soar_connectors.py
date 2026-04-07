@@ -253,7 +253,7 @@ class TestXSOARAddToAllowlist:
         base_url, token, mock = soar_mock
         commands = _import_xsoar()
 
-        with pytest.raises((ValueError, Exception)):
+        with pytest.raises(ValueError, match=r"ttl_seconds|expiry|indefinite"):
             await commands.add_to_allowlist(
                 base_url=base_url,
                 token=token,
@@ -279,7 +279,7 @@ class TestXSOARGetDial:
         req = mock.last_request()
         assert req is not None, "No request was recorded"
         assert req["method"] == "GET"
-        assert "/dial" in req["path"]
+        assert req["path"] == "/api/v1/dial"
         assert req["headers"].get("Authorization") == f"Bearer {token}"
         assert "dial" in result, (
             f"Expected 'dial' key in response, got: {result!r}"
@@ -508,4 +508,58 @@ class TestSplunkGetHealth:
         assert req["headers"].get("Authorization") == f"Bearer {token}"
         assert "status" in result, (
             f"Expected 'status' key in health response, got: {result!r}"
+        )
+
+
+class TestSplunkErrorHandling:
+    """Splunk SOAR connector error paths."""
+
+    @pytest.mark.asyncio
+    async def test_splunk_soar_raises_on_500(self, soar_mock):
+        """block_ip raises JA4proxySoarError on server error."""
+        base_url, token, mock = soar_mock
+        connector = _import_splunk()
+        mock.set_error("POST", "/api/v1/bans", 500)
+
+        with pytest.raises(connector.JA4proxySoarError):
+            await connector.block_ip(
+                base_url=base_url,
+                token=token,
+                ip="1.2.3.4",
+                ttl_seconds=3600,
+                reason="test",
+            )
+
+    @pytest.mark.asyncio
+    async def test_splunk_soar_raises_auth_error_on_401(self, soar_mock):
+        """Wrong token raises AuthError — not a generic JA4proxySoarError."""
+        base_url, _, mock = soar_mock
+        connector = _import_splunk()
+
+        with pytest.raises(connector.AuthError):
+            await connector.block_ip(
+                base_url=base_url,
+                token="wrong-token",
+                ip="1.2.3.4",
+                ttl_seconds=3600,
+                reason="test",
+            )
+
+    @pytest.mark.asyncio
+    async def test_splunk_soar_get_fingerprint_history_passes_days(self, soar_mock):
+        """days parameter must be forwarded to the API — not silently dropped."""
+        base_url, token, mock = soar_mock
+        connector = _import_splunk()
+
+        await connector.get_fingerprint_history(
+            base_url=base_url,
+            token=token,
+            ja4_fingerprint="t13d1516h2_aabbccddeeff_aabbccddeeff",
+            days=14,
+        )
+
+        req = mock.last_request()
+        assert req is not None
+        assert req["query"].get("days") == "14", (
+            f"Expected days=14 in query params, got: {req['query']}"
         )

@@ -131,11 +131,12 @@ async def get_fingerprint_history(
     ja4_fingerprint: str,
     days: int = 7,
 ) -> dict:
-    """get_fingerprint_history action — GET /api/v1/fingerprints/{ja4}."""
+    """get_fingerprint_history action — GET /api/v1/fingerprints/{ja4}?days={days}."""
     return await _request(
         "GET",
         f"{base_url}/api/v1/fingerprints/{ja4_fingerprint}",
         token,
+        params={"days": str(days)},
     )
 
 

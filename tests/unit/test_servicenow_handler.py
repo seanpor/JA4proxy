@@ -19,6 +19,7 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 
 # ---------------------------------------------------------------------------
@@ -208,11 +209,8 @@ class TestCreateSirIncident:
         }):
             with patch("integrations.servicenow.ja4proxy_snow_handler.requests.post",
                        self._mock_post_error(403)):
-                with pytest.raises(Exception) as exc_info:
+                with pytest.raises(requests.HTTPError):
                     handler.create_sir_incident(minimal_event)
-
-        # Must propagate some exception indicating the HTTP error
-        assert exc_info.value is not None
 
     def test_create_sir_incident_raises_on_500(self, handler, minimal_event):
         """mock returns 500 → raises (server error propagated)."""
