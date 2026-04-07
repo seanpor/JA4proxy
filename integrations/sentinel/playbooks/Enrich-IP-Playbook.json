@@ -1,0 +1,153 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2016-06-01/Microsoft.Logic.json",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "title": "JA4proxy - Enrich IP",
+    "description": "Logic App playbook triggered by a Microsoft Sentinel alert. Extracts the source IP from the alert, queries the JA4proxy Management API for connection history in the past 30 days, and appends the enrichment data as an incident comment. Requires: JA4PROXY_MGMT_URL and JA4PROXY_MGMT_TOKEN stored in Azure Key Vault.",
+    "prerequisites": [
+      "JA4proxy Management API (Phase 79) deployed and reachable at JA4PROXY_MGMT_URL",
+      "API bearer token stored in Key Vault secret JA4PROXY_MGMT_TOKEN",
+      "Managed Identity with Key Vault Secrets User and Sentinel Contributor roles"
+    ]
+  },
+  "parameters": {
+    "KeyVaultName": {
+      "type": "string",
+      "defaultValue": "kv-ja4proxy-prod",
+      "metadata": { "description": "Azure Key Vault name containing JA4proxy API credentials" }
+    }
+  },
+  "triggers": {
+    "Microsoft_Sentinel_alert": {
+      "type": "ApiConnectionWebhook",
+      "inputs": {
+        "host": {
+          "connection": { "name": "@parameters('$connections')['azuresentinel']['connectionId']" }
+        },
+        "body": { "callback_url": "@listCallbackUrl()" },
+        "path": "/subscribe"
+      }
+    }
+  },
+  "actions": {
+    "Get_JA4proxy_API_token": {
+      "type": "Http",
+      "inputs": {
+        "method": "GET",
+        "uri": "https://@{parameters('KeyVaultName')}.vault.azure.net/secrets/JA4PROXY-MGMT-TOKEN?api-version=7.4",
+        "authentication": { "type": "ManagedServiceIdentity" }
+      },
+      "runAfter": {}
+    },
+    "Get_JA4proxy_URL": {
+      "type": "Http",
+      "inputs": {
+        "method": "GET",
+        "uri": "https://@{parameters('KeyVaultName')}.vault.azure.net/secrets/JA4PROXY-MGMT-URL?api-version=7.4",
+        "authentication": { "type": "ManagedServiceIdentity" }
+      },
+      "runAfter": {}
+    },
+    "Get_alert_entities": {
+      "type": "ApiConnection",
+      "inputs": {
+        "host": {
+          "connection": { "name": "@parameters('$connections')['azuresentinel']['connectionId']" }
+        },
+        "method": "post",
+        "path": "/entities/ip",
+        "body": { "systemAlertId": "@triggerBody()?['SystemAlertId']" }
+      },
+      "runAfter": {
+        "Get_JA4proxy_API_token": ["Succeeded"],
+        "Get_JA4proxy_URL": ["Succeeded"]
+      }
+    },
+    "For_each_IP_in_alert": {
+      "type": "Foreach",
+      "foreach": "@body('Get_alert_entities')?['IPs']",
+      "actions": {
+        "Query_JA4proxy_connection_history": {
+          "type": "Http",
+          "inputs": {
+            "method": "GET",
+            "uri": "@{body('Get_JA4proxy_URL')?['value']}/api/v1/connections",
+            "headers": {
+              "Authorization": "Bearer @{body('Get_JA4proxy_API_token')?['value']}"
+            },
+            "queries": {
+              "ip": "@{items('For_each_IP_in_alert')?['Address']}",
+              "since": "30d",
+              "limit": "100"
+            }
+          }
+        },
+        "Parse_connection_history": {
+          "type": "ParseJson",
+          "inputs": {
+            "content": "@body('Query_JA4proxy_connection_history')",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "ip": { "type": "string" },
+                "total_connections": { "type": "integer" },
+                "blocked_connections": { "type": "integer" },
+                "banned": { "type": "boolean" },
+                "first_seen": { "type": "string" },
+                "last_seen": { "type": "string" },
+                "max_risk_score": { "type": "number" },
+                "avg_risk_score": { "type": "number" },
+                "asn": { "type": "integer" },
+                "asn_org": { "type": "string" },
+                "country_code": { "type": "string" },
+                "fingerprints": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "signals": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": { "type": "string" },
+                      "count": { "type": "integer" },
+                      "max_score": { "type": "number" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "runAfter": { "Query_JA4proxy_connection_history": ["Succeeded"] }
+        },
+        "Build_enrichment_comment": {
+          "type": "Compose",
+          "inputs": "## JA4proxy Enrichment for @{items('For_each_IP_in_alert')?['Address']}\n\n**Connection History (last 30 days)**\n- Total connections: @{body('Parse_connection_history')?['total_connections']}\n- Blocked connections: @{body('Parse_connection_history')?['blocked_connections']}\n- Currently banned: @{if(body('Parse_connection_history')?['banned'], 'YES', 'no')}\n- First seen: @{body('Parse_connection_history')?['first_seen']}\n- Last seen: @{body('Parse_connection_history')?['last_seen']}\n\n**Risk Profile**\n- Max risk score: @{body('Parse_connection_history')?['max_risk_score']}\n- Avg risk score: @{body('Parse_connection_history')?['avg_risk_score']}\n- ASN: @{body('Parse_connection_history')?['asn']} (@{body('Parse_connection_history')?['asn_org']})\n- Country: @{body('Parse_connection_history')?['country_code']}\n\n**TLS Fingerprints observed:** @{join(body('Parse_connection_history')?['fingerprints'], ', ')}\n\n*Enrichment provided by JA4proxy Management API*",
+          "runAfter": { "Parse_connection_history": ["Succeeded"] }
+        },
+        "Add_comment_to_incident": {
+          "type": "ApiConnection",
+          "inputs": {
+            "host": {
+              "connection": { "name": "@parameters('$connections')['azuresentinel']['connectionId']" }
+            },
+            "method": "post",
+            "path": "/Incidents/Comment",
+            "body": {
+              "incidentArmId": "@triggerBody()?['IncidentArmID']",
+              "message": "@{outputs('Build_enrichment_comment')}"
+            }
+          },
+          "runAfter": { "Build_enrichment_comment": ["Succeeded"] }
+        },
+        "Handle_enrichment_failure": {
+          "type": "Compose",
+          "inputs": "JA4proxy enrichment unavailable for @{items('For_each_IP_in_alert')?['Address']} — API returned @{outputs('Query_JA4proxy_connection_history')['statusCode']}",
+          "runAfter": { "Query_JA4proxy_connection_history": ["Failed", "TimedOut"] }
+        }
+      },
+      "runAfter": { "Get_alert_entities": ["Succeeded"] }
+    }
+  },
+  "outputs": {}
+}

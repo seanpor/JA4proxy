@@ -1,0 +1,37 @@
+{
+  "kind": "Scheduled",
+  "properties": {
+    "displayName": "JA4proxy - Campaign from Known-Bad ASN",
+    "description": "Detects a coordinated campaign (multiple source IPs, same JA4 fingerprint, same ASN) originating from an ASN previously associated with banned connections or datacenter infrastructure. Correlates with MITRE ATT&CK T1583 (Acquire Infrastructure).",
+    "severity": "High",
+    "enabled": true,
+    "query": "// Step 1: Identify ASNs with at least one banned connection in the past 7 days\nlet known_bad_asns = JA4proxy_CL\n| where TimeGenerated > ago(7d)\n| where ja4proxy_action_s == 'banned'\n| distinct ja4proxy_asn_org_s;\n// Step 2: Find campaigns from those ASNs in the past 30 minutes\nJA4proxy_CL\n| where TimeGenerated > ago(30m)\n| where ja4proxy_asn_org_s in (known_bad_asns)\n| where isnotempty(ja4proxy_fingerprint_s)\n| summarize\n    UniqueSourceIPs = dcount(source_ip_s),\n    TotalConnections = count(),\n    BlockedCount = countif(ja4proxy_action_s in ('blocked', 'banned')),\n    MaxScore = max(ja4proxy_risk_score_d),\n    AvgScore = avg(ja4proxy_risk_score_d),\n    TargetSNIs = make_set(ja4proxy_sni_s, 10),\n    FirstSeen = min(TimeGenerated),\n    LastSeen = max(TimeGenerated)\n    by ja4proxy_fingerprint_s, ja4proxy_asn_org_s, bin(TimeGenerated, 30m)\n| where UniqueSourceIPs >= 5\n| extend\n    CampaignLabel = strcat('Campaign: ', ja4proxy_fingerprint_s, ' from ', ja4proxy_asn_org_s),\n    BlockRate = round(todouble(BlockedCount) / todouble(TotalConnections) * 100, 1)",
+    "queryFrequency": "PT15M",
+    "queryPeriod": "PT1H",
+    "triggerOperator": "GreaterThan",
+    "triggerThreshold": 0,
+    "suppressionDuration": "PT2H",
+    "suppressionEnabled": false,
+    "tactics": [
+      "ResourceDevelopment",
+      "Reconnaissance"
+    ],
+    "techniques": [
+      "T1583",
+      "T1595"
+    ],
+    "alertDetailsOverride": {
+      "alertDisplayNameFormat": "JA4proxy Campaign from {{ja4proxy_asn_org_s}}: {{UniqueSourceIPs}} source IPs",
+      "alertDescriptionFormat": "Coordinated campaign detected from ASN {{ja4proxy_asn_org_s}} using fingerprint {{ja4proxy_fingerprint_s}}. {{UniqueSourceIPs}} distinct source IPs, {{TotalConnections}} total connections ({{BlockRate}}% blocked).",
+      "alertSeverityColumnName": null,
+      "alertTacticsColumnName": null
+    },
+    "entityMappings": [],
+    "customDetails": {
+      "ASNOrg": "ja4proxy_asn_org_s",
+      "JA4Fingerprint": "ja4proxy_fingerprint_s",
+      "UniqueSourceIPs": "UniqueSourceIPs",
+      "MaxScore": "MaxScore"
+    }
+  }
+}

@@ -1,0 +1,207 @@
+{
+  "index_patterns": ["ja4proxy-*"],
+  "priority": 200,
+  "_meta": {
+    "description": "JA4proxy TLS security proxy telemetry — ECS 8.x compliant index template",
+    "version": "1.0.0",
+    "created_by": "JA4proxy Phase 80"
+  },
+  "template": {
+    "settings": {
+      "number_of_shards": 1,
+      "number_of_replicas": 1,
+      "index.lifecycle.name": "ja4proxy-ilm-policy",
+      "index.lifecycle.rollover_alias": "ja4proxy",
+      "index.default_pipeline": "ja4proxy-enrichment",
+      "index.codec": "best_compression",
+      "index.mapping.total_fields.limit": 2000,
+      "index.refresh_interval": "5s"
+    },
+    "mappings": {
+      "dynamic": "true",
+      "dynamic_templates": [
+        {
+          "strings_as_keyword": {
+            "match_mapping_type": "string",
+            "mapping": {
+              "type": "keyword",
+              "ignore_above": 1024
+            }
+          }
+        }
+      ],
+      "properties": {
+        "@timestamp": {
+          "type": "date",
+          "format": "strict_date_optional_time||epoch_millis"
+        },
+        "event": {
+          "properties": {
+            "action": {
+              "type": "keyword",
+              "doc_values": true
+            },
+            "category": {
+              "type": "keyword"
+            },
+            "kind": {
+              "type": "keyword"
+            },
+            "outcome": {
+              "type": "keyword"
+            },
+            "risk_score": {
+              "type": "float"
+            },
+            "type": {
+              "type": "keyword"
+            }
+          }
+        },
+        "source": {
+          "properties": {
+            "ip": {
+              "type": "ip"
+            },
+            "port": {
+              "type": "integer"
+            },
+            "geo": {
+              "properties": {
+                "city_name": { "type": "keyword" },
+                "continent_name": { "type": "keyword" },
+                "country_iso_code": { "type": "keyword" },
+                "country_name": { "type": "keyword" },
+                "location": { "type": "geo_point" },
+                "region_iso_code": { "type": "keyword" },
+                "region_name": { "type": "keyword" }
+              }
+            },
+            "as": {
+              "properties": {
+                "number": { "type": "long" },
+                "organization": {
+                  "properties": {
+                    "name": { "type": "keyword" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "destination": {
+          "properties": {
+            "ip": { "type": "ip" },
+            "port": { "type": "integer" }
+          }
+        },
+        "network": {
+          "properties": {
+            "transport": { "type": "keyword" },
+            "protocol": { "type": "keyword" }
+          }
+        },
+        "tls": {
+          "properties": {
+            "version": { "type": "keyword" },
+            "version_protocol": { "type": "keyword" },
+            "cipher": { "type": "keyword" },
+            "resumed": { "type": "boolean" }
+          }
+        },
+        "host": {
+          "properties": {
+            "name": { "type": "keyword" },
+            "ip": { "type": "ip" }
+          }
+        },
+        "service": {
+          "properties": {
+            "name": { "type": "keyword" },
+            "version": { "type": "keyword" }
+          }
+        },
+        "ja4proxy": {
+          "properties": {
+            "fingerprint": {
+              "properties": {
+                "ja4": {
+                  "type": "keyword",
+                  "doc_values": true
+                },
+                "ja4x": {
+                  "type": "keyword",
+                  "doc_values": true
+                },
+                "ja4t": {
+                  "type": "keyword",
+                  "doc_values": true
+                }
+              }
+            },
+            "dial_setting": {
+              "type": "integer"
+            },
+            "score": {
+              "type": "float"
+            },
+            "signals": {
+              "type": "nested",
+              "properties": {
+                "name": { "type": "keyword" },
+                "score": { "type": "float" },
+                "reason": {
+                  "type": "text",
+                  "fields": {
+                    "keyword": { "type": "keyword", "ignore_above": 512 }
+                  }
+                }
+              }
+            },
+            "sni": {
+              "type": "keyword"
+            },
+            "alpn": {
+              "type": "keyword"
+            },
+            "tls_resumed": {
+              "type": "boolean"
+            },
+            "asn": {
+              "type": "long"
+            },
+            "asn_org": {
+              "type": "keyword"
+            },
+            "country_code": {
+              "type": "keyword"
+            },
+            "node": {
+              "type": "keyword"
+            }
+          }
+        },
+        "message": {
+          "type": "text",
+          "fields": {
+            "keyword": {
+              "type": "keyword",
+              "ignore_above": 4096
+            }
+          }
+        },
+        "log": {
+          "properties": {
+            "level": { "type": "keyword" },
+            "logger": { "type": "keyword" }
+          }
+        }
+      }
+    },
+    "aliases": {
+      "ja4proxy": {
+        "is_write_index": true
+      }
+    }
+  }
+}

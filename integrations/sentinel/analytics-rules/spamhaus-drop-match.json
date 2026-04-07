@@ -1,0 +1,48 @@
+{
+  "kind": "Scheduled",
+  "properties": {
+    "displayName": "JA4proxy - Spamhaus DROP Match",
+    "description": "Detects connections where JA4proxy matched the source IP against the Spamhaus DROP or EDROP blocklist. Spamhaus DROP lists are netblocks that have been hijacked or leased by professional spam or cybercrime operations. A match indicates high-confidence malicious infrastructure. Correlates with MITRE ATT&CK T1078 (Valid Accounts — abuse of legitimate netblock registrations).",
+    "severity": "High",
+    "enabled": true,
+    "query": "JA4proxy_CL\n| where TimeGenerated > ago(1h)\n| where RawData has 'spamhaus_drop'\n| extend signals_raw = extract('\"ja\\\\.4proxy\\\\.signals\":\\\\s*(\\\\[.*?\\\\])', 1, RawData)\n| extend\n    HasSpamhausSignal = signals_raw has 'spamhaus_drop',\n    EventAction = tostring(parse_json(RawData)[\"event.action\"]),\n    RiskScore = toint(parse_json(RawData)[\"event.risk_score\"]),\n    TLSVersion = tostring(parse_json(RawData)[\"tls.version\"]),\n    JA4FP = tostring(parse_json(RawData)[\"ja4proxy.fingerprint.ja4\"]),\n    CountryCode = tostring(parse_json(RawData)[\"ja4proxy.country_code\"]),\n    ASNOrg = tostring(parse_json(RawData)[\"ja4proxy.asn_org\"])\n| where HasSpamhausSignal\n| summarize\n    ConnectionCount = count(),\n    Actions = make_set(EventAction, 5),\n    MaxScore = max(RiskScore),\n    TLSVersions = make_set(TLSVersion, 5),\n    Fingerprints = make_set(JA4FP, 10),\n    FirstSeen = min(TimeGenerated),\n    LastSeen = max(TimeGenerated)\n    by source_ip_s, CountryCode, ASNOrg\n| extend\n    AlertTitle = strcat('Spamhaus DROP match: ', source_ip_s, ' (', ASNOrg, ')')",
+    "queryFrequency": "PT5M",
+    "queryPeriod": "PT1H",
+    "triggerOperator": "GreaterThan",
+    "triggerThreshold": 0,
+    "suppressionDuration": "PT4H",
+    "suppressionEnabled": false,
+    "tactics": [
+      "InitialAccess"
+    ],
+    "techniques": [
+      "T1078"
+    ],
+    "subTechniques": [
+      "T1078.004"
+    ],
+    "alertDetailsOverride": {
+      "alertDisplayNameFormat": "JA4proxy Spamhaus DROP: {{source_ip_s}} from {{ASNOrg}}",
+      "alertDescriptionFormat": "Connection from Spamhaus DROP-listed IP {{source_ip_s}} ({{CountryCode}}, {{ASNOrg}}). Risk score: {{MaxScore}}. {{ConnectionCount}} connection(s) in the last hour.",
+      "alertSeverityColumnName": null,
+      "alertTacticsColumnName": null
+    },
+    "entityMappings": [
+      {
+        "entityType": "IP",
+        "fieldMappings": [
+          {
+            "identifier": "Address",
+            "columnName": "source_ip_s"
+          }
+        ]
+      }
+    ],
+    "customDetails": {
+      "ASNOrg": "ASNOrg",
+      "CountryCode": "CountryCode",
+      "MaxScore": "MaxScore",
+      "ConnectionCount": "ConnectionCount"
+    }
+  }
+}
