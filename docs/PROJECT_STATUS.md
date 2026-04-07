@@ -206,7 +206,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 79 | Management API v2, RBAC & Enterprise Identity | PROPOSED | N/A | N/A |
 | 80 | ECS Structured Logging & SIEM Integration Pack | COMPLETE | N/A | N/A |
 | 81 | SOAR, Webhooks & Enterprise Operations Platforms | COMPLETE | N/A | N/A |
-| 82 | Policy-as-Code, Shadow Mode & Governance | PROPOSED | N/A | N/A |
+| 82 | Policy-as-Code, Shadow Mode & Governance | COMPLETE | N/A | N/A |
 | 83 | Infrastructure Automation — Terraform, CLI & Kubernetes Operator | PROPOSED | N/A | N/A |
 | 84 | Compliance & Reporting | PROPOSED | N/A | N/A |
 | 85 | Threat Intelligence Ingestion | PROPOSED | N/A | N/A |
