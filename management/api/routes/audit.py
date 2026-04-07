@@ -25,18 +25,16 @@ import logging
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import Response
 
+from ..audit_utils import _AUDIT_KEY, _MAX_ENTRIES
 from ..auth import require_role
-from ..models import AuditLog, Role
+from ..models import Role
 from ..redis_client import get_redis
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["audit"])
-
-_AUDIT_KEY = "management:audit_log"
-_MAX_ENTRIES = 1000
 
 _CSV_FIELDS = [
     "timestamp",
@@ -79,7 +77,7 @@ def _apply_filters(
 @router.get("/api/v1/audit")
 async def get_audit_log(
     request: Request,
-    format: Optional[str] = Query(default=None, description="Response format: json (default), jsonl, csv"),
+    output_format: Optional[str] = Query(default=None, alias="format", description="Response format: json (default), jsonl, csv"),
     action: Optional[str] = Query(default=None, description="Filter by action_type field"),
     actor: Optional[str] = Query(default=None, description="Filter by actor_id substring"),
     since: Optional[str] = Query(default=None, description="Filter by timestamp >= value (ISO 8601)"),
@@ -97,10 +95,9 @@ async def get_audit_log(
             logger.warning("audit | event=malformed_entry | raw=%r", raw)
             continue
 
-    # Apply filters
     filtered = _apply_filters(parsed, action, actor, since)
 
-    fmt = (format or "json").lower()
+    fmt = (output_format or "json").lower()
 
     if fmt == "jsonl":
         lines = "\n".join(json.dumps(entry) for entry in filtered)

@@ -23,7 +23,7 @@ Schema (new — Phase 79 Cluster 5)
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -38,16 +38,16 @@ async def write_audit(
     actor_ip: str,
     action_type: str,
     resource_type: str,
-    resource_id: Optional[str] = None,
-    before_value: Optional[Any] = None,
-    after_value: Optional[Any] = None,
-    session_id: Optional[str] = None,
+    resource_id: str | None = None,
+    before_value: Any = None,
+    after_value: Any = None,
+    session_id: str | None = None,
     role: str,
 ) -> None:
     """Append an enhanced audit entry to management:audit_log.
 
-    Never raises — write failures are logged and swallowed so that the
-    primary operation is not affected by audit log unavailability.
+    Never raises — serialisation and write failures are logged and swallowed
+    so that the primary operation is not affected by audit log unavailability.
 
     Args:
         redis: The async Redis client.
@@ -61,21 +61,21 @@ async def write_audit(
         session_id: Optional opaque session identifier.
         role: String role of the actor ("auditor", "analyst", "operator", "admin").
     """
-    entry = json.dumps(
-        {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "actor_id": actor_id,
-            "actor_ip": actor_ip,
-            "action_type": action_type,
-            "resource_type": resource_type,
-            "resource_id": resource_id,
-            "before_value": before_value,
-            "after_value": after_value,
-            "session_id": session_id,
-            "role": role,
-        }
-    )
     try:
+        entry = json.dumps(
+            {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "actor_id": actor_id,
+                "actor_ip": actor_ip,
+                "action_type": action_type,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+                "before_value": before_value,
+                "after_value": after_value,
+                "session_id": session_id,
+                "role": role,
+            }
+        )
         await redis.lpush(_AUDIT_KEY, entry)
         await redis.ltrim(_AUDIT_KEY, 0, _MAX_ENTRIES - 1)
     except Exception:
