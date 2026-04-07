@@ -1213,3 +1213,7 @@ lint-all: lint-python lint-go lint-sast lint-infra lint-observability \
           lint-supply-chain lint-docs-all
 	@echo ""
 	@echo "✓ lint-all complete — all linters passed"
+
+## Phase 100 targets
+openapi-spec:
+	MANAGEMENT_TEST_MODE=1 python3 management/scripts/export_openapi.py
