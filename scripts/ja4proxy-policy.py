@@ -181,7 +181,8 @@ async def _async_diff(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        drift_entries = await diff_policy(policy_dict, args.url, token)
+        diff_result = await diff_policy(policy_dict, args.url, token)
+        drift_entries = diff_result.drift
     except Exception as exc:  # noqa: BLE001
         print(f"ERROR: diff failed: {exc}", file=sys.stderr)
         return 1

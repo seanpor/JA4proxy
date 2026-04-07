@@ -339,3 +339,37 @@ async def test_diff_clean_no_drift():
     assert len(diff_result.drift) == 0, (
         f"Expected empty drift list when policy matches API state, got: {diff_result.drift!r}"
     )
+
+
+# ===========================================================================
+# bypass_toggles apply path
+# ===========================================================================
+
+class TestApplyBypassToggles:
+
+    async def test_apply_bypass_toggles(self):
+        """bypass_toggles in policy → PATCH /api/v1/config called with correct body."""
+        pa = _import_applier()
+        async with management_api_mock_server() as (base_url, token, mock):
+            policy = {
+                "bypass_toggles": {
+                    "alpn_browser_bypass": True,
+                    "spamhaus_bypass": False,
+                },
+            }
+            result = await pa.apply_policy(policy, api_url=base_url, token=token)
+
+        config_calls = [
+            r for r in mock.requests_made
+            if r["method"] == "PATCH" and r["path"] == "/api/v1/config"
+        ]
+        assert len(config_calls) == 1, (
+            f"Expected exactly 1 PATCH /api/v1/config, got {len(config_calls)}: "
+            f"{config_calls!r}"
+        )
+        sent_body = config_calls[0]["body"]
+        assert "bypass_toggles" in sent_body, (
+            f"Expected 'bypass_toggles' key in PATCH /api/v1/config body, got: {sent_body!r}"
+        )
+        assert sent_body["bypass_toggles"]["alpn_browser_bypass"] is True
+        assert sent_body["bypass_toggles"]["spamhaus_bypass"] is False

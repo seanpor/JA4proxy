@@ -34,7 +34,7 @@ PR review → merge to main
     │
     ▼
 CI: python3 scripts/ja4proxy-policy.py apply \
-      --file ja4proxy-policy.yaml --env prod --token $OPERATOR_TOKEN
+      --file ja4proxy-policy.yaml --url $JA4PROXY_URL --token $OPERATOR_TOKEN
 ```
 
 The policy file is the **source of truth**. If the file says `dial: 70` and
@@ -263,7 +263,7 @@ the policy file.
 
 ```bash
 python3 scripts/ja4proxy-policy.py diff \
-  --file ja4proxy-policy.yaml --env prod --token $OPERATOR_TOKEN
+  --file ja4proxy-policy.yaml --url $JA4PROXY_URL --token $OPERATOR_TOKEN
 ```
 
 Unexpected entries are reported to a monitoring channel. Nothing is deleted

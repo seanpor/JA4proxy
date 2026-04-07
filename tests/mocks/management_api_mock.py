@@ -64,6 +64,9 @@ class ManagementAPIMock:
         # When True, PATCH /api/v1/dial returns 202 + decision_id instead of 200
         self._dial_returns_pending: bool = dial_returns_pending
 
+        # Accumulates bodies from PATCH /api/v1/config calls
+        self._config_patches: list[dict] = []
+
         self._app: web.Application | None = None
         self._runner: web.AppRunner | None = None
         self._site: web.TCPSite | None = None
@@ -201,6 +204,46 @@ class ManagementAPIMock:
 
         return web.Response(status=405)
 
+    async def _handle_ip_collection(self, request: web.Request) -> web.Response:
+        """Handle GET/POST for /api/v1/{allowlist|blocklist|watchlist}/ips."""
+        auth_err = await self._auth_check(request)
+        if auth_err:
+            return auth_err
+
+        await self._record(request)
+        if request.method == "GET":
+            return web.json_response([], status=200)
+        if request.method == "POST":
+            body = await request.json()
+            return web.json_response(
+                {"id": "new-ip-id", "managed_by": "policy", **body}, status=200
+            )
+        return web.Response(status=405)
+
+    async def _handle_ip_item(self, request: web.Request) -> web.Response:
+        """Handle DELETE /api/v1/{resource}/ips/{id}."""
+        auth_err = await self._auth_check(request)
+        if auth_err:
+            return auth_err
+
+        await self._record(request)
+        if request.method == "DELETE":
+            return web.Response(status=204)
+        return web.Response(status=405)
+
+    async def _handle_config(self, request: web.Request) -> web.Response:
+        """Handle PATCH /api/v1/config — accepts bypass_toggles updates."""
+        auth_err = await self._auth_check(request)
+        if auth_err:
+            return auth_err
+
+        await self._record(request)
+        if request.method == "PATCH":
+            body = await request.json()
+            self._config_patches.append(body)
+            return web.json_response({"status": "ok"}, status=200)
+        return web.Response(status=405)
+
     async def _handle_catchall(self, request: web.Request) -> web.Response:
         """Fallback for unrecognised paths — records and returns 404."""
         auth_err = await self._auth_check(request)
@@ -226,6 +269,11 @@ class ManagementAPIMock:
         self._app.router.add_route("POST",   "/api/v1/blocklist",        self._handle_blocklist_collection)
         self._app.router.add_route("PATCH",  "/api/v1/dial",             self._handle_dial)
         self._app.router.add_route("GET",    "/api/v1/decisions",        self._handle_decisions)
+        self._app.router.add_route("PATCH",  "/api/v1/config",           self._handle_config)
+        for resource in ("allowlist", "blocklist", "watchlist"):
+            self._app.router.add_route("GET",    f"/api/v1/{resource}/ips",       self._handle_ip_collection)
+            self._app.router.add_route("POST",   f"/api/v1/{resource}/ips",       self._handle_ip_collection)
+            self._app.router.add_route("DELETE", f"/api/v1/{resource}/ips/{{id}}", self._handle_ip_item)
         # Catch-all must be last
         self._app.router.add_route("*",      "/{path_info:.*}",          self._handle_catchall)
 

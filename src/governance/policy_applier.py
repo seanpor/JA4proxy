@@ -144,19 +144,25 @@ async def _get_list(
         headers: HTTP headers to include.
 
     Returns:
-        List of resource dicts, or an empty list on any error.
+        List of resource dicts.
+
+    Raises:
+        RuntimeError: if the API returns a non-200 status (including 401/403),
+            so that authentication failures are never silently treated as an
+            empty list and mistaken for a successful apply.
     """
-    try:
-        async with session.get(url, headers=headers) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                # API may return {"items": [...]} or a plain list
-                if isinstance(data, list):
-                    return data
-                if isinstance(data, dict):
-                    return data.get("items", data.get("data", []))
-    except Exception:  # noqa: BLE001
-        pass
+    async with session.get(url, headers=headers) as resp:
+        if resp.status != 200:
+            raise RuntimeError(
+                f"GET {url} returned HTTP {resp.status} — "
+                "check API URL and token validity"
+            )
+        data = await resp.json()
+        # API may return {"items": [...]} or a plain list
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            return data.get("items", data.get("data", []))
     return []
 
 
@@ -360,25 +366,23 @@ async def apply_policy(
             result,
         )
 
-        # IPs / CIDRs
-        if allowlist.get("ips"):
-            await _apply_ips(
-                session, api_url, headers,
-                allowlist["ips"], "allowlist/ips",
-                result,
-            )
-        if blocklist.get("ips"):
-            await _apply_ips(
-                session, api_url, headers,
-                blocklist["ips"], "blocklist/ips",
-                result,
-            )
-        if watchlist.get("ips"):
-            await _apply_ips(
-                session, api_url, headers,
-                watchlist["ips"], "watchlist/ips",
-                result,
-            )
+        # IPs / CIDRs — always call even when list is empty so stale
+        # managed_by=policy entries in the live API get removed.
+        await _apply_ips(
+            session, api_url, headers,
+            allowlist.get("ips") or [], "allowlist/ips",
+            result,
+        )
+        await _apply_ips(
+            session, api_url, headers,
+            blocklist.get("ips") or [], "blocklist/ips",
+            result,
+        )
+        await _apply_ips(
+            session, api_url, headers,
+            watchlist.get("ips") or [], "watchlist/ips",
+            result,
+        )
 
         # Dial
         if "setting" in dial:
