@@ -13,6 +13,7 @@ addopts = "--tb=short --timeout=60"
 
 markers = [
     "live_services: requires live Go/Python proxy and Redis; excluded from make test (use make test-live)",
+    "integration: requires live external IdP (Okta, Entra ID, Keycloak); set OKTA_METADATA_URL or ENTRA_OIDC_DISCOVERY_URL",
 ]
 
 # Warning policy:
