@@ -239,7 +239,9 @@ import hmac, hashlib, json
 def verify_webhook(body_bytes: bytes, secret: str, received_sig: str) -> bool:
     payload = json.loads(body_bytes)
     sig_received = payload.pop("signature", "")
-    payload_for_hmac = json.dumps(payload, sort_keys=False, separators=(",", ":")).encode()
+    # sort_keys=True ensures field order matches Go's json.Marshal (alphabetical),
+    # making the HMAC stable regardless of Python dict insertion order.
+    payload_for_hmac = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     expected = "sha256=" + hmac.new(
         secret.encode(), payload_for_hmac, hashlib.sha256
     ).hexdigest()
