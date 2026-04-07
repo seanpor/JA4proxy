@@ -1,5 +1,31 @@
 # Changelog
 
+## [Unreleased] - Phase 83 - ja4proxy-cli Go Binary
+
+### Added
+- `ja4proxy-cli` compiled Go binary (`cmd/ja4proxy-cli/main.go`) with 9 top-level command groups: `ip`, `allowlist`, `blocklist`, `dial`, `config`, `health`, `fingerprint`, `policy`, `simulation`
+- HTTP client (`internal/cli/client/client.go`): 30s timeout, Bearer auth, descriptive errors including HTTP status codes
+- Auth resolver (`internal/cli/auth/auth.go`): flag → `JA4PROXY_TOKEN`/`JA4PROXY_URL` env var precedence
+- CLI config file (`internal/cli/config/config.go`): reads `~/.config/ja4proxy/cli.yaml` for default URL/token/output
+- Output formatters (`internal/cli/output/output.go`): ASCII table (tablewriter), JSON (indented), CSV with reflect-based header extraction
+- IP commands (`internal/cli/commands/ip.go`): `RunIPBan`, `RunIPRelease`, `RunWatchlistAdd`, `RunWatchlistRemove`, `RunIPLookup` — all calling Phase 79 Management API endpoints
+- Allowlist/Blocklist commands (`internal/cli/commands/allowlist.go`, `blocklist.go`): `RunAllowlistAdd/Remove/List`, `RunBlocklistAdd/Remove/List` with lookup-then-delete pattern for remove operations
+- Dial commands (`internal/cli/commands/dial.go`): `RunDialGet`, `RunDialSet` with `PendingApprovalError` (exit 2) on HTTP 202 response
+- Config reload (`internal/cli/commands/config.go`): `RunConfigReload` — all nodes or specific node
+- Health (`internal/cli/commands/health.go`): `RunHealth` aggregating `/api/v1/nodes` + `/api/v1/health/deep`
+- Fingerprint history (`internal/cli/commands/fingerprint.go`): `RunFingerprintHistory` calling `/api/v1/fingerprints/{ja4}/history`
+- Policy commands (`internal/cli/commands/policy.go`): `ValidatePolicy` with all 8 rules (YAML parse, top-level keys, dial range, expires TTL, dial increase, CIDR validation, JA4 regex, duplicate detection), `RunPolicyValidate`, `RunPolicyApply`, `RunPolicyDiff` — parity with `scripts/ja4proxy-policy.py`
+- Simulation stubs (`internal/cli/commands/simulation.go`): `RunSimulationRun/Status/Report` all return `ErrSimulationNotAvailable`
+- All mutating commands (`ban`, `release`, `watchlist remove`, `blocklist remove`, `allowlist remove`, `dial set`) require `--confirm` flag; missing `--confirm` exits 1 with a descriptive message
+- Global flags: `--url`, `--token`, `--output` (table|json|csv)
+- New dependencies: `github.com/spf13/cobra v1.10.2`, `github.com/olekukonko/tablewriter v1.1.4`
+- Makefile target: `test-phase-83` — builds binary and runs `go vet`
+
+### Notes
+- `go build ./cmd/ja4proxy-cli/` and `go vet ./internal/cli/...` both pass cleanly
+- All existing 75+ Go unit tests continue to pass with no regressions
+- No `_test.go` files included — test agent handles those separately
+
 ## [Unreleased] - Phase 100 - Phase 79 SSO/MFA Gap Closure
 
 ### Added

@@ -1237,3 +1237,10 @@ openapi-spec:
 	MANAGEMENT_TEST_MODE=1 python3 management/scripts/export_openapi.py
 
 .PHONY: openapi-spec
+
+## Phase 83 targets
+test-phase-83:
+	GOROOT=/snap/go/current go build ./cmd/ja4proxy-cli/
+	GOROOT=/snap/go/current go vet ./internal/cli/...
+
+.PHONY: test-phase-83

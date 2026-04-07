@@ -31,10 +31,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Smoke test suite (Docker Compose, Helm/kind, Podman/Quadlet); DR runbook with 5 scenarios incl. Redis data loss; credential rotation runbooks; TLS certificate rotation; rolling upgrade procedure; MTTR baseline measurement.)
 *   **Action Plan:** [PHASE_64.md](PHASE_64.md)
 
-### Phase 83 — ja4proxy-cli Go Binary
-*   **Status:** **PROPOSED** (Go binary for terminal day-2 operations: ip lookup/ban/release/watchlist, allowlist/blocklist add/remove/list, dial get/set, config reload, health, fingerprint history, policy validate/apply/diff. --output json|table|csv. Mutating commands require --confirm. Parity tests vs Python stopgap. GPG-signed releases with SLSA provenance. Replaces scripts/ja4proxy-policy.py.)
-*   **Action Plan:** [PHASE_83.md](PHASE_83.md)
-
 ### Phase 84 — Compliance & Reporting
 *   **Status:** **PROPOSED** (PCI-DSS v4.0 evidence pack (8 artefacts, auto-generated). SOC 2 Type II control narrative and monthly evidence collection. GDPR retention/purge/DSAR/erasure. Executive PDF report with value-of-product metric. ISO 27001 Annex A mapping.)
 *   **Action Plan:** [PHASE_84.md](PHASE_84.md)
