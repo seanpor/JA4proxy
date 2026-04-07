@@ -14,8 +14,8 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Request
 
-from ..auth import get_current_user
-from ..models import ConfigReloadResponse
+from ..auth import require_role
+from ..models import ConfigReloadResponse, Role
 from ..redis_client import get_redis
 
 logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ def _client_ip(request: Request) -> str:
 @router.post("/api/v1/config/reload", response_model=ConfigReloadResponse)
 async def reload_config(
     request: Request,
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role(Role.admin)),
     redis=Depends(get_redis),
 ) -> ConfigReloadResponse:
     """Publish a config reload signal to all proxy instances.

@@ -311,12 +311,47 @@ async def get_current_user(
     return _unauthenticated_response(request)
 
 
+_ROLE_ORDER = {
+    Role.auditor: 0,
+    Role.analyst: 1,
+    Role.operator: 2,
+    Role.admin: 3,
+}
+
+
+def require_role(minimum_role: Role):
+    """Return a FastAPI dependency that enforces minimum_role.
+
+    Args:
+        minimum_role: The minimum role required to access the endpoint.
+
+    Returns:
+        A FastAPI dependency function that returns the current user tuple
+        or raises HTTP 403 if the role is insufficient.
+    """
+    async def _check(
+        current_user: Tuple[str, Role] = Depends(get_current_user),
+    ) -> Tuple[str, Role]:
+        identity, role = current_user
+        if _ROLE_ORDER[role] < _ROLE_ORDER[minimum_role]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    f"Role '{role.value}' insufficient; "
+                    f"'{minimum_role.value}' or higher required."
+                ),
+            )
+        return current_user
+
+    return _check
+
+
 async def require_admin(
     current_user: Tuple[str, Role] = Depends(get_current_user),
 ) -> Tuple[str, Role]:
     """Dependency — requires admin role; raises 403 otherwise."""
     identity, role = current_user
-    if role != Role.admin:
+    if _ROLE_ORDER[role] < _ROLE_ORDER[Role.admin]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin role required",
