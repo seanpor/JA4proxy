@@ -197,13 +197,20 @@ Enterprise procurement requires corporate IdP integration. This is a hard gate.
 
 ### 4.1 Required Identity Providers
 
-| IdP | Protocol | Test method |
-|-----|----------|-------------|
-| Okta | SAML 2.0 + OIDC | Okta Developer sandbox (see §10) |
-| Microsoft Entra ID | OIDC | Keycloak Docker in CI; Entra ID manually if credentials available |
-| Ping Identity | SAML 2.0 | Generic SAML conformance test (same code path as Okta) |
-| Generic SAML 2.0 | SAML 2.0 | Okta developer sandbox covers this |
-| Generic OIDC | OIDC | Keycloak Docker in CI |
+> **GAP — Phase 79**: Okta Developer account and Microsoft Entra ID (M365 Dev Program)
+> accounts could not be provisioned. SAML 2.0 integration tests against live IdPs are
+> deferred. All SAML/OIDC code will be implemented and unit-tested with mocks; live IdP
+> integration tests are marked `@pytest.mark.integration` and skipped until credentials
+> are available. OIDC tests against Keycloak Docker **are** CI-runnable and are not
+> blocked.
+
+| IdP | Protocol | Test method | Status |
+|-----|----------|-------------|--------|
+| Okta | SAML 2.0 + OIDC | Okta Developer sandbox | **GAP — no account** |
+| Microsoft Entra ID | OIDC | M365 Dev Program sandbox | **GAP — no account** |
+| Ping Identity | SAML 2.0 | Generic SAML (same code path as Okta) | Covered by mock |
+| Generic SAML 2.0 | SAML 2.0 | Mock IdP in tests | Implemented |
+| Generic OIDC | OIDC | Keycloak 24.x in Docker | CI-runnable |
 
 ### 4.2 Group-to-Role Mapping
 
@@ -531,11 +538,13 @@ This phase must be complete before any of the following phases can begin:
 - [ ] SSO-delegated MFA: no additional challenge if IdP asserts MFA satisfied
 
 ### SSO
-- [ ] SAML 2.0 login flow working against Okta Developer sandbox
+- [ ] SAML 2.0 SP code implemented; unit-tested with mock IdP responses
 - [ ] OIDC login flow working against Keycloak Docker container (CI-runnable)
 - [ ] Group-to-role mapping configured via `config/proxy.yml`
 - [ ] Users not in any mapped group are denied access (`default_role: null`)
 - [ ] SAML tests marked `@pytest.mark.integration`, skipped without `OKTA_METADATA_URL`
+- [ ] **GAP**: Live Okta SAML test — deferred (no account; revisit when provisioned)
+- [ ] **GAP**: Live Entra ID OIDC test — deferred (no account; revisit when provisioned)
 
 ### Audit Trail
 - [ ] Every mutating action logged with role, before/after values
