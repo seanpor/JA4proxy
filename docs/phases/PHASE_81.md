@@ -32,6 +32,7 @@ All integrations in this phase depend on the following API endpoints (Phase 79):
 ```
 POST   /api/v1/bans                    # Block an IP
 DELETE /api/v1/bans/{ip}               # Release a ban
+PATCH  /api/v1/bans/{ip}               # Extend ban TTL  ← verify Phase 79 delivers this; see P100-J
 POST   /api/v1/watchlist               # Add to elevated monitoring
 POST   /api/v1/allowlist               # Temporary allowlist entry
 DELETE /api/v1/allowlist/{id}          # Remove allowlist entry
@@ -39,11 +40,18 @@ GET    /api/v1/connections?ip={ip}     # Connection history for enrichment
 GET    /api/v1/fingerprints/{ja4}      # Fingerprint detail and history
 PATCH  /api/v1/dial                    # Change dial (Operator token required)
 GET    /api/v1/health/deep             # Health check for SOAR monitoring
+POST   /api/v1/tokens/{id}/rotate      # Rotate API token  ← verify Phase 79 delivers this; see P100-K
 ```
 
 Each integration uses an **Operator-scoped API token** stored in the platform's
 credential store — never hardcoded in playbook config. Dial changes require explicit
 confirmation steps in playbooks due to their fleet-wide impact.
+
+> **Phase 79 dependency check:** Before starting implementation, verify that
+> `PATCH /api/v1/bans/{ip}` and `POST /api/v1/tokens/{id}/rotate` are present in the
+> merged Phase 79 branch. If either is absent, raise it in Phase 100 (items 100-J and
+> 100-K) and build the dependent features against a stub endpoint — do not block the
+> rest of Phase 81.
 
 ---
 
@@ -67,9 +75,19 @@ A custom XSOAR integration (`JA4proxy`) with the following commands:
 | `ja4proxy-add-to-allowlist` | Temporary allowlist (with mandatory expiry) |
 | `ja4proxy-get-dial` | Return current dial setting |
 
-**Test strategy:** XSOAR playbooks cannot be tested without an XSOAR tenant. Two acceptable approaches:
-1. **Developer tenant** — Palo Alto provides free XSOAR developer instances; provision one for integration testing. Document setup in `docs/developer/MOCK_SERVERS.md`.
-2. **Mock HTTP server** — implement a mock XSOAR webhook receiver in `tests/mocks/soar_mock.py` that validates the correct API calls are made. Both approaches must be documented; at least the mock must be implemented for CI.
+**Test strategy:** XSOAR playbooks cannot be executed without an XSOAR tenant, but the
+**Python connector code** (`integrations/xsoar/JA4proxy/`) makes HTTP calls to the
+Management API — those are fully testable offline. Required:
+
+1. **Unit tests in `tests/integration/test_soar_connectors.py`** — for every command
+   (`ja4proxy-ban-ip`, `ja4proxy-release-ban`, etc.), test that the correct HTTP method,
+   path, headers, and body are sent. Use a mock HTTP server (`tests/mocks/soar_mock.py`).
+   Assert that non-2xx responses are raised as errors with the original status code logged.
+2. **Developer tenant (optional)** — Palo Alto provides free XSOAR developer instances.
+   If one is available, document setup in `docs/developer/MOCK_SERVERS.md`. Live testing
+   moves to Phase 100 (item 100-E) when access is available.
+
+The mock must be implemented for CI to pass. The developer tenant is bonus coverage.
 
 ### 3.2 Incident Playbooks (2)
 
@@ -117,7 +135,10 @@ A Splunk SOAR app (`ja4proxy`) with actions:
 | `remove_from_allowlist` | `ip` |
 | `get_health` | — |
 
-**Test strategy:** Use the existing `tests/mocks/` pattern. A Splunk SOAR mock server or developer sandbox must be documented for integration testing.
+**Test strategy:** The Splunk SOAR app (`integrations/splunk-soar/ja4proxy/`) makes
+HTTP calls to the Management API. Test all 8 actions against the mock HTTP server in
+`tests/mocks/soar_mock.py` (same mock as XSOAR — both call the same Management API
+endpoints). Splunk SOAR platform installation is tracked in Phase 100 (item 100-E).
 
 ### 4.2 Connector Configuration
 
@@ -140,20 +161,62 @@ change record).
 ### 5.1 Automatic Incident Creation
 
 Configure JA4proxy webhooks to call ServiceNow's **Security Incident Response (SIR)**
-table API on ban events:
+table API on ban events. The webhook handler receives an ECS event dict and builds the
+ServiceNow payload programmatically — ServiceNow's REST API takes literal JSON values,
+not a template language.
 
-```json
-// POST https://company.service-now.com/api/now/table/sn_si_incident
-{
-  "short_description": "JA4proxy ban: {{ source.ip }} (score={{ event.risk_score }})",
-  "description": "{{ ja4proxy.signals | format }}",
-  "category": "network_intrusion",
-  "severity": "{{ risk_score >= 85 ? '1' : '2' }}",
-  "u_source_ip": "{{ source.ip }}",
-  "u_ja4_fingerprint": "{{ ja4proxy.fingerprint.ja4 }}",
-  "u_ja4proxy_ban_id": "{{ ja4proxy.ban_id }}"
-}
+Deliver as `integrations/servicenow/ja4proxy_snow_handler.py`:
+
+```python
+import json, os, requests
+
+SNOW_INSTANCE = os.environ["SNOW_INSTANCE"]  # e.g. "company.service-now.com"
+SNOW_USER     = os.environ["SNOW_USER"]
+SNOW_PASS     = os.environ["SNOW_PASS"]
+SIR_TABLE_URL = f"https://{SNOW_INSTANCE}/api/now/table/sn_si_incident"
+
+def ecs_to_sir(event: dict) -> dict:
+    """Build a ServiceNow SIR payload from a JA4proxy ECS event dict."""
+    risk_score = event.get("event.risk_score", 0)
+    signals    = event.get("ja4proxy.signals", [])
+    signal_txt = "; ".join(
+        f"{s['name']}(+{s['score']}): {s['reason']}" for s in signals
+    )
+    # SIR severity: 1=Critical, 2=High, 3=Moderate, 4=Low, 5=Planning
+    severity = "1" if risk_score >= 85 else "2"
+    return {
+        "short_description": (
+            f"JA4proxy ban: {event.get('source.ip', 'unknown')} "
+            f"(score={risk_score})"
+        ),
+        "description": signal_txt or "No signals recorded.",
+        "category": "network_intrusion",
+        "severity": severity,
+        "u_source_ip":         event.get("source.ip", ""),
+        "u_ja4_fingerprint":   event.get("ja4proxy.fingerprint.ja4", ""),
+        "u_ja4proxy_ban_id":   event.get("ja4proxy.ban_id", ""),
+    }
+
+def create_sir_incident(event: dict) -> str:
+    """POST to ServiceNow SIR table. Returns the created incident sys_id."""
+    payload = ecs_to_sir(event)
+    resp = requests.post(
+        SIR_TABLE_URL,
+        auth=(SNOW_USER, SNOW_PASS),
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        data=json.dumps(payload),
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return resp.json()["result"]["sys_id"]
 ```
+
+**Unit tests in `tests/unit/test_servicenow_handler.py`:**
+- `test_ecs_to_sir_high_risk` — `risk_score=90` → `severity="1"`
+- `test_ecs_to_sir_medium_risk` — `risk_score=70` → `severity="2"`
+- `test_ecs_to_sir_signal_formatting` — signals list → concatenated description string
+- `test_create_sir_incident_success` — mock `requests.post` returns 201 → returns `sys_id`
+- `test_create_sir_incident_raises_on_4xx` — mock returns 403 → `raise_for_status()` propagates
 
 ### 5.2 Enrichment Action
 
@@ -228,7 +291,7 @@ THEN:
   Post campaign summary to #threat-intel Slack channel
 ```
 
-### 6.5 Deployment Architecture Requirement for Mobile Response
+### 6.4 Deployment Architecture Requirement for Mobile Response
 
 The two-way mobile response options in §6.2 (e.g., "False Positive — Release") require xMatters to call the JA4proxy Management API outbound. This means the Management API must be reachable from xMatters Cloud or the xMatters On-Premise Agent. This is a deployment constraint that must be resolved before implementing the integration.
 
@@ -240,7 +303,7 @@ Deploy the xMatters On-Premise Agent inside the corporate network alongside JA4p
 
 Document the chosen option in `docs/enterprise/security-architecture.md` and in the xMatters integration runbook. Default recommendation: Option B for all regulated-industry deployments.
 
-### 6.4 xMatters API Token Storage
+### 6.5 xMatters API Token Storage
 
 Store the JA4proxy Operator-scoped API token in xMatters' Endpoint configuration
 (encrypted). xMatters outbound calls to JA4proxy are authenticated via this token.
@@ -286,24 +349,44 @@ receiver:
 
 ```yaml
 # config/integrations/vector-interlink.yaml (Vector sidecar config)
+#
+# Source: "stdin" is the correct choice for Docker/container deployments — the
+# Go proxy writes to stdout and Docker captures it. "journald" is ONLY correct
+# for bare-metal RHEL deployments where the proxy runs as a systemd service.
+# This config matches the pattern in vector-sentinel.yaml (Phase 80).
+#
+# For bare-metal systemd deployments, replace the source with:
+#   type: journald
+#   units: ["ja4proxy-proxy.service", "ja4proxy-analytics.service"]
+
 sources:
   ja4proxy_logs:
-    type: journald
-    units: ["ja4proxy-proxy.service", "ja4proxy-analytics.service"]
+    type: stdin
+    # Reads newline-delimited ECS JSON from the Go proxy's stdout.
 
 transforms:
-  to_cef:
+  parse_ecs:
     type: remap
     inputs: ["ja4proxy_logs"]
     source: |
-      .cef = "CEF:0|JA4proxy|JA4proxy Proxy|" + .service.version +
-             "|" + .event.action +
-             "|JA4proxy " + .event.action +
-             "|" + string!(.event.risk_score / 10) +
-             "|src=" + .source.ip +
-             " dst=" + .destination.ip +
-             " act=" + .event.action +
-             " cs1=" + .ja4proxy.fingerprint.ja4 +
+      . = parse_json!(string!(.message))
+
+  to_cef:
+    type: remap
+    inputs: ["parse_ecs"]
+    source: |
+      # CEF severity must be an integer 0–10.
+      # risk_score is 0-100; divide by 10 and round to nearest integer.
+      cef_severity = to_string(to_int(round(float!(.["event.risk_score"]) / 10.0)))
+
+      .cef = "CEF:0|JA4proxy|JA4proxy Proxy|" + string(.["service.version"] ?? "unknown") +
+             "|" + string!(.["event.action"]) +
+             "|JA4proxy " + string!(.["event.action"]) +
+             "|" + cef_severity +
+             "|src=" + string!(.["source.ip"]) +
+             " dst=" + string(.["destination.ip"] ?? "") +
+             " act=" + string!(.["event.action"]) +
+             " cs1=" + string(.["ja4proxy.fingerprint.ja4"] ?? "") +
              " cs1Label=JA4Fingerprint"
 
 sinks:
@@ -360,22 +443,37 @@ handle delivery. This is a configuration task, not a development task.
 
 ## 9. Acceptance Criteria
 
-- [ ] XSOAR integration package installable and both playbooks execute end-to-end in test tenant
-- [ ] Splunk SOAR app installable with all 7 actions functional
-- [ ] ServiceNow SIR incident auto-created on ban webhook event
-- [ ] ServiceNow resolution close-loop releases ban and adds allowlist entry
-- [ ] xMatters Event Plan routes correctly based on risk_score thresholds
-- [ ] All 5 xMatters mobile response options call the correct API endpoints
+Phase 81 is **COMPLETE** when all criteria in §9.1 pass. Criteria in §9.2 require
+platform access; they are tracked in Phase 100 and do not block phase completion.
+
+### 9.1 Testable offline — Phase 81 completion gate
+
+- [ ] XSOAR connector Python package exists at `integrations/xsoar/JA4proxy/`; all 8 commands implemented
+- [ ] Splunk SOAR app exists at `integrations/splunk-soar/ja4proxy/`; all 8 actions implemented
+- [ ] ServiceNow handler `integrations/servicenow/ja4proxy_snow_handler.py` exists; `ecs_to_sir()` and `create_sir_incident()` unit-tested (5 tests in `tests/unit/test_servicenow_handler.py`)
+- [ ] Token rotation script `scripts/rotate_soar_token.sh` exists, documented, calls `POST /api/v1/tokens/{id}/rotate`
+- [ ] `tests/mocks/soar_mock.py` mock HTTP server implemented; used by XSOAR and Splunk SOAR unit tests
+- [ ] `tests/integration/test_soar_connectors.py` passes: all 8 XSOAR commands + all 8 Splunk SOAR actions tested against mock server, asserting correct HTTP method, path, headers, and body
+- [ ] Vector Interlink config `config/integrations/vector-interlink.yaml` exists; CEF severity is integer 0–10; `stdin` source (Docker) documented and bare-metal `journald` variant noted
+- [ ] Interlink Ansible registration task documented in `docs/integration/interlink_setup.md`
+- [ ] Interlink correlation rule examples documented in `docs/integration/interlink_correlation_rules.md`
+- [ ] PagerDuty and OpsGenie `runbook_url` annotations added to all Alertmanager rules in `monitoring/alertmanager/rules/`
+- [ ] All SOAR integrations use Operator-scoped API tokens; no Admin tokens in any config
+- [ ] xMatters deployment architecture (Option A and B) documented in `docs/enterprise/security-architecture.md`
+- [ ] `PATCH /api/v1/bans/{ip}` and `POST /api/v1/tokens/{id}/rotate` verified present in Phase 79 or raised in P100 (items 100-J, 100-K)
+
+### 9.2 Requires platform access — tracked in Phase 100 (item 100-E)
+
+These cannot be completed without platform tenants. When access becomes available, work
+these as a sub-task of Phase 100 item 100-E:
+
+- [ ] XSOAR integration package installable; both playbooks execute end-to-end in test tenant
+- [ ] Splunk SOAR app installable with all 8 actions functional in a SOAR sandbox
+- [ ] ServiceNow SIR incident auto-created on ban webhook; resolution close-loop releases ban
+- [ ] xMatters Event Plan routes correctly based on risk_score thresholds; all 5 response options call correct endpoints
 - [ ] xMatters Flow Designer integration exported as shared library
-- [ ] Interlink Service Watch device registration via Ansible post-deploy role
-- [ ] Vector-to-Interlink CEF syslog forwarding working with TLS
-- [ ] Interlink correlation rule examples documented in `docs/integration/`
-- [ ] PagerDuty and OpsGenie runbook URLs on all Alertmanager rules
-- [ ] All SOAR integrations use Operator-scoped API tokens (never Admin)
-- [ ] Token rotation script documented and validated for all platforms
-- [ ] Mock SOAR server or developer tenant documented in `tests/mocks/` or `docs/developer/MOCK_SERVERS.md`
-- [ ] Token rotation script `scripts/rotate_soar_token.sh` implemented and tested for XSOAR and Splunk SOAR
-- [ ] xMatters deployment architecture (Option A or B) documented in `docs/enterprise/security-architecture.md`
+- [ ] Interlink Service Watch device registration confirmed in a test Service Watch instance
+- [ ] Vector-to-Interlink CEF syslog forwarding confirmed working end-to-end
 
 ---
 
