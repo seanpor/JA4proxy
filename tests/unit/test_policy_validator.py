@@ -50,7 +50,7 @@ _VALID_MINIMAL_YAML = textwrap.dedent("""\
       last_updated_by: "ops@example.com"
 
     dial:
-      setting: 30
+      setting: 10
       changed_by: "ops@example.com"
 """)
 
@@ -86,8 +86,8 @@ def test_valid_minimal_policy():
         f"Expected validate_policy() to return a dict, got {type(result)!r}"
     )
     # The returned dict must contain the parsed dial setting
-    assert result.get("dial", {}).get("setting") == 30, (
-        f"Expected dial.setting=30 in returned dict, got: {result.get('dial')!r}"
+    assert result.get("dial", {}).get("setting") == 10, (
+        f"Expected dial.setting=10 in returned dict, got: {result.get('dial')!r}"
     )
 
 
