@@ -1003,6 +1003,7 @@ phases:
   83:
     name: 'ja4proxy-cli Go Binary'
     status: COMPLETE
+    completed: '2026-04-07'
     summary: 'Go binary for terminal day-2 operations: ip lookup/ban/release/watchlist,
       allowlist/blocklist add/remove/list, dial get/set, config reload, health, fingerprint
       history, policy validate/apply/diff. --output json|table|csv. Mutating commands
