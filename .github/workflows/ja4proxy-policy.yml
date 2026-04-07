@@ -1,0 +1,75 @@
+---
+# JA4proxy Policy-as-Code — GitHub Actions workflow
+#
+# Triggered on any push or pull request that modifies a ja4proxy-policy.yaml
+# file anywhere in the repository.
+#
+# Jobs:
+#   validate  — offline schema + TTL + dial-increase check (all branches)
+#   apply     — apply to production (main branch only, after validate)
+#
+# Required repository configuration:
+#   vars.JA4PROXY_URL             — Management API base URL
+#   secrets.JA4PROXY_OPERATOR_TOKEN — API bearer token with operator role
+#
+# Phase 83 migration note:
+#   When the compiled Go CLI binary ships, replace:
+#     python3 scripts/ja4proxy-policy.py ...
+#   with:
+#     ja4proxy-cli policy ...
+#   No other changes to this file are required.
+
+name: JA4proxy Policy
+
+on:
+  push:
+    paths:
+      - '**/ja4proxy-policy.yaml'
+  pull_request:
+    paths:
+      - '**/ja4proxy-policy.yaml'
+
+jobs:
+  validate:
+    name: Validate policy YAML
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install validation dependencies
+        run: pip install pyyaml cerberus
+
+      - name: Validate policy YAML
+        run: python3 scripts/ja4proxy-policy.py validate --file ja4proxy-policy.yaml
+
+  apply:
+    name: Apply policy to production
+    needs: validate
+    # Only run on pushes to main (not on pull requests)
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install apply dependencies
+        run: pip install pyyaml cerberus aiohttp
+
+      - name: Apply policy
+        run: |
+          python3 scripts/ja4proxy-policy.py apply \
+            --file ja4proxy-policy.yaml \
+            --url ${{ vars.JA4PROXY_URL }} \
+            --token ${{ secrets.JA4PROXY_OPERATOR_TOKEN }}
