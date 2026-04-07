@@ -46,7 +46,8 @@ sinks:
   interlink_syslog:
     type: socket
     inputs: ["to_cef"]
-    address: "{{ interlink_syslog_host }}:6514"
+    # Set INTERLINK_SYSLOG_HOST env var to your Service Watch syslog receiver hostname.
+    address: "${INTERLINK_SYSLOG_HOST}:6514"
     mode: tcp
     tls:
       enabled: true

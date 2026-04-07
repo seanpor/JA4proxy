@@ -15,3 +15,93 @@ configuration:
     type: 4
     required: true
     hidden: true
+script:
+  script: ""
+  type: python
+  subtype: python3
+  dockerimage: demisto/python3:3.10
+  commands:
+    - name: ja4proxy-ban-ip
+      description: Ban an IP address with optional TTL and justification.
+      arguments:
+        - name: ip
+          required: true
+          description: IP address to ban.
+        - name: ttl_seconds
+          required: false
+          default: "3600"
+          description: Ban duration in seconds.
+        - name: reason
+          required: false
+          description: Reason for the ban (logged to audit trail).
+      outputs:
+        - contextPath: JA4proxy.Ban.ip
+          description: Banned IP address.
+        - contextPath: JA4proxy.Ban.expires_at
+          description: Ban expiry timestamp.
+
+    - name: ja4proxy-release-ban
+      description: Release an active ban on an IP address.
+      arguments:
+        - name: ip
+          required: true
+          description: IP address to release.
+
+    - name: ja4proxy-get-connection-history
+      description: Return connection timeline for an IP address.
+      arguments:
+        - name: ip
+          required: true
+          description: IP address to look up.
+        - name: days
+          required: false
+          default: "7"
+          description: Number of days of history to return.
+      outputs:
+        - contextPath: JA4proxy.ConnectionHistory
+          description: List of connection events for the IP.
+
+    - name: ja4proxy-get-fingerprint-detail
+      description: Return full fingerprint intel including associated IPs.
+      arguments:
+        - name: ja4
+          required: true
+          description: JA4 fingerprint string.
+      outputs:
+        - contextPath: JA4proxy.Fingerprint
+          description: Fingerprint detail and associated IP history.
+
+    - name: ja4proxy-add-to-watchlist
+      description: Add an IP to elevated monitoring.
+      arguments:
+        - name: ip
+          required: true
+          description: IP address to monitor.
+        - name: reason
+          required: false
+          description: Reason for elevated monitoring.
+
+    - name: ja4proxy-get-health
+      description: Deep health check of all JA4proxy nodes.
+      outputs:
+        - contextPath: JA4proxy.Health.status
+          description: Overall health status (ok/degraded/critical).
+
+    - name: ja4proxy-add-to-allowlist
+      description: Add an IP to the temporary allowlist (mandatory expiry required).
+      arguments:
+        - name: ip
+          required: true
+          description: IP address to allowlist.
+        - name: ttl_seconds
+          required: true
+          description: Allowlist duration in seconds. Must be > 0 — no indefinite entries.
+        - name: reason
+          required: false
+          description: Reason for allowlisting.
+
+    - name: ja4proxy-get-dial
+      description: Return the current dial setting (0=monitor-only, 100=full enforcement).
+      outputs:
+        - contextPath: JA4proxy.Dial.value
+          description: Current dial value (0–100).
