@@ -1,8 +1,13 @@
 # Phase 82: Policy-as-Code, Shadow Mode & Governance
 
-> **Prerequisite: Phase 79 (Management API) must be complete.**
+> **Prerequisite: Phase 79 (Management API) must be in a state where the API endpoints
+> listed in §9 exist and are authenticated. Phase 79 does not need to be fully complete
+> (SSO, MFA, etc.) — only the resource API and token auth are required.**
 
-> **API extension required:** Phase 79's resource catalogue must include `POST /api/v1/simulation/run` and `GET /api/v1/simulation/{id}/report` before Phase 82 can begin. Confirm these endpoints are in scope with the Phase 79 team before starting implementation.
+> **Phase 83 note:** `ja4proxy-cli policy` commands are Phase 83 deliverables. Phase 82
+> ships a thin Python stopgap script (`scripts/ja4proxy-policy.py`) with the same
+> interface. Phase 83 replaces it with the compiled Go binary — existing CI/CD templates
+> need no changes.
 
 ---
 
@@ -48,6 +53,7 @@ dial:
   changed_by: "m.jones@company.com"
   ticket: "CHG0001234"
   notes: "Raised from 60 after 30-day shadow mode validation"
+  shadow_mode_approved: true   # required when increase > 20 points
 
 allowlist:
   fingerprints:
@@ -95,14 +101,18 @@ bypass_toggles:
 
 ### 2.2 Apply Workflow
 
+Phase 82 ships `scripts/ja4proxy-policy.py` — a Python script making direct API
+calls. Phase 83 replaces this with the compiled `ja4proxy-cli` Go binary. The
+interface is identical; CI/CD templates do not change.
+
 ```
 git commit policy change to feature branch
     │
     ▼
-CI: ja4proxy-cli policy validate --file ja4proxy-policy.yaml
-    │  (calls POST /api/v1/config/validate in dry-run mode)
+CI: python3 scripts/ja4proxy-policy.py validate --file ja4proxy-policy.yaml
+    │  (runs entirely offline — no API call required)
     │  Exits non-zero if: invalid YAML, unknown fields, expired TTLs,
-    │  dial increase > 20 points without shadow_mode_approved flag
+    │  dial increase > 20 points without shadow_mode_approved: true
     ▼
 PR review (human, or auto-approve for watchlist additions)
     │
@@ -110,25 +120,51 @@ PR review (human, or auto-approve for watchlist additions)
 Merge to main
     │
     ▼
-CI: ja4proxy-cli policy apply --file ja4proxy-policy.yaml --env prod --token $OPERATOR_TOKEN
-    │  (calls PATCH /api/v1/dial, POST /api/v1/allowlist, POST /api/v1/blocklist, etc.)
-    │  Idempotent: no-op for entries that already exist with matching content
+CI: python3 scripts/ja4proxy-policy.py apply \
+      --file ja4proxy-policy.yaml --env prod --token $OPERATOR_TOKEN
+    │  Calls: PATCH /api/v1/dial, POST /api/v1/allowlist,
+    │         POST /api/v1/blocklist, POST /api/v1/config, etc.
+    │  Idempotent: entries already present with matching content → no-op
     │  Reports: N added, M removed, P unchanged
+    │  Approval gate: if a change requires approval (§4.2), the API returns
+    │  202 Accepted with a decision_id. Script reports PENDING and exits 2.
+    │  CI job fails until the change is approved via the UI or decisions API.
     ▼
 Audit log entry: actor=ci_pipeline, token=deploy-token-prod, changes=[...]
 ```
+
+#### Dial idempotency behaviour
+
+The policy file is the source of truth. If the policy says `dial: 70` and
+production is at `dial: 80`, `policy apply` **will lower the dial**. This is
+intentional — the YAML file governs. If `approval_required.dial_decrease: true`,
+lowering also creates a pending decision rather than applying directly.
+
+#### `bypass_toggles` and the approval queue
+
+`bypass_toggle_change: true` (default in §4.2) means the management API returns
+`202 Accepted` when a bypass toggle is changed via policy apply. The change enters
+the pending queue. CI reports `PENDING APPROVAL` and exits non-zero until an Admin
+approves via `POST /api/v1/decisions/{id}/approve`. This is not a bypass hole —
+policy apply is subject to the same approval rules as the UI.
 
 ### 2.3 Drift Detection
 
 A scheduled CI job (every 4 hours) runs:
 ```bash
-ja4proxy-cli policy diff --file ja4proxy-policy.yaml --env prod
+python3 scripts/ja4proxy-policy.py diff \
+  --file ja4proxy-policy.yaml --env prod --token $OPERATOR_TOKEN
 ```
 
-This calls `GET /api/v1/allowlist?managed_by=terraform` (and equivalent for other
-resource types) and compares against the YAML file. Unexpected entries — those
-added via the UI or direct API call with `managed_by=operator` — are reported as
-drift, not automatically removed. The drift report is posted to a monitoring channel.
+This calls `GET /api/v1/allowlist?managed_by=policy` (and equivalent for other
+resource types) and compares against the YAML file. Resources applied by policy
+carry `managed_by=policy`. Unexpected entries — those added via the UI or direct
+API call with `managed_by=operator` — are reported as drift, not automatically
+removed. The drift report is posted to a monitoring channel.
+
+**Phase 79 coordination:** `managed_by=policy` is a new value not in Phase 79's
+current design (`terraform`, `operator`, `api`, `analytics`). This value must be
+added to Phase 79 before Phase 82 implements drift detection. See §9.
 
 ### 2.4 CI/CD Templates
 
@@ -138,6 +174,10 @@ Ship ready-to-use CI/CD workflow files:
 - `.gitlab-ci/ja4proxy-policy.yml` — GitLab CI
 - `Jenkinsfile.ja4proxy-policy` — Jenkins Pipeline
 - `deploy/ansible/playbooks/apply-policy.yml` — Ansible (for AWX/AAP)
+
+All templates use `scripts/ja4proxy-policy.py`. When Phase 83 ships the CLI
+binary, replace `python3 scripts/ja4proxy-policy.py` with `ja4proxy-cli policy`
+— no other changes required.
 
 ---
 
@@ -171,6 +211,10 @@ POST /api/v1/simulation/run
   "estimated_completion": "2026-04-04T14:35:00Z"
 }
 ```
+
+**Phase 79 coordination:** `POST /api/v1/simulation/run` and
+`GET /api/v1/simulation/{id}/report` are not in Phase 79's current resource
+catalogue. They must be added before Phase 82 implements these endpoints. See §9.
 
 ### 3.2 Simulation Report
 
@@ -210,31 +254,44 @@ GET /api/v1/simulation/{id}/report
 ### 3.3 Required Data Retention
 
 Shadow mode requires connection-level signal data retained for at least 90 days.
-This is additional storage in the analytics node's Redis or a time-series store.
 Estimate: ~500 bytes per connection × 14M connections/month = ~7 GB/month.
-Redis with compression, or ClickHouse for larger deployments.
 
 ### 3.3.1 Storage Backend — Decision Gate (Required Before Implementation)
 
-The storage backend for shadow mode signal data must be decided and recorded in an ADR before any implementation begins. The two options have significantly different operational implications:
+The storage backend for shadow mode signal data must be decided and recorded in an
+ADR (`docs/decisions/ADR-082.md`) before any implementation begins. The two options:
 
 | | Option A: Redis (compressed) | Option B: ClickHouse |
 |---|---|---|
 | **Additional infrastructure** | None (uses existing Redis) | New ClickHouse container/cluster |
-| **Estimated size (90 days)** | ~63 GB compressed (7 GB/month × 0.4 compression ratio = ~17 GB/month → ~63 GB at 90 days) | Same data, columnar — ~8–12 GB |
+| **Estimated size (90 days)** | ~63 GB compressed (~17 GB/month after LZ4 compression) | Same data, columnar — ~8–12 GB |
 | **Query performance** | Adequate for ≤ 10M connections/period | Better for > 10M; supports SQL aggregations |
 | **Operational complexity** | Low — no new service | High — ClickHouse backup, replication, monitoring |
-| **Recommended for** | Single-site deployments, ≤ 50M connections/month | Multi-site or high-volume deployments |
+| **Recommended for** | Single-site, ≤ 50M connections/month | Multi-site or high-volume |
 
 **Decision process:**
-1. Estimate the target deployment's connection volume (connections/month).
-2. If ≤ 50M connections/month: use Option A (Redis).
-3. If > 50M connections/month: use Option B (ClickHouse). Add it to `docker/docker-compose.poc.yml` and Helm chart.
-4. Record the decision in `docs/decisions/ADR-NNN.md` before writing any shadow mode code.
+1. Estimate the target deployment's connection volume.
+2. ≤ 50M connections/month → Option A (Redis). > 50M → Option B (ClickHouse).
+3. Record the decision in `docs/decisions/ADR-082.md`.
+4. No shadow mode code starts until the ADR is committed.
 
-The acceptance criteria gate: no shadow mode implementation starts until the ADR is committed.
+### 3.4 Analytics Node Pre-Conditions
 
-### 3.4 UI Integration
+Shadow mode requires the analytics node (Phase 12, Python) to be extended before
+the simulation API can return meaningful results. This work must be scoped and
+completed as part of Phase 82:
+
+1. **Signal retention store**: after each connection, write a compact signal snapshot
+   to the chosen storage backend. Schema: `{timestamp, source_ip, ja4, score, signals[]}`.
+   Key: `sim:conn:{unix_ts_hour}:{conn_id}` (Redis) or equivalent row (ClickHouse).
+2. **Retention sweep**: background task deletes records older than 90 days (Redis TTL
+   or ClickHouse TTL policy).
+3. **Simulation runner**: iterates stored snapshots for the requested time range,
+   re-runs `ActionDecider.decide()` at the hypothetical dial, accumulates results.
+4. **FP enrichment**: for connections the simulation would have blocked, enrich with
+   FCrDNS data (already available from Phase 7) to generate `fp_candidates`.
+
+### 3.5 UI Integration
 
 Shadow mode results are displayed in the Management UI with:
 - Summary card on the dial configuration page: "Last simulation at dial=80: 0.09%
@@ -243,25 +300,35 @@ Shadow mode results are displayed in the Management UI with:
 - "Apply dial change" button that pre-fills the policy YAML with the new setting
   and the recommended allowlist additions, ready for PR creation
 
+*UI implementation is blocked on Management UI phases (13, 51, 52). The API
+endpoints are implemented regardless; UI follows when the UI phases are active.*
+
 ---
 
 ## 4. Four-Eyes Approval Workflow
 
 Regulated industries (financial services, government) require that security rule
 changes are reviewed by a second person before taking effect. This applies
-particularly to: dial increases, new IP bans, bypass toggle changes, and new
+particularly to: dial increases, new CIDR bans, bypass toggle changes, and new
 fingerprint blocklist entries.
 
 ### 4.1 Built-in Pending Queue
 
-The Management UI maintains a pending queue for changes requiring approval:
+The Management API maintains a pending queue for changes requiring approval. When a
+mutating call is made for a change type that has `approval_required: true`, the API
+returns `202 Accepted` instead of `200 OK`, and the change is written to
+`decisions:pending:{id}` with status `pending_approval`:
 
-1. An Operator proposes a change (e.g., `POST /api/v1/bans` with `requires_approval: true`)
-2. The change is written to `decisions:pending:{id}` with status `pending_approval`
+1. An Operator proposes a change (e.g., `POST /api/v1/bans` with TTL > 30 days)
+2. The API returns `202 Accepted { "decision_id": "dec-abc123", "status": "pending_approval" }`
 3. The pending queue is visible to all Operators and Admins in the UI
 4. A second Operator or Admin approves via `POST /api/v1/decisions/{id}/approve`
 5. Only then does the change take effect (the ban is written to Redis)
-6. Audit log records both the proposer and approver identities
+6. Audit log records both proposer and approver identities
+
+**Phase 79 coordination:** `POST /api/v1/decisions`, `GET /api/v1/decisions`,
+`POST /api/v1/decisions/{id}/approve`, `POST /api/v1/decisions/{id}/reject` are
+not in Phase 79's current resource catalogue. See §9.
 
 ### 4.2 Which Changes Require Approval
 
@@ -278,6 +345,9 @@ governance:
     blocklist_addition: false    # fingerprint blocklist additions
     allowlist_addition: false    # allowlist additions
   auto_approve_after_hours: 0   # 0 = never auto-approve; set to N for timeout approval
+  # WARNING: setting auto_approve_after_hours > 0 means security configuration
+  # changes apply without human review after the timeout. Only enable if 24×7 coverage
+  # is impossible and the business accepts this risk. Document in your risk register.
 ```
 
 ### 4.3 ServiceNow Change Record Integration
@@ -318,22 +388,203 @@ environment security controls) and SOC 2 CC7.2 (monitoring of system operations)
 
 ---
 
-## 6. Acceptance Criteria
+## 6. File Locations
 
-- [ ] ADR committed to `docs/decisions/` recording shadow mode storage backend choice (Option A or B) before any implementation
-- [ ] Shadow mode simulation endpoints (`POST /api/v1/simulation/run`, `GET /api/v1/simulation/{id}/report`) confirmed in Phase 79 API catalogue
-- [ ] Policy YAML schema validated and documented in `docs/policy/schema.md`
-- [ ] `ja4proxy-cli policy validate` catches invalid YAML, unknown fields, TTL violations
-- [ ] `ja4proxy-cli policy apply` is idempotent across all resource types
-- [ ] `ja4proxy-cli policy diff` correctly identifies drift vs policy file
-- [ ] GitHub Actions, GitLab CI, and Jenkins pipeline templates ship in repo
-- [ ] Shadow mode simulation endpoint returns results within 5 minutes for 30-day window
-- [ ] Simulation report includes FP candidates with enriched context
-- [ ] Shadow mode results visible in Management UI dial configuration page
-- [ ] "Add FP candidates to allowlist" one-click action working
-- [ ] Four-eyes pending queue visible to all Operators and Admins
+```
+src/governance/
+  __init__.py
+  policy_schema.py          # Pydantic v2 models for policy YAML
+  policy_validator.py       # offline validation logic (TTL, dial, CIDR checks)
+  policy_applier.py         # async aiohttp client that applies policy via API
+
+scripts/
+  ja4proxy-policy.py        # CLI entry point (stopgap until Phase 83 CLI)
+
+.github/workflows/
+  ja4proxy-policy.yml       # GitHub Actions CI/CD template
+
+.gitlab-ci/
+  ja4proxy-policy.yml       # GitLab CI template
+
+Jenkinsfile.ja4proxy-policy # Jenkins Pipeline template
+
+deploy/ansible/playbooks/
+  apply-policy.yml          # Ansible playbook (AWX/AAP)
+
+docs/policy/
+  schema.md                 # Human-readable policy YAML schema documentation
+
+docs/decisions/
+  ADR-082.md                # Shadow mode storage backend decision (REQUIRED GATE)
+
+tests/unit/
+  test_policy_validator.py  # Offline validator unit tests (no API needed)
+
+tests/integration/
+  test_policy_apply.py      # Policy apply/diff integration tests (require API mock)
+```
+
+Analytics node additions (in existing files):
+```
+analytics/
+  signal_retention.py       # New: write connection signal snapshots; retention sweep
+  simulation_runner.py      # New: replay scoring at hypothetical dial
+```
+
+---
+
+## 7. Redis Key Schema
+
+New keys introduced in Phase 82:
+
+| Key pattern | Type | TTL | Purpose |
+|-------------|------|-----|---------|
+| `decisions:pending:{id}` | Hash | None (explicit delete on approve/reject) | Pending approval queue entry: `{proposed_by, action, resource_type, resource_id, payload, status, created_at, itsm_ticket}` |
+| `decisions:history` | Stream (XADD) | None | Append-only log of all approve/reject decisions |
+| `sim:conn:{hour_epoch}:{conn_id}` | Hash | 90 days | Connection signal snapshot for shadow mode replay |
+| `sim:job:{sim_id}` | Hash | 7 days | Simulation job state: `{status, hypothetical_dial, from_ts, to_ts, result_json}` |
+
+Add these entries to `docs/REDIS_SCHEMA.md` when Phase 82 is implemented.
+
+---
+
+## 8. Test Plan
+
+### 8.1 Unit Tests — Offline (`tests/unit/test_policy_validator.py`)
+
+All tests run without a network connection or running API.
+
+| Test | What it verifies |
+|------|-----------------|
+| `test_valid_minimal_policy` | Minimal valid YAML passes validation |
+| `test_invalid_yaml_syntax` | Malformed YAML raises `PolicySyntaxError` with line number |
+| `test_unknown_field_raises` | Extra top-level field fails strict validation |
+| `test_expired_ttl_detected` | `expires` value in the past raises `PolicyTTLError` |
+| `test_dial_increase_gt_20_without_flag` | dial increase > 20 points without `shadow_mode_approved: true` exits non-zero |
+| `test_dial_increase_gt_20_with_flag` | same increase with `shadow_mode_approved: true` passes |
+| `test_dial_decrease_no_flag_required` | dial decrease never requires `shadow_mode_approved` |
+| `test_invalid_cidr_notation` | `cidr: "not-a-cidr"` raises `PolicySchemaError` |
+| `test_invalid_ja4_format` | Fingerprint not matching JA4 pattern raises error |
+| `test_duplicate_allowlist_entries` | Two identical JA4 entries raise `PolicyDuplicateError` |
+| `test_bypass_toggle_unknown_key` | Unrecognised bypass name raises error |
+
+### 8.2 Integration Tests (`tests/integration/test_policy_apply.py`)
+
+Use a mock Management API server (same pattern as `tests/mocks/soar_mock.py`).
+
+| Test | What it verifies |
+|------|-----------------|
+| `test_apply_idempotent_allowlist_entry` | Applying same entry twice: second call is a no-op (no duplicate POST) |
+| `test_apply_adds_new_blocklist_entry` | Entry in policy but not in API → POST called once |
+| `test_apply_removes_entry_not_in_policy` | Entry in API (`managed_by=policy`) but not in YAML → DELETE called |
+| `test_apply_operator_drift_not_removed` | Entry with `managed_by=operator` not in YAML → no DELETE (drift only) |
+| `test_apply_sets_dial` | `dial.setting: 70` → `PATCH /api/v1/dial` called with `{"value": 70}` |
+| `test_apply_pending_on_approval_required` | Mock API returns 202 → script exits with code 2, prints `PENDING APPROVAL: {id}` |
+| `test_diff_detects_operator_drift` | Entry in API not in policy YAML → reported as drift in output |
+| `test_diff_clean_no_drift` | Policy matches API state → output is `No drift detected` |
+
+### 8.3 Platform-Dependent Tests (deferred to Phase 100)
+
+- Policy apply against live Phase 79 API with real tokens
+- Four-eyes approval flow end-to-end via Management UI
+- ServiceNow auto-change-record creation
+- Shadow mode simulation results via running analytics node
+
+---
+
+## 9. Phase 79 Coordination Requirements
+
+**Before Phase 82 implementation begins, confirm the following are in Phase 79's
+scope and will ship in Phase 79:**
+
+| Item | Required for | Status |
+|------|-------------|--------|
+| `POST /api/v1/simulation/run` added to resource catalogue | Shadow mode | Needs confirmation |
+| `GET /api/v1/simulation/{id}/report` added to resource catalogue | Shadow mode | Needs confirmation |
+| `GET /api/v1/decisions` — list pending decisions | Four-eyes workflow | Needs confirmation |
+| `POST /api/v1/decisions/{id}/approve` | Four-eyes workflow | Needs confirmation |
+| `POST /api/v1/decisions/{id}/reject` | Four-eyes workflow | Needs confirmation |
+| `managed_by=policy` added as valid value (alongside `terraform`, `operator`, `api`, `analytics`) | Drift detection | Needs confirmation |
+| Mutation endpoints return `202 Accepted` with `decision_id` when approval required | Policy apply + approval queue | Needs confirmation |
+
+These items cannot be assumed — they must be explicitly confirmed with whoever is
+working Phase 79. If Phase 79 cannot take them, Phase 82 must implement them as
+an extension to the management service.
+
+---
+
+## 10. Acceptance Criteria
+
+### 10.1 Offline-Testable (CI must pass these before any platform work)
+
+- [ ] `ADR-082.md` committed to `docs/decisions/` with storage backend decision before any shadow mode code
+- [ ] `docs/policy/schema.md` documents the full policy YAML schema
+- [ ] `src/governance/policy_schema.py` — Pydantic models for all policy YAML fields
+- [ ] `src/governance/policy_validator.py` — all 11 unit tests in §8.1 pass
+- [ ] `scripts/ja4proxy-policy.py validate` exits 0 on valid YAML, non-zero on all error types
+- [ ] `scripts/ja4proxy-policy.py validate` exits non-zero on dial increase > 20 without `shadow_mode_approved: true`
+- [ ] GitHub Actions, GitLab CI, and Jenkins templates ship and use `scripts/ja4proxy-policy.py`
+- [ ] All 8 integration tests in §8.2 pass against the mock Management API server
+- [ ] `managed_by=policy` usage confirmed with Phase 79 team (see §9)
+
+### 10.2 Platform-Dependent (deferred to Phase 100 item 100-F)
+
+- [ ] `policy apply` is idempotent across all resource types against a live Phase 79 API
+- [ ] `policy diff` correctly identifies drift added via the Management UI
+- [ ] Shadow mode simulation endpoint returns results within 5 minutes for a 30-day window
+- [ ] Simulation report includes FP candidates with FCrDNS enrichment
+- [ ] Four-eyes pending queue visible to Operators and Admins in Management UI
 - [ ] Approval gate enforced — changes do not apply until approved
 - [ ] `approval_required` config respected per change type
 - [ ] ServiceNow auto-change-record creation working when configured
-- [ ] All rule changes attributed in audit log with source, actor, approver
-- [ ] Audit log exported as evidence for SOC 2 auditor review
+- [ ] All rule changes attributed in audit log with source, actor, and approver
+- [ ] Audit log exported as JSONL for SOC 2 auditor review
+
+---
+
+## 11. Implementation Notes
+
+Decisions made during Phase 82 planning that are non-obvious:
+
+1. **`ja4proxy-cli` stopgap pattern**: The Phase 82 Python script and Phase 83 Go CLI
+   have an identical command interface (`validate`, `apply`, `diff`). CI templates
+   swap one for the other by changing one word. This avoids reworking CI templates
+   when Phase 83 ships.
+
+2. **Policy apply subject to approval rules**: Policy apply is NOT a governance bypass.
+   When the management API returns 202 for a pending change, the apply script exits
+   with code 2 ("PENDING APPROVAL"). This makes CI fail until the change is approved
+   by a human — aligning policy-as-code and four-eyes governance rather than
+   contradicting them.
+
+3. **`managed_by=policy` is a new Phase 79 value**: Policy-applied resources use
+   `managed_by=policy`, not `managed_by=terraform`. Terraform-managed resources are
+   Phase 83's domain. The drift detection query uses `?managed_by=policy`.
+   Operator-added resources (`managed_by=operator`) are reported as drift but never
+   auto-removed — removing them requires an explicit policy file change.
+
+4. **Dial is the source of truth from the policy file**: If the policy says `dial: 70`
+   and production is at `dial: 80`, policy apply lowers the dial. The policy file is
+   the authoritative state. This is intentional and should be documented to operators
+   before they enable policy-as-code.
+
+5. **Shadow mode ADR is a hard gate**: No shadow mode code is written until
+   `docs/decisions/ADR-082.md` is committed. The decision (Redis vs ClickHouse) has
+   significant architectural consequences. Do not start implementation and then
+   write the ADR — that defeats the purpose.
+
+6. **Analytics node work is in scope for Phase 82**: Shadow mode requires new code in
+   `analytics/signal_retention.py` and `analytics/simulation_runner.py`. These are
+   not delegated to Phase 12 retrospectively — Phase 82 owns them.
+
+---
+
+## 12. Business Track
+
+The shadow mode and policy-as-code features should be demonstrated to enterprise
+prospects in a product trial environment:
+
+- Trial environment setup: `docker compose -f docker-compose.poc.yml up`
+- Seed 30 days of synthetic traffic: `python3 scripts/generate_synthetic_traffic.py --days 30`
+- Run shadow mode simulation: `python3 scripts/ja4proxy-policy.py simulate --dial 80 --days 30`
+- The simulation report is the artifact a CISO uses to justify raising the dial
