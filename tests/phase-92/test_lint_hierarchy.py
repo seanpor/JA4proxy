@@ -503,11 +503,18 @@ def test_no_duplicate_target_definition(target):
 
 
 def test_lint_toml_pyproject_is_valid_toml():
-    """pyproject.toml must parse successfully with tomllib."""
+    """pyproject.toml must parse successfully with tomllib/tomli.
+
+    So what? A corrupted pyproject.toml silently breaks pip, build tools, and
+    lint-toml itself. This test catches parse errors before they reach CI.
+    """
     try:
         import tomllib
     except ImportError:
-        pytest.skip("tomllib not available (requires Python 3.11+)")
+        try:
+            import tomli as tomllib  # type: ignore[no-redef]
+        except ImportError:
+            pytest.skip("neither tomllib nor tomli available")
 
     toml_file = REPO_ROOT / "pyproject.toml"
     if not toml_file.exists():
@@ -519,11 +526,17 @@ def test_lint_toml_pyproject_is_valid_toml():
 
 
 def test_lint_toml_gitleaks_is_valid_toml():
-    """.gitleaks.toml must parse successfully with tomllib."""
+    """.gitleaks.toml must parse successfully with tomllib/tomli.
+
+    So what? An unparseable .gitleaks.toml silently disables secret scanning.
+    """
     try:
         import tomllib
     except ImportError:
-        pytest.skip("tomllib not available (requires Python 3.11+)")
+        try:
+            import tomli as tomllib  # type: ignore[no-redef]
+        except ImportError:
+            pytest.skip("neither tomllib nor tomli available")
 
     toml_file = REPO_ROOT / ".gitleaks.toml"
     if not toml_file.exists():

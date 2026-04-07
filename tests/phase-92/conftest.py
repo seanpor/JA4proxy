@@ -51,20 +51,3 @@ def make_help_output():
     )
     return result
 
-
-@pytest.fixture(scope="session")
-def lint_aggregate_deps(makefile_text):
-    """
-    Parse aggregate lint targets and return a dict mapping
-    target_name -> list of dependency names.
-    """
-    aggregates = {}
-    for line in makefile_text.splitlines():
-        m = re.match(r'^(lint-[a-z\-]+):\s+(.+)$', line)
-        if m:
-            name = m.group(1)
-            deps = m.group(2).split()
-            # Only keep lines where every dep also starts with lint- or go-
-            if all(d.startswith(("lint-", "go-")) for d in deps):
-                aggregates[name] = deps
-    return aggregates
