@@ -121,7 +121,7 @@ Merge to main
     │
     ▼
 CI: python3 scripts/ja4proxy-policy.py apply \
-      --file ja4proxy-policy.yaml --env prod --token $OPERATOR_TOKEN
+      --file ja4proxy-policy.yaml --url $JA4PROXY_URL --token $OPERATOR_TOKEN
     │  Calls: PATCH /api/v1/dial, POST /api/v1/allowlist,
     │         POST /api/v1/blocklist, POST /api/v1/config, etc.
     │  Idempotent: entries already present with matching content → no-op
@@ -153,7 +153,7 @@ policy apply is subject to the same approval rules as the UI.
 A scheduled CI job (every 4 hours) runs:
 ```bash
 python3 scripts/ja4proxy-policy.py diff \
-  --file ja4proxy-policy.yaml --env prod --token $OPERATOR_TOKEN
+  --file ja4proxy-policy.yaml --url $JA4PROXY_URL --token $OPERATOR_TOKEN
 ```
 
 This calls `GET /api/v1/allowlist?managed_by=policy` (and equivalent for other
@@ -527,7 +527,7 @@ an extension to the management service.
 - [ ] All 8 integration tests in §8.2 pass against the mock Management API server
 - [ ] `managed_by=policy` usage confirmed with Phase 79 team (see §9)
 
-### 10.2 Platform-Dependent (deferred to Phase 100 item 100-F)
+### 10.2 Platform-Dependent (deferred to Phase 100 item 100-N)
 
 - [ ] `policy apply` is idempotent across all resource types against a live Phase 79 API
 - [ ] `policy diff` correctly identifies drift added via the Management UI
