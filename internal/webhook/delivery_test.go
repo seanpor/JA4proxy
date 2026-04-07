@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 )
 
@@ -156,9 +157,21 @@ func TestDispatcher_HMACSignature_Correct(t *testing.T) {
 		t.Fatalf("Deliver error: %v", err)
 	}
 
-	expected := computeExpectedSignature(secret, gotBody)
+	// The HMAC is computed over the payload WITHOUT the signature field.
+	// Parse the received body, remove the signature key, re-marshal to get
+	// the canonical body that was signed, then verify.
+	var parsedBody map[string]interface{}
+	if err := json.Unmarshal(gotBody, &parsedBody); err != nil {
+		t.Fatalf("received body is not valid JSON: %v\nraw: %s", err, gotBody)
+	}
+	delete(parsedBody, "signature")
+	bodyForHMAC, err := json.Marshal(parsedBody)
+	if err != nil {
+		t.Fatalf("re-marshal body without signature: %v", err)
+	}
+	expected := computeExpectedSignature(secret, bodyForHMAC)
 	if gotSignature != expected {
-		t.Errorf("HMAC mismatch:\ngot:  %s\nwant: %s\nbody: %s", gotSignature, expected, gotBody)
+		t.Errorf("HMAC mismatch:\ngot:  %s\nwant: %s\nbody used for HMAC: %s", gotSignature, expected, bodyForHMAC)
 	}
 }
 
@@ -266,8 +279,11 @@ func TestDispatcher_DLQ_WrittenAfterExhaustedRetries(t *testing.T) {
 	// We expect an error returned since all retries failed
 	d.Deliver(event) //nolint:errcheck
 
-	// The event should have been written to the DLQ stream
-	dlqLen, err := mr.XLen("webhooks:dlq")
+	// The event should have been written to the DLQ stream.
+	// Use a real Redis client to inspect the miniredis instance.
+	rc := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	defer rc.Close()
+	dlqLen, err := rc.XLen(context.Background(), "webhooks:dlq").Result()
 	if err != nil {
 		t.Fatalf("could not read DLQ stream length from miniredis: %v", err)
 	}
@@ -305,22 +321,27 @@ func TestDispatcher_DLQ_ContainsOriginalEventData(t *testing.T) {
 	// Read from DLQ and verify the original event payload is in the "payload" field.
 	// If the implementation uses a different field name, this test must fail loudly
 	// so the discrepancy is immediately visible — no silent fallback searching.
-	entries, err := mr.XRange("webhooks:dlq", "-", "+")
+	rc := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	defer rc.Close()
+	entries, err := rc.XRange(context.Background(), "webhooks:dlq", "-", "+").Result()
 	if err != nil {
 		t.Fatalf("XRange on DLQ: %v", err)
 	}
 	if len(entries) == 0 {
 		t.Fatal("DLQ is empty after failed delivery")
 	}
-	entry := entries[0].Fields
-	rawPayload, ok := entry["payload"]
+	rawPayload, ok := entries[0].Values["payload"]
 	if !ok {
-		t.Fatalf("DLQ entry missing 'payload' field; got fields: %v", entry)
+		t.Fatalf("DLQ entry missing 'payload' field; got fields: %v", entries[0].Values)
+	}
+	rawPayloadStr, ok := rawPayload.(string)
+	if !ok {
+		t.Fatalf("DLQ 'payload' field is not a string, got %T", rawPayload)
 	}
 	// payload should be JSON that contains the original event ID
 	var payloadMap map[string]interface{}
-	if err := json.Unmarshal([]byte(rawPayload), &payloadMap); err != nil {
-		t.Fatalf("DLQ 'payload' field is not valid JSON: %v\nraw: %q", err, rawPayload)
+	if err := json.Unmarshal([]byte(rawPayloadStr), &payloadMap); err != nil {
+		t.Fatalf("DLQ 'payload' field is not valid JSON: %v\nraw: %q", err, rawPayloadStr)
 	}
 	if payloadMap["id"] != "dlq-data-001" {
 		t.Errorf("DLQ payload.id = %v, want 'dlq-data-001'", payloadMap["id"])

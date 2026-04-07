@@ -42,7 +42,7 @@ func formatEntry(t *testing.T, fields logrus.Fields, msg string) map[string]inte
 // formatLegacyEntry runs ECSFormatter in legacy mode and returns parsed JSON.
 func formatLegacyEntry(t *testing.T, fields logrus.Fields, msg string) map[string]interface{} {
 	t.Helper()
-	f := &ECSFormatter{Format: "legacy"}
+	f := &ECSFormatter{Mode: "legacy"}
 	entry := &logrus.Entry{
 		Logger:  logrus.New(),
 		Data:    fields,

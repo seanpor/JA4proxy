@@ -11,15 +11,12 @@ import (
 )
 
 // ECSFormatter formats logrus entries as ECS 8.x-compliant JSON.
-// Set Format to "legacy" to use the standard logrus JSON formatter.
-//
-// NOTE: The Format field controls the mode ("" / "ecs" → ECS output; "legacy" → legacy).
-// Because the logrus.Formatter interface also requires a method named Format,
-// use NewECSLogrusFormatter to obtain a logrus.Formatter that delegates to this struct.
+// Set Mode to "legacy" to use the standard logrus JSON formatter.
+// ECSFormatter implements logrus.Formatter directly via the Format method.
 type ECSFormatter struct {
-	// Format controls the output format: "" or "ecs" produces ECS 8.x JSON;
+	// Mode controls the output format: "" or "ecs" produces ECS 8.x JSON;
 	// "legacy" produces legacy JSON with timestamp/level/message fields.
-	Format string
+	Mode string
 }
 
 // severityMap maps action names to ECS event.severity integers.
@@ -32,9 +29,10 @@ var severityMap = map[string]int{
 	"ban":          6,
 }
 
-// DoFormat formats the log entry according to the configured Format mode.
-func (f *ECSFormatter) DoFormat(entry *logrus.Entry) ([]byte, error) {
-	if f.Format == "legacy" {
+// Format formats the log entry according to the configured Mode.
+// Format implements logrus.Formatter.
+func (f *ECSFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+	if f.Mode == "legacy" {
 		return f.doLegacy(entry)
 	}
 	return f.doECS(entry)
@@ -164,19 +162,8 @@ func (f *ECSFormatter) doECS(entry *logrus.Entry) ([]byte, error) {
 	return append(b, '\n'), nil
 }
 
-// NewECSLogrusFormatter returns a logrus.Formatter wrapping ECSFormatter.
-// Use this to configure logrus because ECSFormatter.Format (the field) conflicts
-// with the logrus.Formatter.Format (the method) in Go's type system.
+// NewECSLogrusFormatter returns a logrus.Formatter backed by ECSFormatter.
+// ECSFormatter now implements logrus.Formatter directly via its Format method.
 func NewECSLogrusFormatter(mode string) logrus.Formatter {
-	return &ecsLogrusAdapter{ecs: &ECSFormatter{Format: mode}}
-}
-
-// ecsLogrusAdapter adapts ECSFormatter to logrus.Formatter.
-type ecsLogrusAdapter struct {
-	ecs *ECSFormatter
-}
-
-// Format implements logrus.Formatter.
-func (a *ecsLogrusAdapter) Format(entry *logrus.Entry) ([]byte, error) {
-	return a.ecs.DoFormat(entry)
+	return &ECSFormatter{Mode: mode}
 }
