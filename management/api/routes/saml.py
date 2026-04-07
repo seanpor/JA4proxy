@@ -181,7 +181,7 @@ async def saml_metadata(request: Request) -> Response:
         )
 
     settings = _get_saml_settings()
-    saml_settings = OneLogin_Saml2_Settings(settings=settings, sp_validation_only=False)
+    saml_settings = OneLogin_Saml2_Settings(settings=settings, sp_validation_only=True)
     metadata = saml_settings.get_sp_metadata()
 
     return Response(content=metadata, media_type="application/xml")
