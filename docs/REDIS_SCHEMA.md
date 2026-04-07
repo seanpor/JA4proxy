@@ -169,6 +169,16 @@ phase: 54
 - `ja4:watchlist` — written by `POST /api/v1/watchlist` (new SET, same pattern)
 - `static:allowlist` — written by `POST /api/v1/allowlist?list_type=ip`
 
+### Cluster 4 — New Endpoints
+
+| Key pattern | Type | TTL | Written by | Description |
+|---|---|---|---|---|
+| `webhook:{id}` | Hash | none | `POST /api/v1/webhooks` | Webhook subscription. Fields: `id` (UUID4), `url`, `events` (JSON-encoded list), `secret_hash` (bcrypt of raw secret — never returned via API), `active`, `created_at`, `managed_by`. *(Phase 79)* |
+| `webhook:idx` | SET of IDs | none | `POST /api/v1/webhooks` (SADD), `DELETE` (SREM) | Enumeration index for webhook subscriptions. *(Phase 79)* |
+| `proxy:reload` | Pub/Sub channel | n/a | `POST /api/v1/nodes/{host}/reload` | Control channel for triggering config reload on proxy instances. Message format: `{"action": "reload", "host": str}`. *(Phase 79)* |
+
+*Note: `mgmt:node:{host}:{port}` heartbeat Hashes are read by `GET /api/v1/nodes` but written by the proxy process, not the management API.*
+
 ---
 
-*Last updated: 2026-04-07, Phase 79 Cluster 3 complete*
+*Last updated: 2026-04-07, Phase 79 Cluster 4 complete*
