@@ -276,6 +276,23 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		metrics.BypassTotal.WithLabelValues(result.BypassReason).Inc()
 	}
 
+	// Log every connection decision — required for SIEM visibility at all dial settings.
+	// ECS formatter maps these fields to standard ECS field names.
+	p.log.WithFields(logrus.Fields{
+		"client_ip":   connCtx.ClientIP,
+		"ja4":         connCtx.JA4,
+		"ja4x":        connCtx.JA4X,
+		"action":      result.Action,
+		"score":        result.Score,
+		"sni":         connCtx.SNI,
+		"alpn":        connCtx.ALPN,
+		"country":     connCtx.Country,
+		"tls_version": connCtx.TLSVersion,
+		"ja4t":        connCtx.TCPJA4T,
+		"dial":        result.Dial,
+		"signals":     result.Signals,
+	}).Info("proxy: connection decision")
+
 	// Execute action
 	switch result.Action {
 	case "allow", "flag", "rate_limit":
@@ -283,21 +300,6 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	case "tarpit":
 		p.tarpit(clientConn, data, connCtx.ClientIP)
 	case "block", "ban":
-		p.log.WithFields(logrus.Fields{
-			"client_ip":   connCtx.ClientIP,
-			"ja4":         connCtx.JA4,
-			"ja4x":        connCtx.JA4X,
-			"action":      result.Action,
-			"score":       result.Score,
-			"sni":         connCtx.SNI,
-			"alpn":        connCtx.ALPN,
-			"country":     connCtx.Country,
-			"tls_version": connCtx.TLSVersion,
-			"ja4t":        connCtx.TCPJA4T,
-			"dial":        result.Dial,
-			"signals":     result.Signals,
-		}).Info("proxy: blocked connection")
-
 		// Force RST instead of clean FIN
 		if tcpConn, ok := clientConn.(*net.TCPConn); ok {
 			tcpConn.SetLinger(0)
