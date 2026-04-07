@@ -1,0 +1,34 @@
+{
+  "appid": "ja4proxy",
+  "name": "JA4proxy",
+  "description": "Splunk SOAR app for JA4proxy TLS-aware security proxy",
+  "type": "Network Security",
+  "product_vendor": "JA4proxy",
+  "product_name": "JA4proxy",
+  "product_version_regex": ".*",
+  "publisher": "JA4proxy",
+  "license": "Apache-2.0",
+  "app_version": "1.0.0",
+  "configuration": {
+    "base_url": {
+      "description": "JA4proxy Management API base URL",
+      "data_type": "string",
+      "required": true
+    },
+    "api_token": {
+      "description": "Operator-scoped API token",
+      "data_type": "password",
+      "required": true
+    }
+  },
+  "actions": [
+    {"action": "block ip", "identifier": "block_ip", "description": "Block an IP address"},
+    {"action": "unblock ip", "identifier": "unblock_ip", "description": "Release an IP ban"},
+    {"action": "get connection history", "identifier": "get_connection_history", "description": "Get connection history for an IP"},
+    {"action": "get fingerprint history", "identifier": "get_fingerprint_history", "description": "Get JA4 fingerprint history"},
+    {"action": "add to watchlist", "identifier": "add_to_watchlist", "description": "Add IP to elevated monitoring watchlist"},
+    {"action": "add to allowlist", "identifier": "add_to_allowlist", "description": "Add IP to temporary allowlist"},
+    {"action": "remove from allowlist", "identifier": "remove_from_allowlist", "description": "Remove IP from allowlist"},
+    {"action": "get health", "identifier": "get_health", "description": "Get deep health status"}
+  ]
+}

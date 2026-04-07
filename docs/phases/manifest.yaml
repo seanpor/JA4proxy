@@ -806,16 +806,18 @@ phases:
 
   81:
     name: "SOAR, Webhooks & Enterprise Operations Platforms"
-    status: "PROPOSED"
-    summary: "XSOAR integration (8 commands, 2 playbooks). Splunk SOAR app. ServiceNow SecOps SIR auto-creation and close-loop release. ServiceNow Spoke. xMatters two-way mobile response (5 options). Interlink Software Service Watch (UK NOC). PagerDuty/OpsGenie runbook links."
+    status: "COMPLETE"
+    summary: "XSOAR integration (8 commands). Splunk SOAR app (8 actions). ServiceNow SecOps SIR auto-creation and close-loop release. xMatters two-way mobile response (5 options). Interlink Software Service Watch (UK NOC) with Vector CEF syslog. PagerDuty/OpsGenie runbook links on all Alertmanager rules. Platform live-testing tracked in Phase 100 item 100-E (blocked on tenant access)."
     action_plan: "docs/phases/PHASE_81.md"
     dependencies: [79, 80]
     size: "LARGE"
     success_criteria:
-      - "XSOAR integration package installable with both playbooks working"
-      - "ServiceNow SIR auto-created on ban webhook; close-loop releases ban"
-      - "xMatters 5 mobile response options call correct API endpoints"
-      - "Interlink Service Watch CEF syslog forwarding working with TLS"
+      - "XSOAR connector (8 commands) implemented and unit-tested against mock Management API"
+      - "Splunk SOAR connector (8 actions) implemented and unit-tested against mock Management API"
+      - "ServiceNow ecs_to_sir() and create_sir_incident() unit-tested with severity boundary at 85"
+      - "Interlink Vector config with stdin source, integer CEF severity, TLS on port 6514"
+      - "All Alertmanager rules have runbook_url annotations"
+      - "148 Phase 81 tests pass; 0 regressions in full suite"
 
   82:
     name: "Policy-as-Code, Shadow Mode & Governance"

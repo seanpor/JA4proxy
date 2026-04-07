@@ -1,0 +1,1 @@
+# XSOAR integration package

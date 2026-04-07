@@ -8,6 +8,7 @@ groups:
         annotations:
           summary: "Backup operation failed - immediate investigation required"
           runbook: "docs/runbooks/backup_failure.md"
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
 
       - alert: BackupStale
         expr: time() - ja4proxy_backup_last_success_timestamp > 86400
@@ -16,6 +17,7 @@ groups:
         annotations:
           summary: "No successful backups in 24 hours - data at risk"
           runbook: "docs/runbooks/backup_failure.md"
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
 
       - alert: RestoreFailureDetected
         expr: rate(ja4proxy_restore_operations_total{status="failure"}[5m]) > 0
@@ -24,6 +26,7 @@ groups:
         annotations:
           summary: "Restore operation failed - immediate investigation required"
           runbook: "docs/runbooks/restore_failure.md"
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
 
       - alert: RestoreOperationInProgress
         expr: ja4proxy_restore_currently_running == 1
@@ -32,6 +35,7 @@ groups:
         annotations:
           summary: "Restore operation is currently running"
           runbook: "docs/runbooks/restore_operations.md"
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
 
       - alert: BackupOperationInProgress
         expr: ja4proxy_backup_currently_running == 1
@@ -40,6 +44,7 @@ groups:
         annotations:
           summary: "Backup operation is currently running"
           runbook: "docs/runbooks/backup_operations.md"
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
 
       - alert: BackupDurationHigh
         expr: histogram_quantile(0.95, rate(ja4proxy_backup_duration_seconds_bucket[5m])) > 60
@@ -48,6 +53,7 @@ groups:
         annotations:
           summary: "Backup duration p95 > 60 seconds - may indicate performance issues"
           runbook: "docs/runbooks/backup_performance.md"
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
 
       - alert: RestoreDurationHigh
         expr: histogram_quantile(0.95, rate(ja4proxy_restore_duration_seconds_bucket[5m])) > 120
@@ -56,3 +62,4 @@ groups:
         annotations:
           summary: "Restore duration p95 > 120 seconds - may indicate performance issues"
           runbook: "docs/runbooks/restore_performance.md"
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"

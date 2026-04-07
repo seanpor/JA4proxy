@@ -9,6 +9,7 @@ groups:
         annotations:
           summary: "Management UI: high authentication failure rate"
           description: "Auth failure rate {{ $value | humanize }}/s over 5 minutes. Possible brute-force attack."
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
 
       - alert: ManagementUIRedisErrors
         expr: rate(ja4proxy_mgmt_redis_errors_total[5m]) > 0.1
@@ -18,6 +19,7 @@ groups:
         annotations:
           summary: "Management UI: Redis errors detected"
           description: "Redis error rate {{ $value | humanize }}/s. Check Redis connectivity and management server logs."
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
 
       - alert: ManagementUISSESubscribersCapped
         expr: ja4proxy_mgmt_sse_subscribers_active >= 45
@@ -27,6 +29,7 @@ groups:
         annotations:
           summary: "Management UI: SSE subscriber cap approaching"
           description: "{{ $value }} active SSE subscribers (cap: 50). Consider increasing MAX_SSE_SUBSCRIBERS if legitimate demand."
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
 
       - alert: ManagementUIDialAtMaximumBlocking
         expr: ja4proxy_dial_setting == 100
@@ -36,6 +39,7 @@ groups:
         annotations:
           summary: "Management UI: Blocking dial is at maximum (100)"
           description: "Dial has been at 100 for 30 minutes. Verify this is intentional and monitor for false positives."
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
 
       - alert: ManagementUIHighRequestLatency
         expr: histogram_quantile(0.99, rate(ja4proxy_mgmt_request_duration_ms_bucket[5m])) > 500
@@ -45,6 +49,7 @@ groups:
         annotations:
           summary: "Management UI: High request latency"
           description: "p99 request latency is {{ $value | humanize }}ms. Investigate Redis performance or backend issues."
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
 
       - alert: ManagementUIHighErrorRate
         expr: rate(ja4proxy_mgmt_requests_total{status="5xx"}[5m]) / rate(ja4proxy_mgmt_requests_total[5m]) > 0.1
@@ -54,6 +59,7 @@ groups:
         annotations:
           summary: "Management UI: High error rate"
           description: "{{ $value | humanizePercentage }} of requests returning 5xx errors. Check server logs and Redis connectivity."
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
 
       - alert: ManagementUIConfigurationChange
         expr: increase(ja4proxy_mgmt_actions_total{action="thresholds_update"}[5m]) > 0
@@ -63,6 +69,7 @@ groups:
         annotations:
           summary: "Management UI: Thresholds configuration changed"
           description: "Score thresholds were updated. Review changes in audit log and monitor for impact on blocking rates."
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
 
       - alert: ManagementUIPolicyChange
         expr: increase(ja4proxy_mgmt_actions_total{action="policy_change"}[5m]) > 0
@@ -72,6 +79,7 @@ groups:
         annotations:
           summary: "Management UI: Security policy changed"
           description: "A security bypass was enabled or disabled. Review policy audit log immediately as this may increase blocking aggressiveness."
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
 
       - alert: ManagementUIDialChange
         expr: increase(ja4proxy_mgmt_actions_total{action="dial_change"}[5m]) > 0
@@ -81,6 +89,7 @@ groups:
         annotations:
           summary: "Management UI: Blocking dial changed"
           description: "Dial value changed to {{ $value }}. Monitor blocking rates and false positive alerts."
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
 
       - alert: ManagementUINoRecentEvents
         expr: time() - ja4proxy_analytics_last_event_timestamp > 300
@@ -90,3 +99,4 @@ groups:
         annotations:
           summary: "Management UI: No recent connection events"
           description: "No events received in the last 5 minutes. Check proxy-to-Redis connectivity and stream configuration."
+          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"

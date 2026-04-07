@@ -1,0 +1,1 @@
+# Splunk SOAR integration package
