@@ -1,5 +1,35 @@
 # Changelog
 
+## [Unreleased] - Phase 82 - Policy-as-Code, Shadow Mode & Governance
+
+### Added
+- Policy governance module (`src/governance/`): Cerberus-based YAML schema (`policy_schema.py`), 7-step offline validator (`policy_validator.py`) with typed exceptions (`PolicySyntaxError`, `PolicySchemaError`, `PolicyTTLError`, `PolicyDuplicateError`, `PolicyValidationError`), and async aiohttp applier (`policy_applier.py`) with idempotent apply and drift detection
+- CLI stopgap script (`scripts/ja4proxy-policy.py`): `validate` (offline, exit 0/1), `apply` (exit 0/1/2 for success/error/pending-approval), `diff` (exit 0/1); interface matches Phase 83 `ja4proxy-cli` so CI templates need no changes when Phase 83 ships
+- CI/CD templates: GitHub Actions (`.github/workflows/ja4proxy-policy.yml`), GitLab CI (`.gitlab-ci/ja4proxy-policy.yml`), Jenkins (`Jenkinsfile.ja4proxy-policy`), Ansible (`deploy/ansible/playbooks/apply-policy.yml`)
+- Shadow mode storage ADR (`docs/decisions/ADR-082.md`): Option A (Redis + LZ4) for ≤ 50M connections/month; Option B (ClickHouse) for larger deployments
+- Policy YAML schema documentation (`docs/policy/schema.md`): full field reference, validation rules, apply behaviour, and approval flow for operators
+- Management API mock server (`tests/mocks/management_api_mock.py`): real aiohttp HTTP server on random port with configurable allowlist/blocklist state, 202 dial-pending mode, and `PATCH /api/v1/config` route for bypass toggle tests
+- `DiffResult` dataclass in `policy_applier.py`: `diff_policy()` returns `DiffResult(drift=[...])` rather than a bare list, allowing caller code to distinguish "empty drift" from "call failed"
+- `docs/REDIS_SCHEMA.md`: 4 new key patterns (`decisions:pending:{id}`, `decisions:history`, `sim:conn:{hour_epoch}:{conn_id}`, `sim:job:{sim_id}`)
+
+### Fixed
+- `_get_list` in `policy_applier.py` now raises `RuntimeError` on non-200 responses — previously a 401 was silently treated as an empty list, making bad-token apply runs appear successful
+- `_apply_ips()` and `_apply_fingerprints()` called unconditionally so stale `managed_by=policy` entries are removed from the live API when the policy list is emptied
+- `diff` CLI sub-command crashed 100% of the time — treated `DiffResult` object as a list; fixed to access `.drift`
+- `--env` flag in documentation examples replaced with `--url $JA4PROXY_URL` (flag did not exist in the CLI parser)
+- Mock server now has `PATCH /api/v1/config` route; `bypass_toggles` apply path is tested (`test_apply_bypass_toggles`)
+
+### Tests
+- `tests/unit/test_policy_validator.py`: 11 tests covering all validator error paths and boundary conditions (dial increase boundary at 20, CIDR validation, JA4 format, duplicate detection)
+- `tests/integration/test_policy_apply.py`: 9 tests covering idempotency, new entry creation, stale entry removal, operator drift protection, dial change, 202 pending-approval flow, diff detection, and bypass toggle apply
+- `make test-phase-82` target added
+
+### Notes
+- Phase 82 §10.1 offline acceptance criteria: all met. 20/20 tests pass.
+- Phase 82 §10.2 platform-dependent criteria deferred to Phase 100 item 100-N (blocked on Phase 79 and analytics pre-conditions)
+- Phase 79 coordination (7 missing API endpoints/values): tracked in Phase 100 item 100-L
+- Analytics pre-conditions for shadow mode (`signal_retention.py`, `simulation_runner.py`): tracked in Phase 100 item 100-M
+
 ## [Unreleased] - Phase 81 - SOAR, Webhooks & Enterprise Operations Platforms
 
 ### Added

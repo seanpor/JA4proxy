@@ -39,10 +39,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Production-grade REST API with stable IDs, full RBAC (Auditor/Analyst/Operator/Admin), SAML 2.0 + OIDC SSO (Okta, Entra ID), mandatory MFA for Admin/Operator, append-only audit trail. Critical dependency for phases 80-86.)
 *   **Action Plan:** [PHASE_79.md](PHASE_79.md)
 
-### Phase 82 — Policy-as-Code, Shadow Mode & Governance
-*   **Status:** **PROPOSED** (Policy YAML schema versioned in git, applied via CI/CD. Shadow mode simulation (what would dial=X have blocked last week?). Four-eyes approval workflow. ServiceNow change record integration. Drift detection scheduled job.)
-*   **Action Plan:** [PHASE_82.md](PHASE_82.md)
-
 ### Phase 83 — Infrastructure Automation — Terraform, CLI & Kubernetes Operator
 *   **Status:** **PROPOSED** (ja4proxy-cli Go binary (full command set: ip, allowlist, blocklist, dial, policy, simulation). Terraform provider with drift protection and import workflow. Kubernetes operator + CRDs (JA4ProxyConfig, JA4ProxyAllowlist, JA4ProxyDial). CMDB/NetBox integration. Three emergency runbook Ansible playbooks.)
 *   **Action Plan:** [PHASE_83.md](PHASE_83.md)
