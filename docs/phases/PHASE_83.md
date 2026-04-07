@@ -32,8 +32,8 @@ ja4proxy-cli ip lookup <ip>
   → score history, active bans, signal breakdown, last 10 connections
   (client-side aggregation: calls /api/v1/bans/{ip} + /api/v1/connections?ip=&limit=10)
 
-ja4proxy-cli ip ban <ip> [--ttl 1h] [--reason "scanning activity"] [--ticket CHG0001]
-  → POST /api/v1/bans; applies to all nodes via Redis fan-out in the API
+ja4proxy-cli ip ban <ip-or-cidr> [--ttl 3600] [--reason "scanning activity"]
+  → POST /api/v1/bans/{ip} (IP in path; body: ttl seconds + reason; CIDRs work natively)
 
 ja4proxy-cli ip release <ip> [--confirm]
   → DELETE /api/v1/bans/{ip}; requires --confirm
@@ -221,24 +221,25 @@ docs/developer/
 
 ## 7. Phase 79 API Endpoint Mapping
 
-Phase 79 is complete (branch `claude/phase-79-management-api-v2` — pending merge to
-main at time of writing). All endpoints below are defined in Phase 79's delivery.
+Phase 79 is complete and merged to main. All endpoints below are verified against
+the Phase 79 implementation in `management/api/routes/`.
 
 | CLI Command | HTTP | Endpoint | Notes |
 |-------------|------|----------|-------|
 | `ip lookup` | GET | `/api/v1/bans/{ip}` + `/api/v1/connections?ip=&limit=10` | Client-side aggregation |
-| `ip ban` | POST | `/api/v1/bans` | Body: `{ip, ttl_hours, reason, ticket}` |
-| `ip release` | DELETE | `/api/v1/bans/{ip}` | |
-| `ip watchlist add` | POST | `/api/v1/watchlist` | Body: `{ip, ttl_hours, reason}` |
+| `ip ban <ip>` | POST | `/api/v1/bans/{ip}` | IP is **path param**; body: `{ttl: int (seconds), reason: str}`. No ticket field in Phase 79 bans. |
+| `ip ban <cidr>` | POST | `/api/v1/bans/{cidr}` | Same endpoint — `{ip:path}` allows `/` so CIDRs work natively (e.g. `/api/v1/bans/198.51.100.0/24`) |
+| `ip release` | DELETE | `/api/v1/bans/{ip}` | `{ip:path}` — also handles CIDRs |
+| `ip watchlist add` | POST | `/api/v1/watchlist` | Body: `{entry, reason, expires_at, ticket}` |
 | `ip watchlist remove` | GET → DELETE | `/api/v1/watchlist` → `/api/v1/watchlist/{id}` | Lookup-then-delete |
-| `allowlist add` | POST | `/api/v1/allowlist` | Body: `{ja4, reason, expires_at, ticket}` |
+| `allowlist add` | POST | `/api/v1/allowlist` | Body: `{entry, reason, expires_at, ticket}` |
 | `allowlist remove` | GET → DELETE | `/api/v1/allowlist` → `/api/v1/allowlist/{id}` | Lookup-then-delete |
-| `allowlist list` | GET | `/api/v1/allowlist` | |
+| `allowlist list` | GET | `/api/v1/allowlist` | Supports `?managed_by=` filter |
 | `blocklist add` | POST | `/api/v1/blocklist` | |
 | `blocklist remove` | GET → DELETE | `/api/v1/blocklist` → `/api/v1/blocklist/{id}` | Lookup-then-delete |
 | `blocklist list` | GET | `/api/v1/blocklist` | |
 | `dial get` | GET | `/api/v1/dial` | |
-| `dial set` | PATCH | `/api/v1/dial` | Body: `{setting, ticket, notes}`; 202 → PendingApproval |
+| `dial set` | PATCH | `/api/v1/dial` | Body: `{setting, notes}`; 202 → PendingApproval |
 | `config reload` | GET + POST | `/api/v1/nodes` → `/api/v1/nodes/{host}/reload` | Iterate all nodes if `--node` not given |
 | `health` | GET | `/api/v1/nodes` + `/api/v1/health/deep` | |
 | `fingerprint` | GET | `/api/v1/fingerprints/{ja4}/history` | |
