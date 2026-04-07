@@ -1,0 +1,84 @@
+// JA4proxy Policy-as-Code — Jenkins Declarative Pipeline
+//
+// Usage:
+//   Create a new Jenkins Pipeline job and point it at this Jenkinsfile.
+//   Configure the job to trigger on SCM changes to ja4proxy-policy.yaml.
+//
+// Required Jenkins credentials:
+//   ja4proxy-operator-token  — Secret text containing the API bearer token
+//
+// Required Jenkins environment variable (or configure as pipeline parameter):
+//   JA4PROXY_URL             — Management API base URL
+//
+// Pipeline stages:
+//   Validate  — offline validation (all branches)
+//   Apply     — apply to production (main branch only)
+//
+// Phase 83 migration note:
+//   Replace 'python3 scripts/ja4proxy-policy.py ...' with 'ja4proxy-cli policy ...'
+//   and update the tool installation step accordingly.
+
+pipeline {
+    agent {
+        docker {
+            image 'python:3.11-slim'
+            reuseNode true
+        }
+    }
+
+    options {
+        timeout(time: 15, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+        timestamps()
+    }
+
+    environment {
+        POLICY_FILE = 'ja4proxy-policy.yaml'
+    }
+
+    stages {
+        stage('Validate') {
+            steps {
+                sh 'pip install --quiet pyyaml cerberus'
+                sh "python3 scripts/ja4proxy-policy.py validate --file ${env.POLICY_FILE}"
+            }
+            post {
+                failure {
+                    echo 'Policy validation failed — see errors above.'
+                }
+            }
+        }
+
+        stage('Apply') {
+            when {
+                branch 'main'
+            }
+            environment {
+                JA4PROXY_TOKEN = credentials('ja4proxy-operator-token')
+            }
+            steps {
+                sh 'pip install --quiet pyyaml cerberus aiohttp'
+                sh """
+                    python3 scripts/ja4proxy-policy.py apply \\
+                        --file ${env.POLICY_FILE} \\
+                        --url ${env.JA4PROXY_URL} \\
+                        --token ${env.JA4PROXY_TOKEN}
+                """
+            }
+            post {
+                success {
+                    echo 'Policy applied to production.'
+                }
+                unstable {
+                    echo 'Policy apply returned PENDING APPROVAL — awaiting human review.'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
