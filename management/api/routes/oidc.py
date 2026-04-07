@@ -274,8 +274,22 @@ async def oidc_callback(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired OIDC state — start the login flow again",
         )
-    # Consume state (single-use)
+    # Consume state (single-use) — before any further checks so the state
+    # cannot be replayed even on error paths (e.g. IdP error, token failure)
     await redis.delete(f"mgmt:oidc:state:{state}")
+
+    # Check for IdP error response (e.g. access_denied, consent_required)
+    idp_error = request.query_params.get("error", "")
+    if idp_error:
+        error_desc = request.query_params.get("error_description", idp_error)
+        logger.warning(
+            "oidc | event=idp_error | error=%s | state=%s", idp_error, state
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"IdP rejected the authentication request: {error_desc}",
+        )
+
     state_data = json.loads(state_raw)
     code_verifier = state_data["code_verifier"]
     redirect_target = state_data.get("redirect", "/")

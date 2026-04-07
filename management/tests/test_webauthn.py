@@ -570,3 +570,35 @@ async def test_webauthn_register_begin_excludes_existing_credentials(
     assert len(exclude) >= 1, (
         f"Expected excludeCredentials to list existing credential, got {exclude!r}"
     )
+
+
+@pytest.mark.asyncio
+async def test_webauthn_auth_complete_wrong_user_credential_returns_403(
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> None:
+    """auth/complete returns 403 when the credential belongs to a different user.
+
+    This verifies the ownership check in webauthn_auth_complete: user A cannot
+    authenticate with a credential registered to user B.
+    """
+    # Seed credential owned by "other-user", not "admin"
+    await _seed_credential(fake_redis, user_id="other-user", cred_id_b64=_FAKE_CRED_ID_B64)
+    # Seed auth challenge for "admin" (the authenticated caller)
+    await _seed_auth_challenge(fake_redis, user_id="admin")
+
+    app = create_app()
+    await _redis_module.init_redis(override_client=fake_redis)
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        cookies={"token": _create_access_token("admin")},
+    ) as client:
+        r = await client.post(
+            "/auth/mfa/webauthn/auth/complete",
+            json={"id": _FAKE_CRED_ID_B64, "type": "public-key"},
+        )
+    await _redis_module.close_redis()
+    assert r.status_code == 403, (
+        f"Expected 403 when authenticating with another user's credential, "
+        f"got {r.status_code}: {r.text}"
+    )

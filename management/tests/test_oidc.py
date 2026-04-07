@@ -39,6 +39,7 @@ import json
 import os
 from typing import AsyncGenerator
 from unittest.mock import AsyncMock, patch
+from urllib.parse import parse_qs, urlparse
 
 import fakeredis.aioredis
 import pytest
@@ -272,15 +273,16 @@ async def _do_login_get_state(
     client: AsyncClient,
     fake_redis: fakeredis.aioredis.FakeRedis,
 ) -> str:
-    """Helper: call /login and return the stored state value."""
+    """Helper: call /login and return the state value from the redirect URL."""
     with patch(
         "management.api.routes.oidc._fetch_oidc_discovery",
         new=AsyncMock(return_value=_FAKE_DISCOVERY),
     ):
-        await client.get("/auth/sso/oidc/login", follow_redirects=False)
-    keys = await fake_redis.keys("mgmt:oidc:state:*")
-    assert keys, "No state key found after login"
-    return keys[0].split(":")[-1]  # extract state value from key name
+        r = await client.get("/auth/sso/oidc/login", follow_redirects=False)
+    location = r.headers.get("location", "")
+    params = parse_qs(urlparse(location).query)
+    assert "state" in params, f"No 'state' param in redirect URL: {location!r}"
+    return params["state"][0]
 
 
 @pytest.mark.asyncio
@@ -539,3 +541,77 @@ def test_oidc_map_role_default_applied() -> None:
 def test_oidc_map_role_first_match_wins() -> None:
     # SOC-Analysts is first in the input list → analyst wins over Security-Admins
     assert _map_role(["SOC-Analysts", "Security-Admins"]) == Role.analyst
+
+
+# ── Section 5: Error handling ─────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_oidc_login_discovery_failure_returns_502(
+    public_client: AsyncClient,
+) -> None:
+    """GET /auth/sso/oidc/login returns 502 when the discovery document cannot be fetched."""
+    with patch(
+        "management.api.routes.oidc._fetch_oidc_discovery",
+        new=AsyncMock(side_effect=Exception("network error")),
+    ):
+        r = await public_client.get("/auth/sso/oidc/login", follow_redirects=False)
+    assert r.status_code == 502, (
+        f"Expected 502 on discovery failure, got {r.status_code}: {r.text}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_oidc_callback_discovery_failure_returns_502(
+    public_client: AsyncClient,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> None:
+    """GET /auth/sso/oidc/callback returns 502 when discovery fails during code exchange."""
+    # Seed a valid state so the state-check passes
+    state = "test-state-disc-fail"
+    await fake_redis.set(
+        f"mgmt:oidc:state:{state}",
+        json.dumps({"code_verifier": "v" * 50, "redirect": "/"}),
+        ex=300,
+    )
+    with patch(
+        "management.api.routes.oidc._fetch_oidc_discovery",
+        new=AsyncMock(side_effect=Exception("network error")),
+    ):
+        r = await public_client.get(
+            f"/auth/sso/oidc/callback?code=authcode&state={state}",
+            follow_redirects=False,
+        )
+    assert r.status_code == 502, (
+        f"Expected 502 on discovery failure during callback, got {r.status_code}: {r.text}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_oidc_callback_idp_error_param_returns_401(
+    public_client: AsyncClient,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> None:
+    """Callback with IdP error param (e.g. access_denied) returns 401.
+
+    The state is consumed before the error is raised to prevent state enumeration.
+    """
+    state = await _do_login_get_state(public_client, fake_redis)
+
+    r = await public_client.get(
+        f"/auth/sso/oidc/callback?error=access_denied"
+        f"&error_description=User+cancelled&state={state}",
+        follow_redirects=False,
+    )
+    assert r.status_code == 401, (
+        f"Expected 401 for IdP error response, got {r.status_code}: {r.text}"
+    )
+    assert "access_denied" in r.text or "cancelled" in r.text.lower(), (
+        f"Expected error description in response body: {r.text!r}"
+    )
+
+    # State must have been consumed despite the error
+    remaining = await fake_redis.get(f"mgmt:oidc:state:{state}")
+    assert remaining is None, (
+        f"State should be consumed even on IdP error, but key still exists"
+    )

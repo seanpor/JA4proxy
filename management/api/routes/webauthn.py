@@ -209,7 +209,7 @@ async def webauthn_register_complete(
         },
     )
     pipe.sadd(_user_credentials_key(user_id), credential_id_b64)
-    pipe.delete(_challenge_key(user_id))
+    # Note: challenge already consumed in _load_challenge above (single-use on any code path)
     await pipe.execute()
 
     logger.info(
@@ -354,10 +354,10 @@ async def webauthn_auth_complete(
             detail="Authentication verification failed",
         )
 
-    # Update sign count and clean up challenge (pipeline for atomicity)
+    # Update sign count atomically
+    # Note: challenge already consumed in _load_challenge above (single-use on any code path)
     pipe = redis.pipeline()
     pipe.hset(_credential_key(credential_id_b64), "sign_count", str(verification.new_sign_count))
-    pipe.delete(_challenge_key(user_id))
     await pipe.execute()
 
     # Mark session as MFA-verified

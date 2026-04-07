@@ -344,6 +344,36 @@ async def test_saml_acs_auth_failed_returns_401(
 
 
 @pytest.mark.asyncio
+async def test_saml_acs_nonce_consumed_on_auth_failure(
+    public_client: AsyncClient,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> None:
+    """Nonce is consumed even when SAML authentication fails.
+
+    This verifies that a SAML assertion replay attack cannot succeed: if the
+    first ACS call fails (bad assertion), the nonce is already gone, so no
+    second attempt is possible with the same nonce.
+    """
+    nonce = "test-nonce-consumed-on-fail"
+    await fake_redis.set(f"mgmt:saml:nonce:{nonce}", "/", ex=300)
+
+    mock_auth = _make_mock_saml_auth(authenticated=False, errors=["invalid_response"])
+    with patch("management.api.routes.saml.OneLogin_Saml2_Auth", return_value=mock_auth):
+        r = await public_client.post(
+            "/auth/sso/saml/acs",
+            data={"SAMLResponse": "ZmFrZQ==", "RelayState": nonce},
+            follow_redirects=False,
+        )
+    assert r.status_code == 401
+
+    # Nonce must no longer exist in Redis
+    remaining = await fake_redis.get(f"mgmt:saml:nonce:{nonce}")
+    assert remaining is None, (
+        f"Nonce should be consumed on auth failure, but key still exists: {remaining!r}"
+    )
+
+
+@pytest.mark.asyncio
 async def test_saml_acs_unmapped_group_returns_403(
     public_client: AsyncClient,
     fake_redis: fakeredis.aioredis.FakeRedis,
