@@ -158,7 +158,7 @@ Specific files that exist and are functional:
 - `Makefile` go-* targets — ✅ `make go-build`, `make go-test`, `make go-start`,
   `make go-switch`, `make go-rollback`, `make go-parity`, `make go-stop`
 
-See `docs/phases/details/PHASE_15_subplan.md` for the full group-by-group task list.
+See `docs/phases/archive/PHASE_15_subplan.md` for the full group-by-group task list.
 
 ## Acceptance Criteria
 

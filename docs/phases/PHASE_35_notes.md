@@ -62,7 +62,7 @@
 ## Review Findings Addressed
 
 A critical reviewer agent identified 5 critical, 6 high, and 6 medium issues.
-Full details in `docs/phases/details/PHASE_35_review.md`.
+Full details in `docs/phases/archive/PHASE_35_review.md`.
 
 Key fixes applied during/after review:
 - Constructor signature mismatch (tests used 0 args, impl required 1) → made optional
