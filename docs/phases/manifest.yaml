@@ -1183,21 +1183,6 @@ phases:
       - "make test-phase-87-integration passes against a running monitoring stack"
       - "Phase 87 manifest success_criteria updated to include integration test target"
 
-  100:
-    name: "Phase 79 SSO/MFA Gap Closure"
-    status: "PROPOSED"
-    action_plan: "docs/phases/PHASE_100.md"
-    dependencies: [79]
-    size: "MEDIUM"
-    summary: "Closes 6 remaining gaps from Phase 79 C7-C9 CR: OIDC JWKS signature verification, SSO audit log events, WebAuthn credential DELETE endpoint, SSO-delegated MFA trust, SAML integration test markers, config.yml role mapping. Gap 7 (OpenAPI 3.1 spec) was completed in Phase 79 C10."
-    success_criteria:
-      - "OIDC id_token signature verified against IdP JWKS"
-      - "SAML and OIDC login events written to management:audit_log"
-      - "DELETE /auth/mfa/webauthn/credentials/{id} removes credential and SET entry"
-      - "SSO-delegated MFA: MANAGEMENT_SSO_TRUST_IDP_MFA=true bypasses local MFA gate when IdP asserts amr=mfa"
-      - "pytest.mark.integration markers on SAML/OIDC live-IdP tests"
-      - "Group-to-role mapping honoured from config/proxy.yml sso.role_mapping"
-
   92:
     name: Makefile Lint Target Hierarchy
     status: COMPLETE
@@ -1217,23 +1202,29 @@ phases:
     - No existing Makefile targets modified
     - make lint-phases passes
   100:
-    name: Cross-Phase Gap Closure
-    status: IN_PROGRESS
+    name: Phase 79 SSO/MFA Gap Closure
+    status: COMPLETE
+    completed: '2026-04-07'
     action_plan: docs/phases/PHASE_100.md
     dependencies:
     - 79
-    - 80
-    size: SMALL
-    summary: 'Rolling tracker for non-blocking gaps from completed phases. Current
-      items: source.port/destination.ip absent from ECS events (Phase 80); Go dual_output
-      logging mode not implemented (Phase 80); per-endpoint webhook retry/timeout
-      config ignored (Phase 80); Splunk TA and Sentinel live-testing (Phase 80, requires
-      platform access); Phase 79 API verification for Splunk alert action and Sentinel
-      playbooks (Phase 80, blocks on Phase 79 merge).'
+    size: MEDIUM
+    summary: 'Closes 6 gaps from Phase 79 C7-C9 CR: OIDC JWKS signature verification
+      with double-checked locking and authlib; SSO audit log events (saml.py + oidc.py);
+      WebAuthn credential list/delete endpoints; SSO-delegated MFA trust via SAML
+      authn context / OIDC amr claim; pytest.mark.integration markers for live-IdP
+      tests; group-to-role mapping from config/proxy.yml sso.role_mapping with 60s
+      cache and env-var override. Gap 7 (OpenAPI 3.1 spec) was completed in Phase
+      79 C10.'
     success_criteria:
-    - ConnectionContext.ClientPort populated and source.port present in ECS log output
-    - Go proxy dual_output mode emits legacy + ECS lines simultaneously
-    - Per-endpoint retry_attempts/timeout_seconds respected independently by webhook
-      dispatcher
-    - Phase 79 bans endpoint verified against Splunk alert action script
-    - Splunk TA and Sentinel live-testing completed or explicitly deferred with rationale
+    - OIDC id_token signature verified against IdP JWKS (authlib RS256; double-checked
+      asyncio.Lock cache; MANAGEMENT_TEST_MODE=1 bypass for unit tests)
+    - SAML and OIDC login events written to management:audit_log via write_audit()
+    - GET /auth/mfa/webauthn/credentials lists enrolled credential IDs and created_at
+    - DELETE /auth/mfa/webauthn/credentials/{id} removes credential hash and SET entry
+      with ownership check
+    - SSO-delegated MFA trust sets mgmt:mfa:session key when MANAGEMENT_SSO_TRUST_IDP_MFA=true
+      and SAML authn context or OIDC amr claim indicates MFA
+    - pytest.mark.integration markers on SAML and OIDC live-IdP placeholder tests
+    - Group-to-role mapping honoured from config/proxy.yml sso.role_mapping with env-var
+      MANAGEMENT_SAML_ROLE_MAPPING / MANAGEMENT_OIDC_ROLE_MAPPING override
