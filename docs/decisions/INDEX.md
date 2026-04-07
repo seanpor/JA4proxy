@@ -20,6 +20,9 @@
 | [ADR-020](ADR-020.md) | AF_PACKET vs pcap/Scapy vs PF_RING/DPDK for TAP mode capture | Accepted | 20 | 2026-03-28 |
 | [ADR-021](ADR-021.md) | EDL pull vs push for external firewall integration | Accepted | 20 | 2026-03-28 |
 | [ADR-022](ADR-022.md) | TAP HTTP server — standalone for Phase 20, migrates to Phase 13 | Accepted | 20 | 2026-03-28 |
+| [ADR-082](ADR-082.md) | Shadow mode signal storage backend | Accepted | 82 | 2026-04-07 |
+| [ADR-083a](ADR-083a.md) | Release tooling for `ja4proxy-cli` (Goreleaser + GPG + SLSA) | Accepted | 83 | 2026-04-07 |
+| [ADR-083b](ADR-083b.md) | Go policy validator implementation | Accepted | 83 | 2026-04-07 |
 
 ## Planned ADRs (To Be Written)
 

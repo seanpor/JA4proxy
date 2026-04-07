@@ -1,5 +1,42 @@
 # Changelog
 
+## [83] - 2026-04-07 - ja4proxy-cli Go Binary
+
+### Added
+- `ja4proxy-cli` compiled Go binary (`cmd/ja4proxy-cli/main.go`) with 9 top-level command groups: `ip`, `allowlist`, `blocklist`, `dial`, `config`, `health`, `fingerprint`, `policy`, `simulation`
+- HTTP client (`internal/cli/client/client.go`): 30s timeout, Bearer auth, descriptive errors including HTTP status codes
+- Auth resolver (`internal/cli/auth/auth.go`): flag → `JA4PROXY_TOKEN`/`JA4PROXY_URL` env var → config file (correct precedence)
+- CLI config file (`internal/cli/config/config.go`): reads `~/.config/ja4proxy/cli.yaml` for default URL/token/output
+- Output formatters (`internal/cli/output/output.go`): ASCII table (tablewriter), JSON (indented), CSV with reflect-based header extraction
+- IP commands (`internal/cli/commands/ip.go`): `RunIPBan`, `RunIPRelease`, `RunWatchlistAdd`, `RunWatchlistRemove` (lookup-then-delete), `RunIPLookup` — verified against Phase 79 API (`POST /api/v1/bans/{ip}`, IP in path)
+- Allowlist/Blocklist commands: `RunAllowlistAdd/Remove/List`, `RunBlocklistAdd/Remove/List` with lookup-then-delete for remove
+- Dial commands (`internal/cli/commands/dial.go`): `RunDialGet`, `RunDialSet` with `PendingApprovalError` (exit 2) on HTTP 202; client-side 0–100 range guard
+- Config reload (`internal/cli/commands/config.go`): `RunConfigReload` — iterates all nodes or targets specific node
+- Health (`internal/cli/commands/health.go`): `RunHealth` aggregating `/api/v1/nodes` + `/api/v1/health/deep`
+- Fingerprint history (`internal/cli/commands/fingerprint.go`): `RunFingerprintHistory`
+- Policy validator (`internal/cli/commands/policy.go`): `ValidatePolicy` re-implements all 8 rules natively in Go (YAML parse, top-level keys, dial range 0–100, expires TTL, dial increase >20, CIDR via `net/netip`, JA4 regex, duplicate detection); parity with `scripts/ja4proxy-policy.py`
+- Simulation stubs (`internal/cli/commands/simulation.go`): return `ErrSimulationNotAvailable` pending Phase 100-M
+- All mutating commands require `--confirm`; missing flag exits 1 with clear message
+- Global flags: `--url`, `--token`, `--output` (table|json|csv)
+- New Go deps: `github.com/spf13/cobra`, `github.com/olekukonko/tablewriter`
+- ADR-083a: Goreleaser selected for multi-arch release + GPG signing + SLSA provenance
+- ADR-083b: native Go re-implementation of policy validator (air-gapped compatible)
+- `docs/developer/RELEASE_PROCESS.md`: GPG key setup, Goreleaser usage, user verification steps
+
+### Fixed
+- Auth resolution order bug: config file was winning over env var; corrected to flag > env > config > keychain
+- Parity test GOROOT detection: tests were silently skipping due to wrong Go toolchain path; now detect `/snap/bin/go` with `/snap/go/current` GOROOT explicitly
+
+### Tests
+- 76 Go unit tests across `internal/cli/` packages (auth, client, commands, output)
+- 14 Python parity tests in `tests/integration/test_cli_parity.py` — compile Go binary, compare exit codes against Python script for 5 policy YAML cases plus `--confirm` enforcement
+- `make test-phase-83`: build + vet + Go unit tests + Python parity tests
+
+### Notes
+- Keychain (99designs/keyring) integration deferred → Phase 100-O
+- `confirm_mutating: false` config flag not yet honoured → Phase 100-P
+- Simulation commands (`simulation run/status/report`) are stubs → Phase 100-M
+
 ## [Unreleased] - Phase 100 - Phase 79 SSO/MFA Gap Closure
 
 ### Added
