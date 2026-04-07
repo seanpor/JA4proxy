@@ -76,8 +76,10 @@ sinks:
     customer_id: "${SENTINEL_WORKSPACE_ID}"
     shared_key:  "${SENTINEL_SHARED_KEY}"
 
-    # Custom table name — Sentinel appends _CL automatically
-    log_type: "${._log_type}"
+    # Custom table name — Sentinel appends _CL automatically.
+    # Hard-coded here because VRL event fields (._log_type) cannot be referenced
+    # in sink config keys; only environment variables use ${ENV_VAR} syntax.
+    log_type: "JA4proxy"
 
     # Azure Monitor Logs API uses the `TimeGenerated` field for event time
     time_generated_key: "TimeGenerated"
