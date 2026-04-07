@@ -81,14 +81,32 @@ func requireConfirm(confirmed bool, cmd *cobra.Command) {
 
 // renderOutput writes data to stdout in the format specified by gf.format.
 func renderOutput(data interface{}) error {
+	var (
+		s   string
+		err error
+	)
 	switch gf.format {
 	case "json":
-		return output.RenderJSON(os.Stdout, data)
+		s, err = output.RenderJSON(data)
 	case "csv":
-		return output.RenderCSV(os.Stdout, data)
+		s, err = output.RenderCSV(data)
 	default:
-		return output.RenderTable(os.Stdout, data)
+		s, err = output.RenderTable(data)
 	}
+	if err != nil {
+		return err
+	}
+	return output.WriteTo(os.Stdout, s)
+}
+
+// printJSON renders data as JSON to stdout.  It is a convenience wrapper for
+// the common pattern of rendering a single result and writing it to stdout.
+func printJSON(data interface{}) error {
+	s, err := output.RenderJSON(data)
+	if err != nil {
+		return err
+	}
+	return output.WriteTo(os.Stdout, s)
 }
 
 // handleError prints an error and calls os.Exit with the appropriate code.
@@ -160,7 +178,7 @@ func buildIPLookupCmd() *cobra.Command {
 			handleError(err)
 			result, err := commands.RunIPLookup(cmd.Context(), c, args[0])
 			handleError(err)
-			handleError(output.RenderJSON(os.Stdout, result))
+			handleError(printJSON(result))
 		},
 	}
 }
@@ -180,7 +198,7 @@ func buildIPBanCmd() *cobra.Command {
 			handleError(err)
 			result, err := commands.RunIPBan(cmd.Context(), c, args[0], ttl, reason)
 			handleError(err)
-			handleError(output.RenderJSON(os.Stdout, result))
+			handleError(printJSON(result))
 		},
 	}
 	cmd.Flags().IntVar(&ttl, "ttl", 3600, "Ban duration in seconds")
@@ -266,7 +284,7 @@ func buildAllowlistCmd() *cobra.Command {
 			handleError(err)
 			entry, err := commands.RunAllowlistAdd(cmd.Context(), c, args[0], addReason, addExpires, addTicket)
 			handleError(err)
-			handleError(output.RenderJSON(os.Stdout, entry))
+			handleError(printJSON(entry))
 		},
 	}
 	addCmd.Flags().StringVar(&addReason, "reason", "", "Reason for allowlisting")
@@ -322,7 +340,7 @@ func buildBlocklistCmd() *cobra.Command {
 			handleError(err)
 			entry, err := commands.RunBlocklistAdd(cmd.Context(), c, args[0], addReason, addTicket)
 			handleError(err)
-			handleError(output.RenderJSON(os.Stdout, entry))
+			handleError(printJSON(entry))
 		},
 	}
 	addCmd.Flags().StringVar(&addReason, "reason", "", "Reason for blocklisting")
@@ -465,7 +483,7 @@ func buildFingerprintCmd() *cobra.Command {
 			handleError(err)
 			items, err := commands.RunFingerprintHistory(cmd.Context(), c, args[0], history)
 			handleError(err)
-			handleError(output.RenderJSON(os.Stdout, items))
+			handleError(printJSON(items))
 		},
 	}
 	cmd.Flags().StringVar(&history, "history", "", "Time range filter (e.g. 30d)")

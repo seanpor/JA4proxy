@@ -38,9 +38,13 @@ func RunDialGet(ctx context.Context, c *client.Client) (*DialValue, error) {
 
 // RunDialSet updates the dial setting via the Management API.
 // It issues PATCH /api/v1/dial with the new setting, optional ticket, and notes.
+// Returns an error if setting is outside the valid range 0–100.
 // If the API responds with HTTP 202 (pending approval), RunDialSet returns a
 // *PendingApprovalError containing the decision_id from the response body.
 func RunDialSet(ctx context.Context, c *client.Client, setting int, ticket, notes string) error {
+	if setting < 0 || setting > 100 {
+		return fmt.Errorf("dial setting %d is out of range: must be 0–100", setting)
+	}
 	body := map[string]interface{}{
 		"setting": setting,
 		"notes":   notes,

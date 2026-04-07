@@ -1,6 +1,7 @@
 package commands_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -31,7 +32,7 @@ func TestBlocklistAdd(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	err := commands.RunBlocklistAdd(c, testBlocklistJA4, "known scanner fingerprint", "INC001")
+	_, err := commands.RunBlocklistAdd(context.Background(), c, testBlocklistJA4, "known scanner fingerprint", "INC001")
 	if err != nil {
 		t.Fatalf("RunBlocklistAdd returned error: %v", err)
 	}
@@ -72,7 +73,7 @@ func TestBlocklistRemove_LookupThenDelete(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	if err := commands.RunBlocklistRemove(c, testBlocklistJA4); err != nil {
+	if err := commands.RunBlocklistRemove(context.Background(), c, testBlocklistJA4); err != nil {
 		t.Fatalf("RunBlocklistRemove returned error: %v", err)
 	}
 
@@ -100,7 +101,7 @@ func TestBlocklistRemove_NotFound(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	err := commands.RunBlocklistRemove(c, "t13d9999h2_000000000000_000000000000")
+	err := commands.RunBlocklistRemove(context.Background(), c, "t13d9999h2_000000000000_000000000000")
 	if err == nil {
 		t.Fatal("expected error for not-found JA4, got nil")
 	}
@@ -126,7 +127,7 @@ func TestBlocklistList(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	entries, err := commands.RunBlocklistList(c)
+	entries, err := commands.RunBlocklistList(context.Background(), c)
 	if err != nil {
 		t.Fatalf("RunBlocklistList returned error: %v", err)
 	}

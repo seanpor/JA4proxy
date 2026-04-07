@@ -1,6 +1,7 @@
 package commands_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -23,12 +24,13 @@ func TestFingerprintHistory(t *testing.T) {
 			t.Errorf("method = %q; want GET", r.Method)
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"ja4":"` + fingerprintJA4 + `","events":[{"timestamp":"2026-04-01T00:00:00Z","ip":"1.2.3.4","action":"allow"},{"timestamp":"2026-04-02T00:00:00Z","ip":"5.6.7.8","action":"block"}]}`))
+		// Return a JSON array (matching the []interface{} return type).
+		_, _ = w.Write([]byte(`[{"timestamp":"2026-04-01T00:00:00Z","ip":"1.2.3.4","action":"allow"},{"timestamp":"2026-04-02T00:00:00Z","ip":"5.6.7.8","action":"block"}]`))
 	}))
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	result, err := commands.RunFingerprintHistory(c, fingerprintJA4, "30d")
+	result, err := commands.RunFingerprintHistory(context.Background(), c, fingerprintJA4, "30d")
 	if err != nil {
 		t.Fatalf("RunFingerprintHistory returned error: %v", err)
 	}
@@ -38,8 +40,8 @@ func TestFingerprintHistory(t *testing.T) {
 		t.Errorf("path = %q; want %q", gotPath, expectedPath)
 	}
 
-	if result == nil {
-		t.Fatal("expected non-nil result")
+	if len(result) == 0 {
+		t.Fatal("expected non-empty result")
 	}
 }
 
@@ -51,7 +53,7 @@ func TestFingerprintHistory_NotFound(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	_, err := commands.RunFingerprintHistory(c, "t13d9999h2_000000000000_000000000000", "7d")
+	_, err := commands.RunFingerprintHistory(context.Background(), c, "t13d9999h2_000000000000_000000000000", "7d")
 	if err == nil {
 		t.Fatal("expected error for 404, got nil")
 	}
@@ -65,18 +67,17 @@ func TestFingerprintHistory_WindowParam(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotURL = r.URL.String()
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"ja4":"` + fingerprintJA4 + `","events":[]}`))
+		_, _ = w.Write([]byte(`[]`))
 	}))
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	_, err := commands.RunFingerprintHistory(c, fingerprintJA4, "7d")
+	_, err := commands.RunFingerprintHistory(context.Background(), c, fingerprintJA4, "7d")
 	if err != nil {
 		t.Fatalf("RunFingerprintHistory returned error: %v", err)
 	}
 
-	// The window should be present as a query parameter (e.g. ?window=7d)
-	// or embedded in the path — accept either.
+	// The window should be present as a query parameter (e.g. ?since=7d).
 	if !strings.Contains(gotURL, "7d") {
 		t.Errorf("URL %q does not contain window '7d'", gotURL)
 	}

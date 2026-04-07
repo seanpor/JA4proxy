@@ -1,6 +1,7 @@
 package commands_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -31,7 +32,7 @@ func TestAllowlistAdd(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	err := commands.RunAllowlistAdd(c, testJA4, "legitimate scanner", "2027-01-01T00:00:00Z", "CHG001")
+	_, err := commands.RunAllowlistAdd(context.Background(), c, testJA4, "legitimate scanner", "2027-01-01T00:00:00Z", "CHG001")
 	if err != nil {
 		t.Fatalf("RunAllowlistAdd returned error: %v", err)
 	}
@@ -72,7 +73,7 @@ func TestAllowlistRemove_LookupThenDelete(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	if err := commands.RunAllowlistRemove(c, testJA4); err != nil {
+	if err := commands.RunAllowlistRemove(context.Background(), c, testJA4); err != nil {
 		t.Fatalf("RunAllowlistRemove returned error: %v", err)
 	}
 
@@ -100,7 +101,7 @@ func TestAllowlistRemove_NotFound(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	err := commands.RunAllowlistRemove(c, "t13d9999h2_000000000000_000000000000")
+	err := commands.RunAllowlistRemove(context.Background(), c, "t13d9999h2_000000000000_000000000000")
 	if err == nil {
 		t.Fatal("expected error for not-found JA4, got nil")
 	}
@@ -126,7 +127,7 @@ func TestAllowlistList(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	entries, err := commands.RunAllowlistList(c)
+	entries, err := commands.RunAllowlistList(context.Background(), c)
 	if err != nil {
 		t.Fatalf("RunAllowlistList returned error: %v", err)
 	}

@@ -1,6 +1,7 @@
 package commands_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -34,7 +35,7 @@ func TestConfigReload_AllNodes(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	if err := commands.RunConfigReload(c, ""); err != nil {
+	if err := commands.RunConfigReload(context.Background(), c, ""); err != nil {
 		t.Fatalf("RunConfigReload returned error: %v", err)
 	}
 
@@ -76,7 +77,7 @@ func TestConfigReload_SpecificNode(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	if err := commands.RunConfigReload(c, "ja4proxy-01"); err != nil {
+	if err := commands.RunConfigReload(context.Background(), c, "ja4proxy-01"); err != nil {
 		t.Fatalf("RunConfigReload returned error: %v", err)
 	}
 

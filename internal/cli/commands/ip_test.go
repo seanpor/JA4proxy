@@ -1,6 +1,7 @@
 package commands_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -24,12 +25,13 @@ func TestIPBan_CallsCorrectEndpoint(t *testing.T) {
 			t.Errorf("failed to decode body: %v", err)
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"message":"Ban created","ip":"198.51.100.4","ttl":3600,"reason":"test"}`))
+		_, _ = w.Write([]byte(`{"ip":"198.51.100.4","ttl":3600,"reason":"test"}`))
 	}))
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	if err := commands.RunIPBan(c, "198.51.100.4", 3600, "test"); err != nil {
+	_, err := commands.RunIPBan(context.Background(), c, "198.51.100.4", 3600, "test")
+	if err != nil {
 		t.Fatalf("RunIPBan returned error: %v", err)
 	}
 
@@ -52,12 +54,13 @@ func TestIPBan_CIDR(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"message":"Ban created","ip":"198.51.100.0/24","ttl":3600,"reason":"scanning"}`))
+		_, _ = w.Write([]byte(`{"ip":"198.51.100.0/24","ttl":3600,"reason":"scanning"}`))
 	}))
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	if err := commands.RunIPBan(c, "198.51.100.0/24", 3600, "scanning"); err != nil {
+	_, err := commands.RunIPBan(context.Background(), c, "198.51.100.0/24", 3600, "scanning")
+	if err != nil {
 		t.Fatalf("RunIPBan (CIDR) returned error: %v", err)
 	}
 
@@ -79,7 +82,7 @@ func TestIPRelease_CallsCorrectEndpoint(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	if err := commands.RunIPRelease(c, "198.51.100.4"); err != nil {
+	if err := commands.RunIPRelease(context.Background(), c, "198.51.100.4"); err != nil {
 		t.Fatalf("RunIPRelease returned error: %v", err)
 	}
 
@@ -108,7 +111,7 @@ func TestIPWatchlistAdd(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	if err := commands.RunWatchlistAdd(c, "10.0.0.1", 3600, "monitoring"); err != nil {
+	if err := commands.RunWatchlistAdd(context.Background(), c, "10.0.0.1", 3600, "monitoring"); err != nil {
 		t.Fatalf("RunWatchlistAdd returned error: %v", err)
 	}
 
@@ -142,7 +145,7 @@ func TestIPWatchlistRemove_LookupThenDelete(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	if err := commands.RunWatchlistRemove(c, "10.0.0.1"); err != nil {
+	if err := commands.RunWatchlistRemove(context.Background(), c, "10.0.0.1"); err != nil {
 		t.Fatalf("RunWatchlistRemove returned error: %v", err)
 	}
 
@@ -167,7 +170,7 @@ func TestIPWatchlistRemove_NotFound(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	err := commands.RunWatchlistRemove(c, "10.0.0.99")
+	err := commands.RunWatchlistRemove(context.Background(), c, "10.0.0.99")
 	if err == nil {
 		t.Fatal("expected error for not-found IP, got nil")
 	}
@@ -185,12 +188,18 @@ func TestIPLookup_AggregatesRequests(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calledPaths = append(calledPaths, r.URL.String())
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{}`))
+		// Return type-appropriate JSON for each endpoint.
+		switch r.URL.Path {
+		case "/api/v1/connections":
+			_, _ = w.Write([]byte(`[]`))
+		default:
+			_, _ = w.Write([]byte(`{}`))
+		}
 	}))
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	if _, err := commands.RunIPLookup(c, "1.2.3.4"); err != nil {
+	if _, err := commands.RunIPLookup(context.Background(), c, "1.2.3.4"); err != nil {
 		t.Fatalf("RunIPLookup returned error: %v", err)
 	}
 
