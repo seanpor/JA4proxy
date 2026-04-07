@@ -40,6 +40,7 @@ from .auth import router as auth_router
 from .routes import (
     audit,
     bans,
+    canonical_lists,
     config_ops,
     dial,
     events,
@@ -49,6 +50,7 @@ from .routes import (
     partials,
     tokens,
 )
+from .routes.canonical_lists import migrate_legacy_entries
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +66,20 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Only init Redis if not already injected (e.g. in tests)
     if redis_client.get_redis_client() is None:
         await redis_client.init_redis()
+
+    # Migrate legacy plain SET entries to full Hash records
+    r = redis_client.get_redis_client()
+    if r is not None:
+        for list_name in ("allowlist", "blocklist", "watchlist", "ip"):
+            try:
+                await migrate_legacy_entries(r, list_name)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "management | event=migration_error | list=%s | error=%s",
+                    list_name,
+                    exc,
+                )
+
     logger.info("management | event=startup | service=management_ui")
     yield
     await redis_client.close_redis()
@@ -116,6 +132,7 @@ def create_app() -> FastAPI:
     # API routes (auth enforced per-route via Depends)
     app.include_router(health.router)
     app.include_router(dial.router)
+    app.include_router(canonical_lists.router)
     app.include_router(lists.router)
     app.include_router(bans.router)
     app.include_router(events.router)

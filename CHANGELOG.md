@@ -1,5 +1,20 @@
 # Changelog
 
+## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 3: Resource Model (UUID + managed_by) — 2026-04-07
+
+### Added
+- New canonical list endpoints: `POST/GET /api/v1/allowlist`, `GET/DELETE /api/v1/allowlist/{id}` (and equivalent routes for blocklist, watchlist)
+- Full resource envelope on every list entry: `id` (UUID4), `entry`, `list_type`, `managed_by`, `note`, `created_at`, `created_by`, `expires_at`
+- Dual-write pattern: Redis Hash (management record) + proxy SET (hot path) written atomically via pipeline
+- `?managed_by=terraform` filter on all `GET` list endpoints
+- Expired entries (`expires_at` in the past) excluded from `GET` results
+- Migration runs at startup: existing `ja4:whitelist`, `ja4:blacklist`, `static:allowlist` SET members promoted to full Hash records with `managed_by="legacy"`; idempotent via `allowlist:migrated` / `blocklist:migrated` / `ip_allowlist:migrated` flags
+- `ManagedBy`, `ResourceCreate`, `ResourceResponse`, `ResourceListResponse` Pydantic models in `management/api/models.py`
+- New `ja4:watchlist` Redis SET introduced for watchlist proxy lookups
+
+### Changed
+- Old `/api/v1/lists/...` routes unchanged (backward compatibility preserved)
+
 ## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 2: RBAC Role Enforcement — 2026-04-07
 
 ### Added
