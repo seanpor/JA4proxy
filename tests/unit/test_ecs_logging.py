@@ -28,9 +28,17 @@ def _make_record(
     msg: str,
     level: int = logging.INFO,
     name: str = "test.logger",
-    **extra_attrs,
+    extra: dict | None = None,
 ) -> logging.LogRecord:
-    """Create a LogRecord with optional extra attributes set directly on it."""
+    """
+    Create a LogRecord with optional extra fields.
+
+    Extra fields are set via ``record.extra`` (a dict), which matches how
+    ``JSONFormatter`` reads them (line 29-30 of logging_config.py:
+    ``if hasattr(record, 'extra'): log_record.update(record.extra)``).
+    Do NOT use setattr for individual field names — that bypasses the
+    formatter's extra-reading logic and causes tests to pass vacuously.
+    """
     record = logging.LogRecord(
         name=name,
         level=level,
@@ -40,20 +48,21 @@ def _make_record(
         args=(),
         exc_info=None,
     )
-    for key, value in extra_attrs.items():
-        setattr(record, key, value)
+    if extra:
+        record.extra = extra
     return record
 
 
 def _ecs_format(fields: dict, msg: str = "test event") -> dict:
     """
     Create an ECS-mode JSONFormatter, format the record, and return parsed JSON.
-    Adds the given fields as direct record attributes (simulating logrus-style
-    WithFields — in Python loggers, extra fields are passed via 'extra' dict
-    which adds them as attributes).
+
+    Extra log fields are passed via ``record.extra`` (a dict), which is how
+    ``JSONFormatter`` reads them.  Using ``setattr(record, key, value)`` for
+    individual field names would bypass the formatter and give vacuous results.
     """
     fmt = JSONFormatter(format="ecs")
-    record = _make_record(msg, **fields)
+    record = _make_record(msg, extra=fields if fields else None)
     output = fmt.format(record)
     return json.loads(output)
 
@@ -61,7 +70,7 @@ def _ecs_format(fields: dict, msg: str = "test event") -> dict:
 def _legacy_format(fields: dict, msg: str = "test event") -> dict:
     """Create a legacy JSONFormatter and return parsed JSON."""
     fmt = JSONFormatter()  # default = legacy
-    record = _make_record(msg, **fields)
+    record = _make_record(msg, extra=fields if fields else None)
     return json.loads(fmt.format(record))
 
 
@@ -90,11 +99,9 @@ class TestECSFormatterAtTimestamp:
         out = _ecs_format({})
         ts = out["@timestamp"]
         assert isinstance(ts, str), f"@timestamp should be a string, got {type(ts)}"
-        assert "T" in ts, f"@timestamp '{ts}' does not contain ISO8601 'T' separator"
-        # Must have timezone information
-        assert "+" in ts or "Z" in ts or ts.endswith("+00:00"), (
-            f"@timestamp '{ts}' missing timezone information"
-        )
+        # datetime.fromisoformat raises ValueError if the string is not valid ISO8601.
+        # Normalise 'Z' suffix (valid RFC3339, not accepted by fromisoformat < 3.11).
+        datetime.fromisoformat(ts.replace("Z", "+00:00"))
 
 
 # ---------------------------------------------------------------------------
@@ -232,6 +239,10 @@ class TestECSFormatterSignals:
         arr = out["ja4proxy.signals"]
         assert isinstance(arr, list), f"ja4proxy.signals should be a list, got {type(arr)}"
         assert len(arr) == 2
+        # Each element must have all three required keys
+        for i, elem in enumerate(arr):
+            for key in ("name", "score", "reason"):
+                assert key in elem, f"signals[{i}] missing required key '{key}'"
 
     def test_ecs_formatter_signals_use_reason_key(self):
         """Each signal element uses 'reason' key, not 'detail'."""
@@ -258,8 +269,12 @@ class TestECSFormatterSignals:
 
 
 class TestECSFormatterStaticFields:
-    def test_ecs_formatter_validates_against_schema(self):
-        """All mandatory ECS fields are present when action and client_ip are set."""
+    def test_ecs_formatter_mandatory_fields_present(self):
+        """
+        All mandatory ECS fields are present when action and client_ip are set.
+
+        Note: does not use jsonschema — checks field presence directly.
+        """
         out = _ecs_format({"client_ip": "1.2.3.4", "action": "allow", "score": 50})
         required = (
             "@timestamp",
@@ -361,7 +376,7 @@ class TestECSDualOutputMode:
     def test_ecs_dual_output_both_lines_valid_json(self):
         """Both lines in dual output mode must be independently parseable JSON."""
         fmt = JSONFormatter(format="ecs", dual_output=True)
-        record = _make_record("both valid", client_ip="10.0.0.5", action="block")
+        record = _make_record("both valid", extra={"client_ip": "10.0.0.5", "action": "block"})
         output = fmt.format(record)
         lines = [line for line in output.strip().splitlines() if line.strip()]
         for i, line in enumerate(lines):
@@ -369,3 +384,101 @@ class TestECSDualOutputMode:
                 json.loads(line)
             except json.JSONDecodeError as e:
                 pytest.fail(f"Line {i} is not valid JSON: {e}\nraw: {line!r}")
+
+
+# ---------------------------------------------------------------------------
+# Score absent when not logged
+# ---------------------------------------------------------------------------
+
+
+class TestECSFormatterScoreAbsent:
+    def test_ecs_formatter_score_absent_when_not_logged(self):
+        """
+        When no 'score' field is in record.extra, 'ja4proxy.score' must be absent
+        from ECS output — not present as zero or any other default value.
+        """
+        out = _ecs_format({})
+        assert "ja4proxy.score" not in out, (
+            "ja4proxy.score must not appear in output when no score field is logged "
+            "(must not default to zero)"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Exception / error fields
+# ---------------------------------------------------------------------------
+
+
+class TestECSFormatterExceptionHandling:
+    def test_ecs_formatter_exception_handling(self):
+        """
+        When record.exc_info is set, ECS mode emits:
+          error.message  — the exception message string
+          error.stack_trace — the formatted traceback string
+
+        Legacy mode continues to emit the 'exception' key (existing behaviour).
+        """
+        import sys
+
+        # Capture a real exc_info tuple
+        try:
+            raise ValueError("boom")
+        except ValueError:
+            exc_info = sys.exc_info()
+
+        # --- ECS mode ---
+        fmt_ecs = JSONFormatter(format="ecs")
+        record_ecs = _make_record("an error occurred")
+        record_ecs.exc_info = exc_info
+        out_ecs = json.loads(fmt_ecs.format(record_ecs))
+
+        assert "error.message" in out_ecs, (
+            "ECS mode missing 'error.message' when exc_info is set"
+        )
+        assert "boom" in out_ecs["error.message"], (
+            f"error.message {out_ecs['error.message']!r} should contain 'boom'"
+        )
+        assert "error.stack_trace" in out_ecs, (
+            "ECS mode missing 'error.stack_trace' when exc_info is set"
+        )
+        assert isinstance(out_ecs["error.stack_trace"], str), (
+            "error.stack_trace must be a string"
+        )
+
+        # --- Legacy mode ---
+        fmt_legacy = JSONFormatter()
+        record_legacy = _make_record("an error occurred")
+        record_legacy.exc_info = exc_info
+        out_legacy = json.loads(fmt_legacy.format(record_legacy))
+
+        assert "exception" in out_legacy, (
+            "Legacy mode missing 'exception' key when exc_info is set"
+        )
+
+
+# ---------------------------------------------------------------------------
+# setup_logging accepts ecs format
+# ---------------------------------------------------------------------------
+
+
+class TestSetupLoggingECSFormat:
+    def test_setup_logging_accepts_ecs_format(self):
+        """
+        setup_logging(format='ecs') must not raise and must install a handler
+        whose formatter has format == 'ecs'.
+        """
+        import logging as _logging
+        from src.utils.logging_config import setup_logging
+
+        # Should not raise
+        setup_logging(format="ecs")
+
+        root = _logging.getLogger()
+        ecs_handlers = [
+            h for h in root.handlers
+            if isinstance(h.formatter, JSONFormatter) and getattr(h.formatter, "format", None) == "ecs"
+        ]
+        assert len(ecs_handlers) >= 1, (
+            "setup_logging(format='ecs') should install at least one handler "
+            "with a JSONFormatter(format='ecs')"
+        )
