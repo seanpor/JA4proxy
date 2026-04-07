@@ -5,6 +5,7 @@
 package webhook
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -119,36 +120,8 @@ func TestDispatcher_SuccessfulDelivery_ContentTypeJSON(t *testing.T) {
 
 // ── HMAC signature ────────────────────────────────────────────────────────────
 
-func TestDispatcher_HMACSignature_Present(t *testing.T) {
-	var gotSignature string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotSignature = r.Header.Get("X-JA4Proxy-Signature")
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	cfg := DispatcherConfig{
-		Endpoints: []WebhookEndpoint{
-			{URL: srv.URL, Secret: "my-secret", Events: []string{"ban"}},
-		},
-		StreamKey:     "events:connection",
-		RetryAttempts: 1,
-		RetryBackoff:  10 * time.Millisecond,
-	}
-	d, mr := newTestDispatcher(t, cfg)
-	defer mr.Close()
-
-	event := WebhookEvent{EventType: "ban", ID: "002", Timestamp: time.Now().UTC().Format(time.RFC3339)}
-	if err := d.Deliver(event); err != nil {
-		t.Fatalf("Deliver error: %v", err)
-	}
-	if gotSignature == "" {
-		t.Fatal("X-JA4Proxy-Signature header was not set")
-	}
-	if len(gotSignature) < 7 || gotSignature[:7] != "sha256=" {
-		t.Errorf("X-JA4Proxy-Signature should start with 'sha256=', got %q", gotSignature)
-	}
-}
+// TestDispatcher_HMACSignature_Present removed — fully subsumed by
+// TestDispatcher_HMACSignature_Correct which checks presence AND correctness.
 
 func TestDispatcher_HMACSignature_Correct(t *testing.T) {
 	const secret = "webhook-secret-key"
@@ -224,12 +197,18 @@ func TestDispatcher_RetryOn503_ThreeAttempts(t *testing.T) {
 }
 
 func TestDispatcher_RetryUsesExponentialBackoff(t *testing.T) {
-	var callTimes []time.Time
+	// This test injects a sleepFn to avoid wall-clock timing flakiness.
+	// It records durations passed to sleepFn and asserts each successive call
+	// receives a strictly longer duration than the previous one.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		callTimes = append(callTimes, time.Now())
 		w.WriteHeader(http.StatusServiceUnavailable)
 	}))
 	defer srv.Close()
+
+	var sleepDurations []time.Duration
+	sleepFn := func(d time.Duration) {
+		sleepDurations = append(sleepDurations, d)
+	}
 
 	cfg := DispatcherConfig{
 		Endpoints: []WebhookEndpoint{
@@ -238,23 +217,23 @@ func TestDispatcher_RetryUsesExponentialBackoff(t *testing.T) {
 		StreamKey:     "events:connection",
 		RetryAttempts: 3,
 		RetryBackoff:  20 * time.Millisecond,
+		SleepFn:       sleepFn,
 	}
 	d, mr := newTestDispatcher(t, cfg)
 	defer mr.Close()
 
 	event := WebhookEvent{EventType: "block", ID: "backoff-001", Timestamp: time.Now().UTC().Format(time.RFC3339)}
-	// Ignore error; we expect failure after retries
 	d.Deliver(event) //nolint:errcheck
 
-	if len(callTimes) < 3 {
-		t.Fatalf("expected ≥3 retry calls, got %d", len(callTimes))
+	// With 3 attempts, there should be 2 inter-attempt sleeps.
+	if len(sleepDurations) < 2 {
+		t.Fatalf("expected ≥2 sleepFn calls for 3 retry attempts, got %d", len(sleepDurations))
 	}
-	// Verify each gap is larger than the previous (exponential backoff)
-	gap1 := callTimes[1].Sub(callTimes[0])
-	gap2 := callTimes[2].Sub(callTimes[1])
-	// Second gap should be >= first gap (exponential means it grows)
-	if gap2 < gap1 {
-		t.Errorf("backoff should be exponential: gap2 (%v) should be >= gap1 (%v)", gap2, gap1)
+	for i := 1; i < len(sleepDurations); i++ {
+		if sleepDurations[i] <= sleepDurations[i-1] {
+			t.Errorf("backoff should grow: sleep[%d] (%v) must be > sleep[%d] (%v)",
+				i, sleepDurations[i], i-1, sleepDurations[i-1])
+		}
 	}
 }
 
@@ -323,7 +302,9 @@ func TestDispatcher_DLQ_ContainsOriginalEventData(t *testing.T) {
 	}
 	d.Deliver(event) //nolint:errcheck
 
-	// Read from DLQ and verify the event ID is preserved
+	// Read from DLQ and verify the original event payload is in the "payload" field.
+	// If the implementation uses a different field name, this test must fail loudly
+	// so the discrepancy is immediately visible — no silent fallback searching.
 	entries, err := mr.XRange("webhooks:dlq", "-", "+")
 	if err != nil {
 		t.Fatalf("XRange on DLQ: %v", err)
@@ -331,47 +312,19 @@ func TestDispatcher_DLQ_ContainsOriginalEventData(t *testing.T) {
 	if len(entries) == 0 {
 		t.Fatal("DLQ is empty after failed delivery")
 	}
-	// Each entry is a map of field → value
 	entry := entries[0].Fields
 	rawPayload, ok := entry["payload"]
 	if !ok {
-		// Some implementations store as "event_id" or "data"
-		rawPayload, ok = entry["event_id"]
-		if !ok {
-			// Accept any field that contains the event ID
-			found := false
-			for _, v := range entry {
-				if v == "dlq-data-001" {
-					found = true
-					break
-				}
-			}
-			if !found {
-				t.Errorf("DLQ entry fields %v do not contain the original event ID 'dlq-data-001'", entry)
-			}
-			return
-		}
+		t.Fatalf("DLQ entry missing 'payload' field; got fields: %v", entry)
 	}
-	if rawPayload != "dlq-data-001" {
-		// payload might be JSON — check if it contains the event ID
-		if !jsonContains(rawPayload, "dlq-data-001") {
-			t.Errorf("DLQ payload %q does not reference original event ID 'dlq-data-001'", rawPayload)
-		}
+	// payload should be JSON that contains the original event ID
+	var payloadMap map[string]interface{}
+	if err := json.Unmarshal([]byte(rawPayload), &payloadMap); err != nil {
+		t.Fatalf("DLQ 'payload' field is not valid JSON: %v\nraw: %q", err, rawPayload)
 	}
-}
-
-// jsonContains checks if a JSON string contains the given substring anywhere.
-func jsonContains(jsonStr, substr string) bool {
-	return len(jsonStr) >= len(substr) && (jsonStr == substr || len(jsonStr) > 0 && contains(jsonStr, substr))
-}
-
-func contains(s, sub string) bool {
-	for i := 0; i <= len(s)-len(sub); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
+	if payloadMap["id"] != "dlq-data-001" {
+		t.Errorf("DLQ payload.id = %v, want 'dlq-data-001'", payloadMap["id"])
 	}
-	return false
 }
 
 // ── event type filtering ──────────────────────────────────────────────────────
@@ -530,7 +483,11 @@ func TestDispatcher_SignatureInPayloadMatchesHeader(t *testing.T) {
 		gotHeader = r.Header.Get("X-JA4Proxy-Signature")
 		body, _ := io.ReadAll(r.Body)
 		var payload map[string]interface{}
-		json.Unmarshal(body, &payload) //nolint:errcheck
+		if err := json.Unmarshal(body, &payload); err != nil {
+			t.Errorf("handler received non-JSON body: %v\nraw: %s", err, body)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 		if sig, ok := payload["signature"].(string); ok {
 			gotBodySig = sig
 		}
@@ -600,5 +557,121 @@ func TestDispatcher_MultipleEndpoints_BothReceive(t *testing.T) {
 	}
 	if atomic.LoadInt32(&count2) != 1 {
 		t.Errorf("endpoint 2 should have received 1 delivery, got %d", count2)
+	}
+}
+
+// ── context cancellation ──────────────────────────────────────────────────────
+
+func TestDispatcher_RespectsCancelledContext(t *testing.T) {
+	// Start a dispatcher's run loop in a goroutine, cancel the context, and
+	// assert the goroutine exits within 1 second.
+	cfg := DispatcherConfig{
+		Endpoints:     []WebhookEndpoint{},
+		StreamKey:     "events:connection",
+		RetryAttempts: 1,
+		RetryBackoff:  5 * time.Millisecond,
+	}
+	d, mr := newTestDispatcher(t, cfg)
+	defer mr.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		d.Run(ctx) //nolint:errcheck
+	}()
+
+	cancel()
+
+	select {
+	case <-done:
+		// goroutine exited cleanly
+	case <-time.After(1 * time.Second):
+		t.Error("dispatcher Run goroutine did not exit within 1 second after context cancellation")
+	}
+}
+
+// ── Redis Stream integration ──────────────────────────────────────────────────
+
+func TestDispatcher_ReadsFromRedisStream(t *testing.T) {
+	// Publish an event to the Redis Stream before the dispatcher starts,
+	// then start the dispatcher run loop and verify the mock HTTP server
+	// receives the event within a short timeout.
+	var received atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		received.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	cfg := DispatcherConfig{
+		Endpoints: []WebhookEndpoint{
+			{URL: srv.URL, Secret: "stream-secret", Events: nil}, // nil = deliver all
+		},
+		StreamKey:     "events:connection",
+		RetryAttempts: 1,
+		RetryBackoff:  5 * time.Millisecond,
+	}
+	d, mr := newTestDispatcher(t, cfg)
+	defer mr.Close()
+
+	// XADD an event to the stream before starting the run loop.
+	event := WebhookEvent{
+		EventType: "block",
+		ID:        "stream-test-001",
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		Data:      map[string]interface{}{"source.ip": "192.0.2.1"},
+	}
+	eventJSON, err := json.Marshal(event)
+	if err != nil {
+		t.Fatalf("json.Marshal event: %v", err)
+	}
+	mr.XAdd("events:connection", "*", []string{"event", string(eventJSON)})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		d.Run(ctx) //nolint:errcheck
+	}()
+
+	// The dispatcher should pick up the event and POST it within 500ms.
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if received.Load() >= 1 {
+			return // success
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Errorf("mock HTTP server did not receive the streamed event within 500ms (received %d)", received.Load())
+}
+
+// ── timeout on slow endpoint ──────────────────────────────────────────────────
+
+func TestDispatcher_TimeoutOnSlowEndpoint(t *testing.T) {
+	// The mock server deliberately sleeps longer than the configured timeout.
+	// The dispatcher must return a timeout error rather than hanging.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(200 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	cfg := DispatcherConfig{
+		Endpoints: []WebhookEndpoint{
+			{URL: srv.URL, Secret: "s", Events: []string{"block"}},
+		},
+		StreamKey:      "events:connection",
+		RetryAttempts:  1,
+		RetryBackoff:   5 * time.Millisecond,
+		TimeoutSeconds: 0.1, // 100ms — shorter than the server's 200ms sleep
+	}
+	d, mr := newTestDispatcher(t, cfg)
+	defer mr.Close()
+
+	event := WebhookEvent{EventType: "block", ID: "timeout-001", Timestamp: time.Now().UTC().Format(time.RFC3339)}
+	err := d.Deliver(event)
+	if err == nil {
+		t.Error("Deliver should return a timeout error when endpoint is slower than TimeoutSeconds")
 	}
 }

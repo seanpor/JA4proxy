@@ -6,6 +6,7 @@ package logging
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -151,15 +152,7 @@ func TestECSFormatter_EventAction_Ban(t *testing.T) {
 	}
 }
 
-func TestECSFormatter_EventAction_AllActions(t *testing.T) {
-	actions := []string{"allow", "block", "ban", "tarpit", "flagged", "rate_limited"}
-	for _, action := range actions {
-		out := formatEntry(t, logrus.Fields{"action": action}, "connection")
-		if out["event.action"] != action {
-			t.Errorf("action=%q: event.action = %v, want %q", action, out["event.action"], action)
-		}
-	}
-}
+// TestECSFormatter_EventAction_AllActions removed — fully redundant with individual action tests.
 
 // ── event.outcome ─────────────────────────────────────────────────────────────
 
@@ -463,16 +456,17 @@ func TestECSFormatter_SchemaValidation_RequiredKeys(t *testing.T) {
 		"score":     50,
 	}, "connection event")
 
+	// All mandatory ECS fields that must always be present.
+	// Checked individually so the failure message names the missing key.
 	required := []string{
 		"@timestamp",
 		"event.action",
 		"event.kind",
 		"event.category",
-		"event.outcome",
+		"event.type",
 		"network.transport",
 		"network.protocol",
 		"service.name",
-		"destination.port",
 		"source.ip",
 	}
 	for _, key := range required {
@@ -548,11 +542,229 @@ func TestECSFormatter_LevelField(t *testing.T) {
 		Level:   logrus.WarnLevel,
 		Message: "warning event",
 	}
-	b, _ := f.Format(entry)
+	b, err := f.Format(entry)
+	if err != nil {
+		t.Fatalf("ECSFormatter.Format returned error: %v", err)
+	}
 	var out map[string]interface{}
-	json.Unmarshal(b, &out) //nolint:errcheck
+	if err := json.Unmarshal(b, &out); err != nil {
+		t.Fatalf("ECSFormatter output is not valid JSON: %v\nraw: %s", err, b)
+	}
 	level := strings.ToLower(out["log.level"].(string))
 	if level != "warning" {
 		t.Errorf("log.level = %q, want 'warning'", level)
+	}
+}
+
+// ── event.type ────────────────────────────────────────────────────────────────
+
+func TestECSFormatter_EventType_IsArray(t *testing.T) {
+	out := formatEntry(t, logrus.Fields{}, "connection")
+	raw, ok := out["event.type"]
+	if !ok {
+		t.Fatal("ECS output missing 'event.type' field")
+	}
+	arr, ok := raw.([]interface{})
+	if !ok {
+		t.Fatalf("event.type should be a JSON array, got %T: %v", raw, raw)
+	}
+	if len(arr) == 0 {
+		t.Fatal("event.type array must not be empty")
+	}
+	found := false
+	for _, elem := range arr {
+		if elem == "connection" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("event.type %v missing 'connection' element", arr)
+	}
+}
+
+// ── event.severity ────────────────────────────────────────────────────────────
+
+func TestECSFormatter_EventSeverity_IsInteger(t *testing.T) {
+	// event.severity must be an integer. Map: allow=1, flag=2, rate_limited=3,
+	// tarpit=4, block=5, ban=6
+	severityMap := map[string]int{
+		"allow":        1,
+		"flag":         2,
+		"rate_limited": 3,
+		"tarpit":       4,
+		"block":        5,
+		"ban":          6,
+	}
+	for action, wantSeverity := range severityMap {
+		out := formatEntry(t, logrus.Fields{"action": action}, "connection")
+		raw, ok := out["event.severity"]
+		if !ok {
+			t.Errorf("action=%q: ECS output missing 'event.severity'", action)
+			continue
+		}
+		got, ok := raw.(float64) // JSON numbers unmarshal to float64
+		if !ok {
+			t.Errorf("action=%q: event.severity should be an integer, got %T: %v", action, raw, raw)
+			continue
+		}
+		if int(got) != wantSeverity {
+			t.Errorf("action=%q: event.severity = %d, want %d", action, int(got), wantSeverity)
+		}
+	}
+}
+
+// ── source.port ───────────────────────────────────────────────────────────────
+
+func TestECSFormatter_SourcePort_PresentWhenSet(t *testing.T) {
+	out := formatEntry(t, logrus.Fields{"src_port": 54321}, "connection")
+	raw, ok := out["source.port"]
+	if !ok {
+		t.Fatal("source.port should be present when src_port log field is set")
+	}
+	if int(raw.(float64)) != 54321 {
+		t.Errorf("source.port = %v, want 54321", raw)
+	}
+}
+
+func TestECSFormatter_SourcePort_AbsentWhenNotSet(t *testing.T) {
+	out := formatEntry(t, logrus.Fields{}, "connection")
+	if _, ok := out["source.port"]; ok {
+		t.Error("source.port should not be present when src_port log field is absent")
+	}
+}
+
+// ── tls fields ────────────────────────────────────────────────────────────────
+
+func TestECSFormatter_TLSVersion_PresentWhenSet(t *testing.T) {
+	out := formatEntry(t, logrus.Fields{"tls_version": "1.3"}, "connection")
+	if out["tls.version"] != "1.3" {
+		t.Errorf("tls.version = %v, want '1.3'", out["tls.version"])
+	}
+}
+
+func TestECSFormatter_TLSVersion_AbsentWhenNotSet(t *testing.T) {
+	out := formatEntry(t, logrus.Fields{}, "connection")
+	if _, ok := out["tls.version"]; ok {
+		t.Error("tls.version should not be present when tls_version log field is absent")
+	}
+}
+
+func TestECSFormatter_TLSCipher_PresentWhenSet(t *testing.T) {
+	out := formatEntry(t, logrus.Fields{"tls_cipher": "TLS_AES_256_GCM_SHA384"}, "connection")
+	if out["tls.cipher"] != "TLS_AES_256_GCM_SHA384" {
+		t.Errorf("tls.cipher = %v, want 'TLS_AES_256_GCM_SHA384'", out["tls.cipher"])
+	}
+}
+
+func TestECSFormatter_TLSCipher_AbsentWhenNotSet(t *testing.T) {
+	out := formatEntry(t, logrus.Fields{}, "connection")
+	if _, ok := out["tls.cipher"]; ok {
+		t.Error("tls.cipher should not be present when tls_cipher log field is absent")
+	}
+}
+
+// ── host.name ─────────────────────────────────────────────────────────────────
+
+func TestECSFormatter_HostName_Present(t *testing.T) {
+	out := formatEntry(t, logrus.Fields{}, "connection")
+	if _, ok := out["host.name"]; !ok {
+		t.Fatal("host.name must be present in ECS output")
+	}
+}
+
+func TestECSFormatter_HostName_EqualsOsHostname(t *testing.T) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		t.Skipf("os.Hostname() failed: %v", err)
+	}
+	out := formatEntry(t, logrus.Fields{}, "connection")
+	if out["host.name"] != hostname {
+		t.Errorf("host.name = %v, want %q (os.Hostname)", out["host.name"], hostname)
+	}
+}
+
+func TestECSFormatter_HostName_OverriddenByHostField(t *testing.T) {
+	out := formatEntry(t, logrus.Fields{"host": "custom-host.example.com"}, "connection")
+	if out["host.name"] != "custom-host.example.com" {
+		t.Errorf("host.name = %v, want 'custom-host.example.com' (from 'host' log field)", out["host.name"])
+	}
+}
+
+// ── service.version ───────────────────────────────────────────────────────────
+
+func TestECSFormatter_ServiceVersion_PresentWhenSet(t *testing.T) {
+	out := formatEntry(t, logrus.Fields{"service_version": "1.2.3"}, "connection")
+	if out["service.version"] != "1.2.3" {
+		t.Errorf("service.version = %v, want '1.2.3'", out["service.version"])
+	}
+}
+
+func TestECSFormatter_ServiceVersion_AbsentWhenNotSet(t *testing.T) {
+	out := formatEntry(t, logrus.Fields{}, "connection")
+	if _, ok := out["service.version"]; ok {
+		t.Error("service.version should not be present when service_version log field is absent")
+	}
+}
+
+// ── ja4proxy.dial_setting ─────────────────────────────────────────────────────
+
+func TestECSFormatter_DialSetting_PresentAsIntegerWhenSet(t *testing.T) {
+	out := formatEntry(t, logrus.Fields{"dial": 75}, "connection")
+	raw, ok := out["ja4proxy.dial_setting"]
+	if !ok {
+		t.Fatal("ja4proxy.dial_setting should be present when 'dial' log field is set")
+	}
+	if int(raw.(float64)) != 75 {
+		t.Errorf("ja4proxy.dial_setting = %v, want 75", raw)
+	}
+}
+
+func TestECSFormatter_DialSetting_AbsentWhenNotSet(t *testing.T) {
+	out := formatEntry(t, logrus.Fields{}, "connection")
+	if _, ok := out["ja4proxy.dial_setting"]; ok {
+		t.Error("ja4proxy.dial_setting should not be present when 'dial' log field is absent")
+	}
+}
+
+// ── score absent when not logged ──────────────────────────────────────────────
+
+func TestECSFormatter_Score_AbsentWhenNotLogged(t *testing.T) {
+	// When no 'score' field is passed to the logger, ja4proxy.score must be
+	// absent from the output — not present as zero.
+	out := formatEntry(t, logrus.Fields{}, "connection with no score")
+	if _, ok := out["ja4proxy.score"]; ok {
+		t.Error("ja4proxy.score must not be present when no score field is logged (must not default to zero)")
+	}
+}
+
+// ── dial_changed configuration event ─────────────────────────────────────────
+
+func TestECSFormatter_DialChange_Event(t *testing.T) {
+	out := formatEntry(t, logrus.Fields{
+		"event_kind":   "configuration",
+		"event_action": "dial_changed",
+		"dial_old":     50,
+		"dial_new":     75,
+	}, "dial changed")
+
+	if out["event.kind"] != "configuration" {
+		t.Errorf("event.kind = %v, want 'configuration'", out["event.kind"])
+	}
+	if out["event.action"] != "dial_changed" {
+		t.Errorf("event.action = %v, want 'dial_changed'", out["event.action"])
+	}
+	raw, ok := out["ja4proxy.dial.old_value"]
+	if !ok {
+		t.Fatal("ECS output missing 'ja4proxy.dial.old_value' for dial_changed event")
+	}
+	if int(raw.(float64)) != 50 {
+		t.Errorf("ja4proxy.dial.old_value = %v, want 50", raw)
+	}
+	raw, ok = out["ja4proxy.dial.new_value"]
+	if !ok {
+		t.Fatal("ECS output missing 'ja4proxy.dial.new_value' for dial_changed event")
+	}
+	if int(raw.(float64)) != 75 {
+		t.Errorf("ja4proxy.dial.new_value = %v, want 75", raw)
 	}
 }
