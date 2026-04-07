@@ -12,6 +12,8 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4
 )
 
+replace github.com/alicebob/miniredis/v2 => ./third_party/miniredis
+
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
