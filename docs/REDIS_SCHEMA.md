@@ -185,6 +185,7 @@ phase: 54
 |-----|------|-----|-----------|---------|
 | `mgmt:totp:{user_id}` | String | none | `GET /auth/mfa/totp/setup` | Fernet-encrypted base32 TOTP secret. Caller must decrypt with `MANAGEMENT_MFA_ENCRYPTION_KEY` (Fernet). *(Phase 79)* |
 | `mgmt:totp:backup:{user_id}` | LIST | none | `GET /auth/mfa/totp/setup` | bcrypt-hashed backup codes (8 entries). Each entry is consumed (LREM) on first successful use — single-use. *(Phase 79)* |
+| `mgmt:totp:used:{user_id}:{code}` | String `"1"` | 90s | `POST /auth/mfa/totp/verify` | Anti-replay guard. Set after a TOTP code is successfully verified; presence causes the same code to be rejected within the 90-second valid window (±1 step = ±30s). *(Phase 79)* |
 | `mgmt:mfa:session:{sha256_of_jwt}` | String `"verified"` | 8h | `POST /auth/mfa/totp/verify` | Marks a cookie-JWT session as MFA-verified. Key is SHA-256 of the raw JWT string. TTL matches JWT expiry. Only set for cookie-JWT sessions; bearer-token callers bypass the gate. *(Phase 79)* |
 
 ---

@@ -48,7 +48,6 @@ router = APIRouter(tags=["mfa"])
 
 _BACKUP_CODE_COUNT = 8
 _MFA_SESSION_TTL = 8 * 3600  # 8 hours, matches JWT expiry
-_COOKIE_NAME = "token"
 
 # ── Encryption ────────────────────────────────────────────────────────────────
 
@@ -85,7 +84,6 @@ async def _set_mfa_verified(redis, jwt_token: str) -> None:
 @router.get("/auth/mfa/totp/setup")
 async def totp_setup(
     request: Request,
-    token: Optional[str] = Cookie(default=None, alias="token"),
     current_user=Depends(get_current_user),
     redis=Depends(get_redis),
 ) -> JSONResponse:
@@ -112,7 +110,7 @@ async def totp_setup(
 
     # Generate 8 backup codes
     plaintext_codes = [
-        secrets.token_hex(4).upper()  # 8 hex chars → readable, unambiguous
+        secrets.token_hex(6).upper()  # 12 hex chars → 48 bits entropy, unambiguous
         for _ in range(_BACKUP_CODE_COUNT)
     ]
     hashed_codes = [
@@ -211,6 +209,17 @@ async def totp_verify(
     # 1. Try TOTP verification (allow 1-step window: ±30s)
     totp = pyotp.TOTP(raw_secret)
     if totp.verify(code, valid_window=1):
+        # Anti-replay: reject a code that was already used within the 90-second window.
+        # mgmt:totp:used:{user_id}:{code} expires after 90s (2 × 30s step).
+        used_key = f"mgmt:totp:used:{user_id}:{code}"
+        already_used = await redis.exists(used_key)
+        if already_used:
+            logger.warning("mfa | event=totp_replay_rejected | user=%s", user_id)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid code",
+            )
+        await redis.set(used_key, "1", ex=90)
         if token:
             await _set_mfa_verified(redis, token)
         logger.info("mfa | event=totp_verified | user=%s", user_id)
