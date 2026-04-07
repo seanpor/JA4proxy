@@ -143,7 +143,7 @@ phase: 54
 
 | Key pattern | Type | TTL | Written by | Notes |
 |-------------|-|-|--------|-|
-| `events:connection` | Redis Stream | none | Go proxy (`internal/webhook/delivery.go` `Run()`) | Source stream of connection events consumed by the webhook dispatcher. Each entry has a single field `event` = ECS JSON string. The dispatcher uses `XREAD` with `lastID` tracking; no consumer group required. |
+| `events:connection` | Redis Stream | none | Go proxy (`cmd/proxy/main.go` `handleConn()`) | Source stream of connection events written via fire-and-forget XADD after every connection decision. Each entry has a single field `event` = ECS JSON string. Consumed by the webhook dispatcher via `XREAD` with `lastID` tracking; no consumer group required. |
 | `webhooks:dlq` | Redis Stream | none | Webhook `Dispatcher.deliverToEndpoint()` | Dead-letter queue for webhook deliveries that exhausted all retry attempts. Each entry has a single field `payload` = original ECS event JSON (including the `signature` field). Operators must manually inspect and replay or discard DLQ entries. |
 
 ---

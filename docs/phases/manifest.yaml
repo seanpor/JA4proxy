@@ -793,8 +793,8 @@ phases:
 
   80:
     name: "ECS Structured Logging & SIEM Integration Pack"
-    status: "PROPOSED"
-    summary: "Canonical ECS 8.x JSON log format for all events. Splunk TA (CIM-compliant, 5 dashboards, 5 correlation searches, alert action). Microsoft Sentinel content pack. IBM QRadar DSM. Elastic integration. HMAC-signed webhook event stream."
+    status: "COMPLETE"
+    summary: "ECS 8.x formatter for Go proxy and Python analytics; webhook dispatcher (HMAC-SHA256, Redis DLQ, retry); Vector config templates (Splunk HEC, Sentinel, QRadar LEEF, Elastic); Splunk TA (CIM-compliant, 5 dashboards, 5 correlation searches, ban alert action); Microsoft Sentinel content pack (5 KQL rules, 2 playbooks); IBM QRadar DSM; Elastic integration. Logging.format config key; events:connection Redis Stream; webhooks:dlq DLQ."
     action_plan: "docs/phases/PHASE_80.md"
     dependencies: [79]
     size: "LARGE"
