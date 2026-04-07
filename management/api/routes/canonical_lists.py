@@ -38,8 +38,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 
+from ..audit_utils import write_audit
 from ..auth import require_role
 from ..models import ManagedBy, ResourceCreate, ResourceListResponse, ResourceResponse, Role
 from ..redis_client import get_redis
@@ -78,6 +79,16 @@ LIST_CONFIG: dict[str, dict[str, str]] = {
 }
 
 _VALID_LIST_NAMES = frozenset(("allowlist", "blocklist", "watchlist"))
+
+
+def _client_ip(request: Request) -> str:
+    """Extract the real client IP, honouring X-Forwarded-For if present."""
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    if request.client:
+        return request.client.host
+    return "unknown"
 
 
 def _is_ip_entry(entry: str) -> bool:
@@ -299,16 +310,24 @@ def _make_list_routes(list_name: str) -> None:
     )
     async def post_entry(
         body: ResourceCreate,
+        request: Request,
         current_user=Depends(require_role(Role.operator)),
         redis=Depends(get_redis),
     ) -> ResourceResponse:
-        identity = current_user[0]
+        identity, role = current_user
         response, http_status = await _create_entry(redis, list_name, body, identity)
         if http_status == 201:
-            return response
-        # Return 201 even for idempotent creates — the test just checks 201
-        # Some callers treat 200 as distinct; we unify to 201 for simplicity.
-        # The tests accept both 200 and 201 for duplicate POSTs.
+            await write_audit(
+                redis,
+                actor_id=identity,
+                actor_ip=_client_ip(request),
+                action_type=f"{list_name}.created",
+                resource_type=list_name,
+                resource_id=response.id,
+                before_value=None,
+                after_value={"entry": response.entry, "managed_by": response.managed_by},
+                role=role.value,
+            )
         return response
 
     @router.get(
@@ -349,10 +368,26 @@ def _make_list_routes(list_name: str) -> None:
     )
     async def delete_entry(
         resource_id: str,
+        request: Request,
         current_user=Depends(require_role(Role.operator)),
         redis=Depends(get_redis),
     ) -> None:
+        identity, role = current_user
+        cfg = LIST_CONFIG[list_name]
+        record = await redis.hgetall(f"{cfg['hash_prefix']}:{resource_id}")
+        before_val = dict(record) if record else None
         await _delete_entry(redis, list_name, resource_id)
+        await write_audit(
+            redis,
+            actor_id=identity,
+            actor_ip=_client_ip(request),
+            action_type=f"{list_name}.deleted",
+            resource_type=list_name,
+            resource_id=resource_id,
+            before_value=before_val,
+            after_value=None,
+            role=role.value,
+        )
 
 
 # Register routes for all three canonical list names

@@ -33,9 +33,10 @@ async def test_config_reload_creates_audit_entry(
     entries = await fake_redis.lrange("management:audit_log", 0, 0)
     assert len(entries) == 1
     entry = json.loads(entries[0])
-    assert entry["action"] == "config_reload"
+    # Phase 79 C5: enhanced audit schema
+    assert entry["action_type"] == "config.reload"
     assert "timestamp" in entry
-    assert "user" in entry
+    assert "actor_id" in entry
 
 
 @pytest.mark.asyncio

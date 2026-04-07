@@ -12,13 +12,13 @@ Constraints on PUT
 Redis key: config:dial (String, value is str(int))
 """
 
-import json
 import logging
 from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from ..audit_utils import write_audit
 from ..auth import require_role
 from ..models import DialUpdateRequest, DialValue, Role
 from ..redis_client import get_redis
@@ -28,7 +28,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["dial"])
 
 _DIAL_KEY = "config:dial"
-_AUDIT_KEY = "management:audit_log"
 _MAX_DIAL_CHANGE = 10
 
 
@@ -42,27 +41,6 @@ async def _get_current_dial(redis) -> int:
     except ValueError:
         logger.warning("dial | event=invalid_value | raw=%r | defaulting_to=0", raw)
         return 0
-
-
-async def _write_audit(
-    redis,
-    action: str,
-    user: str,
-    detail: dict,
-    client_ip: str,
-) -> None:
-    """Write an audit log entry (LPUSH + LTRIM to 1000 entries)."""
-    entry = json.dumps(
-        {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "action": action,
-            "user": user,
-            "detail": detail,
-            "ip": client_ip,
-        }
-    )
-    await redis.lpush(_AUDIT_KEY, entry)
-    await redis.ltrim(_AUDIT_KEY, 0, 999)
 
 
 def _client_ip(request: Request) -> str:
@@ -105,7 +83,7 @@ async def update_dial(
     Raises:
         HTTPException(400): If the requested change exceeds ±10.
     """
-    identity = current_user[0]
+    identity, role = current_user
     current = await _get_current_dial(redis)
     delta = abs(body.value - current)
 
@@ -127,12 +105,16 @@ async def update_dial(
         body.value,
     )
 
-    await _write_audit(
+    await write_audit(
         redis,
-        action="dial_changed",
-        user=identity,
-        detail={"from": current, "to": body.value},
-        client_ip=_client_ip(request),
+        actor_id=identity,
+        actor_ip=_client_ip(request),
+        action_type="dial.changed",
+        resource_type="dial",
+        resource_id=None,
+        before_value={"value": current},
+        after_value={"value": body.value},
+        role=role.value,
     )
 
     return DialValue(

@@ -13,17 +13,16 @@ Design notes
 - SCAN is used to list bans (no KEYS in production — SCAN is O(1) per call).
 - TTL is fetched per key for the listing response.
 - IPv6 addresses are supported (stored as-is in the key).
-- All write ops create audit log entries.
+- All write ops create audit log entries using the enhanced schema (Phase 79 Cluster 5).
 """
 
-import json
 import logging
 import urllib.parse
-from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
+from ..audit_utils import write_audit
 from ..auth import require_role
 from ..models import BanCreateRequest, BanCreateResponse, BanEntry, BanList, BanRemoveResponse, Role
 from ..redis_client import get_redis
@@ -32,30 +31,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["bans"])
 
-_AUDIT_KEY = "management:audit_log"
 _BAN_KEY_PREFIX = "ban:"
-_DEFAULT_TTL = 3600
-
-
-async def _write_audit(
-    redis,
-    action: str,
-    user: str,
-    detail: dict,
-    client_ip: str,
-) -> None:
-    """Append an audit log entry and trim to 1000 entries."""
-    entry = json.dumps(
-        {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "action": action,
-            "user": user,
-            "detail": detail,
-            "ip": client_ip,
-        }
-    )
-    await redis.lpush(_AUDIT_KEY, entry)
-    await redis.ltrim(_AUDIT_KEY, 0, 999)
 
 
 def _client_ip(request: Request) -> str:
@@ -122,10 +98,9 @@ async def create_ban(
 
     The IP is URL-decoded so IPv6 addresses passed percent-encoded work.
     """
-    identity = current_user[0]
+    identity, role = current_user
     ip = urllib.parse.unquote(ip)
 
-    # Use default body if none provided
     if body is None:
         body = BanCreateRequest()
 
@@ -140,12 +115,16 @@ async def create_ban(
         identity,
     )
 
-    await _write_audit(
+    await write_audit(
         redis,
-        action="ban_created",
-        user=identity,
-        detail={"ip": ip, "ttl": body.ttl, "reason": body.reason},
-        client_ip=_client_ip(request),
+        actor_id=identity,
+        actor_ip=_client_ip(request),
+        action_type="ban.created",
+        resource_type="ban",
+        resource_id=ip,
+        before_value=None,
+        after_value={"ip": ip, "ttl": body.ttl, "reason": body.reason},
+        role=role.value,
     )
 
     return BanCreateResponse(
@@ -168,7 +147,7 @@ async def lift_ban(
     Raises:
         HTTPException(404): If no ban exists for the IP.
     """
-    identity = current_user[0]
+    identity, role = current_user
     ip = urllib.parse.unquote(ip)
     key = f"{_BAN_KEY_PREFIX}{ip}"
 
@@ -185,12 +164,16 @@ async def lift_ban(
         identity,
     )
 
-    await _write_audit(
+    await write_audit(
         redis,
-        action="ban_lifted",
-        user=identity,
-        detail={"ip": ip},
-        client_ip=_client_ip(request),
+        actor_id=identity,
+        actor_ip=_client_ip(request),
+        action_type="ban.deleted",
+        resource_type="ban",
+        resource_id=ip,
+        before_value={"ip": ip},
+        after_value=None,
+        role=role.value,
     )
 
     return BanRemoveResponse(message=f"Ban lifted for {ip}", ip=ip)
