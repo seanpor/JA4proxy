@@ -1001,22 +1001,58 @@ phases:
     - Four-eyes approval gate enforced — changes do not apply until approved
     - GitHub Actions, GitLab CI, and Jenkins pipeline templates ship in repo
   83:
-    name: Infrastructure Automation — Terraform, CLI & Kubernetes Operator
+    name: 'ja4proxy-cli Go Binary'
     status: PROPOSED
-    summary: 'ja4proxy-cli Go binary (full command set: ip, allowlist, blocklist,
-      dial, policy, simulation). Terraform provider with drift protection and import
-      workflow. Kubernetes operator + CRDs (JA4ProxyConfig, JA4ProxyAllowlist, JA4ProxyDial).
-      CMDB/NetBox integration. Three emergency runbook Ansible playbooks.'
+    summary: 'Go binary for terminal day-2 operations: ip lookup/ban/release/watchlist,
+      allowlist/blocklist add/remove/list, dial get/set, config reload, health, fingerprint
+      history, policy validate/apply/diff. --output json|table|csv. Mutating commands
+      require --confirm. Parity tests vs Python stopgap. GPG-signed releases with
+      SLSA provenance. Replaces scripts/ja4proxy-policy.py.'
     action_plan: docs/phases/PHASE_83.md
     dependencies:
     - 79
     - 82
+    size: MEDIUM
+    success_criteria:
+    - All commands in spec implemented (simulation stubs excepted — Phase 100-M)
+    - Parity tests pass vs Python stopgap for policy commands
+    - Binary releases include GPG signature, SLSA attestation, checksums.txt
+    - make test-phase-83 passes
+  93:
+    name: 'Terraform Provider + Emergency Runbook Playbooks'
+    status: PROPOSED
+    summary: 'terraform-provider-ja4proxy (separate repo): 6 resource types (allowlist_entry,
+      blocklist_entry, ban, cidr_ban, dial, webhook), protect_unmanaged_entries flag,
+      import workflow. Three emergency Ansible playbooks: emergency-ban-cidr.yml,
+      temp-whitelist-ip.yml, maintenance-dial-zero.yml.'
+    action_plan: docs/phases/PHASE_93.md
+    dependencies:
+    - 79
+    - 83
     size: LARGE
     success_criteria:
-    - 'ja4proxy-cli binary: all commands in spec implemented and tested'
-    - 'Terraform provider: all 6 resource types with protect_unmanaged_entries flag'
-    - 'Kubernetes operator: all CRDs with admission webhook validation'
-    - All 3 emergency runbook playbooks tested end-to-end
+    - All 6 Terraform resource types with protect_unmanaged_entries flag
+    - Terraform provider passes tfproviderlint + acceptance tests against ManagementAPIMock
+    - All 3 emergency playbooks tested against mock API
+    - make test-phase-93 passes
+  94:
+    name: 'Kubernetes Operator + CMDB/NetBox Integration'
+    status: PROPOSED
+    summary: 'ja4proxy-operator (separate repo): JA4ProxyConfig, JA4ProxyAllowlist,
+      JA4ProxyDial CRDs with admission webhook validation. Reconciliation loop via
+      Management API. DaemonSet safety annotations. ArgoCD custom health check. ServiceNow
+      CMDB auto-registration (opt-in). NetBox trusted CIDR integration (opt-in, fail-open).'
+    action_plan: docs/phases/PHASE_94.md
+    dependencies:
+    - 79
+    - 83
+    - 93
+    size: LARGE
+    success_criteria:
+    - All 3 CRD types with admission webhook validation
+    - JA4ProxyDial handles 202 response (pendingDecisionId in status)
+    - NetBox integration opt-in with fail-open fallback to static CIDRs
+    - make test-phase-94 passes
   84:
     name: Compliance & Reporting
     status: PROPOSED

@@ -35,8 +35,8 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Smoke test suite (Docker Compose, Helm/kind, Podman/Quadlet); DR runbook with 5 scenarios incl. Redis data loss; credential rotation runbooks; TLS certificate rotation; rolling upgrade procedure; MTTR baseline measurement.)
 *   **Action Plan:** [PHASE_64.md](PHASE_64.md)
 
-### Phase 83 — Infrastructure Automation — Terraform, CLI & Kubernetes Operator
-*   **Status:** **PROPOSED** (ja4proxy-cli Go binary (full command set: ip, allowlist, blocklist, dial, policy, simulation). Terraform provider with drift protection and import workflow. Kubernetes operator + CRDs (JA4ProxyConfig, JA4ProxyAllowlist, JA4ProxyDial). CMDB/NetBox integration. Three emergency runbook Ansible playbooks.)
+### Phase 83 — ja4proxy-cli Go Binary
+*   **Status:** **PROPOSED** (Go binary for terminal day-2 operations: ip lookup/ban/release/watchlist, allowlist/blocklist add/remove/list, dial get/set, config reload, health, fingerprint history, policy validate/apply/diff. --output json|table|csv. Mutating commands require --confirm. Parity tests vs Python stopgap. GPG-signed releases with SLSA provenance. Replaces scripts/ja4proxy-policy.py.)
 *   **Action Plan:** [PHASE_83.md](PHASE_83.md)
 
 ### Phase 84 — Compliance & Reporting
@@ -55,6 +55,10 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Redis Sentinel per-DC plus a new Go sync agent (cmd/syncagent) for cross-DC state replication. State Classification Table (25 key types: SYNC-IMMEDIATE, SYNC-ASYNC, LOCAL-ONLY, DIAL-PROTOCOL). Synchronous Dial Consistency Protocol (port 7380, 8s ACK timeout, last-writer-wins by origin_ts). Active-active and active-passive topology documentation. Seven failure scenario runbooks (WAN failure, DC dark, Redis-only failure, dial divergence, data loss, asymmetric degradation, split-brain). New multi-DC metrics on port 9382 with six alert rules including DialDivergence (critical). Cross-DC Grafana dashboard. Operational procedures for maintenance drain, DC expansion, and rolling upgrade.)
 *   **Action Plan:** [PHASE_88.md](PHASE_88.md)
 
-### Phase 100 — Phase 79 SSO/MFA Gap Closure
-*   **Status:** **PROPOSED** (Closes 6 remaining gaps from Phase 79 C7-C9 CR: OIDC JWKS signature verification, SSO audit log events, WebAuthn credential DELETE endpoint, SSO-delegated MFA trust, SAML integration test markers, config.yml role mapping. Gap 7 (OpenAPI 3.1 spec) was completed in Phase 79 C10.)
-*   **Action Plan:** [PHASE_100.md](PHASE_100.md)
+### Phase 93 — Terraform Provider + Emergency Runbook Playbooks
+*   **Status:** **PROPOSED** (terraform-provider-ja4proxy (separate repo): 6 resource types (allowlist_entry, blocklist_entry, ban, cidr_ban, dial, webhook), protect_unmanaged_entries flag, import workflow. Three emergency Ansible playbooks: emergency-ban-cidr.yml, temp-whitelist-ip.yml, maintenance-dial-zero.yml.)
+*   **Action Plan:** [PHASE_93.md](PHASE_93.md)
+
+### Phase 94 — Kubernetes Operator + CMDB/NetBox Integration
+*   **Status:** **PROPOSED** (ja4proxy-operator (separate repo): JA4ProxyConfig, JA4ProxyAllowlist, JA4ProxyDial CRDs with admission webhook validation. Reconciliation loop via Management API. DaemonSet safety annotations. ArgoCD custom health check. ServiceNow CMDB auto-registration (opt-in). NetBox trusted CIDR integration (opt-in, fail-open).)
+*   **Action Plan:** [PHASE_94.md](PHASE_94.md)

@@ -1,408 +1,381 @@
-# Phase 83: Infrastructure Automation — Terraform, CLI & Kubernetes Operator
+# Phase 83: `ja4proxy-cli` Go Binary
 
-> **Prerequisite: Phase 79 (Management API with stable IDs and managed_by field).**
+> **Prerequisites:** Phase 79 (Management API v2 — stable endpoints and auth).
+> Phase 82 (Policy-as-Code — `policy validate/apply/diff` contract to match).
+
+> **Scope note:** The original Phase 83 covered CLI + Terraform provider + Kubernetes
+> operator + CMDB/NetBox + emergency playbooks. After review, scope was split:
+> - Phase 83 (this file): `ja4proxy-cli` binary only
+> - Phase 93: Terraform provider + emergency runbook playbooks
+> - Phase 94: Kubernetes operator + CMDB/NetBox integration
 
 ---
 
 ## 1. Overview
 
-Platform and infrastructure teams expect to manage security tools the same way they
-manage everything else — as code, via pipelines, with drift detection. This phase
-delivers the infrastructure automation layer:
+Platform engineers and on-call SREs operate from terminals, especially at 2 AM
+during incidents. `ja4proxy-cli` is the single most-requested day-2 tool identified
+in the enterprise readiness gap analysis. It replaces the Python stopgap script
+(`scripts/ja4proxy-policy.py`) and provides a stable, signed binary for all
+terminal-based operations.
 
-1. **`ja4proxy-cli`** — Go binary for terminal-based day-2 operations (the highest
-   single-tool impact item in the enterprise readiness gap analysis)
-2. **Terraform provider** — manages JA4proxy rules as IaC resources
-3. **Kubernetes operator + CRDs** — declarative management for OpenShift/K8s deployments
-4. **CMDB & NetBox integration** — asset registration and IP management
-5. **Emergency runbook playbooks** — pre-packaged Ansible for common incident scenarios
+The CLI stub (mock responses, cobra scaffolding, output formatters) **can and should
+be developed in parallel with waiting for Phase 79 to merge**, switching to the real
+API once it is available. Integration tests run against `ManagementAPIMock`.
 
 ---
 
-## 2. `ja4proxy-cli`
-
-The Management UI is a browser application. Platform engineers and on-call SREs
-operate from terminals, especially at 2 AM during incidents. The CLI is the single
-most-requested day-2 tool. The CLI stub — with mock API responses for all commands
-— **can and should be developed in parallel with Phase 79**, integrating against the
-live API once Phase 79 stabilises. The CLI is still listed as depending on Phase 79
-because it cannot be fully tested or released without the live API.
-
-### 2.1 Binary Distribution
-
-- Go binary, statically linked, no runtime dependencies
-- Ships as: standalone download, container image `ja4proxy-cli:latest`, and
-  included in the proxy container image at `/usr/local/bin/ja4proxy-cli`
-- Configured via `~/.config/ja4proxy/cli.yaml` or environment variables:
-  ```bash
-  export JA4PROXY_URL=https://ja4proxy-mgmt.corp.internal
-  export JA4PROXY_TOKEN=<operator-scoped-token>
-  ```
-
-### 2.2 Command Reference
+## 2. Command Reference
 
 ```
 ja4proxy-cli ip lookup <ip>
   → score history, active bans, signal breakdown, last 10 connections
+  (client-side aggregation: calls /api/v1/bans/{ip} + /api/v1/connections?ip=&limit=10)
 
 ja4proxy-cli ip ban <ip> [--ttl 1h] [--reason "scanning activity"] [--ticket CHG0001]
-  → applies immediately to all nodes, returns ban ID
+  → POST /api/v1/bans; applies to all nodes via Redis fan-out in the API
 
-ja4proxy-cli ip release <ip>
-  → releases active ban, requires --confirm flag
+ja4proxy-cli ip release <ip> [--confirm]
+  → DELETE /api/v1/bans/{ip}; requires --confirm
 
 ja4proxy-cli ip watchlist add <ip> [--ttl 24h] [--reason "monitoring"]
-ja4proxy-cli ip watchlist remove <ip>
+  → POST /api/v1/watchlist
 
-ja4proxy-cli allowlist add <ja4-fingerprint> [--reason "..."] [--expires 2027-01-01]
-ja4proxy-cli allowlist remove <ja4-fingerprint>
-ja4proxy-cli allowlist list
+ja4proxy-cli ip watchlist remove <ip> [--confirm]
+  → GET /api/v1/watchlist?ip=<ip> to find ID, then DELETE /api/v1/watchlist/{id}
+  (lookup-then-delete pattern; errors if no matching entry found)
 
-ja4proxy-cli blocklist add <ja4-fingerprint> [--reason "..."]
-ja4proxy-cli blocklist remove <ja4-fingerprint>
-ja4proxy-cli blocklist list
+ja4proxy-cli allowlist add <ja4-fingerprint> [--reason "..."] [--expires 2027-01-01] [--ticket CHG0001]
+  → POST /api/v1/allowlist
+
+ja4proxy-cli allowlist remove <ja4-fingerprint> [--confirm]
+  → GET /api/v1/allowlist to find ID by ja4 value, then DELETE /api/v1/allowlist/{id}
+
+ja4proxy-cli allowlist list [--output json|table|csv]
+  → GET /api/v1/allowlist
+
+ja4proxy-cli blocklist add <ja4-fingerprint> [--reason "..."] [--ticket INC0001]
+  → POST /api/v1/blocklist
+
+ja4proxy-cli blocklist remove <ja4-fingerprint> [--confirm]
+  → GET /api/v1/blocklist to find ID by ja4 value, then DELETE /api/v1/blocklist/{id}
+
+ja4proxy-cli blocklist list [--output json|table|csv]
+  → GET /api/v1/blocklist
 
 ja4proxy-cli dial get
-ja4proxy-cli dial set <0-100> --confirm --ticket CHG0001234
-  → requires --confirm flag; prints shadow mode summary if available
+  → GET /api/v1/dial
+
+ja4proxy-cli dial set <0-100> --confirm [--ticket CHG0001234] [--notes "..."]
+  → PATCH /api/v1/dial; prints "PENDING APPROVAL: {decision_id}" on 202
 
 ja4proxy-cli config reload [--node ja4proxy-prod-03]
-  → sends SIGHUP to all nodes (or specific node)
+  → POST /api/v1/nodes/{host}/reload (all nodes: iterate GET /api/v1/nodes first)
 
 ja4proxy-cli health [--all-nodes]
-  → table output: node, status, version, dial, redis_latency_ms, uptime
+  → GET /api/v1/nodes (for all nodes) + GET /api/v1/health/deep (for local node)
+  Table: node, status, version, dial, redis_latency_ms, uptime
 
-ja4proxy-cli fingerprint <ja4> --history 30d
-  → timeline of all connections using this fingerprint across all nodes
+ja4proxy-cli fingerprint <ja4> [--history 30d] [--output json|table]
+  → GET /api/v1/fingerprints/{ja4}/history
 
-ja4proxy-cli policy validate --file ja4proxy-policy.yaml
-ja4proxy-cli policy apply --file ja4proxy-policy.yaml [--dry-run]
-ja4proxy-cli policy diff --file ja4proxy-policy.yaml
+ja4proxy-cli policy validate --file ja4proxy-policy.yaml [--current-dial N]
+  → offline, no API; re-uses src/governance validation logic compiled into binary
 
-ja4proxy-cli simulation run --dial 80 --days 30
-ja4proxy-cli simulation status <sim-id>
-ja4proxy-cli simulation report <sim-id> [--format json|table]
+ja4proxy-cli policy apply --file ja4proxy-policy.yaml [--dry-run] [--url <url>] [--token <tok>]
+  → same Management API calls as scripts/ja4proxy-policy.py
+
+ja4proxy-cli policy diff --file ja4proxy-policy.yaml [--url <url>] [--token <tok>]
+  → same as Python stopgap; exit 0 = no drift, exit 1 = drift
 ```
 
-### 2.3 Output Formats
+### 2.1 Simulation Commands — Deferred
 
-All commands support `--output json|table|csv`. JSON output enables piping:
-```bash
-ja4proxy-cli ip lookup 198.51.100.4 --output json | jq '.signals[].name'
+```
+ja4proxy-cli simulation run/status/report
 ```
 
-### 2.4 Implementation Notes
-
-- ~1,000 lines of Go using `cobra` for command structure and `tablewriter` for
-  table output. Budget 3-4 weeks.
-- Authentication: reads token from environment variable, config file, or
-  interactive prompt on first run (stores in OS keychain via `99designs/keyring`)
-- All mutating commands (`ban`, `release`, `dial set`) prompt for confirmation
-  unless `--confirm` is passed explicitly — prevents accidental changes in scripts
-- **Binary distribution security:** All CLI binary releases must include:
-  - GPG signature (detached `.asc` file) signed with the project's release key
-  - SLSA provenance attestation (level 2 minimum: build on hosted CI, provenance uploaded to GitHub release)
-  - SHA-256 checksums file (`checksums.txt`)
-  - These are required for enterprise security teams that validate binaries before deployment. Document the signing process in `docs/developer/RELEASE_PROCESS.md`.
+These commands require Phase 100-M (simulation API endpoints in the Management API).
+In Phase 83, stub these commands with:
+```
+Error: simulation commands require Phase 100-M (simulation API not yet available)
+```
+Document stubs with `// TODO(phase-100-M)` comments.
 
 ---
 
-## 3. Terraform Provider
+## 3. Output Formats
 
-### 3.1 Provider Overview
-
-`terraform-provider-ja4proxy` authenticates to the Management API using an
-Admin-scoped API token and manages JA4proxy rules as Terraform resources.
-Published to the Terraform Registry under `hashicorp/ja4proxy` (or
-`ja4proxy/ja4proxy` if open-source independent).
-
-### 3.1.1 Registry Namespace — Decision Required Before Work Starts
-
-The Terraform Registry namespace determines the provider import path in all customer Terraform configs (`required_providers { ja4proxy = { source = "<namespace>/ja4proxy" } }`). This cannot be changed post-publication without breaking existing customers.
-
-**Decision options:**
-- `hashicorp/ja4proxy` — requires Hashicorp partnership; use for commercial/partner-published providers
-- `ja4proxy/ja4proxy` — self-published; recommended for open-source; full control over publish cadence
-
-**Action required:** Decide and record the namespace in `docs/decisions/ADR-NNN.md` before writing any Terraform provider code. The namespace must also be reflected in the `go.mod` module path for the provider.
-
-### 3.2 Resource Types
-
-```hcl
-# Dial setting (one per environment)
-resource "ja4proxy_dial" "prod" {
-  setting    = 70
-  notes      = "Validated via shadow mode simulation sim-20260404-a3f2"
-  ticket     = "CHG0001234"
-}
-
-# JA4 fingerprint allowlist entry
-resource "ja4proxy_allowlist_entry" "chrome_monitoring" {
-  ja4         = "t13d1516h2_aabbccddeeff_aabbccddeeff"
-  reason      = "Internal monitoring tool"
-  ticket      = "CHG0001100"
-  expires_at  = "2027-01-01T00:00:00Z"   # optional
-}
-
-# JA4 fingerprint blocklist entry
-resource "ja4proxy_blocklist_entry" "cobalt_strike_default" {
-  ja4    = "t10d170900_9dc949161b6c_b64c0ad42cb7"
-  reason = "Known Cobalt Strike default TLS profile"
-  ticket = "INC0005432"
-}
-
-# IP ban (with TTL — Terraform manages renewal)
-resource "ja4proxy_ban" "known_scanner" {
-  ip         = "198.51.100.4"
-  ttl_hours  = 720   # 30 days; Terraform renews before expiry
-  reason     = "Confirmed scanner from threat intel"
-  ticket     = "INC0005100"
-}
-
-# CIDR ban
-resource "ja4proxy_cidr_ban" "bad_hosting" {
-  cidr       = "198.51.100.0/24"
-  ttl_hours  = 168
-  reason     = "Hosting provider with no legitimate traffic"
-  ticket     = "INC0005200"
-}
-
-# Webhook subscription
-resource "ja4proxy_webhook" "splunk_hec" {
-  url    = "https://splunk.corp.internal:8088/services/collector/event"
-  events = ["block", "ban", "campaign", "dial_change"]
-  secret = var.splunk_webhook_secret
-}
-```
-
-### 3.3 Drift Handling
-
-The `managed_by` field on every resource (set to `"terraform"` by the provider on
-create) allows drift detection:
-
-```hcl
-provider "ja4proxy" {
-  url   = "https://ja4proxy-mgmt.corp.internal"
-  token = var.ja4proxy_admin_token
-
-  # Protect entries added out-of-band (by SOC operator in UI) from being
-  # destroyed by terraform apply
-  protect_unmanaged_entries = true   # converts unexpected destroys to warnings
-}
-```
-
-When `protect_unmanaged_entries = true`:
-- `terraform plan` shows out-of-band entries as warnings, not as planned destroys
-- To take ownership of an out-of-band entry: `terraform import ja4proxy_ban.name 198.51.100.4`
-- Import command is printed to stdout for all unmanaged entries in plan output
-
-### 3.4 Import Workflow
+All read commands (`list`, `lookup`, `health`, `fingerprint`, `dial get`) support:
 
 ```bash
-# List all current bans not managed by Terraform
-ja4proxy-cli ip ban list --managed-by operator --output json | \
-  jq -r '.[] | "terraform import ja4proxy_ban.\(.ip | gsub("[./]";"_")) \(.ip)"'
+--output table    # default; human-readable aligned columns
+--output json     # machine-readable; pipeable to jq
+--output csv      # for spreadsheet import
+```
+
+Mutating commands print one-line confirmations, always in plain text regardless of
+`--output` setting. JSON output for list commands:
+
+```bash
+ja4proxy-cli allowlist list --output json | jq '.[].ja4'
+ja4proxy-cli health --all-nodes --output json | jq '.[] | select(.status != "healthy")'
 ```
 
 ---
 
-## 4. Kubernetes Operator
+## 4. Authentication
 
-For enterprises running OpenShift or Kubernetes using the DaemonSet topology
-documented in Phase 76 (§5.3).
+Resolution order (first match wins):
+1. `--token <value>` flag
+2. `JA4PROXY_TOKEN` environment variable
+3. `~/.config/ja4proxy/cli.yaml` key `token`
+4. OS keychain via `99designs/keyring` (set on first interactive use)
 
-### 4.1 Custom Resource Definitions
+URL resolution order:
+1. `--url <value>` flag
+2. `JA4PROXY_URL` environment variable
+3. `~/.config/ja4proxy/cli.yaml` key `url`
 
+Config file format (`~/.config/ja4proxy/cli.yaml`):
 ```yaml
-# ja4proxy-config.yaml
-apiVersion: ja4proxy.io/v1alpha1
-kind: JA4ProxyConfig
-metadata:
-  name: prod-config
-spec:
-  dial: 70
-  bypassToggles:
-    alpnBrowserBypass: true
-    spamhausBypass: true
-  redisUrl: "redis://redis.ja4proxy.svc.cluster.local:6379"
-  # Fields marked requiresRestart: true in the CRD schema cannot be hot-reloaded
----
-apiVersion: ja4proxy.io/v1alpha1
-kind: JA4ProxyAllowlist
-metadata:
-  name: monitoring-tools
-  namespace: security
-spec:
-  fingerprints:
-    - ja4: "t13d1516h2_aabbccddeeff_aabbccddeeff"
-      reason: "Internal monitoring"
-      ticket: "CHG0001100"
----
-apiVersion: ja4proxy.io/v1alpha1
-kind: JA4ProxyDial
-metadata:
-  name: prod-dial
-spec:
-  setting: 70
-  requiresApproval: true   # triggers four-eyes workflow before applying
-```
-
-### 4.2 Operator Reconciliation
-
-- Watches Kubernetes API for changes to JA4proxy CRDs
-- Pushes changes to JA4proxy via the Management API (not by restarting pods)
-- Reconciliation loop: every 30 seconds + immediate on CRD change event
-- Admission webhook validates CRDs at apply time (dial 0-100, valid JA4 format,
-  required fields) — errors surface in `kubectl apply` output immediately
-
-### 4.3 DaemonSet Safety
-
-```yaml
-# In the operator-managed DaemonSet spec
-spec:
-  template:
-    metadata:
-      annotations:
-        # Prevent cluster autoscaler from evicting proxy pods
-        cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
-```
-
-ArgoCD health checks should target `GET /api/v1/health/deep` rather than pod
-readiness alone. A pod that is `Running` but with Redis unreachable is not healthy.
-Configure a custom ArgoCD health check resource in `deploy/helm/ja4proxy/templates/`.
-
----
-
-## 5. CMDB & NetBox Integration
-
-### 5.1 ServiceNow CMDB Auto-Registration
-
-Add to the Ansible post-deploy role (50 lines):
-
-```yaml
-- name: Register JA4proxy node in ServiceNow CMDB
-  servicenow.itsm.configuration_item:
-    name: "{{ inventory_hostname }}"
-    short_description: "JA4proxy TLS Security Proxy"
-    asset_tag: "JA4PROXY-{{ inventory_hostname }}"
-    install_status: "installed"
-    ip_address: "{{ ansible_host }}"
-    u_version: "{{ ja4proxy_image_tag }}"
-    u_upstream_lb: "{{ upstream_lb_host }}"
-    u_downstream_backend: "{{ backend_host }}"
-    u_environment: "{{ deploy_environment }}"
-    u_last_deployed: "{{ ansible_date_time.iso8601 }}"
-    u_config_checksum: "{{ config_checksum.stdout }}"
-  delegate_to: localhost
-```
-
-### 5.2 NetBox Inbound Integration (IP Management)
-
-Read trusted CIDR ranges from NetBox rather than static config — network engineers
-maintain CIDRs in NetBox (where they already manage IP space):
-
-```python
-# src/config/netbox_loader.py
-async def load_trusted_cidrs_from_netbox(netbox_url: str, token: str) -> list[str]:
-    """Fetch trusted upstream CIDRs tagged 'ja4proxy-trusted' from NetBox."""
-    async with aiohttp.ClientSession() as session:
-        resp = await session.get(
-            f"{netbox_url}/api/ipam/prefixes/?tag=ja4proxy-trusted",
-            headers={"Authorization": f"Token {token}"},
-        )
-        data = await resp.json()
-        return [p["prefix"] for p in data["results"]]
-```
-
-Called at startup and on SIGHUP. Falls back to `config/proxy.yml` static list if
-NetBox is unreachable (fail-open). The integration is opt-in:
-
-```yaml
-# config/proxy.yml
-trusted_upstream_sources:
-  netbox:
-    enabled: true
-    url: "https://netbox.corp.internal"
-    token: "${NETBOX_API_TOKEN}"
-    tag: "ja4proxy-trusted"
-    refresh_on_sighup: true
-  static_cidrs:
-    - "10.0.0.0/8"   # always trusted regardless of NetBox
+url: https://ja4proxy-mgmt.corp.internal
+token: ""            # leave blank to use keychain or env var
+default_output: table
+confirm_mutating: true   # set false to skip prompts in non-interactive scripts
 ```
 
 ---
 
-## 6. Emergency Runbook Playbooks
+## 5. Binary Distribution & Security
 
-Three Ansible playbooks that every enterprise deployer needs within six months.
-Each is 50-100 lines, pre-packaged in `deploy/ansible/playbooks/emergency/`.
+All releases must include:
+- GPG signature (detached `.asc`) signed with the project's release key (stored in
+  CI as a GitHub Actions secret `GPG_SIGNING_KEY`)
+- SLSA provenance attestation (level 2: build on GitHub-hosted runner, provenance
+  JSON uploaded to the GitHub release)
+- `checksums.txt` with SHA-256 of every binary
 
-### 6.1 `emergency-ban-cidr.yml`
+Goreleaser handles all three when configured correctly. The release workflow lives at
+`.github/workflows/release-cli.yml` (new in this phase). Document the signing setup
+in `docs/developer/RELEASE_PROCESS.md`.
 
-```bash
-ansible-playbook emergency-ban-cidr.yml \
-  -e cidr=198.51.100.0/24 \
-  -e reason="Active scanning campaign from this /24" \
-  -e ticket=INC0005432 \
-  -e ttl_hours=24
-```
-
-Actions: calls `POST /api/v1/bans/cidr/{cidr}` across all nodes via Management API,
-logs to audit trail, creates ServiceNow incident if configured, posts to Slack.
-
-### 6.2 `temp-whitelist-ip.yml`
-
-```bash
-ansible-playbook temp-whitelist-ip.yml \
-  -e ip=203.0.113.5 \
-  -e reason="Debugging partner integration — temporary, expires in 2 hours" \
-  -e ttl_hours=2 \
-  -e ticket=CHG0001500
-```
-
-Actions: adds allowlist entry with mandatory TTL, schedules automatic removal via
-AAP scheduled job, sends Slack notification to `#security-ops` with expiry reminder.
-
-### 6.3 `maintenance-dial-zero.yml`
-
-```bash
-ansible-playbook maintenance-dial-zero.yml \
-  -e duration_minutes=60 \
-  -e reason="Maintenance window for backend upgrade" \
-  -e ticket=CHG0001600
-```
-
-Actions: sets dial to 0 across all nodes, logs to audit trail, schedules automatic
-restoration after `duration_minutes`, creates ServiceNow change record. Restoration
-posts to `#security-ops` confirming dial was re-applied.
+Distributed as:
+- Standalone binary download from GitHub releases (linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64)
+- Container image `ghcr.io/anomalyco/ja4proxy-cli:latest` (`FROM scratch` + binary)
+- Copied into the proxy container image at `/usr/local/bin/ja4proxy-cli` (update Dockerfile)
 
 ---
 
-## 7. Acceptance Criteria
+## 6. File Locations
 
-- [ ] Terraform Registry namespace recorded in ADR before provider development starts
-- [ ] CLI binary releases include GPG signature, SLSA provenance attestation, and SHA-256 checksums
-- [ ] CLI stub with mock API responses developed and tested independently of Phase 79 API availability
-- [ ] `ja4proxy-cli` binary: all commands in §2.2 implemented and tested
-- [ ] CLI: `--output json|table|csv` for all read commands
-- [ ] CLI: mutating commands require `--confirm` unless flag passed
-- [ ] CLI distributed as binary download + container image + embedded in proxy image
-- [ ] Terraform provider: all resource types in §3.2 implemented
-- [ ] Terraform provider: `protect_unmanaged_entries` flag works correctly
-- [ ] Terraform provider: import workflow documented with example script
-- [ ] Terraform provider: submitted for publication to Terraform Registry (publishing is a business track item; submission is the engineering AC)
-- [ ] Kubernetes operator: all CRDs in §4.1 with admission webhook validation
-- [ ] Kubernetes operator: reconciliation loop + immediate-on-change working
-- [ ] DaemonSet `safe-to-evict: false` annotation in operator-managed spec
-- [ ] ArgoCD custom health check targeting `/api/v1/health/deep`
-- [ ] ServiceNow CMDB registration in Ansible post-deploy role
-- [ ] NetBox inbound integration with fallback to static CIDRs
-- [ ] All 3 emergency runbook playbooks tested end-to-end
-- [ ] Emergency playbooks documented in `docs/runbooks/`
+All CLI code lives in the **existing Go module** (`github.com/anomalyco/ja4proxy`,
+root `go.mod`). No new module or repo required.
+
+```
+cmd/ja4proxy-cli/
+  main.go                       # cobra root; reads config, wires subcommands
+
+internal/cli/
+  client/
+    client.go                   # aiohttp → net/http API client; all HTTP calls here
+    client_test.go              # table-driven tests; uses httptest.NewServer()
+  commands/
+    ip.go                       # ip lookup, ban, release, watchlist add/remove
+    ip_test.go
+    allowlist.go                # allowlist add, remove, list
+    allowlist_test.go
+    blocklist.go
+    blocklist_test.go
+    dial.go                     # dial get, dial set
+    dial_test.go
+    config.go                   # config reload
+    config_test.go
+    health.go                   # health --all-nodes
+    health_test.go
+    fingerprint.go              # fingerprint <ja4> --history
+    fingerprint_test.go
+    policy.go                   # policy validate/apply/diff
+    policy_test.go
+    simulation.go               # stub only — returns Phase 100-M error
+  output/
+    table.go                    # tablewriter wrapper
+    json.go                     # encoding/json wrapper
+    csv.go                      # encoding/csv wrapper
+    output_test.go
+  auth/
+    auth.go                     # token + URL resolution (flag → env → config → keychain)
+    auth_test.go
+  config/
+    config.go                   # load/write ~/.config/ja4proxy/cli.yaml
+    config_test.go
+
+.github/workflows/
+  release-cli.yml               # Goreleaser + GPG sign + SLSA provenance + checksums
+
+docs/developer/
+  RELEASE_PROCESS.md            # GPG key setup, Goreleaser config, signing verification
+```
 
 ---
 
-## 8. Business Track (Not Engineering Acceptance Criteria)
+## 7. Phase 79 API Endpoint Mapping
 
-- **Terraform Registry publication approval** — Hashicorp reviews provider submissions via GitHub PR to the registry repository. Allow 1–2 weeks. Track separately from engineering completion.
-- **Kubernetes operator publication** — if publishing to OperatorHub, submit after internal validation. Track separately.
+Phase 79 is complete (branch `claude/phase-79-management-api-v2` — pending merge to
+main at time of writing). All endpoints below are defined in Phase 79's delivery.
+
+| CLI Command | HTTP | Endpoint | Notes |
+|-------------|------|----------|-------|
+| `ip lookup` | GET | `/api/v1/bans/{ip}` + `/api/v1/connections?ip=&limit=10` | Client-side aggregation |
+| `ip ban` | POST | `/api/v1/bans` | Body: `{ip, ttl_hours, reason, ticket}` |
+| `ip release` | DELETE | `/api/v1/bans/{ip}` | |
+| `ip watchlist add` | POST | `/api/v1/watchlist` | Body: `{ip, ttl_hours, reason}` |
+| `ip watchlist remove` | GET → DELETE | `/api/v1/watchlist` → `/api/v1/watchlist/{id}` | Lookup-then-delete |
+| `allowlist add` | POST | `/api/v1/allowlist` | Body: `{ja4, reason, expires_at, ticket}` |
+| `allowlist remove` | GET → DELETE | `/api/v1/allowlist` → `/api/v1/allowlist/{id}` | Lookup-then-delete |
+| `allowlist list` | GET | `/api/v1/allowlist` | |
+| `blocklist add` | POST | `/api/v1/blocklist` | |
+| `blocklist remove` | GET → DELETE | `/api/v1/blocklist` → `/api/v1/blocklist/{id}` | Lookup-then-delete |
+| `blocklist list` | GET | `/api/v1/blocklist` | |
+| `dial get` | GET | `/api/v1/dial` | |
+| `dial set` | PATCH | `/api/v1/dial` | Body: `{setting, ticket, notes}`; 202 → PendingApproval |
+| `config reload` | GET + POST | `/api/v1/nodes` → `/api/v1/nodes/{host}/reload` | Iterate all nodes if `--node` not given |
+| `health` | GET | `/api/v1/nodes` + `/api/v1/health/deep` | |
+| `fingerprint` | GET | `/api/v1/fingerprints/{ja4}/history` | |
+| `policy validate` | — | none (offline) | Calls compiled-in Go validator |
+| `policy apply` | multiple | same as Python script | |
+| `policy diff` | multiple | same as Python script | |
+| `simulation *` | — | NOT AVAILABLE | Stub only — see §2.1 |
+
+**Lookup-then-delete pattern:** `allowlist remove <ja4>` and `blocklist remove <ja4>`
+do a `GET` list, search for an entry with matching `ja4` field, then `DELETE` by its
+`id`. If no matching entry is found, exit 1 with "no entry found matching <ja4>".
+Same logic for `watchlist remove <ip>`.
+
+---
+
+## 8. Parity with Python Stopgap
+
+`scripts/ja4proxy-policy.py` is the current implementation of `policy validate/apply/diff`.
+When Phase 83 ships, the Python script becomes the legacy path. The Go CLI must produce
+**identical exit codes** and **equivalent output** for all known inputs.
+
+### 8.1 Parity Requirements
+
+| Behaviour | Python script | Go CLI must match |
+|-----------|--------------|-------------------|
+| Valid policy, `validate` | exit 0, stdout "Policy is valid." | identical |
+| Invalid policy, `validate` | exit 1, stderr "ERROR: ..." | exit 1, stderr starts with "ERROR:" |
+| Pending approval, `apply` | exit 2, stdout "PENDING APPROVAL: {id}" | identical |
+| `apply` success | exit 0, stdout "N added, M removed, P unchanged" | identical |
+| Drift detected, `diff` | exit 1, stdout "Drift detected: N unexpected entries" | exit 1, stdout contains "Drift detected" |
+| No drift, `diff` | exit 0, stdout "No drift detected." | identical |
+
+Error message text may differ between Python and Go implementations (cerberus vs Go
+validation). Exit codes are the contract, not message text.
+
+### 8.2 Parity Test
+
+Add `tests/integration/test_cli_parity.py`:
+- Compiles the Go CLI binary with `subprocess.run(["go", "build", ...])` in a `pytest`
+  fixture (skip if Go toolchain not available)
+- Runs a set of 8 known-good and known-bad policy YAML files through both the Python
+  script and the Go CLI
+- Asserts matching exit codes for each input
+- Asserts the Python script can be retired without any CI change once Go CLI passes
+  all cases
+
+---
+
+## 9. Test Plan
+
+### Unit tests (in `internal/cli/`)
+
+Each command file has a corresponding `_test.go`. Use `httptest.NewServer()` as the
+mock API. No live network required.
+
+| Test file | Coverage target |
+|-----------|----------------|
+| `client_test.go` | auth header sent, 401 → error, 5xx → error, timeout handling |
+| `ip_test.go` | ban+release round-trip, watchlist add/remove, lookup aggregation |
+| `allowlist_test.go` | add, list, remove (lookup-then-delete), remove-not-found |
+| `blocklist_test.go` | same as allowlist |
+| `dial_test.go` | get, set, 202 pending approval flow |
+| `config_test.go` | reload all nodes, reload specific node |
+| `health_test.go` | healthy output, degraded node highlighted |
+| `fingerprint_test.go` | history output in table + json |
+| `policy_test.go` | validate valid, validate invalid, apply dry-run |
+| `output_test.go` | table/json/csv formatters for same data struct |
+| `auth_test.go` | flag > env > config > keychain resolution order |
+
+### Integration tests (against ManagementAPIMock)
+
+Add `tests/integration/test_cli_integration_test.go` (Go) OR use existing Python
+mock in `tests/mocks/management_api_mock.py`:
+- Full command roundtrip: `ban → lookup (confirms ban) → release → lookup (no ban)`
+- `allowlist add → list (entry present) → remove → list (entry gone)`
+- `dial set` → mock returns 202 → CLI exits 2 with PENDING APPROVAL message
+- `health --all-nodes` renders table with correct node count
+
+### Parity tests
+
+`tests/integration/test_cli_parity.py` — see §8.2.
+
+### Makefile target
+
+```makefile
+## Phase 83 targets
+test-phase-83:
+	go test ./internal/cli/... -v -count=1
+	python3 -m pytest tests/integration/test_cli_parity.py -v
+.PHONY: test-phase-83
+```
+
+---
+
+## 10. ADRs Required
+
+Write before starting implementation:
+
+| ADR | Decision | Options |
+|-----|----------|---------|
+| ADR-083a | Binary signing & release tooling | Goreleaser (recommended) vs manual `go build` + `gpg --detach-sign` |
+| ADR-083b | Policy validator implementation in Go | Re-implement cerberus-equivalent in Go vs call Python subprocess vs API-only validate endpoint |
+
+**ADR-083b detail:** The Python `policy validate` is offline (no API). The Go CLI
+needs its own validation. Options:
+- A: Re-implement the 7 validation rules in Go (`go-yaml` + `net` for CIDR, regex for
+  JA4). ~200 lines. Independent of Python runtime. **Recommended.**
+- B: Add `POST /api/v1/config/validate` to Phase 79 and have CLI call it. Requires
+  API access for an offline operation. Breaks air-gapped use case.
+- C: Shell out to Python. Requires Python runtime on the operator's machine. Not viable
+  for a standalone Go binary.
+
+---
+
+## 11. Acceptance Criteria
+
+- [ ] ADR-083a (release tooling) and ADR-083b (Go validator) written before coding starts
+- [ ] `cmd/ja4proxy-cli/main.go` compiles with `go build ./cmd/ja4proxy-cli/`
+- [ ] All commands in §2 implemented (simulation stubs excepted — see §2.1)
+- [ ] Lookup-then-delete pattern works correctly for `allowlist remove`, `blocklist remove`, `ip watchlist remove`
+- [ ] `--output json|table|csv` for all read commands
+- [ ] Mutating commands require `--confirm` (or `--confirm` flag explicitly passed)
+- [ ] `dial set` with mock returning 202 → CLI exits 2 with "PENDING APPROVAL: {decision_id}"
+- [ ] Auth resolution order correct: flag > env > config file > keychain (unit test)
+- [ ] Parity tests pass: all 8 policy test cases produce matching exit codes vs Python script
+- [ ] Binary distributed as: standalone download + container image + in proxy container at `/usr/local/bin/ja4proxy-cli`
+- [ ] `.github/workflows/release-cli.yml` produces GPG-signed release with SLSA attestation and `checksums.txt`
+- [ ] `docs/developer/RELEASE_PROCESS.md` documents signing setup and verification steps
+- [ ] `make test-phase-83` passes
+- [ ] `scripts/ja4proxy-policy.py` marked deprecated (header comment) once Go CLI parity confirmed
+
+---
+
+## 12. Known Gaps / Deferred
+
+| Item | Deferred to | Notes |
+|------|-------------|-------|
+| `simulation run/status/report` | Phase 100-M | Simulation API endpoints not yet defined; stubs with clear error message |
+| Windows installer / MSI packaging | Business track | Binary zip is sufficient for enterprise; MSI is a distribution preference |
+| Shell completions (`bash`/`zsh`/`fish`) | Follow-on PR | cobra generates these; low effort; can ship as a separate PR after main AC |
