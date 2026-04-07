@@ -1,0 +1,43 @@
+<dashboard version="1.1">
+  <label>JA4proxy — Dial &amp; Threshold History</label>
+
+  <row>
+    <panel>
+      <title>Dial Setting Over Time</title>
+      <chart>
+        <search>
+          <query>`$ja4proxy_index$` 'event.kind'="configuration" 'event.action'="dial_changed" | timechart latest('ja4proxy.dial.new_value') as dial</query>
+          <earliest>-7d</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.chart.nullValueMode">last</option>
+        <option name="charting.legend.placement">none</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.axisTitleX.text">Time</option>
+        <option name="charting.axisTitleY.text">Dial Value (0–100)</option>
+        <option name="charting.axisY.minimumNumber">0</option>
+        <option name="charting.axisY.maximumNumber">100</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Daily Block &amp; Ban Counts</title>
+      <chart>
+        <search>
+          <query>`$ja4proxy_index$` | where 'event.action' IN ("blocked","banned") | timechart count span=1d</query>
+          <earliest>-30d</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">bar</option>
+        <option name="charting.chart.stackMode">default</option>
+        <option name="charting.legend.placement">none</option>
+        <option name="charting.drilldown">none</option>
+        <option name="charting.axisTitleX.text">Date</option>
+        <option name="charting.axisTitleY.text">Block Count</option>
+      </chart>
+    </panel>
+  </row>
+</dashboard>

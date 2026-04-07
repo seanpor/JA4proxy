@@ -793,8 +793,8 @@ phases:
 
   80:
     name: "ECS Structured Logging & SIEM Integration Pack"
-    status: "PROPOSED"
-    summary: "Canonical ECS 8.x JSON log format for all events. Splunk TA (CIM-compliant, 5 dashboards, 5 correlation searches, alert action). Microsoft Sentinel content pack. IBM QRadar DSM. Elastic integration. HMAC-signed webhook event stream."
+    status: "COMPLETE"
+    summary: "ECS 8.x formatter for Go proxy and Python analytics; webhook dispatcher (HMAC-SHA256, Redis DLQ, retry); Vector config templates (Splunk HEC, Sentinel, QRadar LEEF, Elastic); Splunk TA (CIM-compliant, 5 dashboards, 5 correlation searches, ban alert action); Microsoft Sentinel content pack (5 KQL rules, 2 playbooks); IBM QRadar DSM; Elastic integration. Logging.format config key; events:connection Redis Stream; webhooks:dlq DLQ."
     action_plan: "docs/phases/PHASE_80.md"
     dependencies: [79]
     size: "LARGE"
@@ -980,3 +980,17 @@ phases:
       - "make lint-python, lint-go, lint-sast, lint-infra, lint-observability, lint-supply-chain, lint-docs-all all work"
       - "No existing Makefile targets modified"
       - "make lint-phases passes"
+
+  100:
+    name: "Cross-Phase Gap Closure"
+    status: "IN_PROGRESS"
+    action_plan: "docs/phases/PHASE_100.md"
+    dependencies: [79, 80]
+    size: "SMALL"
+    summary: "Rolling tracker for non-blocking gaps from completed phases. Current items: source.port/destination.ip absent from ECS events (Phase 80); Go dual_output logging mode not implemented (Phase 80); per-endpoint webhook retry/timeout config ignored (Phase 80); Splunk TA and Sentinel live-testing (Phase 80, requires platform access); Phase 79 API verification for Splunk alert action and Sentinel playbooks (Phase 80, blocks on Phase 79 merge)."
+    success_criteria:
+      - "ConnectionContext.ClientPort populated and source.port present in ECS log output"
+      - "Go proxy dual_output mode emits legacy + ECS lines simultaneously"
+      - "Per-endpoint retry_attempts/timeout_seconds respected independently by webhook dispatcher"
+      - "Phase 79 bans endpoint verified against Splunk alert action script"
+      - "Splunk TA and Sentinel live-testing completed or explicitly deferred with rationale"

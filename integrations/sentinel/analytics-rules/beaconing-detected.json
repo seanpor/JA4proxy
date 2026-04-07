@@ -1,0 +1,47 @@
+{
+  "kind": "Scheduled",
+  "properties": {
+    "displayName": "JA4proxy - Beaconing Detected",
+    "description": "Detects when JA4proxy has flagged a source IP for beaconing behaviour — periodic connections with low inter-arrival time variance, characteristic of C2 check-in traffic. Correlates with MITRE ATT&CK T1071 (Application Layer Protocol).",
+    "severity": "High",
+    "enabled": true,
+    "query": "JA4proxy_CL\n| where TimeGenerated > ago(1h)\n| where ja4proxy_action_s in ('blocked', 'banned', 'flagged')\n| where RawData has 'beaconing_detected'\n| extend signals = parse_json(extract('\"ja4proxy.signals\":\\\\s*(\\\\[.*?\\\\])', 1, RawData))\n| mv-expand signal = signals\n| where tostring(signal.name) == 'beaconing_detected'\n| summarize\n    EventCount = count(),\n    MaxScore = max(ja4proxy_risk_score_d),\n    SNIList = make_set(ja4proxy_sni_s, 10),\n    Actions = make_set(ja4proxy_action_s, 5)\n    by source_ip_s, ja4proxy_fingerprint_s, bin(TimeGenerated, 5m)\n| where EventCount >= 3\n| extend\n    AlertTitle = strcat('Beaconing detected from ', source_ip_s, ' (', EventCount, ' events, score=', MaxScore, ')'),\n    SourceIP = source_ip_s,\n    JA4Fingerprint = ja4proxy_fingerprint_s",
+    "queryFrequency": "PT5M",
+    "queryPeriod": "PT1H",
+    "triggerOperator": "GreaterThan",
+    "triggerThreshold": 0,
+    "suppressionDuration": "PT1H",
+    "suppressionEnabled": false,
+    "tactics": [
+      "CommandAndControl"
+    ],
+    "techniques": [
+      "T1071"
+    ],
+    "subTechniques": [
+      "T1071.001"
+    ],
+    "alertDetailsOverride": {
+      "alertDisplayNameFormat": "JA4proxy Beaconing: {{source_ip_s}} / {{ja4proxy_fingerprint_s}}",
+      "alertDescriptionFormat": "Beaconing detected from {{source_ip_s}} — {{EventCount}} periodic connections with low IAT variance. Max risk score: {{MaxScore}}.",
+      "alertSeverityColumnName": null,
+      "alertTacticsColumnName": null
+    },
+    "entityMappings": [
+      {
+        "entityType": "IP",
+        "fieldMappings": [
+          {
+            "identifier": "Address",
+            "columnName": "source_ip_s"
+          }
+        ]
+      }
+    ],
+    "customDetails": {
+      "JA4Fingerprint": "ja4proxy_fingerprint_s",
+      "MaxRiskScore": "MaxScore",
+      "EventCount": "EventCount"
+    }
+  }
+}

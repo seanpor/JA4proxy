@@ -1,0 +1,115 @@
+# Vector config: JA4proxy → IBM QRadar (LEEF 2.0 over UDP syslog)
+#
+# Target SIEM: IBM QRadar SIEM
+#
+# Required environment variables:
+#   QRADAR_HOST       — QRadar console or Event Collector IP / hostname
+#   SERVICE_VERSION   — JA4proxy release version (e.g. 1.2.3); set at deploy time
+#
+# How to run:
+#   vector --config config/integrations/vector-qradar-leef.yaml
+#
+# Pre-requisite: set `logging.format: ecs` in config/proxy.yml before deploying.
+#
+# Notes:
+#   - LEEF 2.0 spec: https://www.ibm.com/docs/en/dsm?topic=leef-overview
+#   - Header format:  LEEF:2.0|Vendor|Product|Version|EventID|DelimiterChar|
+#     We use tab (\t) as the attribute delimiter (0x09).
+#   - QRadar UDP port 514 is the default syslog listener. If your QRadar is
+#     configured for a custom port, update the `address` below.
+#   - For high-volume deployments (>50k events/sec), switch the sink to TCP
+#     (`socket.mode: tcp`) and configure a QRadar TCP syslog source on port 514.
+#   - The JA4proxy DSM (integrations/qradar/JA4proxy-DSM.xml) must be installed
+#     in QRadar first so that the custom properties are mapped correctly.
+#   - UDP is lossy by design: use TCP for compliance-grade logging.
+
+data_dir: /var/lib/vector
+
+# ── Sources ──────────────────────────────────────────────────────────────────
+sources:
+  proxy_stdout:
+    type: stdin
+
+# ── Transforms ───────────────────────────────────────────────────────────────
+transforms:
+  parse_ecs:
+    type: remap
+    inputs: ["proxy_stdout"]
+    source: |
+      . = parse_json!(string!(.message))
+
+  build_leef:
+    type: remap
+    inputs: ["parse_ecs"]
+    source: |
+      # ── LEEF 2.0 attribute extraction ─────────────────────────────────────
+      event_action  = string(.["event.action"])              ?? "unknown"
+      src_ip        = string(.["source.ip"])                 ?? "0.0.0.0"
+      dst_ip        = string(.["destination.ip"])            ?? "0.0.0.0"
+      src_port      = to_string(int(.["source.port"])        ?? 0)
+      dst_port      = to_string(int(.["destination.port"])   ?? 443)
+      tls_ver       = string(.["tls.version"])               ?? ""
+      tls_cipher    = string(.["tls.cipher"])                ?? ""
+      risk_score    = to_string(int(.["event.risk_score"])   ?? 0)
+      ja4fp         = string(.["ja4proxy.fingerprint.ja4"])  ?? ""
+      ja4x          = string(.["ja4proxy.fingerprint.ja4x"]) ?? ""
+      ja4t          = string(.["ja4proxy.fingerprint.ja4t"]) ?? ""
+      sni           = string(.["ja4proxy.sni"])              ?? ""
+      asn           = to_string(int(.["ja4proxy.asn"])       ?? 0)
+      asn_org       = string(.["ja4proxy.asn_org"])          ?? ""
+      country       = string(.["ja4proxy.country_code"])     ?? ""
+      dial          = to_string(int(.["ja4proxy.dial_setting"]) ?? 0)
+      host          = string(.["host.name"])                 ?? "ja4proxy"
+      svc_version   = get_env_var("SERVICE_VERSION")        ?? "unknown"
+      ts            = string(.["@timestamp"])                ?? ""
+
+      # ── LEEF 2.0 header ────────────────────────────────────────────────────
+      # Format: LEEF:2.0|Vendor|Product|Version|EventID|0x09|
+      # 0x09 declares tab as the attribute delimiter (LEEF 2.0 requirement)
+      leef_header = join!(["LEEF:2.0", "JA4proxy", "JA4proxy", svc_version, event_action, "0x09"], separator: "|") + "|"
+
+      # ── LEEF 2.0 attributes (tab-separated key=value pairs) ────────────────
+      # Required QRadar fields: devTime, devTimeFormat, src, dst, srcPort, dstPort, proto
+      attrs = join!([
+        "devTime="       + ts,
+        "devTimeFormat=yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+        "src="           + src_ip,
+        "dst="           + dst_ip,
+        "srcPort="       + src_port,
+        "dstPort="       + dst_port,
+        "proto=TCP",
+        "sslVersion="    + tls_ver,
+        "sslCipher="     + tls_cipher,
+        "risk_score="    + risk_score,
+        "ja4="           + ja4fp,
+        "ja4x="          + ja4x,
+        "ja4t="          + ja4t,
+        "sni="           + sni,
+        "asn="           + asn,
+        "asnOrg="        + asn_org,
+        "country="       + country,
+        "dialSetting="   + dial
+      ], separator: "\t")
+
+      # Assemble the complete LEEF message
+      .message = leef_header + attrs
+
+      # Add RFC-3164 syslog priority prefix for QRadar UDP listener
+      # Priority 14 = facility 1 (user) + severity 6 (info); blocked events use 11 (warning)
+      priority = if event_action == "blocked" || event_action == "banned" { "11" } else { "14" }
+      .message = "<" + priority + ">" + host + " ja4proxy: " + .message
+
+# ── Sinks ─────────────────────────────────────────────────────────────────────
+sinks:
+  qradar_udp:
+    type: socket
+    inputs: ["build_leef"]
+    address: "${QRADAR_HOST}:514"
+    mode: udp
+
+    encoding:
+      codec: text
+      # The LEEF string is already in `.message`; text codec emits it as-is.
+
+    # UDP framing: each datagram is one LEEF event (no batching for UDP)
+    # For TCP, switch to mode: tcp and add framing: newline_delimited

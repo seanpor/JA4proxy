@@ -1,0 +1,41 @@
+<dashboard version="1.1">
+  <label>JA4proxy — Fingerprint Intelligence</label>
+
+  <row>
+    <panel>
+      <title>Unique Fingerprints Seen Today</title>
+      <single>
+        <search>
+          <query>`$ja4proxy_index$` earliest=@d | stats dc('ja4proxy.fingerprint.ja4') as unique_fps</query>
+          <earliest>@d</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Top JA4 Fingerprints by Volume</title>
+      <table>
+        <search>
+          <query>`$ja4proxy_index$` | stats count as total, sum(eval(if('event.action' IN ("blocked","banned"),1,0))) as blocked by 'ja4proxy.fingerprint.ja4' | eval block_rate=round(blocked/total*100,1) | sort -total | head 20</query>
+          <earliest>-24h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="wrap">false</option>
+        <option name="rowNumbers">true</option>
+        <option name="count">20</option>
+        <format type="color" field="block_rate">
+          <colorPalette type="minMidMax" maxColor="#D93F3C" midColor="#F7BC38" minColor="#65A637"/>
+          <scale type="minMidMax" minValue="0" midValue="50" maxValue="100"/>
+        </format>
+        <format type="number" field="block_rate">
+          <option name="unit">%</option>
+        </format>
+      </table>
+    </panel>
+  </row>
+</dashboard>

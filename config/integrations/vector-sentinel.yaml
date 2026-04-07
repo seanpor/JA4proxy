@@ -1,0 +1,99 @@
+# Vector config: JA4proxy → Microsoft Sentinel (Azure Monitor / Log Analytics)
+#
+# Target SIEM: Microsoft Sentinel via Azure Monitor Logs (Data Collection Rule / Legacy API)
+#
+# Required environment variables:
+#   SENTINEL_WORKSPACE_ID  — Log Analytics Workspace ID (a UUID)
+#   SENTINEL_SHARED_KEY    — Primary or secondary workspace key (base64 string)
+#
+# How to run:
+#   vector --config config/integrations/vector-sentinel.yaml
+#
+# Pre-requisite: set `logging.format: ecs` in config/proxy.yml before deploying.
+#
+# Notes:
+#   - Events land in the custom table `JA4proxy_CL` in Log Analytics.
+#   - The table is auto-created on first ingest; column names are derived from the
+#     top-level JSON keys. Dotted ECS keys become underscore-separated column names
+#     (e.g. `source_ip_s`, `event_action_s`) — this is an Azure limitation.
+#   - `TimeGenerated` is the canonical Sentinel timestamp column; we copy @timestamp
+#     into it so Sentinel can display events in the correct time order.
+#   - Sentinel free tier ingests 5 GB/day; monitor ingestion costs with the
+#     workbook provided in integrations/sentinel/workbook/JA4proxy_Workbook.json.
+
+data_dir: /var/lib/vector
+
+# ── Sources ──────────────────────────────────────────────────────────────────
+sources:
+  proxy_stdout:
+    type: stdin
+    # Reads newline-delimited JSON from JA4proxy stdout.
+
+# ── Transforms ───────────────────────────────────────────────────────────────
+transforms:
+  parse_ecs:
+    type: remap
+    inputs: ["proxy_stdout"]
+    source: |
+      # Parse the raw JSON log line
+      . = parse_json!(string!(.message))
+
+  add_sentinel_fields:
+    type: remap
+    inputs: ["parse_ecs"]
+    source: |
+      # TimeGenerated is the mandatory Sentinel timestamp column.
+      # Sentinel rejects records where TimeGenerated is > 2 days in the past or
+      # > 1 minute in the future, so we copy the proxy's own timestamp.
+      .TimeGenerated = .["@timestamp"]
+
+      # LogType matches the custom table name (without _CL suffix).
+      # The azure_monitor_logs sink uses this as the `log_type` parameter.
+      ._log_type = "JA4proxy"
+
+      # Promote the most-queried fields to top-level so KQL queries stay concise.
+      # Sentinel custom columns are suffixed by type (_s = string, _d = double, _b = bool).
+      # We follow the naming convention Azure auto-applies so column names are predictable.
+      .ja4proxy_action_s        = string(.["event.action"])       ?? ""
+      .ja4proxy_risk_score_d    = float(.["event.risk_score"])    ?? 0.0
+      .ja4proxy_fingerprint_s   = string(.["ja4proxy.fingerprint.ja4"]) ?? ""
+      .ja4proxy_sni_s           = string(.["ja4proxy.sni"])       ?? ""
+      .ja4proxy_asn_org_s       = string(.["ja4proxy.asn_org"])   ?? ""
+      .ja4proxy_country_code_s  = string(.["ja4proxy.country_code"]) ?? ""
+      .ja4proxy_dial_d          = float(.["ja4proxy.dial_setting"]) ?? 0.0
+      .source_ip_s              = string(.["source.ip"])          ?? ""
+      .source_port_d            = float(.["source.port"])         ?? 0.0
+      .tls_version_s            = string(.["tls.version"])        ?? ""
+      .tls_cipher_s             = string(.["tls.cipher"])         ?? ""
+
+# ── Sinks ─────────────────────────────────────────────────────────────────────
+sinks:
+  azure_monitor:
+    type: azure_monitor_logs
+    inputs: ["add_sentinel_fields"]
+
+    # Log Analytics workspace credentials
+    customer_id: "${SENTINEL_WORKSPACE_ID}"
+    shared_key:  "${SENTINEL_SHARED_KEY}"
+
+    # Custom table name — Sentinel appends _CL automatically.
+    # Hard-coded here because VRL event fields (._log_type) cannot be referenced
+    # in sink config keys; only environment variables use ${ENV_VAR} syntax.
+    log_type: "JA4proxy"
+
+    # Azure Monitor Logs API uses the `TimeGenerated` field for event time
+    time_generated_key: "TimeGenerated"
+
+    encoding:
+      codec: json
+
+    # Batching: Azure Monitor Logs API accepts up to 30 MB per request
+    batch:
+      max_bytes:    1048576   # 1 MB — conservative to avoid 413 responses
+      timeout_secs: 5
+
+    # Retry on transient HTTP 429 / 503 responses
+    request:
+      retry_attempts:             5
+      retry_initial_backoff_secs: 2
+      retry_max_duration_secs:    60

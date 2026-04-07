@@ -1,0 +1,216 @@
+{
+  "$schema": "https://github.com/microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json",
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "# JA4proxy Security Dashboard\n\nReal-time visibility into JA4proxy TLS proxy decisions, threat intelligence, and operational health.\n\n---"
+      },
+      "name": "title",
+      "styleSettings": {}
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "timeRange",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "type": 4,
+            "typeSettings": {
+              "selectableValues": [
+                { "durationMs": 3600000 },
+                { "durationMs": 14400000 },
+                { "durationMs": 43200000 },
+                { "durationMs": 86400000 },
+                { "durationMs": 604800000 }
+              ],
+              "allowCustom": true
+            },
+            "value": { "durationMs": 3600000 },
+            "label": "Time Range"
+          },
+          {
+            "id": "proxyNode",
+            "version": "KqlParameterItem/1.0",
+            "name": "ProxyNode",
+            "type": 2,
+            "query": "JA4proxy_CL | summarize by tls_version_s | project value = tls_version_s, label = tls_version_s",
+            "typeSettings": { "additionalResourceOptions": ["value::all"] },
+            "timeContext": { "durationMs": 86400000 },
+            "defaultValue": "value::all",
+            "label": "TLS Version Filter"
+          }
+        ],
+        "style": "above",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces"
+      },
+      "name": "parameters"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Section 1: SOC Analyst Real-Time View\n\nLive connection decisions, high-risk IPs, and active threats in the current time window."
+      },
+      "name": "section1-header"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "JA4proxy_CL\n| where TimeGenerated {TimeRange}\n| summarize\n    Total = count(),\n    Allowed = countif(ja4proxy_action_s == 'allowed'),\n    Blocked = countif(ja4proxy_action_s == 'blocked'),\n    Banned = countif(ja4proxy_action_s == 'banned'),\n    Tarpitted = countif(ja4proxy_action_s == 'tarpitted'),\n    AvgRiskScore = round(avg(ja4proxy_risk_score_d), 1)\n| project Total, Allowed, Blocked, Banned, Tarpitted, AvgRiskScore",
+        "size": 4,
+        "title": "Connection Decision Summary",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "tiles",
+        "tileSettings": {
+          "showBorder": true,
+          "titleContent": { "columnMatch": "Total", "formatter": 12 },
+          "leftContent": { "columnMatch": "Total", "formatter": 12 }
+        }
+      },
+      "name": "kpi-tiles"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "JA4proxy_CL\n| where TimeGenerated {TimeRange}\n| summarize count() by bin(TimeGenerated, 5m), ja4proxy_action_s\n| order by TimeGenerated asc",
+        "size": 0,
+        "title": "Connection Volume Over Time (5-min buckets)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "areachart",
+        "chartSettings": {
+          "seriesLabelSettings": [
+            { "seriesName": "blocked", "color": "red" },
+            { "seriesName": "banned", "color": "redBright" },
+            { "seriesName": "allowed", "color": "green" },
+            { "seriesName": "tarpitted", "color": "orange" },
+            { "seriesName": "flagged", "color": "yellow" }
+          ]
+        }
+      },
+      "name": "volume-chart"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "JA4proxy_CL\n| where TimeGenerated {TimeRange}\n| where ja4proxy_action_s in ('blocked', 'banned')\n| summarize BlockCount = count(), MaxScore = max(ja4proxy_risk_score_d) by source_ip_s, ja4proxy_country_code_s, ja4proxy_asn_org_s\n| top 20 by BlockCount desc\n| project SourceIP = source_ip_s, Country = ja4proxy_country_code_s, ASNOrg = ja4proxy_asn_org_s, BlockCount, MaxScore",
+        "size": 0,
+        "title": "Top 20 Blocked Source IPs",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table",
+        "gridSettings": {
+          "rowLimit": 20,
+          "sortBy": [{ "itemKey": "BlockCount", "sortOrder": 2 }]
+        }
+      },
+      "name": "top-blocked-ips"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "---\n## Section 2: Fingerprint Intelligence\n\nJA4 TLS fingerprint analysis — fingerprint distribution, rotation patterns, and new fingerprints from known-bad infrastructure."
+      },
+      "name": "section2-header"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "JA4proxy_CL\n| where TimeGenerated {TimeRange}\n| where isnotempty(ja4proxy_fingerprint_s)\n| summarize\n    ConnectionCount = count(),\n    UniqueIPs = dcount(source_ip_s),\n    BlockRate = round(countif(ja4proxy_action_s in ('blocked', 'banned')) * 100.0 / count(), 1),\n    AvgScore = round(avg(ja4proxy_risk_score_d), 1),\n    TopASN = any(ja4proxy_asn_org_s)\n    by ja4proxy_fingerprint_s\n| top 30 by ConnectionCount desc\n| project Fingerprint = ja4proxy_fingerprint_s, Connections = ConnectionCount, UniqueIPs, BlockRatePct = BlockRate, AvgScore, TopASN",
+        "size": 0,
+        "title": "JA4 Fingerprint Distribution (Top 30)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table",
+        "gridSettings": {
+          "rowLimit": 30,
+          "sortBy": [{ "itemKey": "Connections", "sortOrder": 2 }]
+        }
+      },
+      "name": "fingerprint-distribution"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "JA4proxy_CL\n| where TimeGenerated {TimeRange}\n| where ja4proxy_action_s in ('blocked', 'banned')\n| summarize DistinctFingerprints = dcount(ja4proxy_fingerprint_s), BlockCount = count() by source_ip_s\n| where DistinctFingerprints >= 2\n| project SourceIP = source_ip_s, DistinctFingerprints, BlockCount\n| top 20 by DistinctFingerprints desc",
+        "size": 0,
+        "title": "IPs with Multiple Blocked Fingerprints (Possible Tool Rotation)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "name": "fingerprint-rotation"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "---\n## Section 3: Management Summary\n\nOperational health, dial settings, and risk score distribution for management reporting."
+      },
+      "name": "section3-header"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "JA4proxy_CL\n| where TimeGenerated {TimeRange}\n| summarize AvgDial = avg(ja4proxy_dial_d), MaxDial = max(ja4proxy_dial_d), MinDial = min(ja4proxy_dial_d) by bin(TimeGenerated, 1h)\n| project TimeGenerated, AvgDial, MaxDial, MinDial",
+        "size": 0,
+        "title": "Proxy Dial Setting Over Time",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "linechart",
+        "chartSettings": {
+          "yAxis": { "min": 0, "max": 100 }
+        }
+      },
+      "name": "dial-chart"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "JA4proxy_CL\n| where TimeGenerated {TimeRange}\n| summarize count() by RiskBucket = case(\n    ja4proxy_risk_score_d < 20,  '0-19 (Observe)',\n    ja4proxy_risk_score_d < 35,  '20-34 (Flag)',\n    ja4proxy_risk_score_d < 55,  '35-54 (Rate Limit)',\n    ja4proxy_risk_score_d < 70,  '55-69 (Tarpit)',\n    ja4proxy_risk_score_d < 85,  '70-84 (Block)',\n    '85-100 (Ban)')\n| order by RiskBucket asc",
+        "size": 3,
+        "title": "Risk Score Distribution by Action Bucket",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "piechart"
+      },
+      "name": "risk-distribution"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "JA4proxy_CL\n| where TimeGenerated {TimeRange}\n| where isnotempty(ja4proxy_country_code_s)\n| summarize ConnectionCount = count(), BlockCount = countif(ja4proxy_action_s in ('blocked', 'banned')) by ja4proxy_country_code_s\n| extend BlockRate = round(todouble(BlockCount) / todouble(ConnectionCount) * 100, 1)\n| top 20 by ConnectionCount desc\n| project Country = ja4proxy_country_code_s, Connections = ConnectionCount, Blocks = BlockCount, BlockRatePct = BlockRate",
+        "size": 0,
+        "title": "Top 20 Countries by Connection Volume",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table"
+      },
+      "name": "country-table"
+    }
+  ],
+  "styleSettings": {},
+  "fromTemplateId": "sentinel-JA4proxyWorkbook",
+  "$schema": "https://github.com/microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}

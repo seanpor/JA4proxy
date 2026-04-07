@@ -13,6 +13,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from .config import load_config
 from .stream_consumer import StreamConsumer
+from src.utils.logging_config import setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +29,9 @@ class AnalyticsNode:
 
     async def start(self) -> None:
         """Start the analytics node: HTTP server + stream consumer."""
-        logging.basicConfig(
-            level=logging.INFO,
-            format='{"time":"%(asctime)s","level":"%(levelname)s","name":"%(name)s","msg":"%(message)s"}',
-        )
+        # phase-80: use structured logging config; format driven by proxy.yml logging.format
+        log_format = self.config.get("logging", {}).get("format", "legacy")
+        setup_logging(format=log_format)
         logger.info("Starting JA4Proxy Analytics Node")
 
         redis_url = (
