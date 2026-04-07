@@ -1204,4 +1204,4 @@ lint-all: lint-python lint-go lint-sast lint-infra lint-observability \
 
 ## Phase 92 test target
 test-phase-92:
-	python -m pytest tests/phase-92/ -v
+	python3 -m pytest tests/phase-92/ -v
