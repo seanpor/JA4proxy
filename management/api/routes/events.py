@@ -83,7 +83,7 @@ async def _event_generator(request: Request, redis):
 @router.get("/api/v1/events")
 async def stream_events(
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(get_current_user),
     redis=Depends(get_redis),
 ):
     """Stream live connection events as Server-Sent Events.
@@ -91,7 +91,7 @@ async def stream_events(
     Clients should connect with ``Accept: text/event-stream``.
     The stream never ends — clients must disconnect when done.
     """
-    logger.info("events | event=client_connected | user=%s", current_user)
+    logger.info("events | event=client_connected | user=%s", current_user[0])
 
     return EventSourceResponse(
         _event_generator(request, redis),

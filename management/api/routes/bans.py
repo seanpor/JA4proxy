@@ -70,7 +70,7 @@ def _client_ip(request: Request) -> str:
 @router.get("/api/v1/bans", response_model=BanList)
 async def list_bans(
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(get_current_user),
     redis=Depends(get_redis),
 ) -> BanList:
     """List all active bans by scanning ban:* keys."""
@@ -115,13 +115,14 @@ async def create_ban(
     ip: str,
     request: Request,
     body: Optional[BanCreateRequest] = None,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(get_current_user),
     redis=Depends(get_redis),
 ) -> BanCreateResponse:
     """Create a ban for the given IP address.
 
     The IP is URL-decoded so IPv6 addresses passed percent-encoded work.
     """
+    identity = current_user[0]
     ip = urllib.parse.unquote(ip)
 
     # Use default body if none provided
@@ -136,13 +137,13 @@ async def create_ban(
         ip,
         body.ttl,
         body.reason,
-        current_user,
+        identity,
     )
 
     await _write_audit(
         redis,
         action="ban_created",
-        user=current_user,
+        user=identity,
         detail={"ip": ip, "ttl": body.ttl, "reason": body.reason},
         client_ip=_client_ip(request),
     )
@@ -159,7 +160,7 @@ async def create_ban(
 async def lift_ban(
     ip: str,
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(get_current_user),
     redis=Depends(get_redis),
 ) -> BanRemoveResponse:
     """Lift (remove) a ban for the given IP address.
@@ -167,6 +168,7 @@ async def lift_ban(
     Raises:
         HTTPException(404): If no ban exists for the IP.
     """
+    identity = current_user[0]
     ip = urllib.parse.unquote(ip)
     key = f"{_BAN_KEY_PREFIX}{ip}"
 
@@ -180,13 +182,13 @@ async def lift_ban(
     logger.info(
         "bans | event=ban_lifted | ip=%s | user=%s",
         ip,
-        current_user,
+        identity,
     )
 
     await _write_audit(
         redis,
         action="ban_lifted",
-        user=current_user,
+        user=identity,
         detail={"ip": ip},
         client_ip=_client_ip(request),
     )

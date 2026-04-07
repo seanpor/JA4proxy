@@ -9,9 +9,9 @@ Auth flow
    → redirects to /
 
 2. Every protected endpoint uses ``get_current_user(request)`` dependency.
-   → reads ``token`` cookie
-   → validates JWT signature and expiry
-   → returns username string
+   → checks Authorization: Bearer <token> header first
+   → falls through to ``token`` cookie if bearer not present or invalid
+   → returns (username, Role) tuple
 
 Security notes
 --------------
@@ -22,19 +22,22 @@ Security notes
 * Rate limiting: 5 consecutive failures per IP → 5-min lockout (in-memory).
 """
 
+import asyncio
 import logging
 import os
 import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, Tuple
 
-from fastapi import APIRouter, Cookie, HTTPException, Request, Response, status
+import bcrypt as _bcrypt
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
-from .models import LoginRequest
+from .models import LoginRequest, Role
+from .redis_client import get_redis
 
 logger = logging.getLogger(__name__)
 
@@ -175,42 +178,150 @@ def _record_success(ip: str) -> None:
     _login_failures[ip] = {"count": 0, "locked_until": 0.0}
 
 
+# ── Bearer token helper ───────────────────────────────────────────────────────
+
+
+async def get_bearer_user(
+    raw_token: str,
+    redis,
+) -> Optional[Tuple[str, Role]]:
+    """Validate a raw bearer token against stored Redis hashes.
+
+    Scans all token IDs in mgmt:token:idx and bcrypt-checks each.
+    Acceptable for Phase 79 where token counts are small (< 100).
+
+    Args:
+        raw_token: The raw bearer token string from the Authorization header.
+        redis: The Redis client.
+
+    Returns:
+        ``(identity, role)`` tuple on match, ``None`` if no token matches.
+    """
+    try:
+        token_ids = await redis.smembers("mgmt:token:idx")
+    except Exception:
+        return None
+
+    for token_id in token_ids:
+        try:
+            fields = await redis.hgetall(f"mgmt:token:{token_id}")
+        except Exception:
+            continue
+
+        if not fields:
+            continue
+
+        stored_hash = fields.get("hash", "")
+        if not stored_hash:
+            continue
+
+        # bcrypt is CPU-bound — run off the event loop
+        try:
+            match = await asyncio.to_thread(
+                _bcrypt.checkpw, raw_token.encode(), stored_hash.encode()
+            )
+        except Exception:
+            continue
+
+        if not match:
+            continue
+
+        # Check expiry
+        expires_at_str = fields.get("expires_at", "")
+        if expires_at_str:
+            try:
+                expires_dt = datetime.fromisoformat(expires_at_str)
+                if expires_dt.tzinfo is None:
+                    expires_dt = expires_dt.replace(tzinfo=timezone.utc)
+                if expires_dt <= datetime.now(timezone.utc):
+                    continue  # expired — treat as invalid
+            except ValueError:
+                pass  # malformed date; ignore
+
+        # Update last_used_at (fire-and-forget)
+        try:
+            await redis.hset(
+                f"mgmt:token:{token_id}",
+                "last_used_at",
+                datetime.now(timezone.utc).isoformat(),
+            )
+        except Exception:
+            pass
+
+        name = fields.get("name", token_id)
+        role_str = fields.get("role", "operator")
+        try:
+            role = Role(role_str)
+        except ValueError:
+            role = Role.operator
+
+        return (f"token:{name}", role)
+
+    return None
+
+
 # ── Dependency ────────────────────────────────────────────────────────────────
 
 
 async def get_current_user(
     request: Request,
     token: Optional[str] = Cookie(default=None, alias=COOKIE_NAME),
-) -> str:
-    """FastAPI dependency — returns the authenticated username.
+    redis=Depends(get_redis),
+) -> Tuple[str, Role]:
+    """FastAPI dependency — returns (username, role) tuple.
 
-    Checks the httpOnly ``token`` cookie. For API calls (Accept: application/json)
-    raises HTTP 401. For browser navigations redirects to /login.
+    Checks Authorization: Bearer header first, then falls through to cookie JWT.
+    For API calls (Accept: application/json) raises HTTP 401 on auth failure.
+    For browser navigations redirects to /login.
 
     Args:
         request: The incoming HTTP request.
         token: The JWT extracted from the cookie.
+        redis: The Redis client (injected for bearer token lookup).
 
     Returns:
-        Authenticated username string.
+        (username, Role) tuple.
 
     Raises:
         HTTPException(401): For API clients when auth fails.
         RedirectResponse(/login): For browser clients when auth fails.
     """
-    if token is None:
+    # 1. Try bearer token first
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        raw_token = auth_header.split(" ", 1)[1]
+        result = await get_bearer_user(raw_token, redis)
+        if result is not None:
+            return result
+        # Bearer header present but token invalid — reject immediately.
+        # Do NOT fall through to cookie auth: a presented but invalid bearer
+        # credential must not silently authenticate via a fallback mechanism.
         return _unauthenticated_response(request)
 
-    try:
-        payload = _decode_token(token)
-    except HTTPException:
-        return _unauthenticated_response(request)
+    # 2. Fall through to cookie JWT (only when no Bearer header was sent)
+    if token is not None:
+        try:
+            payload = _decode_token(token)
+            username: Optional[str] = payload.get("sub")
+            if username is not None:
+                return (username, Role.admin)
+        except HTTPException:
+            pass
 
-    username: Optional[str] = payload.get("sub")
-    if username is None:
-        return _unauthenticated_response(request)
+    return _unauthenticated_response(request)
 
-    return username
+
+async def require_admin(
+    current_user: Tuple[str, Role] = Depends(get_current_user),
+) -> Tuple[str, Role]:
+    """Dependency — requires admin role; raises 403 otherwise."""
+    identity, role = current_user
+    if role != Role.admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin role required",
+        )
+    return current_user
 
 
 def _unauthenticated_response(request: Request):

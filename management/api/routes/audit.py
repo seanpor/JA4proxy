@@ -26,7 +26,7 @@ _MAX_ENTRIES = 1000
 @router.get("/api/v1/audit", response_model=AuditLog)
 async def get_audit_log(
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(get_current_user),
     redis=Depends(get_redis),
 ) -> AuditLog:
     """Return the management audit log (newest-first, max 1000 entries)."""
