@@ -12,15 +12,15 @@ Constraints on PUT
 Redis key: config:dial (String, value is str(int))
 """
 
-import json
 import logging
 from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from ..auth import get_current_user
-from ..models import DialUpdateRequest, DialValue
+from ..audit_utils import write_audit
+from ..auth import require_mfa_verified, require_role
+from ..models import DialUpdateRequest, DialValue, Role
 from ..redis_client import get_redis
 
 logger = logging.getLogger(__name__)
@@ -28,7 +28,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["dial"])
 
 _DIAL_KEY = "config:dial"
-_AUDIT_KEY = "management:audit_log"
 _MAX_DIAL_CHANGE = 10
 
 
@@ -44,27 +43,6 @@ async def _get_current_dial(redis) -> int:
         return 0
 
 
-async def _write_audit(
-    redis,
-    action: str,
-    user: str,
-    detail: dict,
-    client_ip: str,
-) -> None:
-    """Write an audit log entry (LPUSH + LTRIM to 1000 entries)."""
-    entry = json.dumps(
-        {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "action": action,
-            "user": user,
-            "detail": detail,
-            "ip": client_ip,
-        }
-    )
-    await redis.lpush(_AUDIT_KEY, entry)
-    await redis.ltrim(_AUDIT_KEY, 0, 999)
-
-
 def _client_ip(request: Request) -> str:
     """Extract the real client IP, honouring X-Forwarded-For if present."""
     forwarded_for = request.headers.get("X-Forwarded-For")
@@ -78,7 +56,7 @@ def _client_ip(request: Request) -> str:
 @router.get("/api/v1/dial", response_model=DialValue)
 async def get_dial(
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(require_role(Role.auditor)),
     redis=Depends(get_redis),
 ) -> DialValue:
     """Return the current dial value."""
@@ -86,11 +64,13 @@ async def get_dial(
     return DialValue(value=value, updated_at=None)
 
 
+@router.patch("/api/v1/dial", response_model=DialValue)
 @router.put("/api/v1/dial", response_model=DialValue)
 async def update_dial(
     body: DialUpdateRequest,
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(require_role(Role.admin)),
+    _mfa=Depends(require_mfa_verified),
     redis=Depends(get_redis),
 ) -> DialValue:
     """Update the dial value.
@@ -104,6 +84,7 @@ async def update_dial(
     Raises:
         HTTPException(400): If the requested change exceeds ±10.
     """
+    identity, role = current_user
     current = await _get_current_dial(redis)
     delta = abs(body.value - current)
 
@@ -120,17 +101,21 @@ async def update_dial(
     await redis.set(_DIAL_KEY, str(body.value))
     logger.info(
         "dial | event=dial_changed | user=%s | from=%d | to=%d",
-        current_user,
+        identity,
         current,
         body.value,
     )
 
-    await _write_audit(
+    await write_audit(
         redis,
-        action="dial_changed",
-        user=current_user,
-        detail={"from": current, "to": body.value},
-        client_ip=_client_ip(request),
+        actor_id=identity,
+        actor_ip=_client_ip(request),
+        action_type="dial.changed",
+        resource_type="dial",
+        resource_id=None,
+        before_value={"value": current},
+        after_value={"value": body.value},
+        role=role.value,
     )
 
     return DialValue(

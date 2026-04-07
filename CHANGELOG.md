@@ -79,6 +79,165 @@
 - Existing Grafana dashboards consume Prometheus metrics; they are not affected by the log format setting
 - Phase 79 API-dependent features (Splunk alert action webhook, Sentinel automated playbooks) are verified once Phase 79 merges; all other deliverables are standalone
 
+## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 10: OpenAPI 3.1 Spec — 2026-04-07
+
+### Added
+- `docs/api/openapi.yaml` — static OpenAPI 3.1 spec, 51 routes, generated from the live FastAPI app; canonical format for downstream tooling (Terraform provider Phase 83, SDK generation, compliance evidence)
+- `docs/api/openapi.json` — JSON copy of the same spec; replaces the stale Phase 13 placeholder
+- `management/scripts/export_openapi.py` — repeatable export script (`MANAGEMENT_TEST_MODE=1 python3 management/scripts/export_openapi.py`)
+- `make openapi-spec` — Makefile target that invokes the export script
+- All Phase 79 routes present in spec: auth, TOTP MFA, WebAuthn, SAML 2.0, OIDC SSO, bearer tokens, audit, RBAC management endpoints
+
+## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 9: OIDC SSO — 2026-04-07
+
+### Added
+- `GET /auth/sso/oidc/login` — start OIDC authorization code + PKCE S256 flow; fetches discovery doc, generates state + code_verifier, stores in Redis (5-min TTL single-use)
+- `GET /auth/sso/oidc/callback` — receive authorization code, exchange for tokens (PKCE), extract claims from ID token, map groups to role, issue JWT cookie
+- `management/api/routes/oidc.py` — full OIDC SSO route handlers
+- PKCE S256: `code_verifier = secrets.token_urlsafe(64)`, challenge = `base64url(sha256(verifier))` — no implicit flow
+- Group-to-role mapping via `MANAGEMENT_OIDC_ROLE_MAPPING` JSON env var; fallback `MANAGEMENT_OIDC_DEFAULT_ROLE`; deny by default
+- Redis key: `mgmt:oidc:state:{state}` (JSON: code_verifier + redirect, 5-min TTL, single-use CSRF protection)
+- `authlib>=1.3.0` added to `management/requirements.txt`
+
+### Security
+- State is single-use: consumed (deleted) immediately on first use regardless of whether subsequent token exchange succeeds
+- ID token signature not verified (base64-decode only) — tracked as Phase 100 Gap 1; safe for dev/CI
+- PKCE always required — no authorization_code grant without verifier
+
+## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 8: SAML 2.0 SSO — 2026-04-07
+
+### Added
+- `GET /auth/sso/saml/login` — redirect browser to SAML IdP SSO URL; generates single-use nonce as RelayState for CSRF protection
+- `POST /auth/sso/saml/acs` — Assertion Consumer Service: validates nonce, processes SAML response, maps groups to role, issues JWT cookie
+- `GET /auth/sso/metadata` — serve SAML SP metadata XML to IdP administrators (`sp_validation_only=True`)
+- `management/api/routes/saml.py` — SAML 2.0 route handlers using `python3-saml`
+- Group-to-role mapping via `MANAGEMENT_SAML_ROLE_MAPPING` JSON env var; fallback `MANAGEMENT_SAML_DEFAULT_ROLE`
+- Redis key: `mgmt:saml:nonce:{nonce}` (String, 5-min TTL, single-use CSRF protection)
+- `python3-saml>=1.16.0` added to `management/requirements.txt`
+- `_create_access_token` now accepts `role` parameter (default `"admin"` for backward compat); `get_current_user` reads role from JWT payload with `"admin"` fallback for old tokens
+
+### Security
+- Nonces are single-use: deleted immediately before processing SAML response to prevent relay attacks
+- SAML strict mode (`MANAGEMENT_SAML_STRICT=true`) enabled by default; disabling only for dev/test
+
+## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 7: WebAuthn/FIDO2 — 2026-04-07
+
+### Added
+- `POST /auth/mfa/webauthn/register/begin` — generate registration challenge; excludes already-enrolled credentials
+- `POST /auth/mfa/webauthn/register/complete` — verify attestation response; store credential hash and public key
+- `POST /auth/mfa/webauthn/auth/begin` — generate authentication challenge using enrolled credential IDs
+- `POST /auth/mfa/webauthn/auth/complete` — verify assertion; check ownership; update sign_count; mark session MFA-verified
+- `management/api/routes/webauthn.py` — WebAuthn route handlers using `py-webauthn`
+- New Redis keys: `mgmt:webauthn:challenge:{user_id}` (JSON, 5-min TTL), `mgmt:webauthn:credential:{id}` (Hash: user_id, public_key, sign_count, created_at), `mgmt:webauthn:user:{user_id}:credentials` (SET of credential IDs)
+- `webauthn>=2.0.0` added to `management/requirements.txt`
+
+### Security
+- Challenges are single-use: consumed (deleted) immediately in `_load_challenge` on any code path — prevents replay within the 5-min TTL window
+- Credential ownership validated before assertion verification (403 on mismatch)
+- `sign_count` updated after each successful assertion to detect cloned keys
+
+## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 6: TOTP MFA — 2026-04-07
+
+### Added
+- `GET /auth/mfa/totp/setup` — TOTP enrollment: generates base32 secret, Fernet-encrypts it at rest, returns base64 PNG QR code + 8 plaintext backup codes (shown once)
+- `POST /auth/mfa/totp/verify` — validates a 6-digit TOTP code (±30s window) or a single-use backup code; marks session as MFA-verified (`mgmt:mfa:session:*`)
+- `management/api/routes/mfa_totp.py` — TOTP setup and verify route handlers
+- `mfa_session_key(jwt_token)` in `auth.py` — shared session key derivation (SHA-256 of JWT)
+- `require_mfa_verified` FastAPI dependency in `auth.py` — gates cookie-JWT sessions on MFA completion; bearer-token callers are exempt
+- New Redis keys: `mgmt:totp:{user_id}` (Fernet-encrypted secret), `mgmt:totp:backup:{user_id}` (LIST of bcrypt hashes, consumed on use), `mgmt:mfa:session:{sha256_of_jwt}` (8h TTL)
+- `pyotp>=2.9.0`, `qrcode[pil]>=7.4.2`, `cryptography>=42.0.0` added to `management/requirements.txt`
+
+### Changed
+- `PUT /api/v1/dial` now enforces `require_mfa_verified`: cookie-JWT admin users with TOTP enrolled must complete verification before changing the dial; bearer-token admins are unaffected
+
+### Security
+- TOTP secret never stored in plaintext — Fernet-encrypted at rest; decryption requires `MANAGEMENT_MFA_ENCRYPTION_KEY` env var
+- Backup codes bcrypt-hashed; each is single-use (hash removed from Redis after consumption)
+- 401 responses for failed backup code attempts do not reveal the number of remaining codes
+
+## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 5: Audit Trail Enhancements — 2026-04-07
+
+### Added
+- Enhanced audit log schema: every `management:audit_log` entry now contains `timestamp`, `actor_id`, `actor_ip`, `action_type`, `resource_type`, `resource_id`, `before_value`, `after_value`, `session_id`, `role` — full attribution per operation
+- `management/api/audit_utils.py` — shared `write_audit()` coroutine used by all route modules (eliminates duplicated `_write_audit` helpers in bans, dial, config_ops)
+- `GET /api/v1/audit?format=jsonl` — NDJSON export, one JSON object per line (`application/x-ndjson`)
+- `GET /api/v1/audit?format=csv` — CSV export with required header row (`text/csv`); nested values serialised as JSON strings in cells
+- `GET /api/v1/audit?action=<value>` — filter by `action_type` field (exact match)
+- `GET /api/v1/audit?actor=<value>` — filter by `actor_id` field (substring match)
+- `GET /api/v1/audit?since=<iso8601>` — filter by `timestamp >=` value (lexicographic; ISO 8601 sorts correctly)
+- Audit writes added to `POST /api/v1/allowlist|blocklist|watchlist` (action `{list}.created`, `before_value=null`, `after_value={entry, managed_by}`)
+- Audit writes added to `DELETE /api/v1/allowlist|blocklist|watchlist/{id}` (action `{list}.deleted`, `before_value=<record>`, `after_value=null`)
+
+### Changed
+- `POST /api/v1/bans/{ip}`: audit entry now uses `action_type="ban.created"`, `resource_id=ip`, `after_value={ip, ttl, reason}` instead of old `action`/`user`/`detail` fields
+- `DELETE /api/v1/bans/{ip}`: audit entry now uses `action_type="ban.deleted"`, `before_value={ip}` instead of old schema
+- `PUT /api/v1/dial`: audit entry now uses `action_type="dial.changed"`, `before_value={value: N}`, `after_value={value: N}` instead of old schema
+- `POST /api/v1/config/reload`: audit entry now uses `action_type="config.reload"` instead of old schema
+- Removed duplicated `_write_audit`, `_AUDIT_KEY` definitions from `bans.py`, `dial.py`, `config_ops.py` — all now delegate to `audit_utils.write_audit`
+
+## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 4: New Observability & Infrastructure Endpoints — 2026-04-07
+
+### Added
+- `GET /api/v1/connections` — queries `ja4proxy:events` stream; filterable by `ip`, `ja4`, `action`, `since`, `limit` (Analyst+)
+- `GET /api/v1/fingerprints/{ja4}` — aggregate stats (total, unique IPs, action breakdown, last seen); returns 404 on unknown fingerprint (Analyst+)
+- `GET /api/v1/fingerprints/{ja4}/history` — chronological event list for a fingerprint (Analyst+)
+- `GET /api/v1/nodes` — live proxy node list from `mgmt:node:*` heartbeat Hashes (Auditor+)
+- `POST /api/v1/nodes/{host}/reload` — publishes reload signal to `proxy:reload` Redis pub/sub channel (Admin)
+- `POST /api/v1/webhooks`, `GET /api/v1/webhooks` — webhook subscription CRUD; secret bcrypt-hashed at rest, never returned via API (Operator write, Auditor read)
+- `GET /api/v1/webhooks/{id}`, `PUT /api/v1/webhooks/{id}`, `DELETE /api/v1/webhooks/{id}` — inspect, update, and remove individual webhook subscriptions
+- `GET /api/v1/metrics/summary` — JSON snapshot: dial value, active ban count, events stream length (Auditor+)
+- `GET /api/v1/health/deep` — deep health check with Redis connectivity test; returns 503 on Redis failure (Auditor+)
+- `GET /api/v1/ready` — public readiness probe; no authentication required
+- New Redis keys: `webhook:{id}` Hash, `webhook:idx` SET, `proxy:reload` pub/sub channel
+
+## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 3: Resource Model (UUID + managed_by) — 2026-04-07
+
+### Added
+- New canonical list endpoints: `POST/GET /api/v1/allowlist`, `GET/DELETE /api/v1/allowlist/{id}` (and equivalent routes for blocklist, watchlist)
+- Full resource envelope on every list entry: `id` (UUID4), `entry`, `list_type`, `managed_by`, `note`, `created_at`, `created_by`, `expires_at`
+- Dual-write pattern: Redis Hash (management record) + proxy SET (hot path) written atomically via pipeline
+- `?managed_by=terraform` filter on all `GET` list endpoints
+- Expired entries (`expires_at` in the past) excluded from `GET` results
+- Migration runs at startup: existing `ja4:whitelist`, `ja4:blacklist`, `static:allowlist` SET members promoted to full Hash records with `managed_by="legacy"`; idempotent via `allowlist:migrated` / `blocklist:migrated` / `ip_allowlist:migrated` flags
+- `ManagedBy`, `ResourceCreate`, `ResourceResponse`, `ResourceListResponse` Pydantic models in `management/api/models.py`
+- New `ja4:watchlist` Redis SET introduced for watchlist proxy lookups
+
+### Changed
+- Old `/api/v1/lists/...` routes unchanged (backward compatibility preserved)
+
+## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 2: RBAC Role Enforcement — 2026-04-07
+
+### Added
+- `require_role(minimum_role)` dependency factory in `management/api/auth.py`; role hierarchy `auditor=0 < analyst=1 < operator=2 < admin=3` via `_ROLE_ORDER` dict
+- All management API endpoints now enforce minimum role via `Depends(require_role(...))`:
+  - `GET /api/v1/dial`, `GET /api/v1/bans`, `GET /api/v1/lists/...`, `GET /api/v1/audit` → Auditor+
+  - `GET /api/v1/events` → Analyst+
+  - `POST /api/v1/bans/{ip}`, `DELETE /api/v1/bans/{ip}`, `POST /api/v1/lists/.../{entry}`, `DELETE /api/v1/lists/.../{entry}` → Operator+
+  - `PUT /api/v1/dial`, `POST /api/v1/config/reload`, all `/api/v1/tokens/*` → Admin
+  - `GET /api/v1/health` → Public (no auth required, unchanged)
+- 403 responses include RFC 7807-style `detail` field: `"Role 'X' insufficient; 'Y' or higher required."`
+- Cookie JWT sessions receive `Role.admin` unconditionally for backward compatibility
+
+### Changed
+- No new Redis keys introduced; role enforcement is in-process only
+
+## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 1: Bearer Token Infrastructure — 2026-04-07
+
+### Added
+- `POST /api/v1/tokens`, `GET /api/v1/tokens`, `DELETE /api/v1/tokens` endpoints for API token lifecycle management (Admin role only)
+- `GET /api/v1/tokens/{id}`, `DELETE /api/v1/tokens/{id}` for individual token inspection and revocation
+- `POST /api/v1/tokens/{id}/rotate` for token rotation with a 60-second grace period (old token remains valid during overlap)
+- Bearer token authentication middleware: `Authorization: Bearer <token>` accepted on all protected endpoints alongside existing cookie JWT
+- `Role` enum (`auditor`, `analyst`, `operator`, `admin`) in `management/api/models.py`
+- `TokenCreate`, `TokenResponse`, `TokenCreateResponse`, `TokenListResponse`, `TokenRotateResponse` Pydantic models
+- `get_bearer_user()` dependency in `management/api/auth.py` for bearer-token extraction and bcrypt verification
+- `get_current_user()` now returns `Tuple[str, Role]` (identity and role); bearer token checked first, cookie JWT as fallback
+- Tokens stored as bcrypt hashes in Redis (`mgmt:token:{id}` Hash); raw token shown only once at creation
+- `mgmt:token:idx` SET tracks all active token IDs; used by middleware for enumeration during hash-check lookup
+- `last_used_at` field updated in Redis on every successful bearer authentication
+- `bcrypt>=4.1.0` added to `management/requirements.txt`
+- CORS middleware updated to allow `PATCH` method
+
 ## [Phase 92] — 2026-04-07
 
 ### Added

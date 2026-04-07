@@ -111,11 +111,12 @@ async def test_put_dial_creates_audit_entry(
     entries = await fake_redis.lrange("management:audit_log", 0, 0)
     assert len(entries) == 1
     entry = json.loads(entries[0])
-    assert entry["action"] == "dial_changed"
-    assert entry["detail"]["from"] == 5
-    assert entry["detail"]["to"] == 10
+    # Phase 79 C5: enhanced audit schema
+    assert entry["action_type"] == "dial.changed"
+    assert entry["before_value"]["value"] == 5
+    assert entry["after_value"]["value"] == 10
     assert "timestamp" in entry
-    assert "user" in entry
+    assert "actor_id" in entry
 
 
 @pytest.mark.asyncio

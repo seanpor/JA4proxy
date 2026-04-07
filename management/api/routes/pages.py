@@ -64,38 +64,38 @@ async def login_page(request: Request) -> HTMLResponse:
 @router.get("/", response_class=HTMLResponse)
 async def dashboard_page(
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ) -> HTMLResponse:
     """Render the main dashboard page."""
     templates = _get_templates()
-    return templates.TemplateResponse(request, "dashboard.html", {"user": current_user})
+    return templates.TemplateResponse(request, "dashboard.html", {"user": current_user[0]})
 
 
 @router.get("/lists", response_class=HTMLResponse)
 async def lists_page(
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ) -> HTMLResponse:
     """Render the JA4 / IP list management page."""
     templates = _get_templates()
-    return templates.TemplateResponse(request, "lists.html", {"user": current_user})
+    return templates.TemplateResponse(request, "lists.html", {"user": current_user[0]})
 
 
 @router.get("/bans", response_class=HTMLResponse)
 async def bans_page(
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ) -> HTMLResponse:
     """Render the active bans management page."""
     templates = _get_templates()
-    return templates.TemplateResponse(request, "bans.html", {"user": current_user})
+    return templates.TemplateResponse(request, "bans.html", {"user": current_user[0]})
 
 
 @router.get("/audit", response_class=HTMLResponse)
 async def audit_page(
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(get_current_user),
 ) -> HTMLResponse:
     """Render the audit log page."""
     templates = _get_templates()
-    return templates.TemplateResponse(request, "audit.html", {"user": current_user})
+    return templates.TemplateResponse(request, "audit.html", {"user": current_user[0]})

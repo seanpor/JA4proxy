@@ -35,8 +35,8 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from ..auth import get_current_user
-from ..models import ListAddResponse, ListEntries, ListRemoveResponse
+from ..auth import require_role
+from ..models import ListAddResponse, ListEntries, ListRemoveResponse, Role
 from ..redis_client import get_redis
 
 logger = logging.getLogger(__name__)
@@ -103,7 +103,7 @@ async def get_list(
     list_type: str,
     list_name: str,
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(require_role(Role.auditor)),
     redis=Depends(get_redis),
 ) -> ListEntries:
     """Return all entries in the specified list."""
@@ -122,10 +122,11 @@ async def add_to_list(
     list_name: str,
     entry: str,
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(require_role(Role.operator)),
     redis=Depends(get_redis),
 ) -> ListAddResponse:
     """Add an entry to the specified list (idempotent — safe to call multiple times)."""
+    identity = current_user[0]
     redis_key = _resolve_key(list_type, list_name)
     await redis.sadd(redis_key, entry)
     logger.info(
@@ -133,13 +134,13 @@ async def add_to_list(
         list_type,
         list_name,
         entry,
-        current_user,
+        identity,
     )
 
     await _write_audit(
         redis,
         action="list_entry_added",
-        user=current_user,
+        user=identity,
         detail={"list": f"{list_type}/{list_name}", "entry": entry},
         client_ip=_client_ip(request),
     )
@@ -159,7 +160,7 @@ async def remove_from_list(
     list_name: str,
     entry: str,
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(require_role(Role.operator)),
     redis=Depends(get_redis),
 ) -> ListRemoveResponse:
     """Remove an entry from the specified list.
@@ -167,6 +168,7 @@ async def remove_from_list(
     Raises:
         HTTPException(404): If the entry does not exist in the list.
     """
+    identity = current_user[0]
     redis_key = _resolve_key(list_type, list_name)
     removed = await redis.srem(redis_key, entry)
 
@@ -181,13 +183,13 @@ async def remove_from_list(
         list_type,
         list_name,
         entry,
-        current_user,
+        identity,
     )
 
     await _write_audit(
         redis,
         action="list_entry_removed",
-        user=current_user,
+        user=identity,
         detail={"list": f"{list_type}/{list_name}", "entry": entry},
         client_ip=_client_ip(request),
     )
