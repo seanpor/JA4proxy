@@ -208,4 +208,12 @@ phase: 54
 
 ---
 
-*Last updated: 2026-04-07, Phase 79 Cluster 8 complete*
+### Phase 79 — Cluster 9: OIDC SSO
+
+| Key | Type | TTL | Written by | Purpose |
+|-----|------|-----|-----------|---------|
+| `mgmt:oidc:state:{state}` | String (JSON) | 5min | `GET /auth/sso/oidc/login` | PKCE and CSRF state. JSON: `{"code_verifier": "...", "redirect": "/"}`. Generated at login, consumed (deleted) at callback — single-use. *(Phase 79)* |
+
+---
+
+*Last updated: 2026-04-07, Phase 79 Cluster 9 complete*
