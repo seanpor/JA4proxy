@@ -111,11 +111,18 @@ def _verify_password(plain: str) -> bool:
     return False
 
 
-def _create_access_token(username: str) -> str:
-    """Create a signed JWT for *username* with an 8-hour expiry."""
+def _create_access_token(username: str, role: str = "admin") -> str:
+    """Create a signed JWT for *username* with an 8-hour expiry.
+
+    Args:
+        username: The subject claim (username or SSO NameID).
+        role: The role to embed in the token (default ``"admin"`` for the
+              hard-coded admin login; SSO flows pass the mapped role explicitly).
+    """
     now = datetime.now(timezone.utc)
     payload = {
         "sub": username,
+        "role": role,
         "iat": now,
         "exp": now + timedelta(hours=TOKEN_EXPIRY_HOURS),
     }
@@ -305,7 +312,14 @@ async def get_current_user(
             payload = _decode_token(token)
             username: Optional[str] = payload.get("sub")
             if username is not None:
-                return (username, Role.admin)
+                # Read role from JWT; default to admin for tokens issued before
+                # SSO was added (backward compatibility with existing sessions).
+                role_str: str = payload.get("role", "admin")
+                try:
+                    cookie_role = Role(role_str)
+                except ValueError:
+                    cookie_role = Role.admin
+                return (username, cookie_role)
         except HTTPException:
             pass
 

@@ -200,4 +200,12 @@ phase: 54
 
 ---
 
-*Last updated: 2026-04-07, Phase 79 Cluster 7 complete*
+### Phase 79 — Cluster 8: SAML 2.0 SSO
+
+| Key | Type | TTL | Written by | Purpose |
+|-----|------|-----|-----------|---------|
+| `mgmt:saml:nonce:{nonce}` | String (redirect URL) | 5min | `GET /auth/sso/saml/login` | CSRF protection nonce. Value is the post-login redirect URL (default "/"). Generated at login, consumed and deleted at ACS — single-use. *(Phase 79)* |
+
+---
+
+*Last updated: 2026-04-07, Phase 79 Cluster 8 complete*

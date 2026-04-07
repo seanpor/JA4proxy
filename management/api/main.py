@@ -50,6 +50,7 @@ from .routes import (
     metrics,
     mfa_totp,
     nodes,
+    saml as saml_routes,
     webauthn as webauthn_routes,
     pages,
     partials,
@@ -136,6 +137,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(mfa_totp.router)
     app.include_router(webauthn_routes.router)
+    app.include_router(saml_routes.router)
 
     # API routes (auth enforced per-route via Depends)
     app.include_router(health.router)

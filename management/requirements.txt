@@ -15,3 +15,4 @@ pyotp>=2.9.0               # phase-79: TOTP MFA
 qrcode[pil]>=7.4.2         # phase-79: TOTP setup QR codes
 cryptography>=42.0.0       # phase-79: Fernet encryption for TOTP secrets
 webauthn>=2.0.0            # phase-79: WebAuthn/FIDO2 hardware key MFA
+python3-saml>=1.16.0       # phase-79: SAML 2.0 SSO (requires xmlsec1 system package)
