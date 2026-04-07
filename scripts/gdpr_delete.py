@@ -10,20 +10,21 @@ Usage:
     make gdpr-delete IP=1.2.3.4
     python3 scripts/gdpr_delete.py --ip 1.2.3.4
     python3 scripts/gdpr_delete.py --ip 1.2.3.4 --dry-run
+    python3 scripts/gdpr_delete.py --ip 1.2.3.4 --report
 
-Limitations (see Phase 91 for full remediation):
+Limitations:
     - HyperLogLog keys (hll:cidr48:*) cannot be individually erased.
       They are skipped and reported. They expire naturally via TTL.
-    - Audit logging to management:gdpr_erasure_log is not yet implemented.
-      See Phase 91 acceptance criteria.
-
-For backup archive redaction (separate concern), see src/backup/redactor.py.
+    - Backup archive redaction is a separate concern: src/backup/redactor.py
+      See Phase 40 documentation.
 """
 
 import argparse
 import ipaddress
+import json
 import os
 import sys
+from datetime import datetime, timezone
 
 # Allow running from repo root without installing the package
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -74,13 +75,38 @@ _SCAN_PATTERNS = [p for p in _IP_KEY_PATTERNS if "*" in p]
 _EXACT_PATTERNS = [p for p in _IP_KEY_PATTERNS if "*" not in p]
 
 
-def purge_ip(ip: str, dry_run: bool = False) -> dict:
+def _write_audit_log(r, ip: str, dry_run: bool, keys_deleted: int,
+                     hll_skipped: int, zset_removed: int,
+                     invoked_by: str = "gdpr_delete.py") -> None:
+    """Write an erasure audit entry to management:gdpr_erasure_log (last 1000)."""
+    entry = json.dumps({
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "ip": ip,
+        "dry_run": dry_run,
+        "keys_deleted": keys_deleted,
+        "keys_skipped_hll": hll_skipped,
+        "zset_members_removed": zset_removed,
+        "invoked_by": invoked_by,
+    })
+    r.lpush("management:gdpr_erasure_log", entry)
+    r.ltrim("management:gdpr_erasure_log", 0, 999)
+
+
+def purge_ip(ip: str, dry_run: bool = False, r=None) -> dict:
     """Delete all Redis data associated with *ip*.
 
     Returns a dict with keys:
       keys_deleted, zset_members_removed, hll_skipped
+
+    Args:
+        ip: IP address string to erase (any valid form; normalised internally).
+        dry_run: If True, report what would be deleted without deleting.
+        r: Optional Redis client. If None, one is created via _redis_client().
     """
-    r = _redis_client()
+    # Normalise to canonical form before any key operations
+    ip = ipaddress.ip_address(ip.strip()).compressed
+    if r is None:
+        r = _redis_client()
     keys_to_delete = []
     zset_removed = 0
     hll_skipped = 0
@@ -144,11 +170,14 @@ def purge_ip(ip: str, dry_run: bool = False) -> dict:
     elif zset_removed == 0 and hll_skipped == 0:
         print(f"No Redis data found for IP {ip}.")
 
-    return {
+    result = {
         "keys_deleted": len(keys_to_delete) if dry_run else keys_deleted,
         "zset_members_removed": zset_removed,
         "hll_skipped": hll_skipped,
     }
+    _write_audit_log(r, ip, dry_run,
+                     result["keys_deleted"], hll_skipped, zset_removed)
+    return result
 
 
 def main() -> int:
@@ -160,6 +189,11 @@ def main() -> int:
         "--dry-run",
         action="store_true",
         help="Print keys that would be deleted without deleting them",
+    )
+    parser.add_argument(
+        "--report",
+        action="store_true",
+        help="Print a JSON summary of the erasure operation to stdout",
     )
     args = parser.parse_args()
 
@@ -179,6 +213,13 @@ def main() -> int:
         print(f"ERROR: could not connect to Redis: {exc}", file=sys.stderr)
         print("Set REDIS_HOST / REDIS_PORT / REDIS_PASSWORD as needed.", file=sys.stderr)
         return 1
+
+    if args.report:
+        print(json.dumps({
+            "ip": ip,
+            "dry_run": args.dry_run,
+            **result,
+        }, indent=2))
 
     prefix = "Dry run complete." if args.dry_run else "Erasure complete."
     print(f"\n{prefix}")

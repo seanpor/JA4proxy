@@ -892,7 +892,7 @@ phases:
     dependencies: [14]
     size: "MEDIUM"
     gaps:
-      - "make test-phase-87-integration target was broken since Phase 87 shipped (scripts never created). Basic scripts added in Phase 89 cleanup; full alert-rule and Grafana verification tracked in Phase 91b."
+      - "make test-phase-87-integration target was broken since code was merged (scripts never created). Scripts created and extended in Phase 91. Integration tests require a live monitoring stack — never yet run against real infrastructure."
     success_criteria:
       - "cAdvisor service added to docker/docker-compose.monitoring.yml and scraped by Prometheus"
       - "ja4proxy-infrastructure.json dashboard: fleet status strip visible without scrolling, container variable drill-down"
@@ -951,7 +951,7 @@ phases:
 
   91:
     name: "GDPR Live Data Erasure & Operational Script Gap Remediation"
-    status: "IN_PROGRESS"
+    status: "COMPLETE"
     action_plan: "docs/phases/PHASE_91.md"
     dependencies: [40, 87]
     size: "SMALL"
