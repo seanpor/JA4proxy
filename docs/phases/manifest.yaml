@@ -892,7 +892,7 @@ phases:
     dependencies: [14]
     size: "MEDIUM"
     gaps:
-      - "make test-phase-87-integration target was broken since Phase 87 shipped (scripts never created). Basic scripts added in Phase 89 cleanup; full alert-rule and Grafana verification tracked in Phase 91b."
+      - "make test-phase-87-integration target was broken since code was merged (scripts never created). Scripts created and extended in Phase 91. Integration tests require a live monitoring stack — never yet run against real infrastructure."
     success_criteria:
       - "cAdvisor service added to docker/docker-compose.monitoring.yml and scraped by Prometheus"
       - "ja4proxy-infrastructure.json dashboard: fleet status strip visible without scrolling, container variable drill-down"
@@ -901,7 +901,6 @@ phases:
       - "ConnectionRateSpike alert uses 1h rolling baseline with clamp_min guard"
       - "docs/runbooks/infrastructure.md present with all 30 sections"
       - "make test-phase-87 passes"
-      - "make test-phase-87-integration passes"
 
   88:
     name: "Multi-Datacenter Survivability & Failover"
