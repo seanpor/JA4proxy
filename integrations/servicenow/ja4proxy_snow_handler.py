@@ -21,10 +21,8 @@ import os
 
 import requests
 
-SNOW_INSTANCE = os.environ.get("SNOW_INSTANCE", "")
-SNOW_USER = os.environ.get("SNOW_USER", "")
-SNOW_PASS = os.environ.get("SNOW_PASS", "")
-SIR_TABLE_URL = f"https://{SNOW_INSTANCE}/api/now/table/sn_si_incident"
+# Credentials are read from os.environ at call time inside create_sir_incident()
+# so that tests can patch os.environ without reloading the module.
 
 
 def ecs_to_sir(event: dict) -> dict:
@@ -82,10 +80,9 @@ def create_sir_incident(event: dict) -> str:
     Raises:
         requests.HTTPError: if the ServiceNow API returns a non-2xx status.
     """
-    # Re-read env at call time so tests can patch os.environ
-    snow_instance = os.environ.get("SNOW_INSTANCE", SNOW_INSTANCE)
-    snow_user = os.environ.get("SNOW_USER", SNOW_USER)
-    snow_pass = os.environ.get("SNOW_PASS", SNOW_PASS)
+    snow_instance = os.environ.get("SNOW_INSTANCE", "")
+    snow_user = os.environ.get("SNOW_USER", "")
+    snow_pass = os.environ.get("SNOW_PASS", "")
     sir_url = f"https://{snow_instance}/api/now/table/sn_si_incident"
 
     payload = ecs_to_sir(event)

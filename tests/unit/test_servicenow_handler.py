@@ -15,8 +15,9 @@ Boundary tests at exactly 84 and 85 are mandatory.
 
 from __future__ import annotations
 
+import json
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 import requests
@@ -186,18 +187,30 @@ class TestCreateSirIncident:
         return MagicMock(return_value=mock_resp)
 
     def test_create_sir_incident_success(self, handler, minimal_event):
-        """mock requests.post returns 201 + sys_id → create_sir_incident returns sys_id."""
+        """mock requests.post returns 201 + sys_id → returns sys_id; verifies POST body."""
+        mock_post = self._mock_post_success()
         with patch.dict(os.environ, {
             "SNOW_INSTANCE": "company.service-now.com",
             "SNOW_USER": "user",
             "SNOW_PASS": "pass",
         }):
             with patch("integrations.servicenow.ja4proxy_snow_handler.requests.post",
-                       self._mock_post_success()):
+                       mock_post):
                 result = handler.create_sir_incident(minimal_event)
 
         assert result == "abc123", (
             f"Expected sys_id='abc123', got: {result!r}"
+        )
+        # Verify the body sent to ServiceNow came from ecs_to_sir()
+        assert mock_post.called, "requests.post was never called"
+        call_kwargs = mock_post.call_args[1]
+        sent_body = json.loads(call_kwargs["data"])
+        assert sent_body["u_source_ip"] == "1.2.3.4", (
+            f"Expected u_source_ip='1.2.3.4' in POST body, got: {sent_body}"
+        )
+        assert "severity" in sent_body, "POST body missing 'severity' field"
+        assert sent_body["category"] == "network_intrusion", (
+            f"Expected category='network_intrusion', got: {sent_body.get('category')!r}"
         )
 
     def test_create_sir_incident_raises_on_403(self, handler, minimal_event):

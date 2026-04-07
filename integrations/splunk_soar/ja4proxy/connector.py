@@ -164,7 +164,16 @@ async def add_to_allowlist(
     ttl_seconds: int,
     reason: str = "",
 ) -> dict:
-    """add_to_allowlist action — POST /api/v1/allowlist."""
+    """add_to_allowlist action — POST /api/v1/allowlist.
+
+    Raises:
+        ValueError: if ttl_seconds <= 0 (no indefinite allowlist entries allowed).
+    """
+    if ttl_seconds <= 0:
+        raise ValueError(
+            "ttl_seconds must be > 0: indefinite allowlist entries are not permitted. "
+            "Provide an explicit expiry (e.g. ttl_seconds=86400 for 24 hours)."
+        )
     return await _request(
         "POST",
         f"{base_url}/api/v1/allowlist",
