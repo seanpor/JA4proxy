@@ -244,6 +244,17 @@ func (c *Client) ZRangeScores(ctx context.Context, key string, start, stop int64
 	return scores
 }
 
+// XAdd appends a message to a Redis Stream. Fails open (errors are silently ignored
+// since stream writes are fire-and-forget on the hot path).
+func (c *Client) XAdd(ctx context.Context, stream string, values map[string]interface{}) {
+	if err := c.rdb.XAdd(ctx, &goredis.XAddArgs{
+		Stream: stream,
+		Values: values,
+	}).Err(); err != nil {
+		c.log.WithError(err).WithField("stream", stream).Debug("redis: XADD failed")
+	}
+}
+
 // SeedDialIfAbsent writes the dial value only if config:dial is not already set.
 func (c *Client) SeedDialIfAbsent(ctx context.Context, dial int) {
 	result, err := c.rdb.SetArgs(ctx, "config:dial", fmt.Sprintf("%d", dial), goredis.SetArgs{Mode: "NX"}).Result()

@@ -1,0 +1,7 @@
+action,cim_action,severity
+allowed,allowed,low
+blocked,blocked,high
+banned,blocked,critical
+tarpitted,blocked,medium
+rate_limited,blocked,medium
+flagged,allowed,informational

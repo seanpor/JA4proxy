@@ -7,6 +7,10 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🟡 Phases In Progress
 
+### Phase 100 — Cross-Phase Gap Closure
+*   **Status:** **IN_PROGRESS** (Rolling tracker for non-blocking gaps from completed phases. Current items: source.port/destination.ip absent from ECS events (Phase 80); Go dual_output logging mode not implemented (Phase 80); per-endpoint webhook retry/timeout config ignored (Phase 80); Splunk TA and Sentinel live-testing (Phase 80, requires platform access); Phase 79 API verification for Splunk alert action and Sentinel playbooks (Phase 80, blocks on Phase 79 merge).)
+*   **Action Plan:** [PHASE_100.md](PHASE_100.md)
+
 ---
 
 ## 🔵 Planned & Open Phases
@@ -34,10 +38,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 79 — Management API v2, RBAC & Enterprise Identity
 *   **Status:** **PROPOSED** (Production-grade REST API with stable IDs, full RBAC (Auditor/Analyst/Operator/Admin), SAML 2.0 + OIDC SSO (Okta, Entra ID), mandatory MFA for Admin/Operator, append-only audit trail. Critical dependency for phases 80-86.)
 *   **Action Plan:** [PHASE_79.md](PHASE_79.md)
-
-### Phase 80 — ECS Structured Logging & SIEM Integration Pack
-*   **Status:** **PROPOSED** (Canonical ECS 8.x JSON log format for all events. Splunk TA (CIM-compliant, 5 dashboards, 5 correlation searches, alert action). Microsoft Sentinel content pack. IBM QRadar DSM. Elastic integration. HMAC-signed webhook event stream.)
-*   **Action Plan:** [PHASE_80.md](PHASE_80.md)
 
 ### Phase 81 — SOAR, Webhooks & Enterprise Operations Platforms
 *   **Status:** **PROPOSED** (XSOAR integration (8 commands, 2 playbooks). Splunk SOAR app. ServiceNow SecOps SIR auto-creation and close-loop release. ServiceNow Spoke. xMatters two-way mobile response (5 options). Interlink Software Service Watch (UK NOC). PagerDuty/OpsGenie runbook links.)

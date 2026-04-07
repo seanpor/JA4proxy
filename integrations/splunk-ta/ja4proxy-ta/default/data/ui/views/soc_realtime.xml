@@ -1,0 +1,72 @@
+<dashboard version="1.1">
+  <label>JA4proxy — SOC Real-Time</label>
+
+  <row>
+    <panel>
+      <title>Blocked Connections (Last 15 Min)</title>
+      <single>
+        <search>
+          <query>`$ja4proxy_index$` | where 'event.action' IN ("blocked","banned","tarpitted") | stats count as blocks</query>
+          <earliest>-15m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorBy">value</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xD93F3C"]</option>
+        <option name="rangeValues">[0,50]</option>
+        <option name="useColors">true</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>Current Dial Setting</title>
+      <single>
+        <search>
+          <query>`$ja4proxy_index$` | stats latest('ja4proxy.dial_setting') as dial</query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="unit">/100</option>
+      </single>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Connections by Action Over Time</title>
+      <chart>
+        <search>
+          <query>`$ja4proxy_index$` | timechart count by 'event.action'</query>
+          <earliest>-60m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.chart.stackMode">stacked</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.drilldown">none</option>
+      </chart>
+    </panel>
+  </row>
+
+  <row>
+    <panel>
+      <title>Top 10 Blocked Source IPs</title>
+      <table>
+        <search>
+          <query>`$ja4proxy_index$` | where 'event.action' IN ("blocked","banned") | stats count as hits, max('event.risk_score') as max_score by 'source.ip', 'ja4proxy.fingerprint.ja4' | sort -hits | head 10</query>
+          <earliest>-15m</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="wrap">true</option>
+        <option name="rowNumbers">true</option>
+        <format type="color" field="max_score">
+          <colorPalette type="minMidMax" maxColor="#D93F3C" midColor="#F7BC38" minColor="#65A637"/>
+          <scale type="minMidMax" minValue="0" midValue="50" maxValue="100"/>
+        </format>
+      </table>
+    </panel>
+  </row>
+</dashboard>

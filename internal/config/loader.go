@@ -154,6 +154,7 @@ func defaultConfig() *Config {
 		Logging: LoggingConfig{
 			Level:       "INFO",
 			JSONEnabled: false,
+			Format:      "legacy",
 		},
 		Metrics: MetricsConfig{
 			Enabled: true,
@@ -277,6 +278,12 @@ func defaultConfig() *Config {
 			Enabled: true,
 			IPs:     []StaticIPConfigYAML{},
 		},
+		Webhooks: WebhooksConfig{
+			Enabled:   false,
+			StreamKey: "events:connection",
+			DLQKey:    "webhooks:dlq",
+			Endpoints: []WebhookEndpointConfig{},
+		},
 	}
 }
 
@@ -306,6 +313,7 @@ type Config struct {
 	RDAPEnrichment RDAPConfigYAML          `yaml:"rdap_enrichment"`
 	Fingerprinting FingerprintingConfigYAML `yaml:"fingerprinting"`
 	StaticAllowlist StaticAllowlistConfigYAML `yaml:"static_allowlist"`
+	Webhooks        WebhooksConfig            `yaml:"webhooks"` // phase-80
 }
 
 // ProxyConfig holds network listener and connection settings.
@@ -391,6 +399,13 @@ type ThresholdsConfig struct {
 type LoggingConfig struct {
 	Level       string `yaml:"level"`
 	JSONEnabled bool   `yaml:"json_enabled"`
+	// Format controls the log output format: "legacy" (default) or "ecs".
+	// "ecs" emits ECS 8.x-compliant JSON for SIEM ingestion.
+	Format string `yaml:"format"` // phase-80
+	// DualOutput, when true and Format is "ecs", emits both legacy and ECS
+	// JSON lines per log entry — useful during SIEM dashboard migration.
+	// Python-only feature; Go logs a warning and uses ECS-only.
+	DualOutput bool `yaml:"dual_output"` // phase-80
 }
 
 // MetricsConfig holds Prometheus metrics settings.
@@ -598,4 +613,23 @@ type StaticIPConfigYAML struct {
 type StaticAllowlistConfigYAML struct {
 	Enabled bool                 `yaml:"enabled"`
 	IPs     []StaticIPConfigYAML `yaml:"ips"`
+}
+
+// WebhookEndpointConfig is one webhook delivery target.
+type WebhookEndpointConfig struct {
+	ID                  string   `yaml:"id"`
+	URL                 string   `yaml:"url"`
+	Secret              string   `yaml:"secret"`
+	Events              []string `yaml:"events"`
+	RetryAttempts       int      `yaml:"retry_attempts"`
+	RetryBackoffSeconds float64  `yaml:"retry_backoff_seconds"`
+	TimeoutSeconds      float64  `yaml:"timeout_seconds"`
+}
+
+// WebhooksConfig holds the webhook dispatcher configuration.
+type WebhooksConfig struct {
+	Enabled   bool                    `yaml:"enabled"`
+	StreamKey string                  `yaml:"stream_key"`
+	DLQKey    string                  `yaml:"dlq_key"`
+	Endpoints []WebhookEndpointConfig `yaml:"endpoints"`
 }

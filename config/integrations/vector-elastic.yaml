@@ -1,0 +1,107 @@
+# Vector config: JA4proxy → Elasticsearch
+#
+# Target SIEM: Elasticsearch 8.x (Elastic Stack / Elastic Security)
+#
+# Required environment variables:
+#   ELASTIC_URL      — e.g. https://elasticsearch.corp.example.com:9200
+#                      or https://<cluster-id>.es.<region>.aws.elastic-cloud.com
+#   ELASTIC_API_KEY  — base64-encoded API key from Kibana → Stack Management →
+#                      API Keys → Create API key (assign write access to ja4proxy-*)
+#
+# How to run:
+#   vector --config config/integrations/vector-elastic.yaml
+#
+# Pre-requisite: set `logging.format: ecs` in config/proxy.yml before deploying.
+#
+# Notes:
+#   - The index template (integrations/elastic/index-template.json) and ILM policy
+#     (integrations/elastic/ilm-policy.json) must be applied before first ingest.
+#   - Index name pattern: ja4proxy-YYYY.MM.DD  (daily rollover)
+#   - ECS 8.x field types are mapped by the index template; dotted ECS keys are
+#     stored as Elasticsearch object fields (not flattened), which allows sub-field
+#     queries like `source.ip: "198.51.100.4"`.
+#   - The ingest pipeline (integrations/elastic/ingest-pipeline.json) adds GeoIP
+#     enrichment and is referenced by the index template's `default_pipeline`.
+
+data_dir: /var/lib/vector
+
+# ── Sources ──────────────────────────────────────────────────────────────────
+sources:
+  proxy_stdout:
+    type: stdin
+
+# ── Transforms ───────────────────────────────────────────────────────────────
+transforms:
+  parse_ecs:
+    type: remap
+    inputs: ["proxy_stdout"]
+    source: |
+      . = parse_json!(string!(.message))
+
+  add_index_name:
+    type: remap
+    inputs: ["parse_ecs"]
+    source: |
+      # Compute the daily index name from the event timestamp.
+      # Format: ja4proxy-YYYY.MM.DD
+      # Elasticsearch ILM rolls over based on age/size; daily naming gives
+      # clean boundaries for retention and ILM phase transitions.
+      ts = parse_timestamp!(.["@timestamp"], format: "%+")
+      .["_index"] = "ja4proxy-" + format_timestamp!(ts, format: "%Y.%m.%d")
+
+      # Elasticsearch 8.x uses data streams by convention, but we use a classic
+      # time-based index here for compatibility with self-managed clusters that
+      # have not migrated to data streams. To switch to data streams, replace
+      # `_index` with `data_stream.namespace` and update the index template.
+
+      # Ensure the `@timestamp` field is present and correctly formatted —
+      # Elasticsearch requires it for time-series ordering.
+      # (Already present from ECS; this is a no-op guard.)
+      if !exists(.["@timestamp"]) {
+        .["@timestamp"] = format_timestamp!(now(), format: "%+")
+      }
+
+# ── Sinks ─────────────────────────────────────────────────────────────────────
+sinks:
+  elasticsearch:
+    type: elasticsearch
+    inputs: ["add_index_name"]
+
+    # Cluster endpoints — list multiple nodes for client-side load balancing
+    endpoints:
+      - "${ELASTIC_URL}"
+
+    # API key authentication (recommended over username/password)
+    auth:
+      strategy: api_key
+      api_key:  "${ELASTIC_API_KEY}"
+
+    # Use the `_index` field computed in the transform
+    bulk:
+      index: "{{ _index }}"
+      action: index
+
+    # Reference the ingest pipeline for GeoIP enrichment
+    pipeline: "ja4proxy-enrichment"
+
+    encoding:
+      codec: json
+
+    # Batching: Elasticsearch bulk API is most efficient at 5–15 MB per request
+    batch:
+      max_bytes:    5242880   # 5 MB
+      max_events:   1000
+      timeout_secs: 5
+
+    # TLS
+    tls:
+      verify_certificate: true
+      # ca_file: /etc/ssl/certs/elastic-ca.pem   # uncomment for private CA
+
+    # Retry on 429 (bulk queue full) and 503 (circuit breaker)
+    request:
+      retry_attempts:             5
+      retry_initial_backoff_secs: 1
+      retry_max_duration_secs:    60
+      # Concurrency: 2 in-flight bulk requests is safe for most clusters
+      concurrency: 2

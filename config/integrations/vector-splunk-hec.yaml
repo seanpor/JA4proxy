@@ -1,0 +1,99 @@
+# Vector config: JA4proxy → Splunk HEC
+#
+# Target SIEM: Splunk Enterprise / Splunk Cloud Platform
+#
+# Required environment variables:
+#   SPLUNK_HEC_URL   — e.g. https://splunk.corp.example.com:8088
+#   SPLUNK_HEC_TOKEN — Splunk HEC token (from Settings > Data Inputs > HTTP Event Collector)
+#
+# How to run:
+#   vector --config config/integrations/vector-splunk-hec.yaml
+#
+# Pre-requisite: set `logging.format: ecs` in config/proxy.yml before deploying.
+# JA4proxy then writes one JSON object per line to stdout; Vector reads those lines here.
+#
+# Notes:
+#   - Events are batched (max 1 MB / 300 events / 1 s) to avoid per-event HEC overhead.
+#   - TLS verification is enabled by default; set `verify_certificate: false` only for
+#     self-signed Splunk instances that you control.
+
+data_dir: /var/lib/vector
+
+# ── Sources ──────────────────────────────────────────────────────────────────
+sources:
+  proxy_stdout:
+    type: stdin
+    # Vector reads newline-delimited JSON from the proxy process stdout.
+    # When running in Docker compose, pipe the proxy service stdout here:
+    #   command: ["sh", "-c", "python3 proxy.py | vector --config /config/vector-splunk-hec.yaml"]
+
+# ── Transforms ───────────────────────────────────────────────────────────────
+transforms:
+  parse_ecs:
+    type: remap
+    inputs: ["proxy_stdout"]
+    source: |
+      # Parse the raw JSON line emitted by JA4proxy
+      . = parse_json!(string!(.message))
+
+      # Splunk HEC expects `time` as a Unix epoch float, not ISO-8601.
+      # @timestamp arrives as "2026-04-07T10:00:00.000Z"
+      .time = to_unix_timestamp(parse_timestamp!(.["@timestamp"], format: "%+"), unit: "seconds")
+      del(.["@timestamp"])
+
+      # HEC metadata fields (not stored in the event body)
+      ._hec_sourcetype = "ja4proxy:telemetry"
+      ._hec_index      = "security"
+      ._hec_host       = string(.["host.name"]) ?? "unknown"
+
+  shape_for_hec:
+    type: remap
+    inputs: ["parse_ecs"]
+    source: |
+      # Wrap the event in the Splunk HEC JSON envelope.
+      # Vector's splunk_hec_logs sink handles the outer envelope automatically
+      # when `encoding.codec = "json"`, but we set the metadata fields explicitly
+      # so the sink picks them up via field mapping.
+      .source     = "ja4proxy"
+      .sourcetype = del(._hec_sourcetype)
+      .index      = del(._hec_index)
+      .host       = del(._hec_host)
+
+# ── Sinks ─────────────────────────────────────────────────────────────────────
+sinks:
+  splunk_hec:
+    type: splunk_hec_logs
+    inputs: ["shape_for_hec"]
+
+    # HEC endpoint — must include /services/collector/event
+    endpoint: "${SPLUNK_HEC_URL}"
+
+    # Authentication — the raw token value (not "Splunk <token>")
+    default_token: "${SPLUNK_HEC_TOKEN}"
+
+    # Route HEC metadata from event fields rather than hardcoding them
+    host_key:       "host"
+    source_key:     "source"
+    sourcetype_key: "sourcetype"
+    index_key:      "index"
+    timestamp_key:  "time"
+
+    encoding:
+      codec: json
+
+    # Batching: keep individual requests under 1 MB and under 300 events
+    batch:
+      max_bytes:   1048576   # 1 MB
+      max_events:  300
+      timeout_secs: 1
+
+    # TLS: always verify in production
+    tls:
+      verify_certificate: true
+      # ca_file: /etc/ssl/certs/splunk-ca.pem   # uncomment for private CA
+
+    # Retry failed deliveries (network hiccup, HEC back-pressure)
+    request:
+      retry_attempts:       5
+      retry_initial_backoff_secs: 1
+      retry_max_duration_secs:    30

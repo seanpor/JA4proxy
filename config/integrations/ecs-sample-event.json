@@ -1,0 +1,30 @@
+{
+  "@timestamp": "2026-04-07T10:00:00.123456Z",
+  "log.level": "info",
+  "message": "connection decision",
+  "event.kind": "event",
+  "event.category": ["network", "intrusion_detection"],
+  "event.type": ["connection"],
+  "event.action": "blocked",
+  "event.outcome": "failure",
+  "event.severity": 5,
+  "event.risk_score": 78,
+  "service.name": "ja4proxy",
+  "network.transport": "tcp",
+  "network.protocol": "tls",
+  "source.ip": "203.0.113.42",
+  "source.port": 54321,
+  "destination.port": 443,
+  "host.name": "proxy-01.example.com",
+  "tls.version": "1.3",
+  "tls.cipher": "TLS_AES_256_GCM_SHA384",
+  "ja4proxy.fingerprint.ja4": "t13d15h2_8daaf6152771_e5627efa2ab1",
+  "ja4proxy.score": 78,
+  "ja4proxy.dial_setting": 60,
+  "ja4proxy.sni": "www.example.com",
+  "ja4proxy.country_code": "RU",
+  "ja4proxy.signals": [
+    {"name": "asn_datacenter", "score": 20, "reason": "Datacenter ASN"},
+    {"name": "abuseipdb_score", "score": 58, "reason": "AbuseIPDB confidence 83%"}
+  ]
+}
