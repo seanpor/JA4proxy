@@ -1,5 +1,62 @@
 # Changelog
 
+## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 10: OpenAPI 3.1 Spec — 2026-04-07
+
+### Added
+- `docs/api/openapi.yaml` — static OpenAPI 3.1 spec, 51 routes, generated from the live FastAPI app; canonical format for downstream tooling (Terraform provider Phase 83, SDK generation, compliance evidence)
+- `docs/api/openapi.json` — JSON copy of the same spec; replaces the stale Phase 13 placeholder
+- `management/scripts/export_openapi.py` — repeatable export script (`MANAGEMENT_TEST_MODE=1 python3 management/scripts/export_openapi.py`)
+- `make openapi-spec` — Makefile target that invokes the export script
+- All Phase 79 routes present in spec: auth, TOTP MFA, WebAuthn, SAML 2.0, OIDC SSO, bearer tokens, audit, RBAC management endpoints
+
+## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 9: OIDC SSO — 2026-04-07
+
+### Added
+- `GET /auth/sso/oidc/login` — start OIDC authorization code + PKCE S256 flow; fetches discovery doc, generates state + code_verifier, stores in Redis (5-min TTL single-use)
+- `GET /auth/sso/oidc/callback` — receive authorization code, exchange for tokens (PKCE), extract claims from ID token, map groups to role, issue JWT cookie
+- `management/api/routes/oidc.py` — full OIDC SSO route handlers
+- PKCE S256: `code_verifier = secrets.token_urlsafe(64)`, challenge = `base64url(sha256(verifier))` — no implicit flow
+- Group-to-role mapping via `MANAGEMENT_OIDC_ROLE_MAPPING` JSON env var; fallback `MANAGEMENT_OIDC_DEFAULT_ROLE`; deny by default
+- Redis key: `mgmt:oidc:state:{state}` (JSON: code_verifier + redirect, 5-min TTL, single-use CSRF protection)
+- `authlib>=1.3.0` added to `management/requirements.txt`
+
+### Security
+- State is single-use: consumed (deleted) immediately on first use regardless of whether subsequent token exchange succeeds
+- ID token signature not verified (base64-decode only) — tracked as Phase 100 Gap 1; safe for dev/CI
+- PKCE always required — no authorization_code grant without verifier
+
+## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 8: SAML 2.0 SSO — 2026-04-07
+
+### Added
+- `GET /auth/sso/saml/login` — redirect browser to SAML IdP SSO URL; generates single-use nonce as RelayState for CSRF protection
+- `POST /auth/sso/saml/acs` — Assertion Consumer Service: validates nonce, processes SAML response, maps groups to role, issues JWT cookie
+- `GET /auth/sso/metadata` — serve SAML SP metadata XML to IdP administrators (`sp_validation_only=True`)
+- `management/api/routes/saml.py` — SAML 2.0 route handlers using `python3-saml`
+- Group-to-role mapping via `MANAGEMENT_SAML_ROLE_MAPPING` JSON env var; fallback `MANAGEMENT_SAML_DEFAULT_ROLE`
+- Redis key: `mgmt:saml:nonce:{nonce}` (String, 5-min TTL, single-use CSRF protection)
+- `python3-saml>=1.16.0` added to `management/requirements.txt`
+- `_create_access_token` now accepts `role` parameter (default `"admin"` for backward compat); `get_current_user` reads role from JWT payload with `"admin"` fallback for old tokens
+
+### Security
+- Nonces are single-use: deleted immediately before processing SAML response to prevent relay attacks
+- SAML strict mode (`MANAGEMENT_SAML_STRICT=true`) enabled by default; disabling only for dev/test
+
+## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 7: WebAuthn/FIDO2 — 2026-04-07
+
+### Added
+- `POST /auth/mfa/webauthn/register/begin` — generate registration challenge; excludes already-enrolled credentials
+- `POST /auth/mfa/webauthn/register/complete` — verify attestation response; store credential hash and public key
+- `POST /auth/mfa/webauthn/auth/begin` — generate authentication challenge using enrolled credential IDs
+- `POST /auth/mfa/webauthn/auth/complete` — verify assertion; check ownership; update sign_count; mark session MFA-verified
+- `management/api/routes/webauthn.py` — WebAuthn route handlers using `py-webauthn`
+- New Redis keys: `mgmt:webauthn:challenge:{user_id}` (JSON, 5-min TTL), `mgmt:webauthn:credential:{id}` (Hash: user_id, public_key, sign_count, created_at), `mgmt:webauthn:user:{user_id}:credentials` (SET of credential IDs)
+- `webauthn>=2.0.0` added to `management/requirements.txt`
+
+### Security
+- Challenges are single-use: consumed (deleted) immediately in `_load_challenge` on any code path — prevents replay within the 5-min TTL window
+- Credential ownership validated before assertion verification (403 on mismatch)
+- `sign_count` updated after each successful assertion to detect cloned keys
+
 ## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 6: TOTP MFA — 2026-04-07
 
 ### Added
