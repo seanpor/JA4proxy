@@ -10,7 +10,7 @@
 - Interlink Software Service Watch integration: Vector sidecar config (`config/integrations/vector-interlink.yaml`) converting ECS JSON to CEF-over-TLS-syslog; Ansible device registration task; CEF severity mapped to integer 0-10 from `event.risk_score`
 - Interlink correlation rule examples (`docs/integration/interlink_correlation_rules.md`): campaign detection (N bans from same ASN in T minutes), health degradation (OK→DEGRADED → P2 + auto-ITSM), high-rate source (R events/min → severity escalation)
 - PagerDuty and OpsGenie `runbook_url` annotations added to all Alertmanager rules in `monitoring/alertmanager/rules/`
-- Token rotation script (`scripts/rotate_soar_token.sh`): calls `POST /api/v1/tokens/{id}/rotate`, updates the SOAR platform credential, logs the rotation event; schedule on 90-day cron
+- Token rotation script (`scripts/rotate_soar_token.sh`): calls `POST /api/v1/tokens/{id}/rotate` and logs the rotation event; operator must then copy the new token into the SOAR platform asset configuration (manual step — token is intentionally not printed to stdout to avoid log exposure); schedule on 90-day cron
 - `tests/integration/test_soar_connectors.py`: all 8 XSOAR commands and 8 Splunk SOAR actions tested for correct HTTP method, path, headers, and body against mock server
 - `tests/unit/test_servicenow_handler.py`: 5 tests covering severity mapping (risk_score 90 → "1", 70 → "2"), signal formatting, success path, and 4xx error propagation
 

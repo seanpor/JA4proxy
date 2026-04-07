@@ -88,5 +88,6 @@ fi
 
 DONE_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 echo "[${DONE_TIMESTAMP}] SUCCESS: token rotated for id=${JA4PROXY_TOKEN_ID}"
-echo "[${DONE_TIMESTAMP}] New token value: ${NEW_TOKEN}"
-echo "[${DONE_TIMESTAMP}] Update SOAR platform asset configuration with the new token."
+echo "[${DONE_TIMESTAMP}] Copy the new token from the secure response and update the SOAR platform asset configuration."
+# NOTE: The new token is intentionally NOT printed to stdout to prevent exposure in logs.
+# Retrieve it from your secrets manager or from the raw API response if needed.

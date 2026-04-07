@@ -16,7 +16,114 @@ configuration:
     required: true
     hidden: true
 script:
-  script: ""
+  # Synchronous XSOAR-native integration script.
+  # Uses requests (sync) and demisto module — required by XSOAR runtime.
+  # The adjacent commands.py uses aiohttp (async) and is the testable unit for CI;
+  # this embedded script is the XSOAR-executable equivalent.
+  script: |
+    import requests
+
+    def _init():
+        params = demisto.params()
+        return params.get('base_url', '').rstrip('/'), params.get('api_token', '')
+
+    def _request(base_url, token, method, path, json_body=None, params=None):
+        url = f'{base_url}{path}'
+        headers = {
+            'Authorization': f'Bearer {token}',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+        }
+        resp = requests.request(method, url, headers=headers,
+                                json=json_body, params=params, timeout=30)
+        if resp.status_code == 401:
+            return_error('Authentication failed — check the API token.')
+        resp.raise_for_status()
+        if resp.status_code == 204:
+            return {}
+        return resp.json()
+
+    def ban_ip_cmd(base_url, token):
+        args = demisto.args()
+        ttl = int(args.get('ttl_seconds', 3600))
+        result = _request(base_url, token, 'POST', '/api/v1/bans',
+                          json_body={'ip': args['ip'], 'ttl_seconds': ttl, 'reason': args.get('reason', '')})
+        return CommandResults(outputs_prefix='JA4proxy.Ban', outputs=result,
+                              readable_output=f"Banned **{args['ip']}** for {ttl}s.")
+
+    def release_ban_cmd(base_url, token):
+        ip = demisto.args()['ip']
+        _request(base_url, token, 'DELETE', f'/api/v1/bans/{ip}')
+        return CommandResults(readable_output=f'Ban released for **{ip}**.')
+
+    def get_connection_history_cmd(base_url, token):
+        args = demisto.args()
+        ip, days = args['ip'], args.get('days', '7')
+        result = _request(base_url, token, 'GET', '/api/v1/connections', params={'ip': ip, 'days': days})
+        return CommandResults(outputs_prefix='JA4proxy.ConnectionHistory', outputs=result,
+                              readable_output=f'Connection history for {ip} (last {days}d).')
+
+    def get_fingerprint_detail_cmd(base_url, token):
+        ja4 = demisto.args()['ja4']
+        result = _request(base_url, token, 'GET', f'/api/v1/fingerprints/{ja4}')
+        return CommandResults(outputs_prefix='JA4proxy.Fingerprint', outputs=result,
+                              readable_output=f'Fingerprint detail for {ja4}.')
+
+    def add_to_watchlist_cmd(base_url, token):
+        args = demisto.args()
+        _request(base_url, token, 'POST', '/api/v1/watchlist',
+                 json_body={'ip': args['ip'], 'reason': args.get('reason', '')})
+        return CommandResults(readable_output=f"Added **{args['ip']}** to watchlist.")
+
+    def get_health_cmd(base_url, token):
+        result = _request(base_url, token, 'GET', '/api/v1/health/deep')
+        return CommandResults(outputs_prefix='JA4proxy.Health', outputs=result,
+                              readable_output=f"Health: {result.get('status', 'unknown')}")
+
+    def add_to_allowlist_cmd(base_url, token):
+        args = demisto.args()
+        ttl = int(args['ttl_seconds'])
+        if ttl <= 0:
+            return_error('ttl_seconds must be > 0: indefinite allowlist entries are not permitted.')
+        _request(base_url, token, 'POST', '/api/v1/allowlist',
+                 json_body={'ip': args['ip'], 'ttl_seconds': ttl, 'reason': args.get('reason', '')})
+        return CommandResults(readable_output=f"Added **{args['ip']}** to allowlist for {ttl}s.")
+
+    def get_dial_cmd(base_url, token):
+        result = _request(base_url, token, 'GET', '/api/v1/dial')
+        return CommandResults(outputs_prefix='JA4proxy.Dial', outputs=result,
+                              readable_output=f"Current dial: {result.get('dial', 'unknown')}")
+
+    def main():
+        base_url, token = _init()
+        command = demisto.command()
+        try:
+            if command == 'test-module':
+                _request(base_url, token, 'GET', '/api/v1/health/deep')
+                return_results('ok')
+            elif command == 'ja4proxy-ban-ip':
+                return_results(ban_ip_cmd(base_url, token))
+            elif command == 'ja4proxy-release-ban':
+                return_results(release_ban_cmd(base_url, token))
+            elif command == 'ja4proxy-get-connection-history':
+                return_results(get_connection_history_cmd(base_url, token))
+            elif command == 'ja4proxy-get-fingerprint-detail':
+                return_results(get_fingerprint_detail_cmd(base_url, token))
+            elif command == 'ja4proxy-add-to-watchlist':
+                return_results(add_to_watchlist_cmd(base_url, token))
+            elif command == 'ja4proxy-get-health':
+                return_results(get_health_cmd(base_url, token))
+            elif command == 'ja4proxy-add-to-allowlist':
+                return_results(add_to_allowlist_cmd(base_url, token))
+            elif command == 'ja4proxy-get-dial':
+                return_results(get_dial_cmd(base_url, token))
+            else:
+                return_error(f'Unknown command: {command}')
+        except Exception as e:
+            return_error(f'Failed to execute {command}: {str(e)}')
+
+    if __name__ in ('__main__', '__builtin__', 'builtins'):
+        main()
   type: python
   subtype: python3
   dockerimage: demisto/python3:3.10

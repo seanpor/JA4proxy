@@ -180,7 +180,7 @@ async def add_to_allowlist(
     Raises:
         ValueError: if ttl_seconds=0 (no indefinite allowlist entries allowed).
     """
-    if ttl_seconds == 0:
+    if ttl_seconds <= 0:
         raise ValueError(
             "ttl_seconds must be > 0: indefinite allowlist entries are not permitted. "
             "Provide an explicit expiry (e.g. ttl_seconds=86400 for 24 hours)."

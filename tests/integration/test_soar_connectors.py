@@ -10,8 +10,8 @@ These tests use the SOARMock server (tests/mocks/soar_mock.py) which is a real
 aiohttp HTTP server bound on 127.0.0.1 on a random port.
 
 Tested modules:
-  integrations/xsoar/JA4proxy/commands.py        — 8 XSOAR commands
-  integrations/splunk-soar/ja4proxy/connector.py — 8 Splunk SOAR actions
+  integrations/xsoar/JA4proxy/commands.py       — 8 XSOAR commands
+  integrations/splunk_soar/ja4proxy/connector.py — 8 Splunk SOAR actions
 """
 
 from __future__ import annotations
@@ -259,6 +259,20 @@ class TestXSOARAddToAllowlist:
                 token=token,
                 ip="1.2.3.4",
                 ttl_seconds=0,
+            )
+
+    @pytest.mark.asyncio
+    async def test_xsoar_add_to_allowlist_rejects_negative_ttl(self, soar_mock):
+        """ttl_seconds < 0 must also be rejected — same guard as zero."""
+        base_url, token, mock = soar_mock
+        commands = _import_xsoar()
+
+        with pytest.raises(ValueError, match=r"ttl_seconds|expiry|indefinite"):
+            await commands.add_to_allowlist(
+                base_url=base_url,
+                token=token,
+                ip="1.2.3.4",
+                ttl_seconds=-3600,
             )
 
 
@@ -542,6 +556,36 @@ class TestSplunkErrorHandling:
                 token="wrong-token",
                 ip="1.2.3.4",
                 ttl_seconds=3600,
+                reason="test",
+            )
+
+    @pytest.mark.asyncio
+    async def test_splunk_soar_add_to_allowlist_rejects_zero_ttl(self, soar_mock):
+        """ttl_seconds=0 must be rejected — no indefinite allowlist entries."""
+        base_url, token, mock = soar_mock
+        connector = _import_splunk()
+
+        with pytest.raises(ValueError, match=r"ttl_seconds|expiry|indefinite"):
+            await connector.add_to_allowlist(
+                base_url=base_url,
+                token=token,
+                ip="1.2.3.4",
+                ttl_seconds=0,
+                reason="test",
+            )
+
+    @pytest.mark.asyncio
+    async def test_splunk_soar_add_to_allowlist_rejects_negative_ttl(self, soar_mock):
+        """ttl_seconds < 0 must also be rejected."""
+        base_url, token, mock = soar_mock
+        connector = _import_splunk()
+
+        with pytest.raises(ValueError, match=r"ttl_seconds|expiry|indefinite"):
+            await connector.add_to_allowlist(
+                base_url=base_url,
+                token=token,
+                ip="1.2.3.4",
+                ttl_seconds=-1,
                 reason="test",
             )
 
