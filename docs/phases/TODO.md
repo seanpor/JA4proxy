@@ -28,10 +28,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Smoke test suite (Docker Compose, Helm/kind, Podman/Quadlet); DR runbook with 5 scenarios incl. Redis data loss; credential rotation runbooks; TLS certificate rotation; rolling upgrade procedure; MTTR baseline measurement.)
 *   **Action Plan:** [PHASE_64.md](PHASE_64.md)
 
-### Phase 79 — Management API v2, RBAC & Enterprise Identity
-*   **Status:** **PROPOSED** (Production-grade REST API with stable IDs, full RBAC (Auditor/Analyst/Operator/Admin), SAML 2.0 + OIDC SSO (Okta, Entra ID), mandatory MFA for Admin/Operator, append-only audit trail. Critical dependency for phases 80-86.)
-*   **Action Plan:** [PHASE_79.md](PHASE_79.md)
-
 ### Phase 80 — ECS Structured Logging & SIEM Integration Pack
 *   **Status:** **PROPOSED** (Canonical ECS 8.x JSON log format for all events. Splunk TA (CIM-compliant, 5 dashboards, 5 correlation searches, alert action). Microsoft Sentinel content pack. IBM QRadar DSM. Elastic integration. HMAC-signed webhook event stream.)
 *   **Action Plan:** [PHASE_80.md](PHASE_80.md)
@@ -63,3 +59,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 88 — Multi-Datacenter Survivability & Failover
 *   **Status:** **PROPOSED** (Redis Sentinel per-DC plus a new Go sync agent (cmd/syncagent) for cross-DC state replication. State Classification Table (25 key types: SYNC-IMMEDIATE, SYNC-ASYNC, LOCAL-ONLY, DIAL-PROTOCOL). Synchronous Dial Consistency Protocol (port 7380, 8s ACK timeout, last-writer-wins by origin_ts). Active-active and active-passive topology documentation. Seven failure scenario runbooks (WAN failure, DC dark, Redis-only failure, dial divergence, data loss, asymmetric degradation, split-brain). New multi-DC metrics on port 9382 with six alert rules including DialDivergence (critical). Cross-DC Grafana dashboard. Operational procedures for maintenance drain, DC expansion, and rolling upgrade.)
 *   **Action Plan:** [PHASE_88.md](PHASE_88.md)
+
+### Phase 100 — Phase 79 SSO/MFA Gap Closure
+*   **Status:** **PROPOSED** (Closes 7 gaps identified in Phase 79 C7-C9 CR: OIDC JWKS signature verification, SSO audit log events, WebAuthn credential DELETE endpoint, SSO-delegated MFA trust, SAML integration test markers, config.yml role mapping, OpenAPI 3.1 spec.)
+*   **Action Plan:** [PHASE_100.md](PHASE_100.md)
