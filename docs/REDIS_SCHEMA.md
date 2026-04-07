@@ -40,6 +40,7 @@ phase: 54
 | `static:allowlist` | SET of IP/CIDR strings | none | Management UI | UI-added static allowlist entries; config-file entries are authoritative |
 | `management:audit_log` | List (last 1000 entries) | none | Management UI | All secops admin actions |
 | `management:policy_audit` | List (last 1000 entries) | none | Management UI, config reload | Security policy bypass changes |
+| `management:gdpr_erasure_log` | LIST of JSON | no TTL (last 1000 entries) | scripts/gdpr_delete.py | Audit trail of GDPR erasure requests; each entry: {timestamp, ip, dry_run, keys_deleted, keys_skipped_hll, zset_members_removed, invoked_by} |
 
 ---
 
@@ -136,4 +137,4 @@ phase: 54
 
 ---
 
-*Last updated: 2026-04-01, Phase 54 complete*
+*Last updated: 2026-04-06, Phase 91 complete*
