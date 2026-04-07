@@ -42,13 +42,17 @@ from .routes import (
     bans,
     canonical_lists,
     config_ops,
+    connections,
     dial,
     events,
     health,
     lists,
+    metrics,
+    nodes,
     pages,
     partials,
     tokens,
+    webhooks,
 )
 from .routes.canonical_lists import migrate_legacy_entries
 
@@ -140,6 +144,10 @@ def create_app() -> FastAPI:
     app.include_router(audit.router)
     app.include_router(partials.router)
     app.include_router(tokens.router)
+    app.include_router(connections.router)
+    app.include_router(nodes.router)
+    app.include_router(webhooks.router)
+    app.include_router(metrics.router)
 
     # HTML page routes (auth enforced per-route via Depends)
     app.include_router(pages.router)

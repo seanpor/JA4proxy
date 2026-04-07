@@ -1,5 +1,20 @@
 # Changelog
 
+## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 4: New Observability & Infrastructure Endpoints — 2026-04-07
+
+### Added
+- `GET /api/v1/connections` — queries `ja4proxy:events` stream; filterable by `ip`, `ja4`, `action`, `since`, `limit` (Analyst+)
+- `GET /api/v1/fingerprints/{ja4}` — aggregate stats (total, unique IPs, action breakdown, last seen); returns 404 on unknown fingerprint (Analyst+)
+- `GET /api/v1/fingerprints/{ja4}/history` — chronological event list for a fingerprint (Analyst+)
+- `GET /api/v1/nodes` — live proxy node list from `mgmt:node:*` heartbeat Hashes (Auditor+)
+- `POST /api/v1/nodes/{host}/reload` — publishes reload signal to `proxy:reload` Redis pub/sub channel (Admin)
+- `POST /api/v1/webhooks`, `GET /api/v1/webhooks` — webhook subscription CRUD; secret bcrypt-hashed at rest, never returned via API (Operator write, Auditor read)
+- `GET /api/v1/webhooks/{id}`, `PUT /api/v1/webhooks/{id}`, `DELETE /api/v1/webhooks/{id}` — inspect, update, and remove individual webhook subscriptions
+- `GET /api/v1/metrics/summary` — JSON snapshot: dial value, active ban count, events stream length (Auditor+)
+- `GET /api/v1/health/deep` — deep health check with Redis connectivity test; returns 503 on Redis failure (Auditor+)
+- `GET /api/v1/ready` — public readiness probe; no authentication required
+- New Redis keys: `webhook:{id}` Hash, `webhook:idx` SET, `proxy:reload` pub/sub channel
+
 ## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 3: Resource Model (UUID + managed_by) — 2026-04-07
 
 ### Added
