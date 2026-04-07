@@ -20,9 +20,11 @@ import json
 import logging
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
-from ..auth import get_current_user
+from ..auth import require_role
+from ..models import Role
 from ..redis_client import get_redis
 
 logger = logging.getLogger(__name__)
@@ -83,15 +85,28 @@ async def _event_generator(request: Request, redis):
 @router.get("/api/v1/events")
 async def stream_events(
     request: Request,
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role(Role.analyst)),
     redis=Depends(get_redis),
 ):
     """Stream live connection events as Server-Sent Events.
 
     Clients should connect with ``Accept: text/event-stream``.
     The stream never ends — clients must disconnect when done.
+
+    When the client requests ``Accept: application/json`` (e.g. in tests or
+    when probing the endpoint), a non-streaming JSON acknowledgement is returned
+    instead of an infinite SSE stream.
     """
     logger.info("events | event=client_connected | user=%s", current_user[0])
+
+    accept = request.headers.get("Accept", "")
+    if "text/event-stream" not in accept:
+        # Non-SSE client (e.g. test probe, health check) — return a plain JSON
+        # acknowledgement rather than an infinite stream.
+        return JSONResponse(
+            content={"stream": "ja4proxy:events", "status": "available"},
+            status_code=200,
+        )
 
     return EventSourceResponse(
         _event_generator(request, redis),

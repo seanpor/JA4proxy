@@ -204,13 +204,14 @@ async def test_bearer_takes_precedence_over_cookie(
     """Bearer token wins over cookie; identity attributed to token, not admin session."""
     create_resp = await authenticated_client.post(
         "/api/v1/tokens",
-        json={"name": "precedence-check", "role": "operator"},
+        json={"name": "precedence-check", "role": "admin"},
     )
     assert create_resp.status_code == 201
     plaintext = create_resp.json()["token"]
     token_name = create_resp.json()["name"]
 
-    # Issue a mutating action so an audit entry is written under the bearer identity
+    # Issue a mutating action so an audit entry is written under the bearer identity.
+    # Must use an admin-role token because PUT/PATCH dial requires admin.
     response = await authenticated_client.patch(
         "/api/v1/dial",
         json={"value": 5},

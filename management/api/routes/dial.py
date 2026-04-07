@@ -19,8 +19,8 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from ..auth import get_current_user
-from ..models import DialUpdateRequest, DialValue
+from ..auth import require_role
+from ..models import DialUpdateRequest, DialValue, Role
 from ..redis_client import get_redis
 
 logger = logging.getLogger(__name__)
@@ -78,7 +78,7 @@ def _client_ip(request: Request) -> str:
 @router.get("/api/v1/dial", response_model=DialValue)
 async def get_dial(
     request: Request,
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role(Role.auditor)),
     redis=Depends(get_redis),
 ) -> DialValue:
     """Return the current dial value."""
@@ -91,7 +91,7 @@ async def get_dial(
 async def update_dial(
     body: DialUpdateRequest,
     request: Request,
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role(Role.admin)),
     redis=Depends(get_redis),
 ) -> DialValue:
     """Update the dial value.

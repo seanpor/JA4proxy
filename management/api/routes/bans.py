@@ -24,8 +24,8 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from ..auth import get_current_user
-from ..models import BanCreateRequest, BanCreateResponse, BanEntry, BanList, BanRemoveResponse
+from ..auth import require_role
+from ..models import BanCreateRequest, BanCreateResponse, BanEntry, BanList, BanRemoveResponse, Role
 from ..redis_client import get_redis
 
 logger = logging.getLogger(__name__)
@@ -70,7 +70,7 @@ def _client_ip(request: Request) -> str:
 @router.get("/api/v1/bans", response_model=BanList)
 async def list_bans(
     request: Request,
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role(Role.auditor)),
     redis=Depends(get_redis),
 ) -> BanList:
     """List all active bans by scanning ban:* keys."""
@@ -115,7 +115,7 @@ async def create_ban(
     ip: str,
     request: Request,
     body: Optional[BanCreateRequest] = None,
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role(Role.operator)),
     redis=Depends(get_redis),
 ) -> BanCreateResponse:
     """Create a ban for the given IP address.
@@ -160,7 +160,7 @@ async def create_ban(
 async def lift_ban(
     ip: str,
     request: Request,
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_role(Role.operator)),
     redis=Depends(get_redis),
 ) -> BanRemoveResponse:
     """Lift (remove) a ban for the given IP address.
