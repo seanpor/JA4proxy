@@ -306,13 +306,10 @@ async def test_diff_detects_operator_drift():
     )
 
     # The drift entry must reference the operator-added fingerprint.
-    drift_ids_or_ja4s = [
-        str(d.get("id", "")) + str(d.get("ja4", ""))
-        for d in diff_result.drift
-    ]
-    assert any(_JA4_NEW in val or "drift-entry-111" in val for val in drift_ids_or_ja4s), (
-        f"Expected drift entry containing ja4={_JA4_NEW!r} or id='drift-entry-111', "
-        f"got drift list: {diff_result.drift!r}"
+    drift_identifiers = [d.identifier for d in diff_result.drift]
+    assert any(_JA4_NEW in val or "drift-entry-111" in val for val in drift_identifiers), (
+        f"Expected drift entry with identifier containing ja4={_JA4_NEW!r} or "
+        f"'drift-entry-111', got: {diff_result.drift!r}"
     )
 
 

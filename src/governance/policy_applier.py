@@ -7,12 +7,13 @@ Exported symbols
 ----------------
 ApplyResult           -- summary counts from an apply run
 DriftEntry            -- single drift report entry
+DiffResult            -- result of a diff run (.drift list of DriftEntry)
 PendingApprovalError  -- raised when the API returns 202 pending_approval
 
 apply_policy(policy_dict, api_url, token) -> ApplyResult
     Apply a validated policy dict to the Management API.
 
-diff_policy(policy_dict, api_url, token) -> list[DriftEntry]
+diff_policy(policy_dict, api_url, token) -> DiffResult
     Compare policy dict against live API state, report operator drift.
 """
 
@@ -64,6 +65,19 @@ class DriftEntry:
     identifier: str
     managed_by: str
     note: str = ""
+
+
+@dataclass
+class DiffResult:
+    """Result of a policy diff operation.
+
+    Attributes:
+        drift: Entries present in the live API that are not in the policy file
+            and are not managed by policy (i.e. added via UI or direct API).
+            Empty list means no drift.
+    """
+
+    drift: list[DriftEntry] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -333,19 +347,18 @@ async def apply_policy(
         watchlist = policy_dict.get("watchlist") or {}
         dial = policy_dict.get("dial") or {}
 
-        # Fingerprints
-        if allowlist.get("fingerprints"):
-            await _apply_fingerprints(
-                session, api_url, headers,
-                allowlist["fingerprints"], "allowlist",
-                result,
-            )
-        if blocklist.get("fingerprints"):
-            await _apply_fingerprints(
-                session, api_url, headers,
-                blocklist["fingerprints"], "blocklist",
-                result,
-            )
+        # Fingerprints — always call even when list is empty so stale
+        # managed_by=policy entries in the live API get removed.
+        await _apply_fingerprints(
+            session, api_url, headers,
+            allowlist.get("fingerprints") or [], "allowlist",
+            result,
+        )
+        await _apply_fingerprints(
+            session, api_url, headers,
+            blocklist.get("fingerprints") or [], "blocklist",
+            result,
+        )
 
         # IPs / CIDRs
         if allowlist.get("ips"):
@@ -397,7 +410,7 @@ async def diff_policy(
     policy_dict: dict,
     api_url: str,
     token: str,
-) -> list[DriftEntry]:
+) -> DiffResult:
     """Compare policy dict against live API state and return operator drift.
 
     Returns entries present in the API with ``managed_by != 'policy'`` that
@@ -410,7 +423,7 @@ async def diff_policy(
         token: API bearer token.
 
     Returns:
-        List of ``DriftEntry`` instances.  Empty list means no drift.
+        ``DiffResult`` with a ``drift`` list.  Empty list means no drift.
     """
     import aiohttp  # lazy import
 
@@ -481,4 +494,4 @@ async def diff_policy(
                     )
                 )
 
-    return drift
+    return DiffResult(drift=drift)
