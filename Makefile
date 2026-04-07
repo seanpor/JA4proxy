@@ -1225,3 +1225,9 @@ validate-ecs-schema:
 	python3 -c "import json,jsonschema; from jsonschema import Draft7Validator,FormatChecker; schema=json.load(open('config/integrations/ecs-schema.json')); sample=json.load(open('config/integrations/ecs-sample-event.json')); errors=list(Draft7Validator(schema,format_checker=FormatChecker()).iter_errors(sample)); [(__import__('sys').exit(1) or print('ERROR:',e.message)) for e in errors] if errors else print('ECS schema validation: OK')"
 
 .PHONY: test-phase-80 validate-ecs-schema
+
+## Phase 82 targets
+test-phase-82:
+	python3 -m pytest tests/unit/test_policy_validator.py tests/integration/test_policy_apply.py -v
+
+.PHONY: test-phase-82

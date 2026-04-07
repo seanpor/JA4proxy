@@ -1,0 +1,123 @@
+---
+# JA4proxy Policy-as-Code — Ansible Playbook
+#
+# Applies a ja4proxy-policy.yaml file to the JA4proxy Management API.
+# Designed for use with AWX / Ansible Automation Platform (AAP).
+#
+# Usage (ad-hoc):
+#   ansible-playbook deploy/ansible/playbooks/apply-policy.yml \
+#     -i inventory/production \
+#     -e "policy_file=/path/to/ja4proxy-policy.yaml" \
+#     -e "ja4proxy_url=http://management:8090" \
+#     -e "ja4proxy_token={{ lookup('env', 'JA4PROXY_OPERATOR_TOKEN') }}"
+#
+# AWX / AAP job template variables:
+#   policy_file       — absolute path to the policy YAML file on the control node
+#   ja4proxy_url      — Management API base URL (e.g. http://management.internal:8090)
+#   ja4proxy_token    — API bearer token (store as AWX credential / vault secret)
+#   dry_run           — set to "true" to validate only, skip API calls (default: false)
+#   repo_root         — path to the JA4proxy repository on the control node
+#                       (default: /opt/ja4proxy)
+#
+# Requirements on the target host:
+#   - Python 3.11+
+#   - The JA4proxy repository checked out (for scripts/ja4proxy-policy.py)
+#
+# Phase 83 migration note:
+#   Replace the "Apply policy" task command with:
+#     ja4proxy-cli policy apply --file ... --url ... --token ...
+#   and remove the pip install task.
+
+- name: Apply JA4proxy policy
+  hosts: ja4proxy_management
+  gather_facts: false
+  become: false
+
+  vars:
+    policy_file: "{{ playbook_dir }}/../../../ja4proxy-policy.yaml"
+    ja4proxy_url: "http://localhost:8090"
+    ja4proxy_token: "{{ lookup('env', 'JA4PROXY_OPERATOR_TOKEN') }}"
+    dry_run: false
+    repo_root: "/opt/ja4proxy"
+
+  tasks:
+    - name: Verify policy file exists on control node
+      ansible.builtin.stat:
+        path: "{{ policy_file }}"
+      register: _policy_stat
+      delegate_to: localhost
+
+    - name: Fail if policy file is missing
+      ansible.builtin.fail:
+        msg: "Policy file not found: {{ policy_file }}"
+      when: not _policy_stat.stat.exists
+
+    - name: Copy policy file to management host
+      ansible.builtin.copy:
+        src: "{{ policy_file }}"
+        dest: "/tmp/ja4proxy-policy.yaml"
+        mode: "0600"
+
+    - name: Install Python dependencies for policy CLI
+      ansible.builtin.pip:
+        name:
+          - pyyaml
+          - cerberus
+          - aiohttp
+        executable: pip3
+        extra_args: "--quiet"
+      when: not (dry_run | bool)
+
+    - name: Install Python dependencies for validate-only
+      ansible.builtin.pip:
+        name:
+          - pyyaml
+          - cerberus
+        executable: pip3
+        extra_args: "--quiet"
+      when: dry_run | bool
+
+    - name: Validate policy YAML (offline)
+      ansible.builtin.command:
+        cmd: >-
+          python3 {{ repo_root }}/scripts/ja4proxy-policy.py
+          validate
+          --file /tmp/ja4proxy-policy.yaml
+      register: _validate_result
+      changed_when: false
+      failed_when: _validate_result.rc != 0
+
+    - name: Apply policy to Management API
+      ansible.builtin.command:
+        cmd: >-
+          python3 {{ repo_root }}/scripts/ja4proxy-policy.py
+          apply
+          --file /tmp/ja4proxy-policy.yaml
+          --url {{ ja4proxy_url }}
+          --token {{ ja4proxy_token }}
+      register: _apply_result
+      changed_when: "'added' in _apply_result.stdout"
+      failed_when: _apply_result.rc not in [0, 2]
+      when: not (dry_run | bool)
+      environment:
+        JA4PROXY_TOKEN: "{{ ja4proxy_token }}"
+
+    - name: Report apply result
+      ansible.builtin.debug:
+        msg: "{{ _apply_result.stdout }}"
+      when: not (dry_run | bool) and _apply_result is defined
+
+    - name: Report pending approval
+      ansible.builtin.debug:
+        msg: >-
+          Policy change requires four-eyes approval.
+          Check the Management UI or decisions API.
+      when: >-
+        not (dry_run | bool)
+        and _apply_result is defined
+        and _apply_result.rc == 2
+
+    - name: Remove temporary policy file
+      ansible.builtin.file:
+        path: "/tmp/ja4proxy-policy.yaml"
+        state: absent
