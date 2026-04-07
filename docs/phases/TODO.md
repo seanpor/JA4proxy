@@ -7,10 +7,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🟡 Phases In Progress
 
-### Phase 100 — Cross-Phase Gap Closure
-*   **Status:** **IN_PROGRESS** (Rolling tracker for non-blocking gaps from completed phases. Current items: source.port/destination.ip absent from ECS events (Phase 80); Go dual_output logging mode not implemented (Phase 80); per-endpoint webhook retry/timeout config ignored (Phase 80); Splunk TA and Sentinel live-testing (Phase 80, requires platform access); Phase 79 API verification for Splunk alert action and Sentinel playbooks (Phase 80, blocks on Phase 79 merge).)
-*   **Action Plan:** [PHASE_100.md](PHASE_100.md)
-
 ---
 
 ## 🔵 Planned & Open Phases
@@ -54,7 +50,3 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 88 — Multi-Datacenter Survivability & Failover
 *   **Status:** **PROPOSED** (Redis Sentinel per-DC plus a new Go sync agent (cmd/syncagent) for cross-DC state replication. State Classification Table (25 key types: SYNC-IMMEDIATE, SYNC-ASYNC, LOCAL-ONLY, DIAL-PROTOCOL). Synchronous Dial Consistency Protocol (port 7380, 8s ACK timeout, last-writer-wins by origin_ts). Active-active and active-passive topology documentation. Seven failure scenario runbooks (WAN failure, DC dark, Redis-only failure, dial divergence, data loss, asymmetric degradation, split-brain). New multi-DC metrics on port 9382 with six alert rules including DialDivergence (critical). Cross-DC Grafana dashboard. Operational procedures for maintenance drain, DC expansion, and rolling upgrade.)
 *   **Action Plan:** [PHASE_88.md](PHASE_88.md)
-
-### Phase 100 — Phase 79 SSO/MFA Gap Closure
-*   **Status:** **PROPOSED** (Closes 6 remaining gaps from Phase 79 C7-C9 CR: OIDC JWKS signature verification, SSO audit log events, WebAuthn credential DELETE endpoint, SSO-delegated MFA trust, SAML integration test markers, config.yml role mapping. Gap 7 (OpenAPI 3.1 spec) was completed in Phase 79 C10.)
-*   **Action Plan:** [PHASE_100.md](PHASE_100.md)

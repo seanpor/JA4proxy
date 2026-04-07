@@ -32,6 +32,7 @@ Security notes
 * Users not in any mapped group are denied (403) unless MANAGEMENT_OIDC_DEFAULT_ROLE is set.
 """
 
+import asyncio
 import base64
 import hashlib
 import json
@@ -63,6 +64,7 @@ _STATE_TTL = 300  # 5 minutes
 # ── JWKS cache (Gap 1 — Phase 100) ───────────────────────────────────────────
 
 _jwks_cache: dict[str, tuple[object, float]] = {}  # uri → (key_set, expires_at)
+_jwks_lock = asyncio.Lock()  # prevents duplicate concurrent JWKS fetches
 _JWKS_DEFAULT_TTL = 3600  # 1 hour
 
 
@@ -161,24 +163,30 @@ async def _http_get_json(url: str) -> dict:
 async def _fetch_jwks(jwks_uri: str) -> object:
     """Fetch and cache JWKS from the IdP.  Returns an authlib JsonWebKey key set.
 
-    Honours Cache-Control: max-age if present; falls back to 1 hour TTL.
+    Uses an asyncio.Lock to prevent duplicate concurrent HTTP fetches for the
+    same JWKS URI (avoids thundering-herd on cache miss).
     Cache is module-level — cleared by ``_clear_jwks_cache()`` in tests.
     Uses ``_http_get_json`` internally so tests can mock the HTTP call.
     """
     now = time.monotonic()
+    # Fast path: check without lock first
     if jwks_uri in _jwks_cache:
         key_set, expires_at = _jwks_cache[jwks_uri]
         if now < expires_at:
             return key_set
 
-    jwks_data = await _http_get_json(jwks_uri)
-    ttl = _JWKS_DEFAULT_TTL
-    # Note: Cache-Control parsing requires the raw response headers which _http_get_json
-    # does not expose; fall back to default TTL (acceptable for phase-100 scope).
+    # Slow path: acquire lock, re-check, fetch
+    async with _jwks_lock:
+        now = time.monotonic()
+        if jwks_uri in _jwks_cache:
+            key_set, expires_at = _jwks_cache[jwks_uri]
+            if now < expires_at:
+                return key_set  # another coroutine already fetched while we waited
 
-    key_set = JsonWebKey.import_key_set(jwks_data)
-    _jwks_cache[jwks_uri] = (key_set, now + ttl)
-    return key_set
+        jwks_data = await _http_get_json(jwks_uri)
+        key_set = JsonWebKey.import_key_set(jwks_data)
+        _jwks_cache[jwks_uri] = (key_set, now + _JWKS_DEFAULT_TTL)
+        return key_set
 
 
 async def _extract_claims(id_token: str, jwks_uri: str) -> dict:
