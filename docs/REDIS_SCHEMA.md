@@ -190,4 +190,14 @@ phase: 54
 
 ---
 
-*Last updated: 2026-04-07, Phase 79 Cluster 6 complete*
+### Phase 79 — Cluster 7: WebAuthn / FIDO2
+
+| Key | Type | TTL | Written by | Purpose |
+|-----|------|-----|-----------|---------|
+| `mgmt:webauthn:challenge:{user_id}` | String (JSON) | 5min | `POST /auth/mfa/webauthn/register/begin`, `POST /auth/mfa/webauthn/auth/begin` | Active challenge for this user. JSON: `{"challenge": "<base64url>", "type": "registration"\|"authentication"}`. Deleted after successful complete. *(Phase 79)* |
+| `mgmt:webauthn:credential:{credential_id}` | Hash | none | `POST /auth/mfa/webauthn/register/complete` | Per-credential record. Fields: `user_id`, `public_key` (base64url), `sign_count` (updated after each assertion), `created_at` (ISO 8601). `credential_id` is base64url-encoded. *(Phase 79)* |
+| `mgmt:webauthn:user:{user_id}:credentials` | SET of credential ID strings | none | `POST /auth/mfa/webauthn/register/complete` (SADD) | All credential IDs registered by this user. Used by auth/begin to build `allowCredentials` and by register/begin to build `excludeCredentials`. *(Phase 79)* |
+
+---
+
+*Last updated: 2026-04-07, Phase 79 Cluster 7 complete*
