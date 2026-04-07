@@ -11,3 +11,6 @@ pytest>=8.0.0
 pytest-asyncio>=0.23.0
 fakeredis[aioredis]>=2.21.0
 bcrypt>=4.1.0              # phase-79: bearer token hashing
+pyotp>=2.9.0               # phase-79: TOTP MFA
+qrcode[pil]>=7.4.2         # phase-79: TOTP setup QR codes
+cryptography>=42.0.0       # phase-79: Fernet encryption for TOTP secrets

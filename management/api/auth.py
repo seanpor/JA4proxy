@@ -23,6 +23,7 @@ Security notes
 """
 
 import asyncio
+import hashlib
 import logging
 import os
 import time
@@ -356,6 +357,60 @@ async def require_admin(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin role required",
         )
+    return current_user
+
+
+def mfa_session_key(jwt_token: str) -> str:
+    """Return the Redis key for the MFA session state of *jwt_token*.
+
+    Keyed on SHA-256 of the JWT string so MFA state is bound to the
+    specific session token, not just the username.
+    """
+    digest = hashlib.sha256(jwt_token.encode()).hexdigest()
+    return f"mgmt:mfa:session:{digest}"
+
+
+async def require_mfa_verified(
+    request: Request,
+    token: Optional[str] = Cookie(default=None, alias=COOKIE_NAME),
+    current_user: Tuple[str, Role] = Depends(get_current_user),
+    redis=Depends(get_redis),
+) -> Tuple[str, Role]:
+    """FastAPI dependency — enforce MFA verification for cookie-JWT sessions.
+
+    Bearer-token callers are exempt: API tokens are issued post-enrollment and
+    convey pre-verified identity.  Only cookie-JWT sessions with TOTP enrolled
+    are subject to this gate.
+
+    Raises:
+        HTTPException(403): If TOTP is enrolled but not yet verified this session.
+    """
+    # Bearer-token callers bypass the MFA gate
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        return current_user
+
+    # No session cookie → already rejected by get_current_user; nothing more to do
+    if token is None:
+        return current_user
+
+    identity, _role = current_user
+    # Strip "token:" prefix if present (shouldn't be for cookie sessions, but be safe)
+    user_id = identity.removeprefix("token:")
+
+    # Only gate users who have enrolled TOTP
+    enrolled = await redis.exists(f"mgmt:totp:{user_id}")
+    if not enrolled:
+        return current_user
+
+    # Enrolled: session must have completed verification
+    verified = await redis.get(mfa_session_key(token))
+    if not verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="MFA verification required. POST /auth/mfa/totp/verify to proceed.",
+        )
+
     return current_user
 
 
