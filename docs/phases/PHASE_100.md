@@ -501,6 +501,248 @@ Common problems to check:
 
 ---
 
+### Item 100-F: `security/validation.py` not imported, not tested
+
+**Origin:** cherry-pick from security/fix-tests branch (2026-04-07)
+**Effort:** ~2 hours
+
+#### Context
+
+`security/validation.py` (411 lines) was cherry-picked from a stale branch and
+fixed (missing imports, broken CSRF timing). It contains `SecurityValidator`,
+`InputSanitizer`, `MTLSManager`, `AuditLogger`, and `RateLimitValidator` — none
+of which are imported by `proxy.py` or any `src/` module. The file is dead code
+today.
+
+The CSRF fix changed the token format: tokens are now `{timestamp}:{hmac}` so
+the timestamp is embedded and validation checks within a configurable time window
+(`max_age=3600`). Any future integrator must use `generate_csrf_token()` and
+`validate_csrf_token()` from the same class instance.
+
+**Trap:** `MTLSManager.validate_certificate_chain()` uses `cryptography.x509`
+which requires the `cryptography` package (already in `requirements.txt`).
+`AuditLogger` uses `logging.handlers.RotatingFileHandler` and writes to
+`audit.log` by default — confirm the configured path is writable before
+enabling.
+
+**Trap:** `SecurityValidator.__init__` accepts a GeoIP database path from
+config. If the path is absent or the file is missing it logs a warning and
+continues — do not hard-fail on missing GeoIP in the validator.
+
+#### Exact changes
+
+**1. Add a minimal integration test file `tests/unit/test_security_validation.py`**
+
+```python
+"""Smoke tests for security/validation.py — verifies imports and basic contracts."""
+import time
+import pytest
+from security.validation import SecurityValidator, InputSanitizer
+
+@pytest.fixture
+def validator():
+    return SecurityValidator({"security": {"csrf_secret": "test-secret"}})
+
+def test_csrf_roundtrip(validator):
+    token = validator.generate_csrf_token("sess-1")
+    assert validator.validate_csrf_token(token, "sess-1")
+
+def test_csrf_wrong_session(validator):
+    token = validator.generate_csrf_token("sess-1")
+    assert not validator.validate_csrf_token(token, "sess-2")
+
+def test_csrf_expired(validator):
+    token = validator.generate_csrf_token("sess-1")
+    # max_age=0 means any token is expired
+    assert not validator.validate_csrf_token(token, "sess-1", max_age=0)
+
+def test_csrf_tampered(validator):
+    assert not validator.validate_csrf_token("tampered", "sess-1")
+
+def test_sanitizer_strips_null_bytes():
+    s = InputSanitizer({})
+    assert "\x00" not in s.sanitize_string("hello\x00world")
+
+def test_validate_ip_valid(validator):
+    assert validator.validate_ip_address("192.0.2.1", check_reputation=False)
+
+def test_validate_ip_invalid(validator):
+    from security.validation import ValidationError
+    with pytest.raises(ValidationError):
+        validator.validate_ip_address("not-an-ip", check_reputation=False)
+```
+
+**2. `Makefile` — add `security/validation.py` to `lint-pylint` scope**
+
+`lint-pylint` currently lints `src/ proxy.py`. Extend to include `security/`:
+```makefile
+lint-pylint:
+	@echo "=== pylint: Python semantic analysis (errors only) ==="
+	@python3 -m pylint --errors-only src/ security/ proxy.py \
+		&& echo "✓ pylint passed"
+```
+
+Integration into the proxy pipeline (wiring `SecurityValidator` into
+`pipeline.py`) is out of scope for this item — that is a full phase of work.
+This item only ensures the module is importable, tested, and visible to the
+linter.
+
+#### Verify
+
+```bash
+python3 -m pytest tests/unit/test_security_validation.py -v
+python3 -m pylint --errors-only security/validation.py
+```
+
+---
+
+### Item 100-G: `SECURITY_REVIEW_PHASE1.md` findings not validated against current codebase
+
+**Origin:** cherry-pick from security/fix-tests branch (2026-04-07)
+**Effort:** ~3 hours
+**Blocked on:** engineer time to triage each finding
+
+#### Context
+
+`docs/security/SECURITY_REVIEW_PHASE1.md` is a 1,751-line security audit
+conducted in February 2026 against the codebase *before* Phases 0–92 were
+implemented. It identified 27 vulnerabilities (6 critical, 9 high, 8 medium,
+4 low).
+
+An unknown number of these findings are already resolved by subsequent phases
+(e.g. Phase 27 remediated IP spoofing and sync/async Redis mismatch; Phase 14
+addressed production hardening). An unknown number may still be open.
+
+The document itself contains at least one inaccuracy: it classifies
+`yaml.safe_load()` as a critical vulnerability, when `safe_load` is the
+*correct* safe API choice. Any triage must read findings critically.
+
+#### Verify steps
+
+For each of the 27 findings in `SECURITY_REVIEW_PHASE1.md`:
+1. Search the current codebase for the affected file/pattern
+2. Mark the finding: **RESOLVED** (cite the fixing commit/phase), **OPEN**
+   (still present, needs a fix), or **INVALID** (misclassification — document
+   why)
+3. For OPEN findings: open a new gap item in this file (or a dedicated phase
+   if the fix is substantial)
+
+Add a triage table at the bottom of `SECURITY_REVIEW_PHASE1.md`:
+
+| # | Finding | Severity | Status | Notes |
+|---|---------|----------|--------|-------|
+| 1 | ... | Critical | RESOLVED / OPEN / INVALID | Phase N / reason |
+
+#### Acceptance criteria
+- [ ] All 27 findings have a Status entry in the triage table
+- [ ] Every OPEN finding has either a gap item here or a named future phase
+- [ ] Every INVALID finding has a written rationale (not just "wrong")
+
+---
+
+### Item 100-H: `sync-roadmap.py` uses `os.path.basename()` — breaks links for archive/ paths
+
+**Origin:** doc-housekeeping branch review (2026-04-07)
+**Effort:** ~30 minutes
+
+#### Context
+
+`scripts/sync-roadmap.py` lines 79 and 95 both call:
+```python
+plan_file = os.path.basename(data["action_plan"])
+```
+
+This strips directory components so `docs/phases/archive/PHASE_28_WORK_PLAN.md`
+becomes the bare filename `PHASE_28_WORK_PLAN.md`. The generated markdown link
+then resolves relative to `docs/phases/`, pointing to a non-existent file.
+
+Today this is latent: all four `archive/` entries in `manifest.yaml` are
+`COMPLETE` phases, and the `TODO_SECTION_MAP` suppresses COMPLETE phases from
+`TODO.md` output. But any future `IN_PROGRESS` or `PROPOSED` phase whose
+`action_plan` is under `archive/` would produce a silently broken link.
+
+**Trap:** The link target in `TODO.md` must be relative to `docs/phases/`
+(where the file lives), not to the repo root. An `archive/` path should render
+as `[PHASE_28_WORK_PLAN.md](archive/PHASE_28_WORK_PLAN.md)`.
+
+#### Exact changes
+
+**`scripts/sync-roadmap.py` lines 79 and 95 — replace `os.path.basename()` with a relative path helper**
+
+Replace both occurrences:
+```python
+plan_file = os.path.basename(data["action_plan"])
+```
+with:
+```python
+# Preserve subdirectory (e.g. archive/) so links resolve from docs/phases/
+_phases_dir = "docs/phases/"
+action_plan = data["action_plan"]
+if action_plan.startswith(_phases_dir):
+    plan_file = action_plan[len(_phases_dir):]
+else:
+    plan_file = os.path.basename(action_plan)
+```
+
+#### Verify
+
+```bash
+python3 scripts/sync-roadmap.py
+# Manually verify docs/phases/TODO.md contains no broken archive/ links:
+grep "archive/" docs/phases/TODO.md
+# Each line should read: [PHASE_XX_WORK_PLAN.md](archive/PHASE_XX_WORK_PLAN.md)
+# NOT: [PHASE_XX_WORK_PLAN.md](PHASE_XX_WORK_PLAN.md)
+```
+
+---
+
+### Item 100-I: `quick-start.sh` and `scripts/basic_perf_test.sh` not wired into Makefile
+
+**Origin:** cherry-pick from security/fix-tests branch (2026-04-07)
+**Effort:** ~15 minutes
+
+#### Context
+
+Two scripts landed in main via the security cherry-pick but have no Makefile
+entry points:
+- `quick-start.sh` — one-command POC environment startup with health checks
+- `scripts/basic_perf_test.sh` — basic latency/throughput test harness
+
+A pre-existing `perf-test` target (Makefile line 699) runs `locust`. The new
+script is a lighter alternative that requires no additional dependencies.
+
+`quick-start.sh` currently references `docker/docker-compose.poc.yml`. Confirm
+this path is correct before adding the target (the main `deploy-poc` target
+uses the same file).
+
+#### Exact changes
+
+Add at the bottom of the Makefile (after the phase-92 PHONY block):
+
+```makefile
+## quick-start and perf targets (from security cherry-pick)
+quick-start:
+	@bash quick-start.sh
+
+perf-test-basic:
+	@bash scripts/basic_perf_test.sh $(PROXY_URL)
+
+.PHONY: quick-start perf-test-basic
+```
+
+`PROXY_URL` defaults to empty string; `basic_perf_test.sh` already defaults to
+`http://localhost:8080` when `$1` is unset.
+
+#### Verify
+
+```bash
+make -n quick-start      # dry-run — confirm the target exists and invokes the script
+make -n perf-test-basic  # dry-run
+make help | grep -E "quick-start|perf-test-basic"
+```
+
+---
+
 ## 3. Closed Items
 
 *(None yet — phase opened 2026-04-07)*
@@ -509,11 +751,14 @@ Common problems to check:
 
 ## 4. Phase completion criteria
 
-Phase 100 is COMPLETE when all five items above are either:
+Phase 100 is COMPLETE when all nine items above are either:
 - **Closed** — fix implemented, tests pass, commit SHA recorded, or
 - **Explicitly deferred** — moved to a named future phase with written
   rationale (not silently dropped)
 
-Items 100-D and 100-E are blocked on external dependencies. Close 100-A,
-100-B, and 100-C first. Revisit 100-D when Phase 79 merges. Revisit 100-E
-when platform access is arranged.
+**Unblocked (pick up now):** 100-A, 100-B, 100-C, 100-H, 100-I
+**Blocked on Phase 79:** 100-D
+**Blocked on platform access:** 100-E
+**Requires engineer triage:** 100-G
+**Integration work deferred:** 100-F (tests and linter wiring can be done now;
+full proxy pipeline integration is a separate phase)
