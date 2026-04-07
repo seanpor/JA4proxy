@@ -1,174 +1,519 @@
 # Phase 100: Cross-Phase Gap Closure
 
-> **Rolling phase.** This phase is a formal tracker for non-blocking gaps
-> identified during completed phases that don't individually justify a
-> dedicated phase. Items are closed here as part of normal development
-> rather than reopening a finished phase.
+> **Rolling phase.** Formal tracker for non-blocking gaps from completed
+> phases that don't individually justify a dedicated phase. Each item has
+> exact file paths, line numbers, and acceptance criteria so any worker can
+> pick it up cold without reading the originating phase.
 
 ---
 
-## 1. Purpose
+## How this phase works
 
-When a phase completes, the Critical Reviewer may identify gaps classified
-as "non-blocking" — correct enough to ship, but not ideal. Rather than
-losing these in commit message footnotes, Phase 100 collects them in one
-place with clear ownership and acceptance criteria.
+When you pick up an item:
+1. Read the **Context** block — it explains why the gap exists and what
+   traps to avoid.
+2. Follow the **Exact changes** block — precise file, line, and diff.
+3. Run the **Verify** command to confirm it passes.
+4. Move the item to the **Closed Items** section with the commit SHA.
 
-New items may be added here any time a gap is identified in a completed
-phase. The phase is marked COMPLETE when all registered items are closed.
+Items are independent unless noted. Work them in any order.
 
 ---
 
 ## 2. Open Items
 
-### 2.1 `source.port` and `destination.ip` absent from ECS connection events
+---
+
+### Item 100-A: `source.port` and `destination.ip` absent from ECS events
 
 **Origin:** Phase 80 Critical Review (Gap N1)
-**File:** `cmd/proxy/main.go`, `internal/security/models.go`
+**Effort:** ~1 hour
 
-The ECS spec mandates `source.port` (client port) and `destination.ip`
-(backend IP). Neither is currently available at logging time:
+#### Context
 
-- `ConnectionContext` has no `ClientPort` field — the port is available
-  on the `net.Conn` at accept time but is not stored.
-- `destination.ip` is the configured backend host, available from config
-  but not passed into `handleConn`.
+The ECS spec mandates `source.port` (the client's ephemeral TCP port) and
+`destination.ip` (the backend host the proxy forwards to). Neither appears
+in ECS log output today because:
 
-**Fix:**
-1. Add `ClientPort int` to `ConnectionContext` in `internal/security/models.go`.
-2. Populate it in `handleConn` from `clientConn.RemoteAddr().(*net.TCPAddr).Port`
-   before the pipeline runs.
-3. Add `"src_port": connCtx.ClientPort` and `"dst_ip": p.cfg.Proxy.BackendHost`
-   to the `logrus.Fields{}` map in `handleConn`.
-4. Add `source.port` and `destination.ip` to the ECS formatter's field
-   mapping in `internal/logging/ecs_formatter.go`.
-5. Update the ECS sample event at `config/integrations/ecs-sample-event.json`
-   to include both fields.
+- `ConnectionContext` (the immutable struct passed through the pipeline) has
+  no `ClientPort` field.
+- `remoteIP()` at `cmd/proxy/main.go:570` already does the right
+  `conn.RemoteAddr().(*net.TCPAddr)` cast to get the IP — port is right
+  there but discarded.
+- `destination.ip` is simply `cfg.Proxy.BackendHost` from config, available
+  as `p.cfg.Proxy.BackendHost` inside `handleConn` but never logged.
 
-**Acceptance criteria:**
-- [ ] `ConnectionContext.ClientPort` field exists and is populated
-- [ ] `source.port` present in ECS log output
-- [ ] `destination.ip` present in ECS log output
-- [ ] `ecs_formatter_test.go` tests for both fields pass
+**Trap:** When PROXY protocol is active (`cfg.Proxy.ProxyProtocol = true`),
+the real client IP is overwritten from the PROXY header at
+`cmd/proxy/main.go:281`. The client port in that case is NOT available from
+the PROXY protocol v1 header (it doesn't carry port information in the
+standard implementation here). So when PROXY protocol is enabled, log
+`src_port: 0` or omit it — do not panic trying to parse a port from the
+PROXY header.
 
----
+#### Exact changes
 
-### 2.2 Go proxy does not support `dual_output` logging mode
+**1. `internal/security/models.go` — add `ClientPort int` to `ConnectionContext`**
 
-**Origin:** Phase 80 Critical Review (Gap N3)
-**File:** `cmd/proxy/main.go`, `internal/logging/ecs_formatter.go`
-
-The Python `JSONFormatter` supports `dual_output=True` to emit both legacy
-and ECS formats simultaneously — the intended migration path for operators
-switching from legacy to ECS without breaking existing Grafana/Loki consumers.
-The Go proxy has `DualOutput bool` in `LoggingConfig` but `newLogger()` only
-logs a warning and does not implement it.
-
-**Fix:**
-1. Add a `DualFormatter` type to `internal/logging/` that wraps two
-   `logrus.Formatter` instances and concatenates their outputs with `\n`.
-2. When `cfg.Logging.DualOutput && cfg.Logging.Format == "ecs"`, use
-   `DualFormatter{Legacy: &logrus.JSONFormatter{...}, ECS: &ECSFormatter{Mode: "ecs"}}`.
-3. Add tests in `internal/logging/dual_formatter_test.go`.
-
-**Acceptance criteria:**
-- [ ] `logging.format: ecs` + `logging.dual_output: true` emits two JSON
-  lines per log event — one legacy, one ECS
-- [ ] Legacy line has `timestamp`, `level`, `message` (not `@timestamp`)
-- [ ] ECS line has `@timestamp`, `event.action`, `source.ip`
-- [ ] `dual_formatter_test.go` tests pass
-
----
-
-### 2.3 Per-endpoint retry/timeout config not respected by webhook dispatcher
-
-**Origin:** Phase 80 implementation (code worker note)
-**File:** `internal/webhook/delivery.go`, `cmd/proxy/main.go`
-
-The `WebhookEndpointConfig` struct has per-endpoint `retry_attempts`,
-`retry_backoff_seconds`, and `timeout_seconds`. The wiring in `newProxy()`
-uses the first endpoint's values as globals for the whole `DispatcherConfig`,
-meaning all endpoints share the same retry/timeout settings instead of
-each having its own.
-
-**Fix:**
-Move retry/timeout config inside `WebhookEndpoint` (it already has those
-fields). In `deliverToEndpoint()`, use `endpoint.RetryAttempts`,
-`endpoint.RetryBackoffSeconds`, and `endpoint.TimeoutSeconds` directly
-rather than reading from a single `DispatcherConfig` default.
-
-**Acceptance criteria:**
-- [ ] Two endpoints with different `retry_attempts` values are each
-  retried independently the correct number of times (verified by test)
-- [ ] `TestDispatcher_PerEndpointRetryConfig` passes
-
----
-
-### 2.4 Splunk TA and Sentinel content pack not live-tested
-
-**Origin:** Phase 80 scoping decision (no platform access)
-
-The Splunk TA dashboards, correlation searches, and Sentinel KQL analytics
-rules are structurally correct but cannot be verified without live platform
-instances.
-
-**Fix (when access becomes available):**
-- Install the TA in a Splunk trial instance, generate synthetic events
-  matching `ja4proxy:telemetry` sourcetype, verify all 5 dashboards render
-  and all 5 correlation searches return results.
-- Deploy the Sentinel content pack to a trial Sentinel workspace, ingest
-  test events via the `JA4proxy_CL` custom table, verify all 5 analytics
-  rules fire.
-- Document any field name mismatches found and fix them in the artifacts.
-
-**Acceptance criteria:**
-- [ ] Splunk TA installs without errors in Splunk Enterprise 9.x trial
-- [ ] All 5 Splunk dashboards render with synthetic data
-- [ ] At least 3 of 5 correlation searches return results against synthetic events
-- [ ] Sentinel data connector ingests to `JA4proxy_CL` table
-- [ ] At least one Sentinel analytics rule fires on a synthetic test event
-
-*Note: This item requires external resource access. Track separately from
-engineering items above.*
-
----
-
-### 2.5 Phase 79 API-dependent Phase 80 features unverified
-
-**Origin:** Phase 80 scoping decision (Phase 79 in progress at time of Phase 80)
-
-Two Phase 80 acceptance criteria depend on the Phase 79 Management API:
-- Splunk alert action (`bin/ja4proxy_ban_action.py`) calls `POST /api/v1/bans`
-  with an Operator-scoped API token
-- Sentinel `Block-IP-Playbook.json` calls the same endpoint
-
-**Fix:**
-Once Phase 79 is merged, run the Splunk alert action script against a
-local test instance of the management API:
-```bash
-echo '{"result": {"src_ip": "198.51.100.4"}}' | \
-  JA4PROXY_MGMT_URL=http://localhost:8090 \
-  JA4PROXY_API_TOKEN=<test-token> \
-  python3 integrations/splunk-ta/ja4proxy-ta/bin/ja4proxy_ban_action.py
+After the `ClientIP string` field (currently line 20), add:
+```go
+// ClientPort is the source TCP port. Zero when behind PROXY protocol.
+ClientPort int
 ```
 
-**Acceptance criteria:**
-- [ ] Alert action script POSTs successfully to Phase 79 bans endpoint
-- [ ] Returns exit code 0 on success, 1 on auth failure
-- [ ] Sentinel playbook JSON reviewed against Phase 79 API token format
+**2. `cmd/proxy/main.go` — populate `ClientPort` in `handleConn`**
+
+`remoteIP()` is at line 570. Add a parallel helper immediately after it:
+
+```go
+func remotePort(conn net.Conn) int {
+	if addr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
+		return addr.Port
+	}
+	return 0
+}
+```
+
+In `handleConn`, the `ConnectionContext` is built at line 274:
+```go
+connCtx := &security.ConnectionContext{
+    ClientIP: remoteIP(clientConn),
+}
+```
+Change to:
+```go
+connCtx := &security.ConnectionContext{
+    ClientIP:   remoteIP(clientConn),
+    ClientPort: remotePort(clientConn),
+}
+```
+Note: when PROXY protocol overwrites `ClientIP` at line 281, leave
+`ClientPort` as-is (zero) — this is correct and intentional.
+
+**3. `cmd/proxy/main.go` — add fields to connection decision log**
+
+The `logrus.Fields{}` map starts at approximately line 330. Add two fields:
+```go
+"src_port": connCtx.ClientPort,
+"dst_ip":   p.cfg.Proxy.BackendHost,
+```
+
+**4. `internal/logging/ecs_formatter.go` — map the two new log fields**
+
+In the `buildECSOut` function (or wherever `client_ip` is mapped to
+`source.ip`), add alongside the existing `source.ip` mapping:
+```go
+if v, ok := data["src_port"]; ok {
+    out["source.port"] = v
+}
+if v, ok := data["dst_ip"]; ok {
+    out["destination.ip"] = v
+}
+```
+
+**5. `config/integrations/ecs-sample-event.json` — add both fields**
+
+Add to the existing JSON object:
+```json
+"source.port": 54321,
+"destination.ip": "203.0.113.1"
+```
+
+#### Verify
+
+```bash
+GOROOT=/snap/go/current go build ./... 2>&1 && echo OK
+GOROOT=/snap/go/current go test ./internal/logging/... ./internal/security/... -v 2>&1 | grep -E "PASS|FAIL"
+make validate-ecs-schema
+```
+
+The existing `TestECSFormatter_SourceIP` tests don't cover `source.port` —
+add two new tests to `internal/logging/ecs_formatter_test.go`:
+- `TestECSFormatter_SourcePort_Present` — log entry with `src_port: 54321`,
+  assert `out["source.port"] == float64(54321)` (JSON numbers decode as float64)
+- `TestECSFormatter_SourcePort_AbsentWhenZero` — log entry with `src_port: 0`,
+  assert `source.port` is absent from output (zero port = unknown, don't emit)
+- `TestECSFormatter_DestinationIP_Present` — log entry with `dst_ip: "10.0.0.1"`,
+  assert `out["destination.ip"] == "10.0.0.1"`
+
+---
+
+### Item 100-B: Go proxy `dual_output` logging mode not implemented
+
+**Origin:** Phase 80 Critical Review (Gap N3)
+**Effort:** ~2 hours
+
+#### Context
+
+The Python `JSONFormatter` (at `src/utils/logging_config.py:101-103`) supports
+`dual_output=True`: it emits two newline-separated JSON strings per log
+call — legacy format first, then ECS. This is the documented migration path
+for operators switching to ECS without breaking existing Loki dashboards.
+
+The Go proxy has `DualOutput bool` in `LoggingConfig`
+(`internal/config/loader.go:408`) and `dual_output: false` in
+`config/proxy.yml`. However `newLogger()` in `cmd/proxy/main.go:592-594`
+only logs a warning and discards the setting:
+```go
+if cfg.Logging.DualOutput && cfg.Logging.Format == "ecs" {
+    log.Warn("proxy: logging.dual_output=true is a Python-only feature; ...")
+}
+```
+
+**Trap:** logrus `Formatter.Format()` returns `[]byte` — it can return
+multiple newline-separated JSON objects in a single byte slice. The logrus
+output writer writes the returned bytes verbatim, so returning
+`legacyBytes + []byte("\n") + ecsBytes` works correctly. You do NOT need a
+second logger instance.
+
+**Trap:** Do not modify `ECSFormatter.Format()` directly. Add a new
+`DualFormatter` struct in a new file so the ECS formatter stays single-
+purpose and its existing 58 tests don't need touching.
+
+#### Exact changes
+
+**1. Create `internal/logging/dual_formatter.go`**
+
+```go
+package logging
+
+import (
+    "bytes"
+    "github.com/sirupsen/logrus"
+)
+
+// DualFormatter emits two newline-separated JSON log lines per entry:
+// a legacy logrus JSON line followed by an ECS 8.x line.
+// Used during the transition period when logging.dual_output: true.
+type DualFormatter struct {
+    Legacy logrus.Formatter // emits legacy format
+    ECS    logrus.Formatter // emits ECS format
+}
+
+// Format implements logrus.Formatter.
+func (d *DualFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+    legacyBytes, err := d.Legacy.Format(entry)
+    if err != nil {
+        return nil, err
+    }
+    ecsBytes, err := d.ECS.Format(entry)
+    if err != nil {
+        return nil, err
+    }
+    // Both formatters already append a trailing newline.
+    // Strip the trailing newline from the legacy line before joining.
+    legacy := bytes.TrimRight(legacyBytes, "\n")
+    return append(append(legacy, '\n'), ecsBytes...), nil
+}
+```
+
+**2. `cmd/proxy/main.go` — replace the warning with actual implementation**
+
+Replace the warning block at lines 592-594 with:
+```go
+if cfg.Logging.DualOutput && cfg.Logging.Format == "ecs" {
+    log.SetFormatter(&jalogger.DualFormatter{
+        Legacy: &logrus.JSONFormatter{
+            FieldMap: logrus.FieldMap{
+                logrus.FieldKeyTime:  "timestamp",
+                logrus.FieldKeyLevel: "level",
+                logrus.FieldKeyMsg:   "message",
+            },
+        },
+        ECS: jalogger.NewECSLogrusFormatter("ecs"),
+    })
+}
+```
+This block runs after the existing ECS-only formatter is set (line 502),
+so the dual formatter overrides it when `dual_output=true`.
+
+**3. Create `internal/logging/dual_formatter_test.go`**
+
+Tests:
+- `TestDualFormatter_EmitsTwoLines` — one `Format()` call produces output
+  containing exactly two valid JSON objects separated by a newline
+- `TestDualFormatter_FirstLineIsLegacy` — first JSON object has `timestamp`
+  key and NOT `@timestamp`
+- `TestDualFormatter_SecondLineIsECS` — second JSON object has `@timestamp`
+  key and NOT `timestamp`
+- `TestDualFormatter_BothLinesHaveSameMessage` — `message`/`msg` values match
+- `TestDualFormatter_LegacyFormatterError` — if the legacy formatter returns
+  an error, `DualFormatter.Format()` returns that error
+- `TestDualFormatter_ECSFormatterError` — if the ECS formatter returns an
+  error, `DualFormatter.Format()` returns that error
+
+#### Verify
+
+```bash
+GOROOT=/snap/go/current go test ./internal/logging/... -v 2>&1 | grep -E "PASS|FAIL"
+# Confirm dual_output=true produces two lines at runtime:
+# Set logging.format: ecs and logging.dual_output: true in config/proxy.yml,
+# build and run: echo | GOROOT=/snap/go/current go run ./cmd/proxy 2>/dev/null | head -2
+```
+
+---
+
+### Item 100-C: Webhook dispatcher ignores per-endpoint retry/timeout config
+
+**Origin:** Phase 80 implementation note
+**Effort:** ~1.5 hours
+
+#### Context
+
+`WebhookEndpointConfig` (`internal/config/loader.go`) has three per-endpoint
+fields: `RetryAttempts int`, `RetryBackoffSeconds float64`, `TimeoutSeconds float64`.
+
+The wiring in `newProxy()` (`cmd/proxy/main.go:145-178`) reads these fields
+but **only uses the first endpoint's values** as global defaults for the
+entire `DispatcherConfig`. All endpoints then share the same retry/timeout.
+
+The root cause is structural: `DispatcherConfig` (`internal/webhook/delivery.go:36-50`)
+holds a single `RetryAttempts`, `RetryBackoff`, and `TimeoutSeconds` that
+`deliverToEndpoint()` reads at line 113 and 142. `WebhookEndpoint` (the
+per-endpoint type) has no retry/timeout fields of its own.
+
+The fix requires changes at three levels:
+1. `WebhookEndpoint` struct — add per-endpoint retry/timeout fields
+2. `deliverToEndpoint()` — use per-endpoint values, falling back to the
+   global `DispatcherConfig` defaults when zero
+3. Wiring in `newProxy()` — populate per-endpoint fields from config
+
+#### Exact changes
+
+**1. `internal/webhook/delivery.go` — add fields to `WebhookEndpoint`**
+
+`WebhookEndpoint` is currently (approximately lines 20-35 — read the file to
+confirm exact lines):
+```go
+type WebhookEndpoint struct {
+    ID     string
+    URL    string
+    Secret string
+    Events []string
+}
+```
+Add:
+```go
+type WebhookEndpoint struct {
+    ID                  string
+    URL                 string
+    Secret              string
+    Events              []string
+    // Per-endpoint overrides. Zero means "use DispatcherConfig global default".
+    RetryAttempts       int
+    RetryBackoffSeconds float64
+    TimeoutSeconds      float64
+}
+```
+
+**2. `internal/webhook/delivery.go` — `deliverToEndpoint()` uses per-endpoint values**
+
+`deliverToEndpoint()` starts at line 112. It currently reads:
+```go
+maxAttempts := d.cfg.RetryAttempts   // line 113
+// ...
+backoff := d.cfg.RetryBackoff        // line 142
+```
+
+Change to use per-endpoint with global fallback:
+```go
+maxAttempts := ep.RetryAttempts
+if maxAttempts == 0 {
+    maxAttempts = d.cfg.RetryAttempts
+}
+// ...
+backoffSeconds := ep.RetryBackoffSeconds
+if backoffSeconds == 0 {
+    backoffSeconds = d.cfg.RetryBackoff.Seconds()
+}
+backoff := time.Duration(backoffSeconds * float64(time.Second))
+```
+
+For `TimeoutSeconds`, `NewDispatcher()` creates a single shared
+`http.Client` with one timeout. That needs to become per-call. Change
+`deliverToEndpoint()` to build a per-call `http.Client`:
+```go
+timeout := ep.TimeoutSeconds
+if timeout == 0 {
+    timeout = d.cfg.TimeoutSeconds
+}
+if timeout == 0 {
+    timeout = 30
+}
+client := &http.Client{Timeout: time.Duration(timeout * float64(time.Second))}
+```
+Remove the `client *http.Client` field from `Dispatcher` (or keep it as
+a fallback — either approach is fine; per-call client is cleaner).
+
+**3. `cmd/proxy/main.go` — populate per-endpoint fields in wiring**
+
+Replace the current wiring block (lines 145-168) with:
+```go
+endpoints := make([]webhook.WebhookEndpoint, len(cfg.Webhooks.Endpoints))
+for i, e := range cfg.Webhooks.Endpoints {
+    endpoints[i] = webhook.WebhookEndpoint{
+        ID:                  e.ID,
+        URL:                 e.URL,
+        Secret:              e.Secret,
+        Events:              e.Events,
+        RetryAttempts:       e.RetryAttempts,
+        RetryBackoffSeconds: e.RetryBackoffSeconds,
+        TimeoutSeconds:      e.TimeoutSeconds,
+    }
+}
+```
+Also simplify `DispatcherConfig` to safe global defaults only — no
+first-endpoint-wins logic:
+```go
+dispatcherCfg := webhook.DispatcherConfig{
+    Endpoints:     endpoints,
+    StreamKey:     cfg.Webhooks.StreamKey,
+    DLQStreamKey:  cfg.Webhooks.DLQKey,
+    RetryAttempts: 3,      // global default; overridden per-endpoint
+    RetryBackoff:  5 * time.Second,
+    TimeoutSeconds: 30,
+}
+```
+
+**4. Add a test to `internal/webhook/delivery_test.go`**
+
+`TestDispatcher_PerEndpointRetryConfig` — create two endpoints with
+different `RetryAttempts` (e.g. 2 and 4). Mock HTTP server always returns
+503. Deliver one event. Assert endpoint 1 made exactly 2 attempts and
+endpoint 2 made exactly 4 attempts (use atomic counters per endpoint).
+
+#### Verify
+
+```bash
+GOROOT=/snap/go/current go build ./... 2>&1 && echo OK
+GOROOT=/snap/go/current go test ./internal/webhook/... -v -run TestDispatcher 2>&1 | grep -E "PASS|FAIL"
+```
+
+---
+
+### Item 100-D: Splunk alert action and Sentinel playbooks not tested against Phase 79 API
+
+**Origin:** Phase 80 scoping (Phase 79 in progress at time of Phase 80)
+**Effort:** ~1 hour (after Phase 79 merges)
+**Blocked on:** Phase 79 merge to main
+
+#### Context
+
+Two Phase 80 deliverables call the Management API:
+- `integrations/splunk-ta/ja4proxy-ta/bin/ja4proxy_ban_action.py` —
+  calls `POST /api/v1/bans` with a bearer token
+- `integrations/sentinel/playbooks/Block-IP-Playbook.json` —
+  Logic App that calls the same endpoint
+
+Phase 79 defines the exact API token format (JWT, Operator scope) and
+the `/api/v1/bans` request/response schema. Until Phase 79 merges, these
+can't be verified end-to-end.
+
+**This item requires no code changes until Phase 79 merges.** Once it does:
+
+#### Verify steps
+
+```bash
+# 1. Start management API locally (Phase 79)
+cd management && uvicorn api.main:app --port 8090 &
+
+# 2. Obtain a test Operator token from Phase 79 auth endpoint
+TOKEN=$(curl -s -X POST http://localhost:8090/api/v1/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"username":"operator","password":"test"}' | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+# 3. Test the alert action script
+echo '{"result": {"src_ip": "198.51.100.4"}}' | \
+  JA4PROXY_MGMT_URL=http://localhost:8090 \
+  JA4PROXY_API_TOKEN="$TOKEN" \
+  python3 integrations/splunk-ta/ja4proxy-ta/bin/ja4proxy_ban_action.py
+# Expect: exit 0, stderr shows "Successfully banned 198.51.100.4"
+
+# 4. Confirm the ban was recorded
+curl -s -H "Authorization: Bearer $TOKEN" \
+  http://localhost:8090/api/v1/bans | python3 -m json.tool
+# Expect: 198.51.100.4 in the bans list
+```
+
+If the Phase 79 token format or endpoint path differs from what the script
+assumes, update `bin/ja4proxy_ban_action.py` accordingly. Also update the
+`Block-IP-Playbook.json` ARM template's HTTP action URL if the path changed.
+
+#### Acceptance criteria
+- [ ] Alert action script exits 0 against a running Phase 79 management API
+- [ ] Banned IP appears in `GET /api/v1/bans` response
+- [ ] Script exits 1 with a clear error message when token is invalid (401)
+- [ ] `Block-IP-Playbook.json` HTTP action URL and auth header format match
+  Phase 79's actual endpoint
+
+---
+
+### Item 100-E: Splunk TA and Sentinel content pack not live-tested
+
+**Origin:** Phase 80 scoping (no SIEM platform access)
+**Effort:** Unknown — requires external access
+**Blocked on:** Splunk or Sentinel trial instance
+
+#### Context
+
+The Splunk TA and Sentinel content pack are structurally correct and pass
+offline validation (JSON/YAML parse, schema checks). They have not been
+installed in a real Splunk or Sentinel environment.
+
+**This item cannot be completed without platform access.** When access is
+available:
+
+#### Splunk verification steps
+
+1. Package the TA: `cd integrations/splunk-ta && tar czf ja4proxy-ta.tgz ja4proxy-ta/`
+2. Install in Splunk Enterprise 9.x: Apps → Install app from file → upload `ja4proxy-ta.tgz`
+3. Restart Splunk if prompted
+4. Generate synthetic test events — the sample event at
+   `config/integrations/ecs-sample-event.json` is a valid payload. Send it
+   as a sourcetype `ja4proxy:telemetry` event.
+5. Verify all 5 dashboards render under the JA4proxy app navigation
+6. Run each correlation search manually: Settings → Searches, Reports, and
+   Alerts → run each saved search. Each should return results from the
+   synthetic event.
+
+Common problems to check:
+- `props.conf` TIME_PREFIX regex must match the actual `@timestamp` key
+  in the ECS JSON — verify the format matches RFC3339Nano.
+- CIM FIELDALIAS entries (`src_ip`, `dest_ip`) must resolve correctly;
+  check with `| eval test=src_ip` in the search bar.
+
+#### Sentinel verification steps
+
+1. Deploy the ARM template: `integrations/sentinel/data-connector/JA4proxy_DataConnector.json`
+   via Azure Portal → Custom Template Deployment.
+2. Send a test event via the Log Analytics API using the sample event.
+3. Verify `JA4proxy_CL` table appears in Log Analytics workspace.
+4. Enable one analytics rule (start with `beaconing-detected.json`).
+5. Verify it fires against a synthetic alert event.
+
+#### Acceptance criteria
+- [ ] Splunk TA installs without errors in Splunk Enterprise 9.x
+- [ ] All 5 dashboards render (may have zero data — that's OK; no errors)
+- [ ] At least 3 of 5 correlation searches return expected results against
+  synthetic events
+- [ ] Sentinel `JA4proxy_CL` table accepts events and at least one analytics
+  rule fires
 
 ---
 
 ## 3. Closed Items
 
-*(None yet — phase just opened)*
+*(None yet — phase opened 2026-04-07)*
 
 ---
 
-## 4. Acceptance Criteria (Phase Complete)
+## 4. Phase completion criteria
 
-All items in section 2 are either:
-- Closed (fix implemented, tests pass), OR
-- Explicitly deferred to a named future phase with rationale
+Phase 100 is COMPLETE when all five items above are either:
+- **Closed** — fix implemented, tests pass, commit SHA recorded, or
+- **Explicitly deferred** — moved to a named future phase with written
+  rationale (not silently dropped)
 
-Phase 100 is a rolling tracker and should not block other work.
+Items 100-D and 100-E are blocked on external dependencies. Close 100-A,
+100-B, and 100-C first. Revisit 100-D when Phase 79 merges. Revisit 100-E
+when platform access is arranged.
