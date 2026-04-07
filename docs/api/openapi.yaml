@@ -1,0 +1,2732 @@
+openapi: 3.1.0
+info:
+  title: JA4proxy Management UI
+  description: Management interface for JA4proxy TLS security proxy
+  version: 1.0.0
+paths:
+  /auth/login:
+    post:
+      tags:
+      - auth
+      summary: Login
+      description: 'Validate credentials and set an httpOnly JWT cookie.
+
+
+        On success: sets cookie and redirects to /.
+
+        On failure: returns 401 JSON.'
+      operationId: login_auth_login_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /auth/logout:
+    post:
+      tags:
+      - auth
+      summary: Logout
+      description: Clear the auth cookie and redirect to /login.
+      operationId: logout_auth_logout_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /auth/mfa/totp/setup:
+    get:
+      tags:
+      - mfa
+      summary: Totp Setup
+      description: "Enroll TOTP for the current user.\n\nGenerates a new TOTP secret,\
+        \ encrypts it with Fernet, stores it in Redis,\ngenerates 8 backup codes (bcrypt-hashed\
+        \ in Redis), and returns a QR code PNG\n(base64-encoded) plus the plaintext\
+        \ backup codes (shown exactly once).\n\nCalling this endpoint again rotates\
+        \ the secret and backup codes.\n\nReturns:\n    JSON with ``qr_code`` (base64\
+        \ PNG) and ``backup_codes`` (list of 8 strings)."
+      operationId: totp_setup_auth_mfa_totp_setup_get
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /auth/mfa/totp/verify:
+    post:
+      tags:
+      - mfa
+      summary: Totp Verify
+      description: "Verify a 6-digit TOTP code or a backup code.\n\nOn success, marks\
+        \ the current session as MFA-verified (sets\n``mgmt:mfa:session:{sha256(jwt)}``).\n\
+        \nRequest body (JSON):\n    ``code``: the 6-digit TOTP code or a backup code\
+        \ string.\n\nReturns:\n    200 ``{\"verified\": true}`` for TOTP codes.\n\
+        \    200 ``{\"verified\": true, \"backup_code_used\": true}`` for backup codes.\n\
+        \    401 for wrong codes or expired TOTP window.\n    404 if TOTP is not enrolled\
+        \ for this user."
+      operationId: totp_verify_auth_mfa_totp_verify_post
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /auth/mfa/webauthn/register/begin:
+    post:
+      tags:
+      - mfa
+      summary: Webauthn Register Begin
+      description: 'Generate a WebAuthn registration challenge.
+
+
+        Returns the PublicKeyCredentialCreationOptions JSON that the browser needs
+
+        to call ``navigator.credentials.create()``. Excludes any already-registered
+
+        credentials to prevent duplicate registration.
+
+
+        The challenge is stored in Redis with a 5-minute TTL.'
+      operationId: webauthn_register_begin_auth_mfa_webauthn_register_begin_post
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /auth/mfa/webauthn/register/complete:
+    post:
+      tags:
+      - mfa
+      summary: Webauthn Register Complete
+      description: "Verify WebAuthn attestation and store the new credential.\n\n\
+        Request body: the ``PublicKeyCredential`` JSON from ``navigator.credentials.create()``.\n\
+        \nOn success stores:\n- ``mgmt:webauthn:credential:{credential_id}`` Hash\
+        \ record\n- Adds credential ID to ``mgmt:webauthn:user:{user_id}:credentials``\
+        \ SET\n\nReturns:\n    201 ``{\"registered\": true, \"credential_id\": \"\
+        <base64url>\"}``\n    400 if no challenge found or attestation verification\
+        \ fails."
+      operationId: webauthn_register_complete_auth_mfa_webauthn_register_complete_post
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /auth/mfa/webauthn/auth/begin:
+    post:
+      tags:
+      - mfa
+      summary: Webauthn Auth Begin
+      description: "Generate a WebAuthn authentication challenge.\n\nReturns the ``PublicKeyCredentialRequestOptions``\
+        \ JSON the browser needs to\ncall ``navigator.credentials.get()``. The ``allowCredentials``\
+        \ list is\npopulated with all credentials registered for this user.\n\nReturns:\n\
+        \    200 with challenge options JSON.\n    404 if no credentials are enrolled."
+      operationId: webauthn_auth_begin_auth_mfa_webauthn_auth_begin_post
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /auth/mfa/webauthn/auth/complete:
+    post:
+      tags:
+      - mfa
+      summary: Webauthn Auth Complete
+      description: "Verify a WebAuthn assertion and mark the session as MFA-verified.\n\
+        \nRequest body: the ``PublicKeyCredential`` JSON from ``navigator.credentials.get()``.\n\
+        Must contain an ``id`` field (base64url credential ID).\n\nOn success sets\
+        \ ``mgmt:mfa:session:{sha256(jwt)}`` → \"verified\" (8h TTL).\n\nReturns:\n\
+        \    200 ``{\"verified\": true}``\n    400 if no authentication challenge\
+        \ found.\n    404 if the credential ID is not registered.\n    401 if assertion\
+        \ verification fails."
+      operationId: webauthn_auth_complete_auth_mfa_webauthn_auth_complete_post
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /auth/sso/metadata:
+    get:
+      tags:
+      - sso
+      summary: Saml Metadata
+      description: "Serve SAML SP metadata XML.\n\nThe IdP administrator fetches this\
+        \ URL to configure the SP side of the\ntrust relationship.  No authentication\
+        \ required.\n\nReturns:\n    200 ``application/xml`` SP metadata.\n    503\
+        \ if SAML IdP is not configured (missing env vars)."
+      operationId: saml_metadata_auth_sso_metadata_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /auth/sso/saml/login:
+    get:
+      tags:
+      - sso
+      summary: Saml Login
+      description: "Initiate SAML 2.0 login — redirect browser to the IdP SSO URL.\n\
+        \nGenerates a random nonce, stores it in Redis (5-min TTL) for CSRF\nprotection,\
+        \ and passes it as the RelayState.  The IdP will echo the\nRelayState back\
+        \ in the ACS POST so we can verify it there.\n\nNo authentication required\
+        \ (this is the start of the login flow).\n\nReturns:\n    302 redirect to\
+        \ IdP SSO URL.\n    503 if SAML is not configured."
+      operationId: saml_login_auth_sso_saml_login_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /auth/sso/saml/acs:
+    post:
+      tags:
+      - sso
+      summary: Saml Acs
+      description: "SAML Assertion Consumer Service — receive and process IdP response.\n\
+        \nThe IdP POST-binds the base64-encoded SAMLResponse and the RelayState\n\
+        (nonce) here.  On success, issues a JWT cookie and redirects to the\nstored\
+        \ redirect URL.\n\nNo authentication required (this IS the authentication\
+        \ step).\n\nReturns:\n    302 redirect to post-login URL with ``token`` cookie\
+        \ set.\n    400 if relay state (nonce) is missing or expired.\n    401 if\
+        \ the SAML assertion is invalid.\n    403 if the user's groups do not map\
+        \ to any role.\n    503 if SAML is not configured."
+      operationId: saml_acs_auth_sso_saml_acs_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /auth/sso/oidc/login:
+    get:
+      tags:
+      - sso
+      summary: Oidc Login
+      description: "Start the OIDC authorization code + PKCE flow.\n\nFetches the\
+        \ discovery document, generates a PKCE pair and random state,\nstores them\
+        \ in Redis (5-min TTL), then redirects the browser to the\nIdP authorization\
+        \ endpoint.\n\nNo authentication required (this is the start of the login\
+        \ flow).\n\nReturns:\n    302 redirect to IdP authorization URL.\n    503\
+        \ if OIDC is not configured."
+      operationId: oidc_login_auth_sso_oidc_login_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /auth/sso/oidc/callback:
+    get:
+      tags:
+      - sso
+      summary: Oidc Callback
+      description: "Handle the OIDC authorization code callback.\n\nValidates the\
+        \ state (CSRF check), exchanges the code for tokens using\nPKCE, extracts\
+        \ claims from the ID token, maps groups to a role, and\nissues a JWT cookie.\n\
+        \nNo authentication required (this IS the authentication step).\n\nReturns:\n\
+        \    302 redirect to post-login URL with ``token`` cookie set.\n    400 if\
+        \ state is missing or expired.\n    401 if token exchange or claim extraction\
+        \ fails.\n    403 if the user's groups have no mapped role.\n    503 if OIDC\
+        \ is not configured."
+      operationId: oidc_callback_auth_sso_oidc_callback_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/health:
+    get:
+      tags:
+      - health
+      summary: Health
+      description: 'Return system health status.
+
+
+        Never raises — all failures are caught and reflected in the response body.'
+      operationId: health_api_v1_health_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /api/v1/health/deep:
+    get:
+      tags:
+      - health
+      summary: Health Deep
+      description: 'Deep health check — verifies Redis connectivity and returns latency.
+
+
+        Returns HTTP 200 when Redis is healthy, 503 when degraded.
+
+        Requires at minimum the Auditor role.'
+      operationId: health_deep_api_v1_health_deep_get
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/ready:
+    get:
+      tags:
+      - health
+      summary: Ready
+      description: 'Readiness probe — no authentication required.
+
+
+        Returns 200 {"ready": True} when Redis is reachable and accessible.
+
+        Returns 503 {"ready": False, "reason": ...} on any failure.
+
+
+        Intended for load-balancer health checks that must not require auth.'
+      operationId: ready_api_v1_ready_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /api/v1/dial:
+    get:
+      tags:
+      - dial
+      summary: Get Dial
+      description: Return the current dial value.
+      operationId: get_dial_api_v1_dial_get
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DialValue'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - dial
+      summary: Update Dial
+      description: "Update the dial value.\n\nEnforces a maximum change of ±10 per\
+        \ request to prevent accidental\njumps in blocking aggression.\n\nArgs:\n\
+        \    body: New dial value (0-100).\n\nRaises:\n    HTTPException(400): If\
+        \ the requested change exceeds ±10."
+      operationId: update_dial_api_v1_dial_put
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DialUpdateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DialValue'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    patch:
+      tags:
+      - dial
+      summary: Update Dial
+      description: "Update the dial value.\n\nEnforces a maximum change of ±10 per\
+        \ request to prevent accidental\njumps in blocking aggression.\n\nArgs:\n\
+        \    body: New dial value (0-100).\n\nRaises:\n    HTTPException(400): If\
+        \ the requested change exceeds ±10."
+      operationId: update_dial_api_v1_dial_patch
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DialUpdateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DialValue'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/allowlist:
+    post:
+      tags:
+      - canonical-lists
+      summary: Add entry to allowlist
+      operationId: post_entry_api_v1_allowlist_post
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - canonical-lists
+      summary: List all entries in allowlist
+      operationId: get_entries_api_v1_allowlist_get
+      parameters:
+      - name: managed_by
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Managed By
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/allowlist/{resource_id}:
+    get:
+      tags:
+      - canonical-lists
+      summary: Get a single allowlist entry by UUID
+      operationId: get_entry_by_id_api_v1_allowlist__resource_id__get
+      parameters:
+      - name: resource_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Resource Id
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - canonical-lists
+      summary: Delete a allowlist entry by UUID
+      operationId: delete_entry_api_v1_allowlist__resource_id__delete
+      parameters:
+      - name: resource_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Resource Id
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/blocklist:
+    post:
+      tags:
+      - canonical-lists
+      summary: Add entry to blocklist
+      operationId: post_entry_api_v1_blocklist_post
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - canonical-lists
+      summary: List all entries in blocklist
+      operationId: get_entries_api_v1_blocklist_get
+      parameters:
+      - name: managed_by
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Managed By
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/blocklist/{resource_id}:
+    get:
+      tags:
+      - canonical-lists
+      summary: Get a single blocklist entry by UUID
+      operationId: get_entry_by_id_api_v1_blocklist__resource_id__get
+      parameters:
+      - name: resource_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Resource Id
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - canonical-lists
+      summary: Delete a blocklist entry by UUID
+      operationId: delete_entry_api_v1_blocklist__resource_id__delete
+      parameters:
+      - name: resource_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Resource Id
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/watchlist:
+    post:
+      tags:
+      - canonical-lists
+      summary: Add entry to watchlist
+      operationId: post_entry_api_v1_watchlist_post
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - canonical-lists
+      summary: List all entries in watchlist
+      operationId: get_entries_api_v1_watchlist_get
+      parameters:
+      - name: managed_by
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Managed By
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/watchlist/{resource_id}:
+    get:
+      tags:
+      - canonical-lists
+      summary: Get a single watchlist entry by UUID
+      operationId: get_entry_by_id_api_v1_watchlist__resource_id__get
+      parameters:
+      - name: resource_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Resource Id
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - canonical-lists
+      summary: Delete a watchlist entry by UUID
+      operationId: delete_entry_api_v1_watchlist__resource_id__delete
+      parameters:
+      - name: resource_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Resource Id
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/lists/{list_type}/{list_name}:
+    get:
+      tags:
+      - lists
+      summary: Get List
+      description: Return all entries in the specified list.
+      operationId: get_list_api_v1_lists__list_type___list_name__get
+      parameters:
+      - name: list_type
+        in: path
+        required: true
+        schema:
+          type: string
+          title: List Type
+      - name: list_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: List Name
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEntries'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/lists/{list_type}/{list_name}/{entry}:
+    post:
+      tags:
+      - lists
+      summary: Add To List
+      description: Add an entry to the specified list (idempotent — safe to call multiple
+        times).
+      operationId: add_to_list_api_v1_lists__list_type___list_name___entry__post
+      parameters:
+      - name: list_type
+        in: path
+        required: true
+        schema:
+          type: string
+          title: List Type
+      - name: list_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: List Name
+      - name: entry
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Entry
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListAddResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - lists
+      summary: Remove From List
+      description: "Remove an entry from the specified list.\n\nRaises:\n    HTTPException(404):\
+        \ If the entry does not exist in the list."
+      operationId: remove_from_list_api_v1_lists__list_type___list_name___entry__delete
+      parameters:
+      - name: list_type
+        in: path
+        required: true
+        schema:
+          type: string
+          title: List Type
+      - name: list_name
+        in: path
+        required: true
+        schema:
+          type: string
+          title: List Name
+      - name: entry
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Entry
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListRemoveResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/bans:
+    get:
+      tags:
+      - bans
+      summary: List Bans
+      description: List all active bans by scanning ban:* keys.
+      operationId: list_bans_api_v1_bans_get
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BanList'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/bans/{ip}:
+    post:
+      tags:
+      - bans
+      summary: Create Ban
+      description: 'Create a ban for the given IP address.
+
+
+        The IP is URL-decoded so IPv6 addresses passed percent-encoded work.'
+      operationId: create_ban_api_v1_bans__ip__post
+      parameters:
+      - name: ip
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Ip
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              anyOf:
+              - $ref: '#/components/schemas/BanCreateRequest'
+              - type: 'null'
+              title: Body
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BanCreateResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - bans
+      summary: Lift Ban
+      description: "Lift (remove) a ban for the given IP address.\n\nRaises:\n   \
+        \ HTTPException(404): If no ban exists for the IP."
+      operationId: lift_ban_api_v1_bans__ip__delete
+      parameters:
+      - name: ip
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Ip
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BanRemoveResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/events:
+    get:
+      tags:
+      - events
+      summary: Stream Events
+      description: 'Stream live connection events as Server-Sent Events.
+
+
+        Clients should connect with ``Accept: text/event-stream``.
+
+        The stream never ends — clients must disconnect when done.
+
+
+        When the client requests ``Accept: application/json`` (e.g. in tests or
+
+        when probing the endpoint), a non-streaming JSON acknowledgement is returned
+
+        instead of an infinite SSE stream.'
+      operationId: stream_events_api_v1_events_get
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/config/reload:
+    post:
+      tags:
+      - config
+      summary: Reload Config
+      description: 'Publish a config reload signal to all proxy instances.
+
+
+        All instances subscribed to ``config.reload`` will hot-reload their
+
+        configuration on receipt.'
+      operationId: reload_config_api_v1_config_reload_post
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfigReloadResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/audit:
+    get:
+      tags:
+      - audit
+      summary: Get Audit Log
+      description: Return management audit log entries with optional filters and format
+        control.
+      operationId: get_audit_log_api_v1_audit_get
+      parameters:
+      - name: format
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: 'Response format: json (default), jsonl, csv'
+          title: Format
+        description: 'Response format: json (default), jsonl, csv'
+      - name: action
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Filter by action_type field
+          title: Action
+        description: Filter by action_type field
+      - name: actor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Filter by actor_id substring
+          title: Actor
+        description: Filter by actor_id substring
+      - name: since
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Filter by timestamp >= value (ISO 8601)
+          title: Since
+        description: Filter by timestamp >= value (ISO 8601)
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/partials/health-cards:
+    get:
+      tags:
+      - partials
+      summary: Health Cards Partial
+      description: Return the health cards grid as an HTML fragment.
+      operationId: health_cards_partial_api_v1_partials_health_cards_get
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/partials/dial:
+    get:
+      tags:
+      - partials
+      summary: Dial Partial
+      description: Return the dial widget HTML fragment with the current dial value.
+      operationId: dial_partial_api_v1_partials_dial_get
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/partials/bans:
+    get:
+      tags:
+      - partials
+      summary: Bans Partial
+      description: Return the bans table HTML fragment.
+      operationId: bans_partial_api_v1_partials_bans_get
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/partials/audit:
+    get:
+      tags:
+      - partials
+      summary: Audit Partial
+      description: Return audit log table rows as an HTML fragment.
+      operationId: audit_partial_api_v1_partials_audit_get
+      parameters:
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          description: Pagination offset
+          default: 0
+          title: Offset
+        description: Pagination offset
+      - name: filter
+        in: query
+        required: false
+        schema:
+          type: string
+          description: 'Filter: all | dial | ban | list | reload'
+          default: all
+          title: Filter
+        description: 'Filter: all | dial | ban | list | reload'
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/partials/list-table:
+    get:
+      tags:
+      - partials
+      summary: List Table Partial
+      description: Return a list entries table as an HTML fragment.
+      operationId: list_table_partial_api_v1_partials_list_table_get
+      parameters:
+      - name: list
+        in: query
+        required: true
+        schema:
+          type: string
+          description: 'List name: ja4_whitelist | ja4_blacklist | ip_allowlist'
+          title: List
+        description: 'List name: ja4_whitelist | ja4_blacklist | ip_allowlist'
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/tokens:
+    post:
+      tags:
+      - tokens
+      summary: Create Token
+      description: Create a new bearer token.  The plaintext is returned exactly once.
+      operationId: create_token_api_v1_tokens_post
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenCreateResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - tokens
+      summary: List Tokens
+      description: List all tokens (metadata only — no hash, no plaintext).
+      operationId: list_tokens_api_v1_tokens_get
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenListResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/tokens/{token_id}:
+    get:
+      tags:
+      - tokens
+      summary: Get Token
+      description: Inspect a single token by ID (no hash, no plaintext).
+      operationId: get_token_api_v1_tokens__token_id__get
+      parameters:
+      - name: token_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Token Id
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - tokens
+      summary: Delete Token
+      description: Revoke a token.  Idempotent — returns 204 even if token did not
+        exist.
+      operationId: delete_token_api_v1_tokens__token_id__delete
+      parameters:
+      - name: token_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Token Id
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/tokens/{token_id}/rotate:
+    post:
+      tags:
+      - tokens
+      summary: Rotate Token
+      description: 'Replace an existing token with a new one.
+
+
+        The old token remains valid for a 60-second grace period (TTL on the Redis
+
+        key) so in-flight requests using the old credential do not suddenly fail.'
+      operationId: rotate_token_api_v1_tokens__token_id__rotate_post
+      parameters:
+      - name: token_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Token Id
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRotateResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/connections:
+    get:
+      tags:
+      - connections
+      summary: Get Connections
+      description: 'Return recent connection events from the stream, optionally filtered.
+
+
+        Reads up to limit*2 raw entries from the stream tail, applies filters,
+
+        then returns at most *limit* results. ``truncated`` is True when the
+
+        raw stream has more entries than were returned.'
+      operationId: get_connections_api_v1_connections_get
+      parameters:
+      - name: ip
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Filter by exact IP
+          title: Ip
+        description: Filter by exact IP
+      - name: ja4
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Filter by exact JA4 fingerprint
+          title: Ja4
+        description: Filter by exact JA4 fingerprint
+      - name: action
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Filter by action_taken
+          title: Action
+        description: Filter by action_taken
+      - name: since
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: ISO 8601 timestamp — only events after this
+          title: Since
+        description: ISO 8601 timestamp — only events after this
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 500
+          minimum: 1
+          description: Max results
+          default: 100
+          title: Limit
+        description: Max results
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/fingerprints/{ja4}:
+    get:
+      tags:
+      - connections
+      summary: Get Fingerprint Detail
+      description: 'Return aggregate statistics for a given JA4 fingerprint.
+
+
+        Scans the full event stream for matching entries and returns total
+
+        connection count, unique IPs, last-seen timestamp, and action breakdown.
+
+
+        Returns 404 if the fingerprint has never appeared in the stream.'
+      operationId: get_fingerprint_detail_api_v1_fingerprints__ja4__get
+      parameters:
+      - name: ja4
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Ja4
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/fingerprints/{ja4}/history:
+    get:
+      tags:
+      - connections
+      summary: Get Fingerprint History
+      description: 'Return the chronological event history for a JA4 fingerprint.
+
+
+        Reads the full stream and returns all matching events sorted oldest-first.'
+      operationId: get_fingerprint_history_api_v1_fingerprints__ja4__history_get
+      parameters:
+      - name: ja4
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Ja4
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/nodes:
+    get:
+      tags:
+      - nodes
+      summary: Get Nodes
+      description: 'Return all live proxy nodes detected via heartbeat keys.
+
+
+        Each node heartbeat is stored as a Redis Hash with fields:
+
+        host, port, version, started_at, last_seen, connections_total.
+
+
+        Nodes with expired TTLs are not returned (Redis deletes them automatically).'
+      operationId: get_nodes_api_v1_nodes_get
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/nodes/{host}/reload:
+    post:
+      tags:
+      - nodes
+      summary: Reload Node
+      description: 'Publish a reload signal to the named proxy host.
+
+
+        The signal is published to the ``proxy:reload`` channel so that any
+
+        proxy instance subscribed to it will receive the message.
+
+
+        Always returns 200 with ``published: True`` — the endpoint does not
+
+        verify that the host actually exists or received the message.'
+      operationId: reload_node_api_v1_nodes__host__reload_post
+      parameters:
+      - name: host
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Host
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/webhooks:
+    post:
+      tags:
+      - webhooks
+      summary: Create Webhook
+      description: 'Create a new webhook subscription.
+
+
+        Returns the full record plus a one-time plaintext secret.
+
+        The secret is NOT stored; only its bcrypt hash is persisted.'
+      operationId: create_webhook_api_v1_webhooks_post
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookCreate'
+      responses:
+        '201':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    get:
+      tags:
+      - webhooks
+      summary: List Webhooks
+      description: Return all webhook subscriptions (no secrets).
+      operationId: list_webhooks_api_v1_webhooks_get
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/webhooks/{webhook_id}:
+    get:
+      tags:
+      - webhooks
+      summary: Get Webhook
+      description: Return a single webhook by ID (no secrets).
+      operationId: get_webhook_api_v1_webhooks__webhook_id__get
+      parameters:
+      - name: webhook_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Webhook Id
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    put:
+      tags:
+      - webhooks
+      summary: Update Webhook
+      description: 'Update an existing webhook in-place.
+
+
+        Only ``url``, ``events``, and ``active`` may be changed.
+
+        Returns the updated resource.'
+      operationId: update_webhook_api_v1_webhooks__webhook_id__put
+      parameters:
+      - name: webhook_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Webhook Id
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+    delete:
+      tags:
+      - webhooks
+      summary: Delete Webhook
+      description: 'Delete a webhook subscription.
+
+
+        Idempotent — returns 204 whether or not the webhook existed.'
+      operationId: delete_webhook_api_v1_webhooks__webhook_id__delete
+      parameters:
+      - name: webhook_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Webhook Id
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '204':
+          description: Successful Response
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /api/v1/metrics/summary:
+    get:
+      tags:
+      - metrics
+      summary: Metrics Summary
+      description: 'Return an operational metrics snapshot.
+
+
+        All values are read from Redis at request time — no caching.'
+      operationId: metrics_summary_api_v1_metrics_summary_get
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /login:
+    get:
+      tags:
+      - pages
+      summary: Login Page
+      description: Render the login page. If already authenticated, redirect to /.
+      operationId: login_page_login_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+  /:
+    get:
+      tags:
+      - pages
+      summary: Dashboard Page
+      description: Render the main dashboard page.
+      operationId: dashboard_page__get
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /lists:
+    get:
+      tags:
+      - pages
+      summary: Lists Page
+      description: Render the JA4 / IP list management page.
+      operationId: lists_page_lists_get
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /bans:
+    get:
+      tags:
+      - pages
+      summary: Bans Page
+      description: Render the active bans management page.
+      operationId: bans_page_bans_get
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /audit:
+    get:
+      tags:
+      - pages
+      summary: Audit Page
+      description: Render the audit log page.
+      operationId: audit_page_audit_get
+      parameters:
+      - name: token
+        in: cookie
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Token
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            text/html:
+              schema:
+                type: string
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    BanCreateRequest:
+      properties:
+        ttl:
+          type: integer
+          minimum: 1.0
+          title: Ttl
+          description: TTL in seconds (default 3600)
+          default: 3600
+        reason:
+          type: string
+          maxLength: 256
+          minLength: 1
+          title: Reason
+          default: manual
+      type: object
+      title: BanCreateRequest
+      description: Body for POST /api/v1/bans/{ip}.
+    BanCreateResponse:
+      properties:
+        message:
+          type: string
+          title: Message
+        ip:
+          type: string
+          title: Ip
+        ttl:
+          type: integer
+          title: Ttl
+        reason:
+          type: string
+          title: Reason
+      type: object
+      required:
+      - message
+      - ip
+      - ttl
+      - reason
+      title: BanCreateResponse
+      description: Response from POST /api/v1/bans/{ip}.
+    BanEntry:
+      properties:
+        ip:
+          type: string
+          title: Ip
+        reason:
+          type: string
+          title: Reason
+          default: manual
+        ttl_remaining:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Ttl Remaining
+          description: Remaining TTL in seconds; None means persistent
+      type: object
+      required:
+      - ip
+      title: BanEntry
+      description: A single active ban record.
+    BanList:
+      properties:
+        bans:
+          items:
+            $ref: '#/components/schemas/BanEntry'
+          type: array
+          title: Bans
+        count:
+          type: integer
+          minimum: 0.0
+          title: Count
+      type: object
+      required:
+      - count
+      title: BanList
+      description: Response from GET /api/v1/bans.
+    BanRemoveResponse:
+      properties:
+        message:
+          type: string
+          title: Message
+        ip:
+          type: string
+          title: Ip
+      type: object
+      required:
+      - message
+      - ip
+      title: BanRemoveResponse
+      description: Response from DELETE /api/v1/bans/{ip}.
+    ConfigReloadResponse:
+      properties:
+        message:
+          type: string
+          title: Message
+          default: Config reload signal published
+        published_to:
+          type: string
+          title: Published To
+          default: config.reload
+      type: object
+      title: ConfigReloadResponse
+      description: Response from POST /api/v1/config/reload.
+    DialUpdateRequest:
+      properties:
+        value:
+          type: integer
+          maximum: 100.0
+          minimum: 0.0
+          title: Value
+          description: New dial value (0-100, max ±10 change)
+      type: object
+      required:
+      - value
+      title: DialUpdateRequest
+      description: Body for PUT /api/v1/dial.
+    DialValue:
+      properties:
+        value:
+          type: integer
+          maximum: 100.0
+          minimum: 0.0
+          title: Value
+          description: Current dial setting (0-100)
+        updated_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Updated At
+          description: ISO8601 timestamp of last update
+      type: object
+      required:
+      - value
+      title: DialValue
+      description: Response from GET /api/v1/dial.
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    HealthResponse:
+      properties:
+        status:
+          type: string
+          title: Status
+          description: ok | degraded
+        redis:
+          type: string
+          title: Redis
+          description: ok | unavailable
+        proxy_instances:
+          type: integer
+          minimum: 0.0
+          title: Proxy Instances
+          description: Number of live proxy instances detected
+          default: 0
+        geoip:
+          type: string
+          title: Geoip
+          description: ok | unavailable
+        uptime_seconds:
+          type: number
+          minimum: 0.0
+          title: Uptime Seconds
+      type: object
+      required:
+      - status
+      - redis
+      - geoip
+      - uptime_seconds
+      title: HealthResponse
+      description: Response from GET /api/v1/health.
+    ListAddResponse:
+      properties:
+        message:
+          type: string
+          title: Message
+        entry:
+          type: string
+          title: Entry
+      type: object
+      required:
+      - message
+      - entry
+      title: ListAddResponse
+      description: Response from POST /api/v1/lists/{list_type}/{list_name}/{entry}.
+    ListEntries:
+      properties:
+        entries:
+          items:
+            type: string
+          type: array
+          title: Entries
+        count:
+          type: integer
+          minimum: 0.0
+          title: Count
+      type: object
+      required:
+      - count
+      title: ListEntries
+      description: Response from GET /api/v1/lists/{list_type}/{list_name}.
+    ListRemoveResponse:
+      properties:
+        message:
+          type: string
+          title: Message
+        entry:
+          type: string
+          title: Entry
+      type: object
+      required:
+      - message
+      - entry
+      title: ListRemoveResponse
+      description: Response from DELETE /api/v1/lists/{list_type}/{list_name}/{entry}.
+    ManagedBy:
+      type: string
+      enum:
+      - terraform
+      - operator
+      - api
+      - analytics
+      - legacy
+      - migration
+      title: ManagedBy
+      description: Source of truth for a list entry.
+    ResourceCreate:
+      properties:
+        entry:
+          type: string
+          maxLength: 512
+          minLength: 1
+          title: Entry
+        managed_by:
+          $ref: '#/components/schemas/ManagedBy'
+          default: operator
+        note:
+          type: string
+          title: Note
+          default: ''
+        expires_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Expires At
+          description: ISO 8601 UTC timestamp; if in the past the entry is accepted
+            but filtered on read
+        list_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: List Type
+          description: Used internally; inferred from route path if absent
+      type: object
+      required:
+      - entry
+      title: ResourceCreate
+      description: Request body for POST /api/v1/{allowlist|blocklist|watchlist}.
+    ResourceListResponse:
+      properties:
+        entries:
+          items:
+            $ref: '#/components/schemas/ResourceResponse'
+          type: array
+          title: Entries
+        count:
+          type: integer
+          title: Count
+      type: object
+      required:
+      - entries
+      - count
+      title: ResourceListResponse
+      description: Response from GET /api/v1/{allowlist|blocklist|watchlist}.
+    ResourceResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        entry:
+          type: string
+          title: Entry
+        list_type:
+          type: string
+          title: List Type
+        managed_by:
+          type: string
+          title: Managed By
+        note:
+          type: string
+          title: Note
+        created_at:
+          type: string
+          title: Created At
+        created_by:
+          type: string
+          title: Created By
+        expires_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Expires At
+      type: object
+      required:
+      - id
+      - entry
+      - list_type
+      - managed_by
+      - note
+      - created_at
+      - created_by
+      title: ResourceResponse
+      description: Full resource envelope returned by canonical list endpoints.
+    Role:
+      type: string
+      enum:
+      - auditor
+      - analyst
+      - operator
+      - admin
+      title: Role
+      description: Role vocabulary for bearer token access control.
+    TokenCreate:
+      properties:
+        name:
+          type: string
+          maxLength: 128
+          minLength: 1
+          title: Name
+        role:
+          $ref: '#/components/schemas/Role'
+        expires_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Expires At
+          description: ISO 8601 UTC timestamp; must be in the future if provided
+      type: object
+      required:
+      - name
+      - role
+      title: TokenCreate
+      description: Request body for POST /api/v1/tokens.
+    TokenCreateResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        role:
+          type: string
+          title: Role
+        created_at:
+          type: string
+          title: Created At
+        expires_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Expires At
+        last_used_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Used At
+        token:
+          type: string
+          title: Token
+      type: object
+      required:
+      - id
+      - name
+      - role
+      - created_at
+      - token
+      title: TokenCreateResponse
+      description: Returned once on creation — includes the plaintext token.
+    TokenListResponse:
+      properties:
+        tokens:
+          items:
+            $ref: '#/components/schemas/TokenResponse'
+          type: array
+          title: Tokens
+        count:
+          type: integer
+          minimum: 0.0
+          title: Count
+      type: object
+      required:
+      - count
+      title: TokenListResponse
+      description: Response from GET /api/v1/tokens.
+    TokenResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        name:
+          type: string
+          title: Name
+        role:
+          type: string
+          title: Role
+        created_at:
+          type: string
+          title: Created At
+        expires_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Expires At
+        last_used_at:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Used At
+      type: object
+      required:
+      - id
+      - name
+      - role
+      - created_at
+      title: TokenResponse
+      description: Token metadata — no hash, no plaintext.
+    TokenRotateResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+        token:
+          type: string
+          title: Token
+      type: object
+      required:
+      - id
+      - token
+      title: TokenRotateResponse
+      description: Response from POST /api/v1/tokens/{id}/rotate.
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+    WebhookCreate:
+      properties:
+        url:
+          type: string
+          maxLength: 2048
+          minLength: 1
+          title: Url
+        events:
+          items:
+            type: string
+          type: array
+          title: Events
+        active:
+          type: boolean
+          title: Active
+          default: true
+      type: object
+      required:
+      - url
+      title: WebhookCreate
+      description: Body for POST /api/v1/webhooks.
+    WebhookUpdate:
+      properties:
+        url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Url
+        events:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Events
+        active:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Active
+      type: object
+      title: WebhookUpdate
+      description: Body for PUT /api/v1/webhooks/{id}.

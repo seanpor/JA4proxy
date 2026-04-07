@@ -14,8 +14,9 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Request
 
-from ..auth import get_current_user
-from ..models import ConfigReloadResponse
+from ..audit_utils import write_audit
+from ..auth import require_role
+from ..models import ConfigReloadResponse, Role
 from ..redis_client import get_redis
 
 logger = logging.getLogger(__name__)
@@ -23,27 +24,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["config"])
 
 _RELOAD_CHANNEL = "config.reload"
-_AUDIT_KEY = "management:audit_log"
-
-
-async def _write_audit(
-    redis,
-    action: str,
-    user: str,
-    detail: dict,
-    client_ip: str,
-) -> None:
-    entry = json.dumps(
-        {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "action": action,
-            "user": user,
-            "detail": detail,
-            "ip": client_ip,
-        }
-    )
-    await redis.lpush(_AUDIT_KEY, entry)
-    await redis.ltrim(_AUDIT_KEY, 0, 999)
 
 
 def _client_ip(request: Request) -> str:
@@ -58,7 +38,7 @@ def _client_ip(request: Request) -> str:
 @router.post("/api/v1/config/reload", response_model=ConfigReloadResponse)
 async def reload_config(
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(require_role(Role.admin)),
     redis=Depends(get_redis),
 ) -> ConfigReloadResponse:
     """Publish a config reload signal to all proxy instances.
@@ -66,26 +46,29 @@ async def reload_config(
     All instances subscribed to ``config.reload`` will hot-reload their
     configuration on receipt.
     """
+    identity, role = current_user
     payload = json.dumps(
         {
             "type": "config_reload",
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "requested_by": current_user,
+            "requested_by": identity,
         }
     )
     subscribers = await redis.publish(_RELOAD_CHANNEL, payload)
     logger.info(
         "config_ops | event=reload_published | user=%s | subscribers=%d",
-        current_user,
+        identity,
         subscribers,
     )
 
-    await _write_audit(
+    await write_audit(
         redis,
-        action="config_reload",
-        user=current_user,
-        detail={"channel": _RELOAD_CHANNEL, "subscribers": subscribers},
-        client_ip=_client_ip(request),
+        actor_id=identity,
+        actor_ip=_client_ip(request),
+        action_type="config.reload",
+        resource_type="config",
+        after_value={"channel": _RELOAD_CHANNEL, "subscribers": subscribers},
+        role=role.value,
     )
 
     return ConfigReloadResponse(

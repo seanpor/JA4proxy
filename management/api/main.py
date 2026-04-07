@@ -40,14 +40,25 @@ from .auth import router as auth_router
 from .routes import (
     audit,
     bans,
+    canonical_lists,
     config_ops,
+    connections,
     dial,
     events,
     health,
     lists,
+    metrics,
+    mfa_totp,
+    nodes,
+    oidc as oidc_routes,
+    saml as saml_routes,
+    webauthn as webauthn_routes,
     pages,
     partials,
+    tokens,
+    webhooks,
 )
+from .routes.canonical_lists import migrate_legacy_entries
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +74,20 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Only init Redis if not already injected (e.g. in tests)
     if redis_client.get_redis_client() is None:
         await redis_client.init_redis()
+
+    # Migrate legacy plain SET entries to full Hash records
+    r = redis_client.get_redis_client()
+    if r is not None:
+        for list_name in ("allowlist", "blocklist", "watchlist", "ip"):
+            try:
+                await migrate_legacy_entries(r, list_name)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "management | event=migration_error | list=%s | error=%s",
+                    list_name,
+                    exc,
+                )
+
     logger.info("management | event=startup | service=management_ui")
     yield
     await redis_client.close_redis()
@@ -90,7 +115,7 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=cors_origins.split(","),
         allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "DELETE"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=["*"],
     )
 
@@ -111,16 +136,26 @@ def create_app() -> FastAPI:
     # ── Routers ───────────────────────────────────────────────────────────────
     # Public routes (no auth required)
     app.include_router(auth_router)
+    app.include_router(mfa_totp.router)
+    app.include_router(webauthn_routes.router)
+    app.include_router(saml_routes.router)
+    app.include_router(oidc_routes.router)
 
     # API routes (auth enforced per-route via Depends)
     app.include_router(health.router)
     app.include_router(dial.router)
+    app.include_router(canonical_lists.router)
     app.include_router(lists.router)
     app.include_router(bans.router)
     app.include_router(events.router)
     app.include_router(config_ops.router)
     app.include_router(audit.router)
     app.include_router(partials.router)
+    app.include_router(tokens.router)
+    app.include_router(connections.router)
+    app.include_router(nodes.router)
+    app.include_router(webhooks.router)
+    app.include_router(metrics.router)
 
     # HTML page routes (auth enforced per-route via Depends)
     app.include_router(pages.router)

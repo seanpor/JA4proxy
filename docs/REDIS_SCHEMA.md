@@ -38,7 +38,7 @@ phase: 54
 | `concurrent:{ip}` | Integer (INCR/DECR) | 60s | Proxy (Phase 5) | Live concurrent connection count per IP |
 | `visitor:{ip}` | Hash `{first_seen, last_seen, total, allowed, blocked}` | 604800s (7d) | Proxy (Phase 5) | Return visitor tracking |
 | `static:allowlist` | SET of IP/CIDR strings | none | Management UI | UI-added static allowlist entries; config-file entries are authoritative |
-| `management:audit_log` | List (last 1000 entries) | none | Management UI | All secops admin actions |
+| `management:audit_log` | List (last 1000 entries) | none | Management UI | All secops admin actions. Phase 79 C5 enhanced schema — each entry is a JSON object with fields: `timestamp` (ISO 8601 UTC), `actor_id` (token identity or username), `actor_ip` (client IP), `action_type` (dot-separated verb, e.g. `allowlist.created`), `resource_type`, `resource_id`, `before_value` (null on creates), `after_value` (null on deletes), `session_id`, `role` (actor role at time of action). |
 | `management:policy_audit` | List (last 1000 entries) | none | Management UI, config reload | Security policy bypass changes |
 | `management:gdpr_erasure_log` | LIST of JSON | no TTL (last 1000 entries) | scripts/gdpr_delete.py | Audit trail of GDPR erasure requests; each entry: {timestamp, ip, dry_run, keys_deleted, keys_skipped_hll, zset_members_removed, invoked_by} |
 
@@ -139,6 +139,89 @@ phase: 54
 
 ---
 
+## Phase 79 — Management API v2: Bearer Token Infrastructure
+
+| Key pattern | Type | TTL | Written by | Notes |
+|-------------|-|-|--------|-|
+| `mgmt:token:{id}` | Hash | none (permanent until revoked; 60s grace TTL during rotation) | `POST /api/v1/tokens`, `POST /api/v1/tokens/{id}/rotate` | Bearer token record. Fields: `id` (UUID4), `name` (human label), `role` (`auditor`\|`analyst`\|`operator`\|`admin`), `hash` (bcrypt of raw token — never returned via API), `created_at` (ISO 8601 UTC), `expires_at` (ISO 8601 UTC or empty string), `last_used_at` (ISO 8601 UTC or empty string). The `hash` field stores a bcrypt digest of the raw bearer token. The raw token is shown only once at creation. *(Phase 79)* |
+| `mgmt:token:idx` | SET of token ID strings | none | `POST /api/v1/tokens` (SADD), `DELETE /api/v1/tokens/{id}` (SREM) | Index of all active bearer token IDs. Used by the bearer auth middleware to enumerate tokens for hash-check lookup. *(Phase 79)* |
+
+*Cluster 2 (RBAC) introduced no new Redis keys. Role enforcement is in-process only.*
+
+### Cluster 3 — Resource Model (UUID + managed_by)
+
+| Key pattern | Type | TTL | Written by | Description |
+|---|---|---|---|---|
+| `allowlist:entry:{uuid}` | Hash | none | `POST /api/v1/allowlist`, migration | Full allowlist resource record. Fields: `id` (UUID4), `entry` (fingerprint/IP), `list_type` (`allowlist`), `managed_by`, `note`, `created_at`, `created_by`, `expires_at`. *(Phase 79)* |
+| `allowlist:idx` | SET of UUIDs | none | `POST /api/v1/allowlist` (SADD), `DELETE /api/v1/allowlist/{id}` (SREM) | UUID enumeration index for allowlist. *(Phase 79)* |
+| `allowlist:migrated` | String `"1"` | none | Migration (startup) | Flag preventing duplicate migration runs. Set before migrating entries; checked at startup. *(Phase 79)* |
+| `blocklist:entry:{uuid}` | Hash | none | `POST /api/v1/blocklist`, migration | Full blocklist resource record. Same fields as allowlist. *(Phase 79)* |
+| `blocklist:idx` | SET of UUIDs | none | `POST /api/v1/blocklist` (SADD), `DELETE` (SREM) | UUID enumeration index for blocklist. *(Phase 79)* |
+| `blocklist:migrated` | String `"1"` | none | Migration | Migration completion flag for blocklist. *(Phase 79)* |
+| `watchlist:entry:{uuid}` | Hash | none | `POST /api/v1/watchlist`, migration | Full watchlist resource record. *(Phase 79)* |
+| `watchlist:idx` | SET of UUIDs | none | `POST /api/v1/watchlist` (SADD), `DELETE` (SREM) | UUID enumeration index for watchlist. *(Phase 79)* |
+| `watchlist:migrated` | String `"1"` | none | Migration | Migration completion flag for watchlist. *(Phase 79)* |
+| `ip_allowlist:entry:{uuid}` | Hash | none | `POST /api/v1/allowlist` with `list_type=ip` | IP/CIDR allowlist resource record. *(Phase 79)* |
+| `ip_allowlist:idx` | SET of UUIDs | none | POST/DELETE | UUID index for IP allowlist entries. *(Phase 79)* |
+| `ip_allowlist:migrated` | String `"1"` | none | Migration | Migration flag for IP allowlist. *(Phase 79)* |
+
+**Existing proxy SETs kept in sync (dual-write):**
+- `ja4:whitelist` — written by `POST /api/v1/allowlist`, removed by `DELETE`
+- `ja4:blacklist` — written by `POST /api/v1/blocklist`, removed by `DELETE`
+- `ja4:watchlist` — written by `POST /api/v1/watchlist` (new SET, same pattern)
+- `static:allowlist` — written by `POST /api/v1/allowlist?list_type=ip`
+
+### Cluster 4 — New Endpoints
+
+| Key pattern | Type | TTL | Written by | Description |
+|---|---|---|---|---|
+| `webhook:{id}` | Hash | none | `POST /api/v1/webhooks` | Webhook subscription. Fields: `id` (UUID4), `url`, `events` (JSON-encoded list), `secret_hash` (bcrypt of raw secret — never returned via API), `active`, `created_at`, `managed_by`. *(Phase 79)* |
+| `webhook:idx` | SET of IDs | none | `POST /api/v1/webhooks` (SADD), `DELETE` (SREM) | Enumeration index for webhook subscriptions. *(Phase 79)* |
+| `proxy:reload` | Pub/Sub channel | n/a | `POST /api/v1/nodes/{host}/reload` | Control channel for triggering config reload on proxy instances. Message format: `{"action": "reload", "host": str}`. *(Phase 79)* |
+
+*Note: `mgmt:node:{host}:{port}` heartbeat Hashes are read by `GET /api/v1/nodes` but written by the proxy process, not the management API.*
+
+### Phase 79 — Cluster 6: TOTP MFA
+
+| Key | Type | TTL | Written by | Purpose |
+|-----|------|-----|-----------|---------|
+| `mgmt:totp:{user_id}` | String | none | `GET /auth/mfa/totp/setup` | Fernet-encrypted base32 TOTP secret. Caller must decrypt with `MANAGEMENT_MFA_ENCRYPTION_KEY` (Fernet). *(Phase 79)* |
+| `mgmt:totp:backup:{user_id}` | LIST | none | `GET /auth/mfa/totp/setup` | bcrypt-hashed backup codes (8 entries). Each entry is consumed (LREM) on first successful use — single-use. *(Phase 79)* |
+| `mgmt:totp:used:{user_id}:{code}` | String `"1"` | 90s | `POST /auth/mfa/totp/verify` | Anti-replay guard. Set after a TOTP code is successfully verified; presence causes the same code to be rejected within the 90-second valid window (±1 step = ±30s). *(Phase 79)* |
+| `mgmt:mfa:session:{sha256_of_jwt}` | String `"verified"` | 8h | `POST /auth/mfa/totp/verify` | Marks a cookie-JWT session as MFA-verified. Key is SHA-256 of the raw JWT string. TTL matches JWT expiry. Only set for cookie-JWT sessions; bearer-token callers bypass the gate. *(Phase 79)* |
+
+---
+
+### Phase 79 — Cluster 7: WebAuthn / FIDO2
+
+| Key | Type | TTL | Written by | Purpose |
+|-----|------|-----|-----------|---------|
+| `mgmt:webauthn:challenge:{user_id}` | String (JSON) | 5min | `POST /auth/mfa/webauthn/register/begin`, `POST /auth/mfa/webauthn/auth/begin` | Active challenge for this user. JSON: `{"challenge": "<base64url>", "type": "registration"\|"authentication"}`. Deleted after successful complete. *(Phase 79)* |
+| `mgmt:webauthn:credential:{credential_id}` | Hash | none | `POST /auth/mfa/webauthn/register/complete` | Per-credential record. Fields: `user_id`, `public_key` (base64url), `sign_count` (updated after each assertion), `created_at` (ISO 8601). `credential_id` is base64url-encoded. *(Phase 79)* |
+| `mgmt:webauthn:user:{user_id}:credentials` | SET of credential ID strings | none | `POST /auth/mfa/webauthn/register/complete` (SADD) | All credential IDs registered by this user. Used by auth/begin to build `allowCredentials` and by register/begin to build `excludeCredentials`. *(Phase 79)* |
+
+---
+
+### Phase 79 — Cluster 8: SAML 2.0 SSO
+
+| Key | Type | TTL | Written by | Purpose |
+|-----|------|-----|-----------|---------|
+| `mgmt:saml:nonce:{nonce}` | String (redirect URL) | 5min | `GET /auth/sso/saml/login` | CSRF protection nonce. Value is the post-login redirect URL (default "/"). Generated at login, consumed and deleted at ACS — single-use. *(Phase 79)* |
+
+---
+
+### Phase 79 — Cluster 9: OIDC SSO
+
+| Key | Type | TTL | Written by | Purpose |
+|-----|------|-----|-----------|---------|
+| `mgmt:oidc:state:{state}` | String (JSON) | 5min | `GET /auth/sso/oidc/login` | PKCE and CSRF state. JSON: `{"code_verifier": "...", "redirect": "/"}`. Generated at login, consumed (deleted) at callback — single-use. *(Phase 79)* |
+
+---
+
+---
+
+---
+
 ## Phase 80 — ECS Structured Logging & SIEM Integration
 
 | Key pattern | Type | TTL | Written by | Notes |
@@ -160,3 +243,8 @@ phase: 54
 ---
 
 *Last updated: 2026-04-07, Phase 82 complete*
+
+---
+
+*Last updated: 2026-04-07, Phase 82 complete (Phase 79 entries added)*
+

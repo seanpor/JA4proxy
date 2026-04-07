@@ -82,7 +82,7 @@ async def _get_dial(redis) -> int:
 @router.get("/api/v1/partials/health-cards", response_class=HTMLResponse)
 async def health_cards_partial(
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(get_current_user),
     redis=Depends(get_redis),
 ) -> HTMLResponse:
     """Return the health cards grid as an HTML fragment."""
@@ -153,14 +153,14 @@ async def health_cards_partial(
 
     return templates.TemplateResponse(
         request, "partials/health_cards.html",
-        {"user": current_user, "health_cards": health_cards, "dial_value": dial_value},
+        {"user": current_user[0], "health_cards": health_cards, "dial_value": dial_value},
     )
 
 
 @router.get("/api/v1/partials/dial", response_class=HTMLResponse)
 async def dial_partial(
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(get_current_user),
     redis=Depends(get_redis),
 ) -> HTMLResponse:
     """Return the dial widget HTML fragment with the current dial value."""
@@ -169,14 +169,14 @@ async def dial_partial(
 
     return templates.TemplateResponse(
         request, "partials/dial_widget.html",
-        {"user": current_user, "dial_value": dial_value},
+        {"user": current_user[0], "dial_value": dial_value},
     )
 
 
 @router.get("/api/v1/partials/bans", response_class=HTMLResponse)
 async def bans_partial(
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(get_current_user),
     redis=Depends(get_redis),
 ) -> HTMLResponse:
     """Return the bans table HTML fragment."""
@@ -221,14 +221,14 @@ async def bans_partial(
 
     return templates.TemplateResponse(
         request, "partials/bans_table.html",
-        {"user": current_user, "bans": bans, "dial_value": dial_value},
+        {"user": current_user[0], "bans": bans, "dial_value": dial_value},
     )
 
 
 @router.get("/api/v1/partials/audit", response_class=HTMLResponse)
 async def audit_partial(
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(get_current_user),
     redis=Depends(get_redis),
     offset: int = Query(0, ge=0, description="Pagination offset"),
     filter: str = Query("all", description="Filter: all | dial | ban | list | reload"),
@@ -281,14 +281,14 @@ async def audit_partial(
 
     return templates.TemplateResponse(
         request, "partials/audit_table.html",
-        {"user": current_user, "events": normalised, "dial_value": dial_value},
+        {"user": current_user[0], "events": normalised, "dial_value": dial_value},
     )
 
 
 @router.get("/api/v1/partials/list-table", response_class=HTMLResponse)
 async def list_table_partial(
     request: Request,
-    current_user: str = Depends(get_current_user),
+    current_user=Depends(get_current_user),
     redis=Depends(get_redis),
     list: str = Query(..., description="List name: ja4_whitelist | ja4_blacklist | ip_allowlist"),
 ) -> HTMLResponse:
@@ -321,7 +321,7 @@ async def list_table_partial(
     return templates.TemplateResponse(
         request, "partials/list_table.html",
         {
-            "user": current_user,
+            "user": current_user[0],
             "list_name": list,
             "entries": entries,
             "is_ja4": is_ja4,

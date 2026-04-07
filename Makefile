@@ -1231,3 +1231,9 @@ test-phase-82:
 	python3 -m pytest tests/unit/test_policy_validator.py tests/integration/test_policy_apply.py -v
 
 .PHONY: test-phase-82
+
+## Phase 79 / Phase 100 targets
+openapi-spec:
+	MANAGEMENT_TEST_MODE=1 python3 management/scripts/export_openapi.py
+
+.PHONY: openapi-spec
