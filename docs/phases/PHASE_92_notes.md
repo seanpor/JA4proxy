@@ -17,7 +17,7 @@ Phase 92 was initially implemented without tests. A TDD retrofit was performed:
 
 ## Test Coverage Summary
 
-`tests/phase-92/test_lint_hierarchy.py` — 114 collected, 112 pass, 2 skipped:
+`tests/phase-92/test_lint_hierarchy.py` — 117 collected, 117 passed, 0 skipped:
 
 - 11 individual lint targets exist, are `.PHONY`, have recipes
 - 8 aggregate targets exist and are `.PHONY`

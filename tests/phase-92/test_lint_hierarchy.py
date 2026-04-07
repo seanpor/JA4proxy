@@ -116,10 +116,22 @@ def _targets_from_makefile(text):
 
 
 def _phony_from_makefile(text):
+    """Parse all .PHONY-declared targets, including backslash-continued declarations."""
     phony = set()
-    for line in text.splitlines():
+    lines = text.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i]
         if line.startswith(".PHONY:"):
-            phony.update(line[len(".PHONY:"):].split())
+            # Accumulate continuation lines
+            content = line[len(".PHONY:"):]
+            while content.rstrip().endswith("\\"):
+                content = content.rstrip()[:-1]  # strip trailing backslash
+                i += 1
+                if i < len(lines):
+                    content += " " + lines[i]
+            phony.update(content.split())
+        i += 1
     return phony
 
 
@@ -198,10 +210,7 @@ def test_aggregate_target_is_phony(target):
 # =============================================================================
 
 
-@pytest.mark.parametrize("aggregate,required_deps", [
-    (agg, deps) for agg, deps in AGGREGATE_REQUIRED_DEPS.items()
-    for deps in [deps]  # flatten for parametrize
-])
+@pytest.mark.parametrize("aggregate,required_deps", list(AGGREGATE_REQUIRED_DEPS.items()))
 def test_aggregate_deps_are_correct(aggregate, required_deps):
     """Each aggregate must list all its required leaf/sub-aggregate deps."""
     text = _makefile_text()
@@ -278,34 +287,32 @@ def test_lint_all_includes_sub_aggregate(sub):
 # =============================================================================
 
 
-def test_make_help_exits_zero():
-    """make help must exit with status 0 — catches parser errors in Makefile."""
-    result = subprocess.run(
+@pytest.fixture(scope="module")
+def make_help_result():
+    """Run `make help` once per module and cache the result."""
+    return subprocess.run(
         ["make", "help"],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
         timeout=30,
     )
-    assert result.returncode == 0, (
-        f"make help exited {result.returncode}\n"
-        f"STDOUT:\n{result.stdout[:2000]}\n"
-        f"STDERR:\n{result.stderr[:2000]}"
+
+
+def test_make_help_exits_zero(make_help_result):
+    """make help must exit with status 0 — catches parser errors in Makefile."""
+    assert make_help_result.returncode == 0, (
+        f"make help exited {make_help_result.returncode}\n"
+        f"STDOUT:\n{make_help_result.stdout[:2000]}\n"
+        f"STDERR:\n{make_help_result.stderr[:2000]}"
     )
 
 
 @pytest.mark.parametrize("expected_string", HELP_STRINGS)
-def test_make_help_mentions_lint_target(expected_string):
+def test_make_help_mentions_lint_target(make_help_result, expected_string):
     """make help output must mention each lint target."""
-    result = subprocess.run(
-        ["make", "help"],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    assert result.returncode == 0, f"make help failed: {result.stderr[:500]}"
-    assert expected_string in result.stdout, (
+    assert make_help_result.returncode == 0, f"make help failed: {make_help_result.stderr[:500]}"
+    assert expected_string in make_help_result.stdout, (
         f"make help output does not mention '{expected_string}'"
     )
 
@@ -545,3 +552,61 @@ def test_lint_toml_gitleaks_is_valid_toml():
     with open(toml_file, "rb") as fh:
         data = tomllib.load(fh)
     assert isinstance(data, dict), ".gitleaks.toml must parse to a dict"
+
+
+# =============================================================================
+# Group 11: Phase 92 "Other fixes" — deliverables without prior test coverage
+# =============================================================================
+
+
+def test_lint_docker_includes_scale_compose():
+    """lint-docker recipe must validate docker-compose.scale.yml.
+
+    So what? docker-compose.scale.yml defines the multi-instance scaling
+    topology. If it drifts out of Docker Compose spec, scale deployments fail
+    silently at runtime. Phase 92 explicitly added it to the lint-docker pass.
+    """
+    text = _makefile_text()
+    lines = text.splitlines()
+    in_target = False
+    recipe_lines = []
+    for line in lines:
+        if re.match(r'^lint-docker:', line):
+            in_target = True
+            continue
+        if in_target:
+            if re.match(r'^[a-zA-Z0-9_][a-zA-Z0-9_\-]*:', line):
+                break
+            if line.startswith('\t'):
+                recipe_lines.append(line)
+    recipe = "\n".join(recipe_lines)
+    assert "docker-compose.scale.yml" in recipe, (
+        "lint-docker recipe must include docker/docker-compose.scale.yml\n"
+        "(phase-92 deliverable: scale compose file added to docker lint pass)"
+    )
+
+
+def test_golangci_yaml_enables_gosec():
+    """gosec must be enabled in .golangci.yaml (phase-92 deliverable).
+
+    So what? gosec detects Go security anti-patterns (hardcoded credentials,
+    unsafe operations). Without it, the Go linter pass has no security SAST.
+    """
+    golangci = (REPO_ROOT / ".golangci.yaml").read_text()
+    assert "gosec" in golangci, (
+        "gosec linter must be enabled in .golangci.yaml\n"
+        "(phase-92 deliverable: Go security pattern detection)"
+    )
+
+
+def test_golangci_yaml_enables_bodyclose():
+    """bodyclose must be enabled in .golangci.yaml (phase-92 deliverable).
+
+    So what? Unclosed HTTP response bodies are resource leaks that cause
+    connection pool exhaustion under load. bodyclose catches them statically.
+    """
+    golangci = (REPO_ROOT / ".golangci.yaml").read_text()
+    assert "bodyclose" in golangci, (
+        "bodyclose linter must be enabled in .golangci.yaml\n"
+        "(phase-92 deliverable: unclosed HTTP response body detection)"
+    )
