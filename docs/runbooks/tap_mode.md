@@ -212,7 +212,7 @@ This deletes:
 - `ban:{ip}` and `tap:ban:{ip}` keys
 - Entries in `tap:block_decisions` list (filtered)
 
-The operation logs an audit entry to `management:gdpr_audit` in Redis.
+The operation logs an audit entry to `management:gdpr_erasure_log` in Redis.
 
 ---
 
