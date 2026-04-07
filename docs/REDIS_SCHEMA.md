@@ -146,6 +146,29 @@ phase: 54
 
 *Cluster 2 (RBAC) introduced no new Redis keys. Role enforcement is in-process only.*
 
+### Cluster 3 — Resource Model (UUID + managed_by)
+
+| Key pattern | Type | TTL | Written by | Description |
+|---|---|---|---|---|
+| `allowlist:entry:{uuid}` | Hash | none | `POST /api/v1/allowlist`, migration | Full allowlist resource record. Fields: `id` (UUID4), `entry` (fingerprint/IP), `list_type` (`allowlist`), `managed_by`, `note`, `created_at`, `created_by`, `expires_at`. *(Phase 79)* |
+| `allowlist:idx` | SET of UUIDs | none | `POST /api/v1/allowlist` (SADD), `DELETE /api/v1/allowlist/{id}` (SREM) | UUID enumeration index for allowlist. *(Phase 79)* |
+| `allowlist:migrated` | String `"1"` | none | Migration (startup) | Flag preventing duplicate migration runs. Set before migrating entries; checked at startup. *(Phase 79)* |
+| `blocklist:entry:{uuid}` | Hash | none | `POST /api/v1/blocklist`, migration | Full blocklist resource record. Same fields as allowlist. *(Phase 79)* |
+| `blocklist:idx` | SET of UUIDs | none | `POST /api/v1/blocklist` (SADD), `DELETE` (SREM) | UUID enumeration index for blocklist. *(Phase 79)* |
+| `blocklist:migrated` | String `"1"` | none | Migration | Migration completion flag for blocklist. *(Phase 79)* |
+| `watchlist:entry:{uuid}` | Hash | none | `POST /api/v1/watchlist`, migration | Full watchlist resource record. *(Phase 79)* |
+| `watchlist:idx` | SET of UUIDs | none | `POST /api/v1/watchlist` (SADD), `DELETE` (SREM) | UUID enumeration index for watchlist. *(Phase 79)* |
+| `watchlist:migrated` | String `"1"` | none | Migration | Migration completion flag for watchlist. *(Phase 79)* |
+| `ip_allowlist:entry:{uuid}` | Hash | none | `POST /api/v1/allowlist` with `list_type=ip` | IP/CIDR allowlist resource record. *(Phase 79)* |
+| `ip_allowlist:idx` | SET of UUIDs | none | POST/DELETE | UUID index for IP allowlist entries. *(Phase 79)* |
+| `ip_allowlist:migrated` | String `"1"` | none | Migration | Migration flag for IP allowlist. *(Phase 79)* |
+
+**Existing proxy SETs kept in sync (dual-write):**
+- `ja4:whitelist` — written by `POST /api/v1/allowlist`, removed by `DELETE`
+- `ja4:blacklist` — written by `POST /api/v1/blocklist`, removed by `DELETE`
+- `ja4:watchlist` — written by `POST /api/v1/watchlist` (new SET, same pattern)
+- `static:allowlist` — written by `POST /api/v1/allowlist?list_type=ip`
+
 ---
 
-*Last updated: 2026-04-07, Phase 79 Cluster 2 complete*
+*Last updated: 2026-04-07, Phase 79 Cluster 3 complete*

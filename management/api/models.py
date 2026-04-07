@@ -230,3 +230,53 @@ class TokenRotateResponse(BaseModel):
 
     id: str
     token: str  # new plaintext token
+
+
+# ── Resource model (Phase 79 Cluster 3) ──────────────────────────────────────
+
+
+class ManagedBy(str, Enum):
+    """Source of truth for a list entry."""
+
+    terraform = "terraform"
+    operator = "operator"
+    api = "api"
+    analytics = "analytics"
+    legacy = "legacy"
+    migration = "migration"
+
+
+class ResourceCreate(BaseModel):
+    """Request body for POST /api/v1/{allowlist|blocklist|watchlist}."""
+
+    entry: str = Field(..., min_length=1, max_length=512)
+    managed_by: ManagedBy = ManagedBy.operator
+    note: str = ""
+    expires_at: Optional[str] = Field(
+        None,
+        description="ISO 8601 UTC timestamp; if in the past the entry is accepted but filtered on read",
+    )
+    list_type: Optional[str] = Field(
+        None,
+        description="Used internally; inferred from route path if absent",
+    )
+
+
+class ResourceResponse(BaseModel):
+    """Full resource envelope returned by canonical list endpoints."""
+
+    id: str
+    entry: str
+    list_type: str
+    managed_by: str
+    note: str
+    created_at: str
+    created_by: str
+    expires_at: Optional[str] = None
+
+
+class ResourceListResponse(BaseModel):
+    """Response from GET /api/v1/{allowlist|blocklist|watchlist}."""
+
+    entries: list[ResourceResponse]
+    count: int
