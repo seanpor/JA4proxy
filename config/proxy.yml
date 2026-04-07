@@ -260,7 +260,11 @@ backup:
 # Logging configuration
 logging:
   level: "INFO"
-  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  # format: controls the log output format. Options:
+  #   "legacy" — JSON with timestamp/level/message at top level (default).
+  #   "ecs"    — ECS 8.x-compliant JSON for Splunk, QRadar, Elastic SIEM.
+  # Change to "ecs" after dashboard migration is complete.  # phase-80
+  format: legacy
   # json_enabled: emit all log lines as JSON objects (one per line).
   # Enabled automatically when ENVIRONMENT=production; set true here to
   # enable in development too.  Structured JSON is required for SIEM ingest.
