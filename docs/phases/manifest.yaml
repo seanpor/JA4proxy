@@ -798,8 +798,8 @@ phases:
 
   80:
     name: "ECS Structured Logging & SIEM Integration Pack"
-    status: "PROPOSED"
-    summary: "Canonical ECS 8.x JSON log format for all events. Splunk TA (CIM-compliant, 5 dashboards, 5 correlation searches, alert action). Microsoft Sentinel content pack. IBM QRadar DSM. Elastic integration. HMAC-signed webhook event stream."
+    status: "COMPLETE"
+    summary: "Canonical ECS 8.x JSON log format for all events. Splunk TA (CIM-compliant, 5 dashboards, 5 correlation searches, alert action). Microsoft Sentinel content pack. IBM QRadar DSM. Elastic integration. HMAC-signed webhook event stream. Completed with gaps (gap-tracking phase TBD)."
     action_plan: "docs/phases/PHASE_80.md"
     dependencies: [79]
     size: "LARGE"
@@ -811,8 +811,8 @@ phases:
 
   81:
     name: "SOAR, Webhooks & Enterprise Operations Platforms"
-    status: "PROPOSED"
-    summary: "XSOAR integration (8 commands, 2 playbooks). Splunk SOAR app. ServiceNow SecOps SIR auto-creation and close-loop release. ServiceNow Spoke. xMatters two-way mobile response (5 options). Interlink Software Service Watch (UK NOC). PagerDuty/OpsGenie runbook links."
+    status: "COMPLETE"
+    summary: "XSOAR integration (8 commands, 2 playbooks). Splunk SOAR app. ServiceNow SecOps SIR auto-creation and close-loop release. ServiceNow Spoke. xMatters two-way mobile response (5 options). Interlink Software Service Watch (UK NOC). PagerDuty/OpsGenie runbook links. Completed with gaps (gap-tracking phase TBD)."
     action_plan: "docs/phases/PHASE_81.md"
     dependencies: [79, 80]
     size: "LARGE"
@@ -824,8 +824,8 @@ phases:
 
   82:
     name: "Policy-as-Code, Shadow Mode & Governance"
-    status: "PROPOSED"
-    summary: "Policy YAML schema versioned in git, applied via CI/CD. Shadow mode simulation (what would dial=X have blocked last week?). Four-eyes approval workflow. ServiceNow change record integration. Drift detection scheduled job."
+    status: "COMPLETE"
+    summary: "Policy YAML schema versioned in git, applied via CI/CD. Shadow mode simulation (what would dial=X have blocked last week?). Four-eyes approval workflow. ServiceNow change record integration. Drift detection scheduled job. Completed with gaps (gap-tracking phase TBD)."
     action_plan: "docs/phases/PHASE_82.md"
     dependencies: [79]
     size: "LARGE"

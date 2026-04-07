@@ -28,18 +28,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Smoke test suite (Docker Compose, Helm/kind, Podman/Quadlet); DR runbook with 5 scenarios incl. Redis data loss; credential rotation runbooks; TLS certificate rotation; rolling upgrade procedure; MTTR baseline measurement.)
 *   **Action Plan:** [PHASE_64.md](PHASE_64.md)
 
-### Phase 80 — ECS Structured Logging & SIEM Integration Pack
-*   **Status:** **PROPOSED** (Canonical ECS 8.x JSON log format for all events. Splunk TA (CIM-compliant, 5 dashboards, 5 correlation searches, alert action). Microsoft Sentinel content pack. IBM QRadar DSM. Elastic integration. HMAC-signed webhook event stream.)
-*   **Action Plan:** [PHASE_80.md](PHASE_80.md)
-
-### Phase 81 — SOAR, Webhooks & Enterprise Operations Platforms
-*   **Status:** **PROPOSED** (XSOAR integration (8 commands, 2 playbooks). Splunk SOAR app. ServiceNow SecOps SIR auto-creation and close-loop release. ServiceNow Spoke. xMatters two-way mobile response (5 options). Interlink Software Service Watch (UK NOC). PagerDuty/OpsGenie runbook links.)
-*   **Action Plan:** [PHASE_81.md](PHASE_81.md)
-
-### Phase 82 — Policy-as-Code, Shadow Mode & Governance
-*   **Status:** **PROPOSED** (Policy YAML schema versioned in git, applied via CI/CD. Shadow mode simulation (what would dial=X have blocked last week?). Four-eyes approval workflow. ServiceNow change record integration. Drift detection scheduled job.)
-*   **Action Plan:** [PHASE_82.md](PHASE_82.md)
-
 ### Phase 83 — Infrastructure Automation — Terraform, CLI & Kubernetes Operator
 *   **Status:** **PROPOSED** (ja4proxy-cli Go binary (full command set: ip, allowlist, blocklist, dial, policy, simulation). Terraform provider with drift protection and import workflow. Kubernetes operator + CRDs (JA4ProxyConfig, JA4ProxyAllowlist, JA4ProxyDial). CMDB/NetBox integration. Three emergency runbook Ansible playbooks.)
 *   **Action Plan:** [PHASE_83.md](PHASE_83.md)
