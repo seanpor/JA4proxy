@@ -283,8 +283,12 @@ async def _create_entry(
     return response, 201
 
 
-async def _delete_entry(redis, list_name: str, resource_id: str) -> None:
-    """Remove a resource by ID. No-op (idempotent) if the ID does not exist."""
+async def _delete_entry(redis, list_name: str, resource_id: str) -> dict:
+    """Remove a resource by ID. Returns the record dict (empty if not found).
+
+    Callers can use the returned record as ``before_value`` in audit writes
+    without making a second ``hgetall`` round-trip.
+    """
     cfg = LIST_CONFIG[list_name]
     record = await redis.hgetall(f"{cfg['hash_prefix']}:{resource_id}")
 
@@ -294,6 +298,7 @@ async def _delete_entry(redis, list_name: str, resource_id: str) -> None:
     if record:
         pipe.srem(cfg["proxy_set"], record.get("entry", ""))
     await pipe.execute()
+    return record
 
 
 # ── Route handlers ────────────────────────────────────────────────────────────
@@ -373,10 +378,8 @@ def _make_list_routes(list_name: str) -> None:
         redis=Depends(get_redis),
     ) -> None:
         identity, role = current_user
-        cfg = LIST_CONFIG[list_name]
-        record = await redis.hgetall(f"{cfg['hash_prefix']}:{resource_id}")
+        record = await _delete_entry(redis, list_name, resource_id)
         before_val = dict(record) if record else None
-        await _delete_entry(redis, list_name, resource_id)
         await write_audit(
             redis,
             actor_id=identity,
