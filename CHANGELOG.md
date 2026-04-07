@@ -1,5 +1,24 @@
 # Changelog
 
+## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 6: TOTP MFA — 2026-04-07
+
+### Added
+- `GET /auth/mfa/totp/setup` — TOTP enrollment: generates base32 secret, Fernet-encrypts it at rest, returns base64 PNG QR code + 8 plaintext backup codes (shown once)
+- `POST /auth/mfa/totp/verify` — validates a 6-digit TOTP code (±30s window) or a single-use backup code; marks session as MFA-verified (`mgmt:mfa:session:*`)
+- `management/api/routes/mfa_totp.py` — TOTP setup and verify route handlers
+- `mfa_session_key(jwt_token)` in `auth.py` — shared session key derivation (SHA-256 of JWT)
+- `require_mfa_verified` FastAPI dependency in `auth.py` — gates cookie-JWT sessions on MFA completion; bearer-token callers are exempt
+- New Redis keys: `mgmt:totp:{user_id}` (Fernet-encrypted secret), `mgmt:totp:backup:{user_id}` (LIST of bcrypt hashes, consumed on use), `mgmt:mfa:session:{sha256_of_jwt}` (8h TTL)
+- `pyotp>=2.9.0`, `qrcode[pil]>=7.4.2`, `cryptography>=42.0.0` added to `management/requirements.txt`
+
+### Changed
+- `PUT /api/v1/dial` now enforces `require_mfa_verified`: cookie-JWT admin users with TOTP enrolled must complete verification before changing the dial; bearer-token admins are unaffected
+
+### Security
+- TOTP secret never stored in plaintext — Fernet-encrypted at rest; decryption requires `MANAGEMENT_MFA_ENCRYPTION_KEY` env var
+- Backup codes bcrypt-hashed; each is single-use (hash removed from Redis after consumption)
+- 401 responses for failed backup code attempts do not reveal the number of remaining codes
+
 ## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 5: Audit Trail Enhancements — 2026-04-07
 
 ### Added

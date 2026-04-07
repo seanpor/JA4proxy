@@ -179,6 +179,14 @@ phase: 54
 
 *Note: `mgmt:node:{host}:{port}` heartbeat Hashes are read by `GET /api/v1/nodes` but written by the proxy process, not the management API.*
 
+### Phase 79 — Cluster 6: TOTP MFA
+
+| Key | Type | TTL | Written by | Purpose |
+|-----|------|-----|-----------|---------|
+| `mgmt:totp:{user_id}` | String | none | `GET /auth/mfa/totp/setup` | Fernet-encrypted base32 TOTP secret. Caller must decrypt with `MANAGEMENT_MFA_ENCRYPTION_KEY` (Fernet). *(Phase 79)* |
+| `mgmt:totp:backup:{user_id}` | LIST | none | `GET /auth/mfa/totp/setup` | bcrypt-hashed backup codes (8 entries). Each entry is consumed (LREM) on first successful use — single-use. *(Phase 79)* |
+| `mgmt:mfa:session:{sha256_of_jwt}` | String `"verified"` | 8h | `POST /auth/mfa/totp/verify` | Marks a cookie-JWT session as MFA-verified. Key is SHA-256 of the raw JWT string. TTL matches JWT expiry. Only set for cookie-JWT sessions; bearer-token callers bypass the gate. *(Phase 79)* |
+
 ---
 
-*Last updated: 2026-04-07, Phase 79 Cluster 5 complete*
+*Last updated: 2026-04-07, Phase 79 Cluster 6 complete*

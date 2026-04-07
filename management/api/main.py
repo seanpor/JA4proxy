@@ -48,6 +48,7 @@ from .routes import (
     health,
     lists,
     metrics,
+    mfa_totp,
     nodes,
     pages,
     partials,
@@ -132,6 +133,7 @@ def create_app() -> FastAPI:
     # ── Routers ───────────────────────────────────────────────────────────────
     # Public routes (no auth required)
     app.include_router(auth_router)
+    app.include_router(mfa_totp.router)
 
     # API routes (auth enforced per-route via Depends)
     app.include_router(health.router)

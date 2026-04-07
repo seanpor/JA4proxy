@@ -19,7 +19,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from ..audit_utils import write_audit
-from ..auth import require_role
+from ..auth import require_mfa_verified, require_role
 from ..models import DialUpdateRequest, DialValue, Role
 from ..redis_client import get_redis
 
@@ -70,6 +70,7 @@ async def update_dial(
     body: DialUpdateRequest,
     request: Request,
     current_user=Depends(require_role(Role.admin)),
+    _mfa=Depends(require_mfa_verified),
     redis=Depends(get_redis),
 ) -> DialValue:
     """Update the dial value.
