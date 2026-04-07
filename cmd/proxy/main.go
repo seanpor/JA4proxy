@@ -25,6 +25,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/anomalyco/ja4proxy/internal/config"
+	jalogger "github.com/anomalyco/ja4proxy/internal/logging"
 	"github.com/anomalyco/ja4proxy/internal/metrics"
 	proxypkg "github.com/anomalyco/ja4proxy/internal/proxy"
 	redisclient "github.com/anomalyco/ja4proxy/internal/redis"
@@ -283,11 +284,18 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		p.tarpit(clientConn, data, connCtx.ClientIP)
 	case "block", "ban":
 		p.log.WithFields(logrus.Fields{
-			"ip":     connCtx.ClientIP,
-			"ja4":    connCtx.JA4,
-			"action": result.Action,
-			"score":  result.Score,
-			"reason": result.BypassReason,
+			"client_ip":   connCtx.ClientIP,
+			"ja4":         connCtx.JA4,
+			"ja4x":        connCtx.JA4X,
+			"action":      result.Action,
+			"score":       result.Score,
+			"sni":         connCtx.SNI,
+			"alpn":        connCtx.ALPN,
+			"country":     connCtx.Country,
+			"tls_version": connCtx.TLSVersion,
+			"ja4t":        connCtx.TCPJA4T,
+			"dial":        result.Dial,
+			"signals":     result.Signals,
 		}).Info("proxy: blocked connection")
 
 		// Force RST instead of clean FIN
@@ -486,14 +494,10 @@ func remoteIP(conn net.Conn) string {
 
 func newLogger(cfg *config.Config) *logrus.Logger {
 	log := logrus.New()
-	if cfg.Logging.JSONEnabled || os.Getenv("ENVIRONMENT") == "production" {
-		log.SetFormatter(&logrus.JSONFormatter{
-			FieldMap: logrus.FieldMap{
-				logrus.FieldKeyTime:  "timestamp",
-				logrus.FieldKeyLevel: "level",
-				logrus.FieldKeyMsg:   "message",
-			},
-		})
+	useJSON := cfg.Logging.JSONEnabled || os.Getenv("ENVIRONMENT") == "production"
+	if useJSON || cfg.Logging.Format == "ecs" {
+		// Use ECS formatter when explicitly configured or when JSON+ecs format requested.
+		log.SetFormatter(jalogger.NewECSLogrusFormatter(cfg.Logging.Format))
 	}
 	level, err := logrus.ParseLevel(cfg.Logging.Level)
 	if err != nil {

@@ -154,6 +154,7 @@ func defaultConfig() *Config {
 		Logging: LoggingConfig{
 			Level:       "INFO",
 			JSONEnabled: false,
+			Format:      "legacy",
 		},
 		Metrics: MetricsConfig{
 			Enabled: true,
@@ -391,6 +392,9 @@ type ThresholdsConfig struct {
 type LoggingConfig struct {
 	Level       string `yaml:"level"`
 	JSONEnabled bool   `yaml:"json_enabled"`
+	// Format controls the log output format: "legacy" (default) or "ecs".
+	// "ecs" emits ECS 8.x-compliant JSON for SIEM ingestion.
+	Format string `yaml:"format"` // phase-80
 }
 
 // MetricsConfig holds Prometheus metrics settings.
