@@ -602,3 +602,114 @@ async def test_webauthn_auth_complete_wrong_user_credential_returns_403(
         f"Expected 403 when authenticating with another user's credential, "
         f"got {r.status_code}: {r.text}"
     )
+
+# ── Section 6: Credential management — list and delete (Gap 3 — Phase 100) ───
+
+
+@pytest.mark.asyncio
+async def test_webauthn_list_credentials_empty(
+    admin_client: AsyncClient,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> None:
+    """GET /auth/mfa/webauthn/credentials returns empty list when no credentials enrolled."""
+    r = await admin_client.get("/auth/mfa/webauthn/credentials")
+    assert r.status_code == 200, f"Expected 200, got {r.status_code}: {r.text}"
+    data = r.json()
+    assert "credentials" in data, f"Expected 'credentials' key in response: {data}"
+    assert data["credentials"] == [], (
+        f"Expected empty list for unenrolled user, got {data['credentials']}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_webauthn_list_credentials_returns_enrolled(
+    admin_client: AsyncClient,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> None:
+    """GET /auth/mfa/webauthn/credentials returns all credential IDs for the caller."""
+    await _seed_credential(fake_redis, user_id="admin", cred_id_b64=_FAKE_CRED_ID_B64)
+    await _seed_credential(fake_redis, user_id="admin", cred_id_b64=_FAKE_CRED_ID_B64_2)
+
+    r = await admin_client.get("/auth/mfa/webauthn/credentials")
+    assert r.status_code == 200, f"Expected 200, got {r.status_code}: {r.text}"
+    data = r.json()
+    cred_ids = {c["credential_id"] for c in data["credentials"]}
+    assert _FAKE_CRED_ID_B64 in cred_ids, (
+        f"Expected {_FAKE_CRED_ID_B64!r} in credentials, got {cred_ids}"
+    )
+    assert _FAKE_CRED_ID_B64_2 in cred_ids, (
+        f"Expected {_FAKE_CRED_ID_B64_2!r} in credentials, got {cred_ids}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_webauthn_list_credentials_has_created_at(
+    admin_client: AsyncClient,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> None:
+    """Each credential in the list includes a created_at field."""
+    await _seed_credential(fake_redis, user_id="admin", cred_id_b64=_FAKE_CRED_ID_B64)
+
+    r = await admin_client.get("/auth/mfa/webauthn/credentials")
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data["credentials"]) == 1
+    cred = data["credentials"][0]
+    assert "created_at" in cred, f"Expected 'created_at' in credential entry: {cred}"
+
+
+@pytest.mark.asyncio
+async def test_webauthn_delete_credential_success(
+    admin_client: AsyncClient,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> None:
+    """DELETE /auth/mfa/webauthn/credentials/{id} returns 204 and removes the credential."""
+    await _seed_credential(fake_redis, user_id="admin", cred_id_b64=_FAKE_CRED_ID_B64)
+
+    r = await admin_client.delete(f"/auth/mfa/webauthn/credentials/{_FAKE_CRED_ID_B64}")
+    assert r.status_code == 204, f"Expected 204, got {r.status_code}: {r.text}"
+
+    # Credential hash must be gone
+    cred = await fake_redis.hgetall(f"mgmt:webauthn:credential:{_FAKE_CRED_ID_B64}")
+    assert not cred, f"Credential hash should be deleted, but still exists: {cred}"
+
+    # SET member must be removed
+    members = await fake_redis.smembers("mgmt:webauthn:user:admin:credentials")
+    assert _FAKE_CRED_ID_B64 not in members, (
+        f"Credential ID should be removed from user SET, but still in: {members}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_webauthn_delete_credential_not_found(
+    admin_client: AsyncClient,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> None:
+    """DELETE on a non-existent credential ID returns 404."""
+    r = await admin_client.delete(f"/auth/mfa/webauthn/credentials/nonexistent-cred-id")
+    assert r.status_code == 404, f"Expected 404 for missing credential, got {r.status_code}: {r.text}"
+
+
+@pytest.mark.asyncio
+async def test_webauthn_delete_credential_wrong_user_returns_403(
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> None:
+    """DELETE on another user's credential returns 403.
+
+    User 'other-user' owns the credential; 'admin' tries to delete it.
+    """
+    await _seed_credential(fake_redis, user_id="other-user", cred_id_b64=_FAKE_CRED_ID_B64)
+
+    app = create_app()
+    await _redis_module.init_redis(override_client=fake_redis)
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        cookies={"token": _create_access_token("admin")},
+    ) as client:
+        r = await client.delete(f"/auth/mfa/webauthn/credentials/{_FAKE_CRED_ID_B64}")
+    await _redis_module.close_redis()
+
+    assert r.status_code == 403, (
+        f"Expected 403 when deleting another user's credential, got {r.status_code}: {r.text}"
+    )
