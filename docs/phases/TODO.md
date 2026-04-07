@@ -4,6 +4,10 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🟡 Phases In Progress
 
+### Phase 100 — Cross-Phase Gap Closure
+*   **Status:** **IN_PROGRESS** (Rolling tracker for non-blocking gaps from completed phases. Current items: source.port/destination.ip absent from ECS events (Phase 80); Go dual_output logging mode not implemented (Phase 80); per-endpoint webhook retry/timeout config ignored (Phase 80); Splunk TA and Sentinel live-testing (Phase 80, requires platform access); Phase 79 API verification for Splunk alert action and Sentinel playbooks (Phase 80, blocks on Phase 79 merge).)
+*   **Action Plan:** [PHASE_100.md](PHASE_100.md)
+
 ---
 
 ## 🔵 Planned & Open Phases
