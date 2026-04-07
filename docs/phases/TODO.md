@@ -61,5 +61,5 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Action Plan:** [PHASE_88.md](PHASE_88.md)
 
 ### Phase 100 — Phase 79 SSO/MFA Gap Closure
-*   **Status:** **PROPOSED** (Closes 7 gaps identified in Phase 79 C7-C9 CR: OIDC JWKS signature verification, SSO audit log events, WebAuthn credential DELETE endpoint, SSO-delegated MFA trust, SAML integration test markers, config.yml role mapping, OpenAPI 3.1 spec.)
+*   **Status:** **PROPOSED** (Closes 6 remaining gaps from Phase 79 C7-C9 CR: OIDC JWKS signature verification, SSO audit log events, WebAuthn credential DELETE endpoint, SSO-delegated MFA trust, SAML integration test markers, config.yml role mapping. Gap 7 (OpenAPI 3.1 spec) was completed in Phase 79 C10.)
 *   **Action Plan:** [PHASE_100.md](PHASE_100.md)

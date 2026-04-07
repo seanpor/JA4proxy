@@ -543,9 +543,9 @@ path in the proxy itself does not affect the management container.
 
 ---
 
-## Gap 7 — OpenAPI 3.1 Spec (`docs/api/openapi.yaml`)
+## Gap 7 — OpenAPI 3.1 Spec (`docs/api/openapi.yaml`) ✓ DONE
 
-**Status**: Deferred from Phase 79 C10.
+**Status**: Completed in Phase 79 C10.
 
 **Why this matters**: The Terraform provider (Phase 83) and SDK generation tooling
 consume this spec.  FastAPI auto-generates OpenAPI 3.0.x at `/api/docs`; the
@@ -630,8 +630,8 @@ satisfies the downstream tooling requirement for Phase 83/84.
 | P1 | Gap 3 — WebAuthn credential DELETE | ~1h | None |
 | P1 | Gap 4 — SSO-delegated MFA | ~2h | None |
 | P2 | Gap 5 — Integration test markers | ~20 min | None |
-| P2 | Gap 7 — OpenAPI spec | ~30 min | None |
 | P3 | Gap 6 — config.yml role mapping | ~3–4h | Requires `pyyaml` dep |
+| ~~P2~~ | ~~Gap 7 — OpenAPI spec~~ | ~~Done~~ | ~~Completed in Phase 79 C10~~ |
 
 ---
 
