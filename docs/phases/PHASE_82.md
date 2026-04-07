@@ -527,7 +527,7 @@ an extension to the management service.
 - [ ] All 8 integration tests in §8.2 pass against the mock Management API server
 - [ ] `managed_by=policy` usage confirmed with Phase 79 team (see §9)
 
-### 10.2 Platform-Dependent (deferred to Phase 100 item 100-F)
+### 10.2 Platform-Dependent (deferred to Phase 100 item 100-N)
 
 - [ ] `policy apply` is idempotent across all resource types against a live Phase 79 API
 - [ ] `policy diff` correctly identifies drift added via the Management UI

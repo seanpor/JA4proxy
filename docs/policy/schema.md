@@ -120,8 +120,8 @@ bypass_toggles:
 
 | Field | Type | Required | Description | Constraints |
 |-------|------|----------|-------------|-------------|
-| `version` | string | yes | Policy schema version | Must be `"1.0"` |
-| `environment` | string | yes | Target environment name | Free text (e.g. `prod`, `staging`) |
+| `version` | string | no | Policy schema version | Must be `"1.0"` if present |
+| `environment` | string | no | Target environment name | Free text (e.g. `prod`, `staging`) |
 | `last_updated` | string | no | Timestamp of last change | ISO 8601 format |
 | `last_updated_by` | string | no | Author of the last change | Free text |
 

@@ -819,6 +819,264 @@ assets without a second GET call.
 
 ---
 
+### Item 100-L: Phase 82 — Phase 79 coordination: 7 missing endpoints and values
+
+**Origin:** Phase 82 Critical Review (§9 Phase 79 Coordination Requirements)
+**Effort:** ~1 hour to verify + variable effort to implement if missing
+**Blocked on:** Phase 79 in progress
+
+#### Context
+
+Phase 82's policy-as-code tooling (`scripts/ja4proxy-policy.py apply/diff`),
+four-eyes workflow, and shadow mode simulation all depend on API surface that
+was not in Phase 79's resource catalogue at Phase 82 design time. All 7 items
+below must be confirmed as present in Phase 79 before Phase 82 can be called
+complete end-to-end. If Phase 79 does not deliver them, they must be added to
+Phase 79 or implemented as an extension to the management service.
+
+The Phase 82 code already uses these endpoints — the offline tests mock them.
+What's missing is the real API backing them.
+
+#### Verify steps
+
+After Phase 79 merges, check each item against the Phase 79 OpenAPI spec:
+
+```bash
+SPEC=$(curl -s http://localhost:8090/openapi.json)
+
+# 1. POST /api/v1/simulation/run
+echo "$SPEC" | python3 -c "import sys,json; s=json.load(sys.stdin); print('simulation/run POST:', 'post' in s['paths'].get('/api/v1/simulation/run', {}))"
+
+# 2. GET /api/v1/simulation/{id}/report
+echo "$SPEC" | python3 -c "import sys,json; s=json.load(sys.stdin); print('simulation report GET:', 'get' in s['paths'].get('/api/v1/simulation/{id}/report', {}))"
+
+# 3-5. Decisions queue
+echo "$SPEC" | python3 -c "import sys,json; s=json.load(sys.stdin); p=s['paths']; print('GET /decisions:', 'get' in p.get('/api/v1/decisions', {})); print('POST approve:', 'post' in p.get('/api/v1/decisions/{id}/approve', {})); print('POST reject:', 'post' in p.get('/api/v1/decisions/{id}/reject', {}))"
+
+# 6. managed_by=policy is a valid value
+echo "$SPEC" | python3 -c "import sys,json; s=json.load(sys.stdin); print(json.dumps(s.get('components', {}).get('schemas', {}).get('ManagedBy', {}), indent=2))"
+
+# 7. API returns 202 when approval required
+# Test manually: PATCH /api/v1/dial with a dial increase while
+# governance.approval_required.dial_increase: true is set.
+# Expect: HTTP 202 with body {"decision_id": "...", "status": "pending_approval"}
+```
+
+#### For each missing item
+
+If an endpoint is absent from Phase 79, add it to the management service.
+The Phase 82 code and mock already define the expected contract:
+
+| Item | Expected contract |
+|------|------------------|
+| `POST /api/v1/simulation/run` | 202 Accepted + `{"simulation_id": "...", "status": "running", "estimated_completion": "..."}` |
+| `GET /api/v1/simulation/{id}/report` | 200 OK + full simulation report JSON (see PHASE_82.md §3.2) |
+| `GET /api/v1/decisions` | 200 OK + list of pending decision objects |
+| `POST /api/v1/decisions/{id}/approve` | 200 OK + updated decision; triggers deferred change |
+| `POST /api/v1/decisions/{id}/reject` | 200 OK + updated decision; discards change |
+| `managed_by=policy` | Valid enum value on all mutable resources; filterable via `?managed_by=policy` |
+| Mutation endpoints return 202 when approval required | See PHASE_82.md §4.1 |
+
+The mock server contract is in `tests/mocks/management_api_mock.py` — use it
+as the spec for the real implementation.
+
+#### Acceptance criteria
+- [ ] All 7 items confirmed present in Phase 79 OpenAPI spec
+- [ ] `policy apply` against a live Phase 79 API applies allowlist/blocklist/dial changes
+- [ ] `policy diff` returns operator-added entries as drift
+- [ ] A dial increase with `approval_required.dial_increase: true` returns 202
+- [ ] `POST /api/v1/decisions/{id}/approve` triggers the deferred change
+
+---
+
+### Item 100-M: Phase 82 — analytics node pre-conditions for shadow mode
+
+**Origin:** Phase 82 §3.4 (Analytics Node Pre-Conditions)
+**Effort:** ~2 days
+**Blocked on:** ADR-082.md decision committed (already done), Phase 79 simulation API (100-L)
+
+#### Context
+
+Shadow mode answers "what would dial=X have blocked last week?" — the highest-
+value Phase 82 feature. The API endpoints (`POST /api/v1/simulation/run`,
+`GET /api/v1/simulation/{id}/report`) will be backed by a simulation runner
+that needs signal data to replay.
+
+Two files are missing from `analytics/`:
+1. `analytics/signal_retention.py` — writes per-connection signal snapshots to
+   Redis and sweeps expired entries. Called after each connection.
+2. `analytics/simulation_runner.py` — reads stored snapshots, replays
+   `ActionDecider.decide()` at a hypothetical dial, accumulates results,
+   enriches FP candidates with FCrDNS data.
+
+The storage backend was decided in `docs/decisions/ADR-082.md`: Option A
+(Redis, LZ4 compression) for deployments ≤ 50M connections/month.
+
+**Trap:** The signal snapshot write must be fire-and-forget from the hot path
+(same pattern as `BeaconingDetector.maybe_record()` — use
+`asyncio.create_task()` after the action is decided). Never await it inline.
+
+**Trap:** The simulation runner iterates potentially millions of keys
+(`sim:conn:{hour_epoch}:{conn_id}`). Use Redis `SCAN` with a cursor, not
+`KEYS *` — `KEYS *` blocks Redis during iteration and will stall live traffic.
+
+#### Exact changes
+
+**`analytics/signal_retention.py`**
+
+```python
+"""Write per-connection signal snapshots for shadow mode replay.
+
+Key: sim:conn:{hour_epoch}:{conn_id}  (Hash, TTL=7776000s = 90 days)
+Value fields: timestamp, source_ip, ja4, score, signals (JSON)
+
+Called fire-and-forget via asyncio.create_task() after each connection.
+"""
+import asyncio
+import json
+import time
+import uuid
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import redis.asyncio as aioredis
+
+
+async def record_connection_signals(
+    redis_client: "aioredis.Redis",
+    source_ip: str,
+    ja4: str,
+    score: int,
+    signals: list[dict],
+) -> None:
+    """Write a connection signal snapshot. Fire-and-forget safe."""
+    hour_epoch = int(time.time()) // 3600
+    conn_id = uuid.uuid4().hex[:12]
+    key = f"sim:conn:{hour_epoch}:{conn_id}"
+    await redis_client.hset(key, mapping={
+        "timestamp": int(time.time()),
+        "source_ip": source_ip,
+        "ja4": ja4 or "",
+        "score": score,
+        "signals": json.dumps(signals),
+    })
+    await redis_client.expire(key, 7776000)  # 90 days
+```
+
+**`analytics/simulation_runner.py`**
+
+The runner logic:
+1. `SCAN` for all `sim:conn:{hour_epoch}:*` keys in the requested time range
+   (`from_ts` to `to_ts` — filter by `hour_epoch` range, not by inspecting
+   each key's `timestamp` field)
+2. For each batch of keys, `HGETALL` each and re-run
+   `ActionDecider(hypothetical_dial).decide(score)` — import from
+   `src.security.action_decider`
+3. Count `would_have_blocked`, `would_have_tarpitted`, total connections
+4. For connections that would have been blocked: check if FCrDNS data is
+   available in `rdns:{ip}` Redis key (written by Phase 7 DNS enrichment).
+   If the PTR record resolves to a name matching a known-good pattern
+   (e.g. ends in `.partner.com` or contains `monitoring`), flag as FP candidate.
+5. Return a dict matching the `GET /api/v1/simulation/{id}/report` schema
+   (PHASE_82.md §3.2)
+
+Store simulation job state in `sim:job:{sim_id}` (Hash, 7-day TTL) with
+fields: `status` (`running`/`complete`/`failed`), `hypothetical_dial`,
+`from_ts`, `to_ts`, `result_json` (JSON-encoded report on completion).
+
+**Unit tests: `tests/unit/test_signal_retention.py`**
+
+```
+test_record_writes_correct_key_pattern   — key matches sim:conn:{epoch}:{id}
+test_record_sets_90d_ttl                 — TTL is 7776000 seconds
+test_record_stores_all_fields            — timestamp, source_ip, ja4, score, signals
+test_record_empty_signals                — empty list stored as "[]", not error
+```
+
+Use `fakeredis` (already in requirements.txt via Phase 0).
+
+**Unit tests: `tests/unit/test_simulation_runner.py`**
+
+```
+test_runner_counts_would_have_blocked    — synthetic snapshots below dial 80 score
+                                           correctly counted as blocked at dial 80
+test_runner_empty_time_range             — no matching keys → empty results, no crash
+test_runner_fp_candidate_identified      — snapshot with FCrDNS resolving to
+                                           "monitoring.partner.com" flagged as FP
+test_runner_scan_not_keys               — assert runner uses SCAN not KEYS
+                                           (patch redis KEYS to raise, confirm passes)
+```
+
+#### Verify
+
+```bash
+python3 -m pytest tests/unit/test_signal_retention.py tests/unit/test_simulation_runner.py -v
+```
+
+#### Acceptance criteria
+- [ ] `analytics/signal_retention.py` implemented and tested (4 unit tests pass)
+- [ ] `analytics/simulation_runner.py` implemented and tested (4 unit tests pass)
+- [ ] Signal retention uses `asyncio.create_task()` (never awaited on hot path)
+- [ ] Simulation runner uses Redis `SCAN` cursor, never `KEYS *`
+- [ ] 90-day TTL set on every `sim:conn:` key
+
+---
+
+### Item 100-N: Phase 82 — platform-dependent acceptance criteria
+
+**Origin:** Phase 82 §10.2
+**Effort:** ~1 day (after 100-L, 100-M complete)
+**Blocked on:** 100-L (Phase 79 API), 100-M (analytics node), Management UI phases
+
+#### Context
+
+Phase 82's offline-testable criteria (§10.1) are all met — 20 tests pass.
+The following criteria require a running Phase 79 management API, a running
+analytics node with signal data, and the Management UI. They are deferred here
+to avoid blocking the Phase 82 COMPLETE status.
+
+**Do not mark 100-N complete until 100-L and 100-M are both closed.**
+
+#### Acceptance criteria
+
+- [ ] `policy apply` is idempotent against a live Phase 79 API: running apply
+  twice produces "0 added, 0 removed, X unchanged" on the second run
+- [ ] `policy diff` correctly identifies entries added via the Management UI
+  (not in the policy YAML) as drift with `managed_by=operator`
+- [ ] Shadow mode simulation via `POST /api/v1/simulation/run` completes within
+  5 minutes for a 30-day window of synthetic traffic (seed with
+  `python3 scripts/generate_synthetic_traffic.py --days 30`)
+- [ ] Simulation report includes at least 1 FP candidate with FCrDNS enrichment
+  when the synthetic traffic contains a connection from a PTR-resolvable IP
+- [ ] Four-eyes pending queue visible to Operators and Admins in Management UI
+- [ ] Approval gate enforced — dial increase does not apply until a second
+  Operator or Admin calls `POST /api/v1/decisions/{id}/approve`
+- [ ] `approval_required` config respected per change type (test dial_increase,
+  bypass_toggle_change, new_cidr_ban separately)
+- [ ] ServiceNow auto-change-record creation: set `governance.itsm_integration.auto_create_change: true`, propose a dial change, verify a Standard Change record is created in ServiceNow with the correct ticket number
+- [ ] Audit log entry for every rule change includes `source`, `actor_id`, and
+  `approved_by` when four-eyes flow was used
+- [ ] Audit log exportable as JSONL via `GET /api/v1/audit` with correct entries
+  for all policy apply operations
+
+#### Verify command
+
+```bash
+# After Phase 79, analytics node, and Management UI are all running:
+python3 scripts/ja4proxy-policy.py apply \
+  --file ja4proxy-policy.yaml \
+  --url http://ja4proxy-mgmt:8090 \
+  --token $OPERATOR_TOKEN
+# Second run:
+python3 scripts/ja4proxy-policy.py apply \
+  --file ja4proxy-policy.yaml \
+  --url http://ja4proxy-mgmt:8090 \
+  --token $OPERATOR_TOKEN
+# Expect: "0 added, 0 removed, N unchanged"
+```
+
+---
+
 ## 3. Closed Items
 
 *(None yet — phase opened 2026-04-07)*
@@ -827,12 +1085,13 @@ assets without a second GET call.
 
 ## 4. Phase completion criteria
 
-Phase 100 is COMPLETE when all eleven items above are either:
+Phase 100 is COMPLETE when all fourteen items above are either:
 - **Closed** — fix implemented, tests pass, commit SHA recorded, or
 - **Explicitly deferred** — moved to a named future phase with written
   rationale (not silently dropped)
 
-**Unblocked (pick up now):** 100-A, 100-B, 100-C, 100-F, 100-H, 100-I
-**Blocked on Phase 79:** 100-D, 100-J, 100-K
+**Unblocked (pick up now):** 100-A, 100-B, 100-C, 100-F, 100-H, 100-I, 100-M
+**Blocked on Phase 79:** 100-D, 100-J, 100-K, 100-L
+**Blocked on 100-L + 100-M:** 100-N
 **Blocked on platform access:** 100-E
 **Requires engineer triage:** 100-G
