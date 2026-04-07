@@ -1,0 +1,17 @@
+commonfields:
+  id: JA4proxy
+  version: -1
+name: JA4proxy
+display: JA4proxy TLS Security Proxy
+category: Network Security
+description: Integration with JA4proxy TLS-aware security proxy for IP banning, watchlisting, and health monitoring.
+configuration:
+  - display: Management API URL
+    name: base_url
+    type: 0
+    required: true
+  - display: API Token
+    name: api_token
+    type: 4
+    required: true
+    hidden: true
