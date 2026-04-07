@@ -1,5 +1,29 @@
 # Changelog
 
+## [Unreleased] - Phase 81 - SOAR, Webhooks & Enterprise Operations Platforms
+
+### Added
+- XSOAR integration package (`integrations/xsoar/JA4proxy/`): 8 commands covering ban, release, connection history, fingerprint detail, watchlist, allowlist, health, and dial — all tested against mock server
+- Splunk SOAR app (`integrations/splunk-soar/ja4proxy/`): 8 actions mirroring XSOAR commands, tested against the same mock server (`tests/mocks/soar_mock.py`)
+- ServiceNow SecOps handler (`integrations/servicenow/ja4proxy_snow_handler.py`): `ecs_to_sir()` maps ECS event dicts to SIR table payloads; `create_sir_incident()` POSTs to ServiceNow; resolution close-loop releases ban and adds 24h allowlist entry via Integration Hub Spoke
+- xMatters two-way response integration: Event Plan with 5 routing conditions; 5 mobile response options including `False Positive — Release` (calls `DELETE /api/v1/bans/{ip}`) and `Extend Ban` (calls `PATCH /api/v1/bans/{ip}`)
+- Interlink Software Service Watch integration: Vector sidecar config (`config/integrations/vector-interlink.yaml`) converting ECS JSON to CEF-over-TLS-syslog; Ansible device registration task; CEF severity mapped to integer 0-10 from `event.risk_score`
+- Interlink correlation rule examples (`docs/integration/interlink_correlation_rules.md`): campaign detection (N bans from same ASN in T minutes), health degradation (OK→DEGRADED → P2 + auto-ITSM), high-rate source (R events/min → severity escalation)
+- PagerDuty and OpsGenie `runbook_url` annotations added to all Alertmanager rules in `monitoring/alertmanager/rules/`
+- Token rotation script (`scripts/rotate_soar_token.sh`): calls `POST /api/v1/tokens/{id}/rotate`, updates the SOAR platform credential, logs the rotation event; schedule on 90-day cron
+- `tests/integration/test_soar_connectors.py`: all 8 XSOAR commands and 8 Splunk SOAR actions tested for correct HTTP method, path, headers, and body against mock server
+- `tests/unit/test_servicenow_handler.py`: 5 tests covering severity mapping (risk_score 90 → "1", 70 → "2"), signal formatting, success path, and 4xx error propagation
+
+### Notes
+- All SOAR integrations use Operator-scoped API tokens; no Admin tokens in any integration config or test fixture
+- Platform end-to-end validation (XSOAR tenant, Splunk SOAR sandbox, ServiceNow SIR, xMatters Event Plan, Interlink Service Watch) tracked in Phase 100 item 100-E — these cannot be completed without platform access
+- ServiceNow Spoke Store submission and xMatters shared library publication are business-track items; they do not block phase completion
+- `PATCH /api/v1/bans/{ip}` and `POST /api/v1/tokens/{id}/rotate` dependency on Phase 79 verified; if absent, raised as Phase 100 items 100-J and 100-K
+
+### Known Limitations
+- xMatters Flow Designer export as shared library deferred to Phase 100 when xMatters tenant access is available
+- Interlink Service Watch live device registration and CEF syslog end-to-end testing deferred to Phase 100 (requires Service Watch instance)
+
 ## [0.80.0] - 2026-04-07 - ECS Structured Logging & SIEM Integration Pack
 
 ### Added
