@@ -61,9 +61,9 @@ func TestPolicyValidate_InvalidYAML(t *testing.T) {
 		t.Fatal("expected error for invalid YAML, got nil")
 	}
 
-	var valErr *commands.PolicyValidationError
-	if !errors.As(err, &valErr) {
-		t.Errorf("expected *commands.PolicyValidationError, got %T: %v", err, err)
+	var syntaxErr *commands.PolicySyntaxError
+	if !errors.As(err, &syntaxErr) {
+		t.Errorf("expected *commands.PolicySyntaxError, got %T: %v", err, err)
 	}
 }
 

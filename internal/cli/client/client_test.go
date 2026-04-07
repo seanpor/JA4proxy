@@ -1,6 +1,7 @@
 package client_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -24,7 +25,8 @@ func TestClient_SetsAuthHeader(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, "my-test-token")
-	_, err := c.Get("/api/v1/health/deep")
+	var out interface{}
+	err := c.Get(context.Background(), "/api/v1/health/deep", &out)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -44,7 +46,7 @@ func TestClient_Returns401Error(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, "bad-token")
-	_, err := c.Get("/api/v1/dial")
+	err := c.Get(context.Background(), "/api/v1/dial", nil)
 	if err == nil {
 		t.Fatal("expected an error for 401, got nil")
 	}
@@ -63,7 +65,7 @@ func TestClient_Returns5xxError(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	_, err := c.Get("/api/v1/dial")
+	err := c.Get(context.Background(), "/api/v1/dial", nil)
 	if err == nil {
 		t.Fatal("expected an error for 500, got nil")
 	}
@@ -84,7 +86,7 @@ func TestClient_Timeout(t *testing.T) {
 
 	// Create a client with a very short timeout so the test finishes quickly.
 	c := client.NewWithTimeout(srv.URL, "token", 50*time.Millisecond)
-	_, err := c.Get("/api/v1/health/deep")
+	err := c.Get(context.Background(), "/api/v1/health/deep", nil)
 	if err == nil {
 		t.Fatal("expected timeout error, got nil")
 	}
@@ -101,7 +103,7 @@ func TestClient_PostSetsAuthHeader(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, "post-token")
-	_, err := c.Post("/api/v1/bans/1.2.3.4", map[string]interface{}{"ttl": 3600, "reason": "test"})
+	err := c.Post(context.Background(), "/api/v1/bans/1.2.3.4", map[string]interface{}{"ttl": 3600, "reason": "test"}, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -123,7 +125,7 @@ func TestClient_DeleteSetsAuthHeader(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, "delete-token")
-	_, err := c.Delete("/api/v1/bans/1.2.3.4")
+	err := c.Delete(context.Background(), "/api/v1/bans/1.2.3.4")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

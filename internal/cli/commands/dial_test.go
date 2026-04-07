@@ -1,6 +1,7 @@
 package commands_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -22,18 +23,18 @@ func TestDialGet(t *testing.T) {
 			t.Errorf("path = %q; want /api/v1/dial", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"value":42,"updated_at":null}`))
+		_, _ = w.Write([]byte(`{"setting":42}`))
 	}))
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	setting, err := commands.RunDialGet(c)
+	dv, err := commands.RunDialGet(context.Background(), c)
 	if err != nil {
 		t.Fatalf("RunDialGet returned error: %v", err)
 	}
 
-	if setting != 42 {
-		t.Errorf("dial setting = %d; want 42", setting)
+	if dv.Setting != 42 {
+		t.Errorf("dial setting = %d; want 42", dv.Setting)
 	}
 }
 
@@ -50,12 +51,12 @@ func TestDialSet_Success(t *testing.T) {
 			t.Errorf("failed to decode body: %v", err)
 		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"value":70,"updated_at":"2026-04-07T00:00:00Z"}`))
+		_, _ = w.Write([]byte(`{"setting":70,"updated_at":"2026-04-07T00:00:00Z"}`))
 	}))
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	err := commands.RunDialSet(c, 70, "CHG001", "raising for incident response")
+	err := commands.RunDialSet(context.Background(), c, 70, "CHG001", "raising for incident response")
 	if err != nil {
 		t.Fatalf("RunDialSet returned error: %v", err)
 	}
@@ -78,7 +79,7 @@ func TestDialSet_PendingApproval(t *testing.T) {
 	defer srv.Close()
 
 	c := client.New(srv.URL, "token")
-	err := commands.RunDialSet(c, 80, "CHG002", "needs four-eyes approval")
+	err := commands.RunDialSet(context.Background(), c, 80, "CHG002", "needs four-eyes approval")
 
 	if err == nil {
 		t.Fatal("expected PendingApprovalError, got nil")
@@ -94,16 +95,12 @@ func TestDialSet_PendingApproval(t *testing.T) {
 	}
 }
 
-// TestDialSet_InvalidRange verifies that setting dial above 100 returns an error.
+// TestDialSet_InvalidRange verifies that setting dial above 100 returns an error
+// before any HTTP call is made.
 func TestDialSet_InvalidRange(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Should never reach here for out-of-range values
-		w.WriteHeader(http.StatusBadRequest)
-	}))
-	defer srv.Close()
-
-	c := client.New(srv.URL, "token")
-	err := commands.RunDialSet(c, 150, "", "")
+	// No server needed — the validation is local and should fail before any HTTP call.
+	c := client.New("http://127.0.0.1:0", "token")
+	err := commands.RunDialSet(context.Background(), c, 150, "", "")
 	if err == nil {
 		t.Fatal("expected error for dial=150, got nil")
 	}

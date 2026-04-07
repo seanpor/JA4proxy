@@ -25,11 +25,17 @@ type Client struct {
 // New creates a Client for the given base URL and bearer token.
 // The client uses a 30-second timeout for all requests.
 func New(baseURL, token string) *Client {
+	return NewWithTimeout(baseURL, token, defaultTimeout)
+}
+
+// NewWithTimeout creates a Client with a custom HTTP timeout.  Use this in
+// tests or when the default 30-second timeout is not appropriate.
+func NewWithTimeout(baseURL, token string, timeout time.Duration) *Client {
 	return &Client{
 		baseURL: baseURL,
 		token:   token,
 		httpClient: &http.Client{
-			Timeout: defaultTimeout,
+			Timeout: timeout,
 		},
 	}
 }
