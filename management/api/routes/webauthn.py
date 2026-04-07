@@ -77,7 +77,11 @@ def _user_credentials_key(user_id: str) -> str:
 
 
 async def _load_challenge(redis, user_id: str, expected_type: str) -> bytes:
-    """Load and validate the stored challenge for this user.
+    """Load, validate, and immediately consume the stored challenge for this user.
+
+    The challenge is deleted before returning — it is single-use regardless of
+    whether the subsequent verification succeeds.  This prevents an attacker from
+    retrying with different attestation/assertion data within the 5-minute TTL.
 
     Raises:
         HTTPException(400): If no challenge found or type mismatch.
@@ -94,6 +98,8 @@ async def _load_challenge(redis, user_id: str, expected_type: str) -> bytes:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Challenge type mismatch: expected '{expected_type}', found '{stored.get('type')}'",
         )
+    # Consume immediately — single-use on any code path
+    await redis.delete(_challenge_key(user_id))
     return base64url_to_bytes(stored["challenge"])
 
 

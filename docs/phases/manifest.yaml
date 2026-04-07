@@ -967,6 +967,22 @@ phases:
       - "make test-phase-87-integration passes against a running monitoring stack"
       - "Phase 87 manifest success_criteria updated to include integration test target"
 
+  100:
+    name: "Phase 79 SSO/MFA Gap Closure"
+    status: "PLANNED"
+    action_plan: "docs/phases/PHASE_100.md"
+    dependencies: [79]
+    size: "MEDIUM"
+    summary: "Closes 7 gaps identified in Phase 79 C7-C9 CR: OIDC JWKS signature verification, SSO audit log events, WebAuthn credential DELETE endpoint, SSO-delegated MFA trust, SAML integration test markers, config.yml role mapping, OpenAPI 3.1 spec."
+    success_criteria:
+      - "OIDC id_token signature verified against IdP JWKS"
+      - "SAML and OIDC login events written to management:audit_log"
+      - "DELETE /auth/mfa/webauthn/credentials/{id} removes credential and SET entry"
+      - "SSO-delegated MFA: MANAGEMENT_SSO_TRUST_IDP_MFA=true bypasses local MFA gate when IdP asserts amr=mfa"
+      - "pytest.mark.integration markers on SAML/OIDC live-IdP tests"
+      - "Group-to-role mapping honoured from config/proxy.yml sso.role_mapping"
+      - "docs/api/openapi.yaml committed (OpenAPI 3.1)"
+
   92:
     name: "Makefile Lint Target Hierarchy"
     status: "COMPLETE"
