@@ -40,7 +40,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 import webauthn
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from webauthn.helpers import base64url_to_bytes, bytes_to_base64url
 from webauthn.helpers.structs import PublicKeyCredentialDescriptor
@@ -370,3 +370,72 @@ async def webauthn_auth_complete(
         credential_id_b64,
     )
     return JSONResponse(content={"verified": True})
+
+
+# ── Credential management (Gap 3 — Phase 100) ────────────────────────────────
+
+
+@router.get("/auth/mfa/webauthn/credentials")
+async def webauthn_list_credentials(
+    current_user=Depends(get_current_user),
+    redis=Depends(get_redis),
+) -> JSONResponse:
+    """List all WebAuthn credential IDs enrolled for the authenticated user.
+
+    Returns a JSON object with a ``credentials`` list; each entry has
+    ``credential_id`` (base64url) and ``created_at`` (ISO 8601).
+
+    Returns:
+        200 ``{"credentials": [...]}``
+    """
+    identity, role = current_user
+    user_id = identity.removeprefix("token:")
+    credential_ids = await redis.smembers(_user_credentials_key(user_id))
+    result = []
+    for cid in credential_ids:
+        fields = await redis.hgetall(_credential_key(cid))
+        result.append({
+            "credential_id": cid,
+            "created_at": fields.get("created_at"),
+        })
+    return JSONResponse(content={"credentials": result})
+
+
+@router.delete("/auth/mfa/webauthn/credentials/{credential_id_b64}", status_code=204)
+async def webauthn_delete_credential(
+    credential_id_b64: str,
+    current_user=Depends(get_current_user),
+    redis=Depends(get_redis),
+) -> Response:
+    """Remove a single WebAuthn credential.
+
+    Only the credential's owner may delete it.  Returns 204 on success.
+
+    Returns:
+        204 No Content on success.
+        404 if the credential does not exist.
+        403 if the credential belongs to a different user.
+    """
+    identity, role = current_user
+    user_id = identity.removeprefix("token:")
+
+    cred = await redis.hgetall(_credential_key(credential_id_b64))
+    if not cred:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Credential not found")
+    if cred.get("user_id") != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Credential does not belong to this user",
+        )
+
+    pipe = redis.pipeline()
+    pipe.delete(_credential_key(credential_id_b64))
+    pipe.srem(_user_credentials_key(user_id), credential_id_b64)
+    await pipe.execute()
+
+    logger.info(
+        "mfa | event=webauthn_credential_deleted | user=%s | credential_id=%s",
+        user_id,
+        credential_id_b64,
+    )
+    return Response(status_code=204)

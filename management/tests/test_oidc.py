@@ -615,3 +615,344 @@ async def test_oidc_callback_idp_error_param_returns_401(
     assert remaining is None, (
         f"State should be consumed even on IdP error, but key still exists"
     )
+
+# ── Section 8: Integration test stubs (Gap 5 — Phase 100) ────────────────────
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(
+    not os.environ.get("ENTRA_OIDC_DISCOVERY_URL"),
+    reason="ENTRA_OIDC_DISCOVERY_URL not set — live Entra ID test skipped",
+)
+async def test_oidc_live_entra_login() -> None:
+    """Placeholder: end-to-end login against live Microsoft Entra ID OIDC.
+
+    To run: ENTRA_OIDC_DISCOVERY_URL=https://login.microsoftonline.com/... pytest -m integration
+    """
+    pytest.skip("Not yet implemented — stub for future live-IdP test")
+
+# ── Section 9: Audit log events (Gap 2 — Phase 100) ──────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_oidc_callback_success_writes_audit_entry(
+    public_client: AsyncClient,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> None:
+    """Successful OIDC callback login writes an entry to management:audit_log.
+
+    Verifies Gap 2: SSO login events must appear in the audit trail.
+    actor_id must equal the 'sub' claim from the ID token.
+    """
+    state = await _do_login_get_state(public_client, fake_redis)
+
+    with (
+        patch(
+            "management.api.routes.oidc._fetch_oidc_discovery",
+            new=AsyncMock(return_value=_FAKE_DISCOVERY),
+        ),
+        patch(
+            "management.api.routes.oidc._exchange_code_for_tokens",
+            new=AsyncMock(return_value=_fake_token_response(sub="oidc-user-audit")),
+        ),
+    ):
+        r = await public_client.get(
+            f"/auth/sso/oidc/callback?code=authcode&state={state}",
+            follow_redirects=False,
+        )
+    assert r.status_code in (200, 302), f"Expected login success, got {r.status_code}: {r.text}"
+
+    entries = await fake_redis.lrange("management:audit_log", 0, 0)
+    assert entries, "Expected at least one audit entry in management:audit_log"
+
+    entry = json.loads(entries[0])
+    assert entry.get("action_type") == "sso.login", (
+        f"Expected action_type='sso.login', got {entry.get('action_type')!r}"
+    )
+    assert entry.get("actor_id") == "oidc-user-audit", (
+        f"Expected actor_id='oidc-user-audit' (the sub claim), got {entry.get('actor_id')!r}"
+    )
+    assert entry.get("resource_type") == "session", (
+        f"Expected resource_type='session', got {entry.get('resource_type')!r}"
+    )
+
+# ── Section 10: SSO-delegated MFA trust (Gap 4 — Phase 100) ──────────────────
+
+
+@pytest.mark.asyncio
+async def test_oidc_callback_idp_mfa_amr_sets_session_key(
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> None:
+    """When MANAGEMENT_SSO_TRUST_IDP_MFA=true and amr=['mfa'], MFA session key is set."""
+    import hashlib
+
+    app = create_app()
+    await _redis_module.init_redis(override_client=fake_redis)
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        state = await _do_login_get_state(client, fake_redis)
+
+        token_resp = _fake_token_response(sub="mfa-oidc-user")
+        # Inject amr claim into the id_token
+        header = base64.urlsafe_b64encode(b'{"alg":"RS256","typ":"JWT"}').rstrip(b"=").decode()
+        payload_data = {
+            "sub": "mfa-oidc-user",
+            "email": "mfa@example.com",
+            "groups": ["Security-Admins"],
+            "amr": ["mfa"],
+            "exp": 9999999999,
+            "iat": 1000000000,
+        }
+        payload = base64.urlsafe_b64encode(
+            json.dumps(payload_data).encode()
+        ).rstrip(b"=").decode()
+        token_resp["id_token"] = f"{header}.{payload}.fakesig"
+
+        saved = os.environ.get("MANAGEMENT_SSO_TRUST_IDP_MFA")
+        try:
+            os.environ["MANAGEMENT_SSO_TRUST_IDP_MFA"] = "true"
+            with (
+                patch(
+                    "management.api.routes.oidc._fetch_oidc_discovery",
+                    new=AsyncMock(return_value=_FAKE_DISCOVERY),
+                ),
+                patch(
+                    "management.api.routes.oidc._exchange_code_for_tokens",
+                    new=AsyncMock(return_value=token_resp),
+                ),
+            ):
+                r = await client.get(
+                    f"/auth/sso/oidc/callback?code=authcode&state={state}",
+                    follow_redirects=False,
+                )
+        finally:
+            if saved is not None:
+                os.environ["MANAGEMENT_SSO_TRUST_IDP_MFA"] = saved
+            else:
+                os.environ.pop("MANAGEMENT_SSO_TRUST_IDP_MFA", None)
+    await _redis_module.close_redis()
+
+    assert r.status_code in (200, 302), f"Expected login success, got {r.status_code}: {r.text}"
+    token_value = r.cookies.get("token")
+    assert token_value, "No token cookie issued"
+
+    mfa_key = "mgmt:mfa:session:" + hashlib.sha256(token_value.encode()).hexdigest()
+    value = await fake_redis.get(mfa_key)
+    assert value == "verified", (
+        f"Expected MFA session key='verified' when amr=['mfa'] and trust enabled, got {value!r}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_oidc_callback_idp_mfa_trust_disabled_no_session_key(
+    public_client: AsyncClient,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> None:
+    """When MANAGEMENT_SSO_TRUST_IDP_MFA is not set, MFA session key is NOT set."""
+    import hashlib
+
+    state = await _do_login_get_state(public_client, fake_redis)
+
+    token_resp = _fake_token_response()
+    header = base64.urlsafe_b64encode(b'{"alg":"RS256","typ":"JWT"}').rstrip(b"=").decode()
+    payload_data = {
+        "sub": "user-no-trust",
+        "email": "notrust@example.com",
+        "groups": ["Security-Admins"],
+        "amr": ["mfa"],
+        "exp": 9999999999,
+        "iat": 1000000000,
+    }
+    payload = base64.urlsafe_b64encode(
+        json.dumps(payload_data).encode()
+    ).rstrip(b"=").decode()
+    token_resp["id_token"] = f"{header}.{payload}.fakesig"
+
+    saved = os.environ.pop("MANAGEMENT_SSO_TRUST_IDP_MFA", None)
+    try:
+        with (
+            patch(
+                "management.api.routes.oidc._fetch_oidc_discovery",
+                new=AsyncMock(return_value=_FAKE_DISCOVERY),
+            ),
+            patch(
+                "management.api.routes.oidc._exchange_code_for_tokens",
+                new=AsyncMock(return_value=token_resp),
+            ),
+        ):
+            r = await public_client.get(
+                f"/auth/sso/oidc/callback?code=authcode&state={state}",
+                follow_redirects=False,
+            )
+    finally:
+        if saved is not None:
+            os.environ["MANAGEMENT_SSO_TRUST_IDP_MFA"] = saved
+
+    assert r.status_code in (200, 302)
+    token_value = r.cookies.get("token")
+    if token_value:
+        mfa_key = "mgmt:mfa:session:" + hashlib.sha256(token_value.encode()).hexdigest()
+        value = await fake_redis.get(mfa_key)
+        assert value is None, (
+            f"MFA session key must NOT be set when trust flag is off, got {value!r}"
+        )
+
+# ── Section 11: OIDC JWKS signature verification (Gap 1 — Phase 100) ─────────
+
+# Tests for the new async _extract_claims(id_token, jwks_uri) and _fetch_jwks().
+# We generate a real RS256 key pair so the signature tests are meaningful.
+
+import time as _time
+
+
+def _make_rs256_key_pair():
+    """Generate a real RS256 key pair for signing test JWTs."""
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.hazmat.primitives import serialization
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    return private_key
+
+
+def _sign_id_token(
+    private_key,
+    sub: str = "user-sig-test",
+    groups: list[str] | None = None,
+    exp_offset: int = 3600,
+    iss: str = "http://mock-idp.test",
+) -> str:
+    """Sign a minimal ID token with the given RS256 private key using authlib."""
+    from authlib.jose import jwt as authlib_jwt
+    now = int(_time.time())
+    claims = {
+        "sub": sub,
+        "email": f"{sub}@example.com",
+        "groups": groups or ["Security-Admins"],
+        "iss": iss,
+        "aud": "ja4proxy-test",
+        "iat": now,
+        "exp": now + exp_offset,
+    }
+    header = {"alg": "RS256"}
+    return authlib_jwt.encode(header, claims, private_key).decode()
+
+
+def _make_jwks_keyset(private_key):
+    """Build a JsonWebKey keyset from an RSA private key (public part only)."""
+    from authlib.jose import JsonWebKey
+    public_key = private_key.public_key()
+    key = JsonWebKey.import_key(public_key, {"kty": "RSA"})
+    return JsonWebKey.import_key_set({"keys": [dict(key)]})
+
+
+@pytest.mark.asyncio
+async def test_extract_claims_valid_signed_token() -> None:
+    """_extract_claims() succeeds with a validly-signed RS256 token.
+
+    Verifies Gap 1: the function must verify the JWT signature using JWKS.
+    MANAGEMENT_TEST_MODE is unset for this test so verification actually runs.
+    """
+    from management.api.routes.oidc import _extract_claims, _clear_jwks_cache
+
+    private_key = _make_rs256_key_pair()
+    key_set = _make_jwks_keyset(private_key)
+    id_token = _sign_id_token(private_key, sub="sig-ok-user")
+
+    _clear_jwks_cache()
+    saved = os.environ.pop("MANAGEMENT_TEST_MODE", None)
+    try:
+        with patch(
+            "management.api.routes.oidc._fetch_jwks",
+            new=AsyncMock(return_value=key_set),
+        ):
+            claims = await _extract_claims(id_token, "http://mock-idp.test/certs")
+    finally:
+        if saved is not None:
+            os.environ["MANAGEMENT_TEST_MODE"] = saved
+
+    assert claims["sub"] == "sig-ok-user", f"Expected sub='sig-ok-user', got {claims}"
+
+
+@pytest.mark.asyncio
+async def test_extract_claims_wrong_key_raises_401() -> None:
+    """_extract_claims() raises HTTP 401 when the token was signed with a different key."""
+    from management.api.routes.oidc import _extract_claims, _clear_jwks_cache
+    from fastapi import HTTPException
+
+    private_key = _make_rs256_key_pair()
+    wrong_key = _make_rs256_key_pair()  # different key
+    key_set = _make_jwks_keyset(wrong_key)  # publish wrong key's JWK
+    id_token = _sign_id_token(private_key)   # sign with correct key
+
+    _clear_jwks_cache()
+    saved = os.environ.pop("MANAGEMENT_TEST_MODE", None)
+    try:
+        with patch(
+            "management.api.routes.oidc._fetch_jwks",
+            new=AsyncMock(return_value=key_set),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await _extract_claims(id_token, "http://mock-idp.test/certs")
+    finally:
+        if saved is not None:
+            os.environ["MANAGEMENT_TEST_MODE"] = saved
+
+    assert exc_info.value.status_code == 401, (
+        f"Expected 401 on signature mismatch, got {exc_info.value.status_code}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_extract_claims_expired_token_raises_401() -> None:
+    """_extract_claims() raises HTTP 401 when the token's exp claim is in the past."""
+    from management.api.routes.oidc import _extract_claims, _clear_jwks_cache
+    from fastapi import HTTPException
+
+    private_key = _make_rs256_key_pair()
+    key_set = _make_jwks_keyset(private_key)
+    # exp_offset=-10 → expired 10 seconds ago
+    id_token = _sign_id_token(private_key, exp_offset=-10)
+
+    _clear_jwks_cache()
+    saved = os.environ.pop("MANAGEMENT_TEST_MODE", None)
+    try:
+        with patch(
+            "management.api.routes.oidc._fetch_jwks",
+            new=AsyncMock(return_value=key_set),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await _extract_claims(id_token, "http://mock-idp.test/certs")
+    finally:
+        if saved is not None:
+            os.environ["MANAGEMENT_TEST_MODE"] = saved
+
+    assert exc_info.value.status_code == 401, (
+        f"Expected 401 for expired token, got {exc_info.value.status_code}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_fetch_jwks_caches_on_second_call() -> None:
+    """_fetch_jwks() caches: a second call with the same URI does not make a second HTTP request."""
+    from management.api.routes.oidc import _fetch_jwks, _clear_jwks_cache
+    from authlib.jose import JsonWebKey
+
+    private_key = _make_rs256_key_pair()
+    public_key = private_key.public_key()
+    jwks_payload = {"keys": [dict(JsonWebKey.import_key(public_key, {"kty": "RSA"}))]}
+
+    _clear_jwks_cache()
+    call_count = 0
+
+    async def _fake_get(uri: str) -> dict:
+        nonlocal call_count
+        call_count += 1
+        return jwks_payload
+
+    with patch("management.api.routes.oidc._http_get_json", new=_fake_get):
+        await _fetch_jwks("http://mock-idp.test/certs")
+        await _fetch_jwks("http://mock-idp.test/certs")
+
+    assert call_count == 1, (
+        f"Expected exactly 1 HTTP request due to caching, got {call_count}"
+    )
