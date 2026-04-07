@@ -300,7 +300,9 @@ Practical rules that flow from this:
 | 80 | **ECS Structured Logging & SIEM Integration** | ECS 8.x log format, Splunk HEC / QRadar CEF / Sentinel / Elastic SIEM connectors | [PHASE_80.md](docs/phases/PHASE_80.md) |
 | 81 | **SOAR, Webhooks & Enterprise Operations Platforms** | XSOAR / Splunk SOAR playbooks, PagerDuty / ServiceNow / Jira / xMatters integration | [PHASE_81.md](docs/phases/PHASE_81.md) |
 | 82 | **Policy-as-Code, Shadow Mode & Governance** | YAML policy files, shadow mode simulation, four-eyes dial approval, full audit trail | [PHASE_82.md](docs/phases/PHASE_82.md) |
-| 83 | **Infrastructure Automation — Terraform, CLI & Kubernetes Operator** | `ja4proxy-cli` Go binary, Terraform provider, Kubernetes operator + CRDs | [PHASE_83.md](docs/phases/PHASE_83.md) |
+| 83 | **`ja4proxy-cli` Go Binary** | All day-2 CLI commands; parity with Python stopgap; GPG-signed releases | [PHASE_83.md](docs/phases/PHASE_83.md) |
+| 93 | **Terraform Provider + Emergency Runbook Playbooks** | `terraform-provider-ja4proxy` (6 resource types, drift protection); 3 emergency Ansible playbooks | [PHASE_93.md](docs/phases/PHASE_93.md) |
+| 94 | **Kubernetes Operator + CMDB/NetBox** | CRDs (JA4ProxyConfig, JA4ProxyAllowlist, JA4ProxyDial); admission webhook; ArgoCD health check; NetBox CIDR integration | [PHASE_94.md](docs/phases/PHASE_94.md) |
 | 84 | **Compliance Reporting & Evidence Pack** | ISO 27001 / SOC 2 evidence pack, automated report generator, compliance dashboard | [PHASE_84.md](docs/phases/PHASE_84.md) |
 | 85 | **Threat Intelligence Ingestion** | TAXII 2.1 client, MISP integration, STIX 2.1 indicator conversion, ISAC sharing | [PHASE_85.md](docs/phases/PHASE_85.md) |
 | 86 | **Observability Upgrade & Capacity Planning** | Grafana enterprise dashboards, SLO burn-rate alerting, capacity calculator | [PHASE_86.md](docs/phases/PHASE_86.md) |
