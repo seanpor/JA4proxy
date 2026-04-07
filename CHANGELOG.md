@@ -1,5 +1,25 @@
 # Changelog
 
+## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 5: Audit Trail Enhancements — 2026-04-07
+
+### Added
+- Enhanced audit log schema: every `management:audit_log` entry now contains `timestamp`, `actor_id`, `actor_ip`, `action_type`, `resource_type`, `resource_id`, `before_value`, `after_value`, `session_id`, `role` — full attribution per operation
+- `management/api/audit_utils.py` — shared `write_audit()` coroutine used by all route modules (eliminates duplicated `_write_audit` helpers in bans, dial, config_ops)
+- `GET /api/v1/audit?format=jsonl` — NDJSON export, one JSON object per line (`application/x-ndjson`)
+- `GET /api/v1/audit?format=csv` — CSV export with required header row (`text/csv`); nested values serialised as JSON strings in cells
+- `GET /api/v1/audit?action=<value>` — filter by `action_type` field (exact match)
+- `GET /api/v1/audit?actor=<value>` — filter by `actor_id` field (substring match)
+- `GET /api/v1/audit?since=<iso8601>` — filter by `timestamp >=` value (lexicographic; ISO 8601 sorts correctly)
+- Audit writes added to `POST /api/v1/allowlist|blocklist|watchlist` (action `{list}.created`, `before_value=null`, `after_value={entry, managed_by}`)
+- Audit writes added to `DELETE /api/v1/allowlist|blocklist|watchlist/{id}` (action `{list}.deleted`, `before_value=<record>`, `after_value=null`)
+
+### Changed
+- `POST /api/v1/bans/{ip}`: audit entry now uses `action_type="ban.created"`, `resource_id=ip`, `after_value={ip, ttl, reason}` instead of old `action`/`user`/`detail` fields
+- `DELETE /api/v1/bans/{ip}`: audit entry now uses `action_type="ban.deleted"`, `before_value={ip}` instead of old schema
+- `PUT /api/v1/dial`: audit entry now uses `action_type="dial.changed"`, `before_value={value: N}`, `after_value={value: N}` instead of old schema
+- `POST /api/v1/config/reload`: audit entry now uses `action_type="config.reload"` instead of old schema
+- Removed duplicated `_write_audit`, `_AUDIT_KEY` definitions from `bans.py`, `dial.py`, `config_ops.py` — all now delegate to `audit_utils.write_audit`
+
 ## [Phase 79] — Management API v2, RBAC & Enterprise Identity — Cluster 4: New Observability & Infrastructure Endpoints — 2026-04-07
 
 ### Added

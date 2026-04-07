@@ -38,7 +38,7 @@ phase: 54
 | `concurrent:{ip}` | Integer (INCR/DECR) | 60s | Proxy (Phase 5) | Live concurrent connection count per IP |
 | `visitor:{ip}` | Hash `{first_seen, last_seen, total, allowed, blocked}` | 604800s (7d) | Proxy (Phase 5) | Return visitor tracking |
 | `static:allowlist` | SET of IP/CIDR strings | none | Management UI | UI-added static allowlist entries; config-file entries are authoritative |
-| `management:audit_log` | List (last 1000 entries) | none | Management UI | All secops admin actions |
+| `management:audit_log` | List (last 1000 entries) | none | Management UI | All secops admin actions. Phase 79 C5 enhanced schema — each entry is a JSON object with fields: `timestamp` (ISO 8601 UTC), `actor_id` (token identity or username), `actor_ip` (client IP), `action_type` (dot-separated verb, e.g. `allowlist.created`), `resource_type`, `resource_id`, `before_value` (null on creates), `after_value` (null on deletes), `session_id`, `role` (actor role at time of action). |
 | `management:policy_audit` | List (last 1000 entries) | none | Management UI, config reload | Security policy bypass changes |
 | `management:gdpr_erasure_log` | LIST of JSON | no TTL (last 1000 entries) | scripts/gdpr_delete.py | Audit trail of GDPR erasure requests; each entry: {timestamp, ip, dry_run, keys_deleted, keys_skipped_hll, zset_members_removed, invoked_by} |
 
@@ -181,4 +181,4 @@ phase: 54
 
 ---
 
-*Last updated: 2026-04-07, Phase 79 Cluster 4 complete*
+*Last updated: 2026-04-07, Phase 79 Cluster 5 complete*

@@ -224,11 +224,12 @@ async def test_bearer_takes_precedence_over_cookie(
     raw_entries = await fake_redis.lrange("management:audit_log", 0, 0)
     assert raw_entries, "No audit log entry was written"
     entry = _json.loads(raw_entries[0])
-    assert entry.get("user") != "admin", (
-        f"Audit log user is 'admin' — bearer identity did not take precedence. Entry: {entry}"
+    # Phase 79 C5: enhanced audit schema uses actor_id, not user
+    assert entry.get("actor_id") != "admin", (
+        f"Audit log actor_id is 'admin' — bearer identity did not take precedence. Entry: {entry}"
     )
-    assert token_name in entry.get("user", "") or "token:" in entry.get("user", ""), (
-        f"Expected audit log user to reference the token identity, got: {entry.get('user')}"
+    assert token_name in entry.get("actor_id", "") or "token:" in entry.get("actor_id", ""), (
+        f"Expected audit log actor_id to reference the token identity, got: {entry.get('actor_id')}"
     )
 
 
