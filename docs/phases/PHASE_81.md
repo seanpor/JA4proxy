@@ -135,7 +135,7 @@ A Splunk SOAR app (`ja4proxy`) with actions:
 | `remove_from_allowlist` | `ip` |
 | `get_health` | — |
 
-**Test strategy:** The Splunk SOAR app (`integrations/splunk-soar/ja4proxy/`) makes
+**Test strategy:** The Splunk SOAR app (`integrations/splunk_soar/ja4proxy/`) makes
 HTTP calls to the Management API. Test all 8 actions against the mock HTTP server in
 `tests/mocks/soar_mock.py` (same mock as XSOAR — both call the same Management API
 endpoints). Splunk SOAR platform installation is tracked in Phase 100 (item 100-E).
@@ -170,18 +170,13 @@ Deliver as `integrations/servicenow/ja4proxy_snow_handler.py`:
 ```python
 import json, os, requests
 
-SNOW_INSTANCE = os.environ["SNOW_INSTANCE"]  # e.g. "company.service-now.com"
-SNOW_USER     = os.environ["SNOW_USER"]
-SNOW_PASS     = os.environ["SNOW_PASS"]
-SIR_TABLE_URL = f"https://{SNOW_INSTANCE}/api/now/table/sn_si_incident"
-
 def ecs_to_sir(event: dict) -> dict:
     """Build a ServiceNow SIR payload from a JA4proxy ECS event dict."""
     risk_score = event.get("event.risk_score", 0)
     signals    = event.get("ja4proxy.signals", [])
     signal_txt = "; ".join(
         f"{s['name']}(+{s['score']}): {s['reason']}" for s in signals
-    )
+    ) if signals else "No signals recorded."
     # SIR severity: 1=Critical, 2=High, 3=Moderate, 4=Low, 5=Planning
     severity = "1" if risk_score >= 85 else "2"
     return {
@@ -189,7 +184,7 @@ def ecs_to_sir(event: dict) -> dict:
             f"JA4proxy ban: {event.get('source.ip', 'unknown')} "
             f"(score={risk_score})"
         ),
-        "description": signal_txt or "No signals recorded.",
+        "description": signal_txt,
         "category": "network_intrusion",
         "severity": severity,
         "u_source_ip":         event.get("source.ip", ""),
@@ -199,10 +194,16 @@ def ecs_to_sir(event: dict) -> dict:
 
 def create_sir_incident(event: dict) -> str:
     """POST to ServiceNow SIR table. Returns the created incident sys_id."""
+    # Credentials read at call time so tests can patch os.environ without
+    # reloading the module. No module-level constants.
+    snow_instance = os.environ.get("SNOW_INSTANCE", "")
+    snow_user     = os.environ.get("SNOW_USER", "")
+    snow_pass     = os.environ.get("SNOW_PASS", "")
+    sir_url = f"https://{snow_instance}/api/now/table/sn_si_incident"
     payload = ecs_to_sir(event)
     resp = requests.post(
-        SIR_TABLE_URL,
-        auth=(SNOW_USER, SNOW_PASS),
+        sir_url,
+        auth=(snow_user, snow_pass),
         headers={"Content-Type": "application/json", "Accept": "application/json"},
         data=json.dumps(payload),
         timeout=30,
@@ -211,12 +212,16 @@ def create_sir_incident(event: dict) -> str:
     return resp.json()["result"]["sys_id"]
 ```
 
-**Unit tests in `tests/unit/test_servicenow_handler.py`:**
-- `test_ecs_to_sir_high_risk` — `risk_score=90` → `severity="1"`
-- `test_ecs_to_sir_medium_risk` — `risk_score=70` → `severity="2"`
-- `test_ecs_to_sir_signal_formatting` — signals list → concatenated description string
-- `test_create_sir_incident_success` — mock `requests.post` returns 201 → returns `sys_id`
-- `test_create_sir_incident_raises_on_4xx` — mock returns 403 → `raise_for_status()` propagates
+> **Design note:** credentials are read inside `create_sir_incident()` at call time,
+> not at module import. Module-level constants would be evaluated with empty env vars
+> during test collection, making env-var patching ineffective without a module reload.
+
+**Unit tests in `tests/unit/test_servicenow_handler.py` (12 tests):**
+- `TestEcsToSirSeverity` — boundary tests at 84, 85, 90, 70 (all four boundary/midpoint cases)
+- `TestEcsToSirSignals` — signals list → concatenated description; empty list → "No signals recorded."
+- `TestEcsToSirFieldMapping` — `source.ip`, `ja4proxy.fingerprint.ja4`, `short_description` content
+- `TestCreateSirIncident` — mock `requests.post` returns 201 → returns `sys_id`; verifies
+  `u_source_ip`, `severity`, and `category` in the POST body; 403 and 500 error propagation
 
 ### 5.2 Enrichment Action
 
@@ -393,7 +398,9 @@ sinks:
   interlink_syslog:
     type: socket
     inputs: ["to_cef"]
-    address: "{{ interlink_syslog_host }}:6514"
+    # Set INTERLINK_SYSLOG_HOST env var to your Service Watch syslog receiver hostname.
+    # Vector uses ${ENV_VAR} syntax — not {{ Jinja2 }}.
+    address: "${INTERLINK_SYSLOG_HOST}:6514"
     mode: tcp
     tls:
       enabled: true
@@ -448,19 +455,19 @@ platform access; they are tracked in Phase 100 and do not block phase completion
 
 ### 9.1 Testable offline — Phase 81 completion gate
 
-- [ ] XSOAR connector Python package exists at `integrations/xsoar/JA4proxy/`; all 8 commands implemented
-- [ ] Splunk SOAR app exists at `integrations/splunk-soar/ja4proxy/`; all 8 actions implemented
-- [ ] ServiceNow handler `integrations/servicenow/ja4proxy_snow_handler.py` exists; `ecs_to_sir()` and `create_sir_incident()` unit-tested (5 tests in `tests/unit/test_servicenow_handler.py`)
-- [ ] Token rotation script `scripts/rotate_soar_token.sh` exists, documented, calls `POST /api/v1/tokens/{id}/rotate`
-- [ ] `tests/mocks/soar_mock.py` mock HTTP server implemented; used by XSOAR and Splunk SOAR unit tests
-- [ ] `tests/integration/test_soar_connectors.py` passes: all 8 XSOAR commands + all 8 Splunk SOAR actions tested against mock server, asserting correct HTTP method, path, headers, and body
-- [ ] Vector Interlink config `config/integrations/vector-interlink.yaml` exists; CEF severity is integer 0–10; `stdin` source (Docker) documented and bare-metal `journald` variant noted
-- [ ] Interlink Ansible registration task documented in `docs/integration/interlink_setup.md`
-- [ ] Interlink correlation rule examples documented in `docs/integration/interlink_correlation_rules.md`
-- [ ] PagerDuty and OpsGenie `runbook_url` annotations added to all Alertmanager rules in `monitoring/alertmanager/rules/`
-- [ ] All SOAR integrations use Operator-scoped API tokens; no Admin tokens in any config
-- [ ] xMatters deployment architecture (Option A and B) documented in `docs/enterprise/security-architecture.md`
-- [ ] `PATCH /api/v1/bans/{ip}` and `POST /api/v1/tokens/{id}/rotate` verified present in Phase 79 or raised in P100 (items 100-J, 100-K)
+- [x] XSOAR connector Python package exists at `integrations/xsoar/JA4proxy/`; all 8 commands implemented
+- [x] Splunk SOAR app exists at `integrations/splunk_soar/ja4proxy/`; all 8 actions implemented
+- [x] ServiceNow handler `integrations/servicenow/ja4proxy_snow_handler.py` exists; `ecs_to_sir()` and `create_sir_incident()` unit-tested (12 tests in `tests/unit/test_servicenow_handler.py`)
+- [x] Token rotation script `scripts/rotate_soar_token.sh` exists, documented, calls `POST /api/v1/tokens/{id}/rotate`
+- [x] `tests/mocks/soar_mock.py` mock HTTP server implemented; used by XSOAR and Splunk SOAR unit tests
+- [x] `tests/integration/test_soar_connectors.py` passes: all 8 XSOAR commands + all 8 Splunk SOAR actions tested against mock server, asserting correct HTTP method, path, headers, and body
+- [x] Vector Interlink config `config/integrations/vector-interlink.yaml` exists; CEF severity is integer 0–10; `stdin` source (Docker) documented and bare-metal `journald` variant noted; `${ENV_VAR}` syntax used (not Jinja2)
+- [x] Interlink Ansible registration task documented in `docs/integration/interlink_setup.md`
+- [x] Interlink correlation rule examples documented in `docs/integration/interlink_correlation_rules.md`
+- [x] PagerDuty and OpsGenie `runbook_url` annotations added to all Alertmanager rules in `monitoring/alertmanager/rules/`
+- [x] All SOAR integrations use Operator-scoped API tokens; no Admin tokens in any config
+- [x] xMatters deployment architecture (Option A and B) documented in `docs/enterprise/security-architecture.md`
+- [x] `PATCH /api/v1/bans/{ip}` and `POST /api/v1/tokens/{id}/rotate` verified present in Phase 79 or raised in P100 (items 100-J, 100-K)
 
 ### 9.2 Requires platform access — tracked in Phase 100 (item 100-E)
 
@@ -477,7 +484,70 @@ these as a sub-task of Phase 100 item 100-E:
 
 ---
 
-## 10. Business Track (Not Engineering Acceptance Criteria)
+## 10. Implementation Notes
+
+Key decisions and non-obvious fixes made during implementation. Read before
+modifying any Phase 81 artifact.
+
+### XSOAR: two Python implementations of the same contract
+
+`integrations/xsoar/JA4proxy/commands.py` — async (`aiohttp`), used by the CI test
+suite against the SOARMock server. No `demisto` dependency.
+
+`integrations/xsoar/JA4proxy/JA4proxy.yml` (embedded `script:` field) — synchronous
+(`requests`), uses `demisto.params()` / `demisto.args()` / `return_results()`. This is
+the code that actually executes inside the XSOAR runtime. XSOAR requires synchronous
+Python; aiohttp cannot run in its sandbox.
+
+Do not merge these into one file. They serve different runtimes.
+
+### ServiceNow: credentials at call time, not module level
+
+Early drafts placed `SNOW_INSTANCE`, `SNOW_USER`, `SNOW_PASS`, and `SIR_TABLE_URL` as
+module-level constants. These were removed. Module-level `os.environ` reads happen at
+import time with empty env vars, making `patch.dict(os.environ, ...)` ineffective
+without a full module reload. Read credentials inside the function.
+
+### Token rotation script: `--fail` removed intentionally
+
+`curl --fail` exits non-zero on HTTP 4xx/5xx before the script can inspect the response
+body or status code. The HTTP status check (`HTTP_STATUS != "200"`) and specific error
+messages were dead code while `--fail` was present. Removed `--fail`; the status check
+block now actually runs.
+
+The new token is **intentionally not printed to stdout** to prevent exposure in cron
+logs and CI pipelines. Operators must retrieve it from their secrets manager or directly
+via the API response. This is a deliberate security trade-off.
+
+### SOARMock: 204 must have no body
+
+`web.json_response({}, status=204)` violates RFC 9110 §15.3.5 (204 No Content MUST NOT
+include a message body). The mock now returns `web.Response(status=204)` for all DELETE
+requests. This matters for any future test that inspects response headers.
+
+### `ttl_seconds` guard: `<= 0`, not `== 0`
+
+Both the XSOAR `add_to_allowlist` and Splunk SOAR `add_to_allowlist` guard against
+`ttl_seconds <= 0`. The original `== 0` check silently accepted negative values (e.g.,
+a caller passing `-3600` from a miscalculated expiry). Both unit tests and integration
+tests cover zero and negative cases.
+
+### Vector config: `${ENV_VAR}` not `{{ Jinja2 }}`
+
+Vector's VRL/config interpolation uses `${ENV_VAR}` syntax. `{{ variable }}` is Jinja2
+(Ansible/Helm) and will not be substituted by Vector — it will be sent as a literal
+string to the socket sink, causing a DNS failure at runtime.
+
+### Both connectors include `Accept: application/json`
+
+`_make_headers()` in both `commands.py` and `connector.py` includes
+`"Accept": "application/json"`. This matches the embedded XSOAR YAML script. Omitting
+it is safe today (the Management API returns JSON regardless) but creates silent
+divergence if the API ever gains content negotiation.
+
+---
+
+## 11. Business Track (Not Engineering Acceptance Criteria)
 
 The following are external publishing processes that cannot be completed by the engineering team alone and must not block the phase from being marked COMPLETE:
 
