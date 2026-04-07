@@ -1002,7 +1002,8 @@ phases:
     - GitHub Actions, GitLab CI, and Jenkins pipeline templates ship in repo
   83:
     name: 'ja4proxy-cli Go Binary'
-    status: PROPOSED
+    status: COMPLETE
+    completed: '2026-04-07'
     summary: 'Go binary for terminal day-2 operations: ip lookup/ban/release/watchlist,
       allowlist/blocklist add/remove/list, dial get/set, config reload, health, fingerprint
       history, policy validate/apply/diff. --output json|table|csv. Mutating commands
