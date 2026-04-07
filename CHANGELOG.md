@@ -1,6 +1,6 @@
 # Changelog
 
-## [Phase 92] — 2026-04-06
+## [Phase 92] — 2026-04-07
 
 ### Added
 - `lint-pylint`: pylint `--errors-only` for Python semantic bugs (undefined names, unreachable code, attribute errors)
@@ -16,9 +16,12 @@
 - `lint-go-mod`: `go mod verify` module checksum integrity check
 - Aggregate targets: `lint-python`, `lint-go`, `lint-sast`, `lint-infra`, `lint-observability`, `lint-supply-chain`, `lint-docs-all`, `lint-all`
 - `gosec` and `bodyclose` linters added to `.golangci.yaml` (enabled in `lint-go-full`)
+- TDD test suite: `tests/phase-92/test_lint_hierarchy.py` (114 tests covering target existence, composition, PHONY declarations, help discoverability)
+- `scripts/lint_toml.py`: standalone TOML validation script (extracted from inline heredoc)
 
 ### Fixed
 - `docker/docker-compose.scale.yml` was missing from `lint-docker` compose validation
+- `lint-toml`: heredoc in recipe body broke `make help` (GNU make parse error at line 1151); extracted to `scripts/lint_toml.py`
 
 ## [Phase 91] — GDPR Live Data Erasure & Operational Script Gap Remediation
 
