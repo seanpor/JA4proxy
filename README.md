@@ -8,6 +8,8 @@ Measured: **0% false positive rate** on browser traffic. **94–99% of malicious
 
 > **Status:** Hardened prototype — security-hardened, extensively tested, and enterprise-featured. Not yet field-validated in production.
 > Documented gaps are in [DMZ Deployment Readiness](docs/DMZ_DEPLOYMENT_READINESS.md). Enterprise deployment paths are in [docs/enterprise/](docs/enterprise/).
+>
+> **Production runtime is the Go proxy** (`bin/proxy`, promoted in Phase 15). The Python proxy (`proxy.py`, `src/security/`) is an **experimental prototyping surface only** — it exists so new signal modules can be iterated quickly before being ported to Go. Do not deploy the Python proxy. Running `python proxy.py` now prints a startup banner requiring an explicit env-var acknowledgement.
 
 ---
 

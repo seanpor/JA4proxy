@@ -1246,3 +1246,22 @@ test-phase-83:
 	GOROOT=/snap/go/current go test ./internal/cli/... -v -count=1
 	GOROOT=/snap/go/current python3 -m pytest tests/integration/test_cli_parity.py -v
 .PHONY: test-phase-83
+
+## Phase 84 targets
+test-phase-84:
+	GOROOT=/snap/go/current go vet ./internal/compliance/...
+	GOROOT=/snap/go/current go test ./internal/compliance/... -v -count=1
+	GOROOT=/snap/go/current go test ./internal/cli/commands/ -run "TestRunDSAR|TestRunPCIDSSPack|TestRunReportGenerate|TestRunPurgeExpired|TestRunSignalCategories|TestRunConnectionsExport" -v -count=1
+	python3 -m pytest management/tests/test_compliance_classifier.py management/tests/test_compliance_purge.py management/tests/test_compliance_pack.py management/tests/test_compliance_renderer.py management/tests/test_compliance_routes.py management/tests/test_connections_pagination.py -v
+
+test-phase-84-go:
+	GOROOT=/snap/go/current go test ./internal/compliance/... -v -count=1
+
+test-phase-84-python:
+	python3 -m pytest management/tests/test_compliance_classifier.py management/tests/test_compliance_purge.py management/tests/test_compliance_pack.py management/tests/test_compliance_renderer.py management/tests/test_compliance_routes.py management/tests/test_connections_pagination.py -v
+
+test-phase-84-classifier-parity:
+	GOROOT=/snap/go/current go test ./internal/compliance/ -run TestCrossLanguageParity -v
+	python3 -m pytest management/tests/test_compliance_classifier.py -k "parity" -v
+
+.PHONY: test-phase-84 test-phase-84-go test-phase-84-python test-phase-84-classifier-parity

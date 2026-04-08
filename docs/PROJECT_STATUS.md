@@ -5,7 +5,7 @@
 
 ## Current Status: Phase 60 (Master Plan and Governance) Next
 
-**Last Updated:** 2026-04-07
+**Last Updated:** 2026-04-08
 
 ## Epics & Roadmap
 
@@ -208,7 +208,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 81 | SOAR, Webhooks & Enterprise Operations Platforms | COMPLETE | N/A | N/A |
 | 82 | Policy-as-Code, Shadow Mode & Governance | COMPLETE | N/A | N/A |
 | 83 | ja4proxy-cli Go Binary | COMPLETE | N/A | N/A |
-| 84 | Compliance & Reporting | PROPOSED | N/A | N/A |
+| 84 | Compliance & Reporting | COMPLETE | N/A | N/A |
 | 85 | Threat Intelligence Ingestion | PROPOSED | N/A | N/A |
 | 86 | Observability & Capacity Planning | PROPOSED | N/A | N/A |
 | 87 | Container & Host Infrastructure Observability | COMPLETE | N/A | N/A |
@@ -220,6 +220,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 93 | Terraform Provider + Emergency Runbook Playbooks | PROPOSED | N/A | N/A |
 | 94 | Kubernetes Operator + CMDB/NetBox Integration | PROPOSED | N/A | N/A |
 | 100 | Phase 79 SSO/MFA Gap Closure | COMPLETE | N/A | N/A |
+| 101 | Phase 84 Compliance Review Gap Closure | PROPOSED | N/A | N/A |
 
 ---
 

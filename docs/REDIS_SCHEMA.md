@@ -242,9 +242,16 @@ phase: 54
 
 ---
 
-*Last updated: 2026-04-07, Phase 82 complete*
+## Phase 84 — Compliance Reporting & Evidence Pack
+
+| Key pattern | Type | TTL | Written by | Notes |
+|-------------|-|-|--------|-|
+| `ja4proxy:events` | Stream | none (XTRIM via purge) | Proxy / Go proxy | Main connection event stream. Purged to enforce `gdpr.retention_days` via `POST /api/v1/compliance/purge-expired`. |
+| `gdpr:purge:last_run` | String | none | Management API (`management/compliance/purge.py`) | ISO-8601 timestamp of the last GDPR purge run. |
+| `gdpr:purge:last_summary` | String (JSON) | none | Management API (`management/compliance/purge.py`) | JSON summary of the most recent purge: `stream_events_purged`, `beaconing_keys_purged`, `rv_hashes_purged`, `monthly_aggs_purged`, `errors`, `completed_at`. |
+| `reporting:monthly:{YYYY-MM}` | Hash | none | Analytics node | Monthly aggregate for compliance trend data. Fields: `connections_total`, `blocked_total`, `flagged_total`, `allowed_total`, `unique_ips`. Written by analytics; read by the report renderer. |
 
 ---
 
-*Last updated: 2026-04-07, Phase 82 complete (Phase 79 entries added)*
+*Last updated: 2026-04-08, Phase 84 complete*
 
