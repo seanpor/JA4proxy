@@ -17,7 +17,7 @@ import pytest
 
 
 def _import_stix_ja4():
-    from analytics.ti_feeds import stix_ja4
+    from src.analytics.ti_feeds import stix_ja4
 
     return stix_ja4
 

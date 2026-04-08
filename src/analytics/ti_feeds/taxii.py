@@ -48,7 +48,7 @@ from .stix_ja4 import (
     is_ja4_pattern,
     parse_ip_from_pattern,
     parse_ja4_from_pattern,
-    validate_ja4,
+    is_valid_ja4,
 )
 
 logger = logging.getLogger(__name__)
@@ -265,7 +265,7 @@ class TAXIIClient(FeedClient):
 
         if is_ja4_pattern(pattern):
             ja4 = parse_ja4_from_pattern(pattern)
-            if not ja4 or not validate_ja4(ja4):
+            if not ja4 or not is_valid_ja4(ja4):
                 _INDICATORS_PROCESSED.labels(
                     feed_id=feed_id, outcome="unsupported"
                 ).inc()

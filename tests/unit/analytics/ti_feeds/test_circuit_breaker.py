@@ -13,7 +13,7 @@ import pytest
 
 
 def _import_breaker():
-    from analytics.ti_feeds.circuit_breaker import CircuitBreaker, CircuitState
+    from src.analytics.ti_feeds.circuit_breaker import CircuitBreaker, CircuitState
 
     return CircuitBreaker, CircuitState
 

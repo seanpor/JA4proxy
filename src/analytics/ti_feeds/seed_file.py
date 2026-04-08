@@ -28,7 +28,7 @@ except ImportError:  # pragma: no cover
 from .metrics import TI_SEED_ENTRIES as _SEED_ENTRIES_LOADED
 from .mgmt_client import ManagementAPIError, ManagementClient
 from .state import FeedState
-from .stix_ja4 import validate_ja4
+from .stix_ja4 import is_valid_ja4
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +72,7 @@ def _parse_entries(raw: dict[str, Any]) -> list[SeedFingerprint]:
         source = entry.get("source", "")
         confidence = entry.get("confidence", 0)
 
-        if not isinstance(ja4, str) or not validate_ja4(ja4):
+        if not isinstance(ja4, str) or not is_valid_ja4(ja4):
             logger.warning(
                 "ti_feed | event=seed_entry_rejected | reason=invalid_ja4 | ja4=%r",
                 ja4,
@@ -108,6 +108,74 @@ def _parse_entries(raw: dict[str, Any]) -> list[SeedFingerprint]:
             )
         )
     return parsed
+
+
+class SeedFileLoader:
+    """Strict YAML loader for ``config/known_bad_fingerprints.yml``.
+
+    Unlike :func:`load_seed_file` (which logs-and-skips bad entries on the
+    runtime hot-path), this loader **raises** ``ValueError`` on the first
+    malformed entry. It is the surface tests use to assert the schema and
+    is what the Phase 85 acceptance gate runs at startup.
+    """
+
+    def __init__(self, path: "str | Path") -> None:
+        self._path = Path(path)
+
+    def load(self) -> list[dict[str, Any]]:
+        """Parse and validate the seed file. Returns a list of entry dicts.
+
+        Raises:
+            ValueError: On any malformed entry, missing required field,
+                invalid JA4, out-of-range confidence, or empty
+                ``fingerprints:`` section.
+            FileNotFoundError: If the seed file is missing.
+        """
+        if yaml is None:  # pragma: no cover
+            raise RuntimeError("pyyaml is required for the seed file loader")
+        if not self._path.exists():
+            raise FileNotFoundError(f"seed file not found: {self._path}")
+
+        text = self._path.read_text(encoding="utf-8")
+        raw = yaml.safe_load(text) or {}
+        if not isinstance(raw, dict):
+            raise ValueError(
+                f"seed file root must be a mapping, got {type(raw).__name__}"
+            )
+        fingerprints = raw.get("fingerprints")
+        if not isinstance(fingerprints, list) or not fingerprints:
+            raise ValueError(
+                "seed file 'fingerprints' must be a non-empty list"
+            )
+
+        out: list[dict[str, Any]] = []
+        for idx, entry in enumerate(fingerprints):
+            if not isinstance(entry, dict):
+                raise ValueError(
+                    f"seed entry #{idx} must be a mapping, got {type(entry).__name__}"
+                )
+            for required in ("ja4", "name", "category", "source", "confidence"):
+                if required not in entry:
+                    raise ValueError(
+                        f"seed entry #{idx} missing required field {required!r}"
+                    )
+            ja4 = entry["ja4"]
+            if not isinstance(ja4, str) or not is_valid_ja4(ja4):
+                raise ValueError(
+                    f"seed entry #{idx} has invalid JA4: {ja4!r}"
+                )
+            try:
+                confidence = int(entry["confidence"])
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"seed entry #{idx} confidence is not an int: {entry['confidence']!r}"
+                ) from exc
+            if not 0 <= confidence <= 100:
+                raise ValueError(
+                    f"seed entry #{idx} confidence out of range [0,100]: {confidence}"
+                )
+            out.append(entry)
+        return out
 
 
 def load_seed_file(path: str | Path) -> list[SeedFingerprint]:

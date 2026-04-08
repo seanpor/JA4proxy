@@ -23,6 +23,7 @@ neutral value — the runner logs + metric-counts and moves on.
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 from datetime import datetime, timezone
@@ -56,16 +57,65 @@ def compute_dropped_ids(
     return {stix_id: handle for stix_id, handle in previous.items() if stix_id not in current}
 
 
+class _SyncRedisShim:
+    """Adapt a synchronous Redis client to the async interface FeedState expects.
+
+    Production code injects a ``redis.asyncio.Redis`` here. Unit tests pass a
+    plain ``fakeredis.FakeRedis`` so the same fixture can be inspected
+    synchronously by test asserts. The shim wraps every callable as a
+    coroutine so ``await self._redis.hset(...)`` works in both contexts.
+    """
+
+    def __init__(self, sync: Any) -> None:
+        self._sync = sync
+
+    def __getattr__(self, name: str) -> Any:
+        attr = getattr(self._sync, name)
+        if not callable(attr):
+            return attr
+
+        async def _wrapped(*args: Any, **kwargs: Any) -> Any:
+            return attr(*args, **kwargs)
+
+        return _wrapped
+
+    def pipeline(self) -> "_SyncPipelineShim":
+        return _SyncPipelineShim(self._sync.pipeline())
+
+
+class _SyncPipelineShim:
+    """Pipeline wrapper that proxies chained writes synchronously and exposes
+    an awaitable :meth:`execute`."""
+
+    def __init__(self, pipe: Any) -> None:
+        self._pipe = pipe
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._pipe, name)
+
+    async def execute(self) -> Any:
+        return self._pipe.execute()
+
+
+def _is_async_redis(client: Any) -> bool:
+    method = getattr(client, "hget", None)
+    return method is not None and inspect.iscoroutinefunction(method)
+
+
 class FeedState:
     """Async Redis wrapper for the six ``ti_feed:*`` keys.
 
     Args:
         redis: A ``redis.asyncio.Redis`` client. The runner injects the same
             instance used by the rest of the analytics container so there is
-            one connection pool.
+            one connection pool. A synchronous ``fakeredis.FakeRedis`` is also
+            accepted (transparently wrapped) so unit tests can drive the
+            state without an event-loop redis fixture.
     """
 
     def __init__(self, redis: Any) -> None:
+        if not _is_async_redis(redis):
+            redis = _SyncRedisShim(redis)
         self._redis = redis
 
     # ── blocklist UUID set ────────────────────────────────────────────────
@@ -209,12 +259,25 @@ class FeedState:
             )
 
     async def remove(self, feed_id: str, stix_id: str) -> None:
-        """Remove an entry from the active STIX id HASH (cleanup path)."""
+        """Remove an entry from the active STIX id HASH (cleanup path).
+
+        Also clears the matching handle from the per-feed ``ban_ips`` and
+        ``blocklist_uuids`` SETs so the differential-cleanup invariant
+        documented in PHASE_85.md §5.3 holds.
+        """
         try:
-            await self._redis.hdel(
-                _KEY_ACTIVE_STIX.format(feed_id=feed_id),
-                stix_id,
-            )
+            key = _KEY_ACTIVE_STIX.format(feed_id=feed_id)
+            handle = await self._redis.hget(key, stix_id)
+            if isinstance(handle, bytes):
+                handle = handle.decode()
+            pipe = self._redis.pipeline()
+            pipe.hdel(key, stix_id)
+            if handle:
+                pipe.srem(_KEY_BAN_IPS.format(feed_id=feed_id), handle)
+                pipe.srem(
+                    _KEY_BLOCKLIST_UUIDS.format(feed_id=feed_id), handle
+                )
+            await pipe.execute()
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "ti_feed | event=state_write_failed | key=remove_stix | feed=%s | stix_id=%s | error=%s",
@@ -222,6 +285,68 @@ class FeedState:
                 stix_id,
                 exc,
             )
+
+    # ── test-facing aliases ───────────────────────────────────────────────
+
+    async def record_created(
+        self,
+        feed_id: str,
+        stix_id: str,
+        handle: str,
+        kind: str,
+    ) -> None:
+        """Alias of :meth:`mark` — kept for symmetry with the test-facing API."""
+        await self.mark(feed_id=feed_id, stix_id=stix_id, handle=handle, kind=kind)
+
+    async def set_poll_state(
+        self,
+        feed_id: str,
+        mapping: dict[str, str],
+    ) -> None:
+        """Write an arbitrary ``poll_state`` HASH update.
+
+        The structured helpers (``record_poll_success``,
+        ``record_poll_failure``, ``set_circuit_state``) cover the runner's
+        normal needs. This generic setter is provided for tests and
+        management API hot-reload paths that need to seed or clear fields
+        directly.
+        """
+        if not mapping:
+            return
+        try:
+            await self._redis.hset(
+                _KEY_POLL_STATE.format(feed_id=feed_id),
+                mapping=mapping,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "ti_feed | event=state_write_failed | key=poll_state_set | feed=%s | error=%s",
+                feed_id,
+                exc,
+            )
+
+    async def get_runtime_enabled(self, feed_id: str) -> Optional[bool]:
+        """Alias of :meth:`get_runtime_override`."""
+        return await self.get_runtime_override(feed_id)
+
+    async def set_runtime_enabled(self, feed_id: str, enabled: bool) -> None:
+        """Alias of :meth:`set_runtime_override`."""
+        await self.set_runtime_override(feed_id, enabled)
+
+    async def compute_dropped(
+        self,
+        feed_id: str,
+        *,
+        seen: set[str],
+    ) -> dict[str, str]:
+        """Return ``{stix_id: handle}`` for entries previously stored but not in ``seen``.
+
+        Convenience wrapper around the module-level
+        :func:`compute_dropped_ids` for callers (and tests) that already
+        hold a :class:`FeedState`.
+        """
+        previous = await self.get_active_stix_ids(feed_id)
+        return {sid: handle for sid, handle in previous.items() if sid not in seen}
 
     async def replace_active_stix_ids(
         self,
