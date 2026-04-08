@@ -67,6 +67,16 @@ def _load_proxy_config() -> dict:
         return {}
 
 
+def get_proxy_config() -> dict:
+    """Return the cached ``config/proxy.yml`` as a dict.
+
+    Phase 85 threat-intel routes use this to enumerate configured feeds
+    without maintaining their own loader. The 60-second cache is acceptable
+    because feed configs change only on operator-driven reloads.
+    """
+    return _load_proxy_config()
+
+
 def get_sso_role_mapping() -> dict[str, str]:
     """Return SSO group→role mapping from config/proxy.yml.
 

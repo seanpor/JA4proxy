@@ -25,8 +25,7 @@ try:
 except ImportError:  # pragma: no cover
     yaml = None  # type: ignore
 
-from prometheus_client import Counter
-
+from .metrics import TI_SEED_ENTRIES as _SEED_ENTRIES_LOADED
 from .mgmt_client import ManagementAPIError, ManagementClient
 from .state import FeedState
 from .stix_ja4 import validate_ja4
@@ -34,12 +33,6 @@ from .stix_ja4 import validate_ja4
 logger = logging.getLogger(__name__)
 
 _SEED_FEED_ID = "seed_file"
-
-_SEED_ENTRIES_LOADED = Counter(
-    "ja4proxy_ti_feed_seed_file_entries_total",
-    "Seed-file fingerprint entries loaded per outcome",
-    ["outcome"],
-)
 
 
 @dataclass

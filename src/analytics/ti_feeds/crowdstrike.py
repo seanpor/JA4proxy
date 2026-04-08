@@ -28,18 +28,10 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     aiohttp = None  # type: ignore
 
-from prometheus_client import Counter
-
 from .base import FeedClient, FeedConfig, FeedPollResult
+from .metrics import TI_POLL_TOTAL as _POLL_TOTAL
 
 logger = logging.getLogger(__name__)
-
-
-_POLL_TOTAL = Counter(
-    "ja4proxy_ti_feed_poll_total",
-    "TI feed poll outcomes",
-    ["feed_id", "result"],
-)
 
 
 _FALCON_AUTH_URL = "https://api.crowdstrike.com/oauth2/token"
