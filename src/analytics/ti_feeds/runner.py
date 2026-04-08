@@ -90,6 +90,18 @@ class FeedRunner:
         self._clients: dict[str, FeedClient] = {}
         self._tasks: dict[str, asyncio.Task] = {}
         self._stopping = asyncio.Event()
+        # phase-85 (security review H7): per-feed lock so a manual poll
+        # trigger and the scheduled poll loop never run the same feed
+        # concurrently and race the leader lock / snapshot replace.
+        self._poll_locks: dict[str, asyncio.Lock] = {}
+        # phase-85: manual-poll trigger stream consumed in start(). The
+        # Management API XADDs to this stream when an Operator hits
+        # POST /api/v1/threat-intel/feeds/{id}/poll. We track the last id
+        # we've seen so a restart of the analytics container does not
+        # replay every historical trigger.
+        self._trigger_stream_key = "ti_feed:manual_poll_triggers"
+        self._trigger_last_id = "$"
+        self._trigger_task: Optional[asyncio.Task] = None
 
     # ── lifecycle ────────────────────────────────────────────────────────
 
@@ -131,9 +143,21 @@ class FeedRunner:
         # Spawn poll tasks
         await self._rebuild_clients(ti_cfg)
 
+        # Spawn the manual-poll trigger consumer.
+        self._trigger_task = asyncio.create_task(
+            self._consume_trigger_stream(), name="ti_feed:trigger_consumer"
+        )
+
     async def stop(self) -> None:
         """Stop the runner. Cancels every poll task and closes the mgmt client."""
         self._stopping.set()
+        if self._trigger_task is not None:
+            self._trigger_task.cancel()
+            try:
+                await self._trigger_task
+            except (asyncio.CancelledError, Exception):  # noqa: BLE001
+                pass
+            self._trigger_task = None
         for feed_id, task in list(self._tasks.items()):
             task.cancel()
         if self._tasks:
@@ -241,21 +265,36 @@ class FeedRunner:
         """Per-feed poll loop. Runs until the task is cancelled."""
         try:
             while not self._stopping.is_set():
+                interval_s = max(
+                    60,
+                    (self._clients[feed_id].config.poll_interval_minutes or 60)
+                    * 60,
+                )
+                # phase-85 (security review): cap each poll at the poll
+                # interval. A trickling TAXII server that holds bytes
+                # indefinitely would otherwise wedge this loop and stop
+                # all future polls + leader-lock refreshes for this feed.
+                poll_timeout = max(60, min(interval_s, 600))
+                lock = self._poll_locks.setdefault(feed_id, asyncio.Lock())
                 try:
-                    await self._poll_once(feed_id)
+                    async with lock:
+                        await asyncio.wait_for(
+                            self._poll_once(feed_id), timeout=poll_timeout
+                        )
                 except asyncio.CancelledError:
                     raise
+                except asyncio.TimeoutError:
+                    logger.error(
+                        "ti_feed | event=poll_timeout | feed=%s | timeout_s=%d",
+                        feed_id,
+                        poll_timeout,
+                    )
                 except Exception as exc:  # noqa: BLE001
                     logger.error(
                         "ti_feed | event=poll_loop_error | feed=%s | error=%s",
                         feed_id,
                         exc,
                     )
-                interval_s = max(
-                    60,
-                    (self._clients[feed_id].config.poll_interval_minutes or 60)
-                    * 60,
-                )
                 try:
                     await asyncio.wait_for(
                         self._stopping.wait(), timeout=interval_s
@@ -424,8 +463,80 @@ class FeedRunner:
 
     # ── manual poll trigger (used by the Management API route) ─────────
 
+    async def _consume_trigger_stream(self) -> None:
+        """Consume the manual-poll trigger Redis stream forever.
+
+        The Management API publishes one entry per Operator-issued
+        ``POST /api/v1/threat-intel/feeds/{id}/poll`` to
+        ``ti_feed:manual_poll_triggers`` (XADD with maxlen=1000). We do
+        a blocking XREAD against the stream and dispatch each entry to
+        :meth:`trigger_poll`.
+
+        Per-replica state: ``self._trigger_last_id`` starts at ``"$"`` so
+        each analytics replica only sees triggers issued *after* it
+        booted — historical entries are not replayed. Leader gating
+        inside :meth:`_poll_once` ensures only one replica actually
+        polls when multiple replicas see the same trigger.
+        """
+        backoff = 1.0
+        while not self._stopping.is_set():
+            try:
+                resp = await self._redis.xread(
+                    {self._trigger_stream_key: self._trigger_last_id},
+                    block=5000,
+                    count=16,
+                )
+                backoff = 1.0
+                if not resp:
+                    continue
+                for _stream, entries in resp:
+                    for entry_id, fields in entries:
+                        if isinstance(entry_id, bytes):
+                            entry_id = entry_id.decode()
+                        self._trigger_last_id = entry_id
+                        decoded = {
+                            (k.decode() if isinstance(k, bytes) else k): (
+                                v.decode() if isinstance(v, bytes) else v
+                            )
+                            for k, v in fields.items()
+                        }
+                        feed_id = decoded.get("feed_id", "")
+                        poll_id = decoded.get("poll_id", "")
+                        if not feed_id:
+                            continue
+                        logger.info(
+                            "ti_feed | event=manual_poll_received | feed=%s | "
+                            "poll_id=%s | requested_by=%s",
+                            feed_id,
+                            poll_id,
+                            decoded.get("requested_by", "<unknown>"),
+                        )
+                        await self.trigger_poll(feed_id)
+            except asyncio.CancelledError:
+                return
+            except Exception as exc:  # noqa: BLE001 — fail open
+                logger.warning(
+                    "ti_feed | event=trigger_consumer_error | error=%s | "
+                    "backoff_s=%.1f",
+                    exc,
+                    backoff,
+                )
+                try:
+                    await asyncio.wait_for(
+                        self._stopping.wait(), timeout=backoff
+                    )
+                except asyncio.TimeoutError:
+                    pass
+                backoff = min(backoff * 2, 30.0)
+
     async def trigger_poll(self, feed_id: str) -> Optional[str]:
         """Request an immediate poll, returning a poll-id string.
+
+        Per-feed serialisation: a manual trigger that arrives while the
+        feed is mid-poll is coalesced — we acquire the per-feed lock,
+        which blocks until the in-flight poll completes, then runs one
+        more cycle. Multiple triggers stacked up while the loop is busy
+        collapse to at most one extra poll.
 
         Returns None if the feed is not registered with the runner.
         Exceptions are swallowed per the fail-open invariant.
@@ -433,7 +544,22 @@ class FeedRunner:
         if feed_id not in self._clients:
             return None
         poll_id = uuid4().hex
-        asyncio.create_task(self._poll_once(feed_id))
+        lock = self._poll_locks.setdefault(feed_id, asyncio.Lock())
+
+        async def _runner() -> None:
+            async with lock:
+                try:
+                    await self._poll_once(feed_id)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(
+                        "ti_feed | event=manual_poll_failed | feed=%s | "
+                        "poll_id=%s | error=%s",
+                        feed_id,
+                        poll_id,
+                        exc,
+                    )
+
+        asyncio.create_task(_runner(), name=f"ti_feed:manual:{feed_id}")
         return poll_id
 
 
