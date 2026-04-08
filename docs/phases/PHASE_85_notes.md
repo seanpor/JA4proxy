@@ -280,11 +280,48 @@ Two small architect findings closed in one commit:
    `::ffff:10.0.0.1`, `::ffff:8.8.8.8`, `2002:7f00:0001::`, `2002:0808:0808::`,
    etc.); 76 / 76 pre-existing TI feed unit tests still pass.
 
+## H1 — HTTP-layer DI on feed clients 2026-04-08
+
+Architect finding H1: every feed client constructed its HTTP transport
+internally, leaving no seam for unit tests to inject canned responses.
+~52 of the cherry-picked Phase 85 tests were therefore xfailed.
+
+Resolved by adding optional injection kwargs to all five clients without
+breaking existing production call sites:
+
+- TAXIIClient: `taxii=`, `last_added_after=` constructor kwargs.
+  Side fix: added `_is_expired()` helper and a pre-`stix_ids_seen`
+  filter — production was recording expired indicators.
+- RecordedFutureClient: `token_exchange=`, `page_fetch=` kwargs;
+  cached `fetch_bearer_token()`; `_poll_paginated()` over a single
+  cursor stream wrapped in `_OneShotBundle`. Inner-client id
+  separator changed `/` → `_` to satisfy the C4 feed_id regex.
+- CrowdStrikeFalconClient: `token_fetcher=`, `page_fetcher=` kwargs;
+  cached token; categorical `_CONFIDENCE_RANK` confidence filter
+  replacing the prior numeric comparison.
+- RESTGenericClient: `fetch=` callable; non-dict/non-list bodies now
+  surface as `result.errors` entries instead of crashing.
+- ManagementClient: `session=`, `batch_size=`, `inter_batch_sleep_s=`
+  kwargs; `token=` precedence over env var; `backoff_initial_s=`
+  alias; `post_ban` accepts `ttl=` alias; new `bulk_post_blocklist()`
+  with §2.5 batch pacing (50/batch, 50 ms inter-batch sleep) using
+  `asyncio.gather(..., return_exceptions=True)`.
+
+All `state.mark()` calls guarded `if self.state is not None` so tests
+can pass `state=None`. StubManagementClient in conftest.py mirrors the
+production signatures and returns real `ResourceResult` instances.
+
+xfail markers removed from 5 test files. Test counts:
+- tests/unit/analytics/ti_feeds/: 105 passed (was 76 + 29 xfailed)
+- full project: 4964 passed, 0 failed, 11 skipped — no regressions.
+
+Commit 5223cdc.
+
 ## Blockers / Deviations
 
 - None so far. Tracking:
   - Recorded Future / CrowdStrike API contracts not web-verified — flagged as
     TODO on the client classes per Gate 3.
-  - Architect H1 (HTTP-layer DI on the feed clients) is the gating item
-    that will turn ~52 of the 62 xfailed tests green.
   - Chunk J (frontend Threat Intelligence page) still pending.
+  - Architect findings still open: C9, C10 (cross-phase), 9 H-tier
+    (now minus H1), 10 M-tier.
