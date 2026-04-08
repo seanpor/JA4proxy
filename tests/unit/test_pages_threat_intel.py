@@ -17,11 +17,14 @@ from __future__ import annotations
 
 import pytest
 
-# Phase 85 Chunk J — the /threat-intel HTML page and the supporting React
-# bundle do not yet exist; the API routes also need a real Redis fixture.
-# Mark xfail until Chunk J ships.
+# phase-85 Chunk J: /threat-intel page (Jinja2 template + Alpine bindings)
+# now ships in management/templates/threat_intel.html and the route is
+# wired in management/api/routes/pages.py. The TestClient here still
+# needs a Redis fixture wired in (every page route depends on
+# get_redis()) — that test-infra plumbing is tracked separately, so we
+# keep the file xfailed but with an updated reason.
 pytestmark = pytest.mark.xfail(
-    reason="Phase 85 Chunk J pending — /threat-intel page and API integration",
+    reason="page + route exist (Chunk J done); TestClient still lacks a Redis fixture",
     strict=False,
 )
 
