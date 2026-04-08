@@ -105,9 +105,22 @@ class ReportData:
 
     @property
     def block_rate_pct(self) -> float:
-        if self.connections_total == 0:
+        """Return block rate as a percentage, clamped to [0, 100].
+
+        Clamping is defensive: during the monthly/stream fallback path in the
+        routes layer, connections_total can come from monthly aggregates while
+        connections_blocked comes from the live stream, producing rates > 100%
+        which would render as "173.4%" in the report.  Clamp so the template
+        never displays a nonsensical value.
+        """
+        if self.connections_total <= 0:
             return 0.0
-        return (self.connections_blocked / self.connections_total) * 100.0
+        pct = (self.connections_blocked / self.connections_total) * 100.0
+        if pct < 0.0:
+            return 0.0
+        if pct > 100.0:
+            return 100.0
+        return pct
 
 
 class ReportRenderer:

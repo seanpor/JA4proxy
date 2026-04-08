@@ -29,12 +29,13 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import html as _html
 import io
 import json
 import logging
 import zipfile
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
 from .classifier import SignalClassifier
 
@@ -43,6 +44,48 @@ logger = logging.getLogger(__name__)
 _AUDIT_KEY = "management:audit_log"
 _STREAM_KEY = "ja4proxy:events"
 _CONFIG_CHANGE_PREFIX = "config."  # audit action_type prefix for config changes
+
+# Allowlist of safe token hash fields for the RBAC evidence artefact.
+# NEVER use a denylist here: future phases may add refresh_token, api_key, etc.
+# and a denylist silently lets them leak into the evidence pack.
+_TOKEN_SAFE_FIELDS = frozenset({
+    "id",
+    "name",
+    "role",
+    "created_at",
+    "created_by",
+    "description",
+    "last_used",
+    "revoked",
+    "expires_at",
+})
+
+
+def _parse_ts(ts: Any) -> Optional[datetime]:
+    """Best-effort parse of a stored ISO-8601 timestamp into aware UTC.
+
+    Returns None if *ts* is empty or unparseable.  Used for window filters —
+    NEVER compare raw ISO strings lexicographically: producers emit
+    timestamps in multiple formats (Z suffix, +00:00, naive) and lex-compare
+    silently drops events from the window, understating compliance evidence.
+    """
+    if not ts or not isinstance(ts, str):
+        return None
+    try:
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _ts_in_window(ts: Any, from_dt: datetime, to_dt: datetime) -> bool:
+    """Return True iff *ts* parses to a datetime within [from_dt, to_dt]."""
+    dt = _parse_ts(ts)
+    if dt is None:
+        return True  # fail-open: missing timestamps are included
+    return from_dt <= dt <= to_dt
 
 
 def _weasyprint_available() -> bool:
@@ -65,14 +108,21 @@ def _render_simple_pdf(title: str, body_html: str, source_data: Any) -> bytes:
     Returns the bytes to embed in the ZIP.  The file should be named
     with a .pdf extension even when the fallback HTML is returned —
     auditors receive the content regardless of format.
+
+    Security: *title* is HTML-escaped (defence in depth — callers are
+    currently hardcoded strings, but the first time someone interpolates a
+    period label or hostname into a title, unescaped output would give
+    HTML/XSS injection in the evidence pack).  *body_html* is trusted (built
+    by the artefact methods with escaped row content).
     """
     checksum = _sha256_hex(source_data)
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
     footer = f"Generated: {ts} | SHA256: {checksum}"
+    safe_title = _html.escape(title)
 
     html = f"""<!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"><title>{title}</title>
+<head><meta charset="utf-8"><title>{safe_title}</title>
 <style>
   body {{ font-family: monospace; margin: 2cm; font-size: 10pt; }}
   h1 {{ font-size: 14pt; }}
@@ -82,7 +132,7 @@ def _render_simple_pdf(title: str, body_html: str, source_data: Any) -> bytes:
 </style>
 </head>
 <body>
-<h1>{title}</h1>
+<h1>{safe_title}</h1>
 {body_html}
 <div class="footer">{footer}</div>
 </body>
@@ -141,8 +191,8 @@ class PciDssPackBuilder:
         to_iso = to_dt.isoformat()
 
         # ── Data collection ────────────────────────────────────────────────
-        blocked_events = await self._query_blocked_events(from_iso, to_iso)
-        audit_entries = await self._query_audit_entries(from_iso, to_iso)
+        blocked_events = await self._query_blocked_events(from_dt, to_dt)
+        audit_entries = await self._query_audit_entries(from_dt, to_dt)
         token_inventory = await self._query_token_inventory()
         node_info = await self._query_nodes()
 
@@ -169,7 +219,7 @@ class PciDssPackBuilder:
     # ── Redis data queries ─────────────────────────────────────────────────
 
     async def _query_blocked_events(
-        self, from_iso: str, to_iso: str
+        self, from_dt: datetime, to_dt: datetime
     ) -> list[dict[str, Any]]:
         """Read all blocked events from ja4proxy:events stream in the window."""
         try:
@@ -183,7 +233,7 @@ class PciDssPackBuilder:
             if fields.get("action_taken") != "blocked":
                 continue
             ts = fields.get("timestamp", "")
-            if ts and (ts < from_iso or ts > to_iso):
+            if not _ts_in_window(ts, from_dt, to_dt):
                 continue
             events.append({
                 "ip": fields.get("ip", ""),
@@ -196,7 +246,7 @@ class PciDssPackBuilder:
         return events
 
     async def _query_audit_entries(
-        self, from_iso: str, to_iso: str
+        self, from_dt: datetime, to_dt: datetime
     ) -> list[dict[str, Any]]:
         """Read all audit entries in the window from management:audit_log."""
         try:
@@ -211,14 +261,18 @@ class PciDssPackBuilder:
                 entry = json.loads(item)
             except json.JSONDecodeError:
                 continue
-            ts = entry.get("timestamp", "")
-            if ts and (ts < from_iso or ts > to_iso):
+            if not _ts_in_window(entry.get("timestamp", ""), from_dt, to_dt):
                 continue
             entries.append(entry)
         return entries
 
     async def _query_token_inventory(self) -> list[dict[str, Any]]:
-        """Return token metadata (no raw token values)."""
+        """Return token metadata, allowlisted to safe fields only.
+
+        Uses an allowlist (_TOKEN_SAFE_FIELDS), not a denylist: future phases
+        may add refresh_token, api_key, or similar fields to the token hash
+        and a denylist silently lets them leak into the evidence pack.
+        """
         try:
             cursor = 0
             tokens = []
@@ -231,10 +285,13 @@ class PciDssPackBuilder:
                         continue
                     entry = await self._redis.hgetall(key)
                     if entry:
-                        # Strip any raw token value for safety
-                        entry.pop("hash", None)
-                        entry.pop("token", None)
-                        tokens.append(entry)
+                        safe = {
+                            k: v for k, v in entry.items()
+                            if k in _TOKEN_SAFE_FIELDS
+                        }
+                        # Preserve the token id from the key for traceability.
+                        safe["token_id"] = key.rsplit(":", 1)[-1]
+                        tokens.append(safe)
                 if cursor == 0:
                     break
             return tokens
@@ -273,12 +330,15 @@ class PciDssPackBuilder:
     ) -> None:
         source = {"nodes": nodes, "period": {"from": from_iso, "to": to_iso}}
         rows = "".join(
-            f"<tr><td>{n.get('host','')}</td><td>{n.get('version','')}</td>"
-            f"<td>{n.get('started_at','')}</td></tr>"
+            "<tr>"
+            f"<td>{_html.escape(str(n.get('host','')))}</td>"
+            f"<td>{_html.escape(str(n.get('version','')))}</td>"
+            f"<td>{_html.escape(str(n.get('started_at','')))}</td>"
+            "</tr>"
             for n in nodes
         ) or "<tr><td colspan='3'>No node data available</td></tr>"
         body = (
-            f"<p>Evidence period: {from_iso} to {to_iso}</p>"
+            f"<p>Evidence period: {_html.escape(from_iso)} to {_html.escape(to_iso)}</p>"
             "<table><tr><th>Host</th><th>Version</th><th>Started</th></tr>"
             f"{rows}</table>"
         )
@@ -341,11 +401,14 @@ class PciDssPackBuilder:
     ) -> None:
         source = {"nodes": nodes, "period": {"from": from_iso, "to": to_iso}}
         rows = "".join(
-            f"<tr><td>{n.get('host','')}</td><td>{n.get('status','unknown')}</td></tr>"
+            "<tr>"
+            f"<td>{_html.escape(str(n.get('host','')))}</td>"
+            f"<td>{_html.escape(str(n.get('status','unknown')))}</td>"
+            "</tr>"
             for n in nodes
         ) or "<tr><td colspan='2'>No availability data</td></tr>"
         body = (
-            f"<p>Evidence period: {from_iso} to {to_iso}</p>"
+            f"<p>Evidence period: {_html.escape(from_iso)} to {_html.escape(to_iso)}</p>"
             "<table><tr><th>Host</th><th>Status</th></tr>"
             f"{rows}</table>"
         )
@@ -366,11 +429,11 @@ class PciDssPackBuilder:
             counts[cat] = counts.get(cat, 0) + 1
 
         rows = "".join(
-            f"<tr><td>{cat}</td><td>{count}</td></tr>"
+            f"<tr><td>{_html.escape(str(cat))}</td><td>{int(count)}</td></tr>"
             for cat, count in sorted(counts.items(), key=lambda x: -x[1])
         ) or "<tr><td colspan='2'>No blocked connections in period</td></tr>"
         body = (
-            f"<p>Evidence period: {from_iso} to {to_iso}</p>"
+            f"<p>Evidence period: {_html.escape(from_iso)} to {_html.escape(to_iso)}</p>"
             f"<p>Total blocked: {len(classified)}</p>"
             "<table><tr><th>Attack Category</th><th>Count</th></tr>"
             f"{rows}</table>"

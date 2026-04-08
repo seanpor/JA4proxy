@@ -7,6 +7,70 @@ six Management API routes, a complete Python compliance package, Go
 cross-language classifier parity, cursor-based pagination for bulk exports,
 and supporting docs, ops files, and CLI commands.
 
+## Second critical review (post-merge)
+
+A second critical review pass found an additional set of bugs beyond those
+caught in the first review.  Fixes applied in the `claude/phase-84-review-fixes`
+branch:
+
+- **C1** — `dsar_erase` ban-preservation TOCTOU: pipeline GET+TTL so ban
+  state is coherent; absent ban no longer produces a ghost skip entry.
+- **C2** — Monthly/stream fallback misfired on quiet windows. Fixed:
+  fall back to stream only when *every* month is missing, not when
+  `total == 0`.
+- **C3** — ISO timestamp comparison was lexicographic, silently dropping
+  events whose timestamps used a different format (`Z` vs `+00:00` vs
+  naive) than the route builders.  Added `_parse_ts` / `_ts_in_window`
+  helpers and applied them to every stream/audit filter in both
+  `compliance.py` routes and `pack_builder.py`.
+- **H2** — Logo validation was theatre: no size cap, silent catch-all
+  error handler, hardcoded `image/png` MIME type regardless of content.
+  Replaced with `_validate_logo()`: 1.4MB base64 cap, 1MB decoded cap,
+  magic-byte sniffing (PNG/JPEG/GIF/SVG), proper MIME type, logged
+  rejections.
+- **H4** — `/signal-categories` endpoint constructed a bare default
+  classifier and lied about configured overrides.  Added module-level
+  `_get_classifier()` that loads from `reporting.signal_categories` in
+  `config/proxy.yml`, with `_reset_classifier_cache()` for tests.
+- **H5** — `int()` on monthly aggregate fields crashed the whole report
+  on a stray non-numeric value.  Wrapped per-field with try/except and
+  a WARN log so the rest of the window still renders.
+- **M3** — Pack builder token inventory was a denylist (`pop hash, pop
+  token`).  Replaced with `_TOKEN_SAFE_FIELDS` allowlist so future phases
+  adding new token fields cannot silently leak them into evidence.
+- **M5** — `ReportData.block_rate_pct` now clamps to `[0, 100]`.
+- **M6** — HTML escape in `_render_simple_pdf` titles and artefact row
+  content (defence in depth for future dynamic titles).
+- **L3** — DSAR erase audit record preserves the full `skipped` list
+  instead of just its length, so auditors can prove *which* key was
+  skipped and *why*.
+- **L4** — Module-level classifier cache in `compliance.py`.
+
+### Nine deferred items → Phase 101
+
+The following review findings were deferred because they need architectural
+change or cross-phase coordination: H1 (double-XRANGE on DSAR), H3 (CIDR
+watchlist match in DSAR), M1 (Redis XTRIM MINID version check), M2 (rename
+`beaconing_records_cleaned` — breaking), M4 (paginate audit log reads),
+M7 (DSAR partial-failure reporting), L1 (Jinja2 env cache), L2 (JSONL
+newline invariant), L5 (DSAR retention text from config).  See
+`docs/phases/PHASE_101.md`.
+
+### New tests
+
+`test_compliance_routes.py` picked up 9 new tests covering the fixes:
+- `test_dsar_erase_audit_log_preserves_skipped_detail` (L3)
+- `test_dsar_erase_absent_ban_not_skipped` (C1)
+- `test_report_ignores_events_with_mismatched_tz_format` (C3)
+- `test_report_logo_rejects_oversize` (H2)
+- `test_report_logo_rejects_unknown_magic` (H2)
+- `test_report_logo_accepts_valid_png` (H2)
+- `test_report_logo_accepts_valid_svg` (H2)
+- `test_signal_categories_reflects_config_override` (H4)
+- `test_report_tolerates_corrupt_monthly_aggregate` (H5)
+
+Test count: 112 Python + 36 Go = **148** (was 139).
+
 ---
 
 ## Key Decisions

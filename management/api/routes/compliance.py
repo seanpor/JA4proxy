@@ -49,6 +49,75 @@ router = APIRouter(tags=["compliance"])
 _STREAM_KEY = "ja4proxy:events"
 _AUDIT_KEY = "management:audit_log"
 
+# Logo validation limits — the base64 payload carries ~33% overhead, so
+# 1.4MB of base64 ≈ 1MB of binary.  The field docs say "≤1MB"; enforce it.
+_LOGO_MAX_BASE64_BYTES = 1_400_000
+_LOGO_MAX_DECODED_BYTES = 1_048_576  # 1 MiB
+
+# Magic byte sniffing — covers the formats the report template can actually
+# render (PNG, JPEG, GIF, SVG).  Anything else is rejected.
+_LOGO_MIME_SNIFF: list[tuple[bytes, str]] = [
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"GIF87a", "image/gif"),
+    (b"GIF89a", "image/gif"),
+]
+
+
+def _validate_logo(raw_base64: Optional[str]) -> str:
+    """Validate a base64-encoded logo and return a data URI, or "" on failure.
+
+    Enforces:
+      * size cap (≤1MB decoded)
+      * proper base64 encoding
+      * magic-byte sniffing for PNG / JPEG / GIF / SVG (anything else rejected)
+      * correct MIME type in the returned data URI
+
+    Failures are logged with a specific reason so operators can diagnose
+    missing logos.  Returns "" (empty string) on any validation failure —
+    the route continues without a logo rather than failing the whole report.
+    """
+    if not raw_base64:
+        return ""
+    if len(raw_base64) > _LOGO_MAX_BASE64_BYTES:
+        logger.warning(
+            "compliance | event=logo_rejected | reason=too_large | base64_bytes=%d",
+            len(raw_base64),
+        )
+        return ""
+    try:
+        decoded = base64.b64decode(raw_base64, validate=True)
+    except Exception as exc:
+        logger.warning(
+            "compliance | event=logo_rejected | reason=invalid_base64 | error=%s",
+            exc,
+        )
+        return ""
+    if len(decoded) > _LOGO_MAX_DECODED_BYTES:
+        logger.warning(
+            "compliance | event=logo_rejected | reason=decoded_too_large | decoded_bytes=%d",
+            len(decoded),
+        )
+        return ""
+    mime: Optional[str] = None
+    for magic, candidate_mime in _LOGO_MIME_SNIFF:
+        if decoded.startswith(magic):
+            mime = candidate_mime
+            break
+    if mime is None:
+        # SVG is text — sniff for the opening XML or svg tag.
+        head = decoded[:512].lstrip()
+        if head.startswith(b"<?xml") or head.lower().startswith(b"<svg"):
+            mime = "image/svg+xml"
+    if mime is None:
+        logger.warning(
+            "compliance | event=logo_rejected | reason=unknown_format | "
+            "head=%r",
+            decoded[:16],
+        )
+        return ""
+    return f"data:{mime};base64,{raw_base64}"
+
 
 # ── Request / response models ─────────────────────────────────────────────────
 
@@ -109,6 +178,103 @@ def _parse_date(date_str: str, field_name: str) -> datetime:
         detail=f"Invalid date format for '{field_name}': {date_str!r}. "
                "Use ISO-8601 (e.g. '2026-01-01' or '2026-01-01T00:00:00Z').",
     )
+
+
+def _parse_ts(ts: str) -> Optional[datetime]:
+    """Best-effort parse of a stored ISO-8601 timestamp into aware UTC.
+
+    Returns None if *ts* is empty or unparseable.  Accepts ``Z`` suffix, naive
+    strings (assumed UTC), and offset-aware strings.  Used for window filters
+    — NEVER compare raw ISO strings lexicographically: producers emit
+    timestamps in multiple formats (``...Z``, ``...+00:00``, naive) and
+    lex-compare silently drops events from the window.
+    """
+    if not ts:
+        return None
+    try:
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _ts_in_window(ts: str, from_dt: datetime, to_dt: datetime) -> bool:
+    """Return True iff *ts* parses to a datetime within [from_dt, to_dt].
+
+    Unparseable or missing timestamps are included (fail-open for compliance
+    — a missing timestamp should not silently drop audit evidence)."""
+    dt = _parse_ts(ts)
+    if dt is None:
+        return True
+    return from_dt <= dt <= to_dt
+
+
+def _count_months_in_range(from_dt: datetime, to_dt: datetime) -> int:
+    """Return the number of distinct YYYY-MM buckets covered by [from_dt, to_dt].
+
+    Used to detect "every month missing" when deciding whether to fall back
+    from monthly aggregates to live-stream data.
+    """
+    if to_dt < from_dt:
+        return 0
+    months = (to_dt.year - from_dt.year) * 12 + (to_dt.month - from_dt.month) + 1
+    return max(1, months)
+
+
+# Module-level classifier cache — avoids rebuilding the default mapping on
+# every request.  Refreshed on SIGHUP by the config loader in a later phase.
+_classifier_instance: SignalClassifier | None = None
+
+
+def _get_classifier() -> SignalClassifier:
+    """Return a cached SignalClassifier loaded with ``reporting.signal_categories``.
+
+    The classifier is cheap to build but even so, creating one per request is
+    wasteful and — more importantly — makes the ``/signal-categories`` route
+    lie about overrides because it constructs a bare default classifier.
+    Load once from the running config.
+    """
+    global _classifier_instance
+    if _classifier_instance is None:
+        cfg = _load_signal_categories_config()
+        _classifier_instance = SignalClassifier(cfg)
+    return _classifier_instance
+
+
+def _reset_classifier_cache() -> None:
+    """Test-only hook: force the classifier to be rebuilt on next access."""
+    global _classifier_instance
+    _classifier_instance = None
+
+
+def _load_signal_categories_config() -> dict[str, Any] | None:
+    """Load ``reporting.signal_categories`` from proxy.yml, failing open.
+
+    Returns None if the config file cannot be read or the key is absent —
+    SignalClassifier then uses pure defaults.
+    """
+    try:
+        from pathlib import Path
+        import yaml  # type: ignore
+
+        # config/proxy.yml relative to repo root
+        candidate = Path(__file__).resolve().parents[3] / "config" / "proxy.yml"
+        if not candidate.exists():
+            return None
+        with candidate.open("r", encoding="utf-8") as fh:
+            data = yaml.safe_load(fh) or {}
+        reporting = data.get("reporting") or {}
+        sig_cats = reporting.get("signal_categories")
+        if isinstance(sig_cats, dict) and sig_cats:
+            return sig_cats
+        return None
+    except Exception as exc:
+        logger.warning(
+            "compliance | event=signal_categories_load_failed | error=%s", exc
+        )
+        return None
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -302,20 +468,40 @@ async def dsar_erase(
         if cursor == 0:
             break
 
-    # 4. Active ban — exempt, record as skipped
+    # 4. Active ban — exempt, record as skipped.
+    #
+    # Fetch reason and TTL together so the ban state is coherent.  A separate
+    # TTL-then-GET can race the ban expiring mid-check, producing an audit
+    # record that says "skipped" for a key that no longer exists.  Use a
+    # pipeline where supported; fall back to sequential and re-fetch TTL only
+    # if reason is present.  If reason is None after either path, the ban is
+    # absent and we do not record a skip.
     ban_key = f"ban:{ip}"
-    ban_ttl = await redis.ttl(ban_key)
-    if ban_ttl > 0 or ban_ttl == -1:  # active ban (TTL > 0 or persistent)
+    ban_reason: Any = None
+    ban_ttl: int = -2
+    try:
+        pipe = redis.pipeline()
+        pipe.get(ban_key)
+        pipe.ttl(ban_key)
+        result = await pipe.execute()
+        ban_reason = result[0]
+        ban_ttl = result[1]
+    except Exception:
         ban_reason = await redis.get(ban_key)
         if ban_reason is not None:
-            expires_note = f"TTL {ban_ttl}s" if ban_ttl > 0 else "persistent"
-            skipped.append({
-                "key": ban_key,
-                "reason": "active security ban — legitimate interest override",
-                "expires_at": expires_note,
-            })
+            ban_ttl = await redis.ttl(ban_key)
 
-    # 5. Write erasure to audit log (exempt from erasure — legal obligation)
+    if ban_reason is not None and (ban_ttl > 0 or ban_ttl == -1):
+        expires_note = f"TTL {ban_ttl}s" if ban_ttl > 0 else "persistent"
+        skipped.append({
+            "key": ban_key,
+            "reason": "active security ban — legitimate interest override",
+            "expires_at": expires_note,
+        })
+
+    # 5. Write erasure to audit log (exempt from erasure — legal obligation).
+    # Preserve the full skipped list — not just its length — so auditors can
+    # prove *which* key was skipped and *why* (compliance evidence).
     await write_audit(
         redis,
         actor_id=identity,
@@ -323,7 +509,11 @@ async def dsar_erase(
         action_type="compliance.dsar_erasure",
         resource_type="ip",
         resource_id=ip,
-        after_value={"ticket": body.ticket, "erased_keys": erased_keys, "skipped_count": len(skipped)},
+        after_value={
+            "ticket": body.ticket,
+            "erased_keys": erased_keys,
+            "skipped": skipped,
+        },
         role=role.value,
     )
 
@@ -393,9 +583,12 @@ async def get_signal_categories(
     """Return the active signal→category mapping used by the classifier.
 
     Useful for operators to understand what attack categories are produced and
-    to verify custom overrides are applied correctly.
+    to verify custom overrides are applied correctly.  Uses the cached
+    classifier loaded from ``reporting.signal_categories`` in proxy.yml so
+    overrides are reflected (previously this route constructed a bare default
+    classifier and silently misreported overrides).
     """
-    clf = SignalClassifier()
+    clf = _get_classifier()
     return Response(
         content=json.dumps(clf.categories, indent=2),
         media_type="application/json",
@@ -511,22 +704,28 @@ async def _build_report_data(
     from_iso = from_dt.isoformat()
     to_iso = to_dt.isoformat()
 
-    # Try monthly aggregate first, fall back to live stream data
+    # Try monthly aggregate first.  Only fall back to live stream when *every*
+    # month in the requested range is missing an aggregate — checking
+    # `total == 0` would incorrectly fall through on legitimately quiet
+    # windows and mix live-stream data with real aggregates elsewhere in the
+    # report (see Phase 101 C2).  Counting fallback_months gives us an
+    # unambiguous "aggregates completely absent" signal.
     connections_total, connections_blocked, months_using_fallback = (
         await _aggregate_from_monthly_hashes(redis, from_dt, to_dt)
     )
 
-    # If no aggregate data, fall back to live stream count
-    if connections_total == 0:
+    expected_month_count = _count_months_in_range(from_dt, to_dt)
+    if expected_month_count > 0 and len(months_using_fallback) == expected_month_count:
+        # No monthly aggregate data at all → use live stream as source of truth.
         connections_total, connections_blocked = await _aggregate_from_stream(
-            redis, from_iso, to_iso
+            redis, from_dt, to_dt
         )
 
     # Audit entry count for the period
-    audit_count = await _count_audit_entries(redis, from_iso, to_iso)
+    audit_count = await _count_audit_entries(redis, from_dt, to_dt)
 
     # Category breakdown from the stream
-    category_counts = await _build_category_counts(redis, from_iso, to_iso)
+    category_counts = await _build_category_counts(redis, from_dt, to_dt)
 
     # Dial setting
     dial_val = 0
@@ -537,15 +736,12 @@ async def _build_report_data(
     except Exception:
         pass
 
-    # Logo
-    logo_data_uri = ""
-    if body.logo_base64:
-        try:
-            # Validate it's real base64
-            base64.b64decode(body.logo_base64)
-            logo_data_uri = f"data:image/png;base64,{body.logo_base64}"
-        except Exception:
-            pass
+    # Logo — validate size, sniff magic bytes to determine MIME type, log
+    # failures.  Previous implementation silently swallowed all errors,
+    # hardcoded image/png regardless of content, and did not enforce a size
+    # cap (allowing a caller to submit a 100MB base64 blob, which would be
+    # decoded into memory, dropped, then re-interpolated into the data URI).
+    logo_data_uri = _validate_logo(body.logo_base64)
 
     return ReportData(
         period_label=body.period_label or f"{from_dt.strftime('%Y-%m-%d')} to {to_dt.strftime('%Y-%m-%d')}",
@@ -577,12 +773,30 @@ async def _aggregate_from_monthly_hashes(
         key = f"reporting:monthly:{month_str}"
         try:
             data = await redis.hgetall(key)
-            if data:
-                total += int(data.get("connections_total", 0))
-                blocked += int(data.get("connections_blocked", 0))
-            else:
-                fallback_months.append(month_str)
         except Exception:
+            fallback_months.append(month_str)
+            data = None
+        if data:
+            # Tolerate corrupt / non-numeric hash fields: treat as zero and
+            # continue rather than abort the whole report.  A raw int() on a
+            # stray "" or "n/a" crashes the entire /compliance/report call.
+            try:
+                total += int(data.get("connections_total", 0) or 0)
+            except (TypeError, ValueError):
+                logger.warning(
+                    "compliance | event=monthly_aggregate_field_bad | "
+                    "key=%s | field=connections_total | value=%r",
+                    key, data.get("connections_total"),
+                )
+            try:
+                blocked += int(data.get("connections_blocked", 0) or 0)
+            except (TypeError, ValueError):
+                logger.warning(
+                    "compliance | event=monthly_aggregate_field_bad | "
+                    "key=%s | field=connections_blocked | value=%r",
+                    key, data.get("connections_blocked"),
+                )
+        elif data is not None:
             fallback_months.append(month_str)
         # Move to next month
         if current.month == 12:
@@ -594,7 +808,7 @@ async def _aggregate_from_monthly_hashes(
 
 
 async def _aggregate_from_stream(
-    redis: Any, from_iso: str, to_iso: str
+    redis: Any, from_dt: datetime, to_dt: datetime
 ) -> tuple[int, int]:
     """Count total and blocked events from the stream (fallback for live data)."""
     try:
@@ -605,8 +819,7 @@ async def _aggregate_from_stream(
     total = 0
     blocked = 0
     for _, fields in raw:
-        ts = fields.get("timestamp", "")
-        if ts and (ts < from_iso or ts > to_iso):
+        if not _ts_in_window(fields.get("timestamp", ""), from_dt, to_dt):
             continue
         total += 1
         if fields.get("action_taken") == "blocked":
@@ -615,7 +828,7 @@ async def _aggregate_from_stream(
 
 
 async def _count_audit_entries(
-    redis: Any, from_iso: str, to_iso: str
+    redis: Any, from_dt: datetime, to_dt: datetime
 ) -> int:
     """Count audit entries within the period."""
     try:
@@ -627,16 +840,15 @@ async def _count_audit_entries(
     for item in raw:
         try:
             entry = json.loads(item)
-            ts = entry.get("timestamp", "")
-            if ts and from_iso <= ts <= to_iso:
-                count += 1
         except Exception:
             continue
+        if _ts_in_window(entry.get("timestamp", ""), from_dt, to_dt):
+            count += 1
     return count
 
 
 async def _build_category_counts(
-    redis: Any, from_iso: str, to_iso: str
+    redis: Any, from_dt: datetime, to_dt: datetime
 ) -> list[tuple[str, int]]:
     """Build sorted category count list from blocked stream events."""
     try:
@@ -644,11 +856,10 @@ async def _build_category_counts(
     except Exception:
         return []
 
-    clf = SignalClassifier()
+    clf = _get_classifier()
     counts: dict[str, int] = {}
     for _, fields in raw:
-        ts = fields.get("timestamp", "")
-        if ts and (ts < from_iso or ts > to_iso):
+        if not _ts_in_window(fields.get("timestamp", ""), from_dt, to_dt):
             continue
         if fields.get("action_taken") != "blocked":
             continue

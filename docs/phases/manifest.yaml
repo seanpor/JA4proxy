@@ -1265,3 +1265,34 @@ phases:
     - pytest.mark.integration markers on SAML and OIDC live-IdP placeholder tests
     - Group-to-role mapping honoured from config/proxy.yml sso.role_mapping with env-var
       MANAGEMENT_SAML_ROLE_MAPPING / MANAGEMENT_OIDC_ROLE_MAPPING override
+  101:
+    name: Phase 84 Compliance Review Gap Closure
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_101.md
+    dependencies:
+    - 84
+    size: MEDIUM
+    summary: 'Closes 9 deferred gaps from the second critical review of Phase 84
+      Compliance Reporting: H1 (single-XRANGE DSAR path), H3 (CIDR-aware watchlist
+      match in DSAR), M1 (Redis XTRIM MINID version check and fallback), M2 (rename
+      beaconing_records_cleaned → beaconing_datapoints_cleaned — breaking), M4
+      (paginate audit log reads; plan Stream migration ADR), M7 (DSAR partial-failure
+      reporting instead of silent empty arrays), L1 (module-level Jinja2 Environment
+      cache), L2 (JSONL trailing-newline invariant doc/test), L5 (DSAR retention
+      strings read from gdpr config instead of hardcoded prose). All CRITICAL and
+      most HIGH items were fixed inline in the review-fixes branch before merge.'
+    success_criteria:
+    - DSAR export path issues at most one XRANGE per request (H1)
+    - DSAR export/erase handles CIDR watchlist entries correctly (H3)
+    - GDPRPurge detects Redis < 6.2 and uses XRANGE+XDEL fallback for MINID (M1)
+    - PurgeSummary field renamed to beaconing_datapoints_cleaned; CHANGELOG notes
+      breaking change (M2)
+    - Pack builder loads audit entries in bounded chunks; 1M-entry benchmark < 30s
+      and < 500MB (M4)
+    - DSAR response includes partial_failures list on Redis error; Prometheus
+      counter ja4proxy_dsar_export_partial_failures_total wired (M7)
+    - Two ReportRenderer instances share compiled Jinja2 templates (L1)
+    - JSONL trailing-newline invariant documented and tested (L2)
+    - DSAR retention text reflects gdpr.*_retention_days config (L5)
+    - No new CRITICAL/HIGH findings from a third review pass
+    - make test-phase-84 still passes (Go + Python compliance suites)

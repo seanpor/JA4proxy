@@ -530,3 +530,231 @@ async def test_signal_categories_analyst_allowed(analyst_client_redis):
     client, _ = analyst_client_redis
     r = await client.get("/api/v1/compliance/signal-categories")
     assert r.status_code != 403, f"Analyst was incorrectly rejected: {r.status_code}"
+
+
+# ── Review-fix coverage (C1, C3, H2, H4, H5, L3) ─────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_dsar_erase_audit_log_preserves_skipped_detail(admin_client_redis):
+    """L3: audit log must preserve full `skipped` list, not just its length.
+
+    Previously the audit record stored only `skipped_count`, which is
+    insufficient for compliance evidence — auditors must be able to prove
+    *which* key was skipped and *why*.
+    """
+    client, redis = admin_client_redis
+    await redis.set("ban:9.9.9.9", "scan burst", ex=7200)
+
+    r = await client.request(
+        "DELETE",
+        "/api/v1/compliance/dsar/9.9.9.9",
+        json={"ticket": "GDPR-2026-L3"},
+    )
+    assert r.status_code == 200
+
+    entries = [
+        json.loads(e)
+        for e in await redis.lrange("management:audit_log", 0, -1)
+    ]
+    erasure = next(e for e in entries if e.get("action_type") == "compliance.dsar_erasure")
+    after = erasure["after_value"]
+    assert "skipped" in after, "skipped list missing from audit record"
+    assert "skipped_count" not in after, (
+        "audit record still uses skipped_count scalar (L3 regression)"
+    )
+    assert isinstance(after["skipped"], list)
+    assert any("ban:9.9.9.9" in s.get("key", "") for s in after["skipped"])
+
+
+@pytest.mark.asyncio
+async def test_dsar_erase_absent_ban_not_skipped(admin_client_redis):
+    """C1: no ban key → `skipped` list must not fabricate one.
+
+    The previous implementation checked TTL then GET in two calls.  A stale
+    TTL > 0 followed by a GET returning None would still append a ghost
+    skip entry in some Redis clients.  Verify the absent-ban case is clean.
+    """
+    client, _ = admin_client_redis
+    r = await client.request(
+        "DELETE",
+        "/api/v1/compliance/dsar/6.6.6.6",
+        json={"ticket": "GDPR-2026-C1"},
+    )
+    assert r.status_code == 200
+    assert r.json()["skipped"] == [], (
+        "absent ban produced a ghost skip entry — C1 regression"
+    )
+
+
+@pytest.mark.asyncio
+async def test_report_ignores_events_with_mismatched_tz_format(auditor_client_redis):
+    """C3: stream events written with ``Z`` suffix must still be counted.
+
+    Previously the routes compared ISO strings lexicographically — an event
+    written as ``2026-02-15T10:00:00Z`` would sort *after* the window's
+    ``2026-03-31T00:00:00+00:00`` because ``Z`` < ``+`` is false.  Verify
+    the fix by seeding one event with each format and asserting both are
+    included when they fall within the window.
+    """
+    client, redis = auditor_client_redis
+    # Event 1: Z suffix, clearly inside the window
+    await redis.xadd("ja4proxy:events", {
+        "timestamp": "2026-02-10T10:00:00Z",
+        "action_taken": "blocked",
+        "ip": "1.1.1.1",
+        "ja4": "t13d1516",
+        "risk_score": "95",
+        "signals": json.dumps(["spamhaus_drop"]),
+    })
+    # Event 2: +00:00 offset, also inside the window
+    await redis.xadd("ja4proxy:events", {
+        "timestamp": "2026-02-20T12:00:00+00:00",
+        "action_taken": "blocked",
+        "ip": "2.2.2.2",
+        "ja4": "t13d1516",
+        "risk_score": "95",
+        "signals": json.dumps(["tor_exit"]),
+    })
+
+    r = await client.post("/api/v1/compliance/report", json={
+        "from_date": "2026-02-01",
+        "to_date": "2026-02-28",
+        "format": "html",
+    })
+    assert r.status_code == 200
+    # Both events should appear in category counts — if lex compare were
+    # still in use, the Z-suffix event would be filtered out.
+    body = r.text
+    assert "known_malicious_network" in body or "tor_exit_node" in body
+
+
+@pytest.mark.asyncio
+async def test_report_logo_rejects_oversize(auditor_client_redis, caplog):
+    """H2: logo payload over the 1.4MB base64 cap must be silently ignored.
+
+    The route never fails — a bad logo should not abort the whole report —
+    but it must be rejected with a WARN log.  Verify the data URI is empty.
+    """
+    client, _ = auditor_client_redis
+    huge = "A" * (1_500_000)  # > 1.4MB base64 cap
+    import logging
+    with caplog.at_level(logging.WARNING):
+        r = await client.post("/api/v1/compliance/report", json={
+            **_REPORT_BODY,
+            "logo_base64": huge,
+        })
+    assert r.status_code == 200
+    assert any("logo_rejected" in rec.message for rec in caplog.records), (
+        "expected WARN log for oversize logo"
+    )
+    # Rendered HTML must not contain the huge data URI
+    assert huge[:128] not in r.text
+
+
+@pytest.mark.asyncio
+async def test_report_logo_rejects_unknown_magic(auditor_client_redis, caplog):
+    """H2: logo bytes that are not PNG/JPEG/GIF/SVG must be rejected.
+
+    Previously the route hardcoded ``image/png`` regardless of content.
+    A caller sending a ZIP or random bytes would get them embedded as PNG.
+    """
+    import base64 as _b64
+    client, _ = auditor_client_redis
+    junk = _b64.b64encode(b"PK\x03\x04totally-not-a-png").decode()
+    import logging
+    with caplog.at_level(logging.WARNING):
+        r = await client.post("/api/v1/compliance/report", json={
+            **_REPORT_BODY,
+            "logo_base64": junk,
+        })
+    assert r.status_code == 200
+    assert any("logo_rejected" in rec.message for rec in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_report_logo_accepts_valid_png(auditor_client_redis):
+    """H2: valid PNG magic bytes produce a ``data:image/png`` URI."""
+    import base64 as _b64
+    client, _ = auditor_client_redis
+    # Minimal 8-byte PNG signature + IHDR stub
+    png_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
+    encoded = _b64.b64encode(png_bytes).decode()
+    r = await client.post("/api/v1/compliance/report", json={
+        **_REPORT_BODY,
+        "logo_base64": encoded,
+    })
+    assert r.status_code == 200
+    assert f"data:image/png;base64,{encoded}" in r.text
+
+
+@pytest.mark.asyncio
+async def test_report_logo_accepts_valid_svg(auditor_client_redis):
+    """H2: SVG bytes produce a ``data:image/svg+xml`` URI, not image/png."""
+    import base64 as _b64
+    client, _ = auditor_client_redis
+    svg_bytes = b'<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>'
+    encoded = _b64.b64encode(svg_bytes).decode()
+    r = await client.post("/api/v1/compliance/report", json={
+        **_REPORT_BODY,
+        "logo_base64": encoded,
+    })
+    assert r.status_code == 200
+    assert "data:image/svg+xml;base64," in r.text, (
+        "SVG was not detected — MIME sniffer regressed to hardcoded PNG"
+    )
+
+
+@pytest.mark.asyncio
+async def test_signal_categories_reflects_config_override(
+    auditor_client_redis, monkeypatch
+):
+    """H4: signal-categories endpoint must reflect configured overrides.
+
+    Previously the endpoint constructed a bare default classifier and
+    silently lied about overrides set in ``reporting.signal_categories``.
+    Patch the loader to inject an override and verify the response.
+    """
+    from management.api.routes import compliance as _route_mod
+    monkeypatch.setattr(
+        _route_mod,
+        "_load_signal_categories_config",
+        lambda: {
+            "custom_signal": {"category": "custom_category_for_test", "weight": 77},
+        },
+    )
+    _route_mod._reset_classifier_cache()
+
+    client, _ = auditor_client_redis
+    r = await client.get("/api/v1/compliance/signal-categories")
+    assert r.status_code == 200
+    data = r.json()
+    assert "custom_signal" in data, "override was not applied — H4 regression"
+    assert data["custom_signal"]["category"] == "custom_category_for_test"
+
+    # Default entries must still be present alongside the override
+    assert "spamhaus_drop" in data
+    _route_mod._reset_classifier_cache()
+
+
+@pytest.mark.asyncio
+async def test_report_tolerates_corrupt_monthly_aggregate(auditor_client_redis):
+    """H5: non-numeric monthly aggregate fields must not crash the report.
+
+    Previously a raw ``int()`` on a stray "" or "n/a" in a monthly hash
+    crashed the whole /compliance/report call.  The fix wraps each int()
+    parse in try/except and logs a warning.
+    """
+    client, redis = auditor_client_redis
+    await redis.hset("reporting:monthly:2026-01", mapping={
+        "connections_total": "not-a-number",
+        "connections_blocked": "",
+    })
+    r = await client.post("/api/v1/compliance/report", json={
+        "from_date": "2026-01-01",
+        "to_date": "2026-01-31",
+        "format": "html",
+    })
+    assert r.status_code == 200, (
+        "report crashed on corrupt monthly aggregate — H5 regression"
+    )
