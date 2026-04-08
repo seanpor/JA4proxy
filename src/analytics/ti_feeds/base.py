@@ -13,8 +13,97 @@ mutations flow through the Phase 79 Management API via
 from __future__ import annotations
 
 import abc
+import ipaddress
+import re
 from dataclasses import dataclass, field
 from typing import Any, Optional
+from urllib.parse import urlparse
+
+
+# phase-85 (security review C4): feed_id is used as a Redis key suffix
+# (``ti_feed:{feed_id}:*``) and as a metric label. Allowing arbitrary
+# characters lets a config author pivot into other key namespaces or
+# inflate Prometheus cardinality. Constrain it to a conservative slug.
+_FEED_ID_REGEX = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
+
+# Reserved feed ids that would collide with shared single-key state
+# (e.g. ``ti_feed:leader_lock``). Keep in sync with state.py constants.
+_RESERVED_FEED_IDS = frozenset({"leader_lock"})
+
+
+# phase-85 (security review C5): never let a feed-supplied IP turn into a
+# ban for the loopback interface, RFC1918, the link-local range, or any
+# multicast / broadcast / unspecified address. A compromised or sloppy
+# upstream feed must not be able to ban the operator out of their own
+# infrastructure.
+def is_bannable_ip(ip: str) -> bool:
+    """Return True if ``ip`` is a sane public address to apply a ban to."""
+    if not isinstance(ip, str) or not ip:
+        return False
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    if (
+        addr.is_loopback
+        or addr.is_link_local
+        or addr.is_private
+        or addr.is_multicast
+        or addr.is_unspecified
+        or addr.is_reserved
+    ):
+        return False
+    return True
+
+
+# phase-85 (security review C1): SSRF guard. The feed runner makes
+# outbound HTTP calls to URLs sourced from operator config — but config
+# changes flow through the Management API which Operators can drive
+# without an out-of-band review, so we still treat the URL as untrusted
+# and refuse to dial loopback / link-local / private / CGNAT / ULA /
+# multicast destinations.
+def validate_feed_url(url: str) -> None:
+    """Reject feed URLs that point at local or private network space.
+
+    Raises ``ValueError`` on any of:
+
+    * non-``https`` scheme (we never want to dial plaintext HTTP for a
+      feed that ships indicators we will turn into ban rules)
+    * missing host
+    * host that resolves to a literal address inside loopback,
+      link-local, RFC1918, CGNAT (100.64/10), ULA (fc00::/7),
+      multicast, or unspecified ranges
+
+    DNS-based bypasses (a public hostname that resolves to 127.0.0.1)
+    are out of scope here — those are caught at connection time by
+    ``aiohttp``'s ``TCPConnector`` ``family``/``ssl`` settings and the
+    operator-tier network egress controls.
+    """
+    if not isinstance(url, str) or not url:
+        raise ValueError("feed url is empty")
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise ValueError(
+            f"feed url must use https scheme (got {parsed.scheme!r})"
+        )
+    if not parsed.hostname:
+        raise ValueError("feed url has no host")
+    host = parsed.hostname
+    try:
+        addr = ipaddress.ip_address(host)
+    except ValueError:
+        return  # hostname — DNS-time guard happens elsewhere
+    if (
+        addr.is_loopback
+        or addr.is_link_local
+        or addr.is_private
+        or addr.is_multicast
+        or addr.is_unspecified
+        or addr.is_reserved
+    ):
+        raise ValueError(
+            f"feed url host {host} is in a forbidden network range"
+        )
 
 
 @dataclass
@@ -99,6 +188,24 @@ class FeedConfig:
             raise ValueError(
                 f"feed config missing required 'id'/'type' keys: keys={list(data.keys())}"
             )
+        # phase-85 (security review C4): refuse feed ids that would let an
+        # operator pivot the Redis key namespace or inflate metric cardinality.
+        feed_id = known["id"]
+        if not isinstance(feed_id, str) or not _FEED_ID_REGEX.match(feed_id):
+            raise ValueError(
+                "feed id must match ^[a-z0-9][a-z0-9_-]{0,63}$ "
+                f"(got {feed_id!r})"
+            )
+        if feed_id in _RESERVED_FEED_IDS:
+            raise ValueError(
+                f"feed id {feed_id!r} is reserved (collides with shared state)"
+            )
+        # phase-85 (security review C1): SSRF guard for feed types that
+        # carry a URL. We validate here so a bad URL is rejected at config
+        # parse time, before any aiohttp client is instantiated.
+        url = known.get("url", "") or ""
+        if known.get("type") in {"taxii2", "rest"} and url:
+            validate_feed_url(url)
         return cls(**known)
 
 

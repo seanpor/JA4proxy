@@ -44,7 +44,7 @@ JA4_REGEX = re.compile(
     ^
     t                # literal 't' prefix
     \d{2}            # TLS version (e.g. 13 for TLS 1.3)
-    [d|q]            # 'd' for TCP, 'q' for QUIC
+    [dq]             # 'd' for TCP, 'q' for QUIC (character class, not alternation)
     \d{4}            # cipher count + extension count + ALPN
     (?:h2|h1|00|[a-z0-9]{2})?  # ALPN (optional)
     _

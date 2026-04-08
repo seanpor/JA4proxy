@@ -47,6 +47,8 @@ import urllib.parse
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from .base import is_bannable_ip
+
 try:  # pragma: no cover — optional at collection time, required at runtime
     import aiohttp
 except ImportError:  # pragma: no cover
@@ -257,6 +259,20 @@ class ManagementClient:
             ttl_s: TTL in seconds.
             reason: Audit reason, typically ``"feed:{feed_id}"``.
         """
+        # phase-85 (security review C5): never let a feed-supplied IP turn
+        # into a ban for loopback / RFC1918 / link-local / multicast space.
+        # The choke point lives here so every feed client (TAXII, RF, CS,
+        # REST) inherits the guard.
+        if not is_bannable_ip(ip):
+            logger.warning(
+                "ti_feed | event=ban_rejected_unsafe_ip | feed=%s | ip=%s",
+                feed_id,
+                ip,
+            )
+            raise ManagementAPIError(
+                status_code=400,
+                message=f"refusing to ban non-public ip {ip}",
+            )
         encoded_ip = urllib.parse.quote(ip, safe="")
         path = f"/api/v1/bans/{encoded_ip}"
         body: dict[str, Any] = {"ttl": ttl_s, "reason": reason}

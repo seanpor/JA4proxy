@@ -164,10 +164,13 @@ class FeedRunner:
             try:
                 cfg = FeedConfig.from_dict(raw)
             except Exception as exc:  # noqa: BLE001
+                # phase-85 (security review C2): never echo the raw feed
+                # config — it carries credentials. Log only the id (if any)
+                # and the validation error message.
                 logger.warning(
-                    "ti_feed | event=feed_config_invalid | error=%s | raw=%s",
+                    "ti_feed | event=feed_config_invalid | feed=%s | error=%s",
+                    raw.get("id", "<unknown>"),
                     exc,
-                    raw,
                 )
                 continue
             wanted[cfg.id] = cfg
@@ -316,18 +319,40 @@ class FeedRunner:
             )
             return
 
-        # Differential cleanup
+        # Differential cleanup. phase-85 (security review C8): the previous
+        # implementation guessed the handle kind from string contents
+        # (``"." in handle``) and had an operator-precedence bug that
+        # mis-routed empty handles. We now read the kind from the
+        # authoritative ``ban_ips`` and ``blocklist_uuids`` sets, and skip
+        # any entry with an empty handle (those represent indicators that
+        # were idempotently re-applied with no fresh resource).
         dropped = compute_dropped_ids(previous_ids, result.stix_ids_seen)
+        ban_ips = await self._state.get_ban_ips(feed_id) if dropped else set()
+        blocklist_uuids = (
+            await self._state.get_blocklist_uuids(feed_id) if dropped else set()
+        )
         removed_count = 0
         for stix_id, handle in dropped.items():
+            if not handle:
+                # No resource to delete — just drop the snapshot entry.
+                await self._state.remove(feed_id, stix_id)
+                continue
             try:
-                if handle and handle.count(".") >= 1 or ":" in (handle or ""):
-                    # Looks like an IP
+                if handle in ban_ips:
                     await self._mgmt.delete_ban(handle, feed_id=feed_id)
                     await self._state.remove_ban_ip(feed_id, handle)
-                else:
+                elif handle in blocklist_uuids:
                     await self._mgmt.delete_blocklist(handle, feed_id=feed_id)
                     await self._state.remove_blocklist_uuid(feed_id, handle)
+                else:
+                    logger.warning(
+                        "ti_feed | event=cleanup_unknown_handle | feed=%s | "
+                        "stix_id=%s",
+                        feed_id,
+                        stix_id,
+                    )
+                    await self._state.remove(feed_id, stix_id)
+                    continue
                 await self._state.remove(feed_id, stix_id)
                 removed_count += 1
             except Exception as exc:  # noqa: BLE001
