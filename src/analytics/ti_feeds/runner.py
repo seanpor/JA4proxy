@@ -24,8 +24,6 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 from uuid import uuid4
 
-from prometheus_client import Counter, Gauge
-
 from .base import FeedClient, FeedConfig, FeedPollResult
 from .circuit_breaker import (
     CircuitBreakerConfig,
@@ -34,6 +32,12 @@ from .circuit_breaker import (
 )
 from .contribution import ContributionClient, ContributionConfig
 from .crowdstrike import CrowdStrikeFalconClient
+from .metrics import (
+    TI_CIRCUIT_STATE as _CIRCUIT_STATE,
+    TI_CLEANUP_REMOVALS as _CLEANUP_REMOVALS,
+    TI_INDICATORS_MANAGED as _INDICATORS_MANAGED,
+    TI_LAST_SUCCESS_TS as _LAST_SUCCESS_TS,
+)
 from .mgmt_client import ManagementClient
 from .recorded_future import RecordedFutureClient
 from .rest_generic import RESTGenericClient
@@ -42,30 +46,6 @@ from .state import FeedState, compute_dropped_ids
 from .taxii import TAXIIClient
 
 logger = logging.getLogger(__name__)
-
-
-# ── Prometheus metrics ────────────────────────────────────────────────────────
-
-_INDICATORS_MANAGED = Gauge(
-    "ja4proxy_ti_feed_indicators_managed",
-    "Current number of indicators managed by a TI feed",
-    ["feed_id"],
-)
-_CLEANUP_REMOVALS = Counter(
-    "ja4proxy_ti_feed_cleanup_removals_total",
-    "Indicators removed by TI feed differential cleanup",
-    ["feed_id"],
-)
-_CIRCUIT_STATE = Gauge(
-    "ja4proxy_ti_feed_circuit_state",
-    "TI feed circuit breaker state (0=closed, 1=half_open, 2=open)",
-    ["feed_id"],
-)
-_LAST_SUCCESS_TS = Gauge(
-    "ja4proxy_ti_feed_last_success_timestamp_seconds",
-    "Unix timestamp of the last successful TI feed poll",
-    ["feed_id"],
-)
 
 
 _CIRCUIT_STATE_VALUE = {

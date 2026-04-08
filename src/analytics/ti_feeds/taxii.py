@@ -37,9 +37,12 @@ try:  # pragma: no cover — optional at collection time, required at runtime
 except ImportError:  # pragma: no cover
     aiohttp = None  # type: ignore
 
-from prometheus_client import Counter, Histogram
-
 from .base import FeedClient, FeedConfig, FeedPollResult
+from .metrics import (
+    TI_INDICATORS_PROCESSED as _INDICATORS_PROCESSED,
+    TI_POLL_DURATION as _POLL_DURATION,
+    TI_POLL_TOTAL as _POLL_TOTAL,
+)
 from .stix_ja4 import (
     is_ip_pattern,
     is_ja4_pattern,
@@ -49,25 +52,6 @@ from .stix_ja4 import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-# ── Prometheus metrics ────────────────────────────────────────────────────────
-
-_POLL_TOTAL = Counter(
-    "ja4proxy_ti_feed_poll_total",
-    "TI feed poll outcomes",
-    ["feed_id", "result"],
-)
-_POLL_DURATION = Histogram(
-    "ja4proxy_ti_feed_poll_duration_seconds",
-    "Wall-clock time per TI feed poll",
-    ["feed_id"],
-)
-_INDICATORS_PROCESSED = Counter(
-    "ja4proxy_ti_feed_indicators_processed_total",
-    "Per-indicator outcomes inside a TI feed poll",
-    ["feed_id", "outcome"],
-)
 
 _BATCH_SIZE = 50
 _INTER_BATCH_SLEEP_S = 0.05  # 50 ms per PHASE_85.md §2.5

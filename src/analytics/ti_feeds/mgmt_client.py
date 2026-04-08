@@ -52,16 +52,9 @@ try:  # pragma: no cover — optional at collection time, required at runtime
 except ImportError:  # pragma: no cover
     aiohttp = None  # type: ignore
 
-from prometheus_client import Counter
+from .metrics import TI_MGMT_API_ERRORS as _MGMT_API_ERRORS
 
 logger = logging.getLogger(__name__)
-
-
-_MGMT_API_ERRORS = Counter(
-    "ja4proxy_ti_feed_mgmt_api_errors_total",
-    "Management API errors observed by the TI feed runner",
-    ["feed_id", "status_code"],
-)
 
 
 @dataclass

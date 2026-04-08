@@ -57,19 +57,11 @@ except ImportError:  # pragma: no cover
         )
 
 
-from prometheus_client import Counter
-
 from .base import FeedClient, FeedConfig, FeedPollResult
+from .metrics import TI_POLL_TOTAL as _POLL_TOTAL
 from .stix_ja4 import validate_ja4
 
 logger = logging.getLogger(__name__)
-
-
-_POLL_TOTAL = Counter(
-    "ja4proxy_ti_feed_poll_total",
-    "TI feed poll outcomes",
-    ["feed_id", "result"],
-)
 
 
 class RESTGenericClient(FeedClient):
