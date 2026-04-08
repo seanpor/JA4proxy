@@ -37,6 +37,7 @@ from .metrics import (
     TI_CLEANUP_REMOVALS as _CLEANUP_REMOVALS,
     TI_INDICATORS_MANAGED as _INDICATORS_MANAGED,
     TI_LAST_SUCCESS_TS as _LAST_SUCCESS_TS,
+    TI_POLL_TOTAL as _POLL_TOTAL,
 )
 from .mgmt_client import ManagementClient
 from .recorded_future import RecordedFutureClient
@@ -322,6 +323,7 @@ class FeedRunner:
             _CIRCUIT_STATE.labels(feed_id=feed_id).set(
                 _CIRCUIT_STATE_VALUE[breaker.state]
             )
+            _POLL_TOTAL.labels(feed_id=feed_id, result="circuit_open").inc()
             return
 
         # Leader-lock gate. C7 (architect review): the lock is **fail-closed**
