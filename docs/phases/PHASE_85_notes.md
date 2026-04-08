@@ -170,6 +170,37 @@ Remaining architect findings (C3, C6, C7, C9, C10 + H/M tier) deferred to
 Chunk K (test merge) or later — these are larger and benefit from having
 the test scaffolding in place first.
 
+## Functional bugs from architect review — fixed 2026-04-08
+
+Three small but load-bearing bugs surfaced by the same review:
+
+1. **Manual poll trigger was unwired.** `routes/threat_intel.py` XADDs
+   to `ti_feed:manual_poll_triggers`; nothing in the runner was reading
+   the stream so `POST /api/v1/threat-intel/feeds/{id}/poll` returned
+   202 but never polled. Added `FeedRunner._consume_trigger_stream()`
+   started in `start()`, stopped in `stop()`. Per-replica `last_id="$"`
+   so analytics restarts don't replay history; leader gating inside
+   `_poll_once` ensures only one replica polls when multiple replicas
+   see the same trigger.
+
+2. **TAXII cursor advanced before applying objects.** `taxii.py:172`
+   set `self._last_added_after = newest` inside `_fetch_objects` before
+   `_process_objects` ran. A mid-bundle apply failure would jump the
+   cursor and skip the unapplied tail forever. Cursor commit moved to
+   after a successful `_process_objects` return.
+
+3. **No per-poll wall-clock timeout.** `aiohttp.ClientTimeout(total=60)`
+   was on the GET only; the indicator-application loop had no overall
+   budget. A trickling TAXII server would hang the loop and starve
+   leader-lock refreshes. Added `asyncio.wait_for(self._poll_once(...),
+   timeout=min(interval_s, 600))` in `_poll_loop`. Timeout exceptions
+   are logged at ERROR with the new `event=poll_timeout` tag.
+
+Bonus: H7 (manual-trigger / scheduled-loop race) fixed as a side
+effect — both code paths now acquire the same per-feed `asyncio.Lock`
+before calling `_poll_once`, so concurrent polls of the same feed are
+serialised even when a manual trigger arrives mid-cycle.
+
 ## Blockers / Deviations
 
 - None so far. Tracking:

@@ -102,6 +102,13 @@ class TAXIIClient(FeedClient):
 
         await self._process_objects(objects, result)
 
+        # Commit the cursor only after a successful apply pass — see comment
+        # in _fetch_objects. If _process_objects raises, the cursor is
+        # untouched and the same window is retried on the next poll.
+        newest = _newest_modified(objects)
+        if newest:
+            self._last_added_after = newest
+
         result.poll_duration_s = time.monotonic() - start
         _POLL_DURATION.labels(feed_id=feed_id).observe(result.poll_duration_s)
         _POLL_TOTAL.labels(feed_id=feed_id, result="success").inc()
@@ -168,10 +175,11 @@ class TAXIIClient(FeedClient):
         if not isinstance(objects, list):
             raise RuntimeError("TAXII response.objects is not a list")
 
-        # Update the cursor to the bundle's "modified" max so next poll is incremental.
-        newest = _newest_modified(objects)
-        if newest:
-            self._last_added_after = newest
+        # phase-85 (security review): the cursor advance used to live here,
+        # *before* `_process_objects`. If application failed mid-bundle the
+        # cursor would jump and the unapplied tail would be skipped on the
+        # next poll. We now return the candidate cursor and let `poll()`
+        # commit it only after a successful apply.
         return objects
 
     # ── STIX processing ──────────────────────────────────────────────────
