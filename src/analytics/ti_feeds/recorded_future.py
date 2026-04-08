@@ -4,8 +4,12 @@ Recorded Future exposes threat data both as a TAXII 2.1 server and as REST
 feeds; this module uses the TAXII front door so it can reuse
 :class:`.taxii.TAXIIClient`. The only deltas from the plain TAXII path are:
 
-1. **Authentication** — RF uses an ``X-RFToken`` header instead of HTTP
-   Basic. The token lives in ``${RF_API_TOKEN}``.
+1. **Authentication** — RF's TAXII 2.1 endpoint uses HTTP Basic. The
+   username can be any value (the docs use ``"api"``); the password is the
+   RF API key from ``${RF_API_TOKEN}``. There is no separate token-exchange
+   step — clients send the API key on every request. The earlier draft of
+   this module used an ``X-RFToken`` header; that was incorrect and has
+   been removed (Phase 85 Chunk G, 2026-04-08).
 2. **Collections** — RF publishes one TAXII collection per feed name
    (``ip_threat_intel``, ``c2_server_tracking``, etc.), so a single
    ``recorded_future`` YAML entry can span multiple RF collections by
@@ -14,9 +18,8 @@ feeds; this module uses the TAXII front door so it can reuse
    ``x_rf_risk_score`` extension; we treat ``min_rf_risk_score`` as a
    minimum on the latter.
 
-TODO: verify against the Recorded Future developer portal before production
-use. API URL and token-exchange details come from the PHASE_85.md §6.2 spec
-as written; confirm with RF docs before rollout.
+Verified against the Recorded Future developer portal 2026-04-08 — see
+``docs/phases/PHASE_85_notes.md`` Chunk G.
 """
 
 from __future__ import annotations
@@ -94,8 +97,13 @@ class RecordedFutureClient(FeedClient):
                         "type": "taxii2",
                         "url": _RF_TAXII_ROOT,
                         "collection_id": feed_name,
-                        "username": "",
-                        "password": "",
+                        # phase-85 Chunk G: RF TAXII 2.1 expects HTTP
+                        # Basic. Username is any literal ("api" per RF
+                        # docs); password is the API key from
+                        # ${RF_API_TOKEN}, which the loader has already
+                        # written into config.api_token.
+                        "username": "api",
+                        "password": config.api_token or "",
                         # Propagate gating knobs:
                         "min_confidence": max(
                             config.min_confidence, config.min_rf_risk_score
@@ -236,25 +244,10 @@ class RecordedFutureClient(FeedClient):
             if not cursor:
                 return
 
-    def _build_rf_headers(self) -> dict[str, str]:
-        """Return the header set for an RF-authenticated TAXII request.
-
-        Reserved for use by a future custom fetch path. Currently the inner
-        :class:`TAXIIClient` uses HTTP Basic — callers who must use RF
-        should set ``api_token`` into ``username`` via the loader until the
-        custom fetch path is wired.
-        """
-        headers = {
-            "Accept": "application/taxii+json;version=2.1",
-            "User-Agent": "ja4proxy-ti-feed/1.0",
-        }
-        if self.config.api_token:
-            headers["X-RFToken"] = self.config.api_token
-        return headers
-
-
-#: Base TAXII API root for Recorded Future. Update when verified against the
-#: RF developer portal — this is the value from PHASE_85.md §6.2.
+#: Base TAXII 2.1 API root for Recorded Future. Verified 2026-04-08
+#: against the RF support portal: the TAXII 2.1 discovery endpoint lives
+#: at ``api.recordedfuture.com/taxii2``. The legacy TAXII 1.x endpoint
+#: ``api.recordedfuture.com/taxii`` is **not** what this client uses.
 _RF_TAXII_ROOT = "https://api.recordedfuture.com/taxii2/"
 
 
