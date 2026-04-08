@@ -1,5 +1,27 @@
 # Changelog
 
+## [Unreleased] - Phase 84 second critical review fixes
+
+### Fixed
+- **C1 (CRITICAL)** `dsar_erase` ban-preservation TOCTOU — reason and TTL now fetched via a single pipeline; absent bans no longer produce ghost `skipped` entries (`management/api/routes/compliance.py`)
+- **C2 (CRITICAL)** Monthly/stream fallback misfired on quiet windows — now falls back only when every month in the requested range is missing an aggregate, not when `total == 0`
+- **C3 (CRITICAL)** ISO timestamp comparison was lexicographic, silently dropping events with a different TZ format than the window builders used — added `_parse_ts` / `_ts_in_window` helpers applied to every stream/audit filter in `compliance.py` and `pack_builder.py`
+- **H2 (HIGH)** Logo validation was theatre (no size cap, silent errors, hardcoded `image/png` MIME) — replaced with `_validate_logo()`: 1.4MB base64 cap, magic-byte sniff (PNG/JPEG/GIF/SVG), correct MIME, WARN logs on rejection
+- **H4 (HIGH)** `/signal-categories` endpoint constructed a bare default classifier and lied about configured overrides — added module-level `_get_classifier()` loading `reporting.signal_categories` from `proxy.yml`
+- **H5 (HIGH)** Non-numeric monthly aggregate fields crashed the whole `/compliance/report` call — per-field try/except with WARN log
+- **M3 (MEDIUM)** Token inventory denylist → allowlist (`_TOKEN_SAFE_FIELDS`) so future phases adding token fields cannot silently leak them into the evidence pack
+- **M5 (MEDIUM)** `ReportData.block_rate_pct` now clamps to `[0, 100]` — prevents rendering "173.4%" when aggregate and stream sources disagree
+- **M6 (MEDIUM)** HTML escape in `_render_simple_pdf` titles and artefact row content (defence in depth)
+- **L3 (LOW)** DSAR erase audit record now preserves full `skipped` list, not just its length — auditors can prove *which* key was skipped and *why*
+- **L4 (LOW)** Module-level classifier cache avoids rebuilding the default mapping on every request
+
+### Changed
+- **Python proxy clearly marked EXPERIMENTAL** — loud startup banner in `proxy.py` (bypass with `JA4PROXY_PYTHON_EXPERIMENTAL_ACK=1`), prominent warnings in `CLAUDE.md`, `README.md`, and `src/security/__init__.py`. The production proxy is the Go binary (`bin/proxy`, Phase 15+); the Python implementation exists only as a prototyping surface for new signal modules.
+
+### Added
+- 9 new tests in `management/tests/test_compliance_routes.py` covering C1, C3, H2, H4, H5, L3 (**test count: 112 Python + 36 Go = 148**, was 139)
+- `docs/phases/PHASE_101.md` — Phase 101 plan tracking the 9 deferred review items (H1 double-XRANGE, H3 CIDR watchlist match, M1 Redis version check, M2 metric rename, M4 audit log pagination, M7 DSAR partial failures, L1 Jinja2 env cache, L2 JSONL invariant doc, L5 DSAR retention text from config)
+
 ## [84] - 2026-04-08 - Compliance Reporting & Evidence Pack
 
 ### Added

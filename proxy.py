@@ -1,6 +1,31 @@
 #!/usr/bin/env python3
 """
-JA4 Proxy - Enterprise TLS Fingerprinting Proxy Server
+JA4 Proxy — EXPERIMENTAL Python prototype (NOT the production proxy).
+
+===============================================================================
+⚠  EXPERIMENTAL — DO NOT DEPLOY THIS FILE IN PRODUCTION  ⚠
+===============================================================================
+
+The **Go** implementation under ``cmd/proxy/`` and ``internal/`` is the
+production JA4proxy.  It was promoted to production in Phase 15 and is what
+ships in release artefacts, Docker images, Helm charts, and enterprise
+documentation.
+
+This Python file (``proxy.py``) is kept as a **prototyping surface** for
+new signal modules and one-off experiments.  Prototype in Python, prove the
+idea, then port to Go before it goes anywhere near real traffic.  Python
+code under ``src/security/`` follows the same rule — it is a research
+playground, not a supported runtime.
+
+Use the Python proxy only for:
+  * iterating quickly on a new signal before porting it to Go
+  * running FP-corpus experiments that need the scipy/pandas ecosystem
+  * local repro of bugs found by the Go proxy in a more interactive env
+
+For production, use the Go proxy binary: ``bin/proxy`` (built via ``make``).
+
+===============================================================================
+
 Implements JA4/JA4+ TLS fingerprinting for traffic analysis and filtering.
 
 Security Features:
@@ -2918,5 +2943,25 @@ async def main():
 
 
 if __name__ == "__main__":  # pragma: no cover
+    # Emit a loud startup banner so operators cannot accidentally deploy
+    # the Python prototype thinking it is the production Go proxy.
+    # Suppress with JA4PROXY_PYTHON_EXPERIMENTAL_ACK=1 for intentional runs.
+    if os.environ.get("JA4PROXY_PYTHON_EXPERIMENTAL_ACK") != "1":
+        import sys as _sys
+        _banner = (
+            "\n"
+            "================================================================\n"
+            "  JA4proxy Python proxy — EXPERIMENTAL PROTOTYPE\n"
+            "================================================================\n"
+            "  The production proxy is the Go binary (bin/proxy, Phase 15+).\n"
+            "  This Python implementation is retained for experimentation\n"
+            "  and signal-module prototyping only.  DO NOT DEPLOY THIS FILE\n"
+            "  IN PRODUCTION.\n"
+            "\n"
+            "  To acknowledge and run anyway, set:\n"
+            "      JA4PROXY_PYTHON_EXPERIMENTAL_ACK=1\n"
+            "================================================================\n"
+        )
+        print(_banner, file=_sys.stderr, flush=True)
     _install_event_loop()  # Must be before asyncio.run() to take effect
     asyncio.run(main())
