@@ -50,20 +50,31 @@ var allowedTopLevelKeys = map[string]bool{
 	"bypass_toggles": true,
 }
 
+// allowedBypassKeys is the set of permitted keys within bypass_toggles.
+var allowedBypassKeys = map[string]bool{
+	"alpn_browser_bypass":  true,
+	"ja4_whitelist_bypass": true,
+	"mtls_bypass":          true,
+	"spamhaus_bypass":      true,
+	"tls_version_bypass":   true,
+}
+
 // ValidatePolicy parses and validates a policy YAML document offline.
 // currentDial is the current production dial setting used for increase validation.
 // Returns the parsed policy map on success.
 //
-// Seven validation rules are applied in order:
+// Nine validation rules are applied in order:
 //  1. YAML parse — PolicySyntaxError on failure.
 //  2. Top-level keys — only meta/dial/allowlist/blocklist/watchlist/bypass_toggles
 //     are allowed → PolicySchemaError.
-//  3. dial.setting must be 0–100 → PolicySchemaError.
-//  4. expires fields must be future ISO 8601 timestamps → PolicyTTLError.
-//  5. Dial increase > 20 without shadow_mode_approved: true → PolicyValidationError.
-//  6. CIDR fields validated with net/netip.ParsePrefix → PolicySchemaError.
-//  7. JA4 regex validation → PolicySchemaError.
-//  8. No duplicate JA4 fingerprints in the same list → PolicyDuplicateError.
+//  3. bypass_toggles keys — only alpn_browser_bypass/ja4_whitelist_bypass/
+//     mtls_bypass/spamhaus_bypass/tls_version_bypass are allowed → PolicySchemaError.
+//  4. dial.setting must be 0–100 → PolicySchemaError.
+//  5. expires fields must be future ISO 8601 timestamps → PolicyTTLError.
+//  6. Dial increase > 20 without shadow_mode_approved: true → PolicyValidationError.
+//  7. CIDR fields validated with net/netip.ParsePrefix → PolicySchemaError.
+//  8. JA4 regex validation → PolicySchemaError.
+//  9. No duplicate JA4 fingerprints in the same list → PolicyDuplicateError.
 func ValidatePolicy(yamlText string, currentDial int) (map[string]interface{}, error) {
 	// ── 1. YAML parse ────────────────────────────────────────────────────────
 	var policy map[string]interface{}
@@ -83,7 +94,22 @@ func ValidatePolicy(yamlText string, currentDial int) (map[string]interface{}, e
 		}
 	}
 
-	// ── 3. dial.setting range ────────────────────────────────────────────────
+	// ── 3. bypass_toggles key validation ────────────────────────────────────
+	if btRaw, ok := policy["bypass_toggles"]; ok && btRaw != nil {
+		btMap, ok := btRaw.(map[string]interface{})
+		if !ok {
+			return nil, &PolicySchemaError{Msg: "bypass_toggles must be a mapping"}
+		}
+		for k := range btMap {
+			if !allowedBypassKeys[k] {
+				return nil, &PolicySchemaError{
+					Msg: fmt.Sprintf("unknown bypass_toggles key %q — allowed keys: alpn_browser_bypass, ja4_whitelist_bypass, mtls_bypass, spamhaus_bypass, tls_version_bypass", k),
+				}
+			}
+		}
+	}
+
+	// ── 4. dial.setting range ────────────────────────────────────────────────
 	var newDialSetting *int
 	if dialRaw, ok := policy["dial"]; ok && dialRaw != nil {
 		dialMap, ok := dialRaw.(map[string]interface{})
@@ -106,7 +132,7 @@ func ValidatePolicy(yamlText string, currentDial int) (map[string]interface{}, e
 		}
 	}
 
-	// ── 4 & 5. expires fields and dial increase check ────────────────────────
+	// ── 5 & 6. expires fields and dial increase check ───────────────────────
 	if err := checkExpiresInLists(policy); err != nil {
 		return nil, err
 	}
@@ -129,17 +155,17 @@ func ValidatePolicy(yamlText string, currentDial int) (map[string]interface{}, e
 		}
 	}
 
-	// ── 6. CIDR validation ───────────────────────────────────────────────────
+	// ── 7. CIDR validation ───────────────────────────────────────────────────
 	if err := checkCIDRs(policy); err != nil {
 		return nil, err
 	}
 
-	// ── 7. JA4 regex validation ──────────────────────────────────────────────
+	// ── 8. JA4 regex validation ──────────────────────────────────────────────
 	if err := checkJA4s(policy); err != nil {
 		return nil, err
 	}
 
-	// ── 8. Duplicate JA4 fingerprints ───────────────────────────────────────
+	// ── 9. Duplicate JA4 fingerprints ───────────────────────────────────────
 	if err := checkDuplicateJA4s(policy); err != nil {
 		return nil, err
 	}

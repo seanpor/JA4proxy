@@ -1,0 +1,42 @@
+# Dockerfile-cli — multi-stage build for the ja4proxy-cli management binary.
+#
+# Build stage: full Go toolchain on Alpine.
+# Runtime stage: minimal distroless image with only the binary.
+# Target runtime image size: ≤ 15MB.
+#
+# Build:
+#   docker build -f Dockerfile-cli -t ghcr.io/anomalyco/ja4proxy-cli:latest .
+#
+# Run:
+#   docker run --rm ghcr.io/anomalyco/ja4proxy-cli:latest \
+#     --url https://mgmt.example.com --token $TOKEN ip ban 198.51.100.1
+
+# ── Build stage ───────────────────────────────────────────────────────────────
+FROM golang:1.25-alpine AS builder
+
+RUN apk add --no-cache ca-certificates git
+
+WORKDIR /build
+
+# Cache dependency downloads separately from source changes.
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source and build a statically-linked binary.
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build \
+    -ldflags="-s -w -extldflags '-static'" \
+    -o /build/ja4proxy-cli \
+    ./cmd/ja4proxy-cli/
+
+# ── Runtime stage ─────────────────────────────────────────────────────────────
+FROM gcr.io/distroless/static-debian12:nonroot
+
+COPY --from=builder /build/ja4proxy-cli /usr/local/bin/ja4proxy-cli
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# Config directory for ~/.config/ja4proxy/cli.yaml when running interactively.
+# In container use, pass --url and --token flags or environment variables.
+ENV HOME=/home/nonroot
+
+ENTRYPOINT ["/usr/local/bin/ja4proxy-cli"]

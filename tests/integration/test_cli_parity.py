@@ -104,6 +104,12 @@ INVALID_JA4 = VALID_MINIMAL + textwrap.dedent("""\
           added_by: "ops@example.com"
 """)
 
+# Unknown key inside bypass_toggles — must be rejected (parity regression guard).
+UNKNOWN_BYPASS_KEY = VALID_MINIMAL + textwrap.dedent("""\
+    bypass_toggles:
+      unknown_bypass: true
+""")
+
 
 @pytest.mark.parametrize(
     "yaml_text,expected_exit",
@@ -113,6 +119,7 @@ INVALID_JA4 = VALID_MINIMAL + textwrap.dedent("""\
         pytest.param(INVALID_DIAL, 1, id="invalid_dial"),
         pytest.param(UNKNOWN_FIELD, 1, id="unknown_field"),
         pytest.param(INVALID_JA4, 1, id="invalid_ja4"),
+        pytest.param(UNKNOWN_BYPASS_KEY, 1, id="unknown_bypass_key"),
     ],
 )
 def test_validate_parity(tmp_path, cli_binary, yaml_text, expected_exit):
