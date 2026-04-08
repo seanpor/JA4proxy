@@ -1,46 +1,46 @@
 # Redis, Caching & Data Integrity Security Review
 
-**Date:** 2026-04-08  
+**Date:** 2026-04-08 (recalibrated 2026-04-08 v2)  
 **Scope:** Redis client code (Python + Go), caching layers, backup system, rate limiting, Lua scripts, pub/sub  
-**Findings:** 25 total
+**Severity scale:** CRITICAL → HIGH → MEDIUM → LOW · **[Go-PROD]** = production gap · **[Python-deprecated]** = maintenance debt
 
----
+> **Production context:** Go (`internal/redis/`, `internal/cache/`) is production. Python (`src/cache/`, `src/backup/`) is deprecated. Go-only gaps are production issues. Shared infrastructure (Redis config, backup, Helm, compose) applies equally.
 
 ## Findings Summary
 
-| # | Severity | Area | One-Line Description |
-|---|----------|------|---------------------|
-| 1 | **HIGH** | Go Redis Client | TLS/SSL config field exists but is never applied to connection |
-| 2 | MEDIUM | Go Redis Client | No username support for ACL-based authentication |
-| 3 | MEDIUM | Management API | Redis URL builder has no TLS (`rediss://`) support |
-| 4 | LOW | Analytics | Uses deprecated `aioredis` package instead of `redis.asyncio` |
-| 5 | MEDIUM | Analytics Rate Limiter | Non-atomic ZCARD+ZADD+EXPIRE — TOCTOU race condition |
-| 6 | LOW | BloomFilter | Fallback SET TTL only set on first `add()` call |
-| 7 | INFO | Lua Script | Float timestamp + counter design is correct, no fix needed |
-| 8 | LOW | Go Rate Limiter | No input validation on IP/JA4 before Redis key construction |
-| 9 | LOW | Backup | Creates new Redis connection per backup run (connection churn) |
-| 10 | MEDIUM | Backup Lock | 10-minute lock TTL with no extension mechanism — long backups can overlap |
-| 11 | **HIGH** | Backup Restore | `FLUSHDB` wipes entire Redis DB, not just JA4proxy keys |
-| 12 | LOW | Backup Encryption | PBKDF2 iterations (100K) below OWASP 2023 recommendation (600K) |
-| 13 | MEDIUM | Redis Config | `allkeys-lru` eviction policy can evict security-critical keys |
-| 14 | LOW | Rate Tracker Pipeline | Pipeline errors not checked per-strategy — partial failure silent |
-| 15 | LOW | Pub/Sub | `whitelist_remove`/`ban_release` messages not HMAC-signed |
-| 16 | MEDIUM | Go Rate Limiter | IP/JA4 interpolated into Redis keys without length/character validation |
-| 17 | LOW | Management API | `whitelist_remove` publish not HMAC-signed |
-| 18 | LOW | Deployment | POC exposes password via `docker inspect` (documented, accepted) |
-| 19 | INFO | LocalCache | 30s `block_decisions` TTL is intentional and correct |
-| 20 | LOW | LocalCache | Whitelist allow can persist 30min after blacklist add (cache stale) |
-| 21 | LOW | Go Redis | `ZAdd`/`ZRemRangeByScore` swallow errors silently |
-| 22 | LOW | Backup | SCAN `count=100` is slow for large Redis instances |
-| 23 | LOW | Go Redis | No health check / script reload after Redis outage |
-| 24 | INFO | Lua Script | Counter key TTL reset on every call is correct |
-| 25 | MEDIUM | Redis Stream | No `maxlen` on connection event stream (unbounded growth) |
+| # | Severity | Area | One-Line Description | Scope |
+|---|----------|------|---------------------|-------|
+| 1 | **CRITICAL** | Go Redis Client | TLS/SSL config field exists but is never applied to connection | **[Go-PROD]** |
+| 2 | MEDIUM | Go Redis Client | No username support for ACL-based auth | **[Go-PROD]** |
+| 3 | MEDIUM | Management API | Redis URL builder has no TLS (`rediss://`) support | [Infra] |
+| 4 | LOW | Analytics | Uses deprecated `aioredis` package instead of `redis.asyncio` | [Python-deprecated] |
+| 5 | MEDIUM | Analytics Rate Limiter | Non-atomic ZCARD+ZADD+EXPIRE — TOCTOU race condition | [Python-deprecated] |
+| 6 | LOW | BloomFilter | Fallback SET TTL only set on first `add()` call | [Both] |
+| 7 | INFO | Lua Script | Float timestamp + counter design is correct, no fix needed | [Both] |
+| 8 | LOW | Go Rate Limiter | No input validation on IP/JA4 before Redis key construction | **[Go-PROD]** |
+| 9 | LOW | Backup | Creates new Redis connection per backup run (connection churn) | [Python-deprecated] |
+| 10 | MEDIUM | Backup Lock | 10-minute lock TTL with no extension mechanism — long backups can overlap | [Infra] |
+| 11 | **HIGH** | Backup Restore | `FLUSHDB` wipes entire Redis DB, not just JA4proxy keys | [Infra] |
+| 12 | LOW | Backup Encryption | PBKDF2 iterations (100K) below OWASP 2023 recommendation (600K) | [Python-deprecated] |
+| 13 | MEDIUM | Redis Config | `allkeys-lru` eviction policy can evict security-critical keys | [Infra] |
+| 14 | LOW | Rate Tracker Pipeline | Pipeline errors not checked per-strategy — partial failure silent | [Python-deprecated] |
+| 15 | LOW | Pub/Sub | `whitelist_remove`/`ban_release` messages not HMAC-signed | [Both] |
+| 16 | MEDIUM | Go Rate Limiter | IP/JA4 interpolated into Redis keys without length/character validation | **[Go-PROD]** |
+| 17 | LOW | Management API | `whitelist_remove` publish not HMAC-signed | [Infra] |
+| 18 | LOW | Deployment | POC exposes password via `docker inspect` (documented, accepted) | [Infra] |
+| 19 | INFO | LocalCache | 30s `block_decisions` TTL is intentional and correct | [Both] |
+| 20 | LOW | LocalCache | Whitelist allow can persist 30min after blacklist add (cache stale) | [Python-deprecated] |
+| 21 | MEDIUM | Go Redis | `ZAdd`/`ZRemRangeByScore` swallow errors silently | **[Go-PROD]** |
+| 22 | LOW | Backup | SCAN `count=100` is slow for large Redis instances | [Python-deprecated] |
+| 23 | LOW | Go Redis | No health check / script reload after Redis outage | **[Go-PROD]** |
+| 24 | INFO | Lua Script | Counter key TTL reset on every call is correct | [Both] |
+| 25 | MEDIUM | Redis Stream | No `maxlen` on connection event stream (unbounded growth) | [Infra] |
 
 ---
 
 ## Critical Findings
 
-### Finding 1 — HIGH: Go Redis Client Omits TLS Despite Config Having SSL Field
+### Finding 1 — CRITICAL (Go-PROD): Go Redis Client Omits TLS Despite Config Having SSL Field
 
 **File:** `internal/redis/client.go`, lines 36-44
 
