@@ -242,9 +242,34 @@ phase: 54
 
 ---
 
-*Last updated: 2026-04-07, Phase 82 complete*
+## Phase 85 — Threat Intelligence Feed Ingestion
+
+All keys are written by the analytics-container feed runner
+(`src/analytics/ti_feeds/runner.py`) and the per-feed state helper
+(`src/analytics/ti_feeds/state.py`). The Management API does **not** read or
+write these keys directly — they are an internal sidecar index that records
+which rules each feed created so differential cleanup can run after every poll.
+Provenance for the rules themselves lives on the canonical resources via
+`managed_by="feed"` and `note="feed:{feed_id}:{stix_id}"` (blocklist) or
+`reason="feed:{feed_id}"` (bans).
+
+| Key pattern | Type | TTL | Written by | Notes |
+|-------------|------|-----|------------|-------|
+| `ti_feed:{feed_id}:blocklist_uuids` | SET | none | `state.record_created()` | Resource UUIDs created by this feed via `POST /api/v1/blocklist`. Used at cleanup time to know what to `DELETE`. A rule is **only** removed by the feed that created it. |
+| `ti_feed:{feed_id}:ban_ips` | SET | none | `state.record_created()` | IP strings (canonical form, IPv6 fully expanded) banned by this feed via `POST /api/v1/bans/{ip:path}`. Same lifecycle as `blocklist_uuids`. |
+| `ti_feed:{feed_id}:active_stix_ids` | HASH | none | `state.replace_active_stix_ids()` | Map `{stix_indicator_id → resource_uuid_or_ip}` representing the indicators that were present in the **last successful** poll. Differential cleanup compares the next poll's set against this hash, deletes the dropped entries, then atomically replaces the hash. |
+| `ti_feed:{feed_id}:poll_state` | HASH | none | `state.update_poll_state()` | Per-feed scheduling and health: `last_success_ts`, `last_error_ts`, `last_added_after` (TAXII watermark), `circuit_state` (`closed`/`half_open`/`open`), `failure_count`, `consecutive_successes`. Drives the circuit breaker (§5.4 PHASE_85.md) and the runner's next-poll calculation. |
+| `ti_feed:{feed_id}:runtime_enabled` | String (`"1"` / `"0"`) | none | `POST /api/v1/threat-intel/feeds/{feed_id}/{enable\|disable}` | UI toggle override. When unset, the feed inherits the static `enabled:` value from `config/proxy.yml`. When set, this key wins and survives container restarts. |
+| `ti_feed:leader_lock` | String + TTL | 30 s | `runner.py` leader-election loop | Single-leader election across analytics replicas. Pattern is the same one Phase 8 uses for the Spamhaus feed manager — only the holder of this key polls feeds. The 30 s TTL bounds the recovery window after a crashed leader. |
+
+**Naming hygiene.** `feed_id` is operator-supplied via `config/proxy.yml` and
+is interpolated unescaped into every key in this section. The runner **must**
+validate `feed_id` against a strict regex (`^[a-z0-9][a-z0-9_-]{1,63}$`) at
+config-load time so it cannot contain `:` or otherwise pivot into another key
+namespace (for example `ban_cidr:` from Phase 11). This validation is tracked
+as a Phase 85 security follow-up — see `PHASE_85_notes.md` "Security findings".
 
 ---
 
-*Last updated: 2026-04-07, Phase 82 complete (Phase 79 entries added)*
+*Last updated: 2026-04-08, Phase 85 in progress*
 
