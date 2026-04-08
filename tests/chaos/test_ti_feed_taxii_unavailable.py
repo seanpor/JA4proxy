@@ -20,14 +20,15 @@ from typing import Any
 import fakeredis
 import pytest
 
-# Phase 85 architect H1 + shared fixture relocation — these tests assume
-# HTTP-layer DI on the feed clients and depend on the
-# tests/unit/analytics/ti_feeds/conftest.py fixtures (``stub_management_client``,
-# ``mock_taxii_server``, etc.) which are not yet visible from this directory.
-# Both items are tracked as their own follow-ups; mark the file xfail rather
-# than blocking the test merge.
+# phase-85: H1 closed (commit 5223cdc) but this file still expects an
+# older architecture in which TAXIIClient owned its own ``breaker`` and
+# ``FeedRunner`` accepted a ``feeds=[client]`` kwarg. Production wires
+# the breaker on ``CircuitBreakerManager`` and FeedRunner takes the full
+# config dict. Re-shaping these tests is tracked as a follow-up; the
+# circuit-breaker behaviour is already covered by
+# tests/unit/analytics/ti_feeds/test_circuit_breaker.py.
 pytestmark = pytest.mark.xfail(
-    reason="architect H1 + shared fixture relocation — tracked as Phase 85 follow-up",
+    reason="test architecture predates Phase 85 runner refactor — re-shape pending",
     strict=False,
 )
 

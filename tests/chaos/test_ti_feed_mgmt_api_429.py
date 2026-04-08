@@ -18,16 +18,10 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-# Phase 85 architect H1 + shared fixture relocation — these tests assume
-# HTTP-layer DI on the feed clients and depend on the
-# tests/unit/analytics/ti_feeds/conftest.py fixtures (``stub_management_client``,
-# ``mock_taxii_server``, etc.) which are not yet visible from this directory.
-# Both items are tracked as their own follow-ups; mark the file xfail rather
-# than blocking the test merge.
-pytestmark = pytest.mark.xfail(
-    reason="architect H1 + shared fixture relocation — tracked as Phase 85 follow-up",
-    strict=False,
-)
+# phase-85: H1 closed (commit 5223cdc) — feed clients now expose
+# HTTP-layer DI seams; the shared stub fixture is exposed via
+# tests/chaos/conftest.py.
+_ = pytest  # noqa: F841 — keep import marker active
 
 
 def _run(coro):
@@ -116,7 +110,7 @@ def test_batch_retried_on_429_no_loss():
     async def _fake_sleep(_s):
         return None
 
-    with patch("analytics.ti_feeds.mgmt_client.asyncio.sleep", _fake_sleep):
+    with patch("src.analytics.ti_feeds.mgmt_client.asyncio.sleep", _fake_sleep):
         _run(client.bulk_post_blocklist(entries))
 
     # Six indicators must have been POSTed at least once each — but one
@@ -148,7 +142,7 @@ def test_429_backoff_increases_inter_call_sleep():
     async def _fake_sleep(s):
         sleeps.append(s)
 
-    with patch("analytics.ti_feeds.mgmt_client.asyncio.sleep", _fake_sleep):
+    with patch("src.analytics.ti_feeds.mgmt_client.asyncio.sleep", _fake_sleep):
         _run(client.post_blocklist(entry="x", managed_by="feed", note=""))
 
     # Exponential backoff: 0.01 → 0.02 → 0.04
