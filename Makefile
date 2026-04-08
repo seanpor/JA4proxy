@@ -1240,7 +1240,8 @@ openapi-spec:
 
 ## Phase 83 targets
 test-phase-83:
-	GOROOT=/snap/go/current go build ./cmd/ja4proxy-cli/
+	mkdir -p bin
+	GOROOT=/snap/go/current go build -o bin/ja4proxy-cli ./cmd/ja4proxy-cli/
 	GOROOT=/snap/go/current go vet ./internal/cli/...
 	GOROOT=/snap/go/current go test ./internal/cli/... -v -count=1
 	GOROOT=/snap/go/current python3 -m pytest tests/integration/test_cli_parity.py -v
