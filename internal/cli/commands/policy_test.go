@@ -236,3 +236,37 @@ blocklist:
 		t.Errorf("expected *commands.PolicySchemaError, got %T: %v", err, err)
 	}
 }
+
+// TestPolicyValidate_ValidBypassToggle verifies that a known bypass key is accepted.
+func TestPolicyValidate_ValidBypassToggle(t *testing.T) {
+	policy := validMinimalPolicy + `
+bypass_toggles:
+  alpn_browser_bypass: false
+  mtls_bypass: true
+`
+	err := commands.RunPolicyValidate(policy, 0)
+	if err != nil {
+		t.Errorf("expected nil error for valid bypass_toggles, got: %v", err)
+	}
+}
+
+// TestPolicyValidate_UnknownBypassKey verifies that an unknown key within
+// bypass_toggles is rejected with a PolicySchemaError (parity with Python validator).
+func TestPolicyValidate_UnknownBypassKey(t *testing.T) {
+	policy := validMinimalPolicy + `
+bypass_toggles:
+  unknown_bypass: true
+`
+	err := commands.RunPolicyValidate(policy, 0)
+	if err == nil {
+		t.Fatal("expected error for unknown bypass key, got nil")
+	}
+
+	var schemaErr *commands.PolicySchemaError
+	if !errors.As(err, &schemaErr) {
+		t.Errorf("expected *commands.PolicySchemaError, got %T: %v", err, err)
+	}
+	if !strings.Contains(err.Error(), "unknown_bypass") {
+		t.Errorf("error should mention the offending key, got: %v", err)
+	}
+}
