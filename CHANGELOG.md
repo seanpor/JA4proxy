@@ -39,6 +39,8 @@
 - **C4 feed_id validation**: feed_id must match `^[a-z0-9][a-z0-9_-]{0,63}$` and may not collide with reserved names (`leader_lock`). Closes a Redis-key-namespace pivot and a Prometheus-cardinality inflation vector.
 - **C5 ban-target IP allowlist**: `is_bannable_ip()` rejects loopback / RFC1918 / link-local / multicast / reserved targets. Enforced inside `ManagementClient.post_ban` so every feed client (TAXII, RF, CS, REST, contribution) inherits the guard. A compromised upstream feed can no longer ban operator infrastructure.
 - **C8 differential-cleanup correctness**: replaced the operator-precedence bug `if handle and handle.count(".") >= 1 or ":" in (handle or "")` with an authoritative-set lookup against `ti_feed:{feed_id}:ban_ips` and `ti_feed:{feed_id}:blocklist_uuids`. Empty handles no longer trigger `delete_blocklist("")`.
+- **C7 leader-lock fail-closed**: `FeedState.try_acquire_leader` now returns `False` on Redis errors instead of `True`. The previous fail-open behaviour caused every analytics replica to act as leader during a Redis outage, doubling polls and racing differential cleanup.
+- **C7 cleanup atomicity**: per-indicator cleanup now runs through `FeedState.clear_handle`, which executes `hdel(active_stix_ids)` + `srem(ban_ips|blocklist_uuids)` inside a single Redis `MULTI/EXEC` transaction. The mgmt API delete still happens first; combined with idempotent 404 handling, the overall flow is at-least-once and converges.
 - Fixed dead-code `JA4_REGEX` character-class bug (`[d|q]` → `[dq]`) so the exported regex stops accepting literal `|` in JA4 strings.
 
 ### Notes

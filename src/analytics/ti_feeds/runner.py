@@ -324,8 +324,10 @@ class FeedRunner:
             )
             return
 
-        # Optional leader-lock — if another analytics replica is leading,
-        # skip this cycle. Fail-open: no Redis → act as leader.
+        # Leader-lock gate. C7 (architect review): the lock is **fail-closed**
+        # — if Redis is unavailable, ``try_acquire_leader`` returns False and
+        # we skip this cycle rather than have every replica simultaneously
+        # act as leader. The next cycle retries.
         if not await self._state.try_acquire_leader(
             self._instance_id, ttl_seconds=30
         ):
@@ -370,19 +372,30 @@ class FeedRunner:
         blocklist_uuids = (
             await self._state.get_blocklist_uuids(feed_id) if dropped else set()
         )
+        # C7 (architect review): per-indicator cleanup is now a two-step
+        # ordered operation:
+        #   1. Management API delete (idempotent — 404 treated as success).
+        #   2. Atomic Redis state clear via FeedState.clear_handle, which
+        #      runs hdel + srem in a single MULTI/EXEC transaction.
+        # If step 2 fails after step 1 succeeds, the next poll's diff will
+        # re-attempt the clear (the handle is still in the side set) and the
+        # mgmt API will return 404 — total operation is at-least-once and
+        # converges.
         removed_count = 0
         for stix_id, handle in dropped.items():
             if not handle:
                 # No resource to delete — just drop the snapshot entry.
-                await self._state.remove(feed_id, stix_id)
+                await self._state.clear_handle(
+                    feed_id, stix_id, handle="", kind="unknown"
+                )
                 continue
             try:
                 if handle in ban_ips:
+                    kind = "ban"
                     await self._mgmt.delete_ban(handle, feed_id=feed_id)
-                    await self._state.remove_ban_ip(feed_id, handle)
                 elif handle in blocklist_uuids:
+                    kind = "blocklist"
                     await self._mgmt.delete_blocklist(handle, feed_id=feed_id)
-                    await self._state.remove_blocklist_uuid(feed_id, handle)
                 else:
                     logger.warning(
                         "ti_feed | event=cleanup_unknown_handle | feed=%s | "
@@ -390,9 +403,13 @@ class FeedRunner:
                         feed_id,
                         stix_id,
                     )
-                    await self._state.remove(feed_id, stix_id)
+                    await self._state.clear_handle(
+                        feed_id, stix_id, handle=handle, kind="unknown"
+                    )
                     continue
-                await self._state.remove(feed_id, stix_id)
+                await self._state.clear_handle(
+                    feed_id, stix_id, handle=handle, kind=kind
+                )
                 removed_count += 1
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
