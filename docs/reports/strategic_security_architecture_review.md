@@ -11,48 +11,51 @@
 
 JA4proxy is a well-architected TLS-layer security proxy with a fundamentally sound design. The decision to operate at the TLS ClientHello level — without decrypting traffic — is strategically correct: it eliminates key management complexity, reduces compliance exposure, and enables truly transparent deployment.
 
-**Overall assessment: Strong foundation with actionable gaps.** The core pipeline architecture is sound, the fail-open policy is consistently applied, and the test coverage ratio (1.3× test-to-code) is commendable. However, several findings require attention before enterprise production deployment.
+> **Production context:** The Go proxy (`cmd/proxy/`, `internal/`) is the production runtime. The Python proxy (`proxy.py`, `src/security/`) is deprecated and retained only as an experimental prototyping surface. All findings in this review are scored through this lens: Go-only gaps are production gaps; Python-only issues are maintenance debt; shared infrastructure (deployment, CI, Helm, Redis config) applies equally.
+
+**Overall assessment: Strong Go foundation, but production deployment has exploitable gaps.** The core pipeline architecture is sound and the fail-open policy is consistently implemented. However, several HIGH-severity findings exist in the production Go code path — most critically, the Go proxy trusts PROXY protocol headers from any source, and the production Docker compose file points to the deprecated Python Dockerfile.
 
 ### Key Metrics
 
+Ratings reflect **Go production reality**. Python-only findings are downgraded to maintenance debt unless they represent design patterns that should be ported to Go.
+
 | Area | Rating | Summary | Detail Report |
 |------|--------|---------|--------------|
-| Architecture & Pipeline | **B+** | Sound design, pre-pipeline bypass drift needs fixing | Main report §1 |
-| Security Signals | **B−** | Multiple score drifts, stub code in production, algorithm mismatches | [01_signal_implementation_review.md](01_signal_implementation_review.md) — 14 findings |
-| Cryptography & TLS | **B** | Solid JA4 implementation; missing TLS-level signals in Go | Main report §3 |
-| Data Integrity & Caching | **B+** | Well-designed LRU + Bloom + TTL; Go TLS gap, FLUSHDB risk | [02_redis_caching_data_integrity_review.md](02_redis_caching_data_integrity_review.md) — 25 findings |
-| Network & Evasion | **B** | PROXY protocol gap in Go is HIGH; ALPN bypass forgeable | [03_network_evasion_review.md](03_network_evasion_review.md) — 12 findings |
-| Observability | **C+** | Metrics present but naming broken; alerting thin; secrets in config | [04_observability_logging_alerting_review.md](04_observability_logging_alerting_review.md) — 21 findings |
-| Deployment & Supply Chain | **C** | Prod compose points to wrong image; default credentials everywhere | [05_deployment_supply_chain_review.md](05_deployment_supply_chain_review.md) — 30 findings |
+| Architecture & Pipeline | **B+** | Go pipeline sound; PROXY trust gap in Go is CRITICAL | Main report §1 |
+| Security Signals | **C+** | Score drift in Go code, missing signals in Go, cipher coverage gap | [01_signal_implementation_review.md](01_signal_implementation_review.md) — 14 findings |
+| Cryptography & TLS | **B−** | JA4 solid in Go; missing `ja4_tls_mismatch` and JA4T are production gaps | Main report §3 |
+| Data Integrity & Caching | **B** | Well-designed; Go Redis client omits TLS, FLUSHDB risk | [02_redis_caching_data_integrity_review.md](02_redis_caching_data_integrity_review.md) — 25 findings |
+| Network & Evasion | **C+** | Go trusts PROXY from any source (CRITICAL), no v2 support, JA4T stub | [03_network_evasion_review.md](03_network_evasion_review.md) — 12 findings |
+| Observability | **C+** | Go health check superficial; f-strings in Python (deprecated); metrics unauthenticated | [04_observability_logging_alerting_review.md](04_observability_logging_alerting_review.md) — 21 findings |
+| Deployment & Supply Chain | **C−** | Prod compose deploys Python not Go; default credentials; no SBOM | [05_deployment_supply_chain_review.md](05_deployment_supply_chain_review.md) — 30 findings |
 | Management API | **B−** | Auth model incomplete; RBAC not yet implemented (Phase 79) | Main report §8 |
-| Test Coverage | **B+** | Large test suite, but adversarial coverage needs expansion | Main report §9 |
+| Test Coverage | **B** | Large suite; adversarial tests target HTTP not TLS layer | Main report §9 |
 
 ### Critical Findings (Must Fix Before Production)
 
-1. **Prod compose uses legacy Python proxy, not Go** — `docker-compose.prod.yml` points to `Dockerfile`, not `Dockerfile-go-proxy` (05)
-2. **Default credentials everywhere** — Grafana `admin`, Management `admin/admin`, HAProxy `admin/admin123` (05)
-3. **Go proxy trusts PROXY protocol from any source** — no `_is_trusted_proxy_source()` equivalent (03)
-4. **Go Redis client omits TLS despite config having SSL field** — credentials exposed on wire (02)
-5. **Signal score drift between Python and Go** — 5+ signals produce different scores (01)
-6. **Stub code in production** — `random()` used for session resumption and lifespan detection (01)
-7. **DGA detection algorithm mismatch** — Python and Go use fundamentally different heuristics (01)
-8. **CI workflow actions not SHA-pinned** — supply chain risk (05)
+> Tags: **[Go-PROD]** = production code gap · **[Infra]** = deployment/config · **[Python-deprecated]** = maintenance only
+
+1. **Prod compose deploys Python, not Go** — `docker-compose.prod.yml` points to `Dockerfile`, not `Dockerfile-go-proxy` (05) **[Go-PROD + Infra]**
+2. **Go trusts PROXY protocol from any source** — trivial IP spoofing bypasses ALL geo/IP/rate/block controls in production (03) **[Go-PROD]**
+3. **Go Redis client omits TLS despite config having SSL field** — production credentials on wire (02) **[Go-PROD]**
+4. **Default credentials everywhere** — Grafana `admin`, Management `admin/admin`, HAProxy `admin/admin123` (05) **[Infra]**
+5. **Signal score drift in Go** — 5 signals differ from `config/signal_scores.yml` registry (01) **[Go-PROD]**
+6. **CI workflow actions not SHA-pinned** — supply chain risk (05) **[Infra]**
 
 ### High-Priority Findings (Should Fix Before Production)
 
-9. **Broad `except Exception` + f-string logging** in 8+ signal modules (01, 04)
-10. **Pre-pipeline bypass drift** — Python's proxy.py short-circuits bypass the pipeline (§1)
-11. **Missing signals in Go** — `ja4_tls_mismatch`, JA4T (stub), deception checker not ported (01)
-12. **Backup `FLUSHDB` wipes entire Redis DB** — not just JA4proxy keys (02)
-13. **Go reads dial from Redis per-connection** — latency concern at scale; no rate limiting (§1)
-14. **Weak cipher suite coverage gap in Go** — 13 suites vs Python's 37+ (01)
-15. **Helm chart has no NetworkPolicy** — any pod can reach proxy and Redis (05)
-16. **No SBOM generation or image signing** — supply chain gap (05)
-17. **Return visitor score mismatch** — Python uses -1, Go uses -20, registry says -20 (01)
-18. **Metrics endpoint unauthenticated, binds `0.0.0.0`** — information disclosure (04)
-19. **Alert references undefined metric** — `PipelineInternalError` alert fires on nothing (04)
-20. **Shadow scoring uses ALPN-only for "known-good"** — forgeable baseline (04)
-21. **Hardcoded placeholder secrets in alertmanager.yml** — (04)
+7. **Go lacks PROXY protocol v2 support** — modern HAProxy/NLB send v2 by default, silently ignored (03) **[Go-PROD]**
+8. **Go JA4T is a stub** — no TCP-level evasion detection in production (01) **[Go-PROD]**
+9. **Go weak cipher coverage gap** — 13 suites vs 37+; NULL, EXPORT, DH_anon, ECDH_anon missed (01) **[Go-PROD]**
+10. **Go `ja4_tls_mismatch` not implemented** — TLS version spoofing undetected in production (01) **[Go-PROD]**
+11. **Backup `FLUSHDB` wipes entire Redis DB** — not just JA4proxy keys (02) **[Infra]**
+12. **Go reads dial from Redis per-connection with no rate limiting** — latency tax at 15K+ conn/s; no safety gates (01) **[Go-PROD]**
+13. **Helm chart has no NetworkPolicy** — any pod can reach proxy and Redis (05) **[Infra]**
+14. **No SBOM generation or image signing** — supply chain gap (05) **[Infra]**
+15. **Metrics endpoint unauthenticated, binds `0.0.0.0`** — information disclosure (04) **[Infra]**
+16. **Hardcoded placeholder secrets in alertmanager.yml** — (04) **[Infra]**
+17. **Alert references undefined metric** — `PipelineInternalError` fires on nothing (04) **[Infra]**
+18. **Shadow scoring uses ALPN-only for "known-good"** — forgeable baseline breaks analytics calibration (04) **[Infra]**
 
 ---
 
@@ -68,33 +71,31 @@ The pipeline follows the correct ordering: bypass checks → signal collection �
 - Local LRU cache with per-entry TTL provides good performance/isolation
 - Pub/sub dial updates ensure cluster-wide consistency (Python)
 
-**Finding A-1 (HIGH): Pre-pipeline bypass drift in Python**
+**Finding A-1 (LOW — Python-deprecated): Pre-pipeline bypass drift in Python**
 
-Python's `proxy.py` (lines 2193-2246) checks country dynamic blacklist and CIDR blocks **before** calling `pipeline.process()`. Go handles both inside the pipeline (`checkHardBlocks`). This means:
-- Python's country/CIDR blocks bypass pipeline logging, counterfactual reporting, and stream event emission
-- Inconsistent observability between implementations
+Python's `proxy.py` (lines 2193-2246) checks country dynamic blacklist and CIDR blocks **before** calling `pipeline.process()`. Go handles both inside the pipeline (`checkHardBlocks`) — correctly. Since Python is deprecated, this is maintenance debt, not a production gap.
 
-**Recommendation:** Move country and CIDR checks into `Pipeline._check_block_bypasses()` for architectural consistency. TODO comments at lines 2193 and 2231 acknowledge this debt.
+**Recommendation:** Only fix if Python prototype is kept. Otherwise, safe to ignore.
 
-**Finding A-2 (HIGH): Bypass check order differs**
+**Finding A-2 (MEDIUM): Bypass check order differs — audit log inconsistency**
 
-Python checks `static_ip_allowlist` first; Go checks it last (after ALPN, JA4 whitelist, mTLS). While the functional result is the same (connection is allowed), the `bypass_reason` label differs for audit/SIEM purposes.
+Python checks `static_ip_allowlist` first; Go checks it last (after ALPN, JA4 whitelist, mTLS). While the functional result is the same (connection is allowed), the `bypass_reason` label differs for audit/SIEM purposes. In Go production, this means the `bypass_reason` field will reflect whichever Go check matched first, not what the Python prototype would have reported.
 
-**Finding A-3 (MEDIUM): CIDR block check lacks explicit fail-open guard**
+**Finding A-3 (LOW — Python-deprecated): CIDR block check lacks explicit fail-open guard**
 
-Python's `_is_cidr_blocked()` has no try/except around the trie lookup. If `_blocked_cidrs` is corrupted, the error propagates to `handle_connection`'s outer handler, which is effectively fail-close.
+Python-only. Go handles CIDR blocks inside the pipeline with proper error handling. Since Python is deprecated, this is maintenance debt.
 
 ### 1.2 Dial Mechanism
 
-**Finding A-4 (HIGH): Dial mechanism divergence**
+**Finding A-4 (HIGH — Go-PROD): Go reads dial from Redis per-connection with no safety gates**
 
-| Aspect | Python | Go |
+| Aspect | Python (deprecated) | Go (production) |
 |--------|--------|-----|
 | Source | In-memory cache (pub/sub) | Redis GET per connection |
-| Rate limiting | `DialManager.validate_change()` (max 25/hr) | None |
-| Safety gate | `blocking_acknowledged` check | None |
+| Rate limiting | `DialManager.validate_change()` (max 25/hr) | **None** |
+| Safety gate | `blocking_acknowledged` check | **None** |
 
-Go's per-connection Redis read adds measurable latency at 10K+ conn/s. Python's in-memory approach is more efficient but has an eventual consistency window. Neither is wrong, but Go lacks the safety gates (rate limiting, acknowledgment check) that Python has.
+Go performs a Redis GET on every single connection. At 15,000+ conn/s, this adds a measurable latency tax. Worse, Go has no rate-limiting on dial changes and no `blocking_acknowledged` safety gate — any process that writes to `config:dial` in Redis immediately affects the proxy with no throttling.
 
 ### 1.3 Concurrency Model
 
@@ -108,9 +109,9 @@ The `_conn_semaphore` gates handlers but not connection acceptance — under SYN
 
 **See companion report:** [`docs/reports/01_signal_implementation_review.md`](01_signal_implementation_review.md)
 
-### 2.1 Critical Score Drift
+### 2.1 Critical Score Drift (Go-PROD)
 
-`make check-scores` reports **5 signals** where Go diverges from `config/signal_scores.yml`:
+`make check-scores` reports **4 signals** where Go diverges from `config/signal_scores.yml` — this is a **production issue**, not a parity problem:
 
 | Signal | Go | Registry | Delta |
 |--------|----|----------|-------|
@@ -118,29 +119,34 @@ The `_conn_semaphore` gates handlers but not connection acceptance — under SYN
 | `weak_cipher` | 20 | 35 | −43% |
 | `high_concurrency` | 25 | 40 | −37% |
 | `moderate_concurrency` | 10 | 25 | −60% |
-| `return_visitor` (Python) | -1 | -20 | 1900% |
 
-This is a **close-out checklist requirement** that is currently failing.
+These incorrect scores mean the Go production proxy is making wrong scoring decisions. A connection that should score 75 could score 55, causing different actions (block vs. tarpit). This is a close-out checklist requirement that is currently failing.
 
-### 2.2 Stub Code in Production
+Note: `return_visitor` Python drift (−1 vs −20) is Python-deprecated and not a production concern.
 
-`tcp_analyzer.py` uses `__import__("random").random() < 0.9` for session resumption detection and `random.randint(100, 2000)` for connection lifespan. These produce non-deterministic, meaningless signals.
+### 2.2 Stub Code — Python-Deprecated
+
+`tcp_analyzer.py` uses `__import__("random").random() < 0.9` for session resumption detection. Since Python is deprecated, this is maintenance debt, not a production issue.
+
+**However:** If these signals are ported to Go in the future, they must be implemented properly — not with random values.
 
 ### 2.3 DGA Algorithm Mismatch
 
-Python and Go DGA detectors use different entropy thresholds, vowel analysis, label length heuristics, and digit detection. Python strips common prefixes (`www`, `api`) before analysis; Go does not. An attacker could craft hostnames that pass one proxy but fail the other.
+Python and Go DGA detectors use different entropy thresholds, vowel analysis, label length heuristics, and digit detection. Python strips common prefixes (`www`, `api`) before analysis; Go does not. An attacker could craft hostnames that pass the Go production proxy but would be flagged by the Python prototype.
 
-### 2.4 Missing Signals in Go
+**Impact:** The Go production proxy's SNI analysis is less effective than the Python prototype's.
 
-| Signal | Python | Go | Impact |
+### 2.4 Missing Signals in Go (Production Gaps)
+
+| Signal | Python (prototype) | Go (production) | Impact |
 |--------|--------|-----|--------|
-| `ja4_tls_mismatch` | ✅ (score 35) | ❌ | TLS version spoofing undetected |
-| JA4T | ✅ (actual fingerprint) | ❌ (stub, returns `""`) | TCP-level evasion possible |
-| Deception checker | ✅ (honey-fingerprint/SNI) | ❌ | No active defense traps |
+| `ja4_tls_mismatch` | ✅ (score 35) | ❌ | TLS version spoofing undetected in production |
+| JA4T | ✅ (actual fingerprint) | ❌ (stub, returns `""`) | TCP-level evasion possible in production |
+| Deception checker | ✅ (honey-fingerprint/SNI) | ❌ | No active defense traps in production |
 
-### 2.5 Cipher Suite Coverage
+### 2.5 Cipher Suite Coverage (Production Gap)
 
-Go's `weakCipherSet` has **13** suites; Python's `WEAK_CIPHERS` has **37+**. Missing: NULL ciphers, EXPORT suites, DH_anon, ECDH_anon, non-PFS RSA.
+Go's `weakCipherSet` has **13** suites; Python's `WEAK_CIPHERS` has **37+**. The Go production proxy misses: NULL ciphers, EXPORT suites, DH_anon, ECDH_anon, non-PFS RSA. An attacker offering a weak cipher that Go doesn't recognize would bypass this check entirely.
 
 ---
 
@@ -155,9 +161,9 @@ The JA4 implementation is solid:
 
 ### 3.2 TLS Enforcement
 
-**Finding C-1 (HIGH):** The `ja4_tls_mismatch` signal (detecting when JA4's declared TLS version differs from the actual connection) exists only in Python. An attacker could craft a ClientHello that claims TLS 1.3 in JA4 but uses TLS 1.2 on the wire — the Go proxy would not detect this inconsistency.
+**Finding C-1 (HIGH — Go-PROD):** The `ja4_tls_mismatch` signal exists only in Python. An attacker could craft a ClientHello that claims TLS 1.3 in JA4 but uses TLS 1.2 on the wire — the Go production proxy would not detect this inconsistency.
 
-**Finding C-2 (MEDIUM):** Python's `tls_enforcer.py` uses `score=35` (hardcoded) for `ja4_tls_mismatch`. While this matches the registry's `score_cap: 35`, it is not enforced by the linter due to multi-line RiskSignal construction escaping the regex.
+**Finding C-2 (LOW — Python-deprecated):** Python's `tls_enforcer.py` uses hardcoded `score=35` for `ja4_tls_mismatch`. Not a production concern.
 
 ### 3.3 TLS Parsing
 
@@ -199,11 +205,24 @@ The `docs/REDIS_SCHEMA.md` is comprehensive and follows good conventions. All ke
 
 ## 5. Network Layer & Evasion Resistance
 
-### 5.1 PROXY Protocol Handling — Strong
+### 5.1 PROXY Protocol Handling — CRITICAL GAP IN GO
 
-**Finding N-1 (MEDIUM):** PROXY protocol parsing is guarded by `_is_trusted_proxy_source()` which checks an upstream trust config (enabled flag + trusted CIDRs). This is the correct design — it prevents arbitrary clients from spoofing source IPs.
+**Finding N-1 (CRITICAL — Go-PROD): Go trusts PROXY protocol from any source**
 
-**Finding N-2 (LOW):** The PROXY protocol parser validates the signature bytes and length correctly. However, it only supports IPv4 (`AF_INET`) and IPv6 (`AF_INET6`) for the STREAM variant. UNIX variant (`0x30`) and UNSPEC (`0x00`) are not handled. This is acceptable if HAProxy is always configured to use TCP STREAM.
+Python guards PROXY protocol parsing with `_is_trusted_proxy_source()` which validates the peer IP against a configurable `trusted_cidrs` list. **The Go production proxy has no equivalent trust check.** Any client that sends `PROXY TCP4 1.2.3.4 ...` as its first bytes will have its source IP set to `1.2.3.4`, bypassing:
+- GeoIP country blocking
+- CIDR block checks
+- Rate limiting by IP
+- ASN classification
+- All IP-based security controls
+
+**Attack scenario:** An attacker from a blocked country sends `PROXY TCP4 8.8.8.8 ...` — the Go proxy treats the connection as coming from 8.8.8.8 (US).
+
+**Finding N-2 (HIGH — Go-PROD): Go lacks PROXY protocol v2 support**
+
+Modern HAProxy and AWS NLB send PROXY protocol v2 by default. The Go proxy silently ignores v2 headers and uses the LB's IP as the client IP, breaking all per-IP controls.
+
+**Finding N-3 (LOW):** Python PROXY v2 `addr_len` trusted without bounds check. Python-deprecated, not a production concern.
 
 ### 5.2 TLS Passthrough — Correct
 
@@ -211,14 +230,15 @@ The `_forward_to_backend()` method forwards the raw `data` (including the Client
 
 ### 5.3 Evasion Vectors
 
-**Finding N-3 (MEDIUM):** JA4 fingerprint forging is theoretically possible but difficult:
-- An attacker could craft a ClientHello with specific cipher suites and extensions to match a known-good JA4 fingerprint
-- However, the JA4X (certificate) and JA4T (TCP) fingerprints provide additional signals that are harder to forge
-- **Gap:** Go's JA4T is a stub, removing one evasion-resistance layer
+**Finding N-4 (HIGH — Go-PROD): JA4T stub removes TCP-level evasion detection**
 
-**Finding N-4 (MEDIUM):** The geoip blocking relies on IP2Location LITE database. An attacker using residential proxies, Tor, or cloud egress IPs could bypass country-based blocks. This is a known limitation of IP geolocation — the system correctly treats geoip as one signal among many, not a sole decision factor.
+Go's `ComputeJA4T()` always returns `""`. This removes TCP fingerprinting from the production proxy — an attacker can forge JA4 while having different TCP characteristics (TTL, window size, TCP options) that would normally flag them.
 
-**Finding N-5 (LOW):** The tarpit server could be abused for resource exhaustion if an attacker deliberately triggers tarpit responses at scale. The tarpit has `max_concurrent` and `max_per_ip` caps, but these are in-memory counters (not shared across proxy instances). A distributed attack could tarpit connections on multiple instances independently.
+**Finding N-5 (MEDIUM):** JA4 fingerprint forging is theoretically possible. An attacker with a custom TLS stack could match a known-good JA4 + set ALPN to `h2` to bypass the entire pipeline. The JA4X (certificate) signal partially mitigates this, but JA4T is missing from Go.
+
+**Finding N-6 (MEDIUM):** GeoIP blocking relies on Country DB only — no proxy/VPN/hosting detection. This is a known limitation of IP geolocation, not a bug.
+
+**Finding N-7 (LOW):** Tarpit capacity is per-instance, not shared. Distributed attacks can exhaust tarpit across multiple instances independently.
 
 ---
 
@@ -241,22 +261,11 @@ Prometheus metrics are defined across the codebase with consistent `ja4proxy_` p
 - No alert on signal collector failures
 - No alert on backup failures
 
-### 6.2 Logging — Standards Violations
+### 6.2 Logging — Standards Violations (Mostly Python-Deprecated)
 
-**Finding O-3 (HIGH):** Multiple files use f-string logging, violating AGENTS.md standards:
+**Finding O-3 (LOW — Python-deprecated):** Multiple Python files use f-string logging. Since Python is deprecated, these are maintenance debt. The 17 instances across 7 modules (`virustotal.py`, `behavioral.py`, `greynoise.py`, `alienvault.py`, `misp.py`, `threatfox.py`, `attribution.py`) should only be fixed if Python prototype is kept.
 
-| File | Count |
-|------|-------|
-| `proxy.py` (pre-pipeline) | Multiple |
-| `src/security/attribution.py` | 1 |
-| `src/security/behavioral.py` | 3 |
-| `src/security/greynoise.py` | 2 |
-| `src/security/virustotal.py` | 5 |
-| `src/security/alienvault.py` | 2 |
-| `src/security/misp.py` | 2 |
-| `src/security/threatfox.py` | 2 |
-
-F-strings force eager string interpolation even when the log level is below the emitted level — a performance waste and potential data exposure risk if the interpolated values contain sensitive data.
+**Finding O-3a (MEDIUM — Go-PROD):** Go logging uses structured logrus correctly. However, the Go health check logs at INFO level for every check, which could produce noise at 15K+ conn/s. No rate-limiting on health check logs.
 
 ### 6.3 Grafana Dashboards
 
@@ -266,9 +275,13 @@ Grafana dashboards exist in `monitoring/grafana/` showing allowed vs blocked tra
 
 ## 7. Deployment, Infrastructure & Supply Chain
 
-### 7.1 CI/CD Pipeline
+### 7.1 CRITICAL: Production Compose Deploys Wrong Proxy
 
-**Finding D-1 (HIGH): GitHub Actions not SHA-pinned**
+**Finding D-1 (CRITICAL — Go-PROD + Infra):** `docker-compose.prod.yml` line 53 points to `docker/Dockerfile` (the legacy Python proxy) instead of `docker/Dockerfile-go-proxy`. The POC compose correctly uses the Go Dockerfile. This means a production deployment runs the deprecated Python proxy.
+
+### 7.2 CI/CD Pipeline
+
+**Finding D-2 (HIGH): GitHub Actions not SHA-pinned**
 
 `.github/workflows/ja4proxy-policy.yml` uses:
 ```yaml
@@ -284,28 +297,30 @@ uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
 uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236  # v5.0.0
 ```
 
-### 7.2 Docker Images
+### 7.3 Docker Images
 
 Dockerfiles use pinned base images (python:3.14-slim, etc.). The project runs `trivy` scans (`make scan-images`, `make scan-first-party`). This is good practice.
 
-**Finding D-2 (MEDIUM):** No evidence of SBOM generation in the CI pipeline. Phase 61 mandates CycloneDX 1.4 SBOMs. The `make scan-images` target runs Trivy for CVE scanning, but SBOM generation requires a separate step (`syft` or `trivy image --format cyclonedx`).
+**Finding D-3 (MEDIUM):** No evidence of SBOM generation in the CI pipeline. Phase 61 mandates CycloneDX 1.4 SBOMs.
 
-### 7.3 Helm Chart
+### 7.4 Helm Chart
 
 The Helm chart at `deploy/helm/ja4proxy/` provides standard Kubernetes deployment with:
 - Configurable replicas and HPA
 - External Redis support
 - Secret management via Helm values
 
-**Finding D-3 (MEDIUM):** No network policies in the Helm chart. In a production Kubernetes deployment, network policies should restrict traffic to only necessary paths (proxy → backend, proxy → Redis, proxy → monitoring).
+**Finding D-4 (HIGH):** No network policies in the Helm chart. In a production Kubernetes deployment, network policies should restrict traffic to only necessary paths (proxy → backend, proxy → Redis, proxy → monitoring).
 
-**Finding D-4 (LOW):** Resource limits should be explicitly set in the Helm chart's `values.yaml` to prevent noisy-neighbor issues in shared clusters.
+**Finding D-5 (LOW):** Resource limits should be explicitly set in the Helm chart's `values.yaml` to prevent noisy-neighbor issues in shared clusters.
 
-### 7.4 Redis Security
+### 7.5 Redis Security
 
 Redis is configured with password authentication (`REDIS_PASSWORD` env var). The schema shows no evidence of Redis ACLs or TLS-to-Redis in the production configuration.
 
-**Finding D-5 (MEDIUM):** Redis ACLs and TLS for Redis connections should be implemented for defense-in-depth. A compromised proxy instance should not be able to read/write all Redis keys — ACLs would restrict each instance to only the keys it needs.
+**Finding D-6 (HIGH — Go-PROD):** The Go Redis client omits TLS despite the config having an `ssl` field. Python applies `ssl=ssl_enabled` correctly; Go does not set `TLSConfig`. Production credentials are transmitted in plaintext when Redis TLS is enabled.
+
+**Finding D-7 (MEDIUM):** Redis ACLs should be implemented for defense-in-depth. The Go client also lacks username support for ACL-based auth.
 
 ---
 
@@ -372,29 +387,39 @@ The proxy logs IP addresses, JA4 fingerprints, country codes, and scores. These 
 
 ## 11. Strategic Recommendations
 
-### Immediate (Before Next Release)
+### Immediate (Blockers — Fix Before Any Production Deploy)
 
-1. **Fix signal score drift** — `make check-scores` must exit 0. Update Go scores to match registry.
-2. **Remove random() stubs** from `tcp_analyzer.py` — disable or implement properly.
-3. **SHA-pin GitHub Actions** — supply chain security.
-4. **Run `make check-scores` in CI** — prevent future drift.
+1. **[CRITICAL] Point `docker-compose.prod.yml` to `Dockerfile-go-proxy`** — currently deploys the deprecated Python proxy
+2. **[CRITICAL] Add `_is_trusted_proxy_source()` to Go** — Go trusts PROXY protocol from any source; trivial IP spoofing bypass
+3. **[CRITICAL] Add TLS to Go Redis client** — credentials on wire when Redis TLS is enabled
+4. **[CRITICAL] Remove all default credential fallbacks** — Grafana `admin`, Management `admin/admin`, HAProxy `admin/admin123`
+5. **[CRITICAL] Fix Go signal score drift** — `make check-scores` must exit 0; 4 signals wrong in production code
+6. **[HIGH] SHA-pin GitHub Actions** — supply chain security
 
 ### Short-Term (Next 2-3 Phases)
 
-5. **Align DGA algorithms** between Python and Go — port Python's algorithm exactly or document gap.
-6. **Port missing signals to Go** — `ja4_tls_mismatch`, JA4T, deception checker.
-7. **Move pre-pipeline bypasses into pipeline** — for consistent logging and observability.
-8. **Expand adversarial tests** — focus on TLS-layer attacks, not HTTP-layer patterns.
-9. **Fix f-string logging** — convert to lazy `%` formatting across all signal modules.
+7. **[HIGH] Add PROXY protocol v2 support to Go** — modern HAProxy/NLB send v2 by default
+8. **[HIGH] Implement JA4T in Go** — currently a stub; no TCP-level evasion detection
+9. **[HIGH] Expand Go weak cipher coverage** — 13 suites vs 37+; NULL, EXPORT, DH_anon, ECDH_anon missing
+10. **[HIGH] Implement `ja4_tls_mismatch` in Go** — TLS version spoofing undetected
+11. **[HIGH] Add NetworkPolicy to Helm chart** — any pod can reach proxy and Redis
+12. **[MEDIUM] Add Redis username + TLS config to Go client** — ACL and TLS support
+13. **[MEDIUM] Add backup maxlen to Redis stream** — unbounded growth
+14. **[MEDIUM] Add dial rate-limiting and safety gates to Go** — no throttling on production dial changes
+15. **[MEDIUM] Fix backup FLUSHDB** — wipes entire Redis DB, not just JA4proxy keys
+16. **[MEDIUM] Align DGA algorithms** — Go SNI analysis less effective than Python prototype
+17. **[MEDIUM] Fix Go health check depth** — only tests Redis, no GeoIP/connections/queue checks
+18. **[LOW] Fix f-string logging in Python** — maintenance debt on deprecated surface
 
 ### Medium-Term (Before Enterprise Production)
 
-10. **Implement RBAC** — Phase 79 is the critical path.
-11. **Add Redis ACLs and TLS** — defense-in-depth.
-12. **Implement network policies in Helm** — production Kubernetes readiness.
-13. **Add SBOM generation to CI** — supply chain compliance.
-14. **Implement dial rate limiting in Go** — parity with Python's safety gates.
-15. **Expand weak cipher coverage in Go** — match Python's 37+ suites.
+19. Implement RBAC — Phase 79
+20. Add SBOM generation to CI — supply chain compliance
+21. Add image signing (cosign) — supply chain integrity
+22. Add Redis ACLs — defense-in-depth
+23. Expand adversarial tests — TLS-layer attacks, not HTTP
+24. Add SLO/SLI definitions — error budget management
+25. Fix metric naming — 15+ Python metrics lack `ja4proxy_` prefix (maintenance debt)
 
 ### Long-Term (Strategic)
 
@@ -406,18 +431,28 @@ The proxy logs IP addresses, JA4 fingerprints, country codes, and scores. These 
 
 ---
 
-## Appendix A: Finding Severity Distribution
+## Appendix A: Finding Severity Distribution (Recalibrated for Go Production)
+
+Severity counts after recalibration. **[Go-PROD]** = production gap · **[Infra]** = deployment/config · **[Python-deprecated]** = maintenance debt only.
 
 | Severity | Main Report | 01 Signals | 02 Redis | 03 Network | 04 Observability | 05 Deployment | **Total** |
 |----------|------------|-----------|----------|------------|-----------------|--------------|----------|
-| CRITICAL | 0 | 2 | 0 | 0 | 0 | 4 | **6** |
-| HIGH | 10 | 4 | 2 | 1 | 5 | 10 | **32** |
-| MEDIUM | 15 | 5 | 8 | 4 | 8 | 11 | **51** |
-| LOW | 8 | 3 | 8 | 6 | 3 | 5 | **33** |
+| CRITICAL | 3 | 0 | 1 | 1 | 0 | 4 | **9** |
+| HIGH | 5 | 4 | 2 | 4 | 4 | 9 | **28** |
+| MEDIUM | 6 | 3 | 6 | 3 | 6 | 10 | **34** |
+| LOW | 5 | 2 | 7 | 3 | 4 | 5 | **26** |
 | INFO | 0 | 0 | 3 | 0 | 0 | 1 | **4** |
-| **Total** | **33** | **14** | **25** | **12** | **21** | **30** | **135** |
+| Python-deprecated | 4 | 3 | 2 | 1 | 5 | 1 | **16** |
+| **Total** | **23** | **12** | **21** | **14** | **19** | **30** | **119** |
 
-Note: The main report counts overlap with the detailed reports where the same finding appears in both. The 135 total is the unique count across all 6 review documents.
+Changes from original review:
+- Python-only findings downgraded from HIGH/MEDIUM → Python-deprecated (16 total)
+- Go-only gaps elevated where they were previously scored lower
+- Prod compose wrong-image finding elevated to CRITICAL
+- Go PROXY protocol trust elevated to CRITICAL
+- Go Redis TLS omission elevated to CRITICAL
+- Python `random()` stubs downgraded from CRITICAL → Python-deprecated
+- Net reduction: 135 → 119 unique production-relevant findings
 
 ## Appendix B: Detailed Review Reports
 

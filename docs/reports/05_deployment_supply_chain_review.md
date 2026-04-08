@@ -1,45 +1,45 @@
 # Deployment Infrastructure & Supply Chain Review
 
-**Date:** 2026-04-08  
+**Date:** 2026-04-08 (recalibrated 2026-04-08 v2)  
 **Scope:** Dockerfiles, docker-compose files, Helm chart, CI/CD pipelines, security configs, secrets management, TLS certificates  
-**Findings:** 30 total
+**Severity scale:** CRITICAL → HIGH → MEDIUM → LOW · **[Go-PROD]** = production gap · **[Infra]** = deployment/config · **[Python-deprecated]** = maintenance debt
 
----
+> **Production context:** Go is production. Python is deprecated. Findings are scored through this lens: prod compose pointing to wrong image is CRITICAL; default credentials are CRITICAL; Python-only Dockerfile issues are deprecated.
 
 ## Findings Summary
 
-| # | Severity | Category | Finding |
-|---|----------|----------|---------|
-| 1 | **CRITICAL** | Prod Config | Prod compose uses legacy Python proxy, not Go binary |
-| 2 | **CRITICAL** | Test Security | Test Redis has hardcoded empty password, port exposed to host |
-| 3 | **CRITICAL** | Default Creds | Grafana defaults to password "admin" if env unset |
-| 4 | **CRITICAL** | Default Creds | Management service defaults to admin/admin + placeholder JWT |
-| 5 | HIGH | Default Creds | HAProxy stats exporter defaults to admin/admin123 |
-| 6 | HIGH | Supply Chain | No SBOM generation, no image signing for main proxy |
-| 7 | HIGH | CI Security | Policy workflow uses unpinned GitHub Action tags (@v4, @v5) |
-| 8 | HIGH | CI Security | GitLab CI uses unpinned `python:3.11-slim` (no digest) |
-| 9 | HIGH | Container Security | Test-runner Dockerfile runs as root |
-| 10 | HIGH | Container Security | Recorder Dockerfile runs as root |
-| 11 | HIGH | TLS Security | Test TLS key embedded in image layers, 10-year validity |
-| 12 | HIGH | Kubernetes | Helm chart has no NetworkPolicy resources |
-| 13 | HIGH | Kubernetes | Helm chart missing container-level securityContext |
-| 14 | HIGH | Kubernetes | Helm chart defaults to image tag "latest" |
-| 15 | MEDIUM | Kubernetes | Helm secret has `resource-policy: keep` (stale secrets) |
-| 16 | MEDIUM | Kubernetes | Helm secrets exposed via `--set` in CLI/history |
-| 17 | MEDIUM | Container Security | Promtail mounts Docker socket |
-| 18 | MEDIUM | Container Security | cAdvisor runs with `privileged: true` |
-| 19 | MEDIUM | SAST | Bandit skips 17 security checks (B103, B104, B324, etc.) |
-| 20 | MEDIUM | Supply Chain | Trivy scanner uses `:latest` tag |
-| 21 | MEDIUM | Web Security | Grafana cookies insecure, HSTS disabled |
-| 22 | MEDIUM | Supply Chain | No CI workflow for Go proxy image build/sign/push |
-| 23 | MEDIUM | Config Drift | Scale compose declares unused/conflicting network names |
-| 24 | MEDIUM | Container Security | POC proxy runs without seccomp profile |
-| 25 | MEDIUM | Access Control | Redis unix socket permissions 777 |
-| 26 | LOW | Base Image | `python:3.14.0-slim` may not be a stable release |
-| 27 | LOW | Helm Chart | Missing NOTES.txt and _helpers.tpl |
-| 28 | LOW | Helm Chart | ServiceMonitor port "metrics" not exposed by Service |
-| 29 | LOW | Helm Chart | Redis StatefulSet with empty volumeClaimTemplates |
-| 30 | INFO | Dev Experience | No `.env.example` template |
+| # | Severity | Category | Finding | Scope |
+|---|----------|----------|---------|-------|
+| 1 | **CRITICAL** | Prod Config | Prod compose uses legacy Python proxy, not Go binary | **[Go-PROD + Infra]** |
+| 2 | **CRITICAL** | Test Security | Test Redis has hardcoded empty password, port exposed to host | [Infra] |
+| 3 | **CRITICAL** | Default Creds | Grafana defaults to password "admin" if env unset | [Infra] |
+| 4 | **CRITICAL** | Default Creds | Management service defaults to admin/admin + placeholder JWT | [Infra] |
+| 5 | **HIGH** | Default Creds | HAProxy stats exporter defaults to admin/admin123 | [Infra] |
+| 6 | **HIGH** | Supply Chain | No SBOM generation, no image signing for main proxy | [Infra] |
+| 7 | **HIGH** | CI Security | Policy workflow uses unpinned GitHub Action tags (@v4, @v5) | [Infra] |
+| 8 | **HIGH** | CI Security | GitLab CI uses unpinned `python:3.11-slim` (no digest) | [Infra] |
+| 9 | **HIGH** | Container Security | Test-runner Dockerfile runs as root | [Infra] |
+| 10 | **HIGH** | Container Security | Recorder Dockerfile runs as root | [Infra] |
+| 11 | **HIGH** | TLS Security | Test TLS key embedded in image layers, 10-year validity | [Infra] |
+| 12 | **HIGH** | Kubernetes | Helm chart has no NetworkPolicy resources | [Infra] |
+| 13 | **HIGH** | Kubernetes | Helm chart missing container-level securityContext | [Infra] |
+| 14 | **HIGH** | Kubernetes | Helm chart defaults to image tag "latest" | [Infra] |
+| 15 | MEDIUM | Kubernetes | Helm secret has `resource-policy: keep` (stale secrets) | [Infra] |
+| 16 | MEDIUM | Kubernetes | Helm secrets exposed via `--set` in CLI/history | [Infra] |
+| 17 | MEDIUM | Container Security | Promtail mounts Docker socket | [Infra] |
+| 18 | MEDIUM | Container Security | cAdvisor runs with `privileged: true` | [Infra] |
+| 19 | MEDIUM | SAST | Bandit skips 17 security checks (B103, B104, B324, etc.) | [Python-deprecated] |
+| 20 | MEDIUM | Supply Chain | Trivy scanner uses `:latest` tag | [Infra] |
+| 21 | MEDIUM | Web Security | Grafana cookies insecure, HSTS disabled | [Infra] |
+| 22 | MEDIUM | Supply Chain | No CI workflow for Go proxy image build/sign/push | **[Go-PROD + Infra]** |
+| 23 | MEDIUM | Config Drift | Scale compose declares unused/conflicting network names | [Infra] |
+| 24 | MEDIUM | Container Security | POC proxy runs without seccomp profile | [Infra] |
+| 25 | MEDIUM | Access Control | Redis unix socket permissions 777 | [Infra] |
+| 26 | LOW | Base Image | `python:3.14.0-slim` may not be a stable release | [Python-deprecated] |
+| 27 | LOW | Helm Chart | Missing NOTES.txt and _helpers.tpl | [Infra] |
+| 28 | LOW | Helm Chart | ServiceMonitor port "metrics" not exposed by Service | [Infra] |
+| 29 | LOW | Helm Chart | Redis StatefulSet with empty volumeClaimTemplates | [Infra] |
+| 30 | INFO | Dev Experience | No `.env.example` template | [Infra] |
 
 ---
 

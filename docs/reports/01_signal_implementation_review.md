@@ -1,35 +1,37 @@
 # Security Signal Implementation Review
 
-**Date:** 2026-04-08  
+**Date:** 2026-04-08 (recalibrated 2026-04-08 v2)  
 **Scope:** All signal modules in `src/security/` and `internal/security/`, JA4 fingerprinting, score registry  
-**Severity scale:** CRITICAL → HIGH → MEDIUM → LOW
+**Severity scale:** CRITICAL → HIGH → MEDIUM → LOW · **[Go-PROD]** = production gap · **[Python-deprecated]** = maintenance debt
+
+> **Production context:** The Go proxy (`internal/security/`) is production. The Python proxy (`src/security/`) is deprecated. Go-only gaps are production issues. Python-only issues are maintenance debt.
 
 ---
 
 ## Findings Summary
 
-| # | Severity | Finding | Impact |
-|---|----------|---------|--------|
-| 1 | CRITICAL | Signal score drift — 5 signals differ between code and registry | Wrong scores, broken parity |
-| 2 | CRITICAL | Dead code in `asn_classifier.py` — unreachable return | Code hygiene concern |
-| 3 | HIGH | Python/Go DGA detection algorithms fundamentally different | Parity break, evasion possible |
-| 4 | HIGH | `ja4_tls_mismatch` missing from Go entirely | Detection gap |
-| 5 | HIGH | `tcp_analyzer.py` uses `__import__("random")` for production logic | Non-deterministic, meaningless signals |
-| 6 | HIGH | Broad `except Exception` + f-string logging in 8+ files | Standards violation, potential data exposure |
-| 7 | MEDIUM | `asn_classifier.py` module-level `RISK_SCORES` diverges from config | Dead code, developer confusion |
-| 8 | MEDIUM | `_check_ja4t_mismatch` OS mapping is nonsensical | Signal effectively non-functional |
-| 9 | MEDIUM | `return_visitor` signal uses score -1 instead of -20 | Wrong score value |
-| 10 | MEDIUM | Go weak cipher suite coverage 13 vs Python's 37+ | Detection gap |
-| 11 | MEDIUM | `check-signal-scores.py` regex cannot handle multi-line RiskSignal | Linter blind spot |
-| 12 | LOW | VirusTotal quota tracking not multi-instance safe | Undercounting under load |
-| 13 | LOW | `blocklists.py` silently drops malformed CIDRs | Silent degradation |
-| 14 | LOW | Go `JA4T` implementation is a stub (always returns `""`) | Detection gap |
+| # | Severity | Finding | Scope | Impact |
+|---|----------|---------|-------|--------|
+| 1 | CRITICAL | Signal score drift — 4 Go signals differ from registry | **[Go-PROD]** | Wrong scores in production |
+| 2 | CRITICAL | Dead code in `asn_classifier.py` — unreachable return | [Both] | Code hygiene concern |
+| 3 | HIGH | Python/Go DGA detection algorithms fundamentally different | **[Go-PROD]** | Go SNI analysis less effective |
+| 4 | HIGH | `ja4_tls_mismatch` missing from Go entirely | **[Go-PROD]** | TLS version spoofing undetected |
+| 5 | HIGH | Go weak cipher suite coverage 13 vs 37+ | **[Go-PROD]** | NULL/EXPORT/DH_anon ciphers not detected |
+| 6 | HIGH | Go `JA4T` implementation is a stub (always returns `""`) | **[Go-PROD]** | TCP-level evasion possible |
+| 7 | LOW | `tcp_analyzer.py` uses `__import__("random")` | [Python-deprecated] | Maintenance debt only |
+| 8 | LOW | Broad `except Exception` + f-string logging in Python | [Python-deprecated] | Maintenance debt only |
+| 9 | MEDIUM | `asn_classifier.py` module-level `RISK_SCORES` diverges | [Both] | Dead code, developer confusion |
+| 10 | MEDIUM | `_check_ja4t_mismatch` OS mapping is nonsensical | [Both] | Signal effectively non-functional |
+| 11 | LOW | `return_visitor` score mismatch (Python -1, Go -20, registry -20) | [Python-deprecated] | Go is correct; Python is deprecated |
+| 12 | MEDIUM | `check-signal-scores.py` regex cannot handle multi-line RiskSignal | [Infra] | Linter blind spot |
+| 13 | LOW | VirusTotal quota tracking not multi-instance safe | [Both] | Undercounting under load |
+| 14 | LOW | `blocklists.py` silently drops malformed CIDRs | [Both] | Silent degradation |
 
 ---
 
 ## Finding 1 — CRITICAL: Signal Score Drift
 
-**5 signals** diverge between Go code and `config/signal_scores.yml`:
+**4 signals** diverge between Go code and `config/signal_scores.yml`. This is a production issue — the Go proxy is making wrong scoring decisions:
 
 | Signal | Go Value | Registry Value | File |
 |--------|----------|---------------|------|
@@ -37,9 +39,10 @@
 | `weak_cipher` | 20 | 35 | `internal/security/tls_enforcer.go:120` |
 | `high_concurrency` | 25 | 40 | `internal/security/tcp_analyzer.go:117` |
 | `moderate_concurrency` | 10 | 25 | `internal/security/tcp_analyzer.go:127` |
-| `return_visitor` (Python) | -1 | -20 | `src/security/tcp_analyzer.py:340` |
 
-**Impact:** Go proxy produces materially different composite scores than Python for identical traffic. A connection scoring 75 in Python could score 55 in Go, causing different actions (block vs. tarpit). This breaks the parity requirement.
+Note: `return_visitor` Python drift (−1 vs −20, `src/security/tcp_analyzer.py:340`) was in the original count but Python is deprecated.
+
+**Impact:** Go production proxy makes wrong scoring decisions. A connection that should score 75 could score 55, causing different actions (block vs. tarpit).
 
 **Remediation:** Update all Go signal scores to match the registry. Run `make check-scores` — must exit 0.
 
@@ -85,7 +88,7 @@ The Python `tls_enforcer.py` produces a `ja4_tls_mismatch` signal (score 35) whe
 
 ---
 
-## Finding 5 — HIGH: `tcp_analyzer.py` Uses `random()` for Production Logic
+## Finding 5 — LOW (Python-deprecated): `tcp_analyzer.py` Uses `random()`
 
 File: `src/security/tcp_analyzer.py`, lines 158-161:
 
@@ -100,15 +103,13 @@ And line 192:
 lifespan_ms = ctx.connection_lifespan_ms or __import__("random").randint(100, 2000)
 ```
 
-These are simulation/stub code that reached production. Session resumption is determined by a 90% coin flip based on whether "chrome" appears in the JA4 string, not by inspecting the actual session_ticket extension. Connection lifespan uses a random value when the context lacks one.
-
-**Remediation:** Implement proper session ticket inspection, or disable these signals until they produce real data.
+These are simulation/stub code. Since Python is deprecated, this is maintenance debt, not a production issue. **However:** If these signals are ported to Go in the future, they must be implemented properly — not with random values.
 
 ---
 
-## Finding 6 — HIGH: Broad `except Exception` + f-string Logging
+## Finding 6 — LOW (Python-deprecated): Broad `except Exception` + f-string Logging
 
-AGENTS.md mandates: "Never use broad `except Exception:` blocks" and "Never use f-strings in logging." The following files violate both:
+The following **Python-only** files use broad `except Exception` + f-string logging. Since Python is deprecated, these are maintenance debt:
 
 | File | Lines |
 |------|-------|
@@ -120,7 +121,7 @@ AGENTS.md mandates: "Never use broad `except Exception:` blocks" and "Never use 
 | `src/security/misp.py` | 180, 207 |
 | `src/security/threatfox.py` | 176, 203 |
 
-**Remediation:** Replace broad exception handlers with specific types. Convert f-strings to lazy `%` formatting in logging calls.
+Go logging uses structured logrus correctly — no equivalent issue in production code.
 
 ---
 
@@ -159,21 +160,15 @@ Chrome and Firefox run on every platform. The TTL-based JA4T OS map checks for `
 
 ---
 
-## Finding 9 — MEDIUM: `return_visitor` Score Mismatch
+## Finding 9 — LOW (Python-deprecated): `return_visitor` Score Mismatch
 
-Python: hardcoded `-1` (`src/security/tcp_analyzer.py:340`).  
-Go: correctly uses `-20`.  
-Registry: declares `-20`.
-
-The Python signal always returns -1 regardless of the `score_reduction_pct` config value (default 20).
-
-**Remediation:** Use the config value or registry value, not a hardcoded constant.
+Python: hardcoded `-1` (`src/security/tcp_analyzer.py:340`). Go: correctly uses `-20`. Registry: declares `-20`. Since Python is deprecated, only the Python side is wrong.
 
 ---
 
-## Finding 10 — MEDIUM: Go Weak Cipher Suite Coverage Gap
+## Finding 10 — HIGH (Go-PROD): Go Weak Cipher Suite Coverage Gap
 
-Go `weakCipherSet` contains **13** suites. Python `WEAK_CIPHERS` contains **37+**, including NULL, EXPORT, DH_anon, ECDH_anon, and non-PFS RSA ciphers. The Go proxy would miss many weak cipher detections.
+Go `weakCipherSet` contains **13** suites. Python `WEAK_CIPHERS` contains **37+**, including NULL, EXPORT, DH_anon, ECDH_anon, and non-PFS RSA ciphers. The Go production proxy would miss many weak cipher detections, allowing connections with insecure ciphers to pass this check.
 
 **Remediation:** Sync the Go cipher suite list with Python's.
 
@@ -228,8 +223,8 @@ Always returns empty string. Python produces actual JA4T fingerprints.
 
 ---
 
-## Top 3 Priority Actions
+## Top 3 Priority Actions (Go-Production Focus)
 
-1. **Run `make check-scores` and fix all 5 drifts** — this is a close-out checklist requirement currently failing.
-2. **Remove `__import__("random")` stubs** from `tcp_analyzer.py` — non-deterministic signals must be fixed or disabled.
-3. **Align DGA algorithms** between Python and Go — either port exactly or document as known gap.
+1. **Run `make check-scores` and fix 4 Go drifts** — production proxy making wrong scoring decisions
+2. **Implement missing signals in Go** — `ja4_tls_mismatch`, JA4T, expand weak cipher coverage from 13 → 37+
+3. **Align DGA algorithms** — Go SNI analysis less effective than Python prototype; evasion possible

@@ -1,37 +1,38 @@
 # Observability, Logging & Alerting Review
 
-**Date:** 2026-04-08  
+**Date:** 2026-04-08 (recalibrated 2026-04-08 v2)  
 **Scope:** Prometheus rules, Alertmanager config, Grafana dashboards, telemetry, analytics, health checks, structured logging  
-**Findings:** 21 total
+**Severity scale:** CRITICAL → HIGH → MEDIUM → LOW · **[Go-PROD]** = production gap · **[Python-deprecated]** = maintenance debt
 
----
+> **Production context:** Go (`cmd/proxy/`, `internal/metrics/`) is production. Python is deprecated. Go-only gaps are production issues. Python-only logging violations are maintenance debt. Shared infrastructure (Prometheus, Alertmanager, Grafana, Helm, compose) applies equally.
 
 ## Findings Summary
 
-| # | Severity | Category | Finding |
-|---|----------|----------|---------|
-| 1a | MEDIUM | Metric Naming | Recording rules use `ja4:` prefix, not `ja4proxy_` |
-| 1b | MEDIUM | Metric Naming | 15+ Python metric definitions lack `ja4proxy_` prefix |
-| 2a | **HIGH** | Logging/PII | f-string logging in 7 security modules (17 instances) |
-| 3a | MEDIUM | Health Depth | Go health check only tests Redis, no hysteresis |
-| 3b | LOW | Health Depth | Go proxy has no `/ready` endpoint |
-| 4a | LOW | Alert Quality | Duplicate alert rules across two rule file sets |
-| 4b | MEDIUM | Missing Alerts | No alert for enrichment queue depth backlog |
-| 5a | **HIGH** | Blind Spot | `PipelineInternalError` alert references undefined metric |
-| 5b | MEDIUM | Blind Spot | No alert for static allowlist bypass abuse |
-| 5c | LOW | Blind Spot | No alert for country blacklist bypass under attack |
-| 5d | MEDIUM | Missing Alerts | No alert for dial change rate exceeding limit |
-| 6a | MEDIUM | Analytics | AggregationManager discards all data on window rotate |
-| 6b | **HIGH** | Analytics | Shadow scoring uses ALPN-only for "known-good" traffic |
-| 6c | MEDIUM | Analytics | Default HMAC secret is well-known string |
-| 7a | **HIGH** | Metric Poisoning | Metrics endpoint unauthenticated, binds `0.0.0.0` |
-| 7b | LOW | Metric Poisoning | Prometheus scrape targets not mTLS protected |
-| 8a | MEDIUM | Structured Logging | `print()` calls bypass logging; mixed log formats |
-| 9a | **HIGH** | Secrets | Hardcoded placeholder secrets in alertmanager.yml |
-| 9b | LOW | Alert Routing | Default receiver is log-only, no human escalation |
-| 10a | LOW | Dashboards | Analytics dashboard lacks actionable incident panels |
-| 10b | LOW | Dashboards | No Grafana dashboard for backup operations |
-| 11 | MEDIUM | SLOs | No SLO/SLI definitions in config or governance |
+| # | Severity | Category | Finding | Scope |
+|---|----------|----------|---------|-------|
+| 1a | MEDIUM | Metric Naming | Recording rules use `ja4:` prefix, not `ja4proxy_` | [Infra] |
+| 1b | MEDIUM | Metric Naming | 15+ Python metric definitions lack `ja4proxy_` prefix | [Python-deprecated] |
+| 2a | LOW | Logging/PII | f-string logging in 7 Python security modules (17 instances) | [Python-deprecated] |
+| 2b | MEDIUM | Logging | Go health check logs at INFO for every check — noise at 15K+ conn/s | **[Go-PROD]** |
+| 3a | MEDIUM | Health Depth | Go health check only tests Redis, no hysteresis | **[Go-PROD]** |
+| 3b | MEDIUM | Health Depth | Go proxy has no `/ready` endpoint | **[Go-PROD]** |
+| 4a | LOW | Alert Quality | Duplicate alert rules across two rule file sets | [Infra] |
+| 4b | MEDIUM | Missing Alerts | No alert for enrichment queue depth backlog | [Infra] |
+| 5a | **HIGH** | Blind Spot | `PipelineInternalError` alert references undefined metric | [Infra] |
+| 5b | MEDIUM | Blind Spot | No alert for static allowlist bypass abuse | [Infra] |
+| 5c | LOW | Blind Spot | No alert for country blacklist bypass under attack | [Infra] |
+| 5d | MEDIUM | Missing Alerts | No alert for dial change rate exceeding limit | [Infra] |
+| 6a | MEDIUM | Analytics | AggregationManager discards all data on window rotate | [Python-deprecated] |
+| 6b | **HIGH** | Analytics | Shadow scoring uses ALPN-only for "known-good" traffic | [Infra] |
+| 6c | MEDIUM | Analytics | Default HMAC secret is well-known string | [Python-deprecated] |
+| 7a | **HIGH** | Metric Poisoning | Metrics endpoint unauthenticated, binds `0.0.0.0` | [Infra] |
+| 7b | LOW | Metric Poisoning | Prometheus scrape targets not mTLS protected | [Infra] |
+| 8a | MEDIUM | Structured Logging | `print()` calls bypass logging; mixed log formats | [Python-deprecated] |
+| 9a | **HIGH** | Secrets | Hardcoded placeholder secrets in alertmanager.yml | [Infra] |
+| 9b | LOW | Alert Routing | Default receiver is log-only, no human escalation | [Infra] |
+| 10a | LOW | Dashboards | Analytics dashboard lacks actionable incident panels | [Infra] |
+| 10b | LOW | Dashboards | No Grafana dashboard for backup operations | [Infra] |
+| 11 | MEDIUM | SLOs | No SLO/SLI definitions in config or governance | [Infra] |
 
 ---
 

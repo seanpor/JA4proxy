@@ -1,33 +1,33 @@
 # Network Layer & Evasion Resistance Review
 
-**Date:** 2026-04-08  
+**Date:** 2026-04-08 (recalibrated 2026-04-08 v2)  
 **Scope:** PROXY protocol handling, TLS passthrough, tarpit, geoip, blocklists, TAP/eBPF, connection forwarding  
-**Findings:** 12 total
+**Severity scale:** CRITICAL → HIGH → MEDIUM → LOW · **[Go-PROD]** = production gap · **[Python-deprecated]** = maintenance debt
 
----
+> **Production context:** Go (`cmd/proxy/`, `internal/proxy/`) is production. Python is deprecated. Go-only gaps are production issues.
 
 ## Findings Summary
 
-| # | Severity | Finding | File(s) |
-|---|----------|---------|---------|
-| 1 | **HIGH** | Go proxy trusts PROXY protocol from ANY source — no trust check | `cmd/proxy/main.go:289-296`, `internal/proxy/proxy_protocol.go` |
-| 2 | MEDIUM | Go proxy lacks PROXY protocol v2 support | `internal/proxy/proxy_protocol.go` |
-| 3 | MEDIUM | Tarpit server has no server-side resource limits | `tarpit/tarpit-server.py:44-73` |
-| 4 | MEDIUM | Tarpit overflow "allow" forwards malicious traffic to backend | `proxy.py:2524-2533`, `cmd/proxy/main.go:458-465` |
-| 5 | MEDIUM | JA4 is fully forgeable; ALPN bypass skips ALL security checks | `internal/security/pipeline.go:368-371` |
-| 6 | LOW-MEDIUM | Python PROXY v2 `addr_len` trusted without bounds check | `proxy.py:2387-2445` |
-| 7 | LOW | Go allocates buffer per connection (no `sync.Pool`) | `cmd/proxy/main.go:264,413` |
-| 8 | LOW-MEDIUM | XDP/eBPF blocking is IPv4 only | `ebpf/ja4block.c:71-75` |
-| 9 | LOW | Blocklist feed download has no size limit | `src/security/blocklists.py:377-383` |
-| 10 | LOW | GeoIP uses Country DB only (no proxy/VPN detection) | `cmd/proxy/main.go:299-304` |
-| 11 | LOW | Single `Read()` may not capture full ClientHello | `cmd/proxy/main.go:264` |
-| 12 | LOW | Tarpit capacity not shared across proxy instances | `proxy.py:2506-2514`, `cmd/proxy/main.go:447-455` |
+| # | Severity | Finding | Scope | File(s) |
+|---|----------|---------|-------|---------|
+| 1 | **CRITICAL** | Go proxy trusts PROXY protocol from ANY source — no trust check | **[Go-PROD]** | `cmd/proxy/main.go:289-296`, `internal/proxy/proxy_protocol.go` |
+| 2 | **HIGH** | Go proxy lacks PROXY protocol v2 support | **[Go-PROD]** | `internal/proxy/proxy_protocol.go` |
+| 3 | MEDIUM | Tarpit server has no server-side resource limits | [Both] | `tarpit/tarpit-server.py:44-73` |
+| 4 | MEDIUM | Tarpit overflow "allow" forwards malicious traffic to backend | [Both] | `proxy.py:2524-2533`, `cmd/proxy/main.go:458-465` |
+| 5 | MEDIUM | JA4 is fully forgeable; ALPN bypass skips ALL security checks | [Both] | `internal/security/pipeline.go:368-371` |
+| 6 | LOW-MEDIUM | Python PROXY v2 `addr_len` trusted without bounds check | [Python-deprecated] | `proxy.py:2387-2445` |
+| 7 | LOW | Go allocates buffer per connection (no `sync.Pool`) | **[Go-PROD]** | `cmd/proxy/main.go:264,413` |
+| 8 | LOW-MEDIUM | XDP/eBPF blocking is IPv4 only | [Infra] | `ebpf/ja4block.c:71-75` |
+| 9 | LOW | Blocklist feed download has no size limit | [Both] | `src/security/blocklists.py:377-383` |
+| 10 | LOW | GeoIP uses Country DB only (no proxy/VPN detection) | [Both] | `cmd/proxy/main.go:299-304` |
+| 11 | LOW | Single `Read()` may not capture full ClientHello | **[Go-PROD]** | `cmd/proxy/main.go:264` |
+| 12 | LOW | Tarpit capacity not shared across proxy instances | [Both] | `proxy.py:2506-2514`, `cmd/proxy/main.go:447-455` |
 
 ---
 
 ## Critical Findings
 
-### Finding 1 — HIGH: Go Proxy Trusts PROXY Protocol from Any Source
+### Finding 1 — CRITICAL (Go-PROD): Go Proxy Trusts PROXY Protocol from Any Source
 
 **Files:** `cmd/proxy/main.go`, lines 289-296; `internal/proxy/proxy_protocol.go`, lines 12-33
 
@@ -52,9 +52,9 @@ if p.cfg.Proxy.ProxyProtocol {
 
 ---
 
-## Medium Findings
+## High Findings
 
-### Finding 2 — Go Proxy Lacks PROXY Protocol v2 Support
+### Finding 2 — HIGH (Go-PROD): Go Proxy Lacks PROXY Protocol v2 Support
 
 The Python implementation supports both v2 (binary, 12-byte magic) and v1 (text). Go only supports v1. If a load balancer sends PROXY protocol v2 (default for modern HAProxy and AWS NLB), the Go proxy silently ignores it and uses the LB's IP as the client IP, breaking all per-IP security controls.
 
