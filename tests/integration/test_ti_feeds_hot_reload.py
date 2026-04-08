@@ -27,7 +27,7 @@ import pytest
 # Both items are tracked as their own follow-ups; mark the file xfail rather
 # than blocking the test merge.
 pytestmark = pytest.mark.xfail(
-    reason="architect H1 + shared fixture relocation — tracked as Phase 85 follow-up",
+    reason="test predates Phase 85 runner refactor (FeedRunner(feeds=[...]) constructor) — re-shape pending",
     strict=False,
 )
 
