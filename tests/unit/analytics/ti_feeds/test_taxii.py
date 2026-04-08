@@ -14,17 +14,7 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
-
-# Phase 85 architect H1 — these tests assume aiohttp/HTTP-layer dependency
-# injection (e.g. ``TAXIIClient(taxii=stub_server)``). The current production
-# client constructs its own ``aiohttp.ClientSession`` per poll. The DI rework
-# is tracked as architect finding H1 and is its own follow-up; mark the file
-# xfail rather than blocking the test merge.
-pytestmark = pytest.mark.xfail(
-    reason="architect H1: client constructors do not yet accept HTTP injection",
-    strict=False,
-)
+import pytest  # noqa: F401
 
 
 def _run(coro):

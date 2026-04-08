@@ -21,7 +21,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any, Optional
+from typing import Any, Awaitable, Callable, Optional
 
 try:  # pragma: no cover
     import aiohttp
@@ -40,14 +40,77 @@ _FALCON_INDICATORS_URL = "https://api.crowdstrike.com/intel/combined/indicators/
 _PAGE_SIZE = 100
 _BATCH_SLEEP_S = 0.05
 
+# Falcon's malicious_confidence is a categorical, not a number. Higher is
+# more confident; we accept indicators whose value is at or above the
+# configured threshold.
+_CONFIDENCE_RANK = {
+    "unverified": 0,
+    "low": 1,
+    "medium": 2,
+    "high": 3,
+}
+
 
 class CrowdStrikeFalconClient(FeedClient):
     """OAuth2 + cursor-paginated Falcon Intel client."""
 
-    def __init__(self, config: FeedConfig, mgmt, state) -> None:
+    def __init__(
+        self,
+        config: FeedConfig,
+        mgmt,
+        state,
+        *,
+        token_fetcher: Optional[
+            Callable[[str, str, str], Awaitable[str]]
+        ] = None,
+        page_fetcher: Optional[
+            Callable[..., Awaitable[dict[str, Any]]]
+        ] = None,
+    ) -> None:
+        """Construct a CrowdStrike Falcon Intel client.
+
+        Args:
+            config: Feed config (carries client_id/client_secret/etc.).
+            mgmt: ManagementClient (or test stub).
+            state: FeedState (or ``None`` for tests).
+            token_fetcher: Optional injected async callable
+                ``(client_id, client_secret, scope) -> bearer``. When set,
+                :meth:`fetch_bearer_token` calls it once and caches the
+                result. Production leaves this ``None`` and uses the
+                built-in aiohttp OAuth2 path. phase-85 architect H1.
+            page_fetcher: Optional injected async callable
+                ``(filters, offset=None, **kwargs) -> page_dict``. When
+                set, :meth:`poll` uses it for cursor-paginated indicator
+                fetches. phase-85 architect H1.
+        """
         super().__init__(config=config, mgmt=mgmt, state=state)
         self._token: Optional[str] = None
         self._token_expires_at: float = 0.0
+        self._token_fetcher = token_fetcher
+        self._page_fetcher = page_fetcher
+
+    async def fetch_bearer_token(self) -> str:
+        """Fetch and cache the OAuth2 bearer token via ``token_fetcher``.
+
+        Test-facing helper. Production code should call :meth:`_ensure_token`
+        which has its own freshness/expiry handling against the real Falcon
+        endpoint.
+        """
+        if self._token is not None:
+            return self._token
+        if self._token_fetcher is None:
+            raise RuntimeError(
+                "CrowdStrikeFalconClient.fetch_bearer_token requires "
+                "token_fetcher to be set"
+            )
+        self._token = await self._token_fetcher(
+            self.config.client_id or "",
+            self.config.client_secret or "",
+            "indicators:read",
+        )
+        # Long enough that test-side cache hits don't trigger refresh.
+        self._token_expires_at = time.time() + 3600
+        return self._token
 
     def __repr__(self) -> str:
         # phase-85 (architect C3): never let the bearer token, client_id,
@@ -66,6 +129,26 @@ class CrowdStrikeFalconClient(FeedClient):
         feed_id = self.config.id
         start = time.monotonic()
         result = FeedPollResult(feed_id=feed_id)
+
+        # phase-85 architect H1: when a test injects ``page_fetcher``,
+        # drive the cursor-paginated flow against it directly. The token
+        # exchange is bypassed because the test owns auth via
+        # ``token_fetcher``. Production leaves both unset and falls
+        # through to the aiohttp OAuth2 + indicator-pages path below.
+        if self._page_fetcher is not None:
+            try:
+                await self._poll_paginated_via_fetcher(result)
+                _POLL_TOTAL.labels(feed_id=feed_id, result="success").inc()
+            except Exception as exc:  # noqa: BLE001
+                result.errors.append(f"poll_failed: {exc}")
+                _POLL_TOTAL.labels(feed_id=feed_id, result="failure").inc()
+                logger.warning(
+                    "ti_feed | event=ti_feed.poll_failed | feed=%s | error=%s",
+                    feed_id,
+                    exc,
+                )
+            result.poll_duration_s = time.monotonic() - start
+            return result
 
         try:
             await self._ensure_token()
@@ -185,6 +268,29 @@ class CrowdStrikeFalconClient(FeedClient):
                     offset = new_offset
                     await asyncio.sleep(_BATCH_SLEEP_S)
 
+    async def _poll_paginated_via_fetcher(self, result: FeedPollResult) -> None:
+        """Drive a cursor-paginated stream against an injected ``page_fetcher``."""
+        assert self._page_fetcher is not None  # narrow for type checkers
+        offset: Optional[str] = None
+        # Build a filters string mirroring the production query so the
+        # test can inspect it if it wants to.
+        filters = (
+            f"type:'{','.join(self.config.indicator_types or ['ip_address'])}'"
+            f"+malicious_confidence:'{self.config.min_malicious_confidence}'"
+        )
+        while True:
+            page = await self._page_fetcher(filters, offset=offset)
+            if not isinstance(page, dict):
+                raise RuntimeError("page_fetcher returned non-dict page")
+            resources = page.get("resources", []) or []
+            await self._apply_batch(resources, result)
+            meta = page.get("meta", {}) or {}
+            pagination = meta.get("pagination", {}) or {}
+            next_offset = pagination.get("offset")
+            if next_offset is None:
+                return
+            offset = str(next_offset)
+
     async def _apply_batch(
         self,
         resources: list[dict[str, Any]],
@@ -192,10 +298,20 @@ class CrowdStrikeFalconClient(FeedClient):
     ) -> None:
         """Apply a page of Falcon indicators to the Management API."""
         feed_id = self.config.id
+        threshold = _CONFIDENCE_RANK.get(
+            (self.config.min_malicious_confidence or "high").lower(), 3
+        )
         for resource in resources:
             ip = resource.get("indicator") or resource.get("value")
             if not isinstance(ip, str):
                 result.unsupported_pattern += 1
+                continue
+            # phase-85: malicious_confidence is a categorical; the API can
+            # be asked to filter server-side but the page_fetcher injection
+            # path bypasses that, so enforce here too.
+            confidence = (resource.get("malicious_confidence") or "").lower()
+            if _CONFIDENCE_RANK.get(confidence, -1) < threshold:
+                result.skipped_below_confidence += 1
                 continue
             stix_id = resource.get("id") or f"falcon:{ip}"
             result.stix_ids_seen.add(str(stix_id))
@@ -210,7 +326,10 @@ class CrowdStrikeFalconClient(FeedClient):
             except Exception as exc:  # noqa: BLE001
                 result.errors.append(f"ban create failed: {exc}")
                 continue
-            await self.state.mark(feed_id, str(stix_id), handle=ip, kind="ban")
+            if self.state is not None:
+                await self.state.mark(
+                    feed_id, str(stix_id), handle=ip, kind="ban"
+                )
             result.created.append((str(stix_id), ip))
 
 

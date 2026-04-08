@@ -108,22 +108,64 @@ class ManagementClient:
         self,
         base_url: str,
         *,
+        token: Optional[str] = None,
         token_env_var: str = "JA4PROXY_FEED_CLIENT_TOKEN",
         timeout_s: float = 10.0,
         max_retries: int = 3,
         backoff_base_s: float = 0.5,
+        backoff_initial_s: Optional[float] = None,
+        session: Optional[Any] = None,
+        batch_size: int = 50,
+        inter_batch_sleep_s: float = 0.05,
     ) -> None:
+        """Construct the Management API client.
+
+        Args:
+            base_url: e.g. ``"http://management:8090"``.
+            token: Bearer token. When provided, used directly. Otherwise
+                falls back to ``os.environ[token_env_var]``. Tests pass
+                ``token=`` directly so they don't have to set env vars.
+            token_env_var: Env var name (default
+                ``JA4PROXY_FEED_CLIENT_TOKEN``).
+            timeout_s: Per-request timeout.
+            max_retries: Retry budget for 5xx / network errors.
+            backoff_base_s: Base for exponential backoff (legacy name).
+            backoff_initial_s: Alias for ``backoff_base_s`` used by Phase 85
+                tests; takes precedence when both are set.
+            session: Pre-built aiohttp session (or test stub exposing
+                ``post(url, json=, headers=)`` / ``delete(url, headers=)``
+                that return context managers). When provided, the client
+                does not create or close its own session. phase-85
+                architect H1.
+            batch_size: §2.5 bulk-ingest batch size for
+                :meth:`bulk_post_blocklist`.
+            inter_batch_sleep_s: §2.5 inter-batch sleep duration.
+        """
         self._base_url = base_url.rstrip("/")
-        self._token = os.environ.get(token_env_var, "")
+        if token is not None:
+            self._token = token
+        else:
+            self._token = os.environ.get(token_env_var, "")
         self._timeout_s = timeout_s
         self._max_retries = max_retries
-        self._backoff_base_s = backoff_base_s
-        self._session: Optional[Any] = None
+        self._backoff_base_s = (
+            backoff_initial_s if backoff_initial_s is not None else backoff_base_s
+        )
+        # Injected session bypasses lazy-construction inside connect().
+        self._injected_session = session is not None
+        self._session: Optional[Any] = session
+        self._batch_size = batch_size
+        self._inter_batch_sleep_s = inter_batch_sleep_s
 
     # ── session management ───────────────────────────────────────────────
 
     async def connect(self) -> None:
-        """Create the shared aiohttp session. Idempotent."""
+        """Create the shared aiohttp session. Idempotent.
+
+        No-op when a session was injected via the constructor.
+        """
+        if self._injected_session:
+            return
         if aiohttp is None:  # pragma: no cover
             raise RuntimeError(
                 "aiohttp is required for ManagementClient but is not installed"
@@ -135,7 +177,13 @@ class ManagementClient:
             )
 
     async def close(self) -> None:
-        """Tear down the shared session. Idempotent."""
+        """Tear down the shared session. Idempotent.
+
+        No-op when a session was injected — that session's lifetime is
+        owned by the test fixture, not by us.
+        """
+        if self._injected_session:
+            return
         if self._session is not None:
             try:
                 await self._session.close()
@@ -153,12 +201,40 @@ class ManagementClient:
 
     # ── low-level request helper ─────────────────────────────────────────
 
+    def _open_request(
+        self,
+        method: str,
+        url: str,
+        *,
+        json_body: Optional[dict[str, Any]] = None,
+    ) -> Any:
+        """Return the per-request context manager.
+
+        Routes through ``session.post()`` / ``session.delete()`` when an
+        injected session is in use (the Phase 85 unit-test stub style),
+        and through ``session.request()`` for the production aiohttp
+        path. Both shapes return an async context manager that yields a
+        response object exposing ``status`` and ``text()``.
+        """
+        assert self._session is not None
+        headers = self._default_headers() if self._injected_session else None
+        if self._injected_session:
+            method_up = method.upper()
+            if method_up == "POST":
+                return self._session.post(url, json=json_body, headers=headers)
+            if method_up == "DELETE":
+                return self._session.delete(url, headers=headers)
+            if method_up == "GET":
+                return self._session.get(url, headers=headers)
+            raise RuntimeError(f"unsupported method on injected session: {method}")
+        return self._session.request(method, url, json=json_body)
+
     async def _request(
         self,
         method: str,
         path: str,
         *,
-        feed_id: str,
+        feed_id: str = "_unknown",
         json_body: Optional[dict[str, Any]] = None,
     ) -> tuple[int, dict[str, Any]]:
         """Make a single request with bounded retries.
@@ -189,10 +265,8 @@ class ManagementClient:
 
         while attempt <= self._max_retries:
             try:
-                async with self._session.request(
-                    method,
-                    url,
-                    json=json_body,
+                async with self._open_request(
+                    method, url, json_body=json_body
                 ) as resp:
                     status = resp.status
                     text = await resp.text()
@@ -247,8 +321,9 @@ class ManagementClient:
         self,
         ip: str,
         *,
-        feed_id: str,
-        ttl_s: int,
+        feed_id: str = "_unknown",
+        ttl_s: Optional[int] = None,
+        ttl: Optional[int] = None,
         reason: str,
     ) -> None:
         """Create a ban via ``POST /api/v1/bans/{ip:path}``.
@@ -256,9 +331,14 @@ class ManagementClient:
         Args:
             ip: IPv4 or IPv6 address (canonical string form).
             feed_id: The feed id for metric labels.
-            ttl_s: TTL in seconds.
+            ttl_s: TTL in seconds (preferred name).
+            ttl: Alias for ``ttl_s`` accepted by the Phase 85 unit tests.
             reason: Audit reason, typically ``"feed:{feed_id}"``.
         """
+        if ttl_s is None and ttl is not None:
+            ttl_s = ttl
+        if ttl_s is None:
+            raise TypeError("post_ban requires ttl_s (or ttl) keyword argument")
         # phase-85 (security review C5): never let a feed-supplied IP turn
         # into a ban for loopback / RFC1918 / link-local / multicast space.
         # The choke point lives here so every feed client (TAXII, RF, CS,
@@ -278,7 +358,7 @@ class ManagementClient:
         body: dict[str, Any] = {"ttl": ttl_s, "reason": reason}
         await self._request("POST", path, feed_id=feed_id, json_body=body)
 
-    async def delete_ban(self, ip: str, *, feed_id: str) -> None:
+    async def delete_ban(self, ip: str, *, feed_id: str = "_unknown") -> None:
         """Lift a ban via ``DELETE /api/v1/bans/{ip:path}``."""
         encoded_ip = urllib.parse.quote(ip, safe="")
         path = f"/api/v1/bans/{encoded_ip}"
@@ -293,9 +373,10 @@ class ManagementClient:
     async def post_blocklist(
         self,
         *,
-        feed_id: str,
+        feed_id: str = "_unknown",
         entry: str,
         note: str,
+        managed_by: str = "feed",
         expires_at: Optional[str] = None,
     ) -> ResourceResult:
         """Create a blocklist entry via ``POST /api/v1/blocklist``.
@@ -303,9 +384,13 @@ class ManagementClient:
         The ``managed_by`` field is always ``"feed"`` — Phase 85 is the only
         caller that should produce feed-managed entries.
         """
+        # phase-85: ``managed_by`` is always "feed" in production. The
+        # kwarg is accepted only for symmetry with the Phase 79 ResourceCreate
+        # body shape used by the Phase 85 mgmt-client unit tests; any other
+        # value here would be a misconfiguration.
         body: dict[str, Any] = {
             "entry": entry,
-            "managed_by": "feed",
+            "managed_by": managed_by or "feed",
             "note": note,
         }
         if expires_at:
@@ -322,7 +407,7 @@ class ManagementClient:
         self,
         resource_id: str,
         *,
-        feed_id: str,
+        feed_id: str = "_unknown",
     ) -> None:
         """Remove a blocklist entry via ``DELETE /api/v1/blocklist/{resource_id}``."""
         path = f"/api/v1/blocklist/{resource_id}"
@@ -332,3 +417,38 @@ class ManagementClient:
             if exc.status_code == 404:
                 return
             raise
+
+    async def bulk_post_blocklist(
+        self,
+        entries: list[dict[str, Any]],
+        *,
+        feed_id: str = "_unknown",
+    ) -> list[Any]:
+        """Bulk-create blocklist entries with §2.5 batch pacing.
+
+        Splits ``entries`` into ``batch_size`` chunks (default 50) and
+        ``await asyncio.gather(..., return_exceptions=True)`` for each
+        batch, sleeping ``inter_batch_sleep_s`` between batches. Returns
+        the flattened list of results — one entry per input — where
+        each element is either a :class:`ResourceResult` or an
+        ``Exception`` instance for the entries that failed.
+        """
+        results: list[Any] = []
+        total = len(entries)
+        for batch_start in range(0, total, self._batch_size):
+            batch = entries[batch_start : batch_start + self._batch_size]
+            tasks = [
+                self.post_blocklist(
+                    feed_id=feed_id,
+                    entry=item["entry"],
+                    note=item.get("note", ""),
+                    managed_by=item.get("managed_by", "feed"),
+                    expires_at=item.get("expires_at"),
+                )
+                for item in batch
+            ]
+            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+            results.extend(batch_results)
+            if batch_start + self._batch_size < total:
+                await asyncio.sleep(self._inter_batch_sleep_s)
+        return results

@@ -184,9 +184,10 @@ def mock_taxii_server():
 class StubManagementClient:
     """In-memory stub mirroring the Phase 85 ``ManagementClient`` interface.
 
-    The real client is ``analytics.ti_feeds.mgmt_client.ManagementClient``.
+    The real client is ``src.analytics.ti_feeds.mgmt_client.ManagementClient``.
     This stub records every call and pretends every POST succeeds with a
-    new UUID. Useful for tests that should NOT do real HTTP work.
+    new UUID. Signatures must match the production client exactly so the
+    feed clients exercise the same call sites in tests as in production.
     """
 
     def __init__(self) -> None:
@@ -203,67 +204,99 @@ class StubManagementClient:
 
     # ----- ban endpoints --------------------------------------------------
 
-    async def post_ban(self, ip: str, ttl: int, reason: str) -> dict[str, Any]:
+    async def post_ban(
+        self,
+        ip: str,
+        *,
+        feed_id: str,
+        ttl_s: int,
+        reason: str,
+    ) -> None:
         path = f"/api/v1/bans/{ip}"
-        self.requests.append({"method": "POST", "path": path, "ttl": ttl, "reason": reason})
+        self.requests.append(
+            {
+                "method": "POST",
+                "path": path,
+                "feed_id": feed_id,
+                "ttl_s": ttl_s,
+                # Back-compat alias for older tests that read r["ttl"].
+                "ttl": ttl_s,
+                "reason": reason,
+            }
+        )
         forced = self._next_status_for_path.pop(f"POST {path}", None)
         if forced and forced >= 400:
             err = RuntimeError(f"HTTP {forced}")
             err.status = forced  # type: ignore[attr-defined]
             raise err
-        self.bans[ip] = {"ttl": ttl, "reason": reason}
-        return {"ip": ip, "ttl": ttl, "reason": reason}
+        self.bans[ip] = {"feed_id": feed_id, "ttl_s": ttl_s, "reason": reason}
 
-    async def delete_ban(self, ip: str) -> None:
-        self.requests.append({"method": "DELETE", "path": f"/api/v1/bans/{ip}"})
+    async def delete_ban(self, ip: str, *, feed_id: str) -> None:
+        self.requests.append(
+            {
+                "method": "DELETE",
+                "path": f"/api/v1/bans/{ip}",
+                "feed_id": feed_id,
+            }
+        )
         self.bans.pop(ip, None)
 
     # ----- blocklist endpoints --------------------------------------------
 
     async def post_blocklist(
         self,
+        *,
+        feed_id: str,
         entry: str,
-        managed_by: str,
         note: str,
         expires_at: Optional[str] = None,
-    ) -> dict[str, Any]:
+    ) -> Any:
         self.requests.append(
             {
                 "method": "POST",
                 "path": "/api/v1/blocklist",
+                "feed_id": feed_id,
                 "entry": entry,
-                "managed_by": managed_by,
+                # Production hard-codes managed_by="feed"; record it for the
+                # benefit of tests that assert provenance.
+                "managed_by": "feed",
                 "note": note,
                 "expires_at": expires_at,
             }
         )
-        # Idempotent: if same entry already exists, return that record (200)
+        # Idempotent: if same entry already exists, return that record.
         for record in self.blocklist.values():
-            if record["entry"] == entry:
-                return {**record, "status_code": 200}
+            if record.entry == entry:
+                return record
         self._uuid_counter += 1
         rid = f"00000000-0000-0000-0000-{self._uuid_counter:012d}"
-        record = {
-            "id": rid,
-            "entry": entry,
-            "managed_by": managed_by,
-            "note": note,
-            "expires_at": expires_at,
-            "status_code": 201,
-        }
+        # Build the same envelope production returns. Imported lazily so
+        # the conftest still loads when ti_feeds isn't on the path.
+        from src.analytics.ti_feeds.mgmt_client import ResourceResult
+
+        record = ResourceResult(
+            id=rid,
+            entry=entry,
+            managed_by="feed",
+            note=note,
+        )
         self.blocklist[rid] = record
         return record
 
-    async def delete_blocklist(self, resource_id: str) -> None:
+    async def delete_blocklist(self, resource_id: str, *, feed_id: str) -> None:
         self.requests.append(
-            {"method": "DELETE", "path": f"/api/v1/blocklist/{resource_id}"}
+            {
+                "method": "DELETE",
+                "path": f"/api/v1/blocklist/{resource_id}",
+                "feed_id": feed_id,
+            }
         )
         self.blocklist.pop(resource_id, None)
 
-    async def list_blocklist(self, managed_by: Optional[str] = None) -> list[dict[str, Any]]:
+    async def list_blocklist(self, managed_by: Optional[str] = None) -> list[Any]:
         if managed_by is None:
             return list(self.blocklist.values())
-        return [r for r in self.blocklist.values() if r["managed_by"] == managed_by]
+        return [r for r in self.blocklist.values() if r.managed_by == managed_by]
 
 
 @pytest.fixture

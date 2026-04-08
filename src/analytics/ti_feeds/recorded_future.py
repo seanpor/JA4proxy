@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any
+from typing import Any, Awaitable, Callable, Optional
 
 try:  # pragma: no cover
     import aiohttp
@@ -47,30 +47,88 @@ class RecordedFutureClient(FeedClient):
     stop the others.
     """
 
-    def __init__(self, config: FeedConfig, mgmt, state) -> None:
+    def __init__(
+        self,
+        config: FeedConfig,
+        mgmt,
+        state,
+        *,
+        token_exchange: Optional[Callable[[str], Awaitable[str]]] = None,
+        page_fetch: Optional[
+            Callable[..., Awaitable[dict[str, Any]]]
+        ] = None,
+    ) -> None:
+        """Construct a Recorded Future client.
+
+        Args:
+            config: Feed config.
+            mgmt: ManagementClient (or test stub).
+            state: FeedState (or ``None`` for tests that skip the index).
+            token_exchange: Optional async callable
+                ``(api_token) -> bearer_token``. When set,
+                :meth:`fetch_bearer_token` calls it once and caches the
+                result. phase-85 architect H1.
+            page_fetch: Optional async callable
+                ``(collection_id, cursor=None, **kwargs) -> bundle_dict``.
+                When set, :meth:`poll` uses it for cursor-paginated fetches
+                and applies indicators through an inner injected TAXII
+                client. Production leaves this ``None`` and falls back to
+                the multi-collection TAXII delegation path. phase-85
+                architect H1.
+        """
         super().__init__(config=config, mgmt=mgmt, state=state)
+        self._token_exchange = token_exchange
+        self._page_fetch = page_fetch
+        self._bearer_token: Optional[str] = None
         self._inner_clients: list[TAXIIClient] = []
-        for feed_name in config.feeds or ["default"]:
-            inner_cfg = FeedConfig.from_dict(
-                {
-                    **config.raw,
-                    "id": f"{config.id}/{feed_name}",
-                    "type": "taxii2",
-                    "url": _RF_TAXII_ROOT,
-                    "collection_id": feed_name,
-                    "username": "",
-                    "password": "",
-                    # Propagate gating knobs:
-                    "min_confidence": max(
-                        config.min_confidence, config.min_rf_risk_score
-                    ),
-                    "ban_ttl_hours": config.ban_ttl_hours,
-                    "enabled": config.enabled,
-                }
+        # The injected page_fetch path does not need pre-built inner
+        # TAXIIClients — it builds them on demand from the bundle dicts.
+        if page_fetch is None:
+            for feed_name in config.feeds or ["default"]:
+                inner_cfg = FeedConfig.from_dict(
+                    {
+                        **config.raw,
+                        # phase-85 (C4): inner id must match the feed-id
+                        # regex (no '/'). Use '_' as separator.
+                        "id": f"{config.id}_{feed_name}",
+                        "type": "taxii2",
+                        "url": _RF_TAXII_ROOT,
+                        "collection_id": feed_name,
+                        "username": "",
+                        "password": "",
+                        # Propagate gating knobs:
+                        "min_confidence": max(
+                            config.min_confidence, config.min_rf_risk_score
+                        ),
+                        "ban_ttl_hours": config.ban_ttl_hours,
+                        "enabled": config.enabled,
+                    }
+                )
+                self._inner_clients.append(
+                    TAXIIClient(config=inner_cfg, mgmt=mgmt, state=state)
+                )
+
+    @property
+    def collection_ids(self) -> list[str]:
+        """Return the configured RF collection / feed names."""
+        return list(self.config.feeds or ["default"])
+
+    async def fetch_bearer_token(self) -> str:
+        """Exchange ``api_token`` for a bearer token, caching the result.
+
+        When :class:`RecordedFutureClient` is built with a ``token_exchange``
+        callable (test or alternative integration path), the first call
+        invokes the callable; subsequent calls return the cached value.
+        """
+        if self._bearer_token is not None:
+            return self._bearer_token
+        if self._token_exchange is None:
+            raise RuntimeError(
+                "RecordedFutureClient.fetch_bearer_token requires "
+                "token_exchange to be set"
             )
-            self._inner_clients.append(
-                TAXIIClient(config=inner_cfg, mgmt=mgmt, state=state)
-            )
+        self._bearer_token = await self._token_exchange(self.config.api_token)
+        return self._bearer_token
 
     async def poll(self) -> FeedPollResult:
         """Poll each configured RF collection in sequence.
@@ -85,6 +143,35 @@ class RecordedFutureClient(FeedClient):
         feed_id = self.config.id
         start = time.monotonic()
         combined = FeedPollResult(feed_id=feed_id)
+
+        # phase-85 architect H1: when a test injects ``page_fetch``, drive
+        # a single cursor-paginated stream against it and apply indicators
+        # through a one-shot inner TAXIIClient. Production leaves
+        # ``page_fetch`` unset and falls through to the inner-clients
+        # iteration below.
+        #
+        # Note: ``collection_ids`` is passed only as a hint to ``page_fetch``
+        # — RF's TAXII front door yields one paginated stream per
+        # configured feed name, but the cursor sequence is opaque to us.
+        # We pass the first collection name as a hint and let the stub
+        # decide. Production-mode multi-collection iteration is the
+        # ``page_fetch is None`` branch below.
+        if self._page_fetch is not None:
+            try:
+                hint = (self.collection_ids or ["default"])[0]
+                await self._poll_paginated(hint, combined)
+                _POLL_TOTAL.labels(feed_id=feed_id, result="success").inc()
+            except Exception as exc:  # noqa: BLE001
+                combined.errors.append(f"rf_poll_failed: {exc}")
+                _POLL_TOTAL.labels(feed_id=feed_id, result="failure").inc()
+                logger.warning(
+                    "ti_feed | event=ti_feed.poll_failed | feed=%s | error=%s",
+                    feed_id,
+                    exc,
+                )
+            combined.poll_duration_s = time.monotonic() - start
+            return combined
+
         try:
             for inner in self._inner_clients:
                 inner_result = await inner.poll()
@@ -104,6 +191,50 @@ class RecordedFutureClient(FeedClient):
             )
         combined.poll_duration_s = time.monotonic() - start
         return combined
+
+    async def _poll_paginated(
+        self,
+        collection_id: str,
+        combined: FeedPollResult,
+    ) -> None:
+        """Walk a single RF collection via the injected ``page_fetch``.
+
+        Each page is wrapped in a one-shot stub TAXII transport and handed
+        to a fresh :class:`TAXIIClient` so the indicator-application logic
+        (confidence gating, expiry filter, mgmt-client routing) is shared
+        between RF and plain TAXII.
+        """
+        assert self._page_fetch is not None  # narrow for type checkers
+        cursor: Optional[str] = None
+        while True:
+            bundle = await self._page_fetch(collection_id, cursor=cursor)
+            if not isinstance(bundle, dict):
+                raise RuntimeError("page_fetch returned non-dict bundle")
+            inner_cfg = FeedConfig(
+                id=f"{self.config.id}/{collection_id}",
+                type="taxii2",
+                enabled=True,
+                collection_id=collection_id,
+                min_confidence=max(
+                    self.config.min_confidence, self.config.min_rf_risk_score
+                ),
+                ban_ttl_hours=self.config.ban_ttl_hours,
+            )
+            inner = TAXIIClient(
+                config=inner_cfg,
+                mgmt=self.mgmt,
+                state=self.state,
+                taxii=_OneShotBundle(bundle),
+            )
+            inner_result = await inner.poll()
+            combined.stix_ids_seen.update(inner_result.stix_ids_seen)
+            combined.created.extend(inner_result.created)
+            combined.skipped_below_confidence += inner_result.skipped_below_confidence
+            combined.unsupported_pattern += inner_result.unsupported_pattern
+            combined.errors.extend(inner_result.errors)
+            cursor = bundle.get("next")
+            if not cursor:
+                return
 
     def _build_rf_headers(self) -> dict[str, str]:
         """Return the header set for an RF-authenticated TAXII request.
@@ -125,3 +256,23 @@ class RecordedFutureClient(FeedClient):
 #: Base TAXII API root for Recorded Future. Update when verified against the
 #: RF developer portal — this is the value from PHASE_85.md §6.2.
 _RF_TAXII_ROOT = "https://api.recordedfuture.com/taxii2/"
+
+
+class _OneShotBundle:
+    """Tiny adapter that turns a STIX bundle dict into a TAXII transport.
+
+    Implements the single-method contract expected by
+    ``TAXIIClient(taxii=...)``: ``async get_objects(collection_id,
+    added_after=None) -> dict``.
+    """
+
+    def __init__(self, bundle: dict[str, Any]) -> None:
+        self._bundle = bundle
+
+    async def get_objects(
+        self,
+        collection_id: str,
+        added_after: Optional[str] = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        return self._bundle
