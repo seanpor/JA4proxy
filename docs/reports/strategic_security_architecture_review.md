@@ -15,33 +15,44 @@ JA4proxy is a well-architected TLS-layer security proxy with a fundamentally sou
 
 ### Key Metrics
 
-| Area | Rating | Summary |
-|------|--------|---------|
-| Architecture & Pipeline | **B+** | Sound design, pre-pipeline bypass drift needs fixing |
-| Security Signals | **B−** | Multiple score drifts, stub code in production, algorithm mismatches |
-| Cryptography & TLS | **B** | Solid JA4 implementation; missing TLS-level signals in Go |
-| Data Integrity & Caching | **A−** | Well-designed LRU + Bloom + TTL; backup encryption solid |
-| Network & Evasion | **B+** | PROXY protocol handling good; some evasion vectors remain |
-| Observability | **B−** | Metrics present but alerting thin; logging violations exist |
-| Deployment & Supply Chain | **B** | CI pipeline needs hardening; Helm chart mostly sound |
-| Management API | **B−** | Auth model incomplete; RBAC not yet implemented (Phase 79) |
-| Test Coverage | **B+** | Large test suite, but adversarial coverage needs expansion |
+| Area | Rating | Summary | Detail Report |
+|------|--------|---------|--------------|
+| Architecture & Pipeline | **B+** | Sound design, pre-pipeline bypass drift needs fixing | Main report §1 |
+| Security Signals | **B−** | Multiple score drifts, stub code in production, algorithm mismatches | [01_signal_implementation_review.md](01_signal_implementation_review.md) — 14 findings |
+| Cryptography & TLS | **B** | Solid JA4 implementation; missing TLS-level signals in Go | Main report §3 |
+| Data Integrity & Caching | **B+** | Well-designed LRU + Bloom + TTL; Go TLS gap, FLUSHDB risk | [02_redis_caching_data_integrity_review.md](02_redis_caching_data_integrity_review.md) — 25 findings |
+| Network & Evasion | **B** | PROXY protocol gap in Go is HIGH; ALPN bypass forgeable | [03_network_evasion_review.md](03_network_evasion_review.md) — 12 findings |
+| Observability | **C+** | Metrics present but naming broken; alerting thin; secrets in config | [04_observability_logging_alerting_review.md](04_observability_logging_alerting_review.md) — 21 findings |
+| Deployment & Supply Chain | **C** | Prod compose points to wrong image; default credentials everywhere | [05_deployment_supply_chain_review.md](05_deployment_supply_chain_review.md) — 30 findings |
+| Management API | **B−** | Auth model incomplete; RBAC not yet implemented (Phase 79) | Main report §8 |
+| Test Coverage | **B+** | Large test suite, but adversarial coverage needs expansion | Main report §9 |
 
 ### Critical Findings (Must Fix Before Production)
 
-1. **Signal score drift between Python and Go** — 5+ signals produce different scores
-2. **Stub code in production** — `random()` used for session resumption and lifespan detection
-3. **DGA detection algorithm mismatch** — Python and Go use fundamentally different heuristics
-4. **Missing signals in Go** — `ja4_tls_mismatch`, JA4T (stub), deception checker not ported
-5. **CI workflow actions not SHA-pinned** — supply chain risk
+1. **Prod compose uses legacy Python proxy, not Go** — `docker-compose.prod.yml` points to `Dockerfile`, not `Dockerfile-go-proxy` (05)
+2. **Default credentials everywhere** — Grafana `admin`, Management `admin/admin`, HAProxy `admin/admin123` (05)
+3. **Go proxy trusts PROXY protocol from any source** — no `_is_trusted_proxy_source()` equivalent (03)
+4. **Go Redis client omits TLS despite config having SSL field** — credentials exposed on wire (02)
+5. **Signal score drift between Python and Go** — 5+ signals produce different scores (01)
+6. **Stub code in production** — `random()` used for session resumption and lifespan detection (01)
+7. **DGA detection algorithm mismatch** — Python and Go use fundamentally different heuristics (01)
+8. **CI workflow actions not SHA-pinned** — supply chain risk (05)
 
 ### High-Priority Findings (Should Fix Before Production)
 
-6. **Broad `except Exception` + f-string logging** in 8+ signal modules
-7. **Pre-pipeline bypass drift** — Python's proxy.py short-circuits bypass the pipeline
-8. **Go reads dial from Redis per-connection** — latency concern at scale
-9. **Weak cipher suite coverage gap in Go** — 13 suites vs Python's 37+
-10. **Return visitor score mismatch** — Python uses -1, Go uses -20, registry says -20
+9. **Broad `except Exception` + f-string logging** in 8+ signal modules (01, 04)
+10. **Pre-pipeline bypass drift** — Python's proxy.py short-circuits bypass the pipeline (§1)
+11. **Missing signals in Go** — `ja4_tls_mismatch`, JA4T (stub), deception checker not ported (01)
+12. **Backup `FLUSHDB` wipes entire Redis DB** — not just JA4proxy keys (02)
+13. **Go reads dial from Redis per-connection** — latency concern at scale; no rate limiting (§1)
+14. **Weak cipher suite coverage gap in Go** — 13 suites vs Python's 37+ (01)
+15. **Helm chart has no NetworkPolicy** — any pod can reach proxy and Redis (05)
+16. **No SBOM generation or image signing** — supply chain gap (05)
+17. **Return visitor score mismatch** — Python uses -1, Go uses -20, registry says -20 (01)
+18. **Metrics endpoint unauthenticated, binds `0.0.0.0`** — information disclosure (04)
+19. **Alert references undefined metric** — `PipelineInternalError` alert fires on nothing (04)
+20. **Shadow scoring uses ALPN-only for "known-good"** — forgeable baseline (04)
+21. **Hardcoded placeholder secrets in alertmanager.yml** — (04)
 
 ---
 
@@ -397,15 +408,31 @@ The proxy logs IP addresses, JA4 fingerprints, country codes, and scores. These 
 
 ## Appendix A: Finding Severity Distribution
 
-| Severity | Count |
-|----------|-------|
-| CRITICAL | 2 |
-| HIGH | 10 |
-| MEDIUM | 15 |
-| LOW | 8 |
-| **Total** | **35** |
+| Severity | Main Report | 01 Signals | 02 Redis | 03 Network | 04 Observability | 05 Deployment | **Total** |
+|----------|------------|-----------|----------|------------|-----------------|--------------|----------|
+| CRITICAL | 0 | 2 | 0 | 0 | 0 | 4 | **6** |
+| HIGH | 10 | 4 | 2 | 1 | 5 | 10 | **32** |
+| MEDIUM | 15 | 5 | 8 | 4 | 8 | 11 | **51** |
+| LOW | 8 | 3 | 8 | 6 | 3 | 5 | **33** |
+| INFO | 0 | 0 | 3 | 0 | 0 | 1 | **4** |
+| **Total** | **33** | **14** | **25** | **12** | **21** | **30** | **135** |
 
-## Appendix B: Files Reviewed
+Note: The main report counts overlap with the detailed reports where the same finding appears in both. The 135 total is the unique count across all 6 review documents.
+
+## Appendix B: Detailed Review Reports
+
+This strategic review is supported by 5 detailed deep-dive reports:
+
+| Report | File | Findings | Scope |
+|--------|------|----------|-------|
+| Main | `strategic_security_architecture_review.md` | 33 | Executive summary, all areas |
+| 01 | `01_signal_implementation_review.md` | 14 | Signal modules Python + Go, score registry |
+| 02 | `02_redis_caching_data_integrity_review.md` | 25 | Redis clients, caching, backup, Lua scripts, pub/sub |
+| 03 | `03_network_evasion_review.md` | 12 | PROXY protocol, TLS passthrough, tarpit, eBPF |
+| 04 | `04_observability_logging_alerting_review.md` | 21 | Prometheus, Alertmanager, Grafana, analytics, health checks |
+| 05 | `05_deployment_supply_chain_review.md` | 30 | Dockerfiles, compose, Helm, CI/CD, secrets |
+
+## Appendix C: Files Reviewed (Main Report)
 
 | Area | Key Files |
 |------|-----------|
@@ -418,7 +445,7 @@ The proxy logs IP addresses, JA4 fingerprints, country codes, and scores. These 
 | Deployment | `.github/workflows/`, `deploy/helm/`, `Dockerfile*`, `docker/` |
 | Schema | `docs/REDIS_SCHEMA.md`, `config/proxy.yml` |
 
-## Appendix C: Comparison with Existing Reports
+## Appendix D: Comparison with Existing Reports
 
 This review complements the existing documentation:
 - [`COMPREHENSIVE_SECURITY_AUDIT.md`](../security/COMPREHENSIVE_SECURITY_AUDIT.md) — focused on vulnerability assessment; this review adds architectural depth
