@@ -313,7 +313,8 @@ class TAXIIClient(FeedClient):
             if self.state is not None:
                 await self.state.mark(feed_id, stix_id, handle=ip, kind="ban")
             result.created.append((stix_id, ip))
-            _INDICATORS_PROCESSED.labels(feed_id=feed_id, outcome="created").inc()
+            _outcome = "existing" if stix_id in self.previous_stix_ids else "created"
+            _INDICATORS_PROCESSED.labels(feed_id=feed_id, outcome=_outcome).inc()
             return
 
         if is_ja4_pattern(pattern):

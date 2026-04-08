@@ -291,6 +291,14 @@ class FeedClient(abc.ABC):
         self.config = config
         self.mgmt = mgmt
         self.state = state
+        # phase-85: the runner injects the prior poll's stix_ids set here
+        # before calling poll() so the apply path can distinguish
+        # ``created`` (new indicator) from ``existing`` (re-seen indicator)
+        # for the ``ja4proxy_ti_feed_indicators_processed_total`` metric.
+        # Default empty set means every successful apply counts as
+        # ``created`` — safe behaviour for a fresh feed or for tests that
+        # don't drive the runner.
+        self.previous_stix_ids: set[str] = set()
 
     @abc.abstractmethod
     async def poll(self) -> FeedPollResult:  # pragma: no cover — interface only
