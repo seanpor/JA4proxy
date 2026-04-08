@@ -270,7 +270,10 @@ class ManagementClient:
                 ) as resp:
                     status = resp.status
                     text = await resp.text()
-                    if status >= 500:
+                    # phase-85 §2.5: retry 5xx and 429 (rate limit). Other
+                    # 4xx codes are final — retrying a 422 will just hit the
+                    # same validation error and waste budget.
+                    if status >= 500 or status == 429:
                         _MGMT_API_ERRORS.labels(
                             feed_id=feed_id, status_code=str(status)
                         ).inc()
