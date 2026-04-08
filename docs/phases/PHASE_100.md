@@ -1077,7 +1077,7 @@ python3 scripts/ja4proxy-policy.py apply \
 
 ---
 
-### Item 100-O: Phase 83 — keychain token storage not implemented
+### Item 100-U: Phase 83 — keychain token storage not implemented
 
 **Origin:** Phase 83 Critical Review (2026-04-07)
 **Effort:** ~2–3 hours
@@ -1129,7 +1129,7 @@ is not implemented.
 
 ---
 
-### Item 100-P: Phase 83 — `confirm_mutating: false` config flag not honoured
+### Item 100-V: Phase 83 — `confirm_mutating: false` config flag not honoured
 
 **Origin:** Phase 83 Critical Review (2026-04-07)
 **Effort:** ~1 hour
@@ -1183,11 +1183,12 @@ Phase 100 is COMPLETE when all fourteen items above are either:
 - **Explicitly deferred** — moved to a named future phase with written
   rationale (not silently dropped)
 
-**Unblocked (pick up now):** 100-A, 100-B, 100-C, 100-F, 100-H, 100-I, 100-M
+**Unblocked (pick up now):** 100-A, 100-B, 100-C, 100-F, 100-H, 100-I, 100-M, 100-U, 100-V
 **Blocked on Phase 79:** 100-D, 100-J, 100-K, 100-L
 **Blocked on 100-L + 100-M:** 100-N
 **Blocked on platform access:** 100-E
 **Requires engineer triage:** 100-G
+**Phase 79 SSO/MFA (see table below):** 100-O, 100-P, 100-Q, 100-R, 100-S, 100-T
 
 ---
 
