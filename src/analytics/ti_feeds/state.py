@@ -258,6 +258,46 @@ class FeedState:
                 exc,
             )
 
+    async def clear_handle(
+        self,
+        feed_id: str,
+        stix_id: str,
+        handle: str,
+        kind: str,
+    ) -> None:
+        """Atomically clear an indicator's state across all three side indices.
+
+        C7 (architect review): the cleanup loop in ``runner._poll_once``
+        used to issue ``hdel`` then ``srem`` then a second ``hdel`` as three
+        independent calls. A crash between calls left the side indices out
+        of sync with ``active_stix_ids``. We now do all three writes inside
+        a single Redis MULTI/EXEC transaction so cleanup is either fully
+        applied or not applied at all.
+
+        ``kind`` is one of ``"blocklist"``, ``"ban"``, or ``"unknown"``
+        (the runner falls back to ``unknown`` if the handle is not present
+        in either side set — the active-hash entry is still removed).
+        """
+        try:
+            pipe = self._redis.pipeline()
+            pipe.hdel(_KEY_ACTIVE_STIX.format(feed_id=feed_id), stix_id)
+            if kind == "ban":
+                pipe.srem(_KEY_BAN_IPS.format(feed_id=feed_id), handle)
+            elif kind == "blocklist":
+                pipe.srem(
+                    _KEY_BLOCKLIST_UUIDS.format(feed_id=feed_id), handle
+                )
+            await pipe.execute()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "ti_feed | event=state_write_failed | key=clear_handle | "
+                "feed=%s | stix_id=%s | kind=%s | error=%s",
+                feed_id,
+                stix_id,
+                kind,
+                exc,
+            )
+
     async def remove(self, feed_id: str, stix_id: str) -> None:
         """Remove an entry from the active STIX id HASH (cleanup path).
 
@@ -525,9 +565,12 @@ class FeedState:
     ) -> bool:
         """Attempt to acquire the shared leader lock.
 
-        Returns ``True`` if this instance won the election or if Redis is
-        unavailable (fail-open: if we cannot tell who the leader is, act as
-        leader so polling does not stop entirely).
+        Returns ``True`` only if this instance actually won the SETNX. On
+        any Redis failure we **fail closed** — see PHASE_85.md C7 / architect
+        review: a Redis outage that fails open here would let every
+        analytics replica simultaneously act as leader, doubling every poll
+        and racing differential cleanup. Skipping a poll cycle on Redis
+        failure is the safer default; the next cycle will retry.
         """
         try:
             result = await self._redis.set(
@@ -539,10 +582,11 @@ class FeedState:
             return result is not None
         except Exception as exc:  # noqa: BLE001
             logger.warning(
-                "ti_feed | event=state_read_failed | key=leader_lock | error=%s",
+                "ti_feed | event=leader_lock_unavailable | "
+                "action=fail_closed | error=%s",
                 exc,
             )
-            return True
+            return False
 
     async def refresh_leader(
         self,

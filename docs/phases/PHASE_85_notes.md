@@ -231,6 +231,33 @@ adapted the impl + tests so the suite collects and runs cleanly:
 - `tests/unit/test_pages_threat_intel.py` is xfailed pending Chunk J
   (frontend page).
 
+## C7 — cleanup atomicity + leader-lock fail-closed 2026-04-08
+
+Architect finding C7 had two parts:
+
+1. **Leader-lock fail-open was wrong.** ``FeedState.try_acquire_leader``
+   used to return ``True`` on any Redis exception. The intent was
+   "polling must not stop entirely", but the consequence is that a Redis
+   outage causes *every* analytics replica to simultaneously act as
+   leader — doubling polls, racing differential cleanup, and stomping on
+   each other's snapshot replaces. Now fails closed: Redis exception →
+   return ``False``, skip this cycle, retry next interval. Logged as
+   ``event=leader_lock_unavailable | action=fail_closed``.
+2. **Differential cleanup was three independent Redis writes per
+   indicator.** ``hdel(active_stix_ids)`` then ``srem(ban_ips)`` then a
+   second ``hdel`` was the order; a runner crash mid-loop left the side
+   indices out of sync with the active hash. Added
+   ``FeedState.clear_handle`` which runs all three writes inside a
+   single Redis ``MULTI/EXEC`` transaction (the
+   ``redis.asyncio.Redis().pipeline()`` default is ``transaction=True``).
+   The runner cleanup loop in ``_poll_once`` is rewritten around it.
+
+   The mgmt API delete cannot be in the same transaction (different
+   system), but ``delete_ban`` and ``delete_blocklist`` already treat 404
+   as success, so the overall cleanup is at-least-once and converges:
+   if step 2 fails after step 1 succeeds, the next poll's diff
+   re-attempts the clear and the mgmt API returns 404.
+
 ## Blockers / Deviations
 
 - None so far. Tracking:
