@@ -244,6 +244,7 @@ class ManagedBy(str, Enum):
     analytics = "analytics"
     legacy = "legacy"
     migration = "migration"
+    feed = "feed"  # phase-85: threat-intel feed runner
 
 
 class ResourceCreate(BaseModel):
