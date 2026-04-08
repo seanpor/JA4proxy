@@ -41,6 +41,7 @@ from .routes import (
     audit,
     bans,
     canonical_lists,
+    compliance,
     config_ops,
     connections,
     dial,
@@ -156,6 +157,7 @@ def create_app() -> FastAPI:
     app.include_router(nodes.router)
     app.include_router(webhooks.router)
     app.include_router(metrics.router)
+    app.include_router(compliance.router)  # phase-84
 
     # HTML page routes (auth enforced per-route via Depends)
     app.include_router(pages.router)

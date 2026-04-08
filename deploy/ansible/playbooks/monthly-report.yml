@@ -1,0 +1,97 @@
+---
+# Monthly compliance report generation playbook — phase-84
+#
+# Generates an HTML executive report for the previous calendar month and
+# archives it to the configured output directory.  Designed to be run on
+# the first day of each month by a cron job or CI pipeline.
+#
+# Required variables (set in inventory or --extra-vars):
+#   ja4proxy_url       - Management API base URL, e.g. https://mgmt.example.com
+#   ja4proxy_token     - Auditor-role API token (see rotate-compliance-token.yml)
+#   report_output_dir  - Local path to write generated reports (default: /tmp/ja4proxy-reports)
+#
+# Optional variables:
+#   report_format      - "html" or "pdf" (default: html; pdf requires WeasyPrint)
+#   report_since       - ISO 8601 start date (default: first day of previous month)
+#   report_until       - ISO 8601 end date (default: first day of current month)
+
+- name: Generate monthly compliance report
+  hosts: localhost
+  connection: local
+  gather_facts: true
+
+  vars:
+    report_output_dir: "/tmp/ja4proxy-reports"
+    report_format: "html"
+    ja4proxy_bin: "ja4proxy-cli"
+
+  pre_tasks:
+    - name: Compute default date range (previous calendar month)
+      ansible.builtin.set_fact:
+        _prev_month_since: "{{ (ansible_date_time.date[:8] + '01') | to_datetime('%Y-%m-%d') | strftime('%Y-%m-01T00:00:00Z') }}"
+      when: report_since is not defined
+
+    - name: Set report_since to first day of previous month
+      ansible.builtin.set_fact:
+        report_since: "{{ (ansible_date_time.epoch | int - 32 * 86400) | strftime('%Y-%m-01T00:00:00Z') }}"
+      when: report_since is not defined
+
+    - name: Set report_until to first day of current month
+      ansible.builtin.set_fact:
+        report_until: "{{ ansible_date_time.date[:8] }}01T00:00:00Z"
+      when: report_until is not defined
+
+    - name: Ensure output directory exists
+      ansible.builtin.file:
+        path: "{{ report_output_dir }}"
+        state: directory
+        mode: "0750"
+
+  tasks:
+    - name: Set report filename
+      ansible.builtin.set_fact:
+        report_filename: "{{ report_output_dir }}/compliance-report-{{ report_since[:7] }}.{{ report_format }}"
+
+    - name: Generate compliance report via ja4proxy-cli
+      ansible.builtin.command:
+        cmd: >
+          {{ ja4proxy_bin }}
+          --url {{ ja4proxy_url }}
+          --token {{ ja4proxy_token }}
+          report generate
+          --since {{ report_since }}
+          --until {{ report_until }}
+          --format {{ report_format }}
+          --out {{ report_filename }}
+      register: report_result
+      changed_when: report_result.rc == 0
+      failed_when: report_result.rc != 0
+
+    - name: Display report location
+      ansible.builtin.debug:
+        msg: "Compliance report written to {{ report_filename }}"
+
+    - name: Verify report file exists and is non-empty
+      ansible.builtin.stat:
+        path: "{{ report_filename }}"
+      register: report_stat
+
+    - name: Fail if report file is empty or missing
+      ansible.builtin.fail:
+        msg: "Report file {{ report_filename }} is empty or was not created"
+      when: not report_stat.stat.exists or report_stat.stat.size == 0
+
+  post_tasks:
+    - name: Archive report metadata
+      ansible.builtin.copy:
+        dest: "{{ report_output_dir }}/report-metadata-{{ report_since[:7] }}.json"
+        content: |
+          {
+            "generated_at": "{{ ansible_date_time.iso8601 }}",
+            "period_since": "{{ report_since }}",
+            "period_until": "{{ report_until }}",
+            "format": "{{ report_format }}",
+            "file": "{{ report_filename }}",
+            "file_size_bytes": {{ report_stat.stat.size }}
+          }
+        mode: "0640"

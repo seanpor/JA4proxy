@@ -779,3 +779,39 @@ webhooks:
   #     retry_attempts: 3
   #     retry_backoff_seconds: 5
   #     timeout_seconds: 10
+
+
+# ── Phase 84: Compliance Reporting & Evidence Pack ───────────────────────────
+
+gdpr:                                   # phase-84
+  # Number of days to retain raw connection events in the Redis Stream.
+  # Events older than this are purged by `ja4proxy-cli compliance purge-expired`
+  # or by the POST /api/v1/compliance/purge-expired API endpoint.
+  # Adjust to match your jurisdiction's data minimisation obligation.
+  retention_days: 90
+
+  # Number of days to retain beaconing data (beacon:* SortedSets).
+  beaconing_retention_days: 30
+
+  # Number of days to retain return-visitor data (rv:* Hashes).
+  rv_retention_days: 90
+
+  # Number of months to retain monthly aggregate hashes (reporting:monthly:*).
+  # These are pseudonymous; longer retention is acceptable for trend analysis.
+  monthly_aggs_retention_months: 24
+
+reporting:                              # phase-84
+  # Signal-to-category mapping used by the compliance classifier.
+  # Keys are RiskSignal names; values are category name and weight.
+  # The entry with the highest weight wins. Ties broken alphabetically by category.
+  # These override the built-in defaults from DefaultSignalCategories.
+  # To add a new signal, add an entry here; to change a category, override the key.
+  signal_categories: {}
+  # Example override:
+  # signal_categories:
+  #   custom_feed_hit:
+  #     category: "custom_threat_intel"
+  #     weight: 95
+  #   sni_missing:
+  #     category: "automation_tool"
+  #     weight: 60    # increase weight relative to default 55
