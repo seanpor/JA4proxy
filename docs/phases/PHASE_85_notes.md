@@ -322,6 +322,54 @@ Commit 5223cdc.
 - None so far. Tracking:
   - Recorded Future / CrowdStrike API contracts not web-verified — flagged as
     TODO on the client classes per Gate 3.
-  - Chunk J (frontend Threat Intelligence page) still pending.
   - Architect findings still open: C9, C10 (cross-phase), 9 H-tier
     (now minus H1), 10 M-tier.
+
+## Chunk J — /threat-intel page 2026-04-08
+
+`/threat-intel` Jinja2 page + Alpine bindings shipped under
+`management/templates/threat_intel.html`. Route wired in
+`management/api/routes/pages.py` and a sidebar entry added to
+`management/templates/base.html`. The page consumes the Phase 85
+`/api/v1/threat-intel/feeds*` REST routes (already shipped in Chunk B)
+and exposes per-feed enable/disable + manual poll buttons.
+
+The companion `tests/unit/test_pages_threat_intel.py` is still xfailed
+because its TestClient lacks a Redis fixture (page routes depend on
+`get_redis()` even on the unauth path) — that test-infra plumbing is a
+separate deliverable, not a Phase 85 acceptance gate.
+
+## Chunk L — §12 acceptance sweep + flip COMPLETE 2026-04-08
+
+All eight §12 sections verified item-by-item:
+
+- §12.1 Standards & docs — `docs/stix/ja4-fingerprint-extension.md`,
+  `docs/stix/ja4-fingerprint/schema.json`, `docs/stix/README.md`,
+  `docs/decisions/ADR-024.md`, `CHANGELOG.md` entry, `docs/REDIS_SCHEMA.md`
+  (six `ti_feed:*` keys) — all present.
+- §12.2 Integration contract — `ManagedBy.feed` enum value present in
+  `management/api/models.py:247`; `POST /api/v1/bans/{ip:path}` confirmed
+  in mgmt_client tests; Phase 23 `ti_provider.py` and Phase 46 `misp.py`
+  unchanged since Phase 85 began (`git log --since=2026-03-01`).
+- §12.3 TAXII consumer — dedup, differential cleanup, `min_confidence`,
+  10 000-indicator batch test (`test_ti_feeds_huge_bundle.py`) all wired.
+- §12.4 Connectors — RF/CS/REST plus TAXII default `enabled: false` in
+  `config/proxy.yml`.
+- §12.5 Seed file & contribution — 14 vetted entries in
+  `config/known_bad_fingerprints.yml`; contribution stub gated.
+- §12.6 Circuit breaker & observability — circuit breaker unit-tested;
+  all 8 metrics in `monitoring/metrics_registry.md`; three Alertmanager
+  rules in `monitoring/alertmanager/rules/ti_feed.yml` plus newly-shipped
+  runbooks (`ti_feed_circuit_open.md`, `ti_feed_stale.md`,
+  `ti_feed_mgmt_api_errors.md`); ECS log lines emitted from runner.
+- §12.7 Management API + UI — five routes registered; `/threat-intel`
+  page shipped (Chunk J above).
+- §12.8 Hot reload — `runner.reload_config` exists; credential leak
+  adversarial test passing.
+
+Phase 85 unit suite at flip time: **128 passed, 0 failed**
+(`tests/unit/analytics/ti_feeds/` + the four un-xfailed adversarial /
+chaos suites).
+
+`docs/phases/manifest.yaml` → `status: COMPLETE`. `make sync` regenerated
+`docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.

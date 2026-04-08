@@ -7,10 +7,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🟡 Phases In Progress
 
-### Phase 85 — Threat Intelligence Ingestion
-*   **Status:** **IN_PROGRESS** (TAXII 2.1 client consuming JA4 fingerprint and IP indicators. JA4 STIX 2.1 extension definition (strategic moat — first standard for JA4 indicators). Recorded Future and CrowdStrike named connectors. Curated JA4 fingerprint community feed architecture.)
-*   **Action Plan:** [PHASE_85.md](PHASE_85.md)
-
 ---
 
 ## 🔵 Planned & Open Phases
