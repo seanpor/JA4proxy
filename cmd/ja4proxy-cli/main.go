@@ -171,6 +171,8 @@ Token and URL can be supplied via flags or environment variables:
 	root.AddCommand(buildFingerprintCmd())
 	root.AddCommand(buildPolicyCmd())
 	root.AddCommand(buildSimulationCmd())
+	root.AddCommand(buildComplianceCmd())
+	root.AddCommand(buildReportCmd())
 
 	return root
 }
@@ -645,6 +647,174 @@ func buildPolicyCmd() *cobra.Command {
 
 	policyCmd.AddCommand(validateCmd, applyCmd, diffCmd)
 	return policyCmd
+}
+
+// ── compliance ────────────────────────────────────────────────────────────────
+
+func buildComplianceCmd() *cobra.Command {
+	compCmd := &cobra.Command{
+		Use:   "compliance",
+		Short: "Compliance operations: DSAR, GDPR purge, PCI-DSS pack, signal categories",
+	}
+
+	// compliance dsar export <ip>
+	dsarExportCmd := &cobra.Command{
+		Use:   "dsar export <ip>",
+		Short: "Export all held data for an IP address (GDPR Subject Access Request)",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			c, err := newClient()
+			handleError(err)
+			result, err := commands.RunDSARExport(cmd.Context(), c, args[0])
+			handleError(err)
+			handleError(printJSON(result))
+		},
+	}
+
+	var dsarEraseTicket string
+	var dsarEraseConfirm bool
+	dsarEraseCmd := &cobra.Command{
+		Use:   "dsar erase <ip>",
+		Short: "Erase all held data for an IP address (GDPR Right to Erasure)",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			requireConfirm(dsarEraseConfirm, cmd)
+			if dsarEraseTicket == "" {
+				fmt.Fprintln(os.Stderr, "Error: --ticket is required for DSAR erasure (audit trail)")
+				os.Exit(1)
+			}
+			c, err := newClient()
+			handleError(err)
+			result, err := commands.RunDSARErase(cmd.Context(), c, args[0], dsarEraseTicket)
+			handleError(err)
+			handleError(printJSON(result))
+		},
+	}
+	dsarEraseCmd.Flags().StringVar(&dsarEraseTicket, "ticket", "", "GDPR request reference (required)")
+	dsarEraseCmd.Flags().BoolVar(&dsarEraseConfirm, "confirm", false, "Confirm the destructive operation")
+
+	dsarCmd := &cobra.Command{Use: "dsar", Short: "GDPR Data Subject Access Request operations"}
+	dsarCmd.AddCommand(dsarExportCmd, dsarEraseCmd)
+
+	// compliance purge-expired
+	var purgeConfirm bool
+	purgeCmd := &cobra.Command{
+		Use:   "purge-expired",
+		Short: "Enforce GDPR retention: purge events and keys older than the configured retention window",
+		Run: func(cmd *cobra.Command, _ []string) {
+			requireConfirm(purgeConfirm, cmd)
+			c, err := newClient()
+			handleError(err)
+			result, err := commands.RunPurgeExpired(cmd.Context(), c)
+			handleError(err)
+			handleError(printJSON(result))
+		},
+	}
+	purgeCmd.Flags().BoolVar(&purgeConfirm, "confirm", false, "Confirm the purge operation")
+
+	// compliance pci-dss-pack
+	var packSince, packUntil, packOut string
+	packCmd := &cobra.Command{
+		Use:   "pci-dss-pack",
+		Short: "Generate a PCI-DSS evidence pack ZIP for a date range",
+		Run: func(cmd *cobra.Command, _ []string) {
+			if packSince == "" || packUntil == "" {
+				fmt.Fprintln(os.Stderr, "Error: --since and --until are required")
+				os.Exit(1)
+			}
+			c, err := newClient()
+			handleError(err)
+			outPath, err := commands.RunPCIDSSPack(cmd.Context(), c, packSince, packUntil, packOut)
+			handleError(err)
+			fmt.Printf("PCI-DSS pack written to %s\n", outPath)
+		},
+	}
+	packCmd.Flags().StringVar(&packSince, "since", "", "Start of period (ISO 8601, required)")
+	packCmd.Flags().StringVar(&packUntil, "until", "", "End of period (ISO 8601, required)")
+	packCmd.Flags().StringVar(&packOut, "out", "", "Output file path (default: timestamped .zip)")
+
+	// compliance connections-export
+	var expSince, expUntil, expOut string
+	exportCmd := &cobra.Command{
+		Use:   "connections-export",
+		Short: "Export all connection events in a window to JSONL",
+		Run: func(cmd *cobra.Command, _ []string) {
+			c, err := newClient()
+			handleError(err)
+			result, err := commands.RunConnectionsExport(cmd.Context(), c, expSince, expUntil, expOut)
+			handleError(err)
+			fmt.Printf("Exported %d events to %s\n", result.TotalEvents, result.OutputPath)
+		},
+	}
+	exportCmd.Flags().StringVar(&expSince, "since", "", "Start of window (ISO 8601)")
+	exportCmd.Flags().StringVar(&expUntil, "until", "", "End of window (ISO 8601)")
+	exportCmd.Flags().StringVar(&expOut, "out", "", "Output file path (default: timestamped .jsonl)")
+
+	// compliance signal-categories
+	sigCatCmd := &cobra.Command{
+		Use:   "signal-categories",
+		Short: "Show the active signal→category mapping used for compliance classification",
+		Run: func(cmd *cobra.Command, _ []string) {
+			c, err := newClient()
+			handleError(err)
+			result, err := commands.RunSignalCategories(cmd.Context(), c)
+			handleError(err)
+			handleError(printJSON(result))
+		},
+	}
+
+	compCmd.AddCommand(dsarCmd, purgeCmd, packCmd, exportCmd, sigCatCmd)
+	return compCmd
+}
+
+// ── report ────────────────────────────────────────────────────────────────────
+
+func buildReportCmd() *cobra.Command {
+	reportCmd := &cobra.Command{
+		Use:   "report",
+		Short: "Generate compliance executive reports (HTML or PDF)",
+	}
+
+	var reportSince, reportUntil, reportOut string
+	var reportFormat string
+	genCmd := &cobra.Command{
+		Use:   "generate",
+		Short: "Generate a compliance executive report",
+		Run: func(cmd *cobra.Command, _ []string) {
+			if reportSince == "" || reportUntil == "" {
+				fmt.Fprintln(os.Stderr, "Error: --since and --until are required")
+				os.Exit(1)
+			}
+			format := commands.ReportFormat(reportFormat)
+			if format != commands.ReportFormatHTML && format != commands.ReportFormatPDF {
+				fmt.Fprintf(os.Stderr, "Error: --format must be 'html' or 'pdf', got %q\n", reportFormat)
+				os.Exit(1)
+			}
+			c, err := newClient()
+			handleError(err)
+
+			if reportOut == "" {
+				// Write to stdout when no output file specified.
+				handleError(commands.RunReportGenerate(cmd.Context(), c, reportSince, reportUntil, format, os.Stdout))
+				return
+			}
+			f, err := os.Create(reportOut)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error creating output file %s: %v\n", reportOut, err)
+				os.Exit(1)
+			}
+			defer f.Close()
+			handleError(commands.RunReportGenerate(cmd.Context(), c, reportSince, reportUntil, format, f))
+			fmt.Fprintf(os.Stderr, "Report written to %s\n", reportOut)
+		},
+	}
+	genCmd.Flags().StringVar(&reportSince, "since", "", "Start of period (ISO 8601, required)")
+	genCmd.Flags().StringVar(&reportUntil, "until", "", "End of period (ISO 8601, required)")
+	genCmd.Flags().StringVar(&reportOut, "out", "", "Output file path (default: stdout)")
+	genCmd.Flags().StringVar(&reportFormat, "format", "html", "Output format: html|pdf")
+
+	reportCmd.AddCommand(genCmd)
+	return reportCmd
 }
 
 // ── simulation ────────────────────────────────────────────────────────────────

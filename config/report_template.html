@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>JA4proxy Security Summary — {{ period_label | e }}</title>
+<style>
+  body { font-family: sans-serif; margin: 2cm; font-size: 10pt; color: #222; }
+  h1 { font-size: 16pt; color: #1a1a2e; border-bottom: 2px solid #1a1a2e; padding-bottom: 4px; }
+  h2 { font-size: 12pt; color: #16213e; margin-top: 1.5em; }
+  table { border-collapse: collapse; width: 100%; margin: 0.5em 0 1em 0; }
+  th { background: #1a1a2e; color: white; padding: 5px 8px; text-align: left; font-size: 9pt; }
+  td { border: 1px solid #ddd; padding: 4px 8px; font-size: 9pt; }
+  .stat-row td { font-weight: bold; }
+  .number { text-align: right; font-family: monospace; }
+  .section { margin-bottom: 1.5em; }
+  .logo { float: right; max-height: 60px; max-width: 200px; }
+  .footer { font-size: 8pt; color: #888; border-top: 1px solid #ddd;
+            margin-top: 2em; padding-top: 6px; }
+  .trend-data-note { background: #fff3cd; border: 1px solid #ffc107;
+                   padding: 4px 8px; font-size: 8pt; margin: 4px 0; }
+  .recommendation { background: #d4edda; border: 1px solid #28a745;
+                    padding: 6px 10px; font-size: 9pt; }
+</style>
+</head>
+<body>
+
+{% if logo_data_uri %}
+<img class="logo" src="{{ logo_data_uri }}" alt="Company logo">
+{% endif %}
+
+<h1>JA4proxy Security Summary — {{ period_label | e }}</h1>
+<p style="color:#666; font-size:9pt">
+  Period: {{ from_iso | e }} to {{ to_iso | e }} &nbsp;|&nbsp;
+  Generated: {{ generated_at | e }}
+</p>
+
+<!-- ── EXECUTIVE SUMMARY ─────────────────────────────────────────────── -->
+<div class="section">
+<h2>EXECUTIVE SUMMARY</h2>
+<table>
+  <tr class="stat-row"><td>Total connections processed</td>
+      <td class="number">{{ "{:,}".format(connections_total) }}</td></tr>
+  <tr class="stat-row"><td>Threats blocked</td>
+      <td class="number">{{ "{:,}".format(connections_blocked) }}
+        ({{ "%.2f"|format(block_rate_pct) }}% of traffic)</td></tr>
+  <tr><td>Legitimate traffic unaffected</td>
+      <td class="number">{{ "{:,}".format(connections_total - connections_blocked) }}
+        ({{ "%.2f"|format(100.0 - block_rate_pct) }}%)</td></tr>
+  <tr><td>False positive incidents reported</td>
+      <td class="number">{{ fp_incidents }}</td></tr>
+  <tr><td>Estimated FP rate</td>
+      <td class="number">{{ "%.4f"|format(fp_rate_ppm / 10000.0) }}%</td></tr>
+</table>
+</div>
+
+<!-- ── VALUE DELIVERED ───────────────────────────────────────────────── -->
+<div class="section">
+<h2>VALUE DELIVERED</h2>
+<table>
+  <tr><th>Attack Category</th><th class="number">Count</th></tr>
+  {% for cat, count in category_counts %}
+  <tr><td>{{ cat | e }}</td><td class="number">{{ "{:,}".format(count) }}</td></tr>
+  {% else %}
+  <tr><td colspan="2">No blocked connections in period</td></tr>
+  {% endfor %}
+</table>
+{% if campaigns_detected > 0 %}
+<p>Campaigns detected and automatically blocked: <strong>{{ campaigns_detected }}</strong></p>
+{% endif %}
+{% if cost_per_connection_usd > 0 %}
+<p>Estimated avoided cost:
+   <strong>${{ "{:,.0f}".format(connections_blocked * cost_per_connection_usd) }}</strong>
+   (based on ${{ cost_per_connection_usd }}/connection — see footnote)</p>
+{% endif %}
+</div>
+
+<!-- ── DIAL CONFIGURATION ────────────────────────────────────────────── -->
+<div class="section">
+<h2>DIAL CONFIGURATION</h2>
+<table>
+  <tr><td>Current dial setting</td><td class="number">{{ dial_setting }}/100</td></tr>
+  {% if shadow_simulations > 0 %}
+  <tr><td>Shadow mode simulations run</td><td class="number">{{ shadow_simulations }}</td></tr>
+  {% endif %}
+</table>
+{% if dial_recommendation %}
+<div class="recommendation">Recommendation: {{ dial_recommendation | e }}</div>
+{% endif %}
+</div>
+
+<!-- ── SECURITY POSTURE ──────────────────────────────────────────────── -->
+<div class="section">
+<h2>SECURITY POSTURE</h2>
+<table>
+  <tr><td>Active bans</td><td class="number">{{ bans_total }}</td></tr>
+  <tr><td>Campaigns detected</td><td class="number">{{ campaigns_detected }}</td></tr>
+</table>
+</div>
+
+<!-- ── AVAILABILITY ──────────────────────────────────────────────────── -->
+<div class="section">
+<h2>AVAILABILITY</h2>
+<table>
+  {% for metric in availability_metrics %}
+  <tr><td>{{ metric.label | e }}</td><td class="number">{{ metric.value | e }}</td></tr>
+  {% else %}
+  <tr><td colspan="2">Availability data not available for this period</td></tr>
+  {% endfor %}
+</table>
+</div>
+
+<!-- ── COMPLIANCE ────────────────────────────────────────────────────── -->
+<div class="section">
+<h2>COMPLIANCE</h2>
+<table>
+  <tr><td>Audit trail entries (period)</td><td class="number">{{ "{:,}".format(audit_entry_count) }}</td></tr>
+</table>
+</div>
+
+<!-- ── TREND ─────────────────────────────────────────────────────────── -->
+{% if months_using_fallback %}
+<div class="section">
+<div class="trend-data-note">
+  Note: months using live-data fallback (no cached aggregate):
+  {{ months_using_fallback | join(", ") }}
+</div>
+</div>
+{% endif %}
+{% if trend_months %}
+<div class="section">
+<h2>TREND ({{ trend_months | length }} months)</h2>
+<table>
+  <tr><th>Month</th><th class="number">Blocked</th><th class="number">FP Rate (ppm)</th>
+      <th class="number">Dial</th></tr>
+  {% for m in trend_months %}
+  <tr>
+    <td>{{ m.month | e }}</td>
+    <td class="number">{{ "{:,}".format(m.connections_blocked) }}</td>
+    <td class="number">{{ m.fp_rate_ppm }}</td>
+    <td class="number">{{ m.dial_setting }}</td>
+  </tr>
+  {% endfor %}
+</table>
+</div>
+{% endif %}
+
+<!-- ── FOOTER ─────────────────────────────────────────────────────────── -->
+<div class="footer">
+  {% if cost_per_connection_usd > 0 %}
+  <p>* Estimated avoided cost is based on a configurable cost model
+     (${{ cost_per_connection_usd }}/connection).  This is an operational estimate,
+     not an actuarial calculation.</p>
+  {% endif %}
+  Generated: {{ generated_at | e }}
+</div>
+
+</body>
+</html>

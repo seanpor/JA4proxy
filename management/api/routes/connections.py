@@ -5,13 +5,36 @@ GET /api/v1/fingerprints/{ja4}  — aggregate stats for a JA4 fingerprint
 GET /api/v1/fingerprints/{ja4}/history  — chronological event list for a JA4
 
 All three endpoints require at minimum the Analyst role.
+
+Phase 84 additions to GET /api/v1/connections
+----------------------------------------------
+?until=<iso8601>    — upper bound for the query window (exclusive upper bound)
+?page_token=<str>   — opaque cursor for the next page (returned in response when
+                       has_more=true).  Based on stream entry offset.
+?limit=             — max results per page (default 100, max 10,000 for compliance use).
+
+Pagination contract (Phase 84)
+------------------------------
+{
+  "connections": [...],
+  "count": N,
+  "truncated": bool,          # legacy field — kept for backwards compatibility
+  "has_more": bool,           # true when more pages exist
+  "next_page_token": str|null # pass as ?page_token= on next call; null when done
+}
+
+page_token is a base64-encoded JSON cursor: {"offset": int, "since": str, "until": str}.
+The cursor encodes the stream read offset so adding new events after a page is fetched
+does not affect the next page (position-stable).
 """
 
+import base64
+import json
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse
 
 from ..auth import require_role
@@ -24,7 +47,7 @@ router = APIRouter(tags=["connections"])
 
 _STREAM_KEY = "ja4proxy:events"
 _DEFAULT_LIMIT = 100
-_MAX_LIMIT = 500
+_MAX_LIMIT = 10_000  # raised from 500 for compliance bulk exports
 
 
 def _parse_entry(fields: Dict[str, Any]) -> Dict[str, Any]:
@@ -38,41 +61,69 @@ def _parse_entry(fields: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _encode_page_token(offset: int, since: str, until: str) -> str:
+    """Encode a pagination cursor as a URL-safe base64 string."""
+    payload = json.dumps({"offset": offset, "since": since or "", "until": until or ""})
+    return base64.urlsafe_b64encode(payload.encode()).decode()
+
+
+def _decode_page_token(token: str) -> dict[str, Any]:
+    """Decode a pagination cursor.  Returns {} on any error."""
+    try:
+        payload = base64.urlsafe_b64decode(token.encode()).decode()
+        return json.loads(payload)
+    except Exception:
+        return {}
+
+
 @router.get("/api/v1/connections")
 async def get_connections(
     ip: Optional[str] = Query(None, description="Filter by exact IP"),
     ja4: Optional[str] = Query(None, description="Filter by exact JA4 fingerprint"),
     action: Optional[str] = Query(None, description="Filter by action_taken"),
     since: Optional[str] = Query(None, description="ISO 8601 timestamp — only events after this"),
-    limit: int = Query(_DEFAULT_LIMIT, ge=1, le=_MAX_LIMIT, description="Max results"),
+    until: Optional[str] = Query(None, description="ISO 8601 timestamp — only events before this (Phase 84)"),
+    limit: int = Query(_DEFAULT_LIMIT, ge=1, le=_MAX_LIMIT, description="Max results per page"),
+    page_token: Optional[str] = Query(None, description="Cursor for next page (from previous response)"),
     current_user=Depends(require_role(Role.analyst)),
     redis=Depends(get_redis),
 ):
-    """Return recent connection events from the stream, optionally filtered.
+    """Return connection events from the stream with optional filtering and pagination.
 
-    Reads up to limit*2 raw entries from the stream tail, applies filters,
-    then returns at most *limit* results. ``truncated`` is True when the
-    raw stream has more entries than were returned.
+    Phase 84 adds: ?until=, ?page_token= for cursor-based pagination.
     """
-    any_filter = any(v is not None for v in (ip, ja4, action, since))
+    # Validate since < until
+    if since is not None and until is not None and since >= until:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="'since' must be before 'until'",
+        )
 
-    # Read extra entries so filters still yield a full page
-    raw_count = limit * 2 if any_filter else limit
+    # Resolve offset from page_token
+    offset = 0
+    if page_token:
+        cursor = _decode_page_token(page_token)
+        offset = int(cursor.get("offset", 0))
+        # page_token encodes the original since/until for stability — honour them
+        if not since:
+            since = cursor.get("since") or None
+        if not until:
+            until = cursor.get("until") or None
 
+    # Read the full stream (oldest-first for stable pagination)
     try:
-        raw = await redis.xrevrange(_STREAM_KEY, count=raw_count)
+        raw = await redis.xrange(_STREAM_KEY)
     except Exception as exc:  # noqa: BLE001
         logger.warning("connections | event=stream_read_error | error=%s", exc)
         raw = []
 
-    # Determine the total stream length for truncation detection
     try:
         stream_len = await redis.xlen(_STREAM_KEY)
     except Exception:
         stream_len = 0
 
-    # Build result list by applying filters
-    results: List[Dict[str, Any]] = []
+    # Apply filters to all entries, then slice with offset for pagination
+    all_filtered: List[Dict[str, Any]] = []
     for _entry_id, fields in raw:
         entry = _parse_entry(fields)
 
@@ -82,20 +133,38 @@ async def get_connections(
             continue
         if action is not None and entry["action_taken"] != action:
             continue
-        if since is not None:
-            ts = entry.get("timestamp", "")
-            if ts and ts <= since:
-                continue
+        ts = entry.get("timestamp", "")
+        if since is not None and ts and ts <= since:
+            continue
+        if until is not None and ts and ts >= until:
+            continue
 
-        results.append(entry)
-        if len(results) >= limit:
-            break
+        all_filtered.append(entry)
 
-    # Truncated when: we hit the limit and either there are more stream entries,
-    # or we applied filters and consumed all raw entries without knowing the true total.
-    truncated = len(results) == limit and stream_len > limit
+    total_filtered = len(all_filtered)
+    page = all_filtered[offset : offset + limit]
+    next_offset = offset + len(page)
+    has_more = next_offset < total_filtered
 
-    return {"connections": results, "count": len(results), "truncated": truncated}
+    next_page_token: Optional[str] = None
+    if has_more:
+        next_page_token = _encode_page_token(
+            next_offset,
+            since or "",
+            until or "",
+        )
+
+    # Legacy truncated flag for backwards compatibility
+    truncated = len(page) == limit and stream_len > limit
+
+    return {
+        "connections": page,
+        "count": len(page),
+        "truncated": truncated,
+        "has_more": has_more,
+        "next_page_token": next_page_token,
+        "total_in_window": total_filtered,
+    }
 
 
 @router.get("/api/v1/fingerprints/{ja4}")

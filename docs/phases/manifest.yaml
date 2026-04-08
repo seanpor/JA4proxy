@@ -1056,7 +1056,7 @@ phases:
     - make test-phase-94 passes
   84:
     name: Compliance & Reporting
-    status: PROPOSED
+    status: COMPLETE
     summary: PCI-DSS v4.0 evidence pack (8 artefacts, auto-generated). SOC 2 Type
       II control narrative and monthly evidence collection. GDPR retention/purge/DSAR/erasure.
       Executive PDF report with value-of-product metric. ISO 27001 Annex A mapping.

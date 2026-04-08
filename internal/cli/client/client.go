@@ -71,6 +71,34 @@ func (c *Client) Patch(ctx context.Context, path string, body interface{}, out i
 	return c.do(req, out)
 }
 
+// PostBinaryResponse sends a POST request to baseURL+path with a JSON-encoded
+// body and returns the raw response bytes together with the Content-Type header.
+// It is used for endpoints that return binary payloads (ZIP, PDF) instead of JSON.
+// The caller is responsible for interpreting the returned bytes.
+func (c *Client) PostBinaryResponse(ctx context.Context, path string, body interface{}) ([]byte, string, error) {
+	req, err := c.newJSONRequest(ctx, http.MethodPost, path, body)
+	if err != nil {
+		return nil, "", err
+	}
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, "", fmt.Errorf("HTTP POST %s: %w", path, err)
+	}
+	defer resp.Body.Close()
+
+	data, _ := io.ReadAll(resp.Body)
+	ct := resp.Header.Get("Content-Type")
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		snippet := string(data)
+		if len(snippet) > 256 {
+			snippet = snippet[:256] + "..."
+		}
+		return nil, ct, fmt.Errorf("HTTP POST %s: status %d: %s", path, resp.StatusCode, snippet)
+	}
+	return data, ct, nil
+}
+
 // Delete sends a DELETE request to baseURL+path.
 func (c *Client) Delete(ctx context.Context, path string) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.baseURL+path, nil)
