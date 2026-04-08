@@ -141,7 +141,19 @@ async def _load_feed_status(
 
     last_poll_at = poll_state.get("last_success_ts")
     circuit_state = poll_state.get("circuit_state", "closed")
-    last_error = poll_state.get("last_error") or None
+    # phase-85 (security review C2): the runner stores upstream error
+    # bodies in ``last_error`` for operator triage. Those bodies can echo
+    # back the bearer/api token from a 401/403 response. Strip the value
+    # at the API boundary so Auditor-tier callers see only a category.
+    raw_last_error = poll_state.get("last_error") or None
+    last_error: Optional[str] = None
+    if raw_last_error:
+        if "HTTP 4" in raw_last_error or "HTTP 5" in raw_last_error:
+            last_error = raw_last_error.split(":", 1)[0]
+        elif raw_last_error.startswith("network:"):
+            last_error = "network"
+        else:
+            last_error = "error"
     failure_count = int(poll_state.get("failure_count", "0") or 0)
 
     # Derived next_poll_at from poll_interval_minutes

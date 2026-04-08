@@ -112,11 +112,12 @@ written. Noted with a `# TODO: verify against vendor portal before production
 use` comment on each client class. This is a spec-conformance gap to flag at
 code review, not a blocker.
 
-### Gate 4 — STIX extension UUID uniqueness
-Five-minute grep of `https://github.com/oasis-open/cti-stix2-json-schemas`
-skipped in this round. UUID `3b37e1e8-5a20-4c3d-aa0c-9a581b6f9d4e` is a UUID4
-so the collision probability is effectively zero. This is a bookkeeping check
-for the STIX docs owner; the engineer does not need to gate code on it.
+### Gate 4 — STIX extension UUID uniqueness — VERIFIED 2026-04-08
+Web search for `"3b37e1e8-5a20-4c3d-aa0c-9a581b6f9d4e"` in the OASIS CTI
+documentation surface (`docs.oasis-open.org/cti/`, `oasis-open` GitHub org)
+returned **zero hits** — no collision with any published OASIS extension
+definition. The UUID is now committed to `docs/stix/ja4-fingerprint-extension.md`
+with the permanence note. Recorded as PASS for Gate 4.
 
 ## Library Decision Summary
 
@@ -145,6 +146,29 @@ Phase 85 engineer owns:
 
 **Forbidden files:** `src/security/ti_provider.py`, `src/security/misp.py`,
 `src/security/pipeline.py`, `src/security/blocklists.py`, `src/tap/**`.
+
+## Security Architect Review — Critical Fixes Applied 2026-04-08
+
+Senior cyber-architect review identified C1–C10 critical findings. The
+following are now patched on `claude/phase-85`:
+
+| # | Issue | Fix |
+|---|---|---|
+| C1 | SSRF via operator-supplied feed URL (loopback / RFC1918 / link-local / metadata-service) | New `validate_feed_url()` in `base.py`; called from `FeedConfig.from_dict` for `taxii2`/`rest` types. Rejects non-https, blocks private/loopback/link-local/multicast/reserved. |
+| C2 | Credential leakage through `last_error` field (echoes 401/403 bodies that may contain bearer tokens) and `raw=%s` log line | `runner.py:_rebuild_clients` no longer logs the raw config dict (only the id). `routes/threat_intel.py` strips `last_error` to its category prefix at the API boundary so Auditors never see upstream bodies. |
+| C4 | Unsanitised feed_id allowed Redis-key namespace pivot and metric-cardinality inflation | New `_FEED_ID_REGEX = ^[a-z0-9][a-z0-9_-]{0,63}$` plus `_RESERVED_FEED_IDS = {"leader_lock"}` enforced in `FeedConfig.from_dict`. |
+| C5 | A compromised feed could ban loopback / RFC1918 / link-local IPs, including 127.0.0.1 → operator self-DoS | New `is_bannable_ip()` helper, enforced as a single choke point inside `ManagementClient.post_ban` so every feed client (TAXII, RF, CS, REST, contribution) inherits the guard. |
+| C8 | `runner.py:_poll_once` differential cleanup had operator-precedence bug `if handle and handle.count(".") >= 1 or ":" in (handle or "")` and mis-routed empty handles to `delete_blocklist("")` | Cleanup now reads the authoritative `ban_ips` and `blocklist_uuids` SETs to determine the resource kind. Empty handles are dropped from the snapshot only (no API call). Unknown handles log a warning. |
+| — | Dead-code `JA4_REGEX = r"...[d|q]..."` accepted literal `\|` in JA4 strings (character-class bug) | Fixed to `[dq]`. The exported regex is now safe even though `validate_ja4()` itself uses `_JA4_EXTRACT_REGEX` which was never affected. |
+| — | Phase 81 alert-rule lint required `runbook_url` (full URL), not just `runbook` (relative path) | Added `runbook_url` to all three TI feed alerts in `monitoring/alertmanager/rules/ti_feed.yml`. |
+
+Smoke-tested all five fixes against malicious / boundary inputs (loopback URLs,
+literal-bracket alternation in JA4, reserved feed_id collision, link-local
+ban target). 52 of 52 pre-existing TI tests + 9 of 9 alert-rule tests pass.
+
+Remaining architect findings (C3, C6, C7, C9, C10 + H/M tier) deferred to
+Chunk K (test merge) or later — these are larger and benefit from having
+the test scaffolding in place first.
 
 ## Blockers / Deviations
 
