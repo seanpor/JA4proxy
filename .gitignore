@@ -129,11 +129,12 @@ test-results/
 
 # Go build artifacts
 /bin/
+/_build/
 /ja4check
 /ja4proxy
+/ja4proxy-cli
 /cmd/proxy/proxy
 /proxy
-/ja4proxy
 /cmd/proxy/proxy
 
 # LaTeX build artifacts (docs/pdf/)

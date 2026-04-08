@@ -15,7 +15,7 @@ import pytest
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PYTHON_SCRIPT = os.path.join(REPO_ROOT, "scripts", "ja4proxy-policy.py")
-CLI_BINARY = os.path.join(REPO_ROOT, "_build", "ja4proxy-cli")
+CLI_BINARY = os.path.join(REPO_ROOT, "bin", "ja4proxy-cli")
 
 
 def _find_go_toolchain() -> tuple[str, str]:
@@ -59,7 +59,7 @@ def cli_binary():
     if not go_binary:
         pytest.skip("No Go toolchain found (tried /snap/bin/go and PATH)")
 
-    os.makedirs(os.path.join(REPO_ROOT, "_build"), exist_ok=True)
+    os.makedirs(os.path.join(REPO_ROOT, "bin"), exist_ok=True)
 
     build_env = {**os.environ, "GOROOT": goroot} if goroot else {**os.environ}
     result = subprocess.run(
