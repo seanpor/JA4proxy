@@ -16,7 +16,7 @@ explosions on large multi-feed deployments.
 |---|---|---|---|
 | `ja4proxy_ti_feed_poll_total` | counter | `feed_id, result` (`success`, `failure`, `skipped`, `circuit_open`) | Poll outcome counter — one increment per `poll()` call |
 | `ja4proxy_ti_feed_poll_duration_seconds` | histogram | `feed_id` | Wall-clock duration of a single poll |
-| `ja4proxy_ti_feed_indicators_processed_total` | counter | `feed_id, outcome` (`created`, `existing`, `below_confidence`, `unsupported`) | Per-indicator fates inside a poll |
+| `ja4proxy_ti_feed_indicators_processed_total` | counter | `feed_id, outcome` (`created`, `existing`, `below_confidence`, `unsupported`, `expired`) | Per-indicator fates inside a poll |
 | `ja4proxy_ti_feed_indicators_managed` | gauge | `feed_id` | Current size of the feed's `active_stix_ids` HASH |
 | `ja4proxy_ti_feed_cleanup_removals_total` | counter | `feed_id` | Indicators removed by differential cleanup |
 | `ja4proxy_ti_feed_circuit_state` | gauge | `feed_id` | 0=closed, 1=half_open, 2=open |
