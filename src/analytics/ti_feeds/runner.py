@@ -342,6 +342,12 @@ class FeedRunner:
 
         previous_ids = await self._state.get_active_stix_ids(feed_id)
 
+        # phase-85: hand the previous-id set to the client so its apply path
+        # can label re-seen indicators as ``existing`` rather than ``created``
+        # in the per-indicator outcome metric. Default-empty fallback (set in
+        # FeedClient.__init__) means a fresh feed counts everything as new.
+        client.previous_stix_ids = previous_ids
+
         try:
             result = await client.poll()
         except Exception as exc:  # noqa: BLE001
