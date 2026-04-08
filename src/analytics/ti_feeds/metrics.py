@@ -30,7 +30,9 @@ TI_POLL_DURATION = Histogram(
 )
 
 #: Per-indicator outcomes inside a poll.
-#: ``outcome`` in {``created``, ``existing``, ``below_confidence``, ``unsupported``}.
+#: ``outcome`` in {``created``, ``existing``, ``below_confidence``,
+#: ``unsupported``, ``expired``}. ``expired`` is incremented by the TAXII
+#: client when an indicator's ``valid_until`` is in the past at poll time.
 TI_INDICATORS_PROCESSED = Counter(
     "ja4proxy_ti_feed_indicators_processed_total",
     "Per-indicator outcomes inside a TI feed poll",
