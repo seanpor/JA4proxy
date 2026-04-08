@@ -41,6 +41,8 @@
 - **C8 differential-cleanup correctness**: replaced the operator-precedence bug `if handle and handle.count(".") >= 1 or ":" in (handle or "")` with an authoritative-set lookup against `ti_feed:{feed_id}:ban_ips` and `ti_feed:{feed_id}:blocklist_uuids`. Empty handles no longer trigger `delete_blocklist("")`.
 - **C7 leader-lock fail-closed**: `FeedState.try_acquire_leader` now returns `False` on Redis errors instead of `True`. The previous fail-open behaviour caused every analytics replica to act as leader during a Redis outage, doubling polls and racing differential cleanup.
 - **C7 cleanup atomicity**: per-indicator cleanup now runs through `FeedState.clear_handle`, which executes `hdel(active_stix_ids)` + `srem(ban_ips|blocklist_uuids)` inside a single Redis `MULTI/EXEC` transaction. The mgmt API delete still happens first; combined with idempotent 404 handling, the overall flow is at-least-once and converges.
+- **C3 CrowdStrike repr redaction**: `CrowdStrikeFalconClient.__repr__` now emits `<redacted>` placeholders for `client_id`/`client_secret` and a `<set>`/`<unset>` token state instead of falling through to the default `self.config` repr that printed both credentials in plaintext.
+- **C6 IPv4-mapped / 6to4 / Teredo canonicalisation**: `is_bannable_ip` now unwraps `ipv4_mapped`, `sixtofour`, and `teredo` IPv6 forms before classifying them, closing a bypass where a feed could ban operator loopback by sending `::ffff:127.0.0.1` (or the equivalent 6to4 / Teredo wrapper of an RFC1918 address).
 - Fixed dead-code `JA4_REGEX` character-class bug (`[d|q]` → `[dq]`) so the exported regex stops accepting literal `|` in JA4 strings.
 
 ### Notes

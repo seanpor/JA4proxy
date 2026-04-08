@@ -37,13 +37,39 @@ _RESERVED_FEED_IDS = frozenset({"leader_lock"})
 # upstream feed must not be able to ban the operator out of their own
 # infrastructure.
 def is_bannable_ip(ip: str) -> bool:
-    """Return True if ``ip`` is a sane public address to apply a ban to."""
+    """Return True if ``ip`` is a sane public address to apply a ban to.
+
+    phase-85 (architect C6): a feed-supplied IP can sneak past the
+    loopback / RFC1918 guard by encoding the address in an alternate
+    form that ``ipaddress.IPv6Address.is_loopback`` does not flag:
+
+    * ``::ffff:127.0.0.1`` — IPv4-mapped IPv6, ``ipv4_mapped`` is set
+    * ``2002:7f00:0001::`` — 6to4 wrapping 127.0.0.1, ``sixtofour`` is set
+    * ``2001::...`` — Teredo wrapping 192.168.x.y, ``teredo`` is set
+
+    Each of those wrappers carries an embedded IPv4 address that the
+    upstream feed control plane *cannot* see is private, but which the
+    operator's egress / NAT *can* — banning such an address is
+    indistinguishable from banning the unwrapped form. Recurse on the
+    embedded v4 so the inner-loopback / inner-RFC1918 / inner-multicast
+    is caught.
+    """
     if not isinstance(ip, str) or not ip:
         return False
     try:
         addr = ipaddress.ip_address(ip)
     except ValueError:
         return False
+    if isinstance(addr, ipaddress.IPv6Address):
+        if addr.ipv4_mapped is not None:
+            return is_bannable_ip(str(addr.ipv4_mapped))
+        if addr.sixtofour is not None:
+            return is_bannable_ip(str(addr.sixtofour))
+        teredo = addr.teredo
+        if teredo is not None:
+            # teredo returns (server, client); the client is what would
+            # actually receive traffic.
+            return is_bannable_ip(str(teredo[1]))
     if (
         addr.is_loopback
         or addr.is_link_local

@@ -49,6 +49,18 @@ class CrowdStrikeFalconClient(FeedClient):
         self._token: Optional[str] = None
         self._token_expires_at: float = 0.0
 
+    def __repr__(self) -> str:
+        # phase-85 (architect C3): never let the bearer token, client_id,
+        # or client_secret leak into a stack trace, log line, or pytest
+        # capture. The default dataclass-style repr would print self.config
+        # which carries client_secret in plaintext.
+        token_state = "<set>" if self._token else "<unset>"
+        return (
+            f"CrowdStrikeFalconClient(feed_id={self.config.id!r}, "
+            f"token={token_state}, client_id=<redacted>, "
+            f"client_secret=<redacted>)"
+        )
+
     async def poll(self) -> FeedPollResult:
         """Exchange credentials, iterate indicators, apply them via mgmt_client."""
         feed_id = self.config.id
