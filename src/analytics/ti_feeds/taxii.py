@@ -30,6 +30,7 @@ import json
 import logging
 import time
 from base64 import b64encode
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 try:  # pragma: no cover — optional at collection time, required at runtime
@@ -72,9 +73,34 @@ class TAXIIClient(FeedClient):
     * ``ban_ttl_hours`` — TTL applied to IP bans.
     """
 
-    def __init__(self, config: FeedConfig, mgmt, state) -> None:
+    def __init__(
+        self,
+        config: FeedConfig,
+        mgmt,
+        state,
+        *,
+        taxii: Any = None,
+        last_added_after: Optional[str] = None,
+    ) -> None:
+        """Construct a TAXII client.
+
+        Args:
+            config: Feed config.
+            mgmt: ManagementClient (or test stub) for posting bans/blocklist.
+            state: FeedState (or ``None`` to skip the sidecar index — used by
+                unit tests that only assert on mgmt-client interactions).
+            taxii: Optional pre-built transport with the contract
+                ``async get_objects(collection_id, added_after=None) -> dict``.
+                Production leaves this ``None`` and falls back to aiohttp;
+                tests pass a stub server (see
+                ``tests/unit/analytics/ti_feeds/conftest.py::StubTAXIIServer``).
+                phase-85 architect H1.
+            last_added_after: Optional initial cursor — lets tests start
+                mid-stream and lets the runner restore from ``poll_state``.
+        """
         super().__init__(config=config, mgmt=mgmt, state=state)
-        self._last_added_after: Optional[str] = None
+        self._taxii = taxii
+        self._last_added_after: Optional[str] = last_added_after
 
     async def poll(self) -> FeedPollResult:
         """Poll the configured TAXII collection once.
@@ -133,6 +159,23 @@ class TAXIIClient(FeedClient):
         implicitly — the standard path is
         ``{root}/collections/{collection_id}/objects/``.
         """
+        # phase-85 architect H1: when a test injects a transport via the
+        # ``taxii=`` constructor kwarg, route the fetch through it instead
+        # of building an aiohttp session. The transport contract is a
+        # single coroutine ``get_objects(collection_id, added_after=...)``
+        # returning a STIX bundle dict.
+        if self._taxii is not None:
+            bundle = await self._taxii.get_objects(
+                self.config.collection_id,
+                added_after=self._last_added_after,
+            )
+            if not isinstance(bundle, dict):
+                raise RuntimeError("injected TAXII transport returned non-dict")
+            objects = bundle.get("objects", [])
+            if not isinstance(objects, list):
+                raise RuntimeError("TAXII bundle.objects is not a list")
+            return objects
+
         if aiohttp is None:  # pragma: no cover
             raise RuntimeError("aiohttp required for TAXIIClient")
 
@@ -226,10 +269,19 @@ class TAXIIClient(FeedClient):
             ).inc()
             return
 
-        result.stix_ids_seen.add(stix_id)
-
         pattern = indicator.get("pattern")
         valid_until = indicator.get("valid_until")
+
+        # phase-85: filter indicators whose valid_until has already passed.
+        # An expired indicator should never be applied — it would only get
+        # cleaned up on the next differential pass, which is wasted work.
+        if isinstance(valid_until, str) and _is_expired(valid_until):
+            _INDICATORS_PROCESSED.labels(
+                feed_id=feed_id, outcome="expired"
+            ).inc()
+            return
+
+        result.stix_ids_seen.add(stix_id)
 
         if is_ip_pattern(pattern):
             ip = parse_ip_from_pattern(pattern)
@@ -258,7 +310,8 @@ class TAXIIClient(FeedClient):
             except Exception as exc:  # noqa: BLE001
                 result.errors.append(f"ban create failed: {exc}")
                 return
-            await self.state.mark(feed_id, stix_id, handle=ip, kind="ban")
+            if self.state is not None:
+                await self.state.mark(feed_id, stix_id, handle=ip, kind="ban")
             result.created.append((stix_id, ip))
             _INDICATORS_PROCESSED.labels(feed_id=feed_id, outcome="created").inc()
             return
@@ -282,15 +335,33 @@ class TAXIIClient(FeedClient):
             except Exception as exc:  # noqa: BLE001
                 result.errors.append(f"blocklist create failed: {exc}")
                 return
-            await self.state.mark(
-                feed_id, stix_id, handle=resource.id, kind="blocklist"
-            )
+            if self.state is not None:
+                await self.state.mark(
+                    feed_id, stix_id, handle=resource.id, kind="blocklist"
+                )
             result.created.append((stix_id, resource.id))
             _INDICATORS_PROCESSED.labels(feed_id=feed_id, outcome="created").inc()
             return
 
         _INDICATORS_PROCESSED.labels(feed_id=feed_id, outcome="unsupported").inc()
         result.unsupported_pattern += 1
+
+
+def _is_expired(valid_until: str) -> bool:
+    """Return True if the ISO-8601 ``valid_until`` is in the past.
+
+    Tolerant of trailing ``Z`` (Python's ``fromisoformat`` only learned to
+    accept it in 3.11). Returns False on parse failure — better to apply a
+    questionable indicator than to silently drop it.
+    """
+    try:
+        text = valid_until.replace("Z", "+00:00")
+        when = datetime.fromisoformat(text)
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=timezone.utc)
+        return when < datetime.now(timezone.utc)
+    except (ValueError, AttributeError):
+        return False
 
 
 def _newest_modified(objects: list[dict[str, Any]]) -> Optional[str]:

@@ -23,16 +23,7 @@ import urllib.parse
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
-# Phase 85 architect H1 — these tests assume aiohttp/HTTP-layer dependency
-# injection. The production clients construct their own ``aiohttp.ClientSession``
-# per poll. The DI rework is tracked as architect finding H1 and is its own
-# follow-up; mark the file xfail rather than blocking the test merge.
-pytestmark = pytest.mark.xfail(
-    reason="architect H1: client constructors do not yet accept HTTP injection",
-    strict=False,
-)
+import pytest  # noqa: F401
 
 
 def _run(coro):
@@ -126,16 +117,16 @@ def test_post_ban_url_encodes_ipv6():
     """IPv6 addresses contain colons and must be URL-encoded into the path."""
     ManagementClient = _import_client()
     sess = _RecordingSession()
-    sess.queue_post(201, {"ip": "2001:db8::1", "ttl": 3600, "reason": "feed:rf"})
+    sess.queue_post(201, {"ip": "2606:4700::1", "ttl": 3600, "reason": "feed:rf"})
 
     client = ManagementClient(
         base_url="https://mgmt.test", token="bearer-tok", session=sess
     )
-    _run(client.post_ban("2001:db8::1", ttl=3600, reason="feed:rf"))
+    _run(client.post_ban("2606:4700::1", ttl=3600, reason="feed:rf"))
 
     call = sess.calls[-1]
     decoded = urllib.parse.unquote(call["url"])
-    assert decoded.endswith("/api/v1/bans/2001:db8::1")
+    assert decoded.endswith("/api/v1/bans/2606:4700::1")
 
 
 def test_post_blocklist_uses_resource_create_body():
@@ -256,7 +247,7 @@ def test_retries_use_exponential_backoff():
     async def _fake_sleep(s: float) -> None:
         sleeps.append(s)
 
-    with patch("analytics.ti_feeds.mgmt_client.asyncio.sleep", _fake_sleep):
+    with patch("src.analytics.ti_feeds.mgmt_client.asyncio.sleep", _fake_sleep):
         _run(client.post_blocklist(entry="x", managed_by="feed", note=""))
 
     assert len(sleeps) == 2
@@ -296,7 +287,7 @@ def test_bulk_blocklist_paces_50_per_batch():
     async def _fake_sleep(s: float) -> None:
         sleeps.append(s)
 
-    with patch("analytics.ti_feeds.mgmt_client.asyncio.sleep", _fake_sleep):
+    with patch("src.analytics.ti_feeds.mgmt_client.asyncio.sleep", _fake_sleep):
         _run(client.bulk_post_blocklist(entries))
 
     # 120 entries → 3 batches of 50/50/20 → 2 inter-batch sleeps of 50 ms
@@ -332,7 +323,7 @@ def test_bulk_blocklist_uses_return_exceptions_per_batch():
     async def _fake_sleep(s: float) -> None:
         return None
 
-    with patch("analytics.ti_feeds.mgmt_client.asyncio.sleep", _fake_sleep):
+    with patch("src.analytics.ti_feeds.mgmt_client.asyncio.sleep", _fake_sleep):
         results = _run(client.bulk_post_blocklist(entries))
 
     # 50 results — at least one is an exception, the rest are dicts

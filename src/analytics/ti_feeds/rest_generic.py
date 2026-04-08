@@ -35,7 +35,7 @@ import ipaddress
 import logging
 import time
 from base64 import b64encode
-from typing import Any, Optional
+from typing import Any, Awaitable, Callable, Optional
 
 try:  # pragma: no cover
     import aiohttp
@@ -67,12 +67,31 @@ logger = logging.getLogger(__name__)
 class RESTGenericClient(FeedClient):
     """JSONPath-driven generic REST feed poller."""
 
-    def __init__(self, config: FeedConfig, mgmt, state) -> None:
+    def __init__(
+        self,
+        config: FeedConfig,
+        mgmt,
+        state,
+        *,
+        fetch: Optional[Callable[..., Awaitable[Any]]] = None,
+    ) -> None:
+        """Construct a generic REST feed client.
+
+        Args:
+            config: Feed config (carries url + auth + JSONPath expressions).
+            mgmt: ManagementClient (or test stub).
+            state: FeedState (or ``None`` for tests).
+            fetch: Optional injected async callable
+                ``(url, headers=None, **kwargs) -> body``. When set,
+                :meth:`poll` calls it instead of building an aiohttp
+                session. phase-85 architect H1.
+        """
         super().__init__(config=config, mgmt=mgmt, state=state)
         self._ip_expr = self._compile_jsonpath(config.ip_jsonpath)
         self._ttl_expr = self._compile_jsonpath(config.ttl_jsonpath)
         self._ja4_expr = self._compile_jsonpath(config.ja4_jsonpath)
         self._confidence_expr = self._compile_jsonpath(config.confidence_jsonpath)
+        self._fetch = fetch
 
     @staticmethod
     def _compile_jsonpath(expr: str):
@@ -163,6 +182,12 @@ class RESTGenericClient(FeedClient):
         return headers
 
     async def _fetch_json(self) -> Any:
+        # phase-85 architect H1: when a test injects ``fetch``, route the
+        # request through it instead of building an aiohttp session. The
+        # injected callable receives the same URL and headers production
+        # would send so test fixtures can assert on auth.
+        if self._fetch is not None:
+            return await self._fetch(self.config.url, headers=self._build_headers())
         assert aiohttp is not None
         async with aiohttp.ClientSession(headers=self._build_headers()) as session:
             async with session.get(
@@ -180,6 +205,15 @@ class RESTGenericClient(FeedClient):
 
     async def _apply_body(self, body: Any, result: FeedPollResult) -> None:
         feed_id = self.config.id
+
+        # phase-85: a non-dict / non-list body cannot be JSONPath-walked.
+        # Surface the failure as an error and short-circuit so callers
+        # find an error entry but no mgmt-client side effects.
+        if not isinstance(body, (dict, list)):
+            result.errors.append(
+                f"unexpected response body type: {type(body).__name__}"
+            )
+            return
 
         # IP indicators
         if self._ip_expr is not None:
@@ -216,7 +250,8 @@ class RESTGenericClient(FeedClient):
                 except Exception as exc:  # noqa: BLE001
                     result.errors.append(f"ban create failed: {exc}")
                     continue
-                await self.state.mark(feed_id, stix_id, handle=ip, kind="ban")
+                if self.state is not None:
+                    await self.state.mark(feed_id, stix_id, handle=ip, kind="ban")
                 result.created.append((stix_id, ip))
                 await asyncio.sleep(0)  # cooperative yield
 
@@ -238,7 +273,8 @@ class RESTGenericClient(FeedClient):
                 except Exception as exc:  # noqa: BLE001
                     result.errors.append(f"blocklist create failed: {exc}")
                     continue
-                await self.state.mark(
-                    feed_id, stix_id, handle=resource.id, kind="blocklist"
-                )
+                if self.state is not None:
+                    await self.state.mark(
+                        feed_id, stix_id, handle=resource.id, kind="blocklist"
+                    )
                 result.created.append((stix_id, resource.id))
