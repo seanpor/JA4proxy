@@ -258,6 +258,28 @@ Architect finding C7 had two parts:
    if step 2 fails after step 1 succeeds, the next poll's diff
    re-attempts the clear and the mgmt API returns 404.
 
+## C3 + C6 — secret repr + IPv6-wrapped IPv4 canonicalisation 2026-04-08
+
+Two small architect findings closed in one commit:
+
+1. **C3 — CrowdStrike client `__repr__` leaked secrets.** The default
+   object repr would print `self.config`, which carries `client_id` and
+   `client_secret` in plaintext; a stack trace, pytest capture, or stray
+   log line could exfiltrate the token. Added an explicit `__repr__` to
+   `CrowdStrikeFalconClient` that emits only `feed_id`, a `<set>`/`<unset>`
+   token state, and `<redacted>` placeholders for the credentials. The
+   bearer token (`self._token`) is also never echoed.
+
+2. **C6 — IPv4-mapped / 6to4 / Teredo bypass of `is_bannable_ip`.**
+   `ipaddress.IPv6Address.is_loopback` only matches `::1`; it does **not**
+   recognise `::ffff:127.0.0.1`, `2002:7f00:0001::`, or a Teredo address
+   wrapping an RFC1918 client. A compromised feed could thus ban operator
+   loopback by sending the v4-mapped form. `is_bannable_ip` now unwraps
+   `ipv4_mapped`, `sixtofour`, and `teredo[1]` and recurses on the embedded
+   IPv4. Verified against ten boundary inputs (`::ffff:127.0.0.1`,
+   `::ffff:10.0.0.1`, `::ffff:8.8.8.8`, `2002:7f00:0001::`, `2002:0808:0808::`,
+   etc.); 76 / 76 pre-existing TI feed unit tests still pass.
+
 ## Blockers / Deviations
 
 - None so far. Tracking:
