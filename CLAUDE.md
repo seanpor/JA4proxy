@@ -3,6 +3,22 @@
 > **Read this file first, every session.** Then read the specific phase file in
 > `docs/phases/` for the phase you are working on. Do not skip ahead.
 
+> ### ⚠ Production runtime is Go, not Python
+>
+> The **Go proxy** (`cmd/proxy/`, `internal/`, built to `bin/proxy`) was
+> promoted to production in Phase 15. It is the only implementation that ships
+> in releases, Docker images, Helm charts, and enterprise documentation.
+>
+> The **Python proxy** (`proxy.py`, `src/security/`) is **experimental** and
+> retained only as a prototyping surface for new signal modules. Prototype in
+> Python, prove the idea, then port to Go before it touches real traffic.
+>
+> When making changes, default to the Go side. Touch the Python side only when
+> the task explicitly involves prototyping, signal-module research, or fixing
+> the Python prototype itself. Python services that **are not the proxy** —
+> Management API (FastAPI), analytics node, compliance reporting — remain
+> Python and are production code.
+
 ---
 
 ## Multi-Agent Coordination — Read Before Anything Else

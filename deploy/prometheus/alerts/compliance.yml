@@ -1,0 +1,54 @@
+groups:
+  - name: ja4proxy_compliance
+    # phase-84: Compliance reporting and GDPR retention alerts.
+    rules:
+
+      # Alert when the GDPR purge has not run within the expected window.
+      # This protects against silent retention violations when the scheduled
+      # purge job fails or is never configured.
+      - alert: GDPRPurgeOverdue
+        expr: |
+          (time() - ja4proxy_gdpr_last_purge_timestamp_seconds) > 7 * 24 * 3600
+        for: 1h
+        labels:
+          severity: warning
+          team: secops
+        annotations:
+          summary: "GDPR purge has not run for over 7 days"
+          description: |
+            The GDPR retention purge last ran {{ $value | humanizeDuration }} ago.
+            Connections older than the retention window may still be in the Redis Stream.
+            Run: ja4proxy-cli compliance purge-expired --confirm
+            Or: POST /api/v1/compliance/purge-expired
+
+      # Alert when the Redis Stream holding raw connection events exceeds
+      # a size that suggests the purge is not keeping up.
+      - alert: ConnectionStreamUnbounded
+        expr: |
+          ja4proxy_stream_length{stream="ja4proxy:events"} > 1000000
+        for: 30m
+        labels:
+          severity: warning
+          team: secops
+        annotations:
+          summary: "Connection event stream is very large (>1M entries)"
+          description: |
+            ja4proxy:events has {{ $value }} entries. This may indicate the GDPR
+            purge job is not running, or retention_days is set too high for the
+            current connection volume. Check gdpr.retention_days in proxy.yml.
+
+      # Alert when the compliance token is close to expiry.
+      # Auditors need a working token to generate evidence packs on demand.
+      - alert: ComplianceTokenExpirySoon
+        expr: |
+          ja4proxy_compliance_token_expiry_timestamp_seconds - time() < 7 * 24 * 3600
+        for: 0m
+        labels:
+          severity: warning
+          team: secops
+        annotations:
+          summary: "Compliance API token expires in less than 7 days"
+          description: |
+            The compliance-role token will expire in {{ $value | humanizeDuration }}.
+            Run the rotate-compliance-token CI workflow or generate a new token with:
+            POST /api/v1/tokens  (Admin role required)

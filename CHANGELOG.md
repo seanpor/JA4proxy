@@ -1,5 +1,68 @@
 # Changelog
 
+## [Unreleased] - Phase 84 second critical review fixes
+
+### Fixed
+- **C1 (CRITICAL)** `dsar_erase` ban-preservation TOCTOU — reason and TTL now fetched via a single pipeline; absent bans no longer produce ghost `skipped` entries (`management/api/routes/compliance.py`)
+- **C2 (CRITICAL)** Monthly/stream fallback misfired on quiet windows — now falls back only when every month in the requested range is missing an aggregate, not when `total == 0`
+- **C3 (CRITICAL)** ISO timestamp comparison was lexicographic, silently dropping events with a different TZ format than the window builders used — added `_parse_ts` / `_ts_in_window` helpers applied to every stream/audit filter in `compliance.py` and `pack_builder.py`
+- **H2 (HIGH)** Logo validation was theatre (no size cap, silent errors, hardcoded `image/png` MIME) — replaced with `_validate_logo()`: 1.4MB base64 cap, magic-byte sniff (PNG/JPEG/GIF/SVG), correct MIME, WARN logs on rejection
+- **H4 (HIGH)** `/signal-categories` endpoint constructed a bare default classifier and lied about configured overrides — added module-level `_get_classifier()` loading `reporting.signal_categories` from `proxy.yml`
+- **H5 (HIGH)** Non-numeric monthly aggregate fields crashed the whole `/compliance/report` call — per-field try/except with WARN log
+- **M3 (MEDIUM)** Token inventory denylist → allowlist (`_TOKEN_SAFE_FIELDS`) so future phases adding token fields cannot silently leak them into the evidence pack
+- **M5 (MEDIUM)** `ReportData.block_rate_pct` now clamps to `[0, 100]` — prevents rendering "173.4%" when aggregate and stream sources disagree
+- **M6 (MEDIUM)** HTML escape in `_render_simple_pdf` titles and artefact row content (defence in depth)
+- **L3 (LOW)** DSAR erase audit record now preserves full `skipped` list, not just its length — auditors can prove *which* key was skipped and *why*
+- **L4 (LOW)** Module-level classifier cache avoids rebuilding the default mapping on every request
+
+### Changed
+- **Python proxy clearly marked EXPERIMENTAL** — loud startup banner in `proxy.py` (bypass with `JA4PROXY_PYTHON_EXPERIMENTAL_ACK=1`), prominent warnings in `CLAUDE.md`, `README.md`, and `src/security/__init__.py`. The production proxy is the Go binary (`bin/proxy`, Phase 15+); the Python implementation exists only as a prototyping surface for new signal modules.
+
+### Added
+- 9 new tests in `management/tests/test_compliance_routes.py` covering C1, C3, H2, H4, H5, L3 (**test count: 112 Python + 36 Go = 148**, was 139)
+- `docs/phases/PHASE_101.md` — Phase 101 plan tracking the 9 deferred review items (H1 double-XRANGE, H3 CIDR watchlist match, M1 Redis version check, M2 metric rename, M4 audit log pagination, M7 DSAR partial failures, L1 Jinja2 env cache, L2 JSONL invariant doc, L5 DSAR retention text from config)
+
+## [84] - 2026-04-08 - Compliance Reporting & Evidence Pack
+
+### Added
+- **Python compliance package** (`management/compliance/`):
+  - `classifier.py` — `SignalClassifier` maps fired RiskSignal names to attack categories; configurable weights; tie-breaking by alphabetical category name
+  - `purge.py` — `GDPRPurge` enforces retention policy across Stream events, beaconing SortedSets, return-visitor hashes, and monthly aggregates; fail-open with per-category error capture
+  - `pack_builder.py` — `PciDssPackBuilder` generates 8-artefact evidence ZIP (block log, allowlist, blocklist, audit log, config changes, RBAC snapshot, risk thresholds, SHA-256-signed deployment confirmation)
+  - `report_renderer.py` — `ReportRenderer` renders executive HTML/PDF reports via Jinja2 with full auto-escaping; PDF requires WeasyPrint; falls back to HTML gracefully
+- **6 new Management API compliance routes** (`management/api/routes/compliance.py`):
+  - `POST /api/v1/compliance/pci-dss-pack` (Auditor+) — ZIP evidence pack
+  - `POST /api/v1/compliance/report` (Auditor+) — HTML or PDF executive report
+  - `GET /api/v1/compliance/dsar/{ip}` (Auditor+) — GDPR subject access request export
+  - `DELETE /api/v1/compliance/dsar/{ip}` (Admin) — GDPR right-to-erasure with audit trail
+  - `POST /api/v1/compliance/purge-expired` (Admin) — GDPR retention enforcement
+  - `GET /api/v1/compliance/signal-categories` (Auditor+) — active classifier mapping
+- **Go compliance package** (`internal/compliance/`):
+  - `classifier.go` — cross-language parity with Python `SignalClassifier`; identical tie-breaking and weight resolution
+  - `pagination.go` — `PageIterator` for streaming all connection events across pages; `CollectAll` convenience helper; `DecodePageToken` for cursor inspection
+- **Go CLI compliance commands** (`internal/cli/commands/compliance.go`):
+  - `ja4proxy-cli compliance dsar export <ip>` — DSAR export
+  - `ja4proxy-cli compliance dsar erase <ip>` — GDPR erasure (requires `--ticket`)
+  - `ja4proxy-cli compliance purge-expired` — retention purge
+  - `ja4proxy-cli compliance pci-dss-pack` — download evidence ZIP
+  - `ja4proxy-cli compliance connections-export` — paginated JSONL export
+  - `ja4proxy-cli compliance signal-categories` — list classifier mapping
+  - `ja4proxy-cli report generate` — HTML/PDF executive report
+- **HTTP client** (`internal/cli/client/client.go`): added `PostBinaryResponse()` for ZIP/PDF binary downloads
+- **`GET /api/v1/connections`** enhanced: `?until=`, `?page_token=` parameters; `_MAX_LIMIT` raised 500→10,000; response adds `has_more`, `next_page_token`, `total_in_window`; `truncated` kept for backwards compatibility
+- **Config** (`config/proxy.yml`): `gdpr:` and `reporting:` sections with retention days and configurable signal categories
+- **Docs**: `docs/compliance/soc2-control-narrative.md`, `docs/compliance/iso27001-annex-a-mapping.md`, `docs/REDIS_SCHEMA.md` Phase 84 keys
+- **Ops**: `deploy/prometheus/alerts/compliance.yml` (purge overdue, stream unbounded, token expiry); `deploy/ansible/playbooks/monthly-report.yml`
+- **Makefile**: `test-phase-84`, `test-phase-84-go`, `test-phase-84-python`, `test-phase-84-classifier-parity` targets
+
+### Test coverage
+- 27 Go compliance tests (classifier + pagination) — all pass
+- 9 Go CLI compliance command tests — all pass
+- 103 Python compliance tests across 6 test files — all pass
+- Cross-language parity vectors: 18 identical input→output assertions in both Go and Python
+
+---
+
 ## [83] - 2026-04-07 - ja4proxy-cli Go Binary
 
 ### Added
