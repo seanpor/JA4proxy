@@ -18,7 +18,7 @@ import pytest
 
 
 def _import_seed():
-    from analytics.ti_feeds.seed_file import SeedFileLoader
+    from src.analytics.ti_feeds.seed_file import SeedFileLoader
 
     return SeedFileLoader
 

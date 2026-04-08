@@ -200,3 +200,7 @@ class CrowdStrikeFalconClient(FeedClient):
                 continue
             await self.state.mark(feed_id, str(stix_id), handle=ip, kind="ban")
             result.created.append((str(stix_id), ip))
+
+
+#: Test-facing alias.
+CrowdStrikeClient = CrowdStrikeFalconClient

@@ -27,7 +27,7 @@ def _run(coro):
 
 
 def _import_contribution():
-    from analytics.ti_feeds import contribution
+    from src.analytics.ti_feeds import contribution
 
     return contribution
 

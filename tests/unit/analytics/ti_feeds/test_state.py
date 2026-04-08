@@ -26,7 +26,7 @@ def _run(coro):
 
 
 def _import_FeedState():
-    from analytics.ti_feeds.state import FeedState
+    from src.analytics.ti_feeds.state import FeedState
 
     return FeedState
 

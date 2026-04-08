@@ -59,7 +59,7 @@ except ImportError:  # pragma: no cover
 
 from .base import FeedClient, FeedConfig, FeedPollResult
 from .metrics import TI_POLL_TOTAL as _POLL_TOTAL
-from .stix_ja4 import validate_ja4
+from .stix_ja4 import is_valid_ja4
 
 logger = logging.getLogger(__name__)
 
@@ -224,7 +224,7 @@ class RESTGenericClient(FeedClient):
         if self._ja4_expr is not None:
             ja4_values = [m.value for m in self._ja4_expr.find(body)]
             for ja4 in ja4_values:
-                if not isinstance(ja4, str) or not validate_ja4(ja4):
+                if not isinstance(ja4, str) or not is_valid_ja4(ja4):
                     result.unsupported_pattern += 1
                     continue
                 stix_id = f"rest:{feed_id}:ja4:{ja4}"

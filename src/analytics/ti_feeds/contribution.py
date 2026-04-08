@@ -58,6 +58,22 @@ _ALLOWED_FIELDS: frozenset[str] = frozenset(
 _ONE_HOUR_S = 3600
 
 
+def serialise_contribution(payload: dict[str, Any]) -> str:
+    """Module-level GDPR-gated serialiser for community contribution payloads.
+
+    Mirrors :meth:`ContributionClient._serialize` but additionally enforces
+    that ``ja4`` is present (the field is the only meaningful identifier in
+    a contribution and silently dropping it would corrupt the hosted feed).
+    """
+    if not isinstance(payload, dict):
+        raise ValueError(
+            f"contribution payload must be a dict, got {type(payload).__name__}"
+        )
+    if "ja4" not in payload:
+        raise ValueError("contribution payload missing required field 'ja4'")
+    return ContributionClient._serialize(payload)
+
+
 @dataclass
 class ContributionConfig:
     """Mirror of ``threat_intel.feed_contribution`` in ``config/proxy.yml``."""
@@ -81,9 +97,38 @@ class ContributionClient:
     client + GDPR gate + one-warn-per-hour rate limiter.
     """
 
-    def __init__(self, config: ContributionConfig) -> None:
+    _NEVER_WARNED = float("-inf")
+
+    def __init__(
+        self,
+        config: Optional[ContributionConfig] = None,
+        *,
+        enabled: Optional[bool] = None,
+        endpoint: Optional[str] = None,
+        api_key: Optional[str] = None,
+    ) -> None:
+        # Two construction styles are supported:
+        #   ContributionClient(config_obj)              — production
+        #   ContributionClient(enabled=..., endpoint=..., api_key=...)  — tests
+        if config is None:
+            config = ContributionConfig()
+        if enabled is not None:
+            config.enabled = enabled
+        if endpoint is not None:
+            config.endpoint = endpoint
+        if api_key is not None:
+            config.api_key = api_key
         self.config = config
-        self._last_warn_at: float = 0.0
+        self._last_warn_at: float = self._NEVER_WARNED
+
+    @property
+    def enabled(self) -> bool:
+        """Convenience accessor mirroring the config flag."""
+        return self.config.enabled
+
+    @property
+    def endpoint(self) -> str:
+        return self.config.endpoint
 
     # ── hard gate ────────────────────────────────────────────────────────
 
@@ -126,6 +171,62 @@ class ContributionClient:
         return json.dumps(payload, separators=(",", ":"))
 
     # ── outbound ────────────────────────────────────────────────────────
+
+    async def _post(
+        self,
+        url: str,
+        *,
+        json: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> Any:
+        """Indirection seam for tests — production aiohttp call lives here.
+
+        Tests patch this attribute to drive the contribute path without
+        hitting the network.
+        """
+        if aiohttp is None:  # pragma: no cover
+            raise RuntimeError("aiohttp is not installed")
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                url,
+                json=json,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as resp:
+                return resp
+
+    async def contribute(self, payload: dict[str, Any]) -> bool:
+        """Submit ``payload`` to the hosted contribution endpoint.
+
+        Returns ``True`` on a 2xx response, ``False`` if the client is
+        disabled, the GDPR gate trips, or the endpoint is unreachable.
+        Unreachable endpoints are warn-logged at most once per hour.
+        """
+        if not self.enabled:
+            return False
+
+        # Hard GDPR gate. Raises on disallowed fields — let it propagate so
+        # tests catch coding mistakes; ``maybe_submit`` (the production
+        # caller) wraps the call in defence-in-depth.
+        body_json = json.loads(self._serialize(payload))
+
+        headers = {"Content-Type": "application/json"}
+        if self.config.api_key:
+            headers["X-API-Key"] = self.config.api_key
+
+        try:
+            resp = await self._post(self.endpoint, json=body_json, headers=headers)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            self._warn_once(f"submit failed: {exc}")
+            return False
+
+        status = getattr(resp, "status", 0)
+        if status // 100 != 2:
+            self._warn_once(f"endpoint returned HTTP {status}")
+            return False
+        return True
 
     async def maybe_submit(self, payload: dict[str, Any]) -> bool:
         """Submit a payload to the hosted feed if ``enabled=True``.

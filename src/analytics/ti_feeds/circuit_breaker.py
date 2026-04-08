@@ -28,16 +28,33 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 
 class CircuitState(str, Enum):
-    """Breaker state vocabulary, matching the Prometheus gauge encoding."""
+    """Breaker state vocabulary, matching the Prometheus gauge encoding.
+
+    Per PHASE_85.md §10.1, the Prometheus gauge encodes ``closed=0``,
+    ``half_open=1``, ``open=2``. The ``__int__`` mapping below makes
+    ``int(CircuitState.X)`` return the gauge value directly so the runner
+    can call ``gauge.set(int(state))`` instead of switching on names.
+    """
 
     CLOSED = "closed"
     HALF_OPEN = "half_open"
     OPEN = "open"
+
+    def __int__(self) -> int:
+        return _CIRCUIT_STATE_INT[self]
+
+
+_CIRCUIT_STATE_INT: dict[CircuitState, int] = {
+    CircuitState.CLOSED: 0,
+    CircuitState.HALF_OPEN: 1,
+    CircuitState.OPEN: 2,
+}
 
 
 @dataclass
@@ -155,3 +172,44 @@ class CircuitBreakerManager:
     def all_states(self) -> dict[str, CircuitState]:
         """Return a snapshot of the current state for every known feed."""
         return {feed_id: br.state for feed_id, br in self._breakers.items()}
+
+
+class CircuitBreaker(PerFeedCircuitBreaker):
+    """Standalone circuit breaker (kwarg-friendly wrapper around the per-feed type).
+
+    The :class:`PerFeedCircuitBreaker` requires a feed_id and a shared
+    :class:`CircuitBreakerConfig`. For unit tests and ad-hoc callers it is
+    convenient to construct a breaker with the tunables directly:
+
+    >>> cb = CircuitBreaker(failure_threshold=3, open_timeout_s=600)
+    >>> cb.allow()
+    True
+    """
+
+    def __init__(
+        self,
+        *,
+        failure_threshold: int = 3,
+        open_timeout_s: int = 600,
+        backoff_max_s: Optional[int] = None,
+        feed_id: str = "_standalone",
+    ) -> None:
+        # Default: no exponential backoff in the standalone breaker — every
+        # OPEN cycle uses the same ``open_timeout_s`` window. Callers that
+        # need progressive backoff should construct PerFeedCircuitBreaker
+        # directly with a larger backoff_max_s.
+        if backoff_max_s is None:
+            backoff_max_s = open_timeout_s
+        super().__init__(
+            feed_id=feed_id,
+            config=CircuitBreakerConfig(
+                failure_threshold=failure_threshold,
+                open_timeout_s=open_timeout_s,
+                backoff_max_s=backoff_max_s,
+            ),
+            tracker=_CircuitTracker(),
+        )
+
+    def allow(self) -> bool:
+        """Alias of :meth:`PerFeedCircuitBreaker.allow_poll`."""
+        return self.allow_poll()

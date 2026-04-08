@@ -17,14 +17,14 @@ import pytest
 
 def test_feed_poll_result_can_be_imported():
     """The dataclass exists at the documented import path."""
-    from analytics.ti_feeds.base import FeedPollResult  # noqa: F401
+    from src.analytics.ti_feeds.base import FeedPollResult  # noqa: F401
 
     assert dataclasses.is_dataclass(FeedPollResult)
 
 
 def test_feed_poll_result_has_required_fields():
     """FeedPollResult exposes all fields enumerated in PHASE_85.md §5.2."""
-    from analytics.ti_feeds.base import FeedPollResult
+    from src.analytics.ti_feeds.base import FeedPollResult
 
     field_names = {f.name for f in dataclasses.fields(FeedPollResult)}
     required = {
@@ -41,7 +41,7 @@ def test_feed_poll_result_has_required_fields():
 
 def test_feed_poll_result_round_trip():
     """A FeedPollResult constructed by-name preserves all values."""
-    from analytics.ti_feeds.base import FeedPollResult
+    from src.analytics.ti_feeds.base import FeedPollResult
 
     result = FeedPollResult(
         feed_id="taxii-isac",
@@ -61,7 +61,7 @@ def test_feed_poll_result_round_trip():
 
 def test_feed_client_is_abstract():
     """FeedClient is an ABC and cannot be instantiated directly."""
-    from analytics.ti_feeds.base import FeedClient
+    from src.analytics.ti_feeds.base import FeedClient
 
     assert inspect_abstract(FeedClient)
     # Direct instantiation must fail
@@ -76,14 +76,14 @@ def inspect_abstract(cls) -> bool:
 
 def test_feed_client_poll_is_abstract():
     """``poll()`` is enforced abstract on the base class."""
-    from analytics.ti_feeds.base import FeedClient
+    from src.analytics.ti_feeds.base import FeedClient
 
     assert "poll" in getattr(FeedClient, "__abstractmethods__", set())
 
 
 def test_feed_client_subclass_must_implement_poll():
     """A subclass that omits ``poll`` cannot be instantiated."""
-    from analytics.ti_feeds.base import FeedClient
+    from src.analytics.ti_feeds.base import FeedClient
 
     class IncompleteFeed(FeedClient):  # type: ignore[misc]
         pass
@@ -94,7 +94,7 @@ def test_feed_client_subclass_must_implement_poll():
 
 def test_feed_client_subclass_with_poll_can_be_instantiated():
     """A correctly-implemented subclass can be constructed and poll() awaited."""
-    from analytics.ti_feeds.base import FeedClient, FeedPollResult
+    from src.analytics.ti_feeds.base import FeedClient, FeedPollResult
 
     class GoodFeed(FeedClient):  # type: ignore[misc]
         async def poll(self) -> FeedPollResult:  # type: ignore[override]

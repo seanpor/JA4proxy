@@ -77,13 +77,11 @@ IP_PATTERN_REGEX = re.compile(
 )
 
 
-def validate_ja4(candidate: str) -> bool:
+def is_valid_ja4(candidate: str) -> bool:
     """Return True if ``candidate`` looks like a valid JA4 fingerprint.
 
-    Accepts the common TLS forms (``t13d...``, ``t10d...``, ``t13q...``) and
-    the ALPN-less variants. Rejects anything containing whitespace, null
-    bytes, or backticks so log-injection via feed-provided JA4 values is
-    impossible.
+    Bool variant for hot-path callers. See :func:`validate_ja4` for the
+    raising variant used by config and seed-file loaders.
     """
     if not candidate or not isinstance(candidate, str):
         return False
@@ -92,6 +90,60 @@ def validate_ja4(candidate: str) -> bool:
     if any(c in candidate for c in (" ", "\t", "\n", "\0", "`")):
         return False
     return bool(_JA4_EXTRACT_REGEX.match(candidate))
+
+
+def validate_ja4(candidate: str) -> None:
+    """Raise ``ValueError`` if ``candidate`` is not a syntactically valid JA4.
+
+    Used by seed-file and config loaders where a malformed JA4 must abort
+    parsing rather than be silently dropped. Hot-path callers should use
+    :func:`is_valid_ja4` instead.
+    """
+    if not is_valid_ja4(candidate):
+        raise ValueError(f"invalid JA4 fingerprint: {candidate!r}")
+
+
+# ── parser aliases (test-facing names) ────────────────────────────────────────
+
+
+def parse_ja4_pattern(pattern: Optional[str]) -> Optional[str]:
+    """Alias of :func:`parse_ja4_from_pattern` (test-facing name)."""
+    return parse_ja4_from_pattern(pattern)
+
+
+def parse_ip_pattern(pattern: Optional[str]) -> Optional[str]:
+    """Alias of :func:`parse_ip_from_pattern` (test-facing name)."""
+    return parse_ip_from_pattern(pattern)
+
+
+def parse_new_sco(sco: dict) -> dict:
+    """Return the metadata fields from an ``x-ja4-fingerprint`` SCO.
+
+    Reads the ``new-sco`` extension block at
+    :data:`JA4_SCO_EXTENSION_ID` and surfaces ``value``, ``likely_category``,
+    ``likely_tool``, ``ja4x``, and ``source`` as a flat dict.
+    """
+    ext = (sco.get("extensions") or {}).get(JA4_SCO_EXTENSION_ID, {})
+    return {
+        "value": sco.get("value"),
+        "likely_category": ext.get("likely_category"),
+        "likely_tool": ext.get("likely_tool"),
+        "ja4x": ext.get("ja4x"),
+        "source": ext.get("source"),
+    }
+
+
+def is_supported_indicator(indicator: dict) -> bool:
+    """Return True if the indicator is one we know how to apply.
+
+    Per PHASE_85.md §4: ``pattern_type`` MUST be the literal STIX value
+    ``"stix"`` — feeds inventing a custom ``"x-ja4-fingerprint"``
+    pattern_type are rejected.
+    """
+    if indicator.get("pattern_type") != "stix":
+        return False
+    pattern = indicator.get("pattern")
+    return is_ja4_pattern(pattern) or is_ip_pattern(pattern)
 
 
 def is_ja4_pattern(pattern: Optional[str]) -> bool:
