@@ -5,15 +5,25 @@ returns its own indicator JSON format. The poll flow is:
 
 1. Exchange ``client_id``/``client_secret`` for a short-lived bearer token at
    ``POST https://api.crowdstrike.com/oauth2/token`` with
-   ``grant_type=client_credentials`` and ``scope=indicators:read``.
-2. Poll ``GET /intel/combined/indicators/v1?type={type}&malicious_confidence={conf}``
-   paginated via the ``Meta.Pagination.Offset`` cursor.
-3. Each indicator returned carries ``indicator``, ``type``, ``malicious_confidence``
+   ``grant_type=client_credentials``. The ``scope`` parameter is **not**
+   sent in the body — Falcon scopes are configured at the API client
+   level in the Falcon console (the API client must have the
+   ``Indicators (Falcon Intelligence): Read`` permission). The earlier
+   draft sent ``scope=indicators:read``; that was incorrect and has been
+   removed (Phase 85 Chunk H, 2026-04-08).
+2. Poll ``GET /intel/combined/indicators/v1`` with FQL filtering. The
+   real Falcon API does not accept ``type`` or ``malicious_confidence``
+   as direct query parameters — both have to be combined into a single
+   ``filter`` expression in FQL syntax, e.g.
+   ``filter=type:'ip_address'+malicious_confidence:'high'``.
+3. Pagination uses the combined-API ``meta.pagination.offset`` field,
+   which is a **string token**, not an integer. The loop continues
+   while the next offset is truthy and stops when it is missing.
+4. Each indicator returned carries ``indicator``, ``type``, ``malicious_confidence``
    fields. We treat IP indicators exactly like the TAXII client does.
 
-TODO: verify against the Falcon developer portal before production use. The
-scope and query-parameter names come from PHASE_85.md §6.3 as written;
-confirm with CrowdStrike docs before rollout.
+Verified against the Falcon developer portal 2026-04-08 — see
+``docs/phases/PHASE_85_notes.md`` Chunk H.
 """
 
 from __future__ import annotations
@@ -192,11 +202,13 @@ class CrowdStrikeFalconClient(FeedClient):
                 "CrowdStrike client_id / client_secret unset (env var unresolved?)"
             )
 
+        # phase-85 Chunk H: Falcon's /oauth2/token endpoint takes only
+        # client_id + client_secret. The grant type is implicit
+        # (client_credentials) and there is no scope parameter — scopes
+        # are configured at the API client level in the Falcon console.
         data = {
             "client_id": self.config.client_id,
             "client_secret": self.config.client_secret,
-            "scope": "indicators:read",
-            "grant_type": "client_credentials",
         }
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -220,25 +232,40 @@ class CrowdStrikeFalconClient(FeedClient):
     # ── Indicator pages ─────────────────────────────────────────────────
 
     async def _poll_all_pages(self, result: FeedPollResult) -> None:
-        """Walk the paginated indicator endpoint until exhausted."""
+        """Walk the paginated indicator endpoint until exhausted.
+
+        phase-85 Chunk H: the real Falcon API does not accept ``type`` /
+        ``malicious_confidence`` as direct query parameters — they have
+        to be combined into a single FQL ``filter`` expression. The
+        ``offset`` field of ``meta.pagination`` is a string token, not
+        an integer; the loop continues while it is truthy and stops when
+        it is missing.
+        """
         if aiohttp is None:  # pragma: no cover
             raise RuntimeError("aiohttp required")
         assert self._token
 
-        offset: Optional[int] = 0
+        offset: Optional[str] = None
+        type_csv = ",".join(self.config.indicator_types or ["ip_address"])
+        filter_expr = (
+            f"type:'{type_csv}'+malicious_confidence:'"
+            f"{self.config.min_malicious_confidence}'"
+        )
         headers = {
             "Authorization": f"Bearer {self._token}",
             "Accept": "application/json",
             "User-Agent": "ja4proxy-ti-feed/1.0",
         }
+        first = True
         async with aiohttp.ClientSession(headers=headers) as session:
-            while offset is not None:
-                params = {
+            while first or offset:
+                first = False
+                params: dict[str, str] = {
                     "limit": str(_PAGE_SIZE),
-                    "offset": str(offset),
-                    "type": ",".join(self.config.indicator_types or ["ip_address"]),
-                    "malicious_confidence": self.config.min_malicious_confidence,
+                    "filter": filter_expr,
                 }
+                if offset:
+                    params["offset"] = offset
                 async with session.get(
                     _FALCON_INDICATORS_URL,
                     params=params,
@@ -257,15 +284,10 @@ class CrowdStrikeFalconClient(FeedClient):
                 meta = body.get("meta", {}) or {}
                 pagination = meta.get("pagination", {}) or {}
                 next_offset = pagination.get("offset")
-                limit = pagination.get("limit", _PAGE_SIZE)
-                total = pagination.get("total", 0)
-                new_offset = (
-                    next_offset + limit if isinstance(next_offset, int) else None
-                )
-                if new_offset is None or new_offset >= total or not resources:
+                if not next_offset or not resources:
                     offset = None
                 else:
-                    offset = new_offset
+                    offset = str(next_offset)
                     await asyncio.sleep(_BATCH_SLEEP_S)
 
     async def _poll_paginated_via_fetcher(self, result: FeedPollResult) -> None:

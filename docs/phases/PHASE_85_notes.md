@@ -339,6 +339,60 @@ because its TestClient lacks a Redis fixture (page routes depend on
 `get_redis()` even on the unauth path) — that test-infra plumbing is a
 separate deliverable, not a Phase 85 acceptance gate.
 
+## Chunk G — Recorded Future API contract verification 2026-04-08
+
+Verified `src/analytics/ti_feeds/recorded_future.py` against Recorded
+Future's public support documentation (support.recordedfuture.com,
+servicenow.com community articles, RF integration install guides).
+
+**Findings & corrections applied:**
+
+| Field | PHASE_85.md draft | RF reality | Action |
+|---|---|---|---|
+| TAXII 2.1 root | `https://api.recordedfuture.com/taxii2/` | Same — verified the v2 endpoint lives at `/taxii2`; the legacy `/taxii` is TAXII 1.x | Kept; added comment distinguishing the two |
+| Authentication | `X-RFToken` header | HTTP Basic — username is any literal (RF docs use `"api"`), password is the API key | Removed `X-RFToken` dead code from `_build_rf_headers`; deleted the helper entirely; production path now passes `username="api"` + `password=config.api_token` into the inner `TAXIIClient` (which already handles Basic) |
+| Token exchange | `fetch_bearer_token()` swapped api_token → bearer | RF does **not** do token exchange; the API key is sent on every request | Kept `fetch_bearer_token` as a test seam (it's only invoked when `token_exchange=` is injected in tests) but documented in the docstring that production never calls it |
+| Collections | one TAXII collection per feed name | Confirmed — RF publishes Domains, IPs, FileHashes, URLs as separate collections | No change |
+
+The previous production path was **broken** for RF: it hardcoded
+`username=""` / `password=""`, which would fail Basic auth at the RF
+TAXII root. The fix is now in place and unit tests
+(`test_recorded_future.py`) all pass.
+
+## Chunk H — CrowdStrike Falcon Intel API contract verification 2026-04-08
+
+Verified `src/analytics/ti_feeds/crowdstrike.py` against
+falconpy.io (the official CrowdStrike Python SDK) and the CrowdStrike
+developer-center OpenAPI catalogue.
+
+**Findings & corrections applied:**
+
+| Field | PHASE_85.md draft | Falcon reality | Action |
+|---|---|---|---|
+| Token endpoint | `https://api.crowdstrike.com/oauth2/token` | Same (regional variants exist: `api.us-2`, `api.eu-1`) | Kept; regional URL override is a follow-up |
+| Token body | `client_id` + `client_secret` + `scope=indicators:read` + `grant_type=client_credentials` | Only `client_id` + `client_secret`. Scopes are configured at the API client level in the Falcon console. `grant_type` is implicit; `scope` is silently ignored or rejected | Removed both extra fields |
+| Indicators URL | `/intel/combined/indicators/v1` | Confirmed (verified via falconpy.io Intel service collection docs) | No change |
+| Query params | `type=ip_address`, `malicious_confidence=high` | Falcon's combined endpoints accept `limit`, `offset`, `filter`, `sort`, `q`, `fields`, `include_deleted`, `include_relations`. Both `type` and `malicious_confidence` must be folded into a single FQL `filter` expression: `filter=type:'ip_address'+malicious_confidence:'high'` | Rewrote `_poll_all_pages` to build the FQL filter |
+| Pagination offset | Treated as `int`; computed `next_offset + limit` | Combined-endpoint `meta.pagination.offset` is a **string token**, not an integer. Loop continues while it is truthy, terminates when missing | Rewrote loop to treat offset as `Optional[str]` with sentinel-style termination |
+
+`malicious_confidence` is a categorical field — `unverified` / `low` /
+`medium` / `high` — already handled correctly by `_CONFIDENCE_RANK`. No
+change there.
+
+The unit tests in `test_crowdstrike.py` already exercised the
+`page_fetcher` injection path (which used the correct cursor-string
+shape from the start), so the production path bugs were latent — they
+would have hit the very first time the analytics container did a real
+poll. Both API contract corrections now match the developer-portal docs
+and all 8 unit tests still pass.
+
+**Sources:**
+- https://www.falconpy.io/Service-Collections/Intel.html
+- https://www.falconpy.io/Service-Collections/OAuth2.html
+- https://developer.crowdstrike.com/docs/openapi/
+- https://support.recordedfuture.com/hc/en-us/articles/35466756370323
+- https://www.servicenow.com/community/secops-articles/recorded-future-taxii-collections-domain-list/ta-p/2316066
+
 ## Chunk L — §12 acceptance sweep + flip COMPLETE 2026-04-08
 
 All eight §12 sections verified item-by-item:
