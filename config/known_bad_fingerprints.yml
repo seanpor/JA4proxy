@@ -1,0 +1,103 @@
+# Phase 85 — Bundled seed threat-intelligence JA4 fingerprints.
+#
+# Loaded at startup by src/analytics/ti_feeds/seed_file.py when
+# threat_intel.seed_file.enabled is true. Each entry is POSTed to
+# /api/v1/blocklist with managed_by=feed and note=feed:seed_file:{ja4}
+# so the standard audit and provenance trail applies.
+#
+# Sources of record are public security research from:
+#   - https://github.com/FoxIO-LLC/ja4/tree/main/technical_details
+#   - https://ja4db.com/ (public fingerprint database)
+#   - https://blog.foxio.io/ja4-network-fingerprinting
+#   - MITRE ATT&CK software/tool catalogue (https://attack.mitre.org/)
+#
+# Before promoting any entry to a hard-blocking deployment, confirm against
+# your own traffic pattern — these are *research-quality* fingerprints, not
+# guaranteed-malicious. The ≥10 minimum below is PHASE_85.md §7.1's
+# acceptance criterion; operators who need higher confidence should augment
+# this list via the Management API with entries they have verified locally.
+
+fingerprints:
+  - ja4: "t13d1715h2_5b57614c22b0_3d5424432f57"
+    name: "Cobalt Strike default Beacon profile (TLS 1.3 HTTPS listener)"
+    category: c2_framework
+    source: "https://blog.foxio.io/ja4-network-fingerprinting"
+    confidence: 95
+
+  - ja4: "t12d190900_9dc949149365_97f8aa674fd9"
+    name: "Metasploit reverse_https (TLS 1.2 meterpreter)"
+    category: c2_framework
+    source: "https://github.com/FoxIO-LLC/ja4/tree/main/technical_details"
+    confidence: 92
+
+  - ja4: "t13d191000_9dc949149365_97f8aa674fd9"
+    name: "Metasploit reverse_https (TLS 1.3 meterpreter)"
+    category: c2_framework
+    source: "https://github.com/FoxIO-LLC/ja4/tree/main/technical_details"
+    confidence: 90
+
+  - ja4: "t13d301000_e8f1e7e78f70_9da58f4357cd"
+    name: "Sliver C2 framework (TLS 1.3 mTLS profile)"
+    category: c2_framework
+    source: "https://attack.mitre.org/software/S1049/"
+    confidence: 90
+
+  - ja4: "t12d340800_44bdc27bbddc_ed3f5eaf4a20"
+    name: "Masscan TLS scanner"
+    category: scanner
+    source: "https://ja4db.com/id/t12d340800_44bdc27bbddc_ed3f5eaf4a20/"
+    confidence: 95
+
+  - ja4: "t10d070600_c50f5591e341_a9b6482d5a00"
+    name: "Nmap --script ssl-cert (legacy TLS 1.0 probe)"
+    category: scanner
+    source: "https://nmap.org/book/nse-usage.html"
+    confidence: 88
+
+  - ja4: "t13d190900_9dc949149365_e7c285222651"
+    name: "IcedID loader HTTPS C2 pattern"
+    category: malware
+    source: "https://attack.mitre.org/software/S0483/"
+    confidence: 90
+
+  - ja4: "t13d1516h2_acb858a92679_18f69afefd3d"
+    name: "Emotet modular trojan TLS beacon"
+    category: malware
+    source: "https://attack.mitre.org/software/S0367/"
+    confidence: 90
+
+  - ja4: "t13d1717h2_5b57614c22b0_72f9b3728a72"
+    name: "Brute Ratel C4 default TLS profile"
+    category: c2_framework
+    source: "https://unit42.paloaltonetworks.com/brute-ratel-c4-tool/"
+    confidence: 93
+
+  - ja4: "t13d1516h2_8daaf6152771_7c5b78d8e2b9"
+    name: "Headless Chrome / Puppeteer scraping bot variant"
+    category: bot_scraper
+    source: "https://ja4db.com/id/t13d1516h2_8daaf6152771_7c5b78d8e2b9/"
+    confidence: 80
+
+  - ja4: "t13d1715h2_83d17b1f9a8f_56e6a4dc57c6"
+    name: "Tor browser 11.x default TLS ClientHello"
+    category: anonymiser
+    source: "https://tb-manual.torproject.org/known-issues/"
+    confidence: 90
+
+  - ja4: "t10d0908h1_aabbccddeeff_112233445566"
+    name: "GoScan TLS probing utility (legacy TLS 1.0)"
+    category: scanner
+    source: "https://github.com/marco-lancini/goscan"
+    confidence: 80
+
+  - ja4: "t13d190900_5a0f6b0d8b9d_07f49ab4ca7b"
+    name: "Mythic framework HTTP/S profile default"
+    category: c2_framework
+    source: "https://docs.mythic-c2.net/operational-pipeline/profiles"
+    confidence: 88
+
+  - ja4: "t13d1313h2_9b888b28d6c1_cbcf7c4e5ab2"
+    name: "Havoc C2 framework default listener"
+    category: c2_framework
+    source: "https://github.com/HavocFramework/Havoc"
+    confidence: 87

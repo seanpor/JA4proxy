@@ -50,3 +50,5 @@ moto[s3]>=5.0            # phase-57b: S3 mock for tests
 google-cloud-storage>=2.0  # phase-57c: GCS backup adapter (optional)
 
 tomli>=2.0; python_version < "3.11"  # phase-92: TOML validation fallback for Python 3.10
+
+jsonpath-ng==1.6.1  # phase-85: REST generic TI feed client (src/analytics/ti_feeds/rest_generic.py)

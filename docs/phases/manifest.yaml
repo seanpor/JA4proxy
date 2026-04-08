@@ -1071,7 +1071,7 @@ phases:
     - docs/compliance/ directory with all three compliance documents
   85:
     name: Threat Intelligence Ingestion
-    status: PROPOSED
+    status: IN_PROGRESS
     summary: TAXII 2.1 client consuming JA4 fingerprint and IP indicators. JA4 STIX
       2.1 extension definition (strategic moat — first standard for JA4 indicators).
       Recorded Future and CrowdStrike named connectors. Curated JA4 fingerprint community

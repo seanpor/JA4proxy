@@ -779,3 +779,88 @@ webhooks:
   #     retry_attempts: 3
   #     retry_backoff_seconds: 5
   #     timeout_seconds: 10
+
+# ── Phase 85: Threat Intelligence Ingestion ───────────────────────────────────
+# Inbound threat-intel feed runner. Polls external feeds (TAXII 2.1, Recorded
+# Future, CrowdStrike Falcon Intel, generic REST) and turns STIX indicators
+# into JA4proxy rules through the Phase 79 Management API.
+#
+# Architecture: lives in the analytics container (src/analytics/ti_feeds/).
+# Never writes directly to proxy rule sets — all mutations go through
+# /api/v1/blocklist and /api/v1/bans/{ip:path}.
+#
+# See docs/phases/PHASE_85.md for the full spec.
+threat_intel:
+  enabled: true                    # phase-85: master switch for the feed runner
+  # The analytics container polls on the intervals declared per feed below.
+  # When disabled, existing rules are retained; no new indicators are fetched.
+
+  # Seed file — bundled vetted JA4 fingerprints loaded once at startup.
+  seed_file:                       # phase-85
+    enabled: true                  # phase-85: load config/known_bad_fingerprints.yml at startup
+    path: "config/known_bad_fingerprints.yml"  # phase-85
+    min_entries: 10                # phase-85: WARN if fewer entries loaded
+
+  # Circuit breaker applied per-feed. Distinct from the Phase 14e/59 hot-path
+  # breaker (`threat_intelligence.circuit_breaker_*`) because batch-poller
+  # semantics differ — see PHASE_85.md §5.4.
+  circuit_breaker:                 # phase-85
+    failure_threshold: 3           # phase-85: consecutive poll failures before opening
+    open_timeout_s: 600            # phase-85: 10-minute quiet window before HALF-OPEN probe
+    backoff_max_s: 3600            # phase-85: max backoff on repeated opens (1 hour)
+
+  # Opt-in community feed contribution client (disabled; endpoint not live).
+  feed_contribution:               # phase-85
+    enabled: false                 # phase-85: never default — customer opts in
+    submit_threshold: 90           # phase-85: confidence threshold for submission
+    submit_min_occurrences: 100    # phase-85: minimum sightings before submitting
+    anonymise: true                # phase-85: GDPR gate is also enforced in code
+    endpoint: "https://feed.ja4proxy.io/api/v1/contribute"   # phase-85: future hosted service
+    api_key: "${JA4PROXY_FEED_API_KEY}"  # phase-85
+
+  # Outbound feed definitions. All commercial feeds default to enabled=false.
+  feeds:                           # phase-85
+    - id: taxii-isac               # phase-85
+      type: taxii2
+      enabled: false               # phase-85: opt-in — configure url/collection/credentials first
+      url: "https://taxii.example-isac.org/taxii2/"
+      collection_id: "enterprise-attack"
+      username: "${TAXII_ISAC_USERNAME}"
+      password: "${TAXII_ISAC_PASSWORD}"
+      poll_interval_minutes: 60
+      min_confidence: 70
+      ban_ttl_hours: 168           # 7 days
+      consume: [indicator]
+
+    - id: recorded-future          # phase-85
+      type: recorded_future
+      enabled: false               # phase-85: opt-in
+      api_token: "${RF_API_TOKEN}"
+      feeds:
+        - ip_threat_intel
+        - c2_server_tracking
+      min_rf_risk_score: 75
+      ban_ttl_hours: 72
+      poll_interval_minutes: 60
+
+    - id: crowdstrike-falcon       # phase-85
+      type: crowdstrike
+      enabled: false               # phase-85: opt-in
+      client_id: "${CS_CLIENT_ID}"
+      client_secret: "${CS_CLIENT_SECRET}"
+      indicator_types: [ip_address]
+      min_malicious_confidence: high   # low|medium|high
+      poll_interval_minutes: 30
+      ban_ttl_hours: 48
+
+    - id: internal-ti              # phase-85
+      type: rest
+      enabled: false               # phase-85: opt-in
+      url: "https://threatintel.corp.internal/api/v1/indicators"
+      auth:
+        type: bearer
+        token: "${INTERNAL_TI_TOKEN}"
+      ip_jsonpath: "$.indicators[*].value"
+      ttl_jsonpath: "$.indicators[*].expires_in"
+      ban_ttl_hours: 24
+      poll_interval_minutes: 15

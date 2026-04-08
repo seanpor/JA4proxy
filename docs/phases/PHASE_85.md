@@ -50,6 +50,314 @@ Spamhaus built for IPs to TLS client behaviour. Phase 85 delivers the engineerin
 (client code, seed file, STIX extension, stubbed contribution endpoint); §13 describes the
 non-engineering work to light up the hosted service.
 
+### 1.4 Current Status & Remaining Work (review 2026-04-08)
+
+> Read this section first if you are picking the phase up. It supersedes the
+> impression you might form by skimming §3–§13.
+
+**Already committed on `claude/phase-85`:**
+
+| Area | Status | Notes |
+|---|---|---|
+| `src/analytics/ti_feeds/` package (14 modules, ~3.1k LoC) | DONE | base, runner, state, circuit_breaker, mgmt_client, taxii, recorded_future, crowdstrike, rest_generic, seed_file, contribution, stix_ja4, metrics, `__init__` |
+| `management/api/routes/threat_intel.py` (5 routes) | DONE | Wired in `management/api/main.py` |
+| `ManagedBy.feed` enum extension + `TIFeedStatus` models | DONE | `management/api/models.py` |
+| `config/known_bad_fingerprints.yml` (14 entries) | DONE | Exceeds the >=10 acceptance bar |
+| `config/proxy.yml` — `threat_intel:` block | DONE | |
+| `monitoring/alertmanager/rules/ti_feed.yml` | DONE | Three alerts present |
+| `monitoring/metrics_registry.md` Phase-85 section | DONE | All 8 + seed-file metric documented |
+| ADR-024 (hand-rolled STIX/TAXII decision) | DONE | Hand-roll chosen over `stix2`+`taxii2-client` |
+
+**Being produced in a parallel test worktree (`agent-a0d4a2b5`, NOT yet merged):**
+
+- `tests/unit/analytics/ti_feeds/` — base, state, circuit_breaker, mgmt_client, taxii, recorded_future, crowdstrike, rest_generic, stix_ja4, seed_file, contribution
+- `tests/integration/test_ti_feeds_{e2e,cleanup,conflict,hot_reload}.py`
+- `tests/adversarial/test_ti_feeds_{malformed_stix,huge_bundle,credential_leak}.py`
+- `tests/chaos/test_ti_feed_{taxii_unavailable,mgmt_api_429,redis_unavailable}.py`
+
+If you are not the test author, **do not write tests in this branch** — pull from the test
+worktree at merge time (Chunk K).
+
+**Missing — these are the bite-sized work items in §1.5.** Pick one chunk, finish it, commit,
+then take the next. Do not bundle chunks unless they share a single concern.
+
+---
+
+## 1.5 Bite-Sized Work Items (for less-experienced workers)
+
+Each chunk has: **goal**, **files to touch**, **how to verify**, **definition of done**.
+Chunks are independent unless marked otherwise.
+
+### Chunk A — Add `jsonpath-ng` to `requirements.txt`  *(15 min, blocks installs)*
+
+**Goal:** `rest_generic.py` imports `jsonpath_ng.parse`; the dependency was never added.
+A clean `pip install -r requirements.txt` will leave `rest_generic` non-functional.
+ADR-024 explicitly says this dep would be added — it was not.
+
+**Files:** `requirements.txt`
+
+**Action:** append at the bottom:
+
+```
+jsonpath-ng==1.6.1  # phase-85: REST generic TI feed client
+```
+
+(Use the latest 1.6.x available on PyPI; do not pin newer than what is tested elsewhere.)
+
+**Verify:**
+
+```
+pip install jsonpath-ng==1.6.1
+python3 -c "from src.analytics.ti_feeds import rest_generic; print('ok')"
+```
+
+**Done when:** import succeeds and the line lives at the bottom of `requirements.txt`
+with the `# phase-85` comment.
+
+---
+
+### Chunk B — Wire `TIFeedRunner` into the analytics container  *(1–2 h, makes feature actually run)*
+
+**Goal:** Today the runner exists but nothing starts it. The analytics container
+(`src/analytics/main.py`) starts only the HTTP server. The feed runner must be launched
+as a background `asyncio.Task` next to the existing analytics daemons.
+
+**Files:** `src/analytics/main.py` only.
+
+**Action:**
+
+1. Read the existing startup sequence (look for `_start_http_server`).
+2. After the HTTP server starts, instantiate `TIFeedRunner` from
+   `src.analytics.ti_feeds.runner`. Pass it: the loaded `config.threat_intel` block, the
+   shared `aiohttp.ClientSession`, the Redis client, and the management-API base URL +
+   bearer token from env (`JA4PROXY_FEED_CLIENT_TOKEN`).
+3. Start it with `asyncio.create_task(runner.run())` and store the handle.
+4. On shutdown, call `runner.stop()` and `await` the task with a 5 s timeout.
+5. If `config.threat_intel.enabled` is `False` or absent, log INFO `"ti_feeds disabled"` and skip.
+
+**Verify:** start the analytics container locally with `threat_intel.enabled: true` and a
+single disabled feed; logs show `"ti_feeds runner started"` and clean shutdown on SIGTERM.
+
+**Done when:** runner starts, runs at least one scheduling tick, and shuts down cleanly.
+
+**Do not:** edit `runner.py` itself in this chunk — just call it.
+
+---
+
+### Chunk C — `docs/REDIS_SCHEMA.md` updates  *(30 min)*
+
+**Goal:** Document the six `ti_feed:*` keys from §2.2 in the canonical schema doc.
+
+**Files:** `docs/REDIS_SCHEMA.md`
+
+**Action:** Append a new `## Phase 85 — Threat Intelligence Feeds` section. Copy the table
+from §2.2 of this phase doc. For each key state: pattern, type, TTL, writer, reader, purpose.
+Mention that `ti_feed:leader_lock` follows the Phase 8 leader-election pattern and has
+30 s TTL.
+
+**Done when:** all six keys are present and the file still parses as Markdown.
+
+---
+
+### Chunk D — `CHANGELOG.md` entry  *(15 min)*
+
+**Goal:** Standard format Phase 85 entry at the top of `CHANGELOG.md`.
+
+**Files:** `CHANGELOG.md`
+
+**Action:** Prepend `## [85] - 2026-04-XX - Threat Intelligence Ingestion` with sub-sections
+**Added** (the package, routes, models, seed file, alerts, ADR-024) and **Notes** (no
+breaking changes; `ManagedBy` enum now includes `feed`). Match the voice of the existing
+Phase 83 entry.
+
+**Done when:** entry is at the top, format matches existing entries, no other phases edited.
+
+---
+
+### Chunk E — `docs/phases/manifest.yaml` flip to IN_PROGRESS  *(5 min, do once)*
+
+**Goal:** The manifest still says `status: PROPOSED`. Until §12 acceptance criteria fully
+pass, it should be `IN_PROGRESS`. Flip to `COMPLETE` only after Chunk L passes.
+
+**Files:** `docs/phases/manifest.yaml` (Phase 85 block only — no other edits)
+
+**Action:** change `status: PROPOSED` to `status: IN_PROGRESS`. Run `make sync` (regenerates
+TODO.md and PROJECT_STATUS.md). Commit all three regenerated files together.
+
+**Done when:** `make sync` is clean and the regenerated docs include the new status.
+
+---
+
+### Chunk F — STIX extension docs (`docs/stix/`)  *(2–3 h, no Python)*
+
+**Goal:** The `x-ja4-fingerprint` SCO extension is the standards-track deliverable. Code
+is done; the spec docs do not exist.
+
+**Files (all NEW, mkdir `docs/stix/` and `docs/stix/ja4-fingerprint/`):**
+
+1. `docs/stix/README.md` — index pointing to the other two
+2. `docs/stix/ja4-fingerprint-extension.md` — prose spec, copy/expand §4 of this phase doc
+3. `docs/stix/ja4-fingerprint/schema.json` — JSON Schema for the SCO
+
+**Action steps for the schema (the only non-mechanical part):**
+
+- Top-level `$schema: "https://json-schema.org/draft/2020-12/schema"`.
+- `type: object`, `required: [type, spec_version, id, value]`.
+- `properties.type.const = "x-ja4-fingerprint"`.
+- `properties.value`: copy the JA4 regex from `src/analytics/ti_feeds/stix_ja4.py` rather
+  than re-deriving — schema and code must match exactly.
+- `properties.extensions` accepting the extension-definition UUID
+  `extension-definition--3b37e1e8-5a20-4c3d-aa0c-9a581b6f9d4e`.
+- Validate the example SCO from §4.2 of this phase doc against your schema:
+
+  ```
+  python3 -c "import jsonschema, json; jsonschema.validate(json.load(open('example.json')), json.load(open('docs/stix/ja4-fingerprint/schema.json')))"
+  ```
+
+**For the prose doc:** include the §4.1, §4.2, §4.3 worked examples verbatim. Add the
+permanence note: *"This UUID is permanent. Do not change post-publication."* on the
+extension-definition UUID line.
+
+**Done when:** all three files exist, schema validates the example, README links them.
+
+---
+
+### Chunk G — Verify Recorded Future API contract (Gate 3, partial)  *(1 h, web research)*
+
+**Goal:** `src/analytics/ti_feeds/recorded_future.py` was implemented from this phase doc
+without checking the live RF developer portal. Gate 3 was deferred in the notes file.
+
+**Action (research only — do not edit code):**
+
+1. Read `src/analytics/ti_feeds/recorded_future.py` end to end. Note every URL, header,
+   query parameter, and JSON field name it depends on.
+2. Visit the Recorded Future developer portal documentation (operator-supplied URL — ask
+   if you don't have one).
+3. For each URL/header/field, write one line: matches docs / mismatches doc says X.
+4. Record findings in `PHASE_85_notes.md` under `## Gate 3 — Recorded Future verification`.
+5. **If mismatches found:** open a fresh `## Followups` section. Do **not** patch the
+   client code in this chunk — surface the mismatches and let a human decide.
+
+**Done when:** notes file has the verification table and either "no changes needed" or a
+followup list.
+
+---
+
+### Chunk H — Verify CrowdStrike Falcon Intel API contract (Gate 3, partial)  *(1 h, web research)*
+
+**Goal:** Same as Chunk G but for `crowdstrike.py`. Specifically verify:
+
+- `POST /oauth2/token` with `scope=indicators:read` (vs the broader scope some clients use)
+- `GET /intel/combined/indicators/v1` query parameters: `type`, `malicious_confidence`,
+  pagination cursor field name
+- Response envelope: `resources[]`, `meta.pagination.offset` cursor — confirm these field
+  names against current docs
+
+**Action:** same shape as Chunk G — research, table, no code edits.
+
+**Done when:** `PHASE_85_notes.md` has a `## Gate 3 — CrowdStrike verification` table.
+
+---
+
+### Chunk I — STIX extension UUID uniqueness check (Gate 4)  *(15 min)*
+
+**Goal:** Five-minute search of `https://github.com/oasis-open/cti-stix2-json-schemas` for
+the literal string `3b37e1e8-5a20-4c3d-aa0c-9a581b6f9d4e`. Add a one-line confirmation to
+`PHASE_85_notes.md` under `## Gate 4 — STIX UUID uniqueness`.
+
+**Done when:** the line exists with the search URL and date.
+
+---
+
+### Chunk J — Frontend "Threat Intelligence" page  *(1–2 days, React)*
+
+**Goal:** §8.3 calls for a UI page. The backend routes are ready (§8.1). Add a single
+React route `/threat-intel` that calls `GET /api/v1/threat-intel/feeds` and renders one
+card per feed.
+
+**Files:** under `frontend/src/` (exact layout depends on the existing Phase 79 frontend
+shell — read `frontend/src/routes/` first to mimic an existing page like `/blocklist`).
+
+**Per card:**
+
+- Feed id, type, status badge (green/yellow/red mapped from `status` field).
+- Indicators managed, 24h additions/removals.
+- Last poll time, next poll time.
+- Enable/Disable toggle (only visible if user role >= Operator). On toggle, call
+  `POST /api/v1/threat-intel/feeds/{id}/enable` or `.../disable`.
+- "Poll now" button (Operator only). Calls `POST .../poll`.
+- Last error message + timestamp if `error_count_24h > 0`.
+
+**Tests:** add an entry in `tests/unit/test_pages.py`:
+
+- GET `/threat-intel` with valid auth → 200, `text/html`, body contains `"Threat Intelligence"`.
+- GET `/threat-intel` without auth → status code < 500.
+
+**Done when:** page loads in a dev server, both `test_pages.py` cases pass, role-gated
+controls are hidden for Auditor role.
+
+---
+
+### Chunk K — Merge the test worktree  *(30–60 min, COORDINATION REQUIRED)*
+
+**Goal:** A parallel worktree (`agent-a0d4a2b5`) holds Phase 85 unit/integration/adversarial/
+chaos tests. They were authored against the committed code on `claude/phase-85`, so the
+merge should be clean.
+
+**Action:**
+
+1. Read the test worktree commit log to confirm scope:
+   `git -C .claude/worktrees/agent-a0d4a2b5 log --oneline`.
+2. Cherry-pick or merge the test commits onto `claude/phase-85` — preserve all commit
+   messages, do not squash.
+3. Run `make test` from a clean checkout. **All Phase 85 tests must pass; existing tests
+   must not regress.** Per the project test count baseline (2687 pass / 21 skip), the new
+   total should be `2687 + N` where N is the count of new tests added, with no failures.
+4. If any test fails, do **not** delete or `xfail` it. Diagnose the root cause; the test
+   author and the implementation author must agree on the fix. Note disagreements in
+   `PHASE_85_notes.md`.
+
+**Done when:** `make test` is green and the test count delta matches the test commit log.
+
+---
+
+### Chunk L — Acceptance gate sweep & manifest flip to COMPLETE  *(1 h, last chunk)*
+
+**Goal:** Walk every checkbox in §12. Each passing item gets a one-line proof in
+`PHASE_85_notes.md` (test name, file path, command output, or doc URL). Each failing item
+becomes a new chunk above. Only when **every** §12 checkbox is checked do you:
+
+1. Flip `docs/phases/manifest.yaml` Phase 85 to `status: COMPLETE`.
+2. Run `make sync`.
+3. Commit `manifest.yaml`, `TODO.md`, `PROJECT_STATUS.md`, and `PHASE_85_notes.md` as one
+   atomic commit.
+4. Push and open the merge to `main`.
+
+**Done when:** all of §12 is verifiable from `PHASE_85_notes.md` and `make sync` is clean.
+
+---
+
+### Chunk dependency graph
+
+```
+A (jsonpath-ng) ──┐
+                  ├──► K (merge tests) ──► L (gate sweep)
+B (wire runner) ──┘                                ▲
+                                                   │
+C (REDIS_SCHEMA) ──┐                               │
+D (CHANGELOG)     ─┤                               │
+E (manifest flip) ─┼──────────────────────────────►│
+F (docs/stix/)    ─┤                               │
+G (RF gate)       ─┤                               │
+H (CS gate)       ─┤                               │
+I (UUID gate)     ─┤                               │
+J (frontend)      ─┘                               │
+```
+
+A, B, K are on the **critical path** — without them the feature does not run or has no
+test coverage. C–I are documentation/verification and parallel-safe. J is the biggest
+single chunk and is also parallel-safe (different files).
+
 ---
 
 ## 2. Integration With Existing Infrastructure

@@ -1,0 +1,52 @@
+# Phase 85 — Threat intelligence feed runner alert rules.
+#
+# These rules complement (rather than replace) the Phase 14e / 59 hot-path
+# TI provider alerts. They fire only on the batch-poller runner living in
+# the analytics container (src/analytics/ti_feeds/).
+groups:
+  - name: ja4proxy_ti_feed
+    rules:
+      - alert: TIFeedCircuitOpen
+        expr: ja4proxy_ti_feed_circuit_state >= 2
+        for: 30m
+        labels: {severity: warning}
+        annotations:
+          summary: "TI feed {{ $labels.feed_id }} circuit has been open for >30m"
+          description: |
+            The threat-intel feed {{ $labels.feed_id }} has failed enough
+            consecutive polls to trip its circuit breaker and has stayed open
+            for more than 30 minutes. No indicators from this feed are being
+            refreshed; existing rules remain in place. Check the feed's
+            endpoint, credentials, and the analytics container logs.
+          runbook: "docs/runbooks/ti_feed_circuit_open.md"
+          runbook_url: "https://github.com/seanoriordain/ja4proxy/blob/main/docs/runbooks/ti_feed_circuit_open.md"
+
+      - alert: TIFeedStale
+        expr: time() - ja4proxy_ti_feed_last_success_timestamp_seconds > 7200
+        for: 15m
+        labels: {severity: warning}
+        annotations:
+          summary: "TI feed {{ $labels.feed_id }} has not polled successfully in 2h"
+          description: |
+            The threat-intel feed {{ $labels.feed_id }} has not recorded a
+            successful poll in more than 2 hours. This is independent of the
+            circuit state and catches slow-drift failures (partial responses,
+            valid HTTP but zero indicators, upstream publisher stalls).
+          runbook: "docs/runbooks/ti_feed_stale.md"
+          runbook_url: "https://github.com/seanoriordain/ja4proxy/blob/main/docs/runbooks/ti_feed_stale.md"
+
+      - alert: TIFeedMgmtApiErrors
+        expr: rate(ja4proxy_ti_feed_mgmt_api_errors_total[10m]) > 0.1
+        for: 10m
+        labels: {severity: critical}
+        annotations:
+          summary: "TI feed {{ $labels.feed_id }} is failing to write to the Management API"
+          description: |
+            The threat-intel feed {{ $labels.feed_id }} is recording
+            Management API errors faster than 0.1/s over the last 10 minutes.
+            Rules from this feed are not being applied. Check the
+            Management API health, the operator bearer token, and
+            ja4proxy_ti_feed_mgmt_api_errors_total{feed_id="{{ $labels.feed_id }}"}
+            broken down by status_code.
+          runbook: "docs/runbooks/ti_feed_mgmt_api_errors.md"
+          runbook_url: "https://github.com/seanoriordain/ja4proxy/blob/main/docs/runbooks/ti_feed_mgmt_api_errors.md"
