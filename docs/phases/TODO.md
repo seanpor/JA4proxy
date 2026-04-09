@@ -44,7 +44,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Action Plan:** [PHASE_88.md](PHASE_88.md)
 
 ### Phase 93 — Terraform Provider + Emergency Runbook Playbooks
-*   **Status:** **PROPOSED** (terraform-provider-ja4proxy (separate repo): 6 resource types (allowlist_entry, blocklist_entry, ban, cidr_ban, dial, webhook), protect_unmanaged_entries flag, import workflow. Three emergency Ansible playbooks: emergency-ban-cidr.yml, temp-whitelist-ip.yml, maintenance-dial-zero.yml.)
+*   **Status:** **PROPOSED** (terraform-provider-ja4proxy (separate repo): 6 resource types (allowlist_entry, blocklist_entry, watchlist_entry, ban [IP+CIDR unified], dial, webhook), protect_unmanaged_entries flag, import workflow. Three emergency Ansible playbooks: emergency-ban-cidr.yml, temp-whitelist-ip.yml, maintenance-dial-zero.yml. Critical review 2026-04-09: corrected API mappings (ban uses /api/v1/bans/{ip_encoded}, no separate cidr_ban), removed 202 dial handling, added watchlist resource, added auth to playbooks.)
 *   **Action Plan:** [PHASE_93.md](PHASE_93.md)
 
 ### Phase 94 — Kubernetes Operator + CMDB/NetBox Integration

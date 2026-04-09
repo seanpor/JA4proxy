@@ -7,6 +7,9 @@
 > **Context:** Phase 93 was split from the original Phase 83 (Infrastructure Automation).
 > See PHASE_83.md for the split rationale.
 
+> **Critical Review Date:** 2026-04-09 — Strategic security architecture review
+> recalibrated this document for correctness, scope control, and integration reality.
+
 ---
 
 ## 1. Overview
@@ -22,9 +25,87 @@ workflow as everything else. This phase delivers:
 
 ---
 
-## 2. Repository & Module Structure
+## 2. Critical Review Findings (2026-04-09)
 
-### 2.1 Decision Required Before Work Starts (ADR-093a)
+### Finding 1 — Ban API endpoint mappings are WRONG (BUG — BLOCKING)
+
+The original document references endpoints that **do not exist**:
+
+| Original Doc Claim | Actual API (`management/api/routes/bans.py`) |
+|-------------------|---------------------------------------------|
+| `POST /api/v1/bans` (body: `{ip, reason}`) | **Does not exist.** Actual: `POST /api/v1/bans/{ip}` — IP in **path**, not body |
+| `POST /api/v1/bans/cidr/{cidr}` | **Does not exist.** CIDR bans use `POST /api/v1/bans/{ip}` with URL-encoded CIDR (e.g., `198.51.100.0%2F24`) |
+| `GET /api/v1/bans/{ip}` | **Correct.** Single ban lookup |
+| `GET /api/v1/bans` | **Correct.** List all bans |
+| `DELETE /api/v1/bans/{ip}` | **Correct.** Remove a ban |
+
+**Impact:** The Terraform provider's ban resource is designed around non-existent
+endpoints. Without this fix, the provider would 404 on every ban create/delete.
+
+**Fix:** The provider uses the actual contract:
+- `POST /api/v1/bans/{ip_encoded}` for both individual IPs and CIDR ranges
+- `DELETE /api/v1/bans/{ip_encoded}` for unban
+- URL-encode CIDR `/` → `%2F`
+
+The `ja4proxy_cidr_ban` resource is **consolidated into** `ja4proxy_ban` — they use
+the same underlying API endpoint. A `cidr` attribute in `ja4proxy_ban` determines
+whether the path parameter is an IP or CIDR. This removes one resource type and one
+file from the provider.
+
+### Finding 2 — `ja4proxy_dial` 202 handling is not needed (CLARIFICATION)
+
+The original document says "If the API returns 202 (pending approval), the Terraform
+resource is marked as `create_failed`." Problems:
+
+1. Terraform's Plugin Framework has no `create_failed` state — a resource either
+   exists (ID set) or doesn't. An error from Create means Terraform retries on next
+   apply, which may conflict with the pending approval.
+2. The actual Management API (`management/api/routes/dial.py`) uses `PATCH /api/v1/dial`
+   with Admin+MFA requirement and a max ±10 change per request. **There is no 202
+   response** in the current implementation.
+
+**Fix:** Remove 202 handling. The dial resource:
+- Reads current value via `GET /api/v1/dial`
+- Updates via `PATCH /api/v1/dial`
+- Validates that the diff is within ±10 (fail with clear error if exceeded)
+
+If a future approval workflow adds 202 responses, handle it in a follow-up phase.
+
+### Finding 3 — `managed_by` missing on bans and webhooks (GAP)
+
+The canonical list endpoints (`/api/v1/allowlist`, `/api/v1/blocklist`,
+`/api/v1/watchlist`) already support `?managed_by=` filtering and return `managed_by`
+on each entry (confirmed in `management/api/routes/canonical_lists.py`).
+
+**However, ban and webhook endpoints do NOT have a `managed_by` field.** The provider
+needs this for drift detection on those resource types.
+
+**Fix:** The provider infers ownership by checking if the entry's `reason` or metadata
+contains a Terraform-generated marker (e.g., `reason` starts with `[terraform]`).
+This avoids requiring Management API changes. The `managed_by` filtering for drift
+protection applies only to allowlist, blocklist, and watchlist resources.
+
+### Finding 4 — Emergency playbooks skip auth (BUG)
+
+The playbooks call the Management API but do not specify authentication. The API
+requires bearer token auth on all non-public endpoints.
+
+**Fix:** Playbooks require a `ja4proxy_token` variable (or read from Ansible Vault)
+and pass `Authorization: Bearer {{ ja4proxy_token }}` on every API call.
+
+### Finding 5 — Missing `ja4proxy_watchlist_entry` resource (GAP)
+
+The Management API has full CRUD for watchlist entries (`/api/v1/watchlist`).
+Security teams manage these via IaC. The original phase omitted this resource.
+
+**Fix:** Add `ja4proxy_watchlist_entry` as a 6th resource type (replaces the
+consolidated `cidr_ban`).
+
+---
+
+## 3. Repository & Module Structure
+
+### 3.1 Decision Required Before Work Starts (ADR-093a)
 
 The Terraform provider **must** live in a separate repository. This is not optional:
 - Terraform Registry publication requires a repo named `terraform-provider-<name>`
@@ -43,7 +124,7 @@ namespace only affects the `required_providers` block in customer Terraform conf
 **Recommended namespace:** `ja4proxy/ja4proxy` (self-published, no Hashicorp
 partnership needed, full control over publish cadence).
 
-### 2.2 File Layout (in `github.com/anomalyco/terraform-provider-ja4proxy`)
+### 3.2 File Layout (in `github.com/anomalyco/terraform-provider-ja4proxy`)
 
 ```
 terraform-provider-ja4proxy/
@@ -58,10 +139,10 @@ terraform-provider-ja4proxy/
       allowlist_entry_test.go
       blocklist_entry.go
       blocklist_entry_test.go
-      ban.go                      # ja4proxy_ban resource
+      watchlist_entry.go          # ja4proxy_watchlist_entry resource (ADDED in review)
+      watchlist_entry_test.go
+      ban.go                      # ja4proxy_ban resource (handles both IP and CIDR)
       ban_test.go
-      cidr_ban.go                 # ja4proxy_cidr_ban resource
-      cidr_ban_test.go
       dial.go                     # ja4proxy_dial resource (singleton)
       dial_test.go
       webhook.go                  # ja4proxy_webhook resource
@@ -74,7 +155,7 @@ terraform-provider-ja4proxy/
     full/                         # all resource types with drift protection
   docs/                           # terraform-plugin-docs auto-generated from schema
   GNUmakefile                     # make install, make test, make testacc, make docs
-  .goreleaser.yml                 # multi-arch release + registry upload
+  .goreleaser.yml                 # multi-arch release + registry Upload
   .github/
     workflows/
       test.yml                    # unit + acceptance tests on every PR
@@ -86,7 +167,7 @@ A reference to the provider repo should be added to the main `ja4proxy` repo at
 
 ---
 
-## 3. Provider Configuration
+## 4. Provider Configuration
 
 ```hcl
 terraform {
@@ -111,9 +192,9 @@ provider "ja4proxy" {
 
 ---
 
-## 4. Resource Types
+## 5. Resource Types
 
-### 4.1 `ja4proxy_allowlist_entry`
+### 5.1 `ja4proxy_allowlist_entry`
 
 ```hcl
 resource "ja4proxy_allowlist_entry" "chrome_monitoring" {
@@ -124,10 +205,10 @@ resource "ja4proxy_allowlist_entry" "chrome_monitoring" {
 }
 ```
 
-API: POST `/api/v1/allowlist`, DELETE `/api/v1/allowlist/{id}`
-Import: `terraform import ja4proxy_allowlist_entry.name <entry-id>`
+API: POST `/api/v1/allowlist`, GET `/api/v1/allowlist/{id}`, DELETE `/api/v1/allowlist/{id}`
+Import: `terraform import ja4proxy_allowlist_entry.name <resource-id>`
 
-### 4.2 `ja4proxy_blocklist_entry`
+### 5.2 `ja4proxy_blocklist_entry`
 
 ```hcl
 resource "ja4proxy_blocklist_entry" "cobalt_strike_default" {
@@ -137,40 +218,53 @@ resource "ja4proxy_blocklist_entry" "cobalt_strike_default" {
 }
 ```
 
-API: POST `/api/v1/blocklist`, DELETE `/api/v1/blocklist/{id}`
+API: POST `/api/v1/blocklist`, GET `/api/v1/blocklist/{id}`, DELETE `/api/v1/blocklist/{id}`
 
-### 4.3 `ja4proxy_ban`
+### 5.3 `ja4proxy_watchlist_entry`
 
 ```hcl
+resource "ja4proxy_watchlist_entry" "suspicious_ip" {
+  ip     = "198.51.100.99"
+  reason = "Observed in threat intel feed"
+  ticket = "INC0005500"
+}
+```
+
+API: POST `/api/v1/watchlist`, GET `/api/v1/watchlist/{id}`, DELETE `/api/v1/watchlist/{id}`
+
+### 5.4 `ja4proxy_ban` (handles both IP and CIDR)
+
+```hcl
+# Individual IP ban
 resource "ja4proxy_ban" "known_scanner" {
   ip        = "198.51.100.4"
   ttl_hours = 720            # 30 days; Terraform renews before expiry
   reason    = "Confirmed scanner from threat intel"
   ticket    = "INC0005100"
 }
-```
 
-API: POST `/api/v1/bans`, DELETE `/api/v1/bans/{ip}`
-
-**TTL renewal:** The resource uses the API's `expires_at` field to detect when a ban
-is within 24 hours of expiry. On the next `terraform apply`, it re-POSTs the ban to
-reset the TTL. This avoids Terraform trying to DELETE and re-create (which would
-briefly unban the IP).
-
-### 4.4 `ja4proxy_cidr_ban`
-
-```hcl
-resource "ja4proxy_cidr_ban" "bad_hosting" {
-  cidr      = "198.51.100.0/24"
+# CIDR ban — same resource, same endpoint, just a CIDR in the `ip` field
+resource "ja4proxy_ban" "bad_hosting" {
+  ip        = "198.51.100.0/24"   # URL-encoded as 198.51.100.0%2F24 in the API path
   ttl_hours = 168
   reason    = "Hosting provider with no legitimate traffic"
   ticket    = "INC0005200"
 }
 ```
 
-API: POST `/api/v1/bans/cidr/{cidr}`, DELETE `/api/v1/bans/cidr/{cidr}`
+API: POST `/api/v1/bans/{ip_encoded}`, GET `/api/v1/bans/{ip_encoded}`, DELETE `/api/v1/bans/{ip_encoded}`
 
-### 4.5 `ja4proxy_dial` (singleton)
+The `ip` field accepts both individual IPs and CIDR ranges. The provider URL-encodes
+the value for the API path (`/` → `%2F`). The API's ban endpoint accepts CIDR notation
+natively — no separate endpoint needed.
+
+**TTL renewal:** The resource uses the API's `expires_at` field to detect when a ban
+is within 24 hours of expiry. On the next `terraform apply`, it re-POSTs the ban to
+reset the TTL. The API's `POST /api/v1/bans/{ip}` is idempotent — re-POSTing the same
+IP updates the expiry without 409 conflict. This avoids Terraform trying to DELETE
+and re-create (which would briefly unban the IP).
+
+### 5.5 `ja4proxy_dial` (singleton)
 
 ```hcl
 resource "ja4proxy_dial" "prod" {
@@ -181,11 +275,11 @@ resource "ja4proxy_dial" "prod" {
 ```
 
 API: PATCH `/api/v1/dial`. Singleton: only one resource of this type per environment.
-If the API returns 202 (pending approval), the Terraform resource is marked as
-`create_failed` and the plan output shows the decision_id. CI/CD must check for
-pending approvals before marking the pipeline successful.
+The provider validates that the diff between current and desired setting is within ±10
+(the API's limit). If exceeded, it fails with a clear error: "Dial change of 30 exceeds
+maximum of 10. Apply in smaller increments."
 
-### 4.6 `ja4proxy_webhook`
+### 5.6 `ja4proxy_webhook`
 
 ```hcl
 resource "ja4proxy_webhook" "splunk_hec" {
@@ -195,11 +289,11 @@ resource "ja4proxy_webhook" "splunk_hec" {
 }
 ```
 
-API: POST `/api/v1/webhooks`, DELETE `/api/v1/webhooks/{id}`
+API: POST `/api/v1/webhooks`, GET `/api/v1/webhooks/{id}`, DELETE `/api/v1/webhooks/{id}`
 
 ---
 
-## 5. Drift Handling
+## 6. Drift Handling
 
 The `managed_by` field on every resource is set to `"terraform"` by the provider on
 create. This distinguishes provider-managed resources from operator-added entries.
@@ -208,6 +302,10 @@ When `protect_unmanaged_entries = true`:
 - `terraform plan` shows out-of-band entries as warnings, not as planned destroys
 - Plan output prints the `terraform import` command for each unmanaged entry
 - To take ownership: `terraform import ja4proxy_ban.name 198.51.100.4`
+
+For ban and webhook resources (which lack `managed_by` in the API), the provider
+prefixes the `reason` field with `[terraform]` on create and uses this marker to
+identify managed entries during drift detection.
 
 `managed_by` values and their meaning for the provider:
 
@@ -218,7 +316,7 @@ When `protect_unmanaged_entries = true`:
 | `"operator"` | Manual UI/API action | Not touched by provider; shown as warning if protect=true |
 | `"api"` | Direct API caller | Not touched by provider; shown as warning if protect=true |
 
-### 5.1 Import Workflow
+### 6.1 Import Workflow
 
 To import all current unmanaged bans into Terraform state:
 
@@ -232,76 +330,93 @@ Document this script in `deploy/terraform/README.md`.
 
 ---
 
-## 6. Phase 79 API Mapping
+## 7. Phase 79 API Mapping (CORRECTED)
 
 | Terraform Resource | Create | Read | Delete | Notes |
 |-------------------|--------|------|--------|-------|
-| `ja4proxy_allowlist_entry` | POST `/api/v1/allowlist` | GET `/api/v1/allowlist/{id}` | DELETE `/api/v1/allowlist/{id}` | |
-| `ja4proxy_blocklist_entry` | POST `/api/v1/blocklist` | GET `/api/v1/blocklist/{id}` | DELETE `/api/v1/blocklist/{id}` | |
-| `ja4proxy_ban` | POST `/api/v1/bans` | GET `/api/v1/bans/{ip}` | DELETE `/api/v1/bans/{ip}` | TTL renewal on plan |
-| `ja4proxy_cidr_ban` | POST `/api/v1/bans/cidr/{cidr}` | GET `/api/v1/bans/cidr/{cidr}` | DELETE `/api/v1/bans/cidr/{cidr}` | |
-| `ja4proxy_dial` | PATCH `/api/v1/dial` | GET `/api/v1/dial` | no-op | Singleton; 202 → create_failed |
+| `ja4proxy_allowlist_entry` | POST `/api/v1/allowlist` | GET `/api/v1/allowlist/{id}` | DELETE `/api/v1/allowlist/{id}` | managed_by filter supported |
+| `ja4proxy_blocklist_entry` | POST `/api/v1/blocklist` | GET `/api/v1/blocklist/{id}` | DELETE `/api/v1/blocklist/{id}` | managed_by filter supported |
+| `ja4proxy_watchlist_entry` | POST `/api/v1/watchlist` | GET `/api/v1/watchlist/{id}` | DELETE `/api/v1/watchlist/{id}` | managed_by filter supported |
+| `ja4proxy_ban` | POST `/api/v1/bans/{ip_encoded}` | GET `/api/v1/bans/{ip_encoded}` | DELETE `/api/v1/bans/{ip_encoded}` | IP+CIDR, URL-encode `/` |
+| `ja4proxy_dial` | PATCH `/api/v1/dial` | GET `/api/v1/dial` | no-op | Singleton; ±10 limit |
 | `ja4proxy_webhook` | POST `/api/v1/webhooks` | GET `/api/v1/webhooks/{id}` | DELETE `/api/v1/webhooks/{id}` | |
-| provider (list-managed) | — | GET `?managed_by=terraform` on each list endpoint | — | Drift detection |
+| provider (list-managed) | — | GET `?managed_by=terraform` on list endpoints | — | Drift detection |
 
 ---
 
-## 7. Emergency Runbook Playbooks
+## 8. Emergency Runbook Playbooks
 
 Three Ansible playbooks in `deploy/ansible/playbooks/emergency/`. Each is 50-100 lines
 and tested against the Management API mock (not against real ServiceNow/Slack —
 those calls are gated behind `when: servicenow_enabled | bool`).
 
-### 7.1 `emergency-ban-cidr.yml`
+**Authentication:** Every playbook requires a `ja4proxy_token` variable (passed via
+`-e ja4proxy_token=...` or loaded from Ansible Vault). All API calls include:
+```yaml
+headers:
+  Authorization: "Bearer {{ ja4proxy_token }}"
+```
+
+### 8.1 `emergency-ban-cidr.yml`
 
 ```bash
 ansible-playbook emergency-ban-cidr.yml \
   -e cidr=198.51.100.0/24 \
   -e reason="Active scanning campaign from this /24" \
   -e ticket=INC0005432 \
-  -e ttl_hours=24
+  -e ttl_hours=24 \
+  -e ja4proxy_token="${JA4PROXY_TOKEN}"
 ```
 
 Steps:
-1. POST `/api/v1/bans/cidr/{cidr}` across all nodes (via Management API)
-2. Writes to audit trail (automatic via API)
-3. `when: servicenow_enabled | bool` — creates ServiceNow incident
-4. `when: slack_enabled | bool` — posts to `#security-ops`
+1. URL-encode CIDR (`/` → `%2F`) for API path
+2. POST `/api/v1/bans/{cidr_encoded}` with `ttl_hours` in query/body across all nodes (via Management API)
+3. Asserts response confirms the ban (fail-fast if API did not confirm)
+4. Writes to audit trail (automatic via API)
+5. `when: servicenow_enabled | bool` — creates ServiceNow incident
+6. `when: slack_enabled | bool` — posts to `#security-ops`
 
-### 7.2 `temp-whitelist-ip.yml`
+### 8.2 `temp-whitelist-ip.yml`
 
 ```bash
 ansible-playbook temp-whitelist-ip.yml \
   -e ip=203.0.113.5 \
   -e reason="Debugging partner integration — expires in 2 hours" \
   -e ttl_hours=2 \
-  -e ticket=CHG0001500
+  -e ticket=CHG0001500 \
+  -e ja4proxy_token="${JA4PROXY_TOKEN}"
 ```
 
 Steps:
-1. POST `/api/v1/allowlist` with mandatory `expires_at` (now + ttl_hours)
-2. Asserts response contains an `id` (fail-fast if API did not confirm)
-3. `when: slack_enabled | bool` — posts expiry reminder to `#security-ops`
+1. Compute `expires_at` = now + ttl_hours (ISO 8601)
+2. POST `/api/v1/allowlist` with mandatory `expires_at`
+3. Asserts response contains an `id` (fail-fast if API did not confirm)
+4. `when: slack_enabled | bool` — posts expiry reminder to `#security-ops`
 
-### 7.3 `maintenance-dial-zero.yml`
+### 8.3 `maintenance-dial-zero.yml`
 
 ```bash
 ansible-playbook maintenance-dial-zero.yml \
   -e duration_minutes=60 \
   -e reason="Maintenance window for backend upgrade" \
-  -e ticket=CHG0001600
+  -e ticket=CHG0001600 \
+  -e ja4proxy_token="${JA4PROXY_TOKEN}"
 ```
 
 Steps:
 1. GET `/api/v1/dial` — save current value as `previous_dial`
-2. PATCH `/api/v1/dial` with `setting: 0`; abort if 202 (approval required — do not
+2. PATCH `/api/v1/dial` with `setting: 0`; abort if 422 (diff exceeds ±10 — do not
    suppress four-eyes; call the approver instead)
 3. `async` task: `wait_for` `duration_minutes`, then PATCH dial back to `previous_dial`
 4. `when: servicenow_enabled | bool` — creates change record with duration and ticket
 
+**Caveat:** The API enforces ±10 per request. If `previous_dial` is 70, the playbook
+must step down in increments: 70 → 60 → 50 → ... → 0. Add a loop that respects this
+limit.
+
 ---
 
-## 8. Test Plan
+## 9. Test Plan
 
 ### Terraform Provider
 
@@ -321,7 +436,8 @@ port before each test suite via `TestMain`.
 | `TestAllowlistEntry_DriftProtect` | Entry added out-of-band; plan shows warning, not destroy |
 | `TestAllowlistEntry_Import` | `terraform import` finds existing entry by ID |
 | `TestBan_TTLRenewal` | Ban near expiry; apply re-POSTs with new TTL |
-| `TestDial_PendingApproval` | Mock returns 202; resource marked create_failed |
+| `TestBan_CIDR` | Ban with CIDR notation; URL-encoding correct in API path |
+| `TestDial_MaxChange10` | Setting change of ±15 fails with clear error |
 | `TestProvider_InvalidToken` | 401 on any call → clear error with link to token docs |
 | `TestProvider_MissingURL` | No url/env → error on provider configure |
 
@@ -335,9 +451,10 @@ tests/integration/test_emergency_playbooks.py
 ```
 
 Each playbook tested for:
-- Correct API call made (method + path + body)
-- Abort condition works (dial set returning 202 → playbook exits non-zero)
+- Correct API call made (method + path + body + auth header)
+- Abort condition works (dial set returning 422 → playbook exits non-zero)
 - `servicenow_enabled=false` and `slack_enabled=false` skip those steps without error
+- `ja4proxy_token` passed as Bearer header on all API calls
 
 ### Makefile target
 
@@ -351,7 +468,7 @@ test-phase-93:
 
 ---
 
-## 9. ADRs Required
+## 10. ADRs Required
 
 | ADR | Decision | Options |
 |-----|----------|---------|
@@ -361,27 +478,29 @@ test-phase-93:
 
 ---
 
-## 10. Acceptance Criteria
+## 11. Acceptance Criteria
 
 - [ ] ADR-093a (repo topology), ADR-093b (namespace), ADR-093c (TTL renewal) written before coding starts
 - [ ] Provider repo exists with correct `go.mod` module path
-- [ ] All 6 resource types in §4 implemented with Create/Read/Delete (and Update where applicable)
+- [ ] All 6 resource types in §5 implemented with Create/Read/Delete (and Update where applicable)
+- [ ] `ja4proxy_ban` handles both IP and CIDR via URL-encoded path parameter (no separate cidr_ban resource)
 - [ ] `protect_unmanaged_entries = true` suppresses destroys of non-terraform entries and prints import commands
-- [ ] `ja4proxy_dial` correctly handles 202 response (resource marked create_failed, decision_id in error message)
-- [ ] `managed_by` field set to `"terraform"` on all resources created by the provider
+- [ ] `ja4proxy_dial` validates ±10 max change and fails with clear error when exceeded
+- [ ] `managed_by` field set to `"terraform"` on allowlist, blocklist, watchlist resources
+- [ ] Ban and webhook resources use `[terraform]` reason prefix for ownership identification
 - [ ] `terraform import` works for all 6 resource types
 - [ ] Import helper script documented in `deploy/terraform/README.md`
-- [ ] All 7 provider acceptance tests pass (using ManagementAPIMock)
+- [ ] All 8 provider acceptance tests pass (using ManagementAPIMock)
 - [ ] Provider passes `tfproviderlint` and `terraform validate` on all example configs
 - [ ] Provider published to Terraform Registry (submission initiated; engineering gate is passing `tfproviderlint` + acceptance tests)
 - [ ] All 3 emergency playbooks in `deploy/ansible/playbooks/emergency/`
-- [ ] Each playbook tested: correct API call made, abort on 202, optional steps skipped when disabled
+- [ ] Each playbook tested: correct API call made with auth header, abort on 422, optional steps skipped when disabled
 - [ ] Emergency playbooks documented in `docs/runbooks/emergency_playbooks.md`
 - [ ] `make test-phase-93` passes
 
 ---
 
-## 11. Business Track (Not Engineering Acceptance Criteria)
+## 12. Business Track (Not Engineering Acceptance Criteria)
 
 - **Terraform Registry publication approval** — Hashicorp reviews provider submissions
   via GitHub PR to the registry repository. Allow 1–2 weeks. Track separately.
