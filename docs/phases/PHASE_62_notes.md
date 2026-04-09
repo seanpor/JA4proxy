@@ -3,6 +3,23 @@
 Branch: `claude/phase-62-go-test-parity`
 Date: 2026-04-09
 
+## Review-fix addendum #2 (post second external SRE review, 2026-04-09)
+
+**N9 — `seedAdversarialCorpus` silently degraded to "synthetic seeds only"
+when fixtures moved.** The helper at `cmd/proxy/fuzz_test.go:27` walks two
+candidate roots (`../../tests/adversarial/corpus`, `tests/adversarial/corpus`)
+and adds every `*.bin` to the fuzz seed corpus. If neither path resolves any
+files, the helper returns silently — the fuzz target then runs with only the
+synthetic in-test seeds (`{0x16,0x03,0x01,...}` etc.). A future refactor that
+renames or deletes `tests/adversarial/corpus/` would invisibly demote the
+fuzzer to a fraction of its corpus and CI would not flag it.
+
+**Fix:** added `f.Logf` warning when both roots miss. The fuzz target still
+runs (we keep the fail-open behaviour so a pruned checkout can still fuzz),
+but the operator/CI now sees a visible signal that the adversarial corpus is
+missing. Verified `go vet ./cmd/proxy/` clean and `go test -fuzz=FuzzClientHello
+-fuzztime=2s` exercises 131k execs successfully.
+
 ## Review-fix addendum (post external review)
 
 External SRE/security review (2026-04-09) returned `APPROVE WITH FIXES`. One

@@ -24,6 +24,11 @@ import (
 // seedAdversarialCorpus walks tests/adversarial/corpus/*.bin and adds every
 // binary fixture to the fuzz seed corpus. Missing files are ignored so the
 // target still runs in a checkout that has pruned fixtures.
+//
+// phase-62 review-fix #2 (N9): if neither root resolves any seeds, log a
+// warning. A future refactor that renames or moves tests/adversarial/corpus
+// would otherwise silently demote the fuzzer to "synthetic seeds only" with
+// no signal in CI logs.
 func seedAdversarialCorpus(f *testing.F) {
 	f.Helper()
 	roots := []string{
@@ -44,6 +49,9 @@ func seedAdversarialCorpus(f *testing.F) {
 		}
 		return
 	}
+	f.Logf("seedAdversarialCorpus: no adversarial seed fixtures found under %v "+
+		"— fuzzer will run with synthetic seeds only. If this is unexpected, "+
+		"check that tests/adversarial/corpus/*.bin still exists.", roots)
 }
 
 // FuzzClientHello drives the production TLS parser with arbitrary bytes.
