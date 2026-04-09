@@ -692,7 +692,7 @@ phases:
     size: XL
   63:
     name: Service Level Objectives
-    status: PROPOSED
+    status: COMPLETE
     doc_status: COMPLETE
     summary: Four SLIs (availability 99.9%, latency 99% <10ms, Redis correctness 99.5%,
       FP rate <2%); multiwindow burn-rate alerts; Grafana SLO dashboard; on-call runbooks;
