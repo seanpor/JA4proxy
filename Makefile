@@ -1210,11 +1210,16 @@ lint-all: lint-python lint-go lint-sast lint-infra lint-observability \
 test-phase-92:
 	python3 -m pytest tests/phase-92/ -v
 
+## Phase 93 targets — Terraform Provider + Emergency Playbooks
+test-phase-93:
+	cd terraform-provider && GOROOT=/snap/go/current go test ./internal/... -v -count=1
+	python3 -m pytest tests/integration/test_emergency_playbooks.py -v
+
 # Phase 92 PHONY declarations (appended per CLAUDE.md — do not modify line 3)
 .PHONY: lint-pylint lint-semgrep lint-checkov lint-haproxy lint-helm lint-ansible \
         lint-markdown lint-spelling lint-toml lint-makefiles lint-go-mod \
         lint-python lint-go lint-sast lint-infra lint-observability \
-        lint-supply-chain lint-docs-all lint-all test-phase-92 sync
+        lint-supply-chain lint-docs-all lint-all test-phase-92 test-phase-93 sync
 
 ## Phase 80 targets
 test-phase-80:
