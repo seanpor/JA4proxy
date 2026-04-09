@@ -1,4 +1,52 @@
-# Phase 64: Deployment Validation & Disaster Recovery
+# Phase 64 — Deployment Validation & Disaster Recovery
+
+> **Status:** PROPOSED
+> **Size:** L
+> **Owner files:** `scripts/smoke/*.sh`, `scripts/measure_mttr.sh`, `monitoring/alertmanager/rules/tls_alerts.yml`, `docs/runbooks/disaster_recovery.md` + 4 sibling runbooks, `Makefile`
+> **Depends on:** Phase 63 (`ja4proxy_tls_cert_expiry_timestamp_seconds` gauge — see §6.1)
+> **Independent of:** Phase 61, 62
+> **Last rewritten:** 2026-04-09
+
+## Hot-reload signal target — read this first
+
+Production is the **Go binary** `bin/proxy` (process name `ja4proxy` when
+installed via systemd or `proxy` when run directly). The Python proxy
+(`proxy.py`) is deprecated and only retained as a prototyping surface.
+
+Wherever this document shows `kill -HUP $(pgrep -f proxy.py)` from the
+earlier draft, the production-correct command is one of:
+
+```bash
+# systemd-managed deployment (RHEL/Quadlet, most enterprise installs)
+systemctl kill --signal=HUP ja4proxy.service
+
+# Container deployment
+docker kill --signal=HUP ja4proxy        # Docker Compose service name
+podman kill --signal=HUP ja4proxy        # Podman / Quadlet
+
+# Kubernetes
+kubectl exec -it ja4proxy-xxxxx -- kill -HUP 1
+
+# Bare process (development only)
+pkill -HUP -f bin/proxy
+```
+
+If the runbook is being copy-pasted into a real environment that still uses
+the Python prototype (the `docker-compose.python-legacy.yml` overlay), the
+old `pgrep -f proxy.py` form is still correct *for that overlay only*. All
+production text in this phase assumes Go.
+
+## Already done — do not redo
+
+- `Dockerfile.go-proxy` already has `USER ja4proxy` (line 51) — Phase 202
+  acceptance can close that checkbox without code changes.
+- The runbook library at `docs/runbooks/` already contains
+  `redis_operations.md`, `go_proxy_operations.md`, `go_proxy_migration.md`,
+  `security_incident_response.md`, `feed_management.md`,
+  `external_api_failures.md`, `scaling.md`, `zero_downtime_rollouts.md`.
+  This phase **references** those files; it does not duplicate their
+  content. The new runbooks below cover only material those files do not
+  already cover.
 
 ---
 
@@ -374,7 +422,8 @@ redis-cli SET ja4proxy:dial 100
 
 # Or corrupt a config value and trigger reload:
 echo "security_policy: {tls_version_bypass: {enabled: not-a-bool}}" >> config/proxy.yml
-kill -HUP $(pgrep -f proxy.py)
+systemctl kill --signal=HUP ja4proxy.service     # production (Go binary)
+# legacy / dev fallback: pkill -HUP -f bin/proxy
 ```
 
 **Recovery steps:**
@@ -398,7 +447,7 @@ kill -HUP $(pgrep -f proxy.py)
 4. Trigger hot reload:
    ```bash
    ja4proxy-cli config reload
-   # or: kill -HUP $(pgrep -f proxy.py)
+   # or, on Go production: systemctl kill --signal=HUP ja4proxy.service
    ```
 5. Restore dial to intended value:
    ```bash
@@ -476,6 +525,31 @@ redis-cli DBSIZE  # Should return 0
 **Prevention:** Ensure Redis has both AOF enabled (for point-in-time recovery) and scheduled
 snapshots via Phase 19/22. Enable Redis persistence: `appendonly yes` and
 `appendfsync everysec` in Redis configuration.
+
+---
+
+### 3.6 Cross-references — do not duplicate
+
+The five DR scenarios above are written for the failure modes that have **no
+existing runbook**. Several adjacent operational concerns are already covered
+by existing files in `docs/runbooks/` — `disaster_recovery.md` should
+**link** to them, not restate them:
+
+| Operational concern | Existing runbook |
+|---|---|
+| Routine Redis operations (start, stop, AOF rewrite, slowlog) | `docs/runbooks/redis_operations.md` |
+| Day-2 Go proxy operations (start, stop, status, log rotation) | `docs/runbooks/go_proxy_operations.md` |
+| Migrating from the Python prototype to the Go binary | `docs/runbooks/go_proxy_migration.md` |
+| Active security incident response | `docs/runbooks/security_incident_response.md` |
+| Threat-intel feed troubleshooting | `docs/runbooks/feed_management.md` |
+| Third-party API outages (AbuseIPDB, RDAP, MaxMind update) | `docs/runbooks/external_api_failures.md` |
+| Horizontal scaling, adding a new proxy node | `docs/runbooks/scaling.md` |
+| Zero-downtime config rollout | `docs/runbooks/zero_downtime_rollouts.md` |
+
+The new `disaster_recovery.md` opens with a "See also" block that links to
+each of the above before describing the five scenarios. Reviewers should
+reject the file if it duplicates content from any of the linked runbooks
+instead of linking to them.
 
 ---
 
@@ -596,9 +670,9 @@ redis-cli ACL SETUSER default on >NEW_PASSWORD >OLD_PASSWORD ~* &* +@all
 # Under redis: section, change auth: <old> to auth: <new>
 # (Do NOT commit this change to git — the password is a secret)
 
-# Step 3: Trigger hot reload on all proxy nodes
+# Step 3: Trigger hot reload on all proxy nodes (Go production binary)
 for node in proxy-1 proxy-2 proxy-3; do
-  kill -HUP $(ssh $node "pgrep -f proxy.py")
+  ssh "$node" "systemctl kill --signal=HUP ja4proxy.service"
 done
 # Or via Management API (Phase 79):
 # ja4proxy-cli config reload --all-nodes
@@ -639,8 +713,8 @@ curl -s "https://api.abuseipdb.com/api/v2/check?ipAddress=8.8.8.8" \
 # api_key: NEW_KEY
 # (Do NOT commit this to git)
 
-# Step 4: Trigger hot reload
-kill -HUP $(pgrep -f proxy.py)
+# Step 4: Trigger hot reload (Go production binary)
+systemctl kill --signal=HUP ja4proxy.service
 # Or: ja4proxy-cli config reload
 
 # Step 5: Verify lookups are succeeding
@@ -724,9 +798,20 @@ groups:
             Rotate immediately using docs/runbooks/tls_certificate_rotation.md.
 ```
 
-The `ja4proxy_tls_cert_expiry_timestamp_seconds` gauge must be emitted by the proxy
-at startup and refreshed every 5 minutes. If this metric does not exist, it is tracked
-as a gap requiring implementation in Phase 63/86 scope.
+The `ja4proxy_tls_cert_expiry_timestamp_seconds` gauge must be emitted by the
+Go proxy at startup and refreshed every 5 minutes. **This gauge is owned by
+Phase 63** (see PHASE_63.md "TLS cert expiry gauge" subtask). Phase 64 only
+adds the alert rule that consumes it. The two phases can land in either
+order; if Phase 64 lands first, gate the alert with `absent_over_time(...)`
+to avoid firing on missing data:
+
+```yaml
+expr: |
+  (ja4proxy_tls_cert_expiry_timestamp_seconds - time()) / 86400 < 30
+  unless absent_over_time(ja4proxy_tls_cert_expiry_timestamp_seconds[1h])
+```
+
+Once Phase 63 has landed the gauge, the `unless` clause can be removed.
 
 ### 6.2 Server-Side TLS Certificate Rotation (Docker Compose)
 
@@ -746,7 +831,7 @@ cp new_server.key config/certs/server.key.new
 # On proxy-1:
 mv config/certs/server.crt.new config/certs/server.crt
 mv config/certs/server.key.new config/certs/server.key
-kill -HUP $(pgrep -f proxy.py)  # Hot-reload loads new cert
+systemctl kill --signal=HUP ja4proxy.service     # Hot-reload loads new cert
 
 # HAProxy continues to route to proxy-2 while proxy-1 reloads.
 # Note: if the proxy does NOT support hot TLS cert reload, a brief restart
@@ -1169,7 +1254,7 @@ operator before an enterprise pilot and is not run in CI.
 - [ ] `docs/runbooks/tls_certificate_rotation.md` exists and documents server-side cert rotation, mTLS CA rotation with dual-CA trust period, and cert expiry alert rules
 - [ ] `docs/runbooks/rolling_upgrade.md` exists and documents Docker Compose rolling upgrade, Kubernetes rolling upgrade, and rollback procedures for both
 - [ ] The `JA4proxyTLSCertExpiringSoon` (< 30 days, warning) and `JA4proxyTLSCertExpiryCritical` (< 7 days, critical) alert rules are added to `monitoring/alertmanager/rules/tls_alerts.yml`
-- [ ] `ja4proxy_tls_cert_expiry_timestamp_seconds` metric is tracked as a gap requiring implementation; noted in Phase 63/86 scope if not implemented in this phase
+- [ ] `ja4proxy_tls_cert_expiry_timestamp_seconds` gauge implementation is **out of scope for this phase** — owned by Phase 63. The alert rule in §6.1 includes an `absent_over_time` guard so it can land before the gauge exists without firing spuriously.
 - [ ] `scripts/generate_validation_report.py` is extended (as specified in §9) to accept `--section deployment` and appends smoke test results, MTTR baseline, and DR exercise history to the report
 - [ ] `make smoke`, `make smoke-docker`, `make smoke-k8s`, and `make measure-mttr` targets are added to the bottom of `Makefile`
 - [ ] `make smoke-docker` is added as a required status check in `.github/workflows/ci.yml`
