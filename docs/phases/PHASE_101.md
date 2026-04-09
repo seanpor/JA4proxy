@@ -16,6 +16,7 @@
 |---------|---------------|-------|
 | [Phase 84 Compliance Review](#phase-84-compliance-review-deferred-items) | 2026-03-?? | C1–C3 (closed), H1/H3 deferred + H2/H4/H5 closed, M1/M2/M4/M7 deferred + M3/M5/M6 closed, L1/L2/L5 deferred + L3/L4 closed |
 | [Phase 85 Threat-Intel Hardening](#phase-85-threat-intel-hardening-deferred-items) | 2026-04-09 | C5-partial/C7 closed + C4–C6 deferred, H13 closed + H6–H12 deferred, M8–M14 deferred, L6–L8 deferred |
+| [Phase 62 Go Test Parity](#phase-62-go-test-parity-deferred-items) | 2026-04-09 | M15 (golden cross-check), M16 (chaos right-answer-wrong-mechanism), M17 (V2 fuzz target hand-off to Phase 200), L9 (property generator weight semantics) |
 
 When a future phase review surfaces deferred items, append a new section
 below and start its severity counters at the next free number across the
@@ -760,6 +761,99 @@ each is small enough to land independently. Pick them up in any order.
 > (commits 9aafbd8 + ea66df1, fakeredis injection + httpx AsyncClient +
 > per-role JWT cookie fixtures). It is intentionally not given an L-number
 > here because it never reached the deferred state.
+
+---
+
+## Phase 62 Go Test Parity (deferred items)
+
+> **Source:** External SRE/security review of the Phase 62 implementation
+> on branch `claude/phase-62-go-test-parity` (2026-04-09). The blocking
+> finding (dial-flip test under-asserting) was fixed in-branch as commit
+> `phase-62: review fixes`. The four items below were deferred here because
+> they require cross-phase coordination (M17 → Phase 200), independent
+> reference data (M15), or are quality-of-test improvements that do not
+> block merge.
+
+### M15 — JA4 golden file lacks an independently-computed cross-check anchor
+
+**File:** `internal/tls/testdata/ja4_fp_golden.txt`, `internal/tls/ja4_fp_corpus_test.go`
+
+The golden file was generated from the same Go parser it tests, so it
+locks in *future drift detection* but rubber-stamps any *current* bug
+in the JA4 implementation. The Phase 62 reviewer flagged this as a
+test-integrity gap.
+
+**Fix:** Add at least one row to the golden file whose JA4 string is
+computed by an independent reference implementation — either FoxIO's
+canonical `ja4` CLI (`go install github.com/FoxIO-LLC/ja4/...`) or the
+Python `ja4` library against the same `.bin` fixture. Mark that row in
+the golden header as the cross-checked anchor and the rest as
+self-snapshots until each is independently verified.
+
+**Why deferred:** Requires running an external tool against every fixture
+and committing results; one-shot work but better as a follow-up because
+the team should agree on which reference implementation to canonicalise.
+
+### M16 — Total-outage chaos test passes for the right answer via the wrong mechanism
+
+**File:** `internal/security/pipeline_chaos_test.go::TestPipeline_RedisOutage_FailsOpen`
+
+The test sets `failEvery=1, dial=100` against `faultyRedis`, expecting the
+pipeline to allow because every Redis call (including `GetDial`) returns
+the zero value, so the dial reads as 0 → monitor mode → allow. **The test
+does not isolate fail-open of signal collection from fail-open of the
+dial read.** If `GetDial` were ever changed to return the last-known-good
+dial on error (a fail-closed alternative), this test would silently still
+pass even if signal collection had a real fail-closed bug.
+
+**Fix:** Add a sibling test `TestPipeline_RedisOutage_FailsOpen_DialIntact`
+where `GetDial` always returns 100 but every other Redis call fails. The
+pipeline must still produce `allow`, proving signal-collection fail-open
+independently of dial-read fail-open.
+
+**Why deferred:** ~20 lines of test code; not a production bug; cleanly
+separable from the M15 work.
+
+### M17 — `FuzzReadProxyProtocolV2` is a placeholder until Phase 200 lands the v2 reader
+
+**File:** `cmd/proxy/fuzz_test.go::FuzzReadProxyProtocolV2`
+
+Phase 62 doc proposed `proxy.ReadProxyProtocolV1` and `proxy.ReadProxyProtocolV2`
+as separate functions; only `proxy.ReadProxyProtocol` (v1) exists in the
+current Go tree. The Phase 62 fuzz target calls the existing v1 reader
+with v2-shaped seeds, which the v1 reader rejects after the first byte —
+so the target compiles and runs panic-free but exercises essentially
+zero v2 code path. The fuzz harness exists today so it is ready when
+the v2 reader lands.
+
+**Fix:** When [Phase 200](PHASE_200.md) implements the binary v2 PROXY
+protocol parser, repoint `FuzzReadProxyProtocolV2` at the new function
+and verify execution count climbs into the same range as the v1 target
+(~700 k execs / 10 s).
+
+**Why deferred:** This is the explicit hand-off to Phase 200. Filed here
+so the contract is visible from both phase reviews — without this entry,
+the placeholder fuzz target could be misread as actual v2 coverage.
+
+**Cross-reference:** Phase 200 owns `internal/proxy/proxy_protocol_v2.go`
+or equivalent; this gap closes the same day Phase 200 merges.
+
+### L9 — Property test generator allows `Weight=0`, scorer treats it as `1.0`
+
+**File:** `internal/security/property_test.go::genRiskSignal` (~line 33)
+
+The `rapid` generator for `RiskSignal` allows `Weight=0`, but the
+production `RiskScorer` substitutes `1.0` whenever `Weight==0`. The
+generator therefore tests an input distribution that does not match
+production semantics, slightly muddying the property under test.
+
+**Fix:** Constrain the generator to `Weight ∈ [0.1, 5.0]` (or whatever
+the scorer's actual valid range is) and document the constraint in a
+comment that points at the scorer normalisation rule.
+
+**Why deferred:** Cosmetic. The four properties still pass and still
+catch real bugs; this is correctness-of-test-distribution, not
+correctness-of-property.
 
 ---
 
