@@ -281,7 +281,11 @@ class TAXIIClient(FeedClient):
             ).inc()
             return
 
-        result.stix_ids_seen.add(stix_id)
+        # phase-85 (security review H7): only mark a stix_id as "seen"
+        # *after* the Management API write succeeds. The earlier
+        # placement inflated indicators_managed and pinned failed-write
+        # indicators in the active snapshot with an empty handle, where
+        # they could never be cleaned up.
 
         if is_ip_pattern(pattern):
             ip = parse_ip_from_pattern(pattern)
@@ -312,6 +316,7 @@ class TAXIIClient(FeedClient):
                 return
             if self.state is not None:
                 await self.state.mark(feed_id, stix_id, handle=ip, kind="ban")
+            result.stix_ids_seen.add(stix_id)
             result.created.append((stix_id, ip))
             _outcome = "existing" if stix_id in self.previous_stix_ids else "created"
             _INDICATORS_PROCESSED.labels(feed_id=feed_id, outcome=_outcome).inc()
@@ -340,6 +345,7 @@ class TAXIIClient(FeedClient):
                 await self.state.mark(
                     feed_id, stix_id, handle=resource.id, kind="blocklist"
                 )
+            result.stix_ids_seen.add(stix_id)
             result.created.append((stix_id, resource.id))
             _INDICATORS_PROCESSED.labels(feed_id=feed_id, outcome="created").inc()
             return
