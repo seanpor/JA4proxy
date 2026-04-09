@@ -31,7 +31,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Smoke test suite (Docker Compose, Helm/kind, Podman/Quadlet); DR runbook with 5 scenarios incl. Redis data loss; credential rotation runbooks; TLS certificate rotation; rolling upgrade procedure; MTTR baseline measurement.)
 *   **Action Plan:** [PHASE_64.md](PHASE_64.md)
 
-
 ### Phase 86 — Observability & Capacity Planning
 *   **Status:** **PROPOSED** (Datadog Agent integration tile with dashboard and 4 monitors. Dynatrace EF2 extension with topology entity type. Nagios check plugin and Zabbix template. Capacity sizing calculator script. make load-test harness. Published benchmark numbers. 7 operator runbooks.)
 *   **Action Plan:** [PHASE_86.md](PHASE_86.md)
@@ -49,7 +48,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Action Plan:** [PHASE_94.md](PHASE_94.md)
 
 ### Phase 101 — Phase 101 — Cross-Phase Gap Register
-*   **Status:** **PROPOSED** (Rolling cross-phase register of deferred review gaps from Phase 84 (compliance reporting) and Phase 85 (threat-intel feed runner). New sections continue numbering across the whole document.)
+*   **Status:** **PROPOSED** (Rolling cross-phase register of deferred review gaps. Currently contains two sections. (1) Phase 84 Compliance Review: items deferred from the second critical review of Phase 84 (DSAR XRANGE consolidation, CIDR-aware DSAR matching, XTRIM MINID Redis-version fallback, audit log pagination, DSAR partial-failure semantics, Jinja2 module-level cache, JSONL invariant docs, dynamic retention strings, beaconing metric rename). C1-C3 / H2/H4/H5 / M3/M5/M6 / L3/L4 were closed in the review-fixes branch and are documented for reference. (2) Phase 85 Threat-Intel Hardening: per-feed safety caps, two-empty-poll gate, ja4_safe_to_block FP-corpus gate, SafeResolver-backed TCPConnector, manual-poll rate limit, CSRF middleware, RF/CrowdStrike regional endpoints, and a re-shape of the TAXII chaos + integration tests against the new FeedRunner constructor. C5-partial / C7 / H13 were closed in-branch on phase-85 and are documented for reference. Gap IDs are letter-prefixed by severity and numbered sequentially across the entire register; new sections continue from the highest existing number per letter.)
 *   **Action Plan:** [PHASE_101.md](PHASE_101.md)
 
 ### Phase 200 — Go PROXY Protocol Trust + v2 Support
