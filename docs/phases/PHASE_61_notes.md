@@ -1,5 +1,37 @@
 # Phase 61 — Closing notes
 
+## Review-fix addendum (post external review)
+
+External SRE/security review (reviewer #1) flagged a real supply-chain hole:
+the SHA `65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236` was pinned in five places
+under the comment `# v5.0.0`, but that SHA is upstream `actions/setup-python@v4.7.1`.
+The real `v5.0.0` SHA is `0a5c61591373683505ea898e09a3ea4f39ef2b9c`.
+
+The wrong SHA originated in `PHASE_61.md` itself — the implementer copied the
+spec faithfully. Review-fix commit:
+
+1. Replaced the SHA in `.github/workflows/ci.yml` (3 lines) and
+   `.github/workflows/ja4proxy-policy.yml` (2 lines).
+2. Corrected the spec in `docs/phases/PHASE_61.md` (2 places) so the next
+   re-implementation does not repeat the bug.
+3. Added `test_sha_matches_tag_comment` to `tests/test_workflow_pinning.py`
+   with a vendored `KNOWN_ACTION_SHAS` allowlist (no network in tests). The
+   test catches the entire class of "comment lies about which version this
+   SHA actually is" bugs. Verified all 7 `release-cli.yml` action pins
+   upstream while populating the allowlist — they are honest.
+4. Added `test_branch_protection_contexts_match_ci_job_names` — locks the
+   contract that `branch_protection.sh` contexts equal the `name:` fields
+   of required jobs in `ci.yml`. Drift here would silently turn branch
+   protection into a no-op gate (the highest residual silent-failure risk
+   the reviewer found). Test passes today.
+
+Two `release-cli.yml`-only and `PHASE_202.md`/`strategic_security_architecture_review.md`
+references to the wrong SHA still exist on `main`. They are NOT exploited
+(release-cli.yml never used the bad SHA) but should be corrected as a
+follow-up doc-only patch outside Phase 61 scope.
+
+Tests: 7/7 pass.
+
 ## Summary of what landed
 
 - `.github/workflows/ci.yml` (new) — eight jobs:
