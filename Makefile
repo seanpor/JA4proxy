@@ -1266,6 +1266,30 @@ test-phase-84-classifier-parity:
 
 .PHONY: test-phase-84 test-phase-84-go test-phase-84-python test-phase-84-classifier-parity
 
+# ── Phase 62: Go fuzz / property / chaos / bench targets ─────────────────────
+# These targets are independent of the existing test-go-* targets which run
+# Python-driven Go integration tests against a live binary. The Phase 62
+# targets run native Go tests in-process.
+
+test-go-fuzz-smoke:
+	GOROOT=/snap/go/current go test -run=^$$ -fuzz=FuzzClientHello$$ -fuzztime=10s ./cmd/proxy/
+	GOROOT=/snap/go/current go test -run=^$$ -fuzz=FuzzReadProxyProtocol$$ -fuzztime=10s ./cmd/proxy/
+	GOROOT=/snap/go/current go test -run=^$$ -fuzz=FuzzReadProxyProtocolV2$$ -fuzztime=10s ./cmd/proxy/
+
+test-go-property:
+	GOROOT=/snap/go/current go test -v -run TestProperty ./internal/security/
+
+test-go-chaos-unit:
+	GOROOT=/snap/go/current go test -v -run 'TestPipeline_(RedisOutage|PartialOutage|DialFlip)' ./internal/security/
+
+bench-go-pipeline:
+	GOROOT=/snap/go/current go test -bench=BenchmarkPipeline -benchmem -run=^$$ ./cmd/proxy/
+
+validation-report:
+	python3 scripts/generate_validation_report.py
+
+.PHONY: test-go-fuzz-smoke test-go-property test-go-chaos-unit bench-go-pipeline validation-report
+
 ## Phase 61 targets
 ci-local: ## Run the same fast checks the CI workflow runs (Go + Python tests)
 	GOROOT=/snap/go/current go test ./...
