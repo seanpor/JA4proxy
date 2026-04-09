@@ -1,102 +1,239 @@
-"""Phase 85 — web-page test for the /threat-intel page.
+"""Phase 85 — web-page + API tests for the /threat-intel surface.
 
-This file intentionally mirrors the ``test_pages.py`` pattern described in
-``CLAUDE.md`` (Web Service Phases — Testing Standards): for every HTML-
-rendering route we assert both the authenticated and unauthenticated paths.
+Mirrors the ``test_pages.py`` pattern in ``CLAUDE.md`` (Web Service Phases —
+Testing Standards): for every HTML-rendering route we assert both the
+authenticated and unauthenticated paths, and for every JSON API route we
+assert role enforcement and the success-path status code.
 
-When a canonical ``tests/unit/test_pages.py`` lands in a sibling phase, the
-orchestrator should merge these cases into it. Until then they live in their
-own file so they run in the suite.
+phase-85.1 (gap register cleanup): the previous incarnation of this file
+was xfailed pending a Redis fixture for the management TestClient. The
+fixture pattern is to inject a ``fakeredis`` instance via
+``redis_client.init_redis(override_client=...)`` *before* the FastAPI
+lifespan context runs, exactly as ``management/tests/conftest.py`` does.
+We use httpx AsyncClient + ASGITransport so the lifespan honours the
+pre-injection check.
 
-The test is RED until ``GET /threat-intel`` is wired in
-``management/api/routes/pages.py`` and a ``threat_intel.html`` template is
-rendered with the landmark string ``"Threat Intelligence"``.
+Auth: the management API accepts both Bearer-token and JWT-cookie auth.
+The cookie path is simpler from a test (no Redis-side bcrypt seeding
+required), so we mint cookies via ``_create_access_token`` with the role
+each test needs (auditor / operator / admin).
 """
 
 from __future__ import annotations
 
+import os
+from typing import AsyncGenerator
+
+import fakeredis.aioredis
 import pytest
+import pytest_asyncio
 
-# phase-85 Chunk J: /threat-intel page (Jinja2 template + Alpine bindings)
-# now ships in management/templates/threat_intel.html and the route is
-# wired in management/api/routes/pages.py. The TestClient here still
-# needs a Redis fixture wired in (every page route depends on
-# get_redis()) — that test-infra plumbing is tracked separately, so we
-# keep the file xfailed but with an updated reason.
-pytestmark = pytest.mark.xfail(
-    reason="page + route exist (Chunk J done); TestClient still lacks a Redis fixture",
-    strict=False,
-)
+# Phase 85 management API needs these set before any module import.
+os.environ.setdefault("MANAGEMENT_JWT_SECRET", "test-secret-do-not-use-in-production")
+os.environ.setdefault("MANAGEMENT_ADMIN_USER", "admin")
+os.environ.setdefault("MANAGEMENT_ADMIN_PASSWORD", "testpassword")
+os.environ.setdefault("MANAGEMENT_TEST_MODE", "1")
 
+from httpx import ASGITransport, AsyncClient  # noqa: E402
 
-def _make_client():
-    from fastapi.testclient import TestClient
-
-    try:
-        from management.api.main import app
-    except ImportError:
-        pytest.skip("Management API app not importable; this test runs after Phase 79.")
-    return TestClient(app)
-
-
-def _auth_headers() -> dict[str, str]:
-    # The Phase 79 test-client pattern: bearer token matches the test operator.
-    return {"Authorization": "Bearer test-operator-token"}
-
-
-def test_threat_intel_page_authenticated_200_html():
-    """GET /threat-intel with valid auth → 200 + text/html + landmark string."""
-    client = _make_client()
-    resp = client.get("/threat-intel", headers=_auth_headers())
-    assert resp.status_code == 200, (
-        f"Expected 200 for authenticated /threat-intel, got {resp.status_code}: {resp.text[:200]}"
+try:
+    from management.api import proxy_config as _proxy_config_module
+    from management.api import redis_client as _redis_module
+    from management.api.auth import _create_access_token
+    from management.api.main import create_app
+except ImportError:  # pragma: no cover
+    pytest.skip(
+        "Management API not importable; this test runs after Phase 79.",
+        allow_module_level=True,
     )
-    content_type = resp.headers.get("content-type", "")
-    assert "text/html" in content_type, f"Expected text/html, got {content_type}"
+
+
+# A minimal proxy_config dict containing the one feed-id the tests use.
+# We monkey-patch _load_proxy_config (which is what get_proxy_config calls
+# under the hood) so the threat_intel routes find "test-feed".
+_FAKE_PROXY_CONFIG = {
+    "threat_intel": {
+        "enabled": True,
+        "feeds": [
+            {
+                "id": "test-feed",
+                "type": "taxii2",
+                "enabled": True,
+                "url": "https://example.invalid/taxii2/",
+                "poll_interval_minutes": 60,
+            }
+        ],
+    }
+}
+
+
+@pytest.fixture(autouse=True)
+def _patch_proxy_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Force the threat-intel routes to see a single configured feed."""
+    monkeypatch.setattr(
+        _proxy_config_module,
+        "_load_proxy_config",
+        lambda: _FAKE_PROXY_CONFIG,
+    )
+
+
+@pytest_asyncio.fixture()
+async def fake_redis() -> AsyncGenerator[fakeredis.aioredis.FakeRedis, None]:
+    """Fresh isolated FakeRedis async client per test."""
+    server = fakeredis.FakeServer()
+    client = fakeredis.aioredis.FakeRedis(server=server, decode_responses=True)
+    yield client
+    await client.aclose()
+
+
+async def _make_client(
+    fake_redis: fakeredis.aioredis.FakeRedis,
+    cookies: dict[str, str] | None = None,
+) -> AsyncClient:
+    """Build an httpx AsyncClient with redis pre-injected and cookies attached.
+
+    httpx 0.27+ deprecates per-request cookies; cookies must be set on the
+    client itself, which is why we have a factory rather than a single
+    fixture parametrised by role.
+    """
+    app = create_app()
+    await _redis_module.init_redis(override_client=fake_redis)
+    return AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        cookies=cookies or {},
+    )
+
+
+@pytest_asyncio.fixture()
+async def client(
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> AsyncGenerator[AsyncClient, None]:
+    """Unauthenticated httpx AsyncClient against a fresh app + injected redis."""
+    ac = await _make_client(fake_redis)
+    try:
+        async with ac:
+            yield ac
+    finally:
+        await _redis_module.close_redis()
+
+
+@pytest_asyncio.fixture()
+async def admin_client(
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> AsyncGenerator[AsyncClient, None]:
+    """Admin-cookie-authenticated client."""
+    ac = await _make_client(
+        fake_redis, cookies={"token": _create_access_token("admin", role="admin")}
+    )
+    try:
+        async with ac:
+            yield ac
+    finally:
+        await _redis_module.close_redis()
+
+
+@pytest_asyncio.fixture()
+async def operator_client(
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> AsyncGenerator[AsyncClient, None]:
+    """Operator-cookie-authenticated client."""
+    ac = await _make_client(
+        fake_redis,
+        cookies={"token": _create_access_token("op-user", role="operator")},
+    )
+    try:
+        async with ac:
+            yield ac
+    finally:
+        await _redis_module.close_redis()
+
+
+@pytest_asyncio.fixture()
+async def auditor_client(
+    fake_redis: fakeredis.aioredis.FakeRedis,
+) -> AsyncGenerator[AsyncClient, None]:
+    """Auditor-cookie-authenticated client."""
+    ac = await _make_client(
+        fake_redis,
+        cookies={"token": _create_access_token("audit-user", role="auditor")},
+    )
+    try:
+        async with ac:
+            yield ac
+    finally:
+        await _redis_module.close_redis()
+
+
+# ── HTML page route ──────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_threat_intel_page_authenticated_200_html(
+    admin_client: AsyncClient,
+) -> None:
+    """GET /threat-intel with valid auth → 200 + text/html + landmark."""
+    resp = await admin_client.get("/threat-intel")
+    assert resp.status_code == 200, (
+        f"Expected 200, got {resp.status_code}: {resp.text[:200]}"
+    )
+    assert "text/html" in resp.headers.get("content-type", "")
     assert "Threat Intelligence" in resp.text
 
 
-def test_threat_intel_page_without_auth_does_not_500():
-    """GET /threat-intel without auth → status < 500 (never a crash)."""
-    client = _make_client()
-    resp = client.get("/threat-intel")
+@pytest.mark.asyncio
+async def test_threat_intel_page_without_auth_does_not_500(
+    client: AsyncClient,
+) -> None:
+    """GET /threat-intel without auth → status < 500 (a 5xx means crash before auth)."""
+    resp = await client.get("/threat-intel")
     assert resp.status_code < 500, (
         f"Unauth /threat-intel returned {resp.status_code} — a 5xx means "
         "the route crashed before auth ran"
     )
 
 
-def test_threat_intel_feeds_api_list_auditor_role():
-    """GET /api/v1/threat-intel/feeds returns per-feed status for an Auditor token."""
-    client = _make_client()
-    resp = client.get(
-        "/api/v1/threat-intel/feeds",
-        headers={"Authorization": "Bearer test-auditor-token"},
-    )
-    assert resp.status_code == 200
+# ── JSON API routes ──────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_threat_intel_feeds_api_list_auditor_role(
+    auditor_client: AsyncClient,
+) -> None:
+    """GET /api/v1/threat-intel/feeds returns per-feed status for an Auditor."""
+    resp = await auditor_client.get("/api/v1/threat-intel/feeds")
+    assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert "feeds" in body
-    assert "count" in body
+    assert "feeds" in body and "count" in body
     assert isinstance(body["feeds"], list)
+    assert body["count"] == len(body["feeds"]) == 1
+    assert body["feeds"][0]["id"] == "test-feed"
 
 
-def test_threat_intel_feed_enable_requires_operator_role():
-    """POST /api/v1/threat-intel/feeds/{id}/enable needs Operator role."""
-    client = _make_client()
-    resp = client.post(
-        "/api/v1/threat-intel/feeds/test-feed/enable",
-        headers={"Authorization": "Bearer test-auditor-token"},
+@pytest.mark.asyncio
+async def test_threat_intel_feed_enable_requires_operator_role(
+    auditor_client: AsyncClient,
+) -> None:
+    """POST /enable with an Auditor token → 403."""
+    resp = await auditor_client.post(
+        "/api/v1/threat-intel/feeds/test-feed/enable"
     )
     assert resp.status_code == 403, (
-        f"Auditor role should be forbidden; got {resp.status_code}"
+        f"Auditor role should be forbidden; got {resp.status_code}: {resp.text[:200]}"
     )
 
 
-def test_threat_intel_feed_poll_endpoint_returns_202():
-    """POST /api/v1/threat-intel/feeds/{id}/poll triggers an async poll (202)."""
-    client = _make_client()
-    resp = client.post(
-        "/api/v1/threat-intel/feeds/test-feed/poll",
-        headers=_auth_headers(),
+@pytest.mark.asyncio
+async def test_threat_intel_feed_poll_endpoint_returns_202(
+    operator_client: AsyncClient,
+) -> None:
+    """POST /poll with an Operator token → 202 + a poll_id."""
+    resp = await operator_client.post(
+        "/api/v1/threat-intel/feeds/test-feed/poll"
     )
-    assert resp.status_code in (202, 200)
+    assert resp.status_code == 202, (
+        f"Expected 202, got {resp.status_code}: {resp.text[:200]}"
+    )
+    body = resp.json()
+    assert body["feed_id"] == "test-feed"
+    assert body.get("poll_id")
