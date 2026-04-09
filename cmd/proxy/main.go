@@ -299,15 +299,25 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		ClientIP: remoteIP(clientConn),
 	}
 
-	// PROXY protocol: extract real client IP if behind HAProxy
+	// PROXY protocol: extract real client IP if behind HAProxy.
+	// Phase 200c: try v2 binary first, then v1 text — both gated by trust
+	// check to prevent IP spoofing from untrusted sources.
 	if p.cfg.Proxy.ProxyProtocol {
-		if realIP, ok := proxypkg.ReadProxyProtocol(data); ok {
-			connCtx.ClientIP = realIP
-			// Advance past the PROXY header
-			if idx := bytes.Index(data, []byte("\r\n")); idx >= 0 {
-				data = data[idx+2:]
+		socketIP := remoteIP(clientConn)
+		if proxypkg.IsTrustedProxySource(socketIP, p.cfg) {
+			// Try v2 binary header first (HAProxy 2.x+, AWS NLB)
+			if realIP, ok, hdrLen := proxypkg.ReadProxyProtocolV2WithLength(data); ok {
+				connCtx.ClientIP = realIP
+				data = data[hdrLen:]
+			} else if realIP, ok := proxypkg.ReadProxyProtocol(data); ok {
+				// Fall back to v1 text header
+				connCtx.ClientIP = realIP
+				if idx := bytes.Index(data, []byte("\r\n")); idx >= 0 {
+					data = data[idx+2:]
+				}
 			}
 		}
+		// When untrusted: silently use socket IP — fail-open.
 	}
 
 	// GeoIP country lookup
