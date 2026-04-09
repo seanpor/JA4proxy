@@ -1,10 +1,21 @@
-# JA4proxy SLO alerts — phase-63
+# JA4proxy SLO alerts — phase-63 (review-fix B1)
 #
 # Multi-window multi-burn-rate alerts implementing the Google SRE Workbook
-# pattern. Two tiers per SLI:
+# Ch.5 "Alerting on SLOs" table. Each tier pairs a LONG window with a SHORT
+# companion window at the SAME burn-rate factor. The long window is the
+# primary signal; the short window provides (a) confirmation the burn is
+# current and (b) fast clearing once the issue is resolved.
 #
-#   Fast burn  — 1h burn ≥ 14.4× AND 6h burn ≥ 14.4×, fire after 2m  → critical
-#   Slow burn  — 6h burn ≥ 6×    AND 3d burn ≥ 1×,    fire after 15m → warning
+# Two tiers per SLI:
+#
+#   Fast burn  — 1h burn ≥ 14.4× AND 5m  burn ≥ 14.4×, fire after 2m  → critical
+#   Slow burn  — 6h burn ≥ 6×    AND 30m burn ≥ 6×,    fire after 15m → warning
+#
+# IMPORTANT: do not pair (long, longer). The previous version of this file
+# paired 1h with 6h and 6h with 3d, which delayed the fast-burn alert by
+# ~6 hours on a real outage because the longer window cannot show high burn
+# until burn has been sustained for that window's duration. See
+# docs/phases/PHASE_63_notes.md "Review-fix B1".
 #
 # Plus FP-rate observation alerts (warning only — guarded by dial ≥ 50 to
 # avoid noise during monitor mode).
@@ -16,7 +27,7 @@ groups:
         expr: |
           job:ja4proxy_availability:burn_rate1h > 14.4
           and
-          job:ja4proxy_availability:burn_rate6h > 14.4
+          job:ja4proxy_availability:burn_rate5m > 14.4
         for: 2m
         labels:
           severity: critical
@@ -31,7 +42,7 @@ groups:
         expr: |
           job:ja4proxy_availability:burn_rate6h > 6
           and
-          job:ja4proxy_availability:burn_rate3d > 1
+          job:ja4proxy_availability:burn_rate30m > 6
         for: 15m
         labels:
           severity: warning
@@ -48,7 +59,7 @@ groups:
         expr: |
           job:ja4proxy_latency_p99_good:burn_rate1h > 14.4
           and
-          job:ja4proxy_latency_p99_good:burn_rate6h > 14.4
+          job:ja4proxy_latency_p99_good:burn_rate5m > 14.4
         for: 2m
         labels:
           severity: critical
@@ -63,7 +74,7 @@ groups:
         expr: |
           job:ja4proxy_latency_p99_good:burn_rate6h > 6
           and
-          job:ja4proxy_latency_p99_good:burn_rate3d > 1
+          job:ja4proxy_latency_p99_good:burn_rate30m > 6
         for: 15m
         labels:
           severity: warning
@@ -79,7 +90,7 @@ groups:
         expr: |
           job:ja4proxy_redis_correctness:burn_rate1h > 14.4
           and
-          job:ja4proxy_redis_correctness:burn_rate6h > 14.4
+          job:ja4proxy_redis_correctness:burn_rate5m > 14.4
         for: 2m
         labels:
           severity: critical
@@ -94,7 +105,7 @@ groups:
         expr: |
           job:ja4proxy_redis_correctness:burn_rate6h > 6
           and
-          job:ja4proxy_redis_correctness:burn_rate3d > 1
+          job:ja4proxy_redis_correctness:burn_rate30m > 6
         for: 15m
         labels:
           severity: warning

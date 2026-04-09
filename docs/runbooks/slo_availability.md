@@ -25,7 +25,10 @@ curl -sg 'http://prometheus:9090/api/v1/query?query=job:ja4proxy_availability:bu
 curl -sg 'http://prometheus:9090/api/v1/query?query=job:ja4proxy_availability:budget_remaining28d' | jq '.data.result'
 ```
 
-A real fast-burn alert needs both 1h and 6h burn rates above 14.4×.
+A real fast-burn alert needs both the 1h AND 5m burn rates above 14.4× —
+the long+short pairing per the SRE Workbook Ch.5 multi-window pattern.
+The 5m short window provides "fresh" confirmation; the 1h long window
+provides confidence the burn is sustained, not a momentary spike.
 
 ## Step 2 — Identify the dominant error_type
 

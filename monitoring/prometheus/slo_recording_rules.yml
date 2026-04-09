@@ -59,6 +59,19 @@ groups:
             + sum(rate(ja4proxy_connection_errors_total[3d]))
           )
 
+      # phase-63 review-fix B1: short-window companions for the (long, short)
+      # multi-burn-rate pattern. The 5m and 30m ratios are paired with the 1h
+      # and 6h ratios respectively in the alert expressions, exactly as the
+      # Google SRE Workbook Ch.5 table prescribes.
+      - record: job:ja4proxy_availability:ratio_rate30m
+        expr: |
+          sum(rate(ja4proxy_connections_total[30m]))
+          /
+          (
+            sum(rate(ja4proxy_connections_total[30m]))
+            + sum(rate(ja4proxy_connection_errors_total[30m]))
+          )
+
       # ── Latency ──────────────────────────────────────────────────────────
       # ja4proxy_pipeline_duration_seconds uses prometheus.DefBuckets which
       # includes le="0.01" (10 ms). No histogram changes required.
@@ -82,6 +95,12 @@ groups:
           sum(rate(ja4proxy_pipeline_duration_seconds_bucket{le="0.01"}[3d]))
           / sum(rate(ja4proxy_pipeline_duration_seconds_count[3d]))
 
+      # phase-63 review-fix B1: short-window companion for (long, short) pattern.
+      - record: job:ja4proxy_latency_p99_good:ratio_rate30m
+        expr: |
+          sum(rate(ja4proxy_pipeline_duration_seconds_bucket{le="0.01"}[30m]))
+          / sum(rate(ja4proxy_pipeline_duration_seconds_count[30m]))
+
       # ── Redis correctness ────────────────────────────────────────────────
       - record: job:ja4proxy_redis_correctness:ratio_rate5m
         expr: |
@@ -103,12 +122,26 @@ groups:
           sum(rate(ja4proxy_redis_operations_total{result="ok"}[3d]))
           / sum(rate(ja4proxy_redis_operations_total[3d]))
 
+      # phase-63 review-fix B1: short-window companion for (long, short) pattern.
+      - record: job:ja4proxy_redis_correctness:ratio_rate30m
+        expr: |
+          sum(rate(ja4proxy_redis_operations_total{result="ok"}[30m]))
+          / sum(rate(ja4proxy_redis_operations_total[30m]))
+
   - name: ja4proxy_slo_burn_rates
     interval: 1m
     rules:
       # burn_rate = (1 - sli_ratio) / (1 - slo_target)
       # Targets: availability=0.999, latency=0.99, redis_correctness=0.995
+      #
+      # phase-63 review-fix B1: 5m and 30m burn rates added so the alert
+      # expressions can pair (long, short) per the SRE Workbook Ch.5 table.
+      # Pre-fix code paired (long, longer), which delayed paging by hours.
 
+      - record: job:ja4proxy_availability:burn_rate5m
+        expr: (1 - job:ja4proxy_availability:ratio_rate5m) / 0.001
+      - record: job:ja4proxy_availability:burn_rate30m
+        expr: (1 - job:ja4proxy_availability:ratio_rate30m) / 0.001
       - record: job:ja4proxy_availability:burn_rate1h
         expr: (1 - job:ja4proxy_availability:ratio_rate1h) / 0.001
       - record: job:ja4proxy_availability:burn_rate6h
@@ -116,6 +149,10 @@ groups:
       - record: job:ja4proxy_availability:burn_rate3d
         expr: (1 - job:ja4proxy_availability:ratio_rate3d) / 0.001
 
+      - record: job:ja4proxy_latency_p99_good:burn_rate5m
+        expr: (1 - job:ja4proxy_latency_p99_good:ratio_rate5m) / 0.01
+      - record: job:ja4proxy_latency_p99_good:burn_rate30m
+        expr: (1 - job:ja4proxy_latency_p99_good:ratio_rate30m) / 0.01
       - record: job:ja4proxy_latency_p99_good:burn_rate1h
         expr: (1 - job:ja4proxy_latency_p99_good:ratio_rate1h) / 0.01
       - record: job:ja4proxy_latency_p99_good:burn_rate6h
@@ -123,6 +160,10 @@ groups:
       - record: job:ja4proxy_latency_p99_good:burn_rate3d
         expr: (1 - job:ja4proxy_latency_p99_good:ratio_rate3d) / 0.01
 
+      - record: job:ja4proxy_redis_correctness:burn_rate5m
+        expr: (1 - job:ja4proxy_redis_correctness:ratio_rate5m) / 0.005
+      - record: job:ja4proxy_redis_correctness:burn_rate30m
+        expr: (1 - job:ja4proxy_redis_correctness:ratio_rate30m) / 0.005
       - record: job:ja4proxy_redis_correctness:burn_rate1h
         expr: (1 - job:ja4proxy_redis_correctness:ratio_rate1h) / 0.005
       - record: job:ja4proxy_redis_correctness:burn_rate6h

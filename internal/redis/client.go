@@ -154,6 +154,9 @@ func (c *Client) GetDial(ctx context.Context) int {
 	observeOp("get", "ok")
 	var dial int
 	if _, err := fmt.Sscanf(val, "%d", &dial); err != nil {
+		// phase-63 review-fix N2: log so a malformed config:dial value is
+		// not silently coerced to monitor mode without any operator signal.
+		c.log.WithError(err).WithField("val", val).Warn("redis: config:dial parse failed; defaulting to 0 (monitor)")
 		return 0
 	}
 	if dial < 0 {
@@ -286,10 +289,12 @@ func (c *Client) ZCard(ctx context.Context, key string) int64 {
 func (c *Client) ZRangeScores(ctx context.Context, key string, start, stop int64) []float64 {
 	result, err := c.rdb.ZRangeWithScores(ctx, key, start, stop).Result()
 	if err != nil {
-		observeOp("zrange", "error")
+		// phase-63 review-fix N1: distinct label from plain ZRange so the
+		// per-command panel can tell them apart on-call.
+		observeOp("zrangewithscores", "error")
 		return nil
 	}
-	observeOp("zrange", "ok")
+	observeOp("zrangewithscores", "ok")
 	scores := make([]float64, len(result))
 	for i, z := range result {
 		scores[i] = z.Score
