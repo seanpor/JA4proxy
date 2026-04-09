@@ -1027,18 +1027,23 @@ phases:
     name: 'Terraform Provider + Emergency Runbook Playbooks'
     status: PROPOSED
     summary: 'terraform-provider-ja4proxy (separate repo): 6 resource types (allowlist_entry,
-      blocklist_entry, ban, cidr_ban, dial, webhook), protect_unmanaged_entries flag,
-      import workflow. Three emergency Ansible playbooks: emergency-ban-cidr.yml,
-      temp-whitelist-ip.yml, maintenance-dial-zero.yml.'
+      blocklist_entry, watchlist_entry, ban [IP+CIDR unified], dial, webhook), protect_unmanaged_entries
+      flag, import workflow. Three emergency Ansible playbooks: emergency-ban-cidr.yml,
+      temp-whitelist-ip.yml, maintenance-dial-zero.yml. Critical review 2026-04-09:
+      corrected API mappings (ban uses /api/v1/bans/{ip_encoded}, no separate cidr_ban),
+      removed 202 dial handling, added watchlist resource, added auth to playbooks.'
     action_plan: docs/phases/PHASE_93.md
     dependencies:
     - 79
     - 83
     size: LARGE
     success_criteria:
-    - All 6 Terraform resource types with protect_unmanaged_entries flag
+    - All 6 Terraform resource types with protect_unmanaged_entries flag (ban unified for IP+CIDR)
+    - ja4proxy_ban handles both IP and CIDR via URL-encoded path parameter
+    - ja4proxy_dial validates ±10 max change and fails with clear error
+    - Ban and webhook resources use [terraform] reason prefix for ownership identification
     - Terraform provider passes tfproviderlint + acceptance tests against ManagementAPIMock
-    - All 3 emergency playbooks tested against mock API
+    - All 3 emergency playbooks tested against mock API with Bearer token auth
     - make test-phase-93 passes
   94:
     name: 'Kubernetes Operator + CMDB/NetBox Integration'
