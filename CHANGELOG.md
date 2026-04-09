@@ -1,5 +1,42 @@
 # Changelog
 
+## [Unreleased] - Phase 63 - Service Level Objectives
+
+### Added
+- Three new Go Prometheus metrics in `internal/metrics/metrics.go`:
+  - `ja4proxy_connection_errors_total{error_type}` (counter) — unhandled
+    errors in the connection handler before a policy decision; classified
+    as `redis_timeout`, `tls_parse_error`, `backend_refused`, `oom`, or
+    `unknown`.
+  - `ja4proxy_redis_operations_total{command,result}` (counter) — every
+    Redis call, with `result="ok"` or `result="error"`.
+  - `ja4proxy_tls_cert_expiry_timestamp_seconds` (gauge) — listener TLS
+    cert NotAfter as a Unix timestamp; emitted when env var
+    `JA4PROXY_TLS_CERT_FILE` is set. **Phase 64 alerts on this gauge.**
+- `internal/redis/client.go` instruments every method (`Get`, `Set`,
+  `SIsMember`, `SMembers`, `SAdd`, `SRem`, `Exists`, `ZAdd`,
+  `ZRemRangeByScore`, `ZRange`, `ZRangeScores`, `ZCard`, `XAdd`, `Ping`,
+  `EvalSha`, `HGetAll`, `SeedDialIfAbsent`) with the operations counter.
+- `cmd/proxy/main.go` increments `ConnectionErrorsTotal` on read errors,
+  TLS parse failures, and backend dial failures, with classification.
+- `monitoring/prometheus/slo_recording_rules.yml` — 12 SLI ratio rules,
+  9 burn-rate rules, 3 budget-remaining rules, and an FP-rate observation
+  rule. Multi-window multi-burn-rate pattern from the Google SRE Workbook.
+- `monitoring/alertmanager/rules/slo_alerts.yml` — fast-burn and slow-burn
+  alerts per SLI plus `JA4proxyHighBlockingRate` (dial ≥ 50 guard) and
+  `JA4ProxyHighBlockRate` observation alerts.
+- Four runbooks: `slo_availability.md`, `slo_latency.md`,
+  `slo_redis_correctness.md`, `slo_fp_rate.md` under `docs/runbooks/`.
+  All hot-reload commands target production deployment forms (systemd,
+  docker, podman, kubectl) — never `pgrep -f proxy.py`.
+- `Makefile` targets: `validate-slo-rules`, `slo-report`, `test-phase-63`.
+
+### Tests
+- `internal/metrics/metrics_test.go` asserts the three new metric names
+  are registered.
+- `internal/redis/client_metrics_test.go` covers Get success, Get error
+  (Redis down), and Set success counter increments.
+
 ## [62] - 2026-04-09 - Go Fuzzing, Adversarial & Chaos Test Parity
 
 ### Added
