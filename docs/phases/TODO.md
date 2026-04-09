@@ -15,10 +15,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Comprehensive quality improvement roadmap and governance framework.)
 *   **Action Plan:** [PHASE_60.md](PHASE_60.md)
 
-### Phase 62 — Security Regression Harness, Fuzzing & Pre-Enterprise Validation
-*   **Status:** **PROPOSED** (Automated regression tests for all Phase 27 pentest findings; atheris + Go native fuzzing harnesses with CI smoke run; break-glass verification procedure; pre-enterprise validation report generator.)
-*   **Action Plan:** [PHASE_62.md](PHASE_62.md)
-
 ### Phase 63 — Service Level Objectives
 *   **Status:** **PROPOSED** (Four SLIs (availability 99.9%, latency 99% <10ms, Redis correctness 99.5%, FP rate <2%); multiwindow burn-rate alerts; Grafana SLO dashboard; on-call runbooks; metric naming prerequisite (ja4_ → ja4proxy_ rename + add missing counters).)
 *   **Action Plan:** [PHASE_63.md](PHASE_63.md)

@@ -54,7 +54,7 @@ Deep security analysis, compliance, and audit remediation.
 | 38 | ISP Blocking Operations | COMPLETE | Establish comprehensive operational procedures for identifying, implementing, monitoring, and maintaining blocks against malicious ISPs. |
 | 55 | APT Hardening - Phase 2: Advanced Detection & Container Security | CLOSED | Implement subnet correlation, anti-evasion checks, and strict Seccomp/AppArmor profiles. |
 | 56 | Advanced APT - Phase 2: Deceptive Defense & Persistence Defense | COMPLETE | Honey-fingerprint and honey-SNI deception detection (DeceptionChecker). Silent-drop bans with APT:DECEPTION_TRIGGERED tag. Dead-Man's Switch watchdog. Two-stage seccomp profiles. Ephemeral filesystem (tmpfs for /tmp and /var/run, read_only). AppArmor profile delivered as Phase 34d. |
-| 62 | Security Regression Harness, Fuzzing & Pre-Enterprise Validation | PROPOSED | Automated regression tests for all Phase 27 pentest findings; atheris + Go native fuzzing harnesses with CI smoke run; break-glass verification procedure; pre-enterprise validation report generator. |
+| 62 | Security Regression Harness, Fuzzing & Pre-Enterprise Validation | COMPLETE | Automated regression tests for all Phase 27 pentest findings; atheris + Go native fuzzing harnesses with CI smoke run; break-glass verification procedure; pre-enterprise validation report generator. |
 | 75 | Docker Isolation - Security Audit & Validation | COMPLETE | scripts/check-isolation.sh verifies port surface, Docker socket, network zone boundaries, IPC isolation, and cross-agent reach. ISOLATION_MODEL.md updated with verification section. |
 | 200 | Go PROXY Protocol Trust + v2 Support | PROPOSED | Closes two critical Go gaps: (1) add `_is_trusted_proxy_source()` equivalent to prevent IP spoofing via PROXY protocol from untrusted sources, (2) implement PROXY protocol v2 binary parser (Python already has v1+v2). Without (1) any attacker can spoof any IP and bypass all geo/IP/rate/block controls. Without (2) modern HAProxy/NLB v2 headers are silently ignored. |
 | 201 | Go Redis TLS + Signal Score Drift Fix | PROPOSED | Closes critical Go gaps: (1) Redis client omits TLS despite config having SSL field — credentials on wire, (2) 4 signal scores diverge from config/signal_scores.yml — wrong scoring decisions in production. Also adds: error logging for ZAdd/ZRemRangeByScore (were swallowing errors), health check with script reload after Redis outage, rate limiter input validation. |
@@ -191,7 +191,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 59 | Advanced Traffic Intelligence - Phase 4: Feed Reliability & Resilience | COMPLETE | N/A | N/A |
 | 60 | Master Plan and Governance | PROPOSED | N/A | COMPLETE |
 | 61 | Supply Chain Security & Build Integrity | COMPLETE | N/A | COMPLETE |
-| 62 | Security Regression Harness, Fuzzing & Pre-Enterprise Validation | PROPOSED | N/A | COMPLETE |
+| 62 | Security Regression Harness, Fuzzing & Pre-Enterprise Validation | COMPLETE | N/A | COMPLETE |
 | 63 | Service Level Objectives | PROPOSED | N/A | COMPLETE |
 | 64 | Deployment Validation & Disaster Recovery | PROPOSED | N/A | COMPLETE |
 | 65 | Performance Hardening & Go/Python Parity | COMPLETE | N/A | N/A |
