@@ -1,0 +1,163 @@
+---
+# Phase 61 — CI test pipeline + supply-chain hygiene.
+#
+# Three fast-feedback jobs (test-go, test-python, lint) run on every PR and
+# every push to main. Five security jobs (secrets-scan, sast,
+# dependency-audit-python, dependency-audit-go, dependency-review) run on the
+# same triggers AND weekly on Monday 06:00 UTC so newly-disclosed CVEs that
+# affect already-merged dependencies are caught.
+#
+# All third-party actions are SHA-pinned. The canonical template for pin format
+# is .github/workflows/release-cli.yml. If you add a new action:
+#
+#     git ls-remote https://github.com/<owner>/<repo> refs/tags/<tag>
+#
+# and copy the 40-char SHA, leaving the tag as a trailing comment. The test
+# tests/test_workflow_pinning.py enforces this.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"  # Mondays 06:00 UTC — weekly CVE sweep
+
+# Default token scope is intentionally minimal. Jobs that need more (e.g.
+# security-events: write for SARIF upload) override at the job level.
+permissions:
+  contents: read
+
+jobs:
+  test-go:
+    name: Go tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a  # v5.2.0
+        with:
+          go-version: "1.22"
+      - name: go test
+        env:
+          GOFLAGS: "-count=1"
+        run: go test ./...
+
+  test-python:
+    name: Python tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236  # v5.0.0
+        with:
+          python-version: "3.11"
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+      - name: pytest
+        run: |
+          python3 -m pytest tests/ \
+            --ignore=tests/integration/test_docker_stack.py \
+            -x -q --timeout=60
+
+  lint:
+    name: Lint (go vet + gofmt + ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a  # v5.2.0
+        with:
+          go-version: "1.22"
+      - name: gofmt
+        run: |
+          out="$(gofmt -l .)"
+          if [ -n "$out" ]; then
+            echo "::error::gofmt found unformatted files:"
+            echo "$out"
+            exit 1
+          fi
+      - name: go vet
+        run: go vet ./...
+      - uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236  # v5.0.0
+        with:
+          python-version: "3.11"
+      - name: ruff
+        run: |
+          pip install ruff
+          ruff check .
+
+  secrets-scan:
+    name: Secrets scan (TruffleHog)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          # Full history required for TruffleHog to diff commits on PRs.
+          fetch-depth: 0
+      - name: TruffleHog OSS
+        uses: trufflesecurity/trufflehog@a94d152bf65bebf5baa486d3d4dfee520af2ceed  # v3.88.2
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --only-verified
+
+  sast:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: returntocorp/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d  # v1
+        # Fails CI on any finding at or above HIGH (Semgrep ERROR) severity.
+        with:
+          config: >-
+            p/ci
+            p/security-audit
+            p/secrets
+
+  dependency-audit-python:
+    name: Python dependency audit (pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236  # v5.0.0
+        with:
+          python-version: "3.11"
+      - name: pip-audit
+        run: |
+          pip install pip-audit
+          # --strict makes any parse error fail; default severity gate only
+          # flags HIGH/CRITICAL via the exit code when used without --ignore-vuln.
+          pip-audit -r requirements.txt --strict
+
+  dependency-audit-go:
+    name: Go dependency audit (govulncheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a  # v5.2.0
+        with:
+          go-version: "1.22"
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          "$(go env GOPATH)/bin/govulncheck" ./...
+
+  dependency-review:
+    name: Dependency review (PR gate)
+    # dependency-review-action only operates on pull_request events.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/dependency-review-action@3b139cfc5fae8b618d3eae3675e383bb1769c019  # v4.5.0
+        with:
+          fail-on-severity: high
+          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0, SSPL-1.0
