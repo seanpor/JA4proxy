@@ -98,7 +98,7 @@ test-python:
   runs-on: ubuntu-latest
   steps:
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-    - uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236  # v5.0.0
+    - uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c  # v5.0.0
       with:
         python-version: "3.11"
     - run: pip install -r requirements.txt
@@ -119,7 +119,7 @@ lint:
         go-version: "1.22"
     - run: test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
     - run: go vet ./...
-    - uses: actions/setup-python@65d7f2d534ac1bc67fcd62888c5f4f3d2cb2b236
+    - uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c
       with:
         python-version: "3.11"
     - run: pip install ruff && ruff check .
