@@ -233,7 +233,8 @@ class RESTGenericClient(FeedClient):
                     result.unsupported_pattern += 1
                     continue
                 stix_id = f"rest:{feed_id}:{ip}"
-                result.stix_ids_seen.add(stix_id)
+                # phase-85 (security review H7): mark "seen" only after
+                # the mgmt write succeeds — see taxii.py for the why.
                 ttl_s = self.ban_ttl_seconds()
                 if i < len(ttl_values):
                     try:
@@ -252,6 +253,7 @@ class RESTGenericClient(FeedClient):
                     continue
                 if self.state is not None:
                     await self.state.mark(feed_id, stix_id, handle=ip, kind="ban")
+                result.stix_ids_seen.add(stix_id)
                 result.created.append((stix_id, ip))
                 await asyncio.sleep(0)  # cooperative yield
 
@@ -263,7 +265,7 @@ class RESTGenericClient(FeedClient):
                     result.unsupported_pattern += 1
                     continue
                 stix_id = f"rest:{feed_id}:ja4:{ja4}"
-                result.stix_ids_seen.add(stix_id)
+                # phase-85 (security review H7): see ban branch above.
                 try:
                     resource = await self.mgmt.post_blocklist(
                         feed_id=feed_id,
@@ -277,4 +279,5 @@ class RESTGenericClient(FeedClient):
                     await self.state.mark(
                         feed_id, stix_id, handle=resource.id, kind="blocklist"
                     )
+                result.stix_ids_seen.add(stix_id)
                 result.created.append((stix_id, resource.id))

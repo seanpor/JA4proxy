@@ -336,7 +336,9 @@ class CrowdStrikeFalconClient(FeedClient):
                 result.skipped_below_confidence += 1
                 continue
             stix_id = resource.get("id") or f"falcon:{ip}"
-            result.stix_ids_seen.add(str(stix_id))
+            # phase-85 (security review H7): defer marking the indicator
+            # as "seen" until after the mgmt write succeeds — see the
+            # matching change in taxii.py for the rationale.
 
             try:
                 await self.mgmt.post_ban(
@@ -352,6 +354,7 @@ class CrowdStrikeFalconClient(FeedClient):
                 await self.state.mark(
                     feed_id, str(stix_id), handle=ip, kind="ban"
                 )
+            result.stix_ids_seen.add(str(stix_id))
             result.created.append((str(stix_id), ip))
 
 
