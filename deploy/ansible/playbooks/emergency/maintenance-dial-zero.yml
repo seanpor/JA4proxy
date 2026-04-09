@@ -1,0 +1,125 @@
+---
+# Maintenance Mode — Set Dial to Zero Playbook
+# Usage:
+#   ansible-playbook maintenance-dial-zero.yml \
+#     -e ja4proxy_url=https://ja4proxy.corp:8090 \
+#     -e ja4proxy_token="${JA4PROXY_TOKEN}" \
+#     -e duration_minutes=60 \
+#     -e reason="Maintenance window for backend upgrade" \
+#     -e ticket=CHG0001600
+
+- name: Maintenance Mode (Dial Zero)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    ja4proxy_url: ""
+    ja4proxy_token: ""
+    duration_minutes: 60
+    reason: "Maintenance window"
+    ticket: ""
+    servicenow_enabled: false
+    previous_dial: 0
+
+  pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - ja4proxy_url | length > 0
+          - ja4proxy_token | length > 0
+          - ticket | length > 0
+        fail_msg: "ja4proxy_url, ja4proxy_token, and ticket are required"
+
+  tasks:
+    - name: Get current dial value
+      ansible.builtin.uri:
+        url: "{{ ja4proxy_url }}/api/v1/dial"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ ja4proxy_token }}"
+        status_code: 200
+        return_content: true
+      register: dial_get
+      failed_when: dial_get.json.value is not defined
+
+    - name: Save previous dial value
+      ansible.builtin.set_fact:
+        previous_dial: "{{ dial_get.json.value }}"
+
+    - name: Compute dial step-down values (max ±10 per request)
+      ansible.builtin.set_fact:
+        steps: >-
+          {{ range(previous_dial | int, -1, -10) | list if previous_dial | int > 10
+             else [0] }}
+      # This generates the sequence of dial values to step down from current to 0
+
+    - name: Step dial down to 0 (respects ±10 limit)
+      ansible.builtin.uri:
+        url: "{{ ja4proxy_url }}/api/v1/dial"
+        method: PATCH
+        body_format: json
+        body:
+          value: "{{ item }}"
+        headers:
+          Authorization: "Bearer {{ ja4proxy_token }}"
+        status_code: 200
+        return_content: true
+      register: dial_step
+      loop: "{{ steps }}"
+      failed_when: >
+        dial_step.status not in [200] or
+        dial_step.json.value is not defined
+
+    - name: Confirm dial is now at 0 (maintenance mode active)
+      ansible.builtin.debug:
+        msg: "Maintenance mode ACTIVE — dial set to 0 for {{ duration_minutes }} minutes (Ticket: {{ ticket }})"
+
+    - name: Wait for maintenance duration
+      ansible.builtin.wait_for:
+        timeout: "{{ duration_minutes | int * 60 }}"
+      async: 3600
+      poll: 0
+      register: wait_task
+
+    - name: Wait for the maintenance wait to complete
+      ansible.builtin.async_status:
+        jid: "{{ wait_task.ansible_job_id }}"
+      register: job_result
+      until: job_result.finished
+      retries: "{{ duration_minutes | int + 5 }}"
+      delay: 60
+
+    - name: Restore previous dial value (step up in ±10 increments)
+      ansible.builtin.uri:
+        url: "{{ ja4proxy_url }}/api/v1/dial"
+        method: PATCH
+        body_format: json
+        body:
+          value: "{{ item }}"
+        headers:
+          Authorization: "Bearer {{ ja4proxy_token }}"
+        status_code: 200
+        return_content: true
+      loop: "{{ range(10, previous_dial | int + 1, 10) | list if previous_dial | int > 10 else [previous_dial | int] }}"
+      when: previous_dial | int > 0
+
+    - name: Confirm dial restored
+      ansible.builtin.debug:
+        msg: "Maintenance mode ENDED — dial restored to {{ previous_dial }}"
+
+    - name: Create ServiceNow change record
+      ansible.builtin.uri:
+        url: "{{ servicenow_instance }}/api/now/table/change_request"
+        method: POST
+        body_format: json
+        body:
+          short_description: "Maintenance window: {{ reason }}"
+          description: "Dial was set to 0 for {{ duration_minutes }} minutes (Ticket: {{ ticket }})"
+        headers:
+          Authorization: "Bearer {{ servicenow_token }}"
+        status_code: 201
+      when:
+        - servicenow_enabled | bool
+        - servicenow_instance is defined
+        - servicenow_token is defined
