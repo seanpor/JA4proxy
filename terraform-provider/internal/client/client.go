@@ -368,12 +368,12 @@ func (c *Client) UpdateDial(ctx context.Context, value int) (*DialResponse, erro
 		return nil, err
 	}
 
-	// Try JSON first
+	// Try JSON first — value of 0 is valid, so don't check resp.Value
 	var resp DialResponse
-	if err := json.Unmarshal(respBody, &resp); err == nil && resp.Value != 0 {
+	if err := json.Unmarshal(respBody, &resp); err == nil {
 		return &resp, nil
 	}
-	// Fallback: plain number
+	// Fallback: bare integer (legacy API format)
 	if val, parseErr := strconv.Atoi(strings.TrimSpace(string(respBody))); parseErr == nil {
 		return &DialResponse{Value: val}, nil
 	}

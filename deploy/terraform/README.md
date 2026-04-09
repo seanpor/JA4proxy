@@ -17,30 +17,53 @@ terraform {
 }
 
 provider "ja4proxy" {
-  url   = var.ja4proxy_url
-  token = var.ja4proxy_admin_token
+  api_url   = var.ja4proxy_url
+  api_token = var.ja4proxy_admin_token
 }
 
-# Ban a known scanner
+# Ban a known scanner (IP or CIDR)
 resource "ja4proxy_ban" "scanner" {
-  ip        = "198.51.100.4"
-  ttl_hours = 720
-  reason    = "Known threat scanner"
-  ticket    = "INC0005100"
+  ip     = "198.51.100.4"
+  ttl    = 2592000   # 30 days in seconds
+  reason = "Known threat scanner"
+}
+
+# Ban a CIDR range
+resource "ja4proxy_ban" "bad_subnet" {
+  ip     = "198.51.100.0/24"
+  ttl    = 604800    # 7 days in seconds
+  reason = "Hosting provider with no legitimate traffic"
 }
 
 # Blocklist a malicious JA4 fingerprint
 resource "ja4proxy_blocklist_entry" "cobalt_strike" {
-  ja4    = "t10d170900_9dc949161b6c_b64c0ad42cb7"
-  reason = "Cobalt Strike default TLS profile"
-  ticket = "INC0005432"
+  entry = "t10d170900_9dc949161b6c_b64c0ad42cb7"
+  note  = "Cobalt Strike default TLS profile"
 }
 
-# Set the global sensitivity dial
+# Allowlist a trusted JA4 fingerprint
+resource "ja4proxy_allowlist_entry" "internal_monitoring" {
+  entry      = "t13d1516h2_aabbccddeeff_aabbccddeeff"
+  managed_by = "terraform"
+  note       = "Internal monitoring tool"
+}
+
+# Watchlist an IP for monitoring
+resource "ja4proxy_watchlist_entry" "suspicious_ip" {
+  entry = "198.51.100.99"
+  note  = "Observed in threat intel feed"
+}
+
+# Set the global sensitivity dial (0-100, singleton)
 resource "ja4proxy_dial" "prod" {
-  setting = 70
-  notes   = "Validated via shadow mode"
-  ticket  = "CHG0001234"
+  value = 70
+}
+
+# Configure a webhook for security events
+resource "ja4proxy_webhook" "splunk_hec" {
+  url    = "https://splunk.corp.internal:8088/services/collector/event"
+  events = ["block", "ban", "campaign", "dial_change"]
+  active = true
 }
 ```
 
@@ -54,14 +77,46 @@ lifecycles.
 
 ## Resource Types
 
-| Resource | Purpose |
-|----------|---------|
-| `ja4proxy_ban` | Ban an IP address or CIDR range (both use the same resource) |
-| `ja4proxy_allowlist_entry` | Add a JA4 fingerprint or IP to the allowlist |
-| `ja4proxy_blocklist_entry` | Add a JA4 fingerprint to the blocklist |
-| `ja4proxy_watchlist_entry` | Add an IP to the watchlist for monitoring |
-| `ja4proxy_dial` | Set the global sensitivity dial (0-100, singleton) |
-| `ja4proxy_webhook` | Configure webhook subscriptions for security events |
+| Resource | Attributes | Purpose |
+|----------|-----------|---------|
+| `ja4proxy_ban` | `ip`, `ttl`, `reason` | Ban an IP address or CIDR range |
+| `ja4proxy_allowlist_entry` | `entry`, `managed_by`, `note`, `expires_at` | Add a JA4 fingerprint or IP to the allowlist |
+| `ja4proxy_blocklist_entry` | `entry`, `note`, `expires_at` | Add a JA4 fingerprint to the blocklist |
+| `ja4proxy_watchlist_entry` | `entry`, `note`, `expires_at` | Add an IP to the watchlist for monitoring |
+| `ja4proxy_dial` | `value` | Set the global sensitivity dial (0-100, singleton) |
+| `ja4proxy_webhook` | `url`, `events`, `active` | Configure webhook subscriptions |
+
+## Attribute Reference
+
+### `ja4proxy_ban`
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `ip` | string | yes | IP address or CIDR range (e.g., `198.51.100.0/24`) |
+| `ttl` | number | yes | Ban duration in seconds (e.g., 86400 = 1 day) |
+| `reason` | string | yes | Reason for the ban |
+
+### `ja4proxy_allowlist_entry`
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `entry` | string | yes | JA4 fingerprint or IP/CIDR |
+| `managed_by` | string | no | Owner tag (default: `"terraform"`) |
+| `note` | string | no | Free-text note |
+| `expires_at` | string | no | ISO 8601 expiry timestamp |
+
+### `ja4proxy_blocklist_entry` / `ja4proxy_watchlist_entry`
+Same as allowlist but without `managed_by` (inferred from resource type).
+
+### `ja4proxy_dial`
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `value` | number | yes | Dial setting (0-100). Changes limited to ±10 per request. |
+
+### `ja4proxy_webhook`
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `url` | string | yes | Webhook endpoint URL |
+| `events` | list(string) | yes | Event types to subscribe to |
+| `active` | bool | no | Enable/disable (default: `true`) |
 
 ## Importing Existing Resources
 
@@ -94,17 +149,11 @@ ja4proxy-cli ip ban list --managed-by operator --output json | \
 
 ## Drift Protection
 
-When `protect_unmanaged_entries = true` (default), the provider will NOT
-destroy entries that were added by humans or other systems. Instead, they
-appear as warnings in `terraform plan`:
-
-```hcl
-provider "ja4proxy" {
-  url                     = var.ja4proxy_url
-  token                   = var.ja4proxy_admin_token
-  protect_unmanaged_entries = true
-}
-```
+**Note:** The `protect_unmanaged_entries` feature documented in the phase
+spec is planned for a follow-up release. In the current implementation,
+`terraform apply` will manage only resources explicitly declared in your
+Terraform config. Resources added out-of-band (via UI or API) are not
+touched by Terraform unless you import them first.
 
 ## Emergency Playbooks
 
@@ -122,7 +171,7 @@ for API authentication.
 
 ```bash
 # Run Terraform provider tests
-cd terraform-provider && TF_ACC=1 go test ./internal/... -v -count=1
+cd terraform-provider && GOROOT=/snap/go/current go test ./internal/... -v -count=1
 
 # Run emergency playbook tests
 python3 -m pytest tests/integration/test_emergency_playbooks.py -v
