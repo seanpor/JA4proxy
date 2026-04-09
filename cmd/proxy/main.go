@@ -275,7 +275,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	if err != nil || n == 0 {
 		if err != nil {
 			// phase-63: classify and record the error against the availability SLI.
-			metrics.ConnectionErrorsTotal.WithLabelValues(classifyConnError(err)).Inc()
+			metrics.ConnectionErrorsTotal.WithLabelValues(classifyConnError("client_read", err)).Inc()
 		}
 		return
 	}
@@ -320,8 +320,11 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 				connCtx.CipherList[i] = int(cs)
 			}
 		} else {
-			// phase-63: TLS parse failures contribute to the availability SLI.
-			metrics.ConnectionErrorsTotal.WithLabelValues("tls_parse_error").Inc()
+			// phase-63 (review fix B3): TLS parse failures are NOT availability
+			// errors — the connection is still handled and reaches a policy
+			// decision (scored without JA4). Counting it both here and in the
+			// good term at ConnectionsTotal would double-count and bias the SLI
+			// optimistically. Just log.
 			p.log.WithError(err).Debug("proxy: TLS parse failed; scoring without JA4")
 		}
 	}
@@ -410,7 +413,7 @@ func (p *proxy) forward(clientConn net.Conn, initialData []byte) {
 		time.Duration(cfg.Proxy.ConnectionTimeout)*time.Second)
 	if err != nil {
 		// phase-63: backend dial failures degrade availability SLI.
-		metrics.ConnectionErrorsTotal.WithLabelValues(classifyConnError(err)).Inc()
+		metrics.ConnectionErrorsTotal.WithLabelValues(classifyConnError("backend_dial", err)).Inc()
 		p.log.WithError(err).WithField("backend", backendAddr).Warn("proxy: backend connect failed")
 		return
 	}
@@ -819,26 +822,53 @@ func loadSecurityLists(ctx context.Context, rc *redisclient.Client, p *security.
 
 // ── Phase 63: SLO instrumentation helpers ─────────────────────────────────
 
-// classifyConnError maps a connection-handler error to one of the five
-// error_type label values used by ja4proxy_connection_errors_total.
-func classifyConnError(err error) string {
+// classifyConnError maps a connection-handler error to one of the error_type
+// label values used by ja4proxy_connection_errors_total. The source argument
+// disambiguates errors that look identical at the os/net layer but mean very
+// different things — a "i/o timeout" on a client read is a normal idle close,
+// on a backend dial is upstream overload, and on a Redis call is a Redis
+// problem. Without the source we cannot tell on-call where to look first.
+//
+// Recognised sources: "client_read", "backend_dial", "redis".
+func classifyConnError(source string, err error) string {
 	if err == nil {
 		return "unknown"
 	}
 	s := strings.ToLower(err.Error())
-	switch {
-	case errors.Is(err, context.DeadlineExceeded), strings.Contains(s, "i/o timeout"), strings.Contains(s, "redis"):
-		if strings.Contains(s, "redis") {
+
+	// Source-specific connection-refused / no-route always wins over timeouts.
+	if strings.Contains(s, "connection refused") || strings.Contains(s, "no route") {
+		if source == "backend_dial" {
+			return "backend_refused"
+		}
+		return "connection_refused"
+	}
+	if strings.Contains(s, "out of memory") || strings.Contains(s, "cannot allocate") {
+		return "oom"
+	}
+
+	isTimeout := errors.Is(err, context.DeadlineExceeded) || strings.Contains(s, "i/o timeout") || strings.Contains(s, "deadline exceeded")
+
+	switch source {
+	case "client_read":
+		if isTimeout {
+			return "client_read_timeout"
+		}
+		return "client_read_error"
+	case "backend_dial":
+		if isTimeout {
+			return "backend_dial_timeout"
+		}
+		return "backend_dial_error"
+	case "redis":
+		if isTimeout {
 			return "redis_timeout"
 		}
-		return "redis_timeout"
-	case strings.Contains(s, "tls"), strings.Contains(s, "handshake"), strings.Contains(s, "client hello"):
-		return "tls_parse_error"
-	case strings.Contains(s, "connection refused"), strings.Contains(s, "no route"):
-		return "backend_refused"
-	case strings.Contains(s, "out of memory"), strings.Contains(s, "cannot allocate"):
-		return "oom"
+		return "redis_error"
 	default:
+		if isTimeout {
+			return "timeout"
+		}
 		return "unknown"
 	}
 }

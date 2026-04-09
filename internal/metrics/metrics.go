@@ -127,7 +127,12 @@ var (
 			Name: "ja4proxy_connection_errors_total",
 			Help: "Unhandled errors in the connection handler before a policy decision",
 		},
-		[]string{"error_type"}, // redis_timeout, tls_parse_error, backend_refused, oom, unknown
+		// phase-63 review-fix: source-aware error classification.
+		// Values: client_read_timeout, client_read_error, backend_dial_timeout,
+		// backend_dial_error, backend_refused, redis_timeout, redis_error,
+		// connection_refused, oom, timeout, unknown.
+		// (TLS parse failures are NOT counted here — see cmd/proxy/main.go.)
+		[]string{"error_type"},
 	)
 	// RedisOperationsTotal counts every Redis call by command and result.
 	// Used as both terms of the Redis correctness SLI.
