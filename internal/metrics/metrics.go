@@ -117,6 +117,36 @@ var (
 		prometheus.CounterOpts{Name: "ja4proxy_tcp_signal_total", Help: "TCP signal events"},
 		[]string{"signal"},
 	)
+
+	// ── Phase 63 — SLO metrics ───────────────────────────────────────────
+	// ConnectionErrorsTotal counts unhandled errors in the connection handler
+	// before a policy decision was reached. Used as the "bad" term of the
+	// availability SLI.
+	ConnectionErrorsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "ja4proxy_connection_errors_total",
+			Help: "Unhandled errors in the connection handler before a policy decision",
+		},
+		[]string{"error_type"}, // redis_timeout, tls_parse_error, backend_refused, oom, unknown
+	)
+	// RedisOperationsTotal counts every Redis call by command and result.
+	// Used as both terms of the Redis correctness SLI.
+	RedisOperationsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "ja4proxy_redis_operations_total",
+			Help: "Redis operations performed by the proxy",
+		},
+		[]string{"command", "result"}, // result: ok | error
+	)
+	// TLSCertExpiryTimestampSeconds is the listener TLS certificate's NotAfter
+	// as a Unix timestamp. Set at startup and on config reload. Phase 64 alerts
+	// on this gauge (see slo_recording_rules.yml & PHASE_64).
+	TLSCertExpiryTimestampSeconds = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "ja4proxy_tls_cert_expiry_timestamp_seconds",
+			Help: "Listener TLS certificate NotAfter as a Unix timestamp (phase-63)",
+		},
+	)
 )
 
 func Register() {
@@ -131,6 +161,8 @@ func Register() {
 		DNSEnrichmentTotal, DNSPTRErrorsTotal, DNSPTRClassificationTotal,
 		DNSResolverErrorsTotal, DNSEnrichmentQueueDropsTotal,
 		SNISignalTotal, SNIDGAScore, TCPSignalTotal,
+		// phase-63
+		ConnectionErrorsTotal, RedisOperationsTotal, TLSCertExpiryTimestampSeconds,
 	)
 	for _, action := range []string{"allow", "flag", "rate_limit", "tarpit", "block", "ban"} {
 		ConnectionsTotal.WithLabelValues(action)

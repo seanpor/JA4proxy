@@ -19,6 +19,7 @@ alerting:
 rule_files:
   - '/etc/prometheus/alerts.yml'
   - '/etc/prometheus/recording_rules.yml'
+  - '/etc/prometheus/slo_recording_rules.yml'  # phase-63
 
 # Scrape configurations
 scrape_configs:

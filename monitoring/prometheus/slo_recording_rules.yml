@@ -1,0 +1,160 @@
+# JA4proxy SLO recording rules — phase-63
+#
+# Single source of truth for the four Service Level Indicators of the Go
+# production proxy:
+#
+#   1. Availability        (target 99.9%)
+#   2. Latency p99 < 10 ms (target 99%)
+#   3. Redis correctness   (target 99.5%)
+#   4. False positive rate (observation only — no rolling budget)
+#
+# Multi-window multi-burn-rate pattern from the Google SRE Workbook.
+#
+# All rules use the EXACT Go metric names from internal/metrics/metrics.go.
+# Action label values are SHORT FORMS (block|ban|tarpit|rate_limit) — Go does
+# not use the Python "blocked"/"banned" forms.
+#
+# This file is loaded alongside recording_rules.yml — it does not edit it.
+
+groups:
+  - name: ja4proxy_slo_base
+    interval: 1m
+    rules:
+      # ── Availability ─────────────────────────────────────────────────────
+      # good = connections that reached a policy decision
+      # bad  = unhandled errors before a decision (ja4proxy_connection_errors_total)
+      - record: job:ja4proxy_availability:ratio_rate5m
+        expr: |
+          sum(rate(ja4proxy_connections_total[5m]))
+          /
+          (
+            sum(rate(ja4proxy_connections_total[5m]))
+            + sum(rate(ja4proxy_connection_errors_total[5m]))
+          )
+
+      - record: job:ja4proxy_availability:ratio_rate1h
+        expr: |
+          sum(rate(ja4proxy_connections_total[1h]))
+          /
+          (
+            sum(rate(ja4proxy_connections_total[1h]))
+            + sum(rate(ja4proxy_connection_errors_total[1h]))
+          )
+
+      - record: job:ja4proxy_availability:ratio_rate6h
+        expr: |
+          sum(rate(ja4proxy_connections_total[6h]))
+          /
+          (
+            sum(rate(ja4proxy_connections_total[6h]))
+            + sum(rate(ja4proxy_connection_errors_total[6h]))
+          )
+
+      - record: job:ja4proxy_availability:ratio_rate3d
+        expr: |
+          sum(rate(ja4proxy_connections_total[3d]))
+          /
+          (
+            sum(rate(ja4proxy_connections_total[3d]))
+            + sum(rate(ja4proxy_connection_errors_total[3d]))
+          )
+
+      # ── Latency ──────────────────────────────────────────────────────────
+      # ja4proxy_pipeline_duration_seconds uses prometheus.DefBuckets which
+      # includes le="0.01" (10 ms). No histogram changes required.
+      - record: job:ja4proxy_latency_p99_good:ratio_rate5m
+        expr: |
+          sum(rate(ja4proxy_pipeline_duration_seconds_bucket{le="0.01"}[5m]))
+          / sum(rate(ja4proxy_pipeline_duration_seconds_count[5m]))
+
+      - record: job:ja4proxy_latency_p99_good:ratio_rate1h
+        expr: |
+          sum(rate(ja4proxy_pipeline_duration_seconds_bucket{le="0.01"}[1h]))
+          / sum(rate(ja4proxy_pipeline_duration_seconds_count[1h]))
+
+      - record: job:ja4proxy_latency_p99_good:ratio_rate6h
+        expr: |
+          sum(rate(ja4proxy_pipeline_duration_seconds_bucket{le="0.01"}[6h]))
+          / sum(rate(ja4proxy_pipeline_duration_seconds_count[6h]))
+
+      - record: job:ja4proxy_latency_p99_good:ratio_rate3d
+        expr: |
+          sum(rate(ja4proxy_pipeline_duration_seconds_bucket{le="0.01"}[3d]))
+          / sum(rate(ja4proxy_pipeline_duration_seconds_count[3d]))
+
+      # ── Redis correctness ────────────────────────────────────────────────
+      - record: job:ja4proxy_redis_correctness:ratio_rate5m
+        expr: |
+          sum(rate(ja4proxy_redis_operations_total{result="ok"}[5m]))
+          / sum(rate(ja4proxy_redis_operations_total[5m]))
+
+      - record: job:ja4proxy_redis_correctness:ratio_rate1h
+        expr: |
+          sum(rate(ja4proxy_redis_operations_total{result="ok"}[1h]))
+          / sum(rate(ja4proxy_redis_operations_total[1h]))
+
+      - record: job:ja4proxy_redis_correctness:ratio_rate6h
+        expr: |
+          sum(rate(ja4proxy_redis_operations_total{result="ok"}[6h]))
+          / sum(rate(ja4proxy_redis_operations_total[6h]))
+
+      - record: job:ja4proxy_redis_correctness:ratio_rate3d
+        expr: |
+          sum(rate(ja4proxy_redis_operations_total{result="ok"}[3d]))
+          / sum(rate(ja4proxy_redis_operations_total[3d]))
+
+  - name: ja4proxy_slo_burn_rates
+    interval: 1m
+    rules:
+      # burn_rate = (1 - sli_ratio) / (1 - slo_target)
+      # Targets: availability=0.999, latency=0.99, redis_correctness=0.995
+
+      - record: job:ja4proxy_availability:burn_rate1h
+        expr: (1 - job:ja4proxy_availability:ratio_rate1h) / 0.001
+      - record: job:ja4proxy_availability:burn_rate6h
+        expr: (1 - job:ja4proxy_availability:ratio_rate6h) / 0.001
+      - record: job:ja4proxy_availability:burn_rate3d
+        expr: (1 - job:ja4proxy_availability:ratio_rate3d) / 0.001
+
+      - record: job:ja4proxy_latency_p99_good:burn_rate1h
+        expr: (1 - job:ja4proxy_latency_p99_good:ratio_rate1h) / 0.01
+      - record: job:ja4proxy_latency_p99_good:burn_rate6h
+        expr: (1 - job:ja4proxy_latency_p99_good:ratio_rate6h) / 0.01
+      - record: job:ja4proxy_latency_p99_good:burn_rate3d
+        expr: (1 - job:ja4proxy_latency_p99_good:ratio_rate3d) / 0.01
+
+      - record: job:ja4proxy_redis_correctness:burn_rate1h
+        expr: (1 - job:ja4proxy_redis_correctness:ratio_rate1h) / 0.005
+      - record: job:ja4proxy_redis_correctness:burn_rate6h
+        expr: (1 - job:ja4proxy_redis_correctness:ratio_rate6h) / 0.005
+      - record: job:ja4proxy_redis_correctness:burn_rate3d
+        expr: (1 - job:ja4proxy_redis_correctness:ratio_rate3d) / 0.005
+
+  - name: ja4proxy_slo_budget_remaining
+    interval: 5m
+    rules:
+      - record: job:ja4proxy_availability:budget_remaining28d
+        expr: |
+          clamp_min(
+            1 - ((1 - job:ja4proxy_availability:ratio_rate3d) * 28 / (28 * 0.001)),
+            0
+          )
+      - record: job:ja4proxy_latency_p99_good:budget_remaining28d
+        expr: |
+          clamp_min(
+            1 - ((1 - job:ja4proxy_latency_p99_good:ratio_rate3d) * 28 / (28 * 0.01)),
+            0
+          )
+      - record: job:ja4proxy_redis_correctness:budget_remaining28d
+        expr: |
+          clamp_min(
+            1 - ((1 - job:ja4proxy_redis_correctness:ratio_rate3d) * 28 / (28 * 0.005)),
+            0
+          )
+
+      # FP-rate observation rule. Action label values are short forms in Go
+      # (block|ban|tarpit|rate_limit) — not Python-style blocked/banned.
+      - record: job:ja4proxy_false_positive_rate:ratio_rate5m
+        expr: |
+          sum(rate(ja4proxy_connections_total{action=~"block|ban|tarpit|rate_limit"}[5m]))
+          / sum(rate(ja4proxy_connections_total[5m]))
