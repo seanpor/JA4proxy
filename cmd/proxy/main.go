@@ -8,7 +8,10 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -49,6 +52,10 @@ func main() {
 
 	// Register Prometheus metrics (must be called once before any metric use)
 	metrics.Register()
+
+	// phase-63: emit TLS cert expiry timestamp gauge from JA4PROXY_TLS_CERT_FILE
+	// (Phase 64 alerts on this gauge — see docs/phases/PHASE_63_notes.md).
+	updateTLSCertExpiryGauge(os.Getenv("JA4PROXY_TLS_CERT_FILE"), log)
 
 	proxy, err := newProxy(cfg, log)
 	if err != nil {
@@ -266,6 +273,10 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	n, err := clientConn.Read(buf)
 	clientConn.SetReadDeadline(time.Time{}) // clear deadline
 	if err != nil || n == 0 {
+		if err != nil {
+			// phase-63: classify and record the error against the availability SLI.
+			metrics.ConnectionErrorsTotal.WithLabelValues(classifyConnError(err)).Inc()
+		}
 		return
 	}
 	data := buf[:n]
@@ -309,6 +320,8 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 				connCtx.CipherList[i] = int(cs)
 			}
 		} else {
+			// phase-63: TLS parse failures contribute to the availability SLI.
+			metrics.ConnectionErrorsTotal.WithLabelValues("tls_parse_error").Inc()
 			p.log.WithError(err).Debug("proxy: TLS parse failed; scoring without JA4")
 		}
 	}
@@ -396,6 +409,8 @@ func (p *proxy) forward(clientConn net.Conn, initialData []byte) {
 	backendConn, err := net.DialTimeout("tcp", backendAddr,
 		time.Duration(cfg.Proxy.ConnectionTimeout)*time.Second)
 	if err != nil {
+		// phase-63: backend dial failures degrade availability SLI.
+		metrics.ConnectionErrorsTotal.WithLabelValues(classifyConnError(err)).Inc()
 		p.log.WithError(err).WithField("backend", backendAddr).Warn("proxy: backend connect failed")
 		return
 	}
@@ -528,6 +543,8 @@ func (p *proxy) reload() error {
 	p.cfg = newCfg
 	p.mu.Unlock()
 	metrics.ConfigReloadsTotal.Inc()
+	// phase-63: refresh the TLS cert expiry gauge on every reload.
+	updateTLSCertExpiryGauge(os.Getenv("JA4PROXY_TLS_CERT_FILE"), p.log)
 	p.log.Info("config reloaded")
 	return nil
 }
@@ -798,6 +815,62 @@ func loadSecurityLists(ctx context.Context, rc *redisclient.Client, p *security.
 		"blacklist": len(bl),
 		"cidrs":     len(cidrRaw),
 	}).Info("security lists loaded from Redis")
+}
+
+// ── Phase 63: SLO instrumentation helpers ─────────────────────────────────
+
+// classifyConnError maps a connection-handler error to one of the five
+// error_type label values used by ja4proxy_connection_errors_total.
+func classifyConnError(err error) string {
+	if err == nil {
+		return "unknown"
+	}
+	s := strings.ToLower(err.Error())
+	switch {
+	case errors.Is(err, context.DeadlineExceeded), strings.Contains(s, "i/o timeout"), strings.Contains(s, "redis"):
+		if strings.Contains(s, "redis") {
+			return "redis_timeout"
+		}
+		return "redis_timeout"
+	case strings.Contains(s, "tls"), strings.Contains(s, "handshake"), strings.Contains(s, "client hello"):
+		return "tls_parse_error"
+	case strings.Contains(s, "connection refused"), strings.Contains(s, "no route"):
+		return "backend_refused"
+	case strings.Contains(s, "out of memory"), strings.Contains(s, "cannot allocate"):
+		return "oom"
+	default:
+		return "unknown"
+	}
+}
+
+// updateTLSCertExpiryGauge reads the PEM-encoded certificate at the given path
+// and sets ja4proxy_tls_cert_expiry_timestamp_seconds to the cert's NotAfter.
+// Phase 63: invoked at startup and on every config reload. Phase 64 alerts on
+// this gauge — see docs/phases/PHASE_63_notes.md.
+func updateTLSCertExpiryGauge(certPath string, log *logrus.Logger) {
+	if certPath == "" {
+		return
+	}
+	pemBytes, err := os.ReadFile(certPath)
+	if err != nil {
+		log.WithError(err).WithField("path", certPath).Warn("phase-63: failed to read TLS cert for expiry gauge")
+		return
+	}
+	block, _ := pem.Decode(pemBytes)
+	if block == nil {
+		log.WithField("path", certPath).Warn("phase-63: TLS cert PEM decode failed")
+		return
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		log.WithError(err).WithField("path", certPath).Warn("phase-63: x509 parse failed")
+		return
+	}
+	metrics.TLSCertExpiryTimestampSeconds.Set(float64(cert.NotAfter.Unix()))
+	log.WithFields(logrus.Fields{
+		"path":      certPath,
+		"not_after": cert.NotAfter.Format(time.RFC3339),
+	}).Info("phase-63: TLS cert expiry gauge updated")
 }
 
 // stringSliceToSet converts a string slice to a set map.
