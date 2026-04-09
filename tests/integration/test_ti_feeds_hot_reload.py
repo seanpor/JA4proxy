@@ -27,7 +27,7 @@ import pytest
 # Both items are tracked as their own follow-ups; mark the file xfail rather
 # than blocking the test merge.
 pytestmark = pytest.mark.xfail(
-    reason="PHASE_101 item 101-H8: test predates Phase 85 runner refactor (FeedRunner(redis=,mgmt_base_url=,config=) constructor + _poll_once flow) — coordinated rewrite pending",
+    reason="PHASE_101 item 101-H12: test predates Phase 85 runner refactor (FeedRunner(redis=,mgmt_base_url=,config=) constructor + _poll_once flow) — coordinated rewrite pending",
     strict=False,
 )
 
