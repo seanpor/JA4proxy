@@ -1080,7 +1080,7 @@ phases:
     - docs/compliance/ directory with all three compliance documents
   85:
     name: Threat Intelligence Ingestion
-    status: PROPOSED
+    status: COMPLETE
     summary: TAXII 2.1 client consuming JA4 fingerprint and IP indicators. JA4 STIX
       2.1 extension definition (strategic moat — first standard for JA4 indicators).
       Recorded Future and CrowdStrike named connectors. Curated JA4 fingerprint community
@@ -1275,35 +1275,60 @@ phases:
     - Group-to-role mapping honoured from config/proxy.yml sso.role_mapping with env-var
       MANAGEMENT_SAML_ROLE_MAPPING / MANAGEMENT_OIDC_ROLE_MAPPING override
   101:
-    name: Phase 84 Compliance Review Gap Closure
+    name: Phase 101 — Cross-Phase Gap Register
     status: PROPOSED
     action_plan: docs/phases/PHASE_101.md
     dependencies:
     - 84
-    size: MEDIUM
-    summary: 'Closes 9 deferred gaps from the second critical review of Phase 84
-      Compliance Reporting: H1 (single-XRANGE DSAR path), H3 (CIDR-aware watchlist
-      match in DSAR), M1 (Redis XTRIM MINID version check and fallback), M2 (rename
-      beaconing_records_cleaned → beaconing_datapoints_cleaned — breaking), M4
-      (paginate audit log reads; plan Stream migration ADR), M7 (DSAR partial-failure
-      reporting instead of silent empty arrays), L1 (module-level Jinja2 Environment
-      cache), L2 (JSONL trailing-newline invariant doc/test), L5 (DSAR retention
-      strings read from gdpr config instead of hardcoded prose). All CRITICAL and
-      most HIGH items were fixed inline in the review-fixes branch before merge.'
+    - 85
+    size: LARGE
+    summary: 'Rolling cross-phase register of deferred review gaps. Currently
+      contains two sections. (1) Phase 84 Compliance Review: items deferred
+      from the second critical review of Phase 84 (DSAR XRANGE consolidation,
+      CIDR-aware DSAR matching, XTRIM MINID Redis-version fallback, audit log
+      pagination, DSAR partial-failure semantics, Jinja2 module-level cache,
+      JSONL invariant docs, dynamic retention strings, beaconing metric
+      rename). C1-C3 / H2/H4/H5 / M3/M5/M6 / L3/L4 were closed in the
+      review-fixes branch and are documented for reference. (2) Phase 85
+      Threat-Intel Hardening: per-feed safety caps, two-empty-poll gate,
+      ja4_safe_to_block FP-corpus gate, SafeResolver-backed TCPConnector,
+      manual-poll rate limit, CSRF middleware, RF/CrowdStrike regional
+      endpoints, and a re-shape of the TAXII chaos + integration tests
+      against the new FeedRunner constructor. C5-partial / C7 / H13 were
+      closed in-branch on phase-85 and are documented for reference. Gap
+      IDs are letter-prefixed by severity and numbered sequentially across
+      the entire register; new sections continue from the highest existing
+      number per letter.'
     success_criteria:
-    - DSAR export path issues at most one XRANGE per request (H1)
-    - DSAR export/erase handles CIDR watchlist entries correctly (H3)
-    - GDPRPurge detects Redis < 6.2 and uses XRANGE+XDEL fallback for MINID (M1)
-    - PurgeSummary field renamed to beaconing_datapoints_cleaned; CHANGELOG notes
-      breaking change (M2)
-    - Pack builder loads audit entries in bounded chunks; 1M-entry benchmark < 30s
-      and < 500MB (M4)
-    - DSAR response includes partial_failures list on Redis error; Prometheus
-      counter ja4proxy_dsar_export_partial_failures_total wired (M7)
-    - Two ReportRenderer instances share compiled Jinja2 templates (L1)
-    - JSONL trailing-newline invariant documented and tested (L2)
-    - DSAR retention text reflects gdpr.*_retention_days config (L5)
-    - No new CRITICAL/HIGH findings from a third review pass
+    - All Phase 84 deferred items (H1, H3, M1, M2, M4, M7, L1, L2, L5)
+      either have PR-level fixes or explicit, documented deferrals
+    - All Phase 85 deferred items (C4-C6, H6-H12, M8-M14, L6-L8) either
+      have PR-level fixes or explicit, documented deferrals
+    - No new critical/high findings from a third review pass on either phase
+    - Per-feed max_new_per_poll, max_owned_total, max_delta_per_poll honoured
+      with ja4proxy_ti_feed_caps_hit_total metric and Alertmanager rule
+    - Two consecutive empty polls required before any bulk cleanup; per-feed
+      empty_streak persisted in Redis ti_feed:{feed_id}:empty_streak
+    - ja4_safe_to_block(ja4) FP-corpus gate consulted from taxii.py,
+      rest_generic.py, and seed_file.py before every post_blocklist
+    - SafeResolver TCPConnector deployed on all four feed clients; DNS
+      pointing at 169.254.169.254 / RFC1918 / loopback rejected
+    - Manual-poll endpoint rate limited at 6/min/feed_id with 429 + Retry-After
+    - CSRF double-submit middleware on every /api/v1/* mutating route
+    - RF and CrowdStrike clients honour config.url for regional / GovCloud
+      endpoints with global URLs as fallback
+    - DSAR export path issues at most one XRANGE call per request
+    - DSAR export/erase honour CIDR watchlist entries with documented IPv4/IPv6
+      semantics
+    - GDPRPurge falls back to time-based XRANGE+XDEL when redis_version < 6.2
+    - PurgeSummary.beaconing_datapoints_cleaned replaces the misnamed
+      beaconing_records_cleaned field with a CHANGELOG breaking-change note
+    - Pack builder loads audit entries in chunks; ADR written for the
+      Stream migration path
+    - DSAR response includes a partial_failures list on Redis error with a
+      ja4proxy_dsar_export_partial_failures_total counter
+    - tests/adversarial/test_ti_feeds_ssrf.py + test_ti_feeds_fp_block.py +
+      test_ti_feed_caps.py all pass
     - make test-phase-84 still passes (Go + Python compliance suites)
 
   200:
