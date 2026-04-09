@@ -1290,3 +1290,10 @@ test-phase-63:
 	python3 -c "import yaml; yaml.safe_load(open('monitoring/prometheus/slo_recording_rules.yml')); yaml.safe_load(open('monitoring/alertmanager/rules/slo_alerts.yml')); print('YAML OK')"
 
 .PHONY: validate-slo-rules slo-report test-phase-63
+
+## Phase 61 targets
+ci-local: ## Run the same fast checks the CI workflow runs (Go + Python tests)
+	GOROOT=/snap/go/current go test ./...
+	python3 -m pytest tests/ --ignore=tests/integration/test_docker_stack.py -x -q --timeout=60
+
+.PHONY: ci-local
