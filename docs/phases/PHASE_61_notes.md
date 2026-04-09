@@ -1,5 +1,57 @@
 # Phase 61 — Closing notes
 
+## Review-fix addendum #2 (post second external SRE review, 2026-04-09)
+
+A second independent SRE/security review caught two more supply-chain holes
+hidden inside the supply-chain hardening phase itself, and one silent-failure
+in the secrets-scanner job:
+
+**B2 — Three install commands were unpinned, defeating the SHA-pinning policy.**
+The whole point of pinning every `uses:` line to a 40-char SHA is to keep CI
+deterministic and to keep unverified third-party code out of the build. Three
+`run:` steps then turned around and installed unpinned tools:
+
+- `pip install ruff` (lint job, ci.yml ~85)
+- `pip install pip-audit` (Python audit job, ci.yml ~132)
+- `go install golang.org/x/vuln/cmd/govulncheck@latest` (Go audit job, ci.yml ~147)
+
+A `@latest` CVE scanner is itself unverified third-party code that auto-upgrades
+on every CI run. A regression in any of those three could silently break or
+silently pass CI. **Fix:** pinned all three to specific versions:
+
+- `ruff==0.15.9`
+- `pip-audit==2.10.0`
+- `govulncheck@v1.1.4`
+
+Each pin has an inline comment explaining why pinning matters here. Dependabot
+already covers `gomod` / `pip` / `github-actions` ecosystems and will open bump
+PRs for govulncheck and ruff/pip-audit (the latter via requirements would be
+even tighter, but moving these to requirements.txt is out of scope for the
+review-fix).
+
+**B3 — TruffleHog secrets scan was a no-op on `push` events to main.**
+The `secrets-scan` job set `base: ${{ github.event.repository.default_branch }}`
+and `head: HEAD`. On a push to `main`, both expressions resolve to the same
+commit (the new tip of `main`), so TruffleHog diffs an empty range — it scans
+zero commits and the job silently passes. The exact event the job is supposed
+to gate (a secret being merged to main) is the one event where it does nothing.
+
+**Fix:** branch the `base` and `head` by event type:
+
+```yaml
+base: ${{ github.event.pull_request.base.sha || github.event.before }}
+head: ${{ github.event.pull_request.head.sha || github.sha }}
+```
+
+- On `pull_request`: diff PR base → PR head (the actual change set).
+- On `push`: diff `github.event.before` (previous tip) → `github.sha` (new tip).
+- On `schedule` (weekly): both fall through to the full HEAD scan.
+
+Tests: `tests/test_workflow_pinning.py` 7/7 PASS — the SHA-allowlist tests
+inspect `uses:` lines only, so the `run:`-only changes do not affect the
+existing pinning contract. The new pins are pure version-string changes;
+no SHAs in the allowlist needed updating.
+
 ## Review-fix addendum (post external review)
 
 External SRE/security review (reviewer #1) flagged a real supply-chain hole:
