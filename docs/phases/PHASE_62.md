@@ -1,930 +1,638 @@
-# Phase 62: Security Regression Harness, Fuzzing, and Pre-Enterprise Validation
+# Phase 62 — Go Fuzzing, Adversarial & Chaos Test Parity
+
+> **Status:** PROPOSED
+> **Size:** L
+> **Owner files:** `cmd/proxy/fuzz_test.go`, `internal/tls/parser_test.go`, `internal/tls/ja4_fp_corpus_test.go`, `internal/security/pipeline_chaos_test.go`, `internal/security/property_test.go`, `cmd/proxy/bench_test.go`, `scripts/generate_validation_report.py`, `tests/fuzz/README.md`, `Makefile` (new targets only)
+> **Independent of:** Phase 61, 63, 64
+> **Last rewritten:** 2026-04-09
 
 ---
 
-## 1. Overview
+## What this phase is
 
-Phase 27 (Advanced Pentest Remediation) identified and fixed five vulnerabilities: IP
-spoofing via untrusted header trust, sync/async Redis mismatch, synchronous TLS parsing
-on the event loop, Prometheus metric cardinality explosion, and log injection. Those
-fixes exist in the codebase but have no automated regression tests. Nothing currently
-prevents those vulnerabilities from silently re-emerging as the codebase evolves.
+Close the **test-category gap** between Python and Go. The Python proxy has
+fuzzing, adversarial input tests, FP-corpus regression, chaos/resilience
+tests, and property-based tests. The Go production proxy has none of these.
+This phase adds them as native Go tests so the Go binary has the same defensive
+coverage Python had before deprecation.
 
-This phase delivers three things:
+It also keeps the **pre-enterprise validation report generator** from the
+previous version of this phase — that script is still useful and survives
+unchanged.
 
-1. **Security regression harness** (`tests/security_regression/`) — a permanent,
-   CI-executed test suite that asserts each Phase 27 finding stays fixed. These tests
-   fail loudly if a future change re-introduces a vulnerability.
+## What this phase is NOT
 
-2. **Fuzzing harness** (`tests/fuzz/`) — atheris-based fuzz targets for the Python
-   ClientHello parser, PROXY protocol parser, and config loader; plus a native Go
-   `testing.F` fuzz target for the Go proxy's ClientHello parser. Fuzzing is not run in
-   CI on every push (too slow) but is gated by `make fuzz` for a 60-second smoke run,
-   and documented as a manual quarterly procedure.
+This phase **does not** add Python regression tests for Phase 27 findings.
+The previous version of Phase 62 was scoped around `tests/security_regression/`
+guarding the five Python pentest findings (IP spoofing, sync/async Redis,
+sync TLS on event loop, Prometheus cardinality, log injection). All five are
+**Python-specific** and the Python proxy is now experimental — guarding it
+against regressions that can never reach production is dead work.
 
-3. **Pre-enterprise validation report** — `scripts/generate_validation_report.py`
-   produces `docs/security/PRE_ENTERPRISE_VALIDATION_REPORT.md`, a single document that
-   captures test results, dependency audit results, a summary of Phase 27 findings with
-   their remediation commit hashes, and a sign-off section. This is what gets handed to
-   procurement teams.
+The Go-side equivalents of those five findings are owned by other phases:
 
-This phase does NOT re-do: the original penetration test (Phase 27, complete), the test
-audit (Phase 44, complete), coverage improvement (Phase 46, complete), or static
-analysis cleanup (Phase 37, complete). It builds on those foundations without repeating
-them.
+| Python finding (Phase 27) | Go equivalent | Owning phase |
+|---|---|---|
+| IP spoofing via PROXY protocol | `_is_trusted_proxy_source` for Go | [Phase 200](PHASE_200.md) |
+| Sync redis in async context | n/a — Go has no async/sync split | — |
+| TLS parsing on event loop | n/a — Go uses goroutines | — |
+| Prometheus cardinality (`fingerprint` label) | already correct in `internal/metrics/metrics.go` | done |
+| Log injection / `_sanitize_log` | already correct in Go (`zap` structured logger) | done |
 
----
+If a junior contributor is tempted to add `tests/security_regression/` files
+back, redirect them to Phase 200 / 201 / 203 instead.
 
-## 2. Security Regression Harness
+## What this phase does NOT include from the previous version
 
-### 2.1 Directory Layout
-
-```
-tests/
-  security_regression/
-    __init__.py
-    conftest.py                       # Shared fixtures for regression tests
-    test_ip_spoofing_regression.py    # Phase 27 finding 1.1
-    test_redis_async_regression.py    # Phase 27 finding 1.2
-    test_clienthello_adversarial_regression.py  # Phase 27 finding 1.3
-    test_metric_cardinality_regression.py       # Phase 27 finding 1.4
-    test_log_injection_regression.py  # Phase 27 finding 1.5
-    test_rate_limit_ipv6_regression.py          # Supplementary: IPv6 rate limit bypass
-```
-
-All tests in this directory are regular `pytest` tests. They run in CI as part of the
-standard `make test` target and also via the dedicated `make test-security-regression`
-target.
-
-### 2.2 `test_ip_spoofing_regression.py`
-
-**Asserts:** The proxy extracts the real client IP from the PROXY protocol header only
-when the connection originates from a CIDR listed in `trusted_upstream_sources`. A
-connection from an untrusted source that sends an `X-Forwarded-For` header or a PROXY
-protocol preamble must have its real peer IP used instead.
-
-Key test cases:
-
-```python
-class TestIPSpoofingRegression:
-
-    def test_trusted_source_proxy_protocol_is_accepted(self):
-        # Source IP is in trusted_cidrs. PROXY protocol header claims
-        # client_ip = "1.2.3.4". Proxy must use "1.2.3.4".
-        ...
-
-    def test_untrusted_source_proxy_protocol_is_ignored(self):
-        # Source IP is NOT in trusted_cidrs. PROXY protocol header claims
-        # client_ip = "1.2.3.4". Proxy must use the real peer IP, not "1.2.3.4".
-        ...
-
-    def test_untrusted_xff_header_is_ignored(self):
-        # Source IP is NOT in trusted_cidrs. HTTP payload contains
-        # X-Forwarded-For: 10.0.0.1. Proxy must use the real peer IP.
-        ...
-
-    def test_empty_trusted_cidrs_rejects_all_proxy_headers(self):
-        # trusted_upstream_sources: [] — every source is untrusted.
-        # Any PROXY protocol header must be ignored.
-        ...
-
-    def test_is_trusted_proxy_source_ipv6(self):
-        # trusted_cidrs contains an IPv6 CIDR. Source is an IPv6 address
-        # within that CIDR. PROXY protocol header must be accepted.
-        ...
-```
-
-These tests call `_is_trusted_proxy_source()` directly and also test the full
-`handle_connection()` path using the `AsyncMock` stream pattern established in
-`tests/unit/test_proxy_server.py`.
-
-**Scope limitation:** These are unit and mock-integration tests. They verify that the
-`_is_trusted_proxy_source()` function and the `handle_connection()` mock path enforce
-the CIDR check correctly. They do not test the live network stack — a PROXY protocol
-header sent from a real HAProxy instance to a real listening socket. End-to-end
-verification of this protection requires the Docker Compose integration test
-(`tests/integration/test_docker_stack.py`), which is excluded from CI because it
-requires a live backend. The integration test must be run locally before marking this
-phase complete. Document the result in `PHASE_62_notes.md`.
-
-### 2.3 `test_redis_async_regression.py`
-
-**Asserts:** No file in the codebase that imports `asyncio` also calls the synchronous
-`redis.Redis` client. This is a static analysis test using the `ast` module.
-
-```python
-import ast
-import pathlib
-
-REDIS_SYNC_CLASSES = {"Redis", "StrictRedis"}
-ASYNC_MARKERS = {"asyncio", "AsyncMock", "async def", "await"}
-
-class TestRedisAsyncRegression:
-
-    def test_no_sync_redis_in_async_modules(self):
-        """
-        Scan all .py files under src/ and proxy.py. For any file that imports
-        asyncio or contains 'async def', assert that it does not also instantiate
-        redis.Redis or redis.StrictRedis (the synchronous client).
-        """
-        violations = []
-        root = pathlib.Path("src")
-        targets = list(root.rglob("*.py")) + [pathlib.Path("proxy.py")]
-        for path in targets:
-            tree = ast.parse(path.read_text())
-            uses_asyncio = _file_uses_asyncio(tree)
-            uses_sync_redis = _file_instantiates_sync_redis(tree)
-            if uses_asyncio and uses_sync_redis:
-                violations.append(str(path))
-        assert violations == [], (
-            f"Sync redis.Redis used in async module(s): {violations}. "
-            "Use redis.asyncio.Redis instead."
-        )
-
-    def test_dial_manager_initialize_is_async(self):
-        # Verify DialManager.initialize is an async def (not a sync def).
-        # This was the specific fix in Phase 27 finding 1.2.
-        import inspect
-        from src.security.action_decider import DialManager
-        assert inspect.iscoroutinefunction(DialManager.initialize)
-
-    def test_pipeline_analytics_signals_is_async(self):
-        import inspect
-        from src.security.pipeline import Pipeline
-        assert inspect.iscoroutinefunction(Pipeline._get_analytics_signals)
-```
-
-This test has no runtime dependencies beyond the standard library. It runs in under one
-second and requires no Redis instance.
-
-### 2.4 `test_clienthello_adversarial_regression.py`
-
-**Asserts:** The ClientHello parser handles each of the adversarial inputs that were
-identified during Phase 27 (and by the fuzzer in Section 3) without raising an uncaught
-exception, hanging, or returning invalid output. The parser is expected to return `None`
-or an empty result for malformed input — not raise.
-
-These are the minimum required adversarial fixtures. Each is stored as a `bytes`
-literal in the test file (short inputs) or in `tests/fixtures/adversarial_clienthello/`
-(longer inputs):
-
-```python
-ADVERSARIAL_INPUTS = [
-    b"",                                      # Empty
-    b"\x16\x03\x01",                         # Truncated TLS record header
-    b"\x16\x03\x01\x00\x05" + b"\x01" * 5,  # Record claims 5 bytes; only 5 bytes, truncated handshake
-    b"\x16\x03\x01\xff\xff" + b"\x01" * 20, # Length field says 65535 bytes; body is 20 bytes
-    b"\x00" * 512,                            # All zeroes
-    b"\xff" * 512,                            # All 0xFF
-    b"\x16\x03\x03\x00\xd0\x01" + b"\x00" * 210,  # Version TLS 1.2 with zeroed body
-    # Crafted to trigger GREASE handling edge cases
-    b"\x16\x03\x01\x00\x2f\x01\x00\x00\x2b\x03\x03" + b"\x00" * 32 +
-    b"\x00\x00\x04\x7a\x7a\x00\x2f\x01\x00\x00\x04\x7a\x7a\x00\x01",
-]
-
-class TestClientHelloAdversarialRegression:
-
-    @pytest.mark.parametrize("raw", ADVERSARIAL_INPUTS)
-    def test_parser_does_not_raise(self, raw: bytes):
-        """Parser must not raise any exception on adversarial input."""
-        try:
-            result = parse_client_hello(raw)
-            # result may be None or a partial struct — both are acceptable
-        except Exception as exc:
-            pytest.fail(f"Parser raised {type(exc).__name__} on input {raw!r}: {exc}")
-
-    @pytest.mark.parametrize("raw", ADVERSARIAL_INPUTS)
-    def test_parser_does_not_hang(self, raw: bytes):
-        """Parser must return within 100ms on any input."""
-        import signal
-
-        def _timeout_handler(signum, frame):
-            raise TimeoutError("parser hung")
-
-        signal.signal(signal.SIGALRM, _timeout_handler)
-        signal.setitimer(signal.ITIMER_REAL, 0.1)
-        try:
-            parse_client_hello(raw)
-        finally:
-            signal.setitimer(signal.ITIMER_REAL, 0)
-
-    def test_tls_parsing_offloaded_to_thread(self):
-        """
-        Phase 27 finding 1.3: Scapy TLS() parsing must run in asyncio.to_thread(),
-        not on the event loop directly. Verify by inspecting the call site in proxy.py.
-        """
-        import ast, pathlib
-        source = pathlib.Path("proxy.py").read_text()
-        # 'asyncio.to_thread' must appear in the same function that calls TLS()
-        assert "asyncio.to_thread" in source, (
-            "TLS parsing must be offloaded via asyncio.to_thread() — see Phase 27 finding 1.3"
-        )
-```
-
-The `parse_client_hello` import path is `from src.parsing.tls_parser import parse_client_hello`
-(Python proxy) or the Go equivalent via subprocess in Go-specific tests.
-
-### 2.5 `test_metric_cardinality_regression.py`
-
-**Asserts:** The `ja4_requests_total` Prometheus counter does not include a `fingerprint`
-label containing a full JA4 hash. This was the cardinality explosion finding in Phase 27
-(finding 1.4).
-
-```python
-class TestMetricCardinalityRegression:
-
-    def test_ja4_requests_total_has_no_fingerprint_label(self):
-        """
-        Full JA4 fingerprints must not appear as Prometheus label values on
-        ja4_requests_total. Labels must only include 'fingerprint_name' or similar
-        low-cardinality fields.
-        """
-        from prometheus_client import REGISTRY
-        # Collect the metric descriptor
-        metrics = {m.name: m for m in REGISTRY.collect()}
-        if "ja4_requests_total" not in metrics:
-            pytest.skip("ja4_requests_total not registered in this process")
-        descriptor = metrics["ja4_requests_total"]
-        label_names = {l for sample in descriptor.samples for l in sample.labels}
-        assert "fingerprint" not in label_names, (
-            "ja4_requests_total must not have a 'fingerprint' label — "
-            "full JA4 hashes as label values cause Prometheus cardinality explosion. "
-            "See Phase 27 finding 1.4."
-        )
-
-    def test_sanitize_log_strips_newlines(self):
-        """Phase 27 finding 1.5: _sanitize_log must strip \\r and \\n."""
-        from proxy import _sanitize_log
-        assert "\n" not in _sanitize_log("foo\nbar")
-        assert "\r" not in _sanitize_log("foo\r\nbar")
-        assert _sanitize_log("clean input") == "clean input"
-
-    def test_sanitize_log_applied_to_client_ip(self):
-        """
-        Verify _sanitize_log is called before any log statement that includes
-        client_ip or socket_ip. Static check via AST on proxy.py.
-        """
-        import ast, pathlib
-        # A targeted structural check: look for logging calls that concatenate
-        # client_ip without passing through _sanitize_log first.
-        # Implementation: parse proxy.py, walk Call nodes for logger.*, assert
-        # that any argument referencing 'client_ip' is wrapped in '_sanitize_log'.
-        source = pathlib.Path("proxy.py").read_text()
-        assert "_sanitize_log" in source, (
-            "_sanitize_log must exist in proxy.py — see Phase 27 finding 1.5"
-        )
-```
-
-### 2.6 `test_rate_limit_ipv6_regression.py`
-
-**Asserts:** IPv4 address `A.B.C.D` and its IPv4-mapped IPv6 form `::ffff:A.B.C.D` are
-treated as the same client for rate-limiting purposes. An attacker that sends requests
-alternating between the two forms must not be able to double their rate limit budget.
-
-```python
-class TestRateLimitIPv6Regression:
-
-    @pytest.mark.asyncio
-    async def test_ipv4_and_ipv4_mapped_ipv6_share_rate_limit(self):
-        """
-        Requests from 1.2.3.4 and ::ffff:1.2.3.4 must consume from the same
-        rate limit bucket. Sending N requests alternating between both forms
-        must not result in 2×N allowed requests.
-        """
-        from src.cache.local_cache import LocalCache
-        from src.security.pipeline import Pipeline
-        # ... construct pipeline with a rate limit of 5 req/s
-        # Send 3 requests as IPv4, 3 as IPv4-mapped IPv6
-        # Assert total allowed <= 5, not 6
-        ...
-
-    def test_ip_normalisation_collapses_ipv4_mapped(self):
-        """
-        The IP normalisation utility must collapse ::ffff:1.2.3.4 to 1.2.3.4
-        so that rate-limit keys, ban keys, and log entries are consistent.
-        """
-        from src.utils.ip import canonical_ip
-        assert canonical_ip("::ffff:1.2.3.4") == "1.2.3.4"
-        assert canonical_ip("::ffff:192.168.1.1") == "192.168.1.1"
-        assert canonical_ip("2001:db8::1") == "2001:db8::1"  # Real IPv6 unchanged
-        assert canonical_ip("1.2.3.4") == "1.2.3.4"          # IPv4 unchanged
-
-    @pytest.mark.asyncio
-    async def test_ban_key_uses_normalised_ip(self):
-        """
-        A ban placed on 1.2.3.4 must also block ::ffff:1.2.3.4.
-        They must share the same ban:{ip} key in Redis.
-        """
-        ...
-```
+| Removed item | Why |
+|---|---|
+| `tests/security_regression/test_*_regression.py` (six files) | Python proxy is deprecated — see table above |
+| `tests/fuzz/fuzz_clienthello.py` (atheris) | Replaced by Go native `cmd/proxy/fuzz_test.go` |
+| `tests/fuzz/fuzz_proxy_protocol.py` (atheris) | Replaced by Go native `FuzzReadProxyProtocol` and `FuzzReadProxyProtocolV2` |
+| `tests/fuzz/fuzz_config.py` (atheris) | Go config loader is `gopkg.in/yaml.v3` — already covered by upstream fuzzing; the project loader has unit tests |
+| `atheris>=2.3.0` in `requirements.txt` | No longer needed |
+| Break-glass procedure for Phase 27 findings | Findings are in deprecated code; verification has no value |
 
 ---
 
-## 3. Fuzzing Harness
+## What already exists on disk
 
-Fuzzing finds bugs in parsers that deterministic tests miss. The harness covers the
-three parsing entry points that accept untrusted external bytes: the Python ClientHello
-parser, the PROXY protocol parser, and the config loader. The Go proxy's ClientHello
-parser has a separate Go native fuzz target.
-
-### 3.1 Directory Layout
-
-```
-tests/
-  fuzz/
-    __init__.py
-    fuzz_clienthello.py      # Python ClientHello parser (atheris)
-    fuzz_proxy_protocol.py   # PROXY protocol v1/v2 parser (atheris)
-    fuzz_config.py           # Config loader with malformed YAML (atheris)
-    README.md                # How to run long-form fuzzing
-
-cmd/
-  proxy/
-    fuzz_test.go             # Go ClientHello fuzzer (testing.F)
-```
-
-### 3.2 Atheris Setup
-
-`atheris` is a coverage-guided Python fuzzer backed by libFuzzer. Install with:
+Read first, before writing anything:
 
 ```bash
-pip install atheris
+ls cmd/proxy/                       # main.go only — no fuzz_test.go, no bench_test.go
+ls internal/tls/                    # parser.go, ja4.go, ja4_test.go, ja4t.go, ja4t_test.go, ja4x.go, ja4x_test.go, bench_test.go
+ls internal/security/               # 16 *.go + 14 *_test.go — no pipeline_chaos_test.go, no property_test.go
+ls tests/adversarial/corpus/        # 13 .bin files + README.md
 ```
 
-Atheris requires a Python build with sanitizer support for maximum effectiveness, but
-runs usably with a stock Python build for CI smoke tests. Add to `requirements.txt`:
+Key facts:
 
-```
-atheris>=2.3.0  # phase-62 — Python fuzzing harness
-```
+- **`internal/tls/parser.go`** is the production ClientHello parser. It has
+  no dedicated `parser_test.go` — it is exercised only indirectly via
+  `ja4_test.go` against valid fixtures. No adversarial coverage today.
+- **`tests/adversarial/corpus/`** has 13 binary fixtures already (empty,
+  truncated, overflow length, all-GREASE, etc.) but **only Python tests
+  consume them**. Go has no FP-corpus regression test reading this directory.
+- **`internal/tls/bench_test.go`** exists for the parser. There is no
+  pipeline-level Go bench (`cmd/proxy/bench_test.go`).
+- **`internal/security/pipeline_test.go`** is a happy-path unit test only.
+  No chaos/fault-injection tests against Redis or external services.
+- **No Go property-based tests** exist anywhere. The `pgregory.net/rapid`
+  library is not yet a dependency.
+- **Existing Python coverage that has no Go equivalent:**
+  - `tests/fuzz/` (atheris) — Python ClientHello/PROXY/config fuzzers
+  - `tests/adversarial/test_clienthello_adversarial.py` — drives the corpus
+  - `tests/adversarial/test_*_fp.py` — Tranco top-10k FP rate tests for
+    several signals (AbuseIPDB, beaconing, ASN, etc.)
+  - `tests/chaos/test_*.py` — Redis outage, partial outage, external API
+    failure, dial flip
+  - `tests/property/test_*.py` (Hypothesis) — risk scorer monotonicity,
+    action decider idempotence, IP normalisation
+  - `tests/performance/test_*.py` — pipeline throughput
 
-### 3.3 `fuzz_clienthello.py`
+The six Go-side gaps below close the categories that matter most for a TLS
+parser and a hot-path security pipeline.
 
-```python
-#!/usr/bin/env python3
-"""
-Fuzz target for the Python ClientHello parser.
+---
 
-Usage (CI smoke — 60 seconds):
-    python tests/fuzz/fuzz_clienthello.py -max_total_time=60
+## Implementation checklist
 
-Usage (full fuzzing — manual quarterly run):
-    python tests/fuzz/fuzz_clienthello.py -max_total_time=3600 corpus/clienthello/
-"""
-import sys
-import atheris
-from src.parsing.tls_parser import parse_client_hello
+The six steps are independent of each other. A junior contributor can land
+them in any order, one PR per step.
 
+### Step 1 — `cmd/proxy/fuzz_test.go` (Go native fuzzers)
 
-def TestOneInput(data: bytes) -> None:
-    try:
-        parse_client_hello(data)
-    except Exception:
-        # Exceptions from a public parser on untrusted input are crashes.
-        # atheris will report and save the input automatically.
-        raise
-
-
-if __name__ == "__main__":
-    atheris.Setup(sys.argv, TestOneInput)
-    atheris.Fuzz()
-```
-
-The fuzz corpus is seeded from `tests/fixtures/clienthello/` (existing valid samples)
-and from `tests/fixtures/adversarial_clienthello/` (adversarial samples from Section 2.4).
-
-### 3.4 `fuzz_proxy_protocol.py`
-
-```python
-#!/usr/bin/env python3
-"""
-Fuzz target for the PROXY protocol v1/v2 header parser.
-
-The PROXY protocol header is the first bytes of every connection from HAProxy.
-Malformed input here must never crash the proxy or be accepted as a valid header
-from an untrusted source.
-
-Usage (CI smoke):
-    python tests/fuzz/fuzz_proxy_protocol.py -max_total_time=60
-"""
-import sys
-import atheris
-from proxy import _parse_proxy_protocol_header, _is_trusted_proxy_source
-
-
-def TestOneInput(data: bytes) -> None:
-    try:
-        result = _parse_proxy_protocol_header(data)
-        # result is (client_ip, rest_of_data) or None — both valid
-    except Exception:
-        raise
-
-
-if __name__ == "__main__":
-    # Seed corpus: a valid PROXY v1 header and a valid PROXY v2 header
-    atheris.Setup(sys.argv, TestOneInput, enable_python_coverage=True)
-    atheris.Fuzz()
-```
-
-### 3.5 `fuzz_config.py`
-
-```python
-#!/usr/bin/env python3
-"""
-Fuzz target for the config loader.
-
-The config loader reads YAML from disk and from hot-reload events. Malformed YAML
-must not crash the loader — it must log a warning and retain the previous valid config.
-
-Usage (CI smoke):
-    python tests/fuzz/fuzz_config.py -max_total_time=60
-"""
-import sys
-import tempfile
-import pathlib
-import atheris
-from src.config.loader import ConfigLoader
-
-
-def TestOneInput(data: bytes) -> None:
-    try:
-        with tempfile.NamedTemporaryFile(suffix=".yml", delete=False) as f:
-            f.write(data)
-            tmp = f.name
-        loader = ConfigLoader(config_path=tmp)
-        loader.load()  # Must not raise; must return defaults on malformed input
-    except SystemExit:
-        # Acceptable: loader may sys.exit on completely unparseable config at startup
-        pass
-    except Exception:
-        raise
-    finally:
-        pathlib.Path(tmp).unlink(missing_ok=True)
-
-
-if __name__ == "__main__":
-    atheris.Setup(sys.argv, TestOneInput, enable_python_coverage=True)
-    atheris.Fuzz()
-```
-
-### 3.6 Go Fuzz Target — `cmd/proxy/fuzz_test.go`
+Three fuzz targets, one file. Run via `go test -fuzz=FuzzXxx -fuzztime=60s`.
 
 ```go
-// fuzz_test.go — Go native fuzzer for the ClientHello parser.
-// Run: go test -fuzz=FuzzClientHello -fuzztime=60s ./cmd/proxy/
+// cmd/proxy/fuzz_test.go
 package main
 
 import (
+    "bytes"
     "testing"
-    "github.com/org/ja4proxy/internal/tlsparse"
+
+    "github.com/<owner>/ja4proxy/internal/proxy"
+    tlsparse "github.com/<owner>/ja4proxy/internal/tls"
 )
 
+// FuzzClientHello drives the production TLS parser with arbitrary bytes.
+// The parser must never panic on any input. It may return an error or a
+// partial *HelloInfo — both are acceptable.
 func FuzzClientHello(f *testing.F) {
-    // Seed corpus: valid ClientHello bytes
-    f.Add([]byte("\x16\x03\x01\x00\xf1\x01\x00\x00\xed\x03\x03")) // truncated — expand with real fixture
-    f.Add([]byte{})
-    f.Add([]byte("\x00\x00\x00\x00"))
+    // Seed corpus from the existing adversarial fixtures.
+    seeds, _ := filepath.Glob("../../tests/adversarial/corpus/*.bin")
+    for _, p := range seeds {
+        if data, err := os.ReadFile(p); err == nil {
+            f.Add(data)
+        }
+    }
+    // Plus a known-valid record for coverage seeding.
+    f.Add([]byte{0x16, 0x03, 0x01, 0x00, 0x05, 0x01, 0x00, 0x00, 0x01, 0x00})
 
     f.Fuzz(func(t *testing.T, data []byte) {
-        // ParseClientHello must never panic on any input.
-        // It may return an error or empty result — that is expected.
         defer func() {
             if r := recover(); r != nil {
-                t.Errorf("ParseClientHello panicked on input %x: %v", data, r)
+                t.Fatalf("ParseClientHello panicked on %x: %v", data, r)
             }
         }()
         _, _ = tlsparse.ParseClientHello(data)
     })
 }
+
+// FuzzReadProxyProtocol drives the v1 PROXY protocol header reader.
+func FuzzReadProxyProtocol(f *testing.F) {
+    f.Add([]byte("PROXY TCP4 1.2.3.4 5.6.7.8 1234 443\r\n"))
+    f.Add([]byte("PROXY UNKNOWN\r\n"))
+    f.Add([]byte(""))
+    f.Add([]byte("PROXY"))
+
+    f.Fuzz(func(t *testing.T, data []byte) {
+        defer func() {
+            if r := recover(); r != nil {
+                t.Fatalf("ReadProxyProtocolV1 panicked on %x: %v", data, r)
+            }
+        }()
+        _, _, _ = proxy.ReadProxyProtocolV1(bytes.NewReader(data))
+    })
+}
+
+// FuzzReadProxyProtocolV2 drives the v2 binary header reader. This entry
+// point is added by Phase 200 — if Phase 200 has not landed yet, gate the
+// test with a build tag and remove the gate when 200 merges.
+func FuzzReadProxyProtocolV2(f *testing.F) {
+    // 12-byte v2 signature + minimal header
+    f.Add([]byte{
+        0x0D, 0x0A, 0x0D, 0x0A, 0x00, 0x0D, 0x0A, 0x51, 0x55, 0x49, 0x54, 0x0A,
+        0x21, 0x11, 0x00, 0x0C, 1, 2, 3, 4, 5, 6, 7, 8, 0, 80, 0, 443,
+    })
+    f.Add([]byte{})
+
+    f.Fuzz(func(t *testing.T, data []byte) {
+        defer func() {
+            if r := recover(); r != nil {
+                t.Fatalf("ReadProxyProtocolV2 panicked on %x: %v", data, r)
+            }
+        }()
+        _, _, _ = proxy.ReadProxyProtocolV2(bytes.NewReader(data))
+    })
+}
 ```
 
-The `defer recover()` pattern catches panics and converts them to test failures, which
-is what go-fuzz and the native fuzzer both report as crashes.
+Verify with:
 
-### 3.7 Fuzzing Corpus Management
-
-Fuzzing corpus directories are committed to the repository:
-
-```
-tests/fuzz/corpus/
-  clienthello/        # Valid ClientHello samples for seeding
-  proxy_protocol/     # Valid PROXY v1 and v2 headers
-  config/             # Valid and near-valid YAML configs
+```bash
+GOROOT=/snap/go/current go test -fuzz=FuzzClientHello -fuzztime=10s ./cmd/proxy/
+GOROOT=/snap/go/current go test -fuzz=FuzzReadProxyProtocol -fuzztime=10s ./cmd/proxy/
 ```
 
-When the fuzzer finds a crash, the input is saved to
-`tests/fuzz/findings/<target>/<timestamp>.bin`. These findings are:
-1. Added to `tests/fixtures/adversarial_clienthello/` (for regression test 2.4)
-2. Used to fix the parser
-3. Committed alongside the fix
+The `defer recover()` pattern converts a panic into a test failure, which the
+native fuzzer reports as a crash and saves the input under
+`testdata/fuzz/FuzzClientHello/`.
 
-Quarterly fuzzing procedure is documented in `tests/fuzz/README.md`. The recommended
-minimum runtime for a meaningful full fuzz campaign is 24 hours per target.
+### Step 2 — `internal/tls/parser_test.go` (adversarial unit tests)
 
-### 3.8 CI-Scheduled Fuzz Smoke
+A table-driven test that drives `ParseClientHello` with the same 13 fixtures
+that already live in `tests/adversarial/corpus/`. This is the
+deterministic counterpart to Step 1's coverage-guided fuzzer — it runs in
+the standard `go test ./...` pass and gives a stable signal that the parser
+handles every known-bad input shape.
 
-The quarterly manual fuzz documented in `tests/fuzz/README.md` is for deep, multi-hour
-fuzzing campaigns. A lightweight fuzz smoke (60s per target) runs automatically as part
-of the weekly Monday security scan in `.github/workflows/security.yml`. Add this job to
-that workflow:
+```go
+// internal/tls/parser_test.go
+package tls
 
-```yaml
-fuzz-smoke:
-  runs-on: ubuntu-latest
-  timeout-minutes: 15
-  steps:
-    - uses: actions/checkout@<SHA> # v4.2.2
-    - uses: actions/setup-python@<SHA> # v5
-      with:
-        python-version: "3.11"
-    - run: pip install atheris -r requirements.txt
-    - uses: actions/setup-go@<SHA> # v5
-      with:
-        go-version: "1.22"
-    - run: make fuzz
-    - uses: actions/upload-artifact@<SHA> # v4
-      if: failure()
-      with:
-        name: fuzz-findings-${{ github.run_id }}
-        path: tests/fuzz/findings/
-        retention-days: 90
-```
-
-`make fuzz` fails the job if new crashes are found in `tests/fuzz/findings/`. New crash
-inputs are uploaded as CI artifacts (90-day retention) so the triaging engineer can
-reproduce the crash locally by replaying the saved input against the fuzz target.
-
----
-
-## 4. Break-Glass Verification
-
-Security regression tests that never fail are cargo-cult security. This section
-defines a break-glass procedure: how to deliberately introduce each Phase 27
-vulnerability, run the regression test suite, and verify it fails. This procedure
-must be run once before Phase 62 is marked COMPLETE, and the results documented
-in PHASE_62_notes.md.
-
-The break-glass tests are NOT committed to main. They are applied as temporary
-patches, CI is run (or `make test-security-regression` is run locally), the failure
-is confirmed, and the patch is reverted.
-
-### 4.1 Break-Glass: IP Spoofing (Finding 1.1)
-
-Patch: In `proxy.py`, temporarily modify `_is_trusted_proxy_source()` to always
-return True regardless of the source IP:
-
-```python
-def _is_trusted_proxy_source(source_ip: str, trusted_cidrs: list) -> bool:
-    return True  # BREAK-GLASS: trust everything
-```
-
-Expected failure: `test_untrusted_source_proxy_protocol_is_ignored` and
-`test_untrusted_xff_header_is_ignored` both fail.
-
-Revert: `git checkout proxy.py`
-
-### 4.2 Break-Glass: Sync Redis in Async Context (Finding 1.2)
-
-Patch: In `src/security/action_decider.py`, change `DialManager.initialize` to a
-synchronous function by removing the `async` keyword:
-
-```python
-def initialize(self, redis_client) -> None:  # BREAK-GLASS: remove async
-    ...
-```
-
-Expected failure: `test_dial_manager_initialize_is_async` fails.
-
-Revert: `git checkout src/security/action_decider.py`
-
-### 4.3 Break-Glass: TLS Parsing on Event Loop (Finding 1.3)
-
-Patch: In `proxy.py`, locate the `asyncio.to_thread()` call that wraps TLS parsing
-and replace it with a direct synchronous call.
-
-Expected failure: `test_tls_parsing_offloaded_to_thread` fails.
-
-Revert: `git checkout proxy.py`
-
-### 4.4 Break-Glass: Prometheus Cardinality (Finding 1.4)
-
-Patch: Add a `fingerprint` label to `ja4_requests_total` in the Prometheus
-counter definition:
-
-```python
-ja4_requests_total = Counter(
-    "ja4_requests_total",
-    "...",
-    ["result", "fingerprint"]  # BREAK-GLASS: add fingerprint label
+import (
+    "os"
+    "path/filepath"
+    "testing"
+    "time"
 )
+
+func TestParseClientHello_AdversarialCorpus(t *testing.T) {
+    matches, err := filepath.Glob("../../tests/adversarial/corpus/*.bin")
+    if err != nil || len(matches) == 0 {
+        t.Fatalf("no adversarial fixtures found: %v", err)
+    }
+    for _, path := range matches {
+        path := path
+        name := filepath.Base(path)
+        t.Run(name, func(t *testing.T) {
+            data, err := os.ReadFile(path)
+            if err != nil {
+                t.Fatalf("read %s: %v", path, err)
+            }
+            done := make(chan struct{})
+            go func() {
+                defer close(done)
+                defer func() {
+                    if r := recover(); r != nil {
+                        t.Errorf("parser panicked on %s: %v", name, r)
+                    }
+                }()
+                _, _ = ParseClientHello(data)
+            }()
+            select {
+            case <-done:
+            case <-time.After(100 * time.Millisecond):
+                t.Errorf("parser hung on %s (>100ms)", name)
+            }
+        })
+    }
+}
 ```
 
-Expected failure: `test_ja4_requests_total_has_no_fingerprint_label` fails.
+Acceptance: every fixture either returns an error or a partial `*HelloInfo`.
+None panic. None take longer than 100 ms.
 
-Revert: restore the original label list.
+### Step 3 — `internal/tls/ja4_fp_corpus_test.go` (FP-corpus regression)
 
-### 4.5 Break-Glass: Log Injection (Finding 1.5)
+A regression test that loads the **valid** ClientHello fixtures from
+`tests/fixtures/clienthello/` (already used by Python tests), computes the
+JA4 fingerprint via the Go implementation, and asserts the resulting
+fingerprint string matches a checked-in golden file. This catches any silent
+behavioural drift in the Go parser or hash routine — the FP-rate
+equivalent of "did we change a real browser's JA4?".
 
-Patch: In `proxy.py`, locate a log statement that calls `_sanitize_log()` on the
-client IP, and remove the `_sanitize_log()` wrapper:
+```go
+// internal/tls/ja4_fp_corpus_test.go
+package tls
 
-```python
-# BREAK-GLASS: remove sanitize_log
-logger.info(f"Connection from {client_ip}")  # was: {_sanitize_log(client_ip)}
+import (
+    "bufio"
+    "os"
+    "strings"
+    "testing"
+)
+
+// TestJA4_FPCorpus_NoRegression locks in the Go-computed JA4 for every
+// known-good ClientHello fixture. The golden file is generated once and
+// committed; any future change that perturbs a real-browser fingerprint
+// fails this test loudly.
+func TestJA4_FPCorpus_NoRegression(t *testing.T) {
+    golden := loadGolden(t, "testdata/ja4_fp_golden.txt")  // map[fixture]ja4
+    for fixture, want := range golden {
+        fixture, want := fixture, want
+        t.Run(fixture, func(t *testing.T) {
+            data, err := os.ReadFile("../../tests/fixtures/clienthello/" + fixture)
+            if err != nil {
+                t.Skipf("fixture missing: %v", err)
+            }
+            info, err := ParseClientHello(data)
+            if err != nil {
+                t.Fatalf("parse: %v", err)
+            }
+            got := ComputeJA4(info)
+            if got != want {
+                t.Errorf("JA4 drift on %s:\n  want %s\n  got  %s", fixture, want, got)
+            }
+        })
+    }
+}
+
+func loadGolden(t *testing.T, path string) map[string]string {
+    t.Helper()
+    f, err := os.Open(path)
+    if err != nil { t.Fatalf("open golden: %v", err) }
+    defer f.Close()
+    out := map[string]string{}
+    s := bufio.NewScanner(f)
+    for s.Scan() {
+        line := strings.TrimSpace(s.Text())
+        if line == "" || strings.HasPrefix(line, "#") { continue }
+        parts := strings.SplitN(line, " ", 2)
+        if len(parts) == 2 { out[parts[0]] = parts[1] }
+    }
+    return out
+}
 ```
 
-Expected failure: `test_sanitize_log_applied_to_client_ip` fails (if the AST check
-covers this specific call site).
+Generate the golden file once with a `-update` flag (standard Go testing
+idiom) and commit it as `internal/tls/testdata/ja4_fp_golden.txt`. Each line
+is `<fixture-filename> <ja4-string>`. Format:
 
-Note: the AST-based check in this test is structural — it checks that `_sanitize_log`
-appears somewhere in proxy.py, not that every log call is wrapped. If removing one
-instance doesn't fail the test, the test needs strengthening. Document this finding
-in PHASE_62_notes.md. The fuzzer will catch actual injection; the AST check is a
-belt-and-braces check that the function still exists.
-
-Revert: `git checkout proxy.py`
-
-### 4.6 Documenting Break-Glass Results
-
-After running all five break-glass patches and confirming each one causes its
-corresponding test to fail, document the results in PHASE_62_notes.md:
-
-```markdown
-## Break-Glass Verification Results
-
-Date: YYYY-MM-DD
-
-| Finding | Break-glass patch | Regression test | Fails as expected? |
-|---------|------------------|----------------|-------------------|
-| 1.1 IP spoofing | _is_trusted_proxy_source always True | test_untrusted_source_proxy_protocol_is_ignored | YES |
-| 1.2 Sync Redis | DialManager.initialize sync | test_dial_manager_initialize_is_async | YES |
-| 1.3 TLS on event loop | Remove asyncio.to_thread | test_tls_parsing_offloaded_to_thread | YES |
-| 1.4 Metric cardinality | Add fingerprint label | test_ja4_requests_total_has_no_fingerprint_label | YES |
-| 1.5 Log injection | Remove _sanitize_log | test_sanitize_log_applied_to_client_ip | PARTIAL — AST check is structural only |
+```
+chrome_120.bin t13d1516h2_8daaf6152771_b186095e22b6
+firefox_115.bin t13d1715h2_5b57614c22b0_3d5424432f57
+# ... one line per real-browser fixture
 ```
 
-Any PARTIAL or NO result requires either strengthening the regression test or
-documenting why the test gap is acceptable.
+### Step 4 — `internal/security/pipeline_chaos_test.go`
+
+Drive the production `pipeline.Pipeline` against a fault-injecting Redis
+client to verify fail-open behaviour. Three scenarios at minimum:
+
+```go
+// internal/security/pipeline_chaos_test.go
+package security
+
+import (
+    "context"
+    "errors"
+    "testing"
+)
+
+// TestPipeline_RedisOutage_FailsOpen verifies that when every Redis call
+// returns an error, the pipeline still produces an ALLOW decision rather
+// than crashing or blocking. This is the load-bearing core of the asymmetry
+// doctrine in CLAUDE.md.
+func TestPipeline_RedisOutage_FailsOpen(t *testing.T) {
+    redis := &faultyRedis{failEvery: 1}
+    p := newTestPipeline(t, redis)
+    res, err := p.Process(context.Background(), validClientHello())
+    if err != nil {
+        t.Fatalf("pipeline returned error during outage: %v", err)
+    }
+    if res.Action != ActionAllow {
+        t.Fatalf("expected ALLOW during Redis outage, got %v", res.Action)
+    }
+}
+
+// TestPipeline_PartialOutage_AllowBypassesStillWork verifies that when
+// Redis is partially up (random ~50% failures) the bypass checks for
+// h2/h1 ALPN and JA4 whitelist still produce ALLOW.
+func TestPipeline_PartialOutage_AllowBypassesStillWork(t *testing.T) {
+    redis := &faultyRedis{failEvery: 2}
+    p := newTestPipeline(t, redis)
+    for i := 0; i < 50; i++ {
+        res, err := p.Process(context.Background(), h2BrowserClientHello())
+        if err != nil || res.Action != ActionAllow {
+            t.Fatalf("h2 ALPN bypass failed under partial outage: action=%v err=%v", res.Action, err)
+        }
+    }
+}
+
+// TestPipeline_DialFlip_NoStaleDecisions verifies that flipping the dial
+// from 0 → 100 mid-flight does not produce a stale ALLOW for a request
+// that arrives after the flip.
+func TestPipeline_DialFlip_NoStaleDecisions(t *testing.T) {
+    p := newTestPipeline(t, &faultyRedis{})
+    p.Dial.Set(0)
+    _, _ = p.Process(context.Background(), maliciousClientHello())
+    p.Dial.Set(100)
+    res, _ := p.Process(context.Background(), maliciousClientHello())
+    if res.Action == ActionAllow {
+        t.Fatalf("dial flip 0→100 produced stale ALLOW")
+    }
+}
+
+// faultyRedis is a minimal RedisClient implementation that returns errors
+// on a fixed cadence. failEvery=1 fails every call; failEvery=2 fails every
+// other call; failEvery=0 never fails.
+type faultyRedis struct{ failEvery, count int }
+
+func (f *faultyRedis) Get(ctx context.Context, key string) (string, error) {
+    f.count++
+    if f.failEvery > 0 && f.count%f.failEvery == 0 {
+        return "", errors.New("simulated redis outage")
+    }
+    return "", nil
+}
+// ... implement the rest of the RedisClient interface as no-ops returning nil errors
+```
+
+The `newTestPipeline`, `validClientHello`, `h2BrowserClientHello`, and
+`maliciousClientHello` helpers should be reused from existing
+`internal/security/*_test.go` files where possible. If they don't exist,
+add them in a small `pipeline_test_helpers.go` (in the test package only).
+
+### Step 5 — `internal/security/property_test.go` (rapid)
+
+Property-based tests for the two pieces of pure logic in the security
+package: `RiskScorer.Score` and `ActionDecider.Decide`. Use
+[`pgregory.net/rapid`](https://github.com/flyingmutant/rapid) — the
+mainstream Go property-testing library. Add to `go.mod`:
+
+```bash
+GOROOT=/snap/go/current go get pgregory.net/rapid@latest
+```
+
+```go
+// internal/security/property_test.go
+package security
+
+import (
+    "testing"
+    "pgregory.net/rapid"
+)
+
+// PropertyScoreInRange — for any list of RiskSignals, the composite score
+// is in [0, 100] inclusive. The scorer caps and floors; this test asserts
+// the cap and floor cannot be bypassed by adversarial signal combinations.
+func TestProperty_ScoreInRange(t *testing.T) {
+    rapid.Check(t, func(rt *rapid.T) {
+        signals := rapid.SliceOf(genRiskSignal()).Draw(rt, "signals")
+        score := NewRiskScorer().Score(signals).TotalScore
+        if score < 0 || score > 100 {
+            rt.Fatalf("score out of range: %d for %v", score, signals)
+        }
+    })
+}
+
+// PropertyScoreMonotonic — adding a positive-weight signal never decreases
+// the score (until the cap is hit).
+func TestProperty_ScoreMonotonic(t *testing.T) {
+    rapid.Check(t, func(rt *rapid.T) {
+        base := rapid.SliceOf(genRiskSignal()).Draw(rt, "base")
+        extra := genPositiveRiskSignal().Draw(rt, "extra")
+        before := NewRiskScorer().Score(base).TotalScore
+        after := NewRiskScorer().Score(append(base, extra)).TotalScore
+        if before < 100 && after < before {
+            rt.Fatalf("adding positive signal decreased score: %d → %d", before, after)
+        }
+    })
+}
+
+// PropertyDecisionIdempotent — calling Decide twice on the same input
+// returns the same action.
+func TestProperty_DecisionIdempotent(t *testing.T) {
+    rapid.Check(t, func(rt *rapid.T) {
+        score := rapid.IntRange(0, 100).Draw(rt, "score")
+        dial := rapid.IntRange(0, 100).Draw(rt, "dial")
+        d := NewActionDecider(testThresholds())
+        a := d.Decide(score, dial)
+        b := d.Decide(score, dial)
+        if a != b {
+            rt.Fatalf("Decide not idempotent: %v vs %v", a, b)
+        }
+    })
+}
+
+// PropertyDialZeroNeverBlocks — at dial=0 (monitor mode), no score, however
+// high, results in a blocking action. This is the load-bearing invariant
+// from CLAUDE.md: "Default dial is 0. The proxy never blocks on first deploy."
+func TestProperty_DialZeroNeverBlocks(t *testing.T) {
+    rapid.Check(t, func(rt *rapid.T) {
+        score := rapid.IntRange(0, 100).Draw(rt, "score")
+        d := NewActionDecider(testThresholds())
+        a := d.Decide(score, 0)
+        if a == ActionBlock || a == ActionBan || a == ActionTarpit {
+            rt.Fatalf("dial=0 produced blocking action %v at score=%d", a, score)
+        }
+    })
+}
+```
+
+`genRiskSignal`, `genPositiveRiskSignal`, and `testThresholds` are small
+generator helpers — define them inline in this file.
+
+### Step 6 — `cmd/proxy/bench_test.go`
+
+Pipeline-level throughput benchmark. The Python equivalent is
+`tests/performance/test_pipeline_throughput.py`, which gives a 2,184 conn/s
+baseline number. The Go bench should produce a comparable number that the
+phase 86 capacity calculator can use as a starting point.
+
+```go
+// cmd/proxy/bench_test.go
+package main
+
+import (
+    "context"
+    "testing"
+)
+
+func BenchmarkPipeline_Allow(b *testing.B) {
+    p := newBenchPipeline(b)
+    hello := h2BrowserClientHello()  // bypass path
+    b.ResetTimer()
+    for i := 0; i < b.N; i++ {
+        _, _ = p.Process(context.Background(), hello)
+    }
+}
+
+func BenchmarkPipeline_Score(b *testing.B) {
+    p := newBenchPipeline(b)
+    hello := suspiciousClientHello()  // full scoring path
+    b.ResetTimer()
+    for i := 0; i < b.N; i++ {
+        _, _ = p.Process(context.Background(), hello)
+    }
+}
+```
+
+Run with:
+
+```bash
+GOROOT=/snap/go/current go test -bench=. -benchmem -run=^$ ./cmd/proxy/
+```
+
+Acceptance: both benches run to completion. Record the ns/op number in
+`PHASE_62_notes.md` — Phase 86 will lock it in as a baseline. Do **not**
+add a CI gate on the number; benches are noisy on shared GitHub runners.
 
 ---
 
-## 5. Pre-Enterprise Validation Report
+## Pre-enterprise validation report (carried over)
 
-### 5.1 Purpose
+The `scripts/generate_validation_report.py` from the previous version of
+this phase is still useful and survives **mostly** unchanged. Update it to:
 
-Enterprise procurement teams commonly ask:
-- "What known vulnerabilities exist in this product?"
-- "How do you know your past vulnerabilities haven't come back?"
-- "What dependencies does this software have, and are they free of CVEs?"
-- "Can you show me that these security fixes are actually in the build?"
+1. Drop the `run_security_regression_tests()` section (no longer applicable).
+2. Replace the "Phase 27 remediation commits" section with a "Go security
+   findings" section that runs `git log --grep='phase-20[0-3]' --all` to
+   surface Phase 200/201/202/203 remediation commits.
+3. Keep `pip-audit` for the Python services that are still production
+   (Management API, analytics node).
+4. Keep `govulncheck` for the Go proxy.
+5. Add a new section that runs `make fuzz` and reports new-crash count.
 
-`docs/security/PRE_ENTERPRISE_VALIDATION_REPORT.md` answers all four questions from
-a single generated document. It is regenerated before each procurement engagement by
-running `make validation-report`.
+The output file path is unchanged: `docs/security/PRE_ENTERPRISE_VALIDATION_REPORT.md`.
 
-### 5.2 `scripts/generate_validation_report.py`
-
-```python
-#!/usr/bin/env python3
-"""
-Generate docs/security/PRE_ENTERPRISE_VALIDATION_REPORT.md.
-
-This script:
-  1. Runs all tests in tests/security_regression/ and captures results
-  2. Runs pip-audit and govulncheck and captures output
-  3. Queries git log for the Phase 27 remediation commits
-  4. Writes the report to docs/security/PRE_ENTERPRISE_VALIDATION_REPORT.md
-
-Usage:
-    python3 scripts/generate_validation_report.py
-    python3 scripts/generate_validation_report.py --output /tmp/report.md
-"""
-import argparse
-import datetime
-import json
-import pathlib
-import subprocess
-import sys
-from typing import NamedTuple
-
-
-class SectionResult(NamedTuple):
-    title: str
-    passed: bool
-    content: str
-
-
-def run_security_regression_tests() -> SectionResult:
-    result = subprocess.run(
-        ["python3", "-m", "pytest", "tests/security_regression/", "-v", "--tb=short",
-         "--timeout=60", "--json-report", "--json-report-file=/tmp/sr_results.json"],
-        capture_output=True, text=True
-    )
-    passed = result.returncode == 0
-    return SectionResult("Security Regression Tests", passed, result.stdout + result.stderr)
-
-
-def run_pip_audit() -> SectionResult:
-    result = subprocess.run(
-        ["pip-audit", "-r", "requirements.txt", "--format=json"],
-        capture_output=True, text=True
-    )
-    passed = result.returncode == 0
-    try:
-        data = json.loads(result.stdout)
-        vulns = data.get("vulnerabilities", [])
-        summary = f"{len(vulns)} vulnerabilities found." if vulns else "No vulnerabilities found."
-    except json.JSONDecodeError:
-        summary = result.stdout
-    return SectionResult("Python Dependency Audit (pip-audit)", passed, summary)
-
-
-def run_govulncheck() -> SectionResult:
-    result = subprocess.run(
-        ["govulncheck", "./..."],
-        capture_output=True, text=True,
-        cwd=str(pathlib.Path(__file__).parent.parent)
-    )
-    passed = result.returncode == 0
-    return SectionResult("Go Dependency Audit (govulncheck)", passed, result.stdout + result.stderr)
-
-
-def get_phase27_commits() -> SectionResult:
-    """Find commits that reference Phase 27 remediation in their message."""
-    result = subprocess.run(
-        ["git", "log", "--oneline", "--grep=phase-27", "--grep=Phase 27",
-         "--grep=IP spoofing", "--grep=sync.*redis", "--all-match=False"],
-        capture_output=True, text=True
-    )
-    lines = result.stdout.strip().splitlines()
-    content = "\n".join(f"- `{l}`" for l in lines) if lines else "_No matching commits found._"
-    return SectionResult("Phase 27 Remediation Commits", bool(lines), content)
-
-
-def write_report(sections: list[SectionResult], output_path: pathlib.Path) -> None:
-    now = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
-    overall_pass = all(s.passed for s in sections)
-    status = "PASS" if overall_pass else "FAIL"
-
-    lines = [
-        "# JA4proxy Pre-Enterprise Validation Report",
-        "",
-        f"**Generated:** {now}",
-        f"**Overall status:** {status}",
-        "",
-        "This report is generated by `scripts/generate_validation_report.py` and "
-        "covers security regression test results, dependency vulnerability audits, "
-        "and the remediation history for known past findings. It is intended for "
-        "review by procurement security teams.",
-        "",
-        "---",
-        "",
-    ]
-
-    for section in sections:
-        icon = "PASS" if section.passed else "FAIL"
-        lines += [
-            f"## {section.title} — {icon}",
-            "",
-            "```",
-            section.content.strip(),
-            "```",
-            "",
-        ]
-
-    lines += [
-        "---",
-        "",
-        "## Sign-Off",
-        "",
-        "| Item | Status |",
-        "|------|--------|",
-        f"| Security regression tests | {'PASS' if sections[0].passed else 'FAIL'} |",
-        f"| Python dependency CVEs | {'PASS' if sections[1].passed else 'FAIL'} |",
-        f"| Go dependency CVEs | {'PASS' if sections[2].passed else 'FAIL'} |",
-        f"| Phase 27 remediation commits present | {'PASS' if sections[3].passed else 'FAIL'} |",
-        "",
-        "_Reviewer:_ ___________________________  "
-        "_Date:_ ___________________________  "
-        "_Title:_ ___________________________",
-        "",
-    ]
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text("\n".join(lines))
-    print(f"Report written to: {output_path}")
-    sys.exit(0 if overall_pass else 1)
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--output", default="docs/security/PRE_ENTERPRISE_VALIDATION_REPORT.md")
-    args = parser.parse_args()
-
-    sections = [
-        run_security_regression_tests(),
-        run_pip_audit(),
-        run_govulncheck(),
-        get_phase27_commits(),
-    ]
-    write_report(sections, pathlib.Path(args.output))
-```
-
-### 5.3 Report Structure and Content
-
-The generated `docs/security/PRE_ENTERPRISE_VALIDATION_REPORT.md` contains:
-
-**Header block:** Generation timestamp, overall PASS/FAIL status, one-paragraph
-description of scope.
-
-**Section 1 — Security Regression Tests:** Full `pytest -v` output from
-`tests/security_regression/`. Shows each regression test case by name and result.
-A procurement reviewer can see exactly which vulnerability each test covers.
-
-**Section 2 — Python Dependency Audit:** `pip-audit` results. PASS means zero
-HIGH/CRITICAL CVEs in `requirements.txt` at generation time. Any known vulnerabilities
-are listed with CVE ID, severity, affected package, and available fix version.
-
-**Section 3 — Go Dependency Audit:** `govulncheck` results for `./...`. Same
-interpretation as Section 2.
-
-**Section 4 — Phase 27 Remediation Commits:** Git log output showing the commits that
-introduced the IP spoofing fix, the async Redis fix, the TLS thread offload, the metric
-cardinality fix, and the log injection sanitizer. Each commit hash is a verifiable link
-between the finding description and the code change.
-
-**Sign-off table:** A structured table with one row per section, each marked PASS or
-FAIL. Below the table is a handwritten sign-off line for the engineer running the report.
-
-The report exits with code 0 if all sections pass, 1 if any section fails. CI will catch
-a failing `make validation-report` run.
+The `make validation-report` target is unchanged.
 
 ---
 
-## 6. Makefile Targets
+## Makefile targets
 
-Add to the bottom of `Makefile` (never edit existing targets):
+Add to the bottom of `Makefile`:
 
 ```makefile
 ## Phase 62 targets
 
-test-security-regression:
-	python3 -m pytest tests/security_regression/ -v --timeout=60
+test-go-fuzz-smoke:
+	GOROOT=/snap/go/current go test -fuzz=FuzzClientHello -fuzztime=30s ./cmd/proxy/
+	GOROOT=/snap/go/current go test -fuzz=FuzzReadProxyProtocol -fuzztime=30s ./cmd/proxy/
+	GOROOT=/snap/go/current go test -fuzz=FuzzReadProxyProtocolV2 -fuzztime=30s ./cmd/proxy/
 
-fuzz:
-	@echo "Running fuzzer smoke tests (60s each)..."
-	@CRASH_BEFORE=$$(find tests/fuzz/findings/ -name '*.bin' 2>/dev/null | wc -l); \
-	python3 tests/fuzz/fuzz_clienthello.py -max_total_time=60 \
-	    tests/fuzz/corpus/clienthello/ 2>&1 || true; \
-	python3 tests/fuzz/fuzz_proxy_protocol.py -max_total_time=60 \
-	    tests/fuzz/corpus/proxy_protocol/ 2>&1 || true; \
-	python3 tests/fuzz/fuzz_config.py -max_total_time=60 \
-	    tests/fuzz/corpus/config/ 2>&1 || true; \
-	go test -fuzz=FuzzClientHello -fuzztime=60s ./cmd/proxy/ 2>&1 || true; \
-	CRASH_AFTER=$$(find tests/fuzz/findings/ -name '*.bin' 2>/dev/null | wc -l); \
-	NEW_CRASHES=$$((CRASH_AFTER - CRASH_BEFORE)); \
-	if [ "$$NEW_CRASHES" -gt 0 ]; then \
-	    echo "FAIL: $$NEW_CRASHES new crash(es) found in tests/fuzz/findings/ — triage before marking Phase 62 complete"; \
-	    exit 1; \
-	fi; \
-	echo "Fuzz smoke complete. No new crashes found."
+test-go-property:
+	GOROOT=/snap/go/current go test -run=TestProperty ./internal/security/
+
+test-go-chaos:
+	GOROOT=/snap/go/current go test -run=TestPipeline_.*Outage -run=TestPipeline_DialFlip ./internal/security/
+
+bench-go-pipeline:
+	GOROOT=/snap/go/current go test -bench=BenchmarkPipeline -benchmem -run=^$$ ./cmd/proxy/
 
 validation-report:
 	python3 scripts/generate_validation_report.py
 ```
 
-The `|| true` on individual fuzz invocations allows each target to run even if a
-previous one exits non-zero. The crash count check at the end fails `make fuzz` if
-any new crash input was saved to `tests/fuzz/findings/` during the run, surfacing
-the failure to CI rather than silently swallowing it.
+Each target is independent and can be run on its own.
 
 ---
 
-## 7. Acceptance Criteria
+## Acceptance criteria
 
-- [ ] `tests/security_regression/` directory exists with all six test files listed in Section 2.1
-- [ ] `test_ip_spoofing_regression.py` covers trusted-source acceptance, untrusted-source rejection, empty-trusted-cidrs case, and IPv6 trusted CIDR
-- [ ] `test_redis_async_regression.py` passes without a running Redis instance; static AST scan finds zero violations in the current codebase
-- [ ] `test_redis_async_regression.py` asserts `DialManager.initialize` is a coroutine function
-- [ ] `test_clienthello_adversarial_regression.py` covers all eight adversarial inputs in Section 2.4; none cause an uncaught exception
-- [ ] `test_clienthello_adversarial_regression.py` includes the `test_tls_parsing_offloaded_to_thread` static check and it passes
-- [ ] `test_metric_cardinality_regression.py` asserts no `fingerprint` label on `ja4_requests_total`
-- [ ] `test_metric_cardinality_regression.py` asserts `_sanitize_log` strips `\r` and `\n`
-- [ ] `test_rate_limit_ipv6_regression.py` asserts `::ffff:1.2.3.4` normalises to `1.2.3.4`
-- [ ] `make test-security-regression` runs and all tests pass with zero failures
-- [ ] `tests/fuzz/fuzz_clienthello.py`, `fuzz_proxy_protocol.py`, and `fuzz_config.py` exist and are valid atheris fuzz targets
-- [ ] `cmd/proxy/fuzz_test.go` exists with `FuzzClientHello` target; `go test -fuzz=FuzzClientHello -fuzztime=5s ./cmd/proxy/` completes without panic
-- [ ] `make fuzz` completes without setup errors (fuzz processes start and run)
-- [ ] `atheris>=2.3.0` added to `requirements.txt` with `# phase-62` comment
-- [ ] `scripts/generate_validation_report.py` exists and is executable
-- [ ] `make validation-report` runs to completion and writes `docs/security/PRE_ENTERPRISE_VALIDATION_REPORT.md`
-- [ ] The generated report contains all four sections described in Section 5.3
-- [ ] The report exits with code 1 if any security regression test fails; CI catches this
-- [ ] `tests/fuzz/README.md` documents the quarterly full-fuzz procedure and corpus management
-- [ ] `tests/security_regression/` tests are included in the standard `make test` run (not excluded)
-- [ ] Break-glass procedure run for all five Phase 27 findings; results documented in PHASE_62_notes.md
-- [ ] Each regression test confirmed to fail when its corresponding vulnerability is deliberately introduced
-- [ ] Any PARTIAL results (test does not fully catch the reintroduced vulnerability) are documented and either the test is strengthened or the gap is explicitly accepted
-- [ ] `make fuzz` reports new crashes as CI failures rather than silently swallowing them with `|| true`
-- [ ] Fuzz smoke job added to the weekly Monday CI schedule in `.github/workflows/security.yml`
-- [ ] Fuzz crash inputs are uploaded as CI artifacts (90-day retention) when `make fuzz` fails
+- [ ] `cmd/proxy/fuzz_test.go` exists with `FuzzClientHello`, `FuzzReadProxyProtocol`, `FuzzReadProxyProtocolV2`
+- [ ] `make test-go-fuzz-smoke` runs each target for 30 s without crashes
+- [ ] Any crash inputs found are committed to `cmd/proxy/testdata/fuzz/FuzzXxx/` and the parser is fixed
+- [ ] `internal/tls/parser_test.go` exists with `TestParseClientHello_AdversarialCorpus` driving all 13 corpus fixtures
+- [ ] None of the 13 fixtures cause a panic or a >100 ms hang
+- [ ] `internal/tls/ja4_fp_corpus_test.go` exists with golden file at `internal/tls/testdata/ja4_fp_golden.txt`
+- [ ] Golden file covers every fixture in `tests/fixtures/clienthello/`
+- [ ] Test fails loudly if any real-browser fingerprint changes
+- [ ] `internal/security/pipeline_chaos_test.go` exists with the three Redis-fault scenarios
+- [ ] Pipeline returns `ActionAllow` under total Redis outage (fail-open invariant)
+- [ ] `internal/security/property_test.go` exists with the four property tests using `pgregory.net/rapid`
+- [ ] `pgregory.net/rapid` is added to `go.mod`
+- [ ] Property tests pass with default `rapid` configuration (200 cases per test)
+- [ ] `cmd/proxy/bench_test.go` exists with `BenchmarkPipeline_Allow` and `BenchmarkPipeline_Score`
+- [ ] Both benches run to completion under `make bench-go-pipeline`
+- [ ] Bench numbers recorded in `PHASE_62_notes.md` (no CI gate)
+- [ ] `scripts/generate_validation_report.py` updated per Section "Pre-enterprise validation report (carried over)"
+- [ ] `make validation-report` runs to completion and writes the report
+- [ ] All new tests run as part of `go test ./...` (i.e. not gated behind a build tag, except `FuzzReadProxyProtocolV2` if Phase 200 is not yet merged)
+- [ ] `CHANGELOG.md` entry written
+- [ ] `tests/fuzz/README.md` rewritten to point at the new Go fuzz targets and describe quarterly long-form fuzzing procedure (`-fuzztime=24h` per target)
+
+## Verify
+
+```bash
+# Step 1: Go fuzz targets exist and run
+GOROOT=/snap/go/current go test -list '.*' ./cmd/proxy/ | grep ^Fuzz
+
+# Step 2: adversarial corpus test discovers all 13 fixtures
+GOROOT=/snap/go/current go test -v -run TestParseClientHello_AdversarialCorpus ./internal/tls/ | grep -c "RUN.*\.bin"
+
+# Step 3: golden file exists and is non-empty
+test -s internal/tls/testdata/ja4_fp_golden.txt && echo OK
+
+# Step 4: chaos tests run
+GOROOT=/snap/go/current go test -v -run "TestPipeline_(.*Outage|DialFlip)" ./internal/security/
+
+# Step 5: property tests run
+GOROOT=/snap/go/current go test -v -run TestProperty ./internal/security/
+
+# Step 6: bench runs
+GOROOT=/snap/go/current go test -bench=BenchmarkPipeline -benchtime=1x -run=^$ ./cmd/proxy/
+```
+
+---
+
+## Out of scope — handed to other phases
+
+| Concern | Phase that owns it |
+|---|---|
+| Add `_is_trusted_proxy_source` equivalent to Go | [200](PHASE_200.md) |
+| Implement `ReadProxyProtocolV2` (binary parser) | [200](PHASE_200.md) |
+| Lock in pipeline throughput as a published baseline | [86](PHASE_86.md) |
+| Capacity calculator that consumes the bench number | [86](PHASE_86.md) |
+| Python regression tests for Phase 27 findings | **dropped — Python is deprecated** |
+| Atheris Python fuzzers | **dropped — replaced by Go native fuzzers** |
+| Break-glass procedure for Phase 27 findings | **dropped — verifies code that is no longer production** |
+
+If you find yourself adding `tests/security_regression/` files or installing
+`atheris`, stop — that work belongs to the previous version of this phase
+that was deliberately retired in the 2026-04-09 rewrite.
