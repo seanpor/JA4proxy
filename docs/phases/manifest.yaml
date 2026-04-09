@@ -1265,3 +1265,35 @@ phases:
     - pytest.mark.integration markers on SAML and OIDC live-IdP placeholder tests
     - Group-to-role mapping honoured from config/proxy.yml sso.role_mapping with env-var
       MANAGEMENT_SAML_ROLE_MAPPING / MANAGEMENT_OIDC_ROLE_MAPPING override
+  101:
+    name: Phase 85 Hardening (Threat-Intel Feed Runner)
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_101.md
+    dependencies:
+    - 85
+    size: LARGE
+    summary: 'Closes the security gaps surfaced by the post-Phase-85 architect
+      review. Adds per-feed safety caps (max_new_per_poll, max_owned_total,
+      max_delta_per_poll), a two-empty-poll gate before bulk cleanup, a JA4
+      FP-corpus check on every apply path (TAXII / REST / seed file), a
+      SafeResolver-backed aiohttp.TCPConnector to defend against DNS-based
+      SSRF, a rate limit on the manual-poll endpoint, CSRF middleware on
+      Phase 79 mutating routes, RF and CrowdStrike regional/GovCloud endpoint
+      support, and a re-shape of the TAXII chaos test. Three CRITICAL items
+      from the same review (C2-partial, C4, H7) were closed in-branch on
+      phase-85 and are documented for reference only.'
+    success_criteria:
+    - Per-feed max_new_per_poll, max_owned_total, max_delta_per_poll honoured
+      with ja4proxy_ti_feed_caps_hit_total metric and Alertmanager rule
+    - Two consecutive empty polls required before any bulk cleanup; per-feed
+      empty_streak persisted in Redis ti_feed:{feed_id}:empty_streak
+    - ja4_safe_to_block(ja4) FP-corpus gate consulted from taxii.py,
+      rest_generic.py, and seed_file.py before every post_blocklist
+    - SafeResolver TCPConnector deployed on all four feed clients; DNS
+      pointing at 169.254.169.254 / RFC1918 / loopback rejected
+    - Manual-poll endpoint rate limited at 6/min/feed_id with 429 + Retry-After
+    - CSRF double-submit middleware on every /api/v1/* mutating route
+    - RF and CrowdStrike clients honour config.url for regional / GovCloud
+      endpoints with global URLs as fallback
+    - tests/adversarial/test_ti_feeds_ssrf.py + test_ti_feeds_fp_block.py +
+      test_ti_feed_caps.py all pass

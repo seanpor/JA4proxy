@@ -50,3 +50,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 94 — Kubernetes Operator + CMDB/NetBox Integration
 *   **Status:** **PROPOSED** (ja4proxy-operator (separate repo): JA4ProxyConfig, JA4ProxyAllowlist, JA4ProxyDial CRDs with admission webhook validation. Reconciliation loop via Management API. DaemonSet safety annotations. ArgoCD custom health check. ServiceNow CMDB auto-registration (opt-in). NetBox trusted CIDR integration (opt-in, fail-open).)
 *   **Action Plan:** [PHASE_94.md](PHASE_94.md)
+
+### Phase 101 — Phase 85 Hardening (Threat-Intel Feed Runner)
+*   **Status:** **PROPOSED** (Closes the security gaps surfaced by the post-Phase-85 architect review. Adds per-feed safety caps (max_new_per_poll, max_owned_total, max_delta_per_poll), a two-empty-poll gate before bulk cleanup, a JA4 FP-corpus check on every apply path (TAXII / REST / seed file), a SafeResolver-backed aiohttp.TCPConnector to defend against DNS-based SSRF, a rate limit on the manual-poll endpoint, CSRF middleware on Phase 79 mutating routes, RF and CrowdStrike regional/GovCloud endpoint support, and a re-shape of the TAXII chaos test. Three CRITICAL items from the same review (C2-partial, C4, H7) were closed in-branch on phase-85 and are documented for reference only.)
+*   **Action Plan:** [PHASE_101.md](PHASE_101.md)
