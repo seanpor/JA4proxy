@@ -28,7 +28,7 @@ import pytest
 # circuit-breaker behaviour is already covered by
 # tests/unit/analytics/ti_feeds/test_circuit_breaker.py.
 pytestmark = pytest.mark.xfail(
-    reason="test architecture predates Phase 85 runner refactor — re-shape pending",
+    reason="PHASE_101 item 101-H8: test architecture predates Phase 85 runner refactor (FeedRunner(redis=,mgmt_base_url=,config=) constructor + _poll_once flow) — coordinated rewrite pending",
     strict=False,
 )
 

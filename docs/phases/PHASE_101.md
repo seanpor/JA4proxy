@@ -6,7 +6,7 @@
 > security gate does not. Phase 85 ships an automated mass-banning pipeline
 > with no breaker between "feed says X" and "production blocks X".
 >
-> **Status:** PLANNED. Do **not** deploy `dial > 0` with
+> **Status:** PROPOSED. Do **not** deploy `dial > 0` with
 > `threat_intel.enabled: true` and any feed `enabled: true` until C1, C3,
 > and H1 below are closed. C2-partial, C4, and H7 were closed in-branch
 > on phase-85 (commits 7c8ccac, 78162eb, ee80232) — this phase covers the
@@ -387,6 +387,88 @@ fallback.
 
 ---
 
+### Item 101-H8: Coordinated re-shape of 5 Phase-85 integration / chaos test files
+
+**Severity:** HIGH
+**Effort:** ~half a day (one engineer, one sitting — these need to be done
+together to share fixtures and stay coherent)
+
+#### Context
+
+Five Phase-85 test files were authored against a `FeedRunner(feeds=[...])`
+constructor that no longer exists. The current shape is
+`FeedRunner(redis=, mgmt_base_url=, config=, instance_id=)` with work
+driven through `_poll_once(feed_id)`. Each file is currently
+`pytestmark = pytest.mark.xfail(strict=False)` with a reason string that
+points at this item. They all silently pass collection but assert
+nothing — i.e. the integration coverage for the runner is 0.
+
+The structural unit-test gap was closed in commit 71f0f7d
+(`tests/unit/analytics/ti_feeds/test_runner.py`, 6 tests covering C2 cap
+math + H7 snapshot integrity), but unit tests cannot reach the things
+these integration files target: real httpx flow, real Management API
+TestClient, hot-reload across two FeedConfig snapshots, conflict
+resolution between two replicas competing for the leader lock, and
+chaos behaviour against an upstream that returns 5xx.
+
+The 9 (file × test-case) entries are:
+
+| File | What it should assert |
+|------|-----------------------|
+| `tests/integration/test_ti_feeds_e2e.py` | a real STIX bundle from a mock TAXII server lands in `GET /api/v1/blocklist?managed_by=feed` |
+| `tests/integration/test_ti_feeds_cleanup.py` | re-poll with shrunken feed removes the right things, never more than the cap |
+| `tests/integration/test_ti_feeds_conflict.py` | only one of two `FeedRunner` instances actually polls per cycle (leader lock) |
+| `tests/integration/test_ti_feeds_hot_reload.py` | added feeds spawn tasks; removed feeds stop polling but retain their rules |
+| `tests/chaos/test_ti_feed_taxii_unavailable.py` | snapshot unchanged, no new bans, no cleanup, circuit reaches OPEN under a 500 storm |
+
+The chaos file overlaps in spirit with 101-H6 but is a different
+assertion shape — H6 is the "no mutations during 500 storm" guard,
+H8's chaos entry is the existing-test rewrite. Land H6 first and make
+H8 the rewritten version.
+
+#### Exact changes
+
+1. Move all 5 files to use the same shared fixtures already living in
+   `tests/unit/analytics/ti_feeds/conftest.py` + `tests/_helpers/`
+   (`stub_management_client`, `mock_taxii_server`, `_StubMgmt`,
+   `_StubClient`, `_make_runner`). Promote whatever they need into a
+   `tests/integration/conftest.py` or `tests/_helpers/ti_feed_runner.py`
+   so the shape is shared rather than copy-pasted.
+
+2. Rewrite each file against `FeedRunner._poll_once(feed_id)` (not
+   the loop), exactly the way
+   `tests/unit/analytics/ti_feeds/test_runner.py` drives it. The
+   integration files differ by injecting a real httpx-backed
+   Management API TestClient in place of the unit tests' `_StubMgmt`.
+
+3. Remove the `pytestmark = pytest.mark.xfail(...)` line from each
+   file in the same commit.
+
+4. Update each file's docstring header to drop the "RED until X
+   exists" language. Replace with a one-line summary of what the
+   file actually asserts post-rewrite.
+
+#### Verify
+
+```bash
+python3 -m pytest tests/integration/test_ti_feeds_e2e.py \
+    tests/integration/test_ti_feeds_cleanup.py \
+    tests/integration/test_ti_feeds_conflict.py \
+    tests/integration/test_ti_feeds_hot_reload.py \
+    tests/chaos/test_ti_feed_taxii_unavailable.py -x
+```
+
+All 5 files green, none xfailed, none skipped.
+
+#### Why one item, not five
+
+The fixture work is the bulk of the effort. Doing it five times is a
+guarantee they will diverge. Doing it once means the next contributor
+can write the sixth integration test without re-deriving how to wire
+a `FeedRunner` against an httpx Management TestClient.
+
+---
+
 ### Item 101-H6: Re-shape `test_ti_feed_taxii_unavailable.py`
 
 **Severity:** HIGH
@@ -440,7 +522,7 @@ each is small enough to land independently. Pick them up in any order.
 |----|-------|
 | 101-L1 | `_OneShotBundle` adapter docs out of date after H7 |
 | 101-L2 | Three Phase 85 runbooks need a real-deployment dry run |
-| 101-L3 | `tests/unit/test_pages_threat_intel.py` xfail to be removed once Redis fixture lands |
+| ~~101-L3~~ | ~~`tests/unit/test_pages_threat_intel.py` xfail to be removed once Redis fixture lands~~ — closed in branch (commits 9aafbd8 + ea66df1, fakeredis injection + httpx AsyncClient + per-role JWT cookie fixtures) |
 | 101-L4 | `monitoring/metrics_registry.md` lacks Phase 101 entries (will be added with each item) |
 
 ---
