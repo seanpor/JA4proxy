@@ -1355,7 +1355,8 @@ phases:
 
   200:
     name: Go PROXY Protocol Trust + v2 Support
-    status: PROPOSED
+    status: COMPLETE
+    completed: 2026-04-09
     action_plan: docs/phases/PHASE_200.md
     dependencies:
     - 15
