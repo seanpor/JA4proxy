@@ -5,7 +5,7 @@
 
 ## Current Status: Phase 60 (Master Plan and Governance) Next
 
-**Last Updated:** 2026-04-08
+**Last Updated:** 2026-04-09
 
 ## Epics & Roadmap
 
@@ -220,6 +220,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 93 | Terraform Provider + Emergency Runbook Playbooks | PROPOSED | N/A | N/A |
 | 94 | Kubernetes Operator + CMDB/NetBox Integration | PROPOSED | N/A | N/A |
 | 100 | Phase 79 SSO/MFA Gap Closure | COMPLETE | N/A | N/A |
+| 101 | Phase 85 Hardening (Threat-Intel Feed Runner) | PROPOSED | N/A | N/A |
 
 ---
 
