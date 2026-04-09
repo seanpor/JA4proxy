@@ -1290,3 +1290,9 @@ validation-report:
 
 .PHONY: test-go-fuzz-smoke test-go-property test-go-chaos-unit bench-go-pipeline validation-report
 
+## Phase 61 targets
+ci-local: ## Run the same fast checks the CI workflow runs (Go + Python tests)
+	GOROOT=/snap/go/current go test ./...
+	python3 -m pytest tests/ --ignore=tests/integration/test_docker_stack.py -x -q --timeout=60
+
+.PHONY: ci-local
