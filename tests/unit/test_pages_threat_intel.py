@@ -182,14 +182,39 @@ async def test_threat_intel_page_authenticated_200_html(
 
 
 @pytest.mark.asyncio
-async def test_threat_intel_page_without_auth_does_not_500(
+async def test_threat_intel_page_without_auth_redirects_browser(
     client: AsyncClient,
 ) -> None:
-    """GET /threat-intel without auth → status < 500 (a 5xx means crash before auth)."""
-    resp = await client.get("/threat-intel")
-    assert resp.status_code < 500, (
-        f"Unauth /threat-intel returned {resp.status_code} — a 5xx means "
-        "the route crashed before auth ran"
+    """Browser GET /threat-intel without auth → 302 → /login.
+
+    The previous incarnation asserted ``status_code < 500``, which silently
+    accepts a 200 — i.e. a route that quietly leaks the page to anonymous
+    callers would have passed. Tighten to the actual auth contract:
+    ``_unauthenticated_response`` returns 302 with Location: /login when
+    the request looks browser-shaped (Accept: text/html and path not under
+    /api/).
+    """
+    resp = await client.get(
+        "/threat-intel",
+        headers={"Accept": "text/html"},
+    )
+    assert resp.status_code == 302, (
+        f"Expected 302 redirect for unauth browser request, got {resp.status_code}"
+    )
+    assert resp.headers.get("location") == "/login"
+
+
+@pytest.mark.asyncio
+async def test_threat_intel_page_without_auth_api_client_returns_401(
+    client: AsyncClient,
+) -> None:
+    """API-shaped GET /threat-intel without auth → 401, not a 5xx crash."""
+    resp = await client.get(
+        "/threat-intel",
+        headers={"Accept": "application/json"},
+    )
+    assert resp.status_code == 401, (
+        f"Expected 401 for unauth API request, got {resp.status_code}"
     )
 
 

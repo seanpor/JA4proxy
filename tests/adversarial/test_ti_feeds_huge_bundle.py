@@ -102,13 +102,22 @@ def test_10k_bundle_completes_under_60s(stub_management_client):
 
 
 @pytest.mark.adversarial
-def test_no_batch_exceeds_50_indicators(stub_management_client):
+def test_500_indicator_bundle_produces_500_post_calls(stub_management_client):
+    """A 500-entry STIX bundle produces exactly 500 mgmt POSTs.
+
+    The 50-per-batch / 50ms-inter-batch pacing contract from
+    PHASE_85.md §2.5 is asserted directly in
+    ``tests/unit/analytics/ti_feeds/test_mgmt_client.py
+    ::test_bulk_blocklist_paces_50_per_batch``. This test only
+    asserts the 1-to-1 indicator-to-POST mapping at scale — earlier
+    versions added a trailing ``assert True`` and named themselves
+    ``test_no_batch_exceeds_50_indicators``, which was a lie about
+    what they actually checked.
+    """
     TAXIIClient = _import_taxii()
     bundle = _make_huge_bundle(500)
     server = _StubServer(bundle)
 
-    # The client must call mgmt with at most 50 entries per batch.
-    # We capture every call timestamp and assert no >50 cluster within 1 ms.
     client = TAXIIClient(
         config=_make_config(),
         mgmt=stub_management_client,
@@ -117,11 +126,5 @@ def test_no_batch_exceeds_50_indicators(stub_management_client):
     )
     _run(client.poll())
 
-    # PHASE_85.md §2.5 says batches of 50 with 50 ms inter-batch sleep.
-    # We verify the chunk count via the request log: 500 / 50 = 10 batches.
     bans = [r for r in stub_management_client.requests if r["method"] == "POST"]
     assert len(bans) == 500
-    # The 50-batch contract is asserted indirectly by inter-batch sleep test
-    # in tests/unit/analytics/ti_feeds/test_mgmt_client.py — see
-    # ``test_bulk_blocklist_paces_50_per_batch``.
-    assert True
