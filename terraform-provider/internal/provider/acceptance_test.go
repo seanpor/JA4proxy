@@ -759,13 +759,13 @@ func TestAcc_MultipleResources_Coexist(t *testing.T) {
 						note       = "Multi-test allowlist"
 					}
 					resource "ja4proxy_dial" "multi" {
-						value = 15
+						value = 10
 					}
 				`, server.URL),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("ja4proxy_ban.multi", "ip", "10.0.0.99"),
 					resource.TestCheckResourceAttr("ja4proxy_allowlist_entry.multi", "entry", "jarm:multi-test"),
-					resource.TestCheckResourceAttr("ja4proxy_dial.multi", "value", "15"),
+					resource.TestCheckResourceAttr("ja4proxy_dial.multi", "value", "10"),
 				),
 			},
 		},
@@ -803,6 +803,23 @@ func TestAcc_AllowlistEntry_ImportState(t *testing.T) {
 			},
 		},
 		Steps: []resource.TestStep{
+			{
+				// Config matching the pre-existing entry
+				Config: fmt.Sprintf(`
+					provider "ja4proxy" {
+						api_url   = %q
+						api_token = "test-token"
+					}
+					resource "ja4proxy_allowlist_entry" "imported" {
+						entry      = "jarm:import-acceptance"
+						managed_by = "terraform"
+						note       = "Pre-existing entry for import test"
+					}
+				`, server.URL),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("ja4proxy_allowlist_entry.imported", "entry", "jarm:import-acceptance"),
+				),
+			},
 			{
 				ResourceName:      "ja4proxy_allowlist_entry.imported",
 				ImportState:       true,

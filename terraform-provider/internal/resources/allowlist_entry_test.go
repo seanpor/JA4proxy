@@ -237,6 +237,7 @@ func TestAllowlistEntry_Import(t *testing.T) {
 	// Get the ID of the pre-created entry
 	entry := store.list("allowlist")[0]
 	importID := entry["id"].(string)
+	entryValue := entry["entry"].(string)
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: map[string]func() (tfprotov6.ProviderServer, error){
@@ -246,15 +247,22 @@ func TestAllowlistEntry_Import(t *testing.T) {
 		},
 		Steps: []resource.TestStep{
 			{
+				// Create config matching the pre-existing entry (idempotent POST returns existing)
 				Config: fmt.Sprintf(`
 					provider "ja4proxy" {
 						api_url   = %q
 						api_token = "test-token"
 					}
 					resource "ja4proxy_allowlist_entry" "imported" {
-						entry = "PLACEHOLDER"
+						entry      = %q
+						managed_by = "terraform"
+						note       = "pre-existing"
 					}
-				`, server.URL),
+				`, server.URL, entryValue),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("ja4proxy_allowlist_entry.imported", "entry", entryValue),
+					resource.TestCheckResourceAttr("ja4proxy_allowlist_entry.imported", "note", "pre-existing"),
+				),
 			},
 			{
 				ResourceName:                         "ja4proxy_allowlist_entry.imported",
