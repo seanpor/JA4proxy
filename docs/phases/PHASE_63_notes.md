@@ -4,6 +4,63 @@
 > Author agent: Claude (Opus 4.6)
 > Date: 2026-04-09
 
+## Review-fix addendum #2 (post second external SRE review, 2026-04-09)
+
+A second independent SRE/security review caught a Tier-1 bug the first
+reviewer missed:
+
+**B1 — Burn-rate alerts paired (long, longer) instead of (long, short).**
+The previous version of `slo_alerts.yml` paired `burn_rate1h` with
+`burn_rate6h` for the fast-burn alert and `burn_rate6h` with `burn_rate3d`
+for the slow-burn alert. This is the **wrong** multi-window multi-burn-rate
+pattern: the SRE Workbook Ch.5 table pairs each LONG window with a SHORT
+companion at the SAME burn-rate factor (1h+5m at 14.4×, 6h+30m at 6×).
+
+Walked through the math for a sustained 5%-error-rate outage starting at T:
+- At T+1h: `burn_rate1h = 0.05/0.001 = 50×` ✓ above 14.4
+- At T+1h: `burn_rate6h = (0.05·1h + 0·5h)/6h/0.001 = 8.3×` ✗ below 14.4
+- The fast-burn alert as written would not fire until ~T+6h.
+
+For a security proxy whose Redis-correctness SLO directly maps to
+"policy enforcement degraded — bad traffic is reaching backends," a 6-hour
+silent window before paging is unacceptable.
+
+**Fix:**
+
+1. Added `ratio_rate30m` recording rules for all three SLIs in
+   `slo_recording_rules.yml` (5m already existed; the 30m short-window
+   companion was missing).
+2. Added `burn_rate5m` and `burn_rate30m` recording rules for all three
+   SLIs in the `ja4proxy_slo_burn_rates` group.
+3. Rewrote all six fast/slow burn alerts to pair (long, short):
+   - `*FastBurn`: `burn_rate1h > 14.4 AND burn_rate5m > 14.4` (was 1h+6h)
+   - `*SlowBurn`: `burn_rate6h > 6 AND burn_rate30m > 6` (was 6h+3d at mixed factors)
+4. Rewrote the file header comment in `slo_alerts.yml` to document the
+   correct pattern and explicitly warn against pairing (long, longer).
+
+The `_rate3d` recording rules are kept for use by the
+`budget_remaining28d` calculations — they were correct for that purpose
+all along, just misused in the alert expressions.
+
+Non-blocking findings from the same review, also fixed in this commit:
+
+- **N1** — `ZRangeScores` was sharing the metric label `command="zrange"`
+  with plain `ZRange`. Relabelled to `zrangewithscores` so on-call can
+  distinguish them in the per-command panel
+  (`internal/redis/client.go:289-296`).
+- **N2** — `GetDial` Sscanf parse failure was silent. Added a `WARN` log
+  with the malformed value so a misconfigured `config:dial` can't silently
+  drop the proxy into monitor mode (`internal/redis/client.go:156-160`).
+- **N3** — `updateTLSCertExpiryGauge` did not clear the gauge on read or
+  parse failure. A failed reload after cert rotation would silently keep
+  the previous, valid `NotAfter` value and Phase 64's expiry alert would
+  never fire even though the proxy is broken. The gauge is now forced to
+  0 on every failure path (`cmd/proxy/main.go:856-880`).
+
+Tests: `go vet ./...` clean, `go test ./...` green for all 17 packages.
+YAML structurally valid (`python3 -c "import yaml; ..."`); 34 recording
+rules (was 25), 8 alert rules (unchanged count, expressions corrected).
+
 ## Review-fix addendum (post external SRE review, 2026-04-09)
 
 External SRE/architect review returned `APPROVE WITH FIXES`. Three blockers

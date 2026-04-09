@@ -877,22 +877,31 @@ func classifyConnError(source string, err error) string {
 // and sets ja4proxy_tls_cert_expiry_timestamp_seconds to the cert's NotAfter.
 // Phase 63: invoked at startup and on every config reload. Phase 64 alerts on
 // this gauge — see docs/phases/PHASE_63_notes.md.
+//
+// Review-fix N3: on any read/parse failure the gauge is forced to 0 so the
+// Phase 64 expiry alert (which tests "now() - gauge < N days") sees the
+// failure as "missing data" instead of stale-good. Without this clear, a
+// failed reload after cert rotation would silently keep the previous, valid
+// NotAfter and the alert would never fire even though the proxy is broken.
 func updateTLSCertExpiryGauge(certPath string, log *logrus.Logger) {
 	if certPath == "" {
 		return
 	}
 	pemBytes, err := os.ReadFile(certPath)
 	if err != nil {
+		metrics.TLSCertExpiryTimestampSeconds.Set(0)
 		log.WithError(err).WithField("path", certPath).Warn("phase-63: failed to read TLS cert for expiry gauge")
 		return
 	}
 	block, _ := pem.Decode(pemBytes)
 	if block == nil {
+		metrics.TLSCertExpiryTimestampSeconds.Set(0)
 		log.WithField("path", certPath).Warn("phase-63: TLS cert PEM decode failed")
 		return
 	}
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
+		metrics.TLSCertExpiryTimestampSeconds.Set(0)
 		log.WithError(err).WithField("path", certPath).Warn("phase-63: x509 parse failed")
 		return
 	}
