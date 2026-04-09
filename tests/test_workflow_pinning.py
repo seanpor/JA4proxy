@@ -24,6 +24,64 @@ WORKFLOW_DIR = REPO_ROOT / ".github" / "workflows"
 SHA_PIN_RE = re.compile(r"^[^/\s]+/[^@\s]+@[a-f0-9]{40}(\s|$)")
 REUSABLE_WORKFLOW_RE = re.compile(r"^[^/\s]+/[^@\s]+/\.github/workflows/[^@\s]+@")
 
+# `uses: owner/repo[/path]@SHA  # vTAG` — captures (owner/repo[/path], SHA, vTAG).
+SHA_AND_TAG_RE = re.compile(
+    r"uses:\s*([^/\s]+/[^@\s]+)@([a-f0-9]{40})\s*#\s*(v[0-9A-Za-z.\-_]+)"
+)
+
+# Vendored truth table: action ref -> {tag: SHA}.
+#
+# This is the only place where the SHA-vs-tag-comment correspondence is
+# asserted. Tests cannot reach the network, so this allowlist is the
+# verification surface. When Dependabot opens a SHA bump PR, ALSO update this
+# table — that is the contract that prevents the "wrong SHA + lying comment"
+# class of supply-chain hole flagged in the Phase 61 external review.
+#
+# To verify a row by hand:
+#     git ls-remote https://github.com/<owner>/<repo> refs/tags/<tag>
+KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
+    "actions/checkout": {
+        "v4.2.2": "11bd71901bbe5b1630ceea73d27597364c9af683",
+    },
+    "actions/setup-go": {
+        "v5.2.0": "3041bf56c941b39c61721a86cd11f3bb1338122a",
+    },
+    "actions/setup-python": {
+        "v5.0.0": "0a5c61591373683505ea898e09a3ea4f39ef2b9c",
+    },
+    "trufflesecurity/trufflehog": {
+        "v3.88.2": "a94d152bf65bebf5baa486d3d4dfee520af2ceed",
+    },
+    "returntocorp/semgrep-action": {
+        "v1": "713efdd345f3035192eaa63f56867b88e63e4e5d",
+    },
+    "actions/dependency-review-action": {
+        "v4.5.0": "3b139cfc5fae8b618d3eae3675e383bb1769c019",
+    },
+    # release-cli.yml — verified upstream during Phase 61 review-fix.
+    "crazy-max/ghaction-import-gpg": {
+        "v6.2.0": "cb9bde2e2525e640591a934b1fd28eef1dcaf5e5",
+    },
+    "goreleaser/goreleaser-action": {
+        "v6.3.0": "9c156ee8a17a598857849441385a2041ef570552",
+    },
+    "docker/setup-qemu-action": {
+        "v3.2.0": "49b3bc8e6bdd4a60e6116a5414239cba5943d3cf",
+    },
+    "docker/setup-buildx-action": {
+        "v3.8.0": "6524bf65af31da8d45b59e8c27de4bd072b392f5",
+    },
+    "docker/login-action": {
+        "v3.3.0": "9780b0c442fbb1117ed29e0efdff1e18412f7567",
+    },
+    "docker/metadata-action": {
+        "v5.6.1": "369eb591f429131d6889c46b94e711f089e6ca96",
+    },
+    "docker/build-push-action": {
+        "v6.13.0": "ca877d9245402d1537745e0e356eab47c3520991",
+    },
+}
+
 
 def _workflow_files() -> list[Path]:
     files = sorted(Path(p) for p in glob.glob(str(WORKFLOW_DIR / "*.yml")))
@@ -84,6 +142,75 @@ def test_branch_protection_script_executable():
     script = REPO_ROOT / "scripts" / "branch_protection.sh"
     assert script.exists(), f"{script} missing"
     assert os.access(script, os.X_OK), f"{script} not executable"
+
+
+def test_sha_matches_tag_comment():
+    """Every `uses: ...@<SHA>  # vTAG` must match the vendored allowlist.
+
+    Catches the "comment lies about which version this SHA actually is" class
+    of supply-chain hole. The Phase 61 external review found exactly this:
+    a setup-python pin labelled v5.0.0 was actually upstream v4.7.1.
+    """
+    failures: list[str] = []
+    for f in _workflow_files():
+        text = f.read_text()
+        for action, sha, tag in SHA_AND_TAG_RE.findall(text):
+            known = KNOWN_ACTION_SHAS.get(action)
+            if known is None:
+                failures.append(
+                    f"{f.name}: {action}@{sha}  # {tag} — action not in "
+                    f"KNOWN_ACTION_SHAS allowlist; add it after verifying "
+                    f"with `git ls-remote https://github.com/{action} "
+                    f"refs/tags/{tag}`"
+                )
+                continue
+            expected = known.get(tag)
+            if expected is None:
+                failures.append(
+                    f"{f.name}: {action}@{sha}  # {tag} — tag {tag} not in "
+                    f"allowlist for {action}; known tags: {sorted(known)}"
+                )
+                continue
+            if expected != sha:
+                failures.append(
+                    f"{f.name}: {action}@{sha}  # {tag} — comment claims "
+                    f"{tag} but that tag's real SHA is {expected}"
+                )
+    assert not failures, "SHA / tag-comment mismatches:\n  " + "\n  ".join(failures)
+
+
+def test_branch_protection_contexts_match_ci_job_names():
+    """branch_protection.sh contexts must equal the set of `name:` fields
+    on required jobs in ci.yml. A drift here silently turns branch
+    protection into a no-op gate (required check that never fires =>
+    PR can merge regardless). Highest silent-failure risk in Phase 61.
+    """
+    ci = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+    script = REPO_ROOT / "scripts" / "branch_protection.sh"
+    with ci.open() as fh:
+        doc = yaml.safe_load(fh)
+
+    # `dependency-review` is PR-only and not a required check; everything else
+    # in jobs must appear in branch_protection.sh.
+    job_names = {
+        j["name"]
+        for jid, j in doc["jobs"].items()
+        if jid != "dependency-review" and isinstance(j, dict) and "name" in j
+    }
+    assert job_names, "ci.yml has no jobs with `name:` fields"
+
+    script_text = script.read_text()
+    context_re = re.compile(r"contexts\]\[\]=([^\"\\\n]+?)\"")
+    contexts = set(context_re.findall(script_text))
+    assert contexts, "branch_protection.sh has no contexts[][] entries"
+
+    missing_in_script = job_names - contexts
+    extra_in_script = contexts - job_names
+    assert not missing_in_script and not extra_in_script, (
+        f"branch_protection.sh contexts drift from ci.yml job names.\n"
+        f"  in ci.yml but missing from script: {sorted(missing_in_script)}\n"
+        f"  in script but missing from ci.yml: {sorted(extra_in_script)}"
+    )
 
 
 def test_dependabot_config_present_and_valid():
