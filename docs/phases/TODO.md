@@ -15,10 +15,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Comprehensive quality improvement roadmap and governance framework.)
 *   **Action Plan:** [PHASE_60.md](PHASE_60.md)
 
-### Phase 63 — Service Level Objectives
-*   **Status:** **PROPOSED** (Four SLIs (availability 99.9%, latency 99% <10ms, Redis correctness 99.5%, FP rate <2%); multiwindow burn-rate alerts; Grafana SLO dashboard; on-call runbooks; metric naming prerequisite (ja4_ → ja4proxy_ rename + add missing counters).)
-*   **Action Plan:** [PHASE_63.md](PHASE_63.md)
-
 ### Phase 64 — Deployment Validation & Disaster Recovery
 *   **Status:** **PROPOSED** (Smoke test suite (Docker Compose, Helm/kind, Podman/Quadlet); DR runbook with 5 scenarios incl. Redis data loss; credential rotation runbooks; TLS certificate rotation; rolling upgrade procedure; MTTR baseline measurement.)
 *   **Action Plan:** [PHASE_64.md](PHASE_64.md)
