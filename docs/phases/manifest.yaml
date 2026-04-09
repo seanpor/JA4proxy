@@ -1266,23 +1266,36 @@ phases:
     - Group-to-role mapping honoured from config/proxy.yml sso.role_mapping with env-var
       MANAGEMENT_SAML_ROLE_MAPPING / MANAGEMENT_OIDC_ROLE_MAPPING override
   101:
-    name: Phase 85 Hardening (Threat-Intel Feed Runner)
+    name: Phase 101 — Cross-Phase Gap Register
     status: PROPOSED
     action_plan: docs/phases/PHASE_101.md
     dependencies:
+    - 84
     - 85
     size: LARGE
-    summary: 'Closes the security gaps surfaced by the post-Phase-85 architect
-      review. Adds per-feed safety caps (max_new_per_poll, max_owned_total,
-      max_delta_per_poll), a two-empty-poll gate before bulk cleanup, a JA4
-      FP-corpus check on every apply path (TAXII / REST / seed file), a
-      SafeResolver-backed aiohttp.TCPConnector to defend against DNS-based
-      SSRF, a rate limit on the manual-poll endpoint, CSRF middleware on
-      Phase 79 mutating routes, RF and CrowdStrike regional/GovCloud endpoint
-      support, and a re-shape of the TAXII chaos test. Three CRITICAL items
-      from the same review (C2-partial, C4, H7) were closed in-branch on
-      phase-85 and are documented for reference only.'
+    summary: 'Rolling cross-phase register of deferred review gaps. Currently
+      contains two sections. (1) Phase 84 Compliance Review: items deferred
+      from the second critical review of Phase 84 (DSAR XRANGE consolidation,
+      CIDR-aware DSAR matching, XTRIM MINID Redis-version fallback, audit log
+      pagination, DSAR partial-failure semantics, Jinja2 module-level cache,
+      JSONL invariant docs, dynamic retention strings, beaconing metric
+      rename). C1-C3 / H2/H4/H5 / M3/M5/M6 / L3/L4 were closed in the
+      review-fixes branch and are documented for reference. (2) Phase 85
+      Threat-Intel Hardening: per-feed safety caps, two-empty-poll gate,
+      ja4_safe_to_block FP-corpus gate, SafeResolver-backed TCPConnector,
+      manual-poll rate limit, CSRF middleware, RF/CrowdStrike regional
+      endpoints, and a re-shape of the TAXII chaos + integration tests
+      against the new FeedRunner constructor. C5-partial / C7 / H13 were
+      closed in-branch on phase-85 and are documented for reference. Gap
+      IDs are letter-prefixed by severity and numbered sequentially across
+      the entire register; new sections continue from the highest existing
+      number per letter.'
     success_criteria:
+    - All Phase 84 deferred items (H1, H3, M1, M2, M4, M7, L1, L2, L5)
+      either have PR-level fixes or explicit, documented deferrals
+    - All Phase 85 deferred items (C4-C6, H6-H12, M8-M14, L6-L8) either
+      have PR-level fixes or explicit, documented deferrals
+    - No new critical/high findings from a third review pass on either phase
     - Per-feed max_new_per_poll, max_owned_total, max_delta_per_poll honoured
       with ja4proxy_ti_feed_caps_hit_total metric and Alertmanager rule
     - Two consecutive empty polls required before any bulk cleanup; per-feed
@@ -1295,5 +1308,16 @@ phases:
     - CSRF double-submit middleware on every /api/v1/* mutating route
     - RF and CrowdStrike clients honour config.url for regional / GovCloud
       endpoints with global URLs as fallback
+    - DSAR export path issues at most one XRANGE call per request
+    - DSAR export/erase honour CIDR watchlist entries with documented IPv4/IPv6
+      semantics
+    - GDPRPurge falls back to time-based XRANGE+XDEL when redis_version < 6.2
+    - PurgeSummary.beaconing_datapoints_cleaned replaces the misnamed
+      beaconing_records_cleaned field with a CHANGELOG breaking-change note
+    - Pack builder loads audit entries in chunks; ADR written for the
+      Stream migration path
+    - DSAR response includes a partial_failures list on Redis error with a
+      ja4proxy_dsar_export_partial_failures_total counter
     - tests/adversarial/test_ti_feeds_ssrf.py + test_ti_feeds_fp_block.py +
       test_ti_feed_caps.py all pass
+    - make test-phase-84 still passes (Go + Python compliance suites)
