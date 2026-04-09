@@ -17,6 +17,19 @@
 - Phase 200's `ReadProxyProtocolV2` does not exist yet. `FuzzReadProxyProtocolV2` is wired to the current `ReadProxyProtocol` entry point with v2-shaped binary seeds; when Phase 200 lands, the target should be repointed at the v2 reader directly.
 - Python `tests/security_regression/`, `tests/fuzz/` (atheris), and Phase 27 break-glass docs are intentionally NOT carried over — the Python proxy is experimental and those findings are owned by Phases 200-203 on the Go side.
 
+## [Unreleased] - Phase 61 — CI test pipeline + repo hardening
+
+### Added
+- **`.github/workflows/ci.yml`** — three test jobs (`test-go`, `test-python`, `lint`) plus five security jobs (`secrets-scan` via TruffleHog, `sast` via Semgrep, `dependency-audit-python` via pip-audit, `dependency-audit-go` via govulncheck, `dependency-review` for HIGH severity + GPL/AGPL/SSPL deny). Triggered on every PR, every push to `main`, and weekly on Mondays at 06:00 UTC. Top-level `permissions: contents: read`; jobs that need more (e.g. SARIF upload) override locally.
+- **`.github/dependabot.yml`** — weekly updates for `github-actions`, `pip`, and `gomod` with grouped action bumps and a per-ecosystem PR cap of 5.
+- **`scripts/branch_protection.sh`** — one-shot bootstrap script (operator-run) that PUTs the required-status-check rules to GitHub. AI-agent project, so `required_pull_request_reviews=null` — the gate is CI, not human review.
+- **`docs/security/CVE_EXCEPTIONS.md`** — exception template, 90-day max expiry, HIGH/CRITICAL 7-day SLA.
+- **`tests/test_workflow_pinning.py`** — verification test asserting every `uses:` line is a 40-char SHA, every workflow declares a top-level `permissions:` block, the branch-protection script is executable, and `dependabot.yml` parses and covers all three ecosystems.
+- **`Makefile`** — new `ci-local` target so contributors can reproduce the CI test commands locally before pushing.
+
+### Changed
+- **`.github/workflows/ja4proxy-policy.yml`** — `actions/checkout@v4` and `actions/setup-python@v5` replaced with their 40-character commit SHAs (matching the canonical pattern in `release-cli.yml`); added top-level `permissions: contents: read`. No logic changes.
+
 ## [Unreleased] - Phase 84 second critical review fixes
 
 ### Fixed
