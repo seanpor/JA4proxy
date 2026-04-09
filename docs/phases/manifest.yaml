@@ -669,7 +669,7 @@ phases:
     size: XL
   61:
     name: Supply Chain Security & Build Integrity
-    status: PROPOSED
+    status: COMPLETE
     doc_status: COMPLETE
     summary: GitHub Actions CI pipeline (Python + Go tests, SAST, dependency audit);
       SBOM generation (CycloneDX 1.4); Cosign keyless image signing; SLSA level 2

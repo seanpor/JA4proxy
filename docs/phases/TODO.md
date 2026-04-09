@@ -15,10 +15,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Comprehensive quality improvement roadmap and governance framework.)
 *   **Action Plan:** [PHASE_60.md](PHASE_60.md)
 
-### Phase 61 — Supply Chain Security & Build Integrity
-*   **Status:** **PROPOSED** (GitHub Actions CI pipeline (Python + Go tests, SAST, dependency audit); SBOM generation (CycloneDX 1.4); Cosign keyless image signing; SLSA level 2 provenance for Go binary; action SHA pinning; branch protection rules.)
-*   **Action Plan:** [PHASE_61.md](PHASE_61.md)
-
 ### Phase 62 — Security Regression Harness, Fuzzing & Pre-Enterprise Validation
 *   **Status:** **PROPOSED** (Automated regression tests for all Phase 27 pentest findings; atheris + Go native fuzzing harnesses with CI smoke run; break-glass verification procedure; pre-enterprise validation report generator.)
 *   **Action Plan:** [PHASE_62.md](PHASE_62.md)
