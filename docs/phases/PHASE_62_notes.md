@@ -3,6 +3,40 @@
 Branch: `claude/phase-62-go-test-parity`
 Date: 2026-04-09
 
+## Review-fix addendum (post external review)
+
+External SRE/security review (2026-04-09) returned `APPROVE WITH FIXES`. One
+blocking item, several non-blocking. Fixes applied in-branch:
+
+1. **Blocker — `TestPipeline_DialFlip_NoStaleDecisions` was under-asserting.**
+   The test only checked `res1.Dial == 100`; it never asserted that the
+   propagated dial actually changed the action. Renamed to
+   `TestPipeline_DialFlip_PropagatesAndChangesAction` and extended: after
+   the dial flip, feed a synthetic threshold-crossing score (80) to
+   `ActionDecider.Decide` together with the dial value the pipeline
+   returned, and assert `allow` → non-`allow`. End-to-end contract is now
+   locked: `dial → Redis → Pipeline → PipelineResult.Dial → ActionDecider →
+   action change`. (ActionDecider × score correctness is exhaustively
+   covered at the unit level by `TestActionDecider_FullBlocking`.)
+
+2. **Acceptance criterion — `tests/fuzz/README.md` was missing.** Created.
+   Documents the three Go fuzz targets, the fast smoke run, the quarterly
+   24h `-fuzztime` operator procedure, and what to do when a target finds
+   a crash.
+
+3. **Acceptance criterion — `cmd/proxy/testdata/fuzz/<Target>/` directories
+   missing.** Added `.gitkeep` files so future regression seeds (post-crash
+   inputs Go writes here) have a committed home.
+
+4. **Non-blocking findings filed under PHASE_101 cross-phase gap register
+   as M15 (golden cross-check anchor), M16 (chaos right-answer-wrong-mechanism),
+   M17 (V2 fuzz target hand-off to Phase 200), L9 (property generator
+   weight semantics).** None block merge; each is small and independently
+   actionable.
+
+Tests: full `go test ./...` green after fix. The renamed dial-flip test
+passes against the production `Pipeline` + `ActionDecider`.
+
 ## Summary
 
 All six Go-side test gaps closed. No production code touched. No bugs found

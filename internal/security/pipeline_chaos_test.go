@@ -192,26 +192,74 @@ func TestPipeline_PartialOutage_AllowBypassesStillWork(t *testing.T) {
 	}
 }
 
-// TestPipeline_DialFlip_NoStaleDecisions — flipping the dial from 0 to 100
-// mid-flight must take effect on the next Process() call. The pipeline reads
-// the dial via redis.GetDial(ctx) on every call, so a stored-state bug
-// would manifest as a stale ALLOW after the flip.
-func TestPipeline_DialFlip_NoStaleDecisions(t *testing.T) {
+// TestPipeline_DialFlip_PropagatesAndChangesAction — flipping the dial from
+// 0 to 100 mid-flight must:
+//
+//  1. Take effect on the very next Process() call (no stored-state bug)
+//  2. Cause the propagated dial value to materially change the action
+//     decision when fed to ActionDecider with a score that crosses a
+//     threshold.
+//
+// We cannot inject a high score directly through the pipeline in a unit
+// test (signal collection requires real subsystems), so part (2) is
+// asserted by feeding a synthetic threshold-crossing score to
+// ActionDecider.Decide together with the dial value the pipeline returned.
+// This locks the contract end-to-end: dial flows from Redis → Pipeline →
+// PipelineResult.Dial → ActionDecider → action change.
+//
+// Unit-level dial × score correctness is exhaustively covered by
+// TestActionDecider_MonitorMode and TestActionDecider_FullBlocking in
+// action_decider_test.go.
+//
+// Earlier name: TestPipeline_DialFlip_NoStaleDecisions — that name was
+// renamed in the Phase 62 review-fix because the original assertion only
+// verified dial propagation, not action change. (Phase 62 external review.)
+func TestPipeline_DialFlip_PropagatesAndChangesAction(t *testing.T) {
 	redis := newFaultyRedis(0, 0) // healthy redis, dial=0
 	p := newChaosPipeline(t, redis)
+	decider := NewActionDeciderDefault()
 
-	// At dial=0, every connection allows.
+	// First call: dial=0 (monitor mode). Pipeline must report Dial=0.
 	res0 := p.Process(context.Background(), maliciousClientHello())
+	if res0 == nil {
+		t.Fatal("dial=0: pipeline returned nil")
+	}
+	if res0.Dial != 0 {
+		t.Fatalf("dial=0: expected res.Dial=0, got %d", res0.Dial)
+	}
 	if res0.Action != "allow" {
-		t.Fatalf("dial=0: expected allow, got %q", res0.Action)
+		t.Fatalf("dial=0: expected allow (monitor mode), got %q", res0.Action)
 	}
 
 	// Flip the dial to 100.
 	redis.setDial(100)
 
-	// The pipeline must observe the new dial on its next Process() call.
+	// Second call: pipeline must observe the new dial on its next call —
+	// no stored state caching the old value.
 	res1 := p.Process(context.Background(), maliciousClientHello())
+	if res1 == nil {
+		t.Fatal("dial=100: pipeline returned nil")
+	}
 	if res1.Dial != 100 {
 		t.Fatalf("after dial flip: expected res.Dial=100, got %d", res1.Dial)
+	}
+
+	// End-to-end contract: feed a threshold-crossing synthetic score to
+	// ActionDecider with each propagated dial value. The action MUST
+	// differ — that is the whole point of the dial. If this assertion
+	// ever fails, either the dial is not flowing through correctly or
+	// ActionDecider is broken (and the unit tests should already have
+	// caught the latter).
+	const synthHighScore = 80 // > block threshold (70) at dial=100
+	action0 := decider.Decide(synthHighScore, res0.Dial)
+	action1 := decider.Decide(synthHighScore, res1.Dial)
+	if action0 != "allow" {
+		t.Fatalf("synth score=%d, propagated dial=%d: expected allow, got %q",
+			synthHighScore, res0.Dial, action0)
+	}
+	if action1 == "allow" {
+		t.Fatalf("synth score=%d, propagated dial=%d: expected non-allow "+
+			"after dial flip, got %q — dial value is not affecting action",
+			synthHighScore, res1.Dial, action1)
 	}
 }
