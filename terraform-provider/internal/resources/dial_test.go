@@ -250,6 +250,14 @@ func TestDial_UpdateWithinDelta(t *testing.T) {
 			var body struct {
 				Value int `json:"value"`
 			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				w.Write([]byte(`{"detail":"invalid json"}`))
+				return
+			}
+			store.mu.Lock()
+			store.value = body.Value
+			store.mu.Unlock()
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(fmt.Sprintf(`{"value":%d,"updated_at":"2026-01-01T00:00:00Z"}`, body.Value)))
 			return
