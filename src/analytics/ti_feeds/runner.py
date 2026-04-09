@@ -376,6 +376,36 @@ class FeedRunner:
         # any entry with an empty handle (those represent indicators that
         # were idempotently re-applied with no fresh resource).
         dropped = compute_dropped_ids(previous_ids, result.stix_ids_seen)
+
+        # phase-85.1 (security review C2 partial): cap each cleanup pass
+        # at max(10, 10% of the previous snapshot). The full C2 fix
+        # (two-consecutive-empty-poll gate, per-feed configurable cap) is
+        # tracked in PHASE_101. The 10%-floor-10 cap here is the cheap
+        # blast-radius brake: a feed that flips empty for a single cycle
+        # because of an upstream glitch can drop at most ~10% of its rule
+        # set per poll instead of all of them. Entries we *defer* must be
+        # re-added to the new snapshot so the next poll's diff still sees
+        # them and can finish (or skip) the cleanup.
+        deferred_cleanup: dict[str, str] = {}
+        if dropped:
+            cap = max(10, len(previous_ids) // 10)
+            if len(dropped) > cap:
+                logger.warning(
+                    "ti_feed | event=cleanup_capped | feed=%s | "
+                    "dropped=%d | cap=%d | previous=%d",
+                    feed_id,
+                    len(dropped),
+                    cap,
+                    len(previous_ids),
+                )
+                # Deterministic split so repeat polls converge instead of
+                # churning the same head every cycle.
+                ordered = sorted(dropped.keys())
+                kept_keys = ordered[:cap]
+                deferred_keys = ordered[cap:]
+                deferred_cleanup = {k: dropped[k] for k in deferred_keys}
+                dropped = {k: dropped[k] for k in kept_keys}
+
         ban_ips = await self._state.get_ban_ips(feed_id) if dropped else set()
         blocklist_uuids = (
             await self._state.get_blocklist_uuids(feed_id) if dropped else set()
@@ -430,11 +460,15 @@ class FeedRunner:
         if removed_count:
             _CLEANUP_REMOVALS.labels(feed_id=feed_id).inc(removed_count)
 
-        # Replace the active snapshot atomically
-        await self._state.replace_active_stix_ids(
-            feed_id,
-            {stix_id: handle for stix_id, handle in _result_handle_iter(result)},
-        )
+        # Replace the active snapshot atomically. phase-85.1 (C2 partial):
+        # carry deferred-cleanup entries forward so the next poll's diff
+        # still sees them as candidates for removal.
+        snapshot = {
+            stix_id: handle for stix_id, handle in _result_handle_iter(result)
+        }
+        for stix_id, handle in deferred_cleanup.items():
+            snapshot.setdefault(stix_id, handle)
+        await self._state.replace_active_stix_ids(feed_id, snapshot)
 
         # Poll state / metrics
         breaker.record_success()
