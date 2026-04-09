@@ -117,6 +117,29 @@ var (
 		prometheus.CounterOpts{Name: "ja4proxy_tcp_signal_total", Help: "TCP signal events"},
 		[]string{"signal"},
 	)
+	SyncClockDriftSeconds = prometheus.NewGauge(
+		prometheus.GaugeOpts{Name: "ja4proxy_sync_clock_drift_seconds", Help: "NTP clock drift in seconds"},
+	)
+	SyncPeerSkewSeconds = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{Name: "ja4proxy_sync_peer_skew_seconds", Help: "Clock skew relative to peer DC"},
+		[]string{"peer"},
+	)
+	SyncWANConnected = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{Name: "ja4proxy_sync_wan_connected", Help: "WAN connection status to peers (1=connected, 0=disconnected)"},
+		[]string{"peer"},
+	)
+	SyncReplicationLagSeconds = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{Name: "ja4proxy_sync_replication_lag_seconds", Help: "Cross-DC state replication lag"},
+		[]string{"stream"},
+	)
+	SyncEventsProcessedTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "ja4proxy_sync_events_processed_total", Help: "Total sync events applied locally"},
+		[]string{"op", "dc"},
+	)
+	SyncErrorsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "ja4proxy_sync_errors_total", Help: "Total sync failures"},
+		[]string{"type"},
+	)
 )
 
 func Register() {
@@ -130,7 +153,9 @@ func Register() {
 		RDAPEnrichmentQueueDepth, AbuseIPDBEnrichmentQueueDepth,
 		DNSEnrichmentTotal, DNSPTRErrorsTotal, DNSPTRClassificationTotal,
 		DNSResolverErrorsTotal, DNSEnrichmentQueueDropsTotal,
-		SNISignalTotal, SNIDGAScore, TCPSignalTotal,
+		SNISignalTotal, SNIDGAScore, TCPSignalTotal, SyncClockDriftSeconds,
+		SyncPeerSkewSeconds, SyncWANConnected, SyncReplicationLagSeconds,
+		SyncEventsProcessedTotal, SyncErrorsTotal,
 	)
 	for _, action := range []string{"allow", "flag", "rate_limit", "tarpit", "block", "ban"} {
 		ConnectionsTotal.WithLabelValues(action)

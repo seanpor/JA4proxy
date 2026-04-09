@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	goredis "github.com/redis/go-redis/v9"
@@ -15,12 +16,19 @@ type Client struct {
 	rdb           *goredis.Client
 	log           *logrus.Logger
 	slidingWinSHA string // EVALSHA hash for sliding_window.lua
+	syncStream    string // Redis Stream for cross-DC sync
 }
 
 // Config holds the Redis connection parameters.
 type Config struct {
-	Host     string
-	Port     int
+	// Single node (legacy/standalone)
+	Host string
+	Port int
+
+	// Sentinel (High Availability)
+	MasterName string
+	Sentinels  []string
+
 	DB       int
 	Password string
 	Timeout  time.Duration
@@ -33,18 +41,78 @@ func New(cfg Config, log *logrus.Logger) *Client {
 	if log == nil {
 		log = logrus.New()
 	}
-	opts := &goredis.Options{
-		Addr:         fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
-		Password:     cfg.Password,
-		DB:           cfg.DB,
-		DialTimeout:  cfg.Timeout,
-		ReadTimeout:  cfg.Timeout,
-		WriteTimeout: cfg.Timeout,
+
+	var rdb *goredis.Client
+	if cfg.MasterName != "" {
+		// Redis Sentinel Mode
+		opts := &goredis.FailoverOptions{
+			MasterName:    cfg.MasterName,
+			SentinelAddrs: cfg.Sentinels,
+			Password:      cfg.Password,
+			DB:            cfg.DB,
+			DialTimeout:   cfg.Timeout,
+			ReadTimeout:   cfg.Timeout,
+			WriteTimeout:  cfg.Timeout,
+		}
+		rdb = goredis.NewFailoverClient(opts)
+		log.WithFields(logrus.Fields{
+			"master":    cfg.MasterName,
+			"sentinels": cfg.Sentinels,
+		}).Info("redis: initialized in sentinel mode")
+	} else {
+		// Single Node Mode
+		opts := &goredis.Options{
+			Addr:         fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
+			Password:     cfg.Password,
+			DB:           cfg.DB,
+			DialTimeout:  cfg.Timeout,
+			ReadTimeout:  cfg.Timeout,
+			WriteTimeout: cfg.Timeout,
+		}
+		rdb = goredis.NewClient(opts)
 	}
-	rdb := goredis.NewClient(opts)
+
 	c := &Client{rdb: rdb, log: log}
 	c.loadScripts()
 	return c
+}
+
+// EnableSync sets the Redis stream for cross-DC synchronization.
+func (c *Client) EnableSync(stream string) {
+	c.syncStream = stream
+}
+
+// maybeSync appends a mutation to the sync stream if sync is enabled and the key
+// is not local-only.
+func (c *Client) maybeSync(ctx context.Context, op, key string, value interface{}, ttl time.Duration) {
+	if c.syncStream == "" {
+		return
+	}
+
+	// Skip local-only keys
+	if strings.HasPrefix(key, "session:") || strings.HasPrefix(key, "lifespan:") ||
+		strings.HasPrefix(key, "concurrent:") || strings.HasPrefix(key, "behavioral:burst:") {
+		return
+	}
+
+	// Only sync security-critical keys for now (per PHASE_88 strategy)
+	if !strings.HasPrefix(key, "ban:") && !strings.HasPrefix(key, "ja4:whitelist") &&
+		!strings.HasPrefix(key, "ja4:blacklist") && key != "config:dial" {
+		return
+	}
+
+	fields := map[string]interface{}{
+		"op":        op,
+		"key":       key,
+		"value":     fmt.Sprintf("%v", value),
+		"origin_ts": time.Now().UnixNano() / 1e6, // ms
+	}
+	if ttl > 0 {
+		fields["ttl_ms"] = int64(ttl / time.Millisecond)
+	}
+
+	// Hot path: XAdd is non-blocking fire-and-forget in c.XAdd()
+	c.XAdd(ctx, c.syncStream, fields)
 }
 
 // loadScripts loads the sliding-window Lua script via SCRIPT LOAD.
@@ -78,7 +146,9 @@ func (c *Client) Get(ctx context.Context, key string) (string, error) {
 func (c *Client) Set(ctx context.Context, key, value string, ttl time.Duration) {
 	if err := c.rdb.Set(ctx, key, value, ttl).Err(); err != nil {
 		c.log.WithError(err).WithField("key", key).Warn("redis: SET failed")
+		return
 	}
+	c.maybeSync(ctx, "set", key, value, ttl)
 }
 
 // SIsMember checks set membership. Returns false on error (fail open).
@@ -105,13 +175,29 @@ func (c *Client) SMembers(ctx context.Context, key string) []string {
 func (c *Client) SAdd(ctx context.Context, key string, member interface{}) {
 	if err := c.rdb.SAdd(ctx, key, member).Err(); err != nil {
 		c.log.WithError(err).WithField("key", key).Warn("redis: SADD failed")
+		return
 	}
+	c.maybeSync(ctx, "sadd", key, member, 0)
 }
 
 // SRem removes a member from a set. Fails open.
 func (c *Client) SRem(ctx context.Context, key string, member interface{}) {
 	if err := c.rdb.SRem(ctx, key, member).Err(); err != nil {
 		c.log.WithError(err).WithField("key", key).Warn("redis: SREM failed")
+		return
+	}
+
+	// Tombstone logic for whitelists/blacklists (per PHASE_88)
+	if key == "ja4:whitelist" || key == "ja4:blacklist" {
+		tombstoneKey := key + ":removals"
+		// Add to local removals set with 24h TTL
+		if err := c.rdb.SAdd(ctx, tombstoneKey, member).Err(); err == nil {
+			c.rdb.Expire(ctx, tombstoneKey, 24*time.Hour)
+			// Sync the removal (the sync agent will apply it as SADD to :removals on peers)
+			c.maybeSync(ctx, "sadd", tombstoneKey, member, 24*time.Hour)
+		}
+	} else {
+		c.maybeSync(ctx, "srem", key, member, 0)
 	}
 }
 
@@ -205,7 +291,11 @@ func (c *Client) Exists(ctx context.Context, key string) bool {
 
 // ZAdd adds a member to a sorted set. Fails open.
 func (c *Client) ZAdd(ctx context.Context, key string, score float64, member string) {
-	c.rdb.ZAdd(ctx, key, goredis.Z{Score: score, Member: member})
+	if err := c.rdb.ZAdd(ctx, key, goredis.Z{Score: score, Member: member}).Err(); err != nil {
+		c.log.WithError(err).WithField("key", key).Warn("redis: ZADD failed")
+		return
+	}
+	c.maybeSync(ctx, "zadd", key, member, 0)
 }
 
 // ZRemRangeByScore removes members with scores between min and max. Fails open.
@@ -253,6 +343,26 @@ func (c *Client) XAdd(ctx context.Context, stream string, values map[string]inte
 	}).Err(); err != nil {
 		c.log.WithError(err).WithField("stream", stream).Debug("redis: XADD failed")
 	}
+}
+
+// XGroupCreateMkStream creates a consumer group for a stream, creating the
+// stream first if it does not exist.
+func (c *Client) XGroupCreateMkStream(ctx context.Context, stream, group, start string) error {
+	err := c.rdb.XGroupCreateMkStream(ctx, stream, group, start).Err()
+	if err != nil && strings.Contains(err.Error(), "BUSYGROUP") {
+		return nil // group already exists
+	}
+	return err
+}
+
+// XReadGroup reads messages from a stream using a consumer group.
+func (c *Client) XReadGroup(ctx context.Context, args *goredis.XReadGroupArgs) ([]goredis.XStream, error) {
+	return c.rdb.XReadGroup(ctx, args).Result()
+}
+
+// XAck acknowledges one or more messages in a consumer group.
+func (c *Client) XAck(ctx context.Context, stream, group string, ids ...string) error {
+	return c.rdb.XAck(ctx, stream, group, ids...).Err()
 }
 
 // SeedDialIfAbsent writes the dial value only if config:dial is not already set.

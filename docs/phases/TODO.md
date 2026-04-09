@@ -35,10 +35,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Datadog Agent integration tile with dashboard and 4 monitors. Dynatrace EF2 extension with topology entity type. Nagios check plugin and Zabbix template. Capacity sizing calculator script. make load-test harness. Published benchmark numbers. 7 operator runbooks.)
 *   **Action Plan:** [PHASE_86.md](PHASE_86.md)
 
-### Phase 88 — Multi-Datacenter Survivability & Failover
-*   **Status:** **PROPOSED** (Redis Sentinel per-DC plus a new Go sync agent (cmd/syncagent) for cross-DC state replication. State Classification Table (25 key types: SYNC-IMMEDIATE, SYNC-ASYNC, LOCAL-ONLY, DIAL-PROTOCOL). Synchronous Dial Consistency Protocol (port 7380, 8s ACK timeout, last-writer-wins by origin_ts). Active-active and active-passive topology documentation. Seven failure scenario runbooks (WAN failure, DC dark, Redis-only failure, dial divergence, data loss, asymmetric degradation, split-brain). New multi-DC metrics on port 9382 with six alert rules including DialDivergence (critical). Cross-DC Grafana dashboard. Operational procedures for maintenance drain, DC expansion, and rolling upgrade.)
-*   **Action Plan:** [PHASE_88.md](PHASE_88.md)
-
 ### Phase 93 — Terraform Provider + Emergency Runbook Playbooks
 *   **Status:** **PROPOSED** (terraform-provider-ja4proxy (separate repo): 6 resource types (allowlist_entry, blocklist_entry, watchlist_entry, ban [IP+CIDR unified], dial, webhook), protect_unmanaged_entries flag, import workflow. Three emergency Ansible playbooks: emergency-ban-cidr.yml, temp-whitelist-ip.yml, maintenance-dial-zero.yml. Critical review 2026-04-09: corrected API mappings (ban uses /api/v1/bans/{ip_encoded}, no separate cidr_ban), removed 202 dial handling, added watchlist resource, added auth to playbooks.)
 *   **Action Plan:** [PHASE_93.md](PHASE_93.md)
