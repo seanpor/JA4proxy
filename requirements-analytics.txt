@@ -3,7 +3,7 @@
 # Keep in sync with versions used by the proxy where packages overlap.
 
 # Redis (sync + async client; aioredis 2.x is a thin shim over redis.asyncio)
-redis==5.0.1
+redis==7.4.0
 aioredis==2.0.1
 
 # HTTP server for /health, /ready, /metrics endpoints
