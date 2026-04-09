@@ -29,7 +29,7 @@ groups:
           /
           (
             sum(rate(ja4proxy_connections_total[5m]))
-            + sum(rate(ja4proxy_connection_errors_total[5m]))
+            + (sum(rate(ja4proxy_connection_errors_total[5m])) or vector(0))
           )
 
       - record: job:ja4proxy_availability:ratio_rate1h
@@ -38,7 +38,7 @@ groups:
           /
           (
             sum(rate(ja4proxy_connections_total[1h]))
-            + sum(rate(ja4proxy_connection_errors_total[1h]))
+            + (sum(rate(ja4proxy_connection_errors_total[1h])) or vector(0))
           )
 
       - record: job:ja4proxy_availability:ratio_rate6h
@@ -47,7 +47,7 @@ groups:
           /
           (
             sum(rate(ja4proxy_connections_total[6h]))
-            + sum(rate(ja4proxy_connection_errors_total[6h]))
+            + (sum(rate(ja4proxy_connection_errors_total[6h])) or vector(0))
           )
 
       - record: job:ja4proxy_availability:ratio_rate3d
@@ -56,7 +56,7 @@ groups:
           /
           (
             sum(rate(ja4proxy_connections_total[3d]))
-            + sum(rate(ja4proxy_connection_errors_total[3d]))
+            + (sum(rate(ja4proxy_connection_errors_total[3d])) or vector(0))
           )
 
       # phase-63 review-fix B1: short-window companions for the (long, short)
@@ -69,7 +69,7 @@ groups:
           /
           (
             sum(rate(ja4proxy_connections_total[30m]))
-            + sum(rate(ja4proxy_connection_errors_total[30m]))
+            + (sum(rate(ja4proxy_connection_errors_total[30m])) or vector(0))
           )
 
       # ── Latency ──────────────────────────────────────────────────────────
