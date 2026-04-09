@@ -371,15 +371,21 @@ func TestBan_UrlEncoding(t *testing.T) {
 			return
 		}
 
-		if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/api/v1/bans/") {
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"message":"Ban created","ip":"198.51.100.0/24","ttl":3600,"reason":"cidr test"}`))
-			return
-		}
-
 		if r.Method == http.MethodGet && r.URL.Path == "/api/v1/health" {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`{"status":"ok","redis":"ok","proxy_instances":0,"geoip":"ok","uptime_seconds":0}`))
+			return
+		}
+
+		if r.Method == http.MethodGet && r.URL.Path == "/api/v1/bans" {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"bans":[{"ip":"198.51.100.0/24","reason":"cidr test","ttl_remaining":3600}],"count":1}`))
+			return
+		}
+
+		if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/api/v1/bans/") {
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"message":"Ban created","ip":"198.51.100.0/24","ttl":3600,"reason":"cidr test"}`))
 			return
 		}
 

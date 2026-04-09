@@ -104,6 +104,7 @@ func TestBlocklistEntry_Import(t *testing.T) {
 
 	entry := store.list("blocklist")[0]
 	importID := entry["id"].(string)
+	entryValue := entry["entry"].(string)
 
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: map[string]func() (tfprotov6.ProviderServer, error){
@@ -119,9 +120,10 @@ func TestBlocklistEntry_Import(t *testing.T) {
 						api_token = "test-token"
 					}
 					resource "ja4proxy_blocklist_entry" "imported" {
-						entry = "PLACEHOLDER"
+						entry = %q
+						note  = "pre-existing block"
 					}
-				`, server.URL),
+				`, server.URL, entryValue),
 			},
 			{
 				ResourceName:                         "ja4proxy_blocklist_entry.imported",
