@@ -1,5 +1,22 @@
 # Changelog
 
+## [62] - 2026-04-09 - Go Fuzzing, Adversarial & Chaos Test Parity
+
+### Added
+- `cmd/proxy/fuzz_test.go` — three Go-native fuzz targets (`FuzzClientHello`, `FuzzReadProxyProtocol`, `FuzzReadProxyProtocolV2`) seeded from `tests/adversarial/corpus/*.bin`. Each target ran 10 s × 16 workers panic-free in smoke testing (~915k execs for ClientHello).
+- `internal/tls/parser_test.go` — `TestParseClientHello_AdversarialCorpus` table-driven test driving all 13 corpus fixtures with a 100 ms watchdog per fixture. None panic, none hang.
+- `internal/tls/ja4_fp_corpus_test.go` + `internal/tls/testdata/ja4_fp_golden.txt` — JA4 fingerprint regression test that locks in the Go-computed JA4 for every fixture in `tests/fixtures/clienthello/`. Regenerate with `go test -run TestJA4_FPCorpus_NoRegression ./internal/tls/ -args -update`.
+- `internal/security/pipeline_chaos_test.go` — three fault-injection scenarios (`TestPipeline_RedisOutage_FailsOpen`, `TestPipeline_PartialOutage_AllowBypassesStillWork`, `TestPipeline_DialFlip_NoStaleDecisions`). All assert the asymmetry doctrine from CLAUDE.md.
+- `internal/security/property_test.go` — four `pgregory.net/rapid` property tests: `ScoreInRange`, `ScoreMonotonic`, `DecisionIdempotent`, `DialZeroNeverBlocks`. 100 cases each, all pass.
+- `cmd/proxy/bench_test.go` — `BenchmarkPipeline_Allow` (~469 ns/op, 8 allocs) and `BenchmarkPipeline_Score` (~1908 ns/op, 19 allocs) on i9-9900K.
+- `scripts/generate_validation_report.py` — pre-enterprise validation report generator. Counts Go test surface, surfaces Phase 200-203 commits, runs govulncheck/pip-audit + 1 s fuzz smoke per target. Output: `docs/security/PRE_ENTERPRISE_VALIDATION_REPORT.md`.
+- New Makefile targets (appended at bottom, no existing targets edited): `test-go-fuzz-smoke`, `test-go-property`, `test-go-chaos-unit`, `bench-go-pipeline`, `validation-report`. The `test-go-chaos` name is already used by an unrelated Python-driven target, so the unit-test variant is suffixed `-unit`.
+- `pgregory.net/rapid v1.2.0` added to `go.mod` for property-based testing.
+
+### Notes
+- Phase 200's `ReadProxyProtocolV2` does not exist yet. `FuzzReadProxyProtocolV2` is wired to the current `ReadProxyProtocol` entry point with v2-shaped binary seeds; when Phase 200 lands, the target should be repointed at the v2 reader directly.
+- Python `tests/security_regression/`, `tests/fuzz/` (atheris), and Phase 27 break-glass docs are intentionally NOT carried over — the Python proxy is experimental and those findings are owned by Phases 200-203 on the Go side.
+
 ## [Unreleased] - Phase 84 second critical review fixes
 
 ### Fixed
