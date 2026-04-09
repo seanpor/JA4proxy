@@ -61,6 +61,11 @@ func main() {
 	// Start background workers
 	proxy.pipeline.StartBackgroundWorkers(ctx)
 
+	// Start multi-DC monitoring (NTP drift)
+	if cfg.Monitoring.Enabled {
+		go metrics.StartNTPMonitor(ctx, cfg.Monitoring.NTPCheckIntervalSeconds, log)
+	}
+
 	// Start pub/sub for config hot-reload and dynamic list updates
 	go redisclient.NewPubSubHandler(proxy.redis, log, func() {
 		if err := proxy.reload(); err != nil {
@@ -119,13 +124,21 @@ type proxy struct {
 
 func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 	redisCfg := redisclient.Config{
-		Host:     cfg.Redis.Host,
-		Port:     cfg.Redis.Port.Int(),
-		DB:       cfg.Redis.DB,
-		Password: cfg.Redis.Password,
-		Timeout:  time.Duration(cfg.Redis.Timeout.Int()) * time.Second,
+		Host:       cfg.Redis.Host,
+		Port:       cfg.Redis.Port.Int(),
+		MasterName: cfg.Redis.MasterName,
+		Sentinels:  cfg.Redis.Sentinels,
+		DB:         cfg.Redis.DB,
+		Password:   cfg.Redis.Password,
+		Timeout:    time.Duration(cfg.Redis.Timeout.Int()) * time.Second,
 	}
 	rc := redisclient.New(redisCfg, log)
+
+	// Phase 88.2: Enable cross-DC sync capture
+	if cfg.Sync.DCID != "" {
+		syncStream := fmt.Sprintf("ja4proxy:dc:%s:sync:out", cfg.Sync.DCID)
+		rc.EnableSync(syncStream)
+	}
 
 	pipelineCfg := buildPipelineConfig(cfg)
 	p := security.NewPipeline(pipelineCfg, rc, log)

@@ -22,6 +22,31 @@
 - 9 new tests in `management/tests/test_compliance_routes.py` covering C1, C3, H2, H4, H5, L3 (**test count: 112 Python + 36 Go = 148**, was 139)
 - `docs/phases/PHASE_101.md` — Phase 101 plan tracking the 9 deferred review items (H1 double-XRANGE, H3 CIDR watchlist match, M1 Redis version check, M2 metric rename, M4 audit log pagination, M7 DSAR partial failures, L1 Jinja2 env cache, L2 JSONL invariant doc, L5 DSAR retention text from config)
 
+## [0.88.4] - 2026-04-09 - Multi-DC Observability & Security Hardening (ROBUST)
+### Added
+- Robust Integrity: Switched Ed25519 signing to use JSON-canonicalized payloads, eliminating potential Delimiter Injection vulnerabilities.
+- Per-Peer Isolation: Implemented dedicated outbound replication workers with unique Redis consumer groups per peer. This eliminates Head-of-Line blocking and ensures a slow or failed DC doesn't impact sync to healthy DCs.
+- Automatic Catch-up: Unique consumer groups allow failed DCs to catch up automatically from their exact last acknowledged position upon recovery.
+- Metrics Instrumentation: Fully instrumented the Sync Agent to populate all 11 multi-DC metrics (Lag, Errors, Connectivity).
+
+## [0.88.3] - 2026-04-09 - Secure Dial Consistency Protocol (ROBUST)
+### Added
+- Semantic Validation: Added strict bounds checking (0-100) for global dial changes in the RPC layer.
+- Dial Consistency Protocol: Implemented synchronous 8-second ACK protocol with cryptographic verification.
+
+## [0.88.2] - 2026-04-09 - Async State Propagation & Tombstones (REMEDIATED)
+### Added
+- Reliable Delivery: Updated replication logic to only ACK stream messages after all peers acknowledge receipt, ensuring state convergence after WAN partitions.
+- Inbound Security: Implemented strict key whitelisting in the sync agent to prevent unauthorized Redis key overrides.
+- Tombstone Pattern: Implemented `:removals` sets for robust cross-DC set deletions.
+
+## [0.88.1] - 2026-04-08 - Multi-DC Foundation & Sentinel Support
+
+### Added
+- Redis Sentinel support (`goredis.NewFailoverClient`): proxy now supports `master_name` and `sentinels` configuration for high availability in multi-DC environments
+- Background NTP drift monitoring: added `SyncClockDriftSeconds` gauge and background worker that periodically parses `chronyc` or `ntpstat` output to detect cross-DC time drift
+- Configuration: Added `monitoring` section to `proxy.yml` with `ntp_check_interval_seconds` and `max_drift_seconds` fields
+
 ## [84] - 2026-04-08 - Compliance Reporting & Evidence Pack
 
 ### Added
