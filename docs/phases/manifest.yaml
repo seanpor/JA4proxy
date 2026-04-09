@@ -41,6 +41,10 @@ epics:
   - 56
   - 62
   - 75
+  - 200
+  - 201
+  - 202
+  - 203
 - name: 'Epic: Analytics & Intelligence'
   description: Cross-instance behavior analysis and threat intelligence.
   phases:
@@ -1296,3 +1300,78 @@ phases:
     - DSAR retention text reflects gdpr.*_retention_days config (L5)
     - No new CRITICAL/HIGH findings from a third review pass
     - make test-phase-84 still passes (Go + Python compliance suites)
+
+  200:
+    name: Go PROXY Protocol Trust + v2 Support
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_200.md
+    dependencies:
+    - 15
+    size: MEDIUM
+    summary: 'Closes two critical Go gaps: (1) add `_is_trusted_proxy_source()` equivalent to prevent IP spoofing via PROXY protocol from untrusted sources, (2) implement PROXY protocol v2 binary parser (Python already has v1+v2). Without (1) any attacker can spoof any IP and bypass all geo/IP/rate/block controls. Without (2) modern HAProxy/NLB v2 headers are silently ignored.'
+    success_criteria:
+    - "isTrustedProxySource() correctly accepts/rejects IPs against configured CIDRs"
+    - "ReadProxyProtocolV2() extracts correct client IP for both IPv4 and IPv6"
+    - "ReadProxyProtocolV2() safely rejects malformed v2 headers (no panic, no OOB)"
+    - Untrusted source sending PROXY header is NOT trusted — socket IP used instead
+    - Both v1 and v2 parsers gated by the same trust check
+    - "All unit tests pass: go test ./internal/proxy/... ./cmd/proxy/..."
+    - Parity integration test passes (Python and Go extract same IP)
+    - Adversarial test confirms untrusted PROXY spoof is rejected
+    - "config/proxy.yml documents proxy.upstream_trust section with example"
+    - "make lint-go-full passes with zero warnings"
+
+  201:
+    name: Go Redis TLS + Signal Score Drift Fix
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_201.md
+    dependencies:
+    - 15
+    size: SMALL
+    summary: 'Closes critical Go gaps: (1) Redis client omits TLS despite config having SSL field — credentials on wire, (2) 4 signal scores diverge from config/signal_scores.yml — wrong scoring decisions in production. Also adds: error logging for ZAdd/ZRemRangeByScore (were swallowing errors), health check with script reload after Redis outage, rate limiter input validation.'
+    success_criteria:
+    - Go Redis client sets TLSConfig when cfg.SSL is true
+    - Go Redis client passes Username for ACL-based auth
+    - "ZAdd and ZRemRangeByScore log errors instead of swallowing them"
+    - Periodic health check re-loads Lua scripts after Redis outage
+    - Rate limiter validates IP (<=45 chars) and JA4 (<=256 chars) before key construction
+    - "make check-scores exits 0 (all Go scores match registry)"
+    - "make go-test passes with zero failures"
+
+  202:
+    name: CI Supply Chain + Default Credential Removal
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_202.md
+    dependencies: []
+    size: SMALL
+    summary: 'Eliminates 6 infrastructure-level critical findings: SHA-pin all GitHub Actions (supply chain), remove default credential fallbacks from all compose files (Grafana admin, Management admin/admin, HAProxy admin/admin123), create Go proxy image CI workflow with SBOM+cosign signing, harden Dockerfile.go-proxy with non-root USER.'
+    success_criteria:
+    - All GitHub Actions are SHA-pinned (no @v4, @v5, etc. remain)
+    - "grep -r ':-admin' docker/ returns no matches"
+    - "grep -r ':-change-me' docker/ returns no matches"
+    - Grafana refuses to start without GRAFANA_PASSWORD env var
+    - Management API refuses to start without MANAGEMENT_JWT_SECRET
+    - Test Redis port bound to 127.0.0.1:6380:6379
+    - ".github/workflows/go-proxy-image.yml builds, tests, SBOM-generates, signs, and pushes"
+    - "Dockerfile.go-proxy has USER directive (non-root)"
+
+  203:
+    name: Go Missing Signals — JA4T, TLS Mismatch, Weak Ciphers, DGA, Health
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_203.md
+    dependencies:
+    - 200
+    - 201
+    size: LARGE
+    summary: 'Closes 5 production-critical signal gaps in Go: (1) JA4T stub returns `""` — implement full JA4T computation, (2) `ja4_tls_mismatch` not implemented — TLS version spoofing undetected, (3) weak cipher coverage 13 vs Python 37+ — NULL/EXPORT/DH_anon/ECDH_anon missed, (4) DGA algorithm diverges from Python — less effective SNI analysis, (5) Go health check only tests Redis — no GeoIP/connections/queue checks.'
+    success_criteria:
+    - "ComputeJA4T() returns non-empty string matching Python output for same inputs"
+    - JA4T unit tests pass with fixture-based assertions
+    - "ja4_tls_mismatch fires when JA4 claims TLS 1.3 but actual is TLS 1.2"
+    - "weakCipherSet contains 37+ suites matching Python's WEAK_CIPHERS"
+    - "DGA parity test: Python and Go scores match within +/-0.05 for 100+ test hostnames"
+    - Go health check returns structured JSON with all component statuses
+    - Health check returns 503 when Redis or GeoIP is down
+    - Anti-flap hysteresis prevents status flapping on transient errors
+    - "make check-scores still exits 0"
+    - "make go-test passes with zero failures"
