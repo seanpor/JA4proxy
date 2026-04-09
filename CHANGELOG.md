@@ -1,5 +1,46 @@
 # Changelog
 
+## [Unreleased] - Phase 200 - Go PROXY Protocol Trust + v2 Support
+
+### Added
+- `internal/proxy/proxy_protocol.go`: `IsTrustedProxySource(ip, cfg)` —
+  validates peer IP against `proxy.upstream_trust.trusted_cidrs` before
+  trusting PROXY protocol headers. Fail-open on nil config, disabled,
+  empty CIDRs, or invalid IP. Parity with Python `_is_trusted_proxy_source()`.
+- `internal/proxy/proxy_protocol.go`: `ReadProxyProtocolV2(buf)` and
+  `ReadProxyProtocolV2WithLength(buf)` — PROXY protocol v2 binary parser
+  for HAProxy 2.x+ and AWS NLB headers. Supports TCP/IPv4 (family 0x11)
+  and TCP/IPv6 (family 0x21). Rejects LOCAL command, UNSPEC family,
+  truncated headers, wrong signatures, and oversized `addr_len`.
+- `internal/config/loader.go`: `UpstreamTrustConfig` struct with
+  `enabled` and `trusted_cidrs` fields added to `ProxyConfig`.
+- `internal/config/loader.go`: `DefaultConfig()` exported for test use.
+- `cmd/proxy/main.go`: `handleConn` now tries v2 binary first, falls back
+  to v1 text, both gated by `IsTrustedProxySource()`. Untrusted sources
+  silently use the socket IP (fail-open).
+
+### Fixed
+- **CRITICAL:** Go proxy no longer trusts PROXY protocol headers from
+  arbitrary sources. An attacker sending `PROXY TCP4 8.8.8.8 ...` from an
+  untrusted IP previously bypassed all geo/IP/rate/block controls.
+- **CRITICAL:** Go proxy now supports PROXY protocol v2 binary headers.
+  Modern HAProxy and AWS NLB instances sending v2 were previously silently
+  ignored, falling back to the load balancer's IP.
+
+### Tests
+- 29 new tests across 3 packages:
+  - `internal/proxy/trust_test.go`: 8 trust check tests (IPv4, IPv6,
+    disabled, empty CIDRs, nil config, invalid IPs, malformed CIDRs,
+    default config)
+  - `internal/proxy/proxy_protocol_v2_test.go`: 12 v2 parser tests
+    (valid IPv4, valid IPv6, full IPv6, truncated signature, wrong
+    signature, LOCAL command, oversized addr_len, empty buffer, exact
+    buffer size, UNSPEC family, anti-panic, header length)
+  - `cmd/proxy/proxy_integration_test.go`: 9 integration/adversarial
+    tests (v2 IP extraction, v1 regression, trust gating, spoofed v2
+    from untrusted source, spoofed v1, v2-before-v1, default config,
+    proxy_protocol=false gate)
+
 ## [Unreleased] - Phase 63 - Service Level Objectives
 
 ### Added
