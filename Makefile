@@ -1265,3 +1265,10 @@ test-phase-84-classifier-parity:
 	python3 -m pytest management/tests/test_compliance_classifier.py -k "parity" -v
 
 .PHONY: test-phase-84 test-phase-84-go test-phase-84-python test-phase-84-classifier-parity
+
+## Phase 61 targets
+ci-local: ## Run the same fast checks the CI workflow runs (Go + Python tests)
+	GOROOT=/snap/go/current go test ./...
+	python3 -m pytest tests/ --ignore=tests/integration/test_docker_stack.py -x -q --timeout=60
+
+.PHONY: ci-local
