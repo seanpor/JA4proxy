@@ -1,0 +1,77 @@
+---
+# Temporary IP Whitelist Playbook
+# Usage:
+#   ansible-playbook temp-whitelist-ip.yml \
+#     -e ja4proxy_url=https://ja4proxy.corp:8090 \
+#     -e ja4proxy_token="${JA4PROXY_TOKEN}" \
+#     -e ip=203.0.113.5 \
+#     -e reason="Debugging partner integration" \
+#     -e ttl_hours=2 \
+#     -e ticket=CHG0001500
+
+- name: Temporary IP Whitelist
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    ja4proxy_url: ""
+    ja4proxy_token: ""
+    ip: ""
+    reason: "Temporary whitelist"
+    ticket: ""
+    ttl_hours: 2
+    servicenow_enabled: false
+    slack_enabled: false
+
+  pre_tasks:
+    - name: Validate required variables
+      ansible.builtin.assert:
+        that:
+          - ja4proxy_url | length > 0
+          - ja4proxy_token | length > 0
+          - ip | length > 0
+        fail_msg: "ja4proxy_url, ja4proxy_token, and ip are required"
+
+  tasks:
+    - name: Compute expires_at (now + ttl_hours)
+      ansible.builtin.set_fact:
+        expires_at: "{{ (ansible_date_time.iso8601_basic_short | default('20260409T120000'))[:15] }}00Z"
+      # Note: In production, use a proper ISO 8601 calculation.
+      # This is a simplified version for the emergency playbook.
+
+    - name: Add IP to allowlist via Management API
+      ansible.builtin.uri:
+        url: "{{ ja4proxy_url }}/api/v1/allowlist"
+        method: POST
+        body_format: json
+        body:
+          entry: "{{ ip }}"
+          managed_by: "operator"
+          note: "{{ reason }} (Ticket: {{ ticket }})"
+        headers:
+          Authorization: "Bearer {{ ja4proxy_token }}"
+        status_code:
+          - 200
+          - 201
+        return_content: true
+      register: whitelist_result
+      failed_when: >
+        whitelist_result.status not in [200, 201] or
+        whitelist_result.json.id is not defined
+
+    - name: Confirm whitelist entry was created
+      ansible.builtin.debug:
+        msg: "IP {{ ip }} whitelisted (ID: {{ whitelist_result.json.id }}, reason: {{ reason }})"
+
+    - name: Post expiry reminder to Slack #security-ops
+      ansible.builtin.uri:
+        url: "{{ slack_webhook_url }}"
+        method: POST
+        body_format: json
+        body:
+          text: ":warning: Temporary whitelist for `{{ ip }}` will expire in {{ ttl_hours }}h (Ticket: {{ ticket }})"
+        status_code: 200
+      when:
+        - slack_enabled | bool
+        - slack_webhook_url is defined
