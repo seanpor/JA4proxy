@@ -50,7 +50,7 @@ groups:
           burn_tier: slow
         annotations:
           summary: "Availability SLO slow burn"
-          description: "6h burn rate sustained > 6× and 3d burn > 1×. Investigate within the working day."
+          description: "6h burn rate sustained > 6× and 30m short-window > 6×. Investigate within the working day."
           runbook_url: "docs/runbooks/slo_availability.md"
 
   - name: ja4proxy_slo_latency

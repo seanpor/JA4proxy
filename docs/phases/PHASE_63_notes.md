@@ -4,6 +4,37 @@
 > Author agent: Claude (Opus 4.6)
 > Date: 2026-04-09
 
+## Review-fix addendum #3 (post third narrow review, 2026-04-09)
+
+A third focused review (math/correctness only on the two YAML files,
+including a `promtool check rules` pass) found two cosmetic-but-real issues.
+No Tier-1 math errors. Promtool: 34 recording rules + 8 alerts SUCCESS.
+
+1. **Stale annotation on `JA4ProxyAvailabilitySlowBurn`** — the description
+   said "6h burn rate sustained > 6× and 3d burn > 1×" but the post-B1
+   expression pairs 6h with 30m, not 3d. Stale copy from the pre-B1 version.
+   On-call would have read the description, gone looking for a 3d burn-rate
+   panel, and been confused. Fixed to "and 30m short-window > 6×".
+
+2. **Cold-start absent-series risk on availability ratio** — the denominator
+   `sum(rate(ja4proxy_connections_total[…])) + sum(rate(ja4proxy_connection_errors_total[…]))`
+   would collapse to absent if `connection_errors_total` had never been
+   incremented (no series exists yet). PromQL `+` between an instant vector
+   and an empty vector returns empty, so the entire ratio (and burn-rate
+   chain that depends on it) would be absent on a freshly-started healthy
+   proxy with zero errors. Dashboards would show "no data" for availability
+   when the proxy is in fact 100% healthy, and burn-rate alerts could not
+   fire from cold start until at least one error existed.
+
+   **Fix:** wrapped the error-rate term in `(sum(rate(...)) or vector(0))`
+   for all five availability ratio rules (5m, 30m, 1h, 6h, 3d). Latency and
+   redis ratios share their numerator/denominator series (the bucket is a
+   subset of the count; ok-result is a subset of all results) so they do
+   not have this risk and were left alone.
+
+Verified: `promtool check rules` clean on both files post-edit (34+8 rules).
+
+
 ## Review-fix addendum #2 (post second external SRE review, 2026-04-09)
 
 A second independent SRE/security review caught a Tier-1 bug the first
