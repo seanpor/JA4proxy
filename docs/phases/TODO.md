@@ -54,3 +54,19 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 101 — Phase 84 Compliance Review Gap Closure
 *   **Status:** **PROPOSED** (Closes 9 deferred gaps from the second critical review of Phase 84 Compliance Reporting: H1 (single-XRANGE DSAR path), H3 (CIDR-aware watchlist match in DSAR), M1 (Redis XTRIM MINID version check and fallback), M2 (rename beaconing_records_cleaned → beaconing_datapoints_cleaned — breaking), M4 (paginate audit log reads; plan Stream migration ADR), M7 (DSAR partial-failure reporting instead of silent empty arrays), L1 (module-level Jinja2 Environment cache), L2 (JSONL trailing-newline invariant doc/test), L5 (DSAR retention strings read from gdpr config instead of hardcoded prose). All CRITICAL and most HIGH items were fixed inline in the review-fixes branch before merge.)
 *   **Action Plan:** [PHASE_101.md](PHASE_101.md)
+
+### Phase 200 — Go PROXY Protocol Trust + v2 Support
+*   **Status:** **PROPOSED** (Closes two critical Go gaps: (1) add `_is_trusted_proxy_source()` equivalent to prevent IP spoofing via PROXY protocol from untrusted sources, (2) implement PROXY protocol v2 binary parser (Python already has v1+v2). Without (1) any attacker can spoof any IP and bypass all geo/IP/rate/block controls. Without (2) modern HAProxy/NLB v2 headers are silently ignored.)
+*   **Action Plan:** [PHASE_200.md](PHASE_200.md)
+
+### Phase 201 — Go Redis TLS + Signal Score Drift Fix
+*   **Status:** **PROPOSED** (Closes critical Go gaps: (1) Redis client omits TLS despite config having SSL field — credentials on wire, (2) 4 signal scores diverge from config/signal_scores.yml — wrong scoring decisions in production. Also adds: error logging for ZAdd/ZRemRangeByScore (were swallowing errors), health check with script reload after Redis outage, rate limiter input validation.)
+*   **Action Plan:** [PHASE_201.md](PHASE_201.md)
+
+### Phase 202 — CI Supply Chain + Default Credential Removal
+*   **Status:** **PROPOSED** (Eliminates 6 infrastructure-level critical findings: SHA-pin all GitHub Actions (supply chain), remove default credential fallbacks from all compose files (Grafana admin, Management admin/admin, HAProxy admin/admin123), create Go proxy image CI workflow with SBOM+cosign signing, harden Dockerfile.go-proxy with non-root USER.)
+*   **Action Plan:** [PHASE_202.md](PHASE_202.md)
+
+### Phase 203 — Go Missing Signals — JA4T, TLS Mismatch, Weak Ciphers, DGA, Health
+*   **Status:** **PROPOSED** (Closes 5 production-critical signal gaps in Go: (1) JA4T stub returns `""` — implement full JA4T computation, (2) `ja4_tls_mismatch` not implemented — TLS version spoofing undetected, (3) weak cipher coverage 13 vs Python 37+ — NULL/EXPORT/DH_anon/ECDH_anon missed, (4) DGA algorithm diverges from Python — less effective SNI analysis, (5) Go health check only tests Redis — no GeoIP/connections/queue checks.)
+*   **Action Plan:** [PHASE_203.md](PHASE_203.md)
