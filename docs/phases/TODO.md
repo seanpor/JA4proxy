@@ -31,9 +31,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Smoke test suite (Docker Compose, Helm/kind, Podman/Quadlet); DR runbook with 5 scenarios incl. Redis data loss; credential rotation runbooks; TLS certificate rotation; rolling upgrade procedure; MTTR baseline measurement.)
 *   **Action Plan:** [PHASE_64.md](PHASE_64.md)
 
-### Phase 85 — Threat Intelligence Ingestion
-*   **Status:** **PROPOSED** (TAXII 2.1 client consuming JA4 fingerprint and IP indicators. JA4 STIX 2.1 extension definition (strategic moat — first standard for JA4 indicators). Recorded Future and CrowdStrike named connectors. Curated JA4 fingerprint community feed architecture.)
-*   **Action Plan:** [PHASE_85.md](PHASE_85.md)
 
 ### Phase 86 — Observability & Capacity Planning
 *   **Status:** **PROPOSED** (Datadog Agent integration tile with dashboard and 4 monitors. Dynatrace EF2 extension with topology entity type. Nagios check plugin and Zabbix template. Capacity sizing calculator script. make load-test harness. Published benchmark numbers. 7 operator runbooks.)
@@ -51,8 +48,8 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (ja4proxy-operator (separate repo): JA4ProxyConfig, JA4ProxyAllowlist, JA4ProxyDial CRDs with admission webhook validation. Reconciliation loop via Management API. DaemonSet safety annotations. ArgoCD custom health check. ServiceNow CMDB auto-registration (opt-in). NetBox trusted CIDR integration (opt-in, fail-open).)
 *   **Action Plan:** [PHASE_94.md](PHASE_94.md)
 
-### Phase 101 — Phase 84 Compliance Review Gap Closure
-*   **Status:** **PROPOSED** (Closes 9 deferred gaps from the second critical review of Phase 84 Compliance Reporting: H1 (single-XRANGE DSAR path), H3 (CIDR-aware watchlist match in DSAR), M1 (Redis XTRIM MINID version check and fallback), M2 (rename beaconing_records_cleaned → beaconing_datapoints_cleaned — breaking), M4 (paginate audit log reads; plan Stream migration ADR), M7 (DSAR partial-failure reporting instead of silent empty arrays), L1 (module-level Jinja2 Environment cache), L2 (JSONL trailing-newline invariant doc/test), L5 (DSAR retention strings read from gdpr config instead of hardcoded prose). All CRITICAL and most HIGH items were fixed inline in the review-fixes branch before merge.)
+### Phase 101 — Phase 101 — Cross-Phase Gap Register
+*   **Status:** **PROPOSED** (Rolling cross-phase register of deferred review gaps from Phase 84 (compliance reporting) and Phase 85 (threat-intel feed runner). New sections continue numbering across the whole document.)
 *   **Action Plan:** [PHASE_101.md](PHASE_101.md)
 
 ### Phase 200 — Go PROXY Protocol Trust + v2 Support

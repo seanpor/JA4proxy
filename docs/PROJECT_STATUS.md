@@ -213,7 +213,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 82 | Policy-as-Code, Shadow Mode & Governance | COMPLETE | N/A | N/A |
 | 83 | ja4proxy-cli Go Binary | COMPLETE | N/A | N/A |
 | 84 | Compliance & Reporting | COMPLETE | N/A | N/A |
-| 85 | Threat Intelligence Ingestion | PROPOSED | N/A | N/A |
+| 85 | Threat Intelligence Ingestion | COMPLETE | N/A | N/A |
 | 86 | Observability & Capacity Planning | PROPOSED | N/A | N/A |
 | 87 | Container & Host Infrastructure Observability | COMPLETE | N/A | N/A |
 | 88 | Multi-Datacenter Survivability & Failover | PROPOSED | N/A | N/A |
@@ -224,7 +224,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 93 | Terraform Provider + Emergency Runbook Playbooks | PROPOSED | N/A | N/A |
 | 94 | Kubernetes Operator + CMDB/NetBox Integration | PROPOSED | N/A | N/A |
 | 100 | Phase 79 SSO/MFA Gap Closure | COMPLETE | N/A | N/A |
-| 101 | Phase 84 Compliance Review Gap Closure | PROPOSED | N/A | N/A |
+| 101 | Phase 101 — Cross-Phase Gap Register | PROPOSED | N/A | N/A |
 | 200 | Go PROXY Protocol Trust + v2 Support | PROPOSED | N/A | N/A |
 | 201 | Go Redis TLS + Signal Score Drift Fix | PROPOSED | N/A | N/A |
 | 202 | CI Supply Chain + Default Credential Removal | PROPOSED | N/A | N/A |

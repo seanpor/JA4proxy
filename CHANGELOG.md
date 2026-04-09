@@ -63,6 +63,59 @@
 
 ---
 
+## [85] - 2026-04-08 - Threat Intelligence Ingestion
+
+### Added
+- `src/analytics/ti_feeds/` package — outbound-symmetric inbound TI feed runner that consumes external indicators and writes them through the Phase 79 Management API rather than directly into Redis
+  - `base.py` — `FeedClient` ABC, `FeedConfig`, `FeedPollResult` dataclasses
+  - `runner.py` — `FeedRunner` scheduler with leader election (`ti_feed:leader_lock`, 30 s TTL), per-feed circuit breaker integration, differential cleanup pass after every successful poll
+  - `state.py` — `FeedState` Redis sidecar index for the six `ti_feed:*` keys (per-feed `blocklist_uuids`, `ban_ips`, `active_stix_ids`, `poll_state`, `runtime_enabled`)
+  - `circuit_breaker.py` — per-feed CLOSED/HALF-OPEN/OPEN state machine, distinct from the Phase 14e/Phase 59 hot-path TI breaker (batch-poll semantics, opens after N consecutive failed polls not single calls)
+  - `mgmt_client.py` — async aiohttp client for `POST /api/v1/bans/{ip:path}` and `POST /api/v1/blocklist`; bearer auth via `JA4PROXY_FEED_CLIENT_TOKEN`; honours the Phase 79 Operator-role rate limit (50 req/s pacing, 50-indicator batches)
+  - `taxii.py` — hand-rolled async TAXII 2.1 client (no `taxii2-client` dep — see ADR-024); polls `{root}/collections/{id}/objects/?added_after={ts}`, parses STIX bundles, routes IP and JA4 indicators
+  - `recorded_future.py` — Recorded Future connector (TAXII front door + `X-RFToken` header)
+  - `crowdstrike.py` — CrowdStrike Falcon Intel OAuth2 client (`/oauth2/token` + `/intel/combined/indicators/v1` cursor pagination)
+  - `rest_generic.py` — JSONPath-driven generic REST client (uses `jsonpath-ng`)
+  - `seed_file.py` — startup loader for `config/known_bad_fingerprints.yml`, routed through the Management API the same way as any feed
+  - `contribution.py` — disabled-by-default community contribution client; hard-gated payload whitelist enforces the GDPR field set (no raw IPs, no SNI, no audit log fields)
+  - `stix_ja4.py` — `x-ja4-fingerprint` SCO parse / validation helpers; JA4 regex shared with `monitoring/metrics_registry.md`
+  - `metrics.py` — eight Prometheus counters/gauges/histograms registered once to avoid duplicate-timeseries errors
+- `management/api/routes/threat_intel.py` — five new routes:
+  - `GET  /api/v1/threat-intel/feeds` (Auditor)
+  - `GET  /api/v1/threat-intel/feeds/{feed_id}` (Auditor)
+  - `POST /api/v1/threat-intel/feeds/{feed_id}/enable`  (Operator)
+  - `POST /api/v1/threat-intel/feeds/{feed_id}/disable` (Operator)
+  - `POST /api/v1/threat-intel/feeds/{feed_id}/poll`    (Operator)
+- `management/api/models.py` — `ManagedBy.feed = "feed"` enum extension and `TIFeedStatus` / `TIFeedListResponse` Pydantic models
+- `management/api/main.py` — `include_router(threat_intel.router)`
+- `config/known_bad_fingerprints.yml` — 14 vetted JA4 fingerprints from public security research (Cobalt Strike, Sliver, Mythic, Metasploit, etc.) loaded at startup when `threat_intel.seed_file.enabled: true`
+- `config/proxy.yml` — new `threat_intel:` block (feeds list, circuit_breaker tunables, seed_file, feed_contribution stub)
+- `monitoring/alertmanager/rules/ti_feed.yml` — `TIFeedCircuitOpen`, `TIFeedStale` (>2 h), `TIFeedMgmtApiErrors` (>0.1/s)
+- `monitoring/metrics_registry.md` — Phase 85 section documenting all eight metrics
+- `docs/decisions/ADR-024.md` — hand-rolled STIX/TAXII chosen over `stix2`+`taxii2-client`; rationale: sync-only TAXII client, transitive dep footprint, fully-async fits the analytics container event loop
+- `docs/REDIS_SCHEMA.md` — Phase 85 section for the six `ti_feed:*` keys
+- `requirements.txt` — `jsonpath-ng==1.6.1`
+
+### Security
+- **C1 SSRF guard**: `validate_feed_url()` rejects non-https feed URLs and any host inside loopback / RFC1918 / link-local / CGNAT / ULA / multicast / reserved ranges. Enforced at config-parse time so a bad URL is refused before any aiohttp client is built.
+- **C2 credential redaction**: `runner._rebuild_clients` no longer logs the raw config dict (only the feed id). `routes/threat_intel.py` strips `last_error` to its category prefix at the API boundary so Auditors never see upstream 401/403 bodies that may echo back bearer tokens.
+- **C4 feed_id validation**: feed_id must match `^[a-z0-9][a-z0-9_-]{0,63}$` and may not collide with reserved names (`leader_lock`). Closes a Redis-key-namespace pivot and a Prometheus-cardinality inflation vector.
+- **C5 ban-target IP allowlist**: `is_bannable_ip()` rejects loopback / RFC1918 / link-local / multicast / reserved targets. Enforced inside `ManagementClient.post_ban` so every feed client (TAXII, RF, CS, REST, contribution) inherits the guard. A compromised upstream feed can no longer ban operator infrastructure.
+- **C8 differential-cleanup correctness**: replaced the operator-precedence bug `if handle and handle.count(".") >= 1 or ":" in (handle or "")` with an authoritative-set lookup against `ti_feed:{feed_id}:ban_ips` and `ti_feed:{feed_id}:blocklist_uuids`. Empty handles no longer trigger `delete_blocklist("")`.
+- **C7 leader-lock fail-closed**: `FeedState.try_acquire_leader` now returns `False` on Redis errors instead of `True`. The previous fail-open behaviour caused every analytics replica to act as leader during a Redis outage, doubling polls and racing differential cleanup.
+- **C7 cleanup atomicity**: per-indicator cleanup now runs through `FeedState.clear_handle`, which executes `hdel(active_stix_ids)` + `srem(ban_ips|blocklist_uuids)` inside a single Redis `MULTI/EXEC` transaction. The mgmt API delete still happens first; combined with idempotent 404 handling, the overall flow is at-least-once and converges.
+- **C3 CrowdStrike repr redaction**: `CrowdStrikeFalconClient.__repr__` now emits `<redacted>` placeholders for `client_id`/`client_secret` and a `<set>`/`<unset>` token state instead of falling through to the default `self.config` repr that printed both credentials in plaintext.
+- **C6 IPv4-mapped / 6to4 / Teredo canonicalisation**: `is_bannable_ip` now unwraps `ipv4_mapped`, `sixtofour`, and `teredo` IPv6 forms before classifying them, closing a bypass where a feed could ban operator loopback by sending `::ffff:127.0.0.1` (or the equivalent 6to4 / Teredo wrapper of an RFC1918 address).
+- Fixed dead-code `JA4_REGEX` character-class bug (`[d|q]` → `[dq]`) so the exported regex stops accepting literal `|` in JA4 strings.
+
+### Notes
+- `ManagedBy` enum gained one new member (`feed`); existing `terraform`/`operator`/`api`/`analytics`/`legacy`/`migration` values are unchanged. Phase 79 resource model tests pass unchanged (35/35).
+- Phase 23 `src/security/ti_provider.py` (hot-path TI scorer) and Phase 46 `src/security/misp.py` are intentionally untouched. Phase 85 introduces a new abstraction under `src/analytics/ti_feeds/` rather than overloading either of them — different responsibilities, different lifetimes, different failure modes.
+- Phase 20 TAP TAXII *publisher* (`src/tap/export/taxii_server.py`) and the new Phase 85 *consumer* round-trip cleanly: both speak `pattern_type: "stix"` over the new `x-ja4-fingerprint` SCO.
+- The `feed` provenance value alone does not identify *which* feed; the runner maintains the `ti_feed:{feed_id}:*` Redis sidecar index for that, and every feed-created resource carries `note=feed:{feed_id}:{stix_id}` (blocklist) or `reason=feed:{feed_id}` (ban).
+- Recorded Future and CrowdStrike connectors are implemented per the PHASE_85.md spec but **API contracts are not yet vendor-verified** — both clients carry a `# TODO: verify against vendor portal before production use` comment. Both ship `enabled: false` by default.
+- The community contribution client is disabled by default and the hosted endpoint at `https://feed.ja4proxy.io/` does not yet exist. The hard GDPR field-whitelist gate is enforced at serialisation, not at the HTTP boundary.
+
 ## [83] - 2026-04-07 - ja4proxy-cli Go Binary
 
 ### Added
