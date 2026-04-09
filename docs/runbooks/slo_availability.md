@@ -33,32 +33,55 @@ A real fast-burn alert needs both 1h and 6h burn rates above 14.4×.
 topk(5, sum by (error_type) (rate(ja4proxy_connection_errors_total[15m])))
 ```
 
-Possible values: `redis_timeout`, `tls_parse_error`, `backend_refused`,
-`oom`, `unknown`. The dominant label tells you which subsystem is failing.
+Possible values (source-aware as of phase-63 review-fix):
+
+| `error_type` | Source | Meaning |
+|---|---|---|
+| `client_read_timeout` | client | Idle TCP read timed out — usually benign client churn, but a sudden spike means upstream LB or scanner abandoning |
+| `client_read_error` | client | Other client-side read failure (reset, etc.) |
+| `backend_dial_timeout` | backend | Cannot reach backend within `connection_timeout` — upstream overload or network |
+| `backend_dial_error` | backend | Backend dial failed for non-timeout reason |
+| `backend_refused` | backend | Backend returned `connection refused` / `no route` — backend down or firewall |
+| `redis_timeout` | redis | Redis call exceeded deadline (note: Redis errors are also surfaced via `ja4proxy_redis_operations_total{result="error"}`) |
+| `redis_error` | redis | Other Redis error |
+| `oom` | any | Process or container ran out of memory |
+| `unknown` | any | Unclassified — file an issue |
+
+`tls_parse_error` is **not** an availability error: malformed ClientHellos
+still reach the policy pipeline (scored without JA4) and are counted in the
+good term. Spikes show up in `ja4proxy_signal_total` instead.
+
+The dominant label tells you which subsystem is failing.
 
 ## Step 3 — Diagnose by error_type
 
-### `redis_timeout`
+### `redis_timeout` / `redis_error`
 ```bash
 redis-cli -h <redis-host> --latency
 redis-cli -h <redis-host> INFO clients | grep -E 'connected_clients|maxclients'
 redis-cli -h <redis-host> SLOWLOG GET 10
 ```
 Check `monitoring/grafana` Redis dashboard. If Redis is the root cause,
-follow `docs/runbooks/redis_operations.md`.
+follow `docs/runbooks/redis_operations.md`. Cross-reference
+`ja4proxy_redis_operations_total{result="error"}` by command.
 
-### `backend_refused`
+### `backend_refused` / `backend_dial_timeout` / `backend_dial_error`
 ```bash
 # From a proxy host
 nc -zv <backend-host> 443
 curl -kv https://<backend-host>/health
 ```
-Likely backend outage or firewall change. Page the backend on-call.
+Likely backend outage, overload, or firewall change. Page the backend on-call.
+`backend_dial_timeout` typically means saturation; `backend_refused` means
+the listener is gone.
 
-### `tls_parse_error`
-A spike here means malformed ClientHellos — possible scanner activity. Cross
-reference `ja4proxy_signal_total`. Not normally a real outage; consider
-filtering at the load balancer.
+### `client_read_timeout` / `client_read_error`
+A small baseline of these is normal (idle clients dropping). A sudden spike
+correlated with no backend issue usually means an upstream LB or a scanner
+hanging up. Check the LB's egress logs and `ja4proxy_signal_total` for
+beaconing patterns. **Not normally a real outage** — confirm the burn-rate
+alert is not being driven entirely by client churn before paging the wider
+team.
 
 ### `oom`
 ```bash

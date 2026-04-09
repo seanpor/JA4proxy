@@ -127,6 +127,12 @@ groups:
           description: "Blocking rate {{ $value | humanizePercentage }} at dial ≥ 50. Verify it is not a declared attack campaign before rolling back."
           runbook_url: "docs/runbooks/slo_fp_rate.md"
 
+      # No dial guard here: at dial=0 the proxy is monitor-only (all actions
+      # degrade to "allow") so this ratio is naturally near zero. The 5%
+      # threshold only fires once an operator has raised the dial above 0
+      # AND a real block wave is in progress. Intentional asymmetry with
+      # JA4proxyHighBlockingRate above, which IS guarded because its 1h-rate
+      # denominator stays valid even at dial=0.
       - alert: JA4ProxyHighBlockRate
         expr: job:ja4proxy_false_positive_rate:ratio_rate5m > 0.05
         for: 5m

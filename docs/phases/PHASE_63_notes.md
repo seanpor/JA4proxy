@@ -4,6 +4,60 @@
 > Author agent: Claude (Opus 4.6)
 > Date: 2026-04-09
 
+## Review-fix addendum (post external SRE review, 2026-04-09)
+
+External SRE/architect review returned `APPROVE WITH FIXES`. Three blockers
+fixed in-branch:
+
+1. **B1+B2 — `classifyConnError` collapsed three error sources into one
+   label.** The previous switch returned `"redis_timeout"` for *any*
+   `i/o timeout` or `context.DeadlineExceeded`, including client-side idle
+   reads at `cmd/proxy/main.go:278` and backend dial timeouts at
+   `cmd/proxy/main.go:413`. The Step-1 runbook query
+   (`topk by (error_type)`) would have pointed on-call at Redis when the
+   real cause was usually a client closing or upstream backend overload.
+   **Fix:** `classifyConnError` now takes a `source` argument
+   (`"client_read"` / `"backend_dial"` / `"redis"`) and returns a
+   source-aware label. New label set: `client_read_timeout`,
+   `client_read_error`, `backend_dial_timeout`, `backend_dial_error`,
+   `backend_refused`, `redis_timeout`, `redis_error`, `connection_refused`,
+   `oom`, `timeout`, `unknown`. Recording rules don't filter on
+   `error_type` (they `sum()` everything), so the relabeling is backwards-
+   compatible. The metric Help comment in `internal/metrics/metrics.go` was
+   updated and the `slo_availability.md` runbook now has a label-meaning
+   table and per-label diagnostic blocks.
+
+2. **B3 — `tls_parse_error` was double-counted.** The TLS parse failure
+   path at `main.go:324` incremented
+   `ja4proxy_connection_errors_total{error_type="tls_parse_error"}` and
+   then *fell through* to score the connection without a JA4, where it was
+   ALSO counted in `ja4proxy_connections_total` (the SLI good term).
+   Result: a single TLS parse failure counted as both good and bad, biasing
+   the availability ratio optimistically. **Fix:** removed the increment.
+   TLS parse failures are not availability errors — the connection is still
+   handled and the policy pipeline still produces a decision. Spikes show
+   up in `ja4proxy_signal_total` instead. Documented in the runbook.
+
+3. **New unit test — `cmd/proxy/classify_conn_error_test.go`** with 14
+   table-driven cases covering: nil, client-read timeout (real
+   `net.OpError` with `Timeout()=true`), client-read deadline-exceeded,
+   client-read generic error, backend timeout, backend connection refused,
+   backend no-route, backend generic error, Redis timeout, Redis deadline-
+   exceeded, Redis generic error, OOM, unknown-source timeout, unknown-
+   source other. All pass.
+
+Non-blocking findings addressed:
+
+- **N9 (FP-rate alert asymmetry):** Added an inline comment to
+  `JA4ProxyHighBlockRate` in `slo_alerts.yml` explaining why no `dial ≥ 50`
+  guard is needed (the ratio collapses naturally at dial=0).
+- **N4 (latency SLI scope):** already documented at `slo_latency.md:10`,
+  no change required.
+- **N1, N2, N3, N6, N7:** explicit deferrals; tracked below in the
+  original "Deferred" section.
+
+Tests: `GOROOT=/snap/go/current go test ./...` — all 17 Go packages pass.
+
 ## What landed
 
 The four SLIs from PHASE_63.md are now computable end-to-end:
