@@ -17,6 +17,7 @@
 | [Phase 84 Compliance Review](#phase-84-compliance-review-deferred-items) | 2026-03-?? | C1–C3 (closed), H1/H3 deferred + H2/H4/H5 closed, M1/M2/M4/M7 deferred + M3/M5/M6 closed, L1/L2/L5 deferred + L3/L4 closed |
 | [Phase 85 Threat-Intel Hardening](#phase-85-threat-intel-hardening-deferred-items) | 2026-04-09 | C5-partial/C7 closed + C4–C6 deferred, H13 closed + H6–H12 deferred, M8–M14 deferred, L6–L8 deferred |
 | [Phase 62 Go Test Parity](#phase-62-go-test-parity-deferred-items) | 2026-04-09 | M15 (golden cross-check), M16 (chaos right-answer-wrong-mechanism), M17 (V2 fuzz target hand-off to Phase 200), L9 (property generator weight semantics) |
+| [Phase 64 Deployment Validation](#phase-64-deployment-validation-deferred-items) | 2026-04-09 | M18 (Podman/Quadlet smoke test blocked), M19 (phantom `ja4proxy-cli backup` audit) |
 
 When a future phase review surfaces deferred items, append a new section
 below and start its severity counters at the next free number across the
@@ -908,3 +909,105 @@ Phase 85 section:
   contribution path landed in Chunk D. Hardening it is Phase 86 or
   later, not 101.
 - **Replacing `aiohttp` with `httpx`.** Not a security item.
+
+---
+
+## Phase 64 Deployment Validation (deferred items)
+
+> **Source:** Claude re-plan review of Phase 64, 2026-04-09. Phase 64 was
+> restructured from a monolithic document into nine independent sub-phases
+> (64a–64i). The items below were dropped because they depend on artefacts
+> that do not yet exist in the repository.
+
+### Context
+
+Phase 64 covers deployment smoke tests, DR runbooks, MTTR baselines, and
+credential/certificate rotation procedures. The re-plan identified two items
+that cannot be addressed because prerequisite artefacts are missing: the
+Podman/Quadlet unit files (Phase 76) and the actual backup CLI surface
+(Phase 19, Python-only).
+
+---
+
+#### M18 — Podman/Quadlet smoke test blocked
+
+**Severity:** MEDIUM
+**Effort:** ~half a day (once prerequisites exist)
+
+##### Context
+
+`scripts/smoke/test_podman_quadlet.sh` (originally in PHASE_64.md §2.3)
+copies `deploy/rhel/quadlets/*.{container,network,kube}` to the user's
+Quadlet directory and starts the service via systemd. The directory
+`deploy/rhel/quadlets/` does not exist. Phase 76 (RHEL/Podman/Quadlet
+deployment) was a strategy / best-practices document only — it produced
+no Quadlet unit files.
+
+Until Phase 76 (or another RHEL deployment phase) creates real
+`.container`, `.network`, and `.kube` files, the smoke test has nothing to
+validate.
+
+##### Fix required
+
+Phase 76 (or its successor) must create:
+```
+deploy/rhel/quadlets/
+  ja4proxy.container
+  redis.container
+  ja4proxy.network
+  (any .kube files if Podman pods are used)
+```
+
+Once those files exist, 64b can produce `scripts/smoke/test_podman_quadlet.sh`
+following the same contract as 64a: exit 0 = pass, exit 1 = fail with
+stderr reason, structured output under `test-results/smoke/`.
+
+##### Owner
+TBD — Phase 76 owner (Phase 76 was paper-only so far).
+
+---
+
+#### M19 — Phantom `ja4proxy-cli backup` audit
+
+**Severity:** MEDIUM
+**Effort:** ~2 hours (audit) + ~1 day (fix any broken runbooks)
+
+##### Context
+
+The Go CLI (`cmd/ja4proxy-cli/main.go`) has the following subcommands:
+`ip`, `allowlist`, `blocklist`, `dial`, `config reload`, `health`,
+`fingerprint`, `policy`, `simulation`, `compliance`, `report`. It has
+**no `backup` subcommand**.
+
+Phase 19's backup system is Python-only: `src/backup/worker.py` and
+`src/backup/restorer.py`. The correct invocation is:
+```python
+python3 -c "from src.backup.restorer import Restorer; \
+  Restorer('redis://:PASSWORD@localhost:6379/0', \
+  Path('/var/backups/ja4proxy/backups/<filename>.tar.gz')).restore()"
+```
+
+However, PHASE_64.md §3.5 and potentially other runbooks (Phase 22, 40,
+57) reference phantom commands like `ja4proxy-cli backup list`,
+`ja4proxy-cli backup restore`, or `ja4proxy-cli backup run --immediate`.
+An operator following these runbooks will get a "unknown command" error
+at the worst possible moment (during a DR event).
+
+##### Fix required
+
+1. Audit all runbooks under `docs/runbooks/` and all phase documents
+   under `docs/phases/` for `ja4proxy-cli backup` references.
+2. Replace each reference with the correct Phase 19 Python invocation.
+3. If a long-term plan exists to port backup to the Go CLI, document it
+   here. If not, the Python tool is the canonical surface and should be
+   noted as such in `docs/runbooks/redis_operations.md` and any DR
+   runbook that mentions backups.
+
+##### Verify
+
+```bash
+grep -rn "ja4proxy-cli backup" docs/runbooks/ docs/phases/
+```
+
+The above should return zero results after the fix (except this PHASE_101
+entry itself).
