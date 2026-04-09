@@ -791,13 +791,21 @@ webhooks:
 #
 # See docs/phases/PHASE_85.md for the full spec.
 threat_intel:
-  enabled: true                    # phase-85: master switch for the feed runner
+  # phase-85.1 (C4 — security review): defaults are now OFF on a fresh
+  # install. Both the runner and the seed file have to be consciously
+  # enabled. Rationale: the seed file pushes JA4 entries into the
+  # canonical blocklist, which is a HARD block in the proxy bypass
+  # chain — i.e. it bypasses the dial. Defaulting it on would violate
+  # the project's "never block on first deploy" invariant. An operator
+  # who flips `enabled: true` here is acknowledging that vetted-bad
+  # JA4s should be blocked unconditionally.
+  enabled: false                   # phase-85: master switch for the feed runner
   # The analytics container polls on the intervals declared per feed below.
   # When disabled, existing rules are retained; no new indicators are fetched.
 
   # Seed file — bundled vetted JA4 fingerprints loaded once at startup.
   seed_file:                       # phase-85
-    enabled: true                  # phase-85: load config/known_bad_fingerprints.yml at startup
+    enabled: false                 # phase-85.1 (C4): off by default — see comment above
     path: "config/known_bad_fingerprints.yml"  # phase-85
     min_entries: 10                # phase-85: WARN if fewer entries loaded
 
