@@ -575,7 +575,7 @@ rebuild:
 	fi
 	docker compose -f docker/docker-compose.monitoring.yml down -v --remove-orphans --rmi local 2>/dev/null || true
 	@echo "Rebuilding all images (no cache)..."
-	docker compose -f docker/docker-compose.poc.yml build --no-cache
+	docker compose -f docker/docker-compose.poc.yml --env-file .env build --no-cache
 	@echo "Starting full stack..."
 	@if [ -n "$(_AGENT)" ]; then \
 		docker compose -f docker/docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) up -d; \
