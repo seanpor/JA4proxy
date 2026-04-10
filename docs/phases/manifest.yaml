@@ -1100,7 +1100,8 @@ phases:
     - known_bad_fingerprints.yml ships with at least 10 vetted fingerprints
   86:
     name: Observability & Capacity Planning
-    status: PROPOSED
+    status: COMPLETE
+    completed: 2026-04-10
     summary: "7 sub-phases: 86a Management API summary endpoint Python + Go, 86b Load testing harness + benchmark run, 86c Capacity sizing calculator, 86d Datadog integration with dashboard and monitors, 86e Dynatrace EF2 extension, 86f Nagios check + Zabbix template, 86g 7 alert runbooks + runbook_url annotations on existing alerts."
     action_plan: docs/phases/PHASE_86.md
     dependencies: []

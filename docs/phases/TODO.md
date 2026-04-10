@@ -11,10 +11,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🔵 Planned & Open Phases
 
-### Phase 86 — Observability & Capacity Planning
-*   **Status:** **PROPOSED** (7 sub-phases: 86a Management API summary endpoint Python + Go, 86b Load testing harness + benchmark run, 86c Capacity sizing calculator, 86d Datadog integration with dashboard and monitors, 86e Dynatrace EF2 extension, 86f Nagios check + Zabbix template, 86g 7 alert runbooks + runbook_url annotations on existing alerts.)
-*   **Action Plan:** [PHASE_86.md](PHASE_86.md)
-
 ### Phase 93 — Terraform Provider + Emergency Runbook Playbooks
 *   **Status:** **PROPOSED** (terraform-provider-ja4proxy (separate repo): 6 resource types (allowlist_entry, blocklist_entry, watchlist_entry, ban [IP+CIDR unified], dial, webhook), protect_unmanaged_entries flag, import workflow. Three emergency Ansible playbooks: emergency-ban-cidr.yml, temp-whitelist-ip.yml, maintenance-dial-zero.yml. Critical review 2026-04-09: corrected API mappings (ban uses /api/v1/bans/{ip_encoded}, no separate cidr_ban), removed 202 dial handling, added watchlist resource, added auth to playbooks.)
 *   **Action Plan:** [PHASE_93.md](PHASE_93.md)
