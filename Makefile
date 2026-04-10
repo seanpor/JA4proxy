@@ -372,7 +372,7 @@ scan-images:
 	@fail=0; \
 	for img in $(TRIVY_IMAGES); do \
 		echo "  Scanning $$img ..."; \
-		result=$$(docker run --rm aquasec/trivy:latest image \
+		result=$$(docker run --rm aquasec/trivy:0.69.3 image \
 			--severity HIGH,CRITICAL --exit-code 0 \
 			--no-progress --scanners vuln \
 			--format table "$$img" 2>&1 | grep -E "CRITICAL|HIGH|Total:" || true); \
@@ -392,11 +392,19 @@ scan-dockerfiles:
 	@echo "=== Trivy: Dockerfile/compose misconfiguration scan (HIGH + CRITICAL) ==="
 	@echo "    Fails on HIGH or CRITICAL findings."
 	@fail=0; \
-	for dir in /scan/docker /scan/src/analytics /scan/tarpit; do \
-		echo "  Scanning $$dir ..."; \
-		docker run --rm -v $(PWD):/scan aquasec/trivy:latest config \
-			--severity HIGH,CRITICAL --exit-code 1 \
-			"$$dir" || fail=1; \
+	for f in docker/Dockerfile docker/Dockerfile.go-proxy docker/Dockerfile.management \
+		 docker/Dockerfile.mockbackend docker/Dockerfile.admin docker/Dockerfile.test \
+		 Dockerfile-cli docker/docker-compose.poc.yml docker/docker-compose.monitoring.yml \
+		 docker/docker-compose.prod.yml docker/docker-compose.scale.yml \
+		 docker/docker-compose.python-legacy.yml; do \
+		if [ -f "$$f" ]; then \
+			echo "  Scanning $$f ..."; \
+			docker run --rm \
+				-v "$(PWD):/scan:ro" \
+				aquasec/trivy:0.69.3 config \
+				--severity HIGH,CRITICAL --exit-code 1 \
+				"/scan/$$f" || fail=1; \
+		fi; \
 	done; \
 	[ $$fail -eq 0 ] || exit 1
 	@echo "✓ Dockerfile scan passed"
@@ -413,7 +421,7 @@ scan-first-party:
 	for img in ja4proxy:1.0.0 ja4proxy-analytics:1.0.0 ja4proxy-tarpit:1.0.0 ja4proxy-mockbackend:1.0.0 ja4proxy-test:1.0.0 ja4proxy-trafficgen:1.0.0; do \
 		echo "  Scanning $$img ..."; \
 		result=$$(docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-			aquasec/trivy:latest image --severity HIGH,CRITICAL --exit-code 0 \
+			aquasec/trivy:0.69.3 image --severity HIGH,CRITICAL --exit-code 0 \
 			--no-progress --scanners vuln --format table "$$img" 2>&1 \
 			| grep -E "CRITICAL|HIGH|Total:" || true); \
 		critical=$$(echo "$$result" | grep -c "CRITICAL" || true); \
