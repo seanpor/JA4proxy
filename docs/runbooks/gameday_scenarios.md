@@ -112,12 +112,27 @@ docker compose -f docker/docker-compose.poc.yml stop "$PROXY"
 
 **Facilitator trigger:**
 ```bash
+# S2 fix: Load environment for REDIS_PASSWORD (required for all facilitator triggers)
+[ -f .env ] && set -a && source .env && set +a
+
 # Stop all proxy containers
-docker compose -f docker/docker-compose.poc.yml ps --format json \
-  | python3 -c "import sys,json; [print(s['Service']) for s in json.load(sys.stdin) if 'proxy' in s.get('Service','').lower()]" \
-  | while read -r svc; do
-      docker compose -f docker/docker-compose.poc.yml stop "$svc"
-    done
+# N5 fix: Use a for-loop instead of pipe-to-while to avoid subshell env loss
+SERVICES=$(docker compose -f docker/docker-compose.poc.yml ps --format json \
+  | python3 -c "
+import sys, json
+try:
+    services = json.load(sys.stdin)
+    for s in services:
+        name = s.get('Service', s.get('Name', ''))
+        if 'proxy' in name.lower():
+            print(name)
+except Exception:
+    pass
+" 2>/dev/null || true)
+
+for svc in $SERVICES; do
+    docker compose -f docker/docker-compose.poc.yml stop "$svc"
+done
 ```
 
 **What the team does BEFORE opening the runbook:**
@@ -154,6 +169,9 @@ docker compose -f docker/docker-compose.poc.yml ps --format json \
 
 **Facilitator trigger:**
 ```bash
+# Load environment for REDIS_PASSWORD (required for all facilitator triggers)
+[ -f .env ] && set -a && source .env && set +a
+
 # Set dial to an extreme value and publish config reload
 redis-cli -a "$REDIS_PASSWORD" SET ja4proxy:dial 100
 redis-cli -a "$REDIS_PASSWORD" PUBLISH ja4proxy:config_reload '{"source":"gameday","dial":100}'

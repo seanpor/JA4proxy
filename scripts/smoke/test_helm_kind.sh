@@ -98,12 +98,14 @@ if [ "$HEALTH_CODE" != "200" ]; then
         wget -q --spider http://localhost:8090/api/v1/health/deep >>"$LOG" 2>&1; then
         log "Health endpoint responded OK (spider check)"
     else
-        # Last resort: just check if the port is reachable
-        if kubectl exec "$POD" -- \
-            wget -qO- http://localhost:8090/ -O /dev/null --timeout=5 >>"$LOG" 2>&1; then
-            log "Management port 8090 reachable (health path may differ in K8s)"
+        # Last resort: check if the port is reachable AND the response
+        # contains a known-good string (not just any 500 error page).
+        BODY=$(kubectl exec "$POD" -- \
+            wget -qO- http://localhost:8090/ --timeout=5 2>>"$LOG" || true)
+        if echo "$BODY" | grep -qiE '"status"|"healthy"|"ja4proxy"|Ja4proxy|JA4'; then
+            log "Management port 8090 reachable with expected response content"
         else
-            fail "Health check inside pod failed — port 8090 not reachable"
+            fail "Health check inside pod failed — port 8090 not reachable or unexpected response"
         fi
     fi
 else

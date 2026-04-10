@@ -28,6 +28,11 @@ the old one, all nodes are updated, then the old password is removed.
    chmod 600 /tmp/redis-new-password.txt
    ```
 
+   > **Compliance note (SOC 2 / ISO 27001):** Generated passwords must have
+   > ≥ 128 bits of entropy. `openssl rand -base64 32` provides 256 bits. Never
+   > use manually created passwords with fewer than 20 random characters. Do not
+   > store generated passwords in plain text beyond the rotation window.
+
 2. **Add the new password to Redis ACL (alongside the old):**
    ```bash
    OLD_PASSWORD=$(grep REDIS_PASSWORD .env | cut -d= -f2)
