@@ -151,15 +151,16 @@ def fuzz_smoke_section() -> str:
     return "\n".join(lines)
 
 
-def _section_deployment() -> str:
+def _section_deployment(repo_root: Path | None = None) -> str:
     """Phase 64i — Deployment Validation Evidence section.
 
     Collects smoke test results, MTTR baseline, and DR exercise history.
     Gracefully degrades if any input is missing (never raises).
     """
+    base = Path(repo_root) if repo_root else Path(".")
     lines = ["## Deployment Validation Evidence", ""]
 
-    smoke_dir = Path("test-results/smoke")
+    smoke_dir = base / "test-results" / "smoke"
     lines.append("### Smoke Tests")
     if smoke_dir.exists():
         for result_file in sorted(smoke_dir.glob("*.result")):
@@ -169,7 +170,7 @@ def _section_deployment() -> str:
         lines.append("- No smoke test results found. Run `make smoke-docker` first.")
     lines.append("")
 
-    mttr_file = Path("MTTR_BASELINE.md")
+    mttr_file = base / "MTTR_BASELINE.md"
     lines.append("### MTTR Baseline")
     if mttr_file.exists():
         lines.extend(mttr_file.read_text().splitlines())
@@ -177,8 +178,8 @@ def _section_deployment() -> str:
         lines.append("- `MTTR_BASELINE.md` not found. Run `make measure-mttr` first.")
     lines.append("")
 
-    dr_runbook = Path("docs/runbooks/disaster_recovery.md")
-    gameday_file = Path("docs/runbooks/gameday_scenarios.md")
+    dr_runbook = base / "docs" / "runbooks" / "disaster_recovery.md"
+    gameday_file = base / "docs" / "runbooks" / "gameday_scenarios.md"
     lines.append("### DR Runbook Exercise History")
     if dr_runbook.exists() and "Runbook Exercise History" in dr_runbook.read_text():
         content = dr_runbook.read_text()
@@ -240,7 +241,7 @@ def build_report(extra_section: str | None = None) -> str:
     return "\n".join(parts) + "\n"
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--output", default=str(DEFAULT_OUTPUT), help="output markdown path")
     ap.add_argument("--stdout", action="store_true", help="also print to stdout")
@@ -250,7 +251,7 @@ def main() -> int:
         default=None,
         help="append a specific evidence section (e.g. --section deployment)",
     )
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
 
     report = build_report(extra_section=args.section)
     out_path = Path(args.output)

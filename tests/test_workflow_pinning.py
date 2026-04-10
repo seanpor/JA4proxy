@@ -45,6 +45,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
     },
     "actions/setup-go": {
         "v5.2.0": "3041bf56c941b39c61721a86cd11f3bb1338122a",
+        "v5.6.0": "40f1582b2485089dde7abd97c1529aa768e1baff",
     },
     "actions/setup-python": {
         "v5.0.0": "0a5c61591373683505ea898e09a3ea4f39ef2b9c",

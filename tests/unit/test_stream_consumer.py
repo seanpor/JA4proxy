@@ -102,7 +102,7 @@ class TestConsumerInit:
 class TestConnect:
     async def test_connect_ignores_busygroup_error(self):
         """BUSYGROUP is raised when the group already exists; must be swallowed."""
-        import aioredis
+        import redis.asyncio as aioredis
 
         mock_redis = AsyncMock()
         mock_redis.xgroup_create = AsyncMock(
@@ -119,7 +119,7 @@ class TestConnect:
 
     async def test_connect_propagates_non_busygroup_redis_error(self):
         """Non-BUSYGROUP Redis errors must propagate so operators see them."""
-        import aioredis
+        import redis.asyncio as aioredis
 
         mock_redis = AsyncMock()
         mock_redis.xgroup_create = AsyncMock(
@@ -427,14 +427,14 @@ class TestConnectFull:
         analytics node processes no events — all cross-instance threat signals
         are silently discarded.
         """
-        import aioredis
+        import redis.asyncio as aioredis
         mock_redis = AsyncMock()
         mock_redis.xgroup_create = AsyncMock(return_value=True)
 
         async def _from_url(url, **kwargs):
             return mock_redis
 
-        with patch("aioredis.from_url", side_effect=_from_url):
+        with patch("src.analytics.stream_consumer.aioredis.from_url", side_effect=_from_url):
             c = _make_consumer()
             c.redis = None
             await c.connect()
@@ -443,7 +443,7 @@ class TestConnectFull:
 
     async def test_connect_ignores_busygroup_error(self):
         """BUSYGROUP error (group already exists) must be swallowed on connect."""
-        import aioredis
+        import redis.asyncio as aioredis
         mock_redis = AsyncMock()
         mock_redis.xgroup_create = AsyncMock(
             side_effect=aioredis.ResponseError("BUSYGROUP Consumer Group name already exists")
@@ -452,14 +452,14 @@ class TestConnectFull:
         async def _from_url(url, **kwargs):
             return mock_redis
 
-        with patch("aioredis.from_url", side_effect=_from_url):
+        with patch("src.analytics.stream_consumer.aioredis.from_url", side_effect=_from_url):
             c = _make_consumer()
             c.redis = None
             await c.connect()  # Must not raise
 
     async def test_connect_propagates_non_busygroup_error(self):
         """Non-BUSYGROUP Redis errors on xgroup_create must propagate."""
-        import aioredis
+        import redis.asyncio as aioredis
         mock_redis = AsyncMock()
         mock_redis.xgroup_create = AsyncMock(
             side_effect=aioredis.ResponseError("WRONGTYPE wrong kind of value")
@@ -468,7 +468,7 @@ class TestConnectFull:
         async def _from_url(url, **kwargs):
             return mock_redis
 
-        with patch("aioredis.from_url", side_effect=_from_url):
+        with patch("src.analytics.stream_consumer.aioredis.from_url", side_effect=_from_url):
             c = _make_consumer()
             c.redis = None
             with pytest.raises(aioredis.ResponseError):
@@ -480,11 +480,11 @@ class TestConnectFull:
         Security: if the monitoring system is not wired up at connect time, score
         drift alerts are never generated even when the connection is healthy.
         """
-        import aioredis
+        import redis.asyncio as aioredis
         mock_redis = AsyncMock()
         mock_redis.xgroup_create = AsyncMock(return_value=True)
 
-        with patch("aioredis.from_url", return_value=mock_redis):
+        with patch("src.analytics.stream_consumer.aioredis.from_url", return_value=mock_redis):
             with patch("src.analytics.stream_consumer.StreamConsumer.connect"):
                 # Test monitoring init path directly
                 c = _make_consumer(monitoring_enabled=True)
@@ -767,7 +767,7 @@ class TestStreamConsumerCoverageGaps:
         mock_redis.xgroup_create = AsyncMock(return_value=True)
 
         # from_url is awaited, so the patch must be an AsyncMock
-        with patch("aioredis.from_url", AsyncMock(return_value=mock_redis)):
+        with patch("src.analytics.stream_consumer.aioredis.from_url", AsyncMock(return_value=mock_redis)):
             with patch("src.analytics.monitoring.MonitoringSystem") as mock_ms_cls:
                 mock_ms_cls.return_value = MagicMock()
                 c = _make_consumer(monitoring_enabled=True)

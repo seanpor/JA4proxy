@@ -151,11 +151,11 @@ log "Scenario 2 MTTR: ${MTTR_2}s (RTO: 120s) — ${PASS[2]}"
 
 # ── Scenario 4: Dial corruption ───────────────────────────────────────────────
 log "=== Scenario 4: Dial corruption ==="
-redis-cli SET ja4proxy:dial 100 >/dev/null 2>&1
-redis-cli PUBLISH ja4proxy:config_reload '{"source":"measure_mttr","dial":100}' >/dev/null 2>&1
+redis-cli SET config:dial 100 >/dev/null 2>&1
+redis-cli PUBLISH config:reload '{"source":"measure_mttr","dial":100}' >/dev/null 2>&1
 START=$(date +%s)
-redis-cli SET ja4proxy:dial 0 >/dev/null 2>&1
-redis-cli PUBLISH ja4proxy:config_reload '{"source":"measure_mttr","dial":0}' >/dev/null 2>&1
+redis-cli SET config:dial 0 >/dev/null 2>&1
+redis-cli PUBLISH config:reload '{"source":"measure_mttr","dial":0}' >/dev/null 2>&1
 until curl -sf --max-time 3 "$HEALTH_URL" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get('dial')==0 else 1)" \
     >/dev/null 2>&1; do
@@ -184,8 +184,8 @@ KEY_EXISTS=$(redis-cli EXISTS ja4proxy:mttr_probe 2>/dev/null || echo "0")
 if [ "$KEY_EXISTS" != "0" ]; then
     log "WARN: probe key still exists — data loss simulation may not have worked (volume persisted)"
 fi
-redis-cli SET ja4proxy:dial 0 >/dev/null 2>&1
-redis-cli PUBLISH ja4proxy:config_reload '{"source":"measure_mttr","dial":0}' >/dev/null 2>&1
+redis-cli SET config:dial 0 >/dev/null 2>&1
+redis-cli PUBLISH config:reload '{"source":"measure_mttr","dial":0}' >/dev/null 2>&1
 MTTR_5=$(($(date +%s) - START))
 MEASURED_S[5]=$MTTR_5
 PASS[5]=$([ "$MTTR_5" -le 300 ] && echo "PASS" || echo "FAIL")
@@ -203,7 +203,7 @@ Proxy container: $PROXY_CONTAINER
 |----------|---------|---------------|------------|--------|
 | 1: Redis failure | \`docker compose stop redis\` | ${MEASURED_S[1]}s | 300s | ${PASS[1]} |
 | 2: Single node failure | \`docker compose stop $PROXY_CONTAINER\` | ${MEASURED_S[2]}s | 120s | ${PASS[2]} |
-| 4: Dial corruption | \`redis-cli SET ja4proxy:dial 100\` | ${MEASURED_S[4]}s | 180s | ${PASS[4]} |
+| 4: Dial corruption | \`redis-cli SET config:dial 100\` | ${MEASURED_S[4]}s | 180s | ${PASS[4]} |
 | 5: Redis data loss | \`docker volume rm $REDIS_VOLUME\` | ${MEASURED_S[5]}s | 300s | ${PASS[5]} |
 
 Scenario 3 (total fleet failure) is exercised via GameDay only — not automated.

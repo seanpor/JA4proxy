@@ -35,9 +35,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-      - uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a  # v5.2.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff  # v5.6.0
         with:
-          go-version: "1.22"
+          go-version: "1.25.9"
       - name: go test
         env:
           GOFLAGS: "-count=1"
@@ -65,9 +65,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-      - uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a  # v5.2.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff  # v5.6.0
         with:
-          go-version: "1.22"
+          go-version: "1.25.9"
       - name: gofmt
         run: |
           out="$(gofmt -l .)"
@@ -120,13 +120,13 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-      - uses: returntocorp/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d  # v1
-        # Fails CI on any finding at or above HIGH (Semgrep ERROR) severity.
+      - uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c  # v5.0.0
         with:
-          config: >-
-            p/ci
-            p/security-audit
-            p/secrets
+          python-version: "3.11"
+      - name: Semgrep scan
+        run: |
+          pip install semgrep==1.67.0
+          semgrep --config p/ci --config p/security-audit --config p/secrets --error .
 
   dependency-audit-python:
     name: Python dependency audit (pip-audit)
@@ -150,9 +150,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-      - uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a  # v5.2.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff  # v5.6.0
         with:
-          go-version: "1.22"
+          go-version: "1.25.9"
       - name: govulncheck
         run: |
           # phase-61 review-fix #2 (B2): pin govulncheck. @latest defeats the
@@ -187,15 +187,6 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-      - name: Set up Docker
-        uses: docker/setup-docker-action@dd13954682b00a4c735136ad4734f89e3615b5d6  # v1.3.2
-        with:
-          daemon-config: |
-            {
-              "features": {
-                "containerd-snapshotter": true
-              }
-            }
       - name: Smoke test
         run: |
           # Create minimal .env for CI if absent
