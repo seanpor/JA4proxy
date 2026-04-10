@@ -201,12 +201,18 @@ class WorkspaceIntegrityTool:
         self.scan_workspace()
         
         for f in sorted(self.all_files):
-            if f.endswith(".py"): self.parse_python(f)
-            elif f.endswith(".sh"): self.parse_shell(f)
-            elif f.endswith(".go"): self.parse_go(f)
-            elif f.endswith(".md"): self.parse_markdown(f)
-            elif f.endswith(".yml") or f.endswith(".yaml"): self.parse_yaml(f)
-            elif os.path.basename(f) in DOCKER_FILES or f.startswith("docker/"): self.parse_dockerfile(f)
+            if f.endswith(".py"):
+                self.parse_python(f)
+            elif f.endswith(".sh"):
+                self.parse_shell(f)
+            elif f.endswith(".go"):
+                self.parse_go(f)
+            elif f.endswith(".md"):
+                self.parse_markdown(f)
+            elif f.endswith(".yml") or f.endswith(".yaml"):
+                self.parse_yaml(f)
+            elif os.path.basename(f) in DOCKER_FILES or f.startswith("docker/"):
+                self.parse_dockerfile(f)
             
             # Special case: Makefile
             if f == "Makefile":
@@ -216,14 +222,25 @@ class WorkspaceIntegrityTool:
         orphans = []
         for f in sorted(self.all_files):
             # Exclude tests, entrypoints, and standard docs from being orphans
-            if f in self.incoming: continue
-            if f.startswith("tests/"): continue
-            if f.startswith("docs/phases/"): continue # Phase docs are records
-            if f in {"README.md", "LICENSE", "CHANGELOG.md", "go.mod", "go.sum", "pyproject.toml", "requirements.txt", "Makefile", "CONTRIBUTING.md", "SECURITY.md", ".gitignore", "AGENTS.md"}: continue
-            if f.startswith("geoip/"): continue
-            if f.startswith("cmd/"): continue # Entry points
-            if f.startswith("scripts/") and f.endswith(".sh"): continue # Many scripts are CLI entry points
-            
+            if f in self.incoming:
+                continue
+            if f.startswith("tests/"):
+                continue
+            if f.startswith("docs/phases/"):
+                continue  # Phase docs are records
+            if f in {
+                "README.md", "LICENSE", "CHANGELOG.md", "go.mod", "go.sum",
+                "pyproject.toml", "requirements.txt", "Makefile",
+                "CONTRIBUTING.md", "SECURITY.md", ".gitignore", "AGENTS.md",
+            }:
+                continue
+            if f.startswith("geoip/"):
+                continue
+            if f.startswith("cmd/"):
+                continue  # Entry points
+            if f.startswith("scripts/") and f.endswith(".sh"):
+                continue  # Many scripts are CLI entry points
+
             orphans.append(f)
 
         return orphans, self.broken_refs

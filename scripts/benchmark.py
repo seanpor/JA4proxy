@@ -119,7 +119,7 @@ def try_connection(host: str, port: int, ctx: ssl.SSLContext, is_good: bool) -> 
         sock.connect((host, port))
         tls_sock = ctx.wrap_socket(sock, server_hostname="backend")
         tls_sock.send(HTTP_REQ)
-        resp = tls_sock.recv(512)
+        tls_sock.recv(512)
         result["allowed"] = True
     except (ssl.SSLError, ConnectionResetError, ConnectionRefusedError, socket.timeout, OSError):
         result["blocked"] = True

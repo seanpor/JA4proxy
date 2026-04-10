@@ -175,7 +175,7 @@ security_policy:
                 try:
                     # Time the processing
                     ctx_start = time.time()
-                    result = await pipeline.process(ctx)
+                    await pipeline.process(ctx)
                     latency = (time.time() - ctx_start) * 1000  # Convert to ms
                     latencies.append(latency)
                     processed += 1

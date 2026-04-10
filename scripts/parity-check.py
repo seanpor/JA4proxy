@@ -49,8 +49,8 @@ def run_parity():
     for fix in fixtures:
         name = fix.stem
         payload = fix.read_bytes()
-        expected = known_ja4.get(name, "unknown")
-        
+        _expected = known_ja4.get(name, "unknown")
+
         print(f"Testing {name}...", end=" ", flush=True)
         
         # Send to both (assumes proxies are already running or started externally)
