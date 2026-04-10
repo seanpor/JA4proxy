@@ -29,11 +29,11 @@ runbooks cover specific subsystems in more depth:
 
 | Operation | Docker Compose | Kubernetes | RHEL / Podman Quadlet |
 |---|---|---|---|
-| Start | `docker compose up -d` | `helm install ja4proxy deploy/helm/ja4proxy/ --wait` | `systemctl --user start ja4proxy` |
-| Stop | `docker compose down -v` | `helm delete ja4proxy` | `systemctl --user stop ja4proxy` |
-| Status | `docker compose ps` | `kubectl get pods -l app=ja4proxy` | `systemctl --user status ja4proxy` |
-| Logs | `docker compose logs --tail=50 ja4proxy` | `kubectl logs -l app=ja4proxy --tail=50` | `journalctl --user -u ja4proxy -n 50` |
-| Hot-reload | `docker kill --signal=HUP ja4proxy` | `kubectl exec ja4proxy-xxx -- kill -HUP 1` | `systemctl kill --signal=HUP ja4proxy.service` |
+| Start | `docker compose up -d` | `helm install ja4proxy deploy/helm/ja4proxy/ --wait` | `systemctl start ja4proxy` |
+| Stop | `docker compose down` | `helm delete ja4proxy` | `systemctl stop ja4proxy` |
+| Status | `docker compose ps` | `kubectl get pods -l app=ja4proxy` | `systemctl status ja4proxy` |
+| Logs | `docker compose logs --tail=50 ja4proxy` | `kubectl logs -l app=ja4proxy --tail=50` | `journalctl -u ja4proxy -n 50` |
+| Hot-reload | `docker kill --signal=HUP ja4proxy` | `kubectl exec ja4proxy-xxx -- kill -HUP 1` | `systemctl kill -s HUP ja4proxy.service` |
 | Health | `curl -sf http://localhost:8090/api/v1/health/deep` | `kubectl exec ja4proxy-xxx -- wget -qO- http://localhost:8090/api/v1/health/deep` | `curl -sf http://localhost:8090/api/v1/health/deep` |
 
 > **Note:** Replace `ja4proxy-xxx` with the actual pod name from
@@ -45,7 +45,7 @@ runbooks cover specific subsystems in more depth:
 
 ### Symptoms
 
-- Prometheus alert: `ja4proxy_redis_connection_errors_total` rising.
+- Prometheus alert: `ja4proxy_redis_operations_total{result="error"}` rising.
 - Proxy logs: `WARN redis_reconnect_failed` or `ERROR redis_unavailable`.
 - Management UI health endpoint returns `degraded` for the Redis component.
 - Ban enforcement and rate limiting stop working (proxy fails open).
@@ -81,7 +81,7 @@ docker compose logs --tail=20 ja4proxy | grep -i redis
 2. **Restore Redis availability.**
    - Container restart: `docker compose restart redis`
    - Kubernetes: `kubectl delete pod redis-0` (StatefulSet recreates it)
-   - RHEL: `systemctl --user restart redis`
+   - RHEL: `systemctl restart redis`
 3. **Verify reconnection.** The Go proxy auto-reconnects with exponential
    backoff. Watch for `INFO redis_connected` in proxy logs.
 4. **Confirm state recovery.** Run the deep health check:
@@ -89,8 +89,8 @@ docker compose logs --tail=20 ja4proxy | grep -i redis
    curl -sf http://localhost:8090/api/v1/health/deep | python3 -m json.tool
    ```
 5. **Verify ban enforcement resumed.** Check that
-   `ja4proxy_redis_connection_errors_total` has stopped climbing and that
-   `ja4proxy_bans_enforced_total` resumes counting.
+   `ja4proxy_redis_operations_total{result="error"}` has stopped climbing and that
+   `ja4proxy_connections_total{action="block"}` resumes counting.
 
 ### RTO
 
@@ -145,7 +145,7 @@ curl -sf http://localhost:8404/stats | grep ja4proxy
    - Docker Compose: `docker compose up -d ja4proxy-2`
    - Kubernetes: the Deployment controller auto-recreates the pod. If stuck in
      CrashLoopBackOff, fix the underlying issue first.
-   - RHEL: `systemctl --user restart ja4proxy`
+   - RHEL: `systemctl restart ja4proxy`
 3. **Verify HAProxy marks it UP.** Watch the HAProxy stats page or:
    ```bash
    curl -sf http://localhost:8404/stats | grep ja4proxy
@@ -251,8 +251,8 @@ Redis and survives a fleet restart.
 
 - Sudden spike in blocks (dial accidentally set too high) or sudden drop in
   blocks (dial set to 0 unintentionally, or thresholds misconfigured).
-- Prometheus: `ja4proxy_dial_setting` shows an unexpected value.
-- Prometheus: `ja4proxy_decisions_total{action="block"}` rate changes sharply.
+- Prometheus: `ja4proxy_dial_current` shows an unexpected value.
+- Prometheus: `ja4proxy_connections_total{action="block"}` rate changes sharply.
 - Management UI policy audit log shows a recent change.
 
 ### Impact
@@ -313,8 +313,8 @@ curl -sf http://localhost:8090/api/v1/config | python3 -m json.tool | grep dial
      -H 'Content-Type: application/json' \
      -d '{"dial": 75}'   # your intended value
    ```
-6. **Monitor for 15 minutes.** Watch `ja4proxy_decisions_total` and
-   `ja4proxy_risk_score_distribution` to confirm normal patterns resume.
+6. **Monitor for 15 minutes.** Watch `ja4proxy_connections_total` and
+   `ja4proxy_risk_score` to confirm normal patterns resume.
 
 ### RTO
 
@@ -334,7 +334,7 @@ paused.
 
 - Redis returns to service but keys are missing (e.g., after an unclean restart
   without persistence, or after running `FLUSHALL`).
-- Prometheus: `ja4proxy_bans_enforced_total` drops to zero.
+- Prometheus: `ja4proxy_connections_total{action="block"}` drops to zero.
 - Management UI shows no active bans or rate-limit state.
 - Proxy logs: `WARN cache_miss` for IPs that should be banned.
 
@@ -396,7 +396,7 @@ redis-cli FLUSHALL
    curl -sf http://localhost:8090/api/v1/health/deep | python3 -m json.tool
    ```
 5. **Confirm proxy is using restored state.** Watch for
-   `ja4proxy_bans_enforced_total` to resume climbing.
+   `ja4proxy_connections_total{action="block"}` to resume climbing.
 
 #### Option B: No Backup Available — Rebuild from Live Traffic
 
@@ -416,7 +416,7 @@ redis-cli FLUSHALL
    redis-cli SET "ban:<ip>" "manual_restore" EX 86400
    ```
 4. **Gradually raise the dial** as state rebuilds. Monitor
-   `ja4proxy_risk_score_distribution` for at least 30 minutes at each dial
+   `ja4proxy_risk_score` for at least 30 minutes at each dial
    increment before raising further.
 5. **Schedule a Phase 19 backup** once state has stabilised to prevent
    recurrence.

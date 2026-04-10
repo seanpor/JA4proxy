@@ -43,8 +43,8 @@ instances operated in fail-open mode during the outage window.
 | Component | Requirement |
 |---|---|
 | Stack | `docker compose up -d` with at least 1 proxy instance and Redis |
-| Monitoring | Prometheus scraping `ja4proxy_redis_errors_total` |
-| Alerting | Alert rule for `ja4proxy_redis_errors_total` increase configured |
+| Monitoring | Prometheus scraping `ja4proxy_redis_operations_total{result="error"}` |
+| Alerting | Alert rule for `ja4proxy_redis_operations_total{result="error"}` increase configured |
 | Observer tools | Terminal with `watch -n1 docker compose ps` and Prometheus UI |
 
 ### Duration
@@ -64,7 +64,7 @@ The team must detect and respond using only their existing knowledge and
 monitoring dashboards. They should NOT open `disaster_recovery.md` until
 the observer tells them the detection phase is complete. Expected actions:
 
-1. **Detect** -- notice `ja4proxy_redis_errors_total` climbing in Prometheus
+1. **Detect** -- notice `ja4proxy_redis_operations_total{result="error"}` climbing in Prometheus
    or Alertmanager firing a Redis connectivity alert.
 2. **Triage** -- confirm Redis is the root cause, not a proxy crash:
    ```bash
@@ -80,7 +80,7 @@ the observer tells them the detection phase is complete. Expected actions:
    ```bash
    docker compose start redis
    ```
-5. **Verify** -- confirm `ja4proxy_redis_errors_total` stops climbing and
+5. **Verify** -- confirm `ja4proxy_redis_operations_total{result="error"}` stops climbing and
    proxy logs show reconnection:
    ```bash
    docker compose logs --tail=10 ja4proxy
@@ -246,8 +246,8 @@ then correct the dial to the intended value.
 | Component | Requirement |
 |---|---|
 | Stack | `docker compose up -d` with at least 1 proxy instance and Redis |
-| Monitoring | Prometheus scraping `ja4proxy_dial_setting` gauge |
-| Alerting | Alert on `ja4proxy_dial_setting` sudden change (optional but recommended) |
+| Monitoring | Prometheus scraping `ja4proxy_dial_current` gauge |
+| Alerting | Alert on `ja4proxy_dial_current` sudden change (optional but recommended) |
 | Observer tools | Terminal with Redis CLI and Prometheus UI |
 
 ### Duration
@@ -258,13 +258,13 @@ then correct the dial to the intended value.
 
 ```bash
 # Observer runs these commands at T=0 and starts the stopwatch
-redis-cli SET ja4proxy:dial 100
-redis-cli PUBLISH ja4proxy:config_reload '{"dial": 100}'
+redis-cli SET config:dial 100
+redis-cli PUBLISH config:dial:change 100
 ```
 
 ### Team actions (before opening the runbook)
 
-1. **Detect** -- notice `ja4proxy_dial_setting` jump to 100 in Prometheus, or
+1. **Detect** -- notice `ja4proxy_dial_current` jump to 100 in Prometheus, or
    observe unexpected blocks in proxy logs / Management UI.
 2. **Assess impact** -- at dial=100, all scored connections above threshold are
    blocked. Check for false positives:
@@ -274,8 +274,8 @@ redis-cli PUBLISH ja4proxy:config_reload '{"dial": 100}'
 3. **Immediate mitigation** -- drop to dial=0 (monitor-only) to stop all
    blocking immediately:
    ```bash
-   redis-cli SET ja4proxy:dial 0
-   redis-cli PUBLISH ja4proxy:config_reload '{"dial": 0}'
+   redis-cli SET config:dial 0
+   redis-cli PUBLISH config:dial:change 0
    ```
 4. **Investigate** -- determine who or what changed the dial. Check the
    policy audit log:
@@ -285,8 +285,8 @@ redis-cli PUBLISH ja4proxy:config_reload '{"dial": 100}'
 5. **Correct** -- set the dial to the intended operational value (consult the
    team's agreed dial setting, typically documented in the deployment config):
    ```bash
-   redis-cli SET ja4proxy:dial <INTENDED_VALUE>
-   redis-cli PUBLISH ja4proxy:config_reload '{"dial": <INTENDED_VALUE>}'
+   redis-cli SET config:dial <INTENDED_VALUE>
+   redis-cli PUBLISH config:dial:change <INTENDED_VALUE>
    ```
 
 ### Success criteria

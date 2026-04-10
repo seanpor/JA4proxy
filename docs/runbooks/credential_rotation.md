@@ -111,18 +111,20 @@ docker compose logs --tail=20 ja4proxy | grep -i redis
 curl -sf http://localhost:8090/api/v1/health/deep | python3 -m json.tool
 
 # Confirm no Redis auth errors in Prometheus
-# ja4proxy_redis_errors_total should not be climbing
+# ja4proxy_redis_operations_total{result="error"} should not be climbing
 ```
 
 **Step 6 -- Remove the old password from Redis ACL.**
 
-Once all nodes are confirmed on the new password:
+Once all nodes are confirmed on the new password, use the `<` prefix to
+explicitly remove the old password:
 
 ```bash
-redis-cli ACL SETUSER default on >NEW_PASSWORD ~* &* +@all
+redis-cli ACL SETUSER default on <OLD_PASSWORD ~* &* +@all
 ```
 
-The old password is now invalid.
+The old password is now invalid. (The `<` prefix removes a password from the
+user's allowed password list, while `>` adds one.)
 
 **Step 7 -- Final verification.**
 
@@ -217,14 +219,15 @@ kubectl exec -it <pod> -- kill -HUP 1
 
 **Step 4 -- Verify lookups are succeeding with the new key.**
 
-Monitor the Prometheus metric for 30 seconds:
+Monitor Prometheus and logs for 30 seconds:
 
 ```bash
-# Watch for successful lookups (hit counter should increment)
-# ja4proxy_abuseipdb_lookups_total{result="hit"} should be climbing
-# ja4proxy_abuseipdb_lookups_total{result="error"} should NOT be climbing
+# Confirm the AbuseIPDB enrichment queue is draining (not stuck at zero
+# or climbing with no progress). The queue depth should fluctuate:
+# ja4proxy_abuseipdb_enrichment_queue_depth
+# ja4proxy_abuseipdb_queue_dropped_total should NOT be climbing
 
-curl -sf http://localhost:9090/api/v1/query?query=ja4proxy_abuseipdb_lookups_total \
+curl -sf http://localhost:9090/api/v1/query?query=ja4proxy_abuseipdb_enrichment_queue_depth \
   | python3 -m json.tool
 ```
 
@@ -258,7 +261,8 @@ If lookups fail after hot-reload in Step 3:
    ```bash
    docker kill --signal=HUP ja4proxy
    ```
-3. Confirm `ja4proxy_abuseipdb_lookups_total{result="hit"}` resumes climbing.
+3. Confirm `ja4proxy_abuseipdb_queue_dropped_total` stops climbing and
+   proxy logs show no AbuseIPDB errors.
 4. Investigate the new key (wrong key copied, account issue, rate limit).
 
 If the old key was already revoked (Step 5) and the new key stops working:
@@ -310,7 +314,7 @@ backup container:
 
 **AWS S3 (environment variables):**
 ```bash
-# In .env or docker-compose override
+# In .env or docker compose override file
 AWS_ACCESS_KEY_ID=NEW_ACCESS_KEY
 AWS_SECRET_ACCESS_KEY=NEW_SECRET_KEY
 ```
