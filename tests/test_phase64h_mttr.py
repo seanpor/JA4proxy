@@ -243,6 +243,45 @@ class TestRTOTargets:
         assert "180s" in script_text, "Must reference 180s RTO"
 
 
+class TestRedisKeyNames:
+    """Verify correct Redis key names are used (not phantom keys)."""
+
+    def test_uses_correct_dial_key(self, script_text):
+        """Script must use config:dial, not ja4proxy:dial."""
+        # Filter out comments and heredoc template lines
+        for i, line in enumerate(script_text.splitlines(), 1):
+            stripped = line.lstrip()
+            if stripped.startswith("#"):
+                continue
+            if "ja4proxy:dial" in line:
+                pytest.fail(
+                    f"Line {i} uses phantom key 'ja4proxy:dial' — "
+                    f"should be 'config:dial': {line.strip()}"
+                )
+
+    def test_uses_correct_reload_channel(self, script_text):
+        """Script must use config:reload, not ja4proxy:config_reload."""
+        for i, line in enumerate(script_text.splitlines(), 1):
+            stripped = line.lstrip()
+            if stripped.startswith("#"):
+                continue
+            if "ja4proxy:config_reload" in line:
+                pytest.fail(
+                    f"Line {i} uses phantom channel 'ja4proxy:config_reload' — "
+                    f"should be 'config:reload': {line.strip()}"
+                )
+
+    def test_config_dial_present(self, script_text):
+        assert "config:dial" in script_text, (
+            "Script must reference the correct Redis key 'config:dial'"
+        )
+
+    def test_config_reload_present(self, script_text):
+        assert "config:reload" in script_text, (
+            "Script must reference the correct Redis channel 'config:reload'"
+        )
+
+
 class TestOverallResult:
     """Script must compute and report overall PASS/FAIL."""
 

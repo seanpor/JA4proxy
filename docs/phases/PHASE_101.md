@@ -17,7 +17,7 @@
 | [Phase 84 Compliance Review](#phase-84-compliance-review-deferred-items) | 2026-03-?? | C1–C3 (closed), H1/H3 deferred + H2/H4/H5 closed, M1/M2/M4/M7 deferred + M3/M5/M6 closed, L1/L2/L5 deferred + L3/L4 closed |
 | [Phase 85 Threat-Intel Hardening](#phase-85-threat-intel-hardening-deferred-items) | 2026-04-09 | C5-partial/C7 closed + C4–C6 deferred, H13 closed + H6–H12 deferred, M8–M14 deferred, L6–L8 deferred |
 | [Phase 62 Go Test Parity](#phase-62-go-test-parity-deferred-items) | 2026-04-09 | M15 (golden cross-check), M16 (chaos right-answer-wrong-mechanism), M17 (V2 fuzz target hand-off to Phase 200), L9 (property generator weight semantics) |
-| [Phase 64 Deployment Validation](#phase-64-deployment-validation-deferred-items) | 2026-04-10 | M18 (Podman/Quadlet smoke test blocked), M19 (phantom `ja4proxy-cli backup` audit), M20 (CI smoke-k8s needs kind/helm steps), M21 (infrastructure.md Python proxy refs), M22 (AbuseIPDB lookups counter missing from Go), M23 (MTTR test Redis key validation) |
+| [Phase 64 Deployment Validation](#phase-64-deployment-validation-deferred-items) | 2026-04-10 | M18 (Podman/Quadlet smoke test blocked), M19 (phantom `ja4proxy-cli backup` audit), M20 closed, M21 closed, M22 closed, M23 closed |
 
 When a future phase review surfaces deferred items, append a new section
 below and start its severity counters at the next free number across the
@@ -1014,84 +1014,39 @@ entry itself).
 
 ---
 
-#### M20 — CI smoke-k8s job needs kind/helm installation steps
+#### M20 — CI smoke-k8s job needs kind/helm installation steps — CLOSED
 
-**Severity:** MEDIUM
-**Effort:** ~1 hour
+**Severity:** MEDIUM — **CLOSED 2026-04-10**
 
-##### Context
-
-The `smoke-k8s` CI job in `.github/workflows/ci.yml` installs Go but not
-`kind` or `helm`. The smoke script gracefully SKIPs when these tools are
-absent, so CI never actually runs the Helm smoke test. To make the job
-useful, add SHA-pinned `helm/kind-action` and `azure/setup-helm` steps
-before `make smoke-k8s`.
-
-##### Fix required
-
-Add two setup steps (SHA-pinned) to the `smoke-k8s` job in CI. Verify
-that `tests/test_workflow_pinning.py` passes after adding the new action
-references.
+Fixed in Phase 64 closeout: added SHA-pinned `azure/setup-helm@v4.3.0`
+and `helm/kind-action@v1.12.0` to the `smoke-k8s` CI job.
 
 ---
 
-#### M21 — `infrastructure.md` still references Python proxy
+#### M21 — `infrastructure.md` still references Python proxy — CLOSED
 
-**Severity:** MEDIUM
-**Effort:** ~1 hour
+**Severity:** MEDIUM — **CLOSED 2026-04-10**
 
-##### Context
-
-`docs/runbooks/infrastructure.md` (lines 192, 207, 227, 273) still
-references `pgrep -f proxy.py` — the Python proxy that is experimental
-only. All hot-reload and process management commands should target the Go
-binary (`bin/proxy`) or systemd/container equivalents.
-
-##### Fix required
-
-Audit `docs/runbooks/infrastructure.md` and replace all `proxy.py` /
-`pgrep -f proxy.py` references with Go-production equivalents.
+Fixed in Phase 64 closeout: replaced all `pgrep -f proxy.py` references
+in `docs/runbooks/infrastructure.md` with `pgrep -f bin/proxy`.
 
 ---
 
-#### M22 — AbuseIPDB lookups counter missing from Go metrics
+#### M22 — AbuseIPDB lookups counter missing from Go metrics — CLOSED
 
-**Severity:** MEDIUM
-**Effort:** ~2 hours
+**Severity:** MEDIUM — **CLOSED 2026-04-10**
 
-##### Context
-
-`CLAUDE.md` defines the naming convention
-`ja4proxy_abuseipdb_lookups_total{result="hit|miss|error"}` but this
-counter does not exist in `internal/metrics/metrics.go`. The Go proxy
-has `ja4proxy_abuseipdb_enrichment_queue_depth` and
-`ja4proxy_abuseipdb_queue_dropped_total` but no per-lookup result counter.
-Runbooks and dashboards that reference this metric will get zero results.
-
-##### Fix required
-
-Add the counter to `internal/metrics/metrics.go` and instrument in the
-AbuseIPDB enrichment path. Update any dashboards or runbooks that
-reference it.
+Fixed in Phase 64 closeout: added `ja4proxy_abuseipdb_lookups_total`
+counter with `result` label (`hit`/`miss`/`error`) to
+`internal/metrics/metrics.go` and instrumented all code paths in
+`internal/security/abuseipdb.go`.
 
 ---
 
-#### M23 — MTTR test should validate Redis key names
+#### M23 — MTTR test should validate Redis key names — CLOSED
 
-**Severity:** MEDIUM
-**Effort:** ~30 minutes
+**Severity:** MEDIUM — **CLOSED 2026-04-10**
 
-##### Context
-
-The Phase 64 critical review found that all Redis key names in
-`scripts/measure_mttr.sh` were phantom (`ja4proxy:dial` instead of
-`config:dial`, `ja4proxy:config_reload` instead of `config:reload`).
-The TDD tests validate structural properties but do not check that the
-correct Redis keys are used. Adding assertions for `config:dial` and
-`config:reload` in the script text would catch this class of regression.
-
-##### Fix required
-
-Add two tests to `tests/test_phase64h_mttr.py`:
-- Assert `config:dial` appears in script content
-- Assert `ja4proxy:dial` does NOT appear in script content (except comments)
+Fixed in Phase 64 closeout: added 4 tests to `tests/test_phase64h_mttr.py`
+in `TestRedisKeyNames` class — asserts `config:dial` and `config:reload`
+are present, and rejects phantom `ja4proxy:dial` / `ja4proxy:config_reload`.
