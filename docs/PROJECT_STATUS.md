@@ -3,7 +3,7 @@
 
 # JA4 Proxy - Project Status
 
-## Current Status: Phase 86 (Observability & Capacity Planning) Next
+## Current Status: Phase 93 (Terraform Provider + Emergency Runbook Playbooks) Next
 
 **Last Updated:** 2026-04-10
 
@@ -215,7 +215,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 83 | ja4proxy-cli Go Binary | COMPLETE | N/A | N/A |
 | 84 | Compliance & Reporting | COMPLETE | N/A | N/A |
 | 85 | Threat Intelligence Ingestion | COMPLETE | N/A | N/A |
-| 86 | Observability & Capacity Planning | PROPOSED | N/A | N/A |
+| 86 | Observability & Capacity Planning | COMPLETE | N/A | N/A |
 | 87 | Container & Host Infrastructure Observability | COMPLETE | N/A | N/A |
 | 88 | Multi-Datacenter Survivability & Failover | COMPLETE | N/A | N/A |
 | 88.1 | Multi-DC Foundation & Sentinel Support | COMPLETE | N/A | N/A |

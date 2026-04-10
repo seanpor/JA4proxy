@@ -1,5 +1,38 @@
 # Changelog
 
+## Phase 86 — Observability & Capacity Planning
+
+### Added
+- **86a:** `GET /api/v1/health/deep` and `GET /api/v1/metrics/summary` endpoints
+  on Python (FastAPI) and Go proxy — 9-field JSON: status, redis_connected,
+  redis_latency_ms, dial, active_connections, connections_total, block_rate_pct,
+  active_bans, cert_days_remaining
+- **86a:** `DeepHealthResponse` Pydantic schema, `_parse_prometheus_text()` helper
+- **86a:** Go `CountKeys` method on Redis client wrapper
+- **86b:** `scripts/load_test.py` — load testing harness wrapping benchmark engine
+- **86b:** `Makefile` targets: `load-test`, `load-test-baseline`, `load-test-report`
+- **86b:** `docs/performance/benchmarks.md` — benchmark results template
+- **86c:** `scripts/capacity_calculator.py` — capacity sizing with cloud cost estimates
+  (AWS, Azure, GCP), wired to `BenchmarkConstants` from benchmark data
+- **86d:** `deploy/datadog/checks/ja4proxy/check.py` — Datadog Agent integration
+- **86d:** `deploy/datadog/ja4proxy-dashboard.json` — 7-widget dashboard
+- **86d:** `deploy/datadog/ja4proxy-monitors.json` — 4 monitors
+- **86d:** `deploy/datadog/conf.d/ja4proxy.d/conf.yaml` — Agent config
+- **86e:** `deploy/dynatrace/ja4proxy-extension/extension.yaml` — EF2 extension
+  with 7 metrics and `ja4proxy:node` topology entity type
+- **86f:** `deploy/nagios/check_ja4proxy.py` — Nagios check plugin (4 check types)
+- **86f:** `deploy/zabbix/ja4proxy-template.xml` — Zabbix importable template
+- **86g:** 7 alert runbooks: `ja4proxy_node_unhealthy.md`,
+  `ja4proxy_redis_latency_high.md`, `ja4proxy_certificate_expiring.md`,
+  `ja4proxy_block_rate_high.md`, `ja4proxy_campaign_detected.md`,
+  `ja4proxy_dial_change_unexpected.md`, `ja4proxy_tarpit_pool_full.md`
+- **86g:** `runbook_url` annotations on all Alertmanager rules (SLO + TLS)
+
+### Tests
+- 249 Python unit tests (health deep, Nagios, Dynatrace, Datadog, runbooks,
+  load test, capacity calculator, alertmanager runbook URLs)
+- 3 Go unit tests (health deep response schema, Redis down, metrics/summary alias)
+
 ## Phase 64 — Deployment Validation & Disaster Recovery
 
 ### Added
