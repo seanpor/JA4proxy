@@ -1,24 +1,37 @@
-# Phase 64c — Disaster Recovery runbook notes
+# Phase 64c — Disaster Recovery Runbook Notes
 
-> **Sub-phase of:** Phase 64 (Deployment Validation & Disaster Recovery)
-> **Size:** S
-> **Status:** NOT STARTED
+## Artifacts Created
 
-## Deliverable
-- `docs/runbooks/disaster_recovery.md` (5 scenarios + See also + quick reference + Runbook Exercise History section)
+| File | Purpose |
+|------|---------|
+| `docs/runbooks/disaster_recovery.md` | 5-scenario DR runbook |
 
-## What was done
-<!-- Record which Phase 19 commands were verified against the actual tool
-(`src/backup/restorer.py` / `src/backup/worker.py`). -->
+## Content Gap Verification
 
-## Decisions made
-<!-- Note any deviations from the spec in PHASE_64.md. -->
+Each scenario was checked against the 8 linked runbooks to confirm no duplication:
 
-## Reviewer checklist (complete before merging)
-- [ ] "See also" block links to all 8 existing runbooks
-- [ ] No scenario duplicates content from any linked runbook
-- [ ] Scenario 5 uses correct Phase 19 Python invocation, not phantom `ja4proxy-cli backup`
-- [ ] All hot-reload commands use Go-production form only
+| Scenario | Existing runbook reference | NEW content confirmed |
+|---|---|---|
+| 1. Redis failure | `redis_operations.md` has start/stop | Proxy fail-open behaviour, ban suspension, reconnection verification |
+| 2. Single node failure | `go_proxy_operations.md` has start/stop | HAProxy backend health check timing, traffic failover window |
+| 3. Total fleet failure | `scaling.md` has add-node | P1 declaration, log collection, root cause triage before restart |
+| 4. Config corruption | `redis_operations.md` has key manipulation | Three-phase recovery: monitor mode → revert → restore |
+| 5. Redis data loss | `redis_operations.md` has AOF rewrite | Volume destruction, Phase 19 Python restore, 4-hour rebuild |
 
-## Phase 101 entries surfaced
-<!-- File any gaps that fell out of this work. -->
+## Acceptance Checklist
+
+- [x] File exists with all five scenarios
+- [x] Each scenario has: symptoms, impact, simulate, recovery, RTO, RPO
+- [x] "See also" block links to all 8 existing runbooks
+- [x] No scenario duplicates content from linked runbooks
+- [x] Scenario 5 uses correct Phase 19 Python invocation (`src.backup.restorer.Restorer`)
+- [x] All hot-reload commands use Go-production form only (no `pkill -f proxy.py`)
+- [x] Deployment quick reference table present
+- [x] Runbook Exercise History section present (empty, for GameDay logging)
+- [x] Zero references to `proxy.py`
+
+## Out of Scope
+
+- GameDay exercises (Phase 64d)
+- MTTR measurement (Phase 64h)
+- Implementation/testing of recovery procedures (document only)
