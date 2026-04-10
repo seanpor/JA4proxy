@@ -707,7 +707,8 @@ ssh-tunnels:
 
 # ── Proxy Operations ──────────────────────────────────────────────────────────
 
-GOROOT ?= /snap/go/current
+# Prefer snap Go if present (local dev), else fall back to env/system GOROOT.
+GOROOT := $(shell if [ -d /snap/go/current ]; then echo /snap/go/current; elif [ -n "$$GOROOT" ]; then echo "$$GOROOT"; else go env GOROOT 2>/dev/null; fi)
 GO     := GOROOT=$(GOROOT) go
 
 # Build the Go proxy binary into bin/ja4proxy
