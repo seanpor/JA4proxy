@@ -125,7 +125,8 @@ def main() -> None:
     parser.add_argument("--duration", type=int, default=60,
                         help="Duration per scenario in seconds (default: 60)")
     parser.add_argument("--rps", type=int, default=1000,
-                        help="Target connections per second (default: 1000)")
+                        help="Target connections per second (documented; "
+                             "benchmark engine runs at native max throughput)")
     parser.add_argument("--scenario", default="baseline",
                         choices=["baseline", "sustained", "ramp"],
                         help="Test scenario (default: baseline)")

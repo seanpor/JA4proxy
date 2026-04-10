@@ -142,7 +142,10 @@ async def get_health_deep():
                         metrics.get("ja4proxy_connections_total", 0)
                     )
                     blocks_total = int(
-                        metrics.get("ja4proxy_connections_total{action=\"block\"}", 0)
+                        metrics.get('ja4proxy_connections_total{action="block"}', 0)
+                        + metrics.get('ja4proxy_connections_total{action="ban"}', 0)
+                        + metrics.get('ja4proxy_connections_total{action="tarpit"}', 0)
+                        + metrics.get('ja4proxy_connections_total{action="rate_limit"}', 0)
                     )
 
                     # Cert expiry → days remaining

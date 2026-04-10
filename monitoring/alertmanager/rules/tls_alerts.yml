@@ -14,7 +14,6 @@ groups:
           severity: warning
         annotations:
           summary: "TLS certificate expires in {{ $value | humanize }} days"
-          runbook_url: "docs/runbooks/tls_certificate_rotation.md"
           description: |
             The proxy's server-side TLS certificate expires in less than 30 days.
             Rotate using docs/runbooks/tls_certificate_rotation.md.
@@ -28,7 +27,6 @@ groups:
           severity: critical
         annotations:
           summary: "TLS certificate expires in {{ $value | humanize }} days — CRITICAL"
-          runbook_url: "docs/runbooks/tls_certificate_rotation.md"
           description: |
             The proxy's server-side TLS certificate expires in less than 7 days.
             Rotate immediately using docs/runbooks/tls_certificate_rotation.md.
@@ -42,7 +40,6 @@ groups:
           severity: warning
         annotations:
           summary: "TLS cert exporter is not reporting"
-          runbook_url: "docs/runbooks/tls_certificate_rotation.md"
           description: |
             The ja4proxy_tls_cert_expiry_timestamp_seconds gauge has not been
             updated in 5 minutes. The proxy may be down or the metrics exporter
