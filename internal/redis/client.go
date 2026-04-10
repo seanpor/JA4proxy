@@ -273,6 +273,19 @@ func (c *Client) Ping(ctx context.Context) error {
 	return err
 }
 
+// CountKeys returns the number of keys matching a glob pattern.
+// Used for ban counting in health/deep endpoint. Returns 0 on error.
+func (c *Client) CountKeys(ctx context.Context, pattern string) int {
+	keys, err := c.rdb.Keys(ctx, pattern).Result()
+	if err != nil {
+		observeOp("keys", "error")
+		c.log.WithError(err).WithField("pattern", pattern).Warn("redis: KEYS failed")
+		return 0
+	}
+	observeOp("keys", "ok")
+	return len(keys)
+}
+
 // SlidingWindowCount executes the sliding_window.lua EVALSHA.
 // KEYS[1]=key, KEYS[2]=key+":ctr", ARGV[1]=now, ARGV[2]=window, ARGV[3]=ttl
 // Returns 0 on error (fail open).

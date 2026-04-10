@@ -13,6 +13,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -24,6 +25,7 @@ import (
 	"time"
 
 	"github.com/oschwald/geoip2-golang"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 
@@ -229,6 +231,8 @@ func (p *proxy) serve(ctx context.Context) {
 			mux := http.NewServeMux()
 			mux.Handle("/metrics", promhttp.Handler())
 			mux.HandleFunc("/health", p.handleHealth)
+			mux.HandleFunc("/health/deep", p.handleHealthDeep)
+			mux.HandleFunc("/metrics/summary", p.handleMetricsSummary)
 			addr := fmt.Sprintf(":%d", p.cfg.Metrics.Port.Int())
 			p.log.WithField("addr", addr).Info("proxy: metrics server listening")
 			srv := &http.Server{Addr: addr, Handler: mux, ReadTimeout: 10 * time.Second}
@@ -592,6 +596,118 @@ func (p *proxy) handleHealth(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(map[string]string{"status": status, "redis": redisStatus}); err != nil {
 		p.log.WithError(err).Warn("health: failed to encode response")
 	}
+}
+
+// handleHealthDeep responds with comprehensive health data for monitoring integrations.
+// Phase 86a — returns Redis state, proxy metrics, and certificate expiry info.
+func (p *proxy) handleHealthDeep(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	// Redis connectivity
+	redisOK := true
+	redisLatencyMs := 0.0
+	t0 := time.Now()
+	if err := p.redis.Ping(ctx); err != nil {
+		redisOK = false
+	} else {
+		redisLatencyMs = float64(time.Since(t0).Microseconds()) / 1000.0
+	}
+
+	// Dial — read from Redis (management API writes here)
+	dial := p.redis.GetDial(ctx)
+
+	// Active bans (count keys matching pattern)
+	activeBans := 0
+	if redisOK {
+		activeBans = p.redis.CountKeys(ctx, "ja4proxy:ban:*")
+	}
+
+	// Connection counters — gather from Prometheus registry
+	connTotal := 0.0
+	blocksTotal := 0.0
+	{
+		mfs, gatherErr := prometheus.DefaultGatherer.Gather()
+		if gatherErr == nil {
+			for _, mf := range mfs {
+				if mf.GetName() == "ja4proxy_connections_total" {
+					for _, m := range mf.GetMetric() {
+						val := m.GetCounter().GetValue()
+						connTotal += val
+						// Check action label for block
+						for _, lp := range m.GetLabel() {
+							if lp.GetName() == "action" && lp.GetValue() == "block" {
+								blocksTotal = val
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Cert expiry
+	certTS := metrics.TLSCertExpiryTimestampSeconds
+	var certDaysRemaining float64
+	certTSVal := -1.0
+	if certTS != nil {
+		mfs, gatherErr := prometheus.DefaultGatherer.Gather()
+		if gatherErr == nil {
+			for _, mf := range mfs {
+				if mf.GetName() == "ja4proxy_tls_cert_expiry_timestamp_seconds" {
+					for _, m := range mf.GetMetric() {
+						certTSVal = m.GetGauge().GetValue()
+					}
+				}
+			}
+		}
+	}
+	if certTSVal > 0 {
+		certDaysRemaining = (certTSVal - float64(time.Now().Unix())) / 86400.0
+		if certDaysRemaining < 0 {
+			certDaysRemaining = 0
+		}
+	}
+
+	// Block rate
+	blockRatePct := 0.0
+	if connTotal > 0 {
+		blockRatePct = blocksTotal / connTotal * 100.0
+	}
+
+	// Status determination
+	status := "ok"
+	if !redisOK {
+		status = "error"
+	} else if redisLatencyMs > 50 {
+		status = "degraded"
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	resp := map[string]any{
+		"status":              status,
+		"redis_connected":     redisOK,
+		"redis_latency_ms":    math.Round(redisLatencyMs*100) / 100,
+		"dial":                dial,
+		"active_connections":  atomic.LoadInt64(&p.activeConns),
+		"connections_total":   int(connTotal),
+		"block_rate_pct":      math.Round(blockRatePct*100) / 100,
+		"active_bans":         activeBans,
+	}
+	if certTSVal > 0 {
+		resp["cert_days_remaining"] = math.Round(certDaysRemaining*10) / 10
+	} else {
+		resp["cert_days_remaining"] = nil
+	}
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		p.log.WithError(err).Warn("health/deep: failed to encode response")
+	}
+}
+
+// handleMetricsSummary is an alias for /health/deep.
+// Exists so monitoring tools can poll a single endpoint named "metrics/summary".
+func (p *proxy) handleMetricsSummary(w http.ResponseWriter, r *http.Request) {
+	p.handleHealthDeep(w, r)
 }
 
 func (p *proxy) drain(timeoutSeconds int) {

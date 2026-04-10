@@ -1101,21 +1101,16 @@ phases:
   86:
     name: Observability & Capacity Planning
     status: PROPOSED
-    summary: Datadog Agent integration tile with dashboard and 4 monitors. Dynatrace
-      EF2 extension with topology entity type. Nagios check plugin and Zabbix template.
-      Capacity sizing calculator script. make load-test harness. Published benchmark
-      numbers. 7 operator runbooks.
+    summary: "7 sub-phases: 86a Management API summary endpoint Python + Go, 86b Load testing harness + benchmark run, 86c Capacity sizing calculator, 86d Datadog integration with dashboard and monitors, 86e Dynatrace EF2 extension, 86f Nagios check + Zabbix template, 86g 7 alert runbooks + runbook_url annotations on existing alerts."
     action_plan: docs/phases/PHASE_86.md
-    dependencies:
-    - 79
-    - 80
-    size: MEDIUM
+    dependencies: []
+    size: L
     success_criteria:
-    - Datadog Agent check emitting ja4proxy.* metrics with dashboard and monitors
-    - Nagios check plugin and Zabbix template ship in deploy/
-    - scripts/capacity_calculator.py produces valid recommendations
-    - Published benchmark numbers committed to docs/performance/benchmarks.md
-    - All 7 runbook files present in docs/runbooks/
+    - /api/v1/health/deep and /api/v1/metrics/summary endpoints working on Python and Go
+    - Load testing harness produces valid reports; benchmarks published
+    - Capacity calculator wired to real benchmark numbers
+    - Datadog, Dynatrace, Nagios, Zabbix integrations shipping in deploy/
+    - All 7 runbook files present with runbook_url on all Alertmanager rules
   87:
     name: Container & Host Infrastructure Observability
     status: COMPLETE
