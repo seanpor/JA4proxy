@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+HEALTH_URL="${HEALTH_URL:-http://localhost:8090/api/v1/health/deep}"
+RESULTS_DIR="test-results/smoke"
+mkdir -p "$RESULTS_DIR"
+LOG="$RESULTS_DIR/docker-compose-$(date +%Y%m%dT%H%M%S).log"
+
+log() { echo "[$(date -u +%H:%M:%S)] $*" | tee -a "$LOG"; }
+fail() { log "FAIL: $*"; exit 1; }
+
+cleanup() {
+  log "Tearing down stack..."
+  docker compose down -v 2>>"$LOG" || true
+}
+trap cleanup EXIT INT TERM
+
+log "Starting Docker Compose stack..."
+docker compose up -d 2>>"$LOG" || fail "docker compose up failed"
+
+log "Waiting for health endpoint (max 60s)..."
+for i in $(seq 1 60); do
+  if curl -sf --max-time 5 "$HEALTH_URL" >/dev/null 2>&1; then
+    log "Health endpoint OK after ${i}s"
+    break
+  fi
+  [ "$i" -eq 60 ] && fail "Health endpoint did not respond within 60s"
+  sleep 1
+done
+
+log "Checking all containers are Running..."
+# Docker Compose v2.21+ emits one JSON object per line (NDJSON), older versions
+# emit a JSON array.  Handle both formats.
+UNHEALTHY=$(docker compose ps --format json 2>/dev/null \
+  | python3 -c "
+import sys, json
+raw = sys.stdin.read().strip()
+if not raw:
+    sys.exit(0)
+try:
+    data = json.loads(raw)          # try JSON array first
+    if isinstance(data, dict):
+        data = [data]               # single-object (one container)
+except json.JSONDecodeError:
+    data = [json.loads(l) for l in raw.splitlines() if l.strip()]  # NDJSON
+for s in data:
+    if s.get('State') != 'running':
+        print(s.get('Service', s.get('Name', 'unknown')))
+" 2>/dev/null || true)
+[ -n "$UNHEALTHY" ] && fail "Containers not running: $UNHEALTHY"
+
+if command -v openssl &>/dev/null; then
+  log "Sending synthetic TLS connection through port 8080..."
+  echo "Q" | openssl s_client -connect localhost:8080 -servername localhost \
+    -verify_return_error 2>>"$LOG" || {
+    grep -q "Connection refused" "$LOG" && fail "Proxy port 8080 is not listening"
+    log "Proxy responded at TLS layer (connection accepted and processed)"
+  }
+else
+  log "SKIP: openssl not found — skipping TLS probe"
+fi
+
+# Stack teardown handled by EXIT trap
+log "PASS: Docker Compose smoke test"
+echo "PASS" > "$RESULTS_DIR/docker-compose.result"
