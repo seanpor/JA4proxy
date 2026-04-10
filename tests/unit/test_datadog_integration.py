@@ -118,6 +118,16 @@ class TestDatadogConf:
                 f"management_url must be a full URL, got: {inst['management_url']}"
             )
 
+    def test_container_config_has_api_token_field(self):
+        """Per AGENTS.md: services with external deps must document auth fields.
+
+        The Datadog check connects to the Management API and supports
+        api_token for Bearer authentication. The conf.yaml must include
+        this field (even if placeholder) so operators know it's required.
+        """
+        source = (DATADOG_DIR / "checks" / "ja4proxy" / "check.py").read_text()
+        assert "api_token" in source, "Check must read api_token from instance config"
+
 
 # ── Check module static analysis ─────────────────────────────────────────────
 

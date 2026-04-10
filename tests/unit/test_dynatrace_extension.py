@@ -115,3 +115,40 @@ class TestTopologyDefinition:
     def test_topology_has_rules(self, extension: dict):
         for t in extension["topology"]["types"]:
             assert "rules" in t, f"Topology type {t.get('name')} missing rules"
+
+
+class TestDynatracePlugin:
+    """Validate the runtime plugin.py skeleton."""
+
+    PLUGIN_PATH = Path(__file__).parent.parent.parent / "deploy" / "dynatrace" / "ja4proxy-extension" / "plugin.py"
+
+    def test_plugin_file_exists(self):
+        assert self.PLUGIN_PATH.exists(), f"plugin.py not found at {self.PLUGIN_PATH}"
+
+    def test_plugin_has_build_entry_point(self):
+        """EF2 requires a build() factory function."""
+        source = self.PLUGIN_PATH.read_text()
+        assert "def build(" in source, "plugin.py must define build() factory function"
+
+    def test_plugin_has_query_method(self):
+        """The plugin class must implement query() for metric collection."""
+        source = self.PLUGIN_PATH.read_text()
+        assert "def query(" in source, "Plugin must implement query() method"
+
+    def test_plugin_handles_missing_dt_runtime(self):
+        """Plugin must gracefully skip when dtpython is not available (local dev)."""
+        source = self.PLUGIN_PATH.read_text()
+        assert "HAS_DT" in source or "ImportError" in source, \
+            "Plugin should handle missing dtpython imports gracefully"
+
+    def test_plugin_references_correct_endpoint(self):
+        """Plugin must poll /api/v1/health/deep (the 86a endpoint)."""
+        source = self.PLUGIN_PATH.read_text()
+        assert "/api/v1/health/deep" in source, \
+            "Plugin must poll /api/v1/health/deep"
+
+    def test_plugin_uses_auth_header(self):
+        """Plugin should support Bearer token authentication."""
+        source = self.PLUGIN_PATH.read_text()
+        assert "Authorization" in source, \
+            "Plugin should support Authorization header for API auth"
