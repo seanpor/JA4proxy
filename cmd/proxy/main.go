@@ -687,14 +687,14 @@ func (p *proxy) handleHealthDeep(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	resp := map[string]any{
-		"status":              status,
-		"redis_connected":     redisOK,
-		"redis_latency_ms":    math.Round(redisLatencyMs*100) / 100,
-		"dial":                dial,
-		"active_connections":  atomic.LoadInt64(&p.activeConns),
-		"connections_total":   int(connTotal),
-		"block_rate_pct":      math.Round(blockRatePct*100) / 100,
-		"active_bans":         activeBans,
+		"status":             status,
+		"redis_connected":    redisOK,
+		"redis_latency_ms":   math.Round(redisLatencyMs*100) / 100,
+		"dial":               dial,
+		"active_connections": atomic.LoadInt64(&p.activeConns),
+		"connections_total":  int(connTotal),
+		"block_rate_pct":     math.Round(blockRatePct*100) / 100,
+		"active_bans":        activeBans,
 	}
 	if certTSVal > 0 {
 		resp["cert_days_remaining"] = math.Round(certDaysRemaining*10) / 10
