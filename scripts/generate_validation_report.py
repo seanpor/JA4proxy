@@ -161,7 +161,7 @@ def _section_deployment(repo_root: Path) -> str:
         result_files = sorted(smoke_dir.glob("*.result"))
         if result_files:
             for result_file in result_files:
-                status = result_file.read_text().strip()
+                status = result_file.read_text(encoding="utf-8", errors="replace").strip()
                 lines.append(f"- {result_file.stem}: **{status}**")
         else:
             lines.append("- No smoke test results found. Run `make smoke-docker` first.")
@@ -172,7 +172,11 @@ def _section_deployment(repo_root: Path) -> str:
     mttr_file = repo_root / "MTTR_BASELINE.md"
     lines.append("### MTTR Baseline")
     if mttr_file.exists():
-        lines.extend(mttr_file.read_text().splitlines())
+        mttr_text = mttr_file.read_text(encoding="utf-8", errors="replace")
+        # Guard against unexpectedly large files (should be < 10 KB).
+        if len(mttr_text) > 50_000:
+            mttr_text = mttr_text[:50_000] + "\n\n_[truncated — file exceeds 50 KB]_"
+        lines.extend(mttr_text.splitlines())
     else:
         lines.append("- `MTTR_BASELINE.md` not found. Run `make measure-mttr` first.")
     lines.append("")
@@ -180,7 +184,7 @@ def _section_deployment(repo_root: Path) -> str:
     dr_runbook = repo_root / "docs" / "runbooks" / "disaster_recovery.md"
     lines.append("### DR Runbook Exercise History")
     if dr_runbook.exists():
-        content = dr_runbook.read_text()
+        content = dr_runbook.read_text(encoding="utf-8", errors="replace")
         if "Runbook Exercise History" in content:
             section = content.split("Runbook Exercise History", 1)[1].split("\n## ", 1)[0]
             section_lines = section.strip().splitlines()
