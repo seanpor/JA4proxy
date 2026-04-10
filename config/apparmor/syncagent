@@ -1,0 +1,53 @@
+# AppArmor profile for the JA4proxy sync agent process (Phase 88)
+#
+# INSTALLATION
+# ============
+# sudo apparmor_parser -r config/apparmor/syncagent
+#
+# REFERENCE (Docker)
+# ==================
+# security_opt:
+#   - apparmor:ja4proxy-syncagent
+
+#include <tunables/global>
+
+profile ja4proxy-syncagent flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  # ── Go runtime ────────────────────────────────────────────────────────
+  # Go binaries are statically linked, but need /etc/ssl for root CAs
+  /app/bin/syncagent          rix,
+  /etc/ssl/                   r,
+  /etc/ssl/**                 r,
+
+  # ── Application files (read-only) ────────────────────────────────────
+  /app/                       r,
+  /app/config/                r,
+  /app/config/**              r,
+
+  # ── Ephemeral tmpfs ──────────────────────────────────────────────────
+  /tmp/                       rw,
+  /tmp/**                     rw,
+  /var/run/                   rw,
+  /var/run/**                 rw,
+
+  # ── System files ─────────────────────────────────────────────────────
+  /proc/self/                 r,
+  /proc/self/*                r,
+  /proc/sys/net/**            r,
+
+  # ── Network operations ────────────────────────────────────────────────
+  network inet  stream,
+  network inet6 stream,
+
+  # ── EXPLICIT DENIES ───────────────────────────────────────────────────
+  deny /bin/sh     x,
+  deny /bin/bash   x,
+  deny /usr/bin/sh x,
+  deny /usr/bin/bash x,
+  deny ptrace,
+
+  deny /etc/passwd w,
+  deny /etc/shadow w,
+  deny /etc/hosts  w,
+}

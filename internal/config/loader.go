@@ -160,6 +160,18 @@ func defaultConfig() *Config {
 			Enabled: true,
 			Port:    9090,
 		},
+		Monitoring: MonitoringConfig{
+			Enabled:                   false,
+			NTPCheckIntervalSeconds:   60,
+			MaxDriftSeconds:           0.05,
+		},
+		Sync: SyncAgentConfig{
+			DCID:                "dc-a",
+			ListenAddr:          ":7379",
+			RPCListenAddr:       ":7380",
+			BufferMaxLen:        50000,
+			InboundConsumerGroup: "sync-group",
+		},
 		Tarpit: TarpitConfig{
 			MaxActiveConnections: 500,
 			MaxPerIP:                 3,
@@ -312,8 +324,32 @@ type Config struct {
 	AbuseIPDB      AbuseIPDBConfigYAML     `yaml:"abuseipdb"`
 	RDAPEnrichment RDAPConfigYAML          `yaml:"rdap_enrichment"`
 	Fingerprinting FingerprintingConfigYAML `yaml:"fingerprinting"`
-	StaticAllowlist StaticAllowlistConfigYAML `yaml:"static_allowlist"`
+	StaticAllowlist StaticAllowlistConfigYAML `static_allowlist"`
 	Webhooks        WebhooksConfig            `yaml:"webhooks"` // phase-80
+	Monitoring      MonitoringConfig          `yaml:"monitoring"` // phase-88
+	Sync            SyncAgentConfig           `yaml:"sync"`       // phase-88
+}
+
+// MonitoringConfig holds multi-DC observability settings.
+type MonitoringConfig struct {
+	Enabled                 bool    `yaml:"enabled"`
+	NTPCheckIntervalSeconds int     `yaml:"ntp_check_interval_seconds"`
+	MaxDriftSeconds         float64 `yaml:"max_drift_seconds"`
+}
+
+// SyncAgentConfig holds cross-DC replication settings.
+type SyncAgentConfig struct {
+	DCID                 string   `yaml:"dc_id"`
+	ListenAddr           string   `yaml:"listen_addr"`
+	RPCListenAddr        string   `yaml:"rpc_listen_addr"`
+	RemotePeers          []string `yaml:"remote_peers"`
+	BufferMaxLen         int      `yaml:"buffer_maxlen"`
+	InboundConsumerGroup string   `yaml:"inbound_consumer_group"`
+	CertFile             string   `yaml:"cert_file"`
+	KeyFile              string   `yaml:"key_file"`
+	CAFile               string   `yaml:"ca_file"`
+	IntegrityKeyFile     string   `yaml:"integrity_key_file"`
+	IntegrityPubFile     string   `yaml:"integrity_pub_file"`
 }
 
 // ProxyConfig holds network listener and connection settings.
@@ -337,12 +373,14 @@ type ProxyConfig struct {
 
 // RedisConfig holds Redis connection settings.
 type RedisConfig struct {
-	Host     string  `yaml:"host"`
-	Port     FlexInt `yaml:"port"`
-	DB       int     `yaml:"db"`
-	Password string  `yaml:"password"`
-	Timeout  FlexInt `yaml:"timeout"`
-	SSL      bool    `yaml:"ssl"`
+	Host       string   `yaml:"host"`
+	Port       FlexInt  `yaml:"port"`
+	MasterName string   `yaml:"master_name"`
+	Sentinels  []string `yaml:"sentinels"`
+	DB         int      `yaml:"db"`
+	Password   string   `yaml:"password"`
+	Timeout    FlexInt  `yaml:"timeout"`
+	SSL        bool     `yaml:"ssl"`
 }
 
 // SecurityConfig holds security-related settings including JA4 lists.

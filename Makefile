@@ -1265,3 +1265,59 @@ test-phase-84-classifier-parity:
 	python3 -m pytest management/tests/test_compliance_classifier.py -k "parity" -v
 
 .PHONY: test-phase-84 test-phase-84-go test-phase-84-python test-phase-84-classifier-parity
+
+# ── Phase 62: Go fuzz / property / chaos / bench targets ─────────────────────
+# These targets are independent of the existing test-go-* targets which run
+# Python-driven Go integration tests against a live binary. The Phase 62
+# targets run native Go tests in-process.
+
+test-go-fuzz-smoke:
+	GOROOT=/snap/go/current go test -run=^$$ -fuzz=FuzzClientHello$$ -fuzztime=10s ./cmd/proxy/
+	GOROOT=/snap/go/current go test -run=^$$ -fuzz=FuzzReadProxyProtocol$$ -fuzztime=10s ./cmd/proxy/
+	GOROOT=/snap/go/current go test -run=^$$ -fuzz=FuzzReadProxyProtocolV2$$ -fuzztime=10s ./cmd/proxy/
+
+test-go-property:
+	GOROOT=/snap/go/current go test -v -run TestProperty ./internal/security/
+
+test-go-chaos-unit:
+	GOROOT=/snap/go/current go test -v -run 'TestPipeline_(RedisOutage|PartialOutage|DialFlip)' ./internal/security/
+
+bench-go-pipeline:
+	GOROOT=/snap/go/current go test -bench=BenchmarkPipeline -benchmem -run=^$$ ./cmd/proxy/
+
+validation-report:
+	python3 scripts/generate_validation_report.py
+
+.PHONY: test-go-fuzz-smoke test-go-property test-go-chaos-unit bench-go-pipeline validation-report
+
+## Phase 63 targets — SLO validation and reporting
+validate-slo-rules:
+	@command -v promtool >/dev/null 2>&1 && { \
+		promtool check rules monitoring/prometheus/slo_recording_rules.yml; \
+		promtool check rules monitoring/alertmanager/rules/slo_alerts.yml; \
+		echo "SLO recording rules and alert rules are syntactically valid."; \
+	} || { \
+		python3 -c "import yaml; yaml.safe_load(open('monitoring/prometheus/slo_recording_rules.yml')); yaml.safe_load(open('monitoring/alertmanager/rules/slo_alerts.yml')); print('YAML structurally valid (promtool not installed)')"; \
+	}
+
+slo-report:
+	@echo "=== JA4proxy SLO Report ==="
+	@curl -sg 'http://localhost:9090/api/v1/query?query=job:ja4proxy_availability:ratio_rate5m' \
+		| python3 -c "import sys,json; d=json.load(sys.stdin); v=d['data']['result']; print('Availability (5m):', round(float(v[0]['value'][1])*100, 4) if v else 'NO DATA', '%')"
+	@curl -sg 'http://localhost:9090/api/v1/query?query=job:ja4proxy_latency_p99_good:ratio_rate5m' \
+		| python3 -c "import sys,json; d=json.load(sys.stdin); v=d['data']['result']; print('Latency    (5m):', round(float(v[0]['value'][1])*100, 4) if v else 'NO DATA', '%')"
+	@curl -sg 'http://localhost:9090/api/v1/query?query=job:ja4proxy_redis_correctness:ratio_rate5m' \
+		| python3 -c "import sys,json; d=json.load(sys.stdin); v=d['data']['result']; print('Redis      (5m):', round(float(v[0]['value'][1])*100, 4) if v else 'NO DATA', '%')"
+
+test-phase-63:
+	GOROOT=/snap/go/current go test ./internal/metrics/... ./internal/redis/... -count=1
+	python3 -c "import yaml; yaml.safe_load(open('monitoring/prometheus/slo_recording_rules.yml')); yaml.safe_load(open('monitoring/alertmanager/rules/slo_alerts.yml')); print('YAML OK')"
+
+.PHONY: validate-slo-rules slo-report test-phase-63
+
+## Phase 61 targets
+ci-local: ## Run the same fast checks the CI workflow runs (Go + Python tests)
+	GOROOT=/snap/go/current go test ./...
+	python3 -m pytest tests/ --ignore=tests/integration/test_docker_stack.py -x -q --timeout=60
+
+.PHONY: ci-local

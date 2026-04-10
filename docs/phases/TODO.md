@@ -15,42 +15,38 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Comprehensive quality improvement roadmap and governance framework.)
 *   **Action Plan:** [PHASE_60.md](PHASE_60.md)
 
-### Phase 61 — Supply Chain Security & Build Integrity
-*   **Status:** **PROPOSED** (GitHub Actions CI pipeline (Python + Go tests, SAST, dependency audit); SBOM generation (CycloneDX 1.4); Cosign keyless image signing; SLSA level 2 provenance for Go binary; action SHA pinning; branch protection rules.)
-*   **Action Plan:** [PHASE_61.md](PHASE_61.md)
-
-### Phase 62 — Security Regression Harness, Fuzzing & Pre-Enterprise Validation
-*   **Status:** **PROPOSED** (Automated regression tests for all Phase 27 pentest findings; atheris + Go native fuzzing harnesses with CI smoke run; break-glass verification procedure; pre-enterprise validation report generator.)
-*   **Action Plan:** [PHASE_62.md](PHASE_62.md)
-
-### Phase 63 — Service Level Objectives
-*   **Status:** **PROPOSED** (Four SLIs (availability 99.9%, latency 99% <10ms, Redis correctness 99.5%, FP rate <2%); multiwindow burn-rate alerts; Grafana SLO dashboard; on-call runbooks; metric naming prerequisite (ja4_ → ja4proxy_ rename + add missing counters).)
-*   **Action Plan:** [PHASE_63.md](PHASE_63.md)
-
 ### Phase 64 — Deployment Validation & Disaster Recovery
 *   **Status:** **PROPOSED** (Smoke test suite (Docker Compose, Helm/kind, Podman/Quadlet); DR runbook with 5 scenarios incl. Redis data loss; credential rotation runbooks; TLS certificate rotation; rolling upgrade procedure; MTTR baseline measurement.)
 *   **Action Plan:** [PHASE_64.md](PHASE_64.md)
-
-### Phase 85 — Threat Intelligence Ingestion
-*   **Status:** **PROPOSED** (TAXII 2.1 client consuming JA4 fingerprint and IP indicators. JA4 STIX 2.1 extension definition (strategic moat — first standard for JA4 indicators). Recorded Future and CrowdStrike named connectors. Curated JA4 fingerprint community feed architecture.)
-*   **Action Plan:** [PHASE_85.md](PHASE_85.md)
 
 ### Phase 86 — Observability & Capacity Planning
 *   **Status:** **PROPOSED** (Datadog Agent integration tile with dashboard and 4 monitors. Dynatrace EF2 extension with topology entity type. Nagios check plugin and Zabbix template. Capacity sizing calculator script. make load-test harness. Published benchmark numbers. 7 operator runbooks.)
 *   **Action Plan:** [PHASE_86.md](PHASE_86.md)
 
-### Phase 88 — Multi-Datacenter Survivability & Failover
-*   **Status:** **PROPOSED** (Redis Sentinel per-DC plus a new Go sync agent (cmd/syncagent) for cross-DC state replication. State Classification Table (25 key types: SYNC-IMMEDIATE, SYNC-ASYNC, LOCAL-ONLY, DIAL-PROTOCOL). Synchronous Dial Consistency Protocol (port 7380, 8s ACK timeout, last-writer-wins by origin_ts). Active-active and active-passive topology documentation. Seven failure scenario runbooks (WAN failure, DC dark, Redis-only failure, dial divergence, data loss, asymmetric degradation, split-brain). New multi-DC metrics on port 9382 with six alert rules including DialDivergence (critical). Cross-DC Grafana dashboard. Operational procedures for maintenance drain, DC expansion, and rolling upgrade.)
-*   **Action Plan:** [PHASE_88.md](PHASE_88.md)
-
 ### Phase 93 — Terraform Provider + Emergency Runbook Playbooks
-*   **Status:** **PROPOSED** (terraform-provider-ja4proxy (separate repo): 6 resource types (allowlist_entry, blocklist_entry, ban, cidr_ban, dial, webhook), protect_unmanaged_entries flag, import workflow. Three emergency Ansible playbooks: emergency-ban-cidr.yml, temp-whitelist-ip.yml, maintenance-dial-zero.yml.)
+*   **Status:** **PROPOSED** (terraform-provider-ja4proxy (separate repo): 6 resource types (allowlist_entry, blocklist_entry, watchlist_entry, ban [IP+CIDR unified], dial, webhook), protect_unmanaged_entries flag, import workflow. Three emergency Ansible playbooks: emergency-ban-cidr.yml, temp-whitelist-ip.yml, maintenance-dial-zero.yml. Critical review 2026-04-09: corrected API mappings (ban uses /api/v1/bans/{ip_encoded}, no separate cidr_ban), removed 202 dial handling, added watchlist resource, added auth to playbooks.)
 *   **Action Plan:** [PHASE_93.md](PHASE_93.md)
 
 ### Phase 94 — Kubernetes Operator + CMDB/NetBox Integration
 *   **Status:** **PROPOSED** (ja4proxy-operator (separate repo): JA4ProxyConfig, JA4ProxyAllowlist, JA4ProxyDial CRDs with admission webhook validation. Reconciliation loop via Management API. DaemonSet safety annotations. ArgoCD custom health check. ServiceNow CMDB auto-registration (opt-in). NetBox trusted CIDR integration (opt-in, fail-open).)
 *   **Action Plan:** [PHASE_94.md](PHASE_94.md)
 
-### Phase 101 — Phase 84 Compliance Review Gap Closure
-*   **Status:** **PROPOSED** (Closes 9 deferred gaps from the second critical review of Phase 84 Compliance Reporting: H1 (single-XRANGE DSAR path), H3 (CIDR-aware watchlist match in DSAR), M1 (Redis XTRIM MINID version check and fallback), M2 (rename beaconing_records_cleaned → beaconing_datapoints_cleaned — breaking), M4 (paginate audit log reads; plan Stream migration ADR), M7 (DSAR partial-failure reporting instead of silent empty arrays), L1 (module-level Jinja2 Environment cache), L2 (JSONL trailing-newline invariant doc/test), L5 (DSAR retention strings read from gdpr config instead of hardcoded prose). All CRITICAL and most HIGH items were fixed inline in the review-fixes branch before merge.)
+### Phase 101 — Phase 101 — Cross-Phase Gap Register
+*   **Status:** **PROPOSED** (Rolling cross-phase register of deferred review gaps. Currently contains two sections. (1) Phase 84 Compliance Review: items deferred from the second critical review of Phase 84 (DSAR XRANGE consolidation, CIDR-aware DSAR matching, XTRIM MINID Redis-version fallback, audit log pagination, DSAR partial-failure semantics, Jinja2 module-level cache, JSONL invariant docs, dynamic retention strings, beaconing metric rename). C1-C3 / H2/H4/H5 / M3/M5/M6 / L3/L4 were closed in the review-fixes branch and are documented for reference. (2) Phase 85 Threat-Intel Hardening: per-feed safety caps, two-empty-poll gate, ja4_safe_to_block FP-corpus gate, SafeResolver-backed TCPConnector, manual-poll rate limit, CSRF middleware, RF/CrowdStrike regional endpoints, and a re-shape of the TAXII chaos + integration tests against the new FeedRunner constructor. C5-partial / C7 / H13 were closed in-branch on phase-85 and are documented for reference. Gap IDs are letter-prefixed by severity and numbered sequentially across the entire register; new sections continue from the highest existing number per letter.)
 *   **Action Plan:** [PHASE_101.md](PHASE_101.md)
+
+### Phase 200 — Go PROXY Protocol Trust + v2 Support
+*   **Status:** **PROPOSED** (Closes two critical Go gaps: (1) add `_is_trusted_proxy_source()` equivalent to prevent IP spoofing via PROXY protocol from untrusted sources, (2) implement PROXY protocol v2 binary parser (Python already has v1+v2). Without (1) any attacker can spoof any IP and bypass all geo/IP/rate/block controls. Without (2) modern HAProxy/NLB v2 headers are silently ignored.)
+*   **Action Plan:** [PHASE_200.md](PHASE_200.md)
+
+### Phase 201 — Go Redis TLS + Signal Score Drift Fix
+*   **Status:** **PROPOSED** (Closes critical Go gaps: (1) Redis client omits TLS despite config having SSL field — credentials on wire, (2) 4 signal scores diverge from config/signal_scores.yml — wrong scoring decisions in production. Also adds: error logging for ZAdd/ZRemRangeByScore (were swallowing errors), health check with script reload after Redis outage, rate limiter input validation.)
+*   **Action Plan:** [PHASE_201.md](PHASE_201.md)
+
+### Phase 202 — CI Supply Chain + Default Credential Removal
+*   **Status:** **PROPOSED** (Eliminates 6 infrastructure-level critical findings: SHA-pin all GitHub Actions (supply chain), remove default credential fallbacks from all compose files (Grafana admin, Management admin/admin, HAProxy admin/admin123), create Go proxy image CI workflow with SBOM+cosign signing, harden Dockerfile.go-proxy with non-root USER.)
+*   **Action Plan:** [PHASE_202.md](PHASE_202.md)
+
+### Phase 203 — Go Missing Signals — JA4T, TLS Mismatch, Weak Ciphers, DGA, Health
+*   **Status:** **PROPOSED** (Closes 5 production-critical signal gaps in Go: (1) JA4T stub returns `""` — implement full JA4T computation, (2) `ja4_tls_mismatch` not implemented — TLS version spoofing undetected, (3) weak cipher coverage 13 vs Python 37+ — NULL/EXPORT/DH_anon/ECDH_anon missed, (4) DGA algorithm diverges from Python — less effective SNI analysis, (5) Go health check only tests Redis — no GeoIP/connections/queue checks.)
+*   **Action Plan:** [PHASE_203.md](PHASE_203.md)

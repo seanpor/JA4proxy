@@ -661,3 +661,48 @@ groups:
             scanner — indicates a distributed botnet or coordinated scan campaign.
             Check beaconing suspects leaderboard and campaign detector.
           runbook_url: "docs/runbooks/infrastructure.md#distributed-attack"
+
+  # ── Multi-DC Sync ─────────────────────────────────────────────────────────
+  - name: ja4proxy_multidc
+    interval: 30s
+    rules:
+      - alert: SyncAgentWANDisconnected
+        expr: ja4proxy_sync_wan_connected == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: syncagent
+        annotations:
+          summary: "Sync Agent WAN link disconnected to peer {{ $labels.peer }}"
+          description: "Sync Agent cannot reach peer {{ $labels.peer }}. State replication is paused."
+          runbook: "docs/runbooks/multidc.md"
+
+      - alert: DialDivergence
+        expr: abs(ja4proxy_dial_current - on() group_left() (avg(ja4proxy_dial_current))) > 5
+        for: 2m
+        labels:
+          severity: critical
+          component: syncagent
+        annotations:
+          summary: "Dial divergence detected at DC {{ $labels.dc_id }}"
+          description: "This DC's dial ({{ $value }}) differs significantly from the global average. Consistency protocol may have failed."
+
+      - alert: DialPropagationFailed
+        expr: ja4proxy_sync_errors_total{type="dial_rpc"} > 0
+        for: 0m
+        labels:
+          severity: critical
+          component: syncagent
+        annotations:
+          summary: "Dial sync RPC failed"
+          description: "Sync Agent failed to propagate dial change to peers within 8s. Check WAN connectivity."
+
+      - alert: SyncClockDriftHigh
+        expr: abs(ja4proxy_sync_clock_drift_seconds) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High clock drift detected ({{ $value }}s)"
+          description: "NTP clock drift is above 50ms. Sync conflict resolution may become unreliable."
