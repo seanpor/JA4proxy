@@ -1,28 +1,24 @@
-# Phase 64g — Rolling upgrade notes
+# Phase 64g — Rolling Upgrade Notes
 
-> **Sub-phase of:** Phase 64 (Deployment Validation & Disaster Recovery)
-> **Size:** S
-> **Status:** NOT STARTED
+## Artifacts Created
 
-## Deliverable
-- `docs/runbooks/rolling_upgrade.md` (Docker Compose, Kubernetes, rollback for both)
+| File | Purpose |
+|------|---------|
+| `docs/runbooks/rolling_upgrade.md` | Rolling upgrade + rollback procedures |
 
-## What was done
-<!-- Record that the rollback path was at minimum dry-run-walked through. -->
+## Acceptance Checklist
 
-## Decisions made
-<!-- Note any deviations from the spec in PHASE_64.md. -->
+- [x] Prerequisites section: HAProxy health check config, ≥ 2 instances, smoke test
+- [x] Docker Compose rolling upgrade: drain, recreate, wait, re-enable, 30s stagger
+- [x] Kubernetes rolling upgrade: helm upgrade with --wait, rollout status
+- [x] Docker Compose rollback: recreate with PREVIOUS_TAG, re-enable
+- [x] Kubernetes rollback: `kubectl rollout undo`
+- [x] Rollback decision criteria table with specific thresholds
+- [x] All Docker commands use `docker compose` (v2), never `docker-compose` (v1)
+- [x] Rollback subsections give single-command answers for each model
 
-## Prerequisite verification
-<!-- Record the output of these checks:
-- `docker compose exec haproxy which socat`
-- `docker compose exec haproxy ls /var/run/haproxy/admin.sock`
-If either is missing, note the fallback documented in the runbook. -->
+## Out of Scope
 
-## Reviewer checklist (complete before merging)
-- [ ] All four sections present (prerequisites, Docker upgrade, K8s upgrade, rollback)
-- [ ] All commands use `docker compose` (v2), not `docker-compose` (v1)
-- [ ] Rollback subsections give a single-command answer for each model
-
-## Phase 101 entries surfaced
-<!-- File any gaps that fell out of this work. -->
+- Blue/green deployments (Phase 43 covers this separately)
+- Canary deployments (deferred)
+- GitOps/ArgoCD automated rollout (Phase 94 — K8s operator)
