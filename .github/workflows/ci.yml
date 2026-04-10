@@ -116,16 +116,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-      - uses: returntocorp/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d  # v1
-        # Fails CI on any finding at or above HIGH (Semgrep ERROR) severity.
+      - uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c  # v5.0.0
         with:
-          config: >-
-            p/ci
-            p/security-audit
-            p/secrets
+          python-version: "3.11"
+      - name: semgrep
+        run: |
+          pip install "semgrep>=1.100.0"
+          semgrep --config p/ci --config p/security-audit --config p/secrets --error
 
   dependency-audit-python:
     name: Python dependency audit (pip-audit)
