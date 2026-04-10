@@ -27,10 +27,11 @@ BASE_PORT = 9443
 def serve_capture(port: int, name: str, done_event: threading.Event):
     """Listen on port, capture one ClientHello per connection until done_event set."""
     FIXTURES_DIR.mkdir(parents=True, exist_ok=True)
+    # nosemgrep: python.lang.security.audit.network.bind.avoid-bind-to-all-interfaces
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.settimeout(1.0)
-    sock.bind(("0.0.0.0", port))  # nosemgrep: avoid-bind-to-all-interfaces
+    sock.bind(("0.0.0.0", port))
     sock.listen(5)
     seq = 0
     print(f"[{name}] listening on port {port}", flush=True)
