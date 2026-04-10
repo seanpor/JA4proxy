@@ -1,13 +1,13 @@
 """
-Cross-language parity tests: Go proxy vs Python proxy must produce identical
-JA4 fingerprints and equivalent security decisions for identical inputs.
+Go proxy integration tests: validates JA4 fingerprint correctness, security
+decisions, health endpoints, and Prometheus metrics against the running
+Docker stack (`make start`).
 
-Requires: Go binary at bin/ja4proxy (or GO_BINARY env var)
-Build with: GOROOT=/snap/go/current go build -o bin/ja4proxy ./cmd/proxy
-Run: python3 -m pytest tests/integration/test_go_python_parity.py -v
+Offline tests (JA4 fingerprint computation) need only `bin/ja4check`.
+Live tests need the Docker stack running (`make start`).
 
-Also requires: bin/ja4check for fingerprint comparison.
-Build with: GOROOT=/snap/go/current go build -o bin/ja4check ./cmd/ja4check
+Build ja4check: make go-build-ja4check
+Run: make go-parity
 """
 import glob
 import json
@@ -21,13 +21,15 @@ import pytest
 
 # ── Environment / configuration ──────────────────────────────────────────────
 
+# Defaults match `make start` Docker stack ports.
+# Override via environment variables for custom setups.
 GO_PROXY_HOST = os.environ.get("GO_PROXY_HOST", "127.0.0.1")
-GO_PROXY_PORT = int(os.environ.get("GO_PROXY_PORT", "18082"))
-GO_METRICS_PORT = int(os.environ.get("GO_METRICS_PORT", "19092"))
+GO_PROXY_PORT = int(os.environ.get("GO_PROXY_PORT", "8081"))
+GO_METRICS_PORT = int(os.environ.get("GO_METRICS_PORT", "9090"))
 PYTHON_PROXY_HOST = os.environ.get("PYTHON_PROXY_HOST", "127.0.0.1")
 PYTHON_PROXY_PORT = int(os.environ.get("PYTHON_PROXY_PORT", "8081"))
 REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", "6380"))
+REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
 GO_BINARY = os.environ.get("GO_BINARY", "bin/ja4proxy")
 
 # Resolve tool paths (bin/ for local, /usr/local/bin/ in Docker)
@@ -220,10 +222,6 @@ def test_go_proxy_health(go_proxy):
     assert "status" in data, f"/health response missing 'status' field: {data}"
 
 
-@pytest.mark.xfail(
-    reason="Phase 15: JA4proxy application metrics not yet registered in Go metrics server",
-    strict=False,
-)
 def test_go_proxy_metrics_present(go_proxy):
     """Go proxy /metrics must expose ja4proxy_ prefixed Prometheus metrics."""
     if not _go_proxy_live():
@@ -242,8 +240,8 @@ def test_go_proxy_metrics_present(go_proxy):
     assert "ja4proxy_connections_total" in r.text, (
         "Expected 'ja4proxy_connections_total' in /metrics output"
     )
-    assert "ja4proxy_concurrent_connections" in r.text, (
-        "Expected 'ja4proxy_concurrent_connections' in /metrics output"
+    assert "ja4proxy_active_connections" in r.text, (
+        "Expected 'ja4proxy_active_connections' in /metrics output"
     )
 
 
@@ -461,10 +459,6 @@ def test_ja4_blacklist_blocks_go_proxy(go_proxy, redis_client):
 
 # ── Tests: metrics consistency ────────────────────────────────────────────────
 
-@pytest.mark.xfail(
-    reason="Phase 15: JA4proxy application metrics not yet registered in Go metrics server",
-    strict=False,
-)
 def test_metrics_connections_increment(go_proxy):
     """Making a connection to Go proxy must increment ja4proxy_connections_total."""
     if not _go_proxy_live():
