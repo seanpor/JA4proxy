@@ -24,16 +24,18 @@ from __future__ import annotations
 
 import json
 import ssl
-import urllib.request
 import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 # Dynatrace EF2 imports — these are provided by the Dynatrace runtime.
 # They will NOT be available when running this file locally.
 try:
-    from dtpython import dt  # type: ignore
-    from dtpython import dtlog  # type: ignore
+    from dtpython import (
+        dt,  # type: ignore
+        dtlog,  # type: ignore
+    )
 
     HAS_DT = True
 except ImportError:

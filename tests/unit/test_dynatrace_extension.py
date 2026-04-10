@@ -1,10 +1,10 @@
 """Phase 86e — Tests for Dynatrace EF2 extension."""
 
-import yaml
 from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 
 EXTENSION_YAML = Path(__file__).parent.parent.parent / "deploy" / "dynatrace" / "ja4proxy-extension" / "extension.yaml"
 
