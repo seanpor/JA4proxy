@@ -32,6 +32,16 @@ REDIS_HOST = os.environ.get("REDIS_HOST", "127.0.0.1")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
 GO_BINARY = os.environ.get("GO_BINARY", "bin/ja4proxy")
 
+# Load REDIS_PASSWORD from environment or .env file (Docker stack uses .env)
+REDIS_PASSWORD = os.environ.get("REDIS_PASSWORD", "")
+if not REDIS_PASSWORD:
+    _env_file = pathlib.Path(__file__).parent.parent.parent / ".env"
+    if _env_file.exists():
+        for _line in _env_file.read_text().splitlines():
+            if _line.startswith("REDIS_PASSWORD="):
+                REDIS_PASSWORD = _line.split("=", 1)[1].strip()
+                break
+
 # Resolve tool paths (bin/ for local, /usr/local/bin/ in Docker)
 JA4CHECK = os.environ.get("JA4CHECK", "")
 if not JA4CHECK:
@@ -75,12 +85,11 @@ def _python_proxy_live() -> bool:
 def _redis_live() -> bool:
     try:
         import redis as redislib
-        password = os.environ.get("REDIS_PASSWORD")
         r = redislib.Redis(
             host=REDIS_HOST,
             port=REDIS_PORT,
-            password=password,
-            socket_connect_timeout=1
+            password=REDIS_PASSWORD or None,
+            socket_connect_timeout=1,
         )
         return r.ping()
     except Exception:
@@ -165,30 +174,71 @@ def go_proxy():
     proc.wait(timeout=5)
 
 
+class _DockerRedis:
+    """Thin wrapper that runs redis-cli via docker exec against the ja4proxy Redis container."""
+
+    def __init__(self, container: str, password: str):
+        self._container = container
+        self._password = password
+
+    def _run(self, *args: str) -> str:
+        cmd = [
+            "docker", "exec", self._container,
+            "redis-cli", "-a", self._password, "--no-auth-warning",
+        ] + list(args)
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+        return r.stdout.strip()
+
+    def sadd(self, key: str, *members: str):
+        self._run("SADD", key, *members)
+
+    def srem(self, key: str, *members: str):
+        self._run("SREM", key, *members)
+
+    def delete(self, *keys: str):
+        self._run("DEL", *keys)
+
+    def publish(self, channel: str, message: str):
+        self._run("PUBLISH", channel, message)
+
+    def ping(self) -> bool:
+        return self._run("PING") == "PONG"
+
+
+REDIS_CONTAINER = os.environ.get("REDIS_CONTAINER", "ja4proxy-redis-1")
+
+
 @pytest.fixture(scope="module")
 def redis_client():
-    """Return a real Redis client for state manipulation; skip if Redis unavailable."""
+    """Return a Redis client for state manipulation.
+
+    Tries direct TCP first (useful when Redis port is exposed); falls back to
+    docker-exec redis-cli for the default internal-network setup.
+    """
+    # Try direct TCP connection first
     try:
         import redis as redislib
-    except ImportError:
-        pytest.skip("redis-py not installed")
-
-    password = os.environ.get("REDIS_PASSWORD")
-    r = redislib.Redis(
-        host=REDIS_HOST,
-        port=REDIS_PORT,
-        password=password,
-        socket_connect_timeout=2
-    )
-    try:
+        r = redislib.Redis(
+            host=REDIS_HOST, port=REDIS_PORT,
+            password=REDIS_PASSWORD or None, socket_connect_timeout=2,
+        )
         r.ping()
+        yield r
+        r.delete("ja4:blacklist")
+        return
     except Exception:
-        pytest.skip(f"Redis not reachable at {REDIS_HOST}:{REDIS_PORT}")
+        pass
 
-    yield r
+    # Fall back to docker exec
+    dr = _DockerRedis(REDIS_CONTAINER, REDIS_PASSWORD)
+    if not dr.ping():
+        pytest.skip(
+            f"Redis not reachable via TCP ({REDIS_HOST}:{REDIS_PORT}) "
+            f"or docker exec ({REDIS_CONTAINER})"
+        )
 
-    # Cleanup: remove any blacklist entries we may have added
-    r.delete("ja4:blacklist")
+    yield dr
+    dr.delete("ja4:blacklist")
 
 
 # ── Tests: Go proxy basic connectivity ───────────────────────────────────────
@@ -441,7 +491,7 @@ def test_ja4_blacklist_blocks_go_proxy(go_proxy, redis_client):
     if ja4.startswith("ERROR") or not ja4:
         pytest.skip(f"Could not compute JA4 for test hello: {ja4}")
 
-    # Add to blacklist, send hello, expect RST
+    # Add to blacklist, send hello, expect block (RST or clean close, no ServerHello)
     redis_client.sadd("ja4:blacklist", ja4)
     redis_client.publish("ja4:blacklist:add", ja4)
     try:
@@ -449,8 +499,11 @@ def test_ja4_blacklist_blocks_go_proxy(go_proxy, redis_client):
         time.sleep(1.0)  # allow proxy to sync blacklist
         result = send_clienthello_and_check(GO_PROXY_HOST, GO_PROXY_PORT, hello)
         assert result["connected"], "Go proxy refused connection entirely"
-        assert result["rst"], (
-            f"Go proxy did NOT RST connection with blacklisted JA4={ja4}; "
+        # A block can be RST (SetLinger(0)) or clean close (FIN).
+        # Either way, no valid TLS ServerHello (starts with 0x16) should arrive.
+        blocked = result["rst"] or result["response"] == b""
+        assert blocked, (
+            f"Go proxy forwarded blacklisted JA4={ja4} to backend; "
             f"response_received={result['response']!r}"
         )
     finally:
