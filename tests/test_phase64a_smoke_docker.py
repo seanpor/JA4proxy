@@ -80,3 +80,9 @@ class TestSmokeScriptBehavior:
 
     def test_tears_down_with_docker_compose_down(self, script_content):
         assert "docker compose down -v" in script_content
+
+    def test_cleanup_trap_exists(self, script_content):
+        """Teardown must run on all exit paths via a trap, not just the happy path."""
+        assert "trap cleanup" in script_content, (
+            "Script must use 'trap cleanup EXIT' to ensure teardown on failure"
+        )
