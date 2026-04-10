@@ -558,7 +558,7 @@ clean:
 	else \
 		docker compose -f docker/docker-compose.poc.yml --env-file .env down -v --remove-orphans; \
 	fi
-	docker compose -f docker/docker-compose.prod.yml down -v --remove-orphans
+	BACKEND_HOST=_ docker compose -f docker/docker-compose.prod.yml down -v --remove-orphans 2>/dev/null || true
 	rm -rf reports/ __pycache__/ .pytest_cache/ .mypy_cache/
 
 # Full clean rebuild from scratch — wipes volumes, removes built images, rebuilds, starts.
