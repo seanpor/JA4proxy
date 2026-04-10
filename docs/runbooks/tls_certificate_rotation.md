@@ -1,3 +1,10 @@
+<!--
+title: "tls cerTIficate rotaTIon Runbook"
+audience: oncall, sre
+last_reviewed: 2026-04-10
+phase: 86
+-->
+
 # TLS Certificate Rotation
 
 > **Scope:** Server-side TLS certificate and mTLS CA certificate rotation.

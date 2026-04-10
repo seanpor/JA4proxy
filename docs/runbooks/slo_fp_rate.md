@@ -1,3 +1,10 @@
+<!--
+title: "SLO FP rate Runbook"
+audience: oncall, sre
+last_reviewed: 2026-04-10
+phase: 86
+-->
+
 # Runbook — SLO: False Positive Rate
 
 > **Alert sources:** `JA4proxyHighBlockingRate`, `JA4ProxyHighBlockRate`

@@ -1,3 +1,10 @@
+<!--
+title: "rolling upgrade Runbook"
+audience: oncall, sre
+last_reviewed: 2026-04-10
+phase: 86
+-->
+
 # Rolling Upgrade
 
 > **Scope:** Zero-downtime upgrade of JA4proxy across Docker Compose and

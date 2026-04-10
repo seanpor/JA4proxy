@@ -1,3 +1,10 @@
+<!--
+title: "ja4proxy redis latency high Runbook"
+audience: oncall, sre
+last_reviewed: 2026-04-10
+phase: 86
+-->
+
 # Runbook: ja4proxy_redis_latency_high
 
 ## Severity

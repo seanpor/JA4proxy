@@ -1,3 +1,10 @@
+<!--
+title: "ja4proxy campaign detected Runbook"
+audience: oncall, sre
+last_reviewed: 2026-04-10
+phase: 86
+-->
+
 # Runbook: ja4proxy_campaign_detected
 
 ## Severity

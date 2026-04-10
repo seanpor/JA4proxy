@@ -29,7 +29,14 @@ EXEMPT_DIRS = [
     "phases",      # Phase files have different structure
     "decisions",    # ADR files have different structure
     "api",         # Auto-generated files
-    "reports"      # Generated reports
+    "reports",      # Generated reports
+    "security",     # Security audit reports (narrative format)
+    "reviews",      # Review reports
+    "stix",         # STIX threat intel format
+    "compliance",   # Compliance narratives
+    "performance",  # Benchmark results
+    "architecture", # Architecture documents
+    "developer",    # Developer guides / process docs
 ]
 
 EXEMPT_FILES = [

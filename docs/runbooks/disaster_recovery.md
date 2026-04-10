@@ -1,3 +1,10 @@
+<!--
+title: "disaster recovery Runbook"
+audience: oncall, sre
+last_reviewed: 2026-04-10
+phase: 86
+-->
+
 # Disaster Recovery Runbook
 
 > **Scope:** Catastrophic failures requiring coordination across 2+ systems
