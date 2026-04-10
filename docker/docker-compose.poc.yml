@@ -95,7 +95,8 @@ services:
 
   redis:
     image: redis/redis-stack:7.4.0-v3
-    # No host port exposure — internal to ja4proxy-data only
+    # No host port exposure — internal to ja4proxy-data only.
+    # Tests use `docker exec` + redis-cli for state manipulation.
     restart: unless-stopped
     environment:
       # redis/redis-stack passes extra flags via REDIS_ARGS (see /entrypoint.sh)
