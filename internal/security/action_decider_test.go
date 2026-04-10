@@ -17,14 +17,14 @@ func TestEffectiveThreshold(t *testing.T) {
 		dial       int
 		expected   int
 	}{
-		{70, 0, 101},   // monitor mode — unreachable
-		{70, 100, 70},  // full blocking — exact configured
-		{70, 50, 86},   // round(101 - 0.5 * 31) = round(85.5) = 86
-		{20, 50, 60},   // round(101 - 0.5 * 81) = round(60.5) = 60
-		{85, 0, 101},   // ban at monitor mode
-		{85, 100, 85},  // ban at full blocking
-		{55, 50, 74},   // round(101 - 0.5 * 46) = round(78) = 78? let me recalculate
-		                // Actually: round(101 - 0.5 * (101-55)) = round(101 - 0.5*46) = round(101-23) = round(78) = 78
+		{70, 0, 101},  // monitor mode — unreachable
+		{70, 100, 70}, // full blocking — exact configured
+		{70, 50, 86},  // round(101 - 0.5 * 31) = round(85.5) = 86
+		{20, 50, 60},  // round(101 - 0.5 * 81) = round(60.5) = 60
+		{85, 0, 101},  // ban at monitor mode
+		{85, 100, 85}, // ban at full blocking
+		{55, 50, 74},  // round(101 - 0.5 * 46) = round(78) = 78? let me recalculate
+		// Actually: round(101 - 0.5 * (101-55)) = round(101 - 0.5*46) = round(101-23) = round(78) = 78
 	}
 	// Fix the 55,50 case
 	cases[6].expected = 78

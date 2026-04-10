@@ -87,10 +87,10 @@ func TestResolveToken_EnvNotSet(t *testing.T) {
 // table-driven approach.
 func TestResolveToken_PrecedenceOrder(t *testing.T) {
 	tests := []struct {
-		name    string
-		flag    string
-		env     string
-		want    string
+		name string
+		flag string
+		env  string
+		want string
 	}{
 		{"flag_wins_over_env", "flag-tok", "env-tok", "flag-tok"},
 		{"env_wins_when_no_flag", "", "env-tok", "env-tok"},

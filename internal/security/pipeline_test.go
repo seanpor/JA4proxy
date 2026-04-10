@@ -10,21 +10,21 @@ type mockRedis struct {
 	dial int
 }
 
-func (m *mockRedis) GetDial(_ context.Context) int                               { return m.dial }
-func (m *mockRedis) SIsMember(_ context.Context, _ string, _ interface{}) bool   { return false }
+func (m *mockRedis) GetDial(_ context.Context) int                             { return m.dial }
+func (m *mockRedis) SIsMember(_ context.Context, _ string, _ interface{}) bool { return false }
 func (m *mockRedis) SlidingWindowCount(_ context.Context, _ string, _ float64, _ int) int {
 	return 0
 }
-func (m *mockRedis) HGetAll(_ context.Context, _ string) map[string]string              { return nil }
-func (m *mockRedis) GetString(_ context.Context, _ string) string                       { return "" }
-func (m *mockRedis) SetString(_ context.Context, _ string, _ string, _ int)             {}
-func (m *mockRedis) Exists(_ context.Context, _ string) bool                            { return false }
-func (m *mockRedis) Ping(_ context.Context) error                                       { return nil }
-func (m *mockRedis) ZAdd(_ context.Context, _ string, _ float64, _ string)           {}
-func (m *mockRedis) ZRemRangeByScore(_ context.Context, _ string, _, _ float64)      {}
-func (m *mockRedis) ZRange(_ context.Context, _ string, _, _ int64) []string         { return nil }
-func (m *mockRedis) ZCard(_ context.Context, _ string) int64                         { return 0 }
-func (m *mockRedis) ZRangeScores(_ context.Context, _ string, _, _ int64) []float64  { return nil }
+func (m *mockRedis) HGetAll(_ context.Context, _ string) map[string]string          { return nil }
+func (m *mockRedis) GetString(_ context.Context, _ string) string                   { return "" }
+func (m *mockRedis) SetString(_ context.Context, _ string, _ string, _ int)         {}
+func (m *mockRedis) Exists(_ context.Context, _ string) bool                        { return false }
+func (m *mockRedis) Ping(_ context.Context) error                                   { return nil }
+func (m *mockRedis) ZAdd(_ context.Context, _ string, _ float64, _ string)          {}
+func (m *mockRedis) ZRemRangeByScore(_ context.Context, _ string, _, _ float64)     {}
+func (m *mockRedis) ZRange(_ context.Context, _ string, _, _ int64) []string        { return nil }
+func (m *mockRedis) ZCard(_ context.Context, _ string) int64                        { return 0 }
+func (m *mockRedis) ZRangeScores(_ context.Context, _ string, _, _ int64) []float64 { return nil }
 
 func newTestPipeline(dial int) *Pipeline {
 	cfg := &PipelineConfig{

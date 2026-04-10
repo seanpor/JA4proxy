@@ -86,7 +86,8 @@ func parseChronycTracking(out string) (float64, error) {
 
 // parseNtpstat extracts drift from ntpstat output.
 // Example: "synchronised to NTP server (1.2.3.4) at stratum 2
-//           time correct to within 12 ms"
+//
+//	time correct to within 12 ms"
 func parseNtpstat(out string) (float64, error) {
 	if strings.Contains(out, "unsynchronised") {
 		return 0, fmt.Errorf("ntpstat: unsynchronised")
