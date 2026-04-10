@@ -325,7 +325,7 @@ type Config struct {
 	AbuseIPDB       AbuseIPDBConfigYAML       `yaml:"abuseipdb"`
 	RDAPEnrichment  RDAPConfigYAML            `yaml:"rdap_enrichment"`
 	Fingerprinting  FingerprintingConfigYAML  `yaml:"fingerprinting"`
-	StaticAllowlist StaticAllowlistConfigYAML `static_allowlist"`
+	StaticAllowlist StaticAllowlistConfigYAML `yaml:"static_allowlist"`
 	Webhooks        WebhooksConfig            `yaml:"webhooks"`   // phase-80
 	Monitoring      MonitoringConfig          `yaml:"monitoring"` // phase-88
 	Sync            SyncAgentConfig           `yaml:"sync"`       // phase-88
