@@ -175,3 +175,31 @@ jobs:
         with:
           fail-on-severity: high
           deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0, SSPL-1.0
+
+  # Phase 64a — Docker Compose lifecycle smoke test.
+  # Non-blocking by default (continue-on-error). After a stability window the
+  # team may set smoke_required: true in the repository variables to promote
+  # this to a required check.
+  smoke-docker:
+    name: Smoke test (Docker Compose)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - name: Set up Docker
+        uses: docker/setup-docker-action@dd13954682b00a4c735136ad4734f89e3615b5d6  # v1.3.2
+        with:
+          daemon-config: |
+            {
+              "features": {
+                "containerd-snapshotter": true
+              }
+            }
+      - name: Smoke test
+        run: |
+          # Create minimal .env for CI if absent
+          [ -f .env ] || {
+            echo "REDIS_PASSWORD=smoketest" >> .env
+            echo "BACKEND_HOST=localhost" >> .env
+          }
+          bash scripts/smoke/test_docker_compose.sh
