@@ -1208,8 +1208,7 @@ async def test_duplicate_post_is_idempotent(
             )
 
     # Only one Hash record should exist
-    hash_keys = await fake_redis.keys("allowlist:entry:*")
-    matching = [k for k in hash_keys]
+    assert len(await fake_redis.keys("allowlist:entry:*")) == 1
     # The SET must have exactly one member for this fingerprint
     members = await fake_redis.smembers("ja4:whitelist")
     matching_members = [m for m in members if m == fingerprint]

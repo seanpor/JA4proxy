@@ -462,7 +462,7 @@ async def test_oidc_pkce_code_verifier_stored_in_state(
         "management.api.routes.oidc._fetch_oidc_discovery",
         new=AsyncMock(return_value=_FAKE_DISCOVERY),
     ):
-        r = await public_client.get("/auth/sso/oidc/login", follow_redirects=False)
+        await public_client.get("/auth/sso/oidc/login", follow_redirects=False)
 
     keys = await fake_redis.keys("mgmt:oidc:state:*")
     stored = json.loads(await fake_redis.get(keys[0]))

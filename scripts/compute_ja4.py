@@ -178,7 +178,7 @@ def compute_ja4_from_file(path: str) -> str:
         extensions = fields["extensions"]
         supported_versions = fields["supported_versions"]
         alpn = fields["alpn"]
-        sni = fields["sni"]
+        _sni = fields["sni"]
 
         # TLS version: prefer supported_versions extension for TLS 1.3
         version = _tls_version_string(legacy_version)

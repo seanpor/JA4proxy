@@ -97,7 +97,7 @@ def main():
                     for match in re.finditer(r'"(github\.com/.*?/JA4proxy2/.*?)"', content):
                         imp = match.group(1)
                         # Naive translation to local path
-                        local_path = imp.split("JA4proxy2/")[-1]
+                        _local_path = imp.split("JA4proxy2/")[-1]
                         # Just link to the directory or try to find a go file
                         # We'll skip deep go parsing for simplicity, relying on go tools if needed
             except Exception:

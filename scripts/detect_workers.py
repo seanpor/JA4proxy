@@ -39,7 +39,7 @@ def detect() -> dict:
 
     # Count tests run (last non-empty line of output)
     out = result.stdout.decode(errors="replace")
-    nlines = [l for l in out.splitlines() if l.strip()]
+    nlines = [ln for ln in out.splitlines() if ln.strip()]
     sample_line = nlines[-1] if nlines else ""
 
     # Heuristic: on a fast machine (<2s for the sample file), use all cores.

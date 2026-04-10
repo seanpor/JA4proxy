@@ -251,7 +251,7 @@ class SecurityTestUser(HttpUser):
         payload = random.choice(self.malicious_payloads)
         
         try:
-            response = self.client.get(payload, timeout=10)
+            self.client.get(payload, timeout=10)
             # We expect these to be blocked or handled safely
             
         except Exception:

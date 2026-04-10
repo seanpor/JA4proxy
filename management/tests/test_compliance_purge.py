@@ -315,7 +315,7 @@ async def test_purge_partial_error_still_completes(redis_client):
     purge = GDPRPurge(redis_client)
 
     # Make _purge_stream raise to simulate a Redis error in that category
-    original_purge_stream = purge._purge_stream
+    _original_purge_stream = purge._purge_stream
     async def failing_purge_stream(cutoff_ms):
         raise RuntimeError("simulated stream error")
     purge._purge_stream = failing_purge_stream

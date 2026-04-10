@@ -1348,7 +1348,7 @@ class ReportGenerator:
         std = pr.stdev_latency()
         return (
             f"| {self._fmt_ms(mean)} | {self._fmt_ms(std)} "
-            + " ".join(f"| {self._fmt_ms(l)}" for l in lats)
+            + " ".join(f"| {self._fmt_ms(lat)}" for lat in lats)
             + " |"
         )
 
