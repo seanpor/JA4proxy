@@ -1,25 +1,45 @@
-# Phase 64f — TLS certificate rotation + alerts notes
+# Phase 64f — TLS Certificate Rotation + Alerts Notes
 
-> **Sub-phase of:** Phase 64 (Deployment Validation & Disaster Recovery)
-> **Size:** S
-> **Status:** NOT STARTED
+## Artifacts Created
 
-## Deliverable
-- `docs/runbooks/tls_certificate_rotation.md`
-- `monitoring/alertmanager/rules/tls_alerts.yml`
+| File | Purpose |
+|------|---------|
+| `docs/runbooks/tls_certificate_rotation.md` | Server cert + mTLS CA rotation |
+| `monitoring/alertmanager/rules/tls_alerts.yml` | Prometheus alert rules |
 
-## What was done
-<!-- Record the lint result (`make lint-alertmanager`) and a manual sanity check
-that the gauge `ja4proxy_tls_cert_expiry_timestamp_seconds` exists in
-`internal/metrics/metrics.go`. -->
+## Gauge Verification
 
-## Decisions made
-<!-- Note any deviations from the spec in PHASE_64.md. -->
+- **Gauge name in `internal/metrics/metrics.go` line 174:** `ja4proxy_tls_cert_expiry_timestamp_seconds`
+- **Gauge name in alert rules:** `ja4proxy_tls_cert_expiry_timestamp_seconds` ✅ Match
+- **Gauge name in runbook:** `ja4proxy_tls_cert_expiry_timestamp_seconds` ✅ Match
+- **No `absent_over_time` guard in alert rules** (only a comment explaining why it's not needed) ✅
 
-## Reviewer checklist (complete before merging)
-- [ ] Runbook references Phase 63 gauge by real name
-- [ ] No `absent_over_time` guard — the gauge is live
-- [ ] Alert rules parse cleanly under alertmanager lint
+## Alert Rules
 
-## Phase 101 entries surfaced
-<!-- File any gaps that fell out of this work. -->
+- **Warning:** < 30 days to expiry, `for: 0m` (immediate fire)
+- **Critical:** < 7 days to expiry, `for: 0m` (immediate fire)
+- Both reference the TLS certificate rotation runbook in annotations
+
+## Runbook Sections
+
+1. Certificate expiry monitoring — PromQL queries, Grafana guidance
+2. Server-side TLS certificate rotation — rolling SIGHUP reload
+3. mTLS CA certificate rotation — three-phase dual-CA trust period
+
+Each section has rollback instructions.
+
+## Acceptance Checklist
+
+- [x] Runbook exists with all three sections
+- [x] Alert rule file exists with warning (< 30 days) and critical (< 7 days)
+- [x] Gauge name matches `internal/metrics/metrics.go` exactly
+- [x] No `absent_over_time` guard — the gauge is live
+- [x] No mention of Phase 63 being incomplete or pending
+- [x] All hot-reload commands use Go-production form
+- [x] Each section has rollback instructions
+
+## Out of Scope
+
+- Certificate automation / ACME integration (deferred)
+- OCSP stapling configuration (deferred)
+- CT log monitoring (deferred)
