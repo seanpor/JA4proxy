@@ -536,7 +536,7 @@ def _flush_redis(cfg: BenchmarkConfig) -> bool:
                 "redis-cli", pw_arg.strip(), "FLUSHDB",
             ]
             result = subprocess.run(
-                " ".join(docker_cmd), shell=True,  # noqa: S602 — non-user input
+                " ".join(docker_cmd), shell=True,  # noqa: S602 — non-user input  # nosemgrep: subprocess-shell-true
                 capture_output=True, text=True, timeout=5
             )
             return result.returncode == 0
@@ -582,7 +582,7 @@ def _get_proxy_version(host: str, port: int) -> str:
     try:
         # The Go proxy exposes /health; Python proxy exposes /metrics
         import urllib.request  # noqa: PLC0415
-        with urllib.request.urlopen(
+        with urllib.request.urlopen(  # nosemgrep: dynamic-urllib-use-detected
             f"http://{host}:{port + 10}/health", timeout=2  # metrics port = proxy_port + 10
         ) as resp:
             data = json.loads(resp.read())
