@@ -354,7 +354,7 @@ class FeedRunner:
         # can label re-seen indicators as ``existing`` rather than ``created``
         # in the per-indicator outcome metric. Default-empty fallback (set in
         # FeedClient.__init__) means a fresh feed counts everything as new.
-        client.previous_stix_ids = previous_ids
+        client.previous_stix_ids = set(previous_ids)
 
         try:
             result = await client.poll()

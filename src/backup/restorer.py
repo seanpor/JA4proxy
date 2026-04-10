@@ -509,7 +509,7 @@ class BackupRestorer:
             restored_count = 0
             cursor = 0
             while True:
-                cursor, keys = redis_client.scan(cursor=cursor, count=100)
+                cursor, keys = redis_client.scan(cursor=cursor, count=100)  # type: ignore[misc]
                 restored_count += len(keys)
                 if cursor == 0:
                     break

@@ -24,7 +24,7 @@ from .stream_consumer import StreamConsumer
 try:  # pragma: no cover
     from .ti_feeds.runner import FeedRunner as _FeedRunner
 except Exception as _ti_import_exc:  # pragma: no cover  # noqa: BLE001
-    _FeedRunner = None  # type: ignore[assignment]
+    _FeedRunner = None  # type: ignore[assignment,misc]
     _ti_feed_import_error: Optional[BaseException] = _ti_import_exc
 else:
     _ti_feed_import_error = None
