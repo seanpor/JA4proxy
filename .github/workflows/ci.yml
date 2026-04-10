@@ -70,14 +70,18 @@ jobs:
           go-version: "1.25.9"
       - name: gofmt
         run: |
-          out="$(gofmt -l .)"
+          # Exclude agent worktrees, vendor dirs, and third-party code.
+          # gofmt has no --exclude flag so we filter with grep.
+          out="$(gofmt -l . | grep -vE '^\.claude/|^\.qwen/|^vendor/' || true)"
           if [ -n "$out" ]; then
             echo "::error::gofmt found unformatted files:"
             echo "$out"
             exit 1
           fi
       - name: go vet
-        run: go vet ./...
+        run: |
+          # Same exclusion as gofmt above.
+          go vet $(go list ./... | grep -vE '/\.claude/|/\.qwen/|/vendor/')
       - uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c  # v5.0.0
         with:
           python-version: "3.11"
