@@ -151,7 +151,51 @@ def fuzz_smoke_section() -> str:
     return "\n".join(lines)
 
 
-def build_report() -> str:
+def _section_deployment() -> str:
+    """Phase 64i — Deployment Validation Evidence section.
+
+    Collects smoke test results, MTTR baseline, and DR exercise history.
+    Gracefully degrades if any input is missing (never raises).
+    """
+    lines = ["## Deployment Validation Evidence", ""]
+
+    smoke_dir = Path("test-results/smoke")
+    lines.append("### Smoke Tests")
+    if smoke_dir.exists():
+        for result_file in sorted(smoke_dir.glob("*.result")):
+            status = result_file.read_text().strip()
+            lines.append(f"- {result_file.stem}: **{status}**")
+    else:
+        lines.append("- No smoke test results found. Run `make smoke-docker` first.")
+    lines.append("")
+
+    mttr_file = Path("MTTR_BASELINE.md")
+    lines.append("### MTTR Baseline")
+    if mttr_file.exists():
+        lines.extend(mttr_file.read_text().splitlines())
+    else:
+        lines.append("- `MTTR_BASELINE.md` not found. Run `make measure-mttr` first.")
+    lines.append("")
+
+    dr_runbook = Path("docs/runbooks/disaster_recovery.md")
+    gameday_file = Path("docs/runbooks/gameday_scenarios.md")
+    lines.append("### DR Runbook Exercise History")
+    if dr_runbook.exists() and "Runbook Exercise History" in dr_runbook.read_text():
+        content = dr_runbook.read_text()
+        section = content.split("Runbook Exercise History", 1)[1].split("\n## ", 1)[0]
+        lines.extend(section.strip().splitlines())
+    elif gameday_file.exists() and "Runbook Exercise History" in gameday_file.read_text():
+        content = gameday_file.read_text()
+        section = content.split("Runbook Exercise History", 1)[1].split("\n## ", 1)[0]
+        lines.extend(section.strip().splitlines())
+    else:
+        lines.append("- No exercise history recorded yet. Run a GameDay first.")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
+def build_report(extra_section: str | None = None) -> str:
     now = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
     counts = count_go_tests()
     parts = [
@@ -188,6 +232,11 @@ def build_report() -> str:
         fuzz_smoke_section(),
         "",
     ]
+
+    # Append deployment section if requested (Phase 64i)
+    if extra_section == "deployment":
+        parts.append(_section_deployment())
+
     return "\n".join(parts) + "\n"
 
 
@@ -195,9 +244,15 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--output", default=str(DEFAULT_OUTPUT), help="output markdown path")
     ap.add_argument("--stdout", action="store_true", help="also print to stdout")
+    ap.add_argument(
+        "--section",
+        choices=["deployment"],
+        default=None,
+        help="append a specific evidence section (e.g. --section deployment)",
+    )
     args = ap.parse_args()
 
-    report = build_report()
+    report = build_report(extra_section=args.section)
     out_path = Path(args.output)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(report, encoding="utf-8")
