@@ -158,7 +158,7 @@ start-monitoring:
 # Start scaled configuration with 4 workers and HAProxy (Phase 26d)
 start-scaled:
 	@echo "Starting JA4Proxy with 4-worker scaling..."
-	@docker compose -f docker/docker-compose.poc.yml -f docker/docker-compose.scale.yml up -d
+	@docker compose -f docker/docker-compose.poc.yml -f docker/docker-compose.scale.yml --env-file .env up -d
 	@echo "✓ HAProxy load balancer started on port 443"
 	@echo "✓ 4 worker processes started on ports 8080, 8083, 8084, 8085"
 	@echo "✓ HAProxy stats available at http://localhost:8404/stats (admin/admin123)"
@@ -225,7 +225,7 @@ agent-status:
 # Build Docker images
 build:
 	@echo "Building Docker images..."
-	docker compose -f docker/docker-compose.poc.yml build
+	docker compose -f docker/docker-compose.poc.yml --env-file .env build
 
 # Run all tests locally in parallel (fast — no Docker required)
 # Skips tests marked @pytest.mark.live_services (require Go/Python proxy + Redis stack)
@@ -333,7 +333,7 @@ lint-docker:
 	done
 	@echo ""
 	@echo "=== docker compose config: compose files ==="
-	@BACKEND_HOST=lint-placeholder REDIS_PASSWORD=lint-placeholder docker compose -f docker/docker-compose.poc.yml config --quiet \
+	@BACKEND_HOST=lint-placeholder REDIS_PASSWORD=lint-placeholder docker compose -f docker/docker-compose.poc.yml --env-file .env config --quiet \
 		&& echo "  docker/docker-compose.poc.yml                      OK"
 	@BACKEND_HOST=lint-placeholder REDIS_PASSWORD=lint-placeholder docker compose -f docker/docker-compose.poc.yml -f docker/docker-compose.python-legacy.yml config --quiet \
 		&& echo "  docker/docker-compose.python-legacy.yml (overlay)  OK"
@@ -556,7 +556,7 @@ clean:
 	@if [ -n "$(_AGENT)" ]; then \
 		docker compose -f docker/docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) down -v --remove-orphans; \
 	else \
-		docker compose -f docker/docker-compose.poc.yml down -v --remove-orphans; \
+		docker compose -f docker/docker-compose.poc.yml --env-file .env down -v --remove-orphans; \
 	fi
 	docker compose -f docker/docker-compose.prod.yml down -v --remove-orphans
 	rm -rf reports/ __pycache__/ .pytest_cache/ .mypy_cache/
@@ -602,7 +602,7 @@ health-check:
 	echo "Running health checks ($$IP)..."; \
 	curl -sf "http://$$IP:9090/metrics" > /dev/null && echo "✓ Proxy metrics OK" || echo "✗ Proxy metrics failed"; \
 	curl -sk "https://$$IP:8443/api/health" > /dev/null && echo "✓ Backend OK" || echo "✗ Backend failed"; \
-	docker compose -f docker/docker-compose.poc.yml $$FLAGS exec -T redis redis-cli -a "$$RPASS" ping > /dev/null 2>&1 && echo "✓ Redis OK" || echo "✗ Redis failed"
+	docker compose -f docker/docker-compose.poc.yml --env-file .env $$FLAGS exec -T redis redis-cli -a "$$RPASS" ping > /dev/null 2>&1 && echo "✓ Redis OK" || echo "✗ Redis failed"
 
 # View logs (agent-aware: uses .current-agent if set)
 logs:
@@ -610,7 +610,7 @@ logs:
 	@if [ -n "$(_AGENT)" ]; then \
 		docker compose -f docker/docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) logs -f proxy; \
 	else \
-		docker compose -f docker/docker-compose.poc.yml logs -f proxy; \
+		docker compose -f docker/docker-compose.poc.yml --env-file .env logs -f proxy; \
 	fi
 
 # Flush all transient security state from Redis (bans, blocks, rate windows, audit logs)
@@ -623,7 +623,7 @@ flush-redis:
 	if [ -z "$$REDIS_PASS" ]; then echo "✗ No REDIS_PASSWORD in $$ENVFILE"; exit 1; fi; \
 	FLAGS=$$([ -n "$(_AGENT)" ] && echo "--project-name ja4_$(_AGENT) --env-file $$ENVFILE" || true); \
 	echo "Flushing Redis security state$$([ -n "$(_AGENT)" ] && echo " (agent: $(_AGENT))")..."; \
-	COUNT=$$(docker compose -f docker/docker-compose.poc.yml $$FLAGS exec -T redis redis-cli -a "$$REDIS_PASS" --no-auth-warning \
+	COUNT=$$(docker compose -f docker/docker-compose.poc.yml --env-file .env $$FLAGS exec -T redis redis-cli -a "$$REDIS_PASS" --no-auth-warning \
 		EVAL "local n=0; \
 		      for _,p in ipairs({'rate:*','banned:*','blocked:*','suspicious:*','enforcement:*','audit:*','repeat_block:*'}) do \
 		        for _,k in ipairs(redis.call('keys',p)) do redis.call('del',k); n=n+1 end \
@@ -699,7 +699,7 @@ unblock-ip:
 perf-test:
 	@echo "Starting performance tests..."
 	@echo "Note: This requires services to be running (make deploy-poc)"
-	docker compose -f docker/docker-compose.poc.yml run --rm test locust -f /app/performance/locust_tests.py --host http://proxy:8080 --users 100 --spawn-rate 10 --run-time 5m --headless
+	docker compose -f docker/docker-compose.poc.yml --env-file .env run --rm test locust -f /app/performance/locust_tests.py --host http://proxy:8080 --users 100 --spawn-rate 10 --run-time 5m --headless
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
@@ -762,7 +762,7 @@ parity-check:
 # Python proxy (legacy): host port 8083 / metrics 9093
 go-start:
 	@echo "Starting Python legacy proxy (port 8083) for parity comparison..."
-	docker compose -f docker/docker-compose.poc.yml -f docker/docker-compose.python-legacy.yml up -d python-proxy
+	docker compose -f docker/docker-compose.poc.yml -f docker/docker-compose.python-legacy.yml --env-file .env up -d python-proxy
 	@echo ""
 	@echo "  Go proxy (primary): http://localhost:8081"
 	@echo "  Go metrics/health:  http://localhost:9090/health"
@@ -772,7 +772,7 @@ go-start:
 
 # Stop Python legacy proxy (Go proxy unaffected)
 go-stop:
-	docker compose -f docker/docker-compose.poc.yml -f docker/docker-compose.python-legacy.yml stop python-proxy
+	docker compose -f docker/docker-compose.poc.yml -f docker/docker-compose.python-legacy.yml --env-file .env stop python-proxy
 
 # Confirm Go proxy is HAProxy primary (Go is the default — verify config is correct).
 # See docs/runbooks/go_proxy_migration.md for background.
@@ -934,7 +934,7 @@ management-up: management-build
 	@if [ -n "$(_AGENT)" ]; then \
 		docker compose -f docker/docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) up -d management; \
 	else \
-		docker compose -f docker/docker-compose.poc.yml up -d management; \
+		docker compose -f docker/docker-compose.poc.yml --env-file .env up -d management; \
 	fi
 
 management-down:
@@ -942,7 +942,7 @@ management-down:
 	@if [ -n "$(_AGENT)" ]; then \
 		docker compose -f docker/docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) stop management; \
 	else \
-		docker compose -f docker/docker-compose.poc.yml stop management; \
+		docker compose -f docker/docker-compose.poc.yml --env-file .env stop management; \
 	fi
 
 management-logs:
@@ -950,7 +950,7 @@ management-logs:
 	@if [ -n "$(_AGENT)" ]; then \
 		docker compose -f docker/docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) logs -f management; \
 	else \
-		docker compose -f docker/docker-compose.poc.yml logs -f management; \
+		docker compose -f docker/docker-compose.poc.yml --env-file .env logs -f management; \
 	fi
 
 management-test:
@@ -961,7 +961,7 @@ management-shell:
 	@if [ -n "$(_AGENT)" ]; then \
 		docker compose -f docker/docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) exec management /bin/sh; \
 	else \
-		docker compose -f docker/docker-compose.poc.yml exec management /bin/sh; \
+		docker compose -f docker/docker-compose.poc.yml --env-file .env exec management /bin/sh; \
 	fi
 
 
@@ -1050,7 +1050,7 @@ test-phase-89:
 
 test-phase-89-lint:
 	REDIS_PASSWORD=lint BACKEND_HOST=lint \
-	  docker compose -f docker/docker-compose.poc.yml config --quiet
+	  docker compose -f docker/docker-compose.poc.yml --env-file .env config --quiet
 	docker compose -f docker/docker-compose.test.yml config --quiet
 	BACKEND_HOST=lint \
 	  docker compose -f docker/docker-compose.prod.yml config --quiet
