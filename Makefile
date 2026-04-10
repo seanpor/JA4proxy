@@ -394,11 +394,13 @@ scan-dockerfiles:
 	@fail=0; \
 	for f in docker/Dockerfile docker/Dockerfile.go-proxy docker/Dockerfile.management \
 		 docker/Dockerfile.mockbackend docker/Dockerfile.admin docker/Dockerfile.test \
-		 Dockerfile-cli docker/docker-compose.poc.yml docker/docker-compose.monitoring.yml \
+		 docker/Dockerfile.trafficgen Dockerfile-cli \
+		 docker/docker-compose.poc.yml docker/docker-compose.monitoring.yml \
 		 docker/docker-compose.prod.yml docker/docker-compose.scale.yml \
 		 docker/docker-compose.python-legacy.yml; do \
 		if [ -f "$$f" ]; then \
-			echo "  Scanning $$f ..."; \
+			echo ""; \
+			echo "  ── Scanning $$f ──"; \
 			docker run --rm \
 				-v "$(PWD):/scan:ro" \
 				aquasec/trivy:0.69.3 config \
@@ -406,8 +408,9 @@ scan-dockerfiles:
 				"/scan/$$f" || fail=1; \
 		fi; \
 	done; \
-	[ $$fail -eq 0 ] || exit 1
-	@echo "✓ Dockerfile scan passed"
+	[ $$fail -eq 0 ] || { echo ""; echo "✗ Dockerfile scan failed — fix HIGH/CRITICAL findings above"; exit 1; }
+	@echo ""
+	@echo "✓ All Dockerfiles and compose files passed"
 
 # CVE scan of first-party images we build.
 # Run 'make build' first to ensure images are current.
