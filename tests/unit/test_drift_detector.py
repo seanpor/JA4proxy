@@ -404,7 +404,8 @@ class TestDriftDetectorMissingCoverage:
         So what: stable traffic must not generate spurious alerts; a false
         positive here wakes the on-call SRE at 3am unnecessarily."""
         mock_redis = AsyncMock()
-        import json, time as _time
+        import json
+        import time as _time
         current = {
             'median_score': 51.0, 'stddev_score': 5.0,
             'event_count': 100, 'mean_score': 51.0,
@@ -429,7 +430,8 @@ class TestDriftDetectorMissingCoverage:
         So what: a historical baseline built from sparse data is statistically
         unreliable; the detector must not alert based on it."""
         mock_redis = AsyncMock()
-        import json, time as _time
+        import json
+        import time as _time
         current = {
             'median_score': 60.0, 'stddev_score': 5.0,
             'event_count': 100, 'mean_score': 60.0,
@@ -452,7 +454,8 @@ class TestDriftDetectorMissingCoverage:
         So what: unsorted history would corrupt the Grafana time-series panel
         used by SREs to correlate drift with deployment events."""
         mock_redis = AsyncMock()
-        import json, time as _time
+        import json
+        import time as _time
         baseline = {
             'median_score': 60.0, 'stddev_score': 5.0,
             'event_count': 100, 'mean_score': 60.0,
@@ -505,8 +508,9 @@ async def test_get_active_alert_resolved_alert_returns_none():
     """get_active_alert() with resolved=True → returns None (line 165).
     So what: a resolved alert must not be returned to callers as an active alert;
     if it were, dashboards would continuously show a cleared alert as active."""
-    from src.analytics.drift_detector import DriftDetector
     import json
+
+    from src.analytics.drift_detector import DriftDetector
     mock_redis = AsyncMock()
     resolved_alert = {
         'type': 'score_drift', 'severity': 'high',

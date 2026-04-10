@@ -73,7 +73,6 @@ from management.api.main import create_app  # noqa: E402
 from management.api.models import Role  # noqa: E402
 from management.api.routes.saml import _map_role  # noqa: E402
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 
@@ -608,6 +607,7 @@ async def test_saml_acs_idp_mfa_trust_sets_session_key(
     be set after ACS so the user does not need to complete a separate TOTP/WebAuthn step.
     """
     import hashlib
+
     from jose import jwt as _jwt
 
     app = create_app()
@@ -704,6 +704,7 @@ def test_saml_map_role_from_proxy_config(tmp_path) -> None:
     When env var is empty, the config-file mapping is used as the base.
     """
     import yaml
+
     from management.api.proxy_config import _clear_cache as _clr
     from management.api.routes.saml import _map_role
 
@@ -738,9 +739,9 @@ def test_saml_map_role_from_proxy_config(tmp_path) -> None:
 
 def test_saml_map_role_env_overrides_config(tmp_path) -> None:
     """Env var mapping takes precedence over config/proxy.yml for the same group."""
+    from management.api.models import Role
     from management.api.proxy_config import _clear_cache as _clr
     from management.api.routes.saml import _map_role
-    from management.api.models import Role
 
     cfg = tmp_path / "proxy.yml"
     cfg.write_text("sso:\n  role_mapping:\n    Overlap-Group: auditor\n")

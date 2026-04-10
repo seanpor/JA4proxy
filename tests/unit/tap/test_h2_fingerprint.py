@@ -160,7 +160,7 @@ class TestH2FingerprintMissingCoverage:
         """load_h2_database reads YAML and returns H2Signature list (lines 99-117).
         So what: if database loading fails, ALL h2 fingerprints are unmatched —
         no bot identification, no blocklist lookups based on h2 fingerprint."""
-        from src.tap.fingerprints.h2_fingerprint import load_h2_database, H2Signature
+        from src.tap.fingerprints.h2_fingerprint import H2Signature, load_h2_database
         yaml_content = """
 signatures:
   - id: TestBrowser/1.0
@@ -209,6 +209,7 @@ signatures:
         """_parse() raising → extract_h2_fingerprint returns None (lines 136-137).
         So what: unexpected parse error on malformed H2 frame must not crash the tap."""
         from unittest.mock import patch
+
         import src.tap.fingerprints.h2_fingerprint as _mod
         with patch.object(_mod, "_parse", side_effect=RuntimeError("injected")):
             result = _mod.extract_h2_fingerprint(b"\x00" * 20)
@@ -218,9 +219,7 @@ signatures:
         """Signature with empty settings → continue (line 216).
         So what: zero-settings signature must not be matched against any client,
         which would produce a false 'unknown' identity."""
-        from src.tap.fingerprints.h2_fingerprint import (
-            H2Signature, _match_db
-        )
+        from src.tap.fingerprints.h2_fingerprint import H2Signature, _match_db
         empty_sig = H2Signature(
             client_id="empty_sig",
             settings_order=[],

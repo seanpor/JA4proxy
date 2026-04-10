@@ -948,7 +948,7 @@ async def test_operator_cannot_delete_tokens(
     """
     import uuid
 
-    app = create_app()
+    create_app()
     await _redis_module.init_redis(override_client=fake_redis)
 
     # Create a dummy token ID in Redis for the operator to try to delete

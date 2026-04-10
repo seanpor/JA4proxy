@@ -4,9 +4,11 @@ Set the proxy dial value via pubsub.
 Usage: python set_dial.py <dial_value> [redis_host] [redis_port]
 """
 
-import sys
-import redis
 import json
+import sys
+
+import redis
+
 
 def set_dial_via_pubsub(dial_value, redis_host='localhost', redis_port=6379):
     """Publish a dial change message to the pubsub channel."""
@@ -22,14 +24,14 @@ def set_dial_via_pubsub(dial_value, redis_host='localhost', redis_port=6379):
         
         published = r.publish("ja4proxy:invalidate", json.dumps(message))
         
-        print(f"✅ Dial change message published successfully!")
-        print(f"   Channel: ja4proxy:invalidate")
+        print("✅ Dial change message published successfully!")
+        print("   Channel: ja4proxy:invalidate")
         print(f"   Message: {message}")
         print(f"   Subscribers reached: {published}")
         
         if published == 0:
-            print(f"⚠️  Warning: No subscribers received the message")
-            print(f"   Make sure the proxy is running and connected to Redis")
+            print("⚠️  Warning: No subscribers received the message")
+            print("   Make sure the proxy is running and connected to Redis")
         
         return True
         
@@ -51,16 +53,16 @@ if __name__ == "__main__":
     redis_port = int(sys.argv[3]) if len(sys.argv) > 3 else 6379
     
     if dial_value < 0 or dial_value > 100:
-        print(f"❌ Dial value must be between 0 and 100")
+        print("❌ Dial value must be between 0 and 100")
         sys.exit(1)
     
     print(f"Setting dial to {dial_value} via pubsub...")
     success = set_dial_via_pubsub(dial_value, redis_host, redis_port)
     
     if success:
-        print(f"\n✅ Dial change initiated!")
+        print("\n✅ Dial change initiated!")
         print(f"   The proxy should now use dial={dial_value} for blocking decisions")
         print(f"   Check proxy logs for: 'pubsub | event=dial_change | dial={dial_value}'")
     else:
-        print(f"\n❌ Failed to set dial")
+        print("\n❌ Failed to set dial")
         sys.exit(1)

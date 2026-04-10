@@ -128,6 +128,7 @@ class TestJA4HEdgeCases:
         """_parse() raising → None (line 40-41).
         So what: unexpected internal error must not crash the capture loop."""
         from unittest.mock import patch
+
         import src.tap.fingerprints.ja4h as _mod
         with patch.object(_mod, "_parse", side_effect=RuntimeError("injected")):
             result = _mod.extract_ja4h(b"GET / HTTP/1.1\r\nHost: a.com\r\n\r\n")

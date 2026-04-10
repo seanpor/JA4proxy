@@ -6,9 +6,10 @@ without requiring a running Prometheus instance.
 """
 
 import re
-import yaml
-import pytest
 from pathlib import Path
+
+import pytest
+import yaml
 
 ROOT = Path(__file__).parent.parent.parent
 

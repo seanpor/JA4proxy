@@ -151,7 +151,7 @@ func TestClassifyEvent_AddsCategoryField(t *testing.T) {
 func TestClassifyEvent_InterfaceSignals(t *testing.T) {
 	clf := compliance.NewSignalClassifier()
 	event := map[string]interface{}{
-		"ip": "1.2.3.4",
+		"ip":      "1.2.3.4",
 		"signals": []interface{}{"spamhaus_drop", "tor_exit"},
 	}
 	result := clf.ClassifyEvent(event)

@@ -21,10 +21,10 @@ type ListEntry struct {
 // It issues POST /api/v1/allowlist with the given reason, expiry, and ticket fields.
 func RunAllowlistAdd(ctx context.Context, c *client.Client, ja4, reason, expiresAt, ticket string) (*ListEntry, error) {
 	body := map[string]interface{}{
-		"entry":     ja4,
-		"reason":    reason,
+		"entry":      ja4,
+		"reason":     reason,
 		"expires_at": expiresAt,
-		"ticket":    ticket,
+		"ticket":     ticket,
 	}
 	var entry ListEntry
 	if err := c.Post(ctx, "/api/v1/allowlist", body, &entry); err != nil {

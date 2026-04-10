@@ -17,7 +17,6 @@ import pytest
 
 from src.utils.logging_config import JSONFormatter, setup_logging
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -405,5 +404,5 @@ class TestSetupLoggingOutputStream:
             except json.JSONDecodeError:
                 continue
         # If no JSON line matched, check that at least one line was JSON
-        lines = [l for l in captured.out.strip().splitlines() if l.startswith("{")]
+        lines = [ln for ln in captured.out.strip().splitlines() if ln.startswith("{")]
         assert lines, "Expected at least one JSON line in stdout"

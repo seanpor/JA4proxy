@@ -10,16 +10,15 @@ agent implements:
   - Audit log writes to ``management:gdpr_erasure_log``
 """
 import json
-import sys
 import os
+import sys
 
-import pytest
 import fakeredis
+import pytest
 
 # Allow import of scripts/ directory from the repo root
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-from scripts.gdpr_delete import purge_ip, main
-
+from scripts.gdpr_delete import main, purge_ip
 
 # ---------------------------------------------------------------------------
 # Helpers

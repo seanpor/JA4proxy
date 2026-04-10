@@ -5,11 +5,13 @@ Audits Python and Go sources to ensure hardcoded signal scores match
 the authoritative config/signal_scores.yml.
 """
 
-import sys
 import os
-import yaml
-import re
 import pathlib
+import re
+import sys
+
+import yaml
+
 
 def check_scores():
     registry_path = pathlib.Path("config/signal_scores.yml")

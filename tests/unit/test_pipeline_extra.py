@@ -1985,6 +1985,7 @@ class TestRateLimiterSignalLogic:
         while below others, avoiding the signal entirely.
         """
         from unittest.mock import AsyncMock
+
         from src.security.models import RiskSignal
 
         p = _make_full_pipeline()
@@ -2195,8 +2196,9 @@ class TestTLSMismatchSignalAppended:
         ClientHello to bypass fingerprint-based filters. If the signal is not appended,
         this evasion technique scores 0 and passes through.
         """
-        from src.security.models import RiskSignal
         from unittest.mock import AsyncMock
+
+        from src.security.models import RiskSignal
 
         p = _make_full_pipeline()
         mismatch_sig = RiskSignal(name="ja4_tls_mismatch", score=40, reason="mismatch detected")
@@ -2228,11 +2230,12 @@ class TestExtractJA4xFromCertSuccess:
         certs are not allowed through the bypass.
         """
         try:
+            import datetime
+
             from cryptography import x509
             from cryptography.hazmat.primitives import hashes, serialization
             from cryptography.hazmat.primitives.asymmetric import ec
             from cryptography.x509.oid import NameOID
-            import datetime
         except ImportError:
             return  # Skip if cryptography not available
 
@@ -2279,11 +2282,12 @@ class TestExtractJA4xFromCertSuccess:
         never generate a JA4X fingerprint for blacklist matching.
         """
         try:
+            import datetime
+
             from cryptography import x509
             from cryptography.hazmat.primitives import hashes, serialization
             from cryptography.hazmat.primitives.asymmetric import ec
             from cryptography.x509.oid import NameOID
-            import datetime
         except ImportError:
             return
 
@@ -2328,8 +2332,8 @@ class TestParallelCollectionException:
         Exception object. If this logging branch is missing, untracked exceptions
         from gather() would silently corrupt the signals list.
         """
-        from unittest.mock import AsyncMock
         import asyncio
+        from unittest.mock import AsyncMock
 
         p = _make_full_pipeline()
 

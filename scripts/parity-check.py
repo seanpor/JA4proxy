@@ -5,13 +5,13 @@ Runs Python and Go proxies side-by-side and compares their decisions
 for a set of binary ClientHello fixtures.
 """
 
+import json
+import os
+import pathlib
 import socket
 import subprocess
-import time
-import json
-import pathlib
 import sys
-import os
+import time
 
 FIXTURES_DIR = pathlib.Path("tests/fixtures/clienthello")
 PYTHON_PORT = 8080
@@ -49,8 +49,8 @@ def run_parity():
     for fix in fixtures:
         name = fix.stem
         payload = fix.read_bytes()
-        expected = known_ja4.get(name, "unknown")
-        
+        _expected = known_ja4.get(name, "unknown")
+
         print(f"Testing {name}...", end=" ", flush=True)
         
         # Send to both (assumes proxies are already running or started externally)

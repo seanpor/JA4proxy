@@ -34,7 +34,7 @@ func TestProcessInbound_KeyValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			agent.processInbound(tt.event)
-			
+
 			if tt.allowed {
 				// Check if it was applied
 				if tt.event.Op == "set" {

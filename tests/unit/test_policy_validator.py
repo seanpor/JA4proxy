@@ -22,8 +22,7 @@ Every test asserts on a specific value or exception — none rely on
 from __future__ import annotations
 
 import textwrap
-from datetime import datetime, timezone, timedelta
-
+from datetime import datetime, timedelta, timezone
 
 # ---------------------------------------------------------------------------
 # Lazy import helper — gives an explicit ImportError if the module is absent.
