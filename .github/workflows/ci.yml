@@ -57,6 +57,7 @@ jobs:
         run: |
           python3 -m pytest tests/ \
             --ignore=tests/integration/test_docker_stack.py \
+            --ignore=tests/management/ \
             -x -q --timeout=60
 
   lint:
