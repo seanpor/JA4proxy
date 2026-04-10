@@ -262,6 +262,11 @@ test-docker:
 smoke-test:
 	@./scripts/smoke-test.sh
 
+# Phase 64a — Docker Compose lifecycle smoke test (non-blocking by default).
+# Bring up stack → verify health → verify TLS → tear down → write result.
+smoke-docker:
+	bash scripts/smoke/test_docker_compose.sh
+
 # Run linting
 lint:
 	docker run --rm -v $(PWD):/app python:3.11-slim sh -c "cd /app && pip install black flake8 mypy bandit pytest-cov && black --check proxy.py security/ src/ && flake8 proxy.py security/ src/ 2>/dev/null && mypy proxy.py security/ src/ 2>/dev/null && bandit -r proxy.py security/ src/ -ll -q --skip B104 && echo \"✓ Linting passed\""
