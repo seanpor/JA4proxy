@@ -1352,3 +1352,24 @@ measure-mttr: ## Measure MTTR for DR scenarios
 	bash scripts/measure_mttr.sh
 
 .PHONY: measure-mttr
+
+## Phase 86b targets — Load testing harness
+load-test: ## Run JA4proxy load test
+	python3 scripts/load_test.py \
+		--target $(LOAD_TEST_TARGET) \
+		--duration $(LOAD_TEST_DURATION) \
+		--rps $(LOAD_TEST_RPS) \
+		--scenario $(LOAD_TEST_SCENARIO)
+
+load-test-baseline: ## Run baseline load test (localhost:8080, 60s, 1000 rps)
+	LOAD_TEST_TARGET=localhost:8080 \
+	LOAD_TEST_DURATION=60 \
+	LOAD_TEST_RPS=1000 \
+	LOAD_TEST_SCENARIO=baseline \
+	$(MAKE) load-test
+
+load-test-report: ## Show latest load test reports
+	@echo "Latest benchmark reports:"
+	@ls -lt test-results/load-test/ 2>/dev/null | head -5 || echo "No reports found"
+
+.PHONY: load-test load-test-baseline load-test-report
