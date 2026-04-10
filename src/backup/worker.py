@@ -11,7 +11,7 @@ import os
 import socket
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Sequence
 
 import redis
 from prometheus_client import Counter, Gauge, Histogram
@@ -434,7 +434,7 @@ class BackupWorker:
                 redis_client.delete("backup:operation_lock")
 
     def _dump_keys_batched(
-        self, redis_client: redis.Redis, keys: List[str]
+        self, redis_client: redis.Redis, keys: "Sequence[str | bytes]"
     ) -> Dict[str, Any]:
         """Dump key values using Redis pipeline batching.
 
