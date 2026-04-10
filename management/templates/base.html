@@ -67,6 +67,7 @@
       ] %}
       {% for href, label, icon_path in nav_items %}
         {% set active = request.url.path == href or (href != "/" and request.url.path.startswith(href)) %}
+        {# nosemgrep: generic.html-templates.security.var-in-href #}
         <a href="{{ href }}"
            class="flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors
                   {% if active %}bg-[#0ea5e9] text-white font-medium{% else %}text-[#94a3b8] hover:bg-[#334155] hover:text-[#f1f5f9]{% endif %}">
