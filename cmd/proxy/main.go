@@ -167,9 +167,9 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 	// stored in WebhookEndpointConfig but DispatcherConfig holds global retry settings.
 	// Use the first endpoint's settings as global defaults (or safe defaults if none set).
 	endpoints := make([]webhook.WebhookEndpoint, len(cfg.Webhooks.Endpoints))
-	var dispatchRetryAttempts int = 3
-	var dispatchRetryBackoff float64 = 5.0
-	var dispatchTimeout float64 = 30.0
+	dispatchRetryAttempts := 3
+	dispatchRetryBackoff := 5.0
+	dispatchTimeout := 30.0
 	for i, e := range cfg.Webhooks.Endpoints {
 		endpoints[i] = webhook.WebhookEndpoint{
 			ID:     e.ID,
@@ -425,7 +425,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	case "block", "ban":
 		// Force RST instead of clean FIN
 		if tcpConn, ok := clientConn.(*net.TCPConn); ok {
-			tcpConn.SetLinger(0)
+			_ = tcpConn.SetLinger(0)
 		}
 	}
 }

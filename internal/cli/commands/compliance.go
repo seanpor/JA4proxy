@@ -110,7 +110,7 @@ func RunPCIDSSPack(ctx context.Context, c *client.Client, since, until, outPath 
 		}
 	}
 
-	if err := os.WriteFile(outPath, data, 0o640); err != nil {
+	if err := os.WriteFile(outPath, data, 0o600); err != nil { //nolint:gosec // compliance pack is non-sensitive config export
 		return "", fmt.Errorf("writing pack to %s: %w", outPath, err)
 	}
 	return outPath, nil

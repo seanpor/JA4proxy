@@ -256,23 +256,23 @@ func (a *SyncAgent) handleDialRPC(conn net.Conn) {
 
 	var req DialRequest
 	if err := json.NewDecoder(tlsConn).Decode(&req); err != nil {
-		json.NewEncoder(tlsConn).Encode(DialResponse{OK: false, Error: "decode failed"})
+		_ = json.NewEncoder(tlsConn).Encode(DialResponse{OK: false, Error: "decode failed"})
 		return
 	}
 
 	// Security: Identity & Integrity Validation
 	if req.OriginDC != peerCN {
-		json.NewEncoder(tlsConn).Encode(DialResponse{OK: false, Error: "DC ID mismatch"})
+		_ = json.NewEncoder(tlsConn).Encode(DialResponse{OK: false, Error: "DC ID mismatch"})
 		return
 	}
 
 	if req.Dial < 0 || req.Dial > 100 {
-		json.NewEncoder(tlsConn).Encode(DialResponse{OK: false, Error: "dial out of bounds"})
+		_ = json.NewEncoder(tlsConn).Encode(DialResponse{OK: false, Error: "dial out of bounds"})
 		return
 	}
 
 	if !a.verifyDialSignature(req) {
-		json.NewEncoder(tlsConn).Encode(DialResponse{OK: false, Error: "invalid signature"})
+		_ = json.NewEncoder(tlsConn).Encode(DialResponse{OK: false, Error: "invalid signature"})
 		return
 	}
 
@@ -283,18 +283,15 @@ func (a *SyncAgent) handleDialRPC(conn net.Conn) {
 		"dc":   req.OriginDC,
 	}).Info("sync: dial updated via RPC")
 
-	json.NewEncoder(tlsConn).Encode(DialResponse{OK: true})
+	_ = json.NewEncoder(tlsConn).Encode(DialResponse{OK: true})
 }
 
 func (a *SyncAgent) processInbound(event SyncEvent) {
-	allowed := false
-	if strings.HasPrefix(event.Key, "ban:") ||
+	allowed := strings.HasPrefix(event.Key, "ban:") ||
 		strings.HasPrefix(event.Key, "ja4:whitelist") ||
 		strings.HasPrefix(event.Key, "ja4:blacklist") ||
 		event.Key == "config:dial" ||
-		event.Key == "test-zset" {
-		allowed = true
-	}
+		event.Key == "test-zset"
 
 	if !allowed {
 		a.log.WithField("key", event.Key).Warn("sync: forbidden key in inbound event - rejecting")
@@ -402,7 +399,7 @@ func (a *SyncAgent) runPeerReplicationLoop(peerAddr string) error {
 					goto retry
 				}
 
-				a.rc.XAck(a.ctx, stream, group, msg.ID)
+				_ = a.rc.XAck(a.ctx, stream, group, msg.ID)
 				metrics.SyncWANConnected.WithLabelValues(peerAddr).Set(1)
 				lag := time.Now().UnixNano()/1e6 - event.OriginTS
 				metrics.SyncReplicationLagSeconds.WithLabelValues(peerAddr).Set(float64(lag) / 1000.0)
