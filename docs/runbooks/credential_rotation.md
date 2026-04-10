@@ -1,3 +1,10 @@
+<!--
+title: "credenTIal rotaTIon Runbook"
+audience: oncall, sre
+last_reviewed: 2026-04-10
+phase: 86
+-->
+
 # Credential Rotation
 
 > **Scope:** Zero-downtime rotation of Redis auth, AbuseIPDB API key,

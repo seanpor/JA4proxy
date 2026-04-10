@@ -1,3 +1,10 @@
+<!--
+title: "gameday scenarios Runbook"
+audience: oncall, sre
+last_reviewed: 2026-04-10
+phase: 86
+-->
+
 # GameDay Scenarios
 
 > **Purpose:** Validate disaster recovery procedures under realistic conditions.

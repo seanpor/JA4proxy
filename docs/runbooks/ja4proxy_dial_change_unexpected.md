@@ -1,3 +1,10 @@
+<!--
+title: "ja4proxy dial change unexpected Runbook"
+audience: oncall, sre
+last_reviewed: 2026-04-10
+phase: 86
+-->
+
 # Runbook: ja4proxy_dial_change_unexpected
 
 ## Severity

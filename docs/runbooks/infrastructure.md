@@ -1,3 +1,10 @@
+<!--
+title: "infrastructure Runbook"
+audience: oncall, sre
+last_reviewed: 2026-04-10
+phase: 86
+-->
+
 # Infrastructure Runbook
 
 This runbook covers all alerts defined in the `ja4proxy_infrastructure`,

@@ -1,3 +1,10 @@
+<!--
+title: "ja4proxy block rate high Runbook"
+audience: oncall, sre
+last_reviewed: 2026-04-10
+phase: 86
+-->
+
 # Runbook: ja4proxy_block_rate_high
 
 ## Severity
