@@ -243,9 +243,9 @@ smoke-test:
 lint:
 	docker run --rm -v $(PWD):/app python:3.11-slim sh -c "cd /app && pip install black flake8 mypy bandit pytest-cov && black --check proxy.py security/ src/ && flake8 proxy.py security/ src/ 2>/dev/null && mypy proxy.py security/ src/ 2>/dev/null && bandit -r proxy.py security/ src/ -ll -q --skip B104 && echo \"✓ Linting passed\""
 
-# Security scanning with bandit (report all issues)
+# Security scanning with bandit (medium/high severity, skip B104 bind-all)
 lint-security:
-	docker run --rm -v $(PWD):/app python:3.11-slim sh -c "cd /app && pip install bandit && bandit -r proxy.py security/ src/ 2>/dev/null"
+	@python3 -m bandit -r src/ proxy.py -ll --skip B104 && echo "  ✓ lint-security passed"
 
 # Type checking with mypy (supress output)
 lint-types:

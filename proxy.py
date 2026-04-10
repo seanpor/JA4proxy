@@ -1871,7 +1871,7 @@ class ProxyServer:
 
             import aiohttp as _aiohttp
             t0 = _t.monotonic()
-            async with _probe_session.head(url, timeout=_aiohttp.ClientTimeout(total=5)) as r:
+            async with _probe_session.head(url, timeout=_aiohttp.ClientTimeout(total=5)) as r:  # pylint: disable=not-async-context-manager
                 if r.status >= 500:
                     raise RuntimeError(f"{feed} probe returned HTTP {r.status}")
             return _t.monotonic() - t0
@@ -2522,7 +2522,10 @@ class ProxyServer:
                 overflow_action,
             )
             if overflow_action == "allow":
-                await self._forward_to_backend(data, client_reader, client_writer)
+                await self._forward_to_backend(
+                    data, client_reader, client_writer,
+                    JA4Fingerprint(ja4="unknown", source_ip=client_ip),
+                )
             else:
                 # "block" or "rst": drop the connection
                 try:
