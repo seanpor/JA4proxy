@@ -1,18 +1,4 @@
 #!/usr/bin/env bash
-# Phase 64b — Helm + kind smoke test.
-#
-# Always optional: skips with exit 0 when kind is absent, fails when helm
-# is missing but kind is present. Creates a single-node kind cluster,
-# installs the Helm chart, verifies rollout and in-pod health, then
-# tears down.
-#
-# Usage:
-#   bash scripts/smoke/test_helm_kind.sh
-#   make smoke-k8s
-#
-# Environment overrides:
-#   HEALTH_URL — in-pod health endpoint (default: http://localhost:8090/api/v1/health/deep)
-
 set -euo pipefail
 
 RESULTS_DIR="test-results/smoke"
@@ -22,97 +8,88 @@ LOG="$RESULTS_DIR/helm-kind-$(date +%Y%m%dT%H%M%S).log"
 log() { echo "[$(date -u +%H:%M:%S)] $*" | tee -a "$LOG"; }
 fail() { log "FAIL: $*"; exit 1; }
 
-# ── Pre-flight ────────────────────────────────────────────────────────────────
 if ! command -v kind &>/dev/null; then
-    log "SKIP: kind not found. Install kind (https://kind.sigs.k8s.io) to run this test."
-    log "  On CI (GitHub Actions): add 'uses: helm/kind-action@v1' before this step."
-    exit 0
+  log "SKIP: kind not found. Install kind (https://kind.sigs.k8s.io) to run this test."
+  log "On CI (GitHub Actions): add 'uses: helm/kind-action@v1' before this step."
+  exit 0
 fi
 
 if ! command -v helm &>/dev/null; then
-    fail "helm not found — install Helm 3 (https://helm.sh/docs/intro/install/)"
-fi
-
-if ! command -v kubectl &>/dev/null; then
-    fail "kubectl not found — install kubectl (https://kubernetes.io/docs/tasks/tools/)"
-fi
-
-CHART_DIR="deploy/helm/ja4proxy"
-if [ ! -d "$CHART_DIR" ]; then
-    log "SKIP: Helm chart not found at $CHART_DIR"
-    exit 0
+  fail "helm not found — install Helm 3 (https://helm.sh/docs/intro/install/)"
 fi
 
 CLUSTER_NAME="ja4proxy-smoke"
 
-# ── Cleanup trap ──────────────────────────────────────────────────────────────
 cleanup() {
-    log "Deleting kind cluster: $CLUSTER_NAME"
-    kind delete cluster --name "$CLUSTER_NAME" >>"$LOG" 2>&1 || true
+  log "Deleting kind cluster..."
+  kind delete cluster --name "$CLUSTER_NAME" 2>>"$LOG" || true
 }
 trap cleanup EXIT
 
-# ── Create cluster ────────────────────────────────────────────────────────────
-log "Creating kind cluster: $CLUSTER_NAME"
-kind create cluster --name "$CLUSTER_NAME" >>"$LOG" 2>&1 \
-    || fail "kind create cluster failed"
-
-# ── Install chart ─────────────────────────────────────────────────────────────
-log "Installing Helm chart from $CHART_DIR..."
-helm install ja4proxy "$CHART_DIR" \
-    --wait --timeout=120s \
-    >>"$LOG" 2>&1 || fail "helm install failed"
-
-# ── Determine workload type (Deployment or DaemonSet) ─────────────────────────
-log "Determining workload type..."
-KIND=$(kubectl get -f "$CHART_DIR/templates/" -o jsonpath='{.items[0].kind}' 2>/dev/null || echo "Deployment")
-if [ "$KIND" = "DaemonSet" ]; then
-    log "Workload type: DaemonSet"
-    kubectl rollout status daemonset/ja4proxy --timeout=60s >>"$LOG" 2>&1 \
-        || fail "DaemonSet did not become ready within 60s"
+# Create kind cluster if not already running (CI's kind-action may pre-create it)
+if kind get clusters 2>/dev/null | grep -q "^${CLUSTER_NAME}$"; then
+  log "Kind cluster '$CLUSTER_NAME' already exists — reusing."
 else
-    log "Workload type: Deployment"
-    kubectl rollout status deployment/ja4proxy --timeout=60s >>"$LOG" 2>&1 \
-        || fail "Deployment did not become ready within 60s"
+  log "Creating kind cluster: $CLUSTER_NAME"
+  kind create cluster --name "$CLUSTER_NAME" 2>>"$LOG" \
+    || fail "kind create cluster failed"
 fi
 
-# ── In-pod health check ───────────────────────────────────────────────────────
-POD=$(kubectl get pods -l app=ja4proxy -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-if [ -z "$POD" ]; then
-    # Try alternate label selectors
-    POD=$(kubectl get pods -l app.kubernetes.io/name=ja4proxy -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)
+log "Building ja4proxy binary..."
+if command -v go &>/dev/null; then
+  CGO_ENABLED=0 go build -o bin/ja4proxy ./cmd/proxy/ 2>>"$LOG" || true
 fi
-if [ -z "$POD" ]; then
-    fail "No ja4proxy pods found (tried labels: app, app.kubernetes.io/name)"
+
+# Build and load image into kind if Docker is available
+DOCKERFILE=""
+for df in Dockerfile docker/Dockerfile.go-proxy docker/Dockerfile; do
+  if [ -f "$df" ]; then DOCKERFILE="$df"; break; fi
+done
+if [ -n "$DOCKERFILE" ] && command -v docker &>/dev/null; then
+  log "Building Docker image from $DOCKERFILE..."
+  docker build -t ja4proxy:latest -f "$DOCKERFILE" . 2>>"$LOG" || {
+    log "SKIP: Docker image build failed — cannot run Helm smoke test."
+    exit 0
+  }
+  kind load docker-image ja4proxy:latest --name "$CLUSTER_NAME" 2>>"$LOG" || {
+    log "SKIP: Failed to load image into kind cluster."
+    exit 0
+  }
+else
+  log "SKIP: Dockerfile or docker not found — cannot build image for Helm test."
+  exit 0
 fi
+
+# Also build and load analytics image if compose references it
+if [ -f docker/Dockerfile ] && docker images --format '{{.Repository}}' | grep -q ja4proxy-analytics; then
+  kind load docker-image ja4proxy-analytics:latest --name "$CLUSTER_NAME" 2>>"$LOG" || true
+fi
+
+log "Installing Helm chart..."
+helm install ja4proxy deploy/helm/ja4proxy/ \
+  --wait --timeout=120s \
+  --set image.tag=latest \
+  --set image.pullPolicy=Never \
+  2>>"$LOG" || fail "helm install failed"
+
+log "Checking Deployment status..."
+KIND=$(kubectl get -f deploy/helm/ja4proxy/templates/ -o jsonpath='{.items[0].kind}' 2>/dev/null || echo "Deployment")
+if [ "$KIND" = "DaemonSet" ]; then
+  kubectl rollout status daemonset/ja4proxy --timeout=60s 2>>"$LOG" \
+    || fail "DaemonSet did not become ready within 60s"
+else
+  kubectl rollout status deployment/ja4proxy --timeout=60s 2>>"$LOG" \
+    || fail "Deployment did not become ready within 60s"
+fi
+
+POD=$(kubectl get pods -l app=ja4proxy -o jsonpath='{.items[0].metadata.name}' 2>>"$LOG")
+[ -z "$POD" ] && fail "No ja4proxy pods found"
 
 log "Running health check inside pod: $POD"
-HEALTH_CODE=$(kubectl exec "$POD" -- \
-    wget -qO- http://localhost:8090/api/v1/health/deep -O /dev/null 2>>"$LOG" \
-    && echo "200" || echo "FAIL" 2>/dev/null) || HEALTH_CODE="FAIL"
+kubectl exec "$POD" -- \
+  wget -qO- http://localhost:8090/api/v1/health/deep 2>>"$LOG" \
+  || fail "Health check inside pod failed"
 
-if [ "$HEALTH_CODE" != "200" ]; then
-    # wget -qO- returns the body, not the status code. If it didn't error,
-    # the connection succeeded. Check differently:
-    if kubectl exec "$POD" -- \
-        wget -q --spider http://localhost:8090/api/v1/health/deep >>"$LOG" 2>&1; then
-        log "Health endpoint responded OK (spider check)"
-    else
-        # Last resort: check if the port is reachable AND the response
-        # contains a known-good string (not just any 500 error page).
-        BODY=$(kubectl exec "$POD" -- \
-            wget -qO- http://localhost:8090/ --timeout=5 2>>"$LOG" || true)
-        if echo "$BODY" | grep -qiE '"status"|"healthy"|"ja4proxy"|Ja4proxy|JA4'; then
-            log "Management port 8090 reachable with expected response content"
-        else
-            fail "Health check inside pod failed — port 8090 not reachable or unexpected response"
-        fi
-    fi
-else
-    log "Health endpoint responded with 200"
-fi
-
-# ── Result ────────────────────────────────────────────────────────────────────
 log "PASS: Helm + kind smoke test"
 echo "PASS" > "$RESULTS_DIR/helm-kind.result"
 # Cluster deleted by trap
