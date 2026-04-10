@@ -11,10 +11,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🔵 Planned & Open Phases
 
-### Phase 60 — Master Plan and Governance
-*   **Status:** **PROPOSED** (Comprehensive quality improvement roadmap and governance framework.)
-*   **Action Plan:** [PHASE_60.md](PHASE_60.md)
-
 ### Phase 86 — Observability & Capacity Planning
 *   **Status:** **PROPOSED** (Datadog Agent integration tile with dashboard and 4 monitors. Dynatrace EF2 extension with topology entity type. Nagios check plugin and Zabbix template. Capacity sizing calculator script. make load-test harness. Published benchmark numbers. 7 operator runbooks.)
 *   **Action Plan:** [PHASE_86.md](PHASE_86.md)

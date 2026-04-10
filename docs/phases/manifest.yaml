@@ -661,10 +661,12 @@ phases:
     size: SMALL
   60:
     name: Master Plan and Governance
-    status: PROPOSED
+    status: CLOSED
     doc_status: COMPLETE
-    summary: Comprehensive quality improvement roadmap and governance framework.
+    summary: Governance index (pointer document only). Phases 61–64 all COMPLETE.
+      No implementation work remains — closed after 2026-04-09 rewrite.
     action_plan: docs/phases/PHASE_60.md
+    closed_reason: "Phases 61–64 implemented and COMPLETE. Governance index retained as reference."
     dependencies: []
     size: XL
   61:
