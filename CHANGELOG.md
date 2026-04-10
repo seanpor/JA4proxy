@@ -1,5 +1,30 @@
 # Changelog
 
+## Phase 64 — Deployment Validation & Disaster Recovery
+
+### Added
+- `scripts/smoke/test_docker_compose.sh`: Docker Compose lifecycle smoke test
+  (bring up → health check → TLS test → tear down → write result)
+- `scripts/smoke/test_helm_kind.sh`: Helm + kind smoke test (creates cluster,
+  installs chart, verifies rollout, in-pod health check, cleanup)
+- `scripts/measure_mttr.sh`: MTTR baseline measurement script — runs 4 disaster
+  scenarios, measures wall-clock recovery, writes `MTTR_BASELINE.md`
+- `docs/runbooks/disaster_recovery.md`: 5-scenario DR runbook (Redis failure,
+  single node, total fleet, config corruption, Redis data loss)
+- `docs/runbooks/gameday_scenarios.md`: 4 GameDay exercises with RTO targets
+- `docs/runbooks/credential_rotation.md`: Redis ACL, AbuseIPDB API key,
+  and cloud storage credential rotation procedures with rollback
+- `docs/runbooks/tls_certificate_rotation.md`: Server cert and mTLS CA
+  certificate rotation (three-phase dual-CA trust period)
+- `docs/runbooks/rolling_upgrade.md`: Docker Compose and Kubernetes rolling
+  upgrade with rollback procedures and decision criteria table
+- `monitoring/alertmanager/rules/tls_alerts.yml`: Prometheus alert rules
+  for TLS certificate expiry (warning < 30d, critical < 7d)
+- `scripts/generate_validation_report.py`: `--section deployment` flag for
+  deployment validation evidence section
+- `Makefile`: `smoke-docker`, `smoke-k8s`, `measure-mttr` targets
+- `.github/workflows/ci.yml`: non-blocking `smoke-docker` CI job
+
 ## [Unreleased] - Phase 200 - Go PROXY Protocol Trust + v2 Support
 
 ### Added
