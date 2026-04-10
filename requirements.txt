@@ -23,7 +23,7 @@ semgrep>=1.100.0
 fakeredis>=2.21,<3          # in-process Redis fake for integration tests (P19-G6)
 croniter>=2.0,<3            # cron expression parser for BackupScheduler (P19-G1)
 pytest==7.4.3
-pytest-asyncio>=0.23  # >=0.23 required for hypothesis + asyncio compat
+pytest-asyncio==0.23.8  # >=0.23 for hypothesis + asyncio compat; <1.0 for pytest 7.x compat
 pytest-cov==4.1.0
 pytest-mock==3.12.0
 pytest-xdist==3.5.0
