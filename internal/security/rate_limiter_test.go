@@ -39,8 +39,8 @@ func TestRateLimiter_Disabled_NoSignal(t *testing.T) {
 func TestRateLimiter_BelowThreshold_NoSignal(t *testing.T) {
 	cfg := defaultRateLimiterCfg()
 	rl := NewRateLimiter(cfg, &mockRedisCounter{counts: map[string]int{
-		"ratelimit:ip:1.2.3.4":          10,
-		"ratelimit:ja4:t13d1234":         5,
+		"ratelimit:ip:1.2.3.4":              10,
+		"ratelimit:ja4:t13d1234":            5,
 		"ratelimit:ip_ja4:1.2.3.4:t13d1234": 3,
 	}}, nil)
 	sigs := rl.Check(context.Background(), "1.2.3.4", "t13d1234")
@@ -53,9 +53,9 @@ func TestRateLimiter_SingleStrategy_Suspicious_NoSignal(t *testing.T) {
 	// Only 1 strategy hits suspicious — majority=2 required, so no signal.
 	cfg := defaultRateLimiterCfg()
 	rl := NewRateLimiter(cfg, &mockRedisCounter{counts: map[string]int{
-		"ratelimit:ip:1.2.3.4":          60, // above Suspicious(50) for ByIP
-		"ratelimit:ja4:t13d1234":         5,  // below Suspicious(20) for ByJA4
-		"ratelimit:ip_ja4:1.2.3.4:t13d1234": 3, // below Suspicious(20) for ByIPJA4
+		"ratelimit:ip:1.2.3.4":              60, // above Suspicious(50) for ByIP
+		"ratelimit:ja4:t13d1234":            5,  // below Suspicious(20) for ByJA4
+		"ratelimit:ip_ja4:1.2.3.4:t13d1234": 3,  // below Suspicious(20) for ByIPJA4
 	}}, nil)
 	sigs := rl.Check(context.Background(), "1.2.3.4", "t13d1234")
 	if len(sigs) != 0 {
@@ -66,9 +66,9 @@ func TestRateLimiter_SingleStrategy_Suspicious_NoSignal(t *testing.T) {
 func TestRateLimiter_MajoritySuspicious_SignalFired(t *testing.T) {
 	cfg := defaultRateLimiterCfg()
 	rl := NewRateLimiter(cfg, &mockRedisCounter{counts: map[string]int{
-		"ratelimit:ip:1.2.3.4":          60,  // ByIP: suspicious (>50)
-		"ratelimit:ja4:t13d1234":         25,  // ByJA4: suspicious (>20)
-		"ratelimit:ip_ja4:1.2.3.4:t13d1234": 3, // ByIPJA4: below threshold
+		"ratelimit:ip:1.2.3.4":              60, // ByIP: suspicious (>50)
+		"ratelimit:ja4:t13d1234":            25, // ByJA4: suspicious (>20)
+		"ratelimit:ip_ja4:1.2.3.4:t13d1234": 3,  // ByIPJA4: below threshold
 	}}, nil)
 	sigs := rl.Check(context.Background(), "1.2.3.4", "t13d1234")
 	if len(sigs) == 0 {
@@ -82,9 +82,9 @@ func TestRateLimiter_MajoritySuspicious_SignalFired(t *testing.T) {
 func TestRateLimiter_MajorityBlock_SignalFired(t *testing.T) {
 	cfg := defaultRateLimiterCfg()
 	rl := NewRateLimiter(cfg, &mockRedisCounter{counts: map[string]int{
-		"ratelimit:ip:1.2.3.4":          250, // ByIP: block (>200)
-		"ratelimit:ja4:t13d1234":         120, // ByJA4: block (>100)
-		"ratelimit:ip_ja4:1.2.3.4:t13d1234": 3, // ByIPJA4: below threshold
+		"ratelimit:ip:1.2.3.4":              250, // ByIP: block (>200)
+		"ratelimit:ja4:t13d1234":            120, // ByJA4: block (>100)
+		"ratelimit:ip_ja4:1.2.3.4:t13d1234": 3,   // ByIPJA4: below threshold
 	}}, nil)
 	sigs := rl.Check(context.Background(), "1.2.3.4", "t13d1234")
 	if len(sigs) == 0 {
@@ -99,9 +99,9 @@ func TestRateLimiter_AnyBan_SignalFired(t *testing.T) {
 	// Single strategy at ban level → signal (no majority required).
 	cfg := defaultRateLimiterCfg()
 	rl := NewRateLimiter(cfg, &mockRedisCounter{counts: map[string]int{
-		"ratelimit:ip:1.2.3.4":          600, // ByIP: ban (>500)
-		"ratelimit:ja4:t13d1234":         5,   // ByJA4: below threshold
-		"ratelimit:ip_ja4:1.2.3.4:t13d1234": 3, // ByIPJA4: below threshold
+		"ratelimit:ip:1.2.3.4":              600, // ByIP: ban (>500)
+		"ratelimit:ja4:t13d1234":            5,   // ByJA4: below threshold
+		"ratelimit:ip_ja4:1.2.3.4:t13d1234": 3,   // ByIPJA4: below threshold
 	}}, nil)
 	sigs := rl.Check(context.Background(), "1.2.3.4", "t13d1234")
 	if len(sigs) == 0 {
@@ -129,9 +129,9 @@ func TestRateLimiter_HighestLevelWins(t *testing.T) {
 	// Both block and ban conditions are met — ban should win.
 	cfg := defaultRateLimiterCfg()
 	rl := NewRateLimiter(cfg, &mockRedisCounter{counts: map[string]int{
-		"ratelimit:ip:1.2.3.4":          600, // ByIP: ban (>500)
-		"ratelimit:ja4:t13d1234":         250, // ByJA4: block (>100)
-		"ratelimit:ip_ja4:1.2.3.4:t13d1234": 60, // ByIPJA4: block (>50)
+		"ratelimit:ip:1.2.3.4":              600, // ByIP: ban (>500)
+		"ratelimit:ja4:t13d1234":            250, // ByJA4: block (>100)
+		"ratelimit:ip_ja4:1.2.3.4:t13d1234": 60,  // ByIPJA4: block (>50)
 	}}, nil)
 	sigs := rl.Check(context.Background(), "1.2.3.4", "t13d1234")
 	if len(sigs) == 0 {

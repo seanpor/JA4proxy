@@ -18,18 +18,18 @@ type CategoryEntry struct {
 // DefaultSignalCategories mirrors DEFAULT_SIGNAL_CATEGORIES in classifier.py.
 // Any change here MUST be mirrored in the Python file and vice versa.
 var DefaultSignalCategories = map[string]CategoryEntry{
-	"spamhaus_drop":        {Category: "known_malicious_network",   Weight: 100},
-	"spamhaus_edrop":       {Category: "known_malicious_network",   Weight: 100},
-	"tor_exit":             {Category: "tor_exit_node",             Weight: 95},
-	"beaconing_detected":   {Category: "c2_beaconing",              Weight: 90},
+	"spamhaus_drop":        {Category: "known_malicious_network", Weight: 100},
+	"spamhaus_edrop":       {Category: "known_malicious_network", Weight: 100},
+	"tor_exit":             {Category: "tor_exit_node", Weight: 95},
+	"beaconing_detected":   {Category: "c2_beaconing", Weight: 90},
 	"ja4_blacklist":        {Category: "malicious_tls_fingerprint", Weight: 85},
-	"abuseipdb_score_high": {Category: "reported_abuse",            Weight: 70},
-	"tls_version_old":      {Category: "obsolete_tls",              Weight: 60},
-	"sni_missing":          {Category: "automation_tool",           Weight: 55},
-	"sni_ip_literal":       {Category: "automation_tool",           Weight: 55},
-	"datacenter":           {Category: "datacenter_scanner",        Weight: 50},
-	"asn_datacenter":       {Category: "datacenter_scanner",        Weight: 50},
-	"country_blacklist":    {Category: "geo_blocked",               Weight: 40},
+	"abuseipdb_score_high": {Category: "reported_abuse", Weight: 70},
+	"tls_version_old":      {Category: "obsolete_tls", Weight: 60},
+	"sni_missing":          {Category: "automation_tool", Weight: 55},
+	"sni_ip_literal":       {Category: "automation_tool", Weight: 55},
+	"datacenter":           {Category: "datacenter_scanner", Weight: 50},
+	"asn_datacenter":       {Category: "datacenter_scanner", Weight: 50},
+	"country_blacklist":    {Category: "geo_blocked", Weight: 40},
 }
 
 // FallbackCategory is returned when no signals match.

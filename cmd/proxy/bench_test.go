@@ -33,21 +33,21 @@ import (
 // benches live in cmd/proxy by spec; the type is local to this package.
 type benchRedis struct{}
 
-func (benchRedis) GetDial(_ context.Context) int                                { return 100 }
-func (benchRedis) SIsMember(_ context.Context, _ string, _ interface{}) bool    { return false }
+func (benchRedis) GetDial(_ context.Context) int                             { return 100 }
+func (benchRedis) SIsMember(_ context.Context, _ string, _ interface{}) bool { return false }
 func (benchRedis) SlidingWindowCount(_ context.Context, _ string, _ float64, _ int) int {
 	return 0
 }
-func (benchRedis) HGetAll(_ context.Context, _ string) map[string]string             { return nil }
-func (benchRedis) GetString(_ context.Context, _ string) string                      { return "" }
-func (benchRedis) SetString(_ context.Context, _ string, _ string, _ int)            {}
-func (benchRedis) Exists(_ context.Context, _ string) bool                           { return false }
-func (benchRedis) Ping(_ context.Context) error                                      { return nil }
-func (benchRedis) ZAdd(_ context.Context, _ string, _ float64, _ string)             {}
-func (benchRedis) ZRemRangeByScore(_ context.Context, _ string, _, _ float64)        {}
-func (benchRedis) ZRange(_ context.Context, _ string, _, _ int64) []string           { return nil }
-func (benchRedis) ZCard(_ context.Context, _ string) int64                           { return 0 }
-func (benchRedis) ZRangeScores(_ context.Context, _ string, _, _ int64) []float64    { return nil }
+func (benchRedis) HGetAll(_ context.Context, _ string) map[string]string          { return nil }
+func (benchRedis) GetString(_ context.Context, _ string) string                   { return "" }
+func (benchRedis) SetString(_ context.Context, _ string, _ string, _ int)         {}
+func (benchRedis) Exists(_ context.Context, _ string) bool                        { return false }
+func (benchRedis) Ping(_ context.Context) error                                   { return nil }
+func (benchRedis) ZAdd(_ context.Context, _ string, _ float64, _ string)          {}
+func (benchRedis) ZRemRangeByScore(_ context.Context, _ string, _, _ float64)     {}
+func (benchRedis) ZRange(_ context.Context, _ string, _, _ int64) []string        { return nil }
+func (benchRedis) ZCard(_ context.Context, _ string) int64                        { return 0 }
+func (benchRedis) ZRangeScores(_ context.Context, _ string, _, _ int64) []float64 { return nil }
 
 func newBenchPipeline(_ testing.TB) *security.Pipeline {
 	cfg := &security.PipelineConfig{

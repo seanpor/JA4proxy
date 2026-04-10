@@ -11,7 +11,7 @@
 //  1. Total Redis outage    — every signal lookup fails; pipeline must allow.
 //  2. Partial Redis outage  — half the calls fail; ALPN bypass must still allow.
 //  3. Dial flip mid-flight  — flipping dial 0→100 must take effect on the
-//                             next Process() call (no stale ALLOW).
+//     next Process() call (no stale ALLOW).
 package security
 
 import (
@@ -97,7 +97,7 @@ func (f *faultyRedis) Ping(_ context.Context) error {
 	return nil
 }
 
-func (f *faultyRedis) ZAdd(_ context.Context, _ string, _ float64, _ string)   { f.shouldFail() }
+func (f *faultyRedis) ZAdd(_ context.Context, _ string, _ float64, _ string) { f.shouldFail() }
 func (f *faultyRedis) ZRemRangeByScore(_ context.Context, _ string, _, _ float64) {
 	f.shouldFail()
 }
