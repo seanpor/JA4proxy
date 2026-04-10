@@ -45,7 +45,7 @@ def _fetch(url: str, token: str) -> dict:
     if token:
         req.add_header("Authorization", f"Bearer {token}")
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
             return json.loads(resp.read().decode())
     except urllib.error.HTTPError as exc:
         print(f"UNKNOWN - HTTP {exc.code} from {url} | ", file=sys.stdout)

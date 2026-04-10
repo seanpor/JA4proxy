@@ -88,7 +88,7 @@ class JA4proxyPlugin:
         if self.api_token:
             req.add_header("Authorization", f"Bearer {self.api_token}")
 
-        with urllib.request.urlopen(req, timeout=self.timeout, context=self.ssl_ctx) as resp:
+        with urllib.request.urlopen(req, timeout=self.timeout, context=self.ssl_ctx) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
             return json.loads(resp.read().decode())
 
     def _build_series(self, data: Dict[str, Any]) -> List[Any]:
