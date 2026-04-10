@@ -12,7 +12,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 ## 🔵 Planned & Open Phases
 
 ### Phase 86 — Observability & Capacity Planning
-*   **Status:** **PROPOSED** (Datadog Agent integration tile with dashboard and 4 monitors. Dynatrace EF2 extension with topology entity type. Nagios check plugin and Zabbix template. Capacity sizing calculator script. make load-test harness. Published benchmark numbers. 7 operator runbooks.)
+*   **Status:** **PROPOSED** (7 sub-phases: 86a Management API summary endpoint Python + Go, 86b Load testing harness + benchmark run, 86c Capacity sizing calculator, 86d Datadog integration with dashboard and monitors, 86e Dynatrace EF2 extension, 86f Nagios check + Zabbix template, 86g 7 alert runbooks + runbook_url annotations on existing alerts.)
 *   **Action Plan:** [PHASE_86.md](PHASE_86.md)
 
 ### Phase 93 — Terraform Provider + Emergency Runbook Playbooks
