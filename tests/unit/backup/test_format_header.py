@@ -15,18 +15,17 @@ import struct
 import pytest
 
 from src.backup.format import (
-    MAGIC,
-    FORMAT_VERSION,
+    FLAG_ENCRYPTED,
     FLAG_FULL,
     FLAG_INCREMENTAL,
-    FLAG_ENCRYPTED,
+    FORMAT_VERSION,
+    MAGIC,
     decode_entries,
     decode_header,
     encode_entry,
     encode_header,
     is_legacy_format,
 )
-
 
 # ---------------------------------------------------------------------------
 # encode_header

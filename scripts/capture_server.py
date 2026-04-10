@@ -14,10 +14,10 @@ Usage:
 Ports: 9443=first name, 9444=second, 9445=third, etc.
 """
 import argparse
-import socket
-import threading
 import pathlib
+import socket
 import sys
+import threading
 import time
 
 FIXTURES_DIR = pathlib.Path("tests/fixtures/clienthello")
@@ -30,7 +30,7 @@ def serve_capture(port: int, name: str, done_event: threading.Event):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.settimeout(1.0)
-    sock.bind(("0.0.0.0", port))
+    sock.bind(("0.0.0.0", port))  # nosemgrep: avoid-bind-to-all-interfaces
     sock.listen(5)
     seq = 0
     print(f"[{name}] listening on port {port}", flush=True)

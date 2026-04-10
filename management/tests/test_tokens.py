@@ -402,10 +402,10 @@ async def test_deleted_token_bearer_auth_returns_401(fake_redis) -> None:
     This is the primary security property of revocation. Uses a cookie-free
     client to prevent the admin cookie from masking a missing revocation check.
     """
+    from httpx import ASGITransport
+
     from management.api import redis_client as _redis_module
     from management.api.main import create_app
-    from management.api.auth import _create_access_token
-    from httpx import ASGITransport
 
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
@@ -489,10 +489,10 @@ async def test_rotate_token_new_token_usable_immediately(fake_redis) -> None:
     Uses a cookie-free client to guarantee authentication comes from the bearer
     token, not a residual admin cookie.
     """
+    from httpx import ASGITransport
+
     from management.api import redis_client as _redis_module
     from management.api.main import create_app
-    from management.api.auth import _create_access_token
-    from httpx import ASGITransport
 
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
@@ -532,10 +532,10 @@ async def test_bearer_valid_token_grants_access(fake_redis) -> None:
     Uses an explicitly cookie-free client to guarantee the 200 response
     comes from bearer token auth, not a residual admin cookie.
     """
+    from httpx import ASGITransport
+
     from management.api import redis_client as _redis_module
     from management.api.main import create_app
-    from management.api.auth import _create_access_token
-    from httpx import ASGITransport
 
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
@@ -662,10 +662,10 @@ async def test_bearer_any_role_can_access_dial(fake_redis) -> None:
     Uses a cookie-free client to verify that access comes from bearer auth,
     not the admin cookie.
     """
+    from httpx import ASGITransport
+
     from management.api import redis_client as _redis_module
     from management.api.main import create_app
-    from management.api.auth import _create_access_token
-    from httpx import ASGITransport
 
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
@@ -792,12 +792,14 @@ async def test_bearer_hash_must_match(fake_redis) -> None:
     Guards against an implementation that accepts any token whose ID exists in
     Redis without actually verifying the bcrypt hash.
     """
-    import bcrypt
-    import uuid
     import datetime as _dt
+    import uuid
+
+    import bcrypt
+    from httpx import ASGITransport
+
     from management.api import redis_client as _redis_module
     from management.api.main import create_app
-    from httpx import ASGITransport
 
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
@@ -841,10 +843,11 @@ async def test_last_used_at_updated_on_bearer_auth(fake_redis) -> None:
     Without this, operators cannot tell if an old API token is still in active use.
     """
     from datetime import datetime, timezone
+
+    from httpx import ASGITransport
+
     from management.api import redis_client as _redis_module
     from management.api.main import create_app
-    from management.api.auth import _create_access_token
-    from httpx import ASGITransport
 
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
@@ -892,10 +895,10 @@ async def test_rotate_token_old_token_works_during_grace_period(fake_redis) -> N
     A TTL being set is necessary but not sufficient — the middleware must also
     actually accept the old credential while its key has a TTL > 0.
     """
+    from httpx import ASGITransport
+
     from management.api import redis_client as _redis_module
     from management.api.main import create_app
-    from management.api.auth import _create_access_token
-    from httpx import ASGITransport
 
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
@@ -937,10 +940,10 @@ async def test_two_tokens_authenticate_independently(fake_redis) -> None:
     the lookup mechanism only works for a single token at a time.
     Revoking token A must not affect token B.
     """
+    from httpx import ASGITransport
+
     from management.api import redis_client as _redis_module
     from management.api.main import create_app
-    from management.api.auth import _create_access_token
-    from httpx import ASGITransport
 
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)

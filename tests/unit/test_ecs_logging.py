@@ -18,7 +18,6 @@ import pytest
 
 from src.utils.logging_config import JSONFormatter
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -468,6 +467,7 @@ class TestSetupLoggingECSFormat:
         whose formatter has format == 'ecs'.
         """
         import logging as _logging
+
         from src.utils.logging_config import setup_logging
 
         # Should not raise

@@ -24,11 +24,9 @@ import re
 from pathlib import Path
 from typing import Any, Optional
 
-import pytest
-
 # fakeredis is already a project test dependency (used by tests/unit/test_gdpr_delete.py)
 import fakeredis
-
+import pytest
 
 _FIXTURE_DIR = Path(__file__).resolve().parents[3] / "fixtures" / "ti_feeds"
 _BUNDLE_PATH = _FIXTURE_DIR / "sample_stix_bundle.json"

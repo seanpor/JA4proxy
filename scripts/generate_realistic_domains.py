@@ -5,6 +5,7 @@ Creates diverse, realistic-looking domains for false-positive testing.
 """
 import random
 
+
 def generate_realistic_domains(count=10000):
     """Generate realistic-looking domain names."""
     

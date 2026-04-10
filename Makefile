@@ -1334,3 +1334,21 @@ ci-local: ## Run the same fast checks the CI workflow runs (Go + Python tests)
 	python3 -m pytest tests/ --ignore=tests/integration/test_docker_stack.py -x -q --timeout=60
 
 .PHONY: ci-local
+
+## Phase 64a targets
+smoke-docker: ## Run Docker Compose smoke test
+	bash scripts/smoke/test_docker_compose.sh
+
+.PHONY: smoke-docker
+
+## Phase 64b targets
+smoke-k8s: ## Run Helm + kind smoke test
+	bash scripts/smoke/test_helm_kind.sh
+
+.PHONY: smoke-k8s
+
+## Phase 64h targets
+measure-mttr: ## Measure MTTR for DR scenarios
+	bash scripts/measure_mttr.sh
+
+.PHONY: measure-mttr

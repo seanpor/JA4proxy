@@ -16,13 +16,12 @@ import secrets
 import ssl
 import time
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Set, Any
+from typing import Any, Dict, List, Optional, Set
 from urllib.parse import quote, unquote
-
-from cryptography import x509
 
 import geoip2.database
 import redis
+from cryptography import x509
 
 
 class SecurityValidator:

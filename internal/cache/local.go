@@ -17,10 +17,10 @@ type entry struct {
 // LRU is a bounded, TTL-aware in-process LRU cache.
 // Thread-safe.
 type LRU struct {
-	mu       sync.Mutex
-	cap      int
-	items    map[string]*list.Element
-	order    *list.List
+	mu    sync.Mutex
+	cap   int
+	items map[string]*list.Element
+	order *list.List
 }
 
 // New creates an LRU cache with the given capacity.

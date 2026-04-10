@@ -265,7 +265,7 @@ func (a *SyncAgent) handleDialRPC(conn net.Conn) {
 		json.NewEncoder(tlsConn).Encode(DialResponse{OK: false, Error: "DC ID mismatch"})
 		return
 	}
-	
+
 	if req.Dial < 0 || req.Dial > 100 {
 		json.NewEncoder(tlsConn).Encode(DialResponse{OK: false, Error: "dial out of bounds"})
 		return
@@ -401,7 +401,7 @@ func (a *SyncAgent) runPeerReplicationLoop(peerAddr string) error {
 					// Actually, we must use ID "0" to get unacked messages.
 					goto retry
 				}
-				
+
 				a.rc.XAck(a.ctx, stream, group, msg.ID)
 				metrics.SyncWANConnected.WithLabelValues(peerAddr).Set(1)
 				lag := time.Now().UnixNano()/1e6 - event.OriginTS
@@ -612,7 +612,7 @@ func (a *SyncAgent) signEvent(e *SyncEvent) {
 		OriginTS int64  `json:"origin_ts"`
 		OriginDC string `json:"origin_dc"`
 	}{e.Op, e.Key, e.Value, e.OriginTS, e.OriginDC}
-	
+
 	payload, _ := json.Marshal(sigData)
 	sig := ed25519.Sign(a.privKey, payload)
 	e.Signature = base64.StdEncoding.EncodeToString(sig)
@@ -626,7 +626,7 @@ func (a *SyncAgent) verifySignature(e SyncEvent) bool {
 	if err != nil {
 		return false
 	}
-	
+
 	sigData := struct {
 		Op       string `json:"op"`
 		Key      string `json:"key"`
@@ -634,7 +634,7 @@ func (a *SyncAgent) verifySignature(e SyncEvent) bool {
 		OriginTS int64  `json:"origin_ts"`
 		OriginDC string `json:"origin_dc"`
 	}{e.Op, e.Key, e.Value, e.OriginTS, e.OriginDC}
-	
+
 	payload, _ := json.Marshal(sigData)
 	return ed25519.Verify(a.pubKey, payload, sig)
 }
@@ -645,7 +645,7 @@ func (a *SyncAgent) signDialRequest(r *DialRequest) {
 		OriginDC string `json:"origin_dc"`
 		OriginTS int64  `json:"origin_ts"`
 	}{r.Dial, r.OriginDC, r.OriginTS}
-	
+
 	payload, _ := json.Marshal(sigData)
 	sig := ed25519.Sign(a.privKey, payload)
 	r.Signature = base64.StdEncoding.EncodeToString(sig)
@@ -659,13 +659,13 @@ func (a *SyncAgent) verifyDialSignature(r DialRequest) bool {
 	if err != nil {
 		return false
 	}
-	
+
 	sigData := struct {
 		Dial     int    `json:"dial"`
 		OriginDC string `json:"origin_dc"`
 		OriginTS int64  `json:"origin_ts"`
 	}{r.Dial, r.OriginDC, r.OriginTS}
-	
+
 	payload, _ := json.Marshal(sigData)
 	return ed25519.Verify(a.pubKey, payload, sig)
 }

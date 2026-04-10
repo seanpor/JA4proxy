@@ -58,6 +58,13 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
     "actions/dependency-review-action": {
         "v4.5.0": "3b139cfc5fae8b618d3eae3675e383bb1769c019",
     },
+    # phase-64: smoke-k8s CI job
+    "azure/setup-helm": {
+        "v4.3.0": "b9e51907a09c216f16ebe8536097933489208112",
+    },
+    "helm/kind-action": {
+        "v1.12.0": "a1b0e391336a6ee6713a0583f8c6240d70863de3",
+    },
     # release-cli.yml — verified upstream during Phase 61 review-fix.
     "crazy-max/ghaction-import-gpg": {
         "v6.2.0": "cb9bde2e2525e640591a934b1fd28eef1dcaf5e5",
@@ -190,12 +197,15 @@ def test_branch_protection_contexts_match_ci_job_names():
     with ci.open() as fh:
         doc = yaml.safe_load(fh)
 
-    # `dependency-review` is PR-only and not a required check; everything else
-    # in jobs must appear in branch_protection.sh.
+    # `dependency-review` is PR-only; `continue-on-error` jobs are informational
+    # (not required checks). Everything else must appear in branch_protection.sh.
     job_names = {
         j["name"]
         for jid, j in doc["jobs"].items()
-        if jid != "dependency-review" and isinstance(j, dict) and "name" in j
+        if jid != "dependency-review"
+        and isinstance(j, dict)
+        and "name" in j
+        and not j.get("continue-on-error", False)
     }
     assert job_names, "ci.yml has no jobs with `name:` fields"
 

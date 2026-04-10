@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/anomalyco/ja4proxy/internal/cache"
+	"github.com/anomalyco/ja4proxy/internal/metrics"
 )
 
 // AbuseIPDBConfig configures the AbuseIPDB integration.
@@ -103,6 +104,7 @@ func (a *AbuseIPDB) GetSignal(clientIP string) *RiskSignal {
 	// Check local cache
 	if v, ok := a.localCache.Get(clientIP); ok {
 		confidence := v.(int)
+		metrics.AbuseIPDBLookupsTotal.WithLabelValues("hit").Inc()
 		score := a.computeScore(confidence)
 		if score <= 0 {
 			return nil
@@ -117,6 +119,7 @@ func (a *AbuseIPDB) GetSignal(clientIP string) *RiskSignal {
 	// Check Redis cache
 	if a.redis == nil {
 		// Not cached — enqueue lookup
+		metrics.AbuseIPDBLookupsTotal.WithLabelValues("miss").Inc()
 		select {
 		case a.queue <- clientIP:
 		default:
@@ -128,6 +131,7 @@ func (a *AbuseIPDB) GetSignal(clientIP string) *RiskSignal {
 	if cached != "" {
 		confidence, err := strconv.Atoi(cached)
 		if err == nil {
+			metrics.AbuseIPDBLookupsTotal.WithLabelValues("hit").Inc()
 			a.localCache.Set(clientIP, confidence, 30*time.Minute)
 			score := a.computeScore(confidence)
 			if score <= 0 {
@@ -142,6 +146,7 @@ func (a *AbuseIPDB) GetSignal(clientIP string) *RiskSignal {
 		}
 	}
 	// Not cached — enqueue lookup
+	metrics.AbuseIPDBLookupsTotal.WithLabelValues("miss").Inc()
 	select {
 	case a.queue <- clientIP:
 	default:
@@ -165,6 +170,7 @@ func (a *AbuseIPDB) lookup(ctx context.Context, ip string) {
 	req.Header.Set("Accept", "application/json")
 	resp, err := a.http.Do(req)
 	if err != nil {
+		metrics.AbuseIPDBLookupsTotal.WithLabelValues("error").Inc()
 		a.log.WithError(err).WithField("ip", ip).Debug("abuseipdb: API call failed")
 		return
 	}
@@ -175,6 +181,7 @@ func (a *AbuseIPDB) lookup(ctx context.Context, ip string) {
 		} `json:"data"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		metrics.AbuseIPDBLookupsTotal.WithLabelValues("error").Inc()
 		return
 	}
 	confidence := result.Data.AbuseConfidenceScore

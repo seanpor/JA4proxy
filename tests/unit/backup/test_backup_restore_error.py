@@ -329,8 +329,9 @@ class TestRestorerCoverageGaps:
 
     def _write_encrypted_manifest(self):
         """Write a minimal backup with encryption=enabled in the manifest."""
-        from src.backup.format import encode_entry
         import hashlib
+
+        from src.backup.format import encode_entry
         raw_data = encode_entry("k", b"v")
         ts = "20260102T000000Z"
         filename = f"backup_{ts}.bin"

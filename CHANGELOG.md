@@ -66,6 +66,55 @@
     from untrusted source, spoofed v1, v2-before-v1, default config,
     proxy_protocol=false gate)
 
+## [64] - 2026-04-10 - Deployment Validation & Disaster Recovery
+
+### Added
+- `scripts/smoke/test_docker_compose.sh` — Docker Compose smoke test with
+  health polling, container state check, synthetic TLS probe, and cleanup
+  trap. Handles both JSON array and NDJSON output from `docker compose ps`.
+- `scripts/smoke/test_helm_kind.sh` — Helm + kind smoke test with graceful
+  skip when tools are absent, kind cluster cleanup trap, rollout status
+  check (Deployment or DaemonSet), and in-pod health verification.
+- `scripts/measure_mttr.sh` — MTTR baseline measurement for 4 DR scenarios
+  (Redis failure, single node failure, dial corruption, Redis data loss).
+  Produces `MTTR_BASELINE.md` with measured vs target RTO comparison.
+- `monitoring/alertmanager/rules/tls_alerts.yml` — TLS certificate expiry
+  alerts: warning at < 30 days, critical at < 7 days. Consumes Phase 63's
+  `ja4proxy_tls_cert_expiry_timestamp_seconds` gauge directly (no
+  `absent_over_time`).
+- `docs/runbooks/disaster_recovery.md` — 5 DR scenarios (Redis failure,
+  node failure, total fleet failure, config corruption, Redis data loss)
+  with symptoms, impact, simulate, recovery steps, RTO, and RPO.
+- `docs/runbooks/gameday_scenarios.md` — 4 GameDay exercises with trigger
+  commands, success criteria, and measurable RTO targets.
+- `docs/runbooks/credential_rotation.md` — Zero-downtime rotation for
+  Redis ACL passwords, AbuseIPDB API keys, and cloud storage credentials,
+  each with explicit rollback procedures.
+- `docs/runbooks/tls_certificate_rotation.md` — Server-side TLS cert
+  rotation (rolling, one node at a time) and mTLS CA rotation with
+  dual-CA trust bundle transition.
+- `docs/runbooks/rolling_upgrade.md` — Docker Compose (HAProxy drain +
+  30s stagger) and Kubernetes (`helm upgrade --wait`) rolling upgrades
+  with single-command rollback for each model.
+- `scripts/generate_validation_report.py` — `--section deployment` flag
+  appends smoke test results, MTTR baseline, and DR exercise history.
+  Graceful degradation when any input is missing.
+- `Makefile` targets: `smoke-docker`, `smoke-k8s`, `measure-mttr`.
+- CI jobs: `smoke-docker` and `smoke-k8s` (non-blocking, `continue-on-error`).
+
+### Tests
+- `tests/test_phase64a_smoke_docker.py` — 11 structural validation tests
+- `tests/test_phase64b_smoke_helm.py` — 11 structural validation tests
+- `tests/test_phase64f_tls_alerts.py` — 23 alert rule validation tests
+- `tests/test_phase64h_mttr.py` — 27 MTTR script validation tests
+- `tests/test_phase64i_validation_report.py` — 11 deployment section tests
+
+### Phase 101 deferrals
+- M20: CI smoke-k8s needs kind/helm installation steps
+- M21: `infrastructure.md` still references Python proxy
+- M22: AbuseIPDB lookups counter missing from Go metrics
+- M23: MTTR test should validate Redis key names
+
 ## [Unreleased] - Phase 63 - Service Level Objectives
 
 ### Added

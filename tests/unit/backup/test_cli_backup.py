@@ -179,10 +179,11 @@ def test_backup_cli_with_custom_destination_arg():
 #                          265-266, 270
 # ---------------------------------------------------------------------------
 
-import tempfile
-import shutil
 import json
+import shutil
+import tempfile
 from pathlib import Path
+
 from src.backup.restorer import RestoreError
 
 

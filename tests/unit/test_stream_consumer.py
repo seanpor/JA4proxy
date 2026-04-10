@@ -17,7 +17,6 @@ import pytest
 
 from src.analytics.stream_consumer import InvalidEventError, StreamConsumer
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

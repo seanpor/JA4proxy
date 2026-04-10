@@ -1,15 +1,15 @@
 import asyncio
-import os
 import json
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, HTTPException, Request, Depends
-from fastapi.responses import StreamingResponse
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from src.management.redis_client import RedisManager
-from src.management.schemas import DialUpdate, JA4Entry, HealthResponse
+from src.management.schemas import DialUpdate, HealthResponse, JA4Entry
 
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
@@ -43,7 +43,7 @@ async def get_health():
             "redis_connected": True,
             "dial": dial
         }
-    except Exception as e:
+    except Exception:
         return {
             "status": "error",
             "redis_connected": False,

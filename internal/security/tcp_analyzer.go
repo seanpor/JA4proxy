@@ -13,13 +13,13 @@ import (
 type TCPAnalyzerConfig struct {
 	Enabled                       bool
 	SessionResumptionEnabled      bool
-	MinConnectionsForSessionCheck int     // default 10
+	MinConnectionsForSessionCheck int // default 10
 	ShortLifespanEnabled          bool
-	ShortLifespanThresholdMS      int     // default 500
+	ShortLifespanThresholdMS      int // default 500
 	ConcurrencyEnabled            bool
-	ConcurrencyModerate           int     // default 20
-	ConcurrencyHigh               int     // default 50
-	ConcurrencySevere             int     // default 100
+	ConcurrencyModerate           int // default 20
+	ConcurrencyHigh               int // default 50
+	ConcurrencySevere             int // default 100
 	ReturnVisitorEnabled          bool
 	ReturnVisitorMinDays          int     // default 7
 	ReturnVisitorMinAllowRate     float64 // default 0.90

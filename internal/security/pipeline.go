@@ -556,7 +556,6 @@ func buildRDAPConfig(cfg *PipelineConfig) *RDAPConfig {
 	}
 }
 
-
 // buildASNClassifierConfig creates an ASNClassifierConfig from the pipeline config.
 func buildASNClassifierConfig(cfg *PipelineConfig) *ASNClassifierConfig {
 	return &ASNClassifierConfig{

@@ -3,9 +3,10 @@
 Create a minimal MaxMind test database for ASN classifier testing.
 This script creates a simple test database with residential and datacenter entries.
 """
+import ipaddress
 import os
 import struct
-import ipaddress
+
 
 def create_minimal_mmdb():
     """Create a minimal MaxMind-compatible binary database."""

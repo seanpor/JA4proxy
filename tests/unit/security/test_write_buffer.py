@@ -17,7 +17,6 @@ import pytest
 
 from src.security.write_buffer import WriteBuffer
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -304,7 +303,7 @@ class TestEnqueueOverflow:
 
         # Record which item is currently at the front (will be evicted)
         oldest_op, oldest_args, _ = buf.queue[0]
-        assert oldest_args == (f"key:0", "v")
+        assert oldest_args == ("key:0", "v")
 
         # Add one more priority write — must evict the oldest and add the new one
         added = await buf.enqueue("set", "key:NEW", "v", priority=True)

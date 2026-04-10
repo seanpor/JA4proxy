@@ -21,7 +21,6 @@ import redis as redis_lib
 from src.backup.format import encode_entry
 from src.backup.restorer import BackupRestorer, RestoreError
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

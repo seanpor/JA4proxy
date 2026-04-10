@@ -2,9 +2,10 @@
 Locust performance test file for JA4 Proxy
 Tests backend performance and proxy metrics endpoints
 """
-from locust import HttpUser, task, between, events
-import random
 import json
+import random
+
+from locust import HttpUser, between, events, task
 
 
 class BackendUser(HttpUser):

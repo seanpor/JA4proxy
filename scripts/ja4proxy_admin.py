@@ -21,7 +21,6 @@ from typing import Any
 import click
 import redis as redis_lib
 
-
 # ---------------------------------------------------------------------------
 # Redis connection
 # ---------------------------------------------------------------------------
@@ -476,10 +475,10 @@ def backup() -> None:
 @click.pass_context
 def backup_create(ctx: click.Context, dest: str, encryption_key: str) -> None:
     """Create a new Redis state backup."""
-    from src.backup.worker import BackupWorker
-    
     # Extract host/port/db from REDIS_URL
     import urllib.parse
+
+    from src.backup.worker import BackupWorker
     url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
     p = urllib.parse.urlparse(url)
     
@@ -542,9 +541,10 @@ def backup_restore(
     if not confirm:
         _confirm_required(f"Restoring backup from {artifact}.")
 
-    from src.backup.restorer import BackupRestorer
-    from pathlib import Path
     import urllib.parse
+    from pathlib import Path
+
+    from src.backup.restorer import BackupRestorer
 
     url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
     p = urllib.parse.urlparse(url)
@@ -591,9 +591,10 @@ def backup_redact(ctx: click.Context, artifact: str, ips: list[str], out_path: s
     if not out_path and not confirm:
         _confirm_required(f"This will OVERWRITE {artifact} with redacted data.")
 
-    from src.backup.redactor import BackupRedactor
-    from pathlib import Path
     import hashlib
+    from pathlib import Path
+
+    from src.backup.redactor import BackupRedactor
 
     artifact_path = Path(artifact)
     if not artifact_path.exists():
@@ -639,9 +640,10 @@ def backup_dsar_redact(ctx: click.Context, artifact_path: str, ips: list[str], o
     Sets dsar_scanned: true in the manifest sidecar after redaction.
     Use before cloud upload when DSAR compliance is required.
     """
-    from src.backup.redactor import BackupRedactor
-    from pathlib import Path
     import hashlib
+    from pathlib import Path
+
+    from src.backup.redactor import BackupRedactor
 
     source = Path(artifact_path)
     if not source.exists():

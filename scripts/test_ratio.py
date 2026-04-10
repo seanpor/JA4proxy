@@ -88,14 +88,14 @@ def main():
         test_per_prod = 0
     
     # Print results
-    print(f"\n📊 Code Metrics:")
+    print("\n📊 Code Metrics:")
     print(f"  Production code: {prod_lines:,} lines")
     print(f"  Test code:      {test_lines:,} lines")
     print(f"  Test count:     {test_count:,} tests")
-    print(f"\n📈 Ratios:")
+    print("\n📈 Ratios:")
     print(f"  Test-to-code (lines): {line_ratio:.2f}:1")
     print(f"  Tests per prod line:  {test_per_prod:.4f}")
-    print(f"  Target:              ≥1.3:1")
+    print("  Target:              ≥1.3:1")
     
     # Status
     if line_ratio >= 1.3:
@@ -111,7 +111,7 @@ def main():
     print(f"\n{color}Status: {status}\033[0m")
     
     if line_ratio < 1.3:
-        print(f"\n💡 Suggestion: Add more tests to reach the 1.3:1 target ratio.")
+        print("\n💡 Suggestion: Add more tests to reach the 1.3:1 target ratio.")
         print(f"   Needed: {int((1.3 * prod_lines) - test_lines):,} more test lines")
     
     print("=" * 60)

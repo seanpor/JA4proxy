@@ -374,7 +374,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		"ja4":         connCtx.JA4,
 		"ja4x":        connCtx.JA4X,
 		"action":      result.Action,
-		"score":        result.Score,
+		"score":       result.Score,
 		"sni":         connCtx.SNI,
 		"alpn":        connCtx.ALPN,
 		"country":     connCtx.Country,
@@ -390,18 +390,18 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	if p.dispatcher != nil {
 		go func() {
 			ecsFields := map[string]interface{}{
-				"@timestamp":                time.Now().UTC().Format(time.RFC3339Nano),
-				"event.action":              result.Action,
-				"event.risk_score":          result.Score,
-				"source.ip":                 connCtx.ClientIP,
-				"destination.ip":            backendHost,
-				"destination.port":          443,
-				"network.transport":         "tcp",
-				"network.protocol":          "tls",
-				"service.name":              "ja4proxy",
-				"ja4proxy.fingerprint.ja4":  connCtx.JA4,
-				"ja4proxy.sni":              connCtx.SNI,
-				"ja4proxy.dial_setting":     result.Dial,
+				"@timestamp":               time.Now().UTC().Format(time.RFC3339Nano),
+				"event.action":             result.Action,
+				"event.risk_score":         result.Score,
+				"source.ip":                connCtx.ClientIP,
+				"destination.ip":           backendHost,
+				"destination.port":         443,
+				"network.transport":        "tcp",
+				"network.protocol":         "tls",
+				"service.name":             "ja4proxy",
+				"ja4proxy.fingerprint.ja4": connCtx.JA4,
+				"ja4proxy.sni":             connCtx.SNI,
+				"ja4proxy.dial_setting":    result.Dial,
 			}
 			ecsJSON, err := json.Marshal(ecsFields)
 			if err != nil {

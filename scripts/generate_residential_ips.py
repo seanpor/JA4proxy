@@ -3,8 +3,9 @@
 Generate anonymized residential IP addresses for ASN testing.
 Creates 500+ realistic residential IPs with last-octet randomization.
 """
-import random
 import os
+import random
+
 
 def generate_residential_ips(count=500):
     """Generate anonymized residential IP addresses."""
@@ -84,4 +85,4 @@ if __name__ == '__main__':
     print(f"✓ Generated {len(ips)} anonymized residential IPs")
     print(f"  First 5: {ips[:5]}")
     print(f"  Last 5: {ips[-5:]}")
-    print(f"  File: tests/fp_corpus/data/residential_ips.txt")
+    print("  File: tests/fp_corpus/data/residential_ips.txt")

@@ -16,8 +16,8 @@ import os
 import socket
 import ssl
 import sys
-import time
 import threading
+import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
@@ -119,7 +119,7 @@ def try_connection(host: str, port: int, ctx: ssl.SSLContext, is_good: bool) -> 
         sock.connect((host, port))
         tls_sock = ctx.wrap_socket(sock, server_hostname="backend")
         tls_sock.send(HTTP_REQ)
-        resp = tls_sock.recv(512)
+        tls_sock.recv(512)
         result["allowed"] = True
     except (ssl.SSLError, ConnectionResetError, ConnectionRefusedError, socket.timeout, OSError):
         result["blocked"] = True
@@ -236,7 +236,7 @@ def print_result(r: BenchResult):
     print(f"  Bad traffic:       {r.total_bad:,} sent, {r.bad_blocked:,} blocked, "
           f"{r.bad_allowed:,} leaked")
     print(f"  Errors:            {r.errors:,}")
-    print(f"  ────────────────────────────────────────")
+    print("  ────────────────────────────────────────")
     print(f"  Good pass rate:    {r.good_pass_rate:.1f}%  "
           f"{'✅' if r.good_pass_rate >= 99 else '⚠️' if r.good_pass_rate >= 90 else '❌'}")
     print(f"  Bad block rate:    {r.bad_block_rate:.1f}%  "
@@ -274,10 +274,10 @@ def format_markdown_report(results: List[BenchResult]) -> str:
     for count in sorted(by_proxy.keys()):
         group = by_proxy[count]
         lines.append(f"\n## {count}x Proxy Instance{'s' if count > 1 else ''}\n")
-        lines.append(f"| Good/s | Bad/s | Total/s | Good Pass | Bad Block | "
-                     f"Conns | Duration |")
-        lines.append(f"|--------|-------|---------|-----------|-----------|"
-                     f"-------|----------|")
+        lines.append("| Good/s | Bad/s | Total/s | Good Pass | Bad Block | "
+                     "Conns | Duration |")
+        lines.append("|--------|-------|---------|-----------|-----------|"
+                     "-------|----------|")
         for r in group:
             lines.append(
                 f"| {r.good_rate_target:.0f} | {r.bad_rate_target:.0f} | "
@@ -311,7 +311,7 @@ def format_markdown_report(results: List[BenchResult]) -> str:
                                  f"{speedup:.1f}x throughput "
                                  f"({base.actual_rate:.0f} → {r.actual_rate:.0f} conn/s)")
 
-    lines.append(f"\n## Test Environment\n")
+    lines.append("\n## Test Environment\n")
     lines.append("- **Platform:** Docker containers on single host")
     lines.append("- **Load balancer:** HAProxy 2.8 (TCP mode, TLS passthrough)")
     lines.append("- **Good traffic:** Browser-like TLS 1.3 with h2 ALPN (whitelisted)")
