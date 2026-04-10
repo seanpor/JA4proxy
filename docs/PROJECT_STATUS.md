@@ -3,7 +3,7 @@
 
 # JA4 Proxy - Project Status
 
-## Current Status: Phase 60 (Master Plan and Governance) Next
+## Current Status: Phase 86 (Observability & Capacity Planning) Next
 
 **Last Updated:** 2026-04-10
 
@@ -126,7 +126,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 44 | Test Audit and Documentation | COMPLETE | Audit the test suite to ensure all tests are genuine and document test types, coverage, and gaps. |
 | 45 | Adversarial Test Expansion | COMPLETE | Expand adversarial tests to cover additional attack vectors and ensure comprehensive security coverage. |
 | 46 | Coverage Improvement | COMPLETE | Drove overall coverage from 82% to 99% (11,570 statements, 172 missed). All security-critical modules ≥99%. 3,557 tests passing, 0 failures. See PHASE_46_notes.md for full session record. |
-| 60 | Master Plan and Governance | PROPOSED | Comprehensive quality improvement roadmap and governance framework. |
+| 60 | Master Plan and Governance | CLOSED | Governance index (pointer document only). Phases 61–64 all COMPLETE. No implementation work remains — closed after 2026-04-09 rewrite. |
 | 61 | Supply Chain Security & Build Integrity | COMPLETE | GitHub Actions CI pipeline (Python + Go tests, SAST, dependency audit); SBOM generation (CycloneDX 1.4); Cosign keyless image signing; SLSA level 2 provenance for Go binary; action SHA pinning; branch protection rules. |
 
 ## Phase Completion Details
@@ -189,7 +189,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 57 | Backup System Enhancements - Phase 3: Cloud & Incrementals | COMPLETE | N/A | N/A |
 | 58 | Advanced Traffic Intelligence - Phase 3: Feed Optimization & Reliability | COMPLETE | N/A | N/A |
 | 59 | Advanced Traffic Intelligence - Phase 4: Feed Reliability & Resilience | COMPLETE | N/A | N/A |
-| 60 | Master Plan and Governance | PROPOSED | N/A | COMPLETE |
+| 60 | Master Plan and Governance | CLOSED | N/A | COMPLETE |
 | 61 | Supply Chain Security & Build Integrity | COMPLETE | N/A | COMPLETE |
 | 62 | Security Regression Harness, Fuzzing & Pre-Enterprise Validation | COMPLETE | N/A | COMPLETE |
 | 63 | Service Level Objectives | COMPLETE | N/A | COMPLETE |
