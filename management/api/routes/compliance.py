@@ -27,10 +27,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from ..audit_utils import write_audit
-from ..auth import require_role
-from ..models import Role
-from ..redis_client import get_redis
 from management.compliance.classifier import SignalClassifier
 from management.compliance.pack_builder import PciDssPackBuilder
 from management.compliance.purge import GDPRPurge
@@ -41,6 +37,11 @@ from management.compliance.report_renderer import (
     TrendMonth,
     WeasyPrintNotAvailable,
 )
+
+from ..audit_utils import write_audit
+from ..auth import require_role
+from ..models import Role
+from ..redis_client import get_redis
 
 logger = logging.getLogger(__name__)
 
@@ -257,6 +258,7 @@ def _load_signal_categories_config() -> dict[str, Any] | None:
     """
     try:
         from pathlib import Path
+
         import yaml  # type: ignore
 
         # config/proxy.yml relative to repo root

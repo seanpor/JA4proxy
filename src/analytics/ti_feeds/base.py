@@ -19,7 +19,6 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 from urllib.parse import urlparse
 
-
 # phase-85 (security review C4): feed_id is used as a Redis key suffix
 # (``ti_feed:{feed_id}:*``) and as a metric label. Allowing arbitrary
 # characters lets a config author pivot into other key namespaces or

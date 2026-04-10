@@ -243,7 +243,7 @@ def main():
         }, jf, indent=2)
 
     print(f"Audit complete. Found {len(orphans)} potential orphans and {len(broken)} files with broken references.")
-    print(f"Full report saved to reports/workspace_audit.json")
+    print("Full report saved to reports/workspace_audit.json")
 
     if "--list-orphans" in sys.argv:
         print("\n--- Potential Orphans ---")

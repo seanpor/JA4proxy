@@ -808,7 +808,8 @@ class TestBlocklistsMissingCoverage:
         keep flowing through."""
         import asyncio
         from unittest.mock import AsyncMock, MagicMock, patch
-        from src.security.blocklists import BlocklistManager, FeedManager, FeedConfig
+
+        from src.security.blocklists import BlocklistManager, FeedConfig, FeedManager
 
         async def run():
             mgr = BlocklistManager()
@@ -840,7 +841,8 @@ class TestBlocklistsMissingCoverage:
         non-leaders must fail open (not crash) — stale trie is better than no service."""
         import asyncio
         from unittest.mock import AsyncMock, MagicMock, patch
-        from src.security.blocklists import BlocklistManager, FeedManager, FeedConfig
+
+        from src.security.blocklists import BlocklistManager, FeedConfig, FeedManager
 
         async def run():
             redis = AsyncMock()
@@ -878,7 +880,8 @@ class TestBlocklistsMissingCoverage:
         error and keep the proxy running with the stale trie."""
         import asyncio
         from unittest.mock import AsyncMock, patch
-        from src.security.blocklists import BlocklistManager, FeedManager, FeedConfig
+
+        from src.security.blocklists import BlocklistManager, FeedConfig, FeedManager
 
         async def run():
             mgr = BlocklistManager()
@@ -896,7 +899,8 @@ class TestBlocklistsMissingCoverage:
         So what: if leader doesn't download, no instance ever populates the blocklist."""
         import asyncio
         from unittest.mock import AsyncMock, patch
-        from src.security.blocklists import BlocklistManager, FeedManager, FeedConfig
+
+        from src.security.blocklists import BlocklistManager, FeedConfig, FeedManager
 
         async def run():
             mgr = BlocklistManager()
@@ -921,9 +925,10 @@ class TestBlocklistsMissingCoverage:
         if lines 406-407 are never exercised, non-leaders always fail open
         even when the leader has successfully written the blocklist."""
         import asyncio
-        from unittest.mock import AsyncMock, patch
-        from src.security.blocklists import BlocklistManager, FeedManager, FeedConfig
         import json
+        from unittest.mock import AsyncMock, patch
+
+        from src.security.blocklists import BlocklistManager, FeedConfig, FeedManager
 
         async def run():
             mgr = BlocklistManager()
@@ -957,9 +962,10 @@ class TestBlocklistsMissingCoverage:
         a regression in ETag handling or Redis write could silently leave the
         blocklist forever stale without any test catching it."""
         import asyncio
-        from unittest.mock import AsyncMock, MagicMock, patch
-        from src.security.blocklists import BlocklistManager, FeedManager, FeedConfig
         import json
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from src.security.blocklists import BlocklistManager, FeedConfig, FeedManager
 
         async def run():
             mgr = BlocklistManager()
@@ -1008,7 +1014,8 @@ class TestBlocklistsMissingCoverage:
         and we re-parse and re-store the entire blocklist on every refresh."""
         import asyncio
         from unittest.mock import AsyncMock, MagicMock, patch
-        from src.security.blocklists import BlocklistManager, FeedManager, FeedConfig
+
+        from src.security.blocklists import BlocklistManager, FeedConfig, FeedManager
 
         async def run():
             mgr = BlocklistManager()
@@ -1052,9 +1059,10 @@ class TestBlocklistsMissingCoverage:
         was loaded; without this test, a regression that silently swallows the
         warning would make the failure invisible in production logs."""
         import asyncio
-        from unittest.mock import AsyncMock, patch
-        from src.security.blocklists import BlocklistManager, FeedManager, FeedConfig
         import logging
+        from unittest.mock import AsyncMock, patch
+
+        from src.security.blocklists import BlocklistManager, FeedConfig, FeedManager
 
         async def run():
             mgr = BlocklistManager()
@@ -1084,7 +1092,8 @@ class TestBlocklistsMissingCoverage:
         the error counter and logs the failure."""
         import asyncio
         from unittest.mock import AsyncMock, MagicMock, patch
-        from src.security.blocklists import BlocklistManager, FeedManager, FeedConfig
+
+        from src.security.blocklists import BlocklistManager, FeedConfig, FeedManager
 
         async def run():
             mgr = BlocklistManager()

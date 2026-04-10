@@ -10,6 +10,7 @@ import os
 import re
 from pathlib import Path
 
+
 def find_file(name, all_files):
     """Find the best match for a filename in all_files."""
     # Direct match

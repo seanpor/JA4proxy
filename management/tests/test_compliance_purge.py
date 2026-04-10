@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
 import fakeredis.aioredis
@@ -20,7 +20,6 @@ import pytest
 import pytest_asyncio
 
 from management.compliance.purge import GDPRPurge
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 

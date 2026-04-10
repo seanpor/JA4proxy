@@ -14,15 +14,15 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import zipfile
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 import fakeredis.aioredis
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
-import os
 os.environ.setdefault("MANAGEMENT_JWT_SECRET", "test-secret-do-not-use-in-production")
 os.environ.setdefault("MANAGEMENT_ADMIN_USER", "admin")
 os.environ.setdefault("MANAGEMENT_ADMIN_PASSWORD", "testpassword")
@@ -32,7 +32,6 @@ from management.api import redis_client as _redis_module
 from management.api.auth import _create_access_token
 from management.api.main import create_app
 from management.api.models import Role
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 

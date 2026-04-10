@@ -28,7 +28,6 @@ from prometheus_client import REGISTRY
 
 from src.backup.storage_adapter import StorageMetadata
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

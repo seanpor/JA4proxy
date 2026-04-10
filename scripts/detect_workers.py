@@ -10,11 +10,10 @@ Usage:
     python3 scripts/detect_workers.py --show   # print stored config
 """
 import os
+import subprocess
 import sys
 import time
-import subprocess
 from pathlib import Path
-
 
 LOCAL_DIR = Path(".local")
 CONFIG_FILE = LOCAL_DIR / "machine.mk"

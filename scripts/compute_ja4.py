@@ -10,10 +10,10 @@ This script parses the raw binary ClientHello without Scapy (which expects
 network-captured packets), using the same algorithm as proxy.py JA4Generator
 but operating directly on the parsed byte fields.
 """
-import sys
+import hashlib
 import pathlib
 import struct
-import hashlib
+import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
 

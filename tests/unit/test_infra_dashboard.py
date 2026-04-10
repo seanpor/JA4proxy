@@ -6,8 +6,9 @@ Grafana dashboard JSON without requiring a running Grafana instance.
 """
 
 import json
-import pytest
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).parent.parent.parent
 

@@ -4,8 +4,8 @@ Fetch Tranco top 10,000 domains for false-positive testing.
 This script downloads and processes the Tranco list.
 """
 import csv
-import urllib.request
 import os
+import urllib.request
 
 # Create data directory if not exists
 os.makedirs('tests/fp_corpus/data', exist_ok=True)

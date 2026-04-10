@@ -18,10 +18,10 @@ Covers:
 """
 
 import asyncio
+import datetime
 import hashlib
 from pathlib import Path
-from unittest.mock import MagicMock, patch, call
-import datetime
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -33,7 +33,6 @@ gcs_lib = pytest.importorskip(
 )
 
 from src.backup.storage_adapter import StorageMetadata  # noqa: E402 — after importorskip
-
 
 # ---------------------------------------------------------------------------
 # Helpers

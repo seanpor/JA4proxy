@@ -241,7 +241,7 @@ def main() -> None:
     generate_malformed_pcap(output_dir)
     generate_tranco_list(output_dir)
 
-    print(f"\nDone. Run: python3 -m pytest tests/tap/fp_corpus/ -v")
+    print("\nDone. Run: python3 -m pytest tests/tap/fp_corpus/ -v")
 
 
 if __name__ == "__main__":

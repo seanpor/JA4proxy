@@ -3,13 +3,14 @@
 Performance testing for JA4 Proxy using Locust
 """
 
-import time
 import random
-import ssl
 import socket
-from locust import HttpUser, TaskSet, task, between
-from locust.clients import HttpSession
+import ssl
 import struct
+import time
+
+from locust import HttpUser, TaskSet, between, task
+from locust.clients import HttpSession
 
 
 class TLSClient:

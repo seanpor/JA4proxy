@@ -22,7 +22,6 @@ from moto import mock_aws
 from src.backup.restorer import BackupRestorer
 from src.backup.worker import BackupWorker
 
-
 # ---------------------------------------------------------------------------
 # Helpers shared with test_backup_roundtrip.py
 # ---------------------------------------------------------------------------

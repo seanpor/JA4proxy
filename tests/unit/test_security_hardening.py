@@ -421,8 +421,9 @@ class TestSecurityHardeningCoverageGaps:
         So what: if this except is unreachable, any Redis error inside the metrics
         method crashes the monitoring endpoint, suppressing all alerting dashboards."""
         import time as _time_mod
-        import redis.asyncio as _redis
         from unittest.mock import patch
+
+        import redis.asyncio as _redis
 
         mock_redis = AsyncMock()
         security = SecurityHardening(mock_redis, {})
