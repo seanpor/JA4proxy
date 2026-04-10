@@ -96,7 +96,7 @@ class TestHealthDeep:
     @pytest.mark.asyncio
     async def test_health_deep_returns_200(self, app_with_mocks, httpx_mock=None):
         """Basic smoke: endpoint returns 200 with valid JSON."""
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
 
         transport = ASGITransport(app=app_with_mocks)
         async with AsyncClient(transport=transport, base_url="http://test") as c:
@@ -110,7 +110,7 @@ class TestHealthDeep:
     @pytest.mark.asyncio
     async def test_health_deep_schema_fields(self, app_with_mocks):
         """All 9 fields must be present in the response."""
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
 
         transport = ASGITransport(app=app_with_mocks)
         async with AsyncClient(transport=transport, base_url="http://test") as c:
@@ -137,7 +137,7 @@ class TestMetricsSummary:
     @pytest.mark.asyncio
     async def test_metrics_summary_returns_200(self, app_with_mocks):
         """Same schema as health/deep."""
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
 
         transport = ASGITransport(app=app_with_mocks)
         async with AsyncClient(transport=transport, base_url="http://test") as c:
@@ -149,7 +149,7 @@ class TestMetricsSummary:
     @pytest.mark.asyncio
     async def test_metrics_summary_same_schema_as_health_deep(self, app_with_mocks):
         """Both endpoints return the same field set."""
-        from httpx import AsyncClient, ASGITransport
+        from httpx import ASGITransport, AsyncClient
 
         transport = ASGITransport(app=app_with_mocks)
         async with AsyncClient(transport=transport, base_url="http://test") as c:
@@ -177,7 +177,7 @@ class TestHealthDeepRedisFailure:
         app_module.redis_manager = mock_manager
 
         try:
-            from httpx import AsyncClient, ASGITransport
+            from httpx import ASGITransport, AsyncClient
 
             transport = ASGITransport(app=app)
             async with AsyncClient(transport=transport, base_url="http://test") as c:

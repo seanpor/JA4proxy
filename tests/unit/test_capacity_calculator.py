@@ -111,7 +111,7 @@ class TestCapacityFormulas:
 
     def test_proxy_count_formula(self):
         """proxy_nodes_min = ceil(peak_rps / go_full_conn_s)."""
-        from scripts.capacity_calculator import compute_capacity, BenchmarkConstants
+        from scripts.capacity_calculator import BenchmarkConstants, compute_capacity
         bench = BenchmarkConstants(go_full_conn_s=6200.0)
         report = compute_capacity(
             peak_rps=12400, p99_budget_ms=10, redis_nodes=3,
@@ -124,7 +124,7 @@ class TestCapacityFormulas:
 
     def test_redis_memory_formula(self):
         """redis_memory = key_count * mem_per_key * overhead * 2."""
-        from scripts.capacity_calculator import compute_capacity, BenchmarkConstants
+        from scripts.capacity_calculator import BenchmarkConstants, compute_capacity
         bench = BenchmarkConstants(
             redis_mem_per_key=100.0,
             redis_overhead=1.3,
@@ -140,7 +140,7 @@ class TestCapacityFormulas:
 
     def test_analytics_storage_formula(self):
         """storage = bytes_per_conn * rps * 86400 * 90 days."""
-        from scripts.capacity_calculator import compute_capacity, BenchmarkConstants
+        from scripts.capacity_calculator import BenchmarkConstants, compute_capacity
         bench = BenchmarkConstants(analytics_bytes_per_conn=500.0)
         report = compute_capacity(
             peak_rps=1000, p99_budget_ms=10, redis_nodes=3,
@@ -154,7 +154,7 @@ class TestCapacityFormulas:
 
     def test_no_analytics_when_disabled(self):
         """Analytics should be N/A when not enabled."""
-        from scripts.capacity_calculator import compute_capacity, BenchmarkConstants
+        from scripts.capacity_calculator import BenchmarkConstants, compute_capacity
         report = compute_capacity(
             peak_rps=1000, p99_budget_ms=10, redis_nodes=3,
             features=[], cloud_provider="aws", region="us-east-1",
@@ -166,7 +166,7 @@ class TestCapacityFormulas:
 
     def test_cost_increases_with_nodes(self):
         """More proxy nodes should increase total cost."""
-        from scripts.capacity_calculator import compute_capacity, BenchmarkConstants
+        from scripts.capacity_calculator import BenchmarkConstants, compute_capacity
         bench = BenchmarkConstants()
         r1 = compute_capacity(
             peak_rps=1000, p99_budget_ms=10, redis_nodes=3,
