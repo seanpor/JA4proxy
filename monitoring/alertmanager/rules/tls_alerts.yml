@@ -9,7 +9,7 @@ groups:
       - alert: JA4proxyTLSCertExpiringSoon
         expr: |
           (ja4proxy_tls_cert_expiry_timestamp_seconds - time()) / 86400 < 30
-        for: 0m
+        for: 5m
         labels:
           severity: warning
         annotations:
@@ -21,7 +21,7 @@ groups:
       - alert: JA4proxyTLSCertExpiryCritical
         expr: |
           (ja4proxy_tls_cert_expiry_timestamp_seconds - time()) / 86400 < 7
-        for: 0m
+        for: 5m
         labels:
           severity: critical
         annotations:
@@ -29,3 +29,16 @@ groups:
           description: |
             The proxy's server-side TLS certificate expires in less than 7 days.
             Rotate immediately using docs/runbooks/tls_certificate_rotation.md.
+
+      - alert: JA4proxyTLSCertExporterDown
+        expr: |
+          absent_over_time(ja4proxy_tls_cert_expiry_timestamp_seconds[5m])
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "TLS cert exporter is not reporting"
+          description: |
+            The ja4proxy_tls_cert_expiry_timestamp_seconds gauge has not been
+            updated in 5 minutes. The proxy may be down or the metrics exporter
+            is failing. If the proxy is down, the cert cannot be monitored.

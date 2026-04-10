@@ -341,18 +341,46 @@ of live traffic, depending on attack volume).
 **Path A — Restore from Phase 19 backup (RTO: 30 minutes):**
 If a recent backup exists (check `/var/backups/ja4proxy/backups/` or your
 configured backup path):
-```bash
-# Restore using the Phase 19 Python backup tool
-python3 -c "
-from src.backup.restorer import Restorer
-from pathlib import Path
-Restorer(
-    'redis://:PASSWORD@localhost:6379/0',
-    Path('/var/backups/ja4proxy/backups/latest.tar.gz')
-).restore(delete_data_first=False)
-"
 
-# Verify restoration
+> **Note:** The Phase 19 backup system uses `BackupRestorer` (not `Restorer`).
+> Backup files follow the naming convention `backup_<timestamp>.bin` with a
+> companion manifest `<filename>.manifest.json`. The latest backup filename
+> is stored in Redis key `backup:latest`.
+
+```bash
+# Load environment for REDIS_PASSWORD and ENCRYPTION_KEY
+[ -f .env ] && set -a && source .env && set +a
+
+# Find the latest backup
+LATEST=$(redis-cli -a "$REDIS_PASSWORD" GET backup:latest 2>/dev/null)
+if [ -z "$LATEST" ]; then
+    echo "No backup:latest key in Redis. Check /var/backups/ja4proxy/backups/ manually."
+    ls -lt /var/backups/ja4proxy/backups/backup_*.bin 2>/dev/null | head -5
+else
+    echo "Latest backup: $LATEST"
+fi
+
+# Restore using the Phase 19 Python backup tool
+BACKUP_DIR="/var/backups/ja4proxy/backups"
+BACKUP_FILE="backup_<TIMESTAMP>.bin"  # Replace with actual filename from above
+python3 -c "
+from src.backup.restorer import BackupRestorer
+restorer = BackupRestorer(
+    redis_host='localhost',
+    redis_port=6379,
+    redis_db=0,
+    encryption_key='${BACKUP_ENCRYPTION_KEY:-}',
+)
+restorer.restore_backup(
+    backup_path='${BACKUP_DIR}/${BACKUP_FILE}',
+    manifest_path='${BACKUP_DIR}/${BACKUP_FILE}.manifest.json',
+    destructive=False,
+)
+"
+```
+
+**Verify restoration:**
+```bash
 redis-cli -a "$REDIS_PASSWORD" KEYS 'ja4proxy:ban:*' | wc -l
 redis-cli -a "$REDIS_PASSWORD" GET ja4proxy:dial
 ```

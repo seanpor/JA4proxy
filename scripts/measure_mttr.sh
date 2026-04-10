@@ -22,6 +22,13 @@ COMPOSE="${COMPOSE:-docker compose}"
 log() { echo "[$(date -u +%H:%M:%S)] $*"; }
 fail() { log "FAIL: $*"; exit 1; }
 
+# ── Load .env for REDIS_PASSWORD ──────────────────────────────────────────────
+# B2 fix: All redis-cli calls need authentication in production
+if [ -f .env ]; then
+    REDIS_PASSWORD=$(grep '^REDIS_PASSWORD=' .env | cut -d= -f2- || true)
+fi
+export REDISCLI_AUTH="${REDIS_PASSWORD:-}"
+
 require_healthy() {
     local timeout="${1:-60}"
     for i in $(seq 1 "$timeout"); do
@@ -97,9 +104,18 @@ log "=== Scenario 1: Redis failure ==="
 $COMPOSE stop redis
 START=$(date +%s)
 # Wait until health endpoint reports redis as unreachable (or degraded)
+# N3 fix: Check that 'redis' key is present AND not healthy.
+# Without the key check, a health response like {"status":"ok"} would falsely
+# trigger degradation because d.get('redis') returns None != 'healthy'.
 for i in $(seq 1 120); do
     BODY=$(curl -sf --max-time 3 "$HEALTH_URL" 2>/dev/null || echo "{}")
-    if echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get('redis') != 'healthy' else 1)" 2>/dev/null; then
+    if echo "$BODY" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+if 'redis' not in d:
+    sys.exit(1)  # Key absent — not degraded, just absent
+sys.exit(0 if d['redis'] != 'healthy' else 1)
+" 2>/dev/null; then
         log "Degraded state detected after ${i}s"
         break
     fi
@@ -155,7 +171,8 @@ log "Scenario 4 MTTR: ${MTTR_4}s (RTO: 180s) — ${PASS[4]}"
 log "=== Scenario 5: Redis data loss ==="
 redis-cli SET ja4proxy:mttr_probe "1" EX 3600 >/dev/null 2>&1
 $COMPOSE stop redis
-$COMPOSE down -v --remove-orphans 2>/dev/null || true
+# B3 fix: Remove ONLY the Redis volume — NOT all compose volumes.
+# `docker compose down -v` destroys ALL volumes including Prometheus/Loki data.
 docker volume rm "$REDIS_VOLUME" 2>/dev/null || true
 START=$(date +%s)
 $COMPOSE up -d redis

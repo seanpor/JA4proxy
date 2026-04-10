@@ -43,9 +43,16 @@ if [ ! -f "$COMPOSE_FILE" ]; then
     exit 0
 fi
 
-# ── Load .env if present ─────────────────────────────────────────────────────
-# shellcheck disable=SC1091
-[ -f .env ] && set -a && source .env && set +a
+# ── Load .env selectively — S1 fix ───────────────────────────────────────────
+# Only source specific variables needed, NOT all secrets.
+# `set -a && source .env` would export REDIS_PASSWORD, ABUSEIPDB_API_KEY, etc.
+# into the environment of every subprocess (openssl, curl, python3).
+if [ -f .env ]; then
+    _env_val() { grep "^${1}=" .env 2>/dev/null | head -1 | cut -d= -f2- || true; }
+    REDIS_PASSWORD=$(_env_val REDIS_PASSWORD)
+    export REDIS_PASSWORD
+    unset -f _env_val
+fi
 
 # ── Bring up stack ────────────────────────────────────────────────────────────
 log "Starting Docker Compose stack ($COMPOSE_FILE)..."

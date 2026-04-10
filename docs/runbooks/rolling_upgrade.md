@@ -33,8 +33,19 @@ Before performing a rolling upgrade:
    ```
 
 4. **New image is built and tagged:**
+
+   > **Note:** The Go proxy is built via `make go-build` (produces `bin/proxy`).
+   > The Docker image is built using the project's `Dockerfile` with the
+   > `--target go-proxy` build stage (or your CI's equivalent).
+
    ```bash
-   docker build -f docker/Dockerfile.go-proxy -t ghcr.io/org/ja4proxy:NEW_TAG .
+   # Build Go binary
+   make go-build
+
+   # Build Docker image (adjust Dockerfile path for your deployment)
+   docker build -t ghcr.io/org/ja4proxy:NEW_TAG \
+     --target go-proxy \
+     -f Dockerfile .
    docker push ghcr.io/org/ja4proxy:NEW_TAG
    ```
 
