@@ -68,6 +68,107 @@ the top of each script.
 
 ---
 
+## How to start — pick a sub-phase
+
+All nine sub-phases are independent (except 64d, which reads a file from 64c).
+A junior engineer should pick **one** sub-phase, create the branch, and deliver
+it without needing context from the others.
+
+**Recommended order for first-time contributors:**
+
+| Priority | Sub-phase | Why |
+|----------|-----------|-----|
+| 1st | **64a** (Docker Compose smoke) | Smallest scope, immediate feedback, no external dependencies |
+| 2nd | **64b** (Helm/kind smoke) | Same pattern as 64a, skip-if-absent makes it forgiving |
+| 3rd | **64e** (Credential rotation) | Pure Markdown, copy-paste-friendly procedures |
+| 4th | **64c** (Disaster recovery runbook) | Largest doc, but well-structured — follow the 5-scenario template |
+| 5th | **64d** (GameDay scenarios) | Pure Markdown; requires 64c's file to exist first (see §64d) |
+| 6th | **64f** (TLS cert rotation + alerts) | Alert YAML needs `promtool` validation (command inline below) |
+| 7th | **64g** (Rolling upgrade) | Pure Markdown, references HAProxy config that may need verification |
+| 8th | **64h** (MTTR baseline) | Largest script — pre-written template, but requires live stack to run |
+| 9th | **64i** (Validation report) | Wiring work in an existing Python file — needs exact insertion points |
+
+**Before running ANY smoke test or MTTR measurement, verify the health endpoint:**
+
+```bash
+# Pre-flight check — run this first
+curl -sf http://localhost:8090/api/v1/health/deep | python3 -m json.tool
+```
+
+If this returns a JSON object (not an HTML error page, not a connection refusal),
+the management API is live and all smoke/MTTR scripts will work. If it fails,
+see the "Pre-flight checklist" section below before starting any sub-phase that
+runs scripts against a live stack (64a, 64b, 64h).
+
+---
+
+## Pre-flight checklist
+
+Run these checks before starting any sub-phase that executes scripts against a
+live stack. **Sub-phases 64c, 64d, 64e, 64f, and 64g are pure documentation and
+do not require any of these checks.**
+
+### 1. Health endpoint is live
+
+```bash
+curl -sf http://localhost:8090/api/v1/health/deep | python3 -m json.tool
+```
+
+- **200 OK + JSON body:** ✅ Proceed.
+- **Connection refused:** The management API (FastAPI, port 8090) is not running.
+  Start the full stack with `make start` or run the management UI standalone.
+- **404 Not Found:** The `/api/v1/health/deep` route does not exist yet.
+  **File a Phase 101 entry** — do not block this phase. Update `HEALTH_URL`
+  in each script to an alternate endpoint that exists.
+- **HTML error page:** The route exists but is returning an error. Check
+  management API logs.
+
+### 2. Docker Compose is available
+
+```bash
+docker compose version   # Must be v2.x (space-separated)
+```
+
+- **v2.x:** ✅ Proceed.
+- **v1.x (`docker-compose`):** Install Docker Compose v2. All scripts in this
+  phase use `docker compose` (v2 syntax).
+- **Command not found:** Install Docker Engine + Compose plugin.
+
+### 3. `redis-cli` is available (64h only)
+
+```bash
+redis-cli PING
+```
+
+- **PONG:** ✅ Proceed.
+- **Command not found:** Install `redis-tools` (`apt install redis-tools`,
+  `brew install redis`, or download from https://redis.io/docs/install/).
+- **Connection refused:** Redis is not running on localhost:6379. Start the
+  full stack with `make start`.
+
+### 4. HAProxy `socat` is available (64g rolling upgrade only)
+
+```bash
+docker compose exec haproxy which socat
+```
+
+- **Found:** ✅ Proceed.
+- **Not found:** The Docker Compose rolling upgrade path cannot drain/re-enable
+  backends gracefully. The script will fall back to waiting for health checks
+  to re-route traffic. This is non-blocking — note it in `PHASE_64g_notes.md`.
+
+### 5. `promtool` is available (64f alert rules only)
+
+```bash
+promtool --version
+```
+
+- **Found:** ✅ Proceed.
+- **Not found:** Install from https://prometheus.io/docs/prometheus/latest/installation/
+  or use the inline `promtool check rules` command provided in §64f.
+
+---
+
 ## Deployment quick reference
 
 All scenarios below reference this table for deployment-specific commands
@@ -90,8 +191,8 @@ All scenarios below reference this table for deployment-specific commands
 ## Sub-phase index
 
 Phase 64 is decomposed into **nine independent sub-phases**. Each is one branch,
-one PR, one reviewer. No sub-phase blocks any other except the single constraint
-noted in 64d (it appends to a file created by 64c).
+one PR, one reviewer. Eight of nine are fully independent — 64d has a soft
+dependency on 64c (see decoupling note below).
 
 | Sub-phase | Deliverable | Size |
 |---|---|---|
@@ -104,6 +205,16 @@ noted in 64d (it appends to a file created by 64c).
 | [64g](#sub-phase-64g--rolling-upgrade) | `docs/runbooks/rolling_upgrade.md` | S |
 | [64h](#sub-phase-64h--mttr-baseline) | `scripts/measure_mttr.sh` + `MTTR_BASELINE.md` | M |
 | [64i](#sub-phase-64i--validation-report-deployment-section) | `--section deployment` on `generate_validation_report.py` | XS |
+
+**Soft dependency — 64d on 64c (decoupled):**
+64d's GameDay exercises reference scenarios defined in 64c's DR runbook.
+To avoid merge conflicts and blocking:
+- **64d writes its exercise log to `gameday_scenarios.md` first** (own section).
+- **After 64c merges, a separate follow-up commit** copies the "Runbook Exercise
+  History" entry into `disaster_recovery.md`. This is a 2-line edit, not a
+  sub-phase — any reviewer can do it.
+- **64d does NOT wait for 64c to merge.** Develop in parallel. The copy step
+  happens post-merge.
 
 **Dropped (file as Phase 101 entries):**
 - Podman/Quadlet smoke test — `deploy/rhel/quadlets/` does not exist. Phase 76
@@ -337,7 +448,29 @@ test to pass, file a Phase 101 entry rather than blocking 64b.
    - RTO target
    - RPO
 
+**Content gap guidance — what to write vs what already exists:**
+
+The eight existing runbooks cover **routine operations**. The DR runbook covers
+**catastrophic failures that require coordination across multiple systems**.
+Each scenario below must include content that is **not already in the linked
+runbooks**:
+
+| Scenario | Already covered in existing runbook | NEW content this DR runbook must add |
+|---|---|---|
+| 1. Redis failure | `redis_operations.md` has restart commands | Proxy fail-open behaviour, which bans/rate-limits are suspended, how to verify the proxy reconnected to Redis and resumed enforcement |
+| 2. Single node failure | `go_proxy_operations.md` has start/stop | HAProxy backend health check timing (`inter`, `rise`, `fall`), traffic failover window, how to verify the restarted node re-joins the pool |
+| 3. Total fleet failure | `scaling.md` has add-node procedure | P1 incident workflow: collect logs from all nodes simultaneously, identify root cause, when to revert config vs when to restart, RPO is the last Redis checkpoint — how to find that timestamp |
+| 4. Config corruption / dial | `redis_operations.md` has key manipulation | Monitor-mode first (`dial=0`), then revert, then restore — the three-phase recovery that prevents applying bad config to a recovering fleet |
+| 5. Redis data loss | `redis_operations.md` has AOF rewrite | Full volume destruction + rebuild: `docker volume rm`, restore from Phase 19 Python backup tool, state re-learning timeline (1-4 hours of live traffic) |
+
+**Rule of thumb:** If the procedure is a single `systemctl restart` or
+`docker compose restart` command, it belongs in the existing runbook, not here.
+This DR runbook is for scenarios where **the operator must coordinate 2+
+systems** (proxy + Redis + HAProxy + config) to recover.
+
 4. **Runbook Exercise History** — empty H2 section for GameDay logs (64d).
+   See "Soft dependency — 64d on 64c (decoupled)" in the sub-phase index
+   above for how 64d writes its log without blocking on 64c's merge.
 
 **The five scenarios:**
 
@@ -392,27 +525,32 @@ with measurable RTO targets.
 
 1. **Redis outage** — trigger: `docker compose stop redis`. Team identifies
    `ja4proxy_redis_errors_total` within 2 min, recovers within 5 min.
-2. **Node failure** — trigger: `docker compose stop ja4proxy-1`. Team
-   identifies failed backend within 1 min, recovers within 2 min.
-3. **Total fleet failure** — trigger: `docker compose stop ja4proxy-1 ja4proxy-2`.
+2. **Node failure** — trigger: `docker compose stop ja4proxy` (or the first
+   proxy container name on your stack). Team identifies failed backend within
+   1 min, recovers within 2 min.
+3. **Total fleet failure** — trigger: stop all proxy containers.
    Root cause within 5 min, fleet up within 15 min.
 4. **Dial corruption** — trigger: `redis-cli SET ja4proxy:dial 100` + publish.
    Team drops to dial=0 within 3 min, corrects within 5 min.
 
 After the author runs the first GameDay (Redis outage) against the local
 `make start` stack, they append a dated entry to the "Runbook Exercise
-History" section of `docs/runbooks/disaster_recovery.md`.
+History" section of **`gameday_scenarios.md`** (this file's own section).
 
 **Acceptance criteria:**
 - [ ] File exists with all four exercises in the structure above.
 - [ ] Each exercise links back to the matching scenario in `disaster_recovery.md`.
 - [ ] First GameDay (Redis outage) exercised locally; dated entry appended
-      to `disaster_recovery.md`'s "Runbook Exercise History" section.
+      to `gameday_scenarios.md`'s own "Runbook Exercise History" section.
 - [ ] `PHASE_64d_notes.md` records gaps surfaced.
 
-**Coordination:** 64d appends to `disaster_recovery.md` (created by 64c).
-If 64c is not yet merged, 64d holds the "Runbook Exercise History" edit
-for a follow-up commit after 64c lands.
+**Coordination (decoupled from 64c):**
+64d writes its exercise history to `gameday_scenarios.md` during development —
+no dependency on 64c's merge status. **After 64c merges**, the 64d author (or
+any reviewer) makes a separate follow-up commit that copies the exercise history
+entry into `disaster_recovery.md`'s "Runbook Exercise History" section. This is
+a 2-line append, tracked as a Phase 64 close-out checklist item, not a blocking
+dependency.
 
 ---
 
@@ -490,8 +628,13 @@ groups:
 
 **Acceptance criteria:**
 - [ ] Runbook exists with all three sections.
-- [ ] Alert rule file exists and parses cleanly under `make lint-alertmanager`
-      (or the project's existing alertmanager lint target).
+- [ ] Alert rule file exists and validates with `promtool`:
+      ```bash
+      promtool check rules monitoring/alertmanager/rules/tls_alerts.yml
+      ```
+      If `promtool` is not installed, paste the YAML into the [Prometheus
+      rules playground](https://promlabs.com/promql-analyzer/) or validate
+      manually against the [PromQL alerting rules spec](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/).
 - [ ] Runbook references the Phase 63 gauge by its real name
       (`ja4proxy_tls_cert_expiry_timestamp_seconds`).
 - [ ] No `absent_over_time` guard — the gauge is live.
@@ -581,6 +724,47 @@ require_healthy() {
   return 1
 }
 
+# ── Pre-flight: redis-cli ─────────────────────────────────────────────────────
+if ! command -v redis-cli &>/dev/null; then
+  log "SKIP: redis-cli not found on PATH."
+  log "  Install:  apt install redis-tools  |  brew install redis  |  https://redis.io/docs/install/"
+  exit 0
+fi
+if ! redis-cli PING >/dev/null 2>&1; then
+  log "SKIP: redis-cli cannot connect to localhost:6379."
+  log "  Start the stack with 'make start' or 'docker compose up -d redis' first."
+  exit 0
+fi
+
+# ── Derive service names from compose — do not hardcode ───────────────────────
+# The proxy container might be named ja4proxy, ja4proxy-1, or proxy.
+# Derive it from the running compose project.
+PROXY_CONTAINER=$($COMPOSE ps --format json 2>/dev/null \
+  | python3 -c "
+import sys, json
+try:
+    services = json.load(sys.stdin)
+    for s in services:
+        name = s.get('Service', s.get('Name', ''))
+        if 'ja4proxy' in name.lower() or 'proxy' in name.lower():
+            print(name)
+            sys.exit(0)
+except Exception:
+    pass
+# Fallback: try common names
+" 2>/dev/null || true)
+
+if [ -z "$PROXY_CONTAINER" ]; then
+  # Fallback: grep from compose ps output
+  PROXY_CONTAINER=$($COMPOSE ps --services 2>/dev/null | grep -i proxy | head -1 || true)
+fi
+if [ -z "$PROXY_CONTAINER" ]; then
+  log "SKIP: Could not determine proxy container name from docker compose."
+  log "  Ensure the stack is running: docker compose ps"
+  exit 0
+fi
+log "Using proxy container name: $PROXY_CONTAINER"
+
 # Derive Redis volume name from compose — do not hardcode.
 REDIS_VOLUME=$($COMPOSE volume ls --format '{{.Name}}' 2>/dev/null | grep -i redis | head -1)
 if [ -z "$REDIS_VOLUME" ]; then
@@ -601,12 +785,16 @@ declare -A PASS
 log "=== Scenario 1: Redis failure ==="
 $COMPOSE stop redis
 START=$(date +%s)
-until ! curl -sf --max-time 3 "$HEALTH_URL" \
-    | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get('redis')=='unreachable' else 1)" \
-    >/dev/null 2>&1; do
+# Wait until health endpoint reports redis as unreachable (or degraded)
+for i in $(seq 1 120); do
+  BODY=$(curl -sf --max-time 3 "$HEALTH_URL" 2>/dev/null || echo "{}")
+  if echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get('redis') != 'healthy' else 1)" 2>/dev/null; then
+    log "Degraded state detected after ${i}s"
+    break
+  fi
+  [ "$i" -eq 120 ] && { log "WARN: Health endpoint did not report degraded Redis within 120s — proceeding anyway"; break; }
   sleep 1
 done
-log "Degraded state detected"
 $COMPOSE start redis
 END=$(date +%s)
 until curl -sf --max-time 3 "$HEALTH_URL" \
@@ -620,14 +808,14 @@ MEASURED_S[1]=$MTTR_1
 PASS[1]=$([ "$MTTR_1" -le 300 ] && echo "PASS" || echo "FAIL")
 log "Scenario 1 MTTR: ${MTTR_1}s (RTO: 300s) — ${PASS[1]}"
 
-# ── Scenario 2: Single node failure ──────────────────────────────────────────
+# ── Scenario 2: Single proxy node failure ─────────────────────────────────────
 log "=== Scenario 2: Single proxy node failure ==="
-$COMPOSE stop ja4proxy-1
+$COMPOSE stop "$PROXY_CONTAINER"
 START=$(date +%s)
-$COMPOSE start ja4proxy-1
+$COMPOSE start "$PROXY_CONTAINER"
 until curl -sf --max-time 3 "$HEALTH_URL" >/dev/null 2>&1; do
   sleep 1
-  [ $(($(date +%s) - START)) -gt 120 ] && { log "Node did not recover within 120s"; break; }
+  [ $(($(date +%s) - START)) -gt 120 ] && { log "Proxy did not recover within 120s"; break; }
 done
 MTTR_2=$(($(date +%s) - START))
 MEASURED_S[2]=$MTTR_2
@@ -636,11 +824,11 @@ log "Scenario 2 MTTR: ${MTTR_2}s (RTO: 120s) — ${PASS[2]}"
 
 # ── Scenario 4: Dial corruption ───────────────────────────────────────────────
 log "=== Scenario 4: Dial corruption ==="
-redis-cli SET ja4proxy:dial 100
-redis-cli PUBLISH ja4proxy:config_reload '{"source":"measure_mttr","dial":100}' >/dev/null
+redis-cli SET ja4proxy:dial 100 >/dev/null 2>&1
+redis-cli PUBLISH ja4proxy:config_reload '{"source":"measure_mttr","dial":100}' >/dev/null 2>&1
 START=$(date +%s)
-redis-cli SET ja4proxy:dial 0
-redis-cli PUBLISH ja4proxy:config_reload '{"source":"measure_mttr","dial":0}' >/dev/null
+redis-cli SET ja4proxy:dial 0 >/dev/null 2>&1
+redis-cli PUBLISH ja4proxy:config_reload '{"source":"measure_mttr","dial":0}' >/dev/null 2>&1
 until curl -sf --max-time 3 "$HEALTH_URL" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get('dial')==0 else 1)" \
     >/dev/null 2>&1; do
@@ -654,7 +842,7 @@ log "Scenario 4 MTTR: ${MTTR_4}s (RTO: 180s) — ${PASS[4]}"
 
 # ── Scenario 5: Redis data loss ───────────────────────────────────────────────
 log "=== Scenario 5: Redis data loss ==="
-redis-cli SET ja4proxy:mttr_probe "1" EX 3600 >/dev/null
+redis-cli SET ja4proxy:mttr_probe "1" EX 3600 >/dev/null 2>&1
 $COMPOSE stop redis
 $COMPOSE down -v --remove-orphans 2>/dev/null || true
 docker volume rm "$REDIS_VOLUME" 2>/dev/null || true
@@ -664,12 +852,12 @@ until redis-cli PING >/dev/null 2>&1; do
   sleep 1
   [ $(($(date +%s) - START)) -gt 30 ] && { log "Redis did not restart within 30s"; break; }
 done
-KEY_EXISTS=$(redis-cli EXISTS ja4proxy:mttr_probe)
+KEY_EXISTS=$(redis-cli EXISTS ja4proxy:mttr_probe 2>/dev/null || echo "0")
 if [ "$KEY_EXISTS" != "0" ]; then
   log "WARN: probe key still exists — data loss simulation may not have worked (volume persisted)"
 fi
-redis-cli SET ja4proxy:dial 0 >/dev/null
-redis-cli PUBLISH ja4proxy:config_reload '{"source":"measure_mttr","dial":0}' >/dev/null
+redis-cli SET ja4proxy:dial 0 >/dev/null 2>&1
+redis-cli PUBLISH ja4proxy:config_reload '{"source":"measure_mttr","dial":0}' >/dev/null 2>&1
 MTTR_5=$(($(date +%s) - START))
 MEASURED_S[5]=$MTTR_5
 PASS[5]=$([ "$MTTR_5" -le 300 ] && echo "PASS" || echo "FAIL")
@@ -681,11 +869,12 @@ cat > "$OUTPUT" <<EOF
 
 Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 Environment: Docker Compose (local)
+Proxy container: $PROXY_CONTAINER
 
 | Scenario | Trigger | Measured MTTR | RTO Target | Result |
 |----------|---------|---------------|------------|--------|
 | 1: Redis failure | \`docker compose stop redis\` | ${MEASURED_S[1]}s | 300s | ${PASS[1]} |
-| 2: Single node failure | \`docker compose stop ja4proxy-1\` | ${MEASURED_S[2]}s | 120s | ${PASS[2]} |
+| 2: Single node failure | \`docker compose stop $PROXY_CONTAINER\` | ${MEASURED_S[2]}s | 120s | ${PASS[2]} |
 | 4: Dial corruption | \`redis-cli SET ja4proxy:dial 100\` | ${MEASURED_S[4]}s | 180s | ${PASS[4]} |
 | 5: Redis data loss | \`docker volume rm $REDIS_VOLUME\` | ${MEASURED_S[5]}s | 300s | ${PASS[5]} |
 
@@ -744,15 +933,23 @@ measure-mttr:
 - Smoke test results (read from `test-results/smoke/*.result`).
 - MTTR baseline table (read from `MTTR_BASELINE.md`).
 - DR runbook exercise history (extracted from
-  `docs/runbooks/disaster_recovery.md`).
+  `docs/runbooks/disaster_recovery.md`; falls back to
+  `gameday_scenarios.md` if not yet in disaster_recovery.md).
 
 **Graceful degradation:** If any input is missing, the section emits a
 single line stating what to run to produce it. The script never fails
 because an input is missing.
 
-```python
-# Extend scripts/generate_validation_report.py
+**Wiring instructions — exact insertion points:**
 
+The existing `scripts/generate_validation_report.py` has two functions to modify:
+`main()` (argparse) and `build_report()` (the report builder). Follow these
+steps in order:
+
+**Step 1 — Add the function.** Insert `_section_deployment()` anywhere before
+`build_report()` (e.g., after `fuzz_smoke_section()`):
+
+```python
 def _section_deployment(report_dir: Path) -> str:
     lines = ["## Deployment Validation Evidence", ""]
 
@@ -775,21 +972,73 @@ def _section_deployment(report_dir: Path) -> str:
     lines.append("")
 
     dr_runbook = Path("docs/runbooks/disaster_recovery.md")
+    gameday_file = Path("docs/runbooks/gameday_scenarios.md")
     lines.append("### DR Runbook Exercise History")
-    if dr_runbook.exists():
+    if dr_runbook.exists() and "Runbook Exercise History" in dr_runbook.read_text():
         content = dr_runbook.read_text()
-        if "Runbook Exercise History" in content:
-            section = content.split("Runbook Exercise History", 1)[1].split("\n## ", 1)[0]
-            lines.extend(section.strip().splitlines())
-        else:
-            lines.append("- No exercise history recorded yet. Run a GameDay first.")
+        section = content.split("Runbook Exercise History", 1)[1].split("\n## ", 1)[0]
+        lines.extend(section.strip().splitlines())
+    elif gameday_file.exists() and "Runbook Exercise History" in gameday_file.read_text():
+        content = gameday_file.read_text()
+        section = content.split("Runbook Exercise History", 1)[1].split("\n## ", 1)[0]
+        lines.extend(section.strip().splitlines())
+    else:
+        lines.append("- No exercise history recorded yet. Run a GameDay first.")
     lines.append("")
 
     return "\n".join(lines)
 ```
 
+**Step 2 — Wire `--section` into `main()`.** Add the argparse argument
+**after** the existing `--stdout` argument (look for `ap.add_argument("--stdout"`):
+
+```python
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--output", default=str(DEFAULT_OUTPUT), help="output markdown path")
+    ap.add_argument("--stdout", action="store_true", help="also print to stdout")
+    ap.add_argument(
+        "--section",
+        choices=["deployment"],
+        default=None,
+        help="append a specific evidence section (e.g. --section deployment)",
+    )
+    args = ap.parse_args()
+```
+
+**Step 3 — Wire `--section` into the report builder.** Modify the `build_report()`
+call in `main()` to pass the section argument. Change:
+
+```python
+    # BEFORE (in main):
+    report = build_report()
+```
+
+to:
+
+```python
+    # AFTER:
+    report = build_report(extra_section=args.section)
+```
+
+And modify `build_report()` to accept the parameter **after** its current
+signature (it takes no parameters currently):
+
+```python
+def build_report(extra_section: str | None = None) -> str:
+    # ... existing code, up to the closing \n".join(parts) + "\n" ...
+
+    # Append deployment section if requested
+    if extra_section == "deployment":
+        parts.append(_section_deployment(REPO_ROOT))
+        parts.append("")  # trailing newline
+
+    return "\n".join(parts) + "\n"
+```
+
 **Acceptance criteria:**
-- [ ] Flag works end-to-end with all inputs present.
+- [ ] Flag works end-to-end with all inputs present:
+      `python3 scripts/generate_validation_report.py --section deployment --stdout`
 - [ ] Flag works gracefully with all inputs absent (each missing input
       produces a single helpful line, no exception).
 - [ ] At least one unit test for the new code path under `tests/`.
@@ -803,20 +1052,24 @@ def _section_deployment(report_dir: Path) -> str:
 - [ ] `scripts/smoke/test_helm_kind.sh` exists, skips gracefully when `kind` is absent, passes with `kind` + `helm`
 - [ ] Podman/Quadlet smoke test **dropped** — `deploy/rhel/quadlets/` does not exist. Phase 101 entry filed.
 - [ ] `docs/runbooks/disaster_recovery.md` exists with all five scenarios (symptoms, impact, simulate, recovery, RTO, RPO)
+- [ ] Each scenario covers cross-system coordination — not just single-service restart (see §64c content gap table)
 - [ ] Each scenario uses Go-production hot-reload commands only (no `pkill -f proxy.py`)
 - [ ] Scenario 5 (Redis data loss) uses correct Phase 19 Python tool invocation
-- [ ] `scripts/measure_mttr.sh` exists and produces `MTTR_BASELINE.md` for Scenarios 1, 2, 4, 5
+- [ ] `scripts/measure_mttr.sh` exists, derives proxy container name from compose (not hardcoded), checks `redis-cli` availability, and produces `MTTR_BASELINE.md` for Scenarios 1, 2, 4, 5
 - [ ] `MTTR_BASELINE.md` shows measured MTTR within RTO target for all four automated scenarios
 - [ ] `docs/runbooks/gameday_scenarios.md` exists with all four GameDay exercises
-- [ ] First GameDay exercised locally; dated entry in DR runbook's "Runbook Exercise History"
+- [ ] First GameDay (Redis outage) exercised locally; dated entry in `gameday_scenarios.md`'s own "Runbook Exercise History" section
+- [ ] Exercise history copied to `disaster_recovery.md` after 64c merges (separate follow-up commit, tracked in close-out checklist)
 - [ ] `docs/runbooks/credential_rotation.md` exists with Redis, AbuseIPDB, and cloud storage procedures
 - [ ] `docs/runbooks/tls_certificate_rotation.md` exists with server cert and mTLS CA rotation
 - [ ] `monitoring/alertmanager/rules/tls_alerts.yml` exists with warning (< 30 days) and critical (< 7 days) alerts
+- [ ] Alert rules validate with `promtool check rules` (see §64f)
 - [ ] No `absent_over_time` guard on cert-expiry alerts (Phase 63 gauge is live)
 - [ ] `docs/runbooks/rolling_upgrade.md` exists with Docker Compose, Kubernetes, and rollback procedures
-- [ ] `scripts/generate_validation_report.py` accepts `--section deployment` and appends smoke/MTTR/DR evidence
+- [ ] `scripts/generate_validation_report.py` accepts `--section deployment` and appends smoke/MTTR/DR evidence with graceful degradation
 - [ ] All smoke test scripts use `docker compose` (v2), never `docker-compose` (v1)
 - [ ] `make lint-phases` exits 0
+- [ ] Pre-flight checks pass for all script-based sub-phases (see "Pre-flight checklist" section)
 
 ---
 
