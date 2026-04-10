@@ -197,10 +197,16 @@ If the new version exhibits errors, roll back immediately.
 
 ### Docker Compose rollback
 
-Recreate the affected node(s) with the previous image tag:
+Recreate the affected node(s) with the previous image tag. Update the image
+reference in your compose file (or override via environment variable), then
+recreate:
 
 ```bash
-docker compose up -d --no-deps --force-recreate ja4proxy-1 --image "ghcr.io/org/ja4proxy:PREVIOUS_TAG"
+# Option A: edit docker-compose.yml to restore the previous image tag, then:
+docker compose up -d --no-deps --force-recreate ja4proxy-1
+
+# Option B: override via environment variable (if your compose file uses ${JA4PROXY_IMAGE:-...}):
+JA4PROXY_IMAGE="ghcr.io/org/ja4proxy:PREVIOUS_TAG" docker compose up -d --no-deps --force-recreate ja4proxy-1
 ```
 
 Then re-enable in HAProxy if previously drained:

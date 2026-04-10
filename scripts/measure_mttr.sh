@@ -76,11 +76,11 @@ log "Scenario 2 MTTR: ${MTTR_2}s (RTO: 120s) — ${PASS[2]}"
 
 # ── Scenario 4: Dial corruption ───────────────────────────────────────────────
 log "=== Scenario 4: Dial corruption ==="
-redis-cli SET ja4proxy:dial 100
-redis-cli PUBLISH ja4proxy:config_reload '{"source":"measure_mttr","dial":100}' >/dev/null
+redis-cli SET config:dial 100
+redis-cli PUBLISH config:reload '{"type":"config_reload","source":"measure_mttr"}' >/dev/null
 START=$(date +%s)
-redis-cli SET ja4proxy:dial 0
-redis-cli PUBLISH ja4proxy:config_reload '{"source":"measure_mttr","dial":0}' >/dev/null
+redis-cli SET config:dial 0
+redis-cli PUBLISH config:reload '{"type":"config_reload","source":"measure_mttr"}' >/dev/null
 until curl -sf --max-time 3 "$HEALTH_URL" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get('dial')==0 else 1)" \
     >/dev/null 2>&1; do
@@ -94,9 +94,10 @@ log "Scenario 4 MTTR: ${MTTR_4}s (RTO: 180s) — ${PASS[4]}"
 
 # ── Scenario 5: Redis data loss ───────────────────────────────────────────────
 log "=== Scenario 5: Redis data loss ==="
-redis-cli SET ja4proxy:mttr_probe "1" EX 3600 >/dev/null
+redis-cli SET config:mttr_probe "1" EX 3600 >/dev/null
 $COMPOSE stop redis
-$COMPOSE down -v --remove-orphans 2>/dev/null || true
+# Remove only the Redis volume, not the entire stack.
+# 'docker compose down -v' would tear down ALL services — too destructive.
 docker volume rm "$REDIS_VOLUME" 2>/dev/null || true
 START=$(date +%s)
 $COMPOSE up -d redis
@@ -104,12 +105,12 @@ until redis-cli PING >/dev/null 2>&1; do
   sleep 1
   [ $(($(date +%s) - START)) -gt 30 ] && { log "Redis did not restart within 30s"; break; }
 done
-KEY_EXISTS=$(redis-cli EXISTS ja4proxy:mttr_probe)
+KEY_EXISTS=$(redis-cli EXISTS config:mttr_probe)
 if [ "$KEY_EXISTS" != "0" ]; then
   log "WARN: probe key still exists — data loss simulation may not have worked (volume persisted)"
 fi
-redis-cli SET ja4proxy:dial 0 >/dev/null
-redis-cli PUBLISH ja4proxy:config_reload '{"source":"measure_mttr","dial":0}' >/dev/null
+redis-cli SET config:dial 0 >/dev/null
+redis-cli PUBLISH config:reload '{"type":"config_reload","source":"measure_mttr"}' >/dev/null
 MTTR_5=$(($(date +%s) - START))
 MEASURED_S[5]=$MTTR_5
 PASS[5]=$([ "$MTTR_5" -le 300 ] && echo "PASS" || echo "FAIL")
@@ -126,7 +127,7 @@ Environment: Docker Compose (local)
 |----------|---------|---------------|------------|--------|
 | 1: Redis failure | \`docker compose stop redis\` | ${MEASURED_S[1]}s | 300s | ${PASS[1]} |
 | 2: Single node failure | \`docker compose stop ja4proxy-1\` | ${MEASURED_S[2]}s | 120s | ${PASS[2]} |
-| 4: Dial corruption | \`redis-cli SET ja4proxy:dial 100\` | ${MEASURED_S[4]}s | 180s | ${PASS[4]} |
+| 4: Dial corruption | \`redis-cli SET config:dial 100\` | ${MEASURED_S[4]}s | 180s | ${PASS[4]} |
 | 5: Redis data loss | \`docker volume rm $REDIS_VOLUME\` | ${MEASURED_S[5]}s | 300s | ${PASS[5]} |
 
 Scenario 3 (total fleet failure) is exercised via GameDay only — not automated.
