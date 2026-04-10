@@ -9,6 +9,7 @@ init_config:
 
 instances:
   - management_url: "https://ja4proxy-mgmt.corp.internal"
+    api_token: "<your-ja4proxy-api-token>"
     node: "ja4proxy-prod-01"
     min_collection_interval: 30
     timeout: 10
@@ -17,6 +18,7 @@ instances:
       - "service:ja4proxy"
 
   - management_url: "https://ja4proxy-mgmt.corp.internal"
+    api_token: "<your-ja4proxy-api-token>"
     node: "ja4proxy-prod-02"
     min_collection_interval: 30
     timeout: 10
