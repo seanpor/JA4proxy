@@ -1,22 +1,24 @@
-# Phase 64a — Docker Compose smoke test notes
+# Phase 64a Notes — Docker Compose Smoke Test
 
-> **Sub-phase of:** Phase 64 (Deployment Validation & Disaster Recovery)
-> **Size:** XS
-> **Status:** NOT STARTED
+## What was created
 
-## Deliverable
-- `scripts/smoke/test_docker_compose.sh`
-- `make smoke-docker` target in Makefile (append to bottom)
-- `smoke-docker` CI job in `.github/workflows/ci.yml` (non-blocking, promotable)
+1. **`scripts/smoke/test_docker_compose.sh`** — A bash smoke test that validates
+   a Docker Compose deployment end-to-end: stack startup, health check polling,
+   container state verification, synthetic TLS probe, and teardown.
 
-## What was done
-<!-- Record the host the script was tested on, compose version, and resulting log file. -->
+2. **`tests/test_phase64a_smoke_docker.py`** — TDD validation of the smoke script's
+   structural correctness. Runs under pytest without Docker. Checks: file existence,
+   executable bit, shebang, strict mode, docker compose v2 syntax, results directory
+   creation, health URL default, result file output, and teardown command.
 
-## Test results
-<!-- Paste exit code, log excerpt, and any failure paths exercised. -->
+3. **Makefile target `smoke-docker`** — Appended at the bottom; runs the smoke script.
 
-## Decisions made
-<!-- Note any deviations from the spec in PHASE_64.md. -->
+## Design decisions
 
-## Phase 101 entries surfaced
-<!-- File any gaps that fell out of this work. -->
+- The script uses `docker compose` (v2 space-separated syntax), never the legacy
+  `docker-compose` (v1 hyphenated binary). The test enforces this.
+- Health polling uses a 60-second timeout with 1-second intervals.
+- The synthetic TLS connection treats any TLS-layer response as success; only
+  `Connection refused` is treated as failure (the proxy may legitimately reject
+  the handshake for policy reasons).
+- Teardown always runs `docker compose down -v` to remove volumes.
