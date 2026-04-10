@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Phase 86f — Zabbix import template for JA4proxy monitoring.
+
+  Import via Zabbix web UI: Configuration → Templates → Import.
+  Requires Zabbix 5.0+ (HTTP agent with JSONPath preprocessing).
+
+  Items poll GET /api/v1/health/deep and extract metrics via JSONPath.
+-->
+<zabbix_export>
+  <version>5.0</version>
+  <date>2026-04-10T00:00:00Z</date>
+  <groups>
+    <group>
+      <name>Templates/Security</name>
+    </group>
+  </groups>
+  <templates>
+    <template>
+      <template>JA4proxy Health</template>
+      <name>JA4proxy Health</name>
+      <description>Monitors JA4proxy via Management API /api/v1/health/deep</description>
+      <groups>
+        <group>
+          <name>Templates/Security</name>
+        </group>
+      </groups>
+      <applications>
+        <application>
+          <name>JA4proxy</name>
+        </application>
+      </applications>
+
+      <!-- Master HTTP agent item -->
+      <items>
+        <item>
+          <name>JA4proxy Health Deep</name>
+          <type>HTTP_AGENT</type>
+          <key>ja4proxy.health_deep</key>
+          <delay>30s</delay>
+          <history>7d</history>
+          <trends>0</trends>
+          <value_type>TEXT</value_type>
+          <url>{$JA4PROXY_URL}/api/v1/health/deep</url>
+          <headers>
+            <header>
+              <name>Authorization</name>
+              <value>Bearer {$JA4PROXY_TOKEN}</value>
+            </header>
+          </headers>
+          <status_code>200</status_code>
+          <timeout>10s</timeout>
+          <applications>
+            <application>
+              <name>JA4proxy</name>
+            </application>
+          </applications>
+        </item>
+
+        <!-- Dependent items extracting individual metrics via JSONPath -->
+        <!-- status (string) -->
+        <item>
+          <name>JA4proxy Node Status</name>
+          <type>DEPENDENT</type>
+          <key>ja4proxy.status</key>
+          <delay>0</delay>
+          <history>30d</history>
+          <trends>0</trends>
+          <value_type>CHAR</value_type>
+          <master_item>
+            <key>ja4proxy.health_deep</key>
+          </master_item>
+          <preprocessing>
+            <step>
+              <type>JSONPATH</type>
+              <params>$.status</params>
+            </step>
+          </preprocessing>
+          <applications>
+            <application>
+              <name>JA4proxy</name>
+            </application>
+          </applications>
+          <triggers>
+            <trigger>
+              <expression>{str("error")}=1</expression>
+              <name>JA4proxy node is unhealthy on {HOST.NAME}</name>
+              <priority>HIGH</priority>
+              <description>JA4proxy status is "error". Check /api/v1/health/deep.</description>
+            </trigger>
+            <trigger>
+              <expression>{str("degraded")}=1</expression>
+              <name>JA4proxy node is degraded on {HOST.NAME}</name>
+              <priority>WARNING</priority>
+              <description>JA4proxy status is "degraded". Redis latency may be elevated.</description>
+            </trigger>
+          </triggers>
+        </item>
+
+        <!-- Redis latency (numeric float) -->
+        <item>
+          <name>JA4proxy Redis Latency (ms)</name>
+          <type>DEPENDENT</type>
+          <key>ja4proxy.redis_latency_ms</key>
+          <delay>0</delay>
+          <history>30d</history>
+          <value_type>FLOAT</value_type>
+          <units>ms</units>
+          <master_item>
+            <key>ja4proxy.health_deep</key>
+          </master_item>
+          <preprocessing>
+            <step>
+              <type>JSONPATH</type>
+              <params>$.redis_latency_ms</params>
+            </step>
+          </preprocessing>
+          <applications>
+            <application>
+              <name>JA4proxy</name>
+            </application>
+          </applications>
+          <triggers>
+            <trigger>
+              <expression>{avg(5m)}&gt;50</expression>
+              <name>JA4proxy Redis latency high on {HOST.NAME}</name>
+              <priority>WARNING</priority>
+              <description>Redis latency &gt; 50ms average over 5 minutes.</description>
+            </trigger>
+          </triggers>
+        </item>
+
+        <!-- Dial setting (numeric int) -->
+        <item>
+          <name>JA4proxy Dial Setting</name>
+          <type>DEPENDENT</type>
+          <key>ja4proxy.dial</key>
+          <delay>0</delay>
+          <history>30d</history>
+          <value_type>INT</value_type>
+          <master_item>
+            <key>ja4proxy.health_deep</key>
+          </master_item>
+          <preprocessing>
+            <step>
+              <type>JSONPATH</type>
+              <params>$.dial</params>
+            </step>
+          </preprocessing>
+          <applications>
+            <application>
+              <name>JA4proxy</name>
+            </application>
+          </applications>
+        </item>
+
+        <!-- Active connections (numeric int) -->
+        <item>
+          <name>JA4proxy Active Connections</name>
+          <type>DEPENDENT</type>
+          <key>ja4proxy.active_connections</key>
+          <delay>0</delay>
+          <history>30d</history>
+          <value_type>INT</value_type>
+          <master_item>
+            <key>ja4proxy.health_deep</key>
+          </master_item>
+          <preprocessing>
+            <step>
+              <type>JSONPATH</type>
+              <params>$.active_connections</params>
+            </step>
+          </preprocessing>
+          <applications>
+            <application>
+              <name>JA4proxy</name>
+            </application>
+          </applications>
+        </item>
+
+        <!-- Certificate days remaining (numeric float) -->
+        <item>
+          <name>JA4proxy Cert Days Remaining</name>
+          <type>DEPENDENT</type>
+          <key>ja4proxy.cert_days_remaining</key>
+          <delay>0</delay>
+          <history>90d</history>
+          <value_type>FLOAT</value_type>
+          <units>d</units>
+          <master_item>
+            <key>ja4proxy.health_deep</key>
+          </master_item>
+          <preprocessing>
+            <step>
+              <type>JSONPATH</type>
+              <params>$.cert_days_remaining</params>
+            </step>
+          </preprocessing>
+          <applications>
+            <application>
+              <name>JA4proxy</name>
+            </application>
+          </applications>
+          <triggers>
+            <trigger>
+              <expression>{last()}&lt;=7 and {last()}&gt;=0</expression>
+              <name>JA4proxy TLS certificate expiring within 7 days on {HOST.NAME}</name>
+              <priority>HIGH</priority>
+              <description>TLS certificate expires in 7 days or less.</description>
+            </trigger>
+            <trigger>
+              <expression>{last()}&lt;=30 and {last()}&gt;7</expression>
+              <name>JA4proxy TLS certificate expiring within 30 days on {HOST.NAME}</name>
+              <priority>WARNING</priority>
+              <description>TLS certificate expires in 30 days or less.</description>
+            </trigger>
+          </triggers>
+        </item>
+
+        <!-- Block rate percentage (numeric float) -->
+        <item>
+          <name>JA4proxy Block Rate (%)</name>
+          <type>DEPENDENT</type>
+          <key>ja4proxy.block_rate_pct</key>
+          <delay>0</delay>
+          <history>30d</history>
+          <value_type>FLOAT</value_type>
+          <units>%</units>
+          <master_item>
+            <key>ja4proxy.health_deep</key>
+          </master_item>
+          <preprocessing>
+            <step>
+              <type>JSONPATH</type>
+              <params>$.block_rate_pct</params>
+            </step>
+          </preprocessing>
+          <applications>
+            <application>
+              <name>JA4proxy</name>
+            </application>
+          </applications>
+        </item>
+
+        <!-- Active bans count (numeric int) -->
+        <item>
+          <name>JA4proxy Active Bans</name>
+          <type>DEPENDENT</type>
+          <key>ja4proxy.active_bans</key>
+          <delay>0</delay>
+          <history>30d</history>
+          <value_type>INT</value_type>
+          <master_item>
+            <key>ja4proxy.health_deep</key>
+          </master_item>
+          <preprocessing>
+            <step>
+              <type>JSONPATH</type>
+              <params>$.active_bans</params>
+            </step>
+          </preprocessing>
+          <applications>
+            <application>
+              <name>JA4proxy</name>
+            </application>
+          </applications>
+        </item>
+      </items>
+
+      <!-- Macro definitions (user-configurable) -->
+      <macros>
+        <macro>
+          <macro>{$JA4PROXY_URL}</macro>
+          <value>https://ja4proxy-mgmt.corp.internal</value>
+          <description>Management API base URL</description>
+        </macro>
+        <macro>
+          <macro>{$JA4PROXY_TOKEN}</macro>
+          <description>API authentication token</description>
+        </macro>
+      </macros>
+
+      <!-- Graph prototypes for visualising metrics over time -->
+      <graphs>
+        <graph>
+          <name>JA4proxy Connection Rate and Block Rate</name>
+          <graph_items>
+            <graph_item>
+              <color>1A7C11</color>
+              <item>
+                <host>JA4proxy Health</host>
+                <key>ja4proxy.active_connections</key>
+              </item>
+            </graph_item>
+            <graph_item>
+              <sortorder>1</sortorder>
+              <color>2774A4</color>
+              <item>
+                <host>JA4proxy Health</host>
+                <key>ja4proxy.block_rate_pct</key>
+              </item>
+              <yaxis_side>RIGHT</yaxis_side>
+            </graph_item>
+          </graph_items>
+        </graph>
+        <graph>
+          <name>JA4proxy Redis Latency</name>
+          <graph_items>
+            <graph_item>
+              <color>F63100</color>
+              <item>
+                <host>JA4proxy Health</host>
+                <key>ja4proxy.redis_latency_ms</key>
+              </item>
+            </graph_item>
+          </graph_items>
+        </graph>
+      </graphs>
+    </template>
+  </templates>
+</zabbix_export>
