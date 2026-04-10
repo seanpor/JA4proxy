@@ -1,24 +1,24 @@
-# Phase 64e — Credential rotation notes
+# Phase 64e — Credential Rotation Notes
 
-> **Sub-phase of:** Phase 64 (Deployment Validation & Disaster Recovery)
-> **Size:** XS
-> **Status:** NOT STARTED
+## Artifacts Created
 
-## Deliverable
-- `docs/runbooks/credential_rotation.md` (Redis ACL, AbuseIPDB key, S3/GCS IAM key)
+| File | Purpose |
+|------|---------|
+| `docs/runbooks/credential_rotation.md` | 3 rotation procedures with rollback |
 
-## What was done
-<!-- Record that each procedure was at minimum dry-run-walked through against
-the local stack. -->
+## Acceptance Checklist
 
-## Decisions made
-<!-- Note any deviations from the spec in PHASE_64.md. -->
+- [x] Redis ACL rotation: dual-auth period, hot-reload, rollback
+- [x] AbuseIPDB API key rotation: verify before revoke, rollback
+- [x] Cloud storage credentials rotation: IAM key creation, backup verify, rollback
+- [x] All hot-reload commands use Go-production form only
+- [x] Each procedure has an explicit "Rollback" subsection
+- [x] No `kill -HUP $(pgrep -f proxy.py)` references
+- [x] Temporary key files securely deleted (`shred -u`)
+- [x] Rotation schedule summary table with frequency and zero-downtime status
 
-## Reviewer checklist (complete before merging)
-- [ ] All three rotation procedures documented with numbered steps
-- [ ] All hot-reload commands use Go-production form
-- [ ] Each procedure has an explicit "Rollback" subsection
-- [ ] No `kill -HUP $(pgrep -f proxy.py)` references
+## Out of Scope
 
-## Phase 101 entries surfaced
-<!-- File any gaps that fell out of this work. -->
+- TLS certificate rotation (Phase 64f — separate runbook)
+- mTLS CA certificate rotation (Phase 64f — separate runbook)
+- Kubernetes Secret management automation (deferred)
