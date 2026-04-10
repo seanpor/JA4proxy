@@ -151,6 +151,52 @@ def fuzz_smoke_section() -> str:
     return "\n".join(lines)
 
 
+def _section_deployment(repo_root: Path) -> str:
+    """Deployment Validation Evidence section (Phase 64i)."""
+    lines = ["## Deployment Validation Evidence", ""]
+
+    smoke_dir = repo_root / "test-results" / "smoke"
+    lines.append("### Smoke Tests")
+    if smoke_dir.exists():
+        result_files = sorted(smoke_dir.glob("*.result"))
+        if result_files:
+            for result_file in result_files:
+                status = result_file.read_text().strip()
+                lines.append(f"- {result_file.stem}: **{status}**")
+        else:
+            lines.append("- No smoke test results found. Run `make smoke-docker` first.")
+    else:
+        lines.append("- No smoke test results found. Run `make smoke-docker` first.")
+    lines.append("")
+
+    mttr_file = repo_root / "MTTR_BASELINE.md"
+    lines.append("### MTTR Baseline")
+    if mttr_file.exists():
+        lines.extend(mttr_file.read_text().splitlines())
+    else:
+        lines.append("- `MTTR_BASELINE.md` not found. Run `make measure-mttr` first.")
+    lines.append("")
+
+    dr_runbook = repo_root / "docs" / "runbooks" / "disaster_recovery.md"
+    lines.append("### DR Runbook Exercise History")
+    if dr_runbook.exists():
+        content = dr_runbook.read_text()
+        if "Runbook Exercise History" in content:
+            section = content.split("Runbook Exercise History", 1)[1].split("\n## ", 1)[0]
+            section_lines = section.strip().splitlines()
+            if section_lines:
+                lines.extend(section_lines)
+            else:
+                lines.append("- No exercise history recorded yet. Run a GameDay first.")
+        else:
+            lines.append("- No exercise history section found in DR runbook.")
+    else:
+        lines.append("- DR runbook not found at `docs/runbooks/disaster_recovery.md`.")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
 def build_report() -> str:
     now = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
     counts = count_go_tests()
@@ -191,13 +237,16 @@ def build_report() -> str:
     return "\n".join(parts) + "\n"
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--output", default=str(DEFAULT_OUTPUT), help="output markdown path")
     ap.add_argument("--stdout", action="store_true", help="also print to stdout")
-    args = ap.parse_args()
+    ap.add_argument("--section", choices=["deployment"], help="append a specific section")
+    args = ap.parse_args(argv)
 
     report = build_report()
+    if args.section == "deployment":
+        report += "\n" + _section_deployment(REPO_ROOT) + "\n"
     out_path = Path(args.output)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(report, encoding="utf-8")
