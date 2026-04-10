@@ -262,19 +262,6 @@ test-docker:
 smoke-test:
 	@./scripts/smoke-test.sh
 
-# Phase 64a — Docker Compose lifecycle smoke test (non-blocking by default).
-# Bring up stack → verify health → verify TLS → tear down → write result.
-smoke-docker:
-	bash scripts/smoke/test_docker_compose.sh
-
-# Phase 64b — Helm + kind smoke test (always optional, skips when kind absent).
-smoke-k8s:
-	bash scripts/smoke/test_helm_kind.sh
-
-# Phase 64h — MTTR baseline measurement (runs 4 disaster scenarios).
-measure-mttr:
-	bash scripts/measure_mttr.sh
-
 # Run linting
 lint:
 	docker run --rm -v $(PWD):/app python:3.11-slim sh -c "cd /app && pip install black flake8 mypy bandit pytest-cov && black --check proxy.py security/ src/ && flake8 proxy.py security/ src/ 2>/dev/null && mypy proxy.py security/ src/ 2>/dev/null && bandit -r proxy.py security/ src/ -ll -q --skip B104 && echo \"✓ Linting passed\""
@@ -584,7 +571,7 @@ rebuild:
 		echo "  (active agent: $(_AGENT))"; \
 		docker compose -f docker/docker-compose.poc.yml --project-name ja4_$(_AGENT) --env-file .env.$(_AGENT) down -v --remove-orphans --rmi local; \
 	else \
-		docker compose -f docker/docker-compose.poc.yml down -v --remove-orphans --rmi local; \
+		docker compose -f docker/docker-compose.poc.yml --env-file .env down -v --remove-orphans --rmi local; \
 	fi
 	docker compose -f docker/docker-compose.monitoring.yml down -v --remove-orphans --rmi local 2>/dev/null || true
 	@echo "Rebuilding all images (no cache)..."
