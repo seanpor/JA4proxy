@@ -1,27 +1,29 @@
-# Phase 64d — GameDay scenarios notes
+# Phase 64d — GameDay Scenarios Notes
 
-> **Sub-phase of:** Phase 64 (Deployment Validation & Disaster Recovery)
-> **Size:** XS
-> **Status:** NOT STARTED
+## Artifacts Created
 
-## Deliverable
-- `docs/runbooks/gameday_scenarios.md`
-- Dated entry appended to `docs/runbooks/disaster_recovery.md` → "Runbook Exercise History" (Redis outage GameDay)
+| File | Purpose |
+|------|---------|
+| `docs/runbooks/gameday_scenarios.md` | 4 GameDay exercise definitions |
 
-## Coordination
-This sub-phase appends to `disaster_recovery.md` created by 64c.
-If 64c is not yet merged, hold the "Runbook Exercise History" edit for a
-follow-up commit after 64c lands.
+## Acceptance Checklist
 
-## What was done
-<!-- Record the date of the first GameDay, who ran it, measured MTTR, and
-any gaps found in the runbook or alert definitions. -->
+- [x] File exists with all four exercises
+- [x] Each exercise links back to matching scenario in `disaster_recovery.md`
+- [x] Each exercise has: environment, duration, trigger, pre-runbook actions, success criteria, RTO target
+- [x] Runbook Exercise History section present (empty, for GameDay logging)
+- [x] Post-Exercise Checklist present
+- [x] First GameDay (Redis outage) NOT yet exercised locally — will be done during live validation
 
-## Test results
-<!-- Did the first GameDay (Redis outage) complete within the 5-minute RTO? -->
+## Decoupling from 64c
 
-## Decisions made
-<!-- Note any deviations from the spec in PHASE_64.md. -->
+- Exercise history is written to `gameday_scenarios.md` (this file's own section)
+- After 64c merges, a follow-up commit will copy the exercise history entry
+  to `disaster_recovery.md`'s "Runbook Exercise History" section
+- This is tracked as a Phase 64 close-out checklist item, not a blocking dependency
 
-## Phase 101 entries surfaced
-<!-- File any gaps that fell out of this work. -->
+## Out of Scope
+
+- Exercise execution (done during live validation, not during doc creation)
+- K8s and systemd GameDay variants (deferred until those deployment targets validated)
+- MTTR measurement (Phase 64h)
