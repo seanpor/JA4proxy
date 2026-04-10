@@ -45,8 +45,8 @@ services:
     depends_on:
       - redis
     volumes:
-      - ./config:/app/config:ro
-      - ./geoip:/app/geoip:ro
+      - ../config:/app/config:ro
+      - ../geoip:/app/geoip:ro
     environment:
       - CONFIG_PATH=/app/config/proxy.yml
       - REDIS_HOST=redis
