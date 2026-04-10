@@ -19,7 +19,7 @@ or an automated response to an attack that wasn't communicated.
 ## Diagnosis
 1. Check current dial value:
    ```bash
-   curl -sf http://<node>:9090/health/deep | python3 -c "import sys,json; print(json.load(sys.stdin)['dial'])"
+   curl -sf http://<node>:8090/api/v1/health/deep | python3 -c "import sys,json; print(json.load(sys.stdin)['dial'])"
    ```
 2. Check who changed it (audit log in Management UI):
    ```bash

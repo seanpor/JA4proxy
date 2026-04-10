@@ -23,7 +23,7 @@ traffic will be served through the proxy.
    ```
 2. Check days remaining from health endpoint:
    ```bash
-   curl -sf http://<node>:9090/health/deep | python3 -c "import sys,json; print(json.load(sys.stdin)['cert_days_remaining'])"
+   curl -sf http://<node>:8090/api/v1/health/deep | python3 -c "import sys,json; print(json.load(sys.stdin)['cert_days_remaining'])"
    ```
 3. Identify the certificate file in use:
    ```bash
@@ -47,7 +47,7 @@ Quick rotation (if cert files are already prepared):
    ```
 3. Verify new cert is loaded:
    ```bash
-   curl -sf http://<node>:9090/health/deep | python3 -c "import sys,json; print(json.load(sys.stdin)['cert_days_remaining'])"
+   curl -sf http://<node>:8090/api/v1/health/deep | python3 -c "import sys,json; print(json.load(sys.stdin)['cert_days_remaining'])"
    ```
 
 ## Escalation

@@ -17,7 +17,7 @@ rate limits, beaconing state, and signal enrichment.
 ## Diagnosis
 1. Check current Redis latency from health endpoint:
    ```bash
-   curl -sf http://<node>:9090/health/deep | python3 -c "import sys,json; print(json.load(sys.stdin)['redis_latency_ms'])"
+   curl -sf http://<node>:8090/api/v1/health/deep | python3 -c "import sys,json; print(json.load(sys.stdin)['redis_latency_ms'])"
    ```
 2. Check Redis INFO for latency and client stats:
    ```bash

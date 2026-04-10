@@ -78,6 +78,12 @@ class TestCapacityCalculator:
         r = self._run("--peak-connections-per-second", "0")
         assert r.returncode == 0
 
+    def test_invalid_input_negative_rps(self):
+        """Negative RPS should produce an error."""
+        r = self._run("--peak-connections-per-second", "-100")
+        assert r.returncode == 2  # argparse error
+        assert "non-negative" in r.stderr.lower() or "error" in r.stderr.lower()
+
     def test_cloud_providers(self):
         """All 3 cloud providers should produce cost output."""
         for provider in ["aws", "azure", "gcp"]:

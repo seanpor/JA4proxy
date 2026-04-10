@@ -271,6 +271,9 @@ def main() -> None:
                         help="Output JSON instead of formatted text")
     args = parser.parse_args()
 
+    if args.peak_connections_per_second < 0:
+        parser.error("--peak-connections-per-second must be non-negative")
+
     # Build feature list
     features = []
     if args.enable_analytics:

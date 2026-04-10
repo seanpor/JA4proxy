@@ -634,10 +634,13 @@ func (p *proxy) handleHealthDeep(w http.ResponseWriter, r *http.Request) {
 					for _, m := range mf.GetMetric() {
 						val := m.GetCounter().GetValue()
 						connTotal += val
-						// Check action label for block
+						// Sum all blocking actions (B1 fix)
 						for _, lp := range m.GetLabel() {
-							if lp.GetName() == "action" && lp.GetValue() == "block" {
-								blocksTotal = val
+							if lp.GetName() == "action" {
+								a := lp.GetValue()
+								if a == "block" || a == "ban" || a == "tarpit" || a == "rate_limit" {
+									blocksTotal += val
+								}
 							}
 						}
 					}
@@ -647,10 +650,8 @@ func (p *proxy) handleHealthDeep(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Cert expiry
-	certTS := metrics.TLSCertExpiryTimestampSeconds
-	var certDaysRemaining float64
 	certTSVal := -1.0
-	if certTS != nil {
+	{
 		mfs, gatherErr := prometheus.DefaultGatherer.Gather()
 		if gatherErr == nil {
 			for _, mf := range mfs {
@@ -662,6 +663,7 @@ func (p *proxy) handleHealthDeep(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	var certDaysRemaining float64
 	if certTSVal > 0 {
 		certDaysRemaining = (certTSVal - float64(time.Now().Unix())) / 86400.0
 		if certDaysRemaining < 0 {

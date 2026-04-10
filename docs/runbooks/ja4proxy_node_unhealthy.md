@@ -17,7 +17,7 @@ Redis connectivity entirely.
 
 ## Diagnosis
 1. Check Management UI → Nodes page for the affected node's status.
-2. `curl -sf http://<node>:9090/health/deep | python3 -m json.tool`
+2. `curl -sf http://<node>:8090/api/v1/health/deep | python3 -m json.tool`
 3. Check Redis connectivity:
    ```bash
    redis-cli -h <redis-host> -p 6379 PING

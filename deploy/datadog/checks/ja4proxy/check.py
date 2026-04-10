@@ -40,12 +40,17 @@ class JA4proxyCheck(AgentCheck):
 
         tags = self._get_tags(instance)
         timeout = instance.get("timeout", 10)
+        api_token = instance.get("api_token", "")
 
         # ── Poll health/deep endpoint ─────────────────────────────────────
+        headers = {}
+        if api_token:
+            headers["Authorization"] = f"Bearer {api_token}"
         try:
             response = self._get_http().get(
                 f"{base_url}/api/v1/health/deep",
                 timeout=timeout,
+                headers=headers,
             )
             response.raise_for_status()
             data = response.json()
