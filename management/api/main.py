@@ -56,6 +56,7 @@ from .routes import (
     webauthn as webauthn_routes,
     pages,
     partials,
+    threat_intel,  # phase-85
     tokens,
     webhooks,
 )
@@ -158,6 +159,7 @@ def create_app() -> FastAPI:
     app.include_router(webhooks.router)
     app.include_router(metrics.router)
     app.include_router(compliance.router)  # phase-84
+    app.include_router(threat_intel.router)  # phase-85
 
     # HTML page routes (auth enforced per-route via Depends)
     app.include_router(pages.router)

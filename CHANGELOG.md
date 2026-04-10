@@ -1,5 +1,72 @@
 # Changelog
 
+## [Unreleased] - Phase 63 - Service Level Objectives
+
+### Added
+- Three new Go Prometheus metrics in `internal/metrics/metrics.go`:
+  - `ja4proxy_connection_errors_total{error_type}` (counter) — unhandled
+    errors in the connection handler before a policy decision; classified
+    as `redis_timeout`, `tls_parse_error`, `backend_refused`, `oom`, or
+    `unknown`.
+  - `ja4proxy_redis_operations_total{command,result}` (counter) — every
+    Redis call, with `result="ok"` or `result="error"`.
+  - `ja4proxy_tls_cert_expiry_timestamp_seconds` (gauge) — listener TLS
+    cert NotAfter as a Unix timestamp; emitted when env var
+    `JA4PROXY_TLS_CERT_FILE` is set. **Phase 64 alerts on this gauge.**
+- `internal/redis/client.go` instruments every method (`Get`, `Set`,
+  `SIsMember`, `SMembers`, `SAdd`, `SRem`, `Exists`, `ZAdd`,
+  `ZRemRangeByScore`, `ZRange`, `ZRangeScores`, `ZCard`, `XAdd`, `Ping`,
+  `EvalSha`, `HGetAll`, `SeedDialIfAbsent`) with the operations counter.
+- `cmd/proxy/main.go` increments `ConnectionErrorsTotal` on read errors,
+  TLS parse failures, and backend dial failures, with classification.
+- `monitoring/prometheus/slo_recording_rules.yml` — 12 SLI ratio rules,
+  9 burn-rate rules, 3 budget-remaining rules, and an FP-rate observation
+  rule. Multi-window multi-burn-rate pattern from the Google SRE Workbook.
+- `monitoring/alertmanager/rules/slo_alerts.yml` — fast-burn and slow-burn
+  alerts per SLI plus `JA4proxyHighBlockingRate` (dial ≥ 50 guard) and
+  `JA4ProxyHighBlockRate` observation alerts.
+- Four runbooks: `slo_availability.md`, `slo_latency.md`,
+  `slo_redis_correctness.md`, `slo_fp_rate.md` under `docs/runbooks/`.
+  All hot-reload commands target production deployment forms (systemd,
+  docker, podman, kubectl) — never `pgrep -f proxy.py`.
+- `Makefile` targets: `validate-slo-rules`, `slo-report`, `test-phase-63`.
+
+### Tests
+- `internal/metrics/metrics_test.go` asserts the three new metric names
+  are registered.
+- `internal/redis/client_metrics_test.go` covers Get success, Get error
+  (Redis down), and Set success counter increments.
+
+## [62] - 2026-04-09 - Go Fuzzing, Adversarial & Chaos Test Parity
+
+### Added
+- `cmd/proxy/fuzz_test.go` — three Go-native fuzz targets (`FuzzClientHello`, `FuzzReadProxyProtocol`, `FuzzReadProxyProtocolV2`) seeded from `tests/adversarial/corpus/*.bin`. Each target ran 10 s × 16 workers panic-free in smoke testing (~915k execs for ClientHello).
+- `internal/tls/parser_test.go` — `TestParseClientHello_AdversarialCorpus` table-driven test driving all 13 corpus fixtures with a 100 ms watchdog per fixture. None panic, none hang.
+- `internal/tls/ja4_fp_corpus_test.go` + `internal/tls/testdata/ja4_fp_golden.txt` — JA4 fingerprint regression test that locks in the Go-computed JA4 for every fixture in `tests/fixtures/clienthello/`. Regenerate with `go test -run TestJA4_FPCorpus_NoRegression ./internal/tls/ -args -update`.
+- `internal/security/pipeline_chaos_test.go` — three fault-injection scenarios (`TestPipeline_RedisOutage_FailsOpen`, `TestPipeline_PartialOutage_AllowBypassesStillWork`, `TestPipeline_DialFlip_NoStaleDecisions`). All assert the asymmetry doctrine from CLAUDE.md.
+- `internal/security/property_test.go` — four `pgregory.net/rapid` property tests: `ScoreInRange`, `ScoreMonotonic`, `DecisionIdempotent`, `DialZeroNeverBlocks`. 100 cases each, all pass.
+- `cmd/proxy/bench_test.go` — `BenchmarkPipeline_Allow` (~469 ns/op, 8 allocs) and `BenchmarkPipeline_Score` (~1908 ns/op, 19 allocs) on i9-9900K.
+- `scripts/generate_validation_report.py` — pre-enterprise validation report generator. Counts Go test surface, surfaces Phase 200-203 commits, runs govulncheck/pip-audit + 1 s fuzz smoke per target. Output: `docs/security/PRE_ENTERPRISE_VALIDATION_REPORT.md`.
+- New Makefile targets (appended at bottom, no existing targets edited): `test-go-fuzz-smoke`, `test-go-property`, `test-go-chaos-unit`, `bench-go-pipeline`, `validation-report`. The `test-go-chaos` name is already used by an unrelated Python-driven target, so the unit-test variant is suffixed `-unit`.
+- `pgregory.net/rapid v1.2.0` added to `go.mod` for property-based testing.
+
+### Notes
+- Phase 200's `ReadProxyProtocolV2` does not exist yet. `FuzzReadProxyProtocolV2` is wired to the current `ReadProxyProtocol` entry point with v2-shaped binary seeds; when Phase 200 lands, the target should be repointed at the v2 reader directly.
+- Python `tests/security_regression/`, `tests/fuzz/` (atheris), and Phase 27 break-glass docs are intentionally NOT carried over — the Python proxy is experimental and those findings are owned by Phases 200-203 on the Go side.
+
+## [Unreleased] - Phase 61 — CI test pipeline + repo hardening
+
+### Added
+- **`.github/workflows/ci.yml`** — three test jobs (`test-go`, `test-python`, `lint`) plus five security jobs (`secrets-scan` via TruffleHog, `sast` via Semgrep, `dependency-audit-python` via pip-audit, `dependency-audit-go` via govulncheck, `dependency-review` for HIGH severity + GPL/AGPL/SSPL deny). Triggered on every PR, every push to `main`, and weekly on Mondays at 06:00 UTC. Top-level `permissions: contents: read`; jobs that need more (e.g. SARIF upload) override locally.
+- **`.github/dependabot.yml`** — weekly updates for `github-actions`, `pip`, and `gomod` with grouped action bumps and a per-ecosystem PR cap of 5.
+- **`scripts/branch_protection.sh`** — one-shot bootstrap script (operator-run) that PUTs the required-status-check rules to GitHub. AI-agent project, so `required_pull_request_reviews=null` — the gate is CI, not human review.
+- **`docs/security/CVE_EXCEPTIONS.md`** — exception template, 90-day max expiry, HIGH/CRITICAL 7-day SLA.
+- **`tests/test_workflow_pinning.py`** — verification test asserting every `uses:` line is a 40-char SHA, every workflow declares a top-level `permissions:` block, the branch-protection script is executable, and `dependabot.yml` parses and covers all three ecosystems.
+- **`Makefile`** — new `ci-local` target so contributors can reproduce the CI test commands locally before pushing.
+
+### Changed
+- **`.github/workflows/ja4proxy-policy.yml`** — `actions/checkout@v4` and `actions/setup-python@v5` replaced with their 40-character commit SHAs (matching the canonical pattern in `release-cli.yml`); added top-level `permissions: contents: read`. No logic changes.
+
 ## [Unreleased] - Phase 84 second critical review fixes
 
 ### Fixed
@@ -21,6 +88,31 @@
 ### Added
 - 9 new tests in `management/tests/test_compliance_routes.py` covering C1, C3, H2, H4, H5, L3 (**test count: 112 Python + 36 Go = 148**, was 139)
 - `docs/phases/PHASE_101.md` — Phase 101 plan tracking the 9 deferred review items (H1 double-XRANGE, H3 CIDR watchlist match, M1 Redis version check, M2 metric rename, M4 audit log pagination, M7 DSAR partial failures, L1 Jinja2 env cache, L2 JSONL invariant doc, L5 DSAR retention text from config)
+
+## [0.88.4] - 2026-04-09 - Multi-DC Observability & Security Hardening (ROBUST)
+### Added
+- Robust Integrity: Switched Ed25519 signing to use JSON-canonicalized payloads, eliminating potential Delimiter Injection vulnerabilities.
+- Per-Peer Isolation: Implemented dedicated outbound replication workers with unique Redis consumer groups per peer. This eliminates Head-of-Line blocking and ensures a slow or failed DC doesn't impact sync to healthy DCs.
+- Automatic Catch-up: Unique consumer groups allow failed DCs to catch up automatically from their exact last acknowledged position upon recovery.
+- Metrics Instrumentation: Fully instrumented the Sync Agent to populate all 11 multi-DC metrics (Lag, Errors, Connectivity).
+
+## [0.88.3] - 2026-04-09 - Secure Dial Consistency Protocol (ROBUST)
+### Added
+- Semantic Validation: Added strict bounds checking (0-100) for global dial changes in the RPC layer.
+- Dial Consistency Protocol: Implemented synchronous 8-second ACK protocol with cryptographic verification.
+
+## [0.88.2] - 2026-04-09 - Async State Propagation & Tombstones (REMEDIATED)
+### Added
+- Reliable Delivery: Updated replication logic to only ACK stream messages after all peers acknowledge receipt, ensuring state convergence after WAN partitions.
+- Inbound Security: Implemented strict key whitelisting in the sync agent to prevent unauthorized Redis key overrides.
+- Tombstone Pattern: Implemented `:removals` sets for robust cross-DC set deletions.
+
+## [0.88.1] - 2026-04-08 - Multi-DC Foundation & Sentinel Support
+
+### Added
+- Redis Sentinel support (`goredis.NewFailoverClient`): proxy now supports `master_name` and `sentinels` configuration for high availability in multi-DC environments
+- Background NTP drift monitoring: added `SyncClockDriftSeconds` gauge and background worker that periodically parses `chronyc` or `ntpstat` output to detect cross-DC time drift
+- Configuration: Added `monitoring` section to `proxy.yml` with `ntp_check_interval_seconds` and `max_drift_seconds` fields
 
 ## [84] - 2026-04-08 - Compliance Reporting & Evidence Pack
 
@@ -62,6 +154,59 @@
 - Cross-language parity vectors: 18 identical input→output assertions in both Go and Python
 
 ---
+
+## [85] - 2026-04-08 - Threat Intelligence Ingestion
+
+### Added
+- `src/analytics/ti_feeds/` package — outbound-symmetric inbound TI feed runner that consumes external indicators and writes them through the Phase 79 Management API rather than directly into Redis
+  - `base.py` — `FeedClient` ABC, `FeedConfig`, `FeedPollResult` dataclasses
+  - `runner.py` — `FeedRunner` scheduler with leader election (`ti_feed:leader_lock`, 30 s TTL), per-feed circuit breaker integration, differential cleanup pass after every successful poll
+  - `state.py` — `FeedState` Redis sidecar index for the six `ti_feed:*` keys (per-feed `blocklist_uuids`, `ban_ips`, `active_stix_ids`, `poll_state`, `runtime_enabled`)
+  - `circuit_breaker.py` — per-feed CLOSED/HALF-OPEN/OPEN state machine, distinct from the Phase 14e/Phase 59 hot-path TI breaker (batch-poll semantics, opens after N consecutive failed polls not single calls)
+  - `mgmt_client.py` — async aiohttp client for `POST /api/v1/bans/{ip:path}` and `POST /api/v1/blocklist`; bearer auth via `JA4PROXY_FEED_CLIENT_TOKEN`; honours the Phase 79 Operator-role rate limit (50 req/s pacing, 50-indicator batches)
+  - `taxii.py` — hand-rolled async TAXII 2.1 client (no `taxii2-client` dep — see ADR-024); polls `{root}/collections/{id}/objects/?added_after={ts}`, parses STIX bundles, routes IP and JA4 indicators
+  - `recorded_future.py` — Recorded Future connector (TAXII front door + `X-RFToken` header)
+  - `crowdstrike.py` — CrowdStrike Falcon Intel OAuth2 client (`/oauth2/token` + `/intel/combined/indicators/v1` cursor pagination)
+  - `rest_generic.py` — JSONPath-driven generic REST client (uses `jsonpath-ng`)
+  - `seed_file.py` — startup loader for `config/known_bad_fingerprints.yml`, routed through the Management API the same way as any feed
+  - `contribution.py` — disabled-by-default community contribution client; hard-gated payload whitelist enforces the GDPR field set (no raw IPs, no SNI, no audit log fields)
+  - `stix_ja4.py` — `x-ja4-fingerprint` SCO parse / validation helpers; JA4 regex shared with `monitoring/metrics_registry.md`
+  - `metrics.py` — eight Prometheus counters/gauges/histograms registered once to avoid duplicate-timeseries errors
+- `management/api/routes/threat_intel.py` — five new routes:
+  - `GET  /api/v1/threat-intel/feeds` (Auditor)
+  - `GET  /api/v1/threat-intel/feeds/{feed_id}` (Auditor)
+  - `POST /api/v1/threat-intel/feeds/{feed_id}/enable`  (Operator)
+  - `POST /api/v1/threat-intel/feeds/{feed_id}/disable` (Operator)
+  - `POST /api/v1/threat-intel/feeds/{feed_id}/poll`    (Operator)
+- `management/api/models.py` — `ManagedBy.feed = "feed"` enum extension and `TIFeedStatus` / `TIFeedListResponse` Pydantic models
+- `management/api/main.py` — `include_router(threat_intel.router)`
+- `config/known_bad_fingerprints.yml` — 14 vetted JA4 fingerprints from public security research (Cobalt Strike, Sliver, Mythic, Metasploit, etc.) loaded at startup when `threat_intel.seed_file.enabled: true`
+- `config/proxy.yml` — new `threat_intel:` block (feeds list, circuit_breaker tunables, seed_file, feed_contribution stub)
+- `monitoring/alertmanager/rules/ti_feed.yml` — `TIFeedCircuitOpen`, `TIFeedStale` (>2 h), `TIFeedMgmtApiErrors` (>0.1/s)
+- `monitoring/metrics_registry.md` — Phase 85 section documenting all eight metrics
+- `docs/decisions/ADR-024.md` — hand-rolled STIX/TAXII chosen over `stix2`+`taxii2-client`; rationale: sync-only TAXII client, transitive dep footprint, fully-async fits the analytics container event loop
+- `docs/REDIS_SCHEMA.md` — Phase 85 section for the six `ti_feed:*` keys
+- `requirements.txt` — `jsonpath-ng==1.6.1`
+
+### Security
+- **C1 SSRF guard**: `validate_feed_url()` rejects non-https feed URLs and any host inside loopback / RFC1918 / link-local / CGNAT / ULA / multicast / reserved ranges. Enforced at config-parse time so a bad URL is refused before any aiohttp client is built.
+- **C2 credential redaction**: `runner._rebuild_clients` no longer logs the raw config dict (only the feed id). `routes/threat_intel.py` strips `last_error` to its category prefix at the API boundary so Auditors never see upstream 401/403 bodies that may echo back bearer tokens.
+- **C4 feed_id validation**: feed_id must match `^[a-z0-9][a-z0-9_-]{0,63}$` and may not collide with reserved names (`leader_lock`). Closes a Redis-key-namespace pivot and a Prometheus-cardinality inflation vector.
+- **C5 ban-target IP allowlist**: `is_bannable_ip()` rejects loopback / RFC1918 / link-local / multicast / reserved targets. Enforced inside `ManagementClient.post_ban` so every feed client (TAXII, RF, CS, REST, contribution) inherits the guard. A compromised upstream feed can no longer ban operator infrastructure.
+- **C8 differential-cleanup correctness**: replaced the operator-precedence bug `if handle and handle.count(".") >= 1 or ":" in (handle or "")` with an authoritative-set lookup against `ti_feed:{feed_id}:ban_ips` and `ti_feed:{feed_id}:blocklist_uuids`. Empty handles no longer trigger `delete_blocklist("")`.
+- **C7 leader-lock fail-closed**: `FeedState.try_acquire_leader` now returns `False` on Redis errors instead of `True`. The previous fail-open behaviour caused every analytics replica to act as leader during a Redis outage, doubling polls and racing differential cleanup.
+- **C7 cleanup atomicity**: per-indicator cleanup now runs through `FeedState.clear_handle`, which executes `hdel(active_stix_ids)` + `srem(ban_ips|blocklist_uuids)` inside a single Redis `MULTI/EXEC` transaction. The mgmt API delete still happens first; combined with idempotent 404 handling, the overall flow is at-least-once and converges.
+- **C3 CrowdStrike repr redaction**: `CrowdStrikeFalconClient.__repr__` now emits `<redacted>` placeholders for `client_id`/`client_secret` and a `<set>`/`<unset>` token state instead of falling through to the default `self.config` repr that printed both credentials in plaintext.
+- **C6 IPv4-mapped / 6to4 / Teredo canonicalisation**: `is_bannable_ip` now unwraps `ipv4_mapped`, `sixtofour`, and `teredo` IPv6 forms before classifying them, closing a bypass where a feed could ban operator loopback by sending `::ffff:127.0.0.1` (or the equivalent 6to4 / Teredo wrapper of an RFC1918 address).
+- Fixed dead-code `JA4_REGEX` character-class bug (`[d|q]` → `[dq]`) so the exported regex stops accepting literal `|` in JA4 strings.
+
+### Notes
+- `ManagedBy` enum gained one new member (`feed`); existing `terraform`/`operator`/`api`/`analytics`/`legacy`/`migration` values are unchanged. Phase 79 resource model tests pass unchanged (35/35).
+- Phase 23 `src/security/ti_provider.py` (hot-path TI scorer) and Phase 46 `src/security/misp.py` are intentionally untouched. Phase 85 introduces a new abstraction under `src/analytics/ti_feeds/` rather than overloading either of them — different responsibilities, different lifetimes, different failure modes.
+- Phase 20 TAP TAXII *publisher* (`src/tap/export/taxii_server.py`) and the new Phase 85 *consumer* round-trip cleanly: both speak `pattern_type: "stix"` over the new `x-ja4-fingerprint` SCO.
+- The `feed` provenance value alone does not identify *which* feed; the runner maintains the `ti_feed:{feed_id}:*` Redis sidecar index for that, and every feed-created resource carries `note=feed:{feed_id}:{stix_id}` (blocklist) or `reason=feed:{feed_id}` (ban).
+- Recorded Future and CrowdStrike connectors are implemented per the PHASE_85.md spec but **API contracts are not yet vendor-verified** — both clients carry a `# TODO: verify against vendor portal before production use` comment. Both ship `enabled: false` by default.
+- The community contribution client is disabled by default and the hosted endpoint at `https://feed.ja4proxy.io/` does not yet exist. The hard GDPR field-whitelist gate is enforced at serialisation, not at the HTTP boundary.
 
 ## [83] - 2026-04-07 - ja4proxy-cli Go Binary
 

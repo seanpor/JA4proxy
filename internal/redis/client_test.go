@@ -115,6 +115,64 @@ func TestClient_Ping(t *testing.T) {
 	}
 }
 
+func streamValuesToMap(values []string) map[string]string {
+	m := make(map[string]string)
+	for i := 0; i < len(values)-1; i += 2 {
+		m[values[i]] = values[i+1]
+	}
+	return m
+}
+
+func TestClient_SyncCapture(t *testing.T) {
+	c, mr := newTestClient(t)
+	defer mr.Close()
+
+	stream := "test:sync:out"
+	c.EnableSync(stream)
+	ctx := context.Background()
+
+	// 1. Test SET (syncable: ban:*)
+	c.Set(ctx, "ban:1.2.3.4", "test-ban", 1*time.Hour)
+	msgs, _ := mr.Stream(stream)
+	if len(msgs) != 1 {
+		t.Fatalf("Sync SET: expected 1 message, got %d", len(msgs))
+	}
+	v := streamValuesToMap(msgs[0].Values)
+	if v["op"] != "set" || v["key"] != "ban:1.2.3.4" {
+		t.Errorf("Sync SET: wrong message values: %v", v)
+	}
+
+	// 2. Test SADD (syncable: ja4:whitelist)
+	c.SAdd(ctx, "ja4:whitelist", "fp1")
+	msgs, _ = mr.Stream(stream)
+	if len(msgs) != 2 {
+		t.Fatalf("Sync SADD: expected 2 messages total, got %d", len(msgs))
+	}
+	v = streamValuesToMap(msgs[1].Values)
+	if v["op"] != "sadd" || v["key"] != "ja4:whitelist" {
+		t.Errorf("Sync SADD: wrong message values: %v", v)
+	}
+
+	// 3. Test SREM (tombstone pattern: ja4:whitelist)
+	c.SRem(ctx, "ja4:whitelist", "fp1")
+	msgs, _ = mr.Stream(stream)
+	// SRem should result in a SADD to :removals stream
+	if len(msgs) != 3 {
+		t.Fatalf("Sync SREM: expected 3 messages total, got %d", len(msgs))
+	}
+	v = streamValuesToMap(msgs[2].Values)
+	if v["op"] != "sadd" || v["key"] != "ja4:whitelist:removals" {
+		t.Errorf("Sync SREM tombstone: wrong message values: %v", v)
+	}
+
+	// 4. Test LOCAL-ONLY (should not sync)
+	c.Set(ctx, "session:1.2.3.4", "data", 0)
+	msgs, _ = mr.Stream(stream)
+	if len(msgs) != 3 {
+		t.Errorf("Sync LOCAL-ONLY: expected no new message, got %d", len(msgs))
+	}
+}
+
 func TestClient_FailOpen_RedisDown(t *testing.T) {
 	// Point at a port that is not listening
 	log := logrus.New()

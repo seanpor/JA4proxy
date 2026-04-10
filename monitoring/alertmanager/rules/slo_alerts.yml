@@ -1,0 +1,156 @@
+# JA4proxy SLO alerts — phase-63 (review-fix B1)
+#
+# Multi-window multi-burn-rate alerts implementing the Google SRE Workbook
+# Ch.5 "Alerting on SLOs" table. Each tier pairs a LONG window with a SHORT
+# companion window at the SAME burn-rate factor. The long window is the
+# primary signal; the short window provides (a) confirmation the burn is
+# current and (b) fast clearing once the issue is resolved.
+#
+# Two tiers per SLI:
+#
+#   Fast burn  — 1h burn ≥ 14.4× AND 5m  burn ≥ 14.4×, fire after 2m  → critical
+#   Slow burn  — 6h burn ≥ 6×    AND 30m burn ≥ 6×,    fire after 15m → warning
+#
+# IMPORTANT: do not pair (long, longer). The previous version of this file
+# paired 1h with 6h and 6h with 3d, which delayed the fast-burn alert by
+# ~6 hours on a real outage because the longer window cannot show high burn
+# until burn has been sustained for that window's duration. See
+# docs/phases/PHASE_63_notes.md "Review-fix B1".
+#
+# Plus FP-rate observation alerts (warning only — guarded by dial ≥ 50 to
+# avoid noise during monitor mode).
+
+groups:
+  - name: ja4proxy_slo_availability
+    rules:
+      - alert: JA4ProxyAvailabilityFastBurn
+        expr: |
+          job:ja4proxy_availability:burn_rate1h > 14.4
+          and
+          job:ja4proxy_availability:burn_rate5m > 14.4
+        for: 2m
+        labels:
+          severity: critical
+          slo: availability
+          burn_tier: fast
+        annotations:
+          summary: "Availability SLO fast burn: error budget exhausting rapidly"
+          description: "1h burn rate {{ $value | humanize }}× (threshold 14.4×). At this rate the 28d budget will be gone in under 2 days."
+          runbook_url: "docs/runbooks/slo_availability.md"
+
+      - alert: JA4ProxyAvailabilitySlowBurn
+        expr: |
+          job:ja4proxy_availability:burn_rate6h > 6
+          and
+          job:ja4proxy_availability:burn_rate30m > 6
+        for: 15m
+        labels:
+          severity: warning
+          slo: availability
+          burn_tier: slow
+        annotations:
+          summary: "Availability SLO slow burn"
+          description: "6h burn rate sustained > 6× and 30m short-window > 6×. Investigate within the working day."
+          runbook_url: "docs/runbooks/slo_availability.md"
+
+  - name: ja4proxy_slo_latency
+    rules:
+      - alert: JA4ProxyLatencyFastBurn
+        expr: |
+          job:ja4proxy_latency_p99_good:burn_rate1h > 14.4
+          and
+          job:ja4proxy_latency_p99_good:burn_rate5m > 14.4
+        for: 2m
+        labels:
+          severity: critical
+          slo: latency
+          burn_tier: fast
+        annotations:
+          summary: "Latency SLO fast burn: p99 budget exhausting"
+          description: "Pipeline p99 > 10 ms exceeded budget burn rate of 14.4×."
+          runbook_url: "docs/runbooks/slo_latency.md"
+
+      - alert: JA4ProxyLatencySlowBurn
+        expr: |
+          job:ja4proxy_latency_p99_good:burn_rate6h > 6
+          and
+          job:ja4proxy_latency_p99_good:burn_rate30m > 6
+        for: 15m
+        labels:
+          severity: warning
+          slo: latency
+          burn_tier: slow
+        annotations:
+          summary: "Latency SLO slow burn"
+          runbook_url: "docs/runbooks/slo_latency.md"
+
+  - name: ja4proxy_slo_redis_correctness
+    rules:
+      - alert: JA4ProxyRedisCorrectnessFastBurn
+        expr: |
+          job:ja4proxy_redis_correctness:burn_rate1h > 14.4
+          and
+          job:ja4proxy_redis_correctness:burn_rate5m > 14.4
+        for: 2m
+        labels:
+          severity: critical
+          slo: redis_correctness
+          burn_tier: fast
+        annotations:
+          summary: "Redis correctness SLO fast burn: policy enforcement degraded"
+          description: "Bans, rate limits and block lists may not apply. Fail-open is active — bad traffic is reaching backends."
+          runbook_url: "docs/runbooks/slo_redis_correctness.md"
+
+      - alert: JA4ProxyRedisCorrectnessSlowBurn
+        expr: |
+          job:ja4proxy_redis_correctness:burn_rate6h > 6
+          and
+          job:ja4proxy_redis_correctness:burn_rate30m > 6
+        for: 15m
+        labels:
+          severity: warning
+          slo: redis_correctness
+          burn_tier: slow
+        annotations:
+          summary: "Redis correctness SLO slow burn"
+          runbook_url: "docs/runbooks/slo_redis_correctness.md"
+
+  - name: ja4proxy_slo_false_positive
+    rules:
+      # Action label values in the Go metric are short forms.
+      # Guarded by dial ≥ 50 — at lower dials the proxy is in monitor mode and
+      # block-rate noise is expected during baselining.
+      - alert: JA4proxyHighBlockingRate
+        expr: |
+          (
+            rate(ja4proxy_connections_total{action=~"block|ban|tarpit|rate_limit"}[1h])
+            / rate(ja4proxy_connections_total[1h])
+          ) > 0.02
+          and
+          ja4proxy_dial_current >= 50
+        for: 5m
+        labels:
+          severity: warning
+          slo: false_positive_rate
+          team: security-ops
+        annotations:
+          summary: "JA4proxy blocking rate exceeds 2% — possible false positive spike"
+          description: "Blocking rate {{ $value | humanizePercentage }} at dial ≥ 50. Verify it is not a declared attack campaign before rolling back."
+          runbook_url: "docs/runbooks/slo_fp_rate.md"
+
+      # No dial guard here: at dial=0 the proxy is monitor-only (all actions
+      # degrade to "allow") so this ratio is naturally near zero. The 5%
+      # threshold only fires once an operator has raised the dial above 0
+      # AND a real block wave is in progress. Intentional asymmetry with
+      # JA4proxyHighBlockingRate above, which IS guarded because its 1h-rate
+      # denominator stays valid even at dial=0.
+      - alert: JA4ProxyHighBlockRate
+        expr: job:ja4proxy_false_positive_rate:ratio_rate5m > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          slo: false_positive_rate
+        annotations:
+          summary: "Block rate >5%: potential FP wave or mass attack"
+          description: "5-minute block ratio exceeded 5%. Investigate immediately."
+          runbook_url: "docs/runbooks/slo_fp_rate.md"

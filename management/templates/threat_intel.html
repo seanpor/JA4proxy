@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Threat Intelligence{% endblock %}
+{% block page_title %}Threat Intelligence{% endblock %}
+
+{% block content %}
+<div class="space-y-6 max-w-[1100px]" x-data="tiFeedsPage()" x-init="init()">
+
+  <!-- ── Heading + intro ─────────────────────────────────────────── -->
+  <div class="bg-[#1e293b] border border-[#334155] rounded-xl px-4 py-3">
+    <div class="flex items-center gap-2">
+      <svg class="w-4 h-4 text-[#7c3aed]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+      </svg>
+      <h2 class="text-sm font-semibold text-[#f1f5f9]">Threat Intelligence Feeds</h2>
+    </div>
+    <p class="text-xs text-[#94a3b8] mt-2">
+      Phase 85 batch-poller runner. Each feed pulls indicators from an external
+      provider and writes them through the Management API as standard
+      blocklist / ban entries with <code>managed_by=feed</code>. Disabled feeds
+      remain configured but skip polling.
+    </p>
+  </div>
+
+  <!-- ── Feeds table ─────────────────────────────────────────────── -->
+  <div class="bg-[#1e293b] border border-[#334155] rounded-xl overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-[#334155]">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-[#7c3aed]"></span>
+        <h2 class="text-sm font-semibold text-[#f1f5f9]">Configured Feeds</h2>
+      </div>
+      <button type="button"
+              @click="loadFeeds()"
+              class="text-xs text-[#94a3b8] hover:text-[#f1f5f9]">
+        Refresh
+      </button>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="text-xs text-[#94a3b8] bg-[#0f172a]">
+          <tr>
+            <th class="text-left px-4 py-2 font-medium">Feed ID</th>
+            <th class="text-left px-4 py-2 font-medium">Type</th>
+            <th class="text-left px-4 py-2 font-medium">Enabled</th>
+            <th class="text-left px-4 py-2 font-medium">Circuit</th>
+            <th class="text-left px-4 py-2 font-medium">Last Poll</th>
+            <th class="text-left px-4 py-2 font-medium">Indicators</th>
+            <th class="text-left px-4 py-2 font-medium">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[#334155]">
+          <template x-for="feed in feeds" :key="feed.id">
+            <tr>
+              <td class="px-4 py-2 font-mono text-xs text-[#f1f5f9]" x-text="feed.id"></td>
+              <td class="px-4 py-2 text-xs text-[#94a3b8]" x-text="feed.type"></td>
+              <td class="px-4 py-2 text-xs">
+                <span :class="feed.enabled ? 'text-[#4ade80]' : 'text-[#475569]'"
+                      x-text="feed.enabled ? 'enabled' : 'disabled'"></span>
+              </td>
+              <td class="px-4 py-2 text-xs">
+                <span :class="{
+                        'text-[#4ade80]': feed.circuit_state === 'closed',
+                        'text-[#fbbf24]': feed.circuit_state === 'half_open',
+                        'text-[#f87171]': feed.circuit_state === 'open'
+                      }"
+                      x-text="feed.circuit_state || 'closed'"></span>
+              </td>
+              <td class="px-4 py-2 text-xs text-[#94a3b8]" x-text="feed.last_success_human || 'never'"></td>
+              <td class="px-4 py-2 text-xs text-[#94a3b8]" x-text="feed.indicators_managed || 0"></td>
+              <td class="px-4 py-2 text-xs">
+                <button type="button"
+                        @click="togglePoll(feed)"
+                        class="px-2 py-0.5 rounded border border-[#7c3aed]/40 text-[#c4b5fd] hover:bg-[#7c3aed]/15">
+                  Poll now
+                </button>
+                <button type="button"
+                        @click="toggleEnabled(feed)"
+                        class="ml-1 px-2 py-0.5 rounded border border-[#334155] text-[#94a3b8] hover:text-[#f1f5f9]"
+                        x-text="feed.enabled ? 'Disable' : 'Enable'"></button>
+              </td>
+            </tr>
+          </template>
+          <tr x-show="feeds.length === 0">
+            <td colspan="7" class="px-4 py-8 text-center text-xs text-[#475569]">
+              No feeds configured. Add entries to <code>threat_intel.feeds</code>
+              in <code>config/proxy.yml</code> and reload the analytics container.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Feedback area ───────────────────────────────────────────── -->
+  <div x-show="feedback"
+       :class="feedbackOk ? 'bg-[#16a34a]/15 border-[#16a34a]/35 text-[#4ade80]' : 'bg-[#dc2626]/15 border-[#dc2626]/35 text-[#f87171]'"
+       class="px-3 py-2 rounded-lg border text-xs"
+       style="display:none;"
+       x-text="feedback"></div>
+
+</div>
+
+<script>
+function tiFeedsPage() {
+  return {
+    feeds: [],
+    feedback: '',
+    feedbackOk: false,
+
+    init() {
+      this.loadFeeds();
+    },
+
+    showFeedback(msg, ok) {
+      this.feedback = msg;
+      this.feedbackOk = ok;
+      setTimeout(() => { this.feedback = ''; }, 4000);
+    },
+
+    async loadFeeds() {
+      try {
+        const r = await fetch('/api/v1/threat-intel/feeds', { credentials: 'include' });
+        if (!r.ok) {
+          this.showFeedback('Failed to load feeds: HTTP ' + r.status, false);
+          return;
+        }
+        const body = await r.json();
+        this.feeds = body.feeds || [];
+      } catch (err) {
+        this.showFeedback('Network error: ' + err.message, false);
+      }
+    },
+
+    async togglePoll(feed) {
+      try {
+        const r = await fetch('/api/v1/threat-intel/feeds/' + encodeURIComponent(feed.id) + '/poll', {
+          method: 'POST',
+          credentials: 'include',
+        });
+        if (r.ok) {
+          this.showFeedback('Poll triggered for ' + feed.id, true);
+        } else {
+          this.showFeedback('Poll failed: HTTP ' + r.status, false);
+        }
+      } catch (err) {
+        this.showFeedback('Network error: ' + err.message, false);
+      }
+    },
+
+    async toggleEnabled(feed) {
+      const action = feed.enabled ? 'disable' : 'enable';
+      try {
+        const r = await fetch('/api/v1/threat-intel/feeds/' + encodeURIComponent(feed.id) + '/' + action, {
+          method: 'POST',
+          credentials: 'include',
+        });
+        if (r.ok) {
+          feed.enabled = !feed.enabled;
+          this.showFeedback(action + 'd ' + feed.id, true);
+        } else {
+          this.showFeedback(action + ' failed: HTTP ' + r.status, false);
+        }
+      } catch (err) {
+        this.showFeedback('Network error: ' + err.message, false);
+      }
+    }
+  };
+}
+</script>
+{% endblock %}

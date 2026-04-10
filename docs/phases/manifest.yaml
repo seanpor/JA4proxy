@@ -41,6 +41,10 @@ epics:
   - 56
   - 62
   - 75
+  - 200
+  - 201
+  - 202
+  - 203
 - name: 'Epic: Analytics & Intelligence'
   description: Cross-instance behavior analysis and threat intelligence.
   phases:
@@ -84,6 +88,7 @@ epics:
   - 72
   - 73
   - 74
+  - 88
   - 91
 - name: 'Epic: Quality Assurance & Test Maturity'
   description: Comprehensive testing, adversarial coverage, and performance validation.
@@ -664,7 +669,7 @@ phases:
     size: XL
   61:
     name: Supply Chain Security & Build Integrity
-    status: PROPOSED
+    status: COMPLETE
     doc_status: COMPLETE
     summary: GitHub Actions CI pipeline (Python + Go tests, SAST, dependency audit);
       SBOM generation (CycloneDX 1.4); Cosign keyless image signing; SLSA level 2
@@ -675,7 +680,7 @@ phases:
     size: L
   62:
     name: Security Regression Harness, Fuzzing & Pre-Enterprise Validation
-    status: PROPOSED
+    status: COMPLETE
     doc_status: COMPLETE
     summary: Automated regression tests for all Phase 27 pentest findings; atheris
       + Go native fuzzing harnesses with CI smoke run; break-glass verification procedure;
@@ -687,7 +692,7 @@ phases:
     size: XL
   63:
     name: Service Level Objectives
-    status: PROPOSED
+    status: COMPLETE
     doc_status: COMPLETE
     summary: Four SLIs (availability 99.9%, latency 99% <10ms, Redis correctness 99.5%,
       FP rate <2%); multiwindow burn-rate alerts; Grafana SLO dashboard; on-call runbooks;
@@ -725,7 +730,7 @@ phases:
     success_criteria:
     - Python baseline_latency mean improves by >= 1ms
     - Go attack_500 blocks > 0% of bot traffic
-    - Binary ClientHello fixtures committed for Chrome, Firefox, Safari, curl, bot
+    - Binary ClientHello fixtures committed for Chrome, Firefox, Safari, x-bot
       variants
     - make check-scores exits 0
     - make parity-check exits 0 with both proxies running
@@ -1023,18 +1028,23 @@ phases:
     name: 'Terraform Provider + Emergency Runbook Playbooks'
     status: PROPOSED
     summary: 'terraform-provider-ja4proxy (separate repo): 6 resource types (allowlist_entry,
-      blocklist_entry, ban, cidr_ban, dial, webhook), protect_unmanaged_entries flag,
-      import workflow. Three emergency Ansible playbooks: emergency-ban-cidr.yml,
-      temp-whitelist-ip.yml, maintenance-dial-zero.yml.'
+      blocklist_entry, watchlist_entry, ban [IP+CIDR unified], dial, webhook), protect_unmanaged_entries
+      flag, import workflow. Three emergency Ansible playbooks: emergency-ban-cidr.yml,
+      temp-whitelist-ip.yml, maintenance-dial-zero.yml. Critical review 2026-04-09:
+      corrected API mappings (ban uses /api/v1/bans/{ip_encoded}, no separate cidr_ban),
+      removed 202 dial handling, added watchlist resource, added auth to playbooks.'
     action_plan: docs/phases/PHASE_93.md
     dependencies:
     - 79
     - 83
     size: LARGE
     success_criteria:
-    - All 6 Terraform resource types with protect_unmanaged_entries flag
+    - All 6 Terraform resource types with protect_unmanaged_entries flag (ban unified for IP+CIDR)
+    - ja4proxy_ban handles both IP and CIDR via URL-encoded path parameter
+    - ja4proxy_dial validates ±10 max change and fails with clear error
+    - Ban and webhook resources use [terraform] reason prefix for ownership identification
     - Terraform provider passes tfproviderlint + acceptance tests against ManagementAPIMock
-    - All 3 emergency playbooks tested against mock API
+    - All 3 emergency playbooks tested against mock API with Bearer token auth
     - make test-phase-93 passes
   94:
     name: 'Kubernetes Operator + CMDB/NetBox Integration'
@@ -1071,7 +1081,7 @@ phases:
     - docs/compliance/ directory with all three compliance documents
   85:
     name: Threat Intelligence Ingestion
-    status: PROPOSED
+    status: COMPLETE
     summary: TAXII 2.1 client consuming JA4 fingerprint and IP indicators. JA4 STIX
       2.1 extension definition (strategic moat — first standard for JA4 indicators).
       Recorded Future and CrowdStrike named connectors. Curated JA4 fingerprint community
@@ -1133,33 +1143,54 @@ phases:
     - docs/runbooks/infrastructure.md present with all 30 sections
     - make test-phase-87 passes
   88:
-    name: Multi-Datacenter Survivability & Failover
-    status: PROPOSED
-    summary: 'Redis Sentinel per-DC plus a new Go sync agent (cmd/syncagent) for cross-DC
-      state replication. State Classification Table (25 key types: SYNC-IMMEDIATE,
-      SYNC-ASYNC, LOCAL-ONLY, DIAL-PROTOCOL). Synchronous Dial Consistency Protocol
-      (port 7380, 8s ACK timeout, last-writer-wins by origin_ts). Active-active and
-      active-passive topology documentation. Seven failure scenario runbooks (WAN
-      failure, DC dark, Redis-only failure, dial divergence, data loss, asymmetric
-      degradation, split-brain). New multi-DC metrics on port 9382 with six alert
-      rules including DialDivergence (critical). Cross-DC Grafana dashboard. Operational
-      procedures for maintenance drain, DC expansion, and rolling upgrade.'
-    action_plan: docs/phases/PHASE_88.md
-    dependencies:
-    - 64
-    - 86
-    - 87
-    size: XL
-    success_criteria:
-    - cmd/syncagent compiles and unit tests pass
-    - 'State Classification Table implemented: ban keys sync in ≤30s across DCs'
-    - 'Dial Consistency Protocol: dial change propagates to all DCs within 8s'
-    - All seven failure scenario runbooks documented and tested in staging
-    - 'WAN failure test: each DC operates independently for 60 minutes without errors'
-    - DialDivergence alert fires within 15s of divergence exceeding threshold
-    - 'Multi-DC Grafana dashboard: replication lag, dial values per DC, WAN link status
-      visible'
-    - make test-phase-88 passes
+    name: "Multi-Datacenter Survivability & Failover"
+    status: "COMPLETE"
+    summary: "Robust multi-DC architecture with per-peer consumer groups to eliminate Head-of-Line blocking, JSON-based cryptographic signing to prevent delimiter injection, and reliable async state sync with tombstones."
+    completed: "2026-04-09"
+    action_plan: "docs/phases/PHASE_88.md"
+    dependencies: [64, 86, 87]
+    size: "XL"
+
+  88.1:
+    name: "Multi-DC Foundation & Sentinel Support"
+    status: "COMPLETE"
+    summary: "Redis Sentinel transition and background NTP drift monitoring. Established the WAN baseline and Fail-Open Sentinel logic."
+    completed: "2026-04-08"
+    dependencies: [88]
+    size: "SMALL"
+
+  88.2:
+    name: "Async State Propagation & Tombstones"
+    status: "COMPLETE"
+    summary: "Implemented robust syncagent with per-peer consumer groups, outbound sync capture, strict inbound key whitelisting, and the tombstone pattern."
+    completed: "2026-04-09"
+    dependencies: [88.1]
+    size: "SMALL"
+
+  88.3:
+    name: "Secure Dial Consistency Protocol"
+    status: "COMPLETE"
+    summary: "Implemented synchronous 8s Dial consistency protocol with strict bounds checking (0-100) and JSON-canonicalized signing."
+    completed: "2026-04-09"
+    dependencies: [88.2]
+    size: "SMALL"
+
+  88.4:
+    name: "Multi-DC Observability & Security Hardening"
+    status: "COMPLETE"
+    summary: "Instrumented syncagent metrics, implemented JSON-based Ed25519 cryptographic signing, and enforced fail-closed mTLS 1.3."
+    completed: "2026-04-09"
+    dependencies: [88.3]
+    size: "SMALL"
+
+  88.5:
+    name: "Disaster Recovery & GameDay"
+    status: "COMPLETE"
+    summary: "Finalized multi-DC runbook and established quarterly Chaos Testing procedures for cross-DC failover validation."
+    completed: "2026-04-09"
+    dependencies: [88.4]
+    size: "SMALL"
+
   89:
     name: Dockerfile Base Image Hygiene
     status: COMPLETE
@@ -1266,33 +1297,133 @@ phases:
     - Group-to-role mapping honoured from config/proxy.yml sso.role_mapping with env-var
       MANAGEMENT_SAML_ROLE_MAPPING / MANAGEMENT_OIDC_ROLE_MAPPING override
   101:
-    name: Phase 84 Compliance Review Gap Closure
+    name: Phase 101 — Cross-Phase Gap Register
     status: PROPOSED
     action_plan: docs/phases/PHASE_101.md
     dependencies:
     - 84
-    size: MEDIUM
-    summary: 'Closes 9 deferred gaps from the second critical review of Phase 84
-      Compliance Reporting: H1 (single-XRANGE DSAR path), H3 (CIDR-aware watchlist
-      match in DSAR), M1 (Redis XTRIM MINID version check and fallback), M2 (rename
-      beaconing_records_cleaned → beaconing_datapoints_cleaned — breaking), M4
-      (paginate audit log reads; plan Stream migration ADR), M7 (DSAR partial-failure
-      reporting instead of silent empty arrays), L1 (module-level Jinja2 Environment
-      cache), L2 (JSONL trailing-newline invariant doc/test), L5 (DSAR retention
-      strings read from gdpr config instead of hardcoded prose). All CRITICAL and
-      most HIGH items were fixed inline in the review-fixes branch before merge.'
+    - 85
+    size: LARGE
+    summary: 'Rolling cross-phase register of deferred review gaps. Currently
+      contains two sections. (1) Phase 84 Compliance Review: items deferred
+      from the second critical review of Phase 84 (DSAR XRANGE consolidation,
+      CIDR-aware DSAR matching, XTRIM MINID Redis-version fallback, audit log
+      pagination, DSAR partial-failure semantics, Jinja2 module-level cache,
+      JSONL invariant docs, dynamic retention strings, beaconing metric
+      rename). C1-C3 / H2/H4/H5 / M3/M5/M6 / L3/L4 were closed in the
+      review-fixes branch and are documented for reference. (2) Phase 85
+      Threat-Intel Hardening: per-feed safety caps, two-empty-poll gate,
+      ja4_safe_to_block FP-corpus gate, SafeResolver-backed TCPConnector,
+      manual-poll rate limit, CSRF middleware, RF/CrowdStrike regional
+      endpoints, and a re-shape of the TAXII chaos + integration tests
+      against the new FeedRunner constructor. C5-partial / C7 / H13 were
+      closed in-branch on phase-85 and are documented for reference. Gap
+      IDs are letter-prefixed by severity and numbered sequentially across
+      the entire register; new sections continue from the highest existing
+      number per letter.'
     success_criteria:
-    - DSAR export path issues at most one XRANGE per request (H1)
-    - DSAR export/erase handles CIDR watchlist entries correctly (H3)
-    - GDPRPurge detects Redis < 6.2 and uses XRANGE+XDEL fallback for MINID (M1)
-    - PurgeSummary field renamed to beaconing_datapoints_cleaned; CHANGELOG notes
-      breaking change (M2)
-    - Pack builder loads audit entries in bounded chunks; 1M-entry benchmark < 30s
-      and < 500MB (M4)
-    - DSAR response includes partial_failures list on Redis error; Prometheus
-      counter ja4proxy_dsar_export_partial_failures_total wired (M7)
-    - Two ReportRenderer instances share compiled Jinja2 templates (L1)
-    - JSONL trailing-newline invariant documented and tested (L2)
-    - DSAR retention text reflects gdpr.*_retention_days config (L5)
-    - No new CRITICAL/HIGH findings from a third review pass
+    - All Phase 84 deferred items (H1, H3, M1, M2, M4, M7, L1, L2, L5)
+      either have PR-level fixes or explicit, documented deferrals
+    - All Phase 85 deferred items (C4-C6, H6-H12, M8-M14, L6-L8) either
+      have PR-level fixes or explicit, documented deferrals
+    - No new critical/high findings from a third review pass on either phase
+    - Per-feed max_new_per_poll, max_owned_total, max_delta_per_poll honoured
+      with ja4proxy_ti_feed_caps_hit_total metric and Alertmanager rule
+    - Two consecutive empty polls required before any bulk cleanup; per-feed
+      empty_streak persisted in Redis ti_feed:{feed_id}:empty_streak
+    - ja4_safe_to_block(ja4) FP-corpus gate consulted from taxii.py,
+      rest_generic.py, and seed_file.py before every post_blocklist
+    - SafeResolver TCPConnector deployed on all four feed clients; DNS
+      pointing at 169.254.169.254 / RFC1918 / loopback rejected
+    - Manual-poll endpoint rate limited at 6/min/feed_id with 429 + Retry-After
+    - CSRF double-submit middleware on every /api/v1/* mutating route
+    - RF and CrowdStrike clients honour config.url for regional / GovCloud
+      endpoints with global URLs as fallback
+    - DSAR export path issues at most one XRANGE call per request
+    - DSAR export/erase honour CIDR watchlist entries with documented IPv4/IPv6
+      semantics
+    - GDPRPurge falls back to time-based XRANGE+XDEL when redis_version < 6.2
+    - PurgeSummary.beaconing_datapoints_cleaned replaces the misnamed
+      beaconing_records_cleaned field with a CHANGELOG breaking-change note
+    - Pack builder loads audit entries in chunks; ADR written for the
+      Stream migration path
+    - DSAR response includes a partial_failures list on Redis error with a
+      ja4proxy_dsar_export_partial_failures_total counter
+    - tests/adversarial/test_ti_feeds_ssrf.py + test_ti_feeds_fp_block.py +
+      test_ti_feed_caps.py all pass
     - make test-phase-84 still passes (Go + Python compliance suites)
+
+  200:
+    name: Go PROXY Protocol Trust + v2 Support
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_200.md
+    dependencies:
+    - 15
+    size: MEDIUM
+    summary: 'Closes two critical Go gaps: (1) add `_is_trusted_proxy_source()` equivalent to prevent IP spoofing via PROXY protocol from untrusted sources, (2) implement PROXY protocol v2 binary parser (Python already has v1+v2). Without (1) any attacker can spoof any IP and bypass all geo/IP/rate/block controls. Without (2) modern HAProxy/NLB v2 headers are silently ignored.'
+    success_criteria:
+    - "isTrustedProxySource() correctly accepts/rejects IPs against configured CIDRs"
+    - "ReadProxyProtocolV2() extracts correct client IP for both IPv4 and IPv6"
+    - "ReadProxyProtocolV2() safely rejects malformed v2 headers (no panic, no OOB)"
+    - Untrusted source sending PROXY header is NOT trusted — socket IP used instead
+    - Both v1 and v2 parsers gated by the same trust check
+    - "All unit tests pass: go test ./internal/proxy/... ./cmd/proxy/..."
+    - Parity integration test passes (Python and Go extract same IP)
+    - Adversarial test confirms untrusted PROXY spoof is rejected
+    - "config/proxy.yml documents proxy.upstream_trust section with example"
+    - "make lint-go-full passes with zero warnings"
+
+  201:
+    name: Go Redis TLS + Signal Score Drift Fix
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_201.md
+    dependencies:
+    - 15
+    size: SMALL
+    summary: 'Closes critical Go gaps: (1) Redis client omits TLS despite config having SSL field — credentials on wire, (2) 4 signal scores diverge from config/signal_scores.yml — wrong scoring decisions in production. Also adds: error logging for ZAdd/ZRemRangeByScore (were swallowing errors), health check with script reload after Redis outage, rate limiter input validation.'
+    success_criteria:
+    - Go Redis client sets TLSConfig when cfg.SSL is true
+    - Go Redis client passes Username for ACL-based auth
+    - "ZAdd and ZRemRangeByScore log errors instead of swallowing them"
+    - Periodic health check re-loads Lua scripts after Redis outage
+    - Rate limiter validates IP (<=45 chars) and JA4 (<=256 chars) before key construction
+    - "make check-scores exits 0 (all Go scores match registry)"
+    - "make go-test passes with zero failures"
+
+  202:
+    name: CI Supply Chain + Default Credential Removal
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_202.md
+    dependencies: []
+    size: SMALL
+    summary: 'Eliminates 6 infrastructure-level critical findings: SHA-pin all GitHub Actions (supply chain), remove default credential fallbacks from all compose files (Grafana admin, Management admin/admin, HAProxy admin/admin123), create Go proxy image CI workflow with SBOM+cosign signing, harden Dockerfile.go-proxy with non-root USER.'
+    success_criteria:
+    - All GitHub Actions are SHA-pinned (no @v4, @v5, etc. remain)
+    - "grep -r ':-admin' docker/ returns no matches"
+    - "grep -r ':-change-me' docker/ returns no matches"
+    - Grafana refuses to start without GRAFANA_PASSWORD env var
+    - Management API refuses to start without MANAGEMENT_JWT_SECRET
+    - Test Redis port bound to 127.0.0.1:6380:6379
+    - ".github/workflows/go-proxy-image.yml builds, tests, SBOM-generates, signs, and pushes"
+    - "Dockerfile.go-proxy has USER directive (non-root)"
+
+  203:
+    name: Go Missing Signals — JA4T, TLS Mismatch, Weak Ciphers, DGA, Health
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_203.md
+    dependencies:
+    - 200
+    - 201
+    size: LARGE
+    summary: 'Closes 5 production-critical signal gaps in Go: (1) JA4T stub returns `""` — implement full JA4T computation, (2) `ja4_tls_mismatch` not implemented — TLS version spoofing undetected, (3) weak cipher coverage 13 vs Python 37+ — NULL/EXPORT/DH_anon/ECDH_anon missed, (4) DGA algorithm diverges from Python — less effective SNI analysis, (5) Go health check only tests Redis — no GeoIP/connections/queue checks.'
+    success_criteria:
+    - "ComputeJA4T() returns non-empty string matching Python output for same inputs"
+    - JA4T unit tests pass with fixture-based assertions
+    - "ja4_tls_mismatch fires when JA4 claims TLS 1.3 but actual is TLS 1.2"
+    - "weakCipherSet contains 37+ suites matching Python's WEAK_CIPHERS"
+    - "DGA parity test: Python and Go scores match within +/-0.05 for 100+ test hostnames"
+    - Go health check returns structured JSON with all component statuses
+    - Health check returns 503 when Redis or GeoIP is down
+    - Anti-flap hysteresis prevents status flapping on transient errors
+    - "make check-scores still exits 0"
+    - "make go-test passes with zero failures"
