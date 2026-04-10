@@ -1,0 +1,25 @@
+# Datadog Agent configuration for JA4proxy integration.
+#
+# Install:
+#   cp conf.d/ja4proxy.d/conf.yaml /etc/datadog-agent/conf.d/ja4proxy.d/conf.yaml
+#
+# See checks/ja4proxy/check.py for the check implementation.
+
+init_config:
+
+instances:
+  - management_url: "https://ja4proxy-mgmt.corp.internal"
+    node: "ja4proxy-prod-01"
+    min_collection_interval: 30
+    timeout: 10
+    tags:
+      - "env:production"
+      - "service:ja4proxy"
+
+  - management_url: "https://ja4proxy-mgmt.corp.internal"
+    node: "ja4proxy-prod-02"
+    min_collection_interval: 30
+    timeout: 10
+    tags:
+      - "env:production"
+      - "service:ja4proxy"
