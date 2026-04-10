@@ -845,7 +845,7 @@ class BenchmarkSuite:
 
     def scenario_sustained_load(self) -> ScenarioResult:
         _scenario_header("sustained_load",
-                         f"60 s sustained load at multiple rates; look for throughput degradation")
+                         "60 s sustained load at multiple rates; look for throughput degradation")
         t0 = time.monotonic()
         result = ScenarioResult(
             name="sustained_load",
@@ -1620,7 +1620,7 @@ class ReportGenerator:
 
     def generate_markdown(self) -> str:
         sections = [
-            f"# JA4proxy Benchmark Report: Go vs Python\n",
+            "# JA4proxy Benchmark Report: Go vs Python\n",
             f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  ",
             f"**Benchmark version:** {BENCHMARK_VERSION}  \n",
             self._executive_summary(),

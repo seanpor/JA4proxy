@@ -102,6 +102,7 @@ class TestMatchOsExceptionHandler:
         pipeline for every subsequent packet — the proxy loses OS classification for
         the lifetime of that connection."""
         from unittest.mock import patch
+
         import src.tap.fingerprints.os_fingerprint as _mod
 
         syn_opts = _opts((2, 1460), (4,))

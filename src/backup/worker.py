@@ -17,7 +17,7 @@ import redis
 from prometheus_client import Counter, Gauge, Histogram
 
 from src.backup.encryption import BackupEncryption
-from src.backup.format import encode_entry, encode_header, FLAG_FULL, FLAG_ENCRYPTED
+from src.backup.format import FLAG_ENCRYPTED, FLAG_FULL, encode_entry, encode_header
 from src.backup.policy import KeyPolicy
 
 logger = logging.getLogger(__name__)

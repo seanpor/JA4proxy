@@ -15,7 +15,7 @@ import re
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import List, Optional, Tuple
 
 # Configuration
 REQUIRED_FRONTMATTER = [
@@ -139,7 +139,7 @@ class DocumentValidator:
     def print_results(self) -> None:
         """Print validation results."""
         print(f"\n{'='*60}")
-        print(f"Documentation Frontmatter Validation Results")
+        print("Documentation Frontmatter Validation Results")
         print(f"{'='*60}")
         print(f"Files checked: {self.files_checked}")
         print(f"Files fixed: {self.files_fixed}")
@@ -163,7 +163,7 @@ class DocumentValidator:
                 print(f"     ⚠️  {warning}")
         
         if not self.errors and not self.warnings:
-            print(f"\n✅ All documentation files have valid frontmatter!")
+            print("\n✅ All documentation files have valid frontmatter!")
         
         print(f"\n{'='*60}\n")
 

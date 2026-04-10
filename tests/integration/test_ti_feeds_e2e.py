@@ -31,7 +31,6 @@ pytestmark = pytest.mark.xfail(
 # fakeredis is part of the project test deps already (used by tests/unit/test_gdpr_delete.py)
 import fakeredis
 
-
 _FIXTURE_PATH = (
     Path(__file__).resolve().parents[1] / "fixtures" / "ti_feeds" / "sample_stix_bundle.json"
 )

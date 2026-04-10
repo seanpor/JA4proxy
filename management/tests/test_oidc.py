@@ -613,7 +613,7 @@ async def test_oidc_callback_idp_error_param_returns_401(
     # State must have been consumed despite the error
     remaining = await fake_redis.get(f"mgmt:oidc:state:{state}")
     assert remaining is None, (
-        f"State should be consumed even on IdP error, but key still exists"
+        "State should be consumed even on IdP error, but key still exists"
     )
 
 # ── Section 8: Integration test stubs (Gap 5 — Phase 100) ────────────────────
@@ -808,8 +808,8 @@ import time as _time
 
 def _make_rs256_key_pair():
     """Generate a real RS256 key pair for signing test JWTs."""
-    from cryptography.hazmat.primitives.asymmetric import rsa
     from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     return private_key
 
@@ -852,7 +852,7 @@ async def test_extract_claims_valid_signed_token() -> None:
     Verifies Gap 1: the function must verify the JWT signature using JWKS.
     MANAGEMENT_TEST_MODE is unset for this test so verification actually runs.
     """
-    from management.api.routes.oidc import _extract_claims, _clear_jwks_cache
+    from management.api.routes.oidc import _clear_jwks_cache, _extract_claims
 
     private_key = _make_rs256_key_pair()
     key_set = _make_jwks_keyset(private_key)
@@ -876,8 +876,9 @@ async def test_extract_claims_valid_signed_token() -> None:
 @pytest.mark.asyncio
 async def test_extract_claims_wrong_key_raises_401() -> None:
     """_extract_claims() raises HTTP 401 when the token was signed with a different key."""
-    from management.api.routes.oidc import _extract_claims, _clear_jwks_cache
     from fastapi import HTTPException
+
+    from management.api.routes.oidc import _clear_jwks_cache, _extract_claims
 
     private_key = _make_rs256_key_pair()
     wrong_key = _make_rs256_key_pair()  # different key
@@ -905,8 +906,9 @@ async def test_extract_claims_wrong_key_raises_401() -> None:
 @pytest.mark.asyncio
 async def test_extract_claims_expired_token_raises_401() -> None:
     """_extract_claims() raises HTTP 401 when the token's exp claim is in the past."""
-    from management.api.routes.oidc import _extract_claims, _clear_jwks_cache
     from fastapi import HTTPException
+
+    from management.api.routes.oidc import _clear_jwks_cache, _extract_claims
 
     private_key = _make_rs256_key_pair()
     key_set = _make_jwks_keyset(private_key)
@@ -934,8 +936,9 @@ async def test_extract_claims_expired_token_raises_401() -> None:
 @pytest.mark.asyncio
 async def test_fetch_jwks_caches_on_second_call() -> None:
     """_fetch_jwks() caches: a second call with the same URI does not make a second HTTP request."""
-    from management.api.routes.oidc import _fetch_jwks, _clear_jwks_cache
     from authlib.jose import JsonWebKey
+
+    from management.api.routes.oidc import _clear_jwks_cache, _fetch_jwks
 
     private_key = _make_rs256_key_pair()
     public_key = private_key.public_key()

@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import aiohttp
 
-
 # ---------------------------------------------------------------------------
 # Exception hierarchy
 # ---------------------------------------------------------------------------
@@ -65,7 +64,7 @@ async def _request(
             timeout=aiohttp.ClientTimeout(total=timeout),
         ) as resp:
             if resp.status == 401:
-                raise AuthError(f"401 Unauthorized — check API token")
+                raise AuthError("401 Unauthorized — check API token")
             if resp.status >= 400:
                 body = await resp.text()
                 raise JA4proxySoarError(

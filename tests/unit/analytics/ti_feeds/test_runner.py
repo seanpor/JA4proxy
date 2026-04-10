@@ -43,7 +43,6 @@ from src.analytics.ti_feeds.base import FeedConfig, FeedPollResult
 from src.analytics.ti_feeds.runner import FeedRunner
 from src.analytics.ti_feeds.state import FeedState
 
-
 # ── Stubs ────────────────────────────────────────────────────────────────────
 
 

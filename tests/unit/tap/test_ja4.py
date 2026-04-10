@@ -438,6 +438,7 @@ class TestJA4HelperEdgeCases:
         So what: an unexpected crash in the parser must not propagate to the
         capture loop; fail-open is required."""
         from unittest.mock import patch
+
         import src.tap.fingerprints.ja4 as _mod
         with patch.object(_mod, "_parse", side_effect=RuntimeError("injected")):
             result = _mod.extract_ja4(b"\x16\x03\x01" + b"\x00" * 100)
@@ -730,6 +731,7 @@ class TestJA4ExceptionPaths:
         """Exception inside _parse_alpn bubbles to _parse_extension catch (lines 294-295).
         So what: if the catch is broken, a corrupt ALPN extension crashes the proxy."""
         from unittest.mock import patch
+
         import src.tap.fingerprints.ja4 as _mod
         with patch.object(_mod, "_parse_alpn", side_effect=RuntimeError("injected")):
             # ext_type=ALPN → calls _parse_alpn which raises
@@ -740,6 +742,7 @@ class TestJA4ExceptionPaths:
         """struct.unpack_from raises inside _parse_sni → returns None (lines 314-315).
         So what: a corrupt SNI field must not crash the fingerprinter."""
         from unittest.mock import patch
+
         import src.tap.fingerprints.ja4 as _mod
         with patch.object(_mod.struct, "unpack_from", side_effect=RuntimeError("injected")):
             result = _mod._parse_sni(b"\x00" * 10)
@@ -757,6 +760,7 @@ class TestJA4ExceptionPaths:
         """Exception inside _parse_alpn try block → swallowed (lines 334-335).
         So what: corrupt ALPN extension must not propagate to the capture loop."""
         from unittest.mock import patch
+
         import src.tap.fingerprints.ja4 as _mod
         out: list = []
         with patch.object(_mod.struct, "unpack_from", side_effect=RuntimeError("injected")):
@@ -767,6 +771,7 @@ class TestJA4ExceptionPaths:
         """Exception inside _parse_supported_versions → swallowed (lines 348-349).
         So what: corrupt supported_versions extension must not crash the fingerprinter."""
         from unittest.mock import patch
+
         import src.tap.fingerprints.ja4 as _mod
         out: list = []
         with patch.object(_mod.struct, "unpack_from", side_effect=RuntimeError("injected")):
@@ -777,6 +782,7 @@ class TestJA4ExceptionPaths:
         """Exception inside _parse_uint16_list_with_len → swallowed (lines 361-362).
         So what: corrupt supported_groups or sig_algs must not propagate."""
         from unittest.mock import patch
+
         import src.tap.fingerprints.ja4 as _mod
         out: list = []
         with patch.object(_mod.struct, "unpack_from", side_effect=RuntimeError("injected")):
@@ -787,6 +793,7 @@ class TestJA4ExceptionPaths:
         """Exception inside _parse_key_share_ext → swallowed (lines 378-379).
         So what: corrupt key_share extension must not crash the fingerprinter."""
         from unittest.mock import patch
+
         import src.tap.fingerprints.ja4 as _mod
         out: list = []
         with patch.object(_mod.struct, "unpack_from", side_effect=RuntimeError("injected")):

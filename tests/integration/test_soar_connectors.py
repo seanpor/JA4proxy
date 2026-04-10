@@ -17,11 +17,11 @@ Tested modules:
 from __future__ import annotations
 
 import asyncio
+
 import pytest
 import pytest_asyncio
 
 from tests.mocks.soar_mock import SOARMock, soar_mock_server
-
 
 # ---------------------------------------------------------------------------
 # Pytest fixtures

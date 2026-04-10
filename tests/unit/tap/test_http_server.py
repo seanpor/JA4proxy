@@ -253,7 +253,8 @@ class TestServerLifecycle:
     @pytest.mark.asyncio
     async def test_server_starts_on_configured_port(self):
         """start() creates a runner; no exception expected."""
-        from unittest.mock import patch, AsyncMock, MagicMock
+        from unittest.mock import AsyncMock, MagicMock, patch
+
         from aiohttp import web
 
         srv = _make_http_server()
@@ -272,7 +273,7 @@ class TestServerLifecycle:
     @pytest.mark.asyncio
     async def test_server_shuts_down_cleanly(self):
         """stop() clears the runner without raising."""
-        from unittest.mock import patch, AsyncMock, MagicMock
+        from unittest.mock import AsyncMock, MagicMock, patch
 
         srv = _make_http_server()
         mock_runner = MagicMock()

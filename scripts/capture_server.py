@@ -14,10 +14,10 @@ Usage:
 Ports: 9443=first name, 9444=second, 9445=third, etc.
 """
 import argparse
-import socket
-import threading
 import pathlib
+import socket
 import sys
+import threading
 import time
 
 FIXTURES_DIR = pathlib.Path("tests/fixtures/clienthello")

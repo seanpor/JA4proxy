@@ -5,13 +5,13 @@ Runs Python and Go proxies side-by-side and compares their decisions
 for a set of binary ClientHello fixtures.
 """
 
+import json
+import os
+import pathlib
 import socket
 import subprocess
-import time
-import json
-import pathlib
 import sys
-import os
+import time
 
 FIXTURES_DIR = pathlib.Path("tests/fixtures/clienthello")
 PYTHON_PORT = 8080

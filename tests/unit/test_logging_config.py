@@ -17,7 +17,6 @@ import pytest
 
 from src.utils.logging_config import JSONFormatter, setup_logging
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

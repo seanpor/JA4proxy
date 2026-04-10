@@ -12,9 +12,10 @@ import redis.asyncio as redis_async
 from aiohttp import web
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
+from src.utils.logging_config import setup_logging
+
 from .config import load_config
 from .stream_consumer import StreamConsumer
-from src.utils.logging_config import setup_logging
 
 # phase-85: optional import — the analytics container can run without ti_feeds
 # (config flag off, missing aiohttp, etc.). Importing the runner module never
