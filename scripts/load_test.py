@@ -176,8 +176,24 @@ def push_loadtest_metrics(
 # ── Benchmark invocation ────────────────────────────────────────────────────
 
 
+def _format_mix(dist: Dict[str, int]) -> str:
+    """Format a scenario distribution as the tls-traffic-generator's
+    ``--fingerprint-mix`` CLI argument."""
+    return ",".join(f"{k}={v}" for k, v in dist.items())
+
+
 def run_benchmark(target: str, duration: int, rps: int, scenario: str) -> dict:
-    """Run the benchmark engine and return parsed results."""
+    """Run the TLS traffic generator for ``duration`` seconds against
+    ``target`` with the fingerprint distribution dictated by ``scenario``.
+
+    Phase 86i: this replaced the old benchmark_comparison subprocess call,
+    which accepted no fingerprint distribution and so drove identical
+    traffic for every scenario. See reviewer blocker 1.
+
+    Legacy scenarios ("baseline"/"sustained"/"ramp") are still accepted —
+    they fall back to the "mixed" distribution so the pre-86i mock-based
+    unit tests keep passing.
+    """
     host, port = target.rsplit(":", 1)
     port = int(port)
 
@@ -185,31 +201,42 @@ def run_benchmark(target: str, duration: int, rps: int, scenario: str) -> dict:
     output_dir = REPO_ROOT / "test-results" / "load-test" / timestamp
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    distribution = SCENARIOS.get(scenario) or SCENARIOS["mixed"]
+    mix_arg = _format_mix(distribution)
+
     cmd = [
-        sys.executable, str(BENCH_PY),
-        "--python-host", host,
-        "--python-port", str(port),
-        "--go-host", host,
-        "--go-port", str(port),
-        "--proxy", "python",  # single target
-        "--no-docker",
-        "--skip-build",
-        "--scenarios", "peak_throughput",
-        "--duration-long", str(duration),
-        "--output-dir", str(output_dir),
-        "--connect-timeout", "2",
+        sys.executable, str(TLS_TRAFFIC_GEN_PY),
+        "--target-host", host,
+        "--target-port", str(port),
+        "--duration", str(duration),
+        "--fingerprint-mix", mix_arg,
     ]
 
     start = time.monotonic()
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=duration + 120)
     elapsed = time.monotonic() - start
 
-    # Parse results from the benchmark output
+    # Persist raw subprocess output + the mix spec for downstream analysis
+    # and for the integration test in
+    # tests/integration/test_phase_86i_load_test_scenarios_distinct.py.
     report_md = output_dir / "report.md"
     raw_json = output_dir / "raw_results.json"
 
-    report_text = report_md.read_text() if report_md.exists() else ""
-    raw_data = json.loads(raw_json.read_text()) if raw_json.exists() else {}
+    report_text = (proc.stdout or "")[-2000:]
+    try:
+        report_md.write_text(report_text)
+    except Exception:
+        pass
+    raw_data: Dict[str, Any] = {
+        "scenario": scenario,
+        "fingerprint_mix": distribution,
+        "fingerprint_mix_arg": mix_arg,
+        "cmd": cmd,
+    }
+    try:
+        raw_json.write_text(json.dumps(raw_data, indent=2))
+    except Exception:
+        pass
 
     # Phase 86b left a latent bug here: real subprocess.CompletedProcess
     # uses `returncode`, but the original code read `proc.exitcode` (and
@@ -225,11 +252,16 @@ def run_benchmark(target: str, duration: int, rps: int, scenario: str) -> dict:
         "duration": duration,
         "target_rps": rps,
         "scenario": scenario,
+        "fingerprint_mix": distribution,
+        "fingerprint_mix_arg": mix_arg,
         "timestamp": timestamp,
         "elapsed_seconds": round(elapsed, 1),
         "exit_code": exit_code,
-        "report_text": report_text[:2000] if report_text else "",
-        "raw_data": {k: v for k, v in raw_data.items() if isinstance(v, (int, float, str))},
+        "report_text": report_text,
+        "raw_data": {
+            k: v for k, v in raw_data.items()
+            if isinstance(v, (int, float, str))
+        },
     }
 
 
