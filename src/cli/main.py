@@ -110,4 +110,4 @@ def geoip_update():
 
 
 if __name__ == "__main__":
-    cli()
+    cli()  # pylint: disable=no-value-for-parameter

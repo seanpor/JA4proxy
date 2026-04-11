@@ -61,7 +61,7 @@ func Load(path string) (*Config, error) {
 	// Expand ${VAR:-default} before parsing so the YAML parser sees real values.
 	expanded := expandEnvVars(string(raw))
 
-	cfg := defaultConfig()
+	cfg := DefaultConfig()
 	if strings.TrimSpace(expanded) == "" {
 		// Empty config file — return defaults
 		return cfg, nil
@@ -95,8 +95,9 @@ func expandEnvVars(s string) string {
 	})
 }
 
-// defaultConfig returns a Config with conservative defaults matching proxy.yml.
-func defaultConfig() *Config {
+// DefaultConfig returns a Config with conservative defaults matching proxy.yml.
+// Exported for use in tests (Phase 200a).
+func DefaultConfig() *Config {
 	return &Config{
 		Proxy: ProxyConfig{
 			BindHost:            "0.0.0.0",
@@ -160,18 +161,30 @@ func defaultConfig() *Config {
 			Enabled: true,
 			Port:    9090,
 		},
+		Monitoring: MonitoringConfig{
+			Enabled:                 false,
+			NTPCheckIntervalSeconds: 60,
+			MaxDriftSeconds:         0.05,
+		},
+		Sync: SyncAgentConfig{
+			DCID:                 "dc-a",
+			ListenAddr:           ":7379",
+			RPCListenAddr:        ":7380",
+			BufferMaxLen:         50000,
+			InboundConsumerGroup: "sync-group",
+		},
 		Tarpit: TarpitConfig{
 			MaxActiveConnections: 500,
-			MaxPerIP:                 3,
-			OverflowAction:           "block",
+			MaxPerIP:             3,
+			OverflowAction:       "block",
 		},
 		ASNClassifier: ASNClassifierConfigYAML{
 			Enabled:            true,
 			DatacenterListPath: "config/asn_datacenter_list.yml",
 			MaxMindDBPath:      "config/GeoLite2-ASN.mmdb",
 			TorExitList: struct {
-				Enabled                bool `yaml:"enabled"`
-				RefreshIntervalSeconds int  `yaml:"refresh_interval_seconds"`
+				Enabled                bool   `yaml:"enabled"`
+				RefreshIntervalSeconds int    `yaml:"refresh_interval_seconds"`
 				DownloadURL            string `yaml:"download_url"`
 			}{
 				Enabled:                true,
@@ -291,70 +304,103 @@ func defaultConfig() *Config {
 
 // Config is the top-level configuration structure. Field names match proxy.yml.
 type Config struct {
-	Proxy          ProxyConfig          `yaml:"proxy"`
-	Redis          RedisConfig          `yaml:"redis"`
-	Security       SecurityConfig       `yaml:"security"`
-	MonitorMode    MonitorModeConfig    `yaml:"monitor_mode"`
-	SecurityPolicy SecurityPolicyConfig `yaml:"security_policy"`
-	RiskScorer     RiskScorerConfig     `yaml:"risk_scorer"`
-	Logging        LoggingConfig        `yaml:"logging"`
-	Metrics        MetricsConfig        `yaml:"metrics"`
-	Tarpit         TarpitConfig         `yaml:"tarpit"`
-	TLSEnforcer    TLSEnforcerConfigYAML  `yaml:"tls_enforcer"`
-	SNIAnalyzer    SNIAnalyzerConfigYAML  `yaml:"sni_analyzer"`
-	GeoIP          GeoIPConfigYAML        `yaml:"geoip"`
-	TCPAnalyzer    TCPAnalyzerConfigYAML  `yaml:"tcp_analyzer"`
-	RateLimiter    RateLimiterConfigYAML  `yaml:"rate_limiter"`
-	ASNClassifier  ASNClassifierConfigYAML `yaml:"asn_classifier"`
-	DNSEnrichment  DNSEnrichmentConfigYAML `yaml:"dns_enrichment"`
-	Blocklists     BlocklistsConfigYAML    `yaml:"blocklists"`
-	Beaconing      BeaconingConfigYAML     `yaml:"beaconing_detector"`
-	AbuseIPDB      AbuseIPDBConfigYAML     `yaml:"abuseipdb"`
-	RDAPEnrichment RDAPConfigYAML          `yaml:"rdap_enrichment"`
-	Fingerprinting FingerprintingConfigYAML `yaml:"fingerprinting"`
+	Proxy           ProxyConfig               `yaml:"proxy"`
+	Redis           RedisConfig               `yaml:"redis"`
+	Security        SecurityConfig            `yaml:"security"`
+	MonitorMode     MonitorModeConfig         `yaml:"monitor_mode"`
+	SecurityPolicy  SecurityPolicyConfig      `yaml:"security_policy"`
+	RiskScorer      RiskScorerConfig          `yaml:"risk_scorer"`
+	Logging         LoggingConfig             `yaml:"logging"`
+	Metrics         MetricsConfig             `yaml:"metrics"`
+	Tarpit          TarpitConfig              `yaml:"tarpit"`
+	TLSEnforcer     TLSEnforcerConfigYAML     `yaml:"tls_enforcer"`
+	SNIAnalyzer     SNIAnalyzerConfigYAML     `yaml:"sni_analyzer"`
+	GeoIP           GeoIPConfigYAML           `yaml:"geoip"`
+	TCPAnalyzer     TCPAnalyzerConfigYAML     `yaml:"tcp_analyzer"`
+	RateLimiter     RateLimiterConfigYAML     `yaml:"rate_limiter"`
+	ASNClassifier   ASNClassifierConfigYAML   `yaml:"asn_classifier"`
+	DNSEnrichment   DNSEnrichmentConfigYAML   `yaml:"dns_enrichment"`
+	Blocklists      BlocklistsConfigYAML      `yaml:"blocklists"`
+	Beaconing       BeaconingConfigYAML       `yaml:"beaconing_detector"`
+	AbuseIPDB       AbuseIPDBConfigYAML       `yaml:"abuseipdb"`
+	RDAPEnrichment  RDAPConfigYAML            `yaml:"rdap_enrichment"`
+	Fingerprinting  FingerprintingConfigYAML  `yaml:"fingerprinting"`
 	StaticAllowlist StaticAllowlistConfigYAML `yaml:"static_allowlist"`
-	Webhooks        WebhooksConfig            `yaml:"webhooks"` // phase-80
+	Webhooks        WebhooksConfig            `yaml:"webhooks"`   // phase-80
+	Monitoring      MonitoringConfig          `yaml:"monitoring"` // phase-88
+	Sync            SyncAgentConfig           `yaml:"sync"`       // phase-88
+}
+
+// MonitoringConfig holds multi-DC observability settings.
+type MonitoringConfig struct {
+	Enabled                 bool    `yaml:"enabled"`
+	NTPCheckIntervalSeconds int     `yaml:"ntp_check_interval_seconds"`
+	MaxDriftSeconds         float64 `yaml:"max_drift_seconds"`
+}
+
+// SyncAgentConfig holds cross-DC replication settings.
+type SyncAgentConfig struct {
+	DCID                 string   `yaml:"dc_id"`
+	ListenAddr           string   `yaml:"listen_addr"`
+	RPCListenAddr        string   `yaml:"rpc_listen_addr"`
+	RemotePeers          []string `yaml:"remote_peers"`
+	BufferMaxLen         int      `yaml:"buffer_maxlen"`
+	InboundConsumerGroup string   `yaml:"inbound_consumer_group"`
+	CertFile             string   `yaml:"cert_file"`
+	KeyFile              string   `yaml:"key_file"`
+	CAFile               string   `yaml:"ca_file"`
+	IntegrityKeyFile     string   `yaml:"integrity_key_file"`
+	IntegrityPubFile     string   `yaml:"integrity_pub_file"`
+}
+
+// UpstreamTrustConfig holds PROXY protocol trust settings (Phase 200a).
+type UpstreamTrustConfig struct {
+	Enabled      bool     `yaml:"enabled"`
+	TrustedCIDRs []string `yaml:"trusted_cidrs"`
 }
 
 // ProxyConfig holds network listener and connection settings.
 // BackendPort and BackendHost use FlexInt/FlexString to handle env var expansion
 // which can produce quoted strings in YAML (e.g. "${BACKEND_PORT:-443}" → "443").
 type ProxyConfig struct {
-	BindHost            string  `yaml:"bind_host"`
-	BindPort            FlexInt `yaml:"bind_port"`
-	BackendHost         string  `yaml:"backend_host"`
-	BackendPort         FlexInt `yaml:"backend_port"`
-	TarpitHost          string  `yaml:"tarpit_host"`
-	TarpitPort          FlexInt `yaml:"tarpit_port"`
-	MaxConnections      int     `yaml:"max_connections"`
-	DrainTimeoutSeconds int     `yaml:"drain_timeout_seconds"`
-	ConnectionTimeout   int     `yaml:"connection_timeout"`
-	ReadTimeout         int     `yaml:"read_timeout"`
-	WriteTimeout        int     `yaml:"write_timeout"`
-	ProxyProtocol       bool    `yaml:"proxy_protocol"`
-	BufferSize          int     `yaml:"buffer_size"`
+	BindHost            string              `yaml:"bind_host"`
+	BindPort            FlexInt             `yaml:"bind_port"`
+	BackendHost         string              `yaml:"backend_host"`
+	BackendPort         FlexInt             `yaml:"backend_port"`
+	TarpitHost          string              `yaml:"tarpit_host"`
+	TarpitPort          FlexInt             `yaml:"tarpit_port"`
+	MaxConnections      int                 `yaml:"max_connections"`
+	DrainTimeoutSeconds int                 `yaml:"drain_timeout_seconds"`
+	ConnectionTimeout   int                 `yaml:"connection_timeout"`
+	ReadTimeout         int                 `yaml:"read_timeout"`
+	WriteTimeout        int                 `yaml:"write_timeout"`
+	ProxyProtocol       bool                `yaml:"proxy_protocol"`
+	BufferSize          int                 `yaml:"buffer_size"`
+	UpstreamTrust       UpstreamTrustConfig `yaml:"upstream_trust"`
 }
 
 // RedisConfig holds Redis connection settings.
 type RedisConfig struct {
-	Host     string  `yaml:"host"`
-	Port     FlexInt `yaml:"port"`
-	DB       int     `yaml:"db"`
-	Password string  `yaml:"password"`
-	Timeout  FlexInt `yaml:"timeout"`
-	SSL      bool    `yaml:"ssl"`
+	Host       string   `yaml:"host"`
+	Port       FlexInt  `yaml:"port"`
+	MasterName string   `yaml:"master_name"`
+	Sentinels  []string `yaml:"sentinels"`
+	DB         int      `yaml:"db"`
+	Password   string   `yaml:"password"`
+	Timeout    FlexInt  `yaml:"timeout"`
+	SSL        bool     `yaml:"ssl"`
 }
 
 // SecurityConfig holds security-related settings including JA4 lists.
 type SecurityConfig struct {
-	WhitelistEnabled bool     `yaml:"whitelist_enabled"`
-	BlacklistEnabled bool     `yaml:"blacklist_enabled"`
-	RateLimiting     bool     `yaml:"rate_limiting"`
-	TarpitEnabled    bool     `yaml:"tarpit_enabled"`
-	BanDuration      int      `yaml:"ban_duration"`
-	Whitelist        []string `yaml:"whitelist"`
+	WhitelistEnabled  bool     `yaml:"whitelist_enabled"`
+	BlacklistEnabled  bool     `yaml:"blacklist_enabled"`
+	RateLimiting      bool     `yaml:"rate_limiting"`
+	TarpitEnabled     bool     `yaml:"tarpit_enabled"`
+	BanDuration       int      `yaml:"ban_duration"`
+	Whitelist         []string `yaml:"whitelist"`
 	WhitelistPatterns []string `yaml:"whitelist_patterns"`
-	Blacklist        []string `yaml:"blacklist"`
+	Blacklist         []string `yaml:"blacklist"`
 }
 
 // MonitorModeConfig holds dial and monitor mode settings.
@@ -417,8 +463,8 @@ type MetricsConfig struct {
 // TarpitConfig holds tarpit self-protection settings.
 type TarpitConfig struct {
 	MaxActiveConnections int    `yaml:"max_concurrent_connections"`
-	MaxPerIP                 int    `yaml:"max_per_ip"`
-	OverflowAction           string `yaml:"overflow_action"`
+	MaxPerIP             int    `yaml:"max_per_ip"`
+	OverflowAction       string `yaml:"overflow_action"`
 }
 
 // TLSEnforcerConfigYAML holds TLS enforcement settings from proxy.yml.
@@ -452,8 +498,8 @@ type SNIAnalyzerConfigYAML struct {
 
 // GeoIPConfigYAML holds GeoIP database settings from proxy.yml.
 type GeoIPConfigYAML struct {
-	DBPath                 string   `yaml:"database_path"`
-	ASNDBPath              string   `yaml:"asn_db_path"`
+	DBPath                  string   `yaml:"database_path"`
+	ASNDBPath               string   `yaml:"asn_db_path"`
 	CountryWhitelistEnabled bool     `yaml:"country_whitelist_enabled"`
 	CountryWhitelist        []string `yaml:"country_whitelist"`
 	CountryBlacklistEnabled bool     `yaml:"country_blacklist_enabled"`
@@ -502,8 +548,8 @@ type ASNClassifierConfigYAML struct {
 	DatacenterASNs     []uint   `yaml:"datacenter_asns"`
 	DatacenterOrgs     []string `yaml:"datacenter_orgs"`
 	TorExitList        struct {
-		Enabled                bool `yaml:"enabled"`
-		RefreshIntervalSeconds int  `yaml:"refresh_interval_seconds"`
+		Enabled                bool   `yaml:"enabled"`
+		RefreshIntervalSeconds int    `yaml:"refresh_interval_seconds"`
 		DownloadURL            string `yaml:"download_url"`
 	} `yaml:"tor_exit_list"`
 	RiskContributions struct {
@@ -550,11 +596,11 @@ type BlocklistsConfigYAML struct {
 
 // BeaconingConfigYAML holds beaconing detector settings from proxy.yml.
 type BeaconingConfigYAML struct {
-	Enabled                  bool    `yaml:"enabled"`
-	MinObservations          int     `yaml:"min_observations"`
-	WindowSize               int     `yaml:"window_size"`
-	ObservationWindowSeconds int     `yaml:"observation_window_seconds"`
-	Score                    int     `yaml:"score"`
+	Enabled                  bool `yaml:"enabled"`
+	MinObservations          int  `yaml:"min_observations"`
+	WindowSize               int  `yaml:"window_size"`
+	ObservationWindowSeconds int  `yaml:"observation_window_seconds"`
+	Score                    int  `yaml:"score"`
 	LongWindow               struct {
 		Enabled       bool `yaml:"enabled"`
 		WindowSeconds int  `yaml:"window_seconds"`
@@ -576,12 +622,12 @@ type AbuseIPDBConfigYAML struct {
 
 // RDAPConfigYAML holds RDAP enrichment settings from proxy.yml.
 type RDAPConfigYAML struct {
-	Enabled           bool   `yaml:"enabled"`
-	QueueSize         int    `yaml:"queue_size"`
-	WorkerCount       int    `yaml:"worker_count"`
-	MinEnqueueScore   int    `yaml:"min_enqueue_score"`
-	KnownBadOrgsPath  string `yaml:"known_bad_orgs_path"`
-	OrgReputation     struct {
+	Enabled          bool   `yaml:"enabled"`
+	QueueSize        int    `yaml:"queue_size"`
+	WorkerCount      int    `yaml:"worker_count"`
+	MinEnqueueScore  int    `yaml:"min_enqueue_score"`
+	KnownBadOrgsPath string `yaml:"known_bad_orgs_path"`
+	OrgReputation    struct {
 		Enabled bool `yaml:"enabled"`
 		Score   int  `yaml:"score"`
 	} `yaml:"org_reputation"`

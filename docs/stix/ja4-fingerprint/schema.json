@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ja4proxy.io/stix/extensions/ja4-fingerprint/schema.json",
+  "title": "x-ja4-fingerprint SCO",
+  "description": "JSON Schema for the x-ja4-fingerprint STIX 2.1 Cyber Observable Object extension. See docs/stix/ja4-fingerprint-extension.md for the prose specification. The pattern in `properties.value` mirrors the permissive validator at src/analytics/ti_feeds/stix_ja4.py::_JA4_EXTRACT_REGEX so the publisher and consumer round-trip cleanly.",
+  "type": "object",
+  "required": ["type", "spec_version", "id", "value", "extensions"],
+  "additionalProperties": true,
+  "properties": {
+    "type": {
+      "type": "string",
+      "const": "x-ja4-fingerprint"
+    },
+    "spec_version": {
+      "type": "string",
+      "const": "2.1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^x-ja4-fingerprint--[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "value": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^t[0-9a-z]{6,10}_[0-9a-f]{12}_[0-9a-f]{12}$",
+      "description": "JA4 TLS ClientHello fingerprint. MUST NOT contain whitespace, NUL, or backticks. Format and rationale in docs/stix/ja4-fingerprint-extension.md §3."
+    },
+    "extensions": {
+      "type": "object",
+      "required": ["extension-definition--3b37e1e8-5a20-4c3d-aa0c-9a581b6f9d4e"],
+      "properties": {
+        "extension-definition--3b37e1e8-5a20-4c3d-aa0c-9a581b6f9d4e": {
+          "type": "object",
+          "required": ["extension_type"],
+          "additionalProperties": true,
+          "properties": {
+            "extension_type": {
+              "type": "string",
+              "const": "new-sco"
+            },
+            "likely_category": {
+              "type": ["string", "null"]
+            },
+            "likely_tool": {
+              "type": ["string", "null"]
+            },
+            "ja4x": {
+              "type": ["string", "null"]
+            },
+            "source": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

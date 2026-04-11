@@ -22,7 +22,6 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 import requests
 
-
 # ---------------------------------------------------------------------------
 # Import helper — gives an explicit ImportError if the module doesn't exist
 # ---------------------------------------------------------------------------

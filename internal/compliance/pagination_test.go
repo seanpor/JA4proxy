@@ -231,7 +231,7 @@ func TestPageIterator_ContextCancelledReturnsError(t *testing.T) {
 		// Stall briefly — context will have already been cancelled.
 		resp := map[string]interface{}{
 			"connections": []compliance.ConnectionEvent{},
-			"count": 0, "has_more": false, "next_page_token": nil,
+			"count":       0, "has_more": false, "next_page_token": nil,
 			"total_in_window": 0, "truncated": false,
 		}
 		_ = json.NewEncoder(w).Encode(resp)

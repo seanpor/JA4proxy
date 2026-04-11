@@ -1,0 +1,95 @@
+{
+  "title": "JA4proxy — Health & Security",
+  "description": "JA4proxy TLS passthrough security proxy: node health, connection throughput, block rate, Redis latency, certificate expiry. Phase 86d.",
+  "widgets": [
+    {
+      "title": "Node Health",
+      "definition": {
+        "type": "toplist",
+        "requests": [{
+          "response_format": "scalar",
+          "queries": [{
+            "data_source": "metrics",
+            "name": "query1",
+            "query": "avg:ja4proxy.node.healthy{*} by {node}",
+            "aggregator": "last"
+          }]
+        }],
+        "style": {
+          "palette": "dog_classic"
+        }
+      }
+    },
+    {
+      "title": "Connection Throughput",
+      "definition": {
+        "type": "timeseries",
+        "requests": [{
+          "q": "sum:ja4proxy.connections.total{*}",
+          "style": {"palette": "dog_classic"}
+        }],
+        "yaxis": {"scale": "linear", "min": "auto", "max": "auto"}
+      }
+    },
+    {
+      "title": "Block Rate (%)",
+      "definition": {
+        "type": "timeseries",
+        "requests": [{
+          "q": "avg:ja4proxy.block_rate_pct{*} by {node}",
+          "style": {"palette": "dog_classic"}
+        }],
+        "markers": [
+          {"value": "y = 2", "label": "Warning threshold"}
+        ]
+      }
+    },
+    {
+      "title": "Active Bans",
+      "definition": {
+        "type": "query_value",
+        "requests": [{
+          "q": "sum:ja4proxy.bans.active{*}",
+          "aggregator": "sum"
+        }]
+      }
+    },
+    {
+      "title": "Redis Latency Heatmap",
+      "definition": {
+        "type": "heatmap",
+        "requests": [{
+          "q": "avg:ja4proxy.node.redis_latency_ms{*} by {node}"
+        }]
+      }
+    },
+    {
+      "title": "Dial Setting History",
+      "definition": {
+        "type": "timeseries",
+        "requests": [{
+          "q": "avg:ja4proxy.node.dial_setting{*} by {node}"
+        }]
+      }
+    },
+    {
+      "title": "Certificate Expiry Countdown",
+      "definition": {
+        "type": "query_value",
+        "requests": [{
+          "q": "min:ja4proxy.node.cert_days_remaining{*} by {node}",
+          "aggregator": "min"
+        }],
+        "conditional_formats": [
+          {"comparator": "<=", "value": 30, "palette": "white_on_yellow"},
+          {"comparator": "<=", "value": 7, "palette": "white_on_red"}
+        ]
+      }
+    }
+  ],
+  "layout_type": "ordered",
+  "is_read_only": false,
+  "template_variables": [
+    {"name": "node", "prefix": "node", "default": "*"}
+  ]
+}

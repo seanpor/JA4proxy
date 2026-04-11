@@ -30,10 +30,10 @@ type PolicyDuplicateError struct{ Msg string }
 // points without shadow_mode_approved: true.
 type PolicyValidationError struct{ Msg string }
 
-func (e *PolicySyntaxError) Error() string    { return e.Msg }
-func (e *PolicySchemaError) Error() string    { return e.Msg }
-func (e *PolicyTTLError) Error() string       { return e.Msg }
-func (e *PolicyDuplicateError) Error() string { return e.Msg }
+func (e *PolicySyntaxError) Error() string     { return e.Msg }
+func (e *PolicySchemaError) Error() string     { return e.Msg }
+func (e *PolicyTTLError) Error() string        { return e.Msg }
+func (e *PolicyDuplicateError) Error() string  { return e.Msg }
 func (e *PolicyValidationError) Error() string { return e.Msg }
 
 // ja4Pattern matches valid JA4 fingerprints: 10 lowercase alphanumeric chars,

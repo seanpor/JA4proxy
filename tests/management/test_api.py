@@ -1,8 +1,10 @@
 import json
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
+
 from src.management.app import app, redis_manager
-from unittest.mock import AsyncMock, patch
 
 client = TestClient(app)
 

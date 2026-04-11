@@ -22,7 +22,6 @@ import re
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # REDIS_URL password handling
 # ---------------------------------------------------------------------------
@@ -148,8 +147,9 @@ def test_jwt_secret_missing_raises_on_token_creation() -> None:
     not silently use an empty/default secret."""
     old = os.environ.pop("MANAGEMENT_JWT_SECRET", None)
     try:
-        from management.api import auth as auth_module
         import importlib
+
+        from management.api import auth as auth_module
         importlib.reload(auth_module)
 
         # _get_secret_key() should raise or return a non-empty value
@@ -168,5 +168,6 @@ def test_jwt_secret_missing_raises_on_token_creation() -> None:
             os.environ["MANAGEMENT_JWT_SECRET"] = old
         # Reload to restore original state
         import importlib
+
         from management.api import auth as auth_module
         importlib.reload(auth_module)

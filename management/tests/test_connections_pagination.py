@@ -14,14 +14,14 @@ Quality bar
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone, timedelta
+import os
+from datetime import datetime, timedelta, timezone
 
 import fakeredis.aioredis
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
-import os
 os.environ.setdefault("MANAGEMENT_JWT_SECRET", "test-secret-do-not-use-in-production")
 os.environ.setdefault("MANAGEMENT_ADMIN_USER", "admin")
 os.environ.setdefault("MANAGEMENT_ADMIN_PASSWORD", "testpassword")
@@ -30,7 +30,6 @@ os.environ.setdefault("MANAGEMENT_TEST_MODE", "1")
 from management.api import redis_client as _redis_module
 from management.api.auth import _create_access_token
 from management.api.main import create_app
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 

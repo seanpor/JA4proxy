@@ -1,50 +1,256 @@
-# Phase 64: Deployment Validation & Disaster Recovery
+# Phase 64 — Deployment Validation & Disaster Recovery
+
+> **Status:** PROPOSED
+> **Size:** L (decomposed into 9 independent sub-phases: 64a–64i)
+> **Owner files:** `scripts/smoke/*.sh`, `scripts/measure_mttr.sh`, `monitoring/alertmanager/rules/tls_alerts.yml`, `docs/runbooks/disaster_recovery.md` + 4 sibling runbooks, `Makefile`, `scripts/generate_validation_report.py`
+> **Depends on:** Phase 63 (`ja4proxy_tls_cert_expiry_timestamp_seconds` gauge — **live in `internal/metrics/metrics.go`**)
+> **Independent of:** Phase 61, 62
+> **Last rewritten:** 2026-04-09 (restructured into sub-phases per Claude re-plan review)
 
 ---
 
-## 1. Overview
+## ⚠ Read this first — scope boundaries
 
-All three deployment topologies for JA4proxy are documented: Docker Compose
-(dev/staging), Kubernetes via Helm chart (Phases 72–75), and RHEL 8/9 via Podman
-Quadlets (Phase 76). None of those documents have been executed end-to-end in a
-controlled environment and verified to produce a working, healthy proxy. A DR runbook
-does not exist. No MTTR baseline has been measured.
+**This phase is pure deployment artefacts: shell scripts, Markdown runbooks, and
+Prometheus alert YAML. It touches NO Go source code and NO Python source code
+(except `scripts/generate_validation_report.py` in sub-phase 64i, where a single
+`--section deployment` flag is appended).**
 
-Enterprise buyers connecting to Phase 80 (SIEM integration) and Phase 84 (compliance
-reports) require evidence that deployment procedures work and that recovery from common
-failure scenarios has been exercised. A documented Helm chart that has never been
-deployed into a real cluster is not evidence. Phase 64 closes this gap.
+The Go binary (`bin/proxy`) is the production runtime. The Python proxy (`proxy.py`)
+is a prototyping surface only. All runbook commands in this document target the Go
+production path.
 
-This phase does NOT write new deployment documentation — Phases 72–75 (Docker/K8s
-network isolation), Phase 76 (RHEL/Podman/Quadlets), and Phase 77 (SIEM integration
-patterns) already wrote those. It does NOT implement training programs or continuous
-improvement processes. It does NOT require human coordination that cannot be scripted or
-automated.
+**Smoke tests:** `make smoke-docker` runs as a **non-blocking** CI status check by
+default. Operators may promote it to required after a stability window by editing
+the `smoke_required` input in `.github/workflows/ci.yml`. `make smoke-k8s` is
+always optional (runs only when `kind` is present).
 
-What it delivers: a deployment smoke test suite that exercises each topology end-to-end,
-a DR runbook with five failure scenarios and tested recovery steps, credential and TLS
-certificate rotation runbooks, a rolling upgrade procedure, a GameDay design document,
-MTTR baseline measurements, and a pre-enterprise validation report section.
+**Hot-reload signal target — Go production only:**
+
+```bash
+# systemd-managed deployment (RHEL/Quadlet, most enterprise installs)
+systemctl kill --signal=HUP ja4proxy.service
+
+# Container deployment
+docker kill --signal=HUP ja4proxy        # Docker Compose service name
+podman kill --signal=HUP ja4proxy        # Podman / Quadlet
+
+# Kubernetes
+kubectl exec -it ja4proxy-xxxxx -- kill -HUP 1
+
+# Bare process (development only)
+pkill -HUP -f bin/proxy
+```
+
+**Health endpoint:** `http://<mgmt-host>:8090/api/v1/health/deep` — Management API
+(FastAPI, port 8090). All smoke scripts and MTTR measurements poll this endpoint.
+**Before running any script, verify the endpoint is live:**
+```bash
+curl -sf http://localhost:8090/api/v1/health/deep | python3 -m json.tool
+```
+If the path or port differs on your deployment, update the `HEALTH_URL` variable at
+the top of each script.
 
 ---
 
-## 2. Deployment Smoke Test Suite
+## Already done — do not redo
 
-All smoke test scripts live in `scripts/smoke/`. Each follows the same contract: exit
-code 0 means pass, exit code 1 means fail with the reason printed to stderr. All scripts
-write structured pass/fail output to `test-results/smoke/` (created if absent) with a
-timestamp prefix so CI artifacts are retained across runs.
+- `Dockerfile.go-proxy` already has `USER ja4proxy` (line 51) — Phase 202
+  acceptance can close that checkbox without code changes.
+- The runbook library at `docs/runbooks/` already contains
+  `redis_operations.md`, `go_proxy_operations.md`, `go_proxy_migration.md`,
+  `security_incident_response.md`, `feed_management.md`,
+  `external_api_failures.md`, `scaling.md`, `zero_downtime_rollouts.md`.
+  This phase **references** those files; it does not duplicate their content.
+- Phase 63 has shipped `ja4proxy_tls_cert_expiry_timestamp_seconds` gauge
+  (`internal/metrics/metrics.go`, `cmd/proxy/main.go`). Alert rules in this
+  phase consume the gauge directly — no `absent_over_time` guard needed.
 
-### 2.1 `scripts/smoke/test_docker_compose.sh`
+---
 
-CI-runnable. Tests the full Docker Compose stack: starts it, verifies all containers are
-Running and healthy, sends a synthetic connection through the proxy, then tears down
-cleanly.
+## How to start — pick a sub-phase
+
+All nine sub-phases are independent (except 64d, which reads a file from 64c).
+A junior engineer should pick **one** sub-phase, create the branch, and deliver
+it without needing context from the others.
+
+**Recommended order for first-time contributors:**
+
+| Priority | Sub-phase | Why |
+|----------|-----------|-----|
+| 1st | **64a** (Docker Compose smoke) | Smallest scope, immediate feedback, no external dependencies |
+| 2nd | **64b** (Helm/kind smoke) | Same pattern as 64a, skip-if-absent makes it forgiving |
+| 3rd | **64e** (Credential rotation) | Pure Markdown, copy-paste-friendly procedures |
+| 4th | **64c** (Disaster recovery runbook) | Largest doc, but well-structured — follow the 5-scenario template |
+| 5th | **64d** (GameDay scenarios) | Pure Markdown; requires 64c's file to exist first (see §64d) |
+| 6th | **64f** (TLS cert rotation + alerts) | Alert YAML needs `promtool` validation (command inline below) |
+| 7th | **64g** (Rolling upgrade) | Pure Markdown, references HAProxy config that may need verification |
+| 8th | **64h** (MTTR baseline) | Largest script — pre-written template, but requires live stack to run |
+| 9th | **64i** (Validation report) | Wiring work in an existing Python file — needs exact insertion points |
+
+**Before running ANY smoke test or MTTR measurement, verify the health endpoint:**
+
+```bash
+# Pre-flight check — run this first
+curl -sf http://localhost:8090/api/v1/health/deep | python3 -m json.tool
+```
+
+If this returns a JSON object (not an HTML error page, not a connection refusal),
+the management API is live and all smoke/MTTR scripts will work. If it fails,
+see the "Pre-flight checklist" section below before starting any sub-phase that
+runs scripts against a live stack (64a, 64b, 64h).
+
+---
+
+## Pre-flight checklist
+
+Run these checks before starting any sub-phase that executes scripts against a
+live stack. **Sub-phases 64c, 64d, 64e, 64f, and 64g are pure documentation and
+do not require any of these checks.**
+
+### 1. Health endpoint is live
+
+```bash
+curl -sf http://localhost:8090/api/v1/health/deep | python3 -m json.tool
+```
+
+- **200 OK + JSON body:** ✅ Proceed.
+- **Connection refused:** The management API (FastAPI, port 8090) is not running.
+  Start the full stack with `make start` or run the management UI standalone.
+- **404 Not Found:** The `/api/v1/health/deep` route does not exist yet.
+  **File a Phase 101 entry** — do not block this phase. Update `HEALTH_URL`
+  in each script to an alternate endpoint that exists.
+- **HTML error page:** The route exists but is returning an error. Check
+  management API logs.
+
+### 2. Docker Compose is available
+
+```bash
+docker compose version   # Must be v2.x (space-separated)
+```
+
+- **v2.x:** ✅ Proceed.
+- **v1.x (`docker-compose`):** Install Docker Compose v2. All scripts in this
+  phase use `docker compose` (v2 syntax).
+- **Command not found:** Install Docker Engine + Compose plugin.
+
+### 3. `redis-cli` is available (64h only)
+
+```bash
+redis-cli PING
+```
+
+- **PONG:** ✅ Proceed.
+- **Command not found:** Install `redis-tools` (`apt install redis-tools`,
+  `brew install redis`, or download from https://redis.io/docs/install/).
+- **Connection refused:** Redis is not running on localhost:6379. Start the
+  full stack with `make start`.
+
+### 4. HAProxy `socat` is available (64g rolling upgrade only)
+
+```bash
+docker compose exec haproxy which socat
+```
+
+- **Found:** ✅ Proceed.
+- **Not found:** The Docker Compose rolling upgrade path cannot drain/re-enable
+  backends gracefully. The script will fall back to waiting for health checks
+  to re-route traffic. This is non-blocking — note it in `PHASE_64g_notes.md`.
+
+### 5. `promtool` is available (64f alert rules only)
+
+```bash
+promtool --version
+```
+
+- **Found:** ✅ Proceed.
+- **Not found:** Install from https://prometheus.io/docs/prometheus/latest/installation/
+  or use the inline `promtool check rules` command provided in §64f.
+
+---
+
+## Deployment quick reference
+
+All scenarios below reference this table for deployment-specific commands
+(`start`, `stop`, `status`, `logs`, `hot-reload`).
+
+| Operation | Docker Compose | Kubernetes | RHEL / Podman Quadlet |
+|---|---|---|---|
+| **Start** | `docker compose up -d` | `helm install ja4proxy deploy/helm/ja4proxy/ --wait` | `systemctl --user start ja4proxy` |
+| **Stop** | `docker compose down -v` | `helm delete ja4proxy` | `systemctl --user stop ja4proxy` |
+| **Status** | `docker compose ps` | `kubectl get pods -l app=ja4proxy` | `systemctl --user status ja4proxy` |
+| **Logs** | `docker compose logs --tail=50 ja4proxy` | `kubectl logs -l app=ja4proxy --tail=50` | `journalctl --user -u ja4proxy -n 50` |
+| **Hot-reload** | `docker kill --signal=HUP ja4proxy` | `kubectl exec ja4proxy-xxx -- kill -HUP 1` | `systemctl kill --signal=HUP ja4proxy.service` |
+| **Health** | `curl -sf http://localhost:8090/api/v1/health/deep` | `kubectl exec ja4proxy-xxx -- wget -qO- http://localhost:8090/api/v1/health/deep` | `curl -sf http://localhost:8090/api/v1/health/deep` |
+
+> All Docker commands use `docker compose` (v2, space-separated), never
+> `docker-compose` (v1, hyphenated, EOL since 2023).
+
+---
+
+## Sub-phase index
+
+Phase 64 is decomposed into **nine independent sub-phases**. Each is one branch,
+one PR, one reviewer. Eight of nine are fully independent — 64d has a soft
+dependency on 64c (see decoupling note below).
+
+| Sub-phase | Deliverable | Size |
+|---|---|---|
+| [64a](#sub-phase-64a--docker-compose-smoke-test) | `scripts/smoke/test_docker_compose.sh` + CI job | XS |
+| [64b](#sub-phase-64b--helm--kind-smoke-test) | `scripts/smoke/test_helm_kind.sh` + CI job | XS |
+| [64c](#sub-phase-64c--disaster-recovery-runbook) | `docs/runbooks/disaster_recovery.md` (5 scenarios) | S |
+| [64d](#sub-phase-64d--gameday-scenarios) | `docs/runbooks/gameday_scenarios.md` + exercise log | XS |
+| [64e](#sub-phase-64e--credential-rotation) | `docs/runbooks/credential_rotation.md` | XS |
+| [64f](#sub-phase-64f--tls-certificate-rotation--alerts) | `docs/runbooks/tls_certificate_rotation.md` + `tls_alerts.yml` | S |
+| [64g](#sub-phase-64g--rolling-upgrade) | `docs/runbooks/rolling_upgrade.md` | S |
+| [64h](#sub-phase-64h--mttr-baseline) | `scripts/measure_mttr.sh` + `MTTR_BASELINE.md` | M |
+| [64i](#sub-phase-64i--validation-report-deployment-section) | `--section deployment` on `generate_validation_report.py` | XS |
+
+**Soft dependency — 64d on 64c (decoupled):**
+64d's GameDay exercises reference scenarios defined in 64c's DR runbook.
+To avoid merge conflicts and blocking:
+- **64d writes its exercise log to `gameday_scenarios.md` first** (own section).
+- **After 64c merges, a separate follow-up commit** copies the "Runbook Exercise
+  History" entry into `disaster_recovery.md`. This is a 2-line edit, not a
+  sub-phase — any reviewer can do it.
+- **64d does NOT wait for 64c to merge.** Develop in parallel. The copy step
+  happens post-merge.
+
+**Dropped (file as Phase 101 entries):**
+- Podman/Quadlet smoke test — `deploy/rhel/quadlets/` does not exist. Phase 76
+  was a strategy document only. Revisit when Phase 76 produces actual `.container`,
+  `.network`, `.kube` unit files.
+- `ja4proxy-cli backup …` references — the Go CLI (`cmd/ja4proxy-cli/main.go`)
+  has **no `backup` subcommand**. Phase 19's backup system is Python-only
+  (`src/backup/worker.py`, `src/backup/restorer.py`). All runbooks must use the
+  correct invocation (see §64c Scenario 5).
+
+---
+
+## Sub-phase 64a — Docker Compose smoke test
+
+**Deliverable:** `scripts/smoke/test_docker_compose.sh` and a `make smoke-docker`
+target. Non-blocking CI status check by default (promotable to required).
+
+**What the script must do:**
+1. `mkdir -p test-results/smoke` and open a timestamped log.
+2. `docker compose up -d` (v2 syntax, space-separated).
+3. Poll `http://localhost:8090/api/v1/health/deep` for up to 60 s; fail if
+   it never returns 200. **Verify this endpoint is live before running
+   the script** (see "Health endpoint" at the top of this document).
+4. Verify every service in `docker compose ps --format json` has
+   `State == "running"`. Fail with the list of unhealthy services if not.
+5. Send a synthetic TLS connection to `localhost:8080` via
+   `openssl s_client`. Treat any TLS-layer response as success; treat
+   `Connection refused` as failure (the proxy is not listening).
+6. `docker compose down -v` and write `PASS` to
+   `test-results/smoke/docker-compose.result` on success.
 
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
 
+HEALTH_URL="${HEALTH_URL:-http://localhost:8090/api/v1/health/deep}"
 RESULTS_DIR="test-results/smoke"
 mkdir -p "$RESULTS_DIR"
 LOG="$RESULTS_DIR/docker-compose-$(date +%Y%m%dT%H%M%S).log"
@@ -53,11 +259,11 @@ log() { echo "[$(date -u +%H:%M:%S)] $*" | tee -a "$LOG"; }
 fail() { log "FAIL: $*"; exit 1; }
 
 log "Starting Docker Compose stack..."
-docker-compose up -d 2>>"$LOG" || fail "docker-compose up failed"
+docker compose up -d 2>>"$LOG" || fail "docker compose up failed"
 
 log "Waiting for health endpoint (max 60s)..."
 for i in $(seq 1 60); do
-  if curl -sf --max-time 5 http://localhost:8090/api/v1/health/deep >/dev/null 2>&1; then
+  if curl -sf --max-time 5 "$HEALTH_URL" >/dev/null 2>&1; then
     log "Health endpoint OK after ${i}s"
     break
   fi
@@ -66,33 +272,72 @@ for i in $(seq 1 60); do
 done
 
 log "Checking all containers are Running..."
-UNHEALTHY=$(docker-compose ps --format json 2>/dev/null \
+UNHEALTHY=$(docker compose ps --format json 2>/dev/null \
   | python3 -c "import sys,json; [print(s['Service']) for s in json.load(sys.stdin) if s.get('State') != 'running']" \
   2>/dev/null || true)
 [ -n "$UNHEALTHY" ] && fail "Containers not running: $UNHEALTHY"
 
 log "Sending synthetic TLS connection through port 8080..."
-# openssl s_client exits non-zero for TLS errors; a connection-refused also exits non-zero.
-# We accept any TLS-level response (including the proxy's block/tarpit) as proof of connectivity.
 echo "Q" | openssl s_client -connect localhost:8080 -servername localhost \
   -verify_return_error 2>>"$LOG" || {
-  # Proxy may reject the connection at TLS level — that is acceptable.
-  # What is NOT acceptable is connection refused (means proxy is not listening).
   grep -q "Connection refused" "$LOG" && fail "Proxy port 8080 is not listening"
   log "Proxy responded at TLS layer (connection accepted and processed)"
 }
 
 log "Tearing down stack..."
-docker-compose down -v 2>>"$LOG" || fail "docker-compose down failed"
+docker compose down -v 2>>"$LOG" || fail "docker compose down failed"
 
 log "PASS: Docker Compose smoke test"
 echo "PASS" > "$RESULTS_DIR/docker-compose.result"
 ```
 
-### 2.2 `scripts/smoke/test_helm_kind.sh`
+**CI configuration (`.github/workflows/ci.yml`):**
+```yaml
+  smoke-docker:
+    runs-on: ubuntu-latest
+    continue-on-error: ${{ !inputs.smoke_required }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: make smoke-docker
+```
 
-CI-runnable via GitHub Actions. Creates a single-node `kind` cluster, installs the Helm
-chart with `--wait`, runs a health check inside the cluster, then deletes the cluster.
+The `smoke_required` input defaults to `false`. After a one-week stability
+window, the team sets it to `true` to make this a blocking check.
+
+**Makefile target (append to bottom):**
+```makefile
+smoke-docker:
+	bash scripts/smoke/test_docker_compose.sh
+```
+
+**Acceptance criteria:**
+- [ ] Script runs to PASS on a clean clone after `make build`.
+- [ ] Script exits non-zero with clear stderr if any container is not running.
+- [ ] `make smoke-docker` invokes the script.
+- [ ] CI job `smoke-docker` added as non-blocking (continue-on-error) to `.github/workflows/ci.yml`.
+- [ ] Script uses `docker compose` (v2), never `docker-compose` (v1).
+- [ ] `PHASE_64a_notes.md` records the host, compose version, and log path.
+
+**Out of scope:** Helm, kind, podman, MTTR measurement.
+
+---
+
+## Sub-phase 64b — Helm + kind smoke test
+
+**Deliverable:** `scripts/smoke/test_helm_kind.sh` and a `make smoke-k8s`
+target. Always optional (runs only when `kind` is on `$PATH`).
+
+**What the script must do:**
+1. Skip with exit 0 and a clear `SKIP:` message if `kind` or `helm` are not
+   on `$PATH`.
+2. Create a single-node `kind` cluster named `ja4proxy-smoke`. Always
+   delete it on exit via `trap`.
+3. `helm install ja4proxy deploy/helm/ja4proxy/ --wait --timeout=120s`.
+4. `kubectl rollout status deployment/ja4proxy --timeout=60s` (note: the
+   chart uses a Deployment, not a DaemonSet — verify `deploy/helm/ja4proxy/`
+   before running; if a DaemonSet exists, use that instead).
+5. `kubectl exec` into the first pod and curl its in-pod health endpoint.
+6. Write `PASS` to `test-results/smoke/helm-kind.result` on success.
 
 ```bash
 #!/usr/bin/env bash
@@ -105,7 +350,6 @@ LOG="$RESULTS_DIR/helm-kind-$(date +%Y%m%dT%H%M%S).log"
 log() { echo "[$(date -u +%H:%M:%S)] $*" | tee -a "$LOG"; }
 fail() { log "FAIL: $*"; exit 1; }
 
-# Prerequisite check
 if ! command -v kind &>/dev/null; then
   log "SKIP: kind not found. Install kind (https://kind.sigs.k8s.io) to run this test."
   log "On CI (GitHub Actions): add 'uses: helm/kind-action@v1' before this step."
@@ -134,16 +378,22 @@ helm install ja4proxy deploy/helm/ja4proxy/ \
   --set image.tag=latest \
   2>>"$LOG" || fail "helm install failed"
 
-log "Checking DaemonSet pod status..."
-kubectl rollout status daemonset/ja4proxy --timeout=60s 2>>"$LOG" \
-  || fail "DaemonSet did not become ready within 60s"
+log "Checking Deployment status..."
+KIND=$(kubectl get -f deploy/helm/ja4proxy/templates/ -o jsonpath='{.items[0].kind}' 2>/dev/null || echo "Deployment")
+if [ "$KIND" = "DaemonSet" ]; then
+  kubectl rollout status daemonset/ja4proxy --timeout=60s 2>>"$LOG" \
+    || fail "DaemonSet did not become ready within 60s"
+else
+  kubectl rollout status deployment/ja4proxy --timeout=60s 2>>"$LOG" \
+    || fail "Deployment did not become ready within 60s"
+fi
 
 POD=$(kubectl get pods -l app=ja4proxy -o jsonpath='{.items[0].metadata.name}' 2>>"$LOG")
 [ -z "$POD" ] && fail "No ja4proxy pods found"
 
 log "Running health check inside pod: $POD"
 kubectl exec "$POD" -- \
-  wget -qO- http://localhost:8080/health 2>>"$LOG" \
+  wget -qO- http://localhost:8090/api/v1/health/deep 2>>"$LOG" \
   || fail "Health check inside pod failed"
 
 log "PASS: Helm + kind smoke test"
@@ -151,550 +401,202 @@ echo "PASS" > "$RESULTS_DIR/helm-kind.result"
 # Cluster deleted by trap
 ```
 
-The GitHub Actions step that invokes this script requires `helm/kind-action@v1` as a
-prior step to ensure `kind` and `kubectl` are available. Add this to
-`.github/workflows/ci.yml` under a separate `smoke-k8s` job.
-
-### 2.3 `scripts/smoke/test_podman_quadlet.sh`
-
-NOT run in CI. This script is for manual validation on a RHEL 8/9 or Fedora host before
-any enterprise pilot deployment. It requires Podman ≥ 4.4 (Quadlet support) and a
-systemd user session.
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-RESULTS_DIR="test-results/smoke"
-mkdir -p "$RESULTS_DIR"
-LOG="$RESULTS_DIR/podman-quadlet-$(date +%Y%m%dT%H%M%S).log"
-
-log() { echo "[$(date -u +%H:%M:%S)] $*" | tee -a "$LOG"; }
-fail() { log "FAIL: $*"; exit 1; }
-
-# Platform check
-if ! command -v podman &>/dev/null; then
-  log "SKIP: podman not found. This script requires RHEL 8/9 or Fedora with Podman >= 4.4."
-  exit 0
-fi
-
-PODMAN_VERSION=$(podman --version | awk '{print $3}')
-PODMAN_MAJOR=$(echo "$PODMAN_VERSION" | cut -d. -f1)
-PODMAN_MINOR=$(echo "$PODMAN_VERSION" | cut -d. -f2)
-if [ "$PODMAN_MAJOR" -lt 4 ] || { [ "$PODMAN_MAJOR" -eq 4 ] && [ "$PODMAN_MINOR" -lt 4 ]; }; then
-  log "SKIP: Podman $PODMAN_VERSION < 4.4. Quadlet support requires Podman >= 4.4."
-  exit 0
-fi
-
-QUADLET_SRC="deploy/rhel/quadlets"
-QUADLET_DST="$HOME/.config/containers/systemd"
-
-log "Copying Quadlet unit files from $QUADLET_SRC to $QUADLET_DST..."
-mkdir -p "$QUADLET_DST"
-cp "$QUADLET_SRC"/*.{container,network,kube} "$QUADLET_DST"/ 2>>"$LOG" \
-  || fail "Failed to copy Quadlet unit files"
-
-log "Reloading systemd user daemon..."
-systemctl --user daemon-reload 2>>"$LOG" || fail "systemctl daemon-reload failed"
-
-log "Starting ja4proxy service..."
-systemctl --user start ja4proxy 2>>"$LOG" || fail "systemctl start ja4proxy failed"
-
-log "Waiting for health endpoint (max 30s)..."
-for i in $(seq 1 30); do
-  if curl -sf --max-time 3 http://localhost:8080/health >/dev/null 2>&1; then
-    log "Health endpoint OK after ${i}s"
-    break
-  fi
-  [ "$i" -eq 30 ] && fail "Health endpoint did not respond within 30s"
-  sleep 1
-done
-
-log "Stopping and disabling service..."
-systemctl --user stop ja4proxy 2>>"$LOG" || log "WARN: stop returned non-zero (may be OK)"
-systemctl --user disable ja4proxy 2>>"$LOG" || true
-
-log "Cleaning up Quadlet unit files..."
-rm -f "$QUADLET_DST"/ja4proxy.{container,network,kube} 2>>"$LOG" || true
-systemctl --user daemon-reload 2>>"$LOG" || true
-
-log "PASS: Podman Quadlet smoke test"
-echo "PASS" > "$RESULTS_DIR/podman-quadlet.result"
+**Makefile target (append to bottom):**
+```makefile
+smoke-k8s:
+	bash scripts/smoke/test_helm_kind.sh
 ```
 
-This script is documented in the Phase 76 deployment guide under "Pre-Deployment
-Validation". It must be run by the operator on the target RHEL host and the resulting
-`test-results/smoke/podman-quadlet-*.log` retained as deployment evidence.
+**Acceptance criteria:**
+- [ ] Script runs to PASS on a workstation with `kind` and `helm` installed.
+- [ ] Script skips cleanly (exit 0, no error) when `kind` is absent.
+- [ ] CI job `smoke-k8s` added as non-blocking to `.github/workflows/ci.yml` using
+      `helm/kind-action@v1` as a prior step.
+- [ ] `PHASE_64b_notes.md` records kind version, helm version, and pod log.
+
+**Out of scope:** Helm chart changes. If the chart needs fixing for the smoke
+test to pass, file a Phase 101 entry rather than blocking 64b.
 
 ---
 
-## 3. Disaster Recovery Runbook
+## Sub-phase 64c — Disaster Recovery runbook
 
-`docs/runbooks/disaster_recovery.md` — create this file.
+**Deliverable:** `docs/runbooks/disaster_recovery.md`.
 
-The runbook covers five failure scenarios. Each scenario follows the same structure:
-symptoms (what you observe first), impact (what the proxy does during the failure),
-simulation (how to deliberately trigger the failure in a test environment), and recovery
-steps (ordered commands with expected outputs).
+**Structure (mandatory):**
 
-### 3.1 Scenario 1: Redis Failure
+1. **See also** block — link to every existing runbook:
+   - `redis_operations.md` — routine Redis ops (start, stop, AOF rewrite, slowlog)
+   - `go_proxy_operations.md` — day-2 Go proxy ops (start, stop, log rotation)
+   - `go_proxy_migration.md` — Python → Go migration
+   - `security_incident_response.md` — active security incidents
+   - `feed_management.md` — threat-intel feed troubleshooting
+   - `external_api_failures.md` — AbuseIPDB/RDAP/MaxMind outages
+   - `scaling.md` — horizontal scaling, adding proxy nodes
+   - `zero_downtime_rollouts.md` — zero-downtime config rollout
 
-The most likely production failure. The proxy is designed to fail-open when Redis is
-unavailable, so legitimate traffic continues — but bans are not enforced, rate limiting
-is disabled, and all scoring degrades to local-cache-only decisions.
+2. **Deployment quick reference** — small table mapping
+   {Docker Compose, Kubernetes, RHEL/Quadlet} to the equivalent
+   `start / stop / status / logs / hot-reload` commands. Every later
+   scenario references this table instead of inlining commands.
 
-**Symptoms:**
-- `ja4proxy_redis_errors_total` rising (Grafana alert fires)
-- `GET /api/v1/health/deep` returns `"redis": "degraded"` or `"redis": "unreachable"`
-- `ja4proxy health --all-nodes` shows `redis_latency_ms: timeout` on one or more nodes
+3. **Five scenarios**, each with H3 substructure:
+   - Symptoms (what an operator observes first)
+   - Impact (what the proxy does during the failure)
+   - Simulate (the exact command to trigger in a test stack)
+   - Recovery steps (numbered, with expected output)
+   - RTO target
+   - RPO
 
-**Impact:**
-- Proxy fails-open: all connections pass through without Redis-backed checks
-- Active bans not enforced (local LRU cache continues to enforce recently-seen bans for up to 30 minutes)
-- Rate limiting disabled (sliding-window Lua scripts cannot execute)
-- AbuseIPDB and Spamhaus decisions served from local cache until TTL expiry
+**Content gap guidance — what to write vs what already exists:**
 
-**Simulate (Docker Compose):**
-```bash
-docker-compose stop redis
-# Observe: health endpoint degrades, ja4proxy_redis_errors_total increments
-# Restore:
-docker-compose start redis
-```
+The eight existing runbooks cover **routine operations**. The DR runbook covers
+**catastrophic failures that require coordination across multiple systems**.
+Each scenario below must include content that is **not already in the linked
+runbooks**:
 
-**Recovery steps:**
-1. Confirm Redis is the failure: `docker-compose ps redis` or `systemctl status redis`
-2. If Redis crashed: `docker-compose restart redis` or `systemctl restart redis`
-3. If Redis disk full: free space, then restart Redis
-4. Wait for automatic reconnect — the proxy reconnects via connection pool retry with
-   exponential backoff; no proxy restart required
-5. Verify recovery: `curl -s http://localhost:8090/api/v1/health/deep | python3 -m json.tool`
-   — `"redis": "healthy"` must appear within 30 seconds of Redis restart
-6. Confirm `ja4proxy_redis_errors_total` has stopped rising
+| Scenario | Already covered in existing runbook | NEW content this DR runbook must add |
+|---|---|---|
+| 1. Redis failure | `redis_operations.md` has restart commands | Proxy fail-open behaviour, which bans/rate-limits are suspended, how to verify the proxy reconnected to Redis and resumed enforcement |
+| 2. Single node failure | `go_proxy_operations.md` has start/stop | HAProxy backend health check timing (`inter`, `rise`, `fall`), traffic failover window, how to verify the restarted node re-joins the pool |
+| 3. Total fleet failure | `scaling.md` has add-node procedure | P1 incident workflow: collect logs from all nodes simultaneously, identify root cause, when to revert config vs when to restart, RPO is the last Redis checkpoint — how to find that timestamp |
+| 4. Config corruption / dial | `redis_operations.md` has key manipulation | Monitor-mode first (`dial=0`), then revert, then restore — the three-phase recovery that prevents applying bad config to a recovering fleet |
+| 5. Redis data loss | `redis_operations.md` has AOF rewrite | Full volume destruction + rebuild: `docker volume rm`, restore from Phase 19 Python backup tool, state re-learning timeline (1-4 hours of live traffic) |
 
-**RTO target:** 5 minutes from detection to full restoration
-**RPO:** Zero — the proxy's fail-open behaviour during the outage is logged to the audit
-stream; Redis state (bans, rate limit counters, enrichment cache) is persistent and
-survives a container restart with a mounted volume
+**Rule of thumb:** If the procedure is a single `systemctl restart` or
+`docker compose restart` command, it belongs in the existing runbook, not here.
+This DR runbook is for scenarios where **the operator must coordinate 2+
+systems** (proxy + Redis + HAProxy + config) to recover.
 
-### 3.2 Scenario 2: Single Proxy Node Failure
+4. **Runbook Exercise History** — empty H2 section for GameDay logs (64d).
+   See "Soft dependency — 64d on 64c (decoupled)" in the sub-phase index
+   above for how 64d writes its log without blocking on 64c's merge.
 
-One proxy node crashes or becomes unresponsive. HAProxy's health checks detect the
-failure within `inter` seconds (default: 2s) and stop routing traffic to it.
+**The five scenarios:**
 
-**Symptoms:**
-- HAProxy admin socket: `echo "show stat" | socat - /var/run/haproxy/admin.sock | grep ja4proxy` shows one backend DOWN
-- Traffic volume on remaining nodes increases
-- Alerts: `ja4proxy_active_connections` drops on one node, rises on others
-
-**Impact:**
-- All traffic continues to flow through remaining nodes
-- No requests are dropped (HAProxy redistributes immediately)
-- Capacity reduction: if only one node remains, throughput ceiling halves
-
-**Simulate (Docker Compose):**
-```bash
-docker-compose stop ja4proxy-1
-# Observe: HAProxy marks ja4proxy-1 DOWN; traffic flows to ja4proxy-2
-# Restore:
-docker-compose start ja4proxy-1
-```
-
-**Recovery steps:**
-1. Check the failed node: `docker-compose ps ja4proxy-1` or `systemctl status ja4proxy@1`
-2. Read last 50 log lines: `docker-compose logs --tail=50 ja4proxy-1`
-3. Look for: OOM kill (`exit code 137`), config parse error at startup, or Redis auth failure
-4. Restart: `docker-compose restart ja4proxy-1` or `systemctl restart ja4proxy@1`
-5. Verify: HAProxy marks the backend UP within 10 seconds (two consecutive passing health checks at `inter 2s rise 2`)
-6. If repeated crashes: check `dmesg` for OOM events, check `ja4proxy_errors_total` for the error category
-
-**RTO target:** 2 minutes
-**RPO:** Zero — all state is in shared Redis; the restarted node resumes with full state
-
-### 3.3 Scenario 3: Total Fleet Failure
-
-All proxy nodes are simultaneously unavailable. HAProxy has no healthy backends.
-Incoming connections queue until HAProxy's `timeout connect` is reached, then return
-503. This is the highest-severity scenario.
-
-**Symptoms:**
-- HAProxy: all backends show DOWN
-- End users receive 503 Service Unavailable
-- `ja4proxy_active_connections` is zero on all nodes
-- Pager fires
-
-**Simulate (Docker Compose):**
-```bash
-docker-compose stop ja4proxy-1 ja4proxy-2
-# All backends down; HAProxy returns 503
-```
-
-**Recovery steps:**
-1. Page on-call: this is a P1 incident
-2. Identify cause: check logs on all nodes simultaneously:
+1. **Redis failure** — proxy fails open, bans not enforced, rate limiting
+   disabled. Restore Redis, verify reconnect. RTO: 5 min. RPO: zero (Redis
+   persistent data survives restart).
+2. **Single proxy node failure** — HAProxy marks backend DOWN within `inter`
+   seconds, traffic flows to remaining nodes. Restart node, verify UP.
+   RTO: 2 min. RPO: zero.
+3. **Total fleet failure** — all backends DOWN, 503 to users. P1 incident.
+   Collect logs, identify cause, revert config if needed, restart fleet.
+   RTO: 15 min. RPO: last Redis checkpoint.
+4. **Config corruption / malformed dial** — sudden spike/drop in blocks.
+   Drop to dial=0 first, then revert config, then restore intended dial.
+   RTO: 3 min to monitor mode. RPO: zero (git-tracked config).
+5. **Redis data loss** — distinct from scenario 1; bans/rate-limit state
+   gone. If Phase 19 backup exists, restore it using the Python backup
+   tool:
    ```bash
-   docker-compose logs --tail=50 ja4proxy-1 ja4proxy-2
-   # or on Kubernetes:
-   kubectl logs -l app=ja4proxy --tail=50 --all-containers
+   # Phase 19 backup restore (Python tool, not ja4proxy-cli):
+   python3 -c "from src.backup.restorer import Restorer; \
+     Restorer('redis://:PASSWORD@localhost:6379/0', \
+     Path('/var/backups/ja4proxy/backups/<filename>.tar.gz')).restore(delete_data_first=False)"
    ```
-3. If config corruption suspected (all nodes exiting with parse error on startup):
-   ```bash
-   git log --oneline config/proxy.yml | head -5
-   git show HEAD:config/proxy.yml | python3 -c "import yaml,sys; yaml.safe_load(sys.stdin)" \
-     && echo "Config is valid YAML"
-   # If corrupted, revert:
-   git checkout HEAD~1 -- config/proxy.yml
-   ```
-4. Restart fleet:
-   - Docker Compose: `docker-compose up -d ja4proxy-1 ja4proxy-2`
-   - Kubernetes: `kubectl rollout restart daemonset/ja4proxy`
-   - RHEL/Ansible: `ansible-playbook deploy/ansible/playbooks/restart-fleet.yml`
-5. Monitor HAProxy: backends should return UP within 10 seconds of proxy startup
-6. Verify end-to-end: `curl -sf --max-time 10 https://your-service-hostname/ -o /dev/null -w "%{http_code}"`
-7. Conduct post-incident review within 24 hours; document in `docs/incidents/`
+   If no backup exists, set dial=0 while state rebuilds from live traffic
+   (1–4 hours). RTO: 30 min with backup, 4 hours without. RPO: last
+   Phase 19 backup timestamp.
 
-**RTO target:** 15 minutes
-**RPO:** Last Redis checkpoint (Redis AOF or RDB snapshot, depending on persistence config)
+**Acceptance criteria:**
+- [ ] File exists with all five scenarios in the structure above.
+- [ ] "See also" block links to all 8 existing runbooks.
+- [ ] No scenario duplicates content from any linked runbook.
+- [ ] Scenario 5 uses the correct Phase 19 Python invocation (see above),
+      not phantom `ja4proxy-cli backup` commands.
+- [ ] All hot-reload commands use Go-production form only
+      (`systemctl kill --signal=HUP ja4proxy.service` or container equivalents).
+      No `pkill -f proxy.py`, no `pkill -f bin/proxy` except the dev note.
+- [ ] `PHASE_64c_notes.md` lists which Phase 19 commands were verified.
 
-### 3.4 Scenario 4: Config Corruption / Malformed Dial Change
-
-The proxy accepts and applies a config reload with a malformed dial value or invalid
-CIDR in an allowlist, causing unexpected blocking or blanket allowance.
-
-**Symptoms:**
-- Sudden spike or drop in `ja4proxy_blocked_total`
-- Alarm: `ja4proxy_dial_setting` jumps unexpectedly
-- Management UI shows dial at 100 (or 0) without operator intent
-- Legitimate users start reporting 403/RST errors
-
-**Simulate:**
-```bash
-# Set dial to 100 to simulate aggressive blocking
-redis-cli SET ja4proxy:dial 100
-
-# Or corrupt a config value and trigger reload:
-echo "security_policy: {tls_version_bypass: {enabled: not-a-bool}}" >> config/proxy.yml
-kill -HUP $(pgrep -f proxy.py)
-```
-
-**Recovery steps:**
-1. Immediate mitigation — drop to monitor mode to stop any blocking:
-   ```bash
-   ja4proxy-cli dial set 0 --confirm
-   # or via Redis directly if the CLI is unavailable:
-   redis-cli SET ja4proxy:dial 0
-   redis-cli PUBLISH ja4proxy:config_reload '{"source":"emergency","dial":0}'
-   ```
-2. Identify what changed:
-   ```bash
-   git diff config/proxy.yml
-   # Check policy audit log (last 20 entries):
-   redis-cli LRANGE management:policy_audit 0 19 | python3 -m json.tool
-   ```
-3. Revert config to last known good:
-   ```bash
-   git checkout HEAD -- config/proxy.yml
-   ```
-4. Trigger hot reload:
-   ```bash
-   ja4proxy-cli config reload
-   # or: kill -HUP $(pgrep -f proxy.py)
-   ```
-5. Restore dial to intended value:
-   ```bash
-   ja4proxy-cli dial set <previous-value> --confirm
-   ```
-6. Verify: `ja4proxy_blocked_total` returns to baseline rate
-
-**RTO target:** 3 minutes to monitor mode; investigation and full restoration within 15 minutes
-**RPO:** Zero for config (git-tracked); ban/rate-limit state unaffected
-
-### 3.5 Scenario 5: Redis Data Loss
-
-This scenario covers total loss of Redis persistent data — either through accidental
-`FLUSHALL`, AOF corruption, or RDB file loss. It is distinct from Scenario 1 (Redis
-unavailability): when Redis comes back after a data loss event, the proxy reconnects
-successfully but all ban lists, rate limit counters, enrichment cache, and analytics
-state are gone.
-
-**Symptoms:**
-- Redis restarts without error but all keys are absent
-- `ja4proxy_blocked_total` drops to zero (ban list lost)
-- AbuseIPDB and Spamhaus decisions revert to live lookups with no cache
-- `ja4proxy_ban_count` (if instrumented) drops from known non-zero to zero
-- On a multi-instance cluster: `scan 0 COUNT 10` returns 0 or very few keys when
-  the pre-loss key count was in the thousands
-
-**Impact:**
-- All active bans are lost immediately. IPs that were banned continue to connect
-  until they are re-banned by the scoring pipeline.
-- Rate limit counters are reset — rate-limited clients get a fresh budget.
-- The fail-open safety remains: the proxy never blocks due to Redis state being
-  absent.
-- Phase 19 (backup/restore framework) provides the recovery path. If backups exist,
-  state can be restored. If backups do not exist or are outdated, the proxy must
-  re-learn state from live traffic.
-
-**Simulate (Docker Compose):**
-```bash
-# Stop Redis, delete its data volume, restart
-docker-compose stop redis
-docker volume rm ja4proxy_redis-data 2>/dev/null || true
-docker-compose up -d redis
-# Observe: Redis starts clean; all keys gone
-redis-cli DBSIZE  # Should return 0
-```
-
-**Recovery steps:**
-1. Confirm data loss: `redis-cli DBSIZE` returns 0 or far fewer keys than expected
-2. Check for Phase 19 backup:
-   ```bash
-   ls -la /opt/ja4proxy/backups/  # or wherever backups are stored
-   ja4proxy-cli backup list --latest
-   ```
-3. If a recent backup exists (< 1 hour old), restore it:
-   ```bash
-   ja4proxy-cli backup restore --file <latest-backup-file> --confirm
-   # Verify restore:
-   redis-cli DBSIZE  # Should return non-zero
-   ```
-4. If no backup exists or the backup is too stale (> 4 hours):
-   - Accept the data loss
-   - Set dial to 0 (monitor mode) to prevent false positives while state rebuilds:
-     ```bash
-     redis-cli SET ja4proxy:dial 0
-     redis-cli PUBLISH ja4proxy:config_reload '{"source":"dr","dial":0}'
-     ```
-   - Notify the security team that ban enforcement is suspended
-   - Allow 1–4 hours for the scoring pipeline to re-learn ban-worthy IPs from live traffic
-   - Gradually raise dial back to operational level once ban counts return to baseline
-5. Conduct post-incident review; verify Phase 19 backup configuration is working
-   (`make test-backup-restore`) if backup was absent or stale
-
-**RTO target:** 30 minutes if a recent backup exists; 4 hours if not (dial=0 mode during re-learning)
-**RPO:** Last backup timestamp (Phase 19 backup schedule determines this; recommended: every 30 minutes)
-**Prevention:** Ensure Redis has both AOF enabled (for point-in-time recovery) and scheduled
-snapshots via Phase 19/22. Enable Redis persistence: `appendonly yes` and
-`appendfsync everysec` in Redis configuration.
+**Out of scope:** Implementation, testing, or execution of the recovery
+procedures. This sub-phase produces the document only.
 
 ---
 
-## 4. GameDay Design
+## Sub-phase 64d — GameDay scenarios
 
-`docs/runbooks/gameday_scenarios.md` — create this file.
+**Deliverable:** `docs/runbooks/gameday_scenarios.md`.
 
-A GameDay is a live exercise where the operations team deliberately triggers a failure
-scenario and practices recovery without referring to the runbook until they are stuck.
-The purpose is to verify that the runbook works, identify gaps, and build muscle memory
-for the recovery procedures.
+**Content:** Four GameDay exercises, each with environment, duration, trigger
+command, what the team does *before* opening the runbook, and success criteria
+with measurable RTO targets.
 
-**When to run GameDays:**
-- The first GameDay is mandatory before any enterprise pilot deployment. Run all four
-  scenarios in sequence in a staging environment. Document the date and results in
-  `docs/runbooks/disaster_recovery.md` under a "Runbook Exercise History" section.
-- Subsequent GameDays are recommended quarterly, rotating through the four scenarios.
-  Rotate which team member is "on-call responder" so that recovery knowledge is not
-  siloed.
+1. **Redis outage** — trigger: `docker compose stop redis`. Team identifies
+   `ja4proxy_redis_errors_total` within 2 min, recovers within 5 min.
+2. **Node failure** — trigger: `docker compose stop ja4proxy` (or the first
+   proxy container name on your stack). Team identifies failed backend within
+   1 min, recovers within 2 min.
+3. **Total fleet failure** — trigger: stop all proxy containers.
+   Root cause within 5 min, fleet up within 15 min.
+4. **Dial corruption** — trigger: `redis-cli SET ja4proxy:dial 100` + publish.
+   Team drops to dial=0 within 3 min, corrects within 5 min.
 
-### 4.1 GameDay Scenario 1: Redis Outage
+After the author runs the first GameDay (Redis outage) against the local
+`make start` stack, they append a dated entry to the "Runbook Exercise
+History" section of **`gameday_scenarios.md`** (this file's own section).
 
-**Environment:** Docker Compose staging stack (full replica of production topology)
-**Duration:** 30 minutes
-**Trigger command:**
-```bash
-docker-compose stop redis
-```
-**What the team does before checking the runbook:**
-- Identify the failure from Grafana/Prometheus alerts
-- Determine the blast radius (what is failing, what is still working)
-- Attempt to restore Redis and verify recovery
+**Acceptance criteria:**
+- [ ] File exists with all four exercises in the structure above.
+- [ ] Each exercise links back to the matching scenario in `disaster_recovery.md`.
+- [ ] First GameDay (Redis outage) exercised locally; dated entry appended
+      to `gameday_scenarios.md`'s own "Runbook Exercise History" section.
+- [ ] `PHASE_64d_notes.md` records gaps surfaced.
 
-**Success criteria:**
-- Team identifies `ja4proxy_redis_errors_total` as the leading indicator within 2 minutes
-- Recovery completed (Redis restarted, proxy reconnected, health endpoint returns healthy) within 5 minutes (RTO target)
-- Team notes any gaps in the alert definitions or runbook wording
-
-### 4.2 GameDay Scenario 2: Node Failure
-
-**Environment:** Docker Compose staging stack with two proxy containers
-**Duration:** 20 minutes
-**Trigger command:**
-```bash
-docker-compose stop ja4proxy-1
-```
-**What the team does before checking the runbook:**
-- Identify which node failed from HAProxy stats
-- Confirm traffic is flowing correctly to the remaining node
-- Restart the failed node
-
-**Success criteria:**
-- Team identifies the failed backend within 1 minute using HAProxy stats
-- Node restarted and HAProxy marks it UP within 2 minutes (RTO target)
-- No traffic was dropped during the failure (verify via request counters on remaining node)
-
-### 4.3 GameDay Scenario 3: Total Fleet Failure
-
-**Environment:** Docker Compose staging stack
-**Duration:** 45 minutes
-**Trigger command:**
-```bash
-docker-compose stop ja4proxy-1 ja4proxy-2
-```
-**What the team does before checking the runbook:**
-- Confirm all proxy nodes are down from HAProxy stats
-- Collect logs from both nodes to identify the cause
-- Attempt restart of the fleet
-
-**Success criteria:**
-- Root cause identified (or ruled out) within 5 minutes
-- Fleet restarted within 15 minutes (RTO target)
-- End-to-end connectivity verified before GameDay is declared complete
-
-### 4.4 GameDay Scenario 4: Dial Corruption
-
-**Environment:** Docker Compose staging stack
-**Duration:** 20 minutes
-**Trigger command:**
-```bash
-redis-cli SET ja4proxy:dial 100 && \
-  redis-cli PUBLISH ja4proxy:config_reload '{"source":"gameday","dial":100}'
-```
-**What the team does before checking the runbook:**
-- Identify the unexpected blocking spike from Grafana dashboard
-- Trace the cause to an unexpected dial value
-- Drop to monitor mode and restore the intended dial setting
-
-**Success criteria:**
-- Team drops to monitor mode within 3 minutes (RTO target)
-- Root cause (dial value in Redis) identified and corrected within 5 minutes
-- Proxy behaviour verified to match the restored dial value
+**Coordination (decoupled from 64c):**
+64d writes its exercise history to `gameday_scenarios.md` during development —
+no dependency on 64c's merge status. **After 64c merges**, the 64d author (or
+any reviewer) makes a separate follow-up commit that copies the exercise history
+entry into `disaster_recovery.md`'s "Runbook Exercise History" section. This is
+a 2-line append, tracked as a Phase 64 close-out checklist item, not a blocking
+dependency.
 
 ---
 
-## 5. Credential Rotation Runbook
+## Sub-phase 64e — Credential rotation
 
-`docs/runbooks/credential_rotation.md` — create this file.
+**Deliverable:** `docs/runbooks/credential_rotation.md`.
 
-The proxy holds long-lived credentials that must be rotatable without service
-disruption. The rotation procedure for each credential type is documented here.
+**Sections:**
+1. **Redis auth password rotation** — zero-downtime via Redis ACL:
+   ```bash
+   # Add new password alongside old
+   redis-cli ACL SETUSER default on >NEW_PASSWORD >OLD_PASSWORD ~* &* +@all
+   # Update config, hot-reload all nodes, verify, then drop old:
+   redis-cli ACL SETUSER default on >NEW_PASSWORD ~* &* +@all
+   ```
+   Rollback: re-add the old password to ACL if hot-reload fails.
+2. **AbuseIPDB API key rotation** — verify new key with `curl`, hot-reload,
+   watch `ja4proxy_abuseipdb_lookups_total{result="hit"}`, revoke old key
+   after 30-second delay.
+3. **Cloud storage credentials** (Phase 57, S3/GCS) — IAM key rotation,
+   secret update, restart backup container, manual backup verify, delete old key.
 
-### 5.1 Redis Auth Password Rotation
-
-**Trigger:** Password compromise suspected, or security policy mandates rotation
-every 90 days.
-
-**Procedure (zero-downtime using Redis ACL):**
-
-Redis 6+ supports multiple active passwords simultaneously via ACL, enabling
-zero-downtime rotation:
-
-```bash
-# Step 1: Add the new password alongside the existing one
-redis-cli ACL SETUSER default on >NEW_PASSWORD >OLD_PASSWORD ~* &* +@all
-
-# Step 2: Update config/proxy.yml with the new password
-# Under redis: section, change auth: <old> to auth: <new>
-# (Do NOT commit this change to git — the password is a secret)
-
-# Step 3: Trigger hot reload on all proxy nodes
-for node in proxy-1 proxy-2 proxy-3; do
-  kill -HUP $(ssh $node "pgrep -f proxy.py")
-done
-# Or via Management API (Phase 79):
-# ja4proxy-cli config reload --all-nodes
-
-# Step 4: Verify all proxy nodes are connected with the new password
-# (Watch ja4proxy_redis_errors_total — it must not increase during rotation)
-
-# Step 5: Remove the old password from Redis ACL
-redis-cli ACL SETUSER default on >NEW_PASSWORD ~* &* +@all
-
-# Step 6: Verify old password no longer works
-redis-cli -a OLD_PASSWORD PING  # Should return WRONGPASS
-```
-
-**Rollback:** If Step 3 or 4 fails, add the old password back to the ACL:
-```bash
-redis-cli ACL SETUSER default on >NEW_PASSWORD >OLD_PASSWORD ~* &* +@all
-```
-Then investigate the failure before retrying.
-
-**Note:** In Docker Compose, the Redis password is set via environment variable
-(`REDIS_PASSWORD`). Update the `.env` file and restart Redis. In this case,
-there IS a brief reconnect period — schedule during a maintenance window.
-
-### 5.2 AbuseIPDB API Key Rotation
-
-**Trigger:** Key compromised, or subscription renewal generates a new key.
-
-**Procedure:**
-```bash
-# Step 1: Obtain new API key from AbuseIPDB dashboard
-
-# Step 2: Test the new key before deployment
-curl -s "https://api.abuseipdb.com/api/v2/check?ipAddress=8.8.8.8" \
-  -H "Key: NEW_KEY" | python3 -m json.tool
-
-# Step 3: Update config/proxy.yml under abuseipdb: section:
-# api_key: NEW_KEY
-# (Do NOT commit this to git)
-
-# Step 4: Trigger hot reload
-kill -HUP $(pgrep -f proxy.py)
-# Or: ja4proxy-cli config reload
-
-# Step 5: Verify lookups are succeeding
-# Watch ja4proxy_abuseipdb_lookups_total{result="hit"} — it should continue to increment
-
-# Step 6: Revoke old key in AbuseIPDB dashboard
-```
-
-**Zero-downtime:** Yes. The config hot-reload path (Phase 0) applies the new key
-on the next AbuseIPDB lookup. In-flight lookups using the old key may fail if the
-key is revoked before hot-reload completes — add a 30-second delay between
-hot-reload and key revocation.
-
-### 5.3 Cloud Storage Credentials (Phase 57 — S3/GCS)
-
-**Trigger:** IAM key rotation policy, or key compromise.
-
-**Procedure (AWS S3):**
-```bash
-# Step 1: Create new IAM access key for the ja4proxy-backup IAM user
-aws iam create-access-key --user-name ja4proxy-backup
-
-# Step 2: Update the Docker Compose environment or Kubernetes Secret with the new key
-# For Docker Compose: update .env file (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
-# For Kubernetes: kubectl create secret generic ja4proxy-cloud-creds \
-#   --from-literal=AWS_ACCESS_KEY_ID=NEW_KEY \
-#   --from-literal=AWS_SECRET_ACCESS_KEY=NEW_SECRET \
-#   --dry-run=client -o yaml | kubectl apply -f -
-
-# Step 3: Restart the backup container (it reads credentials at startup):
-docker-compose restart ja4proxy-backup
-
-# Step 4: Trigger a manual backup to verify the new credentials work:
-ja4proxy-cli backup run --immediate
-
-# Step 5: Delete the old IAM access key:
-aws iam delete-access-key --user-name ja4proxy-backup --access-key-id OLD_KEY
-```
+**Acceptance criteria:**
+- [ ] All three rotation procedures documented with numbered steps.
+- [ ] All hot-reload commands use Go-production form.
+- [ ] Each procedure has an explicit "Rollback" subsection.
+- [ ] No `kill -HUP $(pgrep -f proxy.py)`.
+- [ ] `PHASE_64e_notes.md` records dry-run walkthrough against local stack.
 
 ---
 
-## 6. TLS Certificate Rotation Runbook
+## Sub-phase 64f — TLS certificate rotation + alerts
 
-`docs/runbooks/tls_certificate_rotation.md` — create this file.
+**Deliverable:**
+- `docs/runbooks/tls_certificate_rotation.md`
+- `monitoring/alertmanager/rules/tls_alerts.yml`
 
-Two TLS certificates are in use:
-1. The proxy's server-side TLS certificate (presented to clients)
-2. The mTLS CA certificate used to verify client certificates (Phase 5)
+**Runbook sections:**
+1. Certificate expiry monitoring — Phase 63's gauge is live; alert rules
+   consume it directly (no `absent_over_time` guard).
+2. Server-side TLS certificate rotation — rolling, one node at a time,
+   hot-reload via SIGHUP.
+3. mTLS CA certificate rotation — dual-CA trust bundle period
+   (combined PEM → reload → migrate clients → drop old CA → reload).
 
-### 6.1 Certificate Expiry Monitoring
-
-Certificate expiry must be monitored proactively. Add an alert to
-`monitoring/alertmanager/rules/tls_alerts.yml`:
-
+**Alert rules (`tls_alerts.yml`):**
 ```yaml
 groups:
   - name: tls_certificate_expiry
@@ -709,7 +611,7 @@ groups:
           summary: "TLS certificate expires in {{ $value | humanize }} days"
           description: |
             The proxy's server-side TLS certificate expires in less than 30 days.
-            Rotate using the procedure in docs/runbooks/tls_certificate_rotation.md.
+            Rotate using docs/runbooks/tls_certificate_rotation.md.
 
       - alert: JA4proxyTLSCertExpiryCritical
         expr: |
@@ -724,188 +626,87 @@ groups:
             Rotate immediately using docs/runbooks/tls_certificate_rotation.md.
 ```
 
-The `ja4proxy_tls_cert_expiry_timestamp_seconds` gauge must be emitted by the proxy
-at startup and refreshed every 5 minutes. If this metric does not exist, it is tracked
-as a gap requiring implementation in Phase 63/86 scope.
-
-### 6.2 Server-Side TLS Certificate Rotation (Docker Compose)
-
-```bash
-# Step 1: Generate or obtain new certificate
-# For self-signed (test only):
-openssl req -x509 -newkey rsa:4096 -keyout new_server.key -out new_server.crt \
-  -days 365 -nodes -subj "/CN=ja4proxy"
-
-# For production: obtain from your CA or Let's Encrypt
-
-# Step 2: Copy to cert location (without replacing the live cert yet)
-cp new_server.crt config/certs/server.crt.new
-cp new_server.key config/certs/server.key.new
-
-# Step 3: Rolling rotation — update one node at a time:
-# On proxy-1:
-mv config/certs/server.crt.new config/certs/server.crt
-mv config/certs/server.key.new config/certs/server.key
-kill -HUP $(pgrep -f proxy.py)  # Hot-reload loads new cert
-
-# HAProxy continues to route to proxy-2 while proxy-1 reloads.
-# Note: if the proxy does NOT support hot TLS cert reload, a brief restart
-# is required. In that case, HAProxy's health check window (inter 2s rise 2)
-# ensures no traffic is lost during the restart.
-
-# Step 4: Verify new cert is active:
-openssl s_client -connect localhost:8080 -servername localhost 2>/dev/null \
-  | openssl x509 -noout -dates
-
-# Step 5: Repeat for each proxy node
-```
-
-### 6.3 mTLS CA Certificate Rotation (Phase 5)
-
-mTLS CA rotation is more complex because it affects all existing client certificates.
-A new CA certificate cannot simply replace the old one — existing clients will fail.
-The procedure requires a dual-CA trust period:
-
-```bash
-# Step 1: Generate new CA certificate
-openssl genrsa -out config/certs/new_client_ca.key 4096
-openssl req -new -x509 -key config/certs/new_client_ca.key \
-  -out config/certs/new_client_ca.crt -days 730 \
-  -subj "/CN=JA4proxy Client CA v2"
-
-# Step 2: Combine old and new CA into a trust bundle
-cat config/certs/client_ca.pem config/certs/new_client_ca.crt \
-  > config/certs/trusted_cas_bundle.pem
-
-# Step 3: Update config/proxy.yml to use the bundle:
-# mtls:
-#   trusted_ca_file: config/certs/trusted_cas_bundle.pem
-# Then hot-reload the proxy on each node.
-
-# Step 4: Issue new client certificates from the new CA
-# (this is an external procedure for each mTLS client)
-
-# Step 5: After all clients have migrated to new certs (verify via
-# ja4proxy_mtls_cert_issuer metric if available), remove the old CA:
-cp config/certs/new_client_ca.crt config/certs/client_ca.pem
-# Update config to point back to single CA file and hot-reload.
-
-# Step 6: Revoke the old CA certificate in any PKI infrastructure
-```
+**Acceptance criteria:**
+- [ ] Runbook exists with all three sections.
+- [ ] Alert rule file exists and validates with `promtool`:
+      ```bash
+      promtool check rules monitoring/alertmanager/rules/tls_alerts.yml
+      ```
+      If `promtool` is not installed, paste the YAML into the [Prometheus
+      rules playground](https://promlabs.com/promql-analyzer/) or validate
+      manually against the [PromQL alerting rules spec](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/).
+- [ ] Runbook references the Phase 63 gauge by its real name
+      (`ja4proxy_tls_cert_expiry_timestamp_seconds`).
+- [ ] No `absent_over_time` guard — the gauge is live.
+- [ ] No mention of Phase 63 being incomplete or pending.
+- [ ] `PHASE_64f_notes.md` records lint result and gauge verification in
+      `internal/metrics/metrics.go`.
 
 ---
 
-## 7. Rolling Upgrade Procedure
+## Sub-phase 64g — Rolling upgrade
 
-`docs/runbooks/rolling_upgrade.md` — create this file.
+**Deliverable:** `docs/runbooks/rolling_upgrade.md`.
 
-### 7.1 Prerequisites
+**Sections:**
+1. Prerequisites — HAProxy with health checks (`inter 2s rise 2 fall 2`),
+   ≥ 2 instances, smoke test passing in staging.
+2. Docker Compose rolling upgrade — drain via HAProxy admin socket,
+   recreate one service at a time, wait for health, re-enable, repeat
+   with 30-second stagger.
+3. Kubernetes rolling upgrade — `helm upgrade` with `--wait`,
+   monitor via `kubectl rollout status`. DaemonSet `maxUnavailable: 1`.
+4. Rollback — both models:
+   - Docker Compose: `docker compose up -d --no-deps --force-recreate
+     ja4proxy-1 --image "ghcr.io/org/ja4proxy:PREVIOUS_TAG"` + re-enable
+     via HAProxy admin socket.
+   - Kubernetes: `kubectl rollout undo daemonset/ja4proxy`.
 
-A rolling upgrade assumes:
-- HAProxy load balancer with health checks configured (`inter 2s rise 2 fall 2`)
-- At least 2 proxy instances behind HAProxy
-- The new version passes smoke tests (`make smoke-docker`) in staging before production
-
-### 7.2 Docker Compose Rolling Upgrade
-
+**Prerequisite note for HAProxy admin socket access:** the rolling upgrade
+script requires `socat` in the HAProxy container and the admin socket at
+`/var/run/haproxy/admin.sock`. If either is missing, the Docker Compose
+path cannot drain/re-enable gracefully — fall back to waiting for health
+checks to re-route traffic. Verify before running:
 ```bash
-#!/usr/bin/env bash
-# rolling_upgrade.sh — upgrade ja4proxy from v_old to v_new without downtime
-set -euo pipefail
-
-NEW_TAG="${1:?Usage: rolling_upgrade.sh <new-image-tag>}"
-SERVICES=$(docker-compose ps --services | grep ja4proxy)
-
-for SERVICE in $SERVICES; do
-  echo "=== Upgrading $SERVICE to $NEW_TAG ==="
-
-  # Step 1: Drain connections from this node
-  # If using HAProxy admin socket:
-  echo "disable server ja4proxy_backend/$SERVICE" | \
-    socat - /var/run/haproxy/admin.sock
-  echo "Draining $SERVICE — waiting 10s for in-flight connections to complete..."
-  sleep 10
-
-  # Step 2: Update the service image
-  docker-compose up -d --no-deps --force-recreate "$SERVICE" \
-    --image "ghcr.io/org/ja4proxy:$NEW_TAG"
-
-  # Step 3: Wait for health check to pass (max 60s)
-  for i in $(seq 1 60); do
-    if curl -sf http://localhost:$((8080 + ${SERVICE##*-}))/health >/dev/null 2>&1; then
-      echo "$SERVICE is healthy after ${i}s"
-      break
-    fi
-    [ "$i" -eq 60 ] && { echo "FAIL: $SERVICE did not become healthy"; exit 1; }
-    sleep 1
-  done
-
-  # Step 4: Re-enable traffic to this node
-  echo "enable server ja4proxy_backend/$SERVICE" | \
-    socat - /var/run/haproxy/admin.sock
-
-  echo "$SERVICE upgrade complete."
-  echo "Waiting 30s before upgrading next node..."
-  sleep 30
-done
-
-echo "Rolling upgrade to $NEW_TAG complete."
+docker compose exec haproxy which socat
+docker compose exec haproxy ls /var/run/haproxy/admin.sock
 ```
 
-### 7.3 Kubernetes Rolling Upgrade
-
-Kubernetes handles rolling upgrades natively via DaemonSet rolling update:
-
-```bash
-# Update the image tag in the Helm values file
-# or override at upgrade time:
-helm upgrade ja4proxy deploy/helm/ja4proxy/ \
-  --set image.tag=NEW_TAG \
-  --wait \
-  --timeout=300s
-
-# Monitor rollout:
-kubectl rollout status daemonset/ja4proxy
-```
-
-The DaemonSet's `updateStrategy.rollingUpdate.maxUnavailable` must be set to 1
-(default) in the Helm chart values to ensure only one node is updated at a time.
-
-### 7.4 Rollback Procedure
-
-If the new version fails health checks on any node:
-
-**Docker Compose:**
-```bash
-# Redeploy the old version on the failing node:
-docker-compose up -d --no-deps --force-recreate ja4proxy-1 \
-  --image "ghcr.io/org/ja4proxy:PREVIOUS_TAG"
-# Re-enable traffic:
-echo "enable server ja4proxy_backend/ja4proxy-1" | \
-  socat - /var/run/haproxy/admin.sock
-```
-
-**Kubernetes:**
-```bash
-kubectl rollout undo daemonset/ja4proxy
-kubectl rollout status daemonset/ja4proxy
-```
+**Acceptance criteria:**
+- [ ] Runbook covers all four sections.
+- [ ] All commands use `docker compose` (v2), not `docker-compose` (v1).
+- [ ] Rollback subsections give a single-command answer for each model.
+- [ ] `PHASE_64g_notes.md` records dry-run walkthrough of rollback path.
 
 ---
 
-## 8. MTTR Baseline Measurement
+## Sub-phase 64h — MTTR baseline
 
-`scripts/measure_mttr.sh` — automates Scenarios 1, 2, 4, and 5 in a local Docker
-Compose environment and records actual recovery times. Scenario 3 (total fleet failure)
-is not automated because it requires deliberate operator judgment for the
-cause-investigation phase; include it in GameDay exercises instead.
+**Deliverable:** `scripts/measure_mttr.sh`, `make measure-mttr` target,
+and a committed `MTTR_BASELINE.md` produced by running the script once.
+
+**Script behaviour:**
+- Brings up the local Compose stack and waits for `health/deep` healthy.
+- Runs Scenarios 1, 2, 4, 5 (Scenario 3 is GameDay-only).
+- Measures wall-clock time from trigger to recovery.
+- Writes `MTTR_BASELINE.md` with a results table mapping scenario →
+  measured MTTR → RTO target → PASS/FAIL.
+- Exits 0 if all four scenarios are within RTO; 1 otherwise.
+
+**Prerequisite checks:**
+- Before running, verify `socat` is available in the HAProxy container
+  (needed for Scenario 2 backend status check).
+- Verify the Redis volume name via `docker compose volume ls` — do NOT
+  hardcode `ja4proxy_redis-data`. The volume name may be prefixed with
+  the project directory (e.g. `ja4proxy_ja4proxy-redis-data`).
 
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
 
+HEALTH_URL="${HEALTH_URL:-http://localhost:8090/api/v1/health/deep}"
 OUTPUT="MTTR_BASELINE.md"
-COMPOSE="docker-compose"
+COMPOSE="${COMPOSE:-docker compose}"
 
 log() { echo "[$(date -u +%H:%M:%S)] $*"; }
 fail() { log "FAIL: $*"; exit 1; }
@@ -913,7 +714,7 @@ fail() { log "FAIL: $*"; exit 1; }
 require_healthy() {
   local timeout="${1:-60}"
   for i in $(seq 1 "$timeout"); do
-    if curl -sf --max-time 3 http://localhost:8090/api/v1/health/deep >/dev/null 2>&1; then
+    if curl -sf --max-time 3 "$HEALTH_URL" >/dev/null 2>&1; then
       echo "$i"
       return 0
     fi
@@ -922,6 +723,55 @@ require_healthy() {
   echo "TIMEOUT"
   return 1
 }
+
+# ── Pre-flight: redis-cli ─────────────────────────────────────────────────────
+if ! command -v redis-cli &>/dev/null; then
+  log "SKIP: redis-cli not found on PATH."
+  log "  Install:  apt install redis-tools  |  brew install redis  |  https://redis.io/docs/install/"
+  exit 0
+fi
+if ! redis-cli PING >/dev/null 2>&1; then
+  log "SKIP: redis-cli cannot connect to localhost:6379."
+  log "  Start the stack with 'make start' or 'docker compose up -d redis' first."
+  exit 0
+fi
+
+# ── Derive service names from compose — do not hardcode ───────────────────────
+# The proxy container might be named ja4proxy, ja4proxy-1, or proxy.
+# Derive it from the running compose project.
+PROXY_CONTAINER=$($COMPOSE ps --format json 2>/dev/null \
+  | python3 -c "
+import sys, json
+try:
+    services = json.load(sys.stdin)
+    for s in services:
+        name = s.get('Service', s.get('Name', ''))
+        if 'ja4proxy' in name.lower() or 'proxy' in name.lower():
+            print(name)
+            sys.exit(0)
+except Exception:
+    pass
+# Fallback: try common names
+" 2>/dev/null || true)
+
+if [ -z "$PROXY_CONTAINER" ]; then
+  # Fallback: grep from compose ps output
+  PROXY_CONTAINER=$($COMPOSE ps --services 2>/dev/null | grep -i proxy | head -1 || true)
+fi
+if [ -z "$PROXY_CONTAINER" ]; then
+  log "SKIP: Could not determine proxy container name from docker compose."
+  log "  Ensure the stack is running: docker compose ps"
+  exit 0
+fi
+log "Using proxy container name: $PROXY_CONTAINER"
+
+# Derive Redis volume name from compose — do not hardcode.
+REDIS_VOLUME=$($COMPOSE volume ls --format '{{.Name}}' 2>/dev/null | grep -i redis | head -1)
+if [ -z "$REDIS_VOLUME" ]; then
+  log "SKIP: No Redis volume found in docker compose. Run against a live stack."
+  exit 0
+fi
+log "Using Redis volume: $REDIS_VOLUME"
 
 log "Ensuring stack is up and healthy before measurement..."
 $COMPOSE up -d
@@ -935,16 +785,19 @@ declare -A PASS
 log "=== Scenario 1: Redis failure ==="
 $COMPOSE stop redis
 START=$(date +%s)
-until ! curl -sf --max-time 3 http://localhost:8090/api/v1/health/deep \
-    | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get('redis')=='unreachable' else 1)" \
-    >/dev/null 2>&1; do
+# Wait until health endpoint reports redis as unreachable (or degraded)
+for i in $(seq 1 120); do
+  BODY=$(curl -sf --max-time 3 "$HEALTH_URL" 2>/dev/null || echo "{}")
+  if echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get('redis') != 'healthy' else 1)" 2>/dev/null; then
+    log "Degraded state detected after ${i}s"
+    break
+  fi
+  [ "$i" -eq 120 ] && { log "WARN: Health endpoint did not report degraded Redis within 120s — proceeding anyway"; break; }
   sleep 1
 done
-log "Degraded state detected"
 $COMPOSE start redis
 END=$(date +%s)
-# Wait for recovery
-until curl -sf --max-time 3 http://localhost:8090/api/v1/health/deep \
+until curl -sf --max-time 3 "$HEALTH_URL" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get('redis')=='healthy' else 1)" \
     >/dev/null 2>&1; do
   sleep 1
@@ -955,17 +808,14 @@ MEASURED_S[1]=$MTTR_1
 PASS[1]=$([ "$MTTR_1" -le 300 ] && echo "PASS" || echo "FAIL")
 log "Scenario 1 MTTR: ${MTTR_1}s (RTO: 300s) — ${PASS[1]}"
 
-# ── Scenario 2: Single node failure ──────────────────────────────────────────
+# ── Scenario 2: Single proxy node failure ─────────────────────────────────────
 log "=== Scenario 2: Single proxy node failure ==="
-$COMPOSE stop ja4proxy-1
+$COMPOSE stop "$PROXY_CONTAINER"
 START=$(date +%s)
-$COMPOSE start ja4proxy-1
-# Wait for HAProxy to mark the backend healthy (health check passes)
-until $COMPOSE exec haproxy sh -c \
-    'echo "show stat" | socat - /var/run/haproxy/admin.sock 2>/dev/null | grep ja4proxy-1 | grep -q "^[^,]*,[^,]*,UP"' \
-    >/dev/null 2>&1; do
+$COMPOSE start "$PROXY_CONTAINER"
+until curl -sf --max-time 3 "$HEALTH_URL" >/dev/null 2>&1; do
   sleep 1
-  [ $(($(date +%s) - START)) -gt 120 ] && { log "Node did not recover within 120s"; break; }
+  [ $(($(date +%s) - START)) -gt 120 ] && { log "Proxy did not recover within 120s"; break; }
 done
 MTTR_2=$(($(date +%s) - START))
 MEASURED_S[2]=$MTTR_2
@@ -974,14 +824,12 @@ log "Scenario 2 MTTR: ${MTTR_2}s (RTO: 120s) — ${PASS[2]}"
 
 # ── Scenario 4: Dial corruption ───────────────────────────────────────────────
 log "=== Scenario 4: Dial corruption ==="
-redis-cli SET ja4proxy:dial 100
-redis-cli PUBLISH ja4proxy:config_reload '{"source":"measure_mttr","dial":100}' >/dev/null
+redis-cli SET ja4proxy:dial 100 >/dev/null 2>&1
+redis-cli PUBLISH ja4proxy:config_reload '{"source":"measure_mttr","dial":100}' >/dev/null 2>&1
 START=$(date +%s)
-# Recovery: drop to monitor mode
-redis-cli SET ja4proxy:dial 0
-redis-cli PUBLISH ja4proxy:config_reload '{"source":"measure_mttr","dial":0}' >/dev/null
-# Verify dial is 0 in health endpoint
-until curl -sf --max-time 3 http://localhost:8090/api/v1/health/deep \
+redis-cli SET ja4proxy:dial 0 >/dev/null 2>&1
+redis-cli PUBLISH ja4proxy:config_reload '{"source":"measure_mttr","dial":0}' >/dev/null 2>&1
+until curl -sf --max-time 3 "$HEALTH_URL" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get('dial')==0 else 1)" \
     >/dev/null 2>&1; do
   sleep 1
@@ -994,28 +842,24 @@ log "Scenario 4 MTTR: ${MTTR_4}s (RTO: 180s) — ${PASS[4]}"
 
 # ── Scenario 5: Redis data loss ───────────────────────────────────────────────
 log "=== Scenario 5: Redis data loss ==="
-# Seed a known key so we can detect its absence after the data loss
-redis-cli SET ja4proxy:mttr_probe "1" EX 3600 >/dev/null
+redis-cli SET ja4proxy:mttr_probe "1" EX 3600 >/dev/null 2>&1
 $COMPOSE stop redis
-docker volume rm ja4proxy_redis-data 2>/dev/null || true
+$COMPOSE down -v --remove-orphans 2>/dev/null || true
+docker volume rm "$REDIS_VOLUME" 2>/dev/null || true
 START=$(date +%s)
 $COMPOSE up -d redis
-# Wait for Redis to be up but confirm data is gone
 until redis-cli PING >/dev/null 2>&1; do
   sleep 1
   [ $(($(date +%s) - START)) -gt 30 ] && { log "Redis did not restart within 30s"; break; }
 done
-KEY_EXISTS=$(redis-cli EXISTS ja4proxy:mttr_probe)
+KEY_EXISTS=$(redis-cli EXISTS ja4proxy:mttr_probe 2>/dev/null || echo "0")
 if [ "$KEY_EXISTS" != "0" ]; then
   log "WARN: probe key still exists — data loss simulation may not have worked (volume persisted)"
 fi
-# Recovery: set dial to 0 (monitor mode while state rebuilds)
-redis-cli SET ja4proxy:dial 0 >/dev/null
-redis-cli PUBLISH ja4proxy:config_reload '{"source":"measure_mttr","dial":0}' >/dev/null
+redis-cli SET ja4proxy:dial 0 >/dev/null 2>&1
+redis-cli PUBLISH ja4proxy:config_reload '{"source":"measure_mttr","dial":0}' >/dev/null 2>&1
 MTTR_5=$(($(date +%s) - START))
 MEASURED_S[5]=$MTTR_5
-# RTO for automated portion: Redis restart + dial reset < 5 minutes
-# Full re-learning is not automated (1-4 hours); only the initial recovery steps are measured here
 PASS[5]=$([ "$MTTR_5" -le 300 ] && echo "PASS" || echo "FAIL")
 log "Scenario 5 MTTR (Redis restart + dial reset): ${MTTR_5}s (RTO: 300s) — ${PASS[5]}"
 
@@ -1025,26 +869,27 @@ cat > "$OUTPUT" <<EOF
 
 Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 Environment: Docker Compose (local)
+Proxy container: $PROXY_CONTAINER
 
 | Scenario | Trigger | Measured MTTR | RTO Target | Result |
 |----------|---------|---------------|------------|--------|
-| 1: Redis failure | \`docker-compose stop redis\` | ${MEASURED_S[1]}s | 300s | ${PASS[1]} |
-| 2: Single node failure | \`docker-compose stop ja4proxy-1\` | ${MEASURED_S[2]}s | 120s | ${PASS[2]} |
+| 1: Redis failure | \`docker compose stop redis\` | ${MEASURED_S[1]}s | 300s | ${PASS[1]} |
+| 2: Single node failure | \`docker compose stop $PROXY_CONTAINER\` | ${MEASURED_S[2]}s | 120s | ${PASS[2]} |
 | 4: Dial corruption | \`redis-cli SET ja4proxy:dial 100\` | ${MEASURED_S[4]}s | 180s | ${PASS[4]} |
-| 5: Redis data loss | \`docker volume rm ja4proxy_redis-data\` | ${MEASURED_S[5]}s | 300s | ${PASS[5]} |
+| 5: Redis data loss | \`docker volume rm $REDIS_VOLUME\` | ${MEASURED_S[5]}s | 300s | ${PASS[5]} |
 
 Scenario 3 (total fleet failure) is exercised via GameDay only — not automated.
 See: docs/runbooks/gameday_scenarios.md
 
 Scenario 5 MTTR covers Redis restart and dial reset to monitor mode only.
-Full state re-learning (1–4 hours) is not automated; see §3.5 for the full procedure.
+Full state re-learning (1–4 hours) is not automated; see Phase 64c §5 for the full procedure.
 
 ## Notes
 
-- MTTR is measured from trigger command to full health endpoint recovery.
-- Scenario 2 MTTR ends when HAProxy marks the restarted node UP (two consecutive health checks).
-- Scenario 4 MTTR ends when the health endpoint reflects \`"dial": 0\`.
-- Scenario 5 MTTR ends when Redis is responding and dial has been reset to 0.
+- MTTR is measured from trigger to full health endpoint recovery.
+- Scenario 2 ends when the health endpoint responds (two consecutive health checks).
+- Scenario 4 ends when the health endpoint reflects \`"dial": 0\`.
+- Scenario 5 ends when Redis is responding and dial has been reset to 0.
 - All scenarios were run in sequence on the same Docker Compose stack.
 EOF
 
@@ -1058,32 +903,56 @@ log "Overall result: $OVERALL"
 [ "$OVERALL" = "PASS" ] || exit 1
 ```
 
-Run this script once on the developer workstation before any enterprise pilot deployment
-and commit `MTTR_BASELINE.md` to the repository. The baseline is used in:
-- Phase 86 capacity planning (provides concrete latency inputs)
-- Phase 84 compliance evidence (demonstrates DR has been tested with measured outcomes)
+**Makefile target (append to bottom):**
+```makefile
+measure-mttr:
+	bash scripts/measure_mttr.sh
+```
+
+**Acceptance criteria:**
+- [ ] Script runs end-to-end and produces `MTTR_BASELINE.md`.
+- [ ] All four scenarios PASS within their RTO targets on the author's workstation.
+      If any fail, file a Phase 101 entry rather than lowering the target.
+- [ ] `MTTR_BASELINE.md` is committed.
+- [ ] `make measure-mttr` invokes the script.
+- [ ] Script uses `docker compose` (v2).
+- [ ] Redis volume name is derived from `docker compose volume ls`, not hardcoded.
+- [ ] `PHASE_64h_notes.md` records host CPU/RAM and the four measured MTTR values.
+
+**Out of scope:** Scenario 3 automation (deliberately GameDay-only).
 
 ---
 
-## 9. Pre-Enterprise Validation Report Integration
+## Sub-phase 64i — Validation report deployment section
 
-Phase 62 introduced `scripts/generate_validation_report.py`. Add a `--section
-deployment` flag that appends a deployment evidence section to the report.
+**Deliverable:** `--section deployment` flag added to
+`scripts/generate_validation_report.py`.
 
-The section includes:
-- Smoke test results: links to `test-results/smoke/*.result` files with pass/fail summary
-- MTTR baseline table: read from `MTTR_BASELINE.md` and embedded verbatim
-- DR runbook exercise history: read from the "Runbook Exercise History" section of
-  `docs/runbooks/disaster_recovery.md`
-- Sign-off line: `"DR runbook exercised via GameDay: [DATE]"` (extracted from the runbook)
+**Behaviour:** When passed `--section deployment`, the script appends a
+"Deployment Validation Evidence" section containing:
+- Smoke test results (read from `test-results/smoke/*.result`).
+- MTTR baseline table (read from `MTTR_BASELINE.md`).
+- DR runbook exercise history (extracted from
+  `docs/runbooks/disaster_recovery.md`; falls back to
+  `gameday_scenarios.md` if not yet in disaster_recovery.md).
+
+**Graceful degradation:** If any input is missing, the section emits a
+single line stating what to run to produce it. The script never fails
+because an input is missing.
+
+**Wiring instructions — exact insertion points:**
+
+The existing `scripts/generate_validation_report.py` has two functions to modify:
+`main()` (argparse) and `build_report()` (the report builder). Follow these
+steps in order:
+
+**Step 1 — Add the function.** Insert `_section_deployment()` anywhere before
+`build_report()` (e.g., after `fuzz_smoke_section()`):
 
 ```python
-# Extend scripts/generate_validation_report.py
-
 def _section_deployment(report_dir: Path) -> str:
     lines = ["## Deployment Validation Evidence", ""]
 
-    # Smoke test results
     smoke_dir = Path("test-results/smoke")
     lines.append("### Smoke Tests")
     if smoke_dir.exists():
@@ -1091,10 +960,9 @@ def _section_deployment(report_dir: Path) -> str:
             status = result_file.read_text().strip()
             lines.append(f"- {result_file.stem}: **{status}**")
     else:
-        lines.append("- No smoke test results found. Run `make smoke` first.")
+        lines.append("- No smoke test results found. Run `make smoke-docker` first.")
     lines.append("")
 
-    # MTTR baseline
     mttr_file = Path("MTTR_BASELINE.md")
     lines.append("### MTTR Baseline")
     if mttr_file.exists():
@@ -1103,73 +971,115 @@ def _section_deployment(report_dir: Path) -> str:
         lines.append("- `MTTR_BASELINE.md` not found. Run `make measure-mttr` first.")
     lines.append("")
 
-    # DR runbook exercise history
     dr_runbook = Path("docs/runbooks/disaster_recovery.md")
+    gameday_file = Path("docs/runbooks/gameday_scenarios.md")
     lines.append("### DR Runbook Exercise History")
-    if dr_runbook.exists():
+    if dr_runbook.exists() and "Runbook Exercise History" in dr_runbook.read_text():
         content = dr_runbook.read_text()
-        if "Runbook Exercise History" in content:
-            section = content.split("Runbook Exercise History", 1)[1].split("\n## ", 1)[0]
-            lines.extend(section.strip().splitlines())
-        else:
-            lines.append("- No exercise history recorded yet. Run a GameDay first.")
+        section = content.split("Runbook Exercise History", 1)[1].split("\n## ", 1)[0]
+        lines.extend(section.strip().splitlines())
+    elif gameday_file.exists() and "Runbook Exercise History" in gameday_file.read_text():
+        content = gameday_file.read_text()
+        section = content.split("Runbook Exercise History", 1)[1].split("\n## ", 1)[0]
+        lines.extend(section.strip().splitlines())
+    else:
+        lines.append("- No exercise history recorded yet. Run a GameDay first.")
     lines.append("")
 
     return "\n".join(lines)
 ```
 
-Call `_section_deployment()` when `--section deployment` is passed and append the result
-to the report before the final sign-off block.
+**Step 2 — Wire `--section` into `main()`.** Add the argparse argument
+**after** the existing `--stdout` argument (look for `ap.add_argument("--stdout"`):
 
----
-
-## 10. Makefile Targets
-
-Add to the bottom of `Makefile` (never edit existing targets):
-
-```makefile
-## Phase 64 targets
-smoke: smoke-docker
-	@if command -v kind >/dev/null 2>&1; then \
-	  $(MAKE) smoke-k8s; \
-	else \
-	  echo "kind not found — skipping Helm/kind smoke test. Install kind to run it."; \
-	fi
-
-smoke-docker:
-	bash scripts/smoke/test_docker_compose.sh
-
-smoke-k8s:
-	bash scripts/smoke/test_helm_kind.sh
-
-measure-mttr:
-	bash scripts/measure_mttr.sh
+```python
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--output", default=str(DEFAULT_OUTPUT), help="output markdown path")
+    ap.add_argument("--stdout", action="store_true", help="also print to stdout")
+    ap.add_argument(
+        "--section",
+        choices=["deployment"],
+        default=None,
+        help="append a specific evidence section (e.g. --section deployment)",
+    )
+    args = ap.parse_args()
 ```
 
-`make smoke` is the CI target. `make smoke-docker` is added as a required CI job in
-`.github/workflows/ci.yml`. `make smoke-k8s` is added as an optional CI job (runs if
-`kind` is available via `helm/kind-action`). `make measure-mttr` is run locally by the
-operator before an enterprise pilot and is not run in CI.
+**Step 3 — Wire `--section` into the report builder.** Modify the `build_report()`
+call in `main()` to pass the section argument. Change:
+
+```python
+    # BEFORE (in main):
+    report = build_report()
+```
+
+to:
+
+```python
+    # AFTER:
+    report = build_report(extra_section=args.section)
+```
+
+And modify `build_report()` to accept the parameter **after** its current
+signature (it takes no parameters currently):
+
+```python
+def build_report(extra_section: str | None = None) -> str:
+    # ... existing code, up to the closing \n".join(parts) + "\n" ...
+
+    # Append deployment section if requested
+    if extra_section == "deployment":
+        parts.append(_section_deployment(REPO_ROOT))
+        parts.append("")  # trailing newline
+
+    return "\n".join(parts) + "\n"
+```
+
+**Acceptance criteria:**
+- [ ] Flag works end-to-end with all inputs present:
+      `python3 scripts/generate_validation_report.py --section deployment --stdout`
+- [ ] Flag works gracefully with all inputs absent (each missing input
+      produces a single helpful line, no exception).
+- [ ] At least one unit test for the new code path under `tests/`.
+- [ ] `PHASE_64i_notes.md` records both the all-present and all-absent runs.
 
 ---
 
-## 11. Acceptance Criteria
+## Acceptance criteria (aggregate — all sub-phases must pass)
 
-- [ ] `scripts/smoke/test_docker_compose.sh` exists, passes in CI (`make smoke-docker`), and writes a result file to `test-results/smoke/`
-- [ ] `scripts/smoke/test_helm_kind.sh` exists and passes in a local `kind` environment or in CI via `helm/kind-action`; result is documented
-- [ ] `scripts/smoke/test_podman_quadlet.sh` exists, skips gracefully on non-RHEL platforms, and is documented in the Phase 76 deployment guide as the manual pre-deployment validation step
-- [ ] `docs/runbooks/disaster_recovery.md` exists and documents all five scenarios with symptoms, impact, `simulate:` command, recovery steps, RTO target, and RPO
-- [ ] Each scenario in `docs/runbooks/disaster_recovery.md` includes a `simulate:` command that can be run without modifying any source files
-- [ ] `docs/runbooks/disaster_recovery.md` includes Scenario 5 (Redis data loss) with simulate command, recovery steps, RTO/RPO targets, and prevention guidance
-- [ ] `scripts/measure_mttr.sh` exists and produces `MTTR_BASELINE.md` with results for Scenarios 1, 2, 4, and 5
-- [ ] `MTTR_BASELINE.md` shows measured MTTR within the RTO target for all four automated scenarios
-- [ ] `docs/runbooks/gameday_scenarios.md` exists and documents all four GameDay exercises with trigger command, expected symptoms, team actions, and success criteria
-- [ ] `docs/runbooks/disaster_recovery.md` contains a "Runbook Exercise History" section with at least one dated entry (first GameDay completed before enterprise pilot)
-- [ ] `docs/runbooks/credential_rotation.md` exists and documents zero-downtime rotation for Redis password, AbuseIPDB key, and cloud storage credentials
-- [ ] `docs/runbooks/tls_certificate_rotation.md` exists and documents server-side cert rotation, mTLS CA rotation with dual-CA trust period, and cert expiry alert rules
-- [ ] `docs/runbooks/rolling_upgrade.md` exists and documents Docker Compose rolling upgrade, Kubernetes rolling upgrade, and rollback procedures for both
-- [ ] The `JA4proxyTLSCertExpiringSoon` (< 30 days, warning) and `JA4proxyTLSCertExpiryCritical` (< 7 days, critical) alert rules are added to `monitoring/alertmanager/rules/tls_alerts.yml`
-- [ ] `ja4proxy_tls_cert_expiry_timestamp_seconds` metric is tracked as a gap requiring implementation; noted in Phase 63/86 scope if not implemented in this phase
-- [ ] `scripts/generate_validation_report.py` is extended (as specified in §9) to accept `--section deployment` and appends smoke test results, MTTR baseline, and DR exercise history to the report
-- [ ] `make smoke`, `make smoke-docker`, `make smoke-k8s`, and `make measure-mttr` targets are added to the bottom of `Makefile`
-- [ ] `make smoke-docker` is added as a required status check in `.github/workflows/ci.yml`
+- [ ] `scripts/smoke/test_docker_compose.sh` exists, passes via `make smoke-docker`, writes result to `test-results/smoke/`
+- [ ] `scripts/smoke/test_helm_kind.sh` exists, skips gracefully when `kind` is absent, passes with `kind` + `helm`
+- [ ] Podman/Quadlet smoke test **dropped** — `deploy/rhel/quadlets/` does not exist. Phase 101 entry filed.
+- [ ] `docs/runbooks/disaster_recovery.md` exists with all five scenarios (symptoms, impact, simulate, recovery, RTO, RPO)
+- [ ] Each scenario covers cross-system coordination — not just single-service restart (see §64c content gap table)
+- [ ] Each scenario uses Go-production hot-reload commands only (no `pkill -f proxy.py`)
+- [ ] Scenario 5 (Redis data loss) uses correct Phase 19 Python tool invocation
+- [ ] `scripts/measure_mttr.sh` exists, derives proxy container name from compose (not hardcoded), checks `redis-cli` availability, and produces `MTTR_BASELINE.md` for Scenarios 1, 2, 4, 5
+- [ ] `MTTR_BASELINE.md` shows measured MTTR within RTO target for all four automated scenarios
+- [ ] `docs/runbooks/gameday_scenarios.md` exists with all four GameDay exercises
+- [ ] First GameDay (Redis outage) exercised locally; dated entry in `gameday_scenarios.md`'s own "Runbook Exercise History" section
+- [ ] Exercise history copied to `disaster_recovery.md` after 64c merges (separate follow-up commit, tracked in close-out checklist)
+- [ ] `docs/runbooks/credential_rotation.md` exists with Redis, AbuseIPDB, and cloud storage procedures
+- [ ] `docs/runbooks/tls_certificate_rotation.md` exists with server cert and mTLS CA rotation
+- [ ] `monitoring/alertmanager/rules/tls_alerts.yml` exists with warning (< 30 days) and critical (< 7 days) alerts
+- [ ] Alert rules validate with `promtool check rules` (see §64f)
+- [ ] No `absent_over_time` guard on cert-expiry alerts (Phase 63 gauge is live)
+- [ ] `docs/runbooks/rolling_upgrade.md` exists with Docker Compose, Kubernetes, and rollback procedures
+- [ ] `scripts/generate_validation_report.py` accepts `--section deployment` and appends smoke/MTTR/DR evidence with graceful degradation
+- [ ] All smoke test scripts use `docker compose` (v2), never `docker-compose` (v1)
+- [ ] `make lint-phases` exits 0
+- [ ] Pre-flight checks pass for all script-based sub-phases (see "Pre-flight checklist" section)
+
+---
+
+## Phase 101 entries filed from this phase
+
+1. **Podman/Quadlet smoke test blocked** — `deploy/rhel/quadlets/` does not
+   exist. Phase 76 produced a strategy document but no Quadlet artifacts
+   (`.container`, `.network`, `.kube`). Phase 64 cannot ship the Quadlet
+   smoke test until those files exist. Owner: TBD (Phase 76 owner).
+2. **Phantom `ja4proxy-cli backup` audit** — the Go CLI has no `backup`
+   subcommand. Phase 19's backup system is Python-only
+   (`src/backup/worker.py`). Audit all runbooks (including Phase 22, 40,
+   57) for similar phantom command references and correct them.

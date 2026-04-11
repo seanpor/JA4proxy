@@ -5,15 +5,29 @@ import asyncio
 import logging
 import signal
 import sys
-from typing import Optional
+from typing import Any, Optional
 
 import redis
+import redis.asyncio as redis_async
 from aiohttp import web
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
+from src.utils.logging_config import setup_logging
+
 from .config import load_config
 from .stream_consumer import StreamConsumer
-from src.utils.logging_config import setup_logging
+
+# phase-85: optional import — the analytics container can run without ti_feeds
+# (config flag off, missing aiohttp, etc.). Importing the runner module never
+# starts a feed; the import is guarded so the analytics container is never
+# blocked by an issue inside the ti_feeds package.
+try:  # pragma: no cover
+    from .ti_feeds.runner import FeedRunner as _FeedRunner
+except Exception as _ti_import_exc:  # pragma: no cover  # noqa: BLE001
+    _FeedRunner = None  # type: ignore[assignment,misc]
+    _ti_feed_import_error: Optional[BaseException] = _ti_import_exc
+else:
+    _ti_feed_import_error = None
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +40,10 @@ class AnalyticsNode:
         self.config = load_config(config_file)
         self.consumer: Optional[StreamConsumer] = None
         self.shutdown_event = asyncio.Event()
+        # phase-85: threat-intel feed runner — populated in start() iff enabled
+        self.ti_runner: Optional[Any] = None
+        self._ti_runner_task: Optional[asyncio.Task] = None
+        self._ti_async_redis: Optional[Any] = None
 
     async def start(self) -> None:
         """Start the analytics node: HTTP server + stream consumer."""
@@ -76,6 +94,10 @@ class AnalyticsNode:
         http_runner = await self._start_http_server()
         logger.info("HTTP server listening on :8080")
 
+        # phase-85: start the threat-intel feed runner. Fail-open: any exception
+        # is logged and the consumer / HTTP server keep running.
+        await self._start_ti_runner(redis_url)
+
         await self.shutdown_event.wait()
 
         consumer_task.cancel()
@@ -84,9 +106,82 @@ class AnalyticsNode:
         except asyncio.CancelledError:
             pass
 
+        await self._stop_ti_runner()
+
         await http_runner.cleanup()
         await self.consumer.close()
         logger.info("Analytics node shutdown complete")
+
+    # ── threat-intel feed runner (phase-85) ────────────────────────────────
+
+    async def _start_ti_runner(self, redis_url: str) -> None:
+        """Start the Phase 85 threat-intel feed runner if enabled in config.
+
+        The runner is launched as a background asyncio task. Any failure is
+        logged and the rest of the analytics container keeps running — the
+        feed runner is strictly auxiliary.
+        """
+        ti_cfg = self.config.get("threat_intel") or {}
+        if not ti_cfg.get("enabled", False):
+            logger.info(
+                "ti_feed | event=runner_skipped | reason=threat_intel.enabled=false"
+            )
+            return
+        if _FeedRunner is None:
+            logger.warning(
+                "ti_feed | event=runner_skipped | reason=import_failed | error=%s",
+                _ti_feed_import_error,
+            )
+            return
+
+        try:
+            self._ti_async_redis = redis_async.from_url(
+                redis_url, decode_responses=True
+            )
+            mgmt_base_url = (
+                self.config.get("management_api", {}).get("base_url")
+                or "http://management:8090"
+            )
+            self.ti_runner = _FeedRunner(
+                redis=self._ti_async_redis,
+                mgmt_base_url=mgmt_base_url,
+                config=self.config,
+            )
+            await self.ti_runner.start()
+            logger.info(
+                "ti_feed | event=runner_started | mgmt_base_url=%s | feeds=%d",
+                mgmt_base_url,
+                len(ti_cfg.get("feeds", []) or []),
+            )
+        except Exception as exc:  # noqa: BLE001 — fail open
+            logger.error(
+                "ti_feed | event=runner_start_failed | error=%s",
+                exc,
+            )
+            self.ti_runner = None
+
+    async def _stop_ti_runner(self) -> None:
+        """Stop the feed runner cleanly with a 5 s timeout."""
+        if self.ti_runner is None:
+            return
+        try:
+            await asyncio.wait_for(self.ti_runner.stop(), timeout=5.0)
+            logger.info("ti_feed | event=runner_stopped")
+        except asyncio.TimeoutError:
+            logger.warning(
+                "ti_feed | event=runner_stop_timeout | "
+                "tasks_may_be_orphaned=true"
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("ti_feed | event=runner_stop_error | error=%s", exc)
+        finally:
+            self.ti_runner = None
+            if self._ti_async_redis is not None:
+                try:
+                    await self._ti_async_redis.aclose()
+                except Exception:  # noqa: BLE001
+                    pass
+                self._ti_async_redis = None
 
     def _handle_shutdown(self) -> None:
         logger.info("Shutdown signal received")
@@ -101,6 +196,15 @@ class AnalyticsNode:
             if self.consumer:
                 self.consumer.batch_size = new_config["stream"].get("batch_size", 100)
                 self.consumer.timeout_ms = new_config["stream"].get("timeout_ms", 5000)
+            # phase-85: hand the new threat_intel block to the feed runner.
+            # Schedule the async reload on the running loop because SIGHUP
+            # callbacks run in the signal-handler context (sync).
+            if self.ti_runner is not None:
+                try:
+                    loop = asyncio.get_running_loop()
+                    loop.create_task(self.ti_runner.reload_config(new_config))
+                except RuntimeError:  # pragma: no cover
+                    pass
             logger.info(
                 '{"type":"system","level":"INFO","event":"config_reloaded",'
                 '"subsystem":"analytics"}'

@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-import sys
-import os
 import json
+import os
 import pathlib
+import sys
 
 # Add current dir to path to import local modules
 sys.path.append(os.getcwd())
 
-from src.tls.parser import parse_client_hello
 from proxy import JA4Generator
+from src.tls.parser import parse_client_hello
+
 
 def compute():
     fixtures_dir = pathlib.Path("tests/fixtures/clienthello")

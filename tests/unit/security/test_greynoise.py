@@ -422,8 +422,9 @@ async def test_greynoise_process_lookup_http_error_records_failure(
     mock_redis, mock_local_cache, mock_session
 ):
     """Non-200/404 status raises RuntimeError; exception path increments error counter."""
-    from src.security.feed_health import FeedHealthMonitor
     from unittest.mock import patch
+
+    from src.security.feed_health import FeedHealthMonitor
 
     monitor = FeedHealthMonitor()
     cb_mock = MagicMock()
@@ -452,8 +453,9 @@ async def test_greynoise_process_lookup_timeout_records_failure(
     mock_redis, mock_local_cache, mock_session
 ):
     """asyncio.TimeoutError triggers timeout counter and circuit breaker failure."""
-    from src.security.feed_health import FeedHealthMonitor
     from unittest.mock import patch
+
+    from src.security.feed_health import FeedHealthMonitor
 
     monitor = FeedHealthMonitor()
     cb_mock = MagicMock()

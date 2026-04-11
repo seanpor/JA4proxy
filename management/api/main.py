@@ -51,13 +51,20 @@ from .routes import (
     metrics,
     mfa_totp,
     nodes,
-    oidc as oidc_routes,
-    saml as saml_routes,
-    webauthn as webauthn_routes,
     pages,
     partials,
+    threat_intel,  # phase-85
     tokens,
     webhooks,
+)
+from .routes import (
+    oidc as oidc_routes,
+)
+from .routes import (
+    saml as saml_routes,
+)
+from .routes import (
+    webauthn as webauthn_routes,
 )
 from .routes.canonical_lists import migrate_legacy_entries
 
@@ -158,6 +165,7 @@ def create_app() -> FastAPI:
     app.include_router(webhooks.router)
     app.include_router(metrics.router)
     app.include_router(compliance.router)  # phase-84
+    app.include_router(threat_intel.router)  # phase-85
 
     # HTML page routes (auth enforced per-route via Depends)
     app.include_router(pages.router)

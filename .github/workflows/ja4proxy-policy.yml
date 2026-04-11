@@ -21,6 +21,12 @@
 
 name: JA4proxy Policy
 
+# Minimum scope: this workflow only reads source and calls the Management API
+# over the network (via a secret token, not GITHUB_TOKEN). Phase 61 added the
+# explicit permissions block.
+permissions:
+  contents: read
+
 on:
   push:
     paths:
@@ -35,12 +41,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c  # v5.0.0
         with:
-          python-version: '3.11'
+          python-version: '3.14'
 
       - name: Install validation dependencies
         run: pip install pyyaml cerberus
@@ -57,12 +63,12 @@ jobs:
     environment: production
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c  # v5.0.0
         with:
-          python-version: '3.11'
+          python-version: '3.14'
 
       - name: Install apply dependencies
         run: pip install pyyaml cerberus aiohttp

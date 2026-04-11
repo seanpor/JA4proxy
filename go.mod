@@ -1,6 +1,6 @@
 module github.com/anomalyco/ja4proxy
 
-go 1.25.0
+go 1.25.9
 
 require (
 	github.com/alicebob/miniredis/v2 v2.37.0
@@ -40,4 +40,5 @@ require (
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	google.golang.org/protobuf v1.36.8 // indirect
+	pgregory.net/rapid v1.2.0 // indirect
 )

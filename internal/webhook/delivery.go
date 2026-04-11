@@ -237,7 +237,7 @@ func (d *Dispatcher) Run(ctx context.Context) {
 				if err := json.Unmarshal([]byte(eventJSON), &event); err != nil {
 					continue
 				}
-				d.Deliver(event) //nolint:errcheck
+				d.Deliver(event) //nolint:errcheck,gosec // fire-and-forget delivery from stream replay
 			}
 		}
 	}

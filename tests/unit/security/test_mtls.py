@@ -100,8 +100,9 @@ if __name__ == '__main__':
 
 # ── Missing-coverage tests (pytest-style) ─────────────────────────────────────
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 
 class TestMTLSMissingPaths:
@@ -110,7 +111,8 @@ class TestMTLSMissingPaths:
     def _make_handler_with_ca(self):
         ca_cert, ca_key = generate_self_signed_ca()
         client_cert, _ = generate_signed_cert(ca_cert, ca_key)
-        import tempfile, os
+        import os
+        import tempfile
         with tempfile.NamedTemporaryFile(suffix=".pem", delete=False) as f:
             f.write(ca_cert.public_bytes(serialization.Encoding.PEM))
             path = f.name
@@ -138,7 +140,8 @@ class TestMTLSMissingPaths:
         So what: attacker-supplied malformed cert must not crash the proxy."""
         _, ca_cert, ca_key, _ = self._make_handler_with_ca()
         # Make a new temp CA file
-        import tempfile, os
+        import os
+        import tempfile
         with tempfile.NamedTemporaryFile(suffix=".pem", delete=False) as f:
             f.write(ca_cert.public_bytes(serialization.Encoding.PEM))
             path = f.name

@@ -48,6 +48,10 @@ var (
 	AbuseIPDBQueueDroppedTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{Name: "ja4proxy_abuseipdb_queue_dropped_total", Help: "Dropped AbuseIPDB requests"},
 	)
+	AbuseIPDBLookupsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "ja4proxy_abuseipdb_lookups_total", Help: "AbuseIPDB lookup results"},
+		[]string{"result"}, // hit, miss, error
+	)
 	WeakCipherTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{Name: "ja4proxy_weak_cipher_total", Help: "Total weak cipher connections"},
 	)
@@ -117,6 +121,64 @@ var (
 		prometheus.CounterOpts{Name: "ja4proxy_tcp_signal_total", Help: "TCP signal events"},
 		[]string{"signal"},
 	)
+	SyncClockDriftSeconds = prometheus.NewGauge(
+		prometheus.GaugeOpts{Name: "ja4proxy_sync_clock_drift_seconds", Help: "NTP clock drift in seconds"},
+	)
+	SyncPeerSkewSeconds = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{Name: "ja4proxy_sync_peer_skew_seconds", Help: "Clock skew relative to peer DC"},
+		[]string{"peer"},
+	)
+	SyncWANConnected = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{Name: "ja4proxy_sync_wan_connected", Help: "WAN connection status to peers (1=connected, 0=disconnected)"},
+		[]string{"peer"},
+	)
+	SyncReplicationLagSeconds = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{Name: "ja4proxy_sync_replication_lag_seconds", Help: "Cross-DC state replication lag"},
+		[]string{"stream"},
+	)
+	SyncEventsProcessedTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "ja4proxy_sync_events_processed_total", Help: "Total sync events applied locally"},
+		[]string{"op", "dc"},
+	)
+	SyncErrorsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "ja4proxy_sync_errors_total", Help: "Total sync failures"},
+		[]string{"type"},
+	)
+
+	// ── Phase 63 — SLO metrics ───────────────────────────────────────────
+	// ConnectionErrorsTotal counts unhandled errors in the connection handler
+	// before a policy decision was reached. Used as the "bad" term of the
+	// availability SLI.
+	ConnectionErrorsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "ja4proxy_connection_errors_total",
+			Help: "Unhandled errors in the connection handler before a policy decision",
+		},
+		// phase-63 review-fix: source-aware error classification.
+		// Values: client_read_timeout, client_read_error, backend_dial_timeout,
+		// backend_dial_error, backend_refused, redis_timeout, redis_error,
+		// connection_refused, oom, timeout, unknown.
+		// (TLS parse failures are NOT counted here — see cmd/proxy/main.go.)
+		[]string{"error_type"},
+	)
+	// RedisOperationsTotal counts every Redis call by command and result.
+	// Used as both terms of the Redis correctness SLI.
+	RedisOperationsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "ja4proxy_redis_operations_total",
+			Help: "Redis operations performed by the proxy",
+		},
+		[]string{"command", "result"}, // result: ok | error
+	)
+	// TLSCertExpiryTimestampSeconds is the listener TLS certificate's NotAfter
+	// as a Unix timestamp. Set at startup and on config reload. Phase 64 alerts
+	// on this gauge (see slo_recording_rules.yml & PHASE_64).
+	TLSCertExpiryTimestampSeconds = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "ja4proxy_tls_cert_expiry_timestamp_seconds",
+			Help: "Listener TLS certificate NotAfter as a Unix timestamp (phase-63)",
+		},
+	)
 )
 
 func Register() {
@@ -124,13 +186,17 @@ func Register() {
 		ConnectionsTotal, ActiveConnections, RiskScore,
 		DialCurrent, DialChangesTotal, SecurityEventsTotal, TarpitConcurrent,
 		TarpitOverflowTotal, ConfigReloadsTotal, BypassTotal, SignalTotal,
-		AbuseIPDBQueueDroppedTotal, WeakCipherTotal, WriteBufferQueueDepth,
+		AbuseIPDBQueueDroppedTotal, AbuseIPDBLookupsTotal, WeakCipherTotal, WriteBufferQueueDepth,
 		WriteBufferDroppedTotal, TorExitListEntries, ASNClassificationTotal,
 		PipelineDurationSeconds, BlocklistMatchesTotal, DNSEnrichmentQueueDepth,
 		RDAPEnrichmentQueueDepth, AbuseIPDBEnrichmentQueueDepth,
 		DNSEnrichmentTotal, DNSPTRErrorsTotal, DNSPTRClassificationTotal,
 		DNSResolverErrorsTotal, DNSEnrichmentQueueDropsTotal,
-		SNISignalTotal, SNIDGAScore, TCPSignalTotal,
+		SNISignalTotal, SNIDGAScore, TCPSignalTotal, SyncClockDriftSeconds,
+		SyncPeerSkewSeconds, SyncWANConnected, SyncReplicationLagSeconds,
+		SyncEventsProcessedTotal, SyncErrorsTotal,
+		// phase-63
+		ConnectionErrorsTotal, RedisOperationsTotal, TLSCertExpiryTimestampSeconds,
 	)
 	for _, action := range []string{"allow", "flag", "rate_limit", "tarpit", "block", "ban"} {
 		ConnectionsTotal.WithLabelValues(action)
