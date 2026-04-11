@@ -242,6 +242,42 @@ run the full suite locally without `-x`** to surface every remaining failure:
 If you don't have a 3.14 venv handy: `uv venv --python 3.14 --seed .venv314 &&
 .venv314/bin/python3 -m pip install -r requirements.txt`.
 
+### `make test` must be green locally before every merge to main
+
+**Non-negotiable gate.** Before you merge any PR to main — your own, another
+agent's, or a rebased Dependabot bump — run `make test` locally and confirm it
+is fully green. No shortcuts: not `-x`, not "just the tests I touched", not
+"CI will catch it". The full `make test`.
+
+Every CI breakage on this repo today (2026-04-11) was a case where `make test`
+would have been red locally and the agent merged anyway. The class of failure
+is always the same:
+
+- ruff E741 / ambiguous-var violations in a newly-added test file
+- gofmt violations in a directory the CI filter doesn't exclude
+- a pytest failure under a newer Python version
+
+All three are mechanical, all three are in `make test`'s output, all three
+reached main because nobody ran `make test` before clicking merge.
+
+**The rule:** if you touched anything in `src/`, `tests/`, `scripts/`, `cmd/`,
+`internal/`, a workflow, or a Dockerfile, `make test` is a merge blocker.
+Document a green run (paste the tail into the PR description or close-out
+notes) — "I ran it" without evidence is not sufficient when the same class
+of failure keeps reaching main.
+
+**What `make test` will NOT catch** (so don't treat it as sufficient on its
+own for these cases):
+
+- **Dev-vs-CI environment divergence.** A unit test that forgets to mock Redis
+  will silently pass locally (dev box has Redis running) and fail on CI
+  (no Redis). See the "Unit tests must mock every external service" section
+  above for the defensive pattern. The only reliable catch for this class
+  is the CI run on the PR itself — which means **don't merge with any red
+  CI check**, even if you think it's flaky or unrelated.
+- **CI-only state:** clean `/tmp`, absent ambient services, specific kernel
+  features, network policies, container runtime quirks.
+
 ### What `make test` actually checks — read ALL of it
 
 `make test` runs four static-analysis tools **before** pytest. A task is not done until
