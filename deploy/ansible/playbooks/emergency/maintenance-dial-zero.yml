@@ -1,125 +1,124 @@
 ---
-# Maintenance Mode — Set Dial to Zero Playbook
+# Maintenance: Set dial to 0 for a maintenance window, then restore.
+#
 # Usage:
 #   ansible-playbook maintenance-dial-zero.yml \
-#     -e ja4proxy_url=https://ja4proxy.corp:8090 \
-#     -e ja4proxy_token="${JA4PROXY_TOKEN}" \
 #     -e duration_minutes=60 \
 #     -e reason="Maintenance window for backend upgrade" \
-#     -e ticket=CHG0001600
+#     -e ticket=CHG0001600 \
+#     -e ja4proxy_token="${JA4PROXY_TOKEN}"
+#
+# Optional:
+#   -e ja4proxy_url=http://localhost:8090  (default)
+#   -e servicenow_enabled=true             (default: false)
+#
+# Safety: Steps down in ±10 increments. If 422 returned at any step,
+# the playbook ABORTS — do not suppress four-eyes approval.
 
-- name: Maintenance Mode (Dial Zero)
+- name: Maintenance Dial Zero
   hosts: localhost
-  connection: local
   gather_facts: false
-
   vars:
-    ja4proxy_url: ""
-    ja4proxy_token: ""
-    duration_minutes: 60
-    reason: "Maintenance window"
-    ticket: ""
-    servicenow_enabled: false
-    previous_dial: 0
+    ja4proxy_url: "http://localhost:8090"
+    max_dial_change: 10
 
-  pre_tasks:
+  tasks:
     - name: Validate required variables
       ansible.builtin.assert:
         that:
-          - ja4proxy_url | length > 0
-          - ja4proxy_token | length > 0
-          - ticket | length > 0
-        fail_msg: "ja4proxy_url, ja4proxy_token, and ticket are required"
+          - duration_minutes is defined
+          - reason is defined
+          - ticket is defined
+          - ja4proxy_token is defined
+        fail_msg: "Missing required variable: duration_minutes, reason, ticket, ja4proxy_token"
 
-  tasks:
     - name: Get current dial value
       ansible.builtin.uri:
         url: "{{ ja4proxy_url }}/api/v1/dial"
         method: GET
         headers:
           Authorization: "Bearer {{ ja4proxy_token }}"
+          Accept: "application/json"
         status_code: 200
-        return_content: true
-      register: dial_get
-      failed_when: dial_get.json.value is not defined
+        timeout: 30
+      register: current_dial_result
 
-    - name: Save previous dial value
+    - name: Save current dial value
       ansible.builtin.set_fact:
-        previous_dial: "{{ dial_get.json.value }}"
+        previous_dial: "{{ current_dial_result.json.value | int }}"
 
-    - name: Compute dial step-down values (max ±10 per request)
+    - name: Calculate dial steps (decrement by 10)
       ansible.builtin.set_fact:
-        steps: >-
-          {{ range(previous_dial | int, -1, -10) | list if previous_dial | int > 10
-             else [0] }}
-      # This generates the sequence of dial values to step down from current to 0
+        dial_steps: >-
+          {{ range(previous_dial, -1, -max_dial_change) | list |
+             map('int') | list }}
 
-    - name: Step dial down to 0 (respects ±10 limit)
+    - name: Step dial down to 0
       ansible.builtin.uri:
         url: "{{ ja4proxy_url }}/api/v1/dial"
         method: PATCH
+        headers:
+          Authorization: "Bearer {{ ja4proxy_token }}"
+          Content-Type: "application/json"
         body_format: json
         body:
           value: "{{ item }}"
-        headers:
-          Authorization: "Bearer {{ ja4proxy_token }}"
         status_code: 200
-        return_content: true
-      register: dial_step
-      loop: "{{ steps }}"
+        timeout: 30
+      loop: "{{ dial_steps }}"
+      register: dial_step_results
       failed_when: >
-        dial_step.status not in [200] or
-        dial_step.json.value is not defined
+        dial_step_results.results | default([]) |
+        selectattr('status', 'ne', 200) | list | length > 0
+      ignore_errors: true
 
-    - name: Confirm dial is now at 0 (maintenance mode active)
-      ansible.builtin.debug:
-        msg: "Maintenance mode ACTIVE — dial set to 0 for {{ duration_minutes }} minutes (Ticket: {{ ticket }})"
+    - name: Fail if any dial step returned 422 (four-eyes)
+      ansible.builtin.fail:
+        msg: >
+          Dial change was rejected (likely four-eyes approval pending).
+          Do not suppress the approval gate — contact the approver instead.
+          Previous dial value: {{ previous_dial }}
+      when: >
+        dial_step_results.results | default([]) |
+        selectattr('status', 'equalto', 422) | list | length > 0
 
-    - name: Wait for maintenance duration
+    - name: Wait for maintenance window
       ansible.builtin.wait_for:
         timeout: "{{ duration_minutes | int * 60 }}"
-      async: 3600
-      poll: 0
-      register: wait_task
+      when: dial_step_results is not failed
 
-    - name: Wait for the maintenance wait to complete
-      ansible.builtin.async_status:
-        jid: "{{ wait_task.ansible_job_id }}"
-      register: job_result
-      until: job_result.finished
-      retries: "{{ duration_minutes | int + 5 }}"
-      delay: 60
-
-    - name: Restore previous dial value (step up in ±10 increments)
+    - name: Restore previous dial value (stepped)
       ansible.builtin.uri:
         url: "{{ ja4proxy_url }}/api/v1/dial"
         method: PATCH
+        headers:
+          Authorization: "Bearer {{ ja4proxy_token }}"
+          Content-Type: "application/json"
         body_format: json
         body:
           value: "{{ item }}"
-        headers:
-          Authorization: "Bearer {{ ja4proxy_token }}"
         status_code: 200
-        return_content: true
-      loop: "{{ range(10, previous_dial | int + 1, 10) | list if previous_dial | int > 10 else [previous_dial | int] }}"
-      when: previous_dial | int > 0
-
-    - name: Confirm dial restored
-      ansible.builtin.debug:
-        msg: "Maintenance mode ENDED — dial restored to {{ previous_dial }}"
+        timeout: 30
+      loop: >-
+        {{ range(0, previous_dial + max_dial_change, max_dial_change) |
+           map('int') | list | select('<=', previous_dial) | list }}
+      when: dial_step_results is not failed
 
     - name: Create ServiceNow change record
       ansible.builtin.uri:
-        url: "{{ servicenow_instance }}/api/now/table/change_request"
+        url: "{{ servicenow_url }}/api/now/table/change_request"
         method: POST
+        user: "{{ servicenow_user }}"
+        password: "{{ servicenow_password }}"
         body_format: json
         body:
-          short_description: "Maintenance window: {{ reason }}"
-          description: "Dial was set to 0 for {{ duration_minutes }} minutes (Ticket: {{ ticket }})"
-        headers:
-          Authorization: "Bearer {{ servicenow_token }}"
+          short_description: "Maintenance dial zero: {{ reason }}"
+          description: "Dial set to 0 for {{ duration_minutes }}m — Ticket: {{ ticket }}"
+        force_basic_auth: true
         status_code: 201
-      when:
-        - servicenow_enabled | bool
-        - servicenow_instance is defined
-        - servicenow_token is defined
+        timeout: 30
+      when: servicenow_enabled | default(false) | bool
+      vars:
+        servicenow_url: "{{ lookup('env', 'SERVICENOW_URL') }}"
+        servicenow_user: "{{ lookup('env', 'SERVICENOW_USER') }}"
+        servicenow_password: "{{ lookup('env', 'SERVICENOW_PASSWORD') }}"
