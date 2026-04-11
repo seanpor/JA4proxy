@@ -179,7 +179,7 @@ def test_dashboard_does_not_use_nonexistent_labels_on_connections_total():
     assert not bad, (
         "ja4proxy_connections_total only has label 'action'; "
         "dashboard uses invalid labels:\n"
-        + "\n".join(f"  {t}: {l!r} in {e}" for t, l, e in bad)
+        + "\n".join(f"  {t}: {lbl!r} in {e}" for t, lbl, e in bad)
     )
 
 
