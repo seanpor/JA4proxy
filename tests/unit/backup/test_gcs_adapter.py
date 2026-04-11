@@ -25,12 +25,20 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-# Skip entire module if google-cloud-storage is not installed.
-# The adapter guards the same import, so all tests are vacuously satisfied
-# in environments without the optional dependency.
-gcs_lib = pytest.importorskip(
-    "google.cloud.storage", reason="google-cloud-storage not installed"
-)
+# Skip entire module if google-cloud-storage is not importable. We can't use
+# pytest.importorskip alone because, on Python 3.14, google-protobuf's C++
+# _upb extension raises `TypeError: Metaclasses with custom tp_new are not
+# supported.` during import — not ImportError — so importorskip won't catch
+# it. Wrap the probe to skip on either failure mode until protobuf ships a
+# 3.14-compatible upb. The adapter under test guards the same import, so
+# these tests are vacuously satisfied in that case.
+try:
+    import google.cloud.storage as gcs_lib  # noqa: F401
+except (ImportError, TypeError) as _gcs_exc:
+    pytest.skip(
+        f"google.cloud.storage not importable: {_gcs_exc}",
+        allow_module_level=True,
+    )
 
 from src.backup.storage_adapter import StorageMetadata  # noqa: E402 — after importorskip
 

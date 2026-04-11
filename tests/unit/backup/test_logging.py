@@ -121,9 +121,14 @@ def test_backup_logging_failure(caplog):
         mock_stat.st_uid = os.getuid()  # Current user
         mock_stat.st_gid = os.getgid()  # Current group
         
+        # On Python 3.14, pathlib.Path.mkdir(exist_ok=True) calls os.stat
+        # to verify an existing target is a directory; the mock above lacks
+        # the S_IFDIR bit, so mkdir would re-raise FileExistsError before
+        # the Redis-backed failure we're testing. Patch mkdir to a no-op.
         with patch("src.backup.worker.redis.Redis", return_value=mock_redis), \
              patch("os.access", side_effect=mock_access), \
-             patch("os.stat", return_value=mock_stat):
+             patch("os.stat", return_value=mock_stat), \
+             patch("pathlib.Path.mkdir"):
             # Try to create backup (should fail)
             try:
                 worker.create_backup("/tmp/test_backups")

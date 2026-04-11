@@ -46,13 +46,20 @@ def test_backup_directory_writable_validation():
 def test_backup_directory_secure_permissions():
     """Test that backup operations validate directory has secure permissions."""
     worker = BackupWorker()
-    
+
     # Mock os.stat to simulate insecure permissions (world-writable)
     mock_stat = MagicMock()
     mock_stat.st_mode = 0o777  # World-writable
     mock_stat.st_uid = os.getuid()  # Same owner to pass ownership check
-    
-    with patch("os.stat", return_value=mock_stat):
+
+    # On Python 3.14, pathlib.Path.mkdir(exist_ok=True) calls os.stat to
+    # verify an existing target is a directory; the mock above lacks the
+    # S_IFDIR bit, which would cause mkdir to re-raise FileExistsError
+    # before _validate_backup_directory runs. Patch mkdir to a no-op so
+    # the validation path under test is exercised regardless of pre-existing
+    # /tmp/test_backups on the runner.
+    with patch("os.stat", return_value=mock_stat), \
+         patch("pathlib.Path.mkdir"):
         with pytest.raises(Exception) as exc_info:
             worker.create_backup("/tmp/test_backups")
         
@@ -69,10 +76,11 @@ def test_backup_directory_ownership_validation():
     mock_stat.st_uid = 9999  # Different user
     mock_stat.st_gid = 9999  # Different group
     
-    with patch("os.stat", return_value=mock_stat):
+    with patch("os.stat", return_value=mock_stat), \
+         patch("pathlib.Path.mkdir"):
         with pytest.raises(Exception) as exc_info:
             worker.create_backup("/tmp/test_backups")
-        
+
         # Verify that an ownership error was raised
         assert "owner" in str(exc_info.value).lower() or "ownership" in str(exc_info.value).lower() or "owned" in str(exc_info.value).lower()
 

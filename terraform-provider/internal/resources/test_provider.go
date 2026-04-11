@@ -3,13 +3,13 @@ package resources
 import (
 	"context"
 
+	"github.com/anomalyco/terraform-provider-ja4proxy/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	fwprovider "github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
-	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
-	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/anomalyco/terraform-provider-ja4proxy/internal/client"
+	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 )
 
 // New returns a provider constructor for use in resource tests.

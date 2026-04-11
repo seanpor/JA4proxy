@@ -46,7 +46,7 @@ func (r *allowlistEntryResource) Schema(_ context.Context, _ resource.SchemaRequ
 		Description: "Manage allowlist entries via the JA4proxy Management API.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed:    true,
+				Computed: true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
@@ -66,21 +66,21 @@ func (r *allowlistEntryResource) Schema(_ context.Context, _ resource.SchemaRequ
 				Description: "Human-readable note about this entry.",
 			},
 			"list_type": schema.StringAttribute{
-				Computed:    true,
+				Computed: true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 				Description: "List type (allowlist).",
 			},
 			"created_at": schema.StringAttribute{
-				Computed:    true,
+				Computed: true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 				Description: "Timestamp when the entry was created.",
 			},
 			"created_by": schema.StringAttribute{
-				Computed:    true,
+				Computed: true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},

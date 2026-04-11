@@ -467,7 +467,7 @@ func TestAcc_Ban_FullLifecycle(t *testing.T) {
 			},
 			// Destroy
 			{
-				Config:  fmt.Sprintf(`provider "ja4proxy" {
+				Config: fmt.Sprintf(`provider "ja4proxy" {
     api_url   = %q
     api_token = "test-token"
   }`, server.URL),
@@ -517,7 +517,7 @@ func TestAcc_AllowlistEntry_FullLifecycle(t *testing.T) {
 				),
 			},
 			{
-				Config:  fmt.Sprintf(`provider "ja4proxy" {
+				Config: fmt.Sprintf(`provider "ja4proxy" {
     api_url   = %q
     api_token = "test-token"
   }`, server.URL),
@@ -556,7 +556,7 @@ func TestAcc_BlocklistEntry_FullLifecycle(t *testing.T) {
 				Check: resource.TestCheckResourceAttr("ja4proxy_blocklist_entry.acc", "entry", "jarm:acc-block-sig"),
 			},
 			{
-				Config:  fmt.Sprintf(`provider "ja4proxy" {
+				Config: fmt.Sprintf(`provider "ja4proxy" {
     api_url   = %q
     api_token = "test-token"
   }`, server.URL),
@@ -595,7 +595,7 @@ func TestAcc_WatchlistEntry_FullLifecycle(t *testing.T) {
 				Check: resource.TestCheckResourceAttr("ja4proxy_watchlist_entry.acc", "entry", "jarm:acc-watch-sig"),
 			},
 			{
-				Config:  fmt.Sprintf(`provider "ja4proxy" {
+				Config: fmt.Sprintf(`provider "ja4proxy" {
     api_url   = %q
     api_token = "test-token"
   }`, server.URL),
@@ -710,7 +710,7 @@ func TestAcc_Webhook_FullLifecycle(t *testing.T) {
 				),
 			},
 			{
-				Config:  fmt.Sprintf(`provider "ja4proxy" {
+				Config: fmt.Sprintf(`provider "ja4proxy" {
     api_url   = %q
     api_token = "test-token"
   }`, server.URL),
