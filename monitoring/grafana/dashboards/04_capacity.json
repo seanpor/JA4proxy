@@ -58,7 +58,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * sum(rate(ja4proxy_connections_total{bypass=\"h2\"}[5m])) / $BYPASS_CEILING_CPS"
+          "expr": "100 * sum(rate(ja4proxy_bypass_total[5m])) / $BYPASS_CEILING_CPS"
         }
       ],
       "fieldConfig": {
@@ -83,7 +83,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "100 * sum(rate(ja4proxy_connections_total{bypass=\"none\"}[5m])) / $SIGNAL_CEILING_CPS"
+          "expr": "100 * (sum(rate(ja4proxy_connections_total[5m])) - sum(rate(ja4proxy_bypass_total[5m]))) / $SIGNAL_CEILING_CPS"
         }
       ],
       "fieldConfig": {
@@ -137,17 +137,18 @@
     {
       "type": "stat",
       "id": 12,
-      "title": "Redis P99 (1h)",
+      "title": "Redis error rate (5m)",
+      "description": "Phase 86i substitution: the Go proxy does not export a Redis latency histogram (only ja4proxy_redis_operations_total{command,result}). We show Redis error rate as the closest proxy-side signal; Redis latency itself comes from the redis_exporter dashboards.",
       "gridPos": {"h": 8, "w": 8, "x": 16, "y": 10},
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(ja4proxy_redis_latency_seconds_bucket[5m])))"
+          "expr": "sum(rate(ja4proxy_redis_operations_total{result=\"error\"}[5m])) / clamp_min(sum(rate(ja4proxy_redis_operations_total[5m])), 1)"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "s"
+          "unit": "percentunit"
         }
       }
     },
@@ -163,15 +164,22 @@
     {
       "type": "timeseries",
       "id": 21,
-      "title": "Tarpit pool fill fraction",
+      "title": "Tarpit concurrent connections",
+      "description": "Phase 86i substitution: the proxy exports ja4proxy_tarpit_concurrent (gauge) and ja4proxy_tarpit_overflow_total but not a tarpit pool capacity metric. We show the raw concurrent gauge and the overflow rate in a single panel.",
       "gridPos": {"h": 8, "w": 8, "x": 0, "y": 19},
       "targets": [
         {
           "refId": "A",
-          "expr": "ja4proxy_tarpit_pool_size / ja4proxy_tarpit_pool_capacity"
+          "expr": "ja4proxy_tarpit_concurrent",
+          "legendFormat": "concurrent"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(ja4proxy_tarpit_overflow_total[5m]))",
+          "legendFormat": "overflow/s"
         }
       ],
-      "fieldConfig": {"defaults": {"unit": "percentunit"}}
+      "fieldConfig": {"defaults": {"unit": "short"}}
     },
     {
       "type": "timeseries",
@@ -188,15 +196,22 @@
     {
       "type": "timeseries",
       "id": 23,
-      "title": "Redis memory utilisation",
+      "title": "Redis memory used",
+      "description": "Phase 86i substitution: redis_exporter exports redis_memory_used_bytes plus redis_config_maxmemory (0 when no limit set). We show raw used-bytes and, when a maxmemory limit is configured, the utilisation ratio.",
       "gridPos": {"h": 8, "w": 8, "x": 16, "y": 19},
       "targets": [
         {
           "refId": "A",
-          "expr": "redis_memory_used_bytes / redis_memory_max_bytes"
+          "expr": "redis_memory_used_bytes",
+          "legendFormat": "used bytes"
+        },
+        {
+          "refId": "B",
+          "expr": "redis_memory_used_bytes / (redis_config_maxmemory > 0)",
+          "legendFormat": "% of maxmemory"
         }
       ],
-      "fieldConfig": {"defaults": {"unit": "percentunit"}}
+      "fieldConfig": {"defaults": {"unit": "bytes"}}
     },
 
     {
