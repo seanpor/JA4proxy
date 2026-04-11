@@ -11,38 +11,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🔵 Planned & Open Phases
 
-### Phase 93 — Terraform Provider + Emergency Runbook Playbooks
-*   **Status:** **PROPOSED** (Infrastructure-as-code management of JA4proxy via Terraform provider (separate repo, 6 resource types) and three emergency Ansible runbook playbooks. Split into 7 small sub-phases for incremental delivery.)
-*   **Action Plan:** [PHASE_93.md](PHASE_93.md)
-
-### Phase 93.1 — Terraform Provider Foundation
-*   **Status:** **PROPOSED** (ADRs (repo topology, namespace, TTL strategy), repo scaffolding, provider config schema (url, token, protect_unmanaged_entries), HTTP client with Bearer auth + URL encoding + 429 retry.)
-*   **Action Plan:** [PHASE_93.md](PHASE_93.md)
-
-### Phase 93.2 — Allowlist + Blocklist + Watchlist Resources
-*   **Status:** **PROPOSED** (Three CRUD resources (allowlist_entry, blocklist_entry, watchlist_entry) with managed_by drift detection, protect_unmanaged_entries support, and terraform import workflow.)
-*   **Action Plan:** [PHASE_93.md](PHASE_93.md)
-
-### Phase 93.3 — Ban Resource — IP + CIDR Unified
-*   **Status:** **PROPOSED** (Single ja4proxy_ban resource handling both IP and CIDR via URL-encoded path. TTL renewal via re-POST on apply. [terraform] reason prefix for ownership identification.)
-*   **Action Plan:** [PHASE_93.md](PHASE_93.md)
-
-### Phase 93.4 — Dial + Webhook Resources
-*   **Status:** **PROPOSED** (Singleton ja4proxy_dial with ±10 max change validation. ja4proxy_webhook CRUD. Both use [terraform] marker for ownership.)
-*   **Action Plan:** [PHASE_93.md](PHASE_93.md)
-
-### Phase 93.5 — Provider Testing + CI Pipeline
-*   **Status:** **PROPOSED** (tfproviderlint integration, full acceptance test suite, GitHub Actions test + release workflows, goreleaser, docs generation, example configs.)
-*   **Action Plan:** [PHASE_93.md](PHASE_93.md)
-
-### Phase 93.6 — Emergency Ansible Playbooks
-*   **Status:** **PROPOSED** (Three playbooks: emergency-ban-cidr.yml, temp-whitelist-ip.yml, maintenance-dial-zero.yml. Bearer token auth on all API calls. Abort on 422. Optional ServiceNow/Slack integration.)
-*   **Action Plan:** [PHASE_93.md](PHASE_93.md)
-
-### Phase 93.7 — Documentation + Integration Tests
-*   **Status:** **PROPOSED** (deploy/terraform/README.md with usage + import helper, docs/runbooks/emergency_playbooks.md, make test-phase-93 target, end-to-end Terraform integration test.)
-*   **Action Plan:** [PHASE_93.md](PHASE_93.md)
-
 ### Phase 94 — Kubernetes Operator + CMDB/NetBox Integration
 *   **Status:** **PROPOSED** (ja4proxy-operator (separate repo): JA4ProxyConfig, JA4ProxyAllowlist, JA4ProxyDial CRDs with admission webhook validation. Reconciliation loop via Management API. DaemonSet safety annotations. ArgoCD custom health check. ServiceNow CMDB auto-registration (opt-in). NetBox trusted CIDR integration (opt-in, fail-open).)
 *   **Action Plan:** [PHASE_94.md](PHASE_94.md)

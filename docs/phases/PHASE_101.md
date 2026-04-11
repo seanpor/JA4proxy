@@ -19,6 +19,7 @@
 | [Phase 62 Go Test Parity](#phase-62-go-test-parity-deferred-items) | 2026-04-09 | M15 (golden cross-check), M16 (chaos right-answer-wrong-mechanism), M17 (V2 fuzz target hand-off to Phase 200), L9 (property generator weight semantics) |
 | [Phase 64 Deployment Validation](#phase-64-deployment-validation-deferred-items) | 2026-04-10 | M18 (Podman/Quadlet smoke test blocked), M19 (phantom `ja4proxy-cli backup` audit), M20 closed, M21 closed, M22 closed, M23 closed |
 | [Phase 86i Hardening Review](#phase-86i-hardening-review-deferred-items) | 2026-04-11 | H14 (capacity calculator estimates-as-measurements), H15 (Dynatrace Prometheus parser robustness), H16 (Datadog migration smoke check), M24 (Pushgateway grouping_key + empty latencies), M25 (Dynatrace topology drop on scrape blip), M26 (benchmarks test lacks numeric/SHA validation), L10 (real production-hardware `make bench` run) |
+| [Phase 93 Terraform Provider](#phase-93-terraform-provider-deferred-items) | 2026-04-11 | H17 (provider repo not pushed), M27 (Registry external process), M28 (plan-apply race), M29 (null managed_by), L11 (no dial/webhook guard) |
 
 When a future phase review surfaces deferred items, append a new section
 below and start its severity counters at the next free number across the
@@ -1601,3 +1602,78 @@ numbers under a different label.
 
 TBD — needs a fleet host; pair with the platform/capacity team that
 owns the new Grafana dashboard audience.
+
+---
+
+## Phase 93 Terraform Provider (deferred items)
+
+Phase 93 delivered a fully functional Terraform provider with 43 passing tests,
+4 ADRs, and 6 resource types. The implementation is complete and reviewed — the
+only gap is that the provider repo has no GitHub remote.
+
+### H17 — Provider repo not pushed to GitHub
+
+**Severity:** HIGH  
+**Status:** DEFERRED  
+**Source:** Phase 93 expert review (2026-04-11)
+
+The provider repo at `/home/sean/LLM/terraform-provider-ja4proxy/` is complete
+but has no `git remote`. All code, tests, ADRs, and CI workflows are committed
+locally but not pushed.
+
+**What's ready:**
+- 43 Go tests pass, 0 failures, `go vet` clean
+- 8 acceptance tests against ManagementAPIMock pass
+- 4 ADRs (093a–093d) documenting all design decisions
+- `.github/workflows/test.yml` and `.github/workflows/release.yml` ready
+- `.goreleaser.yml` configured for multi-arch release + Registry upload
+- Module path: `github.com/anomalyco/terraform-provider-ja4proxy`
+
+**What's needed:**
+1. Create GitHub repo at `github.com/anomalyco/terraform-provider-ja4proxy`
+   (or `github.com/seanpor/terraform-provider-ja4proxy`)
+2. `git remote add origin <url>` and `git push -u origin main`
+3. Submit to Terraform Registry (requires HashiCorp partner review, 1–2 weeks)
+4. Create `v1.0.0` tag to trigger release workflow
+
+**Owner:** Junior engineer — full handoff instructions in Phase 101 action plan
+(`docs/phases/PHASE_93.md` §11 "Remaining Work").
+
+### M27 — Terraform Registry publication is external process
+
+**Severity:** MEDIUM  
+**Status:** DEFERRED  
+**Source:** Phase 93 expert review
+
+Registry publication requires HashiCorp partner review and cannot be automated
+within this project. Track separately once the repo is pushed (H17).
+
+### M28 — `protect_unmanaged_entries` plan-apply race
+
+**Severity:** MEDIUM  
+**Status:** DEFERRED (documented limitation)  
+**Source:** ADR-093d
+
+Between `ModifyPlan` and `Delete`, state is not re-read. If an external process
+modifies the ownership marker between plan and apply, the Delete guard uses stale
+state. Inherent to Terraform's plan-apply model.
+
+### M29 — Null `managed_by` causes false-positive protection
+
+**Severity:** MEDIUM  
+**Status:** DEFERRED (documented limitation)  
+**Source:** ADR-093d
+
+If `managed_by` is null in state, `"" != "terraform"` triggers protection.
+Conservative false positive — safe but potentially confusing. Resolved by running
+`terraform apply` to refresh state.
+
+### L11 — Dial and Webhook have no protect_unmanaged guard
+
+**Severity:** LOW  
+**Status:** DEFERRED  
+**Source:** Expert review finding #4
+
+Dial (singleton) and Webhook resources have no ownership tracking field and thus
+no `protect_unmanaged` protection. Deferred — requires Management API changes to
+add `managed_by` or reason prefix to these endpoints.

@@ -967,7 +967,8 @@ phases:
     - make test-phase-83 passes
   93:
     name: Terraform Provider + Emergency Runbook Playbooks
-    status: PROPOSED
+    status: COMPLETE
+    completed: 2026-04-11
     summary: Infrastructure-as-code management of JA4proxy via Terraform provider (separate repo, 6 resource types) and three
       emergency Ansible runbook playbooks. Split into 7 small sub-phases for incremental delivery.
     action_plan: docs/phases/PHASE_93.md
@@ -975,9 +976,14 @@ phases:
     - 79
     - 83
     size: LARGE
+    gaps:
+    - "Provider repo (/home/sean/LLM/terraform-provider-ja4proxy) exists and is fully functional (43 tests pass, ADR-093d
+      written) but has no GitHub remote and has not been pushed. See Phase 101."
+    - "Terraform Registry publication requires HashiCorp partner review — external process, track separately."
   93.1:
     name: Terraform Provider Foundation
-    status: PROPOSED
+    status: COMPLETE
+    completed: 2026-04-11
     summary: ADRs (repo topology, namespace, TTL strategy), repo scaffolding, provider config schema (url, token, protect_unmanaged_entries),
       HTTP client with Bearer auth + URL encoding + 429 retry.
     action_plan: docs/phases/PHASE_93.md
@@ -994,7 +1000,8 @@ phases:
     - make test passes in provider repo
   93.2:
     name: Allowlist + Blocklist + Watchlist Resources
-    status: PROPOSED
+    status: COMPLETE
+    completed: 2026-04-11
     summary: Three CRUD resources (allowlist_entry, blocklist_entry, watchlist_entry) with managed_by drift detection, protect_unmanaged_entries
       support, and terraform import workflow.
     action_plan: docs/phases/PHASE_93.md
@@ -1009,7 +1016,8 @@ phases:
     - Acceptance tests against ManagementAPIMock pass
   93.3:
     name: "Ban Resource \u2014 IP + CIDR Unified"
-    status: PROPOSED
+    status: COMPLETE
+    completed: 2026-04-11
     summary: Single ja4proxy_ban resource handling both IP and CIDR via URL-encoded path. TTL renewal via re-POST on apply.
       [terraform] reason prefix for ownership identification.
     action_plan: docs/phases/PHASE_93.md
@@ -1023,7 +1031,8 @@ phases:
     - TestBan_TTLRenewal and TestBan_CIDR pass against mock
   93.4:
     name: Dial + Webhook Resources
-    status: PROPOSED
+    status: COMPLETE
+    completed: 2026-04-11
     summary: "Singleton ja4proxy_dial with \xB110 max change validation. ja4proxy_webhook CRUD. Both use [terraform] marker\
       \ for ownership."
     action_plan: docs/phases/PHASE_93.md
@@ -1038,7 +1047,8 @@ phases:
     - TestDial_MaxChange10 and TestWebhook_Create_Read_Delete pass
   93.5:
     name: Provider Testing + CI Pipeline
-    status: PROPOSED
+    status: COMPLETE
+    completed: 2026-04-11
     summary: tfproviderlint integration, full acceptance test suite, GitHub Actions test + release workflows, goreleaser,
       docs generation, example configs.
     action_plan: docs/phases/PHASE_93.md
@@ -1056,7 +1066,8 @@ phases:
     - make test and make testacc pass in provider repo
   93.6:
     name: Emergency Ansible Playbooks
-    status: PROPOSED
+    status: COMPLETE
+    completed: 2026-04-11
     summary: 'Three playbooks: emergency-ban-cidr.yml, temp-whitelist-ip.yml, maintenance-dial-zero.yml. Bearer token auth
       on all API calls. Abort on 422. Optional ServiceNow/Slack integration.'
     action_plan: docs/phases/PHASE_93.md
@@ -1072,7 +1083,8 @@ phases:
     - ansible-playbook --check passes against mock
   93.7:
     name: Documentation + Integration Tests
-    status: PROPOSED
+    status: COMPLETE
+    completed: 2026-04-11
     summary: deploy/terraform/README.md with usage + import helper, docs/runbooks/emergency_playbooks.md, make test-phase-93
       target, end-to-end Terraform integration test.
     action_plan: docs/phases/PHASE_93.md
@@ -1086,6 +1098,21 @@ phases:
     - make test-phase-93 target added to Makefile
     - End-to-end integration test: Terraform apply + plan + destroy against ManagementAPIMock
     - make test-phase-93 passes
+  101:
+    name: Push Terraform Provider to GitHub + Registry Publication
+    status: PROPOSED
+    summary: Add GitHub remote to /home/sean/LLM/terraform-provider-ja4proxy, push all commits, configure
+      Terraform Registry publication workflow. The provider repo has 43 passing tests, ADR-093a through
+      ADR-093d, and is fully functional — it just needs a remote and a HashiCorp Registry submission.
+    action_plan: docs/phases/PHASE_101.md
+    dependencies:
+    - 93
+    size: SMALL
+    success_criteria:
+    - GitHub repo created at github.com/anomalyco/terraform-provider-ja4proxy (or equivalent)
+    - Remote added and all commits pushed
+    - Terraform Registry submission complete (requires HashiCorp partner review)
+    - CI workflows (.github/workflows/) passing on remote
   94:
     name: Kubernetes Operator + CMDB/NetBox Integration
     status: PROPOSED
