@@ -42,22 +42,27 @@ SHA_AND_TAG_RE = re.compile(
 KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
     "actions/checkout": {
         "v4.2.2": "11bd71901bbe5b1630ceea73d27597364c9af683",
+        "v6.0.2": "de0fac2e4500dabe0009e67214ff5f5447ce83dd",
     },
     "actions/setup-go": {
         "v5.2.0": "3041bf56c941b39c61721a86cd11f3bb1338122a",
         "v5.6.0": "40f1582b2485089dde7abd97c1529aa768e1baff",
+        "v6.4.0": "4a3601121dd01d1626a1e23e37211e3254c1c06c",
     },
     "actions/setup-python": {
         "v5.0.0": "0a5c61591373683505ea898e09a3ea4f39ef2b9c",
+        "v6.2.0": "a309ff8b426b58ec0e2a45f0f869d46889d02405",
     },
     "trufflesecurity/trufflehog": {
         "v3.88.2": "a94d152bf65bebf5baa486d3d4dfee520af2ceed",
+        "v3.94.3": "47e7b7cd74f578e1e3145d48f669f22fd1330ca6",
     },
     "returntocorp/semgrep-action": {
         "v1": "713efdd345f3035192eaa63f56867b88e63e4e5d",
     },
     "actions/dependency-review-action": {
         "v4.5.0": "3b139cfc5fae8b618d3eae3675e383bb1769c019",
+        "v4.9.0": "2031cfc080254a8a887f58cffee85186f0e49e48",
     },
     # phase-64: smoke-k8s CI job
     "azure/setup-helm": {
@@ -69,24 +74,31 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
     # release-cli.yml — verified upstream during Phase 61 review-fix.
     "crazy-max/ghaction-import-gpg": {
         "v6.2.0": "cb9bde2e2525e640591a934b1fd28eef1dcaf5e5",
+        "v7.0.0": "2dc316deee8e90f13e1a351ab510b4d5bc0c82cd",
     },
     "goreleaser/goreleaser-action": {
         "v6.3.0": "9c156ee8a17a598857849441385a2041ef570552",
+        "v7.0.0": "ec59f474b9834571250b370d4735c50f8e2d1e29",
     },
     "docker/setup-qemu-action": {
         "v3.2.0": "49b3bc8e6bdd4a60e6116a5414239cba5943d3cf",
+        "v4.0.0": "ce360397dd3f832beb865e1373c09c0e9f86d70a",
     },
     "docker/setup-buildx-action": {
         "v3.8.0": "6524bf65af31da8d45b59e8c27de4bd072b392f5",
+        "v4.0.0": "4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd",
     },
     "docker/login-action": {
         "v3.3.0": "9780b0c442fbb1117ed29e0efdff1e18412f7567",
+        "v4.1.0": "4907a6ddec9925e35a0a9e82d7399ccc52663121",
     },
     "docker/metadata-action": {
         "v5.6.1": "369eb591f429131d6889c46b94e711f089e6ca96",
+        "v6.0.0": "030e881283bb7a6894de51c315a6bfe6a94e05cf",
     },
     "docker/build-push-action": {
         "v6.13.0": "ca877d9245402d1537745e0e356eab47c3520991",
+        "v7.1.0": "bcafcacb16a39f128d818304e6c9c0c18556b85f",
     },
 }
 
