@@ -176,13 +176,13 @@ phases:
     status: COMPLETE
     test_coverage: 100%
     doc_status: COMPLETE
-    summary: Cross-instance statistical analysis via Redis Streams. Campaign/slow-scan
-      signals, drift alerting, Grafana dashboard, HyperLogLog, hot-reload.
+    summary: Cross-instance statistical analysis via Redis Streams. Campaign/slow-scan signals, drift alerting, Grafana dashboard,
+      HyperLogLog, hot-reload.
   13:
     name: 'Management UI - Phase 1: Backend API'
     status: COMPLETE
-    summary: FastAPI backend for real-time monitoring and configuration management.
-      Delivered together with Phases 51/52 in merge commit 2aeb2ba.
+    summary: FastAPI backend for real-time monitoring and configuration management. Delivered together with Phases 51/52 in
+      merge commit 2aeb2ba.
     action_plan: docs/phases/PHASE_13.md
   14:
     name: Production Hardening
@@ -195,9 +195,8 @@ phases:
     status: COMPLETE
     test_coverage: 100%
     doc_status: COMPLETE
-    summary: 10-50x throughput improvement via CPython/Go transition. Full feature
-      and configuration parity achieved for all 14 signal modules (Groups 1–6). Cross-language
-      data parity for RDAP and JA4X verified.
+    summary: "10-50x throughput improvement via CPython/Go transition. Full feature and configuration parity achieved for\
+      \ all 14 signal modules (Groups 1\u20136). Cross-language data parity for RDAP and JA4X verified."
     action_plan: docs/phases/PHASE_15.md
   16:
     name: Extended Fingerprinting
@@ -214,24 +213,21 @@ phases:
   18:
     name: Security Audit Remediation
     status: COMPLETE
-    summary: Fix broad exception handling, f-string logging, and add SignalCollector
-      protocol.
+    summary: Fix broad exception handling, f-string logging, and add SignalCollector protocol.
     action_plan: docs/phases/PHASE_18.md
   19:
     name: Backup & Restore
     status: COMPLETE
     test_coverage: 100%
     doc_status: COMPLETE
-    summary: Deterministic backup/restore with real key-name format, manifest+checksum,
-      retention, CLI, observability.
+    summary: Deterministic backup/restore with real key-name format, manifest+checksum, retention, CLI, observability.
     action_plan: docs/phases/PHASE_19.md
   20:
     name: Passive TAP Mode
     status: COMPLETE
     test_coverage: 86%
     doc_status: COMPLETE
-    summary: AF_PACKET capture, full JA4 fingerprint family, out-of-band enforcement,
-      and intelligence export.
+    summary: AF_PACKET capture, full JA4 fingerprint family, out-of-band enforcement, and intelligence export.
     completed: '2026-03-28'
     action_plan: docs/phases/PHASE_20.md
   21:
@@ -244,8 +240,7 @@ phases:
     status: COMPLETE
     test_coverage: 100%
     doc_status: COMPLETE
-    summary: 'Add backup scheduling, pipeline batching, and restore validation. Target:
-      Production-ready backup system.'
+    summary: 'Add backup scheduling, pipeline batching, and restore validation. Target: Production-ready backup system.'
     completed: '2026-03-29'
     action_plan: docs/phases/PHASE_22.md
     dependencies:
@@ -254,13 +249,12 @@ phases:
     gaps: []
     success_criteria:
     - Scheduled backups working with cron syntax
-    - Backup performance improved by ≥300%
+    - "Backup performance improved by \u2265300%"
     - Restore validation prevents silent failures
   23:
     name: 'Advanced Traffic Intelligence - Phase 1: Primary Feeds'
     status: COMPLETE
-    summary: Integrate AbuseIPDB, GreyNoise, and AlienVault OTX feeds for real-time
-      IP reputation.
+    summary: Integrate AbuseIPDB, GreyNoise, and AlienVault OTX feeds for real-time IP reputation.
     completed: '2026-03-31'
     action_plan: docs/phases/PHASE_23.md
     dependencies:
@@ -272,21 +266,18 @@ phases:
   24:
     name: Go Strategy Assessment
     status: CLOSED
-    summary: 'Closed: premise (TLS parsing as bottleneck) refuted by benchmark data.
-      Real bottlenecks are Redis RTT and sequential signal collection. See Phase 26
-      and Phase 15.'
+    summary: 'Closed: premise (TLS parsing as bottleneck) refuted by benchmark data. Real bottlenecks are Redis RTT and sequential
+      signal collection. See Phase 26 and Phase 15.'
     action_plan: docs/phases/PHASE_24.md
-    closed_reason: 'Empirical benchmarks (2026-03-25) showed TLS parsing is not the
-      bottleneck. IPC overhead from gRPC would create a new bottleneck. Correct solutions:
-      Phase 26 (Python hardening) and Phase 15 (full Go rewrite).'
+    closed_reason: 'Empirical benchmarks (2026-03-25) showed TLS parsing is not the bottleneck. IPC overhead from gRPC would
+      create a new bottleneck. Correct solutions: Phase 26 (Python hardening) and Phase 15 (full Go rewrite).'
   25:
     name: Docker Container Management
     status: COMPLETE
     test_coverage: 100%
     doc_status: COMPLETE
-    summary: All image versions pinned, version drift harmonised across prod/monitoring
-      compose files, first-party and Dockerfile scan targets added, check-image-versions
-      script, update policy runbook, base images pinned to patch version, curl removed
+    summary: All image versions pinned, version drift harmonised across prod/monitoring compose files, first-party and Dockerfile
+      scan targets added, check-image-versions script, update policy runbook, base images pinned to patch version, curl removed
       from production image.
     completed: '2026-03-28'
     action_plan: docs/phases/PHASE_25.md
@@ -295,10 +286,9 @@ phases:
     status: COMPLETE
     test_coverage: 100%
     doc_status: COMPLETE
-    summary: 'All 6 sub-plans complete: parallel signal collection (asyncio.gather),
-      Redis pipeline batching, Unix domain socket, deferred write batching, multi-process
-      worker model, benchmark validation. Single process: ~700-950 conn/s; 4 workers:
-      ~2,800-3,800 conn/s.'
+    summary: 'All 6 sub-plans complete: parallel signal collection (asyncio.gather), Redis pipeline batching, Unix domain
+      socket, deferred write batching, multi-process worker model, benchmark validation. Single process: ~700-950 conn/s;
+      4 workers: ~2,800-3,800 conn/s.'
     completed: '2026-03-27'
     action_plan: docs/phases/PHASE_26.md
   27:
@@ -306,16 +296,14 @@ phases:
     status: COMPLETE
     test_coverage: 100%
     doc_status: COMPLETE
-    summary: 'Remediate critical vulnerabilities: IP spoofing, sync/async Redis mismatch,
-      and synchronous TLS parsing DoS.'
+    summary: 'Remediate critical vulnerabilities: IP spoofing, sync/async Redis mismatch, and synchronous TLS parsing DoS.'
     action_plan: docs/phases/PHASE_27.md
   28:
     name: 'Python Throughput Hardening - Phase 2: Redis Optimization'
     status: COMPLETE
     test_coverage: 100%
     doc_status: COMPLETE
-    summary: 'Add Redis pipeline batching and Unix domain socket support. Target:
-      30-40% Redis latency reduction.'
+    summary: 'Add Redis pipeline batching and Unix domain socket support. Target: 30-40% Redis latency reduction.'
     completed: '2026-03-28'
     action_plan: docs/phases/archive/PHASE_28_WORK_PLAN.md
     dependencies:
@@ -323,49 +311,47 @@ phases:
     size: SMALL
     success_criteria:
     - Redis round-trip time < 1ms (local)
-    - Batch operations reduce queries by ≥60%
+    - "Batch operations reduce queries by \u226560%"
   29:
     name: 'Python Throughput Hardening - Phase 3: Multi-Process Architecture'
     status: COMPLETE
     test_coverage: 100%
     doc_status: COMPLETE
-    summary: 'Implement multi-process worker model with Docker Compose and HAProxy
-      load balancing. Target: Linear scaling to 4 workers.'
+    summary: 'Implement multi-process worker model with Docker Compose and HAProxy load balancing. Target: Linear scaling
+      to 4 workers.'
     completed: '2026-03-28'
     action_plan: docs/phases/archive/PHASE_29_WORK_PLAN.md
     dependencies:
     - 28
     size: MEDIUM
     success_criteria:
-    - 4-worker setup achieves ≥3,200 conn/s
+    - "4-worker setup achieves \u22653,200 conn/s"
     - HAProxy health checks working
   30:
     name: 'Python Throughput Hardening - Phase 4: Write Optimization & Benchmarking'
     status: COMPLETE
     test_coverage: 100%
     doc_status: COMPLETE
-    summary: 'Add deferred write batching and comprehensive benchmark validation.
-      Target: Final performance report.'
+    summary: 'Add deferred write batching and comprehensive benchmark validation. Target: Final performance report.'
     completed: '2026-03-28'
     action_plan: docs/phases/archive/PHASE_30_THROUGHPUT_PLAN.md
     dependencies:
     - 29
     size: SMALL
     success_criteria:
-    - WriteBuffer reduces Redis writes by ≥50%
+    - "WriteBuffer reduces Redis writes by \u226550%"
     - Comprehensive benchmark report generated
   31:
     name: 'Advanced Traffic Intelligence - Phase 3: Geographical Intelligence'
     status: COMPLETE
-    summary: 'Add GeoIP lookup and country-based blocking capabilities. Target: Geographical
-      threat analysis.'
+    summary: 'Add GeoIP lookup and country-based blocking capabilities. Target: Geographical threat analysis.'
     completed: '2026-03-31'
     action_plan: docs/phases/PHASE_31.md
     dependencies:
     - 23
     size: SMALL
     success_criteria:
-    - GeoIP lookup accuracy ≥98%
+    - "GeoIP lookup accuracy \u226598%"
     - Country blocking functional
   32:
     name: 'Advanced Traffic Intelligence - Phase 4: Attacker Attribution'
@@ -382,8 +368,7 @@ phases:
   33:
     name: 'Advanced Traffic Intelligence - Phase 6: Documentation Diagrams'
     status: COMPLETE
-    summary: Standardize all documentation diagrams to Mermaid format for consistent
-      rendering.
+    summary: Standardize all documentation diagrams to Mermaid format for consistent rendering.
     completed: '2026-03-30'
     action_plan: docs/phases/PHASE_33.md
     dependencies: []
@@ -396,9 +381,8 @@ phases:
   34:
     name: 'APT Hardening - Phase 1: Parser Isolation & Redis Security'
     status: COMPLETE
-    summary: Parser isolation via pure-Python TLS parser (Phase 65). Zero-Trust Redis
-      ACLs with HMAC signing. JA4/TLS mismatch detection. Subnet correlation wiring.
-      Proxy Seccomp profile. AppArmor profile. All items complete.
+    summary: Parser isolation via pure-Python TLS parser (Phase 65). Zero-Trust Redis ACLs with HMAC signing. JA4/TLS mismatch
+      detection. Subnet correlation wiring. Proxy Seccomp profile. AppArmor profile. All items complete.
     action_plan: docs/phases/PHASE_34.md
     size: MEDIUM
     success_criteria:
@@ -408,9 +392,8 @@ phases:
   35:
     name: 'Advanced APT - Phase 1: Integrity Enforcement & Kernel-Level'
     status: COMPLETE
-    summary: Supply chain integrity monitoring (Ed25519 config signing, SHA-256 hash-chain
-      audit log, async background monitor) and eBPF/XDP NIC-level blocking (XDP program,
-      Redis-to-BPF sync sidecar, graceful fallback, Alertmanager volumetric-attack
+    summary: Supply chain integrity monitoring (Ed25519 config signing, SHA-256 hash-chain audit log, async background monitor)
+      and eBPF/XDP NIC-level blocking (XDP program, Redis-to-BPF sync sidecar, graceful fallback, Alertmanager volumetric-attack
       rule).
     action_plan: docs/phases/PHASE_35.md
     size: MEDIUM
@@ -423,8 +406,8 @@ phases:
   36:
     name: Go Test Quality & Parity Gaps
     status: COMPLETE
-    summary: Fix broken JA4 fixture parity test, add real certificate JA4X tests,
-      add cross-language JA4X parity verification, and benchmark coverage.
+    summary: Fix broken JA4 fixture parity test, add real certificate JA4X tests, add cross-language JA4X parity verification,
+      and benchmark coverage.
     action_plan: docs/phases/PHASE_36.md
     dependencies:
     - 15
@@ -441,14 +424,14 @@ phases:
     status: COMPLETE
     test_coverage: 100%
     doc_status: COMPLETE
-    summary: 'Fixed make lint and make lint-static: black reformatted 79 files, removed
-      ~65 unused imports, fixed 15 mypy errors.'
+    summary: 'Fixed make lint and make lint-static: black reformatted 79 files, removed ~65 unused imports, fixed 15 mypy
+      errors.'
     action_plan: docs/phases/PHASE_37.md
   38:
     name: ISP Blocking Operations
     status: COMPLETE
-    summary: Establish comprehensive operational procedures for identifying, implementing,
-      monitoring, and maintaining blocks against malicious ISPs.
+    summary: Establish comprehensive operational procedures for identifying, implementing, monitoring, and maintaining blocks
+      against malicious ISPs.
     action_plan: docs/phases/PHASE_38.md
     dependencies:
     - 11
@@ -457,8 +440,7 @@ phases:
   39:
     name: Documentation Audit & Synchronization
     status: COMPLETE
-    summary: Audit all phase documentation, synchronize manifest/todo, and ensure
-      clear status indicators.
+    summary: Audit all phase documentation, synchronize manifest/todo, and ensure clear status indicators.
     completed: '2026-03-28'
     action_plan: docs/phases/PHASE_39.md
   40:
@@ -478,8 +460,7 @@ phases:
   41:
     name: Robust Health Check API & Anti-Flap Logic
     status: COMPLETE
-    summary: Implement deep health/readiness endpoints and hysteresis to prevent status
-      flapping.
+    summary: Implement deep health/readiness endpoints and hysteresis to prevent status flapping.
     completed: '2026-03-31'
     action_plan: docs/phases/PHASE_41.md
     dependencies:
@@ -488,8 +469,7 @@ phases:
   42:
     name: Zero-Downtime Data Upgrades (GeoIP & Config)
     status: COMPLETE
-    summary: Enable atomic hot-reloading of large data files and configuration without
-      process restart.
+    summary: Enable atomic hot-reloading of large data files and configuration without process restart.
     completed: '2026-03-31'
     action_plan: docs/phases/PHASE_42.md
     dependencies:
@@ -498,8 +478,7 @@ phases:
   43:
     name: Blue/Green Deployment & Rollback Tooling
     status: COMPLETE
-    summary: Tooling for parallel container releases and rapid traffic-shifting via
-      load balancer.
+    summary: Tooling for parallel container releases and rapid traffic-shifting via load balancer.
     completed: '2026-03-31'
     action_plan: docs/phases/PHASE_43.md
     dependencies:
@@ -509,8 +488,7 @@ phases:
   44:
     name: Test Audit and Documentation
     status: COMPLETE
-    summary: Audit the test suite to ensure all tests are genuine and document test
-      types, coverage, and gaps.
+    summary: Audit the test suite to ensure all tests are genuine and document test types, coverage, and gaps.
     completed: '2026-03-31'
     action_plan: docs/phases/PHASE_44.md
     dependencies: []
@@ -522,8 +500,7 @@ phases:
   45:
     name: Adversarial Test Expansion
     status: COMPLETE
-    summary: Expand adversarial tests to cover additional attack vectors and ensure
-      comprehensive security coverage.
+    summary: Expand adversarial tests to cover additional attack vectors and ensure comprehensive security coverage.
     completed: '2026-03-31'
     action_plan: docs/phases/PHASE_45.md
     dependencies:
@@ -535,9 +512,8 @@ phases:
   46:
     name: Coverage Improvement
     status: COMPLETE
-    summary: Drove overall coverage from 82% to 99% (11,570 statements, 172 missed).
-      All security-critical modules ≥99%. 3,557 tests passing, 0 failures. See PHASE_46_notes.md
-      for full session record.
+    summary: "Drove overall coverage from 82% to 99% (11,570 statements, 172 missed). All security-critical modules \u2265\
+      99%. 3,557 tests passing, 0 failures. See PHASE_46_notes.md for full session record."
     completed: '2026-04-06'
     action_plan: docs/phases/PHASE_46.md
     notes: docs/phases/PHASE_46_notes.md
@@ -550,22 +526,19 @@ phases:
   51:
     name: 'Management UI - Phase 2: Frontend Dashboard'
     status: COMPLETE
-    summary: Server-rendered Jinja2 dashboard (dashboard.html, partials) for real-time
-      visualization of proxy telemetry. Delivered together with Phases 13/52 in merge
-      commit 2aeb2ba.
+    summary: Server-rendered Jinja2 dashboard (dashboard.html, partials) for real-time visualization of proxy telemetry. Delivered
+      together with Phases 13/52 in merge commit 2aeb2ba.
     action_plan: docs/phases/PHASE_51.md
   52:
     name: 'Management UI - Phase 3: Administration Tools'
     status: COMPLETE
-    summary: Admin UI for allowlists, bans, dial, audit log, and config. Full test
-      suite including test_pages.py and test_container_config.py. Delivered together
-      with Phases 13/51 in merge commit 2aeb2ba.
+    summary: Admin UI for allowlists, bans, dial, audit log, and config. Full test suite including test_pages.py and test_container_config.py.
+      Delivered together with Phases 13/51 in merge commit 2aeb2ba.
     action_plan: docs/phases/PHASE_52.md
   53:
     name: 'Advanced Traffic Intelligence - Phase 2: Secondary Feeds'
     status: COMPLETE
-    summary: Integrate specialized threat intelligence feeds (e.g., MISP, ThreatFox,
-      VirusTotal).
+    summary: Integrate specialized threat intelligence feeds (e.g., MISP, ThreatFox, VirusTotal).
     completed: '2026-03-31'
     action_plan: docs/phases/PHASE_53.md
     dependencies:
@@ -573,7 +546,7 @@ phases:
     size: SMALL
     success_criteria:
     - Secondary threat feeds integrated
-    - Cache hit rate ≥95% for reputation lookups
+    - "Cache hit rate \u226595% for reputation lookups"
   54:
     name: 'Advanced Traffic Intelligence - Phase 5: Behavioral Attribution'
     status: COMPLETE
@@ -589,23 +562,21 @@ phases:
   55:
     name: 'APT Hardening - Phase 2: Advanced Detection & Container Security'
     status: CLOSED
-    summary: Implement subnet correlation, anti-evasion checks, and strict Seccomp/AppArmor
-      profiles.
+    summary: Implement subnet correlation, anti-evasion checks, and strict Seccomp/AppArmor profiles.
     action_plan: docs/phases/PHASE_55.md
     dependencies: []
     size: SMALL
-    cancelled_note: Absorbed into Phase 34. All remaining items (JA4/TLS mismatch,
-      Seccomp, AppArmor, subnet correlation wiring) moved to Phase 34.
+    cancelled_note: Absorbed into Phase 34. All remaining items (JA4/TLS mismatch, Seccomp, AppArmor, subnet correlation wiring)
+      moved to Phase 34.
     success_criteria:
     - Strict Seccomp/AppArmor profiles enforced
     - Subnet-level signal correlation functional
   56:
     name: 'Advanced APT - Phase 2: Deceptive Defense & Persistence Defense'
     status: COMPLETE
-    summary: Honey-fingerprint and honey-SNI deception detection (DeceptionChecker).
-      Silent-drop bans with APT:DECEPTION_TRIGGERED tag. Dead-Man's Switch watchdog.
-      Two-stage seccomp profiles. Ephemeral filesystem (tmpfs for /tmp and /var/run,
-      read_only). AppArmor profile delivered as Phase 34d.
+    summary: Honey-fingerprint and honey-SNI deception detection (DeceptionChecker). Silent-drop bans with APT:DECEPTION_TRIGGERED
+      tag. Dead-Man's Switch watchdog. Two-stage seccomp profiles. Ephemeral filesystem (tmpfs for /tmp and /var/run, read_only).
+      AppArmor profile delivered as Phase 34d.
     action_plan: docs/phases/PHASE_56.md
     dependencies:
     - 35
@@ -616,8 +587,8 @@ phases:
   57:
     name: 'Backup System Enhancements - Phase 3: Cloud & Incrementals'
     status: COMPLETE
-    summary: Cloud storage adapters (S3/GCS), 9-byte format header, DSAR value-scan
-      hardening, restore_with_fallback DR, CLI subcommands.
+    summary: Cloud storage adapters (S3/GCS), 9-byte format header, DSAR value-scan hardening, restore_with_fallback DR, CLI
+      subcommands.
     action_plan: docs/phases/PHASE_57.md
     dependencies:
     - 40
@@ -625,17 +596,14 @@ phases:
     completed: '2026-04-06'
     gaps:
     - 'P22-G2: Cloud storage adapters (S3, GCS, Azure Blob Storage)'
-    - 'P22-G3: Incremental backup strategy (track changed keys since last full) —
-      deferred to Phase 58'
+    - "P22-G3: Incremental backup strategy (track changed keys since last full) \u2014 deferred to Phase 58"
     success_criteria:
     - Successful offsite backup to at least one cloud provider
-    - Incremental backups significantly reduce backup window for large datasets —
-      deferred to Phase 58
+    - "Incremental backups significantly reduce backup window for large datasets \u2014 deferred to Phase 58"
   58:
     name: 'Advanced Traffic Intelligence - Phase 3: Feed Optimization & Reliability'
     status: COMPLETE
-    summary: Enhance secondary feeds with confidence weighting and adaptive caching
-      for improved signal quality and performance.
+    summary: Enhance secondary feeds with confidence weighting and adaptive caching for improved signal quality and performance.
     action_plan: docs/phases/PHASE_58.md
     dependencies:
     - 53
@@ -650,9 +618,8 @@ phases:
   59:
     name: 'Advanced Traffic Intelligence - Phase 4: Feed Reliability & Resilience'
     status: COMPLETE
-    summary: Circuit breakers and retry logic wired into all 5 TI providers; FeedHealthMonitor
-      with history tracking, periodic probing, and alert hooks; comprehensive chaos
-      tests for all providers; proxy.py lifecycle wiring; config/proxy.yml entries
+    summary: Circuit breakers and retry logic wired into all 5 TI providers; FeedHealthMonitor with history tracking, periodic
+      probing, and alert hooks; comprehensive chaos tests for all providers; proxy.py lifecycle wiring; config/proxy.yml entries
       for MISP/VT/ThreatFox; full operator runbook.
     action_plan: docs/phases/PHASE_59.md
     dependencies:
@@ -663,19 +630,18 @@ phases:
     name: Master Plan and Governance
     status: CLOSED
     doc_status: COMPLETE
-    summary: Governance index (pointer document only). Phases 61–64 all COMPLETE.
-      No implementation work remains — closed after 2026-04-09 rewrite.
+    summary: "Governance index (pointer document only). Phases 61\u201364 all COMPLETE. No implementation work remains \u2014\
+      \ closed after 2026-04-09 rewrite."
     action_plan: docs/phases/PHASE_60.md
-    closed_reason: "Phases 61–64 implemented and COMPLETE. Governance index retained as reference."
+    closed_reason: "Phases 61\u201364 implemented and COMPLETE. Governance index retained as reference."
     dependencies: []
     size: XL
   61:
     name: Supply Chain Security & Build Integrity
     status: COMPLETE
     doc_status: COMPLETE
-    summary: GitHub Actions CI pipeline (Python + Go tests, SAST, dependency audit);
-      SBOM generation (CycloneDX 1.4); Cosign keyless image signing; SLSA level 2
-      provenance for Go binary; action SHA pinning; branch protection rules.
+    summary: GitHub Actions CI pipeline (Python + Go tests, SAST, dependency audit); SBOM generation (CycloneDX 1.4); Cosign
+      keyless image signing; SLSA level 2 provenance for Go binary; action SHA pinning; branch protection rules.
     action_plan: docs/phases/PHASE_61.md
     dependencies:
     - 60
@@ -684,9 +650,8 @@ phases:
     name: Security Regression Harness, Fuzzing & Pre-Enterprise Validation
     status: COMPLETE
     doc_status: COMPLETE
-    summary: Automated regression tests for all Phase 27 pentest findings; atheris
-      + Go native fuzzing harnesses with CI smoke run; break-glass verification procedure;
-      pre-enterprise validation report generator.
+    summary: Automated regression tests for all Phase 27 pentest findings; atheris + Go native fuzzing harnesses with CI smoke
+      run; break-glass verification procedure; pre-enterprise validation report generator.
     action_plan: docs/phases/PHASE_62.md
     dependencies:
     - 60
@@ -696,9 +661,9 @@ phases:
     name: Service Level Objectives
     status: COMPLETE
     doc_status: COMPLETE
-    summary: Four SLIs (availability 99.9%, latency 99% <10ms, Redis correctness 99.5%,
-      FP rate <2%); multiwindow burn-rate alerts; Grafana SLO dashboard; on-call runbooks;
-      metric naming prerequisite (ja4_ → ja4proxy_ rename + add missing counters).
+    summary: "Four SLIs (availability 99.9%, latency 99% <10ms, Redis correctness 99.5%, FP rate <2%); multiwindow burn-rate\
+      \ alerts; Grafana SLO dashboard; on-call runbooks; metric naming prerequisite (ja4_ \u2192 ja4proxy_ rename + add missing\
+      \ counters)."
     action_plan: docs/phases/PHASE_63.md
     dependencies:
     - 60
@@ -709,9 +674,8 @@ phases:
     status: COMPLETE
     completed: 2026-04-10
     doc_status: COMPLETE
-    summary: Smoke test suite (Docker Compose, Helm/kind, Podman/Quadlet); DR runbook
-      with 5 scenarios incl. Redis data loss; credential rotation runbooks; TLS certificate
-      rotation; rolling upgrade procedure; MTTR baseline measurement.
+    summary: Smoke test suite (Docker Compose, Helm/kind, Podman/Quadlet); DR runbook with 5 scenarios incl. Redis data loss;
+      credential rotation runbooks; TLS certificate rotation; rolling upgrade procedure; MTTR baseline measurement.
     action_plan: docs/phases/PHASE_64.md
     dependencies:
     - 60
@@ -722,9 +686,8 @@ phases:
   65:
     name: Performance Hardening & Go/Python Parity
     status: COMPLETE
-    summary: Optimized Python hot path with pure-Python TLS parser (eliminating Scapy
-      overhead). Established binary fixture ground truth and authoritative signal
-      score registry. Integrated automated parity-check harness.
+    summary: Optimized Python hot path with pure-Python TLS parser (eliminating Scapy overhead). Established binary fixture
+      ground truth and authoritative signal score registry. Integrated automated parity-check harness.
     action_plan: docs/phases/PHASE_65.md
     dependencies:
     - 15
@@ -733,48 +696,43 @@ phases:
     success_criteria:
     - Python baseline_latency mean improves by >= 1ms
     - Go attack_500 blocks > 0% of bot traffic
-    - Binary ClientHello fixtures committed for Chrome, Firefox, Safari, x-bot
-      variants
+    - Binary ClientHello fixtures committed for Chrome, Firefox, Safari, x-bot variants
     - make check-scores exits 0
     - make parity-check exits 0 with both proxies running
     - Phase 15 reopened and re-verified COMPLETE
   66:
     name: Python 3.14 Compatibility Assessment
     status: COMPLETE
-    summary: PyPI wheel checker script created; all 33 packages verified compatible
-      (7 cp314 wheels, 25 pure-Python, 1 sdist-only warn for pytricia — no blockers).
-      Python 3.10 benchmark baseline captured. Dockerfile upgrade safe to proceed.
+    summary: "PyPI wheel checker script created; all 33 packages verified compatible (7 cp314 wheels, 25 pure-Python, 1 sdist-only\
+      \ warn for pytricia \u2014 no blockers). Python 3.10 benchmark baseline captured. Dockerfile upgrade safe to proceed."
     action_plan: docs/phases/PHASE_66.md
     dependencies:
     - 65
     size: SMALL
     success_criteria:
-    - scripts/check-python314-compat.py exits 0 — DONE
-    - docs/reports/python314-compat.md committed with all packages assessed — DONE
-    - docs/reports/benchmark/python311-baseline.md committed — DONE
-    - 'Full test suite run result documented (pass/fail count) — DONE: 2896 passed,
-      28 skipped, 0 failed'
+    - "scripts/check-python314-compat.py exits 0 \u2014 DONE"
+    - "docs/reports/python314-compat.md committed with all packages assessed \u2014 DONE"
+    - "docs/reports/benchmark/python311-baseline.md committed \u2014 DONE"
+    - "Full test suite run result documented (pass/fail count) \u2014 DONE: 2896 passed, 28 skipped, 0 failed"
   67:
     name: Python 3.14 Base Image Upgrade
     status: COMPLETE
-    summary: 'All nine non-analytics Dockerfiles upgraded to python:3.14.0-slim (or
-      python:3.14-slim for test variants). pyproject.toml ruff target-version updated
-      to py314. Full test suite passes: 2896 passed, 28 skipped, 0 failed. Docker
-      benchmark pending (requires docker pull of 3.14 image).'
+    summary: 'All nine non-analytics Dockerfiles upgraded to python:3.14.0-slim (or python:3.14-slim for test variants). pyproject.toml
+      ruff target-version updated to py314. Full test suite passes: 2896 passed, 28 skipped, 0 failed. Docker benchmark pending
+      (requires docker pull of 3.14 image).'
     action_plan: docs/phases/PHASE_67.md
     dependencies:
     - 66
     size: SMALL
     success_criteria:
-    - All nine non-analytics Dockerfiles on python:3.14.0-slim — DONE
-    - 'make test passes: 2687+ tests, 0 failures — DONE: 2896 passed'
-    - pyproject.toml ruff target-version py314 — DONE
+    - "All nine non-analytics Dockerfiles on python:3.14.0-slim \u2014 DONE"
+    - "make test passes: 2687+ tests, 0 failures \u2014 DONE: 2896 passed"
+    - "pyproject.toml ruff target-version py314 \u2014 DONE"
   68:
     name: Python 3.14 Hot Path Optimizations
     status: COMPLETE
-    summary: Make the JA4/scoring hot path JIT-friendly (remove try/except from inner
-      loops, monomorphic call sites). Integrate uvloop as the asyncio event loop on
-      Linux for 2-4x I/O throughput gain. Both changes are additive and independently
+    summary: Make the JA4/scoring hot path JIT-friendly (remove try/except from inner loops, monomorphic call sites). Integrate
+      uvloop as the asyncio event loop on Linux for 2-4x I/O throughput gain. Both changes are additive and independently
       revertable.
     action_plan: docs/phases/PHASE_68.md
     dependencies:
@@ -789,9 +747,8 @@ phases:
   69:
     name: Free-Threaded Python Proxy
     status: COMPLETE
-    summary: Conditional on Phase 67 throughput < 600 conn/s. Switch proxy container
-      to python:3.14t-slim (no-GIL). Thread safety audit; replace asyncio.Lock with
-      threading.Lock in local_cache and config loader. Replace ProcessPoolExecutor
+    summary: Conditional on Phase 67 throughput < 600 conn/s. Switch proxy container to python:3.14t-slim (no-GIL). Thread
+      safety audit; replace asyncio.Lock with threading.Lock in local_cache and config loader. Replace ProcessPoolExecutor
       with ThreadPoolExecutor for zero-IPC TLS parsing.
     action_plan: docs/phases/PHASE_69.md
     dependencies:
@@ -807,25 +764,22 @@ phases:
   70:
     name: Analytics Upgrade & Subinterpreter Experiment
     status: COMPLETE
-    summary: 'src/analytics/Dockerfile upgraded to python:3.14.0-slim (numpy has cp314
-      wheel confirmed by Phase 66 checker). src/tls/interpreter_pool.py created: drop-in
-      replacement for ThreadPoolExecutor using Python 3.14 interpreters module (each
-      worker gets own GIL); transparent ThreadPoolExecutor fallback on older Python.'
+    summary: 'src/analytics/Dockerfile upgraded to python:3.14.0-slim (numpy has cp314 wheel confirmed by Phase 66 checker).
+      src/tls/interpreter_pool.py created: drop-in replacement for ThreadPoolExecutor using Python 3.14 interpreters module
+      (each worker gets own GIL); transparent ThreadPoolExecutor fallback on older Python.'
     action_plan: docs/phases/PHASE_70.md
     dependencies:
     - 67
     size: SMALL
     success_criteria:
-    - src/analytics/Dockerfile updated to python:3.14.0-slim — DONE
-    - Analytics tests pass — DONE
-    - 'Subinterpreter experiment: src/tls/interpreter_pool.py implemented with fallback
-      — DONE'
+    - "src/analytics/Dockerfile updated to python:3.14.0-slim \u2014 DONE"
+    - "Analytics tests pass \u2014 DONE"
+    - "Subinterpreter experiment: src/tls/interpreter_pool.py implemented with fallback \u2014 DONE"
   71:
     name: Docker Isolation - Foundations & Registry
     status: COMPLETE
-    summary: scripts/agent-env.sh generates isolated .env.<agent> files; Makefile
-      agent-up/down/status targets; .current-agent persistence; docker/docker-compose.poc.yml
-      refactored with 4 network zones, per-agent loopback IP binding, cpuset, non-root
+    summary: scripts/agent-env.sh generates isolated .env.<agent> files; Makefile agent-up/down/status targets; .current-agent
+      persistence; docker/docker-compose.poc.yml refactored with 4 network zones, per-agent loopback IP binding, cpuset, non-root
       users, log rotation, geoip RO volume; ja4-admin.sh --agent flag.
     action_plan: docs/phases/PHASE_71.md
     dependencies:
@@ -838,9 +792,8 @@ phases:
   72:
     name: Docker Isolation - Logical Network Zones
     status: COMPLETE
-    summary: Four-zone network model (dmz_net, data_net/internal, origin_net/internal,
-      mgmt_net) implemented in docker/docker-compose.poc.yml. All eight services assigned
-      to correct zones.
+    summary: Four-zone network model (dmz_net, data_net/internal, origin_net/internal, mgmt_net) implemented in docker/docker-compose.poc.yml.
+      All eight services assigned to correct zones.
     action_plan: docs/phases/PHASE_72.md
     dependencies:
     - 71
@@ -852,23 +805,21 @@ phases:
   73:
     name: Docker Isolation - Host-Level Hardening
     status: COMPLETE
-    summary: AGENT_BIND_IP port binding for haproxy/analytics/metrics; Redis/backend/tarpit
-      ports removed from host; cpuset pinning; user:1000:1000; 300MB log rotation
-      on all services.
+    summary: AGENT_BIND_IP port binding for haproxy/analytics/metrics; Redis/backend/tarpit ports removed from host; cpuset
+      pinning; user:1000:1000; 300MB log rotation on all services.
     action_plan: docs/phases/PHASE_73.md
     dependencies:
     - 72
     size: SMALL
     success_criteria:
-    - Per-agent loopback IP binding on haproxy (443), analytics (8080), proxy metrics
-      (9090)
+    - Per-agent loopback IP binding on haproxy (443), analytics (8080), proxy metrics (9090)
     - Redis, backend, tarpit ports removed from host exposure
     - cpuset, non-root user, log rotation applied to all services
   74:
     name: Docker Isolation - Shared Assets & Tooling
     status: COMPLETE
-    summary: GeoIP shared as read-only volume; ja4-admin.sh --agent flag with .current-agent
-      fallback; make agent-up/down/status targets with auto-env generation.
+    summary: GeoIP shared as read-only volume; ja4-admin.sh --agent flag with .current-agent fallback; make agent-up/down/status
+      targets with auto-env generation.
     action_plan: docs/phases/PHASE_74.md
     dependencies:
     - 73
@@ -880,9 +831,8 @@ phases:
   75:
     name: Docker Isolation - Security Audit & Validation
     status: COMPLETE
-    summary: scripts/check-isolation.sh verifies port surface, Docker socket, network
-      zone boundaries, IPC isolation, and cross-agent reach. ISOLATION_MODEL.md updated
-      with verification section.
+    summary: scripts/check-isolation.sh verifies port surface, Docker socket, network zone boundaries, IPC isolation, and
+      cross-agent reach. ISOLATION_MODEL.md updated with verification section.
     action_plan: docs/phases/PHASE_75.md
     dependencies:
     - 74
@@ -893,22 +843,20 @@ phases:
   76:
     name: Enterprise RHEL Production Deployment Strategy
     status: COMPLETE
-    summary: Created phase paper outlining best practices for deploying JA4proxy inline
-      on an enterprise RHEL server (Quadlets, systemd, volume/log management, external
-      Redis, verification steps).
+    summary: Created phase paper outlining best practices for deploying JA4proxy inline on an enterprise RHEL server (Quadlets,
+      systemd, volume/log management, external Redis, verification steps).
     action_plan: docs/phases/PHASE_76.md
     dependencies:
     - 75
     size: SMALL
     success_criteria:
     - Phase paper documented in PHASE_76.md covering RHEL 8/9 deployment.
-    - Verified deployment flow incorporates Podman, quadlets, zero-downtime draining,
-      and log offloading.
+    - Verified deployment flow incorporates Podman, quadlets, zero-downtime draining, and log offloading.
   77:
     name: Enterprise Security Stack & SIEM Integration
     status: COMPLETE
-    summary: Defined integration patterns for Wazuh, CrowdSec, Splunk, QRadar, and
-      a universal 'Vector-based' pattern for unknown enterprise security tools.
+    summary: Defined integration patterns for Wazuh, CrowdSec, Splunk, QRadar, and a universal 'Vector-based' pattern for
+      unknown enterprise security tools.
     action_plan: docs/phases/PHASE_77.md
     dependencies:
     - 76
@@ -919,9 +867,8 @@ phases:
   78:
     name: Enterprise Scale, Hardening & Governance
     status: COMPLETE
-    summary: Documented the roadmap for global multi-node scalability (Redis Cluster),
-      Fail-Open/Fail-Closed policies, PII masking for GDPR, and FIPS 140-2 compliance
-      for RHEL.
+    summary: Documented the roadmap for global multi-node scalability (Redis Cluster), Fail-Open/Fail-Closed policies, PII
+      masking for GDPR, and FIPS 140-2 compliance for RHEL.
     action_plan: docs/phases/PHASE_78.md
     dependencies:
     - 77
@@ -932,32 +879,30 @@ phases:
   79:
     name: Management API v2, RBAC & Enterprise Identity
     status: COMPLETE
-    summary: "Production-grade REST API with stable IDs, full RBAC (Auditor/Analyst/Operator/Admin),
-      SAML 2.0 + OIDC SSO (Okta, Entra ID), mandatory MFA for Admin/Operator, append-only
-      audit trail. Critical dependency for phases 80-86."
+    summary: Production-grade REST API with stable IDs, full RBAC (Auditor/Analyst/Operator/Admin), SAML 2.0 + OIDC SSO (Okta,
+      Entra ID), mandatory MFA for Admin/Operator, append-only audit trail. Critical dependency for phases 80-86.
     action_plan: docs/phases/PHASE_79.md
     dependencies:
     - 78
     size: LARGE
     success_criteria:
-    - "All 22 API endpoints implemented with RFC 7807 error bodies — DONE (51 routes)"
-    - "SAML 2.0 SSO implemented, fully unit-tested with mock IdP — DONE (live IdP tests deferred to Phase 100)"
-    - "OIDC SSO with PKCE S256 implemented, unit-tested — DONE (JWKS signature verification deferred to Phase 100 Gap 1)"
-    - "Four RBAC roles enforced at handler level with test coverage — DONE"
-    - "Append-only audit trail: every mutating action logged, no role can delete entries — DONE"
-    - "TOTP MFA with Fernet-encrypted secrets and backup codes — DONE"
-    - "WebAuthn/FIDO2 registration and authentication — DONE"
-    - "OpenAPI 3.1 spec committed to docs/api/openapi.yaml — DONE (51 routes)"
-    - "Remaining gaps documented and deferred to Phase 100"
+    - "All 22 API endpoints implemented with RFC 7807 error bodies \u2014 DONE (51 routes)"
+    - "SAML 2.0 SSO implemented, fully unit-tested with mock IdP \u2014 DONE (live IdP tests deferred to Phase 100)"
+    - "OIDC SSO with PKCE S256 implemented, unit-tested \u2014 DONE (JWKS signature verification deferred to Phase 100 Gap\
+      \ 1)"
+    - "Four RBAC roles enforced at handler level with test coverage \u2014 DONE"
+    - "Append-only audit trail: every mutating action logged, no role can delete entries \u2014 DONE"
+    - "TOTP MFA with Fernet-encrypted secrets and backup codes \u2014 DONE"
+    - "WebAuthn/FIDO2 registration and authentication \u2014 DONE"
+    - "OpenAPI 3.1 spec committed to docs/api/openapi.yaml \u2014 DONE (51 routes)"
+    - Remaining gaps documented and deferred to Phase 100
   80:
     name: ECS Structured Logging & SIEM Integration Pack
     status: COMPLETE
-    summary: ECS 8.x formatter for Go proxy and Python analytics; webhook dispatcher
-      (HMAC-SHA256, Redis DLQ, retry); Vector config templates (Splunk HEC, Sentinel,
-      QRadar LEEF, Elastic); Splunk TA (CIM-compliant, 5 dashboards, 5 correlation
-      searches, ban alert action); Microsoft Sentinel content pack (5 KQL rules, 2
-      playbooks); IBM QRadar DSM; Elastic integration. Logging.format config key;
-      events:connection Redis Stream; webhooks:dlq DLQ.
+    summary: ECS 8.x formatter for Go proxy and Python analytics; webhook dispatcher (HMAC-SHA256, Redis DLQ, retry); Vector
+      config templates (Splunk HEC, Sentinel, QRadar LEEF, Elastic); Splunk TA (CIM-compliant, 5 dashboards, 5 correlation
+      searches, ban alert action); Microsoft Sentinel content pack (5 KQL rules, 2 playbooks); IBM QRadar DSM; Elastic integration.
+      Logging.format config key; events:connection Redis Stream; webhooks:dlq DLQ.
     action_plan: docs/phases/PHASE_80.md
     dependencies:
     - 79
@@ -970,35 +915,29 @@ phases:
   81:
     name: SOAR, Webhooks & Enterprise Operations Platforms
     status: COMPLETE
-    summary: XSOAR integration (8 commands). Splunk SOAR app (8 actions). ServiceNow
-      SecOps SIR auto-creation and close-loop release. xMatters two-way mobile response
-      (5 options). Interlink Software Service Watch (UK NOC) with Vector CEF syslog.
-      PagerDuty/OpsGenie runbook links on all Alertmanager rules. Platform live-testing
-      tracked in Phase 100 item 100-E (blocked on tenant access).
+    summary: XSOAR integration (8 commands). Splunk SOAR app (8 actions). ServiceNow SecOps SIR auto-creation and close-loop
+      release. xMatters two-way mobile response (5 options). Interlink Software Service Watch (UK NOC) with Vector CEF syslog.
+      PagerDuty/OpsGenie runbook links on all Alertmanager rules. Platform live-testing tracked in Phase 100 item 100-E (blocked
+      on tenant access).
     action_plan: docs/phases/PHASE_81.md
     dependencies:
     - 79
     - 80
     size: LARGE
     success_criteria:
-    - XSOAR connector (8 commands) implemented and unit-tested against mock Management
-      API
-    - Splunk SOAR connector (8 actions) implemented and unit-tested against mock Management
-      API
-    - ServiceNow ecs_to_sir() and create_sir_incident() unit-tested with severity
-      boundary at 85
-    - Interlink Vector config with stdin source, integer CEF severity, TLS on port
-      6514
+    - XSOAR connector (8 commands) implemented and unit-tested against mock Management API
+    - Splunk SOAR connector (8 actions) implemented and unit-tested against mock Management API
+    - ServiceNow ecs_to_sir() and create_sir_incident() unit-tested with severity boundary at 85
+    - Interlink Vector config with stdin source, integer CEF severity, TLS on port 6514
     - All Alertmanager rules have runbook_url annotations
     - 148 Phase 81 tests pass; 0 regressions in full suite
   82:
     name: Policy-as-Code, Shadow Mode & Governance
     status: COMPLETE
-    summary: 'Offline-testable policy-as-code tooling complete: Cerberus YAML validator,
-      async aiohttp applier, CLI script, CI/CD templates (GitHub Actions/GitLab CI/Jenkins/Ansible),
-      operator schema docs, ADR-082 (shadow mode storage). 20 tests pass. Platform-dependent
-      work (shadow mode analytics, four-eyes UI, live API integration) tracked in
-      Phase 100 items 100-L, 100-M, 100-N.'
+    summary: 'Offline-testable policy-as-code tooling complete: Cerberus YAML validator, async aiohttp applier, CLI script,
+      CI/CD templates (GitHub Actions/GitLab CI/Jenkins/Ansible), operator schema docs, ADR-082 (shadow mode storage). 20
+      tests pass. Platform-dependent work (shadow mode analytics, four-eyes UI, live API integration) tracked in Phase 100
+      items 100-L, 100-M, 100-N.'
     action_plan: docs/phases/PHASE_82.md
     dependencies:
     - 79
@@ -1006,41 +945,40 @@ phases:
     success_criteria:
     - ja4proxy-cli policy validate/apply/diff implemented and idempotent
     - Shadow mode simulation returns results within 5 minutes for 30-day window
-    - Four-eyes approval gate enforced — changes do not apply until approved
+    - "Four-eyes approval gate enforced \u2014 changes do not apply until approved"
     - GitHub Actions, GitLab CI, and Jenkins pipeline templates ship in repo
   83:
-    name: 'ja4proxy-cli Go Binary'
+    name: ja4proxy-cli Go Binary
     status: COMPLETE
     completed: '2026-04-07'
-    summary: 'Go binary for terminal day-2 operations: ip lookup/ban/release/watchlist,
-      allowlist/blocklist add/remove/list, dial get/set, config reload, health, fingerprint
-      history, policy validate/apply/diff. --output json|table|csv. Mutating commands
-      require --confirm. Parity tests vs Python stopgap. GPG-signed releases with
-      SLSA provenance. Replaces scripts/ja4proxy-policy.py.'
+    summary: 'Go binary for terminal day-2 operations: ip lookup/ban/release/watchlist, allowlist/blocklist add/remove/list,
+      dial get/set, config reload, health, fingerprint history, policy validate/apply/diff. --output json|table|csv. Mutating
+      commands require --confirm. Parity tests vs Python stopgap. GPG-signed releases with SLSA provenance. Replaces scripts/ja4proxy-policy.py.'
     action_plan: docs/phases/PHASE_83.md
     dependencies:
     - 79
     - 82
     size: MEDIUM
     success_criteria:
-    - All commands in spec implemented (simulation stubs excepted — Phase 100-M)
+    - "All commands in spec implemented (simulation stubs excepted \u2014 Phase 100-M)"
     - Parity tests pass vs Python stopgap for policy commands
     - Binary releases include GPG signature, SLSA attestation, checksums.txt
     - make test-phase-83 passes
   93:
-    name: 'Terraform Provider + Emergency Runbook Playbooks'
+    name: Terraform Provider + Emergency Runbook Playbooks
     status: PROPOSED
-    summary: 'Infrastructure-as-code management of JA4proxy via Terraform provider (separate repo, 6 resource types) and three emergency Ansible runbook playbooks. Split into 7 small sub-phases for incremental delivery.'
+    summary: Infrastructure-as-code management of JA4proxy via Terraform provider (separate repo, 6 resource types) and three
+      emergency Ansible runbook playbooks. Split into 7 small sub-phases for incremental delivery.
     action_plan: docs/phases/PHASE_93.md
     dependencies:
     - 79
     - 83
     size: LARGE
-
   93.1:
-    name: 'Terraform Provider Foundation'
+    name: Terraform Provider Foundation
     status: PROPOSED
-    summary: 'ADRs (repo topology, namespace, TTL strategy), repo scaffolding, provider config schema (url, token, protect_unmanaged_entries), HTTP client with Bearer auth + URL encoding + 429 retry.'
+    summary: ADRs (repo topology, namespace, TTL strategy), repo scaffolding, provider config schema (url, token, protect_unmanaged_entries),
+      HTTP client with Bearer auth + URL encoding + 429 retry.
     action_plan: docs/phases/PHASE_93.md
     dependencies:
     - 79
@@ -1053,55 +991,55 @@ phases:
     - internal/client/client.go implements GET/POST/PATCH/DELETE with Bearer auth
     - Client unit tests pass (auth header, URL encoding, error mapping)
     - make test passes in provider repo
-
   93.2:
-    name: 'Allowlist + Blocklist + Watchlist Resources'
+    name: Allowlist + Blocklist + Watchlist Resources
     status: PROPOSED
-    summary: 'Three CRUD resources (allowlist_entry, blocklist_entry, watchlist_entry) with managed_by drift detection, protect_unmanaged_entries support, and terraform import workflow.'
+    summary: Three CRUD resources (allowlist_entry, blocklist_entry, watchlist_entry) with managed_by drift detection, protect_unmanaged_entries
+      support, and terraform import workflow.
     action_plan: docs/phases/PHASE_93.md
     dependencies:
     - 93.1
     size: SMALL
     success_criteria:
     - All 3 resource types implemented with Create/Read/Update/Delete
-    - 'managed_by = "terraform" set on create for all 3'
+    - managed_by = "terraform" set on create for all 3
     - protect_unmanaged_entries = true suppresses destroys, prints import command
     - terraform import works for all 3 resource types
     - Acceptance tests against ManagementAPIMock pass
-
   93.3:
-    name: 'Ban Resource — IP + CIDR Unified'
+    name: "Ban Resource \u2014 IP + CIDR Unified"
     status: PROPOSED
-    summary: 'Single ja4proxy_ban resource handling both IP and CIDR via URL-encoded path. TTL renewal via re-POST on apply. [terraform] reason prefix for ownership identification.'
+    summary: Single ja4proxy_ban resource handling both IP and CIDR via URL-encoded path. TTL renewal via re-POST on apply.
+      [terraform] reason prefix for ownership identification.
     action_plan: docs/phases/PHASE_93.md
     dependencies:
     - 93.1
     size: SMALL
     success_criteria:
     - ja4proxy_ban handles both IP and CIDR via URL-encoded path parameter
-    - "TTL renewal: near-expiry (≤24h) triggers re-POST to reset TTL"
-    - "[terraform] reason prefix used for drift detection"
+    - "TTL renewal: near-expiry (\u226424h) triggers re-POST to reset TTL"
+    - '[terraform] reason prefix used for drift detection'
     - TestBan_TTLRenewal and TestBan_CIDR pass against mock
-
   93.4:
-    name: 'Dial + Webhook Resources'
+    name: Dial + Webhook Resources
     status: PROPOSED
-    summary: 'Singleton ja4proxy_dial with ±10 max change validation. ja4proxy_webhook CRUD. Both use [terraform] marker for ownership.'
+    summary: "Singleton ja4proxy_dial with \xB110 max change validation. ja4proxy_webhook CRUD. Both use [terraform] marker\
+      \ for ownership."
     action_plan: docs/phases/PHASE_93.md
     dependencies:
     - 93.1
     size: SMALL
     success_criteria:
     - ja4proxy_dial is singleton; GET + PATCH /api/v1/dial
-    - "Dial change > ±10 fails with clear error message"
+    - "Dial change > \xB110 fails with clear error message"
     - ja4proxy_webhook implements Create/Read/Delete
-    - "[terraform] reason prefix on webhook for ownership"
+    - '[terraform] reason prefix on webhook for ownership'
     - TestDial_MaxChange10 and TestWebhook_Create_Read_Delete pass
-
   93.5:
-    name: 'Provider Testing + CI Pipeline'
+    name: Provider Testing + CI Pipeline
     status: PROPOSED
-    summary: 'tfproviderlint integration, full acceptance test suite, GitHub Actions test + release workflows, goreleaser, docs generation, example configs.'
+    summary: tfproviderlint integration, full acceptance test suite, GitHub Actions test + release workflows, goreleaser,
+      docs generation, example configs.
     action_plan: docs/phases/PHASE_93.md
     dependencies:
     - 93.2
@@ -1115,27 +1053,27 @@ phases:
     - .github/workflows/release.yml publishes to Terraform Registry on tag
     - docs/ generated from schema; examples/basic/ and examples/full/ present
     - make test and make testacc pass in provider repo
-
   93.6:
-    name: 'Emergency Ansible Playbooks'
+    name: Emergency Ansible Playbooks
     status: PROPOSED
-    summary: 'Three playbooks: emergency-ban-cidr.yml, temp-whitelist-ip.yml, maintenance-dial-zero.yml. Bearer token auth on all API calls. Abort on 422. Optional ServiceNow/Slack integration.'
+    summary: 'Three playbooks: emergency-ban-cidr.yml, temp-whitelist-ip.yml, maintenance-dial-zero.yml. Bearer token auth
+      on all API calls. Abort on 422. Optional ServiceNow/Slack integration.'
     action_plan: docs/phases/PHASE_93.md
     dependencies:
     - 79
     size: SMALL
     success_criteria:
     - All 3 playbooks in deploy/ansible/playbooks/emergency/
-    - "Each playbook passes Authorization: Bearer token on all API calls"
+    - 'Each playbook passes Authorization: Bearer token on all API calls'
     - emergency-ban-cidr.yml URL-encodes CIDR and POSTs to /api/v1/bans/{cidr_encoded}
-    - maintenance-dial-zero.yml steps down in ±10 increments; aborts on 422
+    - "maintenance-dial-zero.yml steps down in \xB110 increments; aborts on 422"
     - Integration tests pass against ManagementAPIMock (correct method + path + body + auth)
     - ansible-playbook --check passes against mock
-
   93.7:
-    name: 'Documentation + Integration Tests'
+    name: Documentation + Integration Tests
     status: PROPOSED
-    summary: 'deploy/terraform/README.md with usage + import helper, docs/runbooks/emergency_playbooks.md, make test-phase-93 target, end-to-end Terraform integration test.'
+    summary: deploy/terraform/README.md with usage + import helper, docs/runbooks/emergency_playbooks.md, make test-phase-93
+      target, end-to-end Terraform integration test.
     action_plan: docs/phases/PHASE_93.md
     dependencies:
     - 93.5
@@ -1148,11 +1086,10 @@ phases:
     - End-to-end integration test: Terraform apply + plan + destroy against ManagementAPIMock
     - make test-phase-93 passes
   94:
-    name: 'Kubernetes Operator + CMDB/NetBox Integration'
+    name: Kubernetes Operator + CMDB/NetBox Integration
     status: PROPOSED
-    summary: 'ja4proxy-operator (separate repo): JA4ProxyConfig, JA4ProxyAllowlist,
-      JA4ProxyDial CRDs with admission webhook validation. Reconciliation loop via
-      Management API. DaemonSet safety annotations. ArgoCD custom health check. ServiceNow
+    summary: 'ja4proxy-operator (separate repo): JA4ProxyConfig, JA4ProxyAllowlist, JA4ProxyDial CRDs with admission webhook
+      validation. Reconciliation loop via Management API. DaemonSet safety annotations. ArgoCD custom health check. ServiceNow
       CMDB auto-registration (opt-in). NetBox trusted CIDR integration (opt-in, fail-open).'
     action_plan: docs/phases/PHASE_94.md
     dependencies:
@@ -1168,9 +1105,9 @@ phases:
   84:
     name: Compliance & Reporting
     status: COMPLETE
-    summary: PCI-DSS v4.0 evidence pack (8 artefacts, auto-generated). SOC 2 Type
-      II control narrative and monthly evidence collection. GDPR retention/purge/DSAR/erasure.
-      Executive PDF report with value-of-product metric. ISO 27001 Annex A mapping.
+    summary: PCI-DSS v4.0 evidence pack (8 artefacts, auto-generated). SOC 2 Type II control narrative and monthly evidence
+      collection. GDPR retention/purge/DSAR/erasure. Executive PDF report with value-of-product metric. ISO 27001 Annex A
+      mapping.
     action_plan: docs/phases/PHASE_84.md
     dependencies:
     - 79
@@ -1183,10 +1120,9 @@ phases:
   85:
     name: Threat Intelligence Ingestion
     status: COMPLETE
-    summary: TAXII 2.1 client consuming JA4 fingerprint and IP indicators. JA4 STIX
-      2.1 extension definition (strategic moat — first standard for JA4 indicators).
-      Recorded Future and CrowdStrike named connectors. Curated JA4 fingerprint community
-      feed architecture.
+    summary: "TAXII 2.1 client consuming JA4 fingerprint and IP indicators. JA4 STIX 2.1 extension definition (strategic moat\
+      \ \u2014 first standard for JA4 indicators). Recorded Future and CrowdStrike named connectors. Curated JA4 fingerprint\
+      \ community feed architecture."
     action_plan: docs/phases/PHASE_85.md
     dependencies:
     - 79
@@ -1200,7 +1136,9 @@ phases:
     name: Observability & Capacity Planning
     status: COMPLETE
     completed: 2026-04-10
-    summary: "7 sub-phases: 86a Management API summary endpoint Python + Go, 86b Load testing harness + benchmark run, 86c Capacity sizing calculator, 86d Datadog integration with dashboard and monitors, 86e Dynatrace EF2 extension, 86f Nagios check + Zabbix template, 86g 7 alert runbooks + runbook_url annotations on existing alerts."
+    summary: '7 sub-phases: 86a Management API summary endpoint Python + Go, 86b Load testing harness + benchmark run, 86c
+      Capacity sizing calculator, 86d Datadog integration with dashboard and monitors, 86e Dynatrace EF2 extension, 86f Nagios
+      check + Zabbix template, 86g 7 alert runbooks + runbook_url annotations on existing alerts.'
     action_plan: docs/phases/PHASE_86.md
     dependencies: []
     size: L
@@ -1214,80 +1152,80 @@ phases:
     name: Container & Host Infrastructure Observability
     status: COMPLETE
     completed: '2026-04-06'
-    summary: cAdvisor per-container metrics integration. Dedicated ja4proxy-infrastructure
-      Grafana dashboard with fleet status strip and container variable drill-down
-      (no infinite scroll). Host CPU/memory/disk alert rules. Per-container OOM and
-      restart-loop alerts. Connection rate spike and distributed attack detection
-      rules. Infrastructure runbook.
+    summary: cAdvisor per-container metrics integration. Dedicated ja4proxy-infrastructure Grafana dashboard with fleet status
+      strip and container variable drill-down (no infinite scroll). Host CPU/memory/disk alert rules. Per-container OOM and
+      restart-loop alerts. Connection rate spike and distributed attack detection rules. Infrastructure runbook.
     action_plan: docs/phases/PHASE_87.md
     dependencies:
     - 14
     size: MEDIUM
     gaps:
-    - make test-phase-87-integration target was broken since code was merged (scripts
-      never created). Scripts created and extended in Phase 91. Integration tests
-      require a live monitoring stack — never yet run against real infrastructure.
+    - "make test-phase-87-integration target was broken since code was merged (scripts never created). Scripts created and\
+      \ extended in Phase 91. Integration tests require a live monitoring stack \u2014 never yet run against real infrastructure."
     success_criteria:
-    - cAdvisor service added to docker/docker-compose.monitoring.yml and scraped by
-      Prometheus
-    - 'ja4proxy-infrastructure.json dashboard: fleet status strip visible without
-      scrolling, container variable drill-down'
-    - Alert groups ja4proxy_infrastructure and ja4proxy_attack_detection present in
-      alerts.yml
-    - ContainerOOMKilled and ContainerRestartLoop alerts fire for all ja4proxy-owned
-      containers
+    - cAdvisor service added to docker/docker-compose.monitoring.yml and scraped by Prometheus
+    - 'ja4proxy-infrastructure.json dashboard: fleet status strip visible without scrolling, container variable drill-down'
+    - Alert groups ja4proxy_infrastructure and ja4proxy_attack_detection present in alerts.yml
+    - ContainerOOMKilled and ContainerRestartLoop alerts fire for all ja4proxy-owned containers
     - ConnectionRateSpike alert uses 1h rolling baseline with clamp_min guard
     - docs/runbooks/infrastructure.md present with all 30 sections
     - make test-phase-87 passes
   88:
-    name: "Multi-Datacenter Survivability & Failover"
-    status: "COMPLETE"
-    summary: "Robust multi-DC architecture with per-peer consumer groups to eliminate Head-of-Line blocking, JSON-based cryptographic signing to prevent delimiter injection, and reliable async state sync with tombstones."
-    completed: "2026-04-09"
-    action_plan: "docs/phases/PHASE_88.md"
-    dependencies: [64, 86, 87]
-    size: "XL"
-
+    name: Multi-Datacenter Survivability & Failover
+    status: COMPLETE
+    summary: Robust multi-DC architecture with per-peer consumer groups to eliminate Head-of-Line blocking, JSON-based cryptographic
+      signing to prevent delimiter injection, and reliable async state sync with tombstones.
+    completed: '2026-04-09'
+    action_plan: docs/phases/PHASE_88.md
+    dependencies:
+    - 64
+    - 86
+    - 87
+    size: XL
   88.1:
-    name: "Multi-DC Foundation & Sentinel Support"
-    status: "COMPLETE"
-    summary: "Redis Sentinel transition and background NTP drift monitoring. Established the WAN baseline and Fail-Open Sentinel logic."
-    completed: "2026-04-08"
-    dependencies: [88]
-    size: "SMALL"
-
+    name: Multi-DC Foundation & Sentinel Support
+    status: COMPLETE
+    summary: Redis Sentinel transition and background NTP drift monitoring. Established the WAN baseline and Fail-Open Sentinel
+      logic.
+    completed: '2026-04-08'
+    dependencies:
+    - 88
+    size: SMALL
   88.2:
-    name: "Async State Propagation & Tombstones"
-    status: "COMPLETE"
-    summary: "Implemented robust syncagent with per-peer consumer groups, outbound sync capture, strict inbound key whitelisting, and the tombstone pattern."
-    completed: "2026-04-09"
-    dependencies: [88.1]
-    size: "SMALL"
-
+    name: Async State Propagation & Tombstones
+    status: COMPLETE
+    summary: Implemented robust syncagent with per-peer consumer groups, outbound sync capture, strict inbound key whitelisting,
+      and the tombstone pattern.
+    completed: '2026-04-09'
+    dependencies:
+    - 88.1
+    size: SMALL
   88.3:
-    name: "Secure Dial Consistency Protocol"
-    status: "COMPLETE"
-    summary: "Implemented synchronous 8s Dial consistency protocol with strict bounds checking (0-100) and JSON-canonicalized signing."
-    completed: "2026-04-09"
-    dependencies: [88.2]
-    size: "SMALL"
-
+    name: Secure Dial Consistency Protocol
+    status: COMPLETE
+    summary: Implemented synchronous 8s Dial consistency protocol with strict bounds checking (0-100) and JSON-canonicalized
+      signing.
+    completed: '2026-04-09'
+    dependencies:
+    - 88.2
+    size: SMALL
   88.4:
-    name: "Multi-DC Observability & Security Hardening"
-    status: "COMPLETE"
-    summary: "Instrumented syncagent metrics, implemented JSON-based Ed25519 cryptographic signing, and enforced fail-closed mTLS 1.3."
-    completed: "2026-04-09"
-    dependencies: [88.3]
-    size: "SMALL"
-
+    name: Multi-DC Observability & Security Hardening
+    status: COMPLETE
+    summary: Instrumented syncagent metrics, implemented JSON-based Ed25519 cryptographic signing, and enforced fail-closed
+      mTLS 1.3.
+    completed: '2026-04-09'
+    dependencies:
+    - 88.3
+    size: SMALL
   88.5:
-    name: "Disaster Recovery & GameDay"
-    status: "COMPLETE"
-    summary: "Finalized multi-DC runbook and established quarterly Chaos Testing procedures for cross-DC failover validation."
-    completed: "2026-04-09"
-    dependencies: [88.4]
-    size: "SMALL"
-
+    name: Disaster Recovery & GameDay
+    status: COMPLETE
+    summary: Finalized multi-DC runbook and established quarterly Chaos Testing procedures for cross-DC failover validation.
+    completed: '2026-04-09'
+    dependencies:
+    - 88.4
+    size: SMALL
   89:
     name: Dockerfile Base Image Hygiene
     status: COMPLETE
@@ -1296,11 +1234,9 @@ phases:
     dependencies:
     - 88
     size: SMALL
-    summary: 'Standardise Python base images (3.11-slim/3.14-slim → 3.14.0-slim),
-      Go toolchain (1.23 → 1.25), network/volume naming (underscores → hyphens with
-      explicit name: fields), remove network:host from all build blocks, add restart:unless-stopped
-      to all permanent POC services, fix REDIS_PASSWORD to :? form, create docker/README.md,
-      add Dockerfile location labels.'
+    summary: "Standardise Python base images (3.11-slim/3.14-slim \u2192 3.14.0-slim), Go toolchain (1.23 \u2192 1.25), network/volume\
+      \ naming (underscores \u2192 hyphens with explicit name: fields), remove network:host from all build blocks, add restart:unless-stopped\
+      \ to all permanent POC services, fix REDIS_PASSWORD to :? form, create docker/README.md, add Dockerfile location labels."
     success_criteria:
     - No Dockerfile uses python:3.11-slim or python:3.14-slim
     - All test infrastructure Dockerfiles pin to python:3.14.0-slim
@@ -1315,9 +1251,8 @@ phases:
     action_plan: docs/phases/PHASE_90.md
     dependencies: []
     size: SMALL
-    summary: Moved all root docker-compose files (poc, python-legacy, scale, test)
-      into docker/. Updated build contexts from context:. to context:.. Updated all
-      references in Makefile, scripts, and docs. Moved benchmark scripts to performance/.
+    summary: Moved all root docker-compose files (poc, python-legacy, scale, test) into docker/. Updated build contexts from
+      context:. to context:.. Updated all references in Makefile, scripts, and docs. Moved benchmark scripts to performance/.
       Removed untracked artefact files and unused sql.js package.
     success_criteria:
     - git ls-files | grep '^docker-compose' returns empty
@@ -1332,22 +1267,20 @@ phases:
     - 40
     - 87
     size: SMALL
-    summary: 'Phase 89 Makefile audit discovered that make gdpr-delete has never worked
-      (scripts/gdpr_delete.py never existed) and make test-phase-87-integration has
-      been broken since Phase 87 shipped. Basic scripts created in Phase 89 cleanup.
-      Phase 91 completes the work: HyperLogLog handling, ZSET member erasure, audit
-      logging, unit tests, runbook, and Phase 87 integration test extension.'
+    summary: 'Phase 89 Makefile audit discovered that make gdpr-delete has never worked (scripts/gdpr_delete.py never existed)
+      and make test-phase-87-integration has been broken since Phase 87 shipped. Basic scripts created in Phase 89 cleanup.
+      Phase 91 completes the work: HyperLogLog handling, ZSET member erasure, audit logging, unit tests, runbook, and Phase
+      87 integration test extension.'
     success_criteria:
-      - "scripts/gdpr_delete.py correctly handles exact keys, wildcard keys, ZSET members, and reports HLL skips"
-      - "Audit log entry written to management:gdpr_erasure_log after every invocation"
-      - "All 10 unit tests in tests/unit/test_gdpr_delete.py pass (fakeredis)"
-      - "make gdpr-delete IP=127.0.0.1 runs without error against a live Redis"
-      - "HLL keys are NOT deleted; limitation documented in erasure report output"
-      - "docs/REDIS_SCHEMA.md updated with management:gdpr_erasure_log key"
-      - "Runbook section written for GDPR erasure procedure"
-      - "make test-phase-87-integration passes against a running monitoring stack"
-      - "Phase 87 manifest success_criteria updated to include integration test target"
-
+    - scripts/gdpr_delete.py correctly handles exact keys, wildcard keys, ZSET members, and reports HLL skips
+    - Audit log entry written to management:gdpr_erasure_log after every invocation
+    - All 10 unit tests in tests/unit/test_gdpr_delete.py pass (fakeredis)
+    - make gdpr-delete IP=127.0.0.1 runs without error against a live Redis
+    - HLL keys are NOT deleted; limitation documented in erasure report output
+    - docs/REDIS_SCHEMA.md updated with management:gdpr_erasure_log key
+    - Runbook section written for GDPR erasure procedure
+    - make test-phase-87-integration passes against a running monitoring stack
+    - Phase 87 manifest success_criteria updated to include integration test target
   92:
     name: Makefile Lint Target Hierarchy
     status: COMPLETE
@@ -1355,15 +1288,13 @@ phases:
     action_plan: docs/phases/PHASE_92.md
     dependencies: []
     size: SMALL
-    summary: Added 11 new individual lint targets (pylint, semgrep, checkov, haproxy,
-      helm, ansible-lint, markdownlint, codespell, TOML, checkmake, go mod verify)
-      and 8 aggregates (lint-python, lint-go, lint-sast, lint-infra, lint-observability,
-      lint-supply-chain, lint-docs-all, lint-all). Also added gosec + bodyclose to
-      golangci-lint and fixed missing docker-compose.scale.yml in lint-docker.
+    summary: Added 11 new individual lint targets (pylint, semgrep, checkov, haproxy, helm, ansible-lint, markdownlint, codespell,
+      TOML, checkmake, go mod verify) and 8 aggregates (lint-python, lint-go, lint-sast, lint-infra, lint-observability, lint-supply-chain,
+      lint-docs-all, lint-all). Also added gosec + bodyclose to golangci-lint and fixed missing docker-compose.scale.yml in
+      lint-docker.
     success_criteria:
     - make lint-all runs all linters in sequence
-    - make lint-python, lint-go, lint-sast, lint-infra, lint-observability, lint-supply-chain,
-      lint-docs-all all work
+    - make lint-python, lint-go, lint-sast, lint-infra, lint-observability, lint-supply-chain, lint-docs-all all work
     - No existing Makefile targets modified
     - make lint-phases passes
   100:
@@ -1374,82 +1305,61 @@ phases:
     dependencies:
     - 79
     size: MEDIUM
-    summary: 'Closes 6 gaps from Phase 79 C7-C9 CR: OIDC JWKS signature verification
-      with double-checked locking and authlib; SSO audit log events (saml.py + oidc.py);
-      WebAuthn credential list/delete endpoints; SSO-delegated MFA trust via SAML
-      authn context / OIDC amr claim; pytest.mark.integration markers for live-IdP
-      tests; group-to-role mapping from config/proxy.yml sso.role_mapping with 60s
-      cache and env-var override. Gap 7 (OpenAPI 3.1 spec) was completed in Phase
-      79 C10.'
+    summary: 'Closes 6 gaps from Phase 79 C7-C9 CR: OIDC JWKS signature verification with double-checked locking and authlib;
+      SSO audit log events (saml.py + oidc.py); WebAuthn credential list/delete endpoints; SSO-delegated MFA trust via SAML
+      authn context / OIDC amr claim; pytest.mark.integration markers for live-IdP tests; group-to-role mapping from config/proxy.yml
+      sso.role_mapping with 60s cache and env-var override. Gap 7 (OpenAPI 3.1 spec) was completed in Phase 79 C10.'
     success_criteria:
-    - OIDC id_token signature verified against IdP JWKS (authlib RS256; double-checked
-      asyncio.Lock cache; MANAGEMENT_TEST_MODE=1 bypass for unit tests)
+    - OIDC id_token signature verified against IdP JWKS (authlib RS256; double-checked asyncio.Lock cache; MANAGEMENT_TEST_MODE=1
+      bypass for unit tests)
     - SAML and OIDC login events written to management:audit_log via write_audit()
     - GET /auth/mfa/webauthn/credentials lists enrolled credential IDs and created_at
-    - DELETE /auth/mfa/webauthn/credentials/{id} removes credential hash and SET entry
-      with ownership check
-    - SSO-delegated MFA trust sets mgmt:mfa:session key when MANAGEMENT_SSO_TRUST_IDP_MFA=true
-      and SAML authn context or OIDC amr claim indicates MFA
+    - DELETE /auth/mfa/webauthn/credentials/{id} removes credential hash and SET entry with ownership check
+    - SSO-delegated MFA trust sets mgmt:mfa:session key when MANAGEMENT_SSO_TRUST_IDP_MFA=true and SAML authn context or OIDC
+      amr claim indicates MFA
     - pytest.mark.integration markers on SAML and OIDC live-IdP placeholder tests
-    - Group-to-role mapping honoured from config/proxy.yml sso.role_mapping with env-var
-      MANAGEMENT_SAML_ROLE_MAPPING / MANAGEMENT_OIDC_ROLE_MAPPING override
+    - Group-to-role mapping honoured from config/proxy.yml sso.role_mapping with env-var MANAGEMENT_SAML_ROLE_MAPPING / MANAGEMENT_OIDC_ROLE_MAPPING
+      override
   101:
-    name: Phase 101 — Cross-Phase Gap Register
+    name: "Phase 101 \u2014 Cross-Phase Gap Register"
     status: PROPOSED
     action_plan: docs/phases/PHASE_101.md
     dependencies:
     - 84
     - 85
     size: LARGE
-    summary: 'Rolling cross-phase register of deferred review gaps. Currently
-      contains two sections. (1) Phase 84 Compliance Review: items deferred
-      from the second critical review of Phase 84 (DSAR XRANGE consolidation,
-      CIDR-aware DSAR matching, XTRIM MINID Redis-version fallback, audit log
-      pagination, DSAR partial-failure semantics, Jinja2 module-level cache,
-      JSONL invariant docs, dynamic retention strings, beaconing metric
-      rename). C1-C3 / H2/H4/H5 / M3/M5/M6 / L3/L4 were closed in the
-      review-fixes branch and are documented for reference. (2) Phase 85
-      Threat-Intel Hardening: per-feed safety caps, two-empty-poll gate,
-      ja4_safe_to_block FP-corpus gate, SafeResolver-backed TCPConnector,
-      manual-poll rate limit, CSRF middleware, RF/CrowdStrike regional
-      endpoints, and a re-shape of the TAXII chaos + integration tests
-      against the new FeedRunner constructor. C5-partial / C7 / H13 were
-      closed in-branch on phase-85 and are documented for reference. Gap
-      IDs are letter-prefixed by severity and numbered sequentially across
-      the entire register; new sections continue from the highest existing
-      number per letter.'
+    summary: 'Rolling cross-phase register of deferred review gaps. Currently contains two sections. (1) Phase 84 Compliance
+      Review: items deferred from the second critical review of Phase 84 (DSAR XRANGE consolidation, CIDR-aware DSAR matching,
+      XTRIM MINID Redis-version fallback, audit log pagination, DSAR partial-failure semantics, Jinja2 module-level cache,
+      JSONL invariant docs, dynamic retention strings, beaconing metric rename). C1-C3 / H2/H4/H5 / M3/M5/M6 / L3/L4 were
+      closed in the review-fixes branch and are documented for reference. (2) Phase 85 Threat-Intel Hardening: per-feed safety
+      caps, two-empty-poll gate, ja4_safe_to_block FP-corpus gate, SafeResolver-backed TCPConnector, manual-poll rate limit,
+      CSRF middleware, RF/CrowdStrike regional endpoints, and a re-shape of the TAXII chaos + integration tests against the
+      new FeedRunner constructor. C5-partial / C7 / H13 were closed in-branch on phase-85 and are documented for reference.
+      Gap IDs are letter-prefixed by severity and numbered sequentially across the entire register; new sections continue
+      from the highest existing number per letter.'
     success_criteria:
-    - All Phase 84 deferred items (H1, H3, M1, M2, M4, M7, L1, L2, L5)
-      either have PR-level fixes or explicit, documented deferrals
-    - All Phase 85 deferred items (C4-C6, H6-H12, M8-M14, L6-L8) either
-      have PR-level fixes or explicit, documented deferrals
+    - All Phase 84 deferred items (H1, H3, M1, M2, M4, M7, L1, L2, L5) either have PR-level fixes or explicit, documented
+      deferrals
+    - All Phase 85 deferred items (C4-C6, H6-H12, M8-M14, L6-L8) either have PR-level fixes or explicit, documented deferrals
     - No new critical/high findings from a third review pass on either phase
-    - Per-feed max_new_per_poll, max_owned_total, max_delta_per_poll honoured
-      with ja4proxy_ti_feed_caps_hit_total metric and Alertmanager rule
-    - Two consecutive empty polls required before any bulk cleanup; per-feed
-      empty_streak persisted in Redis ti_feed:{feed_id}:empty_streak
-    - ja4_safe_to_block(ja4) FP-corpus gate consulted from taxii.py,
-      rest_generic.py, and seed_file.py before every post_blocklist
-    - SafeResolver TCPConnector deployed on all four feed clients; DNS
-      pointing at 169.254.169.254 / RFC1918 / loopback rejected
+    - Per-feed max_new_per_poll, max_owned_total, max_delta_per_poll honoured with ja4proxy_ti_feed_caps_hit_total metric
+      and Alertmanager rule
+    - Two consecutive empty polls required before any bulk cleanup; per-feed empty_streak persisted in Redis ti_feed:{feed_id}:empty_streak
+    - ja4_safe_to_block(ja4) FP-corpus gate consulted from taxii.py, rest_generic.py, and seed_file.py before every post_blocklist
+    - SafeResolver TCPConnector deployed on all four feed clients; DNS pointing at 169.254.169.254 / RFC1918 / loopback rejected
     - Manual-poll endpoint rate limited at 6/min/feed_id with 429 + Retry-After
     - CSRF double-submit middleware on every /api/v1/* mutating route
-    - RF and CrowdStrike clients honour config.url for regional / GovCloud
-      endpoints with global URLs as fallback
+    - RF and CrowdStrike clients honour config.url for regional / GovCloud endpoints with global URLs as fallback
     - DSAR export path issues at most one XRANGE call per request
-    - DSAR export/erase honour CIDR watchlist entries with documented IPv4/IPv6
-      semantics
+    - DSAR export/erase honour CIDR watchlist entries with documented IPv4/IPv6 semantics
     - GDPRPurge falls back to time-based XRANGE+XDEL when redis_version < 6.2
-    - PurgeSummary.beaconing_datapoints_cleaned replaces the misnamed
-      beaconing_records_cleaned field with a CHANGELOG breaking-change note
-    - Pack builder loads audit entries in chunks; ADR written for the
-      Stream migration path
-    - DSAR response includes a partial_failures list on Redis error with a
-      ja4proxy_dsar_export_partial_failures_total counter
-    - tests/adversarial/test_ti_feeds_ssrf.py + test_ti_feeds_fp_block.py +
-      test_ti_feed_caps.py all pass
+    - PurgeSummary.beaconing_datapoints_cleaned replaces the misnamed beaconing_records_cleaned field with a CHANGELOG breaking-change
+      note
+    - Pack builder loads audit entries in chunks; ADR written for the Stream migration path
+    - DSAR response includes a partial_failures list on Redis error with a ja4proxy_dsar_export_partial_failures_total counter
+    - tests/adversarial/test_ti_feeds_ssrf.py + test_ti_feeds_fp_block.py + test_ti_feed_caps.py all pass
     - make test-phase-84 still passes (Go + Python compliance suites)
-
   200:
     name: Go PROXY Protocol Trust + v2 Support
     status: COMPLETE
@@ -1458,19 +1368,21 @@ phases:
     dependencies:
     - 15
     size: MEDIUM
-    summary: 'Closes two critical Go gaps: (1) add `_is_trusted_proxy_source()` equivalent to prevent IP spoofing via PROXY protocol from untrusted sources, (2) implement PROXY protocol v2 binary parser (Python already has v1+v2). Without (1) any attacker can spoof any IP and bypass all geo/IP/rate/block controls. Without (2) modern HAProxy/NLB v2 headers are silently ignored.'
+    summary: 'Closes two critical Go gaps: (1) add `_is_trusted_proxy_source()` equivalent to prevent IP spoofing via PROXY
+      protocol from untrusted sources, (2) implement PROXY protocol v2 binary parser (Python already has v1+v2). Without (1)
+      any attacker can spoof any IP and bypass all geo/IP/rate/block controls. Without (2) modern HAProxy/NLB v2 headers are
+      silently ignored.'
     success_criteria:
-    - "isTrustedProxySource() correctly accepts/rejects IPs against configured CIDRs"
-    - "ReadProxyProtocolV2() extracts correct client IP for both IPv4 and IPv6"
-    - "ReadProxyProtocolV2() safely rejects malformed v2 headers (no panic, no OOB)"
-    - Untrusted source sending PROXY header is NOT trusted — socket IP used instead
+    - isTrustedProxySource() correctly accepts/rejects IPs against configured CIDRs
+    - ReadProxyProtocolV2() extracts correct client IP for both IPv4 and IPv6
+    - ReadProxyProtocolV2() safely rejects malformed v2 headers (no panic, no OOB)
+    - "Untrusted source sending PROXY header is NOT trusted \u2014 socket IP used instead"
     - Both v1 and v2 parsers gated by the same trust check
-    - "All unit tests pass: go test ./internal/proxy/... ./cmd/proxy/..."
+    - 'All unit tests pass: go test ./internal/proxy/... ./cmd/proxy/...'
     - Parity integration test passes (Python and Go extract same IP)
     - Adversarial test confirms untrusted PROXY spoof is rejected
-    - "config/proxy.yml documents proxy.upstream_trust section with example"
-    - "make lint-go-full passes with zero warnings"
-
+    - config/proxy.yml documents proxy.upstream_trust section with example
+    - make lint-go-full passes with zero warnings
   201:
     name: Go Redis TLS + Signal Score Drift Fix
     status: PROPOSED
@@ -1478,50 +1390,56 @@ phases:
     dependencies:
     - 15
     size: SMALL
-    summary: 'Closes critical Go gaps: (1) Redis client omits TLS despite config having SSL field — credentials on wire, (2) 4 signal scores diverge from config/signal_scores.yml — wrong scoring decisions in production. Also adds: error logging for ZAdd/ZRemRangeByScore (were swallowing errors), health check with script reload after Redis outage, rate limiter input validation.'
+    summary: "Closes critical Go gaps: (1) Redis client omits TLS despite config having SSL field \u2014 credentials on wire,\
+      \ (2) 4 signal scores diverge from config/signal_scores.yml \u2014 wrong scoring decisions in production. Also adds:\
+      \ error logging for ZAdd/ZRemRangeByScore (were swallowing errors), health check with script reload after Redis outage,\
+      \ rate limiter input validation."
     success_criteria:
     - Go Redis client sets TLSConfig when cfg.SSL is true
     - Go Redis client passes Username for ACL-based auth
-    - "ZAdd and ZRemRangeByScore log errors instead of swallowing them"
+    - ZAdd and ZRemRangeByScore log errors instead of swallowing them
     - Periodic health check re-loads Lua scripts after Redis outage
     - Rate limiter validates IP (<=45 chars) and JA4 (<=256 chars) before key construction
-    - "make check-scores exits 0 (all Go scores match registry)"
-    - "make go-test passes with zero failures"
-
+    - make check-scores exits 0 (all Go scores match registry)
+    - make go-test passes with zero failures
   202:
     name: CI Supply Chain + Default Credential Removal
     status: PROPOSED
     action_plan: docs/phases/PHASE_202.md
     dependencies: []
     size: SMALL
-    summary: 'Eliminates 6 infrastructure-level critical findings: SHA-pin all GitHub Actions (supply chain), remove default credential fallbacks from all compose files (Grafana admin, Management admin/admin, HAProxy admin/admin123), create Go proxy image CI workflow with SBOM+cosign signing, harden Dockerfile.go-proxy with non-root USER.'
+    summary: 'Eliminates 6 infrastructure-level critical findings: SHA-pin all GitHub Actions (supply chain), remove default
+      credential fallbacks from all compose files (Grafana admin, Management admin/admin, HAProxy admin/admin123), create
+      Go proxy image CI workflow with SBOM+cosign signing, harden Dockerfile.go-proxy with non-root USER.'
     success_criteria:
     - All GitHub Actions are SHA-pinned (no @v4, @v5, etc. remain)
-    - "grep -r ':-admin' docker/ returns no matches"
-    - "grep -r ':-change-me' docker/ returns no matches"
+    - grep -r ':-admin' docker/ returns no matches
+    - grep -r ':-change-me' docker/ returns no matches
     - Grafana refuses to start without GRAFANA_PASSWORD env var
     - Management API refuses to start without MANAGEMENT_JWT_SECRET
     - Test Redis port bound to 127.0.0.1:6380:6379
-    - ".github/workflows/go-proxy-image.yml builds, tests, SBOM-generates, signs, and pushes"
-    - "Dockerfile.go-proxy has USER directive (non-root)"
-
+    - .github/workflows/go-proxy-image.yml builds, tests, SBOM-generates, signs, and pushes
+    - Dockerfile.go-proxy has USER directive (non-root)
   203:
-    name: Go Missing Signals — JA4T, TLS Mismatch, Weak Ciphers, DGA, Health
+    name: "Go Missing Signals \u2014 JA4T, TLS Mismatch, Weak Ciphers, DGA, Health"
     status: PROPOSED
     action_plan: docs/phases/PHASE_203.md
     dependencies:
     - 200
     - 201
     size: LARGE
-    summary: 'Closes 5 production-critical signal gaps in Go: (1) JA4T stub returns `""` — implement full JA4T computation, (2) `ja4_tls_mismatch` not implemented — TLS version spoofing undetected, (3) weak cipher coverage 13 vs Python 37+ — NULL/EXPORT/DH_anon/ECDH_anon missed, (4) DGA algorithm diverges from Python — less effective SNI analysis, (5) Go health check only tests Redis — no GeoIP/connections/queue checks.'
+    summary: "Closes 5 production-critical signal gaps in Go: (1) JA4T stub returns `\"\"` \u2014 implement full JA4T computation,\
+      \ (2) `ja4_tls_mismatch` not implemented \u2014 TLS version spoofing undetected, (3) weak cipher coverage 13 vs Python\
+      \ 37+ \u2014 NULL/EXPORT/DH_anon/ECDH_anon missed, (4) DGA algorithm diverges from Python \u2014 less effective SNI\
+      \ analysis, (5) Go health check only tests Redis \u2014 no GeoIP/connections/queue checks."
     success_criteria:
-    - "ComputeJA4T() returns non-empty string matching Python output for same inputs"
+    - ComputeJA4T() returns non-empty string matching Python output for same inputs
     - JA4T unit tests pass with fixture-based assertions
-    - "ja4_tls_mismatch fires when JA4 claims TLS 1.3 but actual is TLS 1.2"
-    - "weakCipherSet contains 37+ suites matching Python's WEAK_CIPHERS"
-    - "DGA parity test: Python and Go scores match within +/-0.05 for 100+ test hostnames"
+    - ja4_tls_mismatch fires when JA4 claims TLS 1.3 but actual is TLS 1.2
+    - weakCipherSet contains 37+ suites matching Python's WEAK_CIPHERS
+    - 'DGA parity test: Python and Go scores match within +/-0.05 for 100+ test hostnames'
     - Go health check returns structured JSON with all component statuses
     - Health check returns 503 when Redis or GeoIP is down
     - Anti-flap hysteresis prevents status flapping on transient errors
-    - "make check-scores still exits 0"
-    - "make go-test passes with zero failures"
+    - make check-scores still exits 0
+    - make go-test passes with zero failures
