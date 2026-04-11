@@ -1,5 +1,44 @@
 # Changelog
 
+## Phase 100 — Rescoped back to IN_PROGRESS (2026-04-11)
+
+### Changed
+- **Phase 100 status corrected from COMPLETE to IN_PROGRESS.** On
+  2026-04-07, Phase 100 was narrowed to only the six Phase 79 SSO/MFA
+  gaps (100-O–T) and marked COMPLETE, which silently dropped 16 other
+  cross-phase gap items (100-A–N, 100-U, 100-V) from the tracker. Those
+  items had never been closed or migrated to Phase 101.
+- `docs/phases/manifest.yaml` Phase 100 entry renamed to
+  "Phase 100 — Cross-Phase Gap Closure (rolling)", status set to
+  `IN_PROGRESS`, dependencies expanded to Phases 79–83, success criteria
+  rewritten to cover all 15 remaining items.
+- `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md` regenerated via
+  `make sync`.
+
+### Verified against current codebase (2026-04-11)
+- **100-K closed** — `POST /api/v1/tokens/{id}/rotate` already present
+  at `management/api/routes/tokens.py:163` (admin close-out, no code change).
+- **100-A downgraded to PARTIAL** — `destination.ip` emitted at
+  `cmd/proxy/main.go:389,401`, but nothing sets `src_port` so
+  `source.port` never reaches ECS output despite the formatter mapping.
+- **100-F downgraded to PARTIAL** — `security/validation.py` IS imported
+  by `tests/security/test_owasp_top10.py:18`. Remaining gap is dedicated
+  unit tests + `security/` in Makefile `lint-pylint` scope.
+- **100-D, 100-J, 100-L unblocked but still open** — Phase 79 has merged.
+  Splunk alert action posts to the wrong URL shape;
+  `PATCH /api/v1/bans/{ip}` is absent (must be implemented, not just
+  verified); all 7 Phase 82 coordination items (simulation, decisions,
+  `managed_by=policy` enum, 202 approval gating) confirmed absent.
+- **100-B, 100-C, 100-G, 100-H, 100-I, 100-M, 100-U, 100-V** — open,
+  line numbers refreshed against current code.
+- **100-E, 100-N** — still blocked (platform access / upstream items).
+
+### Documentation
+- `docs/phases/PHASE_100.md` rewritten with a Status summary table,
+  per-item "Verified state" notes, and current file:line references
+  so any engineer can pick up an item without reading the originating
+  phase.
+
 ## Phase 93 — Terraform Provider + Emergency Runbook Playbooks
 
 ### Added
