@@ -117,6 +117,7 @@ Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
 | 74 | Docker Isolation - Shared Assets & Tooling | COMPLETE | GeoIP shared as read-only volume; ja4-admin.sh --agent flag with .current-agent fallback; make agent-up/down/status targets with auto-env generation. |
 | 88 | Multi-Datacenter Survivability & Failover | COMPLETE | Robust multi-DC architecture with per-peer consumer groups to eliminate Head-of-Line blocking, JSON-based cryptographic signing to prevent delimiter injection, and reliable async state sync with tombstones. |
 | 91 | GDPR Live Data Erasure & Operational Script Gap Remediation | COMPLETE | Phase 89 Makefile audit discovered that make gdpr-delete has never worked (scripts/gdpr_delete.py never existed) and make test-phase-87-integration has been broken since Phase 87 shipped. Basic scripts created in Phase 89 cleanup. Phase 91 completes the work: HyperLogLog handling, ZSET member erasure, audit logging, unit tests, runbook, and Phase 87 integration test extension. |
+| 102 | Phase 93 Gap Closure: Drift Detection, Import, Docs, CI | PROPOSED | Closes ~40% of Phase 93 acceptance criteria that were DEFERRED/PARTIAL/NOT YET: protect_unmanaged_entries provider field, drift detection on list resources, [terraform] reason prefix on ban+webhook, ticket/ttl_hours fields on ban, ticket/notes on dial, 3 ADRs (093a/b/c), CI workflows for terraform-provider, doc audit. |
 
 ### Epic: Quality Assurance & Test Maturity
 Comprehensive testing, adversarial coverage, and performance validation.
@@ -240,6 +241,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 94 | Kubernetes Operator + CMDB/NetBox Integration | PROPOSED | N/A | N/A |
 | 100 | Phase 79 SSO/MFA Gap Closure | COMPLETE | N/A | N/A |
 | 101 | Phase 101 — Cross-Phase Gap Register | PROPOSED | N/A | N/A |
+| 102 | Phase 93 Gap Closure: Drift Detection, Import, Docs, CI | PROPOSED | N/A | N/A |
 | 200 | Go PROXY Protocol Trust + v2 Support | COMPLETE | N/A | N/A |
 | 201 | Go Redis TLS + Signal Score Drift Fix | PROPOSED | N/A | N/A |
 | 202 | CI Supply Chain + Default Credential Removal | PROPOSED | N/A | N/A |
