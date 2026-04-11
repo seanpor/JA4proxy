@@ -1,5 +1,44 @@
 # Changelog
 
+## Phase 86h — Fixup: Correctness Bugs From Phase 86
+
+### Fixed
+- **86h:** 38 dead `runbook_url` values across 7 Alertmanager rule files
+  (`tap.yml`, `redis.rules.yml`, `management_ui_rules.yml`, `proxy.rules.yml`,
+  `backup.rules.yml`, `security.rules.yml`, `ti_feed.yml`) — 35 `example.com`
+  placeholder URLs and 3 wrong-owner GitHub URLs pointing at
+  `github.com/seanoriordain/ja4proxy` (wrong owner, wrong case). Rewritten to
+  absolute `https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/<file>.md`.
+- **86h:** URL format normalized across `slo_alerts.yml`, `tls_alerts.yml`,
+  and the files above — all `runbook_url:` annotations now use absolute
+  `github.com/seanpor/JA4proxy` URLs that render as clickable links in every
+  Alertmanager notification sink (relative paths did not resolve in Slack,
+  PagerDuty, or email).
+- **86h:** `scripts/capacity_calculator.py` no longer presents hardcoded
+  engineering estimates as measurements. When `docs/performance/benchmarks.md`
+  contains `_(measure)_` placeholders, the calculator prints a loud
+  `ESTIMATED — NOT MEASURED` banner and warns on stderr before producing its
+  report. `--require-measured` CLI flag added for CI guards; exits with code 2
+  when placeholders present. `BenchmarkConstants` renamed to `EstimatedConstants`
+  (alias preserved for backward compatibility with existing Phase 86c tests).
+
+### Added
+- **86h:** `scripts/fix_runbook_urls.py` — idempotent script that rewrites
+  `runbook_url:` lines in `monitoring/alertmanager/rules/*.yml` from a mapping
+  file. `--check` mode exits non-zero when any URL needs fixing (CI guard).
+- **86h:** `docs/phases/PHASE_86h_runbook_mapping.yml` — source-of-truth mapping
+  from alert name to runbook filename, covering every alert in every rule file.
+- **86h:** `docs/runbooks/ebpf_volumetric_attack.md` — new stub runbook (the
+  `KernelLevelVolumetricAttack` alert in `ebpf_attack.yml` had a pre-existing
+  dead relative path and was folded into the mapping).
+- **86h:** `make lint-alert-urls` target — runs `fix_runbook_urls.py --check`
+  for CI enforcement.
+
+### Tests
+- 14 Phase 86h unit + integration tests (runbook URL shape, mapping coverage,
+  fixer idempotence, capacity calculator banner + `--require-measured`).
+  1 integration test skipped (promtool unavailable in CI image).
+
 ## Phase 86 — Observability & Capacity Planning
 
 ### Added
