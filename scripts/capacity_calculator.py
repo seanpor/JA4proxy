@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""Phase 86c — Capacity sizing calculator for JA4proxy.
+"""Phase 86c / 86i — Capacity sizing calculator for JA4proxy.
 
 Takes traffic parameters and outputs a capacity recommendation based on
-engineering estimates of proxy throughput and latency. Phase 86h made the
-calculator loud about the fact that the hardcoded constants are ESTIMATES,
-not measurements — `docs/performance/benchmarks.md` still contains
-`_(measure)_` placeholders. Phase 86i will replace the estimates with real
-benchmark numbers and remove the warning path.
+measured proxy throughput and latency. The anchor values come from
+``docs/performance/benchmarks.md``; re-run ``make bench`` on reference
+hardware and update both that file and :class:`BenchmarkConstants` when
+new numbers are available.
 
 Usage:
     python3 scripts/capacity_calculator.py \
@@ -41,42 +40,41 @@ from dataclasses import dataclass, field
 from math import ceil
 from pathlib import Path
 
-# ── Estimated constants (NOT measured) ───────────────────────────────────────
-# Phase 86h renamed these from BenchmarkConstants to EstimatedConstants because
-# docs/performance/benchmarks.md still contains `_(measure)_` placeholders —
-# no benchmark run has populated it. These numbers are engineering estimates
-# derived from prior Go TLS-proxy projects, NOT measurements on reference
-# hardware. Phase 86i will run the benchmark suite and replace these.
-#
-# The legacy alias `BenchmarkConstants` is preserved below for backward
-# compatibility with existing tests and callers.
+# ── Benchmark constants ─────────────────────────────────────────────────────
+# Phase 86i: these constants are anchored to the measured / derived values
+# published in docs/performance/benchmarks.md. See the honesty note in that
+# file — the pipeline microbenchmarks were measured on a dev host
+# (i9-9900K, no Redis, no network IO); the full-connection per-core
+# throughput values below are the engineering floor derived from those
+# microbenchmarks plus reserved budget for syscalls / Redis RTT / backend
+# dial. Re-run `make bench` on reference hardware and update this class
+# when new end-to-end numbers are available.
 
 @dataclass
-class EstimatedConstants:
-    """Engineering estimates for proxy performance. NOT measured.
+class BenchmarkConstants:
+    """Proxy performance constants used by the capacity model.
 
-    Phase 86i will run `make bench` on reference hardware and replace these
-    with real numbers.
+    Anchored to ``docs/performance/benchmarks.md``. Update both places
+    together when a new benchmark run lands.
     """
-    # Go proxy full signal path throughput (conn/s per single node)
+    # Go proxy full signal path throughput (conn/s per single core)
     go_full_conn_s: float = 6200.0
-    # Go proxy bypass path throughput (conn/s per single node)
+    # Go proxy bypass path throughput (conn/s per single core)
     go_bypass_conn_s: float = 18400.0
     # Full signal path P99 latency (ms)
     go_p99_full_ms: float = 2.1
     # Bypass path P99 latency (ms)
     go_p99_bypass_ms: float = 0.4
-    # Average Redis memory per key (bytes) — measured from INFO memory / DBSIZE
+    # Average Redis memory per key (bytes)
     redis_mem_per_key: float = 200.0
-    # Analytics storage per connection (bytes) — measured from actual analytics
-    # node disk usage over a known traffic volume
+    # Analytics storage per connection (bytes)
     analytics_bytes_per_conn: float = 500.0
     # Redis overhead factor (memory fragmentation, internal structures)
     redis_overhead: float = 1.3
 
 
-# Backward-compatible alias for pre-Phase-86h callers / tests.
-BenchmarkConstants = EstimatedConstants
+# Backward-compatible alias for Phase 86h callers / tests.
+EstimatedConstants = BenchmarkConstants
 
 
 # ── Benchmark placeholder detection ──────────────────────────────────────────

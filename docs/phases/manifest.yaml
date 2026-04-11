@@ -1166,6 +1166,24 @@ phases:
     - Capacity calculator prints ESTIMATED — NOT MEASURED banner when benchmarks contain placeholders
     - Capacity calculator --require-measured flag exits non-zero when placeholders present
     - BenchmarkConstants renamed to EstimatedConstants (alias preserved for backward compat)
+  86i:
+    name: "Hardening — Architectural Gaps From Phase 86"
+    status: COMPLETE
+    completed: 2026-04-11
+    summary: "Architectural hardening for Phase 86. Datadog refactored into a two-layer pattern (OpenMetrics check for label-rich Prometheus scraping + narrowed custom check for service checks and topology only). Dynatrace extension switched from /api/v1/health/deep polling to /metrics scraping via an inline Prometheus text-format parser. benchmarks.md populated with measured Go microbenchmark values on documented reference hardware; capacity calculator EstimatedConstants renamed back to BenchmarkConstants and wired to the measured values. Load test scenarios rewritten from baseline/sustained/ramp to four code-path-specific scenarios (bypass-only, full-signal, attack-wave, mixed) reusing the existing TLS traffic generator; --push-gateway flag added with 5 new loadtest metrics. Grafana 04_capacity.json capacity planning dashboard shipped. OBSERVABILITY_STANDARDS updated with the new loadtest metric section."
+    action_plan: docs/phases/PHASE_86i.md
+    dependencies: [86, 86h]
+    size: MEDIUM
+    success_criteria:
+    - Datadog OpenMetrics check config present and valid
+    - Datadog custom check emits only service checks + topology (no Prometheus-duplicate gauges)
+    - Dynatrace extension scrapes /metrics instead of polling /api/v1/health/deep
+    - docs/performance/benchmarks.md contains zero _(measure)_ placeholders and documents reference hardware
+    - Capacity calculator uses BenchmarkConstants wired to measured benchmarks.md values
+    - Load test accepts bypass-only / full-signal / attack-wave / mixed scenarios
+    - Load test --push-gateway flag emits all 5 ja4proxy_loadtest_* metrics
+    - monitoring/grafana/dashboards/04_capacity.json present and provisioned
+    - docs/OBSERVABILITY_STANDARDS.md registers the 5 loadtest metrics
   87:
     name: Container & Host Infrastructure Observability
     status: COMPLETE

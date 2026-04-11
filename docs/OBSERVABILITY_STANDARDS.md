@@ -247,6 +247,26 @@ ja4proxy_restore_currently_running                    gauge    1 if restore is r
 ja4proxy_restore_keys_restored_total                 counter  Total keys restored
 ```
 
+#### Load Testing (Phase 86i)
+
+Emitted by `scripts/load_test.py` when invoked with `--push-gateway URL`.
+These metrics live on the Pushgateway (one job per load-test run) and are
+scraped from there by Prometheus — they are NOT exposed on the proxy's own
+`/metrics` endpoint. They exist so that load-test runs are observable in
+Grafana alongside real traffic.
+
+```
+ja4proxy_loadtest_connections_attempted_total   counter   Load-test connections attempted in this run
+ja4proxy_loadtest_connections_completed_total   counter   Load-test connections that completed successfully
+ja4proxy_loadtest_errors_total{reason}           counter   Load-test errors by failure reason (e.g. timeout, refused, tls_error)
+ja4proxy_loadtest_latency_seconds                histogram End-to-end connection latency, buckets [0.0001, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.5, 1.0]
+ja4proxy_loadtest_throughput_cps                 gauge     Observed throughput in connections per second
+```
+
+All five metrics are pushed under the job label `ja4proxy_loadtest`. When
+adding alerts that include load-test traffic, remember to exclude this job
+from SLO dashboards so synthetic load does not corrupt real-traffic SLIs.
+
 ---
 
 ## §2. Structured Log Schema
