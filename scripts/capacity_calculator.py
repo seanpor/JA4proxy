@@ -2,7 +2,11 @@
 """Phase 86c — Capacity sizing calculator for JA4proxy.
 
 Takes traffic parameters and outputs a capacity recommendation based on
-measured benchmark constants from docs/performance/benchmarks.md.
+engineering estimates of proxy throughput and latency. Phase 86h made the
+calculator loud about the fact that the hardcoded constants are ESTIMATES,
+not measurements — `docs/performance/benchmarks.md` still contains
+`_(measure)_` placeholders. Phase 86i will replace the estimates with real
+benchmark numbers and remove the warning path.
 
 Usage:
     python3 scripts/capacity_calculator.py \
@@ -23,21 +27,29 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from dataclasses import dataclass, field
 from math import ceil
 from pathlib import Path
 
-# ── Benchmark constants (sourced from docs/performance/benchmarks.md) ────────
-# These MUST be updated when a new benchmark run is performed on reference
-# hardware. Do NOT change these numbers based on estimates or vendor claims.
+# ── Estimated constants (NOT measured) ───────────────────────────────────────
+# Phase 86h renamed these from BenchmarkConstants to EstimatedConstants because
+# docs/performance/benchmarks.md still contains `_(measure)_` placeholders —
+# no benchmark run has populated it. These numbers are engineering estimates
+# derived from prior Go TLS-proxy projects, NOT measurements on reference
+# hardware. Phase 86i will run the benchmark suite and replace these.
 #
-# Run `make bench-quick` to obtain current numbers, then record them in
-# docs/performance/benchmarks.md and update the constants below.
+# The legacy alias `BenchmarkConstants` is preserved below for backward
+# compatibility with existing tests and callers.
 
 @dataclass
-class BenchmarkConstants:
-    """Measured performance constants. Update after each benchmark run."""
+class EstimatedConstants:
+    """Engineering estimates for proxy performance. NOT measured.
+
+    Phase 86i will run `make bench` on reference hardware and replace these
+    with real numbers.
+    """
     # Go proxy full signal path throughput (conn/s per single node)
     go_full_conn_s: float = 6200.0
     # Go proxy bypass path throughput (conn/s per single node)
@@ -53,6 +65,67 @@ class BenchmarkConstants:
     analytics_bytes_per_conn: float = 500.0
     # Redis overhead factor (memory fragmentation, internal structures)
     redis_overhead: float = 1.3
+
+
+# Backward-compatible alias for pre-Phase-86h callers / tests.
+BenchmarkConstants = EstimatedConstants
+
+
+# ── Benchmark placeholder detection ──────────────────────────────────────────
+
+_PLACEHOLDER_TOKEN = "_(measure)_"
+_DEFAULT_BENCHMARKS_PATH = Path(__file__).resolve().parent.parent / "docs" / "performance" / "benchmarks.md"
+
+
+def _resolve_benchmarks_path() -> Path:
+    """Return the benchmarks.md path, honouring JA4PROXY_BENCHMARKS_PATH."""
+    override = os.environ.get("JA4PROXY_BENCHMARKS_PATH")
+    if override:
+        return Path(override)
+    return _DEFAULT_BENCHMARKS_PATH
+
+
+def benchmarks_have_placeholders(path: Path | None = None) -> bool:
+    """True if the 'Go Proxy Benchmarks' section contains `_(measure)_` markers.
+
+    If the benchmarks file is missing or unreadable, return True (fail-loud).
+    """
+    target = path if path is not None else _resolve_benchmarks_path()
+    try:
+        text = target.read_text()
+    except OSError:
+        return True
+
+    # Narrow to the Go Proxy Benchmarks section if present, otherwise scan whole file.
+    lower = text
+    section_idx = lower.find("## Go Proxy Benchmarks")
+    if section_idx != -1:
+        # Stop at the next top-level heading so we don't match unrelated sections.
+        end_idx = lower.find("\n## ", section_idx + 1)
+        scan = text[section_idx:end_idx if end_idx != -1 else len(text)]
+    else:
+        scan = text
+    return _PLACEHOLDER_TOKEN in scan
+
+
+_ESTIMATED_BANNER = "ESTIMATED — NOT MEASURED"
+
+
+def _print_estimated_warning(stream=sys.stderr) -> None:
+    line = "!" * 72
+    print(line, file=stream)
+    print(f"!! WARNING: {_ESTIMATED_BANNER}", file=stream)
+    print("!!", file=stream)
+    print("!! docs/performance/benchmarks.md still contains `_(measure)_`", file=stream)
+    print("!! placeholders. The numbers used by this capacity calculator are", file=stream)
+    print("!! engineering ESTIMATES, not measurements. Do NOT use this report", file=stream)
+    print("!! for production capacity planning without first running:", file=stream)
+    print("!!", file=stream)
+    print("!!     make bench", file=stream)
+    print("!!", file=stream)
+    print("!! and committing the results. Phase 86i will replace these", file=stream)
+    print("!! estimates with real numbers and remove this warning.", file=stream)
+    print(line, file=stream)
 
 
 # ── Cloud pricing (USD/month, on-demand, as of 2026-04) ──────────────────────
@@ -99,8 +172,10 @@ class CapacityReport:
     total_monthly_cost_usd: float = 0.0
     cost_breakdown: dict = field(default_factory=dict)
 
-    # Benchmark constants used
-    bench: BenchmarkConstants = field(default_factory=BenchmarkConstants)
+    # Estimated constants used
+    bench: EstimatedConstants = field(default_factory=EstimatedConstants)
+    # Whether the source benchmarks.md still has _(measure)_ placeholders.
+    estimated: bool = True
 
 
 def compute_capacity(
@@ -110,7 +185,7 @@ def compute_capacity(
     features: list[str],
     cloud_provider: str,
     region: str,
-    bench: BenchmarkConstants,
+    bench: EstimatedConstants,
 ) -> CapacityReport:
     """Compute capacity recommendations."""
     report = CapacityReport(
@@ -188,6 +263,10 @@ def print_report(report: CapacityReport) -> None:
     sep = "═" * 70
     print(f"\n{sep}")
     print("JA4proxy Capacity Recommendation")
+    if report.estimated:
+        print(f"*** {_ESTIMATED_BANNER} ***")
+        print("(docs/performance/benchmarks.md contains placeholders;")
+        print(" numbers below are engineering estimates, not measurements)")
     print(sep)
     print("\nInput parameters:")
     print(f"  Peak connections/second:  {report.peak_rps:,.0f}")
@@ -264,12 +343,31 @@ def main() -> None:
                         help="Cloud region for cost estimation (default: us-east-1)")
     parser.add_argument("--go-full-conn-s", type=float, default=None,
                         help="Override: Go full signal path conn/s "
-                             "(default: from BenchmarkConstants)")
+                             "(default: from EstimatedConstants)")
     parser.add_argument("--go-bypass-conn-s", type=float, default=None,
                         help="Override: Go bypass path conn/s")
     parser.add_argument("--json", action="store_true",
                         help="Output JSON instead of formatted text")
+    parser.add_argument("--require-measured", action="store_true",
+                        help="Exit non-zero if docs/performance/benchmarks.md "
+                             "still contains _(measure)_ placeholders. Use in "
+                             "CI once real benchmark numbers have been committed.")
     args = parser.parse_args()
+
+    # Phase 86h: detect placeholders and either warn loudly or error out.
+    benchmarks_path = _resolve_benchmarks_path()
+    estimated = benchmarks_have_placeholders(benchmarks_path)
+    if estimated:
+        if args.require_measured:
+            print(
+                f"error: {_ESTIMATED_BANNER}\n"
+                f"       {benchmarks_path} still contains `_(measure)_` placeholders.\n"
+                "       Run `make bench` on reference hardware and commit the\n"
+                "       results before passing --require-measured.",
+                file=sys.stderr,
+            )
+            sys.exit(2)
+        _print_estimated_warning()
 
     if args.peak_connections_per_second < 0:
         parser.error("--peak-connections-per-second must be non-negative")
@@ -283,8 +381,8 @@ def main() -> None:
     if args.enable_abuseipdb:
         features.append("abuseipdb")
 
-    # Benchmark constants (allow CLI overrides)
-    bench = BenchmarkConstants()
+    # Estimated constants (allow CLI overrides)
+    bench = EstimatedConstants()
     if args.go_full_conn_s is not None:
         bench.go_full_conn_s = args.go_full_conn_s
     if args.go_bypass_conn_s is not None:
@@ -299,6 +397,7 @@ def main() -> None:
         region=args.region,
         bench=bench,
     )
+    report.estimated = estimated
 
     if args.json:
         print(json.dumps({
