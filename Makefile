@@ -1048,10 +1048,6 @@ test-phase-89-lint:
 test-phase-91:
 	python3 -m pytest tests/unit/test_gdpr_delete.py -v
 
-## ── Phase 93: Terraform Provider + Emergency Playbooks ──────────────────────
-test-phase-93:
-	python3 -m pytest tests/integration/test_emergency_playbooks.py -v
-
 ## ── Phase 92: Lint target hierarchy ─────────────────────────────────────────
 # Individual new lint targets — each wraps one tool/domain.
 # Aggregates follow at the bottom.
