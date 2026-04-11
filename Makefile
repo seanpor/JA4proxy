@@ -316,7 +316,7 @@ lint-docker:
 		&& echo "  docker/docker-compose.python-legacy.yml (overlay)  OK"
 	@docker compose -f docker/docker-compose.test.yml config --quiet \
 		&& echo "  docker/docker-compose.test.yml                     OK"
-	@docker compose -f docker/docker-compose.monitoring.yml config --quiet \
+	@REDIS_PASSWORD=lint-placeholder docker compose -f docker/docker-compose.monitoring.yml config --quiet \
 		&& echo "  docker/docker-compose.monitoring.yml               OK"
 	@BACKEND_HOST=lint-placeholder docker compose -f docker/docker-compose.prod.yml config --quiet \
 		&& echo "  docker/docker-compose.prod.yml                     OK"
@@ -327,14 +327,14 @@ lint-docker:
 
 # Lint shell scripts with shellcheck (error-level only; warnings are advisory).
 # SC2154 suppressed: variables sourced from .env are referenced but not assigned in-script.
-SHELL_SCRIPTS := $(shell find . -name "*.sh" -not -path "./.git/*" -not -path "./node_modules/*" | sort)
+SHELL_SCRIPTS := $(shell find . -name "*.sh" -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./.claude/*" | sort)
 lint-shell:
 	@echo "=== shellcheck: shell scripts ==="
 	@fail=0; \
 	for f in $(SHELL_SCRIPTS); do \
 		printf "  %-60s" "$$f"; \
 		result=$$(docker run --rm -i koalaman/shellcheck:stable \
-			--severity=error --exclude=SC2154 - < "$$f" 2>&1); \
+			--severity=error --exclude=SC2154 - < "$$f" 2>/dev/null); \
 		if [ -n "$$result" ]; then echo "FAIL"; echo "$$result"; fail=1; \
 		else echo "OK"; fi; \
 	done; \
