@@ -5,7 +5,7 @@
 
 ## Current Status: Phase 93 (Terraform Provider + Emergency Runbook Playbooks) Next
 
-**Last Updated:** 2026-04-10
+**Last Updated:** 2026-04-11
 
 ## Epics & Roadmap
 
@@ -228,6 +228,13 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 91 | GDPR Live Data Erasure & Operational Script Gap Remediation | COMPLETE | N/A | N/A |
 | 92 | Makefile Lint Target Hierarchy | COMPLETE | N/A | N/A |
 | 93 | Terraform Provider + Emergency Runbook Playbooks | PROPOSED | N/A | N/A |
+| 93.1 | Terraform Provider Foundation | PROPOSED | N/A | N/A |
+| 93.2 | Allowlist + Blocklist + Watchlist Resources | PROPOSED | N/A | N/A |
+| 93.3 | Ban Resource — IP + CIDR Unified | PROPOSED | N/A | N/A |
+| 93.4 | Dial + Webhook Resources | PROPOSED | N/A | N/A |
+| 93.5 | Provider Testing + CI Pipeline | PROPOSED | N/A | N/A |
+| 93.6 | Emergency Ansible Playbooks | PROPOSED | N/A | N/A |
+| 93.7 | Documentation + Integration Tests | PROPOSED | N/A | N/A |
 | 94 | Kubernetes Operator + CMDB/NetBox Integration | PROPOSED | N/A | N/A |
 | 100 | Phase 79 SSO/MFA Gap Closure | COMPLETE | N/A | N/A |
 | 101 | Phase 101 — Cross-Phase Gap Register | PROPOSED | N/A | N/A |

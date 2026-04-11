@@ -1030,24 +1030,122 @@ phases:
   93:
     name: 'Terraform Provider + Emergency Runbook Playbooks'
     status: PROPOSED
-    summary: 'terraform-provider-ja4proxy (separate repo): 6 resource types (allowlist_entry,
-      blocklist_entry, watchlist_entry, ban [IP+CIDR unified], dial, webhook), protect_unmanaged_entries
-      flag, import workflow. Three emergency Ansible playbooks: emergency-ban-cidr.yml,
-      temp-whitelist-ip.yml, maintenance-dial-zero.yml. Critical review 2026-04-09:
-      corrected API mappings (ban uses /api/v1/bans/{ip_encoded}, no separate cidr_ban),
-      removed 202 dial handling, added watchlist resource, added auth to playbooks.'
+    summary: 'Infrastructure-as-code management of JA4proxy via Terraform provider (separate repo, 6 resource types) and three emergency Ansible runbook playbooks. Split into 7 small sub-phases for incremental delivery.'
     action_plan: docs/phases/PHASE_93.md
     dependencies:
     - 79
     - 83
     size: LARGE
+
+  93.1:
+    name: 'Terraform Provider Foundation'
+    status: PROPOSED
+    summary: 'ADRs (repo topology, namespace, TTL strategy), repo scaffolding, provider config schema (url, token, protect_unmanaged_entries), HTTP client with Bearer auth + URL encoding + 429 retry.'
+    action_plan: docs/phases/PHASE_93.md
+    dependencies:
+    - 79
+    - 83
+    size: SMALL
     success_criteria:
-    - All 6 Terraform resource types with protect_unmanaged_entries flag (ban unified for IP+CIDR)
+    - ADR-093a, ADR-093b, ADR-093c written
+    - Provider repo created with correct go.mod module path
+    - internal/provider/provider.go compiles with url/token/protect_unmanaged_entries schema
+    - internal/client/client.go implements GET/POST/PATCH/DELETE with Bearer auth
+    - Client unit tests pass (auth header, URL encoding, error mapping)
+    - make test passes in provider repo
+
+  93.2:
+    name: 'Allowlist + Blocklist + Watchlist Resources'
+    status: PROPOSED
+    summary: 'Three CRUD resources (allowlist_entry, blocklist_entry, watchlist_entry) with managed_by drift detection, protect_unmanaged_entries support, and terraform import workflow.'
+    action_plan: docs/phases/PHASE_93.md
+    dependencies:
+    - 93.1
+    size: SMALL
+    success_criteria:
+    - All 3 resource types implemented with Create/Read/Update/Delete
+    - 'managed_by = "terraform" set on create for all 3'
+    - protect_unmanaged_entries = true suppresses destroys, prints import command
+    - terraform import works for all 3 resource types
+    - Acceptance tests against ManagementAPIMock pass
+
+  93.3:
+    name: 'Ban Resource — IP + CIDR Unified'
+    status: PROPOSED
+    summary: 'Single ja4proxy_ban resource handling both IP and CIDR via URL-encoded path. TTL renewal via re-POST on apply. [terraform] reason prefix for ownership identification.'
+    action_plan: docs/phases/PHASE_93.md
+    dependencies:
+    - 93.1
+    size: SMALL
+    success_criteria:
     - ja4proxy_ban handles both IP and CIDR via URL-encoded path parameter
-    - ja4proxy_dial validates ±10 max change and fails with clear error
-    - Ban and webhook resources use [terraform] reason prefix for ownership identification
-    - Terraform provider passes tfproviderlint + acceptance tests against ManagementAPIMock
-    - All 3 emergency playbooks tested against mock API with Bearer token auth
+    - "TTL renewal: near-expiry (≤24h) triggers re-POST to reset TTL"
+    - "[terraform] reason prefix used for drift detection"
+    - TestBan_TTLRenewal and TestBan_CIDR pass against mock
+
+  93.4:
+    name: 'Dial + Webhook Resources'
+    status: PROPOSED
+    summary: 'Singleton ja4proxy_dial with ±10 max change validation. ja4proxy_webhook CRUD. Both use [terraform] marker for ownership.'
+    action_plan: docs/phases/PHASE_93.md
+    dependencies:
+    - 93.1
+    size: SMALL
+    success_criteria:
+    - ja4proxy_dial is singleton; GET + PATCH /api/v1/dial
+    - "Dial change > ±10 fails with clear error message"
+    - ja4proxy_webhook implements Create/Read/Delete
+    - "[terraform] reason prefix on webhook for ownership"
+    - TestDial_MaxChange10 and TestWebhook_Create_Read_Delete pass
+
+  93.5:
+    name: 'Provider Testing + CI Pipeline'
+    status: PROPOSED
+    summary: 'tfproviderlint integration, full acceptance test suite, GitHub Actions test + release workflows, goreleaser, docs generation, example configs.'
+    action_plan: docs/phases/PHASE_93.md
+    dependencies:
+    - 93.2
+    - 93.3
+    - 93.4
+    size: SMALL
+    success_criteria:
+    - tfproviderlint exits 0
+    - Full acceptance test suite passes (TF_ACC=1 against ManagementAPIMock)
+    - .github/workflows/test.yml runs unit + acceptance tests on PR
+    - .github/workflows/release.yml publishes to Terraform Registry on tag
+    - docs/ generated from schema; examples/basic/ and examples/full/ present
+    - make test and make testacc pass in provider repo
+
+  93.6:
+    name: 'Emergency Ansible Playbooks'
+    status: PROPOSED
+    summary: 'Three playbooks: emergency-ban-cidr.yml, temp-whitelist-ip.yml, maintenance-dial-zero.yml. Bearer token auth on all API calls. Abort on 422. Optional ServiceNow/Slack integration.'
+    action_plan: docs/phases/PHASE_93.md
+    dependencies:
+    - 79
+    size: SMALL
+    success_criteria:
+    - All 3 playbooks in deploy/ansible/playbooks/emergency/
+    - "Each playbook passes Authorization: Bearer token on all API calls"
+    - emergency-ban-cidr.yml URL-encodes CIDR and POSTs to /api/v1/bans/{cidr_encoded}
+    - maintenance-dial-zero.yml steps down in ±10 increments; aborts on 422
+    - Integration tests pass against ManagementAPIMock (correct method + path + body + auth)
+    - ansible-playbook --check passes against mock
+
+  93.7:
+    name: 'Documentation + Integration Tests'
+    status: PROPOSED
+    summary: 'deploy/terraform/README.md with usage + import helper, docs/runbooks/emergency_playbooks.md, make test-phase-93 target, end-to-end Terraform integration test.'
+    action_plan: docs/phases/PHASE_93.md
+    dependencies:
+    - 93.5
+    - 93.6
+    size: SMALL
+    success_criteria:
+    - deploy/terraform/README.md exists with provider config + resource examples + import helper
+    - docs/runbooks/emergency_playbooks.md exists with operator guide for all 3 playbooks
+    - make test-phase-93 target added to Makefile
+    - End-to-end integration test: Terraform apply + plan + destroy against ManagementAPIMock
     - make test-phase-93 passes
   94:
     name: 'Kubernetes Operator + CMDB/NetBox Integration'
