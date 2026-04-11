@@ -14,8 +14,10 @@ import sys
 import time
 
 FIXTURES_DIR = pathlib.Path("tests/fixtures/clienthello")
-PYTHON_PORT = 8080
-GO_PORT = 8082
+# Host ports from docker/docker-compose.poc.yml (Go: 8081) and
+# docker/docker-compose.python-legacy.yml (Python: 8083).
+PYTHON_PORT = int(os.environ.get("PARITY_PYTHON_PORT", "8083"))
+GO_PORT = int(os.environ.get("PARITY_GO_PORT", "8081"))
 
 def send_payload(port, payload):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:

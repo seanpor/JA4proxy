@@ -15,16 +15,20 @@ data:
     {{ .Values.config.proxyYml | nindent 4 }}
     {{- else }}
     # Default minimal configuration — replace with your site-specific proxy.yml
-    listen:
-      host: "0.0.0.0"
-      port: 8080
-
-    backend:
-      host: "{{ .Values.backend.host | default "backend" }}"
-      port: {{ .Values.backend.port | default 443 }}
+    # Schema keys must match internal/config/loader.go (proxy, redis, ...).
+    proxy:
+      bind_host: "0.0.0.0"
+      bind_port: 8080
+      backend_host: "{{ .Values.backend.host | default "backend" }}"
+      backend_port: {{ .Values.backend.port | default 443 }}
 
     redis:
-      url: ""  # Injected from REDIS_URL env var at runtime
+      # Host/port/password resolved from env vars (set in deployment.yaml).
+      host: "${REDIS_HOST:-redis}"
+      port: "${REDIS_PORT:-6379}"
+      password: "${REDIS_PASSWORD:-}"
+      db: 0
+      timeout: 5
 
     dial:
       value: 0           # Monitor mode — no blocking on first deploy
