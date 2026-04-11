@@ -188,6 +188,60 @@ def test_docker_compose_redis_url_includes_password():
     )
 ```
 
+### Unit tests must mock every external service (no exceptions)
+
+Unit tests in `tests/unit/` **must not** reach any external process: no Redis,
+no HTTP(S), no cloud SDK, no filesystem outside `tmp_path`/`tmpdir`. If a test
+exercises a code path that touches `redis.Redis`, `requests`, `google.cloud.*`,
+boto3, etc., the test **must** patch it. Two concrete dev-vs-CI failure modes
+we have already hit and keep re-hitting:
+
+1. **"It passes on my machine" because Redis is running locally.** A test that
+   forgets to mock Redis will silently connect to the dev box's `localhost:6379`
+   and behave nothing like CI (where no Redis runs in the `test-python` job).
+   The symptom is a `ConnectionError: Error 111 connecting to localhost:6379`
+   that only appears in CI logs. Fix: patch `redis.Redis` at the module where
+   it's imported (e.g. `patch("src.backup.worker.redis.Redis")`).
+
+2. **`os.access` mocks that match by equality instead of bitmask.** Production
+   code commonly calls `os.access(path, os.R_OK | os.W_OK | os.X_OK)` — a
+   single call with `mode == 7`. A mock written as
+   `if mode == os.W_OK: return False` never matches and the default branch
+   silently returns `True`, so the test passes against whatever happens next
+   (often a real Redis on the dev box — see point 1). **Always match with
+   bitwise AND:** `if mode & os.W_OK: return False`.
+
+Defensive checklist for any new unit test that touches filesystem or I/O:
+
+- [ ] All network clients mocked at their import site.
+- [ ] `os.access` / `os.stat` mocks use bitmask matching (`mode & os.W_OK`),
+      not equality.
+- [ ] `pathlib.Path.mkdir` patched if the test also mocks `os.stat` — on
+      Python 3.14, `mkdir(exist_ok=True)` calls `os.stat` internally to
+      verify the target is a directory, and a `MagicMock` stat result
+      without the `S_IFDIR` bit will cause mkdir to re-raise
+      `FileExistsError`.
+- [ ] Test verified by running with `-p no:cacheprovider` in an env with
+      **no dev services running** (stop Redis, disconnect from network) to
+      prove it doesn't depend on hidden ambient state.
+
+### CI pytest runs with `-x` — don't let it hide follow-on failures
+
+`.github/workflows/ci.yml` runs `pytest ... -x` (stop on first failure) for
+fast feedback. That means fixing the first red test only to discover a second
+one on the next CI run is a waste of a full cycle. **Before pushing a CI fix,
+run the full suite locally without `-x`** to surface every remaining failure:
+
+```bash
+.venv314/bin/python3 -m pytest tests/ \
+    --ignore=tests/integration/test_docker_stack.py \
+    --ignore=tests/management/ \
+    -q --timeout=60   # note: no -x
+```
+
+If you don't have a 3.14 venv handy: `uv venv --python 3.14 --seed .venv314 &&
+.venv314/bin/python3 -m pip install -r requirements.txt`.
+
 ### What `make test` actually checks — read ALL of it
 
 `make test` runs four static-analysis tools **before** pytest. A task is not done until
