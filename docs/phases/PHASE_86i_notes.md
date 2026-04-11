@@ -148,24 +148,25 @@ branch (`claude/phase-86i-hardening`):
 
 ## Follow-up items for a future phase
 
-- **Real production-hardware benchmark run.** Spin up `make bench` against
-  a representative fleet host (not a developer laptop), record real
-  per-core throughput under load, and replace the engineering-floor
-  constants in `scripts/capacity_calculator.py` with load-test numbers.
-  At that point the `benchmarks.md` header warning about
-  "not production-representative" can be dropped and the capacity-planning
-  dashboard's `BYPASS_CEILING_CPS` / `SIGNAL_CEILING_CPS` variables can be
-  set from real measurements.
-- **Live Grafana render of `04_capacity.json`.** Phase 86i verified the
-  dashboard only via its JSON schema and panel-shape tests. A manual
-  verification against a running Grafana 10.x via
-  `docker-compose -f docker/docker-compose.monitoring.yml up` is still
-  outstanding.
-- **Redis latency sensitivity table in `benchmarks.md`.** Empty on this
-  host. Needs a run with a real Redis hop to populate.
-- **End-to-end load test run with the new 4-scenario set pushing to
-  Pushgateway.** The scenarios and the metrics exist; the dashboard consumes
-  them; but no full end-to-end run has been executed during this phase.
+The 7 deferred items from the Phase 86i critical review (3 majors, 3
+minors, 1 low) have been moved to the rolling Cross-Phase Gap Register:
+
+- **`docs/phases/PHASE_101.md` → "Phase 86i Hardening Review (deferred items)"**
+  — IDs **H14** (capacity calculator estimates-as-measurements),
+  **H15** (Dynatrace Prometheus parser robustness),
+  **H16** (Datadog migration smoke check / runbook),
+  **M24** (Pushgateway `grouping_key` + empty latency histogram),
+  **M25** (Dynatrace topology drop on scrape blip),
+  **M26** (benchmarks honesty test — currently only checks for absence of
+  the placeholder string), and
+  **L10** (real production-hardware `make bench` run — anchors all the
+  H14 / M26 work).
+
+The gap register entries include full reproduction context, exact
+remediation steps, verification commands, and the rationale for deferral.
+This document remains authoritative for the workflow narrative
+(crew/red-green/review-fix sequencing) and the in-phase judgment calls;
+the gap register is authoritative for everything that did NOT ship.
 
 ---
 

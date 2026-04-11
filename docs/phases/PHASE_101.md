@@ -18,6 +18,7 @@
 | [Phase 85 Threat-Intel Hardening](#phase-85-threat-intel-hardening-deferred-items) | 2026-04-09 | C5-partial/C7 closed + C4–C6 deferred, H13 closed + H6–H12 deferred, M8–M14 deferred, L6–L8 deferred |
 | [Phase 62 Go Test Parity](#phase-62-go-test-parity-deferred-items) | 2026-04-09 | M15 (golden cross-check), M16 (chaos right-answer-wrong-mechanism), M17 (V2 fuzz target hand-off to Phase 200), L9 (property generator weight semantics) |
 | [Phase 64 Deployment Validation](#phase-64-deployment-validation-deferred-items) | 2026-04-10 | M18 (Podman/Quadlet smoke test blocked), M19 (phantom `ja4proxy-cli backup` audit), M20 closed, M21 closed, M22 closed, M23 closed |
+| [Phase 86i Hardening Review](#phase-86i-hardening-review-deferred-items) | 2026-04-11 | H14 (capacity calculator estimates-as-measurements), H15 (Dynatrace Prometheus parser robustness), H16 (Datadog migration smoke check), M24 (Pushgateway grouping_key + empty latencies), M25 (Dynatrace topology drop on scrape blip), M26 (benchmarks test lacks numeric/SHA validation), L10 (real production-hardware `make bench` run) |
 
 When a future phase review surfaces deferred items, append a new section
 below and start its severity counters at the next free number across the
@@ -1050,3 +1051,553 @@ counter with `result` label (`hit`/`miss`/`error`) to
 Fixed in Phase 64 closeout: added 4 tests to `tests/test_phase64h_mttr.py`
 in `TestRedisKeyNames` class — asserts `config:dial` and `config:reload`
 are present, and rejects phantom `ja4proxy:dial` / `ja4proxy:config_reload`.
+
+---
+
+## Phase 86i Hardening Review (deferred items)
+
+> **Source:** Independent critical review of Phase 86i (architectural
+> hardening of Phase 86) on branch `claude/phase-86i-hardening`
+> (2026-04-11). The reviewer flagged 3 BLOCKERS, 3 MAJORS, 3 MINORS, and
+> 1 NIT. The 3 blockers were fixed in-branch before merge (commits
+> `7f752dd` load test scenarios wired through to TLS generator,
+> `3bf0b98` Grafana dashboard rewritten against real exported metrics,
+> `babcfac` Datadog allowlist trimmed + `type_overrides` added). The 7
+> items below were deferred here because they each fall into one of:
+> requires production-representative hardware not available on the dev
+> host (L10), is parser-robustness work that needs an adversarial test
+> corpus (H15), or touches operational tooling/runbooks beyond the
+> acceptance criteria of Phase 86i (H14, H16, M24, M25, M26).
+
+### Context
+
+Phase 86i delivered: a two-layer Datadog refactor (built-in OpenMetrics
+check + narrowed custom check), a Dynatrace extension that scrapes
+`/metrics` instead of polling `/api/v1/health/deep`, a populated
+`docs/performance/benchmarks.md` with measured Go microbenchmark numbers,
+a four-scenario load test (`bypass-only` / `full-signal` / `attack-wave`
+/ `mixed`) with a real `--fingerprint-mix` wired through to the TLS
+traffic generator, a `--push-gateway` flag emitting 5 new
+`ja4proxy_loadtest_*` metrics, and a new
+`monitoring/grafana/dashboards/04_capacity.json` capacity-planning
+dashboard.
+
+Two cross-cutting honesty constraints frame the items below:
+
+1. The benchmark numbers committed to `benchmarks.md` are Go microbench
+   measurements on a single developer workstation (i9-9900K, Pop!_OS,
+   `go1.26.2`, no Redis hop). The 18,400/cps bypass and 6,200/cps
+   full-signal ceilings used by `scripts/capacity_calculator.py` and the
+   capacity dashboard's `BYPASS_CEILING_CPS` / `SIGNAL_CEILING_CPS`
+   variables are **engineering floors derived from the microbench plus
+   reserved IO/Redis budget**, not end-to-end load-test measurements.
+2. CLAUDE.md's core asymmetry — false positives are catastrophic, false
+   negatives are recoverable — must be preserved by every item below.
+   None of these introduce new hot-path behavior, so the asymmetry
+   continues to hold; H14 is a tooling-honesty issue rather than a
+   runtime-behavior issue.
+
+---
+
+### H14 — Capacity calculator still presents engineering-floor constants as measurements
+
+**Severity:** HIGH
+**Effort:** ~half a day (clean cleanup) or ~1 day if combined with L10
+
+#### Context
+
+PHASE_86i.md Step 4 said:
+
+> Update `scripts/capacity_calculator.py` — rename `EstimatedConstants`
+> back to `BenchmarkConstants`, set fields to measured values, **remove
+> the "ESTIMATED — NOT MEASURED" warning path**. The `--require-measured`
+> flag becomes effectively a no-op on clean benchmarks.md.
+
+What actually shipped on `claude/phase-86i-hardening`:
+
+1. `BenchmarkConstants` was renamed (with `EstimatedConstants` retained
+   as a backward-compat alias for the Phase 86c tests).
+2. The values were **kept at the 86h engineering-floor numbers**
+   (`go_full_conn_s=6200`, `go_bypass_conn_s=18400`) and *relabelled* as
+   measured-via-microbench-plus-reserved-budget. This was an explicit
+   judgment call documented in `PHASE_86i_notes.md` Follow-ups section.
+3. The "remove the warning path" instruction was not followed:
+   `_ESTIMATED_BANNER`, `_print_estimated_warning()`, `report.estimated`
+   branches in `print_report`, and the `estimated`/`_print_estimated_warning()`
+   call in `main()` are all **still present as dead code** in
+   `scripts/capacity_calculator.py` (lines 117–134, 272–275, 283–286,
+   370–383 at the time of merge).
+
+The dead code is inert today because `benchmarks.md` has no
+`_(measure)_` placeholders. But:
+
+- The combination is the worst of both worlds: we removed the runtime
+  warning that 86h added, while keeping the relabeled engineering-floor
+  numbers — so the calculator now silently presents "measured" values
+  that are not end-to-end measurements.
+- A future accidental edit that re-introduces a placeholder marker would
+  silently re-activate the banner output.
+- `capacity_report.json` will claim these are measured, with no warning.
+
+#### Fix required
+
+Two acceptable shapes — pick one, do not leave both:
+
+**Option A — actually clean up as the plan said.** Delete the
+`_ESTIMATED_BANNER` constant, `_print_estimated_warning()`, the
+`report.estimated` branch in `print_report`, and the placeholder-detection
+call in `main()`. Keep `benchmarks_have_placeholders()` and
+`--require-measured` as positive CI guards. Combine with L10 below so
+the constants are also actually measured.
+
+**Option B — keep the warning path but flip it on.** Leave the dead code
+in place, but change the report header to honestly say
+`"BenchmarkConstants — engineering floor (microbench + reserved budget),
+not end-to-end load-tested"` whenever the numbers are not the output of a
+real `make bench` run. `--require-measured` becomes
+`--allow-engineering-floor` (negation), so a CI run guarding against
+unverified ceilings can still fail loudly until L10 lands.
+
+#### Verify
+
+```bash
+# Option A (recommended):
+grep -n "_ESTIMATED_BANNER\|_print_estimated_warning\|report.estimated" \
+  scripts/capacity_calculator.py
+# expect: no results
+python3 scripts/capacity_calculator.py --require-measured
+# expect: exit 0 with no banner in stdout
+
+# Option B:
+python3 scripts/capacity_calculator.py 2>&1 | grep -i "engineering floor"
+# expect: clear honesty line in the report header
+```
+
+#### Why deferred
+
+Cleanup that does not change shipped runtime behaviour, and the right
+fix is entangled with L10 (we want the cleanup *and* real measured
+numbers to land together, not the cleanup then an immediate second cycle
+when L10 lands).
+
+---
+
+### H15 — Dynatrace Prometheus parser is dangerously minimal and the test is too easy
+
+**Severity:** HIGH
+**Effort:** ~half a day
+
+#### Context
+
+`deploy/dynatrace/ja4proxy-extension/plugin.py` ships an inline
+Prometheus text-format parser (~40 lines) introduced in commit `b0dd515`.
+It handles the `HELP`/`TYPE` comment lines, counters, gauges, and
+histogram `_bucket{le=...}` / `_count` / `_sum` lines well enough to pass
+the canonical exposition fixture in
+`tests/unit/test_dynatrace_extension.py::test_plugin_parses_prometheus_text_format`.
+
+Failure modes the parser does **not** handle:
+
+- **Escaped quotes inside label values** (`label="he said \"hi\""`) —
+  `_parse_labels` does not de-escape; the value will be truncated at the
+  first inner quote and the next label parse will desync the line.
+- **Commas inside label values** (`label="a,b"`) — splitting on `,`
+  drops the second half of the value.
+- **`NaN` samples** — `float("NaN")` succeeds, so a `NaN` propagates into
+  the metric event sent to Dynatrace, where it poisons aggregates. The
+  parser should explicitly drop NaN via `math.isnan`.
+- **Summary `{quantile=...}` metrics** — not handled at all; will be
+  emitted as raw gauges with no semantics.
+- **Multiple metric families per scrape with overlapping prefixes** —
+  unverified.
+- **Bare timestamps on the sample line** (the spec allows `metric value
+  timestamp`) — the parser silently discards the timestamp with no
+  validation, so a malformed exposition where the value and timestamp
+  are swapped will be accepted as valid.
+
+The unit test is **substring-based** (`assert "pipeline_duration_seconds"
+in n for n in names`), which passes even if every histogram bucket was
+silently dropped. So the test does not actually validate parser
+correctness for the structure that matters most for the proxy
+(`ja4proxy_pipeline_duration_seconds_bucket`).
+
+#### Fix required
+
+**Recommended:** stop maintaining a hand-rolled parser. The
+`prometheus_client` package is already a dependency in
+`requirements.txt`, and it ships
+`prometheus_client.parser.text_string_to_metric_families()` which
+correctly handles every case above. Replace the inline parser with a
+wrapper around it.
+
+If keeping the inline parser for footprint reasons (Dynatrace extensions
+have a deps allowlist):
+
+1. Add explicit `if math.isnan(value): continue` after `float()`.
+2. Track quote state inside `_parse_labels` so `\"` and `,` inside
+   values are honoured.
+3. Add adversarial fixture cases to
+   `tests/unit/test_dynatrace_extension.py::test_plugin_parses_prometheus_text_format`:
+   escaped quotes, commas in values, NaN, summary quantiles, sample
+   lines with trailing timestamps. Each case must assert exact key/value
+   pairs, not substring presence.
+
+#### Verify
+
+```bash
+python3 -m pytest tests/unit/test_dynatrace_extension.py -v
+```
+
+The expanded test should fail against the current inline parser and pass
+once it's either replaced or hardened.
+
+#### Why deferred
+
+Out of scope for the Phase 86i merge (the basic happy-path parser was
+sufficient to close Gap 1) and the right fix needs an adversarial test
+corpus written first; the reviewer was clear this is robustness work,
+not a shipped runtime bug for typical Prometheus exposition output.
+
+---
+
+### H16 — Datadog two-layer migration has no smoke check or runbook
+
+**Severity:** HIGH
+**Effort:** ~2 hours
+
+#### Context
+
+The Phase 86i Datadog refactor splits the previous custom AgentCheck
+into two artefacts: a built-in OpenMetrics check
+(`deploy/datadog/conf.d/openmetrics.d/ja4proxy.yaml`) that scrapes
+`/metrics` and a narrowed custom check
+(`deploy/datadog/checks/ja4proxy/check.py`) that emits only service
+checks and topology entities. The two are completely decoupled at the
+Datadog Agent level — the `ja4proxy.node_health` service check does not
+go CRITICAL when the OpenMetrics scrape fails.
+
+The CHANGELOG documents the migration risk:
+
+> **Operators who already have the Phase 86d Datadog custom check
+> installed must also deploy the new OpenMetrics check config…
+> otherwise per-label metrics will disappear from Datadog dashboards.**
+
+…but **there is no smoke check** that tells the operator their
+OpenMetrics scrape is actually working *before* they remove the old
+custom-check gauges. There is no runbook either — the migration is a
+config copy-paste with no verification step.
+
+The likely production failure mode is: an operator follows the
+CHANGELOG, drops the old check, and discovers two days later that
+`ja4proxy.block_rate_pct` and friends have been gone since the upgrade,
+because their Agent's OpenMetrics integration was disabled or
+mis-namespaced and nobody noticed.
+
+#### Fix required
+
+1. **Migration runbook.** Add `docs/runbooks/datadog_migration_phase86i.md`
+   (or a section in an existing Datadog runbook if one exists; check
+   `docs/runbooks/`) with the exact pre-flight verification steps:
+
+   ```
+   # On a Datadog Agent host with both checks installed:
+   datadog-agent check openmetrics
+   datadog-agent check ja4proxy
+   datadog-agent status | grep -A5 "openmetrics ja4proxy"
+   ```
+
+   Plus the explicit ordering: deploy OpenMetrics first, verify
+   dashboards still populate over a 24h window, *then* upgrade to the
+   narrowed custom check.
+
+2. **Smoke check.** Either:
+   - Add an Agent-side check_run watchdog: `check.py` queries the
+     Datadog Agent's own `/agent/status` endpoint for the openmetrics
+     `ja4proxy` instance, and emits a CRITICAL `ja4proxy.openmetrics_health`
+     service check if the OpenMetrics scrape is missing or stale, OR
+   - Document a Datadog monitor (in `deploy/datadog/monitors/` if that
+     directory exists, or as JSON in the runbook) that alerts when
+     `ja4proxy_*` metrics stop arriving for >5 minutes.
+
+3. **Add a test** to `tests/unit/test_datadog_integration.py` asserting
+   that the new runbook exists and references both `datadog-agent check`
+   commands by exact name.
+
+#### Verify
+
+```bash
+ls docs/runbooks/datadog_migration_phase86i.md
+grep -c "datadog-agent check openmetrics" docs/runbooks/datadog_migration_phase86i.md
+# expect: ≥1
+python3 -m pytest tests/unit/test_datadog_integration.py -v
+```
+
+#### Why deferred
+
+Operational tooling work that does not block the code refactor; the
+migration risk is documented in CHANGELOG, but the cost of an operator
+silently losing dashboards across an upgrade is high enough that this
+should be the first item picked up after Phase 86 closes.
+
+---
+
+### M24 — Pushgateway has no `grouping_key` and `main()` never populates the latency histogram
+
+**Severity:** MEDIUM
+**Effort:** ~1 hour
+
+#### Context
+
+`scripts/load_test.py::push_loadtest_metrics` calls
+`prometheus_client.push_to_gateway(url, job=job, registry=registry)` with
+no `grouping_key`. Two issues fall out of this:
+
+1. **Multiple concurrent runs collide.** Pushgateway groups metrics by
+   `(job, grouping_key)`. With no grouping key, every run from every
+   host overwrites the previous run's snapshot under the single
+   `job="ja4proxy_loadtest"` key. For the short-lived
+   load-test-and-push pattern this is actively wrong: the operator
+   triggering a `bypass-only` run from host A and a `full-signal` run
+   from host B will see one of the two silently disappear.
+2. **The latency histogram metric is always empty in practice.** The
+   `--push-gateway` call site in `main()` (around line 340 at merge
+   time) hardcodes `latencies_seconds=[]`, so the histogram is registered
+   and pushed but every bucket count is 0. The unit test
+   `tests/unit/test_load_test.py::test_pushgateway_flag_emits_metrics`
+   exercises `push_loadtest_metrics()` directly with synthetic
+   latencies, so it never catches the empty-list bug from the real CLI
+   path.
+
+#### Fix required
+
+1. **Add `grouping_key`.** Use `socket.gethostname()` plus the scenario
+   name plus the run UUID:
+
+   ```python
+   import socket, uuid
+   grouping_key = {
+       "instance": socket.gethostname(),
+       "scenario": scenario,
+       "run_id": uuid.uuid4().hex[:8],
+   }
+   push_to_gateway(url, job=job, grouping_key=grouping_key, registry=registry)
+   ```
+
+2. **Wire real latency samples through.** The TLS traffic generator
+   already records per-connection latencies in its run output JSON.
+   Read them in `main()` after the run completes and pass the list to
+   `push_loadtest_metrics()` instead of `[]`. If the underlying
+   generator does not currently expose them, expose them — this is the
+   only way the histogram metric is non-trivial.
+
+3. **End-to-end test.** Add a test that runs `load_test.py` against a
+   stub TLS server (or with a `--dry-run` flag that synthesizes
+   latencies), captures the Pushgateway HTTP request body via a fake
+   server, and asserts the histogram bucket counts are > 0.
+
+#### Verify
+
+```bash
+python3 -m pytest tests/unit/test_load_test.py::test_pushgateway_flag_emits_metrics -v
+# plus the new end-to-end test once it exists
+```
+
+#### Why deferred
+
+Bug in load-test tooling, not the proxy. Reviewers correctly classified
+this as MINOR because the load test is operator-triggered (not on the
+hot path) and the broken case is "metrics silently overwrite", not
+"production traffic affected".
+
+---
+
+### M25 — Dynatrace plugin drops the topology entity on every scrape blip
+
+**Severity:** MEDIUM
+**Effort:** ~1 hour
+
+#### Context
+
+`deploy/dynatrace/ja4proxy-extension/plugin.py` early-returns when
+`scrape_metrics()` returns an empty sample list (around line 184 at
+merge time). The early return skips both the metric series **and** the
+topology-entity emission for the proxy node. A transient scrape failure
+— a 1-second timeout, a single 502 from a load balancer, an Agent
+restart — therefore makes the ja4proxy node briefly **disappear from the
+Dynatrace topology view**.
+
+Brief topology disappearances cascade into false-positive
+"node_missing" / "monitored_entity_disappeared" alerts in Dynatrace
+problem detection, which is exactly the failure mode CLAUDE.md's
+asymmetry warns against (a recoverable observability blip becoming a
+non-recoverable false page).
+
+#### Fix required
+
+Always emit the topology entity even when the metric sample list is
+empty. Only the metric series should be skipped on a scrape failure.
+
+```python
+# in plugin.py query():
+samples = scrape_metrics(self._url)
+self._emit_topology_entity()              # always
+if not samples:
+    self.logger.warning("scrape returned no samples; topology preserved")
+    return
+self._emit_metric_series(samples)
+```
+
+Add a test
+`test_plugin_emits_topology_even_on_scrape_failure` that mocks a scrape
+returning `[]`, asserts the topology emit was called, and asserts no
+metric emit was called.
+
+#### Verify
+
+```bash
+python3 -m pytest tests/unit/test_dynatrace_extension.py::test_plugin_emits_topology_even_on_scrape_failure -v
+```
+
+#### Why deferred
+
+Quality-of-implementation in a non-critical observability plugin; no
+production-traffic effect; clean to fix once H15 (parser robustness)
+lands so the same review pass can re-run the broader test matrix.
+
+---
+
+### M26 — `tests/integration/test_phase_86i_benchmarks_populated.py` does not validate numeric or SHA shape
+
+**Severity:** MEDIUM
+**Effort:** ~1 hour
+
+#### Context
+
+The integration test that guards `docs/performance/benchmarks.md` has
+two test functions:
+
+- `test_benchmarks_md_has_no_placeholders` — asserts the string
+  `_(measure)_` does not appear in the Go Proxy Benchmarks section.
+- `test_benchmarks_md_has_hardware_header` — asserts the Reference
+  Hardware table rows for CPU, OS, Redis, Go, Python are non-empty and
+  do not match `_(...)_`, and asserts a `Git SHA:` line is present whose
+  value does not start with `_(`.
+
+What this catches: dropped header rows, placeholder rows, missing Git
+SHA line, missing scenario tables.
+
+What it does **not** catch:
+
+- Throughput / latency cells parsed as actual floats. `"TODO"`, `"42"`,
+  `"0"`, an empty string, or the word `"placeholder"` in a benchmark row
+  all pass.
+- The Git SHA shape — the regex `[A-Za-z0-9_()]+` accepts almost any
+  token, so `"abc"`, `"deadbeef"`, or even `"_placeholder)"` (the leading
+  `_(` check is the only filter) would pass.
+- An explicit `Date:` header field — the plan required it but neither
+  test checks for it.
+- A footer disclaimer when the underlying constants are still
+  engineering floors (cross-tie to H14 / L10).
+
+#### Fix required
+
+Tighten the test to assert *honesty*, not just absence:
+
+1. **Numeric parsing.** For each row in the benchmark tables, parse the
+   throughput and latency fields as floats. Reject `NaN`, `Inf`,
+   negative numbers, and zero.
+2. **Git SHA shape.** Assert the header contains a line matching
+   `r"Git SHA:\s*[0-9a-f]{7,40}\b"`.
+3. **Hardware header completeness.** Assert each of `Hardware:`, `OS:`,
+   `Redis:`, `Go:`, `Python:`, `Date:` is present in the header block.
+4. **Footer disclaimer present** if and only if the `BenchmarkConstants`
+   in `scripts/capacity_calculator.py` are still labeled as engineering
+   floors (cross-tie to H14 and L10): if the source-of-truth constants
+   are floors, the file must say so loudly in the header.
+
+#### Verify
+
+```bash
+python3 -m pytest tests/integration/test_phase_86i_benchmarks_populated.py -v
+```
+
+#### Why deferred
+
+Test-quality work, not a shipped bug; safer to land alongside H14 and
+L10 so the test, the constants, and the file header are all updated in
+one coherent commit instead of three drive-by passes.
+
+---
+
+### L10 — Real production-hardware `make bench` run
+
+**Severity:** LOW
+**Effort:** ~1 day (assumes representative hardware exists and is
+available; otherwise blocked indefinitely)
+
+#### Context
+
+Every other 86i item upstream of this one is a workaround for the same
+underlying gap: nobody has run `make bench` against production-
+representative hardware with a real Redis hop. Phase 86i shipped:
+
+- Microbenchmark numbers in `benchmarks.md` from a single developer
+  workstation (i9-9900K, Pop!_OS, `go1.26.2`, no Redis).
+- An `EstimatedConstants` → `BenchmarkConstants` rename that
+  *re-labelled* the 86h engineering floors instead of replacing them
+  with measurements.
+- A capacity dashboard whose `BYPASS_CEILING_CPS` and
+  `SIGNAL_CEILING_CPS` template variables default to those floors.
+
+Until L10 lands, **the capacity calculator and the capacity dashboard
+both anchor on engineering estimates**, which is exactly the outcome
+86h's `--require-measured` flag was designed to make impossible. The
+Phase 86i merge accepted this gap explicitly (documented in
+`docs/phases/PHASE_86i_notes.md` Follow-ups section) on the grounds that
+no representative hardware was available during the phase.
+
+#### Fix required
+
+1. Identify a host that is reasonably representative of production
+   (non-NUMA single-socket, ≥8 cores, 32 GB+, 10 GbE NIC, real Redis on
+   the same VLAN). A staging fleet host is ideal; a beefy workstation
+   is acceptable if labelled honestly.
+2. Run `make bench` against that host with all four load-test scenarios
+   (`bypass-only`, `full-signal`, `attack-wave`, `mixed`) and a real
+   Redis backend.
+3. Update `docs/performance/benchmarks.md`:
+   - Replace the dev-workstation header with the production-style
+     hardware description.
+   - Replace every microbench-derived "engineering floor" row with the
+     measured load-test number.
+   - Drop the "not production-representative" disclaimer block.
+4. Update `scripts/capacity_calculator.py` `BenchmarkConstants` to the
+   measured ceilings. Combine with H14: at this point delete the
+   `_ESTIMATED_BANNER` dead code path entirely.
+5. Update `monitoring/grafana/dashboards/04_capacity.json` template
+   variable defaults `BYPASS_CEILING_CPS` and `SIGNAL_CEILING_CPS` to
+   match the new measured ceilings.
+6. Run the H14 / M26 tightened tests against the new file and confirm
+   they pass for the right reasons.
+
+#### Verify
+
+```bash
+make bench
+python3 scripts/capacity_calculator.py --require-measured
+python3 -m pytest tests/integration/test_phase_86i_benchmarks_populated.py -v
+grep -i "not production-representative" docs/performance/benchmarks.md
+# expect: no result
+```
+
+#### Why deferred
+
+Blocked on hardware availability, not on engineering effort. This is
+the canonical "wait for the right environment" item; doing it on the
+dev workstation again would just produce a second set of dishonest
+numbers under a different label.
+
+#### Owner
+
+TBD — needs a fleet host; pair with the platform/capacity team that
+owns the new Grafana dashboard audience.
