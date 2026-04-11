@@ -34,6 +34,26 @@ TODO_SECTION_MAP: dict = {
 }
 
 
+def _phase_sort_key(phase_id):
+    """Sort key that handles mixed int/float/str phase ids (e.g. 86, 88.1, '86h').
+
+    Returns (numeric_part, suffix) so '86h' sorts immediately after 86 and
+    before 87, and 88.1 sorts after 88 and before 88.2.
+    """
+    s = str(phase_id)
+    # Split into leading numeric portion and trailing non-numeric suffix.
+    i = 0
+    while i < len(s) and (s[i].isdigit() or s[i] == "."):
+        i += 1
+    num_part = s[:i]
+    suffix = s[i:]
+    try:
+        num = float(num_part) if num_part else 0.0
+    except ValueError:
+        num = 0.0
+    return (num, suffix)
+
+
 def load_manifest():
     with open(MANIFEST_PATH, "r") as f:
         return yaml.safe_load(f)
@@ -87,7 +107,7 @@ def generate_todo(manifest) -> str:
     lines.append("## 🔵 Planned & Open Phases")
     lines.append("")
 
-    for phase_id in sorted(manifest["phases"].keys()):
+    for phase_id in sorted(manifest["phases"].keys(), key=_phase_sort_key):
         data = manifest["phases"][phase_id]
         if TODO_SECTION_MAP.get(data.get("status")) == "planned":
             lines.append(f"### Phase {phase_id} — {data['name']}")
@@ -112,7 +132,7 @@ def generate_status(manifest, date_str: str | None = None) -> str:
     # Find next actionable phase (first that is not COMPLETE, CLOSED, or CANCELLED)
     _done_statuses = {"COMPLETE", "CLOSED", "CANCELLED"}
     next_phase = "N/A"
-    for phase_id in sorted(manifest["phases"].keys()):
+    for phase_id in sorted(manifest["phases"].keys(), key=_phase_sort_key):
         if manifest["phases"][phase_id]["status"] not in _done_statuses:
             next_phase = f"Phase {phase_id} ({manifest['phases'][phase_id]['name']})"
             break
@@ -146,7 +166,7 @@ def generate_status(manifest, date_str: str | None = None) -> str:
     lines.append("")
     lines.append("| Phase | Name | Status | Test Coverage | Documentation |")
     lines.append("|-------|------|--------|---------------|---------------|")
-    for phase_id in sorted(manifest["phases"].keys()):
+    for phase_id in sorted(manifest["phases"].keys(), key=_phase_sort_key):
         p = manifest["phases"][phase_id]
         lines.append(
             f"| {phase_id} | {p['name']} | {p['status']} "
