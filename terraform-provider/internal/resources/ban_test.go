@@ -20,8 +20,8 @@ import (
 // ── Mock server state for ban tests ──────────────────────────────────────────
 
 type mockBanStore struct {
-	mu    sync.Mutex
-	bans  map[string]mockBan // key = IP (decoded)
+	mu   sync.Mutex
+	bans map[string]mockBan // key = IP (decoded)
 }
 
 type mockBan struct {
@@ -133,11 +133,11 @@ func newBanMockServer(store *mockBanStore) *httptest.Server {
 		// GET /api/v1/health (for provider configure)
 		if r.Method == http.MethodGet && r.URL.Path == "/api/v1/health" {
 			json.NewEncoder(w).Encode(map[string]interface{}{
-				"status":           "ok",
-				"redis":            "ok",
-				"proxy_instances":  1,
-				"geoip":            "ok",
-				"uptime_seconds":   1.0,
+				"status":          "ok",
+				"redis":           "ok",
+				"proxy_instances": 1,
+				"geoip":           "ok",
+				"uptime_seconds":  1.0,
 			})
 			return
 		}
@@ -292,7 +292,7 @@ func TestDeleteBan(t *testing.T) {
 				Check: resource.TestCheckResourceAttr("ja4proxy_ban.test_delete", "ip", "10.0.0.1"),
 			},
 			{
-				Config:  fmt.Sprintf(`provider "ja4proxy" {
+				Config: fmt.Sprintf(`provider "ja4proxy" {
     api_url   = %q
     api_token = "test-token"
   }`, server.URL),

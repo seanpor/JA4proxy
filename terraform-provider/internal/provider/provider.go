@@ -21,7 +21,7 @@ type ja4proxyProvider struct {
 }
 
 type ja4proxyProviderModel struct {
-	APIURL  types.String `tfsdk:"api_url"`
+	APIURL   types.String `tfsdk:"api_url"`
 	APIToken types.String `tfsdk:"api_token"`
 }
 

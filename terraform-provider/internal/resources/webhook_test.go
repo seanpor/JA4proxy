@@ -16,9 +16,9 @@ import (
 // ── Mock webhook store ───────────────────────────────────────────────────────
 
 type mockWebhookStore struct {
-	mu        sync.Mutex
-	webhooks  map[string]map[string]interface{} // id -> webhook
-	nextID    int
+	mu       sync.Mutex
+	webhooks map[string]map[string]interface{} // id -> webhook
+	nextID   int
 }
 
 func newMockWebhookStore() *mockWebhookStore {
@@ -204,7 +204,7 @@ func TestWebhook_CreateReadDelete(t *testing.T) {
 				),
 			},
 			{
-				Config:  fmt.Sprintf(`provider "ja4proxy" {
+				Config: fmt.Sprintf(`provider "ja4proxy" {
     api_url   = %q
     api_token = "test-token"
   }`, server.URL),

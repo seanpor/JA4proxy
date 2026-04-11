@@ -45,7 +45,7 @@ func TestWatchlistEntry_CreateReadDelete(t *testing.T) {
 				),
 			},
 			{
-				Config:  fmt.Sprintf(`provider "ja4proxy" {
+				Config: fmt.Sprintf(`provider "ja4proxy" {
     api_url   = %q
     api_token = "test-token"
   }`, server.URL),

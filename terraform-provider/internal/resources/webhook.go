@@ -45,7 +45,7 @@ func (r *webhookResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 		Description: "Manage webhook notifications via the JA4proxy Management API.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
-				Computed:    true,
+				Computed: true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
@@ -67,22 +67,22 @@ func (r *webhookResource) Schema(_ context.Context, _ resource.SchemaRequest, re
 				Description: "Whether the webhook is active (default: true).",
 			},
 			"secret": schema.StringAttribute{
-				Computed:    true,
-				Sensitive:   true,
+				Computed:  true,
+				Sensitive: true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 				Description: "Webhook signing secret (returned only on creation).",
 			},
 			"created_at": schema.StringAttribute{
-				Computed:    true,
+				Computed: true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
 				Description: "Timestamp when the webhook was created.",
 			},
 			"managed_by": schema.StringAttribute{
-				Computed:    true,
+				Computed: true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
 				},
