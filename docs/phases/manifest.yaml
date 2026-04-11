@@ -1362,28 +1362,52 @@ phases:
     - No existing Makefile targets modified
     - make lint-phases passes
   100:
-    name: Phase 79 SSO/MFA Gap Closure
-    status: COMPLETE
-    completed: '2026-04-07'
+    name: "Phase 100 \u2014 Cross-Phase Gap Closure (rolling)"
+    status: IN_PROGRESS
+    partly_complete_note: "6 Phase 79 SSO/MFA gaps (100-O\u2013T) closed 2026-04-07 in commit 6ffdbc5.\
+      \ 100-K closed 2026-04-11 (admin close-out \u2014 endpoint already present in Phase 79).\
+      \ 15 items remain open or partial as of 2026-04-11: see docs/phases/PHASE_100.md status summary."
     action_plan: docs/phases/PHASE_100.md
     dependencies:
     - 79
-    size: MEDIUM
-    summary: 'Closes 6 gaps from Phase 79 C7-C9 CR: OIDC JWKS signature verification with double-checked locking and authlib;
-      SSO audit log events (saml.py + oidc.py); WebAuthn credential list/delete endpoints; SSO-delegated MFA trust via SAML
-      authn context / OIDC amr claim; pytest.mark.integration markers for live-IdP tests; group-to-role mapping from config/proxy.yml
-      sso.role_mapping with 60s cache and env-var override. Gap 7 (OpenAPI 3.1 spec) was completed in Phase 79 C10.'
+    - 80
+    - 81
+    - 82
+    - 83
+    size: LARGE
+    summary: "Rolling cross-phase gap tracker. Phase 100 was opened 2026-04-07 as a home for non-blocking\
+      \ gaps accumulated from Phases 80\u201383. A focused push on 2026-04-07 closed the six Phase 79\
+      \ SSO/MFA gaps (100-O\u2013T) and the phase was briefly marked COMPLETE, but the remaining 16 items\
+      \ (100-A\u2013N, 100-U, 100-V) were silently dropped from the tracker. Reopened 2026-04-11 with\
+      \ a full codebase verification pass. 100-K verified already landed in Phase 79 (tokens/{id}/rotate);\
+      \ 100-A and 100-F downgraded to PARTIAL; 100-D, 100-J, 100-L confirmed unblocked by the Phase 79\
+      \ merge and now have real implementation work (Phase 82 mock API, xMatters extend-ban, Splunk alert\
+      \ URL shape). 15 items remain. See docs/phases/PHASE_100.md for per-item verified state, exact\
+      \ file paths with current line numbers, and junior-ready scoping."
     success_criteria:
-    - OIDC id_token signature verified against IdP JWKS (authlib RS256; double-checked asyncio.Lock cache; MANAGEMENT_TEST_MODE=1
-      bypass for unit tests)
-    - SAML and OIDC login events written to management:audit_log via write_audit()
-    - GET /auth/mfa/webauthn/credentials lists enrolled credential IDs and created_at
-    - DELETE /auth/mfa/webauthn/credentials/{id} removes credential hash and SET entry with ownership check
-    - SSO-delegated MFA trust sets mgmt:mfa:session key when MANAGEMENT_SSO_TRUST_IDP_MFA=true and SAML authn context or OIDC
-      amr claim indicates MFA
-    - pytest.mark.integration markers on SAML and OIDC live-IdP placeholder tests
-    - Group-to-role mapping honoured from config/proxy.yml sso.role_mapping with env-var MANAGEMENT_SAML_ROLE_MAPPING / MANAGEMENT_OIDC_ROLE_MAPPING
-      override
+    - 100-A complete — source.port emitted in decision log and ECS stream for non-PROXY-protocol connections
+      (destination.ip already landed)
+    - 100-B complete — Go proxy DualFormatter implemented; dual_output:true emits legacy + ECS on every log call
+    - 100-C complete — WebhookEndpoint struct carries per-endpoint RetryAttempts/RetryBackoffSeconds/TimeoutSeconds
+      with DispatcherConfig global fallback; first-endpoint-wins wiring removed
+    - 100-D complete — ja4proxy_ban_action.py and Sentinel Block-IP-Playbook.json match POST /api/v1/bans/{ip}
+      request shape from Phase 79
+    - 100-E complete — Splunk TA and Sentinel content pack live-tested on a real platform (blocked on access)
+    - 100-F complete — dedicated tests/unit/test_security_validation.py + security/ added to Makefile lint-pylint scope
+    - 100-G complete — all 27 SECURITY_REVIEW_PHASE1.md findings triaged (RESOLVED/OPEN/INVALID) with rationale
+    - 100-H complete — scripts/sync-roadmap.py preserves archive/ subdirectory in generated TODO.md links
+    - 100-I complete — Makefile quick-start and perf-test-basic targets wired
+    - 100-J complete — PATCH /api/v1/bans/{ip} endpoint implemented with BanExtendRequest/Response models,
+      ban.extended audit entry, and Operator RBAC
+    - 100-L complete — Phase 79 delivers POST /api/v1/simulation/run, GET /api/v1/simulation/{id}/report,
+      GET/POST /api/v1/decisions*, managed_by=policy enum value, and 202 approval-gating
+    - 100-M complete — analytics/signal_retention.py and analytics/simulation_runner.py implemented with
+      90-day TTL snapshots and SCAN-based replay
+    - 100-N complete — Phase 82 platform-dependent ACs (policy apply idempotent, shadow mode <5min,
+      four-eyes approval gate) verified against running stack
+    - 100-U complete — internal/cli/auth/auth.go ResolveTokenWithKeychain plus ja4proxy-cli config set-token
+      subcommand using github.com/zalando/go-keyring
+    - 100-V complete — CLIConfig.ConfirmMutating field parsed; requireConfirm honours it; default true
   101:
     name: "Phase 101 \u2014 Cross-Phase Gap Register"
     status: PROPOSED

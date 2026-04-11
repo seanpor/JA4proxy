@@ -7,6 +7,10 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🟡 Phases In Progress
 
+### Phase 100 — Phase 100 — Cross-Phase Gap Closure (rolling)
+*   **Status:** **IN_PROGRESS** (Rolling cross-phase gap tracker. Phase 100 was opened 2026-04-07 as a home for non-blocking gaps accumulated from Phases 80–83. A focused push on 2026-04-07 closed the six Phase 79 SSO/MFA gaps (100-O–T) and the phase was briefly marked COMPLETE, but the remaining 16 items (100-A–N, 100-U, 100-V) were silently dropped from the tracker. Reopened 2026-04-11 with a full codebase verification pass. 100-K verified already landed in Phase 79 (tokens/{id}/rotate); 100-A and 100-F downgraded to PARTIAL; 100-D, 100-J, 100-L confirmed unblocked by the Phase 79 merge and now have real implementation work (Phase 82 mock API, xMatters extend-ban, Splunk alert URL shape). 15 items remain. See docs/phases/PHASE_100.md for per-item verified state, exact file paths with current line numbers, and junior-ready scoping.)
+*   **Action Plan:** [PHASE_100.md](PHASE_100.md)
+
 ---
 
 ## 🔵 Planned & Open Phases
