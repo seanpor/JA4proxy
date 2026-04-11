@@ -1,0 +1,62 @@
+# Phase 86i — Layer 1: Datadog OpenMetrics check for JA4proxy.
+#
+# This config scrapes the ja4proxy /metrics Prometheus endpoint directly via
+# the Datadog Agent's built-in OpenMetrics integration. It preserves all
+# Prometheus label richness (action, bypass, signal, le, ...) that the
+# custom check (Layer 2) used to discard.
+#
+# Install:
+#     cp conf.d/openmetrics.d/ja4proxy.yaml \
+#        /etc/datadog-agent/conf.d/openmetrics.d/ja4proxy.yaml
+#
+# One instance per proxy node — duplicate the template block and set
+# `openmetrics_endpoint` and the `node:` tag accordingly.
+
+init_config:
+
+instances:
+  - openmetrics_endpoint: http://ja4proxy-node-1:8090/metrics
+    namespace: ja4proxy
+    min_collection_interval: 15
+    tags:
+      - "node:ja4proxy-node-1"
+      - "service:ja4proxy"
+    metrics:
+      - ja4proxy_connections_total
+      - ja4proxy_connections_active
+      - ja4proxy_block_rate
+      - ja4proxy_block_rate_pct
+      - ja4proxy_pipeline_duration_seconds
+      - ja4proxy_risk_score_distribution
+      - ja4proxy_dial_setting
+      - ja4proxy_redis_latency_seconds
+      - ja4proxy_cert_days_remaining
+      - ja4proxy_bans_active
+      - ja4proxy_abuseipdb_lookups_total
+      - ja4proxy_tarpit_pool_size
+      - ja4proxy_signal_duration_seconds
+      - ja4proxy_bypass_total
+      - ja4proxy_action_total
+
+  - openmetrics_endpoint: http://ja4proxy-node-2:8090/metrics
+    namespace: ja4proxy
+    min_collection_interval: 15
+    tags:
+      - "node:ja4proxy-node-2"
+      - "service:ja4proxy"
+    metrics:
+      - ja4proxy_connections_total
+      - ja4proxy_connections_active
+      - ja4proxy_block_rate
+      - ja4proxy_block_rate_pct
+      - ja4proxy_pipeline_duration_seconds
+      - ja4proxy_risk_score_distribution
+      - ja4proxy_dial_setting
+      - ja4proxy_redis_latency_seconds
+      - ja4proxy_cert_days_remaining
+      - ja4proxy_bans_active
+      - ja4proxy_abuseipdb_lookups_total
+      - ja4proxy_tarpit_pool_size
+      - ja4proxy_signal_duration_seconds
+      - ja4proxy_bypass_total
+      - ja4proxy_action_total
