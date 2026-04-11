@@ -90,6 +90,7 @@ epics:
   - 74
   - 88
   - 91
+  - 102
 - name: 'Epic: Quality Assurance & Test Maturity'
   description: Comprehensive testing, adversarial coverage, and performance validation.
   phases:
@@ -1425,11 +1426,14 @@ phases:
     action_plan: docs/phases/PHASE_201.md
     dependencies:
     - 15
-    size: SMALL
-    summary: "Closes critical Go gaps: (1) Redis client omits TLS despite config having SSL field \u2014 credentials on wire,\
-      \ (2) 4 signal scores diverge from config/signal_scores.yml \u2014 wrong scoring decisions in production. Also adds:\
-      \ error logging for ZAdd/ZRemRangeByScore (were swallowing errors), health check with script reload after Redis outage,\
-      \ rate limiter input validation."
+    size: MEDIUM
+    sub_phases:
+      201a: Signal score drift fix (4 values) — XS, no deps
+      201b: TLS support in Go Redis client — S, no deps
+      201c: Error logging for silent failures — XS, depends 201b
+      201d: Health check / script reload — S, depends 201b
+      201e: Rate limiter input validation — S, depends 201b
+    summary: 'Closes critical Go gaps: (1) Redis client omits TLS despite config having SSL field — credentials on wire, (2) 4 signal scores diverge from config/signal_scores.yml — wrong scoring decisions in production. Also adds: error logging for ZAdd/ZRemRangeByScore (were swallowing errors), health check with script reload after Redis outage, rate limiter input validation.'
     success_criteria:
     - Go Redis client sets TLSConfig when cfg.SSL is true
     - Go Redis client passes Username for ACL-based auth
@@ -1443,10 +1447,14 @@ phases:
     status: PROPOSED
     action_plan: docs/phases/PHASE_202.md
     dependencies: []
-    size: SMALL
-    summary: 'Eliminates 6 infrastructure-level critical findings: SHA-pin all GitHub Actions (supply chain), remove default
-      credential fallbacks from all compose files (Grafana admin, Management admin/admin, HAProxy admin/admin123), create
-      Go proxy image CI workflow with SBOM+cosign signing, harden Dockerfile.go-proxy with non-root USER.'
+    size: LARGE
+    sub_phases:
+      202a: SHA-pin GitHub Actions — XS, no deps
+      202b: Remove default credential fallbacks — XS, no deps
+      202c: Harden Dockerfile.go-proxy — XS, no deps
+      202d: Go proxy image CI workflow — S, depends 202c
+      202e: Test Redis hardening — XS, no deps
+    summary: 'Eliminates 6 infrastructure-level critical findings: SHA-pin all GitHub Actions (supply chain), remove default credential fallbacks from all compose files (Grafana admin, Management admin/admin, HAProxy admin/admin123), create Go proxy image CI workflow with SBOM+cosign signing, harden Dockerfile.go-proxy with non-root USER.'
     success_criteria:
     - All GitHub Actions are SHA-pinned (no @v4, @v5, etc. remain)
     - grep -r ':-admin' docker/ returns no matches
@@ -1462,12 +1470,14 @@ phases:
     action_plan: docs/phases/PHASE_203.md
     dependencies:
     - 200
-    - 201
     size: LARGE
-    summary: "Closes 5 production-critical signal gaps in Go: (1) JA4T stub returns `\"\"` \u2014 implement full JA4T computation,\
-      \ (2) `ja4_tls_mismatch` not implemented \u2014 TLS version spoofing undetected, (3) weak cipher coverage 13 vs Python\
-      \ 37+ \u2014 NULL/EXPORT/DH_anon/ECDH_anon missed, (4) DGA algorithm diverges from Python \u2014 less effective SNI\
-      \ analysis, (5) Go health check only tests Redis \u2014 no GeoIP/connections/queue checks."
+    sub_phases:
+      203a: JA4T implementation (Go) — S, no deps
+      203b: ja4_tls_mismatch signal — XS, no deps
+      203c: Expand weak cipher coverage — XS, no deps
+      203d: Align DGA algorithm with Python — S, no deps
+      203e: Deepen Go health check — S, no deps
+    summary: 'Closes 5 production-critical signal gaps in Go: (1) JA4T stub returns `""` — implement full JA4T computation, (2) `ja4_tls_mismatch` not implemented — TLS version spoofing undetected, (3) weak cipher coverage 13 vs Python 37+ — NULL/EXPORT/DH_anon/ECDH_anon missed, (4) DGA algorithm diverges from Python — less effective SNI analysis, (5) Go health check only tests Redis — no GeoIP/connections/queue checks.'
     success_criteria:
     - ComputeJA4T() returns non-empty string matching Python output for same inputs
     - JA4T unit tests pass with fixture-based assertions
@@ -1479,3 +1489,23 @@ phases:
     - Anti-flap hysteresis prevents status flapping on transient errors
     - make check-scores still exits 0
     - make go-test passes with zero failures
+  102:
+    name: 'Phase 93 Gap Closure: Drift Detection, Import, Docs, CI'
+    status: PROPOSED
+    summary: 'Closes ~40% of Phase 93 acceptance criteria that were DEFERRED/PARTIAL/NOT YET:
+      protect_unmanaged_entries provider field, drift detection on list resources, [terraform]
+      reason prefix on ban+webhook, ticket/ttl_hours fields on ban, ticket/notes on dial,
+      3 ADRs (093a/b/c), CI workflows for terraform-provider, doc audit.'
+    action_plan: docs/phases/PHASE_102.md
+    dependencies:
+    - 93
+    size: MEDIUM
+    success_criteria:
+    - protect_unmanaged_entries field in provider schema with default false
+    - managed_by = "terraform" on create for allowlist, blocklist, watchlist
+    - "[terraform] reason prefix on ban resource (create and read)"
+    - Ban resource has ticket and ttl_hours fields
+    - Dial resource has ticket and notes fields
+    - ADR-093a, ADR-093b, ADR-093c written and merged
+    - CI workflows for terraform-provider test + release
+    - make test-phase-93 passes with zero failures
