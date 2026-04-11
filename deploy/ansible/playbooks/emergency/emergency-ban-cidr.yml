@@ -1,89 +1,95 @@
 ---
-# Emergency CIDR Ban Playbook
+# Emergency: Ban a CIDR range across all JA4proxy nodes.
+#
 # Usage:
 #   ansible-playbook emergency-ban-cidr.yml \
-#     -e ja4proxy_url=https://ja4proxy.corp:8090 \
-#     -e ja4proxy_token="${JA4PROXY_TOKEN}" \
 #     -e cidr=198.51.100.0/24 \
-#     -e reason="Active scanning campaign" \
+#     -e reason="Active scanning campaign from this /24" \
 #     -e ticket=INC0005432 \
-#     -e ttl_hours=24
+#     -e ttl_hours=24 \
+#     -e ja4proxy_token="${JA4PROXY_TOKEN}"
+#
+# Optional:
+#   -e ja4proxy_url=http://localhost:8090  (default)
+#   -e servicenow_enabled=true             (default: false)
+#   -e slack_enabled=true                  (default: false)
 
 - name: Emergency CIDR Ban
   hosts: localhost
-  connection: local
   gather_facts: false
-
   vars:
-    ja4proxy_url: ""
-    ja4proxy_token: ""
-    cidr: ""
-    reason: "Emergency ban"
-    ticket: ""
+    ja4proxy_url: "http://localhost:8090"
     ttl_hours: 24
     servicenow_enabled: false
     slack_enabled: false
 
-  pre_tasks:
+  tasks:
     - name: Validate required variables
       ansible.builtin.assert:
         that:
-          - ja4proxy_url | length > 0
-          - ja4proxy_token | length > 0
-          - cidr | length > 0
-        fail_msg: "ja4proxy_url, ja4proxy_token, and cidr are required"
+          - cidr is defined
+          - reason is defined
+          - ticket is defined
+          - ja4proxy_token is defined
+        fail_msg: "Missing required variable: cidr, reason, ticket, ja4proxy_token"
 
-  tasks:
     - name: URL-encode CIDR for API path
       ansible.builtin.set_fact:
-        cidr_encoded: "{{ cidr | replace('/', '%2F') }}"
+        encoded_cidr: "{{ cidr | regex_replace('/', '%2F') }}"
 
     - name: Ban CIDR via Management API
       ansible.builtin.uri:
-        url: "{{ ja4proxy_url }}/api/v1/bans/{{ cidr_encoded }}"
+        url: "{{ ja4proxy_url }}/api/v1/bans/{{ encoded_cidr }}"
         method: POST
+        headers:
+          Authorization: "Bearer {{ ja4proxy_token }}"
+          Content-Type: "application/json"
         body_format: json
         body:
           ttl: "{{ ttl_hours | int * 3600 }}"
-          reason: "{{ reason }}"
-        headers:
-          Authorization: "Bearer {{ ja4proxy_token }}"
+          reason: "[emergency] {{ reason }} (ticket: {{ ticket }})"
         status_code: 200
-        return_content: true
+        timeout: 30
       register: ban_result
       failed_when: >
-        ban_result.status not in [200] or
-        ban_result.json.ip is not defined
+        ban_result.status != 200 or
+        'error' in (ban_result.json | default({}))
 
-    - name: Confirm ban was applied
-      ansible.builtin.debug:
-        msg: "CIDR {{ cidr }} banned successfully (TTL: {{ ttl_hours }}h, reason: {{ reason }})"
+    - name: Assert ban confirmed by API
+      ansible.builtin.assert:
+        that:
+          - ban_result.json.ip is defined
+        fail_msg: "API did not confirm the ban"
 
     - name: Create ServiceNow incident
       ansible.builtin.uri:
-        url: "{{ servicenow_instance }}/api/now/table/incident"
+        url: "{{ servicenow_url }}/api/now/table/incident"
         method: POST
+        user: "{{ servicenow_user }}"
+        password: "{{ servicenow_password }}"
         body_format: json
         body:
-          short_description: "Emergency CIDR ban: {{ cidr }}"
-          description: "{{ reason }} (Ticket: {{ ticket }})"
+          short_description: "Emergency ban: {{ cidr }}"
+          description: "Banned CIDR: {{ cidr }} — {{ reason }} — Ticket: {{ ticket }}"
           urgency: "1"
-        headers:
-          Authorization: "Bearer {{ servicenow_token }}"
+        force_basic_auth: true
         status_code: 201
-      when:
-        - servicenow_enabled | bool
-        - servicenow_instance is defined
-        - servicenow_token is defined
+        timeout: 30
+      when: servicenow_enabled | bool
+      vars:
+        servicenow_url: "{{ lookup('env', 'SERVICENOW_URL') }}"
+        servicenow_user: "{{ lookup('env', 'SERVICENOW_USER') }}"
+        servicenow_password: "{{ lookup('env', 'SERVICENOW_PASSWORD') }}"
 
-    - name: Post to Slack #security-ops
+    - name: Post to Slack
       ansible.builtin.uri:
         url: "{{ slack_webhook_url }}"
         method: POST
         body_format: json
         body:
-          text: ":rotating_light: Emergency CIDR ban applied: `{{ cidr }}` (TTL: {{ ttl_hours }}h, Ticket: {{ ticket }})"
+          text: "🚨 Emergency Ban: `{{ cidr }}` — {{ reason }} — Ticket: {{ ticket }} — TTL: {{ ttl_hours }}h"
         status_code: 200
-      when:
-        - slack_enabled | bool
-        - slack_webhook_url is defined
+        timeout: 10
+      when: slack_enabled | bool
+      vars:
+        slack_webhook_url: "{{ lookup('env', 'SLACK_WEBHOOK_URL') }}"
