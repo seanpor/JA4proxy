@@ -171,6 +171,7 @@ jobs:
     # dependency-review-action only operates on pull_request events.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    continue-on-error: true  # Requires GHAS on private repos; don't block CI if unavailable
     permissions:
       contents: read
       pull-requests: write
