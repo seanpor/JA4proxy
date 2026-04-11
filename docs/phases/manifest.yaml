@@ -1148,6 +1148,24 @@ phases:
     - Capacity calculator wired to real benchmark numbers
     - Datadog, Dynatrace, Nagios, Zabbix integrations shipping in deploy/
     - All 7 runbook files present with runbook_url on all Alertmanager rules
+  86h:
+    name: "Fixup — Correctness Bugs From Phase 86"
+    status: COMPLETE
+    completed: 2026-04-11
+    summary: "Defect repair for Phase 86. Fixed 38 dead runbook_url values across 7 Alertmanager rule files (35 example.com placeholders + 3 wrong-owner github URLs), normalized all runbook_url annotations to absolute github.com/seanpor/JA4proxy URLs, and fixed the capacity calculator so that hardcoded engineering estimates are no longer presented as measurements (ESTIMATED banner + --require-measured flag)."
+    action_plan: docs/phases/PHASE_86h.md
+    dependencies: [86]
+    size: SMALL
+    success_criteria:
+    - No occurrences of docs.ja4proxy.example.com in monitoring/alertmanager/rules/
+    - No occurrences of seanoriordain or seanpor/ja4proxy (wrong case) in rules
+    - Every runbook_url uses https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/<file>.md
+    - Every runbook_url resolves to an existing file in docs/runbooks/
+    - docs/phases/PHASE_86h_runbook_mapping.yml covers every alert
+    - scripts/fix_runbook_urls.py idempotent, with --check mode for CI
+    - Capacity calculator prints ESTIMATED — NOT MEASURED banner when benchmarks contain placeholders
+    - Capacity calculator --require-measured flag exits non-zero when placeholders present
+    - BenchmarkConstants renamed to EstimatedConstants (alias preserved for backward compat)
   87:
     name: Container & Host Infrastructure Observability
     status: COMPLETE
