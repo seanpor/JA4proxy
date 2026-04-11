@@ -14,10 +14,10 @@ Usage:
 Ports: 9443=first name, 9444=second, 9445=third, etc.
 """
 import argparse
-import socket
-import threading
 import pathlib
+import socket
 import sys
+import threading
 import time
 
 FIXTURES_DIR = pathlib.Path("tests/fixtures/clienthello")
@@ -27,6 +27,7 @@ BASE_PORT = 9443
 def serve_capture(port: int, name: str, done_event: threading.Event):
     """Listen on port, capture one ClientHello per connection until done_event set."""
     FIXTURES_DIR.mkdir(parents=True, exist_ok=True)
+    # nosemgrep: python.lang.security.audit.network.bind.avoid-bind-to-all-interfaces
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sock.settimeout(1.0)

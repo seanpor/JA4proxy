@@ -3,13 +3,14 @@
 Performance testing for JA4 Proxy using Locust
 """
 
-import time
 import random
-import ssl
 import socket
-from locust import HttpUser, TaskSet, task, between
-from locust.clients import HttpSession
+import ssl
 import struct
+import time
+
+from locust import HttpUser, TaskSet, between, task
+from locust.clients import HttpSession
 
 
 class TLSClient:
@@ -250,7 +251,7 @@ class SecurityTestUser(HttpUser):
         payload = random.choice(self.malicious_payloads)
         
         try:
-            response = self.client.get(payload, timeout=10)
+            self.client.get(payload, timeout=10)
             # We expect these to be blocked or handled safely
             
         except Exception:

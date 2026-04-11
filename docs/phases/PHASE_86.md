@@ -1,66 +1,220 @@
-# Phase 86: Observability & Capacity Planning
+# Observability & Capacity Planning — Phase 86
 
-> **Prerequisite: Phase 79 (Management API) must be complete.**
-> Phase 80 (ECS logging, Prometheus metrics) is the foundation this phase builds on.
+> **Last rewritten:** 2026-04-10 — full rewrite with 7 independent sub-phases.
 
 ---
 
-## 1. Overview
+## Goal
 
-Enterprise platform teams need to answer three questions that no previous phase
-directly addresses:
+Enterprise platform teams need to answer three questions no previous phase directly addresses:
 
-1. **"Is JA4proxy healthy right now?"** — in their monitoring tool, not ours
-2. **"Will it handle next month's traffic?"** — capacity planning with data
+1. **"Is JA4proxy healthy right now?"** — in their monitoring tool (Datadog, Dynatrace, Nagios, Zabbix)
+2. **"Will it handle next month's traffic?"** — capacity planning with real data
 3. **"How fast is it actually?"** — published, reproducible benchmark numbers
 
-This phase delivers integrations with the enterprise monitoring tools platform teams
-already operate, a capacity planning toolkit, and a load testing harness with
-published reference numbers.
+This phase delivers integrations with enterprise monitoring tools, a capacity sizing toolkit, a load testing harness, and 7 alert runbooks.
 
 ---
 
-## 2. Datadog Integration
+## Scope
 
-### 2.1 Datadog Agent Integration Tile
+| Sub-Phase | Deliverable | New files | Modified files |
+|-----------|------------|-----------|----------------|
+| **86a** | Management API summary endpoint — Python + Go | `src/management/routes/summary.py` (new route handler) | `src/management/app.py` (+1 route), `cmd/proxy/main.go` (deep health + `/summary` handlers), `docs/REDIS_SCHEMA.md` |
+| **86b** | Load testing harness + benchmark run | `scripts/load_test.py`, `scripts/load_test/` (TLS fingerprint fixtures) | `Makefile` (`load-test`, `load-test-report` targets), `docs/performance/benchmarks.md` (published numbers) |
+| **86c** | Capacity sizing calculator | `scripts/capacity_calculator.py` | None |
+| **86d** | Datadog integration | `deploy/datadog/checks/ja4proxy/check.py`, `deploy/datadog/checks/ja4proxy/__init__.py`, `deploy/datadog/ja4proxy-dashboard.json`, `deploy/datadog/ja4proxy-monitors.json`, `deploy/datadog/conf.d/ja4proxy.d/conf.yaml` | `docs/RELEASE_NOTES.md` (install instructions) |
+| **86e** | Dynatrace EF2 extension | `deploy/dynatrace/ja4proxy-extension/extension.yaml` + plugin files | None |
+| **86f** | Nagios check + Zabbix template | `deploy/nagios/check_ja4proxy.py`, `deploy/zabbix/ja4proxy-template.xml` | None |
+| **86g** | Alert runbooks + `runbook_url` annotations | 7 runbooks in `docs/runbooks/` (see §86g below) | `monitoring/alertmanager/rules/slo_alerts.yml` (add `runbook_url`), `monitoring/alertmanager/rules/tls_alerts.yml` (add `runbook_url`) |
 
-A first-class Datadog Agent integration (`datadog-checks/ja4proxy/`) that:
-- Queries `GET /api/v1/health/deep` on each configured node
-- Queries `GET /api/v1/metrics/summary` for key counters
-- Emits Datadog metrics under the `ja4proxy.*` namespace
-- Emits Datadog service checks: `ja4proxy.node_health`, `ja4proxy.redis_health`
+### Out of Scope
 
-```python
-# datadog-checks/ja4proxy/ja4proxy/check.py (Datadog agent check)
-class JA4proxyCheck(AgentCheck):
-    def check(self, instance):
-        base_url = instance["management_url"]
-        token = self.get_instance_option(instance, "api_token")
+- Phase 79 features (RBAC, SSO) — Phase 86 reads from existing endpoints, no auth work.
+- New proxy capabilities (signals, scoring, bypass rules) — zero changes to `internal/security/`.
+- Go proxy core — only `cmd/proxy/main.go` handlers are touched (sub-86a only).
+- Python proxy core — only `src/management/app.py` routes are touched (sub-86a only).
 
-        # Node health
-        health = self._get(f"{base_url}/api/v1/health/deep", token)
-        self.gauge("ja4proxy.node.healthy", 1 if health["status"] == "ok" else 0)
-        self.gauge("ja4proxy.node.redis_latency_ms", health["redis_latency_ms"])
-        self.gauge("ja4proxy.node.dial_setting", health["dial_setting"])
-        self.gauge("ja4proxy.node.cert_days_remaining", health["cert_days_remaining"])
+---
 
-        # Traffic metrics
-        summary = self._get(f"{base_url}/api/v1/metrics/summary", token)
-        self.gauge("ja4proxy.connections.active", summary["active_connections"])
-        self.rate("ja4proxy.connections.total", summary["connections_total"])
-        self.rate("ja4proxy.blocks.total", summary["blocks_total"])
-        self.gauge("ja4proxy.block_rate_pct", summary["block_rate_pct"])
-        self.gauge("ja4proxy.bans.active", summary["active_bans"])
+## Sub-Phase 86a — Management API Summary Endpoint
 
-        # Service check
-        status = AgentCheck.OK if health["status"] == "ok" else AgentCheck.CRITICAL
-        self.service_check("ja4proxy.node_health", status, tags=[f"node:{health['node']}"])
+**Goal:** Add `/api/v1/health/deep` and `/api/v1/metrics/summary` endpoints to both Python and Go proxies. All monitoring integrations (Datadog, Dynatrace, Nagios, Zabbix) call these endpoints. They must exist before 86d/86e/86f can work.
+
+**Python (`src/management/app.py`):**
+- Add `GET /api/v1/health/deep` — extends existing `/api/v1/health` with:
+  - `cert_days_remaining` (from existing `TLSCertExpiryTimestampSeconds` gauge value via Redis or Prometheus scrape)
+  - `active_connections` (from `ja4proxy_active_connections`)
+  - `connections_total` (from `ja4proxy_connections_total`)
+  - `block_rate_pct` (computed from `ja4proxy_connections_total{action=block}` / total × 100)
+  - `active_bans` (Redis `KEYS ja4proxy:ban:* | wc -l` or from a dedicated counter)
+  - `redis_latency_ms` (existing `PING` RTT)
+- Add `GET /api/v1/metrics/summary` — returns the above fields as a single JSON object, designed for single-call monitoring polling.
+
+**Go (`cmd/proxy/main.go`):**
+- Add `/health/deep` handler — same fields as Python.
+  - Reads Prometheus gauge values directly (already registered in `internal/metrics/metrics.go`)
+  - Redis latency from `Ping` with timing
+  - Cert expiry from existing `TLSCertExpiryTimestampSeconds` gauge
+  - Active connections from `ActiveConnections` gauge
+  - Connections total from `ConnectionsTotal` counter
+  - Block rate: compute from counter snapshot
+  - Active bans: Redis `DBSIZE` approximation or `KEYS ja4proxy:ban:* COUNT` (Redis 7+)
+- Add `/metrics/summary` handler — same JSON schema as Python.
+
+**Tests:**
+- Python: unit test for `/api/v1/health/deep` (mock Redis, mock Prometheus registry) — asserts status codes and JSON schema.
+- Python: unit test for `/api/v1/metrics/summary` — same.
+- Python: test page rendering test for both routes (per AGENTS.md §Web service TDD).
+- Go: unit test for both handlers with `httptest.NewRecorder`.
+- Integration test: both endpoints return 200 with valid JSON when stack is running.
+
+**Acceptance criteria:**
+- `curl http://localhost:8090/api/v1/health/deep` returns 200 with all 8 fields.
+- `curl http://localhost:9090/health/deep` (Go metrics port) returns 200 with all 8 fields.
+- `curl http://localhost:8090/api/v1/metrics/summary` returns 200 with same schema.
+- `curl http://localhost:9090/metrics/summary` returns 200 with same schema.
+- Python unit tests pass: `pytest tests/unit/test_health_summary.py -v`
+- Go unit tests pass: `GOROOT=/snap/go/current go test ./cmd/proxy/... -run TestHealthDeep`
+
+---
+
+## Sub-Phase 86b — Load Testing Harness + Benchmark Run
+
+**Goal:** A TLS-aware load generator that produces realistic traffic distributions and measures throughput/latency/error-rate. Reuses existing `scripts/benchmark_comparison.py` engine for the heavy lifting, but adds a standalone harness that works against a single target (no Python vs Python comparison needed).
+
+**Note:** The existing `scripts/benchmark-go-python.sh` + `scripts/benchmark_comparison.py` already implement the benchmark engine. Phase 86b does NOT rewrite it. It adds:
+1. A thin wrapper `scripts/load_test.py` that calls `benchmark_comparison.py` with a single-target config.
+2. `Makefile` targets: `load-test`, `load-test-baseline`, `load-test-report`.
+3. A benchmark results directory `docs/performance/benchmarks.md` populated by running the harness.
+
+**`scripts/load_test.py`:**
+```
+Usage:
+  python3 scripts/load_test.py --target localhost:8080 --duration 60 --rps 1000 --scenario mixed
+
+Scenarios:
+  mixed      — 70% browser (h2/h1), 20% automation, 5% scanner, 5% malicious
+  browser    — 100% real browser fingerprints
+  attack     — 100% malicious fingerprints
+  sustained  — ramp to target RPS and hold for duration
+  ramp       — linear ramp from 100 to target RPS over 60s
 ```
 
-### 2.2 Datadog Configuration
+- Reuses the TLS client machinery from `benchmark_comparison.py` (synthetic ClientHello generation).
+- Outputs: JSON report with throughput, P50/P95/P99 latency, block rate, error rate.
+- Optionally reads Prometheus metrics from `/metrics/summary` endpoint (added in 86a) for CPU/memory correlation.
 
+**`Makefile` targets:**
+```makefile
+## Phase 86 — Load testing
+load-test:
+	@echo "Running JA4proxy load test..."
+	python3 scripts/load_test.py \
+		--target $(LOAD_TEST_TARGET) \
+		--duration $(LOAD_TEST_DURATION) \
+		--rps $(LOAD_TEST_RPS) \
+		--scenario $(LOAD_TEST_SCENARIO)
+
+load-test-baseline:
+	LOAD_TEST_TARGET=localhost:8080 \
+	LOAD_TEST_DURATION=60 \
+	LOAD_TEST_RPS=1000 \
+	LOAD_TEST_SCENARIO=baseline \
+	$(MAKE) load-test
+
+load-test-report:
+	@echo "Latest benchmark reports:"
+	@ls -lt docs/performance/benchmarks/ 2>/dev/null | head -5 || echo "No reports found"
+```
+
+**Benchmark run (`docs/performance/benchmarks.md`):**
+- Run the harness against Go proxy on reference hardware (document actual CPU/RAM/OS/Redis).
+- Publish results for: bypass path, full signal path, Redis latency sensitivity, memory footprint.
+- Numbers must be **measured** — not estimated. Run `make bench -- --proxy go --no-docker --skip-build` as the primary source, plus `make load-test-baseline` for the load test.
+
+**Tests:**
+- Unit test for `load_test.py` argument parsing and report generation.
+- Integration test: run 10-second load test against mock backend, verify report JSON is valid.
+- Test verifies report schema matches expected fields (throughput, latencies, error rate).
+
+**Acceptance criteria:**
+- `make load-test-baseline` runs for 60s against a local proxy and produces a JSON report.
+- Report contains: throughput (conn/s), P50/P95/P99 latency, block rate, error rate.
+- `docs/performance/benchmarks.md` populated with measured Go proxy numbers on reference hardware.
+- Unit tests for `load_test.py` pass.
+
+---
+
+## Sub-Phase 86c — Capacity Sizing Calculator
+
+**Goal:** A script that takes traffic parameters and outputs a capacity recommendation. Must be wired to **real benchmark numbers** from 86b, not placeholders.
+
+**`scripts/capacity_calculator.py`:**
+```
+Usage:
+  python3 scripts/capacity_calculator.py \
+    --peak-connections-per-second 5000 \
+    --p99-latency-budget-ms 10 \
+    --redis-node-count 3 \
+    --enable-analytics \
+    --enable-beaconing-detection \
+    --enable-abuseipdb \
+    --cloud-provider aws \
+    --region us-east-1
+```
+
+**Constants sourced from 86b benchmark run (read from `docs/performance/benchmarks.md` or a companion JSON file):**
+- `GO_BYPASS_CONN_S` — single node bypass path throughput
+- `GO_FULL_CONN_S` — single node full signal path throughput
+- `GO_P99_BYPASS_MS` — bypass path P99 latency
+- `GO_P99_FULL_MS` — full signal path P99 latency
+- `REDIS_MEM_PER_KEY` — average Redis memory per key
+- `ANALYTICS_BYTES_PER_CONN` — analytics storage per connection
+
+**Methodology:**
+- Proxy node count = `ceil(peak_rps / GO_FULL_CONN_S) + 1` (N+1 redundancy)
+- Redis memory = `key_count × REDIS_MEM_PER_KEY × 1.3` (overhead factor)
+- Analytics storage = `bytes_per_conn × peak_rps × 86400 × retention_days`
+- All calculations include 50% headroom for peak spikes
+
+**Tests:**
+- Unit tests for sizing formulas (proxy count, Redis memory, analytics storage).
+- Test with known inputs (1000, 5000, 50000 rps) and assert expected node counts.
+- Test edge cases: 0 rps, 1M rps, negative inputs (should error gracefully).
+
+**Acceptance criteria:**
+- Produces valid recommendations for 100–100,000 conn/s inputs.
+- Output includes: proxy node count, CPU/RAM per node, Redis sizing, analytics sizing, cloud cost estimate.
+- Constants sourced from real 86b benchmark data (not hardcoded estimates).
+- Unit tests pass.
+
+---
+
+## Sub-Phase 86d — Datadog Integration
+
+**Goal:** A first-class Datadog Agent integration that polls the management API and emits metrics, plus a pre-built dashboard and 4 monitors.
+
+**`deploy/datadog/checks/ja4proxy/check.py`:**
+- Datadog Agent check subclass (`AgentCheck`).
+- Polls `GET /api/v1/health/deep` on each configured node.
+- Emits Datadog metrics under `ja4proxy.*` namespace:
+  - `ja4proxy.node.healthy` (gauge, 0/1)
+  - `ja4proxy.node.redis_latency_ms` (gauge)
+  - `ja4proxy.node.dial_setting` (gauge)
+  - `ja4proxy.node.cert_days_remaining` (gauge)
+  - `ja4proxy.connections.active` (gauge)
+  - `ja4proxy.connections.total` (rate)
+  - `ja4proxy.blocks.total` (rate)
+  - `ja4proxy.block_rate_pct` (gauge)
+  - `ja4proxy.bans.active` (gauge)
+- Service check: `ja4proxy.node_health` (OK/CRITICAL based on health status).
+- Timeout handling: fail-open (log warning, emit UNKNOWN service check) on HTTP error.
+
+**`deploy/datadog/checks/ja4proxy/__init__.py`:** — Package init.
+
+**`deploy/datadog/conf.d/ja4proxy.d/conf.yaml`:**
 ```yaml
-# conf.d/ja4proxy.d/conf.yaml
 init_config:
 
 instances:
@@ -69,68 +223,45 @@ instances:
     nodes:
       - "ja4proxy-prod-01"
       - "ja4proxy-prod-02"
-      - "ja4proxy-prod-03"
     min_collection_interval: 30
 ```
 
-### 2.3 Datadog Dashboard
+**`deploy/datadog/ja4proxy-dashboard.json`:**
+- Node health topology map (one widget per node, green/red).
+- Connection throughput timeseries.
+- Block rate timeseries with threshold annotations (2% warning, 10% critical).
+- Active bans gauge.
+- Redis latency heatmap across nodes.
+- Dial setting history.
+- Certificate expiry countdown (critical at ≤30 days).
 
-A pre-built Datadog dashboard JSON (`deploy/datadog/ja4proxy-dashboard.json`) with:
-- Node health topology map (one widget per node, green/red)
-- Connection throughput timeseries
-- Block rate timeseries with threshold annotations
-- Active bans gauge
-- Redis latency heatmap across nodes
-- Dial setting history
-- Certificate expiry countdown (critical at ≤30 days)
+**`deploy/datadog/ja4proxy-monitors.json`:**
+- `JA4proxy node unhealthy` — service check alert, pages SecOps on-call.
+- `JA4proxy Redis latency high` — >50ms for 5 minutes.
+- `JA4proxy certificate expiring` — <30 days.
+- `JA4proxy block rate anomaly` — >5% sustained for 15 minutes.
 
-### 2.4 Monitors (Alerting Rules)
+**Tests:**
+- Unit tests for the check class — mock HTTP responses for OK, degraded, error.
+- Test that service check status matches health response.
+- Test that metrics are emitted with correct names and tags.
+- Container configuration parity test: verify `conf.yaml` env vars match Docker Compose structure.
 
-```json
-// deploy/datadog/ja4proxy-monitors.json
-[
-  {
-    "name": "JA4proxy node unhealthy",
-    "type": "service check",
-    "query": "\"ja4proxy.node_health\".over(\"*\").by(\"node\").last(2).count_by_status()",
-    "message": "JA4proxy node {{node.name}} is unhealthy. Check /api/v1/health/deep. @pagerduty-security-oncall"
-  },
-  {
-    "name": "JA4proxy Redis latency high",
-    "type": "metric alert",
-    "query": "avg(last_5m):avg:ja4proxy.node.redis_latency_ms{*} by {node} > 50",
-    "message": "Redis latency > 50ms on {{node.name}}. Investigate Redis health."
-  },
-  {
-    "name": "JA4proxy certificate expiring",
-    "type": "metric alert",
-    "query": "min(last_1h):min:ja4proxy.node.cert_days_remaining{*} by {node} < 30",
-    "message": "TLS certificate on {{node.name}} expires in less than 30 days."
-  },
-  {
-    "name": "JA4proxy block rate anomaly",
-    "type": "metric alert",
-    "query": "avg(last_15m):avg:ja4proxy.block_rate_pct{*} > 5",
-    "message": "Block rate > 5% — possible attack campaign. Check Management UI."
-  }
-]
-```
+**Acceptance criteria:**
+- `check.py` installable as Datadog Agent custom check.
+- Emits all 9 metric types with correct names and tags.
+- Dashboard JSON is valid Datadog dashboard format.
+- Monitors JSON is valid Datadog monitor format.
+- Unit tests pass with mocked HTTP.
 
 ---
 
-## 3. Dynatrace Integration
+## Sub-Phase 86e — Dynatrace EF2 Extension
 
-### 3.1 Dynatrace EF2 Extension
+**Goal:** A Dynatrace Extension Framework 2 extension that defines a custom topology entity type and emits metrics via REST polling.
 
-A Dynatrace EF2 (Extension Framework 2) extension (`dynatrace/ja4proxy-extension/`)
-that:
-- Uses the WMI/REST datasource to query `GET /api/v1/health/deep`
-- Defines a custom topology entity type: `JA4proxy:node`
-- Emits metrics under the `ext:ja4proxy.*` namespace
-- Integrates with Dynatrace's automatic root cause analysis (Davis AI)
-
+**`deploy/dynatrace/ja4proxy-extension/extension.yaml`:**
 ```yaml
-# dynatrace/ja4proxy-extension/extension.yaml
 name: custom:ja4proxy
 version: "1.0.0"
 minDynatraceVersion: "1.270"
@@ -168,33 +299,33 @@ topology:
               key: node_name
 ```
 
-### 3.2 Davis AI Problem Correlation
+**Implementation notes:**
+- EF2 uses REST datasource (not WMI — WMI is Windows-only). The extension polls `GET /api/v1/health/deep`.
+- Tag metrics with `environment:production` and `ja4proxy_node:{hostname}` for Davis AI correlation.
+- Include `install.sh` script for one-line installation.
 
-Tag JA4proxy metrics with:
-- `[Environment]production` — scopes alerts to production
-- `ja4proxy_node:{hostname}` — enables root cause correlation across nodes
+**Tests:**
+- Validate `extension.yaml` against Dynatrace EF2 schema (structure validation).
+- Test metric key naming matches specification.
+- Test topology entity type definition is valid YAML.
 
-When Dynatrace's Davis AI detects correlated anomalies (e.g., Redis latency spike
-correlating with increased block rate), it surfaces this as a single problem card
-rather than separate alerts.
+**Acceptance criteria:**
+- `extension.yaml` is valid EF2 format.
+- Defines 4 metrics and 1 topology entity type.
+- Includes installation instructions in `README.md`.
+- Validation tests pass.
 
 ---
 
-## 4. Nagios / Zabbix Check Plugin
+## Sub-Phase 86f — Nagios Check + Zabbix Template
 
-For enterprises running legacy monitoring infrastructure, a simple check plugin
-that speaks the Nagios check protocol (return code + perfdata):
+**Goal:** For enterprises running legacy monitoring, deliver Nagios-compatible check plugin and Zabbix importable template.
 
-### 4.1 Nagios Check
+### Nagios Check
 
-```bash
-#!/usr/bin/env python3
-# check_ja4proxy.py — Nagios-compatible check plugin
-
-"""
-Usage: check_ja4proxy.py --url https://ja4proxy-mgmt.corp.internal \
-                          --token ${JA4PROXY_TOKEN} \
-                          --check health|dial|redis|cert
+**`deploy/nagios/check_ja4proxy.py`:**
+```
+Usage: check_ja4proxy.py --url https://ja4proxy-mgmt --token $TOKEN --check health|dial|redis|cert
 
 Returns:
   0 = OK
@@ -202,298 +333,191 @@ Returns:
   2 = CRITICAL
   3 = UNKNOWN
 
-Perfdata format: 'metric_name'=value;warn;crit;min;max
-"""
-
-import sys, argparse, urllib.request, json
-
-def check_health(data, args):
-    if data["status"] == "ok":
-        redis_ms = data["redis_latency_ms"]
-        print(f"OK - All {data['node_count']} nodes healthy | "
-              f"redis_latency={redis_ms}ms;20;50;0;1000 "
-              f"active_connections={data['active_connections']}")
-        sys.exit(0)
-    elif data["status"] == "degraded":
-        print(f"WARNING - {data['degraded_reason']} | redis_latency={data['redis_latency_ms']}ms")
-        sys.exit(1)
-    else:
-        print(f"CRITICAL - {data['status']}: {data.get('error', 'unknown error')}")
-        sys.exit(2)
+Perfdata: 'metric_name'=value;warn;crit;min;max
 ```
 
-Installed to `/usr/lib64/nagios/plugins/check_ja4proxy` on the Nagios server.
+- Calls `GET /api/v1/health/deep`.
+- Parses JSON response.
+- `--check health`: OK if status=="ok", WARNING if degraded, CRITICAL if error.
+- `--check redis`: WARNING if redis_latency_ms > 20, CRITICAL if > 50.
+- `--check cert`: WARNING if cert_days_remaining < 30, CRITICAL if < 7.
+- `--check dial`: WARNING if dial != expected value (configurable via `--expected-dial`).
+- Outputs Nagios perfdata format on stdout.
 
-### 4.2 Nagios Configuration
+### Zabbix Template
 
-```
-# /etc/nagios/conf.d/ja4proxy.cfg
-define command {
-    command_name    check_ja4proxy_health
-    command_line    $USER1$/check_ja4proxy.py --url $ARG1$ --token $ARG2$ --check health
-}
+**`deploy/zabbix/ja4proxy-template.xml`:**
+- HTTP agent items polling `/api/v1/health/deep` (Zabbix built-in HTTP checks — no custom script needed).
+- Dependent items extracting Redis latency, dial setting, active connections via JSONPath.
+- Triggers: node unhealthy, Redis latency > 50ms, cert expiry ≤ 30 days.
+- Graph prototypes for connection rate and block rate.
+- Host macro `{$JA4PROXY_TOKEN}` for API authentication.
 
-define service {
-    host_name               ja4proxy-prod-01
-    service_description     JA4proxy Health
-    check_command           check_ja4proxy_health!https://ja4proxy-mgmt.corp.internal!$_HOSTJA4PROXY_TOKEN$
-    check_interval          2
-    notification_interval   30
-}
-```
+**Tests:**
+- Nagios: unit test exit codes for each check type with mock responses.
+- Nagios: test perfdata format compliance.
+- Nagios: container configuration parity test.
+- Zabbix: validate XML against Zabbix template XSD (or at minimum, well-formed XML).
 
-### 4.3 Zabbix Template
-
-An importable Zabbix template (`deploy/zabbix/ja4proxy-template.xml`) with:
-- HTTP agent items polling `/api/v1/health/deep` (Zabbix built-in HTTP checks)
-- Dependent items extracting Redis latency, dial setting, active connections
-- Triggers: node unhealthy, Redis latency > 50ms, cert expiry ≤ 30 days
-- Graph prototypes for connection rate and block rate
-- Host macro `{$JA4PROXY_TOKEN}` for API authentication
+**Acceptance criteria:**
+- `check_ja4proxy.py` returns correct exit codes (0/1/2/3) for all 4 check types.
+- Nagios perfdata output matches Nagios plugin format specification.
+- Zabbix template XML is well-formed and importable.
+- Unit tests pass.
 
 ---
 
-## 5. Capacity Sizing Calculator
+## Sub-Phase 86g — Alert Runbooks + `runbook_url` Annotations
 
-A script that takes traffic parameters and outputs a capacity recommendation.
+**Goal:** Every Alertmanager rule must link to an actual runbook page. This sub-phase creates the 7 runbooks and adds `runbook_url` annotations to existing alert rules.
 
-### 5.1 Usage
+### New Runbooks (7 files in `docs/runbooks/`)
 
-```bash
-python3 scripts/capacity_calculator.py \
-  --peak-connections-per-second 5000 \
-  --p99-latency-budget-ms 10 \
-  --redis-node-count 3 \
-  --enable-analytics \
-  --enable-beaconing-detection \
-  --enable-abuseipdb
-```
+| File | Alert it documents |
+|------|-------------------|
+| `ja4proxy_node_unhealthy.md` | Node health degradation |
+| `ja4proxy_redis_latency_high.md` | Redis latency > 50ms |
+| `ja4proxy_certificate_expiring.md` | TLS cert < 30 days (warning) / < 7 days (critical) |
+| `ja4proxy_block_rate_high.md` | Block rate > 2% (warning) / > 10% (critical) |
+| `ja4proxy_campaign_detected.md` | Coordinated attack campaign detected |
+| `ja4proxy_dial_change_unexpected.md` | Dial changed without authorized ticket |
+| `ja4proxy_tarpit_pool_full.md` | Tarpit connection pool exhausted |
 
-### 5.2 Output
+### Standard Runbook Format
 
-```
-JA4proxy Capacity Recommendation
-═══════════════════════════════════════════════════════════════════════════
-
-Input parameters:
-  Peak connections/second:  5,000
-  P99 latency budget:       10ms
-  Redis nodes:              3 (cluster)
-  Features enabled:         analytics, beaconing, abuseipdb
-
-Proxy node sizing:
-  Recommended node count:   3 (for N+1 redundancy)
-  CPU per node:             4 vCPU (2.5GHz equivalent)
-  RAM per node:             4 GB
-  Go runtime handles:       ~40,000 concurrent goroutines at peak
-  Estimated P99 latency:    0.4ms (hot path, bypass) / 2.1ms (full signal path)
-
-Redis sizing:
-  Expected key count:       ~2.4M (bans + beaconing + return visitor)
-  Estimated memory:         8 GB per Redis node (with 2× headroom)
-  Recommended instance:     r6g.xlarge (AWS) / Standard_E4s_v3 (Azure)
-
-Analytics node:
-  CPU:                      4 vCPU
-  RAM:                      16 GB (pandas/scipy workloads)
-  Storage (90-day retention): 63 GB (500 bytes × 5000 conn/s × 86400s × 90d)
-
-Total estimated cloud cost (AWS us-east-1):
-  3× proxy (c6g.xlarge):    $290/mo
-  3× Redis (r6g.xlarge):    $650/mo
-  1× analytics (m6g.xlarge): $150/mo
-  ─────────────────────────────────
-  Total:                    ~$1,090/mo
-
-Reference benchmarks (see §6):
-  Single Go proxy node: 18,400 conn/s (bypass path)
-  Single Go proxy node:  6,200 conn/s (full signal path)
-  Required at 5,000/s:   1 node sufficient; 3 nodes recommended for HA
-```
-
-### 5.3 Methodology
-
-The calculator uses the published benchmark numbers from §6 and applies:
-- 50% headroom for peak spikes
-- N+1 for all stateful components
-- Redis memory formula: `key_count × avg_key_size × 1.3 (overhead factor)`
-- Analytics storage formula: `bytes_per_connection × connections_per_second × 86400 × retention_days`
-
-### 5.4 Bootstrap Sequence
-
-The capacity calculator (§5) references "published benchmark numbers from §6". This creates a dependency: the calculator cannot be validated until real benchmarks are run. The correct implementation sequence is:
-
-1. Implement and run the load testing harness (§6) first, on the reference hardware.
-2. Record the actual measured numbers in `docs/performance/benchmarks.md`.
-3. Wire those numbers into the capacity calculator as its constants.
-4. Validate the calculator output against the measured data.
-
-Do not hard-code the §6.3 placeholder numbers into the calculator source as if they were measurements. The calculator constants must come from the benchmark run, not from the spec document.
-
----
-
-## 6. Load Testing Harness
-
-### 6.1 Makefile Target
-
-```makefile
-## Phase 86 targets
-load-test:
-	@echo "Running JA4proxy load test..."
-	@echo "Target: $(LOAD_TEST_TARGET)"
-	python3 scripts/load_test.py \
-		--target $(LOAD_TEST_TARGET) \
-		--duration 60 \
-		--connections-per-second $(LOAD_TEST_RPS) \
-		--scenario $(LOAD_TEST_SCENARIO)
-
-load-test-baseline:
-	LOAD_TEST_TARGET=localhost:8080 \
-	LOAD_TEST_RPS=1000 \
-	LOAD_TEST_SCENARIO=mixed \
-	$(MAKE) load-test
-
-load-test-report:
-	python3 scripts/load_test.py --report --output load-test-results/
-```
-
-### 6.2 Load Test Script
-
-```python
-# scripts/load_test.py — TLS connection load generator
-# Generates synthetic TLS connections with realistic fingerprint distribution:
-#   70% — legitimate browsers (h2/h1 ALPN, real cipher suites)
-#   20% — automation tools (Curl, Python requests, Go TLS)
-#   5%  — known scanner fingerprints
-#   5%  — known malicious fingerprints
-
-# Each scenario produces a breakdown of:
-#   - Connections/second (actual vs target)
-#   - P50/P95/P99 latency (ms)
-#   - Block rate (should match configured fingerprint mix)
-#   - Error rate (proxy errors, not intentional blocks)
-#   - CPU and memory on proxy node (via /api/v1/metrics/summary)
-```
-
-### 6.3 Published Reference Numbers
-
-These numbers are populated by running the load testing harness (§6.2) on the reference hardware below and recording actual measured results. **Do not pre-fill with estimates — measure first, then publish.**
-
-**Reference hardware (run the harness on this configuration):**
-- AWS c6g.2xlarge (8 vCPU, 16 GB RAM, ARM Graviton 3) — or document actual hardware used
-- Amazon Linux 2023 (or document actual OS)
-- Redis: Elasticache r6g.large (single node, same AZ) — or equivalent
-
-Commit results to `docs/performance/benchmarks.md` after each benchmark run. The file must include:
-- Hardware and OS specification
-- Go proxy version / git commit SHA
-- Date of run
-- Results table:
-
-```
-JA4proxy Performance Reference — vX.Y (Go proxy)
-Hardware: [record actual hardware]
-OS: [record actual OS]
-Redis: [record actual Redis config]
-Date: [date of run]
-Git SHA: [commit]
-
-BYPASS PATH (h2/h1 ALPN → immediate allow):
-  Throughput:               [measure]  conn/s
-  P50 latency:              [measure]  ms
-  P99 latency:              [measure]  ms
-  CPU (single proxy core):  [measure]  % at peak
-
-FULL SIGNAL PATH (all signal modules, Redis reads):
-  Throughput:               [measure]  conn/s
-  P50 latency:              [measure]  ms
-  P99 latency:              [measure]  ms
-  CPU (single proxy core):  [measure]  % at peak
-
-TARPIT PATH:
-  Max concurrent tarpitted: [measure]
-  Memory per tarpitted conn:[measure]  KB
-
-REDIS LATENCY SENSITIVITY:
-  At 1ms Redis P99:         [measure]  conn/s
-  At 5ms Redis P99:         [measure]  conn/s
-  At 20ms Redis P99:        [measure]  conn/s
-
-MEMORY FOOTPRINT:
-  Proxy process (idle):     [measure]  MB
-  Proxy process (10K conns):[measure]  MB
-  LRU cache (100K entries): [measure]  MB
-```
-
----
-
-## 7. Prometheus Alerting — Runbook Links
-
-Requirement from Phase 81 §8: every Alertmanager rule must include a `runbook_url`.
-This phase delivers the actual runbook pages they link to:
-
-> **Cross-phase file edit required:** The Alertmanager rules in Phase 14e (`monitoring/alertmanager/rules/`) must be updated to add `runbook_url` annotations pointing to the runbooks listed below. Per CLAUDE.md file ownership rules, this phase must add a new Makefile target (`## Phase 86 targets` / `update-alertmanager-runbook-urls`) rather than editing Phase 14e Makefile targets. The actual alert rule files can be edited since they are infrastructure files being extended, not overwritten — add only `runbook_url` and `summary` annotations; do not change existing alert conditions or thresholds.
-
-```
-docs/runbooks/
-  ja4proxy_node_unhealthy.md
-  ja4proxy_redis_latency_high.md
-  ja4proxy_certificate_expiring.md
-  ja4proxy_block_rate_high.md
-  ja4proxy_campaign_detected.md
-  ja4proxy_dial_change_unexpected.md
-  ja4proxy_tarpit_pool_full.md
-```
-
-Each runbook follows the standard format:
+Each runbook follows this structure:
 ```markdown
-# Runbook: ja4proxy_block_rate_high
+# Runbook: ja4proxy_<name>
 
 ## Severity
-WARNING (>2%) → CRITICAL (>10%)
+WARNING → CRITICAL (with thresholds)
 
 ## What is happening
-JA4proxy is blocking an unusually high percentage of connections.
+Brief description of the alert condition.
 
 ## Impact
-- High: Possible false positive wave if FP rate is also elevated
-- Low: Possible attack campaign; expected behaviour
+- High: Worst-case scenario
+- Low: Best-case scenario (expected behaviour)
 
 ## Diagnosis
-1. Check Management UI Campaign Tracker for active campaigns
-2. Run: `ja4proxy-cli health --all-nodes`
-3. Check: `ja4proxy-cli fingerprint <top-blocked-ja4> --history 1h`
-4. Review shadow mode: was dial recently raised?
+1. Step-by-step diagnostic commands
+2. Grafana dashboard checks
+3. Management CLI commands
 
 ## Resolution
-If campaign: No action required unless FP rate is elevated.
-If FP wave: `ja4proxy-cli allowlist add <ja4> --reason "FP mitigation" --ticket CHG...`
-If false raise: `ja4proxy-cli dial set <previous-value> --confirm --ticket INC...`
+- If campaign: ...
+- If FP wave: ...
+- If false raise: ...
 
 ## Escalation
-Page SecOps lead if block rate >10% AND FP rate >0.1%.
+When and who to page.
 ```
+
+### Alert Rule Updates
+
+**`monitoring/alertmanager/rules/slo_alerts.yml`** — Add `runbook_url` annotations to all existing SLO alerts. Do NOT modify alert conditions, thresholds, or `for` durations.
+
+**`monitoring/alertmanager/rules/tls_alerts.yml`** — Add `runbook_url` annotations to existing TLS cert expiry alerts.
+
+### New Makefile Target
+
+```makefile
+## Phase 86 targets — add runbook_url annotations to existing Alertmanager rules
+update-alertmanager-runbook-urls:
+	@echo "Adding runbook_url annotations to alertmanager rules..."
+	# Script that patches runbook_url annotations into existing rules
+	python3 scripts/patch_alerturls.py
+```
+
+**Note:** Per CLAUDE.md file ownership rules, this target is ADDITIVE — it adds new Makefile targets, does not modify existing Phase 14e targets. The actual alert rule YAML files can be edited since they are infrastructure files being extended.
+
+### Tests
+
+- Unit test: each runbook file exists and contains all required sections (Severity, Impact, Diagnosis, Resolution, Escalation).
+- Integration test: `runbook_url` annotations in alertmanager rules resolve to actual files.
+- Shellcheck: if `patch_alerturls.py` calls any shell scripts, they pass shellcheck.
+
+**Acceptance criteria:**
+- All 7 runbook files present with correct format (all 5 sections present).
+- All existing SLO alerts in `slo_alerts.yml` have `runbook_url` annotations.
+- All existing TLS alerts in `tls_alerts.yml` have `runbook_url` annotations.
+- `make update-alertmanager-runbook-urls` runs without error.
+- Validation tests pass.
 
 ---
 
-## 8. Acceptance Criteria
+## Execution Order and Independence
 
-- [ ] Load testing harness run on reference hardware; actual measured numbers committed to `docs/performance/benchmarks.md` before capacity calculator constants are set
-- [ ] Capacity calculator constants sourced from measured benchmark run, not from spec placeholders
-- [ ] Phase 14e Alertmanager rule files updated with `runbook_url` annotations; new `update-alertmanager-runbook-urls` Makefile target added (not editing existing targets)
-- [ ] Datadog Agent check installable and emitting `ja4proxy.*` metrics
-- [ ] Datadog dashboard JSON ships in `deploy/datadog/`
-- [ ] Datadog monitors JSON ships in `deploy/datadog/`
-- [ ] Dynatrace EF2 extension installable with correct topology entity type
-- [ ] Nagios check plugin returns correct exit codes for OK/WARNING/CRITICAL
-- [ ] Zabbix template importable with triggers and graph prototypes
-- [ ] `scripts/capacity_calculator.py` produces valid recommendations for 100-100,000 conn/s inputs
-- [ ] Calculator output includes cloud cost estimates (AWS and Azure)
-- [ ] `make load-test` runs successfully against a local proxy instance
-- [ ] Load test produces throughput and latency breakdown report
-- [ ] Published benchmark numbers committed to `docs/performance/benchmarks.md`
-- [ ] Benchmarks include: bypass path, full signal path, tarpit, Redis latency sensitivity
-- [ ] All 7 runbook files present in `docs/runbooks/` with correct format
-- [ ] All Alertmanager rules in Phase 14e updated with `runbook_url` pointing to these runbooks
-- [ ] Capacity calculator tested with unit tests for sizing formulas
-- [ ] Datadog check has unit tests (mock HTTP responses)
+| Sub-Phase | Depends On | Can Run In Parallel With | Engineer Level |
+|-----------|-----------|-------------------------|----------------|
+| **86a** | None | 86b, 86g | Mid (needs Python + Go) |
+| **86b** | None (but benefits from 86a `/metrics/summary` for CPU correlation) | 86a, 86c, 86d, 86e, 86f, 86g | Mid |
+| **86c** | 86b (for benchmark constants) | 86d, 86e, 86f, 86g | Junior |
+| **86d** | 86a (endpoint must exist) | 86b, 86c, 86e, 86f, 86g | Mid |
+| **86e** | 86a (endpoint must exist) | 86b, 86c, 86d, 86f, 86g | Mid |
+| **86f** | 86a (endpoint must exist) | 86b, 86c, 86d, 86e, 86g | Junior |
+| **86g** | None | 86a, 86b, 86c, 86d, 86e, 86f | Junior |
+
+**Recommended execution order:** 86a → (86d, 86e, 86f in parallel) → 86b → 86c → 86g. Or 86g can run at any time since it has no dependencies.
+
+---
+
+## Test Strategy
+
+Each sub-phase has its own test suite:
+
+| Sub-Phase | Test Categories |
+|-----------|----------------|
+| 86a | Python unit (mock Redis, mock Prometheus), Go unit (`httptest`), integration (live stack) |
+| 86b | Unit (arg parsing, report schema), integration (10s load test against mock backend) |
+| 86c | Unit (sizing formulas, edge cases: 0/1M/negative rps) |
+| 86d | Unit (mock HTTP responses, service check status, metric emission), container config parity |
+| 86e | Validation (YAML schema, metric key naming, topology entity type) |
+| 86f | Unit (Nagios exit codes, perfdata format), XML well-formedness (Zabbix) |
+| 86g | File existence + section validation, `runbook_url` resolution test |
+
+---
+
+## Acceptance Criteria (All Sub-Phases)
+
+- [ ] 86a: `/api/v1/health/deep` returns 200 with all 8 fields (Python + Go)
+- [ ] 86a: `/api/v1/metrics/summary` returns 200 with same schema (Python + Go)
+- [ ] 86a: Python unit tests pass
+- [ ] 86a: Go unit tests pass (`GOROOT=/snap/go/current go test ./cmd/proxy/... -run TestHealth`)
+- [ ] 86b: `make load-test-baseline` runs and produces valid JSON report
+- [ ] 86b: `docs/performance/benchmarks.md` populated with measured Go proxy numbers
+- [ ] 86b: Unit tests for `load_test.py` pass
+- [ ] 86c: Calculator produces valid output for 100–100,000 conn/s
+- [ ] 86c: Calculator output includes cloud cost estimates (AWS and Azure)
+- [ ] 86c: Unit tests for sizing formulas pass
+- [ ] 86d: Datadog check emits all 9 metric types
+- [ ] 86d: Dashboard JSON is valid Datadog format
+- [ ] 86d: Monitors JSON is valid Datadog format
+- [ ] 86d: Unit tests pass (mock HTTP)
+- [ ] 86e: `extension.yaml` is valid EF2 format
+- [ ] 86e: Defines 4 metrics and 1 topology entity type
+- [ ] 86e: Validation tests pass
+- [ ] 86f: Nagios check returns correct exit codes for all 4 check types
+- [ ] 86f: Nagios perfdata format is compliant
+- [ ] 86f: Zabbix template is well-formed XML
+- [ ] 86f: Unit tests pass
+- [ ] 86g: All 7 runbook files present with all 5 required sections
+- [ ] 86g: All SLO alerts have `runbook_url` annotations
+- [ ] 86g: All TLS alerts have `runbook_url` annotations
+- [ ] 86g: `make update-alertmanager-runbook-urls` runs without error
+- [ ] `make test` passes with zero failures, zero warnings
+- [ ] `make go-test` passes with zero failures
+- [ ] `make lint-phases` exits 0
+
+---
+
+## Phase Close-Out Checklist
+
+1. Tests pass: `make test` — zero failures, zero warnings
+2. Go tests pass: `make go-test` — zero failures
+3. CHANGELOG.md: Add entry for Phase 86
+4. REDIS_SCHEMA.md: Document any new Redis keys (86a may add `ja4proxy:metrics:cache` if caching the summary)
+5. Update `docs/phases/manifest.yaml`: status COMPLETE, completed date
+6. Run `make sync`: regenerate TODO.md and PROJECT_STATUS.md
+7. Run `make lint-phases`: must exit 0
+8. Atomic commit of all artifacts

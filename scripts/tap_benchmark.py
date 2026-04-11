@@ -28,7 +28,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Minimal inline ParsedPacket (avoids import latency in benchmark)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -146,8 +145,8 @@ def read_pcap(path: Path) -> Iterator[bytes]:
 def run_synthetic_benchmark(n_packets: int, use_reassembler: bool) -> None:
     """Run the synthetic packet benchmark."""
     try:
-        from src.tap.reassembler import StreamReassembler
         from src.tap.capture import ParsedPacket
+        from src.tap.reassembler import StreamReassembler
     except ImportError as exc:
         print(f"ERROR: Cannot import TAP modules: {exc}")
         print("Run from the project root: python3 scripts/tap_benchmark.py")
@@ -181,8 +180,8 @@ def run_synthetic_benchmark(n_packets: int, use_reassembler: bool) -> None:
     elapsed = time.perf_counter() - start
     pps = n_processed / elapsed if elapsed > 0 else 0
 
-    print(f"\n=== TAP Benchmark Results ===")
-    print(f"  Mode:       synthetic")
+    print("\n=== TAP Benchmark Results ===")
+    print("  Mode:       synthetic")
     print(f"  Packets:    {n_processed:,}")
     print(f"  Errors:     {n_errors}")
     print(f"  Duration:   {elapsed:.2f}s")
@@ -195,7 +194,7 @@ def run_synthetic_benchmark(n_packets: int, use_reassembler: bool) -> None:
         print(f"\n  PASS: {pps:,.0f} >= {target_pps:,} pps target")
     else:
         print(f"\n  WARN: {pps:,.0f} < {target_pps:,} pps target")
-        print(f"        Consider: more workers, ring buffer tuning, or Go rewrite (Phase 15)")
+        print("        Consider: more workers, ring buffer tuning, or Go rewrite (Phase 15)")
 
 
 def run_pcap_benchmark(pcap_path: Path) -> None:
@@ -224,7 +223,7 @@ def run_pcap_benchmark(pcap_path: Path) -> None:
     total = len(frames)
     pps = total / elapsed if elapsed > 0 else 0
 
-    print(f"\n=== PCAP Replay Benchmark Results ===")
+    print("\n=== PCAP Replay Benchmark Results ===")
     print(f"  File:       {pcap_path}")
     print(f"  Frames:     {total}")
     print(f"  Parsed OK:  {n_ok}")

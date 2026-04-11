@@ -845,7 +845,10 @@ class TestAnalyzeTlsHandshake:
         data = b"\x16\x03\x01\x00\x10" + b"\x00" * 16  # TLS header, invalid body
         server.redis_client.hset = MagicMock()
         server.redis_client.expire = MagicMock()
-        with patch("proxy.TLS", side_effect=Exception("Scapy parse failed")):
+        # Patch the pure-Python parser (returns None → falls through to Scapy)
+        # and the Scapy executor fallback (raises → ja4 stays "unknown").
+        with patch("src.tls.parser.parse_client_hello", return_value=None), \
+             patch("proxy._parse_tls_task", side_effect=Exception("Scapy parse failed")):
             fp = _run(server._analyze_tls_handshake(data, "2.3.4.5"))
         assert fp.ja4 in ("unknown", "error")
 

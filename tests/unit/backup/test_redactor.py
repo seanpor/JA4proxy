@@ -22,7 +22,6 @@ from src.backup.format import encode_entry
 from src.backup.redactor import BackupRedactor
 from src.backup.storage_adapter import DSARComplianceError, LocalStorageAdapter
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

@@ -41,15 +41,19 @@ except ImportError:  # pragma: no cover
 from .base import FeedClient, FeedConfig, FeedPollResult
 from .metrics import (
     TI_INDICATORS_PROCESSED as _INDICATORS_PROCESSED,
+)
+from .metrics import (
     TI_POLL_DURATION as _POLL_DURATION,
+)
+from .metrics import (
     TI_POLL_TOTAL as _POLL_TOTAL,
 )
 from .stix_ja4 import (
     is_ip_pattern,
     is_ja4_pattern,
+    is_valid_ja4,
     parse_ip_from_pattern,
     parse_ja4_from_pattern,
-    is_valid_ja4,
 )
 
 logger = logging.getLogger(__name__)

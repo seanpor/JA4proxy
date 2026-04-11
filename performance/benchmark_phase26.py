@@ -6,18 +6,19 @@ It tests single-process performance with all optimizations enabled.
 """
 
 import asyncio
-import time
+import os
 import statistics
 import tempfile
-import os
-from typing import List, Dict, Any
+import time
 from dataclasses import dataclass
+from typing import Any, Dict, List
 from unittest.mock import AsyncMock, MagicMock
 
 import redis.asyncio as redis
+
+from src.cache.local_cache import LocalCache
 from src.config.loader import ConfigLoader
 from src.security.pipeline import ConnectionContext, Pipeline
-from src.cache.local_cache import LocalCache
 
 
 @dataclass
@@ -174,11 +175,11 @@ security_policy:
                 try:
                     # Time the processing
                     ctx_start = time.time()
-                    result = await pipeline.process(ctx)
+                    await pipeline.process(ctx)
                     latency = (time.time() - ctx_start) * 1000  # Convert to ms
                     latencies.append(latency)
                     processed += 1
-                except Exception as e:
+                except Exception:
                     errors += 1
                     
                 if time.time() >= end_time:

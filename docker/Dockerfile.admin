@@ -12,6 +12,11 @@ RUN pip install --no-cache-dir uvicorn fastapi redis pydantic
 
 COPY src/ ./src/
 
+# Non-root user for runtime security (DS-0002 compliance)
+RUN adduser --disabled-password --gecos '' --uid 1000 management && \
+    chown -R management:management /app
+USER management
+
 ENV PYTHONPATH=/app
 EXPOSE 8090
 

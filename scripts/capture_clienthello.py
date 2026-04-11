@@ -5,7 +5,9 @@ Usage: python3 scripts/capture_clienthello.py <name> [port]
 Then connect: curl --tlsv1.3 https://127.0.0.1:<port>/
 Saves to tests/fixtures/clienthello/<name>.bin
 """
-import socket, sys, pathlib
+import pathlib
+import socket
+import sys
 
 FIXTURES = pathlib.Path("tests/fixtures/clienthello")
 FIXTURES.mkdir(parents=True, exist_ok=True)

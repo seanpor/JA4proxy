@@ -1,3 +1,10 @@
+<!--
+title: "SLO redis correctness Runbook"
+audience: oncall, sre
+last_reviewed: 2026-04-10
+phase: 86
+-->
+
 # Runbook — SLO: Redis Correctness
 
 > **Alert sources:** `JA4ProxyRedisCorrectnessFastBurn`, `JA4ProxyRedisCorrectnessSlowBurn`

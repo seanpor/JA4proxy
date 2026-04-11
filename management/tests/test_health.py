@@ -9,9 +9,10 @@ Covers
 - Public endpoint — no authentication required (used by Docker healthcheck)
 """
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from httpx import AsyncClient
-from unittest.mock import AsyncMock, patch
 
 
 @pytest.mark.asyncio
@@ -60,7 +61,6 @@ async def test_health_redis_unavailable_returns_degraded(
 ) -> None:
     """When Redis ping fails, health returns degraded but NOT 500."""
     from management.api import redis_client as rc
-    from unittest.mock import AsyncMock
 
     # Patch the Redis client to raise on ping
     original = rc.get_redis_client()

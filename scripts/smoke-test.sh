@@ -2,11 +2,15 @@
 # Quick smoke test to verify POC is working
 # Tests basic connectivity without running full test suite
 
-set -e
+# No set -e: the script tracks failures via $FAILED and exits accordingly.
 
 # Load .env if available
 [ -f .env ] && set -a && source .env && set +a
 REDIS_PW="${REDIS_PASSWORD:-changeme}"
+
+# Ports match `make start` Docker stack (docker-compose.poc.yml)
+PROXY_PORT="${PROXY_PORT:-8081}"
+METRICS_PORT="${METRICS_PORT:-9090}"
 
 # Colors
 RED='\033[0;31m'
@@ -21,19 +25,18 @@ echo ""
 
 FAILED=0
 
-# Test Backend
-echo -n "Testing Backend... "
-if curl -sk --max-time 10 https://localhost:8443/api/health > /dev/null 2>&1; then
+# Test Proxy accepts TCP connections
+echo -n "Testing Proxy (port ${PROXY_PORT})... "
+if timeout 5 bash -c "echo '' | nc -w2 localhost ${PROXY_PORT}" 2>/dev/null; then
     echo -e "${GREEN}✓${NC}"
 else
     echo -e "${RED}✗${NC}"
     FAILED=1
 fi
 
-# Test Backend endpoints
-echo -n "Testing Backend Echo... "
-RESPONSE=$(curl -sk --max-time 10 https://localhost:8443/api/echo)
-if echo "$RESPONSE" | grep -q "method"; then
+# Test Proxy Health endpoint
+echo -n "Testing Proxy Health... "
+if curl -sf --max-time 10 "http://localhost:${METRICS_PORT}/health" > /dev/null 2>&1; then
     echo -e "${GREEN}✓${NC}"
 else
     echo -e "${RED}✗${NC}"
@@ -42,7 +45,7 @@ fi
 
 # Test Proxy Metrics
 echo -n "Testing Proxy Metrics... "
-if curl -sf --max-time 10 http://localhost:9090/metrics > /dev/null 2>&1; then
+if curl -sf --max-time 10 "http://localhost:${METRICS_PORT}/metrics" | grep -q "ja4proxy_" 2>/dev/null; then
     echo -e "${GREEN}✓${NC}"
 else
     echo -e "${RED}✗${NC}"

@@ -5,6 +5,7 @@ secrets/*
 
 # Debug/scratch files
 debug_asyncio_test.py
+ci-test-output.txt
 
 ssl/private/*
 !ssl/private/.gitkeep

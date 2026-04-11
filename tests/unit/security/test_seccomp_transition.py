@@ -15,7 +15,6 @@ import pytest
 
 from src.security.seccomp_transition import apply_runtime_seccomp, is_supported
 
-
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------

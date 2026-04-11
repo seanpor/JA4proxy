@@ -45,15 +45,30 @@ spec:
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
         env:
-        - name: REDIS_URL
+        # The Go proxy reads config/proxy.yml which expands ${REDIS_HOST},
+        # ${REDIS_PORT}, ${REDIS_PASSWORD} from env. Set them directly rather
+        # than REDIS_URL (which the proxy does not parse).
+        {{- if not .Values.redis.external }}
+        # Bundled Redis StatefulSet (redis.yaml) — service name is ja4proxy-redis.
+        - name: REDIS_HOST
+          value: "ja4proxy-redis"
+        - name: REDIS_PORT
+          value: "6379"
+        {{- else }}
+        - name: REDIS_HOST
+          value: {{ .Values.redis.host | default "redis" | quote }}
+        - name: REDIS_PORT
+          value: {{ .Values.redis.port | default 6379 | quote }}
+        {{- end }}
+        - name: REDIS_PASSWORD
           {{- if .Values.secrets.create }}
           valueFrom:
             secretKeyRef:
               name: ja4proxy-secrets
-              key: REDIS_URL
-              optional: true   # Falls back to redis.url value if secret key absent
+              key: REDIS_PASSWORD
+              optional: true
           {{- else }}
-          value: {{ .Values.redis.url | quote }}
+          value: {{ .Values.secrets.redisPassword | default "" | quote }}
           {{- end }}
         - name: ABUSEIPDB_API_KEY
           {{- if .Values.secrets.create }}

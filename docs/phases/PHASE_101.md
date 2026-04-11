@@ -17,7 +17,7 @@
 | [Phase 84 Compliance Review](#phase-84-compliance-review-deferred-items) | 2026-03-?? | C1–C3 (closed), H1/H3 deferred + H2/H4/H5 closed, M1/M2/M4/M7 deferred + M3/M5/M6 closed, L1/L2/L5 deferred + L3/L4 closed |
 | [Phase 85 Threat-Intel Hardening](#phase-85-threat-intel-hardening-deferred-items) | 2026-04-09 | C5-partial/C7 closed + C4–C6 deferred, H13 closed + H6–H12 deferred, M8–M14 deferred, L6–L8 deferred |
 | [Phase 62 Go Test Parity](#phase-62-go-test-parity-deferred-items) | 2026-04-09 | M15 (golden cross-check), M16 (chaos right-answer-wrong-mechanism), M17 (V2 fuzz target hand-off to Phase 200), L9 (property generator weight semantics) |
-| [Phase 64 Deployment Validation](#phase-64-deployment-validation-deferred-items) | 2026-04-09 | M18 (Podman/Quadlet smoke test blocked), M19 (phantom `ja4proxy-cli backup` audit) |
+| [Phase 64 Deployment Validation](#phase-64-deployment-validation-deferred-items) | 2026-04-10 | M18 (Podman/Quadlet smoke test blocked), M19 (phantom `ja4proxy-cli backup` audit), M20 closed, M21 closed, M22 closed, M23 closed |
 
 When a future phase review surfaces deferred items, append a new section
 below and start its severity counters at the next free number across the
@@ -1011,3 +1011,42 @@ grep -rn "ja4proxy-cli backup" docs/runbooks/ docs/phases/
 
 The above should return zero results after the fix (except this PHASE_101
 entry itself).
+
+---
+
+#### M20 — CI smoke-k8s job needs kind/helm installation steps — CLOSED
+
+**Severity:** MEDIUM — **CLOSED 2026-04-10**
+
+Fixed in Phase 64 closeout: added SHA-pinned `azure/setup-helm@v4.3.0`
+and `helm/kind-action@v1.12.0` to the `smoke-k8s` CI job.
+
+---
+
+#### M21 — `infrastructure.md` still references Python proxy — CLOSED
+
+**Severity:** MEDIUM — **CLOSED 2026-04-10**
+
+Fixed in Phase 64 closeout: replaced all `pgrep -f proxy.py` references
+in `docs/runbooks/infrastructure.md` with `pgrep -f bin/proxy`.
+
+---
+
+#### M22 — AbuseIPDB lookups counter missing from Go metrics — CLOSED
+
+**Severity:** MEDIUM — **CLOSED 2026-04-10**
+
+Fixed in Phase 64 closeout: added `ja4proxy_abuseipdb_lookups_total`
+counter with `result` label (`hit`/`miss`/`error`) to
+`internal/metrics/metrics.go` and instrumented all code paths in
+`internal/security/abuseipdb.go`.
+
+---
+
+#### M23 — MTTR test should validate Redis key names — CLOSED
+
+**Severity:** MEDIUM — **CLOSED 2026-04-10**
+
+Fixed in Phase 64 closeout: added 4 tests to `tests/test_phase64h_mttr.py`
+in `TestRedisKeyNames` class — asserts `config:dial` and `config:reload`
+are present, and rejects phantom `ja4proxy:dial` / `ja4proxy:config_reload`.

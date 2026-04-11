@@ -249,6 +249,7 @@ def test_otxconfig_from_config_env_api_key(monkeypatch):
     runs without an API key and all lookups are no-ops, giving zero threat intel.
     """
     import os
+
     from src.security.alienvault import OTXConfig
 
     monkeypatch.setenv("OTX_API_KEY", "env-key-xyz")
@@ -586,8 +587,9 @@ async def test_process_lookup_timeout_with_circuit_breaker_records_failure(
     Security consequence: if failures are not recorded, the circuit breaker never
     opens, and the proxy continues hammering a down feed with every new connection.
     """
-    from src.security.feed_health import FeedHealthMonitor
     from unittest.mock import patch
+
+    from src.security.feed_health import FeedHealthMonitor
 
     monitor = FeedHealthMonitor()
     cb_mock = MagicMock()

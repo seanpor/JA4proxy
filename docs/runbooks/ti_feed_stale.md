@@ -1,3 +1,10 @@
+<!--
+title: "TI feed stale Runbook"
+audience: oncall, sre
+last_reviewed: 2026-04-10
+phase: 86
+-->
+
 # Runbook — TIFeedStale
 
 **Alert:** `TIFeedStale`

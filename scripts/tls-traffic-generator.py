@@ -10,17 +10,17 @@ Each profile creates real TLS connections with distinct ClientHello fingerprints
 The proxy extracts JA4 fingerprints from these ClientHello messages.
 """
 
-import random
-import time
 import argparse
-import sys
-import ssl
-import socket
 import os
-from dataclasses import dataclass
-from typing import List, Dict, Optional
+import random
+import socket
+import ssl
+import sys
+import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+from typing import Dict, List, Optional
 
 
 class Colors:
@@ -352,7 +352,7 @@ class TrafficGenerator:
         print("╚════════════════════════════════════════════════════════════════════╝")
         print(f"{Colors.ENDC}\n")
         
-        print(f"Configuration:")
+        print("Configuration:")
         print(f"  Target:            {self.target_host}:{self.target_port}")
         print(f"  Duration:          {self.duration}s")
         print(f"  Good Traffic:      {self.good_traffic_percent}%")
@@ -368,7 +368,7 @@ class TrafficGenerator:
         # Calculate connections per worker based on duration and rate
         max_connections = max(10, self.duration * 5)
         
-        print(f"Spawning clients:")
+        print("Spawning clients:")
         print(f"  {Colors.OKGREEN}✓ {num_good} legitimate clients{Colors.ENDC}")
         print(f"  {Colors.FAIL}✗ {num_bad} malicious clients{Colors.ENDC}")
         print()
@@ -387,7 +387,7 @@ class TrafficGenerator:
                 tasks.append(future)
             
             print(f"{Colors.OKBLUE}TLS traffic generation started...{Colors.ENDC}")
-            print(f"Press Ctrl+C to stop early\n")
+            print("Press Ctrl+C to stop early\n")
             
             try:
                 time.sleep(self.duration)
@@ -399,7 +399,7 @@ class TrafficGenerator:
             for future in as_completed(tasks):
                 try:
                     future.result()
-                except Exception as e:
+                except Exception:
                     pass
         
         self.print_stats()

@@ -9,8 +9,9 @@ compare without touching the filesystem.
 
 import os
 import sys
-import yaml
 from datetime import datetime
+
+import yaml
 
 MANIFEST_PATH = "docs/phases/manifest.yaml"
 TODO_PATH = "docs/phases/TODO.md"

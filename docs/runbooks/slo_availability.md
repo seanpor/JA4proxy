@@ -1,3 +1,10 @@
+<!--
+title: "SLO availability Runbook"
+audience: oncall, sre
+last_reviewed: 2026-04-10
+phase: 86
+-->
+
 # Runbook — SLO: Availability
 
 > **Alert sources:** `JA4ProxyAvailabilityFastBurn`, `JA4ProxyAvailabilitySlowBurn`

@@ -133,6 +133,7 @@ class TestJA4TCoverageGaps:
         """_parse() raising → _empty() returned (lines 62-63, 132).
         So what: an internal crash must produce a valid JA4TResult, not propagate."""
         from unittest.mock import patch
+
         import src.tap.fingerprints.ja4t as _mod
         with patch.object(_mod, "_parse", side_effect=RuntimeError("injected")):
             result = extract_ja4t_from_syn(b"\x02\x04\x05\xb4", window_size=1024)

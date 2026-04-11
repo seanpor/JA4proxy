@@ -25,25 +25,60 @@ linters:
         - (net.Listener).Close
         - (io.Closer).Close
         - (*os.File).Close
+        - (*crypto/tls.Conn).Close
+        - (*net.TCPConn).Close
+        - (*github.com/redis/go-redis/v9.Client).Close
+        - (*github.com/anomalyco/ja4proxy/internal/redis.Client).Close
         - (*github.com/redis/go-redis/v9.PubSub).Close
         - (net.Conn).SetReadDeadline
         - (net.Conn).SetWriteDeadline
         - (*net.TCPConn).SetReadDeadline
         - (*net.TCPConn).SetWriteDeadline
+        - (*net.TCPConn).SetLinger
         - os.Unsetenv
         - os.Remove
 
-issues:
-  exclude-rules:
-    # Test HTTP handlers: json.Encoder.Encode failure is not actionable in test context
-    - path: "_test\\.go"
-      linters: [errcheck]
-      text: "Encode"
-    # miniredis test setup: SAdd return value not needed
-    - path: "_test\\.go"
-      linters: [errcheck]
-      text: "SAdd"
-    # Test file operations in cleanup helpers
-    - path: "_test\\.go"
-      linters: [errcheck]
-      text: "Close|WriteString"
+  exclusions:
+    rules:
+      # ── Test file exclusions ──────────────────────────────────────────────
+      # Tests use miniredis, test helpers, and synthetic data; errcheck and
+      # gosec findings in test code are noise, not bugs.
+      - path: "_test\\.go"
+        linters:
+          - errcheck
+      - path: "_test\\.go"
+        linters:
+          - gosec
+      # QF1001: De Morgan's law suggestion — current form is more readable
+      # for hex-range character checks in tests.
+      - path: "_test\\.go"
+        linters:
+          - staticcheck
+        text: "QF1001"
+      # ── Production false positives ────────────────────────────────────────
+      # G304/G703: Config loaders, CLI tools, and TLS cert loading intentionally
+      # read user/admin-specified file paths. These are not user-controlled inputs.
+      - linters:
+          - gosec
+        text: "G304"
+      # G703: All file reads in this codebase use admin-configured paths,
+      # not user-controlled input. Suppress globally.
+      - linters:
+          - gosec
+        text: "G703"
+      # G704: CLI client makes requests to admin-configured management API URL.
+      - path: "internal/cli/client/client\\.go"
+        linters:
+          - gosec
+        text: "G704"
+      # G104: Close/SetReadDeadline errors are unactionable in defer/shutdown paths.
+      - linters:
+          - gosec
+        text: "G104"
+        source: "Close|SetReadDeadline|SetWriteDeadline"
+      # G118: Background-context goroutines are intentional fire-and-forget
+      # (beaconing recorder, connection handler). The request context may
+      # cancel before the goroutine finishes its work.
+      - linters:
+          - gosec
+        text: "G118"

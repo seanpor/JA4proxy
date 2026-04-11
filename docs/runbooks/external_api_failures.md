@@ -1,3 +1,10 @@
+<!--
+title: "external api failures Runbook"
+audience: oncall, sre
+last_reviewed: 2026-04-10
+phase: 86
+-->
+
 # Runbook: External API Failures
 
 ## Overview

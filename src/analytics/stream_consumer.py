@@ -7,8 +7,8 @@ import logging
 import time
 from typing import Any, Dict, List, Optional
 
-import aioredis
 import redis
+import redis.asyncio as aioredis
 from jsonschema import ValidationError, validate
 from prometheus_client import Gauge
 

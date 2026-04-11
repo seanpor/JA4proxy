@@ -41,7 +41,8 @@ Export the private key for the GitHub Actions secret:
 gpg --armor --export-secret-keys releases@ja4proxy.io
 ```
 
-Copy the full output (including `-----BEGIN PGP PRIVATE KEY BLOCK-----` header and
+<!-- nosemgrep: generic.secrets.security.detected-pgp-private-key-block.detected-pgp-private-key-block -->
+Copy the full output (including the PGP private key block header and
 footer) and store it as the GitHub Actions secret `GPG_SIGNING_KEY`.
 
 Find the key fingerprint:

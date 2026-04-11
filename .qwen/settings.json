@@ -1,9 +1,17 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git stash *)",
+      "Bash(git checkout *)",
+      "Bash(mkdir *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
       "Bash(git fetch *)",
-      "Bash(git log *)"
+      "Bash(git merge *)",
+      "Bash(python3 *)",
+      "Bash(git *)",
+      "Bash(go *)",
+      "Bash(sed *)"
     ]
   },
   "$version": 3

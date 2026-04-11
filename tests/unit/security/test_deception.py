@@ -22,7 +22,6 @@ import pytest
 from src.security.deception import DeceptionChecker
 from src.security.models import ConnectionContext, PipelineResult
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -334,8 +333,8 @@ class TestPipelineDeceptionIntegration:
     """Test that the pipeline routes deception hits to action='silent_drop'."""
 
     def _make_pipeline_with_checker(self, checker: DeceptionChecker):
-        from src.security.pipeline import Pipeline
         from src.cache.local_cache import LocalCache
+        from src.security.pipeline import Pipeline
 
         config = {
             "security_policy": {

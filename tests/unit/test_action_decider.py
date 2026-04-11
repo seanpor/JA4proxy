@@ -337,6 +337,7 @@ class TestDialManagerRecordRedisError:
         security configuration from being applied under the exact conditions
         (high load / Redis instability) when rapid configuration is most needed."""
         from unittest.mock import AsyncMock
+
         import redis as _redis
         m = AsyncMock()
         m.get.return_value = None   # count = 0 → change allowed
