@@ -149,7 +149,94 @@ MALICIOUS_CLIENTS = [
         alpn=None,
         sni="backend",
     ),
+    # Phase 86i — distinct scanner fingerprint (masscan/zgrab-like):
+    # TLS1.2 only, single aggressive cipher, no ALPN.
+    ClientProfile(
+        name="Masscan_Scanner",
+        description="Masscan/zgrab-like port scanner — TLS1.2 only, no ALPN",
+        malicious=True,
+        request_rate=100.0,
+        attack_type="Scanning",
+        tls_min_version=ssl.TLSVersion.TLSv1_2,
+        tls_max_version=ssl.TLSVersion.TLSv1_2,
+        ciphers="AES128-SHA",
+        alpn=None,
+        sni="backend",
+    ),
 ]
+
+
+# ── Phase 86i — fingerprint-mix buckets ─────────────────────────────────────
+# Maps the four scenario bucket names in scripts/load_test.py SCENARIOS to
+# the concrete ClientProfile instances above. The buckets are deliberately
+# disjoint so the proxy sees demonstrably different ClientHellos per bucket:
+#
+#   browser_alpn : LEGITIMATE_CLIENTS     → h2/http1.1 ALPN  → bypass path
+#   automation   : automation/C2 tools    → no ALPN, TLS1.3 → full signal
+#   scanner      : Masscan_Scanner        → TLS1.2-only 1-cipher → signal+block
+#   malicious    : CobaltStrike/CredStuff → TLS1.2-only legacy   → signal+block
+#
+# These buckets drive the `--fingerprint-mix` flag on main() below.
+MIX_BUCKETS: Dict[str, List[ClientProfile]] = {
+    "browser_alpn": list(LEGITIMATE_CLIENTS),
+    "automation": [
+        p for p in MALICIOUS_CLIENTS
+        if p.name in {"Sliver_C2", "Python_Requests_Bot", "Evilginx_Phishing"}
+    ],
+    "scanner": [
+        p for p in MALICIOUS_CLIENTS if p.name == "Masscan_Scanner"
+    ],
+    "malicious": [
+        p for p in MALICIOUS_CLIENTS
+        if p.name in {"CobaltStrike_Beacon", "Credential_Stuffer"}
+    ],
+}
+
+
+def parse_fingerprint_mix(spec: str) -> Dict[str, int]:
+    """Parse ``browser_alpn=70,automation=20,scanner=5,malicious=5``.
+
+    Raises ValueError on malformed input or if weights don't sum to 100.
+    Missing buckets default to 0. Unknown buckets raise.
+    """
+    if not spec:
+        raise ValueError("empty fingerprint-mix spec")
+    out: Dict[str, int] = {k: 0 for k in MIX_BUCKETS}
+    for pair in spec.split(","):
+        pair = pair.strip()
+        if not pair:
+            continue
+        if "=" not in pair:
+            raise ValueError(f"malformed mix entry: {pair!r}")
+        k, v = pair.split("=", 1)
+        k = k.strip()
+        if k not in MIX_BUCKETS:
+            raise ValueError(
+                f"unknown mix bucket {k!r}; valid: {sorted(MIX_BUCKETS)}"
+            )
+        out[k] = int(v)
+    total = sum(out.values())
+    if total != 100:
+        raise ValueError(
+            f"fingerprint-mix weights must sum to 100, got {total}: {out}"
+        )
+    return out
+
+
+def profiles_for_mix(mix: Dict[str, int]) -> List[ClientProfile]:
+    """Expand a bucket weight mix into a weighted list of ClientProfiles.
+
+    Each unit of weight contributes one worker slot drawn round-robin from
+    the bucket's profiles. Buckets with weight 0 contribute nothing.
+    """
+    out: List[ClientProfile] = []
+    for bucket, weight in mix.items():
+        profiles = MIX_BUCKETS.get(bucket, [])
+        if weight <= 0 or not profiles:
+            continue
+        for i in range(weight):
+            out.append(profiles[i % len(profiles)])
+    return out
 
 
 def create_ssl_context(profile: ClientProfile) -> ssl.SSLContext:
@@ -175,12 +262,16 @@ class TrafficGenerator:
     """Generates real TLS traffic to test JA4proxy"""
     
     def __init__(self, target_host="localhost", target_port=443,
-                 duration=60, good_traffic_percent=15, workers=50):
+                 duration=60, good_traffic_percent=15, workers=50,
+                 fingerprint_mix: Optional[Dict[str, int]] = None):
         self.target_host = target_host
         self.target_port = target_port
         self.duration = duration
         self.good_traffic_percent = good_traffic_percent
         self.workers = workers
+        # Phase 86i: when set, overrides good/bad split and dispatches
+        # workers per-bucket according to the fingerprint-mix weights.
+        self.fingerprint_mix = fingerprint_mix
         
         self.stats = defaultdict(lambda: {
             "connections": 0, "success": 0, "blocked": 0, "errors": 0
@@ -362,25 +453,76 @@ class TrafficGenerator:
         
         self.start_time = time.time()
         
-        num_good = max(1, int(self.workers * self.good_traffic_percent / 100))
-        num_bad = self.workers - num_good
-        
         # Calculate connections per worker based on duration and rate
         max_connections = max(10, self.duration * 5)
-        
+
+        # Phase 86i: fingerprint-mix path overrides good/bad split.
+        if self.fingerprint_mix:
+            print(f"Phase 86i fingerprint-mix: {self.fingerprint_mix}")
+            weighted = profiles_for_mix(self.fingerprint_mix)
+            if not weighted:
+                raise RuntimeError(
+                    f"fingerprint_mix {self.fingerprint_mix} produced no profiles"
+                )
+            # Scale the 100-weight list down to self.workers slots,
+            # preserving proportions via striding.
+            slots: List[ClientProfile] = []
+            for i in range(self.workers):
+                slots.append(weighted[(i * len(weighted)) // self.workers])
+            bucket_counts: Dict[str, int] = defaultdict(int)
+            for p in slots:
+                for b, ps in MIX_BUCKETS.items():
+                    if p in ps:
+                        bucket_counts[b] += 1
+                        break
+            print("Spawning clients per bucket:")
+            for b, c in bucket_counts.items():
+                print(f"  {b}: {c}")
+            print()
+
+            with ThreadPoolExecutor(max_workers=self.workers) as executor:
+                tasks = [
+                    executor.submit(self.worker, p, max_connections)
+                    for p in slots
+                ]
+
+                print(f"{Colors.OKBLUE}TLS traffic generation started...{Colors.ENDC}")
+                print("Press Ctrl+C to stop early\n")
+
+                try:
+                    time.sleep(self.duration)
+                except KeyboardInterrupt:
+                    print(f"\n{Colors.WARNING}Stopping...{Colors.ENDC}")
+
+                self.running = False
+                for future in as_completed(tasks):
+                    try:
+                        future.result()
+                    except Exception:
+                        pass
+
+            self.print_stats()
+            print(f"{Colors.OKCYAN}Tip:{Colors.ENDC} Check Grafana at http://localhost:3001")
+            print(f"{Colors.OKCYAN}Tip:{Colors.ENDC} Check Prometheus at http://localhost:9091")
+            print()
+            return
+
+        num_good = max(1, int(self.workers * self.good_traffic_percent / 100))
+        num_bad = self.workers - num_good
+
         print("Spawning clients:")
         print(f"  {Colors.OKGREEN}✓ {num_good} legitimate clients{Colors.ENDC}")
         print(f"  {Colors.FAIL}✗ {num_bad} malicious clients{Colors.ENDC}")
         print()
-        
+
         with ThreadPoolExecutor(max_workers=self.workers) as executor:
             tasks = []
-            
+
             for i in range(num_good):
                 profile = random.choice(LEGITIMATE_CLIENTS)
                 future = executor.submit(self.worker, profile, max_connections)
                 tasks.append(future)
-            
+
             for i in range(num_bad):
                 profile = random.choice(MALICIOUS_CLIENTS)
                 future = executor.submit(self.worker, profile, max_connections)
@@ -418,19 +560,37 @@ def main():
     parser.add_argument("--duration", type=int, default=60, help="Duration in seconds (default: 60)")
     parser.add_argument("--good-percent", type=int, default=15, help="Percent legitimate traffic (default: 15)")
     parser.add_argument("--workers", type=int, default=50, help="Worker threads (default: 50)")
-    
+    parser.add_argument(
+        "--fingerprint-mix",
+        default=None,
+        help=(
+            "Phase 86i: fingerprint bucket distribution, e.g. "
+            "'browser_alpn=70,automation=20,scanner=5,malicious=5'. "
+            "Weights must sum to 100. When set, overrides --good-percent."
+        ),
+    )
+
     args = parser.parse_args()
-    
+
     if not 0 <= args.good_percent <= 100:
         print(f"{Colors.FAIL}Error: --good-percent must be 0-100{Colors.ENDC}")
         sys.exit(1)
-    
+
+    fingerprint_mix = None
+    if args.fingerprint_mix:
+        try:
+            fingerprint_mix = parse_fingerprint_mix(args.fingerprint_mix)
+        except ValueError as exc:
+            print(f"{Colors.FAIL}Error: --fingerprint-mix: {exc}{Colors.ENDC}")
+            sys.exit(2)
+
     generator = TrafficGenerator(
         target_host=args.target_host,
         target_port=args.target_port,
         duration=args.duration,
         good_traffic_percent=args.good_percent,
-        workers=args.workers
+        workers=args.workers,
+        fingerprint_mix=fingerprint_mix,
     )
     
     try:
