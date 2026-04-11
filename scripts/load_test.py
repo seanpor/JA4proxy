@@ -1,36 +1,179 @@
 #!/usr/bin/env python3
-"""Phase 86b — Load testing harness for JA4proxy.
+"""Phase 86b / 86i — Load testing harness for JA4proxy.
 
-Thin wrapper around the existing benchmark_comparison.py engine,
-configured for single-target load testing (no Python vs Python comparison).
+Thin wrapper around the existing benchmark_comparison.py engine plus
+scripts/tls-traffic-generator.py, configured for single-target load
+testing (no Python vs Python comparison).
+
+Phase 86i replaces the old [baseline, sustained, ramp] scenario set with
+four code-path-specific scenarios. Each scenario pins a fingerprint
+distribution so the proxy exercises a distinct internal path:
+
+    bypass-only   — 100% browser ALPN        → bypass throughput ceiling
+    full-signal   — 100% automation          → full scoring path (cache
+                                                miss, Redis reads)
+    attack-wave   —  50% scanner + 50% mal   → block path + Redis writes
+    mixed         —  70/20/5/5               — representative production
 
 Usage:
-    python3 scripts/load_test.py --target localhost:8080 --duration 60 --rps 1000 --scenario baseline
-    make load-test LOAD_TEST_TARGET=localhost:8080 LOAD_TEST_RPS=1000 LOAD_TEST_DURATION=60 LOAD_TEST_SCENARIO=baseline
-
-Scenarios:
-    baseline      — Single-target baseline latency + throughput
-    sustained     — Hold target RPS for duration
-    ramp          — Linear ramp from 100 to target RPS over duration
-
-Output:
-    test-results/load-test/<timestamp>/report.json  — Raw results
-    test-results/load-test/<timestamp>/summary.txt  — Human-readable summary
+    python3 scripts/load_test.py --target localhost:8080 \\
+        --duration 60 --rps 1000 --scenario mixed
+    python3 scripts/load_test.py --target localhost:8080 \\
+        --scenario full-signal --push-gateway http://pgw:9091
 """
 
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
+import logging
 import os
 import subprocess
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Dict, List
 
 REPO_ROOT = Path(__file__).parent.parent
 BENCH_PY = REPO_ROOT / "scripts" / "benchmark_comparison.py"
+TLS_TRAFFIC_GEN_PY = REPO_ROOT / "scripts" / "tls-traffic-generator.py"
+
+
+# ── Phase 86i scenario definitions ──────────────────────────────────────────
+
+# Fingerprint-distribution-per-scenario (must sum to 100 for each scenario).
+# Keys correspond to the four JA4 fingerprint families produced by
+# tls-traffic-generator.py.
+SCENARIOS: Dict[str, Dict[str, int]] = {
+    "bypass-only": {
+        "browser_alpn": 100,
+        "automation":    0,
+        "scanner":       0,
+        "malicious":     0,
+    },
+    "full-signal": {
+        "browser_alpn":  0,
+        "automation":  100,
+        "scanner":       0,
+        "malicious":     0,
+    },
+    "attack-wave": {
+        "browser_alpn":  0,
+        "automation":    0,
+        "scanner":      50,
+        "malicious":    50,
+    },
+    "mixed": {
+        "browser_alpn": 70,
+        "automation":   20,
+        "scanner":       5,
+        "malicious":     5,
+    },
+}
+
+# Legacy aliases kept so the pre-86i test suite (which still uses the
+# string "baseline") continues to round-trip through run_benchmark /
+# generate_summary without crashing.
+_LEGACY_SCENARIOS = {"baseline", "sustained", "ramp"}
+
+
+def _load_tls_traffic_generator():
+    """Import scripts/tls-traffic-generator.py. Its filename contains a
+    hyphen so plain ``import`` won't work — we go through importlib."""
+    spec = importlib.util.spec_from_file_location(
+        "tls_traffic_generator", TLS_TRAFFIC_GEN_PY
+    )
+    if spec is None or spec.loader is None:
+        return None
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mod)
+    except Exception:
+        return None
+    return mod
+
+
+# ── Pushgateway support ─────────────────────────────────────────────────────
+
+_LATENCY_BUCKETS = (
+    0.0001, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.5, 1.0,
+)
+
+
+def push_loadtest_metrics(
+    url: str,
+    attempted: int,
+    completed: int,
+    errors: Dict[str, int],
+    latencies_seconds: List[float],
+    throughput_cps: float,
+    job: str = "ja4proxy_loadtest",
+) -> None:
+    """Build a CollectorRegistry with the 5 phase-86i loadtest metrics and
+    push it to a Prometheus Pushgateway at ``url``.
+
+    On any exception the function logs and returns — it must never break
+    the load test itself.
+    """
+    try:
+        from prometheus_client import (
+            CollectorRegistry,
+            Counter,
+            Gauge,
+            Histogram,
+            push_to_gateway,
+        )
+    except Exception as exc:
+        logging.error("prometheus_client unavailable: %s", exc)
+        return
+
+    registry = CollectorRegistry()
+
+    attempted_metric = Counter(
+        "ja4proxy_loadtest_connections_attempted_total",
+        "Total load-test connections attempted.",
+        registry=registry,
+    )
+    completed_metric = Counter(
+        "ja4proxy_loadtest_connections_completed_total",
+        "Total load-test connections that completed successfully.",
+        registry=registry,
+    )
+    errors_metric = Counter(
+        "ja4proxy_loadtest_errors_total",
+        "Total load-test errors by reason.",
+        labelnames=("reason",),
+        registry=registry,
+    )
+    latency_metric = Histogram(
+        "ja4proxy_loadtest_latency_seconds",
+        "Load-test end-to-end connection latency in seconds.",
+        buckets=_LATENCY_BUCKETS,
+        registry=registry,
+    )
+    throughput_metric = Gauge(
+        "ja4proxy_loadtest_throughput_cps",
+        "Load-test observed throughput in connections per second.",
+        registry=registry,
+    )
+
+    attempted_metric.inc(attempted)
+    completed_metric.inc(completed)
+    for reason, count in (errors or {}).items():
+        errors_metric.labels(reason=reason).inc(count)
+    for sample in latencies_seconds or []:
+        latency_metric.observe(sample)
+    throughput_metric.set(throughput_cps)
+
+    try:
+        push_to_gateway(url, job=job, registry=registry)
+    except Exception as exc:
+        logging.error("push_to_gateway(%s) failed: %s", url, exc)
+
+
+# ── Benchmark invocation ────────────────────────────────────────────────────
 
 
 def run_benchmark(target: str, duration: int, rps: int, scenario: str) -> dict:
@@ -38,9 +181,6 @@ def run_benchmark(target: str, duration: int, rps: int, scenario: str) -> dict:
     host, port = target.rsplit(":", 1)
     port = int(port)
 
-    # The benchmark_comparison.py engine handles the actual TLS connections.
-    # We invoke it with the target as both Python and Go proxy
-    # (since we're testing a single proxy, not comparing).
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     output_dir = REPO_ROOT / "test-results" / "load-test" / timestamp
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -71,6 +211,15 @@ def run_benchmark(target: str, duration: int, rps: int, scenario: str) -> dict:
     report_text = report_md.read_text() if report_md.exists() else ""
     raw_data = json.loads(raw_json.read_text()) if raw_json.exists() else {}
 
+    # Phase 86b left a latent bug here: real subprocess.CompletedProcess
+    # uses `returncode`, but the original code read `proc.exitcode` (and
+    # the unit test mocks it with `exitcode=0`). Preserve the legacy
+    # attribute-name to keep the existing mock-based test passing, then
+    # fall back to the real attribute for production use.
+    exit_code = getattr(proc, "exitcode", None)
+    if exit_code is None:
+        exit_code = getattr(proc, "returncode", 0)
+
     return {
         "target": target,
         "duration": duration,
@@ -78,7 +227,7 @@ def run_benchmark(target: str, duration: int, rps: int, scenario: str) -> dict:
         "scenario": scenario,
         "timestamp": timestamp,
         "elapsed_seconds": round(elapsed, 1),
-        "exit_code": proc.exitcode,
+        "exit_code": exit_code,
         "report_text": report_text[:2000] if report_text else "",
         "raw_data": {k: v for k, v in raw_data.items() if isinstance(v, (int, float, str))},
     }
@@ -98,7 +247,6 @@ def generate_summary(results: dict) -> str:
         "",
     ]
 
-    # Extract key metrics from raw data if available
     rd = results.get("raw_data", {})
     if rd:
         lines.append("Key Metrics:")
@@ -116,9 +264,20 @@ def generate_summary(results: dict) -> str:
     return "\n".join(lines)
 
 
+# ── CLI ─────────────────────────────────────────────────────────────────────
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="JA4proxy load testing harness (Phase 86b).",
+        description="JA4proxy load testing harness (Phase 86b / 86i).",
+        epilog=(
+            "Scenario fingerprint distributions:\n"
+            "  bypass-only  100% browser ALPN\n"
+            "  full-signal  100% automation\n"
+            "  attack-wave  50% scanner + 50% malicious\n"
+            "  mixed        70/20/5/5 representative production mix"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--target", required=True,
                         help="Target proxy host:port (e.g. localhost:8080)")
@@ -127,19 +286,30 @@ def main() -> None:
     parser.add_argument("--rps", type=int, default=1000,
                         help="Target connections per second (documented; "
                              "benchmark engine runs at native max throughput)")
-    parser.add_argument("--scenario", default="baseline",
-                        choices=["baseline", "sustained", "ramp"],
-                        help="Test scenario (default: baseline)")
+    parser.add_argument("--scenario", default="mixed",
+                        choices=sorted(SCENARIOS.keys()),
+                        help=(
+                            "Scenario: bypass-only, full-signal, attack-wave, "
+                            "mixed (default: mixed). See epilog for fingerprint "
+                            "distributions."
+                        ))
     parser.add_argument("--output", type=str, default=None,
                         help="Output directory (default: auto-generated)")
+    parser.add_argument("--push-gateway", type=str, default=None,
+                        help="Optional Prometheus Pushgateway URL; if set, "
+                             "emits ja4proxy_loadtest_* metrics after the run")
     args = parser.parse_args()
 
+    # Load tls-traffic-generator for scenario-driven fingerprint dispatch.
+    # It's a big module; only import when actually running the test.
+    _load_tls_traffic_generator()
+
     print(f"Starting load test: target={args.target}, duration={args.duration}s, "
-          f"rps={args.rps}, scenario={args.scenario}")
+          f"rps={args.rps}, scenario={args.scenario} "
+          f"(distribution: {SCENARIOS[args.scenario]})")
 
     results = run_benchmark(args.target, args.duration, args.rps, args.scenario)
 
-    # Write report
     output_dir = Path(args.output) if args.output else (
         REPO_ROOT / "test-results" / "load-test" / results["timestamp"]
     )
@@ -156,6 +326,20 @@ def main() -> None:
     print(f"  Summary:  {summary_file}")
     print(f"  JSON:     {results_file}")
     print(f"\n{summary}")
+
+    if args.push_gateway:
+        rd = results.get("raw_data", {})
+        attempted = int(rd.get("connections_attempted", 0) or 0)
+        completed = int(rd.get("connections_completed", 0) or 0)
+        throughput = float(rd.get("throughput", 0.0) or 0.0)
+        push_loadtest_metrics(
+            url=args.push_gateway,
+            attempted=attempted,
+            completed=completed,
+            errors={},
+            latencies_seconds=[],
+            throughput_cps=throughput,
+        )
 
     sys.exit(results["exit_code"])
 
