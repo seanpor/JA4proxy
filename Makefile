@@ -1354,3 +1354,13 @@ load-test-report: ## Show latest load test reports
 	@ls -lt test-results/load-test/ 2>/dev/null | head -5 || echo "No reports found"
 
 .PHONY: load-test load-test-baseline load-test-report
+
+## Phase 86h targets
+lint-alert-urls: ## Verify Alertmanager runbook_url values are up to date
+	@echo "Checking alertmanager runbook URLs..."
+	@python3 scripts/fix_runbook_urls.py \
+		--rules-dir monitoring/alertmanager/rules/ \
+		--mapping docs/phases/PHASE_86h_runbook_mapping.yml \
+		--check
+
+.PHONY: lint-alert-urls
