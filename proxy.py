@@ -1707,9 +1707,17 @@ class ProxyServer:
         """
         log_cfg = self.config.get("logging", {})
         log_level = log_cfg.get("level", "INFO")
-        log_format = log_cfg.get(
+        # `logging.format` in proxy.yml accepts preset names ("legacy", "ecs")
+        # *or* a Python logging format string.  Presets indicate JSON schema
+        # style and are consumed by JSONFormatter; for plain (non-JSON) output
+        # fall back to the default printf format.
+        _raw_format = log_cfg.get(
             "format", "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
+        if "%" in _raw_format:
+            log_format = _raw_format
+        else:
+            log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
         # JSON logging: explicit config flag OR auto-detected production environment
         json_enabled = log_cfg.get("json_enabled", False) or (

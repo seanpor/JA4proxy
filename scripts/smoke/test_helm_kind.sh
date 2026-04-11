@@ -18,6 +18,10 @@ if ! command -v helm &>/dev/null; then
   fail "helm not found — install Helm 3 (https://helm.sh/docs/intro/install/)"
 fi
 
+if ! command -v kubectl &>/dev/null; then
+  fail "kubectl not found — install kubectl (https://kubernetes.io/docs/tasks/tools/)"
+fi
+
 CLUSTER_NAME="ja4proxy-smoke"
 
 cleanup() {
@@ -65,11 +69,35 @@ if [ -f docker/Dockerfile ] && docker images --format '{{.Repository}}' | grep -
   kind load docker-image ja4proxy-analytics:latest --name "$CLUSTER_NAME" 2>>"$LOG" || true
 fi
 
+# Pre-load Redis image into kind: the bundled redis.yaml StatefulSet uses
+# redis:7-alpine, and kind nodes sometimes can't resolve Docker Hub DNS
+# (172.29.0.1:53 timeouts). Pull on the host and load into the node to
+# sidestep in-cluster DNS entirely.
+log "Pre-loading redis:7-alpine into kind..."
+docker pull redis:7-alpine 2>>"$LOG" || {
+  log "SKIP: Failed to pull redis:7-alpine from host — cannot run Helm smoke test."
+  exit 0
+}
+kind load docker-image redis:7-alpine --name "$CLUSTER_NAME" 2>>"$LOG" || {
+  log "SKIP: Failed to load redis:7-alpine into kind cluster."
+  exit 0
+}
+
 log "Installing Helm chart..."
+# redis.external=false deploys the bundled Redis StatefulSet — the proxy's
+# /health endpoint returns 503 without a reachable Redis, so smoke tests must
+# either provide an external Redis or enable the bundled one.
+# hpa.enabled=false and pdb.enabled=false: smoke test uses replicaCount=1 which
+# breaks HPA (minReplicas=2 > 1) and PDB validation.
 helm install ja4proxy deploy/helm/ja4proxy/ \
-  --wait --timeout=120s \
+  --wait --timeout=300s \
   --set image.tag=latest \
   --set image.pullPolicy=Never \
+  --set redis.external=false \
+  --set secrets.redisPassword=smoketest \
+  --set replicaCount=1 \
+  --set hpa.enabled=false \
+  --set pdb.enabled=false \
   2>>"$LOG" || fail "helm install failed"
 
 log "Checking Deployment status..."
@@ -86,9 +114,19 @@ POD=$(kubectl get pods -l app=ja4proxy -o jsonpath='{.items[0].metadata.name}' 2
 [ -z "$POD" ] && fail "No ja4proxy pods found"
 
 log "Running health check inside pod: $POD"
-kubectl exec "$POD" -- \
-  wget -qO- http://localhost:8090/api/v1/health/deep 2>>"$LOG" \
-  || fail "Health check inside pod failed"
+# Go proxy exposes /health on the metrics port (:9090). Port :8090 is the
+# Management API, a separate service — not this container.
+# The Deployment has no readinessProbe, so --wait returns as soon as the pod
+# is Running even if the Go process hasn't yet bound :9090 and connected to
+# Redis. Retry for up to 30s.
+ok=0
+for i in $(seq 1 30); do
+  if kubectl exec "$POD" -- wget -qO- http://localhost:9090/health >>"$LOG" 2>&1; then
+    ok=1; break
+  fi
+  sleep 1
+done
+[ "$ok" -eq 1 ] || fail "Health check inside pod failed after 30s"
 
 log "PASS: Helm + kind smoke test"
 echo "PASS" > "$RESULTS_DIR/helm-kind.result"

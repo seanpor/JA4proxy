@@ -7,7 +7,7 @@ services:
       - "${AGENT_BIND_IP:-127.0.0.1}:${HOST_PORT_INGRESS:-443}:443"
       - "${AGENT_BIND_IP:-127.0.0.1}:8404:8404"
     volumes:
-      - ./config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ../config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     depends_on:
       - proxy
     networks:
@@ -244,7 +244,7 @@ services:
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
     volumes:
-      - ./config:/app/config:ro
+      - ../config:/app/config:ro
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
       interval: 30s
@@ -324,12 +324,13 @@ services:
       - redis
       - backend
     volumes:
-      - ./tests:/app/tests:ro
-      - ./performance:/app/performance:ro
+      # Paths are relative to this compose file (docker/), so `../` is repo root.
+      - ../tests:/app/tests:ro
+      - ../performance:/app/performance:ro
       - reports-data:/app/reports
-      - ./proxy.py:/app/proxy.py:ro
-      - ./src:/app/src:ro
-      - ./config:/app/config:ro
+      - ../proxy.py:/app/proxy.py:ro
+      - ../src:/app/src:ro
+      - ../config:/app/config:ro
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD is required}
       - PROXY_HOST=proxy
@@ -353,8 +354,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
-          cpus: '1.0'
+          # pytest collects ~5000 test items — conftest.py import chain needs
+          # significant RAM. Keep well above observed peak.
+          memory: 6G
+          cpus: '2.0'
     logging:
       driver: "json-file"
       options:

@@ -27,7 +27,15 @@ if [ -z "$COMPOSE_FILE" ]; then
   log "SKIP: no Docker Compose file found (docker-compose.yml, docker/docker-compose.poc.yml, etc.)."
   exit 0
 fi
+
+# Docker compose auto-loads .env from the compose file's directory, not CWD.
+# When the compose file lives in docker/ and the .env in the repo root, we
+# must pass --env-file explicitly, otherwise REDIS_PASSWORD and similar
+# interpolations fail.
 COMPOSE_ARGS="-f $COMPOSE_FILE"
+if [ -f .env ]; then
+  COMPOSE_ARGS="--env-file .env $COMPOSE_ARGS"
+fi
 
 cleanup() {
   log "Tearing down stack..."
