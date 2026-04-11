@@ -139,25 +139,102 @@ class TestCheckModule:
     def test_file_exists(self):
         assert self.CHECK_FILE.exists()
 
-    def test_has_required_metrics_in_source(self):
-        """The check.py source must reference all expected metric names."""
+    def test_has_required_service_checks_in_source(self):
+        """Phase 86i: after the two-layer refactor, check.py must only
+        reference service checks; Prometheus-duplicate gauges/rates have
+        moved to the OpenMetrics Layer 1 config."""
         source = self.CHECK_FILE.read_text()
-        expected_metrics = [
-            "ja4proxy.node.healthy",
-            "ja4proxy.node.redis_latency_ms",
-            "ja4proxy.node.dial_setting",
-            "ja4proxy.node.cert_days_remaining",
-            "ja4proxy.connections.active",
-            "ja4proxy.connections.total",
-            "ja4proxy.block_rate_pct",
-            "ja4proxy.bans.active",
+        # Only service checks + topology entity remain in-source.
+        required = [
             "ja4proxy.node_health",
+            "ja4proxy.redis_health",
         ]
-        for metric in expected_metrics:
-            assert metric in source, f"Metric {metric!r} not found in check.py source"
+        for metric in required:
+            assert metric in source, f"Service check {metric!r} missing from check.py"
 
     def test_emits_service_check_on_failure(self):
         """The check must emit UNKNOWN service check on HTTP failure."""
         source = self.CHECK_FILE.read_text()
         assert "UNKNOWN" in source
         assert "service_check" in source
+
+
+# ── Phase 86i: two-layer refactor (OpenMetrics + narrowed custom check) ─────
+
+
+class TestPhase86iOpenMetricsConfig:
+    """Phase 86i Gap 1 — Layer 1: OpenMetrics config for Datadog Agent."""
+
+    OPENMETRICS_CONF = (
+        DATADOG_DIR / "conf.d" / "openmetrics.d" / "ja4proxy.yaml"
+    )
+
+    def test_openmetrics_config_is_valid_yaml_and_has_namespace(self):
+        """Layer 1 config must be valid YAML with namespace: ja4proxy and
+        at least one metric allowlist entry."""
+        assert self.OPENMETRICS_CONF.exists(), (
+            f"Phase 86i OpenMetrics config missing: {self.OPENMETRICS_CONF}"
+        )
+        with open(self.OPENMETRICS_CONF) as f:
+            data = yaml.safe_load(f)
+        assert "instances" in data
+        assert len(data["instances"]) >= 1
+        inst = data["instances"][0]
+        assert inst.get("namespace") == "ja4proxy"
+        metrics = inst.get("metrics")
+        assert metrics and len(metrics) >= 1, (
+            "openmetrics config must declare at least one metric allowlist entry"
+        )
+
+    def test_openmetrics_config_one_instance_per_node(self):
+        """Template must have >1 instance, each tagged with node."""
+        assert self.OPENMETRICS_CONF.exists()
+        with open(self.OPENMETRICS_CONF) as f:
+            data = yaml.safe_load(f)
+        instances = data.get("instances", [])
+        assert len(instances) > 1, (
+            "openmetrics config template must show >1 instance (per-node pattern)"
+        )
+        for inst in instances:
+            tags = inst.get("tags", [])
+            joined = " ".join(tags) if isinstance(tags, list) else str(tags)
+            assert "node" in joined, (
+                f"each instance must include a node tag, got: {tags}"
+            )
+
+
+class TestPhase86iNarrowedCustomCheck:
+    """Phase 86i Gap 1 — Layer 2: narrowed custom check emits only
+    service checks + derived gauges. All Prometheus-duplicate metrics
+    (gauge/rate) must be removed from check.py.
+    """
+
+    CHECK_FILE = CHECK_PATH
+
+    # Metrics that duplicate Prometheus exposition and MUST be removed.
+    PROMETHEUS_DUPLICATE_METRICS = [
+        "ja4proxy.node.redis_latency_ms",
+        "ja4proxy.node.dial_setting",
+        "ja4proxy.node.cert_days_remaining",
+        "ja4proxy.connections.active",
+        "ja4proxy.connections.total",
+        "ja4proxy.block_rate_pct",
+        "ja4proxy.bans.active",
+    ]
+
+    def test_check_emits_only_service_checks(self):
+        """After Phase 86i, check.py must not emit gauge()/rate() for any
+        metric that is already in the Prometheus exposition. Only
+        service_check() calls (ja4proxy.node_health, ja4proxy.redis_health)
+        and optional derived gauges remain."""
+        source = self.CHECK_FILE.read_text()
+        for metric in self.PROMETHEUS_DUPLICATE_METRICS:
+            assert metric not in source, (
+                f"Phase 86i: {metric!r} still in check.py — "
+                f"must be scraped via OpenMetrics Layer 1, not duplicated here"
+            )
+        # Service checks must still be present.
+        assert "ja4proxy.node_health" in source
+        assert "ja4proxy.redis_health" in source, (
+            "Phase 86i: ja4proxy.redis_health service_check must be added"
+        )

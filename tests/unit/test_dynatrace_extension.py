@@ -142,13 +142,97 @@ class TestDynatracePlugin:
             "Plugin should handle missing dtpython imports gracefully"
 
     def test_plugin_references_correct_endpoint(self):
-        """Plugin must poll /api/v1/health/deep (the 86a endpoint)."""
+        """Phase 86i: plugin now scrapes /metrics instead of
+        /api/v1/health/deep — richer label set preserved."""
         source = self.PLUGIN_PATH.read_text()
-        assert "/api/v1/health/deep" in source, \
-            "Plugin must poll /api/v1/health/deep"
+        assert "/metrics" in source, "Plugin must scrape /metrics (Phase 86i)"
 
     def test_plugin_uses_auth_header(self):
         """Plugin should support Bearer token authentication."""
         source = self.PLUGIN_PATH.read_text()
         assert "Authorization" in source, \
             "Plugin should support Authorization header for API auth"
+
+
+# ── Phase 86i: Prometheus text-format scraping ──────────────────────────────
+
+
+class TestPhase86iPrometheusScraper:
+    """Phase 86i Gap 1 — Dynatrace plugin switches to /metrics scraping."""
+
+    PLUGIN_PATH = (
+        Path(__file__).parent.parent.parent
+        / "deploy" / "dynatrace" / "ja4proxy-extension" / "plugin.py"
+    )
+
+    CANONICAL_EXPOSITION = """\
+# HELP ja4proxy_connections_total Total connections.
+# TYPE ja4proxy_connections_total counter
+ja4proxy_connections_total{bypass="h2"} 12345
+ja4proxy_connections_total{bypass="none"} 678
+# HELP ja4proxy_dial_setting Current dial.
+# TYPE ja4proxy_dial_setting gauge
+ja4proxy_dial_setting 100
+# HELP ja4proxy_pipeline_duration_seconds Pipeline duration.
+# TYPE ja4proxy_pipeline_duration_seconds histogram
+ja4proxy_pipeline_duration_seconds_bucket{le="0.001"} 42
+ja4proxy_pipeline_duration_seconds_bucket{le="0.01"} 84
+ja4proxy_pipeline_duration_seconds_bucket{le="+Inf"} 100
+ja4proxy_pipeline_duration_seconds_sum 1.23
+ja4proxy_pipeline_duration_seconds_count 100
+"""
+
+    def _load_plugin_module(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "ja4proxy_dt_plugin", self.PLUGIN_PATH
+        )
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_plugin_parses_prometheus_text_format(self):
+        """Plugin must expose a parser that extracts samples from the
+        canonical Prometheus exposition format (counter, gauge, histogram)."""
+        mod = self._load_plugin_module()
+        assert hasattr(mod, "parse_prometheus_text"), (
+            "Phase 86i: plugin.py must export parse_prometheus_text()"
+        )
+        samples = mod.parse_prometheus_text(self.CANONICAL_EXPOSITION)
+        # Expect a dict-like or list of (name, labels, value) triples.
+        flat = list(samples) if not isinstance(samples, dict) else [
+            (k, {}, v) for k, v in samples.items()
+        ]
+        names = {s[0] for s in flat}
+        assert "ja4proxy_connections_total" in names
+        assert "ja4proxy_dial_setting" in names
+        # Histogram buckets should be present in some form.
+        assert any("pipeline_duration_seconds" in n for n in names)
+
+    def test_plugin_handles_scrape_failure_gracefully(self, caplog):
+        """On HTTP scrape failure, plugin must log one error and emit no
+        metrics — must not crash."""
+        import logging
+        from unittest.mock import patch
+
+        mod = self._load_plugin_module()
+        assert hasattr(mod, "scrape_metrics"), (
+            "Phase 86i: plugin.py must export scrape_metrics(url)"
+        )
+        with patch("urllib.request.urlopen", side_effect=OSError("boom")):
+            with caplog.at_level(logging.ERROR):
+                result = mod.scrape_metrics("http://127.0.0.1:9/metrics")
+        assert result in (None, {}, [], ()), (
+            "failed scrape must return empty/None, not raise"
+        )
+
+    def test_extension_yaml_topology_preserved(self):
+        """Phase 86i: topology entity type must still be defined after
+        the metric-set rewrite."""
+        with open(EXTENSION_YAML) as f:
+            ext = yaml.safe_load(f)
+        assert "topology" in ext
+        types = ext["topology"].get("types", [])
+        assert any(t.get("name") == "ja4proxy:node" for t in types), (
+            "Phase 86i: ja4proxy:node topology type must remain"
+        )
