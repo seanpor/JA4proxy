@@ -176,3 +176,114 @@ branch (`claude/phase-86i-hardening`):
   are confined to files with dedicated Phase 86i test coverage.
 - Final `make test` / `make lint-phases` run is QA's responsibility on the
   same branch.
+
+---
+
+## Reviewer blocker fixes (post-QA, pre-merge)
+
+The independent critical reviewer flagged three blockers after QA sign-off.
+All three were fixed on `claude/phase-86i-hardening`. The three majors and
+the minors found in the same review are deliberately out of scope for this
+round and remain open for a follow-up phase.
+
+### Blocker 1 — load test scenarios were metadata-only
+Commit: `fix(phase-86i): wire load test scenario distribution through to
+TLS generator` (7f752dd).
+
+`scripts/load_test.py`'s `run_benchmark` used to hand the `--scenario`
+argument to a subprocess call whose command line did not vary between
+scenarios, so `bypass-only`, `full-signal`, `attack-wave` and `mixed` all
+drove identical traffic at the proxy.
+
+Fix: added a `--fingerprint-mix` flag to
+`scripts/tls-traffic-generator.py`, introduced `MIX_BUCKETS` +
+`parse_fingerprint_mix` + `profiles_for_mix`, and added a
+`Masscan_Scanner` ClientProfile (TLS1.2 / single cipher / no ALPN) so the
+four buckets are demonstrably distinct at the ClientHello level. Rewrote
+`run_benchmark` to drive `tls-traffic-generator.py` directly with the
+scenario's mix, replacing the 86b `benchmark_comparison.py` stopgap.
+
+Test: `tests/integration/test_phase_86i_load_test_scenarios_distinct.py`
+(8 tests) — with subprocess mocked, asserts that each scenario produces a
+distinct `--fingerprint-mix` arg string and that the buckets resolve to
+profiles with demonstrably different ALPN configurations (browser bucket
+advertises h2; automation/scanner/malicious do not).
+
+### Blocker 2 — Grafana dashboard referenced nonexistent metrics
+Commit: `fix(phase-86i): grafana dashboard uses real exported metric
+names` (3bf0b98).
+
+`monitoring/grafana/dashboards/04_capacity.json` used metric names and
+labels that the Go proxy never exports:
+`ja4proxy_connections_total{bypass=...}` (real counter has only
+`action`), `ja4proxy_tarpit_pool_size`, `ja4proxy_tarpit_pool_capacity`,
+`ja4proxy_redis_latency_seconds_bucket`, `redis_memory_max_bytes`.
+
+Fix: audited against `internal/metrics/metrics.go` and substituted:
+
+- Bypass utilisation -> `rate(ja4proxy_bypass_total[5m])`.
+- Full-signal utilisation -> `rate(connections_total) - rate(bypass_total)`.
+- Redis P99 panel -> **Redis error rate** from
+  `ja4proxy_redis_operations_total{result="error"}`. The Go proxy
+  deliberately exports only a Redis operations counter (not a latency
+  histogram); closing that gap is out of scope for 86i and left for a
+  future signal-metrics phase. Panel description documents the
+  substitution.
+- Tarpit pool panel -> `ja4proxy_tarpit_concurrent` (gauge) +
+  `rate(ja4proxy_tarpit_overflow_total)`. No pool-capacity metric exists.
+- Redis memory utilisation -> `redis_memory_used_bytes` and
+  `redis_memory_used_bytes / (redis_config_maxmemory > 0)` (the real
+  redis_exporter metric is `redis_config_maxmemory`, not
+  `redis_memory_max_bytes`; the `> 0` guard yields NaN instead of
+  infinity when maxmemory is unset).
+
+Test: three new tests in
+`tests/unit/test_phase_86i_grafana_dashboard.py`:
+`test_dashboard_metrics_exist_in_proxy` (parses every panel expr, extracts
+`ja4proxy_*` names, asserts each is defined in metrics.go — histograms
+auto-expand to `_bucket/_count/_sum`);
+`test_dashboard_does_not_use_nonexistent_labels_on_connections_total`
+(specifically catches the `{bypass=...}` regression); and
+`test_dashboard_foreign_metrics_are_in_allowlist` (whitelists
+haproxy_exporter / redis_exporter metrics and Grafana templated vars).
+
+### Blocker 3 — Datadog OpenMetrics allowlist + missing type_overrides
+Commit: `fix(phase-86i): datadog openmetrics allowlist matches real
+metrics + type_overrides` (babcfac).
+
+`deploy/datadog/conf.d/openmetrics.d/ja4proxy.yaml` allow-listed
+`ja4proxy_block_rate`, `ja4proxy_signal_duration_seconds`,
+`ja4proxy_cert_days_remaining`, `ja4proxy_bans_active`,
+`ja4proxy_action_total`, `ja4proxy_redis_latency_seconds`,
+`ja4proxy_tarpit_pool_size` (none of which the Go proxy exports), and had
+no `type_overrides` — so Datadog would silently ingest histogram
+`_bucket/_count/_sum` triples as unrelated gauges.
+
+Fix: trimmed the allowlist to only metrics that appear in
+`internal/metrics/metrics.go`, renamed to the real exported names
+(`connections_active` -> `active_connections`, `dial_setting` ->
+`dial_current`, `risk_score_distribution` -> `risk_score`,
+`cert_days_remaining` -> `tls_cert_expiry_timestamp_seconds`), added the
+ones the dashboard needs (`signal_total`, `security_events_total`,
+`connection_errors_total`, `redis_operations_total`,
+`tarpit_overflow_total`, `tarpit_concurrent`), and added
+`type_overrides` pinning both histograms as `histogram` and every
+counter explicitly as `counter`. Also set
+`collect_histogram_buckets: true` and
+`histogram_buckets_as_distributions: true`.
+
+Tests: three new tests in
+`tests/unit/test_datadog_integration.py::TestPhase86iOpenMetricsConfig`:
+`test_openmetrics_allowlist_only_has_real_metrics` (cross-check against
+`metrics.go`); `test_openmetrics_config_has_type_overrides` (asserts
+`type_overrides` is present and pins
+`ja4proxy_pipeline_duration_seconds` as histogram);
+`test_openmetrics_collects_histogram_buckets` (asserts bucket collection
+or distribution mode is on).
+
+### Test totals after blocker fixes
+
+- Phase 86i targeted suite: 94 passing (previously 80).
+- Full regression: 4622 passed, 9 pre-existing docker_stack failures
+  (same 9 as the QA baseline), 6 skipped, 7 xfailed. Zero new
+  regressions.
