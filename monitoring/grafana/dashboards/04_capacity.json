@@ -1,0 +1,255 @@
+{
+  "title": "JA4proxy — Capacity Planning",
+  "uid": "ja4proxy-capacity",
+  "schemaVersion": 38,
+  "version": 1,
+  "editable": true,
+  "timezone": "",
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "refresh": "30s",
+  "tags": ["ja4proxy", "capacity", "phase-86i"],
+  "templating": {
+    "list": [
+      {
+        "name": "BYPASS_CEILING_CPS",
+        "label": "Bypass path ceiling (conn/s)",
+        "type": "constant",
+        "query": "18400",
+        "current": {
+          "selected": true,
+          "text": "18400",
+          "value": "18400"
+        },
+        "hide": 0,
+        "description": "Per-core bypass-path throughput ceiling from docs/performance/benchmarks.md"
+      },
+      {
+        "name": "SIGNAL_CEILING_CPS",
+        "label": "Full-signal path ceiling (conn/s)",
+        "type": "constant",
+        "query": "6200",
+        "current": {
+          "selected": true,
+          "text": "6200",
+          "value": "6200"
+        },
+        "hide": 0,
+        "description": "Per-core full-signal-path throughput ceiling from docs/performance/benchmarks.md"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "id": 1,
+      "title": "Throughput headroom",
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "panels": []
+    },
+    {
+      "type": "gauge",
+      "id": 2,
+      "title": "Bypass path utilisation (% of ceiling)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 1},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * sum(rate(ja4proxy_bypass_total[5m])) / $BYPASS_CEILING_CPS"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 60},
+              {"color": "red", "value": 80}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "gauge",
+      "id": 3,
+      "title": "Full-signal path utilisation (% of ceiling)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 1},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * (sum(rate(ja4proxy_connections_total[5m])) - sum(rate(ja4proxy_bypass_total[5m]))) / $SIGNAL_CEILING_CPS"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 60},
+              {"color": "red", "value": 80}
+            ]
+          }
+        }
+      }
+    },
+
+    {
+      "type": "row",
+      "id": 10,
+      "title": "Latency budget",
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 9},
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "id": 11,
+      "title": "Pipeline P99 (7d)",
+      "gridPos": {"h": 8, "w": 16, "x": 0, "y": 10},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(ja4proxy_pipeline_duration_seconds_bucket[5m])))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 0.005},
+              {"color": "red", "value": 0.010}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "id": 12,
+      "title": "Redis error rate (5m)",
+      "description": "Phase 86i substitution: the Go proxy does not export a Redis latency histogram (only ja4proxy_redis_operations_total{command,result}). We show Redis error rate as the closest proxy-side signal; Redis latency itself comes from the redis_exporter dashboards.",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 10},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(ja4proxy_redis_operations_total{result=\"error\"}[5m])) / clamp_min(sum(rate(ja4proxy_redis_operations_total[5m])), 1)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        }
+      }
+    },
+
+    {
+      "type": "row",
+      "id": 20,
+      "title": "Scaling pressure",
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 18},
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "id": 21,
+      "title": "Tarpit concurrent connections",
+      "description": "Phase 86i substitution: the proxy exports ja4proxy_tarpit_concurrent (gauge) and ja4proxy_tarpit_overflow_total but not a tarpit pool capacity metric. We show the raw concurrent gauge and the overflow rate in a single panel.",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 19},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ja4proxy_tarpit_concurrent",
+          "legendFormat": "concurrent"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(rate(ja4proxy_tarpit_overflow_total[5m]))",
+          "legendFormat": "overflow/s"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "short"}}
+    },
+    {
+      "type": "timeseries",
+      "id": 22,
+      "title": "HAProxy backend queue depth",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 19},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "haproxy_backend_current_queue"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 23,
+      "title": "Redis memory used",
+      "description": "Phase 86i substitution: redis_exporter exports redis_memory_used_bytes plus redis_config_maxmemory (0 when no limit set). We show raw used-bytes and, when a maxmemory limit is configured, the utilisation ratio.",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 19},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "redis_memory_used_bytes",
+          "legendFormat": "used bytes"
+        },
+        {
+          "refId": "B",
+          "expr": "redis_memory_used_bytes / (redis_config_maxmemory > 0)",
+          "legendFormat": "% of maxmemory"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "bytes"}}
+    },
+
+    {
+      "type": "row",
+      "id": 30,
+      "title": "30-day growth trend",
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 27},
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "id": 31,
+      "title": "Connections per second (30d)",
+      "gridPos": {"h": 8, "w": 16, "x": 0, "y": 28},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(ja4proxy_connections_total[1h]))"
+        },
+        {
+          "refId": "B",
+          "expr": "predict_linear(sum(rate(ja4proxy_connections_total[1h]))[30d:1h], 30 * 86400)"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "id": 32,
+      "title": "Projected date of 80% ceiling crossover",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 28},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(0.8 * $SIGNAL_CEILING_CPS - sum(rate(ja4proxy_connections_total[1h]))) / deriv(sum(rate(ja4proxy_connections_total[1h]))[7d:1h])"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "s"}}
+    }
+  ]
+}

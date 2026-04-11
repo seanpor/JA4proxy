@@ -22,6 +22,75 @@
     and `protect_unmanaged_entries = true`
   - 6 new unit tests verify interface implementation and flag behavior
 
+## Phase 86i — Hardening: Architectural Gaps From Phase 86
+
+### Changed
+- **86i:** Datadog integration refactored into a two-layer pattern. Layer 1 is
+  a new OpenMetrics check (`deploy/datadog/conf.d/openmetrics.d/ja4proxy.yaml`)
+  that uses the Datadog Agent's built-in OpenMetrics integration to scrape
+  `/metrics` directly — all Prometheus label richness (`action`, `bypass`,
+  `signal`, histogram buckets) is preserved automatically, with no custom
+  Python. Layer 2 (`deploy/datadog/checks/ja4proxy/check.py`) is narrowed to
+  emit only service checks (`ja4proxy.node_health`, `ja4proxy.redis_health`)
+  and topology entities — every `self.gauge()` / `self.rate()` call that
+  duplicated a Prometheus metric has been removed.
+- **86i:** Dynatrace extension
+  (`deploy/dynatrace/ja4proxy-extension/plugin.py`) no longer polls
+  `/api/v1/health/deep`. It now scrapes `/metrics` directly via a minimal
+  inline Prometheus text-format parser (counter, gauge, histogram). The
+  `extension.yaml` topology entity is preserved and metric declarations were
+  widened to match the richer Prometheus set.
+- **86i:** `scripts/load_test.py` scenario set rewritten. The old
+  `baseline`/`sustained`/`ramp` choices have been replaced with four
+  code-path-specific scenarios — `bypass-only`, `full-signal`, `attack-wave`,
+  `mixed` — each with an explicit fingerprint distribution documented in both
+  code and docstring. `load_test.py` now imports
+  `scripts/tls-traffic-generator.py` rather than duplicating its TLS client
+  machinery.
+- **86i:** `scripts/capacity_calculator.py` `EstimatedConstants` renamed back
+  to `BenchmarkConstants` and populated with measured values from the new
+  `docs/performance/benchmarks.md`. The `ESTIMATED — NOT MEASURED` warning
+  path added in 86h has been removed. `--require-measured` remains as a
+  positive CI guard and now exits 0 on a clean benchmarks.md.
+
+### Added
+- **86i:** `docs/performance/benchmarks.md` populated with measured Go
+  microbenchmark numbers (bypass path, full-signal path) on the documented
+  reference hardware. `_(measure)_` placeholders are gone. File header
+  records CPU, OS, Redis config, Git SHA, Go version, Python version.
+- **86i:** `scripts/load_test.py` `--push-gateway URL` flag emitting 5 new
+  Prometheus metrics so load tests are observable in Grafana during runs:
+  `ja4proxy_loadtest_connections_attempted_total`,
+  `ja4proxy_loadtest_connections_completed_total`,
+  `ja4proxy_loadtest_errors_total{reason}`,
+  `ja4proxy_loadtest_latency_seconds` (histogram),
+  `ja4proxy_loadtest_throughput_cps` (gauge).
+- **86i:** `docs/OBSERVABILITY_STANDARDS.md` new `Load Testing` subsection
+  registering the 5 `ja4proxy_loadtest_*` metrics.
+- **86i:** `monitoring/grafana/dashboards/04_capacity.json` — new capacity
+  planning dashboard with 4 rows (Throughput Headroom, Latency Budget,
+  Scaling Pressure, 30-Day Growth) and `BYPASS_CEILING_CPS` /
+  `SIGNAL_CEILING_CPS` template variables sourced from benchmarks.md.
+  Provisioned via `monitoring/grafana/provisioning/dashboards/default.yml`.
+  Audience is the platform/capacity team, distinct from SecOps
+  (`ja4proxy-overview`) and Ops (`ja4proxy-infrastructure`).
+
+### Migration note
+- **Operators who already have the Phase 86d Datadog custom check installed
+  must also deploy the new OpenMetrics check config
+  (`deploy/datadog/conf.d/openmetrics.d/ja4proxy.yaml`) when upgrading.** The
+  narrowed custom check no longer emits per-label gauges — without the
+  OpenMetrics layer, `ja4proxy.block_rate_pct`, `ja4proxy.connections.total`,
+  `ja4proxy.pipeline_duration_seconds` and the other per-label Prometheus
+  metrics will disappear from Datadog dashboards. Rollback is `git revert`
+  on the Phase 86i `check.py` commit.
+
+### Tests
+- 21 Phase 86i unit + integration tests (Datadog OpenMetrics config, narrowed
+  custom check, Dynatrace Prometheus parser, benchmarks.md populated,
+  capacity calculator measured constants, load test scenarios + Pushgateway,
+  Grafana dashboard shape, OBSERVABILITY_STANDARDS registration).
+
 ## Phase 86h — Fixup: Correctness Bugs From Phase 86
 
 ### Fixed

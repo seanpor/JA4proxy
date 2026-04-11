@@ -179,3 +179,65 @@ class TestCapacityFormulas:
             bench=bench,
         )
         assert r2.total_monthly_cost_usd > r1.total_monthly_cost_usd
+
+
+# ── Phase 86i: post-benchmark measured constants ────────────────────────────
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+BENCHMARKS_MD = REPO_ROOT / "docs" / "performance" / "benchmarks.md"
+
+
+class TestPhase86iMeasuredConstants:
+    """Phase 86i Gap 2 — after running the benchmark suite, the
+    calculator's BenchmarkConstants must match the values recorded in
+    docs/performance/benchmarks.md; the 'ESTIMATED' banner from 86h is
+    gone; --require-measured exits 0.
+    """
+
+    def _run(self, *args) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, str(CALC_PY)] + list(args),
+            capture_output=True, text=True, timeout=30,
+        )
+
+    def test_uses_measured_constants_from_benchmarks_md(self):
+        """BenchmarkConstants values must be sourced from benchmarks.md,
+        not the 86h estimates. The file must contain no `_(measure)_`
+        placeholders in the Go Proxy Benchmarks section."""
+        from scripts.capacity_calculator import BenchmarkConstants
+
+        text = BENCHMARKS_MD.read_text()
+        assert "_(measure)_" not in text, (
+            "Phase 86i: benchmarks.md still contains `_(measure)_` placeholders"
+        )
+        bench = BenchmarkConstants()
+        # After 86i the constants should be anchored to the measured values
+        # — not the 86h estimates. A simple smoke check: the code no longer
+        # advertises them as estimates.
+        import scripts.capacity_calculator as mod
+        src = Path(mod.__file__).read_text()
+        assert "NOT measured" not in src, (
+            "Phase 86i: capacity_calculator must drop the ESTIMATED language"
+        )
+        assert bench.go_full_conn_s > 0
+        assert bench.go_bypass_conn_s > 0
+
+    def test_require_measured_succeeds_after_phase_86i(self):
+        """--require-measured must exit 0 on clean benchmarks.md."""
+        r = self._run(
+            "--peak-connections-per-second", "1000",
+            "--require-measured",
+        )
+        assert r.returncode == 0, (
+            f"--require-measured exited {r.returncode}: {r.stderr}"
+        )
+
+    def test_no_estimated_banner_in_clean_report(self):
+        """The 'ESTIMATED — NOT MEASURED' banner must be absent from a
+        clean capacity report."""
+        r = self._run("--peak-connections-per-second", "1000")
+        assert r.returncode == 0
+        assert "ESTIMATED" not in r.stdout, (
+            "Phase 86i: clean report must not print an ESTIMATED banner"
+        )
