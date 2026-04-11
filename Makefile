@@ -241,7 +241,7 @@ smoke-test:
 
 # Run linting
 lint:
-	docker run --rm -v $(PWD):/app python:3.11-slim sh -c "cd /app && pip install black flake8 mypy bandit pytest-cov && black --check proxy.py security/ src/ && flake8 proxy.py security/ src/ 2>/dev/null && mypy proxy.py security/ src/ 2>/dev/null && bandit -r proxy.py security/ src/ -ll -q --skip B104 && echo \"✓ Linting passed\""
+	docker run --rm -v $(PWD):/app python:3.14-slim sh -c "cd /app && pip install black flake8 mypy bandit pytest-cov && black --check proxy.py security/ src/ && flake8 proxy.py security/ src/ 2>/dev/null && mypy proxy.py security/ src/ 2>/dev/null && bandit -r proxy.py security/ src/ -ll -q --skip B104 && echo \"✓ Linting passed\""
 
 # Security scanning with bandit (medium/high severity, skip B104 bind-all)
 lint-security:
@@ -249,7 +249,7 @@ lint-security:
 
 # Type checking with mypy (supress output)
 lint-types:
-	docker run --rm -v $(PWD):/app python:3.11-slim sh -c "cd /app && pip install mypy && mypy proxy.py security/ src/ 2>/dev/null || echo 'Mypy warnings above, see baseline docs/reports/MYPY_BASELINE.md'"
+	docker run --rm -v $(PWD):/app python:3.14-slim sh -c "cd /app && pip install mypy && mypy proxy.py security/ src/ 2>/dev/null || echo 'Mypy warnings above, see baseline docs/reports/MYPY_BASELINE.md'"
 
 # Phase 16f static analysis gates — runs locally (no Docker required).
 # All three tools must pass cleanly; failures block the CI build.
@@ -280,7 +280,7 @@ lint-static:
 
 # Code quality with flake8 (suppress output)
 lint-quality:
-	docker run --rm -v $(PWD):/app python:3.11-slim sh -c "cd /app && pip install flake8 && flake8 proxy.py security/ src/ 2>/dev/null || echo 'Flake8 warnings above, see baseline docs/QUICK_REFERENCE.md'"
+	docker run --rm -v $(PWD):/app python:3.14-slim sh -c "cd /app && pip install flake8 && flake8 proxy.py security/ src/ 2>/dev/null || echo 'Flake8 warnings above, see baseline docs/QUICK_REFERENCE.md'"
 
 # Coverage reporting with pytest-cov (Phase 16c gate: ≥80% all modules)
 lint-coverage:
@@ -1134,7 +1134,7 @@ lint-spelling:
 	@echo "=== codespell: typo detection ==="
 	@docker run --rm \
 		-v "$(PWD):/work:ro" -w /work \
-		python:3.11-slim \
+		python:3.14-slim \
 		sh -c "pip install codespell -q && codespell \
 			--skip='*.pyc,*.png,*.pdf,*.bin,*.gz,*.zip,*.mmdb,*.csv,*.html,*.tex,*.log,*.sum,node_modules,.git,reports' \
 			--ignore-words-list='ba,fo,nin,ser,hist,dur,nd,ot,te' \
