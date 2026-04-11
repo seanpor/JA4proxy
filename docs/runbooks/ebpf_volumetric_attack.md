@@ -15,7 +15,6 @@ kernel before JA4proxy sees them.
 
 ## Diagnosis
 See the Management UI and:
-- `make test` for health baseline
 - Grafana `ja4proxy-overview` dashboard
 - Kernel-level `ss -s`, `nstat`, and eBPF counter exports
 
