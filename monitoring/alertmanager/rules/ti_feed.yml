@@ -19,7 +19,7 @@ groups:
             refreshed; existing rules remain in place. Check the feed's
             endpoint, credentials, and the analytics container logs.
           runbook: "docs/runbooks/ti_feed_circuit_open.md"
-          runbook_url: "https://github.com/seanoriordain/ja4proxy/blob/main/docs/runbooks/ti_feed_circuit_open.md"
+          runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/ti_feed_circuit_open.md"
 
       - alert: TIFeedStale
         expr: time() - ja4proxy_ti_feed_last_success_timestamp_seconds > 7200
@@ -33,7 +33,7 @@ groups:
             circuit state and catches slow-drift failures (partial responses,
             valid HTTP but zero indicators, upstream publisher stalls).
           runbook: "docs/runbooks/ti_feed_stale.md"
-          runbook_url: "https://github.com/seanoriordain/ja4proxy/blob/main/docs/runbooks/ti_feed_stale.md"
+          runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/ti_feed_stale.md"
 
       - alert: TIFeedMgmtApiErrors
         expr: rate(ja4proxy_ti_feed_mgmt_api_errors_total[10m]) > 0.1
@@ -49,4 +49,4 @@ groups:
             ja4proxy_ti_feed_mgmt_api_errors_total{feed_id="{{ $labels.feed_id }}"}
             broken down by status_code.
           runbook: "docs/runbooks/ti_feed_mgmt_api_errors.md"
-          runbook_url: "https://github.com/seanoriordain/ja4proxy/blob/main/docs/runbooks/ti_feed_mgmt_api_errors.md"
+          runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/ti_feed_mgmt_api_errors.md"

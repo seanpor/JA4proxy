@@ -7,7 +7,7 @@ groups:
         labels: {severity: critical}
         annotations:
           summary: "Redis is unreachable; proxy scoring degraded"
-          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
+          runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/redis_operations.md"
 
       - alert: RedisMemoryHigh
         expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.80
@@ -15,4 +15,4 @@ groups:
         labels: {severity: warning}
         annotations:
           summary: "Redis memory at {{ $value | humanizePercentage }}"
-          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
+          runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/redis_operations.md"

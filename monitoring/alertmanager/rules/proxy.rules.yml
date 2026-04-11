@@ -8,7 +8,7 @@ groups:
         annotations:
           summary: "High block rate ({{ $value | humanize }}/s)"
           runbook: "docs/runbooks/high_block_rate.md"
-          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
+          runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/ja4proxy_block_rate_high.md"
 
       - alert: ProxyDialChanged
         expr: changes(ja4proxy_dial_current[5m]) > 0
@@ -16,7 +16,7 @@ groups:
         labels: {severity: info}
         annotations:
           summary: "Dial changed to {{ $value }}"
-          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
+          runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/ja4proxy_dial_change_unexpected.md"
 
       - alert: ProxyTarpitConcurrentHigh
         expr: ja4proxy_tarpit_concurrent > 400
@@ -25,7 +25,7 @@ groups:
         annotations:
           summary: "Tarpit concurrent connections near cap ({{ $value }}/500)"
           runbook: "docs/runbooks/tarpit_capacity.md"
-          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
+          runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/ja4proxy_tarpit_pool_full.md"
 
       - alert: ProxyInstanceDown
         expr: up{job="ja4proxy"} == 0
@@ -33,4 +33,4 @@ groups:
         labels: {severity: critical}
         annotations:
           summary: "JA4proxy instance is unreachable"
-          runbook_url: "https://docs.ja4proxy.example.com/runbooks/{{ $labels.alertname }}"
+          runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/ja4proxy_node_unhealthy.md"
