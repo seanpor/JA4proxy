@@ -18,9 +18,13 @@
 - **93-fix:** `protect_unmanaged_entries` provider flag is now functional:
   - `ResourceWithModifyPlan` implemented on all 3 list resources — emits a plan-time
     warning with import command when an unmanaged entry would be destroyed
-  - `Delete` methods skip API call and emit warning when `managed_by != "terraform"`
-    and `protect_unmanaged_entries = true`
-  - 6 new unit tests verify interface implementation and flag behavior
+  - `Delete` methods return an **error** (not warning) when `managed_by != "terraform"`
+    and `protect_unmanaged_entries = true` — blocks `terraform apply`, keeps resource
+    in state, requires explicit `terraform state rm` or flag disable to proceed
+  - Ban resource Delete also guarded — checks `[terraform]` reason prefix
+  - Default changed to **true** — safer for a security tool, operators opt out
+  - ADR-093d documents all design decisions and limitations
+  - 43 Go tests pass (8 acceptance), vet clean
 
 ## Phase 86i — Hardening: Architectural Gaps From Phase 86
 
