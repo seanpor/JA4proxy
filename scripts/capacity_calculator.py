@@ -21,6 +21,14 @@ Usage:
 
 Output is a formatted capacity report with proxy node sizing, Redis sizing,
 analytics sizing, and cloud cost estimates.
+
+Exit codes:
+    0  - report produced successfully.
+    2  - argparse error (bad CLI invocation — standard argparse exit).
+    3  - `--require-measured` was passed and
+         docs/performance/benchmarks.md still contains `_(measure)_`
+         placeholders. Distinct from argparse's exit 2 so CI guards can
+         tell "fix your invocation" apart from "run make bench".
 """
 
 from __future__ import annotations
@@ -274,7 +282,11 @@ def print_report(report: CapacityReport) -> None:
     print(f"  Redis nodes:              {report.redis_nodes}")
     print(f"  Features enabled:         {', '.join(report.features) if report.features else 'core only'}")
     print(f"  Cloud provider:           {report.cloud_provider} ({report.region})")
-    print("  Benchmark source:         docs/performance/benchmarks.md")
+    if report.estimated:
+        print("  Benchmark source:         docs/performance/benchmarks.md "
+              "(placeholders — see banner)")
+    else:
+        print("  Benchmark source:         docs/performance/benchmarks.md")
 
     print("\nProxy node sizing:")
     print(f"  Minimum node count:       {report.proxy_nodes_min}")
@@ -349,9 +361,12 @@ def main() -> None:
     parser.add_argument("--json", action="store_true",
                         help="Output JSON instead of formatted text")
     parser.add_argument("--require-measured", action="store_true",
-                        help="Exit non-zero if docs/performance/benchmarks.md "
-                             "still contains _(measure)_ placeholders. Use in "
-                             "CI once real benchmark numbers have been committed.")
+                        help="Exit 3 if docs/performance/benchmarks.md still "
+                             "contains _(measure)_ placeholders. Exit code 3 "
+                             "is used (not 2) so CI guards can distinguish "
+                             "'run make bench' from argparse's exit-2 for bad "
+                             "CLI invocations. Use in CI once real benchmark "
+                             "numbers have been committed.")
     args = parser.parse_args()
 
     # Phase 86h: detect placeholders and either warn loudly or error out.
@@ -366,7 +381,7 @@ def main() -> None:
                 "       results before passing --require-measured.",
                 file=sys.stderr,
             )
-            sys.exit(2)
+            sys.exit(3)
         _print_estimated_warning()
 
     if args.peak_connections_per_second < 0:
