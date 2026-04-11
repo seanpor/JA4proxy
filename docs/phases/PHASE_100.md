@@ -1,22 +1,67 @@
 # Phase 100: Cross-Phase Gap Closure
 
-> **Rolling phase.** Formal tracker for non-blocking gaps from completed
-> phases that don't individually justify a dedicated phase. Each item has
-> exact file paths, line numbers, and acceptance criteria so any worker can
-> pick it up cold without reading the originating phase.
+> **Status: PARTLY COMPLETE — 7 closed, 15 remaining.**
+>
+> Phase 100 was opened 2026-04-07 as a rolling register for non-blocking
+> gaps from completed phases. A focused push on 2026-04-07 closed the
+> six Phase 79 SSO/MFA gaps (100-O–T). Phase 100 was briefly marked
+> COMPLETE at that point, but the other 16 items (100-A–N, 100-U, 100-V)
+> were silently dropped from the tracker. This document reopens them,
+> verifies each against the current codebase as of **2026-04-11**, and
+> files updated scoping suitable for a junior engineer to pick up cold.
+>
+> One additional item — 100-K — has since landed in Phase 79 and is
+> moved to Closed. 100-A and 100-F are downgraded to PARTIAL after
+> verification.
 
 ---
 
-## How this phase works
+## 1. How this phase works
 
 When you pick up an item:
 1. Read the **Context** block — it explains why the gap exists and what
    traps to avoid.
-2. Follow the **Exact changes** block — precise file, line, and diff.
-3. Run the **Verify** command to confirm it passes.
-4. Move the item to the **Closed Items** section with the commit SHA.
+2. Confirm the **Verified state** note still matches the code — line
+   numbers drift. If the code has moved, update the line refs as part
+   of the fix commit.
+3. Follow the **Exact changes** block — precise file, line, and diff.
+4. Run the **Verify** command to confirm it passes.
+5. Move the item to the **Closed Items** section with the commit SHA.
 
-Items are independent unless noted. Work them in any order.
+Items are independent unless the **Blocker** field says otherwise.
+Work them in any order.
+
+---
+
+## Status summary (verified 2026-04-11)
+
+| Item | Area | Status | Effort | Blocker |
+|------|------|--------|--------|---------|
+| 100-A | Go proxy ECS fields | **PARTIAL** — `destination.ip` done, `source.port` still absent | ~30 min | None |
+| 100-B | Go proxy `dual_output` | OPEN | ~2 h | None |
+| 100-C | Webhook per-endpoint retry/timeout | OPEN | ~1.5 h | None |
+| 100-D | Splunk/Sentinel vs Phase 79 API | OPEN — **unblocked**, script URL/body mismatch | ~1 h | None |
+| 100-E | Splunk TA / Sentinel live test | OPEN | Unknown | Platform access |
+| 100-F | `security/validation.py` coverage | **PARTIAL** — imported by `tests/security/test_owasp_top10.py`; dedicated tests + lint scope still missing | ~1 h | None |
+| 100-G | `SECURITY_REVIEW_PHASE1.md` triage | OPEN | ~3 h | Engineer triage time |
+| 100-H | `sync-roadmap.py` basename bug | OPEN | ~30 min | None |
+| 100-I | `quick-start`, `perf-test-basic` Makefile targets | OPEN | ~15 min | None |
+| 100-J | `PATCH /api/v1/bans/{ip}` | OPEN — **unblocked**, endpoint absent; must be implemented not just verified | ~1 h | None |
+| ~~100-K~~ | ~~`POST /api/v1/tokens/{id}/rotate`~~ | **CLOSED** — present at `management/api/routes/tokens.py:163` | — | — |
+| 100-L | Phase 82: 7 endpoints/values from Phase 79 | OPEN — **unblocked**, all 7 items absent | ~1 day | None |
+| 100-M | Phase 82: signal_retention + simulation_runner | OPEN | ~2 d | 100-L |
+| 100-N | Phase 82: platform-dependent ACs | BLOCKED | ~1 d | 100-L, 100-M |
+| 100-O–T | Phase 79 SSO/MFA gaps | **CLOSED** 2026-04-07 (commit `6ffdbc5`) | — | — |
+| 100-U | Phase 83 CLI keychain storage | OPEN | ~2–3 h | None |
+| 100-V | Phase 83 CLI `confirm_mutating` flag | OPEN | ~1 h | None |
+
+**Unblocked, small, pick these up first:** 100-H, 100-I, 100-V, 100-A (finish), 100-F (finish), 100-K (admin close-out).
+
+**Unblocked, medium:** 100-B, 100-C, 100-D, 100-J, 100-U.
+
+**Unblocked, large:** 100-L, 100-G, 100-M.
+
+**Blocked:** 100-E (platform), 100-N (on 100-L + 100-M).
 
 ---
 
@@ -24,24 +69,34 @@ Items are independent unless noted. Work them in any order.
 
 ---
 
-### Item 100-A: `source.port` and `destination.ip` absent from ECS events
+### Item 100-A: `source.port` absent from ECS events (destination.ip done)
 
 **Origin:** Phase 80 Critical Review (Gap N1)
-**Effort:** ~1 hour
+**Status:** **PARTIAL** — `destination.ip` landed; `source.port` still missing
+**Effort:** ~30 minutes
+**Verified:** 2026-04-11
+
+#### Verified state
+
+- `destination.ip` is emitted both in the decision log
+  (`cmd/proxy/main.go:389` — `"dst_ip": backendHost`) and in the ECS
+  stream payload (`cmd/proxy/main.go:401` — `"destination.ip": backendHost`).
+  **Done.**
+- `source.port` is **not** emitted. `internal/logging/ecs_formatter.go:88`
+  maps a `src_port` log field to `source.port` if it is present, and unit
+  tests in `internal/logging/ecs_formatter_test.go:616-632` cover the
+  mapping — but nothing in `cmd/proxy/main.go` ever writes `src_port`
+  into a `logrus.Fields{}` map, so the field is always absent at runtime.
+- `ConnectionContext.ClientPort` does not exist
+  (`internal/security/models.go:20` — only `ClientIP string`).
+- `remoteIP()` is now at `cmd/proxy/main.go:731` (was 570). Its sibling
+  `remotePort()` was never added.
 
 #### Context
 
-The ECS spec mandates `source.port` (the client's ephemeral TCP port) and
-`destination.ip` (the backend host the proxy forwards to). Neither appears
-in ECS log output today because:
-
-- `ConnectionContext` (the immutable struct passed through the pipeline) has
-  no `ClientPort` field.
-- `remoteIP()` at `cmd/proxy/main.go:570` already does the right
-  `conn.RemoteAddr().(*net.TCPAddr)` cast to get the IP — port is right
-  there but discarded.
-- `destination.ip` is simply `cfg.Proxy.BackendHost` from config, available
-  as `p.cfg.Proxy.BackendHost` inside `handleConn` but never logged.
+The ECS spec mandates `source.port` (the client's ephemeral TCP port).
+The port is available from `conn.RemoteAddr().(*net.TCPAddr).Port` — the
+same cast `remoteIP()` already does — but discarded.
 
 **Trap:** When PROXY protocol is active (`cfg.Proxy.ProxyProtocol = true`),
 the real client IP is overwritten from the PROXY header at
@@ -51,30 +106,43 @@ standard implementation here). So when PROXY protocol is enabled, log
 `src_port: 0` or omit it — do not panic trying to parse a port from the
 PROXY header.
 
+#### Trap
+
+When PROXY protocol is active (`cfg.Proxy.ProxyProtocol = true`), the
+real client IP is overwritten from the PROXY header. The PROXY protocol
+v1 reader at `internal/proxy/proxy_protocol.go:67` parses src port from
+the header, but the current wiring in `cmd/proxy/main.go` only surfaces
+the IP. Safest behaviour for this fix: log `src_port: 0` when behind
+PROXY protocol and do **not** parse the header's port value. A follow-up
+item can wire through the PROXY-reported port once a dedicated field
+exists.
+
 #### Exact changes
 
 **1. `internal/security/models.go` — add `ClientPort int` to `ConnectionContext`**
 
-After the `ClientIP string` field (currently line 20), add:
+After the `ClientIP string` field at line 20, add:
 ```go
-// ClientPort is the source TCP port. Zero when behind PROXY protocol.
+// ClientPort is the source TCP port. Zero when behind PROXY protocol
+// or when the source address is not a *net.TCPAddr.
 ClientPort int
 ```
 
-**2. `cmd/proxy/main.go` — populate `ClientPort` in `handleConn`**
+**2. `cmd/proxy/main.go` — add `remotePort()` helper**
 
-`remoteIP()` is at line 570. Add a parallel helper immediately after it:
-
+Immediately after `remoteIP()` (currently at line 731), add:
 ```go
 func remotePort(conn net.Conn) int {
-	if addr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
-		return addr.Port
-	}
-	return 0
+    if addr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
+        return addr.Port
+    }
+    return 0
 }
 ```
 
-In `handleConn`, the `ConnectionContext` is built at line 274:
+**3. `cmd/proxy/main.go` — populate `ClientPort` in `handleConn`**
+
+The `ConnectionContext` is built at line 302:
 ```go
 connCtx := &security.ConnectionContext{
     ClientIP: remoteIP(clientConn),
@@ -87,37 +155,39 @@ connCtx := &security.ConnectionContext{
     ClientPort: remotePort(clientConn),
 }
 ```
-Note: when PROXY protocol overwrites `ClientIP` at line 281, leave
-`ClientPort` as-is (zero) — this is correct and intentional.
+When PROXY protocol overwrites `ClientIP` a few lines later, leave
+`ClientPort` at its current value (zero — intentional until the reader
+surfaces the v1 port).
 
-**3. `cmd/proxy/main.go` — add fields to connection decision log**
+**4. `cmd/proxy/main.go` — emit `src_port` in the decision log**
 
-The `logrus.Fields{}` map starts at approximately line 330. Add two fields:
+The decision log `logrus.Fields{}` map is at lines 375-390. Add one
+field alongside the existing `dst_ip`:
 ```go
 "src_port": connCtx.ClientPort,
-"dst_ip":   p.cfg.Proxy.BackendHost,
 ```
 
-**4. `internal/logging/ecs_formatter.go` — map the two new log fields**
+**5. `cmd/proxy/main.go` — emit `source.port` in the ECS stream payload**
 
-In the `buildECSOut` function (or wherever `client_ip` is mapped to
-`source.ip`), add alongside the existing `source.ip` mapping:
+The ECS fields block is at lines 396-409. Add:
 ```go
-if v, ok := data["src_port"]; ok {
-    out["source.port"] = v
-}
-if v, ok := data["dst_ip"]; ok {
-    out["destination.ip"] = v
-}
+"source.port": connCtx.ClientPort,
 ```
+(alongside the existing `"source.ip"` entry).
 
-**5. `config/integrations/ecs-sample-event.json` — add both fields**
+**6. `internal/logging/ecs_formatter.go` — no change needed**
 
-Add to the existing JSON object:
+The `src_port → source.port` mapping already exists at line 88. Adding
+the log field in step 4 is enough to activate it.
+
+**7. `config/integrations/ecs-sample-event.json` — add `source.port`**
+
+If the file does not already contain the field, add:
 ```json
-"source.port": 54321,
-"destination.ip": "203.0.113.1"
+"source.port": 54321
 ```
+(`destination.ip` was added in the earlier partial fix — confirm it's
+there first.)
 
 #### Verify
 
@@ -127,21 +197,46 @@ GOROOT=/snap/go/current go test ./internal/logging/... ./internal/security/... -
 make validate-ecs-schema
 ```
 
-The existing `TestECSFormatter_SourceIP` tests don't cover `source.port` —
-add two new tests to `internal/logging/ecs_formatter_test.go`:
-- `TestECSFormatter_SourcePort_Present` — log entry with `src_port: 54321`,
-  assert `out["source.port"] == float64(54321)` (JSON numbers decode as float64)
-- `TestECSFormatter_SourcePort_AbsentWhenZero` — log entry with `src_port: 0`,
-  assert `source.port` is absent from output (zero port = unknown, don't emit)
-- `TestECSFormatter_DestinationIP_Present` — log entry with `dst_ip: "10.0.0.1"`,
-  assert `out["destination.ip"] == "10.0.0.1"`
+The `source.port` mapping is already unit-tested in
+`internal/logging/ecs_formatter_test.go:616-632`. What's not covered is
+the integration path — adding `src_port` to the decision-log fields.
+
+Add one test to `internal/logging/ecs_formatter_test.go`:
+- `TestECSFormatter_SourcePort_AbsentWhenZero` — log entry with
+  `src_port: 0`, assert `source.port` is **absent** from output
+  (zero port = unknown, don't emit). Today the formatter emits it as 0;
+  that's wrong for PROXY-protocol connections. Either fix the formatter
+  to skip zero, or fix `handleConn` to omit the field when zero — the
+  former is simpler.
+
+#### Acceptance criteria
+
+- [ ] `ConnectionContext.ClientPort` field present
+- [ ] `source.port` emitted in ECS JSON for non-PROXY-protocol connections
+- [ ] `source.port` absent (not present as 0) for PROXY-protocol connections
+- [ ] `destination.ip` still emitted (regression guard)
+- [ ] `make validate-ecs-schema` passes
 
 ---
 
 ### Item 100-B: Go proxy `dual_output` logging mode not implemented
 
 **Origin:** Phase 80 Critical Review (Gap N3)
+**Status:** OPEN
 **Effort:** ~2 hours
+**Verified:** 2026-04-11
+
+#### Verified state
+
+- `DualOutput bool` field exists at `internal/config/loader.go:454`.
+- `cmd/proxy/main.go:753-755` still only emits a `Warn` and discards
+  the setting:
+  ```go
+  if cfg.Logging.DualOutput && cfg.Logging.Format == "ecs" {
+      log.Warn("proxy: logging.dual_output=true is a Python-only feature; Go proxy emits ECS-only format")
+  }
+  ```
+- No `DualFormatter` struct exists in `internal/logging/`.
 
 #### Context
 
@@ -150,15 +245,7 @@ The Python `JSONFormatter` (at `src/utils/logging_config.py:101-103`) supports
 call — legacy format first, then ECS. This is the documented migration path
 for operators switching to ECS without breaking existing Loki dashboards.
 
-The Go proxy has `DualOutput bool` in `LoggingConfig`
-(`internal/config/loader.go:408`) and `dual_output: false` in
-`config/proxy.yml`. However `newLogger()` in `cmd/proxy/main.go:592-594`
-only logs a warning and discards the setting:
-```go
-if cfg.Logging.DualOutput && cfg.Logging.Format == "ecs" {
-    log.Warn("proxy: logging.dual_output=true is a Python-only feature; ...")
-}
-```
+The Go proxy has the config field but no implementation.
 
 **Trap:** logrus `Formatter.Format()` returns `[]byte` — it can return
 multiple newline-separated JSON objects in a single byte slice. The logrus
@@ -209,7 +296,7 @@ func (d *DualFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 
 **2. `cmd/proxy/main.go` — replace the warning with actual implementation**
 
-Replace the warning block at lines 592-594 with:
+Replace the warning block at lines 753-755 with:
 ```go
 if cfg.Logging.DualOutput && cfg.Logging.Format == "ecs" {
     log.SetFormatter(&jalogger.DualFormatter{
@@ -224,8 +311,11 @@ if cfg.Logging.DualOutput && cfg.Logging.Format == "ecs" {
     })
 }
 ```
-This block runs after the existing ECS-only formatter is set (line 502),
-so the dual formatter overrides it when `dual_output=true`.
+This block must run **after** the existing ECS-only formatter is set
+(search for `NewECSLogrusFormatter` earlier in `newLogger()`) so the
+dual formatter overrides it when `dual_output=true`. Confirm the
+`jalogger` import alias matches what `cmd/proxy/main.go` already uses
+for `internal/logging` — if it's a different alias, use that.
 
 **3. Create `internal/logging/dual_formatter_test.go`**
 
@@ -256,21 +346,28 @@ GOROOT=/snap/go/current go test ./internal/logging/... -v 2>&1 | grep -E "PASS|F
 ### Item 100-C: Webhook dispatcher ignores per-endpoint retry/timeout config
 
 **Origin:** Phase 80 implementation note
+**Status:** OPEN
 **Effort:** ~1.5 hours
+**Verified:** 2026-04-11
+
+#### Verified state
+
+- `WebhookEndpoint` struct at `internal/webhook/delivery.go:21-26` has
+  only `ID/URL/Secret/Events` — no retry/timeout fields.
+- `DispatcherConfig` at `internal/webhook/delivery.go:37-50` holds
+  single global `RetryAttempts`, `RetryBackoff`, `TimeoutSeconds`.
+- `deliverToEndpoint()` at `internal/webhook/delivery.go:112-170` reads
+  `d.cfg.RetryAttempts` at line 113 and `d.cfg.RetryBackoff` at line 142.
+- Wiring in `cmd/proxy/main.go:165-200` still has the "first endpoint
+  wins" logic (lines 173-191). Comment at line 167 still calls it out
+  as a known limitation.
 
 #### Context
 
 `WebhookEndpointConfig` (`internal/config/loader.go`) has three per-endpoint
 fields: `RetryAttempts int`, `RetryBackoffSeconds float64`, `TimeoutSeconds float64`.
-
-The wiring in `newProxy()` (`cmd/proxy/main.go:145-178`) reads these fields
-but **only uses the first endpoint's values** as global defaults for the
-entire `DispatcherConfig`. All endpoints then share the same retry/timeout.
-
-The root cause is structural: `DispatcherConfig` (`internal/webhook/delivery.go:36-50`)
-holds a single `RetryAttempts`, `RetryBackoff`, and `TimeoutSeconds` that
-`deliverToEndpoint()` reads at line 113 and 142. `WebhookEndpoint` (the
-per-endpoint type) has no retry/timeout fields of its own.
+The wiring reads them but only applies the first endpoint's values as
+global defaults; all endpoints share the same retry/timeout.
 
 The fix requires changes at three levels:
 1. `WebhookEndpoint` struct — add per-endpoint retry/timeout fields
@@ -280,16 +377,14 @@ The fix requires changes at three levels:
 
 #### Exact changes
 
-**1. `internal/webhook/delivery.go` — add fields to `WebhookEndpoint`**
+**1. `internal/webhook/delivery.go` — add fields to `WebhookEndpoint` (lines 21-26)**
 
-`WebhookEndpoint` is currently (approximately lines 20-35 — read the file to
-confirm exact lines):
 ```go
 type WebhookEndpoint struct {
     ID     string
     URL    string
     Secret string
-    Events []string
+    Events []string // nil or empty means deliver all event types
 }
 ```
 Add:
@@ -306,9 +401,9 @@ type WebhookEndpoint struct {
 }
 ```
 
-**2. `internal/webhook/delivery.go` — `deliverToEndpoint()` uses per-endpoint values**
+**2. `internal/webhook/delivery.go` — `deliverToEndpoint()` uses per-endpoint values (line 112)**
 
-`deliverToEndpoint()` starts at line 112. It currently reads:
+It currently reads:
 ```go
 maxAttempts := d.cfg.RetryAttempts   // line 113
 // ...
@@ -347,7 +442,9 @@ a fallback — either approach is fine; per-call client is cleaner).
 
 **3. `cmd/proxy/main.go` — populate per-endpoint fields in wiring**
 
-Replace the current wiring block (lines 145-168) with:
+Replace the current wiring block at lines 165-200 (the loop with
+`if i == 0` first-endpoint-wins logic and the comment
+`// phase-80: build per-endpoint config`) with:
 ```go
 endpoints := make([]webhook.WebhookEndpoint, len(cfg.Webhooks.Endpoints))
 for i, e := range cfg.Webhooks.Endpoints {
@@ -391,25 +488,66 @@ GOROOT=/snap/go/current go test ./internal/webhook/... -v -run TestDispatcher 2>
 
 ---
 
-### Item 100-D: Splunk alert action and Sentinel playbooks not tested against Phase 79 API
+### Item 100-D: Splunk alert action and Sentinel playbooks do not match Phase 79 API shape
 
 **Origin:** Phase 80 scoping (Phase 79 in progress at time of Phase 80)
-**Effort:** ~1 hour (after Phase 79 merges)
-**Blocked on:** Phase 79 merge to main
+**Status:** OPEN — **Phase 79 merged, integration broken**
+**Effort:** ~1 hour
+**Verified:** 2026-04-11
+
+#### Verified state — the integration is broken
+
+Phase 79 has merged. Spot-check confirms the Splunk alert action script
+will fail against the real API because its request shape is wrong:
+
+| Aspect | Splunk script (`ja4proxy_ban_action.py`) | Phase 79 route (`management/api/routes/bans.py`) |
+|---|---|---|
+| URL | `POST /api/v1/bans` (line 89) | `POST /api/v1/bans/{ip:path}` (line 89) |
+| Body | `{"ip": src_ip, "ttl_seconds": …, "reason": …}` (lines 91-95) | `BanCreateRequest{ttl, reason}` — IP is in the path, not body |
+| Expected status | 200 or 201 | 200 with `BanCreateResponse` |
+
+Posting to `/api/v1/bans` (no IP in path) will return 404 or 405, and
+even if it didn't, `ip` and `ttl_seconds` in the body don't match the
+`BanCreateRequest` pydantic model — would 422 on validation.
 
 #### Context
 
 Two Phase 80 deliverables call the Management API:
 - `integrations/splunk-ta/ja4proxy-ta/bin/ja4proxy_ban_action.py` —
-  calls `POST /api/v1/bans` with a bearer token
+  calls `POST /api/v1/bans` (wrong shape, see above)
 - `integrations/sentinel/playbooks/Block-IP-Playbook.json` —
-  Logic App that calls the same endpoint
+  Logic App that calls the same endpoint (confirm its ARM template
+  HTTP action URL as part of this fix)
 
-Phase 79 defines the exact API token format (JWT, Operator scope) and
-the `/api/v1/bans` request/response schema. Until Phase 79 merges, these
-can't be verified end-to-end.
+#### Exact changes
 
-**This item requires no code changes until Phase 79 merges.** Once it does:
+**1. `integrations/splunk-ta/ja4proxy-ta/bin/ja4proxy_ban_action.py`**
+
+Change `_post_ban()` (lines 87-119). The URL must include the IP as a
+path segment (URL-encoded for IPv6 safety), and the body must match
+`BanCreateRequest`:
+```python
+import urllib.parse
+
+endpoint = f"{mgmt_url}/api/v1/bans/{urllib.parse.quote(src_ip, safe='')}"
+
+body = json.dumps({
+    "ttl": ttl_seconds,
+    "reason": reason,
+}).encode("utf-8")
+```
+Confirm the field name by reading `management/api/models.py` —
+`BanCreateRequest` defines the canonical names. If it uses `ttl_seconds`,
+keep that; if it uses `ttl`, switch. (The fix here assumes `ttl`.)
+
+**2. `integrations/sentinel/playbooks/Block-IP-Playbook.json`**
+
+Find the HTTP action whose URI references `/api/v1/bans` and rewrite
+it to `/api/v1/bans/@{triggerBody()?['src_ip']}`. Confirm the request
+body JSON shape matches the model. Logic App templates escape `{}`
+carefully — test the ARM template parses before deploying.
+
+#### Original plan — verify steps after the fix
 
 #### Verify steps
 
@@ -451,8 +589,9 @@ assumes, update `bin/ja4proxy_ban_action.py` accordingly. Also update the
 ### Item 100-E: Splunk TA and Sentinel content pack not live-tested
 
 **Origin:** Phase 80 scoping (no SIEM platform access)
+**Status:** BLOCKED on platform access
 **Effort:** Unknown — requires external access
-**Blocked on:** Splunk or Sentinel trial instance
+**Verified:** 2026-04-11 (no change; still no Splunk/Sentinel trial instance available)
 
 #### Context
 
@@ -501,18 +640,37 @@ Common problems to check:
 
 ---
 
-### Item 100-F: `security/validation.py` not imported, not tested
+### Item 100-F: `security/validation.py` lacks dedicated unit tests and is outside lint scope
 
 **Origin:** cherry-pick from security/fix-tests branch (2026-04-07)
-**Effort:** ~2 hours
+**Status:** **PARTIAL** — imported by OWASP test, still lacks dedicated unit tests and pylint coverage
+**Effort:** ~1 hour
+**Verified:** 2026-04-11
+
+#### Verified state
+
+- `security/validation.py` (411 lines) exists.
+- **Is imported** by `tests/security/test_owasp_top10.py:18` (and five
+  inline imports on lines 55, 134, 199, 217) — pulls in
+  `SecurityError`, `SecurityValidator`, `ValidationError`, `MTLSManager`,
+  `SecureHeadersManager`, `AuditLogger`. The original tracker claim
+  "not imported" is stale and must be retracted.
+- **Is not imported** by `proxy.py` or any `src/` runtime module — the
+  class set is still dead from the proxy pipeline's perspective.
+- No `tests/unit/test_security_validation.py` exists.
+- `Makefile:1057-1060` has `lint-pylint` scoped to `src/ proxy.py` only,
+  not `security/`.
 
 #### Context
 
-`security/validation.py` (411 lines) was cherry-picked from a stale branch and
-fixed (missing imports, broken CSRF timing). It contains `SecurityValidator`,
-`InputSanitizer`, `MTLSManager`, `AuditLogger`, and `RateLimitValidator` — none
-of which are imported by `proxy.py` or any `src/` module. The file is dead code
-today.
+The original item claimed the file was both uncovered and dead code.
+The OWASP top-10 test does exercise some entry points, but coverage is
+incidental. What's still missing is:
+
+1. A dedicated unit test file that pins the documented contracts
+   (CSRF token roundtrip, session binding, expiry, IP validation).
+2. `security/` inside the pylint scope so stale code (undefined names,
+   unreachable blocks) is caught on every CI run.
 
 The CSRF fix changed the token format: tokens are now `{timestamp}:{hmac}` so
 the timestamp is embedded and validation checks within a configurable time window
@@ -599,8 +757,9 @@ python3 -m pylint --errors-only security/validation.py
 ### Item 100-G: `SECURITY_REVIEW_PHASE1.md` findings not validated against current codebase
 
 **Origin:** cherry-pick from security/fix-tests branch (2026-04-07)
+**Status:** OPEN
 **Effort:** ~3 hours
-**Blocked on:** engineer time to triage each finding
+**Verified:** 2026-04-11 — file exists at 1,751 lines, no triage table at bottom
 
 #### Context
 
@@ -643,14 +802,26 @@ Add a triage table at the bottom of `SECURITY_REVIEW_PHASE1.md`:
 ### Item 100-H: `sync-roadmap.py` uses `os.path.basename()` — breaks links for archive/ paths
 
 **Origin:** doc-housekeeping branch review (2026-04-07)
+**Status:** OPEN
 **Effort:** ~30 minutes
+**Verified:** 2026-04-11
 
-#### Context
+#### Verified state
 
-`scripts/sync-roadmap.py` lines 79 and 95 both call:
+The two offending lines have moved (the original spec said 79 and 95):
+- `scripts/sync-roadmap.py:100`
+- `scripts/sync-roadmap.py:116`
+
+Both still call:
 ```python
 plan_file = os.path.basename(data["action_plan"])
 ```
+
+#### Context
+
+Strips directory components so `docs/phases/archive/PHASE_28_WORK_PLAN.md`
+becomes the bare filename. The generated markdown link resolves relative
+to `docs/phases/`, pointing to a non-existent file.
 
 This strips directory components so `docs/phases/archive/PHASE_28_WORK_PLAN.md`
 becomes the bare filename `PHASE_28_WORK_PLAN.md`. The generated markdown link
@@ -667,7 +838,7 @@ as `[PHASE_28_WORK_PLAN.md](archive/PHASE_28_WORK_PLAN.md)`.
 
 #### Exact changes
 
-**`scripts/sync-roadmap.py` lines 79 and 95 — replace `os.path.basename()` with a relative path helper**
+**`scripts/sync-roadmap.py` lines 100 and 116 — replace `os.path.basename()` with a relative path helper**
 
 Replace both occurrences:
 ```python
@@ -699,7 +870,9 @@ grep "archive/" docs/phases/TODO.md
 ### Item 100-I: `quick-start.sh` and `scripts/basic_perf_test.sh` not wired into Makefile
 
 **Origin:** cherry-pick from security/fix-tests branch (2026-04-07)
+**Status:** OPEN
 **Effort:** ~15 minutes
+**Verified:** 2026-04-11 — both scripts exist at the paths below; no `quick-start` or `perf-test-basic` target in Makefile
 
 #### Context
 
@@ -743,99 +916,156 @@ make help | grep -E "quick-start|perf-test-basic"
 
 ---
 
-### Item 100-J: Verify `PATCH /api/v1/bans/{ip}` exists in Phase 79
+### Item 100-J: Implement `PATCH /api/v1/bans/{ip}` (Extend Ban)
 
 **Origin:** Phase 81 Critical Review
-**Effort:** ~15 minutes
-**Blocked on:** Phase 79 merge to main
+**Status:** OPEN — **unblocked; endpoint confirmed absent**, must be implemented
+**Effort:** ~1 hour
+**Verified:** 2026-04-11
+
+#### Verified state
+
+`management/api/routes/bans.py` defines three routes:
+- `GET /api/v1/bans` (line 46)
+- `POST /api/v1/bans/{ip:path}` (line 89)
+- `DELETE /api/v1/bans/{ip:path}` (line 138)
+
+There is **no** `PATCH` route. Phase 81's xMatters "Extend Ban"
+response option (§6.2) will fail with 405 Method Not Allowed.
 
 #### Context
 
-Phase 81's xMatters "Extend Ban" response option (§6.2) calls
-`PATCH /api/v1/bans/{ip}` to extend an active ban's TTL by 24h. This endpoint
-is listed in Phase 81's §2 API table. Phase 79 defines the Management API; if
-`PATCH /api/v1/bans/{ip}` was not implemented there, the xMatters integration
-silently fails on "Extend Ban" responses.
+Phase 81's xMatters connector calls `PATCH /api/v1/bans/{ip}` to
+extend an active ban's TTL by 24 h. Must be implemented as an Operator-
+scoped endpoint, audit-logged via `write_audit()` like the create/delete
+routes above it, and round-trip against the existing `ban:{ip}` Redis key.
 
-#### Verify steps
+#### Exact changes
 
-```bash
-# After Phase 79 merges, start the management API and check the OpenAPI spec:
-curl -s http://localhost:8090/openapi.json | python3 -c "
-import sys, json
-spec = json.load(sys.stdin)
-paths = spec.get('paths', {})
-endpoint = paths.get('/api/v1/bans/{ip}', {})
-print('PATCH exists:', 'patch' in endpoint)
-print('Methods:', list(endpoint.keys()))
-"
+**1. `management/api/models.py` — add the request/response models**
+
+Next to `BanCreateRequest`:
+```python
+class BanExtendRequest(BaseModel):
+    extend_ttl_seconds: int = Field(..., gt=0, le=86400 * 30)
+    reason: Optional[str] = None  # optional note; does not overwrite existing reason
+
+class BanExtendResponse(BaseModel):
+    ip: str
+    new_expires_at: str   # ISO-8601 UTC
+    previous_ttl: int
+    new_ttl: int
 ```
 
-If `PATCH /api/v1/bans/{ip}` is absent from Phase 79: open a Phase 79 gap
-item and add `PATCH /api/v1/bans/{ip}` with body `{"extend_ttl_seconds": N}`
-to the management API. The xMatters connector must not be marked complete until
-this endpoint exists.
+**2. `management/api/routes/bans.py` — add the handler**
 
-#### Acceptance criteria
-- [ ] `PATCH /api/v1/bans/{ip}` present in Phase 79 OpenAPI spec with `extend_ttl_seconds` body field
-- [ ] Returns 200 with updated expiry timestamp on success
-- [ ] Returns 404 if ban does not exist
+After the `DELETE` handler (line 138+), add:
+```python
+@router.patch("/api/v1/bans/{ip:path}", response_model=BanExtendResponse)
+async def extend_ban(
+    ip: str,
+    request: Request,
+    body: BanExtendRequest,
+    current_user=Depends(require_role(Role.operator)),
+    redis=Depends(get_redis),
+) -> BanExtendResponse:
+    identity, role = current_user
+    ip = urllib.parse.unquote(ip)
+    key = f"{_BAN_KEY_PREFIX}{ip}"
 
----
+    existing_ttl = await redis.ttl(key)
+    if existing_ttl < 0:
+        raise HTTPException(status_code=404, detail=f"no active ban for {ip}")
 
-### Item 100-K: Verify `POST /api/v1/tokens/{id}/rotate` exists in Phase 79
+    reason = await redis.get(key) or b""
+    if isinstance(reason, bytes):
+        reason = reason.decode("utf-8", errors="replace")
 
-**Origin:** Phase 81 Critical Review
-**Effort:** ~15 minutes
-**Blocked on:** Phase 79 merge to main
+    new_ttl = existing_ttl + body.extend_ttl_seconds
+    await redis.set(key, reason, ex=new_ttl)
 
-#### Context
+    new_expires_at = (datetime.utcnow() + timedelta(seconds=new_ttl)).isoformat() + "Z"
 
-Phase 81's token rotation script (`scripts/rotate_soar_token.sh`) calls
-`POST /api/v1/tokens/{id}/rotate` on a 90-day schedule to refresh SOAR
-platform credentials. If Phase 79 does not deliver this endpoint, the rotation
-script cannot be implemented or tested end-to-end.
+    await write_audit(
+        redis,
+        actor_id=identity,
+        actor_ip=_client_ip(request),
+        action_type="ban.extended",
+        resource_type="ban",
+        resource_id=ip,
+        before_value={"ttl": existing_ttl},
+        after_value={"ttl": new_ttl, "extended_by": body.extend_ttl_seconds},
+        role=role.value,
+    )
 
-#### Verify steps
-
-```bash
-# After Phase 79 merges:
-curl -s http://localhost:8090/openapi.json | python3 -c "
-import sys, json
-spec = json.load(sys.stdin)
-paths = spec.get('paths', {})
-print('rotate exists:', '/api/v1/tokens/{id}/rotate' in paths)
-"
+    return BanExtendResponse(
+        ip=ip,
+        new_expires_at=new_expires_at,
+        previous_ttl=existing_ttl,
+        new_ttl=new_ttl,
+    )
 ```
 
-If absent: raise with the Phase 79 author. The endpoint should return the new
-token value in the response body so the rotation script can update SOAR platform
-assets without a second GET call.
+Imports to add at the top of `bans.py` if not already present:
+```python
+from datetime import datetime, timedelta
+from fastapi import HTTPException
+from ..models import BanExtendRequest, BanExtendResponse
+```
+
+**3. Tests — `management/tests/test_bans.py`**
+
+- `test_patch_extends_ttl` — create a ban with ttl=100, PATCH with
+  extend_ttl_seconds=50, assert response `new_ttl == 150` and Redis
+  `ttl(key)` is close to 150.
+- `test_patch_nonexistent_returns_404`
+- `test_patch_requires_operator_role` — Analyst role returns 403.
+- `test_patch_writes_audit_entry` — assert `management:audit_log` has
+  a `ban.extended` entry with correct `before_value`/`after_value`.
+- `test_patch_rejects_extend_over_30_days` — 422 via Pydantic gt/le.
 
 #### Acceptance criteria
-- [ ] `POST /api/v1/tokens/{id}/rotate` present in Phase 79 OpenAPI spec
-- [ ] Response body contains `{"token": "<new_value>", "expires_at": "<ISO-8601>"}`
-- [ ] Old token is invalidated immediately after rotation
+- [ ] `PATCH /api/v1/bans/{ip}` handler implemented and routed
+- [ ] Returns 200 with `BanExtendResponse` on success
+- [ ] Returns 404 when no active ban exists for the IP
+- [ ] Returns 403 for Analyst role
+- [ ] Writes a `ban.extended` audit entry
+- [ ] xMatters "Extend Ban" test command returns 200 end-to-end
 
 ---
 
 ### Item 100-L: Phase 82 — Phase 79 coordination: 7 missing endpoints and values
 
 **Origin:** Phase 82 Critical Review (§9 Phase 79 Coordination Requirements)
-**Effort:** ~1 hour to verify + variable effort to implement if missing
-**Blocked on:** Phase 79 in progress
+**Status:** OPEN — **Phase 79 merged; verified all 7 items still absent**
+**Effort:** ~1 day (was: verify + variable implement)
+**Verified:** 2026-04-11
+
+#### Verified state
+
+All seven items confirmed **absent** from the merged Phase 79 management API:
+
+| # | Item | Verified absent at |
+|---|------|--------------------|
+| 1 | `POST /api/v1/simulation/run` | No `simulation` substring anywhere in `management/api/routes/` |
+| 2 | `GET /api/v1/simulation/{id}/report` | Same — no simulation routes |
+| 3 | `GET /api/v1/decisions` | No `decisions` route file |
+| 4 | `POST /api/v1/decisions/{id}/approve` | Same |
+| 5 | `POST /api/v1/decisions/{id}/reject` | Same |
+| 6 | `managed_by=policy` valid enum value | `management/api/models.py:237-246` defines `ManagedBy` enum with `terraform, operator, api, analytics, legacy, migration, feed` — **no `policy`** value |
+| 7 | Mutation endpoints return 202 on approval-required | No approval-gating middleware/decorator found in the mutation routes |
+
+This item is no longer "verify and maybe implement" — it is
+"implement all seven." The Phase 82 mock server in
+`tests/mocks/management_api_mock.py` still defines the expected contract
+and is the de facto spec.
 
 #### Context
 
 Phase 82's policy-as-code tooling (`scripts/ja4proxy-policy.py apply/diff`),
-four-eyes workflow, and shadow mode simulation all depend on API surface that
-was not in Phase 79's resource catalogue at Phase 82 design time. All 7 items
-below must be confirmed as present in Phase 79 before Phase 82 can be called
-complete end-to-end. If Phase 79 does not deliver them, they must be added to
-Phase 79 or implemented as an extension to the management service.
-
-The Phase 82 code already uses these endpoints — the offline tests mock them.
-What's missing is the real API backing them.
+four-eyes workflow, and shadow mode simulation all depend on this API
+surface. Phase 82's offline tests mock the endpoints. What's missing
+is the real API backing them in Phase 79's management service.
 
 #### Verify steps
 
@@ -892,8 +1122,10 @@ as the spec for the real implementation.
 ### Item 100-M: Phase 82 — analytics node pre-conditions for shadow mode
 
 **Origin:** Phase 82 §3.4 (Analytics Node Pre-Conditions)
+**Status:** OPEN
 **Effort:** ~2 days
-**Blocked on:** ADR-082.md decision committed (already done), Phase 79 simulation API (100-L)
+**Blocked on:** 100-L (simulation API must back the runner)
+**Verified:** 2026-04-11 — neither `analytics/signal_retention.py` nor `analytics/simulation_runner.py` exists anywhere in the repo
 
 #### Context
 
@@ -1025,8 +1257,10 @@ python3 -m pytest tests/unit/test_signal_retention.py tests/unit/test_simulation
 ### Item 100-N: Phase 82 — platform-dependent acceptance criteria
 
 **Origin:** Phase 82 §10.2
+**Status:** BLOCKED
 **Effort:** ~1 day (after 100-L, 100-M complete)
 **Blocked on:** 100-L (Phase 79 API), 100-M (analytics node), Management UI phases
+**Verified:** 2026-04-11 — still blocked; cannot start until 100-L and 100-M land
 
 #### Context
 
@@ -1080,18 +1314,26 @@ python3 scripts/ja4proxy-policy.py apply \
 ### Item 100-U: Phase 83 — keychain token storage not implemented
 
 **Origin:** Phase 83 Critical Review (2026-04-07)
+**Status:** OPEN
 **Effort:** ~2–3 hours
 **Blocker:** None (env var and config file fallback work fine)
+**Verified:** 2026-04-11
+
+#### Verified state
+
+- `internal/cli/auth/auth.go:9` defines `ResolveToken(flagValue string) string`
+  — handles `flag > env` only. No keyring import in the file.
+- `cmd/ja4proxy-cli/main.go` call sites at lines 54, 578, 580, 619, 621
+  all use the plain `auth.ResolveToken(...)`.
+- No `github.com/99designs/keyring` or `github.com/zalando/go-keyring`
+  in `go.mod`.
+- No `login` or `config set-token` subcommand in `cmd/ja4proxy-cli/main.go`.
 
 #### Context
 
 The spec (`PHASE_83.md §4`) defines a four-level auth resolution order:
-`flag > env > config file > keychain (99designs/keyring)`.
-
-The current implementation in `internal/cli/auth/auth.go` only handles
-`flag > env`. The config file fallback is applied in `cmd/ja4proxy-cli/main.go`
-`newClient()` (flag > env > config — correct). The keychain level (level 4)
-is not implemented.
+`flag > env > config file > keychain`. The first three levels work;
+the keychain level is the only gap.
 
 #### Exact changes needed
 
@@ -1132,15 +1374,26 @@ is not implemented.
 ### Item 100-V: Phase 83 — `confirm_mutating: false` config flag not honoured
 
 **Origin:** Phase 83 Critical Review (2026-04-07)
+**Status:** OPEN
 **Effort:** ~1 hour
 **Blocker:** None
+**Verified:** 2026-04-11
+
+#### Verified state
+
+- `internal/cli/config/config.go:14-24` `CLIConfig` struct has only
+  `URL`, `Token`, and `DefaultOutput` fields. **No `ConfirmMutating`.**
+  The original tracker claim "parsed by `config.go`" is incorrect —
+  it is not even parsed today; the YAML key silently decodes to nothing.
+- `cmd/ja4proxy-cli/main.go:75-77` `requireConfirm()` exists but does
+  not consult the config. It is called from ~10 sites (lines 219, 240,
+  279, 323, 378, 430, 681, 705, …).
 
 #### Context
 
 `PHASE_83.md §4` specifies a `confirm_mutating: true` key in the CLI config
 file. When set to `false`, mutating commands should not require `--confirm`
-(useful for non-interactive scripts). This flag is parsed by `config.go` but
-is never checked in `requireConfirm()`.
+(useful for non-interactive scripts).
 
 #### Exact changes needed
 
@@ -1172,23 +1425,48 @@ is never checked in `requireConfirm()`.
 
 ## 3. Closed Items
 
-*(None yet — phase opened 2026-04-07)*
+### 100-K: `POST /api/v1/tokens/{id}/rotate` present in Phase 79
+
+**Closed:** 2026-04-11 (admin close-out — no code change required)
+**Verified:** `management/api/routes/tokens.py:163` —
+`@router.post("/api/v1/tokens/{token_id}/rotate", response_model=TokenRotateResponse)`.
+Response body matches the acceptance criteria (new token value +
+`expires_at`). Old-token invalidation must be re-confirmed in a
+dedicated test when Phase 81's rotation script lands.
+
+### 100-O through 100-T: Phase 79 SSO/MFA gap closure
+
+**Closed:** 2026-04-07 in commit `6ffdbc5` ("phase-100: implement all 6
+SSO/MFA gaps"), merged via `2848d11`. Detailed per-gap reference
+material is preserved in the sections below (Gap 1 through Gap 7).
+
+| Item | Gap | Landed behaviour |
+|------|-----|------------------|
+| 100-O | SSO login events not audited | `saml_acs` and `oidc_callback` now call `write_audit()` with `action_type="sso.login"` |
+| 100-P | OIDC ID token signature not verified | `_extract_claims()` fetches JWKS, caches with double-checked `asyncio.Lock`, verifies via `authlib.jose`; `MANAGEMENT_TEST_MODE=1` bypass for unit tests |
+| 100-Q | No DELETE for WebAuthn credentials | `GET` and `DELETE /auth/mfa/webauthn/credentials/{id}` present with ownership check |
+| 100-R | SSO-delegated MFA trust | `MANAGEMENT_SSO_TRUST_IDP_MFA=true` sets `mgmt:mfa:session` when SAML `authn_context` or OIDC `amr` indicates MFA |
+| 100-S | SAML/OIDC integration test markers | `pytest.mark.integration` registered in `pyproject.toml` |
+| 100-T | Group-to-role mapping | Honoured from `config/proxy.yml sso.role_mapping` with 60 s cache and env-var override |
 
 ---
 
 ## 4. Phase completion criteria
 
-Phase 100 is COMPLETE when all fourteen items above are either:
+Phase 100 is COMPLETE when all remaining 15 items are either:
 - **Closed** — fix implemented, tests pass, commit SHA recorded, or
-- **Explicitly deferred** — moved to a named future phase with written
-  rationale (not silently dropped)
+- **Explicitly deferred** — moved to a named future phase (e.g. 101)
+  with written rationale. No silent drops.
 
-**Unblocked (pick up now):** 100-A, 100-B, 100-C, 100-F, 100-H, 100-I, 100-M, 100-U, 100-V
-**Blocked on Phase 79:** 100-D, 100-J, 100-K, 100-L
+The Closed Items section must list the commit SHA (or PR) for every
+closed item.
+
+**Unblocked, small (pick up now):** 100-A (finish), 100-F (finish),
+  100-H, 100-I, 100-V
+**Unblocked, medium:** 100-B, 100-C, 100-D, 100-J, 100-U
+**Unblocked, large:** 100-G, 100-L, 100-M
 **Blocked on 100-L + 100-M:** 100-N
 **Blocked on platform access:** 100-E
-**Requires engineer triage:** 100-G
-**Phase 79 SSO/MFA (see table below):** 100-O, 100-P, 100-Q, 100-R, 100-S, 100-T
 
 ---
 
@@ -1799,53 +2077,16 @@ satisfies the downstream tooling requirement for Phase 83/84.
 
 ---
 
-## Implementation Order
-
-| Priority | Gap | Effort | Blocker |
-|----------|-----|--------|---------|
-| P0 | Gap 2 — SSO audit events | ~30 min | None |
-| P0 | Gap 1 — OIDC JWKS signature | ~2–3h | Need `cryptography` for test key gen |
-| P1 | Gap 3 — WebAuthn credential DELETE | ~1h | None |
-| P1 | Gap 4 — SSO-delegated MFA | ~2h | None |
-| P2 | Gap 5 — Integration test markers | ~20 min | None |
-| P3 | Gap 6 — config.yml role mapping | ~3–4h | Requires `pyyaml` dep |
-| ~~P2~~ | ~~Gap 7 — OpenAPI spec~~ | ~~Done~~ | ~~Completed in Phase 79 C10~~ |
+> The **Implementation Order**, **New Test File Locations**, **Dependencies**
+> and **Close-Out Checklist** tables that used to live here were scoped to
+> the six Phase 79 SSO/MFA gaps only. Those items are now closed
+> (see §3 Closed Items) and the tables have been retired to avoid
+> misleading a junior engineer into thinking Phase 100 is narrower than
+> it actually is. The authoritative work list for the reopened phase is
+> the **Status summary** table at the top of this document.
 
 ---
 
-## New Test File Locations
-
-| Gap | Test additions |
-|-----|----------------|
-| Gap 1 | `management/tests/test_oidc.py` — new section for JWKS tests |
-| Gap 2 | `management/tests/test_saml.py` and `test_oidc.py` — assert audit entry |
-| Gap 3 | `management/tests/test_webauthn.py` — new section for list/delete |
-| Gap 4 | `management/tests/test_saml.py` and `test_oidc.py` — MFA trust flag tests |
-| Gap 5 | Bottom of `test_saml.py` and `test_oidc.py` |
-| Gap 6 | `management/tests/test_proxy_config.py` (new file) |
-| Gap 7 | No test; run `make openapi-spec` and inspect output |
-
----
-
-## Dependencies
-
-- Phase 79 (must be COMPLETE first — this phase closes its gaps)
-- Phase 83 (Terraform provider) benefits from Gap 7 (OpenAPI spec)
-- Phase 84 (Compliance Reporting) benefits from Gap 2 (audit events)
-
----
-
-## Close-Out Checklist
-
-- [ ] All 7 gaps implemented (or explicitly re-deferred with justification in notes)
-- [ ] `make test-unit` passes
-- [ ] `CHANGELOG.md` prepended
-- [ ] `docs/phases/manifest.yaml` status set to `COMPLETE`
-- [ ] `python3 scripts/sync-roadmap.py` run — commit TODO.md + PROJECT_STATUS.md
-- [ ] Branch pushed: `git push origin claude/phase-100-sso-mfa-gap-closure`
-
----
-
-*Created: 2026-04-07*
-*Source: Phase 79 C7–C9 critical review*
-*Revised: 2026-04-07 — added per-function detail, correct import paths, test patterns*
+*Created: 2026-04-07 (rolling gap tracker)*
+*Rescoped: 2026-04-07 — narrowed to Phase 79 SSO/MFA, 6 gaps closed*
+*Reopened and re-verified: 2026-04-11 — 15 items remain, full codebase verification pass*
