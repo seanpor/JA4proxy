@@ -748,7 +748,7 @@ parity-check:
 # Start Python legacy proxy alongside the Go proxy for parity comparison.
 # Both proxies share the same Redis instance.
 # Go proxy (primary): host port 8081 / metrics 9090
-# Python proxy (legacy): host port 8083 / metrics 9093
+# Python proxy (legacy): host port 8083 / metrics 9094
 go-start:
 	@echo "Starting Python legacy proxy (port 8083) for parity comparison..."
 	docker compose -f docker/docker-compose.poc.yml -f docker/docker-compose.python-legacy.yml --env-file .env up -d python-proxy
