@@ -1,5 +1,153 @@
 # Changelog
 
+## Phase 86 — Observability & Capacity Planning
+
+### Added
+- **86a:** `GET /api/v1/health/deep` and `GET /api/v1/metrics/summary` endpoints
+  on Python (FastAPI) and Go proxy — 9-field JSON: status, redis_connected,
+  redis_latency_ms, dial, active_connections, connections_total, block_rate_pct,
+  active_bans, cert_days_remaining
+- **86a:** `DeepHealthResponse` Pydantic schema, `_parse_prometheus_text()` helper
+- **86a:** Go `CountKeys` method on Redis client wrapper
+- **86b:** `scripts/load_test.py` — load testing harness wrapping benchmark engine
+- **86b:** `Makefile` targets: `load-test`, `load-test-baseline`, `load-test-report`
+- **86b:** `docs/performance/benchmarks.md` — benchmark results template
+- **86c:** `scripts/capacity_calculator.py` — capacity sizing with cloud cost estimates
+  (AWS, Azure, GCP), wired to `BenchmarkConstants` from benchmark data
+- **86d:** `deploy/datadog/checks/ja4proxy/check.py` — Datadog Agent integration
+- **86d:** `deploy/datadog/ja4proxy-dashboard.json` — 7-widget dashboard
+- **86d:** `deploy/datadog/ja4proxy-monitors.json` — 4 monitors
+- **86d:** `deploy/datadog/conf.d/ja4proxy.d/conf.yaml` — Agent config
+- **86e:** `deploy/dynatrace/ja4proxy-extension/extension.yaml` — EF2 extension
+  with 7 metrics and `ja4proxy:node` topology entity type
+- **86f:** `deploy/nagios/check_ja4proxy.py` — Nagios check plugin (4 check types)
+- **86f:** `deploy/zabbix/ja4proxy-template.xml` — Zabbix importable template
+- **86g:** 7 alert runbooks: `ja4proxy_node_unhealthy.md`,
+  `ja4proxy_redis_latency_high.md`, `ja4proxy_certificate_expiring.md`,
+  `ja4proxy_block_rate_high.md`, `ja4proxy_campaign_detected.md`,
+  `ja4proxy_dial_change_unexpected.md`, `ja4proxy_tarpit_pool_full.md`
+- **86g:** `runbook_url` annotations on all Alertmanager rules (SLO + TLS)
+
+### Tests
+- 249 Python unit tests (health deep, Nagios, Dynatrace, Datadog, runbooks,
+  load test, capacity calculator, alertmanager runbook URLs)
+- 3 Go unit tests (health deep response schema, Redis down, metrics/summary alias)
+
+## Phase 64 — Deployment Validation & Disaster Recovery
+
+### Added
+- `scripts/smoke/test_docker_compose.sh`: Docker Compose lifecycle smoke test
+  (bring up → health check → TLS test → tear down → write result)
+- `scripts/smoke/test_helm_kind.sh`: Helm + kind smoke test (creates cluster,
+  installs chart, verifies rollout, in-pod health check, cleanup)
+- `scripts/measure_mttr.sh`: MTTR baseline measurement script — runs 4 disaster
+  scenarios, measures wall-clock recovery, writes `MTTR_BASELINE.md`
+- `docs/runbooks/disaster_recovery.md`: 5-scenario DR runbook (Redis failure,
+  single node, total fleet, config corruption, Redis data loss)
+- `docs/runbooks/gameday_scenarios.md`: 4 GameDay exercises with RTO targets
+- `docs/runbooks/credential_rotation.md`: Redis ACL, AbuseIPDB API key,
+  and cloud storage credential rotation procedures with rollback
+- `docs/runbooks/tls_certificate_rotation.md`: Server cert and mTLS CA
+  certificate rotation (three-phase dual-CA trust period)
+- `docs/runbooks/rolling_upgrade.md`: Docker Compose and Kubernetes rolling
+  upgrade with rollback procedures and decision criteria table
+- `monitoring/alertmanager/rules/tls_alerts.yml`: Prometheus alert rules
+  for TLS certificate expiry (warning < 30d, critical < 7d)
+- `scripts/generate_validation_report.py`: `--section deployment` flag for
+  deployment validation evidence section
+- `Makefile`: `smoke-docker`, `smoke-k8s`, `measure-mttr` targets
+- `.github/workflows/ci.yml`: non-blocking `smoke-docker` CI job
+
+## [Unreleased] - Phase 200 - Go PROXY Protocol Trust + v2 Support
+
+### Added
+- `internal/proxy/proxy_protocol.go`: `IsTrustedProxySource(ip, cfg)` —
+  validates peer IP against `proxy.upstream_trust.trusted_cidrs` before
+  trusting PROXY protocol headers. Fail-open on nil config, disabled,
+  empty CIDRs, or invalid IP. Parity with Python `_is_trusted_proxy_source()`.
+- `internal/proxy/proxy_protocol.go`: `ReadProxyProtocolV2(buf)` and
+  `ReadProxyProtocolV2WithLength(buf)` — PROXY protocol v2 binary parser
+  for HAProxy 2.x+ and AWS NLB headers. Supports TCP/IPv4 (family 0x11)
+  and TCP/IPv6 (family 0x21). Rejects LOCAL command, UNSPEC family,
+  truncated headers, wrong signatures, and oversized `addr_len`.
+- `internal/config/loader.go`: `UpstreamTrustConfig` struct with
+  `enabled` and `trusted_cidrs` fields added to `ProxyConfig`.
+- `internal/config/loader.go`: `DefaultConfig()` exported for test use.
+- `cmd/proxy/main.go`: `handleConn` now tries v2 binary first, falls back
+  to v1 text, both gated by `IsTrustedProxySource()`. Untrusted sources
+  silently use the socket IP (fail-open).
+
+### Fixed
+- **CRITICAL:** Go proxy no longer trusts PROXY protocol headers from
+  arbitrary sources. An attacker sending `PROXY TCP4 8.8.8.8 ...` from an
+  untrusted IP previously bypassed all geo/IP/rate/block controls.
+- **CRITICAL:** Go proxy now supports PROXY protocol v2 binary headers.
+  Modern HAProxy and AWS NLB instances sending v2 were previously silently
+  ignored, falling back to the load balancer's IP.
+
+### Tests
+- 29 new tests across 3 packages:
+  - `internal/proxy/trust_test.go`: 8 trust check tests (IPv4, IPv6,
+    disabled, empty CIDRs, nil config, invalid IPs, malformed CIDRs,
+    default config)
+  - `internal/proxy/proxy_protocol_v2_test.go`: 12 v2 parser tests
+    (valid IPv4, valid IPv6, full IPv6, truncated signature, wrong
+    signature, LOCAL command, oversized addr_len, empty buffer, exact
+    buffer size, UNSPEC family, anti-panic, header length)
+  - `cmd/proxy/proxy_integration_test.go`: 9 integration/adversarial
+    tests (v2 IP extraction, v1 regression, trust gating, spoofed v2
+    from untrusted source, spoofed v1, v2-before-v1, default config,
+    proxy_protocol=false gate)
+
+## [64] - 2026-04-10 - Deployment Validation & Disaster Recovery
+
+### Added
+- `scripts/smoke/test_docker_compose.sh` — Docker Compose smoke test with
+  health polling, container state check, synthetic TLS probe, and cleanup
+  trap. Handles both JSON array and NDJSON output from `docker compose ps`.
+- `scripts/smoke/test_helm_kind.sh` — Helm + kind smoke test with graceful
+  skip when tools are absent, kind cluster cleanup trap, rollout status
+  check (Deployment or DaemonSet), and in-pod health verification.
+- `scripts/measure_mttr.sh` — MTTR baseline measurement for 4 DR scenarios
+  (Redis failure, single node failure, dial corruption, Redis data loss).
+  Produces `MTTR_BASELINE.md` with measured vs target RTO comparison.
+- `monitoring/alertmanager/rules/tls_alerts.yml` — TLS certificate expiry
+  alerts: warning at < 30 days, critical at < 7 days. Consumes Phase 63's
+  `ja4proxy_tls_cert_expiry_timestamp_seconds` gauge directly (no
+  `absent_over_time`).
+- `docs/runbooks/disaster_recovery.md` — 5 DR scenarios (Redis failure,
+  node failure, total fleet failure, config corruption, Redis data loss)
+  with symptoms, impact, simulate, recovery steps, RTO, and RPO.
+- `docs/runbooks/gameday_scenarios.md` — 4 GameDay exercises with trigger
+  commands, success criteria, and measurable RTO targets.
+- `docs/runbooks/credential_rotation.md` — Zero-downtime rotation for
+  Redis ACL passwords, AbuseIPDB API keys, and cloud storage credentials,
+  each with explicit rollback procedures.
+- `docs/runbooks/tls_certificate_rotation.md` — Server-side TLS cert
+  rotation (rolling, one node at a time) and mTLS CA rotation with
+  dual-CA trust bundle transition.
+- `docs/runbooks/rolling_upgrade.md` — Docker Compose (HAProxy drain +
+  30s stagger) and Kubernetes (`helm upgrade --wait`) rolling upgrades
+  with single-command rollback for each model.
+- `scripts/generate_validation_report.py` — `--section deployment` flag
+  appends smoke test results, MTTR baseline, and DR exercise history.
+  Graceful degradation when any input is missing.
+- `Makefile` targets: `smoke-docker`, `smoke-k8s`, `measure-mttr`.
+- CI jobs: `smoke-docker` and `smoke-k8s` (non-blocking, `continue-on-error`).
+
+### Tests
+- `tests/test_phase64a_smoke_docker.py` — 11 structural validation tests
+- `tests/test_phase64b_smoke_helm.py` — 11 structural validation tests
+- `tests/test_phase64f_tls_alerts.py` — 23 alert rule validation tests
+- `tests/test_phase64h_mttr.py` — 27 MTTR script validation tests
+- `tests/test_phase64i_validation_report.py` — 11 deployment section tests
+
+### Phase 101 deferrals
+- M20: CI smoke-k8s needs kind/helm installation steps
+- M21: `infrastructure.md` still references Python proxy
+- M22: AbuseIPDB lookups counter missing from Go metrics
+- M23: MTTR test should validate Redis key names
+
 ## [Unreleased] - Phase 63 - Service Level Objectives
 
 ### Added

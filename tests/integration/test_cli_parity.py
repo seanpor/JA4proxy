@@ -238,7 +238,7 @@ def test_mutating_command_requires_confirm(cli_binary):
     # Must exit non-zero (1) — NOT reach the API (which would fail differently
     # since 127.0.0.1:1 is not listening).
     assert result.returncode != 0, (
-        f"Expected non-zero exit without --confirm, got 0"
+        "Expected non-zero exit without --confirm, got 0"
     )
     stderr = result.stderr.decode(errors="replace").lower()
     assert "confirm" in stderr, (

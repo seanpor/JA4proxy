@@ -32,7 +32,6 @@ from cryptography.hazmat.primitives.serialization import (
     PublicFormat,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers — key format matches scripts/config-signer.py
 # ---------------------------------------------------------------------------
@@ -696,6 +695,7 @@ class TestVerifyConfigSignatureGenericVerifyException:
         be treated as a pass — the function must stay closed on unexpected errors.
         """
         from unittest.mock import MagicMock, patch
+
         from src.security.integrity_monitor import IntegrityMonitor
 
         privkey, pubkey = _generate_keypair()
@@ -767,6 +767,7 @@ class TestBackgroundMonitorHashPathsException:
         not take down the monitor permanently — integrity monitoring must be resilient.
         """
         from unittest.mock import patch
+
         from src.security.integrity_monitor import IntegrityMonitor
 
         watched_file = tmp_path / "proxy.py"
@@ -821,6 +822,7 @@ class TestBackgroundMonitorHashPathsException:
         baseline, it must exit cleanly without swallowing the cancellation.
         """
         from unittest.mock import patch
+
         from src.security.integrity_monitor import IntegrityMonitor
 
         monitor = IntegrityMonitor()
@@ -853,7 +855,8 @@ class TestAppendAuditLogExceptionPath:
         So what: an audit log write failure (disk full, permissions) must not crash
         the proxy — it must fail open so legitimate traffic continues flowing.
         """
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
+
         from src.security.integrity_monitor import IntegrityMonitor
 
         log_path = tmp_path / "integrity.log"
@@ -897,6 +900,7 @@ class TestDecodeSignatureEdgePaths:
         accepted as a shorter-than-expected byte sequence.
         """
         import base64
+
         from src.security.integrity_monitor import _decode_signature
 
         # Encode 32 bytes (wrong size) as base64 — yields a >64-char b64 string
@@ -930,8 +934,11 @@ class TestLoadPubkeyEdgePaths:
         """
         from cryptography.hazmat.primitives.serialization import (
             Encoding as _Enc,
+        )
+        from cryptography.hazmat.primitives.serialization import (
             PublicFormat as _PF,
         )
+
         from src.security.integrity_monitor import _load_pubkey
 
         _, pubkey = _generate_keypair()
@@ -950,8 +957,11 @@ class TestLoadPubkeyEdgePaths:
         """
         from cryptography.hazmat.primitives.serialization import (
             Encoding as _Enc,
+        )
+        from cryptography.hazmat.primitives.serialization import (
             PublicFormat as _PF,
         )
+
         from src.security.integrity_monitor import _load_pubkey
 
         _, pubkey = _generate_keypair()
@@ -989,8 +999,11 @@ class TestLoadPubkeyEdgePaths:
         """
         from cryptography.hazmat.primitives.serialization import (
             Encoding as _Enc,
+        )
+        from cryptography.hazmat.primitives.serialization import (
             PublicFormat as _PF,
         )
+
         from src.security.integrity_monitor import _load_pubkey
 
         _, pubkey = _generate_keypair()
@@ -1045,6 +1058,7 @@ class TestHashPathsEdgeCases:
         monitoring of all other files in the same directory.
         """
         from unittest.mock import patch
+
         from src.security.integrity_monitor import _hash_paths
 
         file_a = tmp_path / "a.py"
@@ -1076,6 +1090,7 @@ class TestHashPathsEdgeCases:
         monitoring of the other valid paths.
         """
         import logging
+
         from src.security.integrity_monitor import _hash_paths
 
         real_file = tmp_path / "real.py"
@@ -1095,7 +1110,8 @@ class TestHashPathsEdgeCases:
         So what: a transient error on one monitored path must not blind the monitor
         to tampered files in all other paths.
         """
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
+
         from src.security.integrity_monitor import _hash_paths
 
         real_file = tmp_path / "real.py"
@@ -1157,7 +1173,8 @@ class TestReadLastLineHashEdgeCases:
         So what: a corrupt or unreadable log file must not prevent subsequent audit
         entries from being written — the chain can restart but monitoring continues.
         """
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
+
         from src.security.integrity_monitor import _read_last_line_hash
 
         log_path = tmp_path / "integrity.log"

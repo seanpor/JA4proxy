@@ -1082,9 +1082,9 @@ async def test_old_list_routes_still_return_200(
     Verifies both the read route (GET) and write route (POST) work,
     and that the returned schema is the old flat-string format, not resource envelopes.
     """
-    from management.api.main import create_app as _create_app
     from management.api import redis_client as _redis_module_inner
     from management.api.auth import _create_access_token as _cat
+    from management.api.main import create_app as _create_app
 
     app = _create_app()
     await _redis_module_inner.init_redis(override_client=fake_redis)
@@ -1208,8 +1208,7 @@ async def test_duplicate_post_is_idempotent(
             )
 
     # Only one Hash record should exist
-    hash_keys = await fake_redis.keys("allowlist:entry:*")
-    matching = [k for k in hash_keys]
+    assert len(await fake_redis.keys("allowlist:entry:*")) == 1
     # The SET must have exactly one member for this fingerprint
     members = await fake_redis.smembers("ja4:whitelist")
     matching_members = [m for m in members if m == fingerprint]

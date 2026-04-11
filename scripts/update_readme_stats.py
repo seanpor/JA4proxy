@@ -3,6 +3,7 @@ import re
 import subprocess
 from pathlib import Path
 
+
 def get_counts():
     result = subprocess.run(['python3', 'scripts/count_lines.py'], capture_output=True, text=True)
     counts = {}

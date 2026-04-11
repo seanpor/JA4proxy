@@ -64,7 +64,6 @@ from management.api import redis_client as _redis_module  # noqa: E402
 from management.api.auth import _create_access_token  # noqa: E402
 from management.api.main import create_app  # noqa: E402
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
 

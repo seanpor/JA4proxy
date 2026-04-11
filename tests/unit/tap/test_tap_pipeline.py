@@ -839,7 +839,7 @@ class TestFingerprintExtractorOnStreamClose:
         assert result.cert_is_self_signed
 
     def test_cert_expired_flag_set_when_not_after_in_past(self):
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
 
         ext = FingerprintExtractor(config={})
         stream = _make_stream(
@@ -855,7 +855,7 @@ class TestFingerprintExtractorOnStreamClose:
         assert result.cert_is_expired
 
     def test_cert_not_expired_when_not_after_in_future(self):
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
 
         ext = FingerprintExtractor(config={})
         stream = _make_stream(

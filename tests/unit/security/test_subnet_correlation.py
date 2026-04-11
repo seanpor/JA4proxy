@@ -32,9 +32,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from src.security.models import ConnectionContext, RiskSignal
 from src.cache.local_cache import LocalCache
-
+from src.security.models import ConnectionContext, RiskSignal
 
 # ---------------------------------------------------------------------------
 # Helpers

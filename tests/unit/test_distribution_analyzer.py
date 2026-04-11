@@ -20,7 +20,6 @@ import pytest
 
 from src.analytics.distribution_analyzer import DistributionAnalyzer
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

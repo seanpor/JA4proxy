@@ -1,0 +1,105 @@
+# Phase 86e — Dynatrace EF2 Extension for JA4proxy
+#
+# Deploy: package as ZIP and upload via Dynatrace Extensions API, or
+# install via Dynatrace Hub (once published).
+#
+# Requires Dynatrace 1.270+ (Extension Framework 2).
+
+name: custom:ja4proxy
+version: "1.0.0"
+minDynatraceVersion: "1.270"
+author:
+  name: JA4proxy
+  support: security@ja4proxy.io
+
+description: >
+  Monitors JA4proxy TLS passthrough security proxy health via
+  Management API /api/v1/health/deep. Provides node health,
+  connection throughput, block rate, and Redis latency metrics.
+  Integrates with Davis AI for root cause correlation.
+
+# ── Metrics ───────────────────────────────────────────────────────────────────
+metrics:
+  - key: ext:ja4proxy.node.healthy
+    value:
+      type: int64
+    unit: Count
+    displayName: Node Health
+    description: "1 = healthy, 0 = degraded, -1 = error"
+
+  - key: ext:ja4proxy.node.redis_latency_ms
+    value:
+      type: double
+    unit: MilliSecond
+    displayName: Redis Latency
+    description: "Redis PING latency in milliseconds"
+
+  - key: ext:ja4proxy.connections.active
+    value:
+      type: int64
+    unit: Count
+    displayName: Active Connections
+    description: "Current active TLS connections"
+
+  - key: ext:ja4proxy.block_rate
+    value:
+      type: double
+    unit: Percent
+    displayName: Block Rate
+    description: "Percentage of connections blocked by security pipeline"
+
+  - key: ext:ja4proxy.dial_setting
+    value:
+      type: int64
+    unit: Count
+    displayName: Dial Setting
+    description: "Current dial value (0 = monitor, 100 = full enforcement)"
+
+  - key: ext:ja4proxy.cert_days_remaining
+    value:
+      type: double
+    unit: Day
+    displayName: Certificate Days Remaining
+    description: "Days until TLS certificate expires"
+
+  - key: ext:ja4proxy.active_bans
+    value:
+      type: int64
+    unit: Count
+    displayName: Active Bans
+    description: "Number of active IP/JA4 bans"
+
+# ── Topology ──────────────────────────────────────────────────────────────────
+topology:
+  types:
+    - name: ja4proxy:node
+      displayName: JA4proxy Node
+      rules:
+        - sources:
+            - sourceType: Metrics
+              condition: "$prefix(ext:ja4proxy)"
+          attributes:
+            - pattern: "{node}"
+              key: node_name
+            - pattern: "{host}"
+              key: host_name
+      iconRef: "network"
+
+# ── Datasources ───────────────────────────────────────────────────────────────
+# EF2 uses HTTP/REST datasource to poll the Management API.
+# The datasource calls GET /api/v1/health/deep and the metrics
+# extraction section maps the JSON response to the metric keys above.
+#
+# NOTE: The actual polling script is a separate file (plugin.py or
+# activation.py) in the extension ZIP. This YAML declares the schema.
+# The runtime plugin code reads the JSON response and calls:
+#   builder.series("ext:ja4proxy.node.healthy").point(1, {node: hostname})
+# etc.
+
+# ── Davis AI Tags ─────────────────────────────────────────────────────────────
+# These tags enable Davis AI to correlate JA4proxy anomalies with
+# infrastructure and application issues.
+#
+# Tag mapping (applied by the plugin at ingestion time):
+#   [Environment]production  — scope alerts to production nodes only
+#   ja4proxy_node:{hostname} — per-node identification for root cause analysis

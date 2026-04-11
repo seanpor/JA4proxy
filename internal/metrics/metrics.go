@@ -48,6 +48,10 @@ var (
 	AbuseIPDBQueueDroppedTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{Name: "ja4proxy_abuseipdb_queue_dropped_total", Help: "Dropped AbuseIPDB requests"},
 	)
+	AbuseIPDBLookupsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "ja4proxy_abuseipdb_lookups_total", Help: "AbuseIPDB lookup results"},
+		[]string{"result"}, // hit, miss, error
+	)
 	WeakCipherTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{Name: "ja4proxy_weak_cipher_total", Help: "Total weak cipher connections"},
 	)
@@ -182,7 +186,7 @@ func Register() {
 		ConnectionsTotal, ActiveConnections, RiskScore,
 		DialCurrent, DialChangesTotal, SecurityEventsTotal, TarpitConcurrent,
 		TarpitOverflowTotal, ConfigReloadsTotal, BypassTotal, SignalTotal,
-		AbuseIPDBQueueDroppedTotal, WeakCipherTotal, WriteBufferQueueDepth,
+		AbuseIPDBQueueDroppedTotal, AbuseIPDBLookupsTotal, WeakCipherTotal, WriteBufferQueueDepth,
 		WriteBufferDroppedTotal, TorExitListEntries, ASNClassificationTotal,
 		PipelineDurationSeconds, BlocklistMatchesTotal, DNSEnrichmentQueueDepth,
 		RDAPEnrichmentQueueDepth, AbuseIPDBEnrichmentQueueDepth,

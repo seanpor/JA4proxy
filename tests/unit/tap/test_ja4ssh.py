@@ -138,6 +138,7 @@ class TestJA4SSHEdgeCases:
         """_parse() raising → None (lines 47-48).
         So what: an unexpected internal error must not crash the tap capture loop."""
         from unittest.mock import patch
+
         import src.tap.fingerprints.ja4ssh as _mod
         with patch.object(_mod, "_parse", side_effect=RuntimeError("injected")):
             result = _mod.extract_ja4ssh(_build_kexinit(), "client")

@@ -11,18 +11,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🔵 Planned & Open Phases
 
-### Phase 60 — Master Plan and Governance
-*   **Status:** **PROPOSED** (Comprehensive quality improvement roadmap and governance framework.)
-*   **Action Plan:** [PHASE_60.md](PHASE_60.md)
-
-### Phase 64 — Deployment Validation & Disaster Recovery
-*   **Status:** **PROPOSED** (Smoke test suite (Docker Compose, Helm/kind, Podman/Quadlet); DR runbook with 5 scenarios incl. Redis data loss; credential rotation runbooks; TLS certificate rotation; rolling upgrade procedure; MTTR baseline measurement.)
-*   **Action Plan:** [PHASE_64.md](PHASE_64.md)
-
-### Phase 86 — Observability & Capacity Planning
-*   **Status:** **PROPOSED** (Datadog Agent integration tile with dashboard and 4 monitors. Dynatrace EF2 extension with topology entity type. Nagios check plugin and Zabbix template. Capacity sizing calculator script. make load-test harness. Published benchmark numbers. 7 operator runbooks.)
-*   **Action Plan:** [PHASE_86.md](PHASE_86.md)
-
 ### Phase 93 — Terraform Provider + Emergency Runbook Playbooks
 *   **Status:** **PROPOSED** (terraform-provider-ja4proxy (separate repo): 6 resource types (allowlist_entry, blocklist_entry, watchlist_entry, ban [IP+CIDR unified], dial, webhook), protect_unmanaged_entries flag, import workflow. Three emergency Ansible playbooks: emergency-ban-cidr.yml, temp-whitelist-ip.yml, maintenance-dial-zero.yml. Critical review 2026-04-09: corrected API mappings (ban uses /api/v1/bans/{ip_encoded}, no separate cidr_ban), removed 202 dial handling, added watchlist resource, added auth to playbooks.)
 *   **Action Plan:** [PHASE_93.md](PHASE_93.md)
@@ -34,10 +22,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 101 — Phase 101 — Cross-Phase Gap Register
 *   **Status:** **PROPOSED** (Rolling cross-phase register of deferred review gaps. Currently contains two sections. (1) Phase 84 Compliance Review: items deferred from the second critical review of Phase 84 (DSAR XRANGE consolidation, CIDR-aware DSAR matching, XTRIM MINID Redis-version fallback, audit log pagination, DSAR partial-failure semantics, Jinja2 module-level cache, JSONL invariant docs, dynamic retention strings, beaconing metric rename). C1-C3 / H2/H4/H5 / M3/M5/M6 / L3/L4 were closed in the review-fixes branch and are documented for reference. (2) Phase 85 Threat-Intel Hardening: per-feed safety caps, two-empty-poll gate, ja4_safe_to_block FP-corpus gate, SafeResolver-backed TCPConnector, manual-poll rate limit, CSRF middleware, RF/CrowdStrike regional endpoints, and a re-shape of the TAXII chaos + integration tests against the new FeedRunner constructor. C5-partial / C7 / H13 were closed in-branch on phase-85 and are documented for reference. Gap IDs are letter-prefixed by severity and numbered sequentially across the entire register; new sections continue from the highest existing number per letter.)
 *   **Action Plan:** [PHASE_101.md](PHASE_101.md)
-
-### Phase 200 — Go PROXY Protocol Trust + v2 Support
-*   **Status:** **PROPOSED** (Closes two critical Go gaps: (1) add `_is_trusted_proxy_source()` equivalent to prevent IP spoofing via PROXY protocol from untrusted sources, (2) implement PROXY protocol v2 binary parser (Python already has v1+v2). Without (1) any attacker can spoof any IP and bypass all geo/IP/rate/block controls. Without (2) modern HAProxy/NLB v2 headers are silently ignored.)
-*   **Action Plan:** [PHASE_200.md](PHASE_200.md)
 
 ### Phase 201 — Go Redis TLS + Signal Score Drift Fix
 *   **Status:** **PROPOSED** (Closes critical Go gaps: (1) Redis client omits TLS despite config having SSL field — credentials on wire, (2) 4 signal scores diverge from config/signal_scores.yml — wrong scoring decisions in production. Also adds: error logging for ZAdd/ZRemRangeByScore (were swallowing errors), health check with script reload after Redis outage, rate limiter input validation.)

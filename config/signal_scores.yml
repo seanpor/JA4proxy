@@ -5,8 +5,9 @@
 
 signals:
   # TLS Enforcement (Phase 3)
-  tls_version:           { score: 10, description: "Informational: TLS 1.2 used (when flag_tls_12 is true)" }
-  weak_cipher:           { score: 35, description: "Weak or null cipher suite offered" }
+  tls_version:           { score: 40, description: "Deprecated TLS 1.0/1.1 detected (tls_version_bypass disabled — scored instead of hard-blocked)" }
+  tls_12:                { score: 10, description: "Informational: TLS 1.2 used (when flag_tls_12 is true)" }
+  weak_cipher:           { score: 20, description: "Weak or null cipher suite offered (default; overridable via security_policy.weak_cipher_score)" }
   ja4_tls_mismatch:      { score_cap: 35, description: "JA4-claimed TLS version differs from actual negotiated version — fingerprint spoofing indicator" }
 
   # SNI Analysis (Phase 4)
@@ -19,9 +20,10 @@ signals:
   ja4t_mismatch:         { score: 30, description: "TCP fingerprint vs TLS fingerprint mismatch" }
   no_resumption:         { score: 15, description: "Zero session resumption rate detected" }
   short_lived:           { score: 20, description: "Connection lifespan below threshold" }
-  high_concurrency:      { score: 40, description: "Very high concurrent connection count" }
-  moderate_concurrency:  { score: 25, description: "High concurrent connection count" }
-  low_concurrency:       { score: 10, description: "Moderate concurrent connection count" }
+  severe_concurrency:    { score: 40, description: "Severe concurrent connection count (>= severe threshold; Python only currently)" }
+  high_concurrency:      { score: 25, description: "High concurrent connection count (>= high threshold)" }
+  moderate_concurrency:  { score: 10, description: "Moderate concurrent connection count (>= moderate threshold)" }
+  low_concurrency:       { score: 10, description: "Low concurrent connection count" }
   tls_alert_rate:        { score: 20, description: "High rate of TLS alert messages" }
   return_visitor:        { score: -20, description: "Trust reward for long-term clean IP (reduces score)" }
 

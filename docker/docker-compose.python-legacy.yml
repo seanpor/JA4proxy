@@ -6,7 +6,8 @@
 #   or:  make go-start  (starts Python legacy proxy for parity comparison)
 #
 # Python proxy listens on :8083 (host) / :8080 (container)
-# Python metrics listen on :9093 (host) / :9090 (container)
+# Python metrics listen on :9094 (host) / :9090 (container)
+#   Note: :9093 would collide with Alertmanager in docker-compose.monitoring.yml.
 # Go proxy (primary) remains on :8081 / :9090.
 # Both proxies share the same Redis instance (ja4proxy-data).
 
@@ -17,7 +18,7 @@ services:
       dockerfile: docker/Dockerfile
     ports:
       - "${AGENT_BIND_IP:-127.0.0.1}:8083:8080"
-      - "${AGENT_BIND_IP:-127.0.0.1}:9093:9090"
+      - "${AGENT_BIND_IP:-127.0.0.1}:9094:9090"
     environment:
       REDIS_HOST: "${REDIS_HOST:-redis}"
       REDIS_PORT: "${REDIS_PORT:-6379}"

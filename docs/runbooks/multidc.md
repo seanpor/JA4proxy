@@ -1,3 +1,10 @@
+<!--
+title: "mulTIdc Runbook"
+audience: oncall, sre
+last_reviewed: 2026-04-10
+phase: 86
+-->
+
 # Multi-DC Survivability & Failover Runbook
 
 This runbook covers cross-datacenter state replication, consistency protocols, and disaster recovery procedures for JA4proxy multi-DC deployments.

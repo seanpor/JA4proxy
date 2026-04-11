@@ -80,9 +80,6 @@ type PipelineConfig struct {
 	WhitelistSuffs []string // pattern suffixes for ALPN-based bypass
 	Blacklist      map[string]bool
 
-	// Mutex for thread-safe list updates
-	mu sync.RWMutex
-
 	// Scoring thresholds (from risk_scorer.thresholds)
 	Thresholds map[string]int
 
@@ -283,7 +280,7 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	}
 
 	// TLS enforcement (hard block check first)
-	if tlsSigs, hardBlock := p.tlsEnforcer.Check(uint16(conn.TLSVersion), uint16s(conn.CipherList)); hardBlock {
+	if tlsSigs, hardBlock := p.tlsEnforcer.Check(uint16(conn.TLSVersion), uint16s(conn.CipherList)); hardBlock { //nolint:gosec // TLS version is always uint16 range
 		return &PipelineResult{Action: "block", Score: 100, BypassReason: "tls_enforcement"}
 	} else {
 		signals = append(signals, tlsSigs...)
@@ -556,7 +553,6 @@ func buildRDAPConfig(cfg *PipelineConfig) *RDAPConfig {
 	}
 }
 
-
 // buildASNClassifierConfig creates an ASNClassifierConfig from the pipeline config.
 func buildASNClassifierConfig(cfg *PipelineConfig) *ASNClassifierConfig {
 	return &ASNClassifierConfig{
@@ -632,7 +628,7 @@ func defaultInt(v, def int) int {
 func uint16s(in []int) []uint16 {
 	out := make([]uint16, len(in))
 	for i, v := range in {
-		out[i] = uint16(v)
+		out[i] = uint16(v) //nolint:gosec // cipher suite IDs are uint16 by TLS spec
 	}
 	return out
 }

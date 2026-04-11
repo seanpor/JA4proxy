@@ -35,7 +35,7 @@ except ImportError:  # pragma: no cover
 
 from .base import FeedClient, FeedConfig, FeedPollResult
 from .metrics import TI_POLL_TOTAL as _POLL_TOTAL
-from .taxii import TAXIIClient, _BATCH_SIZE, _INTER_BATCH_SLEEP_S  # noqa: F401
+from .taxii import _BATCH_SIZE, _INTER_BATCH_SLEEP_S, TAXIIClient  # noqa: F401
 
 logger = logging.getLogger(__name__)
 

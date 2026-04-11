@@ -1,14 +1,14 @@
 # Core dependencies
 aiohttp>=3.9,<4
 uvloop>=0.21.0; sys_platform == "linux" and python_version >= "3.14"  # phase-68
-# urllib3: pinned to 1.x by transitive dep (locust 2.17). Tracked in security backlog.
-# CVE-2025-50181/66418/66471/CVE-2026-21441 acknowledged; upgrade when locust drops 1.x constraint.
+urllib3>=2.6.3  # CVE-2025-50181/66418/66471/CVE-2026-21441 — upgraded from 1.x
 asyncio-throttle==1.0.2
 aiodns==4.0.0
 cryptography>=44.0.3
 prometheus-client==0.19.0
 pyyaml==6.0.1
 redis==5.0.1
+fastapi>=0.104,<1  # Management API + /health/deep endpoint tests
 scapy>=2.6.1
 sse-starlette>=1.6.5
 
@@ -18,13 +18,13 @@ geoip2==4.7.0
 hypothesis==6.88.1
 pip-audit>=2.7.0       # replaces safety (safety 3.x requires auth)
 bandit==1.7.5
-semgrep==1.45.0
+semgrep>=1.100.0
 
 # Testing dependencies
 fakeredis>=2.21,<3          # in-process Redis fake for integration tests (P19-G6)
 croniter>=2.0,<3            # cron expression parser for BackupScheduler (P19-G1)
 pytest==7.4.3
-pytest-asyncio==0.21.1
+pytest-asyncio==0.23.8  # >=0.23 for hypothesis + asyncio compat; <1.0 for pytest 7.x compat
 pytest-cov==4.1.0
 pytest-mock==3.12.0
 pytest-xdist==3.5.0
@@ -45,10 +45,12 @@ cerberus==1.3.5
 # Requires libseccomp-dev on the host: apt-get install libseccomp-dev
 # python3-seccomp>=2.5.0
 
-boto3>=1.34              # phase-57b: S3 cloud backup adapter
+boto3>=1.35              # phase-57b: S3 cloud backup adapter (>=1.35 for urllib3 2.x compat)
 moto[s3]>=5.0            # phase-57b: S3 mock for tests
 google-cloud-storage>=2.0  # phase-57c: GCS backup adapter (optional)
 
 tomli>=2.0; python_version < "3.11"  # phase-92: TOML validation fallback for Python 3.10
 
 jsonpath-ng==1.6.1  # phase-85: REST generic TI feed client (src/analytics/ti_feeds/rest_generic.py)
+
+mcp>=1.23.0  # CVE-2025-66416 — transitive dep of semgrep; pinned to force safe resolution

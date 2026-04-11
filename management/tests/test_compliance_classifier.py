@@ -9,10 +9,10 @@ Quality bar
 """
 
 import copy
+
 import pytest
 
 from management.compliance.classifier import SignalClassifier
-
 
 # ── classify() ───────────────────────────────────────────────────────────────
 

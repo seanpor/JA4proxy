@@ -1,3 +1,10 @@
+<!--
+title: "SLO latency Runbook"
+audience: oncall, sre
+last_reviewed: 2026-04-10
+phase: 86
+-->
+
 # Runbook — SLO: Latency (p99 < 10 ms)
 
 > **Alert sources:** `JA4ProxyLatencyFastBurn`, `JA4ProxyLatencySlowBurn`
