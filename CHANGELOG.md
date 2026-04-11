@@ -1,5 +1,27 @@
 # Changelog
 
+## Phase 93 — Terraform Provider + Emergency Runbook Playbooks
+
+### Added
+- **93.1–93.5:** Terraform provider (`github.com/anomalyco/terraform-provider-ja4proxy`)
+  with 6 resources: `ja4proxy_allowlist_entry`, `ja4proxy_blocklist_entry`,
+  `ja4proxy_watchlist_entry`, `ja4proxy_ban`, `ja4proxy_dial`, `ja4proxy_webhook`
+- **93.1–93.5:** `ResourceData` struct bundles `*client.Client` + `ProtectUnmanaged` flag,
+  passed from provider to all resources via `Configure()`
+- **93.6–93.7:** 3 emergency Ansible playbooks (`emergency-ban-cidr.yml`,
+  `temp-whitelist-ip.yml`, `maintenance-dial-zero.yml`) with Bearer token auth
+- **93.6–93.7:** `deploy/terraform/README.md` — usage examples and provider reference
+- **93.6–93.7:** `docs/runbooks/emergency_playbooks.md` — operator runbook guide
+- **93.6–93.7:** `make test-phase-93` target runs Go tests + Python playbook tests
+
+### Fixed
+- **93-fix:** `protect_unmanaged_entries` provider flag is now functional:
+  - `ResourceWithModifyPlan` implemented on all 3 list resources — emits a plan-time
+    warning with import command when an unmanaged entry would be destroyed
+  - `Delete` methods skip API call and emit warning when `managed_by != "terraform"`
+    and `protect_unmanaged_entries = true`
+  - 6 new unit tests verify interface implementation and flag behavior
+
 ## Phase 86h — Fixup: Correctness Bugs From Phase 86
 
 ### Fixed
