@@ -186,6 +186,74 @@ class TestPhase86iOpenMetricsConfig:
             "openmetrics config must declare at least one metric allowlist entry"
         )
 
+    def _exported_proxy_metrics(self):
+        import re
+        metrics_go = (
+            Path(__file__).resolve().parents[2]
+            / "internal" / "metrics" / "metrics.go"
+        )
+        src = metrics_go.read_text()
+        return set(re.findall(r'Name:\s*"(ja4proxy_[a-z0-9_]+)"', src))
+
+    def test_openmetrics_allowlist_only_has_real_metrics(self):
+        """Phase 86i reviewer blocker 3: every metric in the allowlist
+        must be actually exported by the Go proxy. Cross-check against
+        internal/metrics/metrics.go."""
+        exported = self._exported_proxy_metrics()
+        with open(self.OPENMETRICS_CONF) as f:
+            data = yaml.safe_load(f)
+        bad: list[tuple[int, str]] = []
+        for idx, inst in enumerate(data.get("instances", [])):
+            for m in inst.get("metrics", []):
+                # Accept plain names; openmetrics also accepts regex dicts,
+                # but our allowlist uses plain strings.
+                if isinstance(m, str) and m not in exported:
+                    bad.append((idx, m))
+        assert not bad, (
+            "Phase 86i reviewer blocker 3: openmetrics allowlist includes "
+            "metrics the proxy does not export:\n"
+            + "\n".join(f"  instance[{i}]: {m}" for i, m in bad)
+        )
+
+    def test_openmetrics_config_has_type_overrides(self):
+        """type_overrides must be present with at least one histogram
+        so Datadog preserves histogram semantics instead of flattening
+        the _bucket/_count/_sum triples into unrelated gauges."""
+        with open(self.OPENMETRICS_CONF) as f:
+            data = yaml.safe_load(f)
+        for idx, inst in enumerate(data.get("instances", [])):
+            overrides = inst.get("type_overrides")
+            assert overrides, (
+                f"instance[{idx}] missing type_overrides"
+            )
+            assert any(t == "histogram" for t in overrides.values()), (
+                f"instance[{idx}] type_overrides must include at least "
+                f"one histogram entry, got: {overrides}"
+            )
+            # pipeline_duration_seconds must specifically be a histogram.
+            assert (
+                overrides.get("ja4proxy_pipeline_duration_seconds") == "histogram"
+            ), (
+                f"instance[{idx}]: ja4proxy_pipeline_duration_seconds "
+                f"must be overridden to 'histogram'"
+            )
+
+    def test_openmetrics_collects_histogram_buckets(self):
+        """Either collect_histogram_buckets: true or the v2 Datadog
+        openmetrics distributions flag must be set, otherwise histograms
+        arrive in Datadog with no bucket fidelity."""
+        with open(self.OPENMETRICS_CONF) as f:
+            data = yaml.safe_load(f)
+        for idx, inst in enumerate(data.get("instances", [])):
+            has_buckets = inst.get("collect_histogram_buckets") is True
+            has_distributions = inst.get(
+                "histogram_buckets_as_distributions"
+            ) is True
+            assert has_buckets or has_distributions, (
+                f"instance[{idx}]: one of collect_histogram_buckets or "
+                f"histogram_buckets_as_distributions must be true"
+            )
+
     def test_openmetrics_config_one_instance_per_node(self):
         """Template must have >1 instance, each tagged with node."""
         assert self.OPENMETRICS_CONF.exists()

@@ -2,7 +2,7 @@
 #
 # This config scrapes the ja4proxy /metrics Prometheus endpoint directly via
 # the Datadog Agent's built-in OpenMetrics integration. It preserves all
-# Prometheus label richness (action, bypass, signal, le, ...) that the
+# Prometheus label richness (action, rule, signal, le, ...) that the
 # custom check (Layer 2) used to discard.
 #
 # Install:
@@ -11,6 +11,12 @@
 #
 # One instance per proxy node — duplicate the template block and set
 # `openmetrics_endpoint` and the `node:` tag accordingly.
+#
+# The metric allowlist below was audited against internal/metrics/metrics.go
+# in the reviewer-blocker-3 fix (see PHASE_86i_notes.md). Every entry is
+# a metric the Go proxy actually exports. `type_overrides` pins histograms
+# and counters to their correct Prometheus types so Datadog ingests them
+# as distributions / counts instead of silently rewriting them as gauges.
 
 init_config:
 
@@ -18,45 +24,73 @@ instances:
   - openmetrics_endpoint: http://ja4proxy-node-1:8090/metrics
     namespace: ja4proxy
     min_collection_interval: 15
+    collect_histogram_buckets: true
+    histogram_buckets_as_distributions: true
     tags:
       - "node:ja4proxy-node-1"
       - "service:ja4proxy"
     metrics:
+      # Counters
       - ja4proxy_connections_total
-      - ja4proxy_connections_active
-      - ja4proxy_block_rate
-      - ja4proxy_block_rate_pct
-      - ja4proxy_pipeline_duration_seconds
-      - ja4proxy_risk_score_distribution
-      - ja4proxy_dial_setting
-      - ja4proxy_redis_latency_seconds
-      - ja4proxy_cert_days_remaining
-      - ja4proxy_bans_active
-      - ja4proxy_abuseipdb_lookups_total
-      - ja4proxy_tarpit_pool_size
-      - ja4proxy_signal_duration_seconds
       - ja4proxy_bypass_total
-      - ja4proxy_action_total
+      - ja4proxy_signal_total
+      - ja4proxy_security_events_total
+      - ja4proxy_abuseipdb_lookups_total
+      - ja4proxy_connection_errors_total
+      - ja4proxy_redis_operations_total
+      - ja4proxy_tarpit_overflow_total
+      # Gauges
+      - ja4proxy_active_connections
+      - ja4proxy_dial_current
+      - ja4proxy_tarpit_concurrent
+      - ja4proxy_tls_cert_expiry_timestamp_seconds
+      # Histograms (declared as histograms in type_overrides below so
+      # Datadog ingests the _bucket/_count/_sum triples as distributions)
+      - ja4proxy_pipeline_duration_seconds
+      - ja4proxy_risk_score
+    type_overrides:
+      ja4proxy_pipeline_duration_seconds: histogram
+      ja4proxy_risk_score: histogram
+      ja4proxy_connections_total: counter
+      ja4proxy_bypass_total: counter
+      ja4proxy_signal_total: counter
+      ja4proxy_security_events_total: counter
+      ja4proxy_abuseipdb_lookups_total: counter
+      ja4proxy_connection_errors_total: counter
+      ja4proxy_redis_operations_total: counter
+      ja4proxy_tarpit_overflow_total: counter
 
   - openmetrics_endpoint: http://ja4proxy-node-2:8090/metrics
     namespace: ja4proxy
     min_collection_interval: 15
+    collect_histogram_buckets: true
+    histogram_buckets_as_distributions: true
     tags:
       - "node:ja4proxy-node-2"
       - "service:ja4proxy"
     metrics:
       - ja4proxy_connections_total
-      - ja4proxy_connections_active
-      - ja4proxy_block_rate
-      - ja4proxy_block_rate_pct
-      - ja4proxy_pipeline_duration_seconds
-      - ja4proxy_risk_score_distribution
-      - ja4proxy_dial_setting
-      - ja4proxy_redis_latency_seconds
-      - ja4proxy_cert_days_remaining
-      - ja4proxy_bans_active
-      - ja4proxy_abuseipdb_lookups_total
-      - ja4proxy_tarpit_pool_size
-      - ja4proxy_signal_duration_seconds
       - ja4proxy_bypass_total
-      - ja4proxy_action_total
+      - ja4proxy_signal_total
+      - ja4proxy_security_events_total
+      - ja4proxy_abuseipdb_lookups_total
+      - ja4proxy_connection_errors_total
+      - ja4proxy_redis_operations_total
+      - ja4proxy_tarpit_overflow_total
+      - ja4proxy_active_connections
+      - ja4proxy_dial_current
+      - ja4proxy_tarpit_concurrent
+      - ja4proxy_tls_cert_expiry_timestamp_seconds
+      - ja4proxy_pipeline_duration_seconds
+      - ja4proxy_risk_score
+    type_overrides:
+      ja4proxy_pipeline_duration_seconds: histogram
+      ja4proxy_risk_score: histogram
+      ja4proxy_connections_total: counter
+      ja4proxy_bypass_total: counter
+      ja4proxy_signal_total: counter
+      ja4proxy_security_events_total: counter
+      ja4proxy_abuseipdb_lookups_total: counter
+      ja4proxy_connection_errors_total: counter
+      ja4proxy_redis_operations_total: counter
+      ja4proxy_tarpit_overflow_total: counter
