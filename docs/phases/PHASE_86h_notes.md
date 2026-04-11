@@ -106,6 +106,46 @@ scope for this phase:
 
 ---
 
+## Review round fixes
+
+Critical review of the initial Phase 86h commits identified six issues.
+All fixed on `claude/phase-86h-fixup`:
+
+- **MAJOR 1 — fixer validates mapping targets.** `scripts/fix_runbook_urls.py`
+  now takes a `--runbooks-dir` (default `docs/runbooks/`) and, after loading
+  the mapping, verifies every target resolves to an existing file under that
+  directory. Bad mapping entries cause a non-zero exit before any rule file
+  is touched, in both apply and `--check` mode. New test:
+  `test_fix_runbook_urls_rejects_mapping_with_nonexistent_target`.
+
+- **MAJOR 2 — `--require-measured` exit code 3.** Previously used exit 2,
+  which collides with argparse's own exit 2 for bad CLI invocations. CI
+  guards can now branch on 3 vs 2 cleanly. Docstring and `--help` text
+  document the new code. Existing Phase 86h test only asserts `!= 0` so
+  no test update was needed.
+
+- **MAJOR 3 — fixer is atomic on error.** The fixer now uses a two-pass
+  design: first pass plans every rewrite and collects every error; if any
+  error exists, NOTHING is written. Prevents half-rewritten files when one
+  alert in a file is unmapped. New test:
+  `test_fix_runbook_urls_no_partial_writes_on_error`.
+
+- **MINOR 4 — docstring honest about trailing comments.** Module docstring
+  and an inline comment above `_RUNBOOK_RE` now say the line rewrite does
+  not preserve trailing comments on the `runbook_url:` line. No in-tree
+  rule file uses that pattern, so no behaviour change required.
+
+- **MINOR 5 — report "Benchmark source" line suffixed in estimated mode.**
+  `print_report` now appends `(placeholders — see banner)` to the
+  benchmark-source line when the report is in estimated mode, so a reader
+  scanning the body of the report cannot miss that the numbers are not
+  measured.
+
+- **NIT 6 — ebpf stub diagnosis tightened.** Removed the nonsensical
+  `make test` "health baseline" bullet from
+  `docs/runbooks/ebpf_volumetric_attack.md`. Dashboard + kernel counters
+  remain.
+
 ## Known cosmetic issue (not introduced by this phase)
 
 The Coder noted that the Kafka exporter emits a stderr logging error at
