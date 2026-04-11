@@ -1,33 +1,35 @@
 #!/usr/bin/env python3
 """
-Phase 86e — Dynatrace EF2 runtime plugin for JA4proxy.
+Phase 86e / 86i — Dynatrace EF2 runtime plugin for JA4proxy.
 
-This plugin polls the JA4proxy Management API `/api/v1/health/deep`
-endpoint and maps the JSON response to Dynatrace metrics declared in
-`extension.yaml`.
+Phase 86i change:
+    The plugin now scrapes the ja4proxy Prometheus ``/metrics`` endpoint
+    instead of polling the Management API ``/api/v1/health/deep``. This
+    preserves every label (bypass, action, signal, le, ...) that the
+    JSON-flattening approach previously discarded.
 
 Deploy:
     1. Package this file and extension.yaml into a ZIP:
        zip ja4proxy-extension.zip extension.yaml plugin.py
     2. Upload via Dynatrace Extensions API:
-       curl -X POST "https://{tenant}.live.dynatrace.com/api/v2/extensions" \
-         -H "Authorization: Api-Token {token}" \
+       curl -X POST "https://{tenant}.live.dynatrace.com/api/v2/extensions" \\
+         -H "Authorization: Api-Token {token}" \\
          -F "file=@ja4proxy-extension.zip"
 
 Configuration (set in Dynatrace UI under the extension settings):
-    management_url  — Base URL of the JA4proxy Management API
-                      (e.g. https://ja4proxy-mgmt.corp.internal)
-    api_token       — Bearer token for the Management API (optional)
+    metrics_url    — URL of the ja4proxy /metrics Prometheus endpoint
+                     (e.g. http://ja4proxy-node-1:8090/metrics)
+    api_token      — optional Bearer token for the /metrics endpoint
 """
 
 from __future__ import annotations
 
-import json
+import logging
 import ssl
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Tuple
 
 # Dynatrace EF2 imports — these are provided by the Dynatrace runtime.
 # They will NOT be available when running this file locally.
@@ -42,155 +44,189 @@ except ImportError:
     HAS_DT = False
 
 
+_log = logging.getLogger("ja4proxy.dynatrace")
+
+
+# ── Minimal Prometheus text-format parser ───────────────────────────────────
+
+
+def _parse_labels(label_str: str) -> Dict[str, str]:
+    """Parse the inside of `{...}` into a label dict. Accepts the common
+    `key="value"` form used by the standard exposition. Not a full parser
+    (no escaped quotes with commas), but sufficient for ja4proxy output."""
+    labels: Dict[str, str] = {}
+    if not label_str:
+        return labels
+    # split on commas not inside quotes (simple heuristic — ja4proxy label
+    # values never contain commas).
+    parts = []
+    buf = ""
+    in_quote = False
+    for ch in label_str:
+        if ch == '"':
+            in_quote = not in_quote
+            buf += ch
+        elif ch == "," and not in_quote:
+            parts.append(buf)
+            buf = ""
+        else:
+            buf += ch
+    if buf:
+        parts.append(buf)
+    for p in parts:
+        if "=" not in p:
+            continue
+        k, _, v = p.partition("=")
+        labels[k.strip()] = v.strip().strip('"')
+    return labels
+
+
+def parse_prometheus_text(text: str) -> List[Tuple[str, Dict[str, str], float]]:
+    """Parse Prometheus text exposition into a list of
+    ``(metric_name, labels, value)`` triples.
+
+    Handles counter, gauge, and histogram ``_bucket`` / ``_sum`` / ``_count``
+    lines. HELP/TYPE comment lines are ignored. Non-numeric values, NaN,
+    and malformed lines are skipped.
+    """
+    samples: List[Tuple[str, Dict[str, str], float]] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        # Split off the trailing value.
+        if "{" in line and "}" in line:
+            name_part, _, rest = line.partition("{")
+            label_part, _, value_part = rest.partition("}")
+            name = name_part.strip()
+            labels = _parse_labels(label_part)
+            value_str = value_part.strip().split()[0] if value_part.strip() else ""
+        else:
+            # No labels: `name value [timestamp]`
+            pieces = line.split()
+            if len(pieces) < 2:
+                continue
+            name = pieces[0]
+            labels = {}
+            value_str = pieces[1]
+        if not value_str:
+            continue
+        try:
+            value = float(value_str)
+        except ValueError:
+            continue
+        samples.append((name, labels, value))
+    return samples
+
+
+def scrape_metrics(url: str, api_token: str = "", timeout: float = 10.0) -> List[Tuple[str, Dict[str, str], float]]:
+    """Fetch a Prometheus ``/metrics`` endpoint and return parsed samples.
+
+    On any failure (network, HTTP, parse), logs a single error line and
+    returns an empty list — never raises. This preserves the fail-open
+    principle: a broken Dynatrace scrape must never interrupt the proxy.
+    """
+    req = urllib.request.Request(url, headers={"Accept": "text/plain"})
+    if api_token:
+        req.add_header("Authorization", f"Bearer {api_token}")
+    try:
+        ctx = ssl.create_default_context() if url.startswith("https") else None
+        with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:  # nosemgrep
+            body = resp.read().decode("utf-8", errors="replace")
+    except Exception as exc:  # OSError, HTTPError, URLError, ssl.SSLError
+        _log.error("ja4proxy dynatrace scrape failed: url=%s err=%s", url, exc)
+        return []
+    try:
+        return parse_prometheus_text(body)
+    except Exception as exc:
+        _log.error("ja4proxy dynatrace parse failed: %s", exc)
+        return []
+
+
+# ── Plugin class ────────────────────────────────────────────────────────────
+
+
 class JA4proxyPlugin:
-    """Dynatrace EF2 plugin that polls JA4proxy health/deep endpoint."""
+    """Dynatrace EF2 plugin that scrapes the ja4proxy /metrics endpoint."""
 
     def __init__(self, config: Dict[str, Any]):
-        self.management_url = config.get("management_url", "").rstrip("/")
+        # Back-compat: accept either `metrics_url` (new) or derive from
+        # `management_url` (pre-86i config).
+        metrics_url = config.get("metrics_url", "")
+        if not metrics_url:
+            mgmt = config.get("management_url", "").rstrip("/")
+            if mgmt:
+                metrics_url = f"{mgmt}/metrics"
+        self.metrics_url = metrics_url
         self.api_token = config.get("api_token", "")
         self.timeout = config.get("timeout", 10)
 
-        if not self.management_url:
-            raise ValueError("management_url is required in plugin configuration")
-
-        # SSL context — use system CAs by default
-        self.ssl_ctx = ssl.create_default_context()
+        if not self.metrics_url:
+            raise ValueError(
+                "metrics_url (or management_url) is required in plugin configuration"
+            )
 
     def query(self, **kwargs) -> List[Any]:
-        """
-        Called by the Dynatrace runtime on each collection interval.
-
-        Returns a list of metric series objects. Each series object maps
-        to a metric key declared in extension.yaml.
-
-        Args:
-            **kwargs: Additional arguments from the Dynatrace datasource
-                      configuration (e.g., feature activation flags).
-        """
+        """Called by the Dynatrace runtime on each collection interval.
+        Returns a list of metric series objects mapped from the
+        Prometheus exposition."""
         if not HAS_DT:
             # Running locally — skip (no Dynatrace runtime available)
             return []
 
-        dtlog.info(f"JA4proxyPlugin: polling {self.management_url}")
-
-        try:
-            data = self._fetch_health()
-        except Exception as exc:
-            dtlog.warning(f"JA4proxyPlugin: failed to poll health endpoint: {exc}")
-            return self._series_on_error()
-
-        return self._build_series(data)
-
-    def _fetch_health(self) -> Dict[str, Any]:
-        """GET /api/v1/health/deep and return parsed JSON."""
-        req = urllib.request.Request(
-            f"{self.management_url}/api/v1/health/deep",
-            headers={"Accept": "application/json"},
+        dtlog.info(f"JA4proxyPlugin: scraping {self.metrics_url}")
+        samples = scrape_metrics(
+            self.metrics_url,
+            api_token=self.api_token,
+            timeout=self.timeout,
         )
-        if self.api_token:
-            req.add_header("Authorization", f"Bearer {self.api_token}")
+        if not samples:
+            return []
+        return self._build_series(samples)
 
-        with urllib.request.urlopen(req, timeout=self.timeout, context=self.ssl_ctx) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-            return json.loads(resp.read().decode())
+    def _build_series(
+        self, samples: List[Tuple[str, Dict[str, str], float]]
+    ) -> List[Any]:
+        """Map Prometheus samples to Dynatrace metric series.
 
-    def _build_series(self, data: Dict[str, Any]) -> List[Any]:
-        """Map health/deep JSON to Dynatrace metric series."""
+        Only a curated subset is forwarded — declared in extension.yaml.
+        """
         if not HAS_DT:
             return []
 
         node_name = self._extract_node_name()
         dt_now = int(datetime.now(timezone.utc).timestamp() * 1000)
 
-        series = []
+        # prometheus name -> dynatrace metric key
+        name_map = {
+            "ja4proxy_connections_active": "ext:ja4proxy.connections.active",
+            "ja4proxy_redis_latency_seconds": "ext:ja4proxy.node.redis_latency_ms",
+            "ja4proxy_block_rate": "ext:ja4proxy.block_rate",
+            "ja4proxy_dial_setting": "ext:ja4proxy.dial_setting",
+            "ja4proxy_cert_days_remaining": "ext:ja4proxy.cert_days_remaining",
+            "ja4proxy_bans_active": "ext:ja4proxy.active_bans",
+            "ja4proxy_node_healthy": "ext:ja4proxy.node.healthy",
+        }
 
-        # ja4proxy:node topology
-        topology_series = dt.TopologyBuilder() \
-            .series("ja4proxy:node") \
-            .dimensions(node_name=node_name) \
-            .build()
-        series.append(topology_series)
-
-        # Metrics
-        status = data.get("status", "unknown")
-        healthy_val = {"ok": 1, "degraded": 0, "error": -1}.get(status, -1)
-
+        series: List[Any] = []
         series.append(
-            dt.series("ext:ja4proxy.node.healthy")
-            .dimensions(node=node_name)
-            .point(healthy_val, dt_now)
+            dt.TopologyBuilder()
+            .series("ja4proxy:node")
+            .dimensions(node_name=node_name)
             .build()
         )
 
-        redis_ms = data.get("redis_latency_ms")
-        if redis_ms is not None:
-            series.append(
-                dt.series("ext:ja4proxy.node.redis_latency_ms")
-                .dimensions(node=node_name)
-                .point(float(redis_ms), dt_now)
-                .build()
-            )
-
-        active = data.get("active_connections")
-        if active is not None:
-            series.append(
-                dt.series("ext:ja4proxy.connections.active")
-                .dimensions(node=node_name)
-                .point(int(active), dt_now)
-                .build()
-            )
-
-        block_rate = data.get("block_rate_pct")
-        if block_rate is not None:
-            series.append(
-                dt.series("ext:ja4proxy.block_rate")
-                .dimensions(node=node_name)
-                .point(float(block_rate), dt_now)
-                .build()
-            )
-
-        dial = data.get("dial")
-        if dial is not None:
-            series.append(
-                dt.series("ext:ja4proxy.dial_setting")
-                .dimensions(node=node_name)
-                .point(int(dial), dt_now)
-                .build()
-            )
-
-        cert_days = data.get("cert_days_remaining")
-        if cert_days is not None:
-            series.append(
-                dt.series("ext:ja4proxy.cert_days_remaining")
-                .dimensions(node=node_name)
-                .point(float(cert_days), dt_now)
-                .build()
-            )
-
-        active_bans = data.get("active_bans")
-        if active_bans is not None:
-            series.append(
-                dt.series("ext:ja4proxy.active_bans")
-                .dimensions(node=node_name)
-                .point(int(active_bans), dt_now)
-                .build()
-            )
+        for name, labels, value in samples:
+            dt_key = name_map.get(name)
+            if not dt_key:
+                continue
+            # redis latency: convert seconds -> ms for back-compat.
+            if name == "ja4proxy_redis_latency_seconds":
+                value = value * 1000.0
+            builder = dt.series(dt_key).dimensions(node=node_name, **labels)
+            series.append(builder.point(value, dt_now).build())
 
         return series
-
-    def _series_on_error(self) -> List[Any]:
-        """Return a single error metric when the health endpoint is unreachable."""
-        if not HAS_DT:
-            return []
-
-        node_name = self._extract_node_name()
-        dt_now = int(datetime.now(timezone.utc).timestamp() * 1000)
-
-        return [
-            dt.series("ext:ja4proxy.node.healthy")
-            .dimensions(node=node_name)
-            .point(-1, dt_now)
-            .build()
-        ]
 
     def _extract_node_name(self) -> str:
         """Derive a node name for topology and dimension tagging."""
@@ -199,7 +235,7 @@ class JA4proxyPlugin:
 
 
 # ── Entry point for Dynatrace EF2 ─────────────────────────────────────────────
-# The Dynatrace runtime calls this function with the extension configuration.
+
 
 def build(config: Dict[str, Any], **kwargs) -> JA4proxyPlugin:
     """Factory function called by Dynatrace EF2 runtime."""
