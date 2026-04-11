@@ -298,3 +298,96 @@ def test_fix_runbook_urls_check_mode_exits_zero_when_clean(tmp_path: Path):
         "fix_runbook_urls.py --check must exit 0 on clean files. "
         f"stdout={result.stdout!r} stderr={result.stderr!r}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Review-round guards: mapping target validation + atomic-on-error
+# ---------------------------------------------------------------------------
+
+def test_fix_runbook_urls_rejects_mapping_with_nonexistent_target(tmp_path: Path):
+    """MAJOR 1: a mapping whose target file does not exist under
+    --runbooks-dir must cause the fixer to exit non-zero WITHOUT writing any
+    rule file.
+    """
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    rule_file = rules_dir / "fixture.yml"
+    rule_file.write_text(_DIRTY_RULE_FIXTURE)
+    original_bytes = rule_file.read_bytes()
+
+    runbooks_dir = tmp_path / "runbooks"
+    runbooks_dir.mkdir()
+    # Create only one of the two targets so the mapping has both valid and
+    # invalid entries.
+    (runbooks_dir / "ja4proxy_node_unhealthy.md").write_text("# stub\n")
+
+    mapping_file = tmp_path / "mapping.yml"
+    mapping_file.write_text(
+        "FixtureAlertOne: this_runbook_does_not_exist.md\n"
+        "FixtureAlertTwo: ja4proxy_node_unhealthy.md\n"
+    )
+
+    # Apply mode
+    result = _run_fixer(
+        "--rules-dir", str(rules_dir),
+        "--mapping", str(mapping_file),
+        "--runbooks-dir", str(runbooks_dir),
+    )
+    assert result.returncode != 0, (
+        "Fixer must exit non-zero when a mapping target does not exist "
+        f"under --runbooks-dir. stdout={result.stdout!r} stderr={result.stderr!r}"
+    )
+    assert "this_runbook_does_not_exist.md" in result.stderr, (
+        f"Error message must name the missing target. stderr={result.stderr!r}"
+    )
+    assert rule_file.read_bytes() == original_bytes, (
+        "Fixer must NOT modify the rule file when the mapping is invalid."
+    )
+
+    # --check mode: same invariant
+    result_check = _run_fixer(
+        "--rules-dir", str(rules_dir),
+        "--mapping", str(mapping_file),
+        "--runbooks-dir", str(runbooks_dir),
+        "--check",
+    )
+    assert result_check.returncode != 0
+    assert rule_file.read_bytes() == original_bytes
+
+
+def test_fix_runbook_urls_no_partial_writes_on_error(tmp_path: Path):
+    """MAJOR 3: when a rule file has both a mappable alert and an unmapped
+    alert, the fixer must NOT rewrite the mappable lines. Operator should
+    never see a half-rewritten file on disk.
+    """
+    rules_dir = tmp_path / "rules"
+    rules_dir.mkdir()
+    rule_file = rules_dir / "fixture.yml"
+    rule_file.write_text(_DIRTY_RULE_FIXTURE)
+    original_bytes = rule_file.read_bytes()
+
+    runbooks_dir = tmp_path / "runbooks"
+    runbooks_dir.mkdir()
+    (runbooks_dir / "ja4proxy_node_unhealthy.md").write_text("# stub\n")
+
+    # Mapping covers FixtureAlertOne only; FixtureAlertTwo is unmapped.
+    mapping_file = tmp_path / "mapping.yml"
+    mapping_file.write_text("FixtureAlertOne: ja4proxy_node_unhealthy.md\n")
+
+    result = _run_fixer(
+        "--rules-dir", str(rules_dir),
+        "--mapping", str(mapping_file),
+        "--runbooks-dir", str(runbooks_dir),
+    )
+    assert result.returncode != 0, (
+        "Fixer must exit non-zero when any alert is unmapped. "
+        f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    )
+    assert rule_file.read_bytes() == original_bytes, (
+        "Fixer must NOT rewrite ANY line in a rule file if any alert in it "
+        "is unmapped. Got partial write."
+    )
+    # And the error must name the unmapped alert.
+    assert "FixtureAlertTwo" in result.stderr, (
+        f"Error must name the unmapped alert. stderr={result.stderr!r}"
+    )
