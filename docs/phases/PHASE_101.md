@@ -18,7 +18,7 @@
 | [Phase 85 Threat-Intel Hardening](#phase-85-threat-intel-hardening-deferred-items) | 2026-04-09 | C5-partial/C7 closed + C4–C6 deferred, H13 closed + H6–H12 deferred, M8–M14 deferred, L6–L8 deferred |
 | [Phase 62 Go Test Parity](#phase-62-go-test-parity-deferred-items) | 2026-04-09 | M15 (golden cross-check), M16 (chaos right-answer-wrong-mechanism), M17 (V2 fuzz target hand-off to Phase 200), L9 (property generator weight semantics) |
 | [Phase 64 Deployment Validation](#phase-64-deployment-validation-deferred-items) | 2026-04-10 | M18 (Podman/Quadlet smoke test blocked), M19 (phantom `ja4proxy-cli backup` audit), M20 closed, M21 closed, M22 closed, M23 closed |
-| [Phase 86i Hardening Review](#phase-86i-hardening-review-deferred-items) | 2026-04-11 | H14 (capacity calculator estimates-as-measurements), H15 (Dynatrace Prometheus parser robustness), H16 (Datadog migration smoke check), M24 (Pushgateway grouping_key + empty latencies), M25 (Dynatrace topology drop on scrape blip), M26 (benchmarks honesty test), L10 (real production-hardware `make bench` run) |
+| [Phase 86i Hardening Review](#phase-86i-hardening-review-deferred-items) | 2026-04-11 | H14 (capacity calculator estimates-as-measurements), H15 (Dynatrace Prometheus parser robustness), H16 (Datadog migration smoke check), M24 (Pushgateway grouping_key + empty latencies), M25 (Dynatrace topology drop on scrape blip), M26 (benchmarks test lacks numeric/SHA validation), L10 (real production-hardware `make bench` run) |
 
 When a future phase review surfaces deferred items, append a new section
 below and start its severity counters at the next free number across the
@@ -1211,8 +1211,9 @@ Failure modes the parser does **not** handle:
 - **Multiple metric families per scrape with overlapping prefixes** —
   unverified.
 - **Bare timestamps on the sample line** (the spec allows `metric value
-  timestamp`) — splitting on whitespace and taking `parts[-1]` will
-  silently treat the timestamp as the value.
+  timestamp`) — the parser silently discards the timestamp with no
+  validation, so a malformed exposition where the value and timestamp
+  are swapped will be accepted as valid.
 
 The unit test is **substring-based** (`assert "pipeline_duration_seconds"
 in n for n in names`), which passes even if every histogram bucket was
@@ -1465,23 +1466,38 @@ lands so the same review pass can re-run the broader test matrix.
 
 ---
 
-### M26 — `tests/integration/test_phase_86i_benchmarks_populated.py` validates absence of a string, not honesty
+### M26 — `tests/integration/test_phase_86i_benchmarks_populated.py` does not validate numeric or SHA shape
 
 **Severity:** MEDIUM
 **Effort:** ~1 hour
 
 #### Context
 
-The integration test that guards `docs/performance/benchmarks.md`
-checks only that the string `_(measure)_` does not appear in the Go
-Proxy Benchmarks section. It is defeated by `sed -i 's/_(measure)_/TODO/g'`
-or by any non-numeric replacement: `"TODO"`, `"42"`, `"0"`, an empty
-string, the word `"placeholder"` — all pass.
+The integration test that guards `docs/performance/benchmarks.md` has
+two test functions:
 
-The test also does not validate the file header. The Phase 86i plan
-explicitly required hardware / OS / Redis / Git SHA / Go / Python
-version fields. A regression that drops the Git SHA line would not be
-caught.
+- `test_benchmarks_md_has_no_placeholders` — asserts the string
+  `_(measure)_` does not appear in the Go Proxy Benchmarks section.
+- `test_benchmarks_md_has_hardware_header` — asserts the Reference
+  Hardware table rows for CPU, OS, Redis, Go, Python are non-empty and
+  do not match `_(...)_`, and asserts a `Git SHA:` line is present whose
+  value does not start with `_(`.
+
+What this catches: dropped header rows, placeholder rows, missing Git
+SHA line, missing scenario tables.
+
+What it does **not** catch:
+
+- Throughput / latency cells parsed as actual floats. `"TODO"`, `"42"`,
+  `"0"`, an empty string, or the word `"placeholder"` in a benchmark row
+  all pass.
+- The Git SHA shape — the regex `[A-Za-z0-9_()]+` accepts almost any
+  token, so `"abc"`, `"deadbeef"`, or even `"_placeholder)"` (the leading
+  `_(` check is the only filter) would pass.
+- An explicit `Date:` header field — the plan required it but neither
+  test checks for it.
+- A footer disclaimer when the underlying constants are still
+  engineering floors (cross-tie to H14 / L10).
 
 #### Fix required
 
