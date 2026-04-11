@@ -4,12 +4,12 @@ Mock backend server for testing JA4 Proxy
 Provides various endpoints for testing proxy functionality
 """
 
-from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import json
 import os
 import ssl
 import time
 from datetime import datetime
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 
 class HighCapacityHTTPServer(ThreadingHTTPServer):
@@ -168,13 +168,13 @@ def run_server(port=None, tls=None):
         httpd = HighCapacityHTTPServer(server_address, MockBackendHandler)
         print(f"Mock backend server started on HTTP port {port}")
 
-    print(f"Available endpoints:")
-    print(f"  GET  / - HTML homepage")
-    print(f"  GET  /api/health - Health check")
-    print(f"  GET  /api/echo - Echo request details")
-    print(f"  GET  /delay/<seconds> - Delayed response")
-    print(f"  GET  /status/<code> - Return specific status code")
-    print(f"  POST /api/echo - Echo POST request")
+    print("Available endpoints:")
+    print("  GET  / - HTML homepage")
+    print("  GET  /api/health - Health check")
+    print("  GET  /api/echo - Echo request details")
+    print("  GET  /delay/<seconds> - Delayed response")
+    print("  GET  /status/<code> - Return specific status code")
+    print("  POST /api/echo - Echo POST request")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

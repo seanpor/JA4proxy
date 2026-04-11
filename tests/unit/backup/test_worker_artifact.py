@@ -165,7 +165,7 @@ def test_checksum_generation():
         manifest = json.loads(manifest_content)
         
         # Phase 57a: checksum now covers the 9-byte JA4B header + encoded entry.
-        from src.backup.format import encode_entry, encode_header, FLAG_FULL
+        from src.backup.format import FLAG_FULL, encode_entry, encode_header
         expected_checksum = hashlib.sha256(
             encode_header("full", FLAG_FULL) + encode_entry("config:dial", test_data)
         ).hexdigest()

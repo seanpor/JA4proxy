@@ -43,6 +43,7 @@ from unittest.mock import patch
 import fakeredis.aioredis
 import pytest
 import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
 from webauthn.authentication.verify_authentication_response import VerifiedAuthentication
 from webauthn.helpers import base64url_to_bytes, bytes_to_base64url
 from webauthn.helpers.structs import (
@@ -51,7 +52,6 @@ from webauthn.helpers.structs import (
     PublicKeyCredentialType,
 )
 from webauthn.registration.verify_registration_response import VerifiedRegistration
-from httpx import ASGITransport, AsyncClient
 
 # Env vars before any management import
 os.environ.setdefault("MANAGEMENT_JWT_SECRET", "test-secret-do-not-use-in-production")
@@ -686,7 +686,7 @@ async def test_webauthn_delete_credential_not_found(
     fake_redis: fakeredis.aioredis.FakeRedis,
 ) -> None:
     """DELETE on a non-existent credential ID returns 404."""
-    r = await admin_client.delete(f"/auth/mfa/webauthn/credentials/nonexistent-cred-id")
+    r = await admin_client.delete("/auth/mfa/webauthn/credentials/nonexistent-cred-id")
     assert r.status_code == 404, f"Expected 404 for missing credential, got {r.status_code}: {r.text}"
 
 

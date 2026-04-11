@@ -1,10 +1,18 @@
+<!--
+title: "infrastructure Runbook"
+audience: oncall, sre
+last_reviewed: 2026-04-10
+phase: 86
+-->
+
 # Infrastructure Runbook
 
 This runbook covers all alerts defined in the `ja4proxy_infrastructure`,
 `ja4proxy_container`, `ja4proxy_haproxy`, `ja4proxy_capacity`, and
 `ja4proxy_attack_detection` Prometheus alert groups.
 
-**Dashboard:** Open the [Infrastructure & Attack dashboard](/d/ja4proxy-infrastructure/ja4proxy-infrastructure-attack)
+**Dashboard:** Open the Infrastructure & Attack dashboard in Grafana
+(e.g. `http://localhost:3001/d/ja4proxy-infrastructure`).
 for visual context when responding to any alert in this runbook.
 
 ---
@@ -189,7 +197,7 @@ docker stats --no-stream --format "table {{.Name}}\t{{.MemUsage}}\t{{.MemPerc}}"
 **Immediate check:**
 ```bash
 # Check OOM score for critical processes
-cat /proc/$(pgrep -f proxy.py)/oom_score
+cat /proc/$(pgrep -f bin/proxy)/oom_score
 cat /proc/$(pgrep redis-server)/oom_score
 
 # Which containers are largest
@@ -204,7 +212,7 @@ docker stats --no-stream
 **Resolution steps:**
 1. Immediately set Redis maxmemory if not set: `docker exec redis redis-cli config set maxmemory 1gb`.
 2. Stop analytics container to free memory fast: `docker stop analytics`.
-3. Set OOM score to protect proxy: `echo -500 > /proc/$(pgrep -f proxy.py)/oom_score_adj`.
+3. Set OOM score to protect proxy: `echo -500 > /proc/$(pgrep -f bin/proxy)/oom_score_adj`.
 4. Drop caches to release page cache: `sync && echo 1 > /proc/sys/vm/drop_caches`.
 5. If OOM kill has already occurred, check `dmesg | grep -i oom` and restart killed service immediately.
 
@@ -224,7 +232,7 @@ docker stats --no-stream
 cat /proc/sys/fs/file-nr   # used / free / max
 
 # Per-process FD counts
-ls /proc/$(pgrep -f proxy.py)/fd | wc -l
+ls /proc/$(pgrep -f bin/proxy)/fd | wc -l
 ls /proc/$(pgrep redis-server)/fd | wc -l
 
 # Active TCP connections
@@ -270,7 +278,7 @@ cat /proc/sys/fs/file-nr
 
 **Resolution steps:**
 1. Emergency increase: `sysctl -w fs.file-max=2000000` and `ulimit -n 2000000` in proxy container.
-2. Identify FD leak: `lsof -p $(pgrep -f proxy.py) | wc -l` — compare over 30 seconds.
+2. Identify FD leak: `lsof -p $(pgrep -f bin/proxy) | wc -l` — compare over 30 seconds.
 3. Restart proxy container with updated ulimit in docker-compose (`nofile: 1048576`).
 4. Engage HAProxy frontend rate limiting to reduce new connection rate immediately.
 5. Persist fix: update `/etc/security/limits.conf` and Docker daemon `default-ulimits`.

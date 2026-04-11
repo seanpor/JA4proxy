@@ -70,9 +70,9 @@ func RenderTable(data interface{}) (string, error) {
 	table := tablewriter.NewWriter(&buf)
 	table.Header(headers)
 	for _, row := range rows(data) {
-		table.Append(row)
+		_ = table.Append(row)
 	}
-	table.Render()
+	_ = table.Render()
 	return buf.String(), nil
 }
 

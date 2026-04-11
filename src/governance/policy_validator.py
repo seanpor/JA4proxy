@@ -24,7 +24,7 @@ from typing import Any
 import cerberus
 import yaml
 
-from src.governance.policy_schema import POLICY_SCHEMA, _JA4_PATTERN
+from src.governance.policy_schema import _JA4_PATTERN, POLICY_SCHEMA
 
 # ---------------------------------------------------------------------------
 # Exception hierarchy

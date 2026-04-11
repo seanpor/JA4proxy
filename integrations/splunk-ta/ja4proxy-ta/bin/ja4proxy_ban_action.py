@@ -27,7 +27,6 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -106,7 +105,7 @@ def _post_ban(mgmt_url: str, api_token: str, src_ip: str, ttl_seconds: int, reas
     )
 
     try:
-        with urllib.request.urlopen(request, timeout=10) as response:
+        with urllib.request.urlopen(request, timeout=10) as response:  # nosemgrep: dynamic-urllib-use-detected
             status = response.getcode()
             response_body = response.read().decode("utf-8", errors="replace")
             if status in (200, 201):

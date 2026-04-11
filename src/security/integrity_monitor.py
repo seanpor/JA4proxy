@@ -333,6 +333,12 @@ def _load_pubkey(pubkey_path: str):
     with open(pubkey_path, "rb") as fh:
         raw = fh.read()
 
+    # Raw 32-byte key — check BEFORE stripping so valid key bytes that
+    # happen to equal ASCII whitespace (0x0A, 0x0D, 0x20, etc.) are not
+    # silently truncated by .strip().
+    if len(raw) == 32:
+        return Ed25519PublicKey.from_public_bytes(raw)
+
     stripped = raw.strip()
 
     # PEM
@@ -347,10 +353,6 @@ def _load_pubkey(pubkey_path: str):
             return Ed25519PublicKey.from_public_bytes(decoded)
     except Exception:
         pass
-
-    # Raw 32-byte key
-    if len(stripped) == 32:
-        return Ed25519PublicKey.from_public_bytes(stripped)
 
     raise ValueError(
         f"Cannot parse public key from {pubkey_path}: "

@@ -1,0 +1,202 @@
+---
+# Phase 61 — CI test pipeline + supply-chain hygiene.
+#
+# Three fast-feedback jobs (test-go, test-python, lint) run on every PR and
+# every push to main. Five security jobs (secrets-scan, sast,
+# dependency-audit-python, dependency-audit-go, dependency-review) run on the
+# same triggers AND weekly on Monday 06:00 UTC so newly-disclosed CVEs that
+# affect already-merged dependencies are caught.
+#
+# All third-party actions are SHA-pinned. The canonical template for pin format
+# is .github/workflows/release-cli.yml. If you add a new action:
+#
+#     git ls-remote https://github.com/<owner>/<repo> refs/tags/<tag>
+#
+# and copy the 40-char SHA, leaving the tag as a trailing comment. The test
+# tests/test_workflow_pinning.py enforces this.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1"  # Mondays 06:00 UTC — weekly CVE sweep
+
+# Default token scope is intentionally minimal. Jobs that need more (e.g.
+# security-events: write for SARIF upload) override at the job level.
+permissions:
+  contents: read
+
+jobs:
+  test-go:
+    name: Go tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff  # v5.6.0
+        with:
+          go-version: "1.25.9"
+      - name: go test
+        env:
+          GOFLAGS: "-count=1"
+        run: go test ./...
+
+  test-python:
+    name: Python tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c  # v5.0.0
+        with:
+          python-version: "3.14"
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+      - name: pytest
+        run: |
+          python3 -m pytest tests/ \
+            --ignore=tests/integration/test_docker_stack.py \
+            --ignore=tests/management/ \
+            -x -q --timeout=60
+
+  lint:
+    name: Lint (go vet + gofmt + ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff  # v5.6.0
+        with:
+          go-version: "1.25.9"
+      - name: gofmt
+        run: |
+          # Exclude agent worktrees, vendor dirs, and third-party code.
+          # gofmt has no --exclude flag so we filter with grep.
+          out="$(gofmt -l . | grep -vE '^\.claude/|^\.qwen/|^vendor/' || true)"
+          if [ -n "$out" ]; then
+            echo "::error::gofmt found unformatted files:"
+            echo "$out"
+            exit 1
+          fi
+      - name: go vet
+        run: |
+          # Same exclusion as gofmt above.
+          go vet $(go list ./... | grep -vE '/\.claude/|/\.qwen/|/vendor/')
+      - uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c  # v5.0.0
+        with:
+          python-version: "3.14"
+      - name: ruff
+        run: |
+          # phase-61 review-fix #2 (B2): pin ruff to a specific version so a
+          # future upstream regression cannot silently break or pass CI.
+          pip install ruff==0.15.9
+          ruff check .
+
+  secrets-scan:
+    name: Secrets scan (TruffleHog)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          # Full history required for TruffleHog to diff commits on PRs.
+          fetch-depth: 0
+      - name: TruffleHog OSS
+        uses: trufflesecurity/trufflehog@a94d152bf65bebf5baa486d3d4dfee520af2ceed  # v3.88.2
+        with:
+          path: ./
+          # phase-61 review-fix #2 (B3): on a `push` to main, base=default_branch
+          # and head=HEAD resolve to the same commit, producing an empty diff —
+          # TruffleHog scans nothing and the job silently passes. Branch by
+          # event type so PRs diff against the PR base, pushes diff against the
+          # previous tip (`github.event.before`), and the weekly schedule still
+          # works (both fall through to a full HEAD scan).
+          base: ${{ github.event.pull_request.base.sha || github.event.before }}
+          head: ${{ github.event.pull_request.head.sha || github.sha }}
+          extra_args: --only-verified
+
+  sast:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c  # v5.0.0
+        with:
+          python-version: "3.14"
+      - name: Semgrep scan
+        run: |
+          pip install semgrep==1.67.0
+          semgrep --config p/ci --config p/security-audit --config p/secrets --error .
+
+  dependency-audit-python:
+    name: Python dependency audit (pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c  # v5.0.0
+        with:
+          python-version: "3.14"
+      - name: pip-audit
+        run: |
+          # phase-61 review-fix #2 (B2): pin pip-audit. An audit tool whose
+          # version drifts is itself a supply-chain risk.
+          pip install pip-audit==2.10.0
+          # --strict makes any parse error fail; default severity gate only
+          # flags HIGH/CRITICAL via the exit code when used without --ignore-vuln.
+          pip-audit -r requirements.txt --strict
+
+  dependency-audit-go:
+    name: Go dependency audit (govulncheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff  # v5.6.0
+        with:
+          go-version: "1.25.9"
+      - name: govulncheck
+        run: |
+          # phase-61 review-fix #2 (B2): pin govulncheck. @latest defeats the
+          # whole point of the SHA-pinning policy for actions — a CVE-scanner
+          # binary that auto-upgrades on every CI run is itself unverified
+          # third-party code.
+          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+          "$(go env GOPATH)/bin/govulncheck" ./...
+
+  dependency-review:
+    name: Dependency review (PR gate)
+    # dependency-review-action only operates on pull_request events.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    continue-on-error: true  # Requires GHAS on private repos; don't block CI if unavailable
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - uses: actions/dependency-review-action@3b139cfc5fae8b618d3eae3675e383bb1769c019  # v4.5.0
+        with:
+          fail-on-severity: high
+          deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0, SSPL-1.0
+
+  # Phase 64a — Docker Compose lifecycle smoke test.
+  # Non-blocking by default (continue-on-error). After a stability window the
+  # team may set smoke_required: true in the repository variables to promote
+  # this to a required check.
+  smoke-docker:
+    name: Smoke test (Docker Compose)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+      - name: Smoke test
+        run: |
+          # Create minimal .env for CI if absent
+          [ -f .env ] || {
+            echo "REDIS_PASSWORD=smoketest" >> .env
+            echo "BACKEND_HOST=localhost" >> .env
+          }
+          bash scripts/smoke/test_docker_compose.sh

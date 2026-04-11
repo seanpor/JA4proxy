@@ -25,10 +25,10 @@ type DSARResult struct {
 
 // DSAREraseResult is the response from DELETE /api/v1/compliance/dsar/{ip}.
 type DSAREraseResult struct {
-	IP          string   `json:"ip"`
-	Erased      []string `json:"erased"`
-	Skipped     []string `json:"skipped"`
-	AuditRef    string   `json:"audit_ref"`
+	IP       string   `json:"ip"`
+	Erased   []string `json:"erased"`
+	Skipped  []string `json:"skipped"`
+	AuditRef string   `json:"audit_ref"`
 }
 
 // RunDSARExport fetches all held data for an IP via GET /api/v1/compliance/dsar/{ip}.
@@ -62,12 +62,12 @@ func RunDSARErase(ctx context.Context, c *client.Client, ip, ticket string) (*DS
 
 // PurgeResult is the response from POST /api/v1/compliance/purge-expired.
 type PurgeResult struct {
-	StreamEventsPurged   int            `json:"stream_events_purged"`
-	BeaconingKeysPurged  int            `json:"beaconing_keys_purged"`
-	RVHashesPurged       int            `json:"rv_hashes_purged"`
-	MonthlyAggsPurged    int            `json:"monthly_aggs_purged"`
-	Errors               []string       `json:"errors"`
-	CompletedAt          string         `json:"completed_at"`
+	StreamEventsPurged  int      `json:"stream_events_purged"`
+	BeaconingKeysPurged int      `json:"beaconing_keys_purged"`
+	RVHashesPurged      int      `json:"rv_hashes_purged"`
+	MonthlyAggsPurged   int      `json:"monthly_aggs_purged"`
+	Errors              []string `json:"errors"`
+	CompletedAt         string   `json:"completed_at"`
 }
 
 // RunPurgeExpired triggers GDPR retention enforcement via POST /api/v1/compliance/purge-expired.
@@ -110,7 +110,7 @@ func RunPCIDSSPack(ctx context.Context, c *client.Client, since, until, outPath 
 		}
 	}
 
-	if err := os.WriteFile(outPath, data, 0o640); err != nil {
+	if err := os.WriteFile(outPath, data, 0o600); err != nil { //nolint:gosec // compliance pack is non-sensitive config export
 		return "", fmt.Errorf("writing pack to %s: %w", outPath, err)
 	}
 	return outPath, nil

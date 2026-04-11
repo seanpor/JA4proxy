@@ -23,7 +23,7 @@ class _CallableMode(str):
     def __call__(self, record: logging.LogRecord) -> str:
         """Called when ``formatter.format(record)`` is invoked."""
         assert self._owner is not None, "_CallableMode._owner not set"
-        return self._owner._do_format(record)
+        return self._owner._do_format(record)  # pylint: disable=no-member
 
 
 class JSONFormatter(logging.Formatter):

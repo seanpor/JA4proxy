@@ -1,0 +1,30 @@
+---
+# Phase 61 — Dependabot configuration.
+#
+# Weekly updates for GitHub Actions (SHAs pinned in workflows), pip packages
+# from requirements.txt, and Go modules from go.mod. Dependabot PRs still run
+# the full CI pipeline before merge, so CVE introductions are caught at PR
+# time by the dependency-review job in ci.yml and weekly by the Monday 06:00
+# scheduled run.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5

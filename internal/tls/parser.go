@@ -217,7 +217,7 @@ func parseALPN(info *ClientHelloInfo, data []byte) {
 		if p+1 > end {
 			return
 		}
-		nameLen := int(data[p])
+		nameLen := int(data[p]) //nolint:gosec // bounds checked: p < end <= len(data)
 		p++
 		if p+nameLen > end {
 			return

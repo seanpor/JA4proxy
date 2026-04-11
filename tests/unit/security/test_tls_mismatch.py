@@ -17,9 +17,8 @@ Expected behaviour:
 
 import pytest
 
-from src.security.tls_enforcer import check_ja4_tls_mismatch
 from src.security.models import RiskSignal
-
+from src.security.tls_enforcer import check_ja4_tls_mismatch
 
 # ---------------------------------------------------------------------------
 # Matching cases — no mismatch, must return None

@@ -282,8 +282,8 @@ class TestJA4SHashExtsGREASEOnly:
         """All-GREASE extension list → '000000000000' (line 179-180).
         So what: GREASE filtering must not produce a non-zero hash that pollutes
         fingerprint databases with garbage entries."""
-        from src.tap.fingerprints.ja4s import _hash_exts
         from src.tap.fingerprints.ja4 import _GREASE
+        from src.tap.fingerprints.ja4s import _hash_exts
         grease_list = list(_GREASE)[:3]
         assert _hash_exts(grease_list) == "000000000000"
 
@@ -302,6 +302,7 @@ class TestJA4SCoverageGaps:
         """_parse() raising → None (lines 44-45).
         So what: unexpected internal error must not propagate to the capture loop."""
         from unittest.mock import patch
+
         import src.tap.fingerprints.ja4s as _mod
         with patch.object(_mod, "_parse", side_effect=RuntimeError("injected")):
             result = _mod.extract_ja4s(b"\x16\x03\x03" + b"\x00" * 50)
@@ -311,8 +312,9 @@ class TestJA4SCoverageGaps:
         """ext_data_end > ext_end causes break in extension loop (line 122).
         So what: malformed extension length must not overread the buffer."""
         # Build a ServerHello with an ext whose ext_len > remaining space in ext section
-        from src.tap.fingerprints.ja4s import extract_ja4s
         import struct
+
+        from src.tap.fingerprints.ja4s import extract_ja4s
         # Minimal body up to extensions then add corrupt ext
         ext_blob = struct.pack("!HH", 0x0010, 9999)  # ALPN, ext_len=9999 (overrun)
         ext_section = struct.pack("!H", len(ext_blob)) + ext_blob
@@ -330,6 +332,7 @@ class TestJA4SCoverageGaps:
         """Exception inside supported_versions parse → swallowed (lines 136-137).
         So what: corrupt version extension must not crash the fingerprinter."""
         import struct
+
         from src.tap.fingerprints.ja4s import extract_ja4s
         # 1-byte supported_versions payload (needs 2 for unpack)
         sv_body = b"\x01"

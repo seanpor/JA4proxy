@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 
 import fakeredis.aioredis
@@ -20,7 +20,6 @@ import pytest
 import pytest_asyncio
 
 from management.compliance.purge import GDPRPurge
-
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -316,7 +315,7 @@ async def test_purge_partial_error_still_completes(redis_client):
     purge = GDPRPurge(redis_client)
 
     # Make _purge_stream raise to simulate a Redis error in that category
-    original_purge_stream = purge._purge_stream
+    _original_purge_stream = purge._purge_stream
     async def failing_purge_stream(cutoff_ms):
         raise RuntimeError("simulated stream error")
     purge._purge_stream = failing_purge_stream

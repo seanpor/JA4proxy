@@ -25,17 +25,23 @@ _AGENT=$(cat .current-agent 2>/dev/null || true)
 if [[ -n "$_AGENT" && -f ".env.$_AGENT" ]]; then
     echo -e "${CYAN}  (active agent: $_AGENT)${NC}"
     POC_FLAGS="--project-name ja4_${_AGENT} --env-file .env.${_AGENT}"
+elif [ -f .env ]; then
+    # docker-compose.poc.yml references ${REDIS_PASSWORD:?} — interpolation
+    # fails if .env isn't passed explicitly (compose's auto-load is relative
+    # to the compose file directory, not CWD), and `ps -q` returns nothing
+    # even when the stack is running.
+    POC_FLAGS="--env-file .env"
 else
     POC_FLAGS=""
 fi
 
 # Stop monitoring stack
-if docker compose -f docker/docker-compose.monitoring.yml ps -q 2>/dev/null | grep -q .; then
+if docker compose $POC_FLAGS -f docker/docker-compose.monitoring.yml ps -q 2>/dev/null | grep -q .; then
     echo -e "${BLUE}▶ Stopping monitoring stack (Prometheus/Grafana/Loki)...${NC}"
     if [ "$CLEAN" = true ]; then
-        docker compose -f docker/docker-compose.monitoring.yml down -v --remove-orphans
+        docker compose $POC_FLAGS -f docker/docker-compose.monitoring.yml down -v --remove-orphans
     else
-        docker compose -f docker/docker-compose.monitoring.yml down --remove-orphans
+        docker compose $POC_FLAGS -f docker/docker-compose.monitoring.yml down --remove-orphans
     fi
     echo -e "${GREEN}  ✓ Monitoring stopped${NC}"
 else

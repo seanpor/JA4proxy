@@ -8,8 +8,12 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
+	"errors"
 	"fmt"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -21,6 +25,7 @@ import (
 	"time"
 
 	"github.com/oschwald/geoip2-golang"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 
@@ -50,6 +55,10 @@ func main() {
 	// Register Prometheus metrics (must be called once before any metric use)
 	metrics.Register()
 
+	// phase-63: emit TLS cert expiry timestamp gauge from JA4PROXY_TLS_CERT_FILE
+	// (Phase 64 alerts on this gauge — see docs/phases/PHASE_63_notes.md).
+	updateTLSCertExpiryGauge(os.Getenv("JA4PROXY_TLS_CERT_FILE"), log)
+
 	proxy, err := newProxy(cfg, log)
 	if err != nil {
 		log.WithError(err).Fatal("failed to initialise proxy")
@@ -60,6 +69,11 @@ func main() {
 
 	// Start background workers
 	proxy.pipeline.StartBackgroundWorkers(ctx)
+
+	// Start multi-DC monitoring (NTP drift)
+	if cfg.Monitoring.Enabled {
+		go metrics.StartNTPMonitor(ctx, cfg.Monitoring.NTPCheckIntervalSeconds, log)
+	}
 
 	// Start pub/sub for config hot-reload and dynamic list updates
 	go redisclient.NewPubSubHandler(proxy.redis, log, func() {
@@ -119,13 +133,21 @@ type proxy struct {
 
 func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 	redisCfg := redisclient.Config{
-		Host:     cfg.Redis.Host,
-		Port:     cfg.Redis.Port.Int(),
-		DB:       cfg.Redis.DB,
-		Password: cfg.Redis.Password,
-		Timeout:  time.Duration(cfg.Redis.Timeout.Int()) * time.Second,
+		Host:       cfg.Redis.Host,
+		Port:       cfg.Redis.Port.Int(),
+		MasterName: cfg.Redis.MasterName,
+		Sentinels:  cfg.Redis.Sentinels,
+		DB:         cfg.Redis.DB,
+		Password:   cfg.Redis.Password,
+		Timeout:    time.Duration(cfg.Redis.Timeout.Int()) * time.Second,
 	}
 	rc := redisclient.New(redisCfg, log)
+
+	// Phase 88.2: Enable cross-DC sync capture
+	if cfg.Sync.DCID != "" {
+		syncStream := fmt.Sprintf("ja4proxy:dc:%s:sync:out", cfg.Sync.DCID)
+		rc.EnableSync(syncStream)
+	}
 
 	pipelineCfg := buildPipelineConfig(cfg)
 	p := security.NewPipeline(pipelineCfg, rc, log)
@@ -145,9 +167,9 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 	// stored in WebhookEndpointConfig but DispatcherConfig holds global retry settings.
 	// Use the first endpoint's settings as global defaults (or safe defaults if none set).
 	endpoints := make([]webhook.WebhookEndpoint, len(cfg.Webhooks.Endpoints))
-	var dispatchRetryAttempts int = 3
-	var dispatchRetryBackoff float64 = 5.0
-	var dispatchTimeout float64 = 30.0
+	dispatchRetryAttempts := 3
+	dispatchRetryBackoff := 5.0
+	dispatchTimeout := 30.0
 	for i, e := range cfg.Webhooks.Endpoints {
 		endpoints[i] = webhook.WebhookEndpoint{
 			ID:     e.ID,
@@ -209,6 +231,8 @@ func (p *proxy) serve(ctx context.Context) {
 			mux := http.NewServeMux()
 			mux.Handle("/metrics", promhttp.Handler())
 			mux.HandleFunc("/health", p.handleHealth)
+			mux.HandleFunc("/health/deep", p.handleHealthDeep)
+			mux.HandleFunc("/metrics/summary", p.handleMetricsSummary)
 			addr := fmt.Sprintf(":%d", p.cfg.Metrics.Port.Int())
 			p.log.WithField("addr", addr).Info("proxy: metrics server listening")
 			srv := &http.Server{Addr: addr, Handler: mux, ReadTimeout: 10 * time.Second}
@@ -266,6 +290,10 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	n, err := clientConn.Read(buf)
 	clientConn.SetReadDeadline(time.Time{}) // clear deadline
 	if err != nil || n == 0 {
+		if err != nil {
+			// phase-63: classify and record the error against the availability SLI.
+			metrics.ConnectionErrorsTotal.WithLabelValues(classifyConnError("client_read", err)).Inc()
+		}
 		return
 	}
 	data := buf[:n]
@@ -275,15 +303,25 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		ClientIP: remoteIP(clientConn),
 	}
 
-	// PROXY protocol: extract real client IP if behind HAProxy
+	// PROXY protocol: extract real client IP if behind HAProxy.
+	// Phase 200c: try v2 binary first, then v1 text — both gated by trust
+	// check to prevent IP spoofing from untrusted sources.
 	if p.cfg.Proxy.ProxyProtocol {
-		if realIP, ok := proxypkg.ReadProxyProtocol(data); ok {
-			connCtx.ClientIP = realIP
-			// Advance past the PROXY header
-			if idx := bytes.Index(data, []byte("\r\n")); idx >= 0 {
-				data = data[idx+2:]
+		socketIP := remoteIP(clientConn)
+		if proxypkg.IsTrustedProxySource(socketIP, p.cfg) {
+			// Try v2 binary header first (HAProxy 2.x+, AWS NLB)
+			if realIP, ok, hdrLen := proxypkg.ReadProxyProtocolV2WithLength(data); ok {
+				connCtx.ClientIP = realIP
+				data = data[hdrLen:]
+			} else if realIP, ok := proxypkg.ReadProxyProtocol(data); ok {
+				// Fall back to v1 text header
+				connCtx.ClientIP = realIP
+				if idx := bytes.Index(data, []byte("\r\n")); idx >= 0 {
+					data = data[idx+2:]
+				}
 			}
 		}
+		// When untrusted: silently use socket IP — fail-open.
 	}
 
 	// GeoIP country lookup
@@ -309,6 +347,11 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 				connCtx.CipherList[i] = int(cs)
 			}
 		} else {
+			// phase-63 (review fix B3): TLS parse failures are NOT availability
+			// errors — the connection is still handled and reaches a policy
+			// decision (scored without JA4). Counting it both here and in the
+			// good term at ConnectionsTotal would double-count and bias the SLI
+			// optimistically. Just log.
 			p.log.WithError(err).Debug("proxy: TLS parse failed; scoring without JA4")
 		}
 	}
@@ -335,7 +378,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		"ja4":         connCtx.JA4,
 		"ja4x":        connCtx.JA4X,
 		"action":      result.Action,
-		"score":        result.Score,
+		"score":       result.Score,
 		"sni":         connCtx.SNI,
 		"alpn":        connCtx.ALPN,
 		"country":     connCtx.Country,
@@ -351,18 +394,18 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	if p.dispatcher != nil {
 		go func() {
 			ecsFields := map[string]interface{}{
-				"@timestamp":                time.Now().UTC().Format(time.RFC3339Nano),
-				"event.action":              result.Action,
-				"event.risk_score":          result.Score,
-				"source.ip":                 connCtx.ClientIP,
-				"destination.ip":            backendHost,
-				"destination.port":          443,
-				"network.transport":         "tcp",
-				"network.protocol":          "tls",
-				"service.name":              "ja4proxy",
-				"ja4proxy.fingerprint.ja4":  connCtx.JA4,
-				"ja4proxy.sni":              connCtx.SNI,
-				"ja4proxy.dial_setting":     result.Dial,
+				"@timestamp":               time.Now().UTC().Format(time.RFC3339Nano),
+				"event.action":             result.Action,
+				"event.risk_score":         result.Score,
+				"source.ip":                connCtx.ClientIP,
+				"destination.ip":           backendHost,
+				"destination.port":         443,
+				"network.transport":        "tcp",
+				"network.protocol":         "tls",
+				"service.name":             "ja4proxy",
+				"ja4proxy.fingerprint.ja4": connCtx.JA4,
+				"ja4proxy.sni":             connCtx.SNI,
+				"ja4proxy.dial_setting":    result.Dial,
 			}
 			ecsJSON, err := json.Marshal(ecsFields)
 			if err != nil {
@@ -382,7 +425,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	case "block", "ban":
 		// Force RST instead of clean FIN
 		if tcpConn, ok := clientConn.(*net.TCPConn); ok {
-			tcpConn.SetLinger(0)
+			_ = tcpConn.SetLinger(0)
 		}
 	}
 }
@@ -396,6 +439,8 @@ func (p *proxy) forward(clientConn net.Conn, initialData []byte) {
 	backendConn, err := net.DialTimeout("tcp", backendAddr,
 		time.Duration(cfg.Proxy.ConnectionTimeout)*time.Second)
 	if err != nil {
+		// phase-63: backend dial failures degrade availability SLI.
+		metrics.ConnectionErrorsTotal.WithLabelValues(classifyConnError("backend_dial", err)).Inc()
 		p.log.WithError(err).WithField("backend", backendAddr).Warn("proxy: backend connect failed")
 		return
 	}
@@ -528,6 +573,8 @@ func (p *proxy) reload() error {
 	p.cfg = newCfg
 	p.mu.Unlock()
 	metrics.ConfigReloadsTotal.Inc()
+	// phase-63: refresh the TLS cert expiry gauge on every reload.
+	updateTLSCertExpiryGauge(os.Getenv("JA4PROXY_TLS_CERT_FILE"), p.log)
 	p.log.Info("config reloaded")
 	return nil
 }
@@ -549,6 +596,120 @@ func (p *proxy) handleHealth(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(map[string]string{"status": status, "redis": redisStatus}); err != nil {
 		p.log.WithError(err).Warn("health: failed to encode response")
 	}
+}
+
+// handleHealthDeep responds with comprehensive health data for monitoring integrations.
+// Phase 86a — returns Redis state, proxy metrics, and certificate expiry info.
+func (p *proxy) handleHealthDeep(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	defer cancel()
+
+	// Redis connectivity
+	redisOK := true
+	redisLatencyMs := 0.0
+	t0 := time.Now()
+	if err := p.redis.Ping(ctx); err != nil {
+		redisOK = false
+	} else {
+		redisLatencyMs = float64(time.Since(t0).Microseconds()) / 1000.0
+	}
+
+	// Dial — read from Redis (management API writes here)
+	dial := p.redis.GetDial(ctx)
+
+	// Active bans (count keys matching pattern)
+	activeBans := 0
+	if redisOK {
+		activeBans = p.redis.CountKeys(ctx, "ja4proxy:ban:*")
+	}
+
+	// Connection counters — gather from Prometheus registry
+	connTotal := 0.0
+	blocksTotal := 0.0
+	{
+		mfs, gatherErr := prometheus.DefaultGatherer.Gather()
+		if gatherErr == nil {
+			for _, mf := range mfs {
+				if mf.GetName() == "ja4proxy_connections_total" {
+					for _, m := range mf.GetMetric() {
+						val := m.GetCounter().GetValue()
+						connTotal += val
+						// Sum all blocking actions (B1 fix)
+						for _, lp := range m.GetLabel() {
+							if lp.GetName() == "action" {
+								a := lp.GetValue()
+								if a == "block" || a == "ban" || a == "tarpit" || a == "rate_limit" {
+									blocksTotal += val
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Cert expiry
+	certTSVal := -1.0
+	{
+		mfs, gatherErr := prometheus.DefaultGatherer.Gather()
+		if gatherErr == nil {
+			for _, mf := range mfs {
+				if mf.GetName() == "ja4proxy_tls_cert_expiry_timestamp_seconds" {
+					for _, m := range mf.GetMetric() {
+						certTSVal = m.GetGauge().GetValue()
+					}
+				}
+			}
+		}
+	}
+	var certDaysRemaining float64
+	if certTSVal > 0 {
+		certDaysRemaining = (certTSVal - float64(time.Now().Unix())) / 86400.0
+		if certDaysRemaining < 0 {
+			certDaysRemaining = 0
+		}
+	}
+
+	// Block rate
+	blockRatePct := 0.0
+	if connTotal > 0 {
+		blockRatePct = blocksTotal / connTotal * 100.0
+	}
+
+	// Status determination
+	status := "ok"
+	if !redisOK {
+		status = "error"
+	} else if redisLatencyMs > 50 {
+		status = "degraded"
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	resp := map[string]any{
+		"status":             status,
+		"redis_connected":    redisOK,
+		"redis_latency_ms":   math.Round(redisLatencyMs*100) / 100,
+		"dial":               dial,
+		"active_connections": atomic.LoadInt64(&p.activeConns),
+		"connections_total":  int(connTotal),
+		"block_rate_pct":     math.Round(blockRatePct*100) / 100,
+		"active_bans":        activeBans,
+	}
+	if certTSVal > 0 {
+		resp["cert_days_remaining"] = math.Round(certDaysRemaining*10) / 10
+	} else {
+		resp["cert_days_remaining"] = nil
+	}
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		p.log.WithError(err).Warn("health/deep: failed to encode response")
+	}
+}
+
+// handleMetricsSummary is an alias for /health/deep.
+// Exists so monitoring tools can poll a single endpoint named "metrics/summary".
+func (p *proxy) handleMetricsSummary(w http.ResponseWriter, r *http.Request) {
+	p.handleHealthDeep(w, r)
 }
 
 func (p *proxy) drain(timeoutSeconds int) {
@@ -798,6 +959,98 @@ func loadSecurityLists(ctx context.Context, rc *redisclient.Client, p *security.
 		"blacklist": len(bl),
 		"cidrs":     len(cidrRaw),
 	}).Info("security lists loaded from Redis")
+}
+
+// ── Phase 63: SLO instrumentation helpers ─────────────────────────────────
+
+// classifyConnError maps a connection-handler error to one of the error_type
+// label values used by ja4proxy_connection_errors_total. The source argument
+// disambiguates errors that look identical at the os/net layer but mean very
+// different things — a "i/o timeout" on a client read is a normal idle close,
+// on a backend dial is upstream overload, and on a Redis call is a Redis
+// problem. Without the source we cannot tell on-call where to look first.
+//
+// Recognised sources: "client_read", "backend_dial", "redis".
+func classifyConnError(source string, err error) string {
+	if err == nil {
+		return "unknown"
+	}
+	s := strings.ToLower(err.Error())
+
+	// Source-specific connection-refused / no-route always wins over timeouts.
+	if strings.Contains(s, "connection refused") || strings.Contains(s, "no route") {
+		if source == "backend_dial" {
+			return "backend_refused"
+		}
+		return "connection_refused"
+	}
+	if strings.Contains(s, "out of memory") || strings.Contains(s, "cannot allocate") {
+		return "oom"
+	}
+
+	isTimeout := errors.Is(err, context.DeadlineExceeded) || strings.Contains(s, "i/o timeout") || strings.Contains(s, "deadline exceeded")
+
+	switch source {
+	case "client_read":
+		if isTimeout {
+			return "client_read_timeout"
+		}
+		return "client_read_error"
+	case "backend_dial":
+		if isTimeout {
+			return "backend_dial_timeout"
+		}
+		return "backend_dial_error"
+	case "redis":
+		if isTimeout {
+			return "redis_timeout"
+		}
+		return "redis_error"
+	default:
+		if isTimeout {
+			return "timeout"
+		}
+		return "unknown"
+	}
+}
+
+// updateTLSCertExpiryGauge reads the PEM-encoded certificate at the given path
+// and sets ja4proxy_tls_cert_expiry_timestamp_seconds to the cert's NotAfter.
+// Phase 63: invoked at startup and on every config reload. Phase 64 alerts on
+// this gauge — see docs/phases/PHASE_63_notes.md.
+//
+// Review-fix N3: on any read/parse failure the gauge is forced to 0 so the
+// Phase 64 expiry alert (which tests "now() - gauge < N days") sees the
+// failure as "missing data" instead of stale-good. Without this clear, a
+// failed reload after cert rotation would silently keep the previous, valid
+// NotAfter and the alert would never fire even though the proxy is broken.
+func updateTLSCertExpiryGauge(certPath string, log *logrus.Logger) {
+	if certPath == "" {
+		return
+	}
+	pemBytes, err := os.ReadFile(certPath)
+	if err != nil {
+		metrics.TLSCertExpiryTimestampSeconds.Set(0)
+		log.WithError(err).WithField("path", certPath).Warn("phase-63: failed to read TLS cert for expiry gauge")
+		return
+	}
+	block, _ := pem.Decode(pemBytes)
+	if block == nil {
+		metrics.TLSCertExpiryTimestampSeconds.Set(0)
+		log.WithField("path", certPath).Warn("phase-63: TLS cert PEM decode failed")
+		return
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		metrics.TLSCertExpiryTimestampSeconds.Set(0)
+		log.WithError(err).WithField("path", certPath).Warn("phase-63: x509 parse failed")
+		return
+	}
+	metrics.TLSCertExpiryTimestampSeconds.Set(float64(cert.NotAfter.Unix()))
+	log.WithFields(logrus.Fields{
+		"path":      certPath,
+		"not_after": cert.NotAfter.Format(time.RFC3339),
+	}).Info("phase-63: TLS cert expiry gauge updated")
 }
 
 // stringSliceToSet converts a string slice to a set map.

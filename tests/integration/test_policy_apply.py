@@ -25,7 +25,6 @@ import pytest
 
 from tests.mocks.management_api_mock import management_api_mock_server
 
-
 # ---------------------------------------------------------------------------
 # Lazy import helper — gives an explicit ImportError if the module is absent.
 # Tests FAIL (not ERROR) at collection time until the implementation is written.

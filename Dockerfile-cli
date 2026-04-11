@@ -35,6 +35,10 @@ FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=builder /build/ja4proxy-cli /usr/local/bin/ja4proxy-cli
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
+# Explicit USER for Trivy DS-0002 compliance (distroless:nonroot already sets
+# UID 65532, but Trivy's static scan cannot detect the base image user).
+USER nonroot
+
 # Config directory for ~/.config/ja4proxy/cli.yaml when running interactively.
 # In container use, pass --url and --token flags or environment variables.
 ENV HOME=/home/nonroot

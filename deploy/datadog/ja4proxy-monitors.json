@@ -1,0 +1,60 @@
+[
+  {
+    "name": "[JA4proxy] Node unhealthy",
+    "type": "service check alert",
+    "query": "\"ja4proxy.node_health\".over(\"*\").by(\"node\").last(2).count_by_status()",
+    "message": "JA4proxy node {{node.name}} is unhealthy. Check /api/v1/health/deep. @pagerduty-security-oncall",
+    "tags": [],
+    "options": {
+      "thresholds": {
+        "critical": 1
+      },
+      "notify_audit": true,
+      "on_missing_data": "default",
+      "include_tags": true
+    }
+  },
+  {
+    "name": "[JA4proxy] Redis latency high",
+    "type": "metric alert",
+    "query": "avg(last_5m):avg:ja4proxy.node.redis_latency_ms{*} by {node} > 50",
+    "message": "Redis latency > 50ms on {{node.name}} for 5 minutes. Investigate Redis health.",
+    "tags": [],
+    "options": {
+      "thresholds": {
+        "warning": 20,
+        "critical": 50
+      },
+      "notify_audit": true,
+      "on_missing_data": "default"
+    }
+  },
+  {
+    "name": "[JA4proxy] Certificate expiring",
+    "type": "metric alert",
+    "query": "min(last_1h):min:ja4proxy.node.cert_days_remaining{*} by {node} < 30",
+    "message": "TLS certificate on {{node.name}} expires in less than 30 days. Rotate using docs/runbooks/tls_certificate_rotation.md.",
+    "tags": [],
+    "options": {
+      "thresholds": {
+        "warning": 30,
+        "critical": 7
+      },
+      "notify_audit": true
+    }
+  },
+  {
+    "name": "[JA4proxy] Block rate anomaly",
+    "type": "metric alert",
+    "query": "avg(last_15m):avg:ja4proxy.block_rate_pct{*} > 5",
+    "message": "Block rate > 5% for 15 minutes — possible attack campaign. Check Management UI dashboard.",
+    "tags": [],
+    "options": {
+      "thresholds": {
+        "warning": 2,
+        "critical": 10
+      },
+      "notify_audit": true
+    }
+  }
+]

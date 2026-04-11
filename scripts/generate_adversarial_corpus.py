@@ -3,9 +3,9 @@
 Generate adversarial TLS corpus files for testing.
 Creates 10 .bin files in tests/adversarial/corpus/
 """
-import struct
 import os
 import random
+import struct
 
 # Create corpus directory if not exists
 os.makedirs('tests/adversarial/corpus', exist_ok=True)

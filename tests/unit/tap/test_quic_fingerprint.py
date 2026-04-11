@@ -156,7 +156,7 @@ class TestQUICEdgeCases:
         data = _build_quic_initial(version=_QUIC_V2)
         result = extract_quic_fingerprint(data)
         assert result is not None
-        assert result.fingerprint == f"quic_v2_dcid8_tok0"
+        assert result.fingerprint == "quic_v2_dcid8_tok0"
 
 
 class TestQUICVarint:

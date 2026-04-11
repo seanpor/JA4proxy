@@ -99,3 +99,15 @@ async def audit_page(
     """Render the audit log page."""
     templates = _get_templates()
     return templates.TemplateResponse(request, "audit.html", {"user": current_user[0]})
+
+
+@router.get("/threat-intel", response_class=HTMLResponse)
+async def threat_intel_page(
+    request: Request,
+    current_user=Depends(get_current_user),
+) -> HTMLResponse:
+    """Render the Phase 85 threat intelligence feeds page."""
+    templates = _get_templates()
+    return templates.TemplateResponse(
+        request, "threat_intel.html", {"user": current_user[0]}
+    )

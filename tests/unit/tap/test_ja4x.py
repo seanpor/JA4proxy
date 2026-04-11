@@ -185,8 +185,9 @@ class TestJA4XCryptoUnavailable:
         """_CRYPTO_AVAILABLE=False → extract_ja4x returns None immediately.
         So what: if cryptography is absent at deploy time the proxy must not crash;
         JA4X fingerprinting simply produces no output."""
-        import src.tap.fingerprints.ja4x as _mod
         from unittest.mock import patch
+
+        import src.tap.fingerprints.ja4x as _mod
         with patch.object(_mod, "_CRYPTO_AVAILABLE", False):
             result = _mod.extract_ja4x(b"\x30\x00")
         assert result is None
@@ -252,6 +253,7 @@ class TestJA4XAlternativeKeyTypes:
 
     def _gen_ed25519_cert(self) -> bytes:
         import datetime as _dt
+
         from cryptography import x509 as _x509
         from cryptography.hazmat.primitives import serialization
         from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -271,6 +273,7 @@ class TestJA4XAlternativeKeyTypes:
 
     def _gen_ed448_cert(self) -> bytes:
         import datetime as _dt
+
         from cryptography import x509 as _x509
         from cryptography.hazmat.primitives import serialization
         from cryptography.hazmat.primitives.asymmetric.ed448 import Ed448PrivateKey
@@ -303,6 +306,7 @@ class TestJA4XAlternativeKeyTypes:
 
     def _gen_dsa_cert(self) -> bytes:
         import datetime as _dt
+
         from cryptography import x509 as _x509
         from cryptography.hazmat.primitives import hashes, serialization
         from cryptography.hazmat.primitives.asymmetric import dsa
@@ -333,8 +337,9 @@ class TestJA4XAlternativeKeyTypes:
     def test_unknown_key_type_returns_unknown(self):
         """Public key not matching any known type → 'UNKNOWN' (line 180).
         So what: unknown key must not crash fingerprinting — must produce a safe sentinel."""
-        from src.tap.fingerprints.ja4x import _key_type
         from unittest.mock import MagicMock
+
+        from src.tap.fingerprints.ja4x import _key_type
 
         class _WeirdKey:
             pass
@@ -352,6 +357,7 @@ class TestJA4XSANExceptionSwallowed:
         So what: a crafted cert with a corrupted SAN extension must not crash
         fingerprinting and must not bypass the JA4X blacklist check."""
         from unittest.mock import MagicMock, patch
+
         import src.tap.fingerprints.ja4x as _mod
 
         # Patch x509.SubjectAlternativeName so extensions.get_extension_for_class raises

@@ -10,7 +10,6 @@ from typing import Any, List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # ── RBAC ─────────────────────────────────────────────────────────────────────
 
 
@@ -244,6 +243,7 @@ class ManagedBy(str, Enum):
     analytics = "analytics"
     legacy = "legacy"
     migration = "migration"
+    feed = "feed"  # phase-85: threat-intel feed runner
 
 
 class ResourceCreate(BaseModel):
@@ -280,3 +280,47 @@ class ResourceListResponse(BaseModel):
 
     entries: list[ResourceResponse]
     count: int
+
+
+# ── Threat Intelligence feed models (Phase 85) ────────────────────────────────
+
+
+class TIFeedStatus(BaseModel):
+    """Single-feed status as returned by the threat-intel routes."""
+
+    id: str
+    type: str
+    enabled: bool = False
+    runtime_override: Optional[bool] = None
+    status: str = "unknown"
+    circuit_state: str = "closed"
+    last_poll_at: Optional[str] = None
+    next_poll_at: Optional[str] = None
+    indicators_managed: int = 0
+    last_24h_additions: int = 0
+    last_24h_removals: int = 0
+    last_error: Optional[str] = None
+    error_count_24h: int = 0
+
+
+class TIFeedListResponse(BaseModel):
+    """Response from GET /api/v1/threat-intel/feeds."""
+
+    feeds: list[TIFeedStatus] = Field(default_factory=list)
+    count: int = Field(..., ge=0)
+
+
+class TIFeedPollResponse(BaseModel):
+    """Response from POST /api/v1/threat-intel/feeds/{feed_id}/poll."""
+
+    poll_id: str
+    feed_id: str
+    message: str = "Poll triggered"
+
+
+class TIFeedToggleResponse(BaseModel):
+    """Response from enable/disable endpoints."""
+
+    feed_id: str
+    enabled: bool
+    message: str

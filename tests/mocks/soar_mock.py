@@ -41,7 +41,6 @@ from typing import Any
 
 from aiohttp import web
 
-
 # ---------------------------------------------------------------------------
 # Default response bodies for each path prefix
 # ---------------------------------------------------------------------------
