@@ -29,6 +29,9 @@ ssl/certs/*.pem
 # Claude Code agent worktrees (temporary isolation directories)
 .claude/worktrees/
 
+# Qwen Code merge artifacts (Git auto-generated, never useful)
+.qwen/settings.json.orig
+
 # Redis password files
 *_password.txt
 *_password
