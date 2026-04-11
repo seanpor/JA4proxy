@@ -1,24 +1,51 @@
 """
-Phase 86d — Datadog Agent integration check for JA4proxy.
+Phase 86d / 86i — Datadog Agent integration check for JA4proxy.
+
+Two-layer integration pattern (Phase 86i):
+
+    Layer 1 — OpenMetrics scrape (deploy/datadog/conf.d/openmetrics.d/ja4proxy.yaml)
+        The Datadog Agent's built-in OpenMetrics integration scrapes the
+        ja4proxy /metrics Prometheus endpoint directly, preserving every
+        label (action, bypass, signal, le, ...). This is where ALL numeric
+        gauges/counters/histograms live.
+
+    Layer 2 — this custom check (deploy/datadog/checks/ja4proxy/check.py)
+        Owns ONLY things Prometheus exposition cannot express:
+            - service_check("ja4proxy.node_health", ...)   — discrete
+              OK / WARNING / CRITICAL / UNKNOWN status derived from the
+              Management API /health/deep semantic status field.
+            - service_check("ja4proxy.redis_health", ...)  — split out so
+              Redis issues page Redis, not node.
+            - (future) cross-node derived aggregates that require the Agent
+              to correlate multiple instances.
+
+    Prior to Phase 86i this check also emitted a pile of ``self.gauge()`` /
+    ``self.rate()`` calls that duplicated metrics already present in the
+    Prometheus exposition — losing all labels in the process. Those calls
+    have been removed; install the Layer 1 OpenMetrics config alongside
+    this check to get the per-label breakdowns.
 
 Install:
     cp -r checks/ja4proxy /etc/datadog-agent/checks.d/ja4proxy
     cp conf.d/ja4proxy.d/conf.yaml /etc/datadog-agent/conf.d/ja4proxy.d/conf.yaml
+    cp conf.d/openmetrics.d/ja4proxy.yaml \\
+        /etc/datadog-agent/conf.d/openmetrics.d/ja4proxy.yaml
 
 Requires: Datadog Agent 7.40+ (Python 3 runtime).
 """
 
 from __future__ import annotations
 
-import json
 import socket
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from datadog_checks.base import AgentCheck, is_affirmative
+from datadog_checks.base import AgentCheck, is_affirmative  # noqa: F401
 
 
 class JA4proxyCheck(AgentCheck):
-    """Datadog Agent check that polls JA4proxy /api/v1/health/deep."""
+    """Datadog Agent check that polls JA4proxy /api/v1/health/deep and
+    emits only service checks — all numeric metrics come from the
+    OpenMetrics Layer 1 scrape."""
 
     HTTP_CONFIG_RELOAD_ENABLED = False  # manage our own session
 
@@ -62,57 +89,69 @@ class JA4proxyCheck(AgentCheck):
                 tags=tags,
                 message=f"Cannot reach JA4proxy: {exc}",
             )
+            self.service_check(
+                "ja4proxy.redis_health",
+                AgentCheck.UNKNOWN,
+                tags=tags,
+                message=f"Cannot reach JA4proxy: {exc}",
+            )
             return
 
-        # ── Node health ─────────────────────────────────────────────────
+        # ── Node health service check ───────────────────────────────────
         status = data.get("status", "unknown")
         if status == "ok":
-            self.gauge("ja4proxy.node.healthy", 1, tags=tags)
             self.service_check("ja4proxy.node_health", AgentCheck.OK, tags=tags)
         elif status == "degraded":
-            self.gauge("ja4proxy.node.healthy", 0, tags=tags)
             self.service_check(
-                "ja4proxy.node_health", AgentCheck.WARNING, tags=tags,
-                message=f"Node degraded: redis_latency={data.get('redis_latency_ms')}ms",
+                "ja4proxy.node_health",
+                AgentCheck.WARNING,
+                tags=tags,
+                message=f"Node degraded: {data.get('details', '')}",
             )
         else:
-            self.gauge("ja4proxy.node.healthy", -1, tags=tags)
             self.service_check(
-                "ja4proxy.node_health", AgentCheck.CRITICAL, tags=tags,
+                "ja4proxy.node_health",
+                AgentCheck.CRITICAL,
+                tags=tags,
                 message=f"Node error: {status}",
             )
 
-        # ── Redis latency ───────────────────────────────────────────────
-        redis_ms = data.get("redis_latency_ms")
-        if redis_ms is not None:
-            self.gauge("ja4proxy.node.redis_latency_ms", float(redis_ms), tags=tags)
+        # ── Redis health service check (split from node_health so on-call
+        #    gets the right page) ────────────────────────────────────────
+        redis = data.get("redis", {})
+        if isinstance(redis, dict):
+            redis_status = redis.get("status", "unknown")
+        else:
+            redis_status = str(redis)
+        if redis_status == "ok":
+            self.service_check("ja4proxy.redis_health", AgentCheck.OK, tags=tags)
+        elif redis_status == "degraded":
+            self.service_check(
+                "ja4proxy.redis_health",
+                AgentCheck.WARNING,
+                tags=tags,
+                message="Redis degraded",
+            )
+        elif redis_status == "unknown":
+            self.service_check(
+                "ja4proxy.redis_health",
+                AgentCheck.UNKNOWN,
+                tags=tags,
+                message="Redis status unknown",
+            )
+        else:
+            self.service_check(
+                "ja4proxy.redis_health",
+                AgentCheck.CRITICAL,
+                tags=tags,
+                message=f"Redis error: {redis_status}",
+            )
 
-        # ── Dial setting ────────────────────────────────────────────────
-        dial = data.get("dial")
-        if dial is not None:
-            self.gauge("ja4proxy.node.dial_setting", int(dial), tags=tags)
-
-        # ── Certificate days remaining ──────────────────────────────────
-        cert_days = data.get("cert_days_remaining")
-        if cert_days is not None:
-            self.gauge("ja4proxy.node.cert_days_remaining", float(cert_days), tags=tags)
-
-        # ── Connection metrics ──────────────────────────────────────────
-        active = data.get("active_connections")
-        if active is not None:
-            self.gauge("ja4proxy.connections.active", int(active), tags=tags)
-
-        conn_total = data.get("connections_total")
-        if conn_total is not None:
-            self.rate("ja4proxy.connections.total", int(conn_total), tags=tags)
-
-        block_rate = data.get("block_rate_pct")
-        if block_rate is not None:
-            self.gauge("ja4proxy.block_rate_pct", float(block_rate), tags=tags)
-
-        active_bans = data.get("active_bans")
-        if active_bans is not None:
-            self.gauge("ja4proxy.bans.active", int(active_bans), tags=tags)
+        # NOTE: Numeric metrics (redis latency, dial setting, cert days,
+        # connection counters, block rate, ban counts, ...) are emitted by
+        # the Layer 1 OpenMetrics scrape against /metrics. Do not add
+        # self.gauge() / self.rate() calls for those here — they would lose
+        # label richness and double-count against Datadog billing.
 
     @staticmethod
     def _get_tags(instance: Dict[str, Any]) -> List[str]:
