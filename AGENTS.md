@@ -85,23 +85,52 @@ Do NOT include a `Status:` line in phase doc files. If an existing doc has one, 
 3. Run `make lint-phases` — must exit 0
 4. No content edits needed (because the number isn't in the content)
 
-### Phase Close-Out Checklist (mandatory — run in order, do not skip steps)
+### Phase Close-Out — use `/close-phase` (mandatory)
 
-Every phase must be closed by completing **all** of the following before the next phase begins:
+**Do not close a phase manually.** Use the `/close-phase` slash command, which
+orchestrates the full close-out and merge. It runs every gate that agents have
+historically skipped, in order, and blocks on failures. The command is defined
+in `.claude/commands/close-phase.md` and calls `scripts/close-phase.sh` for the
+mechanical checks.
 
-1. **Tests pass:** `make test` — zero failures, zero warnings.
-2. **Go tests pass:** `make go-test` — zero failures. Required for any phase that touches Go source.
-3. **CHANGELOG.md:** Add a standard entry for the phase (see `docs/DOCUMENTATION_STANDARDS.md`).
-4. **REDIS_SCHEMA.md:** Document every new Redis key introduced.
-5. **Signal scores:** If the phase adds or changes any signal score value, run `make check-scores` — must exit 0. This verifies both Python and Go implementations match `config/signal_scores.yml`.
-6. **Parity check:** If the phase affects connection scoring or pipeline decisions, run `make parity-check` (requires both proxies running). Must exit 0. See *Go/Python Proxy Parity* section below.
-7. **docs/phases/manifest.yaml:** Set `status: COMPLETE`, add `completed: YYYY-MM-DD`. Remove resolved gaps. Add new gaps to appropriate future phases.
-8. **Phase doc hygiene:** If the phase doc (`docs/phases/PHASE_XX.md`) contains a `## Status:` line, **remove it** — status belongs only in the manifest (Rule 2). This line going stale is a common source of confusion between agents.
-9. **Sync:** Run `python3 scripts/sync-roadmap.py` to regenerate `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md`.
-10. **Lint:** Run `make lint-phases` — must exit 0. Fix any violations before continuing.
-11. **Atomic commit:** Commit code, `CHANGELOG.md`, `docs/phases/manifest.yaml`, `docs/phases/TODO.md`, `docs/PROJECT_STATUS.md`, and the phase doc together in a single commit.
+If you cannot use the slash command (e.g. running outside Claude Code), run
+`bash scripts/close-phase.sh` manually and follow every step in
+`.claude/commands/close-phase.md` by hand. The steps are:
 
-> **Why this matters:** `docs/phases/manifest.yaml` is the only document downstream tooling reads. If it is not updated at phase-close, `docs/phases/TODO.md` and `docs/PROJECT_STATUS.md` will show stale state, and future sessions will have incorrect context about what work remains.
+1. **Pre-flight:** confirm you're on a feature branch, working tree clean,
+   CHANGELOG.md updated, manifest.yaml has `status: COMPLETE`.
+2. **Local gate:** `bash scripts/close-phase.sh` — runs ruff, gofmt, go vet,
+   go test, `make test`, and sync-roadmap. **Must exit 0.** Fix and re-run
+   until green.
+3. **Independent critical review:** self-review the diff for the known
+   recurring failure patterns (unmocked Redis, `os.access` bitmask mocks,
+   ambiguous variable names, missing `pathlib.Path.mkdir` patches).
+4. **Push and create PR.**
+5. **Wait for CI green.** Every check must be green. Do not merge with any
+   red check — not even "flaky" ones.
+6. **Merge** (`gh pr merge --squash --delete-branch`).
+7. **Post-merge verification:** pull main, watch the post-merge CI run,
+   confirm all green. If main is red after your merge, **you own fixing it
+   immediately**.
+
+The following documentation checks are also required at close-out (and are
+verified by the self-review in step 3):
+
+- **CHANGELOG.md:** standard entry for the phase.
+- **REDIS_SCHEMA.md:** every new Redis key documented.
+- **Signal scores:** if changed, `make check-scores` must exit 0.
+- **Parity check:** if scoring/pipeline affected, `make parity-check` must exit 0.
+- **docs/phases/manifest.yaml:** `status: COMPLETE`, `completed: YYYY-MM-DD`,
+  resolved gaps removed, new gaps added to future phases.
+- **Phase doc hygiene:** remove any `## Status:` line from the phase doc.
+- **Atomic commit:** code + CHANGELOG + manifest + TODO + PROJECT_STATUS
+  together in one commit.
+
+> **Why `/close-phase` exists:** On 2026-04-11, three separate CI breakages
+> reached main in a single session because agents skipped `make test` before
+> merging. Documentation alone didn't prevent this — the checklist existed but
+> agents ignored it under time pressure. The `/close-phase` command makes the
+> correct path the easiest path: one command, all gates, no skipping.
 
 ---
 
