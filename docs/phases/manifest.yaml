@@ -1116,20 +1116,20 @@ phases:
   94:
     name: Kubernetes Operator + CMDB/NetBox Integration
     status: PROPOSED
-    summary: 'ja4proxy-operator (separate repo): JA4ProxyConfig, JA4ProxyAllowlist, JA4ProxyDial CRDs with admission webhook
+    summary: 'ja4proxy-operator (separate repo at github.com/seanpor/ja4proxy-operator):
+      JA4ProxyConfig, JA4ProxyAllowlist, JA4ProxyDial CRDs with admission webhook
       validation. Reconciliation loop via Management API. DaemonSet safety annotations. ArgoCD custom health check. ServiceNow
-      CMDB auto-registration (opt-in). NetBox trusted CIDR integration (opt-in, fail-open).'
+      CMDB auto-registration (opt-in). NetBox trusted CIDR integration (opt-in, fail-open). 14 sub-phases across 3 parallel streams.'
     action_plan: docs/phases/PHASE_94.md
     dependencies:
     - 79
     - 83
-    - 93
     size: LARGE
     success_criteria:
     - All 3 CRD types with admission webhook validation
     - JA4ProxyDial handles 202 response (pendingDecisionId in status)
     - NetBox integration opt-in with fail-open fallback to static CIDRs
-    - make test-phase-94 passes
+    - E2E integration test (94l) passes with real Management API stubs
   84:
     name: Compliance & Reporting
     status: COMPLETE
