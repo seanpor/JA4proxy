@@ -91,6 +91,7 @@ epics:
   - 88
   - 91
   - 102
+  - 204
 - name: 'Epic: Quality Assurance & Test Maturity'
   description: Comprehensive testing, adversarial coverage, and performance validation.
   phases:
@@ -100,6 +101,20 @@ epics:
   - 60
   - 61
 phases:
+  204:
+    name: 'README Badges — License, Versions, CI, Security'
+    status: COMPLETE
+    completed: 2026-04-12
+    action_plan: docs/phases/PHASE_204.md
+    dependencies: []
+    size: XS
+    summary: 'Add comprehensive badge section to README.md: license, Python/Go versions, CI status, test coverage, security scans (Semgrep, TruffleHog), dependency audit, Docker readiness, and project architecture badges.'
+    success_criteria:
+    - Badge section exists below H1 heading in README.md
+    - At minimum: License, Python version, Go version, CI status badges present
+    - All static badges use correct shields.io URLs
+    - All dynamic badges point to correct GitHub Actions workflow paths
+    - make lint-phases exits 0
   0:
     name: Foundation
     status: COMPLETE
