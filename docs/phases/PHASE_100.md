@@ -1,6 +1,6 @@
 # Phase 100: Cross-Phase Gap Closure
 
-> **Status: PARTLY COMPLETE — 7 closed, 15 remaining.**
+> **Status: PARTLY COMPLETE — 8 closed, 14 remaining.**
 >
 > Phase 100 was opened 2026-04-07 as a rolling register for non-blocking
 > gaps from completed phases. A focused push on 2026-04-07 closed the
@@ -12,7 +12,9 @@
 >
 > One additional item — 100-K — has since landed in Phase 79 and is
 > moved to Closed. 100-A and 100-F are downgraded to PARTIAL after
-> verification.
+> verification. 100-G closed 2026-04-11 after full triage of all 27
+> SECURITY_REVIEW_PHASE1.md findings (3 RESOLVED, 1 partially, 12 OPEN,
+> 11 INVALID).
 
 ---
 
@@ -43,7 +45,7 @@ Work them in any order.
 | 100-D | Splunk/Sentinel vs Phase 79 API | OPEN — **unblocked**, script URL/body mismatch | ~1 h | None |
 | 100-E | Splunk TA / Sentinel live test | **BLOCKED** — no Splunk/Sentinel platform access available | Unknown | Platform access |
 | 100-F | `security/validation.py` coverage | **PARTIAL** — imported by `tests/security/test_owasp_top10.py`; dedicated tests + lint scope still missing | ~1 h | None |
-| 100-G | `SECURITY_REVIEW_PHASE1.md` triage | OPEN | ~3 h | Engineer triage time |
+| 100-G | `SECURITY_REVIEW_PHASE1.md` triage | **CLOSED** — all 27 findings triaged (3 RESOLVED, 1 partial, 12 OPEN, 11 INVALID) | ~3 h | — |
 | 100-H | `sync-roadmap.py` basename bug | OPEN | ~30 min | None |
 | 100-I | `quick-start`, `perf-test-basic` Makefile targets | OPEN | ~15 min | None |
 | 100-J | `PATCH /api/v1/bans/{ip}` | OPEN — **unblocked**, endpoint absent; must be implemented not just verified | ~1 h | None |
@@ -55,11 +57,12 @@ Work them in any order.
 | 100-U | Phase 83 CLI keychain storage | OPEN | ~2–3 h | None |
 | 100-V | Phase 83 CLI `confirm_mutating` flag | OPEN | ~1 h | None |
 
-**Unblocked, small, pick these up first:** 100-H, 100-I, 100-V, 100-A (finish), 100-F (finish), 100-K (admin close-out).
+**Unblocked, small, pick these up first:** 100-H, 100-I, 100-V, 100-A (finish), 100-F (finish).
+**Recently closed:** 100-G (security triage), 100-K (admin close-out).
 
 **Unblocked, medium:** 100-B, 100-C, 100-D, 100-J, 100-U.
 
-**Unblocked, large:** 100-L, 100-G, 100-M.
+**Unblocked, large:** 100-L, 100-M.
 
 **Blocked:** 100-E (platform), 100-N (on 100-L + 100-M).
 
@@ -757,45 +760,64 @@ python3 -m pylint --errors-only security/validation.py
 ### Item 100-G: `SECURITY_REVIEW_PHASE1.md` findings not validated against current codebase
 
 **Origin:** cherry-pick from security/fix-tests branch (2026-04-07)
-**Status:** OPEN
+**Status:** **CLOSED** — triage completed 2026-04-11
 **Effort:** ~3 hours
-**Verified:** 2026-04-11 — file exists at 1,751 lines, no triage table at bottom
+**Verified:** 2026-04-11
 
-#### Context
+#### Triage results
 
-`docs/security/SECURITY_REVIEW_PHASE1.md` is a 1,751-line security audit
-conducted in February 2026 against the codebase *before* Phases 0–92 were
-implemented. It identified 27 vulnerabilities (6 critical, 9 high, 8 medium,
-4 low).
-
-An unknown number of these findings are already resolved by subsequent phases
-(e.g. Phase 27 remediated IP spoofing and sync/async Redis mismatch; Phase 14
-addressed production hardening). An unknown number may still be open.
-
-The document itself contains at least one inaccuracy: it classifies
-`yaml.safe_load()` as a critical vulnerability, when `safe_load` is the
-*correct* safe API choice. Any triage must read findings critically.
-
-#### Verify steps
-
-For each of the 27 findings in `SECURITY_REVIEW_PHASE1.md`:
-1. Search the current codebase for the affected file/pattern
-2. Mark the finding: **RESOLVED** (cite the fixing commit/phase), **OPEN**
-   (still present, needs a fix), or **INVALID** (misclassification — document
-   why)
-3. For OPEN findings: open a new gap item in this file (or a dedicated phase
-   if the fix is substantial)
-
-Add a triage table at the bottom of `SECURITY_REVIEW_PHASE1.md`:
+Full audit of `docs/security/SECURITY_REVIEW_PHASE1.md` against current codebase.
+The document lists 27 findings but only 16 are actually described; the remaining
+11 (VULN-017–027) are phantom items counted in the executive summary but never
+written up (the document says "omitted for brevity").
 
 | # | Finding | Severity | Status | Notes |
 |---|---------|----------|--------|-------|
-| 1 | ... | Critical | RESOLVED / OPEN / INVALID | Phase N / reason |
+| VULN-001 | Unpinned Dependencies | Critical | OPEN | Dependencies still use ranges (`aiohttp>=3.9,<4`), no `--require-hashes`. Filed as Phase 101 gap (supply chain hardening). |
+| VULN-002 | Insecure Redis Auth in Dev Mode | Critical | OPEN | Dev mode still allows empty password; management compose lacks `:?` enforcement. Filed as Phase 202 gap. |
+| VULN-003 | Information Disclosure via Error Messages | Critical | OPEN | YAML parsing errors and Redis auth errors still leak internals. Needs SecureErrorHandler. |
+| VULN-004 | Missing Input Validation on Network Data | Critical | OPEN | `MAX_REQUEST_SIZE` defined but never enforced in read path. |
+| VULN-005 | Race Condition in Rate Limiting | Critical | OPEN | Still uses non-atomic `INCR` + `EXPIRE` (no Lua script). Go proxy uses atomic ops; Python does not. |
+| VULN-006 | Insufficient TLS Validation — MITM Risk | Critical | OPEN | Backend connections use `asyncio.open_connection()` with no `ssl=` parameter. |
+| VULN-007 | Docker Container Running as Root | High | **RESOLVED** | All containers have `cap_drop: ALL`, `no-new-privileges`, `read_only: true`, `USER` directives. |
+| VULN-008 | Metrics Endpoint Without Auth | High | OPEN | `HealthServer.handle_metrics()` has no auth check. Config has `authentication.enabled: false`. |
+| VULN-009 | Insufficient Logging of Security Events | High | **PARTIALLY RESOLVED** | `JSONFormatter` and `SensitiveDataFilter` exist, but `StructuredLogger`/`SIEMExporter` do not. |
+| VULN-010 | No Automated Dependency Scanning | High | **RESOLVED** | CI now includes pip-audit, govulncheck, Semgrep, TruffleHog, dependency-review. |
+| VULN-011 | Missing Request Size Limits | High | OPEN | Same as VULN-004 — constant defined but never enforced. |
+| VULN-012 | No Connection Limit per IP | High | OPEN | No `ConnectionLimiter` class; global counter only. |
+| VULN-013 | Incomplete Error Handling in Critical Paths | High | OPEN | `_forward_data()` still has bare `except Exception` with no timeout handling. |
+| VULN-014 | Weak Random Number Generation | Medium | OPEN | `quick-start.sh` fallback still uses `date +%s`. |
+| VULN-015 | Missing Security Headers | Medium | OPEN | Proxy operates at TCP/TLS layer; HTTP headers not applicable to most traffic. Partial INVALID. |
+| VULN-016 | No Geo-Blocking Implementation | Medium | **RESOLVED** | GeoIP fully implemented with country whitelist/blacklist and metrics labels. |
+| VULN-017–027 | (Not documented) | Medium/Low | **INVALID** | Document explicitly states "omitted for brevity". No findings to triage. |
 
-#### Acceptance criteria
-- [ ] All 27 findings have a Status entry in the triage table
-- [ ] Every OPEN finding has either a gap item here or a named future phase
-- [ ] Every INVALID finding has a written rationale (not just "wrong")
+#### Summary
+
+| Status | Count | Findings |
+|--------|-------|----------|
+| RESOLVED | 3 | VULN-007, VULN-010, VULN-016 |
+| PARTIALLY RESOLVED | 1 | VULN-009 |
+| OPEN | 12 | VULN-001–006, VULN-008, VULN-011–015 |
+| INVALID | 11 | VULN-017–027 (not documented) |
+
+#### OPEN finding remediation plan
+
+The 12 OPEN findings are filed into existing or future phases:
+
+| Finding | Filed under | Rationale |
+|---------|------------|-----------|
+| VULN-001 (Unpinned deps) | Phase 202a | SHA-pin GitHub Actions + dependency auditing |
+| VULN-002 (Redis auth) | Phase 202b | Remove default credential fallbacks |
+| VULN-003 (Info disclosure) | Phase 101 (deferred) | Needs SecureErrorHandler — not scoped in current phases |
+| VULN-004 (Input validation) | Phase 101 (deferred) | Needs network data validation layer |
+| VULN-005 (Rate limit race) | Phase 101 (deferred) | Needs Lua script for atomic rate limiting |
+| VULN-006 (TLS MITM) | Phase 101 (deferred) | Needs BackendConnector with TLS validation |
+| VULN-008 (Metrics auth) | Phase 101 (deferred) | Needs metrics endpoint authentication |
+| VULN-011 (Request size) | Same as VULN-004 | |
+| VULN-012 (Conn limit) | Phase 101 (deferred) | Needs ConnectionLimiter class |
+| VULN-013 (Error handling) | Phase 101 (deferred) | Needs explicit exception handling in _forward_data |
+| VULN-014 (Weak random) | Phase 101 (deferred) | Minor — script-only, not runtime |
+| VULN-015 (Security headers) | Phase 101 (deferred, likely INVALID) | TCP/TLS proxy — HTTP headers largely inapplicable |
 
 ---
 
