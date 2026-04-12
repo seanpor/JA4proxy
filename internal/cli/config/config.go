@@ -73,11 +73,11 @@ func Load() (*CLIConfig, error) {
 		return nil, err
 	}
 
-	var cfg CLIConfig
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	cfg := NewDefaultCLIConfig()
+	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, err
 	}
-	return &cfg, nil
+	return cfg, nil
 }
 
 // Save writes cfg to ~/.config/ja4proxy/cli.yaml, creating parent directories

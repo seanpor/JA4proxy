@@ -58,10 +58,10 @@ confirm_mutating: true
 	}
 }
 
-// TestCLIConfig_ConfirmMutatingField_AbsentDefaultsFalse verifies that when
-// the key is absent from the YAML file, ConfirmMutating is false (Go zero
-// value).  Callers that need a safe default should use NewDefaultCLIConfig().
-func TestCLIConfig_ConfirmMutatingField_AbsentDefaultsFalse(t *testing.T) {
+// TestCLIConfig_ConfirmMutatingField_AbsentDefaultsTrue verifies that when
+// the key is absent from the YAML file, ConfirmMutating defaults to true
+// (safe default from NewDefaultCLIConfig, which Load uses as the unmarshal base).
+func TestCLIConfig_ConfirmMutatingField_AbsentDefaultsTrue(t *testing.T) {
 	dir := t.TempDir()
 	writeConfigUnderHome(t, dir, `url: http://localhost:8090
 token: testtoken
@@ -71,9 +71,8 @@ token: testtoken
 	if err != nil {
 		t.Fatalf("Load() error: %v", err)
 	}
-	// When the key is absent, Go zero-value (false) is returned.
-	if cfg.ConfirmMutating {
-		t.Errorf("ConfirmMutating = true; want false (zero value) when key absent from config")
+	if !cfg.ConfirmMutating {
+		t.Errorf("ConfirmMutating = false; want true (safe default) when key absent from config")
 	}
 }
 
