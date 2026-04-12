@@ -85,12 +85,18 @@ def _get_config() -> tuple[str, str]:
 
 
 def _post_ban(mgmt_url: str, api_token: str, src_ip: str, ttl_seconds: int, reason: str) -> None:
-    """POST a ban request to the JA4proxy Management API."""
-    endpoint = f"{mgmt_url}/api/v1/bans"
+    """POST a ban request to the JA4proxy Management API.
+
+    The Phase 79 route is ``POST /api/v1/bans/{ip:path}``.  The IP is placed
+    in the URL path (percent-encoded so that IPv6 colons survive routing), and
+    the request body carries only the fields defined by ``BanCreateRequest``:
+    ``ttl`` (int, seconds) and ``reason`` (str).
+    """
+    encoded_ip = urllib.parse.quote(src_ip, safe="")
+    endpoint = f"{mgmt_url}/api/v1/bans/{encoded_ip}"
 
     body = json.dumps({
-        "ip": src_ip,
-        "ttl_seconds": ttl_seconds,
+        "ttl": ttl_seconds,
         "reason": reason,
     }).encode("utf-8")
 

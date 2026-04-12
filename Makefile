@@ -1056,7 +1056,7 @@ test-phase-91:
 # code, attribute errors) that mypy and ruff don't cover.
 lint-pylint:
 	@echo "=== pylint: Python semantic analysis (errors only) ==="
-	@python3 -m pylint --errors-only src/ proxy.py \
+	@python3 -m pylint --errors-only src/ proxy.py security/ \
 		&& echo "✓ pylint passed"
 
 # semgrep with auto-config: cross-language pattern matching for real bugs,
@@ -1364,3 +1364,12 @@ lint-alert-urls: ## Verify Alertmanager runbook_url values are up to date
 		--check
 
 .PHONY: lint-alert-urls
+
+# phase-100: quick-start and performance test targets
+quick-start: ## Start the proxy with default config (builds if needed)
+	bash scripts/quick-start.sh
+
+perf-test-basic: ## Run basic performance test against a local proxy
+	bash scripts/basic_perf_test.sh
+
+.PHONY: quick-start perf-test-basic

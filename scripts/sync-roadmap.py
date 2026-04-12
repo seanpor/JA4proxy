@@ -59,6 +59,23 @@ def load_manifest():
         return yaml.safe_load(f)
 
 
+# Prefix used in manifest action_plan values — strip it so links are relative
+# to the docs/phases/ directory where TODO.md lives.
+_DOCS_PHASES_PREFIX = "docs/phases/"
+
+
+def _action_plan_rel(action_plan: str) -> str:
+    """Return the action_plan path relative to docs/phases/.
+
+    If the value starts with "docs/phases/" the prefix is stripped, preserving
+    any subdirectory (e.g. "archive/PHASE_05.md" stays intact).
+    Falls back to os.path.basename() for values that don't use that prefix.
+    """
+    if action_plan.startswith(_DOCS_PHASES_PREFIX):
+        return action_plan[len(_DOCS_PHASES_PREFIX):]
+    return os.path.basename(action_plan)
+
+
 def generate_todo(manifest) -> str:
     """Return the expected TODO.md content as a string."""
     # Validate statuses up front — warn on any value not covered by TODO_SECTION_MAP.
@@ -97,7 +114,7 @@ def generate_todo(manifest) -> str:
                 lines.append(f"*   **Task:** {task}")
             lines.append(f"*   **Status:** **{data['status']}** ({data['summary']})")
             if "action_plan" in data:
-                plan_file = os.path.basename(data["action_plan"])
+                plan_file = _action_plan_rel(data["action_plan"])
                 lines.append(f"*   **Action Plan:** [{plan_file}]({plan_file})")
             lines.append("")
 
@@ -113,7 +130,7 @@ def generate_todo(manifest) -> str:
             lines.append(f"### Phase {phase_id} — {data['name']}")
             lines.append(f"*   **Status:** **{data['status']}** ({data['summary']})")
             if "action_plan" in data:
-                plan_file = os.path.basename(data["action_plan"])
+                plan_file = _action_plan_rel(data["action_plan"])
                 lines.append(f"*   **Action Plan:** [{plan_file}]({plan_file})")
             lines.append("")
 

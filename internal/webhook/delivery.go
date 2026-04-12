@@ -23,6 +23,10 @@ type WebhookEndpoint struct {
 	URL    string
 	Secret string
 	Events []string // nil or empty means deliver all event types
+	// Per-endpoint overrides. Zero means "use DispatcherConfig global default".
+	RetryAttempts       int
+	RetryBackoffSeconds float64
+	TimeoutSeconds      float64
 }
 
 // WebhookEvent is a single event to be dispatched.
@@ -109,11 +113,34 @@ func (d *Dispatcher) shouldDeliver(ep WebhookEndpoint, event WebhookEvent) bool 
 }
 
 // deliverToEndpoint attempts delivery with retries, writing to DLQ on failure.
+// Per-endpoint retry/backoff/timeout values override the global DispatcherConfig
+// defaults when non-zero.
 func (d *Dispatcher) deliverToEndpoint(ep WebhookEndpoint, event WebhookEvent) error {
-	maxAttempts := d.cfg.RetryAttempts
+	// Resolve per-endpoint retry attempts with global fallback.
+	maxAttempts := ep.RetryAttempts
+	if maxAttempts == 0 {
+		maxAttempts = d.cfg.RetryAttempts
+	}
 	if maxAttempts < 1 {
 		maxAttempts = 1
 	}
+
+	// Resolve per-endpoint backoff with global fallback.
+	backoffSeconds := ep.RetryBackoffSeconds
+	if backoffSeconds == 0 {
+		backoffSeconds = d.cfg.RetryBackoff.Seconds()
+	}
+	backoff := time.Duration(backoffSeconds * float64(time.Second))
+
+	// Build a per-call HTTP client so each endpoint can have its own timeout.
+	timeout := ep.TimeoutSeconds
+	if timeout == 0 {
+		timeout = d.cfg.TimeoutSeconds
+	}
+	if timeout == 0 {
+		timeout = 30
+	}
+	client := &http.Client{Timeout: time.Duration(timeout * float64(time.Second))}
 
 	// Build the payload once so the signature is consistent.
 	// We sign the final payload (with signature field set to computed value).
@@ -139,14 +166,13 @@ func (d *Dispatcher) deliverToEndpoint(ep WebhookEndpoint, event WebhookEvent) e
 		return fmt.Errorf("webhook: marshal signed payload: %w", err)
 	}
 
-	backoff := d.cfg.RetryBackoff
 	var lastErr error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		if attempt > 0 {
 			d.sleep(backoff)
 			backoff *= 2
 		}
-		if err := d.doHTTPPost(ep, payloadBytes, sig); err != nil {
+		if err := d.doHTTPPost(client, ep, payloadBytes, sig); err != nil {
 			lastErr = err
 			if d.log != nil {
 				d.log.WithError(err).WithField("attempt", attempt+1).
@@ -169,8 +195,8 @@ func (d *Dispatcher) deliverToEndpoint(ep WebhookEndpoint, event WebhookEvent) e
 	return lastErr
 }
 
-// doHTTPPost performs a single HTTP POST attempt.
-func (d *Dispatcher) doHTTPPost(ep WebhookEndpoint, payload []byte, sig string) error {
+// doHTTPPost performs a single HTTP POST attempt using the provided client.
+func (d *Dispatcher) doHTTPPost(client *http.Client, ep WebhookEndpoint, payload []byte, sig string) error {
 	req, err := http.NewRequest(http.MethodPost, ep.URL, bytes.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("webhook: create request: %w", err)
@@ -178,7 +204,7 @@ func (d *Dispatcher) doHTTPPost(ep WebhookEndpoint, payload []byte, sig string) 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-JA4Proxy-Signature", sig)
 
-	resp, err := d.client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("webhook: http post: %w", err)
 	}

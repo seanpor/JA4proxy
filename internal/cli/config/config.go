@@ -21,6 +21,31 @@ type CLIConfig struct {
 
 	// DefaultOutput is the default output format: "table", "json", or "csv".
 	DefaultOutput string `yaml:"default_output"`
+
+	// ConfirmMutating controls whether mutating commands require the
+	// --confirm flag.  Set to false to skip the confirmation prompt in
+	// non-interactive scripts and CI pipelines.  Defaults to true (safe
+	// default) when created via NewDefaultCLIConfig.
+	ConfirmMutating bool `yaml:"confirm_mutating"`
+
+	// UseKeyring controls whether the API token is stored in the OS keyring
+	// (macOS Keychain, Linux Secret Service / kwallet, Windows Credential
+	// Manager) rather than as plaintext in the Token field of this config file.
+	// Default: false — the plaintext config file is used by default, which
+	// ensures the CLI works on headless servers without a keyring daemon.
+	// Set to true when running interactively and you want tokens kept out of
+	// plaintext files on disk.
+	UseKeyring bool `yaml:"use_keyring"`
+}
+
+// NewDefaultCLIConfig returns a CLIConfig with safe production defaults.
+// Use this instead of a bare struct literal when you need ConfirmMutating
+// to default to true (the safe value) rather than Go's zero value (false).
+func NewDefaultCLIConfig() *CLIConfig {
+	return &CLIConfig{
+		ConfirmMutating: true,
+		UseKeyring:      false,
+	}
 }
 
 // configPath returns the canonical path of the CLI config file.
@@ -33,7 +58,7 @@ func configPath() (string, error) {
 }
 
 // Load reads the CLI config file from ~/.config/ja4proxy/cli.yaml.
-// If the file does not exist, an empty CLIConfig is returned without error.
+// If the file does not exist, a default CLIConfig is returned without error.
 func Load() (*CLIConfig, error) {
 	path, err := configPath()
 	if err != nil {
@@ -43,16 +68,16 @@ func Load() (*CLIConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return &CLIConfig{}, nil
+			return NewDefaultCLIConfig(), nil
 		}
 		return nil, err
 	}
 
-	var cfg CLIConfig
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	cfg := NewDefaultCLIConfig()
+	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, err
 	}
-	return &cfg, nil
+	return cfg, nil
 }
 
 // Save writes cfg to ~/.config/ja4proxy/cli.yaml, creating parent directories

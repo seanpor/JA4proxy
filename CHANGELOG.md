@@ -1,5 +1,29 @@
 # Changelog
 
+## Phase 100: Cross-Phase Gap Closure (2026-04-12)
+
+### Added
+- **100-A:** `source.port` field in ECS events and decision log
+- **100-B:** `DualFormatter` for dual_output logging mode (legacy + ECS)
+- **100-C:** Per-endpoint webhook retry/timeout with global fallback
+- **100-D:** Splunk TA and Sentinel playbook aligned with Phase 79 ban API
+- **100-F:** Dedicated `security/validation.py` unit tests (61 tests) + lint scope
+- **100-H:** Fixed `sync-roadmap.py` `basename()` bug for `archive/` links
+- **100-I:** `make quick-start` and `make perf-test-basic` Makefile targets
+- **100-J:** `PATCH /api/v1/bans/{ip}` extend-ban endpoint with audit trail
+- **100-U:** Optional OS keyring token storage (`use_keyring: true` in CLI config)
+- **100-V:** `confirm_mutating` config flag — mutating CLI commands require `--confirm`
+
+### Fixed
+- `config.Load()` now returns safe defaults (`confirm_mutating: true`) when
+  config file is absent or omits the key
+- `close-phase.sh` snap Go detection — unset GOROOT to fix `go vet` stdlib errors
+- gofmt formatting in 3 agent-authored Go files
+
+### Deferred
+- 100-E (Splunk/Sentinel live test): blocked on platform access
+- 100-L/M/N (Phase 82 endpoints, simulation runner): ~6 days of work, deferred
+
 ## Phase Documentation Readiness Audit (2026-04-11)
 
 ### Changed

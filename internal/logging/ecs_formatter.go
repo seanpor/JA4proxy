@@ -85,7 +85,19 @@ func (f *ECSFormatter) doECS(entry *logrus.Entry) ([]byte, error) {
 		out["source.ip"] = v
 	}
 	if v, ok := data["src_port"]; ok {
-		out["source.port"] = v
+		// Emit source.port only when non-zero — zero means unknown (e.g. PROXY protocol).
+		switch p := v.(type) {
+		case int:
+			if p != 0 {
+				out["source.port"] = v
+			}
+		case float64:
+			if p != 0 {
+				out["source.port"] = v
+			}
+		default:
+			out["source.port"] = v
+		}
 	}
 	if v, ok := data["ja4"]; ok {
 		out["ja4proxy.fingerprint.ja4"] = v
