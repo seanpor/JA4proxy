@@ -5,6 +5,9 @@ using a parallel multi-agent team, followed by an independent critical review.
 
 **Input:** The user provides a phase number (e.g., `93`) or path to a phase document.
 
+**See also:** Run `/review-phase XX` first to get a critical review and sub-task
+decomposition. This skill automatically picks up that output if it exists.
+
 ---
 
 ## Architecture: Wave-Based Parallel Execution
@@ -14,28 +17,21 @@ run in parallel where dependencies allow. Communication flows through you — wh
 one agent produces output another needs, you relay the relevant context.
 
 ```
-                        ┌─────────┐
-                        │   PM    │  ← You (orchestrator)
-                        └────┬────┘
-                             │
-         ┌───────────────────┼───────────────────┐
-         │      Wave 1       │      Wave 2       │      Wave 3
-         │   (parallel)      │   (parallel)      │   (sequential)
-    ┌────┴────┐  ┌───┴───┐  │  ┌───┴───┐        │
-    │   TDD   │  │  Doc  │  │  │ Coder │        │  ┌────┴────┐
-    │  Writer │  │ Eng   │  │  │       │        │  │   QA    │
-    │         │  │(early)│  │  │       │        │  │         │
-    └─────────┘  └───────┘  │  └───┬───┘        │  └────┬────┘
-                             │      │             │       │
-                             │  ┌───┴───┐        │       │
-                             │  │  Doc  │        │       │
-                             │  │ Eng   │        │       │
-                             │  │(late) │        │       │
-                             │  └───────┘        │       │
-                             │                    │  ┌────┴────┐
-                             │                    │  │  Cyber  │
-                             │                    │  │Architect│
-                             │                    │  └─────────┘
+                          ┌─────────┐
+                          │   PM    │  ← You (orchestrator)
+                          └────┬────┘
+                               │
+    Wave 1 (parallel)     Wave 2      Wave 3      Wave 4      Wave 5
+    ┌─────────┐          ┌────────┐  ┌────────┐  ┌────────┐  ┌──────────┐
+    │   TDD   │          │ Coder  │  │  Doc   │  │   QA   │  │  Cyber   │
+    │  Writer │          │        │  │  Eng   │  │        │  │ Architect│
+    │         │          │        │  │ (late) │  │        │  │(independ)│
+    └─────────┘          └────────┘  └────────┘  └────────┘  └──────────┘
+    ┌─────────┐               │           │           │            │
+    │  Doc    │               │           │           │            │
+    │  Eng    │          depends on  depends on  depends on   depends on
+    │ (early) │          Wave 1      Wave 2      Wave 3       Wave 4
+    └─────────┘
 ```
 
 **Wave 1 — parallel, no dependencies:**
@@ -44,10 +40,12 @@ one agent produces output another needs, you relay the relevant context.
 
 **Wave 2 — after TDD tests exist:**
 - Coder: makes the tests green (PM relays test file paths and contract summary)
-- Doc Engineer (late): finalizes docs using actual implementation details
-  (PM relays new function signatures, metric names, config keys)
 
-**Wave 3 — after code + docs complete:**
+**Wave 3 — after Coder completes:**
+- Doc Engineer (late): finalizes docs using actual implementation details
+  (PM relays new function signatures, metric names, config keys from Coder output)
+
+**Wave 4 — after code + docs complete:**
 - QA: adversarial testing, coverage audit, acceptance walkthrough
 - Then: Independent Cyber Architect review (must be after QA fixes are applied)
 
@@ -59,7 +57,12 @@ You (the PM) do this step yourself. Do not delegate it.
 
 1. Read `CLAUDE.md` in full (project rules, core asymmetry, cross-cutting requirements).
 2. Read the target phase document (`docs/phases/PHASE_XX.md`).
+   - **If the phase doc does not exist, STOP.** Per the Mandatory Planning Protocol
+     in `AGENTS.md`, the phase doc must be created and reviewed by the user before
+     any work begins. Tell the user and abort.
 3. Read `docs/phases/manifest.yaml` for status and dependencies.
+   - **Check that all prerequisite phases (dependencies) have `status: COMPLETE`.**
+     If not, abort and list which prerequisites are incomplete.
 4. Read `config/proxy.yml` for current config surface.
 5. Read `docs/REDIS_SCHEMA.md` if the phase touches Redis.
 6. Read `docs/STYLE_GUIDE.md` and `docs/TEST_ORGANIZATION.md`.
@@ -67,8 +70,12 @@ You (the PM) do this step yourself. Do not delegate it.
 8. Skim existing source files that the phase will modify or extend.
 9. If a `/review-phase` output exists at `docs/phases/PHASE_XX_review.md`, read it
    and use its sub-task decomposition as the starting work breakdown.
+10. **Determine Go vs Python.** Per CLAUDE.md: "Default to the Go side. Touch the
+    Python side only when the task explicitly involves prototyping." Brief all agents
+    with which language this phase targets.
 
 **Create a branch:** `git checkout -b claude/phase-XX-description` from latest `main`.
+If the branch already exists, check it out. If it has diverged from main, rebase first.
 
 **Produce a work plan** with:
 - File ownership map: which files each agent will touch (no overlaps within a wave)
@@ -108,6 +115,8 @@ Spawn with `subagent_type: "general-purpose"`. Include in the prompt:
 > - For web phases, create `test_pages.py` and `test_container_config.py`.
 > - Tests must FAIL (no implementation yet). Verify they fail for the RIGHT
 >   reason — import errors or syntax errors mean YOU made a mistake.
+> - For phases that extend existing modules, some tests may pass against current
+>   code — that's fine. The key tests (new functionality) must fail.
 > - No `assert True`. No `assert result is not None` without checking the value.
 > - Every assertion tests a specific, meaningful property.
 > - Parametrize where there are 3+ similar cases.
@@ -168,9 +177,9 @@ When both agents return:
 
 ---
 
-## Step 2 — Wave 2: Coder + Doc Engineer (Late)
+## Step 2 — Wave 2: Coder
 
-Launch these two agents **in parallel**.
+The Coder runs alone — Doc Engineer (late) waits for the Coder's output.
 
 ### Agent 2a: Coder (Implementation Engineer)
 
@@ -200,6 +209,7 @@ Spawn with `subagent_type: "general-purpose"`. Include in the prompt:
 > - Every external call: failure handler → log + counter + neutral return.
 > - Prometheus metrics: `ja4proxy_{subsystem}_{name}_{unit}`.
 > - IPv6 handled everywhere an IP is touched.
+> - Never hardcode secrets. Use environment variables per CLAUDE.md conventions.
 >
 > **After implementation:**
 > - Run all tests. Fix until green.
@@ -209,19 +219,34 @@ Spawn with `subagent_type: "general-purpose"`. Include in the prompt:
 > Report: which tests now pass, any design decisions you made, any new
 > function signatures / metric names / config keys the Doc Engineer needs.
 
-### Agent 2b: Doc Engineer (Late)
+### PM: After Wave 2 completes
+
+1. **Read the Coder's report.** Note any design decisions or new interfaces.
+2. **Verify tests pass:** run `make test-unit` yourself.
+3. **Prepare the Doc Engineer (late) brief** with the Coder's actual output:
+   function signatures, metric names, config keys, design decisions.
+
+---
+
+## Step 3 — Wave 3: Doc Engineer (Late)
+
+The Doc Engineer (late) runs after the Coder so it can verify against real
+implementation, not guesses.
+
+### Agent 3: Doc Engineer (Late)
 
 Spawn with `subagent_type: "general-purpose"`. Include in the prompt:
 
 - What was created in the early pass and what was left as TODO
+- The Coder's report: new function signatures, metric names, config keys, design decisions
 - The phase document for reference
 - Observability standards from `docs/OBSERVABILITY_STANDARDS.md`
 
 **Their instructions:**
 
 > You are a Documentation Engineer doing the late-phase pass. The early
-> scaffolding is already in place. Your job is to finalize everything that
-> depends on implementation details.
+> scaffolding is already in place. The implementation is now complete.
+> Your job is to finalize everything using actual implementation details.
 >
 > **Do the following:**
 > - Review and finalize the CHANGELOG draft — make it accurate.
@@ -237,22 +262,10 @@ Spawn with `subagent_type: "general-purpose"`. Include in the prompt:
 > Commit with message: `phase-XX: documentation (final)`
 > Report what was finalized and any concerns about implementation accuracy.
 
-**Note:** The Coder and Doc Engineer (late) touch different files. The Coder
-writes source code; the Doc Engineer writes docs. If the Doc Engineer needs to
-see the Coder's output (e.g., actual metric names), they can read the source
-files directly — the Coder will commit first if they finish first, and the
-Doc Engineer should read from disk regardless. If the Doc Engineer finishes
-first, they should work from the phase spec and mark anything unverifiable
-as `<!-- TODO: verify -->`.
+### PM: After Wave 3 completes
 
-### PM: After Wave 2 completes
-
-1. **Read the Coder's report.** Note any design decisions or new interfaces.
-2. **If the Doc Engineer finished before the Coder:** send a follow-up message
-   to the Doc Engineer agent (via SendMessage) with the Coder's actual output,
-   asking them to resolve any remaining TODOs.
-3. **Verify tests pass:** run `make test-unit` yourself.
-4. **Prepare the QA brief.** Summarize:
+1. **Verify docs are consistent with implementation.**
+2. **Prepare the QA brief.** Summarize:
    - What was implemented and where
    - What design decisions were made
    - What the Coder flagged as tricky or uncertain
@@ -260,11 +273,11 @@ as `<!-- TODO: verify -->`.
 
 ---
 
-## Step 3 — Wave 3: QA Engineer
+## Step 4 — Wave 4: QA Engineer
 
-This runs **sequentially** — QA needs the complete codebase.
+This runs **sequentially** — QA needs the complete codebase with docs.
 
-### Agent 3: QA Engineer
+### Agent 4: QA Engineer
 
 Spawn with `subagent_type: "general-purpose"`.
 
@@ -286,7 +299,7 @@ Spawn with `subagent_type: "general-purpose"`.
 >    passing (mocks returning exactly what's asserted).
 > 2. **Test strength:** For each test, ask: "would this fail if the
 >    implementation were wrong?" If not, strengthen or rewrite it.
-> 3. **Integration:** Run `make test-unit` — all existing tests must still pass.
+> 3. **Integration:** Run `make test` (full gate, not just unit) — all existing tests must still pass.
 >    Check that bypasses, scoring, and action logic are unaffected.
 > 4. **Config abuse:** Set each new config key to invalid values — verify
 >    graceful handling. Remove keys — verify defaults apply.
@@ -296,6 +309,8 @@ Spawn with `subagent_type: "general-purpose"`.
 >    For each: verify it's met and a test proves it. Flag any ambiguous ones.
 > 7. **Chaos/resilience:** Verify chaos tests exist for every failure mode
 >    and actually simulate realistic failure (not just `raise Exception`).
+> 8. **Test ordering:** Run `pytest --randomly-seed=12345` to verify no hidden
+>    state dependencies between tests.
 >
 > **Fix everything you find.** Write additional tests for gaps. Strengthen
 > weak assertions. Add missing edge cases.
@@ -305,24 +320,24 @@ Spawn with `subagent_type: "general-purpose"`.
 > Report: what you found, what you fixed, what you couldn't fix (blockers),
 > and your confidence level (HIGH / MEDIUM / LOW) for each acceptance criterion.
 
-### PM: After QA completes
+### PM: After Wave 4 completes
 
 1. **Review QA findings.** If there are blockers, decide whether to:
    - Fix them yourself
    - Re-spawn the Coder or TDD Writer to address specific issues
    - Escalate to the user
-2. **Run `make test-unit`** to verify everything still passes.
+2. **Run `make test`** to verify the full gate still passes.
 3. **Proceed to the independent review.**
 
 ---
 
-## Step 4 — Independent Critical Review (Cyber Architect)
+## Step 5 — Independent Critical Review (Cyber Architect)
 
 This is a **separate, independent agent** that has NOT seen any of the work above.
 It reviews from scratch. Spawn it with a clean brief — do NOT paste the other
 agents' reports. Let it form its own conclusions.
 
-### Agent 4: Expert Cyber Architect
+### Agent 5: Expert Cyber Architect
 
 Spawn with `subagent_type: "general-purpose"`.
 
@@ -343,7 +358,7 @@ Spawn with `subagent_type: "general-purpose"`.
 > ### A. Security Audit
 > - Threat model: what new attack surfaces? Are they mitigated?
 > - Input validation: every external input validated?
-> - Secrets: no credentials in logs, config, errors, or Redis?
+> - Secrets: no credentials in logs, config, errors, or Redis? Grep for hardcoded API keys, passwords, tokens.
 > - Privilege: no unnecessary capabilities?
 > - Supply chain: new deps pinned? CVEs checked?
 > - Core asymmetry: FP still costs more than FN in all new paths?
@@ -411,7 +426,7 @@ Spawn with `subagent_type: "general-purpose"`.
 
 **If PASS or PASS WITH NOTES:**
 - Apply any noted minor fixes yourself.
-- Proceed to Step 5 (Phase Close).
+- Proceed to Step 6 (Phase Close).
 
 **If FAIL:**
 - Triage each finding by which role should fix it.
@@ -423,12 +438,14 @@ Spawn with `subagent_type: "general-purpose"`.
 
 ---
 
-## Step 5 — Phase Close
+## Step 6 — Phase Close
 
 Once the independent review passes:
 
-1. Run `make test` — all tests must pass with zero warnings.
-2. Run `ruff check .` and `gofmt -l .` — zero lint issues.
+1. Run `bash scripts/close-phase.sh` — this is the mechanical gate (ruff, gofmt,
+   go vet, go test, make test, sync-roadmap). **Do not proceed until it exits 0.**
+2. If `close-phase.sh` is not available, run manually:
+   `make test && ruff check . && gofmt -l .` — zero failures, zero lint issues.
 3. Update `docs/phases/manifest.yaml`: set `status: COMPLETE`.
 4. Run `make sync` to regenerate `TODO.md` and `PROJECT_STATUS.md`.
 5. Stage all changes and create a final atomic commit:
@@ -456,7 +473,7 @@ Before each wave, explicitly assign file ownership:
 - **TDD Writer owns:** `tests/` files for this phase, `tests/mocks/` additions
 - **Doc Engineer owns:** `docs/`, `CHANGELOG.md`, config file comments
 - **Coder owns:** `src/`, `internal/`, `cmd/` implementation files
-- **QA owns:** can modify any file, but commits separately tagged `QA fixes`
+- **QA runs solo (Wave 4):** no ownership conflict — may modify any file, commits tagged `QA fixes`
 - **No two parallel agents touch the same file in the same wave.**
 
 ### Progress Reporting
