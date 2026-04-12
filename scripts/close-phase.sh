@@ -23,10 +23,12 @@ fail() { echo -e "${RED}✗ $1${RESET}"; echo -e "${RED}  Fix the above and re-r
 
 # --- Environment setup ---
 
-# Snap Go installation requires explicit GOROOT.  If /snap/go exists and
-# GOROOT is not already set, inject it so all downstream go commands work.
-if [ -d /snap/go/current ] && [ -z "${GOROOT:-}" ]; then
-    export GOROOT=/snap/go/current
+# Snap Go knows its own GOROOT (/snap/go/NNNN).  If the user's profile
+# sets GOROOT to the old apt-installed Go (/usr/share/go), `go vet` and
+# `go build` break because the stdlib paths don't match.  Unset GOROOT
+# when snap Go is detected so it can use its built-in value.
+if command -v go &>/dev/null && [[ "$(command -v go)" == /snap/* ]]; then
+    unset GOROOT
 fi
 
 GO_AVAILABLE=false
@@ -50,7 +52,7 @@ fi
 
 echo -e "${BOLD}=== Phase Close-Out Gate ===${RESET}"
 if [ -n "${GOROOT:-}" ]; then
-    echo -e "  GOROOT=$GOROOT"
+    echo -e "  GOROOT=${GOROOT}"
 fi
 echo -e "  Go available: $GO_AVAILABLE"
 echo -e "  Signal scores touched: $SCORES_TOUCHED"

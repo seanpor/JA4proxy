@@ -633,6 +633,16 @@ func TestECSFormatter_SourcePort_AbsentWhenNotSet(t *testing.T) {
 	}
 }
 
+func TestECSFormatter_SourcePort_AbsentWhenZero(t *testing.T) {
+	// src_port=0 means unknown (e.g. PROXY protocol connection). The ECS formatter
+	// must not emit source.port in this case to avoid polluting ECS events with a
+	// meaningless zero value.
+	out := formatEntry(t, logrus.Fields{"src_port": 0}, "connection")
+	if _, ok := out["source.port"]; ok {
+		t.Error("source.port should be absent when src_port=0 (PROXY protocol / unknown port)")
+	}
+}
+
 // ── tls fields ────────────────────────────────────────────────────────────────
 
 func TestECSFormatter_TLSVersion_PresentWhenSet(t *testing.T) {

@@ -163,30 +163,18 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 	}()
 
 	// Initialise webhook dispatcher (starts inactive if cfg.Webhooks.Enabled is false).
-	// phase-80: build per-endpoint config; per-endpoint retry/timeout fields are
-	// stored in WebhookEndpointConfig but DispatcherConfig holds global retry settings.
-	// Use the first endpoint's settings as global defaults (or safe defaults if none set).
+	// phase-100-C: each endpoint carries its own retry/backoff/timeout; the
+	// DispatcherConfig holds safe global defaults used when per-endpoint values are zero.
 	endpoints := make([]webhook.WebhookEndpoint, len(cfg.Webhooks.Endpoints))
-	dispatchRetryAttempts := 3
-	dispatchRetryBackoff := 5.0
-	dispatchTimeout := 30.0
 	for i, e := range cfg.Webhooks.Endpoints {
 		endpoints[i] = webhook.WebhookEndpoint{
-			ID:     e.ID,
-			URL:    e.URL,
-			Secret: e.Secret,
-			Events: e.Events,
-		}
-		if i == 0 {
-			if e.RetryAttempts > 0 {
-				dispatchRetryAttempts = e.RetryAttempts
-			}
-			if e.RetryBackoffSeconds > 0 {
-				dispatchRetryBackoff = e.RetryBackoffSeconds
-			}
-			if e.TimeoutSeconds > 0 {
-				dispatchTimeout = e.TimeoutSeconds
-			}
+			ID:                  e.ID,
+			URL:                 e.URL,
+			Secret:              e.Secret,
+			Events:              e.Events,
+			RetryAttempts:       e.RetryAttempts,
+			RetryBackoffSeconds: e.RetryBackoffSeconds,
+			TimeoutSeconds:      e.TimeoutSeconds,
 		}
 	}
 	redisAddr := fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port.Int())
@@ -194,9 +182,9 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 		Endpoints:      endpoints,
 		StreamKey:      cfg.Webhooks.StreamKey,
 		DLQStreamKey:   cfg.Webhooks.DLQKey,
-		RetryAttempts:  dispatchRetryAttempts,
-		RetryBackoff:   time.Duration(dispatchRetryBackoff * float64(time.Second)),
-		TimeoutSeconds: dispatchTimeout,
+		RetryAttempts:  3, // global default; overridden per-endpoint
+		RetryBackoff:   5 * time.Second,
+		TimeoutSeconds: 30,
 	}
 	disp, err := webhook.NewDispatcher(dispatcherCfg, redisAddr, log)
 	if err != nil {
@@ -300,7 +288,8 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 
 	// Build ConnectionContext from TLS ClientHello
 	connCtx := &security.ConnectionContext{
-		ClientIP: remoteIP(clientConn),
+		ClientIP:   remoteIP(clientConn),
+		ClientPort: remotePort(clientConn),
 	}
 
 	// PROXY protocol: extract real client IP if behind HAProxy.
@@ -387,6 +376,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		"dial":        result.Dial,
 		"signals":     result.Signals,
 		"dst_ip":      backendHost, // phase-80: destination for ECS field mapping
+		"src_port":    connCtx.ClientPort,
 	}).Info("proxy: connection decision")
 
 	// Publish ECS connection event to Redis Stream for webhook delivery.
@@ -398,6 +388,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 				"event.action":             result.Action,
 				"event.risk_score":         result.Score,
 				"source.ip":                connCtx.ClientIP,
+				"source.port":              connCtx.ClientPort,
 				"destination.ip":           backendHost,
 				"destination.port":         443,
 				"network.transport":        "tcp",
@@ -735,6 +726,13 @@ func remoteIP(conn net.Conn) string {
 	return conn.RemoteAddr().String()
 }
 
+func remotePort(conn net.Conn) int {
+	if addr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
+		return addr.Port
+	}
+	return 0
+}
+
 func newLogger(cfg *config.Config) *logrus.Logger {
 	log := logrus.New()
 	// Always write to stdout so that Vector (stdin source) and Docker log drivers
@@ -750,9 +748,20 @@ func newLogger(cfg *config.Config) *logrus.Logger {
 		level = logrus.InfoLevel
 	}
 	log.SetLevel(level)
-	// phase-80: dual_output is Python-only. Log a warning if misconfigured.
+	// phase-100-B: dual_output=true emits two JSON lines per log call — legacy first,
+	// then ECS — to support operators migrating Loki dashboards to ECS without a
+	// hard cutover.
 	if cfg.Logging.DualOutput && cfg.Logging.Format == "ecs" {
-		log.Warn("proxy: logging.dual_output=true is a Python-only feature; Go proxy emits ECS-only format")
+		log.SetFormatter(&jalogger.DualFormatter{
+			Legacy: &logrus.JSONFormatter{
+				FieldMap: logrus.FieldMap{
+					logrus.FieldKeyTime:  "timestamp",
+					logrus.FieldKeyLevel: "level",
+					logrus.FieldKeyMsg:   "message",
+				},
+			},
+			ECS: jalogger.NewECSLogrusFormatter("ecs"),
+		})
 	}
 	return log
 }

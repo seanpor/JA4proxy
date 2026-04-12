@@ -125,6 +125,27 @@ class BanRemoveResponse(BaseModel):
     ip: str
 
 
+class BanExtendRequest(BaseModel):
+    """Body for PATCH /api/v1/bans/{ip}."""
+
+    extend_ttl_seconds: int = Field(
+        ..., gt=0, le=86400 * 30, description="Seconds to add to the remaining TTL"
+    )
+    reason: Optional[str] = Field(
+        None,
+        description="Optional note; does not overwrite the existing ban reason",
+    )
+
+
+class BanExtendResponse(BaseModel):
+    """Response from PATCH /api/v1/bans/{ip}."""
+
+    ip: str
+    new_expires_at: str = Field(..., description="ISO-8601 UTC timestamp of new expiry")
+    previous_ttl: int
+    new_ttl: int
+
+
 # ── Health models ─────────────────────────────────────────────────────────────
 
 

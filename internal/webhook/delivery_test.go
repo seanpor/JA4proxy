@@ -696,3 +696,68 @@ func TestDispatcher_TimeoutOnSlowEndpoint(t *testing.T) {
 		t.Error("Deliver should return a timeout error when endpoint is slower than TimeoutSeconds")
 	}
 }
+
+// ── per-endpoint retry config ─────────────────────────────────────────────────
+
+// TestDispatcher_PerEndpointRetryConfig verifies that each endpoint uses its
+// own RetryAttempts value rather than the global DispatcherConfig default.
+// Two endpoints are configured: one with 2 retry attempts, one with 4.
+// Both point to a server that always returns 503. We count HTTP hits per
+// endpoint using atomic counters and assert the expected hit counts.
+func TestDispatcher_PerEndpointRetryConfig(t *testing.T) {
+	var hits1, hits2 atomic.Int32
+
+	srv1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits1.Add(1)
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer srv1.Close()
+
+	srv2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits2.Add(1)
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer srv2.Close()
+
+	noSleep := func(time.Duration) {} // instant retries for test speed
+
+	cfg := DispatcherConfig{
+		Endpoints: []WebhookEndpoint{
+			{
+				ID:            "ep1",
+				URL:           srv1.URL,
+				Secret:        "s1",
+				RetryAttempts: 2, // override global
+			},
+			{
+				ID:            "ep2",
+				URL:           srv2.URL,
+				Secret:        "s2",
+				RetryAttempts: 4, // override global
+			},
+		},
+		StreamKey:     "events:connection",
+		RetryAttempts: 10, // global default — must NOT apply when per-endpoint is set
+		RetryBackoff:  time.Millisecond,
+		SleepFn:       noSleep,
+	}
+
+	d, mr := newTestDispatcher(t, cfg)
+	defer mr.Close()
+
+	event := WebhookEvent{
+		ID:        "per-ep-001",
+		EventType: "block",
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		Data:      map[string]interface{}{"source.ip": "10.0.0.1"},
+	}
+
+	_ = d.Deliver(event) // expected to fail; we care about attempt counts
+
+	if got := hits1.Load(); got != 2 {
+		t.Errorf("endpoint 1: expected 2 attempts (RetryAttempts=2), got %d", got)
+	}
+	if got := hits2.Load(); got != 4 {
+		t.Errorf("endpoint 2: expected 4 attempts (RetryAttempts=4), got %d", got)
+	}
+}
