@@ -107,16 +107,14 @@
               "type": "Http",
               "inputs": {
                 "method": "POST",
-                "uri": "@{body('Get_JA4proxy_URL_from_KeyVault')?['value']}/api/v1/bans",
+                "uri": "@{body('Get_JA4proxy_URL_from_KeyVault')?['value']}/api/v1/bans/@{encodeUriComponent(item()?['properties']?['address'])}",
                 "headers": {
                   "Authorization": "Bearer @{body('Get_JA4proxy_API_token_from_KeyVault')?['value']}",
                   "Content-Type": "application/json"
                 },
                 "body": {
-                  "ip": "@{item()?['properties']?['address']}",
-                  "reason": "Blocked via Sentinel playbook — incident: @{triggerBody()?['object']?['properties']?['incidentNumber']}",
-                  "ttl_seconds": 86400,
-                  "source": "sentinel_playbook"
+                  "ttl": 86400,
+                  "reason": "Blocked via Sentinel playbook — incident: @{triggerBody()?['object']?['properties']?['incidentNumber']}"
                 }
               }
             },
