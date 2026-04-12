@@ -5,13 +5,25 @@ phase document, then decompose it into small, junior-engineer-ready sub-tasks.
 
 **Input:** The user provides a phase number or path to a phase document.
 
+**See also:** After this review, use `/run-phase XX` to execute the implementation
+with a parallel agent team.
+
 ## Step 1 — Load Context
 
 1. Read `CLAUDE.md` (project rules, core asymmetry, cross-cutting requirements).
 2. Read the target phase document (`docs/phases/PHASE_XX.md`).
+   - If the phase doc does not exist, **stop**. Per the Mandatory Planning Protocol
+     in `AGENTS.md`, the phase doc must be created and reviewed by the user before
+     any work begins. Tell the user and abort.
 3. Read `docs/phases/manifest.yaml` to understand phase status and dependencies.
+   - Check that all prerequisite phases (dependencies) have `status: COMPLETE`.
+     If not, warn the user and list which prerequisites are incomplete.
 4. Read `config/proxy.yml` to understand current config surface.
-5. Skim related source files referenced in the phase doc.
+5. Read `docs/OBSERVABILITY_STANDARDS.md` for metric/log/alert conventions.
+6. Skim related source files referenced in the phase doc.
+7. Determine whether this phase targets **Go (production)** or **Python (prototype)**
+   per CLAUDE.md: "Default to the Go side. Touch the Python side only when the task
+   explicitly involves prototyping." This determination governs all review lenses.
 
 ## Step 2 — Critical Review (Six Lenses)
 
@@ -22,6 +34,7 @@ Produce a structured review covering each lens. For each, list specific findings
 - Threat model: what attack surfaces does this phase introduce or modify?
 - Input validation: are all external inputs (network, config, API) validated?
 - Secrets handling: any risk of credential leakage in logs, config, or Redis?
+- Hardcoded secrets: grep for API keys, passwords, tokens, connection strings in code.
 - Privilege: does any component run with more privilege than needed?
 - Supply chain: any new dependencies? Are they pinned and audited?
 - Does the phase respect the core asymmetry (false positives cost more than false negatives)?
@@ -40,7 +53,7 @@ Produce a structured review covering each lens. For each, list specific findings
 - SLI/SLO impact: does this affect latency, error rate, or availability?
 - Capacity: any new Redis keys, streams, or storage that could grow unbounded?
 - Graceful degradation: does the fail-open principle hold for all new paths?
-- Runbook: does the operations team need new procedures?
+- Runbook: does the operations team need new procedures? Check `docs/runbooks/`.
 
 ### 2d. Architecture Review
 - Does this fit the existing pipeline (TCP accept → bypass → signals → scorer → action)?
@@ -55,7 +68,7 @@ Produce a structured review covering each lens. For each, list specific findings
 - Which test categories are needed (unit, integration, chaos, adversarial, FP corpus, perf, E2E)?
 - Are external services properly mocked?
 - For web phases: are `test_pages.py` and `test_container_config.py` needed?
-- Is the ~1.3x test-to-code ratio achievable?
+- Is the ~1.3x test-to-code ratio achievable? (Check current: `make test-ratio`)
 
 ### 2f. Documentation Review
 - CHANGELOG entry format correct?
@@ -116,5 +129,5 @@ Present the full review as a single document with clear markdown headers.
 End with a summary: total sub-task count, estimated total hours, critical
 blockers that must be resolved before any implementation begins.
 
-If the user specifies `--output file`, write the review to
-`docs/phases/PHASE_XX_review.md`. Otherwise print it in the conversation.
+Always write the review to `docs/phases/PHASE_XX_review.md` so that `/run-phase`
+can pick it up automatically. Also print a summary in the conversation.
