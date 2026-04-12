@@ -1,29 +1,359 @@
-# Phase 101 — Cross-Phase Gap Register
+# Phase 101 — Cross-Phase Gap Closure
 
 > **Status:** PROPOSED
-> **Size:** LARGE (rolling register; size grows as sections are added)
-> **Dependencies:** every phase that contributes a section (currently 84, 85)
-> **Tracking:** A rolling register of deferred gaps from phase reviews. Each
-> section below captures one phase's deferred items. Gap IDs are
-> letter-prefixed by severity (C/H/M/L) and numbered sequentially across the
-> entire register so cross-references stay stable as the register grows.
-> **When you add a new section, continue from the highest existing number per
-> letter — do not restart at 1.**
+> **Parent Size:** LARGE — split into 12 sub-phases below.
+> **Dependencies:** Phase 84 (compliance), Phase 85 (threat-intel), Phase 62 (Go parity), Phase 64 (deploy validation), Phase 86i (capacity hardening), Phase 93 (terraform provider).
+> **Last revised:** 2026-04-11 (sub-phase breakdown for junior engineer handoff; all existing gap analysis preserved below §3).
 
-## Section index
+## Sub-phase index
 
-| Section | Source review | Items |
-|---------|---------------|-------|
-| [Phase 84 Compliance Review](#phase-84-compliance-review-deferred-items) | 2026-03-?? | C1–C3 (closed), H1/H3 deferred + H2/H4/H5 closed, M1/M2/M4/M7 deferred + M3/M5/M6 closed, L1/L2/L5 deferred + L3/L4 closed |
-| [Phase 85 Threat-Intel Hardening](#phase-85-threat-intel-hardening-deferred-items) | 2026-04-09 | C5-partial/C7 closed + C4–C6 deferred, H13 closed + H6–H12 deferred, M8–M14 deferred, L6–L8 deferred |
-| [Phase 62 Go Test Parity](#phase-62-go-test-parity-deferred-items) | 2026-04-09 | M15 (golden cross-check), M16 (chaos right-answer-wrong-mechanism), M17 (V2 fuzz target hand-off to Phase 200), L9 (property generator weight semantics) |
-| [Phase 64 Deployment Validation](#phase-64-deployment-validation-deferred-items) | 2026-04-10 | M18 (Podman/Quadlet smoke test blocked), M19 (phantom `ja4proxy-cli backup` audit), M20 closed, M21 closed, M22 closed, M23 closed |
-| [Phase 86i Hardening Review](#phase-86i-hardening-review-deferred-items) | 2026-04-11 | H14 (capacity calculator estimates-as-measurements), H15 (Dynatrace Prometheus parser robustness), H16 (Datadog migration smoke check), M24 (Pushgateway grouping_key + empty latencies), M25 (Dynatrace topology drop on scrape blip), M26 (benchmarks test lacks numeric/SHA validation), L10 (real production-hardware `make bench` run) |
-| [Phase 93 Terraform Provider](#phase-93-terraform-provider-deferred-items) | 2026-04-11 | H17 (provider repo not pushed), M27 (Registry external process), M28 (plan-apply race), M29 (null managed_by), L11 (no dial/webhook guard) |
+| ID | Sub-phase | Area | Size | Depends on | Entry point |
+|---|---|---|---|---|---|
+| **101a** | Phase 84: DSAR correctness fixes (H1, H3, M7) | `management/api/routes/compliance.py`, `management/compliance/` | M | none | §4.1 |
+| **101b** | Phase 84: Compliance hygiene (M1, M2, M4, L1, L2, L5) | `management/compliance/` | S | 101a | §4.2 |
+| **101c** | Phase 85: Critical safety caps (C4, C5, C6) | `src/analytics/ti_feeds/` | M | none | §5.1 |
+| **101d** | Phase 85: SSRF, rate-limit, CSRF (H6, H7, H8) | `src/analytics/ti_feeds/`, `management/api/middleware/` | M | 101c | §5.2 |
+| **101e** | Phase 85: Regional endpoints (H9, H10) | `src/analytics/ti_feeds/recorded_future.py`, `crowdstrike.py` | XS | none | §5.3 |
+| **101f** | Phase 85: Test reshape (H11, H12) | `tests/integration/test_ti_feeds_*.py`, `tests/chaos/` | M | 101c | §5.4 |
+| **101g** | Phase 85: Medium items (M8–M14) | `src/analytics/ti_feeds/`, `management/api/routes/threat_intel.py` | M | none (any order) | §5.5 |
+| **101h** | Phase 85: Low items (L6–L8) | docs + metrics registry | XS | 101g | §5.6 |
+| **101i** | Phase 62: Go test parity (M15, M16, L9) | `internal/tls/`, `internal/security/` | XS | none | §6 |
+| **101j** | Phase 64: Deploy validation (M18, M19) | `scripts/`, `docs/runbooks/` | XS | M18 blocked on Phase 76 quadlets | §7 |
+| **101k** | Phase 86i: Capacity hardening (H14, H15, H16, M24, M25, M26) | `scripts/capacity_calculator.py`, `deploy/dynatrace/`, `deploy/datadog/` | M | none | §8 |
+| **101l** | Phase 93: Provider publication (H17) | `terraform-provider/` (separate repo) | XS | none | §9 |
 
-When a future phase review surfaces deferred items, append a new section
-below and start its severity counters at the next free number across the
-whole document. Never recycle IDs.
+**Start here if you're new:** Sub-phases **101c** (safety caps) and **101e** (regional endpoints) are the most impactful — they close production-critical gaps where a misbehaving threat-intel feed could mass-ban legitimate traffic. **101i** and **101l** are quick wins (XS, independent).
+
+### Parallelism
+
+| Stream | Sub-phases | Engineer count |
+|--------|-----------|---------------|
+| Phase 84 compliance | 101a → 101b | 1 |
+| Phase 85 threat-intel | 101c, 101e (parallel) → 101d → 101f, 101g (parallel) → 101h | 2–3 |
+| Phase 62 Go parity | 101i | 1 |
+| Phase 64 deploy | 101j | 1 |
+| Phase 86i capacity | 101k | 1 |
+| Phase 93 provider | 101l | 1 |
+
+Up to **6 engineers** can work in parallel with zero file conflicts.
+
+---
+
+## 1. How this phase works
+
+Phase 101 is a rolling register of deferred gaps from completed phase reviews.
+Each sub-phase above bundles related gaps into a workable unit. The detailed gap
+analysis (original review text, file paths, fix descriptions) is preserved in
+§3–§9 below — **do not delete it**, it is the source of truth for exact changes.
+
+When you pick up a sub-phase:
+1. Read the sub-phase header in §4–§9 to understand scope.
+2. Read the detailed gap analysis below for exact file paths and fix descriptions.
+3. Follow the **Verify** commands to confirm your changes work.
+4. Move completed items to the **Closed Items** table at the top of their section.
+
+---
+
+## 2. Status summary
+
+### Closed items
+
+| ID | Title | Closed by |
+|----|-------|-----------|
+| C1 | DSAR erase TOCTOU | Phase 84 review-fixes branch |
+| C2 | Monthly/stream fallback misfire | Phase 84 review-fixes branch |
+| C3 | Lexicographic timestamp comparison | Phase 84 review-fixes branch |
+| C5-partial | 10% deletion cap on differential cleanup | Phase 85 commit 78162eb |
+| C7 | Default `threat_intel` + `seed_file` to disabled | Phase 85 commit ee80232 |
+| H2 | Logo validation theatre | Phase 84 review-fixes branch |
+| H4 | `/signal-categories` bare classifier | Phase 84 review-fixes branch |
+| H5 | `int()` crash on non-numeric hash | Phase 84 review-fixes branch |
+| H13 | Defer `stix_ids_seen.add()` until mgmt write succeeds | Phase 85 commit 7c8ccac |
+| L3 | DSAR erase audit preserves full `skipped` list | Phase 84 review-fixes branch |
+| L4 | Module-level classifier cache | Phase 84 review-fixes branch |
+| M3 | Token inventory denylist → allowlist | Phase 84 review-fixes branch |
+| M5 | `block_rate_pct` clamped to [0, 100] | Phase 84 review-fixes branch |
+| M6 | HTML escape in `_render_simple_pdf` | Phase 84 review-fixes branch |
+| M17 | `FuzzReadProxyProtocolV2` placeholder → Phase 200 | Filed as hand-off to Phase 200 |
+| M20–M23 | Phase 64 CI smoke, infrastructure docs, metrics, MTTR | Phase 64 closeout |
+
+### Open items by severity
+
+| Severity | Count | IDs |
+|----------|-------|-----|
+| CRITICAL | 3 | C4, C5, C6 |
+| HIGH | 9 | H1, H3, H6, H7, H8, H9, H10, H11, H12, H14, H15, H16, H17 |
+| MEDIUM | 15 | M1, M2, M4, M7, M8, M9, M10, M11, M12, M13, M14, M18, M19, M24, M25, M26, M27, M28, M29 |
+| LOW | 6 | L1, L2, L5, L6, L7, L8, L9, L10, L11 |
+
+### Documented limitations (deferred, not bugs)
+
+| ID | Title | Reason |
+|----|-------|--------|
+| M27 | Terraform Registry publication | External HashiCorp process |
+| M28 | `protect_unmanaged_entries` plan-apply race | Inherent to Terraform's plan-apply model |
+| M29 | Null `managed_by` causes false-positive protection | Conservative — safe but documented |
+| L10 | Real production-hardware `make bench` run | Blocked on hardware availability |
+
+---
+
+## 3. Sub-phase detail
+
+### 3.1 Sub-phase 101a — Phase 84 DSAR correctness (H1, H3, M7)
+
+**Goal:** Fix three correctness gaps in the DSAR export path that cause
+incomplete or misleading compliance evidence.
+
+| Gap | Severity | What | File |
+|-----|----------|------|------|
+| H1 | HIGH | DSAR issues 2 full XRANGE scans — consolidate to 1 | `management/api/routes/compliance.py` |
+| H3 | HIGH | DSAR misses CIDR watchlist entries | `management/api/routes/compliance.py:295-296, 453-454` |
+| M7 | MEDIUM | DSAR returns success on Redis failure — needs `partial_failures` | `management/api/routes/compliance.py:408-413` |
+
+**Acceptance criteria:**
+- [ ] DSAR export issues at most one XRANGE call per request
+- [ ] DSAR for `10.0.0.15` includes watchlist entry stored as `10.0.0.0/24`
+- [ ] DSAR response includes `partial_failures` list on Redis error
+- [ ] `ja4proxy_dsar_export_partial_failures_total` counter wired
+- [ ] Chaos test: fakeredis raising `ConnectionError` returns payload with `partial_failures`
+- [ ] Benchmark: 1M-entry stream, DSAR export completes in < 2s
+- [ ] `make test-phase-84` still passes
+
+---
+
+### 3.2 Sub-phase 101b — Phase 84 compliance hygiene (M1, M2, M4, L1, L2, L5)
+
+**Goal:** Clean up 6 medium/low compliance issues that don't affect correctness
+but impact operational clarity and code quality.
+
+| Gap | Severity | What | File |
+|-----|----------|------|------|
+| M1 | MEDIUM | XTRIM MINID fallback for Redis < 6.2 | `management/compliance/purge.py:168-169` |
+| M2 | MEDIUM | Rename `beaconing_records_cleaned` → `beaconing_datapoints_cleaned` | `management/compliance/purge.py:138, 205` |
+| M4 | MEDIUM | Paginate audit log reads in pack builder | `management/compliance/pack_builder.py:203` |
+| L1 | LOW | Jinja2 Environment cached at module level | `management/compliance/report_renderer.py:129-132` |
+| L2 | LOW | JSONL trailing newline documented | `management/compliance/pack_builder.py:293-296` |
+| L5 | LOW | DSAR retention strings from config, not hardcoded | `management/api/routes/compliance.py:239-245` |
+
+**Acceptance criteria:**
+- [ ] GDPRPurge checks Redis version, falls back to XRANGE+XDEL for < 6.2
+- [ ] `PurgeSummary.beaconing_datapoints_cleaned` replaces old field, CHANGELOG notes breaking change
+- [ ] Pack builder reads audit entries in chunks of 10k
+- [ ] Two `ReportRenderer()` instances reuse compiled Jinja2 templates
+- [ ] Non-empty JSONL files end in `\n`, empty files are zero bytes
+- [ ] DSAR response retention text reflects config values dynamically
+- [ ] `make test-phase-84` still passes
+
+---
+
+### 3.3 Sub-phase 101c — Phase 85 critical safety caps (C4, C5, C6)
+
+**Goal:** Close the three CRITICAL gaps where a misbehaving feed could
+mass-ban legitimate traffic.
+
+> **⚠️ Do not deploy `dial > 0` with `threat_intel.enabled: true` until
+> this sub-phase is complete.**
+
+| Gap | Severity | What | File |
+|-----|----------|------|------|
+| C4 | CRITICAL | Per-feed safety caps (`max_new_per_poll`, `max_owned_total`, `max_delta_per_poll`) | `src/analytics/ti_feeds/base.py`, `runner.py` |
+| C5 | CRITICAL | Two-empty-poll gate before bulk cleanup | `src/analytics/ti_feeds/state.py`, `runner.py` |
+| C6 | CRITICAL | `ja4_safe_to_block(ja4)` FP corpus check | `src/analytics/ti_feeds/ja4_safety.py` (new), `taxii.py`, `rest_generic.py`, `seed_file.py` |
+
+**Acceptance criteria:**
+- [ ] `max_new_per_poll`, `max_owned_total`, `max_delta_per_poll` enforced with `ja4proxy_ti_feed_caps_hit_total` metric
+- [ ] Two consecutive empty polls required before cleanup; `empty_streak` persisted in Redis
+- [ ] `ja4_safe_to_block(ja4)` consulted from taxii.py, rest_generic.py, seed_file.py before every `post_blocklist`
+- [ ] `ja4proxy_ti_feed_fp_blocked_total{feed_id}` counter wired
+- [ ] `tests/adversarial/test_ti_feeds_fp_block.py` passes (Chrome 120 JA4 from FP corpus never blocked)
+- [ ] Alertmanager rules for `TIFeedCapsHit` and `TIFeedFPBlocked`
+
+---
+
+### 3.4 Sub-phase 101d — Phase 85 SSRF, rate-limit, CSRF (H6, H7, H8)
+
+**Goal:** Close three HIGH-severity security gaps in the threat-intel
+feed infrastructure.
+
+| Gap | Severity | What | File |
+|-----|----------|------|------|
+| H6 | HIGH | SSRF mitigation via SafeResolver | `src/analytics/ti_feeds/safe_resolver.py` (new), all 4 clients |
+| H7 | HIGH | Manual-poll endpoint rate limit (6/min/feed_id) | `management/api/routes/threat_intel.py` |
+| H8 | HIGH | CSRF double-submit middleware on `/api/v1/*` mutating routes | `management/api/middleware/csrf.py` (new) |
+
+**Acceptance criteria:**
+- [ ] SafeResolver rejects RFC1918/loopback/link-local IPs
+- [ ] `tests/adversarial/test_ti_feeds_ssrf.py` passes (DNS SSRF blocked)
+- [ ] 7th poll request in 60s returns 429 with `Retry-After`
+- [ ] CSRF middleware requires `X-CSRF-Token` header matching cookie on all POST/PUT/PATCH/DELETE
+- [ ] `tests/unit/test_csrf.py` passes
+
+---
+
+### 3.5 Sub-phase 101e — Phase 85 regional endpoints (H9, H10)
+
+**Goal:** Support regional/GovCloud endpoints for Recorded Future and
+CrowdStrike feeds.
+
+| Gap | Severity | What | File |
+|-----|----------|------|------|
+| H9 | HIGH | Recorded Future regional endpoint support | `src/analytics/ti_feeds/recorded_future.py` |
+| H10 | HIGH | CrowdStrike regional / GovCloud endpoint support | `src/analytics/ti_feeds/crowdstrike.py` |
+
+**Acceptance criteria:**
+- [ ] RF client honours `config.url` for EU/APAC sub-domains
+- [ ] CrowdStrike client supports US-2, EU-1, and GovCloud (laggar) endpoints
+- [ ] `config/proxy.yml` examples show regional endpoints as comments
+- [ ] Unit tests pass for both clients
+
+---
+
+### 3.6 Sub-phase 101f — Phase 85 test reshape (H11, H12)
+
+**Goal:** Rewrite 5 integration/chaos test files that target a
+`FeedRunner(feeds=[...])` constructor that no longer exists.
+
+| Gap | Severity | What | File |
+|-----|----------|------|------|
+| H11 | HIGH | TAXII chaos test — assert no mutations during 500 storm | `tests/chaos/test_ti_feed_taxii_unavailable.py` |
+| H12 | HIGH | Coordinated reshape of 5 test files against `FeedRunner._poll_once()` | `tests/integration/test_ti_feeds_*.py` |
+
+**Acceptance criteria:**
+- [ ] All 5 files use `FeedRunner._poll_once(feed_id)` (not the loop)
+- [ ] Shared fixtures in `tests/integration/conftest.py` or `tests/_helpers/ti_feed_runner.py`
+- [ ] No `pytestmark = pytest.mark.xfail` remains in any file
+- [ ] All 5 files pass green
+
+---
+
+### 3.7 Sub-phase 101g — Phase 85 medium items (M8–M14)
+
+**Goal:** Close 7 medium-severity feed quality improvements. All
+independent — pick up in any order.
+
+| Gap | Severity | What | File |
+|-----|----------|------|------|
+| M8 | MEDIUM | TAXII bundle size cap (reject >N MiB before parse) | `src/analytics/ti_feeds/taxii.py` |
+| M9 | MEDIUM | Per-feed `User-Agent` header | `src/analytics/ti_feeds/base.py` + 4 clients |
+| M10 | MEDIUM | `ti_feed_indicators_managed` Gauge → Counter | `src/analytics/metrics.py` |
+| M11 | MEDIUM | `compute_dropped_ids` returns stable-ordered list, not dict | `src/analytics/ti_feeds/state.py` |
+| M12 | MEDIUM | Replace `BLE001` `Exception` catches with explicit unions | 4 client files |
+| M13 | MEDIUM | `seed_file.run_once` inside leader lock | `src/analytics/ti_feeds/seed_file.py` |
+| M14 | MEDIUM | Audit log on feed enable/disable runtime override | `management/api/routes/threat_intel.py` |
+
+**Acceptance criteria:**
+- [ ] All 7 items implemented and tested
+- [ ] `tests/unit/analytics/ti_feeds/` and `tests/adversarial/test_ti_feeds_*.py` pass
+
+---
+
+### 3.8 Sub-phase 101h — Phase 85 low items (L6–L8)
+
+**Goal:** Close 3 low-severity documentation and metrics registry items.
+
+| Gap | Severity | What | File |
+|-----|----------|------|------|
+| L6 | LOW | `_OneShotBundle` adapter docs out of date after H13 | `src/analytics/ti_feeds/` |
+| L7 | LOW | Three Phase 85 runbooks need real-deployment dry run | `docs/runbooks/` |
+| L8 | LOW | `monitoring/metrics_registry.md` updated with Phase 101 entries | `monitoring/` |
+
+**Acceptance criteria:**
+- [ ] `_OneShotBundle` docstring matches current implementation
+- [ ] Runbooks verified against a live deployment (or documented as untested)
+- [ ] All new metrics from this phase documented in `metrics_registry.md`
+
+---
+
+### 3.9 Sub-phase 101i — Phase 62 Go test parity (M15, M16, L9)
+
+**Goal:** Close 3 deferred items from the Phase 62 Go test parity review.
+
+| Gap | Severity | What | File |
+|-----|----------|------|------|
+| M15 | MEDIUM | JA4 golden file needs independently-computed cross-check anchor | `internal/tls/testdata/ja4_fp_golden.txt` |
+| M16 | MEDIUM | Redis outage chaos test — isolate signal fail-open from dial fail-open | `internal/security/pipeline_chaos_test.go` |
+| L9 | LOW | Property test generator constrains `Weight ∈ [0.1, 5.0]` | `internal/security/property_test.go` |
+
+**Acceptance criteria:**
+- [ ] At least one golden row computed by independent reference (FoxIO CLI or Python ja4)
+- [ ] `TestPipeline_RedisOutage_FailsOpen_DialIntact` test added (GetDial=100, all other Redis calls fail → still allow)
+- [ ] `genRiskSignal` generator constrained to valid Weight range
+- [ ] `make go-test` passes
+
+---
+
+### 3.10 Sub-phase 101j — Phase 64 deploy validation (M18, M19)
+
+**Goal:** Close 2 deferred items from Phase 64 deployment validation.
+
+| Gap | Severity | What | File |
+|-----|----------|------|------|
+| M18 | MEDIUM | Podman/Quadlet smoke test — **blocked on Phase 76 creating quadlet files** | `scripts/smoke/test_podman_quadlet.sh` |
+| M19 | MEDIUM | Audit and fix phantom `ja4proxy-cli backup` references in runbooks | `docs/runbooks/`, `docs/phases/` |
+
+**Acceptance criteria:**
+- [ ] M18: Quadlet files exist → smoke test created and passes (defer if Phase 76 not done)
+- [ ] M19: `grep -rn "ja4proxy-cli backup" docs/runbooks/ docs/phases/` returns zero results (except this PHASE_101 entry)
+- [ ] All phantom references replaced with correct Phase 19 Python invocation
+
+---
+
+### 3.11 Sub-phase 101k — Phase 86i capacity hardening (H14, H15, H16, M24, M25, M26)
+
+**Goal:** Close 6 deferred items from the Phase 86i hardening review.
+
+| Gap | Severity | What | File |
+|-----|----------|------|------|
+| H14 | HIGH | Capacity calculator presents engineering-floor constants as measurements — delete dead code | `scripts/capacity_calculator.py` |
+| H15 | HIGH | Dynatrace Prometheus parser robustness (escaped quotes, NaN, commas) | `deploy/dynatrace/ja4proxy-extension/plugin.py` |
+| H16 | HIGH | Datadog migration smoke check and runbook | `docs/runbooks/datadog_migration_phase86i.md` |
+| M24 | MEDIUM | Pushgateway `grouping_key` + wire real latency samples | `scripts/load_test.py` |
+| M25 | MEDIUM | Dynatrace plugin always emits topology entity | `deploy/dynatrace/ja4proxy-extension/plugin.py` |
+| M26 | MEDIUM | Benchmarks test validates numeric and SHA shape | `tests/integration/test_phase_86i_benchmarks_populated.py` |
+
+**Acceptance criteria:**
+- [ ] H14: `_ESTIMATED_BANNER` dead code deleted, `--require-measured` works correctly
+- [ ] H15: Parser handles escaped quotes, commas in values, NaN, summary quantiles — or replaced with `prometheus_client` parser
+- [ ] H16: Migration runbook exists with `datadog-agent check` commands
+- [ ] M24: `push_to_gateway` uses `grouping_key`, latencies wired from real CLI path
+- [ ] M25: Topology entity emitted even on scrape failure
+- [ ] M26: Test parses throughput/latency as floats, validates Git SHA shape (`[0-9a-f]{7,40}`)
+
+---
+
+### 3.12 Sub-phase 101l — Phase 93 provider publication (H17)
+
+**Goal:** Push the completed Terraform provider repo to GitHub and
+initiate Registry publication.
+
+| Gap | Severity | What | File |
+|-----|----------|------|------|
+| H17 | HIGH | Provider repo not pushed to GitHub | `/home/sean/LLM/terraform-provider-ja4proxy/` |
+
+**What's ready:**
+- 43 Go tests pass, 0 failures, `go vet` clean
+- 8 acceptance tests against ManagementAPIMock pass
+- 4 ADRs (093a–093d)
+- `.github/workflows/test.yml` and `.github/workflows/release.yml` ready
+- `.goreleaser.yml` configured
+
+**What's needed:**
+1. Create GitHub repo at `github.com/anomalyco/terraform-provider-ja4proxy`
+2. `git remote add origin <url>` and `git push -u origin main`
+3. Submit to Terraform Registry (1–2 weeks, external process)
+
+**Acceptance criteria:**
+- [ ] Provider repo pushed to GitHub
+- [ ] `v1.0.0` tag created to trigger release workflow
+- [ ] Terraform Registry submission in progress
+
+---
+
+## 4. Detailed gap analysis (original review text)
+
+> **This section preserves the original review text.** Each gap has file paths,
+> exact changes, and verify commands. Do not remove detail from this section —
+> it is the working reference for every sub-phase.
 
 ---
 
