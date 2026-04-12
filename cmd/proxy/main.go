@@ -182,7 +182,7 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 		Endpoints:      endpoints,
 		StreamKey:      cfg.Webhooks.StreamKey,
 		DLQStreamKey:   cfg.Webhooks.DLQKey,
-		RetryAttempts:  3,              // global default; overridden per-endpoint
+		RetryAttempts:  3, // global default; overridden per-endpoint
 		RetryBackoff:   5 * time.Second,
 		TimeoutSeconds: 30,
 	}

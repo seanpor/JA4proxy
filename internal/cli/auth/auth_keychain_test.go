@@ -132,11 +132,11 @@ func TestDeleteTokenFromKeychain(t *testing.T) {
 // documenting the full precedence chain for keychain resolution.
 func TestResolveTokenWithKeychain_PrecedenceTable(t *testing.T) {
 	tests := []struct {
-		name        string
-		flag        string
-		env         string
-		keyringVal  string // set in mock keyring; "" means not stored
-		want        string
+		name       string
+		flag       string
+		env        string
+		keyringVal string // set in mock keyring; "" means not stored
+		want       string
 	}{
 		{
 			name:       "flag_wins_over_all",
