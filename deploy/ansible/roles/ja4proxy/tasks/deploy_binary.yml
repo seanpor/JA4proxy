@@ -1,0 +1,98 @@
+---
+# ja4proxy/tasks/deploy_binary.yml — install Go binary + systemd unit.
+#
+# This is the primary deployment path for RHEL hosts managed by Ansible.
+# It installs the pre-built Go proxy binary, drops a systemd unit, and
+# starts the service.
+
+- name: Create ja4proxy system group
+  ansible.builtin.group:
+    name: "{{ ja4proxy_group }}"
+    state: present
+    system: true
+
+- name: Create ja4proxy system user
+  ansible.builtin.user:
+    name: "{{ ja4proxy_user }}"
+    group: "{{ ja4proxy_group }}"
+    system: true
+    shell: /usr/sbin/nologin
+    create_home: false
+
+- name: Create configuration directory
+  ansible.builtin.file:
+    path: "{{ ja4proxy_config_dir }}"
+    state: directory
+    owner: root
+    group: "{{ ja4proxy_group }}"
+    mode: "0750"
+
+- name: Create GeoIP directory
+  ansible.builtin.file:
+    path: "{{ ja4proxy_geoip_dir }}"
+    state: directory
+    owner: "{{ ja4proxy_user }}"
+    group: "{{ ja4proxy_group }}"
+    mode: "0755"
+
+- name: Create log directory
+  ansible.builtin.file:
+    path: "{{ ja4proxy_log_dir }}"
+    state: directory
+    owner: "{{ ja4proxy_user }}"
+    group: "{{ ja4proxy_group }}"
+    mode: "0750"
+
+- name: Deploy proxy configuration
+  ansible.builtin.template:
+    src: proxy.yml.j2
+    dest: "{{ ja4proxy_config_path }}"
+    owner: root
+    group: "{{ ja4proxy_group }}"
+    mode: "0640"
+  notify: Restart ja4proxy
+
+- name: Compute configuration checksum
+  ansible.builtin.command:
+    cmd: "sha256sum {{ ja4proxy_config_path }}"
+  register: config_checksum
+  changed_when: false
+
+- name: Install ja4proxy binary
+  when: ja4proxy_binary_src is defined and ja4proxy_binary_src | length > 0
+  block:
+    - name: Download binary from URL
+      when: ja4proxy_binary_src is match("https?://.*")
+      ansible.builtin.get_url:
+        url: "{{ ja4proxy_binary_src }}"
+        dest: "{{ ja4proxy_binary_path }}"
+        mode: "0750"
+        owner: root
+        group: root
+
+    - name: Copy binary from control node
+      when: ja4proxy_binary_src is not match("https?://.*")
+      ansible.builtin.copy:
+        src: "{{ ja4proxy_binary_src }}"
+        dest: "{{ ja4proxy_binary_path }}"
+        mode: "0750"
+        owner: root
+        group: root
+
+- name: Deploy systemd unit
+  ansible.builtin.template:
+    src: ja4proxy.service.j2
+    dest: "/etc/systemd/system/{{ ja4proxy_systemd_unit }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart ja4proxy
+
+- name: Enable and start ja4proxy service
+  ansible.builtin.systemd_service:
+    name: "{{ ja4proxy_systemd_unit }}"
+    enabled: true
+    state: started
+    daemon_reload: true

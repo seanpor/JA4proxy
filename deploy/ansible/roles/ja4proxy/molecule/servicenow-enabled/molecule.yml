@@ -1,0 +1,61 @@
+---
+# Molecule scenario — ServiceNow CMDB enabled (Phase 94k)
+#
+# Verifies that with servicenow_enabled: true, the cmdb_register.yml
+# task runs and posts to a stubbed ServiceNow endpoint.
+#
+# The stub endpoint is a simple Python HTTP server started in the prepare
+# step that records POST requests to a file for verification.
+
+dependency:
+  name: galaxy
+
+driver:
+  name: delegated
+  options:
+    managed: false
+    login_cmd_template: "docker exec -ti {instance} bash"
+    ansible_connection_options:
+      ansible_connection: docker
+
+platforms:
+  - name: ja4proxy-rocky9
+    image: docker.io/rockylinux:9
+    privileged: true
+    pre_build_image: true
+    command: /usr/lib/systemd/systemd
+
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      deprecation_warnings: false
+      callback_whitelist: timer,profile_tasks
+  inventory:
+    group_vars:
+      all:
+        backend_host: "backend.test.local"
+        upstream_lb_host: "lb.test.local"
+        ja4proxy_deploy_mode: "binary"
+        ja4proxy_binary_src: ""
+        servicenow_enabled: true     # explicitly enabled
+        servicenow_instance: "http://127.0.0.1:18080"
+        servicenow_user: "admin"
+        servicenow_password: "test"
+
+verifier:
+  name: ansible
+
+scenario:
+  name: servicenow-enabled
+  test_sequence:
+    - dependency
+    - cleanup
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    - verify
+    - cleanup
+    - destroy

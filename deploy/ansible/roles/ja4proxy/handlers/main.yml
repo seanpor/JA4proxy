@@ -1,0 +1,10 @@
+---
+- name: Reload systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Restart ja4proxy
+  ansible.builtin.systemd_service:
+    name: "{{ ja4proxy_systemd_unit }}"
+    state: restarted
+    daemon_reload: true

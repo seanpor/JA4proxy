@@ -1,0 +1,10 @@
+---
+- name: Prepare (default scenario)
+  hosts: ja4proxy-rocky9
+  become: true
+  tasks:
+    - name: Install minimal dependencies
+      ansible.builtin.package:
+        name:
+          - systemd
+        state: present

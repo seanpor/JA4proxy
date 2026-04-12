@@ -1,0 +1,28 @@
+---
+galaxy_info:
+  role_name: ja4proxy
+  author: JA4proxy contributors
+  description: Deploy the JA4proxy Go proxy (TLS security proxy) on RHEL/CentOS hosts.
+    Supports systemd, Podman Quadlet, and Docker container modes.
+    Provisions and starts the Go binary only — no Python/proxy.py references.
+  company: ""
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: EL
+      versions:
+        - "9"
+    - name: Rocky
+      versions:
+        - "9"
+    - name: CentOS
+      versions:
+        - "9"
+  galaxy_tags:
+    - ja4proxy
+    - tls
+    - proxy
+    - security
+    - go
+
+dependencies: []
