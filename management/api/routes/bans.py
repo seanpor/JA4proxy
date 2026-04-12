@@ -5,6 +5,7 @@ Routes
 GET    /api/v1/bans          — list all active bans
 POST   /api/v1/bans/{ip}     — create a ban
 DELETE /api/v1/bans/{ip}     — lift a ban
+PATCH  /api/v1/bans/{ip}     — extend an active ban's TTL
 
 Redis key pattern: ban:{ip} → String (reason), with TTL
 
@@ -18,13 +19,23 @@ Design notes
 
 import logging
 import urllib.parse
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from ..audit_utils import write_audit
 from ..auth import require_role
-from ..models import BanCreateRequest, BanCreateResponse, BanEntry, BanList, BanRemoveResponse, Role
+from ..models import (
+    BanCreateRequest,
+    BanCreateResponse,
+    BanEntry,
+    BanExtendRequest,
+    BanExtendResponse,
+    BanList,
+    BanRemoveResponse,
+    Role,
+)
 from ..redis_client import get_redis
 
 logger = logging.getLogger(__name__)
@@ -177,3 +188,71 @@ async def lift_ban(
     )
 
     return BanRemoveResponse(message=f"Ban lifted for {ip}", ip=ip)
+
+
+@router.patch("/api/v1/bans/{ip:path}", response_model=BanExtendResponse)
+async def extend_ban(
+    ip: str,
+    request: Request,
+    body: BanExtendRequest,
+    current_user=Depends(require_role(Role.operator)),
+    redis=Depends(get_redis),
+) -> BanExtendResponse:
+    """Extend an active ban's TTL by the given number of seconds.
+
+    Raises:
+        HTTPException(404): If no ban exists for the IP.
+    """
+    identity, role = current_user
+    ip = urllib.parse.unquote(ip)
+    key = f"{_BAN_KEY_PREFIX}{ip}"
+
+    existing_ttl = await redis.ttl(key)
+    # ttl() returns -1 for persistent keys (no TTL), -2 for expired/missing
+    if existing_ttl == -2:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No active ban found for IP: {ip}",
+        )
+
+    # For persistent bans (ttl == -1), treat existing TTL as 0 and extend from now
+    if existing_ttl == -1:
+        existing_ttl = 0
+
+    reason = await redis.get(key) or ""
+    if isinstance(reason, bytes):
+        reason = reason.decode("utf-8", errors="replace")
+
+    new_ttl = existing_ttl + body.extend_ttl_seconds
+    await redis.set(key, reason, ex=new_ttl)
+
+    new_expires_at = (
+        datetime.now(tz=timezone.utc) + timedelta(seconds=new_ttl)
+    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    logger.info(
+        "bans | event=ban_extended | ip=%s | previous_ttl=%d | new_ttl=%d | user=%s",
+        ip,
+        existing_ttl,
+        new_ttl,
+        identity,
+    )
+
+    await write_audit(
+        redis,
+        actor_id=identity,
+        actor_ip=_client_ip(request),
+        action_type="ban.extended",
+        resource_type="ban",
+        resource_id=ip,
+        before_value={"ttl": existing_ttl},
+        after_value={"ttl": new_ttl, "extended_by": body.extend_ttl_seconds},
+        role=role.value,
+    )
+
+    return BanExtendResponse(
+        ip=ip,
+        new_expires_at=new_expires_at,
+        previous_ttl=existing_ttl,
+        new_ttl=new_ttl,
+    )
