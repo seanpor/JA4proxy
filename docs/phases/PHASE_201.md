@@ -143,6 +143,7 @@ silently. The proxy needs to detect this and re-load scripts without a restart.
 **Files to modify:**
 - `internal/redis/client.go` — add health check method
 - `cmd/proxy/main.go` — wire health check goroutine at startup
+- `internal/redis/client_test.go` — health check unit tests (new file)
 
 **Steps:**
 1. Add a periodic health check goroutine in the Go proxy startup that pings Redis

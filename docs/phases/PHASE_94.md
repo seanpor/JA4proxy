@@ -478,6 +478,8 @@ ADR-094c.
 - [ ] `PHASE_94a_notes.md` records the chosen value AND files the
       `policy_applier.py` enum mismatch as a Phase 101 entry.
 
+**Out of scope:** This sub-phase only changes the enum value. It does not touch operator code, NetBox, Ansible, or any route handlers beyond verifying the filter works.
+
 ### 7.2 Sub-phase 94b — Helm chart topology decision
 
 **Deliverable:** ADR-094d documenting the Deployment-vs-DaemonSet choice
@@ -507,6 +509,8 @@ plus the chart change to match.
 - [ ] `helm template` and `helm lint` succeed.
 - [ ] `PHASE_94b_notes.md` records the option chosen.
 
+**Out of scope:** This sub-phase covers only the ADR and chart topology change. It does not implement DaemonSet safety annotations, ArgoCD health checks, or operator code.
+
 ### 7.3 Sub-phase 94c1 — Operator repo bootstrap
 
 **Deliverable:** A new repository `github.com/anomalyco/ja4proxy-operator`
@@ -533,6 +537,8 @@ manager with no controllers wired.
 - [ ] `PHASE_94c1_notes.md` records controller-runtime version,
       kubebuilder version, and the targeted Kubernetes API version.
 
+**Out of scope:** This sub-phase covers only repo bootstrap. It does not add controllers, CRDs beyond stubs, or admission webhook logic.
+
 ### 7.4 Sub-phase 94c2 — CRD type stubs + admission webhook skeleton
 
 **Deliverable:** The three CRD types and a working admission webhook
@@ -554,6 +560,8 @@ with unit tests.
 - [ ] `config/crd/*.yaml` files generated and committed.
 - [ ] Webhook unit tests cover all four validation rules.
 - [ ] `PHASE_94c2_notes.md` records the CRD validation tags chosen.
+
+**Out of scope:** This sub-phase covers only CRD type stubs and the webhook skeleton. It does not implement reconciliation loops or actual CRD application against a cluster.
 
 ### 7.5 Sub-phases 94d / 94e / 94f — Three reconcilers
 
@@ -591,6 +599,12 @@ share the operator repo but touch disjoint files
 - [ ] Notes file records which Management API endpoints were exercised
       vs stubbed.
 
+**Out of scope (94d):** This sub-phase covers only the allowlist reconciler. It does not touch dial, config, or NetBox code.
+
+**Out of scope (94e):** This sub-phase covers only the dial reconciler. It does not touch allowlist, config, or approval UI.
+
+**Out of scope (94f):** This sub-phase covers only the config reconciler. It does not touch actual pod restart orchestration (that's Kubernetes' job).
+
 ### 7.6 Sub-phase 94g — Operator Helm chart + ArgoCD custom health check
 
 **Deliverable:** The operator's own Helm chart at
@@ -610,6 +624,8 @@ share the operator repo but touch disjoint files
       check.
 - [ ] cert-manager prerequisite documented in the chart README.
 
+**Out of scope:** This sub-phase covers only the operator Helm chart. It does not implement ArgoCD live testing or the Lua health check ConfigMap beyond the chart template.
+
 ### 7.7 Sub-phase 94h — Documentation
 
 **Deliverable:**
@@ -626,6 +642,8 @@ share the operator repo but touch disjoint files
 - [ ] Both files exist.
 - [ ] No duplicated content from existing runbooks.
 - [ ] Example CRD manifests parse cleanly with `kubectl --dry-run=client`.
+
+**Out of scope:** This sub-phase covers only documentation. It does not update operator repo docs or touch any code.
 
 ### 7.8 Sub-phase 94i1 — NetBox loader (Go)
 
@@ -652,8 +670,7 @@ share the operator repo but touch disjoint files
 - [ ] `PHASE_94i1_notes.md` records the NetBox API version targeted
       and a sample successful response shape.
 
-**Out of scope:** config wiring, SIGHUP, the Prometheus counter — those
-are 94i2.
+**Out of scope:** This sub-phase covers only the NetBox loader function. It does not wire it into config, SIGHUP, or Prometheus metrics.
 
 ### 7.9 Sub-phase 94i2 — NetBox config wiring + SIGHUP + metric
 
@@ -679,6 +696,8 @@ resolution path so it actually affects proxy behaviour.
 - [ ] Integration test passes.
 - [ ] `PHASE_94i2_notes.md` records the integration-test fixture
       used and a sample `/metrics` snippet.
+
+**Out of scope:** This sub-phase covers only config wiring and SIGHUP. It does not change the NetBox loader algorithm or add new NetBox API fields.
 
 ### 7.10 Sub-phase 94j — Ansible `ja4proxy` role baseline
 
@@ -711,6 +730,8 @@ deploy/ansible/roles/ja4proxy/
 - [ ] **No reference to `proxy.py` or any Python entrypoint** anywhere.
 - [ ] `PHASE_94j_notes.md` records the OS tested.
 
+**Out of scope:** This sub-phase covers only the Ansible role baseline. It does not include CMDB registration (that's 94k) or any reference to proxy.py.
+
 ### 7.11 Sub-phase 94k — ServiceNow CMDB Ansible task
 
 **Deliverable:** `deploy/ansible/roles/ja4proxy/tasks/cmdb_register.yml`
@@ -731,6 +752,8 @@ plus a `servicenow_enabled: false` default in `defaults/main.yml`.
 - [ ] `PHASE_94k_notes.md` records the stubbing approach.
 
 **Depends on 94j.**
+
+**Out of scope:** This sub-phase covers only the CMDB Ansible task. It does not touch the operator, NetBox, or any other integration.
 
 ---
 

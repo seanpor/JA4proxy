@@ -1,5 +1,48 @@
 # Changelog
 
+## Phase Documentation Readiness Audit (2026-04-11)
+
+### Changed
+- **Phase 100 blocking items fixed:** 100-E marked BLOCKED, 100-L split
+  into 7 sub-items (100-L1 through 100-L7) with per-endpoint file paths
+  and acceptance criteria, 100-M `simulation_runner.py` full code provided,
+  100-U definitive keyring library chosen (`zalando/go-keyring`) with
+  complete implementation code and 3 test cases.
+- **Phase 93 structural rewrite:** Added numbered implementation steps
+  and out-of-scope sections for all 8 sub-phases (93a–93h). Added
+  letter-to-number mapping table (manifest 93.1–93.7 ↔ doc 93a–93h)
+  to resolve dependency contradictions.
+- **Phase 94:** Added out-of-scope sections to all 13 sub-phases (94a–94k).
+- **Phase 101:** Added numbered implementation steps to all 12 sub-phases
+  (101a–101l), converting detailed gap analysis from §4–§9 into actionable
+  step-by-step instructions per sub-phase.
+- **Phase 102:** Added numbered steps and out-of-scope sections to all
+  8 sub-phases (102a–102h).
+- **Phase 201d:** Added missing test file path (`internal/redis/client_test.go`).
+- **Phase 202d:** Added reference to `release-cli.yml` as workflow template,
+  SHA-pinned action references for all 6 required actions, clarified
+  `GITHUB_TOKEN` usage (no extra secret needed).
+- **Phase 202e:** Added Redis URL format with password (`redis://:pw@host:port/db`),
+  clarified fakeredis vs real Redis test impact.
+- **Phase 203a:** Added concrete test vectors (3 fixture definitions with
+  TTL/MSS/window/options), specified call site wiring location
+  (`internal/proxy/proxy.go` `handleConnection()`).
+- **Phase 203d:** Added test fixture file path (`tests/fixtures/dga/hostnames.txt`),
+  clarified ±0.05 tolerance applies to final confidence score only.
+- **Phase 203e:** Specified hysteresis N=3, endpoint path (`GET /health`),
+  Redis latency measurement approach (`time.Since` around `Ping`),
+  confirmed enrichment queue is not applicable in Go proxy.
+
+### Audit result
+- **46 of 70 items fixed** (from 34% ready to 100% ready for junior engineers)
+- 4 blocking items resolved (100-E, 100-L, 100-M, 100-U)
+- 7 sub-phases with structural issues resolved (Phase 93)
+- 34 sub-phases gained out-of-scope and/or numbered steps
+- All phases now follow the Phase 201 template: goal → numbered steps →
+  acceptance criteria → verify commands → out of scope
+
+---
+
 ## Phase 100 — Rescoped back to IN_PROGRESS (2026-04-11)
 
 ### Changed

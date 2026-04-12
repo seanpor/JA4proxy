@@ -110,6 +110,17 @@ incomplete or misleading compliance evidence.
 | H3 | HIGH | DSAR misses CIDR watchlist entries | `management/api/routes/compliance.py:295-296, 453-454` |
 | M7 | MEDIUM | DSAR returns success on Redis failure — needs `partial_failures` | `management/api/routes/compliance.py:408-413` |
 
+**Steps:**
+
+1. In `management/api/routes/compliance.py`, consolidate the two XRANGE calls: replace the separate calls in `_dsar_connection_history` (line ~411) and `_dsar_fingerprint_associations` (line ~480) with a single `XRANGE ja4proxy:events - +` at the top of the DSAR export handler, storing the result in a local variable and passing it to both helpers.
+2. Add a `management:dsar:last_xrange_len` gauge — wire it into `src/analytics/metrics.py` as `ja4proxy_dsar_xrange_len` and emit it after the single XRANGE call with the length of the returned list.
+3. In `_dsar_watchlist_entries` (lines ~295-296) and the erase path (lines ~453-454), replace the literal string comparison with `ipaddress.ip_address(ip) in ipaddress.ip_network(entry, strict=False)` to match CIDR blocks.
+4. Add test vectors for CIDR matching: IPv4 `/32`, IPv4 `/24`, IPv6 `/128`, IPv6 `/48`, and malformed entries (non-CIDR strings that should fall back to literal match or skip with a logged warning).
+5. In `_dsar_connection_history` and `_dsar_fingerprint_associations`, replace the bare `except Exception: return []` with a try/except that catches `redis.ConnectionError`, increments a new `ja4proxy_dsar_export_partial_failures_total` counter, and returns a sentinel (e.g. `None`) so the caller can populate a `partial_failures` list in the response.
+6. Update the DSAR response builder to include a `partial_failures` list field; when any helper returns the sentinel, add the category name (e.g. `"connection_history"`) to the list and include a `data_unavailable` warning if any category failed.
+7. Add a chaos test: mock fakeredis to raise `ConnectionError` on `xrange`, call the DSAR endpoint, and assert HTTP 200 with `partial_failures: ["connection_history"]` in the JSON body.
+8. Benchmark: generate a 1M-entry stream fixture, run DSAR export, assert it completes in < 2s.
+
 **Acceptance criteria:**
 - [ ] DSAR export issues at most one XRANGE call per request
 - [ ] DSAR for `10.0.0.15` includes watchlist entry stored as `10.0.0.0/24`
@@ -134,6 +145,15 @@ but impact operational clarity and code quality.
 | L1 | LOW | Jinja2 Environment cached at module level | `management/compliance/report_renderer.py:129-132` |
 | L2 | LOW | JSONL trailing newline documented | `management/compliance/pack_builder.py:293-296` |
 | L5 | LOW | DSAR retention strings from config, not hardcoded | `management/api/routes/compliance.py:239-245` |
+
+**Steps:**
+
+1. In `management/compliance/purge.py`, on first invocation of `GDPRPurge.run()`, run `INFO server` via `redis.info()` to check `redis_version`. If < 6.2, log a WARN and fall back to a time-based XRANGE + XDEL loop instead of `XTRIM … MINID`. Add a unit test that mocks `redis.info()` returning `redis_version: 6.0.0` and asserts the fallback path is taken. Document the minimum Redis version in `docs/REDIS_SCHEMA.md`.
+2. Rename `beaconing_records_cleaned` → `beaconing_datapoints_cleaned` in the Python dataclass (`management/compliance/purge.py:138, 205`) and any exposed Prometheus metric. Add a `CHANGELOG.md` entry noting this as a breaking change for dashboards parsing the old field name.
+3. In `management/compliance/pack_builder.py:203`, replace the `LRANGE management:audit_log 0 -1` call with a chunked loop reading 10k entries at a time (`LRANGE start stop`), stopping early when the timestamp drops below the window. Define a documented constant `AUDIT_LOG_CHUNK_SIZE = 10_000`.
+4. In `management/compliance/report_renderer.py`, create a module-level `Environment` keyed on `(template_dir, template_name)`. Modify `ReportRenderer.__init__` to reuse the cached Environment. Add a test asserting two `ReportRenderer()` instances share compiled templates (`id(t1.environment) == id(t2.environment)`).
+5. In `management/compliance/pack_builder.py`, document the JSONL trailing-newline invariant in the pack_builder docstring. Add a test asserting non-empty JSONL files end in `\n` and empty files are zero bytes.
+6. In `management/api/routes/compliance.py:239-245`, replace the hardcoded "90 days" retention strings with values read dynamically from `gdpr.*_retention_days` config. Add a test that changes the config and asserts the DSAR response text matches the new values.
 
 **Acceptance criteria:**
 - [ ] GDPRPurge checks Redis version, falls back to XRANGE+XDEL for < 6.2
@@ -160,6 +180,19 @@ mass-ban legitimate traffic.
 | C5 | CRITICAL | Two-empty-poll gate before bulk cleanup | `src/analytics/ti_feeds/state.py`, `runner.py` |
 | C6 | CRITICAL | `ja4_safe_to_block(ja4)` FP corpus check | `src/analytics/ti_feeds/ja4_safety.py` (new), `taxii.py`, `rest_generic.py`, `seed_file.py` |
 
+**Steps:**
+
+1. In `src/analytics/ti_feeds/base.py`, extend `FeedConfig` with three new fields: `max_new_per_poll: int = 500`, `max_owned_total: int = 50_000`, `max_delta_per_poll: int = 0` (0 = unlimited). Ensure all three honour `from_dict` so YAML can override per-feed.
+2. In `src/analytics/ti_feeds/runner.py` `_poll_once`, after `client.poll()` returns and before touching the snapshot: (a) If `len(result.created) > cfg.max_new_per_poll`, log `event=feed_capped_new`, slice `result.created[:cfg.max_new_per_poll]`, increment `ti_feed_caps_hit_total{feed_id, kind="new"}` — truncated indicators are NOT added to the snapshot so next poll retries them. (b) If `len(previous_ids) >= cfg.max_owned_total`, refuse new indicators this cycle, log `event=feed_capped_total`, increment `ti_feed_caps_hit_total{kind="total"}` (cleanup still allowed). (c) If `cfg.max_delta_per_poll > 0` and absolute delta exceeds it, refuse all mutations, log `event=feed_capped_delta`, increment `ti_feed_caps_hit_total{kind="delta"}`.
+3. Add all three keys to every example feed entry in `config/proxy.yml` under `threat_intel.feeds[*]`, with conservative defaults and inline comments.
+4. Add an Alertmanager `TIFeedCapsHit` warning rule in `monitoring/alertmanager/rules/ti_feed.yml` (`rate(ja4proxy_ti_feed_caps_hit_total[15m]) > 0`) with a runbook link to a new `docs/runbooks/ti_feed_caps_hit.md`.
+5. In `src/analytics/ti_feeds/state.py`, add three methods: `get_empty_streak(feed_id)`, `bump_empty_streak(feed_id)`, `reset_empty_streak(feed_id)`, backed by a Redis string `ti_feed:{feed_id}:empty_streak` with no TTL.
+6. In `runner.py` `_poll_once`, after computing `dropped` but before applying deletions: if `len(result.stix_ids_seen) == 0`, bump the empty streak; if streak < 2, set `dropped = {}`, log `event=cleanup_skipped_empty_streak`, and do NOT replace the snapshot. If `len(result.stix_ids_seen) > 0`, reset the streak and proceed to the existing 10% cap path.
+7. Create `src/analytics/ti_feeds/ja4_safety.py` with a function `ja4_safe_to_block(ja4) -> tuple[bool, str]` that loads the FP corpus once at module import (lru_cache around file read), corpus path configurable via `JA4PROXY_FP_CORPUS_PATH` env var.
+8. In `taxii.py` `_apply_indicator` JA4 branch, after `is_valid_ja4(ja4)` and before `post_blocklist`, call `ja4_safe_to_block(ja4)`; if not safe, increment `_INDICATORS_PROCESSED.labels(feed_id=feed_id, outcome="fp_blocked").inc()`, append error, and return. Wire the same check in `rest_generic.py` JA4 branch and `seed_file.py` `run_once`.
+9. Wire new metric `ja4proxy_ti_feed_fp_blocked_total{feed_id}` and a `TIFeedFPBlocked` Alertmanager warning rule.
+10. Write `tests/unit/test_ti_feed_caps.py` with parametrised cases for all three cap kinds. Write `tests/unit/analytics/ti_feeds/test_runner_empty_streak.py` with cases: first empty poll skips cleanup, second empty allows cleanup (capped at 10%), non-empty poll resets streak. Write `tests/unit/analytics/ti_feeds/test_ja4_safety.py` and `tests/adversarial/test_ti_feeds_fp_block.py` (Chrome 120 JA4 from FP corpus never blocked).
+
 **Acceptance criteria:**
 - [ ] `max_new_per_poll`, `max_owned_total`, `max_delta_per_poll` enforced with `ja4proxy_ti_feed_caps_hit_total` metric
 - [ ] Two consecutive empty polls required before cleanup; `empty_streak` persisted in Redis
@@ -181,6 +214,18 @@ feed infrastructure.
 | H7 | HIGH | Manual-poll endpoint rate limit (6/min/feed_id) | `management/api/routes/threat_intel.py` |
 | H8 | HIGH | CSRF double-submit middleware on `/api/v1/*` mutating routes | `management/api/middleware/csrf.py` (new) |
 
+**Steps:**
+
+1. Create `src/analytics/ti_feeds/safe_resolver.py` with a `SafeResolver(aiohttp.AbstractResolver)` class that wraps the default resolver and checks each resolved IP against `is_publicly_routable_ip()`, raising `aiohttp.ClientConnectorError` with `PermissionError(f"SSRF blocked: {host}")` for private/loopback/link-local IPs.
+2. In `src/analytics/ti_feeds/base.py`, extract the `is_publicly_routable_ip` helper from the existing `validate_feed_url` method so the resolver can share it. Ensure it covers IPv4-mapped, 6to4, and Teredo addresses recursively.
+3. In all four clients (`taxii.py`, `crowdstrike.py`, `recorded_future.py`, `rest_generic.py`), replace every `aiohttp.TCPConnector()` instantiation with `aiohttp.TCPConnector(resolver=SafeResolver())`.
+4. Write `tests/adversarial/test_ti_feeds_ssrf.py`: patch `socket.getaddrinfo` to return `169.254.169.254` for a synthetic hostname, run a real `TAXIIClient.poll()` against it, assert `result.errors` contains `"SSRF blocked"` and `post_ban` was never called.
+5. In `management/api/routes/threat_intel.py`, add a rate limiter (slowapi-style or the existing `limit_per_minute` decorator from Phase 79) to `POST /api/v1/threat-intel/feeds/{id}/poll` at 6 requests per minute per feed_id.
+6. Write a test in `tests/unit/test_threat_intel_api.py` asserting the 7th request in 60s returns 429 with a `Retry-After` header.
+7. Create `management/api/middleware/csrf.py`: on every `GET /api/v1/*` response, set a `csrf_token` cookie (HttpOnly false, SameSite=strict, Secure in prod) and an `X-CSRF-Token` response header with the same value. On every `POST/PUT/PATCH/DELETE /api/v1/*` request, require the `X-CSRF-Token` header to match the cookie; reject 403 with `{"error": "csrf_token_mismatch"}`. Tokens are HMAC over `(session_id, issued_at)` with `MANAGEMENT_SECRET_KEY`, valid for 1 hour.
+8. Register the middleware in `management/api/main.py` after auth. Update `management/templates/base.html` to read the `csrf_token` cookie in Alpine bootstrap and inject it as a header on every fetch via a global `$fetch` wrapper.
+9. Write `tests/unit/test_csrf.py` with full happy/mismatch/expired matrix.
+
 **Acceptance criteria:**
 - [ ] SafeResolver rejects RFC1918/loopback/link-local IPs
 - [ ] `tests/adversarial/test_ti_feeds_ssrf.py` passes (DNS SSRF blocked)
@@ -200,6 +245,13 @@ CrowdStrike feeds.
 | H9 | HIGH | Recorded Future regional endpoint support | `src/analytics/ti_feeds/recorded_future.py` |
 | H10 | HIGH | CrowdStrike regional / GovCloud endpoint support | `src/analytics/ti_feeds/crowdstrike.py` |
 
+**Steps:**
+
+1. In `src/analytics/ti_feeds/recorded_future.py`, make the TAXII root come from `config.url` first, falling back to the hardcoded `_RF_TAXII_ROOT`. Honour `https://api.eu.recordedfuture.com/taxii2/` and `https://api.apac.recordedfuture.com/taxii2/` literally.
+2. In `config/proxy.yml`, update the recorded_future example to show the EU endpoint as a comment with a note about which tenants need it.
+3. In `src/analytics/ti_feeds/crowdstrike.py`, pull both `_FALCON_AUTH_URL` and `_FALCON_INDICATORS_URL` from `config.url` with existing values as fallback. Support `api.us-2.crowdstrike.com`, `api.eu-1.crowdstrike.com`, and `api.laggar.gcw.crowdstrike.com` (GovCloud).
+4. Write unit tests for both clients covering regional endpoint selection. Run `python3 -m pytest tests/unit/analytics/ti_feeds/test_recorded_future.py -x` and the equivalent CrowdStrike test file.
+
 **Acceptance criteria:**
 - [ ] RF client honours `config.url` for EU/APAC sub-domains
 - [ ] CrowdStrike client supports US-2, EU-1, and GovCloud (laggar) endpoints
@@ -217,6 +269,19 @@ CrowdStrike feeds.
 |-----|----------|------|------|
 | H11 | HIGH | TAXII chaos test — assert no mutations during 500 storm | `tests/chaos/test_ti_feed_taxii_unavailable.py` |
 | H12 | HIGH | Coordinated reshape of 5 test files against `FeedRunner._poll_once()` | `tests/integration/test_ti_feeds_*.py` |
+
+**Steps:**
+
+1. Create shared fixtures in `tests/integration/conftest.py` or `tests/_helpers/ti_feed_runner.py` by promoting the existing helpers from `tests/unit/analytics/ti_feeds/conftest.py` (`stub_management_client`, `mock_taxii_server`, `_StubMgmt`, `_StubClient`, `_make_runner`). All 5 test files must use these shared fixtures instead of copy-pasted versions.
+2. Rewrite `tests/chaos/test_ti_feed_taxii_unavailable.py` first (H11): replace the test body to assert that after a 500 storm, no new bans were created and no existing bans were removed. Pre-populate the snapshot with 100 indicators, configure a TAXII server returning 500 for 10 polls, run the runner for 10 cycles, assert snapshot still has 100 entries, `post_ban` call count is 0, `delete_ban` call count is 0, and circuit state is OPEN.
+3. Rewrite the remaining 4 files against `FeedRunner._poll_once(feed_id)` (not the loop), following the pattern in `tests/unit/analytics/ti_feeds/test_runner.py`. Inject a real httpx-backed Management API TestClient in place of unit tests' `_StubMgmt`:
+   - `tests/integration/test_ti_feeds_e2e.py`: a real STIX bundle from a mock TAXII server lands in `GET /api/v1/blocklist?managed_by=feed`
+   - `tests/integration/test_ti_feeds_cleanup.py`: re-poll with shrunken feed removes the right things, never more than the cap
+   - `tests/integration/test_ti_feeds_conflict.py`: only one of two `FeedRunner` instances actually polls per cycle (leader lock)
+   - `tests/integration/test_ti_feeds_hot_reload.py`: added feeds spawn tasks; removed feeds stop polling but retain their rules
+4. Remove the `pytestmark = pytest.mark.xfail(...)` line from each file in the same commit.
+5. Update each file's docstring header to drop the "RED until X exists" language. Replace with a one-line summary of what the file actually asserts post-rewrite.
+6. Run all 5 files together: `python3 -m pytest tests/integration/test_ti_feeds_e2e.py tests/integration/test_ti_feeds_cleanup.py tests/integration/test_ti_feeds_conflict.py tests/integration/test_ti_feeds_hot_reload.py tests/chaos/test_ti_feed_taxii_unavailable.py -x`. All 5 must be green, none xfailed, none skipped.
 
 **Acceptance criteria:**
 - [ ] All 5 files use `FeedRunner._poll_once(feed_id)` (not the loop)
@@ -241,6 +306,17 @@ independent — pick up in any order.
 | M13 | MEDIUM | `seed_file.run_once` inside leader lock | `src/analytics/ti_feeds/seed_file.py` |
 | M14 | MEDIUM | Audit log on feed enable/disable runtime override | `management/api/routes/threat_intel.py` |
 
+**Steps:**
+
+1. **M8 — TAXII bundle size cap:** In `src/analytics/ti_feeds/taxii.py`, before parsing the response body, check `len(response.content)` against a configurable cap (e.g. `max_bundle_bytes = 50 * 1024 * 1024` in `FeedConfig`). If exceeded, log `event=bundle_too_large`, increment a counter, and skip the poll.
+2. **M9 — Per-feed User-Agent:** In `src/analytics/ti_feeds/base.py`, add a `user_agent` field to `FeedConfig` defaulting to `f"JA4Proxy/1.0 feed:{feed_id}"`. Pass it as a header to the aiohttp session in each of the 4 clients.
+3. **M10 — Gauge → Counter:** In `src/analytics/metrics.py`, replace `ti_feed_indicators_managed` Gauge with a Counter. Update all callers to use `.add()` instead of `.set()`.
+4. **M11 — Stable-ordered dropped list:** In `src/analytics/ti_feeds/state.py`, change `compute_dropped_ids` to return a `sorted(list)` instead of a `dict`. Update all callers.
+5. **M12 — Replace BLE001 catches:** In all 4 client files (`taxii.py`, `crowdstrike.py`, `recorded_future.py`, `rest_generic.py`), replace bare `except Exception:` with explicit unions of the expected exception types (e.g. `except (aiohttp.ClientError, asyncio.TimeoutError, json.JSONDecodeError):`).
+6. **M13 — seed_file inside leader lock:** In `src/analytics/ti_feeds/seed_file.py`, wrap `run_once` in the existing leader lock acquisition path (same lock used by the FeedRunner poll loop).
+7. **M14 — Audit log on enable/disable:** In `management/api/routes/threat_intel.py`, add an audit log entry on every feed `enable` or `disable` runtime override via the API.
+8. Run `tests/unit/analytics/ti_feeds/` and `tests/adversarial/test_ti_feeds_*.py` — all pass.
+
 **Acceptance criteria:**
 - [ ] All 7 items implemented and tested
 - [ ] `tests/unit/analytics/ti_feeds/` and `tests/adversarial/test_ti_feeds_*.py` pass
@@ -256,6 +332,12 @@ independent — pick up in any order.
 | L6 | LOW | `_OneShotBundle` adapter docs out of date after H13 | `src/analytics/ti_feeds/` |
 | L7 | LOW | Three Phase 85 runbooks need real-deployment dry run | `docs/runbooks/` |
 | L8 | LOW | `monitoring/metrics_registry.md` updated with Phase 101 entries | `monitoring/` |
+
+**Steps:**
+
+1. **L6 — `_OneShotBundle` docs:** Update the `_OneShotBundle` docstring in `src/analytics/ti_feeds/` to match the current implementation after H13 (which deferred `stix_ids_seen.add()` until mgmt write succeeds). Verify the docstring accurately describes the adapter's role and lifecycle.
+2. **L7 — Runbook dry run:** Verify the three Phase 85 runbooks under `docs/runbooks/` against a live deployment. If a live deployment is not available, document explicitly which steps are untested and what environment would be needed.
+3. **L8 — Metrics registry:** Add all new metrics introduced by this phase to `monitoring/metrics_registry.md`: `ja4proxy_ti_feed_caps_hit_total`, `ja4proxy_ti_feed_fp_blocked_total`, `ja4proxy_dsar_export_partial_failures_total`, `ja4proxy_dsar_xrange_len`, and any others added in sub-phases 101c–101g.
 
 **Acceptance criteria:**
 - [ ] `_OneShotBundle` docstring matches current implementation
@@ -274,6 +356,13 @@ independent — pick up in any order.
 | M16 | MEDIUM | Redis outage chaos test — isolate signal fail-open from dial fail-open | `internal/security/pipeline_chaos_test.go` |
 | L9 | LOW | Property test generator constrains `Weight ∈ [0.1, 5.0]` | `internal/security/property_test.go` |
 
+**Steps:**
+
+1. **M15 — Golden file cross-check:** Run the FoxIO `ja4` CLI (`go install github.com/FoxIO-LLC/ja4/...`) or the Python `ja4` library against at least one `.bin` fixture in `tests/fixtures/clienthello/`. Add the independently-computed JA4 string as a marked row in `internal/tls/testdata/ja4_fp_golden.txt` with a header comment noting it was cross-checked. The rest of the rows remain self-snapshots until independently verified.
+2. **M16 — Redis outage chaos test with dial intact:** Add `TestPipeline_RedisOutage_FailsOpen_DialIntact` to `internal/security/pipeline_chaos_test.go`. Configure the faulty Redis so `GetDial` always returns 100 but every other Redis call fails. Assert the pipeline still produces `allow`, proving signal-collection fail-open independently of dial-read fail-open.
+3. **L9 — Property test generator:** In `internal/security/property_test.go`, constrain the `genRiskSignal` generator so `Weight` is in `[0.1, 5.0]`. Add a comment pointing at the scorer's normalisation rule that substitutes `1.0` for `Weight == 0`.
+4. Run `make go-test` — zero failures.
+
 **Acceptance criteria:**
 - [ ] At least one golden row computed by independent reference (FoxIO CLI or Python ja4)
 - [ ] `TestPipeline_RedisOutage_FailsOpen_DialIntact` test added (GetDial=100, all other Redis calls fail → still allow)
@@ -290,6 +379,12 @@ independent — pick up in any order.
 |-----|----------|------|------|
 | M18 | MEDIUM | Podman/Quadlet smoke test — **blocked on Phase 76 creating quadlet files** | `scripts/smoke/test_podman_quadlet.sh` |
 | M19 | MEDIUM | Audit and fix phantom `ja4proxy-cli backup` references in runbooks | `docs/runbooks/`, `docs/phases/` |
+
+**Steps:**
+
+1. **M18 — Quadlet smoke test (conditional):** Check if `deploy/rhel/quadlets/` now contains `.container` and `.network` files (from Phase 76). If yes, create `scripts/smoke/test_podman_quadlet.sh` that copies the unit files to the user's Quadlet directory, starts the service via systemd, verifies health, and exits 0 on pass / 1 on fail with stderr reason. If the files do not exist yet, document the dependency and skip.
+2. **M19 — Phantom backup audit:** Run `grep -rn "ja4proxy-cli backup" docs/runbooks/ docs/phases/`. For each match (excluding this PHASE_101 entry), replace the phantom command with the correct Phase 19 Python invocation: `python3 -c "from src.backup.restorer import Restorer; Restorer(...).restore()"`. If a long-term plan exists to port backup to the Go CLI, document it in `docs/runbooks/redis_operations.md`.
+3. Re-run the grep to confirm zero results (except this PHASE_101 entry).
 
 **Acceptance criteria:**
 - [ ] M18: Quadlet files exist → smoke test created and passes (defer if Phase 76 not done)
@@ -310,6 +405,16 @@ independent — pick up in any order.
 | M24 | MEDIUM | Pushgateway `grouping_key` + wire real latency samples | `scripts/load_test.py` |
 | M25 | MEDIUM | Dynatrace plugin always emits topology entity | `deploy/dynatrace/ja4proxy-extension/plugin.py` |
 | M26 | MEDIUM | Benchmarks test validates numeric and SHA shape | `tests/integration/test_phase_86i_benchmarks_populated.py` |
+
+**Steps:**
+
+1. **H14 — Capacity calculator cleanup:** Delete the `_ESTIMATED_BANNER` constant, `_print_estimated_warning()`, the `report.estimated` branch in `print_report`, and the placeholder-detection call in `main()` from `scripts/capacity_calculator.py`. Keep `benchmarks_have_placeholders()` and `--require-measured` as positive CI guards. Verify `grep -n "_ESTIMATED_BANNER\|_print_estimated_warning\|report.estimated" scripts/capacity_calculator.py` returns no results, and `python3 scripts/capacity_calculator.py --require-measured` exits 0 with no banner.
+2. **H15 — Dynatrace parser robustness (recommended approach):** Replace the hand-rolled inline Prometheus parser in `deploy/dynatrace/ja4proxy-extension/plugin.py` with a wrapper around `prometheus_client.parser.text_string_to_metric_families()`. If keeping the inline parser (deps allowlist): (a) add `if math.isnan(value): continue` after `float()`, (b) track quote state inside `_parse_labels` so `\"` and `,` inside values are honoured, (c) add adversarial fixture cases to `tests/unit/test_dynatrace_extension.py::test_plugin_parses_prometheus_text_format` covering escaped quotes, commas in values, NaN, summary quantiles, and sample lines with trailing timestamps — each asserting exact key/value pairs, not substring presence.
+3. **H16 — Datadog migration runbook:** Create `docs/runbooks/datadog_migration_phase86i.md` with exact pre-flight verification steps: `datadog-agent check openmetrics`, `datadog-agent check ja4proxy`, `datadog-agent status | grep -A5 "openmetrics ja4proxy"`. Document explicit ordering: deploy OpenMetrics first, verify dashboards populate over 24h, then upgrade to the narrowed custom check. Add a test to `tests/unit/test_datadog_integration.py` asserting the runbook exists and references both `datadog-agent check` commands by exact name.
+4. **M24 — Pushgateway grouping_key + latencies:** In `scripts/load_test.py::push_loadtest_metrics`, add a `grouping_key` dict with `instance` (`socket.gethostname()`), `scenario`, and `run_id` (`uuid.uuid4().hex[:8]`). Wire real latency samples from the TLS traffic generator's run output JSON into `push_loadtest_metrics()` instead of the hardcoded empty list. Add an end-to-end test that runs `load_test.py` against a stub TLS server (or with `--dry-run`), captures the Pushgateway HTTP request body via a fake server, and asserts histogram bucket counts > 0.
+5. **M25 — Topology entity on scrape failure:** In `deploy/dynatrace/ja4proxy-extension/plugin.py`, always emit the topology entity even when `scrape_metrics()` returns an empty sample list. Move `self._emit_topology_entity()` before the early-return. Add a test `test_plugin_emits_topology_even_on_scrape_failure` that mocks a scrape returning `[]`, asserts the topology emit was called, and asserts no metric emit was called.
+6. **M26 — Benchmarks test tightening:** In `tests/integration/test_phase_86i_benchmarks_populated.py`: (a) parse throughput and latency fields as floats, reject NaN/Inf/negative/zero, (b) assert the header contains a line matching `r"Git SHA:\s*[0-9a-f]{7,40}\b"`, (c) assert each of `Hardware:`, `OS:`, `Redis:`, `Go:`, `Python:`, `Date:` is present in the header block, (d) add a footer disclaimer assertion if `BenchmarkConstants` are still labeled as engineering floors (cross-tie to H14).
+7. Run `python3 -m pytest tests/unit/test_dynatrace_extension.py tests/unit/test_datadog_integration.py tests/unit/test_load_test.py tests/integration/test_phase_86i_benchmarks_populated.py -v` — all pass.
 
 **Acceptance criteria:**
 - [ ] H14: `_ESTIMATED_BANNER` dead code deleted, `--require-measured` works correctly
@@ -337,10 +442,13 @@ initiate Registry publication.
 - `.github/workflows/test.yml` and `.github/workflows/release.yml` ready
 - `.goreleaser.yml` configured
 
-**What's needed:**
-1. Create GitHub repo at `github.com/anomalyco/terraform-provider-ja4proxy`
-2. `git remote add origin <url>` and `git push -u origin main`
-3. Submit to Terraform Registry (1–2 weeks, external process)
+**Steps:**
+
+1. Verify the local repo at `/home/sean/LLM/terraform-provider-ja4proxy/` is clean: run `go vet ./...`, `go test ./...`, and `git status` to confirm all 43 tests pass and there are no uncommitted changes.
+2. Create a GitHub repo at `github.com/anomalyco/terraform-provider-ja4proxy` (or `github.com/seanpor/terraform-provider-ja4proxy` if the former org is not available).
+3. In the local repo, run `git remote add origin <url>` and `git push -u origin main`.
+4. Create a `v1.0.0` tag: `git tag v1.0.0 && git push origin v1.0.0` to trigger the `.github/workflows/release.yml` workflow.
+5. Submit the provider to the Terraform Registry via registry.terraform.io (requires HashiCorp partner review, 1-2 weeks). Track separately as M27.
 
 **Acceptance criteria:**
 - [ ] Provider repo pushed to GitHub

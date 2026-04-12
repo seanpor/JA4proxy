@@ -41,14 +41,14 @@ Work them in any order.
 | 100-B | Go proxy `dual_output` | OPEN | ~2 h | None |
 | 100-C | Webhook per-endpoint retry/timeout | OPEN | ~1.5 h | None |
 | 100-D | Splunk/Sentinel vs Phase 79 API | OPEN — **unblocked**, script URL/body mismatch | ~1 h | None |
-| 100-E | Splunk TA / Sentinel live test | OPEN | Unknown | Platform access |
+| 100-E | Splunk TA / Sentinel live test | **BLOCKED** — no Splunk/Sentinel platform access available | Unknown | Platform access |
 | 100-F | `security/validation.py` coverage | **PARTIAL** — imported by `tests/security/test_owasp_top10.py`; dedicated tests + lint scope still missing | ~1 h | None |
 | 100-G | `SECURITY_REVIEW_PHASE1.md` triage | OPEN | ~3 h | Engineer triage time |
 | 100-H | `sync-roadmap.py` basename bug | OPEN | ~30 min | None |
 | 100-I | `quick-start`, `perf-test-basic` Makefile targets | OPEN | ~15 min | None |
 | 100-J | `PATCH /api/v1/bans/{ip}` | OPEN — **unblocked**, endpoint absent; must be implemented not just verified | ~1 h | None |
 | ~~100-K~~ | ~~`POST /api/v1/tokens/{id}/rotate`~~ | **CLOSED** — present at `management/api/routes/tokens.py:163` | — | — |
-| 100-L | Phase 82: 7 endpoints/values from Phase 79 | OPEN — **unblocked**, all 7 items absent | ~1 day | None |
+| 100-L | Phase 82: 7 missing endpoints/values | OPEN — **split into 100-L1 through 100-L7** (see item detail) | ~3 days total | None |
 | 100-M | Phase 82: signal_retention + simulation_runner | OPEN | ~2 d | 100-L |
 | 100-N | Phase 82: platform-dependent ACs | BLOCKED | ~1 d | 100-L, 100-M |
 | 100-O–T | Phase 79 SSO/MFA gaps | **CLOSED** 2026-04-07 (commit `6ffdbc5`) | — | — |
@@ -1038,84 +1038,187 @@ from ..models import BanExtendRequest, BanExtendResponse
 
 **Origin:** Phase 82 Critical Review (§9 Phase 79 Coordination Requirements)
 **Status:** OPEN — **Phase 79 merged; verified all 7 items still absent**
-**Effort:** ~1 day (was: verify + variable implement)
+**Effort:** ~3 days total (split into 7 sub-items below)
 **Verified:** 2026-04-11
 
-#### Verified state
+> **⚠️ This item has been split into 7 sub-items for junior engineer handoff.**
+> Pick up one sub-item at a time. All share the same mock server contract in
+> `tests/mocks/management_api_mock.py`.
 
-All seven items confirmed **absent** from the merged Phase 79 management API:
+#### Sub-items
 
-| # | Item | Verified absent at |
-|---|------|--------------------|
-| 1 | `POST /api/v1/simulation/run` | No `simulation` substring anywhere in `management/api/routes/` |
-| 2 | `GET /api/v1/simulation/{id}/report` | Same — no simulation routes |
-| 3 | `GET /api/v1/decisions` | No `decisions` route file |
-| 4 | `POST /api/v1/decisions/{id}/approve` | Same |
-| 5 | `POST /api/v1/decisions/{id}/reject` | Same |
-| 6 | `managed_by=policy` valid enum value | `management/api/models.py:237-246` defines `ManagedBy` enum with `terraform, operator, api, analytics, legacy, migration, feed` — **no `policy`** value |
-| 7 | Mutation endpoints return 202 on approval-required | No approval-gating middleware/decorator found in the mutation routes |
+| Sub-item | Endpoint / change | Files to create/modify | Effort |
+|----------|------------------|----------------------|--------|
+| **100-L1** | `POST /api/v1/simulation/run` | `management/api/routes/simulation.py` (new), `management/api/main.py` (register), `management/api/models.py` (SimulationRun schema) | ~4 h |
+| **100-L2** | `GET /api/v1/simulation/{id}/report` | `management/api/routes/simulation.py` (add GET handler) | ~2 h |
+| **100-L3** | `GET /api/v1/decisions` | `management/api/routes/decisions.py` (new), `management/api/main.py` (register), `management/api/models.py` (Decision schema) | ~2 h |
+| **100-L4** | `POST /api/v1/decisions/{id}/approve` | `management/api/routes/decisions.py` (add approve handler) | ~2 h |
+| **100-L5** | `POST /api/v1/decisions/{id}/reject` | `management/api/routes/decisions.py` (add reject handler) | ~2 h |
+| **100-L6** | `managed_by=policy` enum value | `management/api/models.py:237-246` (add `policy` to ManagedBy enum) | ~15 min |
+| **100-L7** | Approval-gating middleware (202 on mutation) | `management/api/middleware/approval_gate.py` (new), wire into routes that mutate | ~4 h |
 
-This item is no longer "verify and maybe implement" — it is
-"implement all seven." The Phase 82 mock server in
-`tests/mocks/management_api_mock.py` still defines the expected contract
-and is the de facto spec.
-
-#### Context
+#### Context (shared across all sub-items)
 
 Phase 82's policy-as-code tooling (`scripts/ja4proxy-policy.py apply/diff`),
 four-eyes workflow, and shadow mode simulation all depend on this API
 surface. Phase 82's offline tests mock the endpoints. What's missing
 is the real API backing them in Phase 79's management service.
 
-#### Verify steps
+#### Shared verify steps
 
-After Phase 79 merges, check each item against the Phase 79 OpenAPI spec:
+After implementing each sub-item, verify against the OpenAPI spec:
 
 ```bash
 SPEC=$(curl -s http://localhost:8090/openapi.json)
-
-# 1. POST /api/v1/simulation/run
+# Check each endpoint is present:
 echo "$SPEC" | python3 -c "import sys,json; s=json.load(sys.stdin); print('simulation/run POST:', 'post' in s['paths'].get('/api/v1/simulation/run', {}))"
-
-# 2. GET /api/v1/simulation/{id}/report
-echo "$SPEC" | python3 -c "import sys,json; s=json.load(sys.stdin); print('simulation report GET:', 'get' in s['paths'].get('/api/v1/simulation/{id}/report', {}))"
-
-# 3-5. Decisions queue
-echo "$SPEC" | python3 -c "import sys,json; s=json.load(sys.stdin); p=s['paths']; print('GET /decisions:', 'get' in p.get('/api/v1/decisions', {})); print('POST approve:', 'post' in p.get('/api/v1/decisions/{id}/approve', {})); print('POST reject:', 'post' in p.get('/api/v1/decisions/{id}/reject', {}))"
-
-# 6. managed_by=policy is a valid value
-echo "$SPEC" | python3 -c "import sys,json; s=json.load(sys.stdin); print(json.dumps(s.get('components', {}).get('schemas', {}).get('ManagedBy', {}), indent=2))"
-
-# 7. API returns 202 when approval required
-# Test manually: PATCH /api/v1/dial with a dial increase while
-# governance.approval_required.dial_increase: true is set.
-# Expect: HTTP 202 with body {"decision_id": "...", "status": "pending_approval"}
+echo "$SPEC" | python3 -c "import sys,json; s=json.load(sys.stdin); print('decisions GET:', 'get' in s['paths'].get('/api/v1/decisions', {}))"
 ```
 
-#### For each missing item
+#### 100-L1: `POST /api/v1/simulation/run`
 
-If an endpoint is absent from Phase 79, add it to the management service.
-The Phase 82 code and mock already define the expected contract:
+**Files:** Create `management/api/routes/simulation.py`, add route registration in `management/api/main.py`, add `SimulationRun` model in `management/api/models.py`.
 
-| Item | Expected contract |
-|------|------------------|
-| `POST /api/v1/simulation/run` | 202 Accepted + `{"simulation_id": "...", "status": "running", "estimated_completion": "..."}` |
-| `GET /api/v1/simulation/{id}/report` | 200 OK + full simulation report JSON (see PHASE_82.md §3.2) |
-| `GET /api/v1/decisions` | 200 OK + list of pending decision objects |
-| `POST /api/v1/decisions/{id}/approve` | 200 OK + updated decision; triggers deferred change |
-| `POST /api/v1/decisions/{id}/reject` | 200 OK + updated decision; discards change |
-| `managed_by=policy` | Valid enum value on all mutable resources; filterable via `?managed_by=policy` |
-| Mutation endpoints return 202 when approval required | See PHASE_82.md §4.1 |
+**Expected contract:** 202 Accepted + `{"simulation_id": "...", "status": "running", "estimated_completion": "..."}`
 
-The mock server contract is in `tests/mocks/management_api_mock.py` — use it
-as the spec for the real implementation.
+**Implementation:**
+1. Add `SimulationRun` model to `management/api/models.py`:
+   ```python
+   class SimulationRun(BaseModel):
+       simulation_id: str
+       status: str  # "running" | "complete" | "failed"
+       hypothetical_dial: int
+       from_ts: str
+       to_ts: str
+       estimated_completion: str
+   ```
+2. Create `management/api/routes/simulation.py` with a `router = APIRouter()` and POST handler that:
+   - Validates request body (hypothetical_dial, from_ts, to_ts)
+   - Generates a UUID for simulation_id
+   - Stores job state in Redis at `sim:job:{sim_id}` (Hash, 7-day TTL)
+   - Returns 202 with the response body above
+3. Register the router in `management/api/main.py`: `app.include_router(simulation.router, prefix="/api/v1/simulation")`
 
-#### Acceptance criteria
-- [ ] All 7 items confirmed present in Phase 79 OpenAPI spec
-- [ ] `policy apply` against a live Phase 79 API applies allowlist/blocklist/dial changes
-- [ ] `policy diff` returns operator-added entries as drift
-- [ ] A dial increase with `approval_required.dial_increase: true` returns 202
-- [ ] `POST /api/v1/decisions/{id}/approve` triggers the deferred change
+**Acceptance criteria:**
+- [ ] `POST /api/v1/simulation/run` returns 202 with correct body
+- [ ] Redis key `sim:job:{sim_id}` created with TTL 604800 (7 days)
+- [ ] Invalid request body returns 422
+- [ ] OpenAPI spec includes the endpoint
+
+#### 100-L2: `GET /api/v1/simulation/{id}/report`
+
+**Files:** Add GET handler to `management/api/routes/simulation.py` (created in 100-L1).
+
+**Expected contract:** 200 OK + full simulation report JSON (see PHASE_82.md §3.2)
+
+**Implementation:**
+1. Add GET handler that reads `sim:job:{sim_id}` from Redis
+2. If status is "complete", return the full report from `result_json` field
+3. If status is "running", return 202 with `{"simulation_id": "...", "status": "running", "progress_pct": ...}`
+4. If not found, return 404
+
+**Acceptance criteria:**
+- [ ] Returns full report when simulation complete
+- [ ] Returns 202 with progress when running
+- [ ] Returns 404 for unknown simulation_id
+
+#### 100-L3: `GET /api/v1/decisions`
+
+**Files:** Create `management/api/routes/decisions.py` (new), add `Decision` model in `management/api/models.py`, register in `management/api/main.py`.
+
+**Expected contract:** 200 OK + list of pending decision objects
+
+**Implementation:**
+1. Add `Decision` model to `management/api/models.py`:
+   ```python
+   class Decision(BaseModel):
+       decision_id: str
+       change_type: str  # "dial_increase" | "bypass_toggle" | "cidr_ban"
+       requested_value: Any
+       current_value: Any
+       requested_by: str
+       requested_at: str
+       status: str  # "pending" | "approved" | "rejected"
+   ```
+2. Create GET handler that scans Redis for pending decisions (key pattern `decision:*`) and returns the list
+3. Register router in `management/api/main.py`
+
+**Acceptance criteria:**
+- [ ] Returns empty list when no pending decisions
+- [ ] Returns list of decision objects when pending
+- [ ] Each object has decision_id, change_type, status fields
+
+#### 100-L4: `POST /api/v1/decisions/{id}/approve`
+
+**Files:** Add POST approve handler to `management/api/routes/decisions.py`.
+
+**Expected contract:** 200 OK + updated decision; triggers deferred change
+
+**Implementation:**
+1. POST handler reads `decision:{id}` from Redis
+2. Updates status from "pending" to "approved"
+3. Applies the deferred change (e.g., PATCH dial, POST to allowlist)
+4. Writes `decision.approved` audit entry
+5. Returns 200 with updated decision object
+
+**Acceptance criteria:**
+- [ ] Approving a pending decision triggers the deferred change
+- [ ] Returns 404 for unknown decision_id
+- [ ] Returns 409 if decision already approved/rejected
+- [ ] Audit entry written with `approved_by` field
+
+#### 100-L5: `POST /api/v1/decisions/{id}/reject`
+
+**Files:** Add POST reject handler to `management/api/routes/decisions.py`.
+
+**Expected contract:** 200 OK + updated decision; discards change
+
+**Implementation:**
+1. POST handler reads `decision:{id}` from Redis
+2. Updates status from "pending" to "rejected"
+3. Writes `decision.rejected` audit entry
+4. Returns 200 with updated decision object
+
+**Acceptance criteria:**
+- [ ] Rejecting a pending decision does NOT apply the change
+- [ ] Returns 404 for unknown decision_id
+- [ ] Returns 409 if decision already approved/rejected
+
+#### 100-L6: `managed_by=policy` enum value
+
+**Files:** `management/api/models.py:237-246`
+
+**Implementation:**
+1. Open `management/api/models.py` and find the `ManagedBy` enum
+2. Add `policy = "policy"` to the enum (alphabetical order: after `operator`, before `terraform`)
+3. Verify the enum is used in `?managed_by=` filter in `management/api/routes/canonical_lists.py` — it already is (line 211 uses the filter)
+
+**Acceptance criteria:**
+- [ ] `POST /api/v1/allowlist` with `managed_by=policy` returns 201
+- [ ] `GET /api/v1/allowlist?managed_by=policy` returns only policy-managed entries
+- [ ] No other phase's tests fail from the enum addition
+
+#### 100-L7: Approval-gating middleware (202 on mutation)
+
+**Files:** Create `management/api/middleware/approval_gate.py` (new), wire into mutation routes.
+
+**Expected contract:** When `governance.approval_required.{change_type}` is true, mutation returns 202 instead of applying immediately.
+
+**Implementation:**
+1. Create middleware that intercepts mutation requests (PATCH dial, POST ban, POST bypass_toggle)
+2. Reads `governance.approval_required` from config (Redis key `config:governance`)
+3. If approval is required for the change type:
+   - Generate a `decision_id` UUID
+   - Store decision in Redis at `decision:{id}` with status "pending"
+   - Return 202 with `{"decision_id": "...", "status": "pending_approval"}`
+4. If approval is NOT required, pass through to the normal handler
+5. Wire the middleware into the relevant routes
+
+**Acceptance criteria:**
+- [ ] PATCH dial with `approval_required.dial_increase: true` returns 202
+- [ ] Same PATCH dial with `approval_required.dial_increase: false` applies immediately (200)
+- [ ] 202 response includes `decision_id` and `status: "pending_approval"`
+- [ ] Decision appears in `GET /api/v1/decisions`
 
 ---
 
@@ -1197,24 +1300,130 @@ async def record_connection_signals(
 
 **`analytics/simulation_runner.py`**
 
-The runner logic:
-1. `SCAN` for all `sim:conn:{hour_epoch}:*` keys in the requested time range
-   (`from_ts` to `to_ts` — filter by `hour_epoch` range, not by inspecting
-   each key's `timestamp` field)
-2. For each batch of keys, `HGETALL` each and re-run
-   `ActionDecider(hypothetical_dial).decide(score)` — import from
-   `src.security.action_decider`
-3. Count `would_have_blocked`, `would_have_tarpitted`, total connections
-4. For connections that would have been blocked: check if FCrDNS data is
-   available in `rdns:{ip}` Redis key (written by Phase 7 DNS enrichment).
-   If the PTR record resolves to a name matching a known-good pattern
-   (e.g. ends in `.partner.com` or contains `monitoring`), flag as FP candidate.
-5. Return a dict matching the `GET /api/v1/simulation/{id}/report` schema
-   (PHASE_82.md §3.2)
+```python
+"""Replay stored signal snapshots at a hypothetical dial value.
 
-Store simulation job state in `sim:job:{sim_id}` (Hash, 7-day TTL) with
-fields: `status` (`running`/`complete`/`failed`), `hypothetical_dial`,
-`from_ts`, `to_ts`, `result_json` (JSON-encoded report on completion).
+Reads sim:conn:{hour_epoch}:* keys via SCAN (never KEYS),
+re-runs ActionDecider.decide(score) with the hypothetical dial,
+accumulates results, and flags FP candidates via FCrDNS lookup.
+"""
+import asyncio
+import json
+import time
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import redis.asyncio as aioredis
+
+# Known-good PTR patterns — if FCrDNS matches these, flag as FP candidate.
+_FP_PATTERNS = (".partner.com", "monitoring", ".internal.", ".corp.")
+
+
+async def run_simulation(
+    redis_client: "aioredis.Redis",
+    sim_id: str,
+    hypothetical_dial: int,
+    from_ts: int,
+    to_ts: int,
+) -> dict:
+    """Execute a shadow-mode simulation. Writes result to Redis sim:job:{sim_id}."""
+    # Mark as running
+    await redis_client.hset(f"sim:job:{sim_id}", mapping={
+        "status": "running",
+        "hypothetical_dial": hypothetical_dial,
+        "from_ts": from_ts,
+        "to_ts": to_ts,
+        "started_at": int(time.time()),
+    })
+    await redis_client.expire(f"sim:job:{sim_id}", 604800)  # 7 days
+
+    from_epoch = from_ts // 3600
+    to_epoch = to_ts // 3600
+
+    total = 0
+    would_have_blocked = 0
+    would_have_tarpitted = 0
+    would_have_allowed = 0
+    fp_candidates = []
+
+    # SCAN through each hour in the range
+    for hour_epoch in range(from_epoch, to_epoch + 1):
+        cursor = 0
+        while True:
+            cursor, keys = await redis_client.scan(
+                cursor, match=f"sim:conn:{hour_epoch}:*", count=500
+            )
+            for key in keys:
+                total += 1
+                fields = await redis_client.hgetall(key)
+                score = int(fields.get(b"score", b"0"))
+
+                # Re-run the decision at the hypothetical dial
+                action = _decide_action(score, hypothetical_dial)
+                if action == "block":
+                    would_have_blocked += 1
+                elif action == "tarpit":
+                    would_have_tarpitted += 1
+                else:
+                    would_have_allowed += 1
+
+                # Check FP candidacy for blocked connections
+                if action == "block":
+                    ip = fields.get(b"source_ip", b"").decode()
+                    fp = await _check_fp_candidate(redis_client, ip)
+                    if fp:
+                        fp_candidates.append({"ip": ip, "reason": fp})
+
+            if cursor == 0:
+                break
+
+    report = {
+        "simulation_id": sim_id,
+        "status": "complete",
+        "hypothetical_dial": hypothetical_dial,
+        "total_connections": total,
+        "would_have_blocked": would_have_blocked,
+        "would_have_tarpitted": would_have_tarpitted,
+        "would_have_allowed": would_have_allowed,
+        "fp_candidates": fp_candidates[:100],  # cap at 100
+        "completed_at": int(time.time()),
+    }
+
+    # Write result to Redis
+    await redis_client.hset(f"sim:job:{sim_id}", mapping={
+        "status": "complete",
+        "result_json": json.dumps(report),
+    })
+    return report
+
+
+def _decide_action(score: int, dial: int) -> str:
+    """Re-run the ActionDecider logic at the hypothetical dial."""
+    if score >= 100:
+        return "block"
+    elif score >= dial:
+        return "tarpit"
+    return "allow"
+
+
+async def _check_fp_candidate(
+    redis_client: "aioredis.Redis", ip: str
+) -> str | None:
+    """Check if the IP has FCrDNS data matching known-good patterns."""
+    ptr_data = await redis_client.get(f"rdns:{ip}")
+    if not ptr_data:
+        return None
+    ptr_name = ptr_data.decode() if isinstance(ptr_data, bytes) else ptr_data
+    for pattern in _FP_PATTERNS:
+        if pattern in ptr_name.lower():
+            return f"FCrDNS matches known-good pattern: {pattern}"
+    return None
+```
+
+**Implementation steps for test scaffolding:**
+1. In `tests/unit/test_simulation_runner.py`, use `fakeredis` to create synthetic `sim:conn:{epoch}:*` keys with `HSET` before running `run_simulation()`.
+2. For the FP candidate test, pre-populate `rdns:10.0.0.1` with `"monitoring.partner.com"` and assert it appears in `report["fp_candidates"]`.
+3. For the SCAN-not-KEYS test, mock `redis_client.keys` to raise `RuntimeError("KEYS * not allowed")` and confirm the test still passes (proves the implementation uses SCAN).
 
 **Unit tests: `tests/unit/test_signal_retention.py`**
 
@@ -1337,10 +1546,20 @@ the keychain level is the only gap.
 
 #### Exact changes needed
 
-1. Add `github.com/99designs/keyring` to `go.mod` (or use
-   `github.com/zalando/go-keyring` which is simpler).
+1. Add `github.com/zalando/go-keyring` to `go.mod`:
+   ```
+   go get github.com/zalando/go-keyring@latest
+   ```
+   **Decision:** We use `zalando/go-keyring` (not `99designs/keyring`) because:
+   - It is simpler with fewer transitive dependencies
+   - It has active maintenance and fewer open issues
+   - Cross-platform support (Linux Secret Service, macOS Keychain, Windows Credential Locker)
+   - Already used by several CLI tools in the CNCF ecosystem
+
 2. In `internal/cli/auth/auth.go`, add:
    ```go
+   import "github.com/zalando/go-keyring"
+
    // ResolveTokenWithKeychain extends ResolveToken with a keychain fallback.
    // Resolution order: flagValue → JA4PROXY_TOKEN env var → keyring → "".
    func ResolveTokenWithKeychain(flagValue string) string {
@@ -1353,21 +1572,68 @@ the keychain level is the only gap.
        }
        return ""
    }
+
+   // StoreTokenInKeychain stores a token in the system keychain.
+   func StoreTokenInKeychain(token string) error {
+       return keyring.Set("ja4proxy-cli", "token", token)
+   }
    ```
+
 3. Update `newClient()` in `cmd/ja4proxy-cli/main.go` to call
    `auth.ResolveTokenWithKeychain(gf.token)` instead of `auth.ResolveToken(gf.token)`.
-4. Add a `login` command stub (or `config set-token`) to store credentials:
+
+4. Add `config set-token` subcommand in `cmd/ja4proxy-cli/main.go`:
+   ```go
+   // In the init() function where subcommands are registered:
+   configCmd.AddCommand(setTokenCmd)
+
+   var setTokenCmd = &cobra.Command{
+       Use:   "set-token <token>",
+       Short: "Store API token in system keychain",
+       Args:  cobra.ExactArgs(1),
+       RunE: func(cmd *cobra.Command, args []string) error {
+           if err := auth.StoreTokenInKeychain(args[0]); err != nil {
+               return fmt.Errorf("failed to store token in keychain: %w", err)
+           }
+           fmt.Println("Token stored in system keychain successfully.")
+           return nil
+       },
+   }
    ```
-   ja4proxy-cli config set-token <token>   # stores in keyring
-   ja4proxy-cli config set-url <url>       # writes to config file
+
+5. Write tests in `internal/cli/auth/auth_test.go` using `github.com/zalando/go-keyring`'s
+   built-in mock:
+   ```go
+   func TestResolveTokenWithKeychain_FlagWins(t *testing.T) {
+       // Set keyring value, then call with flag — flag should win
+       keyring.Set("ja4proxy-cli", "token", "keyring-token")
+       defer keyring.Delete("ja4proxy-cli", "token")
+       result := ResolveTokenWithKeychain("flag-token")
+       assert.Equal(t, "flag-token", result)
+   }
+
+   func TestResolveTokenWithKeychain_KeychainFallback(t *testing.T) {
+       // No flag, no env — keyring should be used
+       keyring.Set("ja4proxy-cli", "token", "keyring-token")
+       defer keyring.Delete("ja4proxy-cli", "token")
+       result := ResolveTokenWithKeychain("")
+       assert.Equal(t, "keyring-token", result)
+   }
+
+   func TestResolveTokenWithKeychain_Empty(t *testing.T) {
+       // Nothing set — should return empty
+       result := ResolveTokenWithKeychain("")
+       assert.Equal(t, "", result)
+   }
    ```
 
 #### Acceptance criteria
 
-- `TestResolveTokenWithKeychain_KeychainFallback` passes with a mock keyring.
-- `ja4proxy-cli config set-token` stores the token and subsequent commands
-  pick it up without any flag or env var.
-- Unit test documents that flag and env still beat keychain.
+- [ ] `TestResolveTokenWithKeychain_FlagWins` passes — flag beats keychain
+- [ ] `TestResolveTokenWithKeychain_KeychainFallback` passes — keyring used when no flag/env
+- [ ] `TestResolveTokenWithKeychain_Empty` passes — returns "" when nothing set
+- [ ] `ja4proxy-cli config set-token <token>` stores the token and subsequent commands pick it up without any flag or env var
+- [ ] `go vet ./internal/cli/auth/...` passes with zero warnings
 
 ---
 
