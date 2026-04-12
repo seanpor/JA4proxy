@@ -3,7 +3,7 @@
 #
 # Runs every local check that CI will run. Exits non-zero on the first
 # failure so agents can iterate until green. Designed to be called by
-# the /close-phase Claude Code command, but also runnable standalone.
+# the /close-phase command, but also runnable standalone.
 #
 # Usage:  bash scripts/close-phase.sh
 #
@@ -21,11 +21,44 @@ RESET='\033[0m'
 pass() { echo -e "${GREEN}✓ $1${RESET}"; }
 fail() { echo -e "${RED}✗ $1${RESET}"; echo -e "${RED}  Fix the above and re-run scripts/close-phase.sh${RESET}"; exit 1; }
 
+# --- Environment setup ---
+
+# Snap Go installation requires explicit GOROOT.  If /snap/go exists and
+# GOROOT is not already set, inject it so all downstream go commands work.
+if [ -d /snap/go/current ] && [ -z "${GOROOT:-}" ]; then
+    export GOROOT=/snap/go/current
+fi
+
+GO_AVAILABLE=false
+if command -v go &>/dev/null; then
+    GO_AVAILABLE=true
+fi
+
+# Detect if this phase touches signal scores (any changed file under
+# src/security/, internal/security/, or config/signal_scores.yml).
+SCORES_TOUCHED=false
+if git diff --cached --name-only 2>/dev/null | grep -qE '(src/security/|internal/security/|config/signal_scores\.yml)'; then
+    SCORES_TOUCHED=true
+fi
+
+# Detect if this phase touches scoring pipeline (risk_scorer, action_decider,
+# pipeline, signal_scores.yml).
+PIPELINE_TOUCHED=false
+if git diff --cached --name-only 2>/dev/null | grep -qE '(risk_scorer|action_decider|pipeline\.py|signal_scores\.yml|internal/security/scorer|internal/security/pipeline)'; then
+    PIPELINE_TOUCHED=true
+fi
+
 echo -e "${BOLD}=== Phase Close-Out Gate ===${RESET}"
+if [ -n "${GOROOT:-}" ]; then
+    echo -e "  GOROOT=$GOROOT"
+fi
+echo -e "  Go available: $GO_AVAILABLE"
+echo -e "  Signal scores touched: $SCORES_TOUCHED"
+echo -e "  Pipeline touched: $PIPELINE_TOUCHED"
 echo ""
 
 # 1. Python lint (ruff) — fastest check, catches most common CI breaker
-echo -e "${BOLD}[1/6] ruff check .${RESET}"
+echo -e "${BOLD}[1/8] ruff check .${RESET}"
 if command -v ruff &>/dev/null; then
     ruff check . || fail "ruff found lint errors"
     pass "ruff"
@@ -36,8 +69,8 @@ else
 fi
 
 # 2. Go formatting — second most common CI breaker
-echo -e "${BOLD}[2/6] gofmt${RESET}"
-if command -v gofmt &>/dev/null; then
+echo -e "${BOLD}[2/8] gofmt${RESET}"
+if $GO_AVAILABLE; then
     out="$(gofmt -l . | grep -vE '^\.claude/|^\.qwen/|^vendor/' || true)"
     if [ -n "$out" ]; then
         echo "Unformatted files:"
@@ -46,21 +79,21 @@ if command -v gofmt &>/dev/null; then
     fi
     pass "gofmt"
 else
-    echo "  (gofmt not found, skipping — Go not installed)"
+    echo "  (go not found, skipping)"
 fi
 
 # 3. Go vet
-echo -e "${BOLD}[3/6] go vet${RESET}"
-if command -v go &>/dev/null; then
+echo -e "${BOLD}[3/8] go vet${RESET}"
+if $GO_AVAILABLE; then
     go vet $(go list ./... | grep -vE '/\.claude/|/\.qwen/|/vendor/') || fail "go vet found issues"
     pass "go vet"
 else
-    echo "  (go not found, skipping — Go not installed)"
+    echo "  (go not found, skipping)"
 fi
 
 # 4. Go tests
-echo -e "${BOLD}[4/6] go test${RESET}"
-if command -v go &>/dev/null; then
+echo -e "${BOLD}[4/8] go test${RESET}"
+if $GO_AVAILABLE; then
     GOFLAGS="-count=1" go test ./... || fail "Go tests failed"
     pass "go test"
 else
@@ -68,12 +101,26 @@ else
 fi
 
 # 5. make test (Python: mypy + bandit + ruff + pip-audit + pytest)
-echo -e "${BOLD}[5/6] make test${RESET}"
+echo -e "${BOLD}[5/8] make test${RESET}"
 make test || fail "make test failed"
 pass "make test"
 
-# 6. Phase doc sync
-echo -e "${BOLD}[6/6] sync roadmap${RESET}"
+# 6. Phase doc lint
+echo -e "${BOLD}[6/8] make lint-phases${RESET}"
+make lint-phases || fail "make lint-phases failed"
+pass "lint-phases"
+
+# 7. Signal score parity (conditional)
+echo -e "${BOLD}[7/8] make check-scores${RESET}"
+if $SCORES_TOUCHED; then
+    make check-scores || fail "make check-scores failed — signal scores don't match config/signal_scores.yml"
+    pass "check-scores"
+else
+    echo "  (no signal score changes, skipping)"
+fi
+
+# 8. Phase doc sync
+echo -e "${BOLD}[8/8] sync roadmap${RESET}"
 python3 scripts/sync-roadmap.py || fail "sync-roadmap.py failed"
 if ! git diff --quiet docs/phases/TODO.md docs/PROJECT_STATUS.md 2>/dev/null; then
     echo "  WARNING: TODO.md or PROJECT_STATUS.md changed after sync."
@@ -82,4 +129,11 @@ fi
 pass "sync"
 
 echo ""
+if $PIPELINE_TOUCHED; then
+    echo -e "${BOLD}⚠ Pipeline/scoring changes detected.${RESET}"
+    echo -e "  Run 'make parity-check' with both proxies running before merging."
+    echo -e "  (This check is not automated here — requires live services.)"
+    echo ""
+fi
+
 echo -e "${GREEN}${BOLD}All checks passed. Safe to create PR and merge.${RESET}"
