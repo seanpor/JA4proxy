@@ -1,14 +1,47 @@
 # Phase 94 — Kubernetes Operator + NetBox + ServiceNow CMDB
 
 > **Status:** PROPOSED — split into 13 independent sub-phases (see §5).
-> **Last revised:** 2026-04-09 (re-planned after 2026-04-09 review; see §3
-> for what changed and why).
+> **Last revised:** 2026-04-11 (compact sub-phase index added for junior engineer handoff;
+> design details from 2026-04-09 review preserved in §3–§7).
 > **Prerequisites:** Phase 79 (Management API v2) — COMPLETE. Phase 83
 > (`ja4proxy-cli`) — COMPLETE.
 > **Not a prerequisite (despite the original draft):** Phase 93 (Terraform
 > provider). The operator can vendor `internal/cli/client/client.go`
 > directly; the original "shared client library" dependency was stylistic,
 > not functional.
+
+## Sub-phase quick reference (13 sub-phases, 3 parallel streams)
+
+**Stream 1 — Kubernetes operator** (6 sub-phases, sequential within stream):
+
+| ID | Sub-phase | Repo | Size | Depends on |
+|---|---|---|---|---|
+| **94a** | `ManagedBy` enum extension + ADR-094c | main repo | XS | none |
+| **94b** | Helm chart topology (ADR-094d) | main repo | S | none |
+| **94c1** | Operator repo bootstrap | operator repo | S | 94a |
+| **94c2** | CRD stubs + admission webhook | operator repo | S | 94c1 |
+| **94d** | Allowlist reconciler | operator repo | M | 94a, 94c2 |
+| **94e** | Dial reconciler | operator repo | M | 94c2 |
+| **94f** | Config reconciler | operator repo | M | 94b, 94c2 |
+| **94g** | Operator Helm chart + ArgoCD | operator repo | S | 94c2 |
+| **94h** | Operator runbook | main repo | XS | 94d–94f |
+
+**Stream 2 — NetBox loader** (2 sub-phases, Go-only):
+
+| ID | Sub-phase | Repo | Size | Depends on |
+|---|---|---|---|---|
+| **94i1** | NetBox loader (Go) + tests | main repo `internal/config/` | S | none |
+| **94i2** | Config wiring + SIGHUP + metrics | main repo | S | 94i1 |
+
+**Stream 3 — Ansible / CMDB** (2 sub-phases):
+
+| ID | Sub-phase | Repo | Size | Depends on |
+|---|---|---|---|---|
+| **94j** | Ansible role baseline | main repo `deploy/ansible/` | S | none |
+| **94k** | ServiceNow CMDB task | main repo `deploy/ansible/` | XS | 94j |
+
+Three engineers can pick up one stream each on day one with zero coordination.
+Detailed sub-phase specifications are in §7 below.
 
 ---
 
