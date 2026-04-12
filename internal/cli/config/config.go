@@ -58,7 +58,7 @@ func configPath() (string, error) {
 }
 
 // Load reads the CLI config file from ~/.config/ja4proxy/cli.yaml.
-// If the file does not exist, an empty CLIConfig is returned without error.
+// If the file does not exist, a default CLIConfig is returned without error.
 func Load() (*CLIConfig, error) {
 	path, err := configPath()
 	if err != nil {
@@ -68,7 +68,7 @@ func Load() (*CLIConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return &CLIConfig{}, nil
+			return NewDefaultCLIConfig(), nil
 		}
 		return nil, err
 	}
