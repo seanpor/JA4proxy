@@ -46,22 +46,30 @@ func main() {
 }
 
 // newClient builds a Management API client using the resolved URL and token.
-// Resolution order: --flag > JA4PROXY_* env var > ~/.config/ja4proxy/cli.yaml > "".
+// Resolution order: --flag > JA4PROXY_* env var > OS keyring (if use_keyring:true)
+// > ~/.config/ja4proxy/cli.yaml plaintext token > "".
 // Returns an error if URL is still empty after all resolution steps.
 func newClient() (*client.Client, error) {
 	// Resolve flag > env first.
 	apiURL := auth.ResolveURL(gf.url)
 	token := auth.ResolveToken(gf.token)
 
-	// Fall back to config file only if flag and env produced nothing.
+	// Fall back to config file (and optionally the OS keyring) if flag and env
+	// produced nothing.
 	if apiURL == "" || token == "" {
 		cfg, _ := cliconfig.Load()
 		if cfg != nil {
 			if apiURL == "" && cfg.URL != "" {
 				apiURL = cfg.URL
 			}
-			if token == "" && cfg.Token != "" {
-				token = cfg.Token
+			if token == "" {
+				if cfg.UseKeyring {
+					// use_keyring:true — resolve flag > env > OS keyring.
+					token = auth.ResolveTokenWithKeychain(gf.token)
+				} else if cfg.Token != "" {
+					// Default: plaintext token from config file.
+					token = cfg.Token
+				}
 			}
 		}
 	}
@@ -478,7 +486,39 @@ func buildConfigCmd() *cobra.Command {
 	}
 	reloadCmd.Flags().StringVar(&node, "node", "", "Specific node hostname (default: all nodes)")
 	cmd.AddCommand(reloadCmd)
+	cmd.AddCommand(buildSetTokenCmd())
 	return cmd
+}
+
+// buildSetTokenCmd returns the "config set-token" subcommand which stores an
+// API token in the OS keyring (macOS Keychain, Linux Secret Service / kwallet,
+// Windows Credential Manager).  This is an alternative to keeping the token as
+// plaintext in ~/.config/ja4proxy/cli.yaml.
+//
+// After storing the token, enable keyring lookup by setting use_keyring: true
+// in ~/.config/ja4proxy/cli.yaml.
+func buildSetTokenCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "set-token <token>",
+		Short: "Store API token in the OS keyring (macOS Keychain / Linux Secret Service / Windows Credential Manager)",
+		Long: `Store the API bearer token in the OS keyring.
+
+Once stored, set use_keyring: true in ~/.config/ja4proxy/cli.yaml to enable
+keyring-based token resolution.  The token field in the config file will be
+ignored when use_keyring is true.
+
+The CLI falls back to plaintext config file storage when this flag is false
+(the default), ensuring operation on headless servers without a keyring daemon.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := auth.StoreTokenInKeychain(args[0]); err != nil {
+				return fmt.Errorf("failed to store token in keyring: %w", err)
+			}
+			fmt.Println("Token stored in system keyring successfully.")
+			fmt.Println("Enable keyring lookup by setting 'use_keyring: true' in ~/.config/ja4proxy/cli.yaml")
+			return nil
+		},
+	}
 }
 
 // ── health ────────────────────────────────────────────────────────────────────

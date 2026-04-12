@@ -86,3 +86,66 @@ func TestNewDefaultCLIConfig_ConfirmMutatingDefaultsTrue(t *testing.T) {
 		t.Errorf("NewDefaultCLIConfig().ConfirmMutating = false; want true (safe default)")
 	}
 }
+
+// TestCLIConfig_UseKeyringField_ParsesTrue verifies that use_keyring: true
+// is parsed correctly.
+func TestCLIConfig_UseKeyringField_ParsesTrue(t *testing.T) {
+	dir := t.TempDir()
+	writeConfigUnderHome(t, dir, `url: http://localhost:8090
+use_keyring: true
+`)
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if !cfg.UseKeyring {
+		t.Errorf("UseKeyring = false; want true when use_keyring: true in config")
+	}
+}
+
+// TestCLIConfig_UseKeyringField_ParsesFalse verifies that use_keyring: false
+// is parsed correctly.
+func TestCLIConfig_UseKeyringField_ParsesFalse(t *testing.T) {
+	dir := t.TempDir()
+	writeConfigUnderHome(t, dir, `url: http://localhost:8090
+use_keyring: false
+`)
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if cfg.UseKeyring {
+		t.Errorf("UseKeyring = true; want false when use_keyring: false in config")
+	}
+}
+
+// TestCLIConfig_UseKeyringField_AbsentDefaultsFalse verifies that when the
+// key is absent from the YAML, UseKeyring defaults to false (Go zero value).
+// This is the critical invariant: the keyring is OFF by default so the CLI
+// works on headless servers without a secret-service daemon.
+func TestCLIConfig_UseKeyringField_AbsentDefaultsFalse(t *testing.T) {
+	dir := t.TempDir()
+	writeConfigUnderHome(t, dir, `url: http://localhost:8090
+token: plaintexttoken
+`)
+
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if cfg.UseKeyring {
+		t.Errorf("UseKeyring = true; want false (zero value / default off) when key absent from config")
+	}
+}
+
+// TestNewDefaultCLIConfig_UseKeyringDefaultsFalse verifies that the
+// convenience constructor returns UseKeyring=false (keyring OFF by default).
+func TestNewDefaultCLIConfig_UseKeyringDefaultsFalse(t *testing.T) {
+	t.Parallel()
+	cfg := config.NewDefaultCLIConfig()
+	if cfg.UseKeyring {
+		t.Errorf("NewDefaultCLIConfig().UseKeyring = true; want false (keyring is off by default)")
+	}
+}

@@ -27,6 +27,15 @@ type CLIConfig struct {
 	// non-interactive scripts and CI pipelines.  Defaults to true (safe
 	// default) when created via NewDefaultCLIConfig.
 	ConfirmMutating bool `yaml:"confirm_mutating"`
+
+	// UseKeyring controls whether the API token is stored in the OS keyring
+	// (macOS Keychain, Linux Secret Service / kwallet, Windows Credential
+	// Manager) rather than as plaintext in the Token field of this config file.
+	// Default: false — the plaintext config file is used by default, which
+	// ensures the CLI works on headless servers without a keyring daemon.
+	// Set to true when running interactively and you want tokens kept out of
+	// plaintext files on disk.
+	UseKeyring bool `yaml:"use_keyring"`
 }
 
 // NewDefaultCLIConfig returns a CLIConfig with safe production defaults.
@@ -35,6 +44,7 @@ type CLIConfig struct {
 func NewDefaultCLIConfig() *CLIConfig {
 	return &CLIConfig{
 		ConfirmMutating: true,
+		UseKeyring:      false,
 	}
 }
 
