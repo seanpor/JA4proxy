@@ -760,9 +760,20 @@ func newLogger(cfg *config.Config) *logrus.Logger {
 		level = logrus.InfoLevel
 	}
 	log.SetLevel(level)
-	// phase-80: dual_output is Python-only. Log a warning if misconfigured.
+	// phase-100-B: dual_output=true emits two JSON lines per log call — legacy first,
+	// then ECS — to support operators migrating Loki dashboards to ECS without a
+	// hard cutover.
 	if cfg.Logging.DualOutput && cfg.Logging.Format == "ecs" {
-		log.Warn("proxy: logging.dual_output=true is a Python-only feature; Go proxy emits ECS-only format")
+		log.SetFormatter(&jalogger.DualFormatter{
+			Legacy: &logrus.JSONFormatter{
+				FieldMap: logrus.FieldMap{
+					logrus.FieldKeyTime:  "timestamp",
+					logrus.FieldKeyLevel: "level",
+					logrus.FieldKeyMsg:   "message",
+				},
+			},
+			ECS: jalogger.NewECSLogrusFormatter("ecs"),
+		})
 	}
 	return log
 }
