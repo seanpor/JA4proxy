@@ -163,30 +163,18 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 	}()
 
 	// Initialise webhook dispatcher (starts inactive if cfg.Webhooks.Enabled is false).
-	// phase-80: build per-endpoint config; per-endpoint retry/timeout fields are
-	// stored in WebhookEndpointConfig but DispatcherConfig holds global retry settings.
-	// Use the first endpoint's settings as global defaults (or safe defaults if none set).
+	// phase-100-C: each endpoint carries its own retry/backoff/timeout; the
+	// DispatcherConfig holds safe global defaults used when per-endpoint values are zero.
 	endpoints := make([]webhook.WebhookEndpoint, len(cfg.Webhooks.Endpoints))
-	dispatchRetryAttempts := 3
-	dispatchRetryBackoff := 5.0
-	dispatchTimeout := 30.0
 	for i, e := range cfg.Webhooks.Endpoints {
 		endpoints[i] = webhook.WebhookEndpoint{
-			ID:     e.ID,
-			URL:    e.URL,
-			Secret: e.Secret,
-			Events: e.Events,
-		}
-		if i == 0 {
-			if e.RetryAttempts > 0 {
-				dispatchRetryAttempts = e.RetryAttempts
-			}
-			if e.RetryBackoffSeconds > 0 {
-				dispatchRetryBackoff = e.RetryBackoffSeconds
-			}
-			if e.TimeoutSeconds > 0 {
-				dispatchTimeout = e.TimeoutSeconds
-			}
+			ID:                  e.ID,
+			URL:                 e.URL,
+			Secret:              e.Secret,
+			Events:              e.Events,
+			RetryAttempts:       e.RetryAttempts,
+			RetryBackoffSeconds: e.RetryBackoffSeconds,
+			TimeoutSeconds:      e.TimeoutSeconds,
 		}
 	}
 	redisAddr := fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port.Int())
@@ -194,9 +182,9 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 		Endpoints:      endpoints,
 		StreamKey:      cfg.Webhooks.StreamKey,
 		DLQStreamKey:   cfg.Webhooks.DLQKey,
-		RetryAttempts:  dispatchRetryAttempts,
-		RetryBackoff:   time.Duration(dispatchRetryBackoff * float64(time.Second)),
-		TimeoutSeconds: dispatchTimeout,
+		RetryAttempts:  3,              // global default; overridden per-endpoint
+		RetryBackoff:   5 * time.Second,
+		TimeoutSeconds: 30,
 	}
 	disp, err := webhook.NewDispatcher(dispatcherCfg, redisAddr, log)
 	if err != nil {
