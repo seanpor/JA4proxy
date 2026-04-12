@@ -1056,7 +1056,7 @@ test-phase-91:
 # code, attribute errors) that mypy and ruff don't cover.
 lint-pylint:
 	@echo "=== pylint: Python semantic analysis (errors only) ==="
-	@python3 -m pylint --errors-only src/ proxy.py \
+	@python3 -m pylint --errors-only src/ proxy.py security/ \
 		&& echo "✓ pylint passed"
 
 # semgrep with auto-config: cross-language pattern matching for real bugs,
