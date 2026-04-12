@@ -1,5 +1,10 @@
 # Changelog
 
+## Phase 204 — README Badges (2026-04-12)
+
+### Added
+- Badge section to README.md with 14 badges: License (MIT), Python 3.14+, Go 1.25.9, CI status, test coverage (≥80%), Go tests, Docker Compose readiness, Semgrep, secrets scanning (TruffleHog), dependency audit (pip-audit + govulncheck), Ruff linting, Go linting (gofmt + vet), dual-proxy architecture, and Python/Go signal parity.
+
 ## Phase 100: Cross-Phase Gap Closure (2026-04-12)
 
 ### Added
