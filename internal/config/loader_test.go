@@ -275,3 +275,24 @@ func loadFromString(content string) (*Config, error) {
 	f.Close()
 	return Load(filepath.Join(dir, filepath.Base(f.Name())))
 }
+
+func TestLoad_TrustedUpstreamSourcesFromProxyYML(t *testing.T) {
+	cfg, err := Load("../../config/proxy.yml")
+	if err != nil {
+		t.Fatalf("Load(proxy.yml) failed: %v", err)
+	}
+	// NetBox should be disabled by default (conservative default per phase-94i2)
+	if cfg.TrustedUpstreamSources.NetBox.Enabled {
+		t.Error("NetBox should be disabled by default")
+	}
+	// static_cidrs should have at least one entry
+	if len(cfg.TrustedUpstreamSources.StaticCIDRs) == 0 {
+		t.Error("expected non-empty static_cidrs from proxy.yml")
+	}
+	if cfg.TrustedUpstreamSources.NetBox.Tag != "ja4proxy-trusted" {
+		t.Errorf("NetBox tag: got %q, want %q", cfg.TrustedUpstreamSources.NetBox.Tag, "ja4proxy-trusted")
+	}
+	if !cfg.TrustedUpstreamSources.NetBox.RefreshOnSIGHUP {
+		t.Error("expected refresh_on_sighup to be true")
+	}
+}
