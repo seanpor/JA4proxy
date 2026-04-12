@@ -73,12 +73,19 @@ func newClient() (*client.Client, error) {
 }
 
 // requireConfirm checks for the --confirm flag and exits 1 with a helpful
-// message if it was not provided.
-func requireConfirm(confirmed bool, cmd *cobra.Command) {
-	if !confirmed {
-		fmt.Fprintf(os.Stderr, "This is a mutating operation. Add --confirm to proceed.\n")
-		os.Exit(1)
+// message if it was not provided.  When confirm_mutating is set to false in
+// ~/.config/ja4proxy/cli.yaml the check is skipped, allowing non-interactive
+// scripts and CI pipelines to run mutating commands without --confirm.
+func requireConfirm(confirmed bool, _ *cobra.Command) {
+	if confirmed {
+		return
 	}
+	// Allow skipping the prompt when the config file opts out of confirmation.
+	if cfg, _ := cliconfig.Load(); cfg != nil && !cfg.ConfirmMutating {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "This is a mutating operation. Add --confirm to proceed.\n")
+	os.Exit(1)
 }
 
 // resolveFormat returns the output format to use.

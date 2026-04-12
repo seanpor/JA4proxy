@@ -21,6 +21,21 @@ type CLIConfig struct {
 
 	// DefaultOutput is the default output format: "table", "json", or "csv".
 	DefaultOutput string `yaml:"default_output"`
+
+	// ConfirmMutating controls whether mutating commands require the
+	// --confirm flag.  Set to false to skip the confirmation prompt in
+	// non-interactive scripts and CI pipelines.  Defaults to true (safe
+	// default) when created via NewDefaultCLIConfig.
+	ConfirmMutating bool `yaml:"confirm_mutating"`
+}
+
+// NewDefaultCLIConfig returns a CLIConfig with safe production defaults.
+// Use this instead of a bare struct literal when you need ConfirmMutating
+// to default to true (the safe value) rather than Go's zero value (false).
+func NewDefaultCLIConfig() *CLIConfig {
+	return &CLIConfig{
+		ConfirmMutating: true,
+	}
 }
 
 // configPath returns the canonical path of the CLI config file.
