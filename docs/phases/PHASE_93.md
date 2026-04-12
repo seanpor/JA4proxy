@@ -10,6 +10,26 @@
 > **Critical Review Date:** 2026-04-09 — Strategic security architecture review
 > recalibrated this document for correctness, scope control, and integration reality.
 
+> **Sub-phase breakdown (2026-04-11):** The full phase is LARGE. Below is a compact
+> sub-phase index for junior engineer handoff. Detailed design is preserved in §3–§12.
+
+## Sub-phase index
+
+| ID | Sub-phase | Repo / area | Size | Depends on |
+|---|---|---|---|---|
+| **93a** | ADRs + repo bootstrap | `terraform-provider-ja4proxy/` (new repo) | S | none |
+| **93b** | HTTP client + provider config | `internal/client/`, `internal/provider/` | S | 93a |
+| **93c** | Allowlist + Blocklist resources | `internal/resources/` | S | 93b |
+| **93d** | Watchlist + Ban resources | `internal/resources/` | S | 93b |
+| **93e** | Dial + Webhook resources | `internal/resources/` | S | 93b |
+| **93f** | Drift detection + import workflow | `internal/resources/`, `deploy/terraform/` | S | 93c, 93d, 93e |
+| **93g** | Emergency Ansible playbooks (3) | `deploy/ansible/playbooks/emergency/` | S | none |
+| **93h** | Integration tests + Makefile target | `tests/integration/`, `Makefile` | S | 93f, 93g |
+
+Each sub-phase is **SMALL** (S). 93a–93e can be started independently once 93a lands.
+93f depends on all resources being implemented. 93g has no engineering dependencies.
+93h is the final integration gate.
+
 ---
 
 ## 1. Overview
