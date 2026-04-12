@@ -154,19 +154,20 @@ signature verification for supply chain integrity.
 - `.github/workflows/go-proxy-image.yml` — new CI workflow
 
 **Steps:**
-1. Create `.github/workflows/go-proxy-image.yml`:
-   - Trigger: push to `main` + tag creation
-   - Run `GOROOT=/snap/go/current go test ./...` before build
-   - Build `Dockerfile.go-proxy` (multi-stage)
-   - Run `make scan-first-party` (Trivy CVE scan)
-   - Generate SBOM with Syft: `syft dir:. --format cyclonedx-json`
-   - Push image to GHCR with `latest` and git SHA tags
-   - Sign image with cosign (key from GitHub secrets)
-   - Generate SLSA provenance (following `release-cli.yml` pattern)
-2. All actions in this workflow must be SHA-pinned (follow 202a pattern).
+1. Create `.github/workflows/go-proxy-image.yml`. **Use `.github/workflows/release-cli.yml` as a template** — copy its job structure, SHA-pinned actions, and cosign signing pattern. Key diffs:
+   - Trigger: `push.paths: ['docker/Dockerfile.go-proxy']` + tags `v*-go-proxy`
+   - Jobs: `test` → `build` → `scan` → `sbom` → `sign` → `push`
+   - The `sign` job follows the same cosign pattern as `release-cli.yml`
+2. All actions in this workflow must be SHA-pinned (follow 202a pattern). Key actions to pin:
+   - `actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683` (v4.1.1)
+   - `actions/setup-go@cdcb36043654635271a94b9a6d13e80b8cf34bfd` (v5.0.0)
+   - `docker/login-action@74a5d14239724027a4387673988a71e09627b3f3` (v3.3.0)
+   - `docker/build-push-action@5cd11c5a643b59765d86a1acd1e33b5e0547387c` (v6.7.0)
+   - `sigstore/cosign-installer@59acb6260d9c0ba8f4a2f9d9b48431a222b68e20` (v3.5.0)
+   - `anchore/sbom-action@546297c6bacc20a46774b77881726467e1564b8d` (v0.16.3)
 3. Add required secrets documentation to `docs/enterprise/`:
    - `COSIGN_PRIVATE_KEY`, `COSIGN_PASSWORD` for image signing
-   - `GHCR_TOKEN` for GHCR push
+   - `GHCR_TOKEN` for GHCR push (use `${{ secrets.GITHUB_TOKEN }}` — no extra secret needed)
 4. Test the workflow by pushing to a feature branch and observing the GitHub Actions run.
 
 **Acceptance criteria:**
@@ -196,9 +197,10 @@ with no password, creating an attack surface on developer machines and CI runner
 **Steps:**
 1. Set `REDIS_PASSWORD` to a test password: `${REDIS_PASSWORD:-test-fixtures-pw}`
 2. Change Redis port binding from `6380:6379` to `127.0.0.1:6380:6379`
-3. Verify any test code that connects to Redis uses the password:
-   - Search for `redis://localhost:6380` or `redis://127.0.0.1:6380` in test files
-   - Ensure connection strings include the password when set
+3. Verify any test code that connects to Redis uses the password. The URL format with password is:
+   `redis://:test-fixtures-pw@127.0.0.1:6380/0` (note the colon before the password — this is the Redis ACL password syntax).
+   Search for `redis://localhost:6380` or `redis://127.0.0.1:6380` in test files and update.
+   **Important:** Tests using `fakeredis` do NOT need the password — fakeredis ignores auth. Only update tests that connect to a real Redis instance via docker-compose.
 4. Run `make test` — all tests must still pass with the password.
 5. Run `docker compose -f docker/docker-compose.test.yml config` — must validate.
 

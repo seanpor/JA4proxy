@@ -50,10 +50,11 @@ fingerprints but leave TCP stack defaults unchanged.
    - MSS and window size are decimal integers
 2. Implement `ComputeJA4T(ttl uint8, mss uint16, windowSize uint16, options []byte) string`
    in `internal/tls/ja4t.go`.
-3. Write unit tests in `tests/unit/test_ja4t.go` with known inputs → expected JA4T strings.
-   Use the same test vectors as the Python tests to verify parity.
-4. Wire the call site: find where TCP metadata is available in the connection pipeline
-   and set `connCtx.JA4T = ComputeJA4T(...)`.
+3. Write unit tests in `tests/unit/test_ja4t.go` with these concrete test vectors:
+   - `ttl=64, mss=1460, windowSize=65535, options=[0x02,0x04,0x05,0xb4,0x04,0x02,0x08,0x0a,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0x03,0x03,0x07]` → `"64_1460_65535_<first-8-hex-of-sha256>"` (compute the hash to get the exact expected value)
+   - `ttl=128, mss=536, windowSize=8192, options=[0x02,0x04,0x02,0x18]` → `"128_536_8192_<hash>"`
+   - `ttl=255, mss=0, windowSize=0, options=[]` → `"255_0_0_<hash-of-empty>"`
+4. Wire the call site: TCP metadata is available in `internal/proxy/proxy.go` at the `handleConnection()` function where `connCtx` is populated. Look for the section after the TLS handshake completes — add `connCtx.JA4T = tls.ComputeJA4T(...)` using the TCP connection's socket options. Specifically, use `tcpConn.RemoteAddr()` and the raw `syscall.GetsockoptInt` for TTL/MSS/window size.
 5. Run `make go-test` — must pass.
 6. Run `make check-scores` — must exit 0 (ensure no score drift).
 
@@ -170,8 +171,14 @@ domain-generation-algorithm-based malware C2 domains.
    - Same label length thresholds
    - Same digit detection
    - Same prefix stripping via `_get_primary_label()` equivalent
-3. Add parity tests: feed identical hostnames to Python and Go, assert same score
-   within ±0.05 tolerance (floating point differences acceptable).
+3. Add parity tests in `tests/unit/test_sni_analyzer.go`. **Test fixture file:** Create
+   `tests/fixtures/dga/hostnames.txt` with 100+ hostnames (one per line). The file should
+   include the Python team's canonical test set from `tests/fixtures/dga/` if it exists,
+   otherwise generate from: 30 known DGA domains (from `security/known_dga_domains.txt`
+   or Alexa top-1000 random samples), 50 legitimate domains (top-50 Alexa), 20 edge cases
+   (single-label like "localhost", very long labels, numeric-only like "12345678.com").
+   The ±0.05 tolerance applies to the **final confidence score** (0.0–1.0), not intermediate
+   sub-scores.
 4. Test vectors should include:
    - Known DGA domains (random-looking, high entropy, no vowels)
    - Legitimate domains (google.com, github.com)
@@ -224,8 +231,16 @@ the health check still reports "healthy" — masking real problems.
    ```
 3. Return 503 if any critical dependency (Redis, GeoIP) is unhealthy.
 4. Return 200 if all critical dependencies are healthy (degraded = 200 with warning).
-5. Add anti-flap hysteresis: require N consecutive failures before marking unhealthy.
-6. Write tests:
+5. Add anti-flap hysteresis: require **N=3** consecutive failures before marking a component unhealthy.
+   Track a per-component failure counter in a struct (e.g., `healthState.failedChecks[component]`).
+   Increment on each failure, reset to 0 on success. When counter reaches 3, mark component unhealthy.
+6. The health endpoint path is `GET /health` (same as the existing handler in `cmd/proxy/main.go`).
+   **Redis latency measurement:** use `time.Since(start)` around the `client.Ping(ctx)` call. This
+   gives you the round-trip latency in microseconds. Convert to milliseconds for the JSON response.
+   **Enrichment queue:** the Go proxy does NOT currently have an enrichment queue (that's a Python
+   concept). Omit the queue check from the Go health endpoint — it's not applicable. If a queue is
+   added later, wire it in as a separate sub-phase.
+7. Write tests:
    - All healthy → 200 with all "ok"
    - Redis down → 503
    - GeoIP missing → 503

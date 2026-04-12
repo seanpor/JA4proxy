@@ -64,6 +64,15 @@ field described in §4 of PHASE_93.md does not exist. Without it:
 **Fix:** Add `protect_unmanaged_entries` (bool, optional, default false) to
 `ja4proxyProviderModel` and `Schema()`. Pass it to resources via `Configure`.
 
+**Steps:**
+1. Add `ProtectUnmanagedEntries *bool` to `ja4proxyProviderModel` struct in `internal/provider/provider.go`.
+2. Add `protect_unmanaged_entries` to the provider `Schema()` map with type `types.BoolType`, `Optional: true`, and `Computed: true` with a default of `false`.
+3. In the `Configure` method, pass the resolved value to the resource config (via `resp.DataSourceData` or `resp.ResourceData`) so all resources can read it.
+4. Add two unit tests: `TestProvider_ProtectUnmanagedEntries_Default` (verifies default is `false`) and `TestProvider_ProtectUnmanagedEntries_True` (verifies `true` is accepted and propagated).
+5. Run `go test ./internal/provider/... -v -count=1` — must pass with zero failures.
+
+**Out of scope:** This sub-phase does not implement drift detection logic or modify any resource files — it only adds the provider config schema field and wiring.
+
 ---
 
 #### G2 — Drift detection not implemented on allowlist/blocklist/watchlist (BLOCKING)
@@ -92,6 +101,16 @@ entries. This is the hardest part of the phase.
   state and emits warnings for discrepancies
 - This is a **data source**, not a resource — it runs at plan time, not apply time
 
+**Steps:**
+1. Create `internal/data_sources/managed_entries.go` implementing `ja4proxy_managed_entries` data source that calls `GET /api/v1/{list}?managed_by=terraform` for each list type (allowlist, blocklist, watchlist).
+2. Register the data source in `internal/provider/provider.go` via `Datasource()` method.
+3. In each list resource's `Read` method (`allowlist_entry.go`, `blocklist_entry.go`, `watchlist_entry.go`), after fetching by ID: if the entry is gone and `protect_unmanaged_entries` is `false`, call `resp.State.RemoveResource(ctx)`; if `true`, add a diagnostic warning but keep the resource in state.
+4. Add a `PlanModifier` that checks `protect_unmanaged_entries` during plan: if an out-of-band entry is detected, emit a warning instead of planning a destroy.
+5. Write `TestAllowlistEntry_DriftWarning` (and equivalent for blocklist/watchlist) — delete entry out-of-band, run plan, assert warning diagnostic is emitted.
+6. Run `go test ./internal/resources/... -v -count=1` — must pass with zero failures.
+
+**Out of scope:** This sub-phase does not introduce new resource types. It implements Read-time drift detection only — plan-time drift warnings via the data source are covered but full plan-time drift scanning across all entries is limited to what the data source provides.
+
 ---
 
 #### G3 — `[terraform]` reason prefix not applied to ban + webhook (HIGH)
@@ -114,6 +133,17 @@ The `webhook` resource doesn't have a `reason` field at all — it uses the API'
   `managed_by` in the create request — if not, fall back to prefixing `url` or
   a custom header field.
 
+**Steps:**
+1. In `internal/resources/ban.go`, modify the `Create` method to prefix the reason: `"[terraform] " + plan.Reason` before sending the POST body to the API.
+2. In the `Read` method, detect the `[terraform] ` prefix on the returned reason and strip it before populating state so the user sees their original value.
+3. In `internal/resources/webhook.go`, add `managed_by` to the POST body on create with value `"terraform"`. If the API does not accept `managed_by`, document the fallback in the resource schema description.
+4. Add `TestBan_TicketAndReason` — create a ban, assert the API receives `[terraform] ` prefixed reason.
+5. Add `TestBan_ReadStripsPrefix` — create a ban with prefix, read back, assert state contains unprefixed reason.
+6. Add `TestWebhook_ManagedBySet` — create a webhook, assert `managed_by = "terraform"` is in the POST body.
+7. Run `go test ./internal/resources/... -v -count=1` — must pass with zero failures.
+
+**Out of scope:** This sub-phase does not add new fields to the ban or webhook resources and does not change the Management API contract — it only modifies how the provider formats outgoing requests and parses incoming responses.
+
 ---
 
 #### G4 — Ban resource missing `ticket` and `ttl_hours` fields (HIGH)
@@ -135,6 +165,19 @@ the HCL example. The actual schema has:
 - Store `ticket` in the reason string or as a separate API field if the API
   supports it.
 
+**Steps:**
+1. Add `ticket` (string, optional) to the ban resource schema in `internal/resources/ban.go`.
+2. Add `ttl_hours` (int64, optional) to the ban resource schema as an alternative to `ttl`.
+3. Add a `PlanModifier` or validation function that requires exactly one of `ttl` or `ttl_hours` — error if both or neither are set.
+4. In the `Create` method: if `ttl_hours` is set, compute `ttl = ttl_hours * 3600` before sending to the API. If `ticket` is set, append it to the reason string (e.g., `"[terraform] <reason> (ticket: <ticket>)"`) or send as a separate field if the API supports it.
+5. In the `Read` method, populate `ttl_hours` from `ttl / 3600` and populate `ticket` from state or parse from reason if stored there.
+6. In the `Update` method, apply the same `ttl_hours` → `ttl` conversion logic.
+7. Write `TestBan_TicketField` — create a ban with `ticket`, assert it appears in state.
+8. Write `TestBan_TTLHours` — create a ban with `ttl_hours = 24`, assert the API receives `ttl = 86400`.
+9. Run `go test ./internal/resources/... -v -count=1` — must pass with zero failures.
+
+**Out of scope:** This sub-phase does not implement TTL auto-detection at 24h (that is 102h) and does not modify the Management API endpoint — the provider adapts to the existing API.
+
 ---
 
 #### G5 — Dial resource missing `ticket` and `notes` (MEDIUM)
@@ -151,6 +194,17 @@ only has `value`.
   Terraform-only metadata (computed state, not sent to API). Document this
   limitation.
 
+**Steps:**
+1. Add `ticket` (string, optional) to the dial resource schema in `internal/resources/dial.go`.
+2. Add `notes` (string, optional) to the dial resource schema.
+3. In the `Create`/`Update` method, attempt to include `ticket` and `notes` in the PATCH body. If the API returns a 400/422 indicating unknown fields, silently omit them and store them as Terraform-only state (set in state but not sent to API).
+4. In the `Read` method, preserve `ticket` and `notes` from prior state (they are Terraform-only if the API does not accept them).
+5. Add a schema description note on both fields documenting whether they are sent to the API or stored locally only.
+6. Write `TestDial_TicketAndNotes` — create a dial with `ticket` and `notes`, assert both appear in state.
+7. Run `go test ./internal/resources/... -v -count=1` — must pass with zero failures.
+
+**Out of scope:** This sub-phase does not modify the dial Management API. If the API does not accept `ticket` or `notes`, the limitation is documented in the schema — the API is not changed to support them.
+
 ---
 
 #### G6 — No ADRs written (MEDIUM)
@@ -162,6 +216,15 @@ only has `value`.
 | ADR-093a | Repository topology | Keep in-tree during development (`terraform-provider/`), extract to separate repo before Registry publication. Document the extraction procedure. |
 | ADR-093b | Terraform Registry namespace | `ja4proxy/ja4proxy` (self-published). No HashiCorp partnership needed. |
 | ADR-093c | TTL renewal strategy for `ja4proxy_ban` | Re-POST on apply (already implemented via `Update`). The API's idempotent POST resets the TTL. No dedicated `/renew` endpoint needed. |
+
+**Steps:**
+1. Create `docs/decisions/ADR-093a-repository-topology.md` documenting the decision to keep the provider in-tree during development (`terraform-provider/`) and extract to a separate repo before Registry publication. Include the extraction procedure.
+2. Create `docs/decisions/ADR-093b-terraform-registry-namespace.md` documenting the decision to use `ja4proxy/ja4proxy` namespace (self-published, no HashiCorp partnership).
+3. Create `docs/decisions/ADR-093c-ttl-renewal-strategy.md` documenting the decision to re-POST on apply for TTL renewal (API's idempotent POST resets TTL, no dedicated `/renew` endpoint needed).
+4. Follow the ADR template in `docs/decisions/` (if one exists) or use standard ADR format: Context, Decision, Consequences, Status.
+5. Verify all three ADRs are referenced from `docs/decisions/README.md` (or the index file used by the project).
+
+**Out of scope:** This sub-phase is documentation-only — no code changes, no CI modifications, and no Terraform Registry submission (that is an external process tracked separately).
 
 ---
 
@@ -182,6 +245,16 @@ directory. The Phase 93 manifest (93.5) requires:
 
 The release workflow should use goreleaser/goreleaser-action to build multi-arch
 binaries and push to the Terraform Registry.
+
+**Steps:**
+1. Create `.github/workflows/terraform-provider-test.yml` with jobs for: `go vet ./...`, `go test ./internal/... -v -count=1`, `TF_ACC=1 go test ./internal/... -v -count=1` (acceptance tests), and `golangci-lint run` (if `.golangci.yaml` exists in the provider tree). Trigger on `pull_request` targeting the provider directory.
+2. Add optional `tfproviderlint` step: run `go install github.com/bflad/tfproviderlint/cmd/tfproviderlintx@latest` and `tfproviderlintx ./...`. If the tool reports violations, document any suppressions with justification.
+3. Create `.github/workflows/terraform-provider-release.yml` using `goreleaser/goreleaser-action`. Trigger on `push` of tags matching `v*`. Configure to build multi-arch binaries (linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64) and publish to the Terraform Registry via the Registry API.
+4. Ensure both workflows use the correct Go version (read from `go.mod` or pin explicitly).
+5. Test the test workflow locally by pushing to a branch and verifying the Actions run passes.
+6. Run `make test-phase-93` locally — must exit 0.
+
+**Out of scope:** This sub-phase does not introduce new resource types (102b–102e handle those) and does not write ADRs (that is 102f). Terraform Registry submission is configured here but the actual Registry review/approval process is external to this phase.
 
 ---
 
@@ -218,6 +291,18 @@ This file was created by the Phase 93 merge. Verify it covers:
 - Troubleshooting (common failure modes)
 
 Update any sections that don't match the actual playbook content.
+
+**Steps:**
+1. Read `docs/runbooks/emergency_playbooks.md` in full.
+2. Read each of the 3 Ansible playbooks in `deploy/ansible/playbooks/emergency/*.yml`.
+3. Verify the doc covers each playbook with: name, purpose, required variables, usage example command, and expected output.
+4. Verify the doc lists prerequisites: Ansible installation, `ja4proxy_token`, optional ServiceNow/Slack variables.
+5. Verify the doc documents safety constraints: dial ±10 stepping, abort-on-422 behavior.
+6. Verify the doc includes a troubleshooting section with common failure modes (auth errors, 422 responses, network timeouts, missing variables).
+7. Update any sections that are inaccurate, incomplete, or don't match the actual playbook files.
+8. Run `python3 -m pytest tests/integration/test_emergency_playbooks.py -v` — all 14 tests must pass.
+
+**Out of scope:** This sub-phase is an audit-only exercise — no new playbook content is written beyond what already exists in the Ansible YAML files, and no code changes are made. If gaps are found between the doc and the playbooks, the doc is updated to match the playbooks (the playbooks themselves are not modified).
 
 ---
 

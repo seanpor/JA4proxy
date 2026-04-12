@@ -30,6 +30,202 @@ Each sub-phase is **SMALL** (S). 93a–93e can be started independently once 93a
 93f depends on all resources being implemented. 93g has no engineering dependencies.
 93h is the final integration gate.
 
+> **⚠️ Mapping note:** The manifest uses numeric IDs (93.1–93.7). This document uses
+> letter IDs (93a–93h). The mapping is: 93.1=93a, 93.2=93b+93c+93d, 93.3=93d (ban
+> portion), 93.4=93e, 93.5=93f, 93.6=93g, 93.7=93h. **Follow the letter IDs below
+> for implementation.**
+
+---
+
+## Sub-phase details
+
+### 93a — ADRs + repo bootstrap (S)
+
+**Goal:** Write 3 ADRs and scaffold the Terraform provider repository.
+
+**Steps:**
+1. Create `docs/decisions/ADR-093a.md` — Repository topology. Decision: keep in-tree at `terraform-provider/` during development, extract to separate repo before Registry publication.
+2. Create `docs/decisions/ADR-093b.md` — Terraform Registry namespace. Decision: `ja4proxy/ja4proxy` (self-published).
+3. Create `docs/decisions/ADR-093c.md` — TTL renewal strategy. Decision: re-POST on apply (already implemented via Update method).
+4. Create `terraform-provider/go.mod` with module `github.com/anomalyco/terraform-provider-ja4proxy` and Go 1.25.0.
+5. Create `terraform-provider/main.go` with provider entry point.
+6. Create `terraform-provider/internal/provider/provider.go` with schema (`api_url`, `api_token`), Configure method with health check, and Resources() returning empty slice for now.
+7. Create `terraform-provider/internal/client/client.go` with HTTP client (Bearer auth, URL encoding, 429 retry).
+8. Run `go build ./...` and `go vet ./...` — both must pass.
+
+**Verify:**
+```bash
+cd terraform-provider && GOROOT=/snap/go/current go build ./... && GOROOT=/snap/go/current go vet ./...
+```
+
+**Out of scope:** No resource types (those are 93b–93e). No acceptance tests. No CI workflows (those are 93f).
+
+---
+
+### 93b — HTTP client + provider config (S)
+
+**Goal:** Finalize the HTTP client and provider configuration schema.
+
+**Steps:**
+1. In `internal/client/client.go`, implement: `New(baseURL, token)`, `Get()`, `Post()`, `Patch()`, `Delete()` methods with Bearer auth header and JSON body marshalling.
+2. Add retry logic: on 429, sleep for `Retry-After` header (or 5s default), retry up to 3 times.
+3. In `internal/provider/provider.go`, add `protect_unmanaged_entries` field (bool, optional, default false) to the schema.
+4. Wire the client to resources via `resp.DataSourceData = c` and `resp.ResourceData = c` in Configure().
+
+**Verify:**
+```bash
+cd terraform-provider && GOROOT=/snap/go/current go test ./internal/client/... ./internal/provider/... -v
+```
+
+**Out of scope:** No resource implementations yet (those are 93c–93e). No drift detection logic.
+
+---
+
+### 93c — Allowlist + Blocklist resources (S)
+
+**Goal:** Implement `ja4proxy_allowlist_entry` and `ja4proxy_blocklist_entry` resources.
+
+**Steps:**
+1. Create `internal/resources/allowlist_entry.go` with Schema (`id`, `entry`, `managed_by`, `note`, `expires_at`), Create/Read/Update/Delete methods.
+2. On Create: set `managed_by = "terraform"`. Call `client.CreateListEntry(ctx, "allowlist", ...)`.
+3. On Read: call `client.GetListEntryByID(ctx, "allowlist", state.ID)`. If not found, `resp.State.RemoveResource(ctx)`.
+4. On Update: delete old entry, create new one (API entries are immutable).
+5. On Delete: call `client.DeleteListEntry(ctx, "allowlist", state.ID)`.
+6. Implement `ImportState`: parse `allowlist/<id>` format, passthrough ID.
+7. Repeat steps 1-6 for `blocklist_entry.go` with `"blocklist"` as the list type.
+8. Write unit tests for each resource using mock server pattern.
+
+**Verify:**
+```bash
+cd terraform-provider && TF_ACC=1 GOROOT=/snap/go/current go test ./internal/resources/... -run TestAllowlist -v
+```
+
+**Out of scope:** No drift detection warnings during plan (that's 93f). No ban, dial, or webhook resources.
+
+---
+
+### 93d — Watchlist + Ban resources (S)
+
+**Goal:** Implement `ja4proxy_watchlist_entry` and `ja4proxy_ban` resources.
+
+**Steps:**
+1. Create `internal/resources/watchlist_entry.go` following the same pattern as 93c with `"watchlist"` as the list type.
+2. Create `internal/resources/ban.go` with Schema (`id`, `ip`, `ttl`, `reason`).
+3. On Create: URL-encode the IP/CIDR for the API path (`/` → `%2F`). Call `client.CreateBan(ctx, ip, ttl, reason)`. Prefix reason with `[terraform] ` for ownership identification.
+4. On Read: call `client.ListBans(ctx)`, find matching IP in the list. If not found, `resp.State.RemoveResource(ctx)`.
+5. On Update: re-POST to refresh TTL (the API's POST is idempotent).
+6. On Delete: call `client.DeleteBan(ctx, ip)`. Swallow "not found" errors (ban already gone).
+7. Implement `ImportState`: parse `ban/<ip>` format, passthrough ID.
+
+**Verify:**
+```bash
+cd terraform-provider && TF_ACC=1 GOROOT=/snap/go/current go test ./internal/resources/... -run TestBan -v
+```
+
+**Out of scope:** No dial or webhook resources (those are 93e). No 24h auto-detection for TTL renewal.
+
+---
+
+### 93e — Dial + Webhook resources (S)
+
+**Goal:** Implement `ja4proxy_dial` (singleton) and `ja4proxy_webhook` resources.
+
+**Steps:**
+1. Create `internal/resources/dial.go` with Schema (`id`, `value`).
+2. Enforce singleton: use a package-level `sync.Mutex` + map keyed by provider base URL. If a dial resource already exists for this provider, return an error.
+3. On Create: call `client.UpdateDial(ctx, value)`. The API enforces ±10 delta — if it rejects, propagate the error.
+4. On Read: call `client.GetDial(ctx)`.
+5. On Update: call `client.UpdateDial(ctx, value)`.
+6. On Delete: remove from singleton map, `resp.State.RemoveResource(ctx)`. No API call (dial cannot be "deleted").
+7. Create `internal/resources/webhook.go` following the pattern of 93c with `client.CreateWebhook`, `client.GetWebhook`, `client.UpdateWebhook`, `client.DeleteWebhook`.
+8. Implement `ImportState` for webhook: passthrough the ID directly.
+
+**Verify:**
+```bash
+cd terraform-provider && TF_ACC=1 GOROOT=/snap/go/current go test ./internal/resources/... -run "TestDial|TestWebhook" -v
+```
+
+**Out of scope:** No approval workflow / 202 handling. No `ticket` or `notes` fields (those are Phase 102).
+
+---
+
+### 93f — Drift detection + import workflow (S)
+
+**Goal:** Add drift detection warnings and document the import workflow.
+
+**Steps:**
+1. In each resource's `Read` method, after fetching by ID: if the entry is gone from the API, check `protect_unmanaged_entries` from the provider config. If true, add a diagnostic warning instead of silently removing from state.
+2. Create `deploy/terraform/README.md` with:
+   - Quick-start HCL example
+   - Resource table (6 types)
+   - Import workflow: `ja4proxy-cli ip ban list --output json | jq -r '...' | xargs -I{} terraform import ...`
+3. Create `docs/runbooks/emergency_playbooks.md` with usage for all 3 playbooks.
+4. Add `make test-phase-93` target to the main Makefile:
+   ```makefile
+   test-phase-93:
+   	cd terraform-provider && GOROOT=/snap/go/current go test ./internal/... -v -count=1
+   	python3 -m pytest tests/integration/test_emergency_playbooks.py -v
+   ```
+
+**Verify:**
+```bash
+make test-phase-93
+```
+
+**Out of scope:** No new resource types. No API changes. No live Management API integration tests (those use mock servers).
+
+---
+
+### 93g — Emergency Ansible playbooks (S)
+
+**Goal:** Create 3 emergency runbook playbooks.
+
+**Steps:**
+1. Create `deploy/ansible/playbooks/emergency/emergency-ban-cidr.yml`:
+   - Validate `cidr`, `reason`, `ticket`, `ja4proxy_token` variables
+   - URL-encode CIDR (`/` → `%2F`)
+   - POST to `/api/v1/bans/{cidr_encoded}` with Bearer auth
+   - Optional ServiceNow/Slack integration (gated behind `when:` conditionals)
+2. Create `deploy/ansible/playbooks/emergency/temp-whitelist-ip.yml`:
+   - Compute `expires_at = now + ttl_hours`
+   - POST to `/api/v1/allowlist` with `entry`, `expires_at`, `reason`, `ticket`
+   - Optional Slack notification
+3. Create `deploy/ansible/playbooks/emergency/maintenance-dial-zero.yml`:
+   - GET current dial value
+   - Step down in ±10 increments: if current=70, iterate 70→60→50→...→0
+   - Wait for `duration_minutes * 60` seconds
+   - Restore previous dial value (stepped back up)
+   - Abort on 422 (four-eyes approval pending)
+   - Optional ServiceNow change record
+
+**Verify:**
+```bash
+python3 -m pytest tests/integration/test_emergency_playbooks.py -v
+```
+
+**Out of scope:** No live ServiceNow or Slack integration testing. No real Management API testing (tests use mock server).
+
+---
+
+### 93h — Integration tests + Makefile target (S)
+
+**Goal:** Write end-to-end integration tests and wire the Makefile target.
+
+**Steps:**
+1. In `tests/integration/`, create `test_terraform_provider_e2e.py`:
+   - Start ManagementAPIMock on a random port
+   - Run `terraform init`, `terraform apply`, `terraform plan`, `terraform destroy` against the mock
+   - Assert no errors in any phase
+2. Verify `make test-phase-93` target runs both Go tests and Python playbook tests.
+3. Run `make test-phase-93` and confirm zero failures.
+
+**Verify:**
+```bash
+make test-phase-93
+```
+
+**Out of scope:** No new code. No API changes. No new playbooks.
+
 ---
 
 ## 1. Overview
