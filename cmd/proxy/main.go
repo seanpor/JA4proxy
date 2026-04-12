@@ -308,7 +308,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	// check to prevent IP spoofing from untrusted sources.
 	if p.cfg.Proxy.ProxyProtocol {
 		socketIP := remoteIP(clientConn)
-		if proxypkg.IsTrustedProxySource(socketIP, p.cfg) {
+		if proxypkg.IsTrustedProxySourceCIDRs(socketIP, p.getTrustedCIDRs()) {
 			// Try v2 binary header first (HAProxy 2.x+, AWS NLB)
 			if realIP, ok, hdrLen := proxypkg.ReadProxyProtocolV2WithLength(data); ok {
 				connCtx.ClientIP = realIP

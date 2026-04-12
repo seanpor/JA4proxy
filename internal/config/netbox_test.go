@@ -149,3 +149,105 @@ func TestLoadTrustedCIDRsFromNetBox_MissingTag(t *testing.T) {
 		t.Errorf("cidrs = %v, want [10.0.0.0/8]", cidrs)
 	}
 }
+
+// TestLoadTrustedCIDRsFromNetBox_Pagination verifies that when the server
+// returns a paginated response with a "next" pointer, all pages are followed
+// and all results are collected (B2 fix).
+func TestLoadTrustedCIDRsFromNetBox_Pagination(t *testing.T) {
+	var srvURL string
+	page := 0
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if page == 0 {
+			nextURL := srvURL + "/api/ipam/prefixes/?tag=ja4proxy-trusted&limit=1000&offset=1000"
+			resp := map[string]interface{}{
+				"count":   3,
+				"next":    nextURL,
+				"results": []map[string]interface{}{
+					{"prefix": "10.0.0.0/8"},
+					{"prefix": "172.16.0.0/12"},
+				},
+			}
+			json.NewEncoder(w).Encode(resp)
+			page++
+		} else {
+			resp := map[string]interface{}{
+				"count":   3,
+				"next":    nil,
+				"results": []map[string]interface{}{
+					{"prefix": "192.168.0.0/16"},
+				},
+			}
+			json.NewEncoder(w).Encode(resp)
+		}
+	})
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+	srvURL = srv.URL
+
+	cidrs, err := LoadTrustedCIDRsFromNetBox(context.Background(), srv.URL, "token", "ja4proxy-trusted")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cidrs) != 3 {
+		t.Fatalf("len(cidrs) = %d, want 3", len(cidrs))
+	}
+	// Verify all three prefixes from both pages are present
+	want := map[string]bool{"10.0.0.0/8": true, "172.16.0.0/12": true, "192.168.0.0/16": true}
+	for _, c := range cidrs {
+		if !want[c] {
+			t.Errorf("unexpected CIDR in result: %s", c)
+		}
+	}
+}
+
+// TestLoadTrustedCIDRsFromNetBox_RejectsDefaultRoute verifies that 0.0.0.0/0
+// and ::/0 are rejected with a warning (B3 fix).
+func TestLoadTrustedCIDRsFromNetBox_RejectsDefaultRoute(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		resp := map[string]interface{}{
+			"count": 4,
+			"results": []map[string]interface{}{
+				{"prefix": "0.0.0.0/0"},      // should be rejected
+				{"prefix": "::/0"},           // should be rejected
+				{"prefix": "10.0.0.0/8"},     // should be accepted
+				{"prefix": "not-a-valid-cidr"}, // should be skipped (malformed)
+			},
+		}
+		json.NewEncoder(w).Encode(resp)
+	}))
+	defer srv.Close()
+
+	cidrs, err := LoadTrustedCIDRsFromNetBox(context.Background(), srv.URL, "token", "ja4proxy-trusted")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cidrs) != 1 {
+		t.Fatalf("len(cidrs) = %d, want 1 (only 10.0.0.0/8 should survive)", len(cidrs))
+	}
+	if cidrs[0] != "10.0.0.0/8" {
+		t.Errorf("cidrs[0] = %q, want 10.0.0.0/8", cidrs[0])
+	}
+}
+
+// TestLoadTrustedCIDRsFromNetBox_ContextCancellation verifies that when the
+// context is cancelled before the request completes, the function returns
+// an empty slice with no error (fail-open).
+func TestLoadTrustedCIDRsFromNetBox_ContextCancellation(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(10 * time.Second)
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately
+
+	cidrs, err := LoadTrustedCIDRsFromNetBox(ctx, srv.URL, "token", "ja4proxy-trusted")
+	if err != nil {
+		t.Fatalf("expected nil error (fail-open), got: %v", err)
+	}
+	if len(cidrs) != 0 {
+		t.Errorf("expected empty slice on context cancellation, got %v", cidrs)
+	}
+}
