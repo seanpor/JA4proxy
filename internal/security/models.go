@@ -18,6 +18,9 @@ type RiskSignal struct {
 // Populated before the pipeline runs; passed to every module.
 type ConnectionContext struct {
 	ClientIP             string
+	// ClientPort is the source TCP port. Zero when behind PROXY protocol
+	// or when the source address is not a *net.TCPAddr.
+	ClientPort           int
 	JA4                  string
 	JA4X                 string
 	ALPN                 string

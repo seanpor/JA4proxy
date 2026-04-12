@@ -300,7 +300,8 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 
 	// Build ConnectionContext from TLS ClientHello
 	connCtx := &security.ConnectionContext{
-		ClientIP: remoteIP(clientConn),
+		ClientIP:   remoteIP(clientConn),
+		ClientPort: remotePort(clientConn),
 	}
 
 	// PROXY protocol: extract real client IP if behind HAProxy.
@@ -387,6 +388,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		"dial":        result.Dial,
 		"signals":     result.Signals,
 		"dst_ip":      backendHost, // phase-80: destination for ECS field mapping
+		"src_port":    connCtx.ClientPort,
 	}).Info("proxy: connection decision")
 
 	// Publish ECS connection event to Redis Stream for webhook delivery.
@@ -398,6 +400,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 				"event.action":             result.Action,
 				"event.risk_score":         result.Score,
 				"source.ip":                connCtx.ClientIP,
+				"source.port":              connCtx.ClientPort,
 				"destination.ip":           backendHost,
 				"destination.port":         443,
 				"network.transport":        "tcp",
@@ -733,6 +736,13 @@ func remoteIP(conn net.Conn) string {
 		return addr.IP.String()
 	}
 	return conn.RemoteAddr().String()
+}
+
+func remotePort(conn net.Conn) int {
+	if addr, ok := conn.RemoteAddr().(*net.TCPAddr); ok {
+		return addr.Port
+	}
+	return 0
 }
 
 func newLogger(cfg *config.Config) *logrus.Logger {
