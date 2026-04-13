@@ -12,7 +12,8 @@
       "Bash(git *)",
       "Bash(go *)",
       "Bash(sed *)",
-      "Bash(git rm *)"
+      "Bash(git rm *)",
+      "Bash(gh *)"
     ]
   },
   "$version": 3
