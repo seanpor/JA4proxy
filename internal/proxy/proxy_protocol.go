@@ -30,12 +30,30 @@ func IsTrustedProxySource(ip string, cfg *config.Config) bool {
 		return false
 	}
 
+	return isTrustedIP(ip, trust.TrustedCIDRs)
+}
+
+// IsTrustedProxySourceCIDRs returns true if the peer IP is within any of the
+// provided CIDRs.  Used when the trusted CIDR list is populated dynamically
+// (e.g. from NetBox) rather than from static config.
+//
+// Fail-open: empty CIDRs or invalid IP returns false.
+func IsTrustedProxySourceCIDRs(ip string, cidrs []string) bool {
+	if len(cidrs) == 0 {
+		return false
+	}
+	return isTrustedIP(ip, cidrs)
+}
+
+// isTrustedIP checks whether addr is contained in any of the CIDRs.
+// Invalid IPs and malformed CIDRs are silently skipped (fail-open).
+func isTrustedIP(ip string, cidrs []string) bool {
 	addr := net.ParseIP(ip)
 	if addr == nil {
 		return false
 	}
 
-	for _, cidr := range trust.TrustedCIDRs {
+	for _, cidr := range cidrs {
 		_, ipNet, err := net.ParseCIDR(cidr)
 		if err != nil {
 			// Skip malformed CIDRs — fail-open on this entry.

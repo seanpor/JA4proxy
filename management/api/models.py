@@ -265,6 +265,7 @@ class ManagedBy(str, Enum):
     legacy = "legacy"
     migration = "migration"
     feed = "feed"  # phase-85: threat-intel feed runner
+    operator_k8s = "operator_k8s"  # phase-94a: Kubernetes operator
 
 
 class ResourceCreate(BaseModel):

@@ -1,0 +1,67 @@
+---
+# ja4proxy/tasks/deploy_container.yml — deploy via Docker or Podman container.
+#
+# Used when ja4proxy_deploy_mode == "docker". Pulls the Go proxy image
+# and runs it with security hardening.
+
+- name: Ensure container engine is installed
+  ansible.builtin.package:
+    name: "{{ ja4proxy_container_engine }}"
+    state: present
+
+- name: Pull ja4proxy Go proxy image
+  community.docker.docker_image:
+    name: "{{ ja4proxy_image }}"
+    tag: "{{ ja4proxy_image_tag }}"
+    source: pull
+  delegate_to: localhost
+
+- name: Compute configuration checksum (container mode)
+  ansible.builtin.command:
+    cmd: "sha256sum {{ ja4proxy_config_path | default('/dev/null') }}"
+  register: config_checksum
+  changed_when: false
+  failed_when: false
+
+- name: Run ja4proxy container
+  community.docker.docker_container:
+    name: "{{ ja4proxy_container_name }}"
+    image: "{{ ja4proxy_image }}:{{ ja4proxy_image_tag }}"
+    state: started
+    restart_policy: "{{ ja4proxy_container_restart }}"
+    ports:
+      - "{{ ja4proxy_bind_address }}:{{ ja4proxy_host_port_ingress }}:{{ ja4proxy_port }}"
+      - "127.0.0.1:{{ ja4proxy_metrics_port }}:{{ ja4proxy_metrics_port }}"
+    env:
+      BACKEND_HOST: "{{ backend_host }}"
+      BACKEND_PORT: "{{ backend_port }}"
+      REDIS_HOST: "{{ ja4proxy_redis_host }}"
+      REDIS_PORT: "{{ ja4proxy_redis_port }}"
+    volumes:
+      - "{{ ja4proxy_config_dir }}:/app/config:ro"
+      - "{{ ja4proxy_geoip_dir }}:/app/geoip:ro"
+    read_only: true
+    tmpfs:
+      - "/tmp:noexec,nosuid,nodev,size=100m"
+      - "/var/run:noexec,nosuid,nodev,size=10m"
+    security_opts:
+      - "no-new-privileges:true"
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    memory: "512m"
+    cpus: "2.0"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:{{ ja4proxy_metrics_port }}/health"]
+      interval: "10s"
+      timeout: "5s"
+      retries: 5
+    log_driver: json-file
+    log_options:
+      max-size: "100m"
+      max-file: "3"

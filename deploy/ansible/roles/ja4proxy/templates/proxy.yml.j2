@@ -1,0 +1,20 @@
+# proxy.yml — JA4proxy Go proxy runtime configuration
+# Managed by Ansible (ja4proxy role, Phase 94j). Do not edit manually.
+
+proxy:
+  listen_address: "{{ ja4proxy_bind_address }}:{{ ja4proxy_port }}"
+  metrics_address: "127.0.0.1:{{ ja4proxy_metrics_port }}"
+  backend:
+    host: "{{ backend_host }}"
+    port: "{{ backend_port }}"
+
+redis:
+  host: "{{ ja4proxy_redis_host }}"
+  port: "{{ ja4proxy_redis_port }}"
+
+geoip:
+  path: "{{ ja4proxy_geoip_dir }}"
+
+logging:
+  level: info
+  format: json

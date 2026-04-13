@@ -1,0 +1,25 @@
+---
+# ja4proxy/tasks/cmdb_register.yml — Phase 94k
+#
+# Register the JA4proxy node in ServiceNow CMDB on deploy.
+# Opt-out by default: the when guard skips this task unless
+# servicenow_enabled is explicitly set to true.
+#
+# Custom fields (u_*) must exist in the ServiceNow instance before
+# this task runs. See docs/decisions/ for the CMDB field mapping.
+
+- name: Register JA4proxy node in ServiceNow CMDB
+  when: servicenow_enabled | bool
+  servicenow.itsm.configuration_item:
+    name: "{{ inventory_hostname }}"
+    short_description: "JA4proxy TLS Security Proxy"
+    asset_tag: "JA4PROXY-{{ inventory_hostname }}"
+    install_status: "installed"
+    ip_address: "{{ ansible_host }}"
+    u_version: "{{ ja4proxy_image_tag }}"
+    u_upstream_lb: "{{ upstream_lb_host }}"
+    u_downstream_backend: "{{ backend_host }}"
+    u_environment: "{{ deploy_environment }}"
+    u_last_deployed: "{{ ansible_date_time.iso8601 }}"
+    u_config_checksum: "{{ config_checksum.stdout | default('') }}"
+  delegate_to: localhost

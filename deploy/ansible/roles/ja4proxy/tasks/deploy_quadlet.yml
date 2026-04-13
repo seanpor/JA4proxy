@@ -1,0 +1,38 @@
+---
+# ja4proxy/tasks/deploy_quadlet.yml — deploy via Podman Quadlet.
+#
+# Quadlets let systemd manage Podman containers declaratively.
+# Requires Podman >= 4.4 with Quadlet support on the target host.
+# Cross-references Phase 76 (RHEL inline deployment strategy).
+
+- name: Ensure Podman is installed
+  ansible.builtin.package:
+    name: podman
+    state: present
+
+- name: Create Quadlet directory
+  ansible.builtin.file:
+    path: /etc/containers/systemd
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy Quadlet unit file
+  ansible.builtin.template:
+    src: ja4proxy.container.j2
+    dest: "/etc/containers/systemd/ja4proxy.container"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Reload systemd
+
+- name: Reload systemd to pick up Quadlet
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+
+- name: Start ja4proxy via Quadlet
+  ansible.builtin.systemd_service:
+    name: "ja4proxy.service"
+    enabled: true
+    state: started

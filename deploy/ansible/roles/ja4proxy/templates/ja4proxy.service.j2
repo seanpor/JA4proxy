@@ -1,0 +1,38 @@
+[Unit]
+Description=JA4proxy TLS Security Proxy (Go binary)
+Documentation=https://github.com/seanpor/JA4proxy
+After=network-online.target redis.service
+Wants=network-online.target
+
+[Service]
+Type=notify
+ExecStart={{ ja4proxy_binary_path }} -config {{ ja4proxy_config_path }}
+ExecReload=/bin/kill -HUP $MAINPID
+
+User={{ ja4proxy_user }}
+Group={{ ja4proxy_group }}
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadOnlyPaths=/
+ReadWritePaths={{ ja4proxy_log_dir }} {{ ja4proxy_geoip_dir }}
+
+# Resource limits
+LimitNOFILE=65536
+MemoryMax=512M
+CPUQuota=200%
+
+# Restart policy
+Restart=on-failure
+RestartSec=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ja4proxy
+
+[Install]
+WantedBy=multi-user.target

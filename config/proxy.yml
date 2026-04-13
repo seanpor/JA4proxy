@@ -300,6 +300,18 @@ upstream_trust:
   trusted_cidrs:
     - "10.0.0.0/8"          # Internal HAProxy instances — adjust to your network.
 
+# Trusted upstream CIDR sources — dynamic providers merged with static_cidrs.
+# phase-94i2
+trusted_upstream_sources:                    # phase-94i2
+  netbox:                                    # phase-94i2
+    enabled: false                           # phase-94i2: opt-in; default off
+    url: "https://netbox.corp.internal"      # phase-94i2
+    token: "${NETBOX_API_TOKEN}"             # phase-94i2
+    tag: "ja4proxy-trusted"                  # phase-94i2
+    refresh_on_sighup: true                  # phase-94i2
+  static_cidrs:                              # phase-94i2
+    - "10.0.0.0/8"                           # phase-94i2: always trusted regardless of NetBox
+
 # In-process LRU cache sizes and per-type TTLs.
 # TTLs are tuned for the false-positive asymmetry: allow decisions are
 # cached longer than block decisions (a stale allow is less harmful than

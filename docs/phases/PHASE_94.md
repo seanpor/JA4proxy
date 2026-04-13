@@ -1,6 +1,6 @@
 # Phase 94 — Kubernetes Operator + NetBox + ServiceNow CMDB
 
-> **Status:** PROPOSED — split into 13 independent sub-phases (see §5).
+> **Status:** PROPOSED — split into 14 independent sub-phases (see §5).
 > **Last revised:** 2026-04-11 (compact sub-phase index added for junior engineer handoff;
 > design details from 2026-04-09 review preserved in §3–§7).
 > **Prerequisites:** Phase 79 (Management API v2) — COMPLETE. Phase 83
@@ -10,9 +10,9 @@
 > directly; the original "shared client library" dependency was stylistic,
 > not functional.
 
-## Sub-phase quick reference (13 sub-phases, 3 parallel streams)
+## Sub-phase quick reference (14 sub-phases, 3 parallel streams)
 
-**Stream 1 — Kubernetes operator** (6 sub-phases, sequential within stream):
+**Stream 1 — Kubernetes operator** (7 sub-phases, sequential within stream):
 
 | ID | Sub-phase | Repo | Size | Depends on |
 |---|---|---|---|---|
@@ -25,6 +25,7 @@
 | **94f** | Config reconciler | operator repo | M | 94b, 94c2 |
 | **94g** | Operator Helm chart + ArgoCD | operator repo | S | 94c2 |
 | **94h** | Operator runbook | main repo | XS | 94d–94f |
+| **94l** | E2E operator ↔ Management API test | operator repo | XS | 94d, 94e, 94f |
 
 **Stream 2 — NetBox loader** (2 sub-phases, Go-only):
 
@@ -54,7 +55,7 @@ hosts:
 1. **Kubernetes operator** — declarative management of JA4proxy
    configuration via Kubernetes CRDs, eliminating out-of-band API calls
    after initial cluster deployment. Lives in a **separate repository**
-   (`github.com/anomalyco/ja4proxy-operator`) so it can release
+   (`github.com/seanpor/ja4proxy-operator`) so it can release
    independently and be published to OperatorHub.
 2. **NetBox integration** — read trusted upstream CIDR ranges from
    NetBox so network engineers manage IP space in one place. **Go-only**;
@@ -115,11 +116,11 @@ Management API owner triage.
 
 ## 4. Three independent streams
 
-The 13 sub-phases below split into three streams that share no files,
+The 14 sub-phases below split into three streams that share no files,
 no test infrastructure, no reviewers, and no release artifacts:
 
 - **Stream 1 — Kubernetes operator:** 94a → 94b → 94c1 → 94c2 →
-  {94d, 94e, 94f} → 94g → 94h
+  {94d, 94e, 94f} → 94g → 94h → 94l
 - **Stream 2 — NetBox loader:** 94i1 → 94i2 (in-tree, Go only)
 - **Stream 3 — Ansible / CMDB:** 94j → 94k
 
@@ -141,6 +142,7 @@ coordination beyond merge ordering inside each stream.
 | **94f** | `JA4ProxyConfig` reconciler (hot-reload vs restart) | operator repo | M | 94b, 94c2 |
 | **94g** | Operator Helm chart + optional ArgoCD custom health check | operator repo | S | 94c2 (one reconciler ideally working) |
 | **94h** | `kubernetes_operator.md` runbook + `deploy/k8s/README.md` | main repo | XS | 94d, 94e, 94f at least drafted |
+| **94l** | E2E operator ↔ Management API integration test | operator repo | XS | 94d, 94e, 94f |
 | **94i1** | NetBox loader (Go) + unit tests | main repo `internal/config/` | S | none |
 | **94i2** | NetBox config wiring + SIGHUP reload + Prometheus counter | main repo (config + pipeline) | S | 94i1 |
 | **94j** | Ansible `ja4proxy` role baseline | main repo `deploy/ansible/roles/ja4proxy/` | S | none |
@@ -148,7 +150,7 @@ coordination beyond merge ordering inside each stream.
 
 ### Size summary
 
-- **XS** (3): 94a, 94h, 94k
+- **XS** (4): 94a, 94h, 94k, 94l
 - **S** (7): 94b, 94c1, 94c2, 94g, 94i1, 94i2, 94j
 - **M** (3): 94d, 94e, 94f — the three reconcilers, M because each is
   one controller + status conditions + envtest reconciler tests +
@@ -168,9 +170,10 @@ coordination beyond merge ordering inside each stream.
 | 94g | `deploy/helm/ja4proxy-operator/` in operator repo | — |
 | 94h | `docs/runbooks/kubernetes_operator.md`, `deploy/k8s/README.md` | — |
 | 94i1 | `internal/config/netbox.go`, `internal/config/netbox_test.go` | — |
-| 94i2 | wiring code in trusted-upstream resolver | `config/proxy.yml` (new keys, `# phase-94i2` comments), `internal/metrics/metrics.go` (new counter) |
+| 94i2 | wiring code in trusted-upstream resolver | `config/proxy.yml` (new keys, `# phase-94i2` comments), `internal/metrics/netbox.go` (new file — counter, no shared-file conflict) |
 | 94j | `deploy/ansible/roles/ja4proxy/{defaults,tasks,handlers,meta,molecule,README.md}` | — |
 | 94k | `deploy/ansible/roles/ja4proxy/tasks/cmdb_register.yml` | `deploy/ansible/roles/ja4proxy/defaults/main.yml` (add `servicenow_enabled: false`) |
+| 94l | `controllers/e2e_test.go` in operator repo | — |
 
 There is no shared-file conflict between any two sub-phases.
 
@@ -513,13 +516,13 @@ plus the chart change to match.
 
 ### 7.3 Sub-phase 94c1 — Operator repo bootstrap
 
-**Deliverable:** A new repository `github.com/anomalyco/ja4proxy-operator`
+**Deliverable:** A new repository `github.com/seanpor/ja4proxy-operator`
 containing the bare minimum to compile and run a controller-runtime
 manager with no controllers wired.
 
 **Steps:**
 1. Create the repo (depends on org permissions — see open question §10).
-2. `go mod init github.com/anomalyco/ja4proxy-operator`.
+2. `go mod init github.com/seanpor/ja4proxy-operator`.
 3. `main.go` with a controller-runtime manager. No controllers
    registered yet.
 4. `internal/client/client.go` — verbatim copy of
@@ -584,6 +587,11 @@ share the operator repo but touch disjoint files
   matches current.
 
 #### 94f — `JA4ProxyConfig` reconciler (M)
+
+> **Merge-ordering note:** This sub-phase depends on 94b (Helm chart
+> topology). Do not merge 94f until 94b is on `main`, otherwise the
+> reconciler will target the wrong topology (Deployment instead of
+> DaemonSet).
 
 - Hot-reloadable fields (`bypassToggles.*`) → PATCH `/api/v1/config`.
 - Restart-required fields (`redisUrl`) → annotation update on the
@@ -684,8 +692,10 @@ resolution path so it actually affects proxy behaviour.
 2. In the Go pipeline's trusted-upstream resolver, on startup and on
    SIGHUP: if `netbox.enabled`, call `LoadTrustedCIDRsFromNetBox`,
    merge with `static_cidrs`, write into the in-process trie.
-3. Add `ja4proxy_netbox_cidrs_loaded{status="ok|error"}` counter to
-   `internal/metrics/metrics.go`.
+3. Add `ja4proxy_netbox_cidrs_loaded{status="ok|error"}` counter in a
+   new `internal/metrics/netbox.go` file that registers itself via
+   `init()` (avoids merge conflicts with other phases touching
+   `metrics.go`).
 4. Integration test: spin up `httptest.NewServer` with two prefixes,
    reload config, confirm the trie now contains the merged set and
    the counter incremented.
@@ -755,6 +765,32 @@ plus a `servicenow_enabled: false` default in `defaults/main.yml`.
 
 **Out of scope:** This sub-phase covers only the CMDB Ansible task. It does not touch the operator, NetBox, or any other integration.
 
+### 7.12 Sub-phase 94l — E2E operator ↔ Management API integration test (XS)
+
+**Deliverable:** An integration test that proves the operator actually
+communicates with the Management API end-to-end (not just stubbed).
+
+**Implementation:**
+- Use envtest (the same Kubernetes fake API server used by the
+  reconciler tests) to start a real controller with all three CRD
+  types wired.
+- Spin up a lightweight HTTP stub server that mimics the Management
+  API's `/api/v1/allowlist`, `/api/v1/dial`, and `/api/v1/config`
+  endpoints (use `httptest.NewServer`).
+- Apply one `JA4ProxyAllowlist` CR with two fingerprints.
+- Assert the stub server received a POST with the correct payload
+  (including `managed_by=operator_k8s`).
+- Apply a `JA4ProxyDial` CR with `setting: 80`.
+- Assert the stub received a POST to the dial endpoint with `{"setting": 80}`.
+- Apply a `JA4ProxyConfig` CR changing one bypass toggle.
+- Assert the stub received a PATCH to `/api/v1/config`.
+
+**Acceptance criteria:**
+- [ ] `go test ./controllers/... -run TestE2E` passes.
+- [ ] All three CRD types exercise the real Management API path.
+- [ ] Test verifies the `managed_by` value chosen in 94a is transmitted.
+- [ ] `PHASE_94l_notes.md` records the test fixture shapes.
+
 ---
 
 ## 8. ADRs required
@@ -788,8 +824,8 @@ inside the corresponding sub-phase PRs.
 ## 10. Open questions for the maintainer
 
 1. **Operator repo creation.** The operator must live in
-   `github.com/anomalyco/ja4proxy-operator`. Does that org exist, and
-   who has permission to create the repo? **Sub-phase 94c1 is blocked
+   `github.com/seanpor/ja4proxy-operator`. Does that repo exist, and
+   who has permission to create it? **Sub-phase 94c1 is blocked
    on this.**
 2. **Helm topology decision.** Recommendation in §7.2: option (a),
    convert to DaemonSet outright. Confirm or override before 94b
