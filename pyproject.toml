@@ -49,6 +49,53 @@ filterwarnings = [
     "ignore::pytest.PytestUnraisableExceptionWarning",
 ]
 
+# ── mypy configuration (consolidated from mypy.ini) ──────────────────────────
+[tool.mypy]
+# Phase 16f baseline — --ignore-missing-imports --no-strict-optional
+# Goal: zero errors in new code; suppress known legacy patterns.
+# Phase 16g will tighten to --strict once Redis typing is resolved.
+python_version = "3.14"
+ignore_missing_imports = true
+no_strict_optional = true
+warn_return_any = false
+warn_unused_ignores = false
+# Suppress "Library stubs not installed" (import-untyped) raised by mypy ≥1.19
+# when third-party stub packages (e.g. types-PyYAML) are absent in CI Docker.
+disable_error_code = "import-untyped"
+
+[[tool.mypy.overrides]]
+module = [
+    "proxy",
+    "security.validation",
+    "src.analytics.detection",
+    "src.analytics.stream_consumer",
+    "src.security.rdap_enrichment",
+    "src.security.tcp_analyzer",
+    "src.security.abuseipdb",
+    "src.security.beaconing_detector",
+    "src.security.sni_analyzer",
+    "src.security.tls_enforcer",
+    "src.security.dns_enrichment",
+    "src.security.pipeline",
+    "src.security.asn_classifier",
+    "src.security.gdpr_storage",
+    "src.cache.bloom",
+    "src.analytics.monitoring",
+    "src.analytics.shadow_scoring",
+    "src.analytics.baseline_monitor",
+    "src.pubsub",
+    "src.analytics.security_hardening",
+    "src.analytics.ml_detector",
+]
+ignore_errors = true
+
+# ── flake8 configuration (consolidated from .flake8) ─────────────────────────
+# Note: flake8 does not natively read pyproject.toml; requires Flake8-pyproject
+# or use ruff instead. Kept here for reference alongside ruff config.
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203", "W503", "E501", "E402", "F841"]
+
 [tool.ruff]
 # Phase 16f baseline — check src/ and proxy.py; tests are advisory only.
 target-version = "py314"
