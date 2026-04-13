@@ -253,7 +253,7 @@ Prometheus metrics are defined across the codebase with consistent `ja4proxy_` p
 - `ja4proxy_cache_operations_total` (by type, result)
 - `ja4proxy_backup_*` (operations, duration, size)
 
-**Finding O-1 (MEDIUM):** The Prometheus scrape config (`monitoring/prometheus.yml`) uses a 15s global interval with 5s for the proxy job. This is reasonable for monitoring but may miss short-lived spikes. For a proxy making 10K+ decisions/sec, a 5s scrape window means ~50K decisions per data point — sufficient for trends but not for real-time alerting.
+**Finding O-1 (MEDIUM):** The Prometheus scrape config (`deploy/monitoring/prometheus.yml`) uses a 15s global interval with 5s for the proxy job. This is reasonable for monitoring but may miss short-lived spikes. For a proxy making 10K+ decisions/sec, a 5s scrape window means ~50K decisions per data point — sufficient for trends but not for real-time alerting.
 
 **Finding O-2 (MEDIUM):** No alerting rules were found for critical security events:
 - No alert on sudden block rate increase (could indicate misconfiguration)
@@ -269,7 +269,7 @@ Prometheus metrics are defined across the codebase with consistent `ja4proxy_` p
 
 ### 6.3 Grafana Dashboards
 
-Grafana dashboards exist in `monitoring/grafana/` showing allowed vs blocked traffic, JA4 fingerprint names, action distribution, and logs. The dashboard design is appropriate for operational monitoring.
+Grafana dashboards exist in `deploy/monitoring/grafana/` showing allowed vs blocked traffic, JA4 fingerprint names, action distribution, and logs. The dashboard design is appropriate for operational monitoring.
 
 ---
 
@@ -476,7 +476,7 @@ This strategic review is supported by 5 detailed deep-dive reports:
 | Caching | `src/cache/local_cache.py`, `src/cache/bloom.py`, `internal/cache/local.go` |
 | Backup | `src/backup/worker.py`, `src/backup/encryption.py`, `src/backup/format.py` |
 | Network | `proxy.py` (handle_connection, _parse_proxy_protocol, _forward_to_backend) |
-| Observability | `monitoring/`, Prometheus metrics across codebase |
+| Observability | `deploy/monitoring/`, Prometheus metrics across codebase |
 | Deployment | `.github/workflows/`, `deploy/helm/`, `Dockerfile*`, `docker/` |
 | Schema | `docs/REDIS_SCHEMA.md`, `config/proxy.yml` |
 

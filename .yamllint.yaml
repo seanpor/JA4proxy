@@ -2,7 +2,7 @@
 # https://yamllint.readthedocs.io/
 #
 # Run: make lint-yaml
-# Checks config/ and monitoring/ YAML files for syntax errors and bad style.
+# Checks config/ and deploy/monitoring/ YAML files for syntax errors and bad style.
 
 extends: relaxed
 

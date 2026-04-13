@@ -495,15 +495,15 @@ Row 4: **Config and Reload**
 
 ## §4. Alertmanager Rules
 
-Alert rules are organized into multiple files in `monitoring/alertmanager/rules/`:
+Alert rules are organized into multiple files in `deploy/monitoring/alertmanager/rules/`:
 
 | File | Covers |
 |------|--------|
-| `monitoring/alertmanager/rules/proxy.rules.yml` | Active connections, block rate, latency, dial anomalies |
-| `monitoring/alertmanager/rules/redis.rules.yml` | Redis availability, memory, command latency |
-| `monitoring/alertmanager/rules/security.rules.yml` | High score rate, bypass disabled, blacklist size anomalies |
-| `monitoring/alertmanager/rules/backup.rules.yml` | Backup failures, retention violations |
-| `monitoring/alertmanager/rules/management_ui_rules.yml` | Management UI availability and errors (deferred until Phase 13) |
+| `deploy/monitoring/alertmanager/rules/proxy.rules.yml` | Active connections, block rate, latency, dial anomalies |
+| `deploy/monitoring/alertmanager/rules/redis.rules.yml` | Redis availability, memory, command latency |
+| `deploy/monitoring/alertmanager/rules/security.rules.yml` | High score rate, bypass disabled, blacklist size anomalies |
+| `deploy/monitoring/alertmanager/rules/backup.rules.yml` | Backup failures, retention violations |
+| `deploy/monitoring/alertmanager/rules/management_ui_rules.yml` | Management UI availability and errors (deferred until Phase 13) |
 
 ```yaml
 groups:
@@ -807,6 +807,6 @@ When implementing any phase:
 2. If adding a new metric, add it to the registry first, then implement.
 3. All log lines must conform to the JSON schema (§2).
 4. New Grafana panels slot into the existing dashboard rows (§3b–3d) — do not create new dashboards.
-5. New alert rules go in the appropriate file in `monitoring/alertmanager/rules/` (§4) following the existing format.
+5. New alert rules go in the appropriate file in `deploy/monitoring/alertmanager/rules/` (§4) following the existing format.
 6. Update `/health` component list (§5a) when adding a new dependency.
 7. The observability acceptance criteria template (§7) must be present in every phase file that adds observable behaviour.

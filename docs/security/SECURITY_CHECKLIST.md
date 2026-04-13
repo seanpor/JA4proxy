@@ -322,9 +322,9 @@ docker compose logs proxy | grep -i security
 ### 14e — Alert Rules Overhaul
 - [x] All alert expressions use real `ja4proxy_*` metric names (no phantom `ja4_*` references)
 - [x] `ja4_active_connections` → `ja4proxy_active_connections` (proxy.py, recording_rules.yml, dashboards)
-- [x] `monitoring/alertmanager/rules/proxy.rules.yml` created and validated
-- [x] `monitoring/alertmanager/rules/redis.rules.yml` created and validated
-- [x] `monitoring/alertmanager/rules/security.rules.yml` created and validated
+- [x] `deploy/monitoring/alertmanager/rules/proxy.rules.yml` created and validated
+- [x] `deploy/monitoring/alertmanager/rules/redis.rules.yml` created and validated
+- [x] `deploy/monitoring/alertmanager/rules/security.rules.yml` created and validated
 - [x] 43 structural tests in `tests/unit/test_alert_rules.py` validate all four rule files
 
 ### 14f — Production Docker Compose

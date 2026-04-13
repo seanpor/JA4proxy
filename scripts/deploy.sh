@@ -267,8 +267,8 @@ setup_monitoring() {
     sleep 30
     
     # Import Grafana dashboards
-    if [[ -d "monitoring/grafana/dashboards" ]]; then
-        for dashboard in monitoring/grafana/dashboards/*.json; do
+    if [[ -d "deploy/monitoring/grafana/dashboards" ]]; then
+        for dashboard in deploy/monitoring/grafana/dashboards/*.json; do
             if [[ -f "$dashboard" ]]; then
                 curl -X POST \
                     -H "Content-Type: application/json" \

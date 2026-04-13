@@ -10,10 +10,10 @@ that promtool would enforce:
   - All four required alert rule files are present and non-empty
 
 Files validated:
-  - monitoring/prometheus/alerts.yml
-  - monitoring/alertmanager/rules/proxy.rules.yml
-  - monitoring/alertmanager/rules/redis.rules.yml
-  - monitoring/alertmanager/rules/security.rules.yml
+  - deploy/monitoring/prometheus/alerts.yml
+  - deploy/monitoring/alertmanager/rules/proxy.rules.yml
+  - deploy/monitoring/alertmanager/rules/redis.rules.yml
+  - deploy/monitoring/alertmanager/rules/security.rules.yml
 """
 
 import re
@@ -29,11 +29,11 @@ import yaml
 REPO_ROOT = Path(__file__).parent.parent.parent
 
 RULE_FILES = [
-    REPO_ROOT / "monitoring/prometheus/alerts.yml",
-    REPO_ROOT / "monitoring/alertmanager/rules/proxy.rules.yml",
-    REPO_ROOT / "monitoring/alertmanager/rules/redis.rules.yml",
-    REPO_ROOT / "monitoring/alertmanager/rules/security.rules.yml",
-    REPO_ROOT / "monitoring/alertmanager/rules/backup.rules.yml",
+    REPO_ROOT / "deploy/monitoring/prometheus/alerts.yml",
+    REPO_ROOT / "deploy/monitoring/alertmanager/rules/proxy.rules.yml",
+    REPO_ROOT / "deploy/monitoring/alertmanager/rules/redis.rules.yml",
+    REPO_ROOT / "deploy/monitoring/alertmanager/rules/security.rules.yml",
+    REPO_ROOT / "deploy/monitoring/alertmanager/rules/backup.rules.yml",
 ]
 
 # Regex: a bare ja4_ metric (old prefix) — must not appear in any expr field.
@@ -122,10 +122,10 @@ class TestRuleFileStructure:
 
 
 class TestPrometheusAlertsContent:
-    """Key alerts that must be present in monitoring/prometheus/alerts.yml."""
+    """Key alerts that must be present in deploy/monitoring/prometheus/alerts.yml."""
 
     def _alerts(self):
-        path = REPO_ROOT / "monitoring/prometheus/alerts.yml"
+        path = REPO_ROOT / "deploy/monitoring/prometheus/alerts.yml"
         data = _load_rules(path)
         return {r["alert"] for r in _all_rules(data)}
 
@@ -155,7 +155,7 @@ class TestAlertmanagerRuleFiles:
     """Each alertmanager rule file must contain at least its key alerts."""
 
     def _alerts_in(self, filename: str) -> set:
-        path = REPO_ROOT / "monitoring/alertmanager/rules" / filename
+        path = REPO_ROOT / "deploy/monitoring/alertmanager/rules" / filename
         data = _load_rules(path)
         return {r["alert"] for r in _all_rules(data)}
 

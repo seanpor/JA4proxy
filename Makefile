@@ -71,7 +71,7 @@ help:
 	@echo "  lint-static       - Python: mypy + bandit + ruff + pip-audit"
 	@echo "  lint-go           - Go: go vet + go mod verify"
 	@echo "  lint-shell        - shellcheck all .sh scripts"
-	@echo "  lint-yaml         - yamllint config/ and monitoring/ YAML"
+	@echo "  lint-yaml         - yamllint config/ and deploy/monitoring/ YAML"
 	@echo "  lint-docker       - hadolint + docker compose config check"
 	@echo "  lint-prom         - promtool alert + recording rule validation"
 	@echo "  lint-alertmanager - amtool Alertmanager config validation"
@@ -450,11 +450,11 @@ lint-yaml:
 
 # Validate Prometheus alert and recording rule files with promtool.
 # Uses the prometheus container so promtool version matches the deployed version.
-PROM_RULES := /monitoring/prometheus/alerts.yml \
-	/monitoring/prometheus/recording_rules.yml \
-	/monitoring/alertmanager/rules/proxy.rules.yml \
-	/monitoring/alertmanager/rules/redis.rules.yml \
-	/monitoring/alertmanager/rules/security.rules.yml
+PROM_RULES := /deploy/monitoring/prometheus/alerts.yml \
+	/deploy/monitoring/prometheus/recording_rules.yml \
+	/deploy/monitoring/alertmanager/rules/proxy.rules.yml \
+	/deploy/monitoring/alertmanager/rules/redis.rules.yml \
+	/deploy/monitoring/alertmanager/rules/security.rules.yml
 lint-prom:
 	@echo "=== promtool check rules: Prometheus alert + recording rules ==="
 	@docker run --rm --entrypoint promtool \
@@ -510,8 +510,8 @@ lint-lua:
 		&& echo "✓ Lua lint passed"
 
 # Validate JSON files: Grafana dashboards and API spec.
-JSON_FILES := monitoring/grafana/dashboards/ja4proxy-overview.json \
-	monitoring/grafana/dashboards/analytics.json \
+JSON_FILES := deploy/monitoring/grafana/dashboards/ja4proxy-overview.json \
+	deploy/monitoring/grafana/dashboards/analytics.json \
 	docs/api/openapi.json
 lint-json:
 	@echo "=== JSON syntax validation ==="
@@ -527,14 +527,14 @@ lint-json:
 
 # Validate Alertmanager configuration with amtool.
 # Uses the alertmanager container to match the deployed version.
-# Note: docker/monitoring/alertmanager/ is a Docker volume artefact — remove with: sudo rm -rf docker/monitoring
+# Note: docker/deploy/monitoring/alertmanager/ is a Docker volume artefact — remove with: sudo rm -rf docker/monitoring
 lint-alertmanager:
 	@echo "=== amtool check-config: Alertmanager ==="
 	@docker run --rm \
 		--entrypoint amtool \
 		-v "$(PWD)/monitoring:/monitoring" \
 		prom/alertmanager:v0.26.0 \
-		check-config /monitoring/alertmanager/alertmanager.yml \
+		check-config /deploy/monitoring/alertmanager/alertmanager.yml \
 		&& echo "✓ Alertmanager config valid"
 
 # Clean up (agent-aware: uses .current-agent if set)
@@ -887,7 +887,7 @@ link-check:
 # Excludes historical phase docs and CHANGELOG (they record what was true at the time).
 # phase-205
 MOVED_PATHS := \
-  docker/ ha-config/ monitoring/ ssl/ secrets/ integrations/ \
+  docker/ ha-config/ deploy/monitoring/ ssl/ secrets/ integrations/ \
   performance/ test-content/ geoip/ tarpit/ ebpf/ memory/ \
   Dockerfile-cli Jenkinsfile.ja4proxy-policy \
   requirements-test.txt requirements-analytics.txt
@@ -1317,11 +1317,11 @@ validation-report:
 ## Phase 63 targets — SLO validation and reporting
 validate-slo-rules:
 	@command -v promtool >/dev/null 2>&1 && { \
-		promtool check rules monitoring/prometheus/slo_recording_rules.yml; \
-		promtool check rules monitoring/alertmanager/rules/slo_alerts.yml; \
+		promtool check rules deploy/monitoring/prometheus/slo_recording_rules.yml; \
+		promtool check rules deploy/monitoring/alertmanager/rules/slo_alerts.yml; \
 		echo "SLO recording rules and alert rules are syntactically valid."; \
 	} || { \
-		python3 -c "import yaml; yaml.safe_load(open('monitoring/prometheus/slo_recording_rules.yml')); yaml.safe_load(open('monitoring/alertmanager/rules/slo_alerts.yml')); print('YAML structurally valid (promtool not installed)')"; \
+		python3 -c "import yaml; yaml.safe_load(open('deploy/monitoring/prometheus/slo_recording_rules.yml')); yaml.safe_load(open('deploy/monitoring/alertmanager/rules/slo_alerts.yml')); print('YAML structurally valid (promtool not installed)')"; \
 	}
 
 slo-report:
@@ -1335,7 +1335,7 @@ slo-report:
 
 test-phase-63:
 	GOROOT=/snap/go/current go test ./internal/metrics/... ./internal/redis/... -count=1
-	python3 -c "import yaml; yaml.safe_load(open('monitoring/prometheus/slo_recording_rules.yml')); yaml.safe_load(open('monitoring/alertmanager/rules/slo_alerts.yml')); print('YAML OK')"
+	python3 -c "import yaml; yaml.safe_load(open('deploy/monitoring/prometheus/slo_recording_rules.yml')); yaml.safe_load(open('deploy/monitoring/alertmanager/rules/slo_alerts.yml')); print('YAML OK')"
 
 .PHONY: validate-slo-rules slo-report test-phase-63
 
@@ -1389,7 +1389,7 @@ load-test-report: ## Show latest load test reports
 lint-alert-urls: ## Verify Alertmanager runbook_url values are up to date
 	@echo "Checking alertmanager runbook URLs..."
 	@python3 scripts/fix_runbook_urls.py \
-		--rules-dir monitoring/alertmanager/rules/ \
+		--rules-dir deploy/monitoring/alertmanager/rules/ \
 		--mapping docs/phases/PHASE_86h_runbook_mapping.yml \
 		--check
 

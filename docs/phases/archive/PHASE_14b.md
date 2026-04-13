@@ -165,7 +165,7 @@ Description: "Log lines that failed JSON parsing. Must be zero."
 
 ### AlertManager Rule Additions
 
-Add to `monitoring/alertmanager/rules/security.rules.yml`:
+Add to `deploy/monitoring/alertmanager/rules/security.rules.yml`:
 
 ```yaml
 - alert: TarpitCapacityHigh

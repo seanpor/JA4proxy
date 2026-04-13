@@ -15,7 +15,7 @@ phase: 86
 > **Last updated:** 2026-04-10 (Phase 64f)
 >
 > **Monitoring:** The proxy exposes `ja4proxy_tls_cert_expiry_timestamp_seconds`
-> (Phase 63 gauge). Alert rules in `monitoring/alertmanager/rules/tls_alerts.yml`
+> (Phase 63 gauge). Alert rules in `deploy/monitoring/alertmanager/rules/tls_alerts.yml`
 > fire at < 30 days (warning) and < 7 days (critical).
 
 ---

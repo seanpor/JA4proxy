@@ -1074,7 +1074,7 @@ See: `docs/enterprise/deployment.md`
 See: `config/` directory
 
 ### E. Monitoring Setup
-See: `monitoring/` directory
+See: `deploy/monitoring/` directory
 
 ---
 

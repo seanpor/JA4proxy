@@ -162,7 +162,7 @@ redis_memory_mb = (
 
 **Alert Thresholds:**
 ```yaml
-# monitoring/alertmanager/rules/redis.rules.yml
+# deploy/monitoring/alertmanager/rules/redis.rules.yml
 - alert: RedisMemoryHigh
   expr: (redis_memory_used_bytes / redis_memory_max_bytes) > 0.8
   for: 15m

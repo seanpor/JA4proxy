@@ -56,7 +56,7 @@
 
 ### Finding 5a — HIGH: Alert References Undefined Metric
 
-`PipelineInternalError` alert (`monitoring/alertmanager/rules/security.rules.yml:20`) references `ja4proxy_pipeline_unexpected_errors_total`, but this metric is not defined in Go (`internal/metrics/metrics.go`) or any Python file found via grep.
+`PipelineInternalError` alert (`deploy/monitoring/alertmanager/rules/security.rules.yml:20`) references `ja4proxy_pipeline_unexpected_errors_total`, but this metric is not defined in Go (`internal/metrics/metrics.go`) or any Python file found via grep.
 
 ### Finding 6b — HIGH: Shadow Scoring Uses ALPN-Only for "Known-Good"
 
@@ -86,7 +86,7 @@ Any container on the Docker network can read all metrics (information disclosure
 
 ### Finding 9a — HIGH: Hardcoded Placeholder Secrets in Alertmanager
 
-**File:** `monitoring/alertmanager/alertmanager.yml`
+**File:** `deploy/monitoring/alertmanager/alertmanager.yml`
 
 - `smtp_auth_password: 'your-password-here'`
 - Slack webhook URL is a placeholder
@@ -153,7 +153,7 @@ Python serves `/health`, `/ready`, and `/metrics`. Go only serves `/health` and 
 
 ### Finding 4a — Duplicate Alert Rules
 
-Same alert definitions exist in both `monitoring/prometheus/alerts.yml` and `monitoring/alertmanager/rules/`. The latter set is not referenced by `prometheus.yml`.
+Same alert definitions exist in both `deploy/monitoring/prometheus/alerts.yml` and `deploy/monitoring/alertmanager/rules/`. The latter set is not referenced by `prometheus.yml`.
 
 ### Finding 5c — No Alert for Country Blacklist Bypass
 

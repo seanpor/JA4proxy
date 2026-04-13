@@ -278,7 +278,7 @@ After approving, persist to `config/proxy.yml` so they survive restarts.
 
 ### Alertmanager — configure notification targets
 
-By default, Alertmanager is running but all external notification channels (email, Slack, PagerDuty) are placeholders. Edit `monitoring/alertmanager/alertmanager.yml` to configure real targets:
+By default, Alertmanager is running but all external notification channels (email, Slack, PagerDuty) are placeholders. Edit `deploy/monitoring/alertmanager/alertmanager.yml` to configure real targets:
 
 ```yaml
 global:

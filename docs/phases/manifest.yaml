@@ -1209,7 +1209,7 @@ phases:
     dependencies: [86]
     size: SMALL
     success_criteria:
-    - No occurrences of docs.ja4proxy.example.com in monitoring/alertmanager/rules/
+    - No occurrences of docs.ja4proxy.example.com in deploy/monitoring/alertmanager/rules/
     - No occurrences of seanoriordain or seanpor/ja4proxy (wrong case) in rules
     - Every runbook_url uses https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/<file>.md
     - Every runbook_url resolves to an existing file in docs/runbooks/
@@ -1234,7 +1234,7 @@ phases:
     - Capacity calculator uses BenchmarkConstants wired to measured benchmarks.md values
     - Load test accepts bypass-only / full-signal / attack-wave / mixed scenarios
     - Load test --push-gateway flag emits all 5 ja4proxy_loadtest_* metrics
-    - monitoring/grafana/dashboards/04_capacity.json present and provisioned
+    - deploy/monitoring/grafana/dashboards/04_capacity.json present and provisioned
     - docs/OBSERVABILITY_STANDARDS.md registers the 5 loadtest metrics
   87:
     name: Container & Host Infrastructure Observability

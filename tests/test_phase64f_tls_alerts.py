@@ -1,7 +1,7 @@
 """Phase 64f — TDD tests for TLS certificate expiry alert rules and runbook.
 
 Validates:
-- monitoring/alertmanager/rules/tls_alerts.yml exists and is valid YAML
+- deploy/monitoring/alertmanager/rules/tls_alerts.yml exists and is valid YAML
 - Alert group and rule structure
 - Gauge reference, severity labels, annotations
 - Runbook file existence

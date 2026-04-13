@@ -235,9 +235,9 @@ services:
     ports:
       - "9091:9090"   # Prometheus UI (internal only)
     volumes:
-      - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ../monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
-      - ../monitoring/prometheus/recording_rules.yml:/etc/prometheus/recording_rules.yml:ro
+      - ../deploy/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../deploy/monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ../deploy/monitoring/prometheus/recording_rules.yml:/etc/prometheus/recording_rules.yml:ro
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -267,8 +267,8 @@ services:
       - "3001:3000"   # Grafana UI (internal only)
     volumes:
       - grafana-data:/var/lib/grafana
-      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ../monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+      - ../deploy/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../deploy/monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/grafana_password
@@ -297,7 +297,7 @@ services:
     ports:
       - "3100:3100"   # Loki API (internal only)
     volumes:
-      - ../monitoring/loki/loki-config.yml:/etc/loki/config.yml:ro
+      - ../deploy/monitoring/loki/loki-config.yml:/etc/loki/config.yml:ro
       - loki-data:/loki
     command: -config.file=/etc/loki/config.yml
     networks:
@@ -319,7 +319,7 @@ services:
   promtail:
     image: grafana/promtail:3.3.2
     volumes:
-      - ../monitoring/loki/promtail-config.yml:/etc/promtail/config.yml:ro
+      - ../deploy/monitoring/loki/promtail-config.yml:/etc/promtail/config.yml:ro
       - ../logs:/var/log/ja4proxy:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
     command: -config.file=/etc/promtail/config.yml
