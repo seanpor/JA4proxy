@@ -474,6 +474,47 @@ To prevent technical myopia and ensure enterprise-readiness, the project maintai
 
 ---
 
+## Repo Architecture (AST-derived call graph, 2026-04-13)
+
+Verified by graphify AST extraction (4,936 nodes, 1,709 EXTRACTED call edges):
+
+### Top-connected source files (by inter-module edge count)
+| File | Edges | Role |
+|------|-------|------|
+| `proxy.py` | 2,511 | Main entry point, connection handler, TLS parsing |
+| `src/security/pipeline.py` | 875 | Security signal orchestration (Layer 1-12) |
+| `src/security/models.py` | 374 | `RiskSignal`, `ConnectionContext` data types |
+| `src/security/rdap_enrichment.py` | 330 | RDAP ownership/registry lookups |
+| `management/api/models.py` | 327 | Management UI RBAC data model |
+| `src/cache/local_cache.py` | 262 | Three-tier cache (memory -> Redis -> upstream) |
+
+### Module community clusters (Leiden, 245 communities -> 20 major)
+| Community | Core files | What it is |
+|-----------|-----------|------------|
+| 1 | `src/security/{abuseipdb,virustotal,greynoise,misp,alienvault,threatfox}.py` | TI provider integrations |
+| 2 | `proxy.py`, `src/security/pipeline.py`, `src/config/loader.py`, `src/pubsub.py` | Core proxy runtime |
+| 3 | `src/analytics/{detection,drift_detector,ml_detector,baseline_monitor}.py` | Analytics + ML detection |
+| 4 | `src/analytics/ti_feeds/` | Threat-intel feed runner (circuit breaker, metrics) |
+| 6 | `src/tap/export/{edl_server,kafka,syslog,taxii,f5,misp}.py` | Export pipeline (EDL, syslog, etc.) |
+| 7 | `src/tap/fingerprints/{ja4,h2_fingerprint,os_fingerprint,tls_ext_values}.py` | Fingerprint collection |
+| 9 | `src/backup/{worker,encryption,policy,cloud/*}.py` | Backup + restore system |
+| 10 | `cmd/proxy/main.go`, `cmd/syncagent/main.go`, `src/analytics/main.py` | Go entry points + analytics node (cross-language) |
+
+### Critical bridge nodes (span most communities)
+- `Exception` - 12 communities (shared error taxonomy)
+- `LocalCache` - 5 communities (caching touches every security module)
+- `ConfigLoader` - 4 communities (config is ubiquitous)
+- `RiskSignal` - 5 communities (canonical risk-signal output type)
+- `Pipeline` - 5 communities (orchestrates all security layers)
+
+### Python/Go parity: zero cross-language edges
+The graph confirms that `src/` and `internal/` are **completely disconnected** at the AST level - as expected for two independent implementations of the same spec. Any cross-language edge found by a tool is a false positive. Parity must be verified via `make check-scores` and `make parity-check`, not structural analysis.
+
+### Test coverage graph: absent
+Graphify failed to map test files -> source files (0 edges). This is a tool limitation, not a code problem. Use `make test` and `pytest --cov` for coverage metrics.
+
+---
+
 ## Project Context Hierarchy
 
 
