@@ -16,10 +16,10 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DASHBOARD_PATH = (
-    REPO_ROOT / "monitoring" / "grafana" / "dashboards" / "04_capacity.json"
+    REPO_ROOT / "deploy" / "monitoring" / "grafana" / "dashboards" / "04_capacity.json"
 )
 PROVISION_PATH = (
-    REPO_ROOT / "monitoring" / "grafana" / "provisioning" / "dashboards" / "default.yml"
+    REPO_ROOT / "deploy" / "monitoring" / "grafana" / "provisioning" / "dashboards" / "default.yml"
 )
 
 

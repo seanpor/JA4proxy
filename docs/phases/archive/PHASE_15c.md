@@ -78,7 +78,7 @@ short evidence line after each ticked item in parentheses. Use this mapping:
 
 | Criterion | Evidence to add |
 |-----------|----------------|
-| `Dockerfile.go` multi-stage build | `(docker/Dockerfile.go-proxy exists; alpine runtime image)` |
+| `Dockerfile.go` multi-stage build | `(deploy/docker/Dockerfile.go-proxy exists; alpine runtime image)` |
 | Go proxy reads same `config/proxy.yml` | `(internal/config/loader.go; 11 passing tests)` |
 | JA4 fingerprint identical to Python | `(tests/fixtures/clienthello/known_ja4.json; verified Go==Python for all 4 fixtures)` |
 | TLS ClientHello parser handles adversarial | `(internal/tls/parser.go never panics; fuzz-tested via go test -fuzz)` — leave unchecked until A-4 is done |
@@ -445,11 +445,11 @@ make go-build-ja4check
 make capture-fixtures
 
 # Start the full test stack
-docker compose -f docker/docker-compose.test.yml up --build \
+docker compose -f deploy/docker/docker-compose.test.yml up --build \
   --abort-on-container-exit --exit-code-from test-runner
 
 # If you want to see which tests pass/fail:
-docker compose -f docker/docker-compose.test.yml logs test-runner
+docker compose -f deploy/docker/docker-compose.test.yml logs test-runner
 ```
 
 For each passing test, tick the corresponding box in `docs/phases/PHASE_15.md`
@@ -461,7 +461,7 @@ and add an evidence note matching the test name. For example:
 
 Also check the Docker image size:
 ```bash
-docker build -f docker/Dockerfile.go-proxy -t ja4proxy-go:check .
+docker build -f deploy/docker/Dockerfile.go-proxy -t ja4proxy-go:check .
 docker image inspect ja4proxy-go:check --format '{{.Size}}' | numfmt --to=iec
 ```
 If ≤ 10MB, tick that box too.
@@ -472,9 +472,9 @@ If ≤ 10MB, tick that box too.
 
 ---
 
-### C-1 · Add `GOMEMLIMIT` to `docker/Dockerfile.go-proxy`
+### C-1 · Add `GOMEMLIMIT` to `deploy/docker/Dockerfile.go-proxy`
 
-**File:** `docker/Dockerfile.go-proxy`
+**File:** `deploy/docker/Dockerfile.go-proxy`
 **Effort:** ~10 minutes
 **Why:** By default the Go runtime grows heap until the OS OOM-kills the process.
 `GOMEMLIMIT` gives the GC a soft ceiling and triggers earlier, more frequent GC
@@ -483,7 +483,7 @@ OOM-kill pattern under sustained load.
 
 **What to do:**
 
-1. Open `docker/Dockerfile.go-proxy`.
+1. Open `deploy/docker/Dockerfile.go-proxy`.
 
 2. Find the `CMD` or `ENTRYPOINT` line in the final stage (the runtime stage, not
    the build stage).
@@ -504,7 +504,7 @@ OOM-kill pattern under sustained load.
 
 5. Rebuild:
    ```bash
-   docker build -f docker/Dockerfile.go-proxy -t ja4proxy-go:test .
+   docker build -f deploy/docker/Dockerfile.go-proxy -t ja4proxy-go:test .
    ```
 
 **How to verify it worked:**
@@ -778,17 +778,17 @@ fixtures for the JA4 parity test.
 
 ```bash
 # Start the recorder service
-docker compose -f docker/docker-compose.test.yml up -d recorder
+docker compose -f deploy/docker/docker-compose.test.yml up -d recorder
 
 # Wait a few seconds for it to start
 sleep 3
 
 # Run the browser fixture generator
-docker compose -f docker/docker-compose.test.yml run --rm browser \
+docker compose -f deploy/docker/docker-compose.test.yml run --rm browser \
   python3 scripts/generate_fixtures_browser.py --recorder-host recorder
 
 # Stop the recorder
-docker compose -f docker/docker-compose.test.yml stop recorder
+docker compose -f deploy/docker/docker-compose.test.yml stop recorder
 ```
 
 Or use the Makefile target:

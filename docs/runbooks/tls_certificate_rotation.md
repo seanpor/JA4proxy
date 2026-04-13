@@ -187,7 +187,7 @@ migrate gradually.
 6. Monitor the ratio of old vs. new client connections:
    ```bash
    # Check proxy logs for client cert issuer
-   docker compose -f docker/docker-compose.poc.yml logs ja4proxy \
+   docker compose -f deploy/docker/docker-compose.poc.yml logs ja4proxy \
      | grep -i "client.*issuer" | sort | uniq -c
    ```
 

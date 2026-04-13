@@ -780,7 +780,7 @@ phases:
     size: SMALL
     success_criteria:
     - docs/security/THREAD_SAFETY_AUDIT.md committed
-    - docker/Dockerfile uses python:3.14t-slim
+    - deploy/docker/Dockerfile uses python:3.14t-slim
     - make test passes deterministically across 5 runs
     - Throughput ceiling >= 600 conn/s
     - reports/benchmark/python314-stage3-freethreaded.md committed
@@ -802,7 +802,7 @@ phases:
     name: Docker Isolation - Foundations & Registry
     status: COMPLETE
     summary: scripts/agent-env.sh generates isolated .env.<agent> files; Makefile agent-up/down/status targets; .current-agent
-      persistence; docker/docker-compose.poc.yml refactored with 4 network zones, per-agent loopback IP binding, cpuset, non-root
+      persistence; deploy/docker/docker-compose.poc.yml refactored with 4 network zones, per-agent loopback IP binding, cpuset, non-root
       users, log rotation, geoip RO volume; ja4-admin.sh --agent flag.
     action_plan: docs/phases/PHASE_71.md
     dependencies:
@@ -815,14 +815,14 @@ phases:
   72:
     name: Docker Isolation - Logical Network Zones
     status: COMPLETE
-    summary: Four-zone network model (dmz_net, data_net/internal, origin_net/internal, mgmt_net) implemented in docker/docker-compose.poc.yml.
+    summary: Four-zone network model (dmz_net, data_net/internal, origin_net/internal, mgmt_net) implemented in deploy/docker/docker-compose.poc.yml.
       All eight services assigned to correct zones.
     action_plan: docs/phases/PHASE_72.md
     dependencies:
     - 71
     size: SMALL
     success_criteria:
-    - Four-zone network model implemented in docker/docker-compose.poc.yml
+    - Four-zone network model implemented in deploy/docker/docker-compose.poc.yml
     - 'internal: true enforced on data_net and origin_net'
     - All services assigned to correct zones per the zone assignment table
   73:
@@ -1248,7 +1248,7 @@ phases:
     - 14
     size: MEDIUM
     success_criteria:
-    - cAdvisor service added to docker/docker-compose.monitoring.yml and scraped by Prometheus
+    - cAdvisor service added to deploy/docker/docker-compose.monitoring.yml and scraped by Prometheus
     - 'ja4proxy-infrastructure.json dashboard: fleet status strip visible without scrolling, container variable drill-down'
     - Alert groups ja4proxy_infrastructure and ja4proxy_attack_detection present in alerts.yml
     - ContainerOOMKilled and ContainerRestartLoop alerts fire for all ja4proxy-owned containers
@@ -1321,13 +1321,13 @@ phases:
     size: SMALL
     summary: "Standardise Python base images (3.11-slim/3.14-slim \u2192 3.14.0-slim), Go toolchain (1.23 \u2192 1.25), network/volume\
       \ naming (underscores \u2192 hyphens with explicit name: fields), remove network:host from all build blocks, add restart:unless-stopped\
-      \ to all permanent POC services, fix REDIS_PASSWORD to :? form, create docker/README.md, add Dockerfile location labels."
+      \ to all permanent POC services, fix REDIS_PASSWORD to :? form, create deploy/docker/README.md, add Dockerfile location labels."
     success_criteria:
     - No Dockerfile uses python:3.11-slim or python:3.14-slim
     - All test infrastructure Dockerfiles pin to python:3.14.0-slim
     - No network:host in any build block
     - All non-external volumes and networks use hyphen naming
-    - docker/README.md exists
+    - deploy/docker/README.md exists
     - 57 unit tests + 6 integration tests pass
   90:
     name: Root Directory Cleanup & Docker Compose Consolidation
@@ -1336,12 +1336,12 @@ phases:
     action_plan: docs/phases/PHASE_90.md
     dependencies: []
     size: SMALL
-    summary: Moved all root docker-compose files (poc, python-legacy, scale, test) into docker/. Updated build contexts from
+    summary: Moved all root docker-compose files (poc, python-legacy, scale, test) into deploy/docker/. Updated build contexts from
       context:. to context:.. Updated all references in Makefile, scripts, and docs. Moved benchmark scripts to performance/.
       Removed untracked artefact files and unused sql.js package.
     success_criteria:
     - git ls-files | grep '^docker-compose' returns empty
-    - All compose files in docker/ validate via docker compose config
+    - All compose files in deploy/docker/ validate via docker compose config
     - benchmark scripts at performance/, not root
     - No untracked artefact files in root
   91:
@@ -1523,8 +1523,8 @@ phases:
     summary: 'Eliminates 6 infrastructure-level critical findings: SHA-pin all GitHub Actions (supply chain), remove default credential fallbacks from all compose files (Grafana admin, Management admin/admin, HAProxy admin/admin123), create Go proxy image CI workflow with SBOM+cosign signing, harden Dockerfile.go-proxy with non-root USER.'
     success_criteria:
     - All GitHub Actions are SHA-pinned (no @v4, @v5, etc. remain)
-    - grep -r ':-admin' docker/ returns no matches
-    - grep -r ':-change-me' docker/ returns no matches
+    - grep -r ':-admin' deploy/docker/ returns no matches
+    - grep -r ':-change-me' deploy/docker/ returns no matches
     - Grafana refuses to start without GRAFANA_PASSWORD env var
     - Management API refuses to start without MANAGEMENT_JWT_SECRET
     - Test Redis port bound to 127.0.0.1:6380:6379

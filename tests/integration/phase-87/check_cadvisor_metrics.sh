@@ -2,7 +2,7 @@
 # Phase 87 integration check — cAdvisor metrics reachable via Prometheus
 #
 # Requires: monitoring stack running
-#   docker compose -f docker/docker-compose.monitoring.yml up -d
+#   docker compose -f deploy/docker/docker-compose.monitoring.yml up -d
 #
 # Checks that Prometheus has scraped at least one cAdvisor metric
 # (container_cpu_usage_seconds_total) for a ja4proxy container.
@@ -20,7 +20,7 @@ echo "Prometheus: ${PROM_URL}"
 if ! curl -sf "${PROM_URL}/-/healthy" > /dev/null 2>&1; then
     echo "FAIL: Prometheus is not reachable at ${PROM_URL}"
     echo "      Start the monitoring stack first:"
-    echo "      docker compose -f docker/docker-compose.monitoring.yml up -d"
+    echo "      docker compose -f deploy/docker/docker-compose.monitoring.yml up -d"
     exit 1
 fi
 echo "OK  Prometheus reachable"
@@ -54,7 +54,7 @@ print(len(data.get('data', {}).get('result', [])))
 
 if [[ "$METRIC_COUNT" -eq 0 ]]; then
     echo "WARN: No ja4proxy container CPU metrics found. Stack may not be running."
-    echo "      Start the POC stack: docker compose -f docker/docker-compose.poc.yml up -d"
+    echo "      Start the POC stack: docker compose -f deploy/docker/docker-compose.poc.yml up -d"
     # Warn but don't fail — monitoring can exist independently of the proxy stack
 else
     echo "OK  ja4proxy container metrics present (${METRIC_COUNT} series)"

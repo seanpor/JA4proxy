@@ -17,7 +17,7 @@ echo
 
 # Check if POC services are already running
 POC_RUNNING=false
-if docker compose -f docker/docker-compose.poc.yml ps --format '{{.Status}}' | grep -q "Up"; then
+if docker compose -f deploy/docker/docker-compose.poc.yml ps --format '{{.Status}}' | grep -q "Up"; then
     echo -e "${YELLOW}▶ POC services already running, skipping...${NC}"
     POC_RUNNING=true
 else
@@ -32,7 +32,7 @@ fi
 
 # Check if monitoring services are already running
 MONITORING_RUNNING=false
-if docker compose -f docker/docker-compose.monitoring.yml ps --format '{{.Status}}' | grep -q "Up"; then
+if docker compose -f deploy/docker/docker-compose.monitoring.yml ps --format '{{.Status}}' | grep -q "Up"; then
     echo -e "${YELLOW}▶ Monitoring services already running, skipping...${NC}"
     MONITORING_RUNNING=true
 else
@@ -68,8 +68,8 @@ echo "  2. Generate traffic: ./scripts/generate-tls-traffic.sh 60 15 20"
 echo "  3. Watch the dashboard show blocked vs allowed traffic"
 echo
 echo "View logs:"
-echo "  docker compose -f docker/docker-compose.poc.yml logs -f proxy"
-echo "  docker compose -f docker/docker-compose.monitoring.yml logs -f"
+echo "  docker compose -f deploy/docker/docker-compose.poc.yml logs -f proxy"
+echo "  docker compose -f deploy/docker/docker-compose.monitoring.yml logs -f"
 echo
 echo "Stop all services:"
 echo "  ./scripts/stop-all.sh          # graceful stop (keep Redis data)"

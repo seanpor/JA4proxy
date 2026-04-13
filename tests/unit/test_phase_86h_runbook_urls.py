@@ -22,7 +22,7 @@ import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).parent.parent.parent
-RULES_DIR = REPO_ROOT / "monitoring" / "alertmanager" / "rules"
+RULES_DIR = REPO_ROOT / "deploy" / "monitoring" / "alertmanager" / "rules"
 RUNBOOKS_DIR = REPO_ROOT / "docs" / "runbooks"
 MAPPING_PATH = REPO_ROOT / "docs" / "phases" / "PHASE_86h_runbook_mapping.yml"
 FIXER_SCRIPT = REPO_ROOT / "scripts" / "fix_runbook_urls.py"

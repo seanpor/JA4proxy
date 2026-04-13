@@ -209,10 +209,10 @@ deploy_application() {
     export GRAFANA_SECRET_KEY=$(openssl rand -base64 32)
     
     # Pull latest images
-    docker-compose -f "docker/docker-compose.${ENVIRONMENT}.yml" pull
+    docker-compose -f "deploy/docker/docker-compose.${ENVIRONMENT}.yml" pull
     
     # Start services
-    docker-compose -f "docker/docker-compose.${ENVIRONMENT}.yml" up -d
+    docker-compose -f "deploy/docker/docker-compose.${ENVIRONMENT}.yml" up -d
     
     log_info "Application deployment initiated"
 }
@@ -295,8 +295,8 @@ After=docker.service
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=$(pwd)
-ExecStart=/usr/bin/docker-compose -f docker/docker-compose.${ENVIRONMENT}.yml up -d
-ExecStop=/usr/bin/docker-compose -f docker/docker-compose.${ENVIRONMENT}.yml down
+ExecStart=/usr/bin/docker-compose -f deploy/docker/docker-compose.${ENVIRONMENT}.yml up -d
+ExecStop=/usr/bin/docker-compose -f deploy/docker/docker-compose.${ENVIRONMENT}.yml down
 TimeoutStartSec=0
 
 [Install]
@@ -387,7 +387,7 @@ print_summary() {
     echo "- HAProxy Stats: http://localhost:8404/stats"
     echo ""
     echo "Management Commands:"
-    echo "- View logs: docker-compose -f docker/docker-compose.${ENVIRONMENT}.yml logs -f"
+    echo "- View logs: docker-compose -f deploy/docker/docker-compose.${ENVIRONMENT}.yml logs -f"
     echo "- Restart: systemctl restart ja4proxy"
     echo "- Status: systemctl status ja4proxy"
     echo ""

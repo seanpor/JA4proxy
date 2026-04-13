@@ -23,7 +23,7 @@ CACHE_DIR="${CACHE_DIR:-/tmp/ja4db_cache}"
 
 # Resolve agent/project for Redis communication
 COMPOSE_PROJECT_NAME=""
-COMPOSE_FILE="docker/docker-compose.poc.yml"
+COMPOSE_FILE="deploy/docker/docker-compose.poc.yml"
 if [[ -f ".current-agent" ]]; then
     AGENT_NAME="$(cat .current-agent)"
     ENV_FILE=".env.${AGENT_NAME}"

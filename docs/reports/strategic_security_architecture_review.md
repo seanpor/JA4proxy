@@ -277,7 +277,7 @@ Grafana dashboards exist in `deploy/monitoring/grafana/` showing allowed vs bloc
 
 ### 7.1 CRITICAL: Production Compose Deploys Wrong Proxy
 
-**Finding D-1 (CRITICAL — Go-PROD + Infra):** `docker-compose.prod.yml` line 53 points to `docker/Dockerfile` (the legacy Python proxy) instead of `docker/Dockerfile-go-proxy`. The POC compose correctly uses the Go Dockerfile. This means a production deployment runs the deprecated Python proxy.
+**Finding D-1 (CRITICAL — Go-PROD + Infra):** `docker-compose.prod.yml` line 53 points to `deploy/docker/Dockerfile` (the legacy Python proxy) instead of `deploy/docker/Dockerfile-go-proxy`. The POC compose correctly uses the Go Dockerfile. This means a production deployment runs the deprecated Python proxy.
 
 ### 7.2 CI/CD Pipeline
 
@@ -477,7 +477,7 @@ This strategic review is supported by 5 detailed deep-dive reports:
 | Backup | `src/backup/worker.py`, `src/backup/encryption.py`, `src/backup/format.py` |
 | Network | `proxy.py` (handle_connection, _parse_proxy_protocol, _forward_to_backend) |
 | Observability | `deploy/monitoring/`, Prometheus metrics across codebase |
-| Deployment | `.github/workflows/`, `deploy/helm/`, `Dockerfile*`, `docker/` |
+| Deployment | `.github/workflows/`, `deploy/helm/`, `Dockerfile*`, `deploy/docker/` |
 | Schema | `docs/REDIS_SCHEMA.md`, `config/proxy.yml` |
 
 ## Appendix D: Comparison with Existing Reports

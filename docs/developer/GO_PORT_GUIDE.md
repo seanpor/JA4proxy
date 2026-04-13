@@ -53,10 +53,10 @@ GOROOT=/snap/go/current go build -o ja4proxy ./cmd/proxy/
 ./ja4proxy --config config/proxy.yml
 
 # Docker build (Go proxy is the default in poc.yml)
-docker compose -f docker/docker-compose.poc.yml build proxy
+docker compose -f deploy/docker/docker-compose.poc.yml build proxy
 
 # Run Go proxy
-docker compose -f docker/docker-compose.poc.yml up -d proxy
+docker compose -f deploy/docker/docker-compose.poc.yml up -d proxy
 ```
 
 ### Development Workflow

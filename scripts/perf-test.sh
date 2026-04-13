@@ -15,7 +15,7 @@ echo "=========================================="
 echo ""
 
 # Check if services are running
-if ! docker compose -f docker/docker-compose.poc.yml ps | grep -q "Up"; then
+if ! docker compose -f deploy/docker/docker-compose.poc.yml ps | grep -q "Up"; then
     echo -e "${RED}Error: Services are not running${NC}"
     echo "Start services first with: ./scripts/start-poc.sh"
     exit 1
@@ -43,7 +43,7 @@ if [ "$MODE" = "web" ]; then
     echo "Press Ctrl+C to stop"
     echo ""
     
-    docker compose -f docker/docker-compose.poc.yml run --rm \
+    docker compose -f deploy/docker/docker-compose.poc.yml run --rm \
         -p 8089:8089 \
         test \
         locust \
@@ -58,7 +58,7 @@ else
     TIMESTAMP=$(date +%Y%m%d_%H%M%S)
     REPORT_FILE="reports/perf_${TIMESTAMP}.html"
     
-    docker compose -f docker/docker-compose.poc.yml run --rm \
+    docker compose -f deploy/docker/docker-compose.poc.yml run --rm \
         test \
         locust \
         -f /app/performance/locustfile.py \

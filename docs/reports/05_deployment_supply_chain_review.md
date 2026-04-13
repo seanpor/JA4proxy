@@ -47,22 +47,22 @@
 
 ### Finding 1 — CRITICAL: Prod Compose Uses Legacy Python Proxy
 
-**File:** `docker/docker-compose.prod.yml`, line 53
+**File:** `deploy/docker/docker-compose.prod.yml`, line 53
 
 ```yaml
   proxy:
     build:
       context: ..
-      dockerfile: docker/Dockerfile   # <-- LEGACY Python, NOT Go
+      dockerfile: deploy/docker/Dockerfile   # <-- LEGACY Python, NOT Go
 ```
 
 The POC compose correctly uses `Dockerfile.go-proxy`. The production compose deploys the slower, larger-attack-surface Python proxy instead of the hardened Go binary.
 
-**Remediation:** Change to `dockerfile: docker/Dockerfile.go-proxy`.
+**Remediation:** Change to `dockerfile: deploy/docker/Dockerfile.go-proxy`.
 
 ### Finding 2 — CRITICAL: Test Redis Has No Password, Port Exposed to Host
 
-**File:** `docker/docker-compose.test.yml`, lines 43, 66-67, 88-89
+**File:** `deploy/docker/docker-compose.test.yml`, lines 43, 66-67, 88-89
 
 ```yaml
 ports:
@@ -77,7 +77,7 @@ Unauthenticated Redis reachable on the host.
 
 ### Finding 3 — CRITICAL: Grafana Defaults to Password "admin"
 
-**File:** `docker/docker-compose.monitoring.yml`, line 61
+**File:** `deploy/docker/docker-compose.monitoring.yml`, line 61
 
 ```yaml
 - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
@@ -89,7 +89,7 @@ Exposed on port 3001.
 
 ### Finding 4 — CRITICAL: Management Service Defaults to admin/admin
 
-**File:** `docker/docker-compose.poc.yml`, lines 256-258
+**File:** `deploy/docker/docker-compose.poc.yml`, lines 256-258
 
 ```yaml
 - MANAGEMENT_JWT_SECRET=${MANAGEMENT_JWT_SECRET:-change-me-in-production}
@@ -103,7 +103,7 @@ Exposed on port 3001.
 
 ### Finding 5 — HAProxy Stats Defaults to admin/admin123
 
-**File:** `docker/docker-compose.monitoring.yml`, line 228
+**File:** `deploy/docker/docker-compose.monitoring.yml`, line 228
 
 ### Finding 6 — No SBOM Generation or Image Signing
 
@@ -162,11 +162,11 @@ Password visible in shell history, CI logs, `helm get values`.
 
 ### Finding 17 — Promtail Mounts Docker Socket
 
-**File:** `docker/docker-compose.monitoring.yml`, lines 153-154
+**File:** `deploy/docker/docker-compose.monitoring.yml`, lines 153-154
 
 ### Finding 18 — cAdvisor Runs with `privileged: true`
 
-**File:** `docker/docker-compose.monitoring.yml`, line 189
+**File:** `deploy/docker/docker-compose.monitoring.yml`, line 189
 
 ### Finding 19 — Bandit Skips 17 Security Checks
 
@@ -193,7 +193,7 @@ No workflow builds, signs, or pushes the Go proxy image.
 
 ### Finding 25 — Redis Unix Socket Permissions 777
 
-**File:** `docker/docker-compose.poc.yml`, line 104
+**File:** `deploy/docker/docker-compose.poc.yml`, line 104
 
 World-readable/writable socket.
 

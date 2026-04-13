@@ -47,7 +47,7 @@ Before running any GameDay:
 
 **Facilitator trigger:**
 ```bash
-docker compose -f docker/docker-compose.poc.yml stop redis
+docker compose -f deploy/docker/docker-compose.poc.yml stop redis
 ```
 
 **What the team does BEFORE opening the runbook:**
@@ -83,9 +83,9 @@ docker compose -f docker/docker-compose.poc.yml stop redis
 **Facilitator trigger:**
 ```bash
 # Stop the proxy container (name may vary — check `docker compose ps`)
-PROXY=$(docker compose -f docker/docker-compose.poc.yml ps --format json \
+PROXY=$(docker compose -f deploy/docker/docker-compose.poc.yml ps --format json \
   | python3 -c "import sys,json; [print(s['Service']) for s in json.load(sys.stdin) if 'proxy' in s.get('Service','').lower()]" | head -1)
-docker compose -f docker/docker-compose.poc.yml stop "$PROXY"
+docker compose -f deploy/docker/docker-compose.poc.yml stop "$PROXY"
 ```
 
 **What the team does BEFORE opening the runbook:**
@@ -124,7 +124,7 @@ docker compose -f docker/docker-compose.poc.yml stop "$PROXY"
 
 # Stop all proxy containers
 # N5 fix: Use a for-loop instead of pipe-to-while to avoid subshell env loss
-SERVICES=$(docker compose -f docker/docker-compose.poc.yml ps --format json \
+SERVICES=$(docker compose -f deploy/docker/docker-compose.poc.yml ps --format json \
   | python3 -c "
 import sys, json
 try:
@@ -138,7 +138,7 @@ except Exception:
 " 2>/dev/null || true)
 
 for svc in $SERVICES; do
-    docker compose -f docker/docker-compose.poc.yml stop "$svc"
+    docker compose -f deploy/docker/docker-compose.poc.yml stop "$svc"
 done
 ```
 

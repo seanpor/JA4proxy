@@ -31,23 +31,23 @@ Redis connectivity entirely.
    ```
 4. Check proxy logs for Redis connection errors:
    ```bash
-   docker compose -f docker/docker-compose.poc.yml logs proxy | grep -i redis | tail -20
+   docker compose -f deploy/docker/docker-compose.poc.yml logs proxy | grep -i redis | tail -20
    ```
 5. Check Redis container/host health:
    ```bash
-   docker compose -f docker/docker-compose.poc.yml ps redis
+   docker compose -f deploy/docker/docker-compose.poc.yml ps redis
    ```
 
 ## Resolution
 **If Redis is down:**
-1. Restart Redis: `docker compose -f docker/docker-compose.poc.yml restart redis`
+1. Restart Redis: `docker compose -f deploy/docker/docker-compose.poc.yml restart redis`
 2. Verify proxy reconnects: check `/health/deep` shows `redis_connected: true`
 3. If Redis doesn't restart, check disk space and logs.
 
 **If network partition:**
 1. Verify connectivity between proxy and Redis:
    ```bash
-   docker compose -f docker/docker-compose.poc.yml exec proxy nc -zv <redis-host> 6379
+   docker compose -f deploy/docker/docker-compose.poc.yml exec proxy nc -zv <redis-host> 6379
    ```
 2. Check for firewall changes or VPC routing issues.
 

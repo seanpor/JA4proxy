@@ -31,15 +31,15 @@ This report documents security vulnerabilities found in the **POC environment**.
 ### 1. 🔴 Hardcoded Default Password
 **Status:** FOUND ✓  
 **Severity:** CRITICAL (Production) / Acceptable (POC)  
-**Location:** `docker/docker-compose.poc.yml`, multiple scripts
+**Location:** `deploy/docker/docker-compose.poc.yml`, multiple scripts
 
 **Evidence:**
 ```yaml
-# docker/docker-compose.poc.yml line 17
+# deploy/docker/docker-compose.poc.yml line 17
 environment:
   - REDIS_PASSWORD=${REDIS_PASSWORD:-changeme}  # Note: start-poc.sh generates a strong password
 
-# docker/docker-compose.poc.yml line 34
+# deploy/docker/docker-compose.poc.yml line 34
 command: ["--requirepass", "${REDIS_PASSWORD:-changeme}"]
 
 # Confirmed in runtime:
@@ -71,11 +71,11 @@ docker compose up -d
 ### 2. 🔴 Unpinned Docker Images
 **Status:** FOUND ✓  
 **Severity:** CRITICAL (Production) / Medium (POC)  
-**Location:** `docker/docker-compose.poc.yml`, `Dockerfile`, `Dockerfile.mockbackend`
+**Location:** `deploy/docker/docker-compose.poc.yml`, `Dockerfile`, `Dockerfile.mockbackend`
 
 **Evidence:**
 ```yaml
-# docker/docker-compose.poc.yml
+# deploy/docker/docker-compose.poc.yml
 redis:
   image: redis:7-alpine          # Mutable tag
 monitoring:
@@ -612,11 +612,11 @@ While not required for POC use, these quick fixes can improve security:
 ```bash
 # 1. Use environment variable for password (instead of hardcoded)
 export REDIS_PASSWORD="better-poc-password-$(date +%s)"
-docker compose -f docker/docker-compose.poc.yml down
-docker compose -f docker/docker-compose.poc.yml up -d
+docker compose -f deploy/docker/docker-compose.poc.yml down
+docker compose -f deploy/docker/docker-compose.poc.yml up -d
 
 # 2. Restrict to localhost only
-# Edit docker/docker-compose.poc.yml
+# Edit deploy/docker/docker-compose.poc.yml
 ports:
   - "127.0.0.1:8080:8080"
   - "127.0.0.1:9090:9090"
@@ -629,7 +629,7 @@ sudo ufw deny 6379
 sudo ufw deny 9090
 
 # 4. Run with limited privileges
-docker compose -f docker/docker-compose.poc.yml \
+docker compose -f deploy/docker/docker-compose.poc.yml \
   --security-opt no-new-privileges:true \
   up -d
 ```

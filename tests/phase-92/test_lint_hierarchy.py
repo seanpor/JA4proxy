@@ -574,7 +574,7 @@ def test_lint_docker_includes_scale_compose():
                 recipe_lines.append(line)
     recipe = "\n".join(recipe_lines)
     assert "docker-compose.scale.yml" in recipe, (
-        "lint-docker recipe must include docker/docker-compose.scale.yml\n"
+        "lint-docker recipe must include deploy/docker/docker-compose.scale.yml\n"
         "(phase-92 deliverable: scale compose file added to docker lint pass)"
     )
 

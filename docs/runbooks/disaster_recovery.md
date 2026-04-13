@@ -43,10 +43,10 @@ commands. Replace the generic names with your actual service names.
 
 | Operation | Docker Compose | Kubernetes | RHEL / systemd |
 |---|---|---|---|
-| **Start** | `docker compose -f docker/docker-compose.poc.yml up -d` | `helm install ja4proxy deploy/helm/ja4proxy/ --wait` | `systemctl --user start ja4proxy` |
-| **Stop** | `docker compose -f docker/docker-compose.poc.yml down` | `helm delete ja4proxy` | `systemctl --user stop ja4proxy` |
-| **Status** | `docker compose -f docker/docker-compose.poc.yml ps` | `kubectl get pods -l app=ja4proxy` | `systemctl --user status ja4proxy` |
-| **Logs** | `docker compose -f docker/docker-compose.poc.yml logs --tail=50 ja4proxy` | `kubectl logs -l app=ja4proxy --tail=50` | `journalctl --user -u ja4proxy -n 50` |
+| **Start** | `docker compose -f deploy/docker/docker-compose.poc.yml up -d` | `helm install ja4proxy deploy/helm/ja4proxy/ --wait` | `systemctl --user start ja4proxy` |
+| **Stop** | `docker compose -f deploy/docker/docker-compose.poc.yml down` | `helm delete ja4proxy` | `systemctl --user stop ja4proxy` |
+| **Status** | `docker compose -f deploy/docker/docker-compose.poc.yml ps` | `kubectl get pods -l app=ja4proxy` | `systemctl --user status ja4proxy` |
+| **Logs** | `docker compose -f deploy/docker/docker-compose.poc.yml logs --tail=50 ja4proxy` | `kubectl logs -l app=ja4proxy --tail=50` | `journalctl --user -u ja4proxy -n 50` |
 | **Hot-reload** | `docker kill --signal=HUP ja4proxy` | `kubectl exec ja4proxy-xxx -- kill -HUP 1` | `systemctl kill --signal=HUP ja4proxy.service` |
 | **Health** | `curl -sf http://localhost:8090/api/v1/health/deep` | `kubectl exec ja4proxy-xxx -- wget -qO- http://localhost:8090/api/v1/health/deep` | `curl -sf http://localhost:8090/api/v1/health/deep` |
 
@@ -79,7 +79,7 @@ continues operating in degraded mode.
 **Simulate:**
 ```bash
 # Docker Compose
-docker compose -f docker/docker-compose.poc.yml stop redis
+docker compose -f deploy/docker/docker-compose.poc.yml stop redis
 
 # Verify degraded state
 curl -sf http://localhost:8090/api/v1/health/deep | python3 -m json.tool
@@ -90,7 +90,7 @@ curl -sf http://localhost:8090/api/v1/health/deep | python3 -m json.tool
 1. Restart Redis:
    ```bash
    # Docker Compose
-   docker compose -f docker/docker-compose.poc.yml start redis
+   docker compose -f deploy/docker/docker-compose.poc.yml start redis
    ```
 2. Wait for the proxy to reconnect (typically 5–15 seconds). The proxy
    polls Redis on a reconnect backoff schedule.
@@ -134,10 +134,10 @@ all connections fail until the node recovers.
 **Simulate:**
 ```bash
 # Docker Compose — stop the proxy container
-docker compose -f docker/docker-compose.poc.yml stop ja4proxy
+docker compose -f deploy/docker/docker-compose.poc.yml stop ja4proxy
 
 # Verify HAProxy marks backend DOWN
-docker compose -f docker/docker-compose.poc.yml exec haproxy \
+docker compose -f deploy/docker/docker-compose.poc.yml exec haproxy \
   echo "show stat" | socat stdio unix-connect:/var/run/haproxy/admin.sock \
   | grep -E "^pxname|ja4proxy" | cut -d, -f1,2,18
 # Expected: ja4proxy backend shows status DOWN (18 = status field)
@@ -146,13 +146,13 @@ docker compose -f docker/docker-compose.poc.yml exec haproxy \
 **Recovery:**
 1. Restart the proxy:
    ```bash
-   docker compose -f docker/docker-compose.poc.yml start ja4proxy
+   docker compose -f deploy/docker/docker-compose.poc.yml start ja4proxy
    ```
 2. Wait for HAProxy to mark the backend UP (`rise` window, default: 2 checks × 2s = 4s):
    ```bash
    # Poll until backend is UP
    for i in $(seq 1 30); do
-     STATUS=$(docker compose -f docker/docker-compose.poc.yml exec haproxy \
+     STATUS=$(docker compose -f deploy/docker/docker-compose.poc.yml exec haproxy \
        echo "show stat" | socat stdio unix-connect:/var/run/haproxy/admin.sock 2>/dev/null \
        | grep ja4proxy | cut -d, -f18)
      [ "$STATUS" = "UP" ] && echo "Backend UP after ${i}s" && break
@@ -167,7 +167,7 @@ docker compose -f docker/docker-compose.poc.yml exec haproxy \
    and resume checks immediately):
    ```bash
    # Send a test connection and check logs for ban check
-   docker compose -f docker/docker-compose.poc.yml logs --tail=10 ja4proxy \
+   docker compose -f deploy/docker/docker-compose.poc.yml logs --tail=10 ja4proxy \
      | grep -i "ban\|block\|allow" | head -5
    ```
 
@@ -193,11 +193,11 @@ made because no proxy is running.
 **Simulate:**
 ```bash
 # Docker Compose — stop all proxy nodes
-docker compose -f docker/docker-compose.poc.yml stop ja4proxy
-# If scaled: docker compose -f docker/docker-compose.scale.yml stop ja4proxy-1 ja4proxy-2 ja4proxy-3 ja4proxy-4
+docker compose -f deploy/docker/docker-compose.poc.yml stop ja4proxy
+# If scaled: docker compose -f deploy/docker/docker-compose.scale.yml stop ja4proxy-1 ja4proxy-2 ja4proxy-3 ja4proxy-4
 
 # Verify all backends DOWN
-docker compose -f docker/docker-compose.poc.yml exec haproxy \
+docker compose -f deploy/docker/docker-compose.poc.yml exec haproxy \
   echo "show stat" | socat stdio unix-connect:/var/run/haproxy/admin.sock 2>/dev/null \
   | grep -E "ja4proxy" | cut -d, -f1,2,18
 ```
@@ -207,7 +207,7 @@ docker compose -f docker/docker-compose.poc.yml exec haproxy \
 2. **Collect logs** from all proxy nodes before restarting (evidence for
    root cause analysis):
    ```bash
-   docker compose -f docker/docker-compose.poc.yml logs ja4proxy > /tmp/ja4proxy-crash-logs-$(date +%Y%m%dT%H%M%S).txt
+   docker compose -f deploy/docker/docker-compose.poc.yml logs ja4proxy > /tmp/ja4proxy-crash-logs-$(date +%Y%m%dT%H%M%S).txt
    ```
 3. **Identify root cause:**
    - **OOM kill:** `dmesg | grep -i oom | grep ja4proxy` — if found, check
@@ -223,7 +223,7 @@ docker compose -f docker/docker-compose.poc.yml exec haproxy \
    - **Redis failure cascading:** If Redis went down first, the proxy may
      have been in degraded mode. Check Redis status:
      ```bash
-     docker compose -f docker/docker-compose.poc.yml ps redis
+     docker compose -f deploy/docker/docker-compose.poc.yml ps redis
      redis-cli -a "$REDIS_PASSWORD" PING
      ```
 4. **Fix the root cause** before restarting. Do not restart into a known
@@ -236,7 +236,7 @@ docker compose -f docker/docker-compose.poc.yml exec haproxy \
    ```
 6. **Restart fleet:**
    ```bash
-   docker compose -f docker/docker-compose.poc.yml up -d
+   docker compose -f deploy/docker/docker-compose.poc.yml up -d
    ```
 7. **Verify:**
    - All backends UP in HAProxy
@@ -325,14 +325,14 @@ recovering fleet:
 ```bash
 # WARNING: This destroys all Redis state. Do not run on production.
 # Docker Compose
-docker compose -f docker/docker-compose.poc.yml stop redis
-docker compose -f docker/docker-compose.poc.yml down -v
+docker compose -f deploy/docker/docker-compose.poc.yml stop redis
+docker compose -f deploy/docker/docker-compose.poc.yml down -v
 # Find and remove the Redis volume
 REDIS_VOL=$(docker volume ls --format '{{.Name}}' | grep redis | head -1)
 docker volume rm "$REDIS_VOL"
 
 # Restart with empty Redis
-docker compose -f docker/docker-compose.poc.yml up -d redis
+docker compose -f deploy/docker/docker-compose.poc.yml up -d redis
 redis-cli -a "$REDIS_PASSWORD" PING  # Should return PONG
 redis-cli -a "$REDIS_PASSWORD" KEYS 'ja4proxy:*'  # Should return empty
 ```

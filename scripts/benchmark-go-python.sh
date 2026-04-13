@@ -270,7 +270,7 @@ if [[ "$USE_DOCKER" == "true" ]]; then
 
     if [[ "$PYTHON_UP" == "false" ]]; then
         log "Starting Python proxy stack (docker compose) ..."
-        docker compose -f docker/docker-compose.poc.yml up -d --quiet-pull 2>&1 | \
+        docker compose -f deploy/docker/docker-compose.poc.yml up -d --quiet-pull 2>&1 | \
             tail -5 | sed 's/^/    /'
         log "Waiting for Python proxy to become healthy ..."
         for i in $(seq 1 30); do
@@ -289,7 +289,7 @@ if [[ "$USE_DOCKER" == "true" ]]; then
     if [[ "$GO_UP" == "false" ]]; then
         log "Starting Go proxy ..."
         docker compose \
-            -f docker/docker-compose.poc.yml \
+            -f deploy/docker/docker-compose.poc.yml \
             up -d --quiet-pull proxy 2>&1 | tail -5 | sed 's/^/    /'
         log "Waiting for Go proxy to become healthy ..."
         for i in $(seq 1 30); do

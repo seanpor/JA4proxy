@@ -14,8 +14,8 @@
 services:
   python-proxy:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
     ports:
       - "${AGENT_BIND_IP:-127.0.0.1}:8083:8080"
       - "${AGENT_BIND_IP:-127.0.0.1}:9094:9090"

@@ -9,7 +9,7 @@ Implement a horizontally scalable multi-process architecture for the Python prox
 The Python proxy is limited by the Global Interpreter Lock (GIL) for CPU-bound tasks (like Scapy TLS parsing). While Phase 26 optimized I/O, true multi-core scaling requires multiple independent processes.
 
 ### Current State
-- `docker/docker-compose.scale.yml` exists but is broken (references non-existent `docker-compose.yml`).
+- `deploy/docker/docker-compose.scale.yml` exists but is broken (references non-existent `docker-compose.yml`).
 - `config/haproxy.cfg` exists but needs validation.
 - `proxy.py` supports `PROXY_PORT` and `WORKER_ID` environment variables.
 
@@ -19,13 +19,13 @@ The Python proxy is limited by the Global Interpreter Lock (GIL) for CPU-bound t
 
 ### 29a — Horizontal Scaling Orchestration
 **What:** Fix and enhance the Docker Compose scale overlay.
-- Rename `docker/docker-compose.scale.yml` to `docker/docker-compose.scale.yml` (to group with other compose files).
+- Rename `deploy/docker/docker-compose.scale.yml` to `deploy/docker/docker-compose.scale.yml` (to group with other compose files).
 - Fix references to point to `docker-compose.prod.yml`.
 - Implement a `scale` profile or separate overlay that adds workers.
 - Ensure all workers share the same Redis Unix socket or TCP connection.
 
 **Acceptance Criteria:**
-- `docker compose -f docker/docker-compose.prod.yml -f docker/docker-compose.scale.yml up` starts 4 workers and HAProxy.
+- `docker compose -f deploy/docker/docker-compose.prod.yml -f deploy/docker/docker-compose.scale.yml up` starts 4 workers and HAProxy.
 - All workers successfully connect to the same Redis instance.
 - HAProxy correctly detects worker health.
 
@@ -55,7 +55,7 @@ The Python proxy is limited by the Global Interpreter Lock (GIL) for CPU-bound t
 ## Implementation Plan (TDD)
 
 ### 1. Verification
-- Run `docker compose -f docker/docker-compose.prod.yml -f docker/docker-compose.scale.yml config` to check for errors.
+- Run `docker compose -f deploy/docker/docker-compose.prod.yml -f deploy/docker/docker-compose.scale.yml config` to check for errors.
 - Run `tests/integration/test_multi_process_enforcement.py` (to be created).
 
 ### 2. Implementation

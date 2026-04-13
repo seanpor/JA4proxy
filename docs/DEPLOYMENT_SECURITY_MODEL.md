@@ -90,7 +90,7 @@ provides the PROXY protocol header for real client IP extraction.
 Use Docker Compose secrets for credential injection:
 
 ```yaml
-# docker/docker-compose.prod.yml
+# deploy/docker/docker-compose.prod.yml
 secrets:
   redis_password:
     file: ./deploy/secrets/redis_password.txt

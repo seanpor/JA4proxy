@@ -211,7 +211,7 @@ class WorkspaceIntegrityTool:
                 self.parse_markdown(f)
             elif f.endswith(".yml") or f.endswith(".yaml"):
                 self.parse_yaml(f)
-            elif os.path.basename(f) in DOCKER_FILES or f.startswith("docker/"):
+            elif os.path.basename(f) in DOCKER_FILES or f.startswith("deploy/docker/"):
                 self.parse_dockerfile(f)
             
             # Special case: Makefile

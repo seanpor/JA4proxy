@@ -18,7 +18,7 @@ import yaml
 
 REPO_ROOT = Path(__file__).parent.parent.parent
 
-COMPOSE_FILES = sorted(REPO_ROOT.glob("docker/docker-compose*.yml"))
+COMPOSE_FILES = sorted(REPO_ROOT.glob("deploy/docker/docker-compose*.yml"))
 
 
 def load_compose(path: Path) -> dict:
@@ -27,13 +27,13 @@ def load_compose(path: Path) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Every Dockerfile in docker/ is referenced by at least one compose file
+# Every Dockerfile in deploy/docker/ is referenced by at least one compose file
 # ---------------------------------------------------------------------------
 
 
 def test_every_docker_dockerfile_is_referenced():
-    """Every Dockerfile in docker/ must appear in at least one compose build block."""
-    dockerfiles = sorted(REPO_ROOT.glob("docker/Dockerfile*"))
+    """Every Dockerfile in deploy/docker/ must appear in at least one compose build block."""
+    dockerfiles = sorted(REPO_ROOT.glob("deploy/docker/Dockerfile*"))
     # Collect all dockerfile references from all compose files
     referenced = set()
     for compose_path in COMPOSE_FILES:
@@ -46,7 +46,7 @@ def test_every_docker_dockerfile_is_referenced():
             ctx = build.get("context", ".")
             if df:
                 # Resolve relative to compose file dir or context
-                # compose files are in docker/, context is typically ".." (repo root)
+                # compose files are in deploy/docker/, context is typically ".." (repo root)
                 if ctx == "..":
                     resolved = (REPO_ROOT / df).resolve()
                 else:
@@ -55,7 +55,7 @@ def test_every_docker_dockerfile_is_referenced():
                 referenced.add(resolved)
 
     # Dockerfile.cli is built directly by CI (release-cli.yml), not via compose
-    ci_only = {(REPO_ROOT / "docker" / "Dockerfile.cli").resolve()}
+    ci_only = {(REPO_ROOT / "deploy" / "docker" / "Dockerfile.cli").resolve()}
     for df in dockerfiles:
         resolved = df.resolve()
         if resolved in ci_only:
@@ -98,7 +98,7 @@ def test_every_test_dockerfile_is_referenced():
         resolved = df.resolve()
         assert resolved in referenced, (
             f"{df} is not referenced in any docker-compose build block. "
-            f"Expected referencing file: docker/docker-compose.test.yml."
+            f"Expected referencing file: deploy/docker/docker-compose.test.yml."
         )
 
 
@@ -160,12 +160,12 @@ def test_standalone_compose_files_validate():
     """Standalone compose files must pass docker compose config validation."""
     test_cases = [
         (
-            "docker/docker-compose.poc.yml",
+            "deploy/docker/docker-compose.poc.yml",
             {"REDIS_PASSWORD": "test", "BACKEND_HOST": "lint"},
         ),
-        ("docker/docker-compose.test.yml", {}),
+        ("deploy/docker/docker-compose.test.yml", {}),
         (
-            "docker/docker-compose.prod.yml",
+            "deploy/docker/docker-compose.prod.yml",
             {"BACKEND_HOST": "lint"},
         ),
     ]
@@ -188,8 +188,8 @@ def test_standalone_compose_files_validate():
 
 def test_monitoring_overlay_references_valid_poc_networks():
     """External network names in monitoring overlay must match explicit name: in poc."""
-    poc = load_compose(REPO_ROOT / "docker" / "docker-compose.poc.yml")
-    monitoring = load_compose(REPO_ROOT / "docker" / "docker-compose.monitoring.yml")
+    poc = load_compose(REPO_ROOT / "deploy" / "docker" / "docker-compose.poc.yml")
+    monitoring = load_compose(REPO_ROOT / "deploy" / "docker" / "docker-compose.monitoring.yml")
 
     # Collect the Docker-level names of all POC networks
     # (uses explicit name: field if present, falls back to the YAML key)

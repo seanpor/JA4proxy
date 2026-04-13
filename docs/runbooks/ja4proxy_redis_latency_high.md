@@ -40,7 +40,7 @@ rate limits, beaconing state, and signal enrichment.
    ```
 5. Check network latency between proxy and Redis:
    ```bash
-   docker compose -f docker/docker-compose.poc.yml exec proxy ping -c 5 <redis-host>
+   docker compose -f deploy/docker/docker-compose.poc.yml exec proxy ping -c 5 <redis-host>
    ```
 
 ## Resolution

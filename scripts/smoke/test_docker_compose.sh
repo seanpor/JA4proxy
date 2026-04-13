@@ -15,21 +15,21 @@ if ! command -v docker &>/dev/null; then
   exit 0
 fi
 
-# Find the compose file — prefer the PoC stack in docker/
+# Find the compose file — prefer the PoC stack in deploy/docker/
 COMPOSE_FILE=""
-for f in docker-compose.yml compose.yml docker/docker-compose.poc.yml docker/docker-compose.test.yml; do
+for f in docker-compose.yml compose.yml deploy/docker/docker-compose.poc.yml deploy/docker/docker-compose.test.yml; do
   if [ -f "$f" ]; then
     COMPOSE_FILE="$f"
     break
   fi
 done
 if [ -z "$COMPOSE_FILE" ]; then
-  log "SKIP: no Docker Compose file found (docker-compose.yml, docker/docker-compose.poc.yml, etc.)."
+  log "SKIP: no Docker Compose file found (docker-compose.yml, deploy/docker/docker-compose.poc.yml, etc.)."
   exit 0
 fi
 
 # Docker compose auto-loads .env from the compose file's directory, not CWD.
-# When the compose file lives in docker/ and the .env in the repo root, we
+# When the compose file lives in deploy/docker/ and the .env in the repo root, we
 # must pass --env-file explicitly, otherwise REDIS_PASSWORD and similar
 # interpolations fail.
 COMPOSE_ARGS="-f $COMPOSE_FILE"

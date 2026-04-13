@@ -110,7 +110,7 @@ Lock TTL is 600s (10 minutes). If a backup takes longer, the lock expires while 
 
 ### Finding 13 — Redis `allkeys-lru` Eviction Can Evict Security-Critical Keys
 
-**File:** `docker/docker-compose.prod.yml`, line 111
+**File:** `deploy/docker/docker-compose.prod.yml`, line 111
 
 If Redis reaches 512MB, it can evict `config:dial`, `ja4:whitelist`, `ban:{ip}`, etc. Use `volatile-lru` or `volatile-ttl` instead.
 

@@ -108,7 +108,7 @@ The traffic generator simulates:
 watch -n 1 'curl -s http://localhost:9090/metrics | grep ja4_'
 
 # View proxy logs
-docker compose -f docker/docker-compose.poc.yml logs -f proxy
+docker compose -f deploy/docker/docker-compose.poc.yml logs -f proxy
 ```
 
 ### Grafana Dashboard
@@ -268,13 +268,13 @@ Options:
 curl -sk https://localhost:8443/api/health
 
 # Check if POC stack is running
-docker compose -f docker/docker-compose.poc.yml ps
+docker compose -f deploy/docker/docker-compose.poc.yml ps
 ```
 
 ### All Requests Failing
 ```bash
 # Check proxy logs for errors
-docker compose -f docker/docker-compose.poc.yml logs proxy
+docker compose -f deploy/docker/docker-compose.poc.yml logs proxy
 
 # Verify Redis is working
 docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" PING
@@ -283,7 +283,7 @@ docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" PING
 ### No Blocks Happening
 ```bash
 # Check if security is enabled
-docker compose -f docker/docker-compose.poc.yml exec proxy \
+docker compose -f deploy/docker/docker-compose.poc.yml exec proxy \
   python -c "import os; print(os.getenv('ENABLE_SECURITY'))"
 
 # Should print: true
@@ -301,7 +301,7 @@ cat config/proxy.yml
 docker stats
 
 # Check for network issues
-docker compose -f docker/docker-compose.poc.yml logs proxy | grep -i error
+docker compose -f deploy/docker/docker-compose.poc.yml logs proxy | grep -i error
 ```
 
 ## Performance Benchmarks

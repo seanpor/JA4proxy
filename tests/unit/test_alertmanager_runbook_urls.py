@@ -24,7 +24,7 @@ import yaml
 # Helpers
 # ---------------------------------------------------------------------------
 
-RULES_DIR = Path(__file__).parent.parent.parent / "monitoring" / "alertmanager" / "rules"
+RULES_DIR = Path(__file__).parent.parent.parent / "deploy" / "monitoring" / "alertmanager" / "rules"
 
 
 def _collect_all_rules() -> list[tuple[str, str, dict]]:

@@ -13,7 +13,7 @@ import pytest
 import yaml
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-ALERTS_PATH = ROOT / "monitoring" / "alertmanager" / "rules" / "tls_alerts.yml"
+ALERTS_PATH = ROOT / "deploy" / "monitoring" / "alertmanager" / "rules" / "tls_alerts.yml"
 RUNBOOK_PATH = ROOT / "docs" / "runbooks" / "tls_certificate_rotation.md"
 GAUGE_NAME = "ja4proxy_tls_cert_expiry_timestamp_seconds"
 

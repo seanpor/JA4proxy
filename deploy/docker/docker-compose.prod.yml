@@ -30,7 +30,7 @@ services:
       - "80:80"
       - "127.0.0.1:8404:8404"   # Stats page — internal only
     volumes:
-      - ../config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ../../config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     depends_on:
       - proxy
     networks:
@@ -54,8 +54,8 @@ services:
 
   proxy:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
     image: ja4proxy:1.0.0
     ports:
       - "8080"   # Proxy (HAProxy connects here)
@@ -63,8 +63,8 @@ services:
     depends_on:
       - redis
     volumes:
-      - ../config:/app/config:ro
-      - ../logs:/app/logs
+      - ../../config:/app/config:ro
+      - ../../logs:/app/logs
       - redis-sock:/var/run/redis
     environment:
       - CONFIG_PATH=/app/config/proxy.yml
@@ -83,7 +83,7 @@ services:
     read_only: true
     security_opt:
       - no-new-privileges:true
-      - seccomp:../config/seccomp/proxy.json
+      - seccomp:../../config/seccomp/proxy.json
       # AppArmor profile (Phase 34d): must be loaded on host before enabling.
       # Load with: sudo apparmor_parser -r config/apparmor/ja4proxy
       # Then uncomment the line below:
@@ -135,7 +135,7 @@ services:
 
   analytics:
     build:
-      context: ..
+      context: ../..
       dockerfile: src/analytics/Dockerfile
     image: ja4proxy-analytics:1.0.0
     ports:
@@ -151,7 +151,7 @@ services:
     secrets:
       - redis_password
     volumes:
-      - ../config:/app/config:ro
+      - ../../config:/app/config:ro
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
       interval: 30s
@@ -177,7 +177,7 @@ services:
 
   tarpit:
     build:
-      context: ../src/tarpit
+      context: ../../src/tarpit
       dockerfile: Dockerfile
     image: ja4proxy-tarpit:1.0.0
     ports:
@@ -235,9 +235,9 @@ services:
     ports:
       - "9091:9090"   # Prometheus UI (internal only)
     volumes:
-      - ../deploy/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ../deploy/monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
-      - ../deploy/monitoring/prometheus/recording_rules.yml:/etc/prometheus/recording_rules.yml:ro
+      - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ../monitoring/prometheus/recording_rules.yml:/etc/prometheus/recording_rules.yml:ro
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -267,8 +267,8 @@ services:
       - "3001:3000"   # Grafana UI (internal only)
     volumes:
       - grafana-data:/var/lib/grafana
-      - ../deploy/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ../deploy/monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/grafana_password
@@ -297,7 +297,7 @@ services:
     ports:
       - "3100:3100"   # Loki API (internal only)
     volumes:
-      - ../deploy/monitoring/loki/loki-config.yml:/etc/loki/config.yml:ro
+      - ../monitoring/loki/loki-config.yml:/etc/loki/config.yml:ro
       - loki-data:/loki
     command: -config.file=/etc/loki/config.yml
     networks:
@@ -319,8 +319,8 @@ services:
   promtail:
     image: grafana/promtail:3.3.2
     volumes:
-      - ../deploy/monitoring/loki/promtail-config.yml:/etc/promtail/config.yml:ro
-      - ../logs:/var/log/ja4proxy:ro
+      - ../monitoring/loki/promtail-config.yml:/etc/promtail/config.yml:ro
+      - ../../logs:/var/log/ja4proxy:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
     command: -config.file=/etc/promtail/config.yml
     depends_on:
@@ -358,8 +358,8 @@ networks:
 
 secrets:
   redis_password:
-    file: ../deploy/deploy/secrets/redis_password.txt
+    file: ../secrets/redis_password.txt
   grafana_password:
-    file: ../deploy/deploy/secrets/grafana_password.txt
+    file: ../secrets/grafana_password.txt
   abuseipdb_api_key:
-    file: ../deploy/deploy/secrets/abuseipdb_api_key.txt
+    file: ../secrets/abuseipdb_api_key.txt

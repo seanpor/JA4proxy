@@ -29,7 +29,7 @@ echo ""
 # Check if services are running
 echo -e "${BLUE}▶ Checking services...${NC}"
 
-if ! docker compose -f docker/docker-compose.poc.yml ps 2>/dev/null | grep -q "ja4proxy.*Up"; then
+if ! docker compose -f deploy/docker/docker-compose.poc.yml ps 2>/dev/null | grep -q "ja4proxy.*Up"; then
     echo -e "${RED}✗ JA4proxy services are not running${NC}"
     echo -e "${YELLOW}  Start with: ./scripts/start-poc.sh or ./scripts/start-all.sh${NC}"
     exit 1
@@ -63,14 +63,14 @@ echo ""
 echo -e "${YELLOW}Monitor in real-time:${NC}"
 echo -e "  Grafana:     http://localhost:3001 (admin / see .env)"
 echo -e "  Prometheus:  http://localhost:9091"
-echo -e "  Logs:        docker compose -f docker/docker-compose.poc.yml logs -f proxy"
+echo -e "  Logs:        docker compose -f deploy/docker/docker-compose.poc.yml logs -f proxy"
 echo ""
 
 echo -e "${GREEN}▶ Starting TLS traffic generation (containerized)...${NC}"
 echo ""
 
 # Run traffic generator in a container on the ja4proxy network
-docker compose -f docker/docker-compose.poc.yml run --rm \
+docker compose -f deploy/docker/docker-compose.poc.yml run --rm \
     -e PYTHONUNBUFFERED=1 \
     trafficgen \
     --target-host proxy --target-port 8080 \
