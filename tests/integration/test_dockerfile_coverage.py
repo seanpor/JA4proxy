@@ -54,8 +54,12 @@ def test_every_docker_dockerfile_is_referenced():
                     resolved = (ctx_path / df).resolve()
                 referenced.add(resolved)
 
+    # Dockerfile.cli is built directly by CI (release-cli.yml), not via compose
+    ci_only = {(REPO_ROOT / "docker" / "Dockerfile.cli").resolve()}
     for df in dockerfiles:
         resolved = df.resolve()
+        if resolved in ci_only:
+            continue
         assert resolved in referenced, (
             f"{df} is not referenced in any docker-compose build block. "
             f"Either add it to a compose file or remove the unused Dockerfile."
