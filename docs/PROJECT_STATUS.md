@@ -248,6 +248,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 202 | CI Supply Chain + Default Credential Removal | PROPOSED | N/A | N/A |
 | 203 | Go Missing Signals — JA4T, TLS Mismatch, Weak Ciphers, DGA, Health | PROPOSED | N/A | N/A |
 | 204 | README Badges — License, Versions, CI, Security | COMPLETE | N/A | N/A |
+| 205 | Repository Root Cleanup & File Organisation | PROPOSED | N/A | N/A |
 
 ---
 
