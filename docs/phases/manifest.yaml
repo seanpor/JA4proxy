@@ -121,12 +121,12 @@ phases:
     action_plan: docs/phases/PHASE_205.md
     dependencies: []
     size: MEDIUM
-    summary: 'Reduce repo root from 60 tracked entries to ~26 (15 visible on GitHub).
-      Move deployment dirs under deploy/, test data under tests/, source under src/.
-      Gitignore transient files. Consolidate Python config into pyproject.toml.
-      8 sub-phases (205a–205h).'
+    summary: 'Reduce repo root from 60 tracked entries to ~20 (14 visible on GitHub).
+      Consolidate linter dotfiles into .config/, deployment dirs under deploy/,
+      docs under docs/, test data under tests/, source under src/. Merge Python
+      config into pyproject.toml. Gitignore transient files. 8 sub-phases (205a–205h).'
     success_criteria:
-    - Root has 30 or fewer tracked entries
+    - Root has 20 or fewer tracked entries, 14 or fewer visible on GitHub
     - README.md visible on GitHub without scrolling past file listing
     - No transient or build files in root
     - make test and make lint-all pass with zero dangling path references

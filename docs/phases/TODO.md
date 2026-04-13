@@ -32,5 +32,5 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Action Plan:** [PHASE_203.md](PHASE_203.md)
 
 ### Phase 205 — Repository Root Cleanup & File Organisation
-*   **Status:** **PROPOSED** (Reduce repo root from 60 tracked entries to ~26 (15 visible on GitHub). Move deployment dirs under deploy/, test data under tests/, source under src/. Gitignore transient files. Consolidate Python config into pyproject.toml. 8 sub-phases (205a–205h).)
+*   **Status:** **PROPOSED** (Reduce repo root from 60 tracked entries to ~20 (14 visible on GitHub). Consolidate linter dotfiles into .config/, deployment dirs under deploy/, docs under docs/, test data under tests/, source under src/. Merge Python config into pyproject.toml. Gitignore transient files. 8 sub-phases (205a–205h).)
 *   **Action Plan:** [PHASE_205.md](PHASE_205.md)
