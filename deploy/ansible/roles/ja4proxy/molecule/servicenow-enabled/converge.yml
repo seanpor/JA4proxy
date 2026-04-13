@@ -1,0 +1,6 @@
+---
+- name: Converge (ServiceNow enabled)
+  hosts: ja4proxy-rocky9
+  become: true
+  roles:
+    - role: ja4proxy

@@ -129,6 +129,10 @@ type proxy struct {
 	tarpitConcurrent int
 	tarpitPerIP      map[string]int
 	tarpitMu         sync.Mutex
+
+	// Trusted upstream CIDRs merged from static config + NetBox (phase-94i2).
+	trustedCIDRs   []string
+	trustedCIDRsMu sync.RWMutex
 }
 
 func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
@@ -199,6 +203,13 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 		dispatcher:  disp,
 		tarpitPerIP: make(map[string]int),
 	}
+
+	// phase-94i2: load trusted CIDRs from NetBox in the background (fail-open, non-blocking).
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		prx.reloadTrustedCIDRs(ctx, cfg)
+	}()
 
 	// Open GeoIP DB if configured
 	if cfg.GeoIP.DBPath != "" {
@@ -297,7 +308,7 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	// check to prevent IP spoofing from untrusted sources.
 	if p.cfg.Proxy.ProxyProtocol {
 		socketIP := remoteIP(clientConn)
-		if proxypkg.IsTrustedProxySource(socketIP, p.cfg) {
+		if proxypkg.IsTrustedProxySourceCIDRs(socketIP, p.getTrustedCIDRs()) {
 			// Try v2 binary header first (HAProxy 2.x+, AWS NLB)
 			if realIP, ok, hdrLen := proxypkg.ReadProxyProtocolV2WithLength(data); ok {
 				connCtx.ClientIP = realIP
@@ -566,8 +577,56 @@ func (p *proxy) reload() error {
 	metrics.ConfigReloadsTotal.Inc()
 	// phase-63: refresh the TLS cert expiry gauge on every reload.
 	updateTLSCertExpiryGauge(os.Getenv("JA4PROXY_TLS_CERT_FILE"), p.log)
+	// phase-94i2: reload trusted CIDRs from NetBox if enabled.
+	p.reloadTrustedCIDRs(context.Background(), newCfg)
 	p.log.Info("config reloaded")
 	return nil
+}
+
+// reloadTrustedCIDRs fetches CIDRs from NetBox (if enabled), merges them with
+// static_cidrs, and stores the result in p.trustedCIDRs. Fails open.
+func (p *proxy) reloadTrustedCIDRs(ctx context.Context, cfg *config.Config) {
+	sources := cfg.TrustedUpstreamSources
+	if !sources.NetBox.Enabled {
+		// NetBox disabled — use only static CIDRs.
+		p.setTrustedCIDRs(sources.StaticCIDRs)
+		p.log.Debug("netbox: disabled; using static CIDRs only")
+		return
+	}
+
+	netboxCIDRs, err := config.LoadTrustedCIDRsFromNetBox(ctx, sources.NetBox.URL, sources.NetBox.Token, sources.NetBox.Tag)
+	if err != nil {
+		p.log.WithError(err).Warn("netbox: LoadTrustedCIDRsFromNetBox returned error")
+		metrics.NetBoxCIDRsLoaded.WithLabelValues("error").Inc()
+		// Fall back to static CIDRs only — fail-open.
+		p.setTrustedCIDRs(sources.StaticCIDRs)
+		return
+	}
+
+	if len(netboxCIDRs) == 0 {
+		p.log.Warn("netbox: returned zero CIDRs; using static CIDRs only")
+		metrics.NetBoxCIDRsLoaded.WithLabelValues("error").Inc()
+		p.setTrustedCIDRs(sources.StaticCIDRs)
+		return
+	}
+
+	// Merge: static_cidrs + netbox CIDRs, deduplicated.
+	merged := dedupStrings(append(sources.StaticCIDRs, netboxCIDRs...))
+	p.setTrustedCIDRs(merged)
+	metrics.NetBoxCIDRsLoaded.WithLabelValues("ok").Inc()
+	p.log.WithField("cidrs", len(merged)).Info("netbox: trusted CIDRs reloaded")
+}
+
+func (p *proxy) setTrustedCIDRs(cidrs []string) {
+	p.trustedCIDRsMu.Lock()
+	p.trustedCIDRs = cidrs
+	p.trustedCIDRsMu.Unlock()
+}
+
+func (p *proxy) getTrustedCIDRs() []string {
+	p.trustedCIDRsMu.RLock()
+	defer p.trustedCIDRsMu.RUnlock()
+	return append([]string(nil), p.trustedCIDRs...)
 }
 
 // handleHealth responds to HTTP health check requests.
@@ -1072,4 +1131,18 @@ func stringSliceToSet(ss []string) map[string]bool {
 		m[s] = true
 	}
 	return m
+}
+
+// dedupStrings returns a deduplicated copy of the input slice, preserving
+// the original order of first occurrence.
+func dedupStrings(ss []string) []string {
+	seen := make(map[string]bool, len(ss))
+	out := make([]string, 0, len(ss))
+	for _, s := range ss {
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
 }

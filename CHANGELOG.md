@@ -1,5 +1,31 @@
 # Changelog
 
+## Phase 94: Kubernetes Operator + CMDB/NetBox Integration (2026-04-13)
+
+### Added
+- **94a:** `operator_k8s` value added to `ManagedBy` enum (`management/api/models.py`) with round-trip tests
+- **94b:** Helm chart converted from Deployment to DaemonSet (`deploy/helm/ja4proxy/templates/daemonset.yaml`), HPA and PDB removed (ADR-094d)
+- **94i1/i2:** NetBox trusted CIDR loader (`internal/config/netbox.go`) — Go-only, opt-in, fail-open fallback to static CIDRs, SIGHUP reload, Prometheus metrics (`internal/metrics/netbox.go`)
+- **94j:** Ansible `ja4proxy` role baseline (`deploy/ansible/roles/ja4proxy/`) — binary, container, and quadlet deploy modes with Molecule test scenarios
+- **94k:** ServiceNow CMDB auto-registration task (opt-in, `servicenow_enabled: false` default)
+- ADR-094c (ManagedBy enum value choice) and ADR-094d (Helm chart topology)
+
+### Changed
+- `internal/config/loader.go` extended with NetBox CIDR merging into trusted upstream list
+- `internal/proxy/proxy_protocol.go` updated to use merged CIDR set
+- `config/proxy.yml` — new `netbox` section with `enabled`, `url`, `token_env`, `query`, `poll_interval`, `timeout` keys (all hot-reloadable)
+
+### Redis Schema
+- No new Redis keys (NetBox CIDRs are in-process only, per CLAUDE.md)
+
+### Performance
+- No hot-path impact — NetBox poll runs in background goroutine on configurable interval
+
+### Known Limitations
+- Kubernetes operator (94c–94g, 94l) lives in separate repo (`ja4proxy-operator`), not included in this merge
+- Operator runbook (94h) deferred until reconcilers are implemented
+- Terraform Registry publication for Phase 93 provider still pending (external process)
+
 ## Phase 204 — README Badges (2026-04-12)
 
 ### Added

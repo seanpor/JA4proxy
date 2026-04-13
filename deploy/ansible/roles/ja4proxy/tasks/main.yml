@@ -1,0 +1,92 @@
+---
+# ja4proxy/tasks/main.yml — orchestrates the full Go proxy deployment.
+#
+# Supports three modes:
+#   "binary"  — install binary + systemd unit
+#   "docker"  — container via Docker/Podman
+#   "auto"    — detect Quadlet capability, fall back to systemd binary
+#
+# Cross-references: Phase 76 (RHEL inline deployment strategy),
+# Phase 64 (smoke test / health check).
+
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - backend_host is defined and backend_host | length > 0
+      - upstream_lb_host is defined and upstream_lb_host | length > 0
+    fail_msg: "backend_host and upstream_lb_host must be defined in host_vars or group_vars"
+
+# ── Auto-detect deployment mode ─────────────────────────────
+
+- name: Detect Podman Quadlet capability
+  when: ja4proxy_deploy_mode == "auto"
+  ansible.builtin.stat:
+    path: /etc/containers/systemd
+  register: quadlet_dir_stat
+
+- name: Set deploy mode to quadlet if available
+  when:
+    - ja4proxy_deploy_mode == "auto"
+    - quadlet_dir_stat.stat.exists | default(false) | bool
+  ansible.builtin.set_fact:
+    _resolved_deploy_mode: "quadlet"
+
+- name: Set deploy mode to systemd binary (no Quadlet)
+  when:
+    - ja4proxy_deploy_mode == "auto"
+    - not (quadlet_dir_stat.stat.exists | default(false) | bool)
+  ansible.builtin.set_fact:
+    _resolved_deploy_mode: "binary"
+
+- name: Use explicit deploy mode
+  when: ja4proxy_deploy_mode != "auto"
+  ansible.builtin.set_fact:
+    _resolved_deploy_mode: "{{ ja4proxy_deploy_mode }}"
+
+# ── Binary deployment path ──────────────────────────────────
+
+- name: Deploy via systemd binary
+  when: _resolved_deploy_mode == "binary"
+  ansible.builtin.include_tasks: deploy_binary.yml
+
+# ── Quadlet deployment path ─────────────────────────────────
+
+- name: Deploy via Podman Quadlet
+  when: _resolved_deploy_mode == "quadlet"
+  ansible.builtin.include_tasks: deploy_quadlet.yml
+
+# ── Container deployment path ───────────────────────────────
+
+- name: Deploy via container
+  when: _resolved_deploy_mode == "docker"
+  ansible.builtin.include_tasks: deploy_container.yml
+
+# ── Health check (Phase 64 smoke test) ─────────────────────
+
+- name: Wait for proxy to be ready
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ ja4proxy_metrics_port }}/health"
+    method: GET
+    status_code: 200
+    timeout: 5
+  register: health_result
+  retries: "{{ ja4proxy_healthcheck_retries }}"
+  delay: "{{ ja4proxy_healthcheck_delay }}"
+  until: health_result.status == 200
+  changed_when: false
+
+- name: Deployment summary
+  ansible.builtin.debug:
+    msg:
+      - "JA4proxy Go proxy deployed successfully"
+      - "  Deploy mode:  {{ _resolved_deploy_mode }}"
+      - "  Proxy port:   {{ ja4proxy_port }}"
+      - "  Metrics:      http://127.0.0.1:{{ ja4proxy_metrics_port }}/health"
+      - "  Backend:      {{ backend_host }}:{{ backend_port }}"
+      - "  Upstream LB:  {{ upstream_lb_host }}"
+
+# ── ServiceNow CMDB registration (Phase 94k) ───────────────
+
+- name: Register in ServiceNow CMDB
+  ansible.builtin.include_tasks: cmdb_register.yml
+  when: servicenow_enabled | bool

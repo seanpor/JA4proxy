@@ -1,0 +1,59 @@
+---
+# Defaults for ja4proxy role — Phase 94j
+# Override in host_vars, group_vars, or vault.yml
+#
+# All defaults target the Go proxy binary (bin/ja4proxy / container image).
+# There is no Python/proxy.py path — the Python proxy is deprecated and
+# not provisioned by this role.
+
+# ── Deployment mode ──────────────────────────────────────────
+# Choose how the proxy is deployed on the target host:
+#   "binary"  — install the pre-built Go binary + systemd unit
+#   "docker"  — pull/run a container image via Docker or Podman
+#   "auto"    — use systemd by default; switch to Podman Quadlet if
+#               the host has /etc/containers/systemd/ (detected at runtime)
+ja4proxy_deploy_mode: "auto"
+
+# ── Binary deployment (ja4proxy_deploy_mode == "binary") ────
+ja4proxy_binary_src: ""              # path to pre-built binary on Ansible control node or URL
+ja4proxy_install_dir: "/usr/local/bin"
+ja4proxy_binary_path: "{{ ja4proxy_install_dir }}/ja4proxy"
+ja4proxy_config_dir: "/etc/ja4proxy"
+ja4proxy_config_path: "{{ ja4proxy_config_dir }}/proxy.yml"
+ja4proxy_geoip_dir: "/var/lib/ja4proxy/geoip"
+ja4proxy_log_dir: "/var/log/ja4proxy"
+ja4proxy_user: "ja4proxy"
+ja4proxy_group: "ja4proxy"
+ja4proxy_systemd_unit: "ja4proxy.service"
+
+# ── Container deployment (ja4proxy_deploy_mode == "docker") ─
+ja4proxy_container_engine: "docker"    # "docker" or "podman"
+ja4proxy_image: "ja4proxy"
+ja4proxy_image_tag: "2.0.0"
+ja4proxy_container_name: "ja4proxy"
+ja4proxy_container_restart: "unless-stopped"
+
+# ── Network ──────────────────────────────────────────────────
+ja4proxy_bind_address: "0.0.0.0"
+ja4proxy_port: 8080                    # TLS passthrough proxy port
+ja4proxy_metrics_port: 9090            # Prometheus metrics port
+ja4proxy_host_port_ingress: 443        # host-side port mapped to proxy (for container mode)
+
+# ── Upstream / downstream ───────────────────────────────────
+upstream_lb_host: ""                   # hostname/IP of the upstream load balancer
+backend_host: ""                       # hostname/IP of the backend server
+backend_port: 443                      # backend port
+
+# ── Redis connection ────────────────────────────────────────
+ja4proxy_redis_host: "127.0.0.1"
+ja4proxy_redis_port: 6379
+
+# ── Environment tag ─────────────────────────────────────────
+deploy_environment: "production"       # "production" | "staging" | "development"
+
+# ── Health check ────────────────────────────────────────────
+ja4proxy_healthcheck_retries: 10
+ja4proxy_healthcheck_delay: 3
+
+# ── ServiceNow CMDB (Phase 94k) ────────────────────────────
+servicenow_enabled: false              # set true to register node in ServiceNow CMDB

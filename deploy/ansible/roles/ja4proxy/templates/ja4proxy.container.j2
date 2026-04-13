@@ -1,0 +1,50 @@
+# ja4proxy.container — Podman Quadlet unit for JA4proxy Go proxy
+# Managed by Ansible (ja4proxy role, Phase 94j). Do not edit manually.
+# Cross-references Phase 76 (RHEL Quadlet deployment strategy).
+
+[Container]
+ContainerName={{ ja4proxy_container_name }}
+Image={{ ja4proxy_image }}:{{ ja4proxy_image_tag }}
+
+# Network
+PublishPort={{ ja4proxy_bind_address }}:{{ ja4proxy_host_port_ingress }}:{{ ja4proxy_port }}
+PublishPort=127.0.0.1:{{ ja4proxy_metrics_port }}:{{ ja4proxy_metrics_port }}
+
+# Environment
+Environment=BACKEND_HOST={{ backend_host }}
+Environment=BACKEND_PORT={{ backend_port }}
+Environment=REDIS_HOST={{ ja4proxy_redis_host }}
+Environment=REDIS_PORT={{ ja4proxy_redis_port }}
+
+# Volumes
+Volume={{ ja4proxy_config_dir }}:/app/config:ro
+Volume={{ ja4proxy_geoip_dir }}:/app/geoip:ro
+
+# Security
+ReadOnly=true
+Tmpfs=/tmp:noexec,nosuid,nodev,size=100m
+Tmpfs=/var/run:noexec,nosuid,nodev,size=10m
+NoNewPrivileges=true
+DropCapability=ALL
+AddCapability=NET_BIND_SERVICE
+
+# Resource limits
+Memory=512m
+CPUQuota=200000
+
+# Ulimits
+Ulimit=nofile=65536:65536
+
+# Health check
+HealthCmd=curl -f http://localhost:{{ ja4proxy_metrics_port }}/health
+HealthInterval=10s
+HealthTimeout=5s
+HealthRetries=5
+
+# Restart
+Restart=unless-stopped
+
+# Logging
+LogDriver=json-file
+LogOpt=max-size=100m
+LogOpt=max-file=3

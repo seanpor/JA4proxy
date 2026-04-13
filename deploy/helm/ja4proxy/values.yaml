@@ -2,9 +2,6 @@
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
 
-# Number of replicas for the deployment
-replicaCount: 2
-
 # Image configuration
 image:
   repository: ja4proxy
@@ -29,24 +26,9 @@ service:
 # Redis configuration (external Redis required)
 redis:
   external: true
+  host: "redis"
+  port: 6379
   url: ""  # Set via REDIS_URL secret
-
-# Horizontal Pod Autoscaler configuration
-hpa:
-  enabled: true
-  minReplicas: 2
-  maxReplicas: 20
-  targetConnectionCount: 500
-
-# Ingress configuration (disabled by default)
-ingress:
-  enabled: false
-  # className: ""
-  # hosts:
-  #   - host: ja4proxy.example.com
-  #     paths:
-  #       - path: /
-  #         pathType: ImplementationSpecific
 
 # Configuration file (mounted as ConfigMap)
 config:
@@ -54,15 +36,6 @@ config:
   enabled: true
   mountPath: /app/config/proxy.yml
   subPath: proxy.yml
-
-# Pod disruption budget for high availability
-pdb:
-  enabled: true
-  minAvailable: 1
-
-# Node affinity for spreading pods across nodes
-nodeAffinity:
-  enabled: true
 
 # Security context
 securityContext:
