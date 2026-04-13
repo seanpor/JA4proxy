@@ -880,9 +880,39 @@ link-check:
 	@echo "Checking internal documentation links..."
 	@find docs/ -name '*.md' | xargs markdown-link-check --config .mlc.json
 
+# Verify no references to paths that have been moved or deleted (Phase 205).
+# Only flags a path if the source directory/file no longer exists at root — so this
+# target is safe to run before AND after the moves.  Before: all paths exist → pass.
+# After: moved paths are gone → any remaining references are dangling → fail.
+# Excludes historical phase docs and CHANGELOG (they record what was true at the time).
+# phase-205
+MOVED_PATHS := \
+  docker/ ha-config/ monitoring/ ssl/ secrets/ integrations/ \
+  performance/ test-content/ geoip/ tarpit/ ebpf/ memory/ \
+  Dockerfile-cli Jenkinsfile.ja4proxy-policy \
+  requirements-test.txt requirements-analytics.txt
+
+check-paths:
+	@echo "Checking for dangling path references..."
+	@rc=0; \
+	for old in $(MOVED_PATHS); do \
+	  if [ -e "$$old" ]; then continue; fi; \
+	  hits=$$(git grep -lF "$$old" \
+	    -- ':!docs/phases/PHASE_*' ':!CHANGELOG.md' ':!docs/phases/*_review.md' \
+	    2>/dev/null | wc -l); \
+	  if [ "$$hits" -gt 0 ]; then \
+	    echo "DANGLING: $$old  ($$hits files)"; \
+	    git grep -lF "$$old" \
+	      -- ':!docs/phases/PHASE_*' ':!CHANGELOG.md' ':!docs/phases/*_review.md'; \
+	    rc=1; \
+	  fi; \
+	done; \
+	if [ "$$rc" -eq 0 ]; then echo "✓ No dangling path references found"; fi; \
+	exit $$rc
+
 # Run all documentation quality checks
 doc-health:
-	@make lint-phases lint-docs link-check
+	@make lint-phases lint-docs link-check check-paths
 
 # Show current test-to-code ratio
 test-ratio:
@@ -1187,7 +1217,7 @@ lint-observability: lint-prom lint-alertmanager
 lint-supply-chain: lint-secrets lint-deps
 
 # Documentation: frontmatter + phase consistency + links + structure + spelling
-lint-docs-all: lint-docs lint-phases link-check lint-markdown lint-spelling
+lint-docs-all: lint-docs lint-phases link-check check-paths lint-markdown lint-spelling
 
 # Run every linter — the single entry point for full validation
 lint-all: lint-python lint-go lint-sast lint-infra lint-observability \
@@ -1208,7 +1238,7 @@ test-phase-93:
 .PHONY: lint-pylint lint-semgrep lint-checkov lint-haproxy lint-helm lint-ansible \
         lint-markdown lint-spelling lint-toml lint-makefiles lint-go-mod \
         lint-python lint-go lint-sast lint-infra lint-observability \
-        lint-supply-chain lint-docs-all lint-all test-phase-92 test-phase-93 sync
+        lint-supply-chain lint-docs-all lint-all check-paths test-phase-92 test-phase-93 sync
 
 ## Phase 80 targets
 test-phase-80:
