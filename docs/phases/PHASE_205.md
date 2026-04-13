@@ -153,51 +153,91 @@ Linters and CI tools look for these in root by convention.
 
 ```
 .
-├── .bandit
+├── .config/                   # NEW — all linter/tool dotfiles consolidated
+│   ├── .bandit
+│   ├── .flake8                # or merge into pyproject.toml
+│   ├── .gitleaks.toml
+│   ├── .golangci.yaml
+│   ├── .goreleaser.yml
+│   ├── .hadolint.yaml
+│   ├── .luacheckrc
+│   ├── .mlc.json
+│   ├── mypy.ini               # or merge into pyproject.toml
+│   └── .yamllint.yaml
 ├── .claude/
 ├── .dockerignore
 ├── .env.example
-├── .flake8                    # → consider merging into pyproject.toml
 ├── .gitattributes
 ├── .github/
 ├── .gitignore
-├── .gitleaks.toml
-├── .gitlab-ci/
-├── .golangci.yaml
-├── .goreleaser.yml
-├── .hadolint.yaml
-├── .luacheckrc
-├── .mlc.json
 ├── .qwen/
-├── .yamllint.yaml
-├── AGENTS.md
 ├── CHANGELOG.md
 ├── CLAUDE.md
-├── CONTRIBUTING.md
 ├── LICENSE
 ├── Makefile
-├── README.md                  ← visible without scrolling
-├── SECURITY.md
+├── README.md                  ← visible on GitHub without scrolling
 ├── cmd/
 ├── config/
-├── data/                      # NEW — geoip, static data
-├── deploy/                    # absorbs docker/, ha-config/, monitoring/, etc.
-├── docs/                      # absorbs ONBOARDING.md, reports/, security/ docs
+├── deploy/                    # absorbs docker/, ha-config/, monitoring/, ssl/,
+│   ├── ansible/               #   secrets/, integrations/, terraform-provider/,
+│   ├── docker/                #   jenkins/
+│   ├── haproxy/
+│   ├── helm/
+│   ├── integrations/
+│   ├── monitoring/
+│   ├── secrets/
+│   ├── ssl/
+│   └── terraform-provider/
+├── docs/                      # absorbs ONBOARDING, reports/, security/ docs,
+│   │                          #   CONTRIBUTING, SECURITY, AGENTS
+│   ├── AGENTS.md
+│   ├── CONTRIBUTING.md
+│   ├── ONBOARDING.md
+│   ├── SECURITY.md
+│   ├── reports/
+│   └── security/
 ├── go.mod
 ├── go.sum
 ├── internal/
 ├── management/
-├── mypy.ini                   # → consider merging into pyproject.toml
 ├── proxy.py
-├── pyproject.toml
-├── requirements.txt           # → consider consolidating all 3 into pyproject.toml
+├── pyproject.toml             # absorbs mypy.ini, .flake8, requirements-*.txt
 ├── scripts/                   # absorbs quick-start.sh
 ├── src/                       # absorbs tarpit/, ebpf/, memory/
+│   ├── ebpf/
+│   ├── memory/
+│   ├── security/
+│   └── tarpit/
 └── tests/                     # absorbs performance/, test-content/
+    ├── fixtures/              # ← test-content/, geoip test data
+    └── performance/
 ```
 
-**Result: ~26 visible entries on GitHub** (dotfiles hidden by default → ~15 visible)
-vs current **~50 visible entries**. README.md visible without scrolling.
+**GitHub visible entries (dotfiles hidden): 14** — down from ~50.
+README.md is the 9th entry alphabetically — visible without scrolling.
+
+### Key consolidation decisions
+
+1. **Linter dotfiles → `.config/`**: Tools like golangci-lint, hadolint,
+   yamllint, bandit all support `--config path` flags. The Makefile targets
+   already invoke them — just add the `--config .config/X` flag. This alone
+   removes 10 entries from root. *If a tool cannot read from `.config/`,
+   leave its dotfile at root and document why.*
+
+2. **`CONTRIBUTING.md`, `SECURITY.md`, `AGENTS.md`, `ONBOARDING.md` → `docs/`**:
+   GitHub will still find `SECURITY.md` and `CONTRIBUTING.md` via symlinks
+   or the `community_health` directory. Add symlinks at root if GitHub
+   requires them: `SECURITY.md → docs/SECURITY.md`.
+
+3. **All 3 `requirements*.txt` → `pyproject.toml`**: Use
+   `[project.optional-dependencies]` groups. `pip install -e ".[test]"` replaces
+   `pip install -r requirements-test.txt`.
+
+4. **`management/` stays at root**: It's a separate Python app (FastAPI), not
+   a deployment artifact. It's analogous to `cmd/` for Go.
+
+5. **`gitlab-ci/` can merge into `.github/`** if GitLab CI is no longer used,
+   or stay if both are active. Audit first.
 
 ---
 
@@ -295,7 +335,7 @@ If it's the active development copy:
 
 ## Acceptance Criteria
 
-- [ ] Root has ≤30 tracked entries (files + directories)
+- [ ] Root has ≤20 tracked entries (files + directories), ≤14 visible on GitHub
 - [ ] README.md visible on GitHub without scrolling past file listing
 - [ ] No transient/build files in root (all gitignored)
 - [ ] All deployment config consolidated under `deploy/`
