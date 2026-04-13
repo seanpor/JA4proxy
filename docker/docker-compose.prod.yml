@@ -177,7 +177,7 @@ services:
 
   tarpit:
     build:
-      context: ../tarpit
+      context: ../src/tarpit
       dockerfile: Dockerfile
     image: ja4proxy-tarpit:1.0.0
     ports:
