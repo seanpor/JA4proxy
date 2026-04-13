@@ -234,7 +234,7 @@ class WorkspaceIntegrityTool:
                 "CONTRIBUTING.md", "SECURITY.md", ".gitignore", "AGENTS.md",
             }:
                 continue
-            if f.startswith("geoip/"):
+            if f.startswith("data/geoip/"):
                 continue
             if f.startswith("cmd/"):
                 continue  # Entry points

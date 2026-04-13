@@ -30,7 +30,7 @@ COPY proxy.py .
 COPY config/ config/
 COPY security/ security/
 COPY src/ src/
-COPY geoip/ geoip/
+COPY data/geoip/ geoip/
 
 # Install IP2Location for country lookups
 RUN pip install --no-cache-dir IP2Location

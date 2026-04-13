@@ -334,11 +334,11 @@ class TestDockerReadme:
 
 
 class TestDockerfileLocationLabels:
-    """89i: src/analytics/Dockerfile and tarpit/Dockerfile must carry location LABEL."""
+    """89i: src/analytics/Dockerfile and src/tarpit/Dockerfile must carry location LABEL."""
 
     @pytest.mark.parametrize("df_path", [
         "src/analytics/Dockerfile",
-        "tarpit/Dockerfile",
+        "src/tarpit/Dockerfile",
     ])
     def test_dockerfile_has_location_label(self, df_path: str):
         """Module Dockerfiles must contain LABEL dockerfile.location=\"module\"."""

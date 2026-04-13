@@ -161,7 +161,7 @@ services:
 
   tarpit:
     build:
-      context: ../tarpit
+      context: ../src/tarpit
       dockerfile: Dockerfile
     image: ja4proxy-tarpit:1.0.0
     restart: unless-stopped
@@ -181,7 +181,7 @@ services:
       - /tmp:noexec,nosuid,nodev,size=50m
     cap_drop:
       - ALL
-    # Non-root user set in tarpit/Dockerfile (USER tarpit)
+    # Non-root user set in src/tarpit/Dockerfile (USER tarpit)
     deploy:
       resources:
         limits:

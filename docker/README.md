@@ -130,6 +130,6 @@ The production stack (`docker/docker-compose.prod.yml`) uses Docker secrets (fil
 | `tests/docker/` | All test-infrastructure Dockerfiles |
 | `<module>/` | Dockerfiles for independently deployable modules with their own build context, labelled `dockerfile.location=module` |
 
-Module Dockerfiles (`src/analytics/Dockerfile`, `tarpit/Dockerfile`) carry the label
+Module Dockerfiles (`src/analytics/Dockerfile`, `src/tarpit/Dockerfile`) carry the label
 `dockerfile.location=module` to distinguish them from `docker/` images in inventory
 tooling. Both use the root project directory as their build context.

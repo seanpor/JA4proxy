@@ -13,7 +13,7 @@ This document serves as the canonical registry of every Docker image used in the
 
 | Image | Pinned Version | Used in | Last Reviewed | Notes |
 |-------|----------------|---------|---------------|-------|
-| `python:3.11-slim` | `3.11.11-slim` | `docker/Dockerfile`, `src/analytics/Dockerfile`, `tarpit/Dockerfile`, `docker/Dockerfile.mockbackend`, `docker/Dockerfile.test`, `docker/Dockerfile.trafficgen` | 2026-03-28 | Base for all Python services |
+| `python:3.11-slim` | `3.11.11-slim` | `docker/Dockerfile`, `src/analytics/Dockerfile`, `src/tarpit/Dockerfile`, `docker/Dockerfile.mockbackend`, `docker/Dockerfile.test`, `docker/Dockerfile.trafficgen` | 2026-03-28 | Base for all Python services |
 | `redis/redis-stack` | `7.4.0-v3` | `docker/docker-compose.prod.yml`, `docker/docker-compose.poc.yml` | 2026-03-28 | Database with RediSearch/RedisJSON |
 | `haproxy:2.8-alpine` | `2.8.5-alpine` | `docker/docker-compose.prod.yml`, `docker/docker-compose.poc.yml` | 2026-03-28 | Edge proxy/Load balancer |
 | `haproxy:2.6` | `2.6.15` | `docker/docker-compose.scale.yml` | 2026-03-28 | Legacy scaling tests |
@@ -33,7 +33,7 @@ This document serves as the canonical registry of every Docker image used in the
 |-------|-----|------------|-------|
 | `ja4proxy` | `latest` | `docker/Dockerfile` | Main proxy service |
 | `ja4proxy-analytics` | `latest` | `src/analytics/Dockerfile` | Signal analysis service |
-| `ja4proxy-tarpit` | `latest` | `tarpit/Dockerfile` | Connection slowing service |
+| `ja4proxy-tarpit` | `latest` | `src/tarpit/Dockerfile` | Connection slowing service |
 | `ja4proxy-mockbackend` | `latest` | `docker/Dockerfile.mockbackend` | Mock upstream for testing |
 | `ja4proxy-test` | `latest` | `docker/Dockerfile.test` | Test runner environment |
 | `ja4proxy-trafficgen` | `latest` | `docker/Dockerfile.trafficgen` | Traffic generator for benchmarks |

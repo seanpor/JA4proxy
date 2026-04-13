@@ -35,7 +35,7 @@ echo "  Mode: $MODE"
 echo ""
 
 # Create reports directory
-mkdir -p performance/reports
+mkdir -p tests/performance/reports
 
 if [ "$MODE" = "web" ]; then
     echo -e "${BLUE}Starting Locust web interface...${NC}"
