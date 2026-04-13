@@ -107,7 +107,7 @@ To test multi-proxy configurations, remove the `container_name` from the proxy s
 docker compose -f docker/docker-compose.poc.yml up -d --scale proxy=4
 ```
 
-Then update `ha-config/haproxy.cfg` to add the additional proxy backends.
+Then update `deploy/haproxy/haproxy.cfg` to add the additional proxy backends.
 
 ## Key Findings
 

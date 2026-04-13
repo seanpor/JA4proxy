@@ -63,8 +63,8 @@ redis:
 
 Copy the client certificates from the Redis host:
 ```bash
-scp redis01:/opt/ja4proxy/redis/tls/client-proxy.{crt,key} ./ssl/
-scp redis01:/opt/ja4proxy/redis/tls/ca.crt ./ssl/
+scp redis01:/opt/ja4proxy/redis/tls/client-proxy.{crt,key} ./deploy/ssl/
+scp redis01:/opt/ja4proxy/redis/tls/ca.crt ./deploy/ssl/
 ```
 
 ## Files Deployed

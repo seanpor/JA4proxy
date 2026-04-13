@@ -1,5 +1,5 @@
 .git/
-secrets/
+deploy/secrets/
 # NOTE: do NOT ignore tests/ — docker/Dockerfile.test (used by `make test-docker`)
 # copies tests/ into the image. The extra context for other Dockerfiles is
 # negligible.

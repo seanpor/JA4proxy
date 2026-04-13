@@ -1,18 +1,18 @@
 # Security: Never commit secrets, keys, or credentials
-secrets/*
-!secrets/.gitkeep
-!secrets/README.md
+deploy/secrets/*
+!deploy/secrets/.gitkeep
+!deploy/secrets/README.md
 
 # Debug/scratch files
 debug_asyncio_test.py
 ci-test-output.txt
 
-ssl/private/*
-!ssl/private/.gitkeep
-!ssl/private/README.md
+deploy/ssl/private/*
+!deploy/ssl/private/.gitkeep
+!deploy/ssl/private/README.md
 
-ssl/certs/*.key
-ssl/certs/*.pem
+deploy/ssl/certs/*.key
+deploy/ssl/certs/*.pem
 
 # Environment files with secrets
 .env

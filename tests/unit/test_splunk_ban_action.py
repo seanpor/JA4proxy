@@ -1,4 +1,4 @@
-"""Unit tests for integrations/splunk-ta/ja4proxy-ta/bin/ja4proxy_ban_action.py.
+"""Unit tests for deploy/integrations/splunk-ta/ja4proxy-ta/bin/ja4proxy_ban_action.py.
 
 Verifies that the Splunk alert action script constructs the correct URL and
 request body to match the Phase 79 Management API shape:
@@ -25,6 +25,7 @@ import pytest
 
 _SCRIPT_PATH = (
     Path(__file__).resolve().parents[2]
+    / "deploy"
     / "integrations"
     / "splunk-ta"
     / "ja4proxy-ta"

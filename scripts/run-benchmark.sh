@@ -213,7 +213,7 @@ docker compose -f docker/docker-compose.poc.yml run --rm \
 echo ""
 echo "Restoring single proxy configuration..."
 docker compose -f docker/docker-compose.poc.yml up -d --scale proxy=1 --no-recreate 2>/dev/null || true
-docker cp "$(pwd)/ha-config/haproxy.cfg" ja4proxy-haproxy:/usr/local/etc/haproxy/haproxy.cfg
+docker cp "$(pwd)/deploy/haproxy/haproxy.cfg" ja4proxy-haproxy:/usr/local/etc/haproxy/haproxy.cfg
 docker kill -s HUP ja4proxy-haproxy 2>/dev/null || docker restart ja4proxy-haproxy
 
 # ─────────────────────────────────────────────────────────────────────

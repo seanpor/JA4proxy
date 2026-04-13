@@ -67,10 +67,10 @@ Makefile target: `make start-scaled`
 ### Deploy to production (single instance)
 
 ```bash
-mkdir -p secrets
-openssl rand -base64 48 > secrets/redis_password.txt
-echo "your-abuseipdb-key" > secrets/abuseipdb_api_key.txt
-chmod 600 secrets/*.txt
+mkdir -p deploy/secrets
+openssl rand -base64 48 > deploy/secrets/redis_password.txt
+echo "your-abuseipdb-key" > deploy/secrets/abuseipdb_api_key.txt
+chmod 600 deploy/secrets/*.txt
 BACKEND_HOST=upstream.example.com ENVIRONMENT=production \
   docker compose -f docker/docker-compose.prod.yml up -d
 ```
@@ -118,7 +118,7 @@ will refuse to start if this variable is unset or empty. There are no silent def
 for security credentials.
 
 The production stack (`docker/docker-compose.prod.yml`) uses Docker secrets (files in
-`secrets/`) instead of environment variables.
+`deploy/secrets/`) instead of environment variables.
 
 ---
 

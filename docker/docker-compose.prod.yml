@@ -11,15 +11,15 @@
 #   - Container image signing: CI/CD concern; ops runbook
 #
 # Prerequisites (must be created before first deploy):
-#   secrets/redis_password.txt   — strong random password (min 32 chars)
-#   secrets/grafana_password.txt — Grafana admin password
-#   secrets/abuseipdb_api_key.txt — AbuseIPDB API key (or empty file to disable)
+#   deploy/secrets/redis_password.txt   — strong random password (min 32 chars)
+#   deploy/secrets/grafana_password.txt — Grafana admin password
+#   deploy/secrets/abuseipdb_api_key.txt — AbuseIPDB API key (or empty file to disable)
 #
 # Quick start:
-#   openssl rand -base64 48 > secrets/redis_password.txt
-#   openssl rand -base64 32 > secrets/grafana_password.txt
-#   echo "your-api-key" > secrets/abuseipdb_api_key.txt
-#   chmod 600 secrets/*.txt
+#   openssl rand -base64 48 > deploy/secrets/redis_password.txt
+#   openssl rand -base64 32 > deploy/secrets/grafana_password.txt
+#   echo "your-api-key" > deploy/secrets/abuseipdb_api_key.txt
+#   chmod 600 deploy/secrets/*.txt
 #   ENVIRONMENT=production docker compose -f docker/docker-compose.prod.yml up -d
 
 services:
@@ -358,8 +358,8 @@ networks:
 
 secrets:
   redis_password:
-    file: ../secrets/redis_password.txt
+    file: ../deploy/deploy/secrets/redis_password.txt
   grafana_password:
-    file: ../secrets/grafana_password.txt
+    file: ../deploy/deploy/secrets/grafana_password.txt
   abuseipdb_api_key:
-    file: ../secrets/abuseipdb_api_key.txt
+    file: ../deploy/deploy/secrets/abuseipdb_api_key.txt

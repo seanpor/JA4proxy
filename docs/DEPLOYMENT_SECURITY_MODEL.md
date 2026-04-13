@@ -93,9 +93,9 @@ Use Docker Compose secrets for credential injection:
 # docker/docker-compose.prod.yml
 secrets:
   redis_password:
-    file: ./secrets/redis_password.txt
+    file: ./deploy/secrets/redis_password.txt
   abuseipdb_api_key:
-    file: ./secrets/abuseipdb_api_key.txt
+    file: ./deploy/secrets/abuseipdb_api_key.txt
 
 services:
   proxy:
@@ -107,7 +107,7 @@ services:
       ABUSEIPDB_API_KEY_FILE: /run/secrets/abuseipdb_api_key
 ```
 
-The `secrets/*.txt` files must be mode 0600 and gitignored.
+The `deploy/secrets/*.txt` files must be mode 0600 and gitignored.
 
 ---
 

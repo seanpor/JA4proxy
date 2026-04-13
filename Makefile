@@ -394,7 +394,7 @@ scan-dockerfiles:
 	@fail=0; \
 	for f in docker/Dockerfile docker/Dockerfile.go-proxy docker/Dockerfile.management \
 		 docker/Dockerfile.mockbackend docker/Dockerfile.admin docker/Dockerfile.test \
-		 docker/Dockerfile.trafficgen Dockerfile-cli \
+		 docker/Dockerfile.trafficgen docker/Dockerfile.cli \
 		 docker/docker-compose.poc.yml docker/docker-compose.monitoring.yml \
 		 docker/docker-compose.prod.yml docker/docker-compose.scale.yml \
 		 docker/docker-compose.python-legacy.yml; do \
@@ -1120,12 +1120,12 @@ lint-haproxy:
 	@echo "=== haproxy -c: HAProxy config validation ==="
 	@docker run --rm \
 		-v "$(PWD)/config:/config:ro" \
-		-v "$(PWD)/ha-config:/ha-config:ro" \
+		-v "$(PWD)/deploy/haproxy:/ha-config:ro" \
 		haproxy:2.8.5-alpine \
 		sh -c "haproxy -c -f /config/haproxy.cfg \
 			&& echo '  config/haproxy.cfg                                 OK' \
 			; haproxy -c -f /ha-config/haproxy.cfg \
-			&& echo '  ha-config/haproxy.cfg                              OK'" \
+			&& echo '  deploy/haproxy/haproxy.cfg                              OK'" \
 		&& echo "✓ HAProxy config valid"
 
 # helm lint: Helm chart structural and semantic validation — catches missing
@@ -1231,7 +1231,7 @@ test-phase-92:
 
 ## Phase 93 targets — Terraform Provider + Emergency Playbooks
 test-phase-93:
-	cd terraform-provider && GOROOT=/snap/go/current go test ./internal/... -v -count=1
+	cd deploy/terraform-provider && GOROOT=/snap/go/current go test ./internal/... -v -count=1
 	python3 -m pytest tests/integration/test_emergency_playbooks.py -v
 
 # Phase 92 PHONY declarations (appended per CLAUDE.md — do not modify line 3)

@@ -7,8 +7,8 @@ WORKDIR /app
 
 # Copy mock backend server and TLS certs
 COPY scripts/mock-backend.py .
-COPY ssl/certs/backend.crt /app/ssl/certs/backend.crt
-COPY ssl/private/backend.key /app/ssl/private/backend.key
+COPY deploy/ssl/certs/backend.crt /app/ssl/certs/backend.crt
+COPY deploy/ssl/private/backend.key /app/ssl/private/backend.key
 
 # Fix permissions so non-root user can read the cert and key
 RUN chmod 644 /app/ssl/certs/backend.crt && chmod 644 /app/ssl/private/backend.key
