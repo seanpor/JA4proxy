@@ -58,13 +58,17 @@ Add a comprehensive badge section to the top of README.md to provide at-a-glance
 
 ## Acceptance criteria
 
-- [ ] Badge section exists immediately below `# JA4proxy` heading
-- [ ] At minimum: License, Python version, Go version, CI status badges are present
-- [ ] All static badges use correct shields.io URLs with proper colors
-- [ ] All dynamic badges point to correct GitHub Actions workflow paths
-- [ ] Badge links open to relevant project pages or workflows
-- [ ] `make lint-phases` exits 0
-- [ ] `python3 scripts/sync-roadmap.py` runs successfully
+- [x] Badge section exists immediately below `# JA4proxy` heading
+- [x] At minimum: License, Python version, Go version, CI status badges are present
+- [x] All static badges use correct shields.io URLs with proper colors
+- [x] All dynamic badges point to correct GitHub Actions workflow paths (`seanpor/JA4proxy`)
+- [x] Badge links open to relevant project pages or workflows
+- [x] `make lint-phases` exits 0
+- [x] `python3 scripts/sync-roadmap.py` runs successfully
+
+## Notes
+
+- **2026-04-12 fix:** Initial badge URLs used wrong repo owner (`anomalyco/ja4proxy`). Fixed to `seanpor/JA4proxy` on branch `claude/phase-204-fix-badges`.
 
 ## Out of scope
 
