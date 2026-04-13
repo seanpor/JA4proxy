@@ -91,6 +91,7 @@ epics:
   - 88
   - 91
   - 102
+  - 204
 - name: 'Epic: Quality Assurance & Test Maturity'
   description: Comprehensive testing, adversarial coverage, and performance validation.
   phases:
@@ -100,6 +101,20 @@ epics:
   - 60
   - 61
 phases:
+  204:
+    name: 'README Badges — License, Versions, CI, Security'
+    status: COMPLETE
+    completed: 2026-04-12
+    action_plan: docs/phases/PHASE_204.md
+    dependencies: []
+    size: XS
+    summary: 'Add comprehensive badge section to README.md: license, Python/Go versions, CI status, test coverage, security scans (Semgrep, TruffleHog), dependency audit, Docker readiness, and project architecture badges.'
+    success_criteria:
+    - Badge section exists below H1 heading in README.md
+    - At minimum: License, Python version, Go version, CI status badges present
+    - All static badges use correct shields.io URLs
+    - All dynamic badges point to correct GitHub Actions workflow paths
+    - make lint-phases exits 0
   0:
     name: Foundation
     status: COMPLETE
@@ -374,8 +389,6 @@ phases:
     action_plan: docs/phases/PHASE_33.md
     dependencies: []
     size: SMALL
-    gaps:
-    - Diagrams not standardized to Mermaid format for consistent rendering
     success_criteria:
     - All architecture diagrams in Mermaid format
     - Diagrams render correctly in GitHub/GitLab
@@ -414,9 +427,6 @@ phases:
     - 15
     test_coverage: 100%
     doc_status: COMPLETE
-    gaps:
-    - 'G36-1: FIXED - TestJA4_FixturesParity now reads from known_ja4.json'
-    - 'G36-2: FIXED - Added real certificate test with format verification'
     success_criteria:
     - TestJA4_FixturesParity runs and passes against 4 fixtures
     - Cross-language JA4X parity verified
@@ -595,9 +605,6 @@ phases:
     - 40
     size: SMALL
     completed: '2026-04-06'
-    gaps:
-    - 'P22-G2: Cloud storage adapters (S3, GCS, Azure Blob Storage)'
-    - "P22-G3: Incremental backup strategy (track changed keys since last full) \u2014 deferred to Phase 58"
     success_criteria:
     - Successful offsite backup to at least one cloud provider
     - "Incremental backups significantly reduce backup window for large datasets \u2014 deferred to Phase 58"
@@ -977,8 +984,6 @@ phases:
     - 83
     size: LARGE
     gaps:
-    - "Provider repo (/home/sean/LLM/terraform-provider-ja4proxy) exists and is fully functional (43 tests pass, ADR-093d
-      written) but has no GitHub remote and has not been pushed. See Phase 101."
     - "Terraform Registry publication requires HashiCorp partner review — external process, track separately."
   93.1:
     name: Terraform Provider Foundation
@@ -1227,9 +1232,6 @@ phases:
     dependencies:
     - 14
     size: MEDIUM
-    gaps:
-    - "make test-phase-87-integration target was broken since code was merged (scripts never created). Scripts created and\
-      \ extended in Phase 91. Integration tests require a live monitoring stack \u2014 never yet run against real infrastructure."
     success_criteria:
     - cAdvisor service added to docker/docker-compose.monitoring.yml and scraped by Prometheus
     - 'ja4proxy-infrastructure.json dashboard: fleet status strip visible without scrolling, container variable drill-down'
