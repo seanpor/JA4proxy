@@ -11,10 +11,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🔵 Planned & Open Phases
 
-### Phase 94 — Kubernetes Operator + CMDB/NetBox Integration
-*   **Status:** **PROPOSED** (ja4proxy-operator (separate repo): JA4ProxyConfig, JA4ProxyAllowlist, JA4ProxyDial CRDs with admission webhook validation. Reconciliation loop via Management API. DaemonSet safety annotations. ArgoCD custom health check. ServiceNow CMDB auto-registration (opt-in). NetBox trusted CIDR integration (opt-in, fail-open).)
-*   **Action Plan:** [PHASE_94.md](PHASE_94.md)
-
 ### Phase 101 — Phase 101 — Cross-Phase Gap Closure
 *   **Status:** **PROPOSED** (Rolling cross-phase register of deferred review gaps from Phase 84 (compliance), Phase 85 (threat-intel hardening), Phase 62 (Go test parity), Phase 64 (deploy validation), Phase 86i (capacity hardening), and Phase 93 (Terraform provider). 12 sub-phases bundling 38 open gaps (3 critical, 13 high, 19 medium, 9 low). 16 items already closed. 4 documented limitations (external processes or blocked on hardware).)
 *   **Action Plan:** [PHASE_101.md](PHASE_101.md)

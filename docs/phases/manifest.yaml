@@ -1115,11 +1115,12 @@ phases:
     - CI workflows (.github/workflows/) passing on remote
   94:
     name: Kubernetes Operator + CMDB/NetBox Integration
-    status: PROPOSED
-    summary: 'ja4proxy-operator (separate repo at github.com/seanpor/ja4proxy-operator):
-      JA4ProxyConfig, JA4ProxyAllowlist, JA4ProxyDial CRDs with admission webhook
-      validation. Reconciliation loop via Management API. DaemonSet safety annotations. ArgoCD custom health check. ServiceNow
-      CMDB auto-registration (opt-in). NetBox trusted CIDR integration (opt-in, fail-open). 14 sub-phases across 3 parallel streams.'
+    status: COMPLETE
+    completed: 2026-04-13
+    summary: 'Main-repo sub-phases delivered: ManagedBy enum extension (94a), Helm DaemonSet conversion (94b),
+      NetBox trusted CIDR loader in Go with fail-open + SIGHUP + metrics (94i1/i2), Ansible ja4proxy role
+      with binary/container/quadlet modes + Molecule tests (94j), ServiceNow CMDB task (94k).
+      Operator sub-phases (94c–94g, 94h, 94l) live in separate repo (ja4proxy-operator).'
     action_plan: docs/phases/PHASE_94.md
     dependencies:
     - 79
@@ -1130,6 +1131,9 @@ phases:
     - JA4ProxyDial handles 202 response (pendingDecisionId in status)
     - NetBox integration opt-in with fail-open fallback to static CIDRs
     - E2E integration test (94l) passes with real Management API stubs
+    gaps:
+    - "Operator sub-phases (94c–94g, 94h, 94l) live in separate repo — not included in this merge"
+    - "Operator runbook (94h) deferred until reconcilers are implemented"
   84:
     name: Compliance & Reporting
     status: COMPLETE

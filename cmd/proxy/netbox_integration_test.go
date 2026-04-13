@@ -37,8 +37,8 @@ func TestReloadTrustedCIDRs_NetBoxEnabled(t *testing.T) {
 	log.SetLevel(logrus.WarnLevel)
 
 	p := &proxy{
-		log:           log,
-		trustedCIDRs:  nil,
+		log:            log,
+		trustedCIDRs:   nil,
 		trustedCIDRsMu: sync.RWMutex{},
 	}
 

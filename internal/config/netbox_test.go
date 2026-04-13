@@ -161,8 +161,8 @@ func TestLoadTrustedCIDRsFromNetBox_Pagination(t *testing.T) {
 		if page == 0 {
 			nextURL := srvURL + "/api/ipam/prefixes/?tag=ja4proxy-trusted&limit=1000&offset=1000"
 			resp := map[string]interface{}{
-				"count":   3,
-				"next":    nextURL,
+				"count": 3,
+				"next":  nextURL,
 				"results": []map[string]interface{}{
 					{"prefix": "10.0.0.0/8"},
 					{"prefix": "172.16.0.0/12"},
@@ -172,8 +172,8 @@ func TestLoadTrustedCIDRsFromNetBox_Pagination(t *testing.T) {
 			page++
 		} else {
 			resp := map[string]interface{}{
-				"count":   3,
-				"next":    nil,
+				"count": 3,
+				"next":  nil,
 				"results": []map[string]interface{}{
 					{"prefix": "192.168.0.0/16"},
 				},
@@ -209,9 +209,9 @@ func TestLoadTrustedCIDRsFromNetBox_RejectsDefaultRoute(t *testing.T) {
 		resp := map[string]interface{}{
 			"count": 4,
 			"results": []map[string]interface{}{
-				{"prefix": "0.0.0.0/0"},      // should be rejected
-				{"prefix": "::/0"},           // should be rejected
-				{"prefix": "10.0.0.0/8"},     // should be accepted
+				{"prefix": "0.0.0.0/0"},        // should be rejected
+				{"prefix": "::/0"},             // should be rejected
+				{"prefix": "10.0.0.0/8"},       // should be accepted
 				{"prefix": "not-a-valid-cidr"}, // should be skipped (malformed)
 			},
 		}

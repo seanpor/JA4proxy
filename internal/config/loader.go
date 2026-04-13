@@ -304,31 +304,31 @@ func DefaultConfig() *Config {
 
 // Config is the top-level configuration structure. Field names match proxy.yml.
 type Config struct {
-	Proxy                 ProxyConfig                  `yaml:"proxy"`
-	Redis                 RedisConfig                  `yaml:"redis"`
-	Security              SecurityConfig               `yaml:"security"`
-	MonitorMode           MonitorModeConfig            `yaml:"monitor_mode"`
-	SecurityPolicy        SecurityPolicyConfig         `yaml:"security_policy"`
-	RiskScorer            RiskScorerConfig             `yaml:"risk_scorer"`
-	Logging               LoggingConfig                `yaml:"logging"`
-	Metrics               MetricsConfig                `yaml:"metrics"`
-	Tarpit                TarpitConfig                 `yaml:"tarpit"`
-	TLSEnforcer           TLSEnforcerConfigYAML        `yaml:"tls_enforcer"`
-	SNIAnalyzer           SNIAnalyzerConfigYAML        `yaml:"sni_analyzer"`
-	GeoIP                 GeoIPConfigYAML              `yaml:"geoip"`
-	TCPAnalyzer           TCPAnalyzerConfigYAML        `yaml:"tcp_analyzer"`
-	RateLimiter           RateLimiterConfigYAML        `yaml:"rate_limiter"`
-	ASNClassifier         ASNClassifierConfigYAML      `yaml:"asn_classifier"`
-	DNSEnrichment         DNSEnrichmentConfigYAML      `yaml:"dns_enrichment"`
-	Blocklists            BlocklistsConfigYAML         `yaml:"blocklists"`
-	Beaconing             BeaconingConfigYAML          `yaml:"beaconing_detector"`
-	AbuseIPDB             AbuseIPDBConfigYAML          `yaml:"abuseipdb"`
-	RDAPEnrichment        RDAPConfigYAML               `yaml:"rdap_enrichment"`
-	Fingerprinting        FingerprintingConfigYAML     `yaml:"fingerprinting"`
-	StaticAllowlist       StaticAllowlistConfigYAML    `yaml:"static_allowlist"`
-	Webhooks              WebhooksConfig               `yaml:"webhooks"`       // phase-80
-	Monitoring            MonitoringConfig             `yaml:"monitoring"`     // phase-88
-	Sync                  SyncAgentConfig              `yaml:"sync"`           // phase-88
+	Proxy                  ProxyConfig                  `yaml:"proxy"`
+	Redis                  RedisConfig                  `yaml:"redis"`
+	Security               SecurityConfig               `yaml:"security"`
+	MonitorMode            MonitorModeConfig            `yaml:"monitor_mode"`
+	SecurityPolicy         SecurityPolicyConfig         `yaml:"security_policy"`
+	RiskScorer             RiskScorerConfig             `yaml:"risk_scorer"`
+	Logging                LoggingConfig                `yaml:"logging"`
+	Metrics                MetricsConfig                `yaml:"metrics"`
+	Tarpit                 TarpitConfig                 `yaml:"tarpit"`
+	TLSEnforcer            TLSEnforcerConfigYAML        `yaml:"tls_enforcer"`
+	SNIAnalyzer            SNIAnalyzerConfigYAML        `yaml:"sni_analyzer"`
+	GeoIP                  GeoIPConfigYAML              `yaml:"geoip"`
+	TCPAnalyzer            TCPAnalyzerConfigYAML        `yaml:"tcp_analyzer"`
+	RateLimiter            RateLimiterConfigYAML        `yaml:"rate_limiter"`
+	ASNClassifier          ASNClassifierConfigYAML      `yaml:"asn_classifier"`
+	DNSEnrichment          DNSEnrichmentConfigYAML      `yaml:"dns_enrichment"`
+	Blocklists             BlocklistsConfigYAML         `yaml:"blocklists"`
+	Beaconing              BeaconingConfigYAML          `yaml:"beaconing_detector"`
+	AbuseIPDB              AbuseIPDBConfigYAML          `yaml:"abuseipdb"`
+	RDAPEnrichment         RDAPConfigYAML               `yaml:"rdap_enrichment"`
+	Fingerprinting         FingerprintingConfigYAML     `yaml:"fingerprinting"`
+	StaticAllowlist        StaticAllowlistConfigYAML    `yaml:"static_allowlist"`
+	Webhooks               WebhooksConfig               `yaml:"webhooks"`                 // phase-80
+	Monitoring             MonitoringConfig             `yaml:"monitoring"`               // phase-88
+	Sync                   SyncAgentConfig              `yaml:"sync"`                     // phase-88
 	TrustedUpstreamSources TrustedUpstreamSourcesConfig `yaml:"trusted_upstream_sources"` // phase-94i2
 }
 
@@ -362,8 +362,8 @@ type UpstreamTrustConfig struct {
 
 // TrustedUpstreamSourcesConfig holds dynamic trusted-upstream provider settings (phase-94i2).
 type TrustedUpstreamSourcesConfig struct {
-	NetBox   NetBoxSourceConfig `yaml:"netbox"`
-	StaticCIDRs []string        `yaml:"static_cidrs"`
+	NetBox      NetBoxSourceConfig `yaml:"netbox"`
+	StaticCIDRs []string           `yaml:"static_cidrs"`
 }
 
 // NetBoxSourceConfig holds NetBox IPAM integration settings (phase-94i2).
