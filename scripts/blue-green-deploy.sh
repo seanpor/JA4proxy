@@ -7,7 +7,7 @@
 set -euo pipefail
 
 # Configuration
-COMPOSE_PROD="docker/docker-compose.prod.yml"
+COMPOSE_PROD="deploy/docker/docker-compose.prod.yml"
 HAPROXY_CFG="config/haproxy.cfg"
 HEALTH_PORT=9090
 CHECK_INTERVAL=2

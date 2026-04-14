@@ -128,7 +128,7 @@ tests/
 
 > **Note:** `tests/integration/test_docker_stack.py` is excluded from `make test`
 > because it makes real HTTP calls to running containers. Run it manually with a live
-> stack: `docker compose -f docker/docker-compose.poc.yml up -d && pytest tests/integration/test_docker_stack.py`.
+> stack: `docker compose -f deploy/docker/docker-compose.poc.yml up -d && pytest tests/integration/test_docker_stack.py`.
 
 > **Note:** `tests/performance/bench_*.py` files are not named `test_*.py` so pytest
 > does not collect them automatically. Run manually: `python3 tests/performance/bench_pipeline.py`.

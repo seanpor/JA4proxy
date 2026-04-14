@@ -26,7 +26,7 @@ ENV_FILE="${ENV_FILE:-.env}"
 #   ./scripts/ja4-admin.sh --agent claude status   # explicit override
 
 COMPOSE_PROJECT_NAME=""
-COMPOSE_FILE="docker/docker-compose.poc.yml"
+COMPOSE_FILE="deploy/docker/docker-compose.poc.yml"
 
 if [[ "${1:-}" == "--agent" ]]; then
     AGENT_NAME="${2:?--agent requires a name (gemini|claude|ollama|mistral)}"

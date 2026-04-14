@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Phase 86h - Rewrite dead runbook_url annotations in Alertmanager rule files.
 
-Rewrites every `runbook_url:` line in `monitoring/alertmanager/rules/*.yml`
+Rewrites every `runbook_url:` line in `deploy/monitoring/alertmanager/rules/*.yml`
 to the canonical format:
 
     https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/<file>.md
@@ -21,11 +21,11 @@ Behaviour notes:
 
 Usage:
     python3 scripts/fix_runbook_urls.py \\
-        --rules-dir monitoring/alertmanager/rules/ \\
+        --rules-dir deploy/monitoring/alertmanager/rules/ \\
         --mapping docs/phases/PHASE_86h_runbook_mapping.yml \\
         --runbooks-dir docs/runbooks/
     python3 scripts/fix_runbook_urls.py \\
-        --rules-dir monitoring/alertmanager/rules/ \\
+        --rules-dir deploy/monitoring/alertmanager/rules/ \\
         --mapping docs/phases/PHASE_86h_runbook_mapping.yml \\
         --check
 

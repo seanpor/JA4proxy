@@ -211,7 +211,7 @@ class WorkspaceIntegrityTool:
                 self.parse_markdown(f)
             elif f.endswith(".yml") or f.endswith(".yaml"):
                 self.parse_yaml(f)
-            elif os.path.basename(f) in DOCKER_FILES or f.startswith("docker/"):
+            elif os.path.basename(f) in DOCKER_FILES or f.startswith("deploy/docker/"):
                 self.parse_dockerfile(f)
             
             # Special case: Makefile
@@ -234,7 +234,7 @@ class WorkspaceIntegrityTool:
                 "CONTRIBUTING.md", "SECURITY.md", ".gitignore", "AGENTS.md",
             }:
                 continue
-            if f.startswith("geoip/"):
+            if f.startswith("data/geoip/"):
                 continue
             if f.startswith("cmd/"):
                 continue  # Entry points

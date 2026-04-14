@@ -193,7 +193,7 @@ Pre-deployment:
 □ Validate GeoIP country whitelist matches business requirements
 
 Day-of:
-□ Deploy with docker compose -f docker/docker-compose.poc.yml up -d
+□ Deploy with docker compose -f deploy/docker/docker-compose.poc.yml up -d
 □ Verify health: ./poc-status-check.sh
 □ Start monitoring: ./start-monitoring.sh
 □ Run smoke test: ./smoke-test.sh

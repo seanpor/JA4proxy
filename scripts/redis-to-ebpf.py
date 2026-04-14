@@ -3,7 +3,7 @@
 
 This sidecar process polls Redis every 5 seconds and calls ``bpftool map
 update`` for each blocked IPv4 address.  It is designed to run alongside
-the JA4proxy eBPF/XDP program (``ebpf/ja4block.o``).
+the JA4proxy eBPF/XDP program (``src/ebpf/ja4block.o``).
 
 Usage
 -----

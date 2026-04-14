@@ -8,7 +8,7 @@ phase: 86
 # Runbook — TIFeedCircuitOpen
 
 **Alert:** `TIFeedCircuitOpen`
-**Source:** `monitoring/alertmanager/rules/ti_feed.yml`
+**Source:** `deploy/monitoring/alertmanager/rules/ti_feed.yml`
 **Severity:** warning
 **Phase:** 85 (TI batch-poller runner)
 

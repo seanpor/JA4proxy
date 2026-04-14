@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 import pytest
 
-from security.validation import (
+from src.security.validation import (
     AuditLogger,
     ComplianceError,
     MTLSManager,
@@ -143,7 +143,7 @@ class TestCSRFToken:
         """Two tokens generated in the same second with the same session share the MAC."""
         # Freeze time so both calls return identical timestamps
         fixed_ts = int(time.time())
-        with patch("security.validation.time") as mock_time:
+        with patch("src.security.validation.time") as mock_time:
             mock_time.time.return_value = float(fixed_ts)
             t1 = validator.generate_csrf_token("sess-same")
             t2 = validator.generate_csrf_token("sess-same")

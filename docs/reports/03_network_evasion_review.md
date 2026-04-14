@@ -17,7 +17,7 @@
 | 5 | MEDIUM | JA4 is fully forgeable; ALPN bypass skips ALL security checks | [Both] | `internal/security/pipeline.go:368-371` |
 | 6 | LOW-MEDIUM | Python PROXY v2 `addr_len` trusted without bounds check | [Python-deprecated] | `proxy.py:2387-2445` |
 | 7 | LOW | Go allocates buffer per connection (no `sync.Pool`) | **[Go-PROD]** | `cmd/proxy/main.go:264,413` |
-| 8 | LOW-MEDIUM | XDP/eBPF blocking is IPv4 only | [Infra] | `ebpf/ja4block.c:71-75` |
+| 8 | LOW-MEDIUM | XDP/eBPF blocking is IPv4 only | [Infra] | `src/ebpf/ja4block.c:71-75` |
 | 9 | LOW | Blocklist feed download has no size limit | [Both] | `src/security/blocklists.py:377-383` |
 | 10 | LOW | GeoIP uses Country DB only (no proxy/VPN detection) | [Both] | `cmd/proxy/main.go:299-304` |
 | 11 | LOW | Single `Read()` may not capture full ClientHello | **[Go-PROD]** | `cmd/proxy/main.go:264` |

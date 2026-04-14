@@ -566,8 +566,8 @@ chmod 750 /opt/ja4proxy /var/log/ja4proxy
 
 # Copy configuration
 cp config/${ENVIRONMENT}.yml /opt/ja4proxy/config/proxy.yml
-cp ssl/* /opt/ja4proxy/ssl/
-cp secrets/* /opt/ja4proxy/secrets/
+cp deploy/ssl/* /opt/ja4proxy/ssl/
+cp deploy/secrets/* /opt/ja4proxy/secrets/
 
 # Deploy stack
 docker compose -f docker-compose.${ENVIRONMENT}.yml pull

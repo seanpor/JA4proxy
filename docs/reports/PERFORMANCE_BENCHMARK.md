@@ -101,13 +101,13 @@ To scale beyond 210/s, add more proxy containers:
 
 Redis can handle ~100K ops/s on a single instance, so the practical limit is **~400-500 proxy instances** before Redis needs clustering.
 
-To test multi-proxy configurations, remove the `container_name` from the proxy service in `docker/docker-compose.poc.yml` and use:
+To test multi-proxy configurations, remove the `container_name` from the proxy service in `deploy/docker/docker-compose.poc.yml` and use:
 
 ```bash
-docker compose -f docker/docker-compose.poc.yml up -d --scale proxy=4
+docker compose -f deploy/docker/docker-compose.poc.yml up -d --scale proxy=4
 ```
 
-Then update `ha-config/haproxy.cfg` to add the additional proxy backends.
+Then update `deploy/haproxy/haproxy.cfg` to add the additional proxy backends.
 
 ## Key Findings
 
@@ -136,7 +136,7 @@ Then update `ha-config/haproxy.cfg` to add the additional proxy backends.
 ./start-all.sh
 
 # Run the benchmark
-docker compose -f docker/docker-compose.poc.yml run --rm \
+docker compose -f deploy/docker/docker-compose.poc.yml run --rm \
     --entrypoint python3 \
     trafficgen /app/scripts/benchmark.py \
     --host proxy --port 8080 \

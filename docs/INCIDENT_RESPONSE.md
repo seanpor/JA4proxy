@@ -44,8 +44,8 @@ Red rows in `top` output are fingerprints that are currently being **blocked**. 
 You can also check logs directly:
 
 ```bash
-docker compose -f docker/docker-compose.poc.yml logs proxy | grep BLOCKED | tail -20
-docker compose -f docker/docker-compose.poc.yml logs proxy | grep BLACKLISTED | tail -20
+docker compose -f deploy/docker/docker-compose.poc.yml logs proxy | grep BLOCKED | tail -20
+docker compose -f deploy/docker/docker-compose.poc.yml logs proxy | grep BLACKLISTED | tail -20
 ```
 
 ### Step 2 — Block the attacking fingerprint
@@ -65,7 +65,7 @@ docker compose -f docker/docker-compose.poc.yml logs proxy | grep BLACKLISTED | 
 ./scripts/ja4-admin.sh list-ja4
 
 # In logs, blocked connections now show as BLACKLISTED (instant RST) instead of BLOCKED (rate-limit)
-docker compose -f docker/docker-compose.poc.yml logs proxy | grep BLACKLISTED | tail -5
+docker compose -f deploy/docker/docker-compose.poc.yml logs proxy | grep BLACKLISTED | tail -5
 ```
 
 ### Step 4 — Block by IP if needed
@@ -249,7 +249,7 @@ This is the key advantage of JA4 fingerprinting over IP blocking — one command
 **Check which versions are being blocked:**
 ```bash
 # Look for tls_version_bypass disabled warning at startup
-docker compose -f docker/docker-compose.poc.yml logs proxy | grep bypass_disabled
+docker compose -f deploy/docker/docker-compose.poc.yml logs proxy | grep bypass_disabled
 
 # Check metrics for blocked TLS version breakdown
 curl -s http://localhost:9090/metrics | grep ja4proxy_tls_version_total
@@ -282,10 +282,10 @@ kill -HUP $(pgrep -f proxy.py)
 **Check the SNI analysis:**
 ```bash
 # Find the flagged SNI in logs
-docker compose -f docker/docker-compose.poc.yml logs proxy | grep "sni_analysis" | grep -v '"score": 0' | tail -20
+docker compose -f deploy/docker/docker-compose.poc.yml logs proxy | grep "sni_analysis" | grep -v '"score": 0' | tail -20
 
 # Identify the client's JA4 fingerprint
-docker compose -f docker/docker-compose.poc.yml logs proxy | grep "<affected-ip>" | tail -10
+docker compose -f deploy/docker/docker-compose.poc.yml logs proxy | grep "<affected-ip>" | tail -10
 ```
 
 **Immediate relief:**
@@ -320,7 +320,7 @@ Send SIGHUP after config change: `kill -HUP $(pgrep -f proxy.py)`
 **Verify the IP is actually in a Spamhaus DROP list:**
 ```bash
 # Check if the IP is in an active blocklist CIDR
-docker compose -f docker/docker-compose.poc.yml logs proxy | grep "<affected-ip>" | grep blocklist
+docker compose -f deploy/docker/docker-compose.poc.yml logs proxy | grep "<affected-ip>" | grep blocklist
 
 # Check blocklist feed freshness
 curl -s http://localhost:9090/metrics | grep ja4proxy_blocklist_entries
@@ -397,11 +397,11 @@ Then hot-reload with SIGHUP. Static allowlist entries bypass all scoring and blo
 
 ```bash
 # Show all unique fingerprints seen in last 100 log lines
-docker compose -f docker/docker-compose.poc.yml logs proxy | tail -100 \
+docker compose -f deploy/docker/docker-compose.poc.yml logs proxy | tail -100 \
   | grep -oP 'JA4: \S+' | sort | uniq -c | sort -rn
 
 # Show fingerprint for a specific IP
-docker compose -f docker/docker-compose.poc.yml logs proxy | grep "203.0.113.42" | tail -5
+docker compose -f deploy/docker/docker-compose.poc.yml logs proxy | grep "203.0.113.42" | tail -5
 ```
 
 ### Looking up fingerprints

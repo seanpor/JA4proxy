@@ -12,8 +12,8 @@ import pytest
 
 ROOT = Path(__file__).parent.parent.parent
 
-INFRA_DASHBOARD = ROOT / "monitoring/grafana/dashboards/ja4proxy-infrastructure.json"
-OVERVIEW_DASHBOARD = ROOT / "monitoring/grafana/dashboards/ja4proxy-overview.json"
+INFRA_DASHBOARD = ROOT / "deploy/monitoring/grafana/dashboards/ja4proxy-infrastructure.json"
+OVERVIEW_DASHBOARD = ROOT / "deploy/monitoring/grafana/dashboards/ja4proxy-overview.json"
 
 REQUIRED_ROW_TITLES = [
     "Fleet Status",
@@ -140,7 +140,7 @@ class TestOverviewDashboardUnchanged:
 class TestPrometheusConfig:
     def test_cadvisor_scrape_job_present(self):
         """prometheus.yml must contain a cadvisor scrape job."""
-        prom_file = ROOT / "monitoring/prometheus/prometheus.yml"
+        prom_file = ROOT / "deploy/monitoring/prometheus/prometheus.yml"
         content = prom_file.read_text()
         assert "job_name: 'cadvisor'" in content or 'job_name: "cadvisor"' in content, (
             "prometheus.yml missing cadvisor scrape job"
@@ -148,7 +148,7 @@ class TestPrometheusConfig:
 
     def test_haproxy_exporter_scrape_job_present(self):
         """prometheus.yml must contain a haproxy scrape job."""
-        prom_file = ROOT / "monitoring/prometheus/prometheus.yml"
+        prom_file = ROOT / "deploy/monitoring/prometheus/prometheus.yml"
         content = prom_file.read_text()
         assert "job_name: 'haproxy'" in content or 'job_name: "haproxy"' in content, (
             "prometheus.yml missing haproxy scrape job"
@@ -156,7 +156,7 @@ class TestPrometheusConfig:
 
     def test_cadvisor_drops_blkio_metrics(self):
         """cAdvisor scrape config must drop high-cardinality blkio metrics."""
-        prom_file = ROOT / "monitoring/prometheus/prometheus.yml"
+        prom_file = ROOT / "deploy/monitoring/prometheus/prometheus.yml"
         content = prom_file.read_text()
         assert "blkio" in content, (
             "cAdvisor scrape config should have metric_relabel_configs dropping blkio series"

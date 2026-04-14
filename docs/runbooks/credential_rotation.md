@@ -75,7 +75,7 @@ the old one, all nodes are updated, then the old password is removed.
 5. **Verify all nodes reconnected with the new password:**
    ```bash
    # Check proxy logs for successful Redis connection
-   docker compose -f docker/docker-compose.poc.yml logs --tail=10 ja4proxy \
+   docker compose -f deploy/docker/docker-compose.poc.yml logs --tail=10 ja4proxy \
      | grep -i "redis.*connect"
 
    # Verify Redis auth with new password
@@ -218,7 +218,7 @@ storage (S3 or GCS) for backup archives.
 3. **Restart the backup worker** (not the proxy — the backup is a separate process):
    ```bash
    # Docker Compose
-   docker compose -f docker/docker-compose.poc.yml restart backup-worker
+   docker compose -f deploy/docker/docker-compose.poc.yml restart backup-worker
 
    # systemd
    systemctl restart ja4proxy-backup

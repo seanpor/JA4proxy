@@ -14,7 +14,7 @@ echo -e "${BLUE}========================================${NC}"
 echo ""
 
 # Check if POC is running
-if ! docker compose -f docker/docker-compose.poc.yml ps --format '{{.Status}}' | grep -q "Up"; then
+if ! docker compose -f deploy/docker/docker-compose.poc.yml ps --format '{{.Status}}' | grep -q "Up"; then
     echo -e "${YELLOW}⚠ JA4proxy POC not running. Starting...${NC}"
     ./scripts/start-poc.sh
     sleep 10
@@ -25,7 +25,7 @@ fi
 
 # Start monitoring stack
 echo -e "${GREEN}▶ Starting monitoring stack...${NC}"
-docker compose -f docker/docker-compose.monitoring.yml up -d
+docker compose -f deploy/docker/docker-compose.monitoring.yml up -d
 
 # Wait for services
 echo -e "${GREEN}▶ Waiting for services to be ready...${NC}"

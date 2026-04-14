@@ -640,7 +640,7 @@ export default defineConfig({
 
 ### 6.1 AlertManager Rules
 
-Create `../../monitoring/alertmanager/rules/management_ui_rules.yml`:
+Create `../../deploy/monitoring/alertmanager/rules/management_ui_rules.yml`:
 
 ```yaml
 groups:
@@ -838,7 +838,7 @@ Add an entry:
 - Startup guard: FATAL if `UI_API_KEY` not set
 - `allowed_cidr` middleware: restrict management access to a CIDR range
 - `management_ui:` section in `config/proxy.yml`
-- AlertManager rules: `../../monitoring/alertmanager/rules/management_ui_rules.yml`
+- AlertManager rules: `../../deploy/monitoring/alertmanager/rules/management_ui_rules.yml`
 - Grafana dashboard: `grafana/dashboards/management_ui.json`
 - ADR-013: Management UI technology rationale
 - Runbook: `docs/runbooks/management_ui.md`
@@ -1131,7 +1131,7 @@ All boxes must be ticked before Phase 13 is marked complete.
 
 ### 12g. Observability
 
-- [ ] `../../monitoring/alertmanager/rules/management_ui_rules.yml` passes `promtool check rules`
+- [ ] `../../deploy/monitoring/alertmanager/rules/management_ui_rules.yml` passes `promtool check rules`
 - [ ] `grafana/dashboards/management_ui.json` is valid JSON and importable into Grafana 10
 - [ ] All 7 Prometheus metrics present in `/metrics` output under load
 

@@ -30,13 +30,13 @@ This audit originally identified **18 critical and high-severity vulnerabilities
 
 | # | Finding | Status | Fix Location |
 |---|---------|--------|-------------|
-| 1 | Default/Weak Secrets | ✅ RESOLVED | `docker/docker-compose.poc.yml` `:?` syntax; `proxy.py` `_init_redis()` exits on missing prod password |
-| 2 | Unpinned Docker Images | ⚠️ DEFERRED | Phase 15 — image signing is a CI/CD concern; documented in `docker/docker-compose.prod.yml` header |
+| 1 | Default/Weak Secrets | ✅ RESOLVED | `deploy/docker/docker-compose.poc.yml` `:?` syntax; `proxy.py` `_init_redis()` exits on missing prod password |
+| 2 | Unpinned Docker Images | ⚠️ DEFERRED | Phase 15 — image signing is a CI/CD concern; documented in `deploy/docker/docker-compose.prod.yml` header |
 | 3 | Unpinned Python Deps | ⚠️ DEFERRED | Phase 15 rewrite replaces Python dep tree; current `requirements.txt` uses pinned `==` versions |
 | 4 | Missing TLS to Backend | ℹ️ DESIGN | Proxy is TLS passthrough; backend TLS is backend's responsibility; not a proxy concern |
 | 5 | Redis Without TLS | ⚠️ DEFERRED | Docker-internal network; Phase 15 Go rewrite will add Redis TLS; ADR-014 §Redis-TLS |
 | 6 | Metrics Without Auth | ✅ MITIGATED | Metrics bound to `127.0.0.1:9090` (internal only); reverse proxy auth documented in SECOPS_OPERATIONS.md |
-| 7 | Excessive Capabilities | ✅ RESOLVED | `docker/docker-compose.prod.yml`: `cap_drop: ALL`, `read_only`, `no-new-privileges` on all containers |
+| 7 | Excessive Capabilities | ✅ RESOLVED | `deploy/docker/docker-compose.prod.yml`: `cap_drop: ALL`, `read_only`, `no-new-privileges` on all containers |
 | 8 | Tarpit No Concurrency Limit | ✅ RESOLVED | Phase 14c: `max_concurrent_connections`, `max_per_ip`, `overflow_action` in `proxy.py` `_redirect_to_tarpit()` |
 
 ---
@@ -44,7 +44,7 @@ This audit originally identified **18 critical and high-severity vulnerabilities
 ## Critical Vulnerabilities (Severity: CRITICAL)
 
 ### 1. **Default/Weak Secrets in Configuration**
-**Location:** `docker/docker-compose.poc.yml:17, 36`  
+**Location:** `deploy/docker/docker-compose.poc.yml:17, 36`  
 **Severity:** CRITICAL  
 **CWE:** CWE-798 (Use of Hard-coded Credentials)
 
@@ -73,7 +73,7 @@ The default password "changeme" is used when REDIS_PASSWORD is not set, creating
 ---
 
 ### 2. **Unpinned Docker Base Images**
-**Location:** `Dockerfile:1`, `docker/docker-compose.poc.yml:34, 53`  
+**Location:** `Dockerfile:1`, `deploy/docker/docker-compose.poc.yml:34, 53`  
 **Severity:** CRITICAL  
 **CWE:** CWE-494 (Download of Code Without Integrity Check)
 
@@ -215,7 +215,7 @@ if self.config['metrics']['enabled']:
 ---
 
 ### 7. **Container Running with Excessive Capabilities**
-**Location:** `docker/docker-compose.poc.yml:26-29`  
+**Location:** `deploy/docker/docker-compose.poc.yml:26-29`  
 **Severity:** HIGH  
 **CWE:** CWE-250 (Execution with Unnecessary Privileges)
 
@@ -683,9 +683,9 @@ No automated scanning for:
 
 Phase 14 (Production Hardening, 2026-03-16) addressed the following from this audit:
 
-- **Finding 1 (Weak secrets):** `docker/docker-compose.poc.yml` replaced `:-changeme` with `:?`; proxy refuses to start in `ENVIRONMENT=production` without a Redis password (`proxy.py` `_init_redis()`).
+- **Finding 1 (Weak secrets):** `deploy/docker/docker-compose.poc.yml` replaced `:-changeme` with `:?`; proxy refuses to start in `ENVIRONMENT=production` without a Redis password (`proxy.py` `_init_redis()`).
 - **Finding 6 (Metrics auth):** Metrics endpoint bound to `127.0.0.1` only in all compose files. Auth via reverse proxy documented.
-- **Finding 7 (Container capabilities):** `docker/docker-compose.prod.yml` now enforces `cap_drop: ALL`, `read_only: true`, `security_opt: no-new-privileges` on every container.
+- **Finding 7 (Container capabilities):** `deploy/docker/docker-compose.prod.yml` now enforces `cap_drop: ALL`, `read_only: true`, `security_opt: no-new-privileges` on every container.
 - **Finding 8 (Tarpit unlimited):** `proxy.py` `_redirect_to_tarpit()` enforces `max_concurrent_connections` and `max_per_ip` with `overflow_action` fallback (Phase 14c).
 
 Remaining deferred items (2, 3, 5) are tracked as Phase 15 work items. Redis TLS rationale: Docker bridge network provides network-layer isolation; the threat model for this deployment does not include lateral movement from a container on the same Docker bridge.

@@ -1,1 +1,1 @@
-geoip/*.BIN binary
+data/geoip/*.BIN binary

@@ -33,7 +33,7 @@ services:
   # ── TLS backend ─────────────────────────────────────────────────────────────
   tls-backend:
     build:
-      context: ..
+      context: ../..
       dockerfile: tests/docker/Dockerfile.tls-backend
     networks:
       - ja4proxy-test
@@ -50,8 +50,8 @@ services:
   # ── Go proxy ────────────────────────────────────────────────────────────────
   go-proxy:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile.go-proxy
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.go-proxy
     networks:
       - ja4proxy-test
     ports:
@@ -80,7 +80,7 @@ services:
   # ── Python proxy ────────────────────────────────────────────────────────────
   python-proxy:
     build:
-      context: ..
+      context: ../..
       dockerfile: tests/docker/Dockerfile.python-proxy
     networks:
       - ja4proxy-test
@@ -102,7 +102,7 @@ services:
   # ── ClientHello recorder ────────────────────────────────────────────────────
   recorder:
     build:
-      context: ..
+      context: ../..
       dockerfile: tests/docker/Dockerfile.recorder
     networks:
       - ja4proxy-test
@@ -135,7 +135,7 @@ services:
   # ── Test runner ─────────────────────────────────────────────────────────────
   test-runner:
     build:
-      context: ..
+      context: ../..
       dockerfile: tests/docker/Dockerfile.test-runner
     networks:
       - ja4proxy-test

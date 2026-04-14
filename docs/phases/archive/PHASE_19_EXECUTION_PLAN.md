@@ -148,7 +148,7 @@ Legend: ✅ DONE | ⚠️ PARTIAL | ❌ MISSING | 🔄 IN PROGRESS
 - `tests/unit/backup/test_logging.py`
 
 ### Task 19.6.3 — Alerts ✅
-- `monitoring/alertmanager/rules/backup.rules.yml` — 6 alert rules
+- `deploy/monitoring/alertmanager/rules/backup.rules.yml` — 6 alert rules
   (BackupFailureDetected, BackupStale, RestoreFailureDetected, RestoreOperationInProgress,
   BackupOperationInProgress, BackupDurationHigh)
 

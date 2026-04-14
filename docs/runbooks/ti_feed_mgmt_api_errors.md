@@ -8,7 +8,7 @@ phase: 86
 # Runbook — TIFeedMgmtApiErrors
 
 **Alert:** `TIFeedMgmtApiErrors`
-**Source:** `monitoring/alertmanager/rules/ti_feed.yml`
+**Source:** `deploy/monitoring/alertmanager/rules/ti_feed.yml`
 **Severity:** critical
 **Phase:** 85 (TI batch-poller runner)
 

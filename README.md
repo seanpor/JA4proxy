@@ -6,7 +6,7 @@
 ![CI](https://github.com/seanpor/JA4proxy/actions/workflows/ci.yml/badge.svg)
 [![Coverage ≥99%](https://img.shields.io/badge/coverage-%E2%89%A599%25-brightgreen.svg)](Makefile)
 ![Go Tests](https://github.com/seanpor/JA4proxy/actions/workflows/ci.yml/badge.svg?label=go%20tests)
-[![Docker Ready](https://img.shields.io/badge/docker-compose-ready-2496ED.svg?logo=docker)](docker/docker-compose.poc.yml)
+[![Docker Ready](https://img.shields.io/badge/docker-compose-ready-2496ED.svg?logo=docker)](deploy/docker/docker-compose.poc.yml)
 [![Deps Audited](https://img.shields.io/badge/deps-pip--audit+%20govulncheck-orange.svg)](.github/workflows/ci.yml)
 [![Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![Go Lint](https://img.shields.io/badge/lint-gofmt%20%2B%20vet-00ADD8.svg)](https://pkg.go.dev/cmd/vet)
@@ -281,7 +281,7 @@ A Go implementation of the full proxy core is available at `cmd/proxy/`. It is a
 
 ```bash
 make go-build
-docker compose -f docker/docker-compose.poc.yml up -d proxy
+docker compose -f deploy/docker/docker-compose.poc.yml up -d proxy
 ```
 
 **What is verified:**

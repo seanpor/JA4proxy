@@ -365,7 +365,7 @@ docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" KEYS "rate:*" | \
 docker exec ja4proxy-redis redis-cli -a "$REDIS_PASSWORD" FLUSHALL
 
 # Restart services
-docker compose -f docker/docker-compose.poc.yml restart
+docker compose -f deploy/docker/docker-compose.poc.yml restart
 ```
 
 ---
@@ -390,7 +390,7 @@ done > blocks_export.json
 
 ```bash
 # Log security events to syslog
-docker compose -f docker/docker-compose.poc.yml logs -f proxy | \
+docker compose -f deploy/docker/docker-compose.poc.yml logs -f proxy | \
   grep -E "(BLOCK|BAN|SECURITY)" | \
   logger -t ja4proxy
 ```

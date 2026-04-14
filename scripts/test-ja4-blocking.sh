@@ -379,7 +379,7 @@ main() {
     echo -e "${CYAN}Next steps:${NC}"
     echo "  1. View metrics: curl http://localhost:9090/metrics | grep ja4_"
     echo "  2. Check Prometheus: open http://localhost:9091"
-    echo "  3. View logs: docker compose -f docker/docker-compose.poc.yml logs -f"
+    echo "  3. View logs: docker compose -f deploy/docker/docker-compose.poc.yml logs -f"
     echo ""
 }
 

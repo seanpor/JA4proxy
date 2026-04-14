@@ -22,7 +22,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # Test configuration
-COMPOSE_FILE="docker/docker-compose.poc.yml"
+COMPOSE_FILE="deploy/docker/docker-compose.poc.yml"
 TEST_CONTAINER="ja4proxy-test"
 REPORTS_DIR="reports"
 EXIT_CODE=0
@@ -505,7 +505,7 @@ run_layer7_performance() {
     if [ "${RUN_LOAD_TESTS:-false}" = "true" ]; then
         log_section "7c. Load Testing (Locust)"
         docker compose -f "$COMPOSE_FILE" run --rm trafficgen \
-            locust -f performance/locustfile.py \
+            locust -f tests/performance/locustfile.py \
             --headless -u 100 -r 10 -t 60s \
             --html "$REPORTS_DIR/locust-report.html" \
             --json 2>&1 || true

@@ -30,7 +30,7 @@ This plan outlines the final steps to transition Phase 12 from "Partial/Gap-fill
 **Goal:** Provide a "World-Class" view of the proxy's scoring behavior.
 
 ### 4.1. Grafana "Score Health" Dashboard
-*   **Task:** Enhance `monitoring/grafana/dashboards/analytics.json`.
+*   **Task:** Enhance `deploy/monitoring/grafana/dashboards/analytics.json`.
 *   **Components:**
     *   Median Score vs 7-day Baseline (Band chart).
     *   Shadow Score (Known-good) calibration panel.
@@ -72,7 +72,7 @@ This plan outlines the final steps to transition Phase 12 from "Partial/Gap-fill
 
 ### Step 4: Observability (Day 4)
 1. Update Grafana dashboard JSON.
-2. Add the `CalibrationIssue` alert rule to `monitoring/prometheus/alerts.yml`.
+2. Add the `CalibrationIssue` alert rule to `deploy/monitoring/prometheus/alerts.yml`.
 3. **Validation:** Manual verification in a staging/POC environment.
 
 ### Step 5: Final Audit & Documentation (Day 5)

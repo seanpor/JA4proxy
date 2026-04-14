@@ -1,9 +1,9 @@
 """Phase 86i Gap 4 — capacity planning Grafana dashboard tests.
 
-These tests assert that `monitoring/grafana/dashboards/04_capacity.json`
+These tests assert that `deploy/monitoring/grafana/dashboards/04_capacity.json`
 exists, is valid Grafana JSON, has the four rows specified in PHASE_86i.md,
 uses the documented ceiling dashboard variables, and is provisioned via
-`monitoring/grafana/provisioning/dashboards/default.yml`.
+`deploy/monitoring/grafana/provisioning/dashboards/default.yml`.
 """
 
 from __future__ import annotations
@@ -16,10 +16,10 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DASHBOARD_PATH = (
-    REPO_ROOT / "monitoring" / "grafana" / "dashboards" / "04_capacity.json"
+    REPO_ROOT / "deploy" / "monitoring" / "grafana" / "dashboards" / "04_capacity.json"
 )
 PROVISION_PATH = (
-    REPO_ROOT / "monitoring" / "grafana" / "provisioning" / "dashboards" / "default.yml"
+    REPO_ROOT / "deploy" / "monitoring" / "grafana" / "provisioning" / "dashboards" / "default.yml"
 )
 
 
@@ -74,7 +74,7 @@ def test_dashboard_provisioned_in_default_yml():
     text = PROVISION_PATH.read_text()
     assert "04_capacity" in text, (
         "Phase 86i: 04_capacity.json not referenced in "
-        "monitoring/grafana/provisioning/dashboards/default.yml"
+        "deploy/monitoring/grafana/provisioning/dashboards/default.yml"
     )
 
 

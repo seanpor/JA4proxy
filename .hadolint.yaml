@@ -24,6 +24,6 @@ ignore:
 
   # DL3059 — Multiple consecutive RUN instructions
   # We prefer readability over micro-optimising layer count in dev/test images.
-  # Production images (docker/Dockerfile, docker/Dockerfile.go-proxy) already consolidate
+  # Production images (deploy/docker/Dockerfile, deploy/docker/Dockerfile.go-proxy) already consolidate
   # RUN instructions where it matters for image size.
   - DL3059

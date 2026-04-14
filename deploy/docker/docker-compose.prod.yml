@@ -11,15 +11,15 @@
 #   - Container image signing: CI/CD concern; ops runbook
 #
 # Prerequisites (must be created before first deploy):
-#   secrets/redis_password.txt   — strong random password (min 32 chars)
-#   secrets/grafana_password.txt — Grafana admin password
-#   secrets/abuseipdb_api_key.txt — AbuseIPDB API key (or empty file to disable)
+#   deploy/secrets/redis_password.txt   — strong random password (min 32 chars)
+#   deploy/secrets/grafana_password.txt — Grafana admin password
+#   deploy/secrets/abuseipdb_api_key.txt — AbuseIPDB API key (or empty file to disable)
 #
 # Quick start:
-#   openssl rand -base64 48 > secrets/redis_password.txt
-#   openssl rand -base64 32 > secrets/grafana_password.txt
-#   echo "your-api-key" > secrets/abuseipdb_api_key.txt
-#   chmod 600 secrets/*.txt
+#   openssl rand -base64 48 > deploy/secrets/redis_password.txt
+#   openssl rand -base64 32 > deploy/secrets/grafana_password.txt
+#   echo "your-api-key" > deploy/secrets/abuseipdb_api_key.txt
+#   chmod 600 deploy/secrets/*.txt
 #   ENVIRONMENT=production docker compose -f docker/docker-compose.prod.yml up -d
 
 services:
@@ -30,7 +30,7 @@ services:
       - "80:80"
       - "127.0.0.1:8404:8404"   # Stats page — internal only
     volumes:
-      - ../config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ../../config/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     depends_on:
       - proxy
     networks:
@@ -54,8 +54,8 @@ services:
 
   proxy:
     build:
-      context: ..
-      dockerfile: docker/Dockerfile
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
     image: ja4proxy:1.0.0
     ports:
       - "8080"   # Proxy (HAProxy connects here)
@@ -63,8 +63,8 @@ services:
     depends_on:
       - redis
     volumes:
-      - ../config:/app/config:ro
-      - ../logs:/app/logs
+      - ../../config:/app/config:ro
+      - ../../logs:/app/logs
       - redis-sock:/var/run/redis
     environment:
       - CONFIG_PATH=/app/config/proxy.yml
@@ -83,7 +83,7 @@ services:
     read_only: true
     security_opt:
       - no-new-privileges:true
-      - seccomp:../config/seccomp/proxy.json
+      - seccomp:../../config/seccomp/proxy.json
       # AppArmor profile (Phase 34d): must be loaded on host before enabling.
       # Load with: sudo apparmor_parser -r config/apparmor/ja4proxy
       # Then uncomment the line below:
@@ -135,7 +135,7 @@ services:
 
   analytics:
     build:
-      context: ..
+      context: ../..
       dockerfile: src/analytics/Dockerfile
     image: ja4proxy-analytics:1.0.0
     ports:
@@ -151,7 +151,7 @@ services:
     secrets:
       - redis_password
     volumes:
-      - ../config:/app/config:ro
+      - ../../config:/app/config:ro
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/health"]
       interval: 30s
@@ -177,7 +177,7 @@ services:
 
   tarpit:
     build:
-      context: ../tarpit
+      context: ../../src/tarpit
       dockerfile: Dockerfile
     image: ja4proxy-tarpit:1.0.0
     ports:
@@ -320,7 +320,7 @@ services:
     image: grafana/promtail:3.3.2
     volumes:
       - ../monitoring/loki/promtail-config.yml:/etc/promtail/config.yml:ro
-      - ../logs:/var/log/ja4proxy:ro
+      - ../../logs:/var/log/ja4proxy:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
     command: -config.file=/etc/promtail/config.yml
     depends_on:

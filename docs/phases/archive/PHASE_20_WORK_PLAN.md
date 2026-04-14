@@ -1248,8 +1248,8 @@ def test_packets_dropped_counter_increments_on_overflow()
 def test_worker_restarts_counter_increments_on_crash()
 ```
 
-Create `monitoring/grafana/dashboards/tap_sensor.json` (5 rows per §13.3).
-Create `monitoring/alertmanager/rules/tap.yml` (7 alert rules per §13.2).
+Create `deploy/monitoring/grafana/dashboards/tap_sensor.json` (5 rows per §13.3).
+Create `deploy/monitoring/alertmanager/rules/tap.yml` (7 alert rules per §13.2).
 
 ---
 

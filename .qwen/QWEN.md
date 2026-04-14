@@ -138,7 +138,7 @@ TCP accept
 | `config/` | `proxy.yml` (proxy config), `signal_scores.yml` (canonical score registry) |
 | `docs/` | Documentation — phases, architecture, runbooks, security audits, compliance |
 | `docs/phases/` | Phase-driven development — manifest-driven roadmap |
-| `docker/` | Docker Compose files |
+| `deploy/docker/` | Docker Compose files |
 | `deploy/helm/` | Kubernetes Helm chart |
 | `scripts/` | Admin CLI, traffic generators, sync tools |
 | `Makefile` | All build/test/ops commands |
