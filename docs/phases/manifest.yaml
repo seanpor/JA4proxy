@@ -124,11 +124,12 @@ phases:
     summary: 'Reduced repo root from 61 tracked entries to 42 (25 visible on GitHub,
       down from 45). Moved deploy/test/source dirs under deploy/, tests/, src/;
       relocated security/validation.py to src/security/; consolidated mypy.ini
-      and .flake8 into pyproject.toml. Requirements*.txt consolidation deferred
-      to Phase 206. Acceptance criterion revised from unachievable "≤14 visible"
-      to realistic "≤22 visible / ≤25 tracked".'
+      and .flake8 into pyproject.toml. Full requirements*.txt consolidation
+      considered and dropped — cosmetic win did not justify atomic rewrites
+      across Dockerfiles/CI/Makefile/Dependabot. Acceptance criterion revised
+      from unachievable "≤14 visible" to realistic "≤22 visible / ≤25 tracked".'
     success_criteria:
-    - Root has 45 or fewer tracked entries, 25 or fewer visible on GitHub (achieved 41 / 25; further reduction to 22 visible deferred to Phase 206 alongside requirements*.txt consolidation)
+    - Root has 45 or fewer tracked entries, 25 or fewer visible on GitHub (achieved 41 / 25)
     - README.md visible on GitHub without scrolling past file listing
     - No transient or build files in root
     - make test passes with zero dangling path references (5391 passed)
