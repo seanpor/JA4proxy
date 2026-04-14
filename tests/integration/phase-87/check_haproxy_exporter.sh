@@ -2,7 +2,7 @@
 # Phase 87 integration check — HAProxy exporter metrics reachable via Prometheus
 #
 # Requires: monitoring stack running
-#   docker compose -f docker/docker-compose.monitoring.yml up -d
+#   docker compose -f deploy/docker/docker-compose.monitoring.yml up -d
 #
 # Checks that Prometheus has scraped at least one HAProxy metric
 # (haproxy_up) from the haproxy_exporter scrape job.
@@ -20,7 +20,7 @@ echo "Prometheus: ${PROM_URL}"
 if ! curl -sf "${PROM_URL}/-/healthy" > /dev/null 2>&1; then
     echo "FAIL: Prometheus is not reachable at ${PROM_URL}"
     echo "      Start the monitoring stack first:"
-    echo "      docker compose -f docker/docker-compose.monitoring.yml up -d"
+    echo "      docker compose -f deploy/docker/docker-compose.monitoring.yml up -d"
     exit 1
 fi
 echo "OK  Prometheus reachable"
@@ -58,7 +58,7 @@ else:
 
 if [[ "$HAPROXY_UP" != "1" ]]; then
     echo "WARN: haproxy_up=${HAPROXY_UP}. HAProxy exporter may not be connected to HAProxy."
-    echo "      Ensure the POC stack is running: docker compose -f docker/docker-compose.poc.yml up -d"
+    echo "      Ensure the POC stack is running: docker compose -f deploy/docker/docker-compose.poc.yml up -d"
     # Warn but don't fail — exporter starts before HAProxy on some orderings
 else
     echo "OK  haproxy_up=1 (exporter connected)"

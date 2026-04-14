@@ -58,8 +58,8 @@ Before performing a rolling upgrade:
 
 5. **Verify HAProxy `socat` is available** (needed for drain/re-enable):
    ```bash
-   docker compose -f docker/docker-compose.poc.yml exec haproxy which socat
-   docker compose -f docker/docker-compose.poc.yml exec haproxy ls /var/run/haproxy/admin.sock
+   docker compose -f deploy/docker/docker-compose.poc.yml exec haproxy which socat
+   docker compose -f deploy/docker/docker-compose.poc.yml exec haproxy ls /var/run/haproxy/admin.sock
    ```
    If `socat` is not available, the Docker Compose path cannot drain backends
    gracefully. Fall back to waiting for health checks to re-route traffic.
@@ -76,7 +76,7 @@ it is replaced.
 
 1. **Drain the backend via HAProxy admin socket:**
    ```bash
-   docker compose -f docker/docker-compose.poc.yml exec haproxy \
+   docker compose -f deploy/docker/docker-compose.poc.yml exec haproxy \
      bash -c 'echo "set server ja4proxy/ja4proxy-1 state drain" \
        | socat stdio unix-connect:/var/run/haproxy/admin.sock'
    ```
@@ -85,7 +85,7 @@ it is replaced.
 
 2. **Wait for active connections to drain** (check HAProxy stats):
    ```bash
-   docker compose -f docker/docker-compose.poc.yml exec haproxy \
+   docker compose -f deploy/docker/docker-compose.poc.yml exec haproxy \
      bash -c 'echo "show stat" \
        | socat stdio unix-connect:/var/run/haproxy/admin.sock' \
        | grep ja4proxy-1 | cut -d, -f1,2,5,6,33
@@ -94,12 +94,12 @@ it is replaced.
 
 3. **Stop the old instance:**
    ```bash
-   docker compose -f docker/docker-compose.poc.yml stop ja4proxy-1
+   docker compose -f deploy/docker/docker-compose.poc.yml stop ja4proxy-1
    ```
 
 4. **Recreate with the new image:**
    ```bash
-   docker compose -f docker/docker-compose.poc.yml up -d --no-deps \
+   docker compose -f deploy/docker/docker-compose.poc.yml up -d --no-deps \
      ja4proxy-1 \
      --image "ghcr.io/org/ja4proxy:NEW_TAG"
    ```
@@ -107,7 +107,7 @@ it is replaced.
 5. **Wait for the health check to pass:**
    ```bash
    for i in $(seq 1 30); do
-     STATUS=$(docker compose -f docker/docker-compose.poc.yml exec haproxy \
+     STATUS=$(docker compose -f deploy/docker/docker-compose.poc.yml exec haproxy \
        bash -c 'echo "show stat" \
          | socat stdio unix-connect:/var/run/haproxy/admin.sock' \
        | grep "ja4proxy-1" | cut -d, -f18)
@@ -195,14 +195,14 @@ security decision anomalies), roll back immediately.
 
 1. **Drain the upgraded backend** (same as step 1 in the upgrade procedure):
    ```bash
-   docker compose -f docker/docker-compose.poc.yml exec haproxy \
+   docker compose -f deploy/docker/docker-compose.poc.yml exec haproxy \
      bash -c 'echo "set server ja4proxy/ja4proxy-1 state drain" \
        | socat stdio unix-connect:/var/run/haproxy/admin.sock'
    ```
 
 2. **Recreate with the previous image:**
    ```bash
-   docker compose -f docker/docker-compose.poc.yml up -d --no-deps \
+   docker compose -f deploy/docker/docker-compose.poc.yml up -d --no-deps \
      ja4proxy-1 \
      --image "ghcr.io/org/ja4proxy:PREVIOUS_TAG"
    ```
@@ -210,7 +210,7 @@ security decision anomalies), roll back immediately.
 3. **Wait for the backend to return UP** (same as upgrade step 5):
    ```bash
    for i in $(seq 1 30); do
-     STATUS=$(docker compose -f docker/docker-compose.poc.yml exec haproxy \
+     STATUS=$(docker compose -f deploy/docker/docker-compose.poc.yml exec haproxy \
        bash -c 'echo "show stat" \
          | socat stdio unix-connect:/var/run/haproxy/admin.sock' \
        | grep "ja4proxy-1" | cut -d, -f18)
@@ -226,7 +226,7 @@ security decision anomalies), roll back immediately.
 
 5. **Re-enable the backend via HAProxy admin socket:**
    ```bash
-   docker compose -f docker/docker-compose.poc.yml exec haproxy \
+   docker compose -f deploy/docker/docker-compose.poc.yml exec haproxy \
      bash -c 'echo "set server ja4proxy/ja4proxy-1 state ready" \
        | socat stdio unix-connect:/var/run/haproxy/admin.sock'
    ```

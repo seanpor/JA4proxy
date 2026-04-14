@@ -243,7 +243,7 @@ Use tables for:
 ```markdown
 | File | Change |
 |------|--------|
-| `docker/Dockerfile.test` | Add `ENV PYTHONUNBUFFERED=1` |
+| `deploy/docker/Dockerfile.test` | Add `ENV PYTHONUNBUFFERED=1` |
 | `tests/conftest.py` | Patch `_tor_refresh_loop` → `_noop` |
 ```
 

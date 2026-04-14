@@ -42,7 +42,7 @@ Implemented a high-performance `WriteBuffer` with:
 - **Priority-based load shedding**: Non-critical telemetry and audit writes are dropped when the buffer exceeds 90% capacity to protect connection processing.
 
 ## Scalability Results
-Linear scaling was observed from 1 to 4 workers using the `docker/docker-compose.scale.yml` environment.
+Linear scaling was observed from 1 to 4 workers using the `deploy/docker/docker-compose.scale.yml` environment.
 
 | Workers | Total Throughput | CPU Usage (avg) |
 |---------|------------------|-----------------|

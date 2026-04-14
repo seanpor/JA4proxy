@@ -190,33 +190,33 @@ echo -e "${BLUE}========================================${NC}"
 echo ""
 echo -e "${BLUE}Generated Files:${NC}"
 echo ""
-echo -e "${YELLOW}Passwords (secrets/):${NC}"
+echo -e "${YELLOW}Passwords (deploy/secrets/):${NC}"
 echo "  - redis_password.txt (app user)"
 echo "  - redis_admin_password.txt (admin user)"
 echo "  - redis_monitor_password.txt (monitoring)"
 echo "  - redis_backup_password.txt (backup)"
 echo "  - users.acl (ACL configuration)"
 echo ""
-echo -e "${YELLOW}Certificates (ssl/redis/):${NC}"
+echo -e "${YELLOW}Certificates (deploy/ssl/redis/):${NC}"
 echo "  - ca.crt (Certificate Authority)"
 echo "  - redis.crt, redis.key (Redis server)"
 echo "  - client.crt, client.key (Client/Proxy)"
 echo ""
 echo -e "${YELLOW}Next Steps:${NC}"
-echo "  1. Review generated passwords in secrets/"
-echo "  2. Deploy with: docker compose -f docker/docker-compose.prod.yml up -d"
+echo "  1. Review generated passwords in deploy/secrets/"
+echo "  2. Deploy with: docker compose -f deploy/docker/docker-compose.prod.yml up -d"
 echo "  3. Test connection: ./scripts/test-redis-tls.sh"
-echo "  4. Backup secrets/ directory securely!"
+echo "  4. Backup deploy/secrets/ directory securely!"
 echo ""
-echo -e "${RED}⚠ IMPORTANT: Keep secrets/ directory secure!${NC}"
-echo -e "${RED}⚠ Add secrets/ to .gitignore${NC}"
+echo -e "${RED}⚠ IMPORTANT: Keep deploy/secrets/ directory secure!${NC}"
+echo -e "${RED}⚠ Add deploy/secrets/ to .gitignore${NC}"
 echo -e "${RED}⚠ Never commit passwords to version control${NC}"
 echo ""
 
 # Add to .gitignore
-if ! grep -q "secrets/" .gitignore 2>/dev/null; then
-    echo "secrets/" >> .gitignore
-    echo -e "${GREEN}✓ Added secrets/ to .gitignore${NC}"
+if ! grep -q "deploy/secrets/" .gitignore 2>/dev/null; then
+    echo "deploy/secrets/" >> .gitignore
+    echo -e "${GREEN}✓ Added deploy/secrets/ to .gitignore${NC}"
 fi
 
 if ! grep -q "ssl/" .gitignore 2>/dev/null; then

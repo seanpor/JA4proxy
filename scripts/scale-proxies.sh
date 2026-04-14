@@ -5,7 +5,7 @@ set -euo pipefail
 # Usage: ./scale-proxies.sh [N]   (default: 1, i.e. reset to POC default)
 
 N=${1:-1}
-COMPOSE_FILE="docker/docker-compose.poc.yml"
+COMPOSE_FILE="deploy/docker/docker-compose.poc.yml"
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -19,7 +19,7 @@ if [ "$N" -eq 1 ]; then
     # Reset to default POC config
     echo "▶ Restoring single-proxy POC configuration..."
     docker compose -f "$COMPOSE_FILE" up -d proxy 2>/dev/null
-    docker cp "$(pwd)/ha-config/haproxy.cfg" ja4proxy-haproxy:/usr/local/etc/haproxy/haproxy.cfg
+    docker cp "$(pwd)/deploy/haproxy/haproxy.cfg" ja4proxy-haproxy:/usr/local/etc/haproxy/haproxy.cfg
     docker kill -s HUP ja4proxy-haproxy 2>/dev/null || docker restart ja4proxy-haproxy
     echo -e "${GREEN}✓ Running 1 proxy instance (POC default)${NC}"
     exit 0

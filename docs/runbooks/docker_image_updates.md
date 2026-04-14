@@ -62,14 +62,14 @@ Trivy reports findings in a table. The columns that matter:
 ### Updating a third-party image
 
 1. Edit the image version in the relevant compose file(s):
-   - `docker/docker-compose.prod.yml`
-   - `docker/docker-compose.monitoring.yml`
+   - `deploy/docker/docker-compose.prod.yml`
+   - `deploy/docker/docker-compose.monitoring.yml`
 2. Update `docs/DOCKER_IMAGES.md` — change the `Pinned version` and `Last reviewed` columns.
 3. Update `TRIVY_IMAGES` in `Makefile` to match the new version.
 4. Validate the compose files parse correctly:
    ```bash
-   docker compose -f docker/docker-compose.prod.yml config > /dev/null
-   docker compose -f docker/docker-compose.monitoring.yml config > /dev/null
+   docker compose -f deploy/docker/docker-compose.prod.yml config > /dev/null
+   docker compose -f deploy/docker/docker-compose.monitoring.yml config > /dev/null
    ```
 5. Run the full scan to confirm the CVE is resolved:
    ```bash
@@ -87,9 +87,9 @@ First-party images (`ja4proxy`, `ja4proxy-analytics`, `ja4proxy-tarpit`) inherit
 
 1. Check [hub.docker.com/\_/python](https://hub.docker.com/_/python/tags?name=3.11) for the current `3.11.x-slim` patch version.
 2. Update `FROM python:3.11.X-slim` in:
-   - `docker/Dockerfile`
+   - `deploy/docker/Dockerfile`
    - `src/analytics/Dockerfile`
-   - `docker/Dockerfile.test`
+   - `deploy/docker/Dockerfile.test`
 3. Update `docs/DOCKER_IMAGES.md` — `Pinned version` and `Last reviewed`.
 4. Rebuild and scan:
    ```bash

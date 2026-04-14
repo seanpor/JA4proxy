@@ -426,7 +426,7 @@ country = geoip_lookup.local_database_lookup(ip)  # Local file only
 - Access log anomalies (unexpected client IPs)
 
 ```yaml
-# monitoring/alertmanager/rules/security.rules.yml
+# deploy/monitoring/alertmanager/rules/security.rules.yml
 - alert: SuspiciousRedisAccess
   expr: rate(redis_failed_auth_total[5m]) > 0
   for: 1m

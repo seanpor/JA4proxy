@@ -255,7 +255,7 @@ class GeoIPLookup:
     # Common GeoIP database paths
     DB_PATHS = [
         "/app/geoip/IP2LOCATION-LITE-DB1.BIN",  # Docker container
-        "geoip/IP2LOCATION-LITE-DB1.BIN",  # Local dev
+        "data/geoip/IP2LOCATION-LITE-DB1.BIN",  # Local dev
     ]
 
     def __init__(self, db_path: str = None):

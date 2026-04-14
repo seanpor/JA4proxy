@@ -43,7 +43,7 @@ This reviewer must have personally broken a TLS-aware middlebox before. Cloudfla
 **Who to engage.** A CREST-certified or equivalent penetration testing firm with a named TLS/network-protocol practice. Strong candidates: NCC Group's Cryptography Services, Trail of Bits' AppSec practice, Doyensec, Cure53, or an independent consultant with published CVEs against TLS middleboxes. **Avoid** generalist pentest shops whose deliverable will be a Burp Suite report against the management UI — that is the wrong target.
 
 **What to give them (evidence pack).**
-- A reference deployment built from `docker/docker-compose.poc.yml` with a clean Redis, all 14 signal modules enabled, and dial set to 100.
+- A reference deployment built from `deploy/docker/docker-compose.poc.yml` with a clean Redis, all 14 signal modules enabled, and dial set to 100.
 - The current `internal/security/pipeline.go` and `internal/tls/` source for whitebox review.
 - The bypass ladder documentation from `CLAUDE.md` — explicitly highlight the ALPN browser bypass, the JA4 whitelist bypass, the mTLS bypass, and the country/Spamhaus blocks.
 - The PROXY-protocol parser at `internal/proxy/proxy_protocol.go` and the trusted-CIDR configuration shape.
@@ -280,7 +280,7 @@ The container-hardening community has a small number of practitioners who do exa
 **Who to engage.** NCC Group's container security practice, or a named individual with container-escape research history: Brad Geesaman, Rory McCune, Felix Wilhelm (when available), Andrew Martin (Control Plane). For a smaller engagement, a senior consultant from a Kubernetes-focused security boutique (Control Plane, ARMO, Sysdig's professional services).
 
 **What to give them.**
-- A live reference deployment of `docker/docker-compose.poc.yml`.
+- A live reference deployment of `deploy/docker/docker-compose.poc.yml`.
 - Root on the *host* (so they can verify what they are seeing from below, not just from inside the container).
 - `check-isolation.sh` and the underlying expectations.
 - The seccomp and AppArmor profiles.

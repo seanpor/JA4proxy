@@ -397,7 +397,7 @@ Thresholds: 0 = green, > 5/min = yellow, > 20/min = red (analytics node may be d
 
 ### AlertManager Rules
 
-Add to `monitoring/alertmanager/rules/security.rules.yml`:
+Add to `deploy/monitoring/alertmanager/rules/security.rules.yml`:
 
 ```yaml
 - alert: AdaptiveRateLimitingUnavailable

@@ -569,7 +569,7 @@ compliance:
 
 ### Environment-Specific Configurations
 
-**Development (docker/docker-compose.poc.yml):**
+**Development (deploy/docker/docker-compose.poc.yml):**
 - Relaxed security for testing
 - Local-only binding
 - Debug logging enabled
@@ -1074,7 +1074,7 @@ See: `docs/enterprise/deployment.md`
 See: `config/` directory
 
 ### E. Monitoring Setup
-See: `monitoring/` directory
+See: `deploy/monitoring/` directory
 
 ---
 

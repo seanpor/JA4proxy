@@ -35,8 +35,8 @@ phase: 21
 
 ```bash
 # Generate password
-openssl rand -base64 32 > secrets/redis_password.txt
-chmod 600 secrets/redis_password.txt
+openssl rand -base64 32 > deploy/secrets/redis_password.txt
+chmod 600 deploy/secrets/redis_password.txt
 ```
 
 ```yaml
@@ -57,7 +57,7 @@ services:
 
 secrets:
   redis_password:
-    file: ./secrets/redis_password.txt
+    file: ./deploy/secrets/redis_password.txt
 ```
 
 ### 2. Enable TLS
@@ -65,7 +65,7 @@ secrets:
 Generate certificates:
 
 ```bash
-CERT_DIR="./ssl/redis"
+CERT_DIR="./deploy/ssl/redis"
 mkdir -p "$CERT_DIR"
 
 # CA
@@ -127,14 +127,14 @@ user default off nopass nocommands
 
 ```bash
 NEW_PW=$(openssl rand -base64 32)
-OLD_PW=$(cat secrets/redis_password.txt)
+OLD_PW=$(cat deploy/secrets/redis_password.txt)
 
 # Apply to running Redis (no restart needed)
 docker exec ja4proxy-redis redis-cli -a "$OLD_PW" CONFIG SET requirepass "$NEW_PW"
 
 # Persist
-echo "$NEW_PW" > secrets/redis_password.txt
-chmod 600 secrets/redis_password.txt
+echo "$NEW_PW" > deploy/secrets/redis_password.txt
+chmod 600 deploy/secrets/redis_password.txt
 
 # Restart proxy to pick up new password
 docker compose -f docker-compose.prod.yml restart proxy

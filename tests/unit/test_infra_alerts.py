@@ -13,8 +13,8 @@ import yaml
 
 ROOT = Path(__file__).parent.parent.parent
 
-ALERTS_FILE = ROOT / "monitoring/prometheus/alerts.yml"
-RECORDING_FILE = ROOT / "monitoring/prometheus/recording_rules.yml"
+ALERTS_FILE = ROOT / "deploy/monitoring/prometheus/alerts.yml"
+RECORDING_FILE = ROOT / "deploy/monitoring/prometheus/recording_rules.yml"
 
 NEW_GROUPS = [
     "ja4proxy_infrastructure",

@@ -16,7 +16,7 @@ import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).parent.parent.parent
-RULES_DIR = REPO_ROOT / "monitoring" / "alertmanager" / "rules"
+RULES_DIR = REPO_ROOT / "deploy" / "monitoring" / "alertmanager" / "rules"
 RUNBOOKS_DIR = REPO_ROOT / "docs" / "runbooks"
 CANONICAL_PREFIX = "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/"
 

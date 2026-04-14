@@ -30,7 +30,3 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 203 — Go Missing Signals — JA4T, TLS Mismatch, Weak Ciphers, DGA, Health
 *   **Status:** **PROPOSED** (Closes 5 production-critical signal gaps in Go: (1) JA4T stub returns `""` — implement full JA4T computation, (2) `ja4_tls_mismatch` not implemented — TLS version spoofing undetected, (3) weak cipher coverage 13 vs Python 37+ — NULL/EXPORT/DH_anon/ECDH_anon missed, (4) DGA algorithm diverges from Python — less effective SNI analysis, (5) Go health check only tests Redis — no GeoIP/connections/queue checks.)
 *   **Action Plan:** [PHASE_203.md](PHASE_203.md)
-
-### Phase 205 — Repository Root Cleanup & File Organisation
-*   **Status:** **PROPOSED** (Reduce repo root from 60 tracked entries to ~20 (14 visible on GitHub). Consolidate linter dotfiles into .config/, deployment dirs under deploy/, docs under docs/, test data under tests/, source under src/. Merge Python config into pyproject.toml. Gitignore transient files. 8 sub-phases (205a–205h).)
-*   **Action Plan:** [PHASE_205.md](PHASE_205.md)

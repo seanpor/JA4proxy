@@ -36,12 +36,12 @@ else
 fi
 
 # Stop monitoring stack
-if docker compose $POC_FLAGS -f docker/docker-compose.monitoring.yml ps -q 2>/dev/null | grep -q .; then
+if docker compose $POC_FLAGS -f deploy/docker/docker-compose.monitoring.yml ps -q 2>/dev/null | grep -q .; then
     echo -e "${BLUE}▶ Stopping monitoring stack (Prometheus/Grafana/Loki)...${NC}"
     if [ "$CLEAN" = true ]; then
-        docker compose $POC_FLAGS -f docker/docker-compose.monitoring.yml down -v --remove-orphans
+        docker compose $POC_FLAGS -f deploy/docker/docker-compose.monitoring.yml down -v --remove-orphans
     else
-        docker compose $POC_FLAGS -f docker/docker-compose.monitoring.yml down --remove-orphans
+        docker compose $POC_FLAGS -f deploy/docker/docker-compose.monitoring.yml down --remove-orphans
     fi
     echo -e "${GREEN}  ✓ Monitoring stopped${NC}"
 else
@@ -50,14 +50,14 @@ fi
 
 # Stop POC stack (agent-aware)
 # shellcheck disable=SC2086
-if docker compose -f docker/docker-compose.poc.yml $POC_FLAGS ps -q 2>/dev/null | grep -q .; then
+if docker compose -f deploy/docker/docker-compose.poc.yml $POC_FLAGS ps -q 2>/dev/null | grep -q .; then
     echo -e "${BLUE}▶ Stopping POC stack (proxy/HAProxy/Redis/backend)...${NC}"
     if [ "$CLEAN" = true ]; then
         # shellcheck disable=SC2086
-        docker compose -f docker/docker-compose.poc.yml $POC_FLAGS down -v --remove-orphans
+        docker compose -f deploy/docker/docker-compose.poc.yml $POC_FLAGS down -v --remove-orphans
     else
         # shellcheck disable=SC2086
-        docker compose -f docker/docker-compose.poc.yml $POC_FLAGS down --remove-orphans
+        docker compose -f deploy/docker/docker-compose.poc.yml $POC_FLAGS down --remove-orphans
     fi
     echo -e "${GREEN}  ✓ POC stack stopped${NC}"
     [[ -n "$_AGENT" ]] && rm -f .current-agent && echo -e "${GREEN}  ✓ Cleared .current-agent${NC}"

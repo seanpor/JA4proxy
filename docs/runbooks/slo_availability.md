@@ -71,7 +71,7 @@ redis-cli -h <redis-host> --latency
 redis-cli -h <redis-host> INFO clients | grep -E 'connected_clients|maxclients'
 redis-cli -h <redis-host> SLOWLOG GET 10
 ```
-Check `monitoring/grafana` Redis dashboard. If Redis is the root cause,
+Check `deploy/monitoring/grafana` Redis dashboard. If Redis is the root cause,
 follow `docs/runbooks/redis_operations.md`. Cross-reference
 `ja4proxy_redis_operations_total{result="error"}` by command.
 

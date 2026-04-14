@@ -54,7 +54,7 @@ JA4proxy is a TLS-aware passthrough security proxy that makes allow/block/tarpit
 
 ## 2. Scope and Method
 
-**In scope.** Go runtime under `cmd/proxy` + `internal/{security,proxy,config,redis,tls,compliance,metrics,logging,webhook,cache,cli}`; Python prototype under `proxy.py` + `src/`; management API + UI; analytics node; compliance reporter; backup/restore; deployment tooling (`docker/`, `deploy/`, `Makefile`); governance docs (`CLAUDE.md`, `AGENTS.md`, manifest, phase plans 0–101); existing security artefacts under `docs/security/`, `docs/compliance/`, `docs/reports/`, `docs/decisions/`.
+**In scope.** Go runtime under `cmd/proxy` + `internal/{security,proxy,config,redis,tls,compliance,metrics,logging,webhook,cache,cli}`; Python prototype under `proxy.py` + `src/`; management API + UI; analytics node; compliance reporter; backup/restore; deployment tooling (`deploy/docker/`, `deploy/`, `Makefile`); governance docs (`CLAUDE.md`, `AGENTS.md`, manifest, phase plans 0–101); existing security artefacts under `docs/security/`, `docs/compliance/`, `docs/reports/`, `docs/decisions/`.
 
 **Out of scope.** Live network testing; reading the full source of every signal module; validating that every PROPOSED phase is in fact unimplemented vs. partially landed; assessing the actual deployment of any specific customer; cryptographic review of the Ed25519 signing implementation; review of third-party feed legal terms.
 

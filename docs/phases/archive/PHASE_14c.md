@@ -221,7 +221,7 @@ the file chown'd to their service UID in an entrypoint script.
 
 ### 2.3 Cert expiry monitoring
 
-Add to `monitoring/prometheus/prometheus.yml`:
+Add to `deploy/monitoring/prometheus/prometheus.yml`:
 
 ```yaml
 scrape_configs:
@@ -243,7 +243,7 @@ scrape_configs:
         replacement: blackbox-exporter:9115
 ```
 
-AlertManager rule (add to `monitoring/alertmanager/rules/certs.rules.yml`):
+AlertManager rule (add to `deploy/monitoring/alertmanager/rules/certs.rules.yml`):
 
 ```yaml
 groups:
@@ -1133,7 +1133,7 @@ All new log events follow the schema in `docs/OBSERVABILITY_STANDARDS.md §2`.
 
 ## 13. New AlertManager Rules
 
-File: `monitoring/alertmanager/rules/network_security.rules.yml`
+File: `deploy/monitoring/alertmanager/rules/network_security.rules.yml`
 
 ```yaml
 groups:
@@ -1298,7 +1298,7 @@ Tests must be written before implementation code.
 - [x] `./scripts/gen-internal-certs.sh` completes without error; produces 7 cert/key pairs
 - [x] `./scripts/rotate-certs.sh redis` replaces cert without restarting Redis container
 - [x] `./scripts/rotate-certs.sh nginx` replaces cert without restarting Nginx container; connection drops < 1s
-- [x] `promtool check rules monitoring/alertmanager/rules/network_security.rules.yml` → OK
+- [x] `promtool check rules deploy/monitoring/alertmanager/rules/network_security.rules.yml` → OK
 
 ---
 
@@ -1315,8 +1315,8 @@ nginx/nginx.conf                    NEW — TLS termination + Unix socket proxy
 src/security/backend_tls.py         NEW — SSLContext factory for proxy→backend
 src/observability/metrics_auth.py   NEW — Bearer/IP auth for /metrics
 management/main.py                  MODIFY — bind to Unix socket
-monitoring/alertmanager/rules/network_security.rules.yml  NEW
-monitoring/alertmanager/rules/certs.rules.yml             NEW
+deploy/monitoring/alertmanager/rules/network_security.rules.yml  NEW
+deploy/monitoring/alertmanager/rules/certs.rules.yml             NEW
 docs/phases/PHASE_14c.md            NEW (this file)
 docker-compose.yml                  MODIFY — three networks, secrets, hardening stanza
 docker-compose.prod.yml             MODIFY — align with three-tier model

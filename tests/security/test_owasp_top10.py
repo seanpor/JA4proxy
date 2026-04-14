@@ -15,7 +15,7 @@ import pytest
 import requests
 
 from proxy import ValidationError as ProxyValidationError
-from security.validation import SecurityError, SecurityValidator, ValidationError
+from src.security.validation import SecurityError, SecurityValidator, ValidationError
 
 
 class TestOWASPTop10:
@@ -52,7 +52,7 @@ class TestOWASPTop10:
         """A02:2021 – Cryptographic Failures"""
 
         # Test weak random generation detection
-        from security.validation import MTLSManager
+        from src.security.validation import MTLSManager
 
         # No cert paths — skips load_cert_chain so context creation succeeds
         mtls_manager = MTLSManager({'tls': {}})
@@ -131,7 +131,7 @@ class TestOWASPTop10:
     def test_a05_security_misconfiguration(self):
         """A05:2021 – Security Misconfiguration"""
         
-        from security.validation import SecureHeadersManager
+        from src.security.validation import SecureHeadersManager
         
         # Test security headers are properly set
         header_manager = SecureHeadersManager({})
@@ -196,7 +196,7 @@ class TestOWASPTop10:
     def test_a08_software_data_integrity(self):
         """A08:2021 – Software and Data Integrity Failures"""
         
-        from security.validation import AuditLogger
+        from src.security.validation import AuditLogger
         
         # Test audit logging integrity
         audit_logger = AuditLogger({'logging': {'audit_log_path': '/tmp/test_audit.log'}})
@@ -214,7 +214,7 @@ class TestOWASPTop10:
     def test_a09_logging_monitoring_failures(self):
         """A09:2021 – Security Logging and Monitoring Failures"""
         
-        from security.validation import AuditLogger
+        from src.security.validation import AuditLogger
         
         # Test security event logging
         audit_logger = AuditLogger({'logging': {'audit_log_path': '/tmp/test_audit.log'}})

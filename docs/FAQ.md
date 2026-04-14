@@ -166,7 +166,7 @@ If services are running but Grafana is empty, ensure the proxy has received some
 
 **Q: How do I set up email or Slack alerts?**
 
-Edit `monitoring/alertmanager/alertmanager.yml`. The file contains placeholder sections for SMTP, Slack, PagerDuty, and SIEM — replace the placeholder values with your real credentials:
+Edit `deploy/monitoring/alertmanager/alertmanager.yml`. The file contains placeholder sections for SMTP, Slack, PagerDuty, and SIEM — replace the placeholder values with your real credentials:
 
 ```yaml
 global:
@@ -186,7 +186,7 @@ Restart monitoring after changes: `docker compose -f docker-compose.monitoring.y
 
 **Q: Alerts are firing but I'm not receiving notifications.**
 
-Alertmanager is configured but all notification targets are placeholders until you edit `monitoring/alertmanager/alertmanager.yml`. Until then, alerts fire internally but go nowhere. See previous question.
+Alertmanager is configured but all notification targets are placeholders until you edit `deploy/monitoring/alertmanager/alertmanager.yml`. Until then, alerts fire internally but go nowhere. See previous question.
 
 ---
 
@@ -226,7 +226,7 @@ The canonical source is `config/proxy.yml` — the blacklist there loads into Re
 ```bash
 git pull
 make stop
-docker compose -f docker/docker-compose.poc.yml build
+docker compose -f deploy/docker/docker-compose.poc.yml build
 make start
 ./poc-status-check.sh    # Verify
 ```

@@ -206,11 +206,11 @@ bandit -r proxy.py security/ -f screen
 safety check
 
 # 6. Test Docker build
-docker compose -f docker/docker-compose.poc.yml build
+docker compose -f deploy/docker/docker-compose.poc.yml build
 
 # 7. Test deployment
-docker compose -f docker/docker-compose.poc.yml up -d
-docker compose -f docker/docker-compose.poc.yml ps
+docker compose -f deploy/docker/docker-compose.poc.yml up -d
+docker compose -f deploy/docker/docker-compose.poc.yml ps
 # All services should be "Up"
 
 # 8. Test health endpoint
@@ -218,10 +218,10 @@ curl http://localhost:9090/metrics
 # Should return metrics
 
 # 9. Check logs for errors
-docker compose -f docker/docker-compose.poc.yml logs | grep -i error
+docker compose -f deploy/docker/docker-compose.poc.yml logs | grep -i error
 
 # 10. Clean up test deployment
-docker compose -f docker/docker-compose.poc.yml down -v
+docker compose -f deploy/docker/docker-compose.poc.yml down -v
 ```
 
 ---
@@ -293,7 +293,7 @@ docker compose logs proxy | grep -i security
 ## Phase 14 — Production Hardening Checklist
 
 ### 14a — Startup Secrets
-- [x] No `:-changeme` password fallbacks in any compose file (`docker/docker-compose.poc.yml` uses `:?`)
+- [x] No `:-changeme` password fallbacks in any compose file (`deploy/docker/docker-compose.poc.yml` uses `:?`)
 - [x] `ENVIRONMENT=production` + no Redis password → FATAL log + `sys.exit(1)` before any connections accepted
 - [x] JSON structured logging enabled in production (`logging.json_enabled: true`)
 - [x] `SensitiveDataFilter` applied before JSON formatter — passwords/tokens not in log output
@@ -322,16 +322,16 @@ docker compose logs proxy | grep -i security
 ### 14e — Alert Rules Overhaul
 - [x] All alert expressions use real `ja4proxy_*` metric names (no phantom `ja4_*` references)
 - [x] `ja4_active_connections` → `ja4proxy_active_connections` (proxy.py, recording_rules.yml, dashboards)
-- [x] `monitoring/alertmanager/rules/proxy.rules.yml` created and validated
-- [x] `monitoring/alertmanager/rules/redis.rules.yml` created and validated
-- [x] `monitoring/alertmanager/rules/security.rules.yml` created and validated
+- [x] `deploy/monitoring/alertmanager/rules/proxy.rules.yml` created and validated
+- [x] `deploy/monitoring/alertmanager/rules/redis.rules.yml` created and validated
+- [x] `deploy/monitoring/alertmanager/rules/security.rules.yml` created and validated
 - [x] 43 structural tests in `tests/unit/test_alert_rules.py` validate all four rule files
 
 ### 14f — Production Docker Compose
-- [x] `docker/docker-compose.prod.yml` references only real files (`docker/Dockerfile`, single Redis)
+- [x] `deploy/docker/docker-compose.prod.yml` references only real files (`deploy/docker/Dockerfile`, single Redis)
 - [x] Docker Compose secrets used for `redis_password`, `grafana_password`, `abuseipdb_api_key`
 - [x] No `:-changeme` or weak-password fallbacks; `BACKEND_HOST` uses `:?` (required, no default)
-- [x] `BACKEND_HOST=x docker compose -f docker/docker-compose.prod.yml config` exits 0
+- [x] `BACKEND_HOST=x docker compose -f deploy/docker/docker-compose.prod.yml config` exits 0
 - [x] All containers: `read_only`, `no-new-privileges`, `cap_drop: ALL`, memory/CPU limits
 
 ---

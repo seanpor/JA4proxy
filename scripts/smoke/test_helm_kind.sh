@@ -46,7 +46,7 @@ fi
 
 # Build and load image into kind if Docker is available
 DOCKERFILE=""
-for df in Dockerfile docker/Dockerfile.go-proxy docker/Dockerfile; do
+for df in Dockerfile deploy/docker/Dockerfile.go-proxy deploy/docker/Dockerfile; do
   if [ -f "$df" ]; then DOCKERFILE="$df"; break; fi
 done
 if [ -n "$DOCKERFILE" ] && command -v docker &>/dev/null; then
@@ -65,7 +65,7 @@ else
 fi
 
 # Also build and load analytics image if compose references it
-if [ -f docker/Dockerfile ] && docker images --format '{{.Repository}}' | grep -q ja4proxy-analytics; then
+if [ -f deploy/docker/Dockerfile ] && docker images --format '{{.Repository}}' | grep -q ja4proxy-analytics; then
   kind load docker-image ja4proxy-analytics:latest --name "$CLUSTER_NAME" 2>>"$LOG" || true
 fi
 

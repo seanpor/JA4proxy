@@ -10,8 +10,8 @@ These tests use the SOARMock server (tests/mocks/soar_mock.py) which is a real
 aiohttp HTTP server bound on 127.0.0.1 on a random port.
 
 Tested modules:
-  integrations/xsoar/JA4proxy/commands.py       — 8 XSOAR commands
-  integrations/splunk_soar/ja4proxy/connector.py — 8 Splunk SOAR actions
+  deploy/integrations/xsoar/JA4proxy/commands.py       — 8 XSOAR commands
+  deploy/integrations/splunk_soar/ja4proxy/connector.py — 8 Splunk SOAR actions
 """
 
 from __future__ import annotations
@@ -43,13 +43,13 @@ async def soar_mock():
 
 def _import_xsoar():
     """Import the XSOAR connector module. Raises ImportError if not present."""
-    from integrations.xsoar.JA4proxy import commands as xsoar_commands  # type: ignore[import]
+    from deploy.integrations.xsoar.JA4proxy import commands as xsoar_commands  # type: ignore[import]
     return xsoar_commands
 
 
 def _import_splunk():
     """Import the Splunk SOAR connector module. Raises ImportError if not present."""
-    from integrations.splunk_soar.ja4proxy import connector as splunk_connector  # type: ignore[import]
+    from deploy.integrations.splunk_soar.ja4proxy import connector as splunk_connector  # type: ignore[import]
     return splunk_connector
 
 

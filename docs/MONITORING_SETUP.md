@@ -38,7 +38,7 @@ docker compose -f docker-compose.monitoring.yml up -d
 
 # 3. Import dashboard
 # Navigate to Grafana → Dashboards → Import
-# Upload: monitoring/grafana/dashboards/ja4proxy-overview.json
+# Upload: deploy/monitoring/grafana/dashboards/ja4proxy-overview.json
 
 # 4. Test alerts
 ./test-ja4-blocking.sh
@@ -55,7 +55,7 @@ docker compose -f docker-compose.monitoring.yml up -d
 
 ### Required Files
 ```
-monitoring/
+deploy/monitoring/
 ├── prometheus/
 │   ├── prometheus.yml          # Main config
 │   ├── alerts.yml             # Alert rules
@@ -73,12 +73,12 @@ monitoring/
 
 ### Step 1: Create Prometheus Configuration
 
-The configuration files are already created in `monitoring/prometheus/`.
+The configuration files are already created in `deploy/monitoring/prometheus/`.
 
 **Key files:**
 - `prometheus.yml` - Main configuration
-- `../monitoring/prometheus/alerts.yml` - 15+ alert rules
-- `../monitoring/prometheus/recording_rules.yml` - Performance optimizations
+- `../deploy/monitoring/prometheus/alerts.yml` - 15+ alert rules
+- `../deploy/monitoring/prometheus/recording_rules.yml` - Performance optimizations
 
 ### Step 2: Create Docker Compose for Monitoring
 
@@ -100,9 +100,9 @@ services:
     ports:
       - "9091:9090"
     volumes:
-      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
-      - ./monitoring/prometheus/recording_rules.yml:/etc/prometheus/recording_rules.yml:ro
+      - ./deploy/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./deploy/monitoring/prometheus/recording_rules.yml:/etc/prometheus/recording_rules.yml:ro
       - prometheus-data:/prometheus
     restart: unless-stopped
     networks:
@@ -117,7 +117,7 @@ services:
     ports:
       - "127.0.0.1:9093:9093"
     volumes:
-      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./deploy/monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - alertmanager-data:/alertmanager
     restart: unless-stopped
     networks:
@@ -134,7 +134,7 @@ services:
       - GF_SERVER_ROOT_URL=http://localhost:3001
     volumes:
       - grafana-data:/var/lib/grafana
-      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./deploy/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
     restart: unless-stopped
     networks:
       - ja4proxy-network
@@ -262,7 +262,7 @@ increase(ja4proxy_blocklist_download_errors_total[1h])
 
 ### Step 1: Configure Notification Channels
 
-Edit `monitoring/alertmanager/alertmanager.yml`:
+Edit `deploy/monitoring/alertmanager/alertmanager.yml`:
 
 **For Email Alerts:**
 ```yaml
@@ -353,7 +353,7 @@ open http://localhost:3001
 **Method 1: Via UI**
 1. Navigate to **Dashboards** → **Import**
 2. Click **Upload JSON file**
-3. Select `monitoring/grafana/dashboards/ja4proxy-overview.json`
+3. Select `deploy/monitoring/grafana/dashboards/ja4proxy-overview.json`
 4. Select **JA4proxy Prometheus** as data source
 5. Click **Import**
 
@@ -366,13 +366,13 @@ API_KEY="your-api-key"
 curl -X POST http://localhost:3001/api/dashboards/db \
   -H "Authorization: Bearer $API_KEY" \
   -H "Content-Type: application/json" \
-  -d @monitoring/grafana/dashboards/ja4proxy-overview.json
+  -d @deploy/monitoring/grafana/dashboards/ja4proxy-overview.json
 ```
 
 **Method 3: Auto-provisioning**
 ```bash
 # Create provisioning config
-cat > monitoring/grafana/provisioning/dashboards/ja4proxy.yml << 'EOF'
+cat > deploy/monitoring/grafana/provisioning/dashboards/ja4proxy.yml << 'EOF'
 apiVersion: 1
 
 providers:
@@ -464,7 +464,7 @@ curl http://localhost:9091/api/v1/alerts | \
 
 ```bash
 # Stop JA4proxy
-docker compose -f docker/docker-compose.poc.yml stop proxy
+docker compose -f deploy/docker/docker-compose.poc.yml stop proxy
 
 # Wait 1 minute
 sleep 60
@@ -474,7 +474,7 @@ curl http://localhost:9091/api/v1/alerts | \
   jq '.data.alerts[] | select(.labels.alertname=="JA4ProxyServiceDown")'
 
 # Restart service
-docker compose -f docker/docker-compose.poc.yml start proxy
+docker compose -f deploy/docker/docker-compose.poc.yml start proxy
 ```
 
 ---

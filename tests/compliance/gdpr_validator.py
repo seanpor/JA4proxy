@@ -197,7 +197,7 @@ class GDPRValidator:
         
         try:
             # Check encryption at rest and in transit
-            from security.validation import MTLSManager
+            from src.security.validation import MTLSManager
             
             mtls = MTLSManager({'tls': {}})
             context = mtls.create_ssl_context()
@@ -239,7 +239,7 @@ class GDPRValidator:
         
         try:
             # Check breach detection capabilities
-            from security.validation import AuditLogger
+            from src.security.validation import AuditLogger
             
             audit_logger = AuditLogger({'logging': {'audit_log_path': '/tmp/test_audit.log'}})
             

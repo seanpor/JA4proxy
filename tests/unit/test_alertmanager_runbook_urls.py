@@ -4,7 +4,7 @@ Phase 81 requires every alert rule to include:
     annotations:
       runbook_url: "https://..."
 
-These tests parse all YAML files in monitoring/alertmanager/rules/ and
+These tests parse all YAML files in deploy/monitoring/alertmanager/rules/ and
 assert that every alert: entry satisfies the annotation requirements.
 
 The one file that already has runbook_url (ebpf_attack.yml) passes today.
@@ -24,7 +24,7 @@ import yaml
 # Helpers
 # ---------------------------------------------------------------------------
 
-RULES_DIR = Path(__file__).parent.parent.parent / "monitoring" / "alertmanager" / "rules"
+RULES_DIR = Path(__file__).parent.parent.parent / "deploy" / "monitoring" / "alertmanager" / "rules"
 
 
 def _collect_all_rules() -> list[tuple[str, str, dict]]:

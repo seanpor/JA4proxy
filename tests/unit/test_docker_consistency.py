@@ -23,7 +23,7 @@ import yaml
 REPO_ROOT = Path(__file__).parent.parent.parent
 
 # Compose files to parse for various checks (excludes prod which uses secrets)
-COMPOSE_FILES = sorted(REPO_ROOT.glob("docker/docker-compose*.yml"))
+COMPOSE_FILES = sorted(REPO_ROOT.glob("deploy/docker/docker-compose*.yml"))
 
 # Standalone compose files that must not reference REDIS_PASSWORD with weak forms
 # docker-compose.prod.yml uses Docker secrets, so REDIS_PASSWORD is not in env
@@ -33,10 +33,10 @@ COMPOSE_FILES_WITH_PASSWORD_CHECK = [
 
 # Dockerfiles to scan for base image tags
 DOCKERFILE_DIRS = [
-    REPO_ROOT / "docker",
+    REPO_ROOT / "deploy" / "docker",
     REPO_ROOT / "tests" / "docker",
     REPO_ROOT / "src" / "analytics",
-    REPO_ROOT / "tarpit",
+    REPO_ROOT / "src" / "tarpit",
 ]
 
 
@@ -123,31 +123,31 @@ class TestGoBaseImage:
 
 
 # ---------------------------------------------------------------------------
-# 89c — docker/docker-compose.test.yml is the canonical test environment
+# 89c — deploy/docker/docker-compose.test.yml is the canonical test environment
 #       (ADAPTED: Phase 90 already moved the canonical file here; verify it
 #        is the real 159-line test environment, not a deleted stub)
 # ---------------------------------------------------------------------------
 
 
 class TestComposeTestFile:
-    """89c (adapted): docker/docker-compose.test.yml is the canonical test env.
+    """89c (adapted): deploy/docker/docker-compose.test.yml is the canonical test env.
 
     Phase 90 moved the canonical 159-line docker-compose.test.yml from the
-    repo root to docker/. The stub described in Phase 89c no longer exists
+    repo root to deploy/docker/. The stub described in Phase 89c no longer exists
     in isolation — this file IS the full test environment. We verify it exists
     and has more than 50 lines to confirm it is the canonical version.
     """
 
     def test_compose_test_exists_and_is_canonical(self):
-        """docker/docker-compose.test.yml must exist and have more than 50 lines."""
-        path = REPO_ROOT / "docker" / "docker-compose.test.yml"
+        """deploy/docker/docker-compose.test.yml must exist and have more than 50 lines."""
+        path = REPO_ROOT / "deploy" / "docker" / "docker-compose.test.yml"
         assert path.exists(), (
-            "docker/docker-compose.test.yml must exist — it is the canonical "
+            "deploy/docker/docker-compose.test.yml must exist — it is the canonical "
             "integration test environment (moved here by Phase 90)."
         )
         line_count = len(path.read_text().splitlines())
         assert line_count > 50, (
-            f"docker/docker-compose.test.yml has only {line_count} lines — "
+            f"deploy/docker/docker-compose.test.yml has only {line_count} lines — "
             "expected the full canonical test environment (>50 lines). "
             "A short file would indicate an abandoned stub, not the full test env."
         )
@@ -267,7 +267,7 @@ class TestRestartPolicy:
 
     def test_poc_services_have_restart_policy(self):
         """Each permanent service in docker-compose.poc.yml must have restart: unless-stopped."""
-        compose_path = REPO_ROOT / "docker" / "docker-compose.poc.yml"
+        compose_path = REPO_ROOT / "deploy" / "docker" / "docker-compose.poc.yml"
         compose = load_compose(compose_path)
         services = compose.get("services") or {}
         for svc_name in PERMANENT_POC_SERVICES:
@@ -282,36 +282,36 @@ class TestRestartPolicy:
 
 
 # ---------------------------------------------------------------------------
-# 89h — docker/README.md exists with valid content
+# 89h — deploy/docker/README.md exists with valid content
 # ---------------------------------------------------------------------------
 
 
 class TestDockerReadme:
-    """89h: docker/README.md must exist and contain required content."""
+    """89h: deploy/docker/README.md must exist and contain required content."""
 
     def test_readme_exists(self):
-        """docker/README.md must exist."""
-        assert (REPO_ROOT / "docker" / "README.md").exists(), (
-            "docker/README.md does not exist — create it per Phase 89h."
+        """deploy/docker/README.md must exist."""
+        assert (REPO_ROOT / "deploy" / "docker" / "README.md").exists(), (
+            "deploy/docker/README.md does not exist — create it per Phase 89h."
         )
 
     def test_readme_references_poc_compose(self):
-        """docker/README.md must reference docker/docker-compose.poc.yml."""
-        content = (REPO_ROOT / "docker" / "README.md").read_text()
-        assert "docker/docker-compose.poc.yml" in content, (
-            "docker/README.md must reference docker/docker-compose.poc.yml."
+        """deploy/docker/README.md must reference deploy/docker/docker-compose.poc.yml."""
+        content = (REPO_ROOT / "deploy" / "docker" / "README.md").read_text()
+        assert "deploy/docker/docker-compose.poc.yml" in content, (
+            "deploy/docker/README.md must reference deploy/docker/docker-compose.poc.yml."
         )
 
     def test_readme_references_monitoring_compose(self):
-        """docker/README.md must reference docker-compose.monitoring.yml."""
-        content = (REPO_ROOT / "docker" / "README.md").read_text()
+        """deploy/docker/README.md must reference docker-compose.monitoring.yml."""
+        content = (REPO_ROOT / "deploy" / "docker" / "README.md").read_text()
         assert "docker-compose.monitoring.yml" in content, (
-            "docker/README.md must reference docker-compose.monitoring.yml."
+            "deploy/docker/README.md must reference docker-compose.monitoring.yml."
         )
 
     def test_readme_local_links_resolve(self):
-        """All local markdown links in docker/README.md must reference existing files."""
-        readme_path = REPO_ROOT / "docker" / "README.md"
+        """All local markdown links in deploy/docker/README.md must reference existing files."""
+        readme_path = REPO_ROOT / "deploy" / "docker" / "README.md"
         content = readme_path.read_text()
         # Find all markdown links that are not http/https
         links = re.findall(r"\[.*?\]\((?!https?://)(.*?)\)", content)
@@ -320,11 +320,11 @@ class TestDockerReadme:
             link_path = link.split("#")[0]
             if not link_path:
                 continue
-            # Try relative to docker/ first, then relative to repo root
-            resolved = (REPO_ROOT / "docker" / link_path).resolve()
+            # Try relative to deploy/docker/ first, then relative to repo root
+            resolved = (REPO_ROOT / "deploy" / "docker" / link_path).resolve()
             resolved_root = (REPO_ROOT / link_path).resolve()
             assert resolved.exists() or resolved_root.exists(), (
-                f"docker/README.md links to non-existent file: {link!r}"
+                f"deploy/docker/README.md links to non-existent file: {link!r}"
             )
 
 
@@ -334,11 +334,11 @@ class TestDockerReadme:
 
 
 class TestDockerfileLocationLabels:
-    """89i: src/analytics/Dockerfile and tarpit/Dockerfile must carry location LABEL."""
+    """89i: src/analytics/Dockerfile and src/tarpit/Dockerfile must carry location LABEL."""
 
     @pytest.mark.parametrize("df_path", [
         "src/analytics/Dockerfile",
-        "tarpit/Dockerfile",
+        "src/tarpit/Dockerfile",
     ])
     def test_dockerfile_has_location_label(self, df_path: str):
         """Module Dockerfiles must contain LABEL dockerfile.location=\"module\"."""
