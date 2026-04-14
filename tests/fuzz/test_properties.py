@@ -15,7 +15,7 @@ from hypothesis import strategies as st
 from hypothesis.stateful import Bundle, RuleBasedStateMachine, rule
 
 from proxy import JA4Fingerprint, JA4Generator, TLSParser
-from security.validation import SecurityError, SecurityValidator, ValidationError
+from src.security.validation import SecurityError, SecurityValidator, ValidationError
 
 
 class TestJA4FingerprintProperties:

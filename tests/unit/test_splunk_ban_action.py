@@ -215,6 +215,7 @@ class TestRequestBodyShape:
 
 _PLAYBOOK_PATH = (
     Path(__file__).resolve().parents[2]
+    / "deploy"
     / "integrations"
     / "sentinel"
     / "playbooks"

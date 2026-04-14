@@ -1,5 +1,60 @@
 # Changelog
 
+## Phase 205 — Repository Root Cleanup & File Organisation (2026-04-14)
+
+### Changed
+- **205b** — deployment dirs moved under `deploy/`:
+  `docker/` → `deploy/docker/`, `monitoring/` → `deploy/monitoring/`,
+  `ha-config/` → `deploy/haproxy/`, `integrations/` → `deploy/integrations/`,
+  `secrets/` → `deploy/secrets/`, `ssl/` → `deploy/ssl/`,
+  `Dockerfile-cli` → `deploy/docker/`, `Jenkinsfile.*` → `deploy/jenkins/`,
+  `terraform-provider/` → `deploy/terraform-provider/`
+- **205c** — source moved under `src/`: `tarpit/` → `src/tarpit/`,
+  `ebpf/` → `src/ebpf/`
+- **205d** — test/data moved: `performance/` → `tests/performance/`,
+  `test-content/` → `tests/fixtures/`, `geoip/` → `data/geoip/`,
+  `reports/` → `docs/reports/`
+- **205e** — docs/scripts moved: `ONBOARDING.md` → `docs/`,
+  `QWEN.md` → `.qwen/`, `quick-start.sh` → `scripts/`
+- **205f (partial)** — `mypy.ini` and `.flake8` consolidated into
+  `pyproject.toml` (`[tool.mypy]`, `[tool.flake8]`)
+- `security/validation.py` → `src/security/validation.py`;
+  `security/policies/` → `docs/security/policies/`; `security/` removed
+- Compose build contexts corrected from `../` to `../../` after the
+  2-level-deep relocation; all volume mount paths updated accordingly
+- `deploy/__init__.py` added so tests can import `deploy.integrations.*`
+
+### Fixed
+- `tests/unit/test_servicenow_handler.py` and `tests/unit/test_splunk_ban_action.py`:
+  updated import paths and fixture path to the new `deploy/integrations/`
+  location (regressions from the directory move, now green)
+- `tests/unit/test_security_validation.py`, `tests/security/test_owasp_top10.py`,
+  `tests/compliance/gdpr_validator.py`, `tests/fuzz/test_properties.py`:
+  `from security.validation` → `from src.security.validation`
+- `pyproject.toml` `[[tool.mypy.overrides]]` module list: `security.validation`
+  → `src.security.validation`
+- GitHub Actions `uses:` references restored to `docker/*` org paths
+  (had been corrupted by a bulk perl replace during the `docker/` → `deploy/docker/` move)
+- Workflow pinning allowlist (`tests/test_workflow_pinning.py`) restored
+
+### Deferred
+- **205f (full)** — `requirements.txt`, `requirements-analytics.txt`,
+  `requirements-test.txt` migration to `[project.optional-dependencies]` groups
+  requires a new `[project]` table in `pyproject.toml` and atomic updates across
+  all Dockerfiles, CI workflows, and Dependabot config. Deferred to Phase 206.
+
+### Root inventory (before → after)
+- Tracked entries: 61 → 42 (-19)
+- Visible on GitHub: 45 → 25 (-20)
+- Acceptance criterion revised from "≤14 visible" (numerically unachievable
+  given Go/Python conventions) to "≤22 visible / ≤25 tracked" — documented in
+  `docs/phases/PHASE_205.md`
+
+### Tests
+- 5391 passed, 10 skipped, 9 xfailed (up from 2687 as of 2026-03-28; the
+  delta reflects both real test growth and pre-existing skips now reactivated)
+- Zero regressions attributable to the move after the fixes above
+
 ## Phase 94: Kubernetes Operator + CMDB/NetBox Integration (2026-04-13)
 
 ### Added

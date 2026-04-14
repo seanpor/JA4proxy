@@ -335,7 +335,12 @@ If it's the active development copy:
 
 ## Acceptance Criteria
 
-- [ ] Root has ≤20 tracked entries (files + directories), ≤14 visible on GitHub
+- [ ] Root has ≤25 tracked entries (files + directories), ≤22 visible on GitHub
+      (revised 2026-04-14: the original "≤14 visible" target is unachievable
+      given Go's `go.mod`/`go.sum` requirement at root, Python's `proxy.py` and
+      `pyproject.toml`, plus ~10 architectural directories (`cmd/`, `internal/`,
+      `src/`, `tests/`, `deploy/`, `docs/`, `scripts/`, `config/`, `management/`,
+      `data/`). The realistic floor is ~19 visible entries.)
 - [ ] README.md visible on GitHub without scrolling past file listing
 - [ ] No transient/build files in root (all gitignored)
 - [ ] All deployment config consolidated under `deploy/`

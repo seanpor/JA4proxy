@@ -193,7 +193,7 @@ class TestCreateSirIncident:
             "SNOW_USER": "user",
             "SNOW_PASS": "pass",
         }):
-            with patch("integrations.servicenow.ja4proxy_snow_handler.requests.post",
+            with patch("deploy.integrations.servicenow.ja4proxy_snow_handler.requests.post",
                        mock_post):
                 result = handler.create_sir_incident(minimal_event)
 
@@ -219,7 +219,7 @@ class TestCreateSirIncident:
             "SNOW_USER": "user",
             "SNOW_PASS": "pass",
         }):
-            with patch("integrations.servicenow.ja4proxy_snow_handler.requests.post",
+            with patch("deploy.integrations.servicenow.ja4proxy_snow_handler.requests.post",
                        self._mock_post_error(403)):
                 with pytest.raises(requests.HTTPError):
                     handler.create_sir_incident(minimal_event)
@@ -231,7 +231,7 @@ class TestCreateSirIncident:
             "SNOW_USER": "user",
             "SNOW_PASS": "pass",
         }):
-            with patch("integrations.servicenow.ja4proxy_snow_handler.requests.post",
+            with patch("deploy.integrations.servicenow.ja4proxy_snow_handler.requests.post",
                        self._mock_post_error(500)):
                 with pytest.raises(Exception):
                     handler.create_sir_incident(minimal_event)
