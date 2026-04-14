@@ -37,11 +37,12 @@
   (had been corrupted by a bulk perl replace during the `docker/` → `deploy/docker/` move)
 - Workflow pinning allowlist (`tests/test_workflow_pinning.py`) restored
 
-### Deferred
-- **205f (full)** — `requirements.txt`, `requirements-analytics.txt`,
-  `requirements-test.txt` migration to `[project.optional-dependencies]` groups
-  requires a new `[project]` table in `pyproject.toml` and atomic updates across
-  all Dockerfiles, CI workflows, and Dependabot config. Deferred to Phase 206.
+### Dropped from scope
+- **Full `requirements*.txt` consolidation** — considered and rejected. The
+  three `requirements*.txt` files are idiomatic Python and the cosmetic win
+  (GitHub-visible entries 25 → 22) does not justify atomic rewrites across
+  Dockerfiles, CI workflows, Makefile, and Dependabot. No Phase 206; revisit
+  opportunistically if the Docker/CI stack is touched for other reasons.
 
 ### Root inventory (before → after)
 - Tracked entries: 61 → 42 (-19)

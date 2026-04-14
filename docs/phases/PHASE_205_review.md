@@ -285,8 +285,9 @@ These sub-tasks close Phase 205. All are small and independent unless noted.
 - [ ] `grep` for old paths in docs returns zero hits
 - [ ] `make lint-md` passes (if target exists)
 
-### Sub-task 205-X8 (optional, defer-friendly): Consolidate `requirements*.txt`
-**Size:** M (2–3 h) — can be deferred to Phase 206
+### Sub-task 205-X8 (DROPPED from scope): Consolidate `requirements*.txt`
+**Status:** rejected — cosmetic win (25 → 22 visible) did not justify atomic rewrites across Dockerfiles/CI/Makefile/Dependabot. `pip install -r requirements.txt` is idiomatic Python.
+**Size:** M (2–3 h) — originally proposed as Phase 206, now dropped
 **Depends on:** X1–X7 stable
 **Parallel with:** none (touches many CI files)
 **Files to touch:** `pyproject.toml`, all Dockerfiles in `deploy/docker/`, `.github/workflows/*.yml`, `Makefile`, `scripts/*.sh`
@@ -303,7 +304,7 @@ These sub-tasks close Phase 205. All are small and independent unless noted.
 - [ ] All Dockerfile builds pass
 - [ ] All CI workflows pass
 - [ ] Dependabot PRs continue to arrive for pyproject deps
-**Watch out for:** This is the riskiest remaining item. If time-pressed, split into Phase 206. Note the deferral in the phase-close commit.
+**Watch out for:** N/A — dropped from scope.
 
 ### Sub-task 205-X9: Phase-close ceremony
 **Size:** XS (30 min)
@@ -328,6 +329,6 @@ These sub-tasks close Phase 205. All are small and independent unless noted.
 - **Sub-tasks remaining:** 9 (8 required + 1 optional/deferrable)
 - **Estimated effort:** ~4–5 hours for required; +3 h for optional X8
 - **Critical blockers before COMPLETE:** X1 (test regression), X6 (revise criterion), X9 (close ceremony)
-- **Safe to defer:** X8 (requirements consolidation) — can become Phase 206
+- **Dropped:** X8 (requirements consolidation) — cosmetic-only, not worth the blast radius
 
 The phase is ~85% done. The remaining work is cleanup plus one genuine regression (the 8 failing integration tests). Do NOT mark the phase complete until X1 is fixed — calling it "pre-existing" is incorrect.

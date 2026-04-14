@@ -18,11 +18,13 @@
 
 ## What was deferred
 
-**205f (full `requirements*.txt` consolidation) → Phase 206.** The migration
-requires adding a full `[project]` table to `pyproject.toml` and atomically
-rewriting every `pip install -r requirements-*.txt` invocation across
-Dockerfiles, CI workflows, Makefile targets, and Dependabot config. Too broad
-to land inside the root-cleanup phase without risking CI breakage.
+**205f (full `requirements*.txt` consolidation) — dropped from scope.** The
+migration would require a full `[project]` table in `pyproject.toml` and
+atomic rewrites across Dockerfiles, CI workflows, Makefile, and Dependabot.
+The only payoff is dropping GitHub-visible root entries from 25 → 22 —
+cosmetic, and `pip install -r requirements.txt` is idiomatic Python. No
+Phase 206; revisit opportunistically if the Docker/CI stack is touched for
+other reasons.
 
 ## Decisions
 
