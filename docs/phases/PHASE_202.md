@@ -36,15 +36,19 @@ docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121      # v4.1.0
 docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0
 ```
 
-Actions newly introduced by 202d (pin to latest-stable SHA at implementation time,
-then record here):
+Actions newly introduced by 202d (recorded at implementation time, 2026-04-15):
 
 ```
-docker/setup-buildx-action@<SHA>     # v3.x
-docker/metadata-action@<SHA>         # v5.x
-sigstore/cosign-installer@<SHA>      # v3.x
-anchore/sbom-action@<SHA>            # v0.x
-aquasecurity/trivy-action@<SHA>      # latest
+docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd  # v4.0.0
+docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf      # v6.0.0
+sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da   # v3.7.0
+anchore/sbom-action@55dc4ee22412511ee8c3142cbea40418e6cec693         # v0.17.8
+aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0   # v0.29.0
+```
+
+SLSA reusable workflow SHA resolved in 202a:
+```
+slsa-framework/slsa-github-generator/...@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a  # v2.1.0
 ```
 
 ---

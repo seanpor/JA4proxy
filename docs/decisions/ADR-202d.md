@@ -1,6 +1,6 @@
 # ADR-202d: Keyless Cosign Signing for the Go Proxy Image
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-04-15
 **Phase:** 202 (CI supply chain hardening) — sub-phase 202d
 
