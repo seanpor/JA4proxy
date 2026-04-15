@@ -87,6 +87,20 @@ phase: 54
 
 ---
 
+## Phase 20 — TAP / SPAN Mode Fingerprints
+
+| Key pattern | Type | TTL | Written by | Notes |
+|-------------|-|-|--------|-|
+| `fp:conn:{id}` | Hash | 7d | TAP `FingerprintStore` | Per-connection fingerprint bundle (ja4, ja4s, ja4t, ja4h, ja4x, ja4l, ja4h2, ja4ssh, quic). **Read by:** Go proxy `tap_consumer` (Phase 203a) — *not currently; 203a reads only `fp:os:ip:{ip}`. Listed here for completeness.* |
+| `fp:ip:{ip}` | ZSET | 30d | TAP `FingerprintStore` | Per-IP fingerprint history (score = timestamp). |
+| `fp:ja4:hll:{ja4}` | HyperLogLog | 30d | TAP `FingerprintStore` | Unique-IP cardinality per JA4. |
+| `fp:ja4:count:{ja4}` | String (INCR) | 30d | TAP `FingerprintStore` | Occurrence counter per JA4. |
+| `fp:os:count:{fp}` | String (INCR) | 30d | TAP `FingerprintStore` | Per-OS-fingerprint occurrence counter. |
+| `fp:os:ip:{ip}` | String (OS class) | 24h | TAP `FingerprintStore` | Observed OS class (from JA4T) for the client IP. **Read by:** Go proxy `tap_consumer` (Phase 203a) for OS-mismatch signal. |
+| `fp:ja4_to_ja4s:{ja4}` | Hash | 7d | TAP `FingerprintStore` | JA4 → JA4S co-occurrence map. |
+
+---
+
 ## Phase 12 — Analytics Node
 
 | Key pattern | Type | TTL | Written by | Notes |
