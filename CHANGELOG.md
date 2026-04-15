@@ -1,5 +1,68 @@
 # Changelog
 
+<!-- TODO: verify after impl — stamp version number (likely next patch bump) and release date when phase 202 merges to main. -->
+
+## [Unreleased] - Phase 202 — CI Supply Chain + Default Credential Removal
+
+### Security
+- **202a** — Final GitHub Actions pinning audit closes the residual
+  supply-chain gap: every ordinary `uses:` in `.github/workflows/` is now
+  SHA-pinned. The one remaining reusable workflow
+  (`slsa-framework/slsa-github-generator` in `release-cli.yml`) is either
+  SHA-pinned or allowlisted per ADR-202a. <!-- TODO: verify after impl —
+  record the chosen path (A vs B) and the SHA if Path A. -->
+- **202b** — Removed all default credential fallbacks from Docker Compose
+  files. `GRAFANA_PASSWORD`, `HAPROXY_STATS_USER`, `HAPROXY_STATS_PASSWORD`,
+  `MANAGEMENT_JWT_SECRET`, `MANAGEMENT_ADMIN_USER`, and
+  `MANAGEMENT_ADMIN_PASSWORD` are now **required** — compose fails fast via
+  `${VAR:?VAR is required}` if any is unset. Prior fallbacks
+  (`:-admin`, `:-admin123`, `:-change-me-in-production`) are gone.
+  Operator guidance: `docs/runbooks/deploy_credentials.md` (new).
+- **202c** — `deploy/docker/Dockerfile.go-proxy` now pins the runtime user
+  to explicit UID/GID `1000:1000` (was busybox-assigned random system UID)
+  and adds OCI image labels (`org.opencontainers.image.source`,
+  `.title`, `.description`, `.licenses`). Compatible with Pod Security
+  Admission `restricted` profile. Rationale: ADR-202c.
+- **202d** — New CI workflow `.github/workflows/go-proxy-image.yml`
+  builds, Trivy-scans (CRITICAL gate, honours `.trivyignore`), generates
+  a CycloneDX SBOM, signs the image with **keyless cosign** (Fulcio OIDC,
+  no long-lived signing key), and pushes to GHCR. End-user verification
+  via `scripts/verify-image-signature.sh`. Rationale: ADR-202d.
+- **202e** — Test Redis (`deploy/docker/docker-compose.test.yml`) now
+  binds to `127.0.0.1` only (was all-interfaces `0.0.0.0`) and requires
+  a password via `REDIS_TEST_PASSWORD` (default `test-fixtures-pw` for
+  local CI). Integration fixtures updated to authenticate; `fakeredis`
+  unit tests unchanged.
+
+### Added
+- `docs/runbooks/deploy_credentials.md` — mandatory env var reference for
+  operators and CI (202b).
+- `docs/decisions/ADR-202a.md` — SLSA reusable workflow pinning decision
+  (Proposed; Coder resolves to Accepted at implementation time).
+- `docs/decisions/ADR-202c.md` — explicit UID 1000 rationale (Proposed).
+- `docs/decisions/ADR-202d.md` — keyless cosign signing rationale
+  (Proposed).
+- `.trivyignore` — empty-but-documented CVE triage file with required
+  `reason / expires / owner` fields per entry.
+- `scripts/verify-image-signature.sh` — end-user cosign verification
+  helper (202d).
+
+### Changed
+- `.github/workflows/ja4proxy-policy.yml`, `ci.yml`, `release-cli.yml` —
+  pinning invariant now enforced repo-wide. <!-- TODO: verify after impl —
+  confirm all three files clean under the grep check. -->
+
+### Breaking Changes
+- **Operators MUST now set six environment variables** before
+  `docker compose up` succeeds on `docker-compose.poc.yml` and
+  `docker-compose.monitoring.yml`. See
+  `docs/runbooks/deploy_credentials.md`. Existing deployments that relied
+  on `:-admin` / `:-admin123` / `:-change-me-in-production` defaults will
+  fail to start until the vars are set. This is intentional.
+- Test Redis no longer accepts unauthenticated connections on port 6380
+  nor connections from non-loopback interfaces. Update any local tooling
+  that connected to `redis://localhost:6380/` without a password.
+
 ## [Unreleased] - Phase 203 — Go Missing Signals
 
 ### Added
