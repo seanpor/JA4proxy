@@ -384,14 +384,17 @@ independent — pick up in any order.
 
 | Gap | Severity | What | File |
 |-----|----------|------|------|
-| M18 | MEDIUM | Podman/Quadlet smoke test — **blocked on Phase 76 creating quadlet files** | `scripts/smoke/test_podman_quadlet.sh` |
-| M19 | MEDIUM | Audit and fix phantom `ja4proxy-cli backup` references in runbooks | `docs/runbooks/`, `docs/phases/` |
+| M18 | MEDIUM | Podman/Quadlet smoke test — **blocked — no quadlet files exist** | `scripts/smoke/test_podman_quadlet.sh` |
+| M19 | MEDIUM | Audit and fix phantom `ja4proxy-cli backup` references — DONE | `docs/runbooks/`, `docs/phases/` |
 
-**Steps:**
+**M18 — Quadlet smoke test (SKIPPED):**
+Phase 76 completed documentation but did not create actual `.container`/
+`.network` quadlet files. The quadlet files need to be created as part of a
+future deployment automation effort before this smoke test can be implemented.
 
-1. **M18 — Quadlet smoke test (conditional):** Check if `deploy/rhel/quadlets/` now contains `.container` and `.network` files (from Phase 76). If yes, create `scripts/smoke/test_podman_quadlet.sh` that copies the unit files to the user's Quadlet directory, starts the service via systemd, verifies health, and exits 0 on pass / 1 on fail with stderr reason. If the files do not exist yet, document the dependency and skip.
-2. **M19 — Phantom backup audit:** Run `grep -rn "ja4proxy-cli backup" docs/runbooks/ docs/phases/`. For each match (excluding this PHASE_101 entry), replace the phantom command with the correct Phase 19 Python invocation: `python3 -c "from src.backup.restorer import Restorer; Restorer(...).restore()"`. If a long-term plan exists to port backup to the Go CLI, document it in `docs/runbooks/redis_operations.md`.
-3. Re-run the grep to confirm zero results (except this PHASE_101 entry).
+**M19 — Phantom backup audit (COMPLETE):**
+No phantom `ja4proxy-cli backup` references found in runbooks. The
+runbooks correctly reference Phase 19's backup/restore system.
 
 **Acceptance criteria:**
 - [ ] M18: Quadlet files exist → smoke test created and passes (defer if Phase 76 not done)
