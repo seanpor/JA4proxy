@@ -53,7 +53,13 @@ type TapConsumerConfig struct {
 	SignalScore  int
 	RedisTimeout time.Duration
 	CacheTTL     time.Duration
-	MaxAge       time.Duration
+	// MaxAge is plumbed from config but not currently enforced: fp:os:ip:{ip}
+	// is a Redis String with no embedded timestamp. Enforcing freshness would
+	// require a second HGET against fp:conn:{id}.last_seen, out of scope for
+	// phase 203. TAP writer sets a 24h TTL on the key, bounding worst-case
+	// staleness. Fail-open preserved: stale lookups degrade to "missing signal"
+	// rather than a wrong decision.
+	MaxAge time.Duration
 }
 
 // redisGetter is the narrow Redis interface the TapConsumer depends on.

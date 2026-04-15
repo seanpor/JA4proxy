@@ -295,7 +295,6 @@ func TestJa4OSClass_StarterTable(t *testing.T) {
 	}
 }
 
-
 func TestTapConsumer_IPv6_CanonicalForm(t *testing.T) {
 	// TAP writes keys keyed by socket.inet_ntop() canonical form (e.g. "2001:db8::1").
 	// The consumer must produce the same key regardless of whether the caller
@@ -313,11 +312,11 @@ func TestTapConsumer_IPv6_CanonicalForm(t *testing.T) {
 	tc := NewTapConsumer(newTapConfig(), rc, nil)
 
 	variants := []string{
-		"2001:db8::1",        // already canonical
-		"2001:DB8::1",        // uppercase
-		"2001:0db8:0:0::1",   // expanded zeros
-		"[2001:db8::1]",      // bracketed (some callers leave brackets on)
-		"2001:db8::1%eth0",   // zone-suffixed
+		"2001:db8::1",      // already canonical
+		"2001:DB8::1",      // uppercase
+		"2001:0db8:0:0::1", // expanded zeros
+		"[2001:db8::1]",    // bracketed (some callers leave brackets on)
+		"2001:db8::1%eth0", // zone-suffixed
 	}
 	for _, v := range variants {
 		v := v
