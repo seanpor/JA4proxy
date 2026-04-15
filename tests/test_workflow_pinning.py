@@ -100,6 +100,21 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v6.13.0": "ca877d9245402d1537745e0e356eab47c3520991",
         "v7.1.0": "bcafcacb16a39f128d818304e6c9c0c18556b85f",
     },
+    # phase-202d — Go proxy image CI workflow (go-proxy-image.yml)
+    "sigstore/cosign-installer": {
+        "v3.7.0": "dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da",
+    },
+    "anchore/sbom-action": {
+        "v0.17.8": "55dc4ee22412511ee8c3142cbea40418e6cec693",
+    },
+    "aquasecurity/trivy-action": {
+        "v0.29.0": "18f2510ee396bbf400402947b394f2dd8c87dbb0",
+    },
+    # phase-202a — SLSA reusable workflow, SHA-pinned per ADR-202a Path A.
+    # Full path-keyed because the uses: reference includes `.github/workflows/...yml`.
+    "slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml": {
+        "v2.1.0": "f7dd8c54c2067bafc12ca7a55595d5ee9b75204a",
+    },
 }
 
 
