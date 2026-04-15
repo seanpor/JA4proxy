@@ -1,6 +1,6 @@
 # ADR-201a: Go Redis Client TLS — `MinVersion = TLS 1.2`, System CA Pool Only
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-04-15
 **Phase:** 201 (Go Redis TLS + Silent-Failure Hardening)
 
@@ -134,6 +134,28 @@ Known *not* compatible without operator action:
   allowlist (currently we rely on Go's defaults, which already exclude
   known-weak suites for `MinVersion >= 1.2`).
 
-<!-- TODO(doc-late): verify after impl — confirm startup log line wording and
-that the "private CA workaround" runbook section exists before moving ADR to
-Accepted. -->
+## Implementation notes
+
+Verified against the Phase 201 merge on branch
+`claude/phase-201-redis-tls-hardening`:
+
+- Startup log line emitted from `internal/redis/client.go` `New()` is
+  `"redis: dial options configured"` (Info) with fields `ssl` and `username`
+  as Booleans — password is never logged.
+- TLS sanity-ping failure surfaces as
+  `"redis: TLS ping failed; continuing fail-open"` (Error) and `New()` still
+  returns a non-nil `*Client`, preserving fail-open.
+- Dial-option construction is factored into `buildStandaloneOptions` /
+  `buildFailoverOptions`, both of which set
+  `TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12}` when `cfg.SSL`.
+- Concurrency model: `Client.scriptMu` is a `sync.RWMutex` protecting
+  `slidingWinSHA`. `loadScripts()` takes the write lock and delegates to
+  `loadScriptsLocked()` which assumes the lock is already held; this
+  split lets `HealthCheck` use a double-checked `RLock → Lock` pattern
+  without re-entering the mutex. This keeps read-heavy hot-path calls
+  (`SlidingWindowCount`, `SlidingWindowSHA`) on `RLock` while allowing
+  safe reload under `Lock`.
+- `ssl_ca_certs` / `ssl_certfile` workaround for private CAs is covered in
+  `docs/runbooks/go_proxy_operations.md` under the Phase-201 alert section
+  (point to OS-level trust-store update until a follow-up phase lands
+  first-class CA bundle support).

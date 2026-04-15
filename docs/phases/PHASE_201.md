@@ -1,6 +1,6 @@
 # Phase 201 — Go Redis TLS + Silent-Failure Hardening
 
-> **Status:** PROPOSED
+> **Status:** IMPLEMENTATION COMPLETE (201a–201d merged; 201e close-out pending)
 > **Parent Size:** MEDIUM
 > **Last revised:** 2026-04-15 (rewritten after critical review — see `PHASE_201_review.md`)
 > **Target runtime:** Go (production). Python is not touched.
@@ -193,11 +193,11 @@ struct at `internal/redis/client.go:31-43` has no TLS field at all.
 
 ### Acceptance
 
-- [ ] `go build ./...` passes
-- [ ] `go test ./internal/redis/... -race` passes (including the 5 new tests)
-- [ ] `go vet ./...` clean
-- [ ] `grep -n "Password" internal/redis/client.go` shows no log line includes the password value
-- [ ] With `ssl: true` in `config/proxy.yml` pointing at a non-TLS Redis, the proxy logs an `ERROR "redis: TLS ping failed"` and continues serving (fail-open)
+- [x] `go build ./...` passes
+- [x] `go test ./internal/redis/... -race` passes (including the 5 new tests)
+- [x] `go vet ./...` clean
+- [x] `grep -n "Password" internal/redis/client.go` shows no log line includes the password value
+- [x] With `ssl: true` in `config/proxy.yml` pointing at a non-TLS Redis, the proxy logs an `ERROR "redis: TLS ping failed"` and continues serving (fail-open)
 - [ ] `PHASE_201a_notes.md` written summarising work
 
 ### Watch out for
@@ -245,8 +245,8 @@ Inconsistent error handling is how silent data loss hides.
 
 ### Acceptance
 
-- [ ] Test passes
-- [ ] `go test ./internal/redis/... -race` clean
+- [x] Test passes
+- [x] `go test ./internal/redis/... -race` clean
 - [ ] `PHASE_201b_notes.md` written
 
 ### Watch out for
@@ -393,10 +393,10 @@ rate limiter breaks silently — exactly the failure Python's
 
 ### Acceptance
 
-- [ ] `go test -race ./internal/redis/...` clean
-- [ ] `/metrics` exposes `ja4proxy_redis_health` and `ja4proxy_redis_script_reloads_total`
+- [x] `go test -race ./internal/redis/...` clean
+- [x] `/metrics` exposes `ja4proxy_redis_health` and `ja4proxy_redis_script_reloads_total`
 - [ ] Manual test: run proxy against miniredis, `SCRIPT FLUSH`, wait 30 s, check metric — reload counter increments
-- [ ] Runbook entry committed
+- [x] Runbook entry committed
 - [ ] `PHASE_201c_notes.md` written
 
 ### Watch out for
@@ -482,8 +482,8 @@ as the oracle, which handles v4, v6, v6+zone, and malformed input correctly.
 
 ### Acceptance
 
-- [ ] All 8 tests pass
-- [ ] `go test -race ./internal/security/... -count=5` stable
+- [x] All 8 tests pass
+- [x] `go test -race ./internal/security/... -count=5` stable
 - [ ] `PHASE_201d_notes.md` written
 
 ### Watch out for
@@ -535,8 +535,8 @@ as the oracle, which handles v4, v6, v6+zone, and malformed input correctly.
 
 ### Acceptance
 
-- [ ] CHANGELOG prepended
-- [ ] ADR-201a present and linked from ADR index
+- [x] CHANGELOG prepended
+- [x] ADR-201a present and linked from ADR index
 - [ ] `make sync` run; generated docs committed
 - [ ] `make check-scores` exits 0 (sanity check, not changed by this phase)
 - [ ] `make test` and `make go-test` both pass
@@ -546,15 +546,51 @@ as the oracle, which handles v4, v6, v6+zone, and malformed input correctly.
 
 ## Full-phase acceptance criteria
 
-- [ ] All 5 sub-phases complete
-- [ ] `go test -race ./...` passes
-- [ ] `go vet ./...` clean
-- [ ] `make check-scores` exits 0 (unchanged baseline)
-- [ ] `make test-go-redis-tls` (new target) passes against real Redis+TLS in compose
-- [ ] `grep -rn "Password.*log\|log.*Password" internal/redis/ cmd/` returns no matches that log a password value
-- [ ] `ssl: true` with a broken TLS config produces a loud ERROR log, not a silent cleartext connection
-- [ ] Rate limiter fuzz test (201d) stable under 5 repeated runs
-- [ ] In-process TLS harness test suite produces a REAL TLS handshake (verified by reading the harness source — no handshake-free shortcuts)
+- [ ] All 5 sub-phases complete (201e close-out pending: `make sync`, manifest)
+- [x] `go test -race ./...` passes
+- [x] `go vet ./...` clean
+- [ ] `make check-scores` exits 0 (unchanged baseline — not re-run by doc-late)
+- [ ] `make test-go-redis-tls` (new target) passes against real Redis+TLS in compose — compose overlay exists (`deploy/docker/docker-compose.redis-tls.yml`) but the Make target has not been added
+- [x] `grep -rn "Password.*log\|log.*Password" internal/redis/ cmd/` returns no matches that log a password value
+- [x] `ssl: true` with a broken TLS config produces a loud ERROR log, not a silent cleartext connection
+- [x] Rate limiter fuzz test (201d) stable under 5 repeated runs
+- [x] In-process TLS harness test suite produces a REAL TLS handshake (verified by reading the harness source — no handshake-free shortcuts)
+
+---
+
+## Implementation notes (Doc-Late, 2026-04-15)
+
+Implementation landed across four commits (b593f79 planning → b19786f final):
+
+- **201a** (`9efa748`): `crypto/tls` import, `Username`/`SSL` fields on
+  `redis.Config`, `buildStandaloneOptions`/`buildFailoverOptions` helpers,
+  startup Info log `"redis: dial options configured"` (Booleans only — no
+  password), and a 2 s TLS sanity ping that surfaces
+  `"redis: TLS ping failed; continuing fail-open"` (Error) while keeping
+  fail-open. `cmd/proxy/main.go` and `cmd/syncagent/main.go` both pass the
+  two new fields through. `config/proxy.yml` gains `username: ""`.
+- **201b** (`5e5d08f`): one-line fix in `ZRemRangeByScore` — Warn log on
+  error, consistent with every other write method in the file.
+- **201c** (`b19786f`): `Client.scriptMu sync.RWMutex` + split
+  `loadScripts` (acquires lock) / `loadScriptsLocked` (caller holds lock).
+  New `HealthCheck(ctx)` uses a double-checked `RLock → Lock` pattern to
+  deduplicate concurrent reload attempts. Metrics `RedisHealth{status}` and
+  `RedisScriptReloadsTotal{result}` registered in `internal/metrics/metrics.go`.
+  A 30-second `time.Ticker` goroutine is wired in `cmd/proxy/main.go` using
+  the existing cancellable `ctx` from line 67.
+- **201d** (`174625a`): `sanitizeKey` helper in
+  `internal/security/rate_limiter.go` uses `netip.ParseAddr` as the
+  validation oracle; unparseable IPs fail-open with a
+  `sha256[:16]`-hashed `ip_hash` field (never raw bytes).
+  `ja4` is truncated to 256 bytes.
+
+Work remaining for Phase 201e (out of doc-late scope):
+
+- Per-sub-phase `PHASE_201{a,b,c,d}_notes.md` files.
+- `make test-go-redis-tls` Make target driving the existing compose overlay.
+- `manifest.yaml` phase 201 → `COMPLETE` + `make sync`.
+- Final `make test` / `make go-test` / `make check-scores` run on the
+  merge commit.
 
 ## Out of scope (reminder)
 

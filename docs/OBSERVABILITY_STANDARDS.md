@@ -215,12 +215,12 @@ ja4proxy_policy_changes_total{bypass}                counter  Security policy by
 #### Redis client health (Phase 201c)
 
 ```
-ja4proxy_redis_health{status}                        gauge    Redis health (1=current, 0=stale). Labels: status=ok|error.
-ja4proxy_redis_script_reloads_total{result}          counter  Lua script reloads after Redis restart/flush. Labels: result=ok|error.
+ja4proxy_redis_health{status}                        gauge    Redis health status (1=current, 0=stale). Labels: status=ok|error.
+ja4proxy_redis_script_reloads_total{result}          counter  Count of sliding_window.lua reloads after Redis restart/flush. Labels: result=ok|error.
 ```
 
-<!-- TODO(doc-late): Verified by Doc-Late — confirm Help strings match
-`internal/metrics/metrics.go` exactly after 201c implementation lands. -->
+Help strings above match `internal/metrics/metrics.go` verbatim as of
+Phase 201c (verified against the registered `GaugeVec` / `CounterVec`).
 
 #### Tarpit (Phase 14)
 

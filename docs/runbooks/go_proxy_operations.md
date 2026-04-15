@@ -143,5 +143,11 @@ cache (fail-open); this is a degradation alert, not an outage alert.
    `ja4proxy_redis_script_reloads_total{result="ok"}`. If a faster reload is
    required, restart the proxy.
 
-<!-- TODO(doc-late): verify after impl — confirm exact ERROR log substring
-and metric label values once 201a/201c land. -->
+Verified against the Phase 201 implementation:
+
+- Startup log line (Info): `redis: dial options configured` with fields
+  `ssl` and `username` as Booleans.
+- TLS failure log line (Error, fail-open): `redis: TLS ping failed; continuing fail-open`.
+- Health-check failure log line (Warn): `redis: health check ping failed`.
+- Metric labels: `ja4proxy_redis_health{status="ok"|"error"}`,
+  `ja4proxy_redis_script_reloads_total{result="ok"|"error"}`.

@@ -1,8 +1,9 @@
 # Changelog
 
-## [Unreleased] - Phase 201 (DRAFT)
+## [Unreleased] - Phase 201 — Go Redis TLS + Silent-Failure Hardening
 
-<!-- TODO(doc-late): finalise version + date after merge -->
+(Version + date will be stamped by the release commit when Phase 201 is merged
+to `main`. Keep this entry under `[Unreleased]` until then.)
 
 ### Added
 - **201a** — `internal/redis/client.go` now honours `redis.ssl: true` with
