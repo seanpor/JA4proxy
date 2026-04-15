@@ -355,9 +355,9 @@ def main() -> None:
     placeholders_present = benchmarks_have_placeholders(benchmarks_path)
     if args.require_measured and placeholders_present:
         print(
-            f"error: benchmarks.md still contains placeholders.\n"
-            f"       Run `make bench` and commit valid numbers\n"
-            f"       before passing --require-measured.",
+            "error: benchmarks.md still contains placeholders.\n"
+            "       Run `make bench` and commit valid numbers\n"
+            "       before passing --require-measured.",
             file=sys.stderr,
         )
         sys.exit(3)
