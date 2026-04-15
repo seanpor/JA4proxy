@@ -1,5 +1,84 @@
 # Changelog
 
+## [Unreleased] - Phase 203 — Go Missing Signals (draft; work in progress)
+
+> Draft entry — finalise before merging to `main`. Items marked
+> `<!-- TODO: verify after impl -->` are scaffolded from the phase spec and
+> will be reconciled by the late-pass Doc Engineer once the Coder lands
+> implementation.
+
+### Added
+- **203a** — `tap_os_mismatch` signal in the Go proxy. The Go inline
+  proxy now consumes Phase-20 TAP-produced JA4T / OS-class fingerprints
+  from Redis (`fp:os:ip:{ip}`) and emits `tap_os_mismatch` (score 30) when
+  the JA4-claimed OS class disagrees with the TAP-observed OS class.
+  Controlled by the new `tap_consumer:` block in `config/proxy.yml`
+  (default `enabled: false`). See ADR-203a for the architectural rationale
+  (the inline proxy cannot compute JA4T from an `accept()`'d socket; it
+  reads Phase 20's fingerprints instead of re-implementing packet capture).
+  <!-- TODO: verify after impl -->
+- **203a** — Prometheus counters
+  `ja4proxy_tap_lookups_total{result}` (`hit_match|hit_mismatch|miss|error`)
+  and `ja4proxy_tap_signal_total{action}`.
+  <!-- TODO: verify after impl -->
+- **203b** — `ja4_tls_mismatch` signal in the Go proxy
+  (score 35) — fires when the JA4 prefix (`t13`/`t12`/`t11`/`t10`/`s30`)
+  disagrees with the actual negotiated TLS version. New counter
+  `ja4proxy_ja4_tls_mismatch_total{action}` (matches the existing Python
+  emission). Score was already present in `config/signal_scores.yml`;
+  Go now consumes it. <!-- TODO: verify after impl -->
+- **203e** — `/health/deep` extended with component checks
+  (tarpit saturation; optionally GeoIP if a loader is present) and N=3
+  anti-flap hysteresis via a new `internal/health` package. Time-to-detect
+  becomes `3 × probe_interval` — documented in
+  `docs/runbooks/go_proxy_operations.md`. **`/health` is intentionally
+  unchanged** (it remains the tight k8s liveness probe).
+  <!-- TODO: paste finalised JSON shape after 203e impl -->
+
+### Changed
+- **203c** — Go `weakCipherSet` (`internal/security/tls_enforcer.go`) brought
+  to exact parity with Python's `WEAK_CIPHERS` (42 suites). Previously the
+  Go set contained 12 entries, partially overlapping and partially diverging
+  from Python. Parity is now enforced by `cipher_parity_test.go`, which
+  hard-codes the authoritative Python list so a future Python-side change
+  fails the Go build loudly. <!-- TODO: verify after impl -->
+- **203d** — Go `dgaConfidence()` (`internal/security/sni_analyzer.go`)
+  re-ported to match Python's `dga_score()` rule-for-rule: sliding-scale
+  entropy (`min(0.40, (ent - 3.8) * 2.0)` for `ent >= 3.8`), length tiers
+  (`>=20 → +0.20`, `>=16 → +0.10`), vowel rules, `\d{4,}` digit regex, plus
+  `_SKIP_PREFIXES` / `getPrimaryLabel` ported verbatim from Python. Go-only
+  heuristics (consecutive-consonant run, digit-ratio) removed. Parity
+  enforced via golden-file test (`tests/fixtures/dga/expected_scores.json`)
+  and a ≤1% Tranco-top-10k FP-rate gate. <!-- TODO: verify after impl -->
+
+### Removed
+- **203a** — `internal/tls/ja4t.go` (the `ComputeJA4T(alertCodes []uint8)
+  string` stub) and its test are deleted as dead, misleading code unrelated
+  to the real JA4T concept. See ADR-203a for the three-definitions-of-JA4T
+  problem this resolves. <!-- TODO: verify after impl -->
+
+### Added (Docs)
+- **ADR-203a** — "Go inline proxy consumes Phase-20 TAP JA4T from Redis
+  (does not compute it)". Captures the architectural decision that JA4T
+  on an inline Go proxy must come from an out-of-band source (Phase 20
+  TAP node, or eventually Phase 200 PROXY-v2 TLVs), not from socket
+  introspection after `accept()`.
+- **`docs/runbooks/go_proxy_operations.md`** — new "Phase 203 — Signal
+  additions" section covering JA4T-OS-mismatch operational prerequisites
+  and the `/health/deep` time-to-detect trade-off.
+- **`docs/REDIS_SCHEMA.md`** — Phase 20 TAP keys (`fp:conn:{id}`,
+  `fp:os:ip:{ip}`, etc.) now formally documented; `fp:os:ip:{ip}` is
+  annotated as read by the Go proxy's `tap_consumer`.
+- **`config/signal_scores.yml`** — `tap_os_mismatch` (score 30, cap 30)
+  registered alongside the existing `ja4_tls_mismatch` entry.
+
+### Breaking Changes
+- None. All changes are additive or pure detection-side tightening.
+  `tap_consumer.enabled` defaults to `false`; behaviour is unchanged out
+  of the box. Operators who raise the dial and rely on a specific score
+  distribution should re-tune after 203c/203d land (cipher and DGA parity
+  will both shift scores versus previous Go behaviour).
+
 ## [Unreleased] - Phase 201 — Go Redis TLS + Silent-Failure Hardening
 
 (Version + date will be stamped by the release commit when Phase 201 is merged

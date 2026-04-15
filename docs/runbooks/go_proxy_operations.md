@@ -151,3 +151,62 @@ Verified against the Phase 201 implementation:
 - Health-check failure log line (Warn): `redis: health check ping failed`.
 - Metric labels: `ja4proxy_redis_health{status="ok"|"error"}`,
   `ja4proxy_redis_script_reloads_total{result="ok"|"error"}`.
+
+## Phase 203 — Signal additions
+
+Phase 203 adds five defensive-parity signals to the Go proxy (203a–e). Only
+the two that affect operational behaviour are documented here; the rest
+(`ja4_tls_mismatch`, weak-cipher parity, DGA algorithm re-port) are internal
+detection changes with no new runbook surface.
+
+### JA4T-OS-mismatch (203a)
+
+The `tap_os_mismatch` signal fires when the OS class implied by a client's
+JA4 TLS fingerprint disagrees with the OS class observed by the Phase 20
+TAP node from the client's TCP SYN packet. The Go proxy **does not compute
+JA4T itself** (architecturally impossible from an `accept()`'d socket — see
+[ADR-203a](../decisions/ADR-203a.md)); it reads the Phase-20 TAP node's
+fingerprint from Redis (`fp:os:ip:{ip}`) and compares.
+
+**Enabling requires the Phase 20 TAP node deployed alongside this proxy,
+writing to the same Redis instance.** Without a TAP node, every lookup
+misses and no signal is emitted — the proxy continues to function exactly
+as before. Setting `tap_consumer.enabled: true` in `config/proxy.yml`
+without a deployed TAP node is a no-op, not an error.
+
+Configuration (see `config/proxy.yml` `tap_consumer:` block):
+
+| Key | Default | Purpose |
+|---|---|---|
+| `enabled` | `false` | Master switch. Leave `false` unless Phase 20 TAP is deployed. |
+| `signal_score` | `30` | Score added to RiskScorer when a mismatch is detected (matches `signal_scores.yml`). |
+| `redis_timeout_ms` | `50` | Hot-path timeout on the `GET fp:os:ip:{ip}` lookup; fail open on timeout. |
+| `cache_ttl_seconds` | `60` | `LocalCache` TTL for per-IP lookup results; bounds the Redis QPS. |
+| `max_age_seconds` | `300` | Discard TAP fingerprints older than this (stale entries → no signal, never a false positive from old data). |
+
+Metrics:
+
+<!-- TODO: verify metric names after impl -->
+- `ja4proxy_tap_lookups_total{result="hit_match|hit_mismatch|miss|error"}`
+- `ja4proxy_tap_signal_total{action="flag|rate_limit|tarpit|block|ban"}`
+
+Troubleshooting:
+
+- Signal never fires despite `enabled: true` → check the Phase 20 TAP node
+  is running (`redis-cli KEYS 'fp:os:ip:*' | head`). Empty → TAP not
+  writing. Populated → likely a client-IP canonical-form mismatch
+  (IPv4-mapped IPv6, zone IDs) between TAP and proxy.
+- Signal fires unexpectedly at high volume → widen `cache_ttl_seconds`,
+  check for NAT churn (multiple real clients behind a single IP).
+
+### Health endpoint shape (203e)
+
+Phase 203e extends `/health/deep` (not `/health` — which remains the tight
+k8s-liveness probe) with component checks and N=3 anti-flap hysteresis.
+
+Time-to-detect a real component failure on `/health/deep` is
+`3 × probe_interval` due to hysteresis — tune probe cadence accordingly.
+
+<!-- TODO: paste finalised JSON after 203e impl -->
+
+

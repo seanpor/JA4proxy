@@ -18,6 +18,7 @@ signals:
 
   # TCP & Connection Behaviour (Phase 5)
   ja4t_mismatch:         { score: 30, description: "TCP fingerprint vs TLS fingerprint mismatch" }
+  tap_os_mismatch:       { score: 30, score_cap: 30, description: "Go proxy consumes Phase-20 TAP JA4T from Redis; fires when JA4-claimed OS class differs from TAP-observed OS class (Phase 203a)." }
   no_resumption:         { score: 15, description: "Zero session resumption rate detected" }
   short_lived:           { score: 20, description: "Connection lifespan below threshold" }
   severe_concurrency:    { score: 40, description: "Severe concurrent connection count (>= severe threshold; Python only currently)" }
