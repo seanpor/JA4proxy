@@ -242,6 +242,74 @@ func TestClient_PasswordNeverLogged(t *testing.T) {
 	}
 }
 
+// TestClient_New_SSLTrue_PlainServer_LogsErrorAndFailsOpen exercises New()
+// DIRECTLY (not newFromOptions) with SSL=true against a plain miniredis. This
+// is the exact production misconfig scenario — operator flips ssl: true but
+// Redis server is plain. Expected behaviour: New returns a non-nil *Client
+// (fail-open), log contains ERROR line "redis: TLS ping failed; continuing
+// fail-open". Covers the cfg.SSL branch in New() (phase-201a QA backfill).
+func TestClient_New_SSLTrue_PlainServer_LogsErrorAndFailsOpen(t *testing.T) {
+	addr, _, _ := newPlainMiniredis(t)
+	host, port := splitHostPort(t, addr)
+
+	log, hook := logrustest.NewNullLogger()
+	log.SetLevel(logrus.DebugLevel)
+
+	c := New(Config{
+		Host:    host,
+		Port:    port,
+		SSL:     true,
+		Timeout: 2 * time.Second,
+	}, log)
+	if c == nil {
+		t.Fatal("fail-open broken: New returned nil on TLS misconfig")
+	}
+
+	sawTLSError := false
+	sawDialOpts := false
+	for _, e := range hook.AllEntries() {
+		if e.Level == logrus.ErrorLevel && strings.Contains(e.Message, "TLS ping failed") {
+			sawTLSError = true
+		}
+		if e.Level == logrus.InfoLevel && e.Message == "redis: dial options configured" {
+			sawDialOpts = true
+			if e.Data["ssl"] != true {
+				t.Errorf("dial options log: ssl field got %v, want true", e.Data["ssl"])
+			}
+			if e.Data["username"] != false {
+				t.Errorf("dial options log: username field got %v, want false", e.Data["username"])
+			}
+		}
+	}
+	if !sawTLSError {
+		t.Errorf("expected ERROR log 'redis: TLS ping failed; continuing fail-open'; got: %+v", hook.AllEntries())
+	}
+	if !sawDialOpts {
+		t.Errorf("expected INFO log 'redis: dial options configured'")
+	}
+}
+
+// TestClient_New_NoSSL_NoTLSPingAttempted confirms that when cfg.SSL=false, New()
+// does NOT attempt a TLS sanity ping (no spurious ERROR log on healthy plain
+// Redis). Guards against a regression that would fire TLS pings unconditionally.
+func TestClient_New_NoSSL_NoTLSPingAttempted(t *testing.T) {
+	addr, _, _ := newPlainMiniredis(t)
+	host, port := splitHostPort(t, addr)
+
+	log, hook := logrustest.NewNullLogger()
+	log.SetLevel(logrus.DebugLevel)
+
+	c := New(Config{Host: host, Port: port, SSL: false, Timeout: 2 * time.Second}, log)
+	if c == nil {
+		t.Fatal("New returned nil on healthy plain Redis")
+	}
+	for _, e := range hook.AllEntries() {
+		if strings.Contains(e.Message, "TLS ping failed") {
+			t.Errorf("unexpected TLS-ping ERROR when SSL=false: %q", e.Message)
+		}
+	}
+}
+
 // containsFieldSubstring reports whether any string-valued log field contains
 // the lowercase-compared substring s.
 func containsFieldSubstring(data logrus.Fields, s string) bool {
