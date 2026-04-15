@@ -30,9 +30,10 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 logger = logging.getLogger(__name__)
 
-# Default template location relative to the project root
 _DEFAULT_TEMPLATE_DIR = Path(__file__).parent.parent.parent / "config"
 _DEFAULT_TEMPLATE_NAME = "report_template.html"
+
+_ENV_CACHE: dict[tuple[str, str], Environment] = {}
 
 
 class WeasyPrintNotAvailable(RuntimeError):
@@ -43,7 +44,7 @@ class WeasyPrintNotAvailable(RuntimeError):
 class TrendMonth:
     """One month of trend data for the report trend table."""
 
-    month: str               # "YYYY-MM"
+    month: str  # "YYYY-MM"
     connections_blocked: int = 0
     fp_rate_ppm: int = 0
     dial_setting: int = 0
@@ -139,10 +140,15 @@ class ReportRenderer:
         template_name: str = _DEFAULT_TEMPLATE_NAME,
     ) -> None:
         template_dir = Path(template_dir) if template_dir else _DEFAULT_TEMPLATE_DIR
-        self._env = Environment(
-            loader=FileSystemLoader(str(template_dir)),
-            autoescape=select_autoescape(["html"]),
-        )
+        template_dir_str = str(template_dir)
+        cache_key = (template_dir_str, template_name)
+
+        if cache_key not in _ENV_CACHE:
+            _ENV_CACHE[cache_key] = Environment(
+                loader=FileSystemLoader(template_dir_str),
+                autoescape=select_autoescape(["html"]),
+            )
+        self._env = _ENV_CACHE[cache_key]
         self._template_name = template_name
 
     def render_html(self, data: ReportData) -> str:
@@ -151,9 +157,7 @@ class ReportRenderer:
         Always works — no system library dependencies.
         """
         if not data.generated_at:
-            data.generated_at = datetime.now(timezone.utc).strftime(
-                "%Y-%m-%dT%H:%MZ"
-            )
+            data.generated_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ")
         template = self._env.get_template(self._template_name)
         return template.render(**self._build_context(data))
 

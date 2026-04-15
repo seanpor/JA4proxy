@@ -1,5 +1,6 @@
 # Changelog
 
+<<<<<<< HEAD
 ## [Unreleased] - Phase 202 — CI Supply Chain + Default Credential Removal
 
 ### Security
@@ -165,6 +166,23 @@ to `main`. Keep this entry under `[Unreleased]` until then.)
   was withdrawn as based on a false premise — `make check-scores` passes on
   `main` and the Go scores already match `config/signal_scores.yml`
   exactly. See `docs/phases/PHASE_201_review.md` for the audit.
+=======
+## Phase 101b — Compliance Hygiene (2026-04-15)
+
+### Changed
+- **M1** — XTRIM MINID fallback for Redis < 6.2: `GDPRPurge` now checks
+  Redis version and falls back to XRANGE+XDEL loop for versions < 6.2
+- **M2** — Renamed `beaconing_records_cleaned` →
+  `beaconing_datapoints_cleaned` in `PurgeSummary` (breaking change for dashboards)
+- **M4** — Audit log reads now paginated in chunks of 10k via
+  `AUDIT_LOG_CHUNK_SIZE` constant
+- **L1** — `ReportRenderer` now caches Jinja2 `Environment` at module level
+- **L5** — DSAR retention strings now read from `gdpr.*_retention_days` config
+
+### Fixed
+- Python 2 exception syntax (`except ValueError, TypeError:`) → `except (...)`
+  in `pack_builder.py` and `compliance.py` for Python 3.14 compatibility
+>>>>>>> claude/phase-201-go-redis-tls-score-drift
 
 ## Phase 205 — Repository Root Cleanup & File Organisation (2026-04-14)
 
