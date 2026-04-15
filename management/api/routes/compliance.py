@@ -194,7 +194,7 @@ def _parse_ts(ts: str) -> Optional[datetime]:
         return None
     try:
         dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
@@ -400,6 +400,18 @@ async def dsar_export(
     beaconing_records = await _dsar_beaconing_records(redis, ip)
     fingerprint_associations = await _dsar_fingerprint_associations(redis, ip, stream_data)
 
+    config = {}
+    try:
+        from management.api.proxy_config import get_proxy_config
+
+        config = get_proxy_config()
+    except Exception:
+        pass
+
+    gdpr_cfg = config.get("gdpr", {})
+    conn_retention = gdpr_cfg.get("connection_log_retention_days", 90)
+    fp_retention = gdpr_cfg.get("fingerprint_log_retention_days", 90)
+
     payload: dict[str, Any] = {
         "subject_ip": ip,
         "exported_at": exported_at,
@@ -412,10 +424,10 @@ async def dsar_export(
             "fingerprint_associations": fingerprint_associations,
         },
         "retention_periods": {
-            "connection_history": "90 days (legitimate interest — security)",
+            "connection_history": f"{conn_retention} days (legitimate interest — security)",
             "ban_history": "365 days after expiry (legitimate interest)",
             "beaconing_records": "24 hours (legitimate interest)",
-            "fingerprint_associations": "90 days (legitimate interest)",
+            "fingerprint_associations": f"{fp_retention} days (legitimate interest)",
             "audit_trail": "7 years (legal obligation — not exportable, not erasable)",
         },
     }
@@ -827,7 +839,7 @@ async def _aggregate_from_monthly_hashes(redis: Any, from_dt: datetime, to_dt: d
             # stray "" or "n/a" crashes the entire /compliance/report call.
             try:
                 total += int(data.get("connections_total", 0) or 0)
-            except (TypeError, ValueError):
+            except TypeError, ValueError):
                 logger.warning(
                     "compliance | event=monthly_aggregate_field_bad | key=%s | field=connections_total | value=%r",
                     key,
@@ -835,7 +847,7 @@ async def _aggregate_from_monthly_hashes(redis: Any, from_dt: datetime, to_dt: d
                 )
             try:
                 blocked += int(data.get("connections_blocked", 0) or 0)
-            except (TypeError, ValueError):
+            except TypeError, ValueError):
                 logger.warning(
                     "compliance | event=monthly_aggregate_field_bad | key=%s | field=connections_blocked | value=%r",
                     key,
