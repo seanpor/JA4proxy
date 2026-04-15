@@ -120,17 +120,21 @@ func TestHealthDeep_RedisDown(t *testing.T) {
 		cfg:         &config.Config{},
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/health/deep", nil)
-	w := httptest.NewRecorder()
-	p.handleHealthDeep(w, req)
-
+	// Phase 203e: anti-flap requires N=3 consecutive failures to flip status
+	// from "degraded" to "error". Probe three times.
 	var resp map[string]any
-	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
-		t.Fatalf("invalid JSON: %v", err)
+	for i := 0; i < 3; i++ {
+		req := httptest.NewRequest(http.MethodGet, "/health/deep", nil)
+		w := httptest.NewRecorder()
+		p.handleHealthDeep(w, req)
+		resp = nil
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
 	}
 
 	if resp["status"] != "error" {
-		t.Errorf("expected status=error when Redis is down, got %v", resp["status"])
+		t.Errorf("expected status=error when Redis is down (after N=3 anti-flap failures), got %v", resp["status"])
 	}
 	if resp["redis_connected"] != false {
 		t.Errorf("expected redis_connected=false, got %v", resp["redis_connected"])
