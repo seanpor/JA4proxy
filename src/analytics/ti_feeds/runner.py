@@ -154,7 +154,7 @@ class FeedRunner:
             self._trigger_task.cancel()
             try:
                 await self._trigger_task
-            except asyncio.CancelledError, Exception:  # noqa: BLE001
+            except (asyncio.CancelledError, Exception):  # noqa: BLE001
                 pass
             self._trigger_task = None
         for feed_id, task in list(self._tasks.items()):
@@ -242,7 +242,7 @@ class FeedRunner:
             task.cancel()
             try:
                 await task
-            except asyncio.CancelledError, Exception:  # noqa: BLE001
+            except (asyncio.CancelledError, Exception):  # noqa: BLE001
                 pass
         client = self._clients.pop(feed_id, None)
         if client is not None:
