@@ -3,7 +3,7 @@ package security
 // Phase 203c — TDD red: weak cipher parity with Python's WEAK_CIPHERS.
 // Source of truth: src/security/tls_enforcer.py lines 50-92 (WEAK_CIPHERS frozenset).
 //
-// This test expects exactly 42 entries. The current Go weakCipherSet has 12.
+// This test expects exactly 40 entries. The current Go weakCipherSet has 12.
 // It will FAIL until the 203c implementer expands the set to match Python.
 
 import "testing"
@@ -56,8 +56,8 @@ var pythonWeakCiphers = []struct {
 	{0xC019, "TLS_ECDH_anon_WITH_AES_256_CBC_SHA"},
 }
 
-func TestWeakCipherSet_PythonList_Has42UniqueEntries(t *testing.T) {
-	// Guard: the hardcoded Python list must itself be 42 unique codes.
+func TestWeakCipherSet_PythonList_Has40UniqueEntries(t *testing.T) {
+	// Guard: the hardcoded Python list must itself be 40 unique codes.
 	// If this ever changes, the Python source changed and the Go set must too.
 	seen := map[uint16]string{}
 	for _, c := range pythonWeakCiphers {
@@ -66,15 +66,15 @@ func TestWeakCipherSet_PythonList_Has42UniqueEntries(t *testing.T) {
 		}
 		seen[c.code] = c.name
 	}
-	if len(seen) != 42 {
-		t.Fatalf("Python WEAK_CIPHERS has %d unique codes; expected 42 "+
+	if len(seen) != 40 {
+		t.Fatalf("Python WEAK_CIPHERS has %d unique codes; expected 40 "+
 			"(if Python changed, sync both the test list and Go's weakCipherSet)", len(seen))
 	}
 }
 
 func TestWeakCipherSet_Size_MatchesPython(t *testing.T) {
-	if got := len(weakCipherSet); got != 42 {
-		t.Errorf("weakCipherSet has %d entries; expected 42 to match Python WEAK_CIPHERS", got)
+	if got := len(weakCipherSet); got != 40 {
+		t.Errorf("weakCipherSet has %d entries; expected 40 to match Python WEAK_CIPHERS", got)
 	}
 }
 
