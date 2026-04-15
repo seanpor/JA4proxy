@@ -19,7 +19,10 @@ var ja4PrefixToTLSVersion = map[string]uint16{
 
 // CheckJA4TLSMismatch returns a ja4_tls_mismatch RiskSignal when the JA4
 // prefix disagrees with the negotiated TLS version. Fail open: returns nil
-// on malformed or unknown JA4 prefixes. Phase 203b.
+// on malformed or unknown JA4 prefixes, and also when actualTLSVersion ==
+// 0x0000. Absence of a recorded negotiated version is NOT evidence of
+// mismatch — it means the caller never observed a completed handshake, so
+// we cannot say anything about parity. Phase 203b.
 func (e *TLSEnforcer) CheckJA4TLSMismatch(ja4 string, actualTLSVersion uint16) *RiskSignal {
 	if len(ja4) < 3 {
 		return nil

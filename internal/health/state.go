@@ -18,6 +18,12 @@ type Config struct {
 
 // State tracks per-component failure counts and unhealthy flags. Safe for
 // concurrent use.
+//
+// Anti-flap semantics: a component flips to unhealthy only after N
+// consecutive failures (default N=3 via Config.FailThreshold). Any single
+// success resets both the failure counter and the unhealthy flag. Time-
+// to-detect a real failure on /health/deep is therefore N × probe_interval
+// — callers should tune probe cadence with this in mind.
 type State struct {
 	mu        sync.RWMutex
 	failures  map[string]int

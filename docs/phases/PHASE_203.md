@@ -20,7 +20,7 @@ Close five production-critical signal gaps in the Go proxy:
 2. **203b — `ja4_tls_mismatch`:** Catch TLS-version spoofing where the JA4
    prefix (`t13`/`t12`/...) disagrees with the negotiated TLS version.
 3. **203c — Weak cipher parity:** Sync Go's `weakCipherSet` to **exactly**
-   match Python's `WEAK_CIPHERS` (42 suites — verified count, not "37+").
+   match Python's `WEAK_CIPHERS` (40 suites — verified count, not "37+").
 4. **203d — DGA algorithm parity:** Re-port `dgaConfidence()` to match
    Python's `dga_score()` rule-for-rule.
 5. **203e — Deepen `/health/deep`:** Add component checks (tarpit
@@ -99,7 +99,7 @@ fast, and free of CAP_NET_RAW or eBPF dependencies.
 |---|---|---|---|---|
 | **203a** | TAP-consumed JA4T-OS-mismatch signal | `internal/security/tap_consumer.go` (new), `internal/proxy/proxy.go` | S | Phase 20 (deployment); none for code |
 | **203b** | `ja4_tls_mismatch` signal | `internal/security/tls_enforcer.go` | XS | none |
-| **203c** | Weak cipher parity (exactly 42) | `internal/security/tls_enforcer.go` | XS | none |
+| **203c** | Weak cipher parity (exactly 40) | `internal/security/tls_enforcer.go` | XS | none |
 | **203d** | DGA algorithm exact-port to Python | `internal/security/sni_analyzer.go` | S | none |
 | **203e** | Deepen `/health/deep` (NOT `/health`) | `cmd/proxy/main.go`, `internal/health/state.go` (new) | S | none |
 
@@ -199,17 +199,17 @@ class disagree → high-confidence evasion signal.
    - Concurrent `GetSignal` calls are race-free (`go test -race`)
 
 **Acceptance criteria:**
-- [ ] `internal/tls/ja4t.go` and its test deleted; no dangling references
-- [ ] `tap_consumer` config block in `config/proxy.yml` with `enabled: false` default
-- [ ] `tap_os_mismatch` score 30 in `config/signal_scores.yml`
-- [ ] `TapConsumer.GetSignal()` returns correct values for all 8 test scenarios above
-- [ ] Wired into `proxy.go` after JA4 computation, before scorer aggregation
-- [ ] `ja4proxy_tap_lookups_total` and `ja4proxy_tap_signal_total` counters registered and incremented
-- [ ] `go test -race ./internal/security/...` passes
-- [ ] `make check-scores` exits 0
-- [ ] `docs/runbooks/go_proxy_operations.md` updated: "Enabling JA4T-OS-mismatch requires Phase 20 TAP node"
-- [ ] ADR-203a written documenting the TAP-consumer architecture
-- [ ] `PHASE_203a_notes.md` written
+- [x] `internal/tls/ja4t.go` and its test deleted; no dangling references
+- [x] `tap_consumer` config block in `config/proxy.yml` with `enabled: false` default
+- [x] `tap_os_mismatch` score 30 in `config/signal_scores.yml`
+- [x] `TapConsumer.GetSignal()` returns correct values for all 8 test scenarios above
+- [x] Wired into `proxy.go` after JA4 computation, before scorer aggregation
+- [x] `ja4proxy_tap_lookups_total` and `ja4proxy_tap_signal_total` counters registered and incremented
+- [x] `go test -race ./internal/security/...` passes
+- [x] `make check-scores` exits 0
+- [x] `docs/runbooks/go_proxy_operations.md` updated: "Enabling JA4T-OS-mismatch requires Phase 20 TAP node"
+- [x] ADR-203a written documenting the TAP-consumer architecture
+- [x] `PHASE_203a_notes.md` written
 
 **Out of scope:**
 - Computing JA4T in the Go proxy (architecturally impossible — see decision above)
@@ -266,12 +266,12 @@ disagrees with the negotiated TLS version.
    - Counter increments on mismatch only
 
 **Acceptance criteria:**
-- [ ] All 7 test cases pass
-- [ ] Counter `ja4proxy_ja4_tls_mismatch_total` registered and visible at `/metrics`
-- [ ] Wired in `proxy.go`
-- [ ] `make go-test` passes
-- [ ] `make check-scores` exits 0
-- [ ] `PHASE_203b_notes.md` written
+- [x] All 7 test cases pass
+- [x] Counter `ja4proxy_ja4_tls_mismatch_total` registered and visible at `/metrics`
+- [x] Wired in `proxy.go`
+- [x] `make go-test` passes
+- [x] `make check-scores` exits 0
+- [x] `PHASE_203b_notes.md` written
 
 **Out of scope:** other anti-spoofing signals; JA4 computation changes.
 
@@ -280,7 +280,7 @@ disagrees with the negotiated TLS version.
 ## Sub-phase 203c — Weak cipher parity (XS)
 
 **Goal:** Make Go's `weakCipherSet` **exactly equal** to Python's
-`WEAK_CIPHERS` (42 suites).
+`WEAK_CIPHERS` (40 suites).
 
 **Files to modify:**
 - `internal/security/tls_enforcer.go` — expand `weakCipherSet`
@@ -290,24 +290,24 @@ disagrees with the negotiated TLS version.
 
 1. Open `src/security/tls_enforcer.py` lines 50–92 (the `WEAK_CIPHERS`
    frozenset). Treat it as the authoritative list.
-2. Replace Go's `weakCipherSet` body with all 42 entries, preserving the
+2. Replace Go's `weakCipherSet` body with all 40 entries, preserving the
    per-line comment from Python verbatim (`// TLS_RSA_WITH_NULL_MD5` etc.).
 3. **Do not** add any cipher Python lacks. Do not invent new ones.
 4. Parity test (`cipher_parity_test.go`):
-   - `assert len(weakCipherSet) == 42`
-   - For each of the 42 hex codes, assert `weakCipherSet[c] == true`
+   - `assert len(weakCipherSet) == 40`
+   - For each of the 40 hex codes, assert `weakCipherSet[c] == true`
    - Hardcode the list in the test (not in a fixture file) so a Python-side
      change forces a Go-side update.
 5. Run `make go-test` and `make check-scores`.
 
 **Acceptance criteria:**
-- [ ] `len(weakCipherSet) == 42`
-- [ ] Parity test enumerates all 42 ciphers from Python and asserts presence
-- [ ] No extras; no duplicates (Go map literal won't catch dupes — assert
+- [x] `len(weakCipherSet) == 40`
+- [x] Parity test enumerates all 40 ciphers from Python and asserts presence
+- [x] No extras; no duplicates (Go map literal won't catch dupes — assert
       via test counting unique entries from the source)
-- [ ] `make go-test` passes
-- [ ] `make check-scores` exits 0
-- [ ] `PHASE_203c_notes.md` written
+- [x] `make go-test` passes
+- [x] `make check-scores` exits 0
+- [x] `PHASE_203c_notes.md` written
 
 **Out of scope:** Cipher negotiation logic, TLS 1.3 cipher set changes.
 
@@ -317,7 +317,7 @@ disagrees with the negotiated TLS version.
   Python list before pasting; some of those Python doesn't include
   (e.g. 0x0033, 0x0039, 0x003C, 0x003D are CBC-mode but PFS — Python
   considers them OK). Match Python exactly: the Go set may *shrink* in
-  some entries while gaining ~30 new ones. Net result: **42 entries**.
+  some entries while gaining ~30 new ones. Net result: **40 entries**.
 
 ---
 
@@ -372,12 +372,12 @@ rule-for-rule, byte-for-byte equivalent output for any given input.
     Go must match).
 
 **Acceptance criteria:**
-- [ ] `dgaConfidence` matches `dga_score` exactly for all 100+ fixture hosts
-- [ ] `_SKIP_PREFIXES` and `getPrimaryLabel` ported verbatim
-- [ ] Tranco top-10k FP rate ≤ 1%
-- [ ] Golden file committed to `tests/fixtures/dga/expected_scores.json`
-- [ ] `make go-test` passes
-- [ ] `PHASE_203d_notes.md` written
+- [x] `dgaConfidence` matches `dga_score` exactly for all 100+ fixture hosts
+- [x] `_SKIP_PREFIXES` and `getPrimaryLabel` ported verbatim
+- [x] Tranco top-10k FP rate ≤ 1%
+- [x] Golden file committed to `tests/fixtures/dga/expected_scores.json`
+- [x] `make go-test` passes
+- [x] `PHASE_203d_notes.md` written
 
 **Out of scope:**
 - Changes to Python's algorithm (Python is the reference)
@@ -446,13 +446,13 @@ remain a tight Redis-or-die check.
    trade-off (3 × probe interval).
 
 **Acceptance criteria:**
-- [ ] `/health` byte-for-byte unchanged
-- [ ] `/health/deep` returns new fields when components configured
-- [ ] Anti-flap: 1 failure does NOT flip status; 3 do
-- [ ] Anti-flap: 1 success after 2 failures resets the counter
-- [ ] `go test -race ./internal/health/... ./cmd/proxy/...` passes
-- [ ] Runbook updated
-- [ ] `PHASE_203e_notes.md` written
+- [x] `/health` byte-for-byte unchanged
+- [x] `/health/deep` returns new fields when components configured
+- [x] Anti-flap: 1 failure does NOT flip status; 3 do
+- [x] Anti-flap: 1 success after 2 failures resets the counter
+- [x] `go test -race ./internal/health/... ./cmd/proxy/...` passes
+- [x] Runbook updated
+- [x] `PHASE_203e_notes.md` written
 
 **Out of scope:**
 - New Prometheus metrics (alerting is a separate phase)
@@ -470,18 +470,18 @@ remain a tight Redis-or-die check.
 
 ## Full-phase Acceptance Criteria
 
-- [ ] All five sub-phases (203a–e) complete with their individual criteria
-- [ ] `internal/tls/ja4t.go` deleted (dead stub)
-- [ ] `tap_os_mismatch`, `ja4_tls_mismatch` signals registered in `config/signal_scores.yml` and emitted from Go pipeline
-- [ ] `weakCipherSet` exactly matches Python (42 entries)
-- [ ] DGA parity test passes against Python golden file for 100+ hosts
-- [ ] `/health` unchanged; `/health/deep` extended with anti-flap
-- [ ] All Go tests pass under `-race`
-- [ ] `make check-scores` exits 0
-- [ ] `make test` (full Python+Go gate) passes
-- [ ] `CHANGELOG.md` entry written
-- [ ] `docs/decisions/ADR-203a.md` written documenting the TAP-consumer architecture
-- [ ] `docs/runbooks/go_proxy_operations.md` updated for 203a (TAP requirement) and 203e (health JSON shape)
+- [x] All five sub-phases (203a–e) complete with their individual criteria
+- [x] `internal/tls/ja4t.go` deleted (dead stub)
+- [x] `tap_os_mismatch`, `ja4_tls_mismatch` signals registered in `config/signal_scores.yml` and emitted from Go pipeline
+- [x] `weakCipherSet` exactly matches Python (40 entries)
+- [x] DGA parity test passes against Python golden file for 100+ hosts
+- [x] `/health` unchanged; `/health/deep` extended with anti-flap
+- [x] All Go tests pass under `-race`
+- [x] `make check-scores` exits 0
+- [x] `make test` (full Python+Go gate) passes
+- [x] `CHANGELOG.md` entry written
+- [x] `docs/decisions/ADR-203a.md` written documenting the TAP-consumer architecture
+- [x] `docs/runbooks/go_proxy_operations.md` updated for 203a (TAP requirement) and 203e (health JSON shape)
 
 ## Out of Scope (whole phase)
 
@@ -494,3 +494,47 @@ remain a tight Redis-or-die check.
 - **Expanding the JA4-to-OS mapping table** — starter set only; widen in a
   follow-up signal-quality phase informed by production telemetry.
 - **Modifying `/health`** — intentional non-goal (see 203e).
+
+---
+
+## Close-out notes
+
+Status at close: all five sub-phases landed; all acceptance criteria ticked.
+Items worth flagging for future readers / reviewers:
+
+- **Weak-cipher count corrected 42 → 40.** The review estimated 42 by
+  frozenset-reading Python, but the real unique-entry count in
+  `WEAK_CIPHERS` is 40. `weakCipherSet` in
+  `internal/security/tls_enforcer.go` is exactly 40 entries, and
+  `cipher_parity_test.go` hard-codes the 40-entry authoritative list.
+  The CHANGELOG, ADR-203a notes, and this doc all use 40 going forward.
+- **`CheckJA4TLSMismatch` fail-open when `actualTLSVersion == 0`.** A
+  zero-valued negotiated version means the proxy never observed the
+  handshake result (e.g. the path recorded the JA4 but did not record
+  the negotiated version). Absence is not evidence of mismatch, so the
+  check returns `nil`. This is the non-obvious invariant that prevents
+  spurious signals on malformed / mid-parse paths.
+- **JA4→OS mapping is a starter set of 7 entries** (windows / macos /
+  linux / ios variants, via the FoxIO-LLC/ja4 corpus). Unknown JA4
+  prefixes → `claimed == ""` → no signal. A follow-up signal-quality
+  phase will widen this once production telemetry gives us confident
+  mappings; gaps are intentional fail-open, not misses.
+- **Tarpit saturation → HTTP 200 + `status="degraded"`, not 503.** Only
+  Redis unhealthy after N=3 consecutive failures returns 503 from
+  `/health/deep`. This prevents load balancers from flapping a proxy out
+  when the slow path is at capacity but the fast path is still serving —
+  under load we want *more* LB traffic shedding elsewhere, not less
+  capacity by pulling a working proxy.
+- **GeoIP is presence-only.** The Go proxy does load a GeoIP reader
+  (`p.geoIP` in `cmd/proxy/main.go`), so `/health/deep` reports
+  `geoip.present: true/false` plus a static `status: "ok"`. It is **not**
+  actively probed on every deep health call — that would be a syscall
+  storm at typical probe cadences. Active probing with its own anti-flap
+  is follow-up work.
+- **Existing `/health/deep` Redis-down test updated.** `TestHealthDeep_RedisDown`
+  now hits the endpoint three times to exhaust anti-flap before asserting
+  503. This is an intentional contract change introduced by 203e; old
+  expectations of "one failure → 503" are obsolete.
+- **Deleted dead code:** `internal/tls/ja4t.go` (the TLS-alert-codes
+  `ComputeJA4T` stub) and its test file are gone. `grep -rn ComputeJA4T`
+  in the repo returns nothing.

@@ -85,11 +85,16 @@ that compiles to wrong output.
 
 ### 203c — cipher counts
 
-The phase doc says "13 vs 37+". Actual Go count: **12**. Actual Python count:
-**42** (I counted the `WEAK_CIPHERS` frozenset). Cosmetic, but the acceptance
-criterion "weakCipherSet contains 37+ suites" should read "**42 suites,
-matching Python `WEAK_CIPHERS` exactly**" — exact parity is the only
-unambiguous done-condition.
+The phase doc says "13 vs 37+". Actual Go count before 203c: **12**.
+Python count: **42** by the review's eyeball count — **actual unique
+entry count is 40** (re-verified during implementation, 2026-04-15).
+Acceptance criterion updated to "**40 suites, matching Python
+`WEAK_CIPHERS` exactly**" — exact parity is the only unambiguous
+done-condition.
+
+> **Resolution (2026-04-15):** `internal/security/tls_enforcer.go`
+> `weakCipherSet` now has exactly 40 entries; `cipher_parity_test.go`
+> hard-codes the authoritative list and fails loudly on drift.
 
 Also note: the listed cipher ranges in 203c step 2 *partially overlap* the
 existing 12 Go entries. A junior engineer copy-pasting from the doc will
@@ -223,6 +228,25 @@ interval is short (say, sub-5s) and you want to ride out single dropped PINGs.
 - `docs/runbooks/go_proxy_operations.md` — update for 203e.
 - ADRs — none required if 203a is dropped. If retained, **must** have an
   ADR explaining the JA4T-from-accepted-socket limitation.
+
+---
+
+## Resolution summary (2026-04-15 — end of phase)
+
+All findings resolved by the implemented phase:
+
+| # | Finding | Resolution |
+|---|---|---|
+| 1, 2, 3 | 203a JA4T architectural unsoundness, three-definitions-of-JA4T | **Resolved.** 203a rescoped to TAP-consumer (`internal/security/tap_consumer.go`); Go does not compute JA4T. `internal/tls/ja4t.go` stub and test deleted. ADR-203a captures the decision. |
+| 4 | "37+ ciphers" stale count | **Resolved.** Real count is 40 (not 42); parity test hard-codes the 40-entry list. |
+| 5 | DGA ±0.05 tolerance not achievable | **Resolved.** Exact Python re-port; golden file at `tests/fixtures/dga/expected_scores.json` asserts equality. |
+| 6 | Alexa corpus reference | **Resolved.** Tranco corpus used (reusing `tests/fp_corpus/` infra). |
+| 7 | DGA rule divergence (consonant runs, digit ratio, skip prefixes) | **Resolved.** Go-only rules removed; `_SKIP_PREFIXES` and `getPrimaryLabel` ported verbatim. |
+| 8, 10 | `/health/deep` already rich; GeoIP existence unverified | **Resolved.** `/health` left intact; `/health/deep` extended with tarpit + geoip presence. GeoIP presence-only (reader exists in `p.geoIP`). |
+| 9 | Anti-flap state concurrency | **Resolved.** `internal/health.State` uses `sync.RWMutex`; covered by `-race` tests. |
+| 11 | 203b missing Prometheus counter | **Resolved.** `ja4proxy_ja4_tls_mismatch_total{action}` registered and emitted. |
+| 12 | Runbook delta for 203e | **Resolved.** `docs/runbooks/go_proxy_operations.md` documents JSON shape, status-code table, anti-flap time-to-detect, degraded-vs-503 rule. |
+| 13 | Phase 200 dependency | **Not a blocker.** 203a chosen path (TAP consumer) does not require Phase 200; ADR-203a notes a future revisit if/when 200 lands. |
 
 ---
 

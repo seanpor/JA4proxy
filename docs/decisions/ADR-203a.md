@@ -1,6 +1,6 @@
 # ADR-203a: Go Inline Proxy Consumes Phase-20 TAP JA4T from Redis (Does Not Compute It)
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-04-15
 **Phase:** 203 (Go Missing Signals — sub-phase 203a)
 
@@ -176,3 +176,74 @@ during 203a implementation.
 - **Redis hot-path cost** becomes measurable under benchmark (it should
   not — one `GET` behind a 60 s LRU is cheap): introduce a bloom filter or
   raise `cache_ttl_seconds`, and revisit this ADR only if those fail.
+
+---
+
+## Implementation notes (2026-04-15)
+
+This ADR's decision shipped in commit `03db36e` (phase-203a) on branch
+`claude/phase-203-go-signals`. The realised API and fail-open surfaces
+follow.
+
+### Public API
+
+```go
+// internal/security/tap_consumer.go
+
+type TapConsumerConfig struct {
+    Enabled      bool
+    SignalScore  int           // default 30 when zero
+    RedisTimeout time.Duration // default 50 ms when zero
+    CacheTTL     time.Duration // default 60 s when zero
+    MaxAge       time.Duration // discard older TAP entries
+}
+
+func NewTapConsumer(cfg *TapConsumerConfig, r redisGetter, log *logrus.Logger) *TapConsumer
+
+func (t *TapConsumer) GetSignal(ctx context.Context, clientIP, ja4 string) *RiskSignal
+```
+
+`redisGetter` is a narrow interface (`Get(ctx, key) (string, error)`) that
+`*redis.Client` satisfies directly and that tests stub trivially.
+
+### Fail-open surfaces (all return `nil` from `GetSignal`)
+
+1. `t == nil` or `cfg == nil` or `!cfg.Enabled`.
+2. Empty `ja4` or empty `clientIP`.
+3. `ja4OSClass(ja4) == ""` — JA4 prefix not in the starter mapping.
+4. Redis `GET` returns an error (timeout, transport, auth) —
+   `ja4proxy_tap_lookups_total{result="error"}` increments.
+5. Redis `GET` returns empty/nil — `…{result="miss"}` increments.
+6. LocalCache hit with empty observed value — short-circuits without a
+   Redis round trip.
+7. `observed == claimed` — `…{result="hit_match"}` increments, no signal.
+
+Only case 7's inverse (`observed != claimed`, both non-empty) emits a
+`tap_os_mismatch` signal (`…{result="hit_mismatch"}` plus
+`ja4proxy_tap_signal_total{action="flag"}`).
+
+### JA4 → OS starter mapping (7 entries)
+
+```
+t13d1516h2 → windows   (Chrome/Edge on Windows, modern)
+t13d1517h2 → macos     (Chrome on macOS)
+t13d1715h2 → linux     (Firefox on Linux)
+t13d3112h2 → macos     (Safari on macOS)
+t13d3113h2 → ios       (Safari on iOS)
+t13d0310h2 → linux     (curl / CLI TLS, Linux default)
+t13d1314h1 → linux     (Go http.Client on Linux)
+```
+
+Unknown prefixes return `""` and the caller emits no signal (fail-open).
+A follow-up signal-quality phase, informed by production telemetry, will
+widen this table.
+
+### Metrics emitted
+
+- `ja4proxy_tap_lookups_total{result}` — `hit_match` | `hit_mismatch` |
+  `miss` | `error`.
+- `ja4proxy_tap_signal_total{action}` — action taken by the pipeline when
+  the signal fires (`flag` in this phase's default scoring).
+
+Both are standard `CounterVec`s registered via the existing
+`MustRegister` pattern in `internal/metrics/metrics.go`.
