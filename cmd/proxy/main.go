@@ -30,6 +30,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/anomalyco/ja4proxy/internal/config"
+	"github.com/anomalyco/ja4proxy/internal/health"
 	jalogger "github.com/anomalyco/ja4proxy/internal/logging"
 	"github.com/anomalyco/ja4proxy/internal/metrics"
 	proxypkg "github.com/anomalyco/ja4proxy/internal/proxy"
@@ -147,6 +148,11 @@ type proxy struct {
 	// Trusted upstream CIDRs merged from static config + NetBox (phase-94i2).
 	trustedCIDRs   []string
 	trustedCIDRsMu sync.RWMutex
+
+	// Phase 203e — anti-flap state for /health/deep component checks.
+	// Lazily initialised to tolerate test fixtures that build *proxy via
+	// struct literals without calling newProxy().
+	healthState *health.State
 }
 
 func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
@@ -218,6 +224,7 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 		redis:       rc,
 		dispatcher:  disp,
 		tarpitPerIP: make(map[string]int),
+		healthState: health.New(health.Config{FailThreshold: 3}),
 	}
 
 	// phase-94i2: load trusted CIDRs from NetBox in the background (fail-open, non-blocking).
@@ -670,15 +677,26 @@ func (p *proxy) handleHealthDeep(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 
+	// Phase 203e — lazy-init anti-flap state for struct-literal test harnesses.
+	p.mu.Lock()
+	if p.healthState == nil {
+		p.healthState = health.New(health.Config{FailThreshold: 3})
+	}
+	hs := p.healthState
+	p.mu.Unlock()
+
 	// Redis connectivity
 	redisOK := true
 	redisLatencyMs := 0.0
 	t0 := time.Now()
 	if err := p.redis.Ping(ctx); err != nil {
 		redisOK = false
+		hs.RecordFailure("redis")
 	} else {
 		redisLatencyMs = float64(time.Since(t0).Microseconds()) / 1000.0
+		hs.RecordSuccess("redis")
 	}
+	redisUnhealthy := hs.IsUnhealthy("redis")
 
 	// Dial — read from Redis (management API writes here)
 	dial := p.redis.GetDial(ctx)
@@ -743,12 +761,44 @@ func (p *proxy) handleHealthDeep(w http.ResponseWriter, r *http.Request) {
 		blockRatePct = blocksTotal / connTotal * 100.0
 	}
 
+	// Phase 203e — tarpit component (always reported). Saturation is a
+	// "degraded" warning, never 503.
+	tarpitMax := 0
+	if p.cfg != nil {
+		tarpitMax = p.cfg.Tarpit.MaxActiveConnections
+	}
+	p.tarpitMu.Lock()
+	tarpitActive := p.tarpitConcurrent
+	p.tarpitMu.Unlock()
+	tarpitStatus := "ok"
+	if tarpitMax > 0 && tarpitActive >= tarpitMax {
+		tarpitStatus = "degraded"
+	}
+
+	// Phase 203e — geoip component (reported only when Country lookup is
+	// configured). present=false when p.geoIP is nil; status is always "ok"
+	// in this revision since we do not probe the reader on the hot path.
+	// Future work: active probe with anti-flap.
+	geoIPPresent := p.geoIP != nil
+	geoIPStatus := "ok"
+
 	// Status determination
 	status := "ok"
-	if !redisOK {
+	if redisUnhealthy {
 		status = "error"
+	} else if !redisOK {
+		// Transient blip under N=3 anti-flap — still reported but not fatal.
+		status = "degraded"
 	} else if redisLatencyMs > 50 {
 		status = "degraded"
+	} else if tarpitStatus == "degraded" {
+		status = "degraded"
+	}
+
+	// HTTP status: 503 only when a CRITICAL component (redis) is unhealthy
+	// under anti-flap. Tarpit saturation never escalates to 503.
+	if redisUnhealthy {
+		w.WriteHeader(http.StatusServiceUnavailable)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -761,6 +811,15 @@ func (p *proxy) handleHealthDeep(w http.ResponseWriter, r *http.Request) {
 		"connections_total":  int(connTotal),
 		"block_rate_pct":     math.Round(blockRatePct*100) / 100,
 		"active_bans":        activeBans,
+		"tarpit": map[string]any{
+			"active": tarpitActive,
+			"max":    tarpitMax,
+			"status": tarpitStatus,
+		},
+		"geoip": map[string]any{
+			"present": geoIPPresent,
+			"status":  geoIPStatus,
+		},
 	}
 	if certTSVal > 0 {
 		resp["cert_days_remaining"] = math.Round(certDaysRemaining*10) / 10
@@ -970,6 +1029,12 @@ func buildPipelineConfig(cfg *config.Config) *security.PipelineConfig {
 		// JA4X configuration (Group 6)
 		JA4XEnabled:        cfg.Fingerprinting.JA4X.Enabled,
 		JA4XBlacklistScore: cfg.Fingerprinting.JA4X.BlacklistScore,
+		// Phase 203a — TAP-consumed JA4T OS mismatch.
+		TapConsumerEnabled:      cfg.TapConsumer.Enabled,
+		TapConsumerScore:        cfg.TapConsumer.SignalScore,
+		TapConsumerRedisTimeout: cfg.TapConsumer.RedisTimeoutMs,
+		TapConsumerCacheTTL:     cfg.TapConsumer.CacheTTLSeconds,
+		TapConsumerMaxAge:       cfg.TapConsumer.MaxAgeSeconds,
 	}
 }
 

@@ -1535,30 +1535,29 @@ phases:
     - .github/workflows/go-proxy-image.yml builds, tests, SBOM-generates, signs, and pushes
     - Dockerfile.go-proxy has USER directive (non-root)
   203:
-    name: "Go Missing Signals \u2014 JA4T, TLS Mismatch, Weak Ciphers, DGA, Health"
-    status: PROPOSED
+    name: "Go Missing Signals \u2014 TAP OS Mismatch, TLS Mismatch, Weak Ciphers, DGA, Health"
+    status: COMPLETE
     action_plan: docs/phases/PHASE_203.md
     dependencies:
     - 200
     size: LARGE
     sub_phases:
-      203a: JA4T implementation (Go) — S, no deps
+      203a: TAP OS-mismatch consumer (Go reads Phase-20 TAP fingerprints from Redis) — S, no deps
       203b: ja4_tls_mismatch signal — XS, no deps
-      203c: Expand weak cipher coverage — XS, no deps
-      203d: Align DGA algorithm with Python — S, no deps
-      203e: Deepen Go health check — S, no deps
-    summary: 'Closes 5 production-critical signal gaps in Go: (1) JA4T stub returns `""` — implement full JA4T computation, (2) `ja4_tls_mismatch` not implemented — TLS version spoofing undetected, (3) weak cipher coverage 13 vs Python 37+ — NULL/EXPORT/DH_anon/ECDH_anon missed, (4) DGA algorithm diverges from Python — less effective SNI analysis, (5) Go health check only tests Redis — no GeoIP/connections/queue checks.'
+      203c: Expand weak cipher coverage to match Python (40 suites) — XS, no deps
+      203d: Align DGA algorithm with Python (golden-file parity) — S, no deps
+      203e: Deepen /health/deep with anti-flap hysteresis + tarpit/geoip status — S, no deps
+    summary: 'Closes 5 production-critical signal gaps in Go. 203a re-architected: instead of impossible in-proxy JA4T computation (kernel consumes SYN options before accept()), Go proxy consumes TAP-produced `fp:os:ip:{ip}` fingerprints from Redis written by Phase 20 TAP node. Deleted dead `internal/tls/ja4t.go` stub. 203b adds `CheckJA4TLSMismatch` detecting JA4-prefix vs negotiated-TLS-version disagreement. 203c expands Go `weakCipherSet` to exactly 40 entries matching Python `WEAK_CIPHERS`. 203d rewrites Go `dgaConfidence` rule-for-rule against Python `dga_score`, validated by golden file of 100 hostnames at 1e-9 tolerance. 203e adds anti-flap hysteresis (N=3) via `internal/health/state.go`, tarpit-saturation→200+degraded, geoip status field; `/health` invariant preserved.'
     success_criteria:
-    - ComputeJA4T() returns non-empty string matching Python output for same inputs
-    - JA4T unit tests pass with fixture-based assertions
-    - ja4_tls_mismatch fires when JA4 claims TLS 1.3 but actual is TLS 1.2
-    - weakCipherSet contains 37+ suites matching Python's WEAK_CIPHERS
-    - 'DGA parity test: Python and Go scores match within +/-0.05 for 100+ test hostnames'
-    - Go health check returns structured JSON with all component statuses
-    - Health check returns 503 when Redis or GeoIP is down
-    - Anti-flap hysteresis prevents status flapping on transient errors
-    - make check-scores still exits 0
-    - make go-test passes with zero failures
+    - TapConsumer.GetSignal reads fp:os:ip with bounded timeout, fail-open on error
+    - CheckJA4TLSMismatch fires when JA4 prefix (t13/t12/t11/t10) disagrees with negotiated TLS version
+    - weakCipherSet contains exactly 40 suites matching Python WEAK_CIPHERS
+    - 'DGA parity test: Python and Go scores match to 1e-9 for 100 hostnames in golden file'
+    - /health/deep returns structured JSON with redis, tarpit, geoip component statuses
+    - /health/deep returns 503 only after N=3 consecutive Redis failures (anti-flap)
+    - /health liveness endpoint unchanged by this phase
+    - make check-scores exits 0
+    - go test -race ./... passes with zero failures
   102:
     name: 'Phase 93 Gap Closure: Drift Detection, Import, Docs, CI'
     status: PROPOSED

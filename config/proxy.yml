@@ -569,6 +569,24 @@ abuseipdb:
   score_cap: 40                     # Maximum contribution to composite score (confidence 100 → 40 pts; never a hard block).
   delegate_to_analytics: false      # Set true when Phase 12 analytics node is deployed; local workers idle.
 
+# ── Phase 203a: TAP-consumed JA4T-OS-mismatch signal (Go proxy) ──────────────
+# The Go inline proxy cannot compute JA4T from an accept()'d socket (the kernel
+# has already consumed the SYN). Instead, the Phase 20 TAP node writes JA4T /
+# OS-class fingerprints to Redis (`fp:os:ip:{ip}`), and the Go proxy reads them
+# on the hot path to emit `tap_os_mismatch` when the JA4-claimed OS class
+# disagrees with the TAP-observed OS class. See ADR-203a.
+#
+# Set enabled: true ONLY if the Phase 20 TAP node is deployed and writing to
+# the same Redis instance. With TAP absent, every lookup misses and no signal
+# is emitted — safe default is therefore `enabled: false` (fail-open).
+
+tap_consumer:                 # phase-203a
+  enabled: false              # default OFF — requires Phase 20 TAP node deployed
+  signal_score: 30            # score added to RiskScorer when mismatch detected
+  redis_timeout_ms: 50        # short to keep hot path fast; fail open on timeout
+  cache_ttl_seconds: 60       # LocalCache TTL for per-IP lookup result
+  max_age_seconds: 300        # ignore TAP fingerprints older than this
+
 # ── Phase 32: Attacker Attribution ───────────────────────────────────────────
 
 attribution:

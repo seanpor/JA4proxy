@@ -3,7 +3,9 @@ package security
 import (
 	"math"
 	"net"
+	"regexp"
 	"strings"
+	"unicode"
 
 	"github.com/anomalyco/ja4proxy/internal/metrics"
 	"github.com/sirupsen/logrus"
@@ -108,88 +110,134 @@ func (a *SNIAnalyzer) Analyze(sni string) (signals []RiskSignal) {
 	return signals
 }
 
-// dgaConfidence computes a DGA confidence score (0.0–1.0) for the given hostname.
-// Algorithm ported exactly from src/security/sni_analyzer.py.
-func dgaConfidence(hostname string) float64 {
-	// Use the leftmost label only
-	label := hostname
-	if idx := strings.IndexByte(hostname, '.'); idx >= 0 {
-		label = hostname[:idx]
+// Phase 203d: DGA confidence algorithm ported rule-for-rule from Python's
+// src/security/sni_analyzer.py::dga_score. Byte-for-byte equivalence is
+// required (parity enforced by tests/fixtures/dga/expected_scores.json).
+
+// minDGALabelLen mirrors Python's _MIN_DGA_LABEL_LEN.
+const minDGALabelLen = 6
+
+// skipPrefixes mirrors Python's _SKIP_PREFIXES. Keep in sync with
+// src/security/sni_analyzer.py line 47.
+var skipPrefixes = map[string]bool{
+	"www":    true,
+	"mail":   true,
+	"m":      true,
+	"api":    true,
+	"static": true,
+	"cdn":    true,
+	"img":    true,
+	"assets": true,
+}
+
+// dgaDigitRun matches 4+ consecutive digits anywhere in the label
+// (Python's re.search(r"\d{4,}")).
+var dgaDigitRun = regexp.MustCompile(`\d{4,}`)
+
+// dgaVowels mirrors Python's VOWELS = frozenset("aeiou"). ASCII-only.
+var dgaVowels = map[rune]bool{'a': true, 'e': true, 'i': true, 'o': true, 'u': true}
+
+// getPrimaryLabel mirrors Python's _get_primary_label: lowercase, strip
+// trailing dots, split, return the first non-empty label that is not a
+// common non-significant prefix; fall back to parts[0].
+func getPrimaryLabel(hostname string) string {
+	lowered := strings.ToLower(hostname)
+	trimmed := strings.TrimRight(lowered, ".")
+	parts := strings.Split(trimmed, ".")
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+		if !skipPrefixes[part] {
+			return part
+		}
 	}
-	if len(label) == 0 {
+	if len(parts) > 0 {
+		return parts[0]
+	}
+	return ""
+}
+
+// shannonEntropy returns the Shannon entropy in bits/char. Mirrors Python's
+// _shannon_entropy — iterates the raw character stream (runes in Go, single
+// code points in Python str).
+func shannonEntropy(s string) float64 {
+	if s == "" {
+		return 0.0
+	}
+	freq := make(map[rune]int)
+	var n int
+	for _, r := range s {
+		freq[r]++
+		n++
+	}
+	fn := float64(n)
+	ent := 0.0
+	for _, count := range freq {
+		p := float64(count) / fn
+		ent -= p * math.Log2(p)
+	}
+	return ent
+}
+
+// dgaConfidence computes a DGA confidence score (0.0–1.0) for the given
+// hostname. Byte-for-byte equivalent to Python's dga_score.
+func dgaConfidence(hostname string) float64 {
+	label := getPrimaryLabel(hostname)
+	if len([]rune(label)) < minDGALabelLen {
 		return 0.0
 	}
 
-	confidence := 0.0
+	score := 0.0
 
-	// 1. Shannon entropy of the label
-	freq := make(map[rune]float64)
-	for _, ch := range label {
-		freq[ch]++
-	}
-	labelLen := float64(len([]rune(label)))
-	entropy := 0.0
-	for _, count := range freq {
-		p := count / labelLen
-		entropy -= p * math.Log2(p)
-	}
-	if entropy > 3.5 {
-		confidence += 0.35
-	}
-	if entropy > 4.0 {
-		confidence += 0.15
+	// 1. Shannon entropy — high entropy suggests randomness (weight 0.40).
+	ent := shannonEntropy(label)
+	if ent >= 3.8 {
+		delta := (ent - 3.8) * 2.0
+		if delta > 0.40 {
+			delta = 0.40
+		}
+		score += delta
 	}
 
-	// 2. Vowel ratio
-	vowels := map[rune]bool{'a': true, 'e': true, 'i': true, 'o': true, 'u': true}
+	// 2. Vowel/consonant analysis — collect alphabetic runes (Unicode-aware,
+	// matching Python's str.isalpha()).
+	alphaCount := 0
 	vowelCount := 0
-	runes := []rune(label)
-	for _, ch := range runes {
-		if vowels[ch] {
+	for _, r := range label {
+		if !unicode.IsLetter(r) {
+			continue
+		}
+		alphaCount++
+		if dgaVowels[r] {
 			vowelCount++
 		}
 	}
-	vowelRatio := float64(vowelCount) / labelLen
-	if vowelRatio < 0.10 {
-		confidence += 0.30
-	}
-
-	// 3. Label length
-	if len(runes) > 15 {
-		confidence += 0.15
-	}
-
-	// 4. Consecutive consonant runs (4+ non-vowel chars)
-	consecutiveConsonants := 0
-	maxConsecutive := 0
-	for _, ch := range runes {
-		if !vowels[ch] && (ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z') {
-			consecutiveConsonants++
-			if consecutiveConsonants > maxConsecutive {
-				maxConsecutive = consecutiveConsonants
-			}
-		} else {
-			consecutiveConsonants = 0
+	if alphaCount >= 6 {
+		if vowelCount == 0 {
+			// Complete absence of vowels: strong DGA signal (weight 0.30).
+			score += 0.30
+		} else if alphaCount >= 10 && float64(alphaCount)/float64(vowelCount) > 5.0 {
+			// Very consonant-heavy AND long: moderate DGA signal (weight 0.20).
+			score += 0.20
 		}
 	}
-	if maxConsecutive >= 4 {
-		confidence += 0.20
+
+	// 3. Label length — DGA labels tend to be long (weight 0.20).
+	labelRuneLen := len([]rune(label))
+	if labelRuneLen >= 20 {
+		score += 0.20
+	} else if labelRuneLen >= 16 {
+		score += 0.10
 	}
 
-	// 5. Digit ratio
-	digitCount := 0
-	for _, ch := range runes {
-		if ch >= '0' && ch <= '9' {
-			digitCount++
-		}
-	}
-	digitRatio := float64(digitCount) / labelLen
-	if digitRatio > 0.30 {
-		confidence += 0.20
+	// 4. Dense digit sequence — 4+ consecutive digits (weight 0.10).
+	if dgaDigitRun.MatchString(label) {
+		score += 0.10
 	}
 
-	if confidence > 1.0 {
-		confidence = 1.0
+	if score > 1.0 {
+		return 1.0
 	}
-	return confidence
+	return score
 }

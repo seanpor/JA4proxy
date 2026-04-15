@@ -1,5 +1,63 @@
 # Changelog
 
+## [Unreleased] - Phase 203 — Go Missing Signals
+
+### Added
+- **203a** — `tap_os_mismatch` signal in the Go proxy. Consumes Phase-20
+  TAP-produced OS-class fingerprints from Redis (`fp:os:ip:{ip}`) and emits
+  `tap_os_mismatch` (score 30) when the JA4-claimed OS class disagrees with
+  the TAP-observed OS class. New `tap_consumer:` config block
+  (`enabled: false` default). ADR-203a captures the rationale (the inline
+  proxy cannot compute JA4T from an `accept()`'d socket).
+- **203a** — Prometheus counters `ja4proxy_tap_lookups_total{result}`
+  (labels: `hit_match`, `hit_mismatch`, `miss`, `error`) and
+  `ja4proxy_tap_signal_total{action}`.
+- **203b** — `ja4_tls_mismatch` signal (score 35) in the Go proxy;
+  fires when the JA4 prefix (`t13`/`t12`/`t11`/`t10`/`s30`) disagrees with
+  the negotiated TLS version. New counter
+  `ja4proxy_ja4_tls_mismatch_total{action}` (Python parity). Fails open
+  when the negotiated TLS version is `0x0000` (never observed).
+- **203e** — `/health/deep` extended with `tarpit.{active,max,status}` and
+  `geoip.{present,status}` (presence-only). New `internal/health` package
+  provides N=3 anti-flap hysteresis — time-to-detect is
+  `3 × probe_interval`. Redis unhealthy → HTTP 503; tarpit saturation →
+  HTTP 200 with `status="degraded"` (avoids LB flapping under slow-path
+  load). `/health` is intentionally unchanged.
+
+### Changed
+- **203c** — Go `weakCipherSet` brought to exact parity with Python's
+  `WEAK_CIPHERS` (40 suites). Parity enforced by
+  `internal/security/cipher_parity_test.go`, which hard-codes the
+  authoritative Python list so a future Python-side change fails the Go
+  build loudly.
+- **203d** — Go `dgaConfidence()` re-ported to match Python's `dga_score()`
+  rule-for-rule: sliding-scale entropy, length tiers, vowel rules, `\d{4,}`
+  regex, plus `_SKIP_PREFIXES` / `getPrimaryLabel` ported verbatim. Go-only
+  heuristics (consecutive-consonant run, digit-ratio) removed. Golden-file
+  parity test plus Tranco-top-10k FP-rate gate.
+
+### Removed
+- **203a** — `internal/tls/ja4t.go` (the `ComputeJA4T(alertCodes []uint8)
+  string` stub) and its test: dead, misleading code unrelated to the real
+  JA4T concept. See ADR-203a.
+
+### Docs
+- **ADR-203a** — "Go inline proxy consumes Phase-20 TAP JA4T from Redis
+  (does not compute it)" — Accepted.
+- `docs/runbooks/go_proxy_operations.md` — new Phase 203 section: JA4T-OS-
+  mismatch operational prerequisites (Phase 20 TAP deployed) and the
+  `/health/deep` JSON shape + anti-flap trade-off.
+- `docs/REDIS_SCHEMA.md` — `fp:os:ip:{ip}` annotated as read by Go proxy
+  `tap_consumer` (Phase 203a).
+- `config/signal_scores.yml` — `tap_os_mismatch` (score 30, cap 30)
+  registered alongside the existing `ja4_tls_mismatch` entry.
+
+### Breaking Changes
+- None. All changes are additive or pure detection-side tightening.
+  `tap_consumer.enabled` defaults to `false`; out-of-box behaviour
+  unchanged. Operators at non-zero dial should re-tune after 203c/203d
+  (cipher and DGA parity shift scores vs. previous Go behaviour).
+
 ## [Unreleased] - Phase 201 — Go Redis TLS + Silent-Failure Hardening
 
 (Version + date will be stamped by the release commit when Phase 201 is merged
