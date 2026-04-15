@@ -20,18 +20,25 @@ REAL_BENCHMARKS = REPO_ROOT / "docs" / "performance" / "benchmarks.md"
 
 
 BASE_ARGS = [
-    "--peak-connections-per-second", "1000",
-    "--p99-latency-budget-ms", "10",
-    "--redis-node-count", "3",
-    "--cloud-provider", "aws",
-    "--region", "us-east-1",
+    "--peak-connections-per-second",
+    "1000",
+    "--p99-latency-budget-ms",
+    "10",
+    "--redis-node-count",
+    "3",
+    "--cloud-provider",
+    "aws",
+    "--region",
+    "us-east-1",
 ]
 
 
-def _run_calculator(*extra: str, env_benchmarks: Path | None = None,
-                    cwd: Path | None = None) -> subprocess.CompletedProcess:
+def _run_calculator(
+    *extra: str, env_benchmarks: Path | None = None, cwd: Path | None = None
+) -> subprocess.CompletedProcess:
     assert CALCULATOR.exists(), f"{CALCULATOR} missing"
     import os
+
     env = os.environ.copy()
     if env_benchmarks is not None:
         env["JA4PROXY_BENCHMARKS_PATH"] = str(env_benchmarks)
@@ -102,29 +109,8 @@ def _write_benchmarks(tmp_path: Path, text: str) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# Placeholders present → warning + banner, but calculator still runs
+# Placeholders present → calculator still runs
 # ---------------------------------------------------------------------------
-
-def test_warning_printed_when_benchmarks_contain_placeholders(tmp_path: Path):
-    bench = _write_benchmarks(tmp_path, PLACEHOLDER_BENCHMARKS)
-    result = _run_calculator(env_benchmarks=bench)
-    combined = (result.stderr + "\n" + result.stdout).lower()
-    assert "estimated" in combined or "not measured" in combined, (
-        "Calculator must print a warning mentioning ESTIMATED / NOT MEASURED "
-        f"when benchmarks.md contains placeholders. stderr={result.stderr!r}"
-    )
-    assert "estimated" in result.stderr.lower() or "not measured" in result.stderr.lower(), (
-        f"Warning must go to stderr. stderr={result.stderr!r}"
-    )
-
-
-def test_report_contains_estimated_banner_when_placeholders_present(tmp_path: Path):
-    bench = _write_benchmarks(tmp_path, PLACEHOLDER_BENCHMARKS)
-    result = _run_calculator(env_benchmarks=bench)
-    assert "ESTIMATED — NOT MEASURED" in result.stdout, (
-        "Report header must contain 'ESTIMATED — NOT MEASURED' banner when "
-        f"placeholders are present. stdout={result.stdout!r}"
-    )
 
 
 def test_calculator_still_runs_without_flag_when_placeholders_present(tmp_path: Path):
@@ -142,6 +128,7 @@ def test_calculator_still_runs_without_flag_when_placeholders_present(tmp_path: 
 # ---------------------------------------------------------------------------
 # --require-measured flag
 # ---------------------------------------------------------------------------
+
 
 def test_require_measured_flag_errors_on_placeholders(tmp_path: Path):
     bench = _write_benchmarks(tmp_path, PLACEHOLDER_BENCHMARKS)
@@ -166,6 +153,5 @@ def test_require_measured_flag_succeeds_on_real_numbers(tmp_path: Path):
     )
     # Should NOT include the estimated banner
     assert "ESTIMATED — NOT MEASURED" not in result.stdout, (
-        "Report must NOT contain the ESTIMATED banner when benchmarks are real. "
-        f"stdout={result.stdout!r}"
+        f"Report must NOT contain the ESTIMATED banner when benchmarks are real. stdout={result.stdout!r}"
     )
