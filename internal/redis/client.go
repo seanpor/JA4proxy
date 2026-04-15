@@ -356,6 +356,7 @@ func (c *Client) ZAdd(ctx context.Context, key string, score float64, member str
 func (c *Client) ZRemRangeByScore(ctx context.Context, key string, min, max float64) {
 	if err := c.rdb.ZRemRangeByScore(ctx, key, fmt.Sprintf("%f", min), fmt.Sprintf("%f", max)).Err(); err != nil {
 		observeOp("zremrangebyscore", "error")
+		c.log.WithError(err).WithField("key", key).Warn("redis: ZREMRANGEBYSCORE failed")
 		return
 	}
 	observeOp("zremrangebyscore", "ok")
