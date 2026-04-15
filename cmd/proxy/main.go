@@ -85,6 +85,20 @@ func main() {
 		log.Info("security lists refreshed via pub/sub")
 	}).Run(ctx)
 
+	// phase-201c: periodic Redis health check + auto script reload.
+	go func() {
+		t := time.NewTicker(30 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				proxy.redis.HealthCheck(ctx)
+			}
+		}
+	}()
+
 	// Handle signals
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
