@@ -13,7 +13,7 @@ The Terraform provider lives in a separate repository:
 terraform {
   required_providers {
     ja4proxy = {
-      source  = "ja4proxy/ja4proxy"
+      source  = "anomalyco/ja4proxy"
       version = "~> 1.0"
     }
   }
@@ -66,12 +66,16 @@ the safer default for a security tool. See
 for the rationale.
 
 When `protect_unmanaged_entries = true`:
-- Out-of-band entries appear as **warnings** in `terraform plan`, not as planned destroys
-- Plan output prints the `terraform import` command for each unmanaged entry
+- For **allowlist / blocklist / watchlist** entries: `PlanModifiers` on the
+  resource keys mark out-of-band changes as plan-time warnings rather than
+  silent destroys, and plan output prints the `terraform import` command so
+  the operator can bring the entry under management.
+- For **ban** entries: protection is enforced at Delete time. The provider
+  refuses to remove any ban whose `reason` does not start with the
+  `[terraform]` ownership marker, returning a diagnostic that tells the
+  operator to either flip the flag or `terraform state rm` the resource.
 - `managed_by = "terraform"` (and the `[terraform]` reason prefix on bans)
-  distinguishes provider-managed resources from operator-added entries
-- `terraform apply` refuses to delete entries that lack the `[terraform]`
-  ownership marker
+  distinguishes provider-managed resources from operator-added entries.
 
 ### Overriding the default
 

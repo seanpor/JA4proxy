@@ -35,13 +35,20 @@ The `ja4proxy_ban` resource uses a **re-POST on apply** strategy.
   /api/v1/bans/{encoded_ip}` with the full `ttl` and `reason` body. The
   Management API's POST is idempotent — re-POSTing the same IP resets the
   expiry without a 409.
-- The resource schema documents a 24-hour renewal window: the
-  `ttl_hours` attribute description states that Terraform "re-POSTs the ban
-  when within 24 hours of expiry to maintain it." The
-  `banListEntry.TTLRemaining` field (populated by the list-bans endpoint at
-  `banResource.Read`) is the hook through which the near-expiry check is
-  wired — when `TTLRemaining` drops below 86400 seconds, the next apply
-  refreshes the ban.
+- **Current behaviour:** every `terraform apply` that touches the resource
+  unconditionally re-POSTs, which resets the TTL regardless of how much time
+  remains. There is no threshold check in code today.
+- **Schema-level documentation:** the `ttl_hours` attribute description in
+  the external repo mentions a 24-hour renewal window. That text is
+  aspirational — it describes the *intended* operator-visible contract, not
+  a branch in Go. The `banListEntry.TTLRemaining` field is populated by the
+  list-bans endpoint at `banResource.Read` and is **reserved** as the hook
+  for a future near-expiry conditional refresh; no such conditional exists
+  in the code at the time this ADR was written.
+- **Why this is not a bug.** Unconditional re-POST is a superset of
+  conditional re-POST: an apply that would have been a no-op under the
+  threshold model is simply a redundant POST. The Management API's
+  idempotent POST makes this safe and cheap.
 - There is **no dedicated `/renew` endpoint.** Adding one would require a
   Management API change (Phase 79 scope) and the idempotent POST solves the
   same problem without the DELETE-then-recreate race that would briefly
@@ -130,6 +137,5 @@ references rot silently.
 
 - ADR-093a — Repository topology
 - ADR-093b — Registry namespace
-- External repo draft: `docs/ADR-093c.md` (superseded by this ADR; the
-  external draft covered TTL renewal only and did not address drift
-  detection)
+- Any prior draft of this ADR in the external repo is superseded by this
+  file. Main-repo ADRs are authoritative per ADR-093a.
