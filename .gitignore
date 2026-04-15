@@ -163,3 +163,4 @@ __pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
+.claude/scheduled_tasks.lock
