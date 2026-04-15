@@ -35,8 +35,16 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM alpine:3.19
 
+# OCI image labels for registry discoverability and provenance.
+LABEL org.opencontainers.image.source="https://github.com/anomalyco/JA4proxy" \
+      org.opencontainers.image.title="ja4proxy" \
+      org.opencontainers.image.description="TLS-aware passthrough security proxy" \
+      org.opencontainers.image.licenses="Apache-2.0"
+
 # Non-root user for least-privilege operation.
-RUN addgroup -S ja4proxy && adduser -S -G ja4proxy ja4proxy
+# Explicit UID/GID 1000 required by Pod Security Admission `restricted` and
+# the industry-standard `runAsUser: 1000` policy (see ADR-202c).
+RUN addgroup -g 1000 -S ja4proxy && adduser -u 1000 -S -G ja4proxy ja4proxy
 
 # CA certificates for TLS verification (backend connections).
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
@@ -48,7 +56,7 @@ COPY --from=builder /ja4proxy /usr/local/bin/ja4proxy
 COPY config/proxy.yml /app/config/proxy.yml
 COPY scripts/sliding_window.lua /app/scripts/sliding_window.lua
 
-USER ja4proxy
+USER 1000:1000
 WORKDIR /app
 
 EXPOSE 8080 9090
