@@ -23,6 +23,7 @@ import (
 	"math/big"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -146,6 +147,9 @@ func newTLSMiniredis(t *testing.T) (string, *x509.CertPool, *miniredis.Miniredis
 					if err != nil && !isClosedErr(err) {
 						errCh <- err
 					}
+					// When backend closes (miniredis shutdown), force-close the
+					// client TLS conn so its sister io.Copy read-side unblocks.
+					_ = c.Close()
 				}()
 				pipeWG.Wait()
 			}(conn)
@@ -202,8 +206,9 @@ func newPlainMiniredis(t *testing.T) (string, *miniredis.Miniredis, func()) {
 // address, so go-redis connection pools see a real reconnect.
 func restartMiniredisOnAddr(t *testing.T, oldSrv *miniredis.Miniredis) *miniredis.Miniredis {
 	t.Helper()
-	// miniredis.Restart() reuses the same server/address and clears state —
-	// exactly what we want for script cache flush semantics.
+	// miniredis.Restart() calls Start() directly; must Close() first so the
+	// address is free and existing go-redis connections are dropped.
+	oldSrv.Close()
 	if err := oldSrv.Restart(); err != nil {
 		t.Fatalf("miniredis.Restart: %v", err)
 	}
@@ -222,6 +227,13 @@ func isClosedErr(err error) bool {
 	// TLS sometimes returns non-wrapped errors on abrupt close.
 	msg := err.Error()
 	if msg == "EOF" || msg == "tls: use of closed connection" {
+		return true
+	}
+	// Plaintext client dialing TLS server or TLS client dialing plaintext
+	// server: expected handshake failures, not harness bugs.
+	if strings.Contains(msg, "tls: first record does not look like a TLS handshake") ||
+		strings.Contains(msg, "tls: bad certificate") ||
+		strings.Contains(msg, "remote error: tls:") {
 		return true
 	}
 	return false
