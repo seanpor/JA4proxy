@@ -1,6 +1,6 @@
 # ADR-202a: SLSA Reusable Workflow Pinning — SHA vs Trusted-Org Tag Allowlist
 
-**Status:** Proposed
+**Status:** Accepted — Path A (SHA-pinned)
 **Date:** 2026-04-15
 **Phase:** 202 (CI supply chain hardening) — sub-phase 202a
 
@@ -77,24 +77,34 @@ regex is widened to exempt `slsa-framework/` prefixes (or a more generic
 
 ## Decision
 
-**Deferred to the Coder who executes 202a**, based on the following gate:
+**Path A — SHA-pinned.**
 
-1. **First**, attempt Path A. Resolve the SHA for
-   `slsa-framework/slsa-github-generator` tag `v2.1.0`:
-   ```
-   gh api repos/slsa-framework/slsa-github-generator/git/ref/tags/v2.1.0 --jq '.object.sha'
-   ```
-   Pin the line; push a test branch; confirm the workflow still produces a
-   valid SLSA provenance attestation on a no-op release.
+Resolved via `curl https://api.github.com/repos/slsa-framework/slsa-github-generator/git/refs/tags/v2.1.0`:
+tag `v2.1.0` points directly at commit
+`f7dd8c54c2067bafc12ca7a55595d5ee9b75204a` (lightweight tag — no annotated-tag
+dereference required).
 
-2. **If Path A fails** (provenance attestation rejects a SHA-ref caller, or
-   the SLSA docs for v2.1.0 explicitly require a tag ref), fall back to
-   Path B: update this ADR to Accepted with Path B chosen, widen the
-   pin-check regex in `Makefile`/`scripts/` to allowlist `slsa-framework/`,
-   and record the exception in `docs/phases/PHASE_202a_notes.md`.
+Applied to `.github/workflows/release-cli.yml:57`:
 
-<!-- TODO: verify after impl — record which path was chosen, the SHA if
-Path A, and the regex exemption if Path B. Update Status to Accepted. -->
+```yaml
+uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a  # v2.1.0
+```
+
+**Rationale for choosing Path A:**
+
+1. One rule across the repo is cheaper to maintain and audit than an
+   allowlist class. `test_all_workflow_actions_sha_pinned` in
+   `tests/integration/test_container_config.py` now passes unconditionally.
+2. The repo has exactly one SLSA reusable call; the "no SHA drift on version
+   bumps" benefit of Path B would save us one lookup roughly once a year.
+3. SLSA's own concern about tag-vs-SHA caller refs applies to the *caller's*
+   tag (used for `upload-assets: true`), not to the reusable ref. A release
+   still fires from a `v*.*.*` git tag; the caller-side ref semantics are
+   unchanged by pinning the reusable at a SHA.
+
+If a future SLSA version's provenance-attestation step does reject a
+SHA-pinned reusable, revisit — flip this ADR to Path B and widen the
+pin-check regex then.
 
 ---
 
