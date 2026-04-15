@@ -57,9 +57,7 @@ class RecordedFutureClient(FeedClient):
         state,
         *,
         token_exchange: Optional[Callable[[str], Awaitable[str]]] = None,
-        page_fetch: Optional[
-            Callable[..., Awaitable[dict[str, Any]]]
-        ] = None,
+        page_fetch: Optional[Callable[..., Awaitable[dict[str, Any]]]] = None,
     ) -> None:
         """Construct a Recorded Future client.
 
@@ -95,7 +93,7 @@ class RecordedFutureClient(FeedClient):
                         # regex (no '/'). Use '_' as separator.
                         "id": f"{config.id}_{feed_name}",
                         "type": "taxii2",
-                        "url": _RF_TAXII_ROOT,
+                        "url": _resolve_rf_taxii_root(config),
                         "collection_id": feed_name,
                         # phase-85 Chunk G: RF TAXII 2.1 expects HTTP
                         # Basic. Username is any literal ("api" per RF
@@ -105,21 +103,22 @@ class RecordedFutureClient(FeedClient):
                         "username": "api",
                         "password": config.api_token or "",
                         # Propagate gating knobs:
-                        "min_confidence": max(
-                            config.min_confidence, config.min_rf_risk_score
-                        ),
+                        "min_confidence": max(config.min_confidence, config.min_rf_risk_score),
                         "ban_ttl_hours": config.ban_ttl_hours,
                         "enabled": config.enabled,
                     }
                 )
-                self._inner_clients.append(
-                    TAXIIClient(config=inner_cfg, mgmt=mgmt, state=state)
-                )
+                self._inner_clients.append(TAXIIClient(config=inner_cfg, mgmt=mgmt, state=state))
 
     @property
     def collection_ids(self) -> list[str]:
         """Return the configured RF collection / feed names."""
         return list(self.config.feeds or ["default"])
+
+    @property
+    def _taxii_root(self) -> str:
+        """Return the resolved TAXII root URL (for testing)."""
+        return _resolve_rf_taxii_root(self.config)
 
     async def fetch_bearer_token(self) -> str:
         """Exchange ``api_token`` for a bearer token, caching the result.
@@ -131,10 +130,7 @@ class RecordedFutureClient(FeedClient):
         if self._bearer_token is not None:
             return self._bearer_token
         if self._token_exchange is None:
-            raise RuntimeError(
-                "RecordedFutureClient.fetch_bearer_token requires "
-                "token_exchange to be set"
-            )
+            raise RuntimeError("RecordedFutureClient.fetch_bearer_token requires token_exchange to be set")
         self._bearer_token = await self._token_exchange(self.config.api_token)
         return self._bearer_token
 
@@ -223,9 +219,7 @@ class RecordedFutureClient(FeedClient):
                 type="taxii2",
                 enabled=True,
                 collection_id=collection_id,
-                min_confidence=max(
-                    self.config.min_confidence, self.config.min_rf_risk_score
-                ),
+                min_confidence=max(self.config.min_confidence, self.config.min_rf_risk_score),
                 ban_ttl_hours=self.config.ban_ttl_hours,
             )
             inner = TAXIIClient(
@@ -244,11 +238,23 @@ class RecordedFutureClient(FeedClient):
             if not cursor:
                 return
 
+
 #: Base TAXII 2.1 API root for Recorded Future. Verified 2026-04-08
 #: against the RF support portal: the TAXII 2.1 discovery endpoint lives
 #: at ``api.recordedfuture.com/taxii2``. The legacy TAXII 1.x endpoint
 #: ``api.recordedfuture.com/taxii`` is **not** what this client uses.
-_RF_TAXII_ROOT = "https://api.recordedfuture.com/taxii2/"
+_RF_TAXII_ROOT_DEFAULT = "https://api.recordedfuture.com/taxii2"
+
+
+def _resolve_rf_taxii_root(config: FeedConfig) -> str:
+    """Resolve the TAXII root URL for Recorded Future.
+
+    Honours config.url for regional endpoints (EU, APAC), falling back
+    to the default US endpoint.
+    """
+    if config.url:
+        return config.url.rstrip("/")
+    return _RF_TAXII_ROOT_DEFAULT
 
 
 class _OneShotBundle:
