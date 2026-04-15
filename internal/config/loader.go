@@ -403,6 +403,7 @@ type RedisConfig struct {
 	Sentinels  []string `yaml:"sentinels"`
 	DB         int      `yaml:"db"`
 	Password   string   `yaml:"password"`
+	Username   string   `yaml:"username"`
 	Timeout    FlexInt  `yaml:"timeout"`
 	SSL        bool     `yaml:"ssl"`
 }

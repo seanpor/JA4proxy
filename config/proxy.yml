@@ -39,6 +39,7 @@ redis:
   # SECURITY: Password MUST be set via environment variable REDIS_PASSWORD
   # Never commit actual passwords to version control
   password: "${REDIS_PASSWORD}"
+  username: ""   # phase-201a: Redis 6+ ACL username (leave "" for default user)
   timeout: "${REDIS_TIMEOUT:-5}"
   # Enable TLS for Redis connections in production
   ssl: false

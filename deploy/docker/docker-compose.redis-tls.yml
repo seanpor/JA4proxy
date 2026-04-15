@@ -1,0 +1,76 @@
+# phase-201: Redis-TLS integration test overlay.
+#
+# Compose this alongside the proxy to exercise `make test-go-redis-tls` from
+# sub-phase 201e — a real Redis 7 instance listening on TLS port 6380 with
+# a self-signed cert. Cert generation happens in an init container so we
+# never commit private keys.
+#
+# Usage:
+#   docker compose \
+#     -f deploy/docker/docker-compose.poc.yml \
+#     -f deploy/docker/docker-compose.redis-tls.yml \
+#     up -d redis-tls
+#
+# Proxy side (config/proxy.yml):
+#   redis:
+#     host: redis-tls
+#     port: 6380
+#     ssl:  true
+#
+# Caveats:
+#   - The self-signed CA is NOT in the proxy container's OS trust store by
+#     default. The integration test either (a) mounts the generated
+#     redis.crt into /usr/local/share/ca-certificates/ in the proxy image,
+#     or (b) installs it before running the test. See ADR-201a.
+#   - All private-key files are gitignored (*.key globally). Do not commit
+#     anything from deploy/docker/redis-tls/*.{key,crt}.
+
+name: ja4proxy-redis-tls
+
+services:
+  # Init container: generates the self-signed cert on the named volume
+  # before redis-tls starts. Runs once per `up`; idempotent if certs exist.
+  redis-tls-init:
+    image: alpine/openssl:3.3.2
+    # Overriding entrypoint because alpine/openssl's default ENTRYPOINT is
+    # `openssl`, which would swallow our script.
+    entrypoint: ["/bin/sh", "/generate-certs.sh", "/tls"]
+    volumes:
+      - ./redis-tls/generate-certs.sh:/generate-certs.sh:ro
+      - redis-tls-certs:/tls
+    restart: "no"
+
+  redis-tls:
+    image: redis:7-alpine
+    depends_on:
+      redis-tls-init:
+        condition: service_completed_successfully
+    command: ["redis-server", "/etc/redis/redis.conf"]
+    ports:
+      - "127.0.0.1:6380:6380"
+    volumes:
+      - ./redis-tls/redis.conf:/etc/redis/redis.conf:ro
+      - redis-tls-certs:/tls:ro
+    networks:
+      - ja4proxy-dmz
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      # Using redis-cli with --tls flag; CA cert lives alongside the server
+      # cert on the shared volume (self-signed: server cert == CA).
+      test: ["CMD", "redis-cli", "--tls", "--cacert", "/tls/redis.crt",
+             "-p", "6380", "ping"]
+      interval: 10s
+      timeout:  3s
+      retries:  5
+
+volumes:
+  redis-tls-certs:
+
+networks:
+  ja4proxy-dmz:
+    external: true

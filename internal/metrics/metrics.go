@@ -179,6 +179,28 @@ var (
 			Help: "Listener TLS certificate NotAfter as a Unix timestamp (phase-63)",
 		},
 	)
+
+	// phase-201c: see docs/runbooks/go_proxy_operations.md
+	// Redis client health gauge. Labels: status=ok|error. 1=current, 0=stale.
+	// Wired by internal/redis/client.go HealthCheck() and cmd/proxy/main.go ticker.
+	RedisHealth = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "ja4proxy_redis_health",
+			Help: "Redis health status (1=current, 0=stale). Labels: status=ok|error.",
+		},
+		[]string{"status"},
+	)
+	// phase-201c: see docs/runbooks/go_proxy_operations.md
+	// Count of sliding_window.lua reloads after Redis restart/SCRIPT FLUSH.
+	// Labels: result=ok|error. Incremented from HealthCheck() when an empty SHA
+	// is detected and loadScripts() is re-invoked.
+	RedisScriptReloadsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "ja4proxy_redis_script_reloads_total",
+			Help: "Count of sliding_window.lua reloads after Redis restart/flush. Labels: result=ok|error.",
+		},
+		[]string{"result"},
+	)
 )
 
 func Register() {
@@ -197,6 +219,8 @@ func Register() {
 		SyncEventsProcessedTotal, SyncErrorsTotal,
 		// phase-63
 		ConnectionErrorsTotal, RedisOperationsTotal, TLSCertExpiryTimestampSeconds,
+		// phase-201c
+		RedisHealth, RedisScriptReloadsTotal,
 	)
 	for _, action := range []string{"allow", "flag", "rate_limit", "tarpit", "block", "ban"} {
 		ConnectionsTotal.WithLabelValues(action)

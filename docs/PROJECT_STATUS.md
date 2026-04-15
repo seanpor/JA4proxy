@@ -5,7 +5,7 @@
 
 ## Current Status: Phase 101 (Phase 101 — Cross-Phase Gap Closure) Next
 
-**Last Updated:** 2026-04-14
+**Last Updated:** 2026-04-15
 
 ## Epics & Roadmap
 
@@ -57,7 +57,7 @@ Deep security analysis, compliance, and audit remediation.
 | 62 | Security Regression Harness, Fuzzing & Pre-Enterprise Validation | COMPLETE | Automated regression tests for all Phase 27 pentest findings; atheris + Go native fuzzing harnesses with CI smoke run; break-glass verification procedure; pre-enterprise validation report generator. |
 | 75 | Docker Isolation - Security Audit & Validation | COMPLETE | scripts/check-isolation.sh verifies port surface, Docker socket, network zone boundaries, IPC isolation, and cross-agent reach. ISOLATION_MODEL.md updated with verification section. |
 | 200 | Go PROXY Protocol Trust + v2 Support | COMPLETE | Closes two critical Go gaps: (1) add `_is_trusted_proxy_source()` equivalent to prevent IP spoofing via PROXY protocol from untrusted sources, (2) implement PROXY protocol v2 binary parser (Python already has v1+v2). Without (1) any attacker can spoof any IP and bypass all geo/IP/rate/block controls. Without (2) modern HAProxy/NLB v2 headers are silently ignored. |
-| 201 | Go Redis TLS + Signal Score Drift Fix | PROPOSED | Closes critical Go gaps: (1) Redis client omits TLS despite config having SSL field — credentials on wire, (2) 4 signal scores diverge from config/signal_scores.yml — wrong scoring decisions in production. Also adds: error logging for ZAdd/ZRemRangeByScore (were swallowing errors), health check with script reload after Redis outage, rate limiter input validation. |
+| 201 | Go Redis TLS + Silent-Failure Hardening | COMPLETE | Closes three production-critical Go Redis client gaps and one correctness fix. (1) cfg.SSL was silently ignored — TLS now honoured with MinVersion 1.2 and ACL Username support in both standalone and Sentinel paths; both cmd/proxy and cmd/syncagent fixed. (2) Lua scripts were never reloaded after Redis restart — added periodic HealthCheck goroutine with RWMutex-protected double-checked reload. (3) Rate-limiter accepted unvalidated strings into Redis key names — netip.ParseAddr-based sanitiser with sha256-hashed log on reject. (4) ZRemRangeByScore now logs on error like every other write method. The previously proposed signal-score drift fix was withdrawn after critical review found Go scores already matched config/signal_scores.yml. |
 | 202 | CI Supply Chain + Default Credential Removal | PROPOSED | Eliminates 6 infrastructure-level critical findings: SHA-pin all GitHub Actions (supply chain), remove default credential fallbacks from all compose files (Grafana admin, Management admin/admin, HAProxy admin/admin123), create Go proxy image CI workflow with SBOM+cosign signing, harden Dockerfile.go-proxy with non-root USER. |
 | 203 | Go Missing Signals — JA4T, TLS Mismatch, Weak Ciphers, DGA, Health | PROPOSED | Closes 5 production-critical signal gaps in Go: (1) JA4T stub returns `""` — implement full JA4T computation, (2) `ja4_tls_mismatch` not implemented — TLS version spoofing undetected, (3) weak cipher coverage 13 vs Python 37+ — NULL/EXPORT/DH_anon/ECDH_anon missed, (4) DGA algorithm diverges from Python — less effective SNI analysis, (5) Go health check only tests Redis — no GeoIP/connections/queue checks. |
 
@@ -244,7 +244,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 101 | Phase 101 — Cross-Phase Gap Closure | PROPOSED | N/A | N/A |
 | 102 | Phase 93 Gap Closure: Drift Detection, Import, Docs, CI | PROPOSED | N/A | N/A |
 | 200 | Go PROXY Protocol Trust + v2 Support | COMPLETE | N/A | N/A |
-| 201 | Go Redis TLS + Signal Score Drift Fix | PROPOSED | N/A | N/A |
+| 201 | Go Redis TLS + Silent-Failure Hardening | COMPLETE | N/A | N/A |
 | 202 | CI Supply Chain + Default Credential Removal | PROPOSED | N/A | N/A |
 | 203 | Go Missing Signals — JA4T, TLS Mismatch, Weak Ciphers, DGA, Health | PROPOSED | N/A | N/A |
 | 204 | README Badges — License, Versions, CI, Security | COMPLETE | N/A | N/A |

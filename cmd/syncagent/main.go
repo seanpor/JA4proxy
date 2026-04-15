@@ -48,6 +48,8 @@ func main() {
 		Sentinels:  cfg.Redis.Sentinels,
 		DB:         cfg.Redis.DB,
 		Password:   cfg.Redis.Password,
+		Username:   cfg.Redis.Username,
+		SSL:        cfg.Redis.SSL,
 		Timeout:    time.Duration(cfg.Redis.Timeout.Int()) * time.Second,
 	}
 	rc := redis.New(redisCfg, log)
