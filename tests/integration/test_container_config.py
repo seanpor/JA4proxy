@@ -19,7 +19,10 @@ Design notes:
 
 from __future__ import annotations
 
+import os
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -47,7 +50,8 @@ TEST_COMPOSE = DEPLOY_DOCKER / "docker-compose.test.yml"
 )
 def test_compose_poc_requires_management_secrets(var_name: str) -> None:
     """Every ${VAR...} reference to a management secret in poc compose must
-    use the `:?` required syntax — never `:-` default-fallback syntax."""
+    use the `:?` required syntax — never `:-` default-fallback, and never a
+    bare `${VAR}` (which silently expands to the empty string)."""
     text = POC_COMPOSE.read_text()
 
     # Find every ${VAR...} reference for this var.
@@ -66,6 +70,16 @@ def test_compose_poc_requires_management_secrets(var_name: str) -> None:
         f"operators to set it explicitly."
     )
 
+    # Every reference must use `:?` required-syntax (not `:-`, not bare).
+    # `matches` contains the group-1 capture (the `:...` suffix or empty).
+    # A bare `${VAR}` yields suffix == "" — reject it.
+    non_required = [m for m in matches if not m.startswith(":?")]
+    assert not non_required, (
+        f"{var_name} has {len(non_required)} reference(s) in {POC_COMPOSE.name} "
+        f"that are NOT `${{VAR:?message}}` required-syntax (suffixes={non_required!r}). "
+        f"A bare `${{VAR}}` silently expands to empty — use `${{VAR:?required}}`."
+    )
+
 
 @pytest.mark.parametrize(
     "var_name",
@@ -76,7 +90,8 @@ def test_compose_poc_requires_management_secrets(var_name: str) -> None:
     ],
 )
 def test_compose_monitoring_requires_credentials(var_name: str) -> None:
-    """Monitoring stack must not ship with default admin/admin123 creds."""
+    """Monitoring stack must not ship with default admin/admin123 creds and
+    must not use bare `${VAR}` (silently expands to empty)."""
     text = MONITORING_COMPOSE.read_text()
 
     pattern = re.compile(r"\$\{" + re.escape(var_name) + r"(:[^}]*)?\}")
@@ -90,6 +105,14 @@ def test_compose_monitoring_requires_credentials(var_name: str) -> None:
     assert not bad, (
         f"{var_name} uses default-fallback syntax in "
         f"{MONITORING_COMPOSE.name}: {bad!r}. Must use `${{VAR:?message}}`."
+    )
+
+    non_required = [m for m in matches if not m.startswith(":?")]
+    assert not non_required, (
+        f"{var_name} has {len(non_required)} reference(s) in "
+        f"{MONITORING_COMPOSE.name} that are not `${{VAR:?message}}` required-"
+        f"syntax (suffixes={non_required!r}). A bare `${{VAR}}` silently "
+        f"expands to empty — use `${{VAR:?required}}`."
     )
 
 
@@ -206,6 +229,23 @@ def test_test_redis_has_password() -> None:
         f"auth — redis-server must be started with `--requirepass`."
     )
 
+    # The password the server *requires* must be derived from the same source
+    # as the password the env block *advertises* — otherwise clients and
+    # server silently drift. We enforce this by requiring both to reference
+    # the same `${REDIS_TEST_PASSWORD...}` token.
+    env_refs = re.findall(r"\$\{REDIS_TEST_PASSWORD[^}]*\}", password)
+    cmd_refs = re.findall(r"\$\{REDIS_TEST_PASSWORD[^}]*\}", cmd_str)
+    assert env_refs and cmd_refs, (
+        f"redis service {name!r} does not reference `${{REDIS_TEST_PASSWORD...}}` "
+        f"in both env and command (env_refs={env_refs!r} cmd_refs={cmd_refs!r}). "
+        f"They must share a single source-of-truth token."
+    )
+    assert env_refs == cmd_refs, (
+        f"redis service {name!r} REDIS_PASSWORD env and --requirepass command "
+        f"reference different tokens: env={env_refs!r} cmd={cmd_refs!r}. "
+        f"They must be identical — otherwise clients will fail to authenticate."
+    )
+
 
 # ── Workflow action SHA pinning ──────────────────────────────────────────────
 
@@ -257,4 +297,99 @@ def test_all_workflow_actions_sha_pinned() -> None:
         "Unpinned GitHub Action references found (supply-chain risk):\n"
         + "\n".join(f"  {u}" for u in unpinned)
         + "\n\nPin to a 40-char commit SHA, e.g. `owner/action@<sha>  # vX.Y.Z`."
+    )
+
+
+# ── Behavioural `docker compose config` tests (docker-gated) ─────────────────
+
+
+_DOCKER_AVAILABLE = shutil.which("docker") is not None
+
+
+def _clean_env() -> dict[str, str]:
+    """An env with every phase-202 secret variable removed, so we can test
+    that `docker compose config` correctly refuses to interpolate."""
+    env = {
+        k: v for k, v in os.environ.items()
+        if k not in {
+            "MANAGEMENT_JWT_SECRET",
+            "MANAGEMENT_ADMIN_USER",
+            "MANAGEMENT_ADMIN_PASSWORD",
+            "GRAFANA_PASSWORD",
+            "HAPROXY_STATS_USER",
+            "HAPROXY_STATS_PASSWORD",
+            "REDIS_PASSWORD",
+            "BACKEND_HOST",
+        }
+    }
+    # Ensure docker compose doesn't pick up a local .env file.
+    env["COMPOSE_DISABLE_ENV_FILE"] = "1"
+    return env
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(not _DOCKER_AVAILABLE, reason="docker CLI not on PATH")
+@pytest.mark.parametrize(
+    "compose_file,required_var",
+    [
+        (POC_COMPOSE, "MANAGEMENT_JWT_SECRET"),
+        (MONITORING_COMPOSE, "GRAFANA_PASSWORD"),
+    ],
+)
+def test_compose_config_fails_without_required_secrets(
+    compose_file: Path, required_var: str
+) -> None:
+    """Runtime invariant: `docker compose config` MUST fail (non-zero) and
+    emit a clear error when required secrets are unset.
+
+    This is the behavioural counterpart to the regex tests above — it
+    proves that the `${VAR:?...}` syntax actually translates into a hard
+    failure at interpolation time, not just that the syntax *looks* right.
+    """
+    proc = subprocess.run(
+        ["docker", "compose", "-f", str(compose_file), "config"],
+        capture_output=True,
+        text=True,
+        env=_clean_env(),
+        timeout=30,
+    )
+    assert proc.returncode != 0, (
+        f"docker compose config for {compose_file.name} SUCCEEDED with no "
+        f"env vars set — phase-202 `${{VAR:?...}}` required-syntax is not "
+        f"being enforced at the compose level.\nSTDOUT:\n{proc.stdout}"
+    )
+    combined = (proc.stderr + proc.stdout).lower()
+    # Compose error: "required variable X is missing a value: <message>"
+    assert "required" in combined and "missing" in combined, (
+        f"docker compose config for {compose_file.name} failed but the error "
+        f"did not mention 'required' / 'missing':\n{proc.stderr}\n{proc.stdout}"
+    )
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(not _DOCKER_AVAILABLE, reason="docker CLI not on PATH")
+def test_compose_poc_succeeds_with_all_env_vars() -> None:
+    """Negative control: when every required env var IS set, `docker compose
+    config` must succeed. Proves we haven't over-constrained the file so
+    badly that legitimate operators can't use it."""
+    env = _clean_env()
+    env.update(
+        {
+            "MANAGEMENT_JWT_SECRET": "qa-placeholder-jwt-secret",
+            "MANAGEMENT_ADMIN_USER": "qa-admin",
+            "MANAGEMENT_ADMIN_PASSWORD": "qa-placeholder-admin-pw",
+            "REDIS_PASSWORD": "qa-placeholder-redis-pw",
+            "BACKEND_HOST": "qa-placeholder-backend",
+        }
+    )
+    proc = subprocess.run(
+        ["docker", "compose", "-f", str(POC_COMPOSE), "config", "--quiet"],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=30,
+    )
+    assert proc.returncode == 0, (
+        f"docker compose config for poc.yml FAILED even with all env vars set:\n"
+        f"STDERR:\n{proc.stderr}\nSTDOUT:\n{proc.stdout}"
     )
