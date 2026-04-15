@@ -1,5 +1,41 @@
 # Changelog
 
+## [Unreleased] - Phase 201 (DRAFT)
+
+<!-- TODO(doc-late): finalise version + date after merge -->
+
+### Added
+- **201a** — `internal/redis/client.go` now honours `redis.ssl: true` with
+  `tls.Config{MinVersion: TLS 1.2}` and supports Redis 6+ ACLs via a new
+  `redis.username` field (plumbed through `internal/config/loader.go`,
+  `cmd/proxy/main.go`, and `cmd/syncagent/main.go`). See ADR-201a for the
+  TLS-version and CA-pool rationale.
+- **201c** — Periodic Redis health-check goroutine in the Go proxy: pings
+  Redis every 30s, automatically reloads `sliding_window.lua` after a Redis
+  restart / `SCRIPT FLUSH`, and exposes two new Prometheus metrics
+  (`ja4proxy_redis_health{status}`, `ja4proxy_redis_script_reloads_total{result}`).
+- **201c** — New runbook section in `docs/runbooks/go_proxy_operations.md`
+  for the `ja4proxy_redis_health{status="error"}` alert.
+
+### Changed
+- **201b** — `ZRemRangeByScore` in the Go Redis client now logs on error
+  (previously silent — inconsistent with every other write method in the
+  file and a silent-data-loss surface).
+- **201d** — Go rate limiter now validates `clientIP` via `netip.ParseAddr`
+  before using it as a Redis key component; unparseable inputs fail-open
+  with a hashed-input WARN log. IPv6 (including zone IDs) is preserved in
+  canonical form. Long `ja4` strings are capped at 256 bytes.
+
+### Breaking Changes
+- None. All changes are additive: `redis.username` defaults to `""` and
+  `redis.ssl` already existed (it was just silently ignored on the Go side).
+
+### Withdrawn
+- The previously proposed "signal score drift fix" (earlier draft's 201a)
+  was withdrawn as based on a false premise — `make check-scores` passes on
+  `main` and the Go scores already match `config/signal_scores.yml`
+  exactly. See `docs/phases/PHASE_201_review.md` for the audit.
+
 ## Phase 205 — Repository Root Cleanup & File Organisation (2026-04-14)
 
 ### Changed

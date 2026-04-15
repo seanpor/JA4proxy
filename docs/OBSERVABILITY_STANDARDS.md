@@ -212,6 +212,16 @@ ja4proxy_static_allowlist_hits_total                 counter  Connections matche
 ja4proxy_policy_changes_total{bypass}                counter  Security policy bypass changes
 ```
 
+#### Redis client health (Phase 201c)
+
+```
+ja4proxy_redis_health{status}                        gauge    Redis health (1=current, 0=stale). Labels: status=ok|error.
+ja4proxy_redis_script_reloads_total{result}          counter  Lua script reloads after Redis restart/flush. Labels: result=ok|error.
+```
+
+<!-- TODO(doc-late): Verified by Doc-Late — confirm Help strings match
+`internal/metrics/metrics.go` exactly after 201c implementation lands. -->
+
 #### Tarpit (Phase 14)
 
 ```
