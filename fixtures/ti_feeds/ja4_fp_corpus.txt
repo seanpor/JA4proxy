@@ -1,0 +1,2 @@
+# JA4 false-positive corpus - known browser fingerprints that should never be blocked
+q04hQDMBh0d4sBd20AUoL4RtqN0tMY7d0ah3L90tN0t

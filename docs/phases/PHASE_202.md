@@ -285,6 +285,7 @@ unverified source tree.
    retrievable and verifiable.
 
 **Acceptance criteria:**
+<<<<<<< HEAD
 - [ ] `.github/workflows/go-proxy-image.yml` runs green end-to-end on a push to its trigger paths. *(Deferred: workflow has not yet run on `main`; verified only on branch push. First green run happens after merge.)*
 - [x] All `uses:` entries are SHA-pinned with `# version` comments matching the canonical SHA table above (plus the newly added ones, recorded back into this doc).
 - [x] Trivy job configured to fail on CRITICAL vulnerabilities outside `.trivyignore` (live signal deferred to post-merge CI run).
@@ -295,6 +296,18 @@ unverified source tree.
 - [x] ADR-202d is Accepted.
 - [x] CHANGELOG entry written.
 - [x] `docs/phases/PHASE_202_notes.md` written (consolidated).
+=======
+- [ ] `.github/workflows/go-proxy-image.yml` builds, tests, SBOM-generates, signs, and pushes
+- [ ] All actions in the workflow are SHA-pinned
+- [ ] Trivy scan passes (no CRITICAL in our code; OS-level CRITICALs ignored
+      via `--ignore-unfixed` + `.trivyignore`, with each ignored CVE documented
+      in the workflow file)
+- [ ] SBOM generated in CycloneDX JSON format
+- [ ] Image signed with cosign
+- [ ] `yamllint` passes on the workflow file
+- [ ] CHANGELOG.md entry written
+- [ ] PHASE_202d_notes.md written
+>>>>>>> claude/phase-201-go-redis-tls-score-drift
 
 **Out of scope:** Kubernetes admission webhook, Helm chart image pinning,
 multi-arch manifest lists.

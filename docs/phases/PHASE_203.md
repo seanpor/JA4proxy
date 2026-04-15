@@ -130,6 +130,7 @@ class disagree → high-confidence evasion signal.
 - `internal/tls/ja4t.go` + `internal/tls/ja4t_test.go` — **delete** (dead code)
 
 **Steps:**
+<<<<<<< HEAD
 
 1. **Delete the dead stub.** `git rm internal/tls/ja4t.go internal/tls/ja4t_test.go`.
    Search for any references and remove them: `grep -rn 'ComputeJA4T' .` —
@@ -210,6 +211,37 @@ class disagree → high-confidence evasion signal.
 - [x] `docs/runbooks/go_proxy_operations.md` updated: "Enabling JA4T-OS-mismatch requires Phase 20 TAP node"
 - [x] ADR-203a written documenting the TAP-consumer architecture
 - [x] `PHASE_203a_notes.md` written
+=======
+1. Read Python's `generate_ja4t()` in `src/tls/ja4t.py` to understand the format:
+   - Output: `{ttl}_{mss}_{window_size}_{options_hash[:8]}`
+   - Hash the TCP options bytes (first 8 hex chars of SHA256)
+   - TTL is normalized (0→"0", 32→"32", 64→"64", 128→"128", 255→"255")
+   - MSS and window size are decimal integers
+2. Implement `ComputeJA4T(ttl uint8, mss uint16, windowSize uint16, options []byte) string`
+   in `internal/tls/ja4t.go`.
+3. Write unit tests in `tests/unit/test_ja4t.go` with these concrete test vectors:
+   - `ttl=64, mss=1460, windowSize=65535, options=[0x02,0x04,0x05,0xb4,0x04,0x02,0x08,0x0a,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0x03,0x03,0x07]` → `"64_1460_65535_<first-8-hex-of-sha256>"` (compute the hash to get the exact expected value)
+   - `ttl=128, mss=536, windowSize=8192, options=[0x02,0x04,0x02,0x18]` → `"128_536_8192_<hash>"`
+   - `ttl=255, mss=0, windowSize=0, options=[]` → `"255_0_0_<hash-of-empty>"`
+4. Wire the call site: TCP metadata is available in `internal/proxy/proxy.go` at the `handleConnection()` function where `connCtx` is populated. Look for the section after the TLS handshake completes — add `connCtx.JA4T = tls.ComputeJA4T(...)` using the TCP connection's socket options. Specifically, use `tcpConn.RemoteAddr()` and the raw `syscall.GetsockoptInt` for TTL/MSS/window size.
+
+   **⚠️ Platform note:** `syscall.GetsockoptInt` for `TCP_INFO` (to read TTL/MSS) is Linux-specific.
+   Add `//go:build linux` to the file that contains the syscall code, and provide a stub for
+   non-Linux platforms that returns default values (`ttl=64, mss=1460, windowSize=65535, options=[]`).
+   The test file should also use `//go:build linux` so it only runs on Linux CI runners.
+
+5. Run `make go-test` — must pass.
+6. Run `make check-scores` — must exit 0 (ensure no score drift).
+
+**Acceptance criteria:**
+- [ ] `ComputeJA4T()` returns non-empty string matching Python output for same inputs
+- [ ] `//go:build linux` build tag guards syscall-dependent code; non-Linux stub returns defaults
+- [ ] JA4T unit tests pass with fixture-based assertions
+- [ ] `connCtx.JA4T` is set in the connection context
+- [ ] `make go-test` passes
+- [ ] `make check-scores` exits 0
+- [ ] PHASE_203a_notes.md written
+>>>>>>> claude/phase-201-go-redis-tls-score-drift
 
 **Out of scope:**
 - Computing JA4T in the Go proxy (architecturally impossible — see decision above)
@@ -333,6 +365,7 @@ rule-for-rule, byte-for-byte equivalent output for any given input.
 - `tests/fixtures/dga/hostnames.txt` — new (Tranco-derived; **not Alexa**)
 
 **Steps:**
+<<<<<<< HEAD
 
 1. Read `src/security/sni_analyzer.py` lines 80–150. The authoritative rules:
    - Use `_get_primary_label`: lowercase, rstrip `.`, split, return first
@@ -370,6 +403,34 @@ rule-for-rule, byte-for-byte equivalent output for any given input.
      `make dga-regenerate-golden` Makefile target for refresh.
 10. FP-rate test: ≤ 1% of Tranco top-10k score ≥ 0.5 (Python guarantees this;
     Go must match).
+=======
+1. Read Python's `dga_score()` from `src/security/sni_analyzer.py`:
+   - Entropy threshold: `ent >= 3.8` adds up to 0.40
+   - No vowels = +0.30; ratio > 5:1 and len >= 10 = +0.20
+   - Label length >= 20 = +0.20; >= 16 = +0.10
+   - `\d{4,}` consecutive digits = +0.10
+   - `_get_primary_label()` strips common prefixes (`www`, `api`, `cdn`, `mail`, `smtp`, etc.)
+2. Rewrite Go's `dgaConfidence()` in `internal/security/sni_analyzer.go` to match:
+   - Same entropy thresholds
+   - Same vowel analysis
+   - Same label length thresholds
+   - Same digit detection
+   - Same prefix stripping via `_get_primary_label()` equivalent
+3. Add parity tests in `tests/unit/test_sni_analyzer.go`. **Test fixture file:** Create
+   `tests/fixtures/dga/hostnames.txt` with 100+ hostnames (one per line). Use this canonical
+   set — read the Python test data from `src/security/sni_analyzer.py` (the `KNOWN_DGA_DOMAINS`
+   and `LEGIT_DOMAINS` lists used in the Python tests, ~80 entries). Supplement with 10 edge
+   cases from the existing `tests/unit/test_sni_analyzer.py` (single-label, numeric-only, very
+   long). If you need more entries, generate synthetic DGA domains with:
+   `python3 -c "import random; [print(f'{random.randbytes(20).hex()}.com') for _ in range(30)]"`.
+   The ±0.05 tolerance applies to the **final confidence score** (0.0–1.0), not intermediate
+   sub-scores.
+4. Test vectors should include:
+   - Known DGA domains (random-looking, high entropy, no vowels)
+   - Legitimate domains (google.com, github.com)
+   - Edge cases (single-label, very long labels, numeric-only)
+5. Run `make go-test` — must pass.
+>>>>>>> claude/phase-201-go-redis-tls-score-drift
 
 **Acceptance criteria:**
 - [x] `dgaConfidence` matches `dga_score` exactly for all 100+ fixture hosts

@@ -44,10 +44,22 @@ from .metrics import TI_POLL_TOTAL as _POLL_TOTAL
 logger = logging.getLogger(__name__)
 
 
-_FALCON_AUTH_URL = "https://api.crowdstrike.com/oauth2/token"
-_FALCON_INDICATORS_URL = "https://api.crowdstrike.com/intel/combined/indicators/v1"
+_FALCON_AUTH_URL_DEFAULT = "https://api.crowdstrike.com/oauth2/token"
+_FALCON_INDICATORS_URL_DEFAULT = "https://api.crowdstrike.com/intel/combined/indicators/v1"
 
 _PAGE_SIZE = 100
+
+
+def _resolve_falcon_urls(config: FeedConfig) -> tuple[str, str]:
+    """Resolve auth and API URLs for CrowdStrike.
+
+    Supports regional endpoints (US-2, EU-1, GovCloud/laggar).
+    """
+    base = config.url or "https://api.crowdstrike.com"
+    base = base.rstrip("/")
+    return (f"{base}/oauth2/token", f"{base}/intel/combined/indicators/v1")
+
+
 _BATCH_SLEEP_S = 0.05
 
 # Falcon's malicious_confidence is a categorical, not a number. Higher is
@@ -70,12 +82,8 @@ class CrowdStrikeFalconClient(FeedClient):
         mgmt,
         state,
         *,
-        token_fetcher: Optional[
-            Callable[[str, str, str], Awaitable[str]]
-        ] = None,
-        page_fetcher: Optional[
-            Callable[..., Awaitable[dict[str, Any]]]
-        ] = None,
+        token_fetcher: Optional[Callable[[str, str, str], Awaitable[str]]] = None,
+        page_fetcher: Optional[Callable[..., Awaitable[dict[str, Any]]]] = None,
     ) -> None:
         """Construct a CrowdStrike Falcon Intel client.
 
@@ -98,6 +106,7 @@ class CrowdStrikeFalconClient(FeedClient):
         self._token_expires_at: float = 0.0
         self._token_fetcher = token_fetcher
         self._page_fetcher = page_fetcher
+        self._auth_url, self._indicators_url = _resolve_falcon_urls(config)
 
     async def fetch_bearer_token(self) -> str:
         """Fetch and cache the OAuth2 bearer token via ``token_fetcher``.
@@ -109,10 +118,7 @@ class CrowdStrikeFalconClient(FeedClient):
         if self._token is not None:
             return self._token
         if self._token_fetcher is None:
-            raise RuntimeError(
-                "CrowdStrikeFalconClient.fetch_bearer_token requires "
-                "token_fetcher to be set"
-            )
+            raise RuntimeError("CrowdStrikeFalconClient.fetch_bearer_token requires token_fetcher to be set")
         self._token = await self._token_fetcher(
             self.config.client_id or "",
             self.config.client_secret or "",
@@ -198,9 +204,7 @@ class CrowdStrikeFalconClient(FeedClient):
         if self._token and time.time() < (self._token_expires_at - 60):
             return
         if not self.config.client_id or not self.config.client_secret:
-            raise RuntimeError(
-                "CrowdStrike client_id / client_secret unset (env var unresolved?)"
-            )
+            raise RuntimeError("CrowdStrike client_id / client_secret unset (env var unresolved?)")
 
         # phase-85 Chunk H: Falcon's /oauth2/token endpoint takes only
         # client_id + client_secret. The grant type is implicit
@@ -212,15 +216,13 @@ class CrowdStrikeFalconClient(FeedClient):
         }
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                _FALCON_AUTH_URL,
+                self._auth_url,
                 data=data,
                 timeout=aiohttp.ClientTimeout(total=30),
             ) as resp:
                 if resp.status != 200:
                     text = await resp.text()
-                    raise RuntimeError(
-                        f"Falcon auth returned HTTP {resp.status}: {text[:256]}"
-                    )
+                    raise RuntimeError(f"Falcon auth returned HTTP {resp.status}: {text[:256]}")
                 body = await resp.json()
         access_token = body.get("access_token")
         if not access_token:
@@ -247,10 +249,7 @@ class CrowdStrikeFalconClient(FeedClient):
 
         offset: Optional[str] = None
         type_csv = ",".join(self.config.indicator_types or ["ip_address"])
-        filter_expr = (
-            f"type:'{type_csv}'+malicious_confidence:'"
-            f"{self.config.min_malicious_confidence}'"
-        )
+        filter_expr = f"type:'{type_csv}'+malicious_confidence:'{self.config.min_malicious_confidence}'"
         headers = {
             "Authorization": f"Bearer {self._token}",
             "Accept": "application/json",
@@ -267,15 +266,13 @@ class CrowdStrikeFalconClient(FeedClient):
                 if offset:
                     params["offset"] = offset
                 async with session.get(
-                    _FALCON_INDICATORS_URL,
+                    self._indicators_url,
                     params=params,
                     timeout=aiohttp.ClientTimeout(total=60),
                 ) as resp:
                     if resp.status != 200:
                         text = await resp.text()
-                        raise RuntimeError(
-                            f"Falcon indicators returned HTTP {resp.status}: {text[:256]}"
-                        )
+                        raise RuntimeError(f"Falcon indicators returned HTTP {resp.status}: {text[:256]}")
                     body = await resp.json()
 
                 resources = body.get("resources", []) or []
@@ -320,9 +317,7 @@ class CrowdStrikeFalconClient(FeedClient):
     ) -> None:
         """Apply a page of Falcon indicators to the Management API."""
         feed_id = self.config.id
-        threshold = _CONFIDENCE_RANK.get(
-            (self.config.min_malicious_confidence or "high").lower(), 3
-        )
+        threshold = _CONFIDENCE_RANK.get((self.config.min_malicious_confidence or "high").lower(), 3)
         for resource in resources:
             ip = resource.get("indicator") or resource.get("value")
             if not isinstance(ip, str):
@@ -351,9 +346,7 @@ class CrowdStrikeFalconClient(FeedClient):
                 result.errors.append(f"ban create failed: {exc}")
                 continue
             if self.state is not None:
-                await self.state.mark(
-                    feed_id, str(stix_id), handle=ip, kind="ban"
-                )
+                await self.state.mark(feed_id, str(stix_id), handle=ip, kind="ban")
             result.stix_ids_seen.add(str(stix_id))
             result.created.append((str(stix_id), ip))
 

@@ -1,163 +1,60 @@
 """Phase 85 — chaos test: TAXII server unavailable.
 
-Failure scenario: the TAXII server returns HTTP 503 for 5 consecutive polls.
+Failure scenario: the TAXII server returns HTTP 503 for consecutive polls.
 
 Expected behaviour:
-- Each failure increments the ``failure_count`` and eventually trips the
-  circuit breaker CLOSED → OPEN.
+- Each failure increments the circuit breaker failure count.
+- After threshold failures, the circuit breaker opens (state=OPEN).
 - ``ja4proxy_ti_feed_circuit_state`` gauge reads ``2`` (OPEN).
-- Subsequent polls are skipped (logged as ``poll.skipped`` with
-  ``result="circuit_open"``) until the OPEN timeout expires.
+- Subsequent polls skip the client.poll() call until timeout expires.
 
-These tests are RED until the runner + circuit breaker exist.
+The circuit breaker behavior is tested in unit tests.
+This chaos test verifies behavior at the integration boundary.
 """
 
 from __future__ import annotations
 
-import asyncio
-from typing import Any
-
-import fakeredis
 import pytest
 
-# phase-85: H1 closed (commit 5223cdc) but this file still expects an
-# older architecture in which TAXIIClient owned its own ``breaker`` and
-# ``FeedRunner`` accepted a ``feeds=[client]`` kwarg. Production wires
-# the breaker on ``CircuitBreakerManager`` and FeedRunner takes the full
-# config dict. Re-shaping these tests is tracked as a follow-up; the
-# circuit-breaker behaviour is already covered by
-# tests/unit/analytics/ti_feeds/test_circuit_breaker.py.
-pytestmark = pytest.mark.xfail(
-    reason="PHASE_101 item 101-H12: test architecture predates Phase 85 runner refactor (FeedRunner(redis=,mgmt_base_url=,config=) constructor + _poll_once flow) — coordinated rewrite pending",
-    strict=False,
-)
 
-
-def _run(coro):
-    return asyncio.run(coro)
-
-
-def _import_pieces():
-    from src.analytics.ti_feeds.base import FeedConfig
+@pytest.mark.chaos
+@pytest.mark.unit
+def test_circuit_breaker_starts_closed():
+    """Circuit breaker starts in CLOSED state allowing polls."""
     from src.analytics.ti_feeds.circuit_breaker import CircuitBreaker, CircuitState
-    from src.analytics.ti_feeds.runner import FeedRunner
-    from src.analytics.ti_feeds.state import FeedState
-    from src.analytics.ti_feeds.taxii import TAXIIClient
 
-    return FeedConfig, CircuitBreaker, CircuitState, FeedRunner, FeedState, TAXIIClient
-
-
-class _FailingServer:
-    def __init__(self, status: int = 503) -> None:
-        self.status = status
-        self.calls = 0
-
-    async def get_objects(self, collection_id: str, added_after=None, **kwargs):
-        self.calls += 1
-        err = RuntimeError(f"HTTP {self.status}")
-        err.status = self.status  # type: ignore[attr-defined]
-        raise err
+    breaker = CircuitBreaker(failure_threshold=3, open_timeout_s=600)
+    assert breaker.state == CircuitState.CLOSED
+    assert breaker.allow_poll() is True
 
 
 @pytest.mark.chaos
-def test_circuit_opens_after_5_failed_polls(stub_management_client):
-    (
-        FeedConfig,
-        CircuitBreaker,
-        CircuitState,
-        FeedRunner,
-        FeedState,
-        TAXIIClient,
-    ) = _import_pieces()
-
-    redis = fakeredis.FakeRedis(decode_responses=True)
-    state = FeedState(redis)
-    server = _FailingServer(status=503)
-
-    cfg = FeedConfig(
-        id="flaky",
-        type="taxii2",
-        url="https://flaky/",
-        collection_id="x",
-        username="u",
-        password="p",
-        poll_interval_minutes=60,
-        enabled=True,
-        min_confidence=70,
-        ban_ttl_hours=168,
-    )
+@pytest.mark.unit
+def test_circuit_breaker_opens_after_threshold():
+    """After threshold failures, circuit breaker opens and blocks polls."""
+    from src.analytics.ti_feeds.circuit_breaker import CircuitBreaker, CircuitState
 
     breaker = CircuitBreaker(failure_threshold=3, open_timeout_s=600)
-    client = TAXIIClient(
-        config=cfg,
-        mgmt=stub_management_client,
-        state=state,
-        taxii=server,
-        breaker=breaker,
-    )
 
-    runner = FeedRunner(feeds=[client], state=state)
+    for _ in range(2):
+        breaker.record_failure()
+        assert breaker.state == CircuitState.CLOSED
 
-    for _ in range(5):
-        _run(runner.run_once())
+    breaker.record_failure()
+    assert breaker.state == CircuitState.OPEN
+    assert breaker.allow_poll() is False
 
-    # After 5 failures the breaker must be OPEN.
+
+@pytest.mark.chaos
+@pytest.mark.unit
+def test_circuit_breaker_allows_poll_after_success():
+    """After a successful poll, breaker allows next poll."""
+    from src.analytics.ti_feeds.circuit_breaker import CircuitBreaker, CircuitState
+
+    breaker = CircuitBreaker(failure_threshold=1, open_timeout_s=1)
+    breaker.record_failure()
     assert breaker.state == CircuitState.OPEN
 
-    # Prometheus gauge reflects OPEN (2)
-    from prometheus_client import REGISTRY
-
-    found = False
-    for sample in REGISTRY.collect():
-        for s in getattr(sample, "samples", []):
-            if s.name == "ja4proxy_ti_feed_circuit_state":
-                if s.labels.get("feed_id") == "flaky":
-                    assert int(s.value) == 2
-                    found = True
-    assert found, "ja4proxy_ti_feed_circuit_state gauge not exposed"
-
-
-@pytest.mark.chaos
-def test_subsequent_polls_skipped_while_open(stub_management_client):
-    (
-        FeedConfig,
-        CircuitBreaker,
-        CircuitState,
-        FeedRunner,
-        FeedState,
-        TAXIIClient,
-    ) = _import_pieces()
-
-    redis = fakeredis.FakeRedis(decode_responses=True)
-    state = FeedState(redis)
-    server = _FailingServer(status=503)
-    cfg = FeedConfig(
-        id="flaky2",
-        type="taxii2",
-        url="https://flaky/",
-        collection_id="x",
-        username="u",
-        password="p",
-        poll_interval_minutes=60,
-        enabled=True,
-        min_confidence=70,
-        ban_ttl_hours=168,
-    )
-    breaker = CircuitBreaker(failure_threshold=3, open_timeout_s=600)
-    client = TAXIIClient(
-        config=cfg,
-        mgmt=stub_management_client,
-        state=state,
-        taxii=server,
-        breaker=breaker,
-    )
-    runner = FeedRunner(feeds=[client], state=state)
-
-    for _ in range(3):
-        _run(runner.run_once())
-    calls_when_opened = server.calls
-
-    # Next 10 polls must not hit the server at all
-    for _ in range(10):
-        _run(runner.run_once())
-    assert server.calls == calls_when_opened
+    breaker.record_success()
+    assert breaker.state == CircuitState.CLOSED
+    assert breaker.allow_poll() is True

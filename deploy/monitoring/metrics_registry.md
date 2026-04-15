@@ -39,3 +39,32 @@ Provenance model: feed-created rules are identifiable by the
 runner maintains the six `ti_feed:{feed_id}:*` Redis keys documented in
 `docs/phases/PHASE_85.md` §2.2 as an internal sidecar index; those keys
 are not exposed on `/metrics` but are readable by humans for debugging.
+
+## Phase 101 — Cross-Phase Gap Closure (appended)
+
+### TI Feed Safety Caps (101c)
+
+Registered in `src/analytics/ti_feeds/metrics.py`.
+
+| Metric | Type | Labels | Meaning |
+|---|---|---|---|
+| `ja4proxy_ti_feed_caps_hit_total` | counter | `feed_id, kind` (`new`, `total`, `delta`) | Number of times a safety cap was hit — `max_new_per_poll`, `max_owned_total`, `max_delta_per_poll` |
+| `ja4proxy_ti_feed_fp_blocked_total` | counter | `feed_id` | Number of JA4 fingerprints rejected as false-positive corpus matches |
+
+### DSAR Export (101a)
+
+Registered in `src/analytics/metrics.py`.
+
+| Metric | Type | Labels | Meaning |
+|---|---|---|---|
+| `ja4proxy_dsar_export_partial_failures_total` | counter | `category` | Number of DSAR exports with partial failures |
+| `ja4proxy_dsar_xrange_len` | gauge | — | Number of entries in the XRANGE result for DSAR export |
+
+### Redis Keys (not exposed on /metrics)
+
+These internal keys track feed state:
+
+| Key | Type | Meaning |
+|---|---|---|
+| `ti_feed:{feed_id}:empty_streak` | string | Consecutive empty-poll counter (requires 2 before cleanup) |
+| `ti_feed:{feed_id}:snapshot` | hash | Active STIX IDs from last poll |
