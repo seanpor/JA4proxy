@@ -108,9 +108,7 @@ def validate_feed_url(url: str) -> None:
         raise ValueError("feed url is empty")
     parsed = urlparse(url)
     if parsed.scheme != "https":
-        raise ValueError(
-            f"feed url must use https scheme (got {parsed.scheme!r})"
-        )
+        raise ValueError(f"feed url must use https scheme (got {parsed.scheme!r})")
     if not parsed.hostname:
         raise ValueError("feed url has no host")
     host = parsed.hostname
@@ -126,9 +124,7 @@ def validate_feed_url(url: str) -> None:
         or addr.is_unspecified
         or addr.is_reserved
     ):
-        raise ValueError(
-            f"feed url host {host} is in a forbidden network range"
-        )
+        raise ValueError(f"feed url host {host} is in a forbidden network range")
 
 
 @dataclass
@@ -145,6 +141,10 @@ class FeedConfig:
     poll_interval_minutes: int = 60
     min_confidence: int = 70
     ban_ttl_hours: int = 168
+    # C4: Safety caps for preventing mass-ban from misbehaving feeds
+    max_new_per_poll: int = 500
+    max_owned_total: int = 50_000
+    max_delta_per_poll: int = 0  # 0 = unlimited
     # TAXII 2.1 -----------------------------------------------------------
     url: str = ""
     collection_id: str = ""
@@ -185,6 +185,10 @@ class FeedConfig:
             "poll_interval_minutes",
             "min_confidence",
             "ban_ttl_hours",
+            # C4: Safety caps
+            "max_new_per_poll",
+            "max_owned_total",
+            "max_delta_per_poll",
             "url",
             "collection_id",
             "username",
@@ -210,21 +214,14 @@ class FeedConfig:
         known["raw"] = raw
         # Guard against missing required fields — fail noisy, not silent.
         if "id" not in known or "type" not in known:
-            raise ValueError(
-                f"feed config missing required 'id'/'type' keys: keys={list(data.keys())}"
-            )
+            raise ValueError(f"feed config missing required 'id'/'type' keys: keys={list(data.keys())}")
         # phase-85 (security review C4): refuse feed ids that would let an
         # operator pivot the Redis key namespace or inflate metric cardinality.
         feed_id = known["id"]
         if not isinstance(feed_id, str) or not _FEED_ID_REGEX.match(feed_id):
-            raise ValueError(
-                "feed id must match ^[a-z0-9][a-z0-9_-]{0,63}$ "
-                f"(got {feed_id!r})"
-            )
+            raise ValueError(f"feed id must match ^[a-z0-9][a-z0-9_-]{{0,63}}$ (got {feed_id!r})")
         if feed_id in _RESERVED_FEED_IDS:
-            raise ValueError(
-                f"feed id {feed_id!r} is reserved (collides with shared state)"
-            )
+            raise ValueError(f"feed id {feed_id!r} is reserved (collides with shared state)")
         # phase-85 (security review C1): SSRF guard for feed types that
         # carry a URL. We validate here so a bad URL is rejected at config
         # parse time, before any aiohttp client is instantiated.
