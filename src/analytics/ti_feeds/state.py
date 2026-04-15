@@ -38,6 +38,8 @@ _KEY_ACTIVE_STIX = "ti_feed:{feed_id}:active_stix_ids"
 _KEY_POLL_STATE = "ti_feed:{feed_id}:poll_state"
 _KEY_RUNTIME_ENABLED = "ti_feed:{feed_id}:runtime_enabled"
 _KEY_LEADER_LOCK = "ti_feed:leader_lock"
+# C5: Empty streak tracking
+_KEY_EMPTY_STREAK = "ti_feed:{feed_id}:empty_streak"
 
 
 def compute_dropped_ids(
@@ -151,9 +153,7 @@ class FeedState:
     async def get_blocklist_uuids(self, feed_id: str) -> set[str]:
         """Return every blocklist UUID currently attributed to this feed."""
         try:
-            members = await self._redis.smembers(
-                _KEY_BLOCKLIST_UUIDS.format(feed_id=feed_id)
-            )
+            members = await self._redis.smembers(_KEY_BLOCKLIST_UUIDS.format(feed_id=feed_id))
             return {m.decode() if isinstance(m, bytes) else m for m in members}
         except Exception as exc:  # noqa: BLE001
             logger.warning(
@@ -205,13 +205,9 @@ class FeedState:
     async def get_active_stix_ids(self, feed_id: str) -> dict[str, str]:
         """Return the previous-poll ``stix_id → handle`` mapping."""
         try:
-            raw = await self._redis.hgetall(
-                _KEY_ACTIVE_STIX.format(feed_id=feed_id)
-            )
+            raw = await self._redis.hgetall(_KEY_ACTIVE_STIX.format(feed_id=feed_id))
             return {
-                (k.decode() if isinstance(k, bytes) else k): (
-                    v.decode() if isinstance(v, bytes) else v
-                )
+                (k.decode() if isinstance(k, bytes) else k): (v.decode() if isinstance(v, bytes) else v)
                 for k, v in raw.items()
             }
         except Exception as exc:  # noqa: BLE001
@@ -284,14 +280,11 @@ class FeedState:
             if kind == "ban":
                 pipe.srem(_KEY_BAN_IPS.format(feed_id=feed_id), handle)
             elif kind == "blocklist":
-                pipe.srem(
-                    _KEY_BLOCKLIST_UUIDS.format(feed_id=feed_id), handle
-                )
+                pipe.srem(_KEY_BLOCKLIST_UUIDS.format(feed_id=feed_id), handle)
             await pipe.execute()
         except Exception as exc:  # noqa: BLE001
             logger.warning(
-                "ti_feed | event=state_write_failed | key=clear_handle | "
-                "feed=%s | stix_id=%s | kind=%s | error=%s",
+                "ti_feed | event=state_write_failed | key=clear_handle | feed=%s | stix_id=%s | kind=%s | error=%s",
                 feed_id,
                 stix_id,
                 kind,
@@ -314,9 +307,7 @@ class FeedState:
             pipe.hdel(key, stix_id)
             if handle:
                 pipe.srem(_KEY_BAN_IPS.format(feed_id=feed_id), handle)
-                pipe.srem(
-                    _KEY_BLOCKLIST_UUIDS.format(feed_id=feed_id), handle
-                )
+                pipe.srem(_KEY_BLOCKLIST_UUIDS.format(feed_id=feed_id), handle)
             await pipe.execute()
         except Exception as exc:  # noqa: BLE001
             logger.warning(
@@ -419,13 +410,9 @@ class FeedState:
     async def get_poll_state(self, feed_id: str) -> dict[str, str]:
         """Return the ``poll_state`` HASH (empty dict on Redis error)."""
         try:
-            raw = await self._redis.hgetall(
-                _KEY_POLL_STATE.format(feed_id=feed_id)
-            )
+            raw = await self._redis.hgetall(_KEY_POLL_STATE.format(feed_id=feed_id))
             return {
-                (k.decode() if isinstance(k, bytes) else k): (
-                    v.decode() if isinstance(v, bytes) else v
-                )
+                (k.decode() if isinstance(k, bytes) else k): (v.decode() if isinstance(v, bytes) else v)
                 for k, v in raw.items()
             }
         except Exception as exc:  # noqa: BLE001
@@ -526,9 +513,7 @@ class FeedState:
         or ``None`` if the toggle is unset (caller falls back to config).
         """
         try:
-            raw = await self._redis.get(
-                _KEY_RUNTIME_ENABLED.format(feed_id=feed_id)
-            )
+            raw = await self._redis.get(_KEY_RUNTIME_ENABLED.format(feed_id=feed_id))
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "ti_feed | event=state_read_failed | key=runtime_enabled | feed=%s | error=%s",
@@ -556,6 +541,37 @@ class FeedState:
                 exc,
             )
 
+    # ── C5: empty streak tracking ───────────────────────────────────────
+
+    async def get_empty_streak(self, feed_id: str) -> int:
+        """Return consecutive empty poll count for this feed."""
+        try:
+            raw = await self._redis.get(_KEY_EMPTY_STREAK.format(feed_id=feed_id))
+        except Exception:
+            return 0
+        if raw is None:
+            return 0
+        try:
+            return int(raw) if isinstance(raw, int) else int(raw.decode())
+        except ValueError:
+            return 0
+
+    async def bump_empty_streak(self, feed_id: str) -> int:
+        """Increment empty streak and return new value."""
+        try:
+            key = _KEY_EMPTY_STREAK.format(feed_id=feed_id)
+            val = await self._redis.incr(key)
+            return val
+        except Exception:
+            return 1
+
+    async def reset_empty_streak(self, feed_id: str) -> None:
+        """Reset empty streak to 0."""
+        try:
+            await self._redis.set(_KEY_EMPTY_STREAK.format(feed_id=feed_id), "0")
+        except Exception:
+            pass
+
     # ── leader election (Phase 8 pattern) ─────────────────────────────────
 
     async def try_acquire_leader(
@@ -582,8 +598,7 @@ class FeedState:
             return result is not None
         except Exception as exc:  # noqa: BLE001
             logger.warning(
-                "ti_feed | event=leader_lock_unavailable | "
-                "action=fail_closed | error=%s",
+                "ti_feed | event=leader_lock_unavailable | action=fail_closed | error=%s",
                 exc,
             )
             return False

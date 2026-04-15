@@ -148,7 +148,7 @@ but impact operational clarity and code quality.
 
 **Steps:**
 
-1. In `management/compliance/purge.py`, on first invocation of `GDPRPurge.run()`, run `INFO server` via `redis.info()` to check `redis_version`. If < 6.2, log a WARN and fall back to a time-based XRANGE + XDEL loop instead of `XTRIM … MINID`. Add a unit test that mocks `redis.info()` returning `redis_version: 6.0.0` and asserts the fallback path is taken. Document the minimum Redis version in `docs/REDIS_SCHEMA.md`.
+1. In `management/compliance/purge.py`, on first invocation of `GDPRPurge.run()`, check Redis version. The redis-py client exposes this as `client.info()["redis_version"]` (a string like `"6.2.14"`). Parse the major.minor with `packaging.version.parse()` or a simple `tuple(int(x) for x in v.split(".")[:2])` comparison. If < 6.2, log a WARN and fall back to a time-based XRANGE + XDEL loop instead of `XTRIM … MINID`. Add a unit test that mocks `client.info()` returning `{"redis_version": "6.0.0"}` and asserts the fallback path is taken. Document the minimum Redis version in `docs/REDIS_SCHEMA.md`. **Note:** the redis-py `info()` method returns a dict, not a string — use `client.info()`, not `client.execute_command("INFO")`.
 2. Rename `beaconing_records_cleaned` → `beaconing_datapoints_cleaned` in the Python dataclass (`management/compliance/purge.py:138, 205`) and any exposed Prometheus metric. Add a `CHANGELOG.md` entry noting this as a breaking change for dashboards parsing the old field name.
 3. In `management/compliance/pack_builder.py:203`, replace the `LRANGE management:audit_log 0 -1` call with a chunked loop reading 10k entries at a time (`LRANGE start stop`), stopping early when the timestamp drops below the window. Define a documented constant `AUDIT_LOG_CHUNK_SIZE = 10_000`.
 4. In `management/compliance/report_renderer.py`, create a module-level `Environment` keyed on `(template_dir, template_name)`. Modify `ReportRenderer.__init__` to reuse the cached Environment. Add a test asserting two `ReportRenderer()` instances share compiled templates (`id(t1.environment) == id(t2.environment)`).
@@ -222,7 +222,7 @@ feed infrastructure.
 4. Write `tests/adversarial/test_ti_feeds_ssrf.py`: patch `socket.getaddrinfo` to return `169.254.169.254` for a synthetic hostname, run a real `TAXIIClient.poll()` against it, assert `result.errors` contains `"SSRF blocked"` and `post_ban` was never called.
 5. In `management/api/routes/threat_intel.py`, add a rate limiter (slowapi-style or the existing `limit_per_minute` decorator from Phase 79) to `POST /api/v1/threat-intel/feeds/{id}/poll` at 6 requests per minute per feed_id.
 6. Write a test in `tests/unit/test_threat_intel_api.py` asserting the 7th request in 60s returns 429 with a `Retry-After` header.
-7. Create `management/api/middleware/csrf.py`: on every `GET /api/v1/*` response, set a `csrf_token` cookie (HttpOnly false, SameSite=strict, Secure in prod) and an `X-CSRF-Token` response header with the same value. On every `POST/PUT/PATCH/DELETE /api/v1/*` request, require the `X-CSRF-Token` header to match the cookie; reject 403 with `{"error": "csrf_token_mismatch"}`. Tokens are HMAC over `(session_id, issued_at)` with `MANAGEMENT_SECRET_KEY`, valid for 1 hour.
+7. Create `management/api/middleware/csrf.py`: on every `GET /api/v1/*` response, set a `csrf_token` cookie (HttpOnly false, SameSite=strict, Secure in prod) and an `X-CSRF-Token` response header with the same value. On every `POST/PUT/PATCH/DELETE /api/v1/*` request, require the `X-CSRF-Token` header to match the cookie; reject 403 with `{"error": "csrf_token_mismatch"}`. Tokens are HMAC over `(username, issued_at)` using `MANAGEMENT_JWT_SECRET` (the same secret from `management/api/auth.py:jwt.encode()`), valid for 1 hour. The `username` comes from the decoded JWT payload's `sub` claim — extract it from the request state that the auth middleware already populates. No session infrastructure needed.
 8. Register the middleware in `management/api/main.py` after auth. Update `management/templates/base.html` to read the `csrf_token` cookie in Alpine bootstrap and inject it as a header on every fetch via a global `$fetch` wrapper.
 9. Write `tests/unit/test_csrf.py` with full happy/mismatch/expired matrix.
 
@@ -264,6 +264,13 @@ CrowdStrike feeds.
 
 **Goal:** Rewrite 5 integration/chaos test files that target a
 `FeedRunner(feeds=[...])` constructor that no longer exists.
+
+> **⚠️ Prerequisite:** Read `tests/unit/analytics/ti_feeds/conftest.py` and
+> `tests/unit/analytics/ti_feeds/test_runner.py` before starting. These files
+> contain the existing fixture definitions (`stub_management_client`,
+> `mock_taxii_server`, `_StubMgmt`, `_StubClient`, `_make_runner`) that must
+> be promoted to shared fixtures. The test reshape reuses these patterns —
+> do not invent new fixture conventions.
 
 | Gap | Severity | What | File |
 |-----|----------|------|------|

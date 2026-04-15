@@ -78,5 +78,19 @@ TI_MGMT_API_ERRORS = Counter(
 TI_SEED_ENTRIES = Counter(
     "ja4proxy_ti_feed_seed_file_entries_total",
     "Seed-file fingerprint entries loaded per outcome",
-    ["outcome"],
+    ["feed_id", "outcome"],
+)
+
+#: C4: Safety caps hit counter. ``kind`` in {``new``, ``total``, ``delta``}.
+TI_FEED_CAPS_HIT = Counter(
+    "ja4proxy_ti_feed_caps_hit_total",
+    "Number of times a safety cap was hit",
+    ["feed_id", "kind"],
+)
+
+#: C6: JA4 false-positive blocked counter.
+TI_FEED_FP_BLOCKED = Counter(
+    "ja4proxy_ti_feed_fp_blocked_total",
+    "Number of JA4 fingerprints blocked as false positives",
+    ["feed_id"],
 )

@@ -18,6 +18,7 @@ Admin only : DELETE DSAR erase, POST purge-expired
 from __future__ import annotations
 
 import base64
+import ipaddress
 import json
 import logging
 from datetime import datetime, timezone
@@ -112,8 +113,7 @@ def _validate_logo(raw_base64: Optional[str]) -> str:
             mime = "image/svg+xml"
     if mime is None:
         logger.warning(
-            "compliance | event=logo_rejected | reason=unknown_format | "
-            "head=%r",
+            "compliance | event=logo_rejected | reason=unknown_format | head=%r",
             decoded[:16],
         )
         return ""
@@ -177,7 +177,7 @@ def _parse_date(date_str: str, field_name: str) -> datetime:
     raise HTTPException(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         detail=f"Invalid date format for '{field_name}': {date_str!r}. "
-               "Use ISO-8601 (e.g. '2026-01-01' or '2026-01-01T00:00:00Z').",
+        "Use ISO-8601 (e.g. '2026-01-01' or '2026-01-01T00:00:00Z').",
     )
 
 
@@ -273,9 +273,7 @@ def _load_signal_categories_config() -> dict[str, Any] | None:
             return sig_cats
         return None
     except Exception as exc:
-        logger.warning(
-            "compliance | event=signal_categories_load_failed | error=%s", exc
-        )
+        logger.warning("compliance | event=signal_categories_load_failed | error=%s", exc)
         return None
 
 
@@ -386,14 +384,23 @@ async def dsar_export(
     """
     exported_at = datetime.now(timezone.utc).isoformat()
 
-    # Collect data from each category
-    connection_history = await _dsar_connection_history(redis, ip)
+    # H1 fix: single XRANGE for both connection_history and fingerprint_associations
+    partial_failures: list[str] = []
+    stream_data = None
+    try:
+        stream_data = await redis.xrange(_STREAM_KEY)
+    except Exception:
+        partial_failures.append("connection_history")
+        partial_failures.append("fingerprint_associations")
+
+    # Collect data from each category (stream_data passed to avoid second XRANGE)
+    connection_history = await _dsar_connection_history(redis, ip, stream_data)
     ban_history = await _dsar_ban_history(redis, ip)
     watchlist_entries = await _dsar_watchlist_entries(redis, ip)
     beaconing_records = await _dsar_beaconing_records(redis, ip)
-    fingerprint_associations = await _dsar_fingerprint_associations(redis, ip)
+    fingerprint_associations = await _dsar_fingerprint_associations(redis, ip, stream_data)
 
-    payload = {
+    payload: dict[str, Any] = {
         "subject_ip": ip,
         "exported_at": exported_at,
         "legal_basis": "GDPR Article 15 — Right of Access",
@@ -412,6 +419,12 @@ async def dsar_export(
             "audit_trail": "7 years (legal obligation — not exportable, not erasable)",
         },
     }
+
+    # M7 fix: include partial_failures if any category failed
+    if partial_failures:
+        payload["partial_failures"] = partial_failures
+        payload["data_unavailable"] = True
+        logger.warning("compliance | event=dsar_partial_failure | failed_categories=%s", partial_failures)
 
     return Response(
         content=json.dumps(payload, indent=2, default=str),
@@ -495,11 +508,13 @@ async def dsar_erase(
 
     if ban_reason is not None and (ban_ttl > 0 or ban_ttl == -1):
         expires_note = f"TTL {ban_ttl}s" if ban_ttl > 0 else "persistent"
-        skipped.append({
-            "key": ban_key,
-            "reason": "active security ban — legitimate interest override",
-            "expires_at": expires_note,
-        })
+        skipped.append(
+            {
+                "key": ban_key,
+                "reason": "active security ban — legitimate interest override",
+                "expires_at": expires_note,
+            }
+        )
 
     # 5. Write erasure to audit log (exempt from erasure — legal obligation).
     # Preserve the full skipped list — not just its length — so auditors can
@@ -600,12 +615,19 @@ async def get_signal_categories(
 # ── DSAR data collectors ──────────────────────────────────────────────────────
 
 
-async def _dsar_connection_history(redis: Any, ip: str) -> list[dict]:
-    """Read connection events for this IP from the stream."""
-    try:
-        raw = await redis.xrange(_STREAM_KEY)
-    except Exception:
-        return []
+async def _dsar_connection_history(redis: Any, ip: str, stream_data: Optional[list] = None) -> list[dict]:
+    """Read connection events for this IP from the stream.
+
+    Args:
+        redis: Redis client
+        ip: IP address to query
+        stream_data: Pre-fetched stream data (for H1 optimization). If None, fetches fresh.
+    """
+    if stream_data is None:
+        try:
+            stream_data = await redis.xrange(_STREAM_KEY)
+        except Exception:
+            return []
     return [
         {
             "timestamp": f.get("timestamp", ""),
@@ -613,7 +635,7 @@ async def _dsar_connection_history(redis: Any, ip: str) -> list[dict]:
             "ja4": f.get("ja4", ""),
             "risk_score": f.get("risk_score", ""),
         }
-        for _, f in raw
+        for _, f in stream_data
         if f.get("ip") == ip
     ]
 
@@ -627,26 +649,44 @@ async def _dsar_ban_history(redis: Any, ip: str) -> list[dict]:
     ttl = await redis.ttl(ban_key)
     active = ttl > 0 or ttl == -1
     erasure_exempt = active
-    return [{
-        "active": active,
-        "reason": reason,
-        "ttl_remaining": ttl if ttl > 0 else None,
-        "erasure_exempt": erasure_exempt,
-        "erasure_exempt_reason": (
-            "Active security ban — legitimate interest override" if active else None
-        ),
-    }]
+    return [
+        {
+            "active": active,
+            "reason": reason,
+            "ttl_remaining": ttl if ttl > 0 else None,
+            "erasure_exempt": erasure_exempt,
+            "erasure_exempt_reason": ("Active security ban — legitimate interest override" if active else None),
+        }
+    ]
 
 
 async def _dsar_watchlist_entries(redis: Any, ip: str) -> list[dict]:
-    """Return watchlist entries for this IP."""
+    """Return watchlist entries for this IP.
+
+    Includes both exact matches and CIDR block matches (H3 fix).
+    """
     entries = []
+    try:
+        target_ip = ipaddress.ip_address(ip)
+    except ValueError:
+        return entries
+
     cursor = 0
     while True:
         cursor, keys = await redis.scan(cursor=cursor, match="watchlist:entry:*", count=100)
         for key in keys:
-            entry_ip = await redis.hget(key, "entry")
-            if entry_ip == ip:
+            entry_value = await redis.hget(key, "entry")
+            if entry_value is None:
+                continue
+            matched = False
+            try:
+                network = ipaddress.ip_network(entry_value, strict=False)
+                if target_ip in network:
+                    matched = True
+            except ValueError:
+                if entry_value == ip:
+                    matched = True
+            if matched:
                 data = await redis.hgetall(key)
                 entries.append(data)
         if cursor == 0:
@@ -669,14 +709,21 @@ async def _dsar_beaconing_records(redis: Any, ip: str) -> list[dict]:
     return records
 
 
-async def _dsar_fingerprint_associations(redis: Any, ip: str) -> list[dict]:
-    """Return JA4 fingerprints seen for this IP from the event stream."""
-    try:
-        raw = await redis.xrange(_STREAM_KEY)
-    except Exception:
-        return []
+async def _dsar_fingerprint_associations(redis: Any, ip: str, stream_data: Optional[list] = None) -> list[dict]:
+    """Return JA4 fingerprints seen for this IP from the event stream.
+
+    Args:
+        redis: Redis client
+        ip: IP address to query
+        stream_data: Pre-fetched stream data (for H1 optimization). If None, fetches fresh.
+    """
+    if stream_data is None:
+        try:
+            stream_data = await redis.xrange(_STREAM_KEY)
+        except Exception:
+            return []
     seen: dict[str, dict] = {}
-    for _, fields in raw:
+    for _, fields in stream_data:
         if fields.get("ip") != ip:
             continue
         ja4 = fields.get("ja4", "")
@@ -712,16 +759,14 @@ async def _build_report_data(
     # windows and mix live-stream data with real aggregates elsewhere in the
     # report (see Phase 101 C2).  Counting fallback_months gives us an
     # unambiguous "aggregates completely absent" signal.
-    connections_total, connections_blocked, months_using_fallback = (
-        await _aggregate_from_monthly_hashes(redis, from_dt, to_dt)
+    connections_total, connections_blocked, months_using_fallback = await _aggregate_from_monthly_hashes(
+        redis, from_dt, to_dt
     )
 
     expected_month_count = _count_months_in_range(from_dt, to_dt)
     if expected_month_count > 0 and len(months_using_fallback) == expected_month_count:
         # No monthly aggregate data at all → use live stream as source of truth.
-        connections_total, connections_blocked = await _aggregate_from_stream(
-            redis, from_dt, to_dt
-        )
+        connections_total, connections_blocked = await _aggregate_from_stream(redis, from_dt, to_dt)
 
     # Audit entry count for the period
     audit_count = await _count_audit_entries(redis, from_dt, to_dt)
@@ -761,9 +806,7 @@ async def _build_report_data(
     )
 
 
-async def _aggregate_from_monthly_hashes(
-    redis: Any, from_dt: datetime, to_dt: datetime
-) -> tuple[int, int, list[str]]:
+async def _aggregate_from_monthly_hashes(redis: Any, from_dt: datetime, to_dt: datetime) -> tuple[int, int, list[str]]:
     """Sum monthly aggregate hashes across the requested period."""
     total = 0
     blocked = 0
@@ -786,17 +829,17 @@ async def _aggregate_from_monthly_hashes(
                 total += int(data.get("connections_total", 0) or 0)
             except (TypeError, ValueError):
                 logger.warning(
-                    "compliance | event=monthly_aggregate_field_bad | "
-                    "key=%s | field=connections_total | value=%r",
-                    key, data.get("connections_total"),
+                    "compliance | event=monthly_aggregate_field_bad | key=%s | field=connections_total | value=%r",
+                    key,
+                    data.get("connections_total"),
                 )
             try:
                 blocked += int(data.get("connections_blocked", 0) or 0)
             except (TypeError, ValueError):
                 logger.warning(
-                    "compliance | event=monthly_aggregate_field_bad | "
-                    "key=%s | field=connections_blocked | value=%r",
-                    key, data.get("connections_blocked"),
+                    "compliance | event=monthly_aggregate_field_bad | key=%s | field=connections_blocked | value=%r",
+                    key,
+                    data.get("connections_blocked"),
                 )
         elif data is not None:
             fallback_months.append(month_str)
@@ -809,9 +852,7 @@ async def _aggregate_from_monthly_hashes(
     return total, blocked, fallback_months
 
 
-async def _aggregate_from_stream(
-    redis: Any, from_dt: datetime, to_dt: datetime
-) -> tuple[int, int]:
+async def _aggregate_from_stream(redis: Any, from_dt: datetime, to_dt: datetime) -> tuple[int, int]:
     """Count total and blocked events from the stream (fallback for live data)."""
     try:
         raw = await redis.xrange(_STREAM_KEY)
@@ -829,9 +870,7 @@ async def _aggregate_from_stream(
     return total, blocked
 
 
-async def _count_audit_entries(
-    redis: Any, from_dt: datetime, to_dt: datetime
-) -> int:
+async def _count_audit_entries(redis: Any, from_dt: datetime, to_dt: datetime) -> int:
     """Count audit entries within the period."""
     try:
         raw = await redis.lrange(_AUDIT_KEY, 0, -1)
@@ -849,9 +888,7 @@ async def _count_audit_entries(
     return count
 
 
-async def _build_category_counts(
-    redis: Any, from_dt: datetime, to_dt: datetime
-) -> list[tuple[str, int]]:
+async def _build_category_counts(redis: Any, from_dt: datetime, to_dt: datetime) -> list[tuple[str, int]]:
     """Build sorted category count list from blocked stream events."""
     try:
         raw = await redis.xrange(_STREAM_KEY)

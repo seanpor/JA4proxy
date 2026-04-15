@@ -208,9 +208,7 @@ class TAXIIClient(FeedClient):
             ) as resp:
                 if resp.status != 200:
                     text = await resp.text()
-                    raise RuntimeError(
-                        f"TAXII server returned HTTP {resp.status}: {text[:256]}"
-                    )
+                    raise RuntimeError(f"TAXII server returned HTTP {resp.status}: {text[:256]}")
                 body_text = await resp.text()
 
         try:
@@ -268,9 +266,7 @@ class TAXIIClient(FeedClient):
         confidence = int(indicator.get("confidence", 0) or 0)
         if confidence < self.config.min_confidence:
             result.skipped_below_confidence += 1
-            _INDICATORS_PROCESSED.labels(
-                feed_id=feed_id, outcome="below_confidence"
-            ).inc()
+            _INDICATORS_PROCESSED.labels(feed_id=feed_id, outcome="below_confidence").inc()
             return
 
         pattern = indicator.get("pattern")
@@ -280,9 +276,7 @@ class TAXIIClient(FeedClient):
         # An expired indicator should never be applied — it would only get
         # cleaned up on the next differential pass, which is wasted work.
         if isinstance(valid_until, str) and _is_expired(valid_until):
-            _INDICATORS_PROCESSED.labels(
-                feed_id=feed_id, outcome="expired"
-            ).inc()
+            _INDICATORS_PROCESSED.labels(feed_id=feed_id, outcome="expired").inc()
             return
 
         # phase-85 (security review H7): only mark a stix_id as "seen"
@@ -294,17 +288,13 @@ class TAXIIClient(FeedClient):
         if is_ip_pattern(pattern):
             ip = parse_ip_from_pattern(pattern)
             if not ip:
-                _INDICATORS_PROCESSED.labels(
-                    feed_id=feed_id, outcome="unsupported"
-                ).inc()
+                _INDICATORS_PROCESSED.labels(feed_id=feed_id, outcome="unsupported").inc()
                 result.unsupported_pattern += 1
                 return
             try:
                 ipaddress.ip_address(ip)
             except ValueError:
-                _INDICATORS_PROCESSED.labels(
-                    feed_id=feed_id, outcome="unsupported"
-                ).inc()
+                _INDICATORS_PROCESSED.labels(feed_id=feed_id, outcome="unsupported").inc()
                 result.unsupported_pattern += 1
                 result.errors.append(f"invalid IP: {ip}")
                 return
@@ -329,11 +319,17 @@ class TAXIIClient(FeedClient):
         if is_ja4_pattern(pattern):
             ja4 = parse_ja4_from_pattern(pattern)
             if not ja4 or not is_valid_ja4(ja4):
-                _INDICATORS_PROCESSED.labels(
-                    feed_id=feed_id, outcome="unsupported"
-                ).inc()
+                _INDICATORS_PROCESSED.labels(feed_id=feed_id, outcome="unsupported").inc()
                 result.unsupported_pattern += 1
                 result.errors.append(f"invalid JA4: {ja4!r}")
+                return
+            # C6: Check JA4 against known-good corpus before blocking
+            from .ja4_safety import ja4_safe_to_block
+
+            safe, reason = ja4_safe_to_block(ja4)
+            if not safe:
+                _INDICATORS_PROCESSED.labels(feed_id=feed_id, outcome="fp_blocked").inc()
+                result.errors.append(f"JA4 blocked as false positive: {ja4}")
                 return
             try:
                 resource = await self.mgmt.post_blocklist(
@@ -346,9 +342,7 @@ class TAXIIClient(FeedClient):
                 result.errors.append(f"blocklist create failed: {exc}")
                 return
             if self.state is not None:
-                await self.state.mark(
-                    feed_id, stix_id, handle=resource.id, kind="blocklist"
-                )
+                await self.state.mark(feed_id, stix_id, handle=resource.id, kind="blocklist")
             result.stix_ids_seen.add(stix_id)
             result.created.append((stix_id, resource.id))
             _INDICATORS_PROCESSED.labels(feed_id=feed_id, outcome="created").inc()
