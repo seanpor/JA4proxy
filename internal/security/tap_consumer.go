@@ -18,6 +18,7 @@ package security
 import (
 	"context"
 	"fmt"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -25,6 +26,26 @@ import (
 	"github.com/anomalyco/ja4proxy/internal/metrics"
 	"github.com/sirupsen/logrus"
 )
+
+// canonicalIP returns the canonical string form of an IP address matching
+// what the Phase-20 TAP node writes (via Python's socket.inet_ntop).
+// Strips zone IDs, brackets, and leading zeros; lowercases hex octets.
+// Returns "" for unparseable input (caller treats as fail-open).
+func canonicalIP(ip string) string {
+	// Strip IPv6 brackets if the caller accidentally left them on.
+	if len(ip) >= 2 && ip[0] == '[' && ip[len(ip)-1] == ']' {
+		ip = ip[1 : len(ip)-1]
+	}
+	addr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return ""
+	}
+	// Drop zone IDs (e.g. "fe80::1%eth0") — TAP never sees them.
+	if addr.Zone() != "" {
+		addr = addr.WithZone("")
+	}
+	return addr.String()
+}
 
 // TapConsumerConfig configures the TAP-derived OS-mismatch signal consumer.
 type TapConsumerConfig struct {
@@ -120,20 +141,26 @@ func (t *TapConsumer) GetSignal(ctx context.Context, clientIP, ja4 string) *Risk
 	if ja4 == "" || clientIP == "" {
 		return nil
 	}
+	// Canonicalise IP to match what the Phase-20 TAP node stores.
+	// Unparseable IP → fail open (no signal).
+	canonIP := canonicalIP(clientIP)
+	if canonIP == "" {
+		return nil
+	}
 	claimed := ja4OSClass(ja4)
 	if claimed == "" {
 		return nil
 	}
 
-	observed, hit := t.cachedLookup(clientIP)
+	observed, hit := t.cachedLookup(canonIP)
 	if !hit {
-		observed = t.redisLookup(ctx, clientIP)
+		observed = t.redisLookup(ctx, canonIP)
 		// Cache the outcome (even empty string) to short-circuit repeat calls.
 		ttl := t.cfg.CacheTTL
 		if ttl <= 0 {
 			ttl = 60 * time.Second
 		}
-		t.cache.Set(cacheKey(clientIP), observed, ttl)
+		t.cache.Set(cacheKey(canonIP), observed, ttl)
 	}
 
 	if observed == "" {

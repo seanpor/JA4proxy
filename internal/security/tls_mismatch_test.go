@@ -63,6 +63,30 @@ func TestCheckJA4TLSMismatch_Mismatch_ReturnsSignal(t *testing.T) {
 	}
 }
 
+// TestCheckJA4TLSMismatch_ZeroTLSVersion_FailsOpen pins the invariant
+// documented in PHASE_203.md close-out: a zero-valued negotiated version
+// means the proxy never observed a completed handshake, so the check must
+// fail open. This prevents spurious signals on mid-parse / malformed paths.
+func TestCheckJA4TLSMismatch_ZeroTLSVersion_FailsOpen(t *testing.T) {
+	e := NewTLSEnforcer(&TLSEnforcerConfig{}, nil)
+	// All known JA4 prefixes must return nil when actualTLSVersion == 0.
+	ja4s := []string{
+		"t13d1516h2_aabbccddeeff_aabbccddeeff",
+		"t12d1516h2_aabbccddeeff_aabbccddeeff",
+		"t11d1516h2_aabbccddeeff_aabbccddeeff",
+		"t10d1516h2_aabbccddeeff_aabbccddeeff",
+		"s30d1516h2_aabbccddeeff_aabbccddeeff",
+	}
+	for _, ja4 := range ja4s {
+		ja4 := ja4
+		t.Run(ja4[:3], func(t *testing.T) {
+			if got := e.CheckJA4TLSMismatch(ja4, 0); got != nil {
+				t.Errorf("actualTLSVersion==0 must fail open for prefix %q; got %+v", ja4[:3], got)
+			}
+		})
+	}
+}
+
 func TestCheckJA4TLSMismatch_Malformed_FailsOpen(t *testing.T) {
 	e := NewTLSEnforcer(&TLSEnforcerConfig{}, nil)
 	cases := []struct {

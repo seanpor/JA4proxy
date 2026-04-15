@@ -257,6 +257,142 @@ func TestTapConsumer_Concurrent_RaceFree(t *testing.T) {
 	wg.Wait()
 }
 
+// Phase-203 QA additions -----------------------------------------------------
+
+// TestJa4OSClass_StarterTable pins the starter mapping defined in
+// tap_consumer.go. Any change to the table requires updating this test, which
+// is deliberate — the mapping is load-bearing for the tap_os_mismatch signal.
+func TestJa4OSClass_StarterTable(t *testing.T) {
+	cases := []struct {
+		prefix   string
+		expected string
+	}{
+		{"t13d1516h2", "windows"},
+		{"t13d1517h2", "macos"},
+		{"t13d1715h2", "linux"},
+		{"t13d3112h2", "macos"},
+		{"t13d3113h2", "ios"},
+		{"t13d0310h2", "linux"},
+		{"t13d1314h1", "linux"},
+	}
+	for _, c := range cases {
+		c := c
+		t.Run(c.prefix, func(t *testing.T) {
+			ja4 := c.prefix + "_aabbccddeeff_aabbccddeeff"
+			got := ja4OSClass(ja4)
+			if got != c.expected {
+				t.Errorf("ja4OSClass(%q) = %q; want %q", ja4, got, c.expected)
+			}
+		})
+	}
+	// Unknown prefix must return "" (fail-open).
+	if got := ja4OSClass("t13ffffffh2_aa_bb"); got != "" {
+		t.Errorf("unknown prefix must return \"\"; got %q", got)
+	}
+	// No underscore → "" (short-circuit guard).
+	if got := ja4OSClass("t13d1516h2"); got != "" {
+		t.Errorf("missing underscore must return \"\"; got %q", got)
+	}
+}
+
+
+func TestTapConsumer_IPv6_CanonicalForm(t *testing.T) {
+	// TAP writes keys keyed by socket.inet_ntop() canonical form (e.g. "2001:db8::1").
+	// The consumer must produce the same key regardless of whether the caller
+	// supplies bracketed, uppercase, or zone-suffixed representations.
+	claimed := callJA4OSClass(t, chromeWindowsJA4)
+	if claimed == "" {
+		t.Skip("starter ja4OSClass table does not map chromeWindowsJA4")
+	}
+	observed := "linux"
+	if claimed == observed {
+		observed = "macos"
+	}
+	canon := "2001:db8::1"
+	rc := &fakeRedis{values: map[string]string{"fp:os:ip:" + canon: observed}}
+	tc := NewTapConsumer(newTapConfig(), rc, nil)
+
+	variants := []string{
+		"2001:db8::1",        // already canonical
+		"2001:DB8::1",        // uppercase
+		"2001:0db8:0:0::1",   // expanded zeros
+		"[2001:db8::1]",      // bracketed (some callers leave brackets on)
+		"2001:db8::1%eth0",   // zone-suffixed
+	}
+	for _, v := range variants {
+		v := v
+		t.Run(v, func(t *testing.T) {
+			sig := tc.GetSignal(context.Background(), v, chromeWindowsJA4)
+			if sig == nil {
+				t.Errorf("IPv6 variant %q must canonicalise to %q and emit a mismatch signal; got nil", v, canon)
+			}
+		})
+	}
+}
+
+func TestTapConsumer_UnparseableIP_FailsOpen(t *testing.T) {
+	rc := &fakeRedis{values: map[string]string{}}
+	tc := NewTapConsumer(newTapConfig(), rc, nil)
+	if got := tc.GetSignal(context.Background(), "not-an-ip", chromeWindowsJA4); got != nil {
+		t.Errorf("unparseable IP must fail open; got %+v", got)
+	}
+	if rc.calls() != 0 {
+		t.Errorf("unparseable IP must not touch Redis; got %d calls", rc.calls())
+	}
+}
+
+func TestTapConsumer_ContextCancelled_FailsOpen(t *testing.T) {
+	rc := &fakeRedis{values: map[string]string{"fp:os:ip:1.2.3.4": "linux"}, delay: 500 * time.Millisecond}
+	tc := NewTapConsumer(newTapConfig(), rc, nil)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately
+
+	got := tc.GetSignal(ctx, "1.2.3.4", chromeWindowsJA4)
+	if got != nil {
+		t.Errorf("cancelled context must fail open; got %+v", got)
+	}
+}
+
+func BenchmarkTapConsumer_GetSignal_CacheHit(b *testing.B) {
+	claimed := ja4OSClass(chromeWindowsJA4)
+	if claimed == "" {
+		b.Skip("starter table does not map the benchmark JA4")
+	}
+	rc := &fakeRedis{values: map[string]string{"fp:os:ip:1.2.3.4": claimed}}
+	tc := NewTapConsumer(newTapConfig(), rc, nil)
+	// Warm the cache.
+	_ = tc.GetSignal(context.Background(), "1.2.3.4", chromeWindowsJA4)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = tc.GetSignal(context.Background(), "1.2.3.4", chromeWindowsJA4)
+	}
+}
+
+func BenchmarkTapConsumer_GetSignal_RedisHit(b *testing.B) {
+	claimed := ja4OSClass(chromeWindowsJA4)
+	if claimed == "" {
+		b.Skip("starter table does not map the benchmark JA4")
+	}
+	rc := &fakeRedis{values: map[string]string{}}
+	for i := 0; i < 1000; i++ {
+		rc.values[fmt.Sprintf("fp:os:ip:10.0.0.%d", i%256)] = "linux"
+	}
+	// Fresh consumer every iteration to avoid cache hit — but NewTapConsumer
+	// is cheap; measure per-call cost with no cache hit.
+	tc := NewTapConsumer(&TapConsumerConfig{
+		Enabled:      true,
+		SignalScore:  30,
+		RedisTimeout: 50 * time.Millisecond,
+		CacheTTL:     1 * time.Nanosecond, // effectively disables cache reuse
+	}, rc, nil)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		ip := fmt.Sprintf("10.0.0.%d", i%256)
+		_ = tc.GetSignal(context.Background(), ip, chromeWindowsJA4)
+	}
+}
+
 // callJA4OSClass returns the OS string for a JA4 via the package-level
 // ja4OSClass helper the 203a implementer must add. If the symbol does not
 // exist, this test file will not compile — which is the correct red-state
