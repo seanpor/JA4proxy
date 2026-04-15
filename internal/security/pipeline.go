@@ -6,6 +6,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"time"
 
 	ja4tls "github.com/anomalyco/ja4proxy/internal/tls"
 	"github.com/sirupsen/logrus"
@@ -53,6 +54,7 @@ type Pipeline struct {
 	beaconing     *BeaconingDetector
 	abuseipdb     *AbuseIPDB
 	rdap          *RDAPEnricher
+	tapConsumer   *TapConsumer // phase-203a
 
 	// JA4 lists (dynamic, synchronized with Redis)
 	Whitelist   map[string]bool
@@ -182,6 +184,13 @@ type PipelineConfig struct {
 	JA4XWhitelistBypass bool
 	JA4XBlacklistBypass bool
 	JA4XBlacklistScore  int
+
+	// Phase 203a — TAP-consumed JA4T OS mismatch signal.
+	TapConsumerEnabled      bool
+	TapConsumerScore        int
+	TapConsumerRedisTimeout int // milliseconds
+	TapConsumerCacheTTL     int // seconds
+	TapConsumerMaxAge       int // seconds
 }
 
 // NewPipeline creates a Pipeline ready to process connections.
@@ -211,7 +220,45 @@ func NewPipeline(cfg *PipelineConfig, redis RedisReader, log *logrus.Logger) *Pi
 	p.beaconing = NewBeaconingDetector(buildBeaconingConfig(cfg), redis, log)
 	p.abuseipdb = NewAbuseIPDB(buildAbuseIPDBConfig(cfg), redis, log)
 	p.rdap = NewRDAPEnricher(buildRDAPConfig(cfg), redis, log)
+	p.tapConsumer = NewTapConsumer(buildTapConsumerConfig(cfg), redisReaderGetter{redis}, log) // phase-203a
 	return p
+}
+
+// redisReaderGetter adapts RedisReader (which uses GetString) to the narrow
+// redisGetter interface expected by TapConsumer. Fail-open: GetString's
+// underlying implementation already swallows errors.
+type redisReaderGetter struct{ r RedisReader }
+
+func (g redisReaderGetter) Get(ctx context.Context, key string) (string, error) {
+	if g.r == nil {
+		return "", nil
+	}
+	return g.r.GetString(ctx, key), nil
+}
+
+// buildTapConsumerConfig builds a TapConsumerConfig from the pipeline config.
+func buildTapConsumerConfig(cfg *PipelineConfig) *TapConsumerConfig {
+	return &TapConsumerConfig{
+		Enabled:      cfg.TapConsumerEnabled,
+		SignalScore:  cfg.TapConsumerScore,
+		RedisTimeout: durationMillis(cfg.TapConsumerRedisTimeout, 50),
+		CacheTTL:     durationSeconds(cfg.TapConsumerCacheTTL, 60),
+		MaxAge:       durationSeconds(cfg.TapConsumerMaxAge, 300),
+	}
+}
+
+func durationMillis(ms, def int) time.Duration {
+	if ms <= 0 {
+		ms = def
+	}
+	return time.Duration(ms) * time.Millisecond
+}
+
+func durationSeconds(s, def int) time.Duration {
+	if s <= 0 {
+		s = def
+	}
+	return time.Duration(s) * time.Second
 }
 
 // StartBackgroundWorkers starts all async background workers.
@@ -284,6 +331,18 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 		return &PipelineResult{Action: "block", Score: 100, BypassReason: "tls_enforcement"}
 	} else {
 		signals = append(signals, tlsSigs...)
+	}
+
+	// Phase 203b — JA4 prefix vs negotiated TLS version mismatch.
+	if conn.JA4 != "" {
+		if sig := p.tlsEnforcer.CheckJA4TLSMismatch(conn.JA4, uint16(conn.TLSVersion)); sig != nil { //nolint:gosec // TLS version always uint16
+			signals = append(signals, *sig)
+		}
+	}
+
+	// Phase 203a — TAP-consumed OS mismatch. Fail-open; disabled by default.
+	if sig := p.tapConsumer.GetSignal(ctx, conn.ClientIP, conn.JA4); sig != nil {
+		signals = append(signals, *sig)
 	}
 
 	// JA4X blacklist signal (non-hard-block case)

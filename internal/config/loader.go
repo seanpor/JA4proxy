@@ -330,6 +330,17 @@ type Config struct {
 	Monitoring             MonitoringConfig             `yaml:"monitoring"`               // phase-88
 	Sync                   SyncAgentConfig              `yaml:"sync"`                     // phase-88
 	TrustedUpstreamSources TrustedUpstreamSourcesConfig `yaml:"trusted_upstream_sources"` // phase-94i2
+	TapConsumer            TapConsumerConfigYAML        `yaml:"tap_consumer"`             // phase-203a
+}
+
+// TapConsumerConfigYAML configures the phase-203a TAP JA4T OS-mismatch consumer.
+// Default: disabled. Requires Phase 20 TAP node to be deployed.
+type TapConsumerConfigYAML struct {
+	Enabled         bool `yaml:"enabled"`
+	SignalScore     int  `yaml:"signal_score"`
+	RedisTimeoutMs  int  `yaml:"redis_timeout_ms"`
+	CacheTTLSeconds int  `yaml:"cache_ttl_seconds"`
+	MaxAgeSeconds   int  `yaml:"max_age_seconds"`
 }
 
 // MonitoringConfig holds multi-DC observability settings.
