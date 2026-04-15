@@ -55,6 +55,20 @@ var (
 	WeakCipherTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{Name: "ja4proxy_weak_cipher_total", Help: "Total weak cipher connections"},
 	)
+	// phase-203b: JA4 prefix ↔ negotiated TLS version mismatch counter.
+	JA4TLSMismatchTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "ja4proxy_ja4_tls_mismatch_total", Help: "JA4-claimed TLS version vs negotiated TLS version mismatches"},
+		[]string{"action"},
+	)
+	// phase-203a: TAP-consumed OS mismatch lookup and signal counters.
+	TapLookupsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "ja4proxy_tap_lookups_total", Help: "Phase-20 TAP fingerprint lookup results"},
+		[]string{"result"}, // hit_match, hit_mismatch, miss, error
+	)
+	TapSignalTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{Name: "ja4proxy_tap_signal_total", Help: "TAP-derived OS mismatch signals emitted"},
+		[]string{"action"},
+	)
 	WriteBufferQueueDepth = prometheus.NewGauge(
 		prometheus.GaugeOpts{Name: "ja4proxy_write_buffer_queue_depth", Help: "Current event buffer depth"},
 	)
@@ -221,6 +235,8 @@ func Register() {
 		ConnectionErrorsTotal, RedisOperationsTotal, TLSCertExpiryTimestampSeconds,
 		// phase-201c
 		RedisHealth, RedisScriptReloadsTotal,
+		// phase-203a/b
+		JA4TLSMismatchTotal, TapLookupsTotal, TapSignalTotal,
 	)
 	for _, action := range []string{"allow", "flag", "rate_limit", "tarpit", "block", "ban"} {
 		ConnectionsTotal.WithLabelValues(action)

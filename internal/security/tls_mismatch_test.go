@@ -11,9 +11,9 @@ import "testing"
 func TestCheckJA4TLSMismatch_Match_ReturnsNil(t *testing.T) {
 	e := NewTLSEnforcer(&TLSEnforcerConfig{}, nil)
 	cases := []struct {
-		name  string
-		ja4   string
-		tlsV  uint16
+		name string
+		ja4  string
+		tlsV uint16
 	}{
 		{"t13_tls13", "t13d1516h2_aabbccddeeff_aabbccddeeff", 0x0304},
 		{"t12_tls12", "t12d1516h2_aabbccddeeff_aabbccddeeff", 0x0303},
