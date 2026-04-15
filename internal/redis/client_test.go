@@ -7,6 +7,7 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/sirupsen/logrus"
+	logrustest "github.com/sirupsen/logrus/hooks/test"
 )
 
 func newTestClient(t *testing.T) (*Client, *miniredis.Miniredis) {
@@ -203,5 +204,52 @@ func TestClient_FailOpen_RedisDown(t *testing.T) {
 	// SIsMember should return false (fail open)
 	if c.SIsMember(ctx, "set", "member") {
 		t.Error("SIsMember on down Redis: should return false (fail open)")
+	}
+}
+
+// TestZRemRangeByScore_LogsOnError — phase-201b.
+//
+// Previously ZRemRangeByScore swallowed errors with only a metric increment.
+// The contract now matches every other write method in client.go: log a WARN
+// with the key and the error, so silent failures don't hide.
+func TestZRemRangeByScore_LogsOnError(t *testing.T) {
+	mr, err := miniredis.Run()
+	if err != nil {
+		t.Fatalf("miniredis.Run: %v", err)
+	}
+	defer mr.Close()
+
+	log, hook := logrustest.NewNullLogger()
+	log.SetLevel(logrus.DebugLevel)
+	c := New(Config{
+		Host:    mr.Host(),
+		Port:    mr.Server().Addr().Port,
+		Timeout: 2 * time.Second,
+	}, log)
+
+	ctx := context.Background()
+	// Provoke WRONGTYPE: set a string, then run a sorted-set op against it.
+	c.Set(ctx, "k", "value", time.Hour)
+	c.ZRemRangeByScore(ctx, "k", 0, 100)
+
+	saw := false
+	for _, e := range hook.AllEntries() {
+		if e.Level != logrus.WarnLevel {
+			continue
+		}
+		if e.Message != "redis: ZREMRANGEBYSCORE failed" {
+			continue
+		}
+		if e.Data["key"] != "k" {
+			continue
+		}
+		if e.Data["error"] == nil {
+			continue
+		}
+		saw = true
+		break
+	}
+	if !saw {
+		t.Errorf("expected WARN 'redis: ZREMRANGEBYSCORE failed' with key=k and non-nil error; got entries: %+v", hook.AllEntries())
 	}
 }
