@@ -14,7 +14,3 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 101 — Phase 101 — Cross-Phase Gap Closure
 *   **Status:** **PROPOSED** (Rolling cross-phase register of deferred review gaps from Phase 84 (compliance), Phase 85 (threat-intel hardening), Phase 62 (Go test parity), Phase 64 (deploy validation), Phase 86i (capacity hardening), and Phase 93 (Terraform provider). 12 sub-phases bundling 38 open gaps (3 critical, 13 high, 19 medium, 9 low). 16 items already closed. 4 documented limitations (external processes or blocked on hardware).)
 *   **Action Plan:** [PHASE_101.md](PHASE_101.md)
-
-### Phase 102 — Phase 93 Gap Closure: Drift Detection, Import, Docs, CI
-*   **Status:** **PROPOSED** (Closes ~40% of Phase 93 acceptance criteria that were DEFERRED/PARTIAL/NOT YET: protect_unmanaged_entries provider field, drift detection on list resources, [terraform] reason prefix on ban+webhook, ticket/ttl_hours fields on ban, ticket/notes on dial, 3 ADRs (093a/b/c), CI workflows for terraform-provider, doc audit.)
-*   **Action Plan:** [PHASE_102.md](PHASE_102.md)

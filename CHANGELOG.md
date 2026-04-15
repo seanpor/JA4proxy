@@ -1,6 +1,33 @@
 # Changelog
 
-<<<<<<< HEAD
+## [Unreleased] - Phase 102 — Terraform Provider Documentation Close-out (2026-04-15)
+
+### Added
+- **ADR-093a** — Repository topology: provider lives in separate repo
+  `github.com/anomalyco/terraform-provider-ja4proxy`; Management API is
+  the cross-repo contract boundary
+- **ADR-093b** — Terraform Registry namespace: self-publish as
+  `anomalyco/ja4proxy`; no HashiCorp Partner Programme (pending registration)
+- **ADR-093c** — Ban TTL renewal and drift-detection strategy: re-POST on
+  apply (idempotent endpoint); no `ja4proxy_managed_entries` data source
+  (PlanModifiers + `protect_unmanaged_entries=true` default cover the threat)
+
+### Changed
+- `deploy/terraform/README.md` — documents `protect_unmanaged_entries`
+  default (`true`) with override guidance; Quick Start corrected to
+  `source = "anomalyco/ja4proxy"`
+- `docs/runbooks/emergency_playbooks.md` — troubleshooting table expanded
+  (403 scope errors, per-endpoint 422 split, 30s/10s timeout rows, per-playbook
+  required vars)
+- Manifest: duplicate `101:` key removed (narrow "Push Terraform Provider"
+  scope was shadowed by broader cross-phase-gap entry)
+
+### Notes
+- ~85% of Phase 102's originally-scoped code work (protect_unmanaged_entries,
+  `[terraform]` reason prefix, `ticket`/`ttl_hours`/`notes` fields,
+  PlanModifiers, SHA-pinned CI workflows) was pre-delivered in the external
+  provider repo. Phase 102 narrowed to docs-only close-out
+
 ## [Unreleased] - Phase 202 — CI Supply Chain + Default Credential Removal
 
 ### Security
@@ -166,7 +193,6 @@ to `main`. Keep this entry under `[Unreleased]` until then.)
   was withdrawn as based on a false premise — `make check-scores` passes on
   `main` and the Go scores already match `config/signal_scores.yml`
   exactly. See `docs/phases/PHASE_201_review.md` for the audit.
-=======
 ## Phase 101b — Compliance Hygiene (2026-04-15)
 
 ### Changed
@@ -182,7 +208,6 @@ to `main`. Keep this entry under `[Unreleased]` until then.)
 ### Fixed
 - Python 2 exception syntax (`except ValueError, TypeError:`) → `except (...)`
   in `pack_builder.py` and `compliance.py` for Python 3.14 compatibility
->>>>>>> claude/phase-201-go-redis-tls-score-drift
 
 ## Phase 205 — Repository Root Cleanup & File Organisation (2026-04-14)
 
