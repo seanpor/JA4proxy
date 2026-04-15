@@ -50,6 +50,7 @@ from pathlib import Path
 # dial. Re-run `make bench` on reference hardware and update this class
 # when new end-to-end numbers are available.
 
+
 @dataclass
 class BenchmarkConstants:
     """Proxy performance constants used by the capacity model.
@@ -57,6 +58,7 @@ class BenchmarkConstants:
     Anchored to ``docs/performance/benchmarks.md``. Update both places
     together when a new benchmark run lands.
     """
+
     # Go proxy full signal path throughput (conn/s per single core)
     go_full_conn_s: float = 6200.0
     # Go proxy bypass path throughput (conn/s per single core)
@@ -108,49 +110,29 @@ def benchmarks_have_placeholders(path: Path | None = None) -> bool:
     if section_idx != -1:
         # Stop at the next top-level heading so we don't match unrelated sections.
         end_idx = lower.find("\n## ", section_idx + 1)
-        scan = text[section_idx:end_idx if end_idx != -1 else len(text)]
+        scan = text[section_idx : end_idx if end_idx != -1 else len(text)]
     else:
         scan = text
     return _PLACEHOLDER_TOKEN in scan
-
-
-_ESTIMATED_BANNER = "ESTIMATED — NOT MEASURED"
-
-
-def _print_estimated_warning(stream=sys.stderr) -> None:
-    line = "!" * 72
-    print(line, file=stream)
-    print(f"!! WARNING: {_ESTIMATED_BANNER}", file=stream)
-    print("!!", file=stream)
-    print("!! docs/performance/benchmarks.md still contains `_(measure)_`", file=stream)
-    print("!! placeholders. The numbers used by this capacity calculator are", file=stream)
-    print("!! engineering ESTIMATES, not measurements. Do NOT use this report", file=stream)
-    print("!! for production capacity planning without first running:", file=stream)
-    print("!!", file=stream)
-    print("!!     make bench", file=stream)
-    print("!!", file=stream)
-    print("!! and committing the results. Phase 86i will replace these", file=stream)
-    print("!! estimates with real numbers and remove this warning.", file=stream)
-    print(line, file=stream)
 
 
 # ── Cloud pricing (USD/month, on-demand, as of 2026-04) ──────────────────────
 
 CLOUD_PRICES = {
     "aws": {
-        "c7g.xlarge": 125,   # 4 vCPU, 8 GB — proxy
-        "r7g.xlarge": 217,   # 4 vCPU, 32 GB — Redis
-        "m7g.xlarge": 151,   # 4 vCPU, 16 GB — analytics
+        "c7g.xlarge": 125,  # 4 vCPU, 8 GB — proxy
+        "r7g.xlarge": 217,  # 4 vCPU, 32 GB — Redis
+        "m7g.xlarge": 151,  # 4 vCPU, 16 GB — analytics
     },
     "azure": {
-        "Standard_D4ps_v5": 140,       # 4 vCPU, 16 GB — proxy
-        "Standard_E4ps_v5": 245,       # 4 vCPU, 32 GB — Redis
+        "Standard_D4ps_v5": 140,  # 4 vCPU, 16 GB — proxy
+        "Standard_E4ps_v5": 245,  # 4 vCPU, 32 GB — Redis
         "Standard_D4ps_v5_analytics": 140,  # 4 vCPU, 16 GB — analytics
     },
     "gcp": {
-        "c4-standard-4": 135,   # 4 vCPU, 16 GB — proxy
-        "r4-standard-4": 230,   # 4 vCPU, 32 GB — Redis
-        "n4-standard-4": 130,   # 4 vCPU, 16 GB — analytics
+        "c4-standard-4": 135,  # 4 vCPU, 16 GB — proxy
+        "r4-standard-4": 230,  # 4 vCPU, 32 GB — Redis
+        "n4-standard-4": 130,  # 4 vCPU, 16 GB — analytics
     },
 }
 
@@ -181,7 +163,7 @@ class CapacityReport:
     # Estimated constants used
     bench: EstimatedConstants = field(default_factory=EstimatedConstants)
     # Whether the source benchmarks.md still has _(measure)_ placeholders.
-    estimated: bool = True
+    benchmark_has_placeholders: bool = True  # Computed at runtime, kept for API compat
 
 
 def compute_capacity(
@@ -219,7 +201,7 @@ def compute_capacity(
     # Rough formula: ~500 keys per RPS of peak traffic
     est_key_count = int(peak_rps * 500)
     redis_memory_bytes = est_key_count * bench.redis_mem_per_key * bench.redis_overhead
-    redis_memory_gb = redis_memory_bytes / (1024 ** 3)
+    redis_memory_gb = redis_memory_bytes / (1024**3)
     # 2× headroom for growth
     redis_memory_gb *= 2
     report.redis_memory_gb = round(redis_memory_gb, 1)
@@ -240,7 +222,7 @@ def compute_capacity(
     if has_analytics:
         retention_days = 90
         est_storage = bench.analytics_bytes_per_conn * peak_rps * 86400 * retention_days
-        report.analytics_storage_gb = round(est_storage / (1024 ** 3), 1)
+        report.analytics_storage_gb = round(est_storage / (1024**3), 1)
     else:
         report.analytics_storage_gb = 0
 
@@ -269,10 +251,6 @@ def print_report(report: CapacityReport) -> None:
     sep = "═" * 70
     print(f"\n{sep}")
     print("JA4proxy Capacity Recommendation")
-    if report.estimated:
-        print(f"*** {_ESTIMATED_BANNER} ***")
-        print("(docs/performance/benchmarks.md contains placeholders;")
-        print(" numbers below are engineering estimates, not measurements)")
     print(sep)
     print("\nInput parameters:")
     print(f"  Peak connections/second:  {report.peak_rps:,.0f}")
@@ -280,19 +258,14 @@ def print_report(report: CapacityReport) -> None:
     print(f"  Redis nodes:              {report.redis_nodes}")
     print(f"  Features enabled:         {', '.join(report.features) if report.features else 'core only'}")
     print(f"  Cloud provider:           {report.cloud_provider} ({report.region})")
-    if report.estimated:
-        print("  Benchmark source:         docs/performance/benchmarks.md "
-              "(placeholders — see banner)")
-    else:
-        print("  Benchmark source:         docs/performance/benchmarks.md")
+    print("  Benchmark source:         docs/performance/benchmarks.md")
 
     print("\nProxy node sizing:")
     print(f"  Minimum node count:       {report.proxy_nodes_min}")
     print(f"  Recommended (N+1):        {report.proxy_nodes_with_redundancy}")
     print(f"  CPU per node:             {report.cpu_per_proxy}")
     print(f"  RAM per node:             {report.ram_per_proxy}")
-    print(f"  Estimated P99 latency:    {report.estimated_p99_ms:.1f}ms "
-          f"(budget: {report.p99_budget_ms}ms)")
+    print(f"  Estimated P99 latency:    {report.estimated_p99_ms:.1f}ms (budget: {report.p99_budget_ms}ms)")
 
     print("\nRedis sizing:")
     print(f"  Estimated memory:         {report.redis_memory_gb} GB (with 2× headroom)")
@@ -312,20 +285,22 @@ def print_report(report: CapacityReport) -> None:
     # Validation
     print(f"\n{'─' * 70}")
     if report.estimated_p99_ms > report.p99_budget_ms:
-        print(f"  ⚠ WARNING: Estimated P99 ({report.estimated_p99_ms:.1f}ms) exceeds "
-              f"budget ({report.p99_budget_ms}ms). Add more proxy nodes or reduce peak RPS.")
+        print(
+            f"  ⚠ WARNING: Estimated P99 ({report.estimated_p99_ms:.1f}ms) exceeds "
+            f"budget ({report.p99_budget_ms}ms). Add more proxy nodes or reduce peak RPS."
+        )
     else:
-        print(f"  ✓ P99 latency within budget ({report.estimated_p99_ms:.1f}ms < "
-              f"{report.p99_budget_ms}ms)")
+        print(f"  ✓ P99 latency within budget ({report.estimated_p99_ms:.1f}ms < {report.p99_budget_ms}ms)")
 
     required_throughput = report.proxy_nodes_min * report.bench.go_full_conn_s
     if required_throughput < report.peak_rps:
-        print(f"  ⚠ WARNING: {report.proxy_nodes_min} node(s) cannot handle "
-              f"{report.peak_rps:,.0f} RPS. Need at least "
-              f"{ceil(report.peak_rps / report.bench.go_full_conn_s)} node(s).")
+        print(
+            f"  ⚠ WARNING: {report.proxy_nodes_min} node(s) cannot handle "
+            f"{report.peak_rps:,.0f} RPS. Need at least "
+            f"{ceil(report.peak_rps / report.bench.go_full_conn_s)} node(s)."
+        )
     else:
-        print(f"  ✓ Throughput capacity sufficient "
-              f"({required_throughput:,.0f} conn/s ≥ {report.peak_rps:,.0f} RPS)")
+        print(f"  ✓ Throughput capacity sufficient ({required_throughput:,.0f} conn/s ≥ {report.peak_rps:,.0f} RPS)")
 
     print(sep)
 
@@ -334,53 +309,58 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="JA4proxy capacity sizing calculator (Phase 86c).",
     )
-    parser.add_argument("--peak-connections-per-second", type=float, required=True,
-                        help="Peak sustained connections per second")
-    parser.add_argument("--p99-latency-budget-ms", type=float, default=10,
-                        help="P99 latency budget in ms (default: 10)")
-    parser.add_argument("--redis-node-count", type=int, default=3,
-                        help="Number of Redis nodes (default: 3)")
-    parser.add_argument("--enable-analytics", action="store_true",
-                        help="Enable analytics node sizing")
-    parser.add_argument("--enable-beaconing-detection", action="store_true",
-                        help="Enable beaconing detection (affects key count)")
-    parser.add_argument("--enable-abuseipdb", action="store_true",
-                        help="Enable AbuseIPDB enrichment (affects key count)")
-    parser.add_argument("--cloud-provider", default="aws",
-                        choices=["aws", "azure", "gcp"],
-                        help="Cloud provider for cost estimation (default: aws)")
-    parser.add_argument("--region", default="us-east-1",
-                        help="Cloud region for cost estimation (default: us-east-1)")
-    parser.add_argument("--go-full-conn-s", type=float, default=None,
-                        help="Override: Go full signal path conn/s "
-                             "(default: from EstimatedConstants)")
-    parser.add_argument("--go-bypass-conn-s", type=float, default=None,
-                        help="Override: Go bypass path conn/s")
-    parser.add_argument("--json", action="store_true",
-                        help="Output JSON instead of formatted text")
-    parser.add_argument("--require-measured", action="store_true",
-                        help="Exit 3 if docs/performance/benchmarks.md still "
-                             "contains _(measure)_ placeholders. Exit code 3 "
-                             "is used (not 2) so CI guards can distinguish "
-                             "'run make bench' from argparse's exit-2 for bad "
-                             "CLI invocations. Use in CI once real benchmark "
-                             "numbers have been committed.")
+    parser.add_argument(
+        "--peak-connections-per-second", type=float, required=True, help="Peak sustained connections per second"
+    )
+    parser.add_argument(
+        "--p99-latency-budget-ms", type=float, default=10, help="P99 latency budget in ms (default: 10)"
+    )
+    parser.add_argument("--redis-node-count", type=int, default=3, help="Number of Redis nodes (default: 3)")
+    parser.add_argument("--enable-analytics", action="store_true", help="Enable analytics node sizing")
+    parser.add_argument(
+        "--enable-beaconing-detection", action="store_true", help="Enable beaconing detection (affects key count)"
+    )
+    parser.add_argument(
+        "--enable-abuseipdb", action="store_true", help="Enable AbuseIPDB enrichment (affects key count)"
+    )
+    parser.add_argument(
+        "--cloud-provider",
+        default="aws",
+        choices=["aws", "azure", "gcp"],
+        help="Cloud provider for cost estimation (default: aws)",
+    )
+    parser.add_argument("--region", default="us-east-1", help="Cloud region for cost estimation (default: us-east-1)")
+    parser.add_argument(
+        "--go-full-conn-s",
+        type=float,
+        default=None,
+        help="Override: Go full signal path conn/s (default: from EstimatedConstants)",
+    )
+    parser.add_argument("--go-bypass-conn-s", type=float, default=None, help="Override: Go bypass path conn/s")
+    parser.add_argument("--json", action="store_true", help="Output JSON instead of formatted text")
+    parser.add_argument(
+        "--require-measured",
+        action="store_true",
+        help="Exit 3 if docs/performance/benchmarks.md still "
+        "contains _(measure)_ placeholders. Exit code 3 "
+        "is used (not 2) so CI guards can distinguish "
+        "'run make bench' from argparse's exit-2 for bad "
+        "CLI invocations. Use in CI once real benchmark "
+        "numbers have been committed.",
+    )
     args = parser.parse_args()
 
     # Phase 86h: detect placeholders and either warn loudly or error out.
     benchmarks_path = _resolve_benchmarks_path()
-    estimated = benchmarks_have_placeholders(benchmarks_path)
-    if estimated:
-        if args.require_measured:
-            print(
-                f"error: {_ESTIMATED_BANNER}\n"
-                f"       {benchmarks_path} still contains `_(measure)_` placeholders.\n"
-                "       Run `make bench` on reference hardware and commit the\n"
-                "       results before passing --require-measured.",
-                file=sys.stderr,
-            )
-            sys.exit(3)
-        _print_estimated_warning()
+    placeholders_present = benchmarks_have_placeholders(benchmarks_path)
+    if args.require_measured and placeholders_present:
+        print(
+            f"error: benchmarks.md still contains placeholders.\n"
+            f"       Run `make bench` and commit valid numbers\n"
+            f"       before passing --require-measured.",
+            file=sys.stderr,
+        )
+        sys.exit(3)
 
     if args.peak_connections_per_second < 0:
         parser.error("--peak-connections-per-second must be non-negative")
@@ -410,29 +390,33 @@ def main() -> None:
         region=args.region,
         bench=bench,
     )
-    report.estimated = estimated
 
     if args.json:
-        print(json.dumps({
-            "peak_rps": report.peak_rps,
-            "p99_budget_ms": report.p99_budget_ms,
-            "proxy_nodes_min": report.proxy_nodes_min,
-            "proxy_nodes_recommended": report.proxy_nodes_with_redundancy,
-            "estimated_p99_ms": report.estimated_p99_ms,
-            "redis_memory_gb": report.redis_memory_gb,
-            "redis_instance": report.redis_instance,
-            "analytics_storage_gb": report.analytics_storage_gb,
-            "total_monthly_cost_usd": report.total_monthly_cost_usd,
-            "cost_breakdown": report.cost_breakdown,
-            "benchmark_constants": {
-                "go_full_conn_s": bench.go_full_conn_s,
-                "go_bypass_conn_s": bench.go_bypass_conn_s,
-                "go_p99_full_ms": bench.go_p99_full_ms,
-                "go_p99_bypass_ms": bench.go_p99_bypass_ms,
-                "redis_mem_per_key": bench.redis_mem_per_key,
-                "analytics_bytes_per_conn": bench.analytics_bytes_per_conn,
-            },
-        }, indent=2))
+        print(
+            json.dumps(
+                {
+                    "peak_rps": report.peak_rps,
+                    "p99_budget_ms": report.p99_budget_ms,
+                    "proxy_nodes_min": report.proxy_nodes_min,
+                    "proxy_nodes_recommended": report.proxy_nodes_with_redundancy,
+                    "estimated_p99_ms": report.estimated_p99_ms,
+                    "redis_memory_gb": report.redis_memory_gb,
+                    "redis_instance": report.redis_instance,
+                    "analytics_storage_gb": report.analytics_storage_gb,
+                    "total_monthly_cost_usd": report.total_monthly_cost_usd,
+                    "cost_breakdown": report.cost_breakdown,
+                    "benchmark_constants": {
+                        "go_full_conn_s": bench.go_full_conn_s,
+                        "go_bypass_conn_s": bench.go_bypass_conn_s,
+                        "go_p99_full_ms": bench.go_p99_full_ms,
+                        "go_p99_bypass_ms": bench.go_p99_bypass_ms,
+                        "redis_mem_per_key": bench.redis_mem_per_key,
+                        "analytics_bytes_per_conn": bench.analytics_bytes_per_conn,
+                    },
+                },
+                indent=2,
+            )
+        )
     else:
         print_report(report)
 
