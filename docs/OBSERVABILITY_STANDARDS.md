@@ -212,6 +212,16 @@ ja4proxy_static_allowlist_hits_total                 counter  Connections matche
 ja4proxy_policy_changes_total{bypass}                counter  Security policy bypass changes
 ```
 
+#### Redis client health (Phase 201c)
+
+```
+ja4proxy_redis_health{status}                        gauge    Redis health status (1=current, 0=stale). Labels: status=ok|error.
+ja4proxy_redis_script_reloads_total{result}          counter  Count of sliding_window.lua reloads after Redis restart/flush. Labels: result=ok|error.
+```
+
+Help strings above match `internal/metrics/metrics.go` verbatim as of
+Phase 201c (verified against the registered `GaugeVec` / `CounterVec`).
+
 #### Tarpit (Phase 14)
 
 ```

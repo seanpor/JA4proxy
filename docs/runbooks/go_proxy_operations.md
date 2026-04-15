@@ -113,3 +113,41 @@ kill -HUP $(cat server.pid)
 ```bash
 curl -s http://localhost:9090/metrics | grep ja4proxy_signal_total
 ```
+
+## Alert: `ja4proxy_redis_health{status="error"}`
+
+Raised by the Phase-201c health-check goroutine when the Go proxy's periodic
+`PING` to Redis fails. The proxy remains up and serves traffic from local
+cache (fail-open); this is a degradation alert, not an outage alert.
+
+**Response (four-step):**
+
+1. **Is Redis up?**
+   ```bash
+   docker ps | grep redis
+   redis-cli -h <redis-host> -p <port> PING   # expect PONG
+   ```
+2. **TLS misconfigured?** If `redis.ssl: true` is set, check startup logs for
+   a `redis: TLS ping failed` ERROR line:
+   ```bash
+   journalctl -u ja4proxy | grep -E "TLS ping failed|redis: dial options"
+   ```
+   The `redis: dial options configured` line at startup shows `ssl=true|false`
+   and `username=true|false` as Booleans (password is never logged).
+3. **Is the proxy still serving?** Check `ja4proxy_connections_total` is still
+   incrementing. If yes, fail-open is working — no emergency; fix Redis at
+   normal priority.
+4. **Force a Lua-script reload** after Redis recovers: no hot-reload endpoint
+   exists in this phase. The next successful 30-second health tick will call
+   `loadScripts` automatically and increment
+   `ja4proxy_redis_script_reloads_total{result="ok"}`. If a faster reload is
+   required, restart the proxy.
+
+Verified against the Phase 201 implementation:
+
+- Startup log line (Info): `redis: dial options configured` with fields
+  `ssl` and `username` as Booleans.
+- TLS failure log line (Error, fail-open): `redis: TLS ping failed; continuing fail-open`.
+- Health-check failure log line (Warn): `redis: health check ping failed`.
+- Metric labels: `ja4proxy_redis_health{status="ok"|"error"}`,
+  `ja4proxy_redis_script_reloads_total{result="ok"|"error"}`.

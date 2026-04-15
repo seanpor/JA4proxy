@@ -2,8 +2,10 @@ package redis
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	goredis "github.com/redis/go-redis/v9"
@@ -23,8 +25,9 @@ func observeOp(command, result string) {
 type Client struct {
 	rdb           *goredis.Client
 	log           *logrus.Logger
-	slidingWinSHA string // EVALSHA hash for sliding_window.lua
-	syncStream    string // Redis Stream for cross-DC sync
+	scriptMu      sync.RWMutex // protects slidingWinSHA (phase-201c)
+	slidingWinSHA string       // EVALSHA hash for sliding_window.lua
+	syncStream    string       // Redis Stream for cross-DC sync
 }
 
 // Config holds the Redis connection parameters.
@@ -39,7 +42,62 @@ type Config struct {
 
 	DB       int
 	Password string
+	Username string // phase-201a: Redis 6+ ACL username; "" = default user
+	SSL      bool   // phase-201a: enable TLS to Redis (MinVersion 1.2)
 	Timeout  time.Duration
+}
+
+// buildStandaloneOptions builds goredis.Options for single-node mode. phase-201a.
+func buildStandaloneOptions(cfg Config) *goredis.Options {
+	opts := &goredis.Options{
+		Addr:         fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
+		Username:     cfg.Username,
+		Password:     cfg.Password,
+		DB:           cfg.DB,
+		DialTimeout:  cfg.Timeout,
+		ReadTimeout:  cfg.Timeout,
+		WriteTimeout: cfg.Timeout,
+	}
+	if cfg.SSL {
+		opts.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12}
+	}
+	return opts
+}
+
+// buildFailoverOptions builds goredis.FailoverOptions for Sentinel mode. phase-201a.
+func buildFailoverOptions(cfg Config) *goredis.FailoverOptions {
+	opts := &goredis.FailoverOptions{
+		MasterName:    cfg.MasterName,
+		SentinelAddrs: cfg.Sentinels,
+		Username:      cfg.Username,
+		Password:      cfg.Password,
+		DB:            cfg.DB,
+		DialTimeout:   cfg.Timeout,
+		ReadTimeout:   cfg.Timeout,
+		WriteTimeout:  cfg.Timeout,
+	}
+	if cfg.SSL {
+		opts.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12}
+	}
+	return opts
+}
+
+// newFromOptions is a test seam: constructs a Client from pre-built options.
+func newFromOptions(opts *goredis.Options, log *logrus.Logger) *Client {
+	if log == nil {
+		log = logrus.New()
+	}
+	rdb := goredis.NewClient(opts)
+	c := &Client{rdb: rdb, log: log}
+	c.loadScripts()
+	if opts.TLSConfig != nil {
+		pingCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if err := rdb.Ping(pingCtx).Err(); err != nil {
+			log.WithError(err).Error("redis: TLS ping failed; continuing fail-open")
+		}
+	}
+	return c
 }
 
 // New creates a new Client and loads Lua scripts.
@@ -52,36 +110,30 @@ func New(cfg Config, log *logrus.Logger) *Client {
 
 	var rdb *goredis.Client
 	if cfg.MasterName != "" {
-		// Redis Sentinel Mode
-		opts := &goredis.FailoverOptions{
-			MasterName:    cfg.MasterName,
-			SentinelAddrs: cfg.Sentinels,
-			Password:      cfg.Password,
-			DB:            cfg.DB,
-			DialTimeout:   cfg.Timeout,
-			ReadTimeout:   cfg.Timeout,
-			WriteTimeout:  cfg.Timeout,
-		}
-		rdb = goredis.NewFailoverClient(opts)
+		rdb = goredis.NewFailoverClient(buildFailoverOptions(cfg))
 		log.WithFields(logrus.Fields{
 			"master":    cfg.MasterName,
 			"sentinels": cfg.Sentinels,
 		}).Info("redis: initialized in sentinel mode")
 	} else {
-		// Single Node Mode
-		opts := &goredis.Options{
-			Addr:         fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
-			Password:     cfg.Password,
-			DB:           cfg.DB,
-			DialTimeout:  cfg.Timeout,
-			ReadTimeout:  cfg.Timeout,
-			WriteTimeout: cfg.Timeout,
-		}
-		rdb = goredis.NewClient(opts)
+		rdb = goredis.NewClient(buildStandaloneOptions(cfg))
 	}
+
+	log.WithFields(logrus.Fields{
+		"ssl":      cfg.SSL,
+		"username": cfg.Username != "",
+	}).Info("redis: dial options configured")
 
 	c := &Client{rdb: rdb, log: log}
 	c.loadScripts()
+
+	if cfg.SSL {
+		pingCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if err := rdb.Ping(pingCtx).Err(); err != nil {
+			log.WithError(err).Error("redis: TLS ping failed; continuing fail-open")
+		}
+	}
 	return c
 }
 
@@ -126,6 +178,13 @@ func (c *Client) maybeSync(ctx context.Context, op, key string, value interface{
 // loadScripts loads the sliding-window Lua script via SCRIPT LOAD.
 // Stores the SHA for later EVALSHA calls. Fails open on error.
 func (c *Client) loadScripts() {
+	c.scriptMu.Lock()
+	defer c.scriptMu.Unlock()
+	c.loadScriptsLocked()
+}
+
+// loadScriptsLocked assumes the caller holds c.scriptMu.Lock().
+func (c *Client) loadScriptsLocked() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	sha, err := c.rdb.ScriptLoad(ctx, SlidingWindowScript).Result()
@@ -254,7 +313,57 @@ func (c *Client) GetDial(ctx context.Context) int {
 // SlidingWindowSHA returns the loaded EVALSHA for the sliding window script,
 // or "" if the script was not loaded successfully.
 func (c *Client) SlidingWindowSHA() string {
+	c.scriptMu.RLock()
+	defer c.scriptMu.RUnlock()
 	return c.slidingWinSHA
+}
+
+// SlidingWinSHAForTest is a test-only accessor. phase-201c.
+func (c *Client) SlidingWinSHAForTest() string {
+	c.scriptMu.RLock()
+	defer c.scriptMu.RUnlock()
+	return c.slidingWinSHA
+}
+
+// ZeroSlidingWinSHAForTest is a test-only mutator. phase-201c.
+func (c *Client) ZeroSlidingWinSHAForTest() {
+	c.scriptMu.Lock()
+	defer c.scriptMu.Unlock()
+	c.slidingWinSHA = ""
+}
+
+// HealthCheck pings Redis and reloads the sliding_window.lua script if needed.
+// Fail-open: errors logged, metrics set, no panic. phase-201c.
+func (c *Client) HealthCheck(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	if err := c.rdb.Ping(ctx).Err(); err != nil {
+		metrics.RedisHealth.WithLabelValues("error").Set(1)
+		metrics.RedisHealth.WithLabelValues("ok").Set(0)
+		c.log.WithError(err).Warn("redis: health check ping failed")
+		return
+	}
+	c.scriptMu.RLock()
+	empty := c.slidingWinSHA == ""
+	c.scriptMu.RUnlock()
+	if empty {
+		c.scriptMu.Lock()
+		// Double-check under write lock to dedupe concurrent callers.
+		if c.slidingWinSHA == "" {
+			c.loadScriptsLocked()
+			reloaded := c.slidingWinSHA != ""
+			c.scriptMu.Unlock()
+			if reloaded {
+				metrics.RedisScriptReloadsTotal.WithLabelValues("ok").Inc()
+			} else {
+				metrics.RedisScriptReloadsTotal.WithLabelValues("error").Inc()
+			}
+		} else {
+			c.scriptMu.Unlock()
+		}
+	}
+	metrics.RedisHealth.WithLabelValues("ok").Set(1)
+	metrics.RedisHealth.WithLabelValues("error").Set(0)
 }
 
 // Close shuts down the Redis connection pool.
@@ -290,11 +399,14 @@ func (c *Client) CountKeys(ctx context.Context, pattern string) int {
 // KEYS[1]=key, KEYS[2]=key+":ctr", ARGV[1]=now, ARGV[2]=window, ARGV[3]=ttl
 // Returns 0 on error (fail open).
 func (c *Client) SlidingWindowCount(ctx context.Context, key string, window float64, ttl int) int {
-	if c.slidingWinSHA == "" {
+	c.scriptMu.RLock()
+	sha := c.slidingWinSHA
+	c.scriptMu.RUnlock()
+	if sha == "" {
 		return 0
 	}
 	now := float64(time.Now().UnixNano()) / 1e9
-	result, err := c.rdb.EvalSha(ctx, c.slidingWinSHA,
+	result, err := c.rdb.EvalSha(ctx, sha,
 		[]string{key, key + ":ctr"},
 		now, window, ttl,
 	).Int()
@@ -356,6 +468,7 @@ func (c *Client) ZAdd(ctx context.Context, key string, score float64, member str
 func (c *Client) ZRemRangeByScore(ctx context.Context, key string, min, max float64) {
 	if err := c.rdb.ZRemRangeByScore(ctx, key, fmt.Sprintf("%f", min), fmt.Sprintf("%f", max)).Err(); err != nil {
 		observeOp("zremrangebyscore", "error")
+		c.log.WithError(err).WithField("key", key).Warn("redis: ZREMRANGEBYSCORE failed")
 		return
 	}
 	observeOp("zremrangebyscore", "ok")

@@ -23,6 +23,7 @@
 | [ADR-082](ADR-082.md) | Shadow mode signal storage backend | Accepted | 82 | 2026-04-07 |
 | [ADR-083a](ADR-083a.md) | Release tooling for `ja4proxy-cli` (Goreleaser + GPG + SLSA) | Accepted | 83 | 2026-04-07 |
 | [ADR-083b](ADR-083b.md) | Go policy validator implementation | Accepted | 83 | 2026-04-07 |
+| [ADR-201a](ADR-201a.md) | Go Redis client TLS MinVersion=1.2, system CA pool only | Proposed | 201 | 2026-04-15 |
 
 ## Planned ADRs (To Be Written)
 
