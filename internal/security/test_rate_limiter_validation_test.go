@@ -9,8 +9,8 @@ import (
 // mockRedisCounterWithKeys records which keys were actually queried.
 type mockRedisCounterWithKeys struct {
 	mockRedis
-	counts    map[string]int
-	queried   []string
+	counts  map[string]int
+	queried []string
 }
 
 func (m *mockRedisCounterWithKeys) SlidingWindowCount(_ context.Context, key string, _ float64, _ int) int {
