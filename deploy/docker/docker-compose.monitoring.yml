@@ -79,7 +79,7 @@ services:
     ports:
       - "3001:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?GRAFANA_PASSWORD is required}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s:%(http_port)s/
       - GF_INSTALL_PLUGINS=
@@ -251,8 +251,9 @@ services:
     container_name: ja4proxy-haproxy-exporter
     command:
       # Use HAProxy path-parameter CSV suffix (;csv) and include basic-auth credentials.
-      # Credentials default to match haproxy.cfg stats auth defaults; override via .env.
-      - '--haproxy.scrape-uri=http://${HAPROXY_STATS_USER:-admin}:${HAPROXY_STATS_PASSWORD:-admin123}@haproxy:8404/stats;csv'
+      # Operators MUST set HAPROXY_STATS_USER / HAPROXY_STATS_PASSWORD in .env;
+      # phase-202 removed the admin/admin123 fallbacks.
+      - '--haproxy.scrape-uri=http://${HAPROXY_STATS_USER:?HAPROXY_STATS_USER is required}:${HAPROXY_STATS_PASSWORD:?HAPROXY_STATS_PASSWORD is required}@haproxy:8404/stats;csv'
     restart: unless-stopped
     networks:
       - ja4proxy-monitoring

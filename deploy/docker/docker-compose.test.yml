@@ -16,15 +16,20 @@ networks:
 services:
 
   # ── Redis ───────────────────────────────────────────────────────────────────
+  # Phase-202: bound to 127.0.0.1 and password-protected even in the test
+  # compose. `test-fixtures-pw` is a well-known fixture secret, never used in
+  # production; override via $REDIS_TEST_PASSWORD for isolation between CI runs.
   redis:
     image: redis:7.2.4-alpine
-    command: redis-server --save "" --appendonly no
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--requirepass", "${REDIS_TEST_PASSWORD:-test-fixtures-pw}"]
+    environment:
+      REDIS_PASSWORD: "${REDIS_TEST_PASSWORD:-test-fixtures-pw}"
     networks:
       - ja4proxy-test
     ports:
-      - "6380:6379"
+      - "127.0.0.1:6380:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "sh", "-c", "redis-cli -a \"$$REDIS_PASSWORD\" ping"]
       interval: 2s
       timeout: 2s
       retries: 10
@@ -65,7 +70,7 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
-      REDIS_PASSWORD: ""
+      REDIS_PASSWORD: "${REDIS_TEST_PASSWORD:-test-fixtures-pw}"
       BACKEND_HOST: tls-backend
       BACKEND_PORT: "443"
       PROXY_PORT: "8080"
@@ -95,7 +100,7 @@ services:
     environment:
       REDIS_HOST: redis
       REDIS_PORT: "6379"
-      REDIS_PASSWORD: ""
+      REDIS_PASSWORD: "${REDIS_TEST_PASSWORD:-test-fixtures-pw}"
       BACKEND_HOST: tls-backend
       BACKEND_PORT: "443"
 
@@ -152,6 +157,7 @@ services:
       PYTHON_PROXY_PORT: "8080"
       REDIS_HOST: redis
       REDIS_PORT: "6379"
+      REDIS_PASSWORD: "${REDIS_TEST_PASSWORD:-test-fixtures-pw}"
       RECORDER_HOST: recorder
       BACKEND_HOST: tls-backend
       BACKEND_PORT: "443"

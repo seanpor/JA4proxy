@@ -310,17 +310,28 @@ lint-docker:
 	done
 	@echo ""
 	@echo "=== docker compose config: compose files ==="
-	@BACKEND_HOST=lint-placeholder REDIS_PASSWORD=lint-placeholder docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env config --quiet \
+	@# Phase-202: the `:?` required-credential syntax in poc/monitoring compose
+	@# files forces operators to supply real secrets. For `config --quiet` lint
+	@# we inject harmless placeholders so the static validation still runs.
+	@BACKEND_HOST=lint-placeholder REDIS_PASSWORD=lint-placeholder \
+		MANAGEMENT_JWT_SECRET=lint-placeholder MANAGEMENT_ADMIN_USER=lint-placeholder MANAGEMENT_ADMIN_PASSWORD=lint-placeholder \
+		docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env config --quiet \
 		&& echo "  deploy/docker/docker-compose.poc.yml                      OK"
-	@BACKEND_HOST=lint-placeholder REDIS_PASSWORD=lint-placeholder docker compose -f deploy/docker/docker-compose.poc.yml -f deploy/docker/docker-compose.python-legacy.yml config --quiet \
+	@BACKEND_HOST=lint-placeholder REDIS_PASSWORD=lint-placeholder \
+		MANAGEMENT_JWT_SECRET=lint-placeholder MANAGEMENT_ADMIN_USER=lint-placeholder MANAGEMENT_ADMIN_PASSWORD=lint-placeholder \
+		docker compose -f deploy/docker/docker-compose.poc.yml -f deploy/docker/docker-compose.python-legacy.yml config --quiet \
 		&& echo "  deploy/docker/docker-compose.python-legacy.yml (overlay)  OK"
 	@docker compose -f deploy/docker/docker-compose.test.yml config --quiet \
 		&& echo "  deploy/docker/docker-compose.test.yml                     OK"
-	@REDIS_PASSWORD=lint-placeholder docker compose -f deploy/docker/docker-compose.monitoring.yml config --quiet \
+	@REDIS_PASSWORD=lint-placeholder GRAFANA_PASSWORD=lint-placeholder \
+		HAPROXY_STATS_USER=lint-placeholder HAPROXY_STATS_PASSWORD=lint-placeholder \
+		docker compose -f deploy/docker/docker-compose.monitoring.yml config --quiet \
 		&& echo "  deploy/docker/docker-compose.monitoring.yml               OK"
 	@BACKEND_HOST=lint-placeholder docker compose -f deploy/docker/docker-compose.prod.yml config --quiet \
 		&& echo "  deploy/docker/docker-compose.prod.yml                     OK"
-	@BACKEND_HOST=lint-placeholder REDIS_PASSWORD=lint-placeholder docker compose -f deploy/docker/docker-compose.poc.yml -f deploy/docker/docker-compose.scale.yml config --quiet \
+	@BACKEND_HOST=lint-placeholder REDIS_PASSWORD=lint-placeholder \
+		MANAGEMENT_JWT_SECRET=lint-placeholder MANAGEMENT_ADMIN_USER=lint-placeholder MANAGEMENT_ADMIN_PASSWORD=lint-placeholder \
+		docker compose -f deploy/docker/docker-compose.poc.yml -f deploy/docker/docker-compose.scale.yml config --quiet \
 		&& echo "  deploy/docker/docker-compose.scale.yml (overlay)          OK"
 	@echo ""
 	@echo "✓ Docker lint passed"
@@ -1079,6 +1090,7 @@ test-phase-89:
 
 test-phase-89-lint:
 	REDIS_PASSWORD=lint BACKEND_HOST=lint \
+	MANAGEMENT_JWT_SECRET=lint MANAGEMENT_ADMIN_USER=lint MANAGEMENT_ADMIN_PASSWORD=lint \
 	  docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env config --quiet
 	docker compose -f deploy/docker/docker-compose.test.yml config --quiet
 	BACKEND_HOST=lint \
