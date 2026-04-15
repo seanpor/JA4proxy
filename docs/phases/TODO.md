@@ -18,7 +18,3 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 102 — Phase 93 Gap Closure: Drift Detection, Import, Docs, CI
 *   **Status:** **PROPOSED** (Closes ~40% of Phase 93 acceptance criteria that were DEFERRED/PARTIAL/NOT YET: protect_unmanaged_entries provider field, drift detection on list resources, [terraform] reason prefix on ban+webhook, ticket/ttl_hours fields on ban, ticket/notes on dial, 3 ADRs (093a/b/c), CI workflows for terraform-provider, doc audit.)
 *   **Action Plan:** [PHASE_102.md](PHASE_102.md)
-
-### Phase 202 — CI Supply Chain + Default Credential Removal
-*   **Status:** **PROPOSED** (Eliminates 6 infrastructure-level critical findings: SHA-pin all GitHub Actions (supply chain), remove default credential fallbacks from all compose files (Grafana admin, Management admin/admin, HAProxy admin/admin123), create Go proxy image CI workflow with SBOM+cosign signing, harden Dockerfile.go-proxy with non-root USER.)
-*   **Action Plan:** [PHASE_202.md](PHASE_202.md)

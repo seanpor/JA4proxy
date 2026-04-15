@@ -18,8 +18,6 @@ on:
 
 permissions:
   contents: read
-  packages: write      # GHCR push
-  id-token: write      # keyless cosign OIDC
 
 env:
   REGISTRY: ghcr.io
@@ -47,6 +45,10 @@ jobs:
     name: Build, scan, SBOM, sign, push
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write      # GHCR push
+      id-token: write      # keyless cosign OIDC (ADR-202d)
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
