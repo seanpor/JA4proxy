@@ -1,5 +1,21 @@
 # Changelog
 
+## Phase 101b — Compliance Hygiene (2026-04-15)
+
+### Changed
+- **M1** — XTRIM MINID fallback for Redis < 6.2: `GDPRPurge` now checks
+  Redis version and falls back to XRANGE+XDEL loop for versions < 6.2
+- **M2** — Renamed `beaconing_records_cleaned` →
+  `beaconing_datapoints_cleaned` in `PurgeSummary` (breaking change for dashboards)
+- **M4** — Audit log reads now paginated in chunks of 10k via
+  `AUDIT_LOG_CHUNK_SIZE` constant
+- **L1** — `ReportRenderer` now caches Jinja2 `Environment` at module level
+- **L5** — DSAR retention strings now read from `gdpr.*_retention_days` config
+
+### Fixed
+- Python 2 exception syntax (`except ValueError, TypeError:`) → `except (...)`
+  in `pack_builder.py` and `compliance.py` for Python 3.14 compatibility
+
 ## Phase 205 — Repository Root Cleanup & File Organisation (2026-04-14)
 
 ### Changed
