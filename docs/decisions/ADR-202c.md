@@ -1,6 +1,6 @@
 # ADR-202c: Explicit UID 1000 in `Dockerfile.go-proxy`
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-04-15
 **Phase:** 202 (CI supply chain hardening) — sub-phase 202c
 
@@ -93,8 +93,8 @@ and `USER 1000:1000` (numeric) in the Dockerfile.
   process until `chown -R 1000:1000` is run. Volumes in-scope for this
   project (Redis, Grafana, Prometheus) are owned by their own service
   containers, not by `ja4proxy-go`, so no migration is needed.
-  <!-- TODO: verify after impl — confirm no ja4proxy-go volume has
-  persistent data that needs chowning. -->
+  Confirmed against `deploy/docker/docker-compose.poc.yml` at 2026-04-15:
+  the `ja4proxy-go` service declares no persistent volume mounts.
 
 **Not done here**
 - Rootless-container mode (userns-remap). Out of scope; Docker/Kubernetes
@@ -112,9 +112,22 @@ and `USER 1000:1000` (numeric) in the Dockerfile.
 
 ## Implementation notes
 
-<!-- TODO: verify after impl — fill in after 202c lands:
-  - final Dockerfile line numbers
-  - `docker inspect` output for `.Config.User`
-  - `id -u` / `id -g` check output
-  - hadolint clean run
--->
+- File: `deploy/docker/Dockerfile.go-proxy`.
+  - Line 39: four-attribute `LABEL` block
+    (`org.opencontainers.image.{source,title,description,licenses}`),
+    placed immediately after `FROM alpine:3.19` on line 36.
+  - Line 47: `RUN addgroup -g 1000 -S ja4proxy && adduser -u 1000 -S -G ja4proxy ja4proxy`.
+  - Line 59: `USER 1000:1000` (numeric, per kubelet `runAsNonRoot`
+    validation requirements).
+- Verification commands:
+  ```
+  docker build -f deploy/docker/Dockerfile.go-proxy -t ja4proxy-go:test .
+  docker inspect --format='{{ .Config.User }}' ja4proxy-go:test     # → 1000:1000
+  docker inspect --format='{{index .Config.Labels "org.opencontainers.image.source"}}' ja4proxy-go:test
+  docker run --rm --entrypoint /bin/sh ja4proxy-go:test -c 'id -u && id -g'  # → 1000 / 1000
+  hadolint deploy/docker/Dockerfile.go-proxy
+  ```
+- Live CI verification of the built image (digest, signature, label
+  inspection on GHCR) is deferred to the first green run of
+  `.github/workflows/go-proxy-image.yml` after merge; see
+  `PHASE_202_notes.md`.

@@ -80,8 +80,9 @@ compose command will exit non-zero with a clear error otherwise.
   on startup.
 - **Rotation:** See [`credential_rotation.md`](credential_rotation.md).
   Rotating invalidates every live session — operators must re-login. Plan
-  rotation during a maintenance window or use overlapping-secret support if
-  added by a future phase. <!-- TODO: verify after impl -->
+  rotation during a maintenance window. Overlapping-secret support
+  (dual-signing JWTs during a rotation window) is not implemented in this
+  phase; it is tracked as future work.
 
 ### 5. `MANAGEMENT_ADMIN_USER`
 
@@ -93,7 +94,9 @@ compose command will exit non-zero with a clear error otherwise.
   fails). First-boot account never created.
 - **Rotation:** Username can be left stable; rotate only if compromised. To
   change, update env var and restart the Management API — existing admin
-  accounts in Redis are not overwritten by a renamed bootstrap var. <!-- TODO: verify after impl -->
+  accounts in Redis are not overwritten by a renamed bootstrap var (the
+  bootstrap seed is a first-boot-only operation keyed on "no admin exists
+  yet").
 
 ### 6. `MANAGEMENT_ADMIN_PASSWORD`
 
@@ -173,6 +176,44 @@ Secrets in the default `GITHUB_TOKEN` context are scoped — the Go proxy image
 workflow (Phase 202d) uses `${{ secrets.GITHUB_TOKEN }}` only for GHCR
 push; signing uses keyless cosign (see ADR-202d) and requires no
 long-lived secret.
+
+---
+
+## What the Makefile does for lint/test targets
+
+Several Makefile targets run `docker compose config` purely to validate
+compose-file structure — they never bring containers up and never reach
+Redis, Grafana, HAProxy, or the Management API. Because 202b replaced all
+default fallbacks with `${VAR:?VAR is required}`, a bare
+`docker compose config` now fails the compose-structural lint on a dev
+machine that has never exported the six variables.
+
+To keep the lint targets runnable on a fresh checkout without leaking real
+values, the Makefile injects **harmless placeholders**:
+
+- `lint-docker` (Makefile lines ~303–333) exports
+  `BACKEND_HOST=lint-placeholder`, `REDIS_PASSWORD=lint-placeholder`,
+  `MANAGEMENT_JWT_SECRET=lint-placeholder`,
+  `MANAGEMENT_ADMIN_USER=lint-placeholder`,
+  `MANAGEMENT_ADMIN_PASSWORD=lint-placeholder`,
+  `GRAFANA_PASSWORD=lint-placeholder`,
+  `HAPROXY_STATS_USER=lint-placeholder`,
+  `HAPROXY_STATS_PASSWORD=lint-placeholder`
+  before each `docker compose -f … config --quiet` invocation.
+- `test-phase-89-lint` (Makefile lines 1091–1096) does the same with the
+  shorter literal `lint` for readability.
+
+**These placeholders are NOT secrets.** They exist solely to satisfy the
+`:?required` guard during static compose-file validation; no container is
+ever started with them. Operators MUST replace them with real values from
+their secret store (or `.env`) before `make start` / `docker compose up`.
+
+If a CI job running `make lint-docker` on a fork inadvertently exports real
+production secrets into the environment, those values would be used
+instead of the placeholders — this is by design (the Makefile uses shell
+`VAR=placeholder docker compose …`, not `VAR=placeholder` with `unset`
+first). Do not export production secrets into CI environments where only
+structural linting is needed.
 
 ---
 

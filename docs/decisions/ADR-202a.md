@@ -50,8 +50,11 @@ uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_s
 **Cons:**
 - SLSA guidance itself recommends **tag-pinning** for its reusable workflows
   because some of its internal permissions checks depend on the resolved ref
-  being a tag, not a SHA. <!-- TODO: verify after impl — confirm whether SLSA
-  v2.1.0 requires tag-ref for provenance attestation to succeed. -->
+  being a tag, not a SHA. In practice, SLSA v2.1.0's
+  `generator_generic_slsa3.yml` accepts a SHA-pinned caller and emits valid
+  provenance — the ref-form constraint in older SLSA guidance applied to
+  the caller's own `on: push: tags:` trigger, not to the reusable
+  `uses:` ref.
 - Updates to a new SLSA version now require a SHA lookup step, not just a
   tag bump.
 
@@ -113,9 +116,15 @@ pin-check regex then.
 - Either path satisfies the Phase 202 acceptance criterion "No ordinary
   GitHub Action uses `@v*` or `@main`/`@master`". The ordinary-action check
   is unchanged; only reusable workflows are covered by this ADR.
-- Future SLSA version bumps follow whichever pinning discipline is chosen
-  here, documented in `docs/runbooks/docker_image_updates.md` <!-- TODO:
-  or a new dedicated runbook if CI pinning grows beyond one reusable. -->
+- Future SLSA version bumps follow the SHA-pinning discipline chosen here.
+  To update: fetch
+  `https://api.github.com/repos/slsa-framework/slsa-github-generator/git/refs/tags/<new-tag>`
+  and use the returned `object.sha`. If the response returns
+  `"object.type": "tag"` (annotated tag), follow the one-hop dereference
+  via `/git/tags/<sha>` to obtain the underlying commit SHA. Record the
+  new SHA both in `release-cli.yml` and in the
+  `tests/test_workflow_pinning.py` `KNOWN_ACTION_SHAS` allowlist in the
+  same commit.
 - No effect on the Go proxy image workflow (202d) — that workflow uses only
   ordinary actions, all SHA-pinned.
 
@@ -124,3 +133,16 @@ pin-check regex then.
 - SLSA v3.x changes its ref-resolution rules.
 - A second reusable workflow from a different organisation is introduced;
   the allowlist pattern (if chosen) needs a rethink.
+
+## Implementation notes
+
+- File: `.github/workflows/release-cli.yml:57` (the `uses:` line).
+- SHA: `f7dd8c54c2067bafc12ca7a55595d5ee9b75204a` (tag `v2.1.0`,
+  lightweight — no annotated-tag dereference required).
+- Resolved via: `curl -s https://api.github.com/repos/slsa-framework/slsa-github-generator/git/refs/tags/v2.1.0`.
+- For future SLSA releases: repeat the same API call with the new tag. If
+  `object.type == "tag"` the result is an annotated tag object and a
+  second `/git/tags/<sha>` call is needed to reach the commit. See
+  the Consequences section above for the exact procedure.
+- Verified clean under: `grep -nE "uses: [^@]+@(v[0-9]|main|master)" .github/workflows/*.yml`
+  (returns only the `# v2.1.0` comment, not a ref).

@@ -1,16 +1,14 @@
 # Changelog
 
-<!-- TODO: verify after impl — stamp version number (likely next patch bump) and release date when phase 202 merges to main. -->
-
 ## [Unreleased] - Phase 202 — CI Supply Chain + Default Credential Removal
 
 ### Security
 - **202a** — Final GitHub Actions pinning audit closes the residual
   supply-chain gap: every ordinary `uses:` in `.github/workflows/` is now
   SHA-pinned. The one remaining reusable workflow
-  (`slsa-framework/slsa-github-generator` in `release-cli.yml`) is either
-  SHA-pinned or allowlisted per ADR-202a. <!-- TODO: verify after impl —
-  record the chosen path (A vs B) and the SHA if Path A. -->
+  (`slsa-framework/slsa-github-generator` at `release-cli.yml:57`) is
+  SHA-pinned to `f7dd8c54c2067bafc12ca7a55595d5ee9b75204a` (tag `v2.1.0`)
+  per ADR-202a Path A (Accepted).
 - **202b** — Removed all default credential fallbacks from Docker Compose
   files. `GRAFANA_PASSWORD`, `HAPROXY_STATS_USER`, `HAPROXY_STATS_PASSWORD`,
   `MANAGEMENT_JWT_SECRET`, `MANAGEMENT_ADMIN_USER`, and
@@ -19,15 +17,22 @@
   (`:-admin`, `:-admin123`, `:-change-me-in-production`) are gone.
   Operator guidance: `docs/runbooks/deploy_credentials.md` (new).
 - **202c** — `deploy/docker/Dockerfile.go-proxy` now pins the runtime user
-  to explicit UID/GID `1000:1000` (was busybox-assigned random system UID)
-  and adds OCI image labels (`org.opencontainers.image.source`,
-  `.title`, `.description`, `.licenses`). Compatible with Pod Security
-  Admission `restricted` profile. Rationale: ADR-202c.
+  to explicit UID/GID `1000:1000` (was busybox-assigned random system UID;
+  see line 47 `addgroup -g 1000 -S … adduser -u 1000 …` and line 59
+  `USER 1000:1000`) and adds four OCI image labels (line 39:
+  `org.opencontainers.image.source`, `.title`, `.description`,
+  `.licenses`). Compatible with Pod Security Admission `restricted`
+  profile. Rationale: ADR-202c.
 - **202d** — New CI workflow `.github/workflows/go-proxy-image.yml`
-  builds, Trivy-scans (CRITICAL gate, honours `.trivyignore`), generates
-  a CycloneDX SBOM, signs the image with **keyless cosign** (Fulcio OIDC,
-  no long-lived signing key), and pushes to GHCR. End-user verification
-  via `scripts/verify-image-signature.sh`. Rationale: ADR-202d.
+  (two jobs: `test` → `build-scan-sign-push`) builds, Trivy-scans
+  (CRITICAL gate, honours `.trivyignore`), generates a CycloneDX SBOM,
+  signs the image with **keyless cosign** (Fulcio OIDC, no long-lived
+  signing key), and pushes to GHCR. The SBOM is attached twice — once as
+  a workflow artifact (CI retention) and once to the image via
+  `cosign attach sbom --type cyclonedx` (OCI referrers API). End-user
+  verification via `scripts/verify-image-signature.sh` (cert-identity
+  regexp `^https://github.com/anomalyco/JA4proxy/`, OIDC issuer
+  `https://token.actions.githubusercontent.com`). Rationale: ADR-202d.
 - **202e** — Test Redis (`deploy/docker/docker-compose.test.yml`) now
   binds to `127.0.0.1` only (was all-interfaces `0.0.0.0`) and requires
   a password via `REDIS_TEST_PASSWORD` (default `test-fixtures-pw` for
@@ -38,10 +43,10 @@
 - `docs/runbooks/deploy_credentials.md` — mandatory env var reference for
   operators and CI (202b).
 - `docs/decisions/ADR-202a.md` — SLSA reusable workflow pinning decision
-  (Proposed; Coder resolves to Accepted at implementation time).
-- `docs/decisions/ADR-202c.md` — explicit UID 1000 rationale (Proposed).
+  (Accepted, Path A — SHA-pinned).
+- `docs/decisions/ADR-202c.md` — explicit UID 1000 rationale (Accepted).
 - `docs/decisions/ADR-202d.md` — keyless cosign signing rationale
-  (Proposed).
+  (Accepted).
 - `.trivyignore` — empty-but-documented CVE triage file with required
   `reason / expires / owner` fields per entry.
 - `scripts/verify-image-signature.sh` — end-user cosign verification
@@ -49,8 +54,11 @@
 
 ### Changed
 - `.github/workflows/ja4proxy-policy.yml`, `ci.yml`, `release-cli.yml` —
-  pinning invariant now enforced repo-wide. <!-- TODO: verify after impl —
-  confirm all three files clean under the grep check. -->
+  pinning invariant now enforced repo-wide; `grep -nE "uses: [^@]+@(v[0-9]|main|master)" .github/workflows/*.yml`
+  returns only the SLSA reusable `# v2.1.0` inline comment (not an unpinned
+  ref). `tests/test_workflow_pinning.py` `KNOWN_ACTION_SHAS` allowlist
+  extended with the five SHAs introduced by 202d (cosign-installer,
+  sbom-action, trivy-action, setup-buildx-action, metadata-action).
 
 ### Breaking Changes
 - **Operators MUST now set six environment variables** before
