@@ -1490,27 +1490,28 @@ phases:
     - config/proxy.yml documents proxy.upstream_trust section with example
     - make lint-go-full passes with zero warnings
   201:
-    name: Go Redis TLS + Signal Score Drift Fix
-    status: PROPOSED
+    name: Go Redis TLS + Silent-Failure Hardening
+    status: COMPLETE
     action_plan: docs/phases/PHASE_201.md
     dependencies:
     - 15
     size: MEDIUM
     sub_phases:
-      201a: Signal score drift fix (4 values) — XS, no deps
-      201b: TLS support in Go Redis client — S, no deps
-      201c: Error logging for silent failures — XS, depends 201b
-      201d: Health check / script reload — S, depends 201b
-      201e: Rate limiter input validation — S, depends 201b
-    summary: 'Closes critical Go gaps: (1) Redis client omits TLS despite config having SSL field — credentials on wire, (2) 4 signal scores diverge from config/signal_scores.yml — wrong scoring decisions in production. Also adds: error logging for ZAdd/ZRemRangeByScore (were swallowing errors), health check with script reload after Redis outage, rate limiter input validation.'
+      201a: TLS + Username support in Go Redis client — S, no deps
+      201b: ZRemRangeByScore error logging — XS, no deps
+      201c: Redis health-check goroutine + script reload — M, depends 201a
+      201d: Rate-limiter input validation (netip oracle) — S, no deps
+      201e: Docs, runbook, ADR, CHANGELOG, manifest close-out — XS, depends 201a–d
+    summary: 'Closes three production-critical Go Redis client gaps and one correctness fix. (1) cfg.SSL was silently ignored — TLS now honoured with MinVersion 1.2 and ACL Username support in both standalone and Sentinel paths; both cmd/proxy and cmd/syncagent fixed. (2) Lua scripts were never reloaded after Redis restart — added periodic HealthCheck goroutine with RWMutex-protected double-checked reload. (3) Rate-limiter accepted unvalidated strings into Redis key names — netip.ParseAddr-based sanitiser with sha256-hashed log on reject. (4) ZRemRangeByScore now logs on error like every other write method. The previously proposed signal-score drift fix was withdrawn after critical review found Go scores already matched config/signal_scores.yml.'
     success_criteria:
-    - Go Redis client sets TLSConfig when cfg.SSL is true
+    - Go Redis client sets TLSConfig with MinVersion TLS 1.2 when cfg.SSL is true (both standalone and Sentinel)
     - Go Redis client passes Username for ACL-based auth
-    - ZAdd and ZRemRangeByScore log errors instead of swallowing them
-    - Periodic health check re-loads Lua scripts after Redis outage
-    - Rate limiter validates IP (<=45 chars) and JA4 (<=256 chars) before key construction
-    - make check-scores exits 0 (all Go scores match registry)
-    - make go-test passes with zero failures
+    - ZRemRangeByScore logs errors instead of swallowing them
+    - Periodic health check re-loads Lua scripts after Redis outage; concurrent reloads deduplicated
+    - Rate limiter validates IP via netip.ParseAddr (handles IPv4, IPv6, IPv6+zone) and caps JA4 at 256 chars
+    - cmd/syncagent gets the same TLS + Username plumbing as cmd/proxy
+    - make check-scores exits 0 (sanity baseline; not changed by this phase)
+    - go test -race ./... and make test both pass with zero failures
   202:
     name: CI Supply Chain + Default Credential Removal
     status: PROPOSED

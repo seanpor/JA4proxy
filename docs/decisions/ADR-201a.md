@@ -155,6 +155,14 @@ Verified against the Phase 201 merge on branch
   without re-entering the mutex. This keeps read-heavy hot-path calls
   (`SlidingWindowCount`, `SlidingWindowSHA`) on `RLock` while allowing
   safe reload under `Lock`.
+- **Sync-agent divergence (intentional):** `cmd/syncagent/main.go` plumbs
+  `SSL` and `Username` into the same `redisclient.Config` but does **not**
+  start the 30-second `HealthCheck` goroutine that `cmd/proxy/main.go` runs.
+  Rationale: the sync-agent is a one-shot/short-lived ETL process whose
+  Redis errors are already surfaced by its own retry/backoff loop; a periodic
+  health gauge would either never fire (process exits first) or duplicate the
+  proxy's gauge under the same metric name. Revisit if the sync-agent gains a
+  long-running daemon mode.
 - `ssl_ca_certs` / `ssl_certfile` workaround for private CAs is covered in
   `docs/runbooks/go_proxy_operations.md` under the Phase-201 alert section
   (point to OS-level trust-store update until a follow-up phase lands

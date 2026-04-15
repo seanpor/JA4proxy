@@ -52,6 +52,7 @@ extendedKeyUsage = serverAuth
 DNS.1 = redis
 DNS.2 = localhost
 IP.1  = 127.0.0.1
+IP.2  = ::1
 EOF
 
 openssl req -x509 -nodes -newkey rsa:2048 \
