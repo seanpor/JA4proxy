@@ -1,16 +1,95 @@
-# Security Remediation — Go Missing Signals (JA4T, ja4_tls_mismatch, Weak Ciphers, DGA, Health Check)
+# Phase 203 — Go Missing Signals (TAP-derived JA4T, ja4_tls_mismatch, Weak Ciphers, DGA, Health)
 
-> **Status:** PROPOSED
-> **Parent Size:** LARGE — split into 5 SMALL sub-phases below.
-> **Last revised:** 2026-04-11 (sub-phase breakdown for junior engineer handoff).
+> **Status:** PROPOSED (re-scoped 2026-04-15 after critical review;
+> see `PHASE_203_review.md`).
+> **Parent size:** MEDIUM — five fully-independent sub-phases.
+> **Target runtime:** Go production proxy (`internal/`, `cmd/proxy/`).
+> Python references are read-only oracles for parity.
+> **Hard dependency:** Phase 20 (TAP mode) for sub-phase 203a only;
+> 203b/c/d/e have no dependencies.
 
 ## Goal
 
-Close five production-critical signal gaps in the Go proxy: (1) JA4T implementation is
-a stub returning empty string, removing TCP-level evasion detection; (2) `ja4_tls_mismatch`
-signal not implemented, allowing TLS version spoofing; (3) weak cipher suite coverage
-only 13 vs Python's 37+; (4) DGA detection algorithm diverges from Python (less effective);
-(5) Go health check is superficial (Redis-only), missing GeoIP/connections/queue checks.
+Close five production-critical signal gaps in the Go proxy:
+
+1. **203a — TAP-consumed JA4T:** Surface JA4T-derived OS-class signal in the
+   Go proxy by *reading* Phase-20 TAP fingerprints from Redis (the proxy
+   itself cannot compute JA4T — see Architectural Decision below). Detects
+   evasive clients whose TLS fingerprint claims one OS class but whose TCP
+   stack behaviour reveals another.
+2. **203b — `ja4_tls_mismatch`:** Catch TLS-version spoofing where the JA4
+   prefix (`t13`/`t12`/...) disagrees with the negotiated TLS version.
+3. **203c — Weak cipher parity:** Sync Go's `weakCipherSet` to **exactly**
+   match Python's `WEAK_CIPHERS` (42 suites — verified count, not "37+").
+4. **203d — DGA algorithm parity:** Re-port `dgaConfidence()` to match
+   Python's `dga_score()` rule-for-rule.
+5. **203e — Deepen `/health/deep`:** Add component checks (tarpit
+   saturation, optionally GeoIP) to the existing rich health endpoint with
+   anti-flap hysteresis. **Leave `/health` untouched** — it is the k8s
+   liveness probe and must stay tight.
+
+---
+
+## Architectural Decision — JA4T on the inline Go proxy
+
+JA4T fingerprints TCP-stack behaviour from the **client's SYN packet**:
+window size, MSS, options order, window scale (Python format:
+`{window_size}_{mss}_{options_order}_{window_scale}` —
+see `src/tap/fingerprints/ja4t.py`).
+
+A Go inline TCP listener **cannot** compute JA4T. By the time `accept()`
+returns, the kernel has consumed the SYN, completed the three-way
+handshake, and handed the proxy a connected socket whose state reflects the
+*negotiated* connection — not the client's original SYN options.
+`syscall.GetsockoptInt(SOL_TCP, …)` returns the proxy's own send-side
+parameters. There are exactly three ways to recover client SYN data on a
+running production proxy:
+
+| Mechanism | Status in this repo |
+|---|---|
+| Passive TAP/SPAN port + AF_PACKET capture | **Phase 20 — implemented in Python.** Already writes `fp:conn:{id}` Hash and `fp:os:ip:{ip}` String to Redis. |
+| PROXY-protocol v2 TLVs from upstream LB | Phase 200 (proposed). Not landed. |
+| eBPF/XDP hook before kernel handshake | Not planned; large project. |
+
+The right answer for Phase 203a is therefore **not** "compute JA4T in the
+Go proxy" but **"consume Phase 20's TAP-produced JA4T from Redis."** The
+TAP node sees raw packets and computes the fingerprint; the inline proxy
+reads the result on `accept()` keyed by client IP, and emits a signal when
+the JA4-claimed OS-class disagrees with the TAP-observed OS-class.
+
+This preserves the Python-is-prototype / Go-is-production split: the
+Python TAP node continues to be the right tool for the packet-capture job
+(Python is fine here because it's *not the proxy* — it's an
+out-of-band signal-enrichment service, and CLAUDE.md explicitly allows
+Python for "services that are not the proxy"). The Go proxy stays inline,
+fast, and free of CAP_NET_RAW or eBPF dependencies.
+
+### Operational consequences
+
+| Concern | Effect |
+|---|---|
+| **TAP not deployed** | Signal silently dormant. Redis lookup returns nil → no signal emitted → fail-open behaviour preserved. The proxy continues to function exactly as today. |
+| **TAP deployed but fingerprint stale** | Configurable `max_age_seconds` (default 300) discards stale lookups. Stale data → no signal. |
+| **Hot-path Redis GET** | One additional `GET fp:os:ip:{client_ip}` per non-bypassed connection. Sub-ms with local Redis; cached in `LocalCache` for `cache_ttl_seconds` (default 60). |
+| **No new Redis keys** | Reads only Phase-20 keys (`fp:os:ip:{ip}`, optionally `fp:conn:{id}`). Schema unchanged. |
+| **Privilege** | Go proxy still runs unprivileged. Only the TAP node needs CAP_NET_RAW. |
+| **Failure mode** | Redis down → no signal (already handled by existing fail-open Redis path). |
+| **Documentation** | Runbook must state: "to enable JA4T-OS-mismatch detection, deploy the Phase 20 TAP node alongside this proxy." |
+
+### Withdrawn from original phase doc
+
+- ❌ `ComputeJA4T(ttl, mss, windowSize, options) string` — wrong format,
+  unimplementable from accept()'d socket.
+- ❌ `syscall.GetsockoptInt` wiring in `handleConnection()` — would silently
+  return wrong data.
+- ❌ Three-different-definitions-of-JA4T situation — the Go stub
+  `internal/tls/ja4t.go` (TLS-alert-codes flavour) is dead code; remove it.
+
+### Existing dead code to delete
+
+- `internal/tls/ja4t.go` — the `ComputeJA4T(alertCodes []uint8) string`
+  stub and its test file. Unrelated to the real JA4T concept; never wired
+  in; misleading. Delete during 203a.
 
 ---
 
@@ -18,265 +97,400 @@ only 13 vs Python's 37+; (4) DGA detection algorithm diverges from Python (less 
 
 | ID | Sub-phase | Repo area | Size | Depends on |
 |---|---|---|---|---|
-| **203a** | JA4T implementation (Go) | `internal/tls/ja4t.go` | S | none |
-| **203b** | ja4_tls_mismatch signal | `internal/security/tls_enforcer.go` | XS | none |
-| **203c** | Expand weak cipher coverage | `internal/security/tls_enforcer.go` | XS | none |
-| **203d** | Align DGA algorithm with Python | `internal/security/sni_analyzer.go` | S | none |
-| **203e** | Deepen Go health check | `cmd/proxy/main.go` | S | none |
+| **203a** | TAP-consumed JA4T-OS-mismatch signal | `internal/security/tap_consumer.go` (new), `internal/proxy/proxy.go` | S | Phase 20 (deployment); none for code |
+| **203b** | `ja4_tls_mismatch` signal | `internal/security/tls_enforcer.go` | XS | none |
+| **203c** | Weak cipher parity (exactly 42) | `internal/security/tls_enforcer.go` | XS | none |
+| **203d** | DGA algorithm exact-port to Python | `internal/security/sni_analyzer.go` | S | none |
+| **203e** | Deepen `/health/deep` (NOT `/health`) | `cmd/proxy/main.go`, `internal/health/state.go` (new) | S | none |
 
-All sub-phases are fully independent — no dependencies between any of them. A team of
-five could work all sub-phases in parallel with zero merge conflicts (each touches
-different files or different functions within the same file).
+All five sub-phases are independent (different files / different functions
+within the same file). A team of five can work in parallel with no merge
+conflicts.
 
 ---
 
-## Sub-phase 203a — JA4T implementation (S)
+## Sub-phase 203a — TAP-consumed JA4T-OS-mismatch signal (S)
 
-**Goal:** Implement `ComputeJA4T()` in Go to match Python's `generate_ja4t()` output.
+**Goal:** Emit a `tap_os_mismatch` RiskSignal when the OS class implied by
+the JA4 TLS fingerprint disagrees with the OS class observed by the TAP
+node from the client's TCP SYN.
 
-**Why this matters:** JA4T provides TCP-level fingerprinting (TTL, MSS, window size,
-TCP options). Without it, the proxy cannot detect evasive clients that spoof TLS
-fingerprints but leave TCP stack defaults unchanged.
+**Why this matters:** A bot that spoofs Chrome-on-Windows JA4 but actually
+runs on Linux will leave a Linux-shaped TCP SYN. JA4 and JA4T-derived OS
+class disagree → high-confidence evasion signal.
 
-**Files to modify/create:**
-- `internal/tls/ja4t.go` — implement `ComputeJA4T` (currently returns `""`)
-- `tests/unit/test_ja4t.go` — JA4T unit tests with fixture-based assertions
+**Files to create/modify:**
+- `internal/security/tap_consumer.go` — new module
+- `internal/security/tap_consumer_test.go` — unit tests
+- `internal/proxy/proxy.go` — wire the call site after JA4 computed
+- `internal/cache/local.go` — add `TapOSCache` LRU (small)
+- `config/proxy.yml` — add `tap_consumer:` block
+- `internal/config/loader.go` — add struct fields
+- `internal/metrics/metrics.go` — add Prometheus counter
+- `internal/tls/ja4t.go` + `internal/tls/ja4t_test.go` — **delete** (dead code)
 
 **Steps:**
-1. Read Python's `generate_ja4t()` in `src/tls/ja4t.py` to understand the format:
-   - Output: `{ttl}_{mss}_{window_size}_{options_hash[:8]}`
-   - Hash the TCP options bytes (first 8 hex chars of SHA256)
-   - TTL is normalized (0→"0", 32→"32", 64→"64", 128→"128", 255→"255")
-   - MSS and window size are decimal integers
-2. Implement `ComputeJA4T(ttl uint8, mss uint16, windowSize uint16, options []byte) string`
-   in `internal/tls/ja4t.go`.
-3. Write unit tests in `tests/unit/test_ja4t.go` with these concrete test vectors:
-   - `ttl=64, mss=1460, windowSize=65535, options=[0x02,0x04,0x05,0xb4,0x04,0x02,0x08,0x0a,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x01,0x03,0x03,0x07]` → `"64_1460_65535_<first-8-hex-of-sha256>"` (compute the hash to get the exact expected value)
-   - `ttl=128, mss=536, windowSize=8192, options=[0x02,0x04,0x02,0x18]` → `"128_536_8192_<hash>"`
-   - `ttl=255, mss=0, windowSize=0, options=[]` → `"255_0_0_<hash-of-empty>"`
-4. Wire the call site: TCP metadata is available in `internal/proxy/proxy.go` at the `handleConnection()` function where `connCtx` is populated. Look for the section after the TLS handshake completes — add `connCtx.JA4T = tls.ComputeJA4T(...)` using the TCP connection's socket options. Specifically, use `tcpConn.RemoteAddr()` and the raw `syscall.GetsockoptInt` for TTL/MSS/window size.
-5. Run `make go-test` — must pass.
-6. Run `make check-scores` — must exit 0 (ensure no score drift).
+
+1. **Delete the dead stub.** `git rm internal/tls/ja4t.go internal/tls/ja4t_test.go`.
+   Search for any references and remove them: `grep -rn 'ComputeJA4T' .` —
+   should be empty after deletion.
+2. **Define the JA4 → claimed-OS mapping.** In `internal/security/tap_consumer.go`,
+   add a small static table mapping JA4 prefix patterns to OS class:
+   ```go
+   // ja4OSClass returns the claimed OS class from a JA4 fingerprint prefix.
+   // Returns "" for unknown / ambiguous JA4s — caller treats as no-signal.
+   func ja4OSClass(ja4 string) string { ... }
+   ```
+   Use a small set of well-known mappings (Chrome-on-Windows, Chrome-on-macOS,
+   Safari, Firefox, curl, etc.) — derive from Phase 20's `config/os_fingerprints.yml`
+   and the existing JA4 dataset documented at `https://github.com/FoxIO-LLC/ja4`.
+   For Phase 203a the table can be small (5–10 entries); document that
+   gaps are intentional fail-open.
+3. **Implement the consumer.** New `TapConsumer` with:
+   ```go
+   type TapConsumer struct {
+       cfg     *TapConsumerConfig
+       redis   redisClient   // existing interface
+       cache   *cache.TapOSCache
+       log     *logrus.Logger
+   }
+   func (t *TapConsumer) GetSignal(ctx context.Context, clientIP, ja4 string) *RiskSignal
+   ```
+   Inside `GetSignal`:
+   - If `!cfg.Enabled` or `ja4 == ""` → return nil
+   - Compute `claimed := ja4OSClass(ja4)`. If empty → return nil
+   - Check `t.cache.Get(clientIP)` first. On miss, do `redis.Get(ctx, "fp:os:ip:" + clientIP)`
+   - Wrap Redis call in `context.WithTimeout(ctx, cfg.RedisTimeout)` (default 50 ms)
+   - On Redis error or nil → return nil (fail open; increment `tap_lookups_total{result="miss"}`)
+   - On hit → check `observed := value`; cache result for `cfg.CacheTTL` (default 60s)
+   - If `claimed == observed` → return nil
+   - Else → return `&RiskSignal{Name: "tap_os_mismatch", Score: cfg.SignalScore, Reason: fmt.Sprintf("JA4 claims %s, TAP observed %s", claimed, observed), Weight: 1.0}`
+   - Increment `tap_lookups_total{result="hit_match|hit_mismatch|miss|error"}`
+4. **Wire the call site.** In `internal/proxy/proxy.go` `handleConnection()`,
+   after JA4 is computed and bypass checks have not fired, call
+   `signal := tapConsumer.GetSignal(ctx, clientIP, ja4)` and append to
+   the signal slice if non-nil. **Order matters:** call this BEFORE the
+   scorer aggregates signals, AFTER the JA4 whitelist bypass check.
+5. **Config block** in `config/proxy.yml`:
+   ```yaml
+   tap_consumer:                 # phase-203a
+     enabled: false              # default OFF — requires Phase 20 TAP node deployed
+     signal_score: 30            # score added to RiskScorer when mismatch detected
+     redis_timeout_ms: 50        # short to keep hot path fast; fail open on timeout
+     cache_ttl_seconds: 60       # LocalCache TTL for per-IP lookup result
+     max_age_seconds: 300        # ignore TAP fingerprints older than this
+   ```
+   Add inline comments explaining: "Set enabled: true ONLY if the Phase 20
+   TAP node is deployed and writing to the same Redis."
+6. **`signal_score` validated**: `signal_score` must appear in
+   `config/signal_scores.yml` under `signals.tap_os_mismatch.score: 30,
+   score_cap: 30`. Add it.
+7. **Metrics**: in `internal/metrics/metrics.go`:
+   - `ja4proxy_tap_lookups_total{result}` counter (`hit_match`, `hit_mismatch`, `miss`, `error`)
+   - `ja4proxy_tap_signal_total{action}` counter (existing pattern: `flag`, `block`, etc.)
+8. **Tests** in `internal/security/tap_consumer_test.go`:
+   - Disabled config → returns nil
+   - JA4 unknown to mapping → returns nil
+   - Redis miss → returns nil, increments `result="miss"`
+   - Redis hit, claimed==observed → returns nil, increments `result="hit_match"`
+   - Redis hit, claimed!=observed → returns signal, increments `result="hit_mismatch"`
+   - Redis timeout → returns nil, increments `result="error"`, **does NOT block hot path** (assert call duration < 100 ms with a `time.Sleep(1*time.Second)` mock)
+   - LocalCache short-circuits a second lookup for the same IP
+   - Concurrent `GetSignal` calls are race-free (`go test -race`)
 
 **Acceptance criteria:**
-- [ ] `ComputeJA4T()` returns non-empty string matching Python output for same inputs
-- [ ] JA4T unit tests pass with fixture-based assertions
-- [ ] `connCtx.JA4T` is set in the connection context
-- [ ] `make go-test` passes
+- [ ] `internal/tls/ja4t.go` and its test deleted; no dangling references
+- [ ] `tap_consumer` config block in `config/proxy.yml` with `enabled: false` default
+- [ ] `tap_os_mismatch` score 30 in `config/signal_scores.yml`
+- [ ] `TapConsumer.GetSignal()` returns correct values for all 8 test scenarios above
+- [ ] Wired into `proxy.go` after JA4 computation, before scorer aggregation
+- [ ] `ja4proxy_tap_lookups_total` and `ja4proxy_tap_signal_total` counters registered and incremented
+- [ ] `go test -race ./internal/security/...` passes
 - [ ] `make check-scores` exits 0
-- [ ] PHASE_203a_notes.md written
+- [ ] `docs/runbooks/go_proxy_operations.md` updated: "Enabling JA4T-OS-mismatch requires Phase 20 TAP node"
+- [ ] ADR-203a written documenting the TAP-consumer architecture
+- [ ] `PHASE_203a_notes.md` written
 
-**Out of scope:** PROXY protocol v2 TLV extraction (Phase 200), TCP options parsing changes.
+**Out of scope:**
+- Computing JA4T in the Go proxy (architecturally impossible — see decision above)
+- Updating the Phase 20 TAP node (already writes the keys we need)
+- Expanding the JA4-to-OS mapping table beyond a starter set (a follow-up
+  signal-quality phase will widen it once we have production telemetry)
+
+**Watch out for:**
+- The Redis `GET` is on the hot path. `redis_timeout_ms: 50` is the cap; the
+  `cache.TapOSCache` LRU should bring most calls to sub-microsecond. Add a
+  histogram if latency becomes a concern.
+- Don't read `fp:conn:{id}` (the full Hash) — `fp:os:ip:{ip}` is a single
+  String GET and contains exactly what we need. The Hash is for analytics.
+- IPv6: client IP must be in canonical form (matches what Phase 20 writes).
+  Use the existing `internal/proxy` IP normalisation helper.
 
 ---
 
-## Sub-phase 203b — ja4_tls_mismatch signal (XS)
+## Sub-phase 203b — `ja4_tls_mismatch` signal (XS)
 
-**Goal:** Add `ja4_tls_mismatch` signal to detect TLS version spoofing.
-
-**Why this matters:** An attacker can craft a JA4 fingerprint claiming TLS 1.3 while
-actually negotiating TLS 1.2. This signal catches the mismatch and scores it.
+**Goal:** Emit `ja4_tls_mismatch` (score 35) when the JA4 prefix
+disagrees with the negotiated TLS version.
 
 **Files to modify:**
-- `internal/security/tls_enforcer.go` — add `checkJA4TLSTMismatch()` method
+- `internal/security/tls_enforcer.go` — new method `CheckJA4TLSMismatch`
+- `internal/security/tls_mismatch_test.go` — new
+- `internal/proxy/proxy.go` — wire call site
+- `internal/metrics/metrics.go` — add counter
+- `config/signal_scores.yml` — verify `ja4_tls_mismatch.score: 35` exists
+  (Python already defines it; Go just consumes)
 
 **Steps:**
-1. Add `checkJA4TLSTMismatch(ja4 string, actualTLSVersion string) RiskSignal` to
-   `internal/security/tls_enforcer.go`.
-2. Parse the TLS version from the JA4 fingerprint (first segment: `t13` = TLS 1.3,
-   `t12` = TLS 1.2, `t11` = TLS 1.1, `t10` = TLS 1.0).
-3. Compare with the actual negotiated TLS version.
-4. If mismatch: return `RiskSignal{name: "ja4_tls_mismatch", score: 35}`.
-   Score of 35 matches `config/signal_scores.yml` `score_cap: 35`.
-5. Wire the call site: after TLS negotiation completes, call this check with the
-   JA4 fingerprint and the actual negotiated version.
-6. Write tests:
-   - JA4 says t13, actual is TLS 1.3 → no mismatch
-   - JA4 says t13, actual is TLS 1.2 → mismatch, score 35
-   - JA4 says t12, actual is TLS 1.1 → mismatch, score 35
-   - JA4 says t10, actual is SSL 3.0 → mismatch, score 35
-7. Run `make go-test` — must pass.
+
+1. Add method:
+   ```go
+   func (e *TLSEnforcer) CheckJA4TLSMismatch(ja4 string, actualTLSVersion uint16) *RiskSignal
+   ```
+   Returns `nil` on match or unparseable JA4 (fail open). Returns
+   `*RiskSignal{Name:"ja4_tls_mismatch", Score: 35, Weight: 1.0}` on mismatch.
+2. Parse JA4 first 3 chars: `t13` → `0x0304`, `t12` → `0x0303`,
+   `t11` → `0x0302`, `t10` → `0x0301`, `s30` → `0x0300`.
+3. If JA4 too short or prefix unknown → return nil (fail open).
+4. New counter `ja4proxy_ja4_tls_mismatch_total{action}` registered via
+   `MustRegister` (this repo's pattern; not promauto).
+5. Wire from `internal/proxy/proxy.go`: after TLS handshake completes and
+   JA4 is computed, call this check; append non-nil signal to the slice.
+6. Tests (`internal/security/tls_mismatch_test.go`):
+   - `t13` + 0x0304 → nil
+   - `t13` + 0x0303 → signal score 35
+   - `t12` + 0x0302 → signal score 35
+   - `t10` + 0x0300 → signal score 35
+   - `""`, `"x"` (malformed) → nil
+   - `"abc"` (unknown prefix) → nil
+   - Counter increments on mismatch only
 
 **Acceptance criteria:**
-- [ ] `ja4_tls_mismatch` fires when JA4 claims TLS 1.3 but actual is TLS 1.2
-- [ ] No false positives when JA4 and actual TLS version match
-- [ ] Score is 35 (matches `config/signal_scores.yml`)
-- [ ] Tests cover match and mismatch cases
+- [ ] All 7 test cases pass
+- [ ] Counter `ja4proxy_ja4_tls_mismatch_total` registered and visible at `/metrics`
+- [ ] Wired in `proxy.go`
 - [ ] `make go-test` passes
-- [ ] PHASE_203b_notes.md written
+- [ ] `make check-scores` exits 0
+- [ ] `PHASE_203b_notes.md` written
 
-**Out of scope:** Other spoofing signals, JA4 fingerprint computation changes.
+**Out of scope:** other anti-spoofing signals; JA4 computation changes.
 
 ---
 
-## Sub-phase 203c — Expand weak cipher coverage (XS)
+## Sub-phase 203c — Weak cipher parity (XS)
 
-**Goal:** Sync Go's `weakCipherSet` to match Python's 37+ weak cipher suites.
-
-**Why this matters:** The Go proxy only flags 13 weak ciphers while Python flags 37+.
-NULL, EXPORT, DH_anon, ECDH_anon, and non-PFS ciphers slip through undetected.
+**Goal:** Make Go's `weakCipherSet` **exactly equal** to Python's
+`WEAK_CIPHERS` (42 suites).
 
 **Files to modify:**
 - `internal/security/tls_enforcer.go` — expand `weakCipherSet`
+- `internal/security/cipher_parity_test.go` — new
 
 **Steps:**
-1. Read Python's `WEAK_CIPHERS` frozenset from `src/security/tls_enforcer.py`.
-2. Expand Go's `weakCipherSet` in `internal/security/tls_enforcer.go` to include ALL:
-   - NULL ciphers (0x0000, 0x0001, 0x0002, 0x003B)
-   - EXPORT ciphers (0x0003, 0x0006, 0x0008, 0x000B, 0x000E, 0x0011, 0x0014, 0x0017, 0x0019)
-   - RC4 ciphers (0x0004, 0x0005, 0x0018, 0xC007, 0xC011, 0xC016)
-   - DES ciphers (0x0009, 0x000A, 0x000C–0x000F, 0x0012, 0x0015, 0x001A)
-   - DH_anon ciphers (0x0017, 0x0018, 0x0019, 0x001A, 0x001B, 0xC015–C019)
-   - ECDH_anon ciphers
-   - Non-PFS RSA ciphers (0x002F, 0x0035, 0x0041, 0x0084)
-3. Total should be 37+ suites matching Python.
-4. Write a parity test: enumerate all ciphers in Python's set and assert each
-   exists in Go's set.
-5. Run `make go-test` — must pass.
-6. Run `make check-scores` — must exit 0.
+
+1. Open `src/security/tls_enforcer.py` lines 50–92 (the `WEAK_CIPHERS`
+   frozenset). Treat it as the authoritative list.
+2. Replace Go's `weakCipherSet` body with all 42 entries, preserving the
+   per-line comment from Python verbatim (`// TLS_RSA_WITH_NULL_MD5` etc.).
+3. **Do not** add any cipher Python lacks. Do not invent new ones.
+4. Parity test (`cipher_parity_test.go`):
+   - `assert len(weakCipherSet) == 42`
+   - For each of the 42 hex codes, assert `weakCipherSet[c] == true`
+   - Hardcode the list in the test (not in a fixture file) so a Python-side
+     change forces a Go-side update.
+5. Run `make go-test` and `make check-scores`.
 
 **Acceptance criteria:**
-- [ ] `weakCipherSet` contains 37+ suites matching Python's `WEAK_CIPHERS`
-- [ ] Parity test: every Python weak cipher exists in Go set
+- [ ] `len(weakCipherSet) == 42`
+- [ ] Parity test enumerates all 42 ciphers from Python and asserts presence
+- [ ] No extras; no duplicates (Go map literal won't catch dupes — assert
+      via test counting unique entries from the source)
 - [ ] `make go-test` passes
 - [ ] `make check-scores` exits 0
-- [ ] PHASE_203c_notes.md written
+- [ ] `PHASE_203c_notes.md` written
 
-**Out of scope:** Cipher negotiation logic, TLS 1.3 cipher suite changes.
+**Out of scope:** Cipher negotiation logic, TLS 1.3 cipher set changes.
+
+**Watch out for:**
+- Existing 12 entries already cover 0x0001, 0x0002, 0x0004, 0x0005, 0x000A,
+  0x002F, 0x0035, 0x003C, 0x003D, 0x0018, 0x0033, 0x0039. Diff against the
+  Python list before pasting; some of those Python doesn't include
+  (e.g. 0x0033, 0x0039, 0x003C, 0x003D are CBC-mode but PFS — Python
+  considers them OK). Match Python exactly: the Go set may *shrink* in
+  some entries while gaining ~30 new ones. Net result: **42 entries**.
 
 ---
 
-## Sub-phase 203d — Align DGA algorithm with Python (S)
+## Sub-phase 203d — DGA algorithm exact-port to Python (S)
 
-**Goal:** Rewrite Go's DGA detection to match Python's scoring exactly.
-
-**Why this matters:** The Go DGA algorithm diverges from Python, producing different
-scores for the same hostnames. This reduces detection effectiveness for
-domain-generation-algorithm-based malware C2 domains.
+**Goal:** Rewrite Go's `dgaConfidence()` to match Python's `dga_score()`
+rule-for-rule, byte-for-byte equivalent output for any given input.
 
 **Files to modify:**
-- `internal/security/sni_analyzer.go` — rewrite `dgaConfidence()`
-- `tests/unit/test_sni_analyzer.go` — DGA parity tests vs Python
+- `internal/security/sni_analyzer.go` — replace `dgaConfidence()` body and
+  add `_get_primary_label` equivalent + `_SKIP_PREFIXES` set
+- `internal/security/dga_parity_test.go` — new
+- `tests/fixtures/dga/hostnames.txt` — new (Tranco-derived; **not Alexa**)
 
 **Steps:**
-1. Read Python's `dga_score()` from `src/security/sni_analyzer.py`:
-   - Entropy threshold: `ent >= 3.8` adds up to 0.40
-   - No vowels = +0.30; ratio > 5:1 and len >= 10 = +0.20
-   - Label length >= 20 = +0.20; >= 16 = +0.10
-   - `\d{4,}` consecutive digits = +0.10
-   - `_get_primary_label()` strips common prefixes (`www`, `api`, `cdn`, `mail`, `smtp`, etc.)
-2. Rewrite Go's `dgaConfidence()` in `internal/security/sni_analyzer.go` to match:
-   - Same entropy thresholds
-   - Same vowel analysis
-   - Same label length thresholds
-   - Same digit detection
-   - Same prefix stripping via `_get_primary_label()` equivalent
-3. Add parity tests in `tests/unit/test_sni_analyzer.go`. **Test fixture file:** Create
-   `tests/fixtures/dga/hostnames.txt` with 100+ hostnames (one per line). The file should
-   include the Python team's canonical test set from `tests/fixtures/dga/` if it exists,
-   otherwise generate from: 30 known DGA domains (from `security/known_dga_domains.txt`
-   or Alexa top-1000 random samples), 50 legitimate domains (top-50 Alexa), 20 edge cases
-   (single-label like "localhost", very long labels, numeric-only like "12345678.com").
-   The ±0.05 tolerance applies to the **final confidence score** (0.0–1.0), not intermediate
-   sub-scores.
-4. Test vectors should include:
-   - Known DGA domains (random-looking, high entropy, no vowels)
-   - Legitimate domains (google.com, github.com)
-   - Edge cases (single-label, very long labels, numeric-only)
-5. Run `make go-test` — must pass.
+
+1. Read `src/security/sni_analyzer.py` lines 80–150. The authoritative rules:
+   - Use `_get_primary_label`: lowercase, rstrip `.`, split, return first
+     non-skip-prefix label. Skip set lives in `_SKIP_PREFIXES`.
+   - If `len(label) < _MIN_DGA_LABEL_LEN` → return 0.0
+   - Entropy: `if ent >= 3.8: score += min(0.40, (ent - 3.8) * 2.0)`
+   - Vowels: `if alpha_count >= 6 and vowel_count == 0: score += 0.30`
+     elif `alpha_count >= 10 and (alpha_count / vowel_count) > 5.0: score += 0.20`
+   - Length: `>= 20 → +0.20`, `>= 16 → +0.10`
+   - Digits: `re.search(r"\d{4,}", label) → +0.10`
+   - Return `min(1.0, score)`
+2. **Remove** Go's current consonant-run rule (Go invention, not in Python).
+3. **Remove** Go's current digit-ratio `>0.30 → +0.20` rule (Go invention).
+4. **Replace** Go's current entropy thresholds (`>3.5 → +0.35` etc.) with
+   Python's sliding-scale rule above.
+5. **Add** `var _SKIP_PREFIXES = map[string]bool{...}` populated from
+   Python's `_SKIP_PREFIXES` constant. Keep them sync'd with a comment
+   pointing to the Python source line.
+6. **Add** `func getPrimaryLabel(hostname string) string` mirroring Python.
+7. Pre-compile the `\d{4,}` regex as a package var.
+8. Build fixture file `tests/fixtures/dga/hostnames.txt` (one host per line):
+   - 50 Tranco top-50 (legitimate; reuse `tests/fp_corpus/` infrastructure)
+   - 30 known-DGA samples from `security/known_dga_domains.txt` if present,
+     otherwise standard public DGA samples (Conficker, Cryptolocker patterns)
+   - 20 edge cases: `localhost`, single-label, numeric-only `12345678.com`,
+     very-long label (40+ chars), emoji-domains (UTS-46 normalisation)
+9. Parity test:
+   - For each fixture host, invoke Python via
+     `python3 -c "from src.security.sni_analyzer import dga_score; print(dga_score('host'))"`
+     and Go's `dgaConfidence(host)`. Assert `|go - py| < 1e-9` (exact match,
+     not the original ±0.05 — exact port should produce exact equality).
+   - Subprocess overhead ~30 ms per host × 100 hosts = 3 s; cache the
+     Python output to a `.golden` file on first run, then assert against
+     the golden in subsequent runs (no Python required in CI). Provide a
+     `make dga-regenerate-golden` Makefile target for refresh.
+10. FP-rate test: ≤ 1% of Tranco top-10k score ≥ 0.5 (Python guarantees this;
+    Go must match).
 
 **Acceptance criteria:**
-- [ ] DGA parity test: Python and Go scores match within ±0.05 for 100+ test hostnames
-- [ ] Go DGA uses same entropy thresholds, vowel analysis, label length checks
-- [ ] Prefix stripping matches Python behavior
+- [ ] `dgaConfidence` matches `dga_score` exactly for all 100+ fixture hosts
+- [ ] `_SKIP_PREFIXES` and `getPrimaryLabel` ported verbatim
+- [ ] Tranco top-10k FP rate ≤ 1%
+- [ ] Golden file committed to `tests/fixtures/dga/expected_scores.json`
 - [ ] `make go-test` passes
-- [ ] PHASE_203d_notes.md written
+- [ ] `PHASE_203d_notes.md` written
 
-**Out of scope:** Python DGA algorithm changes (Python is deprecated; Go matches current behavior),
-new DGA detection heuristics.
+**Out of scope:**
+- Changes to Python's algorithm (Python is the reference)
+- New DGA heuristics
+
+**Watch out for:**
+- Python's `re.search(r"\d{4,}", label)` matches *anywhere* in the label;
+  Go's `regexp.MustCompile("[0-9]{4,}").MatchString` does likewise. Don't
+  use `^`/`$`.
+- Empty string, single-char strings: Python returns 0.0 (length gate).
+  Match this.
+- Unicode: Python uses `c.isalpha()` which is Unicode-aware; Go's
+  `unicode.IsLetter`. Use that, not the ASCII-only `'a'-'z'` check the
+  current Go code uses.
 
 ---
 
-## Sub-phase 203e — Deepen Go health check (S)
+## Sub-phase 203e — Deepen `/health/deep` with anti-flap (S)
 
-**Goal:** Extend the Go health check endpoint to verify all critical dependencies.
-
-**Why this matters:** The current Go health check only tests Redis connectivity.
-If GeoIP is missing, the tarpit is saturated, or the enrichment queue is backed up,
-the health check still reports "healthy" — masking real problems.
+**Goal:** Extend the existing `/health/deep` endpoint with tarpit and
+optional GeoIP component checks, plus N=3 anti-flap hysteresis. **Do not
+modify `/health`** — that endpoint is the k8s liveness probe and must
+remain a tight Redis-or-die check.
 
 **Files to modify:**
-- `cmd/proxy/main.go` — extend `handleHealth` handler
-- `tests/unit/test_health_check.go` — deep health check tests
+- `cmd/proxy/main.go` — extend `handleHealthDeep`
+- `internal/health/state.go` — new package for anti-flap state
+- `internal/health/state_test.go` — new
+- `cmd/proxy/health_test.go` — new (integration)
+- `docs/runbooks/go_proxy_operations.md` — document new JSON shape
 
 **Steps:**
-1. Extend `handleHealth` in `cmd/proxy/main.go` to check:
-   - Redis connectivity (existing)
-   - GeoIP database file existence and readability
-   - Active connections vs `max_connections` config
-   - Tarpit saturation level (current vs max)
-   - Enrichment queue depth (if applicable)
-2. Return structured JSON response with all component statuses:
-   ```json
-   {
-     "status": "healthy",
-     "components": {
-       "redis": {"status": "ok", "latency_ms": 1},
-       "geoip": {"status": "ok", "db_size_mb": 65},
-       "connections": {"status": "ok", "active": 150, "max": 10000},
-       "tarpit": {"status": "ok", "active": 5, "max": 1000},
-       "queue": {"status": "ok", "depth": 0}
-     }
+
+1. **Pre-flight**: `grep -rn 'geoip\|maxmind\|GeoLite' internal/ cmd/proxy/`.
+   - If the Go proxy loads a GeoIP DB → include the GeoIP check
+   - If not → omit GeoIP entirely from this sub-phase. Do not specify a
+     check for a dependency that doesn't exist.
+2. New package `internal/health`:
+   ```go
+   type State struct {
+       mu       sync.RWMutex
+       failures map[string]int
+       cfg      Config
    }
+   type Config struct {
+       FailThreshold int  // default 3
+   }
+   func New(cfg Config) *State
+   func (s *State) RecordFailure(component string) (unhealthy bool)  // true once threshold reached
+   func (s *State) RecordSuccess(component string)                   // resets counter
+   func (s *State) IsUnhealthy(component string) bool
    ```
-3. Return 503 if any critical dependency (Redis, GeoIP) is unhealthy.
-4. Return 200 if all critical dependencies are healthy (degraded = 200 with warning).
-5. Add anti-flap hysteresis: require **N=3** consecutive failures before marking a component unhealthy.
-   Track a per-component failure counter in a struct (e.g., `healthState.failedChecks[component]`).
-   Increment on each failure, reset to 0 on success. When counter reaches 3, mark component unhealthy.
-6. The health endpoint path is `GET /health` (same as the existing handler in `cmd/proxy/main.go`).
-   **Redis latency measurement:** use `time.Since(start)` around the `client.Ping(ctx)` call. This
-   gives you the round-trip latency in microseconds. Convert to milliseconds for the JSON response.
-   **Enrichment queue:** the Go proxy does NOT currently have an enrichment queue (that's a Python
-   concept). Omit the queue check from the Go health endpoint — it's not applicable. If a queue is
-   added later, wire it in as a separate sub-phase.
-7. Write tests:
-   - All healthy → 200 with all "ok"
-   - Redis down → 503
-   - GeoIP missing → 503
-   - Connections near limit → 200 with "degraded" warning
-   - Anti-flap: single failure doesn't flip status
-7. Run `make go-test` — must pass.
+   All methods must be safe under concurrent access (`-race` tested).
+3. Extend `handleHealthDeep` (cmd/proxy/main.go:669) with new fields:
+   - `tarpit: {active, max, status}` — read existing tarpit metric or
+     proxy.activeTarpits if exposed
+   - `geoip: {present, status}` — only if step 1 found a GeoIP loader
+   - Apply hysteresis: each check increments `state.RecordFailure(component)`
+     on error, `RecordSuccess` on success. Component reported as
+     `"unhealthy"` only after threshold (3) consecutive failures.
+4. HTTP status code:
+   - 200 if no critical component is `"unhealthy"`
+   - 503 if `redis` or `geoip` (when applicable) is `"unhealthy"`
+   - Tarpit-saturated → 200 with `"degraded"` warning, never 503
+5. Update runbook with the full JSON shape and the time-to-detect
+   trade-off (3 × probe interval).
 
 **Acceptance criteria:**
-- [ ] Go health check returns structured JSON with all component statuses
-- [ ] Health check returns 503 when Redis or GeoIP is down
-- [ ] Anti-flap hysteresis prevents status flapping on transient errors
-- [ ] Tests cover healthy, unhealthy, and degraded states
-- [ ] `make go-test` passes
-- [ ] PHASE_203e_notes.md written
+- [ ] `/health` byte-for-byte unchanged
+- [ ] `/health/deep` returns new fields when components configured
+- [ ] Anti-flap: 1 failure does NOT flip status; 3 do
+- [ ] Anti-flap: 1 success after 2 failures resets the counter
+- [ ] `go test -race ./internal/health/... ./cmd/proxy/...` passes
+- [ ] Runbook updated
+- [ ] `PHASE_203e_notes.md` written
 
-**Out of scope:** Prometheus metrics (those are Phase 86), management API health endpoints,
-Python health check changes.
+**Out of scope:**
+- New Prometheus metrics (alerting is a separate phase)
+- Modifying `/health` (intentional — see goal)
+- Management-API health endpoints
+
+**Watch out for:**
+- Concurrent handler invocations share `*health.State` — `-race` will
+  catch missing locks. Use `sync.RWMutex` (RLock for `IsUnhealthy`, Lock
+  for record/reset).
+- N=3 hysteresis means time-to-detect is `3 × probe_interval`. Document
+  this in the runbook so on-call doesn't get surprised.
 
 ---
 
-## Full Phase Acceptance Criteria (all sub-phases)
+## Full-phase Acceptance Criteria
 
-- [ ] All 5 sub-phases complete (see individual acceptance criteria above)
-- [ ] `ComputeJA4T()` returns non-empty string matching Python output for same inputs
-- [ ] `ja4_tls_mismatch` fires when JA4 claims TLS 1.3 but actual is TLS 1.2
-- [ ] `weakCipherSet` contains 37+ suites matching Python's `WEAK_CIPHERS`
-- [ ] DGA parity test: Python and Go scores match within ±0.05 for 100+ test hostnames
-- [ ] Go health check returns structured JSON with all component statuses
-- [ ] Health check returns 503 when Redis or GeoIP is down
-- [ ] Anti-flap hysteresis prevents status flapping on transient errors
-- [ ] `make go-test` passes with zero failures
-- [ ] `make check-scores` still exits 0 (score drift not reintroduced)
-- [ ] CHANGELOG.md entry written
+- [ ] All five sub-phases (203a–e) complete with their individual criteria
+- [ ] `internal/tls/ja4t.go` deleted (dead stub)
+- [ ] `tap_os_mismatch`, `ja4_tls_mismatch` signals registered in `config/signal_scores.yml` and emitted from Go pipeline
+- [ ] `weakCipherSet` exactly matches Python (42 entries)
+- [ ] DGA parity test passes against Python golden file for 100+ hosts
+- [ ] `/health` unchanged; `/health/deep` extended with anti-flap
+- [ ] All Go tests pass under `-race`
+- [ ] `make check-scores` exits 0
+- [ ] `make test` (full Python+Go gate) passes
+- [ ] `CHANGELOG.md` entry written
+- [ ] `docs/decisions/ADR-203a.md` written documenting the TAP-consumer architecture
+- [ ] `docs/runbooks/go_proxy_operations.md` updated for 203a (TAP requirement) and 203e (health JSON shape)
 
-## Out of Scope
+## Out of Scope (whole phase)
 
-- Deception checker (honey-fingerprint/SNI) — that's Phase 56 and a larger feature.
-- PROXY protocol v2 TLV-based TTL extraction — belongs in Phase 200 (PROXY v2 support).
-- Python DGA algorithm changes — Python is deprecated; Go matches Python's current behavior.
+- **Computing JA4T inside the Go inline proxy** — architecturally impossible
+  from accept()'d socket; deferred indefinitely or to Phase 200
+  (PROXY-protocol v2 TLVs).
+- **eBPF/XDP packet-capture in the Go proxy** — large project, separate phase.
+- **Honey-fingerprint deception** — Phase 56.
+- **Python algorithm changes** — Python is the parity reference.
+- **Expanding the JA4-to-OS mapping table** — starter set only; widen in a
+  follow-up signal-quality phase informed by production telemetry.
+- **Modifying `/health`** — intentional non-goal (see 203e).
