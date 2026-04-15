@@ -194,7 +194,7 @@ def _parse_ts(ts: str) -> Optional[datetime]:
         return None
     try:
         dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return None
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
@@ -839,7 +839,7 @@ async def _aggregate_from_monthly_hashes(redis: Any, from_dt: datetime, to_dt: d
             # stray "" or "n/a" crashes the entire /compliance/report call.
             try:
                 total += int(data.get("connections_total", 0) or 0)
-            except TypeError, ValueError):
+            except (TypeError, ValueError):
                 logger.warning(
                     "compliance | event=monthly_aggregate_field_bad | key=%s | field=connections_total | value=%r",
                     key,
@@ -847,7 +847,7 @@ async def _aggregate_from_monthly_hashes(redis: Any, from_dt: datetime, to_dt: d
                 )
             try:
                 blocked += int(data.get("connections_blocked", 0) or 0)
-            except TypeError, ValueError):
+            except (TypeError, ValueError):
                 logger.warning(
                     "compliance | event=monthly_aggregate_field_bad | key=%s | field=connections_blocked | value=%r",
                     key,

@@ -86,7 +86,7 @@ def _parse_signals(fields: dict[str, Any]) -> list[dict[str, Any]]:
     if "signals" in fields:
         try:
             return json.loads(fields["signals"])
-        except json.JSONDecodeError, TypeError):
+        except (json.JSONDecodeError, TypeError):
             return []
     signals = []
     i = 0

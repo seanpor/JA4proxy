@@ -552,7 +552,13 @@ class FeedState:
         if raw is None:
             return 0
         try:
-            return int(raw) if isinstance(raw, int) else int(raw.decode())
+            if isinstance(raw, int):
+                return raw
+            if isinstance(raw, bytes):
+                return int(raw)
+            if isinstance(raw, str):
+                return int(raw)
+            return 0
         except ValueError:
             return 0
 
