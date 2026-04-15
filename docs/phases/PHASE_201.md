@@ -22,7 +22,7 @@ make wrong scoring decisions.
 | **201b** | TLS support in Go Redis client | `internal/redis/client.go` | S | none |
 | **201c** | Error logging for silent failures | `internal/redis/client.go` | XS | 201b |
 | **201d** | Health check / script reload | `cmd/proxy/main.go`, `internal/redis/` | S | 201b |
-| **201e** | Rate limiter input validation | `internal/rate_limiter/` | S | 201b |
+| **201e** | Rate limiter input validation | `internal/security/rate_limiter.` | S | 201b |
 
 All sub-phases are **SMALL** or **XS**. Any can be picked up independently except
 201c/201d/201e which depend on the TLS changes from 201b. 201a has no dependencies
@@ -176,11 +176,11 @@ long strings) creates unexpected Redis key structures, potentially allowing key
 collision attacks or Redis errors.
 
 **Files to modify:**
-- `internal/rate_limiter/rate_limiter.go` — add input validation
-- `tests/unit/test_rate_limiter_validation.go` — new validation tests
+- `internal/security/rate_limiter.go` — add input validation
+- `tests/unit/test_rate_limiter_validation_test.go` — new validation tests
 
 **Steps:**
-1. Add validation in `internal/rate_limiter/rate_limiter.go` before constructing Redis keys:
+1. Add validation in `internal/security/rate_limiter.go` before constructing Redis keys:
    - `len(clientIP) > 45` → reject (exceeds max IPv6 length)
    - `len(ja4) > 256` → truncate or reject
    - Reject strings containing colons in IP (would create unexpected key structure)

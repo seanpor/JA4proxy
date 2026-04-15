@@ -14,7 +14,7 @@
 | ID | Sub-phase | Area | Size | Depends on |
 |---|---|---|---|---|
 | **102a** | Provider config: `protect_unmanaged_entries` field | `internal/provider/` | XS | none |
-| **102b** | Drift detection on allowlist/blocklist/watchlist | `internal/resources/` | S | 102a |
+| **102b** | Drift detection on allowlist/blocklist/watchlist | `internal/resources/` | M | 102a |
 | **102c** | `[terraform]` reason prefix on ban + webhook | `internal/resources/` | XS | 102a |
 | **102d** | Ban resource: `ticket` + `ttl_hours` fields, 24h expiry detection | `internal/resources/ban.go` | S | 102c |
 | **102e** | Dial resource: `ticket`, `notes` fields | `internal/resources/dial.go` | XS | none |
@@ -22,8 +22,11 @@
 | **102g** | CI workflows + `tfproviderlint` + release pipeline | `.github/workflows/` | S | 102f |
 | **102h** | Documentation: `deploy/terraform/README.md` refresh, `docs/runbooks/emergency_playbooks.md` | docs/ | XS | none |
 
-Two engineers can parallelise: one takes 102b+102c+102d+102e (Go code), the other
-takes 102a+102f+102g+102h (config, ADRs, CI, docs).
+Two engineers can parallelise: one takes 102c+102d+102e (Go code, straightforward),
+the other takes 102a+102f+102g+102h (config, ADRs, CI, docs). 102b (drift detection)
+should be assigned to an engineer who has written a Terraform plugin framework data source
+before, or at least read the HashiCorp plugin framework docs on data sources and
+PlanModifiers first — it is the hardest sub-phase in 102.
 
 ---
 
@@ -77,6 +80,14 @@ field described in §4 of PHASE_93.md does not exist. Without it:
 
 #### G2 — Drift detection not implemented on allowlist/blocklist/watchlist (BLOCKING)
 
+> **⚠️ Complexity note:** This is labeled S in the sub-phase table but is the
+> hardest item in Phase 102. It requires understanding the Terraform Plugin
+> Framework data source lifecycle, `Configure`, and `Read` methods. If you
+> haven't written a Terraform provider data source before, read the HashiCorp
+> docs on [Data Sources](https://developer.hashicorp.com/terraform/plugin/framework/concepts/data-sources)
+> and [Plan Modifiers](https://developer.hashicorp.com/terraform/plugin/framework/resources/plan-modification)
+> before starting. Estimated effort: 2-3 hours.
+
 **Files:** `internal/resources/allowlist_entry.go`, `blocklist_entry.go`, `watchlist_entry.go`
 
 The `Read` method fetches the entry by ID and returns it. It does **not** check
@@ -92,21 +103,34 @@ with the `protect_unmanaged_entries` policy.
 2. During `PlanModify`, if `protect_unmanaged_entries` is true and an out-of-band
    entry is found, emit a warning rather than planning a destroy.
 
-The actual drift-detection loop requires a `DataSource` that lists all managed
-entries. This is the hardest part of the phase.
-
-**Implementation approach:**
-- Add a data source `ja4proxy_managed_entries` that calls `GET /api/v1/{list}?managed_by=terraform`
-- During `terraform plan`, the provider compares the data source results against
-  state and emits warnings for discrepancies
-- This is a **data source**, not a resource — it runs at plan time, not apply time
+The drift-detection mechanism uses a **data source** (not a resource) that lists
+all managed entries at plan time. The data source calls `GET /api/v1/{list}?managed_by=terraform`
+for each list type (allowlist, blocklist, watchlist). The provider compares the
+data source results against Terraform state and emits warnings for discrepancies.
 
 **Steps:**
-1. Create `internal/data_sources/managed_entries.go` implementing `ja4proxy_managed_entries` data source that calls `GET /api/v1/{list}?managed_by=terraform` for each list type (allowlist, blocklist, watchlist).
-2. Register the data source in `internal/provider/provider.go` via `Datasource()` method.
-3. In each list resource's `Read` method (`allowlist_entry.go`, `blocklist_entry.go`, `watchlist_entry.go`), after fetching by ID: if the entry is gone and `protect_unmanaged_entries` is `false`, call `resp.State.RemoveResource(ctx)`; if `true`, add a diagnostic warning but keep the resource in state.
-4. Add a `PlanModifier` that checks `protect_unmanaged_entries` during plan: if an out-of-band entry is detected, emit a warning instead of planning a destroy.
-5. Write `TestAllowlistEntry_DriftWarning` (and equivalent for blocklist/watchlist) — delete entry out-of-band, run plan, assert warning diagnostic is emitted.
+1. Create `internal/data_sources/managed_entries.go` implementing the `ja4proxy_managed_entries`
+   data source. The `Read` method calls three API endpoints:
+   `GET /api/v1/allowlist?managed_by=terraform`, `GET /api/v1/blocklist?managed_by=terraform`,
+   and `GET /api/v1/watchlist?managed_by=terraform`. The schema should have three list-of-string
+   attributes (`allowlist_ids`, `blocklist_ids`, `watchlist_ids`) containing the entry IDs.
+   Use the existing HTTP client from `internal/client/client.go` — the data source receives
+   it via `Configure` (same as resources).
+2. Register the data source in `internal/provider/provider.go` via the `Datasources()` method
+   (note the plural — this is the Terraform Plugin Framework convention).
+3. In each list resource's `Read` method (`allowlist_entry.go`, `blocklist_entry.go`,
+   `watchlist_entry.go`), after fetching by ID: if the API returns 404 (entry gone) and
+   `protect_unmanaged_entries` is `false`, call `resp.State.RemoveResource(ctx)`; if
+   `protect_unmanaged_entries` is `true`, add a diagnostic warning (`resp.Diagnostics.AddWarning`)
+   but keep the resource in state so the next apply can re-create it.
+4. Add a `PlanModifier` on each list resource that checks `protect_unmanaged_entries` during
+   plan: if the data source shows the entry was deleted out-of-band (present in state but
+   absent from the data source result), emit a warning diagnostic instead of planning a destroy.
+   The `ModifyPlan` function receives both the planned state and the data source results.
+5. Write `TestAllowlistEntry_DriftWarning` (and equivalent for blocklist/watchlist): create
+   an entry via the resource, delete it via a direct API call (simulating operator action),
+   run `terraform plan`, assert a warning diagnostic is emitted with text mentioning "deleted
+   out-of-band".
 6. Run `go test ./internal/resources/... -v -count=1` — must pass with zero failures.
 
 **Out of scope:** This sub-phase does not introduce new resource types. It implements Read-time drift detection only — plan-time drift warnings via the data source are covered but full plan-time drift scanning across all entries is limited to what the data source provides.
