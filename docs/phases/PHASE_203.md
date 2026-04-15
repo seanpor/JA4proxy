@@ -55,11 +55,18 @@ fingerprints but leave TCP stack defaults unchanged.
    - `ttl=128, mss=536, windowSize=8192, options=[0x02,0x04,0x02,0x18]` → `"128_536_8192_<hash>"`
    - `ttl=255, mss=0, windowSize=0, options=[]` → `"255_0_0_<hash-of-empty>"`
 4. Wire the call site: TCP metadata is available in `internal/proxy/proxy.go` at the `handleConnection()` function where `connCtx` is populated. Look for the section after the TLS handshake completes — add `connCtx.JA4T = tls.ComputeJA4T(...)` using the TCP connection's socket options. Specifically, use `tcpConn.RemoteAddr()` and the raw `syscall.GetsockoptInt` for TTL/MSS/window size.
+
+   **⚠️ Platform note:** `syscall.GetsockoptInt` for `TCP_INFO` (to read TTL/MSS) is Linux-specific.
+   Add `//go:build linux` to the file that contains the syscall code, and provide a stub for
+   non-Linux platforms that returns default values (`ttl=64, mss=1460, windowSize=65535, options=[]`).
+   The test file should also use `//go:build linux` so it only runs on Linux CI runners.
+
 5. Run `make go-test` — must pass.
 6. Run `make check-scores` — must exit 0 (ensure no score drift).
 
 **Acceptance criteria:**
 - [ ] `ComputeJA4T()` returns non-empty string matching Python output for same inputs
+- [ ] `//go:build linux` build tag guards syscall-dependent code; non-Linux stub returns defaults
 - [ ] JA4T unit tests pass with fixture-based assertions
 - [ ] `connCtx.JA4T` is set in the connection context
 - [ ] `make go-test` passes
@@ -172,11 +179,12 @@ domain-generation-algorithm-based malware C2 domains.
    - Same digit detection
    - Same prefix stripping via `_get_primary_label()` equivalent
 3. Add parity tests in `tests/unit/test_sni_analyzer.go`. **Test fixture file:** Create
-   `tests/fixtures/dga/hostnames.txt` with 100+ hostnames (one per line). The file should
-   include the Python team's canonical test set from `tests/fixtures/dga/` if it exists,
-   otherwise generate from: 30 known DGA domains (from `security/known_dga_domains.txt`
-   or Alexa top-1000 random samples), 50 legitimate domains (top-50 Alexa), 20 edge cases
-   (single-label like "localhost", very long labels, numeric-only like "12345678.com").
+   `tests/fixtures/dga/hostnames.txt` with 100+ hostnames (one per line). Use this canonical
+   set — read the Python test data from `src/security/sni_analyzer.py` (the `KNOWN_DGA_DOMAINS`
+   and `LEGIT_DOMAINS` lists used in the Python tests, ~80 entries). Supplement with 10 edge
+   cases from the existing `tests/unit/test_sni_analyzer.py` (single-label, numeric-only, very
+   long). If you need more entries, generate synthetic DGA domains with:
+   `python3 -c "import random; [print(f'{random.randbytes(20).hex()}.com') for _ in range(30)]"`.
    The ±0.05 tolerance applies to the **final confidence score** (0.0–1.0), not intermediate
    sub-scores.
 4. Test vectors should include:

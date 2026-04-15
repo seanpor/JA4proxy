@@ -173,7 +173,9 @@ signature verification for supply chain integrity.
 **Acceptance criteria:**
 - [ ] `.github/workflows/go-proxy-image.yml` builds, tests, SBOM-generates, signs, and pushes
 - [ ] All actions in the workflow are SHA-pinned
-- [ ] Trivy scan passes (no CRITICAL vulnerabilities)
+- [ ] Trivy scan passes (no CRITICAL in our code; OS-level CRITICALs ignored
+      via `--ignore-unfixed` + `.trivyignore`, with each ignored CVE documented
+      in the workflow file)
 - [ ] SBOM generated in CycloneDX JSON format
 - [ ] Image signed with cosign
 - [ ] `yamllint` passes on the workflow file
