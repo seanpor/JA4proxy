@@ -145,6 +145,10 @@ class FeedConfig:
     max_new_per_poll: int = 500
     max_owned_total: int = 50_000
     max_delta_per_poll: int = 0  # 0 = unlimited
+    # M8: TAXII bundle size cap
+    max_bundle_bytes: int = 50 * 1024 * 1024  # 50 MiB default
+    # M9: Per-feed User-Agent
+    user_agent: str = ""
     # TAXII 2.1 -----------------------------------------------------------
     url: str = ""
     collection_id: str = ""
@@ -169,6 +173,11 @@ class FeedConfig:
     # Raw dict so we can plumb unknown fields through for logging ---------
     raw: dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        """Set defaults that depend on other field values."""
+        if not self.user_agent:
+            self.user_agent = f"JA4Proxy/1.0 feed:{self.id}"
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "FeedConfig":
         """Build a :class:`FeedConfig` from a parsed YAML sub-tree.
@@ -189,6 +198,10 @@ class FeedConfig:
             "max_new_per_poll",
             "max_owned_total",
             "max_delta_per_poll",
+            # M8: Bundle size cap
+            "max_bundle_bytes",
+            # M9: User-Agent
+            "user_agent",
             "url",
             "collection_id",
             "username",
