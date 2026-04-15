@@ -4,12 +4,13 @@ H9 — Recorded Future regional endpoint support
 H10 — CrowdStrike regional / GovCloud endpoint support
 """
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.analytics.ti_feeds.recorded_future import RecordedFutureClient, _resolve_rf_taxii_root
-from src.analytics.ti_feeds.crowdstrike import CrowdStrikeFalconClient, _resolve_falcon_urls
+import pytest
+
 from src.analytics.ti_feeds.base import FeedConfig
+from src.analytics.ti_feeds.crowdstrike import CrowdStrikeFalconClient, _resolve_falcon_urls
+from src.analytics.ti_feeds.recorded_future import RecordedFutureClient, _resolve_rf_taxii_root
 
 
 class TestRecordedFutureRegional:

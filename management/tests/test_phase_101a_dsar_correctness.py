@@ -252,15 +252,6 @@ async def test_dsar_partial_failure_on_redis_error(auditor_client):
     # Seed some data
     await redis.set("ban:8.8.8.8", "test ban", ex=3600)
 
-    # Patch Redis.xrange to raise ConnectionError
-    original_xrange = redis.xrange
-
-    async def failing_xrange(*args, **kwargs):
-        raise fakeredis.ConnectionError("Test Redis failure")
-
-    # Don't actually patch - we need a different approach
-    # Create a chaos test that uses a real Redis failure mode
-
     # For now, verify the response structure allows partial_failures
     r = await client.get("/api/v1/compliance/dsar/8.8.8.8")
     assert r.status_code == 200
@@ -281,8 +272,9 @@ async def test_dsar_connection_history_returns_empty_on_error(auditor_client):
     Currently returns [] on any exception. The endpoint handles partial_failures.
     """
     # Test the helper function directly with a failing mock
-    from management.api.routes.compliance import _dsar_connection_history
     import redis as redis_lib
+
+    from management.api.routes.compliance import _dsar_connection_history
 
     mock_redis = unittest.mock.AsyncMock()
     mock_redis.xrange = unittest.mock.AsyncMock(side_effect=redis_lib.ConnectionError("Simulated failure"))
@@ -353,7 +345,7 @@ async def test_101a_acceptance_all(auditor_client):
     assert len(conn) == 1, "Connection history should have exactly one entry"
 
     # Verify CIDR matching (H3: IP in CIDR)
-    watchlist = data["data_categories"]["watchlist_entries"]
+    _ = data["data_categories"]["watchlist_entries"]
     # This will fail until H3 is fixed
     # assert len(watchlist) > 0, "CIDR watchlist should match"
 

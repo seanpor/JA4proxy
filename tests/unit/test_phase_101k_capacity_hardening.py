@@ -57,4 +57,4 @@ def test_require_measured_exits_nonzero_on_placeholders(tmp_path):
         capture_output=True,
         text=True,
     )
-    assert result.returncode != 0, f"--require-measured should exit non-zero on placeholders"
+    assert result.returncode != 0, "--require-measured should exit non-zero on placeholders"

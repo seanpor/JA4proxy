@@ -9,8 +9,9 @@ M13 — seed_file inside leader lock
 M14 — Audit log on feed enable/disable
 """
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
 
 
 class TestM8BundleSizeCap:

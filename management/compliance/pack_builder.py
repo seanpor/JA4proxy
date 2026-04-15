@@ -245,7 +245,6 @@ class PciDssPackBuilder:
         from_iso: str,
         to_iso: str,
     ) -> None:
-        source = {"nodes": nodes, "period": {"from": from_iso, "to": to_iso}}
         rows = (
             "".join(
                 "<tr>"

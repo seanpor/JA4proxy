@@ -109,6 +109,7 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
     },
     "aquasecurity/trivy-action": {
         "v0.29.0": "18f2510ee396bbf400402947b394f2dd8c87dbb0",
+        "v0.35.0": "57a97c7e7821a5776cebc9bb87c984fa69cba8f1",
     },
     # phase-202a — SLSA reusable workflow, SHA-pinned per ADR-202a Path A.
     # Full path-keyed because the uses: reference includes `.github/workflows/...yml`.

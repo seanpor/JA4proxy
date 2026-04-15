@@ -39,6 +39,9 @@ from .metrics import (
     TI_CLEANUP_REMOVALS as _CLEANUP_REMOVALS,
 )
 from .metrics import (
+    TI_FEED_CAPS_HIT as _TI_FEED_CAPS_HIT,
+)
+from .metrics import (
     TI_INDICATORS_MANAGED as _INDICATORS_MANAGED,
 )
 from .metrics import (
@@ -46,9 +49,6 @@ from .metrics import (
 )
 from .metrics import (
     TI_POLL_TOTAL as _POLL_TOTAL,
-)
-from .metrics import (
-    TI_FEED_CAPS_HIT as _TI_FEED_CAPS_HIT,
 )
 from .mgmt_client import ManagementClient
 from .recorded_future import RecordedFutureClient
