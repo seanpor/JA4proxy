@@ -2,10 +2,25 @@ package security
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"net/netip"
 
 	"github.com/sirupsen/logrus"
 )
+
+// sanitizeKey canonicalises clientIP via netip and caps ja4 length.
+func sanitizeKey(clientIP, ja4 string) (canonIP, safeJA4 string, ok bool) {
+	addr, err := netip.ParseAddr(clientIP)
+	if err != nil || !addr.IsValid() {
+		return "", "", false
+	}
+	if len(ja4) > 256 {
+		ja4 = ja4[:256]
+	}
+	return addr.String(), ja4, true
+}
 
 // StrategyConfig holds rate limiting thresholds for a single strategy.
 type StrategyConfig struct {
@@ -50,6 +65,15 @@ func (r *RateLimiter) Check(ctx context.Context, clientIP, ja4 string) []RiskSig
 	if !r.cfg.Enabled {
 		return nil
 	}
+
+	canonIP, safeJA4, ok := sanitizeKey(clientIP, ja4)
+	if !ok {
+		sum := sha256.Sum256([]byte(clientIP))
+		hash := hex.EncodeToString(sum[:])[:16]
+		r.log.WithField("ip_hash", hash).Warn("rate_limiter: rejected unparseable IP; skipping rate limit (fail-open)")
+		return nil
+	}
+	clientIP, ja4 = canonIP, safeJA4
 
 	type stratResult struct {
 		count    int
