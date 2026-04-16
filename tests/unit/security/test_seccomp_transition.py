@@ -17,16 +17,16 @@ import os
 import sys
 import tempfile
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
 from src.security.seccomp_transition import (
-    apply_runtime_seccomp,
-    is_supported,
     _apply,
     _apply_via_seccomp_lib,
     _oci_action_to_libseccomp,
+    apply_runtime_seccomp,
+    is_supported,
 )
 
 # ---------------------------------------------------------------------------

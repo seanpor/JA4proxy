@@ -342,7 +342,6 @@ async def test_idempotent_reapply_lands_in_snapshot_with_empty_handle(redis):
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
-
 # ── start() lifecycle: disabled gate ─────────────────────────────────────────
 
 

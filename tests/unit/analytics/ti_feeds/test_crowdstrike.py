@@ -302,8 +302,9 @@ def test_ensure_token_missing_access_token(stub_management_client, monkeypatch):
 
 def test_ensure_token_skips_refresh_when_fresh(stub_management_client, monkeypatch):
     """A fresh token is not re-fetched on the second poll."""
-    import aiohttp
     import time as time_mod
+
+    import aiohttp
     CrowdStrikeClient = _import_cs()
 
     fetch_count = {"n": 0}
