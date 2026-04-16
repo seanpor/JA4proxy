@@ -38,14 +38,14 @@ def is_publicly_routable_ip(ip_str: str) -> bool:
         return False
 
     if isinstance(ip, ipaddress.IPv4Address):
-        for net in _IPV4_PRIVATE:
-            if ip in net:
+        for v4net in _IPV4_PRIVATE:
+            if ip in v4net:
                 return False
         if ip in _LINK_LOCAL:
             return False
     elif isinstance(ip, ipaddress.IPv6Address):
-        for net in _IPV6_PRIVATE:
-            if ip in net:
+        for v6net in _IPV6_PRIVATE:
+            if ip in v6net:
                 return False
 
     return True

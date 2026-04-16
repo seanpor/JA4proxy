@@ -330,3 +330,306 @@ def test_bulk_blocklist_uses_return_exceptions_per_batch():
     assert len(results) == 50
     failed = [r for r in results if isinstance(r, Exception)]
     assert len(failed) == 1
+
+
+# ── Session management (coverage lines 167-194) ─────────────────────────────
+
+
+def test_connect_noop_with_injected_session():
+    """connect() is a no-op when session was injected via constructor."""
+    ManagementClient = _import_client()
+    sess = _RecordingSession()
+    client = ManagementClient(
+        base_url="https://mgmt.test", token="tok", session=sess,
+    )
+    _run(client.connect())
+    # Session should still be the injected one
+    assert client._session is sess
+
+
+def test_close_noop_with_injected_session():
+    """close() is a no-op when session was injected via constructor."""
+    ManagementClient = _import_client()
+    sess = _RecordingSession()
+    client = ManagementClient(
+        base_url="https://mgmt.test", token="tok", session=sess,
+    )
+    _run(client.close())
+    # Session should still be set (not cleared)
+    assert client._session is sess
+
+
+def test_close_swallows_session_close_error():
+    """close() swallows errors from session.close()."""
+    ManagementClient = _import_client()
+    client = ManagementClient(
+        base_url="https://mgmt.test", token="tok",
+    )
+    # Manually set a session that raises on close
+    mock_session = MagicMock()
+    mock_session.close = AsyncMock(side_effect=RuntimeError("close failed"))
+    client._session = mock_session
+    client._injected_session = False
+
+    _run(client.close())
+    assert client._session is None
+
+
+def test_close_clears_session():
+    """close() sets session to None after closing."""
+    ManagementClient = _import_client()
+    client = ManagementClient(
+        base_url="https://mgmt.test", token="tok",
+    )
+    mock_session = MagicMock()
+    mock_session.close = AsyncMock()
+    client._session = mock_session
+    client._injected_session = False
+
+    _run(client.close())
+    assert client._session is None
+
+
+# ── _open_request unsupported method (coverage line 229) ────────────────────
+
+
+def test_open_request_unsupported_method_raises():
+    """_open_request raises on unsupported HTTP method with injected session."""
+    ManagementClient = _import_client()
+    sess = _RecordingSession()
+    client = ManagementClient(
+        base_url="https://mgmt.test", token="tok", session=sess,
+    )
+    with pytest.raises(RuntimeError, match="unsupported method"):
+        client._open_request("PATCH", "https://mgmt.test/api/v1/test")
+
+
+# ── No token raises 401 (coverage lines 256-257) ───────────────────────────
+
+
+def test_no_token_raises_401():
+    """When no token is set, _request raises ManagementAPIError(401)."""
+    ManagementClient = _import_client()
+    from src.analytics.ti_feeds.mgmt_client import ManagementAPIError
+
+    sess = _RecordingSession()
+    client = ManagementClient(
+        base_url="https://mgmt.test", token="", session=sess,
+    )
+
+    with pytest.raises(ManagementAPIError) as exc_info:
+        _run(client.post_blocklist(entry="x", note="test"))
+    assert exc_info.value.status_code == 401
+
+
+# ── Network exception triggers retry (coverage lines 303-311) ──────────────
+
+
+def test_network_error_retries_and_exhausts():
+    """Network errors are retried and eventually raise ManagementAPIError(503)."""
+    ManagementClient = _import_client()
+    from src.analytics.ti_feeds.mgmt_client import ManagementAPIError
+
+    class FailingSession:
+        def post(self, url, json=None, headers=None, **kwargs):
+            raise ConnectionError("network down")
+        def delete(self, url, headers=None, **kwargs):
+            raise ConnectionError("network down")
+        def get(self, url, headers=None, **kwargs):
+            raise ConnectionError("network down")
+
+    client = ManagementClient(
+        base_url="https://mgmt.test", token="tok", session=FailingSession(),
+        max_retries=2, backoff_initial_s=0.0,
+    )
+
+    with pytest.raises(ManagementAPIError) as exc_info:
+        _run(client.post_blocklist(entry="x", note="test"))
+    assert exc_info.value.status_code == 503
+    assert "exhausted retries" in exc_info.value.message
+
+
+# ── post_ban unsafe IP (coverage lines 344, 350-355) ───────────────────────
+
+
+def test_post_ban_rejects_private_ip():
+    """post_ban rejects RFC1918 addresses."""
+    ManagementClient = _import_client()
+    from src.analytics.ti_feeds.mgmt_client import ManagementAPIError
+
+    sess = _RecordingSession()
+    client = ManagementClient(
+        base_url="https://mgmt.test", token="tok", session=sess,
+    )
+
+    with pytest.raises(ManagementAPIError) as exc_info:
+        _run(client.post_ban("192.168.1.1", ttl=3600, reason="test"))
+    assert exc_info.value.status_code == 400
+    assert "non-public" in exc_info.value.message
+
+
+def test_post_ban_rejects_loopback():
+    """post_ban rejects loopback addresses."""
+    ManagementClient = _import_client()
+    from src.analytics.ti_feeds.mgmt_client import ManagementAPIError
+
+    sess = _RecordingSession()
+    client = ManagementClient(
+        base_url="https://mgmt.test", token="tok", session=sess,
+    )
+
+    with pytest.raises(ManagementAPIError) as exc_info:
+        _run(client.post_ban("127.0.0.1", ttl=3600, reason="test"))
+    assert exc_info.value.status_code == 400
+
+
+# ── delete_ban 404 swallow (coverage lines 366-374) ────────────────────────
+
+
+def test_delete_ban_swallows_404():
+    """delete_ban silently swallows 404 (ban already expired)."""
+    ManagementClient = _import_client()
+    sess = _RecordingSession()
+    sess.queue_delete(404, {"detail": "not found"})
+    client = ManagementClient(
+        base_url="https://mgmt.test", token="tok", session=sess,
+    )
+    # Should not raise
+    _run(client.delete_ban("1.2.3.4"))
+
+
+def test_delete_ban_raises_on_non_404_error():
+    """delete_ban re-raises non-404 errors."""
+    ManagementClient = _import_client()
+    from src.analytics.ti_feeds.mgmt_client import ManagementAPIError
+
+    sess = _RecordingSession()
+    sess.queue_delete(403, {"detail": "forbidden"})
+    client = ManagementClient(
+        base_url="https://mgmt.test", token="tok", session=sess,
+    )
+
+    with pytest.raises(ManagementAPIError) as exc_info:
+        _run(client.delete_ban("1.2.3.4"))
+    assert exc_info.value.status_code == 403
+
+
+# ── delete_blocklist 404 swallow (coverage lines 416-422) ──────────────────
+
+
+def test_delete_blocklist_swallows_404():
+    """delete_blocklist silently swallows 404."""
+    ManagementClient = _import_client()
+    sess = _RecordingSession()
+    sess.queue_delete(404, {"detail": "not found"})
+    client = ManagementClient(
+        base_url="https://mgmt.test", token="tok", session=sess,
+    )
+    # Should not raise
+    _run(client.delete_blocklist("uuid-does-not-exist"))
+
+
+def test_delete_blocklist_raises_on_non_404():
+    """delete_blocklist re-raises non-404 errors."""
+    ManagementClient = _import_client()
+    from src.analytics.ti_feeds.mgmt_client import ManagementAPIError
+
+    sess = _RecordingSession()
+    sess.queue_delete(500, {"detail": "server error"})
+    client = ManagementClient(
+        base_url="https://mgmt.test", token="tok", session=sess,
+        max_retries=0, backoff_initial_s=0.0,
+    )
+
+    with pytest.raises(ManagementAPIError):
+        _run(client.delete_blocklist("uuid-x"))
+
+
+# ── bulk_post_blocklist inter-batch sleep (coverage line 456) ──────────────
+
+
+def test_bulk_post_single_batch_no_sleep():
+    """A single batch (<=50) does not trigger inter-batch sleep."""
+    ManagementClient = _import_client()
+    sess = _RecordingSession()
+    for i in range(10):
+        sess.queue_post(201, {"id": f"u-{i}", "entry": f"x{i}", "managed_by": "feed", "note": ""})
+
+    client = ManagementClient(
+        base_url="https://mgmt.test", token="tok", session=sess,
+        batch_size=50, inter_batch_sleep_s=0.05,
+    )
+    entries = [{"entry": f"x{i}", "note": ""} for i in range(10)]
+
+    sleeps = []
+
+    async def _fake_sleep(s):
+        sleeps.append(s)
+
+    with patch("src.analytics.ti_feeds.mgmt_client.asyncio.sleep", _fake_sleep):
+        _run(client.bulk_post_blocklist(entries))
+
+    # Only 10 entries / 50 batch = 1 batch, no inter-batch sleep
+    assert len(sleeps) == 0
+
+
+# ── _open_request GET method (coverage line 228) ───────────────────────────
+
+
+def test_open_request_get_method():
+    """_open_request routes GET through session.get()."""
+    ManagementClient = _import_client()
+
+    class GetSession:
+        def __init__(self):
+            self.calls = []
+
+        def get(self, url, headers=None, **kwargs):
+            self.calls.append(("GET", url))
+            return _RecordingResponse(200, {})
+
+    sess = GetSession()
+    client = ManagementClient(
+        base_url="https://mgmt.test", token="tok", session=sess,
+    )
+    ctx = client._open_request("GET", "https://mgmt.test/api/v1/test")
+    # Just verify it returns without error
+    assert ctx is not None
+
+
+# ── post_ban ttl_s alias ───────────────────────────────────────────────────
+
+
+def test_post_ban_requires_ttl():
+    """post_ban raises TypeError when neither ttl nor ttl_s is provided."""
+    ManagementClient = _import_client()
+    sess = _RecordingSession()
+    client = ManagementClient(
+        base_url="https://mgmt.test", token="tok", session=sess,
+    )
+    with pytest.raises(TypeError, match="ttl_s"):
+        _run(client.post_ban("1.2.3.4", reason="test"))
+
+
+# ── 429 triggers retry (coverage line 276) ─────────────────────────────────
+
+
+def test_429_rate_limit_triggers_retry():
+    """A 429 response triggers retry like 5xx."""
+    ManagementClient = _import_client()
+    sess = _RecordingSession()
+    sess.queue_post(429, {"detail": "rate limited"})
+    sess.queue_post(201, {"id": "u-1", "entry": "x", "managed_by": "feed", "note": ""})
+
+    client = ManagementClient(
+        base_url="https://mgmt.test", token="tok", session=sess,
+        max_retries=3, backoff_initial_s=0.0,
+    )
+
+    async def _noop_sleep(s):
+        pass
+
+    with patch("src.analytics.ti_feeds.mgmt_client.asyncio.sleep", _noop_sleep):
+        _run(client.post_blocklist(entry="x", note="test"))
+
+    assert sum(1 for c in sess.calls if c["method"] == "POST") == 2

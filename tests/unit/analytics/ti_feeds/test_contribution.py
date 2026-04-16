@@ -178,3 +178,181 @@ def test_unreachable_endpoint_logs_warn_at_most_once_per_hour(caplog):
         _run(client.contribute(_make_valid_payload()))
         warns = [r for r in caplog.records if r.levelno == logging.WARNING]
         assert len(warns) == 2
+
+
+# ── GDPR gate edge cases (coverage gap closure) ─────────────────────────────
+
+
+def test_serialize_non_dict_raises_value_error():
+    """_serialize raises ValueError on non-dict payload."""
+    contribution = _import_contribution()
+    with pytest.raises(ValueError, match="must be a dict"):
+        contribution.ContributionClient._serialize("not a dict")
+
+
+def test_serialise_contribution_non_dict_raises():
+    """Module-level serialise_contribution raises on non-dict."""
+    contribution = _import_contribution()
+    with pytest.raises(ValueError, match="must be a dict"):
+        contribution.serialise_contribution("not a dict")
+
+
+def test_ja4_field_non_string_raises():
+    """ja4 field must be a string, not an int."""
+    contribution = _import_contribution()
+    payload = _make_valid_payload()
+    payload["ja4"] = 12345
+    with pytest.raises(ValueError, match="must be a string"):
+        contribution.ContributionClient._serialize(payload)
+
+
+@pytest.mark.parametrize("suspicious_ja4", [
+    "192.168.1.1",          # IP address with dots in first segment
+    "https://example.com",  # URL with slash
+    "::1",                  # IPv6 with colons
+])
+def test_ja4_field_looks_like_ip_or_url_raises(suspicious_ja4):
+    """ja4 that looks like an IP or URL is rejected."""
+    contribution = _import_contribution()
+    payload = _make_valid_payload()
+    payload["ja4"] = suspicious_ja4
+    with pytest.raises(ValueError, match="looks like an IP or URL"):
+        contribution.ContributionClient._serialize(payload)
+
+
+# ── contribute() HTTP path (coverage lines 220-278) ─────────────────────────
+
+
+def test_contribute_enabled_success():
+    """contribute() returns True on 2xx response."""
+    contribution = _import_contribution()
+    client = contribution.ContributionClient(
+        enabled=True, endpoint="https://feed.test/v1/contribute", api_key="key",
+    )
+
+    async def _ok_post(url, json=None, headers=None, **kwargs):
+        return MagicMock(status=200)
+
+    with patch.object(client, "_post", _ok_post):
+        result = _run(client.contribute(_make_valid_payload()))
+    assert result is True
+
+
+def test_contribute_non_2xx_returns_false(caplog):
+    """contribute() returns False and warns on non-2xx status."""
+    contribution = _import_contribution()
+    client = contribution.ContributionClient(
+        enabled=True, endpoint="https://feed.test/v1/contribute", api_key="key",
+    )
+
+    async def _bad_post(url, json=None, headers=None, **kwargs):
+        return MagicMock(status=500)
+
+    caplog.set_level(logging.WARNING)
+    with patch.object(client, "_post", _bad_post):
+        result = _run(client.contribute(_make_valid_payload()))
+    assert result is False
+
+
+# ── maybe_submit() path (coverage lines 238-278) ────────────────────────────
+
+
+def test_maybe_submit_disabled_returns_false():
+    """maybe_submit returns False when disabled."""
+    contribution = _import_contribution()
+    client = contribution.ContributionClient(enabled=False)
+    result = _run(client.maybe_submit(_make_valid_payload()))
+    assert result is False
+
+
+def test_maybe_submit_gdpr_gate_rejects_disallowed_fields(caplog):
+    """maybe_submit returns False when payload has disallowed fields."""
+    contribution = _import_contribution()
+    client = contribution.ContributionClient(
+        enabled=True, endpoint="https://feed.test/v1/contribute", api_key="key",
+    )
+    payload = _make_valid_payload()
+    payload["source_ip"] = "1.2.3.4"
+
+    caplog.set_level(logging.ERROR)
+    result = _run(client.maybe_submit(payload))
+    assert result is False
+
+
+def test_maybe_submit_success():
+    """maybe_submit returns True on 2xx aiohttp response."""
+    contribution = _import_contribution()
+
+    import aiohttp
+
+    class FakeResp:
+        status = 200
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): pass
+
+    class FakeSession:
+        def post(self, url, data=None, headers=None, timeout=None):
+            return FakeResp()
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): pass
+
+    client = contribution.ContributionClient(
+        enabled=True, endpoint="https://feed.test/v1/contribute", api_key="key",
+    )
+
+    with patch("src.analytics.ti_feeds.contribution.aiohttp") as mock_aiohttp:
+        mock_aiohttp.ClientSession.return_value = FakeSession()
+        mock_aiohttp.ClientTimeout = aiohttp.ClientTimeout
+        result = _run(client.maybe_submit(_make_valid_payload()))
+    assert result is True
+
+
+def test_maybe_submit_non_2xx_returns_false():
+    """maybe_submit returns False on non-2xx response."""
+    contribution = _import_contribution()
+
+    import aiohttp
+
+    class FakeResp:
+        status = 503
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): pass
+
+    class FakeSession:
+        def post(self, url, data=None, headers=None, timeout=None):
+            return FakeResp()
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): pass
+
+    client = contribution.ContributionClient(
+        enabled=True, endpoint="https://feed.test/v1/contribute", api_key="key",
+    )
+
+    with patch("src.analytics.ti_feeds.contribution.aiohttp") as mock_aiohttp:
+        mock_aiohttp.ClientSession.return_value = FakeSession()
+        mock_aiohttp.ClientTimeout = aiohttp.ClientTimeout
+        result = _run(client.maybe_submit(_make_valid_payload()))
+    assert result is False
+
+
+def test_maybe_submit_network_error_returns_false():
+    """maybe_submit returns False on network error."""
+    contribution = _import_contribution()
+
+    import aiohttp
+
+    class ErrorSession:
+        def post(self, url, data=None, headers=None, timeout=None):
+            raise ConnectionError("network down")
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): pass
+
+    client = contribution.ContributionClient(
+        enabled=True, endpoint="https://feed.test/v1/contribute", api_key="key",
+    )
+
+    with patch("src.analytics.ti_feeds.contribution.aiohttp") as mock_aiohttp:
+        mock_aiohttp.ClientSession.return_value = ErrorSession()
+        mock_aiohttp.ClientTimeout = aiohttp.ClientTimeout
+        result = _run(client.maybe_submit(_make_valid_payload()))
+    assert result is False
