@@ -255,7 +255,7 @@ func TestRDAP_Enrich_WithBlockExpansion(t *testing.T) {
 	// Override the HTTP URL by adjusting the transport
 	origURL := srv.URL
 	r.http = &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout:   5 * time.Second,
 		Transport: &rewriteTransport{base: http.DefaultTransport, url: origURL},
 	}
 	r.enrich(context.Background(), rdapJob{ip: "1.2.3.4", score: 80, alpn: "tls"})
@@ -299,7 +299,7 @@ func TestRDAP_MaybeExpandBlock_RequireKnownBad_NoMatch(t *testing.T) {
 		Enabled:            true,
 		MinTriggerScore:    50,
 		RequireKnownBadOrg: true,
-		KnownBadOrgs:      []KnownBadOrgEntry{{Name: "evil hosting"}},
+		KnownBadOrgs:       []KnownBadOrgEntry{{Name: "evil hosting"}},
 	}
 	r := NewRDAPEnricher(cfg, redis, nil)
 	r.maybeExpandBlock(context.Background(), "1.2.3.4", "GOOD-1", "Good Corp", 80)
