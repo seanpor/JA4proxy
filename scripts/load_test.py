@@ -29,6 +29,7 @@ import importlib.util
 import json
 import logging
 import os
+import socket
 import subprocess
 import sys
 import time
@@ -168,7 +169,7 @@ def push_loadtest_metrics(
     throughput_metric.set(throughput_cps)
 
     try:
-        push_to_gateway(url, job=job, registry=registry)
+        push_to_gateway(url, job=job, registry=registry, grouping_key={"instance": socket.gethostname(), "phase": job})
     except Exception as exc:
         logging.error("push_to_gateway(%s) failed: %s", url, exc)
 
