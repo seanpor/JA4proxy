@@ -24,11 +24,13 @@ Audit attribution:
 from __future__ import annotations
 
 import logging
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from prometheus_client import Counter
 
 from ..audit_utils import write_audit
 from ..auth import require_role
@@ -44,8 +46,17 @@ from ..redis_client import get_redis
 
 logger = logging.getLogger(__name__)
 
+_MANUAL_POLL_RATELIMITED = Counter(
+    "ja4proxy_ti_feeds_manual_poll_ratelimited_total",
+    "Number of manual poll requests rejected by rate limiter",
+)
+
 router = APIRouter(tags=["threat-intel"])
 
+
+_RATELIMIT_KEY = "ratelimit:ti_feeds:manual:{identity}"
+_RATELIMIT_MAX_CALLS = 6
+_RATELIMIT_WINDOW_SECONDS = 60
 
 _POLL_STATE_KEY = "ti_feed:{feed_id}:poll_state"
 _RUNTIME_ENABLED_KEY = "ti_feed:{feed_id}:runtime_enabled"
@@ -356,6 +367,34 @@ async def trigger_poll(
         the feed's next ``poll_complete`` ECS log line.
     """
     identity, role = current_user
+
+    # ── H7: Sliding-window rate limit (6 calls / 60s per identity) ──────
+    rl_key = _RATELIMIT_KEY.format(identity=identity)
+    now = time.time()
+    window_start = now - _RATELIMIT_WINDOW_SECONDS
+    # Remove expired entries
+    await redis.zremrangebyscore(rl_key, "-inf", window_start)
+    current_count = await redis.zcard(rl_key)
+    if current_count >= _RATELIMIT_MAX_CALLS:
+        # Find oldest entry still in window to compute retry-after
+        oldest = await redis.zrange(rl_key, 0, 0, withscores=True)
+        if oldest:
+            oldest_ts = float(oldest[0][1])
+            retry_after = int(oldest_ts + _RATELIMIT_WINDOW_SECONDS - now)
+        else:
+            retry_after = _RATELIMIT_WINDOW_SECONDS
+        retry_after = max(1, min(retry_after, _RATELIMIT_WINDOW_SECONDS))
+        _MANUAL_POLL_RATELIMITED.inc()
+        raise HTTPException(
+            status_code=429,
+            detail="Rate limit exceeded for manual poll",
+            headers={"Retry-After": str(retry_after)},
+        )
+    # Record this call
+    await redis.zadd(rl_key, {f"{now}:{uuid.uuid4().hex[:8]}": now})
+    await redis.expire(rl_key, _RATELIMIT_WINDOW_SECONDS)
+    # ── End rate limit ───────────────────────────────────────────────────
+
     feed_configs = await _load_feed_configs()
     if not any(str(cfg.get("id")) == feed_id for cfg in feed_configs):
         raise HTTPException(
