@@ -142,7 +142,7 @@ class TestPhase86iScenarios:
         )
         pushed = {"payload": ""}
 
-        def fake_push(url, job, registry):
+        def fake_push(url, job, registry, grouping_key=None):
             # Capture the text-format payload from the registry.
             from prometheus_client import generate_latest
             pushed["payload"] = generate_latest(registry).decode()
