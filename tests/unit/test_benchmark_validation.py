@@ -16,7 +16,6 @@ from typing import Any, Dict, List
 
 import pytest
 
-
 # ── Helpers: benchmark result validation functions ────────────────────────────
 # These test a validation function that should exist in the benchmark tooling.
 # Until the Coder creates it, we define the contract here and test against it.
