@@ -103,9 +103,11 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
     # phase-202d — Go proxy image CI workflow (go-proxy-image.yml)
     "sigstore/cosign-installer": {
         "v3.7.0": "dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da",
+        "v4.1.1": "cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003",
     },
     "anchore/sbom-action": {
         "v0.17.8": "55dc4ee22412511ee8c3142cbea40418e6cec693",
+        "v0.24.0": "e22c389904149dbc22b58101806040fa8d37a610",
     },
     "aquasecurity/trivy-action": {
         "v0.29.0": "18f2510ee396bbf400402947b394f2dd8c87dbb0",
