@@ -302,3 +302,15 @@ as a Phase 85 security follow-up — see `PHASE_85_notes.md` "Security findings"
 
 *Last updated: 2026-04-08, Phase 85 complete*
 
+---
+
+## Phase 101 — Cross-Phase Gap Closure
+
+| Key pattern | Type | TTL | Written by | Notes |
+|-------------|------|-----|------------|-------|
+| `ratelimit:ti_feeds:manual:{user_id}` | Sorted Set | 60s window | Management API rate-limit middleware | Sliding-window rate limit for manual TI feed poll trigger; max 6/min per user. Members are `{timestamp}:{uuid_suffix}`, score = timestamp. Enforced via the same Lua sliding-window script as other rate limits (`scripts/sliding_window.lua`). *(Phase 101)* |
+
+---
+
+*Last updated: 2026-04-15, Phase 101 scaffolding*
+

@@ -939,3 +939,14 @@ threat_intel:
       ttl_jsonpath: "$.indicators[*].expires_in"
       ban_ttl_hours: 24
       poll_interval_minutes: 15
+
+# ── Phase 101: CSRF protection for management API ───────────────────────────
+# Cookie-authenticated requests are subject to Origin header validation.
+# Bearer-token requests bypass CSRF checks entirely.
+
+management:                               # phase-101
+  csrf:
+    # Comma-separated list of allowed origins for cookie-authenticated requests.
+    # Default: reads from MANAGEMENT_CORS_ORIGINS env var.
+    # Hot-reloadable: no (requires restart)
+    allowed_origins: "${MANAGEMENT_CORS_ORIGINS}"  # phase-101: empty = reject all cookie requests without Origin
