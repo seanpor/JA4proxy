@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - Phase 207 — Go Coverage & Cleanup (DRAFT)
+## [Unreleased] - Phase 207 — Go Test Coverage & Repository Hygiene (2026-04-16)
 
 ### Added
 - Coverage tests for 6 Go packages: `cmd/ja4check` (100%), `cmd/ja4proxy-cli`

@@ -360,10 +360,7 @@ func TestHandleConn_NonTLS(t *testing.T) {
 	buf := make([]byte, 256)
 	clientConn.SetReadDeadline(time.Now().Add(3 * time.Second))
 	n, _ := clientConn.Read(buf)
-	if n == 0 {
-		// Pipeline scored 0 → allow → forward → echo. If we got 0 bytes
-		// it could be a timing issue; that's OK for coverage purposes.
-	}
+	_ = n // Pipeline scored 0 → allow → forward → echo; n==0 is a timing issue, OK for coverage
 
 	clientConn.Close()
 	select {
