@@ -178,6 +178,7 @@ class TestGetEvents:
 
 class TestClose:
     @pytest.mark.asyncio
+    @pytest.mark.filterwarnings("ignore::DeprecationWarning")
     async def test_close_clears_client(self, manager):
         await manager.close()
         assert manager._client is None
