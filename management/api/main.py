@@ -127,6 +127,11 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # ── CSRF origin validation (H8 — phase-101) ──────────────────────────────
+    from .middleware.csrf import CSRFMiddleware
+
+    app.add_middleware(CSRFMiddleware)
+
     # ── Templates ─────────────────────────────────────────────────────────────
     if _TEMPLATES_DIR.exists():
         templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
