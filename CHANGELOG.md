@@ -3,18 +3,18 @@
 ## [Unreleased] - Phase 101 — Cross-Phase Gap Closure (2026-04-16)
 
 ### Security
-- **H7** — Rate limiting on manual TI feed poll endpoint (6/min per user, 429 + Retry-After) <!-- TODO: verify after impl -->
-- **H8** — CSRF middleware for cookie-authenticated management API routes (Origin check + Bearer bypass) <!-- TODO: verify after impl -->
+- **H7** — Rate limiting on manual TI feed poll endpoint (6/min per user, 429 + Retry-After)
+- **H8** — CSRF middleware for cookie-authenticated management API routes (Origin check + Bearer bypass)
 
 ### Changed
 - **H3** — DSAR CIDR watchlist matching (already implemented, verified passing)
-- **H15** — Dynatrace metric parser hardened against NaN/Inf/non-numeric values <!-- TODO: verify after impl -->
-- **M24** — Pushgateway push includes grouping_key (instance + phase labels) <!-- TODO: verify after impl -->
-- **M25** — Dynatrace scrape emits synthetic topology entity on failure <!-- TODO: verify after impl -->
+- **H15** — Dynatrace metric parser hardened against NaN/Inf/non-numeric values
+- **M24** — Pushgateway push includes grouping_key (instance + phase labels)
+- **M25** — Dynatrace scrape emits synthetic topology entity on failure
 
 ### Added
 - **H16** — Datadog capacity runbook (`docs/runbooks/datadog_capacity.md`)
-- **M26** — Benchmark numeric + SHA stability validation <!-- TODO: verify after impl -->
+- **M26** — Benchmark numeric + SHA stability validation
 - Redis schema: `ratelimit:ti_feeds:manual:{user_id}` key documented
 
 ### Documented deferrals
