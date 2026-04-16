@@ -25,6 +25,7 @@ Configuration (set in Dynatrace UI under the extension settings):
 from __future__ import annotations
 
 import logging
+import math
 import ssl
 import urllib.error
 import urllib.request
@@ -77,7 +78,9 @@ def _parse_labels(label_str: str) -> Dict[str, str]:
         if "=" not in p:
             continue
         k, _, v = p.partition("=")
-        labels[k.strip()] = v.strip().strip('"')
+        labels[k.strip()] = "".join(
+            ch for ch in v.strip().strip('"') if ord(ch) >= 32 or ch == "\t"
+        )
     return labels
 
 
@@ -115,6 +118,8 @@ def parse_prometheus_text(text: str) -> List[Tuple[str, Dict[str, str], float]]:
             value = float(value_str)
         except ValueError:
             continue
+        if not math.isfinite(value):
+            continue
         samples.append((name, labels, value))
     return samples
 
@@ -135,12 +140,12 @@ def scrape_metrics(url: str, api_token: str = "", timeout: float = 10.0) -> List
             body = resp.read().decode("utf-8", errors="replace")
     except Exception as exc:  # OSError, HTTPError, URLError, ssl.SSLError
         _log.error("ja4proxy dynatrace scrape failed: url=%s err=%s", url, exc)
-        return []
+        return [("ja4proxy_scrape_failed", {"reason": str(exc)}, 1.0)]
     try:
         return parse_prometheus_text(body)
     except Exception as exc:
         _log.error("ja4proxy dynatrace parse failed: %s", exc)
-        return []
+        return [("ja4proxy_scrape_failed", {"reason": str(exc)}, 1.0)]
 
 
 # ── Plugin class ────────────────────────────────────────────────────────────
