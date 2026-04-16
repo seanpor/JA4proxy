@@ -4,7 +4,7 @@
 [![Python 3.14+](https://img.shields.io/badge/python-3.14+-blue.svg)](https://www.python.org/downloads/)
 [![Go 1.25.9](https://img.shields.io/badge/go-1.25.9-00ADD8.svg)](https://go.dev/)
 ![CI](https://github.com/seanpor/JA4proxy/actions/workflows/ci.yml/badge.svg)
-[![Coverage ≥99%](https://img.shields.io/badge/coverage-%E2%89%A599%25-brightgreen.svg)](Makefile)
+[![Coverage ≥92%](https://img.shields.io/badge/coverage-%E2%89%A592%25-brightgreen.svg)](Makefile)
 ![Go Tests](https://github.com/seanpor/JA4proxy/actions/workflows/ci.yml/badge.svg?label=go%20tests)
 [![Docker Ready](https://img.shields.io/badge/docker-compose-ready-2496ED.svg?logo=docker)](deploy/docker/docker-compose.poc.yml)
 [![Deps Audited](https://img.shields.io/badge/deps-pip--audit+%20govulncheck-orange.svg)](.github/workflows/ci.yml)

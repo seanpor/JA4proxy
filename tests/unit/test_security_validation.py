@@ -10,9 +10,10 @@ documented public API without mocking the module under test.
 import hashlib
 import hmac
 import time
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
+from cryptography import x509
 
 from src.security.validation import (
     AuditLogger,
@@ -447,3 +448,308 @@ class TestExceptionHierarchy:
         assert ValidationError is not SecurityError
         assert SecurityError is not ComplianceError
         assert ValidationError is not ComplianceError
+
+
+# ---------------------------------------------------------------------------
+# Phase 104 — coverage gap closure
+# ---------------------------------------------------------------------------
+
+
+class TestFingerprintEdgeCases:
+    """Cover lines 58, 62-63: length check before regex, anomaly logging."""
+
+    def test_long_but_valid_format_raises(self, validator):
+        """Line 58: fingerprint > 100 chars is rejected even if it starts valid."""
+        # Build a string that exceeds 100 chars
+        long_fp = "t13d1516h2_8daaf6152771_02713d6af862" + "x" * 100
+        with pytest.raises(ValidationError, match="Invalid JA4 format"):
+            validator.validate_ja4_fingerprint(long_fp)
+
+    def test_anomalous_all_zeros_hash_returns_false(self, validator):
+        """Lines 62-63: anomalous fingerprint (all-zero hashes) → returns False."""
+        # This matches the all-zeros hash pattern in _detect_fingerprint_anomalies
+        fp = "t13d1516h2_000000000000_000000000000"
+        result = validator.validate_ja4_fingerprint(fp)
+        assert result is False
+
+    def test_anomalous_all_fs_hash_returns_false(self, validator):
+        """Anomalous fingerprint (all-f hashes) → returns False."""
+        fp = "t13d1516h2_ffffffffffff_ffffffffffff"
+        result = validator.validate_ja4_fingerprint(fp)
+        assert result is False
+
+    def test_low_entropy_hash_returns_false(self, validator):
+        """Lines 193-195: hash part with < 3 unique chars → anomalous."""
+        fp = "t13d1516h2_aaaaaaaaaaaa_bbbbbbbbbbbb"
+        result = validator.validate_ja4_fingerprint(fp)
+        assert result is False
+
+
+class TestIPReputationCheck:
+    """Cover line 83: check_reputation=True triggers _check_ip_reputation."""
+
+    def test_reputation_flagged_raises_security_error(self, validator):
+        """Line 83: _check_ip_reputation returns True → SecurityError."""
+        with patch.object(validator, "_check_ip_reputation", return_value=True):
+            with pytest.raises(SecurityError, match="flagged"):
+                validator.validate_ip_address("1.2.3.4", check_reputation=True)
+
+    def test_reputation_clean_passes(self, validator):
+        """check_reputation=True but IP is clean → returns True."""
+        result = validator.validate_ip_address("8.8.8.8", check_reputation=True)
+        assert result is True
+
+    def test_reputation_uses_cache(self, validator):
+        """Lines 203-204: cached result is used on second call."""
+        validator.threat_intel_cache["10.0.0.1"] = {"malicious": True, "timestamp": time.time()}
+        with pytest.raises(SecurityError):
+            validator.validate_ip_address("10.0.0.1", check_reputation=True)
+
+    def test_loopback_blocked_when_configured(self):
+        """Line 78-79: loopback is_loopback → SecurityError."""
+        v = SecurityValidator({"security": {"block_private_ips": True}})
+        with pytest.raises(SecurityError, match="Private"):
+            v.validate_ip_address("127.0.0.1", check_reputation=False)
+
+    def test_reserved_ip_blocked_when_configured(self):
+        """is_reserved → SecurityError."""
+        v = SecurityValidator({"security": {"block_private_ips": True}})
+        with pytest.raises(SecurityError, match="Private"):
+            v.validate_ip_address("240.0.0.1", check_reputation=False)
+
+
+class TestRateLimitEdgeCases:
+    """Cover lines 141-143: rate limit Redis error → fail open."""
+
+    def test_redis_error_fails_open(self, validator):
+        """Lines 141-143: Redis pipeline raises → returns True (fail open)."""
+        mock_redis = MagicMock()
+        mock_redis.pipeline.side_effect = Exception("connection refused")
+        result = validator.check_rate_limit("1.2.3.4", mock_redis)
+        assert result is True
+
+    def test_rate_limit_exceeded(self, validator):
+        """Lines 135-137: count > max → returns False."""
+        mock_redis = MagicMock()
+        mock_pipe = MagicMock()
+        mock_redis.pipeline.return_value = mock_pipe
+        mock_pipe.execute.return_value = [200, True]  # 200 > 100 default
+        result = validator.check_rate_limit("1.2.3.4", mock_redis)
+        assert result is False
+
+    def test_rate_limit_within_limit(self, validator):
+        """Count <= max → returns True."""
+        mock_redis = MagicMock()
+        mock_pipe = MagicMock()
+        mock_redis.pipeline.return_value = mock_pipe
+        mock_pipe.execute.return_value = [5, True]
+        result = validator.check_rate_limit("1.2.3.4", mock_redis)
+        assert result is True
+
+
+class TestGeoBlockingPaths:
+    """Cover lines 152-171: geo blocking allow/block country logic."""
+
+    @pytest.fixture()
+    def geo_validator(self):
+        """Validator with a mocked geo_reader."""
+        v = SecurityValidator({
+            "security": {
+                "allowed_countries": ["US", "GB"],
+                "blocked_countries": ["RU"],
+            }
+        })
+        v.geo_reader = MagicMock()
+        return v
+
+    def test_country_in_allowed_list_passes(self, geo_validator):
+        """Lines 159: country in allowed_countries → True."""
+        mock_resp = MagicMock()
+        mock_resp.country.iso_code = "US"
+        geo_validator.geo_reader.city.return_value = mock_resp
+        assert geo_validator.check_geo_blocking("1.2.3.4") is True
+
+    def test_country_not_in_allowed_list_blocked(self, geo_validator):
+        """Lines 159-161: country not in allowed_countries → False."""
+        mock_resp = MagicMock()
+        mock_resp.country.iso_code = "CN"
+        geo_validator.geo_reader.city.return_value = mock_resp
+        assert geo_validator.check_geo_blocking("1.2.3.4") is False
+
+    def test_country_in_blocked_list(self):
+        """Lines 163-165: country in blocked_countries → False."""
+        v = SecurityValidator({"security": {"blocked_countries": ["RU"]}})
+        v.geo_reader = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.country.iso_code = "RU"
+        v.geo_reader.city.return_value = mock_resp
+        assert v.check_geo_blocking("1.2.3.4") is False
+
+    def test_country_not_blocked_passes(self):
+        """Country not in blocked list and no allowed list → True."""
+        v = SecurityValidator({"security": {"blocked_countries": ["RU"]}})
+        v.geo_reader = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.country.iso_code = "US"
+        v.geo_reader.city.return_value = mock_resp
+        assert v.check_geo_blocking("1.2.3.4") is True
+
+    def test_geoip_lookup_exception_fails_open(self, geo_validator):
+        """Lines 169-171: geo lookup raises → returns True (fail open)."""
+        geo_validator.geo_reader.city.side_effect = Exception("GeoIP error")
+        assert geo_validator.check_geo_blocking("1.2.3.4") is True
+
+
+class TestCSRFEdgeCases:
+    """Cover lines 249-250: exception in CSRF validation."""
+
+    def test_token_with_non_integer_timestamp_fails(self, validator):
+        """Lines 238: ValueError on int() → returns False."""
+        assert validator.validate_csrf_token("notanumber:abc123", "sess") is False
+
+    def test_token_none_attribute_error(self, validator):
+        """Lines 238: AttributeError on None.split → returns False."""
+        assert validator.validate_csrf_token(None, "sess") is False  # type: ignore
+
+    def test_hmac_compare_exception_returns_false(self, validator):
+        """Lines 249-250: exception during hmac compare → returns False."""
+        token = validator.generate_csrf_token("sess-x")
+        with patch("src.security.validation.hmac.compare_digest", side_effect=TypeError("bad")):
+            assert validator.validate_csrf_token(token, "sess-x") is False
+
+
+class TestMTLSManagerPaths:
+    """Cover lines 362-415: cert/key loading, CA verification, certificate validation."""
+
+    def test_cert_chain_loaded_when_configured(self):
+        """Lines 362-363: cert_path + key_path → load_cert_chain called."""
+        mgr = MTLSManager({"tls": {"cert_path": "/fake/cert.pem", "key_path": "/fake/key.pem"}})
+        with patch("ssl.SSLContext") as MockCtx:
+            mock_ctx = MagicMock()
+            MockCtx.return_value = mock_ctx
+            mgr.create_ssl_context(server_side=True)
+            mock_ctx.load_cert_chain.assert_called_once_with("/fake/cert.pem", "/fake/key.pem")
+
+    def test_ca_cert_loaded_and_verify_required(self):
+        """Lines 365-367: ca_cert_path → load_verify_locations + CERT_REQUIRED."""
+        import ssl
+        mgr = MTLSManager({"tls": {"ca_cert_path": "/fake/ca.pem"}})
+        with patch("ssl.SSLContext") as MockCtx:
+            mock_ctx = MagicMock()
+            MockCtx.return_value = mock_ctx
+            mgr.create_ssl_context(server_side=True)
+            mock_ctx.load_verify_locations.assert_called_once_with("/fake/ca.pem")
+            assert mock_ctx.verify_mode == ssl.CERT_REQUIRED
+
+    def test_validate_expired_cert_returns_false(self):
+        """Lines 402-403: expired certificate → False."""
+        from datetime import datetime, timedelta, timezone
+        from unittest.mock import PropertyMock
+        mgr = MTLSManager({"tls": {}})
+        mock_cert = MagicMock()
+        # not_valid_after in the past
+        mock_cert.not_valid_after = datetime.now(timezone.utc) - timedelta(days=1)
+        with patch("src.security.validation.x509.load_pem_x509_certificate", return_value=mock_cert):
+            assert mgr.validate_certificate_chain(b"fake-pem") is False
+
+    def test_validate_cert_missing_digital_signature_returns_false(self):
+        """Lines 408-410: certificate without digital_signature usage → False."""
+        from datetime import datetime, timedelta, timezone
+        mgr = MTLSManager({"tls": {}})
+        mock_cert = MagicMock()
+        mock_cert.not_valid_after = datetime.now(timezone.utc) + timedelta(days=365)
+        mock_key_usage = MagicMock()
+        mock_key_usage.value.digital_signature = False
+        mock_cert.extensions.get_extension_for_oid.return_value = mock_key_usage
+        with patch("src.security.validation.x509.load_pem_x509_certificate", return_value=mock_cert):
+            assert mgr.validate_certificate_chain(b"fake-pem") is False
+
+    def test_validate_cert_no_key_usage_extension_passes(self):
+        """Lines 412-413: ExtensionNotFound → passes (no key usage check)."""
+        from datetime import datetime, timedelta, timezone
+        mgr = MTLSManager({"tls": {}})
+        mock_cert = MagicMock()
+        mock_cert.not_valid_after = datetime.now(timezone.utc) + timedelta(days=365)
+        mock_cert.extensions.get_extension_for_oid.side_effect = \
+            x509.ExtensionNotFound("not found", MagicMock())
+        with patch("src.security.validation.x509.load_pem_x509_certificate", return_value=mock_cert):
+            assert mgr.validate_certificate_chain(b"fake-pem") is True
+
+    def test_validate_cert_with_valid_digital_signature_passes(self):
+        """Lines 409: digital_signature is True → passes."""
+        from datetime import datetime, timedelta, timezone
+        mgr = MTLSManager({"tls": {}})
+        mock_cert = MagicMock()
+        mock_cert.not_valid_after = datetime.now(timezone.utc) + timedelta(days=365)
+        mock_key_usage = MagicMock()
+        mock_key_usage.value.digital_signature = True
+        mock_cert.extensions.get_extension_for_oid.return_value = mock_key_usage
+        with patch("src.security.validation.x509.load_pem_x509_certificate", return_value=mock_cert):
+            assert mgr.validate_certificate_chain(b"fake-pem") is True
+
+    def test_validate_cert_load_exception_returns_false(self):
+        """Lines 417-419: certificate load raises → False."""
+        mgr = MTLSManager({"tls": {}})
+        with patch("src.security.validation.x509.load_pem_x509_certificate",
+                   side_effect=ValueError("bad cert")):
+            assert mgr.validate_certificate_chain(b"bad-data") is False
+
+
+class TestFingerprintAnomalyDetection:
+    """Cover lines 185-195: _detect_fingerprint_anomalies internal paths."""
+
+    def test_null_fingerprint_pattern_detected(self, validator):
+        """Line 184: null fingerprint pattern matched."""
+        fp = "t00d0000h0_000000000000_000000000000"
+        assert validator._detect_fingerprint_anomalies(fp) is True
+
+    def test_wrong_number_of_parts_detected(self, validator):
+        """Lines 189-190: split doesn't produce 3 parts → anomaly."""
+        assert validator._detect_fingerprint_anomalies("nounderscores") is True
+        assert validator._detect_fingerprint_anomalies("one_two") is True
+
+    @pytest.mark.parametrize("fp", [
+        "t13d1516h2_aaaaaaaaaaaa_bbbbbbbbbbbb",  # < 3 unique in each hash
+        "t13d1516h2_111111111111_222222222222",
+    ])
+    def test_low_entropy_hashes_detected(self, validator, fp):
+        """Lines 193-195: hash parts with < 3 unique chars → anomaly."""
+        assert validator._detect_fingerprint_anomalies(fp) is True
+
+    def test_normal_fingerprint_not_anomalous(self, validator):
+        """Normal fingerprint with diverse hash chars → not anomalous."""
+        fp = "t13d1516h2_8daaf6152771_02713d6af862"
+        assert validator._detect_fingerprint_anomalies(fp) is False
+
+
+class TestIPReputationCache:
+    """Cover lines 203-214: _check_ip_reputation cache and lookup."""
+
+    def test_uncached_ip_returns_false_and_caches(self, validator):
+        """Lines 209-214: new IP → returns False, added to cache."""
+        assert "99.99.99.99" not in validator.threat_intel_cache
+        result = validator._check_ip_reputation("99.99.99.99")
+        assert result is False
+        assert "99.99.99.99" in validator.threat_intel_cache
+        assert validator.threat_intel_cache["99.99.99.99"]["malicious"] is False
+
+    def test_cached_malicious_ip_returns_true(self, validator):
+        """Lines 203-204: cached as malicious → returns True."""
+        validator.threat_intel_cache["bad.ip"] = {"malicious": True, "timestamp": time.time()}
+        assert validator._check_ip_reputation("bad.ip") is True
+
+    def test_cached_clean_ip_returns_false(self, validator):
+        """Cached as not malicious → returns False."""
+        validator.threat_intel_cache["good.ip"] = {"malicious": False, "timestamp": time.time()}
+        assert validator._check_ip_reputation("good.ip") is False
+
+
+class TestAuditLoggerSeverityLevels:
+    """Cover audit logger severity mapping edge cases."""
+
+    def test_invalid_severity_defaults_to_info(self, tmp_path):
+        """Line 328: unknown severity string → getattr falls back to INFO."""
+        import logging
+        audit = AuditLogger({"logging": {"audit_log_path": str(tmp_path / "audit.log")}})
+        # Should not raise for an unknown severity
+        audit.log_security_event("test", {"k": "v"}, severity="NONEXISTENT")
