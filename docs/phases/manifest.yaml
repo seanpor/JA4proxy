@@ -1121,21 +1121,6 @@ phases:
     - make test-phase-93 target added to Makefile
     - End-to-end integration test: Terraform apply + plan + destroy against ManagementAPIMock
     - make test-phase-93 passes
-  101:
-    name: Push Terraform Provider to GitHub + Registry Publication
-    status: PROPOSED
-    summary: Add GitHub remote to /home/sean/LLM/terraform-provider-ja4proxy, push all commits, configure
-      Terraform Registry publication workflow. The provider repo has 43 passing tests, ADR-093a through
-      ADR-093d, and is fully functional — it just needs a remote and a HashiCorp Registry submission.
-    action_plan: docs/phases/PHASE_101.md
-    dependencies:
-    - 93
-    size: SMALL
-    success_criteria:
-    - GitHub repo created at github.com/anomalyco/terraform-provider-ja4proxy (or equivalent)
-    - Remote added and all commits pushed
-    - Terraform Registry submission complete (requires HashiCorp partner review)
-    - CI workflows (.github/workflows/) passing on remote
   94:
     name: Kubernetes Operator + CMDB/NetBox Integration
     status: COMPLETE
@@ -1560,22 +1545,31 @@ phases:
     - make check-scores exits 0
     - go test -race ./... passes with zero failures
   102:
-    name: 'Phase 93 Gap Closure: Drift Detection, Import, Docs, CI'
-    status: PROPOSED
-    summary: 'Closes ~40% of Phase 93 acceptance criteria that were DEFERRED/PARTIAL/NOT YET:
-      protect_unmanaged_entries provider field, drift detection on list resources, [terraform]
-      reason prefix on ban+webhook, ticket/ttl_hours fields on ban, ticket/notes on dial,
-      3 ADRs (093a/b/c), CI workflows for terraform-provider, doc audit.'
+    name: 'Phase 93 Finishing Work: ADRs, Runbook Audit, Drift-Detection Decision'
+    status: COMPLETE
+    completed: '2026-04-15'
+    summary: 'Docs-only close-out of Phase 93. Three ADRs written (093a repo topology,
+      093b Registry namespace, 093c TTL renewal + drift-detection decision).
+      deploy/terraform/README.md refreshed with drift-protection guidance.
+      docs/runbooks/emergency_playbooks.md audited against playbook YAML.
+      Most of the phase''s original scope (protect_unmanaged_entries, [terraform]
+      prefix, ticket/ttl_hours/notes fields, PlanModifiers, SHA-pinned CI)
+      was pre-delivered in the external provider repo at
+      github.com/anomalyco/terraform-provider-ja4proxy before Phase 102 started.'
+    lessons_learned: 'Phase doc was stale — scope was ~85% pre-delivered in the
+      external provider repo. Future cross-repo phases should begin with a ground-truth
+      sweep of the external repo before enumerating gaps. ADR-093c deliberately
+      softens the 24h auto-renew claim: schema description advertises it but code
+      re-POSTs unconditionally — documented as reserved-for-future, not implemented.'
     action_plan: docs/phases/PHASE_102.md
     dependencies:
     - 93
-    size: MEDIUM
+    size: SMALL
     success_criteria:
-    - protect_unmanaged_entries field in provider schema with default false
-    - managed_by = "terraform" on create for allowlist, blocklist, watchlist
-    - "[terraform] reason prefix on ban resource (create and read)"
-    - Ban resource has ticket and ttl_hours fields
-    - Dial resource has ticket and notes fields
-    - ADR-093a, ADR-093b, ADR-093c written and merged
-    - CI workflows for terraform-provider test + release
-    - make test-phase-93 passes with zero failures
+    - ADR-093a repository topology written
+    - ADR-093b Terraform Registry namespace written (namespace anomalyco/ja4proxy,
+      pending registration)
+    - ADR-093c TTL renewal and drift-detection decision written
+    - docs/runbooks/emergency_playbooks.md audited against playbook YAML
+    - deploy/terraform/README.md documents protect_unmanaged_entries default=true
+    - 17/17 emergency playbook tests pass

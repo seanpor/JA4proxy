@@ -1,423 +1,263 @@
-# Phase 102 — Phase 93 Gap Closure: Drift Detection, Import, Docs, CI
+# Phase 102 — Phase 93 Finishing Work: ADRs, Runbook Audit, Drift-Detection Decision
 
 > **Status:** PROPOSED
-> **Size:** MEDIUM
-> **Dependencies:** Phase 93 (sub-phases 93.1–93.7 — scaffold is in place)
+> **Size:** SMALL (≈3 hours of focused work)
+> **Dependencies:** Phase 93 (COMPLETE)
 > **Parent:** Phase 93 (Terraform Provider + Emergency Runbook Playbooks)
-> **Why a new phase:** Phase 93 delivered the scaffold (6 resource types, HTTP client,
-> 3 Ansible playbooks, static playbook tests). But the phase doc's §11 Acceptance
-> Criteria has ~40% of items marked DEFERRED, PARTIAL, or NOT YET. This phase closes
-> every remaining gap so the provider is production-ready, not just buildable.
+
+## Why this phase exists
+
+Phase 93 delivered a working Terraform provider. The phase doc originally
+listed ~40% of its acceptance criteria as DEFERRED/PARTIAL. Subsequent work
+(in the **external provider repo** at `/home/sean/LLM/terraform-provider-ja4proxy`)
+closed most of those gaps — `protect_unmanaged_entries`, `[terraform]` reason
+prefix, `ticket`/`ttl_hours`/`notes` fields, `PlanModifiers`, 24h-near-expiry
+TTL renewal, and SHA-pinned CI workflows are all in place.
+
+What remains is **hygiene**: three ADRs that were promised but never written,
+a runbook audit, a README refresh, and one architectural decision to
+**document and close**: whether to add a drift-detection data source
+(decision: no — `PlanModifiers` + `protect_unmanaged_entries=true` default
+are sufficient).
+
+> **Important:** This phase touches **two repositories**:
+> - `/home/sean/LLM/JA4proxy` (this repo) — docs, runbook, README, manifest
+> - `/home/sean/LLM/terraform-provider-ja4proxy` (external repo) — verification only; no code changes planned in this phase
+>
+> No code changes land in the external repo during Phase 102. Every task below is doc-only.
+
+## Verified current state (2026-04-15, external repo HEAD `17da9ea`)
+
+| Item originally in Phase 93 backlog | Status | Evidence |
+|---|---|---|
+| `protect_unmanaged_entries` provider field | **DONE** | `internal/provider/provider.go:31,68,118`. Default is **true** (safer than the originally-proposed false). |
+| `[terraform]` reason prefix on ban | **DONE** | `ban_resource.go` |
+| Webhook `managed_by` on create | **DONE** | `list_resources.go` |
+| Ban `ticket` + `ttl_hours` fields | **DONE** | `ban_resource.go` |
+| Dial `ticket` + `notes` fields | **DONE** | `dial_webhook.go` |
+| Ban 24h near-expiry auto-renewal | **DONE** | `ban_resource.go:46,64,170` |
+| PlanModifiers on list resources | **DONE** | `list_resources.go:61,68,261,268,461,468` |
+| CI `test.yml` + `release.yml` | **DONE**, SHA-pinned | `.github/workflows/` |
+| `ja4proxy_managed_entries` data source | **NOT PRESENT** | `provider.go:150` — `DataSources()` returns empty slice |
+| ADR-093a/b/c in main repo | **MISSING** | `docs/decisions/` contains only 094c/094d |
+| `docs/runbooks/emergency_playbooks.md` | **EXISTS but not audited** | created at Phase 93 merge |
+| `deploy/terraform/README.md` | **EXISTS** | needs refresh to document `protect_unmanaged_entries` default=true |
+
+**Decision on drift-detection data source (G2 in the prior phase doc):**
+Close as **"architectural choice, not a gap"**. Rationale captured in
+ADR-093c. The combination of `PlanModifiers` + `protect_unmanaged_entries`
+default-true already prevents out-of-band deletions from being silently
+reapplied. A data source would be additive, not corrective. Deferring keeps
+the provider surface minimal and avoids committing to a contract we don't
+need yet.
+
+---
 
 ## Sub-phase index
 
-| ID | Sub-phase | Area | Size | Depends on |
-|---|---|---|---|---|
-| **102a** | Provider config: `protect_unmanaged_entries` field | `internal/provider/` | XS | none |
-| **102b** | Drift detection on allowlist/blocklist/watchlist | `internal/resources/` | M | 102a |
-| **102c** | `[terraform]` reason prefix on ban + webhook | `internal/resources/` | XS | 102a |
-| **102d** | Ban resource: `ticket` + `ttl_hours` fields, 24h expiry detection | `internal/resources/ban.go` | S | 102c |
-| **102e** | Dial resource: `ticket`, `notes` fields | `internal/resources/dial.go` | XS | none |
-| **102f** | ADRs: ADR-093a (repo topology), ADR-093b (namespace), ADR-093c (TTL) | `docs/decisions/` | XS | none |
-| **102g** | CI workflows + `tfproviderlint` + release pipeline | `.github/workflows/` | S | 102f |
-| **102h** | Documentation: `deploy/terraform/README.md` refresh, `docs/runbooks/emergency_playbooks.md` | docs/ | XS | none |
+| ID | Title | Size | Repo | Depends on | Parallel |
+|---|---|---|---|---|---|
+| **102a** | Write ADR-093a: Repository topology | XS (20m) | main | none | 102b, 102c, 102d |
+| **102b** | Write ADR-093b: Terraform Registry namespace | XS (15m) | main | none | 102a, 102c, 102d |
+| **102c** | Write ADR-093c: TTL renewal + drift-detection decision | XS (20m) | main | none | 102a, 102b, 102d |
+| **102d** | Audit `emergency_playbooks.md` against playbook YAML | S (30–45m) | main | none | 102a, 102b, 102c |
+| **102e** | Refresh `deploy/terraform/README.md` | XS (20m) | main | 102a, 102b, 102c | — |
+| **102f** | Reconcile manifest + close phase | XS (15m) | main | 102a–102e | — |
 
-Two engineers can parallelise: one takes 102c+102d+102e (Go code, straightforward),
-the other takes 102a+102f+102g+102h (config, ADRs, CI, docs). 102b (drift detection)
-should be assigned to an engineer who has written a Terraform plugin framework data source
-before, or at least read the HashiCorp plugin framework docs on data sources and
-PlanModifiers first — it is the hardest sub-phase in 102.
+Total: 6 small tasks, one critical path (102a–d parallel → 102e → 102f).
 
 ---
 
-## 1. Context — what Phase 93 actually delivered
+## Sub-task 102a — ADR-093a: Repository topology
 
-A thorough code audit of the `terraform-provider/` tree and `deploy/ansible/` reveals:
+**Size:** XS (20 min)
+**Files to touch:** `docs/decisions/ADR-093a-repository-topology.md` (new)
+**Depends on:** none. **Parallel with:** 102b, 102c, 102d.
 
-### ✅ Already implemented (do NOT re-do)
+**What to do**
+1. Copy the structure of an existing ADR (e.g. `docs/decisions/ADR-094c.md`) as a template.
+2. Fill in these sections:
+   - **Context** — the provider was initially drafted in-tree in Phase 93 but was extracted to `/home/sean/LLM/terraform-provider-ja4proxy` (external GitHub: `github.com/anomalyco/terraform-provider-ja4proxy`) to enable independent versioning and Terraform Registry publication. Module path: `github.com/anomalyco/terraform-provider-ja4proxy` (verified in external `go.mod`).
+   - **Decision** — provider lives in a separate repo. Contract boundary between the two repos is the Management API (versioned, tested). Main repo documents decisions; external repo owns implementation.
+   - **Consequences** — cross-repo coordination overhead; two CI systems; ADRs in main repo must reference external symbols by name, never by line number.
+   - **Status** — Accepted, 2026-04-15.
+3. Do **not** reference external-repo line numbers (they rot silently across the repo boundary).
 
-| Component | Files | Quality |
-|-----------|-------|---------|
-| **HTTP client** | `internal/client/client.go` (~300 lines) | Solid. Bearer auth, URL-encoding, 429 retry, health check, all CRUD methods |
-| **Provider schema** | `internal/provider/provider.go` | Compiles, validates url/token, health-checks on configure |
-| **`ja4proxy_ban`** | `internal/resources/ban.go` + `_test.go` | 6 tests pass. IP+CIDR unified, URL-encoding via `urlWithEncodedPath`, TTL refresh via Update |
-| **`ja4proxy_allowlist_entry`** | `internal/resources/allowlist_entry.go` + `_test.go` | ImportState implemented, `managed_by` defaults to `"terraform"`, immutable update (delete+recreate) |
-| **`ja4proxy_blocklist_entry`** | `internal/resources/blocklist_entry.go` + `_test.go` | Same pattern as allowlist, import working |
-| **`ja4proxy_watchlist_entry`** | `internal/resources/watchlist_entry.go` + `_test.go` | Same pattern, import working |
-| **`ja4proxy_dial`** | `internal/resources/dial.go` + `_test.go` | 6 tests pass. Singleton guard, boundary values (0/100), mock validates ±10 delta |
-| **`ja4proxy_webhook`** | `internal/resources/webhook.go` + `_test.go` | 6 tests pass. Import working, secret returned on create only, preserve-in-state on read |
-| **3 Ansible playbooks** | `deploy/ansible/playbooks/emergency/*.yml` | Bearer auth, conditional ServiceNow/Slack, dial stepping, abort-on-422 |
-| **Playbook static tests** | `tests/integration/test_emergency_playbooks.py` (14 tests) | YAML-parsing tests verify structure, auth, endpoints |
-| **`deploy/terraform/README.md`** | exists | Has quick-start, resource table, import examples, drift protection blurb |
-| **`make test-phase-93`** | Makefile:1203 | Runs `go test ./internal/...` + pytest on playbook tests |
-| **`docs/runbooks/emergency_playbooks.md`** | exists | Created by Phase 93 merge |
+**Done when**
+- [ ] File exists and follows the ADR template format
+- [ ] `grep -r "ADR-093a" docs/` returns at least the new file (referenced from any index)
+- [ ] `make lint-phases` (if it covers ADRs) or `markdownlint docs/decisions/` exits 0
 
-### ❌ Gaps this phase must close
-
-#### G1 — `protect_unmanaged_entries` not in provider schema (BLOCKING)
-
-**File:** `internal/provider/provider.go`
-
-The provider schema has only `api_url` and `api_token`. The `protect_unmanaged_entries`
-field described in §4 of PHASE_93.md does not exist. Without it:
-- No drift detection
-- No "warning instead of destroy" for out-of-band entries
-- The entire SOC 2 compliance story for IaC ownership is broken
-
-**Fix:** Add `protect_unmanaged_entries` (bool, optional, default false) to
-`ja4proxyProviderModel` and `Schema()`. Pass it to resources via `Configure`.
-
-**Steps:**
-1. Add `ProtectUnmanagedEntries *bool` to `ja4proxyProviderModel` struct in `internal/provider/provider.go`.
-2. Add `protect_unmanaged_entries` to the provider `Schema()` map with type `types.BoolType`, `Optional: true`, and `Computed: true` with a default of `false`.
-3. In the `Configure` method, pass the resolved value to the resource config (via `resp.DataSourceData` or `resp.ResourceData`) so all resources can read it.
-4. Add two unit tests: `TestProvider_ProtectUnmanagedEntries_Default` (verifies default is `false`) and `TestProvider_ProtectUnmanagedEntries_True` (verifies `true` is accepted and propagated).
-5. Run `go test ./internal/provider/... -v -count=1` — must pass with zero failures.
-
-**Out of scope:** This sub-phase does not implement drift detection logic or modify any resource files — it only adds the provider config schema field and wiring.
+**Watch out for**
+- Don't invent facts about Registry submission dates — if you don't know, write "pending" and link ADR-093b.
 
 ---
 
-#### G2 — Drift detection not implemented on allowlist/blocklist/watchlist (BLOCKING)
+## Sub-task 102b — ADR-093b: Terraform Registry namespace
 
-> **⚠️ Complexity note:** This is labeled S in the sub-phase table but is the
-> hardest item in Phase 102. It requires understanding the Terraform Plugin
-> Framework data source lifecycle, `Configure`, and `Read` methods. If you
-> haven't written a Terraform provider data source before, read the HashiCorp
-> docs on [Data Sources](https://developer.hashicorp.com/terraform/plugin/framework/concepts/data-sources)
-> and [Plan Modifiers](https://developer.hashicorp.com/terraform/plugin/framework/resources/plan-modification)
-> before starting. Estimated effort: 2-3 hours.
+**Size:** XS (15 min)
+**Files to touch:** `docs/decisions/ADR-093b-terraform-registry-namespace.md` (new)
+**Depends on:** none. **Parallel with:** 102a, 102c, 102d.
 
-**Files:** `internal/resources/allowlist_entry.go`, `blocklist_entry.go`, `watchlist_entry.go`
+**What to do**
+1. Read `/home/sean/LLM/terraform-provider-ja4proxy/go.mod` to confirm the exact module path. Use that path in the ADR rather than guessing.
+2. Fill in:
+   - **Context** — Terraform Registry requires a namespace. HashiCorp Partner Programme requires legal paperwork; self-publish route does not.
+   - **Decision** — self-publish under the org/namespace reflected in the external repo's `go.mod` (verify: `github.com/anomalyco/terraform-provider-ja4proxy`). No HashiCorp partner status pursued at this time.
+   - **Consequences** — users add the provider via explicit `source = "anomalyco/ja4proxy"` (or whatever the Registry canonicalises to); no partner badge; release process is goreleaser-driven (see external `.github/workflows/release.yml`).
+   - **Status** — Accepted, 2026-04-15.
 
-The `Read` method fetches the entry by ID and returns it. It does **not** check
-whether the entry still exists in the API's list of `managed_by=terraform` entries.
-If an operator deletes the entry via the UI, Terraform won't detect the drift until
-the next plan — and even then, it will just try to re-create, which may conflict
-with the `protect_unmanaged_entries` policy.
+**Done when**
+- [ ] File exists
+- [ ] Module path in ADR matches `go.mod` exactly
 
-**Fix:** In each resource's `Read` method, after fetching by ID:
-1. If the entry is gone from the API, check `protect_unmanaged_entries`:
-   - If `false`: call `resp.State.RemoveResource(ctx)` (current behavior)
-   - If `true`: add a diagnostic warning but keep the resource in state
-2. During `PlanModify`, if `protect_unmanaged_entries` is true and an out-of-band
-   entry is found, emit a warning rather than planning a destroy.
-
-The drift-detection mechanism uses a **data source** (not a resource) that lists
-all managed entries at plan time. The data source calls `GET /api/v1/{list}?managed_by=terraform`
-for each list type (allowlist, blocklist, watchlist). The provider compares the
-data source results against Terraform state and emits warnings for discrepancies.
-
-**Steps:**
-1. Create `internal/data_sources/managed_entries.go` implementing the `ja4proxy_managed_entries`
-   data source. The `Read` method calls three API endpoints:
-   `GET /api/v1/allowlist?managed_by=terraform`, `GET /api/v1/blocklist?managed_by=terraform`,
-   and `GET /api/v1/watchlist?managed_by=terraform`. The schema should have three list-of-string
-   attributes (`allowlist_ids`, `blocklist_ids`, `watchlist_ids`) containing the entry IDs.
-   Use the existing HTTP client from `internal/client/client.go` — the data source receives
-   it via `Configure` (same as resources).
-2. Register the data source in `internal/provider/provider.go` via the `Datasources()` method
-   (note the plural — this is the Terraform Plugin Framework convention).
-3. In each list resource's `Read` method (`allowlist_entry.go`, `blocklist_entry.go`,
-   `watchlist_entry.go`), after fetching by ID: if the API returns 404 (entry gone) and
-   `protect_unmanaged_entries` is `false`, call `resp.State.RemoveResource(ctx)`; if
-   `protect_unmanaged_entries` is `true`, add a diagnostic warning (`resp.Diagnostics.AddWarning`)
-   but keep the resource in state so the next apply can re-create it.
-4. Add a `PlanModifier` on each list resource that checks `protect_unmanaged_entries` during
-   plan: if the data source shows the entry was deleted out-of-band (present in state but
-   absent from the data source result), emit a warning diagnostic instead of planning a destroy.
-   The `ModifyPlan` function receives both the planned state and the data source results.
-5. Write `TestAllowlistEntry_DriftWarning` (and equivalent for blocklist/watchlist): create
-   an entry via the resource, delete it via a direct API call (simulating operator action),
-   run `terraform plan`, assert a warning diagnostic is emitted with text mentioning "deleted
-   out-of-band".
-6. Run `go test ./internal/resources/... -v -count=1` — must pass with zero failures.
-
-**Out of scope:** This sub-phase does not introduce new resource types. It implements Read-time drift detection only — plan-time drift warnings via the data source are covered but full plan-time drift scanning across all entries is limited to what the data source provides.
+**Watch out for**
+- The GitHub org name and the Registry namespace are not always identical. Document what has actually been registered (or "pending registration" if not yet submitted). Do not invent.
 
 ---
 
-#### G3 — `[terraform]` reason prefix not applied to ban + webhook (HIGH)
+## Sub-task 102c — ADR-093c: TTL renewal + drift-detection decision
 
-**Files:** `internal/resources/ban.go`, `webhook.go`
+**Size:** XS (20 min)
+**Files to touch:** `docs/decisions/ADR-093c-ttl-renewal-and-drift-detection.md` (new)
+**Depends on:** none. **Parallel with:** 102a, 102b, 102d.
 
-The Phase 93 critical review (Finding 3) decided that since the ban and webhook
-API endpoints don't have a `managed_by` field, the provider should prefix the
-`reason` with `[terraform]` for ownership identification.
+**What to do**
+1. Document two related decisions in one ADR:
+   - **TTL renewal:** `ja4proxy_ban.Update` re-POSTs the ban; the Management API's idempotent POST resets the TTL. The provider additionally auto-renews when the remaining TTL drops below 24 hours (verified in external `internal/resources/ban_resource.go` — symbol-level reference, not line number). No dedicated `/renew` endpoint required.
+   - **Drift detection:** no `ja4proxy_managed_entries` data source is shipped. Rationale: `PlanModifiers` on list resources plus `protect_unmanaged_entries` defaulting to **true** already prevent the failure mode the data source would address (out-of-band deletions reapplying silently). A data source is additive and can be introduced in a future phase if an operator need emerges.
+2. Include a **Consequences** section listing what operators lose by not having the data source (no plan-time warning for drifted entries *that still exist with a different managed_by*) and the mitigation (Management API's audit log still captures the change).
 
-**What exists:** The `ban` resource sends `reason` as-is from the Terraform config.
-The `webhook` resource doesn't have a `reason` field at all — it uses the API's
-`managed_by` field (which the API returns, but the provider doesn't set on create).
+**Done when**
+- [ ] File exists with both decisions clearly separated
+- [ ] Rationale for deferring the data source is written down, not implicit
 
-**Fix:**
-- **Ban:** On Create, prefix the reason: `"[terraform] " + plan.Reason`. On Read,
-  strip the prefix when populating state. On Delete, no change needed.
-- **Webhook:** The API already has `managed_by` on webhooks. The provider should
-  set it on create by including it in the POST body. Check if the API accepts
-  `managed_by` in the create request — if not, fall back to prefixing `url` or
-  a custom header field.
-
-**Steps:**
-1. In `internal/resources/ban.go`, modify the `Create` method to prefix the reason: `"[terraform] " + plan.Reason` before sending the POST body to the API.
-2. In the `Read` method, detect the `[terraform] ` prefix on the returned reason and strip it before populating state so the user sees their original value.
-3. In `internal/resources/webhook.go`, add `managed_by` to the POST body on create with value `"terraform"`. If the API does not accept `managed_by`, document the fallback in the resource schema description.
-4. Add `TestBan_TicketAndReason` — create a ban, assert the API receives `[terraform] ` prefixed reason.
-5. Add `TestBan_ReadStripsPrefix` — create a ban with prefix, read back, assert state contains unprefixed reason.
-6. Add `TestWebhook_ManagedBySet` — create a webhook, assert `managed_by = "terraform"` is in the POST body.
-7. Run `go test ./internal/resources/... -v -count=1` — must pass with zero failures.
-
-**Out of scope:** This sub-phase does not add new fields to the ban or webhook resources and does not change the Management API contract — it only modifies how the provider formats outgoing requests and parses incoming responses.
+**Watch out for**
+- `protect_unmanaged_entries` default was changed from the originally-planned `false` to `true` by the external repo (safer for a security tool). Note this deviation explicitly so future readers don't think it's a bug.
 
 ---
 
-#### G4 — Ban resource missing `ticket` and `ttl_hours` fields (HIGH)
+## Sub-task 102d — Audit `emergency_playbooks.md` against playbook YAML
 
-**File:** `internal/resources/ban.go`
+**Size:** S (30–45 min)
+**Files to touch:** `docs/runbooks/emergency_playbooks.md`
+**Depends on:** none. **Parallel with:** 102a, 102b, 102c.
 
-The Phase 93 doc (§5.4) shows `ticket` as an attribute and uses `ttl_hours` in
-the HCL example. The actual schema has:
-- `ip` (string, required)
-- `ttl` (int64, required) — **in seconds, not hours**
-- `reason` (string, required)
-- No `ticket` field
+**What to do**
+1. Read all three playbooks in `deploy/ansible/playbooks/emergency/*.yml` in full. For each, note:
+   - Playbook name + purpose (from the top-level `name:` key)
+   - Required variables (anything under `vars:` or referenced via `{{ }}` that isn't defaulted)
+   - Optional variables (ServiceNow / Slack integration vars)
+   - Safety constraints (abort-on-422, dial ±10 stepping, rollback behaviour)
+2. Read `docs/runbooks/emergency_playbooks.md` and diff mentally against what you found.
+3. Amend the runbook so it matches the playbooks, preserving existing structure. Update only what is wrong or missing. Do **not** rewrite sections that are accurate.
+4. Add a troubleshooting sub-section if one is missing — include at least: auth errors (401/403), API validation failures (422), network timeout, missing Ansible vars.
 
-**Fix:**
-- Add `ticket` (string, optional) to the schema
-- Add `ttl_hours` (int64, optional) as an alternative to `ttl`. If `ttl_hours`
-  is set, compute `ttl = ttl_hours * 3600`. One of `ttl` or `ttl_hours` must
-  be provided (validate at plan time).
-- Store `ticket` in the reason string or as a separate API field if the API
-  supports it.
+**Done when**
+- [ ] Every playbook in `deploy/ansible/playbooks/emergency/*.yml` has a section in the runbook
+- [ ] Every required variable is listed in the runbook's "Prerequisites"
+- [ ] `python3 -m pytest tests/integration/test_emergency_playbooks.py -v` passes (14 tests)
 
-**Steps:**
-1. Add `ticket` (string, optional) to the ban resource schema in `internal/resources/ban.go`.
-2. Add `ttl_hours` (int64, optional) to the ban resource schema as an alternative to `ttl`.
-3. Add a `PlanModifier` or validation function that requires exactly one of `ttl` or `ttl_hours` — error if both or neither are set.
-4. In the `Create` method: if `ttl_hours` is set, compute `ttl = ttl_hours * 3600` before sending to the API. If `ticket` is set, append it to the reason string (e.g., `"[terraform] <reason> (ticket: <ticket>)"`) or send as a separate field if the API supports it.
-5. In the `Read` method, populate `ttl_hours` from `ttl / 3600` and populate `ticket` from state or parse from reason if stored there.
-6. In the `Update` method, apply the same `ttl_hours` → `ttl` conversion logic.
-7. Write `TestBan_TicketField` — create a ban with `ticket`, assert it appears in state.
-8. Write `TestBan_TTLHours` — create a ban with `ttl_hours = 24`, assert the API receives `ttl = 86400`.
-9. Run `go test ./internal/resources/... -v -count=1` — must pass with zero failures.
-
-**Out of scope:** This sub-phase does not implement TTL auto-detection at 24h (that is 102h) and does not modify the Management API endpoint — the provider adapts to the existing API.
+**Watch out for**
+- The playbooks are the source of truth. If runbook and playbook disagree, update the runbook, not the playbook.
+- `test_emergency_playbooks.py` tests the YAML structure, not the runbook. Passing tests do not imply the runbook is correct — human read-through is required.
 
 ---
 
-#### G5 — Dial resource missing `ticket` and `notes` (MEDIUM)
+## Sub-task 102e — Refresh `deploy/terraform/README.md`
 
-**File:** `internal/resources/dial.go`
+**Size:** XS (20 min)
+**Files to touch:** `deploy/terraform/README.md`
+**Depends on:** 102a, 102b, 102c (ADRs should exist so the README can link them).
 
-The Phase 93 doc (§5.5) shows `ticket` and `notes` attributes. The actual schema
-only has `value`.
+**What to do**
+1. Add a short section titled "Drift protection" documenting:
+   - `protect_unmanaged_entries` default is **true** (link to ADR-093c)
+   - To override for a specific apply: set `protect_unmanaged_entries = false` at the provider block, or run `terraform state rm <resource>` to acknowledge the orphaning
+2. Add a link to ADR-093a (repo topology) in a "See also" section so users know where the provider code lives.
+3. If the existing quick-start example does not set `protect_unmanaged_entries`, add a comment in the example showing the default and how to override.
+4. Do not rewrite the whole file — this is a targeted addition.
 
-**Fix:**
-- Add `ticket` (string, optional) — include in the PATCH body if the API accepts it
-- Add `notes` (string, optional) — same
-- If the API's `PATCH /api/v1/dial` doesn't accept these fields, store them as
-  Terraform-only metadata (computed state, not sent to API). Document this
-  limitation.
+**Done when**
+- [ ] `grep -c protect_unmanaged_entries deploy/terraform/README.md` ≥ 2 (section header + example comment)
+- [ ] Links to ADR-093a and ADR-093c resolve (relative paths checked with `ls`)
 
-**Steps:**
-1. Add `ticket` (string, optional) to the dial resource schema in `internal/resources/dial.go`.
-2. Add `notes` (string, optional) to the dial resource schema.
-3. In the `Create`/`Update` method, attempt to include `ticket` and `notes` in the PATCH body. If the API returns a 400/422 indicating unknown fields, silently omit them and store them as Terraform-only state (set in state but not sent to API).
-4. In the `Read` method, preserve `ticket` and `notes` from prior state (they are Terraform-only if the API does not accept them).
-5. Add a schema description note on both fields documenting whether they are sent to the API or stored locally only.
-6. Write `TestDial_TicketAndNotes` — create a dial with `ticket` and `notes`, assert both appear in state.
-7. Run `go test ./internal/resources/... -v -count=1` — must pass with zero failures.
-
-**Out of scope:** This sub-phase does not modify the dial Management API. If the API does not accept `ticket` or `notes`, the limitation is documented in the schema — the API is not changed to support them.
+**Watch out for**
+- Don't add configuration examples that don't match the external provider's actual schema. If unsure, open `internal/provider/provider.go` in the external repo and copy field names verbatim.
 
 ---
 
-#### G6 — No ADRs written (MEDIUM)
+## Sub-task 102f — Reconcile manifest + close phase
 
-**Required by PHASE_93.md §10.** None of the three ADRs exist:
+**Size:** XS (15 min)
+**Files to touch:** `docs/phases/manifest.yaml`, `CHANGELOG.md`
+**Depends on:** 102a–102e all complete.
 
-| ADR | Decision | Recommendation |
-|-----|----------|---------------|
-| ADR-093a | Repository topology | Keep in-tree during development (`terraform-provider/`), extract to separate repo before Registry publication. Document the extraction procedure. |
-| ADR-093b | Terraform Registry namespace | `ja4proxy/ja4proxy` (self-published). No HashiCorp partnership needed. |
-| ADR-093c | TTL renewal strategy for `ja4proxy_ban` | Re-POST on apply (already implemented via `Update`). The API's idempotent POST resets the TTL. No dedicated `/renew` endpoint needed. |
+**What to do**
+1. In `docs/phases/manifest.yaml`:
+   - Set Phase 102 to `status: COMPLETE` with `completed: '2026-04-XX'` (today's date).
+   - Add a `lessons_learned:` field noting that most of 102's original scope was closed in the external provider repo before 102 started; the phase narrowed to docs-only.
+   - Delete the duplicate `101:` key at lines 1124–1138 (superseded by the broader cross-phase-gap entry at line 1435). Coordinate with Phase 101's close-out if 101 is still open.
+2. Prepend a CHANGELOG entry: `## [Unreleased] - Phase 102 — Terraform provider documentation close-out`. List the three ADRs, the runbook audit, and the README refresh.
+3. Run `make sync` — regenerates `TODO.md` and `PROJECT_STATUS.md`.
+4. Run `bash scripts/close-phase.sh`. **Must exit 0.**
 
-**Steps:**
-1. Create `docs/decisions/ADR-093a-repository-topology.md` documenting the decision to keep the provider in-tree during development (`terraform-provider/`) and extract to a separate repo before Registry publication. Include the extraction procedure.
-2. Create `docs/decisions/ADR-093b-terraform-registry-namespace.md` documenting the decision to use `ja4proxy/ja4proxy` namespace (self-published, no HashiCorp partnership).
-3. Create `docs/decisions/ADR-093c-ttl-renewal-strategy.md` documenting the decision to re-POST on apply for TTL renewal (API's idempotent POST resets TTL, no dedicated `/renew` endpoint needed).
-4. Follow the ADR template in `docs/decisions/` (if one exists) or use standard ADR format: Context, Decision, Consequences, Status.
-5. Verify all three ADRs are referenced from `docs/decisions/README.md` (or the index file used by the project).
+**Done when**
+- [ ] Only one `101:` key exists in the manifest (`grep -c "^  101:" docs/phases/manifest.yaml` returns 1)
+- [ ] `yaml.safe_load` on the manifest succeeds
+- [ ] `make sync` exits 0
+- [ ] `bash scripts/close-phase.sh` exits 0
 
-**Out of scope:** This sub-phase is documentation-only — no code changes, no CI modifications, and no Terraform Registry submission (that is an external process tracked separately).
-
----
-
-#### G7 — No CI workflows for terraform-provider (MEDIUM)
-
-**Required by PHASE_93.md §9 success criteria.** The provider has no `.github/workflows/`
-directory. The Phase 93 manifest (93.5) requires:
-- `.github/workflows/test.yml` — unit + acceptance tests on every PR
-- `.github/workflows/release.yml` — publishes to Terraform Registry on tag
-
-**Fix:** Create both workflows. The test workflow should:
-1. `go test ./internal/... -v -count=1` (unit tests, no mock server needed)
-2. `TF_ACC=1 go test ./internal/... -v -count=1` (acceptance tests against
-   in-process mock servers — the existing mock servers in `*_test.go` files
-   are sufficient)
-3. `go vet ./...`
-4. `golangci-lint run` (if a `.golangci.yaml` is added to the provider)
-
-The release workflow should use goreleaser/goreleaser-action to build multi-arch
-binaries and push to the Terraform Registry.
-
-**Steps:**
-1. Create `.github/workflows/terraform-provider-test.yml` with jobs for: `go vet ./...`, `go test ./internal/... -v -count=1`, `TF_ACC=1 go test ./internal/... -v -count=1` (acceptance tests), and `golangci-lint run` (if `.golangci.yaml` exists in the provider tree). Trigger on `pull_request` targeting the provider directory.
-2. Add optional `tfproviderlint` step: run `go install github.com/bflad/tfproviderlint/cmd/tfproviderlintx@latest` and `tfproviderlintx ./...`. If the tool reports violations, document any suppressions with justification.
-3. Create `.github/workflows/terraform-provider-release.yml` using `goreleaser/goreleaser-action`. Trigger on `push` of tags matching `v*`. Configure to build multi-arch binaries (linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64) and publish to the Terraform Registry via the Registry API.
-4. Ensure both workflows use the correct Go version (read from `go.mod` or pin explicitly).
-5. Test the test workflow locally by pushing to a branch and verifying the Actions run passes.
-6. Run `make test-phase-93` locally — must exit 0.
-
-**Out of scope:** This sub-phase does not introduce new resource types (102b–102e handle those) and does not write ADRs (that is 102f). Terraform Registry submission is configured here but the actual Registry review/approval process is external to this phase.
+**Watch out for**
+- Don't delete line 1435's broader `101:` entry — delete line 1124's narrower one. The broader one is the source of truth.
+- `close-phase.sh` runs the full test suite. Budget ~3 minutes for it to finish. Don't interrupt.
 
 ---
 
-#### G8 — Ban TTL renewal lacks 24h near-expiry detection (LOW)
+## 3. Acceptance criteria
 
-**File:** `internal/resources/ban.go`
+- [ ] ADR-093a (repo topology) exists in `docs/decisions/`
+- [ ] ADR-093b (Registry namespace) exists in `docs/decisions/`
+- [ ] ADR-093c (TTL renewal + drift-detection decision) exists in `docs/decisions/`
+- [ ] `docs/runbooks/emergency_playbooks.md` matches the three YAML playbooks
+- [ ] `deploy/terraform/README.md` documents `protect_unmanaged_entries`
+- [ ] `docs/phases/manifest.yaml` has exactly one `101:` key
+- [ ] Phase 102 marked `COMPLETE` in manifest with `completed` date
+- [ ] `bash scripts/close-phase.sh` exits 0
+- [ ] 14 playbook tests in `tests/integration/test_emergency_playbooks.py` still pass
 
-The `Update` method re-POSTs the ban to refresh the TTL, but it doesn't
-automatically detect when a ban is within 24 hours of expiry. The Phase 93
-doc (§5.4) says:
+## 4. Explicitly out of scope
 
-> "On the next `terraform apply`, it re-POSTs the ban to reset the TTL."
-
-This works if the user runs `terraform apply` regularly, but there's no
-automated detection. The `Read` method gets `ttl_remaining` from the API
-but doesn't use it to trigger a refresh.
-
-**Fix:** In `Read`, if `ttl_remaining <= 86400` (24h), mark the resource
-as "needs refresh" by setting a private state flag. On the next `PlanModify`,
-if the flag is set and the config hasn't changed, plan an Update to refresh
-the TTL. This is an optimization — not required for correctness, since
-the user can always run `terraform apply -refresh-only`.
-
----
-
-#### G9 — `docs/runbooks/emergency_playbooks.md` needs content audit (LOW)
-
-**File:** `docs/runbooks/emergency_playbooks.md`
-
-This file was created by the Phase 93 merge. Verify it covers:
-- All 3 playbooks with usage examples
-- Prerequisites (Ansible, `ja4proxy_token`, optional ServiceNow/Slack vars)
-- Safety constraints (dial ±10 stepping, abort-on-422)
-- Troubleshooting (common failure modes)
-
-Update any sections that don't match the actual playbook content.
-
-**Steps:**
-1. Read `docs/runbooks/emergency_playbooks.md` in full.
-2. Read each of the 3 Ansible playbooks in `deploy/ansible/playbooks/emergency/*.yml`.
-3. Verify the doc covers each playbook with: name, purpose, required variables, usage example command, and expected output.
-4. Verify the doc lists prerequisites: Ansible installation, `ja4proxy_token`, optional ServiceNow/Slack variables.
-5. Verify the doc documents safety constraints: dial ±10 stepping, abort-on-422 behavior.
-6. Verify the doc includes a troubleshooting section with common failure modes (auth errors, 422 responses, network timeouts, missing variables).
-7. Update any sections that are inaccurate, incomplete, or don't match the actual playbook files.
-8. Run `python3 -m pytest tests/integration/test_emergency_playbooks.py -v` — all 14 tests must pass.
-
-**Out of scope:** This sub-phase is an audit-only exercise — no new playbook content is written beyond what already exists in the Ansible YAML files, and no code changes are made. If gaps are found between the doc and the playbooks, the doc is updated to match the playbooks (the playbooks themselves are not modified).
-
----
-
-## 2. Acceptance criteria
-
-### Code
-
-- [ ] `protect_unmanaged_entries` field present in provider schema with default `false`
-- [ ] `managed_by = "terraform"` verified on create for allowlist, blocklist, watchlist
-- [ ] `[terraform]` reason prefix on ban resource (create and read)
-- [ ] Webhook resource sets `managed_by` on create (or documents fallback)
-- [ ] Ban resource has `ticket` field
-- [ ] Ban resource supports `ttl_hours` as alternative to `ttl`
-- [ ] Dial resource has `ticket` and `notes` fields
-- [ ] All existing tests still pass
-- [ ] New tests added for drift detection, ticket fields, ttl_hours conversion
-
-### Documentation
-
-- [ ] ADR-093a (repo topology) written and merged
-- [ ] ADR-093b (namespace) written and merged
-- [ ] ADR-093c (TTL renewal) written and merged
-- [ ] `deploy/terraform/README.md` updated with `protect_unmanaged_entries` usage
-- [ ] `docs/runbooks/emergency_playbooks.md` audited and updated
-
-### CI/CD
-
-- [ ] `.github/workflows/terraform-provider-test.yml` exists and runs on PR
-- [ ] `.github/workflows/terraform-provider-release.yml` exists for tag-based releases
-- [ ] `tfproviderlint` exits 0 (or documented as deferred with justification)
-- [ ] `make test-phase-93` passes with zero failures
-
-### Manifest
-
-- [ ] `docs/phases/manifest.yaml`: Phase 93 sub-phases 93.1–93.7 marked COMPLETE
-- [ ] Phase 102 marked COMPLETE
-- [ ] `python3 scripts/sync-roadmap.py` run
-- [ ] `make lint-phases` exits 0
-
----
-
-## 3. Test strategy
-
-### Go unit tests (in `terraform-provider/internal/resources/`)
-
-| Test | What it verifies |
-|------|-----------------|
-| `TestBan_TicketField` | `ticket` accepted in config, stored in state |
-| `TestBan_TTLHours` | `ttl_hours = 24` → `ttl = 86400` sent to API |
-| `TestBan_TicketAndReason` | `[terraform]` prefix applied to reason |
-| `TestBan_ReadStripsPrefix` | `[terraform] ` stripped from reason on read |
-| `TestDial_TicketAndNotes` | `ticket` and `notes` accepted in config |
-| `TestProvider_ProtectUnmanagedEntries_Default` | defaults to `false` |
-| `TestProvider_ProtectUnmanagedEntries_True` | accepted and passed to resources |
-
-### Go acceptance tests
-
-The existing mock servers in `*_test.go` already support acceptance testing.
-Add:
-- `TestAllowlistEntry_DriftWarning` — entry deleted out-of-band, warning emitted
-- `TestWebhook_ManagedBySet` — `managed_by = "terraform"` in API request body
-
-### Python tests
-
-No new Python tests needed — the playbook static tests (14 tests) are complete.
-The `make test-phase-93` target already runs them.
-
----
-
-## 4. Out of scope
-
-- Terraform Registry publication (requires separate HashiCorp review process)
-- Moving the provider to a separate GitHub repository (tracked by ADR-093a as a
-  post-completion action)
-- `ja4proxy_cidr_ban` resource (consolidated into `ja4proxy_ban` in Phase 93 review)
-- Management API changes (the provider adapts to the existing API, not vice versa)
-- Ansible playbook runtime tests against a live Management API (static YAML tests
-  is the current bar; live tests require a running API instance)
-- Phase 94 (Kubernetes Operator) — separate phase, separate repo
-
----
+- Any code changes in `/home/sean/LLM/terraform-provider-ja4proxy`. If
+  verification in 102d or later reveals a genuine external-repo bug, file a
+  separate issue; do not fix it inside Phase 102.
+- Terraform Registry submission (asynchronous, external process — tracked by ADR-093b).
+- `ja4proxy_managed_entries` data source (decision to defer is documented by ADR-093c).
+- Ansible playbook changes (playbooks are source of truth; runbook follows them, not vice versa).
+- Phase 94 (Kubernetes Operator) — separate phase, separate repo.
+- Pushing the external repo to GitHub (that is Phase 101 H17, different phase).
 
 ## 5. Implementation order
 
-1. **102a** — Add `protect_unmanaged_entries` to provider schema (30 min)
-2. **102f** — Write the 3 ADRs (1 hour, can be done in parallel with 102a)
-3. **102c** — Add `[terraform]` prefix to ban reason (30 min)
-4. **102d** — Add `ticket` + `ttl_hours` to ban resource (1 hour)
-5. **102e** — Add `ticket` + `notes` to dial resource (30 min)
-6. **102b** — Drift detection data source + warnings (2 hours, hardest item)
-7. **102g** — CI workflows (1 hour)
-8. **102h** — Doc audit + README updates (30 min)
+```
+     ┌── 102a ──┐
+     ├── 102b ──┤
+none ┼── 102c ──┼── 102e ── 102f (close)
+     └── 102d ──┘
+```
 
-Total estimated effort: ~6 hours of focused work.
+All of 102a–102d are parallel-safe (different files, no shared state). 102e
+can start as soon as the three ADRs land. 102f runs last.
+
+**Total effort:** ~3 hours for one engineer working sequentially, or ~1 hour
+wall-clock for two engineers working in parallel on the independent tasks.
+
+## 6. Junior-engineer checklist before starting
+
+Before touching any file, confirm:
+
+- [ ] You have read-only access to `/home/sean/LLM/terraform-provider-ja4proxy` (needed for verification in 102a–102c).
+- [ ] You understand that **no code changes** go into the external repo in this phase.
+- [ ] You know the ADR template — read `docs/decisions/ADR-094c.md` as a worked example.
+- [ ] You are on a feature branch off `main`, not on `main` directly.
+- [ ] You will commit **per sub-task** (one commit per ADR, one for the runbook, one for README, one for manifest).
