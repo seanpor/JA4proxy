@@ -100,6 +100,7 @@ epics:
   - 46
   - 60
   - 61
+  - 207
 phases:
   204:
     name: 'README Badges — License, Versions, CI, Security'
@@ -1573,3 +1574,26 @@ phases:
     - docs/runbooks/emergency_playbooks.md audited against playbook YAML
     - deploy/terraform/README.md documents protect_unmanaged_entries default=true
     - 17/17 emergency playbook tests pass
+  207:
+    name: 'Go Test Coverage Improvement & Repository Hygiene'
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_207.md
+    dependencies: []
+    size: LARGE
+    summary: 'Raise Go test coverage to ≥80% across all packages (cmd/ja4check 0%,
+      cmd/ja4proxy-cli 0%, cmd/syncagent 28%, cmd/proxy 46.6%, internal/cli/commands
+      67.4%, internal/cli/config 76.9%). Also: README accuracy fixes, lint tool
+      configuration (mypy, semgrep), stale test stub cleanup.'
+    success_criteria:
+    - cmd/ja4check coverage ≥ 80%
+    - cmd/ja4proxy-cli coverage ≥ 80%
+    - cmd/syncagent coverage ≥ 80%
+    - cmd/proxy coverage ≥ 80%
+    - internal/cli/commands coverage ≥ 80%
+    - internal/cli/config coverage ≥ 80%
+    - All 20 Go packages pass go test ./...
+    - README badges and Go proxy section reflect actual state
+    - make lint-all exits 0
+    - Stale pytest.skip stubs resolved
+    - make test passes
+    - CHANGELOG.md updated
