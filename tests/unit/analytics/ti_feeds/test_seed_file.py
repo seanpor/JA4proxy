@@ -153,7 +153,6 @@ def test_seed_file_empty_fingerprints_section_is_an_error(tmp_path):
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
-
 # ── _parse_entries validation ────────────────────────────────────────────────
 
 
@@ -556,11 +555,11 @@ def _mock_seed_metric():
 @pytest.mark.asyncio
 async def test_run_once_short_entries_warning(tmp_path):
     """run_once logs warning when entries < min_entries."""
-    from src.analytics.ti_feeds.seed_file import run_once
-    from tests._helpers.ti_feed_stubs import StubManagementClient
-
     import fakeredis
+
+    from src.analytics.ti_feeds.seed_file import run_once
     from src.analytics.ti_feeds.state import FeedState
+    from tests._helpers.ti_feed_stubs import StubManagementClient
 
     mgmt = StubManagementClient()
     redis_client = fakeredis.FakeStrictRedis(decode_responses=True)
@@ -586,11 +585,11 @@ fingerprints:
 @pytest.mark.asyncio
 async def test_run_once_api_error(tmp_path):
     """run_once counts ManagementAPIError as errors."""
+    import fakeredis
+
     from src.analytics.ti_feeds.mgmt_client import ManagementAPIError
     from src.analytics.ti_feeds.seed_file import run_once
     from src.analytics.ti_feeds.state import FeedState
-
-    import fakeredis
 
     redis_client = fakeredis.FakeStrictRedis(decode_responses=True)
     state = FeedState(redis_client)
@@ -618,10 +617,10 @@ fingerprints:
 @pytest.mark.asyncio
 async def test_run_once_generic_exception(tmp_path):
     """run_once counts generic exceptions as errors."""
+    import fakeredis
+
     from src.analytics.ti_feeds.seed_file import run_once
     from src.analytics.ti_feeds.state import FeedState
-
-    import fakeredis
 
     redis_client = fakeredis.FakeStrictRedis(decode_responses=True)
     state = FeedState(redis_client)
@@ -649,11 +648,11 @@ fingerprints:
 @pytest.mark.asyncio
 async def test_run_once_success_calls_state_mark(tmp_path):
     """run_once calls state.mark for each successful entry."""
+    import fakeredis
+
     from src.analytics.ti_feeds.seed_file import run_once
     from src.analytics.ti_feeds.state import FeedState
     from tests._helpers.ti_feed_stubs import StubManagementClient
-
-    import fakeredis
 
     redis_client = fakeredis.FakeStrictRedis(decode_responses=True)
     state = FeedState(redis_client)
@@ -689,11 +688,11 @@ fingerprints:
 @pytest.mark.asyncio
 async def test_run_once_empty_file(tmp_path):
     """run_once with 0 entries still returns a valid summary."""
+    import fakeredis
+
     from src.analytics.ti_feeds.seed_file import run_once
     from src.analytics.ti_feeds.state import FeedState
     from tests._helpers.ti_feed_stubs import StubManagementClient
-
-    import fakeredis
 
     redis_client = fakeredis.FakeStrictRedis(decode_responses=True)
     state = FeedState(redis_client)

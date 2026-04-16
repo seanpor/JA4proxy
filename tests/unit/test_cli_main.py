@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
-from src.cli.main import cli, health, proxy_scale, geoip_update
+from src.cli.main import cli, geoip_update, health, proxy_scale
 
 
 @pytest.fixture

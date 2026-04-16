@@ -12,9 +12,8 @@ import hmac
 import time
 from unittest.mock import MagicMock, patch
 
-from cryptography import x509
-
 import pytest
+from cryptography import x509
 
 from src.security.validation import (
     AuditLogger,
@@ -644,7 +643,7 @@ class TestMTLSManagerPaths:
 
     def test_validate_expired_cert_returns_false(self):
         """Lines 402-403: expired certificate → False."""
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
         from unittest.mock import PropertyMock
         mgr = MTLSManager({"tls": {}})
         mock_cert = MagicMock()
@@ -655,7 +654,7 @@ class TestMTLSManagerPaths:
 
     def test_validate_cert_missing_digital_signature_returns_false(self):
         """Lines 408-410: certificate without digital_signature usage → False."""
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
         mgr = MTLSManager({"tls": {}})
         mock_cert = MagicMock()
         mock_cert.not_valid_after = datetime.now(timezone.utc) + timedelta(days=365)
@@ -667,7 +666,7 @@ class TestMTLSManagerPaths:
 
     def test_validate_cert_no_key_usage_extension_passes(self):
         """Lines 412-413: ExtensionNotFound → passes (no key usage check)."""
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
         mgr = MTLSManager({"tls": {}})
         mock_cert = MagicMock()
         mock_cert.not_valid_after = datetime.now(timezone.utc) + timedelta(days=365)
@@ -678,7 +677,7 @@ class TestMTLSManagerPaths:
 
     def test_validate_cert_with_valid_digital_signature_passes(self):
         """Lines 409: digital_signature is True → passes."""
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
         mgr = MTLSManager({"tls": {}})
         mock_cert = MagicMock()
         mock_cert.not_valid_after = datetime.now(timezone.utc) + timedelta(days=365)

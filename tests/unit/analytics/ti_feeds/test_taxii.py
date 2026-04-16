@@ -492,7 +492,9 @@ def test_process_objects_batches_large_set(mock_taxii_server, stub_management_cl
 def test_taxii_aiohttp_non_200_raises(stub_management_client):
     """When aiohttp gets non-200, RuntimeError is raised and caught by poll."""
     TAXIIClient = _import_taxii()
-    from unittest.mock import patch as _patch, AsyncMock, MagicMock
+    from unittest.mock import AsyncMock, MagicMock
+    from unittest.mock import patch as _patch
+
     import aiohttp
 
     class FakeResp:
@@ -529,6 +531,7 @@ def test_taxii_aiohttp_json_parse_error(stub_management_client):
     """When aiohttp response is not valid JSON, error is recorded."""
     TAXIIClient = _import_taxii()
     from unittest.mock import patch as _patch
+
     import aiohttp
 
     class FakeResp:
@@ -564,9 +567,10 @@ def test_taxii_aiohttp_json_parse_error(stub_management_client):
 def test_taxii_aiohttp_non_list_objects(stub_management_client):
     """When aiohttp response.objects is not a list, error is recorded."""
     TAXIIClient = _import_taxii()
-    from unittest.mock import patch as _patch
-    import aiohttp
     import json
+    from unittest.mock import patch as _patch
+
+    import aiohttp
 
     class FakeResp:
         status = 200
@@ -601,9 +605,10 @@ def test_taxii_aiohttp_non_list_objects(stub_management_client):
 def test_taxii_aiohttp_success_path(stub_management_client):
     """aiohttp success path returns valid objects."""
     TAXIIClient = _import_taxii()
-    from unittest.mock import patch as _patch
-    import aiohttp
     import json
+    from unittest.mock import patch as _patch
+
+    import aiohttp
 
     bundle = {"objects": []}
 

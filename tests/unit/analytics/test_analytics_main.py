@@ -4,13 +4,12 @@ Phase 104: coverage gap closure.
 """
 import asyncio
 import json
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 import pytest_asyncio
 
 from src.analytics.main import AnalyticsNode
-
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 

@@ -63,10 +63,9 @@ def test_ja4_safe_to_block_empty_string():
 def test_ja4_safe_to_block_unknown_ja4():
     """Unknown JA4 (not in corpus) returns (True, '')."""
     _reset_corpus()
-    from src.analytics.ti_feeds.ja4_safety import ja4_safe_to_block
-
     # Force empty corpus
     import src.analytics.ti_feeds.ja4_safety as mod
+    from src.analytics.ti_feeds.ja4_safety import ja4_safe_to_block
     mod._JA4_FP_CORPUS = frozenset()
 
     safe, reason = ja4_safe_to_block("t13d191000_aaaaaaaaaa_bbbbbbbbbb")
@@ -78,9 +77,8 @@ def test_ja4_safe_to_block_unknown_ja4():
 def test_ja4_safe_to_block_known_browser():
     """Known browser JA4 returns (False, 'known_browser')."""
     _reset_corpus()
-    from src.analytics.ti_feeds.ja4_safety import ja4_safe_to_block
-
     import src.analytics.ti_feeds.ja4_safety as mod
+    from src.analytics.ti_feeds.ja4_safety import ja4_safe_to_block
     mod._JA4_FP_CORPUS = frozenset({"t13d191000_known_browser"})
 
     safe, reason = ja4_safe_to_block("t13d191000_known_browser")
@@ -92,9 +90,8 @@ def test_ja4_safe_to_block_known_browser():
 def test_is_known_browser_ja4_returns_bool():
     """is_known_browser_ja4 returns a bool via the cached check."""
     _reset_corpus()
-    from src.analytics.ti_feeds.ja4_safety import is_known_browser_ja4
-
     import src.analytics.ti_feeds.ja4_safety as mod
+    from src.analytics.ti_feeds.ja4_safety import is_known_browser_ja4
     mod._JA4_FP_CORPUS = frozenset({"t13d191000_known_browser"})
 
     # Unknown JA4 - safe to block, so is_known_browser returns the safe value
