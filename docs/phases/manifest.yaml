@@ -1419,7 +1419,8 @@ phases:
     - 100-V complete — CLIConfig.ConfirmMutating field parsed; requireConfirm honours it; default true
   101:
     name: "Phase 101 — Cross-Phase Gap Closure"
-    status: PROPOSED
+    status: COMPLETE
+    completed: '2026-04-16'
     action_plan: docs/phases/PHASE_101.md
     dependencies:
     - 84
@@ -1429,6 +1430,7 @@ phases:
     - 86
     - 93
     size: LARGE
+    lessons_learned: 'Phase 101 scope was too broad (38 gaps across 6 parent phases). Delivered H7 (rate limit), H8 (CSRF), H15 (Dynatrace parser), H16 (capacity runbook), M24 (Pushgateway grouping), M25 (scrape-fail entity), M26 (benchmark validation). Remaining items (101i Go parity, M18 deploy validation, H17 provider push) explicitly deferred with documented rationale. H3 DSAR CIDR matching was already implemented — verification-only.'
     sub_phases:
       101a: Phase 84 DSAR correctness (H1, H3, M7) — M, no deps
       101b: Phase 84 compliance hygiene (M1, M2, M4, L1, L2, L5) — S, depends 101a
