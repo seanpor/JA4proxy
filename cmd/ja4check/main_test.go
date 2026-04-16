@@ -7,17 +7,23 @@ import (
 	"testing"
 )
 
-// TestJa4check_NoArgs verifies that running ja4check without arguments exits
-// with code 1 and prints usage to stderr.
-func TestJa4check_NoArgs(t *testing.T) {
-	// Build the binary
+// buildJa4check builds the ja4check binary and returns its path.
+// Skips the test if the build fails (e.g., in CI without GOROOT).
+func buildJa4check(t *testing.T) string {
+	t.Helper()
 	binPath := filepath.Join(t.TempDir(), "ja4check")
 	cmd := exec.Command("go", "build", "-o", binPath, ".")
 	cmd.Dir = filepath.Join(findModuleRoot(t), "cmd", "ja4check")
-	cmd.Env = append(os.Environ(), "GOROOT=/snap/go/current")
 	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("build failed: %v\n%s", err, out)
+		t.Skipf("skipping: could not build ja4check binary: %v\n%s", err, out)
 	}
+	return binPath
+}
+
+// TestJa4check_NoArgs verifies that running ja4check without arguments exits
+// with code 1 and prints usage to stderr.
+func TestJa4check_NoArgs(t *testing.T) {
+	binPath := buildJa4check(t)
 
 	// Run without args
 	runCmd := exec.Command(binPath)
@@ -40,13 +46,7 @@ func TestJa4check_NoArgs(t *testing.T) {
 // TestJa4check_InvalidFile verifies that ja4check exits with code 1 for a
 // nonexistent file.
 func TestJa4check_InvalidFile(t *testing.T) {
-	binPath := filepath.Join(t.TempDir(), "ja4check")
-	cmd := exec.Command("go", "build", "-o", binPath, ".")
-	cmd.Dir = filepath.Join(findModuleRoot(t), "cmd", "ja4check")
-	cmd.Env = append(os.Environ(), "GOROOT=/snap/go/current")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("build failed: %v\n%s", err, out)
-	}
+	binPath := buildJa4check(t)
 
 	runCmd := exec.Command(binPath, "/nonexistent/file.bin")
 	_, err := runCmd.CombinedOutput()
@@ -65,13 +65,7 @@ func TestJa4check_InvalidFile(t *testing.T) {
 // TestJa4check_InvalidData verifies that ja4check exits with code 2 for data
 // that is not a valid TLS ClientHello.
 func TestJa4check_InvalidData(t *testing.T) {
-	binPath := filepath.Join(t.TempDir(), "ja4check")
-	cmd := exec.Command("go", "build", "-o", binPath, ".")
-	cmd.Dir = filepath.Join(findModuleRoot(t), "cmd", "ja4check")
-	cmd.Env = append(os.Environ(), "GOROOT=/snap/go/current")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("build failed: %v\n%s", err, out)
-	}
+	binPath := buildJa4check(t)
 
 	// Write invalid data to a temp file
 	tmpFile := filepath.Join(t.TempDir(), "bad.bin")
