@@ -116,7 +116,10 @@ This verifies:
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `Missing required variable` | Forgot `-e ja4proxy_token=...` | Export `JA4PROXY_TOKEN` or pass via `-e` |
+| `Missing required variable` | Forgot `-e ja4proxy_token=...` (or `cidr` / `ip` / `reason` / `ticket` / `duration_minutes`) | Export `JA4PROXY_TOKEN` or pass via `-e`. The `assert` task in each playbook lists the full set of required vars. |
 | `401 Unauthorized` | Token expired or wrong | Regenerate token via Management API |
-| `422 Unprocessable Entity` | Dial change > ±10 or four-eyes pending | Contact approver — do not suppress the gate |
+| `403 Forbidden` | Token lacks the required scope (e.g. `bans:write`, `dial:write`) | Re-issue the token with the correct scopes — do not downgrade the API's RBAC to work around it |
+| `422 Unprocessable Entity` on `/api/v1/dial` | Dial change > ±10 or four-eyes pending | Contact approver — do not suppress the gate. Playbook 3 aborts automatically on 422. |
+| `422 Unprocessable Entity` on `/api/v1/bans` or `/api/v1/allowlist` | Validation failure — malformed CIDR, missing `expires_at`, or bad TTL | Check the `ban_result` / `whitelist_result` register in the playbook output; fix the input and re-run |
+| `Connection timed out` after 30s | Management API unreachable or slow | Confirm `ja4proxy_url` is correct and the API container is healthy (`curl -sf ${JA4PROXY_URL}/health`); `uri` module uses `timeout: 30` on API calls (10s for Slack) |
 | Playbook hangs on `wait_for` | `duration_minutes` is large | Use `Ctrl+C` — dial will NOT be restored. Run restore manually. |
