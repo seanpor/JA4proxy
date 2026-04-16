@@ -210,8 +210,8 @@ ja4proxy_pipeline_duration_seconds_count 100
         assert any("pipeline_duration_seconds" in n for n in names)
 
     def test_plugin_handles_scrape_failure_gracefully(self, caplog):
-        """On HTTP scrape failure, plugin must log one error and emit no
-        metrics — must not crash."""
+        """On HTTP scrape failure, plugin must log one error and return a
+        synthetic scrape_failed entity (M25) — must not crash."""
         import logging
         from unittest.mock import patch
 
@@ -222,8 +222,13 @@ ja4proxy_pipeline_duration_seconds_count 100
         with patch("urllib.request.urlopen", side_effect=OSError("boom")):
             with caplog.at_level(logging.ERROR):
                 result = mod.scrape_metrics("http://127.0.0.1:9/metrics")
-        assert result in (None, {}, [], ()), (
-            "failed scrape must return empty/None, not raise"
+        assert isinstance(result, list), (
+            "failed scrape must return a list, not raise"
+        )
+        # M25: synthetic scrape_failed entity is emitted on failure
+        failed = [s for s in result if "scrape_failed" in s[0]]
+        assert len(failed) >= 1, (
+            "failed scrape must emit a synthetic scrape_failed entity"
         )
 
     def test_extension_yaml_topology_preserved(self):
