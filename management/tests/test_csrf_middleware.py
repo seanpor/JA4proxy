@@ -82,8 +82,15 @@ async def test_csrf_post_cookie_no_origin_rejected(app_with_redis):
 
 
 @pytest.mark.asyncio
-async def test_csrf_post_cookie_missing_origin_rejected(app_with_redis):
-    """A POST with cookie auth and completely missing Origin header -> 403."""
+async def test_csrf_post_cookie_missing_origin_allowed(app_with_redis):
+    """A POST with cookie auth and completely missing Origin header passes.
+
+    Modern browsers always send an Origin header on cross-origin requests.
+    A missing Origin means same-origin or a non-browser caller (curl, API
+    client). SameSite cookie policy protects same-origin; non-browser callers
+    aren't vulnerable to CSRF. Blocking missing-Origin would break every
+    same-origin form submission and every internal API client.
+    """
     app, redis = app_with_redis
     token = _create_access_token("admin", role="admin")
 
@@ -99,8 +106,9 @@ async def test_csrf_post_cookie_missing_origin_rejected(app_with_redis):
             "/api/v1/dial",
             json={"value": 50},
         )
-        assert r.status_code == 403, (
-            f"Expected 403 for cookie POST without Origin, got {r.status_code}: {r.text}"
+        # Missing Origin = same-origin or non-browser → allow through
+        assert r.status_code != 403, (
+            f"Missing Origin should not trigger CSRF rejection, got {r.status_code}: {r.text}"
         )
 
 
