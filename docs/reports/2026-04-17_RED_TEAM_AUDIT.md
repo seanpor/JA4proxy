@@ -790,7 +790,57 @@ if len(body) < 4+helloLen {
 
 ---
 
-## Grand Total (All 8 Red Team Audits)
+## Round 5: Logging, Inter-Service, Crypto, Encoding (April 17, 2026 - Fifth Audit)
+
+### Finding LOG-001: CRITICAL Log Injection
+**Severity:** Critical
+**Location:** `src/security/validation.py`, `proxy.py`, multiple
+
+**Attack Scenario:** Attacker sends crafted JA4 with `\n` → fake log entries.
+
+**Impact:** SIEM bypass
+
+### Finding LOG-002: CRITICAL Credentials in Logs
+**Severity:** Critical
+**Location:** `src/analytics/ti_feeds/`
+
+**Attack Scenario:** API credentials in exception logging.
+
+**Impact:** Credential theft
+
+### Finding INT-001: HIGH PubSub No Auth
+**Severity:** High
+**Location:** `src/pubsub.py:122-152`
+
+**Attack Scenario:** Any compromised container → cross-instance commands.
+
+**Impact:** Lateral movement
+
+### Finding INT-002: HIGH Unauthenticated Metrics  
+**Severity:** High
+**Location:** `src/security/health.py`
+
+**Attack Scenario:** `/metrics` endpoint unauthenticated → security signals exposed.
+
+**Impact:** Reconnaissance
+
+### Finding CRYPTO-001: HIGH Default Password
+**Severity:** High
+**Location:** tests/conftest.py
+
+**Attack Scenario:** Default 'changeme' password if Redis unconfigured.
+
+**Impact:** Unauthorized Redis access
+
+### Finding ENC-001: MEDIUM SNI Unicode
+**Severity:** Medium
+**Location:** `src/tls/parser.py`
+
+**Attack Scenario:** Unicode homographs in SNI → blocklist bypass.
+
+---
+
+## Grand Total (All 5 Red Team Audits)
 
 | Audit Round | Critical | High | Medium | Low | Total |
 |------------|----------|------|--------|-----|-------|
@@ -798,19 +848,18 @@ if len(body) < 4+helloLen {
 | Round 2 (Supply/Backup/TLS) | 1 | 1 | 4 | 2 | 8 |
 | Round 3 (Session/Analytics/Export/TI) | 1 | 7 | 4 | 0 | 12 |
 | Round 4 (Redis/SSO/DoS) | 4 | 7 | 5 | 0 | 16 |
-| **GRAND TOTAL** | **9** | **21** | **18** | **5** | **53** |
+| Round 5 (Logging/Svc/Crypto) | 3 | 7 | 6 | 0 | 16 |
+| **TOTAL** | **12** | **28** | **24** | **5** | **69** |
 
 ---
 
 ## Action Items
 
-- [ ] Add 2 NEW critical findings to Phase 118 or Phase 119:
-  - BE-001: Backup header encryption status leak
-  - SC-001: urllib TLS verification
-- [ ] Add findings from Round 3 to new Phase 119:
-  - SJC-001: Config path traversal
-  - SJC-002: Dev mode plaintext password
-  - SJC-003: Password policy (already partially in 118e)
-  - EXP-001: IP ACL bypass
+- [ ] Create Phase 119 for remaining findings (Round 5 + backlogs):
+  - Log injection prevention
+  - PubSub authentication  
+  - Unauthenticated metrics
+  - Default password removal
+  - PBKDF2 iterations increase
   - EXP-002: CRLF injection
 - [ ] Add auth endpoint rate limiting (already partially in 118e)
