@@ -15,20 +15,48 @@ import (
 	gotls "github.com/anomalyco/ja4proxy/internal/tls"
 )
 
+// osExit is overridden in tests to avoid calling os.Exit.
+var osExit = os.Exit
+
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: ja4check <clienthello.bin>")
-		os.Exit(1)
+	result, code := mainResult(os.Args[1:])
+	if code != 0 {
+		fmt.Fprintln(os.Stderr, result)
+		osExit(code)
+		return
 	}
-	data, err := os.ReadFile(os.Args[1])
+	fmt.Println(result)
+}
+
+// mainResult returns the output string and exit code.
+func mainResult(args []string) (string, int) {
+	result, err := run(args)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		if _, ok := err.(*parseError); ok {
+			return err.Error(), 2
+		}
+		return err.Error(), 1
+	}
+	return result, 0
+}
+
+// parseError wraps TLS parse failures so main() can distinguish exit code 2.
+type parseError struct{ err error }
+
+func (e *parseError) Error() string { return "parse error: " + e.err.Error() }
+
+// run encapsulates the ja4check logic for testability.
+func run(args []string) (string, error) {
+	if len(args) < 1 {
+		return "", fmt.Errorf("usage: ja4check <clienthello.bin>")
+	}
+	data, err := os.ReadFile(args[0])
+	if err != nil {
+		return "", err
 	}
 	info, err := gotls.ParseClientHello(data)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "parse error: %v\n", err)
-		os.Exit(2)
+		return "", &parseError{err}
 	}
-	fmt.Println(gotls.ComputeJA4(info))
+	return gotls.ComputeJA4(info), nil
 }

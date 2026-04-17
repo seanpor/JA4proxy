@@ -37,11 +37,14 @@ type globalFlags struct {
 
 var gf globalFlags
 
+// osExit is overridden in tests to prevent calling os.Exit.
+var osExit = os.Exit
+
 func main() {
 	root := buildRoot()
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		osExit(1)
 	}
 }
 
@@ -93,7 +96,7 @@ func requireConfirm(confirmed bool, _ *cobra.Command) {
 		return
 	}
 	fmt.Fprintf(os.Stderr, "This is a mutating operation. Add --confirm to proceed.\n")
-	os.Exit(1)
+	osExit(1)
 }
 
 // resolveFormat returns the output format to use.
@@ -154,10 +157,11 @@ func handleError(err error) {
 	var pendErr *commands.PendingApprovalError
 	if errors.As(err, &pendErr) {
 		fmt.Println(pendErr.Error())
-		os.Exit(2)
+		osExit(2)
+		return
 	}
 	fmt.Fprintln(os.Stderr, "Error:", err)
-	os.Exit(1)
+	osExit(1)
 }
 
 // ── Root ─────────────────────────────────────────────────────────────────────
@@ -446,7 +450,7 @@ func buildDialCmd() *cobra.Command {
 			var setting int
 			if _, err := fmt.Sscanf(args[0], "%d", &setting); err != nil || setting < 0 || setting > 100 {
 				fmt.Fprintln(os.Stderr, "Error: dial setting must be an integer 0–100")
-				os.Exit(1)
+				osExit(1)
 			}
 			c, err := newClient()
 			handleError(err)
@@ -576,16 +580,16 @@ func buildPolicyCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, _ []string) {
 			if validateFile == "" {
 				fmt.Fprintln(os.Stderr, "Error: --file is required")
-				os.Exit(1)
+				osExit(1)
 			}
 			yamlText, err := os.ReadFile(validateFile)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error reading %s: %v\n", validateFile, err)
-				os.Exit(1)
+				osExit(1)
 			}
 			if err := commands.RunPolicyValidate(string(yamlText), validateCurrentDial); err != nil {
 				fmt.Fprintln(os.Stderr, "Error:", err)
-				os.Exit(1)
+				osExit(1)
 			}
 			fmt.Println("Policy is valid.")
 		},
@@ -602,17 +606,17 @@ func buildPolicyCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, _ []string) {
 			if applyFile == "" {
 				fmt.Fprintln(os.Stderr, "Error: --file is required")
-				os.Exit(1)
+				osExit(1)
 			}
 			yamlText, err := os.ReadFile(applyFile)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error reading %s: %v\n", applyFile, err)
-				os.Exit(1)
+				osExit(1)
 			}
 			policyDict, err := commands.ValidatePolicy(string(yamlText), 0)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, "Validation error:", err)
-				os.Exit(1)
+				osExit(1)
 			}
 			if applyDryRun {
 				fmt.Println("Dry run — policy is valid, no changes applied.")
@@ -628,7 +632,7 @@ func buildPolicyCmd() *cobra.Command {
 			}
 			if resolvedURL == "" {
 				fmt.Fprintln(os.Stderr, "Error: --url or JA4PROXY_URL is required for apply")
-				os.Exit(1)
+				osExit(1)
 			}
 			c := client.New(resolvedURL, resolvedToken)
 			handleError(commands.RunPolicyApply(cmd.Context(), c, policyDict))
@@ -647,17 +651,17 @@ func buildPolicyCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, _ []string) {
 			if diffFile == "" {
 				fmt.Fprintln(os.Stderr, "Error: --file is required")
-				os.Exit(1)
+				osExit(1)
 			}
 			yamlText, err := os.ReadFile(diffFile)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error reading %s: %v\n", diffFile, err)
-				os.Exit(1)
+				osExit(1)
 			}
 			policyDict, err := commands.ValidatePolicy(string(yamlText), 0)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, "Validation error:", err)
-				os.Exit(1)
+				osExit(1)
 			}
 			resolvedURL := auth.ResolveURL(diffURL)
 			if resolvedURL == "" {
@@ -669,7 +673,7 @@ func buildPolicyCmd() *cobra.Command {
 			}
 			if resolvedURL == "" {
 				fmt.Fprintln(os.Stderr, "Error: --url or JA4PROXY_URL is required for diff")
-				os.Exit(1)
+				osExit(1)
 			}
 			c := client.New(resolvedURL, resolvedToken)
 			drift, err := commands.RunPolicyDiff(cmd.Context(), c, policyDict)
@@ -685,7 +689,7 @@ func buildPolicyCmd() *cobra.Command {
 						m["resource_type"], m["identifier"], m["managed_by"])
 				}
 			}
-			os.Exit(1)
+			osExit(1)
 		},
 	}
 	diffCmd.Flags().StringVar(&diffFile, "file", "", "Path to policy YAML file")
@@ -728,7 +732,7 @@ func buildComplianceCmd() *cobra.Command {
 			requireConfirm(dsarEraseConfirm, cmd)
 			if dsarEraseTicket == "" {
 				fmt.Fprintln(os.Stderr, "Error: --ticket is required for DSAR erasure (audit trail)")
-				os.Exit(1)
+				osExit(1)
 			}
 			c, err := newClient()
 			handleError(err)
@@ -767,7 +771,7 @@ func buildComplianceCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, _ []string) {
 			if packSince == "" || packUntil == "" {
 				fmt.Fprintln(os.Stderr, "Error: --since and --until are required")
-				os.Exit(1)
+				osExit(1)
 			}
 			c, err := newClient()
 			handleError(err)
@@ -830,12 +834,12 @@ func buildReportCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, _ []string) {
 			if reportSince == "" || reportUntil == "" {
 				fmt.Fprintln(os.Stderr, "Error: --since and --until are required")
-				os.Exit(1)
+				osExit(1)
 			}
 			format := commands.ReportFormat(reportFormat)
 			if format != commands.ReportFormatHTML && format != commands.ReportFormatPDF {
 				fmt.Fprintf(os.Stderr, "Error: --format must be 'html' or 'pdf', got %q\n", reportFormat)
-				os.Exit(1)
+				osExit(1)
 			}
 			c, err := newClient()
 			handleError(err)
@@ -848,7 +852,7 @@ func buildReportCmd() *cobra.Command {
 			f, err := os.Create(reportOut)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error creating output file %s: %v\n", reportOut, err)
-				os.Exit(1)
+				osExit(1)
 			}
 			defer f.Close()
 			handleError(commands.RunReportGenerate(cmd.Context(), c, reportSince, reportUntil, format, f))

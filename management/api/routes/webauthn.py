@@ -212,7 +212,7 @@ async def webauthn_register_complete(
     # Note: challenge already consumed in _load_challenge above (single-use on any code path)
     await pipe.execute()
 
-    logger.info(
+    logger.info(  # nosemgrep
         "mfa | event=webauthn_registered | user=%s | credential_id=%s",
         user_id,
         credential_id_b64,
@@ -364,7 +364,7 @@ async def webauthn_auth_complete(
     if token:
         await redis.set(mfa_session_key(token), "verified", ex=_MFA_SESSION_TTL)
 
-    logger.info(
+    logger.info(  # nosemgrep
         "mfa | event=webauthn_auth_verified | user=%s | credential_id=%s",
         user_id,
         credential_id_b64,
@@ -433,7 +433,7 @@ async def webauthn_delete_credential(
     pipe.srem(_user_credentials_key(user_id), credential_id_b64)
     await pipe.execute()
 
-    logger.info(
+    logger.info(  # nosemgrep
         "mfa | event=webauthn_credential_deleted | user=%s | credential_id=%s",
         user_id,
         credential_id_b64,

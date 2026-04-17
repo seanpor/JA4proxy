@@ -124,6 +124,7 @@ package.json
 
 # Test result files
 test_results_*.txt
+connections-export-*.jsonl
 
 # Local test results (timestamped logs + JUnit XML)
 test-results/

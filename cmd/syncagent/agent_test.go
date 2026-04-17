@@ -94,7 +94,8 @@ func TestProcessInbound_ZAdd(t *testing.T) {
 
 	agent.processInbound(event)
 
-	score, err := mr.ZScore("test-zset", "test-zset") // our ZAdd uses key as member in processInbound
+	// After bug fix: member is event.Value, not event.Key
+	score, err := mr.ZScore("test-zset", "99.5")
 	if err != nil {
 		t.Errorf("ZScore failed: %v", err)
 	}

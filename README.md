@@ -1,17 +1,16 @@
 # JA4proxy
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python 3.14+](https://img.shields.io/badge/python-3.14+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![Go 1.25.9](https://img.shields.io/badge/go-1.25.9-00ADD8.svg)](https://go.dev/)
 ![CI](https://github.com/seanpor/JA4proxy/actions/workflows/ci.yml/badge.svg)
-[![Coverage ≥92%](https://img.shields.io/badge/coverage-%E2%89%A592%25-brightgreen.svg)](Makefile)
+[![7166 Tests](https://img.shields.io/badge/tests-7166-brightgreen.svg)](Makefile)
 ![Go Tests](https://github.com/seanpor/JA4proxy/actions/workflows/ci.yml/badge.svg?label=go%20tests)
 [![Docker Ready](https://img.shields.io/badge/docker-compose-ready-2496ED.svg?logo=docker)](deploy/docker/docker-compose.poc.yml)
 [![Deps Audited](https://img.shields.io/badge/deps-pip--audit+%20govulncheck-orange.svg)](.github/workflows/ci.yml)
 [![Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![Go Lint](https://img.shields.io/badge/lint-gofmt%20%2B%20vet-00ADD8.svg)](https://pkg.go.dev/cmd/vet)
 [![Dual Proxy](https://img.shields.io/badge/arch-python%20%2B%20go-blueviolet.svg)](#architecture)
-[![Parity](https://img.shields.io/badge/parity-python%2Fgo%20signals-success.svg)](#high-performance-go-proxy)
 
 **Blocks bots, C2 frameworks, and scanners in the TLS layer — without decrypting a single byte.**
 
@@ -277,20 +276,30 @@ See the [TAP Mode Runbook](docs/runbooks/tap_mode.md) for setup and operation.
 
 ## High-Performance Go Proxy
 
-A Go implementation of the full proxy core is available at `cmd/proxy/`. It is architecturally designed to eliminate GIL contention and deliver substantially higher throughput than the Python implementation.
+A Go implementation of the proxy core is available at `cmd/proxy/`. It eliminates GIL contention and delivers substantially higher throughput than the Python implementation.
 
 ```bash
 make go-build
 docker compose -f deploy/docker/docker-compose.poc.yml up -d proxy
 ```
 
-**What is verified:**
-- Full feature parity with the Python core — all 14 security signal modules implemented
-- JA4/JA4X fingerprint output matches Python fixtures exactly (cross-language parity tests pass)
-- End-to-end throughput verified: **15,000+ conn/s** peak measured (13-31x Python)
-- 75+ unit tests passing; identical Redis schema and config format to Python
+**What the Go proxy has:**
+- TCP pipeline: listen, accept, parse ClientHello, forward/tarpit/block
+- Full ClientHello parser (handles all adversarial inputs without panic)
+- JA4 fingerprint computation with GREASE filtering
+- RiskScorer and ActionDecider with dial formula (banker's rounding, matches Python)
+- Bypass checks (ALPN, JA4 whitelist/blacklist, mTLS) and hard blocks
+- Redis client (fail-open), Lua scripts, PubSub, config loader, LRU cache
+- 1,371 Go tests across 20 packages, all passing; 80–100% coverage per package
+- ~11,800 lines of Go source, ~24,200 lines of Go tests
 
-The Go proxy is the production implementation. Python (`proxy.py`) is retained as the prototyping surface for new signal modules — prototype in Python, then port to Go once stable.
+**What the Go proxy does NOT have (still Python-only):**
+- Signal modules: TLS enforcer, SNI analysis, TCP analysis, ASN/datacenter classification, blocklist manager, beaconing detection, AbuseIPDB, RDAP, analytics — **none are ported**. The Go pipeline always scores 0 and allows.
+- Prometheus /metrics HTTP endpoint
+- PROXY protocol parsing (config field exists, not implemented)
+- Cross-language parity tests (no binary fixtures yet)
+
+The Go proxy is the designated production runtime. Python (`proxy.py`) is retained as the prototyping surface for new signal modules — prototype in Python, then port to Go once stable. Signal porting is the main remaining work before Go reaches full feature parity.
 
 For operational guidance: [Go Proxy Migration Runbook](docs/runbooks/go_proxy_migration.md) · [Go Proxy Operations](docs/runbooks/go_proxy_operations.md) · [Go Proxy Developer Guide](docs/developer/go_proxy_guide.md)
 
@@ -309,7 +318,7 @@ Measured on i9-9900K (Linux, Ubuntu 22.04), after Phase 26–30 throughput optim
 | p99 connection latency | **1.62 ms** |
 | Single instance (Python) | **2,184 conn/s** |
 | 4 instances (Python) | **~8,100 conn/s** |
-| Go proxy | **15,000+ conn/s** (measured peak) |
+| Go proxy | **15,000+ conn/s** (measured peak, bypass path only — signal modules not yet ported) |
 
 See [Phase 30 Capacity Report](docs/performance/PHASE_30_CAPACITY_REPORT.md) and [Benchmark History](docs/performance/BENCHMARK_HISTORY.md) for full methodology and per-scenario data.
 
@@ -382,33 +391,32 @@ Custom name mappings go in `config/proxy.yml` → `fingerprint_labels`. See [Mon
 
 | Category | Lines | What |
 |---|---:|---|
-| **Python proxy core** | ~26,189 | `proxy.py` + `src/security/` + `src/cache/` + `src/config/` — TLS parsing, JA4 fingerprinting, all signal modules, pipeline, rate limiting |
-| **Go proxy core** | ~9,534 | `cmd/proxy/` + `internal/` — high-throughput replacement with full signal parity |
-| **Tests** | ~60,661 | 2,948 tests — unit, integration, chaos, adversarial, performance (~1.3× test-to-code ratio) |
-| **Supporting services** | ~12,885 | Tarpit server, mock backend, performance tools |
-| **Infrastructure** | ~4,399 | Dockerfiles, Compose files, shell scripts |
-| **Total** | **~113,668** | |
+| **Python proxy core** | ~39,200 | `proxy.py` + `src/` — TLS parsing, JA4 fingerprinting, all signal modules, pipeline, rate limiting, TAP mode |
+| **Go proxy core** | ~11,800 | `cmd/proxy/` + `internal/` — high-throughput core (pipeline, scoring, Redis, bypass checks; signal modules not yet ported) |
+| **Python tests** | ~103,200 | 5,795 tests — unit, integration, chaos, adversarial, performance |
+| **Go tests** | ~24,200 | 1,371 tests across 20 packages, 80–100% coverage per package |
+| **Total tests** | **~127,400** | **7,166 tests** combined (~2.5x test-to-code ratio) |
 
 Plus: documentation across 205+ files (architecture, runbooks, security audit, compliance, operational guides).
 
 ---
 
-## Enterprise Integration (Phases 79–86)
+## Enterprise Integration (Phases 79–86) — Complete
 
-The enterprise phases deliver the integration surface that regulated-industry buyers require. They build on the hardened prototype (phases 0–78) and assume the quality baseline established by phases 61–64.
+The enterprise phases deliver the integration surface that regulated-industry buyers require. They build on the hardened prototype (phases 0–78) and the quality baseline established by phases 61–64. All enterprise phases are **complete**.
 
-| Phase | Deliverable | Prerequisite |
+| Phase | Deliverable | Status |
 |---|---|---|
-| 79 | Management API v2, RBAC, SSO (OIDC/SAML) | Phases 13/51/52 management UI |
-| 80 | ECS 8.x log format + SIEM connectors (Splunk, QRadar, Sentinel, Elastic) | Phase 79 |
-| 81 | SOAR playbooks (XSOAR, Splunk SOAR) + ops platform integrations (PagerDuty, ServiceNow) | Phase 79 |
-| 82 | Policy-as-Code (YAML), shadow mode simulation, four-eyes dial approval | Phase 79 |
-| 83 | `ja4proxy-cli` Go binary, Terraform provider, Kubernetes operator + CRDs | Phase 79 |
-| 84 | ISO 27001 / SOC 2 evidence pack, automated compliance report generator | Phases 79 + 83 |
-| 85 | TAXII 2.1 / MISP threat intel ingestion, STIX 2.1 indicator conversion | Phase 79 |
-| 86 | Grafana enterprise dashboards, SLO burn-rate alerting, capacity calculator | Phases 79 + 80 |
+| 79 | Management API v2, RBAC, SSO (OIDC/SAML) | Complete |
+| 80 | ECS 8.x log format + SIEM connectors (Splunk, QRadar, Sentinel, Elastic) | Complete |
+| 81 | SOAR playbooks (XSOAR, Splunk SOAR) + ops platform integrations (PagerDuty, ServiceNow) | Complete |
+| 82 | Policy-as-Code (YAML), shadow mode simulation, four-eyes dial approval | Complete |
+| 83 | `ja4proxy-cli` Go binary, Terraform provider, Kubernetes operator + CRDs | Complete |
+| 84 | ISO 27001 / SOC 2 evidence pack, automated compliance report generator | Complete |
+| 85 | TAXII 2.1 / MISP threat intel ingestion, STIX 2.1 indicator conversion | Complete |
+| 86 | Grafana enterprise dashboards, SLO burn-rate alerting, capacity calculator | Complete |
 
-Phase 79 is the critical path — every subsequent enterprise phase depends on it. It is being developed in parallel with phases 13/51/52 (Management UI). See [`docs/phases/PHASE_79.md`](docs/phases/PHASE_79.md) for the detailed spec.
+See [`docs/enterprise/`](docs/enterprise/) for deployment guides and [`docs/phases/PHASE_79.md`](docs/phases/PHASE_79.md) for the Management API spec.
 
 ---
 

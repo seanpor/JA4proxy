@@ -1,5 +1,28 @@
 # Changelog
 
+## [Unreleased] - Phase 207 — Go Test Coverage & Repository Hygiene (2026-04-16)
+
+### Added
+- Coverage tests for 6 Go packages: `cmd/ja4check` (100%), `cmd/ja4proxy-cli`
+  (88.8%), `cmd/syncagent` (80.5%), `cmd/proxy` (80.4%),
+  `internal/cli/commands` (95.0%), `internal/cli/config` (84.6%)
+- `cmd/ja4check/main.go` refactored to extract `mainResult()`/`run()` for testability
+
+### Fixed
+- **ZADD bug** in `cmd/syncagent/agent.go`: `event.Key` was incorrectly used as
+  ZADD member instead of `event.Value`
+- **handleError fall-through** in `cmd/ja4proxy-cli/main.go`: missing `return`
+  after `osExit(2)` for PendingApprovalError
+
+### Changed
+- README.md rewritten: badges fixed, Parity badge removed, Go proxy section
+  honestly documents ported vs not-ported features, test counts updated
+- 8 semgrep false positives suppressed with inline `# nosemgrep`
+
+### Removed
+- `tests/unit/analytics/ti_feeds/test_phase_101c_safety_caps.py` (11 stale
+  `pytest.skip` stubs with no implementation)
+
 ## [Unreleased] - Phase 102 — Terraform Provider Documentation Close-out (2026-04-15)
 
 ### Added
