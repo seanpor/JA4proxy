@@ -5,7 +5,7 @@
 
 ## Current Status: Phase 101 (Phase 101 — Cross-Phase Gap Closure) Next
 
-**Last Updated:** 2026-04-15
+**Last Updated:** 2026-04-17
 
 ## Epics & Roadmap
 
@@ -130,6 +130,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 46 | Coverage Improvement | COMPLETE | Drove overall coverage from 82% to 99% (11,570 statements, 172 missed). All security-critical modules ≥99%. 3,557 tests passing, 0 failures. See PHASE_46_notes.md for full session record. |
 | 60 | Master Plan and Governance | CLOSED | Governance index (pointer document only). Phases 61–64 all COMPLETE. No implementation work remains — closed after 2026-04-09 rewrite. |
 | 61 | Supply Chain Security & Build Integrity | COMPLETE | GitHub Actions CI pipeline (Python + Go tests, SAST, dependency audit); SBOM generation (CycloneDX 1.4); Cosign keyless image signing; SLSA level 2 provenance for Go binary; action SHA pinning; branch protection rules. |
+| 207 | Go Test Coverage Improvement & Repository Hygiene | COMPLETE | Raised Go test coverage to ≥80% across all 6 target packages. Fixed ZADD bug in syncagent (event.Key used as member instead of event.Value) and handleError fall-through in CLI. README rewritten for accuracy (Parity badge removed, Go proxy section honest about gaps). 8 semgrep false positives triaged. 11 stale pytest.skip stubs removed. |
 
 ## Phase Completion Details
 
@@ -249,6 +250,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 203 | Go Missing Signals — TAP OS Mismatch, TLS Mismatch, Weak Ciphers, DGA, Health | COMPLETE | N/A | N/A |
 | 204 | README Badges — License, Versions, CI, Security | COMPLETE | N/A | N/A |
 | 205 | Repository Root Cleanup & File Organisation | COMPLETE | N/A | N/A |
+| 207 | Go Test Coverage Improvement & Repository Hygiene | COMPLETE | N/A | N/A |
 
 ---
 

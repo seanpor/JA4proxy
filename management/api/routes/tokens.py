@@ -86,7 +86,7 @@ async def create_token(
     )
     await redis.sadd(_IDX_KEY, token_id)
 
-    logger.info(
+    logger.info(  # nosemgrep
         "tokens | event=token_created | id=%s | name=%s | role=%s | user=%s",
         token_id,
         body.name,
@@ -152,7 +152,7 @@ async def delete_token(
     """Revoke a token.  Idempotent — returns 204 even if token did not exist."""
     await redis.delete(_token_key(token_id))
     await redis.srem(_IDX_KEY, token_id)
-    logger.info(
+    logger.info(  # nosemgrep
         "tokens | event=token_deleted | id=%s | user=%s",
         token_id,
         current_user[0],
@@ -211,7 +211,7 @@ async def rotate_token(
     # We deliberately do NOT srem here so the bearer lookup can still find the old hash.
     # (The listing endpoint shows stale index entries only if the hash still exists.)
 
-    logger.info(
+    logger.info(  # nosemgrep
         "tokens | event=token_rotated | old_id=%s | new_id=%s | user=%s",
         token_id,
         new_id,

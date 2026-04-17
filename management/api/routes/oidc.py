@@ -227,7 +227,7 @@ async def _extract_claims(id_token: str, jwks_uri: str) -> dict:
         claims.validate()
         return dict(claims)
     except Exception as exc:
-        logger.warning("oidc | event=id_token_invalid | error=%s", exc)
+        logger.warning("oidc | event=id_token_invalid | error=%s", exc)  # nosemgrep
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="ID token signature verification failed",
@@ -412,7 +412,7 @@ async def oidc_callback(
             code_verifier=code_verifier,
         )
     except Exception as exc:
-        logger.warning("oidc | event=token_exchange_failed | error=%s", exc)
+        logger.warning("oidc | event=token_exchange_failed | error=%s", exc)  # nosemgrep
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token exchange failed",

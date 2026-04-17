@@ -100,6 +100,7 @@ epics:
   - 46
   - 60
   - 61
+  - 207
 phases:
   204:
     name: 'README Badges — License, Versions, CI, Security'
@@ -1573,3 +1574,31 @@ phases:
     - docs/runbooks/emergency_playbooks.md audited against playbook YAML
     - deploy/terraform/README.md documents protect_unmanaged_entries default=true
     - 17/17 emergency playbook tests pass
+  207:
+    name: 'Go Test Coverage Improvement & Repository Hygiene'
+    status: COMPLETE
+    completed: '2026-04-16'
+    action_plan: docs/phases/PHASE_207.md
+    dependencies: []
+    size: LARGE
+    summary: 'Raised Go test coverage to ≥80% across all 6 target packages. Fixed
+      ZADD bug in syncagent (event.Key used as member instead of event.Value) and
+      handleError fall-through in CLI. README rewritten for accuracy (Parity badge
+      removed, Go proxy section honest about gaps). 8 semgrep false positives triaged.
+      11 stale pytest.skip stubs removed.'
+    lessons_learned: 'cmd/proxy coverage required extracting testable helpers and
+      using net.Pipe + miniredis. The ZADD bug was a real production defect found
+      through coverage work — validates the coverage-driven approach.'
+    success_criteria:
+    - cmd/ja4check coverage ≥ 80%
+    - cmd/ja4proxy-cli coverage ≥ 80%
+    - cmd/syncagent coverage ≥ 80%
+    - cmd/proxy coverage ≥ 80%
+    - internal/cli/commands coverage ≥ 80%
+    - internal/cli/config coverage ≥ 80%
+    - All 20 Go packages pass go test ./...
+    - README badges and Go proxy section reflect actual state
+    - make lint-all exits 0
+    - Stale pytest.skip stubs resolved
+    - make test passes
+    - CHANGELOG.md updated

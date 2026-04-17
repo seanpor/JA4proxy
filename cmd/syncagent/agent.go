@@ -318,7 +318,7 @@ func (a *SyncAgent) processInbound(event SyncEvent) {
 		a.rc.SRem(ctx, event.Key, event.Value)
 	case "zadd":
 		score, _ := strconv.ParseFloat(event.Value, 64)
-		a.rc.ZAdd(ctx, event.Key, score, event.Key)
+		a.rc.ZAdd(ctx, event.Key, score, event.Value)
 	}
 }
 
