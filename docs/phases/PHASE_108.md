@@ -684,9 +684,52 @@ Reporting:
 
 **M** — register + automation + reporting.
 
+## 108z. Adversarial Enhancements (Leader's Addendum)
+
+### Problem
+Standard pentests often follow a checklist. To truly test JA4proxy's "well-resourced" and "comprehensive" claims, we must move beyond checking boxes and into the mindset of a persistent, cunning adversary who understands the *systemic* weaknesses of fingerprint-based security.
+
+### Fix
+Incorporate the following "Leader's Plays" into the campaign execution:
+
+**1. The "Fingerprint Poisoner" Persona**
+*   **Concept**: An attacker who doesn't just evade, but *pollutes*.
+*   **Attack**: Flooding the proxy with a massive volume of "Clean-JA4" traffic (legitimate-looking browser fingerprints) that are subtly malformed or associated with "noisy" but non-malicious behavior.
+*   **Goal**: Force the analytics system to lower the weight of high-fidelity fingerprints, or trigger "alert fatigue" in the SecOps team.
+*   **Test**: Measure the "signal-to-noise" ratio in the Management UI during a poison campaign.
+
+**2. Protocol-Confusion & State-Machine Desync**
+*   **Concept**: Exploiting the boundary between TCP, PROXY-protocol, and TLS parsing.
+*   **Attack**: 
+    *   **Partial-Write Hijacking**: Delivering a valid PROXY header, but stalling mid-TLS ClientHello. Then, "resuming" with a different protocol (e.g., raw HTTP or SSH) to see if the internal state machine in `cmd/proxy` leaks data from the initial parsing phase into the subsequent stream.
+    *   **Multi-Packet Fragmentation**: Intentionally fragmenting the ClientHello across the maximum possible number of TCP packets (1 byte per packet) with randomized delays to hit reentrancy bugs or resource limits in the Go parser.
+
+**3. Feedback-Loop Exploitation (The "Training" Attack)**
+*   **Concept**: Gaming the "Risk Scorer" by training it to trust a malicious signature.
+*   **Attack**: Conducting a week-long "conditioning" phase where a specific, custom JA4 fingerprint is used only for highly reputable traffic (matching SNI to Google/Microsoft, coming from high-reputation ASNs). Once "trusted" or "whitelisted" by the analytics node, the fingerprint is then used for the actual exploit.
+*   **Goal**: Determine if the "Reputation" signal is sufficiently sticky or if it can be manipulated over time.
+
+**4. Side-Channel Timing Probes**
+*   **Concept**: Measuring micro-differences in proxy latency.
+*   **Attack**: Precise timing of the "Time-to-First-Byte" (TTFB). Does the proxy take 5ms longer to respond when it's checking a fingerprint against a large Redis-based blocklist vs. a local cache?
+*   **Goal**: Map the internal blocklist/whitelist without ever triggering a block.
+
+**5. Management-to-Proxy "Backwash"**
+*   **Concept**: Exploiting the internal control plane.
+*   **Attack**: If the Management API allows uploading custom "Fingerprint Names" or "Descriptions," can we inject payloads that, when synced to the proxy's local cache, cause memory corruption or logic errors during the scoring phase?
+*   **Goal**: Bridge the gap between the (usually lower security) management plane and the high-security proxy core.
+
+**6. The "Clock-Skew" Evasion**
+*   **Concept**: Desyncing time-based signals.
+*   **Attack**: If the `beaconing_detector` or `rate_limiter` uses distributed timestamps (Redis + Local), can we manipulate network latency or NTP-skew (if possible) to "smear" our traffic across multiple time-windows, effectively lowering our calculated rate?
+
+### Deliverable
+These "Cunning Plays" will be documented as a separate **"Red Team Playbook"** in `docs/security/pentest/RED_TEAM_PLAYBOOK.md`, used to guide the internal red-team execution in sub-phases 108c–108h.
+
 ---
 
 ## Acceptance Criteria
+... (rest of document)
 
 **Planning**
 
