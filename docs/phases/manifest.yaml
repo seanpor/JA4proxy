@@ -206,22 +206,30 @@ phases:
     summary: 'Implement fail-closed parsing for PROXY protocol on trusted connections to prevent protocol confusion/smuggling.'
   117:
     name: 'DMZ Network Hardening & Anti-Smuggling'
-    status: PROPOSED
+    status: DEFERRED
     action_plan: docs/phases/PHASE_117.md
     dependencies: [108]
     size: MEDIUM
-    summary: 'Harden proxy against PROXY smuggling (double headers) and implement robust TLS record reassembly for fragmented handshakes.'
+    superseded_by: 118
+    summary: 'Superseded by Phase 118 — full pentest remediation including Redis ACLs and auth hardening.'
   118:
-    name: 'Connection Lifecycle Hardening & Operational Security'
+    name: 'Pentest Remediation: Attack Surface & Data Leakage Hardening'
     status: PROPOSED
     action_plan: docs/phases/PHASE_118.md
     dependencies: [108]
-    size: LARGE
-    summary: 'Fix 17 vulnerabilities from independent white-box red team: goroutine leaks, n-vs-len(data) JA4 bypass, unauthenticated metrics, credential rotation, connection limits, tarpit timeouts, Redis KEYS blocking, trusted CIDR validation, SNI key injection, cookie secure flag, log sanitisation, OIDC token verification.'
+    size: XXLARGE
+    summary: 'Remediate L1-018 (PROXY smuggling), L1-019 (fragmentation), L4-028 (XFF spoofing), SSRF (webhooks), unauth metrics, Redis fail-open, backup encryption leak, integration TLS verification, Redis ACLs, auth rate limiting.'
   119:
-    name: 'Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs'
+    name: 'Connection Lifecycle Hardening & Operational Security'
     status: PROPOSED
     action_plan: docs/phases/PHASE_119.md
+    dependencies: [108]
+    size: LARGE
+    summary: 'Fix 17 vulnerabilities from independent white-box red team: goroutine leaks, n-vs-len(data) JA4 bypass, unauthenticated metrics, credential rotation, connection limits, tarpit timeouts, Redis KEYS blocking, trusted CIDR validation, SNI key injection, cookie secure flag, log sanitisation, OIDC token verification.'
+  120:
+    name: 'Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs'
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_120.md
     dependencies: [108]
     size: LARGE
     summary: 'Fix 20 novel findings from independent deep-dive team: ALPN bypass design flaw, X-JA4-Fingerprint header injection, HAProxy default creds, privileged cAdvisor, Docker socket exposure, CI/CD token leaks, Redis PubSub poisoning, stored XSS, JWT role escalation, DSAR OOM, IPv6 burst bug, blocklist logic bug, config reload path, infrastructure hardening.'

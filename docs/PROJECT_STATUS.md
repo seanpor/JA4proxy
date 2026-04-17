@@ -60,8 +60,8 @@ Deep security analysis, compliance, and audit remediation.
 | 201 | Go Redis TLS + Silent-Failure Hardening | COMPLETE | Closes three production-critical Go Redis client gaps and one correctness fix. (1) cfg.SSL was silently ignored — TLS now honoured with MinVersion 1.2 and ACL Username support in both standalone and Sentinel paths; both cmd/proxy and cmd/syncagent fixed. (2) Lua scripts were never reloaded after Redis restart — added periodic HealthCheck goroutine with RWMutex-protected double-checked reload. (3) Rate-limiter accepted unvalidated strings into Redis key names — netip.ParseAddr-based sanitiser with sha256-hashed log on reject. (4) ZRemRangeByScore now logs on error like every other write method. The previously proposed signal-score drift fix was withdrawn after critical review found Go scores already matched config/signal_scores.yml. |
 | 202 | CI Supply Chain + Default Credential Removal | COMPLETE | Eliminates 6 infrastructure-level critical findings: SHA-pin all GitHub Actions (supply chain), remove default credential fallbacks from all compose files (Grafana admin, Management admin/admin, HAProxy admin/admin123), create Go proxy image CI workflow with SBOM+cosign signing, harden Dockerfile.go-proxy with non-root USER. |
 | 203 | Go Missing Signals — TAP OS Mismatch, TLS Mismatch, Weak Ciphers, DGA, Health | COMPLETE | Closes 5 production-critical signal gaps in Go. 203a re-architected: instead of impossible in-proxy JA4T computation (kernel consumes SYN options before accept()), Go proxy consumes TAP-produced `fp:os:ip:{ip}` fingerprints from Redis written by Phase 20 TAP node. Deleted dead `internal/tls/ja4t.go` stub. 203b adds `CheckJA4TLSMismatch` detecting JA4-prefix vs negotiated-TLS-version disagreement. 203c expands Go `weakCipherSet` to exactly 40 entries matching Python `WEAK_CIPHERS`. 203d rewrites Go `dgaConfidence` rule-for-rule against Python `dga_score`, validated by golden file of 100 hostnames at 1e-9 tolerance. 203e adds anti-flap hysteresis (N=3) via `internal/health/state.go`, tarpit-saturation→200+degraded, geoip status field; `/health` invariant preserved. |
-| 118 | Connection Lifecycle Hardening & Operational Security | PROPOSED | Fix 17 vulnerabilities from independent white-box red team: goroutine leaks, n-vs-len(data) JA4 bypass, unauthenticated metrics, credential rotation, connection limits, tarpit timeouts, Redis KEYS blocking, trusted CIDR validation, SNI key injection, cookie secure flag, log sanitisation, OIDC token verification. |
-| 119 | Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs | PROPOSED | Fix 20 novel findings from independent deep-dive team: ALPN bypass design flaw, X-JA4-Fingerprint header injection, HAProxy default creds, privileged cAdvisor, Docker socket exposure, CI/CD token leaks, Redis PubSub poisoning, stored XSS, JWT role escalation, DSAR OOM, IPv6 burst bug, blocklist logic bug, config reload path, infrastructure hardening. |
+| 118 | Pentest Remediation: Attack Surface & Data Leakage Hardening | PROPOSED | Remediate L1-018 (PROXY smuggling), L1-019 (fragmentation), L4-028 (XFF spoofing), SSRF (webhooks), unauth metrics, Redis fail-open, backup encryption leak, integration TLS verification, Redis ACLs, auth rate limiting. |
+| 119 | Connection Lifecycle Hardening & Operational Security | PROPOSED | Fix 17 vulnerabilities from independent white-box red team: goroutine leaks, n-vs-len(data) JA4 bypass, unauthenticated metrics, credential rotation, connection limits, tarpit timeouts, Redis KEYS blocking, trusted CIDR validation, SNI key injection, cookie secure flag, log sanitisation, OIDC token verification. |
 
 ### Epic: Analytics & Intelligence
 Cross-instance behavior analysis and threat intelligence.
@@ -144,7 +144,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 114 | Supply Chain & Infrastructure Hygiene | PROPOSED | Fix command injection in Jenkinsfile/Makefile and ensure idempotent cron job deployment in scripts/deploy.sh. |
 | 115 | Web & Rendering Security | PROPOSED | Remediate Reflected XSS in HTMX partials and disable external fetching in WeasyPrint SVG rendering to prevent SSRF/LFI. |
 | 116 | Protocol Parser Hardening | PROPOSED | Implement fail-closed parsing for PROXY protocol on trusted connections to prevent protocol confusion/smuggling. |
-| 117 | DMZ Network Hardening & Anti-Smuggling | PROPOSED | Harden proxy against PROXY smuggling (double headers) and implement robust TLS record reassembly for fragmented handshakes. |
+| 117 | DMZ Network Hardening & Anti-Smuggling | DEFERRED | Superseded by Phase 118 — full pentest remediation including Redis ACLs and auth hardening. |
 
 ### Epic: Regulatory & Supply-Chain Conformance
 Alignment with international standards and regulatory frameworks.
@@ -277,9 +277,10 @@ Alignment with international standards and regulatory frameworks.
 | 114 | Supply Chain & Infrastructure Hygiene | PROPOSED | N/A | N/A |
 | 115 | Web & Rendering Security | PROPOSED | N/A | N/A |
 | 116 | Protocol Parser Hardening | PROPOSED | N/A | N/A |
-| 117 | DMZ Network Hardening & Anti-Smuggling | PROPOSED | N/A | N/A |
-| 118 | Connection Lifecycle Hardening & Operational Security | PROPOSED | N/A | N/A |
-| 119 | Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs | PROPOSED | N/A | N/A |
+| 117 | DMZ Network Hardening & Anti-Smuggling | DEFERRED | N/A | N/A |
+| 118 | Pentest Remediation: Attack Surface & Data Leakage Hardening | PROPOSED | N/A | N/A |
+| 119 | Connection Lifecycle Hardening & Operational Security | PROPOSED | N/A | N/A |
+| 120 | Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs | PROPOSED | N/A | N/A |
 | 200 | Go PROXY Protocol Trust + v2 Support | COMPLETE | N/A | N/A |
 | 201 | Go Redis TLS + Silent-Failure Hardening | COMPLETE | N/A | N/A |
 | 202 | CI Supply Chain + Default Credential Removal | COMPLETE | N/A | N/A |
