@@ -14,3 +14,55 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 101 — Phase 101 — Cross-Phase Gap Closure
 *   **Status:** **PROPOSED** (Rolling cross-phase register of deferred review gaps from Phase 84 (compliance), Phase 85 (threat-intel hardening), Phase 62 (Go test parity), Phase 64 (deploy validation), Phase 86i (capacity hardening), and Phase 93 (Terraform provider). 12 sub-phases bundling 38 open gaps (3 critical, 13 high, 19 medium, 9 low). 16 items already closed. 4 documented limitations (external processes or blocked on hardware).)
 *   **Action Plan:** [PHASE_101.md](PHASE_101.md)
+
+### Phase 105 — Documentation Restructure by Audience
+*   **Status:** **PROPOSED** (Consolidate and restructure project documentation into five audience-specific entry points (Website Owners, Architects, Operators, Compliance, Developers) to improve discoverability and reduce drift.)
+*   **Action Plan:** [PHASE_105.md](PHASE_105.md)
+
+### Phase 106 — SWEBOK v4 Alignment & Quality Plan
+*   **Status:** **PROPOSED** (Align project engineering practices with SWEBOK v4 standards, including SLOs, risk register, TCO analysis, and a formal quality plan.)
+*   **Action Plan:** [PHASE_106.md](PHASE_106.md)
+
+### Phase 107 — Regulatory Conformance (CRA, NIST, ISO)
+*   **Status:** **PROPOSED** (Ensure compliance with Cyber Resilience Act (CRA), NIST SSDF, and ISO standards (27017, 29100) including SLSA L3 provenance.)
+*   **Action Plan:** [PHASE_107.md](PHASE_107.md)
+
+### Phase 108 — Full-Stack Penetration Testing Campaign
+*   **Status:** **PROPOSED** (A 7-layer adversarial assessment covering Go/Python core, Redis state, CI/CD supply chain, and DMZ network evasion.)
+*   **Action Plan:** [PHASE_108.md](PHASE_108.md)
+
+### Phase 109 — PROXY Protocol Hardening & Scrubbing
+*   **Status:** **PROPOSED** (Harden Go proxy to strip untrusted PROXY headers and handle partial reads; implement unified IP/Fingerprint blocklist schema.)
+*   **Action Plan:** [PHASE_109.md](PHASE_109.md)
+
+### Phase 110 — Management API Security Hardening
+*   **Status:** **PROPOSED** (Fix Redis-blocking health checks, implement CSRF protection, secure bearer token lookups (O(1)), and add Webhook SSRF validation.)
+*   **Action Plan:** [PHASE_110.md](PHASE_110.md)
+
+### Phase 111 — Security Logic & Tarpit Hardening
+*   **Status:** **PROPOSED** (Implement fail-closed tarpit policies for high-risk traffic and add enforcement for recognizability (BlockNonTLS).)
+*   **Action Plan:** [PHASE_111.md](PHASE_111.md)
+
+### Phase 112 — Session & Data Integrity Hardening
+*   **Status:** **PROPOSED** (Implement strict validation for GDPR erasure, JWT JTI blacklisting on logout, and migrate audit log to Redis Streams for reliability.)
+*   **Action Plan:** [PHASE_112.md](PHASE_112.md)
+
+### Phase 113 — Proxy Stability & Audit Instrumentation
+*   **Status:** **PROPOSED** (Bound beaconing sets in Redis to prevent OOM, implement non-blocking tarpit writes, and add missing audit logs for token mutations.)
+*   **Action Plan:** [PHASE_113.md](PHASE_113.md)
+
+### Phase 114 — Supply Chain & Infrastructure Hygiene
+*   **Status:** **PROPOSED** (Fix command injection in Jenkinsfile/Makefile and ensure idempotent cron job deployment in scripts/deploy.sh.)
+*   **Action Plan:** [PHASE_114.md](PHASE_114.md)
+
+### Phase 115 — Web & Rendering Security
+*   **Status:** **PROPOSED** (Remediate Reflected XSS in HTMX partials and disable external fetching in WeasyPrint SVG rendering to prevent SSRF/LFI.)
+*   **Action Plan:** [PHASE_115.md](PHASE_115.md)
+
+### Phase 116 — Protocol Parser Hardening
+*   **Status:** **PROPOSED** (Implement fail-closed parsing for PROXY protocol on trusted connections to prevent protocol confusion/smuggling.)
+*   **Action Plan:** [PHASE_116.md](PHASE_116.md)
+
+### Phase 117 — DMZ Network Hardening & Anti-Smuggling
+*   **Status:** **PROPOSED** (Harden proxy against PROXY smuggling (double headers) and implement robust TLS record reassembly for fragmented handshakes.)
+*   **Action Plan:** [PHASE_117.md](PHASE_117.md)

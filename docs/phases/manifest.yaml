@@ -74,6 +74,7 @@ epics:
   - 39
   - 51
   - 52
+  - 105
 - name: 'Epic: Operational Excellence & Lifecycle Management'
   description: Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
   phases:
@@ -92,6 +93,7 @@ epics:
   - 91
   - 102
   - 204
+  - 106
 - name: 'Epic: Quality Assurance & Test Maturity'
   description: Comprehensive testing, adversarial coverage, and performance validation.
   phases:
@@ -101,7 +103,112 @@ epics:
   - 60
   - 61
   - 207
+  - 108
+  - 109
+  - 110
+  - 111
+  - 112
+  - 113
+  - 114
+  - 115
+  - 116
+  - 117
+- name: 'Epic: Regulatory & Supply-Chain Conformance'
+  description: Alignment with international standards and regulatory frameworks.
+  phases:
+  - 107
 phases:
+  105:
+    name: 'Documentation Restructure by Audience'
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_105.md
+    dependencies: []
+    size: LARGE
+    summary: 'Consolidate and restructure project documentation into five audience-specific entry points (Website Owners, Architects, Operators, Compliance, Developers) to improve discoverability and reduce drift.'
+  106:
+    name: 'SWEBOK v4 Alignment & Quality Plan'
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_106.md
+    dependencies: []
+    size: MEDIUM
+    summary: 'Align project engineering practices with SWEBOK v4 standards, including SLOs, risk register, TCO analysis, and a formal quality plan.'
+  107:
+    name: 'Regulatory Conformance (CRA, NIST, ISO)'
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_107.md
+    dependencies: []
+    size: MEDIUM
+    summary: 'Ensure compliance with Cyber Resilience Act (CRA), NIST SSDF, and ISO standards (27017, 29100) including SLSA L3 provenance.'
+  108:
+    name: 'Full-Stack Penetration Testing Campaign'
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_108.md
+    dependencies: []
+    size: EXTRA-LARGE
+    summary: 'A 7-layer adversarial assessment covering Go/Python core, Redis state, CI/CD supply chain, and DMZ network evasion.'
+  109:
+    name: 'PROXY Protocol Hardening & Scrubbing'
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_109.md
+    dependencies: [108]
+    size: MEDIUM
+    summary: 'Harden Go proxy to strip untrusted PROXY headers and handle partial reads; implement unified IP/Fingerprint blocklist schema.'
+  110:
+    name: 'Management API Security Hardening'
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_110.md
+    dependencies: [108]
+    size: MEDIUM
+    summary: 'Fix Redis-blocking health checks, implement CSRF protection, secure bearer token lookups (O(1)), and add Webhook SSRF validation.'
+  111:
+    name: 'Security Logic & Tarpit Hardening'
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_111.md
+    dependencies: [108]
+    size: SMALL
+    summary: 'Implement fail-closed tarpit policies for high-risk traffic and add enforcement for recognizability (BlockNonTLS).'
+  112:
+    name: 'Session & Data Integrity Hardening'
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_112.md
+    dependencies: [108]
+    size: MEDIUM
+    summary: 'Implement strict validation for GDPR erasure, JWT JTI blacklisting on logout, and migrate audit log to Redis Streams for reliability.'
+  113:
+    name: 'Proxy Stability & Audit Instrumentation'
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_113.md
+    dependencies: [108]
+    size: SMALL
+    summary: 'Bound beaconing sets in Redis to prevent OOM, implement non-blocking tarpit writes, and add missing audit logs for token mutations.'
+  114:
+    name: 'Supply Chain & Infrastructure Hygiene'
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_114.md
+    dependencies: [108]
+    size: SMALL
+    summary: 'Fix command injection in Jenkinsfile/Makefile and ensure idempotent cron job deployment in scripts/deploy.sh.'
+  115:
+    name: 'Web & Rendering Security'
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_115.md
+    dependencies: [108]
+    size: SMALL
+    summary: 'Remediate Reflected XSS in HTMX partials and disable external fetching in WeasyPrint SVG rendering to prevent SSRF/LFI.'
+  116:
+    name: 'Protocol Parser Hardening'
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_116.md
+    dependencies: [108]
+    size: SMALL
+    summary: 'Implement fail-closed parsing for PROXY protocol on trusted connections to prevent protocol confusion/smuggling.'
+  117:
+    name: 'DMZ Network Hardening & Anti-Smuggling'
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_117.md
+    dependencies: [108]
+    size: MEDIUM
+    summary: 'Harden proxy against PROXY smuggling (double headers) and implement robust TLS record reassembly for fragmented handshakes.'
   204:
     name: 'README Badges — License, Versions, CI, Security'
     status: COMPLETE
