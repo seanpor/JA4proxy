@@ -64,13 +64,17 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Action Plan:** [PHASE_116.md](PHASE_116.md)
 
 ### Phase 117 — DMZ Network Hardening & Anti-Smuggling
-*   **Status:** **PROPOSED** (Harden proxy against PROXY smuggling (double headers) and implement robust TLS record reassembly for fragmented handshakes.)
+*   **Status:** **DEFERRED** (Superseded by Phase 118 — full pentest remediation including Redis ACLs and auth hardening.)
 *   **Action Plan:** [PHASE_117.md](PHASE_117.md)
 
-### Phase 118 — Connection Lifecycle Hardening & Operational Security
-*   **Status:** **PROPOSED** (Fix 17 vulnerabilities from independent white-box red team: goroutine leaks, n-vs-len(data) JA4 bypass, unauthenticated metrics, credential rotation, connection limits, tarpit timeouts, Redis KEYS blocking, trusted CIDR validation, SNI key injection, cookie secure flag, log sanitisation, OIDC token verification.)
+### Phase 118 — Pentest Remediation: Attack Surface & Data Leakage Hardening
+*   **Status:** **PROPOSED** (Remediate L1-018 (PROXY smuggling), L1-019 (fragmentation), L4-028 (XFF spoofing), SSRF (webhooks), unauth metrics, Redis fail-open, backup encryption leak, integration TLS verification, Redis ACLs, auth rate limiting.)
 *   **Action Plan:** [PHASE_118.md](PHASE_118.md)
 
-### Phase 119 — Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs
-*   **Status:** **PROPOSED** (Fix 20 novel findings from independent deep-dive team: ALPN bypass design flaw, X-JA4-Fingerprint header injection, HAProxy default creds, privileged cAdvisor, Docker socket exposure, CI/CD token leaks, Redis PubSub poisoning, stored XSS, JWT role escalation, DSAR OOM, IPv6 burst bug, blocklist logic bug, config reload path, infrastructure hardening.)
+### Phase 119 — Connection Lifecycle Hardening & Operational Security
+*   **Status:** **PROPOSED** (Fix 17 vulnerabilities from independent white-box red team: goroutine leaks, n-vs-len(data) JA4 bypass, unauthenticated metrics, credential rotation, connection limits, tarpit timeouts, Redis KEYS blocking, trusted CIDR validation, SNI key injection, cookie secure flag, log sanitisation, OIDC token verification.)
 *   **Action Plan:** [PHASE_119.md](PHASE_119.md)
+
+### Phase 120 — Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs
+*   **Status:** **PROPOSED** (Fix 20 novel findings from independent deep-dive team: ALPN bypass design flaw, X-JA4-Fingerprint header injection, HAProxy default creds, privileged cAdvisor, Docker socket exposure, CI/CD token leaks, Redis PubSub poisoning, stored XSS, JWT role escalation, DSAR OOM, IPv6 burst bug, blocklist logic bug, config reload path, infrastructure hardening.)
+*   **Action Plan:** [PHASE_120.md](PHASE_120.md)

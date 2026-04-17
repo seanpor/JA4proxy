@@ -144,7 +144,7 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 114 | Supply Chain & Infrastructure Hygiene | PROPOSED | Fix command injection in Jenkinsfile/Makefile and ensure idempotent cron job deployment in scripts/deploy.sh. |
 | 115 | Web & Rendering Security | PROPOSED | Remediate Reflected XSS in HTMX partials and disable external fetching in WeasyPrint SVG rendering to prevent SSRF/LFI. |
 | 116 | Protocol Parser Hardening | PROPOSED | Implement fail-closed parsing for PROXY protocol on trusted connections to prevent protocol confusion/smuggling. |
-| 117 | DMZ Network Hardening & Anti-Smuggling | PROPOSED | Harden proxy against PROXY smuggling (double headers) and implement robust TLS record reassembly for fragmented handshakes. |
+| 117 | DMZ Network Hardening & Anti-Smuggling | DEFERRED | Superseded by Phase 118 — full pentest remediation including Redis ACLs and auth hardening. |
 
 ### Epic: Regulatory & Supply-Chain Conformance
 Alignment with international standards and regulatory frameworks.
@@ -277,9 +277,10 @@ Alignment with international standards and regulatory frameworks.
 | 114 | Supply Chain & Infrastructure Hygiene | PROPOSED | N/A | N/A |
 | 115 | Web & Rendering Security | PROPOSED | N/A | N/A |
 | 116 | Protocol Parser Hardening | PROPOSED | N/A | N/A |
-| 117 | DMZ Network Hardening & Anti-Smuggling | PROPOSED | N/A | N/A |
-| 118 | Connection Lifecycle Hardening & Operational Security | PROPOSED | N/A | N/A |
-| 119 | Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs | PROPOSED | N/A | N/A |
+| 117 | DMZ Network Hardening & Anti-Smuggling | DEFERRED | N/A | N/A |
+| 118 | Pentest Remediation: Attack Surface & Data Leakage Hardening | PROPOSED | N/A | N/A |
+| 119 | Connection Lifecycle Hardening & Operational Security | PROPOSED | N/A | N/A |
+| 120 | Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs | PROPOSED | N/A | N/A |
 | 200 | Go PROXY Protocol Trust + v2 Support | COMPLETE | N/A | N/A |
 | 201 | Go Redis TLS + Silent-Failure Hardening | COMPLETE | N/A | N/A |
 | 202 | CI Supply Chain + Default Credential Removal | COMPLETE | N/A | N/A |
