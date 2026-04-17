@@ -98,6 +98,7 @@ Management dashboards and documentation quality.
 | 39 | Documentation Audit & Synchronization | COMPLETE | Audit all phase documentation, synchronize manifest/todo, and ensure clear status indicators. |
 | 51 | Management UI - Phase 2: Frontend Dashboard | COMPLETE | Server-rendered Jinja2 dashboard (dashboard.html, partials) for real-time visualization of proxy telemetry. Delivered together with Phases 13/52 in merge commit 2aeb2ba. |
 | 52 | Management UI - Phase 3: Administration Tools | COMPLETE | Admin UI for allowlists, bans, dial, audit log, and config. Full test suite including test_pages.py and test_container_config.py. Delivered together with Phases 13/51 in merge commit 2aeb2ba. |
+| 105 | Documentation Restructure by Audience | PROPOSED | Consolidate and restructure project documentation into five audience-specific entry points (Website Owners, Architects, Operators, Compliance, Developers) to improve discoverability and reduce drift. |
 
 ### Epic: Operational Excellence & Lifecycle Management
 Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
@@ -119,6 +120,7 @@ Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
 | 91 | GDPR Live Data Erasure & Operational Script Gap Remediation | COMPLETE | Phase 89 Makefile audit discovered that make gdpr-delete has never worked (scripts/gdpr_delete.py never existed) and make test-phase-87-integration has been broken since Phase 87 shipped. Basic scripts created in Phase 89 cleanup. Phase 91 completes the work: HyperLogLog handling, ZSET member erasure, audit logging, unit tests, runbook, and Phase 87 integration test extension. |
 | 102 | Phase 93 Finishing Work: ADRs, Runbook Audit, Drift-Detection Decision | COMPLETE | Docs-only close-out of Phase 93. Three ADRs written (093a repo topology, 093b Registry namespace, 093c TTL renewal + drift-detection decision). deploy/terraform/README.md refreshed with drift-protection guidance. docs/runbooks/emergency_playbooks.md audited against playbook YAML. Most of the phase's original scope (protect_unmanaged_entries, [terraform] prefix, ticket/ttl_hours/notes fields, PlanModifiers, SHA-pinned CI) was pre-delivered in the external provider repo at github.com/anomalyco/terraform-provider-ja4proxy before Phase 102 started. |
 | 204 | README Badges — License, Versions, CI, Security | COMPLETE | Add comprehensive badge section to README.md: license, Python/Go versions, CI status, test coverage, security scans (Semgrep, TruffleHog), dependency audit, Docker readiness, and project architecture badges. |
+| 106 | SWEBOK v4 Alignment & Quality Plan | PROPOSED | Align project engineering practices with SWEBOK v4 standards, including SLOs, risk register, TCO analysis, and a formal quality plan. |
 
 ### Epic: Quality Assurance & Test Maturity
 Comprehensive testing, adversarial coverage, and performance validation.
@@ -131,6 +133,23 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 60 | Master Plan and Governance | CLOSED | Governance index (pointer document only). Phases 61–64 all COMPLETE. No implementation work remains — closed after 2026-04-09 rewrite. |
 | 61 | Supply Chain Security & Build Integrity | COMPLETE | GitHub Actions CI pipeline (Python + Go tests, SAST, dependency audit); SBOM generation (CycloneDX 1.4); Cosign keyless image signing; SLSA level 2 provenance for Go binary; action SHA pinning; branch protection rules. |
 | 207 | Go Test Coverage Improvement & Repository Hygiene | COMPLETE | Raised Go test coverage to ≥80% across all 6 target packages. Fixed ZADD bug in syncagent (event.Key used as member instead of event.Value) and handleError fall-through in CLI. README rewritten for accuracy (Parity badge removed, Go proxy section honest about gaps). 8 semgrep false positives triaged. 11 stale pytest.skip stubs removed. |
+| 108 | Full-Stack Penetration Testing Campaign | PROPOSED | A 7-layer adversarial assessment covering Go/Python core, Redis state, CI/CD supply chain, and DMZ network evasion. |
+| 109 | PROXY Protocol Hardening & Scrubbing | PROPOSED | Harden Go proxy to strip untrusted PROXY headers and handle partial reads; implement unified IP/Fingerprint blocklist schema. |
+| 110 | Management API Security Hardening | PROPOSED | Fix Redis-blocking health checks, implement CSRF protection, secure bearer token lookups (O(1)), and add Webhook SSRF validation. |
+| 111 | Security Logic & Tarpit Hardening | PROPOSED | Implement fail-closed tarpit policies for high-risk traffic and add enforcement for recognizability (BlockNonTLS). |
+| 112 | Session & Data Integrity Hardening | PROPOSED | Implement strict validation for GDPR erasure, JWT JTI blacklisting on logout, and migrate audit log to Redis Streams for reliability. |
+| 113 | Proxy Stability & Audit Instrumentation | PROPOSED | Bound beaconing sets in Redis to prevent OOM, implement non-blocking tarpit writes, and add missing audit logs for token mutations. |
+| 114 | Supply Chain & Infrastructure Hygiene | PROPOSED | Fix command injection in Jenkinsfile/Makefile and ensure idempotent cron job deployment in scripts/deploy.sh. |
+| 115 | Web & Rendering Security | PROPOSED | Remediate Reflected XSS in HTMX partials and disable external fetching in WeasyPrint SVG rendering to prevent SSRF/LFI. |
+| 116 | Protocol Parser Hardening | PROPOSED | Implement fail-closed parsing for PROXY protocol on trusted connections to prevent protocol confusion/smuggling. |
+| 117 | DMZ Network Hardening & Anti-Smuggling | PROPOSED | Harden proxy against PROXY smuggling (double headers) and implement robust TLS record reassembly for fragmented handshakes. |
+
+### Epic: Regulatory & Supply-Chain Conformance
+Alignment with international standards and regulatory frameworks.
+
+| Phase | Name | Status | Summary |
+|-------|------|--------|---------|
+| 107 | Regulatory Conformance (CRA, NIST, ISO) | PROPOSED | Ensure compliance with Cyber Resilience Act (CRA), NIST SSDF, and ISO standards (27017, 29100) including SLSA L3 provenance. |
 
 ## Phase Completion Details
 
@@ -244,6 +263,19 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 100 | Phase 100 — Cross-Phase Gap Closure (rolling) | COMPLETE | N/A | N/A |
 | 101 | Phase 101 — Cross-Phase Gap Closure | PROPOSED | N/A | N/A |
 | 102 | Phase 93 Finishing Work: ADRs, Runbook Audit, Drift-Detection Decision | COMPLETE | N/A | N/A |
+| 105 | Documentation Restructure by Audience | PROPOSED | N/A | N/A |
+| 106 | SWEBOK v4 Alignment & Quality Plan | PROPOSED | N/A | N/A |
+| 107 | Regulatory Conformance (CRA, NIST, ISO) | PROPOSED | N/A | N/A |
+| 108 | Full-Stack Penetration Testing Campaign | PROPOSED | N/A | N/A |
+| 109 | PROXY Protocol Hardening & Scrubbing | PROPOSED | N/A | N/A |
+| 110 | Management API Security Hardening | PROPOSED | N/A | N/A |
+| 111 | Security Logic & Tarpit Hardening | PROPOSED | N/A | N/A |
+| 112 | Session & Data Integrity Hardening | PROPOSED | N/A | N/A |
+| 113 | Proxy Stability & Audit Instrumentation | PROPOSED | N/A | N/A |
+| 114 | Supply Chain & Infrastructure Hygiene | PROPOSED | N/A | N/A |
+| 115 | Web & Rendering Security | PROPOSED | N/A | N/A |
+| 116 | Protocol Parser Hardening | PROPOSED | N/A | N/A |
+| 117 | DMZ Network Hardening & Anti-Smuggling | PROPOSED | N/A | N/A |
 | 200 | Go PROXY Protocol Trust + v2 Support | COMPLETE | N/A | N/A |
 | 201 | Go Redis TLS + Silent-Failure Hardening | COMPLETE | N/A | N/A |
 | 202 | CI Supply Chain + Default Credential Removal | COMPLETE | N/A | N/A |
