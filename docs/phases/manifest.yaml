@@ -45,6 +45,8 @@ epics:
   - 201
   - 202
   - 203
+  - 118
+  - 119
 - name: 'Epic: Analytics & Intelligence'
   description: Cross-instance behavior analysis and threat intelligence.
   phases:
@@ -209,6 +211,20 @@ phases:
     dependencies: [108]
     size: MEDIUM
     summary: 'Harden proxy against PROXY smuggling (double headers) and implement robust TLS record reassembly for fragmented handshakes.'
+  118:
+    name: 'Connection Lifecycle Hardening & Operational Security'
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_118.md
+    dependencies: [108]
+    size: LARGE
+    summary: 'Fix 17 vulnerabilities from independent white-box red team: goroutine leaks, n-vs-len(data) JA4 bypass, unauthenticated metrics, credential rotation, connection limits, tarpit timeouts, Redis KEYS blocking, trusted CIDR validation, SNI key injection, cookie secure flag, log sanitisation, OIDC token verification.'
+  119:
+    name: 'Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs'
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_119.md
+    dependencies: [108]
+    size: LARGE
+    summary: 'Fix 20 novel findings from independent deep-dive team: ALPN bypass design flaw, X-JA4-Fingerprint header injection, HAProxy default creds, privileged cAdvisor, Docker socket exposure, CI/CD token leaks, Redis PubSub poisoning, stored XSS, JWT role escalation, DSAR OOM, IPv6 burst bug, blocklist logic bug, config reload path, infrastructure hardening.'
   204:
     name: 'README Badges — License, Versions, CI, Security'
     status: COMPLETE
