@@ -370,19 +370,19 @@ remediation accounting forever.
 
 ## 6. Acceptance criteria
 
-- [ ] `docs/security/FINDINGS_REGISTER.md` exists with documented schema.
-- [ ] `scripts/findings_register.py` implements validate / list / add / dedup-hint / promote-verified.
-- [ ] `make verify-findings` wired and green.
-- [ ] ≥40 canonical findings populated; every 108–120 source finding reachable via `source_refs`.
-- [ ] `docs/security/SEVERITY_RUBRIC.md` exists with worked examples and SLA table.
-- [ ] `docs/security/REMEDIATION_WAVES.md` exists with an explicit DAG and wave completion criteria.
-- [ ] `docs/security/CLOSURE_VERIFICATION.md` exists; PR template updated; CI check for canonical ID citation on security-sensitive diffs.
-- [ ] `docs/security/INTAKE_RUNBOOK.md` exists.
-- [ ] `docs/security/OWNERSHIP.md` exists; every OPEN/IN_PROGRESS finding has a named owner.
-- [ ] `docs/decisions/ADR-NNN-cvss-version.md` merged.
-- [ ] `docs/phases/manifest.yaml` updated: 121 registered as COMPLETE; 120 status adjusted per 121e outcome; each remediation-phase entry gains a `canonical_findings` list.
-- [ ] `make sync` run; `TODO.md` and `PROJECT_STATUS.md` reflect the new layout.
-- [ ] `make phase-121-verify` exits 0.
+- [x] `docs/security/FINDINGS_REGISTER.md` exists with documented schema. *(121a)*
+- [x] `scripts/findings_register.py` implements validate / list / add / dedup-hint / promote-verified. *(121a, tightened in 121h)*
+- [x] `make verify-findings` wired and green. *(121a)*
+- [x] ≥40 canonical findings populated; every 108–120 source finding reachable via `source_refs`. *(121b — 54 findings)*
+- [x] `docs/security/SEVERITY_RUBRIC.md` exists with worked examples and SLA table. *(121c)*
+- [x] `docs/security/REMEDIATION_WAVES.md` exists with an explicit DAG and wave completion criteria. *(121f)*
+- [x] `docs/security/CLOSURE_VERIFICATION.md` exists; PR template updated; CI check for canonical ID citation on security-sensitive diffs. *(121h)*
+- [x] `docs/security/INTAKE_RUNBOOK.md` exists. *(121i)*
+- [x] `docs/security/OWNERSHIP.md` exists; every OPEN/IN_PROGRESS finding has a named owner. *(121g)*
+- [x] `docs/decisions/ADR-121a-cvss-version.md` merged. *(121j)*
+- [x] `docs/phases/manifest.yaml` updated: 121 registered; 120 adjusted per 121e outcome (DEFERRED + superseded_by 119); 117 confirmed superseded by 118. *(121e)*
+- [x] `make sync` run; `TODO.md` and `PROJECT_STATUS.md` reflect the new layout. *(121e)*
+- [x] `make phase-121-verify` exits 0. *(121k)*
 
 ---
 
