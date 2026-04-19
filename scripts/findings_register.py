@@ -5,13 +5,14 @@ Source of truth: docs/security/findings.yaml
 Human-readable view: docs/security/FINDINGS_REGISTER.md (generated)
 
 Subcommands:
-    validate              Schema + referential integrity checks. Exit 1 on error.
-    list                  Filtered listing. --status, --severity, --lane, --sla-breach, --phase.
-    add                   Allocate next canonical ID and append a new finding.
-    dedup-hint            Fuzzy match a title against existing findings.
-    render                Regenerate FINDINGS_REGISTER.md human view.
-    promote-verified      Auto-promote VERIFIED → CLOSED after 14 days no regression.
-    show                  Print a single finding by ID.
+    validate                  Schema + referential integrity checks. Exit 1 on error.
+    list                      Filtered listing. --status, --severity, --lane, --sla-breach, --phase.
+    add                       Allocate next canonical ID and append a new finding.
+    dedup-hint                Fuzzy match a title against existing findings.
+    render                    Regenerate FINDINGS_REGISTER.md human view.
+    promote-verified          Auto-promote VERIFIED → CLOSED after 14 days no regression.
+    show                      Print a single finding by ID.
+    verify-regression-tests   Run just the regression tests listed in the register.
 """
 from __future__ import annotations
 
@@ -19,6 +20,7 @@ import argparse
 import difflib
 import json
 import re
+import subprocess
 import sys
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -222,6 +224,18 @@ def cmd_validate(args: argparse.Namespace) -> int:
         # closed_commit required when CLOSED
         if f["status"] == "CLOSED" and not f.get("closed_commit"):
             errors.append(f"{where}: status=CLOSED requires closed_commit")
+
+        # VERIFIED/CLOSED require verified_by + verified_on (closure protocol §FIXED→VERIFIED)
+        if f["status"] in ("VERIFIED", "CLOSED"):
+            if not f.get("verified_by"):
+                errors.append(f"{where}: status={f['status']} requires verified_by")
+            if not f.get("verified_on"):
+                errors.append(f"{where}: status={f['status']} requires verified_on")
+            else:
+                try:
+                    _parse_date(f["verified_on"])
+                except (ValueError, TypeError):
+                    errors.append(f"{where}: verified_on must be ISO date (got {f['verified_on']!r})")
 
         # remediation_phases referential: only strings accepted, don't hard-check phase existence here
         rps = f.get("remediation_phases") or []
@@ -477,21 +491,113 @@ def cmd_promote_verified(args: argparse.Namespace) -> int:
     reg = Register.load()
     today = date.today()
     promoted = 0
+    skipped: list[str] = []
     for f in reg.findings:
         if f.get("status") != "VERIFIED":
             continue
         verified_on = f.get("verified_on")
-        if not verified_on:
+        verified_by = f.get("verified_by")
+        if not verified_on or not verified_by:
+            skipped.append(f"{f['id']}: missing verified_by/verified_on")
             continue
-        if (today - _parse_date(verified_on)).days >= VERIFIED_TO_CLOSED_DAYS:
-            if not f.get("closed_commit"):
-                print(f"skip {f['id']}: missing closed_commit", file=sys.stderr)
-                continue
-            f["status"] = "CLOSED"
-            promoted += 1
+        if (today - _parse_date(verified_on)).days < VERIFIED_TO_CLOSED_DAYS:
+            continue
+        if not f.get("closed_commit"):
+            skipped.append(f"{f['id']}: missing closed_commit")
+            continue
+        f["status"] = "CLOSED"
+        promoted += 1
     if promoted:
         reg.save()
+    for s in skipped:
+        print(f"skip {s}", file=sys.stderr)
     print(f"promoted {promoted} finding(s) VERIFIED → CLOSED")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# verify-regression-tests
+# ---------------------------------------------------------------------------
+
+def cmd_verify_regression_tests(args: argparse.Namespace) -> int:
+    """Run only the regression tests listed in the register.
+
+    Separates pytest nodeids (tests/*.py::name) from Go nodeids
+    (internal/**/*_test.go::TestName). Runs each set once.
+
+    By default, entries with empty regression_test are ignored. With
+    --require-all, missing regression_test on any non-OPEN finding is an
+    error. With --stub-green, if there are zero populated nodeids the
+    command exits 0 with an explanatory message (useful before 121d/h
+    land the first regression tests).
+    """
+    reg = Register.load()
+    py_nodes: list[str] = []
+    go_nodes: list[str] = []
+    missing: list[str] = []
+
+    for f in reg.findings:
+        rt = (f.get("regression_test") or "").strip()
+        status = f.get("status", "OPEN")
+        if not rt:
+            if status in ("FIXED", "VERIFIED", "CLOSED"):
+                missing.append(f"{f['id']} ({status}): no regression_test")
+            continue
+        if rt.startswith("tests/") or rt.startswith("src/"):
+            py_nodes.append(rt)
+        elif rt.startswith("internal/") or rt.startswith("cmd/") or rt.endswith("_test.go") or "::Test" in rt:
+            go_nodes.append(rt)
+        else:
+            # Best-effort default: treat as pytest nodeid
+            py_nodes.append(rt)
+
+    if args.require_all and missing:
+        for m in missing:
+            print(f"  - {m}", file=sys.stderr)
+        print(f"{len(missing)} finding(s) missing regression_test", file=sys.stderr)
+        return 1
+
+    if not py_nodes and not go_nodes:
+        msg = "no regression tests currently listed in findings.yaml"
+        if args.stub_green:
+            print(f"verify-regression-tests: {msg} — exiting 0 (stub-green mode)")
+            return 0
+        print(f"verify-regression-tests: {msg}", file=sys.stderr)
+        print("  Run with --stub-green to allow this, or populate regression_test", file=sys.stderr)
+        print("  on FIXED/VERIFIED/CLOSED findings per docs/TESTING_STRATEGY.md §6.", file=sys.stderr)
+        return 1
+
+    failures = 0
+    if py_nodes:
+        print(f"verify-regression-tests: running {len(py_nodes)} pytest nodeid(s)")
+        rc = subprocess.call(
+            ["python3", "-m", "pytest", "-q", "--no-header", *py_nodes],
+            cwd=str(REPO_ROOT),
+        )
+        if rc != 0:
+            failures += 1
+    if go_nodes:
+        # Group by package directory: Go runs one package per invocation.
+        pkgs: dict[str, list[str]] = {}
+        for n in go_nodes:
+            path_part, _, name = n.partition("::")
+            pkg_dir = str(Path(path_part).parent)
+            pkgs.setdefault(pkg_dir, []).append(name or ".")
+        print(f"verify-regression-tests: running {len(go_nodes)} go test(s) across {len(pkgs)} package(s)")
+        for pkg, names in pkgs.items():
+            run_arg = "|".join(n for n in names if n != ".")
+            cmd = ["go", "test", "-count=1"]
+            if run_arg:
+                cmd += ["-run", f"^({run_arg})$"]
+            cmd.append(f"./{pkg}")
+            rc = subprocess.call(cmd, cwd=str(REPO_ROOT))
+            if rc != 0:
+                failures += 1
+
+    if failures:
+        print(f"verify-regression-tests: {failures} test invocation(s) failed", file=sys.stderr)
+        return 1
+    print("verify-regression-tests: all regression tests passed")
     return 0
 
 
@@ -549,6 +655,21 @@ def _build_parser() -> argparse.ArgumentParser:
     sub.add_parser("render", help="Regenerate FINDINGS_REGISTER.md")
     sub.add_parser("promote-verified", help="VERIFIED → CLOSED after 14 days")
 
+    pv = sub.add_parser(
+        "verify-regression-tests",
+        help="Run the regression tests listed in the register",
+    )
+    pv.add_argument(
+        "--require-all",
+        action="store_true",
+        help="Fail if any FIXED/VERIFIED/CLOSED finding lacks a regression_test",
+    )
+    pv.add_argument(
+        "--stub-green",
+        action="store_true",
+        help="Exit 0 when there are zero regression tests to run (bootstrap mode)",
+    )
+
     ps = sub.add_parser("show", help="Print a single finding by ID")
     ps.add_argument("id")
 
@@ -565,6 +686,7 @@ def main(argv: list[str] | None = None) -> int:
         "dedup-hint": cmd_dedup_hint,
         "render": cmd_render,
         "promote-verified": cmd_promote_verified,
+        "verify-regression-tests": cmd_verify_regression_tests,
         "show": cmd_show,
     }
     return handlers[args.cmd](args)

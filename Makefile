@@ -1446,10 +1446,13 @@ quality: lint-all lint-coverage ## Run all linters + coverage checks in one shot
 verify-findings: ## Validate docs/security/findings.yaml schema and referential integrity
 	@python3 scripts/findings_register.py validate
 
+verify-findings-green: ## Run only the regression tests backing findings.yaml entries (fast signal)
+	@python3 scripts/findings_register.py verify-regression-tests --stub-green
+
 findings-render: ## Regenerate docs/security/FINDINGS_REGISTER.md from findings.yaml
 	@python3 scripts/findings_register.py render
 
 findings-list: ## List open findings (add FINDINGS_ARGS=... to pass flags, e.g. --severity HIGH)
 	@python3 scripts/findings_register.py list $(FINDINGS_ARGS)
 
-.PHONY: verify-findings findings-render findings-list
+.PHONY: verify-findings verify-findings-green findings-render findings-list
