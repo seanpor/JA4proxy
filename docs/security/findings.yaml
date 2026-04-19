@@ -41,5 +41,1676 @@
 #   notes               free-text, optional
 
 schema_version: 1
-last_allocated_id: 0
-findings: []
+last_allocated_id: 55
+findings:
+- id: JA4PROXY-2026-0001
+  title: PROXY Protocol v2 Spoofing from Untrusted Source
+  severity: CRITICAL
+  severity_rationale: C-4 (could block legitimate traffic via fail-closed config); also bypass of IP-based
+    security decisions). CVSS v3.1 rates this 9.1; consistent with rubric.
+  lane: go-proxy
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 9.1
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N
+  source_refs:
+  - report: PHASE_108
+    id: L1-001
+    discovered: '2026-04-09'
+  - report: PHASE_109
+    id: 109a
+    discovered: '2026-04-09'
+  remediation_phases:
+  - 109a
+  - 116a
+  discovered: '2026-04-09'
+  due: '2026-04-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: If a source IP is not in trusted_cidrs, the PROXY protocol v1/v2 header is currently ignored
+    but left in the data buffer. This "leaks" the attacker's header to the backend, which may trust it.
+    Attacker-controlled IP and port fields can be spoofed, bypassing source IP validation and enabling
+    internal SSRF-style attacks.
+  notes: Phase 109a (scrubbing) and Phase 116a (fail-closed) both address this. 109a strips untrusted
+    headers; 116a enforces that trusted sources MUST provide valid headers.
+- id: JA4PROXY-2026-0002
+  title: PROXY Protocol v2 Smuggling via Double Header Injection
+  severity: CRITICAL
+  severity_rationale: C-4 (enables DMZ scanning via backend open-proxy behavior). CVSS v3.1 rates this
+    9.8; consistent.
+  lane: go-proxy
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 9.8
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N
+  source_refs:
+  - report: PHASE_108
+    id: L1-018
+    discovered: '2026-04-09'
+  - report: 2026-04-16_LEADER_PENTEST_CAMPAIGN
+    id: L1-018
+    discovered: '2026-04-16'
+  - report: PHASE_118
+    id: 118a
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118a
+  - 117a
+  discovered: '2026-04-09'
+  due: '2026-04-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: After the proxy strips the legitimate PROXY protocol header from a trusted source, an attacker
+    can inject a second PROXY header immediately following the first. The proxy forwards this injected
+    header to the backend, which may trust it and use the attacker-specified src/dst IP and port values
+    to route internal requests. This enables DMZ scanning and pivoting to internal services.
+  notes: 118a specifies the anti-smuggling check (detect second header after strip); 117a is the second-layer
+    hardening.
+- id: JA4PROXY-2026-0003
+  title: TLS ClientHello Fragmentation Bypass
+  severity: CRITICAL
+  severity_rationale: C-4 (removes JA4 fingerprinting entirely, letting attacker bypass all JA4-based
+    controls). CVSS v3.1 rates this 9.1; consistent.
+  lane: go-proxy
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 9.1
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N
+  source_refs:
+  - report: PHASE_108
+    id: L2-005
+    discovered: '2026-04-09'
+  - report: 2026-04-16_LEADER_PENTEST_CAMPAIGN
+    id: L1-019
+    discovered: '2026-04-16'
+  - report: PHASE_118
+    id: 118b
+    discovered: '2026-04-17'
+  - report: 2026-04-17_REDTEAM_WHITEBOX_ASSESSMENT
+    id: RT-002
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118b
+  - 108d
+  discovered: '2026-04-09'
+  due: '2026-04-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: The Go proxy performs a single Read() into 8KB buffer. If the TLS ClientHello is fragmented
+    across TCP packets, the first packet may contain only a partial record; tlsparse.ParseClientHello
+    returns ErrTruncated. The proxy falls through to forward() action without computing a JA4 fingerprint.
+    Attacker completely bypasses all JA4-based blocklists and rate limiting. RT-002 additionally shows
+    that after PROXY header stripping, the check uses the stale `n` variable instead of `len(data)`, creating
+    a second variant that works even with a single TCP segment.
+  notes: Phase 118b implements reassembly loop and protocol lockdown. RT-002 bug (n vs len(data)) is a
+    separate fix on same line.
+- id: JA4PROXY-2026-0004
+  title: ALPN Browser Bypass Trusts Attacker-Controlled Signal
+  severity: CRITICAL
+  severity_rationale: C-4 (skips entire security pipeline based on client-controlled TLS field). CVSS
+    v3.1 rates this 9.8; consistent. Design flaw, not a code bug.
+  lane: go-proxy
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 9.8
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N
+  source_refs:
+  - report: PHASE_119
+    id: 119a
+    discovered: '2026-04-17'
+  - report: PHASE_120
+    id: 120a
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 119a
+  discovered: '2026-04-17'
+  due: '2026-04-24'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: The ALPNBrowserBypass feature (enabled by default in config/proxy.yml) grants immediate
+    ALLOW to any connection whose first ALPN protocol is h2 or h1. ALPN is an attacker-controlled plaintext
+    field in the ClientHello. Any bot, scanner, or tool can set ALPN=h2 and bypass JA4 blocklists, rate
+    limiting, geo-blocking, risk scoring, and the entire security pipeline. This is the proxy's single
+    biggest design flaw.
+  notes: 'Phase 119a offers three fix options: (1) downgrade to signal not bypass, (2) correlate ALPN
+    with other ClientHello features before granting bypass, (3) disable bypass by default. No obvious
+    single ''correct'' fix — requires architectural decision.'
+- id: JA4PROXY-2026-0005
+  title: X-JA4-Fingerprint HTTP Header Injection Bypass
+  severity: CRITICAL
+  severity_rationale: C-4 (complete security bypass via attacker-controlled header). CVSS v3.1 rates this
+    9.8; consistent.
+  lane: go-proxy
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 9.8
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N
+  source_refs:
+  - report: PHASE_119
+    id: 119b
+    discovered: '2026-04-17'
+  - report: PHASE_120
+    id: 120b
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 119b
+  discovered: '2026-04-17'
+  due: '2026-04-24'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: 'When non-TLS traffic arrives at the proxy port, _extract_ja4_from_http() reads an X-JA4-Fingerprint
+    HTTP header and uses its value directly as the connection''s JA4 with zero validation. Attacker sends
+    plain HTTP with X-JA4-Fingerprint: t13d1516h2_8daaf6152771_02713d6af862 (whitelisted fingerprint).
+    The proxy treats this as a Chrome connection, applies whitelist bypass, and forwards traffic with
+    ALLOW status. Complete security bypass.'
+  notes: The function comment says 'testing/fallback' but is called unconditionally for all non-TLS data.
+    Phase 119b recommends removal or gating behind disabled-by-default flag.
+- id: JA4PROXY-2026-0006
+  title: X-Forwarded-For Header IP Spoofing (Python Proxy)
+  severity: CRITICAL
+  severity_rationale: C-4 (allows attacker to spoof source IP, bypassing IP-based bans). CVSS v3.1 rates
+    this 7.5 in source; elevated to CRITICAL per C-4 asymmetry.
+  lane: python-management
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N
+  source_refs:
+  - report: PHASE_108
+    id: L1-001
+    discovered: '2026-04-09'
+  - report: PHASE_110
+    id: 110c
+    discovered: '2026-04-09'
+  - report: PHASE_117
+    id: 117c
+    discovered: '2026-04-09'
+  - report: 2026-04-16_LEADER_PENTEST_CAMPAIGN
+    id: L4-028
+    discovered: '2026-04-16'
+  - report: PHASE_118
+    id: 118c
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118c
+  - 117c
+  discovered: '2026-04-09'
+  due: '2026-04-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: 'Python proxy (_extract_client_ip_from_http) extracts the FIRST IP from X-Forwarded-For
+    header (split by comma, take index [0]). Attacker sends X-Forwarded-For: 1.2.3.4 (attacker''s spoofed
+    IP). HAProxy appends real IP at end, but Python proxy reads attacker''s spoofed IP first, not the
+    real one. Defeats IP-based bans and rate limiting.'
+  notes: Phase 118c fixes via rightmost IP extraction; Phase 117c deprecates HTTP parsing in TCP proxy
+    and mandates PROXY protocol for trusted upstreams.
+- id: JA4PROXY-2026-0007
+  title: Webhook URL SSRF (Management API)
+  severity: CRITICAL
+  severity_rationale: C-6 (turns proxy into attack amplifier via SSRF to internal metadata). CVSS v3.1
+    rates this 8.6 in source.
+  lane: python-management
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 8.6
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:L/A:N
+  source_refs:
+  - report: PHASE_108
+    id: L4-006
+    discovered: '2026-04-09'
+  - report: PHASE_110
+    id: 110e
+    discovered: '2026-04-09'
+  - report: 2026-04-17_RED_TEAM_AUDIT
+    id: R-001
+    discovered: '2026-04-17'
+  - report: PHASE_118
+    id: 118g
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118g
+  - 110e
+  discovered: '2026-04-09'
+  due: '2026-04-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: Management API webhook creation endpoint (management/api/routes/webhooks.py) accepts arbitrary
+    URLs without validation. Attacker with Operator role creates webhook to http://localhost:6379, http://169.254.169.254/latest/meta-data/,
+    or http://10.0.0.1:8090/internal. When webhook fires, proxy sends the webhook secret and internal
+    data to attacker-controlled URL. Enables exfiltration of AWS metadata, Redis credentials, and internal
+    API access.
+  notes: Phase 118g and 110e both specify URL validation (block localhost, link-local, RFC1918 ranges).
+    Slightly different scope — 118g is core webhook, 110e is broader SSRF effort.
+- id: JA4PROXY-2026-0008
+  title: Unauthenticated /metrics and /health/deep Endpoints
+  severity: CRITICAL
+  severity_rationale: C-3 (exposes client IPs, ban rates, dial settings, cert expiry, full config). CVSS
+    v3.1 rates this 7.5; elevated per C-3.
+  lane: go-proxy
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N
+  source_refs:
+  - report: PHASE_108
+    id: L5-NNN
+    discovered: '2026-04-09'
+  - report: 2026-04-17_RED_TEAM_AUDIT
+    id: R-002
+    discovered: '2026-04-17'
+  - report: PHASE_118
+    id: 118c
+    discovered: '2026-04-17'
+  - report: 2026-04-17_REDTEAM_WHITEBOX_ASSESSMENT
+    id: RT-003
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118c
+  - 118h
+  discovered: '2026-04-17'
+  due: '2026-04-24'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: 'The metrics HTTP server (cmd/proxy/main.go) binds to 0.0.0.0:<port> (default 9090) with
+    no authentication. The config file has authentication.enabled: false (dead config — never implemented).
+    Endpoints /health/deep and /metrics are unauthenticated and expose: dial setting, active connections,
+    ban count, tarpit saturation, cert expiry, block rate %, and full Prometheus scrape. Attacker polls
+    endpoints for reconnaissance before launching attacks.'
+  notes: Phase 118c and 118h both address this. 118c is narrower (just metrics binding); 118h is full
+    auth implementation. 118h is preferred as it allows metrics on privileged network while adding auth
+    option.
+- id: JA4PROXY-2026-0009
+  title: Goroutine Leak in forward() and tarpit()
+  severity: CRITICAL
+  severity_rationale: C-4 (memory exhaustion OOM causes proxy to block legitimate traffic). CVSS v3.1
+    rates this 8.6.
+  lane: go-proxy
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 8.6
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H
+  source_refs:
+  - report: PHASE_118
+    id: 118a
+    discovered: '2026-04-17'
+  - report: 2026-04-17_REDTEAM_WHITEBOX_ASSESSMENT
+    id: RT-001
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118a
+  discovered: '2026-04-17'
+  due: '2026-04-24'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: Both forward() and tarpit() spawn two goroutines for bidirectional copy but only receive
+    from done channel once. The second goroutine leaks, holding its buffer indefinitely. At 100 conn/s
+    sustained, this is ~69MB/hour of permanently leaked memory. Under attack load, OOM kill within hours.
+    Each connection leak is ~8KB stack + buffer.
+  notes: 'Simple fix: change `<-done` to `<-done; <-done` in both functions, or use sync.WaitGroup.'
+- id: JA4PROXY-2026-0010
+  title: Redis Fail-Open Masks Misconfiguration
+  severity: CRITICAL
+  severity_rationale: C-4 (misconfig allows all security state to be exposed/modified on network). CVSS
+    v3.1 rates this 8.2.
+  lane: go-proxy
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 8.2
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N
+  source_refs:
+  - report: 2026-04-17_RED_TEAM_AUDIT
+    id: R-003
+    discovered: '2026-04-17'
+  - report: PHASE_118
+    id: 118i
+    discovered: '2026-04-17'
+  - report: 2026-04-17_REDTEAM_WHITEBOX_ASSESSMENT
+    id: RT-008
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118i
+  discovered: '2026-04-17'
+  due: '2026-04-24'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: If Redis is misconfigured without a password (even though it should have one), the Go proxy
+    continues operating (fail-open), connecting to unauthenticated Redis and exposing all security state
+    (ban lists, whitelists, dial settings) to any network client. Attacker on same network modifies ban
+    lists, whitelists malicious JA4s, or changes dial to 0 (monitor mode).
+  notes: 'Phase 118i specifies fail-closed validation: require password for non-localhost Redis at startup.
+    Startup must fail with clear error if Redis password missing for remote host.'
+- id: JA4PROXY-2026-0011
+  title: TLS Record Reassembly and Protocol Lockdown
+  severity: HIGH
+  severity_rationale: H-3 (causes mis-scoring of some TLS connections; not an outage but measurable false
+    negatives). CVSS v3.1 rates this 7.5.
+  lane: go-proxy
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N
+  source_refs:
+  - report: PHASE_118
+    id: 118b
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118b
+  - 117b
+  discovered: '2026-04-17'
+  due: '2026-05-17'
+  status: OPEN
+  supersedes: []
+  depends_on:
+  - JA4PROXY-2026-0003
+  regression_test: ''
+  closed_commit: ''
+  description: 'Beyond the fragmentation bypass itself (0003), Phase 118b''s fix requires protocol lockdown:
+    after reassembly, validate the first byte of payload is 0x16 (TLS Handshake). If not, drop connection
+    immediately. Prevents HTTP smuggling, SSH injection, or subsequent PROXY header injection.'
+  notes: Part of the same remediation (118b) as 0003. Separate canonical entry because the concern is
+    protocol confusion, not JA4 bypass.
+- id: JA4PROXY-2026-0012
+  title: Unbounded Goroutines from Accept Loop
+  severity: HIGH
+  severity_rationale: H-2 (slow resource exhaustion, memory limit hit with moderate resources). CVSS v3.1
+    rates this 7.5.
+  lane: go-proxy
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H
+  source_refs:
+  - report: PHASE_118
+    id: 118e
+    discovered: '2026-04-17'
+  - report: 2026-04-17_REDTEAM_WHITEBOX_ASSESSMENT
+    id: RT-005
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118e
+  - 118o
+  discovered: '2026-04-17'
+  due: '2026-05-17'
+  status: OPEN
+  supersedes: []
+  depends_on:
+  - JA4PROXY-2026-0009
+  regression_test: ''
+  closed_commit: ''
+  description: Main accept loop (cmd/proxy/main.go:285-298) creates unbounded goroutines without semaphore.
+    Each connection allocates 3x BufferSize in memory (default 8KB = 24KB per connection). Combined with
+    goroutine leak (0009), attacker can exhaust memory by opening connections faster than they close.
+    At 100K concurrent connections, 2.4GB in buffers alone.
+  notes: 118e is labeled 'Connection Semaphore' but spec'd as same fix. 118o in current docs also mentions
+    semaphore. Using one canonical entry for both since remediation is identical.
+- id: JA4PROXY-2026-0013
+  title: Tarpit Slot Exhaustion via Timeout-Free Connections
+  severity: HIGH
+  severity_rationale: H-2 (slow resource exhaustion, tarpit slots permanently filled). CVSS v3.1 rates
+    this 7.5.
+  lane: go-proxy
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H
+  source_refs:
+  - report: PHASE_111
+    id: 111a
+    discovered: '2026-04-17'
+  - report: PHASE_118
+    id: 118f
+    discovered: '2026-04-17'
+  - report: 2026-04-17_REDTEAM_WHITEBOX_ASSESSMENT
+    id: RT-006
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118f
+  - 111a
+  discovered: '2026-04-17'
+  due: '2026-05-17'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: tarpit()'s copyOne function has no SetReadDeadline. Attacker sends 1 byte then hangs indefinitely,
+    permanently consuming a tarpit slot. With 100 source IPs and MaxPerIP=10, attacker fills all 1000
+    default tarpit slots. Subsequent tarpit-action connections overflow to allow (if configured).
+  notes: Phase 118f and 111a both address this with tarpit inactivity timeout (default 60s). Slightly
+    different spec scope but same fix.
+- id: JA4PROXY-2026-0015
+  title: HAProxy Stats Default Credentials
+  severity: HIGH
+  severity_rationale: H-6 (default auth on sensitive non-exfil endpoint). CVSS v3.1 rates this 7.5.
+  lane: infrastructure
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N
+  source_refs:
+  - report: PHASE_119
+    id: 119c
+    discovered: '2026-04-17'
+  - report: PHASE_120
+    id: 120c
+    discovered: '2026-04-17'
+  - report: 2026-04-17_RED_TEAM_AUDIT
+    id: R-005
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 119c
+  discovered: '2026-04-17'
+  due: '2026-05-17'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: HAProxy stats page (port 8404) binds to all interfaces with fallback credentials admin:admin123
+    if env vars unset (config/haproxy.cfg:37). Exposes backend server topology, IPs, and health status.
+  notes: 'Phase 119c specifies fail-open: use `${HAPROXY_STATS_USER:?}:${HAPROXY_STATS_PASSWORD:?}` syntax
+    to force startup failure if env vars missing.'
+- id: JA4PROXY-2026-0016
+  title: Privileged cAdvisor Container
+  severity: HIGH
+  severity_rationale: H-2 (container escape to host with privileged cap). CVSS v3.1 rates this 8.0.
+  lane: infrastructure
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 8.0
+    vector: CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:H
+  source_refs:
+  - report: PHASE_119
+    id: 119d
+    discovered: '2026-04-17'
+  - report: PHASE_120
+    id: 120d
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 119d
+  discovered: '2026-04-17'
+  due: '2026-05-17'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: 'cAdvisor runs with privileged: true, mounts /:rootfs:ro, /var/run/var/run:rw, and has
+    access to /dev/kmsg. If compromised, full host control via Docker socket in /var/run.'
+  notes: 'Phase 119d specifies replacing privileged: true with specific caps (SYS_PTRACE, DAC_READ_SEARCH)
+    and mounting /var/run as read-only.'
+- id: JA4PROXY-2026-0017
+  title: Docker Socket Exposed to Promtail
+  severity: HIGH
+  severity_rationale: H-4 (credential/secret leak with limited blast radius). CVSS v3.1 rates this 7.5.
+  lane: infrastructure
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:U/C:H/I:N/A:N
+  source_refs:
+  - report: PHASE_119
+    id: 119e
+    discovered: '2026-04-17'
+  - report: PHASE_120
+    id: 120e
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 119e
+  discovered: '2026-04-17'
+  due: '2026-05-17'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: Promtail mounts /var/run/docker.sock:ro (read-only). Even read-only, Docker API allows
+    inspecting container env vars, leaking REDIS_PASSWORD, GRAFANA_PASSWORD, MANAGEMENT_JWT_SECRET.
+  notes: Phase 119e specifies using Docker logging driver instead, or socket proxy (tecnativa/docker-socket-proxy)
+    with restricted API endpoints.
+- id: JA4PROXY-2026-0018
+  title: CI/CD Token Exposed on Command Line
+  severity: HIGH
+  severity_rationale: H-4 (credential leak in build logs and process list). CVSS v3.1 rates this 7.0.
+  lane: infrastructure
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 7.0
+    vector: CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:N/A:N
+  source_refs:
+  - report: PHASE_119
+    id: 119f
+    discovered: '2026-04-17'
+  - report: PHASE_120
+    id: 120f
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 119f
+  discovered: '2026-04-17'
+  due: '2026-05-17'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: Both Jenkins (deploy/jenkins/Jenkinsfile) and GitHub Actions (.github/workflows/ja4proxy-policy.yml)
+    pass JA4PROXY_TOKEN directly on command line via string interpolation. Token appears in build logs,
+    /proc/<pid>/cmdline, and shell history.
+  notes: Phase 119f specifies using environment variables (Groovy env blocks for Jenkins, env blocks for
+    GitHub Actions) instead of command-line interpolation.
+- id: JA4PROXY-2026-0019
+  title: Redis PubSub Poisoning (No HMAC on Critical Channels)
+  severity: HIGH
+  severity_rationale: H-2 (DoS via dial=0 or whitelist corruption). CVSS v3.1 rates this 7.5.
+  lane: go-proxy
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:N
+  source_refs:
+  - report: PHASE_119
+    id: 119g
+    discovered: '2026-04-17'
+  - report: PHASE_120
+    id: 120g
+    discovered: '2026-04-17'
+  - report: PHASE_118
+    id: 118q
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 119g
+  - 118q
+  discovered: '2026-04-17'
+  due: '2026-05-17'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: Any entity with Redis access can PUBLISH to security-critical channels (config:dial:change,
+    ja4:whitelist:add, ja4:blacklist:remove). No HMAC, signature, or audit trail on PubSub messages. onRefresh
+    callback blindly trusts whatever is in Redis. Attacker forces dial=0 (monitor mode) or whitelists
+    malicious JA4s.
+  notes: Phase 119g specifies HMAC-SHA256 on all critical PubSub messages. Phase 118q (part of 118 merge)
+    specifies verification of ALL message types, not just 4 of them.
+- id: JA4PROXY-2026-0020
+  title: Stored XSS in Management UI (Ban IP in Alpine.js)
+  severity: HIGH
+  severity_rationale: H-5 (stored XSS via Alpine.js @click handler). CVSS v3.1 rates this 6.8.
+  lane: python-management
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 6.8
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:U/C:L/I:L/A:N
+  source_refs:
+  - report: PHASE_119
+    id: 119h
+    discovered: '2026-04-17'
+  - report: PHASE_120
+    id: 120h
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 119h
+  discovered: '2026-04-17'
+  due: '2026-05-17'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: management/templates/partials/bans_table.html embeds {{ ban.ip }} inside Alpine.js @click
+    handler in a JavaScript string literal. While Jinja2 HTML-escapes, Alpine.js @click directives may
+    interpret decoded attribute values as JavaScript. A ban with IP containing `'); fetch('https://evil.com');//`
+    could break out of JS string.
+  notes: Phase 119h specifies using {{ ban.ip | tojson }} (JSON-escaped) instead of raw interpolation
+    inside JavaScript contexts.
+- id: JA4PROXY-2026-0021
+  title: In-Memory Rate Limiting Bypass (Management API)
+  severity: HIGH
+  severity_rationale: H-2 (brute-force protection bypass via distributed attack or restart). CVSS v3.1
+    rates this 7.5.
+  lane: python-management
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N
+  source_refs:
+  - report: 2026-04-17_RED_TEAM_AUDIT
+    id: R-007
+    discovered: '2026-04-17'
+  - report: PHASE_118
+    id: 118e
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118e
+  discovered: '2026-04-17'
+  due: '2026-05-17'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: management/api/auth.py implements login rate limiting using an in-memory dict (_login_failures).
+    Distributed attacker can distribute brute-force across N instances (each gets 5 attempts). Restart
+    clears all lockout state.
+  notes: Phase 118e specifies Redis-backed rate limiting with per-IP bucketing and per-user account lockout.
+- id: JA4PROXY-2026-0022
+  title: Trusted CIDR /0 Acceptance (Python Proxy)
+  severity: HIGH
+  severity_rationale: H-1 (complete trust-model bypass, attacker becomes trusted upstream). CVSS v3.1
+    rates this 8.1.
+  lane: python-management
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 8.1
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N
+  source_refs:
+  - report: 2026-04-17_REDTEAM_WHITEBOX_ASSESSMENT
+    id: RT-008
+    discovered: '2026-04-17'
+  - report: PHASE_118
+    id: 118h
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118h
+  discovered: '2026-04-17'
+  due: '2026-05-17'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: Python proxy accepts 0.0.0.0/0 as a trusted CIDR without validation (proxy.py:2130-2134).
+    If this appears in config (misconfiguration or injection), ALL source IPs are treated as trusted upstream
+    proxies. PROXY protocol headers from any source are accepted, allowing IP spoofing.
+  notes: 'Phase 118h specifies validation at config load: reject /0, /1, /2 CIDR sizes. Warn on RFC1918/loopback.
+    Log CRITICAL if trust set covers >=/16.'
+- id: JA4PROXY-2026-0023
+  title: Test Secret Fallback in Production Path
+  severity: HIGH
+  severity_rationale: H-1 (authentication bypass if env var set). CVSS v3.1 rates this 9.1.
+  lane: python-management
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 9.1
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N
+  source_refs:
+  - report: 2026-04-17_RED_TEAM_AUDIT
+    id: R-008
+    discovered: '2026-04-17'
+  - report: PHASE_118
+    id: 118q (implied in 118r OIDC
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 119r (implied)
+  - 118r
+  discovered: '2026-04-17'
+  due: '2026-05-17'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: 'management/api/auth.py contains test secret fallback: if MANAGEMENT_TEST_MODE=1, JWT verification
+    uses hardcoded "test-secret-do-not-use-in-production". If attacker can set env var (container escape,
+    supply-chain compromise), JWT verification bypassed.'
+  notes: Phase 118r specifies removing test mode code from production entirely. Phase 119r references
+    OIDC/SAML test mode. No test modes in production builds.
+- id: JA4PROXY-2026-0024
+  title: JWT Cookie Secure Flag Not Gated to Production
+  severity: HIGH
+  severity_rationale: H-4 (credential leak via network interception if HTTPS in front). CVSS v3.1 rates
+    this 6.5.
+  lane: python-management
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 6.5
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N
+  source_refs:
+  - report: PHASE_118
+    id: 118k
+    discovered: '2026-04-17'
+  - report: 2026-04-17_REDTEAM_WHITEBOX_ASSESSMENT
+    id: RT-011
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118k
+  discovered: '2026-04-17'
+  due: '2026-05-17'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: JWT session cookie has secure=False hardcoded in management/api/auth.py:494, not environment-gated.
+    In production behind HTTPS, cookie is sent over HTTP, allowing network interception by network-path
+    attacker.
+  notes: Phase 118k specifies secure=os.environ.get('ENVIRONMENT') == 'production' or default to True
+    with explicit dev-mode disable.
+- id: JA4PROXY-2026-0025
+  title: Committed .env With Real Credentials
+  severity: MEDIUM
+  severity_rationale: M-4 (credential leak in git history; requires repo access which is limited). CVSS
+    v3.1 rates this 8.2; source is secondary-trusted but history access is not standard threat.
+  lane: infrastructure
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 8.2
+    vector: CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:U/C:H/I:N/A:N
+  source_refs:
+  - report: 2026-04-17_REDTEAM_WHITEBOX_ASSESSMENT
+    id: RT-004
+    discovered: '2026-04-17'
+  - report: PHASE_118
+    id: 118d
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118d
+  discovered: '2026-04-17'
+  due: '2026-06-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: '.env file contains real production credentials in git history: REDIS_PASSWORD, GRAFANA_PASSWORD,
+    UI_API_KEY. Even though .gitignore''d, values persist in git history and are recoverable by anyone
+    with repo access (including forks).'
+  notes: 'Immediate action: rotate all three credentials. Use git filter-repo or BFG Repo-Cleaner to purge
+    history. Add detect-secrets pre-commit hook.'
+- id: JA4PROXY-2026-0026
+  title: Unauthenticated Health/Metrics Endpoints Missing Rate Limiting
+  severity: MEDIUM
+  severity_rationale: M-4 (DoS on observability subsystem, not core proxy path). CVSS v3.1 rates this
+    5.3.
+  lane: go-proxy
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 5.3
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H
+  source_refs:
+  - report: 2026-04-17_RED_TEAM_AUDIT
+    id: R-010
+    discovered: '2026-04-17'
+  remediation_phases:
+  - (none explicit; covered by 118c/118h metrics auth)
+  discovered: '2026-04-17'
+  due: '2026-06-16'
+  status: OPEN
+  supersedes: []
+  depends_on:
+  - JA4PROXY-2026-0008
+  regression_test: ''
+  closed_commit: ''
+  description: '/health and /metrics endpoints lack rate limiting. Attacker spams endpoints: log flooding,
+    Redis connection churn, Prometheus metric churn. DoS on observability.'
+  notes: Related to 0008 (unauthenticated metrics). Adding auth (118h) implicitly solves this. If auth
+    not added, would need separate rate-limit implementation.
+- id: JA4PROXY-2026-0027
+  title: Redis Key Injection via SNI Hostnames
+  severity: MEDIUM
+  severity_rationale: M-1 (info leak via key enumeration; no direct exploit path). CVSS v3.1 rates this
+    6.8.
+  lane: python-management
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 6.8
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N
+  source_refs:
+  - report: 2026-04-17_REDTEAM_WHITEBOX_ASSESSMENT
+    id: RT-009
+    discovered: '2026-04-17'
+  - report: PHASE_118
+    id: 118i
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118i
+  discovered: '2026-04-17'
+  due: '2026-06-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: Redis keys constructed using unsanitised SNI hostnames (src/security/behavioral.py:81,108).
+    SNI contains colons, asterisks, question marks. Crafted SNI like evil.com:other_prefix:key_name creates
+    cross-namespace key pollution. Key enumeration confusion and counter pollution.
+  notes: Phase 118i specifies RFC 6066 hostname validation or hashing SNI (sha256(sni)[:16]) for Redis
+    keys.
+- id: JA4PROXY-2026-0028
+  title: Python Backend Connection Timeout Missing
+  severity: MEDIUM
+  severity_rationale: M-4 (DoS on Python proxy if backend slow, not core path). CVSS v3.1 rates this 6.5.
+  lane: python-management
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 6.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H
+  source_refs:
+  - report: PHASE_118
+    id: 118j
+    discovered: '2026-04-17'
+  - report: 2026-04-17_REDTEAM_WHITEBOX_ASSESSMENT
+    id: RT-010
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118j
+  discovered: '2026-04-17'
+  due: '2026-06-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: proxy.py:2702-2704 backend connection has no timeout. If backend unresponsive, handler
+    coroutines block for OS TCP timeout (~2 minutes). Combined with slow backend under separate DDoS,
+    all proxy connections exhaust event loop concurrency.
+  notes: Phase 118j specifies asyncio.wait_for(..., timeout=connection_timeout) with default 5s matching
+    tarpit timeout.
+- id: JA4PROXY-2026-0029
+  title: Log Sanitisation Incomplete (Control Characters, ANSI Escapes)
+  severity: MEDIUM
+  severity_rationale: M-2 (exploitable only if attacker controls log input and admin reviews logs; limited
+    blast radius). CVSS v3.1 rates this 5.5.
+  lane: python-management
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 5.5
+    vector: CVSS:3.1/AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:N
+  source_refs:
+  - report: PHASE_118
+    id: 118l
+    discovered: '2026-04-17'
+  - report: 2026-04-17_REDTEAM_WHITEBOX_ASSESSMENT
+    id: RT-012
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118l
+  discovered: '2026-04-17'
+  due: '2026-06-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: '_sanitize_log() (proxy.py:2140-2144) only strips \r and \n. Missing: null bytes (truncates
+    log lines), ANSI escape sequences (\x1b[...], hides entries in terminal viewers), C0/C1 control characters.
+    Additionally, JA4 from HTTP headers and SNI hostnames logged without sanitisation.'
+  notes: Phase 118l specifies extending _sanitize_log() to strip all ord(c) < 0x20 except \\t. Apply to
+    ALL logged client-controlled fields.
+- id: JA4PROXY-2026-0030
+  title: Unbounded behavioral:known_ja4 Redis SET
+  severity: MEDIUM
+  severity_rationale: M-4 (memory exhaustion of Redis, not core proxy path). CVSS v3.1 rates this 5.3.
+  lane: python-management
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 5.3
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H
+  source_refs:
+  - report: PHASE_118
+    id: 118m
+    discovered: '2026-04-17'
+  - report: 2026-04-17_REDTEAM_WHITEBOX_ASSESSMENT
+    id: RT-013
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118m
+  discovered: '2026-04-17'
+  due: '2026-06-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: behavioral:known_ja4 Redis SET stores every unique JA4 fingerprint with no TTL/max size.
+    Attacker sending randomised ClientHellos grows set at ~1 fingerprint/connection. 1M unique JA4s =
+    50MB Redis memory, reached in ~3 hours at 100 conn/s.
+  notes: Phase 118m specifies 90-day TTL (convert to ZSET with timestamp scores) or capping set size with
+    periodic trimming.
+- id: JA4PROXY-2026-0031
+  title: XADD Fire-and-Forget Without Backpressure (Go)
+  severity: MEDIUM
+  severity_rationale: M-4 (memory exhaustion via goroutine accumulation if Redis slow). CVSS v3.1 rates
+    this 5.3.
+  lane: go-proxy
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 5.3
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H
+  source_refs:
+  - report: PHASE_118
+    id: 118n
+    discovered: '2026-04-17'
+  - report: 2026-04-17_REDTEAM_WHITEBOX_ASSESSMENT
+    id: RT-014
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118n
+  discovered: '2026-04-17'
+  due: '2026-06-16'
+  status: OPEN
+  supersedes: []
+  depends_on:
+  - JA4PROXY-2026-0012
+  regression_test: ''
+  closed_commit: ''
+  description: Every connection decision spawns goroutine calling p.redis.XAdd() with context.Background()
+    (no timeout). If Redis slow, goroutines accumulate without bound, each holding JSON-marshaled event.
+    At 1000 conn/s with 100ms Redis latency, ~100 goroutines accumulate per second.
+  notes: Phase 118n specifies buffered channel (cap 1000) as send queue with single writer goroutine.
+    Drop events when channel full. Use 1-second XADD timeout.
+- id: JA4PROXY-2026-0032
+  title: OIDC Token Signature Not Verified
+  severity: MEDIUM
+  severity_rationale: M-2 (exploitable only after prior compromise of token endpoint or DNS hijack). CVSS
+    v3.1 rates this 5.9.
+  lane: python-management
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 5.9
+    vector: CVSS:3.1/AV:A/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N
+  source_refs:
+  - report: PHASE_118
+    id: 118o
+    discovered: '2026-04-17'
+  - report: 2026-04-17_REDTEAM_WHITEBOX_ASSESSMENT
+    id: RT-015
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118o
+  discovered: '2026-04-17'
+  due: '2026-06-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: management/api/routes/oidc.py:420 extracts ID token claims without verifying signature
+    against IdP's JWKS endpoint. Security relies on HTTPS and client secret, but if token endpoint intercepted
+    (compromised IdP, DNS hijack), attacker forges arbitrary claims including username and MFA status.
+  notes: Phase 118o specifies fetching JWKS from discovery doc jwks_uri, caching with 1hr TTL, verifying
+    RS256/ES256 signature, rejecting alg:none.
+- id: JA4PROXY-2026-0033
+  title: Python TLS Parser Runs in ThreadPool Without Memory Isolation
+  severity: MEDIUM
+  severity_rationale: M-4 (OOM of proxy process if malformed TLS causes pathological Scapy parsing). CVSS
+    v3.1 rates this 4.8.
+  lane: python-management
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 4.8
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H
+  source_refs:
+  - report: PHASE_118
+    id: 118p
+    discovered: '2026-04-17'
+  - report: 2026-04-17_REDTEAM_WHITEBOX_ASSESSMENT
+    id: RT-016
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118p
+  discovered: '2026-04-17'
+  due: '2026-06-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: proxy.py:1279-1281 uses ThreadPoolExecutor (not ProcessPoolExecutor). Original used ProcessPoolExecutor
+    for memory isolation — malformed TLS crash only kills child. With ThreadPoolExecutor, pathological
+    Scapy parsing consumes unlimited memory in main proxy process.
+  notes: 'Phase 118p specifies: either revert to ProcessPoolExecutor for TLS parsing only, or add 16KB
+    max input size check before Scapy, or memory watchdog (harder in Python).'
+- id: JA4PROXY-2026-0034
+  title: Invalid JWT Role Defaults to Admin
+  severity: MEDIUM
+  severity_rationale: M-1 (info leak via privilege escalation, but exploitable only with tampered token).
+    CVSS v3.1 rates this 6.5.
+  lane: python-management
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 6.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N
+  source_refs:
+  - report: PHASE_119
+    id: 119i
+    discovered: '2026-04-17'
+  - report: PHASE_120
+    id: 120i
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 119i
+  discovered: '2026-04-17'
+  due: '2026-06-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: management/api/auth.py:316-320 defaults unrecognised JWT role values to Role.admin (fail-open
+    to max privilege). Tampered tokens with garbage role values escalate to admin access.
+  notes: Phase 119i specifies defaulting to Role.auditor (lowest privilege) with warning log.
+- id: JA4PROXY-2026-0035
+  title: DSAR Export Reads Entire Redis Stream Into Memory
+  severity: MEDIUM
+  severity_rationale: M-4 (memory exhaustion of management API for GDPR requests, not core path). CVSS
+    v3.1 rates this 5.5.
+  lane: python-management
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 5.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H
+  source_refs:
+  - report: PHASE_119
+    id: 119j
+    discovered: '2026-04-17'
+  - report: PHASE_120
+    id: 120j
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 119j
+  discovered: '2026-04-17'
+  due: '2026-06-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: management/api/routes/compliance.py:389-393 calls await redis.xrange(_STREAM_KEY) with
+    no count parameter. Entire events stream read into memory. For busy proxy with millions of entries,
+    causes OOM.
+  notes: Phase 119j specifies batched XRANGE reads with count=1000, filtering by timestamp range.
+- id: JA4PROXY-2026-0036
+  title: IPv6 Burst Detection Parsing Bug
+  severity: MEDIUM
+  severity_rationale: M-1 (information leak via incorrect IPv6 handling; depends on IPv6 deployment).
+    CVSS v3.1 rates this 5.0.
+  lane: python-management
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 5.0
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N
+  source_refs:
+  - report: PHASE_119
+    id: 119k
+    discovered: '2026-04-17'
+  - report: PHASE_120
+    id: 120k
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 119k
+  discovered: '2026-04-17'
+  due: '2026-06-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: src/security/behavioral.py:111,120 burst detection uses member = f"{ctx.client_ip}:{now_ms}"
+    and later split(":")[0] to extract IP. For IPv6 addresses (2001:db8::1), splits on first colon, extracting
+    only 2001. All IPv6 in same /16 appear as same IP.
+  notes: Phase 119k specifies rsplit(':', 1)[0] (split on LAST colon, preserving IPv6) or different separator
+    (e.g., '|').
+- id: JA4PROXY-2026-0037
+  title: Blocklist Double-Check with Stale Signals
+  severity: MEDIUM
+  severity_rationale: M-1 (info leak via race condition; limited practical impact due to scoring redundancy).
+    CVSS v3.1 rates this 4.5.
+  lane: go-proxy
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 4.5
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N
+  source_refs:
+  - report: PHASE_119
+    id: 119l
+    discovered: '2026-04-17'
+  - report: PHASE_120
+    id: 120l
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 119l
+  discovered: '2026-04-17'
+  due: '2026-06-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: internal/security/pipeline.go:309-313,325-327 calls p.blocklists.Check() twice, discarding
+    first result. Between calls, PubSub update could change blocklist state. Race condition on soft-block
+    signal inclusion.
+  notes: Phase 119l specifies single Check() call, storing both hardBlock and blSigs, reusing throughout.
+- id: JA4PROXY-2026-0038
+  title: Rate Limit TOCTOU Race (INCR/EXPIRE Non-Atomic)
+  severity: MEDIUM
+  severity_rationale: M-4 (causes permanent rate limiting if key persists without TTL). CVSS v3.1 rates
+    this 4.0.
+  lane: python-management
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 4.0
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H
+  source_refs:
+  - report: PHASE_119
+    id: 119s
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 119s
+  discovered: '2026-04-17'
+  due: '2026-06-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: proxy.py:1093-1096 legacy _check_rate_limit uses separate INCR and EXPIRE calls (non-atomic).
+    High concurrency can leave key without TTL, causing permanent rate limiting. rate_tracker.py Lua script
+    handles this correctly but legacy path still called.
+  notes: Phase 119s specifies replacing with Lua-script-based atomic INCR+EXPIRE or removing legacy path
+    entirely.
+- id: JA4PROXY-2026-0039
+  title: Sensitive Data Filter Matches Timestamps (False Positive)
+  severity: LOW
+  severity_rationale: L-2 (defence-in-depth data sanitisation; no real exploit path, operational log noise).
+    CVSS v3.1 rates this 2.0.
+  lane: python-management
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 2.0
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N
+  source_refs:
+  - report: PHASE_119
+    id: 119t
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 119t
+  discovered: '2026-04-17'
+  due: '2026-08-15'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: proxy.py:2779-2781 credit card regex r"(\d{13,19})" matches Unix timestamps in milliseconds
+    (13 digits), large counters, Redis keys. Operational log data corrupted with ***CARD_REDACTED***.
+  notes: Phase 119t specifies Luhn checksum validation before redacting. Only redact if digit sequence
+    passes Luhn.
+- id: JA4PROXY-2026-0040
+  title: start-poc.sh Echoes Passwords to Console
+  severity: LOW
+  severity_rationale: L-1 (cosmetic / operational hygiene; does not leak production secrets if run in
+    CI). CVSS v3.1 rates this 3.7.
+  lane: infrastructure
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 3.7
+    vector: CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:U/C:L/I:N/A:N
+  source_refs:
+  - report: PHASE_118
+    id: 118q
+    discovered: '2026-04-17'
+  - report: 2026-04-17_REDTEAM_WHITEBOX_ASSESSMENT
+    id: RT-017
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118q
+  discovered: '2026-04-17'
+  due: '2026-08-15'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: scripts/start-poc.sh echoes Redis and Grafana passwords to stdout, appearing in terminal
+    scrollback, CI logs, screen recordings.
+  notes: 'Phase 118q specifies replacing password echo with confirmation messages (''Redis password: [generated]'')
+    without actual value.'
+- id: JA4PROXY-2026-0041
+  title: Config Reload Path Hardcoded (Ignores CONFIG_PATH)
+  severity: LOW
+  severity_rationale: L-2 (defence-in-depth inconsistency; requires malicious SIGHUP signal from privileged
+    actor). CVSS v3.1 rates this 3.5.
+  lane: go-proxy
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 3.5
+    vector: CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:U/C:L/I:L/A:N
+  source_refs:
+  - report: PHASE_119
+    id: 119m
+    discovered: '2026-04-17'
+  - report: PHASE_120
+    id: 120m
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 119m
+  discovered: '2026-04-17'
+  due: '2026-08-15'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: cmd/proxy/main.go:593 reload() always loads "config/proxy.yml" regardless of CONFIG_PATH
+    env var used at startup. SIGHUP reload loads different config than startup.
+  notes: Phase 119m specifies storing config path at startup, reusing in reload().
+- id: JA4PROXY-2026-0042
+  title: Redis Unix Socket Permissions 777
+  severity: LOW
+  severity_rationale: L-2 (defence-in-depth; requires shared-volume container access, limited blast radius).
+    CVSS v3.1 rates this 4.0.
+  lane: infrastructure
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 4.0
+    vector: CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:N
+  source_refs:
+  - report: PHASE_119
+    id: 119n
+    discovered: '2026-04-17'
+  - report: PHASE_120
+    id: '2026-04-17'
+    discovered: '2026-04-17'
+    notes: implied
+  remediation_phases:
+  - 119n
+  discovered: '2026-04-17'
+  due: '2026-08-15'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: deploy/docker/docker-compose.poc.yml and docker-compose.prod.yml Redis use --unixsocketperm
+    777. Any container sharing redis-sock volume can connect without restriction.
+  notes: Phase 119n specifies --unixsocketperm 770 with volume shared only by proxy/analytics containers.
+- id: JA4PROXY-2026-0043
+  title: Redis ACL Users All Share Same Password
+  severity: LOW
+  severity_rationale: L-2 (defence-in-depth; requires Redis access already leaked). CVSS v3.1 rates this
+    5.0.
+  lane: infrastructure
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 5.0
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N
+  source_refs:
+  - report: PHASE_119
+    id: 119o
+    discovered: '2026-04-17'
+  - report: PHASE_120
+    id: '2026-04-17'
+    discovered: '2026-04-17'
+    notes: implied
+  remediation_phases:
+  - 119o
+  discovered: '2026-04-17'
+  due: '2026-08-15'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: scripts/redis-acl-setup.sh assigns same $REDIS_PASSWORD to all ACL users (proxy, analytics,
+    admin). Single credential leak compromises all users.
+  notes: Phase 119o specifies unique password per ACL user, distributed via Docker secrets.
+- id: JA4PROXY-2026-0044
+  title: Unpinned Python Dependencies (Management API)
+  severity: LOW
+  severity_rationale: L-4 (dependency hygiene; no known exploit exists yet). CVSS v3.1 rates this 4.0.
+  lane: python-management
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 4.0
+    vector: CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N
+  source_refs:
+  - report: PHASE_119
+    id: 119p
+    discovered: '2026-04-17'
+  - report: PHASE_120
+    id: '2026-04-17'
+    discovered: '2026-04-17'
+    notes: implied
+  remediation_phases:
+  - 119p
+  discovered: '2026-04-17'
+  due: '2026-08-15'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: management/requirements.txt uses >= minimum pins with no upper bounds. Vulnerable to dependency
+    confusion and malicious version upgrades.
+  notes: Phase 119p specifies pinning exact versions or pip-compile to generate lockfile with hashes.
+- id: JA4PROXY-2026-0045
+  title: Grafana Bound to All Interfaces in Monitoring Stack
+  severity: LOW
+  severity_rationale: L-3 (best-practice deviation; dashboards behind HTTPS, can reach via SSH tunnel).
+    CVSS v3.1 rates this 4.5.
+  lane: infrastructure
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 4.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N
+  source_refs:
+  - report: PHASE_119
+    id: 119q
+    discovered: '2026-04-17'
+  - report: PHASE_120
+    id: '2026-04-17'
+    discovered: '2026-04-17'
+    notes: implied
+  remediation_phases:
+  - 119q
+  discovered: '2026-04-17'
+  due: '2026-08-15'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: deploy/docker/docker-compose.monitoring.yml Grafana binds to 0.0.0.0:3001 while other services
+    bind to 127.0.0.1. Exposes dashboards showing topology, bans, security state.
+  notes: Phase 119q specifies '127.0.0.1:3001:3000'. Dashboard still accessible via SSH tunnel.
+- id: JA4PROXY-2026-0046
+  title: K8s DaemonSet Missing Probes and NetworkPolicy
+  severity: LOW
+  severity_rationale: L-2 (defence-in-depth Kubernetes hardening; compensating controls exist in other
+    layers). CVSS v3.1 rates this 4.0.
+  lane: infrastructure
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 4.0
+    vector: CVSS:3.1/AV:N/AC:H/PR:H/UI:N/S:U/C:L/I:N/A:L
+  source_refs:
+  - report: PHASE_119
+    id: 119r
+    discovered: '2026-04-17'
+  - report: PHASE_120
+    id: '2026-04-17'
+    discovered: '2026-04-17'
+    notes: implied
+  remediation_phases:
+  - 119r
+  discovered: '2026-04-17'
+  due: '2026-08-15'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: deploy/helm/ja4proxy/templates/daemonset.yaml missing liveness/readiness probes. Hung proxy
+    pods continue receiving traffic. No NetworkPolicy restricts Redis and metrics port ingress.
+  notes: Phase 119r specifies liveness/readiness probes on /health:9090, NetworkPolicy restricting Redis
+    to proxy pods, proxy ingress from HAProxy only.
+- id: JA4PROXY-2026-0047
+  title: Redis TLS Binds to All Interfaces (Duplicate/Related to 0015)
+  severity: MEDIUM
+  severity_rationale: 'M-3 (hardening gap with compensating control: Docker internal network). CVSS v3.1
+    rates this 7.5.'
+  lane: infrastructure
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N
+  source_refs:
+  - report: 2026-04-17_RED_TEAM_AUDIT
+    id: R-006
+    discovered: '2026-04-17'
+  remediation_phases:
+  - (infrastructure hardening general)
+  discovered: '2026-04-17'
+  due: '2026-06-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: deploy/docker/redis-tls/redis.conf binds to 0.0.0.0 -::*. With TLS, remote access possible
+    if password compromised.
+  notes: Recommend bind to Docker network only. Cross-referenced with 119n (socket perms) and 119o (ACL
+    passwords) for overall Redis hardening.
+- id: JA4PROXY-2026-0048
+  title: Verbose Error Logging Exposes Internals
+  severity: HIGH
+  severity_rationale: H-6 (version/path disclosure on non-exfil endpoint). CVSS v3.1 rates this 7.5.
+  lane: go-proxy
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 7.5
+    vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N
+  source_refs:
+  - report: 2026-04-17_RED_TEAM_AUDIT
+    id: R-009
+    discovered: '2026-04-17'
+  remediation_phases:
+  - (no explicit phase; general logging hardening)
+  discovered: '2026-04-17'
+  due: '2026-05-17'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: Error logs expose file paths, Redis keys, internal names via verbose error formatting (fmt.Errorf
+    with full context).
+  notes: Recommend sanitising logs during structured logging setup. No explicit remediation phase; general
+    hardening effort.
+- id: JA4PROXY-2026-0049
+  title: Weak AbuseIPDB API Key Handling
+  severity: MEDIUM
+  severity_rationale: M-4 (API key leak limited to AbuseIPDB quota exhaustion). CVSS v3.1 rates this 5.3.
+  lane: go-proxy
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 5.3
+    vector: CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N
+  source_refs:
+  - report: 2026-04-17_RED_TEAM_AUDIT
+    id: R-011
+    discovered: '2026-04-17'
+  remediation_phases:
+  - (no explicit phase; general credential hardening)
+  discovered: '2026-04-17'
+  due: '2026-06-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: internal/security/abuseipdb.go passes API key in HTTP header. If network compromised, key
+    exposed.
+  notes: 'Standard practice: HTTP headers vulnerable to MITM. Recommend HTTPS only (already likely) and
+    key rotation policy.'
+- id: JA4PROXY-2026-0050
+  title: Redis ACLs Disabled by Default
+  severity: MEDIUM
+  severity_rationale: M-3 (hardening gap with no compensating control enabled). CVSS v3.1 rates this 5.0.
+  lane: infrastructure
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 5.0
+    vector: CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:N
+  source_refs:
+  - report: 2026-04-17_RED_TEAM_AUDIT
+    id: R-012
+    discovered: '2026-04-17'
+  remediation_phases:
+  - (general Redis hardening; Phase 118d addresses subset)
+  discovered: '2026-04-17'
+  due: '2026-06-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: 'config/proxy.yml acl_users.enabled: false (default off). Default user has full Redis access
+    regardless of password.'
+  notes: Phase 118d specifies Redis ACL configuration and documentation. Recommend enabling by default
+    in production.
+- id: JA4PROXY-2026-0051
+  title: Webhook Secrets in Memory
+  severity: MEDIUM
+  severity_rationale: M-2 (exploitable only after process compromise). CVSS v3.1 rates this 5.3.
+  lane: go-proxy
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 5.3
+    vector: CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:U/C:H/I:N/A:N
+  source_refs:
+  - report: 2026-04-17_RED_TEAM_AUDIT
+    id: R-013
+    discovered: '2026-04-17'
+  remediation_phases:
+  - (no explicit phase; general secret hygiene)
+  discovered: '2026-04-17'
+  due: '2026-06-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: internal/webhook/delivery.go computes HMAC using secret string held in memory for process
+    lifetime. Process compromise → secret exposure.
+  notes: Standard concern for in-process secrets. Recommend no changes unless secrets-engine integration
+    (e.g., Vault) is deployed.
+- id: JA4PROXY-2026-0052
+  title: No Per-Service Redis User Enforcement
+  severity: MEDIUM
+  severity_rationale: 'M-3 (hardening gap with compensating control: service isolation). CVSS v3.1 rates
+    this 5.0.'
+  lane: infrastructure
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 5.0
+    vector: CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:N
+  source_refs:
+  - report: 2026-04-17_RED_TEAM_AUDIT
+    id: R-014
+    discovered: '2026-04-17'
+  remediation_phases:
+  - (general Redis hardening; Phase 119o per-user passwords related)
+  discovered: '2026-04-17'
+  due: '2026-06-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: config/proxy.yml ACL users configured but not enforced at runtime. Services don't use minimal-privilege
+    accounts.
+  notes: Phase 119o specifies unique passwords. Recommend enforcing separate Redis users for proxy vs.
+    analytics vs. admin.
+- id: JA4PROXY-2026-0053
+  title: Redis Password in Log Messages (Partial)
+  severity: LOW
+  severity_rationale: L-4 (partial log leak of secondary secret; compensating control is log aggregator
+    encryption). CVSS v3.1 rates this 2.5.
+  lane: python-management
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 2.5
+    vector: CVSS:3.1/AV:L/AC:H/PR:H/UI:N/S:U/C:L/I:N/A:N
+  source_refs:
+  - report: 2026-04-17_RED_TEAM_AUDIT
+    id: R-015
+    discovered: '2026-04-17'
+  remediation_phases:
+  - (no explicit phase; general log hygiene)
+  discovered: '2026-04-17'
+  due: '2026-08-15'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: management/api/redis_client.py:70 may partially leak Redis password in connection error
+    logs.
+  notes: 'Source document incomplete (cut off mid-sentence). Recommend: sanitise password from connection
+    strings in error logs.'
+- id: JA4PROXY-2026-0054
+  title: Configuration Path Traversal Prevention
+  severity: MEDIUM
+  severity_rationale: M-1 (info leak via path traversal; requires attacker control of config_path parameter).
+    CVSS v3.1 rates this 4.0.
+  lane: python-management
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 4.0
+    vector: CVSS:3.1/AV:L/AC:L/PR:H/UI:N/S:U/C:L/I:N/A:N
+  source_refs:
+  - report: PHASE_118
+    id: 118l
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118l
+  discovered: '2026-04-17'
+  due: '2026-06-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: src/config/loader.py accepts config_path parameter without validation. Path traversal could
+    allow read of sensitive files outside project root.
+  notes: Phase 118l specifies Path().resolve() validation, ensuring config path within project root.
+- id: JA4PROXY-2026-0055
+  title: Integration TLS Verification Missing
+  severity: MEDIUM
+  severity_rationale: M-3 (hardening gap; compensating control is VPN/mTLS between integrations). CVSS
+    v3.1 rates this 5.5.
+  lane: infrastructure
+  owner: '@seanpor'
+  cvss_v3_1:
+    score: 5.5
+    vector: CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:L/A:N
+  source_refs:
+  - report: PHASE_118
+    id: 118k
+    discovered: '2026-04-17'
+  remediation_phases:
+  - 118k
+  discovered: '2026-04-17'
+  due: '2026-06-16'
+  status: OPEN
+  supersedes: []
+  depends_on: []
+  regression_test: ''
+  closed_commit: ''
+  description: Splunk, Nagios, Dynatrace integrations use urllib without TLS certificate verification
+    (deploy/integrations/splunk-ta/*, deploy/nagios/check_ja4proxy.py, deploy/dynatrace/ja4proxy-extension/plugin.py).
+  notes: Phase 118k specifies ssl.create_default_context() for verified connections, with option for self-signed
+    certs if needed.

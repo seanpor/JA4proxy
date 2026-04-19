@@ -102,17 +102,84 @@ get forgotten.
 
 ## Register snapshot (2026-04-19)
 
-**Total:** 0 canonical finding(s).
+**Total:** 54 canonical finding(s).
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 0 | OPEN | 0 |
-| HIGH | 0 | IN_PROGRESS | 0 |
-| MEDIUM | 0 | FIXED | 0 |
-| LOW | 0 | VERIFIED | 0 |
+| CRITICAL | 10 | OPEN | 54 |
+| HIGH | 14 | IN_PROGRESS | 0 |
+| MEDIUM | 21 | FIXED | 0 |
+| LOW | 9 | VERIFIED | 0 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
 
-_No SLA breaches._
+### SLA breaches (5)
+
+| ID | Severity | Due | Title |
+|----|----------|-----|-------|
+| JA4PROXY-2026-0001 | CRITICAL | 2026-04-16 | PROXY Protocol v2 Spoofing from Untrusted Source |
+| JA4PROXY-2026-0002 | CRITICAL | 2026-04-16 | PROXY Protocol v2 Smuggling via Double Header Injection |
+| JA4PROXY-2026-0003 | CRITICAL | 2026-04-16 | TLS ClientHello Fragmentation Bypass |
+| JA4PROXY-2026-0006 | CRITICAL | 2026-04-16 | X-Forwarded-For Header IP Spoofing (Python Proxy) |
+| JA4PROXY-2026-0007 | CRITICAL | 2026-04-16 | Webhook URL SSRF (Management API) |
+
+### All findings
+
+| ID | Severity | Status | Lane | Due | Title |
+|----|----------|--------|------|-----|-------|
+| JA4PROXY-2026-0001 | CRITICAL | OPEN | go-proxy | 2026-04-16 | PROXY Protocol v2 Spoofing from Untrusted Source |
+| JA4PROXY-2026-0002 | CRITICAL | OPEN | go-proxy | 2026-04-16 | PROXY Protocol v2 Smuggling via Double Header Injection |
+| JA4PROXY-2026-0003 | CRITICAL | OPEN | go-proxy | 2026-04-16 | TLS ClientHello Fragmentation Bypass |
+| JA4PROXY-2026-0004 | CRITICAL | OPEN | go-proxy | 2026-04-24 | ALPN Browser Bypass Trusts Attacker-Controlled Signal |
+| JA4PROXY-2026-0005 | CRITICAL | OPEN | go-proxy | 2026-04-24 | X-JA4-Fingerprint HTTP Header Injection Bypass |
+| JA4PROXY-2026-0006 | CRITICAL | OPEN | python-management | 2026-04-16 | X-Forwarded-For Header IP Spoofing (Python Proxy) |
+| JA4PROXY-2026-0007 | CRITICAL | OPEN | python-management | 2026-04-16 | Webhook URL SSRF (Management API) |
+| JA4PROXY-2026-0008 | CRITICAL | OPEN | go-proxy | 2026-04-24 | Unauthenticated /metrics and /health/deep Endpoints |
+| JA4PROXY-2026-0009 | CRITICAL | OPEN | go-proxy | 2026-04-24 | Goroutine Leak in forward() and tarpit() |
+| JA4PROXY-2026-0010 | CRITICAL | OPEN | go-proxy | 2026-04-24 | Redis Fail-Open Masks Misconfiguration |
+| JA4PROXY-2026-0011 | HIGH | OPEN | go-proxy | 2026-05-17 | TLS Record Reassembly and Protocol Lockdown |
+| JA4PROXY-2026-0012 | HIGH | OPEN | go-proxy | 2026-05-17 | Unbounded Goroutines from Accept Loop |
+| JA4PROXY-2026-0013 | HIGH | OPEN | go-proxy | 2026-05-17 | Tarpit Slot Exhaustion via Timeout-Free Connections |
+| JA4PROXY-2026-0015 | HIGH | OPEN | infrastructure | 2026-05-17 | HAProxy Stats Default Credentials |
+| JA4PROXY-2026-0016 | HIGH | OPEN | infrastructure | 2026-05-17 | Privileged cAdvisor Container |
+| JA4PROXY-2026-0017 | HIGH | OPEN | infrastructure | 2026-05-17 | Docker Socket Exposed to Promtail |
+| JA4PROXY-2026-0018 | HIGH | OPEN | infrastructure | 2026-05-17 | CI/CD Token Exposed on Command Line |
+| JA4PROXY-2026-0019 | HIGH | OPEN | go-proxy | 2026-05-17 | Redis PubSub Poisoning (No HMAC on Critical Channels) |
+| JA4PROXY-2026-0020 | HIGH | OPEN | python-management | 2026-05-17 | Stored XSS in Management UI (Ban IP in Alpine.js) |
+| JA4PROXY-2026-0021 | HIGH | OPEN | python-management | 2026-05-17 | In-Memory Rate Limiting Bypass (Management API) |
+| JA4PROXY-2026-0022 | HIGH | OPEN | python-management | 2026-05-17 | Trusted CIDR /0 Acceptance (Python Proxy) |
+| JA4PROXY-2026-0023 | HIGH | OPEN | python-management | 2026-05-17 | Test Secret Fallback in Production Path |
+| JA4PROXY-2026-0024 | HIGH | OPEN | python-management | 2026-05-17 | JWT Cookie Secure Flag Not Gated to Production |
+| JA4PROXY-2026-0025 | MEDIUM | OPEN | infrastructure | 2026-06-16 | Committed .env With Real Credentials |
+| JA4PROXY-2026-0026 | MEDIUM | OPEN | go-proxy | 2026-06-16 | Unauthenticated Health/Metrics Endpoints Missing Rate Limiting |
+| JA4PROXY-2026-0027 | MEDIUM | OPEN | python-management | 2026-06-16 | Redis Key Injection via SNI Hostnames |
+| JA4PROXY-2026-0028 | MEDIUM | OPEN | python-management | 2026-06-16 | Python Backend Connection Timeout Missing |
+| JA4PROXY-2026-0029 | MEDIUM | OPEN | python-management | 2026-06-16 | Log Sanitisation Incomplete (Control Characters, ANSI Escapes) |
+| JA4PROXY-2026-0030 | MEDIUM | OPEN | python-management | 2026-06-16 | Unbounded behavioral:known_ja4 Redis SET |
+| JA4PROXY-2026-0031 | MEDIUM | OPEN | go-proxy | 2026-06-16 | XADD Fire-and-Forget Without Backpressure (Go) |
+| JA4PROXY-2026-0032 | MEDIUM | OPEN | python-management | 2026-06-16 | OIDC Token Signature Not Verified |
+| JA4PROXY-2026-0033 | MEDIUM | OPEN | python-management | 2026-06-16 | Python TLS Parser Runs in ThreadPool Without Memory Isolation |
+| JA4PROXY-2026-0034 | MEDIUM | OPEN | python-management | 2026-06-16 | Invalid JWT Role Defaults to Admin |
+| JA4PROXY-2026-0035 | MEDIUM | OPEN | python-management | 2026-06-16 | DSAR Export Reads Entire Redis Stream Into Memory |
+| JA4PROXY-2026-0036 | MEDIUM | OPEN | python-management | 2026-06-16 | IPv6 Burst Detection Parsing Bug |
+| JA4PROXY-2026-0037 | MEDIUM | OPEN | go-proxy | 2026-06-16 | Blocklist Double-Check with Stale Signals |
+| JA4PROXY-2026-0038 | MEDIUM | OPEN | python-management | 2026-06-16 | Rate Limit TOCTOU Race (INCR/EXPIRE Non-Atomic) |
+| JA4PROXY-2026-0039 | LOW | OPEN | python-management | 2026-08-15 | Sensitive Data Filter Matches Timestamps (False Positive) |
+| JA4PROXY-2026-0040 | LOW | OPEN | infrastructure | 2026-08-15 | start-poc.sh Echoes Passwords to Console |
+| JA4PROXY-2026-0041 | LOW | OPEN | go-proxy | 2026-08-15 | Config Reload Path Hardcoded (Ignores CONFIG_PATH) |
+| JA4PROXY-2026-0042 | LOW | OPEN | infrastructure | 2026-08-15 | Redis Unix Socket Permissions 777 |
+| JA4PROXY-2026-0043 | LOW | OPEN | infrastructure | 2026-08-15 | Redis ACL Users All Share Same Password |
+| JA4PROXY-2026-0044 | LOW | OPEN | python-management | 2026-08-15 | Unpinned Python Dependencies (Management API) |
+| JA4PROXY-2026-0045 | LOW | OPEN | infrastructure | 2026-08-15 | Grafana Bound to All Interfaces in Monitoring Stack |
+| JA4PROXY-2026-0046 | LOW | OPEN | infrastructure | 2026-08-15 | K8s DaemonSet Missing Probes and NetworkPolicy |
+| JA4PROXY-2026-0047 | MEDIUM | OPEN | infrastructure | 2026-06-16 | Redis TLS Binds to All Interfaces (Duplicate/Related to 0015) |
+| JA4PROXY-2026-0048 | HIGH | OPEN | go-proxy | 2026-05-17 | Verbose Error Logging Exposes Internals |
+| JA4PROXY-2026-0049 | MEDIUM | OPEN | go-proxy | 2026-06-16 | Weak AbuseIPDB API Key Handling |
+| JA4PROXY-2026-0050 | MEDIUM | OPEN | infrastructure | 2026-06-16 | Redis ACLs Disabled by Default |
+| JA4PROXY-2026-0051 | MEDIUM | OPEN | go-proxy | 2026-06-16 | Webhook Secrets in Memory |
+| JA4PROXY-2026-0052 | MEDIUM | OPEN | infrastructure | 2026-06-16 | No Per-Service Redis User Enforcement |
+| JA4PROXY-2026-0053 | LOW | OPEN | python-management | 2026-08-15 | Redis Password in Log Messages (Partial) |
+| JA4PROXY-2026-0054 | MEDIUM | OPEN | python-management | 2026-06-16 | Configuration Path Traversal Prevention |
+| JA4PROXY-2026-0055 | MEDIUM | OPEN | infrastructure | 2026-06-16 | Integration TLS Verification Missing |
 
 <!-- END GENERATED -->
