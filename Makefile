@@ -1441,3 +1441,15 @@ quality: lint-all lint-coverage ## Run all linters + coverage checks in one shot
 	@echo "✓ quality complete — all checks passed"
 
 .PHONY: quality
+
+# phase-121: canonical findings register
+verify-findings: ## Validate docs/security/findings.yaml schema and referential integrity
+	@python3 scripts/findings_register.py validate
+
+findings-render: ## Regenerate docs/security/FINDINGS_REGISTER.md from findings.yaml
+	@python3 scripts/findings_register.py render
+
+findings-list: ## List open findings (add FINDINGS_ARGS=... to pass flags, e.g. --severity HIGH)
+	@python3 scripts/findings_register.py list $(FINDINGS_ARGS)
+
+.PHONY: verify-findings findings-render findings-list

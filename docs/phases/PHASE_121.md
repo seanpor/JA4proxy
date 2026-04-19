@@ -386,13 +386,34 @@ remediation accounting forever.
 
 ---
 
-## 7. Open questions (confirm before starting 121b)
+## 7. Confirmed decisions (2026-04-19)
 
-1. **Retire PHASE_120.md outright, or keep a short redirect stub?** Recommendation: redirect stub with `DUPLICATE_OF: 119` header so external links survive. Owner to confirm.
-2. **CVSS v4 vs v3.1?** Recommendation in 121j is v3.1. Confirm before rescoring any findings.
-3. **Single accountable owner (A in RACI) across all findings?** Currently security is single-handed — this is a concentration risk worth naming in 121g.
-4. **Where does the register live long-term?** Markdown is fine to start; if the backlog exceeds ~100 canonical entries, migrate to an issue tracker (GitHub Projects board with custom fields) and make the markdown a generated view. Not decided here.
-5. **What is the threshold that triggers a new remediation phase vs. absorbing into an existing one?** Proposed rule in 121i: new phase only if the category (e.g. "SBOM generation") has no existing owner. Confirm.
+All five open questions were resolved with the recommendations below. These
+bind the execution of 121b–121k.
+
+1. **PHASE_120.md disposition:** **retire as redirect stub.** Replace body with
+   a 5-line header citing `DUPLICATE_OF: 119` so external links survive and
+   git-blame context is preserved. Executed under 121e.
+2. **CVSS version:** **stay on v3.1.** Every existing finding is scored in
+   v3.1; NVD leads with v3.1; rescoring ~50 findings is busywork. Phase 108n's
+   "CVSS v4" specification is updated to match. ADR under 121j.
+3. **Accountable owner model:** **split by layer even while single-handed.**
+   Three lanes — Go proxy, Python management plane, infrastructure — with the
+   same person holding multiple hats for now. `OWNERSHIP.md` documents this
+   and flags the concentration risk. Keeps the split ready for hiring without
+   a future rewrite. Executed under 121g.
+4. **Register storage:** **single `docs/security/findings.yaml` as source of
+   truth, `FINDINGS_REGISTER.md` as a generated human-readable view.** YAML
+   diffs cleanly; the tooling has one file to parse. **Migration trigger**
+   (written into `INTAKE_RUNBOOK.md`): when canonical entry count exceeds 100,
+   move to GitHub Projects board and regenerate the markdown from the API.
+5. **New-phase threshold:** **new phase only when ≥1 finding maps to a
+   category with no existing remediation phase owner.** If a new report's
+   findings all fit into existing phases (109–119), they are absorbed via
+   `scripts/findings_register.py add` with `remediation_phases` pointing at
+   the existing phase. A net-new category (e.g. "SBOM generation",
+   "SLSA L3 provenance") triggers a new phase. Documented in
+   `INTAKE_RUNBOOK.md` with worked examples.
 
 ---
 
