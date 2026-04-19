@@ -1455,4 +1455,7 @@ findings-render: ## Regenerate docs/security/FINDINGS_REGISTER.md from findings.
 findings-list: ## List open findings (add FINDINGS_ARGS=... to pass flags, e.g. --severity HIGH)
 	@python3 scripts/findings_register.py list $(FINDINGS_ARGS)
 
-.PHONY: verify-findings verify-findings-green findings-render findings-list
+phase-121-verify: ## Phase 121 close-out gate — validate register, required docs, ADRs, manifest
+	@python3 scripts/phase_121_verify.py
+
+.PHONY: verify-findings verify-findings-green findings-render findings-list phase-121-verify
