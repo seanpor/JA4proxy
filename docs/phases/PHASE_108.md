@@ -640,6 +640,15 @@ CI wiring:
 
 ## 108n. Findings management, remediation tracking, and retest discipline
 
+> **Superseded implementation detail (2026-04-19, Phase 121e):** The
+> register described below was built under Phase 121a/b and lives at
+> `docs/security/findings.yaml` (machine-readable source of truth) with
+> a generated human view at `docs/security/FINDINGS_REGISTER.md`.
+> Scoring is CVSS v3.1 per **ADR-121a**, not v4. SLA tiers, state
+> machine, and CI gates are governed by Phase 121a–k, not by this
+> section. This §108n is retained only as the originating statement
+> of the problem.
+
 ### Problem
 
 Pentest findings rot without a disciplined intake. A finding without a
@@ -647,42 +656,49 @@ tracked remediation + retest is worse than no finding — it creates a
 false sense of security. The existing `docs/security/EXCEPTIONS.md`
 covers CVE exceptions but has no equivalent for pentest findings.
 
-### Fix
+### Fix (as implemented under Phase 121)
 
-Create `docs/security/pentest/FINDINGS_REGISTER.md`:
+Canonical register: `docs/security/findings.yaml` + generated
+`docs/security/FINDINGS_REGISTER.md`:
 
-- Row per finding: ID (layer-NNN), title, severity (CVSS v4),
-  discovered-by (internal / vendor / bounty), date, status (open /
-  fix-in-progress / fixed / retested / deferred), remediation PR link,
-  retest test ID
-- Severity-to-SLA mapping per CVD policy (Phase 107g): Critical 30d,
-  High 60d, Medium 90d, Low next release
-- Automated freshness check: a test (`tests/security/test_findings_register.py`)
-  fails if any open finding is past SLA or missing a remediation PR link
+- Row per finding: canonical ID `JA4PROXY-YYYY-NNNN`, title, severity
+  (CVSS v3.1 per ADR-121a), discovered-by, date, status
+  (OPEN / IN_PROGRESS / FIXED / VERIFIED / CLOSED / DUPLICATE),
+  remediation PR link, regression test nodeid, `verified_by` +
+  `verified_on` (required for VERIFIED/CLOSED), `closed_commit`
+- Severity-to-SLA mapping (Phase 121a): CRITICAL 7d / HIGH 30d /
+  MEDIUM 60d / LOW 120d. (Supersedes the earlier 30/60/90/next-release
+  tiers first sketched here.)
+- Automated freshness check: `python3 scripts/findings_register.py
+  verify` fails CI if any open finding is past SLA, is missing
+  required evidence fields, or has an invalid state transition.
 - Deferred findings must have an ADR explaining the business /
-  architectural reason and a compensating control
+  architectural reason and a compensating control.
 
 Integration:
 
-- Every finding in 108c–108i is a row in FINDINGS_REGISTER.md
-- Every fix PR must reference the finding ID in its commit message
-- Every fix PR must add a regression test that fails before and passes
-  after — enforced in PR template
-- Retest is a separate commit that flips the finding status to
-  "retested" — cannot be squashed with the fix
+- Every finding from 108c–108i (and every subsequent phase) is a row
+  in `findings.yaml` with `source_refs` pointing back at the phase doc.
+- Every fix PR must reference the canonical ID in its commit message
+  and in the PR template opt-in (`.github/PULL_REQUEST_TEMPLATE.md`).
+- Every fix PR must add a regression test under `tests/pentest/` or
+  `internal/security/pentest/` that fails before and passes after —
+  enforced by the `verify-findings-green` Make target.
+- Retest (VERIFIED → CLOSED) is a separate commit and requires all
+  three of `verified_by`, `verified_on`, and `closed_commit`; the
+  promote step refuses to advance without them. See
+  `docs/security/CLOSURE_VERIFICATION.md`.
 
 Reporting:
 
 - Monthly `make pentest-report` generates a markdown snapshot for the
-  project owner
-- Public-facing summary numbers (total findings by severity; time-to-fix
-  median) appear in the next annual security report (Phase 100-series
-  equivalent; create `docs/for-architects/ANNUAL_SECURITY_REPORT.md`
-  template)
+  project owner.
+- Public-facing summary numbers (total findings by severity;
+  time-to-fix median) appear in the next annual security report.
 
 ### Size
 
-**M** — register + automation + reporting.
+**M** — register + automation + reporting. (Delivered under Phase 121.)
 
 ## 108z. Adversarial Enhancements (Leader's Addendum)
 

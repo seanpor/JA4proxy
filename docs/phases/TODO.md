@@ -75,8 +75,8 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Fix 17 vulnerabilities from independent white-box red team: goroutine leaks, n-vs-len(data) JA4 bypass, unauthenticated metrics, credential rotation, connection limits, tarpit timeouts, Redis KEYS blocking, trusted CIDR validation, SNI key injection, cookie secure flag, log sanitisation, OIDC token verification.)
 *   **Action Plan:** [PHASE_119.md](PHASE_119.md)
 
-### Phase 120 — Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs
-*   **Status:** **PROPOSED** (Fix 20 novel findings from independent deep-dive team: ALPN bypass design flaw, X-JA4-Fingerprint header injection, HAProxy default creds, privileged cAdvisor, Docker socket exposure, CI/CD token leaks, Redis PubSub poisoning, stored XSS, JWT role escalation, DSAR OOM, IPv6 burst bug, blocklist logic bug, config reload path, infrastructure hardening.)
+### Phase 120 — Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED)
+*   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
 *   **Action Plan:** [PHASE_120.md](PHASE_120.md)
 
 ### Phase 121 — Pentest Remediation Consolidation & Program Discipline

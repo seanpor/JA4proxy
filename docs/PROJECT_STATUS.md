@@ -281,7 +281,7 @@ Alignment with international standards and regulatory frameworks.
 | 117 | DMZ Network Hardening & Anti-Smuggling | DEFERRED | N/A | N/A |
 | 118 | Pentest Remediation: Attack Surface & Data Leakage Hardening | PROPOSED | N/A | N/A |
 | 119 | Connection Lifecycle Hardening & Operational Security | PROPOSED | N/A | N/A |
-| 120 | Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs | PROPOSED | N/A | N/A |
+| 120 | Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED) | DEFERRED | N/A | N/A |
 | 121 | Pentest Remediation Consolidation & Program Discipline | PROPOSED | N/A | N/A |
 | 200 | Go PROXY Protocol Trust + v2 Support | COMPLETE | N/A | N/A |
 | 201 | Go Redis TLS + Silent-Failure Hardening | COMPLETE | N/A | N/A |
