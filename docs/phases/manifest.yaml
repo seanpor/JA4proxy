@@ -47,6 +47,7 @@ epics:
   - 203
   - 118
   - 119
+  - 121
 - name: 'Epic: Analytics & Intelligence'
   description: Cross-instance behavior analysis and threat intelligence.
   phases:
@@ -233,6 +234,13 @@ phases:
     dependencies: [108]
     size: LARGE
     summary: 'Fix 20 novel findings from independent deep-dive team: ALPN bypass design flaw, X-JA4-Fingerprint header injection, HAProxy default creds, privileged cAdvisor, Docker socket exposure, CI/CD token leaks, Redis PubSub poisoning, stored XSS, JWT role escalation, DSAR OOM, IPv6 burst bug, blocklist logic bug, config reload path, infrastructure hardening.'
+  121:
+    name: 'Pentest Remediation Consolidation & Program Discipline'
+    status: PROPOSED
+    action_plan: docs/phases/PHASE_121.md
+    dependencies: [108, 118, 119, 120]
+    size: XLARGE
+    summary: 'Plan-only meta-phase that turns the 108–120 bug-hunt pile into a managed program: canonical findings register + tooling, severity rubric + SLA policy, dedup across ~98 sub-phases down to ~40–55 canonical findings, rescope of 117/118/119/120 against the register (retires 120 as duplicate of 119), remediation waves DAG, closure verification protocol, intake runbook for the next red team report, CVSS version ADR. 11 sub-phases, no code fixes.'
   204:
     name: 'README Badges — License, Versions, CI, Security'
     status: COMPLETE

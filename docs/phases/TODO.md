@@ -78,3 +78,7 @@ This document tracks the remaining work for both historical phases (gaps identif
 ### Phase 120 — Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs
 *   **Status:** **PROPOSED** (Fix 20 novel findings from independent deep-dive team: ALPN bypass design flaw, X-JA4-Fingerprint header injection, HAProxy default creds, privileged cAdvisor, Docker socket exposure, CI/CD token leaks, Redis PubSub poisoning, stored XSS, JWT role escalation, DSAR OOM, IPv6 burst bug, blocklist logic bug, config reload path, infrastructure hardening.)
 *   **Action Plan:** [PHASE_120.md](PHASE_120.md)
+
+### Phase 121 — Pentest Remediation Consolidation & Program Discipline
+*   **Status:** **PROPOSED** (Plan-only meta-phase that turns the 108–120 bug-hunt pile into a managed program: canonical findings register + tooling, severity rubric + SLA policy, dedup across ~98 sub-phases down to ~40–55 canonical findings, rescope of 117/118/119/120 against the register (retires 120 as duplicate of 119), remediation waves DAG, closure verification protocol, intake runbook for the next red team report, CVSS version ADR. 11 sub-phases, no code fixes.)
+*   **Action Plan:** [PHASE_121.md](PHASE_121.md)
