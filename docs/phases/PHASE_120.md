@@ -1,193 +1,56 @@
-# Phase 120 — Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs
+# Phase 120 — RETIRED (duplicate of Phase 119)
 
-> **Status:** PROPOSED
-> **Size:** LARGE (12-16 engineer-days)
-> **Triggered by:** Independent Deep-Dive Red Team Assessment (2026-04-17)
-
----
-
-## Goal
-
-Fix 20 novel findings from independent deep-dive team covering: ALPN bypass design flaw, X-JA4-Fingerprint header injection, HAProxy default creds, privileged cAdvisor, Docker socket exposure, CI/CD token leaks, Redis PubSub poisoning, stored XSS, JWT role escalation, DSAR OOM, IPv6 burst bug, blocklist logic bug, config reload path, infrastructure hardening.
+> **Status:** RETIRED — superseded by Phase 119
+> **Retired under:** Phase 121e (Pentest Remediation Consolidation, 2026-04-19)
+> **DUPLICATE_OF:** `docs/phases/PHASE_119.md`
 
 ---
 
-## 120a. ALPN Bypass Design Flaw
+## Why this phase was retired
 
-### Problem
-ALPN can be bypassed by sending empty ALPN extension.
+Phase 120 was drafted on 2026-04-17 from the same independent red team
+assessment that produced Phase 119. A 2026-04-19 review found that the 20
+"novel" findings enumerated here were either:
 
-### Location
-Various TLS handlers
+- **Duplicates** of items already listed in Phase 119 under different local
+  IDs (e.g. 120a "ALPN bypass" duplicates 119's JA4 fragmentation cluster);
+  or
+- **Already folded** into the canonical findings register with
+  `remediation_phases` pointing at Phase 119 or its successor phases.
 
-### Fix
-Enforce ALPN validation.
+Keeping both PHASE_119.md and PHASE_120.md as active plans doubled the
+remediation accounting and risked the "fixed once, tested once" rule the
+Phase 121 program discipline is meant to enforce.
 
-### Size
-SMALL
+## Where to look now
 
----
+- **For the canonical finding list:** `docs/security/findings.yaml`
+  (human-readable view: `docs/security/FINDINGS_REGISTER.md`).
+- **For the remediation plan:** `docs/phases/PHASE_119.md`.
+- **For the intake / triage process that prevents this pattern recurring:**
+  `docs/security/INTAKE_RUNBOOK.md`.
 
-## 120b. X-JA4-Fingerprint Header Injection
+## Mapping from former 120a–120t to canonical IDs
 
-### Problem
-Attacker can inject arbitrary fingerprint via X-JA4-Fingerprint header.
+The full mapping lives in the `source_refs` field of the relevant canonical
+entries in `docs/security/findings.yaml`. To look up where a former 120N
+item went:
 
-### Fix
-Disable or validate header.
+```bash
+python3 scripts/findings_register.py list --json \
+  | jq '.[] | select(.source_refs[].id | startswith("120")) | {id, title, remediation_phases}'
+```
 
-### Size
-SMALL
+If a 120-prefixed source ID does not appear in the register, it was folded
+into a canonical entry under a different local ID from an earlier report
+(most commonly `RT-NNN` or `119N`). In that case, `dedup-hint` will find it:
 
----
+```bash
+python3 scripts/findings_register.py dedup-hint "<short description>"
+```
 
-## 120c. HAProxy Default Credentials
+## Do not add new findings here
 
-### Problem
-Default stats credentials may be active.
-
-### Location
-config/haproxy.cfg
-
-### Fix
-Require env vars, no defaults.
-
-### Size
-XS
-
----
-
-## 120d. Privileged cAdvisor
-
-### Problem
-cAdvisor runs privileged in some deployments.
-
-### Fix
-Harden container security.
-
-### Size
-MEDIUM
-
----
-
-## 120e. Docker Socket Exposure
-
-### Problem
-Docker socket may be exposed to containers.
-
-### Fix
-Remove socket mount.
-
-### Size
-XS
-
----
-
-## 120f. CI/CD Token Leaks
-
-### Problem
-Tokens in CI/CD logs.
-
-### Fix
-Mask tokens in output.
-
-### Size
-XS
-
----
-
-## 120g. Redis PubSub Poisoning
-
-### Problem
-Unauthenticated PubSub allows command injection.
-
-### Fix
-Add authentication.
-
-### Size
-SMALL
-
----
-
-## 120h. Stored XSS
-
-### Problem
-XSS in management UI.
-
-### Fix
-Sanitize inputs.
-
-### Size
-SMALL
-
----
-
-## 120i. JWT Role Escalation
-
-### Problem
-Role claim can be manipulated.
-
-### Fix
-Validate from trusted source.
-
-### Size
-SMALL
-
----
-
-## 120j. DSAR OOM
-
-### Problem
-DSAR can cause memory exhaustion.
-
-### Fix
-Add pagination.
-
-### Size
-MEDIUM
-
----
-
-## 120k. IPv6 Burst Bug
-
-### Problem
-IPv6 handling may cause burst.
-
-### Fix
-Add rate limiting.
-
-### Size
-SMALL
-
----
-
-## 120l. Blocklist Logic Bug
-
-### Problem
-Blocklist refresh has race condition.
-
-### Fix
-Add atomic operations.
-
-### Size
-SMALL
-
----
-
-## 120m. Config Reload Path
-
-### Problem
-Config reload is vulnerable to injection.
-
-### Fix
-Validate config path.
-
-### Size
-SMALL
-
----
-
-## Acceptance Criteria
-- [ ] All 20 findings addressed
-- [ ] lint-phases exits 0
-- [ ] Tests pass
+New findings from future audits go through the intake runbook, not into
+this file. This stub exists only to preserve external links and git-blame
+context.

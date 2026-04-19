@@ -228,12 +228,13 @@ phases:
     size: LARGE
     summary: 'Fix 17 vulnerabilities from independent white-box red team: goroutine leaks, n-vs-len(data) JA4 bypass, unauthenticated metrics, credential rotation, connection limits, tarpit timeouts, Redis KEYS blocking, trusted CIDR validation, SNI key injection, cookie secure flag, log sanitisation, OIDC token verification.'
   120:
-    name: 'Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs'
-    status: PROPOSED
+    name: 'Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED)'
+    status: DEFERRED
     action_plan: docs/phases/PHASE_120.md
     dependencies: [108]
     size: LARGE
-    summary: 'Fix 20 novel findings from independent deep-dive team: ALPN bypass design flaw, X-JA4-Fingerprint header injection, HAProxy default creds, privileged cAdvisor, Docker socket exposure, CI/CD token leaks, Redis PubSub poisoning, stored XSS, JWT role escalation, DSAR OOM, IPv6 burst bug, blocklist logic bug, config reload path, infrastructure hardening.'
+    superseded_by: 119
+    summary: 'Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.'
   121:
     name: 'Pentest Remediation Consolidation & Program Discipline'
     status: PROPOSED
