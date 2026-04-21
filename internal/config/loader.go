@@ -441,6 +441,26 @@ type SecurityConfig struct {
 	Whitelist         []string `yaml:"whitelist"`
 	WhitelistPatterns []string `yaml:"whitelist_patterns"`
 	Blacklist         []string `yaml:"blacklist"`
+	// JA4PROXY-2026-0011 — TLS protocol lockdown. When true (default), any
+	// connection whose first byte after PROXY-header strip is not 0x16
+	// (TLS Handshake content type) is dropped immediately. Blocks HTTP
+	// smuggling, SSH injection, and subsequent PROXY-header smuggling on
+	// what is supposed to be a TLS-aware passthrough listener. Operators
+	// who intentionally proxy non-TLS protocols on the listen port can
+	// set this to false to preserve the pre-fix scoring-only behavior.
+	EnforceTLSRecord *bool `yaml:"enforce_tls_record"`
+}
+
+// ProtocolLockdownEnabled reports whether TLS protocol lockdown should be
+// enforced on the connection hot path. Centralised here so the default
+// (true) lives next to the field docs, and so callers do not scatter
+// "if sec.EnforceTLSRecord == nil || *sec.EnforceTLSRecord" across the
+// codebase. JA4PROXY-2026-0011.
+func (s SecurityConfig) ProtocolLockdownEnabled() bool {
+	if s.EnforceTLSRecord == nil {
+		return true
+	}
+	return *s.EnforceTLSRecord
 }
 
 // MonitorModeConfig holds dial and monitor mode settings.

@@ -453,6 +453,23 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		}
 	}
 
+	// JA4PROXY-2026-0011 — protocol lockdown. After PROXY strip the first
+	// byte must be 0x16 (TLS Handshake content type). Anything else is a
+	// non-TLS protocol on a TLS-aware listener (HTTP/SSH/etc.) or an
+	// attempt to smuggle a second PROXY header; either way it must never
+	// reach the pipeline's pre-parse fall-through that would otherwise
+	// forward without a JA4. Operators who proxy non-TLS on this port can
+	// disable the check with security.enforce_tls_record: false.
+	if p.cfg.Security.ProtocolLockdownEnabled() && len(data) >= 1 && data[0] != 0x16 {
+		metrics.ConnectionErrorsTotal.WithLabelValues("non_tls_dropped").Inc()
+		p.log.WithFields(logrus.Fields{
+			"client_ip":     connCtx.ClientIP,
+			"first_byte":    fmt.Sprintf("0x%02x", data[0]),
+			"bytes_sampled": len(data),
+		}).Warn("proxy: non-TLS content type on TLS listener; dropping (JA4PROXY-2026-0011)")
+		return
+	}
+
 	// JA4PROXY-2026-0003: length check was previously `n >= 5`, which used
 	// the pre-PROXY-strip read count and could read past the end of `data`
 	// after a stripped header. Use len(data) now that data has been
