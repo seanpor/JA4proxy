@@ -10,8 +10,11 @@ clients:
 
 scrape_configs:
   - job_name: docker
+    # JA4PROXY-2026-0017 — discovery goes via docker-socket-proxy
+    # (tecnativa image) which whitelists only the CONTAINERS endpoint.
+    # Promtail no longer has direct access to /var/run/docker.sock.
     docker_sd_configs:
-      - host: unix:///var/run/docker.sock
+      - host: tcp://docker-socket-proxy:2375
         refresh_interval: 5s
         filters:
           - name: name
