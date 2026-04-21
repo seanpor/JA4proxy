@@ -67,13 +67,11 @@ async def test_login_wrong_username(test_client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_login_rate_limit(test_client: AsyncClient) -> None:
-    """Five consecutive failures from same IP trigger 429 lockout."""
-    from management.api.auth import _login_failures
+    """Five consecutive failures from same IP trigger 429 lockout.
 
-    # Clear any existing state for this test's IP
-    _login_failures.pop("testclient", None)
-    _login_failures.pop("unknown", None)
-
+    JA4PROXY-2026-0021 — the limiter state lives in Redis now, and the
+    fake_redis fixture is fresh-per-test, so no manual cleanup is needed.
+    """
     # Send 5 failing requests
     for _ in range(5):
         r = await test_client.post(
