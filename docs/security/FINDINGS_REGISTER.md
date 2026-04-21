@@ -106,9 +106,9 @@ get forgotten.
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 10 | OPEN | 51 |
+| CRITICAL | 10 | OPEN | 48 |
 | HIGH | 14 | IN_PROGRESS | 0 |
-| MEDIUM | 21 | FIXED | 3 |
+| MEDIUM | 21 | FIXED | 6 |
 | LOW | 9 | VERIFIED | 0 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
@@ -129,9 +129,9 @@ get forgotten.
 |----|----------|--------|------|-----|-------|
 | JA4PROXY-2026-0001 | CRITICAL | FIXED | go-proxy | 2026-04-16 | PROXY Protocol v2 Spoofing from Untrusted Source |
 | JA4PROXY-2026-0002 | CRITICAL | FIXED | go-proxy | 2026-04-16 | PROXY Protocol v2 Smuggling via Double Header Injection |
-| JA4PROXY-2026-0003 | CRITICAL | OPEN | go-proxy | 2026-04-16 | TLS ClientHello Fragmentation Bypass |
-| JA4PROXY-2026-0004 | CRITICAL | OPEN | go-proxy | 2026-04-24 | ALPN Browser Bypass Trusts Attacker-Controlled Signal |
-| JA4PROXY-2026-0005 | CRITICAL | OPEN | go-proxy | 2026-04-24 | X-JA4-Fingerprint HTTP Header Injection Bypass |
+| JA4PROXY-2026-0003 | CRITICAL | FIXED | go-proxy | 2026-04-16 | TLS ClientHello Fragmentation Bypass |
+| JA4PROXY-2026-0004 | CRITICAL | FIXED | go-proxy | 2026-04-24 | ALPN Browser Bypass Trusts Attacker-Controlled Signal |
+| JA4PROXY-2026-0005 | CRITICAL | FIXED | go-proxy | 2026-04-24 | X-JA4-Fingerprint HTTP Header Injection Bypass |
 | JA4PROXY-2026-0006 | CRITICAL | FIXED | python-management | 2026-04-16 | X-Forwarded-For Header IP Spoofing (Python Proxy) |
 | JA4PROXY-2026-0007 | CRITICAL | OPEN | python-management | 2026-04-16 | Webhook URL SSRF (Management API) |
 | JA4PROXY-2026-0008 | CRITICAL | OPEN | go-proxy | 2026-04-24 | Unauthenticated /metrics and /health/deep Endpoints |
