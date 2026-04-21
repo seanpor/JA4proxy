@@ -2,6 +2,11 @@ package redis
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"time"
 
 	rdb "github.com/redis/go-redis/v9"
@@ -22,12 +27,38 @@ const (
 	ChannelCIDRUpdate      = "geoip:cidr:update"
 )
 
+// criticalChannels is the set of channels whose messages are HMAC-verified
+// when a secret is configured. JA4PROXY-2026-0019 — without HMAC, anyone
+// with Redis PUBLISH access can flip the dial to 0, whitelist malicious
+// JA4s, or force config reloads as a DoS primitive. These channels mutate
+// security-critical state, so unsigned messages on them are dropped.
+var criticalChannels = map[string]struct{}{
+	ChannelConfigReload:    {},
+	ChannelDialChange:      {},
+	ChannelBlacklistAdd:    {},
+	ChannelBlacklistRemove: {},
+	ChannelWhitelistAdd:    {},
+	ChannelWhitelistRemove: {},
+	ChannelCIDRUpdate:      {},
+}
+
+// signedPubSubMessage matches the JSON envelope produced by src/pubsub.py.
+// Data signed = "<type>:<value>" as utf-8, HMAC-SHA256, hex-encoded.
+// The `type` field duplicates routing semantics for multi-type channels;
+// on single-purpose channels we fall back to the channel name as the type.
+type signedPubSubMessage struct {
+	Type      string `json:"type"`
+	Value     string `json:"value"`
+	Signature string `json:"signature"`
+}
+
 // PubSubHandler listens on Redis pub/sub channels and calls registered handlers.
 type PubSubHandler struct {
-	client    *Client
-	log       *logrus.Logger
-	onReload  func()
-	onRefresh func() // Refresh JA4/CIDR lists
+	client     *Client
+	log        *logrus.Logger
+	onReload   func()
+	onRefresh  func() // Refresh JA4/CIDR lists
+	hmacSecret []byte // JA4PROXY-2026-0019 — nil/empty means "no verification"
 }
 
 // NewPubSubHandler creates a handler that calls onReload or onRefresh when
@@ -42,6 +73,19 @@ func NewPubSubHandler(client *Client, log *logrus.Logger, onReload, onRefresh fu
 		onReload:  onReload,
 		onRefresh: onRefresh,
 	}
+}
+
+// SetHMACSecret configures HMAC verification for critical pub/sub channels.
+// An empty string disables verification — in that mode the handler logs a
+// one-line WARN on construction so operators are aware the escape hatch is
+// engaged. The secret should match the Python publisher's signing_key.
+func (h *PubSubHandler) SetHMACSecret(secret string) {
+	if secret == "" {
+		h.hmacSecret = nil
+		h.log.Warn("pubsub: HMAC secret not configured; unsigned messages on critical channels will be accepted (JA4PROXY-2026-0019)")
+		return
+	}
+	h.hmacSecret = []byte(secret)
 }
 
 // Run subscribes to config channels and blocks until ctx is cancelled.
@@ -113,6 +157,16 @@ func (h *PubSubHandler) handleMessage(msg *rdb.Message) {
 		"payload": msg.Payload,
 	}).Debug("pubsub: received message")
 
+	if _, critical := criticalChannels[msg.Channel]; critical && len(h.hmacSecret) > 0 {
+		if err := verifyPubSubHMAC(h.hmacSecret, msg.Channel, msg.Payload); err != nil {
+			h.log.WithFields(logrus.Fields{
+				"channel": msg.Channel,
+				"reason":  err.Error(),
+			}).Warn("pubsub: HMAC verification failed; dropping message (JA4PROXY-2026-0019)")
+			return
+		}
+	}
+
 	switch msg.Channel {
 	case ChannelConfigReload, ChannelDialChange:
 		if h.onReload != nil {
@@ -125,4 +179,56 @@ func (h *PubSubHandler) handleMessage(msg *rdb.Message) {
 	default:
 		h.log.WithField("channel", msg.Channel).Debug("pubsub: unknown channel; ignoring")
 	}
+}
+
+// verifyPubSubHMAC parses the JSON envelope produced by src/pubsub.py and
+// recomputes HMAC-SHA256(secret, "<type>:<value>"). Returns nil on a match.
+// A missing/empty signature, a malformed envelope, or any mismatch returns
+// an error — do NOT pass the message to the handler in those cases.
+func verifyPubSubHMAC(secret []byte, channel, payload string) error {
+	if payload == "" {
+		return fmt.Errorf("empty payload")
+	}
+	var env signedPubSubMessage
+	if err := json.Unmarshal([]byte(payload), &env); err != nil {
+		return fmt.Errorf("malformed JSON envelope: %w", err)
+	}
+	if env.Signature == "" {
+		return fmt.Errorf("signature missing")
+	}
+	msgType := env.Type
+	if msgType == "" {
+		// Single-purpose channels may omit the type field; fall back to the
+		// channel name so the Go subscriber can verify payloads that the
+		// Python publisher currently writes verbatim.
+		msgType = channel
+	}
+	want, err := hex.DecodeString(env.Signature)
+	if err != nil {
+		return fmt.Errorf("signature not hex: %w", err)
+	}
+	mac := hmac.New(sha256.New, secret)
+	_, _ = mac.Write([]byte(msgType + ":" + env.Value))
+	if !hmac.Equal(mac.Sum(nil), want) {
+		return fmt.Errorf("HMAC mismatch")
+	}
+	return nil
+}
+
+// SignPubSubMessage produces the JSON envelope the Python publisher emits,
+// and is used by tests (and by any future Go publisher) to build a message
+// that the verifier will accept. Returns the JSON string ready to PUBLISH.
+func SignPubSubMessage(secret []byte, msgType, value string) (string, error) {
+	mac := hmac.New(sha256.New, secret)
+	_, _ = mac.Write([]byte(msgType + ":" + value))
+	env := signedPubSubMessage{
+		Type:      msgType,
+		Value:     value,
+		Signature: hex.EncodeToString(mac.Sum(nil)),
+	}
+	b, err := json.Marshal(env)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }

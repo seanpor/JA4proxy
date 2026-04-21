@@ -77,15 +77,19 @@ func main() {
 		go metrics.StartNTPMonitor(ctx, cfg.Monitoring.NTPCheckIntervalSeconds, log)
 	}
 
-	// Start pub/sub for config hot-reload and dynamic list updates
-	go redisclient.NewPubSubHandler(proxy.redis, log, func() {
+	// Start pub/sub for config hot-reload and dynamic list updates.
+	// JA4PROXY-2026-0019 — wire HMAC secret so critical channels reject
+	// unsigned messages when configured.
+	pubsubHandler := redisclient.NewPubSubHandler(proxy.redis, log, func() {
 		if err := proxy.reload(); err != nil {
 			log.WithError(err).Warn("config reload failed")
 		}
 	}, func() {
 		loadSecurityLists(ctx, proxy.redis, proxy.pipeline)
 		log.Info("security lists refreshed via pub/sub")
-	}).Run(ctx)
+	})
+	pubsubHandler.SetHMACSecret(cfg.Redis.PubSubHMACSecret)
+	go pubsubHandler.Run(ctx)
 
 	// phase-201c: periodic Redis health check + auto script reload.
 	go func() {
