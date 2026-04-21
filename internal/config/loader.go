@@ -175,9 +175,11 @@ func DefaultConfig() *Config {
 			InboundConsumerGroup: "sync-group",
 		},
 		Tarpit: TarpitConfig{
-			MaxActiveConnections: 500,
-			MaxPerIP:             3,
-			OverflowAction:       "block",
+			MaxActiveConnections:     500,
+			MaxPerIP:                 3,
+			OverflowAction:           "block",
+			InactivityTimeoutSeconds: 60,
+			MaxLifetimeSeconds:       300,
 		},
 		ASNClassifier: ASNClassifierConfigYAML{
 			Enabled:            true,
@@ -494,6 +496,15 @@ type TarpitConfig struct {
 	MaxActiveConnections int    `yaml:"max_concurrent_connections"`
 	MaxPerIP             int    `yaml:"max_per_ip"`
 	OverflowAction       string `yaml:"overflow_action"`
+	// InactivityTimeoutSeconds bounds how long a tarpit copy loop will block
+	// in Read() with no data. Defaults to 60s. JA4PROXY-2026-0013: without
+	// this bound an attacker can send one byte and hang forever, pinning a
+	// tarpit slot and eventually exhausting the pool.
+	InactivityTimeoutSeconds int `yaml:"inactivity_timeout_seconds"`
+	// MaxLifetimeSeconds is the hard cap on total tarpit-hold duration.
+	// Even an actively-trickling client is dropped after this many seconds.
+	// Defaults to 300s.
+	MaxLifetimeSeconds int `yaml:"max_lifetime_seconds"`
 }
 
 // TLSEnforcerConfigYAML holds TLS enforcement settings from proxy.yml.
