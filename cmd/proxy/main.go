@@ -326,25 +326,57 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		ClientPort: remotePort(clientConn),
 	}
 
-	// PROXY protocol: extract real client IP if behind HAProxy.
-	// Phase 200c: try v2 binary first, then v1 text — both gated by trust
-	// check to prevent IP spoofing from untrusted sources.
+	// PROXY protocol: always strip the header (v1 or v2) so it is never
+	// forwarded to the backend. Only adopt the extracted client IP when the
+	// source is in the trusted upstream CIDR list.
+	//
+	//   JA4PROXY-2026-0001 (spoof): before the always-strip fix, an untrusted
+	//     source that sent a PROXY header used to have the header forwarded
+	//     verbatim to the backend, which might then trust the attacker's
+	//     claimed src IP. The header is now stripped in all cases; only
+	//     trusted peers influence connCtx.ClientIP.
+	//   JA4PROXY-2026-0002 (smuggling): a second PROXY header chained after
+	//     the first is treated as a smuggling attempt (e.g. trusted HAProxy
+	//     header followed by an attacker-injected one). The connection is
+	//     closed.
 	if p.cfg.Proxy.ProxyProtocol {
 		socketIP := remoteIP(clientConn)
-		if proxypkg.IsTrustedProxySourceCIDRs(socketIP, p.getTrustedCIDRs()) {
-			// Try v2 binary header first (HAProxy 2.x+, AWS NLB)
-			if realIP, ok, hdrLen := proxypkg.ReadProxyProtocolV2WithLength(data); ok {
+		trusted := proxypkg.IsTrustedProxySourceCIDRs(socketIP, p.getTrustedCIDRs())
+		stripped := false
+		// Try v2 binary header first (HAProxy 2.x+, AWS NLB).
+		if realIP, ok, hdrLen := proxypkg.ReadProxyProtocolV2WithLength(data); ok {
+			if trusted {
 				connCtx.ClientIP = realIP
-				data = data[hdrLen:]
-			} else if realIP, ok := proxypkg.ReadProxyProtocol(data); ok {
-				// Fall back to v1 text header
+			}
+			data = data[hdrLen:]
+			stripped = true
+		} else if realIP, ok := proxypkg.ReadProxyProtocol(data); ok {
+			// Fall back to v1 text header.
+			if trusted {
 				connCtx.ClientIP = realIP
-				if idx := bytes.Index(data, []byte("\r\n")); idx >= 0 {
-					data = data[idx+2:]
-				}
+			}
+			if idx := bytes.Index(data, []byte("\r\n")); idx >= 0 {
+				data = data[idx+2:]
+				stripped = true
 			}
 		}
-		// When untrusted: silently use socket IP — fail-open.
+		if stripped {
+			if !trusted {
+				metrics.ProxyProtocolParserEvents.WithLabelValues("spoof_stripped").Inc()
+				p.log.WithField("socket_ip", socketIP).Warn("proxy: stripped PROXY header from untrusted source (JA4PROXY-2026-0001)")
+			}
+			// JA4PROXY-2026-0002: detect chained PROXY header (smuggling).
+			if _, ok, _ := proxypkg.ReadProxyProtocolV2WithLength(data); ok {
+				metrics.ProxyProtocolParserEvents.WithLabelValues("smuggling_blocked").Inc()
+				p.log.WithField("socket_ip", socketIP).Warn("proxy: PROXY header smuggling detected (v2 chained); closing (JA4PROXY-2026-0002)")
+				return
+			}
+			if _, ok := proxypkg.ReadProxyProtocol(data); ok {
+				metrics.ProxyProtocolParserEvents.WithLabelValues("smuggling_blocked").Inc()
+				p.log.WithField("socket_ip", socketIP).Warn("proxy: PROXY header smuggling detected (v1 chained); closing (JA4PROXY-2026-0002)")
+				return
+			}
+		}
 	}
 
 	// GeoIP country lookup

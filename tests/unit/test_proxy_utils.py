@@ -438,10 +438,27 @@ class TestExtractClientIpFromHttp:
     def server(self):
         return _proxy_server_stub()
 
-    def test_x_forwarded_for_first_ip_extracted(self, server):
+    def test_x_forwarded_for_rightmost_ip_extracted(self, server):
+        # JA4PROXY-2026-0006: the trusted upstream appends the IP it observed
+        # as the LAST entry; any earlier entries are attacker-supplied. The
+        # rightmost value is the only one that can be attributed to a
+        # trusted hop.
         data = b"GET / HTTP/1.1\r\nX-Forwarded-For: 203.0.113.5, 10.0.0.1\r\n\r\n"
         ip = server._extract_client_ip_from_http(data)
-        assert ip == "203.0.113.5"
+        assert ip == "10.0.0.1"
+
+    def test_x_forwarded_for_ignores_attacker_left_entry(self, server):
+        # JA4PROXY-2026-0006 regression: a client forging "XFF: 1.2.3.4" to
+        # impersonate an arbitrary source must NOT win. HAProxy appends the
+        # real peer IP on the right, so we trust that.
+        data = (
+            b"GET / HTTP/1.1\r\n"
+            b"X-Forwarded-For: 1.2.3.4, 203.0.113.50\r\n"
+            b"\r\n"
+        )
+        ip = server._extract_client_ip_from_http(data)
+        assert ip == "203.0.113.50"
+        assert ip != "1.2.3.4"
 
     def test_x_forwarded_for_single_ip(self, server):
         data = b"POST /api HTTP/1.1\r\nX-Forwarded-For: 198.51.100.99\r\n\r\n"
