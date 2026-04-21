@@ -720,13 +720,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118e
+  - 118u
   discovered: '2026-04-17'
   due: '2026-05-17'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: management/tests/test_pentest_mgmt_rate_limit_redis_regression.py::test_distributed_workers_share_lockout_state
+  closed_commit: 8ce28f8c19569ad9aba5770e8ea3ec93e617fe2f
   description: management/api/auth.py implements login rate limiting using an in-memory dict (_login_failures).
     Distributed attacker can distribute brute-force across N instances (each gets 5 attempts). Restart
     clears all lockout state.
