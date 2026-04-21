@@ -462,12 +462,12 @@ findings:
   - 118o
   discovered: '2026-04-17'
   due: '2026-05-17'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on:
   - JA4PROXY-2026-0009
-  regression_test: ''
-  closed_commit: ''
+  regression_test: cmd/proxy/TestRegression_JA4PROXY_2026_0012_admitConn_enforces_capacity
+  closed_commit: 0401c73
   description: Main accept loop (cmd/proxy/main.go:285-298) creates unbounded goroutines without semaphore.
     Each connection allocates 3x BufferSize in memory (default 8KB = 24KB per connection). Combined with
     goroutine leak (0009), attacker can exhaust memory by opening connections faster than they close.
