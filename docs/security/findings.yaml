@@ -810,11 +810,11 @@ findings:
   - 118k
   discovered: '2026-04-17'
   due: '2026-05-17'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: management/tests/test_cookie_secure_flag.py::test_regression_JA4PROXY_2026_0024_login_endpoint_emits_secure_cookie
+  closed_commit: a2df177
   description: JWT session cookie has secure=False hardcoded in management/api/auth.py:494, not environment-gated.
     In production behind HTTPS, cookie is sent over HTTP, allowing network interception by network-path
     attacker.
