@@ -666,11 +666,26 @@ func (p *proxy) tarpit(clientConn net.Conn, data []byte, clientIP string) {
 		return
 	}
 
+	// JA4PROXY-2026-0013 — bound how long each Read can block so an attacker
+	// cannot pin a tarpit slot by sending one byte and hanging. Inactivity
+	// timeout applies to every Read; lifetime cap is a belt-and-braces hard
+	// stop even for an actively-trickling client.
+	inactivity := time.Duration(cfg.Tarpit.InactivityTimeoutSeconds) * time.Second
+	lifetime := time.Duration(cfg.Tarpit.MaxLifetimeSeconds) * time.Second
+	deadline := time.Now().Add(lifetime)
+	if lifetime > 0 {
+		_ = clientConn.SetDeadline(deadline)
+		_ = tarpitConn.SetDeadline(deadline)
+	}
+
 	// Forward to tarpit — bidirectional copy
 	done := make(chan struct{}, 2)
 	copyOne := func(dst, src net.Conn) {
 		buf := make([]byte, 512)
 		for {
+			if inactivity > 0 {
+				_ = src.SetReadDeadline(time.Now().Add(inactivity))
+			}
 			n, err := src.Read(buf)
 			if n > 0 {
 				if _, werr := dst.Write(buf[:n]); werr != nil {
