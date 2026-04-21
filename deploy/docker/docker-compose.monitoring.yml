@@ -219,12 +219,22 @@ services:
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.47.2
     container_name: ja4proxy-cadvisor
-    privileged: true
+    # JA4PROXY-2026-0016 — cAdvisor previously ran with privileged: true, full
+    # r/w /var/run mount, and /dev/kmsg access. A compromise of the cAdvisor
+    # container had a direct path to host root via the Docker socket under
+    # /var/run. The minimum caps cAdvisor needs to read /proc + /sys cgroup
+    # data are SYS_PTRACE + DAC_READ_SEARCH; /var/run is now read-only so
+    # the Docker socket cannot be written to from inside the container.
+    cap_drop:
+      - ALL
+    cap_add:
+      - SYS_PTRACE
+      - DAC_READ_SEARCH
     devices:
       - /dev/kmsg:/dev/kmsg
     volumes:
       - /:/rootfs:ro
-      - /var/run:/var/run:rw
+      - /var/run:/var/run:ro
       - /sys:/sys:ro
       - /var/lib/docker:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
