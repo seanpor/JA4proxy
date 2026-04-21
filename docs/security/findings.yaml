@@ -399,11 +399,11 @@ findings:
   - 118i
   discovered: '2026-04-17'
   due: '2026-04-24'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: internal/config/TestRegression_JA4PROXY_2026_0010_refuses_remote_unauth_redis
+  closed_commit: 8131fa0
   description: If Redis is misconfigured without a password (even though it should have one), the Go proxy
     continues operating (fail-open), connecting to unauthenticated Redis and exposing all security state
     (ban lists, whitelists, dial settings) to any network client. Attacker on same network modifies ban
