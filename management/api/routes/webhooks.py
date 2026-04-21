@@ -13,16 +13,19 @@ webhook:{id}   → Hash: id, url, events (JSON list), secret_hash (bcrypt),
 webhook:idx    → SET of webhook IDs
 """
 
+import ipaddress
 import json
 import logging
 import secrets
+import socket
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 import bcrypt
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from ..auth import require_role
 from ..models import Role
@@ -35,6 +38,85 @@ router = APIRouter(tags=["webhooks"])
 _WEBHOOK_IDX = "webhook:idx"
 
 
+# ── SSRF defence (JA4PROXY-2026-0007) ─────────────────────────────────────────
+#
+# The Management API lets operators point webhooks at arbitrary URLs. Without
+# validation an authenticated operator can aim a webhook at
+# http://169.254.169.254/latest/meta-data/ (cloud IMDS), http://localhost:6379
+# (the Redis admin socket), or any RFC1918 internal service and exfiltrate the
+# response via the outbound dispatcher. The validator below rejects such URLs
+# at model-parse time so they never land in Redis.
+
+_BLOCKED_HOSTNAMES = frozenset({"localhost", "ip6-localhost", "ip6-loopback"})
+
+
+def _ip_is_internal(ip: ipaddress._BaseAddress) -> bool:
+    return (
+        ip.is_loopback
+        or ip.is_private
+        or ip.is_link_local
+        or ip.is_multicast
+        or ip.is_unspecified
+        or ip.is_reserved
+    )
+
+
+def _resolve_host(host: str) -> list[str]:
+    """Best-effort DNS resolution. Returns [] on failure so callers can reject."""
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except (OSError, UnicodeError):
+        return []
+    return [info[4][0] for info in infos]
+
+
+def _validate_webhook_url(url: str) -> str:
+    """Reject webhook targets that could enable SSRF against internal services."""
+    try:
+        parsed = urlparse(url)
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(f"invalid URL: {exc}") from exc
+
+    if parsed.scheme not in {"http", "https"}:
+        raise ValueError("webhook URL must use http or https scheme")
+
+    host = (parsed.hostname or "").strip().lower()
+    if not host:
+        raise ValueError("webhook URL must include a hostname")
+
+    if host in _BLOCKED_HOSTNAMES or host.endswith(".localhost") or host.endswith(".local"):
+        raise ValueError(f"webhook URL hostname '{host}' refers to a local address")
+
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        ip = None
+
+    if ip is not None:
+        if _ip_is_internal(ip):
+            raise ValueError(
+                f"webhook URL IP {host} is in a loopback, private, or reserved range"
+            )
+        return url
+
+    resolved = _resolve_host(host)
+    if not resolved:
+        raise ValueError(f"webhook URL hostname '{host}' could not be resolved")
+
+    for addr in resolved:
+        candidate = addr.split("%", 1)[0]
+        try:
+            parsed_ip = ipaddress.ip_address(candidate)
+        except ValueError:
+            continue
+        if _ip_is_internal(parsed_ip):
+            raise ValueError(
+                f"webhook URL hostname '{host}' resolves to a private or reserved address {addr}"
+            )
+
+    return url
+
+
 # ── Request / response models ──────────────────────────────────────────────────
 
 
@@ -45,6 +127,11 @@ class WebhookCreate(BaseModel):
     events: List[str] = Field(default_factory=list)
     active: bool = True
 
+    @field_validator("url")
+    @classmethod
+    def _reject_ssrf_url(cls, v: str) -> str:
+        return _validate_webhook_url(v)
+
 
 class WebhookUpdate(BaseModel):
     """Body for PUT /api/v1/webhooks/{id}."""
@@ -52,6 +139,13 @@ class WebhookUpdate(BaseModel):
     url: Optional[str] = None
     events: Optional[List[str]] = None
     active: Optional[bool] = None
+
+    @field_validator("url")
+    @classmethod
+    def _reject_ssrf_url(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        return _validate_webhook_url(v)
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
