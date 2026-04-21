@@ -106,9 +106,9 @@ get forgotten.
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 10 | OPEN | 38 |
+| CRITICAL | 10 | OPEN | 37 |
 | HIGH | 14 | IN_PROGRESS | 0 |
-| MEDIUM | 21 | FIXED | 16 |
+| MEDIUM | 21 | FIXED | 17 |
 | LOW | 9 | VERIFIED | 0 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
@@ -144,7 +144,7 @@ get forgotten.
 | JA4PROXY-2026-0016 | HIGH | OPEN | infrastructure | 2026-05-17 | Privileged cAdvisor Container |
 | JA4PROXY-2026-0017 | HIGH | OPEN | infrastructure | 2026-05-17 | Docker Socket Exposed to Promtail |
 | JA4PROXY-2026-0018 | HIGH | OPEN | infrastructure | 2026-05-17 | CI/CD Token Exposed on Command Line |
-| JA4PROXY-2026-0019 | HIGH | OPEN | go-proxy | 2026-05-17 | Redis PubSub Poisoning (No HMAC on Critical Channels) |
+| JA4PROXY-2026-0019 | HIGH | FIXED | go-proxy | 2026-05-17 | Redis PubSub Poisoning (No HMAC on Critical Channels) |
 | JA4PROXY-2026-0020 | HIGH | OPEN | python-management | 2026-05-17 | Stored XSS in Management UI (Ban IP in Alpine.js) |
 | JA4PROXY-2026-0021 | HIGH | OPEN | python-management | 2026-05-17 | In-Memory Rate Limiting Bypass (Management API) |
 | JA4PROXY-2026-0022 | HIGH | FIXED | python-management | 2026-05-17 | Trusted CIDR /0 Acceptance (Python Proxy) |
