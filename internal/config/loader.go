@@ -143,7 +143,8 @@ func DefaultConfig() *Config {
 			},
 		},
 		SecurityPolicy: SecurityPolicyConfig{
-			ALPNBrowserBypass:      BypassConfig{Enabled: true},
+			// JA4PROXY-2026-0004: ALPN is attacker-controlled. Default OFF.
+			ALPNBrowserBypass:      BypassConfig{Enabled: false},
 			JA4WhitelistBypass:     BypassConfig{Enabled: true},
 			JA4BlacklistBypass:     BypassConfig{Enabled: true},
 			MTLSBypass:             BypassConfig{Enabled: true},

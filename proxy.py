@@ -2636,13 +2636,16 @@ class ProxyServer:
                     tls_version_int = 0x0304 if 0x0304 in supported else ver
                     raw_cipher_suites = client_hello_fields.get("cipher_suites", [])
             else:
-                # Not a TLS record — might be HTTP or other protocol
+                # Not a TLS record — might be HTTP or other protocol.
+                # JA4PROXY-2026-0005: previously we called
+                # _extract_ja4_from_http() here and used whatever the client
+                # put in an X-JA4-Fingerprint HTTP header as the connection's
+                # JA4. An attacker could then send a whitelisted JA4 value in
+                # plain HTTP and bypass every JA4-based control. The header
+                # is now ignored; JA4 stays "unknown" on non-TLS traffic.
                 self.logger.debug(
                     f"Non-TLS data from {client_ip} (first byte: 0x{data[0]:02x})"
                 )
-
-                # Check for X-JA4-Fingerprint header in HTTP traffic (for testing)
-                ja4 = self._extract_ja4_from_http(data)
 
             fingerprint = JA4Fingerprint(
                 ja4=ja4,
@@ -2667,12 +2670,16 @@ class ProxyServer:
             )
 
     def _extract_ja4_from_http(self, data: bytes) -> str:
-        """Extract JA4 fingerprint from HTTP X-JA4-Fingerprint header (testing/fallback)."""
-        if data[:3] in (b"GET", b"POS", b"PUT", b"DEL", b"HEA", b"PAT", b"OPT"):
-            header_block = data[:2048].decode("ascii", errors="ignore")
-            for line in header_block.split("\r\n"):
-                if line.lower().startswith("x-ja4-fingerprint:"):
-                    return line.split(":", 1)[1].strip()
+        """Deprecated. Always returns "unknown".
+
+        JA4PROXY-2026-0005: this function used to read an
+        ``X-JA4-Fingerprint`` HTTP header and return it as the connection's
+        JA4 fingerprint. Because the header is attacker-controlled, any
+        client could assert a whitelisted JA4 in plain HTTP and bypass
+        every JA4-based control. The lookup has been removed; the function
+        is kept only so callers in tests keep a stable API. It now always
+        returns "unknown".
+        """
         return "unknown"
 
     async def _store_fingerprint(self, fingerprint: JA4Fingerprint):

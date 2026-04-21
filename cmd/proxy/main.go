@@ -388,7 +388,18 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		}
 	}
 
-	if n >= 5 && data[0] == 0x16 {
+	// JA4PROXY-2026-0003: length check was previously `n >= 5`, which used
+	// the pre-PROXY-strip read count and could read past the end of `data`
+	// after a stripped header. Use len(data) now that data has been
+	// normalised.
+	if len(data) >= 5 && data[0] == 0x16 {
+		// JA4PROXY-2026-0003: if the first TCP segment only contains a
+		// fragment of the ClientHello record, the first ParseClientHello
+		// returns ErrTruncated and the connection would previously be
+		// forwarded without a JA4 — defeating every JA4-based control.
+		// Read additional bytes until we either have the full record or
+		// hit a ceiling / the client stops sending.
+		data = p.reassembleClientHello(clientConn, data, buf)
 		if hello, err := tlsparse.ParseClientHello(data); err == nil {
 			ja4 := tlsparse.ComputeJA4(hello)
 			connCtx.JA4 = ja4
@@ -485,6 +496,62 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 			_ = tcpConn.SetLinger(0)
 		}
 	}
+}
+
+// reassembleClientHello keeps reading from clientConn until `data` holds the
+// complete TLS record whose length is encoded at bytes 3-4 (or until a hard
+// ceiling is reached / the client sends no more). Fail-open: on any error or
+// timeout we return whatever we have so far — the parser will decide.
+//
+// The caller passes `buf`, the full-capacity backing array that `data`
+// already aliases (data == buf[:len(data)]). We extend data into buf's
+// unused tail so we don't clobber the bytes already read.
+//
+// JA4PROXY-2026-0003 regression guard: previously a single Read() could land
+// a truncated ClientHello, tlsparse.ParseClientHello returned ErrTruncated,
+// and the connection was forwarded without a JA4.
+func (p *proxy) reassembleClientHello(clientConn net.Conn, data, buf []byte) []byte {
+	if len(data) < 5 {
+		return data
+	}
+	// TLS record header: bytes 3-4 are the record length (big-endian uint16).
+	recordLen := int(data[3])<<8 | int(data[4])
+	want := 5 + recordLen
+	// RFC 8446: record length ≤ 16384 plaintext + some overhead. Cap
+	// aggressively to avoid a slow-drip read amplifying a DoS.
+	const hardCap = 16640
+	if want > hardCap {
+		want = hardCap
+	}
+	if len(data) >= want {
+		return data
+	}
+	// Budget ~200ms total across retries for reassembly. A real browser's
+	// ClientHello fits in a single segment on normal networks.
+	deadline := time.Now().Add(200 * time.Millisecond)
+	for len(data) < want {
+		if time.Now().After(deadline) {
+			break
+		}
+		_ = clientConn.SetReadDeadline(deadline)
+		offset := len(data)
+		if offset >= cap(buf) {
+			break
+		}
+		end := want
+		if end > cap(buf) {
+			end = cap(buf)
+		}
+		m, err := clientConn.Read(buf[offset:end])
+		if m > 0 {
+			data = buf[:offset+m]
+		}
+		if err != nil {
+			break
+		}
+	}
+	_ = clientConn.SetReadDeadline(time.Time{})
+	return data
 }
 
 func (p *proxy) forward(clientConn net.Conn, initialData []byte) {

@@ -338,8 +338,12 @@ local_cache:
 security_policy:
   # ── ALLOW BYPASSES ────────────────────────────────────────────────────
   alpn_browser_bypass:
-    enabled: true           # Default: true. h2/h1 ALPN → ALLOW without scoring.
-                            # CAUTION: disabling scores all browser traffic; false positive risk elevated.
+    enabled: false          # Default: false (JA4PROXY-2026-0004).
+                            # ALPN is an attacker-controlled field in the
+                            # ClientHello — any bot can set ALPN=h2 and
+                            # bypass the entire pipeline. Re-enable ONLY if
+                            # your deployment also whitelists browser JA4s
+                            # and accepts the residual risk.
   ja4_whitelist_bypass:
     enabled: true           # Default: true. JA4 in whitelist → ALLOW without scoring.
   mtls_bypass:
