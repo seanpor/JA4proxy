@@ -2473,7 +2473,13 @@ class ProxyServer:
             for line in header_block.split("\r\n"):
                 lower = line.lower()
                 if lower.startswith("x-forwarded-for:"):
-                    ip = line.split(":", 1)[1].strip().split(",")[0].strip()
+                    # JA4PROXY-2026-0006: take the RIGHTMOST XFF entry, not
+                    # the leftmost. Each reverse proxy in the chain appends
+                    # the IP it actually saw; the last entry is the one
+                    # appended by our trusted upstream HAProxy and is the
+                    # only value we can attribute to it. Taking [0] lets
+                    # any client forge an arbitrary source IP.
+                    ip = line.split(":", 1)[1].strip().split(",")[-1].strip()
                     try:
                         ipaddress.ip_address(ip)
                         return ip
