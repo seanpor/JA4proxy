@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"regexp"
 	"strconv"
@@ -718,4 +719,69 @@ type WebhooksConfig struct {
 	StreamKey string                  `yaml:"stream_key"`
 	DLQKey    string                  `yaml:"dlq_key"`
 	Endpoints []WebhookEndpointConfig `yaml:"endpoints"`
+}
+
+// ErrRedisAuthRequired is returned by ValidateRedisAuth when the configured
+// Redis host is remote but no password was supplied. JA4PROXY-2026-0010 —
+// connecting to an unauthenticated remote Redis exposes ban lists, whitelists
+// and the dial setting to any network peer who can reach the same Redis.
+var ErrRedisAuthRequired = errors.New(
+	"redis: password required for non-local host " +
+		"(JA4PROXY-2026-0010 — set redis.password or point at 127.0.0.1/::1/localhost; " +
+		"set JA4PROXY_ALLOW_UNAUTH_REDIS=1 to override for local test clusters)",
+)
+
+// ValidateRedisAuth refuses to start the proxy against a remote Redis without
+// credentials. Local Redis (loopback host or unix socket) is permitted because
+// it is presumed reachable only from the same host. The env-var escape hatch
+// JA4PROXY_ALLOW_UNAUTH_REDIS=1 exists for integration tests that purposely
+// run unauthenticated Redis on non-loopback addresses (e.g. docker bridge).
+func ValidateRedisAuth(cfg *Config) error {
+	if cfg == nil {
+		return nil
+	}
+	if strings.TrimSpace(cfg.Redis.Password) != "" {
+		return nil
+	}
+	// Sentinel / managed-cluster deployments may not set a Host at all; the
+	// client resolves via the sentinels list. Treat the first sentinel as the
+	// effective host for this check.
+	host := cfg.Redis.Host
+	if host == "" && len(cfg.Redis.Sentinels) > 0 {
+		host = cfg.Redis.Sentinels[0]
+	}
+	if isLocalRedisHost(host) {
+		return nil
+	}
+	if os.Getenv("JA4PROXY_ALLOW_UNAUTH_REDIS") == "1" {
+		return nil
+	}
+	return fmt.Errorf("%w (host=%q)", ErrRedisAuthRequired, host)
+}
+
+// isLocalRedisHost returns true when the host string points at the same
+// machine — loopback IPs, the "localhost" name, an empty string (which
+// defaults to local in most clients), or a unix socket path.
+func isLocalRedisHost(host string) bool {
+	h := strings.TrimSpace(host)
+	if h == "" {
+		return true
+	}
+	// Unix socket — never network-exposed.
+	if strings.HasPrefix(h, "/") || strings.HasPrefix(h, "unix:") {
+		return true
+	}
+	// Sentinel entries may be "host:port" — split.
+	if i := strings.LastIndex(h, ":"); i > 0 && !strings.Contains(h, "::") {
+		h = h[:i]
+	}
+	// Strip brackets from IPv6 literals.
+	h = strings.TrimPrefix(strings.TrimSuffix(h, "]"), "[")
+	if strings.EqualFold(h, "localhost") {
+		return true
+	}
+	if ip := net.ParseIP(h); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
 }
