@@ -54,16 +54,21 @@ pipeline {
                 branch 'main'
             }
             environment {
+                // JA4PROXY-2026-0018 — Jenkins `credentials()` injects the
+                // secret into the environment. ja4proxy-policy.py reads
+                // JA4PROXY_TOKEN from env when --token is absent, so the
+                // secret never appears in the shell command, never lands in
+                // /proc/<pid>/cmdline, and never leaks via `ps` or
+                // Jenkins build logs that echo the sh script.
                 JA4PROXY_TOKEN = credentials('ja4proxy-operator-token')
             }
             steps {
                 sh 'pip install --quiet pyyaml cerberus aiohttp'
-                sh """
+                sh '''
                     python3 scripts/ja4proxy-policy.py apply \\
-                        --file ${env.POLICY_FILE} \\
-                        --url ${env.JA4PROXY_URL} \\
-                        --token ${env.JA4PROXY_TOKEN}
-                """
+                        --file "$POLICY_FILE" \\
+                        --url "$JA4PROXY_URL"
+                '''
             }
             post {
                 success {

@@ -74,8 +74,15 @@ jobs:
         run: pip install pyyaml cerberus aiohttp
 
       - name: Apply policy
+        # JA4PROXY-2026-0018 — pass the operator token via env, not on
+        # the command line. ja4proxy-policy.py reads JA4PROXY_TOKEN from
+        # the environment when --token is absent. Putting it on the
+        # command line leaks the secret into /proc/<pid>/cmdline and
+        # into any GitHub Actions log that echoes the `run:` block
+        # (e.g. `set -x` or a failed step summary).
+        env:
+          JA4PROXY_TOKEN: ${{ secrets.JA4PROXY_OPERATOR_TOKEN }}
         run: |
           python3 scripts/ja4proxy-policy.py apply \
             --file ja4proxy-policy.yaml \
-            --url ${{ vars.JA4PROXY_URL }} \
-            --token ${{ secrets.JA4PROXY_OPERATOR_TOKEN }}
+            --url "${{ vars.JA4PROXY_URL }}"
