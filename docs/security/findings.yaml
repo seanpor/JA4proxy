@@ -561,13 +561,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119d
+  - 118q
   discovered: '2026-04-17'
   due: '2026-05-17'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_cadvisor_unprivileged_regression.py::test_cadvisor_is_not_privileged
+  closed_commit: 1084021f312a5f465fa888bce55b35e3893f6898
   description: 'cAdvisor runs with privileged: true, mounts /:rootfs:ro, /var/run/var/run:rw, and has
     access to /dev/kmsg. If compromised, full host control via Docker socket in /var/run.'
   notes: 'Phase 119d specifies replacing privileged: true with specific caps (SYS_PTRACE, DAC_READ_SEARCH)
