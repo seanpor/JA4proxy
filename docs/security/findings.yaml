@@ -427,14 +427,15 @@ findings:
   remediation_phases:
   - 118b
   - 117b
+  - 118o
   discovered: '2026-04-17'
   due: '2026-05-17'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on:
   - JA4PROXY-2026-0003
-  regression_test: ''
-  closed_commit: ''
+  regression_test: cmd/proxy/pentest_tls_protocol_lockdown_regression_test.go::TestRegression_JA4PROXY_2026_0011_non_tls_first_byte_is_dropped
+  closed_commit: 3cb562e8b62799b73e427f54cdabba5d92f53054
   description: 'Beyond the fragmentation bypass itself (0003), Phase 118b''s fix requires protocol lockdown:
     after reassembly, validate the first byte of payload is 0x16 (TLS Handshake). If not, drop connection
     immediately. Prevents HTTP smuggling, SSH injection, or subsequent PROXY header injection.'
