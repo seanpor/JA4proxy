@@ -499,11 +499,11 @@ findings:
   - 111a
   discovered: '2026-04-17'
   due: '2026-05-17'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: cmd/proxy/TestRegression_JA4PROXY_2026_0013_TarpitReleasesSlotOnInactiveClient
+  closed_commit: 8cea0c9
   description: tarpit()'s copyOne function has no SetReadDeadline. Attacker sends 1 byte then hangs indefinitely,
     permanently consuming a tarpit slot. With 100 source IPs and MaxPerIP=10, attacker fills all 1000
     default tarpit slots. Subsequent tarpit-action connections overflow to allow (if configured).

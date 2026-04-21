@@ -106,9 +106,9 @@ get forgotten.
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 10 | OPEN | 44 |
+| CRITICAL | 10 | OPEN | 43 |
 | HIGH | 14 | IN_PROGRESS | 0 |
-| MEDIUM | 21 | FIXED | 10 |
+| MEDIUM | 21 | FIXED | 11 |
 | LOW | 9 | VERIFIED | 0 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
@@ -139,7 +139,7 @@ get forgotten.
 | JA4PROXY-2026-0010 | CRITICAL | OPEN | go-proxy | 2026-04-24 | Redis Fail-Open Masks Misconfiguration |
 | JA4PROXY-2026-0011 | HIGH | OPEN | go-proxy | 2026-05-17 | TLS Record Reassembly and Protocol Lockdown |
 | JA4PROXY-2026-0012 | HIGH | OPEN | go-proxy | 2026-05-17 | Unbounded Goroutines from Accept Loop |
-| JA4PROXY-2026-0013 | HIGH | OPEN | go-proxy | 2026-05-17 | Tarpit Slot Exhaustion via Timeout-Free Connections |
+| JA4PROXY-2026-0013 | HIGH | FIXED | go-proxy | 2026-05-17 | Tarpit Slot Exhaustion via Timeout-Free Connections |
 | JA4PROXY-2026-0015 | HIGH | OPEN | infrastructure | 2026-05-17 | HAProxy Stats Default Credentials |
 | JA4PROXY-2026-0016 | HIGH | OPEN | infrastructure | 2026-05-17 | Privileged cAdvisor Container |
 | JA4PROXY-2026-0017 | HIGH | OPEN | infrastructure | 2026-05-17 | Docker Socket Exposed to Promtail |
