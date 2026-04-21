@@ -996,6 +996,9 @@ func newLogger(cfg *config.Config) *logrus.Logger {
 			ECS: jalogger.NewECSLogrusFormatter("ecs"),
 		})
 	}
+	// JA4PROXY-2026-0048 — strip filesystem paths, Redis keys, and upstream
+	// IP:port pairs from log fields when ENVIRONMENT=production.
+	log.AddHook(jalogger.NewSensitiveFieldRedactor())
 	return log
 }
 
