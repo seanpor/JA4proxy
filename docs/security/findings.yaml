@@ -331,11 +331,11 @@ findings:
   - 118h
   discovered: '2026-04-17'
   due: '2026-04-24'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: internal/config/TestRegression_JA4PROXY_2026_0008_refuses_remote_unauth_metrics
+  closed_commit: c37dbc7
   description: 'The metrics HTTP server (cmd/proxy/main.go) binds to 0.0.0.0:<port> (default 9090) with
     no authentication. The config file has authentication.enabled: false (dead config — never implemented).
     Endpoints /health/deep and /metrics are unauthenticated and expose: dial setting, active connections,
