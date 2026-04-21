@@ -653,11 +653,11 @@ findings:
   - 118q
   discovered: '2026-04-17'
   due: '2026-05-17'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: internal/redis/TestRegression_JA4PROXY_2026_0019_unsigned_critical_is_dropped
+  closed_commit: f95036d
   description: Any entity with Redis access can PUBLISH to security-critical channels (config:dial:change,
     ja4:whitelist:add, ja4:blacklist:remove). No HMAC, signature, or audit trail on PubSub messages. onRefresh
     callback blindly trusts whatever is in Redis. Attacker forces dial=0 (monitor mode) or whitelists
