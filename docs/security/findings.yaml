@@ -140,11 +140,11 @@ findings:
   - 108d
   discovered: '2026-04-09'
   due: '2026-04-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: cmd/proxy/pentest_tls_evasion_regression_test.go::TestRegression_JA4PROXY_2026_0003_FragmentedClientHelloIsReassembled
+  closed_commit: a78638f960ef547f26f1692442659bdb7a99faec
   description: The Go proxy performs a single Read() into 8KB buffer. If the TLS ClientHello is fragmented
     across TCP packets, the first packet may contain only a partial record; tlsparse.ParseClientHello
     returns ErrTruncated. The proxy falls through to forward() action without computing a JA4 fingerprint.
@@ -174,11 +174,11 @@ findings:
   - 119a
   discovered: '2026-04-17'
   due: '2026-04-24'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: cmd/proxy/pentest_tls_evasion_regression_test.go::TestRegression_JA4PROXY_2026_0004_ALPNBypassDefaultDisabled
+  closed_commit: a78638f960ef547f26f1692442659bdb7a99faec
   description: The ALPNBrowserBypass feature (enabled by default in config/proxy.yml) grants immediate
     ALLOW to any connection whose first ALPN protocol is h2 or h1. ALPN is an attacker-controlled plaintext
     field in the ClientHello. Any bot, scanner, or tool can set ALPN=h2 and bypass JA4 blocklists, rate
@@ -208,11 +208,11 @@ findings:
   - 119b
   discovered: '2026-04-17'
   due: '2026-04-24'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_proxy_server.py::TestAnalyzeTlsHandshake::test_regression_JA4PROXY_2026_0005_non_tls_http_ja4_header_ignored
+  closed_commit: a78638f960ef547f26f1692442659bdb7a99faec
   description: 'When non-TLS traffic arrives at the proxy port, _extract_ja4_from_http() reads an X-JA4-Fingerprint
     HTTP header and uses its value directly as the connection''s JA4 with zero validation. Attacker sends
     plain HTTP with X-JA4-Fingerprint: t13d1516h2_8daaf6152771_02713d6af862 (whitelisted fingerprint).
