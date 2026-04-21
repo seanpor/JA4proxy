@@ -68,6 +68,25 @@ def _is_production() -> bool:
     return env in {"production", "prod"}
 
 
+def _should_set_secure_cookie(request: Request) -> bool:
+    """Return True if the JWT cookie must carry the Secure attribute.
+
+    JA4PROXY-2026-0024 — the login endpoint used to hardcode secure=False,
+    so a production deploy behind TLS still sent the session cookie in
+    plaintext when a downgraded request (or MITM-induced HTTP redirect)
+    reached the app. Always mark the cookie Secure when either:
+      - the current request arrived over HTTPS (same rule used by the
+        OIDC / SAML callback handlers), OR
+      - ENVIRONMENT is set to production / prod (defence in depth for
+        deployments that terminate TLS upstream and forward over HTTP).
+    """
+    if request.url.scheme == "https":
+        return True
+    if _is_production():
+        return True
+    return False
+
+
 def is_test_mode() -> bool:
     """Return True iff MANAGEMENT_TEST_MODE is on AND we are not in production.
 
@@ -514,7 +533,7 @@ async def login(request: Request, response: Response) -> Response:
         value=token_str,
         httponly=True,
         samesite="lax",
-        secure=False,  # Set to True in production behind HTTPS
+        secure=_should_set_secure_cookie(request),
         max_age=TOKEN_EXPIRY_HOURS * 3600,
     )
     return resp

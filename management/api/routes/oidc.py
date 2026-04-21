@@ -459,12 +459,13 @@ async def oidc_callback(
             logger.info("sso | event=idp_mfa_trusted | user=%s | provider=oidc", sub)
 
     response = RedirectResponse(url=redirect_target, status_code=302)
+    from ..auth import _should_set_secure_cookie
     response.set_cookie(
         "token",
         token,
         httponly=True,
         samesite="lax",
-        secure=request.url.scheme == "https",
+        secure=_should_set_secure_cookie(request),
     )
 
     # Gap 2 (Phase 100): audit SSO login event
