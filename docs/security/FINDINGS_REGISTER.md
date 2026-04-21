@@ -106,9 +106,9 @@ get forgotten.
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 10 | OPEN | 42 |
+| CRITICAL | 10 | OPEN | 41 |
 | HIGH | 14 | IN_PROGRESS | 0 |
-| MEDIUM | 21 | FIXED | 12 |
+| MEDIUM | 21 | FIXED | 13 |
 | LOW | 9 | VERIFIED | 0 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
@@ -135,7 +135,7 @@ get forgotten.
 | JA4PROXY-2026-0006 | CRITICAL | FIXED | python-management | 2026-04-16 | X-Forwarded-For Header IP Spoofing (Python Proxy) |
 | JA4PROXY-2026-0007 | CRITICAL | FIXED | python-management | 2026-04-16 | Webhook URL SSRF (Management API) |
 | JA4PROXY-2026-0008 | CRITICAL | OPEN | go-proxy | 2026-04-24 | Unauthenticated /metrics and /health/deep Endpoints |
-| JA4PROXY-2026-0009 | CRITICAL | OPEN | go-proxy | 2026-04-24 | Goroutine Leak in forward() and tarpit() |
+| JA4PROXY-2026-0009 | CRITICAL | FIXED | go-proxy | 2026-04-24 | Goroutine Leak in forward() and tarpit() |
 | JA4PROXY-2026-0010 | CRITICAL | OPEN | go-proxy | 2026-04-24 | Redis Fail-Open Masks Misconfiguration |
 | JA4PROXY-2026-0011 | HIGH | OPEN | go-proxy | 2026-05-17 | TLS Record Reassembly and Protocol Lockdown |
 | JA4PROXY-2026-0012 | HIGH | OPEN | go-proxy | 2026-05-17 | Unbounded Goroutines from Accept Loop |
