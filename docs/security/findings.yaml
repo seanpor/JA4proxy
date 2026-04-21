@@ -621,13 +621,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119f
+  - 118s
   discovered: '2026-04-17'
   due: '2026-05-17'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_cicd_token_env_regression.py::test_jenkinsfile_does_not_pass_token_on_cli
+  closed_commit: 7ba079907cd8e5aa93c1b96c3d06ca313d6ce8e5
   description: Both Jenkins (deploy/jenkins/Jenkinsfile) and GitHub Actions (.github/workflows/ja4proxy-policy.yml)
     pass JA4PROXY_TOKEN directly on command line via string interpolation. Token appears in build logs,
     /proc/<pid>/cmdline, and shell history.
