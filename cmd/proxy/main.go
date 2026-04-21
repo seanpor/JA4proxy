@@ -156,6 +156,12 @@ type proxy struct {
 }
 
 func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
+	// JA4PROXY-2026-0010 — refuse to start against a remote, unauthenticated
+	// Redis. Ban lists, whitelists, and the dial setting are security state;
+	// anyone who can reach an unauthenticated Redis can rewrite them.
+	if err := config.ValidateRedisAuth(cfg); err != nil {
+		return nil, err
+	}
 	redisCfg := redisclient.Config{
 		Host:       cfg.Redis.Host,
 		Port:       cfg.Redis.Port.Int(),
