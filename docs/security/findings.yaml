@@ -65,11 +65,11 @@ findings:
   - 116a
   discovered: '2026-04-09'
   due: '2026-04-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: cmd/proxy/pentest_proxy_parser_regression_test.go::TestRegression_JA4PROXY_2026_0001_StripsUntrustedHeader
+  closed_commit: c54369ddb8fc1e825946c6ded6ecc64aeb2f82b6
   description: If a source IP is not in trusted_cidrs, the PROXY protocol v1/v2 header is currently ignored
     but left in the data buffer. This "leaks" the attacker's header to the backend, which may trust it.
     Attacker-controlled IP and port fields can be spoofed, bypassing source IP validation and enabling
@@ -101,11 +101,11 @@ findings:
   - 117a
   discovered: '2026-04-09'
   due: '2026-04-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: cmd/proxy/pentest_proxy_parser_regression_test.go::TestRegression_JA4PROXY_2026_0002_BlocksChainedHeader
+  closed_commit: c54369ddb8fc1e825946c6ded6ecc64aeb2f82b6
   description: After the proxy strips the legitimate PROXY protocol header from a trusted source, an attacker
     can inject a second PROXY header immediately following the first. The proxy forwards this injected
     header to the backend, which may trust it and use the attacker-specified src/dst IP and port values
@@ -251,11 +251,11 @@ findings:
   - 117c
   discovered: '2026-04-09'
   due: '2026-04-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_proxy_utils.py::TestExtractClientIpFromHttp::test_x_forwarded_for_rightmost_ip_extracted
+  closed_commit: c54369ddb8fc1e825946c6ded6ecc64aeb2f82b6
   description: 'Python proxy (_extract_client_ip_from_http) extracts the FIRST IP from X-Forwarded-For
     header (split by comma, take index [0]). Attacker sends X-Forwarded-For: 1.2.3.4 (attacker''s spoofed
     IP). HAProxy appends real IP at end, but Python proxy reads attacker''s spoofed IP first, not the
