@@ -190,17 +190,53 @@ services:
       timeout: 5s
       retries: 5
 
+  # JA4PROXY-2026-0017 — tecnativa/docker-socket-proxy exposes a
+  # whitelisted subset of the Docker API over TCP so promtail can do
+  # container service-discovery without a raw /var/run/docker.sock
+  # mount. Only CONTAINERS=1 is enabled; every other Docker API domain
+  # (IMAGES, VOLUMES, EXEC, NETWORKS, SWARM, SYSTEM, ...) stays denied.
+  # Even if promtail is compromised, the attacker cannot enumerate
+  # images, read env vars outside the discovery scope, or exec into
+  # other containers.
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.3.0
+    container_name: ja4proxy-docker-socket-proxy
+    environment:
+      CONTAINERS: 1
+      # Everything else stays 0 by default.
+      POST: 0
+      DELETE: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    networks:
+      - ja4proxy-monitoring
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - DAC_READ_SEARCH
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.2'
+
   promtail:
     image: grafana/promtail:3.3.2
     container_name: ja4proxy-promtail
+    # JA4PROXY-2026-0017 — no more /var/run/docker.sock mount. Promtail
+    # now reads container metadata from docker-socket-proxy over TCP
+    # (see promtail-config.yml `host: tcp://docker-socket-proxy:2375`).
     volumes:
       - ../monitoring/loki/promtail-config.yml:/etc/promtail/config.yml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - promtail-positions:/positions
     command: -config.file=/etc/promtail/config.yml
     depends_on:
       - loki
+      - docker-socket-proxy
     restart: unless-stopped
     networks:
       - ja4proxy-monitoring
