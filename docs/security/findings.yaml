@@ -531,13 +531,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119c
+  - 118p
   discovered: '2026-04-17'
   due: '2026-05-17'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_haproxy_stats_creds_regression.py::test_stats_auth_uses_fail_fast_env_syntax
+  closed_commit: 2d5c087de96f3c7de3619f5e4d83c78c7da359f7
   description: HAProxy stats page (port 8404) binds to all interfaces with fallback credentials admin:admin123
     if env vars unset (config/haproxy.cfg:37). Exposes backend server topology, IPs, and health status.
   notes: 'Phase 119c specifies fail-open: use `${HAPROXY_STATS_USER:?}:${HAPROXY_STATS_PASSWORD:?}` syntax
