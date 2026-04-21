@@ -746,11 +746,11 @@ findings:
   - 118h
   discovered: '2026-04-17'
   due: '2026-05-17'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_trusted_cidr_validation.py::test_regression_JA4PROXY_2026_0022_rejects_overly_broad_cidr
+  closed_commit: 6dbd329
   description: Python proxy accepts 0.0.0.0/0 as a trusted CIDR without validation (proxy.py:2130-2134).
     If this appears in config (misconfiguration or injection), ALL source IPs are treated as trusted upstream
     proxies. PROXY protocol headers from any source are accepted, allowing IP spoofing.
