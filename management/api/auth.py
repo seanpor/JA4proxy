@@ -62,6 +62,28 @@ _login_failures: dict[str, dict] = defaultdict(lambda: {"count": 0, "locked_unti
 # ── Helper functions ──────────────────────────────────────────────────────────
 
 
+def _is_production() -> bool:
+    """True if ENVIRONMENT is set to a production-equivalent value."""
+    env = os.environ.get("ENVIRONMENT", "").strip().lower()
+    return env in {"production", "prod"}
+
+
+def is_test_mode() -> bool:
+    """Return True iff MANAGEMENT_TEST_MODE is on AND we are not in production.
+
+    JA4PROXY-2026-0023 — the MANAGEMENT_TEST_MODE flag enables authentication
+    bypasses (JWT secret default, OIDC signature skip). To prevent an attacker
+    who can set env vars from silently disabling authentication, test mode
+    MUST be ignored whenever ENVIRONMENT=production. The complementary
+    startup guard in management.api.main.create_app raises RuntimeError if
+    both flags are set simultaneously so operators cannot deploy a
+    misconfigured container.
+    """
+    if _is_production():
+        return False
+    return os.environ.get("MANAGEMENT_TEST_MODE") == "1"
+
+
 def _get_secret_key() -> str:
     """Return the JWT signing secret from environment.
 
@@ -70,8 +92,9 @@ def _get_secret_key() -> str:
     """
     secret = os.environ.get("MANAGEMENT_JWT_SECRET")
     if not secret:
-        # Allow a default only in explicit test mode to avoid accidents in prod
-        if os.environ.get("MANAGEMENT_TEST_MODE") == "1":
+        # JA4PROXY-2026-0023: only allow the test-only default when test mode
+        # is active AND we are definitely not in production.
+        if is_test_mode():
             return "test-secret-do-not-use-in-production"
         raise RuntimeError(
             "MANAGEMENT_JWT_SECRET environment variable is required but not set. "

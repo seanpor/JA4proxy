@@ -207,7 +207,9 @@ async def _extract_claims(id_token: str, jwks_uri: str) -> dict:
     Raises:
         HTTPException(401): On signature failure or claim validation failure.
     """
-    if os.environ.get("MANAGEMENT_TEST_MODE") == "1":
+    # JA4PROXY-2026-0023 — test-mode bypass is only honoured outside production.
+    from ..auth import is_test_mode
+    if is_test_mode():
         # Test mode — decode without signature verification
         try:
             parts = id_token.split(".")
