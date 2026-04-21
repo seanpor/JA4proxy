@@ -422,6 +422,13 @@ type RedisConfig struct {
 	Username   string   `yaml:"username"`
 	Timeout    FlexInt  `yaml:"timeout"`
 	SSL        bool     `yaml:"ssl"`
+	// JA4PROXY-2026-0019 — HMAC-SHA256 secret for authenticating Redis
+	// pub/sub messages on security-critical channels (dial change, JA4
+	// whitelist/blacklist mutations, RDAP CIDR bans). When set, the Go
+	// subscriber refuses any message on a critical channel that is not
+	// signed with this secret. When empty, all messages are accepted —
+	// operators are warned at startup. Must match the Python publisher.
+	PubSubHMACSecret string `yaml:"pubsub_hmac_secret"`
 }
 
 // SecurityConfig holds security-related settings including JA4 lists.
