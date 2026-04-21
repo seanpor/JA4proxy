@@ -777,16 +777,18 @@ findings:
   - 118r
   discovered: '2026-04-17'
   due: '2026-05-17'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: management/tests/test_test_mode_hardening.py::test_regression_JA4PROXY_2026_0023_create_app_refuses_test_mode_in_prod
+  closed_commit: 3046ac6
   description: 'management/api/auth.py contains test secret fallback: if MANAGEMENT_TEST_MODE=1, JWT verification
     uses hardcoded "test-secret-do-not-use-in-production". If attacker can set env var (container escape,
     supply-chain compromise), JWT verification bypassed.'
-  notes: Phase 118r specifies removing test mode code from production entirely. Phase 119r references
-    OIDC/SAML test mode. No test modes in production builds.
+  notes: Phase 118e closure — auth.is_test_mode() ignores MANAGEMENT_TEST_MODE whenever ENVIRONMENT=production,
+    so both the JWT fallback secret and the OIDC signature-verification skip become unreachable in prod.
+    main._enforce_no_test_mode_in_production() refuses to boot create_app() when ENVIRONMENT=production
+    AND MANAGEMENT_TEST_MODE=1 are set together, converting a silent bypass into a loud failure.
 - id: JA4PROXY-2026-0024
   title: JWT Cookie Secure Flag Not Gated to Production
   severity: HIGH

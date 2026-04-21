@@ -106,9 +106,9 @@ get forgotten.
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 10 | OPEN | 47 |
+| CRITICAL | 10 | OPEN | 46 |
 | HIGH | 14 | IN_PROGRESS | 0 |
-| MEDIUM | 21 | FIXED | 7 |
+| MEDIUM | 21 | FIXED | 8 |
 | LOW | 9 | VERIFIED | 0 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
@@ -148,7 +148,7 @@ get forgotten.
 | JA4PROXY-2026-0020 | HIGH | OPEN | python-management | 2026-05-17 | Stored XSS in Management UI (Ban IP in Alpine.js) |
 | JA4PROXY-2026-0021 | HIGH | OPEN | python-management | 2026-05-17 | In-Memory Rate Limiting Bypass (Management API) |
 | JA4PROXY-2026-0022 | HIGH | OPEN | python-management | 2026-05-17 | Trusted CIDR /0 Acceptance (Python Proxy) |
-| JA4PROXY-2026-0023 | HIGH | OPEN | python-management | 2026-05-17 | Test Secret Fallback in Production Path |
+| JA4PROXY-2026-0023 | HIGH | FIXED | python-management | 2026-05-17 | Test Secret Fallback in Production Path |
 | JA4PROXY-2026-0024 | HIGH | OPEN | python-management | 2026-05-17 | JWT Cookie Secure Flag Not Gated to Production |
 | JA4PROXY-2026-0025 | MEDIUM | OPEN | infrastructure | 2026-06-16 | Committed .env With Real Credentials |
 | JA4PROXY-2026-0026 | MEDIUM | OPEN | go-proxy | 2026-06-16 | Unauthenticated Health/Metrics Endpoints Missing Rate Limiting |
