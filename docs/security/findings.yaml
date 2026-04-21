@@ -591,13 +591,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119e
+  - 118r
   discovered: '2026-04-17'
   due: '2026-05-17'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_promtail_socket_proxy_regression.py::test_promtail_does_not_mount_docker_socket
+  closed_commit: 2f7f6d7b0473789943cf080b9ed6c47f1be997ea
   description: Promtail mounts /var/run/docker.sock:ro (read-only). Even read-only, Docker API allows
     inspecting container env vars, leaking REDIS_PASSWORD, GRAFANA_PASSWORD, MANAGEMENT_JWT_SECRET.
   notes: Phase 119e specifies using Docker logging driver instead, or socket proxy (tecnativa/docker-socket-proxy)

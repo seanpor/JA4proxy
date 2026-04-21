@@ -106,9 +106,9 @@ get forgotten.
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 10 | OPEN | 34 |
+| CRITICAL | 10 | OPEN | 33 |
 | HIGH | 14 | IN_PROGRESS | 0 |
-| MEDIUM | 21 | FIXED | 20 |
+| MEDIUM | 21 | FIXED | 21 |
 | LOW | 9 | VERIFIED | 0 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
@@ -142,7 +142,7 @@ get forgotten.
 | JA4PROXY-2026-0013 | HIGH | FIXED | go-proxy | 2026-05-17 | Tarpit Slot Exhaustion via Timeout-Free Connections |
 | JA4PROXY-2026-0015 | HIGH | FIXED | infrastructure | 2026-05-17 | HAProxy Stats Default Credentials |
 | JA4PROXY-2026-0016 | HIGH | FIXED | infrastructure | 2026-05-17 | Privileged cAdvisor Container |
-| JA4PROXY-2026-0017 | HIGH | OPEN | infrastructure | 2026-05-17 | Docker Socket Exposed to Promtail |
+| JA4PROXY-2026-0017 | HIGH | FIXED | infrastructure | 2026-05-17 | Docker Socket Exposed to Promtail |
 | JA4PROXY-2026-0018 | HIGH | OPEN | infrastructure | 2026-05-17 | CI/CD Token Exposed on Command Line |
 | JA4PROXY-2026-0019 | HIGH | FIXED | go-proxy | 2026-05-17 | Redis PubSub Poisoning (No HMAC on Critical Channels) |
 | JA4PROXY-2026-0020 | HIGH | OPEN | python-management | 2026-05-17 | Stored XSS in Management UI (Ban IP in Alpine.js) |
