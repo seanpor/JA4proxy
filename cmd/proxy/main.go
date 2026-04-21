@@ -141,6 +141,15 @@ type proxy struct {
 	activeConns int64 // atomic
 	mu          sync.RWMutex
 
+	// JA4PROXY-2026-0012 — bounded semaphore for the Accept loop. Capacity
+	// == cfg.Proxy.MaxConnections. Acquired non-blockingly before spawning
+	// handleConn; if full, the connection is immediately closed and
+	// metrics.ConnectionErrorsTotal{reason="accept_overflow"} is bumped.
+	// Without this, a flood of half-open connections grows the goroutine
+	// pool and per-connection 3x BufferSize allocations unboundedly —
+	// 100K conns = 2.4GB of buffers alone at the 8KB default.
+	acceptSem chan struct{}
+
 	// Tarpit self-protection
 	tarpitConcurrent int
 	tarpitPerIP      map[string]int
@@ -230,6 +239,15 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 		log.WithError(err).Warn("proxy: webhook dispatcher init failed; webhooks disabled")
 	}
 
+	// JA4PROXY-2026-0012 — cap simultaneous accept-loop goroutines. A zero
+	// or negative MaxConnections would otherwise produce a zero-capacity
+	// channel and block the proxy from serving any traffic; fall back to a
+	// sane default so a misconfigured cap never turns into an availability
+	// outage.
+	maxConns := cfg.Proxy.MaxConnections
+	if maxConns <= 0 {
+		maxConns = 1000
+	}
 	prx := &proxy{
 		cfg:         cfg,
 		log:         log,
@@ -238,6 +256,7 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 		dispatcher:  disp,
 		tarpitPerIP: make(map[string]int),
 		healthState: health.New(health.Config{FailThreshold: 3}),
+		acceptSem:   make(chan struct{}, maxConns),
 	}
 
 	// phase-94i2: load trusted CIDRs from NetBox in the background (fail-open, non-blocking).
@@ -311,8 +330,32 @@ func (p *proxy) serve(ctx context.Context) {
 				continue
 			}
 		}
+		if !p.admitConn(conn) {
+			continue
+		}
 		atomic.AddInt64(&p.activeConns, 1)
-		go p.handleConn(ctx, conn)
+		go func() {
+			defer func() { <-p.acceptSem }()
+			p.handleConn(ctx, conn)
+		}()
+	}
+}
+
+// admitConn acquires a slot in the accept-loop semaphore (non-blocking). If
+// the semaphore is full the connection is refused and closed immediately —
+// the alternative is unbounded goroutine growth, since every half-open
+// connection allocates 3x BufferSize and a handler goroutine.
+// JA4PROXY-2026-0012.
+func (p *proxy) admitConn(conn net.Conn) bool {
+	select {
+	case p.acceptSem <- struct{}{}:
+		return true
+	default:
+		metrics.ConnectionErrorsTotal.WithLabelValues("accept_overflow").Inc()
+		p.log.WithField("remote", conn.RemoteAddr().String()).
+			Warn("proxy: accept-loop at capacity; dropping connection")
+		_ = conn.Close()
+		return false
 	}
 }
 
