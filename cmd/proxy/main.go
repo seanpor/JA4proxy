@@ -576,7 +576,13 @@ func (p *proxy) forward(clientConn net.Conn, initialData []byte) {
 		return
 	}
 
-	// Bidirectional copy
+	// Bidirectional copy. JA4PROXY-2026-0009 — both copy goroutines must
+	// finish before forward() returns, otherwise the second one lingers with
+	// its per-connection buffer still reachable. Under sustained load that
+	// is ~8KB + goroutine stack per connection never reclaimed.
+	// After the first goroutine returns, Close() on both conns forces the
+	// other Read to unblock promptly instead of waiting on the next
+	// SetReadDeadline tick.
 	done := make(chan struct{}, 2)
 	copyConn := func(dst, src net.Conn) {
 		buf := make([]byte, p.cfg.Proxy.BufferSize)
@@ -598,6 +604,9 @@ func (p *proxy) forward(clientConn net.Conn, initialData []byte) {
 
 	go copyConn(backendConn, clientConn)
 	go copyConn(clientConn, backendConn)
+	<-done
+	_ = clientConn.Close()
+	_ = backendConn.Close()
 	<-done
 }
 
@@ -700,6 +709,11 @@ func (p *proxy) tarpit(clientConn net.Conn, data []byte, clientIP string) {
 	}
 	go copyOne(tarpitConn, clientConn)
 	go copyOne(clientConn, tarpitConn)
+	// JA4PROXY-2026-0009 — wait for both copy goroutines, closing conns
+	// after the first returns so the second unblocks immediately.
+	<-done
+	_ = clientConn.Close()
+	_ = tarpitConn.Close()
 	<-done
 }
 
