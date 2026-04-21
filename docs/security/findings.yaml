@@ -365,11 +365,11 @@ findings:
   - 118a
   discovered: '2026-04-17'
   due: '2026-04-24'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: cmd/proxy/TestRegression_JA4PROXY_2026_0009_ForwardDoesNotLeakGoroutines
+  closed_commit: e2e963b
   description: Both forward() and tarpit() spawn two goroutines for bidirectional copy but only receive
     from done channel once. The second goroutine leaks, holding its buffer indefinitely. At 100 conn/s
     sustained, this is ~69MB/hour of permanently leaked memory. Under attack load, OOM kill within hours.
