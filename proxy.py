@@ -749,6 +749,65 @@ class ConfigManager:
             if not isinstance(max_conn, int) or max_conn < 1 or max_conn > 100000:
                 raise ValidationError(f"Invalid max_connections: {max_conn}")
 
+        # JA4PROXY-2026-0022 — validate upstream_trust.trusted_cidrs.
+        # A trusted CIDR is the strongest authority in the system: it grants the
+        # bearer the right to rewrite client IPs via the PROXY protocol. A
+        # misconfiguration that leaves /0 in the list gives every attacker on the
+        # Internet that authority, so trust-model bypass is complete. Validate
+        # aggressively at load time rather than hoping ops catch it.
+        if "upstream_trust" in proxy_config:
+            self._validate_upstream_trust(proxy_config["upstream_trust"])
+
+    def _validate_upstream_trust(self, trust_cfg: Dict) -> None:
+        """Reject dangerously-broad trusted CIDRs. Phase 118h — JA4PROXY-2026-0022.
+
+        - /0, /1, /2 on IPv4 (and /0–/7 on IPv6) are outright refused.
+        - Any range covering /16 or broader (IPv4) or /32 or broader (IPv6) is
+          logged at CRITICAL — it may be legitimate for a large enterprise but
+          it is never routine.
+        - RFC1918 and loopback ranges are warned (local testing is common).
+        """
+        if not isinstance(trust_cfg, dict):
+            raise ValidationError("proxy.upstream_trust must be a mapping")
+        cidrs = trust_cfg.get("trusted_cidrs", [])
+        if cidrs is None:
+            return
+        if not isinstance(cidrs, list):
+            raise ValidationError("proxy.upstream_trust.trusted_cidrs must be a list")
+        for raw in cidrs:
+            if not isinstance(raw, str):
+                raise ValidationError(
+                    f"trusted_cidrs entry must be a string CIDR, got {type(raw).__name__}"
+                )
+            try:
+                net = ipaddress.ip_network(raw, strict=False)
+            except (ValueError, TypeError) as exc:
+                raise ValidationError(f"Invalid trusted CIDR {raw!r}: {exc}") from exc
+            if net.version == 4 and net.prefixlen <= 2:
+                raise ValidationError(
+                    f"trusted CIDR {raw!r} is dangerously broad "
+                    "(IPv4 /0-/2 would trust the whole Internet)"
+                )
+            if net.version == 6 and net.prefixlen <= 7:
+                raise ValidationError(
+                    f"trusted CIDR {raw!r} is dangerously broad "
+                    "(IPv6 /0-/7 would trust the whole Internet)"
+                )
+            if (net.version == 4 and net.prefixlen < 16) or (
+                net.version == 6 and net.prefixlen < 32
+            ):
+                self.logger.critical(
+                    "SECURITY: trusted upstream CIDR %s covers >= /16 v4 "
+                    "(or /32 v6) — blast radius is very large",
+                    raw,
+                )
+            if net.is_loopback or net.is_private:
+                self.logger.warning(
+                    "trusted upstream CIDR %s is loopback/private — "
+                    "intended only for local testing, never production",
+                    raw,
+                )
+
     def _validate_redis_config(self, redis_config: Dict) -> None:
         """Validate Redis configuration with security checks."""
         # SECURITY: Require password in production (config validation pass)
