@@ -219,13 +219,12 @@ geoip:
 metrics:
   enabled: true
   port: "${METRICS_PORT:-9090}"
-  # SECURITY FIX: Add authentication for metrics endpoint
-  authentication:
-    enabled: false  # Set to true in production
-    username: "${METRICS_USERNAME}"
-    password: "${METRICS_PASSWORD}"
-  # Restrict access to internal networks only
-  bind_host: "0.0.0.0"  # Override to 127.0.0.1 or specific IP in production
+  # JA4PROXY-2026-0008 — /metrics and /health/deep leak dial setting, ban
+  # rates, cert expiry and active-connection counts. Default bind is
+  # loopback so same-host Prometheus sidecars still work; any non-loopback
+  # bind REQUIRES auth_token and startup will fail-closed otherwise.
+  bind_host: "${METRICS_BIND_HOST:-127.0.0.1}"
+  auth_token: "${METRICS_AUTH_TOKEN:-}"
 
 # Backup configuration (Phase 19)
 # Backups write Redis state to local filesystem as deterministic, versioned artifacts.

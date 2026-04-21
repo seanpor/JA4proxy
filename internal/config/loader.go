@@ -160,8 +160,9 @@ func DefaultConfig() *Config {
 			Format:      "legacy",
 		},
 		Metrics: MetricsConfig{
-			Enabled: true,
-			Port:    9090,
+			Enabled:  true,
+			Port:     9090,
+			BindHost: "127.0.0.1",
 		},
 		Monitoring: MonitoringConfig{
 			Enabled:                 false,
@@ -487,9 +488,18 @@ type LoggingConfig struct {
 }
 
 // MetricsConfig holds Prometheus metrics settings.
+//
+// BindHost controls the interface the metrics HTTP server listens on.
+// The secure default is "127.0.0.1" (loopback only): operators who want
+// remote scraping must set it explicitly AND supply an AuthToken.
+// JA4PROXY-2026-0008 — a 0.0.0.0 bind with no auth exposes ban rates,
+// dial setting, cert expiry and the full Prometheus scrape to anyone on
+// the network, which is reconnaissance-grade intelligence.
 type MetricsConfig struct {
-	Enabled bool    `yaml:"enabled"`
-	Port    FlexInt `yaml:"port"`
+	Enabled   bool    `yaml:"enabled"`
+	Port      FlexInt `yaml:"port"`
+	BindHost  string  `yaml:"bind_host"`
+	AuthToken string  `yaml:"auth_token"`
 }
 
 // TarpitConfig holds tarpit self-protection settings.
@@ -781,6 +791,81 @@ func isLocalRedisHost(host string) bool {
 		return true
 	}
 	if ip := net.ParseIP(h); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
+}
+
+// ErrMetricsAuthRequired is returned by ValidateMetricsAccess when the
+// metrics HTTP server is configured to bind to a non-loopback address with
+// no AuthToken set. JA4PROXY-2026-0008 — /metrics and /health/deep leak
+// dial setting, ban rates, cert expiry and active connection counts.
+// An unauthenticated 0.0.0.0 bind gives any network peer reconnaissance
+// before they launch an attack.
+var ErrMetricsAuthRequired = errors.New(
+	"metrics: auth_token required when bind_host is not loopback " +
+		"(JA4PROXY-2026-0008 — set metrics.auth_token or bind to 127.0.0.1/::1; " +
+		"set JA4PROXY_ALLOW_UNAUTH_METRICS=1 to override for trusted-network test clusters)",
+)
+
+// ValidateMetricsAccess refuses to start the proxy with a publicly-reachable
+// metrics endpoint that has no authentication. If metrics is disabled the
+// check is a no-op. A loopback bind is always accepted because it is
+// presumed reachable only from the same host. The env-var escape hatch
+// JA4PROXY_ALLOW_UNAUTH_METRICS=1 exists for internal test clusters where
+// the metrics port is firewalled to a trusted scrape network.
+func ValidateMetricsAccess(cfg *Config) error {
+	if cfg == nil {
+		return nil
+	}
+	if !cfg.Metrics.Enabled {
+		return nil
+	}
+	if strings.TrimSpace(cfg.Metrics.AuthToken) != "" {
+		return nil
+	}
+	host := strings.TrimSpace(cfg.Metrics.BindHost)
+	if isLocalMetricsBind(host) {
+		return nil
+	}
+	if os.Getenv("JA4PROXY_ALLOW_UNAUTH_METRICS") == "1" {
+		return nil
+	}
+	return fmt.Errorf("%w (bind_host=%q)", ErrMetricsAuthRequired, host)
+}
+
+// isLocalMetricsBind returns true for bind addresses that restrict the
+// metrics server to the local host. "" defaults to loopback here (we flip
+// the Go http default of 0.0.0.0 to loopback explicitly in DefaultConfig,
+// but if an operator clears the field we still refuse to fail open).
+func isLocalMetricsBind(host string) bool {
+	h := strings.TrimSpace(host)
+	// An empty bind_host means "listen on all interfaces" in net.Listen —
+	// that's exactly the 0008 footgun, so treat it as NOT local.
+	if h == "" {
+		return false
+	}
+	h = strings.TrimPrefix(strings.TrimSuffix(h, "]"), "[")
+	if strings.EqualFold(h, "localhost") {
+		return true
+	}
+	if ip := net.ParseIP(h); ip != nil {
+		return ip.IsLoopback()
+	}
+	return false
+}
+
+// MetricsRequestIsLocal reports whether an inbound HTTP request arrived from
+// a loopback address. Used by the metrics auth middleware to exempt
+// same-host scrapers (the common case for Prometheus running as a sidecar)
+// from bearer-token checks.
+func MetricsRequestIsLocal(remoteAddr string) bool {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		// Not host:port — treat as untrusted.
+		return false
+	}
+	if ip := net.ParseIP(host); ip != nil {
 		return ip.IsLoopback()
 	}
 	return false

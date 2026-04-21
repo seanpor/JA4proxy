@@ -8,6 +8,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/subtle"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
@@ -162,6 +163,12 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 	if err := config.ValidateRedisAuth(cfg); err != nil {
 		return nil, err
 	}
+	// JA4PROXY-2026-0008 — refuse to start with an unauthenticated metrics
+	// endpoint bound to a non-loopback interface. /metrics and /health/deep
+	// leak operational state that makes reconnaissance trivial.
+	if err := config.ValidateMetricsAccess(cfg); err != nil {
+		return nil, err
+	}
 	redisCfg := redisclient.Config{
 		Host:       cfg.Redis.Host,
 		Port:       cfg.Redis.Port.Int(),
@@ -261,9 +268,14 @@ func (p *proxy) serve(ctx context.Context) {
 			mux.HandleFunc("/health", p.handleHealth)
 			mux.HandleFunc("/health/deep", p.handleHealthDeep)
 			mux.HandleFunc("/metrics/summary", p.handleMetricsSummary)
-			addr := fmt.Sprintf(":%d", p.cfg.Metrics.Port.Int())
+			handler := metricsAuthMiddleware(mux, p.cfg.Metrics.AuthToken)
+			bindHost := p.cfg.Metrics.BindHost
+			if bindHost == "" {
+				bindHost = "127.0.0.1"
+			}
+			addr := fmt.Sprintf("%s:%d", bindHost, p.cfg.Metrics.Port.Int())
 			p.log.WithField("addr", addr).Info("proxy: metrics server listening")
-			srv := &http.Server{Addr: addr, Handler: mux, ReadTimeout: 10 * time.Second}
+			srv := &http.Server{Addr: addr, Handler: handler, ReadTimeout: 10 * time.Second}
 			go func() {
 				<-ctx.Done()
 				if err := srv.Shutdown(context.Background()); err != nil {
@@ -784,6 +796,43 @@ func (p *proxy) getTrustedCIDRs() []string {
 	p.trustedCIDRsMu.RLock()
 	defer p.trustedCIDRsMu.RUnlock()
 	return append([]string(nil), p.trustedCIDRs...)
+}
+
+// metricsAuthMiddleware gates the metrics/health HTTP server.
+//
+// JA4PROXY-2026-0008: /metrics and /health/deep expose dial setting, ban
+// rates, cert expiry, and active-connection counts — reconnaissance-grade
+// intelligence that must not be world-readable.
+//
+// Policy:
+//   - Requests from loopback (127.0.0.0/8, ::1) are always allowed. This is
+//     the common case: Prometheus running as a sidecar on the same host.
+//   - If an AuthToken is configured, remote requests must present a matching
+//     bearer token in the Authorization header. Constant-time compare.
+//   - If no AuthToken is configured, remote requests are refused with 403.
+//     ValidateMetricsAccess would have already refused startup for a
+//     non-loopback bind, so in practice this arm is only reached when the
+//     bind is loopback but the request reached us through some other path.
+func metricsAuthMiddleware(next http.Handler, token string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if config.MetricsRequestIsLocal(r.RemoteAddr) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if token == "" {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		const prefix = "Bearer "
+		h := r.Header.Get("Authorization")
+		if !strings.HasPrefix(h, prefix) ||
+			subtle.ConstantTimeCompare([]byte(h[len(prefix):]), []byte(token)) != 1 {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="ja4proxy-metrics"`)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // handleHealth responds to HTTP health check requests.
