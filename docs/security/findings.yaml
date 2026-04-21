@@ -1523,11 +1523,11 @@ findings:
   - (no explicit phase; general logging hardening)
   discovered: '2026-04-17'
   due: '2026-05-17'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: internal/logging/TestRegression_JA4PROXY_2026_0048_redacts_paths_in_production
+  closed_commit: b26f51c
   description: Error logs expose file paths, Redis keys, internal names via verbose error formatting (fmt.Errorf
     with full context).
   notes: Recommend sanitising logs during structured logging setup. No explicit remediation phase; general
