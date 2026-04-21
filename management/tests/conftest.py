@@ -25,16 +25,13 @@ os.environ.setdefault("MANAGEMENT_ADMIN_PASSWORD", "testpassword")
 os.environ.setdefault("MANAGEMENT_TEST_MODE", "1")
 
 from management.api import redis_client as _redis_module  # noqa: E402
-from management.api.auth import _create_access_token, _login_failures  # noqa: E402
+from management.api.auth import _create_access_token  # noqa: E402
 from management.api.main import create_app  # noqa: E402
 
 
-@pytest.fixture(autouse=True)
-def clear_rate_limit_state() -> None:
-    """Clear in-memory rate limit state before each test for isolation."""
-    _login_failures.clear()
-    yield
-    _login_failures.clear()
+# JA4PROXY-2026-0021 — rate-limit state now lives in Redis, not a module-level
+# dict. The per-test `fake_redis` fixture is isolated (fresh FakeServer per
+# test), so no cross-test cleanup is needed for rate-limit keys.
 
 
 @pytest.fixture(autouse=True)
