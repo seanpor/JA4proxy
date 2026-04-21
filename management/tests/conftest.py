@@ -37,6 +37,21 @@ def clear_rate_limit_state() -> None:
     _login_failures.clear()
 
 
+@pytest.fixture(autouse=True)
+def _stub_webhook_dns_resolver(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Resolve any hostname to a single public IP during tests.
+
+    JA4PROXY-2026-0007 added real DNS resolution inside the webhook URL
+    validator. CI sandboxes and offline dev environments have no public DNS,
+    so without a stub every test that creates a webhook with a hostname
+    would flake. IP-literal checks (the actual SSRF surface) still run
+    unpatched because they never call the resolver.
+    """
+    from management.api.routes import webhooks as _webhooks
+
+    monkeypatch.setattr(_webhooks, "_resolve_host", lambda host: ["1.1.1.1"])
+
+
 @pytest_asyncio.fixture()
 async def fake_redis() -> AsyncGenerator[fakeredis.aioredis.FakeRedis, None]:
     """Return a fresh FakeRedis async client for each test.
