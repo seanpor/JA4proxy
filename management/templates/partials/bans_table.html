@@ -36,9 +36,16 @@
         {% if ban.ttl is none %}{% set ttl_display = "∞" %}{% endif %}
         {% set urgency_class = "text-[#dc2626]" if ttl < 300 else ("text-[#d97706]" if ttl < 3600 else "text-[#94a3b8]") %}
 
+        {# JA4PROXY-2026-0020 — bind ban.ip through Alpine.js `x-data` with
+           Jinja's `tojson` filter so the IP appears in the DOM as a
+           properly-JSON-escaped JavaScript string literal. Interpolating
+           `{{ ban.ip }}` directly inside an `@click` body escapes HTML
+           but not JavaScript, so an IP containing `';…//` could break
+           out of the surrounding JS string. `tojson` guarantees a safe
+           string literal even under hostile input. #}
         <tr id="ban-row-{{ loop.index }}"
             class="hover:bg-[#334155]/30 transition-colors group"
-            x-data="{ lifting: false }">
+            x-data='{ "lifting": false, "ip": {{ ban.ip | tojson }} }'>
           <!-- IP -->
           <td class="px-4 py-2.5">
             <div class="flex items-center gap-2">
@@ -63,9 +70,9 @@
             <button
               type="button"
               :disabled="lifting"
-              @click="if (!confirm('Lift ban on {{ ban.ip }}?')) return;
+              @click="if (!confirm('Lift ban on ' + ip + '?')) return;
                       lifting = true;
-                      fetch('/api/v1/bans/' + encodeURIComponent('{{ ban.ip }}'), {
+                      fetch('/api/v1/bans/' + encodeURIComponent(ip), {
                         method: 'DELETE',
                         credentials: 'include'
                       }).then(function(r) {
