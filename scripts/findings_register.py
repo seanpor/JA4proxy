@@ -543,7 +543,7 @@ def cmd_verify_regression_tests(args: argparse.Namespace) -> int:
             if status in ("FIXED", "VERIFIED", "CLOSED"):
                 missing.append(f"{f['id']} ({status}): no regression_test")
             continue
-        if rt.startswith("tests/") or rt.startswith("src/"):
+        if rt.startswith("tests/") or rt.startswith("src/") or rt.startswith("management/"):
             py_nodes.append(rt)
         elif rt.startswith("internal/") or rt.startswith("cmd/") or rt.endswith("_test.go") or "::Test" in rt:
             go_nodes.append(rt)
@@ -569,13 +569,24 @@ def cmd_verify_regression_tests(args: argparse.Namespace) -> int:
 
     failures = 0
     if py_nodes:
-        print(f"verify-regression-tests: running {len(py_nodes)} pytest nodeid(s)")
-        rc = subprocess.call(
-            ["python3", "-m", "pytest", "-q", "--no-header", *py_nodes],
-            cwd=str(REPO_ROOT),
-        )
-        if rc != 0:
-            failures += 1
+        # tests/ and management/tests/ each have __init__.py, so pytest
+        # registers both conftest.py files under module name "tests.conftest"
+        # and aborts with ImportPathMismatchError when the two trees are
+        # collected together. Run each top-level group in its own pytest
+        # invocation from the repo root to avoid the collision.
+        groups: dict[str, list[str]] = {}
+        for n in py_nodes:
+            top = "management" if n.startswith("management/") else "."
+            groups.setdefault(top, []).append(n)
+        print(f"verify-regression-tests: running {len(py_nodes)} pytest nodeid(s) "
+              f"across {len(groups)} group(s)")
+        for _group, nodes in groups.items():
+            rc = subprocess.call(
+                ["python3", "-m", "pytest", "-q", "--no-header", *nodes],
+                cwd=str(REPO_ROOT),
+            )
+            if rc != 0:
+                failures += 1
     if go_nodes:
         # Group by package directory: Go runs one package per invocation.
         pkgs: dict[str, list[str]] = {}

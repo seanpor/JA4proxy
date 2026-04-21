@@ -290,18 +290,19 @@ findings:
   - 110e
   discovered: '2026-04-09'
   due: '2026-04-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: management/tests/test_webhooks_ssrf.py::test_regression_JA4PROXY_2026_0007_validator_rejects_ssrf_url
+  closed_commit: d9bda22
   description: Management API webhook creation endpoint (management/api/routes/webhooks.py) accepts arbitrary
     URLs without validation. Attacker with Operator role creates webhook to http://localhost:6379, http://169.254.169.254/latest/meta-data/,
     or http://10.0.0.1:8090/internal. When webhook fires, proxy sends the webhook secret and internal
     data to attacker-controlled URL. Enables exfiltration of AWS metadata, Redis credentials, and internal
     API access.
-  notes: Phase 118g and 110e both specify URL validation (block localhost, link-local, RFC1918 ranges).
-    Slightly different scope — 118g is core webhook, 110e is broader SSRF effort.
+  notes: Phase 118d closure — Pydantic field_validator on WebhookCreate.url and WebhookUpdate.url rejects
+    non-http(s) schemes, localhost / *.localhost / *.local hostnames, IPv4/IPv6 literals in private or reserved
+    ranges, and hostnames whose DNS resolution lands in an internal range or fails entirely.
 - id: JA4PROXY-2026-0008
   title: Unauthenticated /metrics and /health/deep Endpoints
   severity: CRITICAL
