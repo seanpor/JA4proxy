@@ -1000,13 +1000,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118m
+  - 118aa
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_known_ja4_bounded_regression.py::test_caps_total_size_via_zremrangebyrank
+  closed_commit: c1e252d
   description: behavioral:known_ja4 Redis SET stores every unique JA4 fingerprint with no TTL/max size.
     Attacker sending randomised ClientHellos grows set at ~1 fingerprint/connection. 1M unique JA4s =
     50MB Redis memory, reached in ~3 hours at 100 conn/s.
