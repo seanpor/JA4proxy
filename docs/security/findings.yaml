@@ -1223,13 +1223,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119l
+  - 118jj
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: internal/security/pentest_blocklist_single_check_regression_test.go::TestRegression_JA4PROXY_2026_0037_single_check_call_site
+  closed_commit: e3be0a77251ce255832542e304603a1e9128a793
   description: internal/security/pipeline.go:309-313,325-327 calls p.blocklists.Check() twice, discarding
     first result. Between calls, PubSub update could change blocklist state. Race condition on soft-block
     signal inclusion.
