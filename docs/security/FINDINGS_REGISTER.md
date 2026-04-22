@@ -106,9 +106,9 @@ get forgotten.
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 10 | OPEN | 20 |
+| CRITICAL | 10 | OPEN | 19 |
 | HIGH | 14 | IN_PROGRESS | 0 |
-| MEDIUM | 21 | FIXED | 34 |
+| MEDIUM | 21 | FIXED | 35 |
 | LOW | 9 | VERIFIED | 0 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
@@ -151,7 +151,7 @@ get forgotten.
 | JA4PROXY-2026-0023 | HIGH | FIXED | python-management | 2026-05-17 | Test Secret Fallback in Production Path |
 | JA4PROXY-2026-0024 | HIGH | FIXED | python-management | 2026-05-17 | JWT Cookie Secure Flag Not Gated to Production |
 | JA4PROXY-2026-0025 | MEDIUM | FIXED | infrastructure | 2026-06-16 | Committed .env With Real Credentials |
-| JA4PROXY-2026-0026 | MEDIUM | OPEN | go-proxy | 2026-06-16 | Unauthenticated Health/Metrics Endpoints Missing Rate Limiting |
+| JA4PROXY-2026-0026 | MEDIUM | FIXED | go-proxy | 2026-06-16 | Unauthenticated Health/Metrics Endpoints Missing Rate Limiting |
 | JA4PROXY-2026-0027 | MEDIUM | FIXED | python-management | 2026-06-16 | Redis Key Injection via SNI Hostnames |
 | JA4PROXY-2026-0028 | MEDIUM | FIXED | python-management | 2026-06-16 | Python Backend Connection Timeout Missing |
 | JA4PROXY-2026-0029 | MEDIUM | FIXED | python-management | 2026-06-16 | Log Sanitisation Incomplete (Control Characters, ANSI Escapes) |

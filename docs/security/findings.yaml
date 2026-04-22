@@ -875,14 +875,15 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - (none explicit; covered by 118c/118h metrics auth)
+  - 118bb
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on:
   - JA4PROXY-2026-0008
-  regression_test: ''
-  closed_commit: ''
+  regression_test: cmd/proxy/pentest_metrics_rate_limit_regression_test.go::TestRegression_JA4PROXY_2026_0026_remote_is_throttled_after_burst
+  closed_commit: f2803ab
   description: '/health and /metrics endpoints lack rate limiting. Attacker spams endpoints: log flooding,
     Redis connection churn, Prometheus metric churn. DoS on observability.'
   notes: Related to 0008 (unauthenticated metrics). Adding auth (118h) implicitly solves this. If auth
