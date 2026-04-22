@@ -2197,10 +2197,38 @@ class ProxyServer:
         return False
 
     def _sanitize_log(self, text: Any) -> str:
-        """Sanitize text for logging by removing newlines and carriage returns."""
+        """Sanitize text for logging — strip every byte that could corrupt a log line.
+
+        JA4PROXY-2026-0029 — the earlier implementation only escaped ``\\r``
+        and ``\\n``. That left the door open for:
+
+        * **NUL bytes** — truncate log lines in downstream syslog/journald
+          pipelines, hiding later content on the same line.
+        * **ANSI escape sequences** (``\\x1b[…]``) — hide, colour, or rewrite
+          log entries in a terminal viewer, letting an attacker disguise a
+          malicious SNI/IP as a harmless one.
+        * **C0 / C1 controls** — form feed, vertical tab, DEL, etc. corrupt
+          log-viewer state and can split a single entry across two records in
+          line-oriented log pipelines.
+
+        We replace every byte whose codepoint is below ``0x20`` (except
+        ``\\t``) and the DEL byte (``0x7f``) with an escaped ``\\xHH`` form,
+        and drop every C1 control (``0x80``–``0x9f``). Tabs pass through
+        because they're part of legitimate structured-log formats.
+        """
         if text is None:
             return ""
-        return str(text).replace("\r", "\\r").replace("\n", "\\n")
+        s = str(text)
+        out = []
+        for ch in s:
+            code = ord(ch)
+            if ch == "\t":
+                out.append(ch)
+            elif code < 0x20 or code == 0x7F or 0x80 <= code <= 0x9F:
+                out.append(f"\\x{code:02x}")
+            else:
+                out.append(ch)
+        return "".join(out)
 
     async def handle_connection(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
