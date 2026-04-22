@@ -1190,13 +1190,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119k
+  - 118hh
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/security/test_pentest_burst_ipv6_regression.py::test_burst_fires_for_three_distinct_ipv6_addresses
+  closed_commit: 7a53d13
   description: src/security/behavioral.py:111,120 burst detection uses member = f"{ctx.client_ip}:{now_ms}"
     and later split(":")[0] to extract IP. For IPv6 addresses (2001:db8::1), splits on first colon, extracting
     only 2001. All IPv6 in same /16 appear as same IP.
