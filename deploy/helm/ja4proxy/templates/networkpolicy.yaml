@@ -1,0 +1,104 @@
+{{- /*
+JA4PROXY-2026-0046: NetworkPolicy. Default-deny-plus-allowlist scoped
+to the ja4proxy pods. Installs only when .Values.networkPolicy.enabled
+is true — teams running a cluster-wide controller (Cilium,
+CalicoGlobalNetworkPolicy) that enforces the same rules at a higher
+tier can set enabled=false to avoid duplicate policies.
+*/ -}}
+{{- if .Values.networkPolicy.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ja4proxy-ingress
+  labels:
+    app: ja4proxy
+spec:
+  podSelector:
+    matchLabels:
+      app: ja4proxy
+  policyTypes:
+  - Ingress
+  ingress:
+  # Proxy traffic — port 8080. Narrowed by clientLabels and/or
+  # ingressNamespaceLabels when set; otherwise defaults to "any pod in
+  # the ja4proxy namespace".
+  - from:
+    {{- if .Values.networkPolicy.clientLabels }}
+    - podSelector:
+        matchLabels:
+          {{- toYaml .Values.networkPolicy.clientLabels | nindent 10 }}
+    {{- end }}
+    {{- if .Values.networkPolicy.ingressNamespaceLabels }}
+    - namespaceSelector:
+        matchLabels:
+          {{- toYaml .Values.networkPolicy.ingressNamespaceLabels | nindent 10 }}
+    {{- end }}
+    {{- if not (or .Values.networkPolicy.clientLabels .Values.networkPolicy.ingressNamespaceLabels) }}
+    - podSelector: {}
+    {{- end }}
+    {{- range .Values.networkPolicy.ingressCIDRs }}
+    - ipBlock:
+        cidr: {{ . | quote }}
+    {{- end }}
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Metrics scrape — port 9090. Only pods matching metricsScrapeLabels
+  # (Prometheus by default) may hit it. This prevents in-cluster
+  # workloads from reading operational telemetry.
+  - from:
+    - podSelector:
+        matchLabels:
+          {{- toYaml .Values.networkPolicy.metricsScrapeLabels | nindent 10 }}
+    ports:
+    - protocol: TCP
+      port: 9090
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ja4proxy-egress
+  labels:
+    app: ja4proxy
+spec:
+  podSelector:
+    matchLabels:
+      app: ja4proxy
+  policyTypes:
+  - Egress
+  egress:
+  # DNS — kube-dns / CoreDNS lives in kube-system; allow UDP/TCP 53.
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Redis — the proxy's only stateful dependency. Bundled Redis pods
+  # (from redis.yaml) carry app=ja4proxy-redis; external Redis users
+  # should extend this policy via their own NetworkPolicy that matches
+  # the external service's endpoint IPs.
+  - to:
+    - podSelector:
+        matchLabels:
+          app: ja4proxy-redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Backend upstream — the proxy forwards cleared traffic here. Port
+  # comes from .Values.backend.port; host is an FQDN/IP resolved at
+  # runtime and NetworkPolicy cannot match on FQDN, so this egress
+  # rule intentionally allows port .Values.backend.port to any
+  # destination. A cluster-wide CiliumNetworkPolicy or firewall is the
+  # right place to pin the upstream IP.
+  - ports:
+    - protocol: TCP
+      port: {{ .Values.backend.port }}
+{{- end }}
