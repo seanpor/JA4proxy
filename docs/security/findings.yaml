@@ -846,13 +846,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118d
+  - 118v
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_env_file_never_committed_regression.py::test_env_file_has_never_appeared_in_git_history
+  closed_commit: 50b9802640aca93e2a7964ce4fca26fe17884a50
   description: '.env file contains real production credentials in git history: REDIS_PASSWORD, GRAFANA_PASSWORD,
     UI_API_KEY. Even though .gitignore''d, values persist in git history and are recoverable by anyone
     with repo access (including forks).'
