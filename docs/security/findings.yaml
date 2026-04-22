@@ -1349,16 +1349,23 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119m
+  - 118ss
   discovered: '2026-04-17'
   due: '2026-08-15'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: cmd/proxy/pentest_reload_respects_config_path_regression_test.go
+  closed_commit: 8f29dff6a0483e429f7bf4341b0ff16dc5ec6543
   description: cmd/proxy/main.go:593 reload() always loads "config/proxy.yml" regardless of CONFIG_PATH
     env var used at startup. SIGHUP reload loads different config than startup.
-  notes: Phase 119m specifies storing config path at startup, reusing in reload().
+  notes: 'Phase 119m specifies storing config path at startup, reusing in reload(). Phase 118ss
+    fix: newProxy() now accepts a cfgPath argument and stores it on proxy.cfgPath; reload() reads
+    from p.cfgPath with a fallback to "config/proxy.yml" when the field is empty (preserves
+    test-fixture behaviour for structs built via literal). Regression test has three guards —
+    runtime round-trip against a temp file, struct-literal round-trip on the cfgPath field, and a
+    source-scan regex that fails if a future edit reintroduces config.Load("config/proxy.yml")
+    inside the reload() body.'
 - id: JA4PROXY-2026-0042
   title: Redis Unix Socket Permissions 777
   severity: LOW
