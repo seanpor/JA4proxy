@@ -51,6 +51,14 @@ router = APIRouter(tags=["compliance"])
 _STREAM_KEY = "ja4proxy:events"
 _AUDIT_KEY = "management:audit_log"
 
+# JA4PROXY-2026-0035 — DSAR export must never pull the entire stream into
+# memory. On a busy proxy with millions of events, a single XRANGE with no
+# count parameter OOMs the management API. We page through the stream in
+# fixed-size batches, advancing the min-id cursor after each batch. 1000 is
+# large enough that RTT overhead is negligible but small enough that a
+# single batch is bounded in memory regardless of event size.
+_DSAR_STREAM_BATCH_SIZE = 1000
+
 # Logo validation limits — the base64 payload carries ~33% overhead, so
 # 1.4MB of base64 ≈ 1MB of binary.  The field docs say "≤1MB"; enforce it.
 _LOGO_MAX_BASE64_BYTES = 1_400_000
@@ -384,21 +392,45 @@ async def dsar_export(
     """
     exported_at = datetime.now(timezone.utc).isoformat()
 
-    # H1 fix: single XRANGE for both connection_history and fingerprint_associations
+    # H1 + JA4PROXY-2026-0035: single batched sweep of the stream builds
+    # both connection_history and fingerprint_associations. An unbounded
+    # XRANGE here previously OOMed the management API on busy deployments
+    # with millions of events.
     partial_failures: list[str] = []
-    stream_data = None
+    connection_history: list[dict] = []
+    fp_seen: dict[str, dict] = {}
     try:
-        stream_data = await redis.xrange(_STREAM_KEY)
+        async for batch in _iter_dsar_stream_batches(redis):
+            for _, fields in batch:
+                if fields.get("ip") != ip:
+                    continue
+                connection_history.append({
+                    "timestamp": fields.get("timestamp", ""),
+                    "action": fields.get("action_taken", ""),
+                    "ja4": fields.get("ja4", ""),
+                    "risk_score": fields.get("risk_score", ""),
+                })
+                ja4 = fields.get("ja4", "")
+                if ja4:
+                    ts = fields.get("timestamp", "")
+                    if ja4 not in fp_seen:
+                        fp_seen[ja4] = {"ja4": ja4, "first_seen": ts, "last_seen": ts}
+                    else:
+                        entry = fp_seen[ja4]
+                        if ts < entry["first_seen"]:
+                            entry["first_seen"] = ts
+                        if ts > entry["last_seen"]:
+                            entry["last_seen"] = ts
     except Exception:
         partial_failures.append("connection_history")
         partial_failures.append("fingerprint_associations")
 
-    # Collect data from each category (stream_data passed to avoid second XRANGE)
-    connection_history = await _dsar_connection_history(redis, ip, stream_data)
+    fingerprint_associations = list(fp_seen.values())
+
+    # Remaining categories do not depend on the event stream.
     ban_history = await _dsar_ban_history(redis, ip)
     watchlist_entries = await _dsar_watchlist_entries(redis, ip)
     beaconing_records = await _dsar_beaconing_records(redis, ip)
-    fingerprint_associations = await _dsar_fingerprint_associations(redis, ip, stream_data)
 
     config = {}
     try:
@@ -627,29 +659,83 @@ async def get_signal_categories(
 # ── DSAR data collectors ──────────────────────────────────────────────────────
 
 
+async def _iter_dsar_stream_batches(redis: Any, batch_size: Optional[int] = None):
+    """Async-yield batches of (entry_id, fields) pairs from the event stream.
+
+    JA4PROXY-2026-0035 — advance the XRANGE ``min`` cursor by 1 sequence
+    past the last entry in the previous batch. Redis stream IDs are
+    ``{ms}-{seq}``; incrementing ``seq`` gives the next position without
+    re-reading the last row. A batch smaller than ``batch_size`` means
+    we've reached the tail.
+
+    ``batch_size=None`` reads the module-level ``_DSAR_STREAM_BATCH_SIZE``
+    constant on every call, so tests can monkey-patch the constant at
+    runtime to verify the batching contract.
+    """
+    if batch_size is None:
+        batch_size = _DSAR_STREAM_BATCH_SIZE
+    next_id = "-"
+    while True:
+        try:
+            batch = await redis.xrange(_STREAM_KEY, min=next_id, max="+", count=batch_size)
+        except TypeError:
+            # Some fakeredis / aioredis builds don't accept named kwargs;
+            # fall back to positional.
+            batch = await redis.xrange(_STREAM_KEY, next_id, "+", batch_size)
+        if not batch:
+            return
+        yield batch
+        if len(batch) < batch_size:
+            return
+        last_id = batch[-1][0]
+        if isinstance(last_id, bytes):
+            last_id = last_id.decode()
+        try:
+            ms_str, seq_str = last_id.split("-")
+            next_id = f"{ms_str}-{int(seq_str) + 1}"
+        except Exception:
+            # Malformed id — stop rather than loop forever.
+            return
+
+
 async def _dsar_connection_history(redis: Any, ip: str, stream_data: Optional[list] = None) -> list[dict]:
     """Read connection events for this IP from the stream.
+
+    JA4PROXY-2026-0035 — when ``stream_data`` is not supplied, the stream
+    is walked in bounded-size batches rather than loaded wholesale.
 
     Args:
         redis: Redis client
         ip: IP address to query
-        stream_data: Pre-fetched stream data (for H1 optimization). If None, fetches fresh.
+        stream_data: Pre-fetched stream data (for H1 optimization). If None,
+            the function pages the stream in ``_DSAR_STREAM_BATCH_SIZE``-sized
+            batches to keep memory bounded.
     """
-    if stream_data is None:
-        try:
-            stream_data = await redis.xrange(_STREAM_KEY)
-        except Exception:
-            return []
-    return [
-        {
-            "timestamp": f.get("timestamp", ""),
-            "action": f.get("action_taken", ""),
-            "ja4": f.get("ja4", ""),
-            "risk_score": f.get("risk_score", ""),
-        }
-        for _, f in stream_data
-        if f.get("ip") == ip
-    ]
+    if stream_data is not None:
+        return [
+            {
+                "timestamp": f.get("timestamp", ""),
+                "action": f.get("action_taken", ""),
+                "ja4": f.get("ja4", ""),
+                "risk_score": f.get("risk_score", ""),
+            }
+            for _, f in stream_data
+            if f.get("ip") == ip
+        ]
+    out: list[dict] = []
+    try:
+        async for batch in _iter_dsar_stream_batches(redis):
+            for _, f in batch:
+                if f.get("ip") == ip:
+                    out.append({
+                        "timestamp": f.get("timestamp", ""),
+                        "action": f.get("action_taken", ""),
+                        "ja4": f.get("ja4", ""),
+                        "risk_score": f.get("risk_score", ""),
+                    })
+    except Exception:
+        return []
+    return out
 
 
 async def _dsar_ban_history(redis: Any, ip: str) -> list[dict]:
@@ -724,23 +810,23 @@ async def _dsar_beaconing_records(redis: Any, ip: str) -> list[dict]:
 async def _dsar_fingerprint_associations(redis: Any, ip: str, stream_data: Optional[list] = None) -> list[dict]:
     """Return JA4 fingerprints seen for this IP from the event stream.
 
+    JA4PROXY-2026-0035 — when ``stream_data`` is not supplied, the stream
+    is walked in bounded-size batches rather than loaded wholesale.
+
     Args:
         redis: Redis client
         ip: IP address to query
-        stream_data: Pre-fetched stream data (for H1 optimization). If None, fetches fresh.
+        stream_data: Pre-fetched stream data (for H1 optimization). If None,
+            the function pages the stream in batches.
     """
-    if stream_data is None:
-        try:
-            stream_data = await redis.xrange(_STREAM_KEY)
-        except Exception:
-            return []
     seen: dict[str, dict] = {}
-    for _, fields in stream_data:
+
+    def fold(fields: dict) -> None:
         if fields.get("ip") != ip:
-            continue
+            return
         ja4 = fields.get("ja4", "")
         if not ja4:
-            continue
+            return
         ts = fields.get("timestamp", "")
         if ja4 not in seen:
             seen[ja4] = {"ja4": ja4, "first_seen": ts, "last_seen": ts}
@@ -749,6 +835,18 @@ async def _dsar_fingerprint_associations(redis: Any, ip: str, stream_data: Optio
                 seen[ja4]["first_seen"] = ts
             if ts > seen[ja4]["last_seen"]:
                 seen[ja4]["last_seen"] = ts
+
+    if stream_data is not None:
+        for _, fields in stream_data:
+            fold(fields)
+        return list(seen.values())
+
+    try:
+        async for batch in _iter_dsar_stream_batches(redis):
+            for _, fields in batch:
+                fold(fields)
+    except Exception:
+        return []
     return list(seen.values())
 
 
