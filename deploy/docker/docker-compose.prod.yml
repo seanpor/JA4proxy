@@ -264,7 +264,11 @@ services:
   grafana:
     image: grafana/grafana:10.2.2
     ports:
-      - "3001:3000"   # Grafana UI (internal only)
+      # JA4PROXY-2026-0045: bind to loopback — the comment claims
+      # "internal only" but the previous form "3001:3000" published
+      # on 0.0.0.0. Reach via SSH tunnel or an authenticated reverse
+      # proxy, never from a public interface.
+      - "127.0.0.1:3001:3000"
     volumes:
       - grafana-data:/var/lib/grafana
       - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
