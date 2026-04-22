@@ -106,9 +106,9 @@ get forgotten.
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 10 | OPEN | 10 |
+| CRITICAL | 10 | OPEN | 9 |
 | HIGH | 14 | IN_PROGRESS | 0 |
-| MEDIUM | 21 | FIXED | 44 |
+| MEDIUM | 21 | FIXED | 45 |
 | LOW | 9 | VERIFIED | 0 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
@@ -163,7 +163,7 @@ get forgotten.
 | JA4PROXY-2026-0035 | MEDIUM | FIXED | python-management | 2026-06-16 | DSAR Export Reads Entire Redis Stream Into Memory |
 | JA4PROXY-2026-0036 | MEDIUM | FIXED | python-management | 2026-06-16 | IPv6 Burst Detection Parsing Bug |
 | JA4PROXY-2026-0037 | MEDIUM | FIXED | go-proxy | 2026-06-16 | Blocklist Double-Check with Stale Signals |
-| JA4PROXY-2026-0038 | MEDIUM | OPEN | python-management | 2026-06-16 | Rate Limit TOCTOU Race (INCR/EXPIRE Non-Atomic) |
+| JA4PROXY-2026-0038 | MEDIUM | FIXED | python-management | 2026-06-16 | Rate Limit TOCTOU Race (INCR/EXPIRE Non-Atomic) |
 | JA4PROXY-2026-0039 | LOW | OPEN | python-management | 2026-08-15 | Sensitive Data Filter Matches Timestamps (False Positive) |
 | JA4PROXY-2026-0040 | LOW | OPEN | infrastructure | 2026-08-15 | start-poc.sh Echoes Passwords to Console |
 | JA4PROXY-2026-0041 | LOW | OPEN | go-proxy | 2026-08-15 | Config Reload Path Hardcoded (Ignores CONFIG_PATH) |
