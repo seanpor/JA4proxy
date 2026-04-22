@@ -1592,13 +1592,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - (general Redis hardening; Phase 118d addresses subset)
+  - 118ff
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: cmd/proxy/pentest_redis_acl_default_regression_test.go::TestRegression_JA4PROXY_2026_0050_warn_only_on_remote_disabled
+  closed_commit: f7de8a7
   description: 'config/proxy.yml acl_users.enabled: false (default off). Default user has full Redis access
     regardless of password.'
   notes: Phase 118d specifies Redis ACL configuration and documentation. Recommend enabling by default
