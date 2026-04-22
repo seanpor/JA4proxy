@@ -937,13 +937,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118j
+  - 118z
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_python_backend_timeout_regression.py::test_forward_to_backend_times_out_on_slow_backend
+  closed_commit: abf820d
   description: proxy.py:2702-2704 backend connection has no timeout. If backend unresponsive, handler
     coroutines block for OS TCP timeout (~2 minutes). Combined with slow backend under separate DDoS,
     all proxy connections exhaust event loop concurrency.
