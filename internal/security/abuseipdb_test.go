@@ -116,8 +116,11 @@ func TestAbuseIPDB_APIError_FailOpen(t *testing.T) {
 }
 
 func TestAbuseIPDB_LookupStoresInRedis(t *testing.T) {
-	// Mock server returns confidence=60
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// Mock HTTPS server returns confidence=60. JA4PROXY-2026-0049 — the
+	// AbuseIPDB client refuses to send the API key to a non-HTTPS URL, so
+	// the test harness must use httptest.NewTLSServer and inject its TLS-
+	// aware http.Client (which trusts the server's self-signed cert).
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]interface{}{ //nolint:errcheck // test HTTP handler
 			"data": map[string]interface{}{
 				"abuseConfidenceScore": 60,
@@ -128,6 +131,7 @@ func TestAbuseIPDB_LookupStoresInRedis(t *testing.T) {
 
 	r := newMockRedisRW()
 	a := NewAbuseIPDB(defaultAbuseIPDBCfg(srv.URL), r, nil)
+	a.http = srv.Client()
 
 	// Trigger a synchronous lookup
 	a.lookup(context.Background(), "1.2.3.4")
