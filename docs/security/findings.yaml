@@ -1509,17 +1509,27 @@ findings:
     notes: implied
   remediation_phases:
   - 119r
+  - 118qq
   discovered: '2026-04-17'
   due: '2026-08-15'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_helm_probes_and_networkpolicy_regression.py
+  closed_commit: 7170c7f3854bc1ed511b7816d2ea7ac9f5d5b048
   description: deploy/helm/ja4proxy/templates/daemonset.yaml missing liveness/readiness probes. Hung proxy
     pods continue receiving traffic. No NetworkPolicy restricts Redis and metrics port ingress.
   notes: Phase 119r specifies liveness/readiness probes on /health:9090, NetworkPolicy restricting Redis
     to proxy pods, proxy ingress from HAProxy only.
+    Phase 118qq added both probes to the DaemonSet (tuned so readiness drains faster than
+    liveness kills) and shipped a new templates/networkpolicy.yaml with two policies —
+    ja4proxy-ingress (port 8080 from configurable client labels/CIDRs, port 9090 only from
+    pods carrying metricsScrapeLabels, default Prometheus label) and ja4proxy-egress (DNS to
+    kube-dns, Redis to app=ja4proxy-redis pods, backend port to any destination because
+    NetworkPolicy cannot match FQDNs — a cluster-wide CiliumNetworkPolicy or firewall should
+    pin the upstream IP). networkPolicy.enabled defaults to True (secure-by-default);
+    operators running a cluster-wide controller can opt out cleanly. Regression test renders
+    with `helm template` and pins eight invariants.
 - id: JA4PROXY-2026-0047
   title: Redis TLS Binds to All Interfaces (Duplicate/Related to 0015)
   severity: MEDIUM
