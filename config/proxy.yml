@@ -815,6 +815,15 @@ webhooks:
   stream_key: "events:connection"  # Redis stream the dispatcher reads from
   dlq_key: "webhooks:dlq"         # Dead-letter stream for failed deliveries
   endpoints: []
+  # JA4PROXY-2026-0031 — bounded XADD queue parameters. Replace the previous
+  # fire-and-forget goroutine-per-event pattern with a bounded channel drained
+  # by a fixed worker pool. When Redis is slow and the queue fills, events are
+  # dropped (ja4proxy_stream_event_drops_total) — connections are still
+  # handled, only the telemetry event is shed. Each worker writes with a
+  # per-call timeout so a stuck Redis never pins a worker forever.
+  stream_queue_capacity: 4096       # phase-118cc
+  stream_workers: 4                 # phase-118cc
+  stream_write_timeout_seconds: 2.0 # phase-118cc
   # Example endpoint:
   # endpoints:
   #   - id: splunk-hec
