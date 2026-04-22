@@ -194,6 +194,12 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 	if err := config.ValidateMetricsAccess(cfg); err != nil {
 		return nil, err
 	}
+	// JA4PROXY-2026-0050 — check whether per-service Redis ACL users are
+	// configured. When they are not and Redis is remote, emit a loud WARN
+	// so the gap cannot be missed during deployment review. Never a
+	// startup gate: flipping the default would break every deployment
+	// that has not yet run scripts/redis-acl-setup.sh.
+	checkAndLogRedisACL(cfg, log)
 	redisCfg := redisclient.Config{
 		Host:       cfg.Redis.Host,
 		Port:       cfg.Redis.Port.Int(),
@@ -1556,6 +1562,42 @@ func loadSecurityLists(ctx context.Context, rc *redisclient.Client, p *security.
 // ── Phase 63: SLO instrumentation helpers ─────────────────────────────────
 
 // classifyConnError maps a connection-handler error to one of the error_type
+// checkAndLogRedisACL sets the ja4proxy_redis_acl_enabled gauge from the
+// current config and, when per-service ACL users are disabled against a
+// remote Redis, emits a structured WARN naming the finding id and how to
+// fix it. Extracted from newProxy so the regression test can drive it
+// directly without standing up the whole proxy lifecycle.
+// JA4PROXY-2026-0050.
+func checkAndLogRedisACL(cfg *config.Config, log *logrus.Logger) {
+	aclStatus := config.CheckRedisACLStatus(cfg)
+	if aclStatus == config.RedisACLEnabled {
+		metrics.RedisACLEnabled.Set(1)
+	} else {
+		metrics.RedisACLEnabled.Set(0)
+	}
+	if aclStatus != config.RedisACLDisabledRemote || log == nil {
+		return
+	}
+	host := ""
+	if cfg != nil {
+		host = cfg.Redis.Host
+		if host == "" && len(cfg.Redis.Sentinels) > 0 {
+			host = cfg.Redis.Sentinels[0]
+		}
+	}
+	log.WithFields(logrus.Fields{
+		"finding": "JA4PROXY-2026-0050",
+		"host":    host,
+		"status":  aclStatus.String(),
+	}).Warn(
+		"Redis ACL users disabled with a remote Redis target — the proxy " +
+			"is connecting as the 'default' user which has full Redis " +
+			"authority. Run scripts/redis-acl-setup.sh and set " +
+			"redis.acl_users.enabled: true. See docs/security/findings.yaml " +
+			"JA4PROXY-2026-0050.",
+	)
+}
+
 // label values used by ja4proxy_connection_errors_total. The source argument
 // disambiguates errors that look identical at the os/net layer but mean very
 // different things — a "i/o timeout" on a client read is a normal idle close,

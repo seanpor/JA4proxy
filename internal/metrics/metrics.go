@@ -248,6 +248,22 @@ var (
 		},
 		[]string{"reason"},
 	)
+	// RedisACLEnabled is 1 when acl_users.enabled is true, 0 otherwise.
+	// JA4PROXY-2026-0050 — when 0, the proxy is connecting as the Redis
+	// "default" user which (in a stock install) has +@all ~*. That means
+	// any actor holding the Redis password can rewrite ban lists, the
+	// dial, and every other piece of security state stored in Redis.
+	// Dashboards should alert on this being 0 for any prod Redis that is
+	// not loopback-only. We keep the default at 0 because flipping it
+	// would break every existing deployment that has not run
+	// scripts/redis-acl-setup.sh — see docs/security/findings.yaml.
+	RedisACLEnabled = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "ja4proxy_redis_acl_enabled",
+			Help: "1 if per-service Redis ACL users are in use, 0 if the proxy connects as the unrestricted default user (JA4PROXY-2026-0050).",
+		},
+	)
+
 	// PROXY protocol parser events (JA4PROXY-2026-0001, -0002).
 	// Labels:
 	//   event=spoof_stripped  — header arrived from an untrusted source and was
@@ -288,6 +304,8 @@ func Register() {
 		ProxyProtocolParserEvents,
 		// JA4PROXY-2026-0031
 		StreamEventQueueDepth, StreamEventDropsTotal, StreamEventWriteErrorsTotal,
+		// JA4PROXY-2026-0050
+		RedisACLEnabled,
 	)
 	for _, action := range []string{"allow", "flag", "rate_limit", "tarpit", "block", "ban"} {
 		ConnectionsTotal.WithLabelValues(action)
