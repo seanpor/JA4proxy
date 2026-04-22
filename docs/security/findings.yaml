@@ -1157,13 +1157,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119j
+  - 118aa
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: management/tests/test_pentest_dsar_bounded_xrange_regression.py::test_dsar_pages_stream_in_multiple_xrange_calls
+  closed_commit: ce4da33
   description: management/api/routes/compliance.py:389-393 calls await redis.xrange(_STREAM_KEY) with
     no count parameter. Entire events stream read into memory. For busy proxy with millions of entries,
     causes OOM.
