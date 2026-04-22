@@ -1310,17 +1310,26 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118q
+  - 118rr
   discovered: '2026-04-17'
   due: '2026-08-15'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_start_scripts_password_echo_regression.py
+  closed_commit: 1bfe45dde5d57aa2b2381229ae4593d6f35afdd4
   description: scripts/start-poc.sh echoes Redis and Grafana passwords to stdout, appearing in terminal
     scrollback, CI logs, screen recordings.
   notes: 'Phase 118q specifies replacing password echo with confirmation messages (''Redis password: [generated]'')
-    without actual value.'
+    without actual value.
+    Phase 118rr fixed three scripts at once: scripts/start-poc.sh (echoed REDIS_PW/GRAFANA_PW
+    after generation), scripts/status.sh (echoed GRAFANA_PASS in the Access URLs banner), and
+    scripts/start-monitoring.sh (echoed GRAFANA_PASSWORD with the even worse ":-admin" default
+    embedded in the fallback). All three now render "[see .env]" placeholders plus a grep
+    recipe. Regression test regex scans for echo/printf lines that expand any variable whose
+    name ends in PASS/PASSWORD/PW/SECRET/TOKEN/KEY, with explicit $$VAR-literal exclusion, and
+    self-tests the regex against pre-fix and post-fix shapes to guard against a future
+    "simplification" that breaks detection.'
 - id: JA4PROXY-2026-0041
   title: Config Reload Path Hardcoded (Ignores CONFIG_PATH)
   severity: LOW
