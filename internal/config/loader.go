@@ -931,6 +931,56 @@ func CheckRedisACLStatus(cfg *Config) RedisACLStatus {
 	return RedisACLDisabledRemote
 }
 
+// ErrRedisACLUsernameMissing is returned by ValidateRedisACLConsistency
+// when acl_users.enabled is true but acl_users.proxy_user is empty.
+// Enabling ACLs without naming the proxy user silently downgrades the
+// proxy's Redis connection back to the unrestricted "default" user —
+// exactly the state the operator thought they were fixing.
+// JA4PROXY-2026-0052.
+var ErrRedisACLUsernameMissing = errors.New(
+	"redis: acl_users.enabled is true but acl_users.proxy_user is empty " +
+		"(JA4PROXY-2026-0052 — set redis.acl_users.proxy_user to the Redis " +
+		"ACL username created by scripts/redis-acl-setup.sh, or set " +
+		"acl_users.enabled: false to acknowledge the hardening gap)",
+)
+
+// ValidateRedisACLConsistency refuses to start the proxy when ACLs are
+// enabled but no proxy_user is defined. Without this gate, the config
+// reads as hardened (acl_users.enabled: true) but the actual Redis
+// connection still opens as the "default" user with +@all ~*. Failing
+// closed here forces the operator to either complete the ACL rollout or
+// acknowledge the gap. JA4PROXY-2026-0052.
+func ValidateRedisACLConsistency(cfg *Config) error {
+	if cfg == nil {
+		return nil
+	}
+	if !cfg.Redis.ACLUsers.Enabled {
+		return nil
+	}
+	if strings.TrimSpace(cfg.Redis.ACLUsers.ProxyUser) == "" {
+		return ErrRedisACLUsernameMissing
+	}
+	return nil
+}
+
+// ResolveRedisUsername returns the Redis ACL username the proxy should
+// authenticate as. When acl_users.enabled is true, the acl_users.proxy_user
+// is preferred — that is the whole point of the ACL configuration. When
+// ACLs are disabled, fall through to the historical redis.username field
+// (which is "" by default and resolves to the Redis "default" user).
+// JA4PROXY-2026-0052.
+func ResolveRedisUsername(cfg *Config) string {
+	if cfg == nil {
+		return ""
+	}
+	if cfg.Redis.ACLUsers.Enabled {
+		if u := strings.TrimSpace(cfg.Redis.ACLUsers.ProxyUser); u != "" {
+			return u
+		}
+	}
+	return cfg.Redis.Username
+}
+
 // ErrMetricsAuthRequired is returned by ValidateMetricsAccess when the
 // metrics HTTP server is configured to bind to a non-loopback address with
 // no AuthToken set. JA4PROXY-2026-0008 — /metrics and /health/deep leak

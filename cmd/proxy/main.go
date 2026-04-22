@@ -200,6 +200,24 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 	// startup gate: flipping the default would break every deployment
 	// that has not yet run scripts/redis-acl-setup.sh.
 	checkAndLogRedisACL(cfg, log)
+	// JA4PROXY-2026-0052 — refuse to start when acl_users.enabled is true
+	// but acl_users.proxy_user is empty. Misconfiguration silently keeps
+	// the proxy on the "default" user — exactly the state the operator
+	// thought they were fixing.
+	if err := config.ValidateRedisACLConsistency(cfg); err != nil {
+		return nil, err
+	}
+	// JA4PROXY-2026-0052 — resolve effective Redis username. When ACLs are
+	// enabled, acl_users.proxy_user takes precedence over the historical
+	// redis.username field so operators do not have to set both in lockstep.
+	redisUsername := config.ResolveRedisUsername(cfg)
+	if log != nil {
+		log.WithFields(logrus.Fields{
+			"finding":  "JA4PROXY-2026-0052",
+			"username": redisUsername,
+			"acl_mode": config.CheckRedisACLStatus(cfg).String(),
+		}).Info("Redis effective ACL username resolved")
+	}
 	redisCfg := redisclient.Config{
 		Host:       cfg.Redis.Host,
 		Port:       cfg.Redis.Port.Int(),
@@ -207,7 +225,7 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 		Sentinels:  cfg.Redis.Sentinels,
 		DB:         cfg.Redis.DB,
 		Password:   cfg.Redis.Password,
-		Username:   cfg.Redis.Username,
+		Username:   redisUsername,
 		SSL:        cfg.Redis.SSL,
 		Timeout:    time.Duration(cfg.Redis.Timeout.Int()) * time.Second,
 	}
