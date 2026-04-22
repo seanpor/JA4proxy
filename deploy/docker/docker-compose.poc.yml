@@ -100,7 +100,14 @@ services:
     restart: unless-stopped
     environment:
       # redis/redis-stack passes extra flags via REDIS_ARGS (see /entrypoint.sh)
-      - REDIS_ARGS=--requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required} --maxmemory 256mb --maxmemory-policy allkeys-lru --hz 20 --tcp-keepalive 60 --save "" --unixsocket /var/run/redis/redis.sock --unixsocketperm 777
+      # JA4PROXY-2026-0042: --unixsocketperm 770 (not 777). The socket lives
+      # on a named Docker volume that is NOT mounted by any non-redis service
+      # in this compose file, so tightening to 770 removes the world-writable
+      # bit without breaking functionality. (If a future service mounts the
+      # redis-sock volume, it MUST also add `group_add: ["999"]` — the redis
+      # user's GID inside redis/redis-stack — or it will not be able to
+      # connect.)
+      - REDIS_ARGS=--requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required} --maxmemory 256mb --maxmemory-policy allkeys-lru --hz 20 --tcp-keepalive 60 --save "" --unixsocket /var/run/redis/redis.sock --unixsocketperm 770
     networks:
       - ja4proxy-data
     volumes:

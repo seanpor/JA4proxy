@@ -74,6 +74,13 @@ services:
       - REDIS_UNIX_SOCKET_PATH=/var/run/redis/redis.sock
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
+    # JA4PROXY-2026-0042: GID 999 matches the redis user inside redis/redis-stack
+    # (see deploy/helm/ja4proxy/templates/redis.yaml and
+    # deploy/ansible/roles/redis-secure/tasks/main.yml, which both pin 999 for
+    # the same reason). Required for this service to connect to the unix
+    # socket now that --unixsocketperm is 770 on the redis side.
+    group_add:
+      - "999"
     secrets:
       - redis_password
       - abuseipdb_api_key
@@ -108,7 +115,13 @@ services:
     environment:
       # Password injected via Docker secret mounted at /run/secrets/redis_password
       # redis/redis-stack reads REDIS_ARGS for extra flags
-      - REDIS_ARGS=--requirepass-file /run/secrets/redis_password --maxmemory 512mb --maxmemory-policy allkeys-lru --hz 20 --tcp-keepalive 60 --save "" --unixsocket /var/run/redis/redis.sock --unixsocketperm 777
+      # JA4PROXY-2026-0042: --unixsocketperm 770 (not 777). The proxy service
+      # mounts redis-sock to connect via unix socket; for that to keep working
+      # after tightening to 770, the proxy service is given `group_add:
+      # ["999"]` (redis's GID inside redis/redis-stack). If a future service
+      # mounts redis-sock, it MUST add the same group_add or it will not be
+      # able to open the socket.
+      - REDIS_ARGS=--requirepass-file /run/secrets/redis_password --maxmemory 512mb --maxmemory-policy allkeys-lru --hz 20 --tcp-keepalive 60 --save "" --unixsocket /var/run/redis/redis.sock --unixsocketperm 770
     secrets:
       - redis_password
     networks:
