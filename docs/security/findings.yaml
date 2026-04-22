@@ -1251,13 +1251,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119s
+  - 118ll
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_rate_limit_atomic_regression.py::test_check_rate_limit_calls_eval_exactly_once
+  closed_commit: d277b153d1a9b4b0f15145cc49d809c40d8090d3
   description: proxy.py:1093-1096 legacy _check_rate_limit uses separate INCR and EXPIRE calls (non-atomic).
     High concurrency can leave key without TTL, causing permanent rate limiting. rate_tracker.py Lua script
     handles this correctly but legacy path still called.
