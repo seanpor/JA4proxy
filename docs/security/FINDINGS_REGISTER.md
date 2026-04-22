@@ -106,9 +106,9 @@ get forgotten.
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 10 | OPEN | 29 |
+| CRITICAL | 10 | OPEN | 28 |
 | HIGH | 14 | IN_PROGRESS | 0 |
-| MEDIUM | 21 | FIXED | 25 |
+| MEDIUM | 21 | FIXED | 26 |
 | LOW | 9 | VERIFIED | 0 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
@@ -172,7 +172,7 @@ get forgotten.
 | JA4PROXY-2026-0044 | LOW | OPEN | python-management | 2026-08-15 | Unpinned Python Dependencies (Management API) |
 | JA4PROXY-2026-0045 | LOW | OPEN | infrastructure | 2026-08-15 | Grafana Bound to All Interfaces in Monitoring Stack |
 | JA4PROXY-2026-0046 | LOW | OPEN | infrastructure | 2026-08-15 | K8s DaemonSet Missing Probes and NetworkPolicy |
-| JA4PROXY-2026-0047 | MEDIUM | OPEN | infrastructure | 2026-06-16 | Redis TLS Binds to All Interfaces (Duplicate/Related to 0015) |
+| JA4PROXY-2026-0047 | MEDIUM | FIXED | infrastructure | 2026-06-16 | Redis TLS Binds to All Interfaces (Duplicate/Related to 0015) |
 | JA4PROXY-2026-0048 | HIGH | FIXED | go-proxy | 2026-05-17 | Verbose Error Logging Exposes Internals |
 | JA4PROXY-2026-0049 | MEDIUM | OPEN | go-proxy | 2026-06-16 | Weak AbuseIPDB API Key Handling |
 | JA4PROXY-2026-0050 | MEDIUM | OPEN | infrastructure | 2026-06-16 | Redis ACLs Disabled by Default |
