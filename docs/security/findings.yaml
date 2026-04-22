@@ -906,13 +906,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118i
+  - 118x
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_sni_redis_key_hash_regression.py::test_coordinated_burst_uses_hashed_sni_in_redis_key
+  closed_commit: 6ad2af596179e1c2889f2c3b67112941736ad01f
   description: Redis keys constructed using unsanitised SNI hostnames (src/security/behavioral.py:81,108).
     SNI contains colons, asterisks, question marks. Crafted SNI like evil.com:other_prefix:key_name creates
     cross-namespace key pollution. Key enumeration confusion and counter pollution.
