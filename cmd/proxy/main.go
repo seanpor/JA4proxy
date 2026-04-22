@@ -167,6 +167,18 @@ type proxy struct {
 	// Lazily initialised to tolerate test fixtures that build *proxy via
 	// struct literals without calling newProxy().
 	healthState *health.State
+
+	// JA4PROXY-2026-0031 — bounded XADD event queue. Every connection
+	// decision previously spawned an unbounded `go func() { XAdd(bg, ...) }()`
+	// goroutine with no timeout. If Redis slowed down or a brief outage
+	// pushed XADD latency into the seconds, goroutines (each holding a
+	// JSON-marshalled event) accumulated without bound until the proxy
+	// OOMed. We now enqueue the event into a fixed-capacity channel drained
+	// by a small worker pool; when the queue is full we drop the event and
+	// increment metrics.StreamEventDropsTotal instead of spawning a new
+	// goroutine. The connection itself continues to be handled — only the
+	// telemetry stream write is shed.
+	streamEventQueue chan []byte
 }
 
 func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
@@ -263,6 +275,15 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 		acceptSem:   make(chan struct{}, maxConns),
 	}
 
+	// JA4PROXY-2026-0031 — bounded XADD queue. Capacity bounds the number
+	// of events buffered during a Redis slowdown; beyond this, drops are
+	// counted rather than goroutines being unboundedly spawned.
+	queueCap := cfg.Webhooks.StreamQueueCapacity
+	if queueCap <= 0 {
+		queueCap = 4096
+	}
+	prx.streamEventQueue = make(chan []byte, queueCap)
+
 	// phase-94i2: load trusted CIDRs from NetBox in the background (fail-open, non-blocking).
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -283,6 +304,9 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 }
 
 func (p *proxy) serve(ctx context.Context) {
+	// JA4PROXY-2026-0031 — start the bounded XADD worker pool.
+	p.startStreamEventWorkers(ctx)
+
 	// Start metrics/health HTTP server
 	if p.cfg.Metrics.Enabled {
 		go func() {
@@ -544,31 +568,31 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	}).Info("proxy: connection decision")
 
 	// Publish ECS connection event to Redis Stream for webhook delivery.
-	// Fire-and-forget: stream write must never block the hot path.  phase-80.
+	// JA4PROXY-2026-0031 — enqueue into a bounded channel drained by a
+	// fixed worker pool instead of spawning an unbounded goroutine per
+	// connection. Non-blocking send: if the queue is full (Redis is lagging
+	// or down), drop the event and bump a counter. The connection itself
+	// was already decided — losing the telemetry event is the correct
+	// degradation under load.
 	if p.dispatcher != nil {
-		go func() {
-			ecsFields := map[string]interface{}{
-				"@timestamp":               time.Now().UTC().Format(time.RFC3339Nano),
-				"event.action":             result.Action,
-				"event.risk_score":         result.Score,
-				"source.ip":                connCtx.ClientIP,
-				"source.port":              connCtx.ClientPort,
-				"destination.ip":           backendHost,
-				"destination.port":         443,
-				"network.transport":        "tcp",
-				"network.protocol":         "tls",
-				"service.name":             "ja4proxy",
-				"ja4proxy.fingerprint.ja4": connCtx.JA4,
-				"ja4proxy.sni":             connCtx.SNI,
-				"ja4proxy.dial_setting":    result.Dial,
-			}
-			ecsJSON, err := json.Marshal(ecsFields)
-			if err != nil {
-				return
-			}
-			p.redis.XAdd(context.Background(), "events:connection",
-				map[string]interface{}{"event": string(ecsJSON)})
-		}()
+		ecsFields := map[string]interface{}{
+			"@timestamp":               time.Now().UTC().Format(time.RFC3339Nano),
+			"event.action":             result.Action,
+			"event.risk_score":         result.Score,
+			"source.ip":                connCtx.ClientIP,
+			"source.port":              connCtx.ClientPort,
+			"destination.ip":           backendHost,
+			"destination.port":         443,
+			"network.transport":        "tcp",
+			"network.protocol":         "tls",
+			"service.name":             "ja4proxy",
+			"ja4proxy.fingerprint.ja4": connCtx.JA4,
+			"ja4proxy.sni":             connCtx.SNI,
+			"ja4proxy.dial_setting":    result.Dial,
+		}
+		if ecsJSON, err := json.Marshal(ecsFields); err == nil {
+			p.enqueueStreamEvent(ecsJSON)
+		}
 	}
 
 	// Execute action
@@ -986,6 +1010,71 @@ func (l *metricsRateLimiter) allow(remoteAddr string, now time.Time) bool {
 	}
 	b.tokens -= 1.0
 	return true
+}
+
+// enqueueStreamEvent performs a non-blocking send onto the bounded XADD
+// queue. If the queue is full, the event is dropped and a Prometheus
+// counter is incremented. JA4PROXY-2026-0031.
+func (p *proxy) enqueueStreamEvent(event []byte) {
+	if p == nil || p.streamEventQueue == nil {
+		return
+	}
+	select {
+	case p.streamEventQueue <- event:
+		metrics.StreamEventQueueDepth.Set(float64(len(p.streamEventQueue)))
+	default:
+		metrics.StreamEventDropsTotal.Inc()
+	}
+}
+
+// startStreamEventWorkers starts a fixed pool of goroutines that drain the
+// bounded XADD queue and publish to the Redis stream with a per-call
+// timeout. JA4PROXY-2026-0031 — bounds both queue depth and per-write
+// latency so a Redis slowdown cannot translate into unbounded goroutine
+// or memory growth on the proxy.
+func (p *proxy) startStreamEventWorkers(ctx context.Context) {
+	if p.streamEventQueue == nil {
+		return
+	}
+	workers := p.cfg.Webhooks.StreamWorkers
+	if workers <= 0 {
+		workers = 4
+	}
+	timeout := time.Duration(p.cfg.Webhooks.StreamWriteTimeoutSeconds * float64(time.Second))
+	if timeout <= 0 {
+		timeout = 2 * time.Second
+	}
+	streamKey := p.cfg.Webhooks.StreamKey
+	if streamKey == "" {
+		streamKey = "events:connection"
+	}
+	for i := 0; i < workers; i++ {
+		go p.streamEventWorker(ctx, streamKey, timeout)
+	}
+}
+
+func (p *proxy) streamEventWorker(ctx context.Context, streamKey string, timeout time.Duration) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case event, ok := <-p.streamEventQueue:
+			if !ok {
+				return
+			}
+			metrics.StreamEventQueueDepth.Set(float64(len(p.streamEventQueue)))
+			writeCtx, cancel := context.WithTimeout(ctx, timeout)
+			err := p.redis.XAddErr(writeCtx, streamKey, map[string]interface{}{"event": string(event)})
+			cancel()
+			if err != nil {
+				if errors.Is(err, context.DeadlineExceeded) {
+					metrics.StreamEventWriteErrorsTotal.WithLabelValues("timeout").Inc()
+				} else {
+					metrics.StreamEventWriteErrorsTotal.WithLabelValues("error").Inc()
+				}
+			}
+		}
+	}
 }
 
 func metricsRateLimitMiddleware(next http.Handler, limiter *metricsRateLimiter, log *logrus.Logger) http.Handler {

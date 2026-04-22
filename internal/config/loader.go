@@ -299,10 +299,13 @@ func DefaultConfig() *Config {
 			IPs:     []StaticIPConfigYAML{},
 		},
 		Webhooks: WebhooksConfig{
-			Enabled:   false,
-			StreamKey: "events:connection",
-			DLQKey:    "webhooks:dlq",
-			Endpoints: []WebhookEndpointConfig{},
+			Enabled:                   false,
+			StreamKey:                 "events:connection",
+			DLQKey:                    "webhooks:dlq",
+			Endpoints:                 []WebhookEndpointConfig{},
+			StreamQueueCapacity:       4096,
+			StreamWorkers:             4,
+			StreamWriteTimeoutSeconds: 2.0,
 		},
 	}
 }
@@ -768,6 +771,17 @@ type WebhooksConfig struct {
 	StreamKey string                  `yaml:"stream_key"`
 	DLQKey    string                  `yaml:"dlq_key"`
 	Endpoints []WebhookEndpointConfig `yaml:"endpoints"`
+	// JA4PROXY-2026-0031 — bounded XADD queue parameters.
+	//
+	// StreamQueueCapacity is the hard cap on buffered connection events
+	// waiting to be written to Redis. When the queue is full the event is
+	// dropped (ja4proxy_stream_event_drops_total) — the connection is
+	// handled normally, only the telemetry is shed.
+	// StreamWorkers is the number of goroutines draining the queue; each
+	// worker calls XAdd with a timeout of StreamWriteTimeoutSeconds.
+	StreamQueueCapacity      int     `yaml:"stream_queue_capacity"`
+	StreamWorkers            int     `yaml:"stream_workers"`
+	StreamWriteTimeoutSeconds float64 `yaml:"stream_write_timeout_seconds"`
 }
 
 // ErrRedisAuthRequired is returned by ValidateRedisAuth when the configured

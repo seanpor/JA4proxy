@@ -516,15 +516,24 @@ func (c *Client) ZRangeScores(ctx context.Context, key string, start, stop int64
 // XAdd appends a message to a Redis Stream. Fails open (errors are silently ignored
 // since stream writes are fire-and-forget on the hot path).
 func (c *Client) XAdd(ctx context.Context, stream string, values map[string]interface{}) {
+	_ = c.XAddErr(ctx, stream, values)
+}
+
+// XAddErr is the error-returning variant of XAdd. The bounded XADD worker
+// pool (cmd/proxy, JA4PROXY-2026-0031) needs the error so it can classify
+// timeouts vs generic failures on the `ja4proxy_stream_event_write_errors_total`
+// counter.
+func (c *Client) XAddErr(ctx context.Context, stream string, values map[string]interface{}) error {
 	if err := c.rdb.XAdd(ctx, &goredis.XAddArgs{
 		Stream: stream,
 		Values: values,
 	}).Err(); err != nil {
 		observeOp("xadd", "error")
 		c.log.WithError(err).WithField("stream", stream).Debug("redis: XADD failed")
-		return
+		return err
 	}
 	observeOp("xadd", "ok")
+	return nil
 }
 
 // XGroupCreateMkStream creates a consumer group for a stream, creating the

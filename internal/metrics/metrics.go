@@ -215,6 +215,39 @@ var (
 		},
 		[]string{"result"},
 	)
+	// StreamEventQueueDepth is the current depth of the bounded XADD event
+	// queue used to publish connection decisions to Redis Streams.
+	// JA4PROXY-2026-0031 — we replaced the previous unbounded
+	// `go func() { p.redis.XAdd(context.Background(), ... ) }()` with a
+	// bounded channel drained by a fixed worker pool. This gauge lets us
+	// alert when Redis is lagging and the queue is filling up.
+	StreamEventQueueDepth = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "ja4proxy_stream_event_queue_depth",
+			Help: "Current depth of the bounded XADD event queue (JA4PROXY-2026-0031).",
+		},
+	)
+	// StreamEventDropsTotal counts events that were dropped because the
+	// bounded queue was full. Every drop corresponds to one connection
+	// decision whose ECS event did not reach Redis — the connection itself
+	// was still handled correctly, this is a telemetry loss metric only.
+	StreamEventDropsTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "ja4proxy_stream_event_drops_total",
+			Help: "XADD events dropped because the bounded queue was full (JA4PROXY-2026-0031).",
+		},
+	)
+	// StreamEventWriteErrorsTotal counts XADD calls that failed from the
+	// worker pool, labelled by reason. reason=timeout means Redis did not
+	// acknowledge within the per-call deadline; reason=error covers every
+	// other backend failure.
+	StreamEventWriteErrorsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "ja4proxy_stream_event_write_errors_total",
+			Help: "XADD worker failures by reason (JA4PROXY-2026-0031).",
+		},
+		[]string{"reason"},
+	)
 	// PROXY protocol parser events (JA4PROXY-2026-0001, -0002).
 	// Labels:
 	//   event=spoof_stripped  — header arrived from an untrusted source and was
@@ -253,6 +286,8 @@ func Register() {
 		JA4TLSMismatchTotal, TapLookupsTotal, TapSignalTotal,
 		// JA4PROXY-2026-0001/-0002
 		ProxyProtocolParserEvents,
+		// JA4PROXY-2026-0031
+		StreamEventQueueDepth, StreamEventDropsTotal, StreamEventWriteErrorsTotal,
 	)
 	for _, action := range []string{"allow", "flag", "rate_limit", "tarpit", "block", "ban"} {
 		ConnectionsTotal.WithLabelValues(action)
