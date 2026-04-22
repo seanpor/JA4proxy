@@ -230,6 +230,12 @@ metrics:
   # bind REQUIRES auth_token and startup will fail-closed otherwise.
   bind_host: "${METRICS_BIND_HOST:-127.0.0.1}"
   auth_token: "${METRICS_AUTH_TOKEN:-}"
+  # JA4PROXY-2026-0026 — per-remote-IP token bucket for /metrics, /health,
+  # /health/deep, /metrics/summary. 0 disables. Loopback is always exempt
+  # so co-located Prometheus sidecars are never throttled. Prometheus
+  # default scrape is ~0.067 rps per endpoint, so 20/40 leaves large headroom.
+  rate_limit_rps: 20            # phase-118bb
+  rate_limit_burst: 40          # phase-118bb
 
 # Backup configuration (Phase 19)
 # Backups write Redis state to local filesystem as deterministic, versioned artifacts.
