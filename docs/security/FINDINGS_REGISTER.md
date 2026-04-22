@@ -106,9 +106,9 @@ get forgotten.
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 10 | OPEN | 16 |
+| CRITICAL | 10 | OPEN | 15 |
 | HIGH | 14 | IN_PROGRESS | 0 |
-| MEDIUM | 21 | FIXED | 38 |
+| MEDIUM | 21 | FIXED | 39 |
 | LOW | 9 | VERIFIED | 0 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
@@ -175,7 +175,7 @@ get forgotten.
 | JA4PROXY-2026-0047 | MEDIUM | FIXED | infrastructure | 2026-06-16 | Redis TLS Binds to All Interfaces (Duplicate/Related to 0015) |
 | JA4PROXY-2026-0048 | HIGH | FIXED | go-proxy | 2026-05-17 | Verbose Error Logging Exposes Internals |
 | JA4PROXY-2026-0049 | MEDIUM | FIXED | go-proxy | 2026-06-16 | Weak AbuseIPDB API Key Handling |
-| JA4PROXY-2026-0050 | MEDIUM | OPEN | infrastructure | 2026-06-16 | Redis ACLs Disabled by Default |
+| JA4PROXY-2026-0050 | MEDIUM | FIXED | infrastructure | 2026-06-16 | Redis ACLs Disabled by Default |
 | JA4PROXY-2026-0051 | MEDIUM | FIXED | go-proxy | 2026-06-16 | Webhook Secrets in Memory |
 | JA4PROXY-2026-0052 | MEDIUM | OPEN | infrastructure | 2026-06-16 | No Per-Service Redis User Enforcement |
 | JA4PROXY-2026-0053 | LOW | OPEN | python-management | 2026-08-15 | Redis Password in Log Messages (Partial) |
