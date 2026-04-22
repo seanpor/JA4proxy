@@ -1722,13 +1722,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118k
+  - 118aa
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_integration_tls_verification_regression.py::test_splunk_https_url_builds_verifying_context
+  closed_commit: 5ab69d3
   description: Splunk, Nagios, Dynatrace integrations use urllib without TLS certificate verification
     (deploy/integrations/splunk-ta/*, deploy/nagios/check_ja4proxy.py, deploy/dynatrace/ja4proxy-extension/plugin.py).
   notes: Phase 118k specifies ssl.create_default_context() for verified connections, with option for self-signed
