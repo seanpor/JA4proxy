@@ -1280,17 +1280,22 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119t
+  - 118uu
   discovered: '2026-04-17'
   due: '2026-08-15'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_sensitive_filter_luhn_regression.py
+  closed_commit: 46db431ac8af7dc74328ee6332e952aefccb41f3
   description: proxy.py:2779-2781 credit card regex r"(\d{13,19})" matches Unix timestamps in milliseconds
     (13 digits), large counters, Redis keys. Operational log data corrupted with ***CARD_REDACTED***.
-  notes: Phase 119t specifies Luhn checksum validation before redacting. Only redact if digit sequence
-    passes Luhn.
+  notes: 'Phase 119t specifies Luhn checksum validation before redacting. Phase 118uu fix: added
+    _luhn_check() + _redact_card_if_luhn() helpers in proxy.py. The credit-card regex is now
+    word-boundary anchored and uses a callback substitution that returns the original digits
+    unchanged unless they satisfy the Luhn mod-10 checksum. Regression asserts (a) 11 real PAN
+    test vectors still redact, (b) timestamps, counters, all-nines strings pass through intact,
+    (c) a mixed line redacts only the card, (d) the args-path pass also uses the Luhn gate.'
 - id: JA4PROXY-2026-0040
   title: start-poc.sh Echoes Passwords to Console
   severity: LOW
