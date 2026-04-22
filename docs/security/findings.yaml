@@ -969,13 +969,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118l
+  - 118z
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_log_sanitisation_regression.py::test_combined_attack_payload
+  closed_commit: 92526b2
   description: '_sanitize_log() (proxy.py:2140-2144) only strips \r and \n. Missing: null bytes (truncates
     log lines), ANSI escape sequences (\x1b[...], hides entries in terminal viewers), C0/C1 control characters.
     Additionally, JA4 from HTTP headers and SNI hostnames logged without sanitisation.'
