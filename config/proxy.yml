@@ -24,6 +24,11 @@ proxy:
   read_timeout: 30
   write_timeout: 30
   keepalive_timeout: 60
+  # JA4PROXY-2026-0028 — bound the backend TCP connect. Without this, a
+  # slow or unresponsive backend would let handler coroutines block for
+  # the default OS TCP timeout (~2 minutes), exhausting the event loop.
+  # Default matches the tarpit redirect bound (5s). Hot-reloadable.
+  backend_connect_timeout_seconds: 5
   buffer_size: 8192
   # Enable PROXY protocol v2 support (for HAProxy)
   proxy_protocol: true
