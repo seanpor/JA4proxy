@@ -1,10 +1,33 @@
 # Phase 119 — Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs
 
-> **Status:** PROPOSED
+> **Status:** PROPOSED — rescoped under Phase 121e against canonical register
 > **Size:** LARGE (10-14 engineer-days)
 > **Triggered by:** Independent deep-dive team (2026-04-17), cross-referenced against
 > Phases 108-118 to exclude duplicates
 > **Report:** `docs/reports/2026-04-17_REDTEAM_WHITEBOX_ASSESSMENT.md` (parent campaign)
+> **Absorbs:** Phase 120 (retired 2026-04-19 as duplicate — see `docs/phases/PHASE_120.md`)
+
+---
+
+## Rescoped against canonical register (Phase 121e, 2026-04-19)
+
+Phase 121b ingested every 119a–119t finding in this document into
+`docs/security/findings.yaml`. The 20 items below remain the
+implementation-grouping plan for this phase; the **canonical register is
+the source of truth** for severity (per `SEVERITY_RUBRIC.md`), SLA, status,
+regression-test path, and closure state.
+
+To look up which canonical ID a local 119-prefixed ID maps to:
+
+```bash
+python3 scripts/findings_register.py list --json \
+  | jq '.[] | select(.source_refs[].id | startswith("119")) | {id, title, source_refs}'
+```
+
+Phase 120's 20 "novel" findings were reviewed on 2026-04-19 and found to
+overlap fully with this phase's 119a–119t. PHASE_120.md is now a redirect
+stub; any work previously attributed to 120N local IDs is tracked here or
+against the equivalent canonical register entry.
 
 ---
 

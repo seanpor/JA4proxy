@@ -47,6 +47,7 @@ epics:
   - 203
   - 118
   - 119
+  - 121
 - name: 'Epic: Analytics & Intelligence'
   description: Cross-instance behavior analysis and threat intelligence.
   phases:
@@ -227,12 +228,21 @@ phases:
     size: LARGE
     summary: 'Fix 17 vulnerabilities from independent white-box red team: goroutine leaks, n-vs-len(data) JA4 bypass, unauthenticated metrics, credential rotation, connection limits, tarpit timeouts, Redis KEYS blocking, trusted CIDR validation, SNI key injection, cookie secure flag, log sanitisation, OIDC token verification.'
   120:
-    name: 'Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs'
-    status: PROPOSED
+    name: 'Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED)'
+    status: DEFERRED
     action_plan: docs/phases/PHASE_120.md
     dependencies: [108]
     size: LARGE
-    summary: 'Fix 20 novel findings from independent deep-dive team: ALPN bypass design flaw, X-JA4-Fingerprint header injection, HAProxy default creds, privileged cAdvisor, Docker socket exposure, CI/CD token leaks, Redis PubSub poisoning, stored XSS, JWT role escalation, DSAR OOM, IPv6 burst bug, blocklist logic bug, config reload path, infrastructure hardening.'
+    superseded_by: 119
+    summary: 'Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.'
+  121:
+    name: 'Pentest Remediation Consolidation & Program Discipline'
+    status: COMPLETE
+    completed: 2026-04-19
+    action_plan: docs/phases/PHASE_121.md
+    dependencies: [108, 118, 119, 120]
+    size: XLARGE
+    summary: 'Plan-only meta-phase that turns the 108–120 bug-hunt pile into a managed program: canonical findings register + tooling, severity rubric + SLA policy, dedup across ~98 sub-phases down to 54 canonical findings, rescope of 117/118/119/120 against the register (retires 120 as duplicate of 119), remediation waves DAG, closure verification protocol, intake runbook for the next red team report, CVSS version ADR. 11 sub-phases, no code fixes. All acceptance criteria met 2026-04-19; make phase-121-verify green.'
   204:
     name: 'README Badges — License, Versions, CI, Security'
     status: COMPLETE

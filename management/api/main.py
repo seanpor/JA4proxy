@@ -102,12 +102,31 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("management | event=shutdown | service=management_ui")
 
 
+def _enforce_no_test_mode_in_production() -> None:
+    """Refuse to build the app when test-mode bypasses are armed in production.
+
+    JA4PROXY-2026-0023 — MANAGEMENT_TEST_MODE=1 enables a hardcoded JWT secret
+    and skips OIDC signature verification. These flags must never activate
+    alongside ENVIRONMENT=production. If an operator (or attacker-controlled
+    env) sets both, fail loudly at startup so the condition cannot go
+    unnoticed.
+    """
+    env = os.environ.get("ENVIRONMENT", "").strip().lower()
+    if env in {"production", "prod"} and os.environ.get("MANAGEMENT_TEST_MODE") == "1":
+        raise RuntimeError(
+            "refusing to start: ENVIRONMENT=production and MANAGEMENT_TEST_MODE=1 "
+            "are mutually exclusive (test mode disables authentication checks). "
+            "Unset MANAGEMENT_TEST_MODE or set ENVIRONMENT to dev/staging."
+        )
+
+
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application.
 
     Returns:
         Configured FastAPI instance.
     """
+    _enforce_no_test_mode_in_production()
     app = FastAPI(
         title="JA4proxy Management UI",
         description="Management interface for JA4proxy TLS security proxy",

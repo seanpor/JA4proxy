@@ -749,6 +749,65 @@ class ConfigManager:
             if not isinstance(max_conn, int) or max_conn < 1 or max_conn > 100000:
                 raise ValidationError(f"Invalid max_connections: {max_conn}")
 
+        # JA4PROXY-2026-0022 — validate upstream_trust.trusted_cidrs.
+        # A trusted CIDR is the strongest authority in the system: it grants the
+        # bearer the right to rewrite client IPs via the PROXY protocol. A
+        # misconfiguration that leaves /0 in the list gives every attacker on the
+        # Internet that authority, so trust-model bypass is complete. Validate
+        # aggressively at load time rather than hoping ops catch it.
+        if "upstream_trust" in proxy_config:
+            self._validate_upstream_trust(proxy_config["upstream_trust"])
+
+    def _validate_upstream_trust(self, trust_cfg: Dict) -> None:
+        """Reject dangerously-broad trusted CIDRs. Phase 118h — JA4PROXY-2026-0022.
+
+        - /0, /1, /2 on IPv4 (and /0–/7 on IPv6) are outright refused.
+        - Any range covering /16 or broader (IPv4) or /32 or broader (IPv6) is
+          logged at CRITICAL — it may be legitimate for a large enterprise but
+          it is never routine.
+        - RFC1918 and loopback ranges are warned (local testing is common).
+        """
+        if not isinstance(trust_cfg, dict):
+            raise ValidationError("proxy.upstream_trust must be a mapping")
+        cidrs = trust_cfg.get("trusted_cidrs", [])
+        if cidrs is None:
+            return
+        if not isinstance(cidrs, list):
+            raise ValidationError("proxy.upstream_trust.trusted_cidrs must be a list")
+        for raw in cidrs:
+            if not isinstance(raw, str):
+                raise ValidationError(
+                    f"trusted_cidrs entry must be a string CIDR, got {type(raw).__name__}"
+                )
+            try:
+                net = ipaddress.ip_network(raw, strict=False)
+            except (ValueError, TypeError) as exc:
+                raise ValidationError(f"Invalid trusted CIDR {raw!r}: {exc}") from exc
+            if net.version == 4 and net.prefixlen <= 2:
+                raise ValidationError(
+                    f"trusted CIDR {raw!r} is dangerously broad "
+                    "(IPv4 /0-/2 would trust the whole Internet)"
+                )
+            if net.version == 6 and net.prefixlen <= 7:
+                raise ValidationError(
+                    f"trusted CIDR {raw!r} is dangerously broad "
+                    "(IPv6 /0-/7 would trust the whole Internet)"
+                )
+            if (net.version == 4 and net.prefixlen < 16) or (
+                net.version == 6 and net.prefixlen < 32
+            ):
+                self.logger.critical(
+                    "SECURITY: trusted upstream CIDR %s covers >= /16 v4 "
+                    "(or /32 v6) — blast radius is very large",
+                    raw,
+                )
+            if net.is_loopback or net.is_private:
+                self.logger.warning(
+                    "trusted upstream CIDR %s is loopback/private — "
+                    "intended only for local testing, never production",
+                    raw,
+                )
+
     def _validate_redis_config(self, redis_config: Dict) -> None:
         """Validate Redis configuration with security checks."""
         # SECURITY: Require password in production (config validation pass)
@@ -2473,7 +2532,13 @@ class ProxyServer:
             for line in header_block.split("\r\n"):
                 lower = line.lower()
                 if lower.startswith("x-forwarded-for:"):
-                    ip = line.split(":", 1)[1].strip().split(",")[0].strip()
+                    # JA4PROXY-2026-0006: take the RIGHTMOST XFF entry, not
+                    # the leftmost. Each reverse proxy in the chain appends
+                    # the IP it actually saw; the last entry is the one
+                    # appended by our trusted upstream HAProxy and is the
+                    # only value we can attribute to it. Taking [0] lets
+                    # any client forge an arbitrary source IP.
+                    ip = line.split(":", 1)[1].strip().split(",")[-1].strip()
                     try:
                         ipaddress.ip_address(ip)
                         return ip
@@ -2630,13 +2695,16 @@ class ProxyServer:
                     tls_version_int = 0x0304 if 0x0304 in supported else ver
                     raw_cipher_suites = client_hello_fields.get("cipher_suites", [])
             else:
-                # Not a TLS record — might be HTTP or other protocol
+                # Not a TLS record — might be HTTP or other protocol.
+                # JA4PROXY-2026-0005: previously we called
+                # _extract_ja4_from_http() here and used whatever the client
+                # put in an X-JA4-Fingerprint HTTP header as the connection's
+                # JA4. An attacker could then send a whitelisted JA4 value in
+                # plain HTTP and bypass every JA4-based control. The header
+                # is now ignored; JA4 stays "unknown" on non-TLS traffic.
                 self.logger.debug(
                     f"Non-TLS data from {client_ip} (first byte: 0x{data[0]:02x})"
                 )
-
-                # Check for X-JA4-Fingerprint header in HTTP traffic (for testing)
-                ja4 = self._extract_ja4_from_http(data)
 
             fingerprint = JA4Fingerprint(
                 ja4=ja4,
@@ -2661,12 +2729,16 @@ class ProxyServer:
             )
 
     def _extract_ja4_from_http(self, data: bytes) -> str:
-        """Extract JA4 fingerprint from HTTP X-JA4-Fingerprint header (testing/fallback)."""
-        if data[:3] in (b"GET", b"POS", b"PUT", b"DEL", b"HEA", b"PAT", b"OPT"):
-            header_block = data[:2048].decode("ascii", errors="ignore")
-            for line in header_block.split("\r\n"):
-                if line.lower().startswith("x-ja4-fingerprint:"):
-                    return line.split(":", 1)[1].strip()
+        """Deprecated. Always returns "unknown".
+
+        JA4PROXY-2026-0005: this function used to read an
+        ``X-JA4-Fingerprint`` HTTP header and return it as the connection's
+        JA4 fingerprint. Because the header is attacker-controlled, any
+        client could assert a whitelisted JA4 in plain HTTP and bypass
+        every JA4-based control. The lookup has been removed; the function
+        is kept only so callers in tests keep a stable API. It now always
+        returns "unknown".
+        """
         return "unknown"
 
     async def _store_fingerprint(self, fingerprint: JA4Fingerprint):

@@ -1,8 +1,24 @@
 # Phase 117 — DMZ Network Hardening & Anti-Smuggling
 
-> **Status:** PROPOSED
+> **Status:** SUPERSEDED by Phase 118 — rescoped under Phase 121e
 > **Size:** MEDIUM (4-6 engineer-days)
 > **Triggered by:** Phase 108 Pentest Finding [L1-018], [L1-019], [L4-028]
+> **Superseded by:** `docs/phases/PHASE_118.md` (§118a PROXY anti-smuggling, §118b TLS reassembly + protocol lockdown, §118c XFF hardening)
+
+---
+
+## Rescoped against canonical register (Phase 121e, 2026-04-19)
+
+Every finding 117a/b/c listed below already has a canonical entry in
+`docs/security/findings.yaml` via `source_refs.report: PHASE_117` and is
+implemented under Phase 118's corresponding sub-phase. This file is kept as
+a historical pointer; do not add new findings here.
+
+| 117 local ID | Implemented under | Source-of-truth entry |
+|---|---|---|
+| 117a PROXY anti-smuggling | 118a | register (grep `PHASE_117` / `117a`) |
+| 117b TLS reassembly + protocol lockdown | 118b | register (`PHASE_117` / `117b`) |
+| 117c X-Forwarded-For hardening | 118c | register (`PHASE_117` / `117c`) |
 
 ---
 
