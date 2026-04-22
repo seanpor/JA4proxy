@@ -156,13 +156,43 @@ class BehavioralAnalyzer:
         return None
 
     async def _check_fingerprint_drift(self, ja4: str):
-        """Track and alert on new JA4 fingerprints appearing in the environment."""
+        """Track and alert on new JA4 fingerprints appearing in the environment.
+
+        JA4PROXY-2026-0030 — the earlier implementation used an unbounded
+        Redis SET with no TTL. An attacker sending randomised ClientHellos
+        grew it at ~1 fingerprint/connection; 1M unique JA4s = ~50MB Redis
+        memory, reached in ~3h at 100 conn/s. This is a Redis memory DoS
+        surface that the proxy itself can't throttle (scoring happens
+        *after* fingerprint extraction).
+
+        Fix: use a Redis ZSET keyed by JA4, scored by the last-seen UNIX
+        timestamp, and on every insert (a) drop entries older than
+        ``known_ja4_ttl_seconds`` (default 90 days) via ZREMRANGEBYSCORE
+        and (b) cap the total size with ZREMRANGEBYRANK, keeping only the
+        newest ``known_ja4_max_entries`` (default 100k). A classic TTL on
+        the key itself is not sufficient because a steady stream of new
+        JA4s keeps the key fresh while growing it unboundedly — per-member
+        expiration is only available via the ZSET trim pattern.
+        """
         if not ja4:
             return
-            
+
         key = "behavioral:known_ja4"
+        ttl_seconds = int(self._config.get("known_ja4_ttl_seconds", 90 * 24 * 3600))
+        max_entries = int(self._config.get("known_ja4_max_entries", 100_000))
+        now = int(time.time())
+        cutoff = now - ttl_seconds
         try:
-            is_new = await self._redis.sadd(key, ja4)  # type: ignore[misc]
+            # ZADD returns the number of *new* members added (1 if this
+            # JA4 was not already in the ZSET, 0 if it was). That replaces
+            # the SADD "is_new" semantics without an extra round-trip.
+            is_new = await self._redis.zadd(key, {ja4: now})  # type: ignore[misc]
+            # Drop anything older than the TTL window.
+            await self._redis.zremrangebyscore(key, 0, cutoff)  # type: ignore[misc]
+            # Hard cap: keep only the most-recent max_entries. -max_entries-1
+            # drops everything except the tail, so the ZSET never exceeds
+            # max_entries regardless of how fast an attacker floods new JA4s.
+            await self._redis.zremrangebyrank(key, 0, -max_entries - 1)  # type: ignore[misc]
             if is_new:
                 logger.warning(
                     json.dumps({
