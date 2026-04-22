@@ -392,13 +392,31 @@ async def get_current_user(
             payload = _decode_token(token)
             username: Optional[str] = payload.get("sub")
             if username is not None:
-                # Read role from JWT; default to admin for tokens issued before
-                # SSO was added (backward compatibility with existing sessions).
-                role_str: str = payload.get("role", "admin")
-                try:
-                    cookie_role = Role(role_str)
-                except ValueError:
-                    cookie_role = Role.admin
+                # JA4PROXY-2026-0034 — default to the least-privileged role
+                # when the JWT carries no role claim or a role value we do
+                # not recognise. The original code defaulted to Role.admin,
+                # which turned every tampered / malformed token into a
+                # privilege escalation. Role.auditor is read-only and
+                # matches the fail-closed posture expected for a management
+                # plane.
+                raw_role = payload.get("role")
+                if raw_role is None:
+                    logger.warning(
+                        "auth | event=jwt_role_missing | sub=%s | defaulting to auditor",
+                        username,
+                    )
+                    cookie_role = Role.auditor
+                else:
+                    try:
+                        cookie_role = Role(raw_role)
+                    except ValueError:
+                        logger.warning(
+                            "auth | event=jwt_role_invalid | sub=%s | raw_role=%r | "
+                            "defaulting to auditor",
+                            username,
+                            raw_role,
+                        )
+                        cookie_role = Role.auditor
                 return (username, cookie_role)
         except HTTPException:
             pass
