@@ -291,7 +291,12 @@ func (p *proxy) serve(ctx context.Context) {
 			mux.HandleFunc("/health", p.handleHealth)
 			mux.HandleFunc("/health/deep", p.handleHealthDeep)
 			mux.HandleFunc("/metrics/summary", p.handleMetricsSummary)
-			handler := metricsAuthMiddleware(mux, p.cfg.Metrics.AuthToken)
+			var handler http.Handler = mux
+			if p.cfg.Metrics.RateLimitRPS > 0 {
+				limiter := newMetricsRateLimiter(p.cfg.Metrics.RateLimitRPS, p.cfg.Metrics.RateLimitBurst)
+				handler = metricsRateLimitMiddleware(handler, limiter, p.log)
+			}
+			handler = metricsAuthMiddleware(handler, p.cfg.Metrics.AuthToken)
 			bindHost := p.cfg.Metrics.BindHost
 			if bindHost == "" {
 				bindHost = "127.0.0.1"
@@ -893,6 +898,105 @@ func metricsAuthMiddleware(next http.Handler, token string) http.Handler {
 			subtle.ConstantTimeCompare([]byte(h[len(prefix):]), []byte(token)) != 1 {
 			w.Header().Set("WWW-Authenticate", `Bearer realm="ja4proxy-metrics"`)
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// metricsRateLimiter is a per-IP token-bucket for the observability endpoints.
+//
+// JA4PROXY-2026-0026 — /metrics, /health, /health/deep, and /metrics/summary
+// were previously unthrottled. A compromised-token holder or a misconfigured
+// scraper could spam these, each hit costing a Redis PING plus log/metric
+// churn, and DoS the observability subsystem. The limiter enforces a
+// configured RPS per remote IP with a small burst. Loopback is exempted so
+// co-located Prometheus sidecars are never throttled. Over-limit callers get
+// 429 with Retry-After set to one second and a small WARN log that cannot
+// itself be turned into a flood because the log emission is also gated by
+// the bucket.
+type metricsRateLimiter struct {
+	rps    float64
+	burst  float64
+	mu     sync.Mutex
+	bucket map[string]*ipBucket
+	// maxEntries caps the bucket map to prevent memory-growth via spoofed
+	// source IPs. Oldest entries are evicted on insert when the cap is hit.
+	maxEntries int
+}
+
+type ipBucket struct {
+	tokens   float64
+	lastSeen time.Time
+}
+
+func newMetricsRateLimiter(rps float64, burst int) *metricsRateLimiter {
+	b := float64(burst)
+	if b <= 0 {
+		b = rps * 2
+	}
+	return &metricsRateLimiter{
+		rps:        rps,
+		burst:      b,
+		bucket:     make(map[string]*ipBucket),
+		maxEntries: 4096,
+	}
+}
+
+// allow returns true if remoteAddr has a token available, consuming one.
+// remoteAddr is the RemoteAddr string (host:port) from http.Request.
+func (l *metricsRateLimiter) allow(remoteAddr string, now time.Time) bool {
+	if l == nil || l.rps <= 0 {
+		return true
+	}
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		host = remoteAddr
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	b, ok := l.bucket[host]
+	if !ok {
+		if len(l.bucket) >= l.maxEntries {
+			// Evict the single oldest entry to bound memory.
+			var oldestKey string
+			var oldestTime time.Time
+			for k, v := range l.bucket {
+				if oldestKey == "" || v.lastSeen.Before(oldestTime) {
+					oldestKey = k
+					oldestTime = v.lastSeen
+				}
+			}
+			delete(l.bucket, oldestKey)
+		}
+		b = &ipBucket{tokens: l.burst, lastSeen: now}
+		l.bucket[host] = b
+	} else {
+		elapsed := now.Sub(b.lastSeen).Seconds()
+		if elapsed > 0 {
+			b.tokens += elapsed * l.rps
+			if b.tokens > l.burst {
+				b.tokens = l.burst
+			}
+		}
+		b.lastSeen = now
+	}
+	if b.tokens < 1.0 {
+		return false
+	}
+	b.tokens -= 1.0
+	return true
+}
+
+func metricsRateLimitMiddleware(next http.Handler, limiter *metricsRateLimiter, log *logrus.Logger) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if config.MetricsRequestIsLocal(r.RemoteAddr) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !limiter.allow(r.RemoteAddr, time.Now()) {
+			w.Header().Set("Retry-After", "1")
+			http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
 			return
 		}
 		next.ServeHTTP(w, r)

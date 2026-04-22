@@ -160,9 +160,11 @@ func DefaultConfig() *Config {
 			Format:      "legacy",
 		},
 		Metrics: MetricsConfig{
-			Enabled:  true,
-			Port:     9090,
-			BindHost: "127.0.0.1",
+			Enabled:        true,
+			Port:           9090,
+			BindHost:       "127.0.0.1",
+			RateLimitRPS:   20,
+			RateLimitBurst: 40,
 		},
 		Monitoring: MonitoringConfig{
 			Enabled:                 false,
@@ -527,6 +529,16 @@ type MetricsConfig struct {
 	Port      FlexInt `yaml:"port"`
 	BindHost  string  `yaml:"bind_host"`
 	AuthToken string  `yaml:"auth_token"`
+	// RateLimitRPS caps requests-per-second across all observability endpoints
+	// (/metrics, /health, /health/deep, /metrics/summary) per remote IP. 0
+	// disables the limiter. JA4PROXY-2026-0026 — without this an attacker (or
+	// a misbehaving scraper) can spam the endpoints to flood logs, churn
+	// Redis pings, and recycle Prometheus scrape state. Loopback is exempted
+	// so co-located Prometheus sidecars are never throttled.
+	RateLimitRPS float64 `yaml:"rate_limit_rps"`
+	// RateLimitBurst is the token-bucket burst size; a short spike up to this
+	// size is allowed before the RPS cap kicks in. 0 means use 2×RateLimitRPS.
+	RateLimitBurst int `yaml:"rate_limit_burst"`
 }
 
 // TarpitConfig holds tarpit self-protection settings.
