@@ -2927,12 +2927,49 @@ class ProxyServer:
             self.logger.debug(f"Connection closed ({direction}): {e}")
 
 
+def _luhn_check(digits: str) -> bool:
+    """Return True iff ``digits`` (pure-digit string) passes the Luhn mod-10
+    checksum used by real credit card numbers.
+
+    JA4PROXY-2026-0039: a bare ``\\d{13,19}`` pattern matches Unix
+    timestamps in milliseconds (13 digits), large counters, Redis keys,
+    and many JA4 fingerprints — corrupting operational logs with
+    ``***CARD_REDACTED***`` placeholders. Real PANs always satisfy
+    Luhn, so gating the redaction on Luhn success drops the false-
+    positive rate to ~1-in-10 for random digit runs while still
+    catching real card numbers.
+    """
+    total = 0
+    parity = len(digits) % 2
+    for idx, ch in enumerate(digits):
+        value = ord(ch) - 48  # '0' == 48
+        if idx % 2 == parity:
+            value *= 2
+            if value > 9:
+                value -= 9
+        total += value
+    return total % 10 == 0
+
+
+def _redact_card_if_luhn(match: "re.Match[str]") -> str:
+    """Re.sub callback: redact only when the captured run passes Luhn.
+
+    JA4PROXY-2026-0039: keeps timestamps and other long-digit-runs
+    intact in logs so operators can debug without secondary corruption.
+    """
+    digits = match.group(1)
+    return "***CARD_REDACTED***" if _luhn_check(digits) else digits
+
+
 class SensitiveDataFilter(logging.Filter):
     """Filter to prevent logging of sensitive data (SECURITY FIX)."""
 
     def __init__(self):
         super().__init__()
-        # Patterns to redact from logs
+        # Patterns to redact from logs. Each entry is (compiled-regex,
+        # replacement) where replacement is either a string (plain
+        # substitution) or a callable taking an ``re.Match`` — re.sub
+        # accepts both natively.
         self.sensitive_patterns = [
             (
                 re.compile(
@@ -2959,9 +2996,12 @@ class SensitiveDataFilter(logging.Filter):
                 "Authorization: Bearer ***REDACTED***",
             ),
             (
-                re.compile(r"(\d{13,19})", re.IGNORECASE),
-                "***CARD_REDACTED***",
-            ),  # Credit card numbers
+                # JA4PROXY-2026-0039: word-boundary + Luhn gate so the
+                # filter only redacts strings that are plausibly real
+                # card numbers, not random 13-19 digit runs.
+                re.compile(r"\b(\d{13,19})\b"),
+                _redact_card_if_luhn,
+            ),
             (
                 re.compile(
                     r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", re.IGNORECASE
