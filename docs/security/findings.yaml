@@ -1705,13 +1705,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118l
+  - 118kk
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_config_path_traversal_regression.py::test_rejects_parent_dir_traversal_mid_path
+  closed_commit: b7f6e0d3b16b909e41e286aed8f59b2a8d0fead8
   description: src/config/loader.py accepts config_path parameter without validation. Path traversal could
     allow read of sensitive files outside project root.
   notes: Phase 118l specifies Path().resolve() validation, ensuring config path within project root.
