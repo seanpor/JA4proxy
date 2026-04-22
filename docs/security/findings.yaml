@@ -1400,13 +1400,14 @@ findings:
     notes: implied
   remediation_phases:
   - 119o
+  - 118mm
   discovered: '2026-04-17'
   due: '2026-08-15'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_redis_acl_distinct_passwords_regression.py::test_distinct_per_user_passwords_apply
+  closed_commit: 3763ceacf762be2f457484d0aeb3dd8904cbbd2b
   description: scripts/redis-acl-setup.sh assigns same $REDIS_PASSWORD to all ACL users (proxy, analytics,
     admin). Single credential leak compromises all users.
   notes: Phase 119o specifies unique password per ACL user, distributed via Docker secrets.

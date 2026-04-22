@@ -106,9 +106,9 @@ get forgotten.
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 10 | OPEN | 9 |
+| CRITICAL | 10 | OPEN | 8 |
 | HIGH | 14 | IN_PROGRESS | 0 |
-| MEDIUM | 21 | FIXED | 45 |
+| MEDIUM | 21 | FIXED | 46 |
 | LOW | 9 | VERIFIED | 0 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
@@ -168,7 +168,7 @@ get forgotten.
 | JA4PROXY-2026-0040 | LOW | OPEN | infrastructure | 2026-08-15 | start-poc.sh Echoes Passwords to Console |
 | JA4PROXY-2026-0041 | LOW | OPEN | go-proxy | 2026-08-15 | Config Reload Path Hardcoded (Ignores CONFIG_PATH) |
 | JA4PROXY-2026-0042 | LOW | OPEN | infrastructure | 2026-08-15 | Redis Unix Socket Permissions 777 |
-| JA4PROXY-2026-0043 | LOW | OPEN | infrastructure | 2026-08-15 | Redis ACL Users All Share Same Password |
+| JA4PROXY-2026-0043 | LOW | FIXED | infrastructure | 2026-08-15 | Redis ACL Users All Share Same Password |
 | JA4PROXY-2026-0044 | LOW | OPEN | python-management | 2026-08-15 | Unpinned Python Dependencies (Management API) |
 | JA4PROXY-2026-0045 | LOW | OPEN | infrastructure | 2026-08-15 | Grafana Bound to All Interfaces in Monitoring Stack |
 | JA4PROXY-2026-0046 | LOW | OPEN | infrastructure | 2026-08-15 | K8s DaemonSet Missing Probes and NetworkPolicy |
