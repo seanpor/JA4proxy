@@ -305,11 +305,14 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 		conn.JA4X = ja4tls.ExtractJA4X(conn.ClientCertificate)
 	}
 
-	// Blocklist check (hard block — before dial fetch)
-	if blSigs, hardBlock := p.blocklists.Check(conn.ClientIP); hardBlock {
+	// Blocklist check (hard block — before dial fetch). JA4PROXY-2026-0037:
+	// Check() is called exactly once; the previous version called it here
+	// and again during signal collection, so a PubSub-driven blocklist
+	// update between the two calls could cause a hard-block decision and
+	// a soft-signal decision to disagree on the same connection.
+	blSigs, blHardBlock := p.blocklists.Check(conn.ClientIP)
+	if blHardBlock {
 		return &PipelineResult{Action: "block", Score: 100, BypassReason: "blocklist"}
-	} else {
-		_ = blSigs // will be added to signals below after dial fetch
 	}
 
 	// ── 2. DIAL (fetch once — cheap Redis GET) ────────────────────────────
@@ -321,10 +324,8 @@ func (p *Pipeline) Process(ctx context.Context, conn *ConnectionContext) *Pipeli
 	// ── 3. SIGNAL COLLECTION ─────────────────────────────────────────────
 	var signals []RiskSignal
 
-	// Blocklist scored signals (non-hard-block feeds)
-	if blSigs, hardBlock := p.blocklists.Check(conn.ClientIP); !hardBlock {
-		signals = append(signals, blSigs...)
-	}
+	// Blocklist scored signals (from the single Check() above).
+	signals = append(signals, blSigs...)
 
 	// TLS enforcement (hard block check first)
 	if tlsSigs, hardBlock := p.tlsEnforcer.Check(uint16(conn.TLSVersion), uint16s(conn.CipherList)); hardBlock { //nolint:gosec // TLS version is always uint16 range
