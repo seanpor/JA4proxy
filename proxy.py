@@ -190,6 +190,21 @@ MAX_TLS_PARSER_INPUT_BYTES = 65536
 # decides to, which is exactly why the input size cap above matters.
 TLS_PARSER_TIMEOUT_SECONDS = 2.0
 
+# JA4PROXY-2026-0038 — atomic rate-limit INCR+EXPIRE. Redis runs Lua
+# scripts under its single-threaded model, so the INCR and the
+# conditional EXPIRE both execute without interleaving from other
+# clients and without the previous "crash between INCR and EXPIRE
+# strands the key without TTL" race. ARGV[1] is the window seconds.
+# Returns the post-INCR count so the caller can apply its threshold
+# identically to the previous implementation.
+RATE_LIMIT_INCR_LUA = """\
+local current = redis.call('INCR', KEYS[1])
+if current == 1 then
+    redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+return current
+"""
+
 
 def _parse_tls_task(data: bytes) -> Optional[Dict]:
     """
@@ -1166,9 +1181,17 @@ class SecurityManager:
         key = f"rate_limit:{client_ip}"
 
         try:
-            current = await self.redis.incr(key)
-            if current == 1:
-                await self.redis.expire(key, window)
+            # JA4PROXY-2026-0038: atomic INCR + conditional EXPIRE.
+            # The previous form was two round-trips (INCR then, when
+            # current==1, EXPIRE) — a crash between them left the key
+            # with no TTL, permanently rate-limiting that IP. The Lua
+            # below runs atomically under Redis' single-threaded model.
+            current = await self.redis.eval(
+                RATE_LIMIT_INCR_LUA,
+                1,
+                key,
+                window,
+            )
 
             if current > max_requests:
                 self.logger.warning(
