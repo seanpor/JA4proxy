@@ -1370,16 +1370,23 @@ findings:
     notes: implied
   remediation_phases:
   - 119n
+  - 118oo
   discovered: '2026-04-17'
   due: '2026-08-15'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_redis_unixsocket_perm_regression.py
+  closed_commit: b4a9f1bb5012340ceec6040b48a331415bca6ae3
   description: deploy/docker/docker-compose.poc.yml and docker-compose.prod.yml Redis use --unixsocketperm
     777. Any container sharing redis-sock volume can connect without restriction.
   notes: Phase 119n specifies --unixsocketperm 770 with volume shared only by proxy/analytics containers.
+    Phase 118oo tightened both compose files to 770 and added group_add ['999'] to the prod proxy
+    service (POC proxy uses TCP, no group_add needed). The GID 999 is canonical — already pinned
+    in deploy/helm/ja4proxy/templates/redis.yaml and deploy/ansible/roles/redis-secure/tasks/main.yml.
+    Regression test pins 'others' octal digit to 0 in both files, pins group_add on prod proxy,
+    and pins that no non-redis service mounts redis-sock in POC (so a future mount cannot
+    silently open the hardening gap).
 - id: JA4PROXY-2026-0043
   title: Redis ACL Users All Share Same Password
   severity: LOW
