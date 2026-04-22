@@ -72,7 +72,10 @@ class TestUrlShape:
         """IPv4 address is embedded in the URL path segment."""
         captured: list = []
 
-        def fake_urlopen(req, timeout=None):
+        def fake_urlopen(req, timeout=None, **kwargs):
+            # JA4PROXY-2026-0055 (phase-118aa): real _post_ban now passes
+            # context=<ssl context>. Accept **kwargs so future hardening
+            # kwargs do not silently break this mock.
             captured.append(req)
             return _make_fake_response()
 
@@ -95,7 +98,10 @@ class TestUrlShape:
         """IPv6 colons are percent-encoded so they don't break URL parsing."""
         captured: list = []
 
-        def fake_urlopen(req, timeout=None):
+        def fake_urlopen(req, timeout=None, **kwargs):
+            # JA4PROXY-2026-0055 (phase-118aa): real _post_ban now passes
+            # context=<ssl context>. Accept **kwargs so future hardening
+            # kwargs do not silently break this mock.
             captured.append(req)
             return _make_fake_response()
 
@@ -125,7 +131,10 @@ class TestUrlShape:
         """URL must NOT be /api/v1/bans with no IP segment (old broken shape)."""
         captured: list = []
 
-        def fake_urlopen(req, timeout=None):
+        def fake_urlopen(req, timeout=None, **kwargs):
+            # JA4PROXY-2026-0055 (phase-118aa): real _post_ban now passes
+            # context=<ssl context>. Accept **kwargs so future hardening
+            # kwargs do not silently break this mock.
             captured.append(req)
             return _make_fake_response()
 
@@ -155,7 +164,10 @@ class TestRequestBodyShape:
     def _capture_body(self, src_ip: str, ttl_seconds: int, reason: str) -> dict:
         captured: list = []
 
-        def fake_urlopen(req, timeout=None):
+        def fake_urlopen(req, timeout=None, **kwargs):
+            # JA4PROXY-2026-0055 (phase-118aa): real _post_ban now passes
+            # context=<ssl context>. Accept **kwargs so future hardening
+            # kwargs do not silently break this mock.
             captured.append(req)
             return _make_fake_response()
 
