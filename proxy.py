@@ -2770,10 +2770,22 @@ class ProxyServer:
         """Forward connection to backend server."""
         backend_writer = None
         try:
-            # Connect to backend
-            backend_reader, backend_writer = await asyncio.open_connection(
-                self.config["proxy"]["backend_host"],
-                int(self.config["proxy"]["backend_port"]),
+            # JA4PROXY-2026-0028 — bound the backend TCP connect so a slow or
+            # unresponsive backend can't tie up handler coroutines for the
+            # default OS TCP timeout (~2 minutes). Without this, a backend
+            # under separate load would let any attacker exhaust the event
+            # loop simply by opening connections. Matches the tarpit redirect
+            # bound (5s) by default; operators can tune via
+            # proxy.backend_connect_timeout_seconds.
+            connect_timeout = float(
+                self.config["proxy"].get("backend_connect_timeout_seconds", 5)
+            )
+            backend_reader, backend_writer = await asyncio.wait_for(
+                asyncio.open_connection(
+                    self.config["proxy"]["backend_host"],
+                    int(self.config["proxy"]["backend_port"]),
+                ),
+                timeout=connect_timeout,
             )
 
             self.logger.info(f"Forwarding connection with JA4: {fingerprint.ja4}")
@@ -2789,6 +2801,16 @@ class ProxyServer:
                 return_exceptions=True,
             )
 
+        except asyncio.TimeoutError:
+            # JA4PROXY-2026-0028 — log distinctly so operators can page on
+            # sustained backend-connect timeouts (separate from arbitrary
+            # forward errors).
+            self.logger.warning(
+                "backend connect timed out after %ss (host=%s port=%s)",
+                connect_timeout,
+                self.config["proxy"]["backend_host"],
+                self.config["proxy"]["backend_port"],
+            )
         except Exception as e:
             self.logger.error(f"Error forwarding to backend: {e}")
         finally:
