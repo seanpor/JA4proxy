@@ -27,53 +27,41 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Ensure compliance with Cyber Resilience Act (CRA), NIST SSDF, and ISO standards (27017, 29100) including SLSA L3 provenance.)
 *   **Action Plan:** [PHASE_107.md](PHASE_107.md)
 
-### Phase 108 — Full-Stack Penetration Testing Campaign
-*   **Status:** **PROPOSED** (A 7-layer adversarial assessment covering Go/Python core, Redis state, CI/CD supply chain, and DMZ network evasion.)
-*   **Action Plan:** [PHASE_108.md](PHASE_108.md)
-
 ### Phase 109 — PROXY Protocol Hardening & Scrubbing
-*   **Status:** **PROPOSED** (Harden Go proxy to strip untrusted PROXY headers and handle partial reads; implement unified IP/Fingerprint blocklist schema.)
+*   **Status:** **DEFERRED** (Superseded by Phase 118 — PROXY-header scrubbing closed via findings register (118a/b, 116a).)
 *   **Action Plan:** [PHASE_109.md](PHASE_109.md)
 
 ### Phase 110 — Management API Security Hardening
-*   **Status:** **PROPOSED** (Fix Redis-blocking health checks, implement CSRF protection, secure bearer token lookups (O(1)), and add Webhook SSRF validation.)
+*   **Status:** **DEFERRED** (Superseded by Phase 118 — CSRF, bearer-token lookup, Webhook SSRF, Redis-blocking health checks closed via findings register (110e, 118c/d/e/h).)
 *   **Action Plan:** [PHASE_110.md](PHASE_110.md)
 
 ### Phase 111 — Security Logic & Tarpit Hardening
-*   **Status:** **PROPOSED** (Implement fail-closed tarpit policies for high-risk traffic and add enforcement for recognizability (BlockNonTLS).)
+*   **Status:** **DEFERRED** (Superseded by Phase 118 — fail-closed tarpit and BlockNonTLS enforcement closed via findings register (111a).)
 *   **Action Plan:** [PHASE_111.md](PHASE_111.md)
 
 ### Phase 112 — Session & Data Integrity Hardening
-*   **Status:** **PROPOSED** (Implement strict validation for GDPR erasure, JWT JTI blacklisting on logout, and migrate audit log to Redis Streams for reliability.)
+*   **Status:** **DEFERRED** (Superseded by Phase 118 — GDPR erasure, JWT JTI blacklisting, audit-log reliability closed via findings register (118f/g/m).)
 *   **Action Plan:** [PHASE_112.md](PHASE_112.md)
 
 ### Phase 113 — Proxy Stability & Audit Instrumentation
-*   **Status:** **PROPOSED** (Bound beaconing sets in Redis to prevent OOM, implement non-blocking tarpit writes, and add missing audit logs for token mutations.)
+*   **Status:** **DEFERRED** (Superseded by Phase 118 — beaconing bounds, non-blocking tarpit writes, token-mutation audit logs closed via findings register.)
 *   **Action Plan:** [PHASE_113.md](PHASE_113.md)
 
 ### Phase 114 — Supply Chain & Infrastructure Hygiene
-*   **Status:** **PROPOSED** (Fix command injection in Jenkinsfile/Makefile and ensure idempotent cron job deployment in scripts/deploy.sh.)
+*   **Status:** **DEFERRED** (Superseded by Phase 118 — Jenkinsfile/Makefile command injection and idempotent cron deployment closed via findings register.)
 *   **Action Plan:** [PHASE_114.md](PHASE_114.md)
 
 ### Phase 115 — Web & Rendering Security
-*   **Status:** **PROPOSED** (Remediate Reflected XSS in HTMX partials and disable external fetching in WeasyPrint SVG rendering to prevent SSRF/LFI.)
+*   **Status:** **DEFERRED** (Superseded by Phase 118 — HTMX XSS and WeasyPrint SSRF/LFI closed via findings register.)
 *   **Action Plan:** [PHASE_115.md](PHASE_115.md)
 
 ### Phase 116 — Protocol Parser Hardening
-*   **Status:** **PROPOSED** (Implement fail-closed parsing for PROXY protocol on trusted connections to prevent protocol confusion/smuggling.)
+*   **Status:** **DEFERRED** (Superseded by Phase 118 — fail-closed PROXY parsing on trusted connections closed via findings register (116a, 118a/b).)
 *   **Action Plan:** [PHASE_116.md](PHASE_116.md)
 
 ### Phase 117 — DMZ Network Hardening & Anti-Smuggling
 *   **Status:** **DEFERRED** (Superseded by Phase 118 — full pentest remediation including Redis ACLs and auth hardening.)
 *   **Action Plan:** [PHASE_117.md](PHASE_117.md)
-
-### Phase 118 — Pentest Remediation: Attack Surface & Data Leakage Hardening
-*   **Status:** **PROPOSED** (Remediate L1-018 (PROXY smuggling), L1-019 (fragmentation), L4-028 (XFF spoofing), SSRF (webhooks), unauth metrics, Redis fail-open, backup encryption leak, integration TLS verification, Redis ACLs, auth rate limiting.)
-*   **Action Plan:** [PHASE_118.md](PHASE_118.md)
-
-### Phase 119 — Connection Lifecycle Hardening & Operational Security
-*   **Status:** **PROPOSED** (Fix 17 vulnerabilities from independent white-box red team: goroutine leaks, n-vs-len(data) JA4 bypass, unauthenticated metrics, credential rotation, connection limits, tarpit timeouts, Redis KEYS blocking, trusted CIDR validation, SNI key injection, cookie secure flag, log sanitisation, OIDC token verification.)
-*   **Action Plan:** [PHASE_119.md](PHASE_119.md)
 
 ### Phase 120 — Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED)
 *   **Status:** **DEFERRED** (Retired 2026-04-19 under Phase 121e as duplicate of Phase 119. All 20 findings were either duplicates of 119 entries or already folded into the canonical findings register (docs/security/findings.yaml) with remediation_phases pointing at 119 or its successor phases. See PHASE_120.md redirect stub.)
