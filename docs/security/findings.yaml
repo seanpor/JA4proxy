@@ -1098,13 +1098,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118p
+  - 118ii
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_tls_parser_isolation_regression.py::test_parse_tls_task_does_not_setrlimit
+  closed_commit: 3ce47b9
   description: proxy.py:1279-1281 uses ThreadPoolExecutor (not ProcessPoolExecutor). Original used ProcessPoolExecutor
     for memory isolation — malformed TLS crash only kills child. With ThreadPoolExecutor, pathological
     Scapy parsing consumes unlimited memory in main proxy process.
