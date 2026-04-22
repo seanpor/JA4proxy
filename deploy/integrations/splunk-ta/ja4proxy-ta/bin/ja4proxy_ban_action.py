@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import json
 import os
+import ssl
 import sys
 import urllib.error
 import urllib.parse
@@ -34,6 +35,35 @@ import urllib.request
 def _log(level: str, message: str) -> None:
     """Write a log line to stderr (captured by Splunk as the action log)."""
     print(f"[{level}] ja4proxy_ban_action: {message}", file=sys.stderr, flush=True)
+
+
+def _build_tls_context(url: str) -> "ssl.SSLContext | None":
+    """Build a TLS context for outbound HTTPS to the Management API.
+
+    JA4PROXY-2026-0055 — the previous version called ``urlopen()`` with
+    no context, so on Python <3.8 verification was disabled outright.
+    We now always build an ``ssl.create_default_context()`` for HTTPS
+    targets and only disable verification when operators opt in via
+    ``JA4PROXY_TLS_INSECURE=1``. The escape hatch is logged on every
+    call so its use is visible in the Splunk action log.
+    """
+    if not url.lower().startswith("https://"):
+        return None
+    if os.environ.get("JA4PROXY_TLS_INSECURE", "") == "1":
+        _log(
+            "WARN",
+            "TLS verification disabled via JA4PROXY_TLS_INSECURE=1 — "
+            "Management API traffic is vulnerable to active MITM; "
+            "only use this for short-lived lab deployments.",
+        )
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        return ctx
+    ca_bundle = os.environ.get("JA4PROXY_CA_BUNDLE", "")
+    if ca_bundle:
+        return ssl.create_default_context(cafile=ca_bundle)
+    return ssl.create_default_context()
 
 
 def _read_payload() -> dict:
@@ -110,8 +140,9 @@ def _post_ban(mgmt_url: str, api_token: str, src_ip: str, ttl_seconds: int, reas
         method="POST",
     )
 
+    ctx = _build_tls_context(endpoint)
     try:
-        with urllib.request.urlopen(request, timeout=10) as response:  # nosemgrep: dynamic-urllib-use-detected
+        with urllib.request.urlopen(request, timeout=10, context=ctx) as response:  # nosemgrep: dynamic-urllib-use-detected
             status = response.getcode()
             response_body = response.read().decode("utf-8", errors="replace")
             if status in (200, 201):
