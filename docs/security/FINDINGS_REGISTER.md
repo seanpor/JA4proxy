@@ -106,9 +106,9 @@ get forgotten.
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 10 | OPEN | 27 |
+| CRITICAL | 10 | OPEN | 26 |
 | HIGH | 14 | IN_PROGRESS | 0 |
-| MEDIUM | 21 | FIXED | 27 |
+| MEDIUM | 21 | FIXED | 28 |
 | LOW | 9 | VERIFIED | 0 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
@@ -159,7 +159,7 @@ get forgotten.
 | JA4PROXY-2026-0031 | MEDIUM | OPEN | go-proxy | 2026-06-16 | XADD Fire-and-Forget Without Backpressure (Go) |
 | JA4PROXY-2026-0032 | MEDIUM | OPEN | python-management | 2026-06-16 | OIDC Token Signature Not Verified |
 | JA4PROXY-2026-0033 | MEDIUM | OPEN | python-management | 2026-06-16 | Python TLS Parser Runs in ThreadPool Without Memory Isolation |
-| JA4PROXY-2026-0034 | MEDIUM | OPEN | python-management | 2026-06-16 | Invalid JWT Role Defaults to Admin |
+| JA4PROXY-2026-0034 | MEDIUM | FIXED | python-management | 2026-06-16 | Invalid JWT Role Defaults to Admin |
 | JA4PROXY-2026-0035 | MEDIUM | OPEN | python-management | 2026-06-16 | DSAR Export Reads Entire Redis Stream Into Memory |
 | JA4PROXY-2026-0036 | MEDIUM | OPEN | python-management | 2026-06-16 | IPv6 Burst Detection Parsing Bug |
 | JA4PROXY-2026-0037 | MEDIUM | OPEN | go-proxy | 2026-06-16 | Blocklist Double-Check with Stale Signals |

@@ -1123,13 +1123,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119i
+  - 118y
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: management/tests/test_pentest_jwt_role_default_regression.py::test_jwt_with_garbage_role_gets_auditor_not_admin
+  closed_commit: e92b9cb7209e550b7cb340122b1e4a273dd92a61
   description: management/api/auth.py:316-320 defaults unrecognised JWT role values to Role.admin (fail-open
     to max privilege). Tampered tokens with garbage role values escalate to admin access.
   notes: Phase 119i specifies defaulting to Role.auditor (lowest privilege) with warning log.
