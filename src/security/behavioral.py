@@ -53,6 +53,30 @@ def _sni_key_hash(sni: str) -> str:
     return hashlib.sha256(sni.encode("utf-8", errors="replace")).hexdigest()[:16]
 
 
+def _extract_burst_ip(member: bytes) -> str:
+    """Return the IP portion of a ``behavioral:burst`` ZSET member.
+
+    JA4PROXY-2026-0036 — the current member format is ``"{ip}|{ms}"`` with
+    ``"|"`` as the delimiter (illegal in every textual IP representation,
+    so there is no ambiguity). ``rsplit("|", 1)`` peels off the timestamp
+    even if the IP itself were ever allowed to contain ``|``.
+
+    During an operator upgrade the ZSET may still carry legacy
+    ``"{ip}:{ms}"`` members with a 10-second TTL. For those we fall back
+    to the previous naive left-split — which keeps the signal at parity
+    with the old (buggy) behaviour for those members until the window
+    rolls over. Since IPv4 literals never contain ``|``, and this path is
+    only reached for legacy data, the fallback does not reintroduce the
+    IPv6 bug for any NEW member added post-upgrade.
+    """
+    s = member.decode("utf-8", errors="replace")
+    if "|" in s:
+        return s.rsplit("|", 1)[0]
+    # Legacy format (pre-0036) — present only during the 10s TTL window
+    # immediately after upgrade; harmless to preserve old behaviour here.
+    return s.split(":", 1)[0]
+
+
 class BehavioralAnalyzer:
     """
     Analyzes multi-connection behavior to identify coordinated campaigns.
@@ -128,8 +152,18 @@ class BehavioralAnalyzer:
         # asterisks, etc. that collide with the key namespace.
         key = f"behavioral:burst:{_sni_key_hash(ctx.sni)}"
         try:
-            # Add current hit to sorted set
-            member = f"{ctx.client_ip}:{now_ms}"
+            # JA4PROXY-2026-0036 — use "|" as the IP↔timestamp delimiter.
+            # The previous format "{ip}:{ms}" was ambiguous for IPv6: splitting
+            # on ":" extracted only the first hextet (e.g. "2001"), so every
+            # IPv6 client in the same /16 coalesced into one bucket. That
+            # both under-counted IPv6 bursts AND leaked a /16 correlation to
+            # anyone inspecting the ZSET. "|" is illegal in every textual
+            # IP representation (IPv4 allows digits/dots; IPv6 allows
+            # hex/colons/"."), so rsplit is not even required — but we use
+            # rsplit defensively anyway in case an operator upgrades mid-
+            # window and the ZSET still contains legacy colon-form members
+            # (TTL is 10s so this state is short-lived).
+            member = f"{ctx.client_ip}|{now_ms}"
             await self._redis.zadd(key, {member: now_ms})
 
             # Cleanup old hits
@@ -138,7 +172,7 @@ class BehavioralAnalyzer:
 
             # Count unique IPs in the window
             members = await self._redis.zrange(key, 0, -1)
-            unique_ips = {m.decode("utf-8").split(":")[0] for m in members}
+            unique_ips = {_extract_burst_ip(m) for m in members}
 
             if len(unique_ips) >= self._burst_count_threshold:
                 _PATTERN_DETECTED.labels(pattern_type="coordinated_burst").inc()
