@@ -1565,13 +1565,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - (no explicit phase; general credential hardening)
+  - 118dd
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: internal/security/pentest_abuseipdb_key_hardening_regression_test.go::TestRegression_JA4PROXY_2026_0049_refuses_http_api_url
+  closed_commit: ae325eb
   description: internal/security/abuseipdb.go passes API key in HTTP header. If network compromised, key
     exposed.
   notes: 'Standard practice: HTTP headers vulnerable to MITM. Recommend HTTPS only (already likely) and
