@@ -1460,16 +1460,21 @@ findings:
     notes: implied
   remediation_phases:
   - 119q
+  - 118nn
   discovered: '2026-04-17'
   due: '2026-08-15'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_grafana_loopback_bind_regression.py
+  closed_commit: e9bda6ad33b803d8ea1aa011f03b92630ad82070
   description: deploy/docker/docker-compose.monitoring.yml Grafana binds to 0.0.0.0:3001 while other services
     bind to 127.0.0.1. Exposes dashboards showing topology, bans, security state.
   notes: Phase 119q specifies '127.0.0.1:3001:3000'. Dashboard still accessible via SSH tunnel.
+    Phase 118nn applied the fix to BOTH docker-compose.monitoring.yml and docker-compose.prod.yml
+    (prod had the same '3001:3000' short form). Regression test parses both files and asserts
+    every Grafana port entry uses the explicit '127.0.0.1:HOST:CONTAINER' three-field short form,
+    plus pins the two files to identical bindings to prevent drift.
 - id: JA4PROXY-2026-0046
   title: K8s DaemonSet Missing Probes and NetworkPolicy
   severity: LOW
