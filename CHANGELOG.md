@@ -1,5 +1,55 @@
 # Changelog
 
+## [Unreleased] - Phase 121 — Pentest Remediation Consolidation & Program Discipline (2026-04-19)
+
+Plan-only meta-phase; no production code changed. Converts the 108–120 pentest
+backlog (~98 sub-phase entries, ~4,800 lines of remediation prose) into a
+managed program with a single canonical findings register and enforced
+program discipline.
+
+### Added
+- `docs/security/findings.yaml` — canonical findings register (54 entries,
+  CVSS v3.1 per ADR-121a) + generated `docs/security/FINDINGS_REGISTER.md`
+- `scripts/findings_register.py` — validate / list / add / dedup-hint /
+  promote-verified / verify-regression-tests / render / show subcommands
+- `docs/security/SEVERITY_RUBRIC.md` — CRITICAL 7d / HIGH 30d / MEDIUM 60d /
+  LOW 120d SLA tiers with worked examples and the fail-open asymmetry rule
+- `docs/security/REMEDIATION_WAVES.md` — four SLA-aligned waves with
+  dependency DAG and wave-completion predicates
+- `docs/security/CLOSURE_VERIFICATION.md` — OPEN → IN_PROGRESS → FIXED →
+  VERIFIED → CLOSED state machine with 14-day cool-off rationale
+- `docs/security/INTAKE_RUNBOOK.md` — triage runbook so the next red team
+  report ingests into the register instead of spawning a new phase
+- `docs/security/OWNERSHIP.md` — Go / Python-management / infrastructure
+  lanes; concentration risk documented
+- `docs/decisions/ADR-121a-cvss-version.md` — stay on CVSS v3.1 (supersedes
+  Phase 108n's v4 reference)
+- `.github/PULL_REQUEST_TEMPLATE.md` — canonical-ID opt-in + security-path
+  enforcement
+- `docs/TESTING_STRATEGY.md` §6 — regression-test-per-finding rule; tests
+  live under `tests/pentest/` or `internal/security/pentest/`
+- `scripts/phase_121_verify.py` + `make phase-121-verify` — close-out gate
+- `make verify-findings`, `make verify-findings-green`, `make findings-list`,
+  `make findings-render`
+
+### Changed
+- `docs/phases/PHASE_117.md` — status SUPERSEDED by 118; 117a/b/c →
+  118a/b/c mapping table
+- `docs/phases/PHASE_118.md` — merge-conflict resolved; unified leader
+  pentest (Track B) + white-box (Track A, preserved via register source_refs);
+  added "Rescoped against canonical register" block (-508 lines net)
+- `docs/phases/PHASE_119.md` — header rescoped; documents Phase 120
+  absorption
+- `docs/phases/PHASE_108.md` §108n — "Superseded implementation detail" note;
+  CVSS v4 → CVSS v3.1 per ADR-121a; references actual register location
+- `docs/phases/manifest.yaml` — phase 121 COMPLETE; phase 120 DEFERRED +
+  superseded_by: 119
+
+### Removed / Retired
+- `docs/phases/PHASE_120.md` — retired as redirect stub (DUPLICATE_OF 119).
+  All 20 "novel" findings were duplicates of 119 or already folded into the
+  canonical register via `source_refs`.
+
 ## [Unreleased] - Phase 207 — Go Test Coverage & Repository Hygiene (2026-04-16)
 
 ### Added

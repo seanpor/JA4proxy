@@ -374,3 +374,107 @@ A phase is not complete until all of the following pass:
 
 This gate is checked by the agent before declaring a phase done and before
 starting the next phase.
+
+---
+
+## §6. Regression Tests Per Security Finding (Phase 121d)
+
+Every canonical finding in `docs/security/findings.yaml` that has reached
+status `FIXED`, `VERIFIED`, or `CLOSED` **must** have a dedicated regression
+test. `scripts/findings_register.py validate` fails if this is violated, and
+`make verify-findings` is wired into the phase-completion gate above via
+`make verify-findings-green` (see §6.3).
+
+### §6.1 File and test naming
+
+Python regression tests live under `tests/pentest/` in files named after the
+canonical ID:
+
+```
+tests/pentest/test_ja4proxy_2026_0001_proxy_v2_spoofing.py
+tests/pentest/test_ja4proxy_2026_0014_xff_precedence.py
+```
+
+Go regression tests live under `internal/security/pentest/` using the same
+pattern:
+
+```
+internal/security/pentest/ja4proxy_2026_0001_proxy_v2_spoofing_test.go
+```
+
+The `regression_test` field in `findings.yaml` stores a pytest nodeid
+(`tests/pentest/test_foo.py::test_name`) or a Go test path
+(`internal/security/pentest/foo_test.go::TestName`). One nodeid per finding.
+
+### §6.2 Required docstring citation
+
+Every regression test function must begin with a docstring block that cites:
+
+- The canonical finding ID (`JA4PROXY-YYYY-NNNN`).
+- The original source ID(s) — e.g. `PHASE_108 L1-001`, `RED_TEAM_AUDIT R-017`.
+- The CVSS v3.1 vector if one is recorded on the finding.
+- A one-line summary of the vulnerable behaviour being guarded against.
+
+Example:
+
+```python
+def test_untrusted_source_rejected(proxy):
+    """JA4PROXY-2026-0001 — PROXY v2 spoofing from untrusted source.
+
+    Sources: PHASE_108 L1-001, PHASE_109 109a
+    CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N (9.1)
+
+    Vulnerable behaviour: ignoring PROXY v2 headers from IPs outside
+    trusted_cidrs left the attacker's spoofed header in the buffer for the
+    backend to mis-trust. Fix: reject (or strip) before any scoring.
+    """
+    ...
+```
+
+The docstring is consumed by the scripts/findings_register.py output for
+human review; PRs that change security-sensitive code should reference the
+docstring when justifying a test change.
+
+### §6.3 The `verify-findings-green` gate
+
+`make verify-findings-green` runs only the regression tests listed in
+`findings.yaml` — not the full suite. It is fast by design (seconds, not
+minutes) so that a triager can confirm a new report does not regress any
+previously-fixed finding before running the full gate.
+
+```bash
+# Validate schema + referential integrity:
+make verify-findings
+
+# Run only the regression tests that back existing findings:
+make verify-findings-green
+```
+
+Both must pass before a finding is permitted to transition from `FIXED` to
+`VERIFIED`. See `docs/security/CLOSURE_VERIFICATION.md` for the full state
+machine.
+
+### §6.4 Red-green requirement
+
+A regression test **must** have been observed to fail against the unfixed
+code at least once. This is how we guard against "tests that pass because
+they assert nothing". The closure protocol (Phase 121h) records the commit
+at which the test was observed red; `closed_commit` then records the commit
+at which it was made green. Both are preserved in the register.
+
+If a finding is reported against code that never shipped (a pre-merge review
+finding), the "red" commit can be the branch tip at time of discovery. If
+the finding cannot be reproduced at all, it is classified `DUPLICATE` of the
+earlier finding it subsumes, or — if genuinely spurious — closed with
+`status: CLOSED` and a `notes` entry explaining, without a regression test.
+The latter path requires security-lead sign-off and is expected to be rare.
+
+### §6.5 Cross-cutting findings
+
+A handful of findings map to multiple code paths (e.g. PROXY protocol
+handling lives in both the Go proxy and the Python proxy prototype). In this
+case, prefer a single regression test in the production lane (Go) and link
+it from `regression_test`. Cross-implementation parity is separately covered
+by the Phase 15 parity test suite (`tests/parity/`) — do not duplicate a
+parity test as a pentest regression unless the finding is genuinely
+implementation-specific.

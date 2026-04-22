@@ -5,7 +5,7 @@
 
 ## Current Status: Phase 101 (Phase 101 — Cross-Phase Gap Closure) Next
 
-**Last Updated:** 2026-04-17
+**Last Updated:** 2026-04-19
 
 ## Epics & Roadmap
 
@@ -62,6 +62,7 @@ Deep security analysis, compliance, and audit remediation.
 | 203 | Go Missing Signals — TAP OS Mismatch, TLS Mismatch, Weak Ciphers, DGA, Health | COMPLETE | Closes 5 production-critical signal gaps in Go. 203a re-architected: instead of impossible in-proxy JA4T computation (kernel consumes SYN options before accept()), Go proxy consumes TAP-produced `fp:os:ip:{ip}` fingerprints from Redis written by Phase 20 TAP node. Deleted dead `internal/tls/ja4t.go` stub. 203b adds `CheckJA4TLSMismatch` detecting JA4-prefix vs negotiated-TLS-version disagreement. 203c expands Go `weakCipherSet` to exactly 40 entries matching Python `WEAK_CIPHERS`. 203d rewrites Go `dgaConfidence` rule-for-rule against Python `dga_score`, validated by golden file of 100 hostnames at 1e-9 tolerance. 203e adds anti-flap hysteresis (N=3) via `internal/health/state.go`, tarpit-saturation→200+degraded, geoip status field; `/health` invariant preserved. |
 | 118 | Pentest Remediation: Attack Surface & Data Leakage Hardening | PROPOSED | Remediate L1-018 (PROXY smuggling), L1-019 (fragmentation), L4-028 (XFF spoofing), SSRF (webhooks), unauth metrics, Redis fail-open, backup encryption leak, integration TLS verification, Redis ACLs, auth rate limiting. |
 | 119 | Connection Lifecycle Hardening & Operational Security | PROPOSED | Fix 17 vulnerabilities from independent white-box red team: goroutine leaks, n-vs-len(data) JA4 bypass, unauthenticated metrics, credential rotation, connection limits, tarpit timeouts, Redis KEYS blocking, trusted CIDR validation, SNI key injection, cookie secure flag, log sanitisation, OIDC token verification. |
+| 121 | Pentest Remediation Consolidation & Program Discipline | COMPLETE | Plan-only meta-phase that turns the 108–120 bug-hunt pile into a managed program: canonical findings register + tooling, severity rubric + SLA policy, dedup across ~98 sub-phases down to 54 canonical findings, rescope of 117/118/119/120 against the register (retires 120 as duplicate of 119), remediation waves DAG, closure verification protocol, intake runbook for the next red team report, CVSS version ADR. 11 sub-phases, no code fixes. All acceptance criteria met 2026-04-19; make phase-121-verify green. |
 
 ### Epic: Analytics & Intelligence
 Cross-instance behavior analysis and threat intelligence.
@@ -280,7 +281,8 @@ Alignment with international standards and regulatory frameworks.
 | 117 | DMZ Network Hardening & Anti-Smuggling | DEFERRED | N/A | N/A |
 | 118 | Pentest Remediation: Attack Surface & Data Leakage Hardening | PROPOSED | N/A | N/A |
 | 119 | Connection Lifecycle Hardening & Operational Security | PROPOSED | N/A | N/A |
-| 120 | Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs | PROPOSED | N/A | N/A |
+| 120 | Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED) | DEFERRED | N/A | N/A |
+| 121 | Pentest Remediation Consolidation & Program Discipline | COMPLETE | N/A | N/A |
 | 200 | Go PROXY Protocol Trust + v2 Support | COMPLETE | N/A | N/A |
 | 201 | Go Redis TLS + Silent-Failure Hardening | COMPLETE | N/A | N/A |
 | 202 | CI Supply Chain + Default Credential Removal | COMPLETE | N/A | N/A |

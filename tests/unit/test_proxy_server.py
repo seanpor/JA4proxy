@@ -792,25 +792,27 @@ class TestExtractJa4FromHttp:
     def server(self):
         return _make_server()
 
-    def test_extracts_fingerprint_from_header(self, server):
+    def test_regression_JA4PROXY_2026_0005_http_header_never_trusted(self, server):
+        # JA4PROXY-2026-0005: previously this function returned the value of
+        # the X-JA4-Fingerprint HTTP header verbatim, letting any attacker
+        # assert a whitelisted JA4 and bypass the entire pipeline. The
+        # function must now return "unknown" regardless of header content.
         data = b"GET / HTTP/1.1\r\nX-JA4-Fingerprint: t13d1516h2_aabbccddeeff_001122334455\r\n\r\n"
-        result = server._extract_ja4_from_http(data)
-        assert result == "t13d1516h2_aabbccddeeff_001122334455"
+        assert server._extract_ja4_from_http(data) == "unknown"
 
     def test_non_http_data_returns_unknown(self, server):
         data = b"\x16\x03\x01\x00\x80"  # TLS record
-        result = server._extract_ja4_from_http(data)
-        assert result == "unknown"
+        assert server._extract_ja4_from_http(data) == "unknown"
 
     def test_http_without_header_returns_unknown(self, server):
         data = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
-        result = server._extract_ja4_from_http(data)
-        assert result == "unknown"
+        assert server._extract_ja4_from_http(data) == "unknown"
 
-    def test_post_method_recognised(self, server):
+    def test_post_with_attacker_header_returns_unknown(self, server):
+        # JA4PROXY-2026-0005 regression: POST with a crafted header is also
+        # ignored — the function is neutralised for every HTTP verb.
         data = b"POST /api HTTP/1.1\r\nX-JA4-Fingerprint: t13d9999xx_aaaaaaaaaaaa_bbbbbbbbbbbb\r\n\r\n"
-        result = server._extract_ja4_from_http(data)
-        assert "t13d9999xx" in result
+        assert server._extract_ja4_from_http(data) == "unknown"
 
 
 # ---------------------------------------------------------------------------
@@ -823,14 +825,20 @@ class TestAnalyzeTlsHandshake:
     def server(self):
         return _make_server()
 
-    def test_non_tls_data_returns_unknown_ja4(self, server):
-        # First byte != 0x16 → not a TLS record
+    def test_regression_JA4PROXY_2026_0005_non_tls_http_ja4_header_ignored(self, server):
+        # JA4PROXY-2026-0005 regression: plain HTTP with a spoofed
+        # X-JA4-Fingerprint header used to flow through
+        # _extract_ja4_from_http and set fp.ja4 to the attacker's value,
+        # which could then match a whitelist. Now fp.ja4 must stay
+        # "unknown" so the connection is scored like any non-TLS blob.
         data = b"GET / HTTP/1.1\r\nX-JA4-Fingerprint: t13d1516h2_aabbccddeeff_001122334455\r\n\r\n"
         server.redis_client.hset = MagicMock()
         server.redis_client.expire = MagicMock()
         fp = _run(server._analyze_tls_handshake(data, "1.2.3.4"))
-        # HTTP path → _extract_ja4_from_http → should find the header
-        assert fp.ja4 == "t13d1516h2_aabbccddeeff_001122334455"
+        assert fp.ja4 == "unknown", (
+            "attacker-supplied X-JA4-Fingerprint header must NOT become "
+            "the connection JA4 (JA4PROXY-2026-0005 regression)"
+        )
 
     def test_non_tls_without_header_returns_unknown(self, server):
         data = b"GARBAGE non-TLS non-HTTP data"

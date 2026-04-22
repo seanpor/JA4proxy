@@ -8,6 +8,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/subtle"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
@@ -76,15 +77,19 @@ func main() {
 		go metrics.StartNTPMonitor(ctx, cfg.Monitoring.NTPCheckIntervalSeconds, log)
 	}
 
-	// Start pub/sub for config hot-reload and dynamic list updates
-	go redisclient.NewPubSubHandler(proxy.redis, log, func() {
+	// Start pub/sub for config hot-reload and dynamic list updates.
+	// JA4PROXY-2026-0019 — wire HMAC secret so critical channels reject
+	// unsigned messages when configured.
+	pubsubHandler := redisclient.NewPubSubHandler(proxy.redis, log, func() {
 		if err := proxy.reload(); err != nil {
 			log.WithError(err).Warn("config reload failed")
 		}
 	}, func() {
 		loadSecurityLists(ctx, proxy.redis, proxy.pipeline)
 		log.Info("security lists refreshed via pub/sub")
-	}).Run(ctx)
+	})
+	pubsubHandler.SetHMACSecret(cfg.Redis.PubSubHMACSecret)
+	go pubsubHandler.Run(ctx)
 
 	// phase-201c: periodic Redis health check + auto script reload.
 	go func() {
@@ -140,6 +145,15 @@ type proxy struct {
 	activeConns int64 // atomic
 	mu          sync.RWMutex
 
+	// JA4PROXY-2026-0012 — bounded semaphore for the Accept loop. Capacity
+	// == cfg.Proxy.MaxConnections. Acquired non-blockingly before spawning
+	// handleConn; if full, the connection is immediately closed and
+	// metrics.ConnectionErrorsTotal{reason="accept_overflow"} is bumped.
+	// Without this, a flood of half-open connections grows the goroutine
+	// pool and per-connection 3x BufferSize allocations unboundedly —
+	// 100K conns = 2.4GB of buffers alone at the 8KB default.
+	acceptSem chan struct{}
+
 	// Tarpit self-protection
 	tarpitConcurrent int
 	tarpitPerIP      map[string]int
@@ -156,6 +170,18 @@ type proxy struct {
 }
 
 func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
+	// JA4PROXY-2026-0010 — refuse to start against a remote, unauthenticated
+	// Redis. Ban lists, whitelists, and the dial setting are security state;
+	// anyone who can reach an unauthenticated Redis can rewrite them.
+	if err := config.ValidateRedisAuth(cfg); err != nil {
+		return nil, err
+	}
+	// JA4PROXY-2026-0008 — refuse to start with an unauthenticated metrics
+	// endpoint bound to a non-loopback interface. /metrics and /health/deep
+	// leak operational state that makes reconnaissance trivial.
+	if err := config.ValidateMetricsAccess(cfg); err != nil {
+		return nil, err
+	}
 	redisCfg := redisclient.Config{
 		Host:       cfg.Redis.Host,
 		Port:       cfg.Redis.Port.Int(),
@@ -217,6 +243,15 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 		log.WithError(err).Warn("proxy: webhook dispatcher init failed; webhooks disabled")
 	}
 
+	// JA4PROXY-2026-0012 — cap simultaneous accept-loop goroutines. A zero
+	// or negative MaxConnections would otherwise produce a zero-capacity
+	// channel and block the proxy from serving any traffic; fall back to a
+	// sane default so a misconfigured cap never turns into an availability
+	// outage.
+	maxConns := cfg.Proxy.MaxConnections
+	if maxConns <= 0 {
+		maxConns = 1000
+	}
 	prx := &proxy{
 		cfg:         cfg,
 		log:         log,
@@ -225,6 +260,7 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 		dispatcher:  disp,
 		tarpitPerIP: make(map[string]int),
 		healthState: health.New(health.Config{FailThreshold: 3}),
+		acceptSem:   make(chan struct{}, maxConns),
 	}
 
 	// phase-94i2: load trusted CIDRs from NetBox in the background (fail-open, non-blocking).
@@ -255,9 +291,14 @@ func (p *proxy) serve(ctx context.Context) {
 			mux.HandleFunc("/health", p.handleHealth)
 			mux.HandleFunc("/health/deep", p.handleHealthDeep)
 			mux.HandleFunc("/metrics/summary", p.handleMetricsSummary)
-			addr := fmt.Sprintf(":%d", p.cfg.Metrics.Port.Int())
+			handler := metricsAuthMiddleware(mux, p.cfg.Metrics.AuthToken)
+			bindHost := p.cfg.Metrics.BindHost
+			if bindHost == "" {
+				bindHost = "127.0.0.1"
+			}
+			addr := fmt.Sprintf("%s:%d", bindHost, p.cfg.Metrics.Port.Int())
 			p.log.WithField("addr", addr).Info("proxy: metrics server listening")
-			srv := &http.Server{Addr: addr, Handler: mux, ReadTimeout: 10 * time.Second}
+			srv := &http.Server{Addr: addr, Handler: handler, ReadTimeout: 10 * time.Second}
 			go func() {
 				<-ctx.Done()
 				if err := srv.Shutdown(context.Background()); err != nil {
@@ -293,8 +334,32 @@ func (p *proxy) serve(ctx context.Context) {
 				continue
 			}
 		}
+		if !p.admitConn(conn) {
+			continue
+		}
 		atomic.AddInt64(&p.activeConns, 1)
-		go p.handleConn(ctx, conn)
+		go func() {
+			defer func() { <-p.acceptSem }()
+			p.handleConn(ctx, conn)
+		}()
+	}
+}
+
+// admitConn acquires a slot in the accept-loop semaphore (non-blocking). If
+// the semaphore is full the connection is refused and closed immediately —
+// the alternative is unbounded goroutine growth, since every half-open
+// connection allocates 3x BufferSize and a handler goroutine.
+// JA4PROXY-2026-0012.
+func (p *proxy) admitConn(conn net.Conn) bool {
+	select {
+	case p.acceptSem <- struct{}{}:
+		return true
+	default:
+		metrics.ConnectionErrorsTotal.WithLabelValues("accept_overflow").Inc()
+		p.log.WithField("remote", conn.RemoteAddr().String()).
+			Warn("proxy: accept-loop at capacity; dropping connection")
+		_ = conn.Close()
+		return false
 	}
 }
 
@@ -326,25 +391,57 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		ClientPort: remotePort(clientConn),
 	}
 
-	// PROXY protocol: extract real client IP if behind HAProxy.
-	// Phase 200c: try v2 binary first, then v1 text — both gated by trust
-	// check to prevent IP spoofing from untrusted sources.
+	// PROXY protocol: always strip the header (v1 or v2) so it is never
+	// forwarded to the backend. Only adopt the extracted client IP when the
+	// source is in the trusted upstream CIDR list.
+	//
+	//   JA4PROXY-2026-0001 (spoof): before the always-strip fix, an untrusted
+	//     source that sent a PROXY header used to have the header forwarded
+	//     verbatim to the backend, which might then trust the attacker's
+	//     claimed src IP. The header is now stripped in all cases; only
+	//     trusted peers influence connCtx.ClientIP.
+	//   JA4PROXY-2026-0002 (smuggling): a second PROXY header chained after
+	//     the first is treated as a smuggling attempt (e.g. trusted HAProxy
+	//     header followed by an attacker-injected one). The connection is
+	//     closed.
 	if p.cfg.Proxy.ProxyProtocol {
 		socketIP := remoteIP(clientConn)
-		if proxypkg.IsTrustedProxySourceCIDRs(socketIP, p.getTrustedCIDRs()) {
-			// Try v2 binary header first (HAProxy 2.x+, AWS NLB)
-			if realIP, ok, hdrLen := proxypkg.ReadProxyProtocolV2WithLength(data); ok {
+		trusted := proxypkg.IsTrustedProxySourceCIDRs(socketIP, p.getTrustedCIDRs())
+		stripped := false
+		// Try v2 binary header first (HAProxy 2.x+, AWS NLB).
+		if realIP, ok, hdrLen := proxypkg.ReadProxyProtocolV2WithLength(data); ok {
+			if trusted {
 				connCtx.ClientIP = realIP
-				data = data[hdrLen:]
-			} else if realIP, ok := proxypkg.ReadProxyProtocol(data); ok {
-				// Fall back to v1 text header
+			}
+			data = data[hdrLen:]
+			stripped = true
+		} else if realIP, ok := proxypkg.ReadProxyProtocol(data); ok {
+			// Fall back to v1 text header.
+			if trusted {
 				connCtx.ClientIP = realIP
-				if idx := bytes.Index(data, []byte("\r\n")); idx >= 0 {
-					data = data[idx+2:]
-				}
+			}
+			if idx := bytes.Index(data, []byte("\r\n")); idx >= 0 {
+				data = data[idx+2:]
+				stripped = true
 			}
 		}
-		// When untrusted: silently use socket IP — fail-open.
+		if stripped {
+			if !trusted {
+				metrics.ProxyProtocolParserEvents.WithLabelValues("spoof_stripped").Inc()
+				p.log.WithField("socket_ip", socketIP).Warn("proxy: stripped PROXY header from untrusted source (JA4PROXY-2026-0001)")
+			}
+			// JA4PROXY-2026-0002: detect chained PROXY header (smuggling).
+			if _, ok, _ := proxypkg.ReadProxyProtocolV2WithLength(data); ok {
+				metrics.ProxyProtocolParserEvents.WithLabelValues("smuggling_blocked").Inc()
+				p.log.WithField("socket_ip", socketIP).Warn("proxy: PROXY header smuggling detected (v2 chained); closing (JA4PROXY-2026-0002)")
+				return
+			}
+			if _, ok := proxypkg.ReadProxyProtocol(data); ok {
+				metrics.ProxyProtocolParserEvents.WithLabelValues("smuggling_blocked").Inc()
+				p.log.WithField("socket_ip", socketIP).Warn("proxy: PROXY header smuggling detected (v1 chained); closing (JA4PROXY-2026-0002)")
+				return
+			}
+		}
 	}
 
 	// GeoIP country lookup
@@ -356,7 +453,18 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		}
 	}
 
-	if n >= 5 && data[0] == 0x16 {
+	// JA4PROXY-2026-0003: length check was previously `n >= 5`, which used
+	// the pre-PROXY-strip read count and could read past the end of `data`
+	// after a stripped header. Use len(data) now that data has been
+	// normalised.
+	if len(data) >= 5 && data[0] == 0x16 {
+		// JA4PROXY-2026-0003: if the first TCP segment only contains a
+		// fragment of the ClientHello record, the first ParseClientHello
+		// returns ErrTruncated and the connection would previously be
+		// forwarded without a JA4 — defeating every JA4-based control.
+		// Read additional bytes until we either have the full record or
+		// hit a ceiling / the client stops sending.
+		data = p.reassembleClientHello(clientConn, data, buf)
 		if hello, err := tlsparse.ParseClientHello(data); err == nil {
 			ja4 := tlsparse.ComputeJA4(hello)
 			connCtx.JA4 = ja4
@@ -455,6 +563,62 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	}
 }
 
+// reassembleClientHello keeps reading from clientConn until `data` holds the
+// complete TLS record whose length is encoded at bytes 3-4 (or until a hard
+// ceiling is reached / the client sends no more). Fail-open: on any error or
+// timeout we return whatever we have so far — the parser will decide.
+//
+// The caller passes `buf`, the full-capacity backing array that `data`
+// already aliases (data == buf[:len(data)]). We extend data into buf's
+// unused tail so we don't clobber the bytes already read.
+//
+// JA4PROXY-2026-0003 regression guard: previously a single Read() could land
+// a truncated ClientHello, tlsparse.ParseClientHello returned ErrTruncated,
+// and the connection was forwarded without a JA4.
+func (p *proxy) reassembleClientHello(clientConn net.Conn, data, buf []byte) []byte {
+	if len(data) < 5 {
+		return data
+	}
+	// TLS record header: bytes 3-4 are the record length (big-endian uint16).
+	recordLen := int(data[3])<<8 | int(data[4])
+	want := 5 + recordLen
+	// RFC 8446: record length ≤ 16384 plaintext + some overhead. Cap
+	// aggressively to avoid a slow-drip read amplifying a DoS.
+	const hardCap = 16640
+	if want > hardCap {
+		want = hardCap
+	}
+	if len(data) >= want {
+		return data
+	}
+	// Budget ~200ms total across retries for reassembly. A real browser's
+	// ClientHello fits in a single segment on normal networks.
+	deadline := time.Now().Add(200 * time.Millisecond)
+	for len(data) < want {
+		if time.Now().After(deadline) {
+			break
+		}
+		_ = clientConn.SetReadDeadline(deadline)
+		offset := len(data)
+		if offset >= cap(buf) {
+			break
+		}
+		end := want
+		if end > cap(buf) {
+			end = cap(buf)
+		}
+		m, err := clientConn.Read(buf[offset:end])
+		if m > 0 {
+			data = buf[:offset+m]
+		}
+		if err != nil {
+			break
+		}
+	}
+	_ = clientConn.SetReadDeadline(time.Time{})
+	return data
+}
+
 func (p *proxy) forward(clientConn net.Conn, initialData []byte) {
 	p.mu.RLock()
 	cfg := p.cfg
@@ -477,7 +641,13 @@ func (p *proxy) forward(clientConn net.Conn, initialData []byte) {
 		return
 	}
 
-	// Bidirectional copy
+	// Bidirectional copy. JA4PROXY-2026-0009 — both copy goroutines must
+	// finish before forward() returns, otherwise the second one lingers with
+	// its per-connection buffer still reachable. Under sustained load that
+	// is ~8KB + goroutine stack per connection never reclaimed.
+	// After the first goroutine returns, Close() on both conns forces the
+	// other Read to unblock promptly instead of waiting on the next
+	// SetReadDeadline tick.
 	done := make(chan struct{}, 2)
 	copyConn := func(dst, src net.Conn) {
 		buf := make([]byte, p.cfg.Proxy.BufferSize)
@@ -499,6 +669,9 @@ func (p *proxy) forward(clientConn net.Conn, initialData []byte) {
 
 	go copyConn(backendConn, clientConn)
 	go copyConn(clientConn, backendConn)
+	<-done
+	_ = clientConn.Close()
+	_ = backendConn.Close()
 	<-done
 }
 
@@ -567,11 +740,26 @@ func (p *proxy) tarpit(clientConn net.Conn, data []byte, clientIP string) {
 		return
 	}
 
+	// JA4PROXY-2026-0013 — bound how long each Read can block so an attacker
+	// cannot pin a tarpit slot by sending one byte and hanging. Inactivity
+	// timeout applies to every Read; lifetime cap is a belt-and-braces hard
+	// stop even for an actively-trickling client.
+	inactivity := time.Duration(cfg.Tarpit.InactivityTimeoutSeconds) * time.Second
+	lifetime := time.Duration(cfg.Tarpit.MaxLifetimeSeconds) * time.Second
+	deadline := time.Now().Add(lifetime)
+	if lifetime > 0 {
+		_ = clientConn.SetDeadline(deadline)
+		_ = tarpitConn.SetDeadline(deadline)
+	}
+
 	// Forward to tarpit — bidirectional copy
 	done := make(chan struct{}, 2)
 	copyOne := func(dst, src net.Conn) {
 		buf := make([]byte, 512)
 		for {
+			if inactivity > 0 {
+				_ = src.SetReadDeadline(time.Now().Add(inactivity))
+			}
 			n, err := src.Read(buf)
 			if n > 0 {
 				if _, werr := dst.Write(buf[:n]); werr != nil {
@@ -586,6 +774,11 @@ func (p *proxy) tarpit(clientConn net.Conn, data []byte, clientIP string) {
 	}
 	go copyOne(tarpitConn, clientConn)
 	go copyOne(clientConn, tarpitConn)
+	// JA4PROXY-2026-0009 — wait for both copy goroutines, closing conns
+	// after the first returns so the second unblocks immediately.
+	<-done
+	_ = clientConn.Close()
+	_ = tarpitConn.Close()
 	<-done
 }
 
@@ -650,6 +843,43 @@ func (p *proxy) getTrustedCIDRs() []string {
 	p.trustedCIDRsMu.RLock()
 	defer p.trustedCIDRsMu.RUnlock()
 	return append([]string(nil), p.trustedCIDRs...)
+}
+
+// metricsAuthMiddleware gates the metrics/health HTTP server.
+//
+// JA4PROXY-2026-0008: /metrics and /health/deep expose dial setting, ban
+// rates, cert expiry, and active-connection counts — reconnaissance-grade
+// intelligence that must not be world-readable.
+//
+// Policy:
+//   - Requests from loopback (127.0.0.0/8, ::1) are always allowed. This is
+//     the common case: Prometheus running as a sidecar on the same host.
+//   - If an AuthToken is configured, remote requests must present a matching
+//     bearer token in the Authorization header. Constant-time compare.
+//   - If no AuthToken is configured, remote requests are refused with 403.
+//     ValidateMetricsAccess would have already refused startup for a
+//     non-loopback bind, so in practice this arm is only reached when the
+//     bind is loopback but the request reached us through some other path.
+func metricsAuthMiddleware(next http.Handler, token string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if config.MetricsRequestIsLocal(r.RemoteAddr) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if token == "" {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		const prefix = "Bearer "
+		h := r.Header.Get("Authorization")
+		if !strings.HasPrefix(h, prefix) ||
+			subtle.ConstantTimeCompare([]byte(h[len(prefix):]), []byte(token)) != 1 {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="ja4proxy-metrics"`)
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // handleHealth responds to HTTP health check requests.
@@ -897,6 +1127,9 @@ func newLogger(cfg *config.Config) *logrus.Logger {
 			ECS: jalogger.NewECSLogrusFormatter("ecs"),
 		})
 	}
+	// JA4PROXY-2026-0048 — strip filesystem paths, Redis keys, and upstream
+	// IP:port pairs from log fields when ENVIRONMENT=production.
+	log.AddHook(jalogger.NewSensitiveFieldRedactor())
 	return log
 }
 

@@ -207,7 +207,9 @@ async def _extract_claims(id_token: str, jwks_uri: str) -> dict:
     Raises:
         HTTPException(401): On signature failure or claim validation failure.
     """
-    if os.environ.get("MANAGEMENT_TEST_MODE") == "1":
+    # JA4PROXY-2026-0023 — test-mode bypass is only honoured outside production.
+    from ..auth import is_test_mode
+    if is_test_mode():
         # Test mode — decode without signature verification
         try:
             parts = id_token.split(".")
@@ -457,12 +459,13 @@ async def oidc_callback(
             logger.info("sso | event=idp_mfa_trusted | user=%s | provider=oidc", sub)
 
     response = RedirectResponse(url=redirect_target, status_code=302)
+    from ..auth import _should_set_secure_cookie
     response.set_cookie(
         "token",
         token,
         httponly=True,
         samesite="lax",
-        secure=request.url.scheme == "https",
+        secure=_should_set_secure_cookie(request),
     )
 
     # Gap 2 (Phase 100): audit SSO login event

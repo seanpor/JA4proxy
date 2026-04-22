@@ -215,6 +215,20 @@ var (
 		},
 		[]string{"result"},
 	)
+	// PROXY protocol parser events (JA4PROXY-2026-0001, -0002).
+	// Labels:
+	//   event=spoof_stripped  — header arrived from an untrusted source and was
+	//                           stripped so the backend never sees attacker-
+	//                           controlled src/dst IPs. (Finding 0001.)
+	//   event=smuggling_blocked — a second PROXY header followed the first and
+	//                             the connection was closed. (Finding 0002.)
+	ProxyProtocolParserEvents = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "ja4proxy_proxy_protocol_parser_events_total",
+			Help: "PROXY protocol parser security events. Labels: event=spoof_stripped|smuggling_blocked.",
+		},
+		[]string{"event"},
+	)
 )
 
 func Register() {
@@ -237,6 +251,8 @@ func Register() {
 		RedisHealth, RedisScriptReloadsTotal,
 		// phase-203a/b
 		JA4TLSMismatchTotal, TapLookupsTotal, TapSignalTotal,
+		// JA4PROXY-2026-0001/-0002
+		ProxyProtocolParserEvents,
 	)
 	for _, action := range []string{"allow", "flag", "rate_limit", "tarpit", "block", "ban"} {
 		ConnectionsTotal.WithLabelValues(action)

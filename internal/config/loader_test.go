@@ -26,8 +26,10 @@ func TestLoad_ActualProxyYML(t *testing.T) {
 	if cfg.RiskScorer.Thresholds.Block != 70 {
 		t.Errorf("RiskScorer.Block: got %d, want 70", cfg.RiskScorer.Thresholds.Block)
 	}
-	if !cfg.SecurityPolicy.ALPNBrowserBypass.Enabled {
-		t.Error("ALPNBrowserBypass should be enabled by default")
+	// JA4PROXY-2026-0004: ALPN browser bypass now defaults to OFF because
+	// ALPN is an attacker-controlled TLS field. Operators must opt in.
+	if cfg.SecurityPolicy.ALPNBrowserBypass.Enabled {
+		t.Error("ALPNBrowserBypass must default to DISABLED (JA4PROXY-2026-0004)")
 	}
 }
 
@@ -137,9 +139,9 @@ func TestLoad_SecurityPolicyDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
-	// All bypasses should be enabled by default
-	if !cfg.SecurityPolicy.ALPNBrowserBypass.Enabled {
-		t.Error("ALPNBrowserBypass should default to enabled")
+	// JA4PROXY-2026-0004: ALPN is attacker-controlled; bypass defaults OFF.
+	if cfg.SecurityPolicy.ALPNBrowserBypass.Enabled {
+		t.Error("ALPNBrowserBypass must default to DISABLED (JA4PROXY-2026-0004)")
 	}
 	if !cfg.SecurityPolicy.JA4WhitelistBypass.Enabled {
 		t.Error("JA4WhitelistBypass should default to enabled")
