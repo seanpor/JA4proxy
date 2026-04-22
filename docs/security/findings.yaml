@@ -1062,13 +1062,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118o
+  - 118z
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: management/tests/test_pentest_oidc_alg_confusion_regression.py::test_alg_confusion_hs256_with_rsa_public_key_rejected
+  closed_commit: a0ae013
   description: management/api/routes/oidc.py:420 extracts ID token claims without verifying signature
     against IdP's JWKS endpoint. Security relies on HTTPS and client secret, but if token endpoint intercepted
     (compromised IdP, DNS hijack), attacker forges arbitrary claims including username and MFA status.
