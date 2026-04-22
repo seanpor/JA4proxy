@@ -106,9 +106,9 @@ get forgotten.
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 10 | OPEN | 2 |
+| CRITICAL | 10 | OPEN | 1 |
 | HIGH | 14 | IN_PROGRESS | 0 |
-| MEDIUM | 21 | FIXED | 52 |
+| MEDIUM | 21 | FIXED | 53 |
 | LOW | 9 | VERIFIED | 0 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
@@ -178,7 +178,7 @@ get forgotten.
 | JA4PROXY-2026-0050 | MEDIUM | FIXED | infrastructure | 2026-06-16 | Redis ACLs Disabled by Default |
 | JA4PROXY-2026-0051 | MEDIUM | FIXED | go-proxy | 2026-06-16 | Webhook Secrets in Memory |
 | JA4PROXY-2026-0052 | MEDIUM | FIXED | infrastructure | 2026-06-16 | No Per-Service Redis User Enforcement |
-| JA4PROXY-2026-0053 | LOW | OPEN | python-management | 2026-08-15 | Redis Password in Log Messages (Partial) |
+| JA4PROXY-2026-0053 | LOW | FIXED | python-management | 2026-08-15 | Redis Password in Log Messages (Partial) |
 | JA4PROXY-2026-0054 | MEDIUM | FIXED | python-management | 2026-06-16 | Configuration Path Traversal Prevention |
 | JA4PROXY-2026-0055 | MEDIUM | FIXED | infrastructure | 2026-06-16 | Integration TLS Verification Missing |
 

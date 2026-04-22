@@ -1725,17 +1725,21 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - (no explicit phase; general log hygiene)
+  - 118tt
   discovered: '2026-04-17'
   due: '2026-08-15'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: management/tests/test_pentest_redis_password_log_leak_regression.py
+  closed_commit: 7c496d626630d16842f9df9289d92d07b08b9d65
   description: management/api/redis_client.py:70 may partially leak Redis password in connection error
     logs.
-  notes: 'Source document incomplete (cut off mid-sentence). Recommend: sanitise password from connection
-    strings in error logs.'
+  notes: 'Source document incomplete (cut off mid-sentence). Phase 118tt fix: introduced
+    _redact_redis_url() using urllib.parse.urlparse so the password field is masked regardless of
+    URL shape (bare, user+pass, password-with-@). init_redis() now logs only the redacted form on
+    success and on failure logs the redacted URL plus exception class name (never the exception
+    text, which can echo the raw URL back). Regression covers the helper + both init paths.'
 - id: JA4PROXY-2026-0054
   title: Configuration Path Traversal Prevention
   severity: MEDIUM
