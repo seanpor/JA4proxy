@@ -290,7 +290,7 @@ func TestNewProxy_MinimalConfig(t *testing.T) {
 	cfg.Tarpit.MaxPerIP = 5
 	cfg.Tarpit.OverflowAction = "block"
 
-	prx, err := newProxy(cfg, log)
+	prx, err := newProxy(cfg, "", log)
 	if err != nil {
 		t.Fatalf("newProxy error: %v", err)
 	}

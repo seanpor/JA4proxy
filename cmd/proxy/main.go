@@ -61,7 +61,7 @@ func main() {
 	// (Phase 64 alerts on this gauge — see docs/phases/PHASE_63_notes.md).
 	updateTLSCertExpiryGauge(os.Getenv("JA4PROXY_TLS_CERT_FILE"), log)
 
-	proxy, err := newProxy(cfg, log)
+	proxy, err := newProxy(cfg, cfgPath, log)
 	if err != nil {
 		log.WithError(err).Fatal("failed to initialise proxy")
 	}
@@ -136,6 +136,7 @@ func main() {
 
 type proxy struct {
 	cfg        *config.Config
+	cfgPath    string // JA4PROXY-2026-0041: path used to Load cfg at startup; re-read on SIGHUP.
 	log        *logrus.Logger
 	pipeline   *security.Pipeline
 	redis      *redisclient.Client
@@ -181,7 +182,12 @@ type proxy struct {
 	streamEventQueue chan []byte
 }
 
-func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
+// JA4PROXY-2026-0041: cfgPath must match the path main() loaded `cfg`
+// from, so reload() re-reads the same file on SIGHUP rather than
+// silently falling back to "config/proxy.yml". Test code that
+// constructs newProxy() directly may pass "" to skip the reload-safe
+// round-trip, but production callers must supply the real path.
+func newProxy(cfg *config.Config, cfgPath string, log *logrus.Logger) (*proxy, error) {
 	// JA4PROXY-2026-0010 — refuse to start against a remote, unauthenticated
 	// Redis. Ban lists, whitelists, and the dial setting are security state;
 	// anyone who can reach an unauthenticated Redis can rewrite them.
@@ -290,6 +296,7 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 	}
 	prx := &proxy{
 		cfg:         cfg,
+		cfgPath:     cfgPath, // JA4PROXY-2026-0041: used by reload() on SIGHUP.
 		log:         log,
 		pipeline:    p,
 		redis:       rc,
@@ -853,7 +860,17 @@ func (p *proxy) tarpit(clientConn net.Conn, data []byte, clientIP string) {
 }
 
 func (p *proxy) reload() error {
-	newCfg, err := config.Load("config/proxy.yml")
+	// JA4PROXY-2026-0041: re-read the exact path main() loaded from.
+	// Previously this was hardcoded to "config/proxy.yml" and silently
+	// diverged from CONFIG_PATH — a SIGHUP would then reload a DIFFERENT
+	// file than the one the process was started against, loading stale
+	// or wrong policy. Fall back only when the field is empty (test
+	// fixtures that construct proxy via struct literals).
+	cfgPath := p.cfgPath
+	if cfgPath == "" {
+		cfgPath = "config/proxy.yml"
+	}
+	newCfg, err := config.Load(cfgPath)
 	if err != nil {
 		return err
 	}
