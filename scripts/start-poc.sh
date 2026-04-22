@@ -37,8 +37,14 @@ ENVIRONMENT=development
 EOF
     chmod 600 .env
     echo -e "${GREEN}  ✓ .env created (chmod 600)${NC}"
-    echo -e "  Redis password: ${REDIS_PW}"
-    echo -e "  Grafana password: ${GRAFANA_PW}"
+    # JA4PROXY-2026-0040: Do NOT echo generated passwords to stdout.
+    # They would land in terminal scrollback, CI logs, screen
+    # recordings, and tmux capture buffers. Operators read them from
+    # the .env file instead (chmod 600 above restricts read access to
+    # the owning user).
+    echo -e "  Redis password:   [generated — see .env]"
+    echo -e "  Grafana password: [generated — see .env]"
+    echo -e "  Retrieve with:    grep -E '^(REDIS|GRAFANA)_PASSWORD=' .env"
     echo ""
 fi
 
