@@ -14,9 +14,13 @@ deploy/ssl/private/*
 deploy/ssl/certs/*.key
 deploy/ssl/certs/*.pem
 
-# Environment files with secrets
+# Environment files with secrets (JA4PROXY-2026-0025)
+# `.env.example` is the template that operators copy to `.env`; it holds
+# placeholder values only and must stay tracked. The negation keeps it
+# visible to git even though `.env.*` would otherwise ignore it.
 .env
 .env.*
+!.env.example
 
 # Active agent tracker (written by: make agent-up NAME=<agent>)
 # Contains only the agent name (e.g. "claude"). Never commit.
