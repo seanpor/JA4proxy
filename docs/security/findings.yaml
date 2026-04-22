@@ -1033,14 +1033,15 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118n
+  - 118cc
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on:
   - JA4PROXY-2026-0012
-  regression_test: ''
-  closed_commit: ''
+  regression_test: cmd/proxy/pentest_xadd_backpressure_regression_test.go::TestRegression_JA4PROXY_2026_0031_enqueue_drops_when_full
+  closed_commit: e185eb1
   description: Every connection decision spawns goroutine calling p.redis.XAdd() with context.Background()
     (no timeout). If Redis slow, goroutines accumulate without bound, each holding JSON-marshaled event.
     At 1000 conn/s with 100ms Redis latency, ~100 goroutines accumulate per second.
