@@ -106,9 +106,9 @@ get forgotten.
 
 | Severity | Count | Status | Count |
 |----------|-------|--------|-------|
-| CRITICAL | 10 | OPEN | 23 |
+| CRITICAL | 10 | OPEN | 22 |
 | HIGH | 14 | IN_PROGRESS | 0 |
-| MEDIUM | 21 | FIXED | 31 |
+| MEDIUM | 21 | FIXED | 32 |
 | LOW | 9 | VERIFIED | 0 |
 |  |  | CLOSED | 0 |
 |  |  | DUPLICATE | 0 |
@@ -155,7 +155,7 @@ get forgotten.
 | JA4PROXY-2026-0027 | MEDIUM | FIXED | python-management | 2026-06-16 | Redis Key Injection via SNI Hostnames |
 | JA4PROXY-2026-0028 | MEDIUM | FIXED | python-management | 2026-06-16 | Python Backend Connection Timeout Missing |
 | JA4PROXY-2026-0029 | MEDIUM | FIXED | python-management | 2026-06-16 | Log Sanitisation Incomplete (Control Characters, ANSI Escapes) |
-| JA4PROXY-2026-0030 | MEDIUM | OPEN | python-management | 2026-06-16 | Unbounded behavioral:known_ja4 Redis SET |
+| JA4PROXY-2026-0030 | MEDIUM | FIXED | python-management | 2026-06-16 | Unbounded behavioral:known_ja4 Redis SET |
 | JA4PROXY-2026-0031 | MEDIUM | OPEN | go-proxy | 2026-06-16 | XADD Fire-and-Forget Without Backpressure (Go) |
 | JA4PROXY-2026-0032 | MEDIUM | FIXED | python-management | 2026-06-16 | OIDC Token Signature Not Verified |
 | JA4PROXY-2026-0033 | MEDIUM | OPEN | python-management | 2026-06-16 | Python TLS Parser Runs in ThreadPool Without Memory Isolation |
