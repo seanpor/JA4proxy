@@ -1647,13 +1647,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - (general Redis hardening; Phase 119o per-user passwords related)
+  - 118gg
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: internal/config/pentest_redis_user_enforcement_regression_test.go::TestRegression_JA4PROXY_2026_0052_validate_rejects_enabled_without_proxy_user
+  closed_commit: 4409cef
   description: config/proxy.yml ACL users configured but not enforced at runtime. Services don't use minimal-privilege
     accounts.
   notes: Phase 119o specifies unique passwords. Recommend enforcing separate Redis users for proxy vs.
