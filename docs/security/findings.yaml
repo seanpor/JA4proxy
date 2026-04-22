@@ -1503,13 +1503,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - (infrastructure hardening general)
+  - 118w
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_redis_tls_bind_hardening_regression.py::test_redis_conf_pins_protected_mode_yes
+  closed_commit: 903f8b42e7d228e3126c5808d5699d69af8cd295
   description: deploy/docker/redis-tls/redis.conf binds to 0.0.0.0 -::*. With TLS, remote access possible
     if password compromised.
   notes: Recommend bind to Docker network only. Cross-referenced with 119n (socket perms) and 119o (ACL
