@@ -1618,13 +1618,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - (no explicit phase; general secret hygiene)
+  - 118ee
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: internal/webhook/pentest_secret_redaction_regression_test.go::TestRegression_JA4PROXY_2026_0051_fmt_sprintf_does_not_leak
+  closed_commit: 1b68920
   description: internal/webhook/delivery.go computes HMAC using secret string held in memory for process
     lifetime. Process compromise → secret exposure.
   notes: Standard concern for in-process secrets. Recommend no changes unless secrets-engine integration
