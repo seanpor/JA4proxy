@@ -1437,16 +1437,23 @@ findings:
     notes: implied
   remediation_phases:
   - 119p
+  - 118pp
   discovered: '2026-04-17'
   due: '2026-08-15'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_management_deps_pinned_regression.py
+  closed_commit: 970494ad70e81e47840c461f8bcad24e701016f9
   description: management/requirements.txt uses >= minimum pins with no upper bounds. Vulnerable to dependency
     confusion and malicious version upgrades.
   notes: Phase 119p specifies pinning exact versions or pip-compile to generate lockfile with hashes.
+    Phase 118pp replaced every '>=' with an '==' at the same minimum version previously tolerated,
+    closing the floating-version exposure without changing installed-version behaviour. The file
+    header names the finding ID so future editors see the rationale inline. Long-term target
+    remains pip-compile + '--require-hashes' (tracked for a later phase); exact pins remove the
+    primary exposure in the interim. Regression test rejects '>=', '~=', '>', '<', '!=' and
+    bare package names, forcing any future edit to either keep '==' or use an explicit URL/VCS pin.
 - id: JA4PROXY-2026-0045
   title: Grafana Bound to All Interfaces in Monitoring Stack
   severity: LOW
