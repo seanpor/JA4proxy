@@ -35,6 +35,24 @@ _ACTIVE_CAMPAIGNS = Gauge(
 )
 
 
+def _sni_key_hash(sni: str) -> str:
+    """Return a Redis-key-safe hash of *sni*.
+
+    JA4PROXY-2026-0027 — SNI is attacker-controlled and can legitimately
+    contain colons, asterisks, question marks, and other characters that
+    collide with the Redis key namespace. Embedding raw SNI in a key
+    (``behavioral:burst:{sni}``) lets a crafted SNI like
+    ``evil.com:burst:legit.com`` pollute counters for ``legit.com`` or
+    fan out keyspace to defeat KEYS/SCAN enumeration.
+
+    Hashing the SNI before interpolation gives a fixed-width, collision-
+    resistant identifier that keeps the key space clean without losing
+    the ability to group by target hostname. 16 hex chars (64 bits) is
+    well beyond what burst-window tracking needs.
+    """
+    return hashlib.sha256(sni.encode("utf-8", errors="replace")).hexdigest()[:16]
+
+
 class BehavioralAnalyzer:
     """
     Analyzes multi-connection behavior to identify coordinated campaigns.
@@ -105,20 +123,23 @@ class BehavioralAnalyzer:
         now_ms = int(time.time() * 1000)
         window_start = now_ms - self._burst_window_ms
         
-        key = f"behavioral:burst:{ctx.sni}"
+        # JA4PROXY-2026-0027 — hash the attacker-controlled SNI before
+        # interpolating it into a Redis key. Raw SNI can carry colons,
+        # asterisks, etc. that collide with the key namespace.
+        key = f"behavioral:burst:{_sni_key_hash(ctx.sni)}"
         try:
             # Add current hit to sorted set
             member = f"{ctx.client_ip}:{now_ms}"
             await self._redis.zadd(key, {member: now_ms})
-            
+
             # Cleanup old hits
             await self._redis.zremrangebyscore(key, 0, window_start)
             await self._redis.expire(key, 10) # Short TTL for burst tracking
-            
+
             # Count unique IPs in the window
             members = await self._redis.zrange(key, 0, -1)
             unique_ips = {m.decode("utf-8").split(":")[0] for m in members}
-            
+
             if len(unique_ips) >= self._burst_count_threshold:
                 _PATTERN_DETECTED.labels(pattern_type="coordinated_burst").inc()
                 return RiskSignal(
@@ -127,7 +148,11 @@ class BehavioralAnalyzer:
                     reason=f"Coordinated burst detected ({len(unique_ips)} IPs in {self._burst_window_ms}ms)"
                 )
         except Exception as e:
-            logger.error(f"behavioral | event=burst_error | sni={ctx.sni} | error={e}")
+            # Log the SNI hash (not raw SNI) so attacker-controlled bytes
+            # can't smuggle ANSI/control chars into the log stream.
+            logger.error(
+                f"behavioral | event=burst_error | sni_hash={_sni_key_hash(ctx.sni)} | error={e}"
+            )
         return None
 
     async def _check_fingerprint_drift(self, ja4: str):
