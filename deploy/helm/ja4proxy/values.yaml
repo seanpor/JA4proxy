@@ -44,6 +44,53 @@ securityContext:
   runAsGroup: 1000
   fsGroup: 1000
 
+# JA4PROXY-2026-0046: liveness and readiness probes. Both target the
+# Go proxy's /health endpoint on the metrics port. Defaults chosen for
+# a proxy on the DMZ: readiness checks often (the load balancer needs
+# fast drain signalling); liveness checks slower but with enough
+# failures to survive a momentary GC pause.
+probes:
+  liveness:
+    httpGet:
+      path: /health
+      port: 9090
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    httpGet:
+      path: /health
+      port: 9090
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 2
+
+# JA4PROXY-2026-0046: NetworkPolicy. When enabled, the chart installs
+# a default-deny-plus-allowlist policy scoped to the ja4proxy pods:
+# ingress only from pods matching `clientLabels` (or all pods in the
+# namespace if `clientLabels` is empty); metrics port (9090) only from
+# pods matching `metricsScrapeLabels`; egress to DNS, to the Redis
+# service, and to the upstream backend host. Disable only when an
+# external NetworkPolicy controller (Cilium, Calico GlobalNetworkPolicy)
+# is enforcing the same rules at a higher tier.
+networkPolicy:
+  enabled: true
+  # Labels that gating pods sending traffic to the proxy must carry.
+  # Empty ({}) means "any pod in the ja4proxy namespace".
+  clientLabels: {}
+  # Labels on the Prometheus pod(s) allowed to scrape /metrics:9090.
+  # Default matches the kube-prometheus-stack release's server pod.
+  metricsScrapeLabels:
+    app.kubernetes.io/name: prometheus
+  # Extra CIDR blocks allowed to reach port 8080 (e.g., external LB CIDR).
+  # Leave empty to restrict ingress to in-cluster pods only.
+  ingressCIDRs: []
+  # Namespace selector restricting which namespaces' pods may call the
+  # proxy. Empty means "same namespace only".
+  ingressNamespaceLabels: {}
+
 # Backend target (what the proxy forwards to)
 backend:
   host: "backend"

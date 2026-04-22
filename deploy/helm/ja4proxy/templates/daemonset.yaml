@@ -33,6 +33,15 @@ spec:
           protocol: TCP
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
+        # JA4PROXY-2026-0046: liveness and readiness probes — without these
+        # a hung proxy pod continues receiving traffic from the Service
+        # load-balancer, and no automatic restart recovers the pod. Both
+        # probes target /health on the metrics port (9090) which the Go
+        # proxy implements as a cheap, side-effect-free check.
+        livenessProbe:
+          {{- toYaml .Values.probes.liveness | nindent 10 }}
+        readinessProbe:
+          {{- toYaml .Values.probes.readiness | nindent 10 }}
         env:
         # The Go proxy reads config/proxy.yml which expands ${REDIS_HOST},
         # ${REDIS_PORT}, ${REDIS_PASSWORD} from env. Set them directly rather
