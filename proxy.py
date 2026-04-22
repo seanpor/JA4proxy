@@ -52,7 +52,6 @@ import logging
 import logging.handlers
 import os
 import re
-import resource
 import signal
 import socket
 import ssl
@@ -175,26 +174,43 @@ VALID_HOSTNAME_PATTERN = re.compile(
 # Phase 28a: Parser Isolation & Depth Limits
 MAX_TLS_PARSER_DEPTH = 10
 
+# JA4PROXY-2026-0033 — hard upper bound on bytes passed to the Scapy
+# fallback parser. Upstream read size is already bounded by proxy.buffer_size
+# (default 8192) but we enforce an independent defence-in-depth cap so a
+# future refactor of the read path cannot silently uncork pathological
+# inputs into Scapy. A valid TLS ClientHello is never even close to this.
+MAX_TLS_PARSER_INPUT_BYTES = 65536
+
+# JA4PROXY-2026-0033 — wall-clock budget for a single Scapy fallback parse
+# attempt. If Scapy does not return within this window, abandon the attempt,
+# log a counter, and fall through to ja4="unknown" rather than letting a
+# crafted packet monopolise a worker thread indefinitely. ThreadPool
+# execution cannot be forcibly cancelled, so this upper-bounds only how
+# long the hot path waits — the thread itself will finish whenever Scapy
+# decides to, which is exactly why the input size cap above matters.
+TLS_PARSER_TIMEOUT_SECONDS = 2.0
+
 
 def _parse_tls_task(data: bytes) -> Optional[Dict]:
     """
-    Worker function for TLS parsing in a separate process.
-    Provides isolation and memory limits (RLIMIT_AS) to prevent
-    complex/malformed packets from compromising the main process.
+    Worker function for TLS parsing in the fallback thread pool.
+
+    Phase 69 replaced the original ProcessPoolExecutor with a
+    ThreadPoolExecutor for latency reasons. That change removed the process
+    memory isolation the original resource.setrlimit(RLIMIT_AS, ...) relied
+    on — RLIMIT_AS applies to the whole process, so calling it from a
+    worker thread would cap the main proxy process too. We now rely on two
+    other guards, enforced in _analyze_tls_handshake before dispatch:
+      * MAX_TLS_PARSER_INPUT_BYTES — a hard input-size cap, so Scapy is
+        never asked to parse an unbounded buffer.
+      * TLS_PARSER_TIMEOUT_SECONDS — an asyncio-level timeout around
+        run_in_executor, so a pathological parse cannot stall the hot path.
+    JA4PROXY-2026-0033.
     """
     try:
-        # Set resource limits for this process (512MB address space)
-        # Scapy's TLS parser can be memory intensive on certain packets.
-        limit = 512 * 1024 * 1024
-        try:
-            resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
-        except (ValueError, OSError):  # pragma: no cover
-            pass
-
         # Local import to avoid Scapy overhead in the main process
         from scapy.layers.tls.record import TLS
 
-        # Use the same logic as the main process but in isolation
         tls_packet = TLS(data)
         parser = TLSParser()
         return parser.parse_client_hello(tls_packet)
@@ -2696,13 +2712,35 @@ class ProxyServer:
 
                 # Fallback to Scapy in subprocess if pure-Python parser fails
                 if client_hello_fields is None:
-                    try:
-                        loop = asyncio.get_running_loop()
-                        client_hello_fields = await loop.run_in_executor(
-                            self.executor, _parse_tls_task, data
+                    # JA4PROXY-2026-0033 — ThreadPoolExecutor provides no
+                    # memory isolation (Phase 69 traded it for latency).
+                    # Bound the input size and wall-clock time spent in the
+                    # fallback parser so a crafted TLS record cannot
+                    # monopolise a worker thread or run Scapy against a
+                    # buffer that somehow grew past the read cap.
+                    if len(data) > MAX_TLS_PARSER_INPUT_BYTES:
+                        self.logger.debug(
+                            "TLS parsing fallback skipped: input too large "
+                            f"({len(data)} > {MAX_TLS_PARSER_INPUT_BYTES})"
                         )
-                    except Exception as e:
-                        self.logger.debug(f"TLS parsing fallback with Scapy failed: {e}")
+                    else:
+                        try:
+                            loop = asyncio.get_running_loop()
+                            client_hello_fields = await asyncio.wait_for(
+                                loop.run_in_executor(
+                                    self.executor, _parse_tls_task, data
+                                ),
+                                timeout=TLS_PARSER_TIMEOUT_SECONDS,
+                            )
+                        except asyncio.TimeoutError:
+                            self.logger.debug(
+                                "TLS parsing fallback timed out after "
+                                f"{TLS_PARSER_TIMEOUT_SECONDS}s"
+                            )
+                        except Exception as e:
+                            self.logger.debug(
+                                f"TLS parsing fallback with Scapy failed: {e}"
+                            )
 
                 if client_hello_fields:
                     ja4 = self.ja4_generator.generate_ja4(client_hello_fields)
