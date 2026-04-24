@@ -51,6 +51,10 @@ def app_with_mocks(mock_redis, mock_prometheus_response):
     """Inject mocks into the FastAPI app."""
     import src.management.app as app_module
 
+    # Save original values
+    orig_redis = app_module.redis_manager
+    orig_aiohttp = getattr(app_module, "aiohttp", None)
+
     app_module.redis_manager = mock_redis
 
     # Mock aiohttp
@@ -64,7 +68,16 @@ def app_with_mocks(mock_redis, mock_prometheus_response):
     mock_aiohttp.ClientTimeout = MagicMock()
 
     app_module.aiohttp = mock_aiohttp
-    return app
+    
+    yield app
+    
+    # Restore original values
+    app_module.redis_manager = orig_redis
+    if orig_aiohttp is not None:
+        app_module.aiohttp = orig_aiohttp
+    else:
+        # If it wasn't there (unlikely given imports), at least remove our mock
+        del app_module.aiohttp
 
 
 class TestParsePrometheusText:
