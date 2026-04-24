@@ -74,6 +74,21 @@ class ConfigLoader:
     """
 
     def __init__(self, config_path: str = "config/proxy.yml") -> None:
+        # JA4PROXY-2026-0054: reject lexical ".." traversal in config_path.
+        # The operator controls this via argparse in production, so the
+        # concrete exploit is narrow — but rejecting ".." here closes the
+        # only path-traversal primitive the loader could ever offer to a
+        # caller that plumbs untrusted input (e.g. a future Management-API
+        # endpoint that takes a config selector). Absolute paths are still
+        # permitted because tests legitimately pass tmp_path-derived ones.
+        if config_path is None:
+            raise ConfigError("config_path must not be None")
+        parts = Path(config_path).parts
+        if ".." in parts:
+            raise ConfigError(
+                f"Rejected config_path {config_path!r}: '..' path components "
+                "are not permitted (path-traversal defence, JA4PROXY-2026-0054)."
+            )
         self._path = Path(config_path)
         self._config: dict = {}
         self._callbacks: list[Callable[[dict], None]] = []

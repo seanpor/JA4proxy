@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import ssl
 import sys
 import urllib.error
 import urllib.request
@@ -39,13 +41,45 @@ CERT_DAYS_WARN = 30
 CERT_DAYS_CRIT = 7
 
 
+def _build_tls_context(url: str) -> "ssl.SSLContext | None":
+    """Build a TLS context for HTTPS requests to the Management API.
+
+    JA4PROXY-2026-0055 — the previous call to ``urlopen`` passed no
+    ``context`` argument, which on older CPython releases skipped
+    verification entirely. A passive network attacker between Nagios
+    and the Management API could then feed the plugin a forged health
+    doc, hiding a real outage. We now always build a verifying context for
+    HTTPS URLs; operators may opt into ``JA4PROXY_CA_BUNDLE`` to pin a
+    custom CA, or ``JA4PROXY_TLS_INSECURE=1`` as a last-resort escape
+    hatch (printed to stderr on every invocation so it's visible in the
+    Nagios log).
+    """
+    if not url.lower().startswith("https://"):
+        return None
+    if os.environ.get("JA4PROXY_TLS_INSECURE", "") == "1":
+        print(
+            "WARNING: JA4PROXY_TLS_INSECURE=1 — TLS verification disabled; "
+            "Nagios results are vulnerable to an active MITM.",
+            file=sys.stderr,
+        )
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        return ctx
+    ca_bundle = os.environ.get("JA4PROXY_CA_BUNDLE", "")
+    if ca_bundle:
+        return ssl.create_default_context(cafile=ca_bundle)
+    return ssl.create_default_context()
+
+
 def _fetch(url: str, token: str) -> dict:
     """GET /api/v1/health/deep and return parsed JSON."""
     req = urllib.request.Request(url)
     if token:
         req.add_header("Authorization", f"Bearer {token}")
+    ctx = _build_tls_context(url)
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+        with urllib.request.urlopen(req, timeout=10, context=ctx) as resp:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
             return json.loads(resp.read().decode())
     except urllib.error.HTTPError as exc:
         print(f"UNKNOWN - HTTP {exc.code} from {url} | ", file=sys.stdout)

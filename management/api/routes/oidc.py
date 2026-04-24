@@ -45,8 +45,15 @@ from urllib.parse import urlencode
 
 import httpx
 from authlib.integrations.httpx_client import AsyncOAuth2Client
-from authlib.jose import JsonWebKey
-from authlib.jose import jwt as authlib_jwt
+from authlib.jose import JsonWebKey, JsonWebToken
+
+# JA4PROXY-2026-0032 — never use the module-level ``authlib.jose.jwt`` shortcut.
+# That object ships with every algorithm authlib supports enabled, including
+# ``HS256``, which lets an attacker re-sign an ID token with the IdP's *public*
+# key as an HMAC secret (alg-confusion attack). Restrict to asymmetric-only
+# algorithms we're willing to trust.
+_ALLOWED_OIDC_ALGS = ["RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "PS256", "PS384", "PS512"]
+_OIDC_JWT = JsonWebToken(_ALLOWED_OIDC_ALGS)
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import RedirectResponse, Response
 
@@ -223,11 +230,36 @@ async def _extract_claims(id_token: str, jwks_uri: str) -> dict:
                 detail="Failed to extract claims from ID token",
             ) from exc
 
+    # JA4PROXY-2026-0032 — reject ``alg: none`` and symmetric-algorithm tokens
+    # before we hand the payload to a key-set that might silently accept them.
+    # The header is the first base64url segment; parsing the algorithm here
+    # lets us fail closed with a clear error instead of relying on the key
+    # resolver to catch it.
+    try:
+        header_b64 = id_token.split(".", 1)[0]
+        header_padding = "=" * (-len(header_b64) % 4)
+        header = json.loads(base64.urlsafe_b64decode(header_b64 + header_padding))
+    except Exception as exc:
+        logger.warning("oidc | event=id_token_header_invalid | error=%s", exc)  # nosemgrep
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="ID token header malformed",
+        )
+    alg = header.get("alg")
+    if alg not in _ALLOWED_OIDC_ALGS:
+        logger.warning("oidc | event=id_token_alg_rejected | alg=%s", alg)
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="ID token uses disallowed signature algorithm",
+        )
+
     try:
         key_set = await _fetch_jwks(jwks_uri)
-        claims = authlib_jwt.decode(id_token, key_set)
+        claims = _OIDC_JWT.decode(id_token, key_set)
         claims.validate()
         return dict(claims)
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.warning("oidc | event=id_token_invalid | error=%s", exc)  # nosemgrep
         raise HTTPException(

@@ -77,7 +77,11 @@ services:
     image: grafana/grafana:10.2.2
     container_name: ja4proxy-grafana
     ports:
-      - "3001:3000"
+      # JA4PROXY-2026-0045: bind to loopback only — consistent with the
+      # Prometheus and Alertmanager services above. Dashboards should be
+      # reached via an SSH tunnel or an authenticated reverse proxy, not
+      # exposed on the host's public interfaces.
+      - "127.0.0.1:3001:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?GRAFANA_PASSWORD is required}
       - GF_USERS_ALLOW_SIGN_UP=false
@@ -190,17 +194,53 @@ services:
       timeout: 5s
       retries: 5
 
+  # JA4PROXY-2026-0017 — tecnativa/docker-socket-proxy exposes a
+  # whitelisted subset of the Docker API over TCP so promtail can do
+  # container service-discovery without a raw /var/run/docker.sock
+  # mount. Only CONTAINERS=1 is enabled; every other Docker API domain
+  # (IMAGES, VOLUMES, EXEC, NETWORKS, SWARM, SYSTEM, ...) stays denied.
+  # Even if promtail is compromised, the attacker cannot enumerate
+  # images, read env vars outside the discovery scope, or exec into
+  # other containers.
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:0.3.0
+    container_name: ja4proxy-docker-socket-proxy
+    environment:
+      CONTAINERS: 1
+      # Everything else stays 0 by default.
+      POST: 0
+      DELETE: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    networks:
+      - ja4proxy-monitoring
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - DAC_READ_SEARCH
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.2'
+
   promtail:
     image: grafana/promtail:3.3.2
     container_name: ja4proxy-promtail
+    # JA4PROXY-2026-0017 — no more /var/run/docker.sock mount. Promtail
+    # now reads container metadata from docker-socket-proxy over TCP
+    # (see promtail-config.yml `host: tcp://docker-socket-proxy:2375`).
     volumes:
       - ../monitoring/loki/promtail-config.yml:/etc/promtail/config.yml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - promtail-positions:/positions
     command: -config.file=/etc/promtail/config.yml
     depends_on:
       - loki
+      - docker-socket-proxy
     restart: unless-stopped
     networks:
       - ja4proxy-monitoring
@@ -219,12 +259,22 @@ services:
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.47.2
     container_name: ja4proxy-cadvisor
-    privileged: true
+    # JA4PROXY-2026-0016 — cAdvisor previously ran with privileged: true, full
+    # r/w /var/run mount, and /dev/kmsg access. A compromise of the cAdvisor
+    # container had a direct path to host root via the Docker socket under
+    # /var/run. The minimum caps cAdvisor needs to read /proc + /sys cgroup
+    # data are SYS_PTRACE + DAC_READ_SEARCH; /var/run is now read-only so
+    # the Docker socket cannot be written to from inside the container.
+    cap_drop:
+      - ALL
+    cap_add:
+      - SYS_PTRACE
+      - DAC_READ_SEARCH
     devices:
       - /dev/kmsg:/dev/kmsg
     volumes:
       - /:/rootfs:ro
-      - /var/run:/var/run:rw
+      - /var/run:/var/run:ro
       - /sys:/sys:ro
       - /var/lib/docker:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro

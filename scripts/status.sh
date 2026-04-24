@@ -174,7 +174,10 @@ echo -e "  HAProxy stats:        ${CYAN}http://${BIND_IP}:8404/stats${NC}"
 echo -e "  Proxy metrics:        ${CYAN}http://${BIND_IP}:9090/metrics${NC}"
 echo -e "  Management UI:        ${CYAN}http://${BIND_IP}:8090${NC}"
 echo -e "  Prometheus:           ${CYAN}http://localhost:9091${NC}  (shared)"
-echo -e "  Grafana:              ${CYAN}http://localhost:3001${NC}  (admin / ${GRAFANA_PASS})  (shared)"
+# JA4PROXY-2026-0040: never echo the Grafana password — operators can
+# read it from .env (chmod 600) with:
+#     grep '^GRAFANA_PASSWORD=' .env
+echo -e "  Grafana:              ${CYAN}http://localhost:3001${NC}  (admin / [see .env])  (shared)"
 echo
 
 # ── 6. Summary ─────────────────────────────────────────────────────────────────

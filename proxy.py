@@ -52,7 +52,6 @@ import logging
 import logging.handlers
 import os
 import re
-import resource
 import signal
 import socket
 import ssl
@@ -175,26 +174,58 @@ VALID_HOSTNAME_PATTERN = re.compile(
 # Phase 28a: Parser Isolation & Depth Limits
 MAX_TLS_PARSER_DEPTH = 10
 
+# JA4PROXY-2026-0033 — hard upper bound on bytes passed to the Scapy
+# fallback parser. Upstream read size is already bounded by proxy.buffer_size
+# (default 8192) but we enforce an independent defence-in-depth cap so a
+# future refactor of the read path cannot silently uncork pathological
+# inputs into Scapy. A valid TLS ClientHello is never even close to this.
+MAX_TLS_PARSER_INPUT_BYTES = 65536
+
+# JA4PROXY-2026-0033 — wall-clock budget for a single Scapy fallback parse
+# attempt. If Scapy does not return within this window, abandon the attempt,
+# log a counter, and fall through to ja4="unknown" rather than letting a
+# crafted packet monopolise a worker thread indefinitely. ThreadPool
+# execution cannot be forcibly cancelled, so this upper-bounds only how
+# long the hot path waits — the thread itself will finish whenever Scapy
+# decides to, which is exactly why the input size cap above matters.
+TLS_PARSER_TIMEOUT_SECONDS = 2.0
+
+# JA4PROXY-2026-0038 — atomic rate-limit INCR+EXPIRE. Redis runs Lua
+# scripts under its single-threaded model, so the INCR and the
+# conditional EXPIRE both execute without interleaving from other
+# clients and without the previous "crash between INCR and EXPIRE
+# strands the key without TTL" race. ARGV[1] is the window seconds.
+# Returns the post-INCR count so the caller can apply its threshold
+# identically to the previous implementation.
+RATE_LIMIT_INCR_LUA = """\
+local current = redis.call('INCR', KEYS[1])
+if current == 1 then
+    redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+return current
+"""
+
 
 def _parse_tls_task(data: bytes) -> Optional[Dict]:
     """
-    Worker function for TLS parsing in a separate process.
-    Provides isolation and memory limits (RLIMIT_AS) to prevent
-    complex/malformed packets from compromising the main process.
+    Worker function for TLS parsing in the fallback thread pool.
+
+    Phase 69 replaced the original ProcessPoolExecutor with a
+    ThreadPoolExecutor for latency reasons. That change removed the process
+    memory isolation the original resource.setrlimit(RLIMIT_AS, ...) relied
+    on — RLIMIT_AS applies to the whole process, so calling it from a
+    worker thread would cap the main proxy process too. We now rely on two
+    other guards, enforced in _analyze_tls_handshake before dispatch:
+      * MAX_TLS_PARSER_INPUT_BYTES — a hard input-size cap, so Scapy is
+        never asked to parse an unbounded buffer.
+      * TLS_PARSER_TIMEOUT_SECONDS — an asyncio-level timeout around
+        run_in_executor, so a pathological parse cannot stall the hot path.
+    JA4PROXY-2026-0033.
     """
     try:
-        # Set resource limits for this process (512MB address space)
-        # Scapy's TLS parser can be memory intensive on certain packets.
-        limit = 512 * 1024 * 1024
-        try:
-            resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
-        except (ValueError, OSError):  # pragma: no cover
-            pass
-
         # Local import to avoid Scapy overhead in the main process
         from scapy.layers.tls.record import TLS
 
-        # Use the same logic as the main process but in isolation
         tls_packet = TLS(data)
         parser = TLSParser()
         return parser.parse_client_hello(tls_packet)
@@ -1150,9 +1181,17 @@ class SecurityManager:
         key = f"rate_limit:{client_ip}"
 
         try:
-            current = await self.redis.incr(key)
-            if current == 1:
-                await self.redis.expire(key, window)
+            # JA4PROXY-2026-0038: atomic INCR + conditional EXPIRE.
+            # The previous form was two round-trips (INCR then, when
+            # current==1, EXPIRE) — a crash between them left the key
+            # with no TTL, permanently rate-limiting that IP. The Lua
+            # below runs atomically under Redis' single-threaded model.
+            current = await self.redis.eval(
+                RATE_LIMIT_INCR_LUA,
+                1,
+                key,
+                window,
+            )
 
             if current > max_requests:
                 self.logger.warning(
@@ -2197,10 +2236,38 @@ class ProxyServer:
         return False
 
     def _sanitize_log(self, text: Any) -> str:
-        """Sanitize text for logging by removing newlines and carriage returns."""
+        """Sanitize text for logging — strip every byte that could corrupt a log line.
+
+        JA4PROXY-2026-0029 — the earlier implementation only escaped ``\\r``
+        and ``\\n``. That left the door open for:
+
+        * **NUL bytes** — truncate log lines in downstream syslog/journald
+          pipelines, hiding later content on the same line.
+        * **ANSI escape sequences** (``\\x1b[…]``) — hide, colour, or rewrite
+          log entries in a terminal viewer, letting an attacker disguise a
+          malicious SNI/IP as a harmless one.
+        * **C0 / C1 controls** — form feed, vertical tab, DEL, etc. corrupt
+          log-viewer state and can split a single entry across two records in
+          line-oriented log pipelines.
+
+        We replace every byte whose codepoint is below ``0x20`` (except
+        ``\\t``) and the DEL byte (``0x7f``) with an escaped ``\\xHH`` form,
+        and drop every C1 control (``0x80``–``0x9f``). Tabs pass through
+        because they're part of legitimate structured-log formats.
+        """
         if text is None:
             return ""
-        return str(text).replace("\r", "\\r").replace("\n", "\\n")
+        s = str(text)
+        out = []
+        for ch in s:
+            code = ord(ch)
+            if ch == "\t":
+                out.append(ch)
+            elif code < 0x20 or code == 0x7F or 0x80 <= code <= 0x9F:
+                out.append(f"\\x{code:02x}")
+            else:
+                out.append(ch)
+        return "".join(out)
 
     async def handle_connection(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
@@ -2668,13 +2735,35 @@ class ProxyServer:
 
                 # Fallback to Scapy in subprocess if pure-Python parser fails
                 if client_hello_fields is None:
-                    try:
-                        loop = asyncio.get_running_loop()
-                        client_hello_fields = await loop.run_in_executor(
-                            self.executor, _parse_tls_task, data
+                    # JA4PROXY-2026-0033 — ThreadPoolExecutor provides no
+                    # memory isolation (Phase 69 traded it for latency).
+                    # Bound the input size and wall-clock time spent in the
+                    # fallback parser so a crafted TLS record cannot
+                    # monopolise a worker thread or run Scapy against a
+                    # buffer that somehow grew past the read cap.
+                    if len(data) > MAX_TLS_PARSER_INPUT_BYTES:
+                        self.logger.debug(
+                            "TLS parsing fallback skipped: input too large "
+                            f"({len(data)} > {MAX_TLS_PARSER_INPUT_BYTES})"
                         )
-                    except Exception as e:
-                        self.logger.debug(f"TLS parsing fallback with Scapy failed: {e}")
+                    else:
+                        try:
+                            loop = asyncio.get_running_loop()
+                            client_hello_fields = await asyncio.wait_for(
+                                loop.run_in_executor(
+                                    self.executor, _parse_tls_task, data
+                                ),
+                                timeout=TLS_PARSER_TIMEOUT_SECONDS,
+                            )
+                        except asyncio.TimeoutError:
+                            self.logger.debug(
+                                "TLS parsing fallback timed out after "
+                                f"{TLS_PARSER_TIMEOUT_SECONDS}s"
+                            )
+                        except Exception as e:
+                            self.logger.debug(
+                                f"TLS parsing fallback with Scapy failed: {e}"
+                            )
 
                 if client_hello_fields:
                     ja4 = self.ja4_generator.generate_ja4(client_hello_fields)
@@ -2770,10 +2859,22 @@ class ProxyServer:
         """Forward connection to backend server."""
         backend_writer = None
         try:
-            # Connect to backend
-            backend_reader, backend_writer = await asyncio.open_connection(
-                self.config["proxy"]["backend_host"],
-                int(self.config["proxy"]["backend_port"]),
+            # JA4PROXY-2026-0028 — bound the backend TCP connect so a slow or
+            # unresponsive backend can't tie up handler coroutines for the
+            # default OS TCP timeout (~2 minutes). Without this, a backend
+            # under separate load would let any attacker exhaust the event
+            # loop simply by opening connections. Matches the tarpit redirect
+            # bound (5s) by default; operators can tune via
+            # proxy.backend_connect_timeout_seconds.
+            connect_timeout = float(
+                self.config["proxy"].get("backend_connect_timeout_seconds", 5)
+            )
+            backend_reader, backend_writer = await asyncio.wait_for(
+                asyncio.open_connection(
+                    self.config["proxy"]["backend_host"],
+                    int(self.config["proxy"]["backend_port"]),
+                ),
+                timeout=connect_timeout,
             )
 
             self.logger.info(f"Forwarding connection with JA4: {fingerprint.ja4}")
@@ -2789,6 +2890,16 @@ class ProxyServer:
                 return_exceptions=True,
             )
 
+        except asyncio.TimeoutError:
+            # JA4PROXY-2026-0028 — log distinctly so operators can page on
+            # sustained backend-connect timeouts (separate from arbitrary
+            # forward errors).
+            self.logger.warning(
+                "backend connect timed out after %ss (host=%s port=%s)",
+                connect_timeout,
+                self.config["proxy"]["backend_host"],
+                self.config["proxy"]["backend_port"],
+            )
         except Exception as e:
             self.logger.error(f"Error forwarding to backend: {e}")
         finally:
@@ -2816,12 +2927,49 @@ class ProxyServer:
             self.logger.debug(f"Connection closed ({direction}): {e}")
 
 
+def _luhn_check(digits: str) -> bool:
+    """Return True iff ``digits`` (pure-digit string) passes the Luhn mod-10
+    checksum used by real credit card numbers.
+
+    JA4PROXY-2026-0039: a bare ``\\d{13,19}`` pattern matches Unix
+    timestamps in milliseconds (13 digits), large counters, Redis keys,
+    and many JA4 fingerprints — corrupting operational logs with
+    ``***CARD_REDACTED***`` placeholders. Real PANs always satisfy
+    Luhn, so gating the redaction on Luhn success drops the false-
+    positive rate to ~1-in-10 for random digit runs while still
+    catching real card numbers.
+    """
+    total = 0
+    parity = len(digits) % 2
+    for idx, ch in enumerate(digits):
+        value = ord(ch) - 48  # '0' == 48
+        if idx % 2 == parity:
+            value *= 2
+            if value > 9:
+                value -= 9
+        total += value
+    return total % 10 == 0
+
+
+def _redact_card_if_luhn(match: "re.Match[str]") -> str:
+    """Re.sub callback: redact only when the captured run passes Luhn.
+
+    JA4PROXY-2026-0039: keeps timestamps and other long-digit-runs
+    intact in logs so operators can debug without secondary corruption.
+    """
+    digits = match.group(1)
+    return "***CARD_REDACTED***" if _luhn_check(digits) else digits
+
+
 class SensitiveDataFilter(logging.Filter):
     """Filter to prevent logging of sensitive data (SECURITY FIX)."""
 
     def __init__(self):
         super().__init__()
-        # Patterns to redact from logs
+        # Patterns to redact from logs. Each entry is (compiled-regex,
+        # replacement) where replacement is either a string (plain
+        # substitution) or a callable taking an ``re.Match`` — re.sub
+        # accepts both natively.
         self.sensitive_patterns = [
             (
                 re.compile(
@@ -2848,9 +2996,12 @@ class SensitiveDataFilter(logging.Filter):
                 "Authorization: Bearer ***REDACTED***",
             ),
             (
-                re.compile(r"(\d{13,19})", re.IGNORECASE),
-                "***CARD_REDACTED***",
-            ),  # Credit card numbers
+                # JA4PROXY-2026-0039: word-boundary + Luhn gate so the
+                # filter only redacts strings that are plausibly real
+                # card numbers, not random 13-19 digit runs.
+                re.compile(r"\b(\d{13,19})\b"),
+                _redact_card_if_luhn,
+            ),
             (
                 re.compile(
                     r"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})", re.IGNORECASE

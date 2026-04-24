@@ -19,15 +19,15 @@ Security notes
 * Admin user from ``MANAGEMENT_ADMIN_USER`` (default "admin").
 * Password hash from ``MANAGEMENT_ADMIN_PASSWORD_HASH`` (bcrypt).
 * For dev: plain ``MANAGEMENT_ADMIN_PASSWORD`` accepted when hash not set.
-* Rate limiting: 5 consecutive failures per IP → 5-min lockout (in-memory).
+* Rate limiting: 5 consecutive failures per IP → 5-min lockout (Redis-backed
+  so the limiter applies uniformly across all workers and survives restarts —
+  JA4PROXY-2026-0021).
 """
 
 import asyncio
 import hashlib
 import logging
 import os
-import time
-from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 
@@ -50,13 +50,18 @@ TOKEN_EXPIRY_HOURS = 8
 MAX_LOGIN_FAILURES = 5
 LOCKOUT_SECONDS = 300  # 5 minutes
 
+# JA4PROXY-2026-0021 — Redis-backed rate limiter keys. The previous
+# implementation stored counters in a per-process dict, which was bypassed by
+# distributed brute-force (each worker had its own fresh 5-attempt quota) and
+# cleared on restart. The Redis keys make the counter cluster-wide and
+# durable. `login_failures` is incremented per failed attempt; when it reaches
+# MAX_LOGIN_FAILURES the `login_lockout` key is set with LOCKOUT_SECONDS TTL.
+LOGIN_FAILURE_KEY_PREFIX = "mgmt:auth:login_failures:"
+LOGIN_LOCKOUT_KEY_PREFIX = "mgmt:auth:login_lockout:"
+
 # ── Password context ──────────────────────────────────────────────────────────
 
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# ── In-memory rate-limit state ────────────────────────────────────────────────
-# { client_ip: {"count": int, "locked_until": float} }
-_login_failures: dict[str, dict] = defaultdict(lambda: {"count": 0, "locked_until": 0.0})
 
 
 # ── Helper functions ──────────────────────────────────────────────────────────
@@ -200,32 +205,65 @@ def _client_ip(request: Request) -> str:
     return "unknown"
 
 
-def _check_rate_limit(ip: str) -> None:
-    """Raise HTTP 429 if the IP is locked out; clean up expired locks."""
-    state = _login_failures[ip]
-    now = time.monotonic()
-    if state["locked_until"] > now:
-        remaining = int(state["locked_until"] - now)
+async def _check_rate_limit(ip: str, redis) -> None:
+    """Raise HTTP 429 if the IP is locked out.
+
+    Checks the Redis lockout key's TTL. If Redis is unreachable the limiter
+    fails open — the rest of the login flow already depends on Redis for
+    bearer-token lookups, so a missing Redis is a wider outage than the
+    login rate limiter alone.
+    """
+    try:
+        ttl = await redis.ttl(f"{LOGIN_LOCKOUT_KEY_PREFIX}{ip}")
+    except Exception as exc:  # pragma: no cover — fail-open branch
+        logger.warning(
+            "auth | event=rate_limit_check_failed | ip=%s | err=%s", ip, exc
+        )
+        return
+
+    # redis-py returns -2 for missing keys, -1 for keys with no TTL.
+    if ttl is not None and ttl > 0:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Too many failed login attempts. Locked out for {remaining}s.",
+            detail=f"Too many failed login attempts. Locked out for {ttl}s.",
         )
 
 
-def _record_failure(ip: str) -> None:
-    """Increment failure counter; lock out after MAX_LOGIN_FAILURES."""
-    state = _login_failures[ip]
-    state["count"] += 1
-    if state["count"] >= MAX_LOGIN_FAILURES:
-        state["locked_until"] = time.monotonic() + LOCKOUT_SECONDS
+async def _record_failure(ip: str, redis) -> None:
+    """Increment Redis failure counter; lock out after MAX_LOGIN_FAILURES."""
+    failure_key = f"{LOGIN_FAILURE_KEY_PREFIX}{ip}"
+    lockout_key = f"{LOGIN_LOCKOUT_KEY_PREFIX}{ip}"
+    try:
+        count = await redis.incr(failure_key)
+        if count == 1:
+            # First failure — set TTL so abandoned counters drain.
+            await redis.expire(failure_key, LOCKOUT_SECONDS)
+        if count >= MAX_LOGIN_FAILURES:
+            await redis.set(lockout_key, "1", ex=LOCKOUT_SECONDS)
+            logger.warning(
+                "auth | event=lockout | ip=%s | reason=too_many_failures", ip
+            )
+    except Exception as exc:  # pragma: no cover — fail-open branch
         logger.warning(
-            "auth | event=lockout | ip=%s | reason=too_many_failures", ip
+            "auth | event=rate_limit_record_failure_failed | ip=%s | err=%s",
+            ip,
+            exc,
         )
 
 
-def _record_success(ip: str) -> None:
+async def _record_success(ip: str, redis) -> None:
     """Clear failure state on successful login."""
-    _login_failures[ip] = {"count": 0, "locked_until": 0.0}
+    try:
+        await redis.delete(
+            f"{LOGIN_FAILURE_KEY_PREFIX}{ip}",
+            f"{LOGIN_LOCKOUT_KEY_PREFIX}{ip}",
+        )
+    except Exception as exc:  # pragma: no cover — fail-open branch
+        logger.warning(
+            "auth | event=rate_limit_record_success_failed | ip=%s | err=%s",
+            ip,
+            exc,
+        )
 
 
 # ── Bearer token helper ───────────────────────────────────────────────────────
@@ -354,13 +392,31 @@ async def get_current_user(
             payload = _decode_token(token)
             username: Optional[str] = payload.get("sub")
             if username is not None:
-                # Read role from JWT; default to admin for tokens issued before
-                # SSO was added (backward compatibility with existing sessions).
-                role_str: str = payload.get("role", "admin")
-                try:
-                    cookie_role = Role(role_str)
-                except ValueError:
-                    cookie_role = Role.admin
+                # JA4PROXY-2026-0034 — default to the least-privileged role
+                # when the JWT carries no role claim or a role value we do
+                # not recognise. The original code defaulted to Role.admin,
+                # which turned every tampered / malformed token into a
+                # privilege escalation. Role.auditor is read-only and
+                # matches the fail-closed posture expected for a management
+                # plane.
+                raw_role = payload.get("role")
+                if raw_role is None:
+                    logger.warning(
+                        "auth | event=jwt_role_missing | sub=%s | defaulting to auditor",
+                        username,
+                    )
+                    cookie_role = Role.auditor
+                else:
+                    try:
+                        cookie_role = Role(raw_role)
+                    except ValueError:
+                        logger.warning(
+                            "auth | event=jwt_role_invalid | sub=%s | raw_role=%r | "
+                            "defaulting to auditor",
+                            username,
+                            raw_role,
+                        )
+                        cookie_role = Role.auditor
                 return (username, cookie_role)
         except HTTPException:
             pass
@@ -490,14 +546,18 @@ router = APIRouter(tags=["auth"])
 
 
 @router.post("/auth/login")
-async def login(request: Request, response: Response) -> Response:
+async def login(
+    request: Request,
+    response: Response,
+    redis=Depends(get_redis),
+) -> Response:
     """Validate credentials and set an httpOnly JWT cookie.
 
     On success: sets cookie and redirects to /.
     On failure: returns 401 JSON.
     """
     ip = _client_ip(request)
-    _check_rate_limit(ip)
+    await _check_rate_limit(ip, redis)
 
     # Parse body — supports both JSON and form data
     content_type = request.headers.get("content-type", "")
@@ -514,7 +574,7 @@ async def login(request: Request, response: Response) -> Response:
     admin_user, _, _ = _get_admin_credentials()
 
     if creds.username != admin_user or not _verify_password(creds.password):
-        _record_failure(ip)
+        await _record_failure(ip, redis)
         logger.warning(
             "auth | event=login_failed | ip=%s | username=%s", ip, creds.username
         )
@@ -523,7 +583,7 @@ async def login(request: Request, response: Response) -> Response:
             detail="Invalid credentials",
         )
 
-    _record_success(ip)
+    await _record_success(ip, redis)
     token_str = _create_access_token(creds.username)
     logger.info("auth | event=login_success | ip=%s | username=%s", ip, creds.username)
 

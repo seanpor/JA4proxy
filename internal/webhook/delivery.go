@@ -18,6 +18,15 @@ import (
 )
 
 // WebhookEndpoint describes a single outbound webhook target.
+//
+// JA4PROXY-2026-0051 — the Secret field is a long-lived HMAC signing key.
+// Leaking it to logs, metrics, or crash dumps would let an attacker forge
+// webhook payloads to downstream SIEM/SOAR systems. The String, GoString,
+// Format, and MarshalJSON methods all redact Secret so the only code path
+// that can observe it is the HMAC computation in computeHMAC. Callers
+// MUST use fmt.Sprintf / json.Marshal rather than reflect-dumping the
+// struct; every logrus WithField("endpoint", ep) call will therefore
+// emit the redacted form automatically.
 type WebhookEndpoint struct {
 	ID     string
 	URL    string
@@ -27,6 +36,53 @@ type WebhookEndpoint struct {
 	RetryAttempts       int
 	RetryBackoffSeconds float64
 	TimeoutSeconds      float64
+}
+
+// redactedSecret is the sentinel emitted in place of Secret whenever a
+// WebhookEndpoint is stringified or JSON-marshalled. It is deliberately
+// short so it does not balloon log lines, and deliberately distinctive
+// so a grep of a log line for "REDACTED" flags an unexpected leak.
+const redactedSecret = "[REDACTED]"
+
+// String implements fmt.Stringer. Secret is never included.
+func (e WebhookEndpoint) String() string {
+	return fmt.Sprintf("WebhookEndpoint{ID:%q URL:%q Secret:%s Events:%v}",
+		e.ID, e.URL, redactedSecret, e.Events)
+}
+
+// GoString implements fmt.GoStringer so "%#v" does not leak the secret.
+func (e WebhookEndpoint) GoString() string {
+	return e.String()
+}
+
+// Format implements fmt.Formatter. Handles %v, %+v, and %s uniformly so
+// that a future logrus field reference cannot accidentally bypass the
+// redaction by picking a different verb. Any verb behaves like %s.
+func (e WebhookEndpoint) Format(state fmt.State, _ rune) {
+	_, _ = state.Write([]byte(e.String()))
+}
+
+// MarshalJSON implements json.Marshaler. Secret is replaced with the
+// redaction sentinel so json.Marshal(endpoint) cannot leak credentials
+// into config dumps, API responses, or structured logs.
+func (e WebhookEndpoint) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		ID                  string   `json:"id"`
+		URL                 string   `json:"url"`
+		Secret              string   `json:"secret"`
+		Events              []string `json:"events"`
+		RetryAttempts       int      `json:"retry_attempts,omitempty"`
+		RetryBackoffSeconds float64  `json:"retry_backoff_seconds,omitempty"`
+		TimeoutSeconds      float64  `json:"timeout_seconds,omitempty"`
+	}{
+		ID:                  e.ID,
+		URL:                 e.URL,
+		Secret:              redactedSecret,
+		Events:              e.Events,
+		RetryAttempts:       e.RetryAttempts,
+		RetryBackoffSeconds: e.RetryBackoffSeconds,
+		TimeoutSeconds:      e.TimeoutSeconds,
+	})
 }
 
 // WebhookEvent is a single event to be dispatched.
@@ -81,6 +137,19 @@ func NewDispatcher(cfg DispatcherConfig, addr string, log *logrus.Logger) (*Disp
 		client: &http.Client{Timeout: timeout},
 		sleep:  sleepFn,
 	}, nil
+}
+
+// Close drops references to the configured webhook secrets so the Go
+// garbage collector is free to reclaim the underlying memory at its next
+// cycle. JA4PROXY-2026-0051 — strings in Go cannot be forcibly zeroed
+// (they are immutable and may have been deduplicated), but dropping the
+// only references we hold is the strongest guarantee the runtime
+// provides without unsafe pointer surgery. Callers should invoke Close
+// on shutdown and before dumping process state for debugging.
+func (d *Dispatcher) Close() {
+	for i := range d.cfg.Endpoints {
+		d.cfg.Endpoints[i].Secret = ""
+	}
 }
 
 // Deliver sends the event to all matching endpoints.

@@ -16,11 +16,37 @@ async def my_route(redis: Redis = Depends(get_redis)):
 import logging
 import os
 from typing import AsyncGenerator, Optional
+from urllib.parse import urlparse
 
 import redis.asyncio as aioredis
 from redis.asyncio import Redis
 
 logger = logging.getLogger(__name__)
+
+
+def _redact_redis_url(url: str) -> str:
+    """Return a log-safe form of ``url`` with any password replaced by ``***``.
+
+    Pentest finding JA4PROXY-2026-0053 flagged that the prior implementation
+    logged ``url.split("@")[-1]``, which leaks the password whenever the
+    URL has no ``@`` separator (e.g. a bare ``redis://host:6379/0``) and
+    also breaks for passwords that themselves contain ``@``. Using
+    ``urllib.parse.urlparse`` splits at the last ``@`` exactly like
+    redis-py does internally, so the redacted form matches the host/port
+    that the client will actually connect to.
+    """
+    try:
+        parts = urlparse(url)
+    except ValueError:
+        return "<unparseable-redis-url>"
+    if parts.password is None:
+        return url
+    user = parts.username or ""
+    host = parts.hostname or ""
+    port = f":{parts.port}" if parts.port else ""
+    path = parts.path or ""
+    return f"{parts.scheme}://{user}:***@{host}{port}{path}"
+
 
 # Module-level pool — created by init_redis(), destroyed by close_redis()
 _redis_pool: Optional[aioredis.ConnectionPool] = None
@@ -61,13 +87,27 @@ async def init_redis(override_client: Optional[Redis] = None) -> None:
         return
 
     url = _build_redis_url()
-    _redis_pool = aioredis.ConnectionPool.from_url(
-        url,
-        decode_responses=True,
-        max_connections=20,
-    )
-    _redis_client = aioredis.Redis(connection_pool=_redis_pool)
-    logger.info("Redis connection pool initialised: %s", url.split("@")[-1])
+    safe_url = _redact_redis_url(url)
+    try:
+        _redis_pool = aioredis.ConnectionPool.from_url(
+            url,
+            decode_responses=True,
+            max_connections=20,
+        )
+        _redis_client = aioredis.Redis(connection_pool=_redis_pool)
+    except Exception as exc:  # noqa: BLE001 — we always re-raise
+        # JA4PROXY-2026-0053: the exception text from ConnectionPool.from_url
+        # can echo the URL (including password) if the URL is malformed.
+        # Swallowing and logging the redacted form prevents the raw URL from
+        # landing in the traceback the caller prints; we still re-raise so
+        # startup fails loudly.
+        logger.error(
+            "Redis connection pool init failed for %s: %s",
+            safe_url,
+            type(exc).__name__,
+        )
+        raise
+    logger.info("Redis connection pool initialised: %s", safe_url)
 
 
 async def close_redis() -> None:

@@ -144,67 +144,75 @@ phases:
     summary: 'Ensure compliance with Cyber Resilience Act (CRA), NIST SSDF, and ISO standards (27017, 29100) including SLSA L3 provenance.'
   108:
     name: 'Full-Stack Penetration Testing Campaign'
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_108.md
     dependencies: []
     size: EXTRA-LARGE
-    summary: 'A 7-layer adversarial assessment covering Go/Python core, Redis state, CI/CD supply chain, and DMZ network evasion.'
+    summary: 'Campaign executed; all findings ingested into docs/security/findings.yaml under Phase 121b and closed via individual Phase 118*/119* chained-branch remediations. 54/54 findings FIXED.'
   109:
     name: 'PROXY Protocol Hardening & Scrubbing'
-    status: PROPOSED
+    status: DEFERRED
     action_plan: docs/phases/PHASE_109.md
     dependencies: [108]
     size: MEDIUM
-    summary: 'Harden Go proxy to strip untrusted PROXY headers and handle partial reads; implement unified IP/Fingerprint blocklist schema.'
+    superseded_by: 118
+    summary: 'Superseded by Phase 118 — PROXY-header scrubbing closed via findings register (118a/b, 116a).'
   110:
     name: 'Management API Security Hardening'
-    status: PROPOSED
+    status: DEFERRED
     action_plan: docs/phases/PHASE_110.md
     dependencies: [108]
     size: MEDIUM
-    summary: 'Fix Redis-blocking health checks, implement CSRF protection, secure bearer token lookups (O(1)), and add Webhook SSRF validation.'
+    superseded_by: 118
+    summary: 'Superseded by Phase 118 — CSRF, bearer-token lookup, Webhook SSRF, Redis-blocking health checks closed via findings register (110e, 118c/d/e/h).'
   111:
     name: 'Security Logic & Tarpit Hardening'
-    status: PROPOSED
+    status: DEFERRED
     action_plan: docs/phases/PHASE_111.md
     dependencies: [108]
     size: SMALL
-    summary: 'Implement fail-closed tarpit policies for high-risk traffic and add enforcement for recognizability (BlockNonTLS).'
+    superseded_by: 118
+    summary: 'Superseded by Phase 118 — fail-closed tarpit and BlockNonTLS enforcement closed via findings register (111a).'
   112:
     name: 'Session & Data Integrity Hardening'
-    status: PROPOSED
+    status: DEFERRED
     action_plan: docs/phases/PHASE_112.md
     dependencies: [108]
     size: MEDIUM
-    summary: 'Implement strict validation for GDPR erasure, JWT JTI blacklisting on logout, and migrate audit log to Redis Streams for reliability.'
+    superseded_by: 118
+    summary: 'Superseded by Phase 118 — GDPR erasure, JWT JTI blacklisting, audit-log reliability closed via findings register (118f/g/m).'
   113:
     name: 'Proxy Stability & Audit Instrumentation'
-    status: PROPOSED
+    status: DEFERRED
     action_plan: docs/phases/PHASE_113.md
     dependencies: [108]
     size: SMALL
-    summary: 'Bound beaconing sets in Redis to prevent OOM, implement non-blocking tarpit writes, and add missing audit logs for token mutations.'
+    superseded_by: 118
+    summary: 'Superseded by Phase 118 — beaconing bounds, non-blocking tarpit writes, token-mutation audit logs closed via findings register.'
   114:
     name: 'Supply Chain & Infrastructure Hygiene'
-    status: PROPOSED
+    status: DEFERRED
     action_plan: docs/phases/PHASE_114.md
     dependencies: [108]
     size: SMALL
-    summary: 'Fix command injection in Jenkinsfile/Makefile and ensure idempotent cron job deployment in scripts/deploy.sh.'
+    superseded_by: 118
+    summary: 'Superseded by Phase 118 — Jenkinsfile/Makefile command injection and idempotent cron deployment closed via findings register.'
   115:
     name: 'Web & Rendering Security'
-    status: PROPOSED
+    status: DEFERRED
     action_plan: docs/phases/PHASE_115.md
     dependencies: [108]
     size: SMALL
-    summary: 'Remediate Reflected XSS in HTMX partials and disable external fetching in WeasyPrint SVG rendering to prevent SSRF/LFI.'
+    superseded_by: 118
+    summary: 'Superseded by Phase 118 — HTMX XSS and WeasyPrint SSRF/LFI closed via findings register.'
   116:
     name: 'Protocol Parser Hardening'
-    status: PROPOSED
+    status: DEFERRED
     action_plan: docs/phases/PHASE_116.md
     dependencies: [108]
     size: SMALL
-    summary: 'Implement fail-closed parsing for PROXY protocol on trusted connections to prevent protocol confusion/smuggling.'
+    superseded_by: 118
+    summary: 'Superseded by Phase 118 — fail-closed PROXY parsing on trusted connections closed via findings register (116a, 118a/b).'
   117:
     name: 'DMZ Network Hardening & Anti-Smuggling'
     status: DEFERRED
@@ -215,18 +223,18 @@ phases:
     summary: 'Superseded by Phase 118 — full pentest remediation including Redis ACLs and auth hardening.'
   118:
     name: 'Pentest Remediation: Attack Surface & Data Leakage Hardening'
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_118.md
     dependencies: [108]
     size: XXLARGE
-    summary: 'Remediate L1-018 (PROXY smuggling), L1-019 (fragmentation), L4-028 (XFF spoofing), SSRF (webhooks), unauth metrics, Redis fail-open, backup encryption leak, integration TLS verification, Redis ACLs, auth rate limiting.'
+    summary: 'Rescoped under Phase 121e against the canonical findings register. All scoped findings (PROXY smuggling, fragmentation, XFF spoofing, SSRF, unauth metrics, Redis fail-open, backup encryption, integration TLS verification, Redis ACLs, auth rate limiting) closed via phase-118a…118vv chained-branch remediations. 54/54 findings FIXED in docs/security/findings.yaml.'
   119:
     name: 'Connection Lifecycle Hardening & Operational Security'
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_119.md
     dependencies: [108]
     size: LARGE
-    summary: 'Fix 17 vulnerabilities from independent white-box red team: goroutine leaks, n-vs-len(data) JA4 bypass, unauthenticated metrics, credential rotation, connection limits, tarpit timeouts, Redis KEYS blocking, trusted CIDR validation, SNI key injection, cookie secure flag, log sanitisation, OIDC token verification.'
+    summary: 'Rescoped under Phase 121e against the canonical findings register. All 17 white-box findings (RT-001…RT-017: goroutine leaks, n-vs-len(data) JA4 bypass, unauth metrics, credential rotation, connection limits, tarpit timeouts, Redis KEYS blocking, trusted CIDR validation, SNI key injection, cookie secure flag, log sanitisation, OIDC token verification) closed via phase-119a…119t chained-branch remediations.'
   120:
     name: 'Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED)'
     status: DEFERRED
