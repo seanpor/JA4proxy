@@ -62,6 +62,7 @@ help:
 	@echo "  test-adversarial  - Run adversarial/fuzz tests only"
 	@echo "  test-calibrate    - Benchmark this machine and store worker count"
 	@echo "  test-docker       - Run tests inside Docker (CI / clean environment)"
+	@echo "  test-phases       - Run every per-phase test-phase-* suite"
 	@echo "  smoke-test        - Quick sanity check"
 	@echo "  smoke-docker      - Docker Compose lifecycle smoke test"
 	@echo "  smoke-k8s         - Helm/kind smoke test (skips if kind absent)"
@@ -1088,13 +1089,21 @@ test-phase-89:
 	python3 -m pytest tests/unit/test_docker_consistency.py \
 	                 tests/integration/test_dockerfile_coverage.py -v
 
-test-phase-89-lint:
+# Phase 89 compose-config validation (docker-compose config --quiet on poc/test/prod).
+# This is a lint, not a test — included in `lint-infra` → `lint-all`.
+# See also `lint-docker` which performs a superset of this check across all
+# compose overlays (poc, python-legacy, test, monitoring, prod, scale).
+lint-phase-89:
 	REDIS_PASSWORD=lint BACKEND_HOST=lint \
 	MANAGEMENT_JWT_SECRET=lint MANAGEMENT_ADMIN_USER=lint MANAGEMENT_ADMIN_PASSWORD=lint \
 	  docker compose -f deploy/docker/docker-compose.poc.yml --env-file .env config --quiet
 	docker compose -f deploy/docker/docker-compose.test.yml config --quiet
 	BACKEND_HOST=lint \
 	  docker compose -f deploy/docker/docker-compose.prod.yml config --quiet
+
+# Deprecated alias — kept so runbooks and PHASE_89.md still resolve. Prefer lint-phase-89.
+test-phase-89-lint: lint-phase-89
+	@echo "  (note: 'test-phase-89-lint' is a lint check — prefer 'make lint-phase-89')"
 
 ## Phase 91 targets
 test-phase-91:
@@ -1234,7 +1243,8 @@ lint-sast: lint-semgrep lint-checkov
 
 # Infrastructure: every file-type validator for deployed/config artefacts
 lint-infra: lint-docker lint-shell lint-yaml lint-lua lint-json \
-            lint-haproxy lint-makefiles lint-toml lint-ansible lint-helm
+            lint-haproxy lint-makefiles lint-toml lint-ansible lint-helm \
+            lint-phase-89
 
 # Observability config: Prometheus alert/recording rules + Alertmanager
 lint-observability: lint-prom lint-alertmanager
@@ -1264,7 +1274,18 @@ test-phase-93:
 .PHONY: lint-pylint lint-semgrep lint-checkov lint-haproxy lint-helm lint-ansible \
         lint-markdown lint-spelling lint-toml lint-makefiles lint-go-mod \
         lint-python lint-go lint-sast lint-infra lint-observability \
-        lint-supply-chain lint-docs-all lint-all check-paths test-phase-92 test-phase-93 sync
+        lint-supply-chain lint-docs-all lint-all check-paths test-phase-92 test-phase-93 sync \
+        lint-phase-89 test-phase-89-lint test-phases
+
+# ── Phase-level aggregates ──────────────────────────────────────────────────
+# Roll-up of every per-phase test-* target. Some targets straddle Go+Python,
+# so this is kept separate from `make test` (which is the pytest-driven local
+# runner). Run this when validating a release or touching phase-era code.
+test-phases: test-phase-13 test-phase-63 test-phase-80 test-phase-82 \
+             test-phase-83 test-phase-84 test-phase-87 test-phase-89 \
+             test-phase-91 test-phase-92 test-phase-93
+	@echo ""
+	@echo "✓ test-phases complete — all per-phase test suites passed"
 
 ## Phase 80 targets
 test-phase-80:

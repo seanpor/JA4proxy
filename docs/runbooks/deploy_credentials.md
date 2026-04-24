@@ -200,8 +200,10 @@ values, the Makefile injects **harmless placeholders**:
   `HAPROXY_STATS_USER=lint-placeholder`,
   `HAPROXY_STATS_PASSWORD=lint-placeholder`
   before each `docker compose -f … config --quiet` invocation.
-- `test-phase-89-lint` (Makefile lines 1091–1096) does the same with the
-  shorter literal `lint` for readability.
+- `lint-phase-89` (was `test-phase-89-lint`; renamed for accuracy since it's a
+  lint, not a test) does the same with the shorter literal `lint` for
+  readability. Rolled up under `make lint-infra` → `make lint-all`. The old
+  `test-phase-89-lint` alias is retained for backwards compatibility.
 
 **These placeholders are NOT secrets.** They exist solely to satisfy the
 `:?required` guard during static compose-file validation; no container is
