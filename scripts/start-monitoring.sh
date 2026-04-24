@@ -74,7 +74,10 @@ echo ""
 echo "  Prometheus:    http://localhost:9091"
 echo "  Alertmanager:  http://localhost:9093"
 echo "  Grafana:       http://localhost:3001"
-echo "                 (admin / ${GRAFANA_PASSWORD:-admin})"
+# JA4PROXY-2026-0040: never echo the Grafana password. Operators can
+# retrieve it from the .env file (chmod 600) with:
+#     grep '^GRAFANA_PASSWORD=' .env
+echo "                 (admin / [see .env])"
 echo ""
 echo "Next steps:"
 echo ""

@@ -186,7 +186,9 @@ class TestSecurityManager:
     def setup_method(self):
         self.mock_redis = AsyncMock()
         self.mock_redis.smembers.return_value = set()
-        self.mock_redis.incr.return_value = (
+        # JA4PROXY-2026-0038: rate limit now uses an atomic Lua script via
+        # redis.eval(). Mock that return instead of incr.
+        self.mock_redis.eval.return_value = (
             1  # Rate limit: 1 request, well under threshold
         )
         self.config = {
@@ -204,7 +206,7 @@ class TestSecurityManager:
     async def test_check_access_allowed(self):
         """Test access check for allowed fingerprint."""
         self.mock_redis.smembers.return_value = {VALID_FP_A.encode()}
-        self.mock_redis.incr.return_value = 1
+        self.mock_redis.eval.return_value = 1  # JA4PROXY-2026-0038
         self.security_manager.whitelist = {VALID_FP_A.encode()}
 
         fingerprint = JA4Fingerprint(ja4=VALID_FP_A)
@@ -231,7 +233,8 @@ class TestSecurityManager:
     @pytest.mark.asyncio
     async def test_rate_limiting(self):
         """Test rate limiting functionality."""
-        self.mock_redis.incr.return_value = 101  # Over limit
+        # JA4PROXY-2026-0038: atomic Lua path uses redis.eval(), not incr().
+        self.mock_redis.eval.return_value = 101  # Over limit
 
         result = await self.security_manager._check_rate_limit("192.168.1.1")
 

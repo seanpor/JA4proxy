@@ -160,9 +160,11 @@ func DefaultConfig() *Config {
 			Format:      "legacy",
 		},
 		Metrics: MetricsConfig{
-			Enabled:  true,
-			Port:     9090,
-			BindHost: "127.0.0.1",
+			Enabled:        true,
+			Port:           9090,
+			BindHost:       "127.0.0.1",
+			RateLimitRPS:   20,
+			RateLimitBurst: 40,
 		},
 		Monitoring: MonitoringConfig{
 			Enabled:                 false,
@@ -297,10 +299,13 @@ func DefaultConfig() *Config {
 			IPs:     []StaticIPConfigYAML{},
 		},
 		Webhooks: WebhooksConfig{
-			Enabled:   false,
-			StreamKey: "events:connection",
-			DLQKey:    "webhooks:dlq",
-			Endpoints: []WebhookEndpointConfig{},
+			Enabled:                   false,
+			StreamKey:                 "events:connection",
+			DLQKey:                    "webhooks:dlq",
+			Endpoints:                 []WebhookEndpointConfig{},
+			StreamQueueCapacity:       4096,
+			StreamWorkers:             4,
+			StreamWriteTimeoutSeconds: 2.0,
 		},
 	}
 }
@@ -429,6 +434,29 @@ type RedisConfig struct {
 	// signed with this secret. When empty, all messages are accepted —
 	// operators are warned at startup. Must match the Python publisher.
 	PubSubHMACSecret string `yaml:"pubsub_hmac_secret"`
+
+	// JA4PROXY-2026-0050 — per-service Redis ACL users. When Enabled is
+	// false (the historical default), the proxy connects as the "default"
+	// user which in a stock Redis install has `+@all ~*` — the exact
+	// authority required to rewrite ban lists, whitelists, the dial, and
+	// anything else. Leaving the default user unrestricted turns a stolen
+	// Redis password (or a process compromise) into full write access to
+	// security state. We do NOT flip the default to true because that would
+	// break every existing deployment that has not run
+	// scripts/redis-acl-setup.sh, but we DO refuse to silently accept a
+	// remote unauthenticated-by-ACL Redis: ValidateRedisACL emits a loud
+	// startup WARN and sets the ja4proxy_redis_acl_enabled gauge to 0 so
+	// dashboards can alert on it.
+	ACLUsers ACLUsersConfig `yaml:"acl_users"`
+}
+
+// ACLUsersConfig configures per-service Redis ACL usernames. See
+// scripts/redis-acl-setup.sh for the matching Redis-side commands.
+// JA4PROXY-2026-0050.
+type ACLUsersConfig struct {
+	Enabled        bool   `yaml:"enabled"`
+	ProxyUser      string `yaml:"proxy_user"`
+	AnalyticsUser  string `yaml:"analytics_user"`
 }
 
 // SecurityConfig holds security-related settings including JA4 lists.
@@ -441,6 +469,26 @@ type SecurityConfig struct {
 	Whitelist         []string `yaml:"whitelist"`
 	WhitelistPatterns []string `yaml:"whitelist_patterns"`
 	Blacklist         []string `yaml:"blacklist"`
+	// JA4PROXY-2026-0011 — TLS protocol lockdown. When true (default), any
+	// connection whose first byte after PROXY-header strip is not 0x16
+	// (TLS Handshake content type) is dropped immediately. Blocks HTTP
+	// smuggling, SSH injection, and subsequent PROXY-header smuggling on
+	// what is supposed to be a TLS-aware passthrough listener. Operators
+	// who intentionally proxy non-TLS protocols on the listen port can
+	// set this to false to preserve the pre-fix scoring-only behavior.
+	EnforceTLSRecord *bool `yaml:"enforce_tls_record"`
+}
+
+// ProtocolLockdownEnabled reports whether TLS protocol lockdown should be
+// enforced on the connection hot path. Centralised here so the default
+// (true) lives next to the field docs, and so callers do not scatter
+// "if sec.EnforceTLSRecord == nil || *sec.EnforceTLSRecord" across the
+// codebase. JA4PROXY-2026-0011.
+func (s SecurityConfig) ProtocolLockdownEnabled() bool {
+	if s.EnforceTLSRecord == nil {
+		return true
+	}
+	return *s.EnforceTLSRecord
 }
 
 // MonitorModeConfig holds dial and monitor mode settings.
@@ -507,6 +555,16 @@ type MetricsConfig struct {
 	Port      FlexInt `yaml:"port"`
 	BindHost  string  `yaml:"bind_host"`
 	AuthToken string  `yaml:"auth_token"`
+	// RateLimitRPS caps requests-per-second across all observability endpoints
+	// (/metrics, /health, /health/deep, /metrics/summary) per remote IP. 0
+	// disables the limiter. JA4PROXY-2026-0026 — without this an attacker (or
+	// a misbehaving scraper) can spam the endpoints to flood logs, churn
+	// Redis pings, and recycle Prometheus scrape state. Loopback is exempted
+	// so co-located Prometheus sidecars are never throttled.
+	RateLimitRPS float64 `yaml:"rate_limit_rps"`
+	// RateLimitBurst is the token-bucket burst size; a short spike up to this
+	// size is allowed before the RPS cap kicks in. 0 means use 2×RateLimitRPS.
+	RateLimitBurst int `yaml:"rate_limit_burst"`
 }
 
 // TarpitConfig holds tarpit self-protection settings.
@@ -736,6 +794,17 @@ type WebhooksConfig struct {
 	StreamKey string                  `yaml:"stream_key"`
 	DLQKey    string                  `yaml:"dlq_key"`
 	Endpoints []WebhookEndpointConfig `yaml:"endpoints"`
+	// JA4PROXY-2026-0031 — bounded XADD queue parameters.
+	//
+	// StreamQueueCapacity is the hard cap on buffered connection events
+	// waiting to be written to Redis. When the queue is full the event is
+	// dropped (ja4proxy_stream_event_drops_total) — the connection is
+	// handled normally, only the telemetry is shed.
+	// StreamWorkers is the number of goroutines draining the queue; each
+	// worker calls XAdd with a timeout of StreamWriteTimeoutSeconds.
+	StreamQueueCapacity      int     `yaml:"stream_queue_capacity"`
+	StreamWorkers            int     `yaml:"stream_workers"`
+	StreamWriteTimeoutSeconds float64 `yaml:"stream_write_timeout_seconds"`
 }
 
 // ErrRedisAuthRequired is returned by ValidateRedisAuth when the configured
@@ -801,6 +870,115 @@ func isLocalRedisHost(host string) bool {
 		return ip.IsLoopback()
 	}
 	return false
+}
+
+// RedisACLStatus describes whether per-service Redis ACL users are in use
+// and, when they are not, whether the Redis target is local or remote.
+// JA4PROXY-2026-0050.
+type RedisACLStatus int
+
+const (
+	// RedisACLEnabled — acl_users.enabled is true. The proxy is expected to
+	// connect with a non-"default" username, scoped to the key patterns and
+	// commands its operation actually requires. Best posture.
+	RedisACLEnabled RedisACLStatus = iota
+	// RedisACLDisabledLocal — acl_users.enabled is false but the Redis
+	// target is loopback / unix socket. Hardening is desirable but the
+	// attack surface is limited to anyone with local host access.
+	RedisACLDisabledLocal
+	// RedisACLDisabledRemote — acl_users.enabled is false AND the Redis
+	// target is network-reachable. Anyone with the Redis password can
+	// rewrite ban lists, whitelists, and the dial. Callers emit a loud
+	// startup WARN for this state and set the
+	// ja4proxy_redis_acl_enabled=0 gauge.
+	RedisACLDisabledRemote
+)
+
+// String returns a short identifier used in log fields and the regression
+// test.
+func (s RedisACLStatus) String() string {
+	switch s {
+	case RedisACLEnabled:
+		return "enabled"
+	case RedisACLDisabledLocal:
+		return "disabled_local"
+	case RedisACLDisabledRemote:
+		return "disabled_remote"
+	default:
+		return "unknown"
+	}
+}
+
+// CheckRedisACLStatus classifies the ACL configuration against the Redis
+// target. Never fails — the ACL gap is a hardening concern, not a startup
+// gate (flipping the default to on would break every existing deployment
+// that has not yet run scripts/redis-acl-setup.sh). Callers decide how to
+// react. See RedisACLStatus for semantics. JA4PROXY-2026-0050.
+func CheckRedisACLStatus(cfg *Config) RedisACLStatus {
+	if cfg == nil {
+		return RedisACLEnabled
+	}
+	if cfg.Redis.ACLUsers.Enabled {
+		return RedisACLEnabled
+	}
+	host := cfg.Redis.Host
+	if host == "" && len(cfg.Redis.Sentinels) > 0 {
+		host = cfg.Redis.Sentinels[0]
+	}
+	if isLocalRedisHost(host) {
+		return RedisACLDisabledLocal
+	}
+	return RedisACLDisabledRemote
+}
+
+// ErrRedisACLUsernameMissing is returned by ValidateRedisACLConsistency
+// when acl_users.enabled is true but acl_users.proxy_user is empty.
+// Enabling ACLs without naming the proxy user silently downgrades the
+// proxy's Redis connection back to the unrestricted "default" user —
+// exactly the state the operator thought they were fixing.
+// JA4PROXY-2026-0052.
+var ErrRedisACLUsernameMissing = errors.New(
+	"redis: acl_users.enabled is true but acl_users.proxy_user is empty " +
+		"(JA4PROXY-2026-0052 — set redis.acl_users.proxy_user to the Redis " +
+		"ACL username created by scripts/redis-acl-setup.sh, or set " +
+		"acl_users.enabled: false to acknowledge the hardening gap)",
+)
+
+// ValidateRedisACLConsistency refuses to start the proxy when ACLs are
+// enabled but no proxy_user is defined. Without this gate, the config
+// reads as hardened (acl_users.enabled: true) but the actual Redis
+// connection still opens as the "default" user with +@all ~*. Failing
+// closed here forces the operator to either complete the ACL rollout or
+// acknowledge the gap. JA4PROXY-2026-0052.
+func ValidateRedisACLConsistency(cfg *Config) error {
+	if cfg == nil {
+		return nil
+	}
+	if !cfg.Redis.ACLUsers.Enabled {
+		return nil
+	}
+	if strings.TrimSpace(cfg.Redis.ACLUsers.ProxyUser) == "" {
+		return ErrRedisACLUsernameMissing
+	}
+	return nil
+}
+
+// ResolveRedisUsername returns the Redis ACL username the proxy should
+// authenticate as. When acl_users.enabled is true, the acl_users.proxy_user
+// is preferred — that is the whole point of the ACL configuration. When
+// ACLs are disabled, fall through to the historical redis.username field
+// (which is "" by default and resolves to the Redis "default" user).
+// JA4PROXY-2026-0052.
+func ResolveRedisUsername(cfg *Config) string {
+	if cfg == nil {
+		return ""
+	}
+	if cfg.Redis.ACLUsers.Enabled {
+		if u := strings.TrimSpace(cfg.Redis.ACLUsers.ProxyUser); u != "" {
+			return u
+		}
+	}
+	return cfg.Redis.Username
 }
 
 // ErrMetricsAuthRequired is returned by ValidateMetricsAccess when the

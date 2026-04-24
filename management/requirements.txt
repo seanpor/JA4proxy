@@ -1,20 +1,34 @@
-fastapi>=0.110.0
-uvicorn[standard]>=0.27.0
-redis[asyncio]>=5.0.0
-python-jose[cryptography]>=3.3.0
-passlib[bcrypt]>=1.7.4
-jinja2>=3.1.3
-python-multipart>=0.0.9
-sse-starlette>=2.0.0
-httpx>=0.27.0
-pytest>=8.0.0
-pytest-asyncio>=0.23.0
-fakeredis[aioredis]>=2.21.0
-bcrypt>=4.1.0              # phase-79: bearer token hashing
-pyotp>=2.9.0               # phase-79: TOTP MFA
-qrcode[pil]>=7.4.2         # phase-79: TOTP setup QR codes
-cryptography>=42.0.0       # phase-79: Fernet encryption for TOTP secrets
-webauthn>=2.0.0            # phase-79: WebAuthn/FIDO2 hardware key MFA
-python3-saml>=1.16.0       # phase-79: SAML 2.0 SSO (requires xmlsec1 system package)
-authlib>=1.3.0             # phase-79: OIDC / OAuth 2.0 (PKCE, token validation)
-pyyaml>=6.0.0              # phase-100: proxy.yml SSO role mapping (Gap 6)
+# JA4PROXY-2026-0044:
+# Every dependency is pinned with '==' (exact version). Floating '>='
+# pins let pip resolve to a new upstream release silently on image
+# rebuild, which is the classic dependency-confusion / malicious-upgrade
+# risk. Pin at known-good minima preserved from the previous '>=' file
+# so this commit is behavioural-compat for existing deployments.
+#
+# The roadmap target (see docs/security/FINDINGS_REGISTER.md 0044) is
+# pip-compile + hash-checking (`pip install --require-hashes`). Until
+# that lockfile lands, '==' exact pins close the primary exposure.
+#
+# Bumping a version? Change the '==' line, rebuild, run the management
+# test suite, and open a separate PR. Do NOT revert to '>='.
+
+fastapi==0.110.0
+uvicorn[standard]==0.27.0
+redis[asyncio]==5.0.0
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+jinja2==3.1.3
+python-multipart==0.0.9
+sse-starlette==2.0.0
+httpx==0.27.0
+pytest==8.0.0
+pytest-asyncio==0.23.0
+fakeredis[aioredis]==2.21.0
+bcrypt==4.1.0              # phase-79: bearer token hashing
+pyotp==2.9.0               # phase-79: TOTP MFA
+qrcode[pil]==7.4.2         # phase-79: TOTP setup QR codes
+cryptography==42.0.0       # phase-79: Fernet encryption for TOTP secrets
+webauthn==2.0.0            # phase-79: WebAuthn/FIDO2 hardware key MFA
+python3-saml==1.16.0       # phase-79: SAML 2.0 SSO (requires xmlsec1 system package)
+authlib==1.3.0             # phase-79: OIDC / OAuth 2.0 (PKCE, token validation)
+pyyaml==6.0.0              # phase-100: proxy.yml SSO role mapping (Gap 6)

@@ -61,7 +61,7 @@ func main() {
 	// (Phase 64 alerts on this gauge — see docs/phases/PHASE_63_notes.md).
 	updateTLSCertExpiryGauge(os.Getenv("JA4PROXY_TLS_CERT_FILE"), log)
 
-	proxy, err := newProxy(cfg, log)
+	proxy, err := newProxy(cfg, cfgPath, log)
 	if err != nil {
 		log.WithError(err).Fatal("failed to initialise proxy")
 	}
@@ -136,6 +136,7 @@ func main() {
 
 type proxy struct {
 	cfg        *config.Config
+	cfgPath    string // JA4PROXY-2026-0041: path used to Load cfg at startup; re-read on SIGHUP.
 	log        *logrus.Logger
 	pipeline   *security.Pipeline
 	redis      *redisclient.Client
@@ -167,9 +168,26 @@ type proxy struct {
 	// Lazily initialised to tolerate test fixtures that build *proxy via
 	// struct literals without calling newProxy().
 	healthState *health.State
+
+	// JA4PROXY-2026-0031 — bounded XADD event queue. Every connection
+	// decision previously spawned an unbounded `go func() { XAdd(bg, ...) }()`
+	// goroutine with no timeout. If Redis slowed down or a brief outage
+	// pushed XADD latency into the seconds, goroutines (each holding a
+	// JSON-marshalled event) accumulated without bound until the proxy
+	// OOMed. We now enqueue the event into a fixed-capacity channel drained
+	// by a small worker pool; when the queue is full we drop the event and
+	// increment metrics.StreamEventDropsTotal instead of spawning a new
+	// goroutine. The connection itself continues to be handled — only the
+	// telemetry stream write is shed.
+	streamEventQueue chan []byte
 }
 
-func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
+// JA4PROXY-2026-0041: cfgPath must match the path main() loaded `cfg`
+// from, so reload() re-reads the same file on SIGHUP rather than
+// silently falling back to "config/proxy.yml". Test code that
+// constructs newProxy() directly may pass "" to skip the reload-safe
+// round-trip, but production callers must supply the real path.
+func newProxy(cfg *config.Config, cfgPath string, log *logrus.Logger) (*proxy, error) {
 	// JA4PROXY-2026-0010 — refuse to start against a remote, unauthenticated
 	// Redis. Ban lists, whitelists, and the dial setting are security state;
 	// anyone who can reach an unauthenticated Redis can rewrite them.
@@ -182,6 +200,30 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 	if err := config.ValidateMetricsAccess(cfg); err != nil {
 		return nil, err
 	}
+	// JA4PROXY-2026-0050 — check whether per-service Redis ACL users are
+	// configured. When they are not and Redis is remote, emit a loud WARN
+	// so the gap cannot be missed during deployment review. Never a
+	// startup gate: flipping the default would break every deployment
+	// that has not yet run scripts/redis-acl-setup.sh.
+	checkAndLogRedisACL(cfg, log)
+	// JA4PROXY-2026-0052 — refuse to start when acl_users.enabled is true
+	// but acl_users.proxy_user is empty. Misconfiguration silently keeps
+	// the proxy on the "default" user — exactly the state the operator
+	// thought they were fixing.
+	if err := config.ValidateRedisACLConsistency(cfg); err != nil {
+		return nil, err
+	}
+	// JA4PROXY-2026-0052 — resolve effective Redis username. When ACLs are
+	// enabled, acl_users.proxy_user takes precedence over the historical
+	// redis.username field so operators do not have to set both in lockstep.
+	redisUsername := config.ResolveRedisUsername(cfg)
+	if log != nil {
+		log.WithFields(logrus.Fields{
+			"finding":  "JA4PROXY-2026-0052",
+			"username": redisUsername,
+			"acl_mode": config.CheckRedisACLStatus(cfg).String(),
+		}).Info("Redis effective ACL username resolved")
+	}
 	redisCfg := redisclient.Config{
 		Host:       cfg.Redis.Host,
 		Port:       cfg.Redis.Port.Int(),
@@ -189,7 +231,7 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 		Sentinels:  cfg.Redis.Sentinels,
 		DB:         cfg.Redis.DB,
 		Password:   cfg.Redis.Password,
-		Username:   cfg.Redis.Username,
+		Username:   redisUsername,
 		SSL:        cfg.Redis.SSL,
 		Timeout:    time.Duration(cfg.Redis.Timeout.Int()) * time.Second,
 	}
@@ -254,6 +296,7 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 	}
 	prx := &proxy{
 		cfg:         cfg,
+		cfgPath:     cfgPath, // JA4PROXY-2026-0041: used by reload() on SIGHUP.
 		log:         log,
 		pipeline:    p,
 		redis:       rc,
@@ -262,6 +305,15 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 		healthState: health.New(health.Config{FailThreshold: 3}),
 		acceptSem:   make(chan struct{}, maxConns),
 	}
+
+	// JA4PROXY-2026-0031 — bounded XADD queue. Capacity bounds the number
+	// of events buffered during a Redis slowdown; beyond this, drops are
+	// counted rather than goroutines being unboundedly spawned.
+	queueCap := cfg.Webhooks.StreamQueueCapacity
+	if queueCap <= 0 {
+		queueCap = 4096
+	}
+	prx.streamEventQueue = make(chan []byte, queueCap)
 
 	// phase-94i2: load trusted CIDRs from NetBox in the background (fail-open, non-blocking).
 	go func() {
@@ -283,6 +335,9 @@ func newProxy(cfg *config.Config, log *logrus.Logger) (*proxy, error) {
 }
 
 func (p *proxy) serve(ctx context.Context) {
+	// JA4PROXY-2026-0031 — start the bounded XADD worker pool.
+	p.startStreamEventWorkers(ctx)
+
 	// Start metrics/health HTTP server
 	if p.cfg.Metrics.Enabled {
 		go func() {
@@ -291,7 +346,12 @@ func (p *proxy) serve(ctx context.Context) {
 			mux.HandleFunc("/health", p.handleHealth)
 			mux.HandleFunc("/health/deep", p.handleHealthDeep)
 			mux.HandleFunc("/metrics/summary", p.handleMetricsSummary)
-			handler := metricsAuthMiddleware(mux, p.cfg.Metrics.AuthToken)
+			var handler http.Handler = mux
+			if p.cfg.Metrics.RateLimitRPS > 0 {
+				limiter := newMetricsRateLimiter(p.cfg.Metrics.RateLimitRPS, p.cfg.Metrics.RateLimitBurst)
+				handler = metricsRateLimitMiddleware(handler, limiter, p.log)
+			}
+			handler = metricsAuthMiddleware(handler, p.cfg.Metrics.AuthToken)
 			bindHost := p.cfg.Metrics.BindHost
 			if bindHost == "" {
 				bindHost = "127.0.0.1"
@@ -453,6 +513,23 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 		}
 	}
 
+	// JA4PROXY-2026-0011 — protocol lockdown. After PROXY strip the first
+	// byte must be 0x16 (TLS Handshake content type). Anything else is a
+	// non-TLS protocol on a TLS-aware listener (HTTP/SSH/etc.) or an
+	// attempt to smuggle a second PROXY header; either way it must never
+	// reach the pipeline's pre-parse fall-through that would otherwise
+	// forward without a JA4. Operators who proxy non-TLS on this port can
+	// disable the check with security.enforce_tls_record: false.
+	if p.cfg.Security.ProtocolLockdownEnabled() && len(data) >= 1 && data[0] != 0x16 {
+		metrics.ConnectionErrorsTotal.WithLabelValues("non_tls_dropped").Inc()
+		p.log.WithFields(logrus.Fields{
+			"client_ip":     connCtx.ClientIP,
+			"first_byte":    fmt.Sprintf("0x%02x", data[0]),
+			"bytes_sampled": len(data),
+		}).Warn("proxy: non-TLS content type on TLS listener; dropping (JA4PROXY-2026-0011)")
+		return
+	}
+
 	// JA4PROXY-2026-0003: length check was previously `n >= 5`, which used
 	// the pre-PROXY-strip read count and could read past the end of `data`
 	// after a stripped header. Use len(data) now that data has been
@@ -522,31 +599,31 @@ func (p *proxy) handleConn(ctx context.Context, clientConn net.Conn) {
 	}).Info("proxy: connection decision")
 
 	// Publish ECS connection event to Redis Stream for webhook delivery.
-	// Fire-and-forget: stream write must never block the hot path.  phase-80.
+	// JA4PROXY-2026-0031 — enqueue into a bounded channel drained by a
+	// fixed worker pool instead of spawning an unbounded goroutine per
+	// connection. Non-blocking send: if the queue is full (Redis is lagging
+	// or down), drop the event and bump a counter. The connection itself
+	// was already decided — losing the telemetry event is the correct
+	// degradation under load.
 	if p.dispatcher != nil {
-		go func() {
-			ecsFields := map[string]interface{}{
-				"@timestamp":               time.Now().UTC().Format(time.RFC3339Nano),
-				"event.action":             result.Action,
-				"event.risk_score":         result.Score,
-				"source.ip":                connCtx.ClientIP,
-				"source.port":              connCtx.ClientPort,
-				"destination.ip":           backendHost,
-				"destination.port":         443,
-				"network.transport":        "tcp",
-				"network.protocol":         "tls",
-				"service.name":             "ja4proxy",
-				"ja4proxy.fingerprint.ja4": connCtx.JA4,
-				"ja4proxy.sni":             connCtx.SNI,
-				"ja4proxy.dial_setting":    result.Dial,
-			}
-			ecsJSON, err := json.Marshal(ecsFields)
-			if err != nil {
-				return
-			}
-			p.redis.XAdd(context.Background(), "events:connection",
-				map[string]interface{}{"event": string(ecsJSON)})
-		}()
+		ecsFields := map[string]interface{}{
+			"@timestamp":               time.Now().UTC().Format(time.RFC3339Nano),
+			"event.action":             result.Action,
+			"event.risk_score":         result.Score,
+			"source.ip":                connCtx.ClientIP,
+			"source.port":              connCtx.ClientPort,
+			"destination.ip":           backendHost,
+			"destination.port":         443,
+			"network.transport":        "tcp",
+			"network.protocol":         "tls",
+			"service.name":             "ja4proxy",
+			"ja4proxy.fingerprint.ja4": connCtx.JA4,
+			"ja4proxy.sni":             connCtx.SNI,
+			"ja4proxy.dial_setting":    result.Dial,
+		}
+		if ecsJSON, err := json.Marshal(ecsFields); err == nil {
+			p.enqueueStreamEvent(ecsJSON)
+		}
 	}
 
 	// Execute action
@@ -783,7 +860,17 @@ func (p *proxy) tarpit(clientConn net.Conn, data []byte, clientIP string) {
 }
 
 func (p *proxy) reload() error {
-	newCfg, err := config.Load("config/proxy.yml")
+	// JA4PROXY-2026-0041: re-read the exact path main() loaded from.
+	// Previously this was hardcoded to "config/proxy.yml" and silently
+	// diverged from CONFIG_PATH — a SIGHUP would then reload a DIFFERENT
+	// file than the one the process was started against, loading stale
+	// or wrong policy. Fall back only when the field is empty (test
+	// fixtures that construct proxy via struct literals).
+	cfgPath := p.cfgPath
+	if cfgPath == "" {
+		cfgPath = "config/proxy.yml"
+	}
+	newCfg, err := config.Load(cfgPath)
 	if err != nil {
 		return err
 	}
@@ -876,6 +963,170 @@ func metricsAuthMiddleware(next http.Handler, token string) http.Handler {
 			subtle.ConstantTimeCompare([]byte(h[len(prefix):]), []byte(token)) != 1 {
 			w.Header().Set("WWW-Authenticate", `Bearer realm="ja4proxy-metrics"`)
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// metricsRateLimiter is a per-IP token-bucket for the observability endpoints.
+//
+// JA4PROXY-2026-0026 — /metrics, /health, /health/deep, and /metrics/summary
+// were previously unthrottled. A compromised-token holder or a misconfigured
+// scraper could spam these, each hit costing a Redis PING plus log/metric
+// churn, and DoS the observability subsystem. The limiter enforces a
+// configured RPS per remote IP with a small burst. Loopback is exempted so
+// co-located Prometheus sidecars are never throttled. Over-limit callers get
+// 429 with Retry-After set to one second and a small WARN log that cannot
+// itself be turned into a flood because the log emission is also gated by
+// the bucket.
+type metricsRateLimiter struct {
+	rps    float64
+	burst  float64
+	mu     sync.Mutex
+	bucket map[string]*ipBucket
+	// maxEntries caps the bucket map to prevent memory-growth via spoofed
+	// source IPs. Oldest entries are evicted on insert when the cap is hit.
+	maxEntries int
+}
+
+type ipBucket struct {
+	tokens   float64
+	lastSeen time.Time
+}
+
+func newMetricsRateLimiter(rps float64, burst int) *metricsRateLimiter {
+	b := float64(burst)
+	if b <= 0 {
+		b = rps * 2
+	}
+	return &metricsRateLimiter{
+		rps:        rps,
+		burst:      b,
+		bucket:     make(map[string]*ipBucket),
+		maxEntries: 4096,
+	}
+}
+
+// allow returns true if remoteAddr has a token available, consuming one.
+// remoteAddr is the RemoteAddr string (host:port) from http.Request.
+func (l *metricsRateLimiter) allow(remoteAddr string, now time.Time) bool {
+	if l == nil || l.rps <= 0 {
+		return true
+	}
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		host = remoteAddr
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	b, ok := l.bucket[host]
+	if !ok {
+		if len(l.bucket) >= l.maxEntries {
+			// Evict the single oldest entry to bound memory.
+			var oldestKey string
+			var oldestTime time.Time
+			for k, v := range l.bucket {
+				if oldestKey == "" || v.lastSeen.Before(oldestTime) {
+					oldestKey = k
+					oldestTime = v.lastSeen
+				}
+			}
+			delete(l.bucket, oldestKey)
+		}
+		b = &ipBucket{tokens: l.burst, lastSeen: now}
+		l.bucket[host] = b
+	} else {
+		elapsed := now.Sub(b.lastSeen).Seconds()
+		if elapsed > 0 {
+			b.tokens += elapsed * l.rps
+			if b.tokens > l.burst {
+				b.tokens = l.burst
+			}
+		}
+		b.lastSeen = now
+	}
+	if b.tokens < 1.0 {
+		return false
+	}
+	b.tokens -= 1.0
+	return true
+}
+
+// enqueueStreamEvent performs a non-blocking send onto the bounded XADD
+// queue. If the queue is full, the event is dropped and a Prometheus
+// counter is incremented. JA4PROXY-2026-0031.
+func (p *proxy) enqueueStreamEvent(event []byte) {
+	if p == nil || p.streamEventQueue == nil {
+		return
+	}
+	select {
+	case p.streamEventQueue <- event:
+		metrics.StreamEventQueueDepth.Set(float64(len(p.streamEventQueue)))
+	default:
+		metrics.StreamEventDropsTotal.Inc()
+	}
+}
+
+// startStreamEventWorkers starts a fixed pool of goroutines that drain the
+// bounded XADD queue and publish to the Redis stream with a per-call
+// timeout. JA4PROXY-2026-0031 — bounds both queue depth and per-write
+// latency so a Redis slowdown cannot translate into unbounded goroutine
+// or memory growth on the proxy.
+func (p *proxy) startStreamEventWorkers(ctx context.Context) {
+	if p.streamEventQueue == nil {
+		return
+	}
+	workers := p.cfg.Webhooks.StreamWorkers
+	if workers <= 0 {
+		workers = 4
+	}
+	timeout := time.Duration(p.cfg.Webhooks.StreamWriteTimeoutSeconds * float64(time.Second))
+	if timeout <= 0 {
+		timeout = 2 * time.Second
+	}
+	streamKey := p.cfg.Webhooks.StreamKey
+	if streamKey == "" {
+		streamKey = "events:connection"
+	}
+	for i := 0; i < workers; i++ {
+		go p.streamEventWorker(ctx, streamKey, timeout)
+	}
+}
+
+func (p *proxy) streamEventWorker(ctx context.Context, streamKey string, timeout time.Duration) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case event, ok := <-p.streamEventQueue:
+			if !ok {
+				return
+			}
+			metrics.StreamEventQueueDepth.Set(float64(len(p.streamEventQueue)))
+			writeCtx, cancel := context.WithTimeout(ctx, timeout)
+			err := p.redis.XAddErr(writeCtx, streamKey, map[string]interface{}{"event": string(event)})
+			cancel()
+			if err != nil {
+				if errors.Is(err, context.DeadlineExceeded) {
+					metrics.StreamEventWriteErrorsTotal.WithLabelValues("timeout").Inc()
+				} else {
+					metrics.StreamEventWriteErrorsTotal.WithLabelValues("error").Inc()
+				}
+			}
+		}
+	}
+}
+
+func metricsRateLimitMiddleware(next http.Handler, limiter *metricsRateLimiter, log *logrus.Logger) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if config.MetricsRequestIsLocal(r.RemoteAddr) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !limiter.allow(r.RemoteAddr, time.Now()) {
+			w.Header().Set("Retry-After", "1")
+			http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -1346,6 +1597,42 @@ func loadSecurityLists(ctx context.Context, rc *redisclient.Client, p *security.
 // ── Phase 63: SLO instrumentation helpers ─────────────────────────────────
 
 // classifyConnError maps a connection-handler error to one of the error_type
+// checkAndLogRedisACL sets the ja4proxy_redis_acl_enabled gauge from the
+// current config and, when per-service ACL users are disabled against a
+// remote Redis, emits a structured WARN naming the finding id and how to
+// fix it. Extracted from newProxy so the regression test can drive it
+// directly without standing up the whole proxy lifecycle.
+// JA4PROXY-2026-0050.
+func checkAndLogRedisACL(cfg *config.Config, log *logrus.Logger) {
+	aclStatus := config.CheckRedisACLStatus(cfg)
+	if aclStatus == config.RedisACLEnabled {
+		metrics.RedisACLEnabled.Set(1)
+	} else {
+		metrics.RedisACLEnabled.Set(0)
+	}
+	if aclStatus != config.RedisACLDisabledRemote || log == nil {
+		return
+	}
+	host := ""
+	if cfg != nil {
+		host = cfg.Redis.Host
+		if host == "" && len(cfg.Redis.Sentinels) > 0 {
+			host = cfg.Redis.Sentinels[0]
+		}
+	}
+	log.WithFields(logrus.Fields{
+		"finding": "JA4PROXY-2026-0050",
+		"host":    host,
+		"status":  aclStatus.String(),
+	}).Warn(
+		"Redis ACL users disabled with a remote Redis target — the proxy " +
+			"is connecting as the 'default' user which has full Redis " +
+			"authority. Run scripts/redis-acl-setup.sh and set " +
+			"redis.acl_users.enabled: true. See docs/security/findings.yaml " +
+			"JA4PROXY-2026-0050.",
+	)
+}
+
 // label values used by ja4proxy_connection_errors_total. The source argument
 // disambiguates errors that look identical at the os/net layer but mean very
 // different things — a "i/o timeout" on a client read is a normal idle close,

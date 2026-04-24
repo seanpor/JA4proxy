@@ -215,6 +215,55 @@ var (
 		},
 		[]string{"result"},
 	)
+	// StreamEventQueueDepth is the current depth of the bounded XADD event
+	// queue used to publish connection decisions to Redis Streams.
+	// JA4PROXY-2026-0031 — we replaced the previous unbounded
+	// `go func() { p.redis.XAdd(context.Background(), ... ) }()` with a
+	// bounded channel drained by a fixed worker pool. This gauge lets us
+	// alert when Redis is lagging and the queue is filling up.
+	StreamEventQueueDepth = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "ja4proxy_stream_event_queue_depth",
+			Help: "Current depth of the bounded XADD event queue (JA4PROXY-2026-0031).",
+		},
+	)
+	// StreamEventDropsTotal counts events that were dropped because the
+	// bounded queue was full. Every drop corresponds to one connection
+	// decision whose ECS event did not reach Redis — the connection itself
+	// was still handled correctly, this is a telemetry loss metric only.
+	StreamEventDropsTotal = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "ja4proxy_stream_event_drops_total",
+			Help: "XADD events dropped because the bounded queue was full (JA4PROXY-2026-0031).",
+		},
+	)
+	// StreamEventWriteErrorsTotal counts XADD calls that failed from the
+	// worker pool, labelled by reason. reason=timeout means Redis did not
+	// acknowledge within the per-call deadline; reason=error covers every
+	// other backend failure.
+	StreamEventWriteErrorsTotal = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "ja4proxy_stream_event_write_errors_total",
+			Help: "XADD worker failures by reason (JA4PROXY-2026-0031).",
+		},
+		[]string{"reason"},
+	)
+	// RedisACLEnabled is 1 when acl_users.enabled is true, 0 otherwise.
+	// JA4PROXY-2026-0050 — when 0, the proxy is connecting as the Redis
+	// "default" user which (in a stock install) has +@all ~*. That means
+	// any actor holding the Redis password can rewrite ban lists, the
+	// dial, and every other piece of security state stored in Redis.
+	// Dashboards should alert on this being 0 for any prod Redis that is
+	// not loopback-only. We keep the default at 0 because flipping it
+	// would break every existing deployment that has not run
+	// scripts/redis-acl-setup.sh — see docs/security/findings.yaml.
+	RedisACLEnabled = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "ja4proxy_redis_acl_enabled",
+			Help: "1 if per-service Redis ACL users are in use, 0 if the proxy connects as the unrestricted default user (JA4PROXY-2026-0050).",
+		},
+	)
+
 	// PROXY protocol parser events (JA4PROXY-2026-0001, -0002).
 	// Labels:
 	//   event=spoof_stripped  — header arrived from an untrusted source and was
@@ -253,6 +302,10 @@ func Register() {
 		JA4TLSMismatchTotal, TapLookupsTotal, TapSignalTotal,
 		// JA4PROXY-2026-0001/-0002
 		ProxyProtocolParserEvents,
+		// JA4PROXY-2026-0031
+		StreamEventQueueDepth, StreamEventDropsTotal, StreamEventWriteErrorsTotal,
+		// JA4PROXY-2026-0050
+		RedisACLEnabled,
 	)
 	for _, action := range []string{"allow", "flag", "rate_limit", "tarpit", "block", "ban"} {
 		ConnectionsTotal.WithLabelValues(action)

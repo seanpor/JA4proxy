@@ -49,6 +49,13 @@ class _FakeRedis:
     async def incr(self, key: str) -> int:
         return 1
 
+    async def eval(self, script: str, numkeys: int, *args) -> int:
+        # JA4PROXY-2026-0038: SecurityManager._check_rate_limit now calls
+        # an atomic Lua script via redis.eval(script, numkeys, key, window)
+        # instead of INCR+EXPIRE. The stub returns 1 to match the previous
+        # incr() behaviour (first-request count).
+        return 1
+
     def evict(self, key: str) -> None:
         """Simulate TTL expiration."""
         self._store.pop(key, None)
@@ -285,10 +292,9 @@ class TestAdaptiveRateDisabledConfig:
             "rate:adaptive:2.3.4.0",
             {"threshold_rps": "10", "confidence": "0.99", "ewma_rps": "5", "windows": "10"},
         )
-        # Also mock incr/expire for rate limit check
+        # Mock atomic rate-limit Lua path (JA4PROXY-2026-0038).
         fake_redis_mock = MagicMock()
-        fake_redis_mock.incr = AsyncMock(return_value=1)
-        fake_redis_mock.expire = AsyncMock()
+        fake_redis_mock.eval = AsyncMock(return_value=1)
         fake_redis_mock.hgetall = AsyncMock(return_value={})
 
         sm = SecurityManager(config, fake_redis_mock)

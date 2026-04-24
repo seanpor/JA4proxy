@@ -724,7 +724,8 @@ class TestSecurityManagerRemaining:
 
         sm = self._make_sm()
         sm.redis = MagicMock()
-        sm.redis.incr = AsyncMock(side_effect=redis_lib.ConnectionError("down"))
+        # JA4PROXY-2026-0038: atomic rate-limit path uses redis.eval().
+        sm.redis.eval = AsyncMock(side_effect=redis_lib.ConnectionError("down"))
         sm.config["security"]["rate_limit_window"] = 60
         with caplog.at_level(logging.ERROR, logger="proxy"):
             result = _run(sm._check_rate_limit("1.2.3.4"))
@@ -736,7 +737,7 @@ class TestSecurityManagerRemaining:
 
         sm = self._make_sm()
         sm.redis = MagicMock()
-        sm.redis.incr = AsyncMock(side_effect=redis_lib.TimeoutError("slow"))
+        sm.redis.eval = AsyncMock(side_effect=redis_lib.TimeoutError("slow"))
         sm.config["security"]["rate_limit_window"] = 60
         with caplog.at_level(logging.ERROR, logger="proxy"):
             result = _run(sm._check_rate_limit("1.2.3.4"))
@@ -745,7 +746,7 @@ class TestSecurityManagerRemaining:
     def test_check_rate_limit_unexpected_exception_returns_false(self, caplog):
         sm = self._make_sm()
         sm.redis = MagicMock()
-        sm.redis.incr = AsyncMock(side_effect=RuntimeError("unexpected"))
+        sm.redis.eval = AsyncMock(side_effect=RuntimeError("unexpected"))
         sm.config["security"]["rate_limit_window"] = 60
         with caplog.at_level(logging.ERROR, logger="proxy"):
             result = _run(sm._check_rate_limit("1.2.3.4"))
@@ -1531,8 +1532,8 @@ class TestSecurityManagerCoverageGaps:
         """Create SecurityManager with mocked Redis."""
         redis = MagicMock()
         redis.smembers = AsyncMock(return_value=set())
-        redis.incr = AsyncMock(return_value=1)
-        redis.expire = AsyncMock()
+        # JA4PROXY-2026-0038: atomic INCR+EXPIRE is one Lua call via eval().
+        redis.eval = AsyncMock(return_value=1)
         redis.hgetall = AsyncMock(return_value={})
         config = {
             "security": {
@@ -1622,21 +1623,32 @@ class TestSecurityManagerCoverageGaps:
         assert "whitelisted" in reason.lower()
 
     def test_check_rate_limit_first_request_sets_expire(self):
-        """First request (count=1) sets expire on key (lines 915-916)."""
+        """First request (count=1) atomically sets TTL via Lua (JA4PROXY-2026-0038).
+
+        The previous implementation did two Redis round-trips (INCR then
+        conditional EXPIRE); the atomic Lua call now does both in one
+        server-side step. We pin that eval() is the single call and that
+        the window (rate_limit_window) is passed as ARGV[1].
+        """
         sm, redis = self._make_security_manager()
-        redis.incr = AsyncMock(return_value=1)
+        redis.eval = AsyncMock(return_value=1)
 
         async def run():
             result = await sm._check_rate_limit("1.2.3.4")
             assert result is True
-            redis.expire.assert_called_once()
+            redis.eval.assert_awaited_once()
+            call = redis.eval.await_args
+            # (script, numkeys=1, key, window)
+            assert call.args[1] == 1
+            assert call.args[2] == "rate_limit:1.2.3.4"
+            assert call.args[3] == sm.config["security"]["rate_limit_window"]
 
         asyncio.run(run())
 
     def test_check_rate_limit_exceeded(self):
         """Count > max → returns False, logs warning (lines 918-927)."""
         sm, redis = self._make_security_manager()
-        redis.incr = AsyncMock(return_value=101)  # > 100
+        redis.eval = AsyncMock(return_value=101)  # > 100
 
         async def run():
             result = await sm._check_rate_limit("1.2.3.4")
@@ -1655,9 +1667,8 @@ class TestSecurityManagerCoverageGaps:
             sm.blacklist = set()
             # Set dial > 0 so rate limiting kicks in
             redis.get = AsyncMock(return_value=b"50")
-            # Rate limit exceeded
-            redis.incr = AsyncMock(return_value=999)
-            redis.expire = AsyncMock()
+            # Rate limit exceeded (JA4PROXY-2026-0038 uses eval())
+            redis.eval = AsyncMock(return_value=999)
             allowed, reason = await sm.check_access(fp, client_ip="1.2.3.4", alpn=None)
             assert allowed is False
             assert "Rate limit" in reason
@@ -1675,9 +1686,8 @@ class TestSecurityManagerCoverageGaps:
             sm.blacklist = set()
             # Set dial > 0
             redis.get = AsyncMock(return_value=b"50")
-            # Rate limit NOT exceeded (count = 1 < 100)
-            redis.incr = AsyncMock(return_value=1)
-            redis.expire = AsyncMock()
+            # Rate limit NOT exceeded (count = 1 < 100); JA4PROXY-2026-0038.
+            redis.eval = AsyncMock(return_value=1)
             allowed, reason = await sm.check_access(fp, client_ip="1.2.3.4", alpn=None)
             # Rate limit passes; whitelist/blacklist disabled → allowed
             assert allowed is True
@@ -1688,8 +1698,8 @@ class TestSecurityManagerCoverageGaps:
         """Adaptive rate enabled → calls _get_adaptive_rate_threshold (line 907)."""
         async def run():
             redis = MagicMock()
-            redis.incr = AsyncMock(return_value=5)
-            redis.expire = AsyncMock()
+            # JA4PROXY-2026-0038: atomic rate-limit uses eval().
+            redis.eval = AsyncMock(return_value=5)
             redis.hgetall = AsyncMock(return_value={
                 b"confidence": b"0.8",
                 b"threshold_rps": b"50",

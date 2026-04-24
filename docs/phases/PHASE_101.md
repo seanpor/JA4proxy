@@ -3,7 +3,41 @@
 > **Status:** PROPOSED
 > **Parent Size:** LARGE — split into 12 sub-phases below.
 > **Dependencies:** Phase 84 (compliance), Phase 85 (threat-intel), Phase 62 (Go parity), Phase 64 (deploy validation), Phase 86i (capacity hardening), Phase 93 (terraform provider).
-> **Last revised:** 2026-04-11 (sub-phase breakdown for junior engineer handoff; all existing gap analysis preserved below §3).
+> **Last revised:** 2026-04-24 (stranded branch review; see §0 below).
+>
+> **Sub-phases landed on main (reviewed 2026-04-24):**
+> 101b (compliance hygiene), 101f (TI feed test reshape), 101g (TI feed
+> medium items M8–M14), 101h (low items L6–L8), 101i (deferred to Go cycle),
+> 101j (deploy validation M18 skipped, M19).
+>
+> **Still open:** 101a, 101c, 101d (H6/H7/H8), 101e, 101k (H14/H15/H16/M24/M25/M26), 101l.
+
+## 0. Stranded-branch review — 2026-04-24
+
+A branch `claude/phase-101-cross-phase-gaps` (last commit `5ffb736`, Apr 16)
+attempted 101d + 101k and self-declared the parent COMPLETE. That branch was
+reviewed on 2026-04-24 and **abandoned without merging**. Summary of why:
+
+| Spec item | Stranded commit | Verdict |
+|---|---|---|
+| H6 SSRF SafeResolver | none | not attempted |
+| H7 manual-poll rate limit | `7734c91` | scoped per user-identity; spec requires per feed_id |
+| H8 CSRF double-submit + HMAC | `068ce49` | implemented Origin-header check instead; commit message admits spec test can't pass |
+| H14 benchmark honesty | none | not attempted |
+| H15 Dynatrace parser robustness | `b20a9f7` | partial — NaN + control-char strip only; no quote-state tracking, no adversarial fixtures |
+| H16 capacity runbook | none | not attempted |
+| M24 Pushgateway grouping_key + real latencies | `3ad55e7` | partial — only `instance` + `phase`; no uuid, no latency wiring |
+| M25 topology entity on scrape failure | `b20a9f7` | alternative design — synthetic sample vs spec's "emit topology before early-return" |
+| M26 benchmark test numeric/SHA validation | none | not attempted |
+
+The closing commit claimed delivery of H7, H8, H15, H16, M24, M25, M26; three
+of those (H16, M26, and the H6 precondition for 101d) had no implementation on
+the branch. Design drift on H7/H8 made cherry-picking worse than starting
+clean. When 101d and 101k are picked up, treat them as not-started — ignore
+the stranded branch.
+
+The remote branch `origin/claude/phase-101-cross-phase-gaps` is retained as a
+historical record; do not revive it.
 
 ## Sub-phase index
 

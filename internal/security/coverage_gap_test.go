@@ -21,7 +21,9 @@ import (
 // ─── AbuseIPDB: Start, worker, lookup ──────────────────────────────────────
 
 func TestAbuseIPDB_Start_WorkerProcessesQueue(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// JA4PROXY-2026-0049 — use an HTTPS test server and inject its client,
+	// since the AbuseIPDB hardening refuses http:// URLs for API-key calls.
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"data": map[string]interface{}{"abuseConfidenceScore": 42},
 		})
@@ -30,6 +32,7 @@ func TestAbuseIPDB_Start_WorkerProcessesQueue(t *testing.T) {
 
 	redis := newMockRedisRW()
 	a := NewAbuseIPDB(defaultAbuseIPDBCfg(srv.URL), redis, nil)
+	a.http = srv.Client()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

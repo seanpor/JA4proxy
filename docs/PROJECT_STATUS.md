@@ -5,7 +5,7 @@
 
 ## Current Status: Phase 101 (Phase 101 — Cross-Phase Gap Closure) Next
 
-**Last Updated:** 2026-04-19
+**Last Updated:** 2026-04-22
 
 ## Epics & Roadmap
 
@@ -60,8 +60,8 @@ Deep security analysis, compliance, and audit remediation.
 | 201 | Go Redis TLS + Silent-Failure Hardening | COMPLETE | Closes three production-critical Go Redis client gaps and one correctness fix. (1) cfg.SSL was silently ignored — TLS now honoured with MinVersion 1.2 and ACL Username support in both standalone and Sentinel paths; both cmd/proxy and cmd/syncagent fixed. (2) Lua scripts were never reloaded after Redis restart — added periodic HealthCheck goroutine with RWMutex-protected double-checked reload. (3) Rate-limiter accepted unvalidated strings into Redis key names — netip.ParseAddr-based sanitiser with sha256-hashed log on reject. (4) ZRemRangeByScore now logs on error like every other write method. The previously proposed signal-score drift fix was withdrawn after critical review found Go scores already matched config/signal_scores.yml. |
 | 202 | CI Supply Chain + Default Credential Removal | COMPLETE | Eliminates 6 infrastructure-level critical findings: SHA-pin all GitHub Actions (supply chain), remove default credential fallbacks from all compose files (Grafana admin, Management admin/admin, HAProxy admin/admin123), create Go proxy image CI workflow with SBOM+cosign signing, harden Dockerfile.go-proxy with non-root USER. |
 | 203 | Go Missing Signals — TAP OS Mismatch, TLS Mismatch, Weak Ciphers, DGA, Health | COMPLETE | Closes 5 production-critical signal gaps in Go. 203a re-architected: instead of impossible in-proxy JA4T computation (kernel consumes SYN options before accept()), Go proxy consumes TAP-produced `fp:os:ip:{ip}` fingerprints from Redis written by Phase 20 TAP node. Deleted dead `internal/tls/ja4t.go` stub. 203b adds `CheckJA4TLSMismatch` detecting JA4-prefix vs negotiated-TLS-version disagreement. 203c expands Go `weakCipherSet` to exactly 40 entries matching Python `WEAK_CIPHERS`. 203d rewrites Go `dgaConfidence` rule-for-rule against Python `dga_score`, validated by golden file of 100 hostnames at 1e-9 tolerance. 203e adds anti-flap hysteresis (N=3) via `internal/health/state.go`, tarpit-saturation→200+degraded, geoip status field; `/health` invariant preserved. |
-| 118 | Pentest Remediation: Attack Surface & Data Leakage Hardening | PROPOSED | Remediate L1-018 (PROXY smuggling), L1-019 (fragmentation), L4-028 (XFF spoofing), SSRF (webhooks), unauth metrics, Redis fail-open, backup encryption leak, integration TLS verification, Redis ACLs, auth rate limiting. |
-| 119 | Connection Lifecycle Hardening & Operational Security | PROPOSED | Fix 17 vulnerabilities from independent white-box red team: goroutine leaks, n-vs-len(data) JA4 bypass, unauthenticated metrics, credential rotation, connection limits, tarpit timeouts, Redis KEYS blocking, trusted CIDR validation, SNI key injection, cookie secure flag, log sanitisation, OIDC token verification. |
+| 118 | Pentest Remediation: Attack Surface & Data Leakage Hardening | COMPLETE | Rescoped under Phase 121e against the canonical findings register. All scoped findings (PROXY smuggling, fragmentation, XFF spoofing, SSRF, unauth metrics, Redis fail-open, backup encryption, integration TLS verification, Redis ACLs, auth rate limiting) closed via phase-118a…118vv chained-branch remediations. 54/54 findings FIXED in docs/security/findings.yaml. |
+| 119 | Connection Lifecycle Hardening & Operational Security | COMPLETE | Rescoped under Phase 121e against the canonical findings register. All 17 white-box findings (RT-001…RT-017: goroutine leaks, n-vs-len(data) JA4 bypass, unauth metrics, credential rotation, connection limits, tarpit timeouts, Redis KEYS blocking, trusted CIDR validation, SNI key injection, cookie secure flag, log sanitisation, OIDC token verification) closed via phase-119a…119t chained-branch remediations. |
 | 121 | Pentest Remediation Consolidation & Program Discipline | COMPLETE | Plan-only meta-phase that turns the 108–120 bug-hunt pile into a managed program: canonical findings register + tooling, severity rubric + SLA policy, dedup across ~98 sub-phases down to 54 canonical findings, rescope of 117/118/119/120 against the register (retires 120 as duplicate of 119), remediation waves DAG, closure verification protocol, intake runbook for the next red team report, CVSS version ADR. 11 sub-phases, no code fixes. All acceptance criteria met 2026-04-19; make phase-121-verify green. |
 
 ### Epic: Analytics & Intelligence
@@ -136,15 +136,15 @@ Comprehensive testing, adversarial coverage, and performance validation.
 | 60 | Master Plan and Governance | CLOSED | Governance index (pointer document only). Phases 61–64 all COMPLETE. No implementation work remains — closed after 2026-04-09 rewrite. |
 | 61 | Supply Chain Security & Build Integrity | COMPLETE | GitHub Actions CI pipeline (Python + Go tests, SAST, dependency audit); SBOM generation (CycloneDX 1.4); Cosign keyless image signing; SLSA level 2 provenance for Go binary; action SHA pinning; branch protection rules. |
 | 207 | Go Test Coverage Improvement & Repository Hygiene | COMPLETE | Raised Go test coverage to ≥80% across all 6 target packages. Fixed ZADD bug in syncagent (event.Key used as member instead of event.Value) and handleError fall-through in CLI. README rewritten for accuracy (Parity badge removed, Go proxy section honest about gaps). 8 semgrep false positives triaged. 11 stale pytest.skip stubs removed. |
-| 108 | Full-Stack Penetration Testing Campaign | PROPOSED | A 7-layer adversarial assessment covering Go/Python core, Redis state, CI/CD supply chain, and DMZ network evasion. |
-| 109 | PROXY Protocol Hardening & Scrubbing | PROPOSED | Harden Go proxy to strip untrusted PROXY headers and handle partial reads; implement unified IP/Fingerprint blocklist schema. |
-| 110 | Management API Security Hardening | PROPOSED | Fix Redis-blocking health checks, implement CSRF protection, secure bearer token lookups (O(1)), and add Webhook SSRF validation. |
-| 111 | Security Logic & Tarpit Hardening | PROPOSED | Implement fail-closed tarpit policies for high-risk traffic and add enforcement for recognizability (BlockNonTLS). |
-| 112 | Session & Data Integrity Hardening | PROPOSED | Implement strict validation for GDPR erasure, JWT JTI blacklisting on logout, and migrate audit log to Redis Streams for reliability. |
-| 113 | Proxy Stability & Audit Instrumentation | PROPOSED | Bound beaconing sets in Redis to prevent OOM, implement non-blocking tarpit writes, and add missing audit logs for token mutations. |
-| 114 | Supply Chain & Infrastructure Hygiene | PROPOSED | Fix command injection in Jenkinsfile/Makefile and ensure idempotent cron job deployment in scripts/deploy.sh. |
-| 115 | Web & Rendering Security | PROPOSED | Remediate Reflected XSS in HTMX partials and disable external fetching in WeasyPrint SVG rendering to prevent SSRF/LFI. |
-| 116 | Protocol Parser Hardening | PROPOSED | Implement fail-closed parsing for PROXY protocol on trusted connections to prevent protocol confusion/smuggling. |
+| 108 | Full-Stack Penetration Testing Campaign | COMPLETE | Campaign executed; all findings ingested into docs/security/findings.yaml under Phase 121b and closed via individual Phase 118*/119* chained-branch remediations. 54/54 findings FIXED. |
+| 109 | PROXY Protocol Hardening & Scrubbing | DEFERRED | Superseded by Phase 118 — PROXY-header scrubbing closed via findings register (118a/b, 116a). |
+| 110 | Management API Security Hardening | DEFERRED | Superseded by Phase 118 — CSRF, bearer-token lookup, Webhook SSRF, Redis-blocking health checks closed via findings register (110e, 118c/d/e/h). |
+| 111 | Security Logic & Tarpit Hardening | DEFERRED | Superseded by Phase 118 — fail-closed tarpit and BlockNonTLS enforcement closed via findings register (111a). |
+| 112 | Session & Data Integrity Hardening | DEFERRED | Superseded by Phase 118 — GDPR erasure, JWT JTI blacklisting, audit-log reliability closed via findings register (118f/g/m). |
+| 113 | Proxy Stability & Audit Instrumentation | DEFERRED | Superseded by Phase 118 — beaconing bounds, non-blocking tarpit writes, token-mutation audit logs closed via findings register. |
+| 114 | Supply Chain & Infrastructure Hygiene | DEFERRED | Superseded by Phase 118 — Jenkinsfile/Makefile command injection and idempotent cron deployment closed via findings register. |
+| 115 | Web & Rendering Security | DEFERRED | Superseded by Phase 118 — HTMX XSS and WeasyPrint SSRF/LFI closed via findings register. |
+| 116 | Protocol Parser Hardening | DEFERRED | Superseded by Phase 118 — fail-closed PROXY parsing on trusted connections closed via findings register (116a, 118a/b). |
 | 117 | DMZ Network Hardening & Anti-Smuggling | DEFERRED | Superseded by Phase 118 — full pentest remediation including Redis ACLs and auth hardening. |
 
 ### Epic: Regulatory & Supply-Chain Conformance
@@ -269,18 +269,18 @@ Alignment with international standards and regulatory frameworks.
 | 105 | Documentation Restructure by Audience | PROPOSED | N/A | N/A |
 | 106 | SWEBOK v4 Alignment & Quality Plan | PROPOSED | N/A | N/A |
 | 107 | Regulatory Conformance (CRA, NIST, ISO) | PROPOSED | N/A | N/A |
-| 108 | Full-Stack Penetration Testing Campaign | PROPOSED | N/A | N/A |
-| 109 | PROXY Protocol Hardening & Scrubbing | PROPOSED | N/A | N/A |
-| 110 | Management API Security Hardening | PROPOSED | N/A | N/A |
-| 111 | Security Logic & Tarpit Hardening | PROPOSED | N/A | N/A |
-| 112 | Session & Data Integrity Hardening | PROPOSED | N/A | N/A |
-| 113 | Proxy Stability & Audit Instrumentation | PROPOSED | N/A | N/A |
-| 114 | Supply Chain & Infrastructure Hygiene | PROPOSED | N/A | N/A |
-| 115 | Web & Rendering Security | PROPOSED | N/A | N/A |
-| 116 | Protocol Parser Hardening | PROPOSED | N/A | N/A |
+| 108 | Full-Stack Penetration Testing Campaign | COMPLETE | N/A | N/A |
+| 109 | PROXY Protocol Hardening & Scrubbing | DEFERRED | N/A | N/A |
+| 110 | Management API Security Hardening | DEFERRED | N/A | N/A |
+| 111 | Security Logic & Tarpit Hardening | DEFERRED | N/A | N/A |
+| 112 | Session & Data Integrity Hardening | DEFERRED | N/A | N/A |
+| 113 | Proxy Stability & Audit Instrumentation | DEFERRED | N/A | N/A |
+| 114 | Supply Chain & Infrastructure Hygiene | DEFERRED | N/A | N/A |
+| 115 | Web & Rendering Security | DEFERRED | N/A | N/A |
+| 116 | Protocol Parser Hardening | DEFERRED | N/A | N/A |
 | 117 | DMZ Network Hardening & Anti-Smuggling | DEFERRED | N/A | N/A |
-| 118 | Pentest Remediation: Attack Surface & Data Leakage Hardening | PROPOSED | N/A | N/A |
-| 119 | Connection Lifecycle Hardening & Operational Security | PROPOSED | N/A | N/A |
+| 118 | Pentest Remediation: Attack Surface & Data Leakage Hardening | COMPLETE | N/A | N/A |
+| 119 | Connection Lifecycle Hardening & Operational Security | COMPLETE | N/A | N/A |
 | 120 | Independent Red Team Findings: Design Flaws, Infrastructure & Logic Bugs (RETIRED) | DEFERRED | N/A | N/A |
 | 121 | Pentest Remediation Consolidation & Program Discipline | COMPLETE | N/A | N/A |
 | 200 | Go PROXY Protocol Trust + v2 Support | COMPLETE | N/A | N/A |
