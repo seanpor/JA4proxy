@@ -43,7 +43,6 @@ from management.api.routes.webhooks import (  # noqa: E402
     _validate_webhook_url,
 )
 
-
 # ── Validator-level regression (no network, deterministic) ────────────────────
 
 
