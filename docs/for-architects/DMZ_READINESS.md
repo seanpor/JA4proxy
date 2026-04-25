@@ -36,7 +36,7 @@ controls a security team will typically check during pre-production review.
 | Network segmentation | In place | Frontend / backend / monitoring Docker networks |
 | Centralised logging (ECS) | In place | [`docs/api/ecs_extension.md`](../api/ecs_extension.md) |
 | SIEM integration recipes | In place | [SIEM Integration](SIEM_INTEGRATION.md) |
-| External Dynamic Lists (EDL) export | In place | [`docs/integrations/EDL.md`](../integrations/EDL.md) |
+| External Dynamic Lists (EDL) export | In place | [`docs/runbooks/tap_mode.md`](../runbooks/tap_mode.md) §EDL; [`docs/decisions/ADR-021.md`](../decisions/ADR-021.md) |
 | GeoIP filtering | In place | Phase 6; MaxMind GeoLite2 |
 | CSRF protection on Management UI | In place | Phase 13 |
 | Webhook HMAC signing | In place | `internal/webhook/delivery.go` |

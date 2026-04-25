@@ -40,7 +40,7 @@ order presented.
 | Forwarding logs to your SIEM | [SIEM Integration](SIEM_INTEGRATION.md) |
 | ECS field reference (canonical schema) | [`docs/api/ecs_extension.md`](../api/ecs_extension.md) |
 | Webhook payload, signing, and delivery semantics | [`docs/api/ecs_extension.md`](../api/ecs_extension.md) §"Webhook Events" |
-| External Dynamic Lists (EDL) for firewall ingestion | [`docs/integrations/EDL.md`](../integrations/EDL.md) |
+| External Dynamic Lists (EDL) for firewall ingestion | [`docs/decisions/ADR-021.md`](../decisions/ADR-021.md) (pull-vs-push design) and [`docs/runbooks/tap_mode.md`](../runbooks/tap_mode.md) (operational guide) |
 
 ---
 
@@ -49,7 +49,7 @@ order presented.
 | Stage | Document |
 |---|---|
 | 7-day POC and 30-day evaluation checklist | [Evaluation Checklist](EVALUATION_CHECKLIST.md) |
-| Dial progression playbook | [`docs/runbooks/dial_management.md`](../runbooks/dial_management.md) |
+| Dial progression playbook | [`docs/operator/BLOCKING_OPERATIONS.md`](../operator/BLOCKING_OPERATIONS.md#how-to-change-the-dial) |
 | Incident response procedures | [`docs/INCIDENT_RESPONSE.md`](../INCIDENT_RESPONSE.md) |
 | Capacity and scaling | [`docs/SCALING_GUIDE.md`](../SCALING_GUIDE.md) |
 

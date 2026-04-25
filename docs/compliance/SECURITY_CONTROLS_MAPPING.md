@@ -52,7 +52,7 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 | **A.6.4: Disciplinary process** | ❌ Not applicable | Community governance | N/A |
 | **A.6.5: Responsible use of information security** | ✅ Code of conduct in CONTRIBUTING | [CONTRIBUTING.md](../../CONTRIBUTING.md) | None |
 | **A.6.6: Confidentiality or non-disclosure agreements** | ❌ Not applicable | Open source | N/A |
-| **A.6.7: Remote working** | ✅ Secure access documented | [DMZ Deployment Readiness](../DMZ_DEPLOYMENT_READINESS.md) | None |
+| **A.6.7: Remote working** | ✅ Secure access documented | [DMZ Deployment Readiness](../for-architects/DMZ_READINESS.md) | None |
 | **A.6.8: Information security event reporting** | ✅ Incident response procedures | [Incident Response Runbook](../INCIDENT_RESPONSE.md) | None |
 
 ### A.7: Physical Controls
@@ -115,7 +115,7 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 | Control | JA4proxy Implementation | Evidence | Gap |
 |---------|--------------------------|----------|-----|
 | **A.9.1.1: Access control policy** | ✅ Documented access policies | [Security Policy Runbook](../runbooks/security_policy.md) | None |
-| **A.9.1.2: Access to networks and network services** | ✅ Network segmentation | [DMZ Deployment Readiness](../DMZ_DEPLOYMENT_READINESS.md) | None |
+| **A.9.1.2: Access to networks and network services** | ✅ Network segmentation | [DMZ Deployment Readiness](../for-architects/DMZ_READINESS.md) | None |
 | **A.9.1.3: User authentication for external connections** | ✅ TLS client authentication | PROXY protocol enforcement | None |
 | **A.9.1.4: Privileged utility programs** | ✅ Restricted access | Docker container hardening | None |
 | **A.9.1.5: User identification and authentication** | ✅ Redis ACL authentication | `requirepass` configuration | None |
@@ -156,7 +156,7 @@ This document maps JA4proxy's implemented security controls to the **ISO 27001:2
 
 | Control | JA4proxy Implementation | Evidence | Gap |
 |---------|--------------------------|----------|-----|
-| **A.13.1.1: Network security management** | ✅ Firewall rules and segmentation | [DMZ Deployment Readiness](../DMZ_DEPLOYMENT_READINESS.md) | None |
+| **A.13.1.1: Network security management** | ✅ Firewall rules and segmentation | [DMZ Deployment Readiness](../for-architects/DMZ_READINESS.md) | None |
 | **A.13.1.2: Network services security** | ✅ Service hardening | HAProxy + JA4proxy configuration | None |
 | **A.13.1.3: Network segmentation** | ✅ DMZ architecture | [System Architecture](../architecture/system-architecture.md) | None |
 | **A.13.2.1: Information transfer policies and procedures** | ✅ Data transfer controls | [GDPR Compliance §7](../compliance/GDPR_COMPLIANCE.md) | None |

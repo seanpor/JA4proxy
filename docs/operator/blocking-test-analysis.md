@@ -13,7 +13,7 @@ during Phase 105. See:
 
 - [BLOCKING_OPERATIONS.md § Validating a Block Rule](BLOCKING_OPERATIONS.md#validating-a-block-rule)
 - [BLOCKING_OPERATIONS.md § Common Blocking Mistakes](BLOCKING_OPERATIONS.md#common-blocking-mistakes)
-- [BLOCKING_OPERATIONS.md § Investigating a Block — the Runbook](BLOCKING_OPERATIONS.md#investigating-a-block--the-runbook)
+- [BLOCKING_OPERATIONS.md § Investigating a Block — the Runbook](BLOCKING_OPERATIONS.md#investigating-a-block-the-runbook)
 
 Original is preserved in git history; run
 `git log --oneline -- docs/operator/blocking-test-analysis.md` to find the

@@ -593,6 +593,6 @@ kill -HUP $(cat /var/run/ja4proxy.pid)
 ## See Also
 
 - [POC_SECURITY_SCAN.md](reports/POC_SECURITY_SCAN.md) - Security vulnerability analysis
-- [ENTERPRISE_REVIEW.md](reports/ENTERPRISE_REVIEW.md) - Production security requirements
+- [ENTERPRISE_REVIEW.md](reports/archive/ENTERPRISE_REVIEW_2026-02-15.md) - Production security requirements (archived snapshot, Phase 105)
 - [config/proxy.yml](../config/proxy.yml) - Configuration reference
 - [Prometheus Dashboard](http://localhost:9091) - Live metrics

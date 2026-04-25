@@ -186,7 +186,7 @@ date answered, the responsible engineer, and any deviation notes.
 
 If all success criteria are met, escalate to dial `100` per the **graduated
 rollout** schedule documented in
-[`docs/runbooks/dial_management.md`](../runbooks/dial_management.md). Continue
+[`docs/operator/BLOCKING_OPERATIONS.md`](../operator/BLOCKING_OPERATIONS.md#how-to-change-the-dial). Continue
 the daily monitoring rhythm; transition operational ownership to the SecOps
 team using
 [`docs/SECOPS_OPERATIONS.md`](../SECOPS_OPERATIONS.md).
@@ -205,7 +205,9 @@ exercise.
 - [`docs/for-architects/SIEM_INTEGRATION.md`](SIEM_INTEGRATION.md) — log
   forwarding recipes
 - [`docs/SECOPS_OPERATIONS.md`](../SECOPS_OPERATIONS.md) — daily operations
-- [`docs/runbooks/dial_management.md`](../runbooks/dial_management.md) — dial
-  progression playbook
+- [`docs/operator/BLOCKING_OPERATIONS.md`](../operator/BLOCKING_OPERATIONS.md#how-to-change-the-dial)
+  — dial progression playbook
+- [`docs/runbooks/ja4proxy_dial_change_unexpected.md`](../runbooks/ja4proxy_dial_change_unexpected.md)
+  — incident runbook for unexpected dial changes
 - [`docs/INCIDENT_RESPONSE.md`](../INCIDENT_RESPONSE.md) — incident response
   procedures

@@ -293,7 +293,7 @@ BLOCK | category=scored | score=87 | action=block | dial=50 | signals=[tcp_burst
 
 Look for the `signals=[...]` field in the block log line. Each signal name
 maps to a signal module in `src/security/` (Python prototype) or
-`internal/signals/` (Go production). The block reason is **the sum of all
+`internal/security/` (Go production). The block reason is **the sum of all
 signals**, so identify the top contributors.
 
 ```bash
