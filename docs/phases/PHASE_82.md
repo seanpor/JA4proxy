@@ -517,28 +517,34 @@ an extension to the management service.
 
 ### 10.1 Offline-Testable (CI must pass these before any platform work)
 
-- [ ] `ADR-082.md` committed to `docs/decisions/` with storage backend decision before any shadow mode code
-- [ ] `docs/policy/schema.md` documents the full policy YAML schema
-- [ ] `src/governance/policy_schema.py` — Pydantic models for all policy YAML fields
-- [ ] `src/governance/policy_validator.py` — all 11 unit tests in §8.1 pass
-- [ ] `scripts/ja4proxy-policy.py validate` exits 0 on valid YAML, non-zero on all error types
-- [ ] `scripts/ja4proxy-policy.py validate` exits non-zero on dial increase > 20 without `shadow_mode_approved: true`
-- [ ] GitHub Actions, GitLab CI, and Jenkins templates ship and use `scripts/ja4proxy-policy.py`
-- [ ] All 8 integration tests in §8.2 pass against the mock Management API server
-- [ ] `managed_by=policy` usage confirmed with Phase 79 team (see §9)
+- [ ] REQ-082-01: `ADR-082.md` committed to `docs/decisions/` with storage backend decision before any shadow mode code. Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-082-02: `docs/policy/schema.md` documents the full policy YAML schema. Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-082-03: `src/governance/policy_schema.py` — Pydantic models for all policy YAML fields. Verified by:
+      `tests/unit/test_policy_validator.py::test_valid_minimal_policy`
+- [ ] REQ-082-04: `src/governance/policy_validator.py` — all 11 unit tests in §8.1 pass. Verified by:
+      `tests/unit/test_policy_validator.py::test_valid_minimal_policy`
+- [ ] REQ-082-05: `scripts/ja4proxy-policy.py validate` exits 0 on valid YAML, non-zero on all error types. Verified by:
+      `tests/integration/test_cli_parity.py::test_python_validate_valid_exits_zero`
+- [ ] REQ-082-06: `scripts/ja4proxy-policy.py validate` exits non-zero on dial increase > 20 without `shadow_mode_approved: true`. Verified by:
+      `tests/unit/test_policy_validator.py::test_dial_increase_gt_20_without_flag`
+- [ ] REQ-082-07: GitHub Actions, GitLab CI, and Jenkins templates ship and use `scripts/ja4proxy-policy.py`. Verified by:
+      `tests/unit/test_pentest_cicd_token_env_regression.py::test_gha_apply_step_still_calls_policy_script`
+- [ ] REQ-082-08: All 8 integration tests in §8.2 pass against the mock Management API server. Verified by:
+      `tests/integration/test_policy_apply.py::test_apply_idempotent_allowlist_entry`
+- [ ] REQ-082-09: `managed_by=policy` usage confirmed with Phase 79 team (see §9). Verified by: `[MANUAL-REVIEW]`
 
 ### 10.2 Platform-Dependent (deferred to Phase 100 item 100-N)
 
-- [ ] `policy apply` is idempotent across all resource types against a live Phase 79 API
-- [ ] `policy diff` correctly identifies drift added via the Management UI
-- [ ] Shadow mode simulation endpoint returns results within 5 minutes for a 30-day window
-- [ ] Simulation report includes FP candidates with FCrDNS enrichment
-- [ ] Four-eyes pending queue visible to Operators and Admins in Management UI
-- [ ] Approval gate enforced — changes do not apply until approved
-- [ ] `approval_required` config respected per change type
-- [ ] ServiceNow auto-change-record creation working when configured
-- [ ] All rule changes attributed in audit log with source, actor, and approver
-- [ ] Audit log exported as JSONL for SOC 2 auditor review
+- [ ] REQ-082-10: `policy apply` is idempotent across all resource types against a live Phase 79 API. Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-082-11: `policy diff` correctly identifies drift added via the Management UI. Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-082-12: Shadow mode simulation endpoint returns results within 5 minutes for a 30-day window. Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-082-13: Simulation report includes FP candidates with FCrDNS enrichment. Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-082-14: Four-eyes pending queue visible to Operators and Admins in Management UI. Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-082-15: Approval gate enforced — changes do not apply until approved. Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-082-16: `approval_required` config respected per change type. Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-082-17: ServiceNow auto-change-record creation working when configured. Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-082-18: All rule changes attributed in audit log with source, actor, and approver. Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-082-19: Audit log exported as JSONL for SOC 2 auditor review. Verified by: `[MANUAL-REVIEW]`
 
 ---
 
