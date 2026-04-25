@@ -1,8 +1,8 @@
 <!--
 title: Documentation Index
 audience: All Users
-last_reviewed: 2026-03-27
-phase: 21
+last_reviewed: 2026-04-25
+phase: 105
 -->
 
 # JA4proxy Documentation Index
@@ -47,11 +47,11 @@ phase: 21
 - **[Comprehensive Security Audit](security/COMPREHENSIVE_SECURITY_AUDIT.md)** — 18-finding audit with remediation status
 - **[Threat Model](security/threat-model.md)** — Threat actors, attack vectors, mitigations
 - **[Security Checklist](security/SECURITY_CHECKLIST.md)** — Pre-production validation checklist
-- **[DMZ Deployment Readiness](DMZ_DEPLOYMENT_READINESS.md)** — Production hardening checklist
+- **[DMZ Readiness Summary](for-architects/DMZ_READINESS.md)** — Production hardening checklist (current). Pre-Phase-200 snapshot archived at [`reports/archive/DMZ_DEPLOYMENT_READINESS_2026-03-15.md`](reports/archive/DMZ_DEPLOYMENT_READINESS_2026-03-15.md)
 
 **Decision Rationale**
 - **[ADR Index](decisions/INDEX.md)** — All architectural decisions with rationale
-- **[GEMINI Critique](GEMINI_CRITIQUE.md)** — Multi-perspective review (CEO, CTO, QA, Pentester, Compliance)
+- **[GEMINI Critique (archived snapshot)](reports/archive/GEMINI_CRITIQUE_2026-03-21.md)** — Multi-perspective review (CEO, CTO, QA, Pentester, Compliance)
 
 ### Contributing Developers
 
@@ -97,7 +97,7 @@ phase: 21
 
 - **[Project Status](PROJECT_STATUS.md)** — Current phase completion status
 - **[Performance Benchmark](reports/PERFORMANCE_BENCHMARK.md)** — Throughput, latency, accuracy
-- **[Enterprise Review](reports/ENTERPRISE_REVIEW.md)** — Strengths and gaps
+- **[Enterprise Review (archived snapshot)](reports/archive/ENTERPRISE_REVIEW_2026-02-15.md)** — Pre-Phase-200 strengths and gaps
 - **[Testing Session Summary](reports/testing-session-summary.md)** — Test validation results
 - **[CHANGELOG](../CHANGELOG.md)** — Version history by phase
 
@@ -141,8 +141,8 @@ phase: 21
 
 ## Documentation Health
 
-**Last Reviewed:** 2026-03-27
-**Status:** Active development (Phase 21 — Documentation Excellence)
+**Last Reviewed:** 2026-04-25
+**Status:** Active development (Phase 105 — Docs Restructure)
 **Test Count:** `python3 -m pytest tests/ --collect-only -q 2>/dev/null | tail -1`
 
 **Documentation Standards:** All documentation follows [DOCUMENTATION_STANDARDS.md](DOCUMENTATION_STANDARDS.md)

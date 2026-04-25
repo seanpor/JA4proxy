@@ -1,8 +1,8 @@
 <!--
 title: Deployment_Security_Model
 audience: Developers
-last_reviewed: 2026-03-27
-phase: 21
+last_reviewed: 2026-04-25
+phase: 105
 -->
 
 # JA4proxy Deployment Security Model
@@ -19,7 +19,7 @@ and known limitations that operators must accept and mitigate.
 2. [Network Exposure](#2-network-exposure)
 3. [Secret Management](#3-secret-management)
 4. [Redis Security](#4-redis-security)
-5. [Backup Security (Phase 19)](#5-backup-security-phase-19)
+5. [Backup Security](#5-backup-security)
 6. [Known Limitations](#6-known-limitations)
 7. [Pre-Deployment Security Checklist](#7-pre-deployment-security-checklist)
 
@@ -57,7 +57,7 @@ useradd -r -s /sbin/nologin ja4mgmt
 |------|----------|--------|---------|
 | 8080 | TCP | HAProxy (internal only) | Proxy traffic from load balancer |
 | 9090 | HTTP | Monitoring network only | Prometheus `/metrics` endpoint |
-| 8090 | HTTP | Internal network only | Management UI (Phase 13) |
+| 8090 | HTTP | Internal network only | Management UI |
 
 **Never expose port 8080 directly to the Internet.** It must sit behind HAProxy which
 provides the PROXY protocol header for real client IP extraction.
@@ -134,10 +134,11 @@ Redis must bind only to the internal network interface:
 bind 127.0.0.1 <internal-ip>   # Never 0.0.0.0
 ```
 
-### ACL Scoping (Phase 21)
+### ACL Scoping
 
-In Phase 19, the backup worker uses the same REDIS_URL as the proxy and has
-full read/write access. Phase 21 will scope this with Redis ACLs:
+The backup worker historically used the same REDIS_URL as the proxy with full
+read/write access. Production deployments should scope backup credentials with
+Redis ACLs:
 
 ```
 user backup-operator on >backup-password ~backup:* ~ja4:* ~ban:* ~config:* +@read +SET +DEL +LPUSH +LTRIM
@@ -145,7 +146,14 @@ user backup-operator on >backup-password ~backup:* ~ja4:* ~ban:* ~config:* +@rea
 
 ---
 
-## 5. Backup Security (Phase 19)
+## 5. Backup Security
+
+> **Background.** The backup/restore subsystem was introduced in Phase 19 and
+> hardened with AES-256-GCM at-rest encryption in Phase 40 and cloud adapters in
+> Phase 57. The current canonical operational reference is
+> [`runbooks/cloud_backup_operations.md`](runbooks/cloud_backup_operations.md);
+> the security-model invariants below remain in force regardless of storage
+> backend.
 
 ### Filesystem Permissions
 
@@ -186,7 +194,7 @@ _KEY_PATTERNS_NEVER_BACKUP = [
 
 ### Encryption Status
 
-**Backup artifacts are encrypted at rest using AES-256-GCM (Phase 40).** 
+**Backup artifacts are encrypted at rest using AES-256-GCM.**
 Authenticated encryption ensures confidentiality and prevents tamper-then-restore attacks.
 
 Secret Management: The `BACKUP_ENCRYPTION_KEY` must be provided to the backup worker and 
@@ -215,11 +223,11 @@ Use `auditd` to detect unauthorized writes to the backup directory:
 
 ## 6. Known Limitations
 
-| Limitation | Phase | Mitigation |
-|------------|-------|-----------|
-| Redis lock stale after crash | 40 | If worker crashes during backup, lock must be manually cleared: `redis-cli DEL backup:operation_lock` |
-| No automated S3/GCS replication | 43 | Phase 57 will add native cloud storage adapters. Current mitigation: `rsync/rclone` cron job. |
-| Zero-downtime Rollouts require HAProxy | 43 | Blue/Green deployment is orchestrated at the LB layer. |
+| Limitation | Mitigation |
+|------------|-----------|
+| Redis lock stale after crash | If worker crashes during backup, lock must be manually cleared: `redis-cli DEL backup:operation_lock`. |
+| Cloud replication is opt-in | Native S3/GCS adapters available (see `runbooks/cloud_backup_operations.md`); local artefact is always written first. |
+| Zero-downtime rollouts require HAProxy | Blue/Green deployment is orchestrated at the LB layer; see `runbooks/zero_downtime_rollouts.md`. |
 
 ---
 
@@ -235,7 +243,7 @@ Use `auditd` to detect unauthorized writes to the backup directory:
 - [ ] Prometheus port 9090 firewalled to monitoring network only
 - [ ] `ENVIRONMENT=production` set (enables Redis password enforcement and JSON logs)
 
-### Before Enabling Backup (Phase 19/40)
+### Before Enabling Backup
 
 - [ ] `/var/backups/ja4proxy` created with `mode 0700`, owned by `backup-operator`
 - [ ] `backup-operator` user has no `sudo` privileges
@@ -259,6 +267,7 @@ Use `auditd` to detect unauthorized writes to the backup directory:
 
 ---
 
-*Last updated: 2026-03-31, Phase 43 complete.*
+*Last updated: 2026-04-25 (Phase 105 staleness sweep).*
+*See `docs/runbooks/cloud_backup_operations.md` for current backup operations.*
 *See `docs/runbooks/zero_downtime_rollouts.md` for blue/green deployment procedures.*
 *See `docs/security/BACKUP_THREAT_MODEL.md` for full threat analysis.*

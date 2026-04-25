@@ -1,8 +1,8 @@
 <!--
 title: JA4proxy Documentation
 audience: All Users
-last_reviewed: 2026-03-27
-phase: 21
+last_reviewed: 2026-04-25
+phase: 105
 -->
 
 # JA4proxy Documentation
@@ -36,8 +36,8 @@ Deployment architecture, security design, compliance posture, and readiness asse
 | [Security Architecture](enterprise/security-architecture.md) | Defense-in-depth design, threat model, access controls, compliance framework |
 | [Enterprise Deployment Guide](enterprise/deployment.md) | HA deployment topology, hardware sizing, network segmentation, hardening |
 | [System Architecture](architecture/system-architecture.md) | Target enterprise architecture diagram and pipeline description |
-| [Enterprise Review](reports/ENTERPRISE_REVIEW.md) | Strengths, open gaps, and full production readiness assessment |
-| [DMZ Deployment Readiness](DMZ_DEPLOYMENT_READINESS.md) | Controls in place vs. required for DMZ placement |
+| [Enterprise Review (archived snapshot)](reports/archive/ENTERPRISE_REVIEW_2026-02-15.md) | Pre-Phase-200 strengths/gaps assessment, retained for audit traceability |
+| [DMZ Readiness Summary](for-architects/DMZ_READINESS.md) | Current controls in place vs. required for DMZ placement |
 
 ---
 
