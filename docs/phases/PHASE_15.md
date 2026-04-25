@@ -163,15 +163,24 @@ See `docs/phases/archive/PHASE_15_subplan.md` for the full group-by-group task l
 ## Acceptance Criteria
 
 ### Functional
-- [x] `docker/Dockerfile.go-proxy` multi-stage build; runtime image ≤ 10MB
-- [x] Go proxy reads same `config/proxy.yml` without schema changes (all signal modules wired)
-- [x] JA4 fingerprint output byte-for-byte identical to Python for all `tests/fixtures/clienthello/` fixtures
-- [x] TLS ClientHello parser handles all adversarial corpus cases without panic
-- [x] All Lua scripts loaded via EVALSHA; script content identical to Python version
-- [x] Pub/Sub subscriber handles all message types; dial changes propagate correctly
-- [x] Prometheus metric names and label sets identical to Python version (Gap 3 remains)
-- [x] Python analytics and management UI containers run unchanged alongside Go proxy
+- [x] REQ-015-01: `docker/Dockerfile.go-proxy` multi-stage build; runtime image ≤ 10MB. Verified by:
+      `tests/integration/test_go_proxy_image.py::test_built_image_runs_as_uid_1000`
+- [x] REQ-015-02: Go proxy reads same `config/proxy.yml` without schema changes (all signal modules wired). Verified by:
+      `internal/config/loader_test.go::TestLoad_ActualProxyYML`
+- [x] REQ-015-03: JA4 fingerprint output byte-for-byte identical to Python for all `tests/fixtures/clienthello/` fixtures. Verified by:
+      `internal/tls/ja4_test.go::TestJA4_FixturesParity`
+- [x] REQ-015-04: TLS ClientHello parser handles all adversarial corpus cases without panic. Verified by:
+      `internal/tls/parser_test.go::TestParseClientHello_AdversarialCorpus`
+- [x] REQ-015-05: All Lua scripts loaded via EVALSHA; script content identical to Python version. Verified by:
+      `internal/redis/lua_test.go::TestSlidingWindowScript_MatchesFile`
+- [x] REQ-015-06: Pub/Sub subscriber handles all message types; dial changes propagate correctly. Verified by:
+      `internal/redis/pubsub_test.go::TestPubSubHandler_HandleMessage_DialChange`
+- [x] REQ-015-07: Prometheus metric names and label sets identical to Python version (Gap 3 remains). Verified by:
+      `internal/metrics/metrics_test.go::TestRegister_IncludesPhase63Metrics`
+- [x] REQ-015-08: Python analytics and management UI containers run unchanged alongside Go proxy. Verified by: `[MANUAL-REVIEW]`
 
 ### Unit Tests
-- [x] JA4 computation: each `tests/fixtures/clienthello/*.bin` → matches expected fingerprint
-- [x] TLS parser: adversarial corpus → no panic; returns in < 1ms
+- [x] REQ-015-09: JA4 computation: each `tests/fixtures/clienthello/*.bin` → matches expected fingerprint. Verified by:
+      `internal/tls/ja4_test.go::TestJA4_FixturesParity`
+- [x] REQ-015-10: TLS parser: adversarial corpus → no panic; returns in < 1ms. Verified by:
+      `internal/tls/parser_test.go::TestParseClientHello_AdversarialCorpus`
