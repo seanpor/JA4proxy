@@ -445,7 +445,7 @@ This doc should be mostly links. Its value is that one page exists.
 | `docs/phases/PHASE_103.md` | Retro-tag |
 | `docs/phases/PHASE_104.md` | Retro-tag |
 | `docs/phases/PHASE_200.md` | Retro-tag |
-| `docs/phases/STYLE_GUIDE.md` | Add REQ-tagging convention to the acceptance-criteria section |
+| `docs/STYLE_GUIDE.md` | Add REQ-tagging convention to the acceptance-criteria section |
 | `.github/workflows/ci.yml` | Add traceability + process-metrics jobs (both `continue-on-error` for 14 days) |
 | `docs/phases/manifest.yaml` | Add Phase 106 entry; mark COMPLETE on close |
 | `CHANGELOG.md` | Phase 106 entry |

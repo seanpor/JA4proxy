@@ -73,17 +73,23 @@ Files to create or modify:
 
 ## Acceptance Criteria
 
-- [ ] `isTrustedProxySource()` correctly accepts/rejects IPs against configured CIDRs
-- [ ] `ReadProxyProtocolV2()` extracts correct client IP for both IPv4 and IPv6
-- [ ] `ReadProxyProtocolV2()` safely rejects malformed v2 headers (no panic, no OOB)
-- [ ] Untrusted source sending PROXY header is NOT trusted — socket IP used instead
-- [ ] Both v1 and v2 parsers gated by the same trust check
-- [ ] All unit tests pass: `go test ./internal/proxy/... ./cmd/proxy/...`
-- [ ] Parity integration test passes (Python and Go extract same IP)
-- [ ] Adversarial test confirms untrusted PROXY spoof is rejected
-- [ ] `config/proxy.yml` documents `proxy.upstream_trust` section with example
-- [ ] CHANGELOG.md entry written
-- [ ] `make lint-go-full` passes with zero warnings
+- [ ] REQ-200-01: `isTrustedProxySource()` correctly accepts/rejects IPs against configured CIDRs. Verified by:
+      `internal/proxy/trust_test.go::TestIsTrustedProxySource_TrustedCIDR_IPv4`
+- [ ] REQ-200-02: `ReadProxyProtocolV2()` extracts correct client IP for both IPv4 and IPv6. Verified by:
+      `internal/proxy/proxy_protocol_v2_test.go::TestReadProxyProtocolV2_IPv4_Valid`
+- [ ] REQ-200-03: `ReadProxyProtocolV2()` safely rejects malformed v2 headers (no panic, no OOB). Verified by:
+      `internal/proxy/proxy_protocol_v2_test.go::TestReadProxyProtocolV2_DoesNotPanic`
+- [ ] REQ-200-04: Untrusted source sending PROXY header is NOT trusted — socket IP used instead. Verified by:
+      `cmd/proxy/proxy_integration_test.go::TestAdversarial_SpoofedPROXYFromUntrustedSource`
+- [ ] REQ-200-05: Both v1 and v2 parsers gated by the same trust check. Verified by:
+      `cmd/proxy/proxy_integration_test.go::TestTrustCheck_GatesPROXYExtraction`
+- [ ] REQ-200-06: All unit tests pass: `go test ./internal/proxy/... ./cmd/proxy/...`. Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-200-07: Parity integration test passes (Python and Go extract same IP). Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-200-08: Adversarial test confirms untrusted PROXY spoof is rejected. Verified by:
+      `cmd/proxy/pentest_proxy_parser_regression_test.go::TestRegression_JA4PROXY_2026_0001_StripsUntrustedHeader`
+- [ ] REQ-200-09: `config/proxy.yml` documents `proxy.upstream_trust` section with example. Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-200-10: CHANGELOG.md entry written. Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-200-11: `make lint-go-full` passes with zero warnings. Verified by: `[MANUAL-REVIEW]`
 
 ## Out of Scope
 

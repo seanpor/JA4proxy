@@ -19,10 +19,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 *   **Status:** **PROPOSED** (Consolidate and restructure project documentation into five audience-specific entry points (Website Owners, Architects, Operators, Compliance, Developers) to improve discoverability and reduce drift.)
 *   **Action Plan:** [PHASE_105.md](PHASE_105.md)
 
-### Phase 106 — SWEBOK v4 Alignment & Quality Plan
-*   **Status:** **PROPOSED** (Align project engineering practices with SWEBOK v4 standards, including SLOs, risk register, TCO analysis, and a formal quality plan.)
-*   **Action Plan:** [PHASE_106.md](PHASE_106.md)
-
 ### Phase 107 — Regulatory Conformance (CRA, NIST, ISO)
 *   **Status:** **PROPOSED** (Ensure compliance with Cyber Resilience Act (CRA), NIST SSDF, and ISO standards (27017, 29100) including SLSA L3 provenance.)
 *   **Action Plan:** [PHASE_107.md](PHASE_107.md)

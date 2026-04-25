@@ -216,15 +216,24 @@ Total: 6 small tasks, one critical path (102a–d parallel → 102e → 102f).
 
 ## 3. Acceptance criteria
 
-- [ ] ADR-093a (repo topology) exists in `docs/decisions/`
-- [ ] ADR-093b (Registry namespace) exists in `docs/decisions/`
-- [ ] ADR-093c (TTL renewal + drift-detection decision) exists in `docs/decisions/`
-- [ ] `docs/runbooks/emergency_playbooks.md` matches the three YAML playbooks
-- [ ] `deploy/terraform/README.md` documents `protect_unmanaged_entries`
-- [ ] `docs/phases/manifest.yaml` has exactly one `101:` key
-- [ ] Phase 102 marked `COMPLETE` in manifest with `completed` date
-- [ ] `bash scripts/close-phase.sh` exits 0
-- [ ] 14 playbook tests in `tests/integration/test_emergency_playbooks.py` still pass
+- [ ] REQ-102-01: ADR-093a (repo topology) exists in `docs/decisions/`. Verified by:
+      `[MANUAL-REVIEW]`
+- [ ] REQ-102-02: ADR-093b (Registry namespace) exists in `docs/decisions/`. Verified by:
+      `[MANUAL-REVIEW]`
+- [ ] REQ-102-03: ADR-093c (TTL renewal + drift-detection decision) exists in `docs/decisions/`. Verified by:
+      `[MANUAL-REVIEW]`
+- [ ] REQ-102-04: `docs/runbooks/emergency_playbooks.md` matches the three YAML playbooks. Verified by:
+      `[MANUAL-REVIEW]`
+- [ ] REQ-102-05: `deploy/terraform/README.md` documents `protect_unmanaged_entries`. Verified by:
+      `[MANUAL-REVIEW]`
+- [ ] REQ-102-06: `docs/phases/manifest.yaml` has exactly one `101:` key. Verified by:
+      `[MANUAL-REVIEW]`
+- [ ] REQ-102-07: Phase 102 marked `COMPLETE` in manifest with `completed` date. Verified by:
+      `[MANUAL-REVIEW]`
+- [ ] REQ-102-08: `bash scripts/close-phase.sh` exits 0. Verified by:
+      `[MANUAL-REVIEW]`
+- [ ] REQ-102-09: 14 playbook tests in `tests/integration/test_emergency_playbooks.py` still pass. Verified by:
+      `tests/integration/test_emergency_playbooks.py`
 
 ## 4. Explicitly out of scope
 

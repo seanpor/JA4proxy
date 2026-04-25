@@ -1,5 +1,64 @@
 # Changelog
 
+## [Unreleased] - Phase 106 — SWEBOK v4 Alignment & Quality Plan (2026-04-25)
+
+Documentation-and-tooling phase. Closes the SWEBOK v4 KA gaps identified in
+the 2026-04-16 benchmarking exercise: 12 of 14 applicable KAs now green
+(KAs 7 and 13 deferred to Phase 105). No production code changed.
+
+### Added
+- `docs/SERVICE_TARGETS.md` — consolidated SLI/SLO/SLA posture (KA 6),
+  with p50 + p99 latency, FP rate, availability, Redis correctness,
+  feed freshness, score stability, signal-collection error rate
+- `docs/RISK_REGISTER.md` — 42 rows across security, operational,
+  technical, supply-chain, compliance, commercial categories (KA 8)
+- `docs/for-website-owners/TCO_AND_LICENSING.md` — three TCO scenarios
+  + explicit "no commercial support today" statement (KA 14)
+- `docs/TRACEABILITY.md` — auto-generated REQ-ID → test matrix
+  (90 REQ-IDs across 5 retro-tagged phases) (KA 1, 5)
+- `scripts/traceability.py` — walks PHASE_*.md, validates `REQ-NNN-MM:` tags
+  and `Verified by:` clauses, regenerates the matrix; `--check` exits 1
+  on drift
+- `scripts/process_metrics.py` — emits phase throughput, average duration,
+  CI reliability, mean-time-to-green; degrades gracefully when
+  `GITHUB_TOKEN` is unset (KA 9)
+- `tests/unit/test_traceability.py`, `tests/unit/test_process_metrics.py`
+  (12 unit tests, 12 pass)
+- `tests/docs/test_service_targets_sync.py`,
+  `tests/docs/test_risk_register_structure.py` (10 doc-structure tests,
+  10 pass — caught a real gap in SERVICE_TARGETS during Wave 5)
+- `docs/engineering-method/{README,METHOD,CASE_STUDIES,PHASE_ANATOMY}.md`
+  + `retrospectives/{README,TEMPLATE,2026-Q2,latest-metrics}.md`
+  (KA 10) — case studies are honest, with a "what went wrong" section
+  per study (Phase 15 banker's-rounding parity, Phase 82 manual-review
+  parking-lot, Phase 200-series sibling-module re-discovery)
+- `docs/design/README.md` — 32-component design index (KA 3)
+- `docs/QUALITY_PLAN.md` — 8 quality attributes, defect management,
+  quality gates, SWEBOK KA coverage table (KA 11)
+- `.github/workflows/ci.yml` — `traceability` job, non-blocking until
+  2026-05-08, blocking after
+- `.github/workflows/process-metrics.yml` — monthly cron (1st 06:00 UTC)
+  regenerating `latest-metrics.md`
+- `docs/STYLE_GUIDE.md` §6 — REQ-ID tagging convention with opt-in
+  `req_tagged: true` manifest field
+
+### Changed
+- `docs/phases/PHASE_{15,79,82,102,200}.md` — retro-tagged with
+  `REQ-NNN-MM:` IDs and `Verified by:` clauses; 90 REQ-IDs total
+  (53 AUTOMATED + 37 MANUAL-REVIEW). Phases 103/104 deferred —
+  103 has no manifest entry yet, 104 still PROPOSED
+- `README.md` — single "How we build →" line linking
+  `docs/engineering-method/README.md`
+- `docs/for-{architects,compliance,operators,website-owners}/README.md`
+  — wired into Phase 106 deliverables; placeholder markers dropped
+- `docs/phases/manifest.yaml` — `req_tagged: true` flag on the 5
+  retro-tagged phases; Phase 106 marked COMPLETE
+
+### SWEBOK v4 KA coverage after this phase
+12 of 14 applicable KAs green. KAs 7 (Configuration Management) and 13
+(Professional Practice) deferred to Phase 105. KAs 15-17 are
+prerequisite knowledge, not project artefacts.
+
 ## [Unreleased] - Phase 121 — Pentest Remediation Consolidation & Program Discipline (2026-04-19)
 
 Plan-only meta-phase; no production code changed. Converts the 108–120 pentest
