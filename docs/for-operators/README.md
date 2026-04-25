@@ -1,10 +1,8 @@
 # Operators Documentation
 
-<!-- phase-106-placeholder -->
-
-Placeholder — Phase 105 (Documentation Restructure by Audience) will land the
-full operator entry point. Phase 106 deliverables link into this directory
-and will be reconciled when Phase 105 lands.
+Entry point for operators running JA4proxy in production. The full
+audience restructure lands in Phase 105; until then, the load-bearing
+references for day-to-day operation are below.
 
 For now, see:
 

@@ -1,37 +1,44 @@
 <!--
 title: "Engineering Method"
 audience: architects, contributors
-last_reviewed: 2026-04-24
-phase: 106e-stub
+last_reviewed: 2026-04-25
+phase: 106
 -->
 
 # Engineering Method
 
-<!-- phase-106-placeholder -->
+How JA4proxy is built: phase-based incremental delivery, multi-agent
+coordination, mandatory planning, and quarterly retrospectives. This
+directory is the entry point for anyone trying to understand *how* the
+project is run, separate from *what* the project does.
 
-Placeholder — Phase 106g will land the full engineering-method narrative
-(`METHOD.md`, `CASE_STUDIES.md`, `PHASE_ANATOMY.md`). This stub exists so
-links from [`docs/QUALITY_PLAN.md`](../QUALITY_PLAN.md) and the
-[`for-architects`](../for-architects/README.md) entry point resolve while
-106g is in flight.
+The canonical operational rules — branch naming, file ownership, push
+discipline — live in [`CLAUDE.md`](../../CLAUDE.md) §Multi-Agent
+Coordination, §How to Run a Phase, and §Cross-Cutting Requirements. The
+documents in this directory explain the reasoning, show worked examples,
+and surface the lessons learned in retrospectives.
 
-What lives in this directory today:
+## What lives here
 
-- [`retrospectives/`](retrospectives/README.md) — quarterly process
-  retrospectives (Phase 106e). The inaugural retro covers 2026-Q2.
+- [`METHOD.md`](METHOD.md) — Formal statement of the engineering method:
+  why phase-based delivery, what the planning protocol requires, how TDD
+  and keep-main-green interact with multi-agent work, and what the method
+  is *not* (not Scrum, not SAFe, not XP). Read this first if you are
+  evaluating the project's process or onboarding as an architect.
 
-What 106g will add:
+- [`CASE_STUDIES.md`](CASE_STUDIES.md) — Three worked examples drawn from
+  real phases: the Phase 15 Go rewrite (architecture evolution), Phase 82
+  policy-as-code (feature design), and the Phase 200-series security
+  hardening (incident-to-improvement). Each shows what was planned, what
+  was delivered, and what had to be revised. Read this if you want to see
+  the method applied, not just described.
 
-- `METHOD.md` — formal statement of the phase-based incremental delivery
-  method, mandatory planning protocol, TDD discipline, multi-agent
-  coordination, and keep-main-green rules. Why we chose them; what they
-  are not.
-- `CASE_STUDIES.md` — three worked examples (Phase 15 Go rewrite, Phase 82
-  policy-as-code, Phase 200-series security hardening). Each shows what
-  was planned, what was delivered, and what had to be revised.
-- `PHASE_ANATOMY.md` — annotated walk-through of one representative phase
-  (104 or 105) from plan → review → implementation → close.
+- [`PHASE_ANATOMY.md`](PHASE_ANATOMY.md) — Annotated walk-through of one
+  representative phase from plan → review → implementation → close. Use
+  this as the template when authoring a new `PHASE_XX.md`.
 
-For now, the canonical method rules live in
-[`CLAUDE.md`](../../CLAUDE.md) §Multi-Agent Coordination, §How to Run a
-Phase, and §Cross-Cutting Requirements.
+- [`retrospectives/`](retrospectives/README.md) — Quarterly process
+  retrospectives. Includes the inaugural 2026-Q2 retro, the template,
+  and the rolling `latest-metrics.md` snapshot consumed by the quality
+  plan. Read this if you want to know what is currently broken about the
+  process and what is being fixed.

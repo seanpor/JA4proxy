@@ -23,6 +23,8 @@ Measured: **0% false positive rate** on browser traffic. **94–99% of malicious
 >
 > **Production runtime is the Go proxy** (`bin/proxy`, promoted in Phase 15). The Python proxy (`proxy.py`, `src/security/`) is an **experimental prototyping surface only** — it exists so new signal modules can be iterated quickly before being ported to Go. Do not deploy the Python proxy. Running `python proxy.py` now prints a startup banner requiring an explicit env-var acknowledgement.
 
+> **How we build →** [`docs/engineering-method/`](docs/engineering-method/README.md) — phase-based delivery, multi-agent coordination, retrospectives.
+
 ---
 
 ## Why This Approach
