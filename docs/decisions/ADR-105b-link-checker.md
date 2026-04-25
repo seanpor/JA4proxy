@@ -25,77 +25,98 @@ files. Without a link checker the team has no automated way to detect:
 A link checker is required for the Wave 3 hardening sweep
 (sub-task 105.10.1) and as a non-blocking CI check (105.10.3).
 
+## Discovery
+
+While auditing existing tooling I found the repo already has a working
+`make link-check` target (Makefile:903) using `markdown-link-check`
+(Node-based) with offline configuration in `.mlc.json` (ignores `https://`
+and `http://localhost` patterns). The PHASE_105_review.md finding T1
+recommended `lychee` without knowing this tool was already in place.
+
 ## Decision
 
-Use **`lychee`** invoked via the GitHub Action `lycheeverse/lychee-action`
-(SHA-pinned), with a `make link-check` target wrapping the offline mode for
-local runs.
+**Retain `markdown-link-check`.** Add a CI job that invokes
+`make link-check` (non-blocking for 14 days per the phase plan), rather
+than introducing a parallel tool.
 
 ## Rationale
 
-1. **Speed.** `lychee` is written in Rust and walks the whole `docs/` tree in
-   under 5 seconds offline.
-2. **Markdown + HTML aware.** Handles `.md` reference links, image links,
-   relative paths, anchors, and embedded HTML — covers everything in this
-   repo.
-3. **SHA-pinnable Action.** `lycheeverse/lychee-action` is a published
-   GitHub Action that accepts a 40-char SHA, satisfying the
-   `tests/test_workflow_pinning.py` enforcement.
-4. **Offline mode.** `lychee --offline` validates only relative links;
-   external-URL flakiness (rate-limits, transient DNS) doesn't cause spurious
-   CI failures during the 14-day non-blocking window.
-5. **No new runtime dep.** `lychee` is a single binary; no Node/Python deps.
+1. **It already works.** The existing target is wired up, configured, and
+   produces useful output. Switching tools is scope creep.
+2. **No CI gap.** The reason it lacked CI integration is the lack of a
+   workflow file, not a tool inadequacy. Sub-task 105.10.3 closes that.
+3. **Single source of truth.** A second tool would mean two configs
+   (`.mlc.json` + `.lycheeignore`) drifting independently.
+4. **Speed is not the bottleneck.** `markdown-link-check` finishes the
+   docs tree in well under the 10-minute soft timeout for the new
+   non-blocking job; sub-second matters for unit tests, not for a
+   nightly/PR-triggered docs check.
 
 ## Consequences
 
 **Positive:**
-- Catches broken internal links before merge
-- Local `make link-check` matches CI behaviour exactly (same binary)
-- Zero impact on test runtime (link-check is its own CI job)
+- Zero churn on existing tooling
+- Engineers running `make link-check` locally already get the right answer
+- `.mlc.json` already excludes external URLs, matching the offline-mode
+  intent of the original ADR draft
 
 **Negative:**
-- `lychee` does not validate anchors against rendered HTML; it checks
-  `#section` exists in the source markdown only. Acceptable: GitHub renders
-  anchors deterministically from headings.
-- External URL checking is opt-in. Network drift is detected only when
-  `--offline` is dropped. Initial scope: offline only.
+- `markdown-link-check` is unmaintained-ish (last release 2024); a future
+  ADR may revisit `lychee` if `markdown-link-check` breaks on a Node
+  version bump.
+- Lychee's SHA-pinned Action would be marginally simpler than installing
+  Node + npm in CI; but the existing CI already installs Node for
+  policy-bundle work, so this cost is absorbed.
 
 ## Alternatives Considered
 
-- **`markdown-link-check`** (Node): slower (~30s for our tree), heavier
-  toolchain (npm install), less robust on relative paths. Rejected.
+- **Switch to `lychee` (original review recommendation):** rejected. Tool
+  already in place; replacing it is unjustified scope expansion. Recorded
+  here so a future maintainer who hits a breakage has the alternative
+  documented.
 - **`mlc` (Marker's link checker):** less maintained, no SHA-pinned Action.
   Rejected.
-- **Custom grep-based script:** brittle; cannot resolve `[text](path)` vs
-  `[text]: path` reference styles uniformly. Rejected.
 - **Skip link-checking, rely on review:** rejected — review misses stale
   links exactly because the eye glides over text it expects to be correct.
 
 ## Implementation
 
-**Local target (`Makefile`, added in this phase):**
+**Local target (already in `Makefile:903`):**
 
 ```make
 link-check:
-	@command -v lychee >/dev/null 2>&1 || { \
-	  echo "lychee not installed. Install: cargo install lychee  OR  brew install lychee"; \
-	  exit 1; }
-	@lychee --offline --no-progress \
-	  --exclude-path docs/pdf \
-	  --exclude-path docs/reports/archive \
-	  docs/ README.md CONTRIBUTING.md SECURITY.md AGENTS.md CLAUDE.md
+	@echo "Checking internal documentation links..."
+	@find docs/ -name '*.md' | xargs markdown-link-check --config .mlc.json
 ```
 
-`docs/pdf/` and `docs/reports/archive/` are excluded:
-- PDF source contains LaTeX `\href{}` directives that lychee does not parse
-- Archive contents are historical snapshots; their links may legitimately
-  point to since-moved or deleted files
+**Config (`.mlc.json`):**
 
-**CI integration:** sub-task 105.10.3 — separate workflow, SHA-pinned
-action, `continue-on-error: true` for 14 days.
+```json
+{
+  "ignorePatterns": [
+    {"pattern": "^https://"},
+    {"pattern": "^http://localhost"}
+  ],
+  "retryOn429": true,
+  "retryCount": 3,
+  "timeout": "20s",
+  "aliveStatusCodes": [200, 206]
+}
+```
+
+**CI integration (sub-task 105.10.3):** add a job to the new
+`docs-pdf.yml` workflow (or a separate `link-check.yml`) that:
+
+- Uses Node setup action (SHA-pinned) → `npm install -g
+  markdown-link-check@<pinned-version>`
+- Runs `make link-check`
+- `continue-on-error: true` for 14 days post-merge
+- Triggered on `paths: ['docs/**', '*.md']`
 
 ## References
 
+- `Makefile:903` — existing `link-check` target
+- `.mlc.json` — link-check configuration
 - `docs/phases/PHASE_105.md` §105j cross-cutting
-- `docs/phases/PHASE_105_review.md` findings T1, T2
+- `docs/phases/PHASE_105_review.md` finding T1 (superseded by this ADR)
 - `tests/test_workflow_pinning.py` — SHA-pin enforcement (applies to CI step)
