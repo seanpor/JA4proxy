@@ -377,6 +377,7 @@ phases:
   15:
     name: Go Rewrite
     status: COMPLETE
+    req_tagged: true
     test_coverage: 100%
     doc_status: COMPLETE
     summary: "10-50x throughput improvement via CPython/Go transition. Full feature and configuration parity achieved for\
@@ -1055,6 +1056,7 @@ phases:
   79:
     name: Management API v2, RBAC & Enterprise Identity
     status: COMPLETE
+    req_tagged: true
     summary: Production-grade REST API with stable IDs, full RBAC (Auditor/Analyst/Operator/Admin), SAML 2.0 + OIDC SSO (Okta,
       Entra ID), mandatory MFA for Admin/Operator, append-only audit trail. Critical dependency for phases 80-86.
     action_plan: docs/phases/PHASE_79.md
@@ -1110,6 +1112,7 @@ phases:
   82:
     name: Policy-as-Code, Shadow Mode & Governance
     status: COMPLETE
+    req_tagged: true
     summary: 'Offline-testable policy-as-code tooling complete: Cerberus YAML validator, async aiohttp applier, CLI script,
       CI/CD templates (GitHub Actions/GitLab CI/Jenkins/Ansible), operator schema docs, ADR-082 (shadow mode storage). 20
       tests pass. Platform-dependent work (shadow mode analytics, four-eyes UI, live API integration) tracked in Phase 100
@@ -1604,6 +1607,7 @@ phases:
   200:
     name: Go PROXY Protocol Trust + v2 Support
     status: COMPLETE
+    req_tagged: true
     completed: 2026-04-09
     action_plan: docs/phases/PHASE_200.md
     dependencies:
@@ -1697,6 +1701,7 @@ phases:
   102:
     name: 'Phase 93 Finishing Work: ADRs, Runbook Audit, Drift-Detection Decision'
     status: COMPLETE
+    req_tagged: true
     completed: '2026-04-15'
     summary: 'Docs-only close-out of Phase 93. Three ADRs written (093a repo topology,
       093b Registry namespace, 093c TTL renewal + drift-detection decision).
