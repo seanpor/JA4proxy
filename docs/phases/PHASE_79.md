@@ -504,60 +504,93 @@ This phase must be complete before any of the following phases can begin:
 ## 14. Acceptance Criteria
 
 ### Authentication & Tokens
-- [ ] Bearer token auth enforced on all non-health endpoints
-- [ ] Tokens: scoped to role, mandatory expiry, rotatable, bcrypt-stored
-- [ ] Token rotation: new token issued, old token valid for 60s grace period
-- [ ] `POST /api/v1/tokens` requires Admin role
+- [ ] REQ-079-01: Bearer token auth enforced on all non-health endpoints. Verified by:
+      `management/tests/test_tokens.py::test_bearer_valid_token_grants_access`
+- [ ] REQ-079-02: Tokens: scoped to role, mandatory expiry, rotatable, bcrypt-stored. Verified by:
+      `management/tests/test_tokens.py::test_bcrypt_hash_stored_not_plaintext`
+- [ ] REQ-079-03: Token rotation: new token issued, old token valid for 60s grace period. Verified by:
+      `management/tests/test_tokens.py::test_rotate_token_old_token_works_during_grace_period`
+- [ ] REQ-079-04: `POST /api/v1/tokens` requires Admin role. Verified by:
+      `management/tests/test_tokens.py::test_create_token_requires_auth`
 
 ### RBAC
-- [ ] All four roles enforced at handler level with test coverage
-- [ ] Operator cannot PATCH dial, config, or manage tokens
-- [ ] Auditor can only read; every write attempt returns 403
-- [ ] Admin can perform all operations
+- [ ] REQ-079-05: All four roles enforced at handler level with test coverage. Verified by:
+      `management/tests/test_rbac.py::test_require_role_auditor_accepts_all_roles`
+- [ ] REQ-079-06: Operator cannot PATCH dial, config, or manage tokens. Verified by:
+      `management/tests/test_rbac.py::test_operator_cannot_delete_tokens`
+- [ ] REQ-079-07: Auditor can only read; every write attempt returns 403. Verified by:
+      `management/tests/test_rbac.py::test_auditor_delete_ban_403_regardless_of_ban_existence`
+- [ ] REQ-079-08: Admin can perform all operations. Verified by:
+      `management/tests/test_rbac.py::test_put_dial_admin_token_succeeds`
 
 ### Resource Model
-- [ ] `managed_by` field present on all mutable resources
-- [ ] UUID present on all mutable resources
-- [ ] `?managed_by=terraform` filter working on `GET /api/v1/allowlist`
-- [ ] Migration runs on startup and promotes legacy plain-string entries
+- [ ] REQ-079-09: `managed_by` field present on all mutable resources. Verified by:
+      `management/tests/test_resource_model.py::test_hash_record_has_all_required_fields`
+- [ ] REQ-079-10: UUID present on all mutable resources. Verified by:
+      `management/tests/test_resource_model.py::test_entry_id_is_stable_uuid4_format`
+- [ ] REQ-079-11: `?managed_by=terraform` filter working on `GET /api/v1/allowlist`. Verified by:
+      `management/tests/test_resource_model.py::test_managed_by_terraform_filter_excludes_operator_entries`
+- [ ] REQ-079-12: Migration runs on startup and promotes legacy plain-string entries. Verified by:
+      `management/tests/test_resource_model.py::test_migration_runs_on_startup_for_existing_entries`
 
 ### API Surface
-- [ ] All endpoints in §2.2 implemented and returning RFC 7807 errors on failure
-- [ ] `GET /api/v1/connections` queries `ja4proxy:events` stream with filters
-- [ ] `GET /api/v1/nodes` returns live node list from heartbeat keys
-- [ ] `POST /api/v1/nodes/{host}/reload` publishes to `proxy:control` channel
-- [ ] Old Phase 13 routes (`/api/v1/lists/...`) still return 200 (backward compat)
+- [ ] REQ-079-13: All endpoints in §2.2 implemented and returning RFC 7807 errors on failure. Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-079-14: `GET /api/v1/connections` queries `ja4proxy:events` stream with filters. Verified by:
+      `management/tests/test_new_endpoints.py::test_get_connections_filter_by_ip`
+- [ ] REQ-079-15: `GET /api/v1/nodes` returns live node list from heartbeat keys. Verified by:
+      `management/tests/test_new_endpoints.py::test_get_nodes_returns_live_nodes`
+- [ ] REQ-079-16: `POST /api/v1/nodes/{host}/reload` publishes to `proxy:control` channel. Verified by:
+      `management/tests/test_new_endpoints.py::test_post_node_reload_publishes_to_channel`
+- [ ] REQ-079-17: Old Phase 13 routes (`/api/v1/lists/...`) still return 200 (backward compat). Verified by:
+      `management/tests/test_resource_model.py::test_old_list_routes_still_return_200`
 
 ### MFA
-- [ ] TOTP setup flow: QR code returned, secret Fernet-encrypted in Redis
-- [ ] TOTP verify: valid code passes, invalid code returns 401
-- [ ] TOTP backup codes: 8 codes generated, each single-use, bcrypt-hashed
-- [ ] WebAuthn registration flow: challenge issued, attestation verified, credential stored
-- [ ] WebAuthn authentication flow: challenge issued, assertion verified
-- [ ] Admin and Operator roles cannot log in without completing MFA
-- [ ] SSO-delegated MFA: no additional challenge if IdP asserts MFA satisfied
+- [ ] REQ-079-18: TOTP setup flow: QR code returned, secret Fernet-encrypted in Redis. Verified by:
+      `management/tests/test_totp.py::test_totp_setup_stores_encrypted_secret`
+- [ ] REQ-079-19: TOTP verify: valid code passes, invalid code returns 401. Verified by:
+      `management/tests/test_totp.py::test_totp_verify_wrong_code_returns_401`
+- [ ] REQ-079-20: TOTP backup codes: 8 codes generated, each single-use, bcrypt-hashed. Verified by:
+      `management/tests/test_totp.py::test_backup_code_is_single_use`
+- [ ] REQ-079-21: WebAuthn registration flow: challenge issued, attestation verified, credential stored. Verified by:
+      `management/tests/test_webauthn.py::test_webauthn_register_complete_stores_credential`
+- [ ] REQ-079-22: WebAuthn authentication flow: challenge issued, assertion verified. Verified by:
+      `management/tests/test_webauthn.py::test_webauthn_auth_complete_valid_returns_200`
+- [ ] REQ-079-23: Admin and Operator roles cannot log in without completing MFA. Verified by:
+      `management/tests/test_totp.py::test_admin_without_mfa_cannot_change_dial`
+- [ ] REQ-079-24: SSO-delegated MFA: no additional challenge if IdP asserts MFA satisfied. Verified by:
+      `management/tests/test_oidc.py::test_oidc_callback_idp_mfa_amr_sets_session_key`
 
 ### SSO
-- [ ] SAML 2.0 SP code implemented; unit-tested with mock IdP responses
-- [ ] OIDC login flow working against Keycloak Docker container (CI-runnable)
-- [ ] Group-to-role mapping configured via `config/proxy.yml`
-- [ ] Users not in any mapped group are denied access (`default_role: null`)
-- [ ] SAML tests marked `@pytest.mark.integration`, skipped without `OKTA_METADATA_URL`
-- [ ] **GAP**: Live Okta SAML test — deferred (no account; revisit when provisioned)
-- [ ] **GAP**: Live Entra ID OIDC test — deferred (no account; revisit when provisioned)
+- [ ] REQ-079-25: SAML 2.0 SP code implemented; unit-tested with mock IdP responses. Verified by:
+      `management/tests/test_saml.py::test_saml_acs_valid_response_sets_cookie`
+- [ ] REQ-079-26: OIDC login flow working against Keycloak Docker container (CI-runnable). Verified by:
+      `management/tests/test_oidc.py::test_oidc_login_redirects_to_idp`
+- [ ] REQ-079-27: Group-to-role mapping configured via `config/proxy.yml`. Verified by:
+      `management/tests/test_saml.py::test_saml_map_role_from_proxy_config`
+- [ ] REQ-079-28: Users not in any mapped group are denied access (`default_role: null`). Verified by:
+      `management/tests/test_saml.py::test_map_role_unknown_no_default_returns_none`
+- [ ] REQ-079-29: SAML tests marked `@pytest.mark.integration`, skipped without `OKTA_METADATA_URL`. Verified by:
+      `management/tests/test_saml.py::test_saml_live_okta_login`
+- [ ] REQ-079-30: **GAP**: Live Okta SAML test — deferred (no account; revisit when provisioned). Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-079-31: **GAP**: Live Entra ID OIDC test — deferred (no account; revisit when provisioned). Verified by: `[MANUAL-REVIEW]`
 
 ### Audit Trail
-- [ ] Every mutating action logged with role, before/after values
-- [ ] No role can delete audit entries (DELETE on `management:audit_log` returns 403)
-- [ ] `GET /api/v1/audit?format=jsonl` returns valid JSONL
-- [ ] `GET /api/v1/audit?format=csv` returns valid CSV with header row
+- [ ] REQ-079-32: Every mutating action logged with role, before/after values. Verified by:
+      `management/tests/test_audit_enhanced.py::test_audit_entry_has_before_and_after_values`
+- [ ] REQ-079-33: No role can delete audit entries (DELETE on `management:audit_log` returns 403). Verified by:
+      `management/tests/test_audit_enhanced.py::test_audit_log_has_no_delete_endpoint`
+- [ ] REQ-079-34: `GET /api/v1/audit?format=jsonl` returns valid JSONL. Verified by:
+      `management/tests/test_audit_enhanced.py::test_get_audit_jsonl_each_line_is_valid_json`
+- [ ] REQ-079-35: `GET /api/v1/audit?format=csv` returns valid CSV with header row. Verified by:
+      `management/tests/test_audit_enhanced.py::test_get_audit_csv_header_row`
 
 ### Observability
-- [ ] `GET /api/v1/health/deep` returns cert expiry warnings for certs ≤ 30 days out
-- [ ] `GET /api/v1/health` requires no auth (LB health check)
+- [ ] REQ-079-36: `GET /api/v1/health/deep` returns cert expiry warnings for certs ≤ 30 days out. Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-079-37: `GET /api/v1/health` requires no auth (LB health check). Verified by:
+      `management/tests/test_health.py::test_health_is_public`
 
 ### Documentation
-- [ ] All new Redis keys documented in `docs/REDIS_SCHEMA.md`
-- [ ] `docs/api/openapi.yaml` committed (OpenAPI 3.1)
-- [ ] `CHANGELOG.md` updated with standard Phase 79 entry
-- [ ] `management/requirements.txt` updated with Phase 79 dependencies commented
+- [ ] REQ-079-38: All new Redis keys documented in `docs/REDIS_SCHEMA.md`. Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-079-39: `docs/api/openapi.yaml` committed (OpenAPI 3.1). Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-079-40: `CHANGELOG.md` updated with standard Phase 79 entry. Verified by: `[MANUAL-REVIEW]`
+- [ ] REQ-079-41: `management/requirements.txt` updated with Phase 79 dependencies commented. Verified by: `[MANUAL-REVIEW]`

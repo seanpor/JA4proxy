@@ -1110,3 +1110,84 @@ When writing a new phase file or updating an existing one:
 5. Log format examples: verify they use the `VERB   | ip | score=N | dial=N` format.
 6. Acceptance criteria: verify every test bullet has subject, condition, and outcome.
 7. Test bullets: verify no comma-separated lists — one scenario per bullet.
+
+---
+
+## §6. Acceptance-Criteria Tags (REQ-IDs)
+
+> Added in Phase 106. Optional, opt-in per phase. Lays groundwork for the
+> requirements-to-test traceability matrix (`docs/TRACEABILITY.md`).
+
+A phase MAY tag each acceptance-criteria line with a stable requirement ID and a
+pointer to the test that verifies it. When a phase opts in, **every** acceptance
+criterion in that phase must carry a tag — partial coverage is rejected by CI.
+
+### Schema
+
+Each tagged criterion has the form:
+
+```markdown
+- [ ] REQ-NNN-MM: <human description>. Verified by:
+      `tests/.../test_file.py::test_name`
+```
+
+- `NNN` — phase number (zero-padded to 3 digits, e.g. `106`)
+- `MM` — sequential 2-digit ID within the phase (`01`, `02`, …)
+- `Verified by:` — clause naming the test (`pytest`-style nodeid). Either:
+  - `tests/path/to/test_file.py::test_name` for an automated test, or
+  - `[MANUAL-REVIEW]` if the criterion cannot be automated (e.g. prose quality
+    review). Manual-review criteria are listed but not enforced by `scripts/traceability.py`.
+
+### Worked example
+
+```markdown
+## Acceptance Criteria
+
+- [ ] REQ-106-01: `docs/SERVICE_TARGETS.md` exists and lists every SLI from the
+      four SLO runbooks. Verified by:
+      `tests/docs/test_service_targets_sync.py::test_every_runbook_sli_listed`
+
+- [ ] REQ-106-02: `docs/RISK_REGISTER.md` has at least 30 distinct rows with a
+      non-empty Mitigation column. Verified by:
+      `tests/docs/test_risk_register.py::test_minimum_row_count_with_mitigation`
+
+- [ ] REQ-106-09: First retrospective is written in plain language and reads as
+      narrative, not bullet-point dump. Verified by: `[MANUAL-REVIEW]`
+```
+
+### Opt-in mechanism
+
+A phase opts in by setting `req_tagged: true` in its `manifest.yaml` entry:
+
+```yaml
+106:
+  name: 'SWEBOK v4 Alignment'
+  status: COMPLETE
+  req_tagged: true
+  action_plan: docs/phases/PHASE_106.md
+```
+
+`scripts/traceability.py` enforces tagging only on phases where
+`req_tagged: true`. All other phases are skipped — historical phases are not
+required to retroactively adopt the convention.
+
+### Enforcement
+
+CI runs `scripts/traceability.py` after each PR. The script exits non-zero
+(failing the build) if **either** condition holds for a phase with
+`req_tagged: true`:
+
+- An acceptance-criterion line lacks a `REQ-NNN-MM:` prefix
+- A `REQ-NNN-MM:` line lacks a `Verified by:` clause
+
+For the first 14 days after the script lands the CI job is `continue-on-error:
+true`; afterwards it blocks. See `.github/workflows/ci.yml` for the dated
+conditional.
+
+### When NOT to use tags
+
+- Phases that are pure refactors with no externally testable contract.
+- Phases whose acceptance criteria are all `[MANUAL-REVIEW]` — fine to opt in
+  if you want them tracked, but no enforcement value beyond consistency.
+- Historical phases — only the seven retro-tagged phases (15, 79, 82, 102, 103,
+  104, 200) carry tags. Everything else stays untagged.
