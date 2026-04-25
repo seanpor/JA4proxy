@@ -10,113 +10,109 @@ phase: 105
 > **Audience:** All users — primary entry point for documentation
 > **Purpose:** Guide readers to the most relevant documentation for their role
 
-## Start here by role
+## Start by audience
 
-| You are… | Read this first |
-|----------|----------------|
-| **Deploying for the first time** | [Quick-start (5 min)](POC_QUICKSTART.md) |
-| **Daily operator / SecOps** | [Quick reference card](QUICK_REFERENCE.md) |
-| **Investigating an incident** | [Incident response](INCIDENT_RESPONSE.md) |
-| **Security architect / evaluator** | [Architecture overview](architecture/system-architecture.md) |
-| **Contributing code** | [Contributing guide](../CONTRIBUTING.md) |
-| **Compliance / audit** | [GDPR & compliance](compliance/GDPR_COMPLIANCE.md) |
+| You are a… | Start here |
+|------------|------------|
+| **Website owner / CISO** evaluating fit | [`for-website-owners/`](for-website-owners/README.md) |
+| **Security architect** designing integration | [`for-architects/`](for-architects/README.md) |
+| **Operator** running it day-to-day | [`for-operators/`](for-operators/README.md) |
+| **Compliance / audit** | [`for-compliance/`](for-compliance/README.md) |
+| **Developer / contributor** | [`for-developers/`](for-developers/README.md) |
 
-**📖 [Full Documentation Index](INDEX.md)** — Complete map of all documentation
-
-Select your audience below to go directly to what you need.
+**[Full Documentation Index](INDEX.md)** — every doc, organised by role and topic.
 
 ---
 
-## Enterprise SecOps / CISO
+## By area
 
-Deployment architecture, security design, compliance posture, and readiness assessments.
+Topical entry points. Each links to the canonical doc for that area.
 
-| Document | Purpose |
-|----------|---------|
-| [Security Architecture](enterprise/security-architecture.md) | Defense-in-depth design, threat model, access controls, compliance framework |
-| [Enterprise Deployment Guide](enterprise/deployment.md) | HA deployment topology, hardware sizing, network segmentation, hardening |
-| [System Architecture](architecture/system-architecture.md) | Target enterprise architecture diagram and pipeline description |
-| [Enterprise Review (archived snapshot)](reports/archive/ENTERPRISE_REVIEW_2026-02-15.md) | Pre-Phase-200 strengths/gaps assessment, retained for audit traceability |
-| [DMZ Readiness Summary](for-architects/DMZ_READINESS.md) | Current controls in place vs. required for DMZ placement |
-
----
-
-## SecOps Operators
-
-Day-to-day operations: starting the proxy, responding to alerts, tuning the blocking dial.
+### Standards & conventions
 
 | Document | Purpose |
 |----------|---------|
-| [SecOps Operations Guide](SECOPS_OPERATIONS.md) | Start/stop, ports, backend config, passwords, troubleshooting |
-| [Incident Response Runbook](INCIDENT_RESPONSE.md) | Step-by-step commands for responding to active attacks |
-| [Quick Reference](QUICK_REFERENCE.md) | Command cheat sheet for daily operations |
-| [Monitoring Setup](MONITORING_SETUP.md) | Prometheus, Grafana, Loki, and alerting configuration |
-| [FAQ](FAQ.md) | Common operational questions with direct answers |
-| [Blocking Guide](operator/blocking-guide.md) | How to enable blocking mode, dial progression, safety gates |
-| [Blocking Analysis](operator/BLOCKING_ANALYSIS.md) | Effective thresholds at each dial level; expected block rates |
-| [Blocking Test Analysis](operator/blocking-test-analysis.md) | Observed traffic patterns and expected behavior at dial=50 |
-| [Final Blocking Test Summary](operator/FINAL_BLOCKING_TEST_SUMMARY.md) | Test session results and safety-gate validation |
-
----
-
-## Security Auditors
-
-Vulnerability assessments, threat models, compliance checklists, and scan results.
-
-| Document | Purpose |
-|----------|---------|
-| [Comprehensive Security Audit](security/COMPREHENSIVE_SECURITY_AUDIT.md) | Vulnerability assessment snapshot (2026-02-14) |
-| [Threat Model](security/threat-model.md) | STRIDE analysis covering the target enterprise architecture |
-| [Security Checklist](security/SECURITY_CHECKLIST.md) | Pre-deployment validation checklist |
-| [Redis Security Review](REDIS_SECURITY_REVIEW.md) | Current POC status and production hardening steps |
-| [POC Security Scan](reports/POC_SECURITY_SCAN.md) | Vulnerability scan with POC vs. production context |
-| [Security Testing](SECURITY_TESTING.md) | JA4 fingerprint blocking and rate-limit validation procedures |
-
----
-
-## Compliance / Legal
-
-Data handling, retention, GDPR obligations, and audit trail documentation.
-
-| Document | Purpose |
-|----------|---------|
-| [GDPR Compliance](compliance/GDPR_COMPLIANCE.md) | Data minimisation, retention periods, right-to-erasure, lawful basis |
-| [Documentation Standards](DOCUMENTATION_STANDARDS.md) | Changelog format, REDIS_SCHEMA policy, ADR format, audit log policy |
-
----
-
-## Developers
-
-Contributing to the proxy: coding standards, test structure, Redis schema, phase plans.
-
-| Document | Purpose |
-|----------|---------|
-| [Style Guide](STYLE_GUIDE.md) | Config syntax, log format, test format, documentation language |
-| [Testing Strategy](TESTING_STRATEGY.md) | Full testing methodology: categories, CI pipeline, FP monitoring, phase gate |
-| [Test Organisation](TEST_ORGANIZATION.md) | Test file layout, conftest structure, fixture factories, parametrize patterns |
-| [Observability Standards](OBSERVABILITY_STANDARDS.md) | Prometheus metric naming, JSON log schema, Grafana layout, SLIs |
+| [Style Guide](STYLE_GUIDE.md) | Config syntax, log format, test format, doc language |
+| [Documentation Standards](DOCUMENTATION_STANDARDS.md) | CHANGELOG, REDIS_SCHEMA, runbook, ADR formats |
+| [Observability Standards](OBSERVABILITY_STANDARDS.md) | Prometheus naming, JSON log schema, dashboards, alerts, SLIs |
 | [Redis Schema](REDIS_SCHEMA.md) | All Redis key patterns with per-phase provenance |
-| [Testing Analysis](developer/testing-analysis.md) | Detailed breakdown of test legitimacy and mocking rationale |
-| [TLS Traffic Generator](TLS_TRAFFIC_GENERATOR.md) | Simulating legitimate and malicious TLS clients for testing |
-| [Phase Plans](phases/PHASE_00.md) | Per-phase implementation plans and acceptance criteria (start at Phase 0) |
 
----
-
-## Management / Stakeholders
-
-High-level performance data, readiness status, and project state.
+### Testing
 
 | Document | Purpose |
 |----------|---------|
-| [Performance Benchmark](reports/PERFORMANCE_BENCHMARK.md) | Measured throughput, latency, and blocking accuracy |
-| [Testing Session Summary](reports/testing-session-summary.md) | Summary of traffic generator fix and test validation session |
+| [Testing Strategy](TESTING_STRATEGY.md) | Canonical testing methodology — categories, ratios, CI gates, phase completion criteria. Earlier `TEST_ORGANIZATION.md`, `TEST_SUITE.md`, `TESTING_GO.md`, and `TESTING.md` have been merged into this doc. |
+| [TLS Traffic Generator](TLS_TRAFFIC_GENERATOR.md) | Simulating legitimate and malicious TLS clients |
+
+### Operations
+
+| Document | Purpose |
+|----------|---------|
+| [`for-operators/`](for-operators/README.md) | Day-to-day operator entry point |
+| [SecOps Operations Guide](SECOPS_OPERATIONS.md) | Start/stop, ports, backend config, troubleshooting |
+| [Incident Response Runbook](INCIDENT_RESPONSE.md) | Step-by-step playbooks for active attacks |
+| [Quick Reference](QUICK_REFERENCE.md) | Command cheat sheet for daily operations |
+| [Monitoring Setup](MONITORING_SETUP.md) | Prometheus, Grafana, Loki, Alertmanager configuration |
+| [Blocking Operations](operator/BLOCKING_OPERATIONS.md) | Canonical blocking-ops doc — ISP/CIDR blocking, dial progression, safety gates, expected block rates, test results. Replaces the earlier four-file split (`blocking-guide.md`, `BLOCKING_ANALYSIS.md`, `blocking-test-analysis.md`, `FINAL_BLOCKING_TEST_SUMMARY.md`). |
+| [Capacity Planning](operator/CAPACITY_PLANNING.md) | Instance sizing, Redis sizing, HAProxy tuning |
+| [Troubleshooting](operator/TROUBLESHOOTING.md) | Diagnosis and resolution for common issues |
+| [FAQ](FAQ.md) | Common operational questions with direct answers |
+
+### Architecture & evaluation
+
+| Document | Purpose |
+|----------|---------|
+| [`for-architects/`](for-architects/README.md) | Architect entry point |
+| [System Architecture](architecture/system-architecture.md) | Target enterprise architecture, components, trust model |
+| [DMZ Readiness](for-architects/DMZ_READINESS.md) | Production hardening checklist (current). Pre-Phase-200 snapshot archived at [`reports/archive/DMZ_DEPLOYMENT_READINESS_2026-03-15.md`](reports/archive/DMZ_DEPLOYMENT_READINESS_2026-03-15.md). |
+| [Architecture Decisions Index](decisions/INDEX.md) | All ADRs with rationale |
+
+### Security & compliance
+
+| Document | Purpose |
+|----------|---------|
+| [`for-compliance/`](for-compliance/README.md) | Compliance/audit entry point |
+| [Comprehensive Security Audit](security/COMPREHENSIVE_SECURITY_AUDIT.md) | Vulnerability assessment, pentest findings, mitigations |
+| [Threat Model](security/threat-model.md) | STRIDE analysis, trust boundaries, adversarial assumptions |
+| [Security Checklist](security/SECURITY_CHECKLIST.md) | Pre-deployment go/no-go checklist |
+| [GDPR Compliance](compliance/GDPR_COMPLIANCE.md) | Data minimisation, retention, DSAR handling |
+| [Security Controls Mapping](compliance/SECURITY_CONTROLS_MAPPING.md) | ISO 27001 control mapping |
+
+### Developers
+
+| Document | Purpose |
+|----------|---------|
+| [`for-developers/`](for-developers/README.md) | Developer/contributor entry point |
+| [Contributing Guide](../CONTRIBUTING.md) | Branch strategy, commit style, PR process |
+| [Signal Development](developer/SIGNAL_DEVELOPMENT.md) | How to implement and test new detection signals |
+| [Go Port Guide](developer/GO_PORT_GUIDE.md) | Porting Python modules to Go |
+| [Go Proxy Developer Guide](developer/go_proxy_guide.md) | Building, testing, and extending the Go proxy |
+| [Mock Servers](developer/MOCK_SERVERS.md) | Test mock infrastructure |
+| [Phase Plans](phases/PHASE_00.md) | Per-phase implementation plans (start at Phase 0) |
+
+### Engineering method
+
+| Document | Purpose |
+|----------|---------|
+| [Engineering Method](engineering-method/README.md) | Phase-based delivery, multi-agent coordination, retrospectives |
+
+### Reference reports & archives
+
+Historical reviews retained for audit traceability:
+
+- [Enterprise Review (2026-02-15)](reports/archive/ENTERPRISE_REVIEW_2026-02-15.md) — pre-Phase-200 strengths/gaps assessment
+- [GEMINI Critique (2026-03-21)](reports/archive/GEMINI_CRITIQUE_2026-03-21.md) — multi-perspective review
+- [Cyber Risk Review (2026-04-09)](reports/archive/CYBER_RISK_REVIEW_2026-04-09.md)
+- [Strategic Security Architecture Review (2026-04-08)](reports/archive/strategic_security_architecture_review_2026-04-08.md)
 
 ---
 
-## POC / Quick Start
+## POC quick start
 
 | Document | Purpose |
 |----------|---------|
 | [POC Quick Start](POC_QUICKSTART.md) | 5-minute setup guide |
-| [README](../README.md) | Project overview, architecture diagram, service table |
-| [Changelog](../CHANGELOG.md) | Version history by phase |
+| [Project README](../README.md) | Project overview and audience router |
+| [CHANGELOG](../CHANGELOG.md) | Version history by phase |
+| [Project Status](PROJECT_STATUS.md) | Current phase completion |
+| [Manifest](phases/manifest.yaml) | Canonical phase definitions |
