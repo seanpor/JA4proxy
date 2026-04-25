@@ -1,0 +1,79 @@
+---
+# Phase 105h — PDF documentation rebuild on changes under docs/pdf/**.
+#
+# Triggers on pull_request and push to main, both filtered to docs/pdf/**
+# so non-PDF changes do not pay the TeXLive container spin-up cost.
+#
+# Per ADR-105a, this workflow is intentionally separate from ci.yml so that
+# (1) it does not slow every PR, and (2) the 14-day non-blocking grace
+# window is trivially enforceable. The build step has continue-on-error: true
+# during the grace period; promote to required after 2026-05-09.
+#
+# Third-party actions are SHA-pinned per the convention enforced by
+# tests/test_workflow_pinning.py. Bumps must update KNOWN_ACTION_SHAS.
+
+name: Docs PDF Build
+
+on:
+  pull_request:
+    paths:
+      - 'docs/pdf/**'
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/pdf/**'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build PDF docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Build all three PDFs (brochure, user-guide, reference-manual)
+        # 14-day non-blocking grace per ADR-105a; window ends 2026-05-09.
+        # After that date, drop continue-on-error and add this job to the
+        # required-status-checks list in scripts/branch_protection.sh.
+        continue-on-error: true
+        uses: xu-cheng/latex-action@e2f99d4b3685b0da93f97e1b86ad8fab81105098  # v3.3.0
+        with:
+          working_directory: docs/pdf
+          # The Makefile orchestrates pdflatex + makeindex; calling `make all`
+          # is simpler and more maintainable than re-encoding the build steps
+          # in YAML. xu-cheng/latex-action runs the action's TeXLive image,
+          # then executes `latexmk_shell_escape: false` etc. — but since we
+          # only need `make`, we use pre_compile to invoke it directly and
+          # leave root_file empty (the action treats empty root_file as
+          # "build via pre_compile only").
+          root_file: ''
+          pre_compile: 'make -C . all'
+          # No latexmk; the project Makefile already drives pdflatex/makeindex
+          # in the correct order (3-pass for index resolution).
+          latexmk_use_xelatex: false
+          latexmk_use_lualatex: false
+          continue_on_error: false
+
+      - name: Upload brochure
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: brochure
+          path: docs/pdf/brochure/brochure.pdf
+          if-no-files-found: warn
+
+      - name: Upload user-guide
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: user-guide
+          path: docs/pdf/user-guide/user-guide.pdf
+          if-no-files-found: warn
+
+      - name: Upload reference-manual
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: reference-manual
+          path: docs/pdf/reference-manual/reference-manual.pdf
+          if-no-files-found: warn

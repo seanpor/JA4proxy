@@ -29,7 +29,7 @@ this doc does not duplicate that content.
 
 Optional but recommended:
 
-- `latexmk` / `tectonic` (only if you touch `docs/pdf/`)
+- `latexmk` / `pdflatex` + `makeindex` (only if you touch `docs/pdf/`; CI rebuilds via `xu-cheng/latex-action`)
 - `gh` CLI for PR work
 - `direnv` / a clean shell for `GOROOT` (see Troubleshooting)
 

@@ -491,3 +491,55 @@ throwaway or bulletproof hosting domain adds an additional score contribution.
 RDAP API errors, timeouts, and malformed responses all return score=0. RDAP queries
 are cached in Redis (\code{rdap:\{ip\_or\_prefix\}}, TTL=86400s) to avoid repeated
 lookups for the same prefix.
+
+\section{Phase 203 Signals (Go Production Runtime)}
+\index{signals!Phase 203}
+\index{signals!Go runtime}
+\label{sec:phase203-signals}
+
+\newthought{Phase 203 closes five production-critical signal gaps in the Go proxy.}
+These signals run \emph{in addition} to the eight described above; they are
+documented here as a list because the full algorithmic detail is maintained in the
+phase document (\code{docs/phases/PHASE\_203.md}) rather than reproduced in this
+reference manual. Each signal is independently configurable and follows the same
+fail-open contract as Signals~1--8.
+
+\begin{description}
+  \item[\textbf{TAP OS-mismatch (203a)}] Reads JA4T fingerprints written to Redis
+    by the Phase~20 TAP node (key \code{fp:os:ip:\{ip\}}). When the JA4-claimed
+    OS-class disagrees with the TAP-observed OS-class, a signal is emitted.
+    The inline Go proxy cannot compute JA4T itself --- by the time \code{accept()}
+    returns, the kernel has consumed the SYN. If the TAP node is not deployed,
+    the lookup returns nil and the signal is silently dormant (fail open).
+    See \code{docs/phases/PHASE\_203.md} \S203a for the architectural rationale.
+
+  \item[\textbf{JA4 TLS-version mismatch (203b)}] Catches TLS-version spoofing
+    where the JA4 prefix (\code{t13}/\code{t12}/\dots) disagrees with the TLS
+    version actually negotiated. A common evasion pattern for tools that
+    hand-craft a ClientHello matching a modern browser but cannot complete a
+    real TLS~1.3 handshake.
+
+  \item[\textbf{Weak-cipher parity (203c)}] The Go \code{weakCipherSet} is now
+    synchronised to \emph{exactly} the 40 cipher suites enumerated in Python's
+    \code{WEAK\_CIPHERS}. A drift between the two implementations had previously
+    let some weak suites score zero in Go that scored 40 in Python. Verified by
+    a parity test against the Python oracle.
+
+  \item[\textbf{DGA parity (203d)}] The Go \code{dgaConfidence()} algorithm has
+    been re-ported to match Python's \code{dga\_score()} rule-for-rule. The
+    Shannon-entropy thresholds, TLD list, and cap-out scoring now match across
+    implementations.
+
+  \item[\textbf{Deep health (203e)}] \code{/health/deep} adds component checks
+    for tarpit saturation and (optionally) GeoIP database freshness, with
+    anti-flap hysteresis so transient blips do not flap the endpoint.
+    \code{/health} (the k8s liveness probe) is deliberately left untouched and
+    remains a tight TCP-level reachability check.
+\end{description}
+
+\begin{notebox}[Phase 203 signals are Go-only]
+These five signals exist in the Go production runtime. The Python prototype
+contains the original implementations from which 203c (weak ciphers) and 203d
+(DGA) were ported; 203a/203b/203e are net-new in the Go runtime and have no
+Python counterpart.
+\end{notebox}
