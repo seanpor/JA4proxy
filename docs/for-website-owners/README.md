@@ -1,10 +1,8 @@
 # Website Owners Documentation
 
-<!-- phase-106-placeholder -->
-
-Placeholder — Phase 105 (Documentation Restructure by Audience) will land the
-full website-owner entry point. Phase 106 deliverables link into this directory
-and will be reconciled when Phase 105 lands.
+Entry point for website owners evaluating cost, licensing, and risk
+posture before deploying JA4proxy. The full audience restructure lands
+in Phase 105; until then, see the documents below.
 
 For now, see:
 

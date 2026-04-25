@@ -1,10 +1,8 @@
 # Compliance Documentation
 
-<!-- phase-106-placeholder -->
-
-Placeholder — Phase 105 (Documentation Restructure by Audience) will land the
-full compliance entry point. Phase 106 deliverables link into this directory
-and will be reconciled when Phase 105 lands.
+Entry point for compliance and audit reviewers. The full audience
+restructure lands in Phase 105; until then, the documents below cover
+the load-bearing risk, traceability, and quality references.
 
 For now, see:
 
