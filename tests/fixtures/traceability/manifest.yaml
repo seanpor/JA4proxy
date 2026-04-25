@@ -1,0 +1,14 @@
+# Fixture manifest for tests/unit/test_traceability.py.
+# Mirrors the shape of the production docs/phases/manifest.yaml, but only
+# contains the two phases the tests care about.
+
+phases:
+  999:
+    name: 'Traceability Fixture (Tagged)'
+    status: COMPLETE
+    req_tagged: true
+    action_plan: PHASE_999.md
+  998:
+    name: 'Traceability Fixture (Untagged)'
+    status: COMPLETE
+    action_plan: PHASE_998.md

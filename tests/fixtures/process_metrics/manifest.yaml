@@ -1,0 +1,29 @@
+# Fixture manifest for tests/unit/test_process_metrics.py.
+# Five phases: three completed within the last 90 days of the test
+# fixture's reference date (2026-04-24), two outside the window or
+# without a completed date.
+
+phases:
+  900:
+    name: 'Recent completion 1'
+    status: COMPLETE
+    created: 2026-03-01
+    completed: 2026-03-15
+  901:
+    name: 'Recent completion 2'
+    status: COMPLETE
+    created: 2026-02-10
+    completed: 2026-03-22
+  902:
+    name: 'Recent completion 3'
+    status: COMPLETE
+    created: 2026-01-05
+    completed: 2026-04-01
+  903:
+    name: 'Older completion'
+    status: COMPLETE
+    created: 2025-09-01
+    completed: 2025-10-15
+  904:
+    name: 'Still in progress'
+    status: PROPOSED
