@@ -66,6 +66,7 @@ func (e WebhookEndpoint) Format(state fmt.State, _ rune) {
 // redaction sentinel so json.Marshal(endpoint) cannot leak credentials
 // into config dumps, API responses, or structured logs.
 func (e WebhookEndpoint) MarshalJSON() ([]byte, error) {
+	//nolint:gosec // Secret is explicitly replaced with redactedSecret sentinel before marshaling
 	return json.Marshal(struct {
 		ID                  string   `json:"id"`
 		URL                 string   `json:"url"`
