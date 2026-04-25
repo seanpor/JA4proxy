@@ -1,0 +1,53 @@
+---
+# Phase 106 — Monthly engineering-process metrics regeneration (5.2).
+#
+# Runs scripts/process_metrics.py on the 1st of each month at 06:00 UTC.
+# If docs/engineering-method/retrospectives/latest-metrics.md changes, the
+# regenerated file is committed back to main by github-actions[bot].
+# Manual trigger via workflow_dispatch is supported for testing.
+#
+# Third-party actions are SHA-pinned per the convention in
+# .github/workflows/release-cli.yml.
+
+name: Process Metrics
+
+on:
+  schedule:
+    - cron: '0 6 1 * *'  # 06:00 UTC on the 1st of each month
+  workflow_dispatch:
+
+permissions:
+  contents: write  # required to push the regenerated metrics file to main
+
+jobs:
+  regenerate-metrics:
+    name: Regenerate process metrics
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        with:
+          python-version: "3.14"
+
+      - name: Install Python deps
+        run: pip install pyyaml requests
+
+      - name: Regenerate metrics
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/process_metrics.py
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet docs/engineering-method/retrospectives/latest-metrics.md; then
+            echo "No changes"
+            exit 0
+          fi
+          git add docs/engineering-method/retrospectives/latest-metrics.md
+          git commit -m "chore: regenerate process metrics ($(date +%Y-%m))"
+          git push
