@@ -1,5 +1,59 @@
 # Changelog
 
+## [Unreleased] - Phase 101g M13 + M14 — seed-file leader gate; M14 audit-trail confirmed (2026-04-26)
+
+Closes M13. Confirms M14 was already shipped. Phase 101g still partial
+(M10/M11/M12 open).
+
+### Changed
+- `src/analytics/ti_feeds/seed_file.py` — `run_once()` now accepts an
+  optional `instance_id: str | None = None`. When provided, it gates
+  the entire load on `state.try_acquire_leader(instance_id, ttl=60)`.
+  Non-leader replicas log
+  `event=seed_file_skipped_not_leader` and return an empty summary
+  (`{loaded: 0, created: 0, rejected: 0, errors: 0}`) — no parse, no
+  Mgmt API calls, no Redis writes. Backwards-compatible: passing
+  `instance_id=None` (the default) bypasses the gate entirely, so
+  legacy single-replica callers and tests are unaffected.
+- `src/analytics/ti_feeds/runner.py` — startup seed-load call site
+  now passes `instance_id=self._instance_id` so production runners
+  always honour the leader lock.
+
+### Why
+Without this gate every analytics replica POSTs every seed entry on
+startup. Mgmt API is first-writer-wins so it's safe but wasteful; the
+lock collapses N startup loads into one. TTL is 60s — generous because
+the seed file is small and applies in well under a second normally,
+but a slow Mgmt API or large seed file should not race the lock expiry.
+
+### Added
+- `tests/unit/analytics/ti_feeds/test_phase_101g_medium.py::TestM13SeedFileLeaderLock`
+  — 3 new tests replacing the previous "grep for 'leader' or 'lock'"
+  tautology. Asserts: (1) when `try_acquire_leader` returns False, no
+  mgmt calls and no `state.mark` calls fire; (2) when it returns True,
+  the work proceeds; (3) `instance_id=None` bypasses the gate
+  entirely.
+
+### M14 — audit-log confirmation
+`management/api/routes/threat_intel.py::enable_feed` (line 337) and
+`disable_feed` (line 381) already call `write_audit` with
+`action_type="ti_feed.enabled"` / `"ti_feed.disabled"`, recording
+`actor_id`, `actor_ip`, `before_value=None`, `after_value={"runtime_enabled": True/False}`,
+and `role`. Acceptance criterion satisfied — no code change required.
+
+### Test results
+- 6047/6047 unit + integration tests pass (excluding live-docker tests)
+- 3 new M13 tests added, all green
+- No regressions across `tests/unit/analytics/ti_feeds/` (329 tests)
+
+### Phase 101 sub-phase status (post-PR)
+| Sub-phase | Status |
+|---|---|
+| 101a, 101b, 101c, 101d, 101e, 101f, 101h, 101k | COMPLETE |
+| **101g** | **PARTIAL** — M8/M9/M13/M14 done; M10/M11/M12 open |
+| 101i, 101l | DEFERRED |
+| 101j | M19 done; M18 blocked on Phase 76 |
+
 ## [Unreleased] - Phase 101h — low items L6/L7/L8 closed (2026-04-26)
 
 Docs-only sub-phase 101h close-out. All three low-severity items

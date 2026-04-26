@@ -137,6 +137,7 @@ class FeedRunner:
                     state=self._state,
                     path=seed_cfg.get("path", "config/known_bad_fingerprints.yml"),
                     min_entries=int(seed_cfg.get("min_entries", 10)),
+                    instance_id=self._instance_id,
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.error("ti_feed | event=seed_file_start_failed | error=%s", exc)
