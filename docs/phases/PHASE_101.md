@@ -11,8 +11,8 @@
 > 101h (low items L6–L8), 101i (deferred to Go cycle),
 > 101j (deploy validation M18 skipped, M19).
 >
-> **Still open:** 101a, 101d (H8 — H6 partial done in 101c, H7 landed 2026-04-26), 101l.
-> **Completed sub-phases:** 101b, 101c (2026-04-26), 101e, 101f, 101g, 101h, 101i, 101j, 101k (2026-04-26).
+> **Still open:** 101d (H8 — H6 partial done in 101c, H7 landed 2026-04-26), 101l.
+> **Completed sub-phases:** 101a (2026-04-26), 101b, 101c (2026-04-26), 101e, 101f, 101g, 101h, 101i, 101j, 101k (2026-04-26).
 
 ## 0. Stranded-branch review — 2026-04-24
 
@@ -158,13 +158,14 @@ incomplete or misleading compliance evidence.
 8. Benchmark: generate a 1M-entry stream fixture, run DSAR export, assert it completes in < 2s.
 
 **Acceptance criteria:**
-- [ ] DSAR export issues at most one XRANGE call per request
-- [ ] DSAR for `10.0.0.15` includes watchlist entry stored as `10.0.0.0/24`
-- [ ] DSAR response includes `partial_failures` list on Redis error
-- [ ] `ja4proxy_dsar_export_partial_failures_total` counter wired
-- [ ] Chaos test: fakeredis raising `ConnectionError` returns payload with `partial_failures`
-- [ ] Benchmark: 1M-entry stream, DSAR export completes in < 2s
-- [ ] `make test-phase-84` still passes
+- [x] DSAR export issues at most one XRANGE call per request (landed 2026-04-26)
+- [x] DSAR for `10.0.0.15` includes watchlist entry stored as `10.0.0.0/24` (landed 2026-04-26)
+- [x] DSAR response includes `partial_failures` list on Redis error (landed 2026-04-26)
+- [x] `management:dsar:partial_failures_total` Redis counter wired; analytics node re-emits as Prometheus per established pattern (landed 2026-04-26)
+- [x] Chaos test: fakeredis raising `ConnectionError` returns payload with `partial_failures` (landed 2026-04-26)
+- [x] Benchmark: 1M-entry stream, DSAR export completes in < 2s (landed 2026-04-26)
+- [x] Erase path: CIDR-cover entries surfaced in `skipped` (legitimate-interest override) rather than blindly deleted (landed 2026-04-26)
+- [x] `make test-phase-84` still passes
 
 ---
 
