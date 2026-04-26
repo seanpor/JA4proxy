@@ -161,3 +161,71 @@ class TestPhase86iScenarios:
             assert name in pushed["payload"], (
                 f"metric {name} missing from Pushgateway payload"
             )
+
+    def test_pushgateway_grouping_key_is_forwarded(self):
+        """PHASE_101 M24 — when a ``grouping_key`` is supplied it must be
+        passed straight through to ``push_to_gateway`` so parallel runs
+        don't clobber each other's pushgateway group."""
+        mod = _load_load_test_module()
+        captured: dict = {}
+
+        def fake_push(url, job, registry, grouping_key=None):
+            captured["url"] = url
+            captured["job"] = job
+            captured["grouping_key"] = grouping_key
+
+        from unittest.mock import patch
+        with patch("prometheus_client.push_to_gateway", side_effect=fake_push):
+            mod.push_loadtest_metrics(
+                url="http://mock-pgw:9091",
+                attempted=1,
+                completed=1,
+                errors={},
+                latencies_seconds=[0.01],
+                throughput_cps=1.0,
+                grouping_key={
+                    "instance": "host-a.lab",
+                    "scenario": "mixed",
+                    "run_id": "ab12cd34",
+                },
+            )
+        assert captured.get("grouping_key") == {
+            "instance": "host-a.lab",
+            "scenario": "mixed",
+            "run_id": "ab12cd34",
+        }
+
+    def test_sample_connect_latencies_returns_real_numbers(self):
+        """PHASE_101 M24 — the sampling helper must produce a list of
+        positive floats (one per successful connect) and silently skip
+        failures. We bind a throwaway listener so the connects succeed."""
+        import socket as _socket
+
+        mod = _load_load_test_module()
+        srv = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        srv.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(16)
+        port = srv.getsockname()[1]
+        try:
+            lats = mod.sample_connect_latencies(
+                f"127.0.0.1:{port}", samples=5, timeout_s=1.0
+            )
+        finally:
+            srv.close()
+        assert len(lats) == 5, f"expected 5 samples, got {lats!r}"
+        assert all(isinstance(x, float) and x > 0 for x in lats), (
+            f"expected all positive floats, got {lats!r}"
+        )
+
+    def test_sample_connect_latencies_survives_unreachable_target(self):
+        """Unreachable targets must not raise — they just return ``[]``
+        (or a shorter list of whatever happened to succeed)."""
+        mod = _load_load_test_module()
+        # Port 1 is well-known to be closed/filtered — connects will fail.
+        lats = mod.sample_connect_latencies(
+            "127.0.0.1:1", samples=3, timeout_s=0.2
+        )
+        assert isinstance(lats, list)
+        # Either empty or only sub-timeout samples; nothing should raise.
+        assert all(x > 0 for x in lats)
