@@ -64,6 +64,10 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
         "v4.5.0": "3b139cfc5fae8b618d3eae3675e383bb1769c019",
         "v4.9.0": "2031cfc080254a8a887f58cffee85186f0e49e48",
     },
+    # phase-107w.3: lychee link-check workflow (docs-link-check.yml)
+    "lycheeverse/lychee-action": {
+        "v2.8.0": "8646ba30535128ac92d33dfc9133794bfdd9b411",
+    },
     # phase-64: smoke-k8s CI job
     "azure/setup-helm": {
         "v4.3.0": "b9e51907a09c216f16ebe8536097933489208112",
