@@ -35,7 +35,12 @@ except ImportError:  # pragma: no cover
 
 from .base import FeedClient, FeedConfig, FeedPollResult
 from .metrics import TI_POLL_TOTAL as _POLL_TOTAL
-from .taxii import _BATCH_SIZE, _INTER_BATCH_SLEEP_S, TAXIIClient  # noqa: F401
+from .taxii import (  # noqa: F401
+    _BATCH_SIZE,
+    _FEED_FETCH_ERRORS,
+    _INTER_BATCH_SLEEP_S,
+    TAXIIClient,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -165,7 +170,7 @@ class RecordedFutureClient(FeedClient):
                 hint = (self.collection_ids or ["default"])[0]
                 await self._poll_paginated(hint, combined)
                 _POLL_TOTAL.labels(feed_id=feed_id, result="success").inc()
-            except Exception as exc:  # noqa: BLE001
+            except _FEED_FETCH_ERRORS as exc:
                 combined.errors.append(f"rf_poll_failed: {exc}")
                 _POLL_TOTAL.labels(feed_id=feed_id, result="failure").inc()
                 logger.warning(
@@ -185,7 +190,7 @@ class RecordedFutureClient(FeedClient):
                 combined.unsupported_pattern += inner_result.unsupported_pattern
                 combined.errors.extend(inner_result.errors)
             _POLL_TOTAL.labels(feed_id=feed_id, result="success").inc()
-        except Exception as exc:  # noqa: BLE001
+        except _FEED_FETCH_ERRORS as exc:
             combined.errors.append(f"rf_poll_failed: {exc}")
             _POLL_TOTAL.labels(feed_id=feed_id, result="failure").inc()
             logger.warning(

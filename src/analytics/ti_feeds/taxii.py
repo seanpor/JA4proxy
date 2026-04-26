@@ -51,6 +51,7 @@ from .metrics import (
 from .metrics import (
     TI_POLL_TOTAL as _POLL_TOTAL,
 )
+from .mgmt_client import ManagementAPIError
 from .stix_ja4 import (
     is_ip_pattern,
     is_ja4_pattern,
@@ -63,6 +64,25 @@ logger = logging.getLogger(__name__)
 
 _BATCH_SIZE = 50
 _INTER_BATCH_SLEEP_S = 0.05  # 50 ms per PHASE_85.md §2.5
+
+# phase-101g M12: explicit-exception unions in place of bare ``except Exception``.
+# ``_FEED_FETCH_ERRORS`` covers HTTP I/O, JSON/STIX parse errors, and our
+# internal ``raise RuntimeError(...)`` wrappers around malformed responses.
+# ``_FEED_WRITE_ERRORS`` adds ``ManagementAPIError`` for sites that call into
+# the Mgmt API. Programmer bugs (``AttributeError``, ``KeyError``,
+# ``ImportError``, …) are intentionally *not* caught so they surface in tests
+# instead of silently incrementing the error counter in production.
+_FEED_FETCH_ERRORS: tuple[type[BaseException], ...] = (
+    aiohttp.ClientError if aiohttp is not None else OSError,
+    asyncio.TimeoutError,
+    RuntimeError,
+    ValueError,
+    OSError,
+)
+_FEED_WRITE_ERRORS: tuple[type[BaseException], ...] = (
+    *_FEED_FETCH_ERRORS,
+    ManagementAPIError,
+)
 
 
 class TAXIIClient(FeedClient):
@@ -122,7 +142,7 @@ class TAXIIClient(FeedClient):
 
         try:
             objects = await self._fetch_objects()
-        except Exception as exc:  # noqa: BLE001 — fail-open
+        except _FEED_FETCH_ERRORS as exc:
             _POLL_TOTAL.labels(feed_id=feed_id, result="failure").inc()
             result.errors.append(f"fetch_failed: {exc}")
             result.poll_duration_s = time.monotonic() - start
@@ -312,7 +332,7 @@ class TAXIIClient(FeedClient):
                     ttl_s=self.ban_ttl_seconds(),
                     reason=f"feed:{feed_id}",
                 )
-            except Exception as exc:  # noqa: BLE001
+            except _FEED_WRITE_ERRORS as exc:
                 result.errors.append(f"ban create failed: {exc}")
                 return
             if self.state is not None:
@@ -346,7 +366,7 @@ class TAXIIClient(FeedClient):
                     note=f"feed:{feed_id}:{stix_id}",
                     expires_at=valid_until if isinstance(valid_until, str) else None,
                 )
-            except Exception as exc:  # noqa: BLE001
+            except _FEED_WRITE_ERRORS as exc:
                 result.errors.append(f"blocklist create failed: {exc}")
                 return
             if self.state is not None:

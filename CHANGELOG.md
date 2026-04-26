@@ -1,5 +1,66 @@
 # Changelog
 
+## [Unreleased] - Phase 101g M12 — explicit-exception unions across 4 TI feed clients (2026-04-26)
+
+Closes M12. Replaces 12 bare `except Exception:` catches across the four
+threat-intel feed clients with explicit unions, so programmer bugs
+(`AttributeError`, `KeyError`, `TypeError`, `ImportError`, `NameError`)
+propagate instead of being silently swallowed and counted as a feed
+failure. Phase 101g now M8/M9/M11/M12/M13/M14 done; only M10 still open
+(semantics under review — see Status note in PHASE_101.md §3.7).
+
+### Changed
+- `src/analytics/ti_feeds/taxii.py` — added module-level
+  `_FEED_FETCH_ERRORS` (aiohttp.ClientError, asyncio.TimeoutError,
+  RuntimeError, ValueError, OSError) and
+  `_FEED_WRITE_ERRORS = (*_FEED_FETCH_ERRORS, ManagementAPIError)`.
+  Replaced 3 `except Exception:` sites: pagination fetch, mgmt-API
+  ban-create, mgmt-API blocklist-create.
+- `src/analytics/ti_feeds/crowdstrike.py` — same constants; replaced 4
+  `except Exception:` sites: OAuth token fetch, indicator fetch,
+  indicator parse, mgmt-API write.
+- `src/analytics/ti_feeds/recorded_future.py` — re-imports
+  `_FEED_FETCH_ERRORS` from `.taxii` (single source of truth);
+  replaced 2 `except Exception:` sites in cursor-paginated and
+  multi-collection poll paths.
+- `src/analytics/ti_feeds/rest_generic.py` — same constants but
+  includes `JsonPathParserError` in the fetch tuple (this client uses
+  jsonpath-ng for body extraction). Replaced 3 `except Exception:`
+  sites: HTTP fetch, ban-create, blocklist-create.
+
+### Why
+`except Exception:` masks real bugs as feed failures — an `AttributeError`
+in a refactor would silently increment `ti_feed_poll_total{result="failure"}`
+instead of crashing the worker and surfacing in CI. The explicit unions
+catch only the I/O / parse / mgmt-API errors we *expect* a feed to throw
+on a bad upstream day. Two-tier (`_FEED_FETCH_ERRORS` for read paths,
+`_FEED_WRITE_ERRORS = fetch + ManagementAPIError` for write paths) keeps
+the read-side tuple from accidentally absorbing mgmt-client errors at
+the wrong layer.
+
+### Added
+- `tests/unit/analytics/ti_feeds/test_phase_101g_medium.py::TestM12ExplicitExceptions`
+  — replaces the old substring-grep test with an AST-based
+  `ExceptHandler` walk across all 4 client files. Asserts zero
+  `except Exception:` handlers remain and reports any offender as
+  `file:line` for fast triage.
+- `TestM12ExplicitExceptionsRuntime` — 4 new behaviour tests proving
+  the chosen tuple does the right thing at runtime: (1) catches
+  expected I/O errors (aiohttp, timeout, runtime, value, OS); (2)
+  `_FEED_WRITE_ERRORS` is a strict superset including
+  `ManagementAPIError`; (3) does NOT catch programmer-bug exceptions
+  (`AttributeError`, `KeyError`, `TypeError`, `ImportError`,
+  `NameError`); (4) every client module exposes the
+  `_FEED_FETCH_ERRORS` symbol with at least 4 entries.
+
+### Phase 101 sub-phase status (post-PR)
+| Sub-phase | Status |
+|---|---|
+| 101a, 101b, 101c, 101d, 101e, 101f, 101h, 101k | COMPLETE |
+| **101g** | **PARTIAL** — M8/M9/M11/M12/M13/M14 done; M10 still open (semantics under review) |
+| 101i, 101l | DEFERRED |
+| 101j | M19 done; M18 blocked on Phase 76 |
+
 ## [Unreleased] - Phase 101g M11 — stable-ordered dropped list (2026-04-26)
 
 Closes M11. Phase 101g remaining open items: M10 (Gauge → Counter, semantics
