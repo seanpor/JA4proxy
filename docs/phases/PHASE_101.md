@@ -6,11 +6,12 @@
 > **Last revised:** 2026-04-24 (stranded branch review; see §0 below).
 >
 > **Sub-phases landed on main (reviewed 2026-04-24):**
-> 101b (compliance hygiene), 101f (TI feed test reshape), 101g (TI feed
-> medium items M8–M14), 101h (low items L6–L8), 101i (deferred to Go cycle),
+> 101b (compliance hygiene), 101e (regional endpoints — landed 2026-04-26),
+> 101f (TI feed test reshape), 101g (TI feed medium items M8–M14),
+> 101h (low items L6–L8), 101i (deferred to Go cycle),
 > 101j (deploy validation M18 skipped, M19).
 >
-> **Still open:** 101a, 101c, 101d (H6/H7/H8), 101e, 101k (H14/H15/H16/M24/M25/M26), 101l.
+> **Still open:** 101a, 101c, 101d (H6/H7/H8), 101k (H14/H15/H16/M24/M25/M26), 101l.
 
 ## 0. Stranded-branch review — 2026-04-24
 
@@ -287,10 +288,12 @@ CrowdStrike feeds.
 4. Write unit tests for both clients covering regional endpoint selection. Run `python3 -m pytest tests/unit/analytics/ti_feeds/test_recorded_future.py -x` and the equivalent CrowdStrike test file.
 
 **Acceptance criteria:**
-- [ ] RF client honours `config.url` for EU/APAC sub-domains
-- [ ] CrowdStrike client supports US-2, EU-1, and GovCloud (laggar) endpoints
-- [ ] `config/proxy.yml` examples show regional endpoints as comments
-- [ ] Unit tests pass for both clients
+- [x] RF client honours `config.url` for EU/APAC sub-domains (`_resolve_rf_taxii_root`)
+- [x] CrowdStrike client supports US-2, EU-1, and GovCloud (laggar) endpoints (`_resolve_falcon_urls`)
+- [x] `config/proxy.yml` examples show regional endpoints as comments (landed 2026-04-26)
+- [x] Unit tests pass for both clients (`tests/unit/analytics/ti_feeds/test_phase_101e_regional_endpoints.py`, 10 tests green)
+
+**Status: COMPLETE — landed 2026-04-26.**
 
 ---
 
