@@ -1,5 +1,35 @@
 # Changelog
 
+## [Unreleased] - Phase 101d H7 — manual-poll rate limit (2026-04-26)
+
+Closes the H7 HIGH gap from Phase 101 sub-phase **101d** (Phase 85
+SSRF/rate-limit/CSRF). H6 was partly addressed in 101c; H8 (CSRF
+double-submit middleware) remains open and will land separately.
+
+### Added
+- `management/api/routes/threat_intel.py`: `_check_poll_rate_limit()` —
+  per-`feed_id` sliding-window cap of **6 polls / 60 s** on
+  `POST /api/v1/threat-intel/feeds/{id}/poll`. Implementation uses a
+  Redis sorted set per the CLAUDE.md sliding-window pattern
+  (`ZREMRANGEBYSCORE` + `ZCARD` + `ZADD` with `{ts}:{uuid4}` member),
+  responds **HTTP 429** with a `Retry-After` header derived from the
+  oldest in-window entry, and runs **after** the 404 feed-existence
+  check so polls against missing feeds do not pollute the quota.
+  Fail-open on Redis errors (CLAUDE.md core asymmetry — a missed
+  abuse signal is recoverable; locking out an Operator is not).
+
+### Tests
+- `tests/unit/test_pages_threat_intel.py`:
+  - `test_phase_101_h7_seventh_poll_in_window_returns_429` — verifies the
+    cap, the `Retry-After` header is present, and the body contains a
+    `rate limit` string.
+  - `test_phase_101_h7_rate_limit_is_per_feed_id` — verifies the
+    quota is namespaced to the upstream feed (saturating `test-feed`
+    leaves `other-feed` free), per the spec wording in PHASE_101.md.
+  - `test_phase_101_h7_404_feed_does_not_consume_quota` — verifies
+    that 10 polls against a non-existent feed all 404 and never trip
+    the limiter.
+
 ## [Unreleased] - Phase 101k complete — H14 doc-tick + H16 Datadog runbook + M26 benchmarks tightening (2026-04-26)
 
 Closes Phase 101 sub-phase **101k** (Phase 86i capacity hardening). H15,

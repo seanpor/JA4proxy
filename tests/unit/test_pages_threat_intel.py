@@ -262,3 +262,108 @@ async def test_threat_intel_feed_poll_endpoint_returns_202(
     body = resp.json()
     assert body["feed_id"] == "test-feed"
     assert body.get("poll_id")
+
+
+# ── PHASE_101 H7: manual-poll rate limit (6/min/feed_id) ────────────────────
+
+
+@pytest.mark.asyncio
+async def test_phase_101_h7_seventh_poll_in_window_returns_429(
+    operator_client: AsyncClient,
+) -> None:
+    """6 polls in 60s succeed; the 7th returns 429 with Retry-After.
+
+    PHASE_101 H7 — without this cap a compromised operator token can DoS
+    an upstream TI vendor or amplify a misbehaving feed by hammering
+    the manual-poll endpoint.
+    """
+    for i in range(6):
+        resp = await operator_client.post(
+            "/api/v1/threat-intel/feeds/test-feed/poll"
+        )
+        assert resp.status_code == 202, (
+            f"poll #{i+1} should succeed within window, got "
+            f"{resp.status_code}: {resp.text[:200]}"
+        )
+    # 7th in the same window must be rejected.
+    resp = await operator_client.post(
+        "/api/v1/threat-intel/feeds/test-feed/poll"
+    )
+    assert resp.status_code == 429, (
+        f"Expected 429 on 7th poll, got {resp.status_code}: {resp.text[:200]}"
+    )
+    retry_after = resp.headers.get("Retry-After")
+    assert retry_after is not None, "Retry-After header must be present on 429"
+    assert int(retry_after) > 0, (
+        f"Retry-After must be a positive int, got {retry_after!r}"
+    )
+    body = resp.json()
+    assert "rate limit" in body.get("detail", "").lower()
+
+
+@pytest.mark.asyncio
+async def test_phase_101_h7_rate_limit_is_per_feed_id(
+    operator_client: AsyncClient,
+    fake_redis: fakeredis.aioredis.FakeRedis,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Hitting the limit on feed A must NOT throttle feed B.
+
+    The cap is ``6/min/feed_id`` — the resource being protected is the
+    upstream feed, not the operator token. Per-user throttling would
+    coupling unrelated feeds together.
+    """
+    # Add a second feed-id to the fake config so /poll resolves it.
+    fake_cfg = {
+        "threat_intel": {
+            "enabled": True,
+            "feeds": [
+                {"id": "test-feed", "type": "taxii2",
+                 "url": "https://example.com/taxii2/", "enabled": True,
+                 "poll_interval_minutes": 60},
+                {"id": "other-feed", "type": "taxii2",
+                 "url": "https://example.com/taxii2/", "enabled": True,
+                 "poll_interval_minutes": 60},
+            ],
+        }
+    }
+    monkeypatch.setattr(
+        _proxy_config_module, "_load_proxy_config", lambda: fake_cfg
+    )
+
+    # Saturate test-feed.
+    for _ in range(6):
+        r = await operator_client.post(
+            "/api/v1/threat-intel/feeds/test-feed/poll"
+        )
+        assert r.status_code == 202
+    r = await operator_client.post(
+        "/api/v1/threat-intel/feeds/test-feed/poll"
+    )
+    assert r.status_code == 429, "test-feed should now be throttled"
+
+    # other-feed must still be free.
+    r = await operator_client.post(
+        "/api/v1/threat-intel/feeds/other-feed/poll"
+    )
+    assert r.status_code == 202, (
+        f"other-feed should NOT be throttled, got {r.status_code}: "
+        f"{r.text[:200]}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_phase_101_h7_404_feed_does_not_consume_quota(
+    operator_client: AsyncClient,
+) -> None:
+    """Polling a non-existent feed returns 404 and does not increment
+    the rate-limit counter for that feed_id (the rate-limit check runs
+    after the 404)."""
+    # 10 attempts at a missing feed must all 404 — none should ever 429.
+    for _ in range(10):
+        r = await operator_client.post(
+            "/api/v1/threat-intel/feeds/nope-not-real/poll"
+        )
+        assert r.status_code == 404, (
+            f"Missing feed should always 404, got {r.status_code}"
+        )
