@@ -61,9 +61,26 @@ from .base import FeedClient, FeedConfig, FeedPollResult
 from .metrics import TI_FEED_FP_BLOCKED as _FP_BLOCKED
 from .metrics import TI_INDICATORS_PROCESSED as _INDICATORS_PROCESSED
 from .metrics import TI_POLL_TOTAL as _POLL_TOTAL
+from .mgmt_client import ManagementAPIError
 from .stix_ja4 import is_valid_ja4
 
 logger = logging.getLogger(__name__)
+
+# phase-101g M12: explicit-exception unions in place of bare ``except Exception``.
+# See ``taxii.py`` for the rationale. Programmer bugs (``AttributeError``,
+# ``KeyError``, ``ImportError``, …) are intentionally *not* caught.
+_FEED_FETCH_ERRORS: tuple[type[BaseException], ...] = (
+    aiohttp.ClientError if aiohttp is not None else OSError,
+    asyncio.TimeoutError,
+    JsonPathParserError,
+    RuntimeError,
+    ValueError,
+    OSError,
+)
+_FEED_WRITE_ERRORS: tuple[type[BaseException], ...] = (
+    *_FEED_FETCH_ERRORS,
+    ManagementAPIError,
+)
 
 
 class RESTGenericClient(FeedClient):
@@ -135,7 +152,7 @@ class RESTGenericClient(FeedClient):
 
         try:
             body = await self._fetch_json()
-        except Exception as exc:  # noqa: BLE001
+        except _FEED_FETCH_ERRORS as exc:
             result.errors.append(f"fetch_failed: {exc}")
             _POLL_TOTAL.labels(feed_id=feed_id, result="failure").inc()
             result.poll_duration_s = time.monotonic() - start
@@ -256,7 +273,7 @@ class RESTGenericClient(FeedClient):
                         ttl_s=ttl_s,
                         reason=f"feed:{feed_id}",
                     )
-                except Exception as exc:  # noqa: BLE001
+                except _FEED_WRITE_ERRORS as exc:
                     result.errors.append(f"ban create failed: {exc}")
                     continue
                 if self.state is not None:
@@ -291,7 +308,7 @@ class RESTGenericClient(FeedClient):
                         entry=ja4,
                         note=f"feed:{feed_id}:{stix_id}",
                     )
-                except Exception as exc:  # noqa: BLE001
+                except _FEED_WRITE_ERRORS as exc:
                     result.errors.append(f"blocklist create failed: {exc}")
                     continue
                 if self.state is not None:

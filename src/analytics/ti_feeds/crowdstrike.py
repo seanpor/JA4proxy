@@ -40,6 +40,22 @@ except ImportError:  # pragma: no cover
 
 from .base import FeedClient, FeedConfig, FeedPollResult
 from .metrics import TI_POLL_TOTAL as _POLL_TOTAL
+from .mgmt_client import ManagementAPIError
+
+# phase-101g M12: explicit-exception unions in place of bare ``except Exception``.
+# See ``taxii.py`` for the rationale. Programmer bugs (``AttributeError``,
+# ``KeyError``, ``ImportError``, …) are intentionally *not* caught.
+_FEED_FETCH_ERRORS: tuple[type[BaseException], ...] = (
+    aiohttp.ClientError if aiohttp is not None else OSError,
+    asyncio.TimeoutError,
+    RuntimeError,
+    ValueError,
+    OSError,
+)
+_FEED_WRITE_ERRORS: tuple[type[BaseException], ...] = (
+    *_FEED_FETCH_ERRORS,
+    ManagementAPIError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -155,7 +171,7 @@ class CrowdStrikeFalconClient(FeedClient):
             try:
                 await self._poll_paginated_via_fetcher(result)
                 _POLL_TOTAL.labels(feed_id=feed_id, result="success").inc()
-            except Exception as exc:  # noqa: BLE001
+            except _FEED_FETCH_ERRORS as exc:
                 result.errors.append(f"poll_failed: {exc}")
                 _POLL_TOTAL.labels(feed_id=feed_id, result="failure").inc()
                 logger.warning(
@@ -168,7 +184,7 @@ class CrowdStrikeFalconClient(FeedClient):
 
         try:
             await self._ensure_token()
-        except Exception as exc:  # noqa: BLE001
+        except _FEED_FETCH_ERRORS as exc:
             result.errors.append(f"auth_failed: {exc}")
             _POLL_TOTAL.labels(feed_id=feed_id, result="failure").inc()
             result.poll_duration_s = time.monotonic() - start
@@ -182,7 +198,7 @@ class CrowdStrikeFalconClient(FeedClient):
         try:
             await self._poll_all_pages(result)
             _POLL_TOTAL.labels(feed_id=feed_id, result="success").inc()
-        except Exception as exc:  # noqa: BLE001
+        except _FEED_FETCH_ERRORS as exc:
             result.errors.append(f"poll_failed: {exc}")
             _POLL_TOTAL.labels(feed_id=feed_id, result="failure").inc()
             logger.warning(
@@ -350,7 +366,7 @@ class CrowdStrikeFalconClient(FeedClient):
                     ttl_s=self.ban_ttl_seconds(),
                     reason=f"feed:{feed_id}",
                 )
-            except Exception as exc:  # noqa: BLE001
+            except _FEED_WRITE_ERRORS as exc:
                 result.errors.append(f"ban create failed: {exc}")
                 continue
             if self.state is not None:
