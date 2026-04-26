@@ -79,6 +79,10 @@
         owner: 999   # redis user inside container
         group: 999
         mode: "0700"
+  rescue:
+    - name: Handle LUKS setup failure
+      ansible.builtin.fail:
+        msg: "Failed to set up encrypted LUKS storage. Verify device {{ redis_luks_device }} and cryptsetup availability."
 
 - name: Create unencrypted data directory (LUKS disabled)
   when: not redis_luks_enabled
@@ -188,6 +192,10 @@
         provider: ownca
         ownca_not_after: "+{{ redis_tls_cert_days }}d"
         mode: "0644"
+  rescue:
+    - name: Handle TLS certificate generation failure
+      ansible.builtin.fail:
+        msg: "Failed to generate mTLS certificates for Redis. Check community.crypto collection installation."
 
 # ── Redis configuration ────────────────────────────────────
 
@@ -266,7 +274,19 @@
     memory: "1g"
     cpus: 2.0
     healthcheck:
-      test: ["CMD", "redis-cli", "--tls", "--cert", "/tls/redis.crt", "--key", "/tls/redis.key", "--cacert", "/tls/ca.crt", "-a", "{{ redis_admin_password }}", "PING"]
+      test:
+        - "CMD"
+        - "redis-cli"
+        - "--tls"
+        - "--cert"
+        - "/tls/redis.crt"
+        - "--key"
+        - "/tls/redis.key"
+        - "--cacert"
+        - "/tls/ca.crt"
+        - "-a"
+        - "{{ redis_admin_password }}"
+        - "PING"
       interval: 10s
       timeout: 5s
       retries: 5

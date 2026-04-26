@@ -19,7 +19,7 @@
 - name: Compute configuration checksum (container mode)
   ansible.builtin.command:
     cmd: "sha256sum {{ ja4proxy_config_path | default('/dev/null') }}"
-  register: config_checksum
+  register: ja4proxy_config_checksum
   changed_when: false
   failed_when: false
 
@@ -33,8 +33,8 @@
       - "{{ ja4proxy_bind_address }}:{{ ja4proxy_host_port_ingress }}:{{ ja4proxy_port }}"
       - "127.0.0.1:{{ ja4proxy_metrics_port }}:{{ ja4proxy_metrics_port }}"
     env:
-      BACKEND_HOST: "{{ backend_host }}"
-      BACKEND_PORT: "{{ backend_port }}"
+      BACKEND_HOST: "{{ ja4proxy_backend_host }}"
+      BACKEND_PORT: "{{ ja4proxy_backend_port }}"
       REDIS_HOST: "{{ ja4proxy_redis_host }}"
       REDIS_PORT: "{{ ja4proxy_redis_port }}"
     volumes:

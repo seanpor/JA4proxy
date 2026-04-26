@@ -1,18 +1,18 @@
 ---
 # Standalone playbook for syntax-checking the ja4proxy role.
-# Usage: ansible-playbook --syntax-check -i localhost, -e "backend_host=x upstream_lb_host=y" deploy-ja4proxy-check.yml
+# Usage: ansible-playbook --syntax-check -i localhost, -e "ja4proxy_backend_host=x ja4proxy_upstream_lb_host=y" deploy-ja4proxy-check.yml
 
 - name: Syntax check — ja4proxy role
   hosts: localhost
   connection: local
   gather_facts: false
   vars:
-    backend_host: "backend.test.local"
-    upstream_lb_host: "lb.test.local"
+    ja4proxy_backend_host: "backend.test.local"
+    ja4proxy_upstream_lb_host: "lb.test.local"
     ja4proxy_deploy_mode: "binary"
     ja4proxy_binary_src: ""
-    servicenow_enabled: false
+    ja4proxy_servicenow_enabled: false
   tasks:
     - name: Import ja4proxy role
       ansible.builtin.import_role:
-        name: "{{ role_path | default('../roles/ja4proxy') }}"
+        name: "{{ role_path | default('../roles/ja4proxy') }}" # noqa: role-name[path]

@@ -105,7 +105,7 @@ def _build_ssl_ctx(cert: Path, key: Path) -> ssl.SSLContext:
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     ctx.load_cert_chain(certfile=str(cert), keyfile=str(key))
     # Accept any cipher the client proposes — we're a benchmark backend, not production.
-    ctx.set_ciphers("ALL:@SECLEVEL=0")
+    ctx.set_ciphers("ALL:@SECLEVEL=0") # nosemgrep
     return ctx
 
 

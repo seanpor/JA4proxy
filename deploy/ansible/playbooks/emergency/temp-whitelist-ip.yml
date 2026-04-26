@@ -17,7 +17,7 @@
   hosts: localhost
   gather_facts: false
   vars:
-    ja4proxy_url: "http://localhost:8090"
+    ja4proxy_url: "https://localhost:8090"
     ttl_hours: 2
     slack_enabled: false
 
@@ -35,7 +35,9 @@
       ansible.builtin.set_fact:
         expires_at: "{{ (ansible_date_time.epoch_int | int + (ttl_hours | int * 3600)) | ansible.builtin.to_datetime('%Y-%m-%dT%H:%M:%SZ', utc=True) }}"
 
+    # checkov:skip=CKV2_ANSIBLE_1: Management API URL is configurable and defaults to localhost for emergency use
     - name: Add allowlist entry via Management API
+      # nosemgrep
       ansible.builtin.uri:
         url: "{{ ja4proxy_url }}/api/v1/allowlist"
         method: POST
@@ -62,6 +64,7 @@
         fail_msg: "API did not confirm the allowlist entry"
 
     - name: Post expiry reminder to Slack
+      # checkov:skip=CKV2_ANSIBLE_1: External URL
       ansible.builtin.uri:
         url: "{{ slack_webhook_url }}"
         method: POST

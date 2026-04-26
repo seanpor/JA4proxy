@@ -72,19 +72,19 @@ sinks:
     default_token: "${SPLUNK_HEC_TOKEN}"
 
     # Route HEC metadata from event fields rather than hardcoding them
-    host_key:       "host"
-    source_key:     "source"
+    host_key: "host"
+    source_key: "source"
     sourcetype_key: "sourcetype"
-    index_key:      "index"
-    timestamp_key:  "time"
+    index_key: "index"
+    timestamp_key: "time"
 
     encoding:
       codec: json
 
     # Batching: keep individual requests under 1 MB and under 300 events
     batch:
-      max_bytes:   1048576   # 1 MB
-      max_events:  300
+      max_bytes: 1048576 # 1 MB
+      max_events: 300
       timeout_secs: 1
 
     # TLS: always verify in production
@@ -94,6 +94,6 @@ sinks:
 
     # Retry failed deliveries (network hiccup, HEC back-pressure)
     request:
-      retry_attempts:       5
+      retry_attempts: 5
       retry_initial_backoff_secs: 1
-      retry_max_duration_secs:    30
+      retry_max_duration_secs: 30

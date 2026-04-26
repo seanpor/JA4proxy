@@ -6,7 +6,7 @@
 image:
   repository: ja4proxy
   tag: latest
-  pullPolicy: IfNotPresent
+  pullPolicy: Always
 
 # Resource limits and requests
 resources:
@@ -40,9 +40,16 @@ config:
 # Security context
 securityContext:
   runAsNonRoot: true
-  runAsUser: 1000
-  runAsGroup: 1000
-  fsGroup: 1000
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
 
 # JA4PROXY-2026-0046: liveness and readiness probes. Both target the
 # Go proxy's /health endpoint on the metrics port. Defaults chosen for

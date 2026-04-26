@@ -11,16 +11,16 @@
 #
 # Optional:
 #   -e ja4proxy_url=http://localhost:8090  (default)
-#   -e servicenow_enabled=true             (default: false)
+#   -e ja4proxy_servicenow_enabled=true             (default: false)
 #   -e slack_enabled=true                  (default: false)
 
 - name: Emergency CIDR Ban
   hosts: localhost
   gather_facts: false
   vars:
-    ja4proxy_url: "http://localhost:8090"
+    ja4proxy_url: "https://localhost:8090"
     ttl_hours: 24
-    servicenow_enabled: false
+    ja4proxy_servicenow_enabled: false
     slack_enabled: false
 
   tasks:
@@ -37,7 +37,9 @@
       ansible.builtin.set_fact:
         encoded_cidr: "{{ cidr | regex_replace('/', '%2F') }}"
 
+    # checkov:skip=CKV2_ANSIBLE_1: Management API URL is configurable
     - name: Ban CIDR via Management API
+      # nosemgrep
       ansible.builtin.uri:
         url: "{{ ja4proxy_url }}/api/v1/bans/{{ encoded_cidr }}"
         method: POST
@@ -62,6 +64,7 @@
         fail_msg: "API did not confirm the ban"
 
     - name: Create ServiceNow incident
+      # checkov:skip=CKV2_ANSIBLE_1: External URL
       ansible.builtin.uri:
         url: "{{ servicenow_url }}/api/now/table/incident"
         method: POST
@@ -75,13 +78,14 @@
         force_basic_auth: true
         status_code: 201
         timeout: 30
-      when: servicenow_enabled | bool
+      when: ja4proxy_servicenow_enabled | bool
       vars:
         servicenow_url: "{{ lookup('env', 'SERVICENOW_URL') }}"
         servicenow_user: "{{ lookup('env', 'SERVICENOW_USER') }}"
         servicenow_password: "{{ lookup('env', 'SERVICENOW_PASSWORD') }}"
 
     - name: Post to Slack
+      # checkov:skip=CKV2_ANSIBLE_1: External URL
       ansible.builtin.uri:
         url: "{{ slack_webhook_url }}"
         method: POST

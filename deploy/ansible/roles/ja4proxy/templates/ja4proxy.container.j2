@@ -11,8 +11,8 @@ PublishPort={{ ja4proxy_bind_address }}:{{ ja4proxy_host_port_ingress }}:{{ ja4p
 PublishPort=127.0.0.1:{{ ja4proxy_metrics_port }}:{{ ja4proxy_metrics_port }}
 
 # Environment
-Environment=BACKEND_HOST={{ backend_host }}
-Environment=BACKEND_PORT={{ backend_port }}
+Environment=BACKEND_HOST={{ ja4proxy_backend_host }}
+Environment=BACKEND_PORT={{ ja4proxy_backend_port }}
 Environment=REDIS_HOST={{ ja4proxy_redis_host }}
 Environment=REDIS_PORT={{ ja4proxy_redis_port }}
 

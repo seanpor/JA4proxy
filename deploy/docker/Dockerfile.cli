@@ -30,6 +30,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     ./cmd/ja4proxy-cli/
 
 # ── Runtime stage ─────────────────────────────────────────────────────────────
+# checkov:skip=CKV_DOCKER_2: CLI tool is short-lived and doesn't run a service
 FROM gcr.io/distroless/static-debian12:nonroot
 
 COPY --from=builder /build/ja4proxy-cli /usr/local/bin/ja4proxy-cli

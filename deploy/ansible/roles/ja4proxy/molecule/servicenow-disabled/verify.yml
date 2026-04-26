@@ -5,9 +5,9 @@
   gather_facts: false
 
   tasks:
-    - name: Confirm servicenow_enabled default is false
+    - name: Confirm ja4proxy_servicenow_enabled default is false
       ansible.builtin.debug:
-        msg: "ServiceNow CMDB registration was skipped (servicenow_enabled=false)"
+        msg: "ServiceNow CMDB registration was skipped (ja4proxy_servicenow_enabled=false)"
 
     - name: Verify no ServiceNow artifacts in role files
       ansible.builtin.command:
@@ -19,4 +19,4 @@
       ansible.builtin.assert:
         that:
           - grep_result.stdout | length == 0
-        fail_msg: "ServiceNow tasks should not run when servicenow_enabled is false"
+        fail_msg: "ServiceNow tasks should not run when ja4proxy_servicenow_enabled is false"

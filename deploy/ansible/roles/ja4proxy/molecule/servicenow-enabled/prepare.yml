@@ -69,6 +69,7 @@
         creates: /tmp/servicenow-stub/server.pid
 
     - name: Wait for stub to be ready
+      # checkov:skip=CKV2_ANSIBLE_1: Local test stub uses HTTP
       ansible.builtin.uri:
         url: "http://127.0.0.1:18080/api/now/table/cmdb_ci_server"
         method: GET

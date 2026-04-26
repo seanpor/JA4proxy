@@ -74,7 +74,7 @@ sinks:
     # API key authentication (recommended over username/password)
     auth:
       strategy: api_key
-      api_key:  "${ELASTIC_API_KEY}"
+      api_key: "${ELASTIC_API_KEY}"
 
     # Use the `_index` field computed in the transform
     bulk:
@@ -89,8 +89,8 @@ sinks:
 
     # Batching: Elasticsearch bulk API is most efficient at 5–15 MB per request
     batch:
-      max_bytes:    5242880   # 5 MB
-      max_events:   1000
+      max_bytes: 5242880 # 5 MB
+      max_events: 1000
       timeout_secs: 5
 
     # TLS
@@ -100,8 +100,8 @@ sinks:
 
     # Retry on 429 (bulk queue full) and 503 (circuit breaker)
     request:
-      retry_attempts:             5
+      retry_attempts: 5
       retry_initial_backoff_secs: 1
-      retry_max_duration_secs:    60
+      retry_max_duration_secs: 60
       # Concurrency: 2 in-flight bulk requests is safe for most clusters
       concurrency: 2

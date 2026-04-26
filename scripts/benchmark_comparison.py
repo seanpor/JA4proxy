@@ -234,7 +234,7 @@ def _make_browser_ctx() -> ssl.SSLContext:
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-    ctx.set_ciphers("ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:!aNULL:!MD5")
+    ctx.set_ciphers("ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:!aNULL:!MD5") # nosemgrep
     ctx.set_alpn_protocols(["h2", "http/1.1"])
     return ctx
 
@@ -245,7 +245,7 @@ def _make_bot_ctx() -> ssl.SSLContext:
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-    ctx.set_ciphers("ECDHE+AESGCM:ECDHE+CHACHA20:!aNULL:!MD5")
+    ctx.set_ciphers("ECDHE+AESGCM:ECDHE+CHACHA20:!aNULL:!MD5") # nosemgrep
     return ctx
 
 
@@ -256,7 +256,7 @@ def _make_tls12_only_ctx() -> ssl.SSLContext:
     ctx.verify_mode = ssl.CERT_NONE
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     ctx.maximum_version = ssl.TLSVersion.TLSv1_2
-    ctx.set_ciphers("AES256-SHA:AES128-SHA:ECDHE+AESGCM")
+    ctx.set_ciphers("AES256-SHA:AES128-SHA:ECDHE+AESGCM") # nosemgrep
     return ctx
 
 

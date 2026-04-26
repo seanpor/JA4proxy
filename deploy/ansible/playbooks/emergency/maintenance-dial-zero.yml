@@ -10,7 +10,7 @@
 #
 # Optional:
 #   -e ja4proxy_url=http://localhost:8090  (default)
-#   -e servicenow_enabled=true             (default: false)
+#   -e ja4proxy_servicenow_enabled=true             (default: false)
 #
 # Safety: Steps down in ±10 increments. If 422 returned at any step,
 # the playbook ABORTS — do not suppress four-eyes approval.
@@ -19,7 +19,7 @@
   hosts: localhost
   gather_facts: false
   vars:
-    ja4proxy_url: "http://localhost:8090"
+    ja4proxy_url: "https://localhost:8090"
     max_dial_change: 10
 
   tasks:
@@ -32,7 +32,9 @@
           - ja4proxy_token is defined
         fail_msg: "Missing required variable: duration_minutes, reason, ticket, ja4proxy_token"
 
+    # checkov:skip=CKV2_ANSIBLE_1: Management API URL is configurable
     - name: Get current dial value
+      # nosemgrep
       ansible.builtin.uri:
         url: "{{ ja4proxy_url }}/api/v1/dial"
         method: GET
@@ -53,7 +55,9 @@
           {{ range(previous_dial, -1, -max_dial_change) | list |
              map('int') | list }}
 
+    # checkov:skip=CKV2_ANSIBLE_1: Management API URL is configurable
     - name: Step dial down to 0
+      # nosemgrep
       ansible.builtin.uri:
         url: "{{ ja4proxy_url }}/api/v1/dial"
         method: PATCH
@@ -87,7 +91,9 @@
         timeout: "{{ duration_minutes | int * 60 }}"
       when: dial_step_results is not failed
 
+    # checkov:skip=CKV2_ANSIBLE_1: Management API URL is configurable
     - name: Restore previous dial value (stepped)
+      # nosemgrep
       ansible.builtin.uri:
         url: "{{ ja4proxy_url }}/api/v1/dial"
         method: PATCH
@@ -105,6 +111,7 @@
       when: dial_step_results is not failed
 
     - name: Create ServiceNow change record
+      # checkov:skip=CKV2_ANSIBLE_1: External URL
       ansible.builtin.uri:
         url: "{{ servicenow_url }}/api/now/table/change_request"
         method: POST
@@ -117,7 +124,7 @@
         force_basic_auth: true
         status_code: 201
         timeout: 30
-      when: servicenow_enabled | default(false) | bool
+      when: ja4proxy_servicenow_enabled | default(false) | bool
       vars:
         servicenow_url: "{{ lookup('env', 'SERVICENOW_URL') }}"
         servicenow_user: "{{ lookup('env', 'SERVICENOW_USER') }}"

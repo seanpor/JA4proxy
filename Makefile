@@ -1176,6 +1176,18 @@ lint-helm:
 		lint /charts/ja4proxy \
 		&& echo "✓ Helm chart valid"
 
+# actionlint: GitHub Actions workflow validation — catches syntax errors,
+# invalid triggers, bad property names, and shell injection risks.
+lint-github-actions:
+	@echo "=== actionlint: GitHub Actions workflow validation ==="
+	@docker run --rm \
+		-v "$(PWD):/repo:ro" \
+		rhysd/actionlint:latest \
+		-color \
+		-shellcheck= \
+		/repo/.github/workflows/*.yml \
+		&& echo "✓ GitHub Actions valid"
+
 # ansible-lint: Ansible semantic validation — catches shell-when-command-works,
 # hardcoded passwords, missing become, handler ordering, deprecated modules.
 lint-ansible:
@@ -1223,6 +1235,7 @@ lint-makefiles:
 	@docker run --rm \
 		-v "$(PWD):/repo:ro" \
 		cytopia/checkmake:latest \
+		--config=/repo/.checkmake.ini \
 		/repo/Makefile \
 		&& echo "✓ Makefile lint passed"
 
@@ -1247,13 +1260,17 @@ lint-sast: lint-semgrep lint-checkov
 # Infrastructure: every file-type validator for deployed/config artefacts
 lint-infra: lint-docker lint-shell lint-yaml lint-lua lint-json \
             lint-haproxy lint-makefiles lint-toml lint-ansible lint-helm \
-            lint-phase-89
+            lint-github-actions lint-phase-89 scan-dockerfiles
 
 # Observability config: Prometheus alert/recording rules + Alertmanager
 lint-observability: lint-prom lint-alertmanager
 
-# Supply chain: secrets committed to history + CVE dep scan
+# Supply chain: secrets committed to history + CVE dep scan + image CVEs (advisory)
 lint-supply-chain: lint-secrets lint-deps
+	@echo "=== Supply Chain: Advisory image and filesystem scans ==="
+	@docker run --rm -v "$(PWD):/repo" aquasec/trivy:0.69.3 fs /repo --severity HIGH,CRITICAL --exit-code 0 || true
+	@make scan-images || true
+	@make scan-first-party || true
 
 # Documentation: frontmatter + phase consistency + links + structure + spelling
 lint-docs-all: lint-docs lint-phases link-check check-paths lint-markdown lint-spelling
@@ -1277,7 +1294,9 @@ test-phase-93:
 .PHONY: lint-pylint lint-semgrep lint-checkov lint-haproxy lint-helm lint-ansible \
         lint-markdown lint-spelling lint-toml lint-makefiles lint-go-mod \
         lint-python lint-go lint-sast lint-infra lint-observability \
-        lint-supply-chain lint-docs-all lint-all check-paths test-phase-92 test-phase-93 sync \
+        lint-github-actions \
+        lint-supply-chain \
+        lint-docs-all lint-all check-paths test-phase-92 test-phase-93 sync \
         lint-phase-89 test-phase-89-lint test-phases
 
 # ── Phase-level aggregates ──────────────────────────────────────────────────

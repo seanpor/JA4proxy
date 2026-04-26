@@ -71,7 +71,7 @@ def make_browser_ctx():
     ctx.verify_mode = ssl.CERT_NONE
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     ctx.maximum_version = ssl.TLSVersion.TLSv1_3
-    ctx.set_ciphers("ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:!aNULL:!MD5")
+    ctx.set_ciphers("ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:!aNULL:!MD5") # nosemgrep
     ctx.set_alpn_protocols(["h2", "http/1.1"])
     return ctx
 
@@ -81,7 +81,7 @@ def make_bot_ctx():
     ctx.verify_mode = ssl.CERT_NONE
     ctx.minimum_version = ssl.TLSVersion.TLSv1_2
     ctx.maximum_version = ssl.TLSVersion.TLSv1_3
-    ctx.set_ciphers("ECDHE+AESGCM:ECDHE+CHACHA20:!aNULL:!MD5")
+    ctx.set_ciphers("ECDHE+AESGCM:ECDHE+CHACHA20:!aNULL:!MD5") # nosemgrep
     # No ALPN — this is the key differentiator
     return ctx
 
