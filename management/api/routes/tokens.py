@@ -1,4 +1,4 @@
-"""Bearer token CRUD endpoints — Phase 79 Cluster 1.
+"""Bearer token CRUD endpoints — MFA/SSO Hardening Cluster 1.
 
 Routes
 ------

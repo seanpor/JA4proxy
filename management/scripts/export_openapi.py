@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Export the management API OpenAPI spec to docs/api/.
 
-Generates both openapi.yaml (canonical, required by Phase 79 acceptance criteria)
+Generates both openapi.yaml (canonical, required by MFA/SSO Hardening acceptance criteria)
 and openapi.json (convenience copy for tooling that prefers JSON).
 
 Usage:

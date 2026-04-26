@@ -1,4 +1,4 @@
-"""Executive compliance report renderer — Phase 84.
+"""Executive compliance report renderer — Compliance Reporting.
 
 Renders the CISO/board executive report as HTML (always) or PDF (requires
 WeasyPrint + system libraries).  Called by ``POST /api/v1/compliance/report``.

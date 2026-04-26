@@ -1,4 +1,4 @@
-"""TDD tests for Phase 79 Cluster 4 — New REST Endpoints.
+"""TDD tests for MFA/SSO Hardening Cluster 4 — New REST Endpoints.
 
 Seven endpoint groups are tested here.  All tests are written to FAIL
 against the current codebase — none of the routes exist yet.

@@ -3,7 +3,7 @@
 Trigger mechanisms:
   1. SIGHUP signal → reloads config/proxy.yml
   2. Redis pub/sub message {"type": "config_reload"} → same effect
-  3. Management UI (Phase 13) sends pub/sub message
+  3. Management UI (Management API) sends pub/sub message
 
 Keys that CANNOT be hot-reloaded (require process restart):
   proxy.bind_host    — requires socket rebind

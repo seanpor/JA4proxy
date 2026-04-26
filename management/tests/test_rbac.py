@@ -1,4 +1,4 @@
-"""TDD tests for Phase 79 Cluster 2 — RBAC Role Enforcement.
+"""TDD tests for MFA/SSO Hardening Cluster 2 — RBAC Role Enforcement.
 
 These tests are written to FAIL against the current codebase because
 ``require_role(minimum_role)`` does not yet exist and most endpoints

@@ -1,4 +1,4 @@
-"""WebAuthn / FIDO2 MFA endpoints — Phase 79 Cluster 7.
+"""WebAuthn / FIDO2 MFA endpoints — MFA/SSO Hardening Cluster 7.
 
 Routes
 ------
@@ -372,7 +372,7 @@ async def webauthn_auth_complete(
     return JSONResponse(content={"verified": True})
 
 
-# ── Credential management (Gap 3 — Phase 100) ────────────────────────────────
+# ── Credential management (Gap 3 — Production Readiness) ────────────────────────────────
 
 
 @router.get("/auth/mfa/webauthn/credentials")

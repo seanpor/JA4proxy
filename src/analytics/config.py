@@ -21,7 +21,7 @@ def load_config(config_file: str) -> Dict[str, Any]:
                                 shared ``threat_intel:`` block (default:
                                 ``config/proxy.yml``). Only the
                                 ``threat_intel`` key is consumed.
-      JA4PROXY_MGMT_BASE_URL  — phase-85: base URL of the Phase 79 Management
+      JA4PROXY_MGMT_BASE_URL  — phase-85: base URL of the MFA/SSO Hardening Management
                                 API used by the threat-intel feed runner
                                 (default: ``http://management:8090``).
     """

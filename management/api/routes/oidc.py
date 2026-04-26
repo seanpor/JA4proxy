@@ -1,4 +1,4 @@
-"""OIDC SSO endpoints — Phase 79 Cluster 9.
+"""OIDC SSO endpoints — MFA/SSO Hardening Cluster 9.
 
 Routes (all public — no JWT required; they are part of the login flow)
 ------
@@ -68,7 +68,7 @@ router = APIRouter(tags=["sso"])
 
 _STATE_TTL = 300  # 5 minutes
 
-# ── JWKS cache (Gap 1 — Phase 100) ───────────────────────────────────────────
+# ── JWKS cache (Gap 1 — Production Readiness) ───────────────────────────────────────────
 
 _jwks_cache: dict[str, tuple[object, float]] = {}  # uri → (key_set, expires_at)
 _jwks_lock = asyncio.Lock()  # prevents duplicate concurrent JWKS fetches
@@ -452,7 +452,7 @@ async def oidc_callback(
             detail="Token exchange failed",
         )
 
-    # Verify ID token signature and extract claims (Gap 1 — Phase 100)
+    # Verify ID token signature and extract claims (Gap 1 — Production Readiness)
     id_token = token_response.get("id_token", "")
     try:
         claims = await _extract_claims(id_token, jwks_uri)
@@ -479,7 +479,7 @@ async def oidc_callback(
 
     token = _create_access_token(sub, role=role.value)
 
-    # Gap 4 (Phase 100): SSO-delegated MFA trust
+    # Gap 4 (Production Readiness): SSO-delegated MFA trust
     _MFA_SESSION_TTL = 8 * 3600
     trust_idp_mfa = os.environ.get("MANAGEMENT_SSO_TRUST_IDP_MFA", "false").lower() == "true"
     if trust_idp_mfa:
@@ -500,7 +500,7 @@ async def oidc_callback(
         secure=_should_set_secure_cookie(request),
     )
 
-    # Gap 2 (Phase 100): audit SSO login event
+    # Gap 2 (Production Readiness): audit SSO login event
     await write_audit(
         redis,
         actor_id=sub,
