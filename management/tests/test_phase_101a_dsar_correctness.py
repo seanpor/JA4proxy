@@ -79,6 +79,26 @@ async def auditor_client(fake_redis):
     await _redis_module.close_redis()
 
 
+@pytest_asyncio.fixture
+async def admin_client(fake_redis):
+    """Admin client with redis for Phase 101a erase-path tests.
+
+    GDPR Article 17 erasure (DELETE) requires admin role; auditor cannot
+    invoke it. Provide a separate fixture rather than parameterising
+    auditor_client to keep test intent legible.
+    """
+    app = create_app()
+    await _redis_module.init_redis(override_client=fake_redis)
+    token = _create_access_token("admin-user", role="admin")
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        cookies={"token": token},
+    ) as client:
+        yield client, fake_redis
+    await _redis_module.close_redis()
+
+
 # ── H1: DSAR single XRANGE call ───────────────────────────────────────────────
 
 
@@ -290,14 +310,139 @@ async def test_dsar_connection_history_returns_empty_on_error(auditor_client):
 
 @pytest.mark.asyncio
 async def test_dsar_xrange_metric_wired(auditor_client):
-    """The ja4proxy_dsar_xrange_len metric should be wired.
-
-    H1 fix requires emitting a gauge metrics after XRANGE.
-    This test documents the requirement - check metrics registry.
+    """The DSAR XRANGE-length gauge is exposed via Redis key
+    ``management:dsar:last_xrange_len`` (analytics node re-emits it as
+    ``ja4proxy_dsar_xrange_len``). After a DSAR call, the key must
+    exist with a numeric value matching the rows actually swept.
     """
-    # After H1 is fixed, verify the metric exists in the registry
-    # For now, document the requirement
-    pytest.skip("H1 fix pending - metric ja4proxy_dsar_xrange_len needed")
+    client, redis = auditor_client
+
+    # Seed exactly 7 events into the stream.
+    now = datetime.now(timezone.utc).isoformat()
+    for i in range(7):
+        await redis.xadd(
+            "ja4proxy:events",
+            {
+                "ip": "10.0.0.7",
+                "timestamp": now,
+                "action_taken": "allow",
+                "ja4": f"JA4METRIC{i}",
+                "risk_score": "5",
+            },
+        )
+
+    # Pre-condition: key must not exist before the DSAR call.
+    assert not await redis.exists("management:dsar:last_xrange_len"), (
+        "Test bug — metric key already populated before DSAR"
+    )
+
+    r = await client.get("/api/v1/compliance/dsar/10.0.0.7")
+    assert r.status_code == 200
+
+    raw = await redis.get("management:dsar:last_xrange_len")
+    assert raw is not None, (
+        "DSAR did not write management:dsar:last_xrange_len after sweep"
+    )
+    assert int(raw) == 7, (
+        f"DSAR xrange_len metric mismatch: expected 7 rows, got {raw!r}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_dsar_partial_failures_counter_wired(auditor_client):
+    """When a DSAR sweep raises, ``management:dsar:partial_failures_total``
+    must be incremented by the number of failed categories (currently
+    2 — connection_history and fingerprint_associations are paired).
+    """
+    client, redis = auditor_client
+
+    # Force an exception inside the sweep by patching xrange.
+    real_xrange = redis.xrange
+
+    async def boom(*args, **kwargs):
+        raise unittest.mock.Mock(spec=Exception, side_effect=RuntimeError)("boom")
+
+    # Use a real exception, not a mock. Patch at module level so the
+    # DSAR handler's call to redis.xrange (via _iter_dsar_stream_batches)
+    # raises.
+    async def really_boom(*args, **kwargs):
+        raise RuntimeError("simulated redis failure")
+
+    redis.xrange = really_boom  # type: ignore[method-assign]
+    try:
+        r = await client.get("/api/v1/compliance/dsar/9.9.9.9")
+    finally:
+        redis.xrange = real_xrange  # type: ignore[method-assign]
+    assert r.status_code == 200
+    body = r.json()
+    assert body.get("partial_failures") == [
+        "connection_history", "fingerprint_associations",
+    ], f"Expected paired partial_failures, got {body.get('partial_failures')}"
+
+    counter = await redis.get("management:dsar:partial_failures_total")
+    assert counter is not None, "DSAR did not write partial_failures counter"
+    assert int(counter) == 2, (
+        f"Expected counter increment of 2 (one per failed category), "
+        f"got {counter!r}"
+    )
+
+
+# ── H3 erase semantics — CIDR overlap must be reported, not blindly deleted ──
+
+
+@pytest.mark.asyncio
+async def test_dsar_erase_cidr_block_surfaced_as_skipped(admin_client):
+    """Erasing a single IP must NOT delete a /24 (or any prefix < /32)
+    watchlist entry — that would silently strip security coverage from
+    other subjects. The CIDR-covering entry must instead appear in
+    ``skipped`` with an explanatory reason.
+    """
+    client, redis = admin_client
+
+    # Two entries: an exact match (should be erased) and a /24 cover
+    # (should be reported in skipped, not deleted).
+    await redis.hset(
+        "watchlist:entry:exact",
+        mapping={"entry": "10.0.0.5", "added_by": "admin", "reason": "exact"},
+    )
+    await redis.sadd("watchlist:idx", "exact")
+    await redis.hset(
+        "watchlist:entry:cover",
+        mapping={"entry": "10.0.0.0/24", "added_by": "admin", "reason": "cover"},
+    )
+    await redis.sadd("watchlist:idx", "cover")
+
+    r = await client.request(
+        "DELETE",
+        "/api/v1/compliance/dsar/10.0.0.5",
+        json={"ticket": "TKT-123"},
+        headers={"X-Forwarded-For": "203.0.113.1"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+
+    # Exact-match entry must be in erased_keys.
+    assert any("watchlist:entry:exact" in k for k in body["erased_keys"]), (
+        f"Exact watchlist entry not erased: {body['erased_keys']}"
+    )
+    # CIDR-cover entry must NOT be erased.
+    assert not any("watchlist:entry:cover" in k for k in body["erased_keys"]), (
+        f"/24 watchlist entry was erased — would strip coverage from 254 "
+        f"other subjects: {body['erased_keys']}"
+    )
+    # CIDR-cover entry must be surfaced in skipped with a reason.
+    cover_skips = [s for s in body["skipped"] if "cover" in s.get("key", "")]
+    assert len(cover_skips) == 1, (
+        f"Expected /24 entry in skipped, got {body['skipped']}"
+    )
+    assert "10.0.0.0/24" in cover_skips[0]["reason"], (
+        f"Skip reason must name the network: {cover_skips[0]['reason']}"
+    )
+
+    # And after the call: the cover entry still exists in Redis.
+    assert await redis.exists("watchlist:entry:cover"), (
+        "Cover entry was deleted from Redis despite being reported as skipped"
+    )
 
 
 # ── Acceptance criteria check ───────────────────────────────────────────────

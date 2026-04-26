@@ -1,5 +1,47 @@
 # Changelog
 
+## [Unreleased] - Phase 101a complete — DSAR metric wiring + erase CIDR semantics (2026-04-26)
+
+Closes Phase 101 sub-phase **101a** (Phase 84 DSAR correctness — H1, H3, M7).
+H1 (single XRANGE per request), H3 (CIDR matching for `_dsar_watchlist_entries`),
+and M7 (`partial_failures` reporting on Redis errors) functional code already
+landed earlier. This commit lands the two remaining pieces and closes 101a:
+
+### Added
+- `management/api/routes/compliance.py`: write `management:dsar:last_xrange_len`
+  (count of stream rows scanned per DSAR call) and increment
+  `management:dsar:partial_failures_total` (one per failed category) into
+  Redis after each DSAR export. Follows the existing pattern: management
+  API writes counters to Redis, analytics node re-emits as Prometheus
+  series — no new registry in the API process.
+- `management/tests/test_phase_101a_dsar_correctness.py`:
+  - `test_dsar_xrange_metric_wired` (de-skipped, was xfail) — seeds 7
+    events, calls DSAR, asserts `int(redis.get("management:dsar:last_xrange_len")) == 7`.
+  - `test_dsar_partial_failures_counter_wired` (new) — patches
+    `redis.xrange` to raise `RuntimeError`, asserts response carries
+    `partial_failures: ["connection_history", "fingerprint_associations"]`
+    and the Redis counter incremented by 2.
+  - `test_dsar_erase_cidr_block_surfaced_as_skipped` (new) — seeds an
+    exact-match `10.0.0.5` and a `/24` cover entry, calls
+    `DELETE /api/v1/compliance/dsar/10.0.0.5`, asserts the exact entry
+    is in `erased_keys`, the `/24` entry is NOT erased, and the `/24`
+    entry appears in `skipped` with a reason naming the network. This
+    honours GDPR Article 17's "rights of others" limitation: erasing a
+    `/24` watchlist entry to satisfy one subject's request would silently
+    strip security coverage from 254 unrelated subjects.
+
+### Changed
+- `management/api/routes/compliance.py` erase path: differentiate exact
+  string match (delete), single-host `/32` v4 or `/128` v6 CIDR (delete),
+  and broader CIDR cover (skip with explanatory reason). Previously the
+  code did literal-string compare only, so a watchlist entry stored as
+  `10.0.0.5/32` would not match a DSAR for `10.0.0.5`.
+
+### Phase status
+- `docs/phases/manifest.yaml`: `101a` annotated `COMPLETE 2026-04-26`.
+- `docs/phases/PHASE_101.md`: all 8 acceptance boxes ticked, status line
+  updated. Still open: 101d-H8, 101l.
+
 ## [Unreleased] - Phase 101d H7 — manual-poll rate limit (2026-04-26)
 
 Closes the H7 HIGH gap from Phase 101 sub-phase **101d** (Phase 85

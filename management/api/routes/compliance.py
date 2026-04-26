@@ -59,6 +59,14 @@ _AUDIT_KEY = "management:audit_log"
 # single batch is bounded in memory regardless of event size.
 _DSAR_STREAM_BATCH_SIZE = 1000
 
+# 101a — Redis-backed DSAR metric keys. The management API has no
+# Prometheus exposition of its own; the analytics node (which already
+# runs a Prometheus client) periodically samples these keys and re-emits
+# them as ja4proxy_dsar_xrange_len (gauge) and
+# ja4proxy_dsar_export_partial_failures_total (counter).
+_DSAR_XRANGE_LEN_KEY = "management:dsar:last_xrange_len"
+_DSAR_PARTIAL_FAILURES_TOTAL_KEY = "management:dsar:partial_failures_total"
+
 # Logo validation limits — the base64 payload carries ~33% overhead, so
 # 1.4MB of base64 ≈ 1MB of binary.  The field docs say "≤1MB"; enforce it.
 _LOGO_MAX_BASE64_BYTES = 1_400_000
@@ -399,8 +407,13 @@ async def dsar_export(
     partial_failures: list[str] = []
     connection_history: list[dict] = []
     fp_seen: dict[str, dict] = {}
+    # 101a-H1: count rows swept so the analytics node can re-export the
+    # gauge as ja4proxy_dsar_xrange_len. Written to a Redis string after
+    # the sweep so a single value reflects the most recent DSAR.
+    xrange_len = 0
     try:
         async for batch in _iter_dsar_stream_batches(redis):
+            xrange_len += len(batch)
             for _, fields in batch:
                 if fields.get("ip") != ip:
                     continue
@@ -424,6 +437,13 @@ async def dsar_export(
     except Exception:
         partial_failures.append("connection_history")
         partial_failures.append("fingerprint_associations")
+
+    # 101a-H1 metric write — fail-open: a Redis blip on the metric write
+    # must never poison the DSAR response itself (Article 15 obligation).
+    try:
+        await redis.set(_DSAR_XRANGE_LEN_KEY, xrange_len)
+    except Exception as exc:
+        logger.debug("compliance | event=dsar_xrange_len_metric_failed | err=%s", exc)
 
     fingerprint_associations = list(fp_seen.values())
 
@@ -469,6 +489,15 @@ async def dsar_export(
         payload["partial_failures"] = partial_failures
         payload["data_unavailable"] = True
         logger.warning("compliance | event=dsar_partial_failure | failed_categories=%s", partial_failures)
+        # 101a-M7 metric: one INCRBY per failed category so the analytics
+        # node sees a real per-category count, not just per-request.
+        try:
+            await redis.incrby(_DSAR_PARTIAL_FAILURES_TOTAL_KEY, len(partial_failures))
+        except Exception as exc:
+            logger.debug(
+                "compliance | event=dsar_partial_failures_metric_failed | err=%s",
+                exc,
+            )
 
     return Response(
         content=json.dumps(payload, indent=2, default=str),
@@ -512,18 +541,57 @@ async def dsar_erase(
         if cursor == 0:
             break
 
-    # 3. Watchlist entries — scan watchlist:entry:* for ip matches
+    # 3. Watchlist entries — scan watchlist:entry:* for ip matches.
+    #
+    # 101a-H3 erase semantics: an exact-match watchlist entry IS personal
+    # data about this subject and gets erased. A CIDR-covering entry
+    # (e.g. /24, /48) is data about a *network* containing many subjects;
+    # erasing it would silently strip security coverage from unrelated
+    # IPs and is its own data-protection violation. So we surface the
+    # overlap in `skipped` with an explicit reason rather than delete.
+    try:
+        target_ip = ipaddress.ip_address(ip)
+    except ValueError:
+        target_ip = None
     cursor = 0
     while True:
         cursor, keys = await redis.scan(cursor=cursor, match="watchlist:entry:*", count=100)
         for key in keys:
-            entry_ip = await redis.hget(key, "entry")
-            if entry_ip == ip:
+            entry_value = await redis.hget(key, "entry")
+            if entry_value is None:
+                continue
+            if entry_value == ip:
                 entry_id = key.split(":")[-1]
-                # Remove from index
                 await redis.srem("watchlist:idx", entry_id)
                 await redis.delete(key)
                 erased_keys.append(key)
+                continue
+            if target_ip is None:
+                continue
+            try:
+                network = ipaddress.ip_network(entry_value, strict=False)
+            except ValueError:
+                continue
+            if network.prefixlen == network.max_prefixlen:
+                # /32 v4 or /128 v6 — single host, indistinguishable from
+                # an exact match. Erase it.
+                if target_ip in network:
+                    entry_id = key.split(":")[-1]
+                    await redis.srem("watchlist:idx", entry_id)
+                    await redis.delete(key)
+                    erased_keys.append(key)
+                continue
+            if target_ip in network:
+                skipped.append(
+                    {
+                        "key": key,
+                        "reason": (
+                            f"watchlist entry covers a network ({entry_value}) "
+                            f"containing other subjects — legitimate interest "
+                            f"override, cannot be erased without affecting them"
+                        ),
+                    }
+                )
         if cursor == 0:
             break
 
