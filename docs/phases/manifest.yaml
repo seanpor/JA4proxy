@@ -1589,7 +1589,7 @@ phases:
       101d: Phase 85 SSRF/rate-limit/CSRF (H6, H7, H8) — M, depends 101c — COMPLETE 2026-04-26 (H6 connector wrap, H7 rate limit, H8 CSRF middleware)
       101e: Phase 85 regional endpoints (H9, H10) — XS, no deps — COMPLETE 2026-04-26
       101f: Phase 85 test reshape (H11, H12) — M, depends 101c — COMPLETE 2026-04-26 (audit confirmed 5 files green, no xfail)
-      101g: Phase 85 medium items (M8–M14) — M, no deps (any order) — PARTIAL 2026-04-26 (M8/M9/M11/M12/M13/M14 done; M10 still open — semantics under review)
+      101g: Phase 85 medium items (M8–M14) — M, no deps (any order) — COMPLETE 2026-04-26 (M8/M9/M11/M12/M13/M14 implemented; M10 closed as DECIDED-KEEP-AS-GAUGE — Counter would corrupt rate()/increase(); cleanup-delta lives in TI_CLEANUP_REMOVALS Counter)
       101h: Phase 85 low items (L6–L8) — XS, depends 101g — COMPLETE 2026-04-26 (L6 docstring verified, L8 metrics registry confirmed; L7 runbooks documented as untested per acceptance language)
       101i: Phase 62 Go test parity (M15, M16, L9) — XS, no deps — DEFERRED (Go feature gaps require Go implementation capacity)
       101j: Phase 64 deploy validation (M18, M19) — XS, M19 COMPLETE 2026-04-26; M18 BLOCKED on Phase 76 quadlet files
