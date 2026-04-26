@@ -44,7 +44,8 @@ LABEL org.opencontainers.image.source="https://github.com/anomalyco/JA4proxy" \
 # Non-root user for least-privilege operation.
 # Explicit UID/GID 1000 required by Pod Security Admission `restricted` and
 # the industry-standard `runAsUser: 1000` policy (see ADR-202c).
-RUN addgroup -g 1000 -S ja4proxy && adduser -u 1000 -S -G ja4proxy ja4proxy
+RUN apk add --no-cache curl && \
+    addgroup -g 1000 -S ja4proxy && adduser -u 1000 -S -G ja4proxy ja4proxy
 
 # CA certificates for TLS verification (backend connections).
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
@@ -60,5 +61,8 @@ USER 1000:1000
 WORKDIR /app
 
 EXPOSE 8080 9090
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:9090/health || exit 1
 
 ENTRYPOINT ["/usr/local/bin/ja4proxy"]

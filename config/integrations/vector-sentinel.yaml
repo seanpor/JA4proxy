@@ -74,7 +74,7 @@ sinks:
 
     # Log Analytics workspace credentials
     customer_id: "${SENTINEL_WORKSPACE_ID}"
-    shared_key:  "${SENTINEL_SHARED_KEY}"
+    shared_key: "${SENTINEL_SHARED_KEY}"
 
     # Custom table name — Sentinel appends _CL automatically.
     # Hard-coded here because VRL event fields (._log_type) cannot be referenced
@@ -89,11 +89,11 @@ sinks:
 
     # Batching: Azure Monitor Logs API accepts up to 30 MB per request
     batch:
-      max_bytes:    1048576   # 1 MB — conservative to avoid 413 responses
+      max_bytes: 1048576 # 1 MB — conservative to avoid 413 responses
       timeout_secs: 5
 
     # Retry on transient HTTP 429 / 503 responses
     request:
-      retry_attempts:             5
+      retry_attempts: 5
       retry_initial_backoff_secs: 2
-      retry_max_duration_secs:    60
+      retry_max_duration_secs: 60

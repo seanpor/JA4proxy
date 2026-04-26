@@ -7,6 +7,7 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
+  namespace: {{ .Values.namespace | default "ja4proxy" }}
   name: ja4proxy-redis
   labels:
     app: ja4proxy-redis
@@ -20,6 +21,7 @@ spec:
       app: ja4proxy-redis
   template:
     metadata:
+  namespace: {{ .Values.namespace | default "ja4proxy" }}
       labels:
         app: ja4proxy-redis
     spec:
@@ -70,6 +72,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  namespace: {{ .Values.namespace | default "ja4proxy" }}
   name: ja4proxy-redis
   labels:
     app: ja4proxy-redis

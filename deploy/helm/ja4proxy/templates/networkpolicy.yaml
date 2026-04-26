@@ -10,6 +10,7 @@ tier can set enabled=false to avoid duplicate policies.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  namespace: {{ .Values.namespace | default "ja4proxy" }}
   name: ja4proxy-ingress
   labels:
     app: ja4proxy
@@ -58,6 +59,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  namespace: {{ .Values.namespace | default "ja4proxy" }}
   name: ja4proxy-egress
   labels:
     app: ja4proxy

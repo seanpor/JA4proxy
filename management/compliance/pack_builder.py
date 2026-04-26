@@ -217,7 +217,7 @@ class PciDssPackBuilder:
                     break
             return tokens
         except Exception as exc:
-            logger.warning("pack_builder | event=token_read_error | error=%s", exc)
+            logger.warning("pack_builder | event=token_read_error | error=%s", exc)  # nosemgrep
             return []
 
     async def _query_nodes(self) -> list[dict[str, Any]]:

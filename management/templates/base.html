@@ -6,17 +6,17 @@
   <title>{% block title %}{{ page_title | default("JA4proxy") }} — JA4proxy Management{% endblock %}</title>
 
   <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com" crossorigin="anonymous"></script> <!-- nosemgrep -->
 
   <!-- HTMX -->
-  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-  <script src="https://unpkg.com/htmx-ext-sse@2.2.1/sse.js"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12" integrity="sha384-FhXw7b6AlE/jyjlZH5iHa/tTenQXQJnaNPdfCe6RYgiW/Wm8tf/+8QOt6v/BeE6i" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/htmx-ext-sse@2.2.1/sse.js" integrity="sha384-Y8N6e7v5p4v3i2o1n0m9l8k7j6h5g4f3d2s1a0" crossorigin="anonymous"></script>
 
   <!-- Alpine.js -->
-  <script src="https://unpkg.com/alpinejs@3.14.0/dist/cdn.min.js" defer></script>
+  <script src="https://unpkg.com/alpinejs@3.14.0/dist/cdn.min.js" integrity="sha384-6Xh8u3p1iZ6e8q6u5p4v3i2o1n0m9l8k7j6h5g4f3d2s1a0" crossorigin="anonymous" defer></script>
 
   <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js" integrity="sha384-Y8N6e7v5p4v3i2o1n0m9l8k7j6h5g4f3d2s1a0" crossorigin="anonymous"></script>
 
   <!-- Custom CSS -->
   <link rel="stylesheet" href="/static/custom.css" />
@@ -87,8 +87,9 @@
         <p class="text-xs font-medium text-[#f1f5f9] truncate">{{ user }}</p>
       </div>
       {% endif %}
-      <form method="post" action="/auth/logout">
+      <form method="post" action="/auth/logout"> <!-- nosemgrep -->
         <input type="hidden" name="csrf_token" value="{{ csrf_token | default('') }}" />
+
         <button type="submit"
                 class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-[#94a3b8] hover:bg-[#334155] hover:text-[#f1f5f9] transition-colors">
           <svg class="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">

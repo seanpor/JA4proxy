@@ -2,6 +2,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
+  namespace: {{ .Values.namespace | default "ja4proxy" }}
   name: ja4proxy-config
   labels:
     app: ja4proxy

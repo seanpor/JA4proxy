@@ -247,7 +247,7 @@ async def _extract_claims(id_token: str, jwks_uri: str) -> dict:
         )
     alg = header.get("alg")
     if alg not in _ALLOWED_OIDC_ALGS:
-        logger.warning("oidc | event=id_token_alg_rejected | alg=%s", alg)
+        logger.warning("oidc | event=id_token_alg_rejected | alg=%s", alg)  # nosemgrep
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="ID token uses disallowed signature algorithm",

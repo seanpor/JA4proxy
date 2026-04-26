@@ -28,8 +28,8 @@ cp deploy/ansible/inventory.ini.example inventory.ini
 
 # 3. Set required host variables
 #    In host_vars/<hostname>.yml or group_vars/all.yml:
-#      backend_host: "backend.corp.local"
-#      upstream_lb_host: "lb.corp.local"
+#      ja4proxy_backend_host: "backend.corp.local"
+#      ja4proxy_upstream_lb_host: "lb.corp.local"
 
 # 4. Deploy
 ansible-playbook -i inventory.ini deploy/ansible/playbooks/deploy-ja4proxy.yml
@@ -39,14 +39,14 @@ ansible-playbook -i inventory.ini deploy/ansible/playbooks/deploy-ja4proxy.yml
 
 | Variable | Description | Default |
 |---|---|---|
-| `backend_host` | Backend server hostname/IP | *(required)* |
-| `upstream_lb_host` | Upstream load balancer hostname/IP | *(required)* |
+| `ja4proxy_backend_host` | Backend server hostname/IP | *(required)* |
+| `ja4proxy_upstream_lb_host` | Upstream load balancer hostname/IP | *(required)* |
 | `ja4proxy_deploy_mode` | Deployment mode: `binary`, `docker`, `quadlet`, or `auto` | `auto` |
-| `backend_port` | Backend port | `443` |
+| `ja4proxy_backend_port` | Backend port | `443` |
 | `ja4proxy_port` | Proxy listen port | `8080` |
 | `ja4proxy_metrics_port` | Prometheus metrics port | `9090` |
 | `ja4proxy_redis_host` | Redis host for state storage | `127.0.0.1` |
-| `servicenow_enabled` | Register in ServiceNow CMDB | `false` |
+| `ja4proxy_servicenow_enabled` | Register in ServiceNow CMDB | `false` |
 
 ## Deployment Modes
 
@@ -73,7 +73,7 @@ Requires Podman >= 4.4 with Quadlet support.
 
 ## ServiceNow CMDB Integration (Phase 94k)
 
-Set `servicenow_enabled: true` and ensure the `servicenow.itsm` collection
+Set `ja4proxy_servicenow_enabled: true` and ensure the `servicenow.itsm` collection
 is installed. The role will register the node in CMDB with the following
 custom fields:
 
@@ -82,7 +82,7 @@ custom fields:
 - `u_downstream_backend` — backend server
 - `u_environment` — deploy environment (production/staging/development)
 - `u_last_deployed` — ISO 8601 timestamp
-- `u_config_checksum` — SHA-256 of the deployed config
+- `u_ja4proxy_config_checksum` — SHA-256 of the deployed config
 
 ## Files Deployed
 

@@ -5,6 +5,7 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
+  namespace: {{ .Values.namespace | default "ja4proxy" }}
   name: ja4proxy
   labels:
     app: ja4proxy

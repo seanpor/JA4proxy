@@ -1,5 +1,6 @@
 FROM python:3.14.0-slim
 
+# checkov:skip=CKV_DOCKER_2: Traffic generator is short-lived and doesn't run a service
 # Security: Create non-root user
 RUN groupadd -r trafficgen && useradd -r -g trafficgen trafficgen
 
