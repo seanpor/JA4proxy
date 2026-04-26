@@ -79,17 +79,110 @@ class TestM12ExplicitExceptions:
 
 
 class TestM13SeedFileLeaderLock:
-    """M13: seed_file.run_once should run inside leader lock."""
+    """M13: ``seed_file.run_once`` must run inside the shared leader lock.
 
-    def test_seed_file_has_leader_lock(self):
-        """seed_file.py should acquire leader lock in run_once."""
-        import ast
-        from pathlib import Path
+    Without this gate every analytics replica POSTs every seed entry on
+    startup. The Mgmt API is first-writer-wins so it's safe but wasteful;
+    the lock collapses N startup loads into one.
+    """
 
-        seed_path = Path("src/analytics/ti_feeds/seed_file.py")
-        content = seed_path.read_text()
+    @pytest.mark.asyncio
+    async def test_run_once_skips_when_not_leader(self, tmp_path):
+        """When ``try_acquire_leader`` returns False, run_once must do no work."""
+        from src.analytics.ti_feeds.seed_file import run_once
 
-        assert "leader" in content.lower() or "lock" in content.lower(), "seed_file should use leader lock"
+        seed = tmp_path / "seed.yml"
+        seed.write_text(
+            "fingerprints:\n"
+            "  - ja4: \"t10d170900_9dc949161b6c_b64c0ad42cb7\"\n"
+            "    name: \"X\"\n"
+            "    category: \"c2_framework\"\n"
+            "    source: \"https://example.test\"\n"
+            "    confidence: 95\n"
+        )
+
+        mgmt = MagicMock()
+        mgmt.post_blocklist = AsyncMock()
+        state = MagicMock()
+        state.try_acquire_leader = AsyncMock(return_value=False)
+        state.mark = AsyncMock()
+
+        summary = await run_once(
+            mgmt=mgmt, state=state, path=seed, min_entries=1, instance_id="replica-A"
+        )
+
+        assert summary == {"loaded": 0, "created": 0, "rejected": 0, "errors": 0}
+        state.try_acquire_leader.assert_awaited_once_with(
+            "replica-A", ttl_seconds=60
+        )
+        mgmt.post_blocklist.assert_not_called()
+        state.mark.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_run_once_executes_when_leader_acquired(self, tmp_path):
+        """When ``try_acquire_leader`` returns True, run_once does the work."""
+        from src.analytics.ti_feeds.seed_file import run_once
+
+        seed = tmp_path / "seed.yml"
+        seed.write_text(
+            "fingerprints:\n"
+            "  - ja4: \"t10d170900_9dc949161b6c_b64c0ad42cb7\"\n"
+            "    name: \"X\"\n"
+            "    category: \"c2_framework\"\n"
+            "    source: \"https://example.test\"\n"
+            "    confidence: 95\n"
+        )
+
+        mgmt = MagicMock()
+        post_resp = MagicMock()
+        post_resp.id = "res-1"
+        mgmt.post_blocklist = AsyncMock(return_value=post_resp)
+        state = MagicMock()
+        state.try_acquire_leader = AsyncMock(return_value=True)
+        state.mark = AsyncMock()
+
+        summary = await run_once(
+            mgmt=mgmt, state=state, path=seed, min_entries=1, instance_id="replica-A"
+        )
+
+        assert summary["loaded"] == 1
+        assert summary["created"] == 1
+        state.try_acquire_leader.assert_awaited_once_with(
+            "replica-A", ttl_seconds=60
+        )
+        mgmt.post_blocklist.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_run_once_skips_lock_when_instance_id_none(self, tmp_path):
+        """Legacy callers (no instance_id) must NOT touch the leader lock."""
+        from src.analytics.ti_feeds.seed_file import run_once
+
+        seed = tmp_path / "seed.yml"
+        seed.write_text(
+            "fingerprints:\n"
+            "  - ja4: \"t10d170900_9dc949161b6c_b64c0ad42cb7\"\n"
+            "    name: \"X\"\n"
+            "    category: \"c2_framework\"\n"
+            "    source: \"https://example.test\"\n"
+            "    confidence: 95\n"
+        )
+
+        mgmt = MagicMock()
+        post_resp = MagicMock()
+        post_resp.id = "res-1"
+        mgmt.post_blocklist = AsyncMock(return_value=post_resp)
+        state = MagicMock()
+        state.try_acquire_leader = AsyncMock(return_value=False)  # would block
+        state.mark = AsyncMock()
+
+        summary = await run_once(
+            mgmt=mgmt, state=state, path=seed, min_entries=1, instance_id=None
+        )
+
+        # No leader gate → work done despite try_acquire_leader=False
+        assert summary["loaded"] == 1
+        assert summary["created"] == 1
+        state.try_acquire_leader.assert_not_called()
 
 
 class TestM14AuditLogEnableDisable:
