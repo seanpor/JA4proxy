@@ -1223,6 +1223,7 @@ lint-makefiles:
 	@docker run --rm \
 		-v "$(PWD):/repo:ro" \
 		cytopia/checkmake:latest \
+		--config=/repo/.checkmake.ini \
 		/repo/Makefile \
 		&& echo "✓ Makefile lint passed"
 

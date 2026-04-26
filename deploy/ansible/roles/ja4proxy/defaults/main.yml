@@ -40,20 +40,20 @@ ja4proxy_metrics_port: 9090            # Prometheus metrics port
 ja4proxy_host_port_ingress: 443        # host-side port mapped to proxy (for container mode)
 
 # ── Upstream / downstream ───────────────────────────────────
-upstream_lb_host: ""                   # hostname/IP of the upstream load balancer
-backend_host: ""                       # hostname/IP of the backend server
-backend_port: 443                      # backend port
+ja4proxy_upstream_lb_host: ""                   # hostname/IP of the upstream load balancer
+ja4proxy_backend_host: ""                       # hostname/IP of the backend server
+ja4proxy_backend_port: 443                      # backend port
 
 # ── Redis connection ────────────────────────────────────────
 ja4proxy_redis_host: "127.0.0.1"
 ja4proxy_redis_port: 6379
 
 # ── Environment tag ─────────────────────────────────────────
-deploy_environment: "production"       # "production" | "staging" | "development"
+ja4proxy_deploy_environment: "production"       # "production" | "staging" | "development"
 
 # ── Health check ────────────────────────────────────────────
 ja4proxy_healthcheck_retries: 10
 ja4proxy_healthcheck_delay: 3
 
 # ── ServiceNow CMDB (Phase 94k) ────────────────────────────
-servicenow_enabled: false              # set true to register node in ServiceNow CMDB
+ja4proxy_servicenow_enabled: false              # set true to register node in ServiceNow CMDB

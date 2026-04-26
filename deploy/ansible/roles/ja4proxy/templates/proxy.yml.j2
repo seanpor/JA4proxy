@@ -5,8 +5,8 @@ proxy:
   listen_address: "{{ ja4proxy_bind_address }}:{{ ja4proxy_port }}"
   metrics_address: "127.0.0.1:{{ ja4proxy_metrics_port }}"
   backend:
-    host: "{{ backend_host }}"
-    port: "{{ backend_port }}"
+    host: "{{ ja4proxy_backend_host }}"
+    port: "{{ ja4proxy_backend_port }}"
 
 redis:
   host: "{{ ja4proxy_redis_host }}"

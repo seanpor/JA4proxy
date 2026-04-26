@@ -5,57 +5,57 @@
 
 signals:
   # TLS Enforcement (Phase 3)
-  tls_version:           { score: 40, description: "Deprecated TLS 1.0/1.1 detected (tls_version_bypass disabled — scored instead of hard-blocked)" }
-  tls_12:                { score: 10, description: "Informational: TLS 1.2 used (when flag_tls_12 is true)" }
-  weak_cipher:           { score: 20, description: "Weak or null cipher suite offered (default; overridable via security_policy.weak_cipher_score)" }
-  ja4_tls_mismatch:      { score_cap: 35, description: "JA4-claimed TLS version differs from actual negotiated version — fingerprint spoofing indicator" }
+  tls_version: { score: 40, description: "Deprecated TLS 1.0/1.1 detected (tls_version_bypass disabled — scored instead of hard-blocked)" }
+  tls_12: { score: 10, description: "Informational: TLS 1.2 used (when flag_tls_12 is true)" }
+  weak_cipher: { score: 20, description: "Weak or null cipher suite offered (default; overridable via security_policy.weak_cipher_score)" }
+  ja4_tls_mismatch: { score_cap: 35, description: "JA4-claimed TLS version differs from actual negotiated version — fingerprint spoofing indicator" }
 
   # SNI Analysis (Phase 4)
-  missing_sni:           { score: 30, description: "No SNI extension in ClientHello" }
-  ip_literal_sni:        { score: 25, description: "SNI is an IP address, not a hostname" }
-  dga:                   { score_cap: 40, description: "DGA-like SNI hostname detected" }
-  unexpected_sni:        { score: 15, description: "SNI not in expected_hostnames list" }
+  missing_sni: { score: 30, description: "No SNI extension in ClientHello" }
+  ip_literal_sni: { score: 25, description: "SNI is an IP address, not a hostname" }
+  dga: { score_cap: 40, description: "DGA-like SNI hostname detected" }
+  unexpected_sni: { score: 15, description: "SNI not in expected_hostnames list" }
 
   # TCP & Connection Behaviour (Phase 5)
-  ja4t_mismatch:         { score: 30, description: "TCP fingerprint vs TLS fingerprint mismatch" }
-  tap_os_mismatch:       { score: 30, score_cap: 30, description: "Go proxy consumes Phase-20 TAP JA4T from Redis; fires when JA4-claimed OS class differs from TAP-observed OS class (Phase 203a)." }
-  no_resumption:         { score: 15, description: "Zero session resumption rate detected" }
-  short_lived:           { score: 20, description: "Connection lifespan below threshold" }
-  severe_concurrency:    { score: 40, description: "Severe concurrent connection count (>= severe threshold; Python only currently)" }
-  high_concurrency:      { score: 25, description: "High concurrent connection count (>= high threshold)" }
-  moderate_concurrency:  { score: 10, description: "Moderate concurrent connection count (>= moderate threshold)" }
-  low_concurrency:       { score: 10, description: "Low concurrent connection count" }
-  tls_alert_rate:        { score: 20, description: "High rate of TLS alert messages" }
-  return_visitor:        { score: -20, description: "Trust reward for long-term clean IP (reduces score)" }
+  ja4t_mismatch: { score: 30, description: "TCP fingerprint vs TLS fingerprint mismatch" }
+  tap_os_mismatch: { score: 30, score_cap: 30, description: "Go proxy consumes Phase-20 TAP JA4T from Redis; fires when JA4-claimed OS class differs from TAP-observed OS class (Phase 203a)." }
+  no_resumption: { score: 15, description: "Zero session resumption rate detected" }
+  short_lived: { score: 20, description: "Connection lifespan below threshold" }
+  severe_concurrency: { score: 40, description: "Severe concurrent connection count (>= severe threshold; Python only currently)" }
+  high_concurrency: { score: 25, description: "High concurrent connection count (>= high threshold)" }
+  moderate_concurrency: { score: 10, description: "Moderate concurrent connection count (>= moderate threshold)" }
+  low_concurrency: { score: 10, description: "Low concurrent connection count" }
+  tls_alert_rate: { score: 20, description: "High rate of TLS alert messages" }
+  return_visitor: { score: -20, description: "Trust reward for long-term clean IP (reduces score)" }
 
   # ASN Classification (Phase 6)
-  asn_tor:               { score: 60, description: "IP is a known Tor exit node" }
-  asn_datacenter:        { score: 20, description: "IP belongs to a cloud/datacenter ASN" }
-  asn_vpn:               { score: 25, description: "IP belongs to a known VPN ASN" }
-  asn_unknown:           { score: 5,  description: "IP belongs to an unlisted/unknown ASN" }
+  asn_tor: { score: 60, description: "IP is a known Tor exit node" }
+  asn_datacenter: { score: 20, description: "IP belongs to a cloud/datacenter ASN" }
+  asn_vpn: { score: 25, description: "IP belongs to a known VPN ASN" }
+  asn_unknown: { score: 5, description: "IP belongs to an unlisted/unknown ASN" }
 
   # DNS Enrichment (Phase 7)
-  no_ptr:                { score: 15, description: "IP has no PTR record (Reverse DNS)" }
-  fcrdns_failed:         { score: 20, description: "PTR exists but forward-confirmation failed" }
-  residential_ptr:       { score: -10, description: "Residential PTR pattern detected (reduces score)" }
+  no_ptr: { score: 15, description: "IP has no PTR record (Reverse DNS)" }
+  fcrdns_failed: { score: 20, description: "PTR exists but forward-confirmation failed" }
+  residential_ptr: { score: -10, description: "Residential PTR pattern detected (reduces score)" }
 
   # Blocklists (Phase 8)
-  spamhaus_drop:         { score: 80, description: "IP matched Spamhaus DROP/EDROP (when bypass disabled)" }
+  spamhaus_drop: { score: 80, description: "IP matched Spamhaus DROP/EDROP (when bypass disabled)" }
 
   # Beaconing Detection (Phase 9)
-  beaconing:             { score_cap: 35, description: "Regular beaconing pattern detected" }
+  beaconing: { score_cap: 35, description: "Regular beaconing pattern detected" }
 
   # AbuseIPDB (Phase 10)
-  abuseipdb:             { score_cap: 40, description: "AbuseIPDB confidence score mapped to risk" }
+  abuseipdb: { score_cap: 40, description: "AbuseIPDB confidence score mapped to risk" }
 
   # RDAP Enrichment (Phase 11)
-  rdap_known_bad_org:    { score: 45, description: "RDAP organization matches known-bad list" }
-  rdap_new_netblock:     { score: 20, description: "Netblock registered < 90 days ago" }
+  rdap_known_bad_org: { score: 45, description: "RDAP organization matches known-bad list" }
+  rdap_new_netblock: { score: 20, description: "Netblock registered < 90 days ago" }
 
   # Analytics Node (Phase 12)
-  analytics_subnet:      { score: 25, description: "Analytics: Subnet-level suspicious activity" }
-  analytics_campaign:    { score: 35, description: "Analytics: Cross-instance campaign activity" }
-  analytics_slow_scan:   { score: 30, description: "Analytics: Cross-instance slow-scan activity" }
+  analytics_subnet: { score: 25, description: "Analytics: Subnet-level suspicious activity" }
+  analytics_campaign: { score: 35, description: "Analytics: Cross-instance campaign activity" }
+  analytics_slow_scan: { score: 30, description: "Analytics: Cross-instance slow-scan activity" }
 
   # Subnet Correlation Pipeline (Phase 55)
-  subnet_campaign:       { score: 25, description: "Subnet correlation: campaign activity for the client's /24 or /48 subnet" }
+  subnet_campaign: { score: 25, description: "Subnet correlation: campaign activity for the client's /24 or /48 subnet" }

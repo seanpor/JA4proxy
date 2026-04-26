@@ -6,7 +6,7 @@ global:
   smtp_smarthost: 'smtp.example.com:587'
   smtp_from: 'alerts@ja4proxy.local'
   smtp_auth_username: 'alerts@ja4proxy.local'
-  smtp_auth_password: 'your-password-here'
+  smtp_auth_password: 'your-password-here' # checkov:skip=CKV_SECRET_6: placeholder
   smtp_require_tls: true
 
 # Templates for alert formatting
@@ -103,7 +103,7 @@ receivers:
           Subject: '[CRITICAL] JA4proxy Security Alert: {{ .GroupLabels.alertname }}'
         html: '{{ template "email.default.html" . }}'
     slack_configs:
-      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK' # checkov:skip=CKV_SECRET_6: placeholder
         channel: '#security-alerts'
         title: 'JA4proxy Security Alert'
         text: '{{ range .Alerts }}{{ .Annotations.summary }}\n{{ .Annotations.description }}{{ end }}'
@@ -113,7 +113,7 @@ receivers:
   # On-call pager - PagerDuty
   - name: 'oncall-pager'
     pagerduty_configs:
-      - service_key: 'YOUR-PAGERDUTY-SERVICE-KEY'
+      - service_key: 'YOUR-PAGERDUTY-SERVICE-KEY' # checkov:skip=CKV_SECRET_6: placeholder
         description: '{{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}'
         details:
           firing: '{{ .Alerts.Firing | len }}'
@@ -127,7 +127,7 @@ receivers:
         headers:
           Subject: 'JA4proxy Alert: {{ .GroupLabels.alertname }}'
     slack_configs:
-      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+      - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK' # checkov:skip=CKV_SECRET_6: placeholder
         channel: '#ops-alerts'
         title: 'JA4proxy Operational Alert'
         text: '{{ range .Alerts }}{{ .Annotations.summary }}{{ end }}'
@@ -141,4 +141,4 @@ receivers:
         http_config:
           basic_auth:
             username: 'ja4proxy'
-            password: 'your-siem-password'
+            password: 'your-siem-password' # checkov:skip=CKV_SECRET_6: placeholder

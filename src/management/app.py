@@ -56,31 +56,31 @@ app = FastAPI(title="JA4 Proxy Management API", version="1.0.0", lifespan=lifesp
 # Enable CORS for the frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, restrict this
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # nosemgrep
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 @app.get("/api/v1/health", response_model=HealthResponse)
-async def get_health():
+async def get_health() -> HealthResponse:
     try:
         dial = await redis_manager.get_dial()
-        return {
-            "status": "ok",
-            "redis_connected": True,
-            "dial": dial
-        }
+        return HealthResponse(
+            status="ok",
+            redis_connected=True,
+            dial=dial
+        )
     except Exception:
-        return {
-            "status": "error",
-            "redis_connected": False,
-            "dial": 0
-        }
+        return HealthResponse(
+            status="error",
+            redis_connected=False,
+            dial=0
+        )
 
 
 @app.get("/api/v1/health/deep", response_model=DeepHealthResponse)
-async def get_health_deep():
+async def get_health_deep() -> DeepHealthResponse:
     """Phase 86a — Deep health: combines Redis state with proxy Prometheus metrics."""
     # Redis connectivity (timing + state)
     redis_ok = False

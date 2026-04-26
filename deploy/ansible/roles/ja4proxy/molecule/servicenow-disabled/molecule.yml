@@ -1,7 +1,7 @@
 ---
 # Molecule scenario — ServiceNow CMDB disabled (Phase 94k)
 #
-# Verifies that with servicenow_enabled: false (the default),
+# Verifies that with ja4proxy_servicenow_enabled: false (the default),
 # the cmdb_register.yml task is never reached (zero changed tasks).
 
 dependency:
@@ -31,11 +31,11 @@ provisioner:
   inventory:
     group_vars:
       all:
-        backend_host: "backend.test.local"
-        upstream_lb_host: "lb.test.local"
+        ja4proxy_backend_host: "backend.test.local"
+        ja4proxy_upstream_lb_host: "lb.test.local"
         ja4proxy_deploy_mode: "binary"
         ja4proxy_binary_src: ""
-        servicenow_enabled: false    # explicitly disabled
+        ja4proxy_servicenow_enabled: false    # explicitly disabled
 
 verifier:
   name: ansible

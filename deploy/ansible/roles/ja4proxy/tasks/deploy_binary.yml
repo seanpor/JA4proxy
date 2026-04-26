@@ -55,7 +55,7 @@
 - name: Compute configuration checksum
   ansible.builtin.command:
     cmd: "sha256sum {{ ja4proxy_config_path }}"
-  register: config_checksum
+  register: ja4proxy_config_checksum
   changed_when: false
 
 - name: Install ja4proxy binary
@@ -78,6 +78,10 @@
         mode: "0750"
         owner: root
         group: root
+  rescue:
+    - name: Handle binary installation failure
+      ansible.builtin.fail:
+        msg: "Failed to install ja4proxy binary from {{ ja4proxy_binary_src }}. Check connectivity or source path."
 
 - name: Deploy systemd unit
   ansible.builtin.template:

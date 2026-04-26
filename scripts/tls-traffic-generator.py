@@ -248,9 +248,9 @@ def create_ssl_context(profile: ClientProfile) -> ssl.SSLContext:
     ctx.maximum_version = profile.tls_max_version
     
     try:
-        ctx.set_ciphers(profile.ciphers)
+        ctx.set_ciphers(profile.ciphers) # nosemgrep
     except ssl.SSLError:
-        ctx.set_ciphers("DEFAULT")
+        ctx.set_ciphers("DEFAULT") # nosemgrep
     
     if profile.alpn:
         ctx.set_alpn_protocols(profile.alpn)

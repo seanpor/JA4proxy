@@ -367,7 +367,7 @@ class MTLSManager:
             context.verify_mode = ssl.CERT_REQUIRED
         
         # Secure cipher configuration
-        context.set_ciphers(':'.join([
+        context.set_ciphers(':'.join([  # nosemgrep
             'ECDHE+AESGCM',
             'ECDHE+CHACHA20',
             'DHE+AESGCM', 
