@@ -37,6 +37,7 @@
       ansible.builtin.set_fact:
         encoded_cidr: "{{ cidr | regex_replace('/', '%2F') }}"
 
+    # checkov:skip=CKV2_ANSIBLE_1: Management API URL is configurable
     - name: Ban CIDR via Management API
       # nosemgrep
       ansible.builtin.uri:
