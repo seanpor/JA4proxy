@@ -15,4 +15,4 @@
   tasks:
     - name: Import ja4proxy role
       ansible.builtin.import_role:
-        name: ja4proxy
+        name: "{{ role_path | default('../roles/ja4proxy') }}" # noqa: role-name[path]

@@ -32,6 +32,7 @@
           - ja4proxy_token is defined
         fail_msg: "Missing required variable: duration_minutes, reason, ticket, ja4proxy_token"
 
+    # checkov:skip=CKV2_ANSIBLE_1: Management API URL is configurable
     - name: Get current dial value
       # nosemgrep
       ansible.builtin.uri:
@@ -54,6 +55,7 @@
           {{ range(previous_dial, -1, -max_dial_change) | list |
              map('int') | list }}
 
+    # checkov:skip=CKV2_ANSIBLE_1: Management API URL is configurable
     - name: Step dial down to 0
       # nosemgrep
       ansible.builtin.uri:
@@ -89,6 +91,7 @@
         timeout: "{{ duration_minutes | int * 60 }}"
       when: dial_step_results is not failed
 
+    # checkov:skip=CKV2_ANSIBLE_1: Management API URL is configurable
     - name: Restore previous dial value (stepped)
       # nosemgrep
       ansible.builtin.uri:

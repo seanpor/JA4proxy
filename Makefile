@@ -1295,8 +1295,8 @@ test-phase-93:
         lint-markdown lint-spelling lint-toml lint-makefiles lint-go-mod \
         lint-python lint-go lint-sast lint-infra lint-observability \
         lint-github-actions \
-        lint-supply-chain
- lint-docs-all lint-all check-paths test-phase-92 test-phase-93 sync \
+        lint-supply-chain \
+        lint-docs-all lint-all check-paths test-phase-92 test-phase-93 sync \
         lint-phase-89 test-phase-89-lint test-phases
 
 # ── Phase-level aggregates ──────────────────────────────────────────────────

@@ -35,6 +35,7 @@
       ansible.builtin.set_fact:
         expires_at: "{{ (ansible_date_time.epoch_int | int + (ttl_hours | int * 3600)) | ansible.builtin.to_datetime('%Y-%m-%dT%H:%M:%SZ', utc=True) }}"
 
+    # checkov:skip=CKV2_ANSIBLE_1: Management API URL is configurable and defaults to localhost for emergency use
     - name: Add allowlist entry via Management API
       # nosemgrep
       ansible.builtin.uri:

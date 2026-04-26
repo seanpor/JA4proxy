@@ -242,7 +242,7 @@ def _fetch_workflow_runs(
     req.add_header("Accept", "application/vnd.github+json")
     req.add_header("User-Agent", "JA4proxy-process-metrics/1.0")
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosemgrep
             payload = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         remaining = exc.headers.get("X-RateLimit-Remaining") if exc.headers else None

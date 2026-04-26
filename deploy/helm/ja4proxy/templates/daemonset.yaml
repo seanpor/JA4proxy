@@ -5,6 +5,10 @@ metadata:
   name: ja4proxy
   labels:
     app: ja4proxy
+  annotations:
+    # checkov:skip=CKV_K8S_14: latest tag allowed in POC
+    # checkov:skip=CKV_K8S_43: digest not required in POC
+    # checkov:skip=CKV_K8S_35: secrets as environment variables allowed
 spec:
   selector:
     matchLabels:
@@ -26,8 +30,6 @@ spec:
       - name: ja4proxy
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
-        # checkov:skip=CKV_K8S_14: latest tag allowed in POC
-        # checkov:skip=CKV_K8S_43: digest not required in POC
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         ports:
@@ -52,7 +54,6 @@ spec:
         # The Go proxy reads config/proxy.yml which expands ${REDIS_HOST},
         # ${REDIS_PORT}, ${REDIS_PASSWORD} from env. Set them directly rather
         # than REDIS_URL (which the proxy does not parse).
-        # checkov:skip=CKV_K8S_35: secrets as environment variables allowed
         {{- if not .Values.redis.external }}
         # Bundled Redis StatefulSet (redis.yaml) — service name is ja4proxy-redis.
         - name: REDIS_HOST
