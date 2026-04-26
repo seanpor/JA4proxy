@@ -1,5 +1,41 @@
 # Changelog
 
+## [Unreleased] - Phase 101k partial — Dynatrace H15 + M25, load_test M24 (2026-04-26)
+
+Lands 3 of 6 items from Phase 101 sub-phase **101k** (Phase 86i capacity
+hardening). H14, H16, M26 remain open — the sub-phase stays PARTIAL in
+`PHASE_101.md` until they land.
+
+### Fixed
+- `deploy/dynatrace/ja4proxy-extension/plugin.py` H15: Prometheus exposition
+  parser now honours backslash escapes inside quoted label values
+  (`\\`, `\"`, `\n` per the Prometheus spec). Previously a label value
+  like `path="/a\"b,c"` mis-split at the embedded comma, dropping all
+  subsequent labels in the labelset. Also drops `NaN`/`+Inf`/`-Inf`
+  samples — they corrupted Dynatrace timeseries.
+
+### Added
+- `deploy/dynatrace/ja4proxy-extension/plugin.py` M25: `JA4proxyPlugin.query()`
+  unconditionally emits the `ja4proxy:node` topology entity. On scrape
+  failure Dynatrace now shows "scrape failing" rather than "node missing".
+- `scripts/load_test.py` M24: `push_loadtest_metrics()` accepts a
+  `grouping_key` dict (passed through to `push_to_gateway`) so concurrent
+  load tests from different hosts don't overwrite each other in the
+  Pushgateway. New `sample_connect_latencies(target, samples=50)` opens
+  short TCP connections from the harness path and feeds the histogram
+  with real per-connect wall times. CLI now passes
+  `{"instance": gethostname(), "scenario": ..., "run_id": uuid[:8]}`.
+
+### Test Suite
+- New `tests/unit/test_dynatrace_extension.py::TestPhase101H15ParserHardening`
+  (3 tests) — NaN/Inf rejection, escaped quote preserves full labelset,
+  `\\` and `\n` decoded per spec.
+- New `tests/unit/test_dynatrace_extension.py::TestPhase101M25TopologyOnFailure`
+  (2 tests) — topology emit on empty scrape, no metric emit on empty scrape.
+- New `tests/unit/test_load_test.py` — `grouping_key` pass-through to
+  `push_to_gateway` + real-latency sampler regression tests.
+- 41 tests in the two affected files pass.
+
 ## [Unreleased] - Phase 101c — TI Feed Critical Safety Caps + FP Corpus (2026-04-26)
 
 Closes Phase 101 sub-phase **101c** (C4, C5, C6) — the three CRITICAL gaps

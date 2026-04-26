@@ -25,6 +25,7 @@ Configuration (set in Dynatrace UI under the extension settings):
 from __future__ import annotations
 
 import logging
+import math
 import ssl
 import urllib.error
 import urllib.request
@@ -51,18 +52,36 @@ _log = logging.getLogger("ja4proxy.dynatrace")
 
 
 def _parse_labels(label_str: str) -> Dict[str, str]:
-    """Parse the inside of `{...}` into a label dict. Accepts the common
-    `key="value"` form used by the standard exposition. Not a full parser
-    (no escaped quotes with commas), but sufficient for ja4proxy output."""
+    """Parse the inside of ``{...}`` into a label dict.
+
+    Accepts the standard Prometheus ``key="value"`` form, including the
+    three backslash escapes defined by the exposition format:
+    ``\\\\``, ``\\"``, and ``\\n`` (see
+    https://prometheus.io/docs/instrumenting/exposition_formats/).
+
+    H15 (PHASE_101): the previous implementation toggled an ``in_quote``
+    flag on every ``"`` with no regard for escape sequences, so a label
+    value like ``path="a\\"b,c"`` was mis-split at the embedded comma,
+    dropping the remainder of the labelset. That broke every sample
+    produced by the management API's request-label exporter.
+    """
     labels: Dict[str, str] = {}
     if not label_str:
         return labels
-    # split on commas not inside quotes (simple heuristic — ja4proxy label
-    # values never contain commas).
-    parts = []
+    # Tokenise: walk the string honouring backslash escapes inside quoted
+    # values. Split on un-quoted commas only.
+    parts: List[str] = []
     buf = ""
     in_quote = False
-    for ch in label_str:
+    i = 0
+    while i < len(label_str):
+        ch = label_str[i]
+        if in_quote and ch == "\\" and i + 1 < len(label_str):
+            # Consume the escape as a unit — it belongs to the value and
+            # must not terminate the quoted region.
+            buf += label_str[i : i + 2]
+            i += 2
+            continue
         if ch == '"':
             in_quote = not in_quote
             buf += ch
@@ -71,13 +90,41 @@ def _parse_labels(label_str: str) -> Dict[str, str]:
             buf = ""
         else:
             buf += ch
+        i += 1
     if buf:
         parts.append(buf)
+
     for p in parts:
         if "=" not in p:
             continue
         k, _, v = p.partition("=")
-        labels[k.strip()] = v.strip().strip('"')
+        key = k.strip()
+        val = v.strip()
+        # Strip one surrounding pair of quotes then decode escape sequences.
+        if len(val) >= 2 and val[0] == '"' and val[-1] == '"':
+            val = val[1:-1]
+        # Unescape in a single pass to avoid double-decoding (e.g. "\\\\n"
+        # must stay as a literal backslash followed by an 'n').
+        out = []
+        j = 0
+        while j < len(val):
+            if val[j] == "\\" and j + 1 < len(val):
+                nxt = val[j + 1]
+                if nxt == "n":
+                    out.append("\n")
+                elif nxt == "\\":
+                    out.append("\\")
+                elif nxt == '"':
+                    out.append('"')
+                else:
+                    # Unknown escape — preserve both bytes verbatim so we
+                    # don't silently corrupt the label value.
+                    out.append(val[j : j + 2])
+                j += 2
+                continue
+            out.append(val[j])
+            j += 1
+        labels[key] = "".join(out)
     return labels
 
 
@@ -114,6 +161,18 @@ def parse_prometheus_text(text: str) -> List[Tuple[str, Dict[str, str], float]]:
         try:
             value = float(value_str)
         except ValueError:
+            continue
+        # H15 (PHASE_101): Prometheus treats NaN as a valid sample (some
+        # counters emit it to signal "value unknown this scrape"), but
+        # pushing NaN/Inf into Dynatrace corrupts the downstream time
+        # series. ``float("NaN")`` and ``float("Inf")`` both succeed, so
+        # the ValueError guard above is not enough — filter explicitly.
+        if math.isnan(value) or math.isinf(value):
+            _log.debug(
+                "ja4proxy dynatrace: skipping non-finite sample name=%s value=%r",
+                name,
+                value_str,
+            )
             continue
         samples.append((name, labels, value))
     return samples
@@ -168,8 +227,13 @@ class JA4proxyPlugin:
 
     def query(self, **kwargs) -> List[Any]:
         """Called by the Dynatrace runtime on each collection interval.
-        Returns a list of metric series objects mapped from the
-        Prometheus exposition."""
+
+        Returns a list of metric series objects mapped from the Prometheus
+        exposition. M25 (PHASE_101): the ``ja4proxy:node`` topology entity
+        is emitted on **every** tick, including when ``scrape_metrics``
+        returns no samples. Dynatrace needs a live topology record to
+        surface the node as "scrape failing" rather than "node missing".
+        """
         if not HAS_DT:
             # Running locally — skip (no Dynatrace runtime available)
             return []
@@ -180,8 +244,8 @@ class JA4proxyPlugin:
             api_token=self.api_token,
             timeout=self.timeout,
         )
-        if not samples:
-            return []
+        # Always produce at least the topology entity, even if the scrape
+        # returned nothing.
         return self._build_series(samples)
 
     def _build_series(
