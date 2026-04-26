@@ -176,6 +176,19 @@ here so the migration is not forgotten when the threshold is crossed.
 - ❌ **Deferring severity classification** by leaving `severity_rationale`
   empty. `make verify-findings` will fail.
 
+## Coordinated vulnerability disclosure (CVD) intake
+
+Reports arrive via GitHub Security Advisories (see `docs/security/CVD_POLICY.md` §2).
+Triage on a best-effort basis (no SLA committed):
+
+1. Acknowledge receipt to the reporter when first reviewed.
+2. Reproduce against the most recent stable release.
+3. Classify severity per `docs/security/SEVERITY_RUBRIC.md`.
+4. Assign a maintainer; track in the GHSA itself (no separate ticket required).
+5. On fix availability, request a CVE via GHSA, publish the advisory, credit the reporter unless they declined.
+
+See `docs/security/CVD_POLICY.md` for the full policy including safe-harbour terms.
+
 ## Relationship to other docs
 
 - `SEVERITY_RUBRIC.md` — how to label severity in step 2.
@@ -183,3 +196,5 @@ here so the migration is not forgotten when the threshold is crossed.
 - `CLOSURE_VERIFICATION.md` — what happens after the finding is picked up.
 - `FINDINGS_REGISTER.md` — the generated human-readable view; update via
   `make findings-render`.
+- `CVD_POLICY.md` — the public-facing coordinated vulnerability disclosure
+  policy that drives the CVD intake section above.
