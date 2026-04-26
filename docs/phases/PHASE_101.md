@@ -394,24 +394,35 @@ independent — pick up in any order.
 8. Run `tests/unit/analytics/ti_feeds/` and `tests/adversarial/test_ti_feeds_*.py` — all pass.
 
 **Acceptance criteria:**
-- [ ] All 7 items implemented and tested
-- [ ] `tests/unit/analytics/ti_feeds/` and `tests/adversarial/test_ti_feeds_*.py` pass
+- [x] All 7 items implemented and tested (M10 closed via documented decision; see Status note)
+- [x] `tests/unit/analytics/ti_feeds/` and `tests/adversarial/test_ti_feeds_*.py` pass
 
-**Status: PARTIAL — 2026-04-26.** Done: M8 (`max_bundle_bytes` field in
-`base.py:149`), M9 (`user_agent` field in `base.py:151`), M11
-(`compute_dropped_ids` now returns `list[tuple[str, str]]` sorted by
-stix_id; runner caller updated to slice the pre-sorted list directly),
-M12 (12 `except Exception` catches replaced with explicit
-`_FEED_FETCH_ERRORS` / `_FEED_WRITE_ERRORS` unions across all 4 client
-files; AST-based + runtime tests guard against regression), M13
-(`seed_file.run_once` now gates on `try_acquire_leader` when
-`instance_id` is provided — runner passes `self._instance_id` so seed
-load runs once across N replicas), M14 (audit log on enable/disable
-already wired in `threat_intel.py:337,381` via `write_audit`). Still
-open: M10 (`ja4proxy_ti_feed_indicators_managed` is still a Gauge at
-`src/analytics/ti_feeds/metrics.py:43`, not yet a Counter — note
-semantic question: "currently managed indicators" is naturally a Gauge,
-not a Counter; review may be worth challenging before refactoring).
+**Status: COMPLETE — 2026-04-26.** Done: M8 (`max_bundle_bytes` field in
+`base.py:149`), M9 (`user_agent` field in `base.py:151`), M10 (DECIDED-KEEP
+— see review note below), M11 (`compute_dropped_ids` now returns
+`list[tuple[str, str]]` sorted by stix_id; runner caller updated to
+slice the pre-sorted list directly), M12 (12 `except Exception` catches
+replaced with explicit `_FEED_FETCH_ERRORS` / `_FEED_WRITE_ERRORS` unions
+across all 4 client files; AST-based + runtime tests guard against
+regression), M13 (`seed_file.run_once` now gates on `try_acquire_leader`
+when `instance_id` is provided — runner passes `self._instance_id` so
+seed load runs once across N replicas), M14 (audit log on enable/disable
+already wired in `threat_intel.py:337,381` via `write_audit`).
+
+**M10 review — DECIDED-KEEP-AS-GAUGE (2026-04-26).** The original review
+item proposed switching `ja4proxy_ti_feed_indicators_managed` from
+`Gauge` to `Counter`. On re-read this is incorrect — the metric measures
+"current number of indicators managed by a TI feed", i.e. the size of
+the `active_stix_ids` Redis HASH at any point in time. That value can
+go both up (new indicators added) and down (cleanup removals), which is
+the textbook definition of a Gauge per
+<https://prometheus.io/docs/concepts/metric_types/#gauge>. A Counter
+must be monotonically non-decreasing — using one here would corrupt
+`rate()` and `increase()` queries on every cleanup pass. The
+"removal-delta" signal that a Counter would express *already exists*
+as `ja4proxy_ti_feed_cleanup_removals_total` (`metrics.py:50`,
+`Counter[feed_id]`), which is the right pattern: Gauge for "current",
+Counter for "events accumulated". No code change. Closing M10.
 
 ---
 
