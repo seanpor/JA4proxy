@@ -454,9 +454,9 @@ type RedisConfig struct {
 // scripts/redis-acl-setup.sh for the matching Redis-side commands.
 // JA4PROXY-2026-0050.
 type ACLUsersConfig struct {
-	Enabled        bool   `yaml:"enabled"`
-	ProxyUser      string `yaml:"proxy_user"`
-	AnalyticsUser  string `yaml:"analytics_user"`
+	Enabled       bool   `yaml:"enabled"`
+	ProxyUser     string `yaml:"proxy_user"`
+	AnalyticsUser string `yaml:"analytics_user"`
 }
 
 // SecurityConfig holds security-related settings including JA4 lists.
@@ -802,8 +802,8 @@ type WebhooksConfig struct {
 	// handled normally, only the telemetry is shed.
 	// StreamWorkers is the number of goroutines draining the queue; each
 	// worker calls XAdd with a timeout of StreamWriteTimeoutSeconds.
-	StreamQueueCapacity      int     `yaml:"stream_queue_capacity"`
-	StreamWorkers            int     `yaml:"stream_workers"`
+	StreamQueueCapacity       int     `yaml:"stream_queue_capacity"`
+	StreamWorkers             int     `yaml:"stream_workers"`
 	StreamWriteTimeoutSeconds float64 `yaml:"stream_write_timeout_seconds"`
 }
 

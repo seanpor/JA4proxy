@@ -58,12 +58,12 @@ var pathFields = map[string]struct{}{
 // portion is replaced with a literal "<redacted>"; the port is preserved
 // so operators can still see which listener or upstream is affected.
 var addrFields = map[string]struct{}{
-	"addr":    {},
-	"backend": {},
-	"bind":    {},
-	"peer":    {},
-	"remote":  {},
-	"target":  {},
+	"addr":     {},
+	"backend":  {},
+	"bind":     {},
+	"peer":     {},
+	"remote":   {},
+	"target":   {},
 	"upstream": {},
 }
 

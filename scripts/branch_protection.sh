@@ -37,6 +37,7 @@ gh api "repos/${REPO}/branches/main/protection" \
   --field "required_status_checks[contexts][]=SAST (Semgrep)" \
   --field "required_status_checks[contexts][]=Python dependency audit (pip-audit)" \
   --field "required_status_checks[contexts][]=Go dependency audit (govulncheck)" \
+  --field "required_status_checks[contexts][]=Traceability matrix check" \
   --field "enforce_admins=false" \
   --field "required_pull_request_reviews=" \
   --field "restrictions="

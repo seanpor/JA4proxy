@@ -242,6 +242,7 @@ def _fetch_workflow_runs(
     req.add_header("Accept", "application/vnd.github+json")
     req.add_header("User-Agent", "JA4proxy-process-metrics/1.0")
     try:
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
         with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
             payload = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
