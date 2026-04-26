@@ -1,0 +1,121 @@
+# SLSA Provenance Verification (Phase 107c.2)
+#
+# Verifies that the published Go proxy container image has a valid SLSA v1.0
+# provenance attestation cryptographically bound to its source. Until sub-phase
+# 107c.3 wires `slsa-github-generator` into go-proxy-image.yml to produce such
+# attestations, this workflow will fail with "no attestation found" — that is
+# the expected baseline and proves the verifier plumbing is correct.
+#
+# Trigger: workflow_dispatch only (per phase doc — promote to push after 107c.3
+# manual verification is complete).
+#
+# All `uses:` and binary downloads are SHA-pinned. Updates require a fresh SHA.
+
+name: SLSA Verify
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_ref:
+        description: >-
+          Fully-qualified container image reference whose SLSA v1.0 provenance
+          attestation should be verified. Default points at the latest published
+          Go proxy image. Until 107c.3 lands, expect "no attestation found".
+        required: true
+        default: 'ghcr.io/${{ github.repository_owner }}/ja4proxy-go:latest'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify SLSA provenance
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      # Pinned to slsa-verifier v2.6.0 (latest stable as of Phase 107c.2,
+      # 2026-04-26). The expected SHA-256 below was cross-verified against
+      # the upstream release's own SLSA in-toto provenance attestation
+      # (`slsa-verifier-linux-amd64.intoto.jsonl`) — i.e. slsa-verifier
+      # itself attests to this digest.
+      #
+      # To bump: update SLSA_VERIFIER_VERSION + SLSA_VERIFIER_SHA256
+      # together. Verify the new digest with:
+      #   curl -sL https://github.com/slsa-framework/slsa-verifier/releases/download/<vX.Y.Z>/slsa-verifier-linux-amd64.intoto.jsonl \
+      #     | jq -r '.payload' | base64 -d | jq '.subject'
+      - name: Install slsa-verifier (SHA-pinned)
+        env:
+          SLSA_VERIFIER_VERSION: v2.6.0
+          SLSA_VERIFIER_SHA256: 1c9c0d6a272063f3def6d233fa3372adbaff1f5a3480611a07c744e73246b62d
+        run: |
+          set -euo pipefail
+
+          # Refuse to ship with a placeholder digest. If a future maintainer
+          # bumps the version without updating the hash they get a loud,
+          # immediate failure rather than a silent unverified download.
+          case "${SLSA_VERIFIER_SHA256}" in
+            *TODO*|*PLACEHOLDER*|"")
+              echo "::error::SLSA_VERIFIER_SHA256 is a placeholder — refusing to install unverified binary."
+              exit 1
+              ;;
+          esac
+
+          url="https://github.com/slsa-framework/slsa-verifier/releases/download/${SLSA_VERIFIER_VERSION}/slsa-verifier-linux-amd64"
+          echo "Fetching ${url}"
+          curl --proto '=https' --tlsv1.2 -fsSL -o slsa-verifier "${url}"
+
+          actual="$(sha256sum slsa-verifier | awk '{print $1}')"
+          if [ "${actual}" != "${SLSA_VERIFIER_SHA256}" ]; then
+            echo "::error::slsa-verifier checksum mismatch."
+            echo "  expected: ${SLSA_VERIFIER_SHA256}"
+            echo "  actual:   ${actual}"
+            exit 1
+          fi
+          echo "Checksum OK: ${actual}"
+
+          chmod +x slsa-verifier
+          sudo mv slsa-verifier /usr/local/bin/slsa-verifier
+          slsa-verifier version || true
+
+      - name: Verify image provenance
+        id: verify
+        env:
+          IMAGE_REF: ${{ github.event.inputs.image_ref }}
+          SOURCE_URI: github.com/${{ github.repository }}
+        run: |
+          set -uo pipefail
+          echo "Verifying provenance for: ${IMAGE_REF}"
+          echo "Expected source URI:      ${SOURCE_URI}"
+          echo "----- slsa-verifier output -----"
+          # Capture stdout+stderr verbatim while preserving exit code.
+          set +e
+          slsa-verifier verify-image "${IMAGE_REF}" \
+            --source-uri "${SOURCE_URI}" \
+            2>&1 | tee verifier.out
+          rc=${PIPESTATUS[0]}
+          set -e
+          echo "--------------------------------"
+          echo "slsa-verifier exit code: ${rc}"
+          exit "${rc}"
+
+      - name: Explain expected pre-107c.3 failure mode
+        if: failure() && steps.verify.outcome == 'failure'
+        run: |
+          # Only the "no attestation found" failure mode is expected before
+          # sub-phase 107c.3 lands and wires slsa-github-generator into the
+          # image build pipeline. Any other failure (e.g. the install step
+          # failed on a checksum mismatch) is genuine and must surface
+          # loudly — we do NOT swallow it. We only annotate the verifier
+          # output, never override the job's failure status.
+          if [ ! -f verifier.out ]; then
+            echo "::warning::No verifier output captured — likely a failure before the verify step (e.g. install/checksum). Investigate."
+            exit 0
+          fi
+          if grep -qiE "no attestation|attestation.*not.*found|could not find attestations?" verifier.out; then
+            echo "::notice::No attestation found for ${IMAGE_REF}."
+            echo "::notice::Expected before 107c.3 lands. Workflow plumbing is correct; awaiting first attested image."
+          else
+            echo "::warning::slsa-verifier failed for a reason other than 'no attestation found'. Read the verifier output above carefully."
+          fi
