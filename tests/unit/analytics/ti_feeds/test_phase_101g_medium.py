@@ -102,21 +102,98 @@ class TestM11StableOrderedDropped:
 
 
 class TestM12ExplicitExceptions:
-    """M12: Replace bare Exception catches with explicit unions."""
+    """M12: Replace bare ``except Exception`` with explicit unions across
+    all 4 ti_feed client files. AST-based scan — counts ``ExceptHandler``
+    nodes whose ``type`` is the bare ``Exception`` name. Robust against
+    formatting and against false positives from comments / docstrings.
+    """
 
-    def test_taxii_client_has_explicit_exceptions(self):
-        """taxii.py should catch explicit types, not bare Exception."""
+    def test_no_bare_exception_handlers_in_clients(self):
+        """No ``except Exception`` handler should exist in any of the 4 clients."""
         import ast
         from pathlib import Path
 
+        offenders: list[str] = []
         for filename in ["taxii.py", "crowdstrike.py", "recorded_future.py", "rest_generic.py"]:
             path = Path(f"src/analytics/ti_feeds/{filename}")
-            content = path.read_text()
+            tree = ast.parse(path.read_text())
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.ExceptHandler):
+                    continue
+                t = node.type
+                # ``except Exception:`` → ``ast.Name(id="Exception")``
+                if isinstance(t, ast.Name) and t.id == "Exception":
+                    offenders.append(f"{filename}:{node.lineno}")
+        assert not offenders, (
+            "M12 violated — bare ``except Exception`` survives at: "
+            + ", ".join(offenders)
+        )
 
-            if "except Exception:" in content:
-                pytest.fail(f"Found 'except Exception:' in {filename} - should use explicit types")
-            if "except Error:" in content:  # Old Python 2 style
-                pytest.fail(f"Found Python 2 style 'except Error:' in {filename}")
+
+class TestM12ExplicitExceptionsRuntime:
+    """M12 (runtime behaviour): the explicit unions must still catch the
+    exceptions the modules expect (HTTP I/O, timeouts, mgmt-API failures)
+    *and* must let programmer bugs (``AttributeError``, ``KeyError``)
+    propagate unhandled. The AST scan above proves the source no longer
+    has ``except Exception:``; these tests prove we picked a tuple that
+    does the right thing at runtime.
+    """
+
+    def test_fetch_errors_tuple_includes_expected_io_errors(self):
+        """``_FEED_FETCH_ERRORS`` must catch aiohttp + timeout + parse + I/O."""
+        import asyncio
+
+        import aiohttp
+
+        from src.analytics.ti_feeds.taxii import _FEED_FETCH_ERRORS
+
+        assert issubclass(aiohttp.ClientError, _FEED_FETCH_ERRORS)
+        assert issubclass(asyncio.TimeoutError, _FEED_FETCH_ERRORS)
+        assert issubclass(RuntimeError, _FEED_FETCH_ERRORS)
+        assert issubclass(ValueError, _FEED_FETCH_ERRORS)
+        assert issubclass(OSError, _FEED_FETCH_ERRORS)
+
+    def test_write_errors_tuple_includes_management_api_error(self):
+        """``_FEED_WRITE_ERRORS`` extends ``_FEED_FETCH_ERRORS`` with mgmt API."""
+        from src.analytics.ti_feeds.mgmt_client import ManagementAPIError
+        from src.analytics.ti_feeds.taxii import _FEED_FETCH_ERRORS, _FEED_WRITE_ERRORS
+
+        assert issubclass(ManagementAPIError, _FEED_WRITE_ERRORS)
+        for exc_type in _FEED_FETCH_ERRORS:
+            assert issubclass(exc_type, _FEED_WRITE_ERRORS), (
+                f"{exc_type.__name__} should also be caught by _FEED_WRITE_ERRORS"
+            )
+
+    def test_fetch_errors_does_not_catch_programmer_bugs(self):
+        """``AttributeError``, ``KeyError``, ``TypeError`` must propagate."""
+        from src.analytics.ti_feeds.taxii import _FEED_FETCH_ERRORS, _FEED_WRITE_ERRORS
+
+        for bug_type in (AttributeError, KeyError, TypeError, ImportError, NameError):
+            assert not issubclass(bug_type, _FEED_FETCH_ERRORS), (
+                f"{bug_type.__name__} should NOT be caught — it indicates a bug"
+            )
+            assert not issubclass(bug_type, _FEED_WRITE_ERRORS), (
+                f"{bug_type.__name__} should NOT be caught — it indicates a bug"
+            )
+
+    def test_all_four_clients_expose_fetch_error_tuple(self):
+        """Every client module must expose ``_FEED_FETCH_ERRORS`` (re-imported
+        if borrowed from taxii) so each can use the explicit-union pattern."""
+        from src.analytics.ti_feeds import (
+            crowdstrike,
+            recorded_future,
+            rest_generic,
+            taxii,
+        )
+
+        for module in (taxii, crowdstrike, recorded_future, rest_generic):
+            assert hasattr(module, "_FEED_FETCH_ERRORS"), (
+                f"{module.__name__} must expose _FEED_FETCH_ERRORS"
+            )
+            assert isinstance(module._FEED_FETCH_ERRORS, tuple)
+            assert len(module._FEED_FETCH_ERRORS) >= 4, (
+                f"{module.__name__}._FEED_FETCH_ERRORS too narrow"
+            )
 
 
 class TestM13SeedFileLeaderLock:
