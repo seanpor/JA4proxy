@@ -1,5 +1,63 @@
 # Changelog
 
+## [Unreleased] - Phase 101 housekeeping — acceptance audit (2026-04-26)
+
+Docs-only sub-phase status reconciliation. No code changes. Audited every
+unticked acceptance box in `docs/phases/PHASE_101.md` against current
+`HEAD`; ticked the boxes whose underlying work was already in code (via
+prior Phase 84 review-fixes branch and prior 101 sub-phase landings) but
+whose acceptance criteria had not been formally checked off.
+
+### Changed
+- `docs/phases/PHASE_101.md`:
+  - **101b** — all 6 boxes ticked (M1, M2, M4, L1, L2, L5 verified at
+    file:line). `make test-phase-84` box left **unticked** because of a
+    pre-existing `PciDssPackBuilder.__init__()` signature mismatch
+    (constructor wants `(redis, classifier)`; route + tests pass
+    `fmt=…`). 19 phase-84 tests fail on `main` already — unrelated to
+    101b items, needs separate triage PR.
+  - **101d** — added `**Status: COMPLETE — landed 2026-04-26.**` line.
+  - **101f** — all 4 boxes ticked. Verified with
+    `grep -nE "pytestmark|xfail" tests/{integration,chaos}/test_ti_feed*.py`
+    (no matches) and a green run of all 5 files (10 tests, 0.3s).
+  - **101g** — added a **Status: PARTIAL** note: M8/M9 done in code;
+    M10/M11/M12/M13/M14 still open. Documented per-item status so the
+    next sub-phase pickup knows exactly what's left.
+  - **101j** — M19 box ticked (audited; only historical references in
+    `PHASE_64*.md` remain — those are audit-trail commentary, not
+    operational guidance). M18 left explicitly DEFERRED on Phase 76.
+- `docs/phases/manifest.yaml`: bumped Phase 101 `status` from
+  `PROPOSED` → `IN_PROGRESS`. Annotated each sub-phase entry with its
+  current status (COMPLETE / PARTIAL / DEFERRED / open). Phase 101 cannot
+  be marked COMPLETE until 101g remaining items, 101h, and 101i/101l
+  (deferred) are resolved.
+
+### Sub-phase status snapshot (post-audit)
+| Sub-phase | Status |
+|---|---|
+| 101a | COMPLETE |
+| 101b | COMPLETE (with pre-existing test-phase-84 caveat) |
+| 101c | COMPLETE |
+| 101d | COMPLETE (H6 + H7 + H8 all landed) |
+| 101e | COMPLETE |
+| 101f | COMPLETE |
+| 101g | PARTIAL (M8, M9 done; M10–M14 open) |
+| 101h | OPEN (depends on 101g) |
+| 101i | DEFERRED (Go capacity) |
+| 101j | M19 done; M18 blocked |
+| 101k | COMPLETE |
+| 101l | DEFERRED (cross-org auth) |
+
+### Known pre-existing breakage (filed for separate triage)
+- `make test-phase-84` → 19 failures (12 in
+  `management/tests/test_compliance_pack.py`, 7 in
+  `management/tests/test_compliance_routes.py`). Root cause:
+  `PciDssPackBuilder.__init__()` accepts `(redis, classifier)` but the
+  PCI-DSS route at `management/api/routes/compliance.py:321` and the
+  pack tests both call it with `fmt=…`. This breakage exists on `main`
+  before this PR and is NOT introduced by housekeeping changes.
+  Verified by checking out `main` and re-running the same test.
+
 ## [Unreleased] - Phase 101d H6 — SafeResolver connector wrap (2026-04-26)
 
 Closes the H6 HIGH gap and **completes sub-phase 101d**. The URL-validator

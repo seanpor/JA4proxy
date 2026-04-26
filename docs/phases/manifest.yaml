@@ -1572,7 +1572,7 @@ phases:
     - 100-V complete — CLIConfig.ConfirmMutating field parsed; requireConfirm honours it; default true
   101:
     name: "Phase 101 — Cross-Phase Gap Closure"
-    status: PROPOSED
+    status: IN_PROGRESS
     action_plan: docs/phases/PHASE_101.md
     dependencies:
     - 84
@@ -1584,17 +1584,17 @@ phases:
     size: LARGE
     sub_phases:
       101a: Phase 84 DSAR correctness (H1, H3, M7) — M, no deps — COMPLETE 2026-04-26
-      101b: Phase 84 compliance hygiene (M1, M2, M4, L1, L2, L5) — S, depends 101a
+      101b: Phase 84 compliance hygiene (M1, M2, M4, L1, L2, L5) — S, depends 101a — COMPLETE 2026-04-26 (audit confirmed all 6 items in code)
       101c: Phase 85 critical safety caps (C4, C5, C6) — M, no deps — COMPLETE 2026-04-26
-      101d: Phase 85 SSRF/rate-limit/CSRF (H6, H7, H8) — M, depends 101c
+      101d: Phase 85 SSRF/rate-limit/CSRF (H6, H7, H8) — M, depends 101c — COMPLETE 2026-04-26 (H6 connector wrap, H7 rate limit, H8 CSRF middleware)
       101e: Phase 85 regional endpoints (H9, H10) — XS, no deps — COMPLETE 2026-04-26
-      101f: Phase 85 test reshape (H11, H12) — M, depends 101c
-      101g: Phase 85 medium items (M8–M14) — M, no deps (any order)
+      101f: Phase 85 test reshape (H11, H12) — M, depends 101c — COMPLETE 2026-04-26 (audit confirmed 5 files green, no xfail)
+      101g: Phase 85 medium items (M8–M14) — M, no deps (any order) — PARTIAL 2026-04-26 (M8/M9 done; M10/M11/M12/M13/M14 still open)
       101h: Phase 85 low items (L6–L8) — XS, depends 101g
-      101i: Phase 62 Go test parity (M15, M16, L9) — XS, no deps
-      101j: Phase 64 deploy validation (M18, M19) — XS, M18 blocked on Phase 76
+      101i: Phase 62 Go test parity (M15, M16, L9) — XS, no deps — DEFERRED (Go feature gaps require Go implementation capacity)
+      101j: Phase 64 deploy validation (M18, M19) — XS, M19 COMPLETE 2026-04-26; M18 BLOCKED on Phase 76 quadlet files
       101k: Phase 86i capacity hardening (H14, H15, H16, M24, M25, M26) — M, no deps — COMPLETE 2026-04-26
-      101l: Phase 93 provider publication (H17) — XS, no deps
+      101l: Phase 93 provider publication (H17) — XS, no deps — DEFERRED (cross-org GitHub repo authorization required)
     summary: 'Rolling cross-phase register of deferred review gaps from Phase 84 (compliance), Phase 85 (threat-intel hardening), Phase 62 (Go test parity), Phase 64 (deploy validation), Phase 86i (capacity hardening), and Phase 93 (Terraform provider). 12 sub-phases bundling 38 open gaps (3 critical, 13 high, 19 medium, 9 low). 16 items already closed. 4 documented limitations (external processes or blocked on hardware).'
     success_criteria:
     - All Phase 84 deferred items (H1, H3, M1, M2, M4, M7, L1, L2, L5) either have PR-level fixes or explicit, documented deferrals

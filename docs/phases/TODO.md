@@ -7,13 +7,13 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🟡 Phases In Progress
 
+### Phase 101 — Phase 101 — Cross-Phase Gap Closure
+*   **Status:** **IN_PROGRESS** (Rolling cross-phase register of deferred review gaps from Phase 84 (compliance), Phase 85 (threat-intel hardening), Phase 62 (Go test parity), Phase 64 (deploy validation), Phase 86i (capacity hardening), and Phase 93 (Terraform provider). 12 sub-phases bundling 38 open gaps (3 critical, 13 high, 19 medium, 9 low). 16 items already closed. 4 documented limitations (external processes or blocked on hardware).)
+*   **Action Plan:** [PHASE_101.md](PHASE_101.md)
+
 ---
 
 ## 🔵 Planned & Open Phases
-
-### Phase 101 — Phase 101 — Cross-Phase Gap Closure
-*   **Status:** **PROPOSED** (Rolling cross-phase register of deferred review gaps from Phase 84 (compliance), Phase 85 (threat-intel hardening), Phase 62 (Go test parity), Phase 64 (deploy validation), Phase 86i (capacity hardening), and Phase 93 (Terraform provider). 12 sub-phases bundling 38 open gaps (3 critical, 13 high, 19 medium, 9 low). 16 items already closed. 4 documented limitations (external processes or blocked on hardware).)
-*   **Action Plan:** [PHASE_101.md](PHASE_101.md)
 
 ### Phase 107 — Regulatory Conformance (CRA, NIST, ISO)
 *   **Status:** **PROPOSED** (Ensure compliance with Cyber Resilience Act (CRA), NIST SSDF, and ISO standards (27017, 29100) including SLSA L3 provenance.)
