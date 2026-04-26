@@ -1,3 +1,9 @@
+> **ARCHIVED — HISTORICAL SNAPSHOT.**
+> Snapshot date: 2026-03-15. Pre-Phase 200 hardening; Phase 14 framing.
+> Many gaps below (Redis TLS, image signing, SBOM, SIEM integration, Python
+> runtime concerns) are remediated by Phases 14, 15, 80, and 200-series.
+> Current posture: see docs/for-architects/DMZ_READINESS.md.
+
 <!--
 title: Dmz_Deployment_Readiness
 audience: Developers

@@ -1,3 +1,9 @@
+> **Archived snapshot — Phase 105 (2026-04-25).** This report reflects the
+> project state at the time of writing (2026-04-08, pre-Phase-200). Current
+> canonical reference: [`../../PROJECT_STATUS.md`](../../PROJECT_STATUS.md)
+> and the [phase manifest](../../phases/manifest.yaml).
+> Body untouched below.
+
 # JA4proxy — Strategic Security Architecture Review
 
 **Date:** 2026-04-08  

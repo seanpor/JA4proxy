@@ -121,14 +121,14 @@ func TestRegression_JA4PROXY_2026_0008_default_config_binds_loopback(t *testing.
 
 func TestMetricsRequestIsLocal(t *testing.T) {
 	cases := map[string]bool{
-		"127.0.0.1:41234":       true,
-		"127.0.0.2:1":           true,
-		"[::1]:41234":           true,
-		"10.0.0.5:41234":        false,
-		"[2001:db8::1]:41234":   false,
-		"198.51.100.7:41234":    false,
-		"malformed":             false,
-		"":                      false,
+		"127.0.0.1:41234":     true,
+		"127.0.0.2:1":         true,
+		"[::1]:41234":         true,
+		"10.0.0.5:41234":      false,
+		"[2001:db8::1]:41234": false,
+		"198.51.100.7:41234":  false,
+		"malformed":           false,
+		"":                    false,
 	}
 	for addr, want := range cases {
 		if got := MetricsRequestIsLocal(addr); got != want {

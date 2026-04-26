@@ -1,3 +1,9 @@
+> **ARCHIVED — HISTORICAL SNAPSHOT.**
+> Snapshot date: 2026-03-21. Pre-Phase 200 hardening.
+> Findings since remediated include Phase 13/51/52 Management UI and the
+> Phase 200-series hardening (Redis TLS, PROXY v2, credential removal).
+> Current posture: see docs/for-architects/.
+
 <!--
 title: Gemini_Critique
 audience: Developers

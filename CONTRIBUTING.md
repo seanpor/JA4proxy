@@ -50,33 +50,93 @@ Before writing any code:
 
 ## Project Structure
 
+The Go proxy was promoted to production in Phase 15. It is the only proxy
+implementation that ships in releases, Docker images, Helm charts, and
+enterprise documentation. The Python proxy is experimental and retained
+only as a prototyping surface for new signal modules — prototype in Python,
+prove the idea, then port to Go before it touches real traffic. Production
+Python services that are **not** the proxy (Management API, analytics node,
+compliance reporter) are listed separately and remain production code.
+
+### Production runtime — Go (the only proxy that ships)
+
 ```
-proxy.py                        # Proxy entry point (hot path, connection handler)
-src/
+cmd/proxy/main.go               # Production proxy entry point
+internal/
+  proxy/                        # TCP forwarder, PROXY protocol parsing
   security/
-    pipeline.py                 # Pipeline orchestration (all signals → scorer)
-    risk_scorer.py              # Phase 1: signal aggregation
-    action_decider.py           # Phase 2: dial → action
-    tls_enforcer.py             # Phase 3: TLS version/cipher
-    sni_analyzer.py             # Phase 4: SNI analysis
-    tcp_analyzer.py             # Phase 5: TCP behaviour + mTLS
-    mtls.py                     # Phase 5: mTLS bypass
-    asn_classifier.py           # Phase 6: ASN/datacenter/GeoIP
-    dns_enrichment.py           # Phase 7: FCrDNS enrichment
-    blocklists.py               # Phase 8: Spamhaus DROP/EDROP
-    beaconing_detector.py       # Phase 9: IAT coefficient of variation
-    abuseipdb.py                # Phase 10: AbuseIPDB lookup
-    rdap_enrichment.py          # Phase 11: RDAP + block expansion
-  cache/
-    local_cache.py              # In-process LRU cache (Phase 0)
-  config/
-    loader.py                   # Hot-reload config loader (Phase 0)
-analytics/                      # Phase 12: analytics node (separate container)
-# management/                   # Phase 13 deferred; re-implemented after Phase 15
+    pipeline.go                 # Pipeline orchestration (signals → scorer)
+    risk_scorer.go              # Signal aggregation
+    action_decider.go           # Dial → action
+    tls_enforcer.go             # TLS version/cipher
+    sni_analyzer.go             # SNI analysis
+    tcp_analyzer.go             # TCP behaviour + mTLS
+    asn_classifier.go           # ASN/datacenter/GeoIP
+    blocklists.go               # Spamhaus DROP/EDROP, ban lists
+    beaconing_detector.go       # IAT coefficient of variation
+    abuseipdb.go                # AbuseIPDB lookup
+    rdap_enrichment.go          # RDAP + block expansion
+  tls/                          # ClientHello parser, JA4 computation
+  redis/                        # Redis client (fail-open), Lua scripts, pub/sub
+  cache/                        # LRU cache
+  config/                       # Hot-reload config loader
+  metrics/                      # Prometheus metrics, /metrics endpoint
+  logging/                      # Structured (logrus) logging
+  compliance/                   # Compliance reporter integration
+  webhook/                      # Webhook delivery
+  cli/                          # CLI subcommands
+bin/proxy                       # Built artefact (Go static binary)
+deploy/docker/Dockerfile-go-proxy   # Production image
+```
+
+### Python prototyping surface (experimental — do NOT ship to production traffic)
+
+```
+proxy.py                        # Python proxy entry point (research only)
+src/
+  security/                     # Mirror of internal/security/, in Python
+    pipeline.py
+    risk_scorer.py
+    action_decider.py
+    tls_enforcer.py
+    sni_analyzer.py
+    tcp_analyzer.py
+    mtls.py
+    asn_classifier.py
+    dns_enrichment.py
+    blocklists.py
+    beaconing_detector.py
+    abuseipdb.py
+    rdap_enrichment.py
+  cache/local_cache.py
+  config/loader.py
+```
+
+Use this surface to prototype a new signal module, prove its logic with the
+Python test suite, then port the production version to `internal/security/`
+in Go. The Phase 36/65 parity harness mechanically checks score equivalence
+between the two runtimes.
+
+### Production-Python services (not the proxy)
+
+```
+analytics/                      # Phase 12: analytics node (Streams consumer)
+management/                     # FastAPI Management API + admin UI
+src/compliance/                 # Compliance reporter (production Python)
+src/backup/                     # Backup worker (production Python)
+src/tap/                        # Phase 20 TAP/SPAN mode
+```
+
+These are full production services and the standard quality bar applies —
+they are not part of the "experimental" prototype caveat above.
+
+### Shared
+
+```
 config/
-  proxy.yml                     # Main configuration file
-  asn_datacenter_list.yml       # Phase 6: datacenter ASN list
-  known_bad_orgs.yml            # Phase 11: known-bad org list
+  proxy.yml                     # Main configuration file (Go + Python)
+  asn_datacenter_list.yml       # Datacenter ASN list
+  known_bad_orgs.yml            # Known-bad org list
 tests/
   unit/                         # Per-module unit tests
   integration/                  # Pipeline + Redis integration tests
@@ -85,7 +145,7 @@ tests/
   performance/                  # Throughput and latency benchmarks
   mocks/                        # Mock servers for external APIs
 docs/
-  phases/                       # Per-phase plan files (PHASE_00.md – PHASE_24.md)
+  phases/                       # Per-phase plan files
   runbooks/                     # Operational runbooks
   decisions/                    # Architecture Decision Records (ADR-*.md)
 ```

@@ -118,6 +118,135 @@ The scale configuration is in `deploy/docker/docker-compose.scale.yml`:
 | 4 | 4 | ~1.7GB | 4 |
 | 8 | 8 | ~3.3GB | 8 |
 
+## Worked Scenarios
+
+> **Production runtime is the Go proxy** (`cmd/proxy/`, `bin/proxy`). The
+> Python-process throughput numbers in the tables above were measured on the
+> Python prototyping surface (Phase 8 baseline; see
+> [`docs/performance/BENCHMARK_HISTORY.md`](performance/BENCHMARK_HISTORY.md)).
+> They are the only **measured** figures in this section. Every other number
+> below is either derived directly from those measurements or marked
+> **(estimate)** — Go-runtime production benchmarks are pending (Phase 15
+> rewrite is feature-complete; throughput benchmarks have not yet been
+> re-recorded into BENCHMARK_HISTORY at the time of writing).
+>
+> **Source of measured numbers used below:** all citations point to the
+> 2026-03-07 Phase 8 entry in `BENCHMARK_HISTORY.md`. Where a scenario
+> requires a number not present there, it is annotated **(estimate)** and
+> reasoned from the measured per-instance ceiling.
+
+The three scenarios below illustrate end-to-end sizing for representative
+deployments. All scenarios assume:
+
+- Backend HTTPS server reachable from every proxy node.
+- HAProxy in front of the proxy fleet, configured per
+  [`docs/runbooks/rolling_upgrade.md`](runbooks/rolling_upgrade.md) §1.
+- Redis available with persistence (AOF) and authentication.
+- Prometheus scraping `/metrics` from every node.
+
+### Scenario A — Small site (~100 req/s)
+
+Single-marketing-site / small-SaaS use case. Modest traffic; a few brief
+spikes per day. Cost-sensitive.
+
+| Item | Value | Source |
+|------|-------|--------|
+| Target sustained throughput | 100 conn/s | Requirement |
+| Peak (2× headroom) | 200 conn/s | (estimate, standard 2× headroom rule) |
+| Proxy instances | 2 (HA pair) | Required by `rolling_upgrade.md` §1 (≥2 instances for zero-downtime upgrades) |
+| Per-instance load at steady state | ~100 conn/s | 200 ÷ 2 instances |
+| Per-instance ceiling (Python) | ~350 conn/s with real Redis | BENCHMARK_HISTORY 2026-03-07 |
+| Headroom per instance | ~250 conn/s (~70%) | Derived from above |
+| Redis sizing | 1 node, 256 MB max-memory, AOF on | (estimate; ban+rate-limit+HLL key set < 50 MB at this volume) |
+| Recommended dial progression | 0 → 25 → 50 over 14 days, observe FP rate at each step | `SECOPS_OPERATIONS.md` |
+| Monitoring thresholds | `ja4proxy_active_connections` > 200 sustained → investigate; `ja4proxy_redis_errors_total` rate > 0 → page | `MONITORING_SETUP.md`, [`CAPACITY_PLANNING.md`](operator/CAPACITY_PLANNING.md) |
+
+**Notes for this scenario:**
+- A single instance would meet the throughput requirement but cannot satisfy
+  the zero-downtime-upgrade prerequisite. Run two.
+- `tarpit.max_per_ip` should remain at default (3) — only one instance
+  serves a given client at a time at this scale, so global semantics hold
+  without per-worker adjustment.
+
+### Scenario B — Enterprise (~2,000 req/s)
+
+Large internal application or mid-market e-commerce. Steady business-hour
+traffic; predictable spikes. Operates on real hardware or sized cloud VMs.
+
+| Item | Value | Source |
+|------|-------|--------|
+| Target sustained throughput | 2,000 conn/s | Requirement |
+| Peak (2× headroom) | 4,000 conn/s | (estimate, 2× headroom rule) |
+| Per-process throughput (single Python proxy with Redis) | ~350 conn/s | BENCHMARK_HISTORY 2026-03-07 |
+| Required Python-process count to hit peak | 4,000 ÷ 350 ≈ **12 worker processes** | Derived |
+| Recommended deployment | 3 nodes × 4-worker scaled config (`make start-scaled`) | This doc, "Resource Usage" table (4 workers ≈ 2,800–3,800 conn/s per node) |
+| Per-node expected throughput | ~2,800–3,800 conn/s | This doc, "Expected Throughput" table |
+| Per-node CPU / memory | 4 cores, ~1.7 GB | This doc, "Resource Usage" table |
+| Redis sizing | 1 primary + 1 replica, 2 GB max-memory, AOF on, persistence to fast SSD | (estimate; ban + HLL + rate-limit volumes scale linearly with unique-IP count) |
+| `tarpit.max_per_ip` | 1 per worker (12 workers across 3 nodes) | Per "Worker Count and max_per_ip Adjustment" formula above |
+| Recommended dial progression | 0 → 25 → 50 → 75 over 30 days; hold at 50 for at least 7 days before final raise | `SECOPS_OPERATIONS.md`; [`CAPACITY_PLANNING.md`](operator/CAPACITY_PLANNING.md) |
+| Monitoring thresholds | Per-node `ja4proxy_active_connections` > 800 sustained → add a node; FP rate > 0.1% over 1 h → halt dial progression and investigate; HAProxy backend down > 30 s → page | `MONITORING_SETUP.md`, [`SERVICE_TARGETS.md`](SERVICE_TARGETS.md) |
+
+**Notes for this scenario:**
+- 3 nodes is the minimum for `maxSurge: 1, maxUnavailable: 0` rolling upgrades
+  with comfortable headroom (loss of one node still leaves 2× peak capacity).
+- Monitor Redis CPU and `INFO commandstats` — at this volume Redis is the
+  next bottleneck after the proxy GIL. If Redis CPU sustains > 70%, consider
+  splitting state into two Redis instances by key family or migrating to a
+  cluster.
+- This is the deployment shape where the Go proxy gives the largest
+  cost saving once Phase 15 throughput numbers are re-recorded; expected
+  per-node ceiling is materially higher **(estimate)** but not yet measured.
+
+### Scenario C — High-volume API / DDoS-resistant edge (~15,000 req/s)
+
+Public API gateway, large-scale e-commerce front door, or an edge tier that
+must survive volumetric L7 attacks. Continuous high traffic with frequent
+spikes.
+
+| Item | Value | Source |
+|------|-------|--------|
+| Target sustained throughput | 15,000 conn/s | Requirement |
+| Peak (2× headroom) | 30,000 conn/s | (estimate, 2× headroom rule) |
+| Per-node ceiling on i9-9900K-class hardware | ~5,600–7,600 conn/s (8 workers) | This doc, "Expected Throughput" table |
+| Required node count (Python) | 30,000 ÷ ~6,000 ≈ **5–6 nodes** | Derived |
+| Recommended deployment | 6 nodes × 8-worker scaled config; reserve 1 spare node for upgrades | This doc + standard N+1 rule (estimate) |
+| Per-node CPU / memory | 8 cores, ~3.3 GB | This doc, "Resource Usage" table |
+| Redis sizing | Redis Cluster, 3 primaries + 3 replicas, 8 GB max-memory each, AOF every-second | (estimate; required because single-Redis throughput becomes the bottleneck above ~10K conn/s — see "Conclusion" section in this doc) |
+| `tarpit.max_per_ip` | 1 per worker (48 workers fleet-wide) | Per "Worker Count and max_per_ip Adjustment" formula |
+| Recommended dial progression | 0 → 10 → 25 → 50 → 75 over 60 days; hold ≥ 14 days at each non-zero step; pause at any FP rate > 0.05% | `SECOPS_OPERATIONS.md`; conservative due to traffic volume (estimate) |
+| Monitoring thresholds | Per-node `ja4proxy_active_connections` > 4,000 sustained → add a node; FP rate > 0.05% over 1 h → halt and roll back dial; Redis P99 latency > 5 ms → page; HAProxy backend down > 15 s → page | `MONITORING_SETUP.md`, [`SERVICE_TARGETS.md`](SERVICE_TARGETS.md) |
+
+**Notes for this scenario:**
+- At this scale **the Python proxy is end-of-life**. Plan the deployment on
+  the assumption of migrating to the Go runtime; the numbers above are a
+  worst-case sanity check.
+- Bandwidth, kernel sysctl tuning (`net.core.somaxconn`,
+  `net.ipv4.tcp_max_syn_backlog`, `nf_conntrack_max`), and NIC RX queues
+  matter at this scale and are out of scope here. See
+  [`CAPACITY_PLANNING.md`](operator/CAPACITY_PLANNING.md) for the
+  long-form sizing reference.
+- Bypass coverage matters more than dial setting at this volume: ensure
+  `h2`/`h1` ALPN bypass and JA4 whitelist are populated; otherwise even a 1%
+  scoring overhead becomes hundreds of connections/second of unnecessary work.
+- Threat-intel feeds (Spamhaus DROP/EDROP) provide most of the value at the
+  edge — keep them current via the leader-election feed manager and watch
+  `ti_feed_stale` alerts.
+
+### Cross-scenario notes
+
+- **All "(estimate)" numbers above** should be replaced with measured values
+  once Go-runtime production benchmarks land in
+  [`docs/performance/BENCHMARK_HISTORY.md`](performance/BENCHMARK_HISTORY.md).
+  When updating this guide, replace the estimate marker with the date and
+  commit hash of the benchmark entry.
+- **Dial progression cadence** is conservative on purpose. False positives
+  cost more than false negatives — see `CLAUDE.md` "Core Asymmetry" section.
+  When in doubt, slow the dial.
+- **Capacity is per-instance ceiling × instance count, minus headroom for
+  upgrades.** Always reserve at least one instance worth of capacity for
+  rolling upgrades and one for unexpected node failure.
+
 ## Shared State Correctness
 
 ### What's Shared (via Redis)

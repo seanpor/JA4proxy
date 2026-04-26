@@ -101,7 +101,7 @@ Management dashboards and documentation quality.
 | 39 | Documentation Audit & Synchronization | COMPLETE | Audit all phase documentation, synchronize manifest/todo, and ensure clear status indicators. |
 | 51 | Management UI - Phase 2: Frontend Dashboard | COMPLETE | Server-rendered Jinja2 dashboard (dashboard.html, partials) for real-time visualization of proxy telemetry. Delivered together with Phases 13/52 in merge commit 2aeb2ba. |
 | 52 | Management UI - Phase 3: Administration Tools | COMPLETE | Admin UI for allowlists, bans, dial, audit log, and config. Full test suite including test_pages.py and test_container_config.py. Delivered together with Phases 13/51 in merge commit 2aeb2ba. |
-| 105 | Documentation Restructure by Audience | PROPOSED | Consolidate and restructure project documentation into five audience-specific entry points (Website Owners, Architects, Operators, Compliance, Developers) to improve discoverability and reduce drift. |
+| 105 | Documentation Restructure by Audience | COMPLETE | Restructured project documentation into five audience-specific entry points (Website Owners, Architects, Operators, Compliance, Developers). Consolidated 4 blocking docs into BLOCKING_OPERATIONS.md and 4 testing docs into TESTING_STRATEGY.md as appendices. Refreshed 4 LaTeX chapters (brochure + 3 reference-manual chapters) for Phase 200-series posture. Added docs-pdf.yml CI workflow (SHA-pinned, 14-day non-blocking grace ending 2026-05-09). Archived pre-Phase-200 reports (GEMINI_CRITIQUE, ENTERPRISE_REVIEW, DMZ_DEPLOYMENT_READINESS, CYBER_RISK_REVIEW, strategic_security_architecture_review) with date-stamped banners. Reduced root README from 441 to 88 lines as a role-router. Resolved Phase 106 architect Finding 2 (placeholder marker in for-developers/README.md). |
 
 ### Epic: Operational Excellence & Lifecycle Management
 Zero-downtime upgrades, robust health monitoring, and deployment orchestration.
@@ -266,7 +266,7 @@ Alignment with international standards and regulatory frameworks.
 | 100 | Phase 100 — Cross-Phase Gap Closure (rolling) | COMPLETE | N/A | N/A |
 | 101 | Phase 101 — Cross-Phase Gap Closure | PROPOSED | N/A | N/A |
 | 102 | Phase 93 Finishing Work: ADRs, Runbook Audit, Drift-Detection Decision | COMPLETE | N/A | N/A |
-| 105 | Documentation Restructure by Audience | PROPOSED | N/A | N/A |
+| 105 | Documentation Restructure by Audience | COMPLETE | N/A | N/A |
 | 106 | SWEBOK v4 Alignment & Quality Plan | COMPLETE | N/A | N/A |
 | 107 | Regulatory Conformance (CRA, NIST, ISO) | PROPOSED | N/A | N/A |
 | 108 | Full-Stack Penetration Testing Campaign | COMPLETE | N/A | N/A |

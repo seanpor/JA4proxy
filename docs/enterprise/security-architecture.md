@@ -16,7 +16,7 @@ phase: 21
 >
 > For the security posture of the current implementation, see:
 > - [Comprehensive Security Audit](../security/COMPREHENSIVE_SECURITY_AUDIT.md) — what is actually implemented today
-> - [DMZ Deployment Readiness](../DMZ_DEPLOYMENT_READINESS.md) — gap analysis between current and production-ready state
+> - [DMZ Deployment Readiness](../for-architects/DMZ_READINESS.md) — gap analysis between current and production-ready state
 > - [Redis Security Review](../REDIS_SECURITY_REVIEW.md) — current Redis hardening status
 
 ## Executive Summary

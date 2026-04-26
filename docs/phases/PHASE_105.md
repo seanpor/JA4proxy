@@ -574,9 +574,9 @@ Suggested execution order:
   compliance, runbooks, etc.). One source of truth per fact.
 - **Archive, don't delete.** Stale reports are audit trail. Move to
   `docs/reports/archive/` with a banner; never `rm`.
-- **PDFs:** check whether `docs/pdf/Makefile` already supports `latexmk` or
-  `tectonic`. Prefer `tectonic` for reproducible builds in CI (single binary,
-  no TeXLive install).
+- **PDFs:** `docs/pdf/Makefile` already uses `pdflatex` + `makeindex`. Stick
+  with `pdflatex` for this phase — switching toolchains is scope creep. A
+  future ADR may reconsider `tectonic` for reproducible single-binary CI.
 - **CI for PDFs:** the PDF build should be a **non-blocking** CI job initially.
   Promote to blocking only after it has been green for 14 days. The goal is
   discoverability of drift, not making docs a release blocker.
