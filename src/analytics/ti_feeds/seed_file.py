@@ -216,6 +216,7 @@ async def run_once(
     state: FeedState,
     path: str | Path = "config/known_bad_fingerprints.yml",
     min_entries: int = 10,
+    instance_id: str | None = None,
 ) -> dict[str, int]:
     """Load the seed file and push every entry through the Management API.
 
@@ -228,10 +229,32 @@ async def run_once(
             current working directory).
         min_entries: Log a WARN if fewer than this many entries parsed —
             the acceptance criterion is ≥10 vetted entries.
+        instance_id: When provided, the loader gates its work on the shared
+            ``ti_feed:leader_lock`` (M13). Only the elected leader pushes
+            seed entries; other replicas return an empty summary. Pass
+            ``None`` to skip the gate (legacy / single-replica callers).
 
     Returns:
-        A summary dict ``{loaded, created, rejected, errors}``.
+        A summary dict ``{loaded, created, rejected, errors}``. When the
+        leader gate is enabled and this replica did not win the lock,
+        every counter is zero and ``loaded`` reflects entries parsed
+        before the gate was checked (i.e. zero — no parse is attempted).
     """
+    if instance_id is not None:
+        # M13 (PHASE_101): without this gate, every analytics replica would
+        # POST every seed entry on startup. Mgmt API is first-writer-wins
+        # so it's safe but wasteful; the lock collapses N startup loads
+        # into one. Lock TTL is intentionally generous (60s) — the seed
+        # file is bounded and applies in well under a second normally,
+        # but a slow Mgmt API or large seed file should not race the
+        # lock expiry.
+        if not await state.try_acquire_leader(instance_id, ttl_seconds=60):
+            logger.info(
+                "ti_feed | event=seed_file_skipped_not_leader | instance=%s",
+                instance_id,
+            )
+            return {"loaded": 0, "created": 0, "rejected": 0, "errors": 0}
+
     entries = load_seed_file(path)
     summary = {
         "loaded": len(entries),
