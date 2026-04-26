@@ -130,4 +130,7 @@ def test_regression_JA4PROXY_2026_0023_create_app_allows_prod_without_test_mode(
 
     monkeypatch.setenv("ENVIRONMENT", "production")
     monkeypatch.delenv("MANAGEMENT_TEST_MODE", raising=False)
+    # phase-101 H8: MANAGEMENT_DISABLE_CSRF is also a test-only flag and the
+    # prod-startup guard rejects it, so it must be unset for this regression.
+    monkeypatch.delenv("MANAGEMENT_DISABLE_CSRF", raising=False)
     _enforce_no_test_mode_in_production()  # must not raise

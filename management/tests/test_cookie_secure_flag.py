@@ -74,6 +74,8 @@ def test_regression_JA4PROXY_2026_0024_login_endpoint_emits_secure_cookie(
     monkeypatch.setenv("MANAGEMENT_ADMIN_USER", "admin")
     monkeypatch.setenv("MANAGEMENT_ADMIN_PASSWORD", "testpassword")
     monkeypatch.delenv("MANAGEMENT_TEST_MODE", raising=False)
+    # phase-101 H8: prod create_app rejects MANAGEMENT_DISABLE_CSRF too.
+    monkeypatch.delenv("MANAGEMENT_DISABLE_CSRF", raising=False)
 
     # Import after env is set so create_app honours the prod config.
     from fastapi.testclient import TestClient

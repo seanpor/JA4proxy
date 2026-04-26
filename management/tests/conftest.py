@@ -23,6 +23,12 @@ os.environ.setdefault("MANAGEMENT_JWT_SECRET", "test-secret-do-not-use-in-produc
 os.environ.setdefault("MANAGEMENT_ADMIN_USER", "admin")
 os.environ.setdefault("MANAGEMENT_ADMIN_PASSWORD", "testpassword")
 os.environ.setdefault("MANAGEMENT_TEST_MODE", "1")
+# phase-101 H8: bypass the CSRF middleware for the existing fixture-based
+# tests (~95 inline AsyncClient instantiations predate the middleware).
+# tests/unit/test_csrf.py explicitly clears this env to verify enforcement.
+# The middleware refuses to honour this flag when ENVIRONMENT=production
+# (and create_app() refuses to start at all in that combination).
+os.environ.setdefault("MANAGEMENT_DISABLE_CSRF", "1")
 
 from management.api import redis_client as _redis_module  # noqa: E402
 from management.api.auth import _create_access_token  # noqa: E402
