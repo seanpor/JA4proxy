@@ -425,9 +425,21 @@ remaining items as separate close-out PRs.
 3. **L8 — Metrics registry:** Add all new metrics introduced by this phase to `monitoring/metrics_registry.md`: `ja4proxy_ti_feed_caps_hit_total`, `ja4proxy_ti_feed_fp_blocked_total`, `ja4proxy_dsar_export_partial_failures_total`, `ja4proxy_dsar_xrange_len`, and any others added in sub-phases 101c–101g.
 
 **Acceptance criteria:**
-- [ ] `_OneShotBundle` docstring matches current implementation
-- [ ] Runbooks verified against a live deployment (or documented as untested)
-- [ ] All new metrics from this phase documented in `metrics_registry.md`
+- [x] `_OneShotBundle` docstring matches current implementation (verified 2026-04-26 — `recorded_future.py:260`: docstring describes the single-method TAXII transport adapter contract; H13's `stix_ids_seen.add()` deferral is in `taxii.py` `_apply_indicator`, not in this adapter, so the docstring remains correct)
+- [x] Runbooks verified against a live deployment (or documented as untested) (verified 2026-04-26 — see status note below)
+- [x] All new metrics from this phase documented in `metrics_registry.md` (verified 2026-04-26 — `ja4proxy_ti_feed_caps_hit_total` at line 51, `ja4proxy_ti_feed_fp_blocked_total` at line 52, `ja4proxy_dsar_export_partial_failures_total` at line 60, `ja4proxy_dsar_xrange_len` at line 61)
+
+**Status: COMPLETE (with L7 caveat) — verified 2026-04-26.** L6 + L8
+verified at file:line. L7 — three Phase 85 runbooks
+(`ti_feed_caps_hit.md`, `ti_feed_fp_blocked.md`,
+`ti_feed_circuit_open.md`) carry `last_reviewed: 2026-04-26` headers
+but have NOT been dry-run against a real production deployment because
+no such deployment is currently available. The runbook commands
+reference real Prometheus/Alertmanager queries and existing operator
+tools (`ja4proxy-cli`, `redis-cli`); they are syntactically and
+semantically correct against the current schema, but step-by-step
+operator timing has not been confirmed in a live incident. Marking L7
+as DOCUMENTED-AS-UNTESTED per the original acceptance phrasing.
 
 ---
 

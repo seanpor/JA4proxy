@@ -1,5 +1,57 @@
 # Changelog
 
+## [Unreleased] - Phase 101h — low items L6/L7/L8 closed (2026-04-26)
+
+Docs-only sub-phase 101h close-out. All three low-severity items
+verified at file:line:
+
+- **L6** — `_OneShotBundle` docstring at
+  `src/analytics/ti_feeds/recorded_future.py:260` accurately describes
+  the adapter's role: a TAXII-transport stub that wraps a single STIX
+  bundle and implements the `get_objects(collection_id, added_after)
+  → dict` contract `TAXIIClient(taxii=…)` expects. H13's
+  `stix_ids_seen.add()` deferral lives in `taxii.py::_apply_indicator`,
+  not in this adapter, so the docstring is still correct after H13.
+- **L7** — Three Phase 85 runbooks (`ti_feed_caps_hit.md`,
+  `ti_feed_fp_blocked.md`, `ti_feed_circuit_open.md`) carry
+  `last_reviewed: 2026-04-26` headers but have NOT been dry-run against
+  a real production deployment (none available). All referenced
+  Prometheus/Alertmanager queries and operator tools
+  (`ja4proxy-cli`, `redis-cli`) are syntactically and semantically
+  correct against the current schema; what's untested is end-to-end
+  operator timing in a live incident. Per the original acceptance
+  phrasing — "verified against a live deployment OR documented as
+  untested" — marking as DOCUMENTED-AS-UNTESTED.
+- **L8** — Metrics registry at `deploy/monitoring/metrics_registry.md`
+  already documents all four new Phase 101 metrics:
+  `ja4proxy_ti_feed_caps_hit_total` (line 51),
+  `ja4proxy_ti_feed_fp_blocked_total` (line 52),
+  `ja4proxy_dsar_export_partial_failures_total` (line 60),
+  `ja4proxy_dsar_xrange_len` (line 61).
+
+### Changed
+- `docs/phases/PHASE_101.md`: ticked all 3 acceptance boxes for 101h
+  with file:line references; added Status block noting L7 caveat.
+- `docs/phases/manifest.yaml`: annotated 101h as COMPLETE 2026-04-26.
+
+### Phase 101 sub-phase status (post-PR)
+| Sub-phase | Status |
+|---|---|
+| 101a | COMPLETE |
+| 101b | COMPLETE |
+| 101c | COMPLETE |
+| 101d | COMPLETE |
+| 101e | COMPLETE |
+| 101f | COMPLETE |
+| 101g | PARTIAL (M8/M9 done; M10–M14 open) |
+| **101h** | **COMPLETE (this PR)** |
+| 101i | DEFERRED (Go capacity) |
+| 101j | M19 done; M18 blocked |
+| 101k | COMPLETE |
+| 101l | DEFERRED (cross-org auth) |
+
+Phase 101 still cannot be marked COMPLETE: 101g remaining items + 101i/101l deferred.
+
 ## [Unreleased] - Phase 101 housekeeping — acceptance audit (2026-04-26)
 
 Docs-only sub-phase status reconciliation. No code changes. Audited every
