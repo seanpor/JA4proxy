@@ -12,6 +12,10 @@ phase: 21
 > **Last Reviewed:** 2026-03-27
 > **Status:** Enterprise standard documentation
 
+## See also
+
+- [ISO/IEC 29100 privacy-framework mapping](iso29100-mapping.md) — privacy-framework companion that maps the 11 ISO 29100 principles to the relevant sections of this document. The 29100 mapping links back here for the authoritative content; do not duplicate GDPR detail there.
+
 ---
 
 ## §1. Executive Summary
