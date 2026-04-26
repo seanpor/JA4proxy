@@ -1593,7 +1593,7 @@ phases:
       101h: Phase 85 low items (L6–L8) — XS, depends 101g
       101i: Phase 62 Go test parity (M15, M16, L9) — XS, no deps
       101j: Phase 64 deploy validation (M18, M19) — XS, M18 blocked on Phase 76
-      101k: Phase 86i capacity hardening (H14, H15, H16, M24, M25, M26) — M, no deps
+      101k: Phase 86i capacity hardening (H14, H15, H16, M24, M25, M26) — M, no deps — COMPLETE 2026-04-26
       101l: Phase 93 provider publication (H17) — XS, no deps
     summary: 'Rolling cross-phase register of deferred review gaps from Phase 84 (compliance), Phase 85 (threat-intel hardening), Phase 62 (Go test parity), Phase 64 (deploy validation), Phase 86i (capacity hardening), and Phase 93 (Terraform provider). 12 sub-phases bundling 38 open gaps (3 critical, 13 high, 19 medium, 9 low). 16 items already closed. 4 documented limitations (external processes or blocked on hardware).'
     success_criteria:

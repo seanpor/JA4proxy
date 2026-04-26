@@ -306,3 +306,60 @@ class TestPhase86iNarrowedCustomCheck:
         assert "ja4proxy.redis_health" in source, (
             "Phase 86i: ja4proxy.redis_health service_check must be added"
         )
+
+
+# ── PHASE_101 H16: migration runbook ────────────────────────────────────────
+
+
+class TestPhase101H16MigrationRunbook:
+    """PHASE_101 H16 — the Datadog two-layer migration must have an oncall
+    runbook that documents the deploy order and the smoke-check commands.
+
+    Without this runbook, the migration was lore-only: SREs had to read
+    the Phase 86i review doc to know that OpenMetrics ships before the
+    custom check, and the exact `datadog-agent check` invocations that
+    validate each layer were undocumented.
+    """
+
+    RUNBOOK = (
+        Path(__file__).parent.parent.parent
+        / "docs"
+        / "runbooks"
+        / "datadog_migration_phase86i.md"
+    )
+
+    def test_runbook_exists(self):
+        assert self.RUNBOOK.exists(), (
+            f"Phase 101 H16: missing {self.RUNBOOK} — oncall has no "
+            "documented procedure for the Datadog two-layer rollout"
+        )
+
+    def test_runbook_references_both_smoke_check_commands(self):
+        """The runbook must reference both ``datadog-agent check openmetrics``
+        and ``datadog-agent check ja4proxy`` by exact name — these are the
+        commands oncall pastes during a rollout."""
+        text = self.RUNBOOK.read_text()
+        assert "datadog-agent check openmetrics" in text, (
+            "Phase 101 H16: runbook must include the exact "
+            "`datadog-agent check openmetrics` invocation"
+        )
+        assert "datadog-agent check ja4proxy" in text, (
+            "Phase 101 H16: runbook must include the exact "
+            "`datadog-agent check ja4proxy` invocation"
+        )
+
+    def test_runbook_documents_deploy_order(self):
+        """The runbook must explicitly state OpenMetrics deploys before the
+        narrowed custom check — reversing the order produces 24h of
+        spurious ``unknown`` health states."""
+        text = self.RUNBOOK.read_text()
+        assert "Layer 1" in text and "Layer 2" in text, (
+            "Phase 101 H16: runbook must enumerate Layer 1 / Layer 2"
+        )
+        # Layer 1 (OpenMetrics) must appear before Layer 2 (custom check)
+        # in the document body.
+        idx_l1 = text.find("Layer 1")
+        idx_l2 = text.find("Layer 2")
+        assert 0 <= idx_l1 < idx_l2, (
+            "Phase 101 H16: runbook must describe Layer 1 before Layer 2"
+        )
