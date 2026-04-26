@@ -214,7 +214,11 @@ class CrowdStrikeFalconClient(FeedClient):
             "client_id": self.config.client_id,
             "client_secret": self.config.client_secret,
         }
-        async with aiohttp.ClientSession() as session:
+        # H6 (PHASE_101): SafeResolver blocks DNS-level SSRF to private/metadata IPs.
+        from .safe_resolver import SafeResolver
+
+        connector = aiohttp.TCPConnector(resolver=SafeResolver())
+        async with aiohttp.ClientSession(connector=connector) as session:
             async with session.post(
                 self._auth_url,
                 data=data,
@@ -256,7 +260,11 @@ class CrowdStrikeFalconClient(FeedClient):
             "User-Agent": "ja4proxy-ti-feed/1.0",
         }
         first = True
-        async with aiohttp.ClientSession(headers=headers) as session:
+        # H6 (PHASE_101): SafeResolver blocks DNS-level SSRF to private/metadata IPs.
+        from .safe_resolver import SafeResolver
+
+        connector = aiohttp.TCPConnector(resolver=SafeResolver())
+        async with aiohttp.ClientSession(headers=headers, connector=connector) as session:
             while first or offset:
                 first = False
                 params: dict[str, str] = {
