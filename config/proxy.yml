@@ -934,6 +934,11 @@ threat_intel:
       type: recorded_future
       enabled: false               # phase-85: opt-in
       api_token: "${RF_API_TOKEN}"
+      # phase-101e (H9): regional TAXII root. Omit `url` for the default US
+      # endpoint (api.recordedfuture.com/taxii2). EU and APAC tenants must
+      # set `url` explicitly to avoid cross-region data residency issues:
+      #   url: "https://api.eu.recordedfuture.com/taxii2/"
+      #   url: "https://api.apac.recordedfuture.com/taxii2/"
       feeds:
         - ip_threat_intel
         - c2_server_tracking
@@ -946,6 +951,11 @@ threat_intel:
       enabled: false               # phase-85: opt-in
       client_id: "${CS_CLIENT_ID}"
       client_secret: "${CS_CLIENT_SECRET}"
+      # phase-101e (H10): regional Falcon API base. Omit `url` for default
+      # US-1 (api.crowdstrike.com). Set explicitly per Falcon tenant region:
+      #   url: "https://api.us-2.crowdstrike.com"
+      #   url: "https://api.eu-1.crowdstrike.com"
+      #   url: "https://api.laggar.gcw.crowdstrike.com"   # GovCloud
       indicator_types: [ip_address]
       min_malicious_confidence: high   # low|medium|high
       poll_interval_minutes: 30

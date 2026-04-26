@@ -1587,7 +1587,7 @@ phases:
       101b: Phase 84 compliance hygiene (M1, M2, M4, L1, L2, L5) — S, depends 101a
       101c: Phase 85 critical safety caps (C4, C5, C6) — M, no deps
       101d: Phase 85 SSRF/rate-limit/CSRF (H6, H7, H8) — M, depends 101c
-      101e: Phase 85 regional endpoints (H9, H10) — XS, no deps
+      101e: Phase 85 regional endpoints (H9, H10) — XS, no deps — COMPLETE 2026-04-26
       101f: Phase 85 test reshape (H11, H12) — M, depends 101c
       101g: Phase 85 medium items (M8–M14) — M, no deps (any order)
       101h: Phase 85 low items (L6–L8) — XS, depends 101g

@@ -1,5 +1,26 @@
 # Changelog
 
+## [Unreleased] - Phase 101e — Threat-Intel Regional Endpoints (2026-04-26)
+
+Closes Phase 101 sub-phase **101e** (H9, H10): Recorded Future and CrowdStrike
+Falcon clients now honour `config.url` for regional/GovCloud endpoint
+selection. Implementation was already in place via `_resolve_rf_taxii_root()`
+and `_resolve_falcon_urls()`; this change documents the regional endpoints
+in `config/proxy.yml` so operators discover the option without reading source.
+
+### Added
+- `config/proxy.yml`: regional endpoint comments for `recorded-future`
+  (EU, APAC) and `crowdstrike-falcon` (US-2, EU-1, GovCloud/laggar) feeds —
+  helps tenants pin their feed to the correct data residency region
+- `tests/unit/analytics/ti_feeds/test_phase_101e_regional_endpoints.py` —
+  10 parametrised tests covering URL resolution for both clients (already
+  in tree; verified green)
+
+### Changed
+- `docs/phases/PHASE_101.md`: 101e moved from Open to Landed; acceptance
+  criteria checkboxes ticked
+- `docs/phases/manifest.yaml`: 101e sub-phase marked COMPLETE 2026-04-26
+
 ## [Unreleased] - Phase 105 — Documentation Restructure by Audience (2026-04-25)
 
 Documentation-only phase. Restructures the documentation corpus around five
