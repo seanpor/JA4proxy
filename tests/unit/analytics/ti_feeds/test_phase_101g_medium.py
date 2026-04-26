@@ -51,13 +51,54 @@ class TestM10GaugeToCounter:
 
 
 class TestM11StableOrderedDropped:
-    """M11: verify compute_dropped_ids exists and returns list."""
+    """M11: ``compute_dropped_ids`` returns a stable-ordered list of tuples,
+    not a dict. Stable order makes parallel poll loops deterministic and lets
+    the cleanup-cap split (``runner._poll_one``) pick the same head every run
+    instead of churning a randomly-ordered dict.
+    """
 
-    def test_dropped_ids_exists(self):
-        """compute_dropped_ids should exist in state.py."""
-        with open("src/analytics/ti_feeds/state.py") as f:
-            content = f.read()
-        assert "compute_dropped_ids" in content, "compute_dropped_ids should exist"
+    def test_returns_list_not_dict(self):
+        """Return type must be list, not dict — callers slice it."""
+        from src.analytics.ti_feeds.state import compute_dropped_ids
+
+        result = compute_dropped_ids({"sid-a": "h-a", "sid-b": "h-b"}, set())
+        assert isinstance(result, list), f"expected list, got {type(result).__name__}"
+        assert all(isinstance(item, tuple) and len(item) == 2 for item in result), (
+            "every item must be a (stix_id, handle) tuple"
+        )
+
+    def test_sorted_by_stix_id_ascending(self):
+        """Output must be sorted by stix_id ascending — deterministic across runs."""
+        from src.analytics.ti_feeds.state import compute_dropped_ids
+
+        # Insert in reverse order to make the sort observable.
+        previous = {"sid-z": "h-z", "sid-a": "h-a", "sid-m": "h-m"}
+        result = compute_dropped_ids(previous, current=set())
+        assert result == [("sid-a", "h-a"), ("sid-m", "h-m"), ("sid-z", "h-z")]
+
+    def test_excludes_ids_present_in_current(self):
+        """Only stix_ids absent from ``current`` appear in the output."""
+        from src.analytics.ti_feeds.state import compute_dropped_ids
+
+        previous = {"sid-a": "h-a", "sid-b": "h-b", "sid-c": "h-c"}
+        result = compute_dropped_ids(previous, current={"sid-b"})
+        assert result == [("sid-a", "h-a"), ("sid-c", "h-c")]
+
+    def test_empty_when_all_present(self):
+        """If every previous id is still seen, result is an empty list."""
+        from src.analytics.ti_feeds.state import compute_dropped_ids
+
+        previous = {"sid-a": "h-a", "sid-b": "h-b"}
+        result = compute_dropped_ids(previous, current={"sid-a", "sid-b"})
+        assert result == []
+
+    def test_handles_preserved_with_each_id(self):
+        """Each tuple pairs the stix_id with its original handle (no swap)."""
+        from src.analytics.ti_feeds.state import compute_dropped_ids
+
+        previous = {"sid-a": "uuid-A", "sid-b": "10.0.0.1"}
+        result = compute_dropped_ids(previous, current=set())
+        assert dict(result) == previous
 
 
 class TestM12ExplicitExceptions:
