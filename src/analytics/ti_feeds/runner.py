@@ -432,6 +432,8 @@ class FeedRunner:
         # authoritative ``ban_ips`` and ``blocklist_uuids`` sets, and skip
         # any entry with an empty handle (those represent indicators that
         # were idempotently re-applied with no fresh resource).
+        # phase-101g M11: returns a sorted list[tuple[str, str]] — already
+        # deterministic, callers don't need to re-sort.
         dropped = compute_dropped_ids(previous_ids, result.stix_ids_seen)
 
         # phase-85.1 (security review C2 partial): cap each cleanup pass
@@ -443,7 +445,7 @@ class FeedRunner:
         # set per poll instead of all of them. Entries we *defer* must be
         # re-added to the new snapshot so the next poll's diff still sees
         # them and can finish (or skip) the cleanup.
-        deferred_cleanup: dict[str, str] = {}
+        deferred_cleanup: list[tuple[str, str]] = []
         if dropped:
             cap = max(10, len(previous_ids) // 10)
             if len(dropped) > cap:
@@ -455,12 +457,10 @@ class FeedRunner:
                     len(previous_ids),
                 )
                 # Deterministic split so repeat polls converge instead of
-                # churning the same head every cycle.
-                ordered = sorted(dropped.keys())
-                kept_keys = ordered[:cap]
-                deferred_keys = ordered[cap:]
-                deferred_cleanup = {k: dropped[k] for k in deferred_keys}
-                dropped = {k: dropped[k] for k in kept_keys}
+                # churning the same head every cycle. ``dropped`` is already
+                # sorted by stix_id (M11) so head/tail slicing is stable.
+                deferred_cleanup = dropped[cap:]
+                dropped = dropped[:cap]
 
         ban_ips = await self._state.get_ban_ips(feed_id) if dropped else set()
         blocklist_uuids = await self._state.get_blocklist_uuids(feed_id) if dropped else set()
@@ -474,7 +474,7 @@ class FeedRunner:
         # mgmt API will return 404 — total operation is at-least-once and
         # converges.
         removed_count = 0
-        for stix_id, handle in dropped.items():
+        for stix_id, handle in dropped:
             if not handle:
                 # No resource to delete — just drop the snapshot entry.
                 await self._state.clear_handle(feed_id, stix_id, handle="", kind="unknown")
@@ -511,7 +511,7 @@ class FeedRunner:
         # carry deferred-cleanup entries forward so the next poll's diff
         # still sees them as candidates for removal.
         snapshot = {stix_id: handle for stix_id, handle in _result_handle_iter(result)}
-        for stix_id, handle in deferred_cleanup.items():
+        for stix_id, handle in deferred_cleanup:
             snapshot.setdefault(stix_id, handle)
         await self._state.replace_active_stix_ids(feed_id, snapshot)
 
