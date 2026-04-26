@@ -1,5 +1,60 @@
 # Changelog
 
+## [Unreleased] - Phase 101d H6 — SafeResolver connector wrap (2026-04-26)
+
+Closes the H6 HIGH gap and **completes sub-phase 101d**. The URL-validator
+half of H6 landed in 101c (rejecting RFC1918/loopback/link-local *literals*
+in feed URLs); this entry adds the DNS-level half — a `SafeResolver`-backed
+`aiohttp.TCPConnector` so a feed configured with a hostname whose A record
+*resolves to* a private/cloud-metadata IP (e.g. `169.254.169.254`) is
+rejected at the connector before the request leaves the box.
+
+### Changed
+- `src/analytics/ti_feeds/crowdstrike.py`: both aiohttp paths (`_ensure_token`
+  OAuth fetch and `_poll_all_pages` indicator iteration) now construct
+  their `aiohttp.ClientSession` with
+  `aiohttp.TCPConnector(resolver=SafeResolver())`. Matches the pattern
+  already in place in `taxii.py` and `rest_generic.py`.
+
+### Coverage matrix (4 production HTTP paths, all wired)
+- `taxii.py::_fetch_objects` → wrapped (landed 101c)
+- `rest_generic.py::_fetch_json` → wrapped (landed 101c)
+- `crowdstrike.py::_ensure_token` → wrapped (landed 101d-H6)
+- `crowdstrike.py::_poll_all_pages` → wrapped (landed 101d-H6)
+- `recorded_future.py` → covered transitively: it delegates HTTP through
+  inner `TAXIIClient` instances, so the TAXII wrap protects it.
+
+### Added
+- `tests/adversarial/test_ti_feeds_ssrf.py` (4 tests): patches the inner
+  resolver inside `safe_resolver.SafeResolver` so any hostname resolves to
+  `169.254.169.254`, then drives a real `client.poll()` (no transport
+  stub injected — the production aiohttp path runs end to end) for
+  TAXII, REST-generic, and CrowdStrike. Each test asserts (a) the
+  `_PrivateIPResolver` recorded an invocation — *proving* SafeResolver
+  was actually wired in (otherwise the post_ban check below could pass
+  for the wrong reason: a real DNS failure), (b) the poll surfaced an
+  error in `result.errors`, and (c) `mgmt.post_ban` was never called —
+  no IOC applied, no CIDR expansion, no follow-up traffic to the
+  metadata IP. A fourth `test_safe_resolver_isolation_check_no_global_leak`
+  guards against monkeypatch leakage between tests.
+
+### Why "PermissionError" / "SSRF blocked" string is not asserted
+`SafeResolver.resolve()` raises `PermissionError("SSRF blocked: …")`
+which `aiohttp.TCPConnector` catches as an `OSError` subclass and
+re-wraps as `ClientConnectorError(connection_key, os_error)`. Because
+`PermissionError` carries no `errno`/`strerror`, the wrapped error
+stringifies to `Cannot connect to host … ssl:default [None]` — the
+SSRF marker is lost in the wrap. Asserting the resolver-invocation
+counter is a stricter guarantee anyway: it proves the resolver actually
+ran (rather than the connection failing for an unrelated reason like a
+network outage in CI).
+
+### Sub-phase status
+- **101d closed.** All three HIGH items (H6 SSRF, H7 manual-poll rate
+  limit, H8 CSRF) landed today (2026-04-26). Phase 101 still has
+  101l (terraform-provider-ja4proxy publication — deferred pending
+  explicit cross-org repo authorization).
+
 ## [Unreleased] - Phase 101d H8 — CSRF double-submit middleware (2026-04-26)
 
 Closes the H8 HIGH gap from Phase 101 sub-phase **101d** (Phase 85

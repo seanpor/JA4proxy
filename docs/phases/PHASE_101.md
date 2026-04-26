@@ -11,7 +11,7 @@
 > 101h (low items L6–L8), 101i (deferred to Go cycle),
 > 101j (deploy validation M18 skipped, M19).
 >
-> **Still open:** 101d (H6 connector-resolver wrap deferred — partial in 101c; H7 landed 2026-04-26; H8 landed 2026-04-26), 101l.
+> **Still open:** 101l (terraform-provider-ja4proxy publication — requires explicit cross-org repo authorization). 101d closed 2026-04-26 with H6 connector-resolver wrap, H7 manual-poll rate limit, and H8 CSRF middleware all landed.
 > **Completed sub-phases:** 101a (2026-04-26), 101b, 101c (2026-04-26), 101e, 101f, 101g, 101h, 101i, 101j, 101k (2026-04-26).
 
 ## 0. Stranded-branch review — 2026-04-24
@@ -280,8 +280,8 @@ feed infrastructure.
 9. Write `tests/unit/test_csrf.py` with full happy/mismatch/expired matrix.
 
 **Acceptance criteria:**
-- [ ] SafeResolver rejects RFC1918/loopback/link-local IPs (H6 — partial, landed in 101c via the URL-validator path; the connector-resolver wrapping is still open and tracked separately)
-- [ ] `tests/adversarial/test_ti_feeds_ssrf.py` passes (DNS SSRF blocked)
+- [x] SafeResolver rejects RFC1918/loopback/link-local IPs (H6 — URL-validator path landed in 101c; connector-resolver wrapping landed 2026-04-26 across rest_generic + taxii + crowdstrike OAuth + crowdstrike indicators paths; recorded_future inherits transitively via inner TAXIIClient)
+- [x] `tests/adversarial/test_ti_feeds_ssrf.py` passes (DNS SSRF blocked — 4 tests green, landed 2026-04-26)
 - [x] 7th poll request in 60s returns 429 with `Retry-After` (H7 — landed 2026-04-26)
 - [x] CSRF middleware requires `X-CSRF-Token` header matching cookie on all POST/PUT/PATCH/DELETE (H8 — landed 2026-04-26)
 - [x] `tests/unit/test_csrf.py` passes (H8 — 12 tests green, landed 2026-04-26)
