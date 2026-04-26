@@ -5,6 +5,10 @@ Coverage is limited to controls that JA4proxy directly implements or contributes
 A full ISMS implementation requires organisational controls (policy, HR, physical
 security) that are outside this tool's scope.
 
+## See also
+
+- [ISO/IEC 27017 cloud-controls mapping](iso27017-mapping.md) — companion mapping for cloud-deployed buyers (CLD.6 / CLD.8 / CLD.9 / CLD.12 controls)
+
 ---
 
 ## A.5 — Organisational Controls
