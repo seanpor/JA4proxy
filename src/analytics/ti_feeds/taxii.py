@@ -40,6 +40,9 @@ except ImportError:  # pragma: no cover
 
 from .base import FeedClient, FeedConfig, FeedPollResult
 from .metrics import (
+    TI_FEED_FP_BLOCKED as _FP_BLOCKED,
+)
+from .metrics import (
     TI_INDICATORS_PROCESSED as _INDICATORS_PROCESSED,
 )
 from .metrics import (
@@ -199,7 +202,11 @@ class TAXIIClient(FeedClient):
         if self._last_added_after:
             params["added_after"] = self._last_added_after
 
-        async with aiohttp.ClientSession() as session:
+        # H6 (PHASE_101): SafeResolver blocks DNS-level SSRF to private/metadata IPs.
+        from .safe_resolver import SafeResolver
+
+        connector = aiohttp.TCPConnector(resolver=SafeResolver())
+        async with aiohttp.ClientSession(connector=connector) as session:
             async with session.get(
                 url,
                 headers=headers,
@@ -329,6 +336,7 @@ class TAXIIClient(FeedClient):
             safe, reason = ja4_safe_to_block(ja4)
             if not safe:
                 _INDICATORS_PROCESSED.labels(feed_id=feed_id, outcome="fp_blocked").inc()
+                _FP_BLOCKED.labels(feed_id=feed_id).inc()
                 result.errors.append(f"JA4 blocked as false positive: {ja4}")
                 return
             try:

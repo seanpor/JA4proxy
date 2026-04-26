@@ -50,3 +50,41 @@ groups:
             broken down by status_code.
           runbook: "docs/runbooks/ti_feed_mgmt_api_errors.md"
           runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/ti_feed_mgmt_api_errors.md"
+
+      # PHASE_101 C4: per-poll safety caps (max_new_per_poll, max_owned_total,
+      # max_delta_per_poll). Any non-zero hit rate means a feed is being
+      # constrained — operator should investigate why before relaxing.
+      - alert: TIFeedCapsHit
+        expr: rate(ja4proxy_ti_feed_caps_hit_total[15m]) > 0
+        for: 15m
+        labels: {severity: warning}
+        annotations:
+          summary: "TI feed {{ $labels.feed_id }} hit a safety cap ({{ $labels.cap }})"
+          description: |
+            The threat-intel feed {{ $labels.feed_id }} hit the
+            {{ $labels.cap }} cap during the last 15 minutes. New indicators
+            were rejected to prevent runaway growth or upstream-corruption
+            blast radius. Inspect the feed's poll output and decide whether
+            the cap should be raised, the feed paused, or the upstream
+            provider contacted.
+          runbook: "docs/runbooks/ti_feed_caps_hit.md"
+          runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/ti_feed_caps_hit.md"
+
+      # PHASE_101 C6: any non-zero rate of FP-corpus rejections means a feed
+      # tried to block a known-browser JA4 — either the upstream is
+      # corrupted/poisoned, or the corpus is missing a fingerprint.
+      - alert: TIFeedFPBlocked
+        expr: rate(ja4proxy_ti_feed_fp_blocked_total[15m]) > 0
+        for: 15m
+        labels: {severity: warning}
+        annotations:
+          summary: "TI feed {{ $labels.feed_id }} attempted to block a known-browser JA4"
+          description: |
+            The threat-intel feed {{ $labels.feed_id }} tried to add a JA4
+            that matches the local FP corpus. The block was refused, but the
+            attempt itself is suspicious. Either the upstream provider is
+            corrupted/poisoned, or the FP corpus at
+            fixtures/ti_feeds/ja4_fp_corpus.txt is stale and is mis-flagging
+            a legitimate threat indicator.
+          runbook: "docs/runbooks/ti_feed_fp_blocked.md"
+          runbook_url: "https://github.com/seanpor/JA4proxy/blob/main/docs/runbooks/ti_feed_fp_blocked.md"

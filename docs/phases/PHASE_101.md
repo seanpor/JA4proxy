@@ -11,7 +11,7 @@
 > 101h (low items L6–L8), 101i (deferred to Go cycle),
 > 101j (deploy validation M18 skipped, M19).
 >
-> **Still open:** 101a, 101c, 101d (H6/H7/H8), 101k (H14/H15/H16/M24/M25/M26), 101l.
+> **Still open:** 101a, 101d (H7/H8 — H6 partial done in 101c), 101k (H14/H15/H16/M24/M25/M26), 101l.
 
 ## 0. Stranded-branch review — 2026-04-24
 
@@ -229,12 +229,28 @@ mass-ban legitimate traffic.
 10. Write `tests/unit/test_ti_feed_caps.py` with parametrised cases for all three cap kinds. Write `tests/unit/analytics/ti_feeds/test_runner_empty_streak.py` with cases: first empty poll skips cleanup, second empty allows cleanup (capped at 10%), non-empty poll resets streak. Write `tests/unit/analytics/ti_feeds/test_ja4_safety.py` and `tests/adversarial/test_ti_feeds_fp_block.py` (Chrome 120 JA4 from FP corpus never blocked).
 
 **Acceptance criteria:**
-- [ ] `max_new_per_poll`, `max_owned_total`, `max_delta_per_poll` enforced with `ja4proxy_ti_feed_caps_hit_total` metric
-- [ ] Two consecutive empty polls required before cleanup; `empty_streak` persisted in Redis
-- [ ] `ja4_safe_to_block(ja4)` consulted from taxii.py, rest_generic.py, seed_file.py before every `post_blocklist`
-- [ ] `ja4proxy_ti_feed_fp_blocked_total{feed_id}` counter wired
-- [ ] `tests/adversarial/test_ti_feeds_fp_block.py` passes (Chrome 120 JA4 from FP corpus never blocked)
-- [ ] Alertmanager rules for `TIFeedCapsHit` and `TIFeedFPBlocked`
+- [x] `max_new_per_poll`, `max_owned_total`, `max_delta_per_poll` enforced with `ja4proxy_ti_feed_caps_hit_total` metric
+- [x] Two consecutive empty polls required before cleanup; `empty_streak` persisted in Redis
+- [x] `ja4_safe_to_block(ja4)` consulted from taxii.py, rest_generic.py, seed_file.py before every `post_blocklist`
+- [x] `ja4proxy_ti_feed_fp_blocked_total{feed_id}` counter wired
+- [x] `tests/adversarial/test_ti_feeds_fp_block.py` passes (Chrome 120 JA4 from FP corpus never blocked)
+- [x] Alertmanager rules for `TIFeedCapsHit` and `TIFeedFPBlocked`
+
+**Status: COMPLETE — landed 2026-04-26.** C5 dead-`dropped={}` bug fixed
+in `runner.py` with proper early-return. C6 corpus path fixed
+(parents[2]→parents[3]) so the fixture resolves in production.
+TI_SEED_ENTRIES label-mismatch fixed at all 3 call sites in
+`seed_file.py`. SafeResolver class exported from
+`src/analytics/ti_feeds/safe_resolver.py` and wired into both `taxii.py`
+and `rest_generic.py` (H6 partial — the SSRF gap that overlaps with
+101d). FP corpus expanded to 12 browser fingerprints (Chrome 119/120,
+Firefox 115ESR/121, Safari 17, Edge 120, mobile Safari) plus the
+historical pre-phase entry. Alertmanager `TIFeedCapsHit` and
+`TIFeedFPBlocked` rules added with full runbooks at
+`docs/runbooks/ti_feed_caps_hit.md` and `docs/runbooks/ti_feed_fp_blocked.md`.
+Existing runner tests updated for the C5 two-empty-poll gate
+(prime-then-execute pattern). Net: 13 new tests pass; full suite
+6011/6011 green.
 
 ---
 

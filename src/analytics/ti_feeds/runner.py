@@ -389,12 +389,17 @@ class FeedRunner:
                     cfg.max_delta_per_poll,
                 )
 
-        # C5: Two-empty-poll gate
+        # C5: Two-empty-poll gate. A single empty poll can be an upstream
+        # glitch (TAXII 500, mid-poll rotation, etc.). We only run differential
+        # cleanup once we've seen two consecutive empties. On the first empty
+        # poll we preserve the existing snapshot verbatim so the next real poll
+        # can still diff against it.
         empty_streak = await self._state.get_empty_streak(feed_id)
+        skip_cleanup_first_empty = False
         if len(result.stix_ids_seen) == 0:
             await self._state.bump_empty_streak(feed_id)
             if empty_streak < 1:
-                dropped = {}
+                skip_cleanup_first_empty = True
                 logger.info(
                     "ti_feed | event=cleanup_skipped_empty_streak | feed=%s | streak=%d",
                     feed_id,
@@ -402,6 +407,22 @@ class FeedRunner:
                 )
         else:
             await self._state.reset_empty_streak(feed_id)
+
+        if skip_cleanup_first_empty:
+            # Preserve the existing snapshot; do not delete anything this poll.
+            breaker.record_success()
+            _CIRCUIT_STATE.labels(feed_id=feed_id).set(_CIRCUIT_STATE_VALUE[breaker.state])
+            _LAST_SUCCESS_TS.labels(feed_id=feed_id).set(time.time())
+            _INDICATORS_MANAGED.labels(feed_id=feed_id).set(len(previous_ids))
+            await self._state.record_poll_success(
+                feed_id,
+                indicators_seen=0,
+                created=0,
+                removed=0,
+                duration_s=result.poll_duration_s,
+            )
+            self._emit_ecs_log(feed_id, result, 0)
+            return
 
         # Differential cleanup. phase-85 (security review C8): the previous
         # implementation guessed the handle kind from string contents

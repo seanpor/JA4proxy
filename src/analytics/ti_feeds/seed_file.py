@@ -25,6 +25,8 @@ try:
 except ImportError:  # pragma: no cover
     yaml = None  # type: ignore
 
+from .ja4_safety import ja4_safe_to_block
+from .metrics import TI_FEED_FP_BLOCKED as _FP_BLOCKED
 from .metrics import TI_SEED_ENTRIES as _SEED_ENTRIES_LOADED
 from .mgmt_client import ManagementAPIError, ManagementClient
 from .state import FeedState
@@ -246,6 +248,15 @@ async def run_once(
         )
 
     for entry in entries:
+        # C6 (PHASE_101): FP corpus check — never seed a known-browser JA4.
+        safe, _reason = ja4_safe_to_block(entry.ja4)
+        if not safe:
+            summary["rejected"] += 1
+            _FP_BLOCKED.labels(feed_id=_SEED_FEED_ID).inc()
+            logger.warning(
+                "ti_feed | event=seed_entry_fp_blocked | ja4=%s", entry.ja4
+            )
+            continue
         note = f"feed:{_SEED_FEED_ID}:{entry.ja4}"
         try:
             resource = await mgmt.post_blocklist(
@@ -255,7 +266,7 @@ async def run_once(
             )
         except ManagementAPIError as exc:
             summary["errors"] += 1
-            _SEED_ENTRIES_LOADED.labels(outcome="error").inc()
+            _SEED_ENTRIES_LOADED.labels(feed_id=_SEED_FEED_ID, outcome="error").inc()
             logger.warning(
                 "ti_feed | event=seed_entry_api_error | ja4=%s | status=%d | error=%s",
                 entry.ja4,
@@ -265,7 +276,7 @@ async def run_once(
             continue
         except Exception as exc:  # noqa: BLE001
             summary["errors"] += 1
-            _SEED_ENTRIES_LOADED.labels(outcome="error").inc()
+            _SEED_ENTRIES_LOADED.labels(feed_id=_SEED_FEED_ID, outcome="error").inc()
             logger.warning(
                 "ti_feed | event=seed_entry_error | ja4=%s | error=%s",
                 entry.ja4,
@@ -279,7 +290,7 @@ async def run_once(
             kind="blocklist",
         )
         summary["created"] += 1
-        _SEED_ENTRIES_LOADED.labels(outcome="created").inc()
+        _SEED_ENTRIES_LOADED.labels(feed_id=_SEED_FEED_ID, outcome="created").inc()
 
     logger.info(
         "ti_feed | event=seed_file_applied | loaded=%d | created=%d | errors=%d",
