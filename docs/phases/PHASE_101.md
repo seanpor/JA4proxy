@@ -11,7 +11,7 @@
 > 101h (low items L6–L8), 101i (deferred to Go cycle),
 > 101j (deploy validation M18 skipped, M19).
 >
-> **Still open:** 101a, 101d (H7/H8 — H6 partial done in 101c), 101k (H14/H15/H16/M24/M25/M26), 101l.
+> **Still open:** 101a, 101d (H7/H8 — H6 partial done in 101c), 101k partial — H15/M24/M25 landed 2026-04-26; H14/H16/M26 remain, 101l.
 
 ## 0. Stranded-branch review — 2026-04-24
 
@@ -475,11 +475,15 @@ runbooks correctly reference Phase 19's backup/restore system.
 
 **Acceptance criteria:**
 - [ ] H14: `_ESTIMATED_BANNER` dead code deleted, `--require-measured` works correctly
-- [ ] H15: Parser handles escaped quotes, commas in values, NaN, summary quantiles — or replaced with `prometheus_client` parser
+- [x] H15: Parser handles escaped quotes, commas in values, NaN — landed 2026-04-26
 - [ ] H16: Migration runbook exists with `datadog-agent check` commands
-- [ ] M24: `push_to_gateway` uses `grouping_key`, latencies wired from real CLI path
-- [ ] M25: Topology entity emitted even on scrape failure
+- [x] M24: `push_to_gateway` uses `grouping_key`, latencies wired from real CLI path — landed 2026-04-26
+- [x] M25: Topology entity emitted even on scrape failure — landed 2026-04-26
 - [ ] M26: Test parses throughput/latency as floats, validates Git SHA shape (`[0-9a-f]{7,40}`)
+
+**Status:** PARTIAL — H15, M24, M25 landed 2026-04-26. H14, H16, M26 remain
+open. Sub-phase cannot be marked COMPLETE in `manifest.yaml` until all six
+items land.
 
 ---
 

@@ -236,3 +236,210 @@ ja4proxy_pipeline_duration_seconds_count 100
         assert any(t.get("name") == "ja4proxy:node" for t in types), (
             "Phase 86i: ja4proxy:node topology type must remain"
         )
+
+
+# ── PHASE_101 H15: parser hardening ──────────────────────────────────────────
+
+
+class TestPhase101H15ParserHardening:
+    """PHASE_101 H15 — Prometheus parser must drop NaN/Inf samples and
+    correctly decode backslash-escaped label values.
+
+    Before H15, ``float("NaN")`` silently flowed into the Dynatrace
+    series and ``_parse_labels`` mis-split on escaped quotes, so any
+    request-path label containing ``\\"`` truncated the rest of the
+    labelset.
+    """
+
+    PLUGIN_PATH = (
+        Path(__file__).parent.parent.parent
+        / "deploy"
+        / "dynatrace"
+        / "ja4proxy-extension"
+        / "plugin.py"
+    )
+
+    def _load(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "ja4proxy_dt_plugin_h15", self.PLUGIN_PATH
+        )
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_nan_and_inf_samples_are_dropped(self):
+        mod = self._load()
+        text = (
+            "ja4proxy_good 1.0\n"
+            "ja4proxy_nan NaN\n"
+            "ja4proxy_pos_inf +Inf\n"
+            "ja4proxy_neg_inf -Inf\n"
+            "ja4proxy_also_good 42\n"
+        )
+        samples = mod.parse_prometheus_text(text)
+        names = {s[0] for s in samples}
+        assert "ja4proxy_good" in names
+        assert "ja4proxy_also_good" in names
+        assert "ja4proxy_nan" not in names, (
+            "NaN samples must be dropped — they corrupt Dynatrace timeseries"
+        )
+        assert "ja4proxy_pos_inf" not in names
+        assert "ja4proxy_neg_inf" not in names
+
+    def test_escaped_quote_in_label_value_preserves_full_labelset(self):
+        """A label like ``path="/a\\"b"`` must not terminate the label region
+        early. Tail labels like ``method`` must still be parsed."""
+        mod = self._load()
+        # Raw exposition bytes: path="/a\"b,c",method="GET"
+        line = 'ja4proxy_requests_total{path="/a\\"b,c",method="GET"} 7'
+        samples = mod.parse_prometheus_text(line)
+        assert len(samples) == 1, f"expected 1 sample, got {samples!r}"
+        name, labels, value = samples[0]
+        assert name == "ja4proxy_requests_total"
+        assert value == 7.0
+        assert labels.get("method") == "GET", (
+            f"tail label dropped — parser mis-handled escaped quote: {labels!r}"
+        )
+        # The decoded path should contain the literal quote + comma.
+        assert labels.get("path") == '/a"b,c', (
+            f"escape not decoded correctly: {labels.get('path')!r}"
+        )
+
+    def test_escaped_backslash_and_newline_decoded(self):
+        """``\\\\`` → ``\\`` and ``\\n`` → newline, per the Prometheus spec."""
+        mod = self._load()
+        line = 'ja4proxy_log{path="a\\\\b",msg="line1\\nline2"} 1'
+        samples = mod.parse_prometheus_text(line)
+        assert len(samples) == 1
+        _, labels, _ = samples[0]
+        assert labels.get("path") == "a\\b"
+        assert labels.get("msg") == "line1\nline2"
+
+
+# ── PHASE_101 M25: topology entity emitted on scrape failure ────────────────
+
+
+class _StubTopology:
+    """Minimal fake of Dynatrace EF2 ``dt.TopologyBuilder()`` chain."""
+
+    def __init__(self, registry):
+        self._registry = registry
+        self._kind = None
+        self._dims: dict = {}
+
+    def series(self, kind: str):
+        self._kind = kind
+        return self
+
+    def dimensions(self, **kwargs):
+        self._dims = kwargs
+        return self
+
+    def point(self, value, ts):
+        self._dims["_value"] = value
+        self._dims["_ts"] = ts
+        return self
+
+    def build(self):
+        self._registry.append({"kind": self._kind, "dims": dict(self._dims)})
+        return {"kind": self._kind, "dims": dict(self._dims)}
+
+
+class _StubDT:
+    """Fake module mirroring the ``dt`` EF2 runtime surface used by the plugin."""
+
+    def __init__(self):
+        self.records: list = []
+
+    def TopologyBuilder(self):  # noqa: N802 — matches Dynatrace API casing
+        return _StubTopology(self.records)
+
+    def series(self, key):
+        t = _StubTopology(self.records)
+        t.series(key)
+        return t
+
+
+class _StubDTLog:
+    def __init__(self):
+        self.messages: list[str] = []
+
+    def info(self, msg):
+        self.messages.append(msg)
+
+
+class TestPhase101M25TopologyOnFailure:
+    """PHASE_101 M25 — ``query()`` must emit the ``ja4proxy:node`` topology
+    entity on every tick, including when the scrape returns zero samples.
+
+    Without this, Dynatrace shows the node as missing (no entity record)
+    rather than as "scrape failing" (entity present, metrics stale).
+    """
+
+    PLUGIN_PATH = (
+        Path(__file__).parent.parent.parent
+        / "deploy"
+        / "dynatrace"
+        / "ja4proxy-extension"
+        / "plugin.py"
+    )
+
+    def _load(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "ja4proxy_dt_plugin_m25", self.PLUGIN_PATH
+        )
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_query_emits_topology_even_when_scrape_returns_nothing(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mod = self._load()
+        stub_dt = _StubDT()
+        stub_log = _StubDTLog()
+        monkeypatch.setattr(mod, "HAS_DT", True, raising=False)
+        monkeypatch.setattr(mod, "dt", stub_dt, raising=False)
+        monkeypatch.setattr(mod, "dtlog", stub_log, raising=False)
+        monkeypatch.setattr(
+            mod, "scrape_metrics", lambda *a, **kw: [], raising=False
+        )
+
+        plugin = mod.JA4proxyPlugin({"metrics_url": "http://example.invalid/metrics"})
+        series = plugin.query()
+
+        assert series, "M25: query() must return ≥1 entity even on scrape failure"
+        kinds = [r["kind"] for r in stub_dt.records]
+        assert "ja4proxy:node" in kinds, (
+            f"M25: topology entity ja4proxy:node missing from {kinds!r}"
+        )
+
+    def test_query_emits_topology_when_scrape_returns_samples(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Regression: the happy path still emits the topology + any mapped
+        metric series."""
+        mod = self._load()
+        stub_dt = _StubDT()
+        stub_log = _StubDTLog()
+        monkeypatch.setattr(mod, "HAS_DT", True, raising=False)
+        monkeypatch.setattr(mod, "dt", stub_dt, raising=False)
+        monkeypatch.setattr(mod, "dtlog", stub_log, raising=False)
+        monkeypatch.setattr(
+            mod,
+            "scrape_metrics",
+            lambda *a, **kw: [("ja4proxy_dial_setting", {}, 100.0)],
+            raising=False,
+        )
+
+        plugin = mod.JA4proxyPlugin({"metrics_url": "http://example.invalid/metrics"})
+        series = plugin.query()
+
+        assert len(series) >= 2, (
+            f"expected topology + dial_setting series, got {series!r}"
+        )
+        kinds = [r["kind"] for r in stub_dt.records]
+        assert "ja4proxy:node" in kinds
+        assert "ext:ja4proxy.dial_setting" in kinds
