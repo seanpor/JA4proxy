@@ -174,7 +174,7 @@ Read these before starting any phase:
 | `docs/TESTING_STRATEGY.md` | Full testing methodology and phase completion gate |
 | `docs/DOCUMENTATION_STANDARDS.md` | CHANGELOG, REDIS_SCHEMA, runbook, ADR formats |
 | `docs/REDIS_SCHEMA.md` | All Redis key patterns (update every phase) |
-| `docs/DMZ_DEPLOYMENT_READINESS.md` | Read before Phase 14 |
+| `docs/for-architects/DMZ_READINESS.md` | Read before Phase 14 (replaces archived DMZ_DEPLOYMENT_READINESS.md) |
 | `docs/security/COMPREHENSIVE_SECURITY_AUDIT.md` | Read before Phase 14 |
 
 ---

@@ -6,6 +6,12 @@ reviewer: Independent technical & cyber risk assessment
 scope: JA4proxy (Go production runtime + Python prototype + supporting services)
 -->
 
+> **Archived snapshot — Phase 105 (2026-04-25).** This report reflects the
+> project state at the time of writing (Phase 92). Current canonical reference:
+> [`../../PROJECT_STATUS.md`](../../PROJECT_STATUS.md) and the
+> [phase manifest](../../phases/manifest.yaml).
+> Body untouched below.
+
 # JA4proxy — Technical & Cyber Risk Review
 
 **Review date:** 2026-04-09

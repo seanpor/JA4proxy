@@ -118,6 +118,13 @@ KNOWN_ACTION_SHAS: dict[str, dict[str, str]] = {
     "slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml": {
         "v2.1.0": "f7dd8c54c2067bafc12ca7a55595d5ee9b75204a",
     },
+    # phase-105h — PDF docs build workflow (docs-pdf.yml). Per ADR-105a.
+    "xu-cheng/latex-action": {
+        "v3.3.0": "e2f99d4b3685b0da93f97e1b86ad8fab81105098",
+    },
+    "actions/upload-artifact": {
+        "v7.0.1": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+    },
 }
 
 

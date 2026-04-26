@@ -1,3 +1,9 @@
+> **ARCHIVED — HISTORICAL SNAPSHOT.**
+> Snapshot date: 2026-02-15. Pre-Phase 200 hardening.
+> Many "critical concerns" listed below have been addressed by Phase 14
+> production-hardening and the Phase 200-series controls.
+> Current posture: see docs/for-architects/.
+
 # JA4proxy - Comprehensive Enterprise Review
 **Review Date:** 2026-02-15  
 **Reviewer:** Technical Assessment  

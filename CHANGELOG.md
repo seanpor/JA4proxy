@@ -1,5 +1,95 @@
 # Changelog
 
+## [Unreleased] - Phase 105 — Documentation Restructure by Audience (2026-04-25)
+
+Documentation-only phase. Restructures the documentation corpus around five
+audience-specific entry points, consolidates four blocking docs and four
+testing docs into single canonical references, refreshes the LaTeX PDF
+artefacts for Phase 200-series posture, and adds a CI workflow for the PDF
+build. Resolves Phase 106 architect Finding 2 (placeholder marker). No
+production code changed.
+
+### Added
+- `docs/for-website-owners/{README,WHY_JA4PROXY,DEPLOYMENT_OPTIONS,FAQ}.md` —
+  CISO/website-owner audience track (the existing TCO_AND_LICENSING.md from
+  Phase 106 is linked, not duplicated)
+- `docs/for-architects/{README,SCOPE_AND_LIMITATIONS,SIEM_INTEGRATION,EVALUATION_CHECKLIST,DMZ_READINESS}.md` —
+  security-architect track (12 non-goals, 4 vendor SIEM recipes, replacement
+  for the archived DMZ_DEPLOYMENT_READINESS.md)
+- `docs/for-operators/{README,UPGRADE_PATH}.md` — operator entry point that
+  links rather than duplicates the existing operator docs and runbooks
+- `docs/for-compliance/{README,AUDIT_TRAIL,CHANGE_MANAGEMENT}.md` —
+  compliance/audit track with SOC 2 / ISO 27001 evidence mappings
+- `docs/for-developers/{README,GETTING_STARTED,HOW_WE_WORK,TDD_AND_TESTING,CI_AND_QUALITY_GATES,PHASE_LIFECYCLE}.md` —
+  contributor onboarding (resolves Phase 106 architect Finding 2 — the
+  placeholder marker is gone)
+- `docs/operator/BLOCKING_OPERATIONS.md` (530 lines) — single canonical
+  reference, consolidates 1203 lines from 4 pre-Phase-105 blocking docs;
+  effective-threshold table re-derived from `action_decider.py`/`.go`
+- `docs/runbooks/main_is_red.md` — keep-main-green response runbook (15-min
+  ack, 30-min decision, 1-h restore SLA)
+- `docs/decisions/ADR-105a-pdf-ci-placement.md` — dedicated `docs-pdf.yml`
+  workflow over extending `ci.yml`
+- `docs/decisions/ADR-105b-link-checker.md` — retain existing
+  `markdown-link-check` (avoid scope creep introducing `lychee`)
+- `.github/workflows/docs-pdf.yml` — new SHA-pinned CI workflow (14-day
+  non-blocking grace ending 2026-05-09)
+- `docs/reports/archive/` — pre-Phase-200 snapshot bucket containing
+  `GEMINI_CRITIQUE_2026-03-21.md`, `ENTERPRISE_REVIEW_2026-02-15.md`,
+  `DMZ_DEPLOYMENT_READINESS_2026-03-15.md`,
+  `CYBER_RISK_REVIEW_2026-04-09.md`,
+  `strategic_security_architecture_review_2026-04-08.md`
+- `xu-cheng/latex-action@v3.3.0` and `actions/upload-artifact@v7.0.1` SHA
+  pins added to `tests/test_workflow_pinning.py` allowlist
+
+### Changed
+- `README.md` — rewritten as a role-router: 441 → 88 lines, 5-row "Start by
+  role" table above the fold, Production-runtime-is-Go banner, PDF downloads
+  row
+- `docs/README.md` and `docs/INDEX.md` — feature the for-* entry points
+  prominently; frontmatter `last_reviewed: 2026-04-25`, `phase: 105`
+- `docs/TESTING_STRATEGY.md` — canonical (480 → 1785 lines) absorbs
+  TEST_ORGANIZATION.md, TEST_SUITE.md, TESTING_GO.md as appendices A/B/C
+- `docs/SCALING_GUIDE.md` — expanded 378 → 507 lines with three worked
+  scenarios (small / enterprise / high-volume)
+- `CONTRIBUTING.md` — project-structure block reordered: Go first as the
+  production runtime, Python proxy under "experimental prototyping surface"
+  qualifier, production-Python services (analytics, management) listed
+  separately
+- `docs/DEPLOYMENT_SECURITY_MODEL.md` — Phase-19-specific hedging removed,
+  re-pointed at `runbooks/cloud_backup_operations.md`
+- `docs/pdf/brochure/brochure-body.tex` — Phase 200-series security posture
+  line added; performance numbers reverified against `BENCHMARK_HISTORY.md`
+- `docs/pdf/reference-manual/chapters/ch01-architecture.tex` — Go production
+  / Python prototyping framing
+- `docs/pdf/reference-manual/chapters/ch04-signals.tex` — Phase 203 signals
+  list (TAP OS-mismatch, JA4 TLS-version mismatch, weak-cipher parity, DGA
+  parity, deep-health)
+- `docs/pdf/reference-manual/chapters/ch09-security-ref.tex` — Phase 200-
+  series hardening (Redis TLS, PROXY v2, default-credential removal)
+- `docs/for-developers/GETTING_STARTED.md` — prereq line updated to
+  `pdflatex` + `makeindex` (toolchain decision per Wave 0)
+- `docs/phases/PHASE_105.md` — toolchain note corrected (pdflatex, not
+  tectonic)
+
+### Deprecated / Stubbed
+- `docs/TESTING.md`, `docs/TEST_ORGANIZATION.md`, `docs/TEST_SUITE.md`,
+  `docs/TESTING_GO.md` — now ≤ 30-line redirect stubs to TESTING_STRATEGY.md
+- `docs/operator/blocking-guide.md`, `BLOCKING_ANALYSIS.md`,
+  `blocking-test-analysis.md`, `FINAL_BLOCKING_TEST_SUMMARY.md` — now ≤ 30-
+  line redirect stubs to BLOCKING_OPERATIONS.md
+- `docs/GEMINI_CRITIQUE.md`, `docs/reports/ENTERPRISE_REVIEW.md`,
+  `docs/DMZ_DEPLOYMENT_READINESS.md`,
+  `docs/reports/CYBER_RISK_REVIEW_2026-04-09.md`,
+  `docs/reports/strategic_security_architecture_review.md` — moved to
+  `docs/reports/archive/` with date-stamped names and 5-line additive
+  banners; bodies untouched
+
+### Deferred
+- 6 of 12 LaTeX chapter refreshes deferred to a future pass (user-guide
+  ch02/ch04/ch05/ch07; reference-manual ch06/ch10) — punch list documented
+  in Phase 105 close-out report
+
 ## [Unreleased] - Phase 106 — SWEBOK v4 Alignment & Quality Plan (2026-04-25)
 
 Documentation-and-tooling phase. Closes the SWEBOK v4 KA gaps identified in

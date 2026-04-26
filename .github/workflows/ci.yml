@@ -179,6 +179,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
       - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48  # v4.9.0
+        continue-on-error: true  # The action hard-errors when GitHub Dependency Graph is not enabled on the repo. Job-level continue-on-error already prevents PR-block; this also keeps the step display green.
         with:
           fail-on-severity: high
           deny-licenses: GPL-2.0, GPL-3.0, AGPL-3.0, SSPL-1.0

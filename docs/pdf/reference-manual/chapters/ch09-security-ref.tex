@@ -169,6 +169,51 @@ Hot config reload is a convenience, but it has security implications:
     production.
 \end{description}
 
+\section{Phase 200-Series Hardening}
+\index{Phase 200-series}
+\index{hardening!Phase 200-series}
+\label{sec:phase200-hardening}
+
+\newthought{The Phase 200-series closes the production-hardening gaps} flagged
+in Phase~14 and the comprehensive security audit. These items are now in
+production builds of the Go proxy.
+
+\subsection{Redis TLS (Phase 201)}
+\index{Redis!TLS}
+
+Redis communications are now TLS-encrypted by default. The Go proxy connects
+to Redis with mutual TLS where the Redis instance is configured with
+\code{tls-port} and a server certificate; client certificates are loaded from
+the path configured under \code{redis.tls.client\_cert\_path}. Plaintext Redis
+connections remain available for development (a Unix-socket-only configuration
+with restrictive filesystem permissions is the recommended local-dev path), but
+production Helm charts default to TLS-on. See \code{docs/phases/PHASE\_201.md}
+for the full configuration matrix.
+
+\subsection{PROXY Protocol v2 with TLVs (Phase 203)}
+\index{PROXY protocol!v2}
+\index{PROXY protocol!TLVs}
+
+The Go proxy now parses PROXY protocol v2 binary headers, including TLV
+(type-length-value) extensions. The TLV trust path is gated by
+\code{security\_policy.trusted\_upstream\_cidrs}: a TLV is honoured only when
+the TCP peer is within the configured trusted CIDR. This prevents a
+direct-to-port-8080 attacker from forging TLVs to claim a whitelisted source
+IP. The trust check runs before any TLV is parsed, so a malformed TLV from an
+untrusted peer cannot trigger a parser path at all.
+
+\subsection{Default Credentials Removed (Phase 202)}
+\index{credentials!default removed}
+
+Default credentials have been removed from the Docker image, Helm chart, and
+\code{docker-compose.yml}. Previously, Redis shipped with no \code{requirepass},
+Grafana shipped with \code{admin/admin}, and the Management API had a hard-coded
+local-dev token. All three now require explicit env-var provisioning at startup;
+the proxy refuses to start if a required credential is unset. The Helm chart
+fails its preflight check and Docker Compose surfaces a clear error rather than
+silently starting with a blank password. See \code{docs/phases/PHASE\_202.md}
+for the env-var reference and the migration runbook.
+
 \section{Known Security Gaps (POC Stage)}
 \index{security gaps!POC stage}
 

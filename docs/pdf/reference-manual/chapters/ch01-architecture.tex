@@ -115,7 +115,7 @@ are hot-reloadable.\sidenote{Config reload events are logged and reflected in th
 \midrule
 HAProxy & C & :443 & TLS passthrough load balancer; PROXY protocol v2 injection; upstream TLS listener \\
 \addlinespace
-\ja\ Proxy & Python / Go\textsuperscript{*} & :8080 & TLS ClientHello sniffing; pipeline execution; allow/block/tarpit/ban decisions; Redis I/O \\
+\ja\ Proxy & Go\textsuperscript{*} & :8080 & TLS ClientHello sniffing; pipeline execution; allow/block/tarpit/ban decisions; Redis I/O \\
 \addlinespace
 Redis & Redis 7 & :6379 & Shared state: bans, rate windows, beaconing timestamps, JA4 lists, HLL per CIDR, event stream \\
 \addlinespace
@@ -132,8 +132,13 @@ Alertmanager & Go & :9093 & Alert routing and deduplication \\
 Backend & any & :443 & Protected origin service; receives only allowed, unmodified TLS connections \\
 \bottomrule
 \end{tabular}
-{\footnotesize\textsuperscript{*}Python is the current production path.
-The Go rewrite (\code{cmd/proxy/}) reached feature parity in Phase~15.}
+{\footnotesize\textsuperscript{*}The Go proxy (\code{cmd/proxy/}, \code{internal/})
+was promoted to production in Phase~15 and is the only implementation that ships
+in releases, Docker images, and Helm charts. The Python proxy (\code{proxy.py},
+\code{src/security/}) is retained as an experimental prototyping surface for new
+signal modules; production-runtime Python is limited to the Management API,
+analytics node, and compliance reporting --- services that are not on the proxy
+hot path.}
 \end{table}
 \end{fullwidth}
 
@@ -325,30 +330,35 @@ purposes. A typical ISP assigns a /48 to a single customer premises. Block expan
 would risk blocking entire ISP customer populations.
 \end{notebox}
 
-\section{The Python and Go Implementations}
-\index{Go rewrite}
-\index{Python implementation}
+\section{The Go and Python Implementations}
+\index{Go production proxy}
+\index{Python prototyping surface}
 
-\subsection{Python (Current Production Path)}
+\subsection{Go (Production Runtime)}
+\index{Go proxy!production}
 
-The Python implementation in \code{proxy.py} and \code{src/security/} is the current
-production-validated path. It uses \code{asyncio} throughout for non-blocking I/O.
-All external service calls use \code{asyncio.create\_task()} — fire-and-forget from
-the hot path. No blocking I/O is permitted on the connection handling code path.
+The Go proxy in \code{cmd/proxy/} and \code{internal/} (built to \code{bin/proxy}) is
+the production runtime. It was promoted to production in Phase~15 and is the only
+implementation that ships in releases, Docker images, Helm charts, and enterprise
+documentation. The Go implementation uses \code{net/netip} for IP handling, a
+\code{crypto/tls}-derived ClientHello parser, and goroutine-per-connection
+concurrency. It targets 10--50$\times$ the throughput of the Python prototype.
 
-\subsection{Go Rewrite (Phase 15)}
-\index{Go rewrite!Phase 15}
+\subsection{Python (Experimental Prototyping Surface)}
+\index{Python proxy!experimental}
 
-The Go rewrite in \code{cmd/proxy/} targets 10–50× throughput improvement over the
-Python implementation. It has achieved feature parity with the Python implementation
-including JA4X fingerprinting and Lua policy embedding. The Go implementation uses
-\code{net/netip} for IP handling, Go's \code{crypto/tls} stack for ClientHello
-parsing, and goroutine-per-connection concurrency.
+The Python implementation in \code{proxy.py} and \code{src/security/} is retained as
+an experimental prototyping surface for new signal modules. Engineers prototype in
+Python, prove the idea, then port it to Go before it ever touches real traffic.
+Python services that are \emph{not} the proxy --- the Management API (FastAPI), the
+analytics node, and the compliance reporting service --- remain production Python
+because they are not on the connection-handling hot path.
 
 \begin{notebox}[Implementation Status]
-Python is \statuspoc\ — functional and tested. Go rewrite is \statuspoc\ — feature
-parity achieved but not yet production-hardened. Neither implementation has completed
-the full Phase~14 production hardening checklist.
+The Go proxy is the only path that handles production traffic. The Phase 200-series
+hardening (Redis TLS, PROXY v2 with TLVs, default-credential removal, expanded
+signal coverage) lands in the Go runtime first; Python is updated only when needed
+for prototyping.
 \end{notebox}
 
 \section{Horizontal Scaling}

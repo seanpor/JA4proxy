@@ -7,7 +7,7 @@ phase: 21
 
 > **[ASPIRATIONAL]** This document describes a target enterprise architecture that has not yet been validated in production.
 >
-> Treat as a starting point, not a specification. See `docs/DMZ_DEPLOYMENT_READINESS.md` for the validated single-node deployment model.
+> Treat as a starting point, not a specification. See `docs/for-architects/DMZ_READINESS.md` for the validated single-node deployment model.
 
 # Enterprise Deployment Guide
 

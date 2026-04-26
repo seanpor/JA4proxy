@@ -578,6 +578,12 @@ practical to replicate in Go.
 \subsection{Production Hardening Roadmap}
 \index{roadmap!production hardening}
 
+\sidenote{The Phase 200-series security posture is now live: Redis TLS
+(Phase 201), PROXY protocol v2 with TLV trust (Phase 203), and removal of
+default credentials in favour of explicit env-var provisioning (Phase 202)
+are in production builds. See \url{https://github.com/seanpor/JA4proxy/tree/main/docs/for-website-owners}
+for an evaluator overview.}
+
 Key items from the production hardening backlog (see \code{docs/phases/}):
 
 \begin{itemize}
@@ -590,6 +596,8 @@ Key items from the production hardening backlog (see \code{docs/phases/}):
         Zero-Trust Redis ACLs, Seccomp profiles
   \item \textbf{Phase 62} --- Formal security audit, threat modelling, incident
         response runbooks
+  \item \textbf{Phase 200-series} --- Production hardening complete: Redis TLS,
+        PROXY v2 TLVs, default credentials removed, expanded signal coverage
 \end{itemize}
 
 % ─────────────────────────────────────────────────────────────────────────────
