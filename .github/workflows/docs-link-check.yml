@@ -1,0 +1,51 @@
+# Documentation link check (Phase 107w.3)
+#
+# Walks markdown docs in compliance / security / audience-scoped directories
+# with `lychee` and fails the build on broken INTERNAL links (relative paths
+# to non-existent files). External 4xx/5xx are tolerated (vendor sites flake).
+#
+# Trigger: pull_request on docs/** changes + workflow_dispatch.
+# Promote to push:main after the workflow proves stable in PR runs.
+# All `uses:` SHA-pinned per repo convention (see tests/test_workflow_pinning.py).
+
+name: Docs link check
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '**.md'
+      - '.github/workflows/docs-link-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  link-check:
+    name: lychee on conformance + audience-scoped docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Run lychee
+        # lychee-action v2.8.0 — SHA verified via
+        # https://api.github.com/repos/lycheeverse/lychee-action/git/refs/tags/v2.8.0
+        uses: lycheeverse/lychee-action@8646ba30535128ac92d33dfc9133794bfdd9b411  # v2.8.0
+        with:
+          # Walk only the new conformance/audience-scoped tree to keep the
+          # workflow fast and to avoid noise from pre-existing rot in older docs.
+          # Promote scope to all of docs/ once the existing link landscape is clean.
+          args: >-
+            --no-progress
+            --accept 200,204,301,302,403,429
+            --max-concurrency 4
+            'docs/compliance/**/*.md'
+            'docs/for-architects/**/*.md'
+            'docs/for-compliance/**/*.md'
+            'docs/for-website-owners/**/*.md'
+            'docs/security/CVD_POLICY.md'
+            'docs/decisions/ADR-107*.md'
+            'SECURITY.md'
+          fail: true
