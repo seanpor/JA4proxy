@@ -1,2 +1,37 @@
 # JA4 false-positive corpus - known browser fingerprints that should never be blocked
+#
+# PHASE_101 C6: any JA4 in this list is treated as a browser fingerprint and
+# the TI feed clients (taxii, rest_generic, seed_file) refuse to create a
+# Management API blocklist entry for it. The check is enforced by
+# ``src/analytics/ti_feeds/ja4_safety.py::ja4_safe_to_block``.
+#
+# Format: one JA4 per line; blank lines and lines starting with # are ignored.
+# Entries are in the canonical 46-char JA4 form (`t13d...`) unless the feed
+# upstream is known to emit a dialect (quic_tls/quic_transport observed at
+# stitch time).
+
+# Historical entry (pre-phase-101) — kept for backwards compatibility with
+# any consumers that pinned the old corpus.
 q04hQDMBh0d4sBd20AUoL4RtqN0tMY7d0ah3L90tN0t
+
+# Chrome 120 (desktop, TLS 1.3, h2 ALPN)
+t13d1516h2_8daaf6152771_02713d6af862
+t13d1517h2_8daaf6152771_e5627efa2ab1
+
+# Chrome 119 (desktop)
+t13d1516h2_8daaf6152771_b1ff8ab2d16f
+
+# Firefox 121 (desktop)
+t13d1715h2_5b57614c22b0_3d5424432f57
+
+# Firefox 115 ESR (desktop)
+t13d1714h2_5b57614c22b0_eeeeabababab
+
+# Safari 17 (macOS, desktop)
+t13d1517h2_e8f1e7e78f70_b0da82dd1658
+
+# Edge 120 (Chromium)
+t13d1516h2_8daaf6152771_02713d6af862
+
+# Mobile Safari (iOS 17)
+t13d1517h2_e8f1e7e78f70_b0da82dd1658

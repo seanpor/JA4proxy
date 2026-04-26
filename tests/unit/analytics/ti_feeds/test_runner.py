@@ -225,7 +225,12 @@ async def test_cleanup_above_cap_caps_at_10pct_and_defers_remainder(redis):
 
 @pytest.mark.asyncio
 async def test_cleanup_floor_of_10_for_small_snapshots(redis):
-    """5-entry snapshot, all dropped → cap=10 (floor) → all 5 removed."""
+    """5-entry snapshot, all dropped → cap=10 (floor) → all 5 removed.
+
+    PHASE_101 C5: cleanup only runs on the *second* consecutive empty poll,
+    so we prime the streak with one empty poll, drop the leader lock, and
+    fire a second empty poll to observe the cleanup.
+    """
     cfg = _make_config()
     mgmt = _StubMgmt()
     poll_result = FeedPollResult(feed_id=cfg.id)  # empty poll
@@ -234,6 +239,12 @@ async def test_cleanup_floor_of_10_for_small_snapshots(redis):
 
     pairs = [(f"id-{i}", f"ip-{i}") for i in range(5)]
     await _seed_previous_snapshot(runner._state, cfg.id, pairs)
+
+    # First empty poll primes the empty-streak counter; no deletes yet.
+    await runner._poll_once(cfg.id)
+    assert mgmt.calls == []
+    # Release the 30s SETNX leader lock so the next _poll_once can run.
+    redis.delete("ti_feed:leader_lock")
 
     await runner._poll_once(cfg.id)
 
@@ -246,32 +257,40 @@ async def test_cleanup_floor_of_10_for_small_snapshots(redis):
 
 @pytest.mark.asyncio
 async def test_capped_cleanup_converges_across_two_polls(redis):
-    """A 200→0 collapse over two polls: first removes 20, second the rest."""
+    """A 200→0 collapse, spanning the PHASE_101 C5 empty-poll gate plus two
+    cap-limited cleanup cycles (20 then 18 removals).
+
+    Poll 1 primes the empty-streak counter and must not delete anything.
+    Poll 2 enters the cleanup path with cap=20; 180 deferred.
+    Poll 3 enters again with cap=max(10, 180//10)=18.
+    """
     cfg = _make_config()
     mgmt = _StubMgmt()
 
     pairs = [(f"id-{i:03d}", f"ip-{i:03d}") for i in range(200)]
 
-    # First poll: feed shows nothing.
     first_result = FeedPollResult(feed_id=cfg.id)
     client = _StubClient(cfg, first_result)
     runner = _make_runner(redis, mgmt, client)
     await _seed_previous_snapshot(runner._state, cfg.id, pairs)
 
+    # Priming poll — C5 gate skips cleanup on the first empty result.
     await runner._poll_once(cfg.id)
-    snapshot_after_first = await runner._state.get_active_stix_ids(cfg.id)
-    # max(10, 200//10) = 20 removed, 180 deferred.
-    assert len(snapshot_after_first) == 180
+    assert mgmt.calls == []
+    redis.delete("ti_feed:leader_lock")
 
-    # Second poll: feed still shows nothing. Cap is now max(10, 180//10) = 18.
+    # First cleanup pass: cap = max(10, 200//10) = 20.
     runner._clients[cfg.id]._result = FeedPollResult(feed_id=cfg.id)  # type: ignore[attr-defined]
-    # The leader lock is still held by this instance (30s TTL > test runtime).
-    # SETNX would refuse a second acquisition, so drop the lock to let the
-    # second _poll_once proceed. In production, refresh_leader handles this.
+    await runner._poll_once(cfg.id)
+    snapshot_after_first_cleanup = await runner._state.get_active_stix_ids(cfg.id)
+    assert len(snapshot_after_first_cleanup) == 180
+
+    # Second cleanup pass: cap is now max(10, 180//10) = 18.
+    runner._clients[cfg.id]._result = FeedPollResult(feed_id=cfg.id)  # type: ignore[attr-defined]
     redis.delete("ti_feed:leader_lock")
     await runner._poll_once(cfg.id)
-    snapshot_after_second = await runner._state.get_active_stix_ids(cfg.id)
-    assert len(snapshot_after_second) == 180 - 18
+    snapshot_after_second_cleanup = await runner._state.get_active_stix_ids(cfg.id)
+    assert len(snapshot_after_second_cleanup) == 180 - 18
 
     total_deletes = [c for c in mgmt.calls if c.method == "delete_ban"]
     assert len(total_deletes) == 20 + 18
@@ -746,7 +765,11 @@ async def test_poll_once_max_delta_per_poll_cap(redis):
 
 @pytest.mark.asyncio
 async def test_cleanup_unknown_handle_logged(redis):
-    """A handle not in ban_ips or blocklist_uuids logs unknown and clears."""
+    """A handle not in ban_ips or blocklist_uuids logs unknown and clears.
+
+    Needs two empty polls to cross the PHASE_101 C5 gate before the cleanup
+    path runs.
+    """
     cfg = _make_config()
     mgmt = _StubMgmt()
     poll_result = FeedPollResult(feed_id=cfg.id)
@@ -757,6 +780,10 @@ async def test_cleanup_unknown_handle_logged(redis):
     state = runner._state
     await state._redis.hset(f"ti_feed:{cfg.id}:active_stix_ids", "orphan-id", "orphan-handle")
 
+    # Prime the empty-streak gate.
+    await runner._poll_once(cfg.id)
+    redis.delete("ti_feed:leader_lock")
+
     await runner._poll_once(cfg.id)
     # The orphan should have been cleaned up (unknown handle path)
     snapshot = await state.get_active_stix_ids(cfg.id)
@@ -765,7 +792,10 @@ async def test_cleanup_unknown_handle_logged(redis):
 
 @pytest.mark.asyncio
 async def test_cleanup_failure_does_not_crash(redis):
-    """If mgmt delete raises, the loop continues with remaining items."""
+    """If mgmt delete raises, the loop continues with remaining items.
+
+    Needs two empty polls to cross the PHASE_101 C5 gate.
+    """
     cfg = _make_config()
     mgmt = _StubMgmt()
     mgmt.fail_handles = {"ip-1"}  # This handle will raise
@@ -775,6 +805,10 @@ async def test_cleanup_failure_does_not_crash(redis):
 
     # Seed two ban entries — one will fail cleanup, one will succeed
     await _seed_previous_snapshot(runner._state, cfg.id, [("id-0", "ip-0"), ("id-1", "ip-1")])
+
+    # Prime the empty-streak gate.
+    await runner._poll_once(cfg.id)
+    redis.delete("ti_feed:leader_lock")
 
     await runner._poll_once(cfg.id)
     # ip-0 should have been deleted; ip-1 should have failed silently
@@ -787,7 +821,10 @@ async def test_cleanup_failure_does_not_crash(redis):
 
 @pytest.mark.asyncio
 async def test_cleanup_empty_handle_just_clears(redis):
-    """A dropped entry with an empty handle is cleared without mgmt call."""
+    """A dropped entry with an empty handle is cleared without mgmt call.
+
+    Needs two empty polls to cross the PHASE_101 C5 gate.
+    """
     cfg = _make_config()
     mgmt = _StubMgmt()
     poll_result = FeedPollResult(feed_id=cfg.id)
@@ -797,6 +834,10 @@ async def test_cleanup_empty_handle_just_clears(redis):
     # Insert entry with empty handle directly
     state = runner._state
     await state._redis.hset(f"ti_feed:{cfg.id}:active_stix_ids", "empty-id", "")
+
+    # Prime the empty-streak gate.
+    await runner._poll_once(cfg.id)
+    redis.delete("ti_feed:leader_lock")
 
     await runner._poll_once(cfg.id)
     assert mgmt.calls == []  # No mgmt API calls for empty handles
