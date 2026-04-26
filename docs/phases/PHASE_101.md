@@ -11,7 +11,7 @@
 > 101h (low items L6–L8), 101i (deferred to Go cycle),
 > 101j (deploy validation M18 skipped, M19).
 >
-> **Still open:** 101a, 101d (H7/H8 — H6 partial done in 101c), 101l.
+> **Still open:** 101a, 101d (H8 — H6 partial done in 101c, H7 landed 2026-04-26), 101l.
 > **Completed sub-phases:** 101b, 101c (2026-04-26), 101e, 101f, 101g, 101h, 101i, 101j, 101k (2026-04-26).
 
 ## 0. Stranded-branch review — 2026-04-24
@@ -281,7 +281,7 @@ feed infrastructure.
 **Acceptance criteria:**
 - [ ] SafeResolver rejects RFC1918/loopback/link-local IPs
 - [ ] `tests/adversarial/test_ti_feeds_ssrf.py` passes (DNS SSRF blocked)
-- [ ] 7th poll request in 60s returns 429 with `Retry-After`
+- [x] 7th poll request in 60s returns 429 with `Retry-After` (H7 — landed 2026-04-26)
 - [ ] CSRF middleware requires `X-CSRF-Token` header matching cookie on all POST/PUT/PATCH/DELETE
 - [ ] `tests/unit/test_csrf.py` passes
 

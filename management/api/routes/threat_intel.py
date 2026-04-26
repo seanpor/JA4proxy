@@ -52,6 +52,71 @@ _RUNTIME_ENABLED_KEY = "ti_feed:{feed_id}:runtime_enabled"
 _ACTIVE_STIX_KEY = "ti_feed:{feed_id}:active_stix_ids"
 _TRIGGER_STREAM = "ti_feed:manual_poll_triggers"
 
+# PHASE_101 H7 — manual-poll rate limit. The /poll endpoint hits the runner
+# via a Redis stream and the runner does real upstream HTTP work, so an
+# operator (or a compromised operator token) can trivially DoS an upstream
+# vendor or amplify a misbehaving feed by hammering this endpoint. Cap at
+# 6 polls per 60-second window per feed_id (not per user — the feed_id is
+# the resource being throttled).
+_POLL_RATE_KEY_PREFIX = "ti_feed:manual_poll_rate:"
+_POLL_RATE_LIMIT = 6
+_POLL_RATE_WINDOW_S = 60
+
+
+async def _check_poll_rate_limit(feed_id: str, redis) -> None:
+    """Raise HTTP 429 if this feed_id has been polled ``_POLL_RATE_LIMIT``
+    times in the past ``_POLL_RATE_WINDOW_S`` seconds.
+
+    PHASE_101 H7. Uses a sliding-window sorted-set in Redis (``ZADD`` with
+    a monotonic score, ``ZREMRANGEBYSCORE`` to drop stale entries, ``ZCARD``
+    to count what remains). On Redis failure we fail open and log — the
+    poll endpoint is operator-gated and a wider Redis outage already takes
+    out the rest of the management API, so the rate limit is the wrong
+    place to escalate.
+    """
+    import time
+    key = f"{_POLL_RATE_KEY_PREFIX}{feed_id}"
+    now = time.time()
+    cutoff = now - _POLL_RATE_WINDOW_S
+    try:
+        await redis.zremrangebyscore(key, "-inf", cutoff)
+        count = await redis.zcard(key)
+        if count >= _POLL_RATE_LIMIT:
+            # Compute Retry-After from the oldest entry still inside the
+            # window. ``ZRANGE 0 0 WITHSCORES`` gives the earliest one.
+            oldest = await redis.zrange(key, 0, 0, withscores=True)
+            if oldest:
+                # ``oldest`` is [(member, score)]. Time until that entry
+                # falls out of the window = score + window - now.
+                _member, score = oldest[0]
+                retry_after = max(1, int(score + _POLL_RATE_WINDOW_S - now) + 1)
+            else:
+                retry_after = _POLL_RATE_WINDOW_S
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    f"Manual poll rate limit exceeded for feed "
+                    f"'{feed_id}': {_POLL_RATE_LIMIT} polls per "
+                    f"{_POLL_RATE_WINDOW_S}s"
+                ),
+                headers={"Retry-After": str(retry_after)},
+            )
+        # Record this attempt. Member is ``{ts}:{uuid4}`` so concurrent
+        # requests in the same millisecond don't collide on the unique
+        # member set (sorted-set members must be unique).
+        member = f"{now:.6f}:{uuid.uuid4().hex[:8]}"
+        await redis.zadd(key, {member: now})
+        await redis.expire(key, _POLL_RATE_WINDOW_S * 2)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001 — fail-open
+        logger.warning(
+            "threat_intel | event=poll_rate_limit_check_failed | "
+            "feed=%s | err=%s",
+            feed_id,
+            exc,
+        )
+
 
 def _client_ip(request: Request) -> str:
     """Extract the real client IP, honouring X-Forwarded-For."""
@@ -362,6 +427,10 @@ async def trigger_poll(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Feed '{feed_id}' not found",
         )
+
+    # PHASE_101 H7: enforce after the 404 check so non-existent feeds
+    # don't pollute the rate-limit sorted set.
+    await _check_poll_rate_limit(feed_id, redis)
 
     poll_id = uuid.uuid4().hex
 
