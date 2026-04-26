@@ -1,5 +1,45 @@
 # Changelog
 
+## [Unreleased] - Phase 101k complete — H14 doc-tick + H16 Datadog runbook + M26 benchmarks tightening (2026-04-26)
+
+Closes Phase 101 sub-phase **101k** (Phase 86i capacity hardening). H15,
+M24, M25 landed earlier today via PR #48. This commit lands the remaining
+three items (H14, H16, M26), allowing 101k to be marked COMPLETE in
+`manifest.yaml`.
+
+### Fixed
+- PHASE_101.md: H14 acceptance criterion ticked. The dead
+  `_ESTIMATED_BANNER` constant and `_print_estimated_warning()` were
+  already deleted in commit `3c35030` on 2026-04-15; the spec text was
+  written before that landed and the §0 stranded-branch review missed
+  the reconciliation. No code change here — just the doc tick.
+
+### Added
+- `docs/runbooks/datadog_migration_phase86i.md` (H16): full oncall
+  runbook for the two-layer Datadog migration. Documents the strict
+  deploy order (OpenMetrics layer 1 then narrowed custom check layer 2,
+  reverse causes 24h of `unknown` health states), the three pre-flight
+  smoke-check commands (`datadog-agent check openmetrics`,
+  `datadog-agent check ja4proxy`,
+  `datadog-agent status | grep -A5 "openmetrics ja4proxy"`), failure-mode
+  matrix, post-migration UI checks, and rollback procedure.
+- `tests/unit/test_datadog_integration.py::TestPhase101H16MigrationRunbook`
+  (3 tests): runbook exists, references both `datadog-agent check`
+  commands by exact name, documents Layer 1 before Layer 2.
+
+### Changed
+- `tests/integration/test_phase_86i_benchmarks_populated.py` (M26):
+  added 4 hardening tests — Git SHA matches `[0-9a-f]{7,40}` regex
+  (rejects `HEAD`, branch names, paste-residue), Reference Hardware
+  required fields populated and not placeholder-shaped, `Run date:`
+  present and ISO YYYY-MM-DD, every Historical Runs throughput cell
+  parses as a positive finite float (rejects NaN/Inf/zero/negative).
+
+### Phase status
+- `docs/phases/manifest.yaml`: `101k` annotated `COMPLETE 2026-04-26`.
+- `docs/phases/PHASE_101.md`: all 6 acceptance boxes ticked, status
+  block updated to COMPLETE, "Still open" header line refreshed.
+
 ## [Unreleased] - Phase 101k partial — Dynatrace H15 + M25, load_test M24 (2026-04-26)
 
 Lands 3 of 6 items from Phase 101 sub-phase **101k** (Phase 86i capacity
