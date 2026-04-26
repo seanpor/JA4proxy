@@ -18,8 +18,9 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# Default corpus location - install-time shared with ti_feeds fixtures
-_DEFAULT_CORPUS_PATH = Path(__file__).parents[2] / "fixtures" / "ti_feeds" / "ja4_fp_corpus.txt"
+# Default corpus location — repo-root ``fixtures/ti_feeds/ja4_fp_corpus.txt``.
+# parents[3] walks ja4_safety.py → ti_feeds → analytics → src → repo root.
+_DEFAULT_CORPUS_PATH = Path(__file__).parents[3] / "fixtures" / "ti_feeds" / "ja4_fp_corpus.txt"
 
 # Load corpus once at import
 _JA4_FP_CORPUS: Optional[frozenset[str]] = None

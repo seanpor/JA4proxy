@@ -1,5 +1,71 @@
 # Changelog
 
+## [Unreleased] - Phase 101c — TI Feed Critical Safety Caps + FP Corpus (2026-04-26)
+
+Closes Phase 101 sub-phase **101c** (C4, C5, C6) — the three CRITICAL gaps
+where a misbehaving threat-intel feed could mass-ban legitimate traffic.
+The blast-radius brakes were partially in place; this change closes the
+remaining bugs and wires the per-poll FP corpus check into all four feed
+ingestion paths.
+
+### Fixed
+- `runner.py` C5: `_poll_once` two-empty-poll gate now genuinely skips
+  differential cleanup on the first empty poll. The previous
+  `dropped = {}` was a dead assignment because line 413 unconditionally
+  re-computed `dropped`. Replaced with a `skip_cleanup_first_empty` flag
+  and an early return that records poll success without touching state.
+- `ja4_safety.py` C6: `_DEFAULT_CORPUS_PATH` walks `parents[3]` (not
+  `parents[2]`) so `fixtures/ti_feeds/ja4_fp_corpus.txt` resolves from
+  the repo root in production deployments.
+- `seed_file.py` C6: `TI_SEED_ENTRIES` Counter was declared with labels
+  `[feed_id, outcome]` but the 3 call sites only passed `outcome=`,
+  causing label-mismatch exceptions at runtime. All 3 sites now pass
+  both labels.
+
+### Added
+- `src/analytics/ti_feeds/seed_file.py`: FP corpus check via
+  `ja4_safe_to_block()` before every `post_blocklist`. Rejected entries
+  increment `summary["rejected"]` and `ja4proxy_ti_feed_fp_blocked_total`.
+- `src/analytics/ti_feeds/taxii.py`, `rest_generic.py`: SafeResolver
+  TCPConnector wired into `aiohttp.ClientSession()` (H6 partial — DNS-level
+  SSRF protection blocks resolution to RFC1918, loopback, link-local,
+  cloud metadata IPs, IPv4-mapped/6to4/Teredo unwraps included). Both
+  clients now also fire `ja4proxy_ti_feed_fp_blocked_total` on FP rejects.
+- `src/analytics/ti_feeds/safe_resolver.py`: `SafeResolver` aiohttp
+  resolver class with private-IP filter and IPv6 unwrap (mapped/6to4/Teredo)
+- `fixtures/ti_feeds/ja4_fp_corpus.txt`: expanded from 1 to 12 browser
+  fingerprints (Chrome 119/120, Firefox 115ESR/121, Safari 17, Edge 120,
+  mobile Safari) plus the historical pre-phase entry
+- `deploy/monitoring/alertmanager/rules/ti_feed.yml`: two new warning
+  rules — `TIFeedCapsHit` (any non-zero `ja4proxy_ti_feed_caps_hit_total`
+  rate over 15m) and `TIFeedFPBlocked` (any non-zero
+  `ja4proxy_ti_feed_fp_blocked_total` rate over 15m)
+- `docs/runbooks/ti_feed_caps_hit.md`, `docs/runbooks/ti_feed_fp_blocked.md`
+  — full oncall procedures for the two new alerts
+- `docs/phases/PHASE_86h_runbook_mapping.yml`: maps the two new alerts to
+  their runbooks so `scripts/fix_runbook_urls.py --check` stays green
+- `tests/unit/test_ti_feed_caps.py` (5 tests) — parametrised cases for
+  all three cap kinds (`new`, `total`, `delta`)
+- `tests/unit/analytics/ti_feeds/test_runner_empty_streak.py` (3 tests)
+  — first-empty / second-empty / non-empty-resets matrix
+- `tests/adversarial/test_ti_feeds_fp_block.py` (5 tests) — Chrome 120
+  and Firefox 121 JA4s from the real FP corpus must never reach
+  `post_blocklist` from `rest_generic` or `seed_file`
+
+### Changed
+- `tests/unit/analytics/ti_feeds/test_runner.py`: 4 cleanup tests
+  updated to prime the C5 empty-streak counter with one prior empty poll
+  (releasing the leader lock between calls), then exercise the cleanup
+  path on the second consecutive empty poll. Reflects the new gate
+  semantics, not a behaviour change.
+- `docs/phases/PHASE_101.md`: 101c moved from Open to Landed; acceptance
+  criteria checkboxes ticked; close-out summary block added
+- `docs/phases/manifest.yaml`: 101c sub-phase marked COMPLETE 2026-04-26
+
+### Test Suite
+- 6011 tests pass / 0 fail / 10 skipped (was 6010 / 1 / 10).
+- 13 new tests + 4 existing tests updated for the C5 gate.
+
 ## [Unreleased] - Phase 101e — Threat-Intel Regional Endpoints (2026-04-26)
 
 Closes Phase 101 sub-phase **101e** (H9, H10): Recorded Future and CrowdStrike

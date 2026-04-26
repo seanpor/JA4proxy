@@ -58,6 +58,8 @@ except ImportError:  # pragma: no cover
 
 
 from .base import FeedClient, FeedConfig, FeedPollResult
+from .metrics import TI_FEED_FP_BLOCKED as _FP_BLOCKED
+from .metrics import TI_INDICATORS_PROCESSED as _INDICATORS_PROCESSED
 from .metrics import TI_POLL_TOTAL as _POLL_TOTAL
 from .stix_ja4 import is_valid_ja4
 
@@ -189,7 +191,13 @@ class RESTGenericClient(FeedClient):
         if self._fetch is not None:
             return await self._fetch(self.config.url, headers=self._build_headers())
         assert aiohttp is not None
-        async with aiohttp.ClientSession(headers=self._build_headers()) as session:
+        # H6 (PHASE_101): SafeResolver blocks DNS-level SSRF to private/metadata IPs.
+        from .safe_resolver import SafeResolver
+
+        connector = aiohttp.TCPConnector(resolver=SafeResolver())
+        async with aiohttp.ClientSession(
+            headers=self._build_headers(), connector=connector
+        ) as session:
             async with session.get(
                 self.config.url,
                 timeout=aiohttp.ClientTimeout(total=60),
@@ -266,6 +274,17 @@ class RESTGenericClient(FeedClient):
                     continue
                 stix_id = f"rest:{feed_id}:ja4:{ja4}"
                 # phase-85 (security review H7): see ban branch above.
+                # C6 (PHASE_101): FP corpus check — never block a known browser.
+                from .ja4_safety import ja4_safe_to_block
+
+                safe, _reason = ja4_safe_to_block(ja4)
+                if not safe:
+                    _INDICATORS_PROCESSED.labels(
+                        feed_id=feed_id, outcome="fp_blocked"
+                    ).inc()
+                    _FP_BLOCKED.labels(feed_id=feed_id).inc()
+                    result.errors.append(f"JA4 blocked as false positive: {ja4}")
+                    continue
                 try:
                     resource = await self.mgmt.post_blocklist(
                         feed_id=feed_id,
