@@ -1583,7 +1583,7 @@ phases:
     - 93
     size: LARGE
     sub_phases:
-      101a: Phase 84 DSAR correctness (H1, H3, M7) — M, no deps
+      101a: Phase 84 DSAR correctness (H1, H3, M7) — M, no deps — COMPLETE 2026-04-26
       101b: Phase 84 compliance hygiene (M1, M2, M4, L1, L2, L5) — S, depends 101a
       101c: Phase 85 critical safety caps (C4, C5, C6) — M, no deps — COMPLETE 2026-04-26
       101d: Phase 85 SSRF/rate-limit/CSRF (H6, H7, H8) — M, depends 101c
