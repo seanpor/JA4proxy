@@ -1,5 +1,72 @@
 # Changelog
 
+## [Unreleased] - Phase 107 PR1 — Regulatory-conformance scaffolds + CI safety gates (2026-04-26)
+
+First of eight planned PRs landing Phase 107 (Regulatory & Supply-Chain
+Conformance — CRA, NIST SSDF, SLSA L3, ISO 27017/29100, MITRE ATT&CK,
+CVD policy). This PR establishes the file framework and the regression
+guards **before** any content lands, so subsequent content PRs cannot
+introduce overclaim language or stale evidence links without CI failing.
+
+### Added — scaffolding (sub-tasks 107a/b/c.1/d/e/f/g.1)
+- `docs/compliance/CRA_CONFORMANCE.md` — EU CRA conformance statement
+  scaffold; scope determination filled, Annex I/II rows are TODO markers
+  for sub-tasks 107a.2/.3/.4/.5.
+- `docs/compliance/SSDF_MAPPING.md` — NIST SP 800-218 mapping scaffold;
+  PO/PS/PW/RV group tables empty (TODO 107b.2/.3).
+- `docs/compliance/iso27017-mapping.md` — cloud-controls mapping scaffold;
+  applicability summary placeholders (TODO 107d.2/.3).
+- `docs/compliance/iso29100-mapping.md` — privacy framework scaffold; all
+  11 ISO 29100 principle rows present as TODO (TODO 107e.2). Cross-links
+  GDPR doc + REDIS_SCHEMA — does not duplicate.
+- `docs/for-architects/ATTACK_MAPPING.md` — MITRE ATT&CK forward + reverse
+  views; rows TODO for 107f.2/.3; confidence-label policy stated.
+- `docs/security/CVD_POLICY.md` — CVD policy scaffold; 8 section headers
+  with TODO bodies; SLAs marked `<!-- HUMAN REVIEW REQUIRED -->`.
+- `docs/decisions/ADR-107a-slsa-level-3.md` — Status: Proposed. Decision
+  to adopt SLSA L3 via `slsa-framework/slsa-github-generator`. Records the
+  L3-vs-L4 reasoning, the `id-token: write` reshape, and the
+  `workflow_dispatch`-first landing strategy for 107c.3/.4.
+- `docs/decisions/INDEX.md` — ADR-107a row added.
+
+### Added — CI safety gates (sub-tasks 107h.1/.2)
+- `tests/test_compliance_language.py` — pytest gate that fails if
+  "certified" / "compliant" appears in `docs/compliance/` or
+  `docs/security/CVD_POLICY.md` outside an explicit allowlist (currently
+  empty by design; JA4proxy has no third-party certifications). This is
+  the regression guard for the Phase 107 review S-2 finding (HIGH).
+- `tests/test_compliance_evidence_paths.py` — pytest gate that extracts
+  every repo-relative path cited in `CRA_CONFORMANCE.md` /
+  `SSDF_MAPPING.md` evidence columns and asserts each one exists. Catches
+  the silent-rot failure mode (renamed signal modules, deleted workflows)
+  flagged as A-3 (LOW) in the Phase 107 review.
+- `Makefile` — three new targets: `test-compliance-language`,
+  `test-evidence-paths`, `test-compliance` (aggregate).
+
+### Changed — overclaim cleanup (S-2 regression guard caught two pre-existing instances)
+- `docs/compliance/GDPR_COMPLIANCE.md` §12.1 — FAQ heading reworded from
+  "Is JA4proxy GDPR compliant out-of-the-box?" to "Does JA4proxy support
+  GDPR compliance out-of-the-box?" Operator remains the data controller.
+- `docs/compliance/SECURITY_CONTROLS_MAPPING.md` "Current Compliance
+  Status" section — "Fully Compliant / Partially Compliant" relabelled to
+  "Fully Implemented / Partially Implemented"; explicit "self-assessment,
+  not a third-party certification" added.
+
+### Verified
+- `make test-compliance` — 8 tests pass (3 language + 5 evidence-path).
+- `ruff check tests/test_compliance_language.py
+  tests/test_compliance_evidence_paths.py` — clean.
+
+### Deferred to subsequent PRs
+- **PR 2:** SLSA verify workflow + ADR runbook (107c.2, 107c.5, 107c.6).
+- **PR 3-7:** content fills for CRA, SSDF, ISO 27017/29100, ATT&CK, CVD.
+- **PR 8:** wiring (READMEs, FAQ, link-check CI) + close-out.
+- **NOT auto-executed (require human-led release-pipeline work):** 107c.3
+  (`go-proxy-image.yml` SLSA generator wiring) and 107c.4
+  (`release-cli.yml` SLSA generator wiring). Both modify the production
+  release pipeline and require manual `workflow_dispatch` verification
+  before re-enabling `push:` triggers.
+
 ## [Unreleased] - Phase 101g M10 — DECIDED-KEEP-AS-GAUGE; sub-phase 101g closed (2026-04-26)
 
 Closes M10 — the last open item in sub-phase 101g — via a documented

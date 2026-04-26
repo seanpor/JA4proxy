@@ -267,14 +267,15 @@ gantt
 
 ### Current Compliance Status
 
-**ISO 27001:2022 Annex A Control Coverage:**
+**ISO 27001:2022 Annex A Control Coverage (self-assessed):**
 
-- **Fully Compliant:** 42 controls (45.2%)
-- **Partially Compliant:** 28 controls (30.1%)
+- **Fully Implemented:** 42 controls (45.2%)
+- **Partially Implemented:** 28 controls (30.1%)
 - **Not Applicable:** 15 controls (16.1%)
 - **Gaps Identified:** 8 controls (8.6%)
 
-**Overall Compliance Level:** **85.3% coverage** (excluding not applicable)
+**Overall Coverage:** **85.3%** (excluding not applicable). This is a
+self-assessment, not a third-party certification.
 
 ### Statement of Applicability
 
