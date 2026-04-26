@@ -1,5 +1,44 @@
 # Changelog
 
+## [Unreleased] - Phase 101g M10 — DECIDED-KEEP-AS-GAUGE; sub-phase 101g closed (2026-04-26)
+
+Closes M10 — the last open item in sub-phase 101g — via a documented
+decision rather than a code change. The original review item proposed
+switching `ja4proxy_ti_feed_indicators_managed` from `Gauge` to
+`Counter`. On re-read this is incorrect:
+
+- The metric measures the *current* size of the `active_stix_ids` Redis
+  HASH per feed. That value goes both up (new indicators added) and
+  down (cleanup removals).
+- A Prometheus `Counter` must be monotonically non-decreasing. Switching
+  type would corrupt every `rate()` / `increase()` query against the
+  metric on every cleanup pass — exactly the wrong direction.
+- The "removal-delta" signal that a Counter would express *already
+  exists* as `ja4proxy_ti_feed_cleanup_removals_total`
+  (`metrics.py:50`, `Counter[feed_id]`). The Gauge + Counter pair is
+  the textbook Prometheus pattern for this shape.
+
+### Changed
+- `src/analytics/ti_feeds/metrics.py` — added inline rationale to
+  `TI_INDICATORS_MANAGED` explaining why it stays a Gauge and pointing
+  to `TI_CLEANUP_REMOVALS` for the cleanup-delta signal.
+- `docs/phases/PHASE_101.md` §3.7 — status flipped from PARTIAL →
+  COMPLETE; added "M10 review — DECIDED-KEEP-AS-GAUGE" block with full
+  rationale; both 101g acceptance boxes ticked.
+- `docs/phases/manifest.yaml` line 1592 — 101g flipped from PARTIAL
+  → COMPLETE with the M10 decision summarised inline.
+
+### Phase 101 sub-phase status (post-PR)
+| Sub-phase | Status |
+|---|---|
+| 101a, 101b, 101c, 101d, 101e, 101f, **101g**, 101h, 101k | **COMPLETE** |
+| 101i, 101l | DEFERRED (external blockers) |
+| 101j | M19 done; M18 blocked on Phase 76 |
+
+Phase 101 parent still cannot be marked COMPLETE: 101i (Go capacity)
+and 101l (cross-org auth) are deferred on external blockers, and 101j
+M18 is blocked on Phase 76 quadlet files.
+
 ## [Unreleased] - Phase 101g M12 — explicit-exception unions across 4 TI feed clients (2026-04-26)
 
 Closes M12. Replaces 12 bare `except Exception:` catches across the four

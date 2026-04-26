@@ -40,6 +40,12 @@ TI_INDICATORS_PROCESSED = Counter(
 )
 
 #: Current number of indicators managed by a feed (size of active_stix_ids HASH).
+#:
+#: Stays a Gauge by design — this is "current state" (size of a Redis HASH
+#: that grows on adds and shrinks on cleanup), not a monotonic event total.
+#: Counter would corrupt rate()/increase() on every cleanup pass. The
+#: removal-delta signal lives in :data:`TI_CLEANUP_REMOVALS` below.
+#: See PHASE_101.md §3.7 M10 review (2026-04-26) for the full rationale.
 TI_INDICATORS_MANAGED = Gauge(
     "ja4proxy_ti_feed_indicators_managed",
     "Current number of indicators managed by a TI feed",
