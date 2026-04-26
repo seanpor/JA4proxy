@@ -37,6 +37,7 @@ from fastapi.templating import Jinja2Templates
 
 from . import redis_client
 from .auth import router as auth_router
+from .middleware.csrf import CSRFMiddleware
 from .routes import (
     audit,
     bans,
@@ -118,6 +119,11 @@ def _enforce_no_test_mode_in_production() -> None:
             "are mutually exclusive (test mode disables authentication checks). "
             "Unset MANAGEMENT_TEST_MODE or set ENVIRONMENT to dev/staging."
         )
+    if env in {"production", "prod"} and os.environ.get("MANAGEMENT_DISABLE_CSRF") == "1":
+        raise RuntimeError(
+            "refusing to start: ENVIRONMENT=production and MANAGEMENT_DISABLE_CSRF=1 "
+            "are mutually exclusive (CSRF bypass is a test-only escape hatch)."
+        )
 
 
 def create_app() -> FastAPI:
@@ -145,6 +151,9 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=["*"],
     )
+
+    # phase-101 H8: CSRF double-submit + HMAC on /api/v1/* mutating routes
+    app.add_middleware(CSRFMiddleware)
 
     # ── Templates ─────────────────────────────────────────────────────────────
     if _TEMPLATES_DIR.exists():

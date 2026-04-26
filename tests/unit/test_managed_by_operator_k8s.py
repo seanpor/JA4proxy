@@ -20,6 +20,8 @@ os.environ.setdefault("MANAGEMENT_JWT_SECRET", "test-secret-do-not-use-in-produc
 os.environ.setdefault("MANAGEMENT_ADMIN_USER", "admin")
 os.environ.setdefault("MANAGEMENT_ADMIN_PASSWORD", "testpassword")
 os.environ.setdefault("MANAGEMENT_TEST_MODE", "1")
+# phase-101 H8: bypass CSRF middleware (test predates it).
+os.environ.setdefault("MANAGEMENT_DISABLE_CSRF", "1")
 
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 

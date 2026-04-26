@@ -1,5 +1,65 @@
 # Changelog
 
+## [Unreleased] - Phase 101d H8 — CSRF double-submit middleware (2026-04-26)
+
+Closes the H8 HIGH gap from Phase 101 sub-phase **101d** (Phase 85
+SSRF/rate-limit/CSRF). H6 connector-level SSRF (resolver wrap) remains
+open and is being tracked separately; H7 landed earlier today via PR
+#50; the CSRF middleware itself is the focus of this PR.
+
+### Added
+- `management/api/middleware/csrf.py` (260 lines): `CSRFMiddleware`
+  enforces double-submit cookie + HMAC token on every mutating route
+  under `/api/v1/*`. On `GET /api/v1/*`, mints a `csrf_token` cookie
+  (SameSite=Strict, Secure when scheme is HTTPS or `ENVIRONMENT=production`)
+  and mirrors it in an `X-CSRF-Token` response header for HTMX/fetch
+  callers. On `POST/PUT/PATCH/DELETE /api/v1/*`, requires both the
+  cookie and the matching `X-CSRF-Token` header AND verifies the token's
+  HMAC-SHA256 signature is bound to the JWT `sub` claim of the calling
+  session (so a sibling-domain cookie injection can't satisfy the
+  signature gate). Mismatch / expired / missing → HTTP 403
+  `{"error": "csrf_token_mismatch"}`. Bearer-token callers
+  (`Authorization: Bearer …`) are exempt because browsers cannot forge
+  that header cross-origin.
+- `management/api/middleware/__init__.py`: package marker.
+- Wired into `create_app()` immediately after CORS in
+  `management/api/main.py`.
+- `_enforce_no_test_mode_in_production()` extended to refuse startup
+  when `ENVIRONMENT=production` and `MANAGEMENT_DISABLE_CSRF=1` are both
+  set — defence in depth on top of the middleware's own production
+  refusal of the bypass flag.
+
+### Tests
+- `tests/unit/test_csrf.py` (243 lines, 12 tests):
+  - 5 token-primitive tests covering the issue/verify roundtrip,
+    wrong-session rejection, tampered-signature rejection, expiry
+    (frozen-time monkeypatch), and malformed-input rejection.
+  - 7 HTTP integration tests: GET mints cookie+header, POST without
+    CSRF → 403, cookie/header mismatch → 403, forged random
+    `AAAA.BBBB` token → 403 (signature gate catches it), valid
+    double-submit → middleware lets request through, Bearer auth
+    bypasses CSRF, non-`/api/v1` routes are unaffected.
+  - The CSRF-enforcement guarantee is per-test (`monkeypatch.delenv`),
+    not module-level, so the env state does not leak into other test
+    files in the same pytest process.
+- `management/tests/conftest.py`: sets `MANAGEMENT_DISABLE_CSRF=1` so
+  the ~95 inline `AsyncClient` instantiations that predate this
+  middleware keep working. The flag has no effect when
+  `ENVIRONMENT=production`, and `create_app()` refuses to start at all
+  when both are set.
+- `tests/unit/test_pages_threat_intel.py` and
+  `tests/unit/test_managed_by_operator_k8s.py` set the same bypass at
+  module level (they're standalone files, not under
+  `management/tests/conftest.py`).
+- `management/tests/test_test_mode_hardening.py` and
+  `management/tests/test_cookie_secure_flag.py` updated to clear
+  `MANAGEMENT_DISABLE_CSRF` in their per-test prod-environment setup.
+
+### Phase status
+- `docs/phases/PHASE_101.md`: H8 acceptance boxes ticked.
+- `docs/phases/manifest.yaml`: 101d remains open (H6 connector-resolver
+  wrap is the only acceptance criterion not yet met).
+
 ## [Unreleased] - Phase 101a complete — DSAR metric wiring + erase CIDR semantics (2026-04-26)
 
 Closes Phase 101 sub-phase **101a** (Phase 84 DSAR correctness — H1, H3, M7).
