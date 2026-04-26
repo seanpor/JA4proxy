@@ -398,17 +398,18 @@ independent — pick up in any order.
 - [ ] `tests/unit/analytics/ti_feeds/` and `tests/adversarial/test_ti_feeds_*.py` pass
 
 **Status: PARTIAL — 2026-04-26.** Done: M8 (`max_bundle_bytes` field in
-`base.py:149`), M9 (`user_agent` field in `base.py:151`), M13
-(`seed_file.run_once` now gates on `try_acquire_leader` when
+`base.py:149`), M9 (`user_agent` field in `base.py:151`), M11
+(`compute_dropped_ids` now returns `list[tuple[str, str]]` sorted by
+stix_id; runner caller updated to slice the pre-sorted list directly),
+M13 (`seed_file.run_once` now gates on `try_acquire_leader` when
 `instance_id` is provided — runner passes `self._instance_id` so seed
 load runs once across N replicas), M14 (audit log on enable/disable
 already wired in `threat_intel.py:337,381` via `write_audit`). Still
 open: M10 (`ja4proxy_ti_feed_indicators_managed` is still a Gauge at
 `src/analytics/ti_feeds/metrics.py:43`, not yet a Counter — note
 semantic question: "currently managed indicators" is naturally a Gauge,
-not a Counter; review may be worth challenging), M11 (`compute_dropped_ids`
-returns `dict`, not `sorted(list)`), M12 (12 `except Exception` catches
-remain across 4 client files).
+not a Counter; review may be worth challenging), M12 (12 `except Exception`
+catches remain across 4 client files).
 
 ---
 

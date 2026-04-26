@@ -1,5 +1,64 @@
 # Changelog
 
+## [Unreleased] - Phase 101g M11 — stable-ordered dropped list (2026-04-26)
+
+Closes M11. Phase 101g remaining open items: M10 (Gauge → Counter, semantics
+under review) and M12 (BLE001 explicit-exception unions across 4 client files).
+
+### Changed
+- `src/analytics/ti_feeds/state.py::compute_dropped_ids` — return type
+  changed from `dict[str, str]` to `list[tuple[str, str]]`, sorted by
+  `stix_id` ascending. Stable ordering means the cleanup-cap split in
+  `runner._poll_one` (head/tail slice when `len(dropped) > cap`) is
+  deterministic across runs; before this change, dict ordering was
+  effectively insertion-order-from-Redis-HGETALL — implementation-defined
+  and indistinguishable from random for callers.
+- `src/analytics/ti_feeds/state.py::FeedState.compute_dropped` — same
+  return-type change; thin wrapper now delegates to the module-level
+  `compute_dropped_ids` so both share one definition.
+- `src/analytics/ti_feeds/runner.py::FeedRunner._poll_one` — caller
+  updated: dropped the redundant `sorted(dropped.keys())` call (output
+  is already sorted), simplified the cap-split from dict-comprehension
+  to direct list slicing, and the deferred-cleanup carry-forward loop
+  now iterates the list of tuples directly.
+
+### Why
+Before M11, two analytics replicas observing the same poll result could
+produce differently-ordered cleanup-cap splits because of dict ordering
+nondeterminism, causing the same handle to ping-pong between "kept" and
+"deferred" across cycles. Sorted output guarantees both replicas pick the
+same head and the same tail, so cleanup converges instead of churning.
+
+### Added
+- `tests/unit/analytics/ti_feeds/test_phase_101g_medium.py::TestM11StableOrderedDropped`
+  — 5 new behavior tests replacing the previous "grep for 'compute_dropped_ids'
+  in the source" tautology. Asserts: (1) return type is `list` of
+  `(stix_id, handle)` tuples; (2) output is sorted by stix_id ascending,
+  proven by inserting in reverse order; (3) ids in `current` are excluded;
+  (4) full-overlap returns `[]`; (5) handles are paired with their
+  original stix_ids (no swap).
+
+### Updated
+- `tests/unit/analytics/ti_feeds/test_state.py` — 3 existing
+  `compute_dropped` assertions converted from dict literals to list
+  literals to match the new return type.
+
+### Test results
+- 5 new M11 tests pass; 3 updated `test_state.py` assertions pass.
+- 6049/6049 unit + integration tests pass; 10 skipped (Docker stack).
+- `ruff check` clean across the touched files.
+
+### Phase 101g status after this PR
+| Item | Status |
+|------|--------|
+| M8 — TAXII bundle size cap | done |
+| M9 — Per-feed User-Agent header | done |
+| M10 — Gauge → Counter | open (semantics under review — see PHASE_101.md) |
+| M11 — Stable-ordered dropped list | **done (this PR)** |
+| M12 — Replace BLE001 bare Exception catches | open |
+| M13 — `seed_file` inside leader lock | done |
+| M14 — Audit log on feed enable/disable | already shipped |
+
 ## [Unreleased] - Phase 101g M13 + M14 — seed-file leader gate; M14 audit-trail confirmed (2026-04-26)
 
 Closes M13. Confirms M14 was already shipped. Phase 101g still partial

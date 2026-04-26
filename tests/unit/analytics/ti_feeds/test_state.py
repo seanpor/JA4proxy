@@ -241,7 +241,7 @@ def test_diff_against_seen_returns_dropped_ids(fake_redis):
     )
 
     dropped = _run(state.compute_dropped("rf", seen={"indicator--a", "indicator--c"}))
-    assert dropped == {"indicator--b": "uuid-b"}
+    assert dropped == [("indicator--b", "uuid-b")]
 
 
 def test_diff_with_full_overlap_returns_empty(fake_redis):
@@ -255,7 +255,7 @@ def test_diff_with_full_overlap_returns_empty(fake_redis):
         )
     )
     dropped = _run(state.compute_dropped("rf", seen={"indicator--a"}))
-    assert dropped == {}
+    assert dropped == []
 
 
 def test_diff_with_empty_seen_drops_everything(fake_redis):
@@ -275,7 +275,10 @@ def test_diff_with_empty_seen_drops_everything(fake_redis):
     )
 
     dropped = _run(state.compute_dropped("rf", seen=set()))
-    assert set(dropped.keys()) == {"indicator--a", "indicator--b"}
+    assert dropped == [
+        ("indicator--a", "uuid-a"),
+        ("indicator--b", "uuid-b"),
+    ]
 
 
 # ── Per-feed isolation ─────────────────────────────────────────────────────────

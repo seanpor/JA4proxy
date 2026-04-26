@@ -45,18 +45,21 @@ _KEY_EMPTY_STREAK = "ti_feed:{feed_id}:empty_streak"
 def compute_dropped_ids(
     previous: dict[str, str],
     current: set[str],
-) -> dict[str, str]:
-    """Return the ``stix_id → handle`` mapping that was present previously but
-    is absent from the latest poll.
+) -> list[tuple[str, str]]:
+    """Return the ``[(stix_id, handle), ...]`` pairs present previously but
+    absent from the latest poll, **sorted by stix_id**.
 
-    The caller uses the returned mapping to issue delete calls against the
-    Management API in the order ``(stix_id, handle)`` pairs are returned.
-    ``handle`` is either a blocklist resource UUID or a raw IP string.
+    The caller iterates the list to issue delete calls against the Management
+    API. ``handle`` is either a blocklist resource UUID or a raw IP string.
+    Stable ordering means parallel poll loops see the same delete order, so
+    any cleanup-cap split (`runner._poll_one`) is deterministic across runs.
 
     This is a pure function — it does not touch Redis. Isolated so it can be
     unit-tested without a Redis backend.
     """
-    return {stix_id: handle for stix_id, handle in previous.items() if stix_id not in current}
+    return sorted(
+        (stix_id, handle) for stix_id, handle in previous.items() if stix_id not in current
+    )
 
 
 class _SyncRedisShim:
@@ -369,15 +372,16 @@ class FeedState:
         feed_id: str,
         *,
         seen: set[str],
-    ) -> dict[str, str]:
-        """Return ``{stix_id: handle}`` for entries previously stored but not in ``seen``.
+    ) -> list[tuple[str, str]]:
+        """Return ``[(stix_id, handle), ...]`` for entries previously stored
+        but not in ``seen``, sorted by stix_id.
 
         Convenience wrapper around the module-level
         :func:`compute_dropped_ids` for callers (and tests) that already
         hold a :class:`FeedState`.
         """
         previous = await self.get_active_stix_ids(feed_id)
-        return {sid: handle for sid, handle in previous.items() if sid not in seen}
+        return compute_dropped_ids(previous, seen)
 
     async def replace_active_stix_ids(
         self,
