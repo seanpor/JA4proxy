@@ -1513,3 +1513,8 @@ test-evidence-paths: ## Phase 107h.2 — fail if conformance docs cite repo path
 test-compliance: test-compliance-language test-evidence-paths ## Phase 107h — all regulatory-conformance regression guards
 
 .PHONY: test-compliance-language test-evidence-paths test-compliance
+
+# phase-107f: ATT&CK mapping CI gate
+.PHONY: test-attack-mapping
+test-attack-mapping: ## Phase 107f.4 — fail if ATT&CK mapping rows lack confidence labels or cite missing source files
+	python3 -m pytest tests/test_attack_mapping.py -v
