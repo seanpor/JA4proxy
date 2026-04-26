@@ -1,71 +1,170 @@
 # Changelog
 
-## [Unreleased] - Phase 107 PR1 — Regulatory-conformance scaffolds + CI safety gates (2026-04-26)
+## [Unreleased] - Phase 107 — Regulatory & Supply-Chain Conformance (2026-04-26)
 
-First of eight planned PRs landing Phase 107 (Regulatory & Supply-Chain
-Conformance — CRA, NIST SSDF, SLSA L3, ISO 27017/29100, MITRE ATT&CK,
-CVD policy). This PR establishes the file framework and the regression
-guards **before** any content lands, so subsequent content PRs cannot
-introduce overclaim language or stale evidence links without CI failing.
+Lands the auto-executable portion of Phase 107: full content for the EU
+Cyber Resilience Act conformance statement, NIST SSDF (SP 800-218)
+practice mapping, ISO/IEC 27017 cloud-controls mapping, ISO/IEC 29100
+privacy framework mapping, MITRE ATT&CK technique mapping, and the
+coordinated vulnerability disclosure policy. Adds four new CI safety
+gates that prevent regressions in overclaim language, evidence-path rot,
+ATT&CK confidence-label discipline, and broken internal doc links.
 
-### Added — scaffolding (sub-tasks 107a/b/c.1/d/e/f/g.1)
-- `docs/compliance/CRA_CONFORMANCE.md` — EU CRA conformance statement
-  scaffold; scope determination filled, Annex I/II rows are TODO markers
-  for sub-tasks 107a.2/.3/.4/.5.
-- `docs/compliance/SSDF_MAPPING.md` — NIST SP 800-218 mapping scaffold;
-  PO/PS/PW/RV group tables empty (TODO 107b.2/.3).
-- `docs/compliance/iso27017-mapping.md` — cloud-controls mapping scaffold;
-  applicability summary placeholders (TODO 107d.2/.3).
-- `docs/compliance/iso29100-mapping.md` — privacy framework scaffold; all
-  11 ISO 29100 principle rows present as TODO (TODO 107e.2). Cross-links
-  GDPR doc + REDIS_SCHEMA — does not duplicate.
-- `docs/for-architects/ATTACK_MAPPING.md` — MITRE ATT&CK forward + reverse
-  views; rows TODO for 107f.2/.3; confidence-label policy stated.
-- `docs/security/CVD_POLICY.md` — CVD policy scaffold; 8 section headers
-  with TODO bodies; SLAs marked `<!-- HUMAN REVIEW REQUIRED -->`.
-- `docs/decisions/ADR-107a-slsa-level-3.md` — Status: Proposed. Decision
-  to adopt SLSA L3 via `slsa-framework/slsa-github-generator`. Records the
-  L3-vs-L4 reasoning, the `id-token: write` reshape, and the
-  `workflow_dispatch`-first landing strategy for 107c.3/.4.
-- `docs/decisions/INDEX.md` — ADR-107a row added.
+**Phase 107 status: PARTIAL (auto-executable portion COMPLETE; sub-tasks
+107c.3 / 107c.4 / 107c.5 deferred for human-led execution — see Deferred
+section below).** The phase manifest entry remains `PROPOSED` until the
+SLSA L3 release-pipeline wiring is verified manually.
 
-### Added — CI safety gates (sub-tasks 107h.1/.2)
-- `tests/test_compliance_language.py` — pytest gate that fails if
-  "certified" / "compliant" appears in `docs/compliance/` or
-  `docs/security/CVD_POLICY.md` outside an explicit allowlist (currently
-  empty by design; JA4proxy has no third-party certifications). This is
-  the regression guard for the Phase 107 review S-2 finding (HIGH).
-- `tests/test_compliance_evidence_paths.py` — pytest gate that extracts
-  every repo-relative path cited in `CRA_CONFORMANCE.md` /
-  `SSDF_MAPPING.md` evidence columns and asserts each one exists. Catches
-  the silent-rot failure mode (renamed signal modules, deleted workflows)
-  flagged as A-3 (LOW) in the Phase 107 review.
-- `Makefile` — three new targets: `test-compliance-language`,
-  `test-evidence-paths`, `test-compliance` (aggregate).
+### Added — conformance documents (sub-tasks 107a/b/d/e/f/g)
+- `docs/compliance/CRA_CONFORMANCE.md` — EU CRA conformance statement.
+  Scope determination, Annex I rows ER1-ER13 (each tied to EU 2024/2847
+  §1(2) sub-paragraphs with real evidence paths), Annex II rows for SBOM
+  / CVD / patches / support, conformity-assessment procedure (Article
+  24(1)(a) self-assessment route), EU DoC TEMPLATE marked NOT SIGNED,
+  post-market vulnerability management section. **No support-period
+  number is stated** — the regulation requires the position to be
+  documented; the project commits to no number until harmonised
+  standards are published (expected ETSI/CEN-CENELEC 2026-2027).
+- `docs/compliance/SSDF_MAPPING.md` — all 19 NIST SP 800-218 v1.1
+  practices mapped (PO 1-5, PS 1-3, PW 1-8, RV 1-3). Summary box: 14
+  fully implemented / 5 partial / 0 N/A. Each row's evidence column
+  cites a real file path (verified by the `test-evidence-paths` gate).
+- `docs/compliance/iso27017-mapping.md` — ISO/IEC 27017:2015 cloud
+  controls. CLD.6 / CLD.8 / CLD.9 / CLD.12 mapped. Applicability:
+  3 applies / 4 customer-responsibility / 0 N/A. Customer-responsibility
+  rows carry deployer-guidance notes.
+- `docs/compliance/iso29100-mapping.md` — all 11 ISO 29100 privacy
+  principles. Every row links to `GDPR_COMPLIANCE.md` or
+  `docs/REDIS_SCHEMA.md` rather than duplicating PII content.
+- `docs/for-architects/ATTACK_MAPPING.md` — MITRE ATT&CK Enterprise
+  technique mapping. 16 forward rows covering 6 tactics (TA0043, TA0042,
+  TA0001, TA0011, TA0005, TA0040). Confidence distribution 4 high /
+  9 medium / 3 low (no inflation). Reverse view + SIEM integration
+  examples (Splunk SPL).
+- `docs/security/CVD_POLICY.md` — coordinated vulnerability disclosure
+  policy. 8 sections (Scope / Reporting / Acknowledgement & Triage /
+  Fix timelines / Disclosure & Embargo / Credit & CVE / Safe Harbour /
+  Standards Alignment). **No time-bound SLAs** — best-effort posture
+  with explicit "Why no SLA" rationale (self-funded, no oncall, no
+  commercial entity); reporters who need guaranteed response are
+  pointed to the absence of a commercial support tier. Safe-harbour
+  text is the disclose.io Simple Safe Harbor template **verbatim**
+  (source URL noted in HTML comment for byte-equality verification).
+- `docs/decisions/ADR-107a-slsa-level-3.md` — Status: Proposed.
+  Decision to adopt SLSA L3 via `slsa-framework/slsa-github-generator`.
 
-### Changed — overclaim cleanup (S-2 regression guard caught two pre-existing instances)
-- `docs/compliance/GDPR_COMPLIANCE.md` §12.1 — FAQ heading reworded from
-  "Is JA4proxy GDPR compliant out-of-the-box?" to "Does JA4proxy support
-  GDPR compliance out-of-the-box?" Operator remains the data controller.
-- `docs/compliance/SECURITY_CONTROLS_MAPPING.md` "Current Compliance
-  Status" section — "Fully Compliant / Partially Compliant" relabelled to
-  "Fully Implemented / Partially Implemented"; explicit "self-assessment,
-  not a third-party certification" added.
+### Added — CI safety gates (sub-tasks 107c.6, 107f.4, 107h.1, 107h.2, 107w.3)
+- `tests/test_compliance_language.py` — fails if "certified" /
+  "compliant" appears in `docs/compliance/` or
+  `docs/security/CVD_POLICY.md` (outside an explicit allowlist; empty
+  by design — no third-party certifications). Regression guard for
+  review finding S-2 (HIGH).
+- `tests/test_compliance_evidence_paths.py` — extracts every
+  repo-relative path cited in conformance-doc evidence columns and
+  asserts each exists. Catches silent-rot from renamed/deleted source
+  modules. Regression guard for review finding A-3.
+- `tests/test_attack_mapping.py` — two independent assertions:
+  (1) every forward-mapping row has a high/medium/low confidence label
+  starting the Confidence cell (T-3 guard); (2) every Source-file path
+  resolves on disk (A-3 guard for ATT&CK).
+- `tests/test_workflow_pinning.py` — extended `KNOWN_ACTION_SHAS`
+  allowlist with `lycheeverse/lychee-action@v2.8.0` (SHA verified twice
+  via GitHub API and `git ls-remote`).
+- `Makefile` — five new targets: `test-compliance-language`,
+  `test-evidence-paths`, `test-compliance` (aggregate),
+  `test-attack-mapping`, `test-doc-links` (lychee-driven, requires
+  lychee installed locally).
+
+### Added — CI workflows (sub-tasks 107c.2, 107w.3)
+- `.github/workflows/slsa-verify.yml` — `workflow_dispatch`-only.
+  Installs `slsa-verifier` v2.6.0 from a SHA-pinned binary download
+  (sha256 cross-verified against upstream's own SLSA in-toto
+  attestation), then runs `slsa-verifier verify-image` against a
+  configurable `image_ref` input. Until 107c.3 lands and produces an
+  attested image, this workflow fails with "no attestation found" —
+  expected baseline that proves the verifier plumbing is correct. A
+  placeholder-guard step refuses to run if the binary SHA is unset.
+- `.github/workflows/docs-link-check.yml` — `pull_request` (paths:
+  `docs/**`, `**.md`) and `workflow_dispatch`. Runs lychee against
+  conformance docs, audience-scoped READMEs, CVD policy, ADR-107*,
+  and SECURITY.md. Internal broken links fail the build; external
+  4xx/5xx tolerated.
+
+### Added — RFP / risk register (sub-task 107z.2)
+- `docs/compliance/RFP_DRYRUN.md` — checklist of typical RFP
+  conformance questions, each linking the answering doc + section.
+  Replaces the unmeasurable "RFP questionnaire fully answerable"
+  acceptance criterion (review finding C-1) with a concrete checklist.
+- `docs/RISK_REGISTER.md` — three new rows for genuine gaps surfaced
+  by the mapping work: RR-043 SLSA L3 not yet shipped (Open),
+  RR-044 No CVD response SLA (Accepted; deliberate position per
+  CVD_POLICY §3-4), RR-045 No formal RCA template (Open).
+
+### Changed — wiring (sub-tasks 107w.1, 107w.2)
+- `docs/for-architects/README.md` — new "Standards & conformance"
+  section linking CRA, SSDF, ATT&CK, ADR-107a. ADR-107a row added to
+  the architecture-decisions list.
+- `docs/for-compliance/README.md` — five new index rows: CRA, SSDF,
+  ISO 27017, ISO 29100, CVD policy.
+- `docs/for-website-owners/FAQ.md` — Q16 "Are you CRA-compliant?"
+  (uses self-assessed language, no number-of-years commitment), Q17
+  "Do you support SLSA provenance verification?" (current L2 + path to
+  L3, deferred runbook).
+- `docs/compliance/iso27001-annex-a-mapping.md` — "see also" link to
+  iso27017-mapping.md.
+- `docs/compliance/GDPR_COMPLIANCE.md` — "see also" link to
+  iso29100-mapping.md (added to title block) plus the §12.1 FAQ
+  heading rewording from "Is JA4proxy GDPR compliant out-of-the-box?"
+  to "Does JA4proxy support GDPR compliance out-of-the-box?" (S-2
+  guard caught the original phrasing during PR1).
+- `docs/compliance/SECURITY_CONTROLS_MAPPING.md` — "Current Compliance
+  Status" relabelled to "Current Implementation Status"; explicit
+  "self-assessment, not a third-party certification" sentence added
+  (S-2 guard caught the pre-existing wording during PR1).
+- `SECURITY.md` — rewritten as a ~25-line pointer to CVD_POLICY.md.
+  Removed: fake email `security@ja4proxy.example.com`, fake PGP key
+  ID, fake response-time targets, fake phone number, fake Slack
+  channel, fake PagerDuty escalation, fake Hall-of-Fame entries
+  (John Smith / Jane Doe / fabricated CVE-2026-1234), generic
+  security-best-practices boilerplate, the duplicated "RESOLVED"
+  block. Preserved: the historical credential-exposure note about
+  commit `d67f4d6`.
+- `docs/security/INTAKE_RUNBOOK.md` — new "Coordinated vulnerability
+  disclosure (CVD) intake" section with best-effort triage steps.
 
 ### Verified
-- `make test-compliance` — 8 tests pass (3 language + 5 evidence-path).
-- `ruff check tests/test_compliance_language.py
-  tests/test_compliance_evidence_paths.py` — clean.
+- `make test-compliance test-attack-mapping` — 7 tests pass
+  (3 language + 2 evidence-path + 2 ATT&CK).
+- `python3 -m pytest tests/test_workflow_pinning.py` — 7 tests pass
+  (covers both `slsa-verify.yml` and `docs-link-check.yml`).
+- 17/17 Phase 107 CI gates green at branch tip.
+- No "certified" / "compliant" in any of the new content.
+- No SLA numbers committed anywhere (§3-4 of CVD_POLICY references
+  "2-day" / "30-day" only as examples of what the project is **not**
+  promising, in the explanatory "Why no SLA" paragraph).
+- All evidence paths in conformance docs verified to exist on disk.
+- Disclose.io Simple Safe Harbor text in CVD_POLICY §7 verified
+  byte-for-byte against the canonical upstream source.
 
-### Deferred to subsequent PRs
-- **PR 2:** SLSA verify workflow + ADR runbook (107c.2, 107c.5, 107c.6).
-- **PR 3-7:** content fills for CRA, SSDF, ISO 27017/29100, ATT&CK, CVD.
-- **PR 8:** wiring (READMEs, FAQ, link-check CI) + close-out.
-- **NOT auto-executed (require human-led release-pipeline work):** 107c.3
-  (`go-proxy-image.yml` SLSA generator wiring) and 107c.4
-  (`release-cli.yml` SLSA generator wiring). Both modify the production
-  release pipeline and require manual `workflow_dispatch` verification
-  before re-enabling `push:` triggers.
+### Deferred to human-led execution (NOT auto-merged)
+- **107c.3** — wire `slsa-framework/slsa-github-generator` reusable
+  workflow into `.github/workflows/go-proxy-image.yml`. This mutates
+  the production release pipeline (workflow-level `id-token: write`
+  reshape required); must be landed under `workflow_dispatch`-only,
+  manually verified to produce an attested artefact, then re-enabled
+  on `push:` triggers in a follow-up commit.
+- **107c.4** — same pattern for `.github/workflows/release-cli.yml`
+  (CLI binary path, `generator-generic-slsa3.yml`).
+- **107c.5** — `docs/for-architects/SLSA_VERIFICATION.md` operator
+  runbook. Depends on 107c.3 producing a real attested artefact to
+  test the runbook commands against (per phase doc Notes-for-Implementer
+  "verifier UX matters more than the attestation itself").
+
+The Phase 107 manifest entry stays `PROPOSED` until 107c.3 / 107c.4
+push-trigger restoration is verified (per close-out gate 107z.3 in the
+phase review). All other acceptance criteria are met.
+
+
 
 ## [Unreleased] - Phase 101g M10 — DECIDED-KEEP-AS-GAUGE; sub-phase 101g closed (2026-04-26)
 
