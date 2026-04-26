@@ -1,4 +1,4 @@
-"""Async HTTP client for the Phase 79 Management API.
+"""Async HTTP client for the MFA/SSO Hardening Management API.
 
 The feed runner talks to the Management API through this module. It is the
 **only** place where the feed runner makes outbound REST calls that mutate
@@ -90,7 +90,7 @@ class ResourceResult:
 
 
 class ManagementClient:
-    """Async client for the small subset of the Phase 79 API the feed runner needs.
+    """Async client for the small subset of the MFA/SSO Hardening API the feed runner needs.
 
     Args:
         base_url: Base URL, e.g. ``"http://management:8090"``.
@@ -388,7 +388,7 @@ class ManagementClient:
         caller that should produce feed-managed entries.
         """
         # phase-85: ``managed_by`` is always "feed" in production. The
-        # kwarg is accepted only for symmetry with the Phase 79 ResourceCreate
+        # kwarg is accepted only for symmetry with the MFA/SSO Hardening ResourceCreate
         # body shape used by the Phase 85 mgmt-client unit tests; any other
         # value here would be a misconfiguration.
         body: dict[str, Any] = {

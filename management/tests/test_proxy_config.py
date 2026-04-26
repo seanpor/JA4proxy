@@ -1,4 +1,4 @@
-"""TDD tests for management/api/proxy_config.py — Phase 100 Gap 6.
+"""TDD tests for management/api/proxy_config.py — Production Readiness Gap 6.
 
 Covers
 ------

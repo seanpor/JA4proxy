@@ -188,7 +188,7 @@ async def test_valid_token_allows_access(authenticated_client: AsyncClient) -> N
     assert response.status_code != 401
 
 
-# ── Bearer token auth middleware — additions for Phase 79 Cluster 1 ───────────
+# ── Bearer token auth middleware — additions for MFA/SSO Hardening Cluster 1 ───────────
 #
 # These tests document how the bearer token middleware interacts with the
 # existing cookie-based auth path.  They are expected to FAIL until the
@@ -223,7 +223,7 @@ async def test_bearer_takes_precedence_over_cookie(
     raw_entries = await fake_redis.lrange("management:audit_log", 0, 0)
     assert raw_entries, "No audit log entry was written"
     entry = _json.loads(raw_entries[0])
-    # Phase 79 C5: enhanced audit schema uses actor_id, not user
+    # MFA/SSO Hardening C5: enhanced audit schema uses actor_id, not user
     assert entry.get("actor_id") != "admin", (
         f"Audit log actor_id is 'admin' — bearer identity did not take precedence. Entry: {entry}"
     )

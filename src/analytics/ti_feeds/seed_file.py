@@ -3,7 +3,7 @@
 PHASE_85.md §7.1 — the bundled seed file ships with vetted JA4 fingerprints
 from public security research. Loaded once at startup if
 ``threat_intel.seed_file.enabled: true``; each entry is routed through the
-Phase 79 Management API with ``managed_by=feed`` and
+MFA/SSO Hardening Management API with ``managed_by=feed`` and
 ``note=feed:seed_file:{ja4}`` so the standard provenance and audit flow
 applies.
 

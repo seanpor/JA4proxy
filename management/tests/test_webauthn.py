@@ -1,4 +1,4 @@
-"""TDD tests for Phase 79 Cluster 7 — WebAuthn/FIDO2 MFA.
+"""TDD tests for MFA/SSO Hardening Cluster 7 — WebAuthn/FIDO2 MFA.
 
 Covers
 ------
@@ -603,7 +603,7 @@ async def test_webauthn_auth_complete_wrong_user_credential_returns_403(
         f"got {r.status_code}: {r.text}"
     )
 
-# ── Section 6: Credential management — list and delete (Gap 3 — Phase 100) ───
+# ── Section 6: Credential management — list and delete (Gap 3 — Production Readiness) ───
 
 
 @pytest.mark.asyncio

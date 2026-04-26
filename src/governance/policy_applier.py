@@ -1,7 +1,7 @@
 """Async aiohttp client that applies a validated policy dict to the Management API.
 
 This module is the runtime counterpart to the offline validator.  It makes
-real HTTP calls to the Phase 79 Management API.
+real HTTP calls to the MFA/SSO Hardening Management API.
 
 Exported symbols
 ----------------

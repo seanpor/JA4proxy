@@ -1,4 +1,4 @@
-"""Tests for Phase 84 additions to GET /api/v1/connections.
+"""Tests for Compliance Reporting additions to GET /api/v1/connections.
 
 Tests the ?until=, ?page_token=, and raised ?limit= parameters.
 

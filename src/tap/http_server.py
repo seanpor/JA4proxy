@@ -7,7 +7,7 @@ Routes:
     GET /api/v1/fingerprints/ja4/{fp}       — usage stats for a JA4 fingerprint
     GET /health                             — TAP health struct (§13.4)
 
-When Phase 13 management server is implemented, these routes migrate to it.
+When Management API management server is implemented, these routes migrate to it.
 """
 
 import json

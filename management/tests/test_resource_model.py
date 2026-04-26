@@ -1,4 +1,4 @@
-"""TDD tests for Phase 79 Cluster 3 — Resource Model (UUID + managed_by).
+"""TDD tests for MFA/SSO Hardening Cluster 3 — Resource Model (UUID + managed_by).
 
 These tests cover the three canonical list endpoints:
     POST   /api/v1/allowlist

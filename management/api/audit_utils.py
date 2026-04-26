@@ -4,7 +4,7 @@ All write operations that mutate state must call ``write_audit`` so that
 the management audit log contains a consistent, queryable record of every
 change with full actor attribution.
 
-Schema (new — Phase 79 Cluster 5)
+Schema (new — MFA/SSO Hardening Cluster 5)
 ----------------------------------
 {
     "timestamp":     "<ISO 8601>",

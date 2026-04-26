@@ -111,7 +111,7 @@ async def test_put_dial_creates_audit_entry(
     entries = await fake_redis.lrange("management:audit_log", 0, 0)
     assert len(entries) == 1
     entry = json.loads(entries[0])
-    # Phase 79 C5: enhanced audit schema
+    # MFA/SSO Hardening C5: enhanced audit schema
     assert entry["action_type"] == "dial.changed"
     assert entry["before_value"]["value"] == 5
     assert entry["after_value"]["value"] == 10

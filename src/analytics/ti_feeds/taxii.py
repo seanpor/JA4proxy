@@ -8,7 +8,7 @@ PHASE_85.md §5 needs:
 2. Parse the JSON response as a STIX bundle (``objects: [...]``).
 3. Filter for ``type == 'indicator'``, extract the pattern, route IP
    indicators to ``POST /api/v1/bans`` and JA4 indicators to
-   ``POST /api/v1/blocklist`` — all through the Phase 79 Management API
+   ``POST /api/v1/blocklist`` — all through the MFA/SSO Hardening Management API
    (``mgmt_client.ManagementClient``).
 
 Why hand-rolled rather than ``taxii2-client``:

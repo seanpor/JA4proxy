@@ -1,4 +1,4 @@
-"""TDD tests for Phase 79 Cluster 8 — SAML 2.0 SSO.
+"""TDD tests for MFA/SSO Hardening Cluster 8 — SAML 2.0 SSO.
 
 Covers
 ------
@@ -510,7 +510,7 @@ def test_map_role_empty_groups_no_default() -> None:
         else:
             os.environ["MANAGEMENT_SAML_DEFAULT_ROLE"] = ""
 
-# ── Section 8: Integration test stubs (Gap 5 — Phase 100) ────────────────────
+# ── Section 8: Integration test stubs (Gap 5 — Production Readiness) ────────────────────
 
 
 @pytest.mark.integration
@@ -525,7 +525,7 @@ async def test_saml_live_okta_login() -> None:
     """
     pytest.skip("Not yet implemented — stub for future live-IdP test")
 
-# ── Section 9: Audit log events (Gap 2 — Phase 100) ──────────────────────────
+# ── Section 9: Audit log events (Gap 2 — Production Readiness) ──────────────────────────
 
 
 @pytest.mark.asyncio
@@ -594,7 +594,7 @@ async def test_saml_acs_failure_does_not_write_audit_entry(
             f"Failed login must not produce an audit entry: {parsed}"
         )
 
-# ── Section 10: SSO-delegated MFA trust (Gap 4 — Phase 100) ──────────────────
+# ── Section 10: SSO-delegated MFA trust (Gap 4 — Production Readiness) ──────────────────
 
 
 @pytest.mark.asyncio
@@ -695,7 +695,7 @@ async def test_saml_acs_idp_mfa_trust_disabled_no_session_key(
             f"MFA session key must NOT be set when trust flag is off, got {value!r}"
         )
 
-# ── Section 11: config/proxy.yml role mapping (Gap 6 — Phase 100) ────────────
+# ── Section 11: config/proxy.yml role mapping (Gap 6 — Production Readiness) ────────────
 
 
 def test_saml_map_role_from_proxy_config(tmp_path) -> None:

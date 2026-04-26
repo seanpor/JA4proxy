@@ -6,14 +6,14 @@ GET /api/v1/fingerprints/{ja4}/history  — chronological event list for a JA4
 
 All three endpoints require at minimum the Analyst role.
 
-Phase 84 additions to GET /api/v1/connections
+Compliance Reporting additions to GET /api/v1/connections
 ----------------------------------------------
 ?until=<iso8601>    — upper bound for the query window (exclusive upper bound)
 ?page_token=<str>   — opaque cursor for the next page (returned in response when
                        has_more=true).  Based on stream entry offset.
 ?limit=             — max results per page (default 100, max 10,000 for compliance use).
 
-Pagination contract (Phase 84)
+Pagination contract (Compliance Reporting)
 ------------------------------
 {
   "connections": [...],
@@ -82,7 +82,7 @@ async def get_connections(
     ja4: Optional[str] = Query(None, description="Filter by exact JA4 fingerprint"),
     action: Optional[str] = Query(None, description="Filter by action_taken"),
     since: Optional[str] = Query(None, description="ISO 8601 timestamp — only events after this"),
-    until: Optional[str] = Query(None, description="ISO 8601 timestamp — only events before this (Phase 84)"),
+    until: Optional[str] = Query(None, description="ISO 8601 timestamp — only events before this (Compliance Reporting)"),
     limit: int = Query(_DEFAULT_LIMIT, ge=1, le=_MAX_LIMIT, description="Max results per page"),
     page_token: Optional[str] = Query(None, description="Cursor for next page (from previous response)"),
     current_user=Depends(require_role(Role.analyst)),
@@ -90,7 +90,7 @@ async def get_connections(
 ):
     """Return connection events from the stream with optional filtering and pagination.
 
-    Phase 84 adds: ?until=, ?page_token= for cursor-based pagination.
+    Compliance Reporting adds: ?until=, ?page_token= for cursor-based pagination.
     """
     # Validate since < until
     if since is not None and until is not None and since >= until:
