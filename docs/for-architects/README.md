@@ -55,6 +55,21 @@ order presented.
 
 ---
 
+## Standards & conformance
+
+Architect-facing summaries of the project's posture against external
+frameworks. These are **self-assessed** mappings — no third-party
+attestation has been performed.
+
+| Topic | Document |
+|---|---|
+| EU Cyber Resilience Act (Regulation (EU) 2024/2847) — Annex I + II self-assessment | [`docs/compliance/CRA_CONFORMANCE.md`](../compliance/CRA_CONFORMANCE.md) |
+| NIST SSDF (SP 800-218) practice mapping | [`docs/compliance/SSDF_MAPPING.md`](../compliance/SSDF_MAPPING.md) |
+| MITRE ATT&CK technique mapping (which techniques JA4proxy signals detect) | [ATT&CK Mapping](ATTACK_MAPPING.md) |
+| SLSA build-provenance posture (currently L2; L3 in flight) | [`docs/decisions/ADR-107a-slsa-level-3.md`](../decisions/ADR-107a-slsa-level-3.md) — operator-runnable verification runbook: deferred (107c.5) |
+
+---
+
 ## Architecture-level decisions
 
 The full ADR catalogue lives in [`docs/decisions/`](../decisions/). The ones
@@ -67,6 +82,8 @@ most useful to architects up front:
   prototyping
 - **ADR-020** — TAP/SPAN passive mode design (AF\_PACKET capture)
 - **ADR-021** — EDL pull-not-push for firewall integration
+- **ADR-107a** — Adopt SLSA Level 3 via `slsa-github-generator` reusable
+  workflow (Proposed; wiring deferred to sub-tasks 107c.3/.4)
 
 ---
 

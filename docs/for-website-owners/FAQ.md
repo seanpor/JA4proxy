@@ -272,6 +272,34 @@ documented in `SECURITY.md` and the architect-track scope doc.
 For active vulnerability handling, follow the disclosure process
 in `SECURITY.md`.
 
+## 16. Are you CRA-compliant?
+
+JA4proxy maintains a **self-assessed conformance statement** against the
+EU Cyber Resilience Act (Regulation (EU) 2024/2847). It is **not** a
+third-party certification — no accredited body has assessed JA4proxy
+against the CRA. The full statement, with Annex I evidence mapping and
+Annex II vulnerability-handling references, is at
+[`docs/compliance/CRA_CONFORMANCE.md`](../compliance/CRA_CONFORMANCE.md).
+The CRA's harmonised technical standards are still being drafted by
+ETSI / CEN-CENELEC through 2026-2027; the statement will be refreshed
+once they are published.
+
+The project does not currently commit to a fixed support-period number;
+the harmonised guidance will be reviewed once published and a position
+taken at that time.
+
+## 17. Do you support SLSA provenance verification?
+
+Container images are built today with **SLSA Level 2** provenance —
+keyless `cosign` signing plus a CycloneDX SBOM, per
+[ADR-202d](../decisions/ADR-202d.md). The path to **SLSA Level 3**
+(non-falsifiable provenance via `slsa-github-generator`) is documented
+in [ADR-107a](../decisions/ADR-107a-slsa-level-3.md). A
+`workflow_dispatch`-triggered verification workflow
+(`.github/workflows/slsa-verify.yml`) is in place; an operator-runnable
+verification runbook will land once the L3 attestation is wired
+(sub-tasks 107c.3 + 107c.5, deferred for human-led execution).
+
 ---
 
 ## See also

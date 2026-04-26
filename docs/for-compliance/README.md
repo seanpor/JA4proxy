@@ -27,6 +27,11 @@ phase: 105
 | Mapping of ISO 27001 / NIST CSF / PCI DSS controls to JA4proxy implementation | [`../compliance/SECURITY_CONTROLS_MAPPING.md`](../compliance/SECURITY_CONTROLS_MAPPING.md) |
 | SOC 2 Trust Service Criteria narrative (CC6–CC9, A1) | [`../compliance/soc2-control-narrative.md`](../compliance/soc2-control-narrative.md) |
 | ISO 27001 Annex A control-by-control mapping | [`../compliance/iso27001-annex-a-mapping.md`](../compliance/iso27001-annex-a-mapping.md) |
+| EU Cyber Resilience Act (Regulation (EU) 2024/2847) — Annex I + II self-assessment | [`../compliance/CRA_CONFORMANCE.md`](../compliance/CRA_CONFORMANCE.md) |
+| NIST SSDF (SP 800-218) practice mapping | [`../compliance/SSDF_MAPPING.md`](../compliance/SSDF_MAPPING.md) |
+| ISO/IEC 27017 cloud-services security controls mapping | [`../compliance/iso27017-mapping.md`](../compliance/iso27017-mapping.md) |
+| ISO/IEC 29100 privacy framework mapping | [`../compliance/iso29100-mapping.md`](../compliance/iso29100-mapping.md) |
+| Coordinated vulnerability disclosure (CVD) policy — ISO/IEC 29147 + 30111 alignment | [`../security/CVD_POLICY.md`](../security/CVD_POLICY.md) |
 
 ## Supporting references
 
