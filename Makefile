@@ -1502,3 +1502,14 @@ phase-121-verify: ## Phase 121 close-out gate — validate register, required do
 	@python3 scripts/phase_121_verify.py
 
 .PHONY: verify-findings verify-findings-green findings-render findings-list phase-121-verify
+
+# phase-107h: regulatory-conformance regression guards
+test-compliance-language: ## Phase 107h.1 — fail if "certified"/"compliant" appears in self-assessed compliance docs
+	@python3 -m pytest tests/test_compliance_language.py -v
+
+test-evidence-paths: ## Phase 107h.2 — fail if conformance docs cite repo paths that don't exist
+	@python3 -m pytest tests/test_compliance_evidence_paths.py -v
+
+test-compliance: test-compliance-language test-evidence-paths ## Phase 107h — all regulatory-conformance regression guards
+
+.PHONY: test-compliance-language test-evidence-paths test-compliance

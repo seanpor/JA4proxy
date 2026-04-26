@@ -580,9 +580,9 @@ To: [Supervisory Authority]
 
 ## §12. Frequently Asked Questions
 
-### 12.1. Is JA4proxy GDPR compliant out-of-the-box?
+### 12.1. Does JA4proxy support GDPR compliance out-of-the-box?
 
-**Yes, with proper configuration.** The default configuration implements GDPR principles, but operators must:
+**Yes, with proper configuration.** The default configuration is aligned with GDPR principles, but operators remain the data controller and must:
 - Configure appropriate TTLs for their use case
 - Implement proper access controls
 - Document their legitimate interest balancing test
