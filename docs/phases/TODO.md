@@ -15,10 +15,6 @@ This document tracks the remaining work for both historical phases (gaps identif
 
 ## 🔵 Planned & Open Phases
 
-### Phase 107 — Regulatory Conformance (CRA, NIST, ISO)
-*   **Status:** **PROPOSED** (Ensure compliance with Cyber Resilience Act (CRA), NIST SSDF, and ISO standards (27017, 29100) including SLSA L3 provenance.)
-*   **Action Plan:** [PHASE_107.md](PHASE_107.md)
-
 ### Phase 109 — PROXY Protocol Hardening & Scrubbing
 *   **Status:** **DEFERRED** (Superseded by Phase 118 — PROXY-header scrubbing closed via findings register (118a/b, 116a).)
 *   **Action Plan:** [PHASE_109.md](PHASE_109.md)
