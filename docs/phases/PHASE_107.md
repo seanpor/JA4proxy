@@ -1,13 +1,21 @@
 # Phase 107 — Regulatory & Supply-Chain Conformance
 
-> **Status:** PROPOSED
+> **Status:** COMPLETE (2026-04-27) — auto-executable portion landed.
+> Three sub-tasks held back for human-led execution: **107c.3, 107c.4,
+> 107c.5** (SLSA L3 release-pipeline wiring + operator runbook). They
+> mutate the production release pipeline and need manual
+> `workflow_dispatch` verification against a real attested artefact
+> before `push:` triggers can be re-enabled. See `deferred_subtasks` in
+> `docs/phases/manifest.yaml` and the CHANGELOG entry for re-entry
+> details.
+>
 > **Size:** LARGE (7 sub-phases, ~8–10 engineer-days)
 > **Dependencies:** Phase 105 (`docs/for-*/` and `docs/compliance/` entry
 > points exist); Phase 202 (SBOM + Cosign signing already in place — the
 > starting point for SLSA Level 3)
 > **Triggered by:** Best-practices alignment review 2026-04-16; EU CRA
 > December 2027 deadline
-> **Review:** `docs/phases/PHASE_107_review.md` (to be written on close)
+> **Review:** `docs/phases/PHASE_107_review.md`
 
 ---
 

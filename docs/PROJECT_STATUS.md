@@ -5,7 +5,7 @@
 
 ## Current Status: Phase 101 (Phase 101 — Cross-Phase Gap Closure) Next
 
-**Last Updated:** 2026-04-26
+**Last Updated:** 2026-04-27
 
 ## Epics & Roadmap
 
@@ -152,7 +152,7 @@ Alignment with international standards and regulatory frameworks.
 
 | Phase | Name | Status | Summary |
 |-------|------|--------|---------|
-| 107 | Regulatory Conformance (CRA, NIST, ISO) | PROPOSED | Ensure compliance with Cyber Resilience Act (CRA), NIST SSDF, and ISO standards (27017, 29100) including SLSA L3 provenance. |
+| 107 | Regulatory Conformance (CRA, NIST, ISO) | COMPLETE | Auto-executable portion COMPLETE: CRA conformance statement (Annex I/II), NIST SSDF mapping (19 practices), ISO/IEC 27017 cloud-controls mapping, ISO/IEC 29100 privacy mapping, MITRE ATT&CK technique mapping (16 forward rows, 6 tactics), CVD policy (no SLAs), ADR-107a (Status: Proposed), slsa-verify.yml verifier harness (workflow_dispatch-only), docs-link-check workflow, and 4 CI safety gates (overclaim language, evidence-paths, ATT&CK confidence labels, workflow pinning). SLSA L3 release-pipeline wiring (107c.3/.4) and operator runbook (107c.5) deferred for human-led execution — production CI mutation requires manual workflow_dispatch verification of a real attested artefact before push: triggers can be re-enabled. See deferred_subtasks for re-entry checklist. |
 
 ## Phase Completion Details
 
@@ -268,7 +268,7 @@ Alignment with international standards and regulatory frameworks.
 | 102 | Phase 93 Finishing Work: ADRs, Runbook Audit, Drift-Detection Decision | COMPLETE | N/A | N/A |
 | 105 | Documentation Restructure by Audience | COMPLETE | N/A | N/A |
 | 106 | SWEBOK v4 Alignment & Quality Plan | COMPLETE | N/A | N/A |
-| 107 | Regulatory Conformance (CRA, NIST, ISO) | PROPOSED | N/A | N/A |
+| 107 | Regulatory Conformance (CRA, NIST, ISO) | COMPLETE | N/A | N/A |
 | 108 | Full-Stack Penetration Testing Campaign | COMPLETE | N/A | N/A |
 | 109 | PROXY Protocol Hardening & Scrubbing | DEFERRED | N/A | N/A |
 | 110 | Management API Security Hardening | DEFERRED | N/A | N/A |

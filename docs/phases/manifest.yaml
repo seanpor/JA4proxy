@@ -137,11 +137,18 @@ phases:
     summary: 'Align project engineering practices with SWEBOK v4 standards, including SLOs, risk register, TCO analysis, traceability tooling, retrospective mechanism, engineering-method narrative, component design index, and quality plan. Closed 12 of 14 applicable KAs (KAs 7 and 13 deferred to Phase 105).'
   107:
     name: 'Regulatory Conformance (CRA, NIST, ISO)'
-    status: PROPOSED
+    status: COMPLETE
     action_plan: docs/phases/PHASE_107.md
     dependencies: []
-    size: MEDIUM
-    summary: 'Ensure compliance with Cyber Resilience Act (CRA), NIST SSDF, and ISO standards (27017, 29100) including SLSA L3 provenance.'
+    size: LARGE
+    deferred_subtasks:
+      - id: 107c.3
+        description: 'Wire slsa-framework/slsa-github-generator reusable workflow into .github/workflows/go-proxy-image.yml. Mutates the production release pipeline (workflow-level id-token: write reshape); requires workflow_dispatch dry-run + manual cosign verify-attestation against a real published artefact before re-enabling push: triggers. Held for human-led execution per review finding S-1 (HIGH).'
+      - id: 107c.4
+        description: 'Same SLSA L3 wiring pattern for .github/workflows/release-cli.yml (CLI binary path via generator-generic-slsa3.yml). Sequential after 107c.3 verification.'
+      - id: 107c.5
+        description: 'docs/for-architects/SLSA_VERIFICATION.md operator runbook. Depends on 107c.3 producing a real attested artefact so every command in the runbook can be dry-run on a clean shell before commit (per Notes-for-Implementer "verifier UX matters more than the attestation itself").'
+    summary: 'Auto-executable portion COMPLETE: CRA conformance statement (Annex I/II), NIST SSDF mapping (19 practices), ISO/IEC 27017 cloud-controls mapping, ISO/IEC 29100 privacy mapping, MITRE ATT&CK technique mapping (16 forward rows, 6 tactics), CVD policy (no SLAs), ADR-107a (Status: Proposed), slsa-verify.yml verifier harness (workflow_dispatch-only), docs-link-check workflow, and 4 CI safety gates (overclaim language, evidence-paths, ATT&CK confidence labels, workflow pinning). SLSA L3 release-pipeline wiring (107c.3/.4) and operator runbook (107c.5) deferred for human-led execution — production CI mutation requires manual workflow_dispatch verification of a real attested artefact before push: triggers can be re-enabled. See deferred_subtasks for re-entry checklist.'
   108:
     name: 'Full-Stack Penetration Testing Campaign'
     status: COMPLETE

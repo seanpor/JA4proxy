@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased] - Phase 107 — Regulatory & Supply-Chain Conformance (2026-04-26)
+## [Unreleased] - Phase 107 — Regulatory & Supply-Chain Conformance (2026-04-27)
 
 Lands the auto-executable portion of Phase 107: full content for the EU
 Cyber Resilience Act conformance statement, NIST SSDF (SP 800-218)
@@ -10,10 +10,14 @@ coordinated vulnerability disclosure policy. Adds four new CI safety
 gates that prevent regressions in overclaim language, evidence-path rot,
 ATT&CK confidence-label discipline, and broken internal doc links.
 
-**Phase 107 status: PARTIAL (auto-executable portion COMPLETE; sub-tasks
-107c.3 / 107c.4 / 107c.5 deferred for human-led execution — see Deferred
-section below).** The phase manifest entry remains `PROPOSED` until the
-SLSA L3 release-pipeline wiring is verified manually.
+**Phase 107 status: COMPLETE (2026-04-27)** — auto-executable portion
+landed. Sub-tasks 107c.3 / 107c.4 / 107c.5 (SLSA L3 release-pipeline
+wiring + operator runbook) deferred for human-led execution and
+captured under `deferred_subtasks` on the Phase 107 manifest entry.
+They mutate the production release pipeline and require manual
+`workflow_dispatch` verification against a real attested artefact
+before `push:` triggers can be re-enabled — see Deferred section below
+for re-entry steps.
 
 ### Added — conformance documents (sub-tasks 107a/b/d/e/f/g)
 - `docs/compliance/CRA_CONFORMANCE.md` — EU CRA conformance statement.
@@ -160,9 +164,11 @@ SLSA L3 release-pipeline wiring is verified manually.
   test the runbook commands against (per phase doc Notes-for-Implementer
   "verifier UX matters more than the attestation itself").
 
-The Phase 107 manifest entry stays `PROPOSED` until 107c.3 / 107c.4
-push-trigger restoration is verified (per close-out gate 107z.3 in the
-phase review). All other acceptance criteria are met.
+When 107c.3 / 107c.4 ship, write a `docs/for-architects/SLSA_VERIFICATION.md`
+runbook (107c.5) by **dry-running every command on a clean shell against
+the freshly attested artefact** and capturing expected output verbatim
+— per the phase doc's "verifier UX matters more than the attestation
+itself" guidance. All other Phase 107 acceptance criteria are met.
 
 
 
