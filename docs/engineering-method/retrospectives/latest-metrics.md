@@ -1,6 +1,6 @@
 # Engineering Process Metrics
 
-> Generated: 2026-04-25
+> Generated: 2026-05-01
 > Window: trailing 90 days
 
 Auto-emitted by `scripts/process_metrics.py`. Do not edit by hand.
@@ -15,9 +15,11 @@ Auto-emitted by `scripts/process_metrics.py`. Do not edit by hand.
 
 ## CI reliability (main branch)
 
-- ⚠️ CI metrics unavailable — GITHUB_TOKEN missing or rate-limited
+- Total runs: 100
+- Green runs: 80
+- Reliability: **80.0%**
 
 ## Mean-time-to-green (main branch)
 
-- ⚠️ CI metrics unavailable — GITHUB_TOKEN missing or rate-limited
+- Mean recovery time: **14.89 h**
 
