@@ -88,7 +88,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Scan image with Trivy (CRITICAL only)
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # v0.35.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
         with:
           image-ref: ja4proxy-go:ci
           severity: CRITICAL
@@ -120,7 +120,7 @@ jobs:
           cache-from: type=gha
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@cad07c2e89fa2edd6e2d7bab4c1aa38e53f76003  # v4.1.1
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6  # v4.1.2
 
       - name: Sign image (keyless, Fulcio OIDC)
         env:
