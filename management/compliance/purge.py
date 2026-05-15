@@ -1,4 +1,4 @@
-"""GDPR data retention purge — Phase 84.
+"""GDPR data retention purge — Compliance Reporting.
 
 Enforces configurable retention windows across all Redis data stores that
 hold personal data (IP addresses).  Designed to be called either:
@@ -74,10 +74,20 @@ class PurgeSummary:
     monthly_aggregates_deleted: int = 0
     errors: list[dict[str, str]] = field(default_factory=list)
 
+    @property
+    def beaconing_records_cleaned(self) -> int:
+        """Alias for beaconing_datapoints_cleaned (for backward compatibility)."""
+        return self.beaconing_datapoints_cleaned
+
+    @beaconing_records_cleaned.setter
+    def beaconing_records_cleaned(self, value: int) -> None:
+        self.beaconing_datapoints_cleaned = value
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "connection_events_deleted": self.connection_events_deleted,
             "beaconing_datapoints_cleaned": self.beaconing_datapoints_cleaned,
+            "beaconing_records_cleaned": self.beaconing_records_cleaned,
             "rv_hashes_deleted": self.rv_hashes_deleted,
             "monthly_aggregates_deleted": self.monthly_aggregates_deleted,
             "errors": self.errors,

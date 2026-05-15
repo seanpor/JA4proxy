@@ -12,7 +12,7 @@ Bearer auth path:
 - Authorization: Bearer <token> accepted on all protected endpoints
 - Invalid / expired / revoked tokens → 401
 - /api/v1/health is public (no auth required)
-- Any valid bearer token allows access to /api/v1/dial (role enforcement is Phase 79 Cluster 2)
+- Any valid bearer token allows access to /api/v1/dial (role enforcement is MFA/SSO Hardening Cluster 2)
 
 All tests are written to FAIL against the current codebase (endpoints do not exist yet).
 They document the contract that the implementation must satisfy.

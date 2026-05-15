@@ -191,7 +191,7 @@ class ConfigReloadResponse(BaseModel):
     published_to: str = "config.reload"
 
 
-# ── Token models (Phase 79) ───────────────────────────────────────────────────
+# ── Token models (MFA/SSO Hardening) ───────────────────────────────────────────────────
 
 
 class TokenCreate(BaseModel):
@@ -252,7 +252,7 @@ class TokenRotateResponse(BaseModel):
     token: str  # new plaintext token
 
 
-# ── Resource model (Phase 79 Cluster 3) ──────────────────────────────────────
+# ── Resource model (MFA/SSO Hardening Cluster 3) ──────────────────────────────────────
 
 
 class ManagedBy(str, Enum):

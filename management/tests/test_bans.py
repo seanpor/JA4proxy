@@ -151,7 +151,7 @@ async def test_create_ban_creates_audit_entry(
     entries = await fake_redis.lrange("management:audit_log", 0, 0)
     assert len(entries) == 1
     entry = json.loads(entries[0])
-    # Phase 79 C5: enhanced audit schema uses action_type/actor_id/resource_id
+    # MFA/SSO Hardening C5: enhanced audit schema uses action_type/actor_id/resource_id
     assert entry["action_type"] == "ban.created"
     assert entry["after_value"]["ip"] == TEST_IP
 
@@ -168,7 +168,7 @@ async def test_delete_ban_creates_audit_entry(
     entries = await fake_redis.lrange("management:audit_log", 0, 0)
     assert len(entries) == 1
     entry = json.loads(entries[0])
-    # Phase 79 C5: enhanced audit schema
+    # MFA/SSO Hardening C5: enhanced audit schema
     assert entry["action_type"] == "ban.deleted"
     assert entry["before_value"]["ip"] == TEST_IP
 

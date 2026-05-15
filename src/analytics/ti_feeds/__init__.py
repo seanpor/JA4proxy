@@ -9,7 +9,7 @@ Architecture summary (see `docs/phases/PHASE_85.md` for the full spec):
 - ``base`` — ``FeedClient`` ABC, ``FeedPollResult`` dataclass, ``FeedConfig`` dataclass
 - ``state`` — Redis sidecar index (the six ``ti_feed:*`` keys from §2.2)
 - ``circuit_breaker`` — per-feed CLOSED / HALF-OPEN / OPEN state machine
-- ``mgmt_client`` — async client for the Phase 79 Management API
+- ``mgmt_client`` — async client for the MFA/SSO Hardening Management API
 - ``taxii`` — hand-rolled TAXII 2.1 poller
 - ``recorded_future`` — wrapper over ``taxii`` with the RF token-exchange flow
 - ``crowdstrike`` — Falcon Intel OAuth2 client

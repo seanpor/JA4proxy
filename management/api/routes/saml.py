@@ -1,4 +1,4 @@
-"""SAML 2.0 SSO endpoints — Phase 79 Cluster 8.
+"""SAML 2.0 SSO endpoints — MFA/SSO Hardening Cluster 8.
 
 Routes (all public — no JWT required; they are part of the login flow)
 ------
@@ -298,7 +298,7 @@ async def saml_acs(
 
     token = _create_access_token(nameid, role=role.value)
 
-    # Gap 4 (Phase 100): SSO-delegated MFA trust
+    # Gap 4 (Production Readiness): SSO-delegated MFA trust
     _MFA_SESSION_TTL = 8 * 3600
     trust_idp_mfa = os.environ.get("MANAGEMENT_SSO_TRUST_IDP_MFA", "false").lower() == "true"
     if trust_idp_mfa:
@@ -321,7 +321,7 @@ async def saml_acs(
         secure=_should_set_secure_cookie(request),
     )
 
-    # Gap 2 (Phase 100): audit SSO login event
+    # Gap 2 (Production Readiness): audit SSO login event
     await write_audit(
         redis,
         actor_id=nameid,

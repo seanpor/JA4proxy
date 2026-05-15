@@ -1,4 +1,4 @@
-"""TDD tests for Phase 79 Cluster 9 — OIDC SSO.
+"""TDD tests for MFA/SSO Hardening Cluster 9 — OIDC SSO.
 
 Covers
 ------
@@ -616,7 +616,7 @@ async def test_oidc_callback_idp_error_param_returns_401(
         "State should be consumed even on IdP error, but key still exists"
     )
 
-# ── Section 8: Integration test stubs (Gap 5 — Phase 100) ────────────────────
+# ── Section 8: Integration test stubs (Gap 5 — Production Readiness) ────────────────────
 
 
 @pytest.mark.integration
@@ -631,7 +631,7 @@ async def test_oidc_live_entra_login() -> None:
     """
     pytest.skip("Not yet implemented — stub for future live-IdP test")
 
-# ── Section 9: Audit log events (Gap 2 — Phase 100) ──────────────────────────
+# ── Section 9: Audit log events (Gap 2 — Production Readiness) ──────────────────────────
 
 
 @pytest.mark.asyncio
@@ -676,7 +676,7 @@ async def test_oidc_callback_success_writes_audit_entry(
         f"Expected resource_type='session', got {entry.get('resource_type')!r}"
     )
 
-# ── Section 10: SSO-delegated MFA trust (Gap 4 — Phase 100) ──────────────────
+# ── Section 10: SSO-delegated MFA trust (Gap 4 — Production Readiness) ──────────────────
 
 
 @pytest.mark.asyncio
@@ -798,7 +798,7 @@ async def test_oidc_callback_idp_mfa_trust_disabled_no_session_key(
             f"MFA session key must NOT be set when trust flag is off, got {value!r}"
         )
 
-# ── Section 11: OIDC JWKS signature verification (Gap 1 — Phase 100) ─────────
+# ── Section 11: OIDC JWKS signature verification (Gap 1 — Production Readiness) ─────────
 
 # Tests for the new async _extract_claims(id_token, jwks_uri) and _fetch_jwks().
 # We generate a real RS256 key pair so the signature tests are meaningful.

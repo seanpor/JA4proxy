@@ -1,4 +1,4 @@
-"""TDD tests for Phase 79 Cluster 5 — Audit Trail Enhancements.
+"""TDD tests for MFA/SSO Hardening Cluster 5 — Audit Trail Enhancements.
 
 Covers
 ------

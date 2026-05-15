@@ -1,4 +1,4 @@
-"""Compliance reporting endpoints — Phase 84.
+"""Compliance reporting endpoints — Compliance Reporting.
 
 Routes
 ------

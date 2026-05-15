@@ -14,7 +14,7 @@ Design notes
 - SCAN is used to list bans (no KEYS in production — SCAN is O(1) per call).
 - TTL is fetched per key for the listing response.
 - IPv6 addresses are supported (stored as-is in the key).
-- All write ops create audit log entries using the enhanced schema (Phase 79 Cluster 5).
+- All write ops create audit log entries using the enhanced schema (MFA/SSO Hardening Cluster 5).
 """
 
 import logging

@@ -99,7 +99,7 @@ def test_docker_compose_management_redis_url_uses_password() -> None:
     which does not include the password, causing AuthenticationError at runtime
     even though all unit tests passed (they used fakeredis, no password needed).
     """
-    # Phase 205 moved docker-compose.poc.yml from the repo root to
+    # Container Relocation moved docker-compose.poc.yml from the repo root to
     # deploy/docker/. Update if relocated again.
     compose_path = (
         os.path.dirname(__file__)  # management/tests/

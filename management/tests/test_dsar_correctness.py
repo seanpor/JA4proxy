@@ -1,4 +1,4 @@
-"""Tests for Phase 101a — DSAR correctness fixes.
+"""Tests for DSAR Correctness — DSAR correctness fixes.
 
 TDD Tests — these tests define the expected behavior.
 They will FAIL until the coder implements the fixes.
@@ -66,7 +66,7 @@ def _make_auditor_client():
 
 @pytest_asyncio.fixture
 async def auditor_client(fake_redis):
-    """Auditor client with redis for Phase 101a tests."""
+    """Auditor client with redis for DSAR Correctness tests."""
     app = create_app()
     await _redis_module.init_redis(override_client=fake_redis)
     token = _create_access_token("auditor-user", role="auditor")

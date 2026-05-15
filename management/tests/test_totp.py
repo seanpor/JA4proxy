@@ -1,4 +1,4 @@
-"""TDD tests for Phase 79 Cluster 6 — TOTP MFA.
+"""TDD tests for MFA/SSO Hardening Cluster 6 — TOTP MFA.
 
 Covers
 ------
