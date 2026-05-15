@@ -122,7 +122,7 @@ def test_taxii_filters_expired_indicators(stix_bundle, mock_taxii_server, stub_m
     _run(client.poll())
 
     ban_paths = [r["path"] for r in stub_management_client.requests]
-    # 192.0.2.99 was valid_until=2025-12-31 — expired
+    # 192.0.2.99 has valid_until in the past (dynamic_expired) — filtered out
     assert not any("192.0.2.99" in p for p in ban_paths)
 
 
