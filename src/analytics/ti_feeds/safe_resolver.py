@@ -100,7 +100,7 @@ class SafeResolver(AbstractResolver):
         self._inner = inner
 
     async def resolve(
-        self, host: str, port: int = 0, family: int = socket.AF_INET
+        self, host: str, port: int = 0, family: socket.AddressFamily = socket.AF_INET
     ) -> list:
         hosts = await self._inner.resolve(host, port, family=family)
         safe = [h for h in hosts if is_publicly_routable_ip(h["host"])]

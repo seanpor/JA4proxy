@@ -55,7 +55,7 @@
       "indicator_types": ["malicious-activity"],
       "confidence": 90,
       "valid_from": "2026-04-01T00:00:00Z",
-      "valid_until": "2026-04-30T23:59:59Z"
+      "valid_until": "2027-04-30T23:59:59Z"
     },
     {
       "type": "indicator",
