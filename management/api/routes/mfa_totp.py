@@ -1,4 +1,4 @@
-"""TOTP MFA endpoints — Phase 79 Cluster 6.
+"""TOTP MFA endpoints — MFA/SSO Hardening Cluster 6.
 
 Routes
 ------

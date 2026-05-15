@@ -1,4 +1,4 @@
-"""Tests for management.api.routes.compliance — Phase 84.
+"""Tests for management.api.routes.compliance — Compliance Reporting.
 
 Quality bar
 -----------

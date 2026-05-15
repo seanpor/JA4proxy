@@ -1,4 +1,4 @@
-"""Compliance reporting modules for Phase 84.
+"""Compliance reporting modules for Compliance Reporting.
 
 Modules
 -------

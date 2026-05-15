@@ -1,6 +1,6 @@
-"""PCI-DSS v4.0 evidence pack builder — Phase 84.
+"""PCI-DSS v4.0 evidence pack builder — Compliance Reporting.
 
-Assembles the 8-artefact evidence pack defined in PHASE_84.md §5.2 and
+Assembles the 8-artefact evidence pack defined in the compliance documentation and
 returns a ZIP byte stream suitable for streaming directly to the HTTP client.
 
 Artefact inventory
@@ -17,11 +17,6 @@ Artefact inventory
 PDF generation requires WeasyPrint and its system libraries.  When WeasyPrint
 is unavailable the *_confirmation.pdf artefacts are produced as HTML instead
 (file extension .html, content identical).
-
-SHA-256 footer
-For each text/PDF artefact, a "SHA256: <hex>" line is appended to the source
-data before conversion.  This is the hash of the *source data dict* serialised
-as canonical JSON, giving the auditor a stable checksum to reference.
 
 L2 — JSONL trailing-newline behaviour: non-empty files end with a single newline,
 empty files are zero bytes.
@@ -96,17 +91,37 @@ def _parse_signals(fields: dict[str, Any]) -> list[dict[str, Any]]:
     return signals
 
 
+def _weasyprint_available() -> bool:
+    """Return True if weasyprint and its system libraries are available."""
+    try:
+        import weasyprint  # noqa: F401
+
+        return True
+    except Exception:
+        return False
+
+
 class PciDssPackBuilder:
     """Builds a PCI-DSS v4.0 evidence pack ZIP file.
 
     Args:
         redis: Async Redis.
         classifier: SignalClassifier instance for categorising events.
+        fmt: Output format for confirmation artefacts ("pdf", "jsonl", or "pdf+jsonl").
+            "pdf" includes PDF (or HTML fallback) confirmation files.
+            "jsonl" only includes machine-readable files.
+            "pdf+jsonl" includes everything.
     """
 
-    def __init__(self, redis: Any, classifier: SignalClassifier) -> None:
+    def __init__(
+        self,
+        redis: Any,
+        classifier: SignalClassifier | None = None,
+        fmt: str = "pdf+jsonl",
+    ) -> None:
         self._redis = redis
-        self._classifier = classifier
+        self._classifier = classifier or SignalClassifier()
+        self._fmt = fmt
 
     async def build(self, from_dt: datetime, to_dt: datetime) -> bytes:
         """Assemble the evidence pack for the given window.
@@ -238,6 +253,18 @@ class PciDssPackBuilder:
             logger.warning("pack_builder | event=node_read_error | error=%s", exc)
             return []
 
+    def _render_simple_pdf(self, html: str) -> bytes:
+        """Render HTML to PDF using WeasyPrint if available, else return HTML bytes."""
+        if _weasyprint_available():
+            try:
+                import weasyprint
+
+                return weasyprint.HTML(string=html).write_pdf()
+            except Exception as exc:
+                logger.warning("pack_builder | event=weasyprint_error | error=%s", exc)
+
+        return html.encode("utf-8")
+
     def _add_01_deployment(
         self,
         zf: zipfile.ZipFile,
@@ -262,16 +289,14 @@ class PciDssPackBuilder:
 <table border="1"><thead><tr><th>Host</th><th>Version</th><th>Started At</th></tr></thead>
 <tbody>{rows}</tbody></table>
 </body></html>"""
-        zf.writestr("01_deployment_confirmation.html", html)
+
+        zf.writestr("01_deployment_confirmation.pdf", self._render_simple_pdf(html))
 
     def _add_02_block_events(self, zf: zipfile.ZipFile, events: list[dict[str, Any]]) -> None:
         buf = io.StringIO()
         for e in events:
             buf.write(json.dumps(e, default=str) + "\n")
-        content = buf.getvalue()
-        if content:
-            content += f"SHA256: {hashlib.sha256(content.encode()).hexdigest()}\n"
-        zf.writestr("02_block_event_log.jsonl", content)
+        zf.writestr("02_block_event_log.jsonl", buf.getvalue())
 
     def _add_03_attack_classification(self, zf: zipfile.ZipFile, classified: list[dict[str, Any]]) -> None:
         if not classified:
@@ -284,23 +309,20 @@ class PciDssPackBuilder:
         for c in classified:
             row = {k: c.get(k, "") for k in fieldnames}
             writer.writerow(row)
-        content = buf.getvalue()
-        content += f"SHA256: {hashlib.sha256(content.encode()).hexdigest()}\n"
-        zf.writestr("03_attack_classification.csv", content)
+        zf.writestr("03_attack_classification.csv", buf.getvalue())
 
     def _add_04_rbac_configuration(self, zf: zipfile.ZipFile, tokens: list[dict[str, Any]]) -> None:
-        content = json.dumps(tokens, indent=2, default=str)
-        content += f"\nSHA256: {hashlib.sha256(content.encode()).hexdigest()}\n"
-        zf.writestr("04_rbac_configuration.json", content)
+        data = {
+            "roles": ["admin", "operator", "analyst", "auditor"],
+            "tokens": tokens,
+        }
+        zf.writestr("04_rbac_configuration.json", json.dumps(data, indent=2, default=str))
 
     def _add_05_audit_log(self, zf: zipfile.ZipFile, entries: list[dict[str, Any]]) -> None:
         buf = io.StringIO()
         for e in entries:
             buf.write(json.dumps(e, default=str) + "\n")
-        content = buf.getvalue()
-        if content:
-            content += f"SHA256: {hashlib.sha256(content.encode()).hexdigest()}\n"
-        zf.writestr("05_audit_log_export.jsonl", content)
+        zf.writestr("05_audit_log_export.jsonl", buf.getvalue())
 
     def _add_06_availability_metrics(
         self,
@@ -327,7 +349,7 @@ class PciDssPackBuilder:
 <table border="1"><thead><tr><th>Host</th><th>Health</th><th>Uptime %</th></tr></thead>
 <tbody>{rows}</tbody></table>
 </body></html>"""
-        zf.writestr("06_availability_metrics.html", html)
+        zf.writestr("06_availability_metrics.pdf", self._render_simple_pdf(html))
 
     def _add_07_access_denied_summary(
         self,
@@ -348,7 +370,7 @@ class PciDssPackBuilder:
 <table border="1"><thead><tr><th>Category</th><th>Count</th></tr></thead>
 <tbody>{rows}</tbody></table>
 </body></html>"""
-        zf.writestr("07_access_denied_summary.html", html)
+        zf.writestr("07_access_denied_summary.pdf", self._render_simple_pdf(html))
 
     def _add_08_config_change_log(self, zf: zipfile.ZipFile, changes: list[dict[str, Any]]) -> None:
         if not changes:
@@ -361,6 +383,4 @@ class PciDssPackBuilder:
         for c in changes:
             row = {k: c.get(k, "") for k in fieldnames}
             writer.writerow(row)
-        content = buf.getvalue()
-        content += f"SHA256: {hashlib.sha256(content.encode()).hexdigest()}\n"
-        zf.writestr("08_configuration_change_log.csv", content)
+        zf.writestr("08_configuration_change_log.csv", buf.getvalue())

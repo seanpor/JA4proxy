@@ -276,7 +276,7 @@ async def get_bearer_user(
     """Validate a raw bearer token against stored Redis hashes.
 
     Scans all token IDs in mgmt:token:idx and bcrypt-checks each.
-    Acceptable for Phase 79 where token counts are small (< 100).
+    Acceptable for MFA/SSO Hardening where token counts are small (< 100).
 
     Args:
         raw_token: The raw bearer token string from the Authorization header.

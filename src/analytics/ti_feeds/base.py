@@ -6,7 +6,7 @@ All Phase 85 feed implementations derive from :class:`FeedClient` and return
 the Redis sidecar index.
 
 No feed implementation writes directly to Redis proxy rule sets. All rule
-mutations flow through the Phase 79 Management API via
+mutations flow through the MFA/SSO Hardening Management API via
 ``mgmt_client.ManagementClient`` — ``FeedClient`` holds a reference to one.
 """
 

@@ -7,7 +7,7 @@ These tests verify:
 - lint-all aggregates every sub-aggregate
 - make help exits 0 (regression test for lint-toml heredoc bug)
 - lint-toml recipe does NOT contain a shell heredoc (the bug pattern)
-- test-phase-92 target exists and is .PHONY-declared
+- test-lint-hierarchy target exists and is .PHONY-declared
 """
 
 import re
@@ -20,7 +20,7 @@ REPO_ROOT = Path(__file__).parent.parent.parent
 
 # ── Individual linters added in Phase 92 ──────────────────────────────────────
 
-PHASE92_INDIVIDUAL_TARGETS = [
+LINTHIERARCHY_INDIVIDUAL_TARGETS = [
     "lint-pylint",
     "lint-semgrep",
     "lint-checkov",
@@ -36,7 +36,7 @@ PHASE92_INDIVIDUAL_TARGETS = [
 
 # ── Aggregate targets ─────────────────────────────────────────────────────────
 
-PHASE92_AGGREGATE_TARGETS = [
+LINTHIERARCHY_AGGREGATE_TARGETS = [
     "lint-python",
     "lint-go",
     "lint-sast",
@@ -142,7 +142,7 @@ def _deps_for_target(text, target):
 # =============================================================================
 
 
-@pytest.mark.parametrize("target", PHASE92_INDIVIDUAL_TARGETS)
+@pytest.mark.parametrize("target", LINTHIERARCHY_INDIVIDUAL_TARGETS)
 def test_individual_lint_target_exists(target):
     """Each new individual lint target must be defined in the Makefile."""
     text = _makefile_text()
@@ -150,7 +150,7 @@ def test_individual_lint_target_exists(target):
     assert target in targets, f"Target '{target}' not found in Makefile"
 
 
-@pytest.mark.parametrize("target", PHASE92_INDIVIDUAL_TARGETS)
+@pytest.mark.parametrize("target", LINTHIERARCHY_INDIVIDUAL_TARGETS)
 def test_individual_lint_target_is_phony(target):
     """Each new individual lint target must be declared in .PHONY."""
     text = _makefile_text()
@@ -158,7 +158,7 @@ def test_individual_lint_target_is_phony(target):
     assert target in phony, f"Target '{target}' not in .PHONY declaration"
 
 
-@pytest.mark.parametrize("target", PHASE92_INDIVIDUAL_TARGETS)
+@pytest.mark.parametrize("target", LINTHIERARCHY_INDIVIDUAL_TARGETS)
 def test_individual_lint_target_has_recipe(target):
     """Each lint target must have at least one recipe line (starts with tab)."""
     text = _makefile_text()
@@ -184,14 +184,14 @@ def test_individual_lint_target_has_recipe(target):
 # =============================================================================
 
 
-@pytest.mark.parametrize("target", PHASE92_AGGREGATE_TARGETS)
+@pytest.mark.parametrize("target", LINTHIERARCHY_AGGREGATE_TARGETS)
 def test_aggregate_target_exists(target):
     text = _makefile_text()
     targets = _targets_from_makefile(text)
     assert target in targets, f"Aggregate target '{target}' not found in Makefile"
 
 
-@pytest.mark.parametrize("target", PHASE92_AGGREGATE_TARGETS)
+@pytest.mark.parametrize("target", LINTHIERARCHY_AGGREGATE_TARGETS)
 def test_aggregate_target_is_phony(target):
     text = _makefile_text()
     phony = _phony_from_makefile(text)
@@ -417,32 +417,32 @@ def test_lint_toml_recipe_uses_tomllib():
 
 
 # =============================================================================
-# Group 7: test-phase-92 target
+# Group 7: test-lint-hierarchy target
 # =============================================================================
 
 
 def test_test_phase_92_target_exists():
-    """test-phase-92 target must be defined in the Makefile."""
+    """test-lint-hierarchy target must be defined in the Makefile."""
     text = _makefile_text()
     targets = _targets_from_makefile(text)
-    assert "test-phase-92" in targets, "test-phase-92 target not found in Makefile"
+    assert "test-lint-hierarchy" in targets, "test-lint-hierarchy target not found in Makefile"
 
 
 def test_test_phase_92_is_phony():
-    """test-phase-92 must be declared in .PHONY."""
+    """test-lint-hierarchy must be declared in .PHONY."""
     text = _makefile_text()
     phony = _phony_from_makefile(text)
-    assert "test-phase-92" in phony, "test-phase-92 not in .PHONY declaration"
+    assert "test-lint-hierarchy" in phony, "test-lint-hierarchy not in .PHONY declaration"
 
 
 def test_test_phase_92_runs_pytest():
-    """test-phase-92 recipe must invoke pytest."""
+    """test-lint-hierarchy recipe must invoke pytest."""
     text = _makefile_text()
     lines = text.splitlines()
     in_target = False
     recipe_lines = []
     for line in lines:
-        if re.match(r'^test-phase-92:', line):
+        if re.match(r'^test-lint-hierarchy:', line):
             in_target = True
             continue
         if in_target:
@@ -451,8 +451,8 @@ def test_test_phase_92_runs_pytest():
             if line.startswith('\t'):
                 recipe_lines.append(line)
     recipe = "\n".join(recipe_lines)
-    assert "pytest" in recipe, "test-phase-92 must invoke pytest"
-    assert "tests/phase-92" in recipe, "test-phase-92 must point to tests/phase-92/"
+    assert "pytest" in recipe, "test-lint-hierarchy must invoke pytest"
+    assert "tests/lint-hierarchy" in recipe, "test-lint-hierarchy must point to tests/lint-hierarchy/"
 
 
 # =============================================================================
@@ -486,7 +486,7 @@ def test_lint_all_has_success_echo():
 # =============================================================================
 
 
-@pytest.mark.parametrize("target", PHASE92_INDIVIDUAL_TARGETS + PHASE92_AGGREGATE_TARGETS + ["test-phase-92"])
+@pytest.mark.parametrize("target", LINTHIERARCHY_INDIVIDUAL_TARGETS + LINTHIERARCHY_AGGREGATE_TARGETS + ["test-lint-hierarchy"])
 def test_no_duplicate_target_definition(target):
     """Each target must be defined exactly once in the Makefile."""
     text = _makefile_text()
@@ -575,12 +575,12 @@ def test_lint_docker_includes_scale_compose():
     recipe = "\n".join(recipe_lines)
     assert "docker-compose.scale.yml" in recipe, (
         "lint-docker recipe must include deploy/docker/docker-compose.scale.yml\n"
-        "(phase-92 deliverable: scale compose file added to docker lint pass)"
+        "(lint-hierarchy deliverable: scale compose file added to docker lint pass)"
     )
 
 
 def test_golangci_yaml_enables_gosec():
-    """gosec must be enabled in .golangci.yaml (phase-92 deliverable).
+    """gosec must be enabled in .golangci.yaml (lint-hierarchy deliverable).
 
     So what? gosec detects Go security anti-patterns (hardcoded credentials,
     unsafe operations). Without it, the Go linter pass has no security SAST.
@@ -588,12 +588,12 @@ def test_golangci_yaml_enables_gosec():
     golangci = (REPO_ROOT / ".golangci.yaml").read_text()
     assert "gosec" in golangci, (
         "gosec linter must be enabled in .golangci.yaml\n"
-        "(phase-92 deliverable: Go security pattern detection)"
+        "(lint-hierarchy deliverable: Go security pattern detection)"
     )
 
 
 def test_golangci_yaml_enables_bodyclose():
-    """bodyclose must be enabled in .golangci.yaml (phase-92 deliverable).
+    """bodyclose must be enabled in .golangci.yaml (lint-hierarchy deliverable).
 
     So what? Unclosed HTTP response bodies are resource leaks that cause
     connection pool exhaustion under load. bodyclose catches them statically.
@@ -601,5 +601,5 @@ def test_golangci_yaml_enables_bodyclose():
     golangci = (REPO_ROOT / ".golangci.yaml").read_text()
     assert "bodyclose" in golangci, (
         "bodyclose linter must be enabled in .golangci.yaml\n"
-        "(phase-92 deliverable: unclosed HTTP response body detection)"
+        "(lint-hierarchy deliverable: unclosed HTTP response body detection)"
     )
